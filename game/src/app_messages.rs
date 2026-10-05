@@ -364,6 +364,33 @@ pub struct ReplaySaved {
     pub path: String,
 }
 
+/// Asks the app to save a block (or unblock) the local user made with an in-game chat command.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SetUserBlocked {
+    pub user_id: SbUserId,
+    pub blocked: bool,
+}
+
+/// Sent by the app when it couldn't save a [`SetUserBlocked`] request.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BlockRequestFailed {
+    pub user_id: SbUserId,
+    /// The `blocked` value of the request that failed.
+    pub blocked: bool,
+    pub reason: BlockFailureReason,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum BlockFailureReason {
+    /// The user already has as many blocks as the server allows.
+    LimitReached,
+    #[serde(other)]
+    Error,
+}
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum GameType {

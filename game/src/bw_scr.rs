@@ -29,7 +29,8 @@ pub use thiscall::Thiscall;
 
 use crate::GameThreadMessage;
 use crate::app_messages::{
-    AtomicStartingFog, MapInfo, MinimapColorMode, SbUserId, Settings, StartingFog,
+    AtomicStartingFog, BlockRequestFailed, MapInfo, MinimapColorMode, SbUserId, Settings,
+    StartingFog,
 };
 use crate::bw::apm_stats::ApmStats;
 use crate::bw::players::{BwPlayerId, StormPlayerId};
@@ -3313,6 +3314,7 @@ impl BwScr {
             // In-game chat delivered from peers over the relay, each injected as the classic chat
             // record after passing its target scope's receive-side filter.
             self.apply_chat_inbound();
+            self.print_chat_notices();
             // Skin relay: our own blob goes out once, as soon as native code has filled its
             // slot (polled per receive step, bounded wait), and peers' blobs are written into
             // their senders' current players[] slots as they arrive.
@@ -5608,6 +5610,22 @@ impl BwScr {
         // Must be set before the blocked players so the local user can't end up blocked.
         chat_manager.set_local_player_info(local_user_id, is_chat_restricted);
         chat_manager.set_blocked_players(blocked_users);
+    }
+
+    pub fn set_blocked_players(&self, blocked_users: &[SbUserId]) {
+        self.chat_manager.lock().set_blocked_players(blocked_users);
+    }
+
+    pub fn block_request_failed(&self, failure: &BlockRequestFailed) {
+        self.chat_manager.lock().block_request_failed(failure);
+    }
+
+    /// Prints the notices other threads queued on the chat manager. Must run on the game thread.
+    fn print_chat_notices(&self) {
+        let notices = self.chat_manager.lock().take_pending_notices();
+        for notice in notices {
+            self.print_text(&notice);
+        }
     }
 
     pub fn snet_next_turn_sequence_number(&self) -> u16 {

@@ -3,6 +3,7 @@ import { AddressInfo } from 'net'
 import { container } from 'tsyringe'
 import { WebSocket, WebSocketServer } from 'ws'
 import { ALL_MINIMAP_COLOR_MODES, LocalSettings } from '../../common/settings/local-settings'
+import { makeSbUserId } from '../../common/users/sb-user-id'
 import log from '../logger'
 import { LocalSettingsManager } from '../settings'
 import { ActiveGameManager } from './active-game-manager'
@@ -108,6 +109,18 @@ export class GameServer {
         break
       case '/game/replaySaved':
         this.activeGameManager.handleReplaySaved(gameId, payload.path)
+        break
+      case '/game/setUserBlocked':
+        {
+          const { userId, blocked } = payload
+          // Validate before acting: this is a local websocket command boundary, and the request
+          // is forwarded to the server as the logged-in user.
+          if (Number.isSafeInteger(userId) && userId > 0 && typeof blocked === 'boolean') {
+            this.activeGameManager.handleSetUserBlocked(gameId, makeSbUserId(userId), blocked)
+          } else {
+            log.error(`Invalid setUserBlocked payload from game ${gameId}`)
+          }
+        }
         break
       case '/game/replayUploaded':
         this.activeGameManager.handleReplayUploaded(gameId)

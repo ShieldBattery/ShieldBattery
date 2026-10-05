@@ -2,7 +2,13 @@ use std::ffi::CString;
 
 use hashbrown::HashSet;
 
-use crate::{app_messages::SbUserId, bw::get_bw, bw_scr::get_exe_build, game_state::JoinedPlayer};
+use crate::{
+    app_messages::{BlockFailureReason, BlockRequestFailed, SbUserId},
+    bw::get_bw,
+    bw_scr::get_exe_build,
+    game_state::JoinedPlayer,
+    game_thread::{GameThreadMessage, send_game_msg_to_async},
+};
 
 pub struct ChatManager {
     players: Vec<JoinedPlayer>,
@@ -12,9 +18,26 @@ pub struct ChatManager {
     muted_players: HashSet<SbUserId>,
     local_user_id: Option<SbUserId>,
     is_chat_restricted: bool,
+    /// Text to print in the game's chat area, queued by code running off the game thread (which
+    /// can't print directly). Drained by [`Self::take_pending_notices`] on the game thread.
+    pending_notices: Vec<CString>,
 }
 
-#[allow(dead_code)]
+/// What a `/block` or `/unblock` command did to the block list.
+#[derive(Debug, PartialEq, Eq)]
+enum BlockCommandOutcome {
+    /// The block list changed; the app needs to save the change to the server.
+    Changed {
+        user_id: SbUserId,
+        name: String,
+    },
+    AlreadyInState {
+        name: String,
+    },
+    IsLocalUser,
+    PlayerNotFound,
+}
+
 impl ChatManager {
     pub fn new() -> Self {
         Self {
@@ -23,6 +46,7 @@ impl ChatManager {
             muted_players: HashSet::new(),
             local_user_id: None,
             is_chat_restricted: false,
+            pending_notices: Vec::new(),
         }
     }
 
@@ -65,6 +89,58 @@ impl ChatManager {
 
     pub fn remove_blocked_player(&mut self, player_id: SbUserId) {
         self.blocked_players.remove(&player_id);
+    }
+
+    /// Blocks or unblocks the player named `name` (one of this game's players) locally, leaving
+    /// it to the caller to have the change saved.
+    fn set_player_blocked(&mut self, name: &str, blocked: bool) -> BlockCommandOutcome {
+        let Some(player) = self.player_by_name(name) else {
+            return BlockCommandOutcome::PlayerNotFound;
+        };
+        let user_id = player.sb_user_id;
+        let name = player.name.clone();
+        if self.local_user_id == Some(user_id) {
+            return BlockCommandOutcome::IsLocalUser;
+        }
+        if self.blocked_players.contains(&user_id) == blocked {
+            return BlockCommandOutcome::AlreadyInState { name };
+        }
+
+        if blocked {
+            self.add_blocked_player(user_id);
+        } else {
+            self.remove_blocked_player(user_id);
+        }
+        BlockCommandOutcome::Changed { user_id, name }
+    }
+
+    /// Undoes a block or unblock made in game that the app couldn't save, and queues a notice
+    /// telling the user it didn't stick.
+    pub fn block_request_failed(&mut self, failure: &BlockRequestFailed) {
+        if failure.blocked {
+            self.remove_blocked_player(failure.user_id);
+        } else {
+            self.add_blocked_player(failure.user_id);
+        }
+
+        let name = self
+            .players
+            .iter()
+            .find(|p| p.sb_user_id == failure.user_id)
+            .map(|p| p.name.as_str())
+            .unwrap_or("player");
+        let action = if failure.blocked { "block" } else { "unblock" };
+        let detail = match failure.reason {
+            BlockFailureReason::LimitReached => ": you've reached the limit of blocked users",
+            BlockFailureReason::Error => "",
+        };
+        let msg = CString::new(format!("\x06Couldn't {action} \x07{name}\x06{detail}"))
+            .unwrap_or_default();
+        self.pending_notices.push(msg);
+    }
+
+    pub fn take_pending_notices(&mut self) -> Vec<CString> {
+        std::mem::take(&mut self.pending_notices)
     }
 
     pub fn add_muted_player(&mut self, player_id: SbUserId) {
@@ -171,6 +247,43 @@ impl ChatManager {
                     self.add_muted_player(player_id);
                 }
             }
+            "/block" | "/unblock" => {
+                let blocked = command == "/block";
+                let Some(name) = tokens.next() else {
+                    let msg = CString::new(format!("\x03Usage: \x04{command} \x07<name>")).unwrap();
+                    get_bw().print_centered_text(&msg);
+                    return true;
+                };
+
+                match self.set_player_blocked(name, blocked) {
+                    BlockCommandOutcome::Changed { user_id, name } => {
+                        let action = if blocked { "Blocked" } else { "Unblocked" };
+                        let msg = CString::new(format!("\x04{action} player: \x07{name}")).unwrap();
+                        get_bw().print_text(&msg);
+                        send_game_msg_to_async(GameThreadMessage::SetUserBlocked {
+                            user_id,
+                            blocked,
+                        });
+                    }
+                    BlockCommandOutcome::AlreadyInState { name } => {
+                        let state = if blocked {
+                            "already blocked"
+                        } else {
+                            "not blocked"
+                        };
+                        let msg = CString::new(format!("\x07{name} \x04is {state}")).unwrap();
+                        get_bw().print_centered_text(&msg);
+                    }
+                    BlockCommandOutcome::IsLocalUser => {
+                        let msg = CString::new("\x06You can't block yourself").unwrap();
+                        get_bw().print_centered_text(&msg);
+                    }
+                    BlockCommandOutcome::PlayerNotFound => {
+                        let msg = CString::new("\x06Player not found").unwrap();
+                        get_bw().print_centered_text(&msg);
+                    }
+                }
+            }
             "/unmute" | "/um" => {
                 let mut to_unmute = None;
                 if let Some(player) = tokens.next() {
@@ -266,5 +379,81 @@ mod tests {
         for id in [12, 15, 16, 125, 127, 132, 255] {
             assert!(!manager.handle_message("hi", id));
         }
+    }
+
+    #[test]
+    fn block_command_blocks_and_unblocks_by_name() {
+        let mut manager = manager_with_players();
+        assert_eq!(
+            manager.set_player_blocked("PLAYER-B", true),
+            BlockCommandOutcome::Changed {
+                user_id: SbUserId(2),
+                name: "player-b".into(),
+            },
+        );
+        assert!(manager.handle_message("hi", 3));
+
+        assert_eq!(
+            manager.set_player_blocked("player-b", false),
+            BlockCommandOutcome::Changed {
+                user_id: SbUserId(2),
+                name: "player-b".into(),
+            },
+        );
+        assert!(!manager.handle_message("hi", 3));
+    }
+
+    #[test]
+    fn block_command_rejects_no_op_and_invalid_targets() {
+        let mut manager = manager_with_players();
+        manager.add_blocked_player(SbUserId(2));
+        assert_eq!(
+            manager.set_player_blocked("player-b", true),
+            BlockCommandOutcome::AlreadyInState {
+                name: "player-b".into()
+            },
+        );
+        assert_eq!(
+            manager.set_player_blocked("watcher", false),
+            BlockCommandOutcome::AlreadyInState {
+                name: "watcher".into()
+            },
+        );
+        assert_eq!(
+            manager.set_player_blocked("player-a", true),
+            BlockCommandOutcome::IsLocalUser,
+        );
+        assert_eq!(
+            manager.set_player_blocked("nobody", true),
+            BlockCommandOutcome::PlayerNotFound,
+        );
+        assert!(!manager.handle_message("hi", 0));
+    }
+
+    #[test]
+    fn failed_block_requests_are_undone_with_a_notice() {
+        let mut manager = manager_with_players();
+        manager.set_player_blocked("player-b", true);
+        manager.block_request_failed(&BlockRequestFailed {
+            user_id: SbUserId(2),
+            blocked: true,
+            reason: BlockFailureReason::LimitReached,
+        });
+        assert!(!manager.handle_message("hi", 3));
+
+        manager.add_blocked_player(SbUserId(3));
+        manager.set_player_blocked("watcher", false);
+        manager.block_request_failed(&BlockRequestFailed {
+            user_id: SbUserId(3),
+            blocked: false,
+            reason: BlockFailureReason::Error,
+        });
+        assert!(manager.handle_message("hi", 128));
+
+        let notices = manager.take_pending_notices();
+        assert_eq!(notices.len(), 2);
+        assert!(notices[0].to_str().unwrap().contains("block \x07player-b"));
+        assert!(notices[1].to_str().unwrap().contains("unblock \x07watcher"));
+        assert!(manager.take_pending_notices().is_empty());
     }
 }

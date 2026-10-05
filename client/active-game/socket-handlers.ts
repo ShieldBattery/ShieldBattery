@@ -1,10 +1,12 @@
 import { NydusClient, RouteInfo } from 'nydus-client'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
+import { getErrorStack } from '../../common/errors'
 import { GameLaunchConfig } from '../../common/games/game-launch-config'
 import { GameLoaderEvent } from '../../common/games/game-loader-network'
 import { stringToStatus } from '../../common/games/game-status'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { apiUrl } from '../../common/urls'
+import { UserRelationshipServiceErrorCode } from '../../common/users/relationships'
 import { dispatch, Dispatchable } from '../dispatch-registry'
 import { addRecentReplayPathAtom, gameLoadingStatusAtom, lastGameAtom } from '../games/game-atoms'
 import { jotaiStore } from '../jotai-store'
@@ -12,7 +14,7 @@ import logger from '../logging/logger'
 import { fetchJson } from '../network/fetch'
 import { isFetchError } from '../network/fetch-errors'
 import { makeServerUrl } from '../network/server-url'
-import { ensureRelationshipsLoaded } from '../social/action-creators'
+import { blockUser, ensureRelationshipsLoaded, unblockUser } from '../social/action-creators'
 import { updateActiveGame } from './wait-for-active-game'
 
 type EventToActionMap = {
@@ -214,5 +216,26 @@ export default function ({
     })
     .on('activeGameReplaySaved', (_, gameId, path) => {
       jotaiStore.set(addRecentReplayPathAtom, { gameId, path })
+    })
+    .on('activeGameSetUserBlocked', (_, gameId, userId, blocked) => {
+      const request = blocked ? blockUser : unblockUser
+      dispatch(
+        request(userId, {
+          onSuccess: () => {},
+          onError: err => {
+            logger.error(
+              `Error saving in-game ${blocked ? 'block' : 'unblock'} of user ${userId}: ` +
+                getErrorStack(err),
+            )
+            const reason =
+              isFetchError(err) && err.code === UserRelationshipServiceErrorCode.LimitReached
+                ? 'limitReached'
+                : 'error'
+            ipcRenderer
+              .invoke('activeGameBlockRequestFailed', gameId, { userId, blocked, reason })
+              ?.catch(swallowNonBuiltins)
+          },
+        }),
+      )
     })
 }

@@ -86,8 +86,21 @@ export interface ReplaySaveOrganize {
   playlistId?: number
 }
 
+/** A block or unblock made with an in-game chat command that couldn't be saved to the server. */
+export interface GameBlockRequestFailure {
+  userId: SbUserId
+  /** Whether the failed request was a block (`true`) or an unblock (`false`). */
+  blocked: boolean
+  reason: 'limitReached' | 'error'
+}
+
 /** RPCs that can be invoked by the renderer process to run code in the main process. */
 interface IpcInvokeables {
+  /**
+   * Tells the active game (if `gameId` is still the active game) that a block or unblock it asked
+   * for via `activeGameSetUserBlocked` couldn't be saved, so it can undo it and tell the user.
+   */
+  activeGameBlockRequestFailed: (gameId: string, failure: GameBlockRequestFailure) => void
   /**
    * Clears the current game config (e.g. cancels a game launch) provided the current game is
    * `gameId`.
@@ -171,6 +184,11 @@ interface IpcInvokeables {
    * merges in the locally-held private key and forwards it to the game process.
    */
   activeGameSetNetcodeV2Setup: (gameId: string, setup: NetcodeV2ServerSetup) => void
+  /**
+   * Replaces the active game's copy of the local user's block list, which hides blocked players'
+   * in-game chat. Does nothing if there's no active game.
+   */
+  activeGameSetBlockedUsers: (blockedUsers: SbUserId[]) => void
 
   bugReportCollectFiles: () => Promise<Uint8Array<ArrayBuffer>>
 
@@ -408,6 +426,12 @@ interface IpcMainSendables {
     resultCode: string
     replayPath: string
   }) => void
+  /**
+   * The local user blocked or unblocked a player with an in-game chat command. The game has
+   * already applied it locally; the renderer saves it to the server, reporting a failure back with
+   * `activeGameBlockRequestFailed`.
+   */
+  activeGameSetUserBlocked: (gameId: string, userId: SbUserId, blocked: boolean) => void
   activeGameStatus: (status: ReportedGameStatus) => void
 
   /** Sent after each region latency sweep completes, with the full region -> latency table. */

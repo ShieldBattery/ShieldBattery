@@ -809,6 +809,14 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
       // Pass to renderer process since its network stack is more reliable
       TypedIpcSender.from(mainWindow?.webContents).send('activeGameResendReplay', request)
     })
+    .on('setUserBlocked', (gameId, userId, blocked) => {
+      TypedIpcSender.from(mainWindow?.webContents).send(
+        'activeGameSetUserBlocked',
+        gameId,
+        userId,
+        blocked,
+      )
+    })
 
   ipcMain.handle('activeGameClearConfig', (event, gameId) =>
     activeGameManager.clearGameConfig(gameId),
@@ -826,6 +834,12 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
   )
   ipcMain.handle('activeGameSetNetcodeV2Setup', (event, gameId, setup) =>
     activeGameManager.setNetcodeV2Setup(gameId, setup),
+  )
+  ipcMain.handle('activeGameSetBlockedUsers', (event, blockedUsers) =>
+    activeGameManager.setBlockedUsers(blockedUsers),
+  )
+  ipcMain.handle('activeGameBlockRequestFailed', (event, gameId, failure) =>
+    activeGameManager.blockRequestFailed(gameId, failure),
   )
   if (isDev) {
     // Dev-only handlers: a release game build doesn't implement the underlying commands anyway,

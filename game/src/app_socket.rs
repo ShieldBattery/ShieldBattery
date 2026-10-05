@@ -233,6 +233,13 @@ fn handle_app_message(text: String) -> Result<MessageResult, HandleMessageError>
                 blocked_users,
             )))
         }
+        "blockRequestFailed" => {
+            let failure =
+                serde_json::from_value(payload).context(("Invalid block failure", &*text))?;
+            Ok(MessageResult::Game(GameStateMessage::BlockRequestFailed(
+                failure,
+            )))
+        }
         "serverConfig" => {
             let config = parse_payload(payload, "Invalid server config", err_input, sensitive)?;
             Ok(MessageResult::Game(GameStateMessage::SetServerConfig(
