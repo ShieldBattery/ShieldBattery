@@ -45,6 +45,7 @@ import {
   useMatchmakingTypeShortcuts,
 } from '../matchmaking/matchmaking-type-nav'
 import { LadderPlayerIcon } from '../matchmaking/rank-icon'
+import { SeasonEndDate, useUpcomingSeasonEnd } from '../matchmaking/season-end-date'
 import { useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Ripple } from '../material/ripple'
@@ -249,6 +250,12 @@ const ModeSubtitle = styled.div`
   @container ladder-content (width < ${STACKED_LAYOUT_BELOW_PX}px) {
     ${singleLine};
   }
+`
+
+// The Tooltip's wrapper inherits its parent's display, which would put the text on its own line
+// inside the subtitle.
+const InlineTooltip = styled(Tooltip)`
+  display: inline;
 `
 
 /* Only earns its keep while the heading shares a line with the controls it pushes apart. */
@@ -512,17 +519,25 @@ export function Ladder({ matchmakingType: routeType, seasonId }: LadderProps) {
   const activeSeasonId = seasonId ?? currentSeasonId
   const season = activeSeasonId ? seasons.get(activeSeasonId) : undefined
 
-  const subtitle = [
-    season?.name,
-    t('ladder.playerCount', '{{total}} players', { total: rankingsData.totalCount }),
-    rankingsData.lastUpdated
-      ? t('ladder.updatedText', 'Updated: {{timestamp}}', {
+  const seasonEnd = useUpcomingSeasonEnd(season?.id === currentSeasonId ? season : undefined)
+
+  const subtitleSegments = [
+    season ? <span key='season'>{season.name}</span> : null,
+    seasonEnd !== undefined ? <SeasonEndDate key='seasonEnd' endDate={seasonEnd} /> : null,
+    <span key='players'>
+      {t('ladder.playerCount', '{{total}} players', { total: rankingsData.totalCount })}
+    </span>,
+    rankingsData.lastUpdated ? (
+      <InlineTooltip
+        key='updated'
+        text={longTimestampFormat.format(rankingsData.lastUpdated)}
+        position='bottom'>
+        {t('ladder.updatedText', 'Updated: {{timestamp}}', {
           timestamp: shortTimestampFormat.format(rankingsData.lastUpdated),
-        })
-      : undefined,
-  ]
-    .filter(Boolean)
-    .join(' · ')
+        })}
+      </InlineTooltip>
+    ) : null,
+  ].filter(segment => segment !== null)
 
   const seasonOptions = Array.from(seasons.values()).map(s => (
     <SelectOption key={s.id} value={s.id} text={s.name} />
@@ -563,13 +578,8 @@ export function Ladder({ matchmakingType: routeType, seasonId }: LadderProps) {
         <ContentHeader>
           <ModeHeading>
             <ModeTitle>{matchmakingTypeToLabel(matchmakingType, t)}</ModeTitle>
-            <ModeSubtitle
-              title={
-                rankingsData.lastUpdated
-                  ? longTimestampFormat.format(rankingsData.lastUpdated)
-                  : undefined
-              }>
-              {subtitle}
+            <ModeSubtitle>
+              {subtitleSegments.flatMap((segment, i) => (i > 0 ? [' · ', segment] : [segment]))}
             </ModeSubtitle>
           </ModeHeading>
           <HeaderSpacer />

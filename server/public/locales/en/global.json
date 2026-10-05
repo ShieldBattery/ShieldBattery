@@ -2193,6 +2193,9 @@
       "title": "Match results",
       "watchReplay": "Watch replay"
     },
+    "season": {
+      "endsOn": "Ends {{date}}"
+    },
     "serviceError": {
       "dialogTitle": "Matchmaking error",
       "removedFromQueue": "Matchmaking was interrupted due to a server error. Please re-queue to find a match."

@@ -56,6 +56,7 @@ import {
   isMatchmakingAtom,
 } from './matchmaking-atoms'
 import { DivisionIcon } from './rank-icon'
+import { SeasonEndDate, useUpcomingSeasonEnd } from './season-end-date'
 
 // ─── Static mode definitions ─────────────────────────────────────────────────
 
@@ -144,6 +145,11 @@ export const PageSubtitle = styled.div`
 
 export const SeasonLabel = styled.div`
   ${bodySmall};
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+
   color: var(--theme-on-surface-variant);
   white-space: nowrap;
   margin-top: 4px;
@@ -1255,6 +1261,7 @@ export function FindMatch() {
 
   // ─── Redux state ────────────────────────────────────────────────────────────
   const season = useAppSelector(s => s.selfRank.currentSeason)
+  const seasonEnd = useUpcomingSeasonEnd(season)
   const selfRankByType = useAppSelector(s => s.selfRank.byType)
   const matchmakingStatus = useAppSelector(s => s.matchmakingStatus.byType)
   const matchmakingPreferences = useAppSelector(s => s.matchmakingPreferences.byType)
@@ -1523,7 +1530,12 @@ export function FindMatch() {
               )}
             </PageSubtitle>
           </div>
-          {season ? <SeasonLabel>{season.name}</SeasonLabel> : null}
+          {season ? (
+            <SeasonLabel>
+              <span>{season.name}</span>
+              {seasonEnd !== undefined ? <SeasonEndDate endDate={seasonEnd} /> : null}
+            </SeasonLabel>
+          ) : null}
         </PageHead>
 
         {inLobby ? (
