@@ -260,7 +260,8 @@ and hold-back mechanics stay, steering toward the new schedule.
 
 ### Decisions (Travis, 2026-10-03)
 
-1. `STALL_SLACK` is 12 steps (limit + 4).
+1. `STALL_SLACK` is 12 steps (limit + 4). Lowered to 6, where clients stall, once stops were kept
+   by step (see "Next: stopping the clock as it happens").
 2. Each player aims at their 90th percentile: about one turn in ten arrives late and is rolled back
    over by the others within their targets, and most turns carry no command anyway.
 3. The buffer law stops after the start in rollback sessions (above).
@@ -283,7 +284,28 @@ and hold-back mechanics stay, steering toward the new schedule.
 
 ### Next: stopping the clock as it happens
 
-Status: designed, not built.
+Status: built, not yet live-tested. rp2 `4297a42` (stops by step, final deadlines, full-state
+frames with a heartbeat) and `92911d2` (`STALL_SLACK_STEPS` 6), on the local branch `clock-stops`;
+the client side is `Pacing::on_report` keeping its trust across a change in `pause_us`, plus the
+`SB_ROLLBACK_SEND_DELAY` knob for the local test. Two departures from the design below, both
+simplifications:
+
+- **The frame carries the clock's limit rather than its position and a stop in progress.** The
+  clock only ever stops at its limit (`confirmable − 1 + STALL_SLACK`), and the limit only grows,
+  so every step up to it already has a final deadline, stopped there or not. A relay measures a
+  turn once a frame's limit reaches it, and a turn past the limit waits in its slot's queue. That
+  makes the stop timer unnecessary: the authority's limit moves on the turn path, a stop in
+  progress is just "the limit's deadline has passed", and the only timer left is the 250 ms
+  heartbeat. A promoted authority keeps the limit it adopted, so it never stops behind a step its
+  predecessor made final.
+- **The fold horizon is `LEAD_SEEN_SEQS + STALL_SLACK` behind the limit**, since a player the
+  session waits on can be up to the slack behind it and is measured up to 128 behind their newest.
+
+One consequence of stops by step worth knowing: a stop moves only the steps after it, so the
+player whose turns caused it reads their real lateness for the turns at or before the stop. In
+steady state that is the slack (about 5 steps); after a one-off multi-second outage of that
+player's uplink it is one window with a few multi-second readings, which the client's cap turns
+into a single 2-step correction that the next reports undo.
 
 **What goes wrong with the stop as built.** The authority only finds out the clock stopped in
 hindsight: when confirmable next advances, it adds however long the clock had run past

@@ -442,15 +442,14 @@ frames. What made one player's link everyone's problem, and what changed:
   limit took the lead from 5 to -1 at once, input delay that arrived as the fade ended and drained
   2 frames a window. A window now moves it down by 2 at most.
 
-Left as it is: a stall shorter than the relay's `STALL_SLACK_STEPS` (12) doesn't stop the clock,
-so every client stalled with it catches up afterwards (each innocent client undid about 21 holds
-in this game). Clients stall from about 6 steps behind, so a slack of 6 would turn those into
-plain waits, but it would also trap a player whose turns run persistently later than the slack:
-every confirmable advance grows the stop, every stop restarts every lead window, and that player
-only ever gets pause-only reports, so his pacing never corrects and the session runs at his pace.
-Slack 12 has the same trap past ~500 ms. Fixing both needs the stop to leave the late player's own
-lateness measured: designed in the controller doc,
-[Next: stopping the clock as it happens](rollback-m4-controller.md#next-stopping-the-clock-as-it-happens).
+- **A shared stall shorter than the slack left the clock running.** With `STALL_SLACK_STEPS` at
+  12, a stall of 6-12 steps didn't stop the clock, so every client stalled with it caught up
+  afterwards (each innocent client undid about 21 holds in this game). Lowering the slack to where
+  clients stall (6) needed the stop to leave a late player's own lateness measured first, or a
+  player running persistently past it would never get a usable report. The relays now keep stops
+  by step and measure each turn only once its deadline is final, and the slack is 6: see
+  [Next: stopping the clock as it happens](rollback-m4-controller.md#next-stopping-the-clock-as-it-happens)
+  (rp2 `4297a42`, `92911d2`). The client keeps trusting reports across a stop.
 
 Also open: **stalls right after the lockstep start.** Each client anchors its schedule where its
 own lockstep start ends, and the relay anchors the session clock where the start became
