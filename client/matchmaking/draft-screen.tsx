@@ -30,6 +30,7 @@ import { FilledButton } from '../material/button'
 import { elevationPlus1 } from '../material/shadows'
 import { Tooltip } from '../material/tooltip'
 import { Chat } from '../messaging/chat'
+import { NavigationAvailableContext } from '../navigation/navigation-available'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { ContainerLevel, containerStyles, getRaceColor } from '../styles/colors'
@@ -243,30 +244,33 @@ export function DraftScreen({
     })
 
   return (
-    <Container>
-      <AnimatePresence initial={false}>
-        {canStillPick ? (
-          <DraftRacePicker
-            key='picker'
-            draftState={draftState}
-            onSetRace={onSetRace}
-            onLockInRace={onLockInRace}
-            optimisticRace={optimisticRace}
-            optimisticLocked={optimisticLocked}
-          />
-        ) : undefined}
-      </AnimatePresence>
-      <PickerAndTimer draftState={draftState} />
-      <MyDraftTeam
-        draftState={draftState}
-        optimisticRace={optimisticRace}
-        optimisticLocked={optimisticLocked}
-        myId={myId}
-      />
-      <DraftChat draftState={draftState} onSendChatMessage={onSendChatMessage} />
-      <DraftInfo draftState={draftState} />
-      <OpponentDraftTeam draftState={draftState} />
-    </Container>
+    // The draft screen traps navigation, so nothing inside it offers to navigate.
+    <NavigationAvailableContext.Provider value={false}>
+      <Container>
+        <AnimatePresence initial={false}>
+          {canStillPick ? (
+            <DraftRacePicker
+              key='picker'
+              draftState={draftState}
+              onSetRace={onSetRace}
+              onLockInRace={onLockInRace}
+              optimisticRace={optimisticRace}
+              optimisticLocked={optimisticLocked}
+            />
+          ) : undefined}
+        </AnimatePresence>
+        <PickerAndTimer draftState={draftState} />
+        <MyDraftTeam
+          draftState={draftState}
+          optimisticRace={optimisticRace}
+          optimisticLocked={optimisticLocked}
+          myId={myId}
+        />
+        <DraftChat draftState={draftState} onSendChatMessage={onSendChatMessage} />
+        <DraftInfo draftState={draftState} />
+        <OpponentDraftTeam draftState={draftState} />
+      </Container>
+    </NavigationAvailableContext.Provider>
   )
 }
 
@@ -540,7 +544,7 @@ function PickerAndTimer({ draftState }: { draftState: ClientDraftState }) {
       } else {
         pickerText = (
           <Trans t={t} i18nKey='matchmaking.draftScreen.pickerText.teammateTurn'>
-            <ConnectedUsername userId={teamPlayer.userId} interactive={false} /> is picking…
+            <ConnectedUsername userId={teamPlayer.userId} /> is picking…
           </Trans>
         )
       }
@@ -863,11 +867,7 @@ function AlliedPlayerEntry({
         <PlayerCard $active={isActive}>
           {isActive ? <ActivePickerIndicator /> : undefined}
           <ConnectedAvatar userId={player.userId} />
-          <StyledUsername
-            userId={player.userId}
-            interactive={false}
-            showTooltipForOverflow={'top'}
-          />
+          <StyledUsername userId={player.userId} showTooltipForOverflow={'top'} />
         </PlayerCard>
         {pickNum >= 0 ? (
           <PickSubtext>
@@ -1045,7 +1045,6 @@ function DraftChat({
         baseMentionableUsers: mentionable,
         onSendChatMessage,
       }}
-      disallowMentionInteraction={true}
     />
   )
 }

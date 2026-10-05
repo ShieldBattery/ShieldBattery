@@ -24,6 +24,7 @@ import { dateTimeFormat, useFormat } from '../i18n/locale-formats'
 import { LadderPlayerIcon } from '../matchmaking/rank-icon'
 import { Popover, PopoverProps } from '../material/popover'
 import { Tooltip } from '../material/tooltip'
+import { useIsNavigationAvailable } from '../navigation/navigation-available'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { FriendActivityStatusLine } from '../social/friend-activity-status'
@@ -126,7 +127,7 @@ const ViewProfileHover = styled.div`
   transition: opacity 75ms linear;
 `
 
-const IdentityArea = styled.div`
+const IdentityArea = styled.div<{ $navigable: boolean }>`
   width: 100%;
   height: 64px;
   display: flex;
@@ -134,7 +135,7 @@ const IdentityArea = styled.div`
   gap: 16px;
 
   &:hover {
-    cursor: pointer;
+    cursor: ${props => (props.$navigable ? 'pointer' : 'auto')};
   }
 
   &:hover ${ViewProfileHover} {
@@ -228,6 +229,7 @@ export function UserProfileOverlayContents({
   onDismiss?: () => void
 }) {
   const { t } = useTranslation()
+  const isNavigationAvailable = useIsNavigationAvailable()
   const longTimestampFormat = useFormat(longTimestamp)
   const joinDateFormatter = useFormat(joinDateFormat)
   const dispatch = useAppDispatch()
@@ -282,17 +284,24 @@ export function UserProfileOverlayContents({
         </LoadingError>
       ) : null}
       <IdentityArea
-        onClick={() => {
-          onDismiss?.()
-          navigateToUserProfile(userId, username ?? '')
-        }}>
+        $navigable={isNavigationAvailable}
+        onClick={
+          isNavigationAvailable
+            ? () => {
+                onDismiss?.()
+                navigateToUserProfile(userId, username ?? '')
+              }
+            : undefined
+        }>
         <AvatarContainer>
           <AvatarCircle $isLive={!!liveStream}>
             <StyledAvatar userId={userId} showLiveIndicator={false} />
           </AvatarCircle>
-          <ViewProfileHover>
-            {t('users.profileOverlay.viewProfile', 'View profile')}
-          </ViewProfileHover>
+          {isNavigationAvailable ? (
+            <ViewProfileHover>
+              {t('users.profileOverlay.viewProfile', 'View profile')}
+            </ViewProfileHover>
+          ) : null}
           {/* After the hover scrim so they paint over it rather than being dimmed by it. */}
           {user?.staffBadge ? <ProfileStaffBadge /> : null}
           <AvailabilityDot userId={userId} showOffline={true} />
@@ -338,6 +347,7 @@ export function UserProfileOverlayContents({
               <SectionHeader>{t('users.profileOverlay.ranked', 'Ranked')}</SectionHeader>
               <ExpandableRankDisplays
                 ladder={profile.ladder}
+                capped={!isNavigationAvailable}
                 onShowMore={() => {
                   onDismiss?.()
                   navigateToUserProfileWithExpandedRanks(userId, username ?? '')
