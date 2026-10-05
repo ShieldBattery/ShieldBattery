@@ -1,6 +1,6 @@
 ---
 name: implement
-description: Implement a GitHub issue end to end (`/implement #N`) - read the issue and its parent, verify its premise against the pinned commit and current master BEFORE writing code, report drift in chat, build on a short branch within the issue's stated scope, verify at the tier the issue names, and open a PR with `Fixes #N`. Never comments on the issue or edits a body a person wrote; keeps the assignee accurate. Use when asked to implement, work on, pick up, build, or fix an issue by number.
+description: Implement a GitHub issue end to end (`/implement #N`) - read the issue and its parent, verify its premise against the pinned commit and current master BEFORE writing code, report drift in chat, build on a short branch within the issue's stated scope, verify at the tier the issue names (screenshotting visible UI changes for the developer), and open a PR with `Fixes #N`. Never comments on the issue or edits a body a person wrote; keeps the assignee accurate. Use when asked to implement, work on, pick up, build, or fix an issue by number.
 ---
 
 # Implementing an issue
@@ -116,6 +116,29 @@ T3 means two clients, T4 a real game). Run the recipe as written, plus lint, typ
 nearby unit tests. Record what you ran and what you saw; failures are reported verbatim, not
 smoothed over.
 
+#### Screenshots of UI changes
+
+When the change is something a reviewer would want to _see_, capture it while you verify: a new
+or reworked component, dialog, page or layout; a new state (empty, error, loading, overflow); a
+visual restyle. Skip it for copy tweaks, a one-off spacing or color nudge, logic-only or
+server-only changes, and anything whose visible result is just "the bug no longer happens".
+One to three shots is the norm; each should earn its place.
+
+- Shoot the real app through `verify-app` (`playwright-cli screenshot --filename=<path>`), not a
+  `/dev` page, unless the issue's recipe is the devonly page. Crop to the element
+  (`playwright-cli screenshot <ref>`) when the change is local; take the full window only when
+  the layout is the point.
+- Save under `.claude-scratch/screenshots/<branch>/` with names that say what they show
+  (`empty-state.png`, `before-dialog.png`). Under `MSYS_NO_PATHCONV=1`, pass `C:/...` paths to
+  `--filename` or nothing is written. Screenshots stay local: they are for the developer (step 7),
+  never committed, uploaded or linked from the PR.
+- **Look at every shot with Read before using it**: confirm it shows the change, the right state
+  and no unrelated debris (devtools, half-finished animations, another client's window). The
+  Read tool caches images by path, so a retake needs a new filename.
+- Before/after pairs only when the change alters existing UI and the comparison is the point.
+  Take the "before" shots before your first edit, while the dev stack still runs master (step 3's
+  branch has no changes yet); don't switch branches back later just to get them.
+
 ### 6. Open the PR
 
 Commit with the repo's message style (one imperative subject sentence ending in a period, body only
@@ -145,3 +168,6 @@ Draft PR if verification is incomplete. After pushing, the `pr-fix` skill
 In chat: the PR URL, which acceptance criteria are met and which are not, drift that mattered, the
 calls you made on a go-ahead, spin-off drafts awaiting a go-ahead, and what the next child in the
 chain is if this was one.
+
+If step 5 took screenshots, show them to the developer: list each file's path with a one-line
+caption saying what it shows, and send them with `SendUserFile` when that tool is available.
