@@ -451,6 +451,22 @@ only ever gets pause-only reports, so his pacing never corrects and the session 
 Slack 12 has the same trap past ~500 ms. Fixing both needs the stop to leave the late player's own
 lateness measured.
 
+Also open: **stalls right after the lockstep start.** Each client anchors its schedule where its
+own lockstep start ends, and the relay anchors the session clock where the start became
+confirmable, so a client whose start ran late comes out of it needing a large correction, which
+the pacing applies at 2 steps a report (about 4 steps a second). Until it lands, that client's
+turns reach the relay late and everyone else stalls on them. The staging game above had 193 ticks
+at the limit in its first summary and none once settled; a local 1v1 with one client's peer turns
+held 12 frames (`SB_ROLLBACK_LIVE_DELAY=0:12`) had the far client correct by 324 ms and the other
+stall 81 ticks in its first 30 s, then never again. The first report already measures the whole
+offset, so either applying the first trusted report's correction whole rather than 2 steps at a
+time, or having the relay hand each client the clock's anchor to start its schedule from, would
+take most of it away.
+
+The same local test showed the send-while-stalled path working: the client holding its peer's
+turns sent 52 turns while stalled as its lead walked down to -9, the session clock never stopped,
+and once settled the other client ran a pipe of 1 with no rollback.
+
 ## After shipping
 
 In rough order:
