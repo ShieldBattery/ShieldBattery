@@ -1,24 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { GetChannelInviteLinkResponse, SbChannelId } from '../../common/chat'
 import { isPrettyId } from '../../common/pretty-id'
 import { apiUrl } from '../../common/urls'
-import { MaterialIcon } from '../icons/material/material-icon'
-import {
-  BackdropCard,
-  BackdropCardAction,
-  BackdropCardGone,
-  BackdropCardHeader,
-  BackdropCardLoading,
-  BackdropCardMeta,
-  BackdropCardMetaText,
-  BackdropCardTitle,
-  backdropTextShadow,
-  getBackdropCardHeight,
-  TooltipText,
-} from '../messaging/backdrop-card'
+import { BackdropCardGone, BackdropCardLoading } from '../messaging/backdrop-card'
 import { shieldBatteryPathFromLink } from '../navigation/external-link'
 import { fetchJson } from '../network/fetch'
 import { FetchBudget } from '../network/fetch-budget'
@@ -26,12 +12,12 @@ import { isFetchError } from '../network/fetch-errors'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { DURATION_LONG } from '../snackbars/snackbar-durations'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
-import { bodySmall, singleLine, titleLarge } from '../styles/typography'
 import {
   getJoinChannelErrorMessage,
   joinChannelWithInviteLink,
   navigateToChannel,
 } from './action-creators'
+import { CHANNEL_PREVIEW_CARD_HEIGHT, ChannelPreviewCard } from './channel-preview-card'
 import { channelInviteTokenFromPath } from './channel-url'
 
 /**
@@ -126,41 +112,6 @@ function useChannelInviteState(token: string, direct: boolean): ChannelInviteLoa
   return settled?.token === token ? settled.state : undefined
 }
 
-/** The line heights of the typography tokens the card's body stacks, which set its height. */
-const TITLE_LARGE_LINE_HEIGHT = 32
-const DETAIL_ROW_HEIGHT = 20
-
-const BODY_ROW_GAP = 8
-const BODY_HEIGHT = TITLE_LARGE_LINE_HEIGHT + BODY_ROW_GAP + DETAIL_ROW_HEIGHT
-const CARD_HEIGHT = getBackdropCardHeight(BODY_HEIGHT)
-
-const LargeChannelName = styled(TooltipText)`
-  ${titleLarge};
-  min-width: 0;
-  color: var(--theme-on-surface);
-`
-
-const Description = styled(TooltipText)`
-  ${bodySmall};
-  ${singleLine};
-  min-width: 0;
-  height: ${DETAIL_ROW_HEIGHT}px;
-  color: var(--theme-on-surface-variant);
-`
-
-const Body = styled.div`
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: ${BODY_ROW_GAP}px;
-`
-
-const InviteCard = styled(BackdropCard)`
-  & ${LargeChannelName}, & ${Description} {
-    ${backdropTextShadow};
-  }
-`
-
 /**
  * The presentational part of {@link ChannelInviteCard}: renders the loading/invalid/error/loaded
  * states without looking anything up itself, so it can be driven directly (e.g. from a devonly
@@ -186,7 +137,7 @@ export function ChannelInviteCardContent({
   const { t } = useTranslation()
 
   if (!state) {
-    return <BackdropCardLoading $height={CARD_HEIGHT} aria-hidden={true} />
+    return <BackdropCardLoading $height={CHANNEL_PREVIEW_CARD_HEIGHT} aria-hidden={true} />
   }
 
   if (state.status === 'error') {
@@ -204,42 +155,18 @@ export function ChannelInviteCardContent({
   const { channelInfo, detailedChannelInfo } = state.info
 
   return (
-    <InviteCard
-      imageUrl={detailedChannelInfo.bannerPath}
-      height={CARD_HEIGHT}
-      onClick={isMember ? onViewClick : undefined}
-      actionLabel={t('chat.inviteCard.view', 'View channel')}
-      testName='channel-invite-card-view-button'>
-      <BackdropCardHeader>
-        <BackdropCardTitle text={t('chat.inviteCard.title', 'Private channel')} />
-        <BackdropCardMeta>
-          <BackdropCardMetaText
-            text={t('chat.inviteCard.memberCount', {
-              defaultValue: '{{count}} members',
-              defaultValue_one: '{{count}} member',
-              count: detailedChannelInfo.userCount,
-            })}
-          />
-        </BackdropCardMeta>
-        {isMember ? (
-          <BackdropCardAction onClick={onViewClick} testName='channel-invite-card-open-button'>
-            <MaterialIcon icon='arrow_forward' size={18} />
-            {t('chat.inviteCard.open', 'View')}
-          </BackdropCardAction>
-        ) : (
-          <BackdropCardAction onClick={onJoinClick} testName='channel-invite-card-join-button'>
-            <MaterialIcon icon='login' size={18} />
-            {t('chat.inviteCard.join', 'Join')}
-          </BackdropCardAction>
-        )}
-      </BackdropCardHeader>
-      <Body>
-        <LargeChannelName text={`#${channelInfo.name}`} />
-        {detailedChannelInfo.description ? (
-          <Description text={detailedChannelInfo.description} />
-        ) : null}
-      </Body>
-    </InviteCard>
+    <ChannelPreviewCard
+      title={t('chat.inviteCard.title', 'Private channel')}
+      channelName={channelInfo.name}
+      bannerPath={detailedChannelInfo.bannerPath}
+      badgePath={detailedChannelInfo.badgePath}
+      userCount={detailedChannelInfo.userCount}
+      description={detailedChannelInfo.description}
+      isMember={isMember}
+      onViewClick={onViewClick}
+      onJoinClick={onJoinClick}
+      testName='channel-invite-card'
+    />
   )
 }
 

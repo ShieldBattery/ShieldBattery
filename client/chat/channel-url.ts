@@ -43,12 +43,12 @@ export interface ChannelMessageLinkTarget {
  */
 export function channelMessageFromUrl(url: URL): ChannelMessageLinkTarget | undefined {
   const segments = url.pathname.split('/').filter(segment => segment.length > 0)
-  if (segments.length < 2 || segments[0] !== 'chat' || !/^\d+$/.test(segments[1])) {
+  if (segments.length < 2 || segments[0] !== 'chat') {
     return undefined
   }
 
-  const channelId = Number(segments[1])
-  if (!Number.isSafeInteger(channelId) || channelId <= 0) {
+  const channelId = channelIdFromSegment(segments[1])
+  if (channelId === undefined) {
     return undefined
   }
 
@@ -57,7 +57,32 @@ export function channelMessageFromUrl(url: URL): ChannelMessageLinkTarget | unde
     return undefined
   }
 
-  return { channelId: makeSbChannelId(channelId), messageId }
+  return { channelId, messageId }
+}
+
+/**
+ * Returns the channel a channel link points at, or undefined if `url` isn't one: its pathname must
+ * be exactly `/chat/<channelId>/<name>` (the name segment is ignored, as for message links), and it
+ * must not carry a {@link MESSAGE_LINK_PARAM} search param, which makes it a link to a message
+ * rather than to the channel. Doesn't check the URL's origin, see {@link channelMessageFromUrl}.
+ */
+export function channelFromUrl(url: URL): SbChannelId | undefined {
+  const segments = url.pathname.split('/').filter(segment => segment.length > 0)
+  if (segments.length !== 3 || segments[0] !== 'chat' || url.searchParams.has(MESSAGE_LINK_PARAM)) {
+    return undefined
+  }
+
+  return channelIdFromSegment(segments[1])
+}
+
+/** Returns the channel id a URL path segment holds, or undefined if it doesn't hold one. */
+function channelIdFromSegment(segment: string): SbChannelId | undefined {
+  if (!/^\d+$/.test(segment)) {
+    return undefined
+  }
+
+  const channelId = Number(segment)
+  return Number.isSafeInteger(channelId) && channelId > 0 ? makeSbChannelId(channelId) : undefined
 }
 
 /** Returns the path of a private channel's invite link with the given token. */
