@@ -158,7 +158,9 @@ Built and tested live in four commits (two clients on the staging relay, driven 
    `min(R_target, buffer − 1)` and follows the rollback the client measures (how far each step is
    past the newest fully known step) over 2 s windows: the lead drops once a window's median is
    past the target, or its 90th percentile past the target plus one frame of insurance, by the
-   larger excess; and it rises once even the 90th percentile is short of the target, by the
+   larger excess but at most two frames a window (a window spent at the prediction limit while
+   one peer's link fades for a couple of seconds would otherwise add as much input delay as the
+   limit allows, just as the fade ends); and it rises once even the 90th percentile is short of the target, by the
    shortfall.
    The lead can go negative only until the pipe reaches 14 turns (`GAME_SYNC_SAFE_BUFFER_MAX`,
    lockstep's deepest buffer), so rollback never costs more input delay than lockstep could. The

@@ -2034,15 +2034,14 @@ impl TurnState {
     }
 
     /// Moves the lead this client means to run with by `frames`, within what the relay's buffer
-    /// allows (see [`lead`](Self::lead)).
-    pub fn adjust_lead(&mut self, frames: i32) {
+    /// allows (see [`lead`](Self::lead)), and returns whether it moved: a lead already at the bound
+    /// it is pushed toward stays put.
+    pub fn adjust_lead(&mut self, frames: i32) -> bool {
         let (min, max) = self.lead_bounds();
-        self.lead = self
-            .lead
-            .clamp(min, max)
-            .saturating_add(frames)
-            .clamp(min, max);
+        let before = self.lead.clamp(min, max);
+        self.lead = before.saturating_add(frames).clamp(min, max);
         self.lead_in_effect = self.lead_in_effect.min(self.lead);
+        self.lead != before
     }
 
     /// Moves the lead in effect a frame closer to the lead this client means to run with, if it
@@ -3816,14 +3815,22 @@ mod tests {
         state.follow_lead();
         state.follow_lead();
         assert_eq!((state.lead(), state.pipe_depth()), (1, 1));
-        state.adjust_lead(-100);
+        assert!(state.adjust_lead(-100));
         assert_eq!(state.pipe_depth(), MAX_PIPE_TURNS);
         assert_eq!(state.lead(), 2 - MAX_PIPE_TURNS as i32);
-        state.adjust_lead(100);
+        assert!(
+            !state.adjust_lead(-1),
+            "a lead at its lowest doesn't move lower"
+        );
+        assert!(state.adjust_lead(100));
         for _ in 0..MAX_PIPE_TURNS {
             state.follow_lead();
         }
         assert_eq!((state.lead(), state.pipe_depth()), (1, 1));
+        assert!(
+            !state.adjust_lead(1),
+            "a lead at its highest doesn't move higher"
+        );
     }
 
     #[test]

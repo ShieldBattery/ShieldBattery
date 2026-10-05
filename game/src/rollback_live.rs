@@ -182,9 +182,10 @@ impl LeadWindow {
     /// insurance against small delays: corrections stay hard to see up to a frame past the target,
     /// and only become visible beyond it. So the lead moves down (more input delay) once the
     /// window's median is past the target, or more than a tenth of its ticks ran past the
-    /// insurance frame, by whichever excess is larger; and it moves up once even its 90th
-    /// percentile is short of the target, by that shortfall. Moving the lead by a frame moves the
-    /// whole distribution by a frame, so one move never leads straight to the opposite one.
+    /// insurance frame, by whichever excess is larger but at most [`MAX_LEAD_DROP`] frames; and it
+    /// moves up once even its 90th percentile is short of the target, by that shortfall. Moving
+    /// the lead by a frame moves the whole distribution by a frame, so one move never leads
+    /// straight to the opposite one.
     ///
     /// Only ticks by which more turns became known count. The lead follows how late turns arrive,
     /// and while none arrive at all (a peer that stopped sending, or a lost link) the rollback just
@@ -208,12 +209,20 @@ impl LeadWindow {
             .saturating_sub(target)
             .max(p90.saturating_sub(target + 1));
         if excess != 0 {
-            -(excess as i32)
+            -(excess.min(MAX_LEAD_DROP) as i32)
         } else {
             target.saturating_sub(p90) as i32
         }
     }
 }
+
+/// The most frames one window moves the lead down by. A drop takes effect at once, the game
+/// putting its next steps off a frame a tick (frames the player sees repeat), and a window can run
+/// at the prediction limit for no longer than one peer's link takes to fade for a couple of
+/// seconds: following its whole excess would pile on as much input delay as the limit allows, just
+/// as the fade ends, and rises take it back off only a couple of frames a window. Lateness that
+/// holds keeps moving the lead down, window after window.
+const MAX_LEAD_DROP: u32 = 2;
 
 /// How many ticks go between the frames a rise in the lead takes effect by (see
 /// [`TurnState::follow_lead`](netcode_v2::TurnState::follow_lead)): four frames a second, each
@@ -668,20 +677,19 @@ pub unsafe fn run_game_logic_step(
         if current >= LOCKSTEP_START_STEPS {
             RECENT_ROLLBACK.lock().record(Instant::now(), ahead);
             let adjustment = LEAD_WINDOW.lock().note(ahead, known_until, rollback_target);
-            lead_changed = adjustment != 0;
             let follow = LEAD_FOLLOW_WAIT.fetch_add(1, Ordering::Relaxed) + 1 >= LEAD_FOLLOW_TICKS;
             if follow {
                 LEAD_FOLLOW_WAIT.store(0, Ordering::Relaxed);
             }
             if adjustment != 0 || follow {
-                netcode_v2::with_turn_state(|s| {
-                    if adjustment != 0 {
-                        s.adjust_lead(adjustment);
-                    }
+                lead_changed = netcode_v2::with_turn_state(|s| {
+                    let moved = adjustment != 0 && s.adjust_lead(adjustment);
                     if follow {
                         s.follow_lead();
                     }
-                });
+                    moved
+                })
+                .unwrap_or(false);
             }
         }
         let mut held_back = false;
@@ -992,6 +1000,12 @@ mod tests {
     fn rollback_often_past_the_insurance_frame_adds_delay() {
         // The median sits on the target, but more than a tenth of the ticks run at 5.
         assert_eq!(window(2, |tick| if tick % 6 == 0 { 5 } else { 2 }), -2);
+    }
+
+    #[test]
+    fn a_window_at_the_prediction_limit_moves_the_lead_down_a_little_at_a_time() {
+        assert_eq!(window(2, |_| 8), -(MAX_LEAD_DROP as i32));
+        assert_eq!(window(2, |tick| if tick % 2 == 0 { 8 } else { 6 }), -2);
     }
 
     #[test]
