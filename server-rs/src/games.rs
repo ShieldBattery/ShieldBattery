@@ -37,6 +37,10 @@ impl SchemaBuilderModule for GamesModule {
                 GamesLoader::new(self.db_pool.clone()),
                 tokio::spawn,
             ))
+            .data(DataLoader::new(
+                GameRanksLoader::new(self.db_pool.clone()),
+                tokio::spawn,
+            ))
     }
 }
 
@@ -85,6 +89,52 @@ impl Game {
         let maps_loader = ctx.data::<DataLoader<MapsLoader>>()?;
         let map = maps_loader.load_one(self.map_id).await?;
         map.ok_or_else(|| graphql_error("NOT_FOUND", "Map not found"))
+    }
+
+    /// Each player's standing in the game's matchmaking mode during the season the game started
+    /// in. This is their standing as of now rather than as of the game, so once the game's results
+    /// are in, it includes them. Empty for games that weren't from matchmaking; a player with no
+    /// rating in that mode and season is left out.
+    async fn current_ranks(
+        &self,
+        ctx: &async_graphql::Context<'_>,
+    ) -> async_graphql::Result<Vec<GamePlayerRank>> {
+        if !matches!(self.config, GameConfig::Matchmaking(_)) {
+            return Ok(Vec::new());
+        }
+
+        let loader = ctx.data::<DataLoader<GameRanksLoader>>()?;
+        Ok(loader.load_one(self.id).await?.unwrap_or_default())
+    }
+}
+
+/// A player's standing in a matchmaking mode for a season. Carries only what's public about it
+/// (points, record and placement progress), never the player's rating.
+#[derive(Debug, Clone, SimpleObject)]
+#[graphql(complex)]
+pub struct GamePlayerRank {
+    pub user_id: SbUserId,
+    pub matchmaking_type: MatchmakingType,
+    pub season_id: i32,
+    pub points: f32,
+    pub wins: i32,
+    pub losses: i32,
+    /// Games played since the player's last MMR reset. Below the placement match count, the
+    /// player's division isn't decided yet.
+    pub lifetime_games: i32,
+}
+
+#[ComplexObject]
+impl GamePlayerRank {
+    /// Identifies the standing itself (a player in a mode for a season), so every game that
+    /// player is in shares one cached copy.
+    async fn id(&self) -> String {
+        format!(
+            "rank:{}:{}:{}",
+            self.user_id.0,
+            self.matchmaking_type.as_str(),
+            self.season_id
+        )
     }
 }
 
@@ -454,5 +504,71 @@ impl Loader<Uuid> for GamesLoader {
         .map_ok(|g| (g.id, g))
         .try_collect()
         .await?)
+    }
+}
+
+/// Batches [`Game::current_ranks`] lookups by game id, so a list of games resolves every player's
+/// rank in one query.
+pub struct GameRanksLoader {
+    db: PgPool,
+}
+
+impl GameRanksLoader {
+    pub fn new(db: PgPool) -> Self {
+        Self { db }
+    }
+}
+
+impl Loader<Uuid> for GameRanksLoader {
+    type Value = Vec<GamePlayerRank>;
+    type Error = async_graphql::Error;
+
+    async fn load(&self, keys: &[Uuid]) -> Result<HashMap<Uuid, Vec<GamePlayerRank>>, Self::Error> {
+        // A game's season is the last one to start at or before the game did. Season start dates
+        // are stored as UTC without a time zone.
+        let rows = sqlx::query!(
+            r#"
+            SELECT
+                g.id AS "game_id!",
+                r.user_id AS "user_id!: SbUserId",
+                r.matchmaking_type AS "matchmaking_type!: MatchmakingType",
+                r.season_id AS "season_id!",
+                COALESCE(r.points, 0) AS "points!",
+                COALESCE(r.wins, 0) AS "wins!",
+                COALESCE(r.losses, 0) AS "losses!",
+                COALESCE(r.lifetime_games, 0) AS "lifetime_games!"
+            FROM games g
+            CROSS JOIN LATERAL (
+                SELECT s.id
+                FROM matchmaking_seasons s
+                WHERE s.start_date AT TIME ZONE 'UTC' <= g.start_time
+                ORDER BY s.start_date DESC
+                LIMIT 1
+            ) season
+            JOIN games_users gu ON gu.game_id = g.id
+            JOIN matchmaking_ratings r
+                ON r.user_id = gu.user_id
+                AND r.season_id = season.id
+                AND r.matchmaking_type::text = g.config->'gameSourceExtra'->>'type'
+            WHERE g.id = ANY($1) AND g.config->>'gameSource' = 'MATCHMAKING'
+            "#,
+            keys
+        )
+        .fetch_all(&self.db)
+        .await?;
+
+        let mut ranks: HashMap<Uuid, Vec<GamePlayerRank>> = HashMap::new();
+        for row in rows {
+            ranks.entry(row.game_id).or_default().push(GamePlayerRank {
+                user_id: row.user_id,
+                matchmaking_type: row.matchmaking_type,
+                season_id: row.season_id,
+                points: row.points,
+                wins: row.wins,
+                losses: row.losses,
+                lifetime_games: row.lifetime_games,
+            });
+        }
+        Ok(ranks)
     }
 }

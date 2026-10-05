@@ -1,17 +1,34 @@
+import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { MatchmakingType, matchmakingTypeToLabel } from '../../common/matchmaking'
+import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
+import {
+  getTotalBonusPoolForSeason,
+  isSoloType,
+  makeSeasonId,
+  MatchmakingDivision,
+  matchmakingDivisionToLabel,
+  MatchmakingType,
+  matchmakingTypeToLabel,
+  NUM_PLACEMENT_MATCHES,
+  pointsToMatchmakingDivision,
+} from '../../common/matchmaking'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { FragmentType, graphql, useFragment } from '../gql'
 import { NarrowDuration } from '../i18n/date-formats'
 import { RaceIcon } from '../lobbies/race-icon'
 import { UploadedMapImage } from '../maps/map-image'
+import { DivisionIcon } from '../matchmaking/rank-icon'
 import { useButtonState } from '../material/button'
 import { LinkButton } from '../material/link-button'
 import { Ripple } from '../material/ripple'
 import { elevationPlus1 } from '../material/shadows'
+import { Tooltip } from '../material/tooltip'
 import { useNow } from '../react/date-hooks'
+import { useAppSelector } from '../redux-hooks'
 import { bodySmall, singleLine, titleSmall } from '../styles/typography'
 import { getGameResultsUrl } from './action-creators'
+import { loadMatchmakingSeasons } from './game-link-card'
 
 /**
  * Shared fragment for the "live games" feed query. Defined here (rather than duplicated in each
@@ -60,9 +77,32 @@ const LiveGames_FeedEntryFragment = graphql(/* GraphQL */ `
       }
     }
 
+    currentRanks {
+      id
+      userId
+      matchmakingType
+      seasonId
+      points
+      lifetimeGames
+    }
+
     ...LiveGames_FeedEntryMapAndTypeFragment
   }
 `)
+
+/**
+ * Returns the division a player is in from their current standing in a mode: unrated until they've
+ * finished their placement matches, then placed by their points against the season's bonus pool.
+ */
+export function getCurrentDivision(
+  rank: Readonly<{ matchmakingType: MatchmakingType; points: number; lifetimeGames: number }>,
+  bonusPool: number,
+): MatchmakingDivision {
+  if (rank.lifetimeGames < NUM_PLACEMENT_MATCHES) {
+    return MatchmakingDivision.Unrated
+  }
+  return pointsToMatchmakingDivision(isSoloType(rank.matchmakingType), rank.points, bonusPool)
+}
 
 const EntryRoot = styled(LinkButton)`
   position: relative;
@@ -117,9 +157,31 @@ export function LiveGameEntry({
   const [buttonProps, rippleRef] = useButtonState({})
   const now = useNow(60_000)
 
+  // Every rank in a game is from the season the game started in.
+  const seasonId = game.currentRanks.length
+    ? makeSeasonId(game.currentRanks[0].seasonId)
+    : undefined
+  const season = useAppSelector(s =>
+    seasonId !== undefined ? s.matchmakingSeasons.byId.get(seasonId) : undefined,
+  )
+  const needsSeasons = seasonId !== undefined && season === undefined
+  useEffect(() => {
+    if (needsSeasons) {
+      loadMatchmakingSeasons().catch(swallowNonBuiltins)
+    }
+  }, [needsSeasons])
+
   if (game.config.__typename !== 'GameConfigDataMatchmaking') {
     return null
   }
+
+  // Divisions are left out until the season (whose bonus pool places points into them) is loaded.
+  const bonusPool = season ? getTotalBonusPoolForSeason(new Date(now), season) : undefined
+  const divisionById = new Map<SbUserId, MatchmakingDivision>(
+    bonusPool !== undefined
+      ? game.currentRanks.map(rank => [rank.userId, getCurrentDivision(rank, bonusPool)])
+      : [],
+  )
 
   const matchmakingType = game.config.gameSourceExtra.matchmakingType
 
@@ -130,14 +192,14 @@ export function LiveGameEntry({
       ? [
           <OneTeam key='0'>
             {game.config.teams[0].map(p => (
-              <PlayerDisplay key={p.user!.id} query={p} />
+              <PlayerDisplay key={p.user!.id} query={p} division={divisionById.get(p.user!.id)} />
             ))}
           </OneTeam>,
         ]
       : game.config.teams.map((t, i) => (
           <Team key={i}>
             {t.map(p => (
-              <PlayerDisplay key={p.user!.id} query={p} />
+              <PlayerDisplay key={p.user!.id} query={p} division={divisionById.get(p.user!.id)} />
             ))}
           </Team>
         ))
@@ -188,6 +250,16 @@ const PlayerName = styled.div`
   margin-top: 1px;
 `
 
+const PlayerDivisionTooltip = styled(Tooltip)`
+  flex-shrink: 0;
+  height: 100%;
+`
+
+const PlayerDivision = styled(DivisionIcon)`
+  width: 24px;
+  height: 24px;
+`
+
 const PlayerRace = styled(RaceIcon)`
   flex-grow: 0;
   flex-shrink: 0;
@@ -198,13 +270,25 @@ const PlayerRace = styled(RaceIcon)`
 
 function PlayerDisplay({
   query,
+  division,
 }: {
   query: FragmentType<typeof LiveGames_FeedEntryPlayersFragment>
+  /** The player's current division in the game's mode, if known. */
+  division?: MatchmakingDivision
 }) {
+  const { t } = useTranslation()
   const player = useFragment(LiveGames_FeedEntryPlayersFragment, query)
 
   return (
     <PlayerRoot>
+      {division !== undefined ? (
+        <PlayerDivisionTooltip
+          text={matchmakingDivisionToLabel(division, t)}
+          position='top'
+          tabIndex={-1}>
+          <PlayerDivision division={division} size={24} />
+        </PlayerDivisionTooltip>
+      ) : null}
       <PlayerRace race={player.race} />
       <PlayerName>{player.user!.name}</PlayerName>
     </PlayerRoot>

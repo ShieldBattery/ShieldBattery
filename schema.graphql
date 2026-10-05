@@ -111,6 +111,13 @@ type Game {
 	gameLength: Int
 	results: [ReconciledPlayerResultEntry!]
 	map: UploadedMap!
+	"""
+	Each player's standing in the game's matchmaking mode during the season the game started
+	in. This is their standing as of now rather than as of the game, so once the game's results
+	are in, it includes them. Empty for games that weren't from matchmaking; a player with no
+	rating in that mode and season is left out.
+	"""
+	currentRanks: [GamePlayerRank!]!
 }
 
 union GameConfig = GameConfigDataLobby | GameConfigDataMatchmaking
@@ -133,6 +140,29 @@ type GamePlayer {
 	race: Race!
 	isComputer: Boolean!
 	user: SbUser
+}
+
+"""
+A player's standing in a matchmaking mode for a season. Carries only what's public about it
+(points, record and placement progress), never the player's rating.
+"""
+type GamePlayerRank {
+	userId: SbUserId!
+	matchmakingType: MatchmakingType!
+	seasonId: Int!
+	points: Float!
+	wins: Int!
+	losses: Int!
+	"""
+	Games played since the player's last MMR reset. Below the placement match count, the
+	player's division isn't decided yet.
+	"""
+	lifetimeGames: Int!
+	"""
+	Identifies the standing itself (a player in a mode for a season), so every game that
+	player is in shares one cached copy.
+	"""
+	id: String!
 }
 
 type GameReport {
