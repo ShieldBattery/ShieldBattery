@@ -15,18 +15,20 @@ import {
 import { bodySmall, singleLine, titleLarge } from '../styles/typography'
 import { ChannelBadge } from './channel-badge'
 
-/** The line heights of the typography tokens the card's body stacks, which set its height. */
-const TITLE_LARGE_LINE_HEIGHT = 32
+/** The line height of the typography token the description uses. */
 const DETAIL_ROW_HEIGHT = 20
 
-const BODY_ROW_GAP = 8
-const BODY_HEIGHT = TITLE_LARGE_LINE_HEIGHT + BODY_ROW_GAP + DETAIL_ROW_HEIGHT
+/**
+ * The size of the channel's badge, which sets the card body's height. The name and description sit
+ * beside it as one block, centered against it.
+ */
+const BADGE_SIZE = 60
 
 /**
  * The height a channel preview card renders at, which a card's loading placeholder should reserve
  * so the message it's attached to doesn't grow once the card loads.
  */
-export const CHANNEL_PREVIEW_CARD_HEIGHT = getBackdropCardHeight(BODY_HEIGHT)
+export const CHANNEL_PREVIEW_CARD_HEIGHT = getBackdropCardHeight(BADGE_SIZE)
 
 const LargeChannelName = styled(TooltipText)`
   ${titleLarge};
@@ -45,14 +47,14 @@ const Description = styled(TooltipText)`
 const Body = styled.div`
   min-width: 0;
   display: flex;
+  align-items: center;
   gap: 16px;
 `
 
-/** The badge spans the body's full height, lining up with both the name and the description. */
 const Badge = styled(ChannelBadge)`
   flex-shrink: 0;
-  width: ${BODY_HEIGHT}px;
-  height: ${BODY_HEIGHT}px;
+  width: ${BADGE_SIZE}px;
+  height: ${BADGE_SIZE}px;
   border-radius: 14px;
 `
 
@@ -60,7 +62,6 @@ const BodyText = styled.div`
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: ${BODY_ROW_GAP}px;
 `
 
 const PreviewCard = styled(BackdropCard)`
@@ -136,7 +137,12 @@ export function ChannelPreviewCard({
         <Badge src={badgePath} channelName={channelName} />
         <BodyText>
           <LargeChannelName text={`#${channelName}`} />
-          {description ? <Description text={description} /> : null}
+          <Description
+            text={
+              description ||
+              t('chat.channelInfoCard.noDescription', 'This channel has no description.')
+            }
+          />
         </BodyText>
       </Body>
     </PreviewCard>
