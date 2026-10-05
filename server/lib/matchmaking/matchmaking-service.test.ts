@@ -6,6 +6,7 @@ import { makeSbMapId, SbMapId } from '../../../common/maps'
 import {
   defaultPreferences,
   MatchmakingCompletionType,
+  MatchmakingDivision,
   MatchmakingPreferences,
   MatchmakingType,
 } from '../../../common/matchmaking'
@@ -47,6 +48,7 @@ vi.mock('./matchmaker-rs-client', async () => {
 
 vi.mock('./models', () => ({
   getMatchmakingRatings: vi.fn(),
+  getManyMatchmakingRatings: vi.fn(),
   createInitialMatchmakingRating: vi.fn(),
   insertMatchmakingCompletion: vi.fn().mockResolvedValue(undefined),
   insertMatchmakingMatchFormation: vi.fn().mockResolvedValue(undefined),
@@ -72,6 +74,7 @@ vi.mock('../maps/map-models', async () => ({
 import { getMapInfos } from '../maps/map-models'
 import { getCurrentMapPool } from './matchmaking-map-pools-models'
 import {
+  getManyMatchmakingRatings,
   getMatchmakingRatings,
   insertMatchmakingCompletion,
   insertMatchmakingMatchFormation,
@@ -261,6 +264,9 @@ describe('matchmaking/matchmaking-service', () => {
     asMockedFunction(getMatchmakingRatings).mockImplementation(
       async (userId: SbUserId, types: ReadonlyArray<MatchmakingType>) =>
         types.map(type => makeMmr(userId, type)),
+    )
+    asMockedFunction(getManyMatchmakingRatings).mockImplementation(
+      async (userIds: SbUserId[], type: MatchmakingType) => userIds.map(id => makeMmr(id, type)),
     )
     asMockedFunction(rsQueuePlayer).mockResolvedValue(Result.ok())
     asMockedFunction(rsCancelPlayer).mockResolvedValue(Result.ok())
@@ -728,6 +734,99 @@ describe('matchmaking/matchmaking-service', () => {
     expect(infoForA.race).toBe('z')
     // B opted into its alternate race for the mirror matchup; A did not, so A keeps its main race.
     expect(infoForB.race).toBe('t')
+  })
+
+  describe('forwards each player rank to the game loader', () => {
+    async function loadMatch() {
+      asMockedFunction(getCurrentMapPool).mockResolvedValue({ maps: [MAP_ID] } as any)
+      asMockedFunction(getMapInfos).mockResolvedValue([{ id: MAP_ID } as any])
+      gameLoader.loadGame.mockResolvedValue(Result.ok({ gameId: GAME_ID }))
+
+      await queuePlayer(USER_A, CLIENT_A)
+      await queuePlayer(USER_B, CLIENT_B)
+
+      redisHandler({
+        type: 'matchFound',
+        data: {
+          mode: MatchmakingType.Match1v1,
+          teamA: [{ id: USER_A, ticket: 'ticket-a' }],
+          teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+          quality: 12.5,
+          skillVariance: 30000,
+          winProbability: 0.42,
+          teamARating: 1500,
+          teamBRating: 1600,
+          maxLatency: 1,
+        },
+      })
+      await vi.advanceTimersByTimeAsync(0)
+
+      await service.accept(USER_A)
+      await service.accept(USER_B)
+      // Drain the runMatch promise chain (accept -> pickMap -> draft -> doGameLoad -> loadGame).
+      for (let i = 0; i < 20; i++) {
+        await vi.advanceTimersByTimeAsync(0)
+      }
+    }
+
+    test('with a rating only for players out of placements', async () => {
+      // A has finished placements; B has played a single placement match.
+      asMockedFunction(getManyMatchmakingRatings).mockImplementation(
+        async (userIds: SbUserId[], type: MatchmakingType) =>
+          userIds.map(id =>
+            id === USER_A
+              ? { ...makeMmr(id, type), rating: 1720, wins: 6, losses: 4 }
+              : { ...makeMmr(id, type), rating: 1480, wins: 1, losses: 0, lifetimeGames: 1 },
+          ),
+      )
+
+      await loadMatch()
+
+      expect(getManyMatchmakingRatings).toHaveBeenCalledWith(
+        expect.arrayContaining([USER_A, USER_B]),
+        MatchmakingType.Match1v1,
+        SEASON.id,
+      )
+      expect(gameLoader.loadGame).toHaveBeenCalledTimes(1)
+      const request = gameLoader.loadGame.mock.calls[0][0]
+      expect(request.ranks).toHaveLength(2)
+      expect(request.ranks).toContainEqual({
+        userId: USER_A,
+        division: MatchmakingDivision.Bronze1,
+        rating: 1720,
+      })
+      expect(request.ranks).toContainEqual({
+        userId: USER_B,
+        division: MatchmakingDivision.Bronze1,
+        rating: undefined,
+      })
+    })
+
+    test('as unrated for a player with no games in the mode', async () => {
+      asMockedFunction(getManyMatchmakingRatings).mockImplementation(
+        async (userIds: SbUserId[], type: MatchmakingType) =>
+          userIds.map(id => ({ ...makeMmr(id, type), lifetimeGames: 0, numGamesPlayed: 0 })),
+      )
+
+      await loadMatch()
+
+      const request = gameLoader.loadGame.mock.calls[0][0]
+      expect(request.ranks).toContainEqual({
+        userId: USER_A,
+        division: MatchmakingDivision.Unrated,
+        rating: undefined,
+      })
+    })
+
+    test('loads the game without ranks when looking them up fails', async () => {
+      asMockedFunction(getManyMatchmakingRatings).mockRejectedValue(new Error('db down'))
+
+      await loadMatch()
+
+      expect(gameLoader.loadGame).toHaveBeenCalledTimes(1)
+      const request = gameLoader.loadGame.mock.calls[0][0]
+      expect(request.ranks).toBeUndefined()
+    })
   })
 
   test('records the match formation telemetry for a match that fails to start', async () => {
