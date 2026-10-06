@@ -5154,6 +5154,30 @@ impl BwScr {
         }
     }
 
+    /// Records the [`replay::notice_lines`](crate::replay::notice_lines) into this client's replay
+    /// without showing them, under [`commands::REPLAY_NOTICE_SENDER`] so the native chat handler
+    /// renders them as bare text on playback.
+    ///
+    /// Must run before the game's first logic step: that puts the lines ahead of every rollback
+    /// snapshot, so no rollback rewinds the replay log past them and no re-simulation records them
+    /// again.
+    unsafe fn record_replay_notice(&self) {
+        unsafe {
+            let local_storm = StormPlayerId(self.local_storm_id.resolve() as u8);
+            self.chat_injection
+                .store(ChatInjection::RecordShown as u8, Ordering::Relaxed);
+            for line in crate::replay::notice_lines(env!("SHIELDBATTERY_VERSION")) {
+                let record = build_chat_record(commands::REPLAY_NOTICE_SENDER, &line);
+                if !self.process_injected_game_command(&record, local_storm, 0) {
+                    warn!("Replay notice not recorded; local storm id unresolved");
+                    break;
+                }
+            }
+            self.chat_injection
+                .store(ChatInjection::Live as u8, Ordering::Relaxed);
+        }
+    }
+
     /// Whether a received chat message naming `target` should be shown to the local player, given
     /// its sender's BW storm id. Mirrors the scopes the `MsgFltr` chat-target dialog offers (see
     /// `dialog_hook::chat_target_scope`): `All` always shows; `Allies` shows only to a player
@@ -9237,6 +9261,8 @@ unsafe fn step_game_logic_hook(
         if game_thread::is_replay() {
             // Make replay buttons line up better with the pre-SC:R replay ui
             bw.offset_statbtn_dialog(3, -3);
+        } else {
+            bw.record_replay_notice();
         }
     }
     // Observer / replay UI in SC:R has a bug with toggling player visions:

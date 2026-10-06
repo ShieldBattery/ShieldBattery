@@ -28,6 +28,19 @@ pub const SECTION_ID: u32 = 0x74616253; // Sbat
 //      (game_thread::check_unit_resources_and_supply)
 pub const GAME_LOGIC_VERSION: u16 = 0x4;
 
+/// The notice recorded at the start of every replay, one chat line per entry, sent by
+/// [`REPLAY_NOTICE_SENDER`](crate::bw::commands::REPLAY_NOTICE_SENDER). ShieldBattery's game
+/// logic fixes can make a replay play back differently anywhere else, and a viewer elsewhere has
+/// no other way to tell where the replay came from.
+///
+/// `\x03` switches the text color to yellow and `\x04` to white.
+pub fn notice_lines(version: &str) -> [String; 2] {
+    [
+        format!("\x03※ \x04Played on ShieldBattery {version} (\x03shieldbattery.net\x04)"),
+        "\x03※ \x04This replay may not play back correctly outside of ShieldBattery.".into(),
+    ]
+}
+
 pub struct SbatReplayData {
     pub team_game_main_players: [u8; 4],
     pub starting_races: [u8; 0xc],
@@ -177,6 +190,17 @@ fn test_write_uuid() {
             0xde, 0xf0
         ],
     );
+}
+
+#[test]
+fn notice_lines_fit_chat_records() {
+    // The longest version the Sbat section's version field holds.
+    for line in notice_lines("1234567890123456") {
+        assert!(
+            line.len() <= crate::bw::commands::CHAT_TEXT_CAPACITY,
+            "{line:?}"
+        );
+    }
 }
 
 #[test]

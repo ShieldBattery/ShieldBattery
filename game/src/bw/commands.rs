@@ -23,6 +23,11 @@ pub mod id {
 /// the text field's last byte is reserved for the trailing NUL the native chat handler expects.
 pub const CHAT_TEXT_CAPACITY: usize = 0x50 - 1;
 
+/// Sender id of the chat records holding the notice ShieldBattery records at the start of every
+/// replay. No player or observer has this id, so SC:R renders the lines as bare text without a
+/// name, and ShieldBattery's own playback can recognize and drop them.
+pub const REPLAY_NOTICE_SENDER: u8 = 27;
+
 /// Truncates `text` to at most `max_len` bytes, backing off to the nearest UTF-8 character
 /// boundary at or before `max_len` so a multi-byte character is never split. Returns `text`
 /// unchanged (a borrow, no allocation) when it already fits.
@@ -148,7 +153,8 @@ pub fn strip_sync_commands<'a>(input: &'a [u8], command_lengths: &[u32]) -> Cow<
     Cow::Owned(buffer)
 }
 
-/// Removes invalid commands that aren't caught by BW.
+/// Removes invalid commands that aren't caught by BW, and the replay notice when playing back a
+/// replay (it is addressed to viewers outside ShieldBattery).
 pub fn filter_invalid_commands<'a>(
     input: &'a [u8],
     from_replay: bool,
@@ -161,6 +167,7 @@ pub fn filter_invalid_commands<'a>(
     for command in iter_commands(input, command_lengths) {
         let ok = match command {
             [id::REPLAY_SEEK, ..] => !from_replay,
+            [id::CHAT, REPLAY_NOTICE_SENDER, ..] => !from_replay,
             [id::REPLAY_SPEED, rest @ ..] => {
                 if from_replay || rest.len() != 9 {
                     false
@@ -307,6 +314,33 @@ mod test {
         assert_eq!(
             &*filter_invalid_commands(data, true, false, LENGTHS),
             expected_bad
+        );
+    }
+
+    #[test]
+    fn filter_replay_notice() {
+        let chat = |sender: u8| {
+            let mut data = vec![0x20, 0xff, 0xff, id::CHAT, sender];
+            data.extend_from_slice(&[b'a'; 0x50]);
+            data.extend_from_slice(&[0x62, 0xff, 0xff, 0xff, 0xff]);
+            data
+        };
+        let notice = chat(REPLAY_NOTICE_SENDER);
+        let expected_bad = &[0x20, 0xff, 0xff, 0x62, 0xff, 0xff, 0xff, 0xff];
+        // Recorded live, dropped on playback.
+        assert_eq!(
+            &*filter_invalid_commands(&notice, false, false, LENGTHS),
+            &notice[..]
+        );
+        assert_eq!(
+            &*filter_invalid_commands(&notice, true, false, LENGTHS),
+            expected_bad
+        );
+        // Players' chat plays back.
+        let player_chat = chat(1);
+        assert_eq!(
+            &*filter_invalid_commands(&player_chat, true, false, LENGTHS),
+            &player_chat[..]
         );
     }
 
