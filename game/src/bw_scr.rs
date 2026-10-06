@@ -298,6 +298,8 @@ pub struct BwScr {
     step_network_addr: VirtualAddress,
     step_replay_commands: VirtualAddress,
     order_harvest_gas: VirtualAddress,
+    check_unit_resources_and_supply: VirtualAddress,
+    unit_cost_cache: UnitCostCache,
     game_command_lengths: Vec<u32>,
     prism_pixel_shaders: Vec<VirtualAddress>,
     prism_renderer_vtable: VirtualAddress,
@@ -879,6 +881,21 @@ unsafe extern "system" fn lobby_create_callback(_popup: *mut c_void) -> u32 {
 /// Though using a smaller size than what the value internally is will
 /// truncate any read data to that size.
 /// (So maybe using Value<u32> always would be fine?)
+/// The per-player record of what the last unit cost check found a unit to cost, which spending
+/// the resources and the AI's budget checks read afterwards, and the check of a player's
+/// resources against that record.
+struct UnitCostCache {
+    minerals: Value<*mut u32>,
+    gas: Value<*mut u32>,
+    supply: Value<*mut u32>,
+    /// `(player, show_error) -> bool`; with `show_error`, a player that can't afford the costs on
+    /// record is shown the message for whichever resource they lack.
+    check_resources: unsafe extern "C" fn(u32, u32) -> u32,
+}
+
+/// Players [`UnitCostCache`] keeps a record for.
+const UNIT_COST_CACHE_PLAYERS: usize = 12;
+
 #[derive(Copy, Clone)]
 struct Value<T> {
     op: scarf::Operand<'static>,
@@ -2016,6 +2033,28 @@ impl BwScr {
             .ok_or("step_replay_commands")?;
         let save_replay = analysis.save_replay().ok_or("save_replay")?;
         let order_harvest_gas = analysis.order_harvest_gas().ok_or("order_harvest_gas")?;
+        let check_unit_resources_and_supply = analysis
+            .check_unit_resources_and_supply()
+            .ok_or("check_unit_resources_and_supply")?;
+        let check_cached_resources = analysis
+            .check_cached_resources()
+            .ok_or("check_cached_resources")?;
+        let unit_cost_cache = UnitCostCache {
+            minerals: Value::new(
+                ctx,
+                analysis
+                    .cached_mineral_costs()
+                    .ok_or("cached_mineral_costs")?,
+            ),
+            gas: Value::new(ctx, analysis.cached_gas_costs().ok_or("cached_gas_costs")?),
+            supply: Value::new(
+                ctx,
+                analysis
+                    .cached_supply_costs()
+                    .ok_or("cached_supply_costs")?,
+            ),
+            check_resources: unsafe { mem::transmute(check_cached_resources.0) },
+        };
 
         let prism_pixel_shaders = analysis
             .prism_pixel_shaders()
@@ -2496,6 +2535,8 @@ impl BwScr {
             ttf_render_sdf,
             step_replay_commands,
             order_harvest_gas,
+            check_unit_resources_and_supply,
+            unit_cost_cache,
             step_game,
             step_io,
             init_game_data,
@@ -3179,6 +3220,21 @@ impl BwScr {
                 OrderFn,
                 |unit, orig| {
                     game_thread::order_harvest_gas(self, unit, orig);
+                },
+                address,
+            );
+            let address = self.check_unit_resources_and_supply.0 as usize - base;
+            exe.hook_closure_address(
+                CheckUnitResourcesAndSupply,
+                |player, unit_id, check_supply, show_error, orig| {
+                    game_thread::check_unit_resources_and_supply(
+                        self,
+                        player,
+                        unit_id,
+                        check_supply,
+                        show_error,
+                        orig,
+                    )
                 },
                 address,
             );
@@ -5724,6 +5780,31 @@ impl BwScr {
                 .saturating_sub(height / 2)
                 .clamp(0, max_height);
             (self.move_screen)(x, y);
+        }
+    }
+
+    /// Answers the unit cost check the way it answers for a unit that costs nothing and needs no
+    /// supply: records zero mineral and gas costs for `player`, and a zero supply cost if supply
+    /// is being checked, then checks the player's resources against that record. `None` for a
+    /// player the record has no entry for.
+    pub unsafe fn check_free_unit_resources(
+        &self,
+        player: u8,
+        check_supply: bool,
+        show_error: u32,
+    ) -> Option<u32> {
+        unsafe {
+            let index = usize::from(player);
+            if index >= UNIT_COST_CACHE_PLAYERS {
+                return None;
+            }
+            let cache = &self.unit_cost_cache;
+            *cache.minerals.resolve().add(index) = 0;
+            *cache.gas.resolve().add(index) = 0;
+            if check_supply {
+                *cache.supply.resolve().add(index) = 0;
+            }
+            Some((cache.check_resources)(player.into(), show_error))
         }
     }
 
@@ -8996,6 +9077,8 @@ mod hooks {
     // (sound id, volume, unknown, x, y).
     whack_hooks!(0, // cdecl
         !0 => PlaySound(u32, f32, *mut c_void, *mut i32, *mut i32) -> u32;
+        // (player, unit id, check supply, show error) -> can afford
+        !0 => CheckUnitResourcesAndSupply(u32, u32, u32, u32) -> u32;
         !0 => ShowGameMessage(*const u8, u32);
         // Place the order confirmation marker at a map position.
         !0 => ShowCursorMarkerAt(i32, i32);

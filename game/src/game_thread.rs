@@ -1035,6 +1035,32 @@ pub unsafe fn order_harvest_gas(
     orig(unit)
 }
 
+/// Hook for the check of whether `player` can afford a unit, which also records what the unit
+/// costs for whatever spends or reserves those resources next.
+///
+/// The AI's committed-cost walk asks this about every worker in a building order, by the unit
+/// the worker has queued. A worker that has placed its building but not yet left the order has
+/// the "None" id queued, and costs for that id are read one past the end of units.dat's cost
+/// arrays. The 64-bit build has zero padding there; the 32-bit build has the next array's first
+/// entries, so it charges the Marine's build time as gas, and the AI then spends differently
+/// than it would on 64-bit. The "None" id is answered here the way the 64-bit build answers it:
+/// free, needing no supply.
+pub unsafe fn check_unit_resources_and_supply(
+    bw: &BwScr,
+    player: u32,
+    unit_id: u32,
+    check_supply: u32,
+    show_error: u32,
+    orig: unsafe extern "C" fn(u32, u32, u32, u32) -> u32,
+) -> u32 {
+    unsafe {
+        let free = (unit_id as u16 == bw_dat::unit::NONE.0 && sb_game_logic_version() >= 4)
+            .then(|| bw.check_free_unit_resources(player as u8, check_supply != 0, show_error))
+            .flatten();
+        free.unwrap_or_else(|| orig(player, unit_id, check_supply, show_error))
+    }
+}
+
 fn find_walkable_position_for_gas_worker(
     game: bw_dat::Game,
     pathing: *mut bw::Pathing,

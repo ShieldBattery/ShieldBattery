@@ -942,6 +942,29 @@ impl<'e> Analysis<'e> {
         self.0.order_function(0x53)
     }
 
+    /// `(player, unit id, check supply, show error) -> can afford`; records the unit's costs for
+    /// the player in the cached cost arrays before checking them.
+    pub fn check_unit_resources_and_supply(&mut self) -> Option<VirtualAddress> {
+        self.0.check_unit_resources_and_supply()
+    }
+
+    /// `(player, show error) -> can afford`, against the player's cached unit costs.
+    pub fn check_cached_resources(&mut self) -> Option<VirtualAddress> {
+        self.0.check_cached_resources()
+    }
+
+    pub fn cached_mineral_costs(&mut self) -> Option<Operand<'e>> {
+        self.0.cached_mineral_costs()
+    }
+
+    pub fn cached_gas_costs(&mut self) -> Option<Operand<'e>> {
+        self.0.cached_gas_costs()
+    }
+
+    pub fn cached_supply_costs(&mut self) -> Option<Operand<'e>> {
+        self.0.cached_supply_costs()
+    }
+
     pub fn move_unit(&mut self) -> Option<VirtualAddress> {
         self.0.move_unit()
     }
