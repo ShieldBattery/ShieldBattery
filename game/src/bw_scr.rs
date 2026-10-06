@@ -865,6 +865,21 @@ unsafe extern "system" fn lobby_create_callback(_popup: *mut c_void) -> u32 {
     0
 }
 
+/// The per-player record of what the last unit cost check found a unit to cost, which spending
+/// the resources and the AI's budget checks read afterwards, and the check of a player's
+/// resources against that record.
+struct UnitCostCache {
+    minerals: Value<*mut u32>,
+    gas: Value<*mut u32>,
+    supply: Value<*mut u32>,
+    /// `(player, show_error) -> bool`; with `show_error`, a player that can't afford the costs on
+    /// record is shown the message for whichever resource they lack.
+    check_resources: unsafe extern "C" fn(u32, u32) -> u32,
+}
+
+/// Players [`UnitCostCache`] keeps a record for.
+const UNIT_COST_CACHE_PLAYERS: usize = 12;
+
 /// scarf::Operand is a type describing arbitrary expression returned by
 /// analysis. For example, it can be a constant memory address 0x123456,
 /// pointer indirection Mem32[0x123456], or even arbitrary arithmetic
@@ -881,21 +896,6 @@ unsafe extern "system" fn lobby_create_callback(_popup: *mut c_void) -> u32 {
 /// Though using a smaller size than what the value internally is will
 /// truncate any read data to that size.
 /// (So maybe using Value<u32> always would be fine?)
-/// The per-player record of what the last unit cost check found a unit to cost, which spending
-/// the resources and the AI's budget checks read afterwards, and the check of a player's
-/// resources against that record.
-struct UnitCostCache {
-    minerals: Value<*mut u32>,
-    gas: Value<*mut u32>,
-    supply: Value<*mut u32>,
-    /// `(player, show_error) -> bool`; with `show_error`, a player that can't afford the costs on
-    /// record is shown the message for whichever resource they lack.
-    check_resources: unsafe extern "C" fn(u32, u32) -> u32,
-}
-
-/// Players [`UnitCostCache`] keeps a record for.
-const UNIT_COST_CACHE_PLAYERS: usize = 12;
-
 #[derive(Copy, Clone)]
 struct Value<T> {
     op: scarf::Operand<'static>,
