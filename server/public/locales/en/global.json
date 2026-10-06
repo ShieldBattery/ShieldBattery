@@ -2964,10 +2964,16 @@
         "title": "Language"
       },
       "notifications": {
+        "alerts": {
+          "description": "How the app gets your attention when something happens while you are looking elsewhere. Message sounds cover chat, whispers, lobby and draft chat; sounds for events like a found match always play. The taskbar flashes for messages that mention you, whispers, found matches and players joining your lobby. Saved to your account and applies on every device you log in from.",
+          "title": "Alerts"
+        },
+        "flashTaskbar": "Flash the taskbar",
         "inGame": {
           "description": "While you're in a game, messages won't play a sound or flash the taskbar, even ones that mention you. Saved to your account and applies on every device you log in from.",
           "title": "In game"
         },
+        "playMessageSounds": "Play message sounds",
         "quietChannelsWhileInGame": "Quiet channels while in a game",
         "quietWhispersWhileInGame": "Quiet whispers while in a game",
         "showWhispersEverywhere": "Show whispers in every chat",

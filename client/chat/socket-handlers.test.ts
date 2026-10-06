@@ -47,12 +47,18 @@ interface MessageCase {
   alerts: boolean
   /** Whether an alert should ask for the urgent (taskbar-flashing) treatment. */
   urgent?: boolean
+  /** Whether an alert should play the alert sound. Defaults to `alerts`. */
+  sound?: boolean
   /** Whether the reported game client status puts this client in a running game. */
   inGame?: boolean
   /** The account's `quietChannelsWhileInGame` setting. Defaults to `true`. */
   quietChannelsWhileInGame?: boolean
   /** The account's `availability`. Defaults to online. */
   availability?: UserAvailability
+  /** The account's `playMessageSounds` setting. Defaults to `true`. */
+  playMessageSounds?: boolean
+  /** The account's `flashTaskbar` setting. Defaults to `true`. */
+  flashTaskbar?: boolean
 }
 
 describe('channel message echoes', () => {
@@ -234,6 +240,25 @@ describe('channel message echoes', () => {
       alerts: true,
       urgent: true,
     },
+    {
+      name: 'with message sounds off, a mention alerts urgently without a sound',
+      playMessageSounds: false,
+      mentionsSelf: true,
+      level: ChannelNotificationLevel.All,
+      mention: true,
+      alerts: true,
+      urgent: true,
+      sound: false,
+    },
+    {
+      name: 'with taskbar flashing off, a mention alerts non-urgently with a sound',
+      flashTaskbar: false,
+      mentionsSelf: true,
+      level: ChannelNotificationLevel.All,
+      mention: true,
+      alerts: true,
+      urgent: false,
+    },
   ])('$name', options => {
     const sender = options.fromSelf ? SELF : OTHER
     const preferences: ChannelPreferences | undefined =
@@ -256,6 +281,8 @@ describe('channel message echoes', () => {
           ...DEFAULT_ACCOUNT_SETTINGS,
           quietChannelsWhileInGame: options.quietChannelsWhileInGame ?? true,
           availability: options.availability ?? UserAvailability.Online,
+          playMessageSounds: options.playMessageSounds ?? true,
+          flashTaskbar: options.flashTaskbar ?? true,
         },
       },
       gameClient: {
@@ -303,6 +330,6 @@ describe('channel message echoes', () => {
     expect(mocks.send.mock.calls).toEqual(
       options.alerts ? [['chatNewMessage', { urgent: options.urgent }]] : [],
     )
-    expect(mocks.playSound).toHaveBeenCalledTimes(options.alerts ? 1 : 0)
+    expect(mocks.playSound).toHaveBeenCalledTimes((options.sound ?? options.alerts) ? 1 : 0)
   })
 })

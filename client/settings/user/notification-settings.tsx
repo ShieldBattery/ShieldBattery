@@ -18,6 +18,47 @@ export function UserNotificationSettings() {
     <FormContainer>
       <SectionContainer>
         <SettingsSectionHeader>
+          {t('settings.user.notifications.alerts.title', 'Alerts')}
+        </SettingsSectionHeader>
+        <SettingsSectionDescription>
+          {t(
+            'settings.user.notifications.alerts.description',
+            'How the app gets your attention when something happens while you are looking ' +
+              'elsewhere. Message sounds cover chat, whispers, lobby and draft chat; sounds for ' +
+              'events like a found match always play. The taskbar flashes for messages that ' +
+              'mention you, whispers, found matches and players joining your lobby. Saved to ' +
+              'your account and applies on every device you log in from.',
+          )}
+        </SettingsSectionDescription>
+        <CheckBox
+          checked={settings.playMessageSounds}
+          onChange={event =>
+            dispatch(
+              mergeAccountSettings(
+                { playMessageSounds: event.target.checked },
+                { onSuccess: () => {}, onError: () => {} },
+              ),
+            )
+          }
+          name='playMessageSounds'
+          label={t('settings.user.notifications.playMessageSounds', 'Play message sounds')}
+        />
+        <CheckBox
+          checked={settings.flashTaskbar}
+          onChange={event =>
+            dispatch(
+              mergeAccountSettings(
+                { flashTaskbar: event.target.checked },
+                { onSuccess: () => {}, onError: () => {} },
+              ),
+            )
+          }
+          name='flashTaskbar'
+          label={t('settings.user.notifications.flashTaskbar', 'Flash the taskbar')}
+        />
+      </SectionContainer>
+      <SectionContainer>
+        <SettingsSectionHeader>
           {t('settings.user.notifications.inGame.title', 'In game')}
         </SettingsSectionHeader>
         <SettingsSectionDescription>

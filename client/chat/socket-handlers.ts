@@ -142,9 +142,10 @@ const eventToChatAction: EventToChatActionMap = {
       const windowFocused = windowFocus.isFocused()
       if (shouldAlert) {
         // The main process shows a transient tray icon for every alert but only flashes the taskbar
-        // for urgent ones, which is reserved for messages aimed at this user.
+        // for urgent ones, which is reserved for messages aimed at this user (and only if they allow
+        // taskbar flashing).
         ipcRenderer.send('chatNewMessage', {
-          urgent: isMention,
+          urgent: isMention && accountSettings.flashTaskbar,
         })
       }
 
@@ -157,7 +158,11 @@ const eventToChatAction: EventToChatActionMap = {
       })
 
       const isChannelActivated = activatedChannels.has(channelId)
-      if (shouldAlert && (!isChannelActivated || !windowFocused)) {
+      if (
+        shouldAlert &&
+        accountSettings.playMessageSounds &&
+        (!isChannelActivated || !windowFocused)
+      ) {
         audioManager.playSound(AvailableSound.MessageAlert)
       }
     }

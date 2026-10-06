@@ -25,6 +25,8 @@ const accountSettingsThrottle = createThrottle('accountsettings', {
 export const updateAccountSettingsSchema = Joi.object<UpdateAccountSettingsRequest>({
   quietChannelsWhileInGame: Joi.boolean(),
   quietWhispersWhileInGame: Joi.boolean(),
+  playMessageSounds: Joi.boolean(),
+  flashTaskbar: Joi.boolean(),
   showWhispersEverywhere: Joi.boolean(),
   availability: Joi.valid(...ALL_USER_AVAILABILITIES),
   chatDisplayMode: Joi.valid(...ALL_CHAT_DISPLAY_MODES),

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { MatchmakingType } from '../../common/matchmaking'
+import { DEFAULT_ACCOUNT_SETTINGS } from '../../common/settings/account-settings'
 import { asMockedFunction } from '../../common/testing/mocks'
 import { DialogType } from '../dialogs/dialog-type'
 import { DispatchFunction } from '../dispatch-registry'
@@ -28,9 +29,11 @@ vi.mock('../snackbars/snackbar-controller-registry', () => ({
   externalShowSnackbar: vi.fn(),
 }))
 
+const { ipcSend } = vi.hoisted(() => ({ ipcSend: vi.fn() }))
+
 vi.mock('../../common/ipc', () => ({
   TypedIpcRenderer: class {
-    send = vi.fn()
+    send = ipcSend
     invoke = vi.fn()
     on = vi.fn()
   },
@@ -76,12 +79,19 @@ function makeSearchInfo() {
 }
 
 /** Runs a thunk-or-value handler result, collecting anything it dispatches. */
-function runHandler(result: unknown, dialogHistory: Array<{ type: DialogType }>) {
+function runHandler(
+  result: unknown,
+  dialogHistory: Array<{ type: DialogType }>,
+  flashTaskbar = true,
+) {
   const dispatched: unknown[] = []
   const dispatch = ((action: unknown) => {
     dispatched.push(action)
   }) as DispatchFunction<any>
-  const getState = (() => ({ dialog: { history: dialogHistory } })) as unknown as () => RootState
+  const getState = (() => ({
+    dialog: { history: dialogHistory },
+    settings: { account: { ...DEFAULT_ACCOUNT_SETTINGS, flashTaskbar } },
+  })) as unknown as () => RootState
 
   if (typeof result === 'function') {
     ;(result as (d: DispatchFunction<any>, g: () => RootState) => void)(dispatch, getState)
@@ -90,7 +100,7 @@ function runHandler(result: unknown, dialogHistory: Array<{ type: DialogType }>)
   return dispatched
 }
 
-function runDraftStarted(dialogHistory: Array<{ type: DialogType }> = []) {
+function runDraftStarted(dialogHistory: Array<{ type: DialogType }> = [], flashTaskbar = true) {
   const event = {
     type: 'draftStarted',
     draftState: { isCompleted: false } as any,
@@ -99,6 +109,24 @@ function runDraftStarted(dialogHistory: Array<{ type: DialogType }> = []) {
   return runHandler(
     eventToAction.draftStarted(MatchmakingType.Match1v1, event as any),
     dialogHistory,
+    flashTaskbar,
+  )
+}
+
+function runMatchFound(flashTaskbar = true) {
+  const event = {
+    type: 'matchFound',
+    matchmakingType: MatchmakingType.Match1v1,
+    numPlayers: 2,
+    acceptedPlayers: 0,
+    acceptTimeLeftMillis: 30000,
+    acceptTimeTotalMillis: 30000,
+    hasAccepted: false,
+  }
+  return runHandler(
+    eventToAction.matchFound(MatchmakingType.Match1v1, event as any),
+    [],
+    flashTaskbar,
   )
 }
 
@@ -116,9 +144,31 @@ function runQueueStatus(dialogHistory: Array<{ type: DialogType }> = []) {
   )
 }
 
+describe('client/matchmaking/socket-handlers/matchFound', () => {
+  beforeEach(() => {
+    ipcSend.mockClear()
+    jotaiStore.set(foundMatchAtom, undefined)
+  })
+
+  test('asks for attention when taskbar flashing is allowed', () => {
+    runMatchFound()
+
+    expect(ipcSend).toHaveBeenCalledExactlyOnceWith('userAttentionRequired')
+    expect(jotaiStore.get(foundMatchAtom)).toBeDefined()
+  })
+
+  test('does not ask for attention when taskbar flashing is off', () => {
+    runMatchFound(false)
+
+    expect(ipcSend).not.toHaveBeenCalled()
+    expect(jotaiStore.get(foundMatchAtom)).toBeDefined()
+  })
+})
+
 describe('client/matchmaking/socket-handlers/draftStarted', () => {
   beforeEach(() => {
     showSnackbarMock.mockClear()
+    ipcSend.mockClear()
     jotaiStore.set(foundMatchAtom, undefined)
     jotaiStore.set(currentSearchInfoAtom, undefined)
   })
@@ -139,6 +189,15 @@ describe('client/matchmaking/socket-handlers/draftStarted', () => {
     runDraftStarted()
 
     expect(jotaiStore.get(currentSearchInfoAtom)).toBe(searchInfo)
+  })
+
+  test('asks for attention only when taskbar flashing is allowed', () => {
+    runDraftStarted()
+    expect(ipcSend).toHaveBeenCalledExactlyOnceWith('userAttentionRequired')
+
+    ipcSend.mockClear()
+    runDraftStarted([], false)
+    expect(ipcSend).not.toHaveBeenCalled()
   })
 })
 
