@@ -1385,10 +1385,19 @@ async function createWindow() {
     mainWindow.once('ready-to-show', () => {
       if (showInBackground) {
         logger.info('Showing the window behind other windows (SB_APP_BACKGROUND=1)')
+        // Moving it back has to wait for the window list, during which a shown window sits on top
+        // of the one being used, so it stays fully transparent until it's behind.
+        mainWindow!.setOpacity(0)
         mainWindow!.showInactive()
-        sendBehindOtherWindows(mainWindow!).catch(err => {
-          logger.warning(`Couldn't move the window behind other windows: ${getErrorStack(err)}`)
-        })
+        sendBehindOtherWindows(mainWindow!)
+          .catch(err => {
+            logger.warning(`Couldn't move the window behind other windows: ${getErrorStack(err)}`)
+          })
+          .finally(() => {
+            if (!mainWindow!.isDestroyed()) {
+              mainWindow!.setOpacity(1)
+            }
+          })
       } else {
         mainWindow!.show()
       }

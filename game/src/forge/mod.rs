@@ -500,28 +500,29 @@ struct Window {
 
 unsafe impl Send for Window {}
 
-/// Drops SC:R's cursor warps while [`SUPPRESS_SCR_CURSOR_MOVES`] is set, or while the game has to
-/// [`stay_in_background`]. SB's own cursor moves run with the SC:R hooks disabled, so only the
-/// game's calls are affected.
+/// Drops SC:R's cursor warps while [`SUPPRESS_SCR_CURSOR_MOVES`] is set, and every cursor warp while
+/// the game has to [`stay_in_background`]. SB's own cursor moves run with the SC:R hooks disabled,
+/// so they get past the first gate but not the second: SB code that runs SC:R's window procedure
+/// (a faked resize, say) has the hooks disabled too, and SC:R warps from inside it.
 fn set_cursor_pos(x: i32, y: i32, orig: unsafe extern "C" fn(i32, i32) -> i32) -> i32 {
-    if !scr_hooks_disabled() {
-        if SUPPRESS_SCR_CURSOR_MOVES.load(Ordering::Acquire) {
-            debug!("Dropping SC:R SetCursorPos({x}, {y}) during game loop start");
-            return 1;
-        }
-        if stay_in_background() {
-            debug!("Dropping SC:R SetCursorPos({x}, {y}) while in the background");
-            return 1;
-        }
+    if stay_in_background() {
+        debug!("Dropping SetCursorPos({x}, {y}) while in the background");
+        return 1;
+    }
+    if !scr_hooks_disabled() && SUPPRESS_SCR_CURSOR_MOVES.load(Ordering::Acquire) {
+        debug!("Dropping SC:R SetCursorPos({x}, {y}) during game loop start");
+        return 1;
     }
     unsafe { orig(x, y) }
 }
 
-/// Drops SC:R's mouse confinement while the game has to [`stay_in_background`], so a game window
-/// that isn't in front can't trap the cursor. Releasing the confinement always goes through.
+/// Drops mouse confinement while the game has to [`stay_in_background`], so a game window that
+/// isn't in front can't trap the cursor, including confinement SC:R applies from inside SB code
+/// that runs its window procedure with the hooks disabled. Releasing the confinement always goes
+/// through.
 fn clip_cursor(rect: *const RECT, orig: unsafe extern "C" fn(*const RECT) -> i32) -> i32 {
-    if !rect.is_null() && !scr_hooks_disabled() && stay_in_background() {
-        debug!("Dropping SC:R ClipCursor while in the background");
+    if !rect.is_null() && stay_in_background() {
+        debug!("Dropping ClipCursor while in the background");
         return 1;
     }
     unsafe { orig(rect) }
@@ -1104,6 +1105,11 @@ pub fn game_started() {
 /// warping the OS cursor onto the game's internal mouse position. That warp is dropped by the
 /// cursor gate while the game loop is starting (see [`suppress_scr_cursor_moves`]).
 pub fn fix_clip_cursor() {
+    if stay_in_background() {
+        // The confinement it re-applies would only be dropped, and the resize it fakes runs with
+        // the hooks disabled.
+        return;
+    }
     let handle = with_forge(|forge| forge.window.as_ref().map(|s| s.handle));
     if let Some(handle) = handle {
         unsafe {
