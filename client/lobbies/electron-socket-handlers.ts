@@ -93,16 +93,18 @@ const eventToAction: EventToActionMap = {
     }
   },
 
-  slotCreate: (lobbyId, event) => {
+  slotCreate: (lobbyId, event) => (dispatch, getState) => {
     if (event.slot.type === 'human') {
       audioManager.playSound(AvailableSound.JoinAlert)
-      ipcRenderer.send('userAttentionRequired')
+      if (getState().settings.account.flashTaskbar) {
+        ipcRenderer.send('userAttentionRequired')
+      }
     }
 
-    return {
+    dispatch({
       type: '@lobbies/updateSlotCreate',
       payload: event,
-    }
+    })
   },
 
   raceChange: (lobbyId, event) => ({
@@ -250,6 +252,7 @@ const eventToAction: EventToActionMap = {
         auth,
         lobby,
         relationships: { blocks },
+        settings: { account: accountSettings },
       } = getState()
 
       const isBlocked = blocks.has(event.message.from)
@@ -257,6 +260,7 @@ const eventToAction: EventToActionMap = {
         // Notify the main process of the new message, so it can display an appropriate notification
         ipcRenderer.send('chatNewMessage', {
           urgent: event.mentions.some(m => m.id === auth.self!.user.id),
+          flashTaskbar: accountSettings.flashTaskbar,
         })
       }
 
@@ -265,7 +269,11 @@ const eventToAction: EventToActionMap = {
         payload: event,
       })
 
-      if (!isBlocked && (!lobby.activated || !windowFocus.isFocused())) {
+      if (
+        !isBlocked &&
+        accountSettings.playMessageSounds &&
+        (!lobby.activated || !windowFocus.isFocused())
+      ) {
         audioManager.playSound(AvailableSound.MessageAlert)
       }
     }

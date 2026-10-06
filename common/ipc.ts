@@ -384,7 +384,12 @@ interface IpcInvokeables {
 
 /** Events that can be sent from the renderer process to the main process. */
 interface IpcRendererSendables {
-  chatNewMessage: (data: { urgent: boolean }) => void
+  /**
+   * A new message that should alert the user. Every alert shows a transient tray icon; `urgent`
+   * (the message is aimed at this user) picks the urgent variant of that icon and, if
+   * `flashTaskbar` allows it, also flashes the taskbar.
+   */
+  chatNewMessage: (data: { urgent: boolean; flashTaskbar: boolean }) => void
   /**
    * Reports whether any conversation with tracked read state (chat channels, whispers) currently
    * has unread messages, and whether any of that unread state is urgent. Sent on every change,

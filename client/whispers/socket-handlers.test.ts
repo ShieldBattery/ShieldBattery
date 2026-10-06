@@ -54,8 +54,14 @@ interface WhisperCase {
   showWhispersEverywhere?: boolean
   /** The account's `availability`. Defaults to online. */
   availability?: UserAvailability
+  /** The account's `playMessageSounds` setting. Defaults to `true`. */
+  playMessageSounds?: boolean
+  /** The account's `flashTaskbar` setting. Defaults to `true`. */
+  flashTaskbar?: boolean
   /** Whether the message should alert: the attention IPC plus the alert sound. */
   alerts: boolean
+  /** Whether an alert should play the alert sound. Defaults to `alerts`. */
+  sound?: boolean
   /** The surface last on screen, which is where an echo goes. Defaults to a chat channel. */
   surface?: LocalMessageTarget
   /** Whether the message should be echoed into `surface`. */
@@ -195,6 +201,25 @@ describe('whisper message echoes', () => {
       echoed: true,
       becomesReplyTarget: true,
     },
+    {
+      name: 'with message sounds off, a message still asks for attention without a sound',
+      fromSelf: false,
+      blocked: false,
+      playMessageSounds: false,
+      alerts: true,
+      sound: false,
+      echoed: true,
+      becomesReplyTarget: true,
+    },
+    {
+      name: 'with taskbar flashing off, a message alerts urgently but without flashing',
+      fromSelf: false,
+      blocked: false,
+      flashTaskbar: false,
+      alerts: true,
+      echoed: true,
+      becomesReplyTarget: true,
+    },
   ])('$name', options => {
     const surface = Object.hasOwn(options, 'surface') ? options.surface : CHANNEL_SURFACE
     jotaiStore.set(lastChatSurfaceAtom, surface)
@@ -210,6 +235,8 @@ describe('whisper message echoes', () => {
           quietWhispersWhileInGame: options.quietWhispersWhileInGame ?? true,
           showWhispersEverywhere: options.showWhispersEverywhere ?? true,
           availability: options.availability ?? UserAvailability.Online,
+          playMessageSounds: options.playMessageSounds ?? true,
+          flashTaskbar: options.flashTaskbar ?? true,
         },
       },
       gameClient: {
@@ -253,8 +280,12 @@ describe('whisper message echoes', () => {
       payload: event,
       meta: { target: OTHER.id, isSelfMessage: options.fromSelf, windowFocused: false },
     })
-    expect(mocks.send).toHaveBeenCalledTimes(options.alerts ? 1 : 0)
-    expect(mocks.playSound).toHaveBeenCalledTimes(options.alerts ? 1 : 0)
+    expect(mocks.send.mock.calls).toEqual(
+      options.alerts
+        ? [['chatNewMessage', { urgent: true, flashTaskbar: options.flashTaskbar ?? true }]]
+        : [],
+    )
+    expect(mocks.playSound).toHaveBeenCalledTimes((options.sound ?? options.alerts) ? 1 : 0)
 
     const echoDispatches = dispatched.mock.calls
       .map(([action]) => action)

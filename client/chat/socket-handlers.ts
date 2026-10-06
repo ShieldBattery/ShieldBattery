@@ -145,6 +145,7 @@ const eventToChatAction: EventToChatActionMap = {
         // for urgent ones, which is reserved for messages aimed at this user.
         ipcRenderer.send('chatNewMessage', {
           urgent: isMention,
+          flashTaskbar: accountSettings.flashTaskbar,
         })
       }
 
@@ -157,7 +158,11 @@ const eventToChatAction: EventToChatActionMap = {
       })
 
       const isChannelActivated = activatedChannels.has(channelId)
-      if (shouldAlert && (!isChannelActivated || !windowFocused)) {
+      if (
+        shouldAlert &&
+        accountSettings.playMessageSounds &&
+        (!isChannelActivated || !windowFocused)
+      ) {
         audioManager.playSound(AvailableSound.MessageAlert)
       }
     }

@@ -1,10 +1,13 @@
 import { act, render } from '@testing-library/react'
 import { createStore as createJotaiStore, Provider as JotaiProvider } from 'jotai'
+import { Provider as ReduxProvider } from 'react-redux'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { MatchmakingType } from '../../common/matchmaking'
+import { DEFAULT_ACCOUNT_SETTINGS } from '../../common/settings/account-settings'
 import { asMockedFunction } from '../../common/testing/mocks'
 import { audioManager, AvailableSound } from '../audio/audio-manager'
 import { playRandomTickSound } from '../audio/tick-sounds'
+import createReduxStore from '../create-store'
 import { AcceptMatchCountdownSounds } from './accept-match-sounds'
 import { FoundMatch, foundMatchAtom } from './matchmaking-atoms'
 
@@ -42,13 +45,25 @@ function makeMatch(): FoundMatch {
 }
 
 let jotaiStore: ReturnType<typeof createJotaiStore>
+let reduxStore: ReturnType<typeof createReduxStore>
 
 function renderSounds() {
   return render(
-    <JotaiProvider store={jotaiStore}>
-      <AcceptMatchCountdownSounds />
-    </JotaiProvider>,
+    <ReduxProvider store={reduxStore}>
+      <JotaiProvider store={jotaiStore}>
+        <AcceptMatchCountdownSounds />
+      </JotaiProvider>
+    </ReduxProvider>,
   )
+}
+
+function setFlashTaskbar(flashTaskbar: boolean) {
+  act(() => {
+    reduxStore.dispatch({
+      type: '@settings/updateAccountSettings',
+      payload: { ...DEFAULT_ACCOUNT_SETTINGS, flashTaskbar },
+    })
+  })
 }
 
 /**
@@ -78,6 +93,7 @@ describe('client/matchmaking/accept-match-sounds', () => {
       toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date', 'performance'],
     })
     jotaiStore = createJotaiStore()
+    reduxStore = createReduxStore()
     fadeOut = vi.fn()
     playFadeableSoundMock.mockReset().mockReturnValue({ fadeOut } as any)
     playRandomTickSoundMock.mockReset().mockReturnValue({ fadeOut } as any)
@@ -121,6 +137,33 @@ describe('client/matchmaking/accept-match-sounds', () => {
     expect(playRandomTickSoundMock).toHaveBeenCalledTimes(2)
     // The previous second's tick is faded out as the next one starts.
     expect(fadeOut).toHaveBeenCalledTimes(1)
+  })
+
+  test('still ticks but does not ask for attention when taskbar flashing is off', () => {
+    setFlashTaskbar(false)
+    jotaiStore.set(foundMatchAtom, makeMatch())
+    renderSounds()
+
+    advanceTo(4)
+    expect(playRandomTickSoundMock).toHaveBeenCalledTimes(6)
+    expect(playFadeableSoundMock).toHaveBeenCalledTimes(1)
+    expect(ipcSend).not.toHaveBeenCalled()
+  })
+
+  test('turning taskbar flashing off mid-countdown does not replay the current sound', () => {
+    jotaiStore.set(foundMatchAtom, makeMatch())
+    renderSounds()
+
+    advanceTo(10)
+    expect(playRandomTickSoundMock).toHaveBeenCalledTimes(1)
+    expect(ipcSend).toHaveBeenCalledTimes(1)
+
+    setFlashTaskbar(false)
+    expect(playRandomTickSoundMock).toHaveBeenCalledTimes(1)
+
+    advanceBy(1000)
+    expect(playRandomTickSoundMock).toHaveBeenCalledTimes(2)
+    expect(ipcSend).toHaveBeenCalledTimes(1)
   })
 
   test('hands over to the single countdown sound for the last seconds, without retriggering it', () => {

@@ -64,6 +64,7 @@ const eventToAction: EventToActionMap = {
         // Notify the main process of the new message, so it can display an appropriate notification
         ipcRenderer.send('chatNewMessage', {
           urgent: true,
+          flashTaskbar: accountSettings.flashTaskbar,
         })
       }
 
@@ -113,7 +114,13 @@ const eventToAction: EventToActionMap = {
         return
       }
 
-      if (!isSelfMessage && !isBlocked && !quiet && (!session.activated || !windowFocused)) {
+      if (
+        !isSelfMessage &&
+        !isBlocked &&
+        !quiet &&
+        accountSettings.playMessageSounds &&
+        (!session.activated || !windowFocused)
+      ) {
         audioManager.playSound(AvailableSound.MessageAlert)
       }
     }

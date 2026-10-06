@@ -13,6 +13,22 @@ describe('settings/account-settings-api', () => {
       expect(value).toEqual({ availability: UserAvailability.DoNotDisturb })
     })
 
+    test('accepts the alert toggles', () => {
+      const { error, value } = updateAccountSettingsSchema.validate({
+        playMessageSounds: false,
+        flashTaskbar: false,
+      })
+
+      expect(error).toBeUndefined()
+      expect(value).toEqual({ playMessageSounds: false, flashTaskbar: false })
+    })
+
+    test('rejects a non-boolean alert toggle', () => {
+      expect(
+        updateAccountSettingsSchema.validate({ flashTaskbar: 'sometimes' }).error,
+      ).toBeDefined()
+    })
+
     test('rejects a removed status message', () => {
       expect(
         updateAccountSettingsSchema.validate({ statusMessage: 'back in 10' }).error,

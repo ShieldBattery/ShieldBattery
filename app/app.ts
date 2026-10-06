@@ -712,7 +712,7 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
         systemTray.showTransientUnreadIcon(data.urgent)
       }
 
-      if (data.urgent) {
+      if (data.urgent && data.flashTaskbar) {
         mainWindow.flashFrame(true)
       }
     }

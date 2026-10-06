@@ -51,13 +51,15 @@ type EventToActionMap = {
 
 /** Exported for tests; the socket routes are registered by the default export. */
 export const eventToAction: EventToActionMap = {
-  matchFound: (matchmakingType, event) => {
+  matchFound: (matchmakingType, event) => (dispatch, getState) => {
     logger.debug(
       `Match found, showing accept dialog. ${event.acceptTimeLeftMillis}ms left, ` +
         `${event.acceptedPlayers} / ${event.numPlayers} accepted. ` +
         `Self accepted: ${event.hasAccepted}`,
     )
-    ipcRenderer.send('userAttentionRequired')
+    if (getState().settings.account.flashTaskbar) {
+      ipcRenderer.send('userAttentionRequired')
+    }
     audioManager.playSound(AvailableSound.MatchFound)
 
     jotaiStore.set(foundMatchAtom, {
@@ -95,7 +97,9 @@ export const eventToAction: EventToActionMap = {
     jotaiStore.set(draftStateAtom, event.draftState)
     jotaiStore.set(draftMatchmakingTypeAtom, matchmakingType)
 
-    ipcRenderer.send('userAttentionRequired')
+    if (getState().settings.account.flashTaskbar) {
+      ipcRenderer.send('userAttentionRequired')
+    }
   },
 
   draftPickStarted: (matchmakingType, event) => {
@@ -135,12 +139,14 @@ export const eventToAction: EventToActionMap = {
     const {
       auth,
       relationships: { blocks },
+      settings: { account: accountSettings },
     } = getState()
 
     const isBlocked = blocks.has(event.message.from)
     if (!isBlocked) {
       ipcRenderer.send('chatNewMessage', {
         urgent: event.mentions.some(m => m.id === auth.self!.user.id),
+        flashTaskbar: accountSettings.flashTaskbar,
       })
     }
 
@@ -154,7 +160,7 @@ export const eventToAction: EventToActionMap = {
 
     addDraftChatMessage(jotaiStore, event.message)
 
-    if (!isBlocked && !windowFocus.isFocused()) {
+    if (!isBlocked && accountSettings.playMessageSounds && !windowFocus.isFocused()) {
       audioManager.playSound(AvailableSound.MessageAlert)
     }
   },

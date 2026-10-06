@@ -29,6 +29,17 @@ export interface AccountSettings {
    */
   quietWhispersWhileInGame: boolean
   /**
+   * Whether a chat message that would alert (channel, whisper, lobby or match draft chat) plays the
+   * message alert sound. Event sounds that need a response, like a found match, are unaffected.
+   */
+  playMessageSounds: boolean
+  /**
+   * Whether the app may flash its taskbar button to ask for attention, both for messages aimed at
+   * the user and for events like a found match or a player joining their lobby. Off still shows
+   * the transient tray icon for new messages.
+   */
+  flashTaskbar: boolean
+  /**
    * Whispers sent and received are echoed as a line into whatever chat is on screen, so they can
    * be read and answered without switching to the conversation. Off is for people who stream
    * their screen.
@@ -64,6 +75,8 @@ export function isChatDisplayMode(value: unknown): value is ChatDisplayMode {
 export const DEFAULT_ACCOUNT_SETTINGS: ReadonlyDeep<AccountSettings> = {
   quietChannelsWhileInGame: true,
   quietWhispersWhileInGame: true,
+  playMessageSounds: true,
+  flashTaskbar: true,
   showWhispersEverywhere: true,
   availability: UserAvailability.Online,
   chatDisplayMode: 'classic',
