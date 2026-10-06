@@ -126,6 +126,10 @@ const SYNC_CHECK_KINDS: usize = 0x20;
 const SYNC_VISION_BYTES: usize = 0x100;
 /// Bytes of the unit repulsion field, a fixed 0xab by 0xab grid of one byte per chunk.
 const REPULSE_STATE_SIZE: usize = 0xab * 0xab;
+/// Players the AI region reachability memo keeps a row for.
+const AI_REACHABILITY_PLAYERS: usize = 8;
+/// Pathing regions one row of the AI region reachability memo has a state byte for.
+const AI_REACHABILITY_REGIONS: usize = 2500;
 /// A pool vector's capacity word carries a flag in its top bit for storage the vector does not
 /// own, so the element count is the rest of the word.
 pub(super) const CAPACITY_MASK: usize = usize::MAX >> 1;
@@ -698,6 +702,23 @@ pub fn analyze_ranges(
         },
     );
     add("ai_regions", analysis.ai_regions(), RangeKind::AiRegions);
+    // The AI's memo of which pathing regions a player can reach from a source region: one row of
+    // a state byte per region for each player, then the game second each row was computed at, then
+    // the region it was computed from, all `u32` per player. A query from the same source within
+    // ten game seconds reuses the row rather than flooding the regions again, so a re-simulation
+    // left with rows, seconds or sources from the simulation it replaces answers from the wrong
+    // flood, and the AI orders its units differently (a transport unloading where it would have
+    // moved on). The analysis resolves the source array, the last of the three.
+    let reachability_rows = AI_REACHABILITY_PLAYERS * AI_REACHABILITY_REGIONS;
+    let reachability_per_player = AI_REACHABILITY_PLAYERS * size_of::<u32>();
+    add(
+        "ai_region_reachability",
+        analysis.ai_transport_reachability_cached_region(),
+        RangeKind::Block {
+            offset: -((reachability_rows + reachability_per_player) as isize),
+            len: reachability_rows + 2 * reachability_per_player,
+        },
+    );
     // The pathing state block ends with a pointer to the dynamic state, a small heap struct
     // holding the collision edge arrays' pointers, counts, capacities and bounds. Both where that
     // pointer sits and how large the struct is differ between the architectures, so both come

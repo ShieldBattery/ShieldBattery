@@ -1392,6 +1392,13 @@ impl<'e> Analysis<'e> {
         self.0.pathing_ignored_unit()
     }
 
+    /// The `u32` per player naming the pathing region the AI's region reachability memo row was
+    /// last computed from. It ends the memo: before it sit the game second each row was computed
+    /// at (`u32` per player) and, before those, the rows themselves (a state byte per region).
+    pub fn ai_transport_reachability_cached_region(&mut self) -> Option<Operand<'e>> {
+        self.0.ai_transport_reachability_cached_region()
+    }
+
     /// Pointer global holding the unit repulsion field.
     pub fn repulse_state(&mut self) -> Option<Operand<'e>> {
         self.0.repulse_state()
