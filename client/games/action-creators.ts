@@ -1,10 +1,14 @@
+import { ReadonlyDeep } from 'type-fest'
 import {
+  GameReplayDebugInfo,
   GetGameResponse,
   GetGamesQueryParams,
   GetGamesResponse,
   ReviewRequestResponse,
 } from '../../common/games/games'
+import { TypedIpcRenderer } from '../../common/ipc'
 import { apiUrl, urlPath } from '../../common/urls'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { ThunkAction } from '../dispatch-registry'
 import logger from '../logging/logger'
 import { push } from '../navigation/routing'
@@ -12,6 +16,8 @@ import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { clientId } from '../network/client-id'
 import { fetchJson } from '../network/fetch'
 import { RequestCoalescer } from '../network/request-coalescer'
+import { ensureReplayCached } from '../replays/action-creators'
+import { buildChatTranscript, ChatTranscript } from './chat-transcript'
 import { buildGameListSearchParams } from './game-filter-url'
 import { ResultsSubPage } from './results-sub-page'
 import { toRouteGameId } from './route-game-id'
@@ -38,6 +44,8 @@ export function navigateToGameResults(
 ) {
   transitionFn(getGameResultsUrl(gameId, asPostGame, tab))
 }
+
+const ipcRenderer = new TypedIpcRenderer()
 
 const viewGameRequestCoalescer = new RequestCoalescer<string>()
 
@@ -130,4 +138,28 @@ export function unsubscribeFromGame(gameId: string): ThunkAction {
       },
     )
   }
+}
+
+/**
+ * Builds a game's chat transcript by downloading (into the local replay cache) and merging the
+ * chat of one replay per side, as chosen by `selectChatTranscriptReplays`.
+ */
+export function loadGameChatTranscript(
+  sides: ReadonlyArray<ReadonlyArray<SbUserId>>,
+  replays: ReadonlyArray<{ side: number; replay: ReadonlyDeep<GameReplayDebugInfo> }>,
+  spec: RequestHandlingSpec<ChatTranscript>,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    const sources = await Promise.all(
+      replays.map(async ({ side, replay }) => {
+        const path = await ensureReplayCached(replay, spec.signal)
+        const chat = path ? await ipcRenderer.invoke('replayParseChat', path) : undefined
+        if (!chat) {
+          throw new Error(`Couldn't read the chat from replay ${replay.id}`)
+        }
+        return { side, chat }
+      }),
+    )
+    return buildChatTranscript(sources, sides)
+  })
 }

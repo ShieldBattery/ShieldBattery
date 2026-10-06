@@ -120,34 +120,37 @@ export function watchReplayFromUrl(
   spec: RequestHandlingSpec,
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
-    // Check if replay is already cached
-    let replayPath = await ipcRenderer.invoke('replayStoreGetPath', replayInfo.id, replayInfo.hash)
-
-    if (!replayPath) {
-      // Download the replay
-      const response = await fetchRaw(replayInfo.url, {
-        signal: spec.signal,
-        credentials: 'same-origin',
-        headers: { Accept: '*/*' },
-      })
-      if (!response.ok) {
-        throw new Error(`Failed to download replay: ${response.status} ${response.statusText}`)
-      }
-      const data = await response.arrayBuffer()
-
-      // Store in cache
-      replayPath = await ipcRenderer.invoke(
-        'replayStoreStoreReplay',
-        replayInfo.id,
-        replayInfo.hash,
-        data,
-      )
-    }
-
+    const replayPath = await ensureReplayCached(replayInfo, spec.signal)
     if (replayPath) {
       dispatch(startReplay({ path: replayPath, name: `Replay ${gameId}` }))
     }
   })
+}
+
+/**
+ * Returns the path of a server-stored replay in the local replay cache, downloading it into the
+ * cache first if it isn't already there.
+ */
+export async function ensureReplayCached(
+  replayInfo: Pick<GameReplayInfo, 'id' | 'url' | 'hash'>,
+  signal?: AbortSignal,
+): Promise<string | undefined> {
+  const cachedPath = await ipcRenderer.invoke('replayStoreGetPath', replayInfo.id, replayInfo.hash)
+  if (cachedPath) {
+    return cachedPath
+  }
+
+  const response = await fetchRaw(replayInfo.url, {
+    signal,
+    credentials: 'same-origin',
+    headers: { Accept: '*/*' },
+  })
+  if (!response.ok) {
+    throw new Error(`Failed to download replay: ${response.status} ${response.statusText}`)
+  }
+  const data = await response.arrayBuffer()
+
+  return await ipcRenderer.invoke('replayStoreStoreReplay', replayInfo.id, replayInfo.hash, data)
 }
 
 /**

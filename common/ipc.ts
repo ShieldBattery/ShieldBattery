@@ -15,6 +15,7 @@ import { NetcodeV2ServerSetup } from './games/netcode-v2'
 import { GameClientPlayerResult } from './games/results'
 import { SbLobbyId } from './lobbies/sb-lobby-id'
 import { MapExtension } from './maps'
+import { ReplayChat } from './replays'
 import {
   ReplayBackfillProgress,
   ReplayLibraryEntry,
@@ -236,6 +237,12 @@ interface IpcInvokeables {
     players: Player[]
     shieldBatteryData?: ShieldBatteryData
   }>
+
+  /**
+   * Reads the chat and leaves recorded in a replay file, along with the players needed to
+   * attribute them.
+   */
+  replayParseChat: (replayPath: string) => Promise<ReplayChat>
 
   /**
    * Returns the page of indexed replays matching `filters` selected by `filters.offset`/
