@@ -4,6 +4,12 @@ import logger from '../logging/logger'
 import { Clock } from '../time/clock'
 import { monotonicNow } from '../time/monotonic-now'
 
+/**
+ * The longest delay `setTimeout` supports. Longer delays overflow and fire immediately, so waits
+ * longer than this are split into multiple timeouts.
+ */
+const MAX_TIMEOUT_MS = 2 ** 31 - 1
+
 interface JobInfo {
   jobId: string
   startTime: Date
@@ -46,13 +52,11 @@ export class JobScheduler {
       this.unscheduleJob(jobId)
     }
 
-    let firstTimeout = Number(startTime) - this.clock.now()
-    if (firstTimeout < 0) {
+    if (Number(startTime) < this.clock.now()) {
       logger.warn(`startTime for job ${jobId} was not in the future`)
-      firstTimeout = 0
     }
 
-    const currentTimeout = setTimeout(() => this.runJob(jobId), firstTimeout)
+    const currentTimeout = this.setFirstRunTimeout(jobId, startTime)
     this.jobs.set(jobId, { jobId, startTime, runEveryMs, jobFn, currentTimeout })
     logger.info(
       `Scheduled ${jobId} to run every ${runEveryMs}ms starting at ${startTime.toISOString()}`,
@@ -89,6 +93,20 @@ export class JobScheduler {
     this.jobs.delete(jobId)
     clearTimeout(job.currentTimeout)
     return true
+  }
+
+  private setFirstRunTimeout(jobId: string, startTime: Date): ReturnType<typeof setTimeout> {
+    const delay = Math.max(0, Number(startTime) - this.clock.now())
+    if (delay <= MAX_TIMEOUT_MS) {
+      return setTimeout(() => this.runJob(jobId), delay)
+    }
+
+    return setTimeout(() => {
+      const job = this.jobs.get(jobId)
+      if (job) {
+        job.currentTimeout = this.setFirstRunTimeout(jobId, startTime)
+      }
+    }, MAX_TIMEOUT_MS)
   }
 
   private runJob(jobId: string) {

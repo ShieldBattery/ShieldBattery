@@ -14,6 +14,7 @@ import {
   LeagueBanNotificationUi,
   LeagueUnbanNotificationUi,
 } from '../leagues/league-ban-notification-ui'
+import { LeagueStartNotificationUi } from '../leagues/league-start-notification-ui'
 import { logger } from '../logging/logger'
 import { MatchmakingBanNotificationUi } from '../matchmaking/matchmaking-ban-notification-ui'
 import { PolicyUpdateNotificationUi } from '../policies/policy-update-notification-ui'
@@ -35,6 +36,7 @@ export function notificationHasUi(notification: SbNotification) {
     case NotificationType.UserRestricted:
     case NotificationType.LeagueBan:
     case NotificationType.LeagueUnban:
+    case NotificationType.LeagueStart:
     case NotificationType.ChannelKick:
     case NotificationType.ChannelBan:
     case NotificationType.ChannelUnban:
@@ -118,6 +120,15 @@ export function NotificationUi({ notification, showDivider, ref }: NotificationU
     case NotificationType.LeagueUnban:
       return (
         <LeagueUnbanNotificationUi
+          ref={ref}
+          showDivider={showDivider}
+          read={notification.read}
+          notification={notification}
+        />
+      )
+    case NotificationType.LeagueStart:
+      return (
+        <LeagueStartNotificationUi
           ref={ref}
           showDivider={showDivider}
           read={notification.read}

@@ -23,6 +23,7 @@ export type NotificationData =
   | UserRestrictedNotificationData
   | LeagueBanNotificationData
   | LeagueUnbanNotificationData
+  | LeagueStartNotificationData
   | ChannelKickNotificationData
   | ChannelBanNotificationData
   | ChannelUnbanNotificationData
@@ -76,6 +77,13 @@ export interface LeagueUnbanNotificationData extends BaseNotificationData {
 }
 
 type LeagueUnbanSearchNotificationData = MakeSearchable<LeagueUnbanNotificationData>
+
+export interface LeagueStartNotificationData extends BaseNotificationData {
+  type: NotificationType.LeagueStart
+  leagueName: string
+}
+
+type LeagueStartSearchNotificationData = MakeSearchable<LeagueStartNotificationData>
 
 export interface ChannelKickNotificationData extends BaseNotificationData {
   type: NotificationType.ChannelKick
@@ -146,6 +154,7 @@ export type SearchNotificationData =
   | UserRestrictedSearchNotificationData
   | LeagueBanSearchNotificationData
   | LeagueUnbanSearchNotificationData
+  | LeagueStartSearchNotificationData
   | ChannelKickSearchNotificationData
   | ChannelBanSearchNotificationData
   | ChannelUnbanSearchNotificationData

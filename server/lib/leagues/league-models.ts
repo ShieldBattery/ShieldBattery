@@ -543,3 +543,84 @@ export async function getLeagueUserChangesForGame(
     done()
   }
 }
+
+/** Returns the leagues whose start notifications haven't been handled yet. */
+export async function getLeaguesPendingStartNotification(
+  withClient?: DbClient,
+): Promise<Array<{ id: LeagueId; startAt: Date }>> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<{ id: LeagueId; start_at: Date }>(sql`
+      SELECT id, start_at
+      FROM leagues
+      WHERE start_notified_at IS NULL
+    `)
+    return result.rows.map(row => ({ id: row.id, startAt: row.start_at }))
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Marks a league's start notifications as handled if the league has started as of `now` and they
+ * haven't been handled yet, returning the league if so. A league is only ever returned by one
+ * call, even across concurrent callers.
+ */
+export async function claimLeagueStartNotification(
+  leagueId: LeagueId,
+  now: Date,
+  withClient?: DbClient,
+): Promise<{ name: string; endAt: Date } | undefined> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<{ name: string; end_at: Date }>(sql`
+      UPDATE leagues
+      SET start_notified_at = ${now}
+      WHERE id = ${leagueId} AND start_notified_at IS NULL AND start_at <= ${now}
+      RETURNING name, end_at
+    `)
+    return result.rows.length
+      ? { name: result.rows[0].name, endAt: result.rows[0].end_at }
+      : undefined
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Clears a league's start notification claim so that a later `claimLeagueStartNotification` call
+ * returns it again.
+ */
+export async function releaseLeagueStartNotificationClaim(
+  leagueId: LeagueId,
+  withClient?: DbClient,
+): Promise<void> {
+  const { client, done } = await db(withClient)
+  try {
+    await client.query(sql`
+      UPDATE leagues
+      SET start_notified_at = NULL
+      WHERE id = ${leagueId}
+    `)
+  } finally {
+    done()
+  }
+}
+
+/** Returns the IDs of every user in the league who hasn't been banned from it. */
+export async function getUnbannedLeagueUserIds(
+  leagueId: LeagueId,
+  withClient?: DbClient,
+): Promise<SbUserId[]> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<{ user_id: SbUserId }>(sql`
+      SELECT user_id
+      FROM league_users
+      WHERE league_id = ${leagueId} AND NOT is_banned
+    `)
+    return result.rows.map(row => row.user_id)
+  } finally {
+    done()
+  }
+}

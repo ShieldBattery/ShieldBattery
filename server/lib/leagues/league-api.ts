@@ -70,6 +70,7 @@ import {
   unbanLeagueUser,
   updateLeague,
 } from './league-models'
+import { LeagueStartNotifier } from './league-start-notifier'
 
 class LeagueApiError extends CodedError<LeagueErrorCode> {}
 
@@ -287,7 +288,10 @@ export class LeagueApi {
 @httpApi('/admin/leagues/')
 @httpBeforeAll(convertLeagueApiErrors, ensureLoggedIn, checkAllPermissions('manageLeagues'))
 export class LeagueAdminApi {
-  constructor(private notificationService: NotificationService) {}
+  constructor(
+    private notificationService: NotificationService,
+    private leagueStartNotifier: LeagueStartNotifier,
+  ) {}
 
   @httpGet('/')
   async getLeagues(ctx: RouterContext): Promise<AdminGetLeaguesResponse> {
@@ -386,6 +390,7 @@ export class LeagueAdminApi {
       imagePath,
       badgePath,
     })
+    this.leagueStartNotifier.scheduleLeague(league.id, league.startAt)
 
     return {
       league: toLeagueJson(league),
@@ -509,6 +514,9 @@ export class LeagueAdminApi {
     }
 
     const league = await updateLeague(leagueId, updatedLeague)
+    if (leagueChanges.startAt) {
+      this.leagueStartNotifier.scheduleLeague(league.id, league.startAt)
+    }
 
     return {
       league: toLeagueJson(league),

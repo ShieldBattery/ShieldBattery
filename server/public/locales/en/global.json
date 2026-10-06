@@ -1577,6 +1577,7 @@
     },
     "notifications": {
       "ban": "You have been banned from the <1>{{leagueName}}</1> league.",
+      "start": "The <1>{{leagueName}}</1> league has started.",
       "unban": "Your ban from the <1>{{leagueName}}</1> league has been lifted."
     }
   },
