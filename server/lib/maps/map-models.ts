@@ -175,12 +175,12 @@ export async function addMap(
           CURRENT_TIMESTAMP AT TIME ZONE 'UTC', ${visibility}, ${title}, ${description})
         ON CONFLICT (map_hash, uploaded_by, visibility)
         DO UPDATE
+        -- name/description are left alone so that edits made after the first upload survive
+        -- re-uploads of the same map
         SET
           removed_at = NULL,
           upload_date = CURRENT_TIMESTAMP AT TIME ZONE 'UTC',
-          visibility = ${visibility},
-          name = ${title},
-          description = ${description}
+          visibility = ${visibility}
         WHERE um.map_hash = ${hashBuffer} AND
           um.uploaded_by = ${uploadedBy} AND
           um.visibility = ${visibility}
