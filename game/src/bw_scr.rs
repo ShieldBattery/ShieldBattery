@@ -2698,6 +2698,15 @@ impl BwScr {
                         ),
                         false => slice,
                     };
+                    let strip_notice = are_recorded_replay_commands != 0
+                        && game_thread::sbat_replay_data().is_some();
+                    let slice: Cow<'_, [u8]> = match strip_notice {
+                        true => Cow::Owned(
+                            commands::strip_replay_notice(&slice, &self.game_command_lengths)
+                                .into_owned(),
+                        ),
+                        false => slice,
+                    };
                     let mut sync_seen = false;
                     let mut alliance_or_vision_seen = false;
                     // New scope for mutex locks (Not necessarily needed but avoiding calling back to

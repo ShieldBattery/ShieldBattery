@@ -153,8 +153,26 @@ pub fn strip_sync_commands<'a>(input: &'a [u8], command_lengths: &[u32]) -> Cow<
     Cow::Owned(buffer)
 }
 
-/// Removes invalid commands that aren't caught by BW, and the replay notice when playing back a
-/// replay (it is addressed to viewers outside ShieldBattery).
+/// Removes the notice ShieldBattery records at the start of every replay (see
+/// [`REPLAY_NOTICE_SENDER`]), which is addressed to viewers outside ShieldBattery.
+///
+/// Only meant for replays ShieldBattery recorded: in any other replay, a chat line from this
+/// sender came from some player's client, and should play back like any other chat.
+pub fn strip_replay_notice<'a>(input: &'a [u8], command_lengths: &[u32]) -> Cow<'a, [u8]> {
+    let is_notice = |cmd: &[u8]| matches!(cmd, [id::CHAT, REPLAY_NOTICE_SENDER, ..]);
+    if !iter_commands(input, command_lengths).any(is_notice) {
+        return Cow::Borrowed(input);
+    }
+    let mut buffer = Vec::with_capacity(input.len());
+    for command in iter_commands(input, command_lengths) {
+        if !is_notice(command) {
+            buffer.extend_from_slice(command);
+        }
+    }
+    Cow::Owned(buffer)
+}
+
+/// Removes invalid commands that aren't caught by BW.
 pub fn filter_invalid_commands<'a>(
     input: &'a [u8],
     from_replay: bool,
@@ -167,7 +185,6 @@ pub fn filter_invalid_commands<'a>(
     for command in iter_commands(input, command_lengths) {
         let ok = match command {
             [id::REPLAY_SEEK, ..] => !from_replay,
-            [id::CHAT, REPLAY_NOTICE_SENDER, ..] => !from_replay,
             [id::REPLAY_SPEED, rest @ ..] => {
                 if from_replay || rest.len() != 9 {
                     false
@@ -318,7 +335,7 @@ mod test {
     }
 
     #[test]
-    fn filter_replay_notice() {
+    fn strip_replay_notice_keeps_player_chat() {
         let chat = |sender: u8| {
             let mut data = vec![0x20, 0xff, 0xff, id::CHAT, sender];
             data.extend_from_slice(&[b'a'; 0x50]);
@@ -326,22 +343,15 @@ mod test {
             data
         };
         let notice = chat(REPLAY_NOTICE_SENDER);
-        let expected_bad = &[0x20, 0xff, 0xff, 0x62, 0xff, 0xff, 0xff, 0xff];
-        // Recorded live, dropped on playback.
         assert_eq!(
-            &*filter_invalid_commands(&notice, false, false, LENGTHS),
-            &notice[..]
+            &*strip_replay_notice(&notice, LENGTHS),
+            &[0x20, 0xff, 0xff, 0x62, 0xff, 0xff, 0xff, 0xff]
         );
-        assert_eq!(
-            &*filter_invalid_commands(&notice, true, false, LENGTHS),
-            expected_bad
-        );
-        // Players' chat plays back.
         let player_chat = chat(1);
-        assert_eq!(
-            &*filter_invalid_commands(&player_chat, true, false, LENGTHS),
-            &player_chat[..]
-        );
+        assert!(matches!(
+            strip_replay_notice(&player_chat, LENGTHS),
+            Cow::Borrowed(_)
+        ));
     }
 
     #[test]
