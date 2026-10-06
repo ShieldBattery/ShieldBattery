@@ -1102,6 +1102,14 @@ struct TickCounts {
     retracted_announcements: u32,
 }
 
+/// The file this run's rows go to, once the first row has been written.
+pub fn log_path() -> Option<String> {
+    LOG_FILE
+        .lock()
+        .as_ref()
+        .map(|file| file.path.display().to_string())
+}
+
 fn write_row(
     present: &Fingerprint,
     confirmed: &Fingerprint,

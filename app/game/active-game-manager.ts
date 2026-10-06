@@ -1,5 +1,6 @@
 import { HKCU, REG_SZ, WindowsRegistry } from '@shieldbattery/windows-registry'
 import { app, screen } from 'electron'
+import isDev from 'electron-is-dev'
 import { EventEmitter } from 'node:events'
 import { promises as fsPromises } from 'node:fs'
 import os from 'node:os'
@@ -877,8 +878,14 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
   }
 }
 
-const injectPath32 = path.resolve(app.getAppPath(), '../game/dist/shieldbattery.dll')
-const injectPath64 = path.resolve(app.getAppPath(), '../game/dist/shieldbattery_64.dll')
+// Dev builds can inject the DLLs from another directory, so a long-running test can pin the build
+// it runs against while `game/dist` gets rebuilt.
+const injectDir =
+  isDev && process.env.SB_GAME_DLL_DIR
+    ? path.resolve(process.env.SB_GAME_DLL_DIR)
+    : path.resolve(app.getAppPath(), '../game/dist')
+const injectPath32 = path.join(injectDir, 'shieldbattery.dll')
+const injectPath64 = path.join(injectDir, 'shieldbattery_64.dll')
 
 async function doLaunch(
   gameId: string,

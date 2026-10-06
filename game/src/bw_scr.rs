@@ -9289,7 +9289,11 @@ unsafe fn step_outside_rollback(
     param: usize,
     orig: unsafe extern "C" fn(usize) -> usize,
 ) -> usize {
-    unsafe { crate::rollback_harness::run_game_logic_step(bw, param, orig) }
+    unsafe {
+        crate::rollback_soak::run_game_logic_step(bw, || {
+            crate::rollback_harness::run_game_logic_step(bw, param, orig)
+        })
+    }
 }
 
 /// Runs a logic step that no rollback driver took.

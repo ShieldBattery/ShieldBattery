@@ -73,6 +73,8 @@ mod rollback_harness;
 mod rollback_live;
 #[cfg(debug_assertions)]
 mod rollback_probe;
+#[cfg(debug_assertions)]
+mod rollback_soak;
 mod snp;
 mod sync;
 mod team_colors;
@@ -272,6 +274,8 @@ pub extern "C" fn OnInject() {
     rollback_harness::init_from_env();
     #[cfg(debug_assertions)]
     rollback_bench::init_from_env();
+    #[cfg(debug_assertions)]
+    rollback_soak::init_from_env();
     #[cfg(debug_assertions)]
     rollback_live::init_from_env();
     #[cfg(debug_assertions)]
