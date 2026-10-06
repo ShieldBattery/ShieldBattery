@@ -143,12 +143,98 @@ describe('common/text/links/matchLinks', () => {
     `)
   })
 
-  test('link with percent encoded host', () => {
-    expect(doMatch('http://hello.%e4%b8%96%e7%95%8c.com/foo')).toMatchInlineSnapshot(`
-      [
-        "http://hello.%e4%b8%96%e7%95%8c.com/foo",
-      ]
-    `)
+  test('link with internationalized host', () => {
+    expect(doMatch('see http://例子.测试/ here')).toEqual(['http://例子.测试/'])
+  })
+
+  test('link with non-ascii path', () => {
+    expect(doMatch('https://ko.wikipedia.org/wiki/스타크래프트')).toEqual([
+      'https://ko.wikipedia.org/wiki/스타크래프트',
+    ])
+  })
+
+  test('link with single-character labels', () => {
+    expect(doMatch('https://x.com/foo and https://t.co/bar')).toEqual([
+      'https://x.com/foo',
+      'https://t.co/bar',
+    ])
+  })
+
+  test('link with punycode TLD', () => {
+    expect(doMatch('http://example.xn--p1ai/')).toEqual(['http://example.xn--p1ai/'])
+  })
+
+  test('link to localhost', () => {
+    expect(doMatch('http://localhost:5555/chat')).toEqual(['http://localhost:5555/chat'])
+  })
+
+  test('link in angle brackets', () => {
+    expect(doMatch('<http://www.example.com>')).toEqual(['http://www.example.com'])
+  })
+
+  test('link with path in angle brackets followed by a period', () => {
+    expect(doMatch('see <http://example.com/a>.')).toEqual(['http://example.com/a'])
+  })
+
+  test('link in angle brackets inside parentheses', () => {
+    expect(doMatch('(<http://example.com>)')).toEqual(['http://example.com'])
+  })
+
+  test('host ends at a character that cannot be part of it', () => {
+    expect(doMatch('http://example.com, http://example.org_foo')).toEqual([
+      'http://example.com',
+      'http://example.org',
+    ])
+  })
+
+  test('host followed by a sentence-ending period', () => {
+    expect(doMatch('go to http://example.com.')).toEqual(['http://example.com'])
+  })
+
+  test('link with an invalid port keeps the host', () => {
+    expect(doMatch('http://example.com:abc')).toEqual(['http://example.com'])
+  })
+
+  test('invalid hosts are not links', () => {
+    expect(
+      doMatch(
+        [
+          'http://exa<mple>.com/x',
+          'http://-a-.com',
+          'http://a-.com',
+          'http://..../',
+          'http://.example.com',
+          'http://a..com',
+          'http://example.c',
+          'http://example.123',
+          'http://example',
+          'http://1.2.3',
+          'http://1.2.3.256',
+          'http://user@example.com',
+          `http://${'a'.repeat(64)}.com`,
+          'http://hello.%e4%b8%96%e7%95%8c.com/foo',
+        ].join(' '),
+      ),
+    ).toEqual([])
+  })
+
+  test('a label of 63 characters is allowed', () => {
+    const host = `${'a'.repeat(63)}.com`
+    expect(doMatch(`http://${host}`)).toEqual([`http://${host}`])
+  })
+
+  test('a link after an invalid one is still found', () => {
+    expect(doMatch('http://-bad-.com then http://example.org/')).toEqual(['http://example.org/'])
+  })
+
+  test('long run of host characters without a valid host does not hang', () => {
+    const text = `http://${'a-'.repeat(50000)}`
+    expect(doMatch(text)).toEqual([])
+  })
+
+  test('long run of dots after a host does not hang', () => {
+    const text = `http://example.com${'.'.repeat(50000)}x`
+    expect(doMatch(text)).toEqual([])
   })
 
   test('link with path beginning with /', () => {

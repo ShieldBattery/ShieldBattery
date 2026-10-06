@@ -1,13 +1,53 @@
+// The regexes below are sticky (`y`) so they only match at the `lastIndex` they're given. They're
+// only used synchronously between a generator's yields, so sharing them across calls is safe.
+
 /**
- * Regex for detecting and parsing URLs. Not 100% exhaustive, but good enough for our use cases. The
- * main part of the regex is that the URL must start with a "http(s)://" to be considered a URL.
- *
- * This only matches the broad run of URL-ish characters; trailing punctuation that more likely
- * belongs to the surrounding sentence (an unbalanced closing paren, a sentence-ending period) is
- * trimmed off by `trimTrailingPunctuation` below rather than handled inside the regex, since
- * doing it with a backreference-in-lookbehind is quadratic on paren-heavy input.
+ * A run of characters that can make up a hostname: letters, combining marks and digits from any
+ * script (so internationalized domain names match as written), hyphens and dots.
  */
-const URL_REGEX = /https?:\/\/[^\s"\]]+/gi
+const HOST_REGEX = /[\p{L}\p{M}\p{Nd}.-]+/uy
+const PORT_REGEX = /:\d+/y
+/**
+ * The path, query and fragment, which must start right after the host (or port). Angle brackets
+ * are never part of a URL as typed, so a link written as `<http://example.org>` stops before `>`.
+ */
+const PATH_REGEX = /[/?#][^\s"\]<>]*/y
+
+const MAX_HOST_LENGTH = 253
+const MAX_LABEL_LENGTH = 63
+const ASCII_DIGITS_REGEX = /^[0-9]+$/
+
+/**
+ * Returns whether `host` is a hostname a link can point at: an IPv4 address, `localhost`, or at
+ * least two dot-separated labels of 1-63 characters that don't start or end with a hyphen, the last
+ * of which (the TLD) is at least 2 characters and not all digits.
+ */
+function isValidHost(host: string): boolean {
+  if (host.length > MAX_HOST_LENGTH) {
+    return false
+  }
+
+  const labels = host.split('.')
+  if (labels.every(label => ASCII_DIGITS_REGEX.test(label))) {
+    return labels.length === 4 && labels.every(label => label.length <= 3 && Number(label) <= 255)
+  }
+  if (labels.length < 2) {
+    return host.toLowerCase() === 'localhost'
+  }
+
+  const tld = labels[labels.length - 1]
+  if (tld.length < 2 || ASCII_DIGITS_REGEX.test(tld)) {
+    return false
+  }
+
+  return labels.every(
+    label =>
+      label.length > 0 &&
+      label.length <= MAX_LABEL_LENGTH &&
+      !label.startsWith('-') &&
+      !label.endsWith('-'),
+  )
+}
 
 /**
  * Strips trailing characters from a matched URL that more likely close out the surrounding text
@@ -49,15 +89,52 @@ export interface LinkMatch {
   index: number
 }
 
-/** Returns a generator of matches for links within the specified `text`. */
+/**
+ * Returns a generator of matches for links within the specified `text`. A link must start with
+ * "http(s)://", followed by a hostname that passes `isValidHost`, then an optional port and the
+ * broad run of URL-ish characters after it. Trailing punctuation that more likely belongs to the
+ * surrounding sentence (an unbalanced closing paren, a sentence-ending period) is trimmed off
+ * afterwards by `trimTrailingPunctuation` rather than handled inside a regex, since doing it with a
+ * backreference-in-lookbehind is quadratic on paren-heavy input. Every step is linear in the
+ * length of `text`.
+ */
 export function* matchLinks(text: string): Generator<LinkMatch> {
-  const matches: IterableIterator<RegExpMatchArray> = text.matchAll(URL_REGEX)
+  // Local rather than module-level: its `lastIndex` has to survive across this generator's yields.
+  const schemeRegex = /https?:\/\//gi
 
-  for (const match of matches) {
+  let scheme: RegExpExecArray | null
+  while ((scheme = schemeRegex.exec(text))) {
+    const hostStart = schemeRegex.lastIndex
+    HOST_REGEX.lastIndex = hostStart
+    const hostRun = HOST_REGEX.exec(text)?.[0] ?? ''
+
+    // A trailing dot ends the sentence rather than the hostname, and nothing after it belongs to
+    // the link.
+    let hostLength = hostRun.length
+    while (hostRun[hostLength - 1] === '.') {
+      hostLength--
+    }
+    if (!isValidHost(hostRun.slice(0, hostLength))) {
+      continue
+    }
+
+    let end = hostStart + hostLength
+    if (hostLength === hostRun.length) {
+      PORT_REGEX.lastIndex = end
+      if (PORT_REGEX.exec(text)) {
+        end = PORT_REGEX.lastIndex
+      }
+      PATH_REGEX.lastIndex = end
+      if (PATH_REGEX.exec(text)) {
+        end = PATH_REGEX.lastIndex
+      }
+    }
+
     yield {
       type: 'link',
-      text: trimTrailingPunctuation(match[0]),
-      index: match.index!,
+      text: trimTrailingPunctuation(text.slice(scheme.index, end)),
+      index: scheme.index,
     }
+    schemeRegex.lastIndex = end
   }
 }
