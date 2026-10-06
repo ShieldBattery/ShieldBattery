@@ -3525,7 +3525,7 @@ impl BwScr {
                                 orig(ui, unit);
                                 crate::rollback::observer_ui::observer_research_started(
                                     ui as usize,
-                                    unit as usize,
+                                    unit,
                                 );
                             }
                         },
@@ -3548,7 +3548,7 @@ impl BwScr {
                                 unit_key(unit, completed),
                             ) && crate::rollback::observer_ui::observer_research_finishing(
                                 ui as usize,
-                                unit as usize,
+                                unit,
                             ) {
                                 orig(ui, unit, completed);
                             }
