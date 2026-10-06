@@ -74,10 +74,12 @@ pub(crate) fn snapshot_spacing_from_env() -> Option<u32> {
 const DELAY_ENV_VAR: &str = "SB_ROLLBACK_DELAY";
 
 /// Environment variable naming one frame whose simulations to audit: the executable's static data
-/// is copied just before the step that first simulates the frame and again before a step that
-/// simulates it once it is confirmed, and every difference outside the snapshot's ranges is written
-/// out. The snapshot state both steps start from is the same, so with no delayed players a
-/// difference there is state the earlier simulations left behind that the snapshot does not cover.
+/// is copied just before the step that first simulates the frame and again before every later
+/// step that simulates it, and every difference outside the snapshot's ranges is written out,
+/// each simulation's diff replacing the last. What is left compares the first simulation with
+/// the last one, which is the simulation whose fingerprint the harness reports for the frame.
+/// Every simulation starts from the same snapshot state, so with no delayed players a difference
+/// there is state the earlier simulations left behind that the snapshot does not cover.
 /// Needs a forced depth, since otherwise nothing simulates a frame twice.
 const AUDIT_ENV_VAR: &str = "SB_ROLLBACK_AUDIT_FRAME";
 
@@ -109,9 +111,6 @@ static AUDIT_FIRST: Mutex<Option<Vec<u8>>> = Mutex::new(None);
 
 /// The snapshot's ranges as the step that first simulated the audited frame left them.
 static AUDIT_FIRST_RESULT: Mutex<Option<Vec<u8>>> = Mutex::new(None);
-
-/// Whether the audit has been written, so a replay seek back past the frame does not write it again.
-static AUDIT_DONE: AtomicBool = AtomicBool::new(false);
 
 /// Whether the harness is armed.
 static ARMED: AtomicBool = AtomicBool::new(false);
@@ -461,7 +460,7 @@ pub fn init_from_env() {
 /// last matching dump and the first differing one.
 const DUMP_ENV_VAR: &str = "SB_ROLLBACK_DUMP_FRAME";
 
-/// The frames [`DUMP_ENV_VAR`] names that have not been dumped yet, ascending.
+/// The frames [`DUMP_ENV_VAR`] names, ascending.
 static DUMP_FRAMES: Mutex<Vec<u32>> = Mutex::new(Vec::new());
 
 /// Whether [`DUMP_ENV_VAR`] asked for any dumps, so a step can check without taking the lock.
@@ -494,7 +493,9 @@ fn parse_frame_list(spec: &str) -> Option<Vec<u32>> {
 }
 
 /// Writes the snapshot ranges to `rollback-dump-<frame>-<pid>.bin`, with their layout in a `.csv`
-/// beside it, when the simulation is on one of the frames [`DUMP_ENV_VAR`] names.
+/// beside it, whenever the simulation is on one of the frames [`DUMP_ENV_VAR`] names. A frame
+/// re-simulated after a rollback is dumped again over the earlier files, so they end up holding
+/// its last simulation, the one whose fingerprint the harness reports.
 unsafe fn dump_if_due(bw: &BwScr) {
     unsafe {
         if !DUMP_ARMED.load(Ordering::Relaxed) {
@@ -503,14 +504,8 @@ unsafe fn dump_if_due(bw: &BwScr) {
         let Some(target) = bw.rollback_frame_count() else {
             return;
         };
-        {
-            let mut frames = DUMP_FRAMES.lock();
-            match frames.binary_search(&target) {
-                Ok(index) => {
-                    frames.remove(index);
-                }
-                Err(_) => return,
-            }
+        if DUMP_FRAMES.lock().binary_search(&target).is_err() {
+            return;
         }
         let Some(layout) = Snapshots::build(bw) else {
             error!("{DUMP_ENV_VAR}: could not lay out the snapshot ranges");
@@ -545,12 +540,12 @@ unsafe fn dump_if_due(bw: &BwScr) {
 }
 
 fn audit_armed() -> bool {
-    AUDIT_FRAME.load(Ordering::Relaxed) != 0 && !AUDIT_DONE.load(Ordering::Relaxed)
+    AUDIT_FRAME.load(Ordering::Relaxed) != 0
 }
 
 /// Copies the executable's static data before the step that first simulates the audited frame,
-/// and diffs against that copy before a step that simulates it once it is confirmed.
-unsafe fn audit_before_step(bw: &BwScr, ranges: &[Range], confirmed: bool) {
+/// and diffs against that copy before every later step that simulates it.
+unsafe fn audit_before_step(bw: &BwScr, ranges: &[Range]) {
     unsafe {
         let target = AUDIT_FRAME.load(Ordering::Relaxed);
         if bw.rollback_frame_count().map(|x| x + 1) != Some(target) {
@@ -566,10 +561,6 @@ unsafe fn audit_before_step(bw: &BwScr, ranges: &[Range], confirmed: bool) {
             info!("Rollback audit captured static data before frame {target} was first simulated");
             return;
         };
-        if !confirmed {
-            return;
-        }
-        AUDIT_DONE.store(true, Ordering::Relaxed);
         let covered = |address: usize| {
             ranges
                 .iter()
@@ -605,10 +596,10 @@ unsafe fn audit_before_step(bw: &BwScr, ranges: &[Range], confirmed: bool) {
 }
 
 /// Copies the snapshot's ranges after the step that first simulates the audited frame, and diffs
-/// against that copy after a step that simulates it once it is confirmed. The two steps start from
+/// against that copy after every later step that simulates it. The steps start from
 /// the same snapshot state, so where their results differ is what the leftover state
 /// [`audit_before_step`] reports made the simulation do differently.
-unsafe fn audit_after_step(bw: &BwScr, ranges: &[Range], confirmed: bool) {
+unsafe fn audit_after_step(bw: &BwScr, ranges: &[Range]) {
     unsafe {
         let target = AUDIT_FRAME.load(Ordering::Relaxed);
         if bw.rollback_frame_count() != Some(target) {
@@ -626,9 +617,6 @@ unsafe fn audit_after_step(bw: &BwScr, ranges: &[Range], confirmed: bool) {
             *stored = Some(current);
             return;
         };
-        if !confirmed {
-            return;
-        }
         let word = size_of::<usize>();
         let mut lines = Vec::new();
         let mut base = 0;
@@ -1036,16 +1024,14 @@ unsafe fn run_tick(
                 record_anchored_units(bw);
             }
             if let Some(ranges) = &audit_ranges {
-                audit_before_step(bw, ranges, step.is_final);
+                audit_before_step(bw, ranges);
             }
             STEPS_AFTER_CURRENT.store(step.steps_after, Ordering::Relaxed);
             let ret = crate::rollback_probe::run_game_logic_step(bw, param, orig);
             if let Some(ranges) = &audit_ranges {
-                audit_after_step(bw, ranges, step.is_final);
+                audit_after_step(bw, ranges);
             }
-            if step.is_final {
-                dump_if_due(bw);
-            }
+            dump_if_due(bw);
             if let Some(fingerprint) = bw.probe_fingerprint() {
                 FINGERPRINTS.lock().insert(fingerprint.frame, fingerprint);
             }
