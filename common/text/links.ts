@@ -6,6 +6,12 @@
  * script (so internationalized domain names match as written), hyphens and dots.
  */
 const HOST_REGEX = /[\p{L}\p{M}\p{Nd}.-]+/uy
+/**
+ * An IPv6 address in brackets (RFC 3986). 45 characters is the longest an IPv6 address can be
+ * written (eight groups with an IPv4 tail). Zone identifiers (`[fe80::1%25en0]`, RFC 6874) aren't
+ * matched: the WHATWG URL parser browsers use rejects them, so such a link couldn't be opened.
+ */
+const IPV6_HOST_REGEX = /\[([0-9a-f:.]{2,45})\]/iy
 const PORT_REGEX = /:\d+/y
 /**
  * The path, query and fragment, which must start right after the host (or port). Angle brackets
@@ -16,6 +22,42 @@ const PATH_REGEX = /[/?#][^\s"\]<>]*/y
 const MAX_HOST_LENGTH = 253
 const MAX_LABEL_LENGTH = 63
 const ASCII_DIGITS_REGEX = /^[0-9]+$/
+const IPV6_GROUP_REGEX = /^[0-9a-f]{1,4}$/i
+/** A decimal IPv4 octet, without the leading zeros the WHATWG IPv6 parser rejects. */
+const IPV4_IN_IPV6_OCTET_REGEX = /^(0|[1-9][0-9]{0,2})$/
+
+function isValidIpv4(labels: string[]): boolean {
+  return labels.length === 4 && labels.every(label => label.length <= 3 && Number(label) <= 255)
+}
+
+/**
+ * Returns whether `address` (without its brackets) is an IPv6 address: up to eight groups of 1-4
+ * hex digits separated by colons, at most one `::` standing in for one or more zero groups, and
+ * optionally a dotted IPv4 address in place of the last two groups (`::ffff:192.0.2.1`).
+ */
+function isValidIpv6(address: string): boolean {
+  const halves = address.split('::')
+  if (halves.length > 2) {
+    return false
+  }
+
+  let groups = halves.flatMap(half => (half === '' ? [] : half.split(':')))
+  let groupCount = groups.length
+  const lastGroup = groups.at(-1)
+  if (lastGroup?.includes('.') && !address.endsWith(':')) {
+    const octets = lastGroup.split('.')
+    if (!isValidIpv4(octets) || !octets.every(octet => IPV4_IN_IPV6_OCTET_REGEX.test(octet))) {
+      return false
+    }
+    groups = groups.slice(0, -1)
+    groupCount++
+  }
+  if (!groups.every(group => IPV6_GROUP_REGEX.test(group))) {
+    return false
+  }
+
+  return halves.length === 2 ? groupCount <= 7 : groupCount === 8
+}
 
 /**
  * Returns whether `host` is a hostname a link can point at: an IPv4 address, `localhost`, or at
@@ -29,7 +71,7 @@ function isValidHost(host: string): boolean {
 
   const labels = host.split('.')
   if (labels.every(label => ASCII_DIGITS_REGEX.test(label))) {
-    return labels.length === 4 && labels.every(label => label.length <= 3 && Number(label) <= 255)
+    return isValidIpv4(labels)
   }
   if (labels.length < 2) {
     return host.toLowerCase() === 'localhost'
@@ -83,6 +125,32 @@ function trimTrailingPunctuation(url: string): string {
   return end === url.length ? url : url.slice(0, end)
 }
 
+/**
+ * Matches the host of a link starting at `start`: either a bracketed IPv6 address or a hostname
+ * that passes `isValidHost`. Returns the index just past it, and whether the link ends there (a
+ * hostname followed by a sentence-ending dot, which belongs to neither the host nor anything after
+ * it), or undefined if there's no valid host at `start`.
+ */
+function matchHost(text: string, start: number): { end: number; endsLink: boolean } | undefined {
+  if (text[start] === '[') {
+    IPV6_HOST_REGEX.lastIndex = start
+    const address = IPV6_HOST_REGEX.exec(text)?.[1]
+    return address !== undefined && isValidIpv6(address)
+      ? { end: IPV6_HOST_REGEX.lastIndex, endsLink: false }
+      : undefined
+  }
+
+  HOST_REGEX.lastIndex = start
+  const hostRun = HOST_REGEX.exec(text)?.[0] ?? ''
+  let hostLength = hostRun.length
+  while (hostRun[hostLength - 1] === '.') {
+    hostLength--
+  }
+  return isValidHost(hostRun.slice(0, hostLength))
+    ? { end: start + hostLength, endsLink: hostLength < hostRun.length }
+    : undefined
+}
+
 export interface LinkMatch {
   type: 'link'
   text: string
@@ -91,10 +159,10 @@ export interface LinkMatch {
 
 /**
  * Returns a generator of matches for links within the specified `text`. A link must start with
- * "http(s)://", followed by a hostname that passes `isValidHost`, then an optional port and the
- * broad run of URL-ish characters after it. Trailing punctuation that more likely belongs to the
- * surrounding sentence (an unbalanced closing paren, a sentence-ending period) is trimmed off
- * afterwards by `trimTrailingPunctuation` rather than handled inside a regex, since doing it with a
+ * "http(s)://", followed by a host (see `matchHost`), then an optional port and the broad run of
+ * URL-ish characters after it. Trailing punctuation that more likely belongs to the surrounding
+ * sentence (an unbalanced closing paren, a sentence-ending period) is trimmed off afterwards by
+ * `trimTrailingPunctuation` rather than handled inside a regex, since doing it with a
  * backreference-in-lookbehind is quadratic on paren-heavy input. Every step is linear in the
  * length of `text`.
  */
@@ -104,22 +172,13 @@ export function* matchLinks(text: string): Generator<LinkMatch> {
 
   let scheme: RegExpExecArray | null
   while ((scheme = schemeRegex.exec(text))) {
-    const hostStart = schemeRegex.lastIndex
-    HOST_REGEX.lastIndex = hostStart
-    const hostRun = HOST_REGEX.exec(text)?.[0] ?? ''
-
-    // A trailing dot ends the sentence rather than the hostname, and nothing after it belongs to
-    // the link.
-    let hostLength = hostRun.length
-    while (hostRun[hostLength - 1] === '.') {
-      hostLength--
-    }
-    if (!isValidHost(hostRun.slice(0, hostLength))) {
+    const host = matchHost(text, schemeRegex.lastIndex)
+    if (!host) {
       continue
     }
 
-    let end = hostStart + hostLength
-    if (hostLength === hostRun.length) {
+    let end = host.end
+    if (!host.endsLink) {
       PORT_REGEX.lastIndex = end
       if (PORT_REGEX.exec(text)) {
         end = PORT_REGEX.lastIndex
