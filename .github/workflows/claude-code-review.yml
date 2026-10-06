@@ -50,6 +50,10 @@ jobs:
       - name: Run Claude Code Review
         id: claude-review
         uses: anthropics/claude-code-action@v1
+        env:
+          # A headless run ends when Claude's turn does, killing any subagent still running in
+          # the background before its findings come back, so subagents run in the foreground.
+          CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: '1'
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           path_to_claude_code_executable: /home/runner/.local/bin/claude
@@ -140,6 +144,14 @@ jobs:
             worse than no fix. If the real problem is the approach — a local patch would just
             be a band-aid — say so at the approach level in a top-level comment and describe
             what a better shape looks like, rather than proposing the band-aid.
+
+            ## Finish in one turn
+
+            This is a headless run: it ends the moment your turn does, and anything still
+            running (a background subagent, a pending check) is killed with it. If you split
+            the review across subagents, run them in the foreground and wait for every result.
+            Only end your turn after you've posted your findings (or "gg, ship it") and set the
+            final status reaction.
 
             ## Posting
 
