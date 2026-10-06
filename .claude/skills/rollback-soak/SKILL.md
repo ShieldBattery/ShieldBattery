@@ -122,7 +122,13 @@ replay, and wherever the model differs from live it can produce divergences no l
   mismatch with only no-op delays means pure forced-depth re-simulation diverged: a snapshot hole
   with no late input involved, which is the clearest case of a real engine bug.
 - **Compare arches.** Rerun the same config on the other architecture (`--arch`). A divergence on
-  only one points at a range whose analysis or size differs per arch.
+  only one points at a range whose analysis or size differs per arch, **or at SC:R itself**: the
+  32 and 64-bit builds don't simulate every game identically (the AI reads `units.dat` cost arrays
+  at the "None" id 0xE4, one past their end, and the bytes there differ per arch). A harness run
+  is only meaningful against a plain run of its own arch. The runner arranges that for random
+  configs, but a `--baseline` CSV must come from a plain run of the `--arch` you repro on. To tell
+  the two apart, compare the harness run against a plain run of the same arch (`--plain-arch`, no
+  `--baseline`). If that passes, rollback is innocent.
 
 **2. Reproduce fast.** Rerun the failure's config from shortly before the frame, ending soon after,
 against the saved baseline:
@@ -134,7 +140,9 @@ node $S/soak.mjs --workers 1 --configs 1 --replay-file $D/failures/<dir>/replay.
   --results $D/investigate/repro.jsonl
 ```
 
-`;` stands in for `,` inside a value (`SB_ROLLBACK_DELAY=0:2;3:6`). This takes about 20 s, versus
+`;` stands in for `,` inside a value (`SB_ROLLBACK_DELAY=0:2;3:6`), in `--fixed-env` and `--env`
+alike. The baseline must be from the same arch as `--arch`; the failure's `info.json` says which
+arch its game played on. This takes about 20 s, versus
 minutes for a full replay. A run with `SB_ROLLBACK_SOAK_UNTIL` is judged up to that frame, so
 `pass` means it stayed clean that far.
 Repeat it a few times to tell a deterministic failure from a flaky one. Use a distinct

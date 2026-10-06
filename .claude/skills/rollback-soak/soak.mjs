@@ -38,9 +38,10 @@ const EXTRA_ENV = Object.fromEntries(
   (opt('--env', '') || '')
     .split(',')
     .filter(Boolean)
-    .map(x => x.split('=')),
+    .map(x => x.split('='))
+    // `;` stands in for `,` inside values, as in --fixed-env.
+    .map(([k, v]) => [k, v.replaceAll(';', ',')]),
 )
-const PLAIN_ARCH = opt('--plain-arch', 'x64')
 const SOAK = path.resolve(opt('--data-dir', path.join(ROOT, '.claude-scratch/rollback-soak')))
 const STOP_FILE = path.join(SOAK, 'STOP')
 // The session whose settings (StarCraft path above all) the soak sessions start from.
@@ -57,6 +58,12 @@ const RESULTS_FILE = opt('--results', null)
 const BASELINE = opt('--baseline', null)
 // The architecture a --fixed-env run plays on.
 const FIXED_ARCH = opt('--arch', 'x64')
+// The architecture plain runs play on. A harness run is only ever compared against a plain run of
+// its own architecture: SC:R's 32 and 64-bit builds don't simulate every game identically (the AI
+// reads units.dat past the end of its arrays, where the two lay out different bytes), so a
+// cross-architecture comparison reports divergences rollback has nothing to do with. Random
+// configs pick one architecture per game for its plain run and all its harness runs.
+const PLAIN_ARCH_OPT = opt('--plain-arch', null)
 
 const RESULTS = RESULTS_FILE ? path.resolve(RESULTS_FILE) : path.join(SOAK, 'results.jsonl')
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a)
@@ -101,8 +108,9 @@ function loadQueue() {
 
 async function fetchReplay(gameId) {
   if (REPLAY_FILE) {
-    // Copied so the end-of-game cleanup can't delete the original.
-    const dest = path.join(SOAK, 'replays', `${gameId}.rep`)
+    // Copied so the end-of-game cleanup can't delete the original, under a name of this runner's
+    // own so parallel repros of the same file don't delete each other's copy.
+    const dest = path.join(SOAK, 'replays', `${gameId}-${process.pid}.rep`)
     fs.copyFileSync(REPLAY_FILE, dest)
     return { path: dest, frames: 60000, replayId: null }
   }
@@ -411,7 +419,7 @@ export async function compareHarness(harnessCsv, baseline, plainEnd) {
 
 // ---- Configs ----
 
-function randomConfig(game) {
+function randomConfig(game, arch) {
   const env = {}
   const desc = {}
   const players = Math.max(2, game.players)
@@ -439,7 +447,7 @@ function randomConfig(game) {
     env.SB_ROLLBACK_HARNESS_FROM = '1'
     desc.vision = viewer
   }
-  desc.arch = Math.random() < 0.3 ? 'x86' : 'x64'
+  desc.arch = arch
   return { env, desc }
 }
 
@@ -515,6 +523,7 @@ async function soakGame(worker, game) {
     return
   }
   await waitWhilePaused()
+  const PLAIN_ARCH = PLAIN_ARCH_OPT ?? (FIXED_ENV ? FIXED_ARCH : Math.random() < 0.3 ? 'x86' : 'x64')
   let plain
   if (BASELINE) {
     let frame = 0
@@ -551,7 +560,7 @@ async function soakGame(worker, game) {
   for (let i = 0; i < CONFIGS; i++) {
     await waitWhilePaused()
     if (fs.existsSync(STOP_FILE)) break
-    const { env, desc } = FIXED_ENV ? fixedConfig() : randomConfig(game)
+    const { env, desc } = FIXED_ENV ? fixedConfig() : randomConfig(game, PLAIN_ARCH)
     if (!FIXED_ENV && KNOWN_HOLES[desc.arch]) {
       env.SB_ROLLBACK_EXTRA_RANGES = KNOWN_HOLES[desc.arch]
     }
