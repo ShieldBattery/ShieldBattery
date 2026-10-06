@@ -298,6 +298,7 @@ pub struct BwScr {
     step_network_addr: VirtualAddress,
     step_replay_commands: VirtualAddress,
     order_harvest_gas: VirtualAddress,
+    order_reset_collision_harvester: VirtualAddress,
     check_unit_resources_and_supply: VirtualAddress,
     unit_cost_cache: UnitCostCache,
     game_command_lengths: Vec<u32>,
@@ -2033,6 +2034,9 @@ impl BwScr {
             .ok_or("step_replay_commands")?;
         let save_replay = analysis.save_replay().ok_or("save_replay")?;
         let order_harvest_gas = analysis.order_harvest_gas().ok_or("order_harvest_gas")?;
+        let order_reset_collision_harvester = analysis
+            .order_reset_collision_harvester()
+            .ok_or("order_reset_collision_harvester")?;
         let check_unit_resources_and_supply = analysis
             .check_unit_resources_and_supply()
             .ok_or("check_unit_resources_and_supply")?;
@@ -2535,6 +2539,7 @@ impl BwScr {
             ttf_render_sdf,
             step_replay_commands,
             order_harvest_gas,
+            order_reset_collision_harvester,
             check_unit_resources_and_supply,
             unit_cost_cache,
             step_game,
@@ -3229,6 +3234,14 @@ impl BwScr {
                 OrderFn,
                 |unit, orig| {
                     game_thread::order_harvest_gas(self, unit, orig);
+                },
+                address,
+            );
+            let address = self.order_reset_collision_harvester.0 as usize - base;
+            exe.hook_closure_address(
+                OrderFn,
+                |unit, orig| {
+                    game_thread::order_reset_collision_harvester(unit, orig);
                 },
                 address,
             );

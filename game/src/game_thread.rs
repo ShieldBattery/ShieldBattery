@@ -1061,6 +1061,58 @@ pub unsafe fn check_unit_resources_and_supply(
     }
 }
 
+/// Hook for the order that gives a harvesting worker its unit collision back
+/// (`RESET_COLLISION_HARVESTER`).
+///
+/// Harvest orders let a worker pass through other units, and the first one to do so puts this
+/// order at the front of the worker's queue. When this order runs and finds another harvest order
+/// queued next, BW keeps the worker uncollided for it and queues this order again, but at the end
+/// of the queue. Any other orders queued behind that harvest order then run before it, with the
+/// worker still passing through units: a group of workers stacked by harvesting, then given a
+/// queued click on a vespene geyser (which ends at once without a refinery) and a queued
+/// attack-move, moves and fights as a single stack that walks through anything blocking it. So
+/// once a non-harvest order is queued, the requeued order is moved to the front of the queue,
+/// where harvest orders put it, and runs as soon as the harvest order it waited for ends.
+pub unsafe fn order_reset_collision_harvester(
+    unit: *mut bw::Unit,
+    orig: unsafe extern "C" fn(*mut bw::Unit),
+) {
+    unsafe {
+        let queue = bw::list::LinkedList {
+            start: &raw mut (*unit).order_queue_begin,
+            end: &raw mut (*unit).order_queue_end,
+        };
+        let requeues = sb_game_logic_version() >= 5
+            && (*queue.start)
+                .as_ref()
+                .is_some_and(|next| is_uncollided_harvest_order(next.order_id));
+        orig(unit);
+        if !requeues {
+            return;
+        }
+        let Some(requeued) = queue
+            .last()
+            .filter(|&order| (*order).order_id == bw_dat::order::RESET_COLLISION_HARVESTER.0)
+        else {
+            return;
+        };
+        let mut first_other = *queue.start;
+        while is_uncollided_harvest_order((*first_other).order_id) {
+            first_other = (*first_other).next;
+        }
+        if first_other != requeued {
+            queue.remove(requeued);
+            queue.add(requeued);
+        }
+    }
+}
+
+/// Whether `RESET_COLLISION_HARVESTER` keeps a worker uncollided for `order` when it is queued
+/// next: the orders that move to, wait at, or work a resource. Returning cargo isn't one of them.
+fn is_uncollided_harvest_order(order: u8) -> bool {
+    matches!(order, 0x4f | 0x51..=0x53 | 0x55..=0x59)
+}
+
 fn find_walkable_position_for_gas_worker(
     game: bw_dat::Game,
     pathing: *mut bw::Pathing,

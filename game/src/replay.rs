@@ -26,7 +26,9 @@ pub const SECTION_ID: u32 = 0x74616253; // Sbat
 //      it while on unwalkable terrain (game_thread::order_harvest_gas)
 // 4: The unit cost check answers for the "None" unit id the same way on 32 and 64-bit builds
 //      (game_thread::check_unit_resources_and_supply)
-pub const GAME_LOGIC_VERSION: u16 = 0x4;
+// 5: Workers get their collision back before starting a non-harvest order queued behind a
+//      harvest order (game_thread::order_reset_collision_harvester)
+pub const GAME_LOGIC_VERSION: u16 = 0x5;
 
 /// The notice recorded at the start of every replay, one chat line per entry, sent by
 /// [`REPLAY_NOTICE_SENDER`](crate::bw::commands::REPLAY_NOTICE_SENDER). ShieldBattery's game

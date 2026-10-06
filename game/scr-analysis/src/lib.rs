@@ -942,6 +942,10 @@ impl<'e> Analysis<'e> {
         self.0.order_function(0x53)
     }
 
+    pub fn order_reset_collision_harvester(&mut self) -> Option<VirtualAddress> {
+        self.0.order_function(0x97)
+    }
+
     /// `(player, unit id, check supply, show error) -> can afford`; records the unit's costs for
     /// the player in the cached cost arrays before checking them.
     pub fn check_unit_resources_and_supply(&mut self) -> Option<VirtualAddress> {
