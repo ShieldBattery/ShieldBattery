@@ -464,6 +464,7 @@ function makeRollbackStatsApi({ isLoading = false }: { isLoading?: boolean } = {
     {} as any,
     {} as any,
     new GameLifecycleEvents(),
+    {} as any,
   )
 }
 
