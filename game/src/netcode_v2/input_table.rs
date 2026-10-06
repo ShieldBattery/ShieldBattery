@@ -162,19 +162,42 @@ impl InputTable {
     pub fn known_until_for(&self, required: &[bool; bw::MAX_STORM_PLAYERS]) -> u32 {
         (0..bw::MAX_STORM_PLAYERS)
             .filter(|&storm| required[storm])
-            .map(|storm| {
-                let known = self.known_until(storm);
-                let leaves_after_known = self
-                    .leaves
-                    .iter()
-                    .any(|x| x.storm.0 as usize == storm && x.step <= known);
-                match leaves_after_known {
-                    true => u32::MAX,
-                    false => known,
-                }
-            })
+            .map(|storm| self.holds_back_from(storm))
             .min()
             .unwrap_or(u32::MAX)
+    }
+
+    /// The slots of `required` that [`known_until_for`](Self::known_until_for) waits on: the ones
+    /// with no turn for the first step whose turns are not all known. A stall at the prediction
+    /// limit is waiting on exactly these, while a slot that is merely a few steps behind isn't
+    /// holding anything up.
+    pub fn holding_back(
+        &self,
+        required: &[bool; bw::MAX_STORM_PLAYERS],
+    ) -> impl Iterator<Item = StormPlayerId> + '_ {
+        let known_until = self.known_until_for(required);
+        let required = *required;
+        (0..bw::MAX_STORM_PLAYERS)
+            .filter(move |&storm| {
+                required[storm]
+                    && known_until != u32::MAX
+                    && self.holds_back_from(storm) == known_until
+            })
+            .map(|storm| StormPlayerId(storm as u8))
+    }
+
+    /// The first step `storm`'s slot keeps from having all its turns known, or `u32::MAX` once its
+    /// leave is scheduled and every turn it has before that leave is in.
+    fn holds_back_from(&self, storm: usize) -> u32 {
+        let known = self.known_until(storm);
+        let leaves_after_known = self
+            .leaves
+            .iter()
+            .any(|x| x.storm.0 as usize == storm && x.step <= known);
+        match leaves_after_known {
+            true => u32::MAX,
+            false => known,
+        }
     }
 
     /// Whether a step that has never run may run now, predicting whatever turns it lacks. The
@@ -206,18 +229,6 @@ impl InputTable {
     /// The latency buffer this client acts as if the relay asked for at least.
     pub fn min_buffer_turns(&self) -> u32 {
         self.min_buffer_turns
-    }
-
-    /// The slots of `required` that `step` has no usable turn for.
-    pub fn missing(
-        &self,
-        step: u32,
-        required: &[bool; bw::MAX_STORM_PLAYERS],
-    ) -> impl Iterator<Item = StormPlayerId> + '_ {
-        let required = *required;
-        (0..bw::MAX_STORM_PLAYERS)
-            .filter(move |&storm| required[storm] && self.known_until(storm) <= step)
-            .map(|storm| StormPlayerId(storm as u8))
     }
 
     /// The turns `step` dispatches for each slot of `required`, the known turn or the prediction,
@@ -467,7 +478,36 @@ mod tests {
         let (turns, predicted) = t.dispatch(1, &required());
         assert_eq!(predicted, 1);
         assert_eq!(turns[1].as_deref(), Some(PREDICTED_TURN));
-        assert_eq!(t.missing(1, &required()).collect::<Vec<_>>(), vec![B]);
+        assert_eq!(t.holding_back(&required()).collect::<Vec<_>>(), vec![B]);
+    }
+
+    #[test]
+    fn only_the_slots_without_the_oldest_unknown_turn_hold_the_table_back() {
+        const C: StormPlayerId = StormPlayerId(2);
+        let mut required = required();
+        required[C.0 as usize] = true;
+        let mut t = table(2);
+        for _ in 0..6 {
+            t.push(A, idle(), start());
+        }
+        for _ in 0..3 {
+            t.push(B, idle(), start());
+        }
+        t.push(C, idle(), start());
+        for step in 0..3 {
+            t.dispatch(step, &required);
+        }
+        assert!(!t.can_run(3, &required), "stalled at the limit");
+        assert_eq!(
+            t.holding_back(&required).collect::<Vec<_>>(),
+            vec![C],
+            "the stalled step lacks B's turn too, but it waits on C's"
+        );
+
+        // A slot whose leave is scheduled stops holding anything back once its turns before the
+        // leave are in.
+        t.schedule_leave(C, 0, 1);
+        assert_eq!(t.holding_back(&required).collect::<Vec<_>>(), vec![B]);
     }
 
     #[test]

@@ -1269,7 +1269,7 @@ impl TurnState {
                 let ready =
                     self.local_only || inputs.can_run(input_step(next_frame), &self.required);
                 if !ready {
-                    for storm in inputs.missing(input_step(next_frame), &self.required) {
+                    for storm in inputs.holding_back(&self.required) {
                         if Some(storm) != local_storm {
                             blocking[storm.0 as usize] = true;
                         }
@@ -1739,9 +1739,11 @@ impl TurnState {
     fn stalled_peers(&self) -> Vec<StalledPeer> {
         let local_storm = self.storm_id_for_slot(self.local_slot);
         let missing: Vec<usize> = match &self.inputs {
-            // Only a step past the prediction limit waits, and it is always the next one to run.
-            Some(inputs) if !self.can_run(inputs.frontier()) => inputs
-                .missing(inputs.frontier(), &self.required)
+            // Only a step past the prediction limit waits, and it is always the next one to run:
+            // the frontier, which `can_run` takes as BW's frame counter (one past the step). What it
+            // waits on is the oldest turn not in yet, not every turn the stalled step lacks.
+            Some(inputs) if !self.can_run(inputs.frontier() + 1) => inputs
+                .holding_back(&self.required)
                 .map(|storm| storm.0 as usize)
                 .collect(),
             Some(_) => Vec::new(),
@@ -4973,6 +4975,37 @@ mod tests {
         state.mark_slot_left(peer_storm);
         let status = state.disconnect_status();
         assert!(status.stalled.is_empty());
+    }
+
+    #[test]
+    fn stalled_peers_names_the_peer_a_predicting_game_waits_on_at_its_limit() {
+        let (mut state, _connectivity_tx, _request_drop_rx) = turn_state_with_connectivity();
+        state.predict_inputs(InputTable::new(
+            2,
+            0,
+            0,
+            [Duration::ZERO; bw::MAX_STORM_PLAYERS],
+        ));
+        let local_storm = state.storm_id_for_slot(LOCAL_SLOT).unwrap();
+        let inputs = state.inputs.as_mut().unwrap();
+        for _ in 0..4 {
+            inputs.push(
+                local_storm,
+                Bytes::from_static(input_table::PREDICTED_TURN),
+                Instant::now(),
+            );
+        }
+        inputs.dispatch(0, &state.required);
+        assert!(
+            state.disconnect_status().stalled.is_empty(),
+            "a step within the limit runs on a prediction, waiting on nobody"
+        );
+
+        state.inputs.as_mut().unwrap().dispatch(1, &state.required);
+        let status = state.disconnect_status();
+        assert_eq!(status.stalled.len(), 1, "the next step is past the limit");
+        assert_eq!(status.stalled[0].slot, PEER_SLOT);
+        assert_eq!(status.stalled[0].user_id, PEER_USER);
     }
 
     #[test]
