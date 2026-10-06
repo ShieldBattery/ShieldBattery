@@ -68,7 +68,9 @@ must match what `Start-Process` returned.
 > way. Set both unless the user will use that instance themselves.** The user is usually working
 > on this machine while you test. `SB_APP_BACKGROUND` opens the app window behind their windows
 > without taking focus. It also skips restoring a maximized window, because maximizing would
-> activate it. Driving the app over CDP works the same either way.
+> activate it. Driving the app over CDP works the same either way. When nobody needs to see the app
+> window at all (an unattended run that only drives it over CDP), also pass `--hidden` after `app`
+> in `-ArgumentList`: the app then never shows its window.
 >
 > Without `SB_GAME_BACKGROUND`, every game launch steals focus and warps the cursor. Games inherit
 > the app's environment, so set it on the app launch (as above). With it, the game window opens
