@@ -127,6 +127,8 @@ struct LateCommand {
     storm_player: StormPlayerId,
     /// The frame the replay records it for.
     command_frame: u32,
+    /// Frames after `command_frame` it becomes known (see [`command_delay`]).
+    delay: u32,
     /// The frame count the step that read it started from, which a rollback has to restore to (or
     /// before) for the command to be applied on its own frame.
     read_from: u32,
@@ -803,8 +805,25 @@ fn max_delay() -> u32 {
         .unwrap_or(0)
 }
 
+/// How many frames after the frame a command from `storm_player` was issued for it becomes known.
+///
+/// A leave waits for the longest delay any player has, whoever it is from. Applying a leave cannot
+/// be undone, so the engine lets no rollback reach back past the step that applied it; a live
+/// game therefore applies one only once every slot's turns up to its step have arrived, and a
+/// leave the harness applied any earlier would strand the commands of slower players issued
+/// before it, which then arrive with no rollback able to apply them.
+fn command_delay(storm_player: StormPlayerId, is_leave: bool) -> u32 {
+    if is_leave {
+        return max_delay();
+    }
+    DELAYS
+        .get(storm_player.0 as usize)
+        .map_or(0, |x| x.load(Ordering::Relaxed))
+}
+
 /// Whether the command the replay records for `command_frame` from `storm_player` has been
-/// received by the time the tick in progress reaches its newest frame.
+/// received by the time the tick in progress reaches its newest frame. `is_leave` says whether it
+/// is a player leaving, which waits on every player (see [`command_delay`]).
 ///
 /// A step reads the commands of one frame, `step_frame`, and the tick runs
 /// [`STEPS_AFTER_CURRENT`] more steps after it, so the tick's newest frame (the present the
@@ -817,16 +836,14 @@ fn max_delay() -> u32 {
 /// replay cursor along with the simulation, so that step reads it again.
 pub fn replay_command_is_known(
     storm_player: StormPlayerId,
+    is_leave: bool,
     command_frame: u32,
     step_frame: u32,
 ) -> bool {
     if !ANY_DELAY.load(Ordering::Relaxed) || !rollback::tick_running() {
         return true;
     }
-    let Some(delay) = DELAYS.get(storm_player.0 as usize) else {
-        return true;
-    };
-    let delay = delay.load(Ordering::Relaxed);
+    let delay = command_delay(storm_player, is_leave);
     if delay == 0 {
         return true;
     }
@@ -849,6 +866,7 @@ pub fn replay_command_is_known(
             None => late.push(LateCommand {
                 storm_player,
                 command_frame,
+                delay,
                 read_from,
             }),
         }
@@ -870,11 +888,7 @@ fn take_arrived_commands(present: u32) -> Option<u32> {
     let present = (present as i64 + offset as i64).max(0) as u32;
     let mut earliest = None::<u32>;
     LATE_COMMANDS.lock().retain(|x| {
-        let delay = DELAYS
-            .get(x.storm_player.0 as usize)
-            .map(|x| x.load(Ordering::Relaxed))
-            .unwrap_or(0);
-        let known = x.command_frame.saturating_add(delay) <= present;
+        let known = x.command_frame.saturating_add(x.delay) <= present;
         if known {
             earliest = Some(earliest.map_or(x.read_from, |e| e.min(x.read_from)));
         }

@@ -793,7 +793,7 @@ pub unsafe fn step_replay_commands(orig: unsafe extern "C" fn()) {
             }
             data = rest;
             while let Some((storm_player, command)) = frame_data.next_command(command_lengths) {
-                if replay_command_is_known(storm_player, frame_data.frame, frame) {
+                if replay_command_is_known(storm_player, command, frame_data.frame, frame) {
                     bw.process_replay_commands(command, storm_player);
                     // A player's departure changes game state the rollback snapshot does not
                     // hold, and applying it a second time corrupts it.
@@ -817,15 +817,23 @@ pub unsafe fn step_replay_commands(orig: unsafe extern "C" fn()) {
 #[cfg(debug_assertions)]
 fn replay_command_is_known(
     storm_player: StormPlayerId,
+    command: &[u8],
     command_frame: u32,
     step_frame: u32,
 ) -> bool {
-    crate::rollback_harness::replay_command_is_known(storm_player, command_frame, step_frame)
+    let is_leave = command.first() == Some(&crate::bw::commands::id::LEAVE_GAME);
+    crate::rollback_harness::replay_command_is_known(
+        storm_player,
+        is_leave,
+        command_frame,
+        step_frame,
+    )
 }
 
 #[cfg(not(debug_assertions))]
 fn replay_command_is_known(
     _storm_player: StormPlayerId,
+    _command: &[u8],
     _command_frame: u32,
     _step_frame: u32,
 ) -> bool {
