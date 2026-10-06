@@ -182,6 +182,11 @@ interface CoordinatorSessionRequest {
    * only until a relay's own pre-start observation of its home clients covers the whole session.
    */
   latency_estimate_ms?: number
+  /**
+   * Asks for a rollback session. The coordinator grants it only when it can place the session on
+   * relays that all support rollback, and says whether it did on the response.
+   */
+  rollback?: boolean
 }
 
 interface CoordinatorRelayEndpoint {
@@ -245,6 +250,8 @@ interface CoordinatorSessionResponse {
    * a coordinator with no region catalog, or for an untagged relay.
    */
   relay_regions?: CoordinatorRelayRegionLabel[]
+  /** Whether the session was created to roll back. Absent (false) unless the request asked. */
+  rollback?: boolean
 }
 
 /** Looks up `relayId`'s region in a session or rehome response's region label list. */
@@ -582,6 +589,7 @@ export class NetcodeV2Service {
     gameId,
     seed,
     slots,
+    canRollBack = false,
     signal,
     onProvisioning,
   }: {
@@ -615,6 +623,11 @@ export class NetcodeV2Service {
        */
       pubkey?: string
     }>
+    /**
+     * Whether this game's simulation can be rolled back. Rollback is only asked for when this and
+     * the server's rollback config are both set; a game that can't roll back runs lockstep.
+     */
+    canRollBack?: boolean
     signal: AbortSignal
     /**
      * Called at most once, the first time the coordinator answers create with `202 provisioning`,
@@ -685,6 +698,7 @@ export class NetcodeV2Service {
         }
       }),
       ...latencyEstimateField,
+      ...(config.rollback && canRollBack ? { rollback: true } : {}),
     }
 
     // Records what every slot asked for, before the coordinator is asked for anything: a create that
@@ -709,10 +723,17 @@ export class NetcodeV2Service {
 
     const session = await this.createCoordinatorSession(config, request, signal, onProvisioning)
 
+    const rollback = session.rollback === true
     log.info(
       `netcode v2 session ${session.session} created for game ${gameId} ` +
-        `(home relay ${session.home_relay.relay_id})`,
+        `(home relay ${session.home_relay.relay_id}${rollback ? ', rollback' : ''})`,
     )
+    if (config.rollback && canRollBack && !rollback) {
+      log.warn(
+        `netcode v2 session ${session.session} for game ${gameId} was created without rollback, ` +
+          'since no relays that support it could take the session',
+      )
+    }
 
     // Persisted so the reconciliation sweep can later ask the coordinator whether this session
     // is still alive instead of blind-forcing on a timeout. Non-fatal: a game whose session id
@@ -806,6 +827,7 @@ export class NetcodeV2Service {
         // Lets the app pick the matching private key out of its own outstanding keypairs when it
         // holds more than one (see `NetcodeV2ServerSetup.clientPubkey`).
         clientPubkey: pubkeyByUserId.get(userId),
+        rollback,
       })
     }
     if (setups.size !== slots.length) {

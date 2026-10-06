@@ -1939,6 +1939,9 @@
     "mapSelect": {
       "browseMaps": "Browse maps"
     },
+    "preview": {
+      "zoom": "Zoom"
+    },
     "server": {
       "allMaps": "All maps",
       "browseLocal": "Browse local maps",
@@ -2488,6 +2491,14 @@
       },
       "system": {
         "networkOverline": "Network",
+        "rollbackTarget": {
+          "description": "Higher values make your commands more responsive, but units may visibly jump more often.",
+          "label": "Rollback balance",
+          "recommended": "Recommended",
+          "recommendedValue": "{{value}}, recommended",
+          "responsive": "More responsive",
+          "smoother": "Smoother"
+        },
         "runOnStartup": "Run ShieldBattery on system startup",
         "serverRegion": {
           "autoPlain": "Auto (recommended)",
@@ -2755,12 +2766,14 @@
       },
       "input": {
         "cursorHeader": "Cursor",
+        "customCursorSize": "Cursor size",
         "customCursorSizeLargest": "Largest",
         "customCursorSizeSmallest": "Smallest",
         "customMouseSensitivity": "Custom mouse sensitivity",
         "grabPan": "Custom grab pan sensitivity",
         "grabPanFaster": "Faster",
         "grabPanInverted": "Reverse pan direction",
+        "grabPanSensitivity": "Grab pan sensitivity",
         "grabPanSlower": "Slower",
         "grabPanTooltip": "Adjusts how fast the camera moves when panning with the middle mouse button. When disabled, matches the legacy StarCraft: Remastered behavior.",
         "hardwareCursor": "Hardware cursor",

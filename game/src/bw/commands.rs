@@ -133,6 +133,21 @@ pub fn strip_control_commands<'a>(input: &'a [u8], command_lengths: &[u32]) -> C
     Cow::Owned(buffer)
 }
 
+/// Removes native sync (0x37) commands, for a game that checks synchronization some other way.
+pub fn strip_sync_commands<'a>(input: &'a [u8], command_lengths: &[u32]) -> Cow<'a, [u8]> {
+    let is_sync = |cmd: &[u8]| cmd.first() == Some(&id::SYNC);
+    if !iter_commands(input, command_lengths).any(is_sync) {
+        return Cow::Borrowed(input);
+    }
+    let mut buffer = Vec::with_capacity(input.len());
+    for command in iter_commands(input, command_lengths) {
+        if !is_sync(command) {
+            buffer.extend_from_slice(command);
+        }
+    }
+    Cow::Owned(buffer)
+}
+
 /// Removes invalid commands that aren't caught by BW.
 pub fn filter_invalid_commands<'a>(
     input: &'a [u8],
@@ -356,6 +371,21 @@ mod test {
         lengths[id::SET_NETWORK_SPEED as usize] = 4; // 0x66
         lengths[id::NOP as usize] = 1; // 0x05 keep-alive
         lengths
+    }
+
+    #[test]
+    fn strip_sync_commands_removes_only_sync() {
+        let lengths = strip_lengths();
+        let data = &[0x20, 0xaa, 0xbb, 0x37, 0xcc, 0x05];
+        assert_eq!(
+            &*strip_sync_commands(data, &lengths),
+            &[0x20, 0xaa, 0xbb, 0x05]
+        );
+        let untouched = &[0x20, 0xaa, 0xbb, 0x05];
+        assert!(matches!(
+            strip_sync_commands(untouched, &lengths),
+            Cow::Borrowed(_)
+        ));
     }
 
     #[test]

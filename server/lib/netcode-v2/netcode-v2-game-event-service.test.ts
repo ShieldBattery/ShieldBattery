@@ -593,6 +593,40 @@ describe('netcode-v2/recordDesyncNotification', () => {
     )
   })
 
+  test('records the slots missing their state hash reports as at fault too', async () => {
+    asMockedFunction(recordDesyncEvent).mockResolvedValue(true)
+
+    await recordDesyncNotification(
+      makeDesyncNotification({
+        diverged: [],
+        missing: [{ slot: 1, externalRef: '7' }],
+      }),
+    )
+
+    expect(recordDesyncEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ noMajority: false, divergedUserIds: [makeSbUserId(7)] }),
+    )
+  })
+
+  test('records nobody at fault for a no-majority event, even with missing reports', async () => {
+    asMockedFunction(recordDesyncEvent).mockResolvedValue(true)
+
+    await recordDesyncNotification(
+      makeDesyncNotification({
+        noMajority: true,
+        diverged: [],
+        missing: [
+          { slot: 1, externalRef: '7' },
+          { slot: 2, externalRef: '42' },
+        ],
+      }),
+    )
+
+    expect(recordDesyncEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ noMajority: true, divergedUserIds: [] }),
+    )
+  })
+
   test('does not call the model when externalId is not a valid gameId', async () => {
     await recordDesyncNotification(makeDesyncNotification({ externalId: 'not-a-uuid' }))
 

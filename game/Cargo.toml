@@ -16,7 +16,17 @@ panic = "abort"
 [profile.release]
 debug = 1
 panic = "abort"
-lto = true
+lto = "fat"
+codegen-units = 1
+
+# Release optimizations with the debug-only tooling (rollback bench, harness, probe) compiled in,
+# for measuring performance: `cargo build --profile bench-dll`.
+[profile.bench-dll]
+inherits = "release"
+debug-assertions = true
+lto = false
+codegen-units = 256
+incremental = true
 
 [dependencies]
 atomic_enum = "0.3"
@@ -104,6 +114,7 @@ features = [
   "minwinbase",
   "minwindef",
   "processthreadsapi",
+  "realtimeapiset",
   "shlobj",
   "stringapiset",
   "synchapi",
@@ -140,7 +151,7 @@ features = ["scr-only"]
 # types so the game DLL shares the transport's dependency versions.
 [dependencies.rally-point-client]
 git = "https://github.com/ShieldBattery/rally-point2.git"
-rev = "a75a42fa8be22948b750534af2c09eecbfdc38c2"
+rev = "5626b114e3cf501fd89694e2c75e28ab9e1fbd73"
 
 [build-dependencies]
 anyhow = "1.0"

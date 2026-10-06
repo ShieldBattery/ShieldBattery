@@ -869,6 +869,9 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     ipcMain.handle('activeGameToggleNetStats', (event, gameId) =>
       activeGameManager.toggleGameNetStats(gameId),
     )
+    ipcMain.handle('activeGameSetRollback', (event, gameId, depth, delays) =>
+      activeGameManager.setGameRollback(gameId, depth, delays),
+    )
     ipcMain.handle('activeGameForceQuit', (event, gameId) =>
       activeGameManager.forceQuitGame(gameId),
     )

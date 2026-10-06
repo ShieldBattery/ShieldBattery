@@ -350,14 +350,31 @@ pub struct GameThreadResults {
     pub replay_path: Option<PathBuf>,
 }
 
+/// Who won and lost, the alliances and who was dropped, as a result report reads them: the
+/// game's current ones, except in a game that rolls back, which has simulated past its newest
+/// confirmed frame on predictions and reports that frame's instead.
+unsafe fn reported_outcome(game: *mut bw::Game) -> ([u8; 8], [[u8; 12]; 12], [u8; 8]) {
+    if let Some(x) = crate::rollback::game_end::confirmed_outcome() {
+        return (x.victory_state, x.alliances, x.player_was_dropped);
+    }
+    unsafe {
+        (
+            (*game).victory_state,
+            (*game).alliances,
+            (*game).player_was_dropped,
+        )
+    }
+}
+
 unsafe fn game_results() -> GameThreadResults {
     unsafe {
         let bw = get_bw();
         let game = bw.game();
         let players = bw.players();
+        let (victory_states, all_alliances, player_was_dropped) = reported_outcome(game);
 
         let read_player_result = |id: BwPlayerId| {
-            let victory_state = (*game).victory_state[id.0 as usize]
+            let victory_state = victory_states[id.0 as usize]
                 .try_into()
                 .unwrap_or_else(|e| {
                     warn!("Failed to convert victory state for player {id:?}: {e:?}");
@@ -370,7 +387,7 @@ unsafe fn game_results() -> GameThreadResults {
                     warn!("Failed to convert race for player {id:?}: {e:?}");
                     AssignedRace::Zerg
                 });
-            let alliances = (&(*game).alliances)[id.0 as usize][0..8]
+            let alliances = all_alliances[id.0 as usize][0..8]
                 .iter()
                 .map(|&x| {
                     x.try_into().unwrap_or_else(|e| {
@@ -420,8 +437,7 @@ unsafe fn game_results() -> GameThreadResults {
                         // as "has quit" downstream. BW's drop flags only exist for the first 8
                         // ids, though; higher ids just report not-dropped, and the relay's own
                         // leave reporting stays the authoritative drop signal for those.
-                        was_dropped: (*game)
-                            .player_was_dropped
+                        was_dropped: player_was_dropped
                             .get(i)
                             .is_some_and(|&dropped| dropped != 0),
                         has_quit: storm_player_flags[i] == 0,
@@ -690,6 +706,12 @@ thread_local! {
 
 pub unsafe fn add_fow_sprites_for_replay_vision_change(bw: &BwScr) {
     unsafe {
+        // The rollback bench plays a replay to stand in for a live game, which has no replay
+        // vision to fix up.
+        #[cfg(debug_assertions)]
+        if crate::rollback_bench::armed() {
+            return;
+        }
         if is_replay() && !is_ums() && bw.starting_fog() != StartingFog::Legacy {
             // One thing BW's step_game does is that it removes any fog sprites that were
             // no longer in fog. Unfortunately now that we show fog sprites for unexplored
@@ -771,12 +793,51 @@ pub unsafe fn step_replay_commands(orig: unsafe extern "C" fn()) {
             }
             data = rest;
             while let Some((storm_player, command)) = frame_data.next_command(command_lengths) {
-                bw.process_replay_commands(command, storm_player);
+                if replay_command_is_known(storm_player, command, frame_data.frame, frame) {
+                    bw.process_replay_commands(command, storm_player);
+                    // A player's departure changes game state the rollback snapshot does not
+                    // hold, and applying it a second time corrupts it.
+                    if command.first() == Some(&crate::bw::commands::id::LEAVE_GAME) {
+                        crate::rollback::mark_irreversible_step();
+                    }
+                }
             }
         }
         let new_pos = (data_end as usize - data.len()) as *mut u8;
         (*replay).data_pos = new_pos;
     }
+}
+
+/// Whether a command block the replay records for `command_frame`, read while the simulation
+/// steps `step_frame`, is handed to the simulation now.
+///
+/// Always true outside the debug rollback harness. The harness can hold back the commands of
+/// players it has been given a network delay for, and leaving the block itself consumed keeps the
+/// replay cursor on the same path it takes without a delay.
+#[cfg(debug_assertions)]
+fn replay_command_is_known(
+    storm_player: StormPlayerId,
+    command: &[u8],
+    command_frame: u32,
+    step_frame: u32,
+) -> bool {
+    let is_leave = command.first() == Some(&crate::bw::commands::id::LEAVE_GAME);
+    crate::rollback_harness::replay_command_is_known(
+        storm_player,
+        is_leave,
+        command_frame,
+        step_frame,
+    )
+}
+
+#[cfg(not(debug_assertions))]
+fn replay_command_is_known(
+    _storm_player: StormPlayerId,
+    _command: &[u8],
+    _command_frame: u32,
+    _step_frame: u32,
+) -> bool {
+    true
 }
 
 struct ReplayFrame<'a> {
@@ -972,6 +1033,32 @@ pub unsafe fn order_harvest_gas(
         }
     }
     orig(unit)
+}
+
+/// Hook for the check of whether `player` can afford a unit, which also records what the unit
+/// costs for whatever spends or reserves those resources next.
+///
+/// The AI's committed-cost walk asks this about every worker in a building order, by the unit
+/// the worker has queued. A worker that has placed its building but not yet left the order has
+/// the "None" id queued, and costs for that id are read one past the end of units.dat's cost
+/// arrays. The 64-bit build has zero padding there; the 32-bit build has the next array's first
+/// entries, so it charges the Marine's build time as gas, and the AI then spends differently
+/// than it would on 64-bit. The "None" id is answered here the way the 64-bit build answers it:
+/// free, needing no supply.
+pub unsafe fn check_unit_resources_and_supply(
+    bw: &BwScr,
+    player: u32,
+    unit_id: u32,
+    check_supply: u32,
+    show_error: u32,
+    orig: unsafe extern "C" fn(u32, u32, u32, u32) -> u32,
+) -> u32 {
+    unsafe {
+        let free = (unit_id as u16 == bw_dat::unit::NONE.0 && sb_game_logic_version() >= 4)
+            .then(|| bw.check_free_unit_resources(player as u8, check_supply != 0, show_error))
+            .flatten();
+        free.unwrap_or_else(|| orig(player, unit_id, check_supply, show_error))
+    }
 }
 
 fn find_walkable_position_for_gas_worker(

@@ -215,6 +215,9 @@ export interface CustomTeamColors {
   enemies: string[]
 }
 
+/** The highest rollback target a player can choose (see `LocalSettings.rollbackTarget`). */
+export const MAX_ROLLBACK_TARGET = 4
+
 export interface LocalSettings extends ShieldBatteryAppSettings {
   runAppAtSystemStart: boolean
   runAppAtSystemStartMinimized: boolean
@@ -312,6 +315,13 @@ export interface LocalSettings extends ShieldBatteryAppSettings {
    * longer in the server-provided region list is treated the same as undefined.
    */
   gameServerRegion?: GameServerRegionId
+
+  /**
+   * In games that roll back, how many frames of other players' lateness the game hides by
+   * simulating ahead of their commands and correcting, rather than by delaying the local player's
+   * own commands. From 0 to `MAX_ROLLBACK_TARGET`.
+   */
+  rollbackTarget: number
 
   /**
    * Whether to launch the 32-bit game client instead of the (default) 64-bit one. Discouraged;

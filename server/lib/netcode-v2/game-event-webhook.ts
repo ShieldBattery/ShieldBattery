@@ -108,6 +108,14 @@ const DESYNC_EVENT_SCHEMA = Joi.object<NetcodeV2DesyncNotification>({
     )
     .max(MAX_DIVERGED_SLOTS)
     .required(),
+  missing: Joi.array()
+    .items(
+      Joi.object({
+        slot: Joi.number().integer().min(0).required(),
+        externalRef: Joi.string(),
+      }).unknown(true),
+    )
+    .max(MAX_DIVERGED_SLOTS),
 })
   // See DEPARTURE_EVENT_SCHEMA's comment: same no-`deny_unknown_fields` interop reasoning.
   .unknown(true)

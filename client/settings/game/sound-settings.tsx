@@ -88,7 +88,6 @@ export function GameSoundSettings() {
             max={100}
             step={5}
             disabled={!getInputValue('musicOn')}
-            showTicks={false}
           />
         </SectionContainer>
         <SectionContainer>
@@ -105,7 +104,6 @@ export function GameSoundSettings() {
             max={100}
             step={5}
             disabled={!getInputValue('soundOn')}
-            showTicks={false}
           />
         </SectionContainer>
         <SectionContainer>

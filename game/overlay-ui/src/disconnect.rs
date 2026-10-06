@@ -62,8 +62,15 @@ const COL_MIN_WIDTH: f32 = 110.0;
 const COLUMN_SPACING: f32 = 20.0;
 /// Vertical gap between grid rows — enough that stacked rows read as a table, not a cramped block.
 const ROW_SPACING: f32 = 12.0;
-/// Vertical gap between the "Waiting for players" header and the first row.
+/// Vertical gap between the "Waiting for players" header and the first row, and between the
+/// self notice and its Leave button.
 const HEADER_GAP: f32 = 12.0;
+/// Size of the Leave button under the disconnected self notice.
+const LEAVE_BUTTON_SIZE: Vec2 = Vec2 { x: 180.0, y: 36.0 };
+/// Vertical gap between a self notice and the explanation under it.
+const BODY_GAP: f32 = 6.0;
+/// The width an explanation under a self notice wraps at.
+const EXPLANATION_WIDTH: f32 = 380.0;
 
 /// Which of the two disconnect tiers a row is in — the presentation-side mirror of the turn-state
 /// enum of the same name. The caller maps its own tier onto this when building the view.
@@ -83,9 +90,23 @@ pub enum DisconnectTier {
 pub enum SelfState {
     /// Our link is fine; any rows are about peers.
     Healthy,
-    /// The relay confirmed our own link is down (or the session ended); show the prominent self
-    /// notice.
+    /// The relay confirmed our own link is down; show the prominent self notice while the client
+    /// re-dials.
     Reconnecting,
+    /// Our link is down for good: the relay refused to take us back, or reconnecting became
+    /// impossible. Show the self notice with a button to leave the game.
+    Disconnected,
+    /// The relay ended our session because our game state stopped matching (the other players',
+    /// or with no majority, anyone's). Like [`Disconnected`](Self::Disconnected), with a notice
+    /// that says why.
+    Desynced,
+}
+
+impl SelfState {
+    /// Whether the session is over for good, so the notice offers to leave the game.
+    pub fn is_terminal(self) -> bool {
+        matches!(self, SelfState::Disconnected | SelfState::Desynced)
+    }
 }
 
 /// One display-ready disconnect row: a logical row from the turn state with its player name
@@ -123,30 +144,42 @@ impl DisconnectView {
         self.rows.is_empty() && self.self_state == SelfState::Healthy
     }
 
-    /// Whether any row shows a Drop button (enabled or still counting down) — the only thing that
-    /// makes the overlay interactable. Keyed on the tier rather than `drop_unlocked`: the button
-    /// itself is present (just disabled) before the unlock threshold, so the overlay's input rect
-    /// must be registered from the moment a row goes confirmed, not only once the button is
-    /// clickable.
+    /// Whether the view shows a button: the Leave button of a
+    /// [`terminal`](SelfState::is_terminal) notice, or any row's Drop button (enabled or still
+    /// counting down). Buttons are the only thing that makes the overlay interactable. A row's is
+    /// keyed on the tier rather than `drop_unlocked`: the button itself is present (just disabled)
+    /// before the unlock threshold, so the overlay's input rect must be registered from the moment
+    /// a row goes confirmed, not only once the button is clickable.
     pub fn has_button(&self) -> bool {
-        self.rows
-            .iter()
-            .any(|row| row.tier == DisconnectTier::Confirmed)
+        self.self_state.is_terminal()
+            || self
+                .rows
+                .iter()
+                .any(|row| row.tier == DisconnectTier::Confirmed)
     }
 }
 
-/// Renders the disconnect view and returns the slots whose Drop button was clicked this frame. The
-/// area is interactable only while a Drop button is present, so ordinary rows never capture input.
+/// What the player clicked in the disconnect overlay this frame.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct DisconnectClicks {
+    /// The slots whose Drop button was clicked.
+    pub drops: Vec<u8>,
+    /// Whether the Leave button was clicked.
+    pub leave: bool,
+}
+
+/// Renders the disconnect view and returns what was clicked this frame. The area is interactable
+/// only while a button is present, so ordinary rows never capture input.
 pub fn render_disconnect_view(
     view: &DisconnectView,
     ctx: &egui::Context,
-) -> InnerResponse<Vec<u8>> {
+) -> InnerResponse<DisconnectClicks> {
     egui::Area::new("sb_disconnect_overlay".into())
         .anchor(Align2::CENTER_TOP, vec2(0.0, 72.0))
         .order(egui::Order::Foreground)
         .interactable(view.has_button())
         .show(ctx, |ui| {
-            let mut clicked = Vec::new();
+            let mut clicked = DisconnectClicks::default();
             Frame::default()
                 .fill(colors::CONTAINER_HIGH.gamma_multiply(0.85))
                 // A subtle 1px outline so the panel separates cleanly from the game behind it.
@@ -155,20 +188,61 @@ pub fn render_disconnect_view(
                 .inner_margin(Margin::symmetric(20, 16))
                 .show(ui, |ui| {
                     // A plain left-aligned `vertical` so the panel hugs its content and can shrink
-                    // back after a transient widening. A centring layout here would expand to the
+                    // back after a transient widening. A centering layout here would expand to the
                     // full available width and, fed by this auto-sized `Area`, pin the panel
-                    // permanently wide (see the note in [`draw_peers_panel`], which centres the
+                    // permanently wide (see the note in [`draw_peers_panel`], which centers the
                     // header by hand instead).
                     ui.vertical(|ui| match view.self_state {
                         // TODO(tec27): Translate this
                         SelfState::Reconnecting => {
                             draw_self_notice(ui, "Lost connection to the server, reconnecting…")
                         }
-                        SelfState::Healthy => draw_peers_panel(ui, &view.rows, &mut clicked),
+                        SelfState::Disconnected => {
+                            // TODO(tec27): Translate this
+                            draw_self_notice(ui, "Disconnected from the game");
+                            ui.add_space(HEADER_GAP);
+                            draw_leave_button(ui, &mut clicked);
+                        }
+                        SelfState::Desynced => {
+                            // TODO(tec27): Translate this
+                            draw_self_notice(ui, "Game desync detected");
+                            ui.add_space(BODY_GAP);
+                            // TODO(tec27): Translate this
+                            draw_self_explanation(
+                                ui,
+                                "Your game's state has diverged from the other players', so it \
+                                 can't continue for you. Leaving won't affect anyone else's game.",
+                            );
+                            ui.add_space(HEADER_GAP);
+                            draw_leave_button(ui, &mut clicked);
+                        }
+                        SelfState::Healthy => draw_peers_panel(ui, &view.rows, &mut clicked.drops),
                     });
                 });
             clicked
         })
+}
+
+/// Draws the Leave button under a terminal self notice, centered.
+fn draw_leave_button(ui: &mut egui::Ui, clicked: &mut DisconnectClicks) {
+    ui.with_layout(Layout::top_down(Align::Center), |ui| {
+        // TODO(tec27): Translate this
+        if draw_action_button(ui, "Leave game", true, LEAVE_BUTTON_SIZE).clicked() {
+            clicked.leave = true;
+        }
+    });
+}
+
+/// Draws the explanation under a self notice, wrapped to [`EXPLANATION_WIDTH`] so the panel stays
+/// about as wide as the notice above it.
+fn draw_self_explanation(ui: &mut egui::Ui, text: &str) {
+    ui.scope(|ui| {
+        ui.set_max_width(EXPLANATION_WIDTH);
+        ui.add(
+            egui::Label::new(RichText::new(text).size(ROW_SIZE).color(SECONDARY))
+                .wrap_mode(egui::TextWrapMode::Wrap),
+        );
+    });
 }
 
 /// Draws the prominent self-connection notice: a signal-lost icon beside larger, warning-coloured
@@ -194,16 +268,16 @@ fn draw_self_notice(ui: &mut egui::Ui, text: &str) {
 /// per-row sentence, so several simultaneous disconnects stack as a clean table instead of repeated
 /// shortened sentences. The header states once what the panel is; individual rows don't restate it.
 fn draw_peers_panel(ui: &mut egui::Ui, rows: &[DisconnectRowView], clicked: &mut Vec<u8>) {
-    // The header is centred over the rows below it, but it must NOT drive the panel's width. egui's
-    // centring layouts (`vertical_centered` and friends) expand their `min_rect` to the full
+    // The header is centered over the rows below it, but it must NOT drive the panel's width. egui's
+    // centering layouts (`vertical_centered` and friends) expand their `min_rect` to the full
     // available width — "pretend we used whole frame" — and because this panel lives in an
-    // auto-sized `Area` whose width feeds back into that available width, a centred container pins
+    // auto-sized `Area` whose width feeds back into that available width, a centered container pins
     // the panel to whatever width it ever reached and never shrinks: a single transient widening (a
     // `drop_requested` acknowledgement, or a wide name that later leaves) would strand the panel
     // permanently wide, with dead space to the right of the Drop button. So the panel hugs its
     // content with a plain left-aligned `vertical` (see [`render_disconnect_view`]) and the header
-    // is measured and painted centred over the grid by hand — centring the text without letting a
-    // centring layout claim the width.
+    // is measured and painted centered over the grid by hand — centering the text without letting a
+    // centering layout claim the width.
     // TODO(tec27): Translate this
     let header = RichText::new("Waiting for players")
         .size(HEADER_SIZE)
@@ -217,7 +291,7 @@ fn draw_peers_panel(ui: &mut egui::Ui, rows: &[DisconnectRowView], clicked: &mut
         egui::TextStyle::Body,
     );
     // Reserve the header's vertical space up front (left-aligned, only as wide as the text) so the
-    // grid lays out below it; the text is repositioned to centre once the grid's width is known.
+    // grid lays out below it; the text is repositioned to center once the grid's width is known.
     let (_, header_slot) = ui.allocate_space(header_galley.size());
     ui.add_space(HEADER_GAP);
     let grid = egui::Grid::new("sb_disconnect_rows")
@@ -254,7 +328,7 @@ fn draw_peers_panel(ui: &mut egui::Ui, rows: &[DisconnectRowView], clicked: &mut
                 ui.end_row();
             }
         });
-    // Centre the header over the panel content (the wider of the reserved header slot and the
+    // Center the header over the panel content (the wider of the reserved header slot and the
     // grid) and paint it into the space reserved above. The galley already carries its colour.
     let content = header_slot.union(grid.response.rect);
     let header_pos = pos2(
@@ -305,6 +379,14 @@ fn draw_drop_button(ui: &mut egui::Ui, row: &DisconnectRowView, clicked: &mut Ve
         let remaining = DROP_UNLOCK_UI.as_secs().saturating_sub(row.seconds);
         format!("Drop ({remaining}s)")
     };
+    if draw_action_button(ui, &label, enabled, DROP_BUTTON_SIZE).clicked() {
+        clicked.push(row.slot);
+    }
+}
+
+/// Draws one of the overlay's action buttons at exactly `size`: amber when `enabled`, greyed out and
+/// unclickable otherwise.
+fn draw_action_button(ui: &mut egui::Ui, label: &str, enabled: bool, size: Vec2) -> egui::Response {
     let (fill, border, text_color) = if enabled {
         (DROP_BUTTON_FILL, DROP_BUTTON_BORDER, DROP_BUTTON_TEXT)
     } else {
@@ -329,7 +411,7 @@ fn draw_drop_button(ui: &mut egui::Ui, row: &DisconnectRowView, clicked: &mut Ve
     // resize this is meant to prevent. Sizing the button explicitly keeps its footprint identical
     // across every label the countdown produces.
     let response = ui
-        .add_enabled_ui(enabled, |ui| ui.add_sized(DROP_BUTTON_SIZE, button))
+        .add_enabled_ui(enabled, |ui| ui.add_sized(size, button))
         .inner;
     if enabled && response.hovered() {
         // egui doesn't vary an explicit `.fill()` on hover, so paint a subtle highlight over the
@@ -340,9 +422,7 @@ fn draw_drop_button(ui: &mut egui::Ui, row: &DisconnectRowView, clicked: &mut Ve
             Color32::from_white_alpha(28),
         );
     }
-    if response.clicked() {
-        clicked.push(row.slot);
-    }
+    response
 }
 
 /// Paints three ascending signal bars with a diagonal slash through them, in `color`, sized to sit
@@ -443,7 +523,7 @@ mod tests {
     /// The panel must shrink back after a transient widening. A `drop_requested` acknowledgement
     /// widens the action column while it shows; once it clears, the panel has to hug its content
     /// again rather than stranding dead space to the right of the Drop button. This regressed under
-    /// egui 0.35 when the panel was wrapped in a centring layout, whose `min_rect` grabbed the full
+    /// egui 0.35 when the panel was wrapped in a centering layout, whose `min_rect` grabbed the full
     /// available width of the auto-sized `Area` and pinned the width permanently.
     #[test]
     fn panel_width_recovers_after_drop_requested_clears() {

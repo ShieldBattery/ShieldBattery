@@ -55,6 +55,7 @@ mod crash_dump;
 #[cfg(debug_assertions)]
 mod debug_control;
 mod forge;
+mod frame_timing;
 mod game_state;
 mod game_thread;
 mod http;
@@ -64,6 +65,16 @@ mod offline_cookie;
 mod recurse_checked_mutex;
 mod replay;
 mod replay_name;
+mod rollback;
+#[cfg(debug_assertions)]
+mod rollback_bench;
+#[cfg(debug_assertions)]
+mod rollback_harness;
+mod rollback_live;
+#[cfg(debug_assertions)]
+mod rollback_probe;
+#[cfg(debug_assertions)]
+mod rollback_soak;
 mod snp;
 mod sync;
 mod team_colors;
@@ -257,6 +268,18 @@ pub extern "C" fn OnInject() {
     // This runs on the game's main thread, which executes most of our hooks.
     crash_dump::reserve_exception_handler_stack();
     crash_dump::start_dump_thread();
+    #[cfg(debug_assertions)]
+    rollback_probe::init_from_env();
+    #[cfg(debug_assertions)]
+    rollback_harness::init_from_env();
+    #[cfg(debug_assertions)]
+    rollback_bench::init_from_env();
+    #[cfg(debug_assertions)]
+    rollback_soak::init_from_env();
+    #[cfg(debug_assertions)]
+    rollback_live::init_from_env();
+    #[cfg(debug_assertions)]
+    frame_timing::init_from_env();
     unsafe {
         let init_helper = load_init_helper().expect("Unable to load sb_init.dll");
         init_helper(scr_init, crash_dump::cdecl_crash_dump);

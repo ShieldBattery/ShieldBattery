@@ -760,6 +760,7 @@ describe('games/game-result-service/GameResultService periodic sweep — netcode
     coordinatorUrl: 'http://coordinator.example',
     tenant: 'sb-dev',
     relayServerName: 'localhost',
+    rollback: false,
   }
 
   let clock: FakeClock

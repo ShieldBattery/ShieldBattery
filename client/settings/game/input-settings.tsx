@@ -171,13 +171,12 @@ export function GameInputSettings() {
           <SubSettings>
             <Slider
               {...bindCustom('grabPanSensitivity')}
+              ariaLabel={t('settings.game.input.grabPanSensitivity', 'Grab pan sensitivity')}
               tabIndex={0}
               min={0}
               max={150}
               step={5}
               disabled={!getInputValue('grabPanSensitivityOn')}
-              showTicks={false}
-              showBalloon={false}
             />
             <SliderEndpointLabels>
               <LabelMedium>{t('settings.game.input.grabPanSlower', 'Slower')}</LabelMedium>
@@ -208,7 +207,6 @@ export function GameInputSettings() {
             max={100}
             step={5}
             disabled={!getInputValue('mouseSensitivityOn')}
-            showTicks={false}
           />
         </SectionContainer>
         <SectionContainer>
@@ -245,15 +243,15 @@ export function GameInputSettings() {
             <SubSettings>
               <Slider
                 {...bindCustom('customCursorSize')}
+                ariaLabel={t('settings.game.input.customCursorSize', 'Cursor size')}
                 tabIndex={0}
                 min={0.25}
                 max={1.0}
                 step={0.125}
+                showStopLabels={false}
                 disabled={
                   !getInputValue('useCustomCursorSize') || !getInputValue('hardwareCursorOn')
                 }
-                showTicks={true}
-                showBalloon={false}
               />
               <SliderEndpointLabels>
                 <LabelMedium>

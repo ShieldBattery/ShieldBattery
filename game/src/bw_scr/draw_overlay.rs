@@ -11,6 +11,7 @@ use egui::{
     Align, Align2, Color32, Event, Id, Key, Label, Layout, PointerButton, Pos2, Rect, Response,
     Sense, Slider, TextureId, UiBuilder, Vec2, Widget, WidgetText, pos2, vec2,
 };
+use overlay_ui::net_quality::{NetQualityView, render_net_quality};
 use winapi::shared::windef::{HWND, POINT};
 
 use crate::app_messages::GameSetupInfo;
@@ -120,6 +121,7 @@ struct OutState {
     show_hide_control: Option<(Control, bool)>,
     show_hide_graphic_layer: Option<(u8, bool)>,
     show_console: bool,
+    leave_game: bool,
 }
 
 pub struct StepOutput {
@@ -135,6 +137,8 @@ pub struct StepOutput {
     pub show_console: bool,
     // true to run second draw to avoid ugly flickering due to screen size changing.
     pub run_second_draw: bool,
+    /// Whether the player asked to leave the game, the way the in-game menu's End Game does.
+    pub leave_game: bool,
 }
 
 /// Bw globals used by OverlayState::step
@@ -271,6 +275,7 @@ impl OverlayState {
                 show_hide_control: None,
                 show_hide_graphic_layer: None,
                 show_console: true,
+                leave_game: false,
             },
             captured_mouse_down: [false; 2],
             bw_mouse_down: [false; 2],
@@ -308,6 +313,7 @@ impl OverlayState {
         setup_info: Option<&GameSetupInfo>,
         disconnect_status: &DisconnectStatus,
         net_stats: Option<&NetStatsStatus>,
+        net_quality: Option<&NetQualityView>,
     ) -> StepOutput {
         // BW seems to use different render target sizes depending on SD/HD/4k
         // sprites; with 1280x960 for SD, 1920x1080 for lowres HD, and
@@ -403,6 +409,7 @@ impl OverlayState {
             show_hide_control: None,
             show_hide_graphic_layer: None,
             show_console: self.replay_panels.show_console,
+            leave_game: false,
         };
         let chat_textbox_open = bw::iter_dialogs(bw.first_dialog)
             .find(|x| x.as_control().string() == "TextBox")
@@ -443,6 +450,9 @@ impl OverlayState {
                 self.add_disconnect_overlay(disconnect_status, setup_info, &ctx);
                 // The `/netstat` diagnostic overlay, drawn only while toggled on (a `Some` snapshot).
                 self.add_netstat_overlay(net_stats, setup_info, &ctx);
+                if let Some(net_quality) = net_quality {
+                    render_net_quality(net_quality, &ctx);
+                }
                 let debug = cfg!(debug_assertions);
                 if debug {
                     self.add_debug_ui(bw, &ctx);
@@ -471,6 +481,7 @@ impl OverlayState {
             show_console: self.out_state.show_console,
             statbtn_dialog_offset: self.replay_ui_values.statbtn_dialog_offset,
             run_second_draw: screen_size_changed,
+            leave_game: self.out_state.leave_game,
         }
     }
 

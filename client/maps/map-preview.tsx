@@ -257,8 +257,8 @@ const ZoomableMapImage = ({ map }: { map: ReadonlyDeep<MapInfoJson> }) => {
           min={ZOOM_MIN}
           max={ZOOM_MAX}
           step={ZOOM_STEP_SLIDER}
-          showTicks={false}
-          showBalloon={false}
+          size='compact'
+          ariaLabel={t('maps.preview.zoom', 'Zoom')}
           value={zoom}
           onChange={setZoom}
         />

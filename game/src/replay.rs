@@ -24,7 +24,9 @@ pub const SECTION_ID: u32 = 0x74616253; // Sbat
 //      would need to know this, but going to make it easy to tell if we do in future.
 // 3: Has workaround for workers getting stuck in gas building if they managed to enter
 //      it while on unwalkable terrain (game_thread::order_harvest_gas)
-pub const GAME_LOGIC_VERSION: u16 = 0x3;
+// 4: The unit cost check answers for the "None" unit id the same way on 32 and 64-bit builds
+//      (game_thread::check_unit_resources_and_supply)
+pub const GAME_LOGIC_VERSION: u16 = 0x4;
 
 pub struct SbatReplayData {
     pub team_game_main_players: [u8; 4],

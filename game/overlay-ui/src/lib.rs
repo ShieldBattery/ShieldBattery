@@ -14,6 +14,7 @@
 pub mod colors;
 pub mod disconnect;
 pub mod fonts;
+pub mod net_quality;
 pub mod netstat;
 mod style;
 

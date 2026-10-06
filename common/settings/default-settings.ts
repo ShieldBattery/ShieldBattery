@@ -48,6 +48,7 @@ export const DEFAULT_LOCAL_SETTINGS: ReadonlyDeep<
   grabPanSensitivity: 40,
   grabPanInverted: false,
   gameServerRegion: undefined,
+  rollbackTarget: 2,
   launch32Bit: false,
   replayLibraryFolders: undefined,
 }

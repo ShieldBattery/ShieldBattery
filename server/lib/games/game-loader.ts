@@ -9,6 +9,7 @@ import { GameServerRegionId } from '../../../common/game-server-regions'
 import { GameConfig, GameSource } from '../../../common/games/configuration'
 import { GamePlayerRank, GameSetup, PlayerInfo } from '../../../common/games/game-launch-config'
 import { GameLoaderEvent } from '../../../common/games/game-loader-network'
+import { GameType } from '../../../common/games/game-type'
 import { MapInfo, SbMapId, toMapInfoJson } from '../../../common/maps'
 import { BwTurnRate, BwUserLatency } from '../../../common/network'
 import { urlPath } from '../../../common/urls'
@@ -1243,6 +1244,9 @@ export class GameLoader {
               gameId,
               seed: generalSetup.seed,
               slots,
+              // EUD triggers can write to memory the rollback snapshot doesn't cover. They only run
+              // in UMS games (a melee game on an EUD map runs melee triggers instead).
+              canRollBack: !(gameConfig.gameType === GameType.UseMapSettings && map.mapData.isEud),
               signal,
               onProvisioning: regions => this.handleGameServerProvisioning(gameId, regions),
             }),

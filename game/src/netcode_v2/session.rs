@@ -21,16 +21,16 @@ use futures::StreamExt;
 use futures::stream::FuturesUnordered;
 use quick_error::quick_error;
 use rally_point_client::proto::ids::SlotId;
-use rally_point_client::proto::messages::{LeaveDirective, Payload};
+use rally_point_client::proto::messages::{LeadReport, LeaveDirective, Payload, RollbackStats};
 use rally_point_client::transport::Link;
 use rally_point_client::{
     ChatOut, ClientEndpoint, DialError, Identity, LinkDriver, PhaseStatus, Reconnect, TurnChannels,
 };
 use tokio::sync::{mpsc, watch};
 
-use super::TurnState;
 use super::credentials::{self, CredentialError, RelayTarget, SessionCredentials};
 use super::rehome::{self, RehomeContext};
+use super::{DriverEnd, TurnState};
 use crate::app_messages::{NetcodeV2Setup, SbUserId};
 use crate::recurse_checked_mutex::Mutex;
 use crate::windows::wifi::WifiLowLatencyLease;
@@ -48,6 +48,12 @@ quick_error! {
         Dial(err: DialError) {
             display("netcode v2 relay could not be dialed: {}", err)
             source(err)
+        }
+        /// The session rolls back, which this DLL can't: a release build, or one whose analysis
+        /// missed something the rollback engine needs. Running it as lockstep instead would desync
+        /// from every client that does roll back.
+        RollbackUnsupported {
+            display("netcode v2 session rolls back, which this build of the game DLL can't do")
         }
     }
 }
@@ -80,6 +86,41 @@ enum SessionLink {
     Sessionless(ParkedChannels),
 }
 
+/// Holds back each in-game turn this client sends, from game frame `from_frame` on, for `delay`
+/// before handing it to the driver through `outbound`, as if this client's uplink were that much
+/// slower from then on: a debug knob's doing (see `crate::rollback_live`). Returns the sender to
+/// send turns into in its place. Turns keep their order, and each leaves `delay` after it was
+/// handed over, however many are waiting.
+fn hold_back_own_turns(
+    outbound: mpsc::Sender<Payload>,
+    delay: Duration,
+    from_frame: u32,
+) -> mpsc::Sender<Payload> {
+    let (held_tx, mut held_rx) = mpsc::channel::<Payload>(outbound.max_capacity());
+    let (due_tx, mut due_rx) = mpsc::unbounded_channel::<(tokio::time::Instant, Payload)>();
+    tokio::spawn(async move {
+        while let Some(payload) = held_rx.recv().await {
+            let held = payload
+                .game_frame_count
+                .is_some_and(|frame| frame >= from_frame);
+            let now = tokio::time::Instant::now();
+            let due = if held { now + delay } else { now };
+            if due_tx.send((due, payload)).is_err() {
+                break;
+            }
+        }
+    });
+    tokio::spawn(async move {
+        while let Some((due, payload)) = due_rx.recv().await {
+            tokio::time::sleep_until(due).await;
+            if outbound.send(payload).await.is_err() {
+                break;
+            }
+        }
+    });
+    held_tx
+}
+
 /// The far ends of a sessionless game's fabricated [`TurnChannels`]. There is no [`LinkDriver`] to
 /// own them, so the session holds them: keeping each one alive means the [`TurnState`] end never
 /// observes a closed channel, so every turn/lobby/chat/leave/result send succeeds (into nothing)
@@ -102,6 +143,9 @@ struct ParkedChannels {
     _connectivity: mpsc::Sender<(SlotId, bool)>,
     _region_labels: mpsc::Sender<Vec<(u64, String)>>,
     _phase_status: watch::Sender<PhaseStatus>,
+    _lead_report: watch::Sender<Option<LeadReport>>,
+    _turns_complete: watch::Sender<u64>,
+    _rollback_stats: watch::Receiver<Option<RollbackStats>>,
 }
 
 /// The current game's session, reached from the BW/sync thread via [`with_turn_state`] and created on the
@@ -109,6 +153,11 @@ struct ParkedChannels {
 /// leave pass can reach the OUT hook) gets `None` instead of deadlocking — but the lock discipline
 /// is to not hold it across such calls in the first place.
 static SESSION: Mutex<Option<NetcodeV2Session>> = Mutex::new(None);
+
+/// Whether this DLL can run a game that rolls back.
+fn rollback_supported() -> bool {
+    crate::rollback_live::supported()
+}
 
 /// Builds the QUIC session from the launch handoff and stores it for the hooks. Call on the Tokio
 /// runtime (it dials and spawns the driver). Replaces any previous session.
@@ -126,6 +175,9 @@ pub async fn establish_session(
     has_computers: bool,
     rehome_context: RehomeContext,
 ) -> Result<mpsc::Receiver<Option<u32>>, SessionError> {
+    if setup.rollback && !rollback_supported() {
+        return Err(SessionError::RollbackUnsupported);
+    }
     let SessionCredentials {
         identity,
         home,
@@ -158,6 +210,12 @@ pub async fn establish_session(
     let rehome = rehome::build_provider(&rehome_context, relay_addr.is_ipv6());
 
     let (driver, mut channels) = LinkDriver::new(link);
+    if setup.rollback
+        && let Some((delay, from_frame)) = crate::rollback_live::own_send_delay()
+    {
+        info!("Holding back this client's own turns by {delay:?} from frame {from_frame}");
+        channels.outbound = hold_back_own_turns(channels.outbound.clone(), delay, from_frame);
+    }
     // Re-dial from the same endpoint (its UDP socket stays open for the session's life via
     // `SessionLink::Relay` below) so a re-dial after a drop reuses the already-bound local port.
     // Re-dials start at the address that just connected and rotate through the relay's others,
@@ -185,9 +243,11 @@ pub async fn establish_session(
     // Service the link on the DLL's async runtime. `run_reconnecting` re-dials internally on a
     // link failure, keeping every turn channel alive across the outage (see the self-connectivity
     // convention on `channels.connectivity` in `mod.rs`); it only ends — dropping the channels,
-    // which the hooks read as end-of-session — on a clean shutdown, a terminal relay refusal, or a
-    // non-link failure reconnecting can't fix.
+    // which the hooks read as end-of-session — on a clean shutdown, a terminal relay refusal or
+    // eviction, or a non-link failure reconnecting can't fix.
     let (driver_done_tx, driver_done_rx) = watch::channel(false);
+    let driver_end = Arc::new(DriverEnd::default());
+    let task_driver_end = driver_end.clone();
     tokio::spawn(async move {
         let result = if let Some(lease) = wifi_low_latency {
             lease
@@ -196,6 +256,7 @@ pub async fn establish_session(
         } else {
             driver.run_reconnecting(reconnect).await
         };
+        task_driver_end.record(&result);
         match result {
             Ok(()) => debug!("netcode v2 link closed cleanly"),
             Err(e) => error!("netcode v2 link failed: {e}"),
@@ -228,6 +289,11 @@ pub async fn establish_session(
     // Storm ids come straight from the roster (storm id ≡ rp2 slot), so seed the slot→storm
     // identity map up front here rather than learning it from a Storm join.
     turn_state.populate_identity_slots();
+    // Before any in-game turn exists, since the input table places each turn at its step by
+    // counting its slot's turns.
+    if let Some(inputs) = crate::rollback_live::arm_for_session(setup.rollback) {
+        turn_state.predict_inputs(inputs);
+    }
     // Seed the `/netstat` operator header and per-player home column from the launch handoff. The
     // header's own relay id starts at the home relay and advances live on a re-home; each slot's home
     // is the create-time assignment (peers' re-homes are not client-observable). Our own region is
@@ -254,6 +320,7 @@ pub async fn establish_session(
     // A client with no server-issued result code (an observer) can never build a result report, so
     // the driver must not hold its leave intent waiting for one — see `expect_result_report`.
     turn_state.set_result_report_possible(has_result_code);
+    turn_state.set_driver_end(driver_end);
     if let Some(mut guard) = SESSION.lock() {
         *guard = Some(NetcodeV2Session {
             link: SessionLink::Relay(endpoint),
@@ -319,6 +386,9 @@ pub fn establish_sessionless(local_user_id: SbUserId, has_computers: bool) {
     let (connectivity_tx, connectivity_rx) = mpsc::channel(16);
     let (region_labels_tx, region_labels_rx) = mpsc::channel(4);
     let (phase_status_tx, phase_status_rx) = watch::channel(PhaseStatus::default());
+    let (lead_report_tx, lead_report_rx) = watch::channel(None);
+    let (turns_complete_tx, turns_complete_rx) = watch::channel(0);
+    let (rollback_stats_tx, rollback_stats_rx) = watch::channel(None);
 
     let channels = TurnChannels {
         outbound: outbound_tx,
@@ -339,6 +409,9 @@ pub fn establish_sessionless(local_user_id: SbUserId, has_computers: bool) {
         connectivity: connectivity_rx,
         region_labels: region_labels_rx,
         phase_status: phase_status_rx,
+        lead_report: lead_report_rx,
+        turns_complete: turns_complete_rx,
+        rollback_stats: rollback_stats_tx,
     };
     let parked = ParkedChannels {
         _outbound: outbound_rx,
@@ -358,6 +431,9 @@ pub fn establish_sessionless(local_user_id: SbUserId, has_computers: bool) {
         _connectivity: connectivity_tx,
         _region_labels: region_labels_tx,
         _phase_status: phase_status_tx,
+        _lead_report: lead_report_tx,
+        _turns_complete: turns_complete_tx,
+        _rollback_stats: rollback_stats_rx,
     };
 
     let turn_state = TurnState::new_sessionless(channels, local_user_id, has_computers);

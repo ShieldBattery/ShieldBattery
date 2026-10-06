@@ -242,11 +242,11 @@ function DraftTestInner() {
             }}
           />
           <StyledSlider
-            label={`Latency: ${latency}ms`}
+            label='Latency'
+            formatValue={value => `${value}ms`}
             min={0}
             max={1000}
             step={10}
-            showTicks={false}
             value={latency}
             onChange={setLatency}
           />

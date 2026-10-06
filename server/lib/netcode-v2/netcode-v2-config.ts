@@ -6,6 +6,14 @@ export interface NetcodeV2Config {
   tenant: string
   /** TLS server name clients validate the relay certificate against. */
   relayServerName: string
+  /**
+   * Whether to ask the coordinator for rollback sessions, where every client simulates ahead of
+   * turns it hasn't received and the relays compare state hash reports instead of native sync
+   * checksums. Set for the whole server, never per player: no player (or modified client) may opt
+   * out. Games whose simulation can't be rolled back (UMS games on EUD maps) run lockstep
+   * regardless.
+   */
+  rollback: boolean
 }
 
 /**
@@ -43,5 +51,6 @@ export function loadConfigFromEnv(): NetcodeV2Config | undefined {
     coordinatorUrl,
     tenant,
     relayServerName: process.env.SB_RP2_RELAY_SERVER_NAME ?? 'localhost',
+    rollback: process.env.SB_RP2_ROLLBACK === 'true',
   }
 }

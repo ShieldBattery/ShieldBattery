@@ -15,7 +15,9 @@
 //! method in this file is the whole job.
 
 pub use samase_scarf::scarf;
-pub use samase_scarf::{DatTablePtr, DatType};
+pub use samase_scarf::{AiPool, AiPools, DatTablePtr, DatType, DynamicPathing, StateBlockSizes};
+
+use std::rc::Rc;
 
 use scarf::exec_state::ExecutionState as _;
 use scarf::exec_state::VirtualAddress as _;
@@ -639,6 +641,24 @@ impl<'e> Analysis<'e> {
         self.0.sync_slot_index()
     }
 
+    /// The byte that decides whether the order confirmation marker is drawn. Clicks set it; the
+    /// marker's iscript clears it when its animation ends.
+    pub fn draw_cursor_marker(&mut self) -> Option<Operand<'e>> {
+        self.0.draw_cursor_marker()
+    }
+
+    /// The function a click calls to place the order confirmation marker, `(x, y)`: cdecl on
+    /// 32-bit.
+    pub fn show_cursor_marker_at(&mut self) -> Option<VirtualAddress> {
+        self.0.show_cursor_marker_at()
+    }
+
+    /// The function that makes a unit's (or fog sprite's) selection circle blink, `(object,
+    /// timer)`: thiscall on 32-bit.
+    pub fn set_sprite_selection_flash_timer(&mut self) -> Option<VirtualAddress> {
+        self.0.set_sprite_selection_flash_timer()
+    }
+
     /// Built-in/proto turn latency (the pipe-depth floor, natively 2). We may override it. See
     /// guide §4 / §5.3.
     pub fn builtin_turn_latency(&mut self) -> Option<Operand<'e>> {
@@ -658,11 +678,44 @@ impl<'e> Analysis<'e> {
         self.0.continue_game_loop()
     }
 
+    /// Count of game logic frames the game loop asks a single `step_game_logic` call to simulate.
+    /// The loop writes it before each call (normally 1); replay fast-forward raises it so one call
+    /// simulates a whole run of frames without rendering in between.
+    pub fn step_game_frames(&mut self) -> Option<Operand<'e>> {
+        self.0.step_game_frames()
+    }
+
+    /// Timestamp of the next scheduled logic step. `step_game_logic` advances it by the frame
+    /// delay once per simulated frame, so the game loop paces itself against it; a call that
+    /// simulates many frames pushes it that far into the future.
+    pub fn next_game_step_tick(&mut self) -> Option<Operand<'e>> {
+        self.0.next_game_step_tick()
+    }
+
     /// `Mem16` countdown the trigger step decrements once per game frame; every player's triggers
     /// run on the frame it is read as zero, after which it is reset to 30. Native code writes 1
     /// into it to force a trigger pass on the following frame (a player leaving does this).
     pub fn trigger_execution_timer(&mut self) -> Option<Operand<'e>> {
         self.0.trigger_execution_timer()
+    }
+
+    /// `Mem16` countdown the trigger step decrements once per game frame outside replays; on the
+    /// frame it is read as zero it is reset to 0x2d and the local player's victory state is checked
+    /// to open the victory or defeat dialog.
+    pub fn trigger_result_check_timer(&mut self) -> Option<Operand<'e>> {
+        self.0.trigger_result_check_timer()
+    }
+
+    /// Opens the defeat dialog, `()`, called from the trigger step. No arguments on either
+    /// architecture, and the caller ignores its return value.
+    pub fn open_defeat_mission_dialog(&mut self) -> Option<VirtualAddress> {
+        self.0.open_defeat_mission_dialog()
+    }
+
+    /// Opens the victory dialog, `()`, called from the trigger step. No arguments on either
+    /// architecture, and the caller ignores its return value.
+    pub fn open_victory_mission_dialog(&mut self) -> Option<VirtualAddress> {
+        self.0.open_victory_mission_dialog()
     }
 
     pub fn net_format_turn_rate(&mut self) -> Option<VirtualAddress> {
@@ -889,6 +942,29 @@ impl<'e> Analysis<'e> {
         self.0.order_function(0x53)
     }
 
+    /// `(player, unit id, check supply, show error) -> can afford`; records the unit's costs for
+    /// the player in the cached cost arrays before checking them.
+    pub fn check_unit_resources_and_supply(&mut self) -> Option<VirtualAddress> {
+        self.0.check_unit_resources_and_supply()
+    }
+
+    /// `(player, show error) -> can afford`, against the player's cached unit costs.
+    pub fn check_cached_resources(&mut self) -> Option<VirtualAddress> {
+        self.0.check_cached_resources()
+    }
+
+    pub fn cached_mineral_costs(&mut self) -> Option<Operand<'e>> {
+        self.0.cached_mineral_costs()
+    }
+
+    pub fn cached_gas_costs(&mut self) -> Option<Operand<'e>> {
+        self.0.cached_gas_costs()
+    }
+
+    pub fn cached_supply_costs(&mut self) -> Option<Operand<'e>> {
+        self.0.cached_supply_costs()
+    }
+
     pub fn move_unit(&mut self) -> Option<VirtualAddress> {
         self.0.move_unit()
     }
@@ -912,6 +988,102 @@ impl<'e> Analysis<'e> {
 
     pub fn print_text(&mut self) -> Option<VirtualAddress> {
         self.0.print_text()
+    }
+
+    /// Allocation function of the engine's second allocation path, a plain
+    /// `alloc(size, tag, tag2, flags)` over the same OS heap as the allocator vtable object.
+    /// Pathing, AI regions, replay recording and save/load allocate through it.
+    pub fn engine_alloc(&mut self) -> Option<VirtualAddress> {
+        self.0.engine_alloc()
+    }
+
+    /// Deallocation function paired with [`Analysis::engine_alloc`],
+    /// `free(ptr, tag, tag2, flags)`.
+    pub fn engine_free(&mut self) -> Option<VirtualAddress> {
+        self.0.engine_free()
+    }
+
+    /// Base of the per-player trigger list headers, `{next, previous, count}` (three words) for each
+    /// of the 8 players.
+    pub fn player_trigger_lists(&mut self) -> Option<Operand<'e>> {
+        self.0.player_trigger_lists()
+    }
+
+    /// `Mem16` countdown the trigger step advances every frame; when it runs out, the game's
+    /// elapsed seconds tick up.
+    pub fn trigger_elapsed_time_tick_timer(&mut self) -> Option<Operand<'e>> {
+        self.0.trigger_elapsed_time_tick_timer()
+    }
+
+    /// `Mem16` countdown the trigger step advances every frame to refresh the leaderboard.
+    pub fn leaderboard_refresh_timer(&mut self) -> Option<Operand<'e>> {
+        self.0.leaderboard_refresh_timer()
+    }
+
+    /// Base of `u8[8]`: whether each player's triggers are paused in a wait action.
+    pub fn player_trigger_wait_active_flags(&mut self) -> Option<Operand<'e>> {
+        self.0.player_trigger_wait_active_flags()
+    }
+
+    /// Base of `u32[8]`: how much longer each player's wait action lasts.
+    pub fn player_trigger_wait_timers(&mut self) -> Option<Operand<'e>> {
+        self.0.player_trigger_wait_timers()
+    }
+
+    /// Base of `u8[8]`: each player's victory, defeat or draw as decided by triggers.
+    pub fn player_trigger_victory_states(&mut self) -> Option<Operand<'e>> {
+        self.0.player_trigger_victory_states()
+    }
+
+    /// Base of `u8[8]`: whether each player's triggers run.
+    pub fn player_trigger_active_flags(&mut self) -> Option<Operand<'e>> {
+        self.0.player_trigger_active_flags()
+    }
+
+    /// `void(text, duration)` (cdecl): shows a line of game information text such as a player
+    /// leaving or being eliminated.
+    pub fn show_game_message(&mut self) -> Option<VirtualAddress> {
+        self.0.show_game_message()
+    }
+
+    /// `Mem32` cursor the AI expansion planner rotates through the players, one per call.
+    pub fn ai_expansion_player_cursor(&mut self) -> Option<Operand<'e>> {
+        self.0.ai_expansion_player_cursor()
+    }
+
+    /// `void()`: takes the selection circles and health bars off every sprite, as the game does
+    /// before writing a saved game.
+    pub fn clear_transient_sprite_state_for_save(&mut self) -> Option<VirtualAddress> {
+        self.0.clear_transient_sprite_state_for_save()
+    }
+
+    /// `void()`: puts the selection circles back on the locally selected units (and teammates'
+    /// shared ones in team games), as the game does after writing a saved game.
+    pub fn rebuild_selection_visuals_after_save(&mut self) -> Option<VirtualAddress> {
+        self.0.rebuild_selection_visuals_after_save()
+    }
+
+    /// `ObserverUI::track_building_unit(this, unit, force)`: the simulation telling the observer
+    /// production panels that a building, morph or archon merge has started.
+    pub fn observer_ui_track_building_unit(&mut self) -> Option<VirtualAddress> {
+        self.0.observer_ui_track_building_unit()
+    }
+
+    /// `ObserverUI::track_research_or_upgrade(this, unit)`: research or an upgrade has started.
+    pub fn observer_ui_track_research_or_upgrade(&mut self) -> Option<VirtualAddress> {
+        self.0.observer_ui_track_research_or_upgrade()
+    }
+
+    /// `ObserverUI::remove_building_unit_record(this, unit)`: a tracked building unit finished,
+    /// was canceled or died.
+    pub fn observer_ui_remove_building_unit_record(&mut self) -> Option<VirtualAddress> {
+        self.0.observer_ui_remove_building_unit_record()
+    }
+
+    /// `ObserverUI::finish_research_or_upgrade(this, unit, completed)`: research or an upgrade
+    /// completed, or was canceled when `completed` is false.
+    pub fn observer_ui_finish_research_or_upgrade(&mut self) -> Option<VirtualAddress> {
+        self.0.observer_ui_finish_research_or_upgrade()
     }
 
     pub fn snet_local_player_list(&mut self) -> Option<Operand<'e>> {
@@ -960,5 +1132,486 @@ impl<'e> Analysis<'e> {
     /// 5 = observers.
     pub fn chat_box_mode(&mut self) -> Option<Operand<'e>> {
         self.0.chat_box_mode()
+    }
+
+    // --- Synced simulation state, for taking a whole-state snapshot of a running game. ---
+    //
+    // Every one of these is either a static array base (the operand *is* the address) or a
+    // `MemXX[address]` global (the operand's own storage is the value, and its value is the
+    // pointer for the heap blocks). Callers have to know which of the two a given result is;
+    // the doc comment on each says so where it isn't obvious from the name.
+
+    /// The object pools' `vector` structs (data pointer, length, capacity), one list per pool:
+    /// index 0 images, 1 sprites, 2 lone sprites, 3 units, 4 bullets, 5 orders, 6 fow sprites.
+    /// One of a pool's entries holds the objects themselves and the rest are auxiliary per-object
+    /// arrays resized alongside them; nothing about the order says which is which, so the object
+    /// array has to be recognized by comparing against [`units`](Self::units) /
+    /// [`sprites`](Self::sprites) / [`images`](Self::images). Each operand is the vector struct's
+    /// address, and each `(add, mul)` pair is how that vector's length is derived from the pool's
+    /// object count: `count * mul.max(1) + add`.
+    pub fn pool_vectors(&mut self) -> Vec<Vec<(Operand<'e>, u32, u32)>> {
+        self.0.limits().arrays.clone()
+    }
+
+    /// Address of the `vector<bw::Sprite>` struct the sprite pool lives in, in the same form
+    /// [`pool_vectors`](Self::pool_vectors) reports.
+    pub fn sprites(&mut self) -> Option<Operand<'e>> {
+        self.0
+            .sprites()
+            .and_then(|x| x.if_memory())
+            .map(|mem| mem.address_op(self.2))
+    }
+
+    /// Address of the `vector<bw::Image>` struct the image pool lives in, in the same form
+    /// [`pool_vectors`](Self::pool_vectors) reports.
+    pub fn images(&mut self) -> Option<Operand<'e>> {
+        self.0
+            .images()
+            .and_then(|x| x.if_memory())
+            .map(|mem| mem.address_op(self.2))
+    }
+
+    pub fn last_active_unit(&mut self) -> Option<Operand<'e>> {
+        self.0.last_active_unit()
+    }
+
+    pub fn first_hidden_unit(&mut self) -> Option<Operand<'e>> {
+        self.0.first_hidden_unit()
+    }
+
+    pub fn first_dying_unit(&mut self) -> Option<Operand<'e>> {
+        self.0.first_dying_unit()
+    }
+
+    pub fn first_revealer(&mut self) -> Option<Operand<'e>> {
+        self.0.first_revealer()
+    }
+
+    pub fn first_invisible_unit(&mut self) -> Option<Operand<'e>> {
+        self.0.first_invisible_unit()
+    }
+
+    pub fn first_pylon(&mut self) -> Option<Operand<'e>> {
+        self.0.first_pylon()
+    }
+
+    pub fn first_free_unit(&mut self) -> Option<Operand<'e>> {
+        self.0.first_free_unit()
+    }
+
+    pub fn last_free_unit(&mut self) -> Option<Operand<'e>> {
+        self.0.last_free_unit()
+    }
+
+    pub fn unit_count(&mut self) -> Option<Operand<'e>> {
+        self.0.unit_count()
+    }
+
+    pub fn pylon_refresh(&mut self) -> Option<Operand<'e>> {
+        self.0.pylon_refresh()
+    }
+
+    pub fn pylon_auras_visible(&mut self) -> Option<Operand<'e>> {
+        self.0.pylon_auras_visible()
+    }
+
+    pub fn order_timer_reset_counter(&mut self) -> Option<Operand<'e>> {
+        self.0.order_timer_reset_counter()
+    }
+
+    pub fn secondary_order_timer_reset_counter(&mut self) -> Option<Operand<'e>> {
+        self.0.secondary_order_timer_reset_counter()
+    }
+
+    pub fn first_lone_sprite(&mut self) -> Option<Operand<'e>> {
+        self.0.first_lone_sprite()
+    }
+
+    pub fn last_lone_sprite(&mut self) -> Option<Operand<'e>> {
+        self.0.last_lone_sprite()
+    }
+
+    pub fn first_free_lone_sprite(&mut self) -> Option<Operand<'e>> {
+        self.0.first_free_lone_sprite()
+    }
+
+    pub fn last_free_lone_sprite(&mut self) -> Option<Operand<'e>> {
+        self.0.last_free_lone_sprite()
+    }
+
+    pub fn first_free_bullet(&mut self) -> Option<Operand<'e>> {
+        self.0.first_free_bullet()
+    }
+
+    pub fn last_free_bullet(&mut self) -> Option<Operand<'e>> {
+        self.0.last_free_bullet()
+    }
+
+    pub fn first_active_bullet(&mut self) -> Option<Operand<'e>> {
+        self.0.first_active_bullet()
+    }
+
+    pub fn last_active_bullet(&mut self) -> Option<Operand<'e>> {
+        self.0.last_active_bullet()
+    }
+
+    /// Base of the ring of splash-lurker hit records `lurker_hits_pos` indexes.
+    pub fn lurker_hits(&mut self) -> Option<Operand<'e>> {
+        self.0.lurker_hits()
+    }
+
+    pub fn lurker_hits_frame(&mut self) -> Option<Operand<'e>> {
+        self.0.lurker_hits_frame()
+    }
+
+    pub fn lurker_hits_pos(&mut self) -> Option<Operand<'e>> {
+        self.0.lurker_hits_pos()
+    }
+
+    pub fn vision_update_counter(&mut self) -> Option<Operand<'e>> {
+        self.0.vision_update_counter()
+    }
+
+    pub fn vision_updated(&mut self) -> Option<Operand<'e>> {
+        self.0.vision_updated()
+    }
+
+    /// The unit that most recently spawned a bullet with launch spin. A bullet from the same unit
+    /// alternates its spin direction instead of drawing it from the synced RNG.
+    pub fn last_bullet_spawner(&mut self) -> Option<Operand<'e>> {
+        self.0.last_bullet_spawner()
+    }
+
+    /// How many bullets are in the active list; `create_bullet` counts it up, releasing a bullet
+    /// counts it down, and bullet creation for some weapons is refused past a limit.
+    pub fn active_bullet_count(&mut self) -> Option<Operand<'e>> {
+        self.0.active_bullet_count()
+    }
+
+    /// Which side the last bullet with launch spin was turned to, which the next one from
+    /// `last_bullet_spawner` flips.
+    pub fn last_bullet_spin_direction(&mut self) -> Option<Operand<'e>> {
+        self.0.last_bullet_spin_direction()
+    }
+
+    /// The countdown `advance_turn_timer_and_step_network` keeps toward the next network turn,
+    /// taking 1000 off every logic step and adding the turn duration back when a turn runs.
+    pub fn turn_timer_accumulator(&mut self) -> Option<Operand<'e>> {
+        self.0.turn_timer_accumulator()
+    }
+
+    /// The player whose triggers the trigger step is currently running.
+    pub fn trigger_current_player(&mut self) -> Option<Operand<'e>> {
+        self.0.trigger_current_player()
+    }
+
+    /// Base of the per-player, per-unit-id count of completed units that trigger conditions read.
+    pub fn trigger_completed_units_cache(&mut self) -> Option<Operand<'e>> {
+        self.0.trigger_completed_units_cache()
+    }
+
+    /// Base of the per-player, per-unit-id count of all units that trigger conditions read.
+    pub fn trigger_all_units_cache(&mut self) -> Option<Operand<'e>> {
+        self.0.trigger_all_units_cache()
+    }
+
+    /// Base of the per-player selection arrays (the synced selection, not the local client's).
+    pub fn selections(&mut self) -> Option<Operand<'e>> {
+        self.0.selections()
+    }
+
+    /// Base of the local client's own selection, a row of unit pointers laid out right after the
+    /// per-player arrays [`selections`](Self::selections) points at and as long as one of them.
+    pub fn local_selection(&mut self) -> Option<Operand<'e>> {
+        self.0.local_selection()
+    }
+
+    /// Base of the static pool of 0x40 images that building placement shows over the units a
+    /// building is placed on (a refinery's geysers), outside the main image pool.
+    pub fn placement_images(&mut self) -> Option<Operand<'e>> {
+        self.0.placement_images()
+    }
+
+    /// Base of the static pool of 0x40 images outlining each
+    /// [`placement_images`](Self::placement_images) entry's footprint.
+    pub fn placement_rects(&mut self) -> Option<Operand<'e>> {
+        self.0.placement_rects()
+    }
+
+    pub fn first_free_placement_image(&mut self) -> Option<Operand<'e>> {
+        self.0.first_free_placement_image()
+    }
+
+    pub fn last_free_placement_image(&mut self) -> Option<Operand<'e>> {
+        self.0.last_free_placement_image()
+    }
+
+    pub fn first_free_placement_rect(&mut self) -> Option<Operand<'e>> {
+        self.0.first_free_placement_rect()
+    }
+
+    pub fn last_free_placement_rect(&mut self) -> Option<Operand<'e>> {
+        self.0.last_free_placement_rect()
+    }
+
+    /// Base of the static pool of 0xc images the local selection's health bars come from,
+    /// outside the main image pool.
+    pub fn hp_bar_images(&mut self) -> Option<Operand<'e>> {
+        self.0.hp_bar_images()
+    }
+
+    pub fn first_free_hp_bar(&mut self) -> Option<Operand<'e>> {
+        self.0.first_free_hp_bar()
+    }
+
+    pub fn last_free_hp_bar(&mut self) -> Option<Operand<'e>> {
+        self.0.last_free_hp_bar()
+    }
+
+    /// Base of the static pool of 0x50 images selection circles come from (the local
+    /// selection's, and teammates' shared ones), outside the main image pool.
+    pub fn selection_circles(&mut self) -> Option<Operand<'e>> {
+        self.0.selection_circles()
+    }
+
+    pub fn first_free_selection_circle(&mut self) -> Option<Operand<'e>> {
+        self.0.first_free_selection_circle()
+    }
+
+    pub fn last_free_selection_circle(&mut self) -> Option<Operand<'e>> {
+        self.0.last_free_selection_circle()
+    }
+
+    /// Base of the `u16[player][hotkey group]` array holding the frame each selection hotkey
+    /// group was last written on.
+    pub fn selection_hotkey_last_used_frames(&mut self) -> Option<Operand<'e>> {
+        self.0.selection_hotkey_last_used_frames()
+    }
+
+    /// Base of the mineral/gas cluster table the AI keeps for the map.
+    pub fn resource_areas(&mut self) -> Option<Operand<'e>> {
+        self.0.resource_areas()
+    }
+
+    pub fn foliage_state(&mut self) -> Option<Operand<'e>> {
+        self.0.foliage_state()
+    }
+
+    /// Pointer global holding the unit movement path pool.
+    pub fn path_array(&mut self) -> Option<Operand<'e>> {
+        self.0.path_array()
+    }
+
+    /// Pointer global holding the head of the free list inside [`path_array`](Self::path_array).
+    pub fn first_free_path(&mut self) -> Option<Operand<'e>> {
+        self.0.first_free_path()
+    }
+
+    /// Pointer global holding the unit that `step_unit_movement`'s path search ignores as an
+    /// obstacle while it makes a new path (the unit the old path was dodging). Cleared once the
+    /// path is made, but some movement states return before the clear, so it carries over into
+    /// later steps.
+    pub fn pathing_ignored_unit(&mut self) -> Option<Operand<'e>> {
+        self.0.pathing_ignored_unit()
+    }
+
+    /// The `u32` per player naming the pathing region the AI's region reachability memo row was
+    /// last computed from. It ends the memo: before it sit the game second each row was computed
+    /// at (`u32` per player) and, before those, the rows themselves (a state byte per region).
+    pub fn ai_transport_reachability_cached_region(&mut self) -> Option<Operand<'e>> {
+        self.0.ai_transport_reachability_cached_region()
+    }
+
+    /// Pointer global holding the unit repulsion field.
+    pub fn repulse_state(&mut self) -> Option<Operand<'e>> {
+        self.0.repulse_state()
+    }
+
+    /// Pointer global holding the per-tile flags array (`map_width_tiles * map_height_tiles`
+    /// `u32`s).
+    pub fn map_tile_flags(&mut self) -> Option<Operand<'e>> {
+        self.0.map_tile_flags()
+    }
+
+    /// Pointer global holding the per-tile tileset index array.
+    pub fn tileset_indexed_map_tiles(&mut self) -> Option<Operand<'e>> {
+        self.0.tileset_indexed_map_tiles()
+    }
+
+    /// Pointer global holding the per-tile VX4 index array.
+    pub fn vx4_map_tiles(&mut self) -> Option<Operand<'e>> {
+        self.0.vx4_map_tiles()
+    }
+
+    /// Pointer global holding the pre-creep terrain tiles, used to restore terrain when creep
+    /// recedes.
+    pub fn creep_original_tiles(&mut self) -> Option<Operand<'e>> {
+        self.0.creep_original_tiles()
+    }
+
+    /// Pointer global holding the per-tile creep border state.
+    pub fn creep_tile_borders(&mut self) -> Option<Operand<'e>> {
+        self.0.creep_tile_borders()
+    }
+
+    /// Base of the disappearing-creep hash table, indexed by
+    /// `(x + y * 0x11) & 0x3ff`, so it holds 0x400 pointer-sized slots.
+    pub fn dcreep_lookup(&mut self) -> Option<Operand<'e>> {
+        self.0.dcreep_lookup()
+    }
+
+    /// Base of the per-list head pointers of the disappearing-creep lists.
+    pub fn dcreep_list_begin(&mut self) -> Option<Operand<'e>> {
+        self.0.dcreep_list_begin()
+    }
+
+    /// Base of the per-list entry counts of the disappearing-creep lists.
+    pub fn dcreep_list_size(&mut self) -> Option<Operand<'e>> {
+        self.0.dcreep_list_size()
+    }
+
+    pub fn dcreep_next_update(&mut self) -> Option<Operand<'e>> {
+        self.0.dcreep_next_update()
+    }
+
+    pub fn dcreep_unit_next_update(&mut self) -> Option<Operand<'e>> {
+        self.0.dcreep_unit_next_update()
+    }
+
+    /// Base of the per-player AI data array (`PlayerAiData[8]`).
+    pub fn player_ai(&mut self) -> Option<Operand<'e>> {
+        self.0.player_ai()
+    }
+
+    /// Base of the per-player AI town list heads; each entry is two pointers (whole array, first
+    /// entry).
+    pub fn player_ai_towns(&mut self) -> Option<Operand<'e>> {
+        self.0.player_ai_towns()
+    }
+
+    /// Base of the per-player guard AI list heads, laid out like
+    /// [`player_ai_towns`](Self::player_ai_towns).
+    pub fn first_guard_ai(&mut self) -> Option<Operand<'e>> {
+        self.0.first_guard_ai()
+    }
+
+    /// Base of the per-player pointers to that player's `AiRegion` array. Each array holds one
+    /// entry per pathing region of the current map.
+    pub fn ai_regions(&mut self) -> Option<Operand<'e>> {
+        self.0.ai_regions()
+    }
+
+    /// Pointer global holding the head of the AI script list.
+    pub fn first_ai_script(&mut self) -> Option<Operand<'e>> {
+        self.0.first_ai_script()
+    }
+
+    pub fn ai_military_update_counter(&mut self) -> Option<Operand<'e>> {
+        self.0.ai_military_update_counter()
+    }
+
+    pub fn ai_target_ignore_reset_counter(&mut self) -> Option<Operand<'e>> {
+        self.0.ai_target_ignore_reset_counter()
+    }
+
+    pub fn step_ai_regions_player(&mut self) -> Option<Operand<'e>> {
+        self.0.step_ai_regions_player()
+    }
+
+    pub fn step_ai_regions_region(&mut self) -> Option<Operand<'e>> {
+        self.0.step_ai_regions_region()
+    }
+
+    pub fn ai_target_ignore_reset_counter2(&mut self) -> Option<Operand<'e>> {
+        self.0.ai_target_ignore_reset_counter2()
+    }
+
+    pub fn ai_target_ignore_request_reset(&mut self) -> Option<Operand<'e>> {
+        self.0.ai_target_ignore_request_reset()
+    }
+
+    /// Base of the ring of recent sync checksums.
+    pub fn sync_data(&mut self) -> Option<Operand<'e>> {
+        self.0.sync_data()
+    }
+
+    /// Single byte cursor into [`sync_check_kinds`](Self::sync_check_kinds), wrapping at
+    /// [`sync_check_kind_count`](Self::sync_check_kind_count).
+    pub fn sync_check_kind_index(&mut self) -> Option<Operand<'e>> {
+        self.0.sync_check_kind_index()
+    }
+
+    /// Single byte global holding how many of [`sync_check_kinds`](Self::sync_check_kinds) the
+    /// turns rotate through.
+    pub fn sync_check_kind_count(&mut self) -> Option<Operand<'e>> {
+        self.0.sync_check_kind_count()
+    }
+
+    /// Base of the byte array of check kinds the turns rotate through.
+    pub fn sync_check_kinds(&mut self) -> Option<Operand<'e>> {
+        self.0.sync_check_kinds()
+    }
+
+    /// 32-bit global holding the `map_tile_flags` row hashed this turn, stepped by one per turn
+    /// and wrapped at the map height.
+    pub fn sync_map_row_index(&mut self) -> Option<Operand<'e>> {
+        self.0.sync_map_row_index()
+    }
+
+    /// Single byte snapshot of the minimap unit vision accumulator, taken once per turn and
+    /// copied into the ring slot the next turn records.
+    pub fn captured_minimap_unit_vision_sync_value(&mut self) -> Option<Operand<'e>> {
+        self.0.captured_minimap_unit_vision_sync_value()
+    }
+
+    /// Single byte snapshot of the minimap marker count accumulator, taken alongside
+    /// [`captured_minimap_unit_vision_sync_value`](Self::captured_minimap_unit_vision_sync_value).
+    pub fn captured_minimap_marker_count_sync_value(&mut self) -> Option<Operand<'e>> {
+        self.0.captured_minimap_marker_count_sync_value()
+    }
+
+    /// Single byte global holding the fold of the sprite vision rows the current check covers.
+    pub fn current_sync_state_byte(&mut self) -> Option<Operand<'e>> {
+        self.0.current_sync_state_byte()
+    }
+
+    /// 32-bit global holding the first sprite hline row of the window
+    /// [`current_sync_state_byte`](Self::current_sync_state_byte) was folded from.
+    pub fn current_sync_check_hash(&mut self) -> Option<Operand<'e>> {
+        self.0.current_sync_check_hash()
+    }
+
+    /// Base of the byte array holding one visibility mask per sprite hline row.
+    pub fn current_sync_vision_bytes(&mut self) -> Option<Operand<'e>> {
+        self.0.current_sync_vision_bytes()
+    }
+
+    /// 32-bit global holding how many entries of the unit position search arrays are live. The x-
+    /// and y-sorted arrays share it, and a unit takes two entries in each, so it counts collision
+    /// box edges rather than units.
+    pub fn unit_position_search_entry_count(&mut self) -> Option<Operand<'e>> {
+        self.0.unit_position_search_entry_count()
+    }
+
+    /// Where the pathing state block keeps its pointer to the dynamic state, and how large the
+    /// block that pointer points at is. The dynamic state holds the collision edge arrays'
+    /// pointers, counts, capacities and bounds; the edges themselves are separate allocations that
+    /// grow as they fill. A zero `struct_size` means the analysis found none of it.
+    pub fn dynamic_pathing(&mut self) -> DynamicPathing {
+        self.0.dynamic_pathing()
+    }
+
+    /// The statically allocated AI object pools, each with the base of its entry array, the
+    /// pointer global holding the head of the free list threaded through its unused entries, and
+    /// the entry size and count the game's own initializer lays it out with. The
+    /// disappearing-creep state pool is reported alongside them because it is built the same way.
+    pub fn ai_pools(&mut self) -> Rc<AiPools<'e>> {
+        self.0.ai_pools()
+    }
+
+    /// Byte sizes of the fixed simulation state blocks, read out of the code that allocates and
+    /// zeroes them rather than from a struct declaration.
+    pub fn state_block_sizes(&mut self) -> StateBlockSizes {
+        self.0.state_block_sizes()
     }
 }

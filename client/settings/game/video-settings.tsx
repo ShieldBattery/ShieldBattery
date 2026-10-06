@@ -297,7 +297,6 @@ export function GameVideoSettings() {
             max={GAMMA_SLIDER_MAX}
             step={GAMMA_SLIDER_STEP}
             disabled={getInputValue('displayMode') !== DisplayMode.Fullscreen}
-            showTicks={false}
           />
         </SectionContainer>
         <SectionContainer>
@@ -324,7 +323,6 @@ export function GameVideoSettings() {
             max={1000}
             step={1}
             disabled={!getInputValue('fpsLimitOn')}
-            showTicks={false}
           />
         </SectionContainer>
         <SectionContainer>

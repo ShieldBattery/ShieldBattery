@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::cell::Cell;
 use std::ffi::{CStr, CString, OsString};
 use std::marker::PhantomData;
@@ -7,12 +8,13 @@ use std::path::{Path, PathBuf};
 use std::ptr::{self, NonNull, null, null_mut};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU8, AtomicU32, AtomicUsize, Ordering};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use bw_dat::UnitId;
 use byteorder::{ByteOrder, LittleEndian};
 use hashbrown::HashMap;
 use libc::c_void;
+use overlay_ui::net_quality::NetQualityView;
 use parking_lot::{Mutex, RwLock};
 use smallvec::SmallVec;
 use winapi::shared::minwindef::FILETIME;
@@ -65,7 +67,7 @@ mod pe_image;
 mod replay_save;
 mod sdf_cache;
 mod shader_replaces;
-mod thiscall;
+pub(crate) mod thiscall;
 
 const NET_PLAYER_COUNT: usize = 12;
 const SHADER_ID_MASK: u32 = 0x1c;
@@ -104,6 +106,17 @@ pub struct BwScr {
     first_active_unit: Value<*mut bw::Unit>,
     first_player_unit: Value<*mut *mut bw::Unit>,
     client_selection: Value<*mut *mut bw::Unit>,
+    /// What the person watching has selected, as `select_units` keeps it (`client_selection` is
+    /// rebuilt from it). `None` if analysis could not find it, which only a game that rolls back
+    /// needs.
+    local_selection: Option<Value<*mut *mut bw::Unit>>,
+    /// Each player's selection as the simulation keeps it, a row of `selection_limit` units per
+    /// player, which selection commands set. `None` if analysis could not find it, which only a
+    /// game that rolls back needs.
+    simulated_selections: Option<Value<*mut *mut bw::Unit>>,
+    /// Whether the rollback engine is changing the local selection itself, rather than the person
+    /// watching.
+    engine_selecting: AtomicBool,
     sprites_by_y_tile: Value<*mut *mut scr::Sprite>,
     sprites_by_y_tile_end: Value<*mut *mut scr::Sprite>,
     sprite_x: (Value<*mut *mut scr::Sprite>, u32, scarf::MemAccessSize),
@@ -115,6 +128,11 @@ pub struct BwScr {
     /// but not when the recorded leave command plays back, so replay playback restores that write
     /// itself (see [`process_replay_commands`](Self::process_replay_commands)).
     trigger_execution_timer: Value<u16>,
+    /// The tick at which the game loop wants its next logic step. `step_game_logic` adds the
+    /// frame delay to it once per simulated frame, so anything that makes one call simulate extra
+    /// frames also pushes real-time pacing that far ahead unless the value is restored. `None` if
+    /// analysis could not find it, which only a game that rolls back needs.
+    next_game_step_tick: Option<Value<u32>>,
     enable_rng: Value<u32>,
     replay_visions: Value<u8>,
     local_visions: Value<u8>,
@@ -280,6 +298,8 @@ pub struct BwScr {
     step_network_addr: VirtualAddress,
     step_replay_commands: VirtualAddress,
     order_harvest_gas: VirtualAddress,
+    check_unit_resources_and_supply: VirtualAddress,
+    unit_cost_cache: UnitCostCache,
     game_command_lengths: Vec<u32>,
     prism_pixel_shaders: Vec<VirtualAddress>,
     prism_renderer_vtable: VirtualAddress,
@@ -300,6 +320,42 @@ pub struct BwScr {
     starcraft_tls_index: SendPtr<*mut u32>,
     print_text_addr: VirtualAddress,
     net_player_count_addr: VirtualAddress,
+    /// Allocation function of the engine's second allocation path: a plain
+    /// `alloc(size, tag, tag2, flags)` over the same OS heap the allocator vtable object uses.
+    /// Pathing, AI regions, replay recording and save/load allocate through this one rather than
+    /// through the vtable object.
+    #[cfg(debug_assertions)]
+    engine_alloc: VirtualAddress,
+    /// Deallocation function paired with `engine_alloc`, `free(ptr, tag, tag2, flags)`.
+    #[cfg(debug_assertions)]
+    engine_free: VirtualAddress,
+    /// The observer UI's entry points for notifications from the simulation, or `None` if analysis
+    /// could not find all of them.
+    observer_ui_callbacks: Option<ObserverUiCallbacks>,
+    /// The pair of functions the game brackets a saved game write with, to take the selection
+    /// circles and health bars off every sprite and put them back from the local selection, or
+    /// `None` if analysis could not find both.
+    selection_visuals: Option<SelectionVisuals>,
+    /// The pools selection circles and health bars come from, which take them off the sprites
+    /// carrying them without visiting every sprite, or `None` if analysis could not find them (the
+    /// game's own `selection_visuals` pass does it then).
+    selection_visual_pools: Option<SelectionVisualPools>,
+    /// The functions a right click calls to place the order confirmation marker and to make the
+    /// target's selection circle blink, which write into the simulation's memory between logic
+    /// steps, or `None` if analysis could not find both.
+    click_feedback: Option<ClickFeedback>,
+    placement_overlays: Option<PlacementOverlayPools>,
+    /// The pylon power fields, or `None` if analysis could not find them.
+    pylon_auras: Option<PylonAuras>,
+    /// The functions the trigger step calls to open the defeat and victory dialogs, or `None` if
+    /// analysis could not find both.
+    mission_dialog_openers: Option<(VirtualAddress, VirtualAddress)>,
+    /// The function that shows a line of game information text (a player leaving or being
+    /// eliminated), or `None` if analysis could not find it.
+    show_game_message: Option<VirtualAddress>,
+    /// The synced simulation state the rollback engine snapshots, as resolved analysis results
+    /// that still have to be turned into addresses once a game is running.
+    rollback_ranges: Vec<crate::rollback::ranges::RangeSpec>,
 
     // State
     exe_build: u32,
@@ -391,7 +447,17 @@ pub struct BwScr {
     sound_id_cache: Mutex<HashMap<String, u32>>,
     /// When the game countdown started (if it has started)
     countdown_start: Mutex<Option<Instant>>,
+    /// When the game last formatted its turn rate readout in a game that rolls back. The game only
+    /// formats it while the player has the readout turned on, which is what the network quality
+    /// chip that replaces it follows.
+    turn_rate_readout_at: Mutex<Option<Instant>>,
     print_text_hooks_disabled: AtomicI32,
+    /// How the `PrintText` hook treats the chat line being injected right now, as a
+    /// [`ChatInjection`] discriminant.
+    chat_injection: AtomicU8,
+    /// Chat a game that predicts inputs showed while stalled, which goes into the replay once the
+    /// stalled step runs (see [`netcode_v2_receive_predicted`](Self::netcode_v2_receive_predicted)).
+    chat_shown_while_stalled: Mutex<Vec<(StormPlayerId, String)>>,
     chat_manager: Mutex<chat::ChatManager>,
     /// Ensures that things that qualify as "event processing" (e.g. process_events,
     /// maybe_receive_turns) don't execute from multiple threads at the same time (which may happen
@@ -799,6 +865,21 @@ unsafe extern "system" fn lobby_create_callback(_popup: *mut c_void) -> u32 {
     0
 }
 
+/// The per-player record of what the last unit cost check found a unit to cost, which spending
+/// the resources and the AI's budget checks read afterwards, and the check of a player's
+/// resources against that record.
+struct UnitCostCache {
+    minerals: Value<*mut u32>,
+    gas: Value<*mut u32>,
+    supply: Value<*mut u32>,
+    /// `(player, show_error) -> bool`; with `show_error`, a player that can't afford the costs on
+    /// record is shown the message for whichever resource they lack.
+    check_resources: unsafe extern "C" fn(u32, u32) -> u32,
+}
+
+/// Players [`UnitCostCache`] keeps a record for.
+const UNIT_COST_CACHE_PLAYERS: usize = 12;
+
 /// scarf::Operand is a type describing arbitrary expression returned by
 /// analysis. For example, it can be a constant memory address 0x123456,
 /// pointer indirection Mem32[0x123456], or even arbitrary arithmetic
@@ -954,6 +1035,576 @@ impl<T: BwValue> Value<T> {
 unsafe impl<T> Send for Value<T> {}
 unsafe impl<T> Sync for Value<T> {}
 
+/// Every function the simulation calls on the observer UI, the object behind replay and observer
+/// production panels. Each takes the observer UI object and the unit the notification is about,
+/// and returns nothing.
+struct ObserverUiCallbacks {
+    track_building_unit: VirtualAddress,
+    track_research_or_upgrade: VirtualAddress,
+    remove_building_unit_record: VirtualAddress,
+    finish_research_or_upgrade: VirtualAddress,
+}
+
+impl ObserverUiCallbacks {
+    /// Finds all four, or returns `None` (and says which is missing) if any of them is not found.
+    fn analyze(analysis: &mut scr_analysis::Analysis<'_>) -> Option<ObserverUiCallbacks> {
+        let find = |name: &str, address: Option<VirtualAddress>| {
+            if address.is_none() {
+                warn!("Analysis could not find the observer UI's {name}");
+            }
+            address
+        };
+        Some(ObserverUiCallbacks {
+            track_building_unit: find(
+                "track_building_unit",
+                analysis.observer_ui_track_building_unit(),
+            )?,
+            track_research_or_upgrade: find(
+                "track_research_or_upgrade",
+                analysis.observer_ui_track_research_or_upgrade(),
+            )?,
+            remove_building_unit_record: find(
+                "remove_building_unit_record",
+                analysis.observer_ui_remove_building_unit_record(),
+            )?,
+            finish_research_or_upgrade: find(
+                "finish_research_or_upgrade",
+                analysis.observer_ui_finish_research_or_upgrade(),
+            )?,
+        })
+    }
+}
+
+/// The game's own way of getting selection circles and health bars, which are images in the same
+/// pool as the simulation's, out of a copy of the game state and back again.
+struct SelectionVisuals {
+    clear: unsafe extern "C" fn(),
+    rebuild: unsafe extern "C" fn(),
+}
+
+/// A selected unit, by what tells it apart from a later occupant of its slot in the unit pool.
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub(crate) struct SelectedUnit {
+    unit: *mut bw::Unit,
+    /// Changes each time the slot is given to a new unit.
+    generation: u8,
+    /// A unit that changes owner leaves its old owner's selection.
+    player: u8,
+}
+
+// Only ever dereferenced on the game thread, and the unit pool it points into lasts the game.
+unsafe impl Send for SelectedUnit {}
+
+impl SelectedUnit {
+    unsafe fn of(unit: *mut bw::Unit) -> SelectedUnit {
+        unsafe {
+            SelectedUnit {
+                unit,
+                generation: (*unit).minor_unique_index,
+                player: (*unit).player,
+            }
+        }
+    }
+
+    pub(crate) fn unit(&self) -> *mut bw::Unit {
+        self.unit
+    }
+
+    /// Whether the unit's slot still holds this unit, with a sprite.
+    pub(crate) unsafe fn is_current(&self) -> bool {
+        unsafe { !(*self.unit).flingy.sprite.is_null() && SelectedUnit::of(self.unit) == *self }
+    }
+}
+
+/// The sprite flag the game hides a unit's sprite with, as it does a unit inside a transport,
+/// bunker or refinery.
+const SPRITE_HIDDEN: u8 = 0x20;
+
+/// How many images each of the building placement overlay pools holds: analysis only recognizes
+/// a pool by the size it is cleared with at startup.
+const PLACEMENT_POOL_LEN: usize = 0x40;
+
+/// The static pools building placement takes its overlays from: the ghost and footprint it shows
+/// over every unit the building being placed could go on (each geyser, for a refinery), with
+/// their free lists. Like the selection circles, the pools are outside the rollback snapshot, but
+/// their images get linked into the image lists of sprites inside it. Which units get them
+/// depends on what the person watching is placing, and the simulation itself rebuilds them while a
+/// placement is in progress (when a unit dies or is created).
+struct PlacementOverlayPools {
+    images: Value<*mut bw::Image>,
+    rects: Value<*mut bw::Image>,
+    /// The first and last free entry of each pool.
+    free_images: [Value<*mut bw::Image>; 2],
+    free_rects: [Value<*mut bw::Image>; 2],
+}
+
+impl PlacementOverlayPools {
+    fn analyze(
+        analysis: &mut scr_analysis::Analysis<'_>,
+        ctx: scarf::OperandCtx<'static>,
+    ) -> Option<PlacementOverlayPools> {
+        let pools = (
+            analysis.placement_images(),
+            analysis.placement_rects(),
+            analysis.first_free_placement_image(),
+            analysis.last_free_placement_image(),
+            analysis.first_free_placement_rect(),
+            analysis.last_free_placement_rect(),
+        );
+        let (
+            Some(images),
+            Some(rects),
+            Some(first_free_image),
+            Some(last_free_image),
+            Some(first_free_rect),
+            Some(last_free_rect),
+        ) = pools
+        else {
+            warn!("Analysis could not find the building placement overlay pools");
+            return None;
+        };
+        let free = [
+            first_free_image,
+            last_free_image,
+            first_free_rect,
+            last_free_rect,
+        ];
+        if !free.iter().all(|&x| is_word_global(x)) {
+            warn!("The building placement overlay free lists aren't plain globals: {free:?}");
+            return None;
+        }
+        Some(PlacementOverlayPools {
+            images: Value::new(ctx, images),
+            rects: Value::new(ctx, rects),
+            free_images: [
+                Value::new(ctx, first_free_image),
+                Value::new(ctx, last_free_image),
+            ],
+            free_rects: [
+                Value::new(ctx, first_free_rect),
+                Value::new(ctx, last_free_rect),
+            ],
+        })
+    }
+
+    /// Each pool's images with the first and last entries of its free list, placement images
+    /// first.
+    unsafe fn pools(&self) -> [(*mut bw::Image, *mut *mut bw::Image, *mut *mut bw::Image); 2] {
+        unsafe {
+            [
+                (
+                    self.images.resolve(),
+                    self.free_images[0].resolve_as_ptr(),
+                    self.free_images[1].resolve_as_ptr(),
+                ),
+                (
+                    self.rects.resolve(),
+                    self.free_rects[0].resolve_as_ptr(),
+                    self.free_rects[1].resolve_as_ptr(),
+                ),
+            ]
+        }
+    }
+}
+
+/// Whether `op` is a pointer-sized global, which a free list head has to be for the list to be
+/// relinked through a pointer to it.
+fn is_word_global(op: scarf::Operand<'_>) -> bool {
+    use scr_analysis::scarf::{MemAccessSize, OperandType};
+    let word = match cfg!(target_pointer_width = "64") {
+        true => MemAccessSize::Mem64,
+        false => MemAccessSize::Mem32,
+    };
+    matches!(op.ty(), OperandType::Memory(mem) if mem.size == word)
+}
+
+/// How many images the static selection circle pool holds.
+const SELECTION_CIRCLE_POOL_LEN: usize = 0x50;
+/// How many images the static health bar pool holds, one per unit the local selection can hold.
+const HP_BAR_POOL_LEN: usize = 0xc;
+/// Sprite flag: the sprite is in the local selection and shows a health bar.
+const SPRITE_SELECTED: u8 = 0x8;
+/// Sprite flag: the sprite shows a selection circle from images `SELECTION_CIRCLE_IMAGES`.
+const SPRITE_SELECTION_CIRCLE: u8 = 0x1;
+/// Sprite flags: how many teammates have the sprite selected, as a two-bit count; a sprite with
+/// any shows one circle from images `TEAM_SELECTION_CIRCLE_IMAGES`.
+const SPRITE_TEAM_SELECTION_COUNT: u8 = 0x6;
+const SELECTION_CIRCLE_IMAGES: std::ops::RangeInclusive<u16> = 0x231..=0x23a;
+const TEAM_SELECTION_CIRCLE_IMAGES: std::ops::RangeInclusive<u16> = 0x23b..=0x244;
+/// The draw function of a health bar image.
+const HP_BAR_DRAWFUNC: u8 = 0xb;
+
+/// The static pools selection circles and health bars come from, with their free lists, and the
+/// sprite pool whose sprites they get linked onto.
+///
+/// The game's own way of taking them off before a saved game write visits every sprite in the
+/// pool, a few thousand of them strewn over a few hundred KiB, to find the dozen or so that carry
+/// one. Only a sprite one of these pool images is linked onto, or the sprite of a unit in the
+/// local selection, can carry one: the game sets a sprite's circle flags only along with linking
+/// a circle onto it and clears them whenever it takes one off, and sets the selected flag only for
+/// the local selection's units. So the flagged ones among those are the sprites visited, in pool
+/// order, each exactly as the game does it.
+struct SelectionVisualPools {
+    circles: Value<*mut bw::Image>,
+    free_circles: [Value<*mut bw::Image>; 2],
+    hp_bars: Value<*mut bw::Image>,
+    free_hp_bars: [Value<*mut bw::Image>; 2],
+    /// The `vector<bw::Sprite>` the sprite pool lives in.
+    sprites: Value<*mut scr::BwVector>,
+}
+
+impl SelectionVisualPools {
+    fn analyze(
+        analysis: &mut scr_analysis::Analysis<'_>,
+        ctx: scarf::OperandCtx<'static>,
+    ) -> Option<SelectionVisualPools> {
+        let found = (
+            analysis.selection_circles(),
+            analysis.first_free_selection_circle(),
+            analysis.last_free_selection_circle(),
+            analysis.hp_bar_images(),
+            analysis.first_free_hp_bar(),
+            analysis.last_free_hp_bar(),
+            analysis.sprites(),
+        );
+        let (
+            Some(circles),
+            Some(first_free_circle),
+            Some(last_free_circle),
+            Some(hp_bars),
+            Some(first_free_hp_bar),
+            Some(last_free_hp_bar),
+            Some(sprites),
+        ) = found
+        else {
+            warn!("Analysis could not find the selection circle and health bar pools");
+            return None;
+        };
+        let free = [
+            first_free_circle,
+            last_free_circle,
+            first_free_hp_bar,
+            last_free_hp_bar,
+        ];
+        if !free.iter().all(|&x| is_word_global(x)) {
+            warn!("The selection circle and health bar free lists aren't plain globals: {free:?}");
+            return None;
+        }
+        Some(SelectionVisualPools {
+            circles: Value::new(ctx, circles),
+            free_circles: [
+                Value::new(ctx, first_free_circle),
+                Value::new(ctx, last_free_circle),
+            ],
+            hp_bars: Value::new(ctx, hp_bars),
+            free_hp_bars: [
+                Value::new(ctx, first_free_hp_bar),
+                Value::new(ctx, last_free_hp_bar),
+            ],
+            sprites: Value::new(ctx, sprites),
+        })
+    }
+
+    /// Takes the selection circles and health bars off every sprite that carries one, leaving
+    /// the sprites, images and free lists as the game's own pass over every sprite would.
+    /// `selections` are the local selection's unit arrays, each ending at its first null entry.
+    unsafe fn clear(&self, selections: &[&[*mut bw::Unit]]) {
+        unsafe {
+            let vector = self.sprites.resolve();
+            let first_sprite = (*vector).data as usize;
+            let sprite_count = (*vector).length;
+            let sprite_size = mem::size_of::<bw::Sprite>();
+            let visual_flags =
+                SPRITE_SELECTED | SPRITE_SELECTION_CIRCLE | SPRITE_TEAM_SELECTION_COUNT;
+            let mut sprites: SmallVec<[*mut bw::Sprite; 32]> = SmallVec::new();
+            // Visiting a sprite without the flags does nothing, so only flagged ones are kept.
+            // The free lists aren't walked to tell the pool images in use from the free ones,
+            // whose parent is whatever sprite they were last on: those reads would each wait on
+            // the last, and the parents can all be read at once instead.
+            let mut add = |sprite: *mut bw::Sprite| {
+                let offset = (sprite as usize).wrapping_sub(first_sprite);
+                if offset < sprite_count * sprite_size
+                    && offset.is_multiple_of(sprite_size)
+                    && (*sprite).flags & visual_flags != 0
+                {
+                    sprites.push(sprite);
+                }
+            };
+            let pools = [
+                (self.circles.resolve(), SELECTION_CIRCLE_POOL_LEN),
+                (self.hp_bars.resolve(), HP_BAR_POOL_LEN),
+            ];
+            for (pool, len) in pools {
+                for i in 0..len {
+                    add((*pool.add(i)).parent);
+                }
+            }
+            for &selection in selections {
+                for &unit in selection.iter().take_while(|x| !x.is_null()) {
+                    add((*unit).flingy.sprite);
+                }
+            }
+            sprites.sort_unstable();
+            sprites.dedup();
+
+            let free_circles = (
+                self.free_circles[0].resolve_as_ptr(),
+                self.free_circles[1].resolve_as_ptr(),
+            );
+            let free_hp_bars = (
+                self.free_hp_bars[0].resolve_as_ptr(),
+                self.free_hp_bars[1].resolve_as_ptr(),
+            );
+
+            let free = |image: *mut bw::Image, (first, last): (_, _)| {
+                let lists = &raw mut (*(*image).parent).version_specific.scr;
+                unlink_image(
+                    image,
+                    &raw mut (*lists).first_image,
+                    &raw mut (*lists).last_image,
+                );
+                push_free_image(image, first, last);
+            };
+            let last_with_id = |sprite: *mut bw::Sprite, ids: std::ops::RangeInclusive<u16>| {
+                let mut image = (*sprite).version_specific.scr.last_image;
+                while !image.is_null() && !ids.contains(&(*image).image_id) {
+                    image = (*image).prev;
+                }
+                image
+            };
+            for sprite in sprites {
+                if (*sprite).flags & SPRITE_SELECTED != 0 {
+                    (*sprite).flags &= !SPRITE_SELECTED;
+                    let mut image = (*sprite).version_specific.scr.first_image;
+                    while !image.is_null() && (*image).drawfunc != HP_BAR_DRAWFUNC {
+                        image = (*image).next;
+                    }
+                    if !image.is_null() {
+                        free(image, free_hp_bars);
+                    }
+                }
+                if (*sprite).flags & SPRITE_SELECTION_CIRCLE != 0 {
+                    (*sprite).flags &= !SPRITE_SELECTION_CIRCLE;
+                    let image = last_with_id(sprite, SELECTION_CIRCLE_IMAGES);
+                    if !image.is_null() {
+                        free(image, free_circles);
+                    }
+                }
+                if (*sprite).flags & SPRITE_TEAM_SELECTION_COUNT != 0 {
+                    (*sprite).flags &= !SPRITE_TEAM_SELECTION_COUNT;
+                    let image = last_with_id(sprite, TEAM_SELECTION_CIRCLE_IMAGES);
+                    if !image.is_null() {
+                        free(image, free_circles);
+                    }
+                }
+            }
+            #[cfg(debug_assertions)]
+            self.check_cleared(first_sprite, sprite_count);
+        }
+    }
+
+    /// Checks, every so often, that no sprite in the pool is left carrying a selection visual.
+    #[cfg(debug_assertions)]
+    unsafe fn check_cleared(&self, first_sprite: usize, sprite_count: usize) {
+        static CALLS: AtomicU32 = AtomicU32::new(0);
+        const CHECK_INTERVAL: u32 = 64;
+        if !CALLS
+            .fetch_add(1, Ordering::Relaxed)
+            .is_multiple_of(CHECK_INTERVAL)
+        {
+            return;
+        }
+        let visual_flags = SPRITE_SELECTED | SPRITE_SELECTION_CIRCLE | SPRITE_TEAM_SELECTION_COUNT;
+        unsafe {
+            let sprites = first_sprite as *const bw::Sprite;
+            for i in 0..sprite_count {
+                let flags = (*sprites.add(i)).flags;
+                debug_assert!(
+                    flags & visual_flags == 0,
+                    "Sprite {i} still carries selection visual flags {flags:x}",
+                );
+            }
+        }
+    }
+}
+
+/// Image flag: the image has to be drawn again.
+const IMAGE_REDRAW: u16 = 0x1;
+
+/// The power fields of the pylons, which the local player's pylons show while one of them is
+/// selected or a building is being placed. Each is a sprite in the simulation's pool, made when
+/// its pylon finishes and kept with the pylon, but which ones are shown is up to the UI.
+struct PylonAuras {
+    /// The newest finished pylon, the head of a list linked through `rally_pylon.pylon`.
+    first_pylon: Value<*mut bw::Unit>,
+    /// Whether the local player's power fields are shown, which a pylon that finishes reads to
+    /// decide whether to show its own.
+    shown: Value<u32>,
+}
+
+impl PylonAuras {
+    fn analyze(
+        analysis: &mut scr_analysis::Analysis<'_>,
+        ctx: scarf::OperandCtx<'static>,
+    ) -> Option<PylonAuras> {
+        let (Some(first_pylon), Some(shown)) =
+            (analysis.first_pylon(), analysis.pylon_auras_visible())
+        else {
+            warn!("Analysis could not find the pylon power fields");
+            return None;
+        };
+        Some(PylonAuras {
+            first_pylon: Value::new(ctx, first_pylon),
+            shown: Value::new(ctx, shown),
+        })
+    }
+}
+
+/// Sets which players `sprite` is visible to as the game does, marking its images to be drawn
+/// again when it turns visible to a player the local view sees with.
+unsafe fn set_sprite_visibility_mask(sprite: *mut bw::Sprite, mask: u8, local_visions: u8) {
+    unsafe {
+        let old = (*sprite).visibility_mask & local_visions;
+        let new = mask & local_visions;
+        if old != new && new != 0 {
+            let mut image = (*sprite).version_specific.scr.first_image;
+            while !image.is_null() {
+                (*image).flags |= IMAGE_REDRAW;
+                image = (*image).next;
+            }
+        }
+        (*sprite).visibility_mask = mask;
+    }
+}
+
+/// Building placement overlays taken off their units to snapshot or restore, with what each held,
+/// to put back once that is done (see
+/// [`rollback_detach_placement_overlays`](BwScr::rollback_detach_placement_overlays)).
+pub(crate) struct DetachedPlacementOverlays {
+    /// Each image and its contents, placement images before their footprints.
+    images: Vec<(*mut bw::Image, bw::Image)>,
+}
+
+/// Takes `image` out of the doubly linked list running from `*first` to `*last`.
+unsafe fn unlink_image(
+    image: *mut bw::Image,
+    first: *mut *mut bw::Image,
+    last: *mut *mut bw::Image,
+) {
+    unsafe {
+        let (prev, next) = ((*image).prev, (*image).next);
+        match prev.is_null() {
+            true => *first = next,
+            false => (*prev).next = next,
+        }
+        match next.is_null() {
+            true => *last = prev,
+            false => (*next).prev = prev,
+        }
+    }
+}
+
+/// Puts `image` in a free list right after its first entry, where the game returns pool images.
+unsafe fn push_free_image(
+    image: *mut bw::Image,
+    first: *mut *mut bw::Image,
+    last: *mut *mut bw::Image,
+) {
+    unsafe {
+        let head = *first;
+        if head.is_null() {
+            (*image).prev = null_mut();
+            (*image).next = null_mut();
+            *first = image;
+            *last = image;
+            return;
+        }
+        if *last == head {
+            *last = image;
+        }
+        (*image).prev = head;
+        (*image).next = (*head).next;
+        if !(*head).next.is_null() {
+            (*(*head).next).prev = image;
+        }
+        (*head).next = image;
+    }
+}
+
+/// How a chat message injected into the game is shown and recorded.
+#[derive(Copy, Clone, PartialEq, Eq)]
+#[repr(u8)]
+enum ChatInjection {
+    /// Shown, and written to the replay with the step that injects it.
+    Live,
+    /// Shown, but not written to the replay: the step it arrived at hasn't run.
+    ShowWhileStalled,
+    /// Written to the replay with the step that injects it, without being shown again.
+    RecordShown,
+}
+
+/// The functions a right click calls for its feedback: placing the order confirmation marker, and
+/// making the clicked target's selection circle blink.
+struct ClickFeedback {
+    show_cursor_marker_at: VirtualAddress,
+    set_selection_flash_timer: VirtualAddress,
+}
+
+/// The sprite `set_sprite_selection_flash_timer` writes the blink into: the one its object (a unit
+/// or a fog sprite, which keep it at the same offset) points at, without any check that there is
+/// one.
+unsafe fn flash_target_sprite(object: *mut c_void) -> *mut c_void {
+    unsafe {
+        *object
+            .cast::<u8>()
+            .add(FLASH_TARGET_SPRITE_OFFSET)
+            .cast::<*mut c_void>()
+    }
+}
+
+const FLASH_TARGET_SPRITE_OFFSET: usize = mem::offset_of!(bw::Unit, flingy.sprite);
+const _: () = assert!(mem::offset_of!(bw::FowSprite, sprite) == FLASH_TARGET_SPRITE_OFFSET);
+
+impl ClickFeedback {
+    fn analyze(analysis: &mut scr_analysis::Analysis<'_>) -> Option<ClickFeedback> {
+        let show = analysis.show_cursor_marker_at();
+        let flash = analysis.set_sprite_selection_flash_timer();
+        let (Some(show_cursor_marker_at), Some(set_selection_flash_timer)) = (show, flash) else {
+            warn!(
+                "Analysis could not find the click feedback functions (marker: {}, flash: {})",
+                show.is_some(),
+                flash.is_some(),
+            );
+            return None;
+        };
+        Some(ClickFeedback {
+            show_cursor_marker_at,
+            set_selection_flash_timer,
+        })
+    }
+}
+
+impl SelectionVisuals {
+    fn analyze(analysis: &mut scr_analysis::Analysis<'_>) -> Option<SelectionVisuals> {
+        let clear = analysis.clear_transient_sprite_state_for_save();
+        let rebuild = analysis.rebuild_selection_visuals_after_save();
+        let (Some(clear), Some(rebuild)) = (clear, rebuild) else {
+            warn!(
+                "Analysis could not find the selection visual functions (clear: {}, rebuild: {})",
+                clear.is_some(),
+                rebuild.is_some(),
+            );
+            return None;
+        };
+        unsafe {
+            Some(SelectionVisuals {
+                clear: mem::transmute::<usize, unsafe extern "C" fn()>(clear.0 as usize),
+                rebuild: mem::transmute::<usize, unsafe extern "C" fn()>(rebuild.0 as usize),
+            })
+        }
+    }
+}
+
 /// (sfx.json ID, file name) of every iscript-played effect whose `rez/sfx.json` entry has
 /// `unitSpeech` set: the zealot, queen and critter deaths and the yamato cannon. Every other unit
 /// death is unflagged. See [`BwScr::fix_zoom_ignoring_effect_sounds`].
@@ -972,7 +1623,18 @@ const ZOOM_IGNORING_EFFECT_SOUNDS: &[(&str, &str)] = &[
     ("SND_YAMATO_BLAST", "tBaYam02.wav"),
 ];
 
-unsafe fn resolve_operand(op: scarf::Operand<'_>, custom: &[usize]) -> usize {
+/// The decoder of an obfuscated sprite coordinate (`Custom_0` being the stored word), cut down to
+/// the low 16 bits a coordinate is. The game's decoders run to dozens of terms, most of them
+/// shifted entirely out of those bits, and every decode interprets the whole tree, so leaving the
+/// simplifier to drop those terms once makes each decode a fraction of the work.
+fn sprite_coordinate_decoder(
+    ctx: scarf::OperandCtx<'static>,
+    decoder: scarf::Operand<'_>,
+) -> Value<*mut *mut scr::Sprite> {
+    Value::new(ctx, ctx.and_const(ctx.copy_operand(decoder), 0xffff))
+}
+
+pub(crate) unsafe fn resolve_operand(op: scarf::Operand<'_>, custom: &[usize]) -> usize {
     unsafe {
         use scr_analysis::scarf::{ArithOpType, MemAccessSize, OperandType};
         match *op.ty() {
@@ -1371,6 +2033,28 @@ impl BwScr {
             .ok_or("step_replay_commands")?;
         let save_replay = analysis.save_replay().ok_or("save_replay")?;
         let order_harvest_gas = analysis.order_harvest_gas().ok_or("order_harvest_gas")?;
+        let check_unit_resources_and_supply = analysis
+            .check_unit_resources_and_supply()
+            .ok_or("check_unit_resources_and_supply")?;
+        let check_cached_resources = analysis
+            .check_cached_resources()
+            .ok_or("check_cached_resources")?;
+        let unit_cost_cache = UnitCostCache {
+            minerals: Value::new(
+                ctx,
+                analysis
+                    .cached_mineral_costs()
+                    .ok_or("cached_mineral_costs")?,
+            ),
+            gas: Value::new(ctx, analysis.cached_gas_costs().ok_or("cached_gas_costs")?),
+            supply: Value::new(
+                ctx,
+                analysis
+                    .cached_supply_costs()
+                    .ok_or("cached_supply_costs")?,
+            ),
+            check_resources: unsafe { mem::transmute(check_cached_resources.0) },
+        };
 
         let prism_pixel_shaders = analysis
             .prism_pixel_shaders()
@@ -1439,6 +2123,9 @@ impl BwScr {
         let trigger_execution_timer = analysis
             .trigger_execution_timer()
             .ok_or("trigger_execution_timer")?;
+        let next_game_step_tick = analysis.next_game_step_tick();
+        let local_selection = analysis.local_selection();
+        let simulated_selections = analysis.selections();
         let enable_rng = analysis.enable_rng().ok_or("Enable RNG")?;
         let replay_visions = analysis.replay_visions().ok_or("replay_visions")?;
         let local_visions = analysis.local_visions().ok_or("local_visions")?;
@@ -1627,6 +2314,25 @@ impl BwScr {
         let play_sound = analysis.play_sound().ok_or("play_sound")?;
         let print_text_addr = analysis.print_text().ok_or("print_text")?;
         let net_player_count_addr = analysis.net_player_count().ok_or("net_player_count")?;
+        #[cfg(debug_assertions)]
+        let engine_alloc = analysis.engine_alloc().ok_or("engine_alloc")?;
+        #[cfg(debug_assertions)]
+        let engine_free = analysis.engine_free().ok_or("engine_free")?;
+        // Everything from here to the snapshot ranges is only needed by a game that rolls back,
+        // so none of it failing to resolve is fatal: this DLL just can't roll back (see
+        // `rollback_missing_analysis`). Whether a game rolls back is only known once its session
+        // is set up, long after analysis, so these are always resolved.
+        let observer_ui_callbacks = ObserverUiCallbacks::analyze(&mut analysis);
+        let selection_visuals = SelectionVisuals::analyze(&mut analysis);
+        let selection_visual_pools = SelectionVisualPools::analyze(&mut analysis, ctx);
+        let click_feedback = ClickFeedback::analyze(&mut analysis);
+        let placement_overlays = PlacementOverlayPools::analyze(&mut analysis, ctx);
+        let pylon_auras = PylonAuras::analyze(&mut analysis, ctx);
+        let mission_dialog_openers = analysis
+            .open_defeat_mission_dialog()
+            .zip(analysis.open_victory_mission_dialog());
+        let show_game_message = analysis.show_game_message();
+        let rollback_ranges = crate::rollback::ranges::analyze_ranges(&mut analysis, ctx);
 
         let uses_new_join_param_variant = match analysis.join_param_variant_type_offset() {
             Some(0) => false,
@@ -1699,11 +2405,23 @@ impl BwScr {
             client_selection: Value::new(ctx, client_selection),
             sprites_by_y_tile: Value::new(ctx, sprites_by_y_tile),
             sprites_by_y_tile_end: Value::new(ctx, sprites_by_y_tile_end),
-            sprite_x: (Value::new(ctx, sprite_x.0), sprite_x.1, sprite_x.2),
-            sprite_y: (Value::new(ctx, sprite_y.0), sprite_y.1, sprite_y.2),
+            sprite_x: (
+                sprite_coordinate_decoder(ctx, sprite_x.0),
+                sprite_x.1,
+                sprite_x.2,
+            ),
+            sprite_y: (
+                sprite_coordinate_decoder(ctx, sprite_y.0),
+                sprite_y.1,
+                sprite_y.2,
+            ),
             replay_data: Value::new(ctx, replay_data),
             replay_header: Value::new(ctx, replay_header),
             trigger_execution_timer: Value::new(ctx, trigger_execution_timer),
+            next_game_step_tick: next_game_step_tick.map(|x| Value::new(ctx, x)),
+            local_selection: local_selection.map(|x| Value::new(ctx, x)),
+            simulated_selections: simulated_selections.map(|x| Value::new(ctx, x)),
+            engine_selecting: AtomicBool::new(false),
             enable_rng: Value::new(ctx, enable_rng),
             replay_visions: Value::new(ctx, replay_visions),
             local_visions: Value::new(ctx, local_visions),
@@ -1817,6 +2535,8 @@ impl BwScr {
             ttf_render_sdf,
             step_replay_commands,
             order_harvest_gas,
+            check_unit_resources_and_supply,
+            unit_cost_cache,
             step_game,
             step_io,
             init_game_data,
@@ -1833,6 +2553,19 @@ impl BwScr {
             step_game_logic,
             print_text_addr,
             net_player_count_addr,
+            #[cfg(debug_assertions)]
+            engine_alloc,
+            #[cfg(debug_assertions)]
+            engine_free,
+            observer_ui_callbacks,
+            selection_visuals,
+            selection_visual_pools,
+            click_feedback,
+            placement_overlays,
+            pylon_auras,
+            mission_dialog_openers,
+            show_game_message,
+            rollback_ranges,
             starcraft_tls_index: SendPtr(starcraft_tls_index),
             exe_build,
             sdf_cache,
@@ -1880,7 +2613,10 @@ impl BwScr {
             first_game_logic_frame_done: AtomicBool::new(false),
             sound_id_cache: Mutex::new(HashMap::new()),
             countdown_start: Mutex::new(None),
+            turn_rate_readout_at: Mutex::new(None),
             print_text_hooks_disabled: AtomicI32::new(0),
+            chat_injection: AtomicU8::new(ChatInjection::Live as u8),
+            chat_shown_while_stalled: Mutex::new(Vec::new()),
             chat_manager: Mutex::new(chat::ChatManager::new()),
             event_processing_lock: DumbSpinLock::new(),
         })
@@ -1894,6 +2630,11 @@ impl BwScr {
             let mut active_patcher = crate::PATCHER.lock();
             let mut exe = active_patcher.patch_memory(image as *mut _, base, 0);
             let base = base as usize;
+            #[cfg(debug_assertions)]
+            {
+                crate::rollback_probe::set_writable_image(image);
+                crate::rollback_probe::install_at_init(self, "patch_game");
+            }
 
             if let Some(sc_main) = self.sc_main {
                 // This is a hook at early point during program startup, some initial
@@ -1921,6 +2662,8 @@ impl BwScr {
                 GameInit,
                 move |_| {
                     debug!("SCR game init hook");
+                    #[cfg(debug_assertions)]
+                    crate::rollback_probe::install_at_init(self, "game_init");
                     crate::process_init_hook();
                 },
                 address,
@@ -1947,17 +2690,33 @@ impl BwScr {
                         is_observer,
                         &self.game_command_lengths,
                     );
+                    let strip_sync = native_sync_disabled() && !is_replay;
+                    let slice: Cow<'_, [u8]> = match strip_sync {
+                        true => Cow::Owned(
+                            commands::strip_sync_commands(&slice, &self.game_command_lengths)
+                                .into_owned(),
+                        ),
+                        false => slice,
+                    };
                     let mut sync_seen = false;
                     let mut alliance_or_vision_seen = false;
                     // New scope for mutex locks (Not necessarily needed but avoiding calling back to
                     // BW with mutexes locked is generally a good pattern to follow IMO)
                     {
                         let mut apm_state = self.apm_state.lock();
+                        let apm_player = unique_command_user as u8;
+                        let rollback_step = rollback_step().map(|(frame, _)| frame);
+                        let count_apm = (!is_replay || are_recorded_replay_commands != 0)
+                            && apm_state.as_ref().is_some_and(|apm| {
+                                rollback_step.is_none_or(|step| apm.counts_turn(apm_player, step))
+                            });
+                        let mut counted_actions = false;
                         for command in commands::iter_commands(&slice, &self.game_command_lengths) {
                             if let Some(ref mut apm) = apm_state
-                                && (!is_replay || are_recorded_replay_commands != 0) {
-                                    apm.action(unique_command_user as u8, command);
-                                }
+                                && count_apm
+                            {
+                                counted_actions |= apm.action(apm_player, command);
+                            }
                             match command {
                                 [commands::id::REPLAY_SEEK, rest @ ..] if rest.len() == 4
                                     && are_recorded_replay_commands == 0 => {
@@ -1988,9 +2747,16 @@ impl BwScr {
                                 _ => (),
                             }
                         }
+                        if counted_actions
+                            && let Some(ref mut apm) = apm_state
+                            && let Some(step) = rollback_step
+                        {
+                            apm.counted_turn(apm_player, step);
+                        }
                     }
 
                     if !is_replay
+                        && !rollback_resimulating()
                         && let Some(players) = self.check_player_drops() {
                             let frame = (*self.game()).frame_count;
                             let turn_seq = self.snet_next_turn_sequence_number().wrapping_sub(1);
@@ -2024,7 +2790,9 @@ impl BwScr {
                     }
                     if !is_replay {
                         if !sync_seen {
-                            if is_observer {
+                            // With native sync off, no turn carries a sync command, and a no-op
+                            // stands in for it the same way it does for an observer.
+                            if is_observer || strip_sync {
                                 // Observers don't send sync commands correctly.
                                 // Send no-op command 0x05 which counts as a correct sync to
                                 // prevent them from dropping.
@@ -2137,7 +2905,9 @@ impl BwScr {
             exe.hook_closure_address(
                 StepGame,
                 move |orig| {
-                    if let Some(mut apm) = self.apm_state.lock() {
+                    if !rollback_resimulating()
+                        && let Some(mut apm) = self.apm_state.lock()
+                    {
                         apm.new_frame();
                     }
                     orig();
@@ -2222,6 +2992,7 @@ impl BwScr {
                         // observe the active ring, and never hold the turn-state lock over BW.
                         let before = if self.game_started.load(Ordering::Acquire)
                             && nc.sync_active.resolve() != 0
+                            && !rollback_resimulating()
                         {
                             Some(nc.sync_slot_index.resolve())
                         } else {
@@ -2269,12 +3040,12 @@ impl BwScr {
                         val => val,
                     };
                     // Under a live turn state the PIPE hook owns the latency pipeline, so the native
-                    // `2 + user_latency` builtin turns no longer describe the delay: `latency_turns()`
+                    // `2 + user_latency` builtin turns no longer describe the delay: `pipe_depth()`
                     // reports the current pipe depth (floor 1, retunable mid-game by a relay's buffer
                     // directive). Read it fresh each format call so the display tracks the live depth;
                     // fall back to native state when there is no turn state (a replay).
                     let v2_turns = if self.game_started.load(Ordering::Acquire) {
-                        netcode_v2::with_turn_state(|s| s.latency_turns())
+                        netcode_v2::with_turn_state(|s| s.pipe_depth())
                     } else {
                         None
                     };
@@ -2286,7 +3057,16 @@ impl BwScr {
                             ((1000f32 * user_delay as f32 + 500f32) / turn_rate as f32).round()
                         }
                     };
-                    let value = format!("Lat: {effective_latency:.0}ms");
+                    // A game that rolls back draws the network quality chip in place of this text,
+                    // whenever the game would have drawn the text.
+                    let value = if v2_turns.is_some()
+                        && netcode_v2::with_turn_state(|s| s.predicts_inputs()) == Some(true)
+                    {
+                        *self.turn_rate_readout_at.lock() = Some(Instant::now());
+                        String::new()
+                    } else {
+                        format!("Lat: {effective_latency:.0}ms")
+                    };
                     (*result).text.replace_all(value.as_str());
                     result
                 },
@@ -2443,6 +3223,21 @@ impl BwScr {
                 },
                 address,
             );
+            let address = self.check_unit_resources_and_supply.0 as usize - base;
+            exe.hook_closure_address(
+                CheckUnitResourcesAndSupply,
+                |player, unit_id, check_supply, show_error, orig| {
+                    game_thread::check_unit_resources_and_supply(
+                        self,
+                        player,
+                        unit_id,
+                        check_supply,
+                        show_error,
+                        orig,
+                    )
+                },
+                address,
+            );
 
             if let Some(ref patch) = self.replay_minimap_patch {
                 let address = patch.address.0 as usize - base;
@@ -2538,9 +3333,230 @@ impl BwScr {
             let address = self.step_game_logic.0 as usize - base;
             exe.hook_closure_address(
                 StepGameLogic,
-                move |a, o| step_game_logic_hook(self, a, o),
+                move |a, o| {
+                    let _timing = crate::frame_timing::step();
+                    step_game_logic_hook(self, a, o)
+                },
                 address,
             );
+
+            {
+                let address = self.play_sound as usize - base;
+                exe.hook_closure_address(
+                    PlaySound,
+                    |id, volume, unk, x, y, orig| {
+                        #[cfg(debug_assertions)]
+                        crate::rollback_probe::note_play_sound();
+                        // During a rollback tick the engine decides which requests are new once
+                        // the whole tick has run, and plays those itself.
+                        if let Some(ret) =
+                            crate::rollback::sounds::intercept_play_sound(id, volume, unk, x, y)
+                        {
+                            return ret;
+                        }
+                        orig(id, volume, unk, x, y)
+                    },
+                    address,
+                );
+            }
+
+            #[cfg(debug_assertions)]
+            {
+                let address = self.engine_alloc.0 as usize - base;
+                exe.hook_closure_address(
+                    EngineAlloc,
+                    |size, tag, flags, unk, orig| {
+                        let block = orig(size, tag, flags, unk);
+                        crate::rollback_probe::note_flags_alloc(block, size, tag, flags);
+                        block
+                    },
+                    address,
+                );
+
+                let address = self.engine_free.0 as usize - base;
+                exe.hook_closure_address(
+                    EngineFree,
+                    |ptr, tag, flags, unk, orig| {
+                        crate::rollback_probe::note_flags_free(ptr);
+                        orig(ptr, tag, flags, unk)
+                    },
+                    address,
+                );
+            }
+
+            {
+                // Like the text the print_text hook handles, but without a player to attribute it
+                // to: a player leaving or being eliminated, the game pausing.
+                if let Some(address) = self.show_game_message {
+                    exe.hook_closure_address(
+                        ShowGameMessage,
+                        |text, duration, orig| {
+                            use crate::rollback::announcements::{Kind, key, should_announce};
+                            let bytes = match text.is_null() {
+                                true => &[][..],
+                                false => CStr::from_ptr(text as *const std::ffi::c_char).to_bytes(),
+                            };
+                            if should_announce(Kind::GameMessage, key(bytes)) {
+                                orig(text, duration);
+                            }
+                        },
+                        address.0 as usize - base,
+                    );
+                }
+
+                // A step takes a unit that dies, changes owner or boards a transport out of the
+                // local selection, which the rollback engine puts back if a restore undoes that;
+                // and the person's own selections make the simulation's selection for them, which
+                // the local selection catches up with after a rollback.
+                exe.hook_closure_address(
+                    SelectUnits,
+                    move |count, units, play_sound, send_command, orig| {
+                        if !crate::rollback::tick_running() {
+                            // The person selecting, which sends a command that makes the
+                            // simulation's selection for them a few steps later.
+                            let person_selecting = crate::rollback_live::native_sync_off()
+                                && !self.engine_selecting.load(Ordering::Relaxed);
+                            let before = person_selecting.then(|| self.rollback_local_selection());
+                            orig(count, units, play_sound, send_command);
+                            if let Some(before) = before
+                                && let Some(frame) = crate::rollback::position(self)
+                                && let Some(pipe) = netcode_v2::with_turn_state(|s| s.pipe_depth())
+                            {
+                                crate::rollback::selection::note_selection_made(
+                                    frame,
+                                    pipe,
+                                    &before,
+                                    &self.rollback_local_selection(),
+                                );
+                            }
+                            return;
+                        }
+                        let before = self.rollback_local_selection();
+                        orig(count, units, play_sound, send_command);
+                        let after = self.rollback_local_selection();
+                        crate::rollback::selection::note(
+                            crate::rollback::step_frame(),
+                            &before,
+                            &after,
+                        );
+                    },
+                    self.select_units as usize - base,
+                );
+
+                // A right click writes the order confirmation marker and the target's blink into
+                // sprites the rollback engine snapshots, so a restore to before the click undoes
+                // them; the engine logs them here to make them again when it re-simulates.
+                if let Some(feedback) = &self.click_feedback {
+                    use crate::rollback::ui_writes::{UiWrite, record};
+                    exe.hook_closure_address(
+                        ShowCursorMarkerAt,
+                        move |x, y, orig| {
+                            record(self, UiWrite::CursorMarker { x, y });
+                            orig(x, y);
+                        },
+                        feedback.show_cursor_marker_at.0 as usize - base,
+                    );
+                    exe.hook_closure_address(
+                        SetSpriteSelectionFlashTimer,
+                        move |object, timer, orig| {
+                            record(
+                                self,
+                                UiWrite::SelectionFlash {
+                                    object: object as usize,
+                                    sprite: flash_target_sprite(object) as usize,
+                                    timer,
+                                },
+                            );
+                            orig(object, timer);
+                        },
+                        feedback.set_selection_flash_timer.0 as usize - base,
+                    );
+                }
+
+                // A frame simulated on predicted inputs can decide the game without the real ones
+                // doing so, so the engine holds the victory and defeat dialogs back until the frame
+                // that asked for one is confirmed.
+                if let Some((defeat, victory)) = self.mission_dialog_openers {
+                    use crate::rollback::game_end::{MissionDialog, defer};
+                    exe.hook_closure_address(
+                        OpenDefeatMissionDialog,
+                        |orig| {
+                            if !defer(MissionDialog::Defeat) {
+                                orig();
+                            }
+                        },
+                        defeat.0 as usize - base,
+                    );
+                    exe.hook_closure_address(
+                        OpenVictoryMissionDialog,
+                        |orig| {
+                            if !defer(MissionDialog::Victory) {
+                                orig();
+                            }
+                        },
+                        victory.0 as usize - base,
+                    );
+                }
+
+                // The observer UI keeps its own records of what the simulation tells it, outside
+                // the state the rollback engine snapshots, and would see a re-simulated frame's
+                // notifications once more for every time the frame is simulated.
+                if let Some(callbacks) = &self.observer_ui_callbacks {
+                    use crate::rollback::announcements::{Kind, key, should_announce};
+                    // A unit slot is reused once its unit is gone, so the slot's occupant count
+                    // tells a new unit from the one a notification was about.
+                    let unit_key = |unit: *mut bw::Unit, extra: u32| match unit.is_null() {
+                        true => key((0usize, 0u8, extra)),
+                        false => key((unit as usize, (*unit).minor_unique_index, extra)),
+                    };
+                    exe.hook_closure_address(
+                        ObserverUiTrackBuildingUnit,
+                        move |ui, unit, force, orig| {
+                            if should_announce(Kind::ObserverTrackBuilding, unit_key(unit, force)) {
+                                orig(ui, unit, force);
+                            }
+                        },
+                        callbacks.track_building_unit.0 as usize - base,
+                    );
+                    exe.hook_closure_address(
+                        ObserverUiTrackResearchOrUpgrade,
+                        move |ui, unit, orig| {
+                            if should_announce(Kind::ObserverTrackResearch, unit_key(unit, 0)) {
+                                orig(ui, unit);
+                                crate::rollback::observer_ui::observer_research_started(
+                                    ui as usize,
+                                    unit,
+                                );
+                            }
+                        },
+                        callbacks.track_research_or_upgrade.0 as usize - base,
+                    );
+                    exe.hook_closure_address(
+                        ObserverUiRemoveBuildingUnitRecord,
+                        move |ui, unit, orig| {
+                            if should_announce(Kind::ObserverRemoveBuilding, unit_key(unit, 0)) {
+                                orig(ui, unit);
+                            }
+                        },
+                        callbacks.remove_building_unit_record.0 as usize - base,
+                    );
+                    exe.hook_closure_address(
+                        ObserverUiFinishResearchOrUpgrade,
+                        move |ui, unit, completed, orig| {
+                            if should_announce(
+                                Kind::ObserverFinishResearch,
+                                unit_key(unit, completed),
+                            ) && crate::rollback::observer_ui::observer_research_finishing(
+                                ui as usize,
+                                unit,
+                            ) {
+                                orig(ui, unit, completed);
+                            }
+                        },
+                        callbacks.finish_research_or_upgrade.0 as usize - base,
+                    );
+                }
+            }
 
             let address = self.decide_cursor_type.0 as usize - base;
             exe.hook_closure_address(
@@ -2587,6 +3603,20 @@ impl BwScr {
                 PrintText,
                 move |text, player, unused, orig| {
                     if text.is_null() {
+                        return;
+                    }
+                    let injection = self.chat_injection.load(Ordering::Relaxed);
+                    // A frame the rollback engine re-simulates prints its lines again each time.
+                    // Chat shown while stalled belongs to no frame yet: it is matched against
+                    // re-simulations once the stalled step records it.
+                    if injection != ChatInjection::ShowWhileStalled as u8 {
+                        use crate::rollback::announcements::{Kind, key, should_announce};
+                        let bytes = CStr::from_ptr(text).to_bytes();
+                        if !should_announce(Kind::PlayerText, key((bytes, player))) {
+                            return;
+                        }
+                    }
+                    if injection == ChatInjection::RecordShown as u8 {
                         return;
                     }
                     if self.print_text_hooks_disabled.load(Ordering::Acquire) <= 0
@@ -2765,6 +3795,7 @@ impl BwScr {
             exe.hook_closure_address(
                 DrawGraphicLayers,
                 move |extra_funcs, extra_func_len, second_draw, orig| {
+                    let _timing = crate::frame_timing::draw(second_draw == 0);
                     // Detect a Shift+Tab color-mode cycle before queuing draws, so this frame renders
                     // with the corrected mode/colors. A no-op unless custom team colors are active.
                     // Only on the primary pass; the SD/HD-fade second pass sees the same global.
@@ -2860,6 +3891,7 @@ impl BwScr {
                         let net_stats =
                             netcode_v2::with_turn_state(|s| s.net_stats_status(Instant::now()))
                                 .flatten();
+                        let net_quality = self.net_quality_view();
                         // If we're switching between SD/HD, egui flexboxes will break due
                         // to render target size constantly changing, so we allow the overlay
                         // to request a second pass to provide nicer look.
@@ -2891,6 +3923,7 @@ impl BwScr {
                                 game_thread::setup_info(),
                                 &disconnect_status,
                                 net_stats.as_ref(),
+                                net_quality.as_ref(),
                             );
                             if cfg!(debug_assertions) {
                                 self.handle_debug_ui_actions(&overlay_out, &mut render_state);
@@ -2902,6 +3935,12 @@ impl BwScr {
                                 // with the resources disappearing until the game logic moves
                                 // forward a step.
                                 game_thread::add_fow_sprites_for_replay_vision_change(self);
+                            }
+                            if overlay_out.leave_game {
+                                // What the in-game menu's End Game does: the step loop exits
+                                // once it sees the flag, and a stalled step lets it go too (see
+                                // `end_session_for_requested_exit`).
+                                self.netcode_v2.continue_game_loop.write(0);
                             }
                             if let Some(unit) = overlay_out.select_unit {
                                 let units = [*unit];
@@ -3132,7 +4171,10 @@ impl BwScr {
                             (*cmd).shader_constants[1] = show_network_stalled;
                         }
                     }
-                    let ret = orig(renderer, commands, width, height);
+                    let ret = {
+                        let _timing = crate::frame_timing::render();
+                        orig(renderer, commands, width, height)
+                    };
                     if let Some(mut render_state) = self.render_state.lock() {
                         draw_inject::free_textures(&mut render_state.render);
                     }
@@ -3194,10 +4236,21 @@ impl BwScr {
                     Some(false) => TurnSendOutcome::Failed,
                 };
             }
+            // A re-simulated frame's turn went out when the frame was first simulated.
+            if live_rollback_resimulating() {
+                return TurnSendOutcome::Submitted;
+            }
             let nc = &self.netcode_v2;
             let frame = nc.game_frame_count.resolve();
             let commands = std::slice::from_raw_parts(buffer, len);
             let filtered = commands::strip_control_commands(commands, &self.game_command_lengths);
+            let filtered: Cow<'_, [u8]> = match native_sync_disabled() {
+                true => Cow::Owned(
+                    commands::strip_sync_commands(&filtered, &self.game_command_lengths)
+                        .into_owned(),
+                ),
+                false => filtered,
+            };
             let sync_ring = if nc.sync_active.resolve() != 0 {
                 Some(nc.sync_slot_index.resolve())
             } else {
@@ -3272,6 +4325,9 @@ impl BwScr {
                 };
             }
             let nc = &self.netcode_v2;
+            if netcode_v2::with_turn_state(|s| s.predicts_inputs()) == Some(true) {
+                return self.netcode_v2_receive_predicted(nc);
+            }
             // Only BW's running game loop reaches this branch: the pre-loop pipe seed drives the
             // send side, and lobby init runs before the started flag flips. Its first pass is
             // therefore the proof the simulation is stepping, and the moment the relay (and through
@@ -3366,6 +4422,123 @@ impl BwScr {
         }
     }
 
+    /// IN hook body for an in-game step of a game that predicts inputs: the step runs ahead of the
+    /// turns it has not received, up to the prediction limit, and a rollback simulates it again
+    /// once they arrive (see [`TurnState::predict_inputs`]).
+    ///
+    /// The turn state keys every slot's turns by turn index, derived from `game_frame_count`, which
+    /// the rollback snapshot restores along with the rest of the simulation. A step simulated again
+    /// takes its turns from the same table and injects the chat its first run injected; everything
+    /// else the receive does (taking turns off the network, directives, skins, connectivity, the
+    /// local turn leaving the pipe) happened when the step first ran. Leaves are taken on either
+    /// kind of step, since a leave that arrives after its step ran is applied by the step's second
+    /// run. Chat goes into the replay only once the step is known to run, so that no rollback
+    /// between a stalled attempt and the real one can drop it from the replay: while the step is
+    /// stalled, chat is shown without being recorded, and once it runs, recorded without being
+    /// shown again.
+    unsafe fn netcode_v2_receive_predicted(&self, nc: &NetcodeV2Bw) -> TurnReceiveOutcome {
+        unsafe {
+            let step = nc.game_frame_count.resolve();
+            if live_rollback_resimulating() {
+                return self.netcode_v2_redispatch(nc, step);
+            }
+            netcode_v2::with_turn_state(|s| s.submit_game_started());
+            self.apply_due_leaves(nc, step);
+            if netcode_v2::with_turn_state(|s| s.should_self_close()).unwrap_or(false) {
+                netcode_v2::begin_local_only();
+            }
+            #[cfg(debug_assertions)]
+            self.apply_forced_unsynced_leaves(nc);
+            #[cfg(debug_assertions)]
+            self.apply_forced_desync();
+            #[cfg(debug_assertions)]
+            self.apply_debug_chat();
+            self.broadcast_local_skin_once();
+            self.apply_skins_inbound();
+            netcode_v2::with_turn_state(|s| {
+                s.pump_connectivity(true, Instant::now());
+                s.pump_region_labels();
+            });
+            let ready = netcode_v2::with_turn_state(|s| {
+                if !s.receive_turns(step) {
+                    return false;
+                }
+                Self::fill_turn_dispatch(
+                    nc.player_turns.resolve(),
+                    nc.player_turns_size.resolve(),
+                    self.storm_player_flags.resolve(),
+                    s.dispatch_buffers(),
+                );
+                s.apply_due_directive(step);
+                s.mark_local_turn_executed();
+                true
+            });
+            match ready {
+                None => TurnReceiveOutcome::Native,
+                Some(false) => {
+                    self.show_chat_while_stalled();
+                    self.end_session_for_requested_exit(nc);
+                    // BW runs no PIPE flush until the step can run, so a stall on this client's
+                    // own downlink sends its turns from here, outside the turn state's lock (each
+                    // flush re-enters the OUT hook). The rest of the session never waits on them.
+                    let owed = netcode_v2::with_turn_state(|s| {
+                        s.turns_to_send_while_stalled(Instant::now())
+                    })
+                    .unwrap_or(0);
+                    for _ in 0..owed {
+                        (nc.flush_outgoing_command_turn)();
+                    }
+                    TurnReceiveOutcome::Stall
+                }
+                Some(true) => {
+                    self.record_chat_shown_while_stalled();
+                    self.apply_local_chat_echoes();
+                    self.apply_chat_inbound();
+                    self.run_predicted_leave_pass(nc);
+                    TurnReceiveOutcome::Ready
+                }
+            }
+        }
+    }
+
+    /// IN hook body for a step that simulates again a step the game has already run, in a game that
+    /// predicts inputs: dispatches the turns the input table has for it now and injects the chat it
+    /// injected the first time. See [`netcode_v2_receive_predicted`](Self::netcode_v2_receive_predicted).
+    unsafe fn netcode_v2_redispatch(&self, nc: &NetcodeV2Bw, step: u32) -> TurnReceiveOutcome {
+        unsafe {
+            self.apply_due_leaves(nc, step);
+            let chat = netcode_v2::with_turn_state(|s| s.redispatch(step)).unwrap_or_default();
+            for (storm, text) in &chat {
+                self.inject_chat_message(*storm, text);
+            }
+            netcode_v2::with_turn_state(|s| {
+                Self::fill_turn_dispatch(
+                    nc.player_turns.resolve(),
+                    nc.player_turns_size.resolve(),
+                    self.storm_player_flags.resolve(),
+                    s.dispatch_buffers(),
+                )
+            });
+            self.run_predicted_leave_pass(nc);
+            TurnReceiveOutcome::Ready
+        }
+    }
+
+    /// Runs the synced leave pass of a step in a game that predicts inputs. A step that applies a
+    /// leave changes state outside the rollback snapshot, and applying it a second time corrupts
+    /// that state, so the step becomes one no rollback reaches back past.
+    unsafe fn run_predicted_leave_pass(&self, nc: &NetcodeV2Bw) {
+        unsafe {
+            let leaving = self.run_synced_leave_pass(nc);
+            if !leaving.is_empty() {
+                crate::rollback::mark_irreversible_step();
+            }
+            for (storm, _) in leaving {
+                netcode_v2::with_turn_state(|s| s.mark_slot_left(storm));
+            }
+        }
+    }
+
     /// Lets a game that has been asked to exit actually leave a stalled lockstep step.
     ///
     /// Once no turn set has arrived for a couple of seconds, `step_network` parks in a native wait
@@ -3429,21 +4602,26 @@ impl BwScr {
     }
 
     /// PIPE hook body (full replacement of `flush_local_turns_to_latency_depth`): flush enough turns
-    /// to reach the turn state's latency target, driven off its own in-flight counter rather than
-    /// the native `get_outstanding_turn_count` (which goes degenerate-0 once Storm's send/ack
-    /// counters stop advancing, causing an unbounded flush). Returns `false` before the game starts
-    /// or with no live session, so the caller runs the original.
+    /// to reach the turn state's latency target, or in a game that predicts inputs every turn its
+    /// pacing has due if that is more (see [`TurnState::turns_to_flush`]), driven off its own
+    /// in-flight counter rather than the native `get_outstanding_turn_count` (which goes
+    /// degenerate-0 once Storm's send/ack counters stop advancing, causing an unbounded flush).
+    /// Returns `false` before the game starts or with no live session, so the caller runs the
+    /// original.
     unsafe fn netcode_v2_flush_pipe(&self) -> bool {
         unsafe {
             if !self.game_started.load(Ordering::Acquire) {
                 return false;
             }
+            // A re-simulated frame's turns went out when the frame was first simulated, and the
+            // local commands issued since belong to the frame about to be stepped.
+            if live_rollback_resimulating() {
+                return true;
+            }
             let nc = &self.netcode_v2;
             // Read the shortfall under the lock, then release before flushing — each flush re-enters
             // the OUT hook (which re-locks the turn state) and bumps the in-flight counter by one.
-            let to_flush = netcode_v2::with_turn_state(|s| {
-                s.latency_turns().saturating_sub(s.outstanding_turns())
-            });
+            let to_flush = netcode_v2::with_turn_state(|s| s.turns_to_flush());
             match to_flush {
                 None => false,
                 Some(n) => {
@@ -3844,11 +5022,70 @@ impl BwScr {
             if !sent {
                 debug!("netcode v2: chat_out channel unavailable; message not queued for peers");
             }
+            let deferred = netcode_v2::with_turn_state(|s| {
+                let deferred = s.predicts_inputs();
+                if deferred {
+                    s.queue_local_chat_echo(text.to_string());
+                }
+                deferred
+            })
+            .unwrap_or(false);
+            if deferred {
+                return true;
+            }
             let local_storm = StormPlayerId(self.local_storm_id.resolve() as u8);
             if !self.inject_chat_message(local_storm, text) {
                 debug!("netcode v2: local chat echo dropped; local storm id unresolved");
             }
             true
+        }
+    }
+
+    /// Injects the local echo of this client's own chat messages that
+    /// [`send_chat_message`](Self::send_chat_message) left for the next step.
+    unsafe fn apply_local_chat_echoes(&self) {
+        unsafe {
+            let Some(texts) = netcode_v2::with_turn_state(|s| s.take_local_chat_echoes()) else {
+                return;
+            };
+            let local_storm = StormPlayerId(self.local_storm_id.resolve() as u8);
+            for text in texts {
+                if !self.inject_chat_message(local_storm, &text) {
+                    debug!("netcode v2: local chat echo dropped; local storm id unresolved");
+                }
+            }
+        }
+    }
+
+    /// Shows the chat that arrived, and this client's own, while a game that predicts inputs is
+    /// stalled waiting for turns, rather than holding it until the step can run.
+    unsafe fn show_chat_while_stalled(&self) {
+        unsafe {
+            let local_storm = StormPlayerId(self.local_storm_id.resolve() as u8);
+            let echoes = netcode_v2::with_turn_state(|s| s.take_local_chat_echoes())
+                .unwrap_or_default()
+                .into_iter()
+                .map(|text| (local_storm, text));
+            let inbound = self.visible_chat_inbound();
+            let mut shown = self.chat_shown_while_stalled.lock();
+            for (storm, text) in echoes.chain(inbound) {
+                if self.inject_chat(storm, &text, ChatInjection::ShowWhileStalled) {
+                    shown.push((storm, text));
+                }
+            }
+        }
+    }
+
+    /// Records the chat [`show_chat_while_stalled`](Self::show_chat_while_stalled) showed, now that
+    /// the step it waited at runs.
+    unsafe fn record_chat_shown_while_stalled(&self) {
+        unsafe {
+            let shown = std::mem::take(&mut *self.chat_shown_while_stalled.lock());
+            for (storm, text) in shown {
+                if !self.inject_chat(storm, &text, ChatInjection::RecordShown) {
+                    debug!("netcode v2: chat shown while stalled not recorded; its sender left");
+                }
+            }
         }
     }
 
@@ -3862,6 +5099,16 @@ impl BwScr {
     /// slot right now — see [`unique_player_for_storm`](Self::unique_player_for_storm) — e.g. it
     /// already left.
     unsafe fn inject_chat_message(&self, storm_player: StormPlayerId, text: &str) -> bool {
+        unsafe { self.inject_chat(storm_player, text, ChatInjection::Live) }
+    }
+
+    /// [`inject_chat_message`](Self::inject_chat_message), shown and recorded as `injection` says.
+    unsafe fn inject_chat(
+        &self,
+        storm_player: StormPlayerId,
+        text: &str,
+        injection: ChatInjection,
+    ) -> bool {
         unsafe {
             let Some(unique_player) = self.unique_player_for_storm(storm_player) else {
                 return false;
@@ -3873,10 +5120,26 @@ impl BwScr {
             let record = build_chat_record(sender_id, text);
             // `0`: a live command not yet on the replay's command log, so the native command
             // processor appends it (`add_to_replay_data`) the same as any other in-game command —
-            // see `process_injected_game_command`'s doc comment for the full reasoning.
-            let injected = self.process_injected_game_command(&record, storm_player, 0);
+            // see `process_injected_game_command`'s doc comment for the full reasoning. `1` shows
+            // it without recording it.
+            let recorded = match injection {
+                ChatInjection::ShowWhileStalled => 1,
+                ChatInjection::Live | ChatInjection::RecordShown => 0,
+            };
+            self.chat_injection
+                .store(injection as u8, Ordering::Relaxed);
+            let injected = self.process_injected_game_command(&record, storm_player, recorded);
+            self.chat_injection
+                .store(ChatInjection::Live as u8, Ordering::Relaxed);
+            if injected
+                && recorded == 0
+                && let Some((_, false)) = rollback_step()
+            {
+                let step = self.netcode_v2.game_frame_count.resolve();
+                netcode_v2::with_turn_state(|s| s.note_injected_chat(step, storm_player, text));
+            }
             #[cfg(debug_assertions)]
-            if injected {
+            if injected && !rollback_resimulating() && injection != ChatInjection::RecordShown {
                 let own = storm_player.0 as u32 == self.local_storm_id.resolve();
                 netcode_v2::with_turn_state(|s| {
                     s.record_chat(crate::debug_control::DebugChatLogEntry {
@@ -4061,9 +5324,25 @@ impl BwScr {
     /// per receive on the game thread, alongside the debug forced-leave/desync application.
     unsafe fn apply_chat_inbound(&self) {
         unsafe {
+            for (sender_storm, text) in self.visible_chat_inbound() {
+                if !self.inject_chat_message(sender_storm, &text) {
+                    debug!(
+                        "netcode v2: chat from storm {sender_storm:?} could not be attributed to \
+                         a players[] slot; dropping"
+                    );
+                }
+            }
+        }
+    }
+
+    /// Drains the chat that has arrived from peers, keeping each message the local player should
+    /// see, with its sender's storm id.
+    unsafe fn visible_chat_inbound(&self) -> Vec<(StormPlayerId, String)> {
+        unsafe {
             let Some(messages) = netcode_v2::with_turn_state(|s| s.drain_chat_inbound(true)) else {
-                return; // no live session
+                return Vec::new(); // no live session
             };
+            let mut visible = Vec::with_capacity(messages.len());
             for (slot, chat) in messages {
                 let Some(sender_storm) =
                     netcode_v2::with_turn_state(|s| s.storm_id_for_slot(slot)).flatten()
@@ -4072,16 +5351,11 @@ impl BwScr {
                     continue;
                 };
                 let target = netcode_v2::ChatTarget::from_wire(chat.target_kind, chat.target_slot);
-                if !self.chat_target_visible(sender_storm, target) {
-                    continue;
-                }
-                if !self.inject_chat_message(sender_storm, &chat.text) {
-                    debug!(
-                        "netcode v2: chat from slot {slot:?} (storm {sender_storm:?}) could not \
-                         be attributed to a players[] slot; dropping"
-                    );
+                if self.chat_target_visible(sender_storm, target) {
+                    visible.push((sender_storm, chat.text));
                 }
             }
+            visible
         }
     }
 
@@ -4382,6 +5656,43 @@ impl BwScr {
         *c = Some(time);
     }
 
+    /// What the network quality chip shows, or `None` when it isn't drawn: outside games that roll
+    /// back, and while the player has the game's turn rate readout off.
+    fn net_quality_view(&self) -> Option<NetQualityView> {
+        // How long after the game last formatted its turn rate readout the chip stays up. The game
+        // formats it on every frame it draws it, so a lapse this long means the readout was turned
+        // off.
+        const READOUT_LAPSE: Duration = Duration::from_millis(250);
+        let formatted_at = (*self.turn_rate_readout_at.lock())?;
+        if formatted_at.elapsed() > READOUT_LAPSE {
+            return None;
+        }
+        let fps_font_height = unsafe { self.small_font_height() };
+        netcode_v2::with_turn_state(|s| {
+            s.predicts_inputs().then(|| NetQualityView {
+                // The pipe holds the turn every command waits for anyway (a command issued on one
+                // frame runs on the next, as in single player), which isn't delay the connection
+                // added.
+                delay: s.pipe_depth().saturating_sub(1),
+                rollback: crate::rollback_live::shown_rollback(),
+                fps_font_height,
+            })
+        })
+        .flatten()
+    }
+
+    /// The line height of the game's smallest font, which its FPS and turn rate readouts are drawn
+    /// in: the max height byte of the font's header. `None` until the font is loaded.
+    unsafe fn small_font_height(&self) -> Option<u8> {
+        unsafe {
+            let small_font = *self.fonts.resolve();
+            if small_font.is_null() || (*small_font).unk0.is_null() {
+                return None;
+            }
+            Some(*((*small_font).unk0 as *const u8).add(0xb))
+        }
+    }
+
     /// Returns whether the game has started. This is thread-safe.
     pub fn has_game_started(&self) -> bool {
         self.game_started.load(Ordering::Acquire)
@@ -4469,6 +5780,31 @@ impl BwScr {
                 .saturating_sub(height / 2)
                 .clamp(0, max_height);
             (self.move_screen)(x, y);
+        }
+    }
+
+    /// Answers the unit cost check the way it answers for a unit that costs nothing and needs no
+    /// supply: records zero mineral and gas costs for `player`, and a zero supply cost if supply
+    /// is being checked, then checks the player's resources against that record. `None` for a
+    /// player the record has no entry for.
+    pub unsafe fn check_free_unit_resources(
+        &self,
+        player: u8,
+        check_supply: bool,
+        show_error: u32,
+    ) -> Option<u32> {
+        unsafe {
+            let index = usize::from(player);
+            if index >= UNIT_COST_CACHE_PLAYERS {
+                return None;
+            }
+            let cache = &self.unit_cost_cache;
+            *cache.minerals.resolve().add(index) = 0;
+            *cache.gas.resolve().add(index) = 0;
+            if check_supply {
+                *cache.supply.resolve().add(index) = 0;
+            }
+            Some((cache.check_resources)(player.into(), show_error))
         }
     }
 
@@ -4986,6 +6322,10 @@ impl BwScr {
     /// seeks replay backwards and it has to be simulated from start over again, so
     /// we don't need to and shouldn't reset any network state.
     fn reset_state_for_game_init(&self) {
+        #[cfg(debug_assertions)]
+        crate::rollback_harness::reset_for_game_init();
+        crate::rollback_live::reset_for_game_init();
+        crate::frame_timing::reset();
         self.detection_status_copy.lock().clear();
         self.first_game_logic_frame_done
             .store(false, Ordering::Relaxed);
@@ -5671,6 +7011,594 @@ pub enum BwCursorType {
     ScrollDownLeft = 16,
     ScrollLeft = 17,
     ScrollUpLeft = 18,
+}
+
+/// Accessors the rollback engine needs into BW state.
+impl BwScr {
+    /// The first analysis result a game that rolls back needs and this build of the game didn't
+    /// yield, or `None` when there is none and this DLL can roll back.
+    pub(crate) fn rollback_missing_analysis(&self) -> Option<&'static str> {
+        if self.next_game_step_tick.is_none() {
+            return Some("next_game_step_tick");
+        }
+        if self.local_selection.is_none() {
+            return Some("local_selection");
+        }
+        if self.simulated_selections.is_none() {
+            return Some("selections");
+        }
+        if self.observer_ui_callbacks.is_none() {
+            return Some("observer UI callbacks");
+        }
+        if self.selection_visuals.is_none() {
+            return Some("selection visuals");
+        }
+        if self.click_feedback.is_none() {
+            return Some("click feedback");
+        }
+        if self.placement_overlays.is_none() {
+            return Some("building placement overlay pools");
+        }
+        if self.pylon_auras.is_none() {
+            return Some("pylon power fields");
+        }
+        if self.mission_dialog_openers.is_none() {
+            return Some("mission dialog openers");
+        }
+        if self.show_game_message.is_none() {
+            return Some("show_game_message");
+        }
+        if self.rollback_ranges.is_empty() {
+            return Some("snapshot ranges");
+        }
+        self.rollback_ranges
+            .iter()
+            .find(|x| x.operand().is_none())
+            .map(|x| x.name())
+    }
+
+    /// The analysis results the rollback engine turns into snapshot ranges.
+    pub(crate) fn rollback_range_specs(&self) -> &[crate::rollback::ranges::RangeSpec] {
+        &self.rollback_ranges
+    }
+
+    /// The value the snapshot's analysis result `name` holds right now, which for a list head is
+    /// the list's first entry; 0 when analysis did not resolve it.
+    pub(crate) unsafe fn rollback_list_head(&self, name: &str) -> usize {
+        unsafe {
+            self.rollback_ranges
+                .iter()
+                .find(|x| x.name() == name)
+                .and_then(|x| x.operand())
+                .map(|op| resolve_operand(op, &[]))
+                .unwrap_or(0)
+        }
+    }
+
+    /// Shows replay playback through the vision of the players in `players` (a bit per player),
+    /// as the replay UI's vision toggles do.
+    #[cfg(debug_assertions)]
+    pub(crate) unsafe fn rollback_set_replay_vision(&self, players: u8) {
+        unsafe {
+            self.replay_visions.write(players);
+            self.local_visions.write(players);
+            game_thread::add_fow_sprites_for_replay_vision_change(self);
+        }
+    }
+
+    /// The current map's pathing state, or null before a map has been loaded.
+    pub(crate) unsafe fn rollback_pathing(&self) -> *mut bw::Pathing {
+        unsafe { self.pathing.resolve() }
+    }
+
+    /// The tick the game loop schedules its next logic step for, or 0 if analysis didn't find it.
+    pub(crate) unsafe fn rollback_next_game_step_tick(&self) -> u32 {
+        unsafe { self.next_game_step_tick.as_ref().map_or(0, |x| x.resolve()) }
+    }
+
+    pub(crate) unsafe fn rollback_set_next_game_step_tick(&self, value: u32) {
+        unsafe {
+            if let Some(tick) = &self.next_game_step_tick {
+                tick.write(value);
+            }
+        }
+    }
+
+    /// Makes a write the UI made into the simulation's memory again, through the same function the
+    /// UI called.
+    pub(crate) unsafe fn rollback_replay_ui_write(
+        &self,
+        write: crate::rollback::ui_writes::UiWrite,
+    ) {
+        use crate::rollback::ui_writes::UiWrite;
+        unsafe {
+            let Some(feedback) = &self.click_feedback else {
+                return;
+            };
+            match write {
+                UiWrite::CursorMarker { x, y } => {
+                    let show = mem::transmute::<usize, unsafe extern "C" fn(i32, i32)>(
+                        feedback.show_cursor_marker_at.0 as usize,
+                    );
+                    show(x, y);
+                }
+                UiWrite::SelectionFlash {
+                    object,
+                    sprite,
+                    timer,
+                } => {
+                    let object = object as *mut c_void;
+                    if sprite != 0 && flash_target_sprite(object) as usize == sprite {
+                        let flash = Thiscall::<unsafe extern "C" fn(*mut c_void, u32)>::foreign(
+                            feedback.set_selection_flash_timer.0 as usize,
+                        );
+                        flash.call2(object, timer);
+                    }
+                }
+            }
+        }
+    }
+
+    /// How many network turns the game has dispatched since its game loop started, or `None` when
+    /// no game is loaded. BW's turn counter reads one past that: it counts the turn being
+    /// dispatched as well while the IN hook runs, and between steps.
+    pub(crate) unsafe fn rollback_turns_dispatched(&self) -> Option<u32> {
+        unsafe {
+            (!self.game().is_null())
+                .then(|| self.netcode_v2.game_frame_count.resolve().saturating_sub(1))
+        }
+    }
+
+    /// Opens the victory or defeat dialog the way the trigger step does, for a frame that asked for
+    /// it during a rollback tick and has since been confirmed.
+    pub(crate) unsafe fn rollback_open_mission_dialog(
+        &self,
+        dialog: crate::rollback::game_end::MissionDialog,
+    ) {
+        use crate::rollback::game_end::MissionDialog;
+        unsafe {
+            let Some((defeat, victory)) = self.mission_dialog_openers else {
+                return;
+            };
+            let opener = match dialog {
+                MissionDialog::Defeat => defeat,
+                MissionDialog::Victory => victory,
+            };
+            let open = mem::transmute::<usize, unsafe extern "C" fn()>(opener.0 as usize);
+            open();
+        }
+    }
+
+    /// Takes the selection circles and health bars off every sprite.
+    pub(crate) unsafe fn rollback_clear_selection_visuals(&self) {
+        unsafe {
+            match (&self.selection_visual_pools, &self.local_selection) {
+                (Some(pools), Some(local_selection)) => {
+                    // The client selection is rebuilt from the local one, so the two hold the
+                    // same units but for the moment between a change and the rebuild.
+                    let local = std::slice::from_raw_parts(local_selection.resolve(), 12);
+                    let client = std::slice::from_raw_parts(self.client_selection.resolve(), 12);
+                    pools.clear(&[local, client]);
+                }
+                _ => {
+                    if let Some(visuals) = &self.selection_visuals {
+                        (visuals.clear)();
+                    }
+                }
+            }
+        }
+    }
+
+    /// Puts the selection circles and health bars back on the units the person watching has
+    /// selected.
+    pub(crate) unsafe fn rollback_rebuild_selection_visuals(&self) {
+        unsafe {
+            if let Some(visuals) = &self.selection_visuals {
+                (visuals.rebuild)();
+            }
+        }
+    }
+
+    /// Whether the local player's pylon power fields are shown.
+    pub(crate) unsafe fn rollback_pylon_auras_shown(&self) -> bool {
+        unsafe {
+            self.pylon_auras
+                .as_ref()
+                .is_some_and(|auras| auras.shown.resolve() != 0)
+        }
+    }
+
+    /// Shows the local player's pylon power fields and hides every other, or hides them all, as
+    /// selecting a pylon or something else does. A pylon left without one by a full sprite pool
+    /// stays without, where the game would try again to make one: that would take a sprite from
+    /// the simulation's pool between steps.
+    pub(crate) unsafe fn rollback_set_pylon_auras_shown(&self, shown: bool) {
+        unsafe {
+            let Some(auras) = &self.pylon_auras else {
+                return;
+            };
+            let show_local = shown && self.is_replay.resolve() == 0;
+            let local_player = self.local_player_id.resolve();
+            let local_visions = self.local_visions.resolve();
+            let mut pylon = auras.first_pylon.resolve();
+            while !pylon.is_null() {
+                let aura = (*pylon).unit_specific2.pylon.aura;
+                if !aura.is_null() {
+                    if show_local && u32::from((*pylon).player) == local_player {
+                        (*aura).flags &= !SPRITE_HIDDEN;
+                        set_sprite_visibility_mask(aura, local_visions, local_visions);
+                    } else {
+                        (*aura).flags |= SPRITE_HIDDEN;
+                        set_sprite_visibility_mask(aura, 0, local_visions);
+                    }
+                }
+                pylon = (*pylon).rally_pylon.pylon.next;
+            }
+            auras.shown.write(u32::from(shown));
+        }
+    }
+
+    /// Takes every building placement overlay off the sprite it is shown on and back to its pool,
+    /// as the game does when a placement ends, and returns what it took off. The pools are outside
+    /// the snapshot, so this has to happen before taking one (which would otherwise hold sprites
+    /// linked to pool images that the pool can hand out again before it is restored) and before
+    /// restoring one (which would otherwise replace the image lists the images are linked into,
+    /// leaving them taken from their pool for good).
+    pub(crate) unsafe fn rollback_detach_placement_overlays(&self) -> DetachedPlacementOverlays {
+        unsafe {
+            let mut images = Vec::new();
+            let Some(pools) = &self.placement_overlays else {
+                return DetachedPlacementOverlays { images };
+            };
+            for (pool, first_free, last_free) in pools.pools() {
+                for i in 0..PLACEMENT_POOL_LEN {
+                    let image = pool.add(i);
+                    let sprite = (*image).parent;
+                    if sprite.is_null() {
+                        continue;
+                    }
+                    images.push((image, std::ptr::read(image)));
+                    let lists = &raw mut (*sprite).version_specific.scr;
+                    unlink_image(
+                        image,
+                        &raw mut (*lists).first_image,
+                        &raw mut (*lists).last_image,
+                    );
+                    push_free_image(image, first_free, last_free);
+                    (*image).parent = null_mut();
+                }
+            }
+            DetachedPlacementOverlays { images }
+        }
+    }
+
+    /// Puts back the overlays [`rollback_detach_placement_overlays`] took off, in front of the
+    /// images of the sprites they were on, where the game puts them. An overlay only goes back
+    /// onto a sprite that still has images, which a sprite a restore freed doesn't.
+    ///
+    /// [`rollback_detach_placement_overlays`]: Self::rollback_detach_placement_overlays
+    pub(crate) unsafe fn rollback_reattach_placement_overlays(
+        &self,
+        detached: DetachedPlacementOverlays,
+    ) {
+        unsafe {
+            let Some(pools) = &self.placement_overlays else {
+                return;
+            };
+            let pools = pools.pools();
+            for (image, contents) in detached.images {
+                let lists = &raw mut (*contents.parent).version_specific.scr;
+                let first = (*lists).first_image;
+                if first.is_null() {
+                    continue;
+                }
+                let Some(&(_, first_free, last_free)) = pools
+                    .iter()
+                    .find(|&&(pool, ..)| image >= pool && image < pool.add(PLACEMENT_POOL_LEN))
+                else {
+                    continue;
+                };
+                unlink_image(image, first_free, last_free);
+                std::ptr::write(image, contents);
+                (*image).prev = null_mut();
+                (*image).next = first;
+                (*first).prev = image;
+                (*lists).first_image = image;
+            }
+        }
+    }
+
+    /// The units the person watching has selected.
+    pub(crate) unsafe fn rollback_local_selection(&self) -> [Option<SelectedUnit>; 12] {
+        unsafe {
+            let mut out = [None; 12];
+            let Some(local_selection) = &self.local_selection else {
+                return out;
+            };
+            let selection = local_selection.resolve();
+            for (i, item) in out.iter_mut().enumerate() {
+                let unit = *selection.add(i);
+                if unit.is_null() {
+                    break;
+                }
+                *item = Some(SelectedUnit::of(unit));
+            }
+            out
+        }
+    }
+
+    /// Settles the local selection after a tick that restored and simulated again, against
+    /// `before`, the selection as it was before the restore.
+    ///
+    /// The selection stays out of the snapshot, so a restore leaves it pointing at whatever the
+    /// restored state has in each unit's slot: nothing, if the unit was created after the snapshot
+    /// and the re-simulation didn't create it again, or a different unit. The game deselects a
+    /// unit when it dies or changes owner, but a restore does neither, and the selection UI reads
+    /// the sprite of a unit it holds without checking for one; so each unit that isn't the one
+    /// `before` held in its slot any more goes.
+    ///
+    /// The other way round, the re-simulation can take out a unit that ends the tick just as it
+    /// was before the restore: one that changed owner after the snapshot, which the restored state
+    /// has under its old owner until the re-simulation changes it again, deselecting it. The person
+    /// can't change the selection during a tick, so such a unit goes back where it was, unless it is
+    /// dying or hidden in a transport, which the corrected simulation deselected it for.
+    pub(crate) unsafe fn rollback_settle_local_selection(
+        &self,
+        before: &[Option<SelectedUnit>; 12],
+    ) {
+        unsafe {
+            let Some(local_selection) = &self.local_selection else {
+                return;
+            };
+            let selection = local_selection.resolve();
+            let mut kept = [null_mut(); 12];
+            let mut kept_count = 0;
+            let mut changed = false;
+            for i in 0..kept.len() {
+                let unit = *selection.add(i);
+                if unit.is_null() {
+                    break;
+                }
+                let same = match before.iter().flatten().find(|x| x.unit == unit) {
+                    Some(old) => old.is_current(),
+                    None => !(*unit).flingy.sprite.is_null(),
+                };
+                if same {
+                    kept[kept_count] = unit;
+                    kept_count += 1;
+                } else {
+                    changed = true;
+                }
+            }
+            let mut kept = kept[..kept_count].to_vec();
+            for (index, old) in before.iter().flatten().enumerate() {
+                if kept.len() < 12
+                    && !kept.contains(&old.unit)
+                    && old.is_current()
+                    && (*old.unit).order != bw_dat::order::DIE.0
+                    && (*(*old.unit).flingy.sprite).flags & SPRITE_HIDDEN == 0
+                {
+                    kept.insert(index.min(kept.len()), old.unit);
+                    changed = true;
+                }
+            }
+            if changed {
+                self.engine_select(&kept);
+            }
+        }
+    }
+
+    /// Makes `units` the local selection, without the selection response or a selection command,
+    /// as the game itself deselects a unit that dies: the selection the simulation keeps for each
+    /// player is in the snapshot and re-simulated along with it.
+    pub(crate) unsafe fn rollback_select_local(&self, units: &[SelectedUnit]) {
+        unsafe {
+            let units = units.iter().map(|x| x.unit).collect::<Vec<_>>();
+            self.engine_select(&units);
+        }
+    }
+
+    unsafe fn engine_select(&self, units: &[*mut bw::Unit]) {
+        unsafe {
+            self.engine_selecting.store(true, Ordering::Relaxed);
+            (self.select_units)(units.len(), units.as_ptr(), 0, 0);
+            self.engine_selecting.store(false, Ordering::Relaxed);
+        }
+    }
+
+    /// What the simulation has the person watching selecting, or nothing for an observer, who has
+    /// no selection there.
+    pub(crate) unsafe fn rollback_simulated_selection(&self) -> Vec<SelectedUnit> {
+        unsafe {
+            let Some(selections) = &self.simulated_selections else {
+                return Vec::new();
+            };
+            let player = self.local_unique_player_id.resolve() as usize;
+            if player >= 8 {
+                return Vec::new();
+            }
+            let row = selections.resolve().add(player * 12);
+            (0..12)
+                .map(|i| *row.add(i))
+                .take_while(|unit| !unit.is_null())
+                .map(|unit| SelectedUnit::of(unit))
+                .collect()
+        }
+    }
+
+    /// Where the camera is, in map pixels.
+    pub(crate) unsafe fn rollback_screen_position(&self) -> (u32, u32) {
+        unsafe { (self.screen_x.resolve(), self.screen_y.resolve()) }
+    }
+
+    /// The frame the simulation is on, or `None` when no game is loaded.
+    pub(crate) unsafe fn rollback_frame_count(&self) -> Option<u32> {
+        unsafe {
+            let game = self.game();
+            (!game.is_null()).then(|| (*game).frame_count)
+        }
+    }
+
+    /// Asks BW to play a sound effect at a map position, or unpositioned when `position` is
+    /// `None`, through the same entry point the simulation's own sound requests take.
+    pub(crate) unsafe fn rollback_play_sound(
+        &self,
+        sound_id: u32,
+        volume: f32,
+        position: Option<(i32, i32)>,
+    ) -> u32 {
+        unsafe {
+            let mut coords = position.unwrap_or_default();
+            let (x, y) = match position {
+                Some(_) => (&raw mut coords.0, &raw mut coords.1),
+                None => (std::ptr::null_mut(), std::ptr::null_mut()),
+            };
+            (self.play_sound)(sound_id, volume, std::ptr::null_mut(), x, y)
+        }
+    }
+
+    /// The [`state_hash`](crate::rollback::state_hash::state_hash) of the current frame, or `None`
+    /// when no game is loaded.
+    pub(crate) unsafe fn rollback_state_hash(&self) -> Option<u64> {
+        unsafe {
+            let game = self.game();
+            if game.is_null() {
+                return None;
+            }
+            Some(crate::rollback::state_hash::state_hash(
+                self,
+                game,
+                &self.rng_words(),
+            ))
+        }
+    }
+
+    /// The words around the RNG seed operand: the seed plus the advancing draw state.
+    unsafe fn rng_words(&self) -> [u32; 6] {
+        unsafe {
+            let seed_ptr = self.rng_seed.resolve_as_ptr();
+            let mut rng = [0u32; 6];
+            for (i, out) in rng.iter_mut().enumerate() {
+                *out = seed_ptr.add(i).read_unaligned();
+            }
+            rng
+        }
+    }
+}
+
+/// Accessors only the debug instrumentation (the rollback probe, the replay harness and the live
+/// monkey) needs into BW state, compiled out of release DLLs along with it.
+#[cfg(debug_assertions)]
+impl BwScr {
+    /// The vtable shared by the game allocator instances, so instrumentation can swap slots in it.
+    pub(crate) unsafe fn probe_allocator_vtable(&self) -> *mut scr::AllocatorVtable {
+        unsafe {
+            let allocator = self.allocator.resolve();
+            if allocator.is_null() {
+                return null_mut();
+            }
+            (*allocator).vtable
+        }
+    }
+
+    /// The executable's base address, and the address and size of its data section including the
+    /// zero-initialized part: the static memory the game's globals live in.
+    pub(crate) fn rollback_exe_data_section(&self) -> Option<(usize, usize, usize)> {
+        unsafe {
+            let base = GetModuleHandleW(null()) as *const u8;
+            let data = pe_image::get_section(base, b".data\0\0\0")?;
+            Some((
+                base as usize,
+                data.virtual_address.0 as usize,
+                data.virtual_size as usize,
+            ))
+        }
+    }
+
+    /// Issues commands the way a player's clicks would, through the local command buffer the
+    /// game's own UI fills: selects some of the local player's units and right-clicks a map
+    /// position with them. `random` picks the units and the position. Returns whether there was
+    /// anything to select.
+    pub(crate) unsafe fn rollback_issue_random_commands(
+        &self,
+        mut random: impl FnMut() -> u32,
+    ) -> bool {
+        unsafe {
+            let game = self.game();
+            let local_player = self.local_unique_player_id.resolve();
+            if game.is_null() || local_player >= 8 {
+                return false;
+            }
+            let units = self.units.resolve();
+            let unit_ptr = (*units).data as *mut bw::Unit;
+            let own: Vec<(usize, u8)> = (0..(*units).length)
+                .map(|i| (i, unit_ptr.add(i)))
+                .filter(|&(_, unit)| {
+                    !(*unit).flingy.sprite.is_null() && (*unit).player as u32 == local_player
+                })
+                .map(|(i, unit)| (i, (*unit).minor_unique_index))
+                .collect();
+            if own.is_empty() {
+                return false;
+            }
+            // A unit's tag is its one-based pool index in the low 11 bits and how many times the
+            // slot has been reused above them; the 1.21 select command pads each to 4 bytes.
+            let count = 1 + random() as usize % own.len().min(12);
+            let mut select = vec![0x63, count as u8];
+            for _ in 0..count {
+                let (index, reuse) = own[random() as usize % own.len()];
+                let tag = (index as u16 + 1) | ((reuse as u16 & 0x1f) << 11);
+                select.extend_from_slice(&tag.to_le_bytes());
+                select.extend_from_slice(&[0, 0]);
+            }
+            (self.send_command)(select.as_ptr(), select.len());
+            let width = (*game).map_width_tiles as u32 * 32;
+            let height = (*game).map_height_tiles as u32 * 32;
+            let x = (random() % width.max(1)) as u16;
+            let y = (random() % height.max(1)) as u16;
+            // The 1.21 right click: position, target tag (none) and its padding, the target's unit
+            // type (none), not queued.
+            let mut right_click = vec![0x60];
+            for value in [x, y, 0, 0, 0xe4] {
+                right_click.extend_from_slice(&value.to_le_bytes());
+            }
+            right_click.push(0);
+            (self.send_command)(right_click.as_ptr(), right_click.len());
+            true
+        }
+    }
+
+    /// Reads the synced-state fingerprint of the current frame, or `None` when no game is loaded.
+    ///
+    /// Same fields the low-rate sync probe logs: the words around the RNG seed operand (the seed
+    /// plus the advancing draw state), the first four players' resources, and the trigger
+    /// countdown. Together they move with essentially every synced operation, which is what makes
+    /// them usable as a per-frame equality check between two runs of the same game.
+    pub(crate) unsafe fn probe_fingerprint(&self) -> Option<crate::rollback_probe::Fingerprint> {
+        unsafe {
+            let game = self.game();
+            if game.is_null() {
+                return None;
+            }
+            let rng = self.rng_words();
+            let all_minerals = (*game).minerals;
+            let all_gas = (*game).gas;
+            let mut minerals = [0u32; 4];
+            minerals.copy_from_slice(&all_minerals[..4]);
+            let mut gas = [0u32; 4];
+            gas.copy_from_slice(&all_gas[..4]);
+            Some(crate::rollback_probe::Fingerprint {
+                frame: (*game).frame_count,
+                rng,
+                minerals,
+                gas,
+                trigger_timer: self.trigger_execution_timer.resolve(),
+                elapsed_seconds: (*game).elapsed_seconds,
+                player_types: std::array::from_fn(|i| (*self.players().add(i)).player_type),
+                state_hash: crate::rollback::state_hash::state_hash(self, game, &rng),
+            })
+        }
+    }
 }
 
 impl bw::Bw for BwScr {
@@ -7130,6 +9058,51 @@ mod hooks {
         !0 => SaveReplayByName(*const i8, u8) -> i32;
     );
 
+    // Instrumentation-only hooks, all cdecl.
+    //
+    // EngineAlloc / EngineFree are the engine's second allocation path over the OS heap, counted
+    // per simulation step alongside the allocator vtable object's own traffic. Both take (size or
+    // pointer, allocation tag pointer, tag, flags); the free's boolean result comes back in the
+    // low byte of the return register, so the whole register value is passed through.
+    #[cfg(debug_assertions)]
+    whack_hooks!(0, // cdecl
+        !0 => EngineAlloc(usize, usize, u32, u32) -> *mut u8;
+        !0 => EngineFree(*mut u8, usize, u32, u32) -> u32;
+    );
+
+    // Hooks the rollback engine keeps once-per-frame effects in step with its re-simulation
+    // through, all cdecl.
+    //
+    // PlaySound's signature matches the `play_sound` function pointer BwScr calls directly:
+    // (sound id, volume, unknown, x, y).
+    whack_hooks!(0, // cdecl
+        !0 => PlaySound(u32, f32, *mut c_void, *mut i32, *mut i32) -> u32;
+        // (player, unit id, check supply, show error) -> can afford
+        !0 => CheckUnitResourcesAndSupply(u32, u32, u32, u32) -> u32;
+        !0 => ShowGameMessage(*const u8, u32);
+        // Place the order confirmation marker at a map position.
+        !0 => ShowCursorMarkerAt(i32, i32);
+        // Replace the local selection: (unit count, units, play the selection response, send a
+        // selection command).
+        !0 => SelectUnits(u32, *const *mut bw::Unit, u32, u32);
+        // Open the defeat and victory dialogs.
+        !0 => OpenDefeatMissionDialog();
+        !0 => OpenVictoryMissionDialog();
+    );
+
+    // The observer UI's notifications from the simulation, methods on the observer UI object that
+    // take the unit concerned. The trailing flag of the first is whether to track a unit that is
+    // already complete, and of the last whether the research or upgrade completed rather than
+    // being canceled; both are C bools passed in a full argument slot.
+    thiscall_hooks!(
+        !0 => ObserverUiTrackBuildingUnit(*mut c_void, *mut bw::Unit, u32);
+        !0 => ObserverUiTrackResearchOrUpgrade(*mut c_void, *mut bw::Unit);
+        !0 => ObserverUiRemoveBuildingUnitRecord(*mut c_void, *mut bw::Unit);
+        !0 => ObserverUiFinishResearchOrUpgrade(*mut c_void, *mut bw::Unit, u32);
+        // Make a unit's (or fog sprite's) selection circle blink, the object in ecx on 32-bit.
+        !0 => SetSpriteSelectionFlashTimer(*mut c_void, u32);
+    );
+
     system_hooks!(
         // Storm's network join handshake, stdcall with 9 dword args (retn 0x24 on x86). The netcode
         // v2 native-lobby join replacement replaces it wholesale when a lobby session seed is staged.
@@ -7314,7 +9287,7 @@ unsafe fn step_game_logic_hook(
     let has_obs_vision_ui = game_thread::is_replay()
         || BwPlayerId(bw.local_unique_player_id.resolve() as u8).is_observer();
     if !has_obs_vision_ui {
-        return orig(param);
+        return step_one_game_logic_step(bw, param, orig);
     }
     let units = bw.units.resolve();
     {
@@ -7329,7 +9302,7 @@ unsafe fn step_game_logic_hook(
             (*unit_ptr.add(i)).detection_status = value;
         }
     }
-    let ret = orig(param);
+    let ret = step_one_game_logic_step(bw, param, orig);
     {
         let mut detection_status = bw.detection_status_copy.lock();
         let unit_count = (*units).length;
@@ -7338,6 +9311,82 @@ unsafe fn step_game_logic_hook(
         detection_status.extend((0..unit_count).map(|i| (*unit_ptr.add(i)).detection_status));
     }
     ret
+}
+
+/// The frame the step in progress produces during a rollback tick, and whether it re-simulates a
+/// frame the game has already shown, or `None` outside a rollback tick.
+fn rollback_step() -> Option<(u32, bool)> {
+    crate::rollback::tick_running().then(|| {
+        (
+            crate::rollback::step_frame(),
+            crate::rollback::in_resimulation(),
+        )
+    })
+}
+
+/// Whether the step in progress re-simulates a frame the game has already shown, so what it does
+/// for the game's record-keeping rather than its simulation already happened.
+fn rollback_resimulating() -> bool {
+    rollback_step().is_some_and(|(_, resimulating)| resimulating)
+}
+
+/// Whether this client has native sync (0x37) turned off: it neither sends sync commands nor
+/// verifies peers' ones. Native sync hashes state that a rollback re-simulation does not
+/// reproduce, so a client that rolls back would otherwise report its peers as desynced.
+fn native_sync_disabled() -> bool {
+    crate::rollback_live::native_sync_off()
+}
+
+/// Whether the step in progress re-simulates a frame of a live netcode v2 game, whose turns
+/// already went out and came in when the frame was first simulated. Replay playback re-simulates
+/// through the replay's own command stream instead, and has no session to take turns from.
+fn live_rollback_resimulating() -> bool {
+    rollback_resimulating() && netcode_v2::with_turn_state(|_| ()).is_some()
+}
+
+/// The single place [`step_game_logic_hook`] hands control to BW's own logic step, so anything
+/// that has to bracket the simulation only has to be attached here instead of at each of the
+/// hook's exit paths.
+unsafe fn step_one_game_logic_step(
+    bw: &'static BwScr,
+    param: usize,
+    orig: unsafe extern "C" fn(usize) -> usize,
+) -> usize {
+    unsafe {
+        if let Some(ret) = crate::rollback_live::run_game_logic_step(bw, param, orig) {
+            return ret;
+        }
+        #[cfg(debug_assertions)]
+        if let Some(ret) = crate::rollback_bench::run_game_logic_step(bw, param, orig) {
+            return ret;
+        }
+        step_outside_rollback(bw, param, orig)
+    }
+}
+
+/// Runs a logic step that no rollback driver took: through the replay harness, which leaves it to
+/// BW's own step unless it is armed.
+#[cfg(debug_assertions)]
+unsafe fn step_outside_rollback(
+    bw: &'static BwScr,
+    param: usize,
+    orig: unsafe extern "C" fn(usize) -> usize,
+) -> usize {
+    unsafe {
+        crate::rollback_soak::run_game_logic_step(bw, || {
+            crate::rollback_harness::run_game_logic_step(bw, param, orig)
+        })
+    }
+}
+
+/// Runs a logic step that no rollback driver took.
+#[cfg(not(debug_assertions))]
+unsafe fn step_outside_rollback(
+    _bw: &'static BwScr,
+    param: usize,
+    orig: unsafe extern "C" fn(usize) -> usize,
+) -> usize {
+    unsafe { orig(param) }
 }
 
 unsafe fn check_documents_starcraft_path_accessibility() {

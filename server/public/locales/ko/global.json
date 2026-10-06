@@ -1700,6 +1700,9 @@
     "mapSelect": {
       "browseMaps": "맵 찾아보기"
     },
+    "preview": {
+      "zoom": "확대/축소"
+    },
     "server": {
       "allMaps": "모든 맵",
       "browseLocal": "로컬 맵 찾아보기",
@@ -2172,6 +2175,14 @@
       },
       "system": {
         "networkOverline": "네트워크",
+        "rollbackTarget": {
+          "description": "값이 높을수록 명령이 빠르게 반응하지만, 유닛이 눈에 띄게 튀는 일이 잦아질 수 있습니다.",
+          "label": "롤백 밸런스",
+          "recommended": "권장",
+          "recommendedValue": "{{value}}, 권장",
+          "responsive": "반응 속도 우선",
+          "smoother": "부드러움 우선"
+        },
         "runOnStartup": "시스템 시작 시 ShieldBattery 실행",
         "serverRegion": {
           "autoPlain": "자동 (권장)",
@@ -2438,12 +2449,14 @@
       },
       "input": {
         "cursorHeader": "커서",
+        "customCursorSize": "커서 크기",
         "customCursorSizeLargest": "가장 큼",
         "customCursorSizeSmallest": "가장 작음",
         "customMouseSensitivity": "사용자 지정 마우스 감도",
         "grabPan": "화면 끌기 감도 직접 설정",
         "grabPanFaster": "빠르게",
         "grabPanInverted": "화면 이동 방향 반전",
+        "grabPanSensitivity": "화면 끌기 감도",
         "grabPanSlower": "느리게",
         "grabPanTooltip": "가운데 마우스 버튼으로 화면을 끌 때 카메라가 움직이는 속도를 조절합니다. 비활성화하면 기존 스타크래프트: 리마스터와 동일하게 동작합니다.",
         "hardwareCursor": "하드웨어 커서",

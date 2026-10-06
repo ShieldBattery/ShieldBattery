@@ -5,17 +5,21 @@
 //! the disconnect overlay's disconnected players / per-row tier / elapsed seconds / drop flags /
 //! self-state, the network-stats overlay's identity header, per-slot rows, time-sampled history
 //! strips and event ticker (with one-click healthy / degraded / post-rehome / cold-start scenarios),
-//! and egui's pixels-per-point. Knobs persist to a JSON file next to the binary across restarts.
+//! the network quality chip's delay and rollback (or a simulated jittery rollback fed through the
+//! chip's own smoothing), and egui's pixels-per-point. Knobs persist to a JSON file next to the binary across restarts.
 //!
 //! `--smoke` renders a few frames of several states headlessly (no window) and exits 0, for CI-ish
 //! verification that the extracted render path and font setup run on the host.
 
 use std::path::PathBuf;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use egui::{Color32, Rect, pos2, vec2};
 use overlay_ui::disconnect::{
     DisconnectRowView, DisconnectTier, DisconnectView, SelfState, render_disconnect_view,
+};
+use overlay_ui::net_quality::{
+    DESIGN_HEIGHT, NetQualityView, RecentRollback, fps_line_top, render_net_quality,
 };
 use overlay_ui::netstat::{
     NetEventView, NetStatRowView, NetStatsView, RowDeparture, render_netstat_view,
@@ -79,6 +83,14 @@ fn run_smoke() {
             self_state: SelfState::Reconnecting,
         },
         DisconnectView {
+            rows: Vec::new(),
+            self_state: SelfState::Disconnected,
+        },
+        DisconnectView {
+            rows: Vec::new(),
+            self_state: SelfState::Desynced,
+        },
+        DisconnectView {
             rows: vec![
                 DisconnectRowView {
                     slot: 0,
@@ -117,6 +129,14 @@ fn run_smoke() {
             };
             ctx.begin_pass(raw);
             let _ = render_disconnect_view(view, &ctx);
+            render_net_quality(
+                &NetQualityView {
+                    delay: 12,
+                    rollback: 8,
+                    fps_font_height: Some(8),
+                },
+                &ctx,
+            );
             let mut output = ctx.end_pass();
             let _ = ctx.tessellate(output.shapes, ctx.pixels_per_point());
             // Headless rendering has no GPU texture store to update.
@@ -288,6 +308,27 @@ impl BufferShape {
             BufferShape::Sawtooth => (t * 3.0).fract(),
         }
     }
+}
+
+/// Draws text where the game draws its FPS readout for a small font `font_height` tall, in about
+/// the game's size, to judge the chip's spacing against it. The game draws the line at x = 10 of
+/// its 480-tall coordinate space.
+fn paint_fps_line_stand_in(ctx: &egui::Context, font_height: u8) {
+    let scale = ctx.content_rect().height() / DESIGN_HEIGHT;
+    let game_unit = DESIGN_HEIGHT / 480.0;
+    let pos = pos2(10.0 * game_unit, fps_line_top(font_height)) * scale;
+    let size = (f32::from(font_height) * game_unit * scale).max(1.0);
+    ctx.layer_painter(egui::LayerId::new(
+        egui::Order::Background,
+        egui::Id::new("fps_line_stand_in"),
+    ))
+    .text(
+        pos,
+        egui::Align2::LEFT_TOP,
+        "FPS: 163",
+        egui::FontId::proportional(size),
+        Color32::WHITE,
+    );
 }
 
 /// The fractional position of sample `i` of `count`, in `[0, 1]`; a single-sample series sits at 0.
@@ -510,6 +551,10 @@ struct Knobs {
     rows: Vec<RowKnob>,
     /// `true` => the prominent self-reconnecting notice replaces the peers panel.
     self_reconnecting: bool,
+    /// `true` => the disconnected self notice and its Leave button replace everything else.
+    self_disconnected: bool,
+    /// `true` => the desynced self notice and its Leave button replace everything else.
+    self_desynced: bool,
     /// egui pixels-per-point; the game derives this from render-target height, so it is the main
     /// knob for matching the game's on-screen scale.
     pixels_per_point: f32,
@@ -519,6 +564,50 @@ struct Knobs {
     backdrop_path: Option<String>,
     /// The network-stats overlay's emulation state.
     netstat: NetStatsKnobs,
+    /// The network quality chip's emulation state.
+    net_quality: NetQualityKnobs,
+}
+
+/// The network quality chip's knobs.
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(default)]
+struct NetQualityKnobs {
+    show: bool,
+    delay: u32,
+    /// The rollback shown as is, unless `simulate` is set.
+    rollback: u32,
+    /// Feeds a rollback that jitters above `rollback` (with occasional bursts) through the chip's
+    /// smoothing, a sample per game tick, to judge how the shown number moves in a real game.
+    simulate: bool,
+    /// How far the simulated rollback jitters above `rollback`, in frames.
+    jitter: u32,
+    /// Seconds between simulated bursts of lateness, or 0 for none.
+    burst_every_secs: f32,
+    /// How many frames a simulated burst adds.
+    burst_frames: u32,
+    /// Whether to place the chip clear of the game's FPS line, as it is in game.
+    fps_line: bool,
+    /// The height of the game's small font, which sets where its FPS line sits.
+    fps_font_height: u8,
+    /// Draws a stand-in for the game's FPS line where the game would draw it.
+    show_fps_line: bool,
+}
+
+impl Default for NetQualityKnobs {
+    fn default() -> NetQualityKnobs {
+        NetQualityKnobs {
+            show: true,
+            delay: 1,
+            rollback: 2,
+            simulate: false,
+            jitter: 1,
+            burst_every_secs: 8.0,
+            burst_frames: 4,
+            fps_line: true,
+            fps_font_height: 8,
+            show_fps_line: true,
+        }
+    }
 }
 
 impl Default for Knobs {
@@ -543,10 +632,13 @@ impl Default for Knobs {
                 },
             ],
             self_reconnecting: false,
+            self_disconnected: false,
+            self_desynced: false,
             pixels_per_point: 1.5,
             auto_tick: false,
             backdrop_path: None,
             netstat: NetStatsKnobs::default(),
+            net_quality: NetQualityKnobs::default(),
         }
     }
 }
@@ -597,7 +689,19 @@ struct PreviewApp {
     backdrop_error: Option<String>,
     /// The slots clicked in the most recent frame that had any, for feedback.
     last_clicked: Vec<u8>,
+    /// How many times the Leave button has been clicked.
+    leave_clicks: u32,
     next_slot: u8,
+    /// The chip's smoothing, fed by the simulated rollback.
+    recent_rollback: RecentRollback,
+    /// The game tick the simulation last produced a sample for.
+    last_sim_tick: Instant,
+    /// When the simulation's last burst started.
+    last_burst: Instant,
+    /// The most recent simulated raw rollback, shown beside the knobs.
+    last_raw_rollback: u32,
+    /// State of the simulation's pseudo-random jitter.
+    rng: u32,
 }
 
 impl PreviewApp {
@@ -615,7 +719,63 @@ impl PreviewApp {
             backdrop_tex: None,
             backdrop_error: None,
             last_clicked: Vec::new(),
+            leave_clicks: 0,
             next_slot,
+            recent_rollback: RecentRollback::new(),
+            last_sim_tick: Instant::now(),
+            last_burst: Instant::now(),
+            last_raw_rollback: 0,
+            rng: 0x2545_f491,
+        }
+    }
+
+    /// The chip's view: the knobs as is, or the simulated rollback through the chip's smoothing,
+    /// advanced one sample per game tick of real time since the last frame.
+    fn net_quality_view(&mut self, now: Instant) -> NetQualityView {
+        let k = &self.knobs.net_quality;
+        let fps_font_height = k.fps_line.then_some(k.fps_font_height);
+        if !k.simulate {
+            return NetQualityView {
+                delay: k.delay,
+                rollback: k.rollback,
+                fps_font_height,
+            };
+        }
+        const TICK: Duration = Duration::from_millis(42);
+        const BURST_LENGTH: Duration = Duration::from_millis(400);
+        // Restarts the simulation's clock after a stretch with no frames, rather than replaying
+        // every tick it missed.
+        if now.saturating_duration_since(self.last_sim_tick) > Duration::from_secs(1) {
+            self.last_sim_tick = now;
+        }
+        while now.saturating_duration_since(self.last_sim_tick) >= TICK {
+            self.last_sim_tick += TICK;
+            let tick = self.last_sim_tick;
+            if k.burst_every_secs > 0.0
+                && tick
+                    .saturating_duration_since(self.last_burst)
+                    .as_secs_f32()
+                    >= k.burst_every_secs
+            {
+                self.last_burst = tick;
+            }
+            // xorshift32: plenty for jitter that only has to look irregular.
+            self.rng ^= self.rng << 13;
+            self.rng ^= self.rng >> 17;
+            self.rng ^= self.rng << 5;
+            let mut raw = k.rollback + self.rng % (k.jitter + 1);
+            if k.burst_every_secs > 0.0
+                && tick.saturating_duration_since(self.last_burst) < BURST_LENGTH
+            {
+                raw += k.burst_frames;
+            }
+            self.last_raw_rollback = raw;
+            self.recent_rollback.record(tick, raw);
+        }
+        NetQualityView {
+            delay: k.delay,
+            rollback: self.recent_rollback.shown(),
+            fps_font_height,
         }
     }
 
@@ -643,7 +803,11 @@ impl PreviewApp {
             .collect();
         DisconnectView {
             rows,
-            self_state: if self.knobs.self_reconnecting {
+            self_state: if self.knobs.self_desynced {
+                SelfState::Desynced
+            } else if self.knobs.self_disconnected {
+                SelfState::Disconnected
+            } else if self.knobs.self_reconnecting {
                 SelfState::Reconnecting
             } else {
                 SelfState::Healthy
@@ -662,13 +826,12 @@ impl PreviewApp {
                     let region = if relay == 1 { "local-a" } else { "local-b" };
                     format!("r{relay} {region}")
                 });
-                let departure = (i >= k.row_count.saturating_sub(k.departed_count)).then(|| {
-                    if i % 2 == 0 {
+                let departure =
+                    (i >= k.row_count.saturating_sub(k.departed_count)).then_some(if i % 2 == 0 {
                         RowDeparture::Left
                     } else {
                         RowDeparture::Dropped
-                    }
-                });
+                    });
                 NetStatRowView {
                     name: format!("Player {}", i + 1),
                     home,
@@ -803,6 +966,16 @@ impl PreviewApp {
                 self.dirty |= sr.changed();
                 ui.end_row();
 
+                ui.label("Self disconnected");
+                let sd = ui.checkbox(&mut self.knobs.self_disconnected, "show Leave button");
+                self.dirty |= sd.changed();
+                ui.end_row();
+
+                ui.label("Self desynced");
+                let sy = ui.checkbox(&mut self.knobs.self_desynced, "show desync notice");
+                self.dirty |= sy.changed();
+                ui.end_row();
+
                 ui.label("Auto-tick counters");
                 let at = ui.checkbox(&mut self.knobs.auto_tick, "advance seconds live");
                 if at.changed() {
@@ -883,6 +1056,10 @@ impl PreviewApp {
 
         ui.add_space(8.0);
         ui.separator();
+        self.net_quality_panel(ui);
+
+        ui.add_space(8.0);
+        ui.separator();
         self.netstat_panel(ui);
 
         ui.add_space(8.0);
@@ -892,6 +1069,68 @@ impl PreviewApp {
         } else {
             ui.label(format!("Last Drop click: slots {:?}", self.last_clicked));
         }
+        ui.label(format!("Leave clicks: {}", self.leave_clicks));
+    }
+
+    /// The network quality chip's knobs section.
+    fn net_quality_panel(&mut self, ui: &mut egui::Ui) {
+        ui.heading("Network quality");
+        let raw = self.last_raw_rollback;
+        let n = &mut self.knobs.net_quality;
+        let mut changed = false;
+        changed |= ui
+            .checkbox(&mut n.show, "show network quality chip")
+            .changed();
+        egui::Grid::new("net_quality_knobs")
+            .num_columns(2)
+            .spacing(vec2(8.0, 6.0))
+            .show(ui, |ui| {
+                ui.label("FPS line");
+                ui.horizontal(|ui| {
+                    changed |= ui.checkbox(&mut n.fps_line, "keep clear").changed();
+                    changed |= ui.checkbox(&mut n.show_fps_line, "draw").changed();
+                });
+                ui.end_row();
+                ui.label("Small font height");
+                changed |= ui
+                    .add(egui::Slider::new(&mut n.fps_font_height, 0..=20))
+                    .changed();
+                ui.end_row();
+                ui.label("Delay (D)");
+                changed |= ui.add(egui::Slider::new(&mut n.delay, 0..=13)).changed();
+                ui.end_row();
+                ui.label(if n.simulate {
+                    "Base rollback"
+                } else {
+                    "Rollback (R)"
+                });
+                changed |= ui.add(egui::Slider::new(&mut n.rollback, 0..=8)).changed();
+                ui.end_row();
+                ui.label("Simulate");
+                changed |= ui
+                    .checkbox(&mut n.simulate, "jitter + bursts through the smoothing")
+                    .changed();
+                ui.end_row();
+                if n.simulate {
+                    ui.label("Jitter");
+                    changed |= ui.add(egui::Slider::new(&mut n.jitter, 0..=4)).changed();
+                    ui.end_row();
+                    ui.label("Burst every (s)");
+                    changed |= ui
+                        .add(egui::Slider::new(&mut n.burst_every_secs, 0.0..=20.0))
+                        .changed();
+                    ui.end_row();
+                    ui.label("Burst frames");
+                    changed |= ui
+                        .add(egui::Slider::new(&mut n.burst_frames, 0..=8))
+                        .changed();
+                    ui.end_row();
+                    ui.label("Raw rollback");
+                    ui.label(raw.to_string());
+                    ui.end_row();
+                }
+            });
+        self.dirty |= changed;
     }
 
     /// The network-stats overlay's knobs section.
@@ -1074,8 +1313,23 @@ impl eframe::App for PreviewApp {
         // The overlay draws itself as its own top-center Area in the `Foreground` layer, over the
         // full-window backdrop — the same anchoring it uses in-game.
         let clicked = render_disconnect_view(&view, &ctx).inner;
-        if !clicked.is_empty() {
-            self.last_clicked = clicked;
+        if !clicked.drops.is_empty() {
+            self.last_clicked = clicked.drops;
+        }
+        if clicked.leave {
+            self.leave_clicks += 1;
+        }
+
+        // The network quality chip sits in the top-left corner, exactly as it does in-game.
+        if self.knobs.net_quality.show {
+            let view = self.net_quality_view(now);
+            render_net_quality(&view, &ctx);
+            if self.knobs.net_quality.show_fps_line {
+                paint_fps_line_stand_in(&ctx, self.knobs.net_quality.fps_font_height);
+            }
+            if self.knobs.net_quality.simulate {
+                ctx.request_repaint();
+            }
         }
 
         // The network-stats overlay anchors itself top-right, exactly as it does in-game.
@@ -1087,15 +1341,16 @@ impl eframe::App for PreviewApp {
         // Float the knobs as a top-LEFT window in the same `Foreground` layer but drawn *after* the
         // overlays, so the controls always sit on top of (and take input ahead of) them where they
         // overlap. Anchored left (unlike the game, which has no knobs) so it doesn't hide the
-        // top-right network-stats overlay it configures.
+        // top-right network-stats overlay it configures, and low enough to leave the top-left
+        // network quality chip in view.
         egui::Window::new("Overlay preview knobs")
             .order(egui::Order::Foreground)
-            .anchor(egui::Align2::LEFT_TOP, vec2(8.0, 8.0))
+            .anchor(egui::Align2::LEFT_TOP, vec2(8.0, 56.0))
             .resizable(true)
             .default_width(340.0)
             .show(&ctx, |ui| {
                 egui::ScrollArea::vertical()
-                    .max_height(ui.ctx().content_rect().height() - 48.0)
+                    .max_height(ui.ctx().content_rect().height() - 96.0)
                     .show(ui, |ui| self.knobs_panel(ui));
             });
 

@@ -18,7 +18,6 @@ const VolumeSettings = styled.div`
 
 const StyledSlider = styled(Slider)`
   flex-grow: 1;
-  margin-bottom: 8px;
 `
 
 const TestSoundButton = styled(TextButton)`
@@ -87,7 +86,6 @@ export function AppSoundSettings() {
               min={0}
               max={100}
               step={1}
-              showTicks={false}
             />
             <TestSoundButton
               label={

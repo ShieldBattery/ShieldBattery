@@ -10,6 +10,7 @@ import { ActiveGameManager } from './active-game-manager'
 // (`checkStarcraftPath` never resolves) so no game process is ever spawned and no
 // launch-error/exit handler can clear the active game out from under the test.
 vi.mock('electron', () => ({ app: { getAppPath: () => 'C:\\fake-app' }, screen: {} }))
+vi.mock('electron-is-dev', () => ({ default: false }))
 vi.mock('@shieldbattery/windows-registry', () => ({
   HKCU: 'HKCU',
   REG_SZ: 'REG_SZ',

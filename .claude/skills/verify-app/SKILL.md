@@ -293,8 +293,10 @@ Poll both instances in the same loop for a two-client game. If the session does 
 - **Debug-game control surface (dev builds + debug DLL)**: `window.__sbDebugGame` exposes
   `queryGameState(gameId)`, `forceUnsyncedLeave(gameId, slot)`, `forceDesync(gameId)`,
   `sendChat(gameId, text)`, `requestDrop(gameId, slot)`, `toggleNetStats(gameId)`,
-  `forceQuit(gameId)`, `crash(gameId, kind)` and `screenshot(gameId)` for driving/inspecting a
-  running game over CDP (a release DLL doesn't implement these, so query calls time out).
+  `forceQuit(gameId)`, `crash(gameId, kind)`, `screenshot(gameId)` and
+  `setRollback(gameId, depth, { [stormPlayer]: frames })` for driving/inspecting a running game
+  over CDP (a release DLL doesn't implement these, so query calls time out). `setRollback` only
+  works in a replay launched with `SB_ROLLBACK_HARNESS` set; depth 0 turns rolling back off.
   `crash(gameId, 'accessViolation' | 'stackOverflow')` kills the game process with that fault to
   exercise the DLL's crash handler: expect `[CRASH]` lines in the game log, a fresh non-empty
   `latest_crash.dmp` in the logs dir, a "Shieldbattery crash :(" message box (close it, or kill

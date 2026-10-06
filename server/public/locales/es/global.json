@@ -1754,6 +1754,9 @@
     "mapSelect": {
       "browseMaps": "Explorar mapas"
     },
+    "preview": {
+      "zoom": "Zoom"
+    },
     "server": {
       "allMaps": "Todos los mapas",
       "browseLocal": "Explorar mapas locales",
@@ -2232,6 +2235,14 @@
       },
       "system": {
         "networkOverline": "Red",
+        "rollbackTarget": {
+          "description": "Los valores más altos hacen que tus comandos respondan más rápido, pero las unidades pueden dar saltos visibles más a menudo.",
+          "label": "Equilibrio del rollback",
+          "recommended": "Recomendado",
+          "recommendedValue": "{{value}}, recomendado",
+          "responsive": "Más reactivo",
+          "smoother": "Más fluido"
+        },
         "runOnStartup": "Ejecute ShieldBattery al iniciar el sistema",
         "serverRegion": {
           "autoPlain": "Automática (recomendada)",
@@ -2500,12 +2511,14 @@
       },
       "input": {
         "cursorHeader": "Cursor",
+        "customCursorSize": "Tamaño del cursor",
         "customCursorSizeLargest": "Más grande",
         "customCursorSizeSmallest": "Más pequeño",
         "customMouseSensitivity": "Sensibilidad personalizada del ratón",
         "grabPan": "Sensibilidad personalizada de arrastre de cámara",
         "grabPanFaster": "Más rápido",
         "grabPanInverted": "Invertir la dirección de la cámara",
+        "grabPanSensitivity": "Sensibilidad de arrastre de cámara",
         "grabPanSlower": "Más lento",
         "grabPanTooltip": "Ajusta la velocidad de la cámara al desplazarla con el botón central del ratón. Si está desactivado, mantiene el comportamiento clásico de StarCraft: Remastered.",
         "hardwareCursor": "Cursores de hardware",

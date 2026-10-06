@@ -73,6 +73,28 @@ pub enum DebugControlCommand {
     /// `[CRASH]` lines in the game log, a fresh non-empty `latest_crash.dmp`, and the crash exit
     /// code the app records.
     Crash { kind: DebugCrashKind },
+    /// Drive the rollback probe (see [`crate::rollback_probe`]). Every action replies on
+    /// `/game/debug/rollbackProbe` with a [`RollbackProbeResponse`].
+    RollbackProbe { action: RollbackProbeAction },
+    /// Change the rollback harness's depth and per-player command delays mid-replay (see
+    /// [`crate::rollback_harness`]), from the next logic step on. `depth` 0 stops rolling back; a
+    /// depth below the largest delay is raised to it. `delays` replaces every player's delay, with
+    /// players it does not list getting none. Only works in a replay launched with the harness
+    /// armed. No reply — verify via the game log and the harness CSV's `rollback_frames` column.
+    SetRollback {
+        depth: u32,
+        #[serde(default)]
+        delays: Vec<DebugRollbackDelay>,
+    },
+}
+
+/// One player's command delay for [`DebugControlCommand::SetRollback`].
+#[derive(Debug, Deserialize, Clone, Copy, Eq, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct DebugRollbackDelay {
+    /// Storm player id.
+    pub player: u8,
+    pub frames: u32,
 }
 
 /// The fault [`DebugControlCommand::Crash`] raises.
@@ -112,6 +134,57 @@ fn exhaust_stack(depth: usize) -> usize {
     } else {
         depth
     }
+}
+
+/// What a [`DebugControlCommand::RollbackProbe`] asks the probe to do.
+#[derive(Debug, Deserialize, Eq, PartialEq)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum RollbackProbeAction {
+    /// Arm the probe: open a fresh csv and start counting. Instrumentation attaches to BW on the
+    /// game thread's next logic step, so the first frame or two after this may be unmeasured.
+    Start,
+    /// Disarm the probe and flush the csv.
+    Stop,
+    /// Ask a single logic step to simulate `frames` frames, and report how many it actually
+    /// simulated and how long that took. Replies only once the step has run.
+    Batch { frames: u32 },
+    /// Write the allocation tables seen so far (busiest call sites, per-tag counts, and the
+    /// blocks allocated inside a logic step that are still live) to the game log and the csv.
+    DumpAllocations,
+}
+
+/// Reply payload for [`DebugControlCommand::RollbackProbe`], sent on `/game/debug/rollbackProbe`.
+#[derive(Debug, Clone, Eq, PartialEq, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum RollbackProbeResponse {
+    Status(RollbackProbeStatus),
+    Batch(RollbackProbeBatchResult),
+}
+
+/// Where the probe stands right now.
+#[derive(Debug, Clone, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RollbackProbeStatus {
+    /// Whether the probe is armed. Arming takes effect on the game thread's next logic step.
+    pub active: bool,
+    /// How many logic steps have been written to the csv this run.
+    pub frames_logged: u32,
+    /// The csv being written, or `None` if one could not be opened.
+    pub path: Option<String>,
+}
+
+/// What one batched logic step did.
+#[derive(Debug, Clone, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RollbackProbeBatchResult {
+    /// Frames the request asked a single logic step to simulate.
+    pub requested: u32,
+    /// Frames the game frame counter actually advanced over that call.
+    pub simulated: u32,
+    /// Wall time the call took.
+    pub elapsed_micros: u64,
+    /// `None` when the batch ran; otherwise why it did not (no logic step reached it in time).
+    pub error: Option<String>,
 }
 
 /// The chat scope for [`DebugControlCommand::SendChat`], a serde-friendly mirror of
@@ -170,13 +243,12 @@ pub struct DisconnectViewSnapshot {
     /// real self-link signal, never by a guess from the remote roster's behavior — see
     /// [`DisconnectSelfState`]'s doc comment.
     pub self_state: DisconnectSelfState,
-    /// One entry per blocking or relay-confirmed remote player. Empty while `selfState` is
-    /// `reconnecting`.
+    /// One entry per blocking or relay-confirmed remote player. Empty unless `selfState` is `ok`.
     pub rows: Vec<DisconnectRowSnapshot>,
 }
 
-/// This client's own connection state within a [`DisconnectViewSnapshot`]. Only ever `ok` or
-/// `reconnecting`: an unconfirmed stall — even one covering every remaining remote participant, as
+/// This client's own connection state within a [`DisconnectViewSnapshot`]. Never a guess: an
+/// unconfirmed stall — even one covering every remaining remote participant, as
 /// in a 1v1 the instant the lone opponent drops — is exactly as likely to be their link as ours, so
 /// it is never asserted as a self-connection problem; it shows as a per-peer stall row instead (see
 /// `DisconnectTier::Stall`).
@@ -185,8 +257,12 @@ pub struct DisconnectViewSnapshot {
 pub enum DisconnectSelfState {
     /// Our link is fine; any rows are about peers.
     Ok,
-    /// The relay confirmed our own link is down (or the session ended); the driver auto-reconnects.
+    /// The relay confirmed our own link is down; the driver auto-reconnects.
     Reconnecting,
+    /// Our link is down for good; the notice offers to leave the game.
+    Disconnected,
+    /// The relay evicted us for a desync; the notice says so and offers to leave the game.
+    Desynced,
 }
 
 /// Which disconnect tier a [`DisconnectRowSnapshot`] is in.
@@ -613,6 +689,104 @@ mod tests {
                         }],
                     },
                 },
+            })
+        );
+    }
+
+    #[test]
+    fn rollback_probe_command_parses_camel_case() {
+        let cmd: DebugControlCommand =
+            serde_json::from_str(r#"{"type":"rollbackProbe","action":{"kind":"start"}}"#).unwrap();
+        assert_eq!(
+            cmd,
+            DebugControlCommand::RollbackProbe {
+                action: RollbackProbeAction::Start,
+            }
+        );
+
+        let cmd: DebugControlCommand = serde_json::from_str(
+            r#"{"type":"rollbackProbe","action":{"kind":"batch","frames":120}}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            cmd,
+            DebugControlCommand::RollbackProbe {
+                action: RollbackProbeAction::Batch { frames: 120 },
+            }
+        );
+
+        let cmd: DebugControlCommand =
+            serde_json::from_str(r#"{"type":"rollbackProbe","action":{"kind":"dumpAllocations"}}"#)
+                .unwrap();
+        assert_eq!(
+            cmd,
+            DebugControlCommand::RollbackProbe {
+                action: RollbackProbeAction::DumpAllocations,
+            }
+        );
+    }
+
+    #[test]
+    fn rollback_probe_response_serializes_camel_case() {
+        let response = RollbackProbeResponse::Status(RollbackProbeStatus {
+            active: true,
+            frames_logged: 480,
+            path: Some("C:/logs/rollback-probe-1.csv".to_string()),
+        });
+        assert_eq!(
+            serde_json::to_value(&response).unwrap(),
+            serde_json::json!({
+                "kind": "status",
+                "active": true,
+                "framesLogged": 480,
+                "path": "C:/logs/rollback-probe-1.csv",
+            })
+        );
+
+        let cmd: DebugControlCommand = serde_json::from_str(
+            r#"{"type":"setRollback","depth":6,"delays":[{"player":1,"frames":6},{"player":3,"frames":2}]}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            cmd,
+            DebugControlCommand::SetRollback {
+                depth: 6,
+                delays: vec![
+                    DebugRollbackDelay {
+                        player: 1,
+                        frames: 6
+                    },
+                    DebugRollbackDelay {
+                        player: 3,
+                        frames: 2
+                    },
+                ],
+            }
+        );
+        let cmd: DebugControlCommand =
+            serde_json::from_str(r#"{"type":"setRollback","depth":0}"#).unwrap();
+        assert_eq!(
+            cmd,
+            DebugControlCommand::SetRollback {
+                depth: 0,
+                delays: Vec::new(),
+            }
+        );
+
+        let response = RollbackProbeResponse::Batch(RollbackProbeBatchResult {
+            requested: 120,
+            simulated: 120,
+            elapsed_micros: 34567,
+            error: None,
+        });
+        assert_eq!(
+            serde_json::to_value(&response).unwrap(),
+            serde_json::json!({
+                "kind": "batch",
+                "requested": 120,
+                "simulated": 120,
+                "elapsedMicros": 34567,
+                "error": null,
             })
         );
     }

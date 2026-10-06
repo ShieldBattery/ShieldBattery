@@ -46,6 +46,8 @@ fn build_disconnect_view(
         self_state: match status.self_state(now) {
             SelfState::Healthy => ViewSelfState::Healthy,
             SelfState::Reconnecting => ViewSelfState::Reconnecting,
+            SelfState::Disconnected => ViewSelfState::Disconnected,
+            SelfState::Desynced => ViewSelfState::Desynced,
         },
     }
 }
@@ -85,8 +87,11 @@ impl OverlayState {
         let res = render_disconnect_view(&view, ctx);
         // Each clicked Drop button submits the identical drop request the debug command uses. Safe
         // to reach the turn state here: the draw path holds no turn-state lock across `step`.
-        for &slot in &res.inner {
+        for &slot in &res.inner.drops {
             netcode_v2::with_turn_state(|s| s.request_drop(SlotId(slot)));
+        }
+        if res.inner.leave {
+            self.out_state.leave_game = true;
         }
         // Register the panel's rect only when it is interactable, so the game doesn't lose clicks to
         // a passive notice. Unconditional on `ui_active` (see the doc comment above): a suppressed

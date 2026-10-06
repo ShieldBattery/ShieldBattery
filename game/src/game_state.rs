@@ -34,6 +34,12 @@ use crate::replay;
 
 pub type SendMessages = mpsc::Sender<GameStateMessage>;
 
+/// How long a rollback-probe batch request waits for the game thread to run it before the reply
+/// gives up. Generous, because the point of a batch is to simulate a long run of frames in one
+/// call, and the request has to survive whatever stall put the caller in a position to want one.
+#[cfg(debug_assertions)]
+const ROLLBACK_PROBE_BATCH_DEADLINE: Duration = Duration::from_secs(60);
+
 pub struct GameState {
     init_state: InitState,
     ws_send: app_socket::SendMessages,
@@ -178,6 +184,15 @@ impl GameState {
         if let InitState::WaitingForInput(ref mut state) = self.init_state {
             forge::init(&settings.local, &settings.scr, settings.monitor_bounds);
             crate::replay_name::set_template(settings.replay_name_template.clone());
+            if let Some(target) = settings
+                .local
+                .get("rollbackTarget")
+                .and_then(|x| x.as_u64())
+            {
+                crate::rollback_live::set_player_rollback_target(
+                    u32::try_from(target).unwrap_or(u32::MAX),
+                );
+            }
             get_bw().set_settings(settings);
             state.settings_set = true;
         } else {
@@ -994,10 +1009,94 @@ impl GameState {
                         // Fire-and-forget, the same toggle the `/netstat` chat command makes. No
                         // reply — verify via queryState's `netStats.visible`.
                     }
+                    DebugControlCommand::SetRollback { depth, delays } => {
+                        let delays = delays
+                            .iter()
+                            .map(|x| (x.player, x.frames))
+                            .collect::<Vec<_>>();
+                        crate::rollback_harness::request_settings(depth, &delays);
+                        // Fire-and-forget: applied on the game thread's next logic step. No reply
+                        // — verify via the game log and the harness CSV.
+                    }
                     DebugControlCommand::Crash { kind } => {
                         // Faults right here on the async runtime thread; the process won't
                         // survive to reply.
                         crate::debug_control::crash(kind);
+                    }
+                    DebugControlCommand::RollbackProbe { action } => {
+                        use crate::debug_control::{
+                            RollbackProbeAction, RollbackProbeBatchResult, RollbackProbeResponse,
+                        };
+                        let ws_send = self.ws_send.clone();
+                        let batch = match action {
+                            RollbackProbeAction::Start => {
+                                let status = crate::rollback_probe::start();
+                                return app_socket::send_message(
+                                    &self.ws_send,
+                                    "/game/debug/rollbackProbe",
+                                    RollbackProbeResponse::Status(status),
+                                )
+                                .map(|_| ())
+                                .boxed();
+                            }
+                            RollbackProbeAction::Stop => {
+                                let status = crate::rollback_probe::stop();
+                                return app_socket::send_message(
+                                    &self.ws_send,
+                                    "/game/debug/rollbackProbe",
+                                    RollbackProbeResponse::Status(status),
+                                )
+                                .map(|_| ())
+                                .boxed();
+                            }
+                            RollbackProbeAction::DumpAllocations => {
+                                let status = crate::rollback_probe::dump_allocations();
+                                return app_socket::send_message(
+                                    &self.ws_send,
+                                    "/game/debug/rollbackProbe",
+                                    RollbackProbeResponse::Status(status),
+                                )
+                                .map(|_| ())
+                                .boxed();
+                            }
+                            RollbackProbeAction::Batch { frames } => frames,
+                        };
+                        // The batch only runs once the game thread reaches its next logic step,
+                        // so the reply waits on the game thread rather than on this one. Nothing
+                        // answers at all when no game loop is running, hence the deadline.
+                        let recv = crate::rollback_probe::request_batch(batch);
+                        return async move {
+                            let result =
+                                match tokio::time::timeout(ROLLBACK_PROBE_BATCH_DEADLINE, recv)
+                                    .await
+                                {
+                                    Ok(Ok(result)) => result,
+                                    Ok(Err(_)) => RollbackProbeBatchResult {
+                                        requested: batch,
+                                        simulated: 0,
+                                        elapsed_micros: 0,
+                                        error: Some(
+                                            "superseded by another batch request".to_string(),
+                                        ),
+                                    },
+                                    Err(_) => RollbackProbeBatchResult {
+                                        requested: batch,
+                                        simulated: 0,
+                                        elapsed_micros: 0,
+                                        error: Some(
+                                            "no game logic step ran before the deadline"
+                                                .to_string(),
+                                        ),
+                                    },
+                                };
+                            let _ = app_socket::send_message(
+                                &ws_send,
+                                "/game/debug/rollbackProbe",
+                                RollbackProbeResponse::Batch(result),
+                            )
+                            .await;
+                        }
+                        .boxed();
                     }
                     DebugControlCommand::Screenshot => {
                         let ws_send = self.ws_send.clone();
@@ -1191,6 +1290,17 @@ async fn send_game_result(
         Err(err) => error!("Failed to serialize game result report: {err}"),
     }
 
+    if let Some(stats) = crate::rollback_live::game_stats() {
+        send_rollback_stats(
+            &stats,
+            &info.game_id,
+            local_user.id,
+            &result_code,
+            server_config,
+        )
+        .await;
+    }
+
     if let Some(replay_path) = &results.replay_path {
         send_replay(
             replay_path,
@@ -1201,6 +1311,57 @@ async fn send_game_result(
             ws_send,
         )
         .await;
+    }
+}
+
+/// Sends the server what a game that rolled back did, for its statistics. Best effort: a server
+/// that refuses it (an older one without the endpoint, or a game it doesn't know this player in)
+/// isn't asked again.
+async fn send_rollback_stats(
+    stats: &crate::rollback_live::GameStats,
+    game_id: &str,
+    user_id: SbUserId,
+    result_code: &str,
+    server_config: &ServerConfig,
+) {
+    #[derive(serde::Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Request<'a> {
+        user_id: SbUserId,
+        result_code: &'a str,
+        stats: &'a crate::rollback_live::GameStats,
+    }
+
+    let url = format!(
+        "{}/api/1/games/{}/rollback-stats",
+        server_config.server_url, game_id
+    );
+    let request = Request {
+        user_id,
+        result_code,
+        stats,
+    };
+    for attempt in 1..=3 {
+        match crate::http::post_json_ignoring_response(&url, &request, Duration::from_secs(15))
+            .await
+        {
+            Ok(()) => {
+                debug!("Rollback stats sent");
+                return;
+            }
+            // Anything but a busy server (429) or a game it hasn't finished loading (409) won't
+            // take them on a second try either.
+            Err(crate::http::Error::Status(status))
+                if status.is_client_error()
+                    && status != hyper::StatusCode::TOO_MANY_REQUESTS
+                    && status != hyper::StatusCode::CONFLICT =>
+            {
+                warn!("The server refused the rollback stats: HTTP {status}");
+                return;
+            }
+            Err(err) => warn!("Error sending rollback stats (attempt {attempt}): {err}"),
+        }
+        tokio::time::sleep(Duration::from_secs(5)).await;
     }
 }
 
