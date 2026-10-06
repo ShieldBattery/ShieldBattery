@@ -145,8 +145,8 @@ export const eventToAction: EventToActionMap = {
     const isBlocked = blocks.has(event.message.from)
     if (!isBlocked) {
       ipcRenderer.send('chatNewMessage', {
-        urgent:
-          accountSettings.flashTaskbar && event.mentions.some(m => m.id === auth.self!.user.id),
+        urgent: event.mentions.some(m => m.id === auth.self!.user.id),
+        flashTaskbar: accountSettings.flashTaskbar,
       })
     }
 

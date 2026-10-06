@@ -212,7 +212,7 @@ describe('whisper message echoes', () => {
       becomesReplyTarget: true,
     },
     {
-      name: 'with taskbar flashing off, a message alerts without asking for urgency',
+      name: 'with taskbar flashing off, a message alerts urgently but without flashing',
       fromSelf: false,
       blocked: false,
       flashTaskbar: false,
@@ -281,7 +281,9 @@ describe('whisper message echoes', () => {
       meta: { target: OTHER.id, isSelfMessage: options.fromSelf, windowFocused: false },
     })
     expect(mocks.send.mock.calls).toEqual(
-      options.alerts ? [['chatNewMessage', { urgent: options.flashTaskbar ?? true }]] : [],
+      options.alerts
+        ? [['chatNewMessage', { urgent: true, flashTaskbar: options.flashTaskbar ?? true }]]
+        : [],
     )
     expect(mocks.playSound).toHaveBeenCalledTimes((options.sound ?? options.alerts) ? 1 : 0)
 

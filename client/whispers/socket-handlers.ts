@@ -63,7 +63,8 @@ const eventToAction: EventToActionMap = {
       if (!isSelfMessage && !isBlocked && !quiet) {
         // Notify the main process of the new message, so it can display an appropriate notification
         ipcRenderer.send('chatNewMessage', {
-          urgent: accountSettings.flashTaskbar,
+          urgent: true,
+          flashTaskbar: accountSettings.flashTaskbar,
         })
       }
 

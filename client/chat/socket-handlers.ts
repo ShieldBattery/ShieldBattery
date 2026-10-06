@@ -142,10 +142,10 @@ const eventToChatAction: EventToChatActionMap = {
       const windowFocused = windowFocus.isFocused()
       if (shouldAlert) {
         // The main process shows a transient tray icon for every alert but only flashes the taskbar
-        // for urgent ones, which is reserved for messages aimed at this user (and only if they allow
-        // taskbar flashing).
+        // for urgent ones, which is reserved for messages aimed at this user.
         ipcRenderer.send('chatNewMessage', {
-          urgent: isMention && accountSettings.flashTaskbar,
+          urgent: isMention,
+          flashTaskbar: accountSettings.flashTaskbar,
         })
       }
 

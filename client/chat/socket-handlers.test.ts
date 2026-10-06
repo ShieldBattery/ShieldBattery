@@ -251,13 +251,13 @@ describe('channel message echoes', () => {
       sound: false,
     },
     {
-      name: 'with taskbar flashing off, a mention alerts non-urgently with a sound',
+      name: 'with taskbar flashing off, a mention still alerts urgently but without flashing',
       flashTaskbar: false,
       mentionsSelf: true,
       level: ChannelNotificationLevel.All,
       mention: true,
       alerts: true,
-      urgent: false,
+      urgent: true,
     },
   ])('$name', options => {
     const sender = options.fromSelf ? SELF : OTHER
@@ -328,7 +328,14 @@ describe('channel message echoes', () => {
       },
     })
     expect(mocks.send.mock.calls).toEqual(
-      options.alerts ? [['chatNewMessage', { urgent: options.urgent }]] : [],
+      options.alerts
+        ? [
+            [
+              'chatNewMessage',
+              { urgent: options.urgent, flashTaskbar: options.flashTaskbar ?? true },
+            ],
+          ]
+        : [],
     )
     expect(mocks.playSound).toHaveBeenCalledTimes((options.sound ?? options.alerts) ? 1 : 0)
   })
