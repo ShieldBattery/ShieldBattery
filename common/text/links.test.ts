@@ -332,48 +332,84 @@ describe('common/text/links/matchLinks', () => {
     expect(doMatch(text)).toEqual([text])
   })
 
-  /* eslint-disable-next-line vitest/no-commented-out-tests */
-  /* TODO(tec27): Fix these, they're broken
-
-  test('link with host subcomponent, ipv6 RFC 3986', () => {
-    expect(doMatch('https://[fe80::1]')).toMatchInlineSnapshot(`
-      Array [
-        "https://[fe80::1]",
-      ]
-    `)
+  test('link with ipv6 address', () => {
+    expect(doMatch('https://[fe80::1]')).toEqual(['https://[fe80::1]'])
   })
 
-  test('link with host subcomponent and port, ipv6 RFC 3986', () => {
-    expect(doMatch('https://[fe80::1]:9999')).toMatchInlineSnapshot(`
-      Array [
-        "https://[fe80::1]:9999",
-      ]
-    `)
+  test('link with ipv6 address and port', () => {
+    expect(doMatch('https://[fe80::1]:9999')).toEqual(['https://[fe80::1]:9999'])
   })
 
-  test('link with host subcomponent, zone identifier, ipv6 RFC 6874', () => {
-    expect(doMatch('http://[fe80::1%25en0]')).toMatchInlineSnapshot(`
-      Array [
-        "http://[fe80::1%25en0]",
-      ]
-    `)
+  test('link with ipv6 address, port and path', () => {
+    expect(doMatch('see http://[2001:db8::1]:8080/a?b=c#d here')).toEqual([
+      'http://[2001:db8::1]:8080/a?b=c#d',
+    ])
   })
 
-  test('link with host subcomponent, zone identifier, port ipv6 RFC 6874', () => {
-    expect(doMatch('http://[fe80::1%25en0]:9999')).toMatchInlineSnapshot(`
-      Array [
-        "http://[fe80::1%25en0]:9999",
-      ]
-    `)
+  test('link with ipv6 address followed by sentence punctuation', () => {
+    expect(doMatch('(go to http://[::1].)')).toEqual(['http://[::1]'])
   })
 
-  test('link with host subcomponent, unreserved zone identifier, port ipv6 RFC 6874', () => {
-    expect(doMatch('http://[fe80::1%25%65%6e%301-._~]:9999/')).toMatchInlineSnapshot(`
-      Array [
-        "http://[fe80::1%25%65%6e%301-._~]:9999/",
-      ]
-    `)
+  test('valid ipv6 addresses link and parse as URLs', () => {
+    const links = [
+      'http://[::]',
+      'http://[::1]',
+      'http://[1::]',
+      'http://[2001:DB8::A]',
+      'http://[2001:db8:0:0:0:0:0:1]',
+      'http://[1:2:3:4:5:6:7::]',
+      'http://[::2:3:4:5:6:7:8]',
+      'http://[::ffff:192.0.2.1]',
+      'http://[1:2:3:4:5:6:0.0.0.0]',
+      'http://[ffff:ffff:ffff:ffff:ffff:ffff:255.255.255.255]',
+    ]
+    expect(doMatch(links.join(' '))).toEqual(links)
+    for (const link of links) {
+      expect(() => new URL(link)).not.toThrow()
+    }
   })
 
-  */
+  test('invalid ipv6 addresses are not links', () => {
+    expect(
+      doMatch(
+        [
+          'http://[]',
+          'http://[:]',
+          'http://[fe80::1',
+          'http://[zzz::1]',
+          'http://[1:2:3:4:5:6:7:8:9]',
+          'http://[1:2:3:4:5:6:7]',
+          'http://[1:2:3:4:5:6:7:8::]',
+          'http://[1::2::3]',
+          'http://[12345::1]',
+          'http://[:1::2]',
+          'http://[1::2:]',
+          'http://[::1.2.3]',
+          'http://[::1.2.3.256]',
+          'http://[::01.2.3.4]',
+          'http://[1.2.3.4::]',
+          'http://[::1.2.3.4:5]',
+          'http://[1:2:3:4:5:6:7:1.2.3.4]',
+          'http://[192.168.0.1]',
+        ].join(' '),
+      ),
+    ).toEqual([])
+  })
+
+  test('ipv6 addresses with a zone identifier are not links', () => {
+    expect(
+      doMatch(
+        [
+          'http://[fe80::1%25en0]',
+          'http://[fe80::1%25en0]:9999',
+          'http://[fe80::1%25%65%6e%301-._~]:9999/',
+        ].join(' '),
+      ),
+    ).toEqual([])
+  })
+
+  test('long run of ipv6 characters without a closing bracket does not hang', () => {
+    const text = `http://[${'1:'.repeat(50000)}`
+    expect(doMatch(text)).toEqual([])
+  })
 })
