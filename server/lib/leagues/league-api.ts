@@ -2,6 +2,7 @@ import { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
 import mime from 'mime'
+import { container } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { decodeMatchup } from '../../../common/games/game-filters'
 import { GET_GAMES_LIMIT, GetGamesResponse, toGameRecordJson } from '../../../common/games/games'
@@ -70,6 +71,7 @@ import {
   unbanLeagueUser,
   updateLeague,
 } from './league-models'
+import { LeagueStartNotificationJob } from './league-start-notification-job'
 
 class LeagueApiError extends CodedError<LeagueErrorCode> {}
 
@@ -115,7 +117,9 @@ export class LeagueApi {
   constructor(
     private redis: Redis,
     private replayService: ReplayService,
-  ) {}
+  ) {
+    container.resolve(LeagueStartNotificationJob)
+  }
 
   @httpGet('/:leagueId/games')
   @httpBefore(throttleMiddleware(leagueGamesListThrottle, throttleByUserOrIp))

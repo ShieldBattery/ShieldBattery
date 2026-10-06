@@ -22,6 +22,8 @@ export enum NotificationType {
   LeagueBan = 'leagueBan',
   /** A user has been unbanned from a league. */
   LeagueUnban = 'leagueUnban',
+  /** A league the user signed up for has started. */
+  LeagueStart = 'leagueStart',
   /** A user has been kicked from a chat channel. */
   ChannelKick = 'channelKick',
   /** A user has been banned from a chat channel. */
@@ -48,6 +50,7 @@ export type SbNotification =
   | UserRestrictedNotification
   | LeagueBanNotification
   | LeagueUnbanNotification
+  | LeagueStartNotification
   | ChannelKickNotification
   | ChannelBanNotification
   | ChannelUnbanNotification
@@ -111,6 +114,11 @@ export interface LeagueBanNotification extends BaseNotification {
 
 export interface LeagueUnbanNotification extends BaseNotification {
   type: NotificationType.LeagueUnban
+  leagueName: string
+}
+
+export interface LeagueStartNotification extends BaseNotification {
+  type: NotificationType.LeagueStart
   leagueName: string
 }
 
