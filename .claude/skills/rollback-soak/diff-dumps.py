@@ -58,7 +58,7 @@ def normalizer(exe_base, ranges):
 a_base, a_ranges, a_data = load(sys.argv[1])
 b_base, b_ranges, b_data = load(sys.argv[2])
 limit = int(sys.argv[3]) if len(sys.argv) > 3 else 200
-# A run with SB_ROLLBACK_EXTRA_RANGES appends its extras after the analysed ranges; compare the
+# A run with SB_ROLLBACK_EXTRA_RANGES appends its extras after the analyzed ranges; compare the
 # shared prefix and ignore the rest.
 shared = min(len(a_ranges), len(b_ranges))
 a_ranges, b_ranges = a_ranges[:shared], b_ranges[:shared]

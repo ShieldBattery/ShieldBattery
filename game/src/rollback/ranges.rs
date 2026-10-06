@@ -193,7 +193,7 @@ pub(super) const EXCLUDED: &[(&str, &str)] = &[
         "pathing",
         "the region graph, split regions and tile region map are built from the terrain at map \
          init and only read while a game runs; a path search marks the regions it visits, and \
-         the AI's choke point search takes regions out of their neighbours' lists, but both put \
+         the AI's choke point search takes regions out of their neighbors' lists, but both put \
          everything back before they return",
     ),
     (
@@ -366,7 +366,7 @@ pub fn analyze_ranges(
         ("unit_count", analysis.unit_count()),
         // Live entry count shared by the two unit position search arrays, which hold two entries
         // per tracked unit. It is a global of its own rather than a field of either array's
-        // vector header, and which header it neighbours is a layout detail of the build, so it is
+        // vector header, and which header it neighbors is a layout detail of the build, so it is
         // resolved from the analysis instead of derived from a header's address. The arrays are
         // maintained incrementally with no rebuild path, so a count that is not rewound with them
         // drifts until an insertion walks past the live entries into stale slots.
@@ -894,7 +894,7 @@ const UNIT_AUXILIARY_ARRAYS: &[AuxiliaryArray] = &[
 /// that are resized alongside them.
 ///
 /// Nothing in the analysis result says which of a pool's vectors holds the objects, so that one is
-/// recognised by comparing addresses against the separately resolved pool globals and the rest are
+/// recognized by comparing addresses against the separately resolved pool globals and the rest are
 /// sized from their position among the remainder. An auxiliary array with no size to match it is
 /// left out with its pool named, since guessing the size either misses state or walks off the end
 /// of the allocation.

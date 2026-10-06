@@ -3,7 +3,7 @@
 //! simulated, and a later simulation of the same frames makes it again only if the late inputs
 //! changed what happened.
 //!
-//! An announcement is recognised across simulations by its kind and a key the hook derives from
+//! An announcement is recognized across simulations by its kind and a key the hook derives from
 //! its arguments, not by the exact frame: late inputs can move an event a frame or two, and the
 //! observer UI in particular must not be told about the same unit twice. What an earlier tick
 //! announced for the frames the current tick re-simulates is matched against what the current

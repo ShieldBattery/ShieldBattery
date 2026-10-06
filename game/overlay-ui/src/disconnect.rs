@@ -188,9 +188,9 @@ pub fn render_disconnect_view(
                 .inner_margin(Margin::symmetric(20, 16))
                 .show(ui, |ui| {
                     // A plain left-aligned `vertical` so the panel hugs its content and can shrink
-                    // back after a transient widening. A centring layout here would expand to the
+                    // back after a transient widening. A centering layout here would expand to the
                     // full available width and, fed by this auto-sized `Area`, pin the panel
-                    // permanently wide (see the note in [`draw_peers_panel`], which centres the
+                    // permanently wide (see the note in [`draw_peers_panel`], which centers the
                     // header by hand instead).
                     ui.vertical(|ui| match view.self_state {
                         // TODO(tec27): Translate this
@@ -223,7 +223,7 @@ pub fn render_disconnect_view(
         })
 }
 
-/// Draws the Leave button under a terminal self notice, centred.
+/// Draws the Leave button under a terminal self notice, centered.
 fn draw_leave_button(ui: &mut egui::Ui, clicked: &mut DisconnectClicks) {
     ui.with_layout(Layout::top_down(Align::Center), |ui| {
         // TODO(tec27): Translate this
@@ -268,16 +268,16 @@ fn draw_self_notice(ui: &mut egui::Ui, text: &str) {
 /// per-row sentence, so several simultaneous disconnects stack as a clean table instead of repeated
 /// shortened sentences. The header states once what the panel is; individual rows don't restate it.
 fn draw_peers_panel(ui: &mut egui::Ui, rows: &[DisconnectRowView], clicked: &mut Vec<u8>) {
-    // The header is centred over the rows below it, but it must NOT drive the panel's width. egui's
-    // centring layouts (`vertical_centered` and friends) expand their `min_rect` to the full
+    // The header is centered over the rows below it, but it must NOT drive the panel's width. egui's
+    // centering layouts (`vertical_centered` and friends) expand their `min_rect` to the full
     // available width — "pretend we used whole frame" — and because this panel lives in an
-    // auto-sized `Area` whose width feeds back into that available width, a centred container pins
+    // auto-sized `Area` whose width feeds back into that available width, a centered container pins
     // the panel to whatever width it ever reached and never shrinks: a single transient widening (a
     // `drop_requested` acknowledgement, or a wide name that later leaves) would strand the panel
     // permanently wide, with dead space to the right of the Drop button. So the panel hugs its
     // content with a plain left-aligned `vertical` (see [`render_disconnect_view`]) and the header
-    // is measured and painted centred over the grid by hand — centring the text without letting a
-    // centring layout claim the width.
+    // is measured and painted centered over the grid by hand — centering the text without letting a
+    // centering layout claim the width.
     // TODO(tec27): Translate this
     let header = RichText::new("Waiting for players")
         .size(HEADER_SIZE)
@@ -291,7 +291,7 @@ fn draw_peers_panel(ui: &mut egui::Ui, rows: &[DisconnectRowView], clicked: &mut
         egui::TextStyle::Body,
     );
     // Reserve the header's vertical space up front (left-aligned, only as wide as the text) so the
-    // grid lays out below it; the text is repositioned to centre once the grid's width is known.
+    // grid lays out below it; the text is repositioned to center once the grid's width is known.
     let (_, header_slot) = ui.allocate_space(header_galley.size());
     ui.add_space(HEADER_GAP);
     let grid = egui::Grid::new("sb_disconnect_rows")
@@ -328,7 +328,7 @@ fn draw_peers_panel(ui: &mut egui::Ui, rows: &[DisconnectRowView], clicked: &mut
                 ui.end_row();
             }
         });
-    // Centre the header over the panel content (the wider of the reserved header slot and the
+    // Center the header over the panel content (the wider of the reserved header slot and the
     // grid) and paint it into the space reserved above. The galley already carries its colour.
     let content = header_slot.union(grid.response.rect);
     let header_pos = pos2(
@@ -523,7 +523,7 @@ mod tests {
     /// The panel must shrink back after a transient widening. A `drop_requested` acknowledgement
     /// widens the action column while it shows; once it clears, the panel has to hug its content
     /// again rather than stranding dead space to the right of the Drop button. This regressed under
-    /// egui 0.35 when the panel was wrapped in a centring layout, whose `min_rect` grabbed the full
+    /// egui 0.35 when the panel was wrapped in a centering layout, whose `min_rect` grabbed the full
     /// available width of the auto-sized `Area` and pinned the width permanently.
     #[test]
     fn panel_width_recovers_after_drop_requested_clears() {

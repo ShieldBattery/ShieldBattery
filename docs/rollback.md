@@ -118,7 +118,7 @@ From then on the client paces against the session clock through its home relay's
   make up time the session never ran. A stall at the client's own limit holds the schedule
   provisionally, and the first report on turns sent after it undoes only as much of the hold as it
   measures late.
-- A phase nudge keeps the game loop's ticks centred in their steps, since a tick near a step's edge
+- A phase nudge keeps the game loop's ticks centered in their steps, since a tick near a step's edge
   flips between stepping an extra frame and putting one off.
 - **The split** between delay and rollback: the lead (how far the client runs ahead of the
   schedule) follows the rollback it measures over 2 s windows, sampled only on ticks where the

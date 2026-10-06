@@ -1075,13 +1075,13 @@ impl<'e> Analysis<'e> {
     }
 
     /// `ObserverUI::remove_building_unit_record(this, unit)`: a tracked building unit finished,
-    /// was cancelled or died.
+    /// was canceled or died.
     pub fn observer_ui_remove_building_unit_record(&mut self) -> Option<VirtualAddress> {
         self.0.observer_ui_remove_building_unit_record()
     }
 
     /// `ObserverUI::finish_research_or_upgrade(this, unit, completed)`: research or an upgrade
-    /// completed, or was cancelled when `completed` is false.
+    /// completed, or was canceled when `completed` is false.
     pub fn observer_ui_finish_research_or_upgrade(&mut self) -> Option<VirtualAddress> {
         self.0.observer_ui_finish_research_or_upgrade()
     }
@@ -1145,7 +1145,7 @@ impl<'e> Analysis<'e> {
     /// index 0 images, 1 sprites, 2 lone sprites, 3 units, 4 bullets, 5 orders, 6 fow sprites.
     /// One of a pool's entries holds the objects themselves and the rest are auxiliary per-object
     /// arrays resized alongside them; nothing about the order says which is which, so the object
-    /// array has to be recognised by comparing against [`units`](Self::units) /
+    /// array has to be recognized by comparing against [`units`](Self::units) /
     /// [`sprites`](Self::sprites) / [`images`](Self::images). Each operand is the vector struct's
     /// address, and each `(add, mul)` pair is how that vector's length is derived from the pool's
     /// object count: `count * mul.max(1) + add`.
@@ -1603,7 +1603,7 @@ impl<'e> Analysis<'e> {
 
     /// The statically allocated AI object pools, each with the base of its entry array, the
     /// pointer global holding the head of the free list threaded through its unused entries, and
-    /// the entry size and count the game's own initialiser lays it out with. The
+    /// the entry size and count the game's own initializer lays it out with. The
     /// disappearing-creep state pool is reported alongside them because it is built the same way.
     pub fn ai_pools(&mut self) -> Rc<AiPools<'e>> {
         self.0.ai_pools()

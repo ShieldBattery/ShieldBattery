@@ -259,7 +259,7 @@ const DUMP_ENV_VAR: &str = "SB_FRAME_TIMING";
 #[cfg(debug_assertions)]
 static DUMP: Mutex<Option<(Duration, std::path::PathBuf)>> = Mutex::new(None);
 
-/// Reads [`DUMP_ENV_VAR`]. Called once while the DLL initialises.
+/// Reads [`DUMP_ENV_VAR`]. Called once while the DLL initializes.
 #[cfg(debug_assertions)]
 pub fn init_from_env() {
     let Ok(spec) = std::env::var(DUMP_ENV_VAR) else {

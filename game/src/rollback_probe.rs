@@ -286,7 +286,7 @@ pub fn current_frame() -> u32 {
 }
 
 /// Starts the probe if the auto-start environment variable asks for it. Called once while the DLL
-/// initialises, before the game thread exists.
+/// initializes, before the game thread exists.
 pub fn init_from_env() {
     if std::env::var(AUTO_START_ENV_VAR).as_deref() != Ok("1") {
         return;
@@ -582,7 +582,7 @@ fn forget_allocation(block: *mut u8) {
 /// normally, or a batch of back-to-back calls when one has been requested.
 ///
 /// This is the only place the probe touches BW: it runs on the game thread, so the allocator
-/// vtable swap and the extra steps are serialised against the simulation.
+/// vtable swap and the extra steps are serialized against the simulation.
 pub unsafe fn run_game_logic_step(
     bw: &BwScr,
     param: usize,

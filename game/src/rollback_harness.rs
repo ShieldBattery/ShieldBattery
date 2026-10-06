@@ -381,7 +381,7 @@ struct HarnessFile {
     file: File,
 }
 
-/// Arms the harness if the environment asks for it. Called once while the DLL initialises, before
+/// Arms the harness if the environment asks for it. Called once while the DLL initializes, before
 /// the game thread exists.
 pub fn init_from_env() {
     if let Ok(spec) = std::env::var(FROM_ENV_VAR) {

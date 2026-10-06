@@ -398,7 +398,7 @@ fn micros_u64(duration: Duration) -> u64 {
     u64::try_from(duration.as_micros()).unwrap_or(u64::MAX)
 }
 
-/// Reads the debug knobs. Called once while the DLL initialises, before the game thread exists.
+/// Reads the debug knobs. Called once while the DLL initializes, before the game thread exists.
 #[cfg(debug_assertions)]
 pub fn init_from_env() {
     let mut held = [Duration::ZERO; bw::MAX_STORM_PLAYERS];
@@ -748,7 +748,7 @@ pub unsafe fn run_game_logic_step(
         let mut held_back = false;
         {
             // The slew the pacing applied to the schedule this tick, applied to the game loop's
-            // own timing too, and the nudge keeping its ticks centred in their steps: the next
+            // own timing too, and the nudge keeping its ticks centered in their steps: the next
             // step comes that much sooner or later.
             let mut delay_ms = (timing_us / 1000) as i32;
             let mut pacing = PACING.lock();

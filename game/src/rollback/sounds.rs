@@ -10,7 +10,7 @@ use crate::bw_scr::BwScr;
 /// One sound the simulation asked for while a tick was running.
 ///
 /// A re-simulated frame asks for the same sounds again unless the commands that arrived since
-/// changed what happened on it, so a request is recognised across ticks by its frame, sound and
+/// changed what happened on it, so a request is recognized across ticks by its frame, sound and
 /// position.
 #[derive(Copy, Clone)]
 struct SoundRequest {

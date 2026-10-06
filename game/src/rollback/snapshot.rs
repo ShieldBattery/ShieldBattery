@@ -2,7 +2,7 @@
 //!
 //! A snapshot is a memcpy of every range [`super::ranges`] resolves, plus the per-player trigger
 //! lists, which are heap nodes copied and relinked rather than flat ranges (see
-//! [`TriggerLists`]). [`Snapshots`] keeps several, each labelled with the frame count the
+//! [`TriggerLists`]). [`Snapshots`] keeps several, each labeled with the frame count the
 //! simulation had reached when it was taken, so a rollback can restore the newest one at or before
 //! the frame it needs and re-simulate from there.
 
@@ -405,7 +405,7 @@ impl Snapshots {
         }
     }
 
-    /// Snapshots the simulation as it is now, labelled with `frame`, its current frame count. Takes
+    /// Snapshots the simulation as it is now, labeled with `frame`, its current frame count. Takes
     /// the place of an earlier snapshot of the same frame.
     pub(crate) unsafe fn take(&mut self, frame: u32) {
         unsafe {

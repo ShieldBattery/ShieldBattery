@@ -37,7 +37,7 @@
 //! The game loop runs its ticks on its own timer, a step apart, at some point within each step of
 //! the schedule. A tick near a step's edge would flip between two frames with a millisecond of
 //! jitter, stepping an extra frame one tick and putting the next one off the tick after, so the
-//! pacing also keeps the ticks centred in their steps: [`Pacing::phase_nudge_us`] moves the next
+//! pacing also keeps the ticks centered in their steps: [`Pacing::phase_nudge_us`] moves the next
 //! tick by up to [`SLEW_PER_TICK_US`] toward the middle, which a stall, a stop of the clock, or the
 //! game loop's own drift can have moved them off.
 //!
@@ -186,7 +186,7 @@ impl Pacing {
             .saturating_add(1)
     }
 
-    /// How far to move the game loop's next tick to keep ticks centred in their steps: a tick that
+    /// How far to move the game loop's next tick to keep ticks centered in their steps: a tick that
     /// started at `tick_start` more than [`PHASE_DEAD_BAND_US`] off the middle of its step moves
     /// the next one by [`SLEW_PER_TICK_US`] toward it (negative is sooner). Moves only when the
     /// ticks happen, not the schedule.

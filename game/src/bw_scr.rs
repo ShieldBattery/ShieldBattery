@@ -9093,7 +9093,7 @@ mod hooks {
     // The observer UI's notifications from the simulation, methods on the observer UI object that
     // take the unit concerned. The trailing flag of the first is whether to track a unit that is
     // already complete, and of the last whether the research or upgrade completed rather than
-    // being cancelled; both are C bools passed in a full argument slot.
+    // being canceled; both are C bools passed in a full argument slot.
     thiscall_hooks!(
         !0 => ObserverUiTrackBuildingUnit(*mut c_void, *mut bw::Unit, u32);
         !0 => ObserverUiTrackResearchOrUpgrade(*mut c_void, *mut bw::Unit);
