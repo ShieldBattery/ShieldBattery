@@ -52,8 +52,8 @@ takes focus or touches the cursor).
 line. The runner skips games already finished in `results.jsonl`, so appending is safe. The DB MCP
 returns at most 100 rows per query, so add batches. Exclude UMS. Prefer variety:
 
-- **Games with computer players** found the one real engine bug so far: AI state is simulation state
-  the snapshot must cover. Computers are `config->'teams'[*][*].isComputer`.
+- **Games with computer players**: AI state is simulation state the snapshot must cover, and
+  human-only games never exercise it. Computers are `config->'teams'[*][*].isComputer`.
 - **Long team games** (matchmaking `topVBottom`, 4-6 players) for volume of commands and leaves.
 - **Older games** (45-120 days) for map variety.
 
@@ -110,15 +110,19 @@ touch $D/STOP          # finish current runs and stop; delete STOP before the ne
 
 ## Triage
 
-**1. Rule out known harness artifacts.**
-- **Leaves.** A replayed leave (0x57) is irreversible: the engine snapshots and drops older
-  snapshots. The harness now holds a leave until the *longest* delay has passed, matching live's
-  `InputTable::take_due_leaves`. If you see a mismatch within a few frames of a leave, check that
-  the fix (`command_delay` in `rollback_harness.rs`) is in your build. Observer leaves don't change
-  `player_types`, so look for `leaveGame` in `node cmds.mjs <rep> <from> <to>`.
-- **The effective config.** Delays on a storm id that issues no commands are no-ops. A mismatch
-  with only no-op delays means pure forced-depth re-simulation diverged: a snapshot hole, no late
-  input involved.
+**1. Make sure it's the engine, not the harness.** The harness models live netcode from a
+replay, and wherever the model differs from live it can produce divergences no live game would.
+- **Check what the run's inputs were doing near the frame** with
+  `node $S/cmds.mjs <rep> <from> <to>`. Leaves are worth a close look: a leave is irreversible (the
+  engine drops older snapshots), so if the harness applies one at a different point than live does
+  (live waits until every slot's earlier turns are known; see `InputTable::take_due_leaves`), late
+  commands from before it are stranded. Observer leaves don't change `player_types`, so triage's
+  nearest-leave column misses them.
+- **Work out the effective config.** Delays on a storm id that issues no commands are no-ops. A
+  mismatch with only no-op delays means pure forced-depth re-simulation diverged: a snapshot hole
+  with no late input involved, which is the clearest case of a real engine bug.
+- **Compare arches.** Rerun the same config on the other architecture (`--arch`). A divergence on
+  only one points at a range whose analysis or size differs per arch.
 
 **2. Reproduce fast.** Rerun the failure's config from shortly before the frame, ending soon after,
 against the saved baseline:
@@ -141,8 +145,8 @@ and the harness run, then compare them with
 `python $S/diff-dumps.py <plain stem> <harness stem> 100000` (stems are `%APPDATA%/ShieldBattery-Local/logs/rollback-dump-<frame>-<pid>`).
 - **Cross-process noise to ignore**, already present at frames that still match: `images`,
   `sprites`, `fow_sprites`, `ai_regions`, `unit_query_scratch_marks`, `sync_data`, map tile ranges,
-  and words whose only difference is the upper dword (the heap address high bits, e.g. `0x169…` vs
-  `0x1fb…` in padding).
+  and words whose only difference is the upper dword (each process's heap address high bits,
+  left in struct padding).
 - **What matters** is what's new at the mismatch frame: units, orders, paths, unit query results.
   BWAPI's order list decodes order ids.
 
@@ -151,14 +155,15 @@ and the harness run, then compare them with
   between the first and the last simulation of `f`. Run it at a control frame too, well before the
   divergence, and keep only the offsets unique to `f`.
 - Then bisect with `SB_ROLLBACK_EXTRA_RANGES=<hexoff>+<hexlen>,...` (exe offsets): all candidates,
-  then halves, then pairs. **A hole can need several pieces together**: the AI reachability memo
-  needed its row *and* its source together, and either alone still failed.
-- Never restore exe+0xdab8e0, 0x10bef20..0x10bf168 or 0x12dc200. They're render/heap state, and
-  restoring them crashes.
+  then halves, then pairs. **A hole can need several pieces together**: a cache and the key it
+  was computed for, say, where restoring either alone still fails.
+- Some static state is render or heap bookkeeping that crashes the game when restored. If a
+  candidate set crashes, bisect the crasher out rather than giving up on the set.
 
 **5. Identify and fix it.**
-- Hand the confirmed offsets to an Opus subagent with the BinaryNinja MCP (the x64 bndb lines up
-  with live exe offsets). Ask for: names, the whole object's extent, writers/readers (is it
+- Hand the confirmed offsets to an Opus subagent with the BinaryNinja MCP. Have it confirm first
+  that the open database is the build the game ran (offsets only line up with the same build).
+  Ask for: names, the whole object's extent, writers/readers (is it
   simulation?), the mechanism, and how samase_scarf can locate it on both arches.
 - **Check the pinned samase_scarf rev's `Analysis` first.** Its compare dumps
   (`tests/compare/<build>-{32,64}.txt` in the cargo checkout) list every analysis result, so the
@@ -168,10 +173,9 @@ and the harness run, then compare them with
 - Verify on **both** arches with the fixed DLL and no extra ranges, then rerun the failed games in
   the soak at full length.
 
-**Validating the pipeline itself.** Rebuild with a known range removed and confirm the soak catches
-it. Dropping `pathing_ignored_unit` from `ranges.rs` makes the replay of staging game 01a108f7
-(with `SB_ROLLBACK_HARNESS=0, SB_ROLLBACK_DELAY=5:2, SB_ROLLBACK_HARNESS_FROM=14300,
-SB_ROLLBACK_HARNESS_VISION=2`) diverge at exactly frame 14507.
+**Validating the pipeline itself.** After changing the runner or the harness, rebuild with a range
+that's known to matter removed from `ranges.rs` (one added for a past divergence, with the replay
+that showed it) and confirm the soak reports a mismatch.
 
 ## Winding down
 
