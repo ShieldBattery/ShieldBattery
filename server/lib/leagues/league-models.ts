@@ -544,32 +544,52 @@ export async function getLeagueUserChangesForGame(
   }
 }
 
-/**
- * Marks every league that has started as of `now` and hasn't had its start notifications handled
- * yet as handled, returning the claimed leagues. A league is only ever returned by one call, even
- * across concurrent callers.
- */
-export async function claimStartedLeaguesForNotification(
-  now: Date,
+/** Returns the leagues whose start notifications haven't been handled yet. */
+export async function getLeaguesPendingStartNotification(
   withClient?: DbClient,
-): Promise<Array<{ id: LeagueId; name: string; endAt: Date }>> {
+): Promise<Array<{ id: LeagueId; startAt: Date }>> {
   const { client, done } = await db(withClient)
   try {
-    const result = await client.query<{ id: LeagueId; name: string; end_at: Date }>(sql`
-      UPDATE leagues
-      SET start_notified_at = ${now}
-      WHERE start_notified_at IS NULL AND start_at <= ${now}
-      RETURNING id, name, end_at
+    const result = await client.query<{ id: LeagueId; start_at: Date }>(sql`
+      SELECT id, start_at
+      FROM leagues
+      WHERE start_notified_at IS NULL
     `)
-    return result.rows.map(row => ({ id: row.id, name: row.name, endAt: row.end_at }))
+    return result.rows.map(row => ({ id: row.id, startAt: row.start_at }))
   } finally {
     done()
   }
 }
 
 /**
- * Clears a league's start notification claim so that a later
- * `claimStartedLeaguesForNotification` call returns it again.
+ * Marks a league's start notifications as handled if the league has started as of `now` and they
+ * haven't been handled yet, returning the league if so. A league is only ever returned by one
+ * call, even across concurrent callers.
+ */
+export async function claimLeagueStartNotification(
+  leagueId: LeagueId,
+  now: Date,
+  withClient?: DbClient,
+): Promise<{ name: string; endAt: Date } | undefined> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<{ name: string; end_at: Date }>(sql`
+      UPDATE leagues
+      SET start_notified_at = ${now}
+      WHERE id = ${leagueId} AND start_notified_at IS NULL AND start_at <= ${now}
+      RETURNING name, end_at
+    `)
+    return result.rows.length
+      ? { name: result.rows[0].name, endAt: result.rows[0].end_at }
+      : undefined
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Clears a league's start notification claim so that a later `claimLeagueStartNotification` call
+ * returns it again.
  */
 export async function releaseLeagueStartNotificationClaim(
   leagueId: LeagueId,

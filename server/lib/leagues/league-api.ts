@@ -2,7 +2,6 @@ import { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
 import mime from 'mime'
-import { container } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { decodeMatchup } from '../../../common/games/game-filters'
 import { GET_GAMES_LIMIT, GetGamesResponse, toGameRecordJson } from '../../../common/games/games'
@@ -71,7 +70,7 @@ import {
   unbanLeagueUser,
   updateLeague,
 } from './league-models'
-import { LeagueStartNotificationJob } from './league-start-notification-job'
+import { LeagueStartNotifier } from './league-start-notifier'
 
 class LeagueApiError extends CodedError<LeagueErrorCode> {}
 
@@ -117,9 +116,7 @@ export class LeagueApi {
   constructor(
     private redis: Redis,
     private replayService: ReplayService,
-  ) {
-    container.resolve(LeagueStartNotificationJob)
-  }
+  ) {}
 
   @httpGet('/:leagueId/games')
   @httpBefore(throttleMiddleware(leagueGamesListThrottle, throttleByUserOrIp))
@@ -291,7 +288,10 @@ export class LeagueApi {
 @httpApi('/admin/leagues/')
 @httpBeforeAll(convertLeagueApiErrors, ensureLoggedIn, checkAllPermissions('manageLeagues'))
 export class LeagueAdminApi {
-  constructor(private notificationService: NotificationService) {}
+  constructor(
+    private notificationService: NotificationService,
+    private leagueStartNotifier: LeagueStartNotifier,
+  ) {}
 
   @httpGet('/')
   async getLeagues(ctx: RouterContext): Promise<AdminGetLeaguesResponse> {
@@ -390,6 +390,7 @@ export class LeagueAdminApi {
       imagePath,
       badgePath,
     })
+    this.leagueStartNotifier.scheduleLeague(league.id, league.startAt)
 
     return {
       league: toLeagueJson(league),
@@ -513,6 +514,9 @@ export class LeagueAdminApi {
     }
 
     const league = await updateLeague(leagueId, updatedLeague)
+    if (leagueChanges.startAt) {
+      this.leagueStartNotifier.scheduleLeague(league.id, league.startAt)
+    }
 
     return {
       league: toLeagueJson(league),
