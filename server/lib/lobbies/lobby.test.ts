@@ -175,6 +175,7 @@ const evaluateSummarizedJson = (lobby: Lobby, openPlayerSlotCount: number) => {
     gameSubType: 0,
     host: { id: hostId },
     useLegacyLimits: lobby.useLegacyLimits,
+    lockedAlliances: lobby.lockedAlliances,
     ...counts,
     lifecycle: 'gathering',
     createdAt: lobby.createdAt,
@@ -1960,6 +1961,7 @@ function settingsFor(lobby: Lobby, changes: Partial<LobbySettings> = {}): LobbyS
     numSlots: slotCount(lobby),
     allowObservers: hasObservers(lobby),
     useLegacyLimits: lobby.useLegacyLimits,
+    lockedAlliances: lobby.lockedAlliances,
     ...changes,
   }
 }
@@ -1989,6 +1991,16 @@ describe('Lobbies - settings changes', () => {
     const updated = applySettingsChange(lobby, settingsFor(lobby, { useLegacyLimits: true }))
 
     expect(updated.useLegacyLimits).toBe(true)
+    expect(updated.teams).toBe(lobby.teams)
+    expect(updated.host).toBe(lobby.host)
+  })
+
+  test('should keep every slot as it is when locking alliances', () => {
+    const lobby = addHumans(BOXER_LOBBY, 2)
+
+    const updated = applySettingsChange(lobby, settingsFor(lobby, { lockedAlliances: true }))
+
+    expect(updated.lockedAlliances).toBe(true)
     expect(updated.teams).toBe(lobby.teams)
     expect(updated.host).toBe(lobby.host)
   })

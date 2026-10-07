@@ -48,6 +48,7 @@ const EMPTY_LOBBY: Lobby = Object.freeze({
   bench: [],
   host: EMPTY_SLOT,
   useLegacyLimits: false,
+  lockedAlliances: false,
   visibility: 'listed',
   createdAt: 0,
 })

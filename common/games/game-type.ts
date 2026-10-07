@@ -20,6 +20,16 @@ export function isValidGameSubType(type?: number): boolean {
   return type === undefined || (type >= 1 && type <= 7)
 }
 
+/**
+ * Whether players can change their alliances mid-game in this game type, i.e. whether locking
+ * alliances changes anything. The other types either have no alliances at all (Free for all, One on
+ * one), fix them as shared-control teams (Team melee, Team free for all), or leave them to the
+ * map's triggers (Use map settings), which a lock can't stop.
+ */
+export function gameTypeAllowsAllianceChanges(gameType: GameType): boolean {
+  return gameType === GameType.Melee || gameType === GameType.TopVsBottom
+}
+
 export function gameTypeToLabel(gameType: GameType, t: TFunction): string {
   switch (gameType) {
     case GameType.Melee:

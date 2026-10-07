@@ -197,6 +197,7 @@ export function toSummaryJson(
     gameSubType: lobby.gameSubType,
     host: { id: lobby.host.userId! },
     useLegacyLimits: lobby.useLegacyLimits,
+    lockedAlliances: lobby.lockedAlliances,
     ...toSummarySlotCounts(lobby),
     benchCount: lobby.bench.length,
     lifecycle,
@@ -360,6 +361,7 @@ export function createLobby({
   hostRegion,
   allowObservers,
   useLegacyLimits = false,
+  lockedAlliances = false,
   visibility = 'listed',
 }: {
   name: string
@@ -373,6 +375,7 @@ export function createLobby({
   hostRegion?: GameServerRegionId
   allowObservers: boolean
   useLegacyLimits?: boolean
+  lockedAlliances?: boolean
   visibility?: LobbyVisibility
 }) {
   const teams = createInitialTeams(map, gameType, gameSubType, numSlots)
@@ -405,6 +408,7 @@ export function createLobby({
     bench: [],
     host,
     useLegacyLimits,
+    lockedAlliances,
     visibility,
     createdAt: Date.now(),
   }
@@ -1190,13 +1194,14 @@ export interface LobbySettings {
   numSlots: number
   allowObservers: boolean
   useLegacyLimits: boolean
+  lockedAlliances: boolean
 }
 
 /**
  * Applies a change to a lobby's settings, rebuilding its slot layout and reconciling everyone in it
  * into the result. Returns the updated lobby.
  *
- * A change that leaves the layout alone (a different unit limit, or new settings that describe
+ * A change that leaves the layout alone (a different unit limit or alliance lock, or new settings that describe
  * exactly the teams the lobby already has) keeps every slot as it is, so nobody moves. Turning
  * observers on or off only adds or removes the observer team, leaving the player slots — including
  * any the host has closed — as they are, and finding the people who were observing a seat.
@@ -1240,6 +1245,7 @@ export function applySettingsChange(lobby: Lobby, next: LobbySettings): Lobby {
       gameType: next.gameType,
       gameSubType: next.gameSubType,
       useLegacyLimits: next.useLegacyLimits,
+      lockedAlliances: next.lockedAlliances,
     }
   }
 
@@ -1288,6 +1294,7 @@ export function applySettingsChange(lobby: Lobby, next: LobbySettings): Lobby {
     gameType: next.gameType,
     gameSubType: next.gameSubType,
     useLegacyLimits: next.useLegacyLimits,
+    lockedAlliances: next.lockedAlliances,
     teams,
     bench: [],
   }

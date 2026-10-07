@@ -80,6 +80,7 @@ const LOBBY: Lobby = {
   bench: [],
   host: HOST_SLOT,
   useLegacyLimits: false,
+  lockedAlliances: false,
   visibility: 'listed',
   createdAt: 0,
 }

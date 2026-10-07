@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { GameType, gameTypeToLabel, isTeamType } from '../../../common/games/game-type'
-import { MAX_BENCH } from '../../../common/lobbies'
+import { hasLockedAlliances, MAX_BENCH } from '../../../common/lobbies'
 import { LobbySummarySlotJson } from '../../../common/lobbies/lobby-network'
 import { tilesetToName } from '../../../common/maps'
 import { SbUserId } from '../../../common/users/sb-user-id'
@@ -499,6 +499,9 @@ export function LobbyDetailRail({
           ) : null}
           {summary.useLegacyLimits ? (
             <RoomChip>{t('lobbies.browser.legacyLimits', 'Legacy limits')}</RoomChip>
+          ) : null}
+          {hasLockedAlliances(summary) ? (
+            <RoomChip>{t('lobbies.browser.lockedAlliances', 'Locked alliances')}</RoomChip>
           ) : null}
         </ChipRow>
 

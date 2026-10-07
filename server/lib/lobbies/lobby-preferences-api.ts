@@ -38,6 +38,7 @@ const updateLobbyPreferencesSchema = Joi.object<UpdateLobbyPreferencesRequest>({
   // create form saves that value back as-is, so null has to round-trip.
   selectedMap: Joi.string().uuid().allow(null),
   useLegacyLimits: Joi.boolean(),
+  lockedAlliances: Joi.boolean(),
   visibility: Joi.valid(...ALL_LOBBY_VISIBILITIES),
   allowObservers: Joi.boolean(),
 }).required()

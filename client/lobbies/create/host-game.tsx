@@ -120,6 +120,7 @@ function HostGameContent({
   const prefsGameType = useAppSelector(s => s.lobbyPreferences.gameType)
   const prefsGameSubType = useAppSelector(s => s.lobbyPreferences.gameSubType)
   const prefsUseLegacyLimits = useAppSelector(s => s.lobbyPreferences.useLegacyLimits)
+  const prefsLockedAlliances = useAppSelector(s => s.lobbyPreferences.lockedAlliances)
   const prefsVisibility = useAppSelector(s => s.lobbyPreferences.visibility)
   const prefsAllowObservers = useAppSelector(s => s.lobbyPreferences.allowObservers)
   const prefsSelectedMap = useAppSelector(s => s.lobbyPreferences.selectedMap)
@@ -134,6 +135,7 @@ function HostGameContent({
     gameType: prefsGameType ?? GameType.Melee,
     gameSubType: prefsGameSubType,
     useLegacyLimits: prefsUseLegacyLimits ?? false,
+    lockedAlliances: prefsLockedAlliances ?? false,
     visibility: prefsVisibility ?? ('listed' as LobbyVisibility),
     allowObservers: prefsAllowObservers ?? true,
     selectedMap: prefsSelectedMap ?? undefined,
@@ -155,6 +157,7 @@ function HostGameContent({
     gameType: initial.gameType,
     gameSubType: initial.gameSubType,
     useLegacyLimits: initial.useLegacyLimits,
+    lockedAlliances: initial.lockedAlliances,
     allowObservers: initial.allowObservers,
   })
 
@@ -182,6 +185,7 @@ function HostGameContent({
       gameType: setup.gameType,
       gameSubType: setup.gameSubType,
       useLegacyLimits: setup.useLegacyLimits,
+      lockedAlliances: setup.lockedAlliances,
       visibility,
       allowObservers: setup.allowObservers,
     })
@@ -246,6 +250,7 @@ function HostGameContent({
     gameType: initial.gameType,
     gameSubType: initial.gameSubType,
     useLegacyLimits: initial.useLegacyLimits,
+    lockedAlliances: initial.lockedAlliances,
     allowObservers: initial.allowObservers,
   }
 
@@ -339,6 +344,7 @@ function HostGameContent({
             gameType: model.gameType,
             gameSubType: isTeamType(model.gameType) ? model.gameSubType : undefined,
             useLegacyLimits: model.useLegacyLimits,
+            lockedAlliances: model.lockedAlliances,
             allowObservers: model.allowObservers,
             visibility,
             leaveCurrentLobby: inCurrentLobby,
@@ -370,6 +376,7 @@ function HostGameContent({
             gameType: model.gameType,
             gameSubType: model.gameSubType,
             useLegacyLimits: model.useLegacyLimits,
+            lockedAlliances: model.lockedAlliances,
             visibility,
             allowObservers: model.allowObservers,
           })

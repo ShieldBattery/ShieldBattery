@@ -1,6 +1,6 @@
 import { GameServerRegionId } from '../game-server-regions'
 import { PlayerInfo } from '../games/game-launch-config'
-import { GameType, isTeamType } from '../games/game-type'
+import { GameType, gameTypeAllowsAllianceChanges, isTeamType } from '../games/game-type'
 import { MapInfo } from '../maps'
 import { RaceChar } from '../races'
 import { SbUserId } from '../users/sb-user-id'
@@ -84,9 +84,25 @@ export interface Lobby {
   readonly bench: ReadonlyArray<BenchedUser>
   readonly host: Slot
   readonly useLegacyLimits: boolean
+  /**
+   * Whether in-game alliance changes are disabled, keeping the lobby's teams fixed for the whole
+   * game. Only takes effect for game types where alliances can change in-game (see
+   * `gameTypeAllowsAllianceChanges`).
+   */
+  readonly lockedAlliances: boolean
   readonly visibility: LobbyVisibility
   /** When the lobby was created (Unix millis). */
   readonly createdAt: number
+}
+
+/**
+ * Whether a game played from this lobby will have alliance changes disabled: the host asked for it
+ * and the game type is one where locking alliances does anything.
+ */
+export function hasLockedAlliances(
+  lobby: Readonly<{ gameType: GameType; lockedAlliances: boolean }>,
+): boolean {
+  return lobby.lockedAlliances && gameTypeAllowsAllianceChanges(lobby.gameType)
 }
 
 export function isUms(gameType: GameType): gameType is GameType.UseMapSettings {

@@ -11,6 +11,7 @@ export interface LobbyPreferencesState {
   recentMaps: SbMapId[]
   selectedMap: SbMapId | null | undefined
   useLegacyLimits: boolean | undefined
+  lockedAlliances: boolean | undefined
   visibility: LobbyVisibility | undefined
   allowObservers: boolean | undefined
 
@@ -25,6 +26,7 @@ const DEFAULT_STATE: LobbyPreferencesState = {
   recentMaps: [],
   selectedMap: undefined,
   useLegacyLimits: undefined,
+  lockedAlliances: undefined,
   visibility: undefined,
   allowObservers: undefined,
 
@@ -40,6 +42,7 @@ function createPreferences(response: LobbyPreferencesResponse): LobbyPreferences
     recentMaps: response.recentMaps.map(m => m.id),
     selectedMap: response.selectedMap,
     useLegacyLimits: response.useLegacyLimits,
+    lockedAlliances: response.lockedAlliances,
     visibility: response.visibility,
     allowObservers: response.allowObservers,
 
