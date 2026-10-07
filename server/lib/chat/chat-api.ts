@@ -28,6 +28,7 @@ import {
   ListChannelInviteLinksResponse,
   ListUserChannelEntriesResponse,
   MarkChannelReadRequest,
+  MAXIMUM_JOINED_CHANNELS,
   ModerateChannelUserServerRequest,
   RenameChannelRequest,
   SbChannelId,
@@ -35,6 +36,7 @@ import {
   SearchChannelsResponse,
   SendChatMessageServerRequest,
   TransferChannelOwnershipRequest,
+  UpdateChannelOrderRequest,
   UpdateChannelUserPermissionsRequest,
   UpdateChannelUserPreferencesRequest,
 } from '../../../common/chat'
@@ -46,7 +48,14 @@ import { SbUserId } from '../../../common/users/sb-user-id'
 import { asHttpError } from '../errors/error-with-payload'
 import { handleMultipartFiles } from '../files/handle-multipart-files'
 import { httpApi, httpBeforeAll } from '../http/http-api'
-import { httpBefore, httpDelete, httpGet, httpPatch, httpPost } from '../http/route-decorators'
+import {
+  httpBefore,
+  httpDelete,
+  httpGet,
+  httpPatch,
+  httpPost,
+  httpPut,
+} from '../http/route-decorators'
 import { rolledOutcomeRequestBody } from '../messaging/rolled-outcome-request-schema'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
@@ -161,6 +170,12 @@ const userChannelEntriesThrottle = createThrottle('chatuserchannelentries', {
 })
 
 const userPreferencesThrottle = createThrottle('chatuserpreferences', {
+  rate: 20,
+  burst: 40,
+  window: 60000,
+})
+
+const channelOrderThrottle = createThrottle('chatchannelorder', {
   rate: 20,
   burst: 40,
   window: 60000,
@@ -364,6 +379,26 @@ export class ChatApi {
   @httpBefore(throttleMiddleware(getJoinedChannelsThrottle, throttleByUser))
   async getJoinedChannels(ctx: RouterContext): Promise<InitialChannelData[]> {
     return await this.chatService.getJoinedChannels(ctx.session!.user.id)
+  }
+
+  @httpPut('/channel-order')
+  @httpBefore(throttleMiddleware(channelOrderThrottle, throttleByUser))
+  async updateChannelOrder(ctx: RouterContext): Promise<void> {
+    const {
+      body: { channelIds },
+    } = validateRequest(ctx, {
+      body: Joi.object<UpdateChannelOrderRequest>({
+        channelIds: Joi.array()
+          .items(joiSerialId())
+          .unique()
+          .max(MAXIMUM_JOINED_CHANNELS)
+          .required(),
+      }),
+    })
+
+    await this.chatService.updateChannelOrder(ctx.session!.user.id, channelIds)
+
+    ctx.status = 204
   }
 
   @httpPost('/')

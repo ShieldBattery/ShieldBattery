@@ -509,6 +509,15 @@ export type ChatUserEvent =
   | ChatPermissionsChangedEvent
   | ChatReadTimeChangedEvent
 
+export interface ChatChannelOrderChangedEvent {
+  action: 'channelOrderChanged'
+  /** The IDs of the user's joined channels, in the order they should be listed. */
+  channelIds: SbChannelId[]
+}
+
+/** Events that are sent to a particular user about their chat channels as a whole. */
+export type ChatSelfEvent = ChatChannelOrderChangedEvent
+
 /**
  * The response returned when joining a specific chat channel.
  */
@@ -800,6 +809,14 @@ export interface GetChatUserProfileResponse {
  * The body of a request when updating the preferences of a user in a specific chat channel.
  */
 export type UpdateChannelUserPreferencesRequest = Patch<ChannelPreferences>
+
+/**
+ * The body of a request when changing the order of the current user's joined channels.
+ */
+export interface UpdateChannelOrderRequest {
+  /** The IDs of the user's joined channels, in the order they should be listed. */
+  channelIds: SbChannelId[]
+}
 
 /**
  * The response returned when fetching the permissions of a user in a specific chat channel.

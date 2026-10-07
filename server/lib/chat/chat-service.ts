@@ -15,6 +15,7 @@ import {
   ChannelPreferences,
   ChatEvent,
   ChatInitActiveUsersEvent,
+  ChatSelfEvent,
   ChatServiceErrorCode,
   ChatUserEvent,
   CreateChannelInviteLinkResponse,
@@ -113,6 +114,7 @@ import {
   transferChannelOwnership,
   unbanUserFromChannel,
   updateChannel,
+  updateChannelOrder,
   updateLastReadTime,
   updateUserPermissions,
   updateUserPreferences,
@@ -290,6 +292,14 @@ export function getChannelUserPath(channelId: SbChannelId, userId: SbUserId): st
 }
 
 /**
+ * Path for events about a user's chat channels as a whole (rather than about one channel), meant
+ * only for that user's own sessions.
+ */
+export function getChatSelfPath(userId: SbUserId): string {
+  return `/chat3/users/${userId}`
+}
+
+/**
  * Maximum number of times that the service will attempt to (re)join the user in case of the timing
  * issues. E.g. in case the two users attempt to join the same non-existing channel at the same
  * time, they'll both attempt to create it, but only one will succeed.
@@ -310,7 +320,7 @@ export default class ChatService {
   private state = new ChatState()
 
   constructor(
-    private publisher: TypedPublisher<ChatEvent | ChatUserEvent>,
+    private publisher: TypedPublisher<ChatEvent | ChatUserEvent | ChatSelfEvent>,
     private userSocketsManager: UserSocketsManager,
     private imageService: ImageService,
     private restrictionService: RestrictionService,
@@ -2260,6 +2270,19 @@ export default class ChatService {
   }
 
   /**
+   * Places a user's joined channels in the given order, and publishes the resulting order to all of
+   * that user's connected sessions. Channels the user is in but that aren't listed go after the
+   * listed ones, in join order; listed channels the user isn't in are ignored.
+   */
+  async updateChannelOrder(userId: SbUserId, channelIds: ReadonlyArray<SbChannelId>) {
+    const orderedIds = await updateChannelOrder(userId, channelIds)
+    this.publisher.publish(getChatSelfPath(userId), {
+      action: 'channelOrderChanged',
+      channelIds: orderedIds,
+    })
+  }
+
+  /**
    * Records the newest message time a user has seen in a channel, and publishes the resulting
    * read position to all of that user's connected sessions (so a mark-read made in one session
    * updates the unread badges and read positions of their others). A no-op if they aren't a member
@@ -2441,6 +2464,10 @@ export default class ChatService {
   }
 
   private async handleNewUser(userSockets: UserSocketsGroup) {
+    // Subscribed before the awaited DB fetch below so an update published to this user's own path
+    // while that fetch is in flight isn't missed.
+    userSockets.subscribe(getChatSelfPath(userSockets.userId))
+
     const userChannels = await getChannelsForUser(userSockets.userId)
     if (!userSockets.sockets.size) {
       // The user disconnected while we were waiting for their channel list

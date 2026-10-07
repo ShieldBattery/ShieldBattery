@@ -2829,4 +2829,83 @@ describe('client/chat/chat-reducer', () => {
       expect(windowOf(result).carriedClientMessages).toEqual([])
     })
   })
+
+  describe('channel order', () => {
+    function channelData(id: number): InitialChannelData {
+      const channelId = makeSbChannelId(id)
+      const data = initialChannelData()
+      return {
+        ...data,
+        channelInfo: { ...data.channelInfo, id: channelId, name: `channel-${id}` },
+        detailedChannelInfo: { ...data.detailedChannelInfo, id: channelId },
+        joinedChannelInfo: { ...data.joinedChannelInfo, id: channelId },
+      }
+    }
+
+    function joinedListAction(ids: number[]): ChatActions {
+      return { type: '@chat/getJoinedChannels', payload: ids.map(channelData) }
+    }
+
+    function initChannelAction(id: number): ChatActions {
+      return {
+        type: '@chat/initChannel',
+        payload: { action: 'init3', ...channelData(id) },
+        meta: { channelId: makeSbChannelId(id) },
+      }
+    }
+
+    function orderChangedAction(ids: number[]): ChatActions {
+      return {
+        type: '@chat/channelOrderChanged',
+        payload: { channelIds: ids.map(makeSbChannelId) },
+      }
+    }
+
+    function orderOf(state: Immutable<ChatState>): number[] {
+      return Array.from(state.joinedChannels, id => Number(id))
+    }
+
+    test('lists joined channels in the order the server sent them', () => {
+      const result = chatReducer(reconnectedState(), joinedListAction([3, 1, 2]))
+      expect(orderOf(result)).toEqual([3, 1, 2])
+    })
+
+    test("applies the server's order to a channel initialized before the list arrived", () => {
+      let state = chatReducer(reconnectedState(), initChannelAction(2))
+      state = chatReducer(state, joinedListAction([3, 2, 1]))
+      expect(orderOf(state)).toEqual([3, 2, 1])
+    })
+
+    test('keeps a channel initialized while the list was loading, but not in it, at the end', () => {
+      let state = chatReducer(reconnectedState(), initChannelAction(4))
+      state = chatReducer(state, joinedListAction([3, 1]))
+      expect(orderOf(state)).toEqual([3, 1, 4])
+    })
+
+    test('reorders the joined channels', () => {
+      let state = chatReducer(reconnectedState(), joinedListAction([1, 2, 3]))
+      state = chatReducer(state, orderChangedAction([3, 1, 2]))
+      expect(orderOf(state)).toEqual([3, 1, 2])
+    })
+
+    test('skips listed channels that are not joined and keeps unlisted ones after', () => {
+      let state = chatReducer(reconnectedState(), joinedListAction([1, 2, 3, 4]))
+      state = chatReducer(state, orderChangedAction([4, 9, 2]))
+      expect(orderOf(state)).toEqual([4, 2, 1, 3])
+    })
+
+    test('adds a newly joined channel to the end of a reordered list', () => {
+      let state = chatReducer(reconnectedState(), joinedListAction([1, 2, 3]))
+      state = chatReducer(state, orderChangedAction([3, 2, 1]))
+      state = chatReducer(state, initChannelAction(5))
+      expect(orderOf(state)).toEqual([3, 2, 1, 5])
+    })
+
+    test('leaving a channel keeps the order of the rest', () => {
+      let state = chatReducer(reconnectedState(), joinedListAction([1, 2, 3]))
+      state = chatReducer(state, orderChangedAction([3, 1, 2]))
+      state = chatReducer(state, updateLeaveSelfAction())
+      expect(orderOf(state)).toEqual([3, 2])
+    })
+  })
 })

@@ -19,6 +19,7 @@ import {
   getJoinedChannels,
   leaveChannelWithConfirmation,
   markChannelReadNow,
+  updateChannelOrder,
 } from '../chat/action-creators'
 import { ConnectedChannelBadge } from '../chat/channel-badge'
 import { useChannelNotificationMenuItems } from '../chat/channel-notification-menu-items'
@@ -70,6 +71,7 @@ import {
   markWhisperReadNow,
 } from '../whispers/action-creators'
 import { urlForWhisper } from '../whispers/whisper-url'
+import { ChannelReorderList } from './channel-reorder-list'
 import { FriendActivityStatusGlyph } from './friend-activity-status'
 import { FriendsList, useRelationshipsLoader } from './friends-list'
 
@@ -163,7 +165,7 @@ const TabsContainer = styled.div`
   padding: 8px 0;
 `
 
-const ChatContainer = styled.div`
+const ChatContainer = styled(m.div)`
   flex-basis: 0;
   flex-grow: 1;
   min-height: 0;
@@ -361,7 +363,7 @@ export function SocialSidebar({
       </TabsAndPin>
       <span ref={setFocusableElem} tabIndex={-1} />
       {activeTab === SocialTab.Chat ? (
-        <ChatContainer>
+        <ChatContainer layoutScroll={true}>
           {topElem}
           <ChatContent
             isLoadingJoinedChannels={isLoadingJoinedChannels}
@@ -475,6 +477,24 @@ function ChatContent({
   const chatChannels = useAppSelector(s => s.chat.joinedChannels)
   const whisperSessions = useAppSelector(s => s.whispers.sessions)
   const { onNavigation } = useNavigationTracker()
+  const snackbarController = useSnackbarController()
+
+  const onReorderChannels = (next: SbChannelId[]) => {
+    dispatch(
+      updateChannelOrder(next, {
+        onSuccess: () => {},
+        onError: err => {
+          snackbarController.showSnackbar(
+            t('social.chat.reorderChannelsError', {
+              defaultValue: 'Error saving the channel order: {{errorMessage}}',
+              errorMessage: err.message,
+            }),
+            DURATION_LONG,
+          )
+        },
+      }),
+    )
+  }
 
   let chatChannelsList: React.ReactNode
   if (isLoadingJoinedChannels) {
@@ -489,15 +509,20 @@ function ChatContent({
       </LoadErrorContainer>
     )
   } else {
-    chatChannelsList = Array.from(chatChannels.values(), c => (
-      <ChannelEntry
-        key={c}
-        channelId={c}
-        onLeave={(channelId: SbChannelId) => {
-          dispatch(leaveChannelWithConfirmation(channelId))
-        }}
+    chatChannelsList = (
+      <ChannelReorderList
+        channelIds={Array.from(chatChannels)}
+        onReorder={onReorderChannels}
+        renderChannel={c => (
+          <ChannelEntry
+            channelId={c}
+            onLeave={(channelId: SbChannelId) => {
+              dispatch(leaveChannelWithConfirmation(channelId))
+            }}
+          />
+        )}
       />
-    ))
+    )
   }
 
   let whisperSessionsList: React.ReactNode

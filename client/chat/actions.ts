@@ -50,6 +50,7 @@ export type ChatActions =
   | GetBatchChannelInfoSuccess
   | GetBatchChannelInfoFailure
   | GetJoinedChannels
+  | UpdateChannelOrder
   | SearchChannels
   | ActivateChannel
   | DeactivateChannel
@@ -79,6 +80,18 @@ export type ChatActions =
 export interface GetJoinedChannels {
   type: '@chat/getJoinedChannels'
   payload: InitialChannelData[]
+}
+
+/**
+ * The order of the user's joined channels has changed, either locally (applied before the server
+ * confirms it) or in one of the user's sessions.
+ */
+export interface UpdateChannelOrder {
+  type: '@chat/channelOrderChanged'
+  payload: {
+    /** The IDs of the user's joined channels, in the order they should be listed. */
+    channelIds: ReadonlyArray<SbChannelId>
+  }
 }
 
 export interface JoinChannelBegin {

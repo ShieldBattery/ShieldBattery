@@ -90,11 +90,12 @@ import {
   transferChannelOwnership,
   unbanUserFromChannel,
   updateChannel,
+  updateChannelOrder,
   updateLastReadTime,
   updateUserPermissions,
   updateUserPreferences,
 } from './chat-models'
-import ChatService, { getChannelPath, getChannelUserPath } from './chat-service'
+import ChatService, { getChannelPath, getChannelUserPath, getChatSelfPath } from './chat-service'
 import {
   createInviteLink,
   deleteInviteLink,
@@ -189,6 +190,7 @@ vi.mock('./chat-models', async () => {
     removeAllUsersFromChannel: vi.fn().mockResolvedValue([]),
     deleteChannel: vi.fn(),
     updateUserPreferences: vi.fn(),
+    updateChannelOrder: vi.fn(),
     updateUserPermissions: vi.fn(),
     countBannedIdentifiersForChannel: vi.fn(),
     banUserFromChannel: vi.fn(),
@@ -577,6 +579,11 @@ describe('chat/chat-service', () => {
         getChannelUserPath(testChannel.id, user3.id),
         undefined,
       )
+      expect(nydus.subscribeClient).toHaveBeenCalledWith(
+        client3,
+        getChatSelfPath(user3.id),
+        undefined,
+      )
     })
 
     test("announces a connecting user's non-default availability and lists it for others", async () => {
@@ -647,6 +654,23 @@ describe('chat/chat-service', () => {
         action: 'userAvailability',
         userId: user3.id,
         availability: DEFAULT_AVAILABILITY_INFO,
+      })
+    })
+  })
+
+  describe('updateChannelOrder', () => {
+    test("publishes the stored order to the user's sessions", async () => {
+      asMockedFunction(updateChannelOrder).mockResolvedValue([
+        testChannel.id,
+        shieldBatteryChannel.id,
+      ])
+
+      await chatService.updateChannelOrder(user1.id, [testChannel.id])
+
+      expect(updateChannelOrder).toHaveBeenCalledWith(user1.id, [testChannel.id])
+      expect(nydus.publish).toHaveBeenCalledWith(getChatSelfPath(user1.id), {
+        action: 'channelOrderChanged',
+        channelIds: [testChannel.id, shieldBatteryChannel.id],
       })
     })
   })

@@ -778,6 +778,17 @@ function initChannelUsers(state: ChatState, channelId: SbChannelId, activeUserId
   }
 }
 
+/**
+ * Puts the joined channels in the given order. Listed channels the user isn't in are skipped, and
+ * joined channels that aren't listed keep their relative order after the listed ones.
+ */
+function applyChannelOrder(state: ChatState, channelIds: ReadonlyArray<SbChannelId>) {
+  state.joinedChannels = new Set([
+    ...channelIds.filter(id => state.joinedChannels.has(id)),
+    ...state.joinedChannels,
+  ])
+}
+
 function initChannel(state: ChatState, channelId: SbChannelId, data: InitialChannelData) {
   const {
     channelInfo,
@@ -860,6 +871,16 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     for (const channel of action.payload) {
       initChannel(state, channel.channelInfo.id, channel)
     }
+    // `initChannel` leaves a channel that was already in the set (e.g. one joined while the list was
+    // loading) where it was, so the server's order has to be applied separately.
+    applyChannelOrder(
+      state,
+      action.payload.map(c => c.channelInfo.id),
+    )
+  },
+
+  ['@chat/channelOrderChanged'](state, action) {
+    applyChannelOrder(state, action.payload.channelIds)
   },
 
   ['@chat/initChannel'](state, action) {

@@ -65,8 +65,14 @@ function convertJoinedChannelEntryFromDb(props: DbJoinedChannelEntry): JoinedCha
 }
 
 /**
- * Gets a user channel entry for each channel that a particular user is in, ordered by their channel
- * join date.
+ * The order of a user's joined channels: the channels they've placed, by their chosen position,
+ * then the rest by join date.
+ */
+const JOINED_CHANNEL_ORDER = sql`sort_order NULLS LAST, join_date`
+
+/**
+ * Gets a user channel entry for each channel that a particular user is in, in the user's chosen
+ * order (see `JOINED_CHANNEL_ORDER`).
  */
 export async function getChannelsForUser(userId: SbUserId): Promise<JoinedChannelEntry[]> {
   const { client, done } = await db()
@@ -75,9 +81,42 @@ export async function getChannelsForUser(userId: SbUserId): Promise<JoinedChanne
       SELECT *
       FROM channel_users
       WHERE user_id = ${userId}
-      ORDER BY join_date;
+      ORDER BY ${JOINED_CHANNEL_ORDER};
     `)
     return result.rows.map(row => convertJoinedChannelEntryFromDb(row))
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Places a user's joined channels in the given order. Channels the user is in but that aren't
+ * listed lose their place and sort after the listed ones, in join order; listed channels the user
+ * isn't in are ignored. Returns the user's joined channel IDs in their resulting order.
+ */
+export async function updateChannelOrder(
+  userId: SbUserId,
+  channelIds: ReadonlyArray<SbChannelId>,
+  withClient?: DbClient,
+): Promise<SbChannelId[]> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<{ channel_id: SbChannelId }>(sql`
+      WITH updated AS (
+        UPDATE channel_users cu
+        SET sort_order = (
+          SELECT o.ord::integer
+          FROM unnest(${channelIds}::integer[]) WITH ORDINALITY AS o(channel_id, ord)
+          WHERE o.channel_id = cu.channel_id
+        )
+        WHERE cu.user_id = ${userId}
+        RETURNING cu.channel_id, cu.sort_order, cu.join_date
+      )
+      SELECT channel_id
+      FROM updated
+      ORDER BY ${JOINED_CHANNEL_ORDER};
+    `)
+    return result.rows.map(row => row.channel_id)
   } finally {
     done()
   }

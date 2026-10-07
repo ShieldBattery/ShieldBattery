@@ -2,6 +2,7 @@ import { NydusClient, RouteInfo } from 'nydus-client'
 import {
   ChannelNotificationLevel,
   ChatEvent,
+  ChatSelfEvent,
   ChatUserEvent,
   DEFAULT_CHANNEL_PREFERENCES,
   makeSbChannelId,
@@ -280,4 +281,13 @@ export default function registerModule({ siteSocket }: { siteSocket: NydusClient
       if (action) dispatch(action)
     },
   )
+
+  siteSocket.registerRoute('/chat3/users/:userId', (route: RouteInfo, event: ChatSelfEvent) => {
+    if (event.action === 'channelOrderChanged') {
+      dispatch({
+        type: '@chat/channelOrderChanged',
+        payload: { channelIds: event.channelIds },
+      })
+    }
+  })
 }
