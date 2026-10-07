@@ -102,6 +102,7 @@ export interface CreateLobbyRequest extends LobbyClientRequest, LobbyNetworkPara
   gameSubType?: number
   allowObservers?: boolean
   useLegacyLimits?: boolean
+  lockedAlliances?: boolean
   visibility?: LobbyVisibility
   /**
    * When set, a client currently in a different lobby is removed from it in the same operation
@@ -337,6 +338,7 @@ export interface LobbySummaryJson {
   gameSubType: number
   host: { id: SbUserId }
   useLegacyLimits: boolean
+  lockedAlliances: boolean
   playerSlots: LobbyPlayerSlotCounts
   observerSlots: LobbyObserverSlotCounts
   /**
@@ -400,6 +402,7 @@ export interface LobbySummaryResponse {
     | 'occupantIds'
     | 'benchCount'
     | 'elapsedMs'
+    | 'lockedAlliances'
   > & { map: LobbySummaryMapJson }
   host: SbUser
   /**
@@ -593,6 +596,7 @@ export interface UpdateLobbySettingsRequest {
   gameType?: GameType
   gameSubType?: number
   useLegacyLimits?: boolean
+  lockedAlliances?: boolean
   allowObservers?: boolean
   /**
    * The maps to play after the current one, in order, replacing whatever was queued before. An
@@ -609,6 +613,7 @@ export type LobbyChangedSetting =
   | 'gameType'
   | 'gameSubType'
   | 'useLegacyLimits'
+  | 'lockedAlliances'
   | 'allowObservers'
   | 'mapQueue'
 
@@ -679,6 +684,7 @@ export interface UpdateLobbyPreferencesRequest {
   recentMaps: SbMapId[]
   selectedMap?: SbMapId | null
   useLegacyLimits?: boolean
+  lockedAlliances?: boolean
   visibility?: LobbyVisibility
   allowObservers?: boolean
 }
@@ -699,6 +705,7 @@ export interface LobbyPreferencesResponse {
    */
   selectedMap?: SbMapId | null
   useLegacyLimits?: boolean
+  lockedAlliances?: boolean
   visibility?: LobbyVisibility
   allowObservers?: boolean
 }

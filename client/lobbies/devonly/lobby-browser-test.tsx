@@ -116,6 +116,7 @@ interface SummarySpec {
   host: SbUserId
   teams: LobbySummaryTeamJson[]
   useLegacyLimits?: boolean
+  lockedAlliances?: boolean
   /** How many members wait on the bench for a seat. */
   benchCount?: number
   /** Where the lobby is in its life; defaults to `gathering`. */
@@ -166,6 +167,7 @@ function makePreview(spec: SummarySpec): LobbyPreviewJson {
     gameSubType: spec.gameSubType ?? 0,
     host: { id: spec.host },
     useLegacyLimits: spec.useLegacyLimits ?? false,
+    lockedAlliances: spec.lockedAlliances ?? false,
     ...slotCounts(spec.teams),
     benchCount: spec.benchCount ?? 0,
     lifecycle: spec.lifecycle ?? 'gathering',

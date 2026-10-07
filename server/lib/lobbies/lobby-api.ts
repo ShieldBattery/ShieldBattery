@@ -138,6 +138,7 @@ const updateLobbySettingsBody = Joi.object<UpdateLobbySettingsRequest>({
   gameSubType: Joi.number().min(1).max(7),
   allowObservers: Joi.boolean(),
   useLegacyLimits: Joi.boolean(),
+  lockedAlliances: Joi.boolean(),
   mapQueue: Joi.array().items(Joi.string()).max(MAX_MAP_QUEUE),
 })
   .or(
@@ -148,6 +149,7 @@ const updateLobbySettingsBody = Joi.object<UpdateLobbySettingsRequest>({
     'gameSubType',
     'allowObservers',
     'useLegacyLimits',
+    'lockedAlliances',
     'mapQueue',
   )
   .required()
@@ -265,6 +267,7 @@ export class LobbyApi {
         gameSubType: Joi.number().min(1).max(7),
         allowObservers: Joi.boolean(),
         useLegacyLimits: Joi.boolean(),
+        lockedAlliances: Joi.boolean(),
         visibility: Joi.string().valid(...ALL_LOBBY_VISIBILITIES),
         region: regionSchema,
         rttMs: rttMsSchema,
@@ -283,6 +286,7 @@ export class LobbyApi {
       gameSubType: body.gameSubType,
       allowObservers: body.allowObservers,
       useLegacyLimits: body.useLegacyLimits,
+      lockedAlliances: body.lockedAlliances,
       visibility: body.visibility,
       region: body.region,
       rttMs: body.rttMs,
@@ -392,6 +396,7 @@ export class LobbyApi {
       gameSubType: body.gameSubType,
       allowObservers: body.allowObservers,
       useLegacyLimits: body.useLegacyLimits,
+      lockedAlliances: body.lockedAlliances,
       mapQueue: body.mapQueue,
     })
   }

@@ -38,7 +38,7 @@ enum MapPickTarget {
 
 /**
  * The host-only in-page surface for editing a gathering lobby's settings (name, visibility, map,
- * map queue, game type/sub-type, unit limit, and observers), built on the shared `GameSetupForm`.
+ * map queue, game type/sub-type, unit limit, alliance lock, and observers), built on the shared `GameSetupForm`.
  * Only fields that actually changed from the lobby's current values are sent to the server on save.
  */
 export function RoomGameSetup({ onClose }: { onClose: () => void }) {
@@ -58,6 +58,7 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
     gameType: lobby.gameType,
     gameSubType: lobby.gameSubType,
     useLegacyLimits: lobby.useLegacyLimits,
+    lockedAlliances: lobby.lockedAlliances,
     allowObservers: hasObservers(lobby),
     mapId: lobby.map!.id,
   }))
@@ -171,6 +172,9 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
           }
           if (model.useLegacyLimits !== initialModel.useLegacyLimits) {
             settings.useLegacyLimits = model.useLegacyLimits
+          }
+          if (model.lockedAlliances !== initialModel.lockedAlliances) {
+            settings.lockedAlliances = model.lockedAlliances
           }
           if (model.allowObservers !== initialModel.allowObservers) {
             settings.allowObservers = model.allowObservers

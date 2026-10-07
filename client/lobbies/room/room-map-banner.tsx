@@ -6,7 +6,14 @@ import styled, { css, keyframes } from 'styled-components'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { GameType, gameTypeToLabel, isTeamType } from '../../../common/games/game-type'
 import { getGameDurationString } from '../../../common/games/games'
-import { getLobbySlots, hasControlledOpens, isUms, Lobby, slotCount } from '../../../common/lobbies'
+import {
+  getLobbySlots,
+  hasControlledOpens,
+  hasLockedAlliances,
+  isUms,
+  Lobby,
+  slotCount,
+} from '../../../common/lobbies'
 import { LobbySeriesGameJson } from '../../../common/lobbies/lobby-network'
 import { findSeriesGameWinner, LobbySeriesWinner } from '../../../common/lobbies/lobby-series'
 import { SlotType } from '../../../common/lobbies/slot'
@@ -837,11 +844,17 @@ export function RoomMapBanner({
         ? t('lobbies.lobby.unitLimitLegacy', 'Legacy')
         : t('lobbies.lobby.unitLimitExtended', 'Extended'),
     ],
-    [
-      t('lobbies.summary.slotsLabel', 'Slots'),
-      isUms(lobby.gameType) ? map.mapData.umsSlots : map.mapData.slots,
-    ],
   )
+  if (hasLockedAlliances(lobby)) {
+    mapStats.push([
+      t('lobbies.room.banner.statAlliances', 'Alliances'),
+      t('lobbies.room.banner.alliancesLocked', 'Locked'),
+    ])
+  }
+  mapStats.push([
+    t('lobbies.summary.slotsLabel', 'Slots'),
+    isUms(lobby.gameType) ? map.mapData.umsSlots : map.mapData.slots,
+  ])
 
   const mapQueue = lobby.mapQueue
   const nextGameNumber = series.length + 1

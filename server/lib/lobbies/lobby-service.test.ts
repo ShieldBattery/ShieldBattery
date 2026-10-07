@@ -1628,6 +1628,22 @@ describe('lobbies/lobby-service', () => {
       ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.CountingDown }))
     })
 
+    test('turning the alliance lock on is announced as a settings change', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      fakeNydus.publish.mockClear()
+
+      await lobbyService.updateSettings({ client: host.client, lobbyId: id, lockedAlliances: true })
+
+      expect(lobbyService.lobbies.get(id)!.lockedAlliances).toBe(true)
+      expect(lobbyPublishes(id)).toEqual([
+        {
+          type: 'settingsChange',
+          changedSettings: ['lockedAlliances'],
+          lobby: lobbyService.lobbies.get(id),
+        },
+      ])
+    })
+
     test('a change publishes the new lobby along with what the host changed', async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       fakeNydus.publish.mockClear()
@@ -2766,6 +2782,61 @@ describe('lobbies/lobby-service', () => {
         visibility: 'listed',
       })
       expect(loadGameRequests[0].gameConfig.observers).toEqual([])
+    })
+
+    test('leaves alliances unlocked by default', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+
+      await runCountdown(host)
+
+      expect(loadGameRequests).toHaveLength(1)
+      expect(loadGameRequests[0].gameConfig.lockedAlliances).toBe(false)
+    })
+
+    test('locks alliances when the host created the lobby with them locked', async () => {
+      const { id } = await lobbyService.createLobby({
+        name: 'Locked lobby',
+        map: BIG_GAME_HUNTERS.id,
+        gameType: GameType.Melee,
+        lockedAlliances: true,
+        user: host.user,
+        client: host.client,
+      })
+      await joinLobby(joiner, id)
+
+      await runCountdown(host)
+
+      expect(loadGameRequests).toHaveLength(1)
+      expect(loadGameRequests[0].gameConfig.lockedAlliances).toBe(true)
+    })
+
+    test('locks alliances when the host turned the lock on', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await lobbyService.updateSettings({ client: host.client, lobbyId: id, lockedAlliances: true })
+      await joinLobby(joiner, id)
+
+      await runCountdown(host)
+
+      expect(loadGameRequests).toHaveLength(1)
+      expect(loadGameRequests[0].gameConfig.lockedAlliances).toBe(true)
+    })
+
+    test("ignores the lock for a game type whose alliances can't change in-game", async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await lobbyService.updateSettings({
+        client: host.client,
+        lobbyId: id,
+        gameType: GameType.FreeForAll,
+        lockedAlliances: true,
+      })
+      await joinLobby(joiner, id)
+
+      await runCountdown(host)
+
+      expect(lobbyService.lobbies.get(id)!.lockedAlliances).toBe(true)
+      expect(loadGameRequests).toHaveLength(1)
+      expect(loadGameRequests[0].gameConfig.lockedAlliances).toBe(false)
     })
 
     test('records visibility for an unlisted lobby', async () => {

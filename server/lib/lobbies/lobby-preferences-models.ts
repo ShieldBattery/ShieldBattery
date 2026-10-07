@@ -15,6 +15,7 @@ export interface LobbyPreferences {
   recentMaps?: SbMapId[]
   selectedMap?: SbMapId
   useLegacyLimits?: boolean
+  lockedAlliances?: boolean
   visibility?: LobbyVisibility
   allowObservers?: boolean
 }
@@ -30,6 +31,7 @@ function fromDbLobbyPreferences(prefs: DbLobbyPreferences): LobbyPreferences {
     recentMaps: prefs.recent_maps !== null ? prefs.recent_maps : undefined,
     selectedMap: prefs.selected_map !== null ? prefs.selected_map : undefined,
     useLegacyLimits: prefs.use_legacy_limits !== null ? prefs.use_legacy_limits : undefined,
+    lockedAlliances: prefs.locked_alliances !== null ? prefs.locked_alliances : undefined,
     visibility: prefs.visibility !== null ? prefs.visibility : undefined,
     allowObservers: prefs.allow_observers !== null ? prefs.allow_observers : undefined,
   }
@@ -44,6 +46,7 @@ export async function upsertLobbyPreferences(
     recentMaps,
     selectedMap,
     useLegacyLimits,
+    lockedAlliances,
     visibility,
     allowObservers,
   }: ReadonlyDeep<Omit<LobbyPreferences, 'userId'>>,
@@ -54,9 +57,9 @@ export async function upsertLobbyPreferences(
     const result = await client.query<DbLobbyPreferences>(sql`
       INSERT INTO lobby_preferences
         (user_id, name, game_type, game_sub_type, recent_maps, selected_map, use_legacy_limits,
-          visibility, allow_observers)
+          locked_alliances, visibility, allow_observers)
       VALUES (${userId}, ${name}, ${gameType}, ${gameSubType}, ${recentMaps}, ${selectedMap},
-        ${useLegacyLimits}, ${visibility}, ${allowObservers})
+        ${useLegacyLimits}, ${lockedAlliances}, ${visibility}, ${allowObservers})
       ON CONFLICT (user_id)
       DO UPDATE SET
         name = ${name},
@@ -65,6 +68,7 @@ export async function upsertLobbyPreferences(
         recent_maps = ${recentMaps},
         selected_map = ${selectedMap},
         use_legacy_limits = ${useLegacyLimits},
+        locked_alliances = ${lockedAlliances},
         visibility = ${visibility},
         allow_observers = ${allowObservers}
       WHERE lobby_preferences.user_id = ${userId}

@@ -5,6 +5,7 @@ import { ReadonlyDeep } from 'type-fest'
 import {
   ALL_GAME_TYPES,
   GameType,
+  gameTypeAllowsAllianceChanges,
   gameTypeToDescription,
   gameTypeToLabel,
   isTeamType,
@@ -230,6 +231,7 @@ export interface GameSetupModel {
   gameType: GameType
   gameSubType: number
   useLegacyLimits: boolean
+  lockedAlliances: boolean
   allowObservers: boolean
 }
 
@@ -502,6 +504,14 @@ export function GameSetupForm({
                 disabled={disabled}
                 inputProps={{ tabIndex: 0 }}
               />
+              {gameTypeAllowsAllianceChanges(gameType) ? (
+                <CheckBox
+                  {...bindCheckable('lockedAlliances')}
+                  label={t('lobbies.createLobby.lockedAlliances', 'Lock alliances')}
+                  disabled={disabled}
+                  inputProps={{ tabIndex: 0 }}
+                />
+              ) : null}
             </OptionsRow>
           </Section>
         </SettingsColumn>

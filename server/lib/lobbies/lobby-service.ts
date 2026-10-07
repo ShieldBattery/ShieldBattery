@@ -17,6 +17,7 @@ import {
   getObserverTeam,
   getPlayerInfos,
   hasControlledOpens,
+  hasLockedAlliances,
   hasObservers,
   hasOpposingSides,
   isLobbyEmpty,
@@ -319,6 +320,7 @@ function validatedLobbySettings({
   gameSubType,
   allowObservers,
   useLegacyLimits,
+  lockedAlliances,
 }: Omit<Lobbies.LobbySettings, 'numSlots'>): Lobbies.LobbySettings {
   if (isUms(gameType) && !hasUmsPlayerSlots(map)) {
     throw new LobbyServiceError(
@@ -343,7 +345,15 @@ function validatedLobbySettings({
   // way creating a lobby validates it
   checkSubTypeValidity(gameType, gameSubType, map.mapData.slots)
 
-  return { map, gameType, gameSubType, numSlots, allowObservers, useLegacyLimits }
+  return {
+    map,
+    gameType,
+    gameSubType,
+    numSlots,
+    allowObservers,
+    useLegacyLimits,
+    lockedAlliances,
+  }
 }
 
 /**
@@ -390,6 +400,7 @@ function advanceMapQueue(lobby: Lobby): { lobby: Lobby; skippedMapIds: SbMapId[]
           : 0,
         allowObservers: hasObservers(lobby),
         useLegacyLimits: lobby.useLegacyLimits,
+        lockedAlliances: lobby.lockedAlliances,
       })
       const updated = Lobbies.applySettingsChange(lobby, settings)
       return {
@@ -620,6 +631,7 @@ export class LobbyService {
     gameSubType,
     allowObservers,
     useLegacyLimits,
+    lockedAlliances,
     visibility,
     region,
     rttMs,
@@ -635,6 +647,7 @@ export class LobbyService {
     gameSubType?: number
     allowObservers?: boolean
     useLegacyLimits?: boolean
+    lockedAlliances?: boolean
     visibility?: LobbyVisibility
     region?: GameServerRegionId
     rttMs?: number
@@ -687,6 +700,7 @@ export class LobbyService {
       hostRegion,
       allowObservers: allowObservers ?? false,
       useLegacyLimits,
+      lockedAlliances,
       visibility: lobbyVisibility,
     })
 
@@ -1234,6 +1248,7 @@ export class LobbyService {
     gameSubType,
     allowObservers,
     useLegacyLimits,
+    lockedAlliances,
     mapQueue,
   }: {
     client: ClientSocketsGroup
@@ -1245,6 +1260,7 @@ export class LobbyService {
     gameSubType?: number
     allowObservers?: boolean
     useLegacyLimits?: boolean
+    lockedAlliances?: boolean
     mapQueue?: SbMapId[]
   }): Promise<void> {
     const lobby = this.getLobbyForClient(client, lobbyId)
@@ -1281,6 +1297,7 @@ export class LobbyService {
     const nextGameSubType = isTeamType(nextGameType) ? (gameSubType ?? current.gameSubType) : 0
     const nextAllowObservers = allowObservers ?? hasObservers(current)
     const nextUseLegacyLimits = useLegacyLimits ?? current.useLegacyLimits
+    const nextLockedAlliances = lockedAlliances ?? current.lockedAlliances
     const nextMapQueue = fetchedQueue ?? current.mapQueue
 
     const nextSettings = validatedLobbySettings({
@@ -1289,6 +1306,7 @@ export class LobbyService {
       gameSubType: nextGameSubType,
       allowObservers: nextAllowObservers,
       useLegacyLimits: nextUseLegacyLimits,
+      lockedAlliances: nextLockedAlliances,
     })
 
     const changedSettings: LobbyChangedSetting[] = []
@@ -1299,6 +1317,7 @@ export class LobbyService {
     if (nextGameSubType !== current.gameSubType) changedSettings.push('gameSubType')
     if (nextAllowObservers !== hasObservers(current)) changedSettings.push('allowObservers')
     if (nextUseLegacyLimits !== current.useLegacyLimits) changedSettings.push('useLegacyLimits')
+    if (nextLockedAlliances !== current.lockedAlliances) changedSettings.push('lockedAlliances')
     if (!sameMaps(nextMapQueue, current.mapQueue)) changedSettings.push('mapQueue')
     if (!changedSettings.length) {
       // Every requested value matches what the lobby already has, so there is nothing to apply or
@@ -2284,7 +2303,7 @@ export class LobbyService {
         useLegacyLimits: lobby.useLegacyLimits,
         visibility: lobby.visibility,
       },
-      lockedAlliances: false,
+      lockedAlliances: hasLockedAlliances(lobby),
       observers: getLobbySlots(lobby)
         .filter(s => s.type === SlotType.Observer)
         .map(s => s.userId!),

@@ -158,6 +158,7 @@ function makeLobby(topSlots: Slot[], bottomSlots: Slot[], observers: Slot[]): Lo
     bench: [makeBenched(BLUESKY, 'z')],
     host: topSlots[0],
     useLegacyLimits: false,
+    lockedAlliances: false,
     visibility: 'listed',
   }
 }

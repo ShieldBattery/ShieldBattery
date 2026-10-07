@@ -69,6 +69,7 @@ export interface CreateLobbyParams {
   gameType: GameType
   gameSubType?: number
   useLegacyLimits?: boolean
+  lockedAlliances?: boolean
   allowObservers?: boolean
   visibility?: LobbyVisibility
   /**
@@ -85,6 +86,7 @@ export function createLobby(
     gameType,
     gameSubType,
     useLegacyLimits,
+    lockedAlliances,
     allowObservers,
     visibility,
     leaveCurrentLobby,
@@ -103,6 +105,7 @@ export function createLobby(
         gameType,
         gameSubType,
         useLegacyLimits,
+        lockedAlliances,
         allowObservers,
         visibility,
         leaveCurrentLobby,

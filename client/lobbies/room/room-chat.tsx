@@ -331,6 +331,8 @@ function changedSettingLabel(setting: LobbyChangedSetting, t: TFunction): string
       return t('lobbies.messageLayout.settingsChangeGameSubType', 'teams')
     case 'useLegacyLimits':
       return t('lobbies.messageLayout.settingsChangeUnitLimit', 'unit limit')
+    case 'lockedAlliances':
+      return t('lobbies.messageLayout.settingsChangeLockedAlliances', 'alliance lock')
     case 'allowObservers':
       return t('lobbies.messageLayout.settingsChangeObservers', 'observers')
     case 'mapQueue':
