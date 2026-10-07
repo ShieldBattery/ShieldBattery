@@ -78,6 +78,7 @@ const whisperContext: WhisperCommandContext = {
 const lobbyContext: LobbyCommandContext = {
   surface: 'lobby',
   selfUserId: SELF_ID,
+  members: [],
 }
 
 function runInput(input: string, context: CommandContext = channelContext) {

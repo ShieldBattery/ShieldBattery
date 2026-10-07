@@ -28,10 +28,11 @@ import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { bodyMedium, bodySmall, labelMedium, labelSmall, singleLine } from '../../styles/typography'
 import { getBatchUserInfo } from '../../users/action-creators'
 import { ConnectedUsername } from '../../users/connected-username'
+import { areUserEntriesEqual, useUserEntriesSelector } from '../../users/user-entries'
 import { LobbyUserMenu } from '../lobby-menu-items'
 import { JoinLobbyMessage, LobbyMessageType } from '../lobby-message-records'
 import { RaceIcon } from '../race-icon'
-import { lobbyTeamLabel, SectionLabel } from './room-parts'
+import { getReadyEligibleUsers, lobbyTeamLabel, SectionLabel } from './room-parts'
 
 function Username({ userId }: { userId: SbUserId }) {
   const filterClick = useMentionFilterClick()
@@ -764,16 +765,30 @@ const ChatSurface = styled(Chat)`
 
 /** The room's conversation: the widest surface, because it's what a lobby actually does. */
 export function RoomChat({
+  viewerId,
   isRegrouping,
-  commandContext,
   onSendChatMessage,
   onWatchReplay,
   onViewGameSummary,
 }: {
-  commandContext: LobbyCommandContext
+  viewerId: SbUserId
   onSendChatMessage: (msg: string) => void
 } & GameSummaryActions) {
   const chat = useAppSelector(s => s.lobby.chat)
+  const lobby = useAppSelector(s => s.lobby.info)
+  const memberEntries = useAppSelector(
+    useUserEntriesSelector(
+      getReadyEligibleUsers(lobby).concat(lobby.bench.map(benched => benched.userId)),
+    ),
+    areUserEntriesEqual,
+  )
+  // Being in the lobby means being connected to it, so every member is online.
+  const members = memberEntries
+    .filter(([_id, name]) => name !== undefined)
+    .map(([id, name]) => ({ id, name: name!, online: true }))
+  const mentionableUsers = members.filter(member => member.id !== viewerId)
+
+  const commandContext: LobbyCommandContext = { surface: 'lobby', selfUserId: viewerId, members }
 
   return (
     <GameSummaryContext.Provider
@@ -784,9 +799,18 @@ export function RoomChat({
       }}>
       <ChatSurface
         listProps={{ messages: chat, MessageComponent: RoomChatMessage }}
-        inputProps={{ onSendChatMessage }}
+        inputProps={{
+          onSendChatMessage,
+          // The room's chat unmounts while the host has the game setup open, so the draft has to
+          // outlive it.
+          storageKey: `lobby-${lobby.id}`,
+          mentionableUsers,
+          baseMentionableUsers: mentionableUsers,
+        }}
         commandContext={commandContext}
         UserMenu={LobbyUserMenu}
+        escapeJumpsToBottom
+        jumpToBottomOnSend
       />
     </GameSummaryContext.Provider>
   )

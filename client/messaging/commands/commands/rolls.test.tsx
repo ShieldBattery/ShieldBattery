@@ -77,6 +77,7 @@ const whisperContext: WhisperCommandContext = {
 const lobbyContext: LobbyCommandContext = {
   surface: 'lobby',
   selfUserId: SELF_ID,
+  members: [],
 }
 
 const ALL_ROLL_COMMANDS = [rollCommand, flipCommand, eightBallCommand]

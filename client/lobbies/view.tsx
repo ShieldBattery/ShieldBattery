@@ -17,7 +17,6 @@ import { ResultsSubPage } from '../games/results-sub-page'
 import { MaterialIcon } from '../icons/material/material-icon'
 import logger from '../logging/logger'
 import { FilledButton } from '../material/button'
-import { LobbyCommandContext } from '../messaging/commands/command-context'
 import { push, replace } from '../navigation/routing'
 import { RequestHandlingSpec } from '../network/abortable-thunk'
 import LoadingIndicator, { LoadingDotsArea } from '../progress/dots'
@@ -237,12 +236,9 @@ function ConnectedLobby() {
     )
   }
 
-  const commandContext: LobbyCommandContext = { surface: 'lobby', selfUserId: selfUser!.id }
-
   return (
     <LobbyRoom
       viewerId={selfUser.id}
-      commandContext={commandContext}
       onSendChatMessage={message => {
         dispatch(
           sendChat(message, {

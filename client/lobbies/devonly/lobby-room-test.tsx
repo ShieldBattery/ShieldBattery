@@ -562,7 +562,6 @@ function LobbyRoomTestInner() {
         {lobby.name ? (
           <LobbyRoom
             viewerId={viewerId}
-            commandContext={{ surface: 'lobby', selfUserId: viewerId }}
             onSendChatMessage={text => sendMockChat(dispatch, viewerId, text)}
             onSetRace={(slotId, race) => {
               const [teamIndex, slotIndex] = findSlotById(lobby, slotId)

@@ -2,7 +2,6 @@ import { useState } from 'react'
 import styled from 'styled-components'
 import { RaceChar } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user-id'
-import { LobbyCommandContext } from '../../messaging/commands/command-context'
 import { useAppSelector } from '../../redux-hooks'
 import { RoomChat } from './room-chat'
 import { RoomGameSetup } from './room-game-setup'
@@ -40,8 +39,6 @@ const ChatColumn = styled.div`
 export interface LobbyRoomProps {
   /** The member whose point of view the room is rendered from. */
   viewerId: SbUserId
-  /** What the chat's slash commands act on: this lobby, as this viewer. */
-  commandContext: LobbyCommandContext
   onSendChatMessage: (msg: string) => void
   onSetRace: (slotId: string, race: RaceChar) => void
   onSitInSlot: (slotId: string) => void
@@ -66,7 +63,6 @@ export interface LobbyRoomProps {
  */
 export function LobbyRoom({
   viewerId,
-  commandContext,
   onSendChatMessage,
   onSetRace,
   onSitInSlot,
@@ -111,8 +107,8 @@ export function LobbyRoom({
                 onViewGameSummary={onViewGameSummary}
               />
               <RoomChat
+                viewerId={viewerId}
                 isRegrouping={isRegrouping}
-                commandContext={commandContext}
                 onSendChatMessage={onSendChatMessage}
                 onWatchReplay={onWatchReplay}
                 onViewGameSummary={onViewGameSummary}

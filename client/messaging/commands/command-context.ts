@@ -49,6 +49,8 @@ export interface WhisperCommandContext {
 export interface LobbyCommandContext {
   surface: 'lobby'
   selfUserId: SbUserId
+  /** Everyone in the lobby: its seated players and observers, and anyone waiting on the bench. */
+  members: ReadonlyArray<CommandUserEntry>
 }
 
 export type CommandContext = ChannelCommandContext | WhisperCommandContext | LobbyCommandContext
