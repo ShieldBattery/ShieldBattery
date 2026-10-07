@@ -3269,6 +3269,12 @@
       "rightClick": "Right-click user for more actions",
       "viewProfile": "View profile"
     },
+    "raceSelection": {
+      "gameCount_one": "{{total}} game",
+      "gameCount_other": "{{total}} games",
+      "lessThan": "<{{percent}}",
+      "title": "Race selection"
+    },
     "restrictions": {
       "reason": {
         "cheating": "Cheating or exploiting",

@@ -2911,6 +2911,11 @@
       "rightClick": "사용자를 우클릭하면 더 많은 동작을 볼 수 있습니다",
       "viewProfile": "프로필 보기"
     },
+    "raceSelection": {
+      "gameCount_other": "{{total}}전",
+      "lessThan": "<{{percent}}",
+      "title": "종족 선택 비율"
+    },
     "restrictions": {
       "reason": {
         "cheating": "치트 또는 익스플로잇 사용",

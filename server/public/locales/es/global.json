@@ -2985,6 +2985,13 @@
       "rightClick": "Haga clic derecho en el usuario para más acciones",
       "viewProfile": "Ver perfil"
     },
+    "raceSelection": {
+      "gameCount_one": "{{total}} partida",
+      "gameCount_many": "{{total}} de partidas",
+      "gameCount_other": "{{total}} partidas",
+      "lessThan": "<{{percent}}",
+      "title": "Selección de raza"
+    },
     "restrictions": {
       "reason": {
         "cheating": "Trampas o exploits",
