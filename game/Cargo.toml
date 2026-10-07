@@ -113,6 +113,8 @@ features = [
   "memoryapi",
   "minwinbase",
   "minwindef",
+  "namedpipeapi",
+  "processenv",
   "processthreadsapi",
   "realtimeapiset",
   "shlobj",

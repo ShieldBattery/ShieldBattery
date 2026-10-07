@@ -75,6 +75,7 @@ mod rollback_live;
 mod rollback_probe;
 #[cfg(debug_assertions)]
 mod rollback_soak;
+mod scr_stdout;
 mod snp;
 mod sync;
 mod team_colors;
@@ -250,6 +251,8 @@ pub extern "C" fn OnInject() {
         Ok(file) => crash_dump::set_breadcrumb_file(file),
         Err(e) => error!("Couldn't duplicate the log handle for crash breadcrumbs: {e}"),
     }
+    // SC:R reports renderer failures only on stdout, so this has to happen before its CRT starts.
+    scr_stdout::init();
 
     let args = parse_args();
     let process_id = unsafe { GetCurrentProcessId() };
