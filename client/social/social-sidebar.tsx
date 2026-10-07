@@ -19,6 +19,7 @@ import {
   getJoinedChannels,
   leaveChannelWithConfirmation,
   markChannelReadNow,
+  updateChannelOrder,
 } from '../chat/action-creators'
 import { ConnectedChannelBadge } from '../chat/channel-badge'
 import { useChannelNotificationMenuItems } from '../chat/channel-notification-menu-items'
@@ -455,6 +456,69 @@ const LoadErrorContainer = styled.div`
   padding: 8px;
 `
 
+/** The drag data type carrying a channel ID while a channel is dragged within the sidebar. */
+const CHANNEL_DRAG_TYPE = 'application/x-shieldbattery-channel'
+
+/** Wraps a channel's entry so it can be dragged to a new place in the list. */
+const ChannelDragRow = styled.div<{
+  $dragging: boolean
+  $dropBefore: boolean
+  $dropAfter: boolean
+}>`
+  position: relative;
+  opacity: ${props => (props.$dragging ? 0.4 : 1)};
+
+  &::before,
+  &::after {
+    position: absolute;
+    left: 8px;
+    right: 4px;
+    height: 2px;
+
+    content: '';
+    border-radius: 1px;
+    background-color: var(--theme-primary);
+    pointer-events: none;
+  }
+
+  &::before {
+    top: -1px;
+    display: ${props => (props.$dropBefore ? 'block' : 'none')};
+  }
+
+  &::after {
+    bottom: -1px;
+    display: ${props => (props.$dropAfter ? 'block' : 'none')};
+  }
+`
+
+/** Where a dragged channel would land: just before or just after the channel being hovered. */
+interface ChannelDropTarget {
+  channelId: SbChannelId
+  after: boolean
+}
+
+/**
+ * Returns `channelIds` with `draggedId` moved to `target`, or undefined if that leaves the order
+ * unchanged (or either channel is no longer in the list).
+ */
+function moveChannel(
+  channelIds: ReadonlyArray<SbChannelId>,
+  draggedId: SbChannelId,
+  target: ChannelDropTarget,
+): SbChannelId[] | undefined {
+  if (!channelIds.includes(draggedId)) {
+    return undefined
+  }
+  const next = channelIds.filter(id => id !== draggedId)
+  const targetIndex = next.indexOf(target.channelId)
+  if (targetIndex === -1) {
+    return undefined
+  }
+  next.splice(target.after ? targetIndex + 1 : targetIndex, 0, draggedId)
+  return next.every((id, i) => id === channelIds[i]) ? undefined : next
+}
+
 function ChatContent({
   isLoadingJoinedChannels,
   loadingJoinedChannelsError,
@@ -475,6 +539,44 @@ function ChatContent({
   const chatChannels = useAppSelector(s => s.chat.joinedChannels)
   const whisperSessions = useAppSelector(s => s.whispers.sessions)
   const { onNavigation } = useNavigationTracker()
+  const snackbarController = useSnackbarController()
+
+  const [draggedChannel, setDraggedChannel] = useState<SbChannelId>()
+  const [dropTarget, setDropTarget] = useState<ChannelDropTarget>()
+
+  const onChannelDragEnd = () => {
+    setDraggedChannel(undefined)
+    setDropTarget(undefined)
+  }
+
+  const onChannelDrop = (event: React.DragEvent) => {
+    if (draggedChannel === undefined) {
+      return
+    }
+    event.preventDefault()
+    const next = dropTarget
+      ? moveChannel(Array.from(chatChannels), draggedChannel, dropTarget)
+      : undefined
+    onChannelDragEnd()
+    if (!next) {
+      return
+    }
+
+    dispatch(
+      updateChannelOrder(next, {
+        onSuccess: () => {},
+        onError: err => {
+          snackbarController.showSnackbar(
+            t('social.chat.reorderChannelsError', {
+              defaultValue: 'Error saving the channel order: {{errorMessage}}',
+              errorMessage: err.message,
+            }),
+            DURATION_LONG,
+          )
+        },
+      }),
+    )
+  }
 
   let chatChannelsList: React.ReactNode
   if (isLoadingJoinedChannels) {
@@ -489,15 +591,58 @@ function ChatContent({
       </LoadErrorContainer>
     )
   } else {
-    chatChannelsList = Array.from(chatChannels.values(), c => (
-      <ChannelEntry
-        key={c}
-        channelId={c}
-        onLeave={(channelId: SbChannelId) => {
-          dispatch(leaveChannelWithConfirmation(channelId))
+    chatChannelsList = (
+      <div
+        onDragOver={event => {
+          if (draggedChannel !== undefined) {
+            event.preventDefault()
+          }
         }}
-      />
-    ))
+        onDrop={onChannelDrop}>
+        {Array.from(chatChannels.values(), c => (
+          <ChannelDragRow
+            key={c}
+            draggable={true}
+            $dragging={draggedChannel === c}
+            $dropBefore={dropTarget?.channelId === c && !dropTarget.after}
+            $dropAfter={dropTarget?.channelId === c && dropTarget.after}
+            onDragStart={event => {
+              // The entry is a link, so the browser would otherwise drag its URL (droppable as
+              // text into inputs) with a link-shaped drag image rather than the row.
+              event.dataTransfer.clearData()
+              event.dataTransfer.setData(CHANNEL_DRAG_TYPE, String(c))
+              event.dataTransfer.effectAllowed = 'move'
+              const rect = event.currentTarget.getBoundingClientRect()
+              event.dataTransfer.setDragImage(
+                event.currentTarget,
+                event.clientX - rect.left,
+                event.clientY - rect.top,
+              )
+              setDraggedChannel(c)
+            }}
+            onDragOver={event => {
+              if (draggedChannel === undefined) {
+                return
+              }
+              event.preventDefault()
+              event.dataTransfer.dropEffect = 'move'
+              const rect = event.currentTarget.getBoundingClientRect()
+              const after = event.clientY >= rect.top + rect.height / 2
+              if (dropTarget?.channelId !== c || dropTarget.after !== after) {
+                setDropTarget({ channelId: c, after })
+              }
+            }}
+            onDragEnd={onChannelDragEnd}>
+            <ChannelEntry
+              channelId={c}
+              onLeave={(channelId: SbChannelId) => {
+                dispatch(leaveChannelWithConfirmation(channelId))
+              }}
+            />
+          </ChannelDragRow>
+        ))}
+      </div>
+    )
   }
 
   let whisperSessionsList: React.ReactNode

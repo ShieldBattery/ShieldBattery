@@ -136,7 +136,14 @@ export function useButtonState({
   }, [])
   const handleMouseDown = useCallback(
     (event: React.MouseEvent) => {
-      window.addEventListener('mouseup', handleMouseUp, { once: true })
+      const onRelease = () => {
+        window.removeEventListener('mouseup', onRelease)
+        window.removeEventListener('dragend', onRelease)
+        handleMouseUp()
+      }
+      window.addEventListener('mouseup', onRelease)
+      // A press that turns into a native drag (e.g. of a link) ends with `dragend`, never `mouseup`.
+      window.addEventListener('dragend', onRelease)
 
       rippleRef.current?.onActivate(event)
 

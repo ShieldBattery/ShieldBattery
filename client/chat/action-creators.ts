@@ -26,6 +26,7 @@ import {
   SearchChannelsResponse,
   SendChatMessageServerRequest,
   TransferChannelOwnershipRequest,
+  UpdateChannelOrderRequest,
   UpdateChannelUserPermissionsRequest,
   UpdateChannelUserPreferencesRequest,
 } from '../../common/chat'
@@ -449,6 +450,35 @@ export function updateChannel({
         channelId,
       },
     })
+  })
+}
+
+/**
+ * Puts the user's joined channels in the given order. The new order is shown right away and is
+ * put back if the server rejects it (unless the order has changed again since).
+ */
+export function updateChannelOrder(
+  channelIds: ReadonlyArray<SbChannelId>,
+  spec: RequestHandlingSpec<void>,
+): ThunkAction {
+  return abortableThunk(spec, async (dispatch, getState) => {
+    const previous = Array.from(getState().chat.joinedChannels)
+    dispatch({ type: '@chat/channelOrderChanged', payload: { channelIds } })
+    const optimistic = Array.from(getState().chat.joinedChannels)
+
+    try {
+      await fetchJson<void>(apiUrl`chat/channel-order`, {
+        method: 'PUT',
+        body: encodeBodyAsParams<UpdateChannelOrderRequest>({ channelIds: [...channelIds] }),
+        signal: spec.signal,
+      })
+    } catch (err) {
+      const current = Array.from(getState().chat.joinedChannels)
+      if (current.length === optimistic.length && current.every((id, i) => id === optimistic[i])) {
+        dispatch({ type: '@chat/channelOrderChanged', payload: { channelIds: previous } })
+      }
+      throw err
+    }
   })
 }
 

@@ -3024,7 +3024,8 @@
     "chat": {
       "label": "Chat",
       "loadingChannelsError": "Error loading chat channels",
-      "loadingWhispersError": "Error loading whispers"
+      "loadingWhispersError": "Error loading whispers",
+      "reorderChannelsError": "Error saving the channel order: {{errorMessage}}"
     },
     "errors": {
       "friendsList": {
