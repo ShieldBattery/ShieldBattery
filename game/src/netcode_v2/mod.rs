@@ -217,6 +217,57 @@ pub const DROP_UNLOCK_UI: Duration = Duration::from_secs(45);
 /// stays available afterward (a re-click is safe); the note just acknowledges the click.
 pub const DROP_REQUESTED_NOTE: Duration = Duration::from_secs(5);
 
+/// How long the loading screen shows a member as merely connecting before it says the game is
+/// waiting on them.
+pub const LOADING_WAIT_NOTICE: Duration = Duration::from_secs(15);
+
+/// A render-side snapshot of which session members have connected to the relay, for the pre-game
+/// loading screen. Built by [`TurnState::loading_connectivity`]; names members only by user id.
+pub struct LoadingConnectivity {
+    /// The session users the relay reports connected, this client's own user included.
+    pub connected: Vec<SbUserId>,
+    /// Whether the relay has started the session, which it does only once every expected member
+    /// has connected.
+    pub all_connected: bool,
+    /// When this client's own link came up, from which a member not yet connected counts as being
+    /// waited on.
+    pub since: Instant,
+}
+
+/// One participant's connection as the loading screen shows it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LoadingPresence {
+    Connected,
+    /// Not connected yet, and not for long enough to call out.
+    Connecting,
+    /// Still not connected [`LOADING_WAIT_NOTICE`] after this client connected.
+    Waiting,
+}
+
+/// How the loading screen shows the participant `user`. `local_user` (this client's own user) is
+/// always connected. `connectivity` is `None` until this client's own session is established, when
+/// nothing is known about anyone else yet, so every other participant shows as connecting.
+pub fn loading_presence(
+    connectivity: Option<&LoadingConnectivity>,
+    user: SbUserId,
+    local_user: Option<SbUserId>,
+    now: Instant,
+) -> LoadingPresence {
+    if Some(user) == local_user {
+        return LoadingPresence::Connected;
+    }
+    let Some(connectivity) = connectivity else {
+        return LoadingPresence::Connecting;
+    };
+    if connectivity.all_connected || connectivity.connected.contains(&user) {
+        LoadingPresence::Connected
+    } else if now.saturating_duration_since(connectivity.since) >= LOADING_WAIT_NOTICE {
+        LoadingPresence::Waiting
+    } else {
+        LoadingPresence::Connecting
+    }
+}
+
 /// A render-side snapshot of the session's connectivity health, for the survivor disconnect
 /// overlay. Built by [`TurnState::disconnect_status`] and read from the draw thread; it names peers
 /// only by user id (resolved to a display name at render time) and touches no game state. The
@@ -702,6 +753,19 @@ pub struct TurnState {
     /// render it on yet), a (re)connect clears the slot, and an applied leave clears it via
     /// [`mark_slot_left`](Self::mark_slot_left). Best-effort and render-facing only.
     disconnected: Vec<(SlotId, Instant)>,
+    /// Peers the relay's connectivity stream currently reports as connected, in observation order:
+    /// a `true` frame adds the slot and a `false` frame removes it, before and after the game
+    /// starts alike. The relay restates every member already connected when this client's link
+    /// comes up, so this covers peers that connected first too. Read by the loading screen.
+    connected_peers: Vec<SlotId>,
+    /// Whether the relay's session-start directive has arrived. The relay sends it only once every
+    /// expected member has connected, so it settles the loading screen's view of who is here
+    /// regardless of which connectivity frames were seen (see
+    /// [`mark_session_started`](Self::mark_session_started)).
+    session_started: bool,
+    /// When this turn state was built, which is when this client's own relay link came up: the
+    /// instant from which the loading screen counts how long it has waited on a peer.
+    created_at: Instant,
     /// Whether this client's own relay link is currently down, per the driver's self-connectivity
     /// signal on [`TurnChannels::connectivity`](rally_point_client::TurnChannels) (see
     /// [`pump_connectivity`](Self::pump_connectivity)). Unlike a peer's entry in `disconnected`,
@@ -811,6 +875,9 @@ impl TurnState {
             #[cfg(debug_assertions)]
             chat_log: VecDeque::new(),
             disconnected: Vec::new(),
+            connected_peers: Vec::new(),
+            session_started: false,
+            created_at: Instant::now(),
             self_link_lost: false,
             self_link_ended: false,
             driver_end: None,
@@ -849,6 +916,8 @@ impl TurnState {
         );
         state.populate_identity_slots();
         state.local_only = true;
+        // There is no one to wait on.
+        state.session_started = true;
         state
     }
 
@@ -1650,8 +1719,9 @@ impl TurnState {
     ///
     /// - A peer frame (`false`) observed once the game has started records that slot as
     ///   disconnected (keeping the first-seen instant on a repeat); a peer `true` clears it. A
-    ///   pre-start frame is ignored — the pre-start dial's own connect frames arrive here and are
-    ///   absorbed harmlessly.
+    ///   pre-start drop records no disconnect (there is no in-game overlay to show it on yet).
+    /// - Every peer frame, before or after the start, updates
+    ///   [`connected_peers`](Self::connected_peers) for the loading screen.
     /// - Our own slot's frame drives [`self_link_lost`](Self::self_link_lost) directly: `false`
     ///   sets it, `true` clears it — the driver re-dials on its own and emits this pair around each
     ///   outage, so unlike a peer's entry this is not a one-way latch. Applied regardless of
@@ -1673,8 +1743,14 @@ impl TurnState {
                 Ok((slot, connected)) if slot == self.local_slot => {
                     self.self_link_lost = !connected;
                 }
-                Ok((slot, true)) => self.disconnected.retain(|&(s, _)| s != slot),
+                Ok((slot, true)) => {
+                    self.disconnected.retain(|&(s, _)| s != slot);
+                    if !self.connected_peers.contains(&slot) {
+                        self.connected_peers.push(slot);
+                    }
+                }
                 Ok((slot, false)) => {
+                    self.connected_peers.retain(|&s| s != slot);
                     if game_started && !self.disconnected.iter().any(|&(s, _)| s == slot) {
                         self.disconnected.push((slot, now));
                     }
@@ -1692,6 +1768,26 @@ impl TurnState {
         // Observation-only: capture any own-link transition this pump produced for the net-stats
         // history (a no-op unless the up/down state actually flipped).
         self.net_stats.record_link(!self.self_link_lost, now);
+    }
+
+    /// Records that the relay's session-start directive arrived: every expected member connected.
+    pub fn mark_session_started(&mut self) {
+        self.session_started = true;
+    }
+
+    /// A render-side snapshot of which session members have connected, for the loading screen.
+    /// Resolves each connected slot to its session user id via the roster (a slot with no roster
+    /// entry is skipped). Pure read: drains no channel, mutates nothing.
+    pub fn loading_connectivity(&self) -> LoadingConnectivity {
+        let connected = std::iter::once(self.local_slot)
+            .chain(self.connected_peers.iter().copied())
+            .filter_map(|slot| self.user_for_slot(slot))
+            .collect();
+        LoadingConnectivity {
+            connected,
+            all_connected: self.session_started,
+            since: self.created_at,
+        }
     }
 
     /// A render-side snapshot of who has lost connection, for the survivor disconnect overlay.
@@ -4797,6 +4893,86 @@ mod tests {
         connectivity_tx.try_send((PEER_SLOT, true)).unwrap();
         state.pump_connectivity(true, now);
         assert!(state.disconnect_status().peers.is_empty());
+    }
+
+    #[test]
+    fn connectivity_tracks_connected_peers_before_the_start() {
+        let (mut state, connectivity_tx, _request_drop_rx) = turn_state_with_connectivity();
+        let now = Instant::now();
+        let status = state.loading_connectivity();
+        assert_eq!(status.connected, vec![LOCAL_USER]);
+        assert!(!status.all_connected);
+
+        connectivity_tx.try_send((PEER_SLOT, true)).unwrap();
+        state.pump_connectivity(false, now);
+        assert_eq!(
+            state.loading_connectivity().connected,
+            vec![LOCAL_USER, PEER_USER]
+        );
+
+        // A repeat (the relay's connect-time restatement racing the live frame) adds nothing.
+        connectivity_tx.try_send((PEER_SLOT, true)).unwrap();
+        state.pump_connectivity(false, now);
+        assert_eq!(
+            state.loading_connectivity().connected,
+            vec![LOCAL_USER, PEER_USER]
+        );
+
+        // A pre-start drop takes the peer back out, without recording an in-game disconnect.
+        connectivity_tx.try_send((PEER_SLOT, false)).unwrap();
+        state.pump_connectivity(false, now);
+        assert_eq!(state.loading_connectivity().connected, vec![LOCAL_USER]);
+        assert!(state.disconnect_status().peers.is_empty());
+
+        state.mark_session_started();
+        assert!(state.loading_connectivity().all_connected);
+    }
+
+    #[test]
+    fn loading_presence_waits_on_unconnected_members_after_the_notice() {
+        let since = Instant::now();
+        let connectivity = LoadingConnectivity {
+            connected: vec![LOCAL_USER],
+            all_connected: false,
+            since,
+        };
+        let local = Some(LOCAL_USER);
+
+        assert_eq!(
+            loading_presence(None, LOCAL_USER, local, since),
+            LoadingPresence::Connected
+        );
+        assert_eq!(
+            loading_presence(None, PEER_USER, local, since),
+            LoadingPresence::Connecting
+        );
+        assert_eq!(
+            loading_presence(Some(&connectivity), PEER_USER, local, since),
+            LoadingPresence::Connecting
+        );
+        assert_eq!(
+            loading_presence(
+                Some(&connectivity),
+                PEER_USER,
+                local,
+                since + LOADING_WAIT_NOTICE
+            ),
+            LoadingPresence::Waiting
+        );
+
+        let started = LoadingConnectivity {
+            all_connected: true,
+            ..connectivity
+        };
+        assert_eq!(
+            loading_presence(
+                Some(&started),
+                PEER_USER,
+                local,
+                since + LOADING_WAIT_NOTICE
+            ),
+            LoadingPresence::Connected
+        );
     }
 
     #[test]

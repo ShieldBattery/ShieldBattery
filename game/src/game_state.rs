@@ -262,6 +262,9 @@ impl GameState {
             }
         };
         let local_user = init_state.local_user.clone();
+        // Set before BW initializes, so the loading screen knows which participant is this client
+        // from its first frame.
+        game_thread::set_local_user_id(local_user.id);
         // The server base URL the netcode-v2 re-home provider posts to (same origin as the results
         // submission). Captured before `init_state` is moved into `Started`.
         let server_url = init_state.server_config.server_url.clone();
@@ -559,6 +562,9 @@ impl GameState {
                 debug!("Waiting for the session-start directive at lobby_state {last_lobby_state}");
                 loop {
                     game_thread::step_lobby_init();
+                    // Keep the loading screen's view of who has connected current while waiting.
+                    // BW's lobby turn hook pumps this too, but only when lobby init steps reach it.
+                    netcode_v2::with_turn_state(|s| s.pump_connectivity(false, Instant::now()));
                     let lobby_state = unsafe { bw.lobby_state() };
                     if lobby_state != last_lobby_state {
                         debug!(
@@ -599,6 +605,7 @@ impl GameState {
                         }
                     }
                 }
+                netcode_v2::with_turn_state(|s| s.mark_session_started());
                 // Delivery is at-least-once: keep the receiver alive and drained for the rest of the
                 // session so a re-pushed directive (authority churn / a late slot's re-register)
                 // stays a no-op instead of wedging or closing the driver on a dropped receiver.
@@ -1192,7 +1199,7 @@ impl GameState {
                             sb_user_id: player.sb_user_id,
                         })
                         .collect();
-                    game_thread::set_player_id_mapping(mapping, state.local_user.id);
+                    game_thread::set_player_id_mapping(mapping);
                 } else {
                     warn!("Player randomization received too early");
                 }

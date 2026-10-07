@@ -270,10 +270,14 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
     }
 }
 
-pub fn set_player_id_mapping(mapping: Vec<PlayerIdMapping>, local_user_id: SbUserId) {
+pub fn set_player_id_mapping(mapping: Vec<PlayerIdMapping>) {
     if PLAYER_ID_MAPPING.set(mapping).is_err() {
         warn!("Player id mapping set twice");
     }
+}
+
+/// Records this client's own ShieldBattery user, once, as game setup begins.
+pub fn set_local_user_id(local_user_id: SbUserId) {
     if LOCAL_USER_ID.set(local_user_id).is_err() {
         warn!("Local user id set twice");
     }

@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use egui::{Color32, CornerRadius, Frame, Label, Layout, Margin, RichText, Shadow, Vec2};
 use egui_extras::StripBuilder;
 use egui_flex::{Flex, FlexAlign, FlexInstance};
@@ -9,6 +11,8 @@ use crate::{
     },
     bw::{RACE_PROTOSS, RACE_TERRAN, RACE_ZERG},
     bw_scr::draw_overlay::{BwVars, OverlayState, colors, fonts::display_family},
+    game_thread,
+    netcode_v2::{LoadingConnectivity, LoadingPresence, loading_presence},
 };
 
 const MAP_IMAGE_SIZE: Vec2 = Vec2::new(640.0, 640.0);
@@ -17,6 +21,10 @@ const MAP_BREAKPOINT: f32 = 1360.0;
 const OBSERVER_ROW_HEIGHT: f32 = 48.0;
 const OBSERVER_AVATAR_SIZE: f32 = 24.0;
 const OBSERVER_NAME_MAX_WIDTH: f32 = 200.0;
+/// How opaque a participant who hasn't connected yet is drawn.
+const UNCONNECTED_OPACITY: f32 = 0.45;
+/// How long a participant takes to fade between the connected and unconnected looks.
+const PRESENCE_FADE_SECS: f32 = 0.3;
 
 // TODO(tec27): This is probably retrievable from egui?
 const BACKGROUND_SIZE: Vec2 = Vec2::new(1920.0, 1152.0);
@@ -26,6 +34,7 @@ impl OverlayState {
         &mut self,
         bw: &BwVars,
         setup_info: Option<&GameSetupInfo>,
+        loading_connectivity: Option<&LoadingConnectivity>,
         ui: &mut egui::Ui,
     ) {
         // egui 0.34 made `CentralPanel::show` take a `&mut Ui` (drawn into the pass's root Ui)
@@ -76,6 +85,15 @@ impl OverlayState {
             .iter()
             .filter(|s| s.is_observer())
             .collect::<Vec<_>>();
+
+        let local_user = game_thread::local_user_id();
+        let now = Instant::now();
+        let presence = |player: &PlayerInfo| match player.user_id {
+            Some(user) if player.player_type != SbSlotType::Computer => {
+                loading_presence(loading_connectivity, user, local_user, now)
+            }
+            _ => LoadingPresence::Connected,
+        };
 
         let map_size = if ctx.content_rect().size().x < MAP_BREAKPOINT {
             SMALL_MAP_IMAGE_SIZE
@@ -131,6 +149,7 @@ impl OverlayState {
                                                             p,
                                                             &setup_info.users,
                                                             &setup_info.ranks,
+                                                            presence(p),
                                                             true,
                                                         )
                                                     });
@@ -207,6 +226,7 @@ impl OverlayState {
                                                             p,
                                                             &setup_info.users,
                                                             &setup_info.ranks,
+                                                            presence(p),
                                                             false,
                                                         )
                                                     });
@@ -215,7 +235,9 @@ impl OverlayState {
                                     });
                             });
                             if !observers.is_empty() {
-                                rows.cell(|ui| add_observer_row(ui, &observers, &setup_info.users));
+                                rows.cell(|ui| {
+                                    add_observer_row(ui, &observers, &setup_info.users, presence)
+                                });
                             }
                         });
                     },
@@ -263,6 +285,7 @@ impl OverlayState {
         player: &PlayerInfo,
         users: &[SbUser],
         ranks: &[GamePlayerRank],
+        presence: LoadingPresence,
         is_start_team: bool,
     ) {
         let user = if player.player_type == SbSlotType::Computer {
@@ -293,6 +316,7 @@ impl OverlayState {
             ),
         };
 
+        let opacity = presence_opacity(flex.ui().ctx(), player, presence);
         flex.add_ui(
             egui_flex::item().frame(
                 egui::Frame::default()
@@ -304,9 +328,11 @@ impl OverlayState {
                         spread: 2,
                         color: colors::BLUE80.gamma_multiply(0.7),
                     })
-                    .inner_margin(Margin::same(16)),
+                    .inner_margin(Margin::same(16))
+                    .multiply_with_opacity(opacity),
             ),
             |ui| {
+                ui.multiply_opacity(opacity);
                 Flex::horizontal()
                     .w_auto()
                     .gap([16.0, 16.0].into())
@@ -339,6 +365,7 @@ impl OverlayState {
                                     if let Some(rank) = rank {
                                         add_rank(ui, rank);
                                     }
+                                    add_presence_note(ui, presence, 16.0);
                                 });
                             });
                         };
@@ -364,7 +391,13 @@ impl OverlayState {
 
 /// Adds a centered row listing the game's observers, each as a compact name (with their avatar if
 /// they have one) so they read as secondary to the player cards.
-fn add_observer_row(ui: &mut egui::Ui, observers: &[&PlayerInfo], users: &[SbUser]) {
+fn add_observer_row(
+    ui: &mut egui::Ui,
+    observers: &[&PlayerInfo],
+    users: &[SbUser],
+    presence: impl Fn(&PlayerInfo) -> LoadingPresence,
+) {
+    let ctx = ui.ctx().clone();
     Flex::horizontal()
         .align_items(FlexAlign::Center)
         .justify(egui_flex::FlexJustify::Center)
@@ -382,15 +415,19 @@ fn add_observer_row(ui: &mut egui::Ui, observers: &[&PlayerInfo], users: &[SbUse
                 let user = users.iter().find(|u| Some(u.id) == observer.user_id);
                 let name = user.map(|u| u.name.as_str()).unwrap_or("Unknown Player");
                 let avatar_url = user.and_then(|u| u.avatar_url.as_deref());
+                let presence = presence(observer);
+                let opacity = presence_opacity(&ctx, observer, presence);
 
                 flex.add_ui(
                     egui_flex::item().frame(
                         Frame::default()
                             .fill(colors::CONTAINER_LOW)
                             .corner_radius(CornerRadius::same(8))
-                            .inner_margin(Margin::symmetric(12, 8)),
+                            .inner_margin(Margin::symmetric(12, 8))
+                            .multiply_with_opacity(opacity),
                     ),
                     |ui| {
+                        ui.multiply_opacity(opacity);
                         ui.horizontal(|ui| {
                             ui.spacing_mut().item_spacing.x = 8.0;
                             if let Some(url) = avatar_url {
@@ -415,11 +452,42 @@ fn add_observer_row(ui: &mut egui::Ui, observers: &[&PlayerInfo], users: &[SbUse
                                     .truncate(),
                                 );
                             });
+                            add_presence_note(ui, presence, 14.0);
                         });
                     },
                 );
             }
         });
+}
+
+/// The opacity to draw `player`'s card at for `presence`, eased so a player connecting fades in
+/// rather than popping.
+fn presence_opacity(ctx: &egui::Context, player: &PlayerInfo, presence: LoadingPresence) -> f32 {
+    let target = match presence {
+        LoadingPresence::Connected => 1.0,
+        LoadingPresence::Connecting | LoadingPresence::Waiting => UNCONNECTED_OPACITY,
+    };
+    ctx.animate_value_with_time(
+        egui::Id::new(("loading_presence", player.user_id.map(|u| u.0))),
+        target,
+        PRESENCE_FADE_SECS,
+    )
+}
+
+/// Adds a short note saying a participant hasn't connected yet, and nothing once they have. Drawn
+/// inside the participant's dimmed card, so its colors are picked to stay readable at that opacity.
+fn add_presence_note(ui: &mut egui::Ui, presence: LoadingPresence, size: f32) {
+    // TODO(i18n): Translate these, along with the rest of the loading screen's strings
+    let (text, color) = match presence {
+        LoadingPresence::Connected => return,
+        LoadingPresence::Connecting => ("Connecting…", colors::GREY_BLUE70),
+        LoadingPresence::Waiting => ("Waiting for player", colors::AMBER80),
+    };
+    // Undo the card's dimming for the note itself, so the reason it's dimmed stays legible.
+    ui.scope(|ui| {
+        ui.set_opacity(1.0);
+        ui.label(RichText::new(text).size(size).color(color));
+    });
 }
 
 /// Adds a line showing the player's division icon and name, followed by their rating when it's

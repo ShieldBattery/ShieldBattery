@@ -3952,6 +3952,13 @@ impl BwScr {
                             netcode_v2::with_turn_state(|s| s.net_stats_status(Instant::now()))
                                 .flatten();
                         let net_quality = self.net_quality_view();
+                        // Who has connected so far, for the loading screen. `None` before this
+                        // client's own session is up, and not needed once the game has started.
+                        let loading_connectivity = if game_started {
+                            None
+                        } else {
+                            netcode_v2::with_turn_state(|s| s.loading_connectivity())
+                        };
                         // If we're switching between SD/HD, egui flexboxes will break due
                         // to render target size constantly changing, so we allow the overlay
                         // to request a second pass to provide nicer look.
@@ -3984,6 +3991,7 @@ impl BwScr {
                                 &disconnect_status,
                                 net_stats.as_ref(),
                                 net_quality.as_ref(),
+                                loading_connectivity.as_ref(),
                             );
                             if cfg!(debug_assertions) {
                                 self.handle_debug_ui_actions(&overlay_out, &mut render_state);
