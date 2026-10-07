@@ -887,6 +887,35 @@ const injectDir =
 const injectPath32 = path.join(injectDir, 'shieldbattery.dll')
 const injectPath64 = path.join(injectDir, 'shieldbattery_64.dll')
 
+// Dev builds can vary the environment each launched game gets without restarting the app: a JSON
+// object of variables (a null value unsets one) read from this file right before every launch, so
+// a test runner can drive many differently configured games through one logged-in app.
+const devGameEnvFile = isDev ? process.env.SB_GAME_ENV_FILE : undefined
+/** The variables the previous launch's env file set, unset again if the next file drops them. */
+let devGameEnvKeys: string[] = []
+
+async function applyDevGameEnv() {
+  if (!devGameEnvFile) {
+    return
+  }
+  const vars: Record<string, string | null> = JSON.parse(
+    await fsPromises.readFile(devGameEnvFile, 'utf8'),
+  )
+  for (const key of devGameEnvKeys) {
+    if (!(key in vars)) {
+      delete process.env[key]
+    }
+  }
+  for (const [key, value] of Object.entries(vars)) {
+    if (value === null) {
+      delete process.env[key]
+    } else {
+      process.env[key] = value
+    }
+  }
+  devGameEnvKeys = Object.keys(vars)
+}
+
 async function doLaunch(
   gameId: string,
   serverPort: number,
@@ -990,6 +1019,7 @@ async function doLaunch(
       }
     }
 
+    await applyDevGameEnv()
     const proc = await launchProcess({
       appPath,
       args: args as any,

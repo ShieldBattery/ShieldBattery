@@ -42,6 +42,12 @@ Everything here lives in this skill's directory; data goes to `.claude-scratch/r
 5. **Prod access**: replays come from `http://sb-prod/internal/games/:id/artifacts` (tailnet). The
    queue comes from the prod DB MCP.
 
+Each worker keeps one app running and logged in across its runs. A run's game environment (the
+harness config, the done-file path) goes through the app's dev-only `SB_GAME_ENV_FILE`, which it
+re-reads before every game launch; the app only restarts after a launch problem, a crash or
+timeout, or a switch of architecture. That needs a main bundle built with that support
+(`pnpm run build-app-main`).
+
 Launches already keep out of the user's way. The app gets `--hidden` (no window; CDP still drives
 it), and games get `SB_APP_BACKGROUND=1`/`SB_GAME_BACKGROUND=1` (opens behind other windows, never
 takes focus or touches the cursor).

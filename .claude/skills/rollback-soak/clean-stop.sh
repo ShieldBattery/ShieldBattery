@@ -2,7 +2,7 @@
 # Cleans up after a soak runner was killed mid-run (stop the runner's own process first): kills the
 # Electron instances and games that runner launched, drops result rows of games that never
 # finished (they rerun on the next start), and deletes the killed runs' CSVs and done files. Only
-# processes and files recorded in this data dir's runs/*.pids (one per run in flight) are touched,
+# processes and files recorded in this data dir's runs/*.pids (one per worker) are touched,
 # so another runner, a repro, or anyone's own game keeps running.
 #
 # usage: clean-stop.sh [game id...]   (data dir: $SOAK_DATA, default .claude-scratch/rollback-soak)

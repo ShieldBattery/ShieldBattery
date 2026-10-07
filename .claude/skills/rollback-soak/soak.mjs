@@ -7,8 +7,9 @@
 // Reads its queue.tsv (gameId, source, type, seconds, players), skips games already in
 // results.jsonl, and for each game: downloads its replay from sb-prod's internal API, runs it once
 // plainly (SB_ROLLBACK_PROBE) to get the baseline fingerprints, then K times with the harness
-// armed. Every run is a fresh Electron instance on its own SB_SESSION, injecting the pinned DLLs in
-// dll/. Passing runs' CSVs are deleted; failures keep everything under failures/.
+// armed. Each worker keeps one logged-in app on its own SB_SESSION, injecting the pinned DLLs in
+// dll/, and hands every run its game environment through SB_GAME_ENV_FILE. Passing runs' CSVs are
+// deleted; failures keep everything under failures/.
 import { spawn, execSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -204,13 +205,40 @@ function killTree(pid) {
   } catch {}
 }
 
-async function startReplay(port, replayPath) {
+// Each worker keeps one app running across its runs, logged in once: a run only writes the
+// environment its game should get to the worker's env file (SB_GAME_ENV_FILE, which the app
+// re-reads before every launch) and starts the replay. The app is restarted after anything that
+// may have left it in a bad state (a launch problem, a crash or timeout), and when the worker
+// switches architecture, since the app picks up a settings change asynchronously.
+const apps = new Map()
+
+function pidsFileFor(session) {
+  return path.join(SOAK, 'runs', `${session}.pids`)
+}
+
+function stopApp(worker) {
+  const app = apps.get(worker)
+  if (!app) return
+  apps.delete(worker)
+  killTree(app.electron.pid)
+  fs.rmSync(pidsFileFor(app.session), { force: true })
+}
+
+async function withAppPage(port, fn) {
   const browser = await chromium.connectOverCDP(`http://localhost:${port}`)
   try {
     const page = browser
       .contexts()
       .flatMap(c => c.pages())
       .find(p => !p.url().startsWith('devtools'))
+    return await fn(page)
+  } finally {
+    await browser.close()
+  }
+}
+
+async function logIn(port) {
+  await withAppPage(port, async page => {
     await page.waitForFunction(() => window.__sbReduxStore, null, { timeout: 120000 })
     await page.waitForTimeout(2000)
     const loggedIn = () => page.evaluate(() => !!window.__sbReduxStore.getState().auth?.self)
@@ -223,17 +251,62 @@ async function startReplay(port, replayPath) {
         timeout: 60000,
       })
     }
-    await page.evaluate(async p => {
+  })
+}
+
+async function startReplay(port, replayPath) {
+  await withAppPage(port, page =>
+    page.evaluate(async p => {
       const m = await import('http://localhost:5566/client/replays/action-creators.ts')
       window.__sbReduxStore.dispatch(m.startReplay({ path: p, name: 'rollback-soak' }))
-    }, replayPath)
-  } finally {
-    await browser.close()
+    }, replayPath),
+  )
+}
+
+async function ensureApp(worker, arch) {
+  const current = apps.get(worker)
+  if (current && current.arch === arch && current.electron.exitCode === null) return current
+  stopApp(worker)
+  const session = `soak-${worker}`
+  const port = 9300 + worker
+  const envFile = path.join(SOAK, 'runs', `${session}.env.json`)
+  writeSessionSettings(session, arch)
+  fs.writeFileSync(envFile, '{}')
+  const childEnv = { ...process.env }
+  delete childEnv.ELECTRON_RUN_AS_NODE
+  Object.assign(childEnv, {
+    SB_HOT: '1',
+    // Open the app and game behind whatever someone is doing on the machine, without focus.
+    SB_APP_BACKGROUND: '1',
+    SB_GAME_BACKGROUND: '1',
+    SB_SESSION: session,
+    SB_GAME_DLL_DIR: DLL_DIR,
+    SB_GAME_ENV_FILE: envFile,
+  })
+  const electron = spawn(
+    path.join(ROOT, 'node_modules/electron/dist/electron.exe'),
+    ['app', `--remote-debugging-port=${port}`, '--hidden'],
+    { cwd: ROOT, env: childEnv, stdio: 'ignore', windowsHide: false },
+  )
+  const app = { electron, arch, port, session, envFile }
+  apps.set(worker, app)
+  // The worker's Electron pid (`electron <pid>`), plus the game pid (`game <pid>`) while a run is
+  // in flight, so clean-stop.sh can kill and clean up after exactly a killed runner's processes.
+  fs.writeFileSync(pidsFileFor(session), `electron ${electron.pid}\n`)
+  let up = false
+  for (let i = 0; i < 90 && !up; i++) {
+    await sleep(1000)
+    up = await fetch(`http://localhost:${port}/json/version`)
+      .then(r => r.ok)
+      .catch(() => false)
   }
+  if (!up) throw new Error('electron CDP never came up')
+  await logIn(port)
+  return app
 }
 
 // Runs the replay once with `env` and returns { outcome, done?, pid?, seconds, detail? }.
-// Runs the replay, retrying launches that failed for reasons outside the game (Electron never
+// Runs the replay, retrying launches that failed for reasons outside the game (the app never
 // came up, the replay never started) rather than reporting them as soak failures.
 async function runReplay(worker, arch, replay, env, timeoutSecs) {
   let run
@@ -254,51 +327,29 @@ async function runReplay(worker, arch, replay, env, timeoutSecs) {
 
 async function runReplayOnce(worker, arch, replay, env, timeoutSecs) {
   const session = `soak-${worker}`
-  const port = 9300 + worker
-  writeSessionSettings(session, arch)
   const donePath = path.join(SOAK, 'runs', `${session}-${Date.now()}.done.json`)
-  const childEnv = { ...process.env }
-  delete childEnv.ELECTRON_RUN_AS_NODE
-  Object.assign(childEnv, {
-    SB_HOT: '1',
-    // Open the app and game behind whatever someone is doing on the machine, without focus.
-    SB_APP_BACKGROUND: '1',
-    SB_GAME_BACKGROUND: '1',
-    SB_SESSION: session,
-    SB_GAME_DLL_DIR: DLL_DIR,
-    SB_ROLLBACK_SOAK: donePath,
-    ...EXTRA_ENV,
-    ...env,
-  })
-  const electron = spawn(
-    path.join(ROOT, 'node_modules/electron/dist/electron.exe'),
-    ['app', `--remote-debugging-port=${port}`, '--hidden'],
-    { cwd: ROOT, env: childEnv, stdio: 'ignore', windowsHide: false },
-  )
-  // The run's Electron and game pids (`electron <pid>` / `game <pid>`) while it's in flight, so
-  // clean-stop.sh can kill and clean up after exactly a killed runner's runs. Removed once the run
-  // ends, since a recorded pid could otherwise belong to an unrelated process later.
-  const pidsFile = path.join(SOAK, 'runs', `${session}.pids`)
-  fs.writeFileSync(pidsFile, `electron ${electron.pid}
-`)
+  let app
+  try {
+    app = await ensureApp(worker, arch)
+  } catch (e) {
+    stopApp(worker)
+    return { outcome: 'error', detail: `app: ${e.message}` }
+  }
+  fs.writeFileSync(app.envFile, JSON.stringify({ SB_ROLLBACK_SOAK: donePath, ...EXTRA_ENV, ...env }))
   const started = Date.now()
   let gamePid = null
+  let appHealthy = false
   try {
-    let up = false
-    for (let i = 0; i < 90 && !up; i++) {
-      await sleep(1000)
-      up = await fetch(`http://localhost:${port}/json/version`)
-        .then(r => r.ok)
-        .catch(() => false)
+    try {
+      await startReplay(app.port, replay.path)
+    } catch (e) {
+      return { outcome: 'error', detail: `start replay: ${e.message}` }
     }
-    if (!up) return { outcome: 'error', detail: 'electron CDP never came up' }
-    await startReplay(port, replay.path)
     const launchDeadline = Date.now() + 120000
     while (!gamePid) {
       gamePid = gamePidFor(session, donePath)
       if (gamePid) {
-        fs.appendFileSync(pidsFile, `game ${gamePid}
-`)
+        fs.appendFileSync(pidsFileFor(session), `game ${gamePid}\n`)
         break
       }
       if (Date.now() > launchDeadline)
@@ -310,6 +361,9 @@ async function runReplayOnce(worker, arch, replay, env, timeoutSecs) {
       if (fs.existsSync(donePath)) {
         const done = JSON.parse(fs.readFileSync(donePath, 'utf8'))
         fs.rmSync(donePath)
+        // The game ends its own process once it writes the done file; let the app see it go.
+        for (let i = 0; i < 30 && pidAlive(gamePid); i++) await sleep(500)
+        appHealthy = !pidAlive(gamePid)
         return { outcome: 'done', done, pid: gamePid, seconds: (Date.now() - started) / 1000 }
       }
       if (!pidAlive(gamePid)) {
@@ -331,8 +385,13 @@ async function runReplayOnce(worker, arch, replay, env, timeoutSecs) {
     }
   } finally {
     if (gamePid && pidAlive(gamePid)) killTree(gamePid)
-    killTree(electron.pid)
-    fs.rmSync(pidsFile, { force: true })
+    if (appHealthy) {
+      fs.writeFileSync(pidsFileFor(session), `electron ${app.electron.pid}\n`)
+      // Give the app a moment to finish handling the game's exit before the next launch.
+      await sleep(2000)
+    } else {
+      stopApp(worker)
+    }
   }
 }
 
@@ -652,6 +711,7 @@ async function main() {
       }
     }),
   )
+  for (const worker of [...apps.keys()]) stopApp(worker)
   log('soak finished')
 }
 
