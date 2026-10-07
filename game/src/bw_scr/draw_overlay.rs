@@ -18,7 +18,7 @@ use crate::app_messages::GameSetupInfo;
 use crate::bw;
 use crate::bw::apm_stats::ApmStats;
 use crate::bw_scr::BwCursorType;
-use crate::netcode_v2::{DisconnectStatus, NetStatsStatus};
+use crate::netcode_v2::{DisconnectStatus, LoadingConnectivity, NetStatsStatus};
 
 use self::production::ProductionState;
 
@@ -314,6 +314,7 @@ impl OverlayState {
         disconnect_status: &DisconnectStatus,
         net_stats: Option<&NetStatsStatus>,
         net_quality: Option<&NetQualityView>,
+        loading_connectivity: Option<&LoadingConnectivity>,
     ) -> StepOutput {
         // BW seems to use different render target sizes depending on SD/HD/4k
         // sprites; with 1280x960 for SD, 1920x1080 for lowres HD, and
@@ -461,7 +462,7 @@ impl OverlayState {
                 // Draw the loading UI higher so it hides everything BW may draw (FPS counter, etc.)
                 self.draw_layer = 26;
                 self.was_loading = true;
-                self.add_loading_screen_ui(bw, setup_info, ui);
+                self.add_loading_screen_ui(bw, setup_info, loading_connectivity, ui);
             }
         });
         let ui_primitives = self.ctx.tessellate(output.shapes, pixels_per_point);
