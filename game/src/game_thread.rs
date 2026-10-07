@@ -990,7 +990,35 @@ pub unsafe fn after_status_screen_update(bw: &BwScr, status_screen: Dialog, unit
     }
 }
 
+/// Environment variable that overrides the game logic version every game and replay runs with, so
+/// a logic fix can be tried on replays recorded before it existed (or a game run without one).
+/// Debug builds only: a release build must always agree with the other players and the replay.
+#[cfg(debug_assertions)]
+const GAME_LOGIC_VERSION_ENV_VAR: &str = "SB_GAME_LOGIC_VERSION";
+
+#[cfg(debug_assertions)]
+fn forced_game_logic_version() -> Option<u16> {
+    static FORCED: OnceLock<Option<u16>> = OnceLock::new();
+    *FORCED.get_or_init(|| {
+        let value = std::env::var(GAME_LOGIC_VERSION_ENV_VAR).ok()?;
+        match value.parse() {
+            Ok(version) => {
+                warn!("{GAME_LOGIC_VERSION_ENV_VAR}: forcing game logic version {version}");
+                Some(version)
+            }
+            Err(_) => {
+                error!("{GAME_LOGIC_VERSION_ENV_VAR}={value:?} is not a version; ignoring it");
+                None
+            }
+        }
+    })
+}
+
 pub fn sb_game_logic_version() -> u16 {
+    #[cfg(debug_assertions)]
+    if let Some(version) = forced_game_logic_version() {
+        return version;
+    }
     if is_replay() {
         sbat_replay_data()
             .map(|x| x.game_logic_version)
@@ -1103,6 +1131,66 @@ pub unsafe fn order_reset_collision_harvester(
         if first_other != requeued {
             queue.remove(requeued);
             queue.add(requeued);
+        }
+    }
+}
+
+/// Hook for starting a unit's next queued order; see [`restart_stalled_walk`].
+pub unsafe fn do_next_queued_order(unit: *mut bw::Unit, orig: unsafe extern "C" fn(*mut bw::Unit)) {
+    unsafe {
+        orig(unit);
+        restart_stalled_walk(unit);
+    }
+}
+
+/// Hook for the order a unit attacks another unit with; see [`restart_stalled_walk`].
+pub unsafe fn order_attack_unit(unit: *mut bw::Unit, orig: unsafe extern "C" fn(*mut bw::Unit)) {
+    unsafe {
+        orig(unit);
+        restart_stalled_walk(unit);
+    }
+}
+
+/// Lets a unit that was told to move while stalled by an attack start walking.
+///
+/// Most ground units only move while their Walking animation runs, since its iscript is what gives
+/// them speed, and that animation is only started when a flingy goes from not moving to moving.
+/// An attack order whose target is already in range when it starts attacks without stopping the
+/// unit first, leaving it flagged as moving while the attack animation holds it in place; the
+/// order only stops it on its next step, several frames later. If the unit is given somewhere to
+/// go before that stop, either by a new order or by the attack order chasing a target that left
+/// its range, the flag is still set, so the movement never counts as a start, the Walking
+/// animation never runs, and the unit stands still until something clears the flag (a Stop, or a
+/// path that has it turn around first).
+///
+/// Called after the two places that hand such a unit a destination: if it is flagged as moving
+/// towards somewhere it isn't while showing one of its attack animations, yet no longer attacking,
+/// the flag is cleared so its next movement starts like any other. Units that are walking, still
+/// attacking, stopped in place, or held still by anything other than an attack are untouched; one
+/// whose chase begins mid-attack is caught on the attack order's next step after the attack ends.
+unsafe fn restart_stalled_walk(unit: *mut bw::Unit) {
+    unsafe {
+        const MOVING: u8 = 0x2;
+        const ATTACK_ANIMATION: u8 = 0x8;
+        const ISCRIPT_CONTROLLED_MOVEMENT: u8 = 2;
+        if sb_game_logic_version() < 6 || (*unit).order == bw_dat::order::DIE.0 {
+            return;
+        }
+        let flingy = &raw mut (*unit).flingy;
+        if (*flingy).movement_type != ISCRIPT_CONTROLLED_MOVEMENT
+            || (*flingy).flingy_flags & (MOVING | ATTACK_ANIMATION) != MOVING
+            || (*flingy).move_target.pos == (*flingy).position
+        {
+            return;
+        }
+        // Ground and air attack animations: their start, repeat, and the return to idle that cutting
+        // one short plays.
+        let stalled_by_attack = Unit::from_ptr(unit)
+            .and_then(|unit| unit.sprite())
+            .and_then(|sprite| sprite.main_image())
+            .is_some_and(|image| matches!((**image).iscript.animation, 2 | 3 | 5 | 6 | 8 | 9));
+        if stalled_by_attack {
+            (*flingy).flingy_flags &= !MOVING;
         }
     }
 }

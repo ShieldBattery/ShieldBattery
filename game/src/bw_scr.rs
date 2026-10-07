@@ -299,6 +299,8 @@ pub struct BwScr {
     step_replay_commands: VirtualAddress,
     order_harvest_gas: VirtualAddress,
     order_reset_collision_harvester: VirtualAddress,
+    do_next_queued_order: VirtualAddress,
+    order_attack_unit: VirtualAddress,
     check_unit_resources_and_supply: VirtualAddress,
     unit_cost_cache: UnitCostCache,
     game_command_lengths: Vec<u32>,
@@ -2038,6 +2040,10 @@ impl BwScr {
         let order_reset_collision_harvester = analysis
             .order_reset_collision_harvester()
             .ok_or("order_reset_collision_harvester")?;
+        let do_next_queued_order = analysis
+            .do_next_queued_order()
+            .ok_or("do_next_queued_order")?;
+        let order_attack_unit = analysis.order_attack_unit().ok_or("order_attack_unit")?;
         let check_unit_resources_and_supply = analysis
             .check_unit_resources_and_supply()
             .ok_or("check_unit_resources_and_supply")?;
@@ -2541,6 +2547,8 @@ impl BwScr {
             step_replay_commands,
             order_harvest_gas,
             order_reset_collision_harvester,
+            do_next_queued_order,
+            order_attack_unit,
             check_unit_resources_and_supply,
             unit_cost_cache,
             step_game,
@@ -3256,6 +3264,22 @@ impl BwScr {
                 OrderFn,
                 |unit, orig| {
                     game_thread::order_reset_collision_harvester(unit, orig);
+                },
+                address,
+            );
+            let address = self.do_next_queued_order.0 as usize - base;
+            exe.hook_closure_address(
+                OrderFn,
+                |unit, orig| {
+                    game_thread::do_next_queued_order(unit, orig);
+                },
+                address,
+            );
+            let address = self.order_attack_unit.0 as usize - base;
+            exe.hook_closure_address(
+                OrderFn,
+                |unit, orig| {
+                    game_thread::order_attack_unit(unit, orig);
                 },
                 address,
             );

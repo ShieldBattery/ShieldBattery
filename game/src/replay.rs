@@ -28,7 +28,9 @@ pub const SECTION_ID: u32 = 0x74616253; // Sbat
 //      (game_thread::check_unit_resources_and_supply)
 // 5: Workers get their collision back before starting a non-harvest order queued behind a
 //      harvest order (game_thread::order_reset_collision_harvester)
-pub const GAME_LOGIC_VERSION: u16 = 0x5;
+// 6: Units given somewhere to go while an attack had stalled them mid-move start walking again
+//      (game_thread::restart_stalled_walk)
+pub const GAME_LOGIC_VERSION: u16 = 0x6;
 
 /// The notice recorded at the start of every replay, one chat line per entry, sent by
 /// [`REPLAY_NOTICE_SENDER`](crate::bw::commands::REPLAY_NOTICE_SENDER). ShieldBattery's game

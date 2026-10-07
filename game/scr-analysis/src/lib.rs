@@ -946,6 +946,15 @@ impl<'e> Analysis<'e> {
         self.0.order_function(0x97)
     }
 
+    /// `(unit)`: makes the first queued order the unit's current one.
+    pub fn do_next_queued_order(&mut self) -> Option<VirtualAddress> {
+        self.0.do_next_queued_order()
+    }
+
+    pub fn order_attack_unit(&mut self) -> Option<VirtualAddress> {
+        self.0.order_function(0xa)
+    }
+
     /// `(player, unit id, check supply, show error) -> can afford`; records the unit's costs for
     /// the player in the cached cost arrays before checking them.
     pub fn check_unit_resources_and_supply(&mut self) -> Option<VirtualAddress> {
