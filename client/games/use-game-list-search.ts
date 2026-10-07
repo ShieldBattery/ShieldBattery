@@ -12,7 +12,7 @@ export interface GameListSearchPage {
   hasMoreGames: boolean
 }
 
-// TTL must match useScrollMemory's: the saved scroll position and the saved window restore
+// TTL must match useVirtuosoScrollMemory's: the saved scroll position and the saved window restore
 // together, and a scroll restored into a missing window would clamp against a single fresh page.
 // Both are stamped when the user leaves the page.
 const WINDOW_MAX_AGE_MS = 30 * 60 * 1000
@@ -53,12 +53,12 @@ export interface UseGameListSearchResult {
  * skips `onSuccess`/`onError` for a canceled request), so a stale response from a superseded page
  * load never corrupts the accumulated results.
  *
- * The accumulated window is remembered per history entry (per "visit"), mirroring `useScrollMemory`:
- * traversing back or forward to an entry resumes the list it had accumulated with no refetch, while
- * a fresh link push starts empty. A restored window is exactly as stale as it was when the user left
- * — like the browser's own back/forward cache — and the next `onLoadMore` simply continues paging
- * from its end. The cached ids stay resolvable because `games.byId` never evicts entries within a
- * session.
+ * The accumulated window is remembered per history entry (per "visit"), mirroring
+ * `useVirtuosoScrollMemory`: traversing back or forward to an entry resumes the list it had
+ * accumulated with no refetch, while a fresh link push starts empty. A restored window is exactly
+ * as stale as it was when the user left — like the browser's own back/forward cache — and the next
+ * `onLoadMore` simply continues paging from its end. The cached ids stay resolvable because
+ * `games.byId` never evicts entries within a session.
  */
 export function useGameListSearch(
   loadPage: (offset: number, signal: AbortSignal) => Promise<GameListSearchPage>,
@@ -132,10 +132,10 @@ export function useGameListSearch(
     }
 
     // Written at cleanup time (unmount), not as `gameIds`/`hasMoreGames` change: the store stamps
-    // its TTL at write time, and this needs to match when `useScrollMemory` saves the scroll
-    // position — also at unmount — so the two entries expire together. Writing on every data change
-    // instead would stamp the last page load, which can be long before the user actually leaves,
-    // letting the window expire while the scroll position it's paired with still lives.
+    // its TTL at write time, and this needs to match when `useVirtuosoScrollMemory` saves the
+    // scroll position — also at unmount — so the two entries expire together. Writing on every data
+    // change instead would stamp the last page load, which can be long before the user actually
+    // leaves, letting the window expire while the scroll position it's paired with still lives.
     return () => {
       if (gameIds !== undefined) {
         windowCache.set(entryKey, { gameIds, hasMoreGames })

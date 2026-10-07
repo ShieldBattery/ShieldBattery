@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { TableVirtuoso } from 'react-virtuoso'
 import slug from 'slug'
@@ -40,7 +40,6 @@ import { replace } from '../navigation/routing'
 import { isFetchError } from '../network/fetch-errors'
 import { LoadingDotsArea } from '../progress/dots'
 import { useNow } from '../react/date-hooks'
-import { useMultiplexRef } from '../react/refs'
 import { useImmerState, useStableCallback } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
@@ -85,12 +84,6 @@ const PageRoot = styled.div`
 
 export function LeagueDetailsPage() {
   const [containerElem, setContainerElem] = useState<HTMLDivElement | null>(null)
-  const scrollerRef = useRef<HTMLDivElement>(null)
-  useScrollMemory(scrollerRef)
-  // The Leaderboard tab renders a virtualized table whose full height isn't in the DOM at mount, so
-  // a restore targeting a position inside it clamps toward the top; positions on the other tabs
-  // restore normally.
-  const rootRef = useMultiplexRef<HTMLDivElement>(setContainerElem, scrollerRef)
 
   const [match, params] = useRoute('/leagues/:routeId/:slugStr?/:subPage?')
   const { routeId, slugStr } = params ?? {}
@@ -101,6 +94,12 @@ export function LeagueDetailsPage() {
     params?.subPage && ALL_DETAILS_SUB_PAGES.includes(params.subPage as DetailsSubPage)
       ? (params.subPage as DetailsSubPage)
       : undefined
+
+  // The Games tab's list remembers and restores this container's scroll position itself. The
+  // Leaderboard tab renders a virtualized table whose full height isn't in the DOM at mount, so a
+  // restore targeting a position inside it clamps toward the top; positions on the Info tab restore
+  // normally.
+  useScrollMemory(subPage === DetailsSubPage.Games ? null : containerElem)
 
   useTrackPageView(urlPath`/leagues/${routeId}/${subPage ?? ''}`)
 
@@ -115,7 +114,7 @@ export function LeagueDetailsPage() {
   }
 
   return (
-    <PageRoot ref={rootRef}>
+    <PageRoot ref={setContainerElem}>
       <LeagueDetails id={id!} subPage={subPage} container={containerElem} />
     </PageRoot>
   )
@@ -376,7 +375,7 @@ export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
       content = <Leaderboard league={league} container={container} />
       break
     case DetailsSubPage.Games:
-      content = <LeagueGames key={id} leagueId={id} />
+      content = <LeagueGames key={id} leagueId={id} scrollParent={container} />
       break
     default:
       assertUnreachable(activeTab)

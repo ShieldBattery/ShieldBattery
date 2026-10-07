@@ -15,7 +15,14 @@ const MatchHistoryContainer = styled.div`
   gap: 16px;
 `
 
-export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
+export function ConnectedMatchHistory({
+  userId,
+  scrollParent,
+}: {
+  userId: SbUserId
+  /** The profile page's scroll container, which the match history list is virtualized against. */
+  scrollParent: HTMLElement | null
+}) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
 
@@ -46,6 +53,7 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
       <GameListView
         loadPage={loadPage}
         surface='matchHistory'
+        scrollParent={scrollParent}
         showRankedCustom={true}
         showResult={true}
         forUserId={userId}

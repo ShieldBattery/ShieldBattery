@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { GroupedVirtuoso, GroupedVirtuosoHandle, Virtuoso, VirtuosoHandle } from 'react-virtuoso'
 import styled from 'styled-components'
 import {
   EncodedMatchupString,
@@ -17,11 +18,18 @@ import InfiniteScrollList from '../lists/infinite-scroll-list'
 import { Popover, usePopoverController } from '../material/popover'
 import { useHistoryEntryKey, useLocationSearchParam } from '../navigation/router-hooks'
 import { createViewStateStore } from '../navigation/view-state-store'
+import { useVirtuosoScrollMemory } from '../navigation/virtuoso-scroll-memory'
 import { useUserLocalStorageValue } from '../react/state-hooks'
 import { useAppSelector } from '../redux-hooks'
 import { bodyLarge } from '../styles/typography'
 import { navigateToGameResults } from './action-creators'
-import { renderGamesWithDayHeaders, resolveDateRangeMs } from './day-header'
+import {
+  DayHeader,
+  formatDayHeaderLabel,
+  getDayBoundaries,
+  groupGamesByDay,
+  resolveDateRangeMs,
+} from './day-header'
 import { GameContextMenuContent } from './game-context-menu'
 import { GameFilterBar } from './game-filter-bar'
 import {
@@ -136,6 +144,13 @@ export interface GameListViewProps {
   noResultsText: string
   /** Rendered in place of the list when a load fails. */
   errorText: string
+  /**
+   * The surface's scroll container, which the list is virtualized against (only rows near its
+   * viewport are mounted). The view also remembers and restores this container's scroll position
+   * per history entry, so the surface must not apply its own scroll memory to it while the view is
+   * shown. Nothing is rendered in the list's place until it is available.
+   */
+  scrollParent: HTMLElement | null
 }
 
 /**
@@ -150,6 +165,9 @@ export interface GameListViewProps {
  *
  * At compact (phone) viewport widths the side panel is dropped and a row click navigates straight
  * to the game.
+ *
+ * The rows are virtualized against the surface's scroll container, grouped under day headers for
+ * date-based sorts and flat otherwise, the same way the replay library renders its list.
  */
 export function GameListView({
   loadPage,
@@ -160,6 +178,7 @@ export function GameListView({
   forUserId,
   noResultsText,
   errorText,
+  scrollParent,
 }: GameListViewProps) {
   const { t } = useTranslation()
   const locale = useFormatLocale()
@@ -216,7 +235,21 @@ export function GameListView({
   const [selectedId, setSelectedId] = useState<string | undefined>(() =>
     entryKey !== undefined ? selectedIdCache.get(entryKey) : undefined,
   )
-  const rowElemsRef = useRef(new Map<string, HTMLDivElement>())
+  const groupedRef = useRef<GroupedVirtuosoHandle>(null)
+  const flatRef = useRef<VirtuosoHandle>(null)
+  // Only one of the two lists is mounted at a time (grouped for date-based sorts, flat otherwise),
+  // so state capture reads whichever handle is live.
+  const [virtuosoStateRef] = useState(() => ({
+    get current(): GroupedVirtuosoHandle | VirtuosoHandle | null {
+      return groupedRef.current ?? flatRef.current
+    },
+  }))
+  const restoredSnapshot = useVirtuosoScrollMemory(scrollParent, virtuosoStateRef)
+  // A filter change replaces the URL in place, keeping the same visit key, so the snapshot captured
+  // for this entry stops matching the list contents once the list resets. From then on it must not
+  // be re-applied by a list that remounts (e.g. after an error or empty result clears).
+  const [snapshotInvalidated, setSnapshotInvalidated] = useState(false)
+  const restoreStateFrom = snapshotInvalidated ? undefined : restoredSnapshot
 
   // Remembered per-user and shared across the replay library, games page, match history, and league
   // games: hides the game length and (where shown) the match result — both spoilers — from list rows.
@@ -247,8 +280,19 @@ export function GameListView({
     )
   }
 
-  const { games, hasMoreGames, isLoadingMore, searchError, refreshToken, reset, onLoadMore } =
-    useGameListSearch(loadPageForSearch)
+  const {
+    games,
+    hasMoreGames,
+    isLoadingMore,
+    searchError,
+    refreshToken,
+    reset: resetSearch,
+    onLoadMore,
+  } = useGameListSearch(loadPageForSearch)
+  const reset = () => {
+    setSnapshotInvalidated(true)
+    resetSearch()
+  }
 
   useEffect(() => {
     if (entryKey === undefined) {
@@ -280,7 +324,10 @@ export function GameListView({
     if (index < 0 || index >= games.length) return
     const game = games[index]
     setSelectedId(game.id)
-    rowElemsRef.current.get(game.id)?.scrollIntoView({ block: 'nearest' })
+    // Only one of these lists is mounted at a time, so the other ref is null. Both take the index
+    // among the games themselves, not counting day headers.
+    groupedRef.current?.scrollIntoView({ index })
+    flatRef.current?.scrollIntoView({ index })
   }
   const moveSelection = (delta: number) => {
     if (games.length === 0) return
@@ -439,30 +486,67 @@ export function GameListView({
     listBody = <ErrorText>{errorText}</ErrorText>
   } else if (confirmedEmpty) {
     listBody = <NoResults>{noResultsText}</NoResults>
-  } else {
-    const gameItems = renderGamesWithDayHeaders(games, sort, locale, t, game => (
-      <GameListEntry
-        key={game.id}
-        game={game}
-        showResult={showResult}
-        forUserId={forUserId}
-        spoilerFree={spoilerFree}
-        selected={game.id === selectedGame?.id}
-        onClick={compactLayout ? gameId => navigateToGameResults(gameId) : setSelectedId}
-        onDoubleClick={compactLayout ? undefined : gameId => navigateToGameResults(gameId)}
-        onContextMenu={(gameId, event) => {
-          setSelectedId(gameId)
-          onContextMenu(event)
-        }}
-        ref={el => {
-          if (el) {
-            rowElemsRef.current.set(game.id, el)
-          } else {
-            rowElemsRef.current.delete(game.id)
-          }
-        }}
-      />
-    ))
+  } else if (scrollParent) {
+    const renderRow = (index: number) => {
+      const game = games[index]
+      if (!game) return null
+      return (
+        <GameListEntry
+          game={game}
+          showResult={showResult}
+          forUserId={forUserId}
+          spoilerFree={spoilerFree}
+          selected={game.id === selectedGame?.id}
+          onClick={compactLayout ? gameId => navigateToGameResults(gameId) : setSelectedId}
+          onDoubleClick={compactLayout ? undefined : gameId => navigateToGameResults(gameId)}
+          onContextMenu={(gameId, event) => {
+            setSelectedId(gameId)
+            onContextMenu(event)
+          }}
+        />
+      )
+    }
+
+    let list: React.ReactNode
+    if (sortIsDateBased) {
+      const dayGroups = groupGamesByDay(games)
+      const { todayStartMs, yesterdayStartMs } = getDayBoundaries()
+      list = (
+        <GroupedVirtuoso
+          key='grouped'
+          ref={groupedRef}
+          customScrollParent={scrollParent}
+          restoreStateFrom={restoreStateFrom}
+          groupCounts={dayGroups.map(g => g.count)}
+          groupContent={index => (
+            <DayHeader
+              label={formatDayHeaderLabel(
+                dayGroups[index].dayStartMs,
+                todayStartMs,
+                yesterdayStartMs,
+                locale,
+                t,
+              )}
+            />
+          )}
+          itemContent={renderRow}
+        />
+      )
+    } else {
+      // NOTE: `Virtuoso` and `GroupedVirtuoso` share the same underlying component type, so
+      // switching between them reconciles as a prop update and leaves stale group state behind.
+      // Distinct keys force a full remount when the sort switches between the two.
+      list = (
+        <Virtuoso
+          key='flat'
+          ref={flatRef}
+          customScrollParent={scrollParent}
+          restoreStateFrom={restoreStateFrom}
+          totalCount={games.length}
+          itemContent={renderRow}
+        />
+      )
+    }
 
     listBody = (
       <InfiniteScrollList
@@ -471,7 +555,7 @@ export function GameListView({
         hasNextData={hasMoreGames}
         refreshToken={refreshToken}
         onLoadNextData={onLoadMore}>
-        {gameItems}
+        {list}
       </InfiniteScrollList>
     )
   }
