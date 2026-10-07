@@ -14,6 +14,9 @@ use crate::{
 const MAP_IMAGE_SIZE: Vec2 = Vec2::new(640.0, 640.0);
 const SMALL_MAP_IMAGE_SIZE: Vec2 = Vec2::new(480.0, 480.0);
 const MAP_BREAKPOINT: f32 = 1360.0;
+const OBSERVER_ROW_HEIGHT: f32 = 48.0;
+const OBSERVER_AVATAR_SIZE: f32 = 24.0;
+const OBSERVER_NAME_MAX_WIDTH: f32 = 200.0;
 
 // TODO(tec27): This is probably retrievable from egui?
 const BACKGROUND_SIZE: Vec2 = Vec2::new(1920.0, 1152.0);
@@ -68,6 +71,11 @@ impl OverlayState {
             GameType::Ums => "Use Map Settings",
         };
         let (start_players, end_players) = get_player_halves(setup_info);
+        let observers = setup_info
+            .slots
+            .iter()
+            .filter(|s| s.is_observer())
+            .collect::<Vec<_>>();
 
         let map_size = if ctx.content_rect().size().x < MAP_BREAKPOINT {
             SMALL_MAP_IMAGE_SIZE
@@ -97,104 +105,119 @@ impl OverlayState {
                 ui.with_layout(
                     Layout::centered_and_justified(egui::Direction::TopDown),
                     |ui| {
-                        StripBuilder::new(ui)
-                            .size(egui_extras::Size::remainder().at_least(120.0))
-                            .size(egui_extras::Size::exact(map_size.x + 4.0 + 4.0))
-                            .size(egui_extras::Size::remainder().at_least(120.0))
-                            .horizontal(|mut strip| {
-                                strip.cell(|ui| {
-                                    Flex::vertical()
-                                        .align_items(FlexAlign::End)
-                                        .justify(egui_flex::FlexJustify::Center)
-                                        .w_full()
-                                        .h_full()
-                                        .show(ui, |flex| {
-                                            start_players.iter().for_each(|p| {
-                                                self.add_loading_player(
-                                                    flex,
-                                                    p,
-                                                    &setup_info.users,
-                                                    &setup_info.ranks,
-                                                    true,
-                                                )
-                                            });
+                        // Observers get their own row along the bottom, and the players and map
+                        // center in the space above it, so the two never overlap.
+                        let mut rows = StripBuilder::new(ui).size(egui_extras::Size::remainder());
+                        if !observers.is_empty() {
+                            rows = rows.size(egui_extras::Size::exact(OBSERVER_ROW_HEIGHT));
+                        }
+                        rows.vertical(|mut rows| {
+                            rows.strip(|builder| {
+                                builder
+                                    .size(egui_extras::Size::remainder().at_least(120.0))
+                                    .size(egui_extras::Size::exact(map_size.x + 4.0 + 4.0))
+                                    .size(egui_extras::Size::remainder().at_least(120.0))
+                                    .horizontal(|mut strip| {
+                                        strip.cell(|ui| {
+                                            Flex::vertical()
+                                                .align_items(FlexAlign::End)
+                                                .justify(egui_flex::FlexJustify::Center)
+                                                .w_full()
+                                                .h_full()
+                                                .show(ui, |flex| {
+                                                    start_players.iter().for_each(|p| {
+                                                        self.add_loading_player(
+                                                            flex,
+                                                            p,
+                                                            &setup_info.users,
+                                                            &setup_info.ranks,
+                                                            true,
+                                                        )
+                                                    });
+                                                });
                                         });
-                                });
 
-                                strip.cell(|ui| {
-                                    Flex::vertical()
-                                        .align_items(FlexAlign::Center)
-                                        .justify(egui_flex::FlexJustify::Center)
-                                        .w_full()
-                                        .h_full()
-                                        .show(ui, |flex| {
-                                            flex.add_widget(
-                                                egui_flex::item(),
-                                                Label::new(
-                                                    RichText::new(game_type_name)
-                                                        .size(20.0)
-                                                        .color(colors::BLUE95),
-                                                ),
-                                            );
+                                        strip.cell(|ui| {
+                                            Flex::vertical()
+                                                .align_items(FlexAlign::Center)
+                                                .justify(egui_flex::FlexJustify::Center)
+                                                .w_full()
+                                                .h_full()
+                                                .show(ui, |flex| {
+                                                    flex.add_widget(
+                                                        egui_flex::item(),
+                                                        Label::new(
+                                                            RichText::new(game_type_name)
+                                                                .size(20.0)
+                                                                .color(colors::BLUE95),
+                                                        ),
+                                                    );
 
-                                            flex.add_ui(
-                                                egui_flex::item().frame(
-                                                    egui::Frame::default()
-                                                        .fill(Color32::BLACK)
-                                                        .corner_radius(CornerRadius::same(8))
-                                                        .shadow(Shadow {
-                                                            offset: [0, 0],
-                                                            blur: 2,
-                                                            spread: 2,
-                                                            color: colors::BLUE80
-                                                                .gamma_multiply(0.7),
-                                                        }),
-                                                ),
-                                                |ui| {
-                                                    if let Some(url) = map_image_url {
-                                                        ui.add(
-                                                            egui::Image::from_uri(url)
-                                                                .show_loading_spinner(false)
-                                                                .fit_to_exact_size(map_size)
+                                                    flex.add_ui(
+                                                        egui_flex::item().frame(
+                                                            egui::Frame::default()
+                                                                .fill(Color32::BLACK)
                                                                 .corner_radius(CornerRadius::same(
                                                                     8,
-                                                                )),
-                                                        );
-                                                    }
-                                                },
-                                            );
+                                                                ))
+                                                                .shadow(Shadow {
+                                                                    offset: [0, 0],
+                                                                    blur: 2,
+                                                                    spread: 2,
+                                                                    color: colors::BLUE80
+                                                                        .gamma_multiply(0.7),
+                                                                }),
+                                                        ),
+                                                        |ui| {
+                                                            if let Some(url) = map_image_url {
+                                                                ui.add(
+                                                                    egui::Image::from_uri(url)
+                                                                        .show_loading_spinner(false)
+                                                                        .fit_to_exact_size(map_size)
+                                                                        .corner_radius(
+                                                                            CornerRadius::same(8),
+                                                                        ),
+                                                                );
+                                                            }
+                                                        },
+                                                    );
 
-                                            flex.add_widget(
-                                                egui_flex::item(),
-                                                Label::new(
-                                                    RichText::new(map_name.unwrap_or(""))
-                                                        .size(28.0)
-                                                        .color(colors::GREY99)
-                                                        .family(display_family()),
-                                                ),
-                                            );
+                                                    flex.add_widget(
+                                                        egui_flex::item(),
+                                                        Label::new(
+                                                            RichText::new(map_name.unwrap_or(""))
+                                                                .size(28.0)
+                                                                .color(colors::GREY99)
+                                                                .family(display_family()),
+                                                        ),
+                                                    );
+                                                });
                                         });
-                                });
 
-                                strip.cell(|ui| {
-                                    Flex::vertical()
-                                        .align_items(FlexAlign::Start)
-                                        .justify(egui_flex::FlexJustify::Center)
-                                        .w_full()
-                                        .h_full()
-                                        .show(ui, |flex| {
-                                            end_players.iter().for_each(|p| {
-                                                self.add_loading_player(
-                                                    flex,
-                                                    p,
-                                                    &setup_info.users,
-                                                    &setup_info.ranks,
-                                                    false,
-                                                )
-                                            });
+                                        strip.cell(|ui| {
+                                            Flex::vertical()
+                                                .align_items(FlexAlign::Start)
+                                                .justify(egui_flex::FlexJustify::Center)
+                                                .w_full()
+                                                .h_full()
+                                                .show(ui, |flex| {
+                                                    end_players.iter().for_each(|p| {
+                                                        self.add_loading_player(
+                                                            flex,
+                                                            p,
+                                                            &setup_info.users,
+                                                            &setup_info.ranks,
+                                                            false,
+                                                        )
+                                                    });
+                                                });
                                         });
-                                });
+                                    });
                             });
+                            if !observers.is_empty() {
+                                rows.cell(|ui| add_observer_row(ui, &observers, &setup_info.users));
+                            }
+                        });
                     },
                 );
             });
@@ -337,6 +360,66 @@ impl OverlayState {
             },
         );
     }
+}
+
+/// Adds a centered row listing the game's observers, each as a compact name (with their avatar if
+/// they have one) so they read as secondary to the player cards.
+fn add_observer_row(ui: &mut egui::Ui, observers: &[&PlayerInfo], users: &[SbUser]) {
+    Flex::horizontal()
+        .align_items(FlexAlign::Center)
+        .justify(egui_flex::FlexJustify::Center)
+        .gap([12.0, 12.0].into())
+        .w_full()
+        .h_full()
+        .show(ui, |flex| {
+            // TODO(i18n): Translate this, along with the rest of the loading screen's strings
+            flex.add(
+                egui_flex::item(),
+                Label::new(RichText::new("Observers").size(16.0).color(colors::GREY60)),
+            );
+
+            for observer in observers {
+                let user = users.iter().find(|u| Some(u.id) == observer.user_id);
+                let name = user.map(|u| u.name.as_str()).unwrap_or("Unknown Player");
+                let avatar_url = user.and_then(|u| u.avatar_url.as_deref());
+
+                flex.add_ui(
+                    egui_flex::item().frame(
+                        Frame::default()
+                            .fill(colors::CONTAINER_LOW)
+                            .corner_radius(CornerRadius::same(8))
+                            .inner_margin(Margin::symmetric(12, 8)),
+                    ),
+                    |ui| {
+                        ui.horizontal(|ui| {
+                            ui.spacing_mut().item_spacing.x = 8.0;
+                            if let Some(url) = avatar_url {
+                                ui.add(
+                                    egui::Image::from_uri(url)
+                                        .show_loading_spinner(false)
+                                        .fit_to_exact_size(Vec2::splat(OBSERVER_AVATAR_SIZE))
+                                        .corner_radius(CornerRadius::same(
+                                            (OBSERVER_AVATAR_SIZE / 2.0) as u8,
+                                        )),
+                                );
+                            }
+                            ui.scope(|ui| {
+                                ui.set_max_width(OBSERVER_NAME_MAX_WIDTH);
+                                ui.add(
+                                    Label::new(
+                                        RichText::new(name)
+                                            .size(18.0)
+                                            .color(colors::GREY99)
+                                            .family(display_family()),
+                                    )
+                                    .truncate(),
+                                );
+                            });
+                        });
+                    },
+                );
+            }
+        });
 }
 
 /// Adds a line showing the player's division icon and name, followed by their rating when it's
