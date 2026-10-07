@@ -324,8 +324,9 @@ export function UserProfilePage({
   // TODO(tec27): Build the title feature :)
   const title = t('users.titles.novice', 'Novice')
 
-  const scrollerRef = useRef<HTMLDivElement>(null)
-  useScrollMemory(scrollerRef)
+  const [scrollerElem, setScrollerElem] = useState<HTMLDivElement | null>(null)
+  // The match history list remembers and restores this container's scroll position itself.
+  useScrollMemory(subPage === UserProfileSubPage.MatchHistory ? null : scrollerElem)
 
   // `suspense: false` so a first (uncached) fetch doesn't suspend the profile page (blanking it
   // behind a loading fallback) just to resolve the optional Twitch channel/live state -- these
@@ -352,7 +353,7 @@ export function UserProfilePage({
     case UserProfileSubPage.MatchHistory:
       // Keyed by user id so switching to a different user's profile remounts the list instead of
       // carrying over the previous user's accumulated games and scroll-restore window.
-      content = <ConnectedMatchHistory key={user.id} userId={user.id} />
+      content = <ConnectedMatchHistory key={user.id} userId={user.id} scrollParent={scrollerElem} />
       break
 
     case UserProfileSubPage.Stats:
@@ -382,7 +383,7 @@ export function UserProfilePage({
   }
 
   return (
-    <CenteredContentContainer ref={scrollerRef}>
+    <CenteredContentContainer ref={setScrollerElem}>
       <TopSection>
         <AvatarCircle $isLive={isLive}>
           <StyledAvatar userId={user.id} showLiveIndicator={false} />

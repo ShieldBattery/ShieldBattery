@@ -20,7 +20,14 @@ const LeagueGamesContainer = styled.div`
  * that league, backed by the shared games-list UI (the same one the games page and match history
  * use).
  */
-export function LeagueGames({ leagueId }: { leagueId: LeagueId }) {
+export function LeagueGames({
+  leagueId,
+  scrollParent,
+}: {
+  leagueId: LeagueId
+  /** The details page's scroll container, which the games list is virtualized against. */
+  scrollParent: HTMLElement | null
+}) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
 
@@ -51,6 +58,7 @@ export function LeagueGames({ leagueId }: { leagueId: LeagueId }) {
       <GameListView
         loadPage={loadPage}
         surface='league'
+        scrollParent={scrollParent}
         showResult={true}
         noResultsText={t('leagues.leagueGames.noMatchingGames', 'No matching games.')}
         errorText={t(

@@ -313,7 +313,6 @@ export interface GameListEntryProps {
   onClick?: (gameId: string) => void
   onDoubleClick?: (gameId: string) => void
   onContextMenu?: (gameId: string, event: React.MouseEvent) => void
-  ref?: React.Ref<HTMLDivElement>
 }
 
 export function GameListEntry({
@@ -325,7 +324,6 @@ export function GameListEntry({
   onClick,
   onDoubleClick,
   onContextMenu,
-  ref,
 }: GameListEntryProps) {
   const { t } = useTranslation()
   const map = useAppSelector(s => s.maps.byId.get(game.mapId))
@@ -357,7 +355,6 @@ export function GameListEntry({
     <SelectableRowContainer
       {...buttonProps}
       $selected={selected}
-      ref={ref}
       onContextMenu={onContextMenu ? e => onContextMenu(game.id, e) : undefined}>
       <GameListEntryLayout {...layoutProps} />
       <Ripple ref={rippleRef} />

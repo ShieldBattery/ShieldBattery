@@ -1,8 +1,6 @@
 import { TFunction } from 'i18next'
-import { ReactNode } from 'react'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
-import { GameSortOption } from '../../common/games/game-filters'
 import { GameRecordJson } from '../../common/games/games'
 import { dateTimeFormat } from '../i18n/locale-formats'
 import { labelMedium, titleSmall } from '../styles/typography'
@@ -156,42 +154,33 @@ export function DayHeader({
   )
 }
 
-function isDateSort(sort: GameSortOption): boolean {
-  return sort === GameSortOption.LatestFirst || sort === GameSortOption.OldestFirst
+export interface GameDayGroup {
+  /** The local start-of-day (unix ms) every game in the group started on. */
+  dayStartMs: number
+  /** How many consecutive games in the list belong to the group. */
+  count: number
 }
 
 /**
- * Renders `games` with `renderGame`, inserting a `DayHeader` before the first game of each
- * distinct local calendar day when `sort` is date-based. For Shortest/Longest sorts, games aren't
- * grouped chronologically, so no headers are inserted. No per-day counts are shown, since these
- * lists are server-paginated and a count derived from the loaded rows would be wrong.
+ * Splits `games`, in list order, into runs of consecutive games that started on the same local
+ * calendar day, for rendering under day headers. Only meaningful for date-based sorts: other sorts
+ * aren't chronological, so their lists are rendered without headers. Groups carry no visible
+ * counts, since these lists are server-paginated and a count derived from the loaded rows would
+ * understate the oldest loaded day.
  */
-export function renderGamesWithDayHeaders(
+export function groupGamesByDay(
   games: ReadonlyArray<ReadonlyDeep<GameRecordJson>>,
-  sort: GameSortOption,
-  locale: string,
-  t: TFunction,
-  renderGame: (game: ReadonlyDeep<GameRecordJson>) => ReactNode,
-): ReactNode[] {
-  if (!isDateSort(sort)) {
-    return games.map(renderGame)
-  }
-
-  const { todayStartMs, yesterdayStartMs } = getDayBoundaries()
-  const items: ReactNode[] = []
-  let lastDayStartMs: number | undefined
+): GameDayGroup[] {
+  const groups: GameDayGroup[] = []
+  let current: GameDayGroup | undefined
   for (const game of games) {
     const dayStartMs = startOfLocalDay(game.startTime)
-    if (dayStartMs !== lastDayStartMs) {
-      items.push(
-        <DayHeader
-          key={`day-${dayStartMs}`}
-          label={formatDayHeaderLabel(dayStartMs, todayStartMs, yesterdayStartMs, locale, t)}
-        />,
-      )
-      lastDayStartMs = dayStartMs
+    if (current?.dayStartMs === dayStartMs) {
+      current.count++
+    } else {
+      current = { dayStartMs, count: 1 }
+      groups.push(current)
     }
-    items.push(renderGame(game))
   }
-  return items
+  return groups
 }
