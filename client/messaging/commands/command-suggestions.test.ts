@@ -51,7 +51,15 @@ const whisperContext: WhisperCommandContext = {
   targetId: tec27Id,
 }
 
-const lobbyContext: LobbyCommandContext = { surface: 'lobby', selfUserId }
+const lobbyContext: LobbyCommandContext = {
+  surface: 'lobby',
+  selfUserId,
+  members: [
+    { id: selfUserId, name: 'Marko', online: true },
+    { id: tec27Id, name: 'tec27', online: true },
+    { id: offlineUserId, name: 'ZergRush', online: true },
+  ],
+}
 
 /** A store holding only what the argument defaults read out of it. */
 function fakeGetState(channels: ReadonlyArray<{ name: string; joined: boolean }>): () => RootState {
@@ -232,11 +240,19 @@ describe('messaging/commands/command-suggestions/getArgSuggestions', () => {
     ])
   })
 
-  test('a surface with no member list offers nobody', () => {
+  test("a user argument offers a lobby's members other than the caller", () => {
+    const arg: CommandArg = { kind: 'user', name: 'user' }
+
+    expect(getArgSuggestions(arg, deps(lobbyContext))).toEqual([
+      { value: 'tec27', user: { id: tec27Id, online: true } },
+      { value: 'ZergRush', user: { id: offlineUserId, online: true } },
+    ])
+  })
+
+  test('a whisper offers nobody', () => {
     const arg: CommandArg = { kind: 'user', name: 'user' }
 
     expect(getArgSuggestions(arg, deps(whisperContext))).toEqual([])
-    expect(getArgSuggestions(arg, deps(lobbyContext))).toEqual([])
   })
 
   test('a channel argument offers joined channels ahead of the rest', () => {
@@ -402,14 +418,22 @@ describe('messaging/commands/command-suggestions/whisper user suggestions', () =
     expect(getArgSuggestions(targetArg, deps(channelContext(), getState))).toHaveLength(5)
   })
 
-  test('surfaces with no member list still offer conversations and friends', () => {
-    const expected = ['Chatty', 'tec27', 'Friendly', 'Sleepy']
+  test('a whisper, with no member list, still offers conversations and friends', () => {
+    expect(getArgSuggestions(targetArg, deps(whisperContext, getState)).map(s => s.value)).toEqual([
+      'Chatty',
+      'tec27',
+      'Friendly',
+      'Sleepy',
+    ])
+  })
 
-    expect(getArgSuggestions(targetArg, deps(whisperContext, getState)).map(s => s.value)).toEqual(
-      expected,
-    )
-    expect(getArgSuggestions(targetArg, deps(lobbyContext, getState)).map(s => s.value)).toEqual(
-      expected,
-    )
+  test("a lobby's members follow conversations and friends", () => {
+    expect(getArgSuggestions(targetArg, deps(lobbyContext, getState)).map(s => s.value)).toEqual([
+      'Chatty',
+      'tec27',
+      'Friendly',
+      'Sleepy',
+      'ZergRush',
+    ])
   })
 })

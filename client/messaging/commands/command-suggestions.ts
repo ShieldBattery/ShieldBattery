@@ -35,17 +35,17 @@ export function getArgSuggestions(
 
   switch (arg.kind) {
     case 'user':
-      // Only a channel knows who is in it; the other surfaces have nobody to offer. The user
+      // Only a channel or a lobby knows who is in it; a whisper has nobody to offer. The user
       // running the command is never offered: the server refuses to moderate or whisper yourself,
       // so no command's user argument sensibly names the caller.
-      return deps.context.surface === 'channel'
-        ? deps.context.members
+      return deps.context.surface === 'whisper'
+        ? []
+        : deps.context.members
             .filter(member => member.id !== deps.context.selfUserId)
             .map(member => ({
               value: member.name,
               user: { id: member.id, online: member.online },
             }))
-        : []
 
     case 'channel': {
       const { chat } = deps.getState()

@@ -139,7 +139,7 @@ function getWhisperTargets({ context, getState }: ArgSuggestDeps): ArgSuggestion
     offer(id, false)
   }
 
-  if (context.surface === 'channel') {
+  if (context.surface !== 'whisper') {
     for (const member of context.members) {
       offer(member.id, member.online)
     }

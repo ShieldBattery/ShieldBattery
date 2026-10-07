@@ -74,7 +74,11 @@ function rowsMatching(query: string): TypeaheadSuggestion[] {
   return ROWS.filter(r => r.text.startsWith(query)).map(r => row(r.text, r.text === query))
 }
 
-const commandContext: CommandContext = { surface: 'lobby', selfUserId: makeSbUserId(1) }
+const commandContext: CommandContext = {
+  surface: 'lobby',
+  selfUserId: makeSbUserId(1),
+  members: [],
+}
 
 function renderInput() {
   const onSendChatMessage = vi.fn()
