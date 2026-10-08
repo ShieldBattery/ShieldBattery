@@ -6,6 +6,8 @@ use byteorder::{ByteOrder, LittleEndian};
 
 pub mod id {
     pub const NOP: u8 = 0x5;
+    pub const SAVE_GAME: u8 = 0x6;
+    pub const LOAD_GAME: u8 = 0x7;
     pub const VISION: u8 = 0xd;
     pub const ALLIANCE: u8 = 0xe;
     pub const SYNC: u8 = 0x37;
@@ -184,6 +186,11 @@ pub fn filter_invalid_commands<'a>(
     let mut buffer = Vec::new();
     for command in iter_commands(input, command_lengths) {
         let ok = match command {
+            // A saved game can't be loaded through ShieldBattery, so no live game acts on either
+            // command. Every client drops them here, which also covers a client that sends one
+            // without going through the menu. Replays keep theirs, so older replays play back
+            // exactly as they always have.
+            [id::SAVE_GAME | id::LOAD_GAME, ..] => from_replay,
             [id::REPLAY_SEEK, ..] => !from_replay,
             [id::REPLAY_SPEED, rest @ ..] => {
                 if from_replay || rest.len() != 9 {
@@ -494,5 +501,21 @@ mod test {
             &*filter_invalid_commands(data, false, true, LENGTHS),
             filtered
         );
+    }
+
+    #[test]
+    fn filter_save_and_load_in_live_games() {
+        // Keep-alives around a save and a load, each carrying its 4-byte header and a
+        // NUL-terminated name.
+        let data = &[
+            0x05, 0x06, 0x01, 0x02, 0x03, 0x04, b'a', b'b', 0x00, 0x05, 0x07, 0x01, 0x02, 0x03,
+            0x04, b'c', 0x00, 0x05,
+        ];
+        assert_eq!(
+            &*filter_invalid_commands(data, false, false, LENGTHS),
+            &[0x05, 0x05, 0x05]
+        );
+        // Replays keep them, so older replays play back unchanged.
+        assert_eq!(&*filter_invalid_commands(data, true, false, LENGTHS), data);
     }
 }
