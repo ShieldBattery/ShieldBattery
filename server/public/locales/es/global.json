@@ -840,7 +840,7 @@
           "goliath": {
             "checklistProtocol": "Protocolo de control iniciado.",
             "fdicApproved": "Aprobado por la FDIC.",
-            "goAheadTacCom": "Adelante, TacCom.",
+            "goAheadTacCom": "Adelante, ComTac.",
             "goliathOnline": "¡Goliat en línea!",
             "milSpecEd209": "MilSpec ED-209 en línea.",
             "navComLocked": "Nav-com fijado.",
@@ -880,7 +880,7 @@
           },
           "tank": {
             "delightedToSir": "¡Con gusto, señor!",
-            "dropTheHammer": "¡Voy a dejar caer el martillo!",
+            "dropTheHammer": "¡Estoy por hartarme!",
             "identifyTarget": "¡Identifica el objetivo!",
             "indiscriminateJustice": "¡Y empezar a repartir un poco de justicia indiscriminada!",
             "majorMalfunction": "¿Qué desperfecto vital tienes?",
