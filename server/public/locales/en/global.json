@@ -756,14 +756,18 @@
         "lines": {
           "arbiter": {
             "askOfUs": "What would you ask of us?",
+            "feelYourPresence": "We feel your presence.",
             "seekGuidance": "Do you seek guidance?",
             "senseASoul": "We sense a soul in search of answers.",
-            "warpFieldStabilized": "Warp field stabilized."
+            "takeThatAsAYes": "We'll take that as a yes.",
+            "warpFieldStabilized": "Warp field stabilized.",
+            "weAreVigilant": "We are vigilant."
           },
           "archon": {
             "mergingComplete": "The merging is complete.",
             "powerOverwhelming": "Power overwhelming!",
-            "shallBeDone": "It shall be done.",
+            "sentAPoet": "They should have sent a poet...",
+            "soDifferent": "It all looks so different on this side.",
             "weBurn": "We burn!"
           },
           "battlecruiser": {
@@ -779,18 +783,26 @@
           "carrier": {
             "carrierHasArrived": "Carrier has arrived.",
             "commander": "Commander.",
+            "commandOrBeRelieved": "Command, or you will be relieved.",
+            "enemiesAreLegion": "Our enemies are legion!",
             "instructions": "Instructions.",
             "weAreHere": "We are here."
           },
           "corsair": {
+            "ahAtLast": "Ah, at last!",
+            "goodDayToDie": "It is a good day to die!",
             "hello": "Hello?",
             "interesting": "Interesting.",
-            "onStation": "Corsair on station."
+            "onStation": "Corsair on station.",
+            "prettyLights": "Look at all the pretty lights!",
+            "whatThisButtonDoes": "I wonder what this button does?"
           },
           "darktemplar": {
             "adunToridas": "Adun Toridas.",
-            "ahAtLast": "Ah, at last.",
+            "doNotProvoke": "Do not provoke me to violence.",
+            "forAiur": "For Aiur!",
             "imWaiting": "I'm waiting.",
+            "tauntsIllAdvised": "Your taunts are ill-advised, Templar...",
             "zerashkGulida": "Zerashk gulida!"
           },
           "dragoon": {
@@ -878,7 +890,9 @@
           },
           "templar": {
             "appetiteForDestruction": "I see you have an appetite for destruction.",
+            "khassarDeTemplari": "Khassar de templari!",
             "lackOfControlDisturbing": "But I find your lack of control disturbing.",
+            "shallBeDone": "It shall be done.",
             "thoughtsBetrayYou": "Your thoughts betray you.",
             "useYourIllusion": "And you learn to use your illusion."
           },
@@ -895,8 +909,12 @@
             "bringItOn": "Alright, bring it on!",
             "goingIn": "Hang on, I'm going in.",
             "gottaRide": "I gotta ride!",
+            "iDig": "I dig.",
             "imOnIt": "Yeah, I'm on it.",
-            "somethingOnYourMind": "Something on your mind?"
+            "isThatIt": "Oh... is that it?",
+            "somethingOnYourMind": "Something on your mind?",
+            "whaddaYouWant": "Whadda you want?",
+            "yeahImGoin": "Yeah, I'm goin'!"
           },
           "wraith": {
             "attackFormation": "Attack formation.",
@@ -908,9 +926,8 @@
             "whyAmISoGood": "I'm just curious, why am I so good?"
           },
           "zealot": {
+            "doomToAll": "Doom to all who threaten the homeworld!",
             "enTaroAdun": "En taro Adun!",
-            "forAiur": "For Aiur!",
-            "khassarDeTemplari": "Khassar de templari!",
             "longForCombat": "I long for combat!",
             "myLifeForAiur": "My life for Aiur!"
           }

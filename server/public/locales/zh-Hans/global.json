@@ -745,14 +745,18 @@
         "lines": {
           "arbiter": {
             "askOfUs": "你对我们有何所求？",
+            "feelYourPresence": "我们感受到了你的存在。",
             "seekGuidance": "你在寻求指引吗？",
             "senseASoul": "我们发现有人在寻找答案。",
-            "warpFieldStabilized": "折跃力场已稳定。"
+            "takeThatAsAYes": "我就当你默认了。",
+            "warpFieldStabilized": "折跃力场已稳定。",
+            "weAreVigilant": "我们随时警惕着。"
           },
           "archon": {
             "mergingComplete": "融合完成。",
             "powerOverwhelming": "势不可挡！",
-            "shallBeDone": "势在必得。",
+            "sentAPoet": "他们应该派个诗人来。",
+            "soDifferent": "从这边看感觉完全不同。",
             "weBurn": "我们在燃烧。"
           },
           "battlecruiser": {
@@ -768,18 +772,26 @@
           "carrier": {
             "carrierHasArrived": "航母已经抵达。",
             "commander": "指挥官。",
+            "commandOrBeRelieved": "下命令吧，否则你将被革职。",
+            "enemiesAreLegion": "我们的敌人无穷无尽！",
             "instructions": "有何指示？",
             "weAreHere": "我们来了。"
           },
           "corsair": {
+            "ahAtLast": "终于。",
+            "goodDayToDie": "今日便是赴死之日。",
             "hello": "喂？",
             "interesting": "有意思。",
-            "onStation": "海盗船就位。"
+            "onStation": "海盗船就位。",
+            "prettyLights": "看看这璀璨的光影。",
+            "whatThisButtonDoes": "这个按钮是干什么的呢？"
           },
           "darktemplar": {
             "adunToridas": "Adun Toridas。",
-            "ahAtLast": "终于。",
+            "doNotProvoke": "不要激怒我使用暴力。",
+            "forAiur": "为了艾尔！",
             "imWaiting": "等待命令。",
+            "tauntsIllAdvised": "你的嘲讽很不明智，圣堂武士。",
             "zerashkGulida": "Zerashk gulida！"
           },
           "dragoon": {
@@ -867,7 +879,9 @@
           },
           "templar": {
             "appetiteForDestruction": "看来你喜欢毁灭。",
+            "khassarDeTemplari": "Khassar de templari！",
             "lackOfControlDisturbing": "但我觉得你很烦，一点自制力都没有。",
+            "shallBeDone": "势在必得。",
             "thoughtsBetrayYou": "你的思想背叛了你。",
             "useYourIllusion": "你也知道怎么使用幻象。"
           },
@@ -884,8 +898,12 @@
             "bringItOn": "好吧，来吧！",
             "goingIn": "坐稳了，我要冲进去了。",
             "gottaRide": "我得兜风去！",
+            "iDig": "我同意。",
             "imOnIt": "好，交给我。",
-            "somethingOnYourMind": "你想要说什么？"
+            "isThatIt": "噢，就这样？",
+            "somethingOnYourMind": "你想要说什么？",
+            "whaddaYouWant": "你想干什么？",
+            "yeahImGoin": "是的，我正在路上。"
           },
           "wraith": {
             "attackFormation": "攻击队形。",
@@ -897,9 +915,8 @@
             "whyAmISoGood": "我只是好奇，为什么我这么厉害。"
           },
           "zealot": {
+            "doomToAll": "威胁我们家园的人都将灭亡！",
             "enTaroAdun": "En taro Adun！",
-            "forAiur": "为了艾尔！",
-            "khassarDeTemplari": "Khassar de templari！",
             "longForCombat": "我渴望战斗！",
             "myLifeForAiur": "我的生命献给艾尔！"
           }

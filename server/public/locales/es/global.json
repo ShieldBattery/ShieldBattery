@@ -767,14 +767,18 @@
         "lines": {
           "arbiter": {
             "askOfUs": "¿Qué deseas de nosotros?",
+            "feelYourPresence": "Percibimos tu presencia.",
             "seekGuidance": "¿Buscas consejo?",
             "senseASoul": "Percibimos la presencia de un alma en busca de respuestas.",
-            "warpFieldStabilized": "Campos de transposición estabilizados."
+            "takeThatAsAYes": "Tomaremos eso como un sí.",
+            "warpFieldStabilized": "Campos de transposición estabilizados.",
+            "weAreVigilant": "Estamos atentos."
           },
           "archon": {
             "mergingComplete": "La fusión está completa.",
             "powerOverwhelming": "¡Energía abrumadora!",
-            "shallBeDone": "Así se hará.",
+            "sentAPoet": "Tendrían que haber mandado a un poeta.",
+            "soDifferent": "Todo es tan diferente visto desde este lado.",
             "weBurn": "¡Ardemos!"
           },
           "battlecruiser": {
@@ -790,18 +794,26 @@
           "carrier": {
             "carrierHasArrived": "Ha llegado el Portanaves.",
             "commander": "Comandante.",
+            "commandOrBeRelieved": "Si no das una orden, serás relevado.",
+            "enemiesAreLegion": "Nuestros enemigos son una legión.",
             "instructions": "Instrucciones.",
             "weAreHere": "Aquí estamos."
           },
           "corsair": {
+            "ahAtLast": "¡Ah, por fin!",
+            "goodDayToDie": "Es un buen día para morir.",
             "hello": "¿Hola?",
             "interesting": "Interesante.",
-            "onStation": "Corsario en posición."
+            "onStation": "Corsario en posición.",
+            "prettyLights": "Mira cuántas luces hermosas.",
+            "whatThisButtonDoes": "Me pregunto, ¿para qué servirá este botón?"
           },
           "darktemplar": {
             "adunToridas": "Adun Toridas.",
-            "ahAtLast": "¡Ah, por fin!",
+            "doNotProvoke": "No me obligues a ejercer la violencia.",
+            "forAiur": "¡Por Aiur!",
             "imWaiting": "Estoy esperando.",
+            "tauntsIllAdvised": "Tus provocaciones son inoportunas, templario.",
             "zerashkGulida": "¡Zerashk gulida!"
           },
           "dragoon": {
@@ -889,7 +901,9 @@
           },
           "templar": {
             "appetiteForDestruction": "Veo que tienes apetito de destrucción.",
+            "khassarDeTemplari": "¡Khassar de templari!",
             "lackOfControlDisturbing": "Sin embargo, tu falta de control me resulta molesta.",
+            "shallBeDone": "Así se hará.",
             "thoughtsBetrayYou": "Tus pensamientos te traicionan.",
             "useYourIllusion": "Y has aprendido a usar tu ilusión."
           },
@@ -906,8 +920,12 @@
             "bringItOn": "¡Bien, que vengan!",
             "goingIn": "Agárrate, voy a entrar.",
             "gottaRide": "¡Tengo que rodar!",
+            "iDig": "Entiendo.",
             "imOnIt": "Sí, me encargo.",
-            "somethingOnYourMind": "¿Tienes algo en mente?"
+            "isThatIt": "¿Eso es todo?",
+            "somethingOnYourMind": "¿Tienes algo en mente?",
+            "whaddaYouWant": "¿Qué quieres?",
+            "yeahImGoin": "¡Sí, allá voy!"
           },
           "wraith": {
             "attackFormation": "Formación de ataque.",
@@ -919,9 +937,8 @@
             "whyAmISoGood": "Tengo una duda, ¿por qué soy tan perfecto?"
           },
           "zealot": {
+            "doomToAll": "¡Muerte a todo el que amenace nuestro mundo!",
             "enTaroAdun": "¡En taro Adun!",
-            "forAiur": "¡Por Aiur!",
-            "khassarDeTemplari": "¡Khassar de templari!",
             "longForCombat": "¡Ansío el combate!",
             "myLifeForAiur": "¡Mi vida por Aiur!"
           }
