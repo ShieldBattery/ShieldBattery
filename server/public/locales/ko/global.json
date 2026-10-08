@@ -254,6 +254,7 @@
     "channelHeader": {
       "actionItems": {
         "channelSettings": "채널 설정",
+        "copyChannelLink": "채널 링크 복사",
         "hideBanner": "배너 숨기기",
         "invitePeople": "초대하기",
         "leaveChannel": "채널 나가기",
@@ -576,11 +577,12 @@
       }
     },
     "createChannel": {
-      "bannedError": "해당 채널에서 차단되었습니다.",
       "channelName": "채널 이름",
+      "chatRestrictedError": "현재 채팅이 제한된 상태라 채널을 만들 수 없습니다.",
       "createAction": "채널 만들기",
       "defaultError": "채널을 만드는 중 오류가 발생했습니다.",
       "maximumOwnedError": "채널을 생성하는데 한도에 도달했습니다. 다른 채널을 만들려면 먼저 만든 채널을 떠나야 합니다.",
+      "nameTakenError": "같은 이름의 채널이 이미 있습니다.",
       "title": "채널 생성"
     },
     "createChannelConfirmation": {
@@ -615,10 +617,12 @@
       "expiryLabel": "만료 기간",
       "generate": "새 링크 만들기",
       "generateError": "새 초대 링크를 만드는 중 문제가 발생했습니다",
+      "generatePrompt": "아래에서 링크를 생성해 사람들을 초대하세요.",
       "loadError": "초대 링크를 가져오는 중 문제가 발생했습니다. 아래에서 새 링크를 만들 수 있습니다.",
       "loading": "링크를 가져오는 중…",
       "maxUsesLabel": "최대 사용 횟수",
       "noLink": "사용 가능한 링크가 없습니다",
+      "noLinkYet": "아직 초대 링크가 없습니다",
       "title": "초대 링크"
     },
     "inviteLinks": {
@@ -642,6 +646,7 @@
     },
     "joinChannel": {
       "bannedError": "#{{channelName}}에서 차단되었습니다",
+      "closedError": "#{{channelName}} 채널은 서버 관리자에 의해 폐쇄되었습니다",
       "genericError": "#{{channelName}}에 참여하는 동안 오류가 발생했습니다",
       "inviteLinkInvalidError": "유효하지 않거나 만료된 초대 링크입니다.",
       "maximumChannelsError": "참여한 채널의 한도에 도달했습니다. 다른 채널에 참여하기 전에 먼저 떠나야 합니다.",
@@ -664,6 +669,9 @@
       "loseOwnershipBody": "#{{channelName}}에서 나가면 소유권이 다른 멤버에게 넘어가며, 직접 되돌릴 수 없습니다. 채널 권한도 함께 잃습니다.",
       "losePermissionsBody": "#{{channelName}}에서 나가면 채널 권한을 잃고, 다시 입장해도 복구되지 않습니다."
     },
+    "linkCard": {
+      "title": "채널"
+    },
     "messageLayout": {
       "banUser": "<0><0></0></0> 채널에서 차단되었습니다",
       "joinChannel": "<0><0></0></0>님이 채널에 참여했습니다",
@@ -681,10 +689,13 @@
       "deleteMessage": "메시지 삭제"
     },
     "navEntry": {
+      "copyChannelLink": "채널 링크 복사",
       "leaveChannel": "채널 나가기"
     },
     "notifications": {
       "ban": "<1>#{{channelName}}</1>에서 차단되었습니다.",
+      "channelClosed": "<0>#{{channelName}}</0> 채널이 서버 관리자에 의해 폐쇄되었습니다.",
+      "channelDeleted": "<0>#{{channelName}}</0> 채널이 서버 관리자에 의해 삭제되었습니다.",
       "errors": {
         "updateFailed": "알림 설정을 변경하는 중 문제가 발생했습니다"
       },
@@ -731,6 +742,168 @@
       },
       "quote": {
         "line": "님이 <1>{{unit}}</1> 대사를 인용했습니다: \"{{line}}\"",
+        "lines": {
+          "arbiter": {
+            "askOfUs": "우리에게 무엇을 바라는가?",
+            "seekGuidance": "인도를 원하는가?",
+            "senseASoul": "해답을 찾는 영혼이 느껴진다.",
+            "warpFieldStabilized": "워프 필드 안정화 완료."
+          },
+          "archon": {
+            "mergingComplete": "융합이 완료되었다.",
+            "powerOverwhelming": "파워 오버웰밍!",
+            "shallBeDone": "그리 될 것이다.",
+            "weBurn": "불타오른다!"
+          },
+          "battlecruiser": {
+            "battlecruiserOperational": "배틀크루저 가동 준비 완료.",
+            "engage": "교전 개시!",
+            "goodDayCommander": "좋은 하루입니다, 사령관님.",
+            "makeItHappen": "실행하게.",
+            "notEquippedWithShields": "보호막이 없다고? 그럼 안전벨트 단단히 매라고!",
+            "setACourse": "항로를 설정하라.",
+            "shieldsUpWeaponsOnline": "보호막 가동! 무기 온라인!",
+            "wayBehindSchedule": "일정이 한참 늦어지고 있다고."
+          },
+          "carrier": {
+            "carrierHasArrived": "캐리어 도착했습니다.",
+            "commander": "사령관.",
+            "instructions": "지시를.",
+            "weAreHere": "우리가 왔다."
+          },
+          "corsair": {
+            "hello": "여보세요?",
+            "interesting": "흥미롭군.",
+            "onStation": "커세어 배치 완료."
+          },
+          "darktemplar": {
+            "adunToridas": "아둔 토리다스.",
+            "ahAtLast": "아, 마침내.",
+            "imWaiting": "기다리고 있다.",
+            "zerashkGulida": "제라쉬크 굴리다!"
+          },
+          "dragoon": {
+            "awaitingInstructions": "명령을 기다린다.",
+            "forVengeance": "복수를 위하여!",
+            "iHaveReturned": "내가 돌아왔다.",
+            "makeUseOfMe": "나를 써라."
+          },
+          "dropship": {
+            "buckleUp": "안전벨트 매세요!",
+            "inThePipe": "진입 중, 상태 양호.",
+            "keepArmsAndLegsInside": "기체가 완전히 멈출 때까지 팔다리를 밖으로 내밀지 마세요.",
+            "someChop": "꽉 잡아요, 좀 흔들릴 거예요.",
+            "takeYourOrder": "주문하시겠어요?",
+            "waterLanding": "수상 착륙 시 승객분들은 구명 장비로 사용될 수 있습니다."
+          },
+          "firebat": {
+            "fireItUp": "불 붙여!",
+            "goodSmoke": "역시 연기 맛이 최고지!",
+            "loveTheSmellOfNapalm": "네이팜 냄새가 좋아.",
+            "needALight": "불 필요해?",
+            "propaneAccessories": "프로판에 대해 궁금한 거 있어? 아니면 프로판 용품은?",
+            "somethingBurning": "뭐 타는 냄새 안 나?",
+            "thatsWhatIThought": "하하, 그럴 줄 알았지."
+          },
+          "ghost": {
+            "calledDownTheThunder": "천둥을 부른 건 너다.",
+            "callTheShot": "목표를 지정하라.",
+            "exterminator": "누가 해충 박멸 부탁했나?",
+            "ghostReporting": "고스트 보고합니다.",
+            "imGone": "사라진다.",
+            "keepItUp": "계속해 봐! 할 수 있으면.",
+            "neverKnowWhatHitEm": "뭐에 맞았는지도 모를 거다.",
+            "reapTheWhirlwind": "이제 그 대가를 치러라."
+          },
+          "goliath": {
+            "checklistProtocol": "점검 절차 개시.",
+            "fdicApproved": "FDIC 승인 완료.",
+            "goAheadTacCom": "말씀하십시오, 전술 통신.",
+            "goliathOnline": "골리앗 온라인.",
+            "milSpecEd209": "군용 규격 ED-209 온라인.",
+            "navComLocked": "항법 통신 고정.",
+            "targetDesignated": "목표 지정 완료."
+          },
+          "marine": {
+            "fragThisCommander": "이 사령관 처리하자는 데 한 표.",
+            "goGoGo": "가자, 가자, 가자!",
+            "gonnaGiveOrders": "명령은 내릴 거야?",
+            "jackedUp": "약 빨았고, 준비 완료.",
+            "outstanding": "훌륭해!",
+            "pieceOfMe": "한판 붙어 볼래, 꼬마야?",
+            "rockAndRoll": "로큰롤!",
+            "somethingToShoot": "쏠 것 좀 줘."
+          },
+          "medic": {
+            "clear": "물러서요!",
+            "getMeADefib": "제세동기 가져와요, 빨리!",
+            "hesDeadJim": "그는 죽었어요, 짐.",
+            "needMedicalAttention": "치료가 필요한가요?",
+            "preppedAndReady": "준비 완료!",
+            "stat": "당장!",
+            "stateTheNature": "어떤 응급 상황인지 말씀하세요.",
+            "turnYourHeadAndCough": "고개 돌리고 기침해 보세요.",
+            "whereDoesItHurt": "어디가 아파요?"
+          },
+          "scv": {
+            "goodToGo": "SCV 준비 완료입니다.",
+            "ordersCaptain": "명령을 내려 주십시오, 대장님.",
+            "reportingForDuty": "임무 보고합니다.",
+            "somethingInTheWay": "못 짓겠는데요, 뭔가 걸리적거려요."
+          },
+          "shuttle": {
+            "awaitingCommand": "명령 대기 중.",
+            "transportReady": "수송 준비 완료.",
+            "transWarpEngaged": "트랜스워프 드라이브 가동."
+          },
+          "tank": {
+            "delightedToSir": "기꺼이 하죠!",
+            "dropTheHammer": "이제 한 방 먹여 주지!",
+            "identifyTarget": "목표를 확인하라!",
+            "indiscriminateJustice": "무차별 정의 집행 중!",
+            "majorMalfunction": "도대체 뭐가 문제야?",
+            "moveIt": "움직여!",
+            "readyToRollOut": "출동 준비 완료!"
+          },
+          "templar": {
+            "appetiteForDestruction": "파괴에 굶주려 있군.",
+            "lackOfControlDisturbing": "하지만 그대의 자제력 부족이 거슬리는군.",
+            "thoughtsBetrayYou": "그대의 생각이 그대를 배신하는군.",
+            "useYourIllusion": "그리고 환상을 쓰는 법을 배우게 되지."
+          },
+          "valkyrie": {
+            "achtung": "아흐퉁!",
+            "itsShowtime": "쇼타임이다!",
+            "needSomethingDestroyed": "부숴 줄 거 있어?",
+            "valkyriePrepared": "발키리 준비 완료.",
+            "veryInterestingButStupid": "아주 흥미롭군... 하지만 멍청해.",
+            "veryNaughty": "아주 못된 짓을 하고 있군.",
+            "waysOfBlowingThingsUp": "날려 버리는 방법은 얼마든지 있지."
+          },
+          "vulture": {
+            "bringItOn": "좋아, 덤벼!",
+            "goingIn": "꽉 잡아, 들어간다.",
+            "gottaRide": "달려야겠어!",
+            "imOnIt": "그래, 맡겨 둬.",
+            "somethingOnYourMind": "할 말 있어?"
+          },
+          "wraith": {
+            "attackFormation": "공격 대형.",
+            "awaitingLaunchOrders": "레이스, 출격 명령 대기 중.",
+            "gottaDieSometimeRed": "누구나 언젠간 죽는 거야, 레드.",
+            "gottaGetMeOneOfThese": "나도 이거 하나 장만해야겠어.",
+            "imInvincible": "난 무적이야, 그렇고말고!",
+            "vectorLockedIn": "벡터 고정.",
+            "whyAmISoGood": "그냥 궁금해서 그러는데, 난 왜 이렇게 잘하지?"
+          },
+          "zealot": {
+            "enTaroAdun": "엔 타로 아둔!",
+            "forAiur": "아이어를 위하여!",
+            "khassarDeTemplari": "카사르 데 템플라리!",
+            "longForCombat": "전투를 갈망한다!",
+            "myLifeForAiur": "아이어를 위해 목숨을 바치리라!"
+          }
+        },
         "units": {
           "arbiter": "아비터",
           "archon": "아콘",
@@ -945,6 +1118,7 @@
       "spoilerFree": "스포일러 방지",
       "vs": "vs"
     },
+    "gameAnomaly": "게임 이상이 감지되었습니다",
     "gameSource": {
       "custom": "사용자 게임",
       "ranked": "{{matchmakingType}} 래더"
@@ -974,6 +1148,7 @@
       "useMapSettings": "맵에 설정된 유닛, 트리거, 규칙을 사용합니다."
     },
     "launchingGameDialog": {
+      "resolvingFailure": "게임이 시작되지 않은 원인을 확인하는 중…",
       "startingGameServer": "게임 서버를 시작하는 중…",
       "title": "게임 실행 중…"
     },
@@ -1012,14 +1187,34 @@
   "gameDetails": {
     "buttonCopyGameId": "ID 복사",
     "buttonCopyLink": "게임 링크 복사하기",
+    "buttonDismissReviewRequest": "요청 기각",
     "buttonDownloadReplay": "리플레이 다운로드",
     "buttonReplaySaved": "라이브러리에 있음",
     "buttonReport": "신고",
+    "buttonRequestReview": "검토 요청",
     "buttonResolveResults": "결과 확정",
     "buttonSaveReplay": "리플레이 저장",
     "buttonSaveReplayLoading": "저장 중…",
     "buttonWatchReplay": "리플레이 보기",
     "buttonWatchReplayLoading": "로딩 중…",
+    "chatTranscript": {
+      "copy": "기록 복사",
+      "dropped": "<0>{{name}}</0>님의 연결이 끊겼습니다",
+      "droppedText": "{{name}}님의 연결이 끊겼습니다",
+      "empty": "이 리플레이들에는 기록된 채팅이나 퇴장이 없습니다.",
+      "left": "<0>{{name}}</0>님이 게임을 나갔습니다",
+      "leftText": "{{name}}님이 게임을 나갔습니다",
+      "loadError": "채팅 기록을 불러오지 못했습니다.",
+      "noReplays": "이 게임에 업로드된 리플레이가 없습니다.",
+      "scopeAll": "(전체)",
+      "scopeTeam": "(팀)",
+      "scopeUnknown": "(?)",
+      "scopeUnknownTooltip": "이 메시지를 보낼 때 상대편 리플레이가 녹화되고 있지 않아 누가 받았는지 알 수 없습니다",
+      "sources": "다음 사용자가 업로드한 리플레이를 합쳤습니다:",
+      "title": "채팅 기록",
+      "unknownSender": "슬롯 {{slot}}",
+      "view": "채팅 기록 보기"
+    },
     "debugInfo": {
       "clientResult": {
         "defeat": "패배",
@@ -1076,7 +1271,12 @@
       "reportTitle": "<1></1>의 보고:",
       "title": "디버그 정보"
     },
+    "disputeNoticeCustom": "플레이어들이 보고한 결과가 일치하지 않아 승패가 반영되지 않았습니다.",
+    "disputeNoticeMatchmaking": "플레이어들이 보고한 결과가 일치하지 않아 레이팅, 점수, 승패가 반영되지 않았습니다.",
+    "disputeNoticeReviewDismissed": "관리자가 이 게임을 검토했으며 결과를 그대로 유지했습니다.",
+    "disputeNoticeReviewPending": "관리자에게 이 게임의 검토를 요청했습니다.",
     "errorLoading": "이 게임을 불러오는 중 문제가 발생했습니다.",
+    "headlineCanceled": "게임 취소됨",
     "headlineDefault": "결과",
     "headlineDefeat": "패배!",
     "headlineDraw": "무승부!",
@@ -1096,6 +1296,14 @@
       "successWithPoints": "결과가 업데이트되고 점수가 적용되었습니다.",
       "title": "게임 결과 확정"
     },
+    "reviewRequestDismissed": "검토 요청을 기각했습니다.",
+    "reviewRequestDismissError": "검토 요청을 기각하지 못했습니다. 이미 처리되었을 수 있습니다.",
+    "reviewRequested": "검토를 요청했습니다. 관리자가 이 게임을 확인할 예정입니다.",
+    "reviewRequestErrorAlreadyRequested": "이 게임은 이미 검토가 요청되었습니다.",
+    "reviewRequestErrorGeneric": "검토를 요청하는 중 문제가 발생했습니다. 나중에 다시 시도하세요.",
+    "reviewRequestErrorNotDisputed": "이 게임의 결과는 더 이상 불일치 상태가 아닙니다.",
+    "reviewRequestErrorSeasonFinalized": "이 게임의 시즌이 마감되어 더 이상 결과를 검토할 수 없습니다.",
+    "reviewRequestErrorTitle": "검토를 요청할 수 없습니다",
     "saveReplayAddedToBookmarks": "북마크에 추가했습니다",
     "saveReplayAddedToPlaylist": "{{name}}에 추가했습니다",
     "saveReplayAlreadySaved": "이 게임의 리플레이는 이미 라이브러리에 있습니다",
@@ -1113,6 +1321,7 @@
     "statusFinal": "마지막",
     "statusLive": "라이브",
     "statusManuallyResolved": "수동 확정됨",
+    "statusReviewRequested": "검토 요청됨",
     "summary": {
       "mmr": "MMR",
       "pointsBase": "기지",
@@ -1125,8 +1334,10 @@
   },
   "gameplayActivity": {
     "lobby": {
+      "gameStarting": "게임 시작 중…",
       "slotCount": "{{takenSlots}} / {{totalSlots}}",
       "slotsLabel": "슬롯:",
+      "startingIn": "게임 시작까지",
       "viewLobby": "로비 보기"
     },
     "matchmaking": {
@@ -1350,6 +1561,7 @@
     },
     "notifications": {
       "ban": "<1>{{leagueName}}</1> 리그에서 차단되었습니다.",
+      "start": "<1>{{leagueName}}</1> 리그가 시작되었습니다.",
       "unban": "<1>{{leagueName}}</1> 리그 차단이 해제되었습니다."
     }
   },
@@ -1389,6 +1601,7 @@
       "joinAsObserver": "관전자로 참여",
       "joinLobby": "로비 참여",
       "legacyLimits": "옛 유닛 제한",
+      "lockedAlliances": "동맹 고정",
       "observers": "관전자",
       "observersCount": "관전자 · {{taken}}/{{total}}",
       "observerSlotsOpen_other": "{{count}}자리 비어 있음",
@@ -1416,6 +1629,7 @@
       "gameSubTypeOptionTvB": "{{topSlots}} 대 {{bottomSlots}}",
       "gameTypeHeader": "게임 모드",
       "lobbyName": "로비 이름",
+      "lockedAlliances": "동맹 고정",
       "mapPlayerCount_other": "{{count}}인용",
       "mapRequired": "플레이할 맵을 선택해 주세요",
       "optionsHeader": "옵션",
@@ -1532,22 +1746,35 @@
     "lobbySettings": {
       "errorDialogTitle": "설정 업데이트 오류",
       "errorGeneric": "로비 설정을 업데이트할 수 없습니다. 현재 멤버가 새 구성에 맞지 않을 수 있습니다.",
-      "errorRename": "로비 이름을 변경할 수 없습니다. 다시 시도해 주세요.",
+      "errorLobbyOnly": "로비 설정을 업데이트할 수 없습니다. 다시 시도하세요.",
       "errorTransient": "로비가 게임을 시작 중이거나 진행 중입니다. 로비로 돌아온 뒤 다시 시도하세요."
+    },
+    "mapQueue": {
+      "addMap": "맵 추가",
+      "empty": "이번 맵 다음에 플레이할 맵을 대기열에 추가하세요. 게임이 끝날 때마다 로비가 다음 맵으로 넘어갑니다.",
+      "header": "다음 맵",
+      "moveDown": "아래로 이동",
+      "moveUp": "위로 이동",
+      "remove": "대기열에서 제거"
     },
     "messageLayout": {
       "gameStarted": "게임이 시작되었습니다",
       "settingsChangeGameSubType": "팀 구성",
       "settingsChangeGameType": "게임 유형",
+      "settingsChangeLockedAlliances": "동맹 고정",
       "settingsChangeMap": "맵",
+      "settingsChangeMapQueue": "맵 대기열",
       "settingsChangeName": "로비 이름",
       "settingsChangeObservers": "관전자",
-      "settingsChangeUnitLimit": "유닛 제한"
+      "settingsChangeUnitLimit": "유닛 제한",
+      "settingsChangeVisibility": "공개 범위"
     },
     "room": {
       "banner": {
+        "alliancesLocked": "고정",
         "shuffle": "섞기",
         "shuffleBlockedByComputers": "컴퓨터를 제거해야 섞을 수 있습니다",
+        "statAlliances": "동맹",
         "statMode": "모드",
         "statSize": "크기",
         "statTileset": "타일셋",
@@ -1564,6 +1791,10 @@
         "loadFailedPrefix": "게임을 시작할 수 없습니다 —",
         "loadFailedReportBug": "이 문제가 계속되면 <1>버그를 신고</1>해 주세요.",
         "loadFailedSuffix": "님의 로딩에 실패했습니다",
+        "mapQueueAdvanced": "대기열의 다음 맵: <2>{{map}}</2>",
+        "mapQueueNoneFit": "대기열의 맵 중 로비 설정에 맞는 맵이 없습니다",
+        "mapQueueSkipped": "{{maps}} 건너뜀",
+        "mapQueueSkippedUnfit_other": "로비 설정에 맞지 않아 {{maps}} 건너뜀",
         "memberBack": "<0></0> 님이 로비로 돌아왔습니다",
         "readyReset": "준비 초기화",
         "seatedOn": "{{seat}}에 앉았습니다",
@@ -1626,11 +1857,14 @@
         "next": "다음",
         "noRecordedWinner": "기록된 승자 없음",
         "playing": "진행 중",
+        "queuedThen": "그다음",
+        "queuedThenMore_other": "그다음 · +{{count}}개",
         "standings": "순위",
         "starting": "시작 중",
         "tileNoWinner": "승자 없음",
         "tilePending": "대기 중",
         "unknownMap": "알 수 없는 맵",
+        "upNext": "다음 맵",
         "waitingForResults": "결과 기다리는 중",
         "watchReplay": "리플레이 보기"
       },
@@ -1792,6 +2026,10 @@
       "quoteTooltip": "인용 (Ctrl+Shift+.)",
       "unorderedList": "글머리 기호 목록",
       "unorderedListTooltip": "글머리 기호 목록 (Ctrl+Shift+8)"
+    },
+    "youtube": {
+      "defaultTitle": "YouTube 동영상",
+      "play": "{{title}} 재생"
     }
   },
   "matchmaking": {
@@ -1811,6 +2049,11 @@
       "bannedFor": "이용 정지 기간:",
       "description": "준비 완료를 하지 않거나 경기에 참여하지 않아 매치메이킹 이용이 일시 제한되었습니다.",
       "title": "매치메이킹 이용 정지"
+    },
+    "banNotification": {
+      "ban": "준비하지 않았거나 경기에 로딩하지 않아 매치메이킹이 일시적으로 금지되었습니다.",
+      "endsOn": "금지 종료 시각:",
+      "warning": "준비하지 않았거나 경기에 로딩하지 않아 매치메이킹 경고를 받았습니다. 곧 다시 그러면 매치메이킹이 일시적으로 금지됩니다."
     },
     "disabledCard": {
       "days": "일",
@@ -1910,16 +2153,38 @@
       "reportBug": "버그 신고"
     },
     "matchCanceled": {
-      "backInQueue": "매치메이킹 대기열로 돌아가 새 상대를 찾고 있습니다.",
-      "draftError": "서버 오류로 종족 선택이 취소되었습니다.",
-      "draftPlayerLeft": "종족 선택 중에 플레이어가 나가서 경기가 취소되었습니다.",
-      "loadError": "서버 오류로 게임을 시작하지 못했습니다.",
-      "loadPlayerLeft": "게임이 시작되기 전에 플레이어가 나가서 경기가 취소되었습니다.",
-      "loadTimeout": "로딩이 너무 오래 걸린 플레이어가 있어 게임을 시작하지 못했습니다.",
-      "notYourFault": "본인의 잘못이 아닙니다. 원인이 된 플레이어는 대기열에서 제외되었습니다.",
-      "playerFailedToLoad": "플레이어의 연결이 끊기거나 로딩에 실패해 게임을 시작하지 못했습니다.",
+      "anomalyFromYouDescription": "게임에서 ShieldBattery가 허용하지 않는 경기 설정 명령이 전송되었습니다. 보통 게임이 변조되었거나 다른 프로그램이 게임에 간섭했다는 뜻입니다.",
+      "anomalyFromYouTitle": "내 게임에서 이상이 감지되었습니다",
+      "anomalyNoPenaltyDescription": "승패가 기록되지 않았습니다. 레이팅과 점수는 그대로입니다.",
+      "backInQueueDescription": "새 경기를 찾고 있습니다.",
+      "backInQueueTitle": "대기열로 복귀",
+      "banDescription": "금지가 끝날 때까지 경기를 검색할 수 없습니다.",
+      "banRemovedDescription": "대기열에서 제외되었으며 금지가 끝날 때까지 다시 검색할 수 없습니다.",
+      "banTitle": "매치메이킹 금지",
+      "becauseOfThis": "그 결과",
+      "errorNoPenaltyDescription": "승패가 기록되지 않았습니다.",
+      "leadAnomalyFromOtherPlayer": "다른 플레이어의 게임에서 이상이 감지되어 경기가 중단되었습니다.",
+      "leadErrorDraft": "서버 오류로 종족 선택이 중단되었습니다.",
+      "leadLoadError": "서버 오류로 게임을 시작하지 못했습니다.",
+      "leadLoadPlayerLeft": "게임이 시작되기 전에 플레이어가 나갔습니다.",
+      "leadLoadTimeout": "로딩이 너무 오래 걸린 플레이어가 있습니다.",
+      "leadPlayerFailedToLoad": "플레이어의 연결이 끊기거나 로딩에 실패했습니다.",
+      "leadPlayerLeftDraft": "종족 선택 중에 플레이어가 나갔습니다.",
+      "leadSetupUnresolved": "게임을 시작하지 못했고, 원인을 확인할 수 없었습니다.",
+      "lossDescription": "이 경기는 레이팅에 패배로 반영됩니다.",
+      "lossTitle": "패배 기록됨",
+      "noPenaltyTitle": "불이익 없음",
+      "notYourFaultDescription": "원인이 된 플레이어는 대기열에서 제외되었습니다.",
+      "notYourFaultTitle": "본인 잘못이 아닙니다",
+      "penaltyPendingDescription": "이 경기에 대해 패배와 매치메이킹 불이익을 기록하는 중입니다.",
+      "penaltyPendingTitle": "불이익 적용 중",
+      "removedFromQueueDescription": "준비되면 언제든 다시 검색할 수 있습니다.",
+      "removedFromQueueTitle": "대기열에서 제외됨",
       "reportBug": "버그 신고",
-      "title": "경기가 취소되었습니다"
+      "title": "경기가 취소되었습니다",
+      "unresolvedNoPenaltyDescription": "승패가 기록되지 않았고, 아무도 불이익을 받지 않았습니다.",
+      "warningDescription": "반복해서 위반하면 매치메이킹이 금지됩니다.",
+      "warningTitle": "매치메이킹 경고"
     },
     "postMatchDialog": {
       "leagues": "리그",
@@ -1929,6 +2194,9 @@
       "searchAgain": "다시 검색",
       "title": "경기 결과",
       "watchReplay": "리플레이 보기"
+    },
+    "season": {
+      "endsOn": "{{date}} 종료"
     },
     "serviceError": {
       "dialogTitle": "매치메이킹 오류",
@@ -2081,6 +2349,14 @@
       "bookmark": "북마크 추가",
       "bookmarkedEmpty": "북마크한 리플레이가 없습니다",
       "bookmarkedEmptyBody": "리플레이를 북마크하면 여기에 모아둘 수 있습니다.",
+      "bulk": {
+        "addedToPlaylist_other": "리플레이 {{count}}개를 {{playlist}}에 추가했습니다",
+        "bookmarked_other": "리플레이 {{count}}개를 북마크했습니다",
+        "movedToRecycleBin_other": "리플레이 {{count}}개를 휴지통으로 이동했습니다",
+        "movedToRecycleBinPartial_other": "리플레이 {{count}}개 중 {{moved}}개를 휴지통으로 이동했습니다",
+        "removedBookmark_other": "리플레이 {{count}}개의 북마크를 해제했습니다",
+        "removedFromPlaylist_other": "{{playlist}}에서 리플레이 {{count}}개를 제거했습니다"
+      },
       "clearFilters": "필터 지우기",
       "empty": "아직 리플레이가 없습니다",
       "emptyBody": "시청하거나 플레이한 리플레이가 여기에 자동으로 표시됩니다.",
@@ -2123,6 +2399,9 @@
       "removeBookmark": "북마크 해제",
       "removeFromPlaylist": "재생목록에서 제거",
       "scanningTitle": "리플레이 폴더 스캔 중…",
+      "selection": {
+        "count_other": "리플레이 {{count}}개 선택됨"
+      },
       "showInExplorer": "탐색기에서 보기",
       "sourceTagBnet": "B.NET",
       "sourceTagSb": "SB",
@@ -2170,8 +2449,34 @@
         "addFolderTitle": "리플레이 폴더 선택",
         "foldersDescription": "리플레이 라이브러리가 인덱싱하는 폴더입니다. 스타크래프트 기본 리플레이 폴더는 자동으로 추가됩니다. 폴더를 제거하면 해당 폴더의 리플레이가 북마크와 재생목록 항목을 포함해 라이브러리에서 제거됩니다.",
         "foldersTitle": "리플레이 폴더",
+        "name": {
+          "add": "항목 추가",
+          "description": "각 게임이 끝난 뒤 자동 저장되는 리플레이의 이름 형식입니다. 항목을 끌어서 순서를 바꿀 수 있습니다. 계정에 저장됩니다.",
+          "empty": "아래에서 항목을 추가하세요. 이름을 비워 두면 기본값을 사용합니다.",
+          "preview1v1": "1:1",
+          "preview2v2": "2:2",
+          "remove": "제거",
+          "reset": "기본값으로 재설정",
+          "textLabel": "텍스트",
+          "textPlaceholder": "텍스트",
+          "title": "리플레이 이름",
+          "token": {
+            "date": "날짜",
+            "format": "형식",
+            "map": "맵",
+            "matchup": "종족전",
+            "name": "내 이름",
+            "opponentRaces": "상대 종족",
+            "opponents": "상대",
+            "race": "내 종족",
+            "text": "텍스트",
+            "time": "시간"
+          }
+        },
+        "openingTitle": "리플레이 열기",
         "quickOpen": "ShieldBattery로 연 리플레이를 미리보기 없이 바로 실행",
-        "removeFolder": "폴더 제거"
+        "removeFolder": "폴더 제거",
+        "title": "리플레이"
       },
       "sound": {
         "masterVolume": "마스터 볼륨",
@@ -2538,11 +2843,20 @@
         "pillarbox": "필러박스 (4:3 화면 비율)",
         "primaryMonitor": "기본값 (주 모니터)",
         "realTimeLighting": "실시간 조명",
+        "resetWindowPosition": "창 위치 초기화",
         "sdGraphicsFilter": "SD 그래픽 필터",
         "shadowStacking": "섀도우 스태킹",
         "showFps": "FPS 표시",
         "smoothUnitTurning": "부드러운 유닛 회전",
-        "title": "비디오"
+        "title": "비디오",
+        "windowPlacement": {
+          "remember": "위치와 크기 기억",
+          "rememberSize": "크기 기억, 가운데 배치",
+          "setSize": "크기 지정, 가운데 배치",
+          "title": "창 배치"
+        },
+        "windowSize": "창 크기",
+        "windowSizeOption": "{{width}} × {{height}} ({{aspectRatio}})"
       }
     },
     "user": {
@@ -2640,10 +2954,16 @@
         "title": "언어"
       },
       "notifications": {
+        "alerts": {
+          "description": "다른 곳을 보고 있을 때 무슨 일이 생기면 앱이 알려 주는 방식입니다. 메시지 알림음은 채팅, 귓속말, 로비 및 종족 선택 채팅에 적용되며, 경기 찾음 같은 이벤트 소리는 항상 재생됩니다. 작업 표시줄은 나를 멘션한 메시지, 귓속말, 경기 찾음, 내 로비에 플레이어가 들어올 때 깜빡입니다. 계정에 저장되며 로그인하는 모든 기기에 적용됩니다.",
+          "title": "알림 방식"
+        },
+        "flashTaskbar": "작업 표시줄 깜빡이기",
         "inGame": {
           "description": "게임 중에는 나를 멘션한 메시지라도 소리가 나거나 작업 표시줄이 깜박이지 않습니다. 계정에 저장되어 로그인하는 모든 기기에 적용됩니다.",
           "title": "게임 중"
         },
+        "playMessageSounds": "메시지 알림음 재생",
         "quietChannelsWhileInGame": "게임 중 채널 알림 끄기",
         "quietWhispersWhileInGame": "게임 중 귓속말 알림 끄기",
         "showWhispersEverywhere": "모든 채팅에 귓속말 표시",
@@ -2658,6 +2978,7 @@
           "count": "{{blocked}} / {{max}}",
           "description": "차단한 사용자의 메시지는 채팅이나 게임에서 표시되지 않으며, 친구 요청도 보낼 수 없습니다.",
           "empty": "차단한 사용자가 없습니다.",
+          "loadFailed": "차단한 사용자 목록을 불러오지 못했습니다",
           "title": "차단한 사용자"
         },
         "title": "소셜"
@@ -2669,14 +2990,14 @@
     "chat": {
       "label": "채팅",
       "loadingChannelsError": "채팅 채널 로드 중 오류가 발생했습니다",
-      "loadingWhispersError": "귓속말 로드 중 오류가 발생했습니다"
+      "loadingWhispersError": "귓속말 로드 중 오류가 발생했습니다",
+      "reorderChannelsError": "채널 순서를 저장하는 중 오류가 발생했습니다: {{errorMessage}}"
     },
     "errors": {
       "friendsList": {
         "errorAcceptingFriendRequest": "친구 요청 수락 중 오류가 발생했습니다",
         "errorDecliningFriendRequest": "친구 요청 거절 중 오류가 발생했습니다",
-        "errorRemovingFriendRequest": "친구 요청 삭제 중 오류가 발생했습니다",
-        "load": "친구 목록을 불러오지 못했습니다"
+        "errorRemovingFriendRequest": "친구 요청 삭제 중 오류가 발생했습니다"
       }
     },
     "friends": {
@@ -2689,6 +3010,7 @@
         "online": "온라인",
         "outgoing": "보낸 요청"
       },
+      "loadFailed": "친구 목록을 불러오지 못했습니다",
       "loadingUsername": "사용자 이름 불러오는 중…",
       "tabs": {
         "addFriends": "친구 추가",

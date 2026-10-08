@@ -254,6 +254,7 @@
     "channelHeader": {
       "actionItems": {
         "channelSettings": "频道设置",
+        "copyChannelLink": "复制频道链接",
         "hideBanner": "隐藏横幅",
         "invitePeople": "邀请他人",
         "leaveChannel": "离开频道",
@@ -576,11 +577,12 @@
       }
     },
     "createChannel": {
-      "bannedError": "您被禁止访问此频道。",
       "channelName": "频道名称",
+      "chatRestrictedError": "您目前被限制聊天，因此无法创建频道。",
       "createAction": "创建频道",
       "defaultError": "创建频道时遇到错误。",
       "maximumOwnedError": "您已达到创建频道的限制。您必须先离开您创建的一个频道，然后才能创建新的频道。",
+      "nameTakenError": "已存在同名频道。",
       "title": "创建频道"
     },
     "createChannelConfirmation": {
@@ -615,10 +617,12 @@
       "expiryLabel": "有效期",
       "generate": "生成新链接",
       "generateError": "生成新邀请链接时出了点问题",
+      "generatePrompt": "在下方生成链接来邀请他人。",
       "loadError": "获取邀请链接时出了点问题。您仍可以在下方生成新链接。",
       "loading": "正在获取链接…",
       "maxUsesLabel": "最多使用次数",
       "noLink": "没有可用的链接",
+      "noLinkYet": "暂无邀请链接",
       "title": "邀请链接"
     },
     "inviteLinks": {
@@ -642,6 +646,7 @@
     },
     "joinChannel": {
       "bannedError": "您被 #{{channelName}} 封禁",
+      "closedError": "#{{channelName}} 已被服务器版主关闭",
       "genericError": "加入 #{{channelName}} 时遇到错误",
       "inviteLinkInvalidError": "此邀请链接无效或已过期。",
       "maximumChannelsError": "您已达到加入频道的限制。您必须先离开一个频道，然后才能加入其他频道。",
@@ -664,6 +669,9 @@
       "loseOwnershipBody": "离开 #{{channelName}} 会将所有权转移给其他成员，您无法自行收回。您在该频道的权限也会一并失去。",
       "losePermissionsBody": "离开 #{{channelName}} 会失去您在该频道的权限，重新加入也不会恢复。"
     },
+    "linkCard": {
+      "title": "频道"
+    },
     "messageLayout": {
       "banUser": "<0><0></0></0> 已被频道封禁",
       "joinChannel": "<0><0></0></0> 已加入频道",
@@ -681,10 +689,13 @@
       "deleteMessage": "删除消息"
     },
     "navEntry": {
+      "copyChannelLink": "复制频道链接",
       "leaveChannel": "离开频道"
     },
     "notifications": {
       "ban": "您已被 <1>#{{channelName}}</1> 封禁。",
+      "channelClosed": "<0>#{{channelName}}</0> 已被服务器版主关闭。",
+      "channelDeleted": "<0>#{{channelName}}</0> 已被服务器版主删除。",
       "errors": {
         "updateFailed": "更新通知设置时出现问题"
       },
@@ -731,6 +742,168 @@
       },
       "quote": {
         "line": "引用了 <1>{{unit}}</1> 的台词“{{line}}”",
+        "lines": {
+          "arbiter": {
+            "askOfUs": "你对我们有何所求？",
+            "seekGuidance": "你在寻求指引吗？",
+            "senseASoul": "我们感应到一个寻求答案的灵魂。",
+            "warpFieldStabilized": "折跃场已稳定。"
+          },
+          "archon": {
+            "mergingComplete": "融合已完成。",
+            "powerOverwhelming": "力量无穷！",
+            "shallBeDone": "必将完成。",
+            "weBurn": "我们在燃烧！"
+          },
+          "battlecruiser": {
+            "battlecruiserOperational": "战列巡航舰准备就绪。",
+            "engage": "开战！",
+            "goodDayCommander": "日安，指挥官。",
+            "makeItHappen": "立即执行。",
+            "notEquippedWithShields": "没装护盾？那就系好安全带吧！",
+            "setACourse": "设定航线。",
+            "shieldsUpWeaponsOnline": "护盾升起！武器上线！",
+            "wayBehindSchedule": "我们的进度已经严重落后了。"
+          },
+          "carrier": {
+            "carrierHasArrived": "航母已抵达。",
+            "commander": "指挥官。",
+            "instructions": "请指示。",
+            "weAreHere": "我们来了。"
+          },
+          "corsair": {
+            "hello": "喂？",
+            "interesting": "有意思。",
+            "onStation": "海盗船就位。"
+          },
+          "darktemplar": {
+            "adunToridas": "Adun Toridas。",
+            "ahAtLast": "啊，终于来了。",
+            "imWaiting": "我在等着。",
+            "zerashkGulida": "Zerashk gulida！"
+          },
+          "dragoon": {
+            "awaitingInstructions": "等待指示。",
+            "forVengeance": "为了复仇！",
+            "iHaveReturned": "我回来了。",
+            "makeUseOfMe": "尽管差遣我。"
+          },
+          "dropship": {
+            "buckleUp": "系好安全带！",
+            "inThePipe": "已进入航道，信号良好。",
+            "keepArmsAndLegsInside": "在本次飞行完全停稳之前，请勿将手脚伸出舱外。",
+            "someChop": "抓紧了，前方有颠簸。",
+            "takeYourOrder": "请问您要点些什么？",
+            "waterLanding": "如遇水上迫降，您可能会被用作漂浮装置。"
+          },
+          "firebat": {
+            "fireItUp": "点火！",
+            "goodSmoke": "没什么比来口好烟更爽了！",
+            "loveTheSmellOfNapalm": "我爱凝固汽油弹的味道。",
+            "needALight": "要借个火吗？",
+            "propaneAccessories": "对丙烷有疑问吗？还是丙烷配件？",
+            "somethingBurning": "是不是有什么烧着了？",
+            "thatsWhatIThought": "哈哈，我就知道。"
+          },
+          "ghost": {
+            "calledDownTheThunder": "是你召来了雷霆。",
+            "callTheShot": "指定目标。",
+            "exterminator": "有人叫灭虫的吗？",
+            "ghostReporting": "幽灵报到。",
+            "imGone": "我消失了。",
+            "keepItUp": "继续啊！有种你就继续。",
+            "neverKnowWhatHitEm": "他们都不知道被什么击中了。",
+            "reapTheWhirlwind": "现在自食恶果吧。"
+          },
+          "goliath": {
+            "checklistProtocol": "检查程序已启动。",
+            "fdicApproved": "FDIC 认证。",
+            "goAheadTacCom": "请讲，战术通讯。",
+            "goliathOnline": "歌利亚上线。",
+            "milSpecEd209": "军规 ED-209 上线。",
+            "navComLocked": "导航通讯已锁定。",
+            "targetDesignated": "目标已指定。"
+          },
+          "marine": {
+            "fragThisCommander": "我投票干掉这个指挥官。",
+            "goGoGo": "上上上！",
+            "gonnaGiveOrders": "你到底要不要下命令？",
+            "jackedUp": "火力全开，准备出发。",
+            "outstanding": "太棒了！",
+            "pieceOfMe": "想跟我过两招吗，小子？",
+            "rockAndRoll": "摇滚起来！",
+            "somethingToShoot": "给我点东西打打。"
+          },
+          "medic": {
+            "clear": "闪开！",
+            "getMeADefib": "快拿除颤器来！",
+            "hesDeadJim": "他死了，吉姆。",
+            "needMedicalAttention": "需要医疗救助吗？",
+            "preppedAndReady": "准备就绪！",
+            "stat": "马上！",
+            "stateTheNature": "请说明您的医疗紧急情况。",
+            "turnYourHeadAndCough": "把头转过去，咳嗽一下。",
+            "whereDoesItHurt": "哪里疼？"
+          },
+          "scv": {
+            "goodToGo": "SCV 准备就绪，长官。",
+            "ordersCaptain": "有何命令，队长？",
+            "reportingForDuty": "前来报到。",
+            "somethingInTheWay": "造不了，有东西挡着。"
+          },
+          "shuttle": {
+            "awaitingCommand": "等待命令。",
+            "transportReady": "运输准备就绪。",
+            "transWarpEngaged": "超折跃引擎启动。"
+          },
+          "tank": {
+            "delightedToSir": "乐意效劳，长官！",
+            "dropTheHammer": "我要重锤出击了！",
+            "identifyTarget": "识别目标！",
+            "indiscriminateJustice": "正义无差别发放中！",
+            "majorMalfunction": "你到底哪根筋不对？",
+            "moveIt": "快走！",
+            "readyToRollOut": "准备出发！"
+          },
+          "templar": {
+            "appetiteForDestruction": "看来你渴望毁灭。",
+            "lackOfControlDisturbing": "但你的缺乏自制让我不安。",
+            "thoughtsBetrayYou": "你的思想出卖了你。",
+            "useYourIllusion": "你将学会运用你的幻象。"
+          },
+          "valkyrie": {
+            "achtung": "Achtung！",
+            "itsShowtime": "表演时间到！",
+            "needSomethingDestroyed": "需要摧毁什么吗？",
+            "valkyriePrepared": "瓦格雷战机准备完毕。",
+            "veryInterestingButStupid": "非常有趣……但很愚蠢。",
+            "veryNaughty": "你真是太调皮了。",
+            "waysOfBlowingThingsUp": "我有的是办法把东西炸飞。"
+          },
+          "vulture": {
+            "bringItOn": "好吧，放马过来！",
+            "goingIn": "坐稳了，我要冲进去了。",
+            "gottaRide": "我得兜风去！",
+            "imOnIt": "好，交给我。",
+            "somethingOnYourMind": "有心事？"
+          },
+          "wraith": {
+            "attackFormation": "攻击队形。",
+            "awaitingLaunchOrders": "怨灵战机等待起飞命令。",
+            "gottaDieSometimeRed": "人总有一死，红毛。",
+            "gottaGetMeOneOfThese": "我也得弄一台这玩意儿。",
+            "imInvincible": "我天下无敌，没错！",
+            "vectorLockedIn": "航向已锁定。",
+            "whyAmISoGood": "我就是好奇，我怎么这么厉害？"
+          },
+          "zealot": {
+            "enTaroAdun": "阿顿在上！",
+            "forAiur": "为了艾尔！",
+            "khassarDeTemplari": "Khassar de templari！",
+            "longForCombat": "我渴望战斗！",
+            "myLifeForAiur": "我的生命献给艾尔！"
+          }
+        },
         "units": {
           "arbiter": "仲裁者",
           "archon": "执政官",
@@ -945,6 +1118,7 @@
       "spoilerFree": "无剧透",
       "vs": "vs"
     },
+    "gameAnomaly": "检测到游戏异常",
     "gameSource": {
       "custom": "自定义游戏",
       "ranked": "{{matchmakingType}}排位"
@@ -974,6 +1148,7 @@
       "useMapSettings": "使用地图自带的单位、触发器和规则。"
     },
     "launchingGameDialog": {
+      "resolvingFailure": "正在检查游戏无法启动的原因…",
       "startingGameServer": "正在启动游戏服务器…",
       "title": "正在启动游戏…"
     },
@@ -1012,14 +1187,34 @@
   "gameDetails": {
     "buttonCopyGameId": "复制ID",
     "buttonCopyLink": "复制游戏链接",
+    "buttonDismissReviewRequest": "驳回请求",
     "buttonDownloadReplay": "下载录像",
     "buttonReplaySaved": "已在录像库",
     "buttonReport": "举报",
+    "buttonRequestReview": "请求复核",
     "buttonResolveResults": "判定结果",
     "buttonSaveReplay": "保存录像",
     "buttonSaveReplayLoading": "保存中…",
     "buttonWatchReplay": "观看录像",
     "buttonWatchReplayLoading": "加载中…",
+    "chatTranscript": {
+      "copy": "复制记录",
+      "dropped": "<0>{{name}}</0> 已掉线",
+      "droppedText": "{{name}} 已掉线",
+      "empty": "这些录像中没有记录到聊天或离开。",
+      "left": "<0>{{name}}</0> 离开了游戏",
+      "leftText": "{{name}} 离开了游戏",
+      "loadError": "无法加载聊天记录。",
+      "noReplays": "此游戏没有上传任何录像。",
+      "scopeAll": "（全体）",
+      "scopeTeam": "（队伍）",
+      "scopeUnknown": "（？）",
+      "scopeUnknownTooltip": "发送这条消息时，另一方没有录像在录制，因此不清楚接收者是谁",
+      "sources": "合并自以下玩家上传的录像：",
+      "title": "聊天记录",
+      "unknownSender": "位置 {{slot}}",
+      "view": "查看聊天记录"
+    },
     "debugInfo": {
       "clientResult": {
         "defeat": "战败",
@@ -1076,7 +1271,12 @@
       "reportTitle": "来自 <1></1> 的报告：",
       "title": "调试信息"
     },
+    "disputeNoticeCustom": "玩家上报的结果不一致，因此未计入任何胜负变化。",
+    "disputeNoticeMatchmaking": "玩家上报的结果不一致，因此未计入任何评分、积分或胜负变化。",
+    "disputeNoticeReviewDismissed": "管理员已复核此游戏，并维持原有结果。",
+    "disputeNoticeReviewPending": "已请管理员复核此游戏。",
     "errorLoading": "加载该游戏时遇到了问题。",
+    "headlineCanceled": "游戏已取消",
     "headlineDefault": "结果",
     "headlineDefeat": "战败！",
     "headlineDraw": "平局！",
@@ -1096,6 +1296,14 @@
       "successWithPoints": "结果已更新，积分已生效。",
       "title": "判定游戏结果"
     },
+    "reviewRequestDismissed": "复核请求已驳回。",
+    "reviewRequestDismissError": "无法驳回复核请求。它可能已被处理。",
+    "reviewRequested": "已请求复核。管理员会查看此游戏。",
+    "reviewRequestErrorAlreadyRequested": "此游戏已请求过复核。",
+    "reviewRequestErrorGeneric": "请求复核时出了点问题，请稍后再试。",
+    "reviewRequestErrorNotDisputed": "此游戏的结果已不再有争议。",
+    "reviewRequestErrorSeasonFinalized": "此游戏所在赛季已结算，结果无法再复核。",
+    "reviewRequestErrorTitle": "无法请求复核",
     "saveReplayAddedToBookmarks": "已添加到书签",
     "saveReplayAddedToPlaylist": "已添加到“{{name}}”",
     "saveReplayAlreadySaved": "该游戏的录像已在您的录像库中",
@@ -1113,6 +1321,7 @@
     "statusFinal": "最终",
     "statusLive": "直播中",
     "statusManuallyResolved": "已手动判定",
+    "statusReviewRequested": "已请求复核",
     "summary": {
       "mmr": "MMR",
       "pointsBase": "基础",
@@ -1125,8 +1334,10 @@
   },
   "gameplayActivity": {
     "lobby": {
+      "gameStarting": "游戏即将开始…",
       "slotCount": "{{takenSlots}} / {{totalSlots}}",
       "slotsLabel": "玩家槽位：",
+      "startingIn": "游戏开始倒计时",
       "viewLobby": "查看房间"
     },
     "matchmaking": {
@@ -1350,6 +1561,7 @@
     },
     "notifications": {
       "ban": "您已被禁止参加 <1>{{leagueName}}</1> 联赛。",
+      "start": "<1>{{leagueName}}</1> 联赛已开始。",
       "unban": "您参加 <1>{{leagueName}}</1> 联赛的封禁已解除。"
     }
   },
@@ -1389,6 +1601,7 @@
       "joinAsObserver": "以观战者身份加入",
       "joinLobby": "加入房间",
       "legacyLimits": "旧版单位限制",
+      "lockedAlliances": "同盟锁定",
       "observers": "观战者",
       "observersCount": "观战者 · {{taken}}/{{total}}",
       "observerSlotsOpen_other": "剩余{{count}}个",
@@ -1416,6 +1629,7 @@
       "gameSubTypeOptionTvB": "{{topSlots}}对{{bottomSlots}}",
       "gameTypeHeader": "游戏类型",
       "lobbyName": "房间名称",
+      "lockedAlliances": "锁定同盟",
       "mapPlayerCount_other": "{{count}}名玩家",
       "mapRequired": "选择要玩的地图",
       "optionsHeader": "选项",
@@ -1532,22 +1746,35 @@
     "lobbySettings": {
       "errorDialogTitle": "更新设置出错",
       "errorGeneric": "无法更新房间设置。当前成员可能不适合新的配置。",
-      "errorRename": "无法重命名房间。请重试。",
+      "errorLobbyOnly": "无法更新房间设置，请重试。",
       "errorTransient": "房间正在开始或进行游戏。请等房间重新集合后再试。"
+    },
+    "mapQueue": {
+      "addMap": "添加地图",
+      "empty": "将地图加入队列，在这张之后游玩。每局游戏结束后，房间会切换到下一张。",
+      "header": "接下来",
+      "moveDown": "下移",
+      "moveUp": "上移",
+      "remove": "移出队列"
     },
     "messageLayout": {
       "gameStarted": "游戏已开始",
       "settingsChangeGameSubType": "队伍分配",
       "settingsChangeGameType": "游戏类型",
+      "settingsChangeLockedAlliances": "同盟锁定",
       "settingsChangeMap": "地图",
+      "settingsChangeMapQueue": "地图队列",
       "settingsChangeName": "房间名称",
       "settingsChangeObservers": "观战者",
-      "settingsChangeUnitLimit": "单位限制"
+      "settingsChangeUnitLimit": "单位限制",
+      "settingsChangeVisibility": "可见性"
     },
     "room": {
       "banner": {
+        "alliancesLocked": "已锁定",
         "shuffle": "打乱",
         "shuffleBlockedByComputers": "移除电脑玩家后才能打乱",
+        "statAlliances": "同盟",
         "statMode": "模式",
         "statSize": "大小",
         "statTileset": "地形类型",
@@ -1564,6 +1791,10 @@
         "loadFailedPrefix": "游戏无法开始：",
         "loadFailedReportBug": "如果此问题反复出现，请<1>反馈 bug</1>。",
         "loadFailedSuffix": "加载失败",
+        "mapQueueAdvanced": "队列中的下一张地图：<2>{{map}}</2>",
+        "mapQueueNoneFit": "队列中没有符合房间设置的地图",
+        "mapQueueSkipped": "已跳过 {{maps}}",
+        "mapQueueSkippedUnfit_other": "已跳过 {{maps}}，不符合房间设置",
         "memberBack": "<0></0> 回到了房间",
         "readyReset": "准备状态已重置",
         "seatedOn": "入座 {{seat}}",
@@ -1626,11 +1857,14 @@
         "next": "下一局",
         "noRecordedWinner": "未记录胜者",
         "playing": "进行中",
+        "queuedThen": "然后",
+        "queuedThenMore_other": "然后 · 另有 {{count}} 张",
         "standings": "战绩",
         "starting": "启动中",
         "tileNoWinner": "无胜者",
         "tilePending": "等待中",
         "unknownMap": "未知地图",
+        "upNext": "接下来",
         "waitingForResults": "等待结果",
         "watchReplay": "观看录像"
       },
@@ -1792,6 +2026,10 @@
       "quoteTooltip": "引用（Ctrl+Shift+.）",
       "unorderedList": "无序列表",
       "unorderedListTooltip": "无序列表（Ctrl+Shift+8）"
+    },
+    "youtube": {
+      "defaultTitle": "YouTube 视频",
+      "play": "播放 {{title}}"
     }
   },
   "matchmaking": {
@@ -1811,6 +2049,11 @@
       "bannedFor": "你已被封禁，时长：",
       "description": "由于未准备或未按时加入比赛，你已被暂时禁止匹配。",
       "title": "匹配封禁"
+    },
+    "banNotification": {
+      "ban": "由于您未准备或未加载进入比赛，您已被暂时禁止匹配。",
+      "endsOn": "封禁结束时间：",
+      "warning": "由于您未准备或未加载进入比赛，您收到了一次匹配警告。如果短期内再次发生，您将被暂时禁止匹配。"
     },
     "disabledCard": {
       "days": "天",
@@ -1910,16 +2153,38 @@
       "reportBug": "反馈 bug"
     },
     "matchCanceled": {
-      "backInQueue": "您已重新进入匹配队列，正在寻找新的比赛。",
-      "draftError": "由于服务器错误，种族选择已取消。",
-      "draftPlayerLeft": "有玩家在种族选择期间离开，比赛已取消。",
-      "loadError": "由于服务器错误，游戏无法开始。",
-      "loadPlayerLeft": "有玩家在游戏开始前离开，比赛已取消。",
-      "loadTimeout": "有玩家加载时间过长，游戏无法开始。",
-      "notYourFault": "这不是您的责任。导致取消的玩家已被移出队列。",
-      "playerFailedToLoad": "有玩家断开连接或加载失败，游戏无法开始。",
+      "anomalyFromYouDescription": "您的游戏发送了 ShieldBattery 不允许的比赛设置指令。这通常意味着游戏被修改过，或有其他程序干扰了游戏。",
+      "anomalyFromYouTitle": "检测到您的游戏存在异常",
+      "anomalyNoPenaltyDescription": "未记录胜负。您的评分和积分不变。",
+      "backInQueueDescription": "正在寻找新的比赛。",
+      "backInQueueTitle": "已重新排队",
+      "banDescription": "封禁结束前，您无法匹配比赛。",
+      "banRemovedDescription": "您已被移出队列，封禁结束前无法再次匹配。",
+      "banTitle": "已被禁止匹配",
+      "becauseOfThis": "因此",
+      "errorNoPenaltyDescription": "未记录胜负。",
+      "leadAnomalyFromOtherPlayer": "检测到其他玩家的游戏存在异常，比赛已被中止。",
+      "leadErrorDraft": "种族选择因服务器错误而中断。",
+      "leadLoadError": "由于服务器错误，游戏无法开始。",
+      "leadLoadPlayerLeft": "有玩家在游戏开始前离开。",
+      "leadLoadTimeout": "有玩家加载时间过长。",
+      "leadPlayerFailedToLoad": "有玩家断开连接或加载失败。",
+      "leadPlayerLeftDraft": "有玩家在种族选择期间离开。",
+      "leadSetupUnresolved": "游戏无法开始，且无法确定原因。",
+      "lossDescription": "这场比赛将作为败局计入您的评分。",
+      "lossTitle": "已记录败局",
+      "noPenaltyTitle": "您不会受到惩罚",
+      "notYourFaultDescription": "责任玩家已被移出队列。",
+      "notYourFaultTitle": "这不是您的责任",
+      "penaltyPendingDescription": "正在为这场比赛记录败局和匹配惩罚。",
+      "penaltyPendingTitle": "正在执行惩罚",
+      "removedFromQueueDescription": "准备好后随时可以再次匹配。",
+      "removedFromQueueTitle": "已移出队列",
       "reportBug": "反馈 bug",
-      "title": "比赛已取消"
+      "title": "比赛已取消",
+      "unresolvedNoPenaltyDescription": "未记录胜负，也没有人受到惩罚。",
+      "warningDescription": "多次违规将导致被禁止匹配。",
+      "warningTitle": "匹配警告"
     },
     "postMatchDialog": {
       "leagues": "联赛",
@@ -1929,6 +2194,9 @@
       "searchAgain": "重新匹配",
       "title": "比赛结果",
       "watchReplay": "观看录像"
+    },
+    "season": {
+      "endsOn": "{{date}} 结束"
     },
     "serviceError": {
       "dialogTitle": "匹配错误",
@@ -2081,6 +2349,14 @@
       "bookmark": "添加书签",
       "bookmarkedEmpty": "没有已加书签的录像",
       "bookmarkedEmptyBody": "为录像添加书签，方便在这里找到它们。",
+      "bulk": {
+        "addedToPlaylist_other": "已将 {{count}} 个录像添加到 {{playlist}}",
+        "bookmarked_other": "已为 {{count}} 个录像添加书签",
+        "movedToRecycleBin_other": "已将 {{count}} 个录像移至回收站",
+        "movedToRecycleBinPartial_other": "已将 {{count}} 个录像中的 {{moved}} 个移至回收站",
+        "removedBookmark_other": "已取消 {{count}} 个录像的书签",
+        "removedFromPlaylist_other": "已从 {{playlist}} 中移除 {{count}} 个录像"
+      },
       "clearFilters": "清除筛选",
       "empty": "暂无录像",
       "emptyBody": "您游玩或观看的录像将自动显示在这里。",
@@ -2123,6 +2399,9 @@
       "removeBookmark": "取消书签",
       "removeFromPlaylist": "从播放列表中移除",
       "scanningTitle": "正在扫描录像文件夹……",
+      "selection": {
+        "count_other": "已选择 {{count}} 个录像"
+      },
       "showInExplorer": "在资源管理器中显示",
       "sourceTagBnet": "B.NET",
       "sourceTagSb": "SB",
@@ -2170,8 +2449,34 @@
         "addFolderTitle": "选择录像文件夹",
         "foldersDescription": "录像库索引的文件夹。星际争霸默认录像文件夹会自动添加。移除文件夹会将其中的录像从录像库中删除，包括对应的书签和播放列表条目。",
         "foldersTitle": "录像文件夹",
+        "name": {
+          "add": "添加片段",
+          "description": "每局游戏结束后自动保存的录像如何命名。拖动片段可调整顺序。保存到您的账户。",
+          "empty": "在下方添加片段。名称留空则使用默认名称。",
+          "preview1v1": "1v1",
+          "preview2v2": "2v2",
+          "remove": "移除",
+          "reset": "恢复默认",
+          "textLabel": "文本",
+          "textPlaceholder": "文本",
+          "title": "录像名称",
+          "token": {
+            "date": "日期",
+            "format": "模式",
+            "map": "地图",
+            "matchup": "对阵",
+            "name": "您的名字",
+            "opponentRaces": "对手种族",
+            "opponents": "对手",
+            "race": "您的种族",
+            "text": "文本",
+            "time": "时间"
+          }
+        },
+        "openingTitle": "打开录像",
         "quickOpen": "使用ShieldBattery打开录像时直接开始播放录像，跳过录像预览",
-        "removeFolder": "移除文件夹"
+        "removeFolder": "移除文件夹",
+        "title": "录像"
       },
       "sound": {
         "masterVolume": "全局音量",
@@ -2538,11 +2843,20 @@
         "pillarbox": "黑边模式（4:3纵横比）",
         "primaryMonitor": "默认（主显示器）",
         "realTimeLighting": "实时光照",
+        "resetWindowPosition": "重置窗口位置",
         "sdGraphicsFilter": "旧版图像滤镜",
         "shadowStacking": "阴影重叠",
         "showFps": "显示帧数",
         "smoothUnitTurning": "单位转身更平滑",
-        "title": "图像"
+        "title": "图像",
+        "windowPlacement": {
+          "remember": "记住位置和大小",
+          "rememberSize": "记住大小，居中显示",
+          "setSize": "指定大小，居中显示",
+          "title": "窗口位置"
+        },
+        "windowSize": "窗口大小",
+        "windowSizeOption": "{{width}} × {{height}}（{{aspectRatio}}）"
       }
     },
     "user": {
@@ -2640,10 +2954,16 @@
         "title": "语言"
       },
       "notifications": {
+        "alerts": {
+          "description": "当您没在看应用时发生了事情，应用如何提醒您。消息提示音适用于聊天、私聊、房间聊天和种族选择聊天；找到比赛等事件的提示音总会播放。当有提及您的消息、私聊、找到比赛或有玩家加入您的房间时，任务栏会闪烁。保存到您的账户，并在您登录的所有设备上生效。",
+          "title": "提醒"
+        },
+        "flashTaskbar": "闪烁任务栏",
         "inGame": {
           "description": "当您在游戏中时，消息不会播放提示音或闪烁任务栏，即使是提到您的消息也一样。此设置保存在您的账号中，在您登录的所有设备上生效。",
           "title": "游戏中"
         },
+        "playMessageSounds": "播放消息提示音",
         "quietChannelsWhileInGame": "游戏中静音频道",
         "quietWhispersWhileInGame": "游戏中静音私聊",
         "showWhispersEverywhere": "在所有聊天中显示私聊",
@@ -2658,6 +2978,7 @@
           "count": "{{blocked}} / {{max}}",
           "description": "您不会看到已屏蔽用户在聊天或游戏中的消息，他们也无法向您发送好友请求。",
           "empty": "您还没有屏蔽任何人。",
+          "loadFailed": "无法加载您屏蔽的用户",
           "title": "已屏蔽的用户"
         },
         "title": "社交"
@@ -2669,14 +2990,14 @@
     "chat": {
       "label": "聊天",
       "loadingChannelsError": "加载聊天频道时出错",
-      "loadingWhispersError": "加载私聊时出错"
+      "loadingWhispersError": "加载私聊时出错",
+      "reorderChannelsError": "保存频道顺序时出错：{{errorMessage}}"
     },
     "errors": {
       "friendsList": {
         "errorAcceptingFriendRequest": "接受好友请求时出错",
         "errorDecliningFriendRequest": "拒绝好友请求时出错",
-        "errorRemovingFriendRequest": "删除好友请求时出错",
-        "load": "加载好友列表失败"
+        "errorRemovingFriendRequest": "删除好友请求时出错"
       }
     },
     "friends": {
@@ -2689,6 +3010,7 @@
         "online": "在线",
         "outgoing": "已发送"
       },
+      "loadFailed": "无法加载您的好友列表",
       "loadingUsername": "用户名加载中……",
       "tabs": {
         "addFriends": "添加好友",

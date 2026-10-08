@@ -254,6 +254,7 @@
     "channelHeader": {
       "actionItems": {
         "channelSettings": "Настройки канала",
+        "copyChannelLink": "Скопировать ссылку на канал",
         "hideBanner": "Скрыть баннер",
         "invitePeople": "Пригласить",
         "leaveChannel": "Покинуть канал",
@@ -585,11 +586,12 @@
       }
     },
     "createChannel": {
-      "bannedError": "Ты забанен на этом канале.",
       "channelName": "Название канала",
+      "chatRestrictedError": "Сейчас Вам ограничен доступ к чату, поэтому Вы не можете создавать каналы.",
       "createAction": "Создать канал",
       "defaultError": "Произошла ошибка при создании канала.",
       "maximumOwnedError": "Вы достигли лимита созданных каналов. Вам нужно покинуть один из созданных каналов, прежде чем создать новый.",
+      "nameTakenError": "Канал с таким названием уже существует.",
       "title": "Создать канал"
     },
     "createChannelConfirmation": {
@@ -627,10 +629,12 @@
       "expiryLabel": "Срок действия",
       "generate": "Создать новую ссылку",
       "generateError": "Не удалось создать новую ссылку-приглашение",
+      "generatePrompt": "Создайте ссылку ниже, чтобы пригласить людей.",
       "loadError": "Не удалось получить ссылку-приглашение. Вы можете создать новую ниже.",
       "loading": "Получаем ссылку…",
       "maxUsesLabel": "Лимит использований",
       "noLink": "Ссылка недоступна",
+      "noLinkYet": "Ссылки-приглашения пока нет",
       "title": "Ссылка-приглашение"
     },
     "inviteLinks": {
@@ -675,6 +679,7 @@
     },
     "joinChannel": {
       "bannedError": "Вам запрещен доступ к #{{channelName}}",
+      "closedError": "Канал #{{channelName}} закрыт модераторами сервера",
       "genericError": "Произошла ошибка при присоединении к #{{channelName}}",
       "inviteLinkInvalidError": "Ссылка-приглашение недействительна или устарела.",
       "maximumChannelsError": "Вы достигли лимита присоединенных каналов. Вам нужно покинуть один, прежде чем присоединиться к другому.",
@@ -697,6 +702,9 @@
       "loseOwnershipBody": "Если Вы покинете #{{channelName}}, владение перейдёт другому участнику, и Вы не сможете вернуть его самостоятельно. Свои права в канале Вы также потеряете.",
       "losePermissionsBody": "Если Вы покинете #{{channelName}}, Вы потеряете свои права в канале, и повторный вход их не вернёт."
     },
+    "linkCard": {
+      "title": "Канал"
+    },
     "messageLayout": {
       "banUser": "<0><0></0></0> был забанен на канале",
       "joinChannel": "<0><0></0></0> присоединился к каналу",
@@ -714,10 +722,13 @@
       "deleteMessage": "Удалить сообщение"
     },
     "navEntry": {
+      "copyChannelLink": "Скопировать ссылку на канал",
       "leaveChannel": "Покинуть канал"
     },
     "notifications": {
       "ban": "Вы забанены в канале <1>#{{channelName}}</1>.",
+      "channelClosed": "Канал <0>#{{channelName}}</0> закрыт модераторами сервера.",
+      "channelDeleted": "Канал <0>#{{channelName}}</0> удалён модераторами сервера.",
       "errors": {
         "updateFailed": "Не удалось обновить настройки уведомлений"
       },
@@ -764,6 +775,168 @@
       },
       "quote": {
         "line": "цитирует <1>{{unit}}</1>: «{{line}}»",
+        "lines": {
+          "arbiter": {
+            "askOfUs": "Чего ты хочешь от нас?",
+            "seekGuidance": "Ты ищешь наставления?",
+            "senseASoul": "Мы чувствуем душу, ищущую ответы.",
+            "warpFieldStabilized": "Варп-поле стабилизировано."
+          },
+          "archon": {
+            "mergingComplete": "Слияние завершено.",
+            "powerOverwhelming": "Сила переполняет!",
+            "shallBeDone": "Да будет так.",
+            "weBurn": "Мы горим!"
+          },
+          "battlecruiser": {
+            "battlecruiserOperational": "Крейсер к бою готов.",
+            "engage": "В бой!",
+            "goodDayCommander": "Добрый день, командир.",
+            "makeItHappen": "Исполняйте.",
+            "notEquippedWithShields": "Щитов нет? Что ж, тогда пристегнитесь!",
+            "setACourse": "Проложить курс.",
+            "shieldsUpWeaponsOnline": "Щиты подняты! Орудия к бою!",
+            "wayBehindSchedule": "Мы ОЧЕНЬ отстаём от графика."
+          },
+          "carrier": {
+            "carrierHasArrived": "Авианосец прибыл.",
+            "commander": "Командир.",
+            "instructions": "Указания.",
+            "weAreHere": "Мы здесь."
+          },
+          "corsair": {
+            "hello": "Алло?",
+            "interesting": "Интересно.",
+            "onStation": "Корсар на позиции."
+          },
+          "darktemplar": {
+            "adunToridas": "Адун Торидас.",
+            "ahAtLast": "А, наконец-то.",
+            "imWaiting": "Я жду.",
+            "zerashkGulida": "Зерашк гулида!"
+          },
+          "dragoon": {
+            "awaitingInstructions": "Жду указаний.",
+            "forVengeance": "Во имя мести!",
+            "iHaveReturned": "Я вернулся.",
+            "makeUseOfMe": "Используй меня."
+          },
+          "dropship": {
+            "buckleUp": "Пристегнитесь!",
+            "inThePipe": "На подлёте, связь отличная.",
+            "keepArmsAndLegsInside": "Не высовывайте руки и ноги до полной остановки аттракциона.",
+            "someChop": "Держитесь, сейчас потрясёт.",
+            "takeYourOrder": "Вы готовы сделать заказ?",
+            "waterLanding": "В случае посадки на воду Вы можете быть использованы как плавсредство."
+          },
+          "firebat": {
+            "fireItUp": "Зажигай!",
+            "goodSmoke": "Ничто не сравнится с хорошим дымком!",
+            "loveTheSmellOfNapalm": "Люблю запах напалма.",
+            "needALight": "Прикурить?",
+            "propaneAccessories": "Есть вопросы о пропане? Или о пропановых принадлежностях?",
+            "somethingBurning": "Что-то горит?",
+            "thatsWhatIThought": "Ха-ха, так я и думал."
+          },
+          "ghost": {
+            "calledDownTheThunder": "Ты сам призвал гром.",
+            "callTheShot": "Назови цель.",
+            "exterminator": "Кто-то вызывал дезинсектора?",
+            "ghostReporting": "Призрак на связи.",
+            "imGone": "Меня здесь нет.",
+            "keepItUp": "Давай, продолжай! Рискни.",
+            "neverKnowWhatHitEm": "Даже не поймут, что их ударило.",
+            "reapTheWhirlwind": "Теперь пожинай бурю."
+          },
+          "goliath": {
+            "checklistProtocol": "Протокол проверки запущен.",
+            "fdicApproved": "Одобрено FDIC.",
+            "goAheadTacCom": "Слушаю, ТакКом.",
+            "goliathOnline": "Голиаф в строю.",
+            "milSpecEd209": "Военный образец ED-209 в строю.",
+            "navComLocked": "Навигация зафиксирована.",
+            "targetDesignated": "Цель указана."
+          },
+          "marine": {
+            "fragThisCommander": "Предлагаю пристрелить этого командира.",
+            "goGoGo": "Вперёд, вперёд, вперёд!",
+            "gonnaGiveOrders": "Ты будешь отдавать приказы?",
+            "jackedUp": "Заряжен и готов к бою.",
+            "outstanding": "Превосходно!",
+            "pieceOfMe": "Нарываешься, парень?",
+            "rockAndRoll": "Рок-н-ролл!",
+            "somethingToShoot": "Дайте мне во что-нибудь пострелять."
+          },
+          "medic": {
+            "clear": "Разряд!",
+            "getMeADefib": "Дефибриллятор, срочно!",
+            "hesDeadJim": "Он мёртв, Джим.",
+            "needMedicalAttention": "Нужна медицинская помощь?",
+            "preppedAndReady": "Всё готово!",
+            "stat": "Срочно!",
+            "stateTheNature": "Опишите характер Вашей медицинской проблемы.",
+            "turnYourHeadAndCough": "Отвернитесь и покашляйте.",
+            "whereDoesItHurt": "Где болит?"
+          },
+          "scv": {
+            "goodToGo": "КСМ готов, сэр.",
+            "ordersCaptain": "Приказы, капитан?",
+            "reportingForDuty": "Прибыл для несения службы.",
+            "somethingInTheWay": "Не могу построить, что-то мешает."
+          },
+          "shuttle": {
+            "awaitingCommand": "Ожидаю команды.",
+            "transportReady": "Транспорт готов.",
+            "transWarpEngaged": "Трансварп-двигатель запущен."
+          },
+          "tank": {
+            "delightedToSir": "С удовольствием, сэр!",
+            "dropTheHammer": "Сейчас как вдарю!",
+            "identifyTarget": "Опознать цель!",
+            "indiscriminateJustice": "Вершу правосудие без разбора!",
+            "majorMalfunction": "Какого чёрта с тобой не так?",
+            "moveIt": "Шевелись!",
+            "readyToRollOut": "Готов выдвигаться!"
+          },
+          "templar": {
+            "appetiteForDestruction": "Вижу, ты жаждешь разрушений.",
+            "lackOfControlDisturbing": "Но меня тревожит твоя несдержанность.",
+            "thoughtsBetrayYou": "Твои мысли выдают тебя.",
+            "useYourIllusion": "И ты учишься пользоваться иллюзией."
+          },
+          "valkyrie": {
+            "achtung": "Ахтунг!",
+            "itsShowtime": "Шоу начинается!",
+            "needSomethingDestroyed": "Нужно что-нибудь уничтожить?",
+            "valkyriePrepared": "Валькирия готова.",
+            "veryInterestingButStupid": "Очень интересно... но глупо.",
+            "veryNaughty": "Ты очень плохо себя ведёшь.",
+            "waysOfBlowingThingsUp": "У меня есть способы всё взорвать."
+          },
+          "vulture": {
+            "bringItOn": "Ну давай, нападай!",
+            "goingIn": "Держись, захожу.",
+            "gottaRide": "Мне надо гнать!",
+            "imOnIt": "Ага, уже занимаюсь.",
+            "somethingOnYourMind": "Что-то на уме?"
+          },
+          "wraith": {
+            "attackFormation": "Боевое построение.",
+            "awaitingLaunchOrders": "Мираж ждёт приказа на взлёт.",
+            "gottaDieSometimeRed": "Все когда-нибудь умирают, Рыжий.",
+            "gottaGetMeOneOfThese": "Надо бы мне такой раздобыть.",
+            "imInvincible": "Я непобедим, вот так!",
+            "vectorLockedIn": "Вектор зафиксирован.",
+            "whyAmISoGood": "Просто интересно: почему я так хорош?"
+          },
+          "zealot": {
+            "enTaroAdun": "Эн таро Адун!",
+            "forAiur": "За Айур!",
+            "khassarDeTemplari": "Кхассар де темплари!",
+            "longForCombat": "Жажду битвы!",
+            "myLifeForAiur": "Моя жизнь за Айур!"
+          }
+        },
         "units": {
           "arbiter": "Арбитр",
           "archon": "Архонт",
@@ -990,6 +1163,7 @@
       "spoilerFree": "Без спойлеров",
       "vs": "vs"
     },
+    "gameAnomaly": "Обнаружены аномалии в игре",
     "gameSource": {
       "custom": "Пользовательская игра",
       "ranked": "Рейтинговый {{matchmakingType}}"
@@ -1019,6 +1193,7 @@
       "useMapSettings": "Юниты, триггеры и правила самой карты."
     },
     "launchingGameDialog": {
+      "resolvingFailure": "Выясняем, почему игра не запустилась…",
       "startingGameServer": "Запуск игрового сервера…",
       "title": "Запуск игры…"
     },
@@ -1057,14 +1232,34 @@
   "gameDetails": {
     "buttonCopyGameId": "Скопировать ID",
     "buttonCopyLink": "Скопировать ссылку на игру",
+    "buttonDismissReviewRequest": "Отклонить запрос",
     "buttonDownloadReplay": "Скачать реплей",
     "buttonReplaySaved": "В библиотеке",
     "buttonReport": "Пожаловаться",
+    "buttonRequestReview": "Запросить проверку",
     "buttonResolveResults": "Разрешить спор",
     "buttonSaveReplay": "Сохранить реплей",
     "buttonSaveReplayLoading": "Сохранение…",
     "buttonWatchReplay": "Смотреть реплей",
     "buttonWatchReplayLoading": "Загрузка…",
+    "chatTranscript": {
+      "copy": "Скопировать лог",
+      "dropped": "<0>{{name}}</0>: обрыв соединения",
+      "droppedText": "{{name}}: обрыв соединения",
+      "empty": "В этих реплеях не записано ни чата, ни выходов из игры.",
+      "left": "<0>{{name}}</0>: выход из игры",
+      "leftText": "{{name}}: выход из игры",
+      "loadError": "Не удалось загрузить лог чата.",
+      "noReplays": "Для этой игры не загружено ни одного реплея.",
+      "scopeAll": "(ВСЕМ)",
+      "scopeTeam": "(КОМАНДЕ)",
+      "scopeUnknown": "(?)",
+      "scopeUnknownTooltip": "Когда это сообщение было отправлено, реплей другой стороны не записывался, поэтому получатели неизвестны",
+      "sources": "Собран из реплеев, загруженных игроками:",
+      "title": "Лог чата",
+      "unknownSender": "Слот {{slot}}",
+      "view": "Открыть лог чата"
+    },
     "debugInfo": {
       "clientResult": {
         "defeat": "Поражение",
@@ -1121,7 +1316,12 @@
       "reportTitle": "Отчет от <1></1>:",
       "title": "Отладочная информация"
     },
+    "disputeNoticeCustom": "Результаты, отправленные игроками, не совпали, поэтому победы и поражения не засчитаны.",
+    "disputeNoticeMatchmaking": "Результаты, отправленные игроками, не совпали, поэтому рейтинг, очки, победы и поражения не изменились.",
+    "disputeNoticeReviewDismissed": "Администратор проверил эту игру и оставил результаты без изменений.",
+    "disputeNoticeReviewPending": "Администратора попросили проверить эту игру.",
     "errorLoading": "Не удалось загрузить эту игру.",
+    "headlineCanceled": "Игра отменена",
     "headlineDefault": "Результаты",
     "headlineDefeat": "Поражение!",
     "headlineDraw": "Ничья!",
@@ -1141,6 +1341,14 @@
       "successWithPoints": "Результаты обновлены, очки начислены.",
       "title": "Разрешить спор о результатах"
     },
+    "reviewRequestDismissed": "Запрос на проверку отклонён.",
+    "reviewRequestDismissError": "Не удалось отклонить запрос на проверку. Возможно, он уже обработан.",
+    "reviewRequested": "Проверка запрошена. Администратор посмотрит эту игру.",
+    "reviewRequestErrorAlreadyRequested": "Проверка этой игры уже запрошена.",
+    "reviewRequestErrorGeneric": "Не удалось запросить проверку. Попробуйте позже.",
+    "reviewRequestErrorNotDisputed": "Результаты этой игры больше не оспариваются.",
+    "reviewRequestErrorSeasonFinalized": "Сезон этой игры уже подведён, поэтому её результаты больше нельзя проверить.",
+    "reviewRequestErrorTitle": "Не удалось запросить проверку",
     "saveReplayAddedToBookmarks": "Добавлено в закладки",
     "saveReplayAddedToPlaylist": "Добавлено в {{name}}",
     "saveReplayAlreadySaved": "Реплей этой игры уже есть в вашей библиотеке",
@@ -1158,6 +1366,7 @@
     "statusFinal": "Финал",
     "statusLive": "В реальном времени",
     "statusManuallyResolved": "Решено вручную",
+    "statusReviewRequested": "Запрошена проверка",
     "summary": {
       "mmr": "MMR",
       "pointsBase": "Базовые очки",
@@ -1170,8 +1379,10 @@
   },
   "gameplayActivity": {
     "lobby": {
+      "gameStarting": "Игра начинается…",
       "slotCount": "{{takenSlots}} / {{totalSlots}}",
       "slotsLabel": "Слоты:",
+      "startingIn": "Игра начнётся через",
       "viewLobby": "Открыть лобби"
     },
     "matchmaking": {
@@ -1398,6 +1609,7 @@
     },
     "notifications": {
       "ban": "Вы забанены в лиге <1>{{leagueName}}</1>.",
+      "start": "Лига <1>{{leagueName}}</1> началась.",
       "unban": "Ваш бан в лиге <1>{{leagueName}}</1> снят."
     }
   },
@@ -1443,6 +1655,7 @@
       "joinAsObserver": "Присоединиться как зритель",
       "joinLobby": "Присоединиться к лобби",
       "legacyLimits": "Классический лимит",
+      "lockedAlliances": "Союзы закреплены",
       "observers": "Зрители",
       "observersCount": "Зрители · {{taken}}/{{total}}",
       "observerSlotsOpen_one": "{{count}} свободное место",
@@ -1479,6 +1692,7 @@
       "gameSubTypeOptionTvB": "{{topSlots}} против {{bottomSlots}}",
       "gameTypeHeader": "Тип игры",
       "lobbyName": "Название лобби",
+      "lockedAlliances": "Закрепить союзы",
       "mapPlayerCount_one": "{{count}} игрок",
       "mapPlayerCount_few": "{{count}} игрока",
       "mapPlayerCount_many": "{{count}} игроков",
@@ -1610,22 +1824,35 @@
     "lobbySettings": {
       "errorDialogTitle": "Ошибка обновления настроек",
       "errorGeneric": "Не удалось обновить настройки лобби. Возможно, текущие участники не помещаются в новую конфигурацию.",
-      "errorRename": "Не удалось переименовать лобби. Попробуйте ещё раз.",
+      "errorLobbyOnly": "Не удалось обновить настройки лобби. Попробуйте снова.",
       "errorTransient": "Лобби запускает игру или уже играет. Попробуйте снова, когда все вернутся."
+    },
+    "mapQueue": {
+      "addMap": "Добавить карту",
+      "empty": "Добавьте карты в очередь, чтобы сыграть их после этой. Лобби переходит к следующей карте после каждой игры.",
+      "header": "Далее",
+      "moveDown": "Опустить",
+      "moveUp": "Поднять",
+      "remove": "Убрать из очереди"
     },
     "messageLayout": {
       "gameStarted": "Игра началась",
       "settingsChangeGameSubType": "команды",
       "settingsChangeGameType": "тип игры",
+      "settingsChangeLockedAlliances": "закрепление союзов",
       "settingsChangeMap": "карта",
+      "settingsChangeMapQueue": "очередь карт",
       "settingsChangeName": "название лобби",
       "settingsChangeObservers": "зрители",
-      "settingsChangeUnitLimit": "лимит юнитов"
+      "settingsChangeUnitLimit": "лимит юнитов",
+      "settingsChangeVisibility": "видимость"
     },
     "room": {
       "banner": {
+        "alliancesLocked": "Закреплены",
         "shuffle": "Перемешать",
         "shuffleBlockedByComputers": "Уберите компьютеры, чтобы перемешать",
+        "statAlliances": "Союзы",
         "statMode": "Режим",
         "statSize": "Размер",
         "statTileset": "Тайлсет",
@@ -1642,6 +1869,13 @@
         "loadFailedPrefix": "Игра не началась: загрузка у",
         "loadFailedReportBug": "Если это повторяется, <1>сообщите об ошибке</1>.",
         "loadFailedSuffix": "не удалась",
+        "mapQueueAdvanced": "Следующая карта из очереди: <2>{{map}}</2>",
+        "mapQueueNoneFit": "Ни одна карта из очереди не подходит под настройки лобби",
+        "mapQueueSkipped": "Пропущено: {{maps}}",
+        "mapQueueSkippedUnfit_one": "Пропущено: {{maps}} — не подходит под настройки лобби",
+        "mapQueueSkippedUnfit_few": "Пропущено: {{maps}} — не подходят под настройки лобби",
+        "mapQueueSkippedUnfit_many": "Пропущено: {{maps}} — не подходят под настройки лобби",
+        "mapQueueSkippedUnfit_other": "Пропущено: {{maps}} — не подходят под настройки лобби",
         "memberBack": "<0></0> возвращается в лобби",
         "readyReset": "готовность сброшена",
         "seatedOn": "занимает {{seat}}",
@@ -1704,11 +1938,17 @@
         "next": "Следующая",
         "noRecordedWinner": "Победитель не записан",
         "playing": "В игре",
+        "queuedThen": "Затем",
+        "queuedThenMore_one": "Затем · ещё +{{count}}",
+        "queuedThenMore_few": "Затем · ещё +{{count}}",
+        "queuedThenMore_many": "Затем · ещё +{{count}}",
+        "queuedThenMore_other": "Затем · ещё +{{count}}",
         "standings": "Счёт",
         "starting": "Запуск",
         "tileNoWinner": "Без победителя",
         "tilePending": "Ожидание",
         "unknownMap": "неизвестная карта",
+        "upNext": "Далее",
         "waitingForResults": "Ожидание результатов",
         "watchReplay": "Смотреть реплей"
       },
@@ -1873,6 +2113,10 @@
       "quoteTooltip": "Цитата (Ctrl+Shift+.)",
       "unorderedList": "Маркированный список",
       "unorderedListTooltip": "Маркированный список (Ctrl+Shift+8)"
+    },
+    "youtube": {
+      "defaultTitle": "Видео на YouTube",
+      "play": "Воспроизвести: {{title}}"
     }
   },
   "matchmaking": {
@@ -1895,6 +2139,11 @@
       "bannedFor": "Вы забанены на срок:",
       "description": "Вы временно забанены в матчмейкинге за то, что не готовы были вовремя или не присоединились к матчам.",
       "title": "Бан в матчмейкинге"
+    },
+    "banNotification": {
+      "ban": "Вы временно отстранены от матчмейкинга, потому что не подтвердили готовность или не загрузились в матч.",
+      "endsOn": "Бан закончится:",
+      "warning": "Вы получили предупреждение в матчмейкинге, потому что не подтвердили готовность или не загрузились в матч. Если это скоро повторится, Вас временно отстранят от матчмейкинга."
     },
     "disabledCard": {
       "days": "Дни",
@@ -2000,16 +2249,38 @@
       "reportBug": "Сообщить об ошибке"
     },
     "matchCanceled": {
-      "backInQueue": "Вы снова в очереди матчмейкинга, идёт поиск нового матча.",
-      "draftError": "Выбор рас отменён из-за ошибки сервера.",
-      "draftPlayerLeft": "Игрок вышел во время выбора рас, поэтому матч отменён.",
-      "loadError": "Не удалось начать игру из-за ошибки сервера.",
-      "loadPlayerLeft": "Игрок вышел до начала игры, поэтому матч отменён.",
-      "loadTimeout": "Один из игроков слишком долго загружался, поэтому игра не началась.",
-      "notYourFault": "Это не Ваша вина. Виновник удалён из очереди.",
-      "playerFailedToLoad": "Игрок отключился или не смог загрузиться, поэтому игра не началась.",
+      "anomalyFromYouDescription": "Ваша игра отправила команды настройки матча, которые ShieldBattery не допускает. Обычно это значит, что игра была модифицирована или ей помешала другая программа.",
+      "anomalyFromYouTitle": "В Вашей игре обнаружены аномалии",
+      "anomalyNoPenaltyDescription": "Ни победа, ни поражение не засчитаны. Ваш рейтинг и очки не изменились.",
+      "backInQueueDescription": "Идёт поиск нового матча.",
+      "backInQueueTitle": "Вы снова в очереди",
+      "banDescription": "Вы не можете искать матчи, пока не закончится бан.",
+      "banRemovedDescription": "Вы удалены из очереди и не сможете снова искать матч, пока не закончится бан.",
+      "banTitle": "Бан в матчмейкинге",
+      "becauseOfThis": "Последствия",
+      "errorNoPenaltyDescription": "Ни победа, ни поражение не засчитаны.",
+      "leadAnomalyFromOtherPlayer": "В игре другого игрока обнаружены аномалии, поэтому матч остановлен.",
+      "leadErrorDraft": "Выбор рас прерван из-за ошибки сервера.",
+      "leadLoadError": "Не удалось начать игру из-за ошибки сервера.",
+      "leadLoadPlayerLeft": "Игрок вышел до начала игры.",
+      "leadLoadTimeout": "Один из игроков слишком долго загружался.",
+      "leadPlayerFailedToLoad": "Игрок отключился или не смог загрузиться.",
+      "leadPlayerLeftDraft": "Игрок вышел во время выбора рас.",
+      "leadSetupUnresolved": "Игра не запустилась, и причину установить не удалось.",
+      "lossDescription": "Этот матч засчитан Вам как поражение в рейтинге.",
+      "lossTitle": "Засчитано поражение",
+      "noPenaltyTitle": "Для Вас без штрафа",
+      "notYourFaultDescription": "Виновник удалён из очереди.",
+      "notYourFaultTitle": "Это не Ваша вина",
+      "penaltyPendingDescription": "За этот матч засчитывается поражение и штраф в матчмейкинге.",
+      "penaltyPendingTitle": "Применяется штраф",
+      "removedFromQueueDescription": "Вы можете снова начать поиск, когда будете готовы.",
+      "removedFromQueueTitle": "Вы удалены из очереди",
       "reportBug": "Сообщить об ошибке",
-      "title": "Матч отменён"
+      "title": "Матч отменён",
+      "unresolvedNoPenaltyDescription": "Ни победа, ни поражение не засчитаны, и никто не оштрафован.",
+      "warningDescription": "Повторные нарушения ведут к бану в матчмейкинге.",
+      "warningTitle": "Предупреждение в матчмейкинге"
     },
     "postMatchDialog": {
       "leagues": "Лиги",
@@ -2019,6 +2290,9 @@
       "searchAgain": "Искать снова",
       "title": "Результаты матча",
       "watchReplay": "Посмотреть реплей"
+    },
+    "season": {
+      "endsOn": "Закончится {{date}}"
     },
     "serviceError": {
       "dialogTitle": "Ошибка матчмейкинга",
@@ -2171,6 +2445,32 @@
       "bookmark": "В закладки",
       "bookmarkedEmpty": "Нет реплеев в закладках",
       "bookmarkedEmptyBody": "Добавляйте реплеи в закладки, чтобы они были под рукой.",
+      "bulk": {
+        "addedToPlaylist_one": "{{count}} реплей добавлен в плейлист {{playlist}}",
+        "addedToPlaylist_few": "{{count}} реплея добавлено в плейлист {{playlist}}",
+        "addedToPlaylist_many": "{{count}} реплеев добавлено в плейлист {{playlist}}",
+        "addedToPlaylist_other": "{{count}} реплея добавлено в плейлист {{playlist}}",
+        "bookmarked_one": "{{count}} реплей добавлен в закладки",
+        "bookmarked_few": "{{count}} реплея добавлено в закладки",
+        "bookmarked_many": "{{count}} реплеев добавлено в закладки",
+        "bookmarked_other": "{{count}} реплея добавлено в закладки",
+        "movedToRecycleBin_one": "{{count}} реплей перемещён в корзину",
+        "movedToRecycleBin_few": "{{count}} реплея перемещено в корзину",
+        "movedToRecycleBin_many": "{{count}} реплеев перемещено в корзину",
+        "movedToRecycleBin_other": "{{count}} реплея перемещено в корзину",
+        "movedToRecycleBinPartial_one": "В корзину перемещено {{moved}} из {{count}} реплея",
+        "movedToRecycleBinPartial_few": "В корзину перемещено {{moved}} из {{count}} реплеев",
+        "movedToRecycleBinPartial_many": "В корзину перемещено {{moved}} из {{count}} реплеев",
+        "movedToRecycleBinPartial_other": "В корзину перемещено {{moved}} из {{count}} реплея",
+        "removedBookmark_one": "{{count}} реплей убран из закладок",
+        "removedBookmark_few": "{{count}} реплея убрано из закладок",
+        "removedBookmark_many": "{{count}} реплеев убрано из закладок",
+        "removedBookmark_other": "{{count}} реплея убрано из закладок",
+        "removedFromPlaylist_one": "{{count}} реплей убран из плейлиста {{playlist}}",
+        "removedFromPlaylist_few": "{{count}} реплея убрано из плейлиста {{playlist}}",
+        "removedFromPlaylist_many": "{{count}} реплеев убрано из плейлиста {{playlist}}",
+        "removedFromPlaylist_other": "{{count}} реплея убрано из плейлиста {{playlist}}"
+      },
       "clearFilters": "Сбросить фильтры",
       "empty": "Реплеев пока нет",
       "emptyBody": "Реплеи сыгранных и просмотренных игр будут появляться здесь автоматически.",
@@ -2213,6 +2513,12 @@
       "removeBookmark": "Убрать из закладок",
       "removeFromPlaylist": "Убрать из плейлиста",
       "scanningTitle": "Сканирование папки с реплеями…",
+      "selection": {
+        "count_one": "Выбран {{count}} реплей",
+        "count_few": "Выбрано {{count}} реплея",
+        "count_many": "Выбрано {{count}} реплеев",
+        "count_other": "Выбрано {{count}} реплея"
+      },
       "showInExplorer": "Показать в проводнике",
       "sourceTagBnet": "B.NET",
       "sourceTagSb": "SB",
@@ -2260,8 +2566,34 @@
         "addFolderTitle": "Выберите папку с реплеями",
         "foldersDescription": "Папки, индексируемые вашей библиотекой реплеев. Стандартная папка реплеев StarCraft добавляется автоматически. При удалении папки её реплеи удаляются из библиотеки вместе с закладками и записями в плейлистах.",
         "foldersTitle": "Папки с реплеями",
+        "name": {
+          "add": "Добавить элемент",
+          "description": "Как называются реплеи, которые автоматически сохраняются после каждой игры. Перетаскивайте элементы, чтобы изменить порядок. Сохраняется в Вашем аккаунте.",
+          "empty": "Добавьте элементы ниже. Если имя пустое, используется имя по умолчанию.",
+          "preview1v1": "1v1",
+          "preview2v2": "2v2",
+          "remove": "Убрать",
+          "reset": "Сбросить по умолчанию",
+          "textLabel": "Текст",
+          "textPlaceholder": "Текст",
+          "title": "Имена реплеев",
+          "token": {
+            "date": "Дата",
+            "format": "Формат",
+            "map": "Карта",
+            "matchup": "Матчап",
+            "name": "Ваше имя",
+            "opponentRaces": "Расы соперников",
+            "opponents": "Соперники",
+            "race": "Ваша раса",
+            "text": "Текст",
+            "time": "Время"
+          }
+        },
+        "openingTitle": "Открытие реплеев",
         "quickOpen": "Запускать повторы, открытые через ShieldBattery, сразу — без предварительного просмотра",
-        "removeFolder": "Удалить папку"
+        "removeFolder": "Удалить папку",
+        "title": "Реплеи"
       },
       "sound": {
         "masterVolume": "Основная громкость",
@@ -2631,11 +2963,20 @@
         "pillarbox": "Pillarbox (соотношение сторон 4:3)",
         "primaryMonitor": "По умолчанию (основной монитор)",
         "realTimeLighting": "Освещение в реальном времени",
+        "resetWindowPosition": "Сбросить положение окна",
         "sdGraphicsFilter": "Фильтр SD-графики",
         "shadowStacking": "Наложение теней",
         "showFps": "Показать FPS",
         "smoothUnitTurning": "Плавное поворачивание юнитов",
-        "title": "Видео"
+        "title": "Видео",
+        "windowPlacement": {
+          "remember": "Запоминать положение и размер",
+          "rememberSize": "Запоминать размер, по центру",
+          "setSize": "Заданный размер, по центру",
+          "title": "Расположение окна"
+        },
+        "windowSize": "Размер окна",
+        "windowSizeOption": "{{width}} × {{height}} ({{aspectRatio}})"
       }
     },
     "user": {
@@ -2739,10 +3080,16 @@
         "title": "Язык"
       },
       "notifications": {
+        "alerts": {
+          "description": "Как приложение привлекает Ваше внимание, когда что-то происходит, пока Вы заняты другим. Звуки сообщений относятся к чату, личным сообщениям, чату лобби и выбора рас; звуки событий вроде найденного матча звучат всегда. Панель задач мигает при сообщениях с упоминанием Вас, личных сообщениях, найденных матчах и когда игроки заходят в Ваше лобби. Сохраняется в Вашем аккаунте и действует на всех устройствах, с которых Вы входите.",
+          "title": "Оповещения"
+        },
+        "flashTaskbar": "Мигать на панели задач",
         "inGame": {
           "description": "Пока Вы в игре, сообщения не будут воспроизводить звук и мигать на панели задач, даже если в них упоминают Вас. Сохраняется в аккаунте и действует на всех устройствах, где Вы входите.",
           "title": "В игре"
         },
+        "playMessageSounds": "Звуки сообщений",
         "quietChannelsWhileInGame": "Не беспокоить из каналов во время игры",
         "quietWhispersWhileInGame": "Не беспокоить личными сообщениями во время игры",
         "showWhispersEverywhere": "Показывать личные сообщения во всех чатах",
@@ -2757,6 +3104,7 @@
           "count": "{{blocked}} / {{max}}",
           "description": "Вы не будете видеть сообщения заблокированных пользователей в чате и в играх, и они не смогут отправлять Вам запросы в друзья.",
           "empty": "Вы никого не заблокировали.",
+          "loadFailed": "Не удалось загрузить список заблокированных пользователей",
           "title": "Заблокированные пользователи"
         },
         "title": "Социальное"
@@ -2768,14 +3116,14 @@
     "chat": {
       "label": "Чат",
       "loadingChannelsError": "Ошибка загрузки чатов",
-      "loadingWhispersError": "Ошибка загрузки приватных сообщений"
+      "loadingWhispersError": "Ошибка загрузки приватных сообщений",
+      "reorderChannelsError": "Ошибка при сохранении порядка каналов: {{errorMessage}}"
     },
     "errors": {
       "friendsList": {
         "errorAcceptingFriendRequest": "Ошибка при принятии запроса в друзья",
         "errorDecliningFriendRequest": "Ошибка при отклонении запроса в друзья",
-        "errorRemovingFriendRequest": "Ошибка при удалении запроса в друзья",
-        "load": "Не удалось загрузить список друзей"
+        "errorRemovingFriendRequest": "Ошибка при удалении запроса в друзья"
       }
     },
     "friends": {
@@ -2788,6 +3136,7 @@
         "online": "Онлайн",
         "outgoing": "Исходящие"
       },
+      "loadFailed": "Не удалось загрузить список друзей",
       "loadingUsername": "Загрузка имени пользователя…",
       "tabs": {
         "addFriends": "Добавить друзей",
