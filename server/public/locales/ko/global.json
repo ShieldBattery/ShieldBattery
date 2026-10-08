@@ -745,14 +745,18 @@
         "lines": {
           "arbiter": {
             "askOfUs": "우리에게 무엇을 바라는가?",
+            "feelYourPresence": "너의 존재가 느껴진다.",
             "seekGuidance": "인도를 원하는가?",
             "senseASoul": "아, 답을 찾아 헤매는 영혼이로군.",
-            "warpFieldStabilized": "차원장 안정화 완료."
+            "takeThatAsAYes": "동의한 거라고 받아들이겠다.",
+            "warpFieldStabilized": "차원장 안정화 완료.",
+            "weAreVigilant": "우리는 경계를 늦추지 않는다."
           },
           "archon": {
             "mergingComplete": "합체가 완료되었다.",
             "powerOverwhelming": "압도적인 힘으로!",
-            "shallBeDone": "그리 되리라.",
+            "sentAPoet": "시가 절로 나오는군...",
+            "soDifferent": "여기서 보니 모두 달라 보인다.",
             "weBurn": "타오른다."
           },
           "battlecruiser": {
@@ -768,18 +772,26 @@
           "carrier": {
             "carrierHasArrived": "출격 준비 완료!",
             "commander": "사령관.",
+            "commandOrBeRelieved": "명령을 내려라, 아니면 영영 명령을 못 내리게 하겠다.",
+            "enemiesAreLegion": "우리의 적은 무한하다!",
             "instructions": "지시를!",
             "weAreHere": "우리가 왔다."
           },
           "corsair": {
+            "ahAtLast": "아, 드디어!",
+            "goodDayToDie": "죽기 딱 좋은 날이로군.",
             "hello": "여보세요?",
             "interesting": "흥미롭군.",
-            "onStation": "커세어 배치 완료."
+            "onStation": "커세어 배치 완료.",
+            "prettyLights": "번쩍번쩍하는 게 참 멋지지 않나!",
+            "whatThisButtonDoes": "이 단추가 뭐에 쓰이는 건지 궁금하군?"
           },
           "darktemplar": {
             "adunToridas": "아둔 토리다스.",
-            "ahAtLast": "아, 드디어!",
+            "doNotProvoke": "내가 무력을 사용하게 만들지 마라.",
+            "forAiur": "아이어를 위하여!",
             "imWaiting": "기다렸노라.",
+            "tauntsIllAdvised": "나를 도발하지 않는 게 좋을 거다, 기사단이여...",
             "zerashkGulida": "제라식 굴리다."
           },
           "dragoon": {
@@ -867,7 +879,9 @@
           },
           "templar": {
             "appetiteForDestruction": "그대는 파괴의 힘을 갈구하는구나.",
+            "khassarDeTemplari": "카사르 데 템플라리.",
             "lackOfControlDisturbing": "하지만 그대는 아직 자제력이 부족하노라.",
+            "shallBeDone": "그리 되리라.",
             "thoughtsBetrayYou": "생각이 많으면 다치는 법.",
             "useYourIllusion": "그리고 환영을 다루는 법도 깨달았군."
           },
@@ -884,8 +898,12 @@
             "bringItOn": "좋아! 다 덤벼!",
             "goingIn": "꽉 잡아, 들어간다.",
             "gottaRide": "달려야겠어!",
+            "iDig": "알겠습니다.",
             "imOnIt": "그래, 맡겨 둬.",
-            "somethingOnYourMind": "계획 있으십니까?"
+            "isThatIt": "호우... 그 정도쯤이야.",
+            "somethingOnYourMind": "계획 있으십니까?",
+            "whaddaYouWant": "뭘 할까요?",
+            "yeahImGoin": "네 갑니다!"
           },
           "wraith": {
             "attackFormation": "공격 대형으로.",
@@ -897,9 +915,8 @@
             "whyAmISoGood": "난 대체 왜 이렇게 잘 났지."
           },
           "zealot": {
+            "doomToAll": "아이어를 위협하는 이들에게 파멸을!",
             "enTaroAdun": "엔 타로 아둔!",
-            "forAiur": "아이어를 위하여!",
-            "khassarDeTemplari": "카사르 데 템플라리.",
             "longForCombat": "나는 전투에 목마르다!",
             "myLifeForAiur": "내 목숨을 아이어에!"
           }
