@@ -254,6 +254,7 @@
     "channelHeader": {
       "actionItems": {
         "channelSettings": "Configuración del canal",
+        "copyChannelLink": "Copiar enlace del canal",
         "hideBanner": "Ocultar banner",
         "invitePeople": "Invitar gente",
         "leaveChannel": "Salir del canal",
@@ -582,11 +583,12 @@
       }
     },
     "createChannel": {
-      "bannedError": "Estás baneado de este canal.",
       "channelName": "Nombre del canal",
+      "chatRestrictedError": "Ahora mismo tienes el chat restringido, así que no puedes crear canales.",
       "createAction": "Crea canal",
       "defaultError": "Ocurrió un error al crear el canal.",
       "maximumOwnedError": "Has alcanzado el límite de canales creados. Debes dejar un canal que creaste antes de poder crear otro.",
+      "nameTakenError": "Ya existe un canal con este nombre.",
       "title": "Crea canal"
     },
     "createChannelConfirmation": {
@@ -623,10 +625,12 @@
       "expiryLabel": "Caduca en",
       "generate": "Generar enlace nuevo",
       "generateError": "Algo salió mal al generar un enlace de invitación nuevo",
+      "generatePrompt": "Genera un enlace abajo para invitar a gente.",
       "loadError": "Algo salió mal al obtener un enlace de invitación. Aún puedes generar uno nuevo abajo.",
       "loading": "Obteniendo un enlace…",
       "maxUsesLabel": "Usos máximos",
       "noLink": "No hay ningún enlace disponible",
+      "noLinkYet": "Aún no hay enlace de invitación",
       "title": "Enlace de invitación"
     },
     "inviteLinks": {
@@ -664,6 +668,7 @@
     },
     "joinChannel": {
       "bannedError": "Estás baneado de #{{channelName}}",
+      "closedError": "Los moderadores del servidor cerraron #{{channelName}}",
       "genericError": "Ocurrió un error al unirte a #{{channelName}}",
       "inviteLinkInvalidError": "Este enlace de invitación no es válido o ha caducado.",
       "maximumChannelsError": "Has alcanzado el límite de canales unidos. Debes salir de uno antes de unirte a otro.",
@@ -686,6 +691,9 @@
       "loseOwnershipBody": "Si sales de #{{channelName}}, la propiedad pasará a otro miembro y no podrás recuperarla por tu cuenta. También perderás tus permisos en el canal.",
       "losePermissionsBody": "Si sales de #{{channelName}}, perderás tus permisos en el canal, y volver a entrar no los restaurará."
     },
+    "linkCard": {
+      "title": "Canal"
+    },
     "messageLayout": {
       "banUser": "<0><0></0></0> ha sido baneado del canal",
       "joinChannel": "<0><0></0></0> se ha unido al canal",
@@ -703,10 +711,13 @@
       "deleteMessage": "Eliminar mensaje"
     },
     "navEntry": {
+      "copyChannelLink": "Copiar enlace del canal",
       "leaveChannel": "Salir del canal"
     },
     "notifications": {
       "ban": "Has sido baneado de <1>#{{channelName}}</1>.",
+      "channelClosed": "Los moderadores del servidor cerraron <0>#{{channelName}}</0>.",
+      "channelDeleted": "Los moderadores del servidor eliminaron <0>#{{channelName}}</0>.",
       "errors": {
         "updateFailed": "Algo salió mal al actualizar la configuración de notificaciones"
       },
@@ -753,6 +764,168 @@
       },
       "quote": {
         "line": "cita a <1>{{unit}}</1>: \"{{line}}\"",
+        "lines": {
+          "arbiter": {
+            "askOfUs": "¿Qué deseas de nosotros?",
+            "seekGuidance": "¿Buscas consejo?",
+            "senseASoul": "Percibimos un alma en busca de respuestas.",
+            "warpFieldStabilized": "Campo de distorsión estabilizado."
+          },
+          "archon": {
+            "mergingComplete": "La fusión se ha completado.",
+            "powerOverwhelming": "¡Poder abrumador!",
+            "shallBeDone": "Así se hará.",
+            "weBurn": "¡Ardemos!"
+          },
+          "battlecruiser": {
+            "battlecruiserOperational": "Crucero de batalla operativo.",
+            "engage": "¡Adelante!",
+            "goodDayCommander": "Buenos días, comandante.",
+            "makeItHappen": "Hágase.",
+            "notEquippedWithShields": "¿Que no tenemos escudos? ¡Pues abróchense los cinturones!",
+            "setACourse": "Fijen el rumbo.",
+            "shieldsUpWeaponsOnline": "¡Escudos arriba! ¡Armas en línea!",
+            "wayBehindSchedule": "Vamos MUY atrasados."
+          },
+          "carrier": {
+            "carrierHasArrived": "El portanaves ha llegado.",
+            "commander": "Comandante.",
+            "instructions": "Instrucciones.",
+            "weAreHere": "Aquí estamos."
+          },
+          "corsair": {
+            "hello": "¿Hola?",
+            "interesting": "Interesante.",
+            "onStation": "Corsario en posición."
+          },
+          "darktemplar": {
+            "adunToridas": "Adun Toridas.",
+            "ahAtLast": "Ah, por fin.",
+            "imWaiting": "Te espero.",
+            "zerashkGulida": "¡Zerashk gulida!"
+          },
+          "dragoon": {
+            "awaitingInstructions": "Esperando instrucciones.",
+            "forVengeance": "¡Por venganza!",
+            "iHaveReturned": "He vuelto.",
+            "makeUseOfMe": "Hazme útil."
+          },
+          "dropship": {
+            "buckleUp": "¡Abróchense los cinturones!",
+            "inThePipe": "En camino, cinco por cinco.",
+            "keepArmsAndLegsInside": "Mantengan brazos y piernas dentro del vehículo hasta que se detenga por completo.",
+            "someChop": "Agárrense, que vienen turbulencias.",
+            "takeYourOrder": "¿Puedo tomar su pedido?",
+            "waterLanding": "En caso de amerizaje, usted podrá ser utilizado como dispositivo de flotación."
+          },
+          "firebat": {
+            "fireItUp": "¡A encenderlo!",
+            "goodSmoke": "¡Nada como un buen humo!",
+            "loveTheSmellOfNapalm": "Me encanta el olor a napalm.",
+            "needALight": "¿Tienes fuego?",
+            "propaneAccessories": "¿Alguna pregunta sobre el propano? ¿O sobre accesorios de propano?",
+            "somethingBurning": "¿Algo se está quemando?",
+            "thatsWhatIThought": "Jaja, eso pensaba."
+          },
+          "ghost": {
+            "calledDownTheThunder": "Tú invocaste al trueno.",
+            "callTheShot": "Dime el objetivo.",
+            "exterminator": "¿Alguien llamó al exterminador?",
+            "ghostReporting": "Fantasma a la orden.",
+            "imGone": "Me esfumo.",
+            "keepItUp": "¡Sigue así! Te reto.",
+            "neverKnowWhatHitEm": "Ni sabrán qué los golpeó.",
+            "reapTheWhirlwind": "Ahora cosecha la tempestad."
+          },
+          "goliath": {
+            "checklistProtocol": "Protocolo de verificación iniciado.",
+            "fdicApproved": "Aprobado por la FDIC.",
+            "goAheadTacCom": "Adelante, TacCom.",
+            "goliathOnline": "Goliat en línea.",
+            "milSpecEd209": "MilSpec ED-209 en línea.",
+            "navComLocked": "Nav-com fijado.",
+            "targetDesignated": "Objetivo designado."
+          },
+          "marine": {
+            "fragThisCommander": "Voto por cargarnos a este comandante.",
+            "goGoGo": "¡Vamos, vamos, vamos!",
+            "gonnaGiveOrders": "¿Me vas a dar órdenes?",
+            "jackedUp": "A tope y listo para la acción.",
+            "outstanding": "¡Excelente!",
+            "pieceOfMe": "¿Quieres pelea, chico?",
+            "rockAndRoll": "¡Rock and roll!",
+            "somethingToShoot": "Dame algo a lo que disparar."
+          },
+          "medic": {
+            "clear": "¡Despejen!",
+            "getMeADefib": "¡Un desfibrilador, ya!",
+            "hesDeadJim": "Está muerto, Jim.",
+            "needMedicalAttention": "¿Necesitas atención médica?",
+            "preppedAndReady": "¡Preparada y lista!",
+            "stat": "¡Ya!",
+            "stateTheNature": "Indique la naturaleza de su emergencia médica.",
+            "turnYourHeadAndCough": "Gire la cabeza y tosa.",
+            "whereDoesItHurt": "¿Dónde te duele?"
+          },
+          "scv": {
+            "goodToGo": "VCE listo, señor.",
+            "ordersCaptain": "¿Órdenes, capitán?",
+            "reportingForDuty": "Presentándome al servicio.",
+            "somethingInTheWay": "No puedo construirlo, hay algo en medio."
+          },
+          "shuttle": {
+            "awaitingCommand": "Esperando órdenes.",
+            "transportReady": "Transporte listo.",
+            "transWarpEngaged": "Motor de transdistorsión activado."
+          },
+          "tank": {
+            "delightedToSir": "¡Con mucho gusto, señor!",
+            "dropTheHammer": "¡Voy a dejar caer el martillo!",
+            "identifyTarget": "¡Identifiquen el objetivo!",
+            "indiscriminateJustice": "¡Repartiendo justicia indiscriminada!",
+            "majorMalfunction": "¿Cuál es tu maldito problema?",
+            "moveIt": "¡Muévete!",
+            "readyToRollOut": "¡Listo para rodar!"
+          },
+          "templar": {
+            "appetiteForDestruction": "Veo que tienes apetito de destrucción.",
+            "lackOfControlDisturbing": "Pero tu falta de control me resulta perturbadora.",
+            "thoughtsBetrayYou": "Tus pensamientos te delatan.",
+            "useYourIllusion": "Y aprendes a usar tu ilusión."
+          },
+          "valkyrie": {
+            "achtung": "¡Achtung!",
+            "itsShowtime": "¡Empieza el espectáculo!",
+            "needSomethingDestroyed": "¿Necesitas destruir algo?",
+            "valkyriePrepared": "Valkiria preparada.",
+            "veryInterestingButStupid": "Muy interesante... pero estúpido.",
+            "veryNaughty": "Te estás portando muy mal.",
+            "waysOfBlowingThingsUp": "Tengo mis métodos para volar cosas por los aires."
+          },
+          "vulture": {
+            "bringItOn": "¡Muy bien, adelante!",
+            "goingIn": "Agárrate, voy a entrar.",
+            "gottaRide": "¡Tengo que rodar!",
+            "imOnIt": "Sí, me encargo.",
+            "somethingOnYourMind": "¿Algo en mente?"
+          },
+          "wraith": {
+            "attackFormation": "Formación de ataque.",
+            "awaitingLaunchOrders": "Ánima esperando órdenes de despegue.",
+            "gottaDieSometimeRed": "Todos tenemos que morir algún día, Red.",
+            "gottaGetMeOneOfThese": "Tengo que conseguirme uno de estos.",
+            "imInvincible": "¡Soy invencible, así es!",
+            "vectorLockedIn": "Vector fijado.",
+            "whyAmISoGood": "Solo por curiosidad, ¿por qué soy tan bueno?"
+          },
+          "zealot": {
+            "enTaroAdun": "¡En taro Adun!",
+            "forAiur": "¡Por Aiur!",
+            "khassarDeTemplari": "¡Khassar de templari!",
+            "longForCombat": "¡Ansío el combate!",
+            "myLifeForAiur": "¡Mi vida por Aiur!"
+          }
+        },
         "units": {
           "arbiter": "Árbitro",
           "archon": "Arconte",
@@ -975,6 +1148,7 @@
       "spoilerFree": "Sin spoilers",
       "vs": "vs"
     },
+    "gameAnomaly": "Se detectaron anomalías en la partida",
     "gameSource": {
       "custom": "Juego personalizado",
       "ranked": "Clasificatoria {{matchmakingType}}"
@@ -1004,6 +1178,7 @@
       "useMapSettings": "Las unidades, triggers y reglas propias del mapa."
     },
     "launchingGameDialog": {
+      "resolvingFailure": "Comprobando por qué no pudo iniciarse el juego…",
       "startingGameServer": "Iniciando un servidor de juego…",
       "title": "Iniciando el juego…"
     },
@@ -1042,14 +1217,34 @@
   "gameDetails": {
     "buttonCopyGameId": "Copiar ID",
     "buttonCopyLink": "Copia el enlace al juego",
+    "buttonDismissReviewRequest": "Descartar solicitud",
     "buttonDownloadReplay": "Descargar replay",
     "buttonReplaySaved": "En la biblioteca",
     "buttonReport": "Reportar",
+    "buttonRequestReview": "Solicitar revisión",
     "buttonResolveResults": "Resolver resultados",
     "buttonSaveReplay": "Guardar replay",
     "buttonSaveReplayLoading": "Guardando…",
     "buttonWatchReplay": "Ver replay",
     "buttonWatchReplayLoading": "Cargando…",
+    "chatTranscript": {
+      "copy": "Copiar transcripción",
+      "dropped": "<0>{{name}}</0> se desconectó",
+      "droppedText": "{{name}} se desconectó",
+      "empty": "No se registró chat ni salidas en estos replays.",
+      "left": "<0>{{name}}</0> salió de la partida",
+      "leftText": "{{name}} salió de la partida",
+      "loadError": "No se pudo cargar la transcripción del chat.",
+      "noReplays": "No se subió ningún replay de esta partida.",
+      "scopeAll": "(TODOS)",
+      "scopeTeam": "(EQUIPO)",
+      "scopeUnknown": "(?)",
+      "scopeUnknownTooltip": "Ningún replay del otro bando estaba grabando cuando se envió, así que no se sabe quién lo recibió",
+      "sources": "Combinada a partir de los replays que subieron:",
+      "title": "Transcripción del chat",
+      "unknownSender": "Espacio {{slot}}",
+      "view": "Ver transcripción del chat"
+    },
     "debugInfo": {
       "clientResult": {
         "defeat": "Derrota",
@@ -1106,7 +1301,12 @@
       "reportTitle": "Informe de <1></1>:",
       "title": "Información de Depuración"
     },
+    "disputeNoticeCustom": "Los resultados que reportaron los jugadores no coincidían, así que no se aplicaron cambios de victorias o derrotas.",
+    "disputeNoticeMatchmaking": "Los resultados que reportaron los jugadores no coincidían, así que no se aplicaron cambios de rating, puntos, victorias o derrotas.",
+    "disputeNoticeReviewDismissed": "Un administrador revisó esta partida y dejó sus resultados como estaban.",
+    "disputeNoticeReviewPending": "Se pidió a un administrador que revise esta partida.",
     "errorLoading": "Hubo un problema al cargar este juego.",
+    "headlineCanceled": "Partida cancelada",
     "headlineDefault": "Resultados",
     "headlineDefeat": "¡Derrota!",
     "headlineDraw": "¡Empate!",
@@ -1126,6 +1326,14 @@
       "successWithPoints": "Resultados actualizados y puntos aplicados.",
       "title": "Resolver resultados de la partida"
     },
+    "reviewRequestDismissed": "Solicitud de revisión descartada.",
+    "reviewRequestDismissError": "No se pudo descartar la solicitud de revisión. Puede que ya se haya atendido.",
+    "reviewRequested": "Revisión solicitada. Un administrador revisará esta partida.",
+    "reviewRequestErrorAlreadyRequested": "Ya se solicitó una revisión de esta partida.",
+    "reviewRequestErrorGeneric": "Algo salió mal al solicitar la revisión. Inténtalo de nuevo más tarde.",
+    "reviewRequestErrorNotDisputed": "Los resultados de esta partida ya no están en disputa.",
+    "reviewRequestErrorSeasonFinalized": "La temporada de esta partida ya terminó, así que sus resultados ya no se pueden revisar.",
+    "reviewRequestErrorTitle": "No se pudo solicitar la revisión",
     "saveReplayAddedToBookmarks": "Añadido a tus marcadores",
     "saveReplayAddedToPlaylist": "Añadido a {{name}}",
     "saveReplayAlreadySaved": "El replay de esta partida ya está en tu biblioteca",
@@ -1143,6 +1351,7 @@
     "statusFinal": "Final",
     "statusLive": "En vivo",
     "statusManuallyResolved": "Resolución manual",
+    "statusReviewRequested": "Revisión solicitada",
     "summary": {
       "mmr": "MMR",
       "pointsBase": "Base",
@@ -1155,8 +1364,10 @@
   },
   "gameplayActivity": {
     "lobby": {
+      "gameStarting": "La partida está empezando…",
       "slotCount": "{{takenSlots}} / {{totalSlots}}",
       "slotsLabel": "Espacios:",
+      "startingIn": "La partida empieza en",
       "viewLobby": "Ver lobby"
     },
     "matchmaking": {
@@ -1382,6 +1593,7 @@
     },
     "notifications": {
       "ban": "Has sido baneado de la liga <1>{{leagueName}}</1>.",
+      "start": "La liga <1>{{leagueName}}</1> ha comenzado.",
       "unban": "Se ha levantado tu baneo de la liga <1>{{leagueName}}</1>."
     }
   },
@@ -1425,6 +1637,7 @@
       "joinAsObserver": "Unirse como observador",
       "joinLobby": "Unirse al lobby",
       "legacyLimits": "Límites clásicos",
+      "lockedAlliances": "Alianzas bloqueadas",
       "observers": "Observadores",
       "observersCount": "Observadores · {{taken}}/{{total}}",
       "observerSlotsOpen_one": "{{count}} libre",
@@ -1458,6 +1671,7 @@
       "gameSubTypeOptionTvB": "{{topSlots}} contra {{bottomSlots}}",
       "gameTypeHeader": "Tipo de juego",
       "lobbyName": "Nombre del lobby",
+      "lockedAlliances": "Bloquear alianzas",
       "mapPlayerCount_one": "{{count}} jugador",
       "mapPlayerCount_many": "{{count}} jugadores",
       "mapPlayerCount_other": "{{count}} jugadores",
@@ -1584,22 +1798,35 @@
     "lobbySettings": {
       "errorDialogTitle": "Error al actualizar la configuración",
       "errorGeneric": "No se pudo actualizar la configuración del lobby. Puede que los miembros actuales no quepan en la nueva disposición.",
-      "errorRename": "No se pudo renombrar el lobby. Inténtalo de nuevo.",
+      "errorLobbyOnly": "No se pudo actualizar la configuración del lobby. Inténtalo de nuevo.",
       "errorTransient": "El lobby está iniciando o jugando una partida. Inténtalo de nuevo cuando todos vuelvan al lobby."
+    },
+    "mapQueue": {
+      "addMap": "Añadir mapa",
+      "empty": "Pon mapas en cola para jugar después de este. El lobby pasa al siguiente cada vez que termina una partida.",
+      "header": "A continuación",
+      "moveDown": "Bajar",
+      "moveUp": "Subir",
+      "remove": "Quitar de la cola"
     },
     "messageLayout": {
       "gameStarted": "La partida ha empezado",
       "settingsChangeGameSubType": "equipos",
       "settingsChangeGameType": "tipo de partida",
+      "settingsChangeLockedAlliances": "bloqueo de alianzas",
       "settingsChangeMap": "mapa",
+      "settingsChangeMapQueue": "cola de mapas",
       "settingsChangeName": "nombre del lobby",
       "settingsChangeObservers": "observadores",
-      "settingsChangeUnitLimit": "límite de unidades"
+      "settingsChangeUnitLimit": "límite de unidades",
+      "settingsChangeVisibility": "visibilidad"
     },
     "room": {
       "banner": {
+        "alliancesLocked": "Bloqueadas",
         "shuffle": "Mezclar",
         "shuffleBlockedByComputers": "Quita las computadoras para mezclar",
+        "statAlliances": "Alianzas",
         "statMode": "Modo",
         "statSize": "Tamaño",
         "statTileset": "Tileset",
@@ -1615,6 +1842,12 @@
         "loadFailedNoUsers": "La partida no pudo empezar",
         "loadFailedPrefix": "La partida no pudo empezar: la carga de",
         "loadFailedSuffix": "falló",
+        "mapQueueAdvanced": "Siguiente mapa de la cola: <2>{{map}}</2>",
+        "mapQueueNoneFit": "Ninguno de los mapas en cola encaja con la configuración del lobby",
+        "mapQueueSkipped": "Se omitió {{maps}}",
+        "mapQueueSkippedUnfit_one": "Se omitió {{maps}}, que no encaja con la configuración del lobby",
+        "mapQueueSkippedUnfit_many": "Se omitieron {{maps}}, que no encajan con la configuración del lobby",
+        "mapQueueSkippedUnfit_other": "Se omitieron {{maps}}, que no encajan con la configuración del lobby",
         "memberBack": "<0></0> volvió al lobby",
         "readyReset": "se reinició el estado de listo",
         "seatedOn": "ocupa {{seat}}",
@@ -1677,11 +1910,16 @@
         "next": "Siguiente",
         "noRecordedWinner": "Sin ganador registrado",
         "playing": "En curso",
+        "queuedThen": "Después",
+        "queuedThenMore_one": "Después · +{{count}} más",
+        "queuedThenMore_many": "Después · +{{count}} más",
+        "queuedThenMore_other": "Después · +{{count}} más",
         "standings": "Clasificación",
         "starting": "Iniciando",
         "tileNoWinner": "Sin ganador",
         "tilePending": "Pendiente",
         "unknownMap": "mapa desconocido",
+        "upNext": "A continuación",
         "waitingForResults": "Esperando resultados",
         "watchReplay": "Ver replay"
       },
@@ -1845,6 +2083,10 @@
       "quoteTooltip": "Cita (Ctrl+Shift+.)",
       "unorderedList": "Lista con viñetas",
       "unorderedListTooltip": "Lista con viñetas (Ctrl+Shift+8)"
+    },
+    "youtube": {
+      "defaultTitle": "Video de YouTube",
+      "play": "Reproducir {{title}}"
     }
   },
   "matchmaking": {
@@ -1866,6 +2108,11 @@
       "bannedFor": "Estás baneado por:",
       "description": "Has sido baneado temporalmente del emparejamiento por no prepararte o no unirte a las partidas.",
       "title": "Baneado del emparejamiento"
+    },
+    "banNotification": {
+      "ban": "Se te baneó temporalmente del emparejamiento por no marcarte como listo o no cargar en un partido.",
+      "endsOn": "Este baneo terminará el:",
+      "warning": "Recibiste una advertencia de emparejamiento por no marcarte como listo o no cargar en un partido. Si vuelve a pasar pronto, se te baneará temporalmente del emparejamiento."
     },
     "disabledCard": {
       "days": "Días",
@@ -1968,15 +2215,37 @@
       "gameFailedToLoad": "El juego no se ha podido cargar."
     },
     "matchCanceled": {
-      "backInQueue": "Volviste a la cola de emparejamiento para buscar un nuevo partido.",
-      "draftError": "La selección de razas se canceló por un error del servidor.",
-      "draftPlayerLeft": "Un jugador se fue durante la selección de razas, así que se canceló el partido.",
-      "loadError": "El partido no pudo empezar por un error del servidor.",
-      "loadPlayerLeft": "Un jugador se fue antes de que empezara el partido, así que se canceló.",
-      "loadTimeout": "Un jugador tardó demasiado en cargar, así que el partido no pudo empezar.",
-      "notYourFault": "No fue tu culpa. Quien lo provocó ya fue retirado de la cola.",
-      "playerFailedToLoad": "Un jugador se desconectó o no pudo cargar, así que el partido no pudo empezar.",
-      "title": "Partido cancelado"
+      "anomalyFromYouDescription": "Tu juego envió comandos de configuración del partido que ShieldBattery no permite. Esto suele significar que el juego fue modificado o que otro programa interfirió con él.",
+      "anomalyFromYouTitle": "Se detectaron anomalías en tu juego",
+      "anomalyNoPenaltyDescription": "No se registró ninguna victoria ni derrota. Tu rating y tus puntos no cambian.",
+      "backInQueueDescription": "Buscando un nuevo partido.",
+      "backInQueueTitle": "De vuelta en la cola",
+      "banDescription": "No puedes buscar partidos hasta que termine el baneo.",
+      "banRemovedDescription": "Se te retiró de la cola y no puedes volver a buscar hasta que termine el baneo.",
+      "banTitle": "Baneado del emparejamiento",
+      "becauseOfThis": "Por eso",
+      "errorNoPenaltyDescription": "No se registró ninguna victoria ni derrota.",
+      "leadAnomalyFromOtherPlayer": "Se detectaron anomalías en el juego de otro jugador, así que se detuvo el partido.",
+      "leadErrorDraft": "Un error del servidor interrumpió la selección de razas.",
+      "leadLoadError": "El partido no pudo empezar por un error del servidor.",
+      "leadLoadPlayerLeft": "Un jugador se fue antes de que empezara el partido.",
+      "leadLoadTimeout": "Un jugador tardó demasiado en cargar.",
+      "leadPlayerFailedToLoad": "Un jugador se desconectó o no pudo cargar.",
+      "leadPlayerLeftDraft": "Un jugador se fue durante la selección de razas.",
+      "leadSetupUnresolved": "El partido no pudo empezar y no se pudo determinar la causa.",
+      "lossDescription": "Este partido cuenta como derrota para tu rating.",
+      "lossTitle": "Derrota registrada",
+      "noPenaltyTitle": "Sin penalización para ti",
+      "notYourFaultDescription": "Quien lo provocó ya fue retirado de la cola.",
+      "notYourFaultTitle": "No fue tu culpa",
+      "penaltyPendingDescription": "Se está registrando una derrota y una penalización de emparejamiento por este partido.",
+      "penaltyPendingTitle": "Aplicando penalización",
+      "removedFromQueueDescription": "Puedes volver a buscar cuando quieras.",
+      "removedFromQueueTitle": "Retirado de la cola",
+      "title": "Partido cancelado",
+      "unresolvedNoPenaltyDescription": "No se registró ninguna victoria ni derrota, y nadie fue penalizado.",
+      "warningDescription": "Si se repite, recibirás baneos de emparejamiento.",
+      "warningTitle": "Advertencia de emparejamiento"
     },
     "postMatchDialog": {
       "leagues": "Ligas",
@@ -1986,6 +2255,9 @@
       "searchAgain": "Busca de nuevo",
       "title": "Resultados del partido",
       "watchReplay": "Ver replay"
+    },
+    "season": {
+      "endsOn": "Termina el {{date}}"
     },
     "serviceError": {
       "dialogTitle": "Error de emparejamiento",
@@ -2138,6 +2410,26 @@
       "bookmark": "Añadir marcador",
       "bookmarkedEmpty": "No hay replays marcados",
       "bookmarkedEmptyBody": "Marca replays para tenerlos a mano aquí.",
+      "bulk": {
+        "addedToPlaylist_one": "Se añadió {{count}} replay a {{playlist}}",
+        "addedToPlaylist_many": "Se añadieron {{count}} de replays a {{playlist}}",
+        "addedToPlaylist_other": "Se añadieron {{count}} replays a {{playlist}}",
+        "bookmarked_one": "Se añadió un marcador a {{count}} replay",
+        "bookmarked_many": "Se añadieron marcadores a {{count}} de replays",
+        "bookmarked_other": "Se añadieron marcadores a {{count}} replays",
+        "movedToRecycleBin_one": "Se movió {{count}} replay a la Papelera de reciclaje",
+        "movedToRecycleBin_many": "Se movieron {{count}} de replays a la Papelera de reciclaje",
+        "movedToRecycleBin_other": "Se movieron {{count}} replays a la Papelera de reciclaje",
+        "movedToRecycleBinPartial_one": "Se movieron {{moved}} de {{count}} replay a la Papelera de reciclaje",
+        "movedToRecycleBinPartial_many": "Se movieron {{moved}} de {{count}} replays a la Papelera de reciclaje",
+        "movedToRecycleBinPartial_other": "Se movieron {{moved}} de {{count}} replays a la Papelera de reciclaje",
+        "removedBookmark_one": "Se quitó el marcador de {{count}} replay",
+        "removedBookmark_many": "Se quitó el marcador de {{count}} de replays",
+        "removedBookmark_other": "Se quitó el marcador de {{count}} replays",
+        "removedFromPlaylist_one": "Se quitó {{count}} replay de {{playlist}}",
+        "removedFromPlaylist_many": "Se quitaron {{count}} de replays de {{playlist}}",
+        "removedFromPlaylist_other": "Se quitaron {{count}} replays de {{playlist}}"
+      },
       "clearFilters": "Borrar filtros",
       "empty": "Aún no hay replays",
       "emptyBody": "Los replays que veas y juegues aparecerán aquí automáticamente.",
@@ -2180,6 +2472,11 @@
       "removeBookmark": "Quitar marcador",
       "removeFromPlaylist": "Quitar de la playlist",
       "scanningTitle": "Escaneando tu carpeta de replays…",
+      "selection": {
+        "count_one": "{{count}} replay seleccionado",
+        "count_many": "{{count}} de replays seleccionados",
+        "count_other": "{{count}} replays seleccionados"
+      },
       "showInExplorer": "Mostrar en el Explorador",
       "sourceTagBnet": "B.NET",
       "sourceTagSb": "SB",
@@ -2226,8 +2523,34 @@
         "addFolderTitle": "Selecciona una carpeta de replays",
         "foldersDescription": "Carpetas indexadas por tu biblioteca de replays. La carpeta de replays predeterminada de StarCraft se añade automáticamente. Al quitar una carpeta, sus replays se eliminan de la biblioteca, incluidos sus marcadores y entradas en playlists.",
         "foldersTitle": "Carpetas de replays",
+        "name": {
+          "add": "Añadir una pieza",
+          "description": "Cómo se nombran los replays que se guardan automáticamente después de cada partida. Arrastra las piezas para reordenarlas. Se guarda en tu cuenta.",
+          "empty": "Añade piezas abajo. Un nombre vacío usa el predeterminado.",
+          "preview1v1": "1x1",
+          "preview2v2": "2x2",
+          "remove": "Quitar",
+          "reset": "Restablecer predeterminado",
+          "textLabel": "Texto",
+          "textPlaceholder": "Texto",
+          "title": "Nombres de replays",
+          "token": {
+            "date": "Fecha",
+            "format": "Formato",
+            "map": "Mapa",
+            "matchup": "Enfrentamiento",
+            "name": "Tu nombre",
+            "opponentRaces": "Razas rivales",
+            "opponents": "Rivales",
+            "race": "Tu raza",
+            "text": "Texto",
+            "time": "Hora"
+          }
+        },
+        "openingTitle": "Abrir replays",
         "quickOpen": "Inicie los replays abiertos con ShieldBattery inmediatamente sin vista previa",
-        "removeFolder": "Quitar carpeta"
+        "removeFolder": "Quitar carpeta",
+        "title": "Replays"
       },
       "sound": {
         "masterVolume": "Volumen principal",
@@ -2596,11 +2919,20 @@
         "pillarbox": "Pillarbox (relación de aspecto 4:3)",
         "primaryMonitor": "Predeterminado (monitor principal)",
         "realTimeLighting": "Iluminación en tiempo real",
+        "resetWindowPosition": "Restablecer posición de la ventana",
         "sdGraphicsFilter": "Filtro de gráficos SD",
         "shadowStacking": "Apilamiento de sombras",
         "showFps": "Mostrar FPS",
         "smoothUnitTurning": "Giro suave de la unidad",
-        "title": "Video"
+        "title": "Video",
+        "windowPlacement": {
+          "remember": "Recordar posición y tamaño",
+          "rememberSize": "Recordar tamaño, centrada",
+          "setSize": "Fijar tamaño, centrada",
+          "title": "Ubicación de la ventana"
+        },
+        "windowSize": "Tamaño de la ventana",
+        "windowSizeOption": "{{width}} × {{height}} ({{aspectRatio}})"
       }
     },
     "user": {
@@ -2702,10 +3034,16 @@
         "title": "Idioma"
       },
       "notifications": {
+        "alerts": {
+          "description": "Cómo la app te avisa cuando pasa algo mientras miras a otro lado. Los sonidos de mensajes cubren el chat, los susurros y el chat de lobby y de selección de razas; los sonidos de eventos como encontrar partido siempre suenan. La barra de tareas parpadea con los mensajes que te mencionan, los susurros, los partidos encontrados y los jugadores que se unen a tu lobby. Se guarda en tu cuenta y se aplica en todos los dispositivos donde inicies sesión.",
+          "title": "Avisos"
+        },
+        "flashTaskbar": "Hacer parpadear la barra de tareas",
         "inGame": {
           "description": "Mientras estás en una partida, los mensajes no reproducirán sonido ni harán parpadear la barra de tareas, ni siquiera los que te mencionan. Se guarda en tu cuenta y se aplica en todos los dispositivos desde los que inicies sesión.",
           "title": "En partida"
         },
+        "playMessageSounds": "Reproducir sonidos de mensajes",
         "quietChannelsWhileInGame": "Silenciar canales durante la partida",
         "quietWhispersWhileInGame": "Silenciar susurros durante la partida",
         "showWhispersEverywhere": "Mostrar susurros en todos los chats",
@@ -2720,6 +3058,7 @@
           "count": "{{blocked}} / {{max}}",
           "description": "No verás los mensajes de los usuarios bloqueados en el chat ni en las partidas, y no podrán enviarte solicitudes de amistad.",
           "empty": "No has bloqueado a nadie.",
+          "loadFailed": "No se pudieron cargar tus usuarios bloqueados",
           "title": "Usuarios bloqueados"
         },
         "title": "Social"
@@ -2731,14 +3070,14 @@
     "chat": {
       "label": "Chat",
       "loadingChannelsError": "Error al cargar los canales de chat",
-      "loadingWhispersError": "Error al cargar los susurros"
+      "loadingWhispersError": "Error al cargar los susurros",
+      "reorderChannelsError": "Error al guardar el orden de los canales: {{errorMessage}}"
     },
     "errors": {
       "friendsList": {
         "errorAcceptingFriendRequest": "Error al aceptar la solicitud de amistad",
         "errorDecliningFriendRequest": "Error al rechazar la solicitud de amistad",
-        "errorRemovingFriendRequest": "Error al eliminar la solicitud de amistad",
-        "load": "Error al cargar la lista de amigos"
+        "errorRemovingFriendRequest": "Error al eliminar la solicitud de amistad"
       }
     },
     "friends": {
@@ -2751,6 +3090,7 @@
         "online": "Conectado",
         "outgoing": "Saliente"
       },
+      "loadFailed": "No se pudo cargar tu lista de amigos",
       "loadingUsername": "Cargando nombre de usuario…",
       "tabs": {
         "addFriends": "Agregar amigos",
