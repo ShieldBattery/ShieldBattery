@@ -154,8 +154,9 @@ consistent. (Seed — extend over time.)
   scale ends Más fluido/Más reactivo; value marker Recommended→**Recomendado**.
 - **/quote unit lines use the SC:R Latin American dub** (the game's `esMX` speech, Argentine cast),
   not the Castilian redub (`esES`, which says Soldado / Espectro / vosotros). The text was
-  transcribed from the game's own speech files, so lines where the transcript was unreliable keep an
-  in-character translation; recheck those against the audio before treating them as the dub. Khalani
+  transcribed from the game's own speech files and the radio-filtered lines checked by ear (the dub
+  keeps the English radio jargon reversed or verbatim: Adelante, ComTac / ComNav configurada /
+  MilSpec ED-209 en línea). Khalani
   phrases stay Khalani in the dub. **Chat transcript** scope tags **(TODOS) / (EQUIPO)**;
   transcript→transcripción; review (of a disputed game)→**revisión** (Solicitar revisión, Descartar
   solicitud). Map queue→**cola de mapas**, Up next→**A continuación**, Then→Después; lock

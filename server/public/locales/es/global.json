@@ -781,7 +781,7 @@
             "battlecruiserOperational": "Crucero de batalla en funcionamiento.",
             "engage": "¡Atacando!",
             "goodDayCommander": "Buen día, comandante.",
-            "makeItHappen": "Hágase.",
+            "makeItHappen": "Haré que suceda.",
             "notEquippedWithShields": "¿No tienes escudos? Entonces, sujétate bien.",
             "setACourse": "Fija el rumbo.",
             "shieldsUpWeaponsOnline": "Escudos activados. Armas conectadas.",
@@ -829,13 +829,13 @@
           },
           "ghost": {
             "calledDownTheThunder": "Invocaste al trueno.",
-            "callTheShot": "Dime el objetivo.",
+            "callTheShot": "Dime qué hacer.",
             "exterminator": "¿Alguien llamó a un exterminador?",
             "ghostReporting": "Fantasma, a la orden.",
             "imGone": "Ya me fui.",
             "keepItUp": "A que no te atreves a seguir.",
             "neverKnowWhatHitEm": "Ni cuenta se dará.",
-            "reapTheWhirlwind": "Ahora cosecha la tempestad."
+            "reapTheWhirlwind": "¡Ahora hazte cargo!"
           },
           "goliath": {
             "checklistProtocol": "Protocolo de control iniciado.",
@@ -843,7 +843,7 @@
             "goAheadTacCom": "Adelante, ComTac.",
             "goliathOnline": "¡Goliat en línea!",
             "milSpecEd209": "MilSpec ED-209 en línea.",
-            "navComLocked": "Nav-com fijado.",
+            "navComLocked": "ComNav configurada.",
             "targetDesignated": "Objetivo designado."
           },
           "marine": {
