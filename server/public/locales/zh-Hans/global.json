@@ -746,29 +746,29 @@
           "arbiter": {
             "askOfUs": "你对我们有何所求？",
             "seekGuidance": "你在寻求指引吗？",
-            "senseASoul": "我们感应到一个寻求答案的灵魂。",
-            "warpFieldStabilized": "折跃场已稳定。"
+            "senseASoul": "我们发现有人在寻找答案。",
+            "warpFieldStabilized": "折跃力场已稳定。"
           },
           "archon": {
-            "mergingComplete": "融合已完成。",
-            "powerOverwhelming": "力量无穷！",
-            "shallBeDone": "必将完成。",
-            "weBurn": "我们在燃烧！"
+            "mergingComplete": "融合完成。",
+            "powerOverwhelming": "势不可挡！",
+            "shallBeDone": "势在必得。",
+            "weBurn": "我们在燃烧。"
           },
           "battlecruiser": {
-            "battlecruiserOperational": "战列巡航舰准备就绪。",
-            "engage": "开战！",
-            "goodDayCommander": "日安，指挥官。",
-            "makeItHappen": "立即执行。",
-            "notEquippedWithShields": "没装护盾？那就系好安全带吧！",
+            "battlecruiserOperational": "战列巡航舰准备完毕。",
+            "engage": "交火！",
+            "goodDayCommander": "你好，指挥官。",
+            "makeItHappen": "就这么办吧！",
+            "notEquippedWithShields": "没有装备护盾系统？那就系好安全带！",
             "setACourse": "设定航线。",
-            "shieldsUpWeaponsOnline": "护盾升起！武器上线！",
-            "wayBehindSchedule": "我们的进度已经严重落后了。"
+            "shieldsUpWeaponsOnline": "护盾启动，武器上线！",
+            "wayBehindSchedule": "我们的进度已经落后太多了。"
           },
           "carrier": {
-            "carrierHasArrived": "航母已抵达。",
+            "carrierHasArrived": "航母已经抵达。",
             "commander": "指挥官。",
-            "instructions": "请指示。",
+            "instructions": "有何指示？",
             "weAreHere": "我们来了。"
           },
           "corsair": {
@@ -778,78 +778,78 @@
           },
           "darktemplar": {
             "adunToridas": "Adun Toridas。",
-            "ahAtLast": "啊，终于来了。",
-            "imWaiting": "我在等着。",
+            "ahAtLast": "终于。",
+            "imWaiting": "等待命令。",
             "zerashkGulida": "Zerashk gulida！"
           },
           "dragoon": {
             "awaitingInstructions": "等待指示。",
             "forVengeance": "为了复仇！",
-            "iHaveReturned": "我回来了。",
-            "makeUseOfMe": "尽管差遣我。"
+            "iHaveReturned": "我已回归。",
+            "makeUseOfMe": "让我发挥作用。"
           },
           "dropship": {
             "buckleUp": "系好安全带！",
-            "inThePipe": "已进入航道，信号良好。",
-            "keepArmsAndLegsInside": "在本次飞行完全停稳之前，请勿将手脚伸出舱外。",
-            "someChop": "抓紧了，前方有颠簸。",
-            "takeYourOrder": "请问您要点些什么？",
-            "waterLanding": "如遇水上迫降，您可能会被用作漂浮装置。"
+            "inThePipe": "预定轨道一切正常。",
+            "keepArmsAndLegsInside": "在行程完全结束前，请不要伸出手脚。",
+            "someChop": "坐稳了，前方有气流。",
+            "takeYourOrder": "有什么可以效劳的吗？",
+            "waterLanding": "万一在水上着陆，我们可以拿你来做救生圈。"
           },
           "firebat": {
             "fireItUp": "点火！",
-            "goodSmoke": "没什么比来口好烟更爽了！",
-            "loveTheSmellOfNapalm": "我爱凝固汽油弹的味道。",
-            "needALight": "要借个火吗？",
+            "goodSmoke": "烟雾缭绕的感觉真棒。",
+            "loveTheSmellOfNapalm": "我喜欢汽油弹的气味。",
+            "needALight": "谁要借火？",
             "propaneAccessories": "对丙烷有疑问吗？还是丙烷配件？",
-            "somethingBurning": "是不是有什么烧着了？",
-            "thatsWhatIThought": "哈哈，我就知道。"
+            "somethingBurning": "有什么东西在烧吗？",
+            "thatsWhatIThought": "哼哼，我也是这么想的。"
           },
           "ghost": {
-            "calledDownTheThunder": "是你召来了雷霆。",
-            "callTheShot": "指定目标。",
-            "exterminator": "有人叫灭虫的吗？",
+            "calledDownTheThunder": "你把雷招来了。",
+            "callTheShot": "下命令吧！",
+            "exterminator": "有人要杀虫剂吗？",
             "ghostReporting": "幽灵报到。",
-            "imGone": "我消失了。",
-            "keepItUp": "继续啊！有种你就继续。",
-            "neverKnowWhatHitEm": "他们都不知道被什么击中了。",
-            "reapTheWhirlwind": "现在自食恶果吧。"
+            "imGone": "正在前往。",
+            "keepItUp": "你敢继续点吗？",
+            "neverKnowWhatHitEm": "他们不会知道自己是怎么死的。",
+            "reapTheWhirlwind": "接下去就要刮大风了。"
           },
           "goliath": {
-            "checklistProtocol": "检查程序已启动。",
-            "fdicApproved": "FDIC 认证。",
-            "goAheadTacCom": "请讲，战术通讯。",
-            "goliathOnline": "歌利亚上线。",
-            "milSpecEd209": "军规 ED-209 上线。",
+            "checklistProtocol": "清单协议初始化完成。",
+            "fdicApproved": "FDIC批准。",
+            "goAheadTacCom": "请讲，TacCom。",
+            "goliathOnline": "歌利亚已启动。",
+            "milSpecEd209": "军规ED-209上阵。",
             "navComLocked": "导航通讯已锁定。",
             "targetDesignated": "目标已指定。"
           },
           "marine": {
-            "fragThisCommander": "我投票干掉这个指挥官。",
+            "fragThisCommander": "我同意我们干掉这个指挥官。",
             "goGoGo": "上上上！",
-            "gonnaGiveOrders": "你到底要不要下命令？",
-            "jackedUp": "火力全开，准备出发。",
-            "outstanding": "太棒了！",
-            "pieceOfMe": "想跟我过两招吗，小子？",
-            "rockAndRoll": "摇滚起来！",
-            "somethingToShoot": "给我点东西打打。"
+            "gonnaGiveOrders": "你要给我下命令吗？",
+            "jackedUp": "准备教训，随时出发。",
+            "outstanding": "出色无比！",
+            "pieceOfMe": "想尝尝我的厉害吗，小子？",
+            "rockAndRoll": "炮火轰鸣！",
+            "somethingToShoot": "我想干点什么。"
           },
           "medic": {
-            "clear": "闪开！",
-            "getMeADefib": "快拿除颤器来！",
-            "hesDeadJim": "他死了，吉姆。",
+            "clear": "让开！",
+            "getMeADefib": "给我起搏器！",
+            "hesDeadJim": "他死了，Jim。",
             "needMedicalAttention": "需要医疗救助吗？",
             "preppedAndReady": "准备就绪！",
-            "stat": "马上！",
-            "stateTheNature": "请说明您的医疗紧急情况。",
-            "turnYourHeadAndCough": "把头转过去，咳嗽一下。",
-            "whereDoesItHurt": "哪里疼？"
+            "stat": "什么情况？",
+            "stateTheNature": "请讲一下你的急症类型。",
+            "turnYourHeadAndCough": "转过头去，咳一下。",
+            "whereDoesItHurt": "哪儿疼？"
           },
           "scv": {
-            "goodToGo": "SCV 准备就绪，长官。",
-            "ordersCaptain": "有何命令，队长？",
-            "reportingForDuty": "前来报到。",
-            "somethingInTheWay": "造不了，有东西挡着。"
+            "goodToGo": "SCV准备就绪，长官。",
+            "ordersCaptain": "有命令吗？长官。",
+            "reportingForDuty": "报到！",
+            "somethingInTheWay": "我建造不了，有东西挡住了。"
           },
           "shuttle": {
             "awaitingCommand": "等待命令。",
@@ -857,47 +857,47 @@
             "transWarpEngaged": "超折跃引擎启动。"
           },
           "tank": {
-            "delightedToSir": "乐意效劳，长官！",
-            "dropTheHammer": "我要重锤出击了！",
+            "delightedToSir": "很乐意这么做，长官！",
+            "dropTheHammer": "我正准备敲响锤子！",
             "identifyTarget": "识别目标！",
-            "indiscriminateJustice": "正义无差别发放中！",
-            "majorMalfunction": "你到底哪根筋不对？",
-            "moveIt": "快走！",
-            "readyToRollOut": "准备出发！"
+            "indiscriminateJustice": "好，来点一刀切的正义吧。",
+            "majorMalfunction": "你的主要问题出在哪里？",
+            "moveIt": "快点！",
+            "readyToRollOut": "准备出动！"
           },
           "templar": {
-            "appetiteForDestruction": "看来你渴望毁灭。",
-            "lackOfControlDisturbing": "但你的缺乏自制让我不安。",
-            "thoughtsBetrayYou": "你的思想出卖了你。",
-            "useYourIllusion": "你将学会运用你的幻象。"
+            "appetiteForDestruction": "看来你喜欢毁灭。",
+            "lackOfControlDisturbing": "但我觉得你很烦，一点自制力都没有。",
+            "thoughtsBetrayYou": "你的思想背叛了你。",
+            "useYourIllusion": "你也知道怎么使用幻象。"
           },
           "valkyrie": {
-            "achtung": "Achtung！",
-            "itsShowtime": "表演时间到！",
-            "needSomethingDestroyed": "需要摧毁什么吗？",
-            "valkyriePrepared": "瓦格雷战机准备完毕。",
-            "veryInterestingButStupid": "非常有趣……但很愚蠢。",
-            "veryNaughty": "你真是太调皮了。",
-            "waysOfBlowingThingsUp": "我有的是办法把东西炸飞。"
+            "achtung": "警戒！",
+            "itsShowtime": "表演时间！",
+            "needSomethingDestroyed": "需要我消灭什么东西吗？",
+            "valkyriePrepared": "瓦格雷待命中。",
+            "veryInterestingButStupid": "很有意思，但也很蠢。",
+            "veryNaughty": "你真是调皮。",
+            "waysOfBlowingThingsUp": "我喜欢让东西爆炸。"
           },
           "vulture": {
-            "bringItOn": "好吧，放马过来！",
+            "bringItOn": "好吧，来吧！",
             "goingIn": "坐稳了，我要冲进去了。",
             "gottaRide": "我得兜风去！",
             "imOnIt": "好，交给我。",
-            "somethingOnYourMind": "有心事？"
+            "somethingOnYourMind": "你想要说什么？"
           },
           "wraith": {
             "attackFormation": "攻击队形。",
-            "awaitingLaunchOrders": "怨灵战机等待起飞命令。",
-            "gottaDieSometimeRed": "人总有一死，红毛。",
-            "gottaGetMeOneOfThese": "我也得弄一台这玩意儿。",
-            "imInvincible": "我天下无敌，没错！",
-            "vectorLockedIn": "航向已锁定。",
-            "whyAmISoGood": "我就是好奇，我怎么这么厉害？"
+            "awaitingLaunchOrders": "怨灵战机等待发射命令。",
+            "gottaDieSometimeRed": "人皆有一死，Red。",
+            "gottaGetMeOneOfThese": "这玩意儿我要一个。",
+            "imInvincible": "但我是无敌的，没错。",
+            "vectorLockedIn": "航线锁定。",
+            "whyAmISoGood": "我只是好奇，为什么我这么厉害。"
           },
           "zealot": {
-            "enTaroAdun": "阿顿在上！",
+            "enTaroAdun": "En taro Adun！",
             "forAiur": "为了艾尔！",
             "khassarDeTemplari": "Khassar de templari！",
             "longForCombat": "我渴望战斗！",

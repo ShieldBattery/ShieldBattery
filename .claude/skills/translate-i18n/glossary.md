@@ -405,8 +405,11 @@ consistent. (Seed — extend over time.)
   Classic/Cozy→**经典 / 舒适**.
 - **Rollback netcode:** rollback→**回滚** (回滚平衡, FGC usage); trade-off scale ends use "~优先"
   (流畅优先 / 响应优先); value marker Recommended→**推荐**.
-- **/quote unit lines** are in-character voice (你, not 您). En taro Adun→**阿顿在上！**, Aiur→
-  **艾尔**; other Khalani phrases stay Latin. **Chat transcript→聊天记录**, scope tags **（全体）/
+- **/quote unit lines use the SC:R Simplified Chinese dub** (the game's `zhCN` speech, transcribed
+  from the game files; 你, not 您). Whisper's homophone slips were resolved by meaning where the
+  readings sound alike (交火 not 焦火, 借火 not 戒火, 杀虫剂, 已指定). The dub keeps Khalani spoken as
+  Khalani (En taro Adun！, not 阿顿在上), says Aiur as **艾尔**, and keeps radio jargon in English
+  (请讲，TacCom。 / 人皆有一死，Red。). **Chat transcript→聊天记录**, scope tags **（全体）/
   （队伍）**; review (disputed game)→**复核** (请求复核 / 驳回请求). Map queue→**地图队列**, Up
   next→**接下来**, Then→然后; lock alliances→**锁定同盟**. YouTube "Play" is media playback, so
   播放 is correct there.
