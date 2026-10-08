@@ -768,27 +768,27 @@
           "arbiter": {
             "askOfUs": "¿Qué deseas de nosotros?",
             "seekGuidance": "¿Buscas consejo?",
-            "senseASoul": "Percibimos un alma en busca de respuestas.",
-            "warpFieldStabilized": "Campo de distorsión estabilizado."
+            "senseASoul": "Percibimos la presencia de un alma en busca de respuestas.",
+            "warpFieldStabilized": "Campos de transposición estabilizados."
           },
           "archon": {
-            "mergingComplete": "La fusión se ha completado.",
-            "powerOverwhelming": "¡Poder abrumador!",
+            "mergingComplete": "La fusión está completa.",
+            "powerOverwhelming": "¡Energía abrumadora!",
             "shallBeDone": "Así se hará.",
             "weBurn": "¡Ardemos!"
           },
           "battlecruiser": {
-            "battlecruiserOperational": "Crucero de batalla operativo.",
-            "engage": "¡Adelante!",
-            "goodDayCommander": "Buenos días, comandante.",
+            "battlecruiserOperational": "Crucero de batalla en funcionamiento.",
+            "engage": "¡Atacando!",
+            "goodDayCommander": "Buen día, comandante.",
             "makeItHappen": "Hágase.",
-            "notEquippedWithShields": "¿Que no tenemos escudos? ¡Pues abróchense los cinturones!",
-            "setACourse": "Fijen el rumbo.",
-            "shieldsUpWeaponsOnline": "¡Escudos arriba! ¡Armas en línea!",
-            "wayBehindSchedule": "Vamos MUY atrasados."
+            "notEquippedWithShields": "¿No tienes escudos? Entonces, sujétate bien.",
+            "setACourse": "Fija el rumbo.",
+            "shieldsUpWeaponsOnline": "Escudos activados. Armas conectadas.",
+            "wayBehindSchedule": "Nos estamos atrasando demasiado."
           },
           "carrier": {
-            "carrierHasArrived": "El portanaves ha llegado.",
+            "carrierHasArrived": "Ha llegado el Portanaves.",
             "commander": "Comandante.",
             "instructions": "Instrucciones.",
             "weAreHere": "Aquí estamos."
@@ -800,78 +800,78 @@
           },
           "darktemplar": {
             "adunToridas": "Adun Toridas.",
-            "ahAtLast": "Ah, por fin.",
-            "imWaiting": "Te espero.",
+            "ahAtLast": "¡Ah, por fin!",
+            "imWaiting": "Estoy esperando.",
             "zerashkGulida": "¡Zerashk gulida!"
           },
           "dragoon": {
-            "awaitingInstructions": "Esperando instrucciones.",
+            "awaitingInstructions": "Espero instrucciones.",
             "forVengeance": "¡Por venganza!",
-            "iHaveReturned": "He vuelto.",
-            "makeUseOfMe": "Hazme útil."
+            "iHaveReturned": "¡He regresado!",
+            "makeUseOfMe": "¡Úsame!"
           },
           "dropship": {
-            "buckleUp": "¡Abróchense los cinturones!",
-            "inThePipe": "En camino, cinco por cinco.",
-            "keepArmsAndLegsInside": "Mantengan brazos y piernas dentro del vehículo hasta que se detenga por completo.",
-            "someChop": "Agárrense, que vienen turbulencias.",
-            "takeYourOrder": "¿Puedo tomar su pedido?",
-            "waterLanding": "En caso de amerizaje, usted podrá ser utilizado como dispositivo de flotación."
+            "buckleUp": "¡Sujétate!",
+            "inThePipe": "En la trayectoria correcta, sin errores.",
+            "keepArmsAndLegsInside": "Mantén los brazos y las piernas adentro hasta que el vehículo se detenga por completo.",
+            "someChop": "Sujétate con fuerza, esto se va a poner feo.",
+            "takeYourOrder": "¿Qué desea ordenar?",
+            "waterLanding": "En caso de amerizaje, puede que te usen como flotador."
           },
           "firebat": {
-            "fireItUp": "¡A encenderlo!",
-            "goodSmoke": "¡Nada como un buen humo!",
-            "loveTheSmellOfNapalm": "Me encanta el olor a napalm.",
-            "needALight": "¿Tienes fuego?",
-            "propaneAccessories": "¿Alguna pregunta sobre el propano? ¿O sobre accesorios de propano?",
-            "somethingBurning": "¿Algo se está quemando?",
-            "thatsWhatIThought": "Jaja, eso pensaba."
+            "fireItUp": "¡Que arda!",
+            "goodSmoke": "El humo calma mis sentidos.",
+            "loveTheSmellOfNapalm": "Me encanta el aroma de napalm.",
+            "needALight": "¿Quieres fuego?",
+            "propaneAccessories": "¿Tienes preguntas sobre el propano? ¿O sobre accesorios para gas propano?",
+            "somethingBurning": "¿Hay algo quemándose?",
+            "thatsWhatIThought": "Ja, ja, ja, eso es lo que pensé."
           },
           "ghost": {
-            "calledDownTheThunder": "Tú invocaste al trueno.",
+            "calledDownTheThunder": "Invocaste al trueno.",
             "callTheShot": "Dime el objetivo.",
-            "exterminator": "¿Alguien llamó al exterminador?",
-            "ghostReporting": "Fantasma a la orden.",
-            "imGone": "Me esfumo.",
-            "keepItUp": "¡Sigue así! Te reto.",
-            "neverKnowWhatHitEm": "Ni sabrán qué los golpeó.",
+            "exterminator": "¿Alguien llamó a un exterminador?",
+            "ghostReporting": "Fantasma, a la orden.",
+            "imGone": "Ya me fui.",
+            "keepItUp": "A que no te atreves a seguir.",
+            "neverKnowWhatHitEm": "Ni cuenta se dará.",
             "reapTheWhirlwind": "Ahora cosecha la tempestad."
           },
           "goliath": {
-            "checklistProtocol": "Protocolo de verificación iniciado.",
+            "checklistProtocol": "Protocolo de control iniciado.",
             "fdicApproved": "Aprobado por la FDIC.",
             "goAheadTacCom": "Adelante, TacCom.",
-            "goliathOnline": "Goliat en línea.",
+            "goliathOnline": "¡Goliat en línea!",
             "milSpecEd209": "MilSpec ED-209 en línea.",
             "navComLocked": "Nav-com fijado.",
             "targetDesignated": "Objetivo designado."
           },
           "marine": {
-            "fragThisCommander": "Voto por cargarnos a este comandante.",
-            "goGoGo": "¡Vamos, vamos, vamos!",
+            "fragThisCommander": "Voto por darle plomo a este comandante.",
+            "goGoGo": "¡Andando!",
             "gonnaGiveOrders": "¿Me vas a dar órdenes?",
-            "jackedUp": "A tope y listo para la acción.",
+            "jackedUp": "Motivado y listo para salir.",
             "outstanding": "¡Excelente!",
-            "pieceOfMe": "¿Quieres pelea, chico?",
-            "rockAndRoll": "¡Rock and roll!",
-            "somethingToShoot": "Dame algo a lo que disparar."
+            "pieceOfMe": "¿Quieres bronca conmigo, hijo?",
+            "rockAndRoll": "¡A romperla!",
+            "somethingToShoot": "Dame un blanco para disparar."
           },
           "medic": {
             "clear": "¡Despejen!",
-            "getMeADefib": "¡Un desfibrilador, ya!",
+            "getMeADefib": "¡Traigan el desfibrilador!",
             "hesDeadJim": "Está muerto, Jim.",
             "needMedicalAttention": "¿Necesitas atención médica?",
-            "preppedAndReady": "¡Preparada y lista!",
-            "stat": "¡Ya!",
-            "stateTheNature": "Indique la naturaleza de su emergencia médica.",
-            "turnYourHeadAndCough": "Gire la cabeza y tosa.",
+            "preppedAndReady": "Preparada y lista.",
+            "stat": "¡De inmediato!",
+            "stateTheNature": "¿De qué tipo es su emergencia médica?",
+            "turnYourHeadAndCough": "Abre grande la boca y di «aaah».",
             "whereDoesItHurt": "¿Dónde te duele?"
           },
           "scv": {
             "goodToGo": "VCE listo, señor.",
             "ordersCaptain": "¿Órdenes, capitán?",
-            "reportingForDuty": "Presentándome al servicio.",
-            "somethingInTheWay": "No puedo construirlo, hay algo en medio."
+            "reportingForDuty": "A la orden.",
+            "somethingInTheWay": "No lo puedo construir, hay algo que estorba."
           },
           "shuttle": {
             "awaitingCommand": "Esperando órdenes.",
@@ -879,44 +879,44 @@
             "transWarpEngaged": "Motor de transdistorsión activado."
           },
           "tank": {
-            "delightedToSir": "¡Con mucho gusto, señor!",
+            "delightedToSir": "¡Con gusto, señor!",
             "dropTheHammer": "¡Voy a dejar caer el martillo!",
-            "identifyTarget": "¡Identifiquen el objetivo!",
-            "indiscriminateJustice": "¡Repartiendo justicia indiscriminada!",
-            "majorMalfunction": "¿Cuál es tu maldito problema?",
-            "moveIt": "¡Muévete!",
+            "identifyTarget": "¡Identifica el objetivo!",
+            "indiscriminateJustice": "¡Y empezar a repartir un poco de justicia indiscriminada!",
+            "majorMalfunction": "¿Qué desperfecto vital tienes?",
+            "moveIt": "¡A moverse!",
             "readyToRollOut": "¡Listo para rodar!"
           },
           "templar": {
             "appetiteForDestruction": "Veo que tienes apetito de destrucción.",
-            "lackOfControlDisturbing": "Pero tu falta de control me resulta perturbadora.",
-            "thoughtsBetrayYou": "Tus pensamientos te delatan.",
-            "useYourIllusion": "Y aprendes a usar tu ilusión."
+            "lackOfControlDisturbing": "Sin embargo, tu falta de control me resulta molesta.",
+            "thoughtsBetrayYou": "Tus pensamientos te traicionan.",
+            "useYourIllusion": "Y has aprendido a usar tu ilusión."
           },
           "valkyrie": {
             "achtung": "¡Achtung!",
-            "itsShowtime": "¡Empieza el espectáculo!",
+            "itsShowtime": "Es hora de divertirse.",
             "needSomethingDestroyed": "¿Necesitas destruir algo?",
             "valkyriePrepared": "Valkiria preparada.",
-            "veryInterestingButStupid": "Muy interesante... pero estúpido.",
+            "veryInterestingButStupid": "Interesante, pero no quita que sea estúpido.",
             "veryNaughty": "Te estás portando muy mal.",
-            "waysOfBlowingThingsUp": "Tengo mis métodos para volar cosas por los aires."
+            "waysOfBlowingThingsUp": "Tengo mi manera de explotar cosas."
           },
           "vulture": {
-            "bringItOn": "¡Muy bien, adelante!",
+            "bringItOn": "¡Bien, que vengan!",
             "goingIn": "Agárrate, voy a entrar.",
             "gottaRide": "¡Tengo que rodar!",
             "imOnIt": "Sí, me encargo.",
-            "somethingOnYourMind": "¿Algo en mente?"
+            "somethingOnYourMind": "¿Tienes algo en mente?"
           },
           "wraith": {
             "attackFormation": "Formación de ataque.",
-            "awaitingLaunchOrders": "Ánima esperando órdenes de despegue.",
-            "gottaDieSometimeRed": "Todos tenemos que morir algún día, Red.",
-            "gottaGetMeOneOfThese": "Tengo que conseguirme uno de estos.",
-            "imInvincible": "¡Soy invencible, así es!",
-            "vectorLockedIn": "Vector fijado.",
-            "whyAmISoGood": "Solo por curiosidad, ¿por qué soy tan bueno?"
+            "awaitingLaunchOrders": "Ánima esperando órdenes.",
+            "gottaDieSometimeRed": "Todos tienen que morir algún día, Rojo.",
+            "gottaGetMeOneOfThese": "Tengo que conseguir uno de estos.",
+            "imInvincible": "Soy invencible, es cierto.",
+            "vectorLockedIn": "Vector establecido.",
+            "whyAmISoGood": "Tengo una duda, ¿por qué soy tan perfecto?"
           },
           "zealot": {
             "enTaroAdun": "¡En taro Adun!",

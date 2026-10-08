@@ -152,11 +152,14 @@ consistent. (Seed — extend over time.)
   Classic/Cozy→**Clásico / Cómodo** (Discord's Spanish "Cómodo" for Cozy).
 - **Rollback netcode:** rollback→**rollback** (loanword, el rollback; Equilibrio del rollback);
   scale ends Más fluido/Más reactivo; value marker Recommended→**Recomendado**.
-- **/quote unit lines** are in-character voice (tú, imperative, exclamations), not UI register.
-  Khalani phrases stay as written (¡En taro Adun!, Adun Toridas). **Chat transcript** scope tags
-  **(TODOS) / (EQUIPO)**; transcript→transcripción; review (of a disputed game)→**revisión**
-  (Solicitar revisión, Descartar solicitud). Map queue→**cola de mapas**, Up next→**A
-  continuación**, Then→Después; lock alliances→**Bloquear alianzas**.
+- **/quote unit lines use the SC:R Latin American dub** (the game's `esMX` speech, Argentine cast),
+  not the Castilian redub (`esES`, which says Soldado / Espectro / vosotros). The text was
+  transcribed from the game's own speech files, so lines where the transcript was unreliable keep an
+  in-character translation; recheck those against the audio before treating them as the dub. Khalani
+  phrases stay Khalani in the dub. **Chat transcript** scope tags **(TODOS) / (EQUIPO)**;
+  transcript→transcripción; review (of a disputed game)→**revisión** (Solicitar revisión, Descartar
+  solicitud). Map queue→**cola de mapas**, Up next→**A continuación**, Then→Después; lock
+  alliances→**Bloquear alianzas**.
 
 ### ru
 - Register: formal **Вы** (the existing file is consistently Вы; do not use ты here).
