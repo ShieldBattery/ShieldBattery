@@ -779,29 +779,29 @@
           "arbiter": {
             "askOfUs": "Чего ты хочешь от нас?",
             "seekGuidance": "Ты ищешь наставления?",
-            "senseASoul": "Мы чувствуем душу, ищущую ответы.",
-            "warpFieldStabilized": "Варп-поле стабилизировано."
+            "senseASoul": "Мы чувствуем душу, жаждущую узнать истину.",
+            "warpFieldStabilized": "Поля искривления стабилизированы."
           },
           "archon": {
             "mergingComplete": "Слияние завершено.",
-            "powerOverwhelming": "Сила переполняет!",
-            "shallBeDone": "Да будет так.",
-            "weBurn": "Мы горим!"
+            "powerOverwhelming": "Нас переполняет мощь.",
+            "shallBeDone": "Да будет так!",
+            "weBurn": "Мы — пламя."
           },
           "battlecruiser": {
-            "battlecruiserOperational": "Крейсер к бою готов.",
-            "engage": "В бой!",
-            "goodDayCommander": "Добрый день, командир.",
-            "makeItHappen": "Исполняйте.",
-            "notEquippedWithShields": "Щитов нет? Что ж, тогда пристегнитесь!",
-            "setACourse": "Проложить курс.",
-            "shieldsUpWeaponsOnline": "Щиты подняты! Орудия к бою!",
-            "wayBehindSchedule": "Мы ОЧЕНЬ отстаём от графика."
+            "battlecruiserOperational": "Крейсер готов к бою!",
+            "engage": "Следую к цели!",
+            "goodDayCommander": "Добрый день, командир!",
+            "makeItHappen": "Будет сделано!",
+            "notEquippedWithShields": "Нет щитов? Ну тогда пристегнись!",
+            "setACourse": "Задай курс!",
+            "shieldsUpWeaponsOnline": "Поднять щиты! Орудия к бою!",
+            "wayBehindSchedule": "Мы сильно опаздываем."
           },
           "carrier": {
-            "carrierHasArrived": "Авианосец прибыл.",
+            "carrierHasArrived": "Авианосец прибыл!",
             "commander": "Командир.",
-            "instructions": "Указания.",
+            "instructions": "Жду указаний.",
             "weAreHere": "Мы здесь."
           },
           "corsair": {
@@ -811,78 +811,78 @@
           },
           "darktemplar": {
             "adunToridas": "Адун Торидас.",
-            "ahAtLast": "А, наконец-то.",
+            "ahAtLast": "Наконец-то!",
             "imWaiting": "Я жду.",
             "zerashkGulida": "Зерашк гулида!"
           },
           "dragoon": {
-            "awaitingInstructions": "Жду указаний.",
-            "forVengeance": "Во имя мести!",
+            "awaitingInstructions": "Я жду указаний.",
+            "forVengeance": "Во имя возмездия!",
             "iHaveReturned": "Я вернулся.",
-            "makeUseOfMe": "Используй меня."
+            "makeUseOfMe": "Я могу быть полезен."
           },
           "dropship": {
             "buckleUp": "Пристегнитесь!",
-            "inThePipe": "На подлёте, связь отличная.",
-            "keepArmsAndLegsInside": "Не высовывайте руки и ноги до полной остановки аттракциона.",
-            "someChop": "Держитесь, сейчас потрясёт.",
-            "takeYourOrder": "Вы готовы сделать заказ?",
-            "waterLanding": "В случае посадки на воду Вы можете быть использованы как плавсредство."
+            "inThePipe": "Вас поняла, вылетаем!",
+            "keepArmsAndLegsInside": "Не покидайте своих мест до полной остановки судна.",
+            "someChop": "Держитесь, сейчас тряхнёт!",
+            "takeYourOrder": "Приказывайте.",
+            "waterLanding": "В случае посадки на воду вас могут использовать в качестве плавательного средства."
           },
           "firebat": {
-            "fireItUp": "Зажигай!",
-            "goodSmoke": "Ничто не сравнится с хорошим дымком!",
-            "loveTheSmellOfNapalm": "Люблю запах напалма.",
-            "needALight": "Прикурить?",
-            "propaneAccessories": "Есть вопросы о пропане? Или о пропановых принадлежностях?",
+            "fireItUp": "Гори синим пламенем!",
+            "goodSmoke": "Нет ничего лучше перекура.",
+            "loveTheSmellOfNapalm": "Обожаю запах напалма.",
+            "needALight": "Огоньку?",
+            "propaneAccessories": "Хочешь узнать, как устроен огнемёт? Могу показать на практике.",
             "somethingBurning": "Что-то горит?",
-            "thatsWhatIThought": "Ха-ха, так я и думал."
+            "thatsWhatIThought": "Я так и думал."
           },
           "ghost": {
-            "calledDownTheThunder": "Ты сам призвал гром.",
-            "callTheShot": "Назови цель.",
-            "exterminator": "Кто-то вызывал дезинсектора?",
+            "calledDownTheThunder": "Тебе хотелось бури?",
+            "callTheShot": "Укажи мне цель.",
+            "exterminator": "Истребителя вызывали?",
             "ghostReporting": "Призрак на связи.",
-            "imGone": "Меня здесь нет.",
-            "keepItUp": "Давай, продолжай! Рискни.",
-            "neverKnowWhatHitEm": "Даже не поймут, что их ударило.",
-            "reapTheWhirlwind": "Теперь пожинай бурю."
+            "imGone": "Уже в пути.",
+            "keepItUp": "Тебе ещё не надоело?",
+            "neverKnowWhatHitEm": "Смерть придёт незаметно.",
+            "reapTheWhirlwind": "Так получай целый ураган."
           },
           "goliath": {
-            "checklistProtocol": "Протокол проверки запущен.",
-            "fdicApproved": "Одобрено FDIC.",
-            "goAheadTacCom": "Слушаю, ТакКом.",
-            "goliathOnline": "Голиаф в строю.",
+            "checklistProtocol": "Запуск протокола проверки.",
+            "fdicApproved": "АБС в норме!",
+            "goAheadTacCom": "Какие будут указания?",
+            "goliathOnline": "Голиаф на связи!",
             "milSpecEd209": "Военный образец ED-209 в строю.",
             "navComLocked": "Навигация зафиксирована.",
-            "targetDesignated": "Цель указана."
+            "targetDesignated": "Цель выбрана!"
           },
           "marine": {
-            "fragThisCommander": "Предлагаю пристрелить этого командира.",
-            "goGoGo": "Вперёд, вперёд, вперёд!",
-            "gonnaGiveOrders": "Ты будешь отдавать приказы?",
-            "jackedUp": "Заряжен и готов к бою.",
+            "fragThisCommander": "Предлагаю замочить командира.",
+            "goGoGo": "Вперёд! Вперёд!",
+            "gonnaGiveOrders": "Приказы будут?",
+            "jackedUp": "Стим принял. Готов выдвигаться.",
             "outstanding": "Превосходно!",
-            "pieceOfMe": "Нарываешься, парень?",
-            "rockAndRoll": "Рок-н-ролл!",
-            "somethingToShoot": "Дайте мне во что-нибудь пострелять."
+            "pieceOfMe": "Кто на новенького?",
+            "rockAndRoll": "Зажигаем!",
+            "somethingToShoot": "Дай я кого-нибудь пристрелю."
           },
           "medic": {
             "clear": "Разряд!",
-            "getMeADefib": "Дефибриллятор, срочно!",
-            "hesDeadJim": "Он мёртв, Джим.",
-            "needMedicalAttention": "Нужна медицинская помощь?",
-            "preppedAndReady": "Всё готово!",
-            "stat": "Срочно!",
-            "stateTheNature": "Опишите характер Вашей медицинской проблемы.",
-            "turnYourHeadAndCough": "Отвернитесь и покашляйте.",
+            "getMeADefib": "Дефибриллятор сюда, живо!",
+            "hesDeadJim": "Ну всё, выносите.",
+            "needMedicalAttention": "Записать на приём?",
+            "preppedAndReady": "Готова оказать помощь.",
+            "stat": "Немедленно!",
+            "stateTheNature": "Опишите характер недомогания.",
+            "turnYourHeadAndCough": "Откройте рот и скажите «а-а-а».",
             "whereDoesItHurt": "Где болит?"
           },
           "scv": {
-            "goodToGo": "КСМ готов, сэр.",
-            "ordersCaptain": "Приказы, капитан?",
-            "reportingForDuty": "Прибыл для несения службы.",
-            "somethingInTheWay": "Не могу построить, что-то мешает."
+            "goodToGo": "КСМ готов, кэп.",
+            "ordersCaptain": "Что прикажете, кэп?",
+            "reportingForDuty": "Готов к работе!",
+            "somethingInTheWay": "Здесь строить нельзя, что-то мешает."
           },
           "shuttle": {
             "awaitingCommand": "Ожидаю команды.",
@@ -890,51 +890,51 @@
             "transWarpEngaged": "Трансварп-двигатель запущен."
           },
           "tank": {
-            "delightedToSir": "С удовольствием, сэр!",
-            "dropTheHammer": "Сейчас как вдарю!",
-            "identifyTarget": "Опознать цель!",
-            "indiscriminateJustice": "Вершу правосудие без разбора!",
-            "majorMalfunction": "Какого чёрта с тобой не так?",
-            "moveIt": "Шевелись!",
-            "readyToRollOut": "Готов выдвигаться!"
+            "delightedToSir": "С радостью, кэп!",
+            "dropTheHammer": "Сейчас я кого-то отутюжу!",
+            "identifyTarget": "Укажи цель!",
+            "indiscriminateJustice": "Потом разберёмся, кто свой, а кто чужой.",
+            "majorMalfunction": "Чего это тебя переклинило?",
+            "moveIt": "Покатили!",
+            "readyToRollOut": "Танк на марше!"
           },
           "templar": {
-            "appetiteForDestruction": "Вижу, ты жаждешь разрушений.",
-            "lackOfControlDisturbing": "Но меня тревожит твоя несдержанность.",
+            "appetiteForDestruction": "Я чувствую в тебе страсть к разрушению.",
+            "lackOfControlDisturbing": "Но меня беспокоит отсутствие контроля.",
             "thoughtsBetrayYou": "Твои мысли выдают тебя.",
-            "useYourIllusion": "И ты учишься пользоваться иллюзией."
+            "useYourIllusion": "И ты умеешь использовать иллюзии."
           },
           "valkyrie": {
             "achtung": "Ахтунг!",
             "itsShowtime": "Шоу начинается!",
-            "needSomethingDestroyed": "Нужно что-нибудь уничтожить?",
-            "valkyriePrepared": "Валькирия готова.",
-            "veryInterestingButStupid": "Очень интересно... но глупо.",
-            "veryNaughty": "Ты очень плохо себя ведёшь.",
-            "waysOfBlowingThingsUp": "У меня есть способы всё взорвать."
+            "needSomethingDestroyed": "Кого уничтожить?",
+            "valkyriePrepared": "Валькирия готова!",
+            "veryInterestingButStupid": "Это, конечно, очень интересно, но глупо.",
+            "veryNaughty": "Ты ведёшь себя просто отвратительно!",
+            "waysOfBlowingThingsUp": "Я знаю сотню способов что-нибудь взорвать!"
           },
           "vulture": {
-            "bringItOn": "Ну давай, нападай!",
+            "bringItOn": "Завожу! Поехали!",
             "goingIn": "Держись, захожу.",
             "gottaRide": "Мне надо гнать!",
             "imOnIt": "Ага, уже занимаюсь.",
-            "somethingOnYourMind": "Что-то на уме?"
+            "somethingOnYourMind": "Что на этот раз?"
           },
           "wraith": {
             "attackFormation": "Боевое построение.",
-            "awaitingLaunchOrders": "Мираж ждёт приказа на взлёт.",
-            "gottaDieSometimeRed": "Все когда-нибудь умирают, Рыжий.",
-            "gottaGetMeOneOfThese": "Надо бы мне такой раздобыть.",
-            "imInvincible": "Я непобедим, вот так!",
-            "vectorLockedIn": "Вектор зафиксирован.",
-            "whyAmISoGood": "Просто интересно: почему я так хорош?"
+            "awaitingLaunchOrders": "Ожидаю приказов.",
+            "gottaDieSometimeRed": "Все мы когда-то умрём, Ред.",
+            "gottaGetMeOneOfThese": "Я реально хочу себе такую штуку.",
+            "imInvincible": "Я непобедим, спору нет.",
+            "vectorLockedIn": "Вектор движения задан.",
+            "whyAmISoGood": "Интересно, почему я так крут?"
           },
           "zealot": {
             "enTaroAdun": "Эн таро Адун!",
             "forAiur": "За Айур!",
             "khassarDeTemplari": "Кхассар де темплари!",
-            "longForCombat": "Жажду битвы!",
-            "myLifeForAiur": "Моя жизнь за Айур!"
+            "longForCombat": "Я жажду битвы!",
+            "myLifeForAiur": "Жизнь за Айур!"
           }
         },
         "units": {

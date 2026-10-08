@@ -241,8 +241,10 @@ consistent. (Seed — extend over time.)
   Chat display modes Classic/Cozy→**Классический / Уютный**.
 - **Rollback netcode:** rollback→**откат** (Баланс отката); scale ends Плавнее/Отзывчивее;
   value marker Recommended→**Рекомендуется** (matches "Авто (рекомендуется)").
-- **/quote unit lines** are in-character voice and may use ты; Khalani phrases transliterated
-  (Эн таро Адун!, Адун Торидас, За Айур!). **Chat transcript→лог чата**, scope tags **(ВСЕМ) /
+- **/quote unit lines use the SC:R Russian dub** (the game's `ruRU` speech, transcribed from the
+  game files), which freely localizes the jokes (He's dead, Jim→«Ну всё, выносите.», FDIC
+  approved→«АБС в норме!»). Characters address the player as ты/кэп there. Khalani phrases stay
+  transliterated (Эн таро Адун!, Адун Торидас, За Айур!). **Chat transcript→лог чата**, scope tags **(ВСЕМ) /
   (КОМАНДЕ)**; departure lines are verbless («<0>X</0>: выход из игры» / «обрыв соединения») to
   dodge gendered past tense. review→**проверка** (Запросить проверку). Map queue→**очередь карт**,
   Up next→Далее, Then→Затем; lock alliances→**Закрепить союзы**. Playlist names get a governing
