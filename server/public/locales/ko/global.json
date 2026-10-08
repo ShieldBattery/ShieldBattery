@@ -746,29 +746,29 @@
           "arbiter": {
             "askOfUs": "우리에게 무엇을 바라는가?",
             "seekGuidance": "인도를 원하는가?",
-            "senseASoul": "해답을 찾는 영혼이 느껴진다.",
-            "warpFieldStabilized": "워프 필드 안정화 완료."
+            "senseASoul": "아, 답을 찾아 헤매는 영혼이로군.",
+            "warpFieldStabilized": "차원장 안정화 완료."
           },
           "archon": {
-            "mergingComplete": "융합이 완료되었다.",
-            "powerOverwhelming": "파워 오버웰밍!",
-            "shallBeDone": "그리 될 것이다.",
-            "weBurn": "불타오른다!"
+            "mergingComplete": "합체가 완료되었다.",
+            "powerOverwhelming": "압도적인 힘으로!",
+            "shallBeDone": "그리 되리라.",
+            "weBurn": "타오른다."
           },
           "battlecruiser": {
-            "battlecruiserOperational": "배틀크루저 가동 준비 완료.",
-            "engage": "교전 개시!",
-            "goodDayCommander": "좋은 하루입니다, 사령관님.",
-            "makeItHappen": "실행하게.",
-            "notEquippedWithShields": "보호막이 없다고? 그럼 안전벨트 단단히 매라고!",
-            "setACourse": "항로를 설정하라.",
-            "shieldsUpWeaponsOnline": "보호막 가동! 무기 온라인!",
-            "wayBehindSchedule": "일정이 한참 늦어지고 있다고."
+            "battlecruiserOperational": "배틀크루저, 가동 완료.",
+            "engage": "교전 시작!",
+            "goodDayCommander": "안녕하십니까, 사령관님.",
+            "makeItHappen": "명령 수행중.",
+            "notEquippedWithShields": "보호막이 없다구요?… 그럼, 안전벨트를 매시죠.",
+            "setACourse": "항로 설정 완료.",
+            "shieldsUpWeaponsOnline": "보호막 가동, 무기 온라인.",
+            "wayBehindSchedule": "계획보다 한참 늦어지고 있습니다."
           },
           "carrier": {
-            "carrierHasArrived": "캐리어 도착했습니다.",
+            "carrierHasArrived": "출격 준비 완료!",
             "commander": "사령관.",
-            "instructions": "지시를.",
+            "instructions": "지시를!",
             "weAreHere": "우리가 왔다."
           },
           "corsair": {
@@ -778,78 +778,78 @@
           },
           "darktemplar": {
             "adunToridas": "아둔 토리다스.",
-            "ahAtLast": "아, 마침내.",
-            "imWaiting": "기다리고 있다.",
-            "zerashkGulida": "제라쉬크 굴리다!"
+            "ahAtLast": "아, 드디어!",
+            "imWaiting": "기다렸노라.",
+            "zerashkGulida": "제라식 굴리다."
           },
           "dragoon": {
-            "awaitingInstructions": "명령을 기다린다.",
+            "awaitingInstructions": "명령 대기 중.",
             "forVengeance": "복수를 위하여!",
-            "iHaveReturned": "내가 돌아왔다.",
-            "makeUseOfMe": "나를 써라."
+            "iHaveReturned": "내가 돌아왔다!",
+            "makeUseOfMe": "날 활용해라."
           },
           "dropship": {
-            "buckleUp": "안전벨트 매세요!",
-            "inThePipe": "진입 중, 상태 양호.",
-            "keepArmsAndLegsInside": "기체가 완전히 멈출 때까지 팔다리를 밖으로 내밀지 마세요.",
-            "someChop": "꽉 잡아요, 좀 흔들릴 거예요.",
-            "takeYourOrder": "주문하시겠어요?",
-            "waterLanding": "수상 착륙 시 승객분들은 구명 장비로 사용될 수 있습니다."
+            "buckleUp": "안전띠 채우세요.",
+            "inThePipe": "아주 잘 들립니다.",
+            "keepArmsAndLegsInside": "비행을 완전히 멈출 때까지 팔다리를 내밀지 말아주십시오.",
+            "someChop": "흔들릴 테니 꽉 잡으세요.",
+            "takeYourOrder": "명령을 내려주시겠습니까?",
+            "waterLanding": "비상 착수 시에는 여러분을 부양 장치로 사용할 수도 있습니다."
           },
           "firebat": {
-            "fireItUp": "불 붙여!",
-            "goodSmoke": "역시 연기 맛이 최고지!",
-            "loveTheSmellOfNapalm": "네이팜 냄새가 좋아.",
-            "needALight": "불 필요해?",
-            "propaneAccessories": "프로판에 대해 궁금한 거 있어? 아니면 프로판 용품은?",
-            "somethingBurning": "뭐 타는 냄새 안 나?",
+            "fireItUp": "불태우자.",
+            "goodSmoke": "시꺼먼 연기만한 건 없지.",
+            "loveTheSmellOfNapalm": "네이팜 냄새가 최고라니깐.",
+            "needALight": "불 필요하신가요?",
+            "propaneAccessories": "프로판에 대해 궁금한 거 없습니까? 아니면... 프로판 액세서리?",
+            "somethingBurning": "뭔가 타고 있습니까?",
             "thatsWhatIThought": "하하, 그럴 줄 알았지."
           },
           "ghost": {
-            "calledDownTheThunder": "천둥을 부른 건 너다.",
-            "callTheShot": "목표를 지정하라.",
-            "exterminator": "누가 해충 박멸 부탁했나?",
-            "ghostReporting": "고스트 보고합니다.",
+            "calledDownTheThunder": "네가 천둥을 불렀으니...",
+            "callTheShot": "명령을 내리시죠.",
+            "exterminator": "해충 처리반 부르신 분?",
+            "ghostReporting": "고스트, 작전개시.",
             "imGone": "사라진다.",
-            "keepItUp": "계속해 봐! 할 수 있으면.",
-            "neverKnowWhatHitEm": "뭐에 맞았는지도 모를 거다.",
-            "reapTheWhirlwind": "이제 그 대가를 치러라."
+            "keepItUp": "어디 한 번 해 보시지.",
+            "neverKnowWhatHitEm": "쥐도 새도 모르게.",
+            "reapTheWhirlwind": "이제 폭풍우를 맞이해라."
           },
           "goliath": {
-            "checklistProtocol": "점검 절차 개시.",
+            "checklistProtocol": "점검 프로세스 개시.",
             "fdicApproved": "FDIC 승인 완료.",
-            "goAheadTacCom": "말씀하십시오, 전술 통신.",
-            "goliathOnline": "골리앗 온라인.",
-            "milSpecEd209": "군용 규격 ED-209 온라인.",
-            "navComLocked": "항법 통신 고정.",
-            "targetDesignated": "목표 지정 완료."
+            "goAheadTacCom": "말하라, 본부.",
+            "goliathOnline": "골리앗 가동.",
+            "milSpecEd209": "군 규격 ED-209.",
+            "navComLocked": "수신 완료.",
+            "targetDesignated": "목표 확인 완료."
           },
           "marine": {
-            "fragThisCommander": "이 사령관 처리하자는 데 한 표.",
-            "goGoGo": "가자, 가자, 가자!",
-            "gonnaGiveOrders": "명령은 내릴 거야?",
-            "jackedUp": "약 빨았고, 준비 완료.",
-            "outstanding": "훌륭해!",
-            "pieceOfMe": "한판 붙어 볼래, 꼬마야?",
-            "rockAndRoll": "로큰롤!",
-            "somethingToShoot": "쏠 것 좀 줘."
+            "fragThisCommander": "이 사령관한테 한 방 날리고 싶군.",
+            "goGoGo": "자! 가자, 가자!",
+            "gonnaGiveOrders": "명령을 내리실 겁니까?",
+            "jackedUp": "전투 준비 완료.",
+            "outstanding": "좋았어!",
+            "pieceOfMe": "한 판 붙어볼까, 애송이?",
+            "rockAndRoll": "한바탕 놀아볼까!!",
+            "somethingToShoot": "명령만 내리십쇼."
           },
           "medic": {
-            "clear": "물러서요!",
-            "getMeADefib": "제세동기 가져와요, 빨리!",
-            "hesDeadJim": "그는 죽었어요, 짐.",
-            "needMedicalAttention": "치료가 필요한가요?",
-            "preppedAndReady": "준비 완료!",
-            "stat": "당장!",
-            "stateTheNature": "어떤 응급 상황인지 말씀하세요.",
-            "turnYourHeadAndCough": "고개 돌리고 기침해 보세요.",
-            "whereDoesItHurt": "어디가 아파요?"
+            "clear": "클리어!",
+            "getMeADefib": "심폐소생기 준비!",
+            "hesDeadJim": "죽었어요, 짐.",
+            "needMedicalAttention": "치료가 필요하십니까?",
+            "preppedAndReady": "준비 됐습니다.",
+            "stat": "알겠습니다!",
+            "stateTheNature": "상태와 증상을 자세히 말하세요.",
+            "turnYourHeadAndCough": "아 하세요, 더 크게.",
+            "whereDoesItHurt": "어디가 아프세요?"
           },
           "scv": {
-            "goodToGo": "SCV 준비 완료입니다.",
-            "ordersCaptain": "명령을 내려 주십시오, 대장님.",
-            "reportingForDuty": "임무 보고합니다.",
-            "somethingInTheWay": "못 짓겠는데요, 뭔가 걸리적거려요."
+            "goodToGo": "SCV 준비 완료!",
+            "ordersCaptain": "명령을 내리시죠?",
+            "reportingForDuty": "작전 준비 완료!",
+            "somethingInTheWay": "여긴 못 짓겠는데요. 뭔가 있어요."
           },
           "shuttle": {
             "awaitingCommand": "명령 대기 중.",
@@ -857,51 +857,51 @@
             "transWarpEngaged": "트랜스워프 드라이브 가동."
           },
           "tank": {
-            "delightedToSir": "기꺼이 하죠!",
-            "dropTheHammer": "이제 한 방 먹여 주지!",
-            "identifyTarget": "목표를 확인하라!",
-            "indiscriminateJustice": "무차별 정의 집행 중!",
-            "majorMalfunction": "도대체 뭐가 문제야?",
-            "moveIt": "움직여!",
-            "readyToRollOut": "출동 준비 완료!"
+            "delightedToSir": "기꺼이!",
+            "dropTheHammer": "심판의 망치를 날려서!",
+            "identifyTarget": "목표 설정!",
+            "indiscriminateJustice": "...무차별하게 정의를 구현하겠습니다!",
+            "majorMalfunction": "가장 심각한 문제가 뭡니까?",
+            "moveIt": "이동!",
+            "readyToRollOut": "준비 끝났습니다!"
           },
           "templar": {
-            "appetiteForDestruction": "파괴에 굶주려 있군.",
-            "lackOfControlDisturbing": "하지만 그대의 자제력 부족이 거슬리는군.",
-            "thoughtsBetrayYou": "그대의 생각이 그대를 배신하는군.",
-            "useYourIllusion": "그리고 환상을 쓰는 법을 배우게 되지."
+            "appetiteForDestruction": "그대는 파괴의 힘을 갈구하는구나.",
+            "lackOfControlDisturbing": "하지만 그대는 아직 자제력이 부족하노라.",
+            "thoughtsBetrayYou": "생각이 많으면 다치는 법.",
+            "useYourIllusion": "그리고 환영을 다루는 법도 깨달았군."
           },
           "valkyrie": {
-            "achtung": "아흐퉁!",
-            "itsShowtime": "쇼타임이다!",
-            "needSomethingDestroyed": "부숴 줄 거 있어?",
-            "valkyriePrepared": "발키리 준비 완료.",
-            "veryInterestingButStupid": "아주 흥미롭군... 하지만 멍청해.",
-            "veryNaughty": "아주 못된 짓을 하고 있군.",
-            "waysOfBlowingThingsUp": "날려 버리는 방법은 얼마든지 있지."
+            "achtung": "준비 완료.",
+            "itsShowtime": "어디 한번 놀아볼까?",
+            "needSomethingDestroyed": "없애버릴 녀석이라도 있습니까?",
+            "valkyriePrepared": "발키리, 준비 완료.",
+            "veryInterestingButStupid": "아주 재밌긴 한데... 멍청한 짓이군.",
+            "veryNaughty": "너무 무례하군.",
+            "waysOfBlowingThingsUp": "난 터트리는데 뛰어난 재능이 있지."
           },
           "vulture": {
-            "bringItOn": "좋아, 덤벼!",
+            "bringItOn": "좋아! 다 덤벼!",
             "goingIn": "꽉 잡아, 들어간다.",
             "gottaRide": "달려야겠어!",
             "imOnIt": "그래, 맡겨 둬.",
-            "somethingOnYourMind": "할 말 있어?"
+            "somethingOnYourMind": "계획 있으십니까?"
           },
           "wraith": {
-            "attackFormation": "공격 대형.",
-            "awaitingLaunchOrders": "레이스, 출격 명령 대기 중.",
-            "gottaDieSometimeRed": "누구나 언젠간 죽는 거야, 레드.",
-            "gottaGetMeOneOfThese": "나도 이거 하나 장만해야겠어.",
-            "imInvincible": "난 무적이야, 그렇고말고!",
-            "vectorLockedIn": "벡터 고정.",
-            "whyAmISoGood": "그냥 궁금해서 그러는데, 난 왜 이렇게 잘하지?"
+            "attackFormation": "공격 대형으로.",
+            "awaitingLaunchOrders": "레이스 출격 대기 중.",
+            "gottaDieSometimeRed": "누구나 언젠가는 죽는 거야, 레드.",
+            "gottaGetMeOneOfThese": "나도 저거 하나 장만해야겠는데.",
+            "imInvincible": "저는 무적입니다. 네.",
+            "vectorLockedIn": "벡터 계산 완료.",
+            "whyAmISoGood": "난 대체 왜 이렇게 잘 났지."
           },
           "zealot": {
             "enTaroAdun": "엔 타로 아둔!",
             "forAiur": "아이어를 위하여!",
-            "khassarDeTemplari": "카사르 데 템플라리!",
-            "longForCombat": "전투를 갈망한다!",
-            "myLifeForAiur": "아이어를 위해 목숨을 바치리라!"
+            "khassarDeTemplari": "카사르 데 템플라리.",
+            "longForCombat": "나는 전투에 목마르다!",
+            "myLifeForAiur": "내 목숨을 아이어에!"
           }
         },
         "units": {
