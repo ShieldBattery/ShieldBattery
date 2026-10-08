@@ -1,6 +1,6 @@
 import { TFunction } from 'i18next'
 import * as React from 'react'
-import { useContext, useState } from 'react'
+import { useContext, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Virtuoso } from 'react-virtuoso'
 import styled, { css } from 'styled-components'
@@ -56,6 +56,13 @@ const RosterContainer = styled.div`
   flex: 1 1 0;
   min-height: 0;
 `
+
+/**
+ * How far past the visible edges the roster keeps rows rendered. Tab can only move focus to a row
+ * that's in the DOM, so the row after (or before) the focused one has to already exist even when
+ * focusing has just scrolled the focused row flush with the edge.
+ */
+const ROSTER_TAB_LOOKAHEAD_PX = 240
 
 const PaddingHeader = eatVirtuosoContext(/* */ styled.div<{ context?: unknown }>`
   width: 100%;
@@ -138,7 +145,12 @@ const UserListEntryItem = styled.div<UserListEntryItemProps>`
 
   &:hover {
     cursor: pointer;
+  }
+
+  &:hover,
+  &:focus-visible {
     background-color: rgb(from var(--theme-on-surface) r g b / 0.08);
+    outline: none;
   }
 
   ${props => {
@@ -155,6 +167,15 @@ const UserListEntryItem = styled.div<UserListEntryItemProps>`
     return ''
   }}
 `
+
+/** The element directly under `<body>` that holds `elem`: the app root, or a popover's portal. */
+function topLevelAncestorOf(elem: Element): Element {
+  let current = elem
+  while (current.parentElement && current.parentElement !== current.ownerDocument.body) {
+    current = current.parentElement
+  }
+  return current
+}
 
 interface UserListEntryProps {
   userId: SbUserId
@@ -181,6 +202,38 @@ const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
       UserMenu,
     })
 
+  const rowRef = useRef<HTMLDivElement>(null)
+  const overlayWasOpenRef = useRef(false)
+  useEffect(() => {
+    if (isOverlayOpen) {
+      overlayWasOpenRef.current = true
+      return
+    }
+    if (!overlayWasOpenRef.current) {
+      return
+    }
+    overlayWasOpenRef.current = false
+
+    // Focus that was left inside the closing overlay (or dropped to the body) goes back to the row
+    // that opened it, so the keyboard picks up where it was. Focus the dismissing click moved to
+    // something else in the app stays there.
+    const row = rowRef.current
+    const active = row?.ownerDocument.activeElement
+    if (
+      row &&
+      (!active || active === row.ownerDocument.body || !topLevelAncestorOf(row).contains(active))
+    ) {
+      row.focus()
+    }
+  }, [isOverlayOpen])
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+      e.preventDefault()
+      onClick(e)
+    }
+  }
+
   return (
     <div style={props.style}>
       <ConnectedUserProfileOverlay {...profileOverlayProps} />
@@ -188,10 +241,16 @@ const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
 
       <UserListEntryItem
         key='entry'
+        ref={rowRef}
+        role='button'
+        aria-haspopup='dialog'
+        aria-expanded={isOverlayOpen}
+        tabIndex={0}
         $faded={!!props.faded}
         $isOverlayOpen={isOverlayOpen}
         onClick={onClick}
-        onContextMenu={onContextMenu}>
+        onContextMenu={onContextMenu}
+        onKeyDown={onKeyDown}>
         <StyledAvatar userId={props.userId} showAvailability={true} />
         {user ? (
           <NameBlock>
@@ -438,7 +497,6 @@ export const UserList = React.memo((props: UserListProps) => {
   const [collapsed, setCollapsed] = useState<ReadonlySet<SectionKey>>(() => new Set())
   const [expandedGames, setExpandedGames] = useState<ReadonlySet<string>>(() => new Set())
   const [unfolded, setUnfolded] = useState<ReadonlySet<FoldableSectionKey>>(() => new Set())
-
   const needle = filter.trim().toLowerCase()
   const filtering = needle.length > 0
   const matches = (name: string | undefined) => !!name && name.toLowerCase().includes(needle)
@@ -605,6 +663,7 @@ export const UserList = React.memo((props: UserListProps) => {
           computeItemKey={computeRowKey}
           data={rowData}
           itemContent={renderRow}
+          increaseViewportBy={ROSTER_TAB_LOOKAHEAD_PX}
         />
       </RosterContainer>
     </UserListContainer>
