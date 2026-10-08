@@ -13,6 +13,8 @@ import {
   titleMedium,
   titleSmall,
 } from '../styles/typography'
+import { YoutubeEmbed } from './youtube-embed'
+import { parseYoutubeUrl } from './youtube-url'
 
 const LoadableMarkdown = lazy(() => import('react-markdown'))
 
@@ -227,6 +229,12 @@ const Image = styled.img`
   ${mediaStyle};
 `
 
+const StyledYoutubeEmbed = styled(YoutubeEmbed)`
+  ${mediaStyle};
+  /* The frame's height follows its width, so the width is what has to respect the height cap. */
+  width: min(100%, calc(min(640px, 70vh) * 16 / 9));
+`
+
 const Caption = styled.span`
   ${bodyMedium};
   display: block;
@@ -275,6 +283,17 @@ function MarkdownMedia({ src, alt, title }: { src?: string; alt?: string; title?
     return null
   }
 
+  const youtubeVideo = parseYoutubeUrl(src)
+  if (youtubeVideo) {
+    return (
+      <>
+        {/* Keyed by video so editing the URL starts over at the best thumbnail size and unplayed. */}
+        <StyledYoutubeEmbed key={youtubeVideo.id} video={youtubeVideo} description={alt} />
+        {title ? <Caption>{title}</Caption> : null}
+      </>
+    )
+  }
+
   const trustedOrigin = getTrustedOrigin()
   if (!trustedOrigin || !isTrustedMediaUrl(src, trustedOrigin)) {
     // Not served from our own file store: fall back to the same link rendering used for non-media
@@ -311,10 +330,10 @@ function MarkdownMedia({ src, alt, title }: { src?: string; alt?: string; title?
 
 const MEDIA_COMPONENTS: Components = {
   a: ({ node, href, children }) => {
-    // An untrusted image inside a link falls back to rendering as a link itself, so keeping the
-    // outer anchor would nest anchors — invalid HTML; render just the children instead. A trusted
-    // image wrapped in a link is the legit clickable-image pattern (`<a><img></a>` is valid), so
-    // that keeps its anchor.
+    // An untrusted image inside a link falls back to rendering as a link itself, and a YouTube
+    // image renders as an interactive player, so keeping the outer anchor would nest interactive
+    // content — invalid HTML; render just the children instead. A trusted image wrapped in a link
+    // is the legit clickable-image pattern (`<a><img></a>` is valid), so that keeps its anchor.
     const trustedOrigin = getTrustedOrigin()
     const imgSrcs = node ? collectImgSrcs(node) : []
     if (imgSrcs.some(src => !trustedOrigin || !isTrustedMediaUrl(src, trustedOrigin))) {

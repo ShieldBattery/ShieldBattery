@@ -2054,6 +2054,10 @@
       "quoteTooltip": "Quote (Ctrl+Shift+.)",
       "unorderedList": "Bulleted list",
       "unorderedListTooltip": "Bulleted list (Ctrl+Shift+8)"
+    },
+    "youtube": {
+      "defaultTitle": "YouTube video",
+      "play": "Play {{title}}"
     }
   },
   "matchmaking": {

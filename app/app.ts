@@ -1131,15 +1131,28 @@ function setupCspProtocol(curSession: Session) {
   })
 }
 
-function setupAnalytics(curSession: Session) {
-  // The analytics script will 403 unless it's requested with a referer (and since we're on a weird
-  // scheme, Chromium acts as if we're insecure and refuses to send the origin). So, we add in the
-  // referrer manually on this request.
-  const filter = {
-    urls: ['https://cdn.usefathom.com/*'],
-  }
+/**
+ * Third-party requests that refuse to work without a referer, which Chromium never sends from our
+ * custom scheme (it treats the scheme as insecure for referrer purposes), mapped to the referer to
+ * add for them.
+ */
+const REFERER_OVERRIDES: ReadonlyArray<[urlPrefix: string, referer: string]> = [
+  // The analytics script 403s without one.
+  ['https://cdn.usefathom.com/', 'shieldbattery://app'],
+  // YouTube's embedded player refuses to play without one, and requires it to be an http(s) URL
+  // identifying the embedder.
+  ['https://www.youtube-nocookie.com/embed/', 'https://shieldbattery.net/'],
+]
+
+function setupRefererOverrides(curSession: Session) {
+  // A session only keeps a single `onBeforeSendHeaders` listener (registering another replaces it),
+  // so every override has to be handled by this one.
+  const filter = { urls: REFERER_OVERRIDES.map(([urlPrefix]) => `${urlPrefix}*`) }
   curSession.webRequest.onBeforeSendHeaders(filter, (details, cb) => {
-    details.requestHeaders.referer = 'shieldbattery://app'
+    const override = REFERER_OVERRIDES.find(([urlPrefix]) => details.url.startsWith(urlPrefix))
+    if (override) {
+      details.requestHeaders.referer = override[1]
+    }
     cb({ requestHeaders: details.requestHeaders })
   })
 }
@@ -1477,7 +1490,7 @@ app.on('ready', () => {
 
       setupIpc(localSettings, scrSettings)
       setupCspProtocol(currentSession())
-      setupAnalytics(currentSession())
+      setupRefererOverrides(currentSession())
       gameServer = createGameServer(localSettings)
       await createWindow()
 
