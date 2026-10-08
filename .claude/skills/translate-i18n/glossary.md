@@ -323,11 +323,15 @@ consistent. (Seed — extend over time.)
   Classic/Cozy→**클래식 / 편안하게**.
 - **Rollback netcode:** rollback→**롤백** (롤백 밸런스, FGC usage); trade-off scale ends use the
   "~ 우선" pattern (부드러움 우선 / 반응 속도 우선); value marker Recommended→**권장**.
-- **/quote unit lines** are in-character voice (반말/명령조 is fine there — the 합니다체 rule is
-  for UI copy). Khalani phrases transliterated (엔 타로 아둔!, 아이어를 위하여!), Power
-  overwhelming→**파워 오버웰밍!** (community usage). **Chat transcript→채팅 기록**, scope tags
-  **(전체) / (팀)**; review→**검토** (검토 요청 / 요청 기각). Map queue→**맵 대기열**, Up next→**다음
-  맵**, Then→그다음; lock alliances→**동맹 고정**.
+- **/quote unit lines use the SC:R Korean dub** (음역 version: SCV / 고스트 / 레이스 / 배틀크루저,
+  not 건설로봇 / 유령 / 망령 / 전투순양함), taken from the StarCraft (Brood War) 대사 tables on
+  namu.wiki's unit pages, footnote markers dropped. The dub's text wins even where it departs from the
+  English (Power overwhelming→압도적인 힘으로!, Achtung!→준비 완료.). A line our catalogue gives to a
+  different unit than Brood War does uses that unit's dub (e.g. Khassar de templari is the High
+  Templar's). Lines with no Brood War counterpart (Shuttle, some Vulture/Corsair/Carrier/Arbiter
+  lines) are translated in character. **Chat transcript→채팅 기록**, scope tags **(전체) / (팀)**;
+  review→**검토** (검토 요청 / 요청 기각). Map queue→**맵 대기열**, Up next→**다음 맵**,
+  Then→그다음; lock alliances→**동맹 고정**.
 
 ### zh-Hans
 - Register: use 您 for second person (the existing file is ~3:1 您 vs 你; it's the normal polite UI
