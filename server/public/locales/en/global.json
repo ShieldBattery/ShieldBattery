@@ -1239,6 +1239,7 @@
       "dropped": "<0>{{name}}</0> was dropped",
       "droppedText": "{{name}} was dropped",
       "empty": "No chat or leaves were recorded in these replays.",
+      "hide": "Hide chat transcript",
       "left": "<0>{{name}}</0> left the game",
       "leftText": "{{name}} left the game",
       "loadError": "Failed to load the chat transcript.",

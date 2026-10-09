@@ -1008,9 +1008,6 @@ function SummaryPage({
         {map ? <StyledMapThumbnail mapId={map.id} size={MAP_SIZE} showInfoLayer /> : null}
       </MapContainer>
 
-      {hasDebugPermission && debugInfo ? (
-        <DebugInfoDisplay gameId={gameId} debugInfo={debugInfo} />
-      ) : null}
       {/*
         Replays are read by the app's parser, which only exists in Electron. Keyed by game because
         this page instance is reused across game navigations, and a transcript must never carry
@@ -1023,11 +1020,15 @@ function SummaryPage({
           replays={debugInfo.replays ?? []}
         />
       ) : null}
+      {hasDebugPermission && debugInfo ? (
+        <DebugInfoDisplay gameId={gameId} debugInfo={debugInfo} />
+      ) : null}
     </SummaryRoot>
   )
 }
 
 const PlayerResultRow = styled.div`
+  position: relative;
   width: 100%;
   display: flex;
   align-items: center;
@@ -1057,27 +1058,17 @@ const PlayerResultContainer = styled.button`
  * appear on hover or keyboard focus.
  */
 const FeedbackActions = styled.div`
-  width: 88px;
+  width: 92px;
   flex-shrink: 0;
-  padding-right: 4px;
+  padding-left: 12px;
 
   display: flex;
-  justify-content: flex-end;
-  gap: 4px;
 
   opacity: 0;
-  transform: translateX(6px) scale(0.92);
-  transition:
-    opacity 120ms ease-out,
-    transform 160ms cubic-bezier(0.2, 0.8, 0.3, 1.2);
+  transition: opacity 150ms ease-out;
 
   ${PlayerResultRow}:hover &, ${PlayerResultRow}:focus-within & {
     opacity: 1;
-    transform: none;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    transition: none;
   }
 `
 
@@ -1308,9 +1299,17 @@ export function PlayerResult({
   const commendLabel = t('gameCommend.action', 'Commend')
   const reportLabel = t('gameReport.action', 'Report')
 
+  // Hover is tracked on the whole row (and the ripple spans it) so the highlight stays lit behind
+  // the feedback buttons and while hovering them
+  const { onMouseEnter, onMouseLeave, ...containerProps } = buttonProps
+
   const row = (
-    <PlayerResultRow onContextMenu={config.isComputer ? undefined : onContextMenu}>
-      <PlayerResultContainer className={className} {...buttonProps}>
+    <PlayerResultRow
+      onContextMenu={config.isComputer ? undefined : onContextMenu}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}>
+      <Ripple ref={rippleRef} />
+      <PlayerResultContainer className={className} {...containerProps}>
         <RaceRoot>
           <StyledRaceIcon race={raceAssigned ? (result?.race ?? config.race) : config.race} />
           {raceAssigned && result?.race && config.race === 'r' ? (
@@ -1333,7 +1332,6 @@ export function PlayerResult({
         <GameResultColumn>
           <StyledGameResultText result={result?.result ?? 'unknown'} />
         </GameResultColumn>
-        <Ripple ref={rippleRef} />
       </PlayerResultContainer>
       {showFeedbackColumn ? (
         <FeedbackActions>

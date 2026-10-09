@@ -165,6 +165,7 @@ export function ChatTranscriptSection({
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const [state, setState] = useState<TranscriptState>({ status: 'idle' })
+  const [hidden, setHidden] = useState(false)
   const abortControllerRef = useRef<AbortController>(undefined)
 
   useEffect(() => {
@@ -174,7 +175,13 @@ export function ChatTranscriptSection({
   const sides = getChatSides(config)
   const selectedReplays = selectChatTranscriptReplays(sides, replays)
 
-  const onView = () => {
+  const onToggle = () => {
+    if (state.status === 'loaded') {
+      setHidden(!hidden)
+      return
+    }
+
+    setHidden(false)
     setState({ status: 'loading' })
     abortControllerRef.current?.abort()
     const abortController = new AbortController()
@@ -197,12 +204,18 @@ export function ChatTranscriptSection({
     })
   }
 
+  const showTranscript = state.status === 'loaded' && !hidden
+
   return (
     <Root>
       <OutlinedButton
-        label={t('gameDetails.chatTranscript.view', 'View chat transcript')}
+        label={
+          showTranscript
+            ? t('gameDetails.chatTranscript.hide', 'Hide chat transcript')
+            : t('gameDetails.chatTranscript.view', 'View chat transcript')
+        }
         iconStart={<MaterialIcon icon='forum' />}
-        onClick={onView}
+        onClick={onToggle}
         disabled={state.status === 'loading' || selectedReplays.length === 0}
       />
       {selectedReplays.length === 0 ? (
@@ -215,7 +228,7 @@ export function ChatTranscriptSection({
           {t('gameDetails.chatTranscript.loadError', 'Failed to load the chat transcript.')}
         </StatusLine>
       ) : null}
-      {state.status === 'loaded' ? (
+      {showTranscript ? (
         <TranscriptCard>
           <TranscriptHeader>
             <TranscriptTitle>
