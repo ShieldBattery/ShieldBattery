@@ -8,6 +8,7 @@ import { SbUserId } from '../../common/users/sb-user-id'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { eatVirtuosoContext } from '../lists/eat-virtuoso-context'
 import { LoadErrorRow } from '../lists/load-error-row'
+import { JsonLocalStorageValue } from '../local-storage'
 import { buttonReset } from '../material/button-reset'
 import { ChatContext } from '../messaging/chat-context'
 import { useMentionFilterClick } from '../messaging/mention-hooks'
@@ -269,7 +270,8 @@ const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
   )
 })
 
-type SectionKey = 'live' | 'games' | 'active' | 'offline'
+const SECTION_KEYS = ['live', 'games', 'active', 'offline'] as const
+type SectionKey = (typeof SECTION_KEYS)[number]
 /** The sections whose entries fold behind a "Show N more" button past the first few. */
 type FoldableSectionKey = 'live' | 'games'
 
@@ -456,6 +458,16 @@ function toggled<T>(set: ReadonlySet<T>, value: T): ReadonlySet<T> {
   return result
 }
 
+/** The sections the user has collapsed, shared by every channel's list. */
+const savedCollapsedSections = new JsonLocalStorageValue<SectionKey[]>('channelUserListCollapsed')
+
+function loadCollapsedSections(): ReadonlySet<SectionKey> {
+  const saved: unknown = savedCollapsedSections.getValue()
+  return new Set(
+    Array.isArray(saved) ? SECTION_KEYS.filter(section => saved.includes(section)) : [],
+  )
+}
+
 interface UserListProps {
   active: SbUserId[]
   offline: SbUserId[]
@@ -494,7 +506,7 @@ export const UserList = React.memo((props: UserListProps) => {
   const { t } = useTranslation()
   const liveUserIds = useLiveUserIds()
   const [filter, setFilter] = useState('')
-  const [collapsed, setCollapsed] = useState<ReadonlySet<SectionKey>>(() => new Set())
+  const [collapsed, setCollapsed] = useState(loadCollapsedSections)
   const [expandedGames, setExpandedGames] = useState<ReadonlySet<string>>(() => new Set())
   const [unfolded, setUnfolded] = useState<ReadonlySet<FoldableSectionKey>>(() => new Set())
   const needle = filter.trim().toLowerCase()
@@ -598,7 +610,11 @@ export const UserList = React.memo((props: UserListProps) => {
             <SectionToggle
               type='button'
               aria-expanded={!row.collapsed}
-              onClick={() => setCollapsed(c => toggled(c, row.section))}>
+              onClick={() => {
+                const updated = toggled(collapsed, row.section)
+                setCollapsed(updated)
+                savedCollapsedSections.setValue(Array.from(updated))
+              }}>
               <MaterialIcon icon={row.collapsed ? 'chevron_right' : 'expand_more'} size={20} />
               <SectionLabel>{row.label}</SectionLabel>
               <SectionCount>{row.count}</SectionCount>
