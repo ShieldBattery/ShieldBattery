@@ -124,11 +124,15 @@ export function useGameFeedback(
     context: { suspense: false },
   })
   const [, commendPlayer] = useMutation(CommendPlayerMutation)
-  const feedback = data?.gameFeedback
+  const feedback = enabled && data?.gameFeedback?.id === gameId ? data.gameFeedback : undefined
 
-  // Commends sent from this page that the server hasn't confirmed yet. They hide their player's
-  // options immediately, and are dropped again if the commend fails.
-  const [pendingCommends, setPendingCommends] = useState<ReadonlySet<SbUserId>>(new Set())
+  // Keep submitted commends scoped to their game, including across navigation. Retain successes
+  // so out-of-order server snapshots can't restore their actions; only unconfirmed submissions
+  // reduce the server's remaining allowance. Failed requests remove only their own game's entry.
+  const [submittedCommendsByGame, setSubmittedCommendsByGame] = useState<
+    ReadonlyMap<string, ReadonlySet<SbUserId>>
+  >(new Map())
+  const submittedCommends = submittedCommendsByGame.get(gameId) ?? new Set<SbUserId>()
   const [now, setNow] = useState(() => Date.now())
 
   const closesAt = feedback?.closesAt ? Date.parse(feedback.closesAt) : undefined
@@ -163,7 +167,7 @@ export function useGameFeedback(
     return () => clearTimeout(timeout)
   }, [nextChange, reexecuteQuery])
 
-  const given = new Set<SbUserId>(pendingCommends)
+  const given = new Set<SbUserId>(submittedCommends)
   for (const g of feedback?.given ?? []) {
     given.add(g.userId)
   }
@@ -173,7 +177,7 @@ export function useGameFeedback(
   const serverCommendedIds = new Set(
     (feedback?.given ?? []).filter(g => g.kind === GameFeedbackKind.Commend).map(g => g.userId),
   )
-  const unconfirmedCount = [...pendingCommends].filter(id => !serverCommendedIds.has(id)).length
+  const unconfirmedCount = [...submittedCommends].filter(id => !serverCommendedIds.has(id)).length
   const commendsRemaining = (feedback?.commendsRemaining ?? 0) - unconfirmedCount
 
   const commendAvailability = (userId: SbUserId): CommendAvailability =>
@@ -184,7 +188,9 @@ export function useGameFeedback(
       return
     }
 
-    setPendingCommends(prev => new Set(prev).add(userId))
+    setSubmittedCommendsByGame(prev =>
+      new Map(prev).set(gameId, new Set(prev.get(gameId)).add(userId)),
+    )
     snackbarController.showSnackbar(
       t('gameCommend.sent', { defaultValue: 'You commended {{user}}.', user: name }),
     )
@@ -195,9 +201,20 @@ export function useGameFeedback(
           return
         }
 
-        setPendingCommends(prev => {
-          const next = new Set(prev)
-          next.delete(userId)
+        setSubmittedCommendsByGame(prev => {
+          const pending = prev.get(gameId)
+          if (!pending?.has(userId)) {
+            return prev
+          }
+
+          const remaining = new Set(pending)
+          remaining.delete(userId)
+          const next = new Map(prev)
+          if (remaining.size) {
+            next.set(gameId, remaining)
+          } else {
+            next.delete(gameId)
+          }
           return next
         })
         // Whatever went wrong, the server's current view is the one to show
