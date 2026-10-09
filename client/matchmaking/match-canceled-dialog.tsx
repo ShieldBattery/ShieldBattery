@@ -4,11 +4,14 @@ import { useTranslation } from 'react-i18next'
 import styled, { keyframes } from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { MatchCanceledReason } from '../../common/matchmaking'
+import { openDialog } from '../dialogs/action-creators'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
+import { DialogType } from '../dialogs/dialog-type'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
 import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
+import { useAppDispatch } from '../redux-hooks'
 import { bodyLarge, bodyMedium, labelMedium, titleSmall } from '../styles/typography'
 import { CanceledMatch } from './matchmaking-atoms'
 
@@ -398,6 +401,7 @@ export function MatchCanceledDialog({
   onCancel,
 }: MatchCanceledDialogProps) {
   const { t } = useTranslation()
+  const dispatch = useAppDispatch()
 
   useKeyListener({
     onKeyDown: (event: KeyboardEvent) => {
@@ -414,14 +418,30 @@ export function MatchCanceledDialog({
     ? getOffenderOutcomes(t, penalty, queueRemoved)
     : getBystanderOutcomes(t, reason, requeued)
 
+  // When no one could be blamed for a game not starting, any player's logs might hold the cause, so
+  // each of them is offered a bug report (which uploads them). The web client has no logs to send.
+  const buttons = [
+    <TextButton key='ok' label={t('common.actions.okay', 'Okay')} onClick={onCancel} />,
+  ]
+  if (IS_ELECTRON && reason === 'setupUnresolved') {
+    buttons.unshift(
+      <TextButton
+        key='report-bug'
+        label={t('matchmaking.matchCanceled.reportBug', 'Report a bug')}
+        onClick={() => {
+          onCancel()
+          dispatch(openDialog({ type: DialogType.BugReport }))
+        }}
+      />,
+    )
+  }
+
   return (
     <StyledDialog
       title={t('matchmaking.matchCanceled.title', 'Match canceled')}
       onCancel={onCancel}
       showCloseButton={true}
-      buttons={[
-        <TextButton key='ok' label={t('common.actions.okay', 'Okay')} onClick={onCancel} />,
-      ]}>
+      buttons={buttons}>
       <Content>
         {penalty ? (
           <Attribution>

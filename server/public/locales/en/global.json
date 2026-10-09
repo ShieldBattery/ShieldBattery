@@ -1815,6 +1815,7 @@
         "leftLobby": "<0></0> left the lobby",
         "loadFailedNoUsers": "The game couldn't start",
         "loadFailedPrefix": "The game couldn't start because",
+        "loadFailedReportBug": "If this keeps happening, <1>report a bug</1>.",
         "loadFailedSuffix": "failed to load",
         "mapQueueAdvanced": "Next map from the queue: <2>{{map}}</2>",
         "mapQueueNoneFit": "None of the queued maps fit the lobby's settings",
@@ -2180,7 +2181,8 @@
       "vetoesLeft": "<0>Vetoes left: </0><1>{{vetoesLeft}}</1>"
     },
     "match": {
-      "gameFailedToLoad": "The game has failed to load."
+      "gameFailedToLoad": "The game has failed to load.",
+      "reportBug": "Report a bug"
     },
     "matchCanceled": {
       "anomalyFromYouDescription": "Your game sent match setup commands that ShieldBattery doesn't allow. This usually means the game was modified, or another program interfered with it.",
@@ -2210,6 +2212,7 @@
       "penaltyPendingTitle": "Penalty being applied",
       "removedFromQueueDescription": "You can search again whenever you're ready.",
       "removedFromQueueTitle": "Removed from the queue",
+      "reportBug": "Report a bug",
       "title": "Match canceled",
       "unresolvedNoPenaltyDescription": "No win or loss was recorded, and no one was penalized.",
       "warningDescription": "Repeat violations lead to matchmaking bans.",

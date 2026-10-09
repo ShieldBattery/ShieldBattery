@@ -11,7 +11,10 @@ import {
 } from '../../../common/lobbies/lobby-network'
 import { findSeriesGameWinner } from '../../../common/lobbies/lobby-series'
 import { SbUserId } from '../../../common/users/sb-user-id'
+import { useSelfUser } from '../../auth/auth-utils'
 import { ConnectedAvatar } from '../../avatars/avatar'
+import { openDialog } from '../../dialogs/action-creators'
+import { DialogType } from '../../dialogs/dialog-type'
 import { TransInterpolation } from '../../i18n/i18next'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { ReduxMapThumbnail } from '../../maps/map-thumbnail'
@@ -288,6 +291,54 @@ const SummaryButton = styled(IconButton)`
   min-height: 32px;
   color: var(--theme-on-surface);
 `
+
+/** A line of its own under a system message, aligned with the message's text. */
+const ReportBugHintLine = styled.div`
+  text-indent: 0;
+`
+
+/**
+ * Offers a bug report under a failed load to the members whose logs can say why it failed: those
+ * named as failing to load, or everyone when no one was. A bug report uploads the app's logs, which
+ * the web client doesn't have.
+ */
+function LoadFailedReportBugHint({
+  usersAtFault,
+}: {
+  usersAtFault: ReadonlyArray<SbUserId> | undefined
+}) {
+  const { t } = useTranslation()
+  const selfUserId = useSelfUser()?.id
+
+  const othersAtFault = !!usersAtFault?.length && !usersAtFault.some(id => id === selfUserId)
+  if (!IS_ELECTRON || othersAtFault) {
+    return null
+  }
+
+  return (
+    <ReportBugHintLine>
+      <Trans t={t} i18nKey='lobbies.room.chat.loadFailedReportBug'>
+        If this keeps happening, <ReportBugLink>report a bug</ReportBugLink>.
+      </Trans>
+    </ReportBugHintLine>
+  )
+}
+
+function ReportBugLink({ children }: { children?: React.ReactNode }) {
+  const dispatch = useAppDispatch()
+
+  return (
+    <a
+      href='#'
+      onClick={event => {
+        event.preventDefault()
+        event.stopPropagation()
+        dispatch(openDialog({ type: DialogType.BugReport }))
+      }}>
+      {children}
+    </a>
+  )
+}
 
 /** The card that lands in chat when someone new turns up, preserving their seat at arrival. */
 function ArrivalCard({ userId, arrivalSeat }: Pick<JoinLobbyMessage, 'userId' | 'arrivalSeat'>) {
@@ -736,6 +787,7 @@ function RoomChatMessage({ message }: MessageComponentProps) {
           ) : (
             t('lobbies.room.chat.loadFailedNoUsers', "The game couldn't start")
           )}
+          <LoadFailedReportBugHint usersAtFault={msg.usersAtFault} />
         </SystemMessage>
       )
     case LobbyMessageType.LobbyGameStarted:
