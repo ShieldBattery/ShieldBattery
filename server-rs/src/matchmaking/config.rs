@@ -6,10 +6,14 @@
 //! row at startup into an [`arc_swap::ArcSwap`] shared with the search loop; the admin GraphQL
 //! mutation (separate change) rewrites the row and reloads the swap.
 //!
-//! The stored JSON holds only *overrides*; anything absent falls back to the [`Default`] impls below,
-//! which mirror the constants the matchmaker shipped with. A missing or unparseable row therefore
-//! yields the built-in defaults, so matchmaking can never be bricked by a bad config. Every value is
-//! also clamped to a sane range on load as a second line of defence against a bad write.
+//! The stored JSON holds only *overrides*; anything absent falls back to the built-in defaults below
+//! ([`ModeConfig::default`] layered with [`builtin_mode_overrides`]). A missing or unparseable row
+//! therefore yields the built-in defaults, so matchmaking can never be bricked by a bad config. Every
+//! value is also clamped to a sane range on load as a second line of defence against a bad write.
+//!
+//! A mode's config resolves in four layers, each overriding the fields it sets: the global built-in
+//! defaults, that mode's built-in adjustments, the stored global overrides, then the stored per-mode
+//! overrides. Any stored value therefore beats any built-in one.
 
 use std::collections::HashMap;
 use std::time::Duration;
@@ -18,6 +22,7 @@ use async_graphql::{InputObject, SimpleObject};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use sqlx::types::Json;
+use strum::IntoEnumIterator;
 
 use crate::matchmaking::MatchmakingType;
 
@@ -25,8 +30,7 @@ pub const MIN_PLAYERS_EXAMINED: i32 = 6;
 pub const MAX_PLAYERS_EXAMINED: i32 = 24;
 const DEFAULT_MAX_PLAYERS_EXAMINED: usize = 20;
 
-/// Per-mode tuning knobs. Defaults mirror the constants the matchmaker shipped with (see
-/// `matchmaker.rs`). Overridable globally and, sparsely, per mode.
+/// Per-mode tuning knobs. Overridable globally and, sparsely, per mode.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ModeConfig {
     /// Seconds of wait traded per unit of skill variance.
@@ -37,6 +41,10 @@ pub struct ModeConfig {
     pub weight_latency: f32,
     /// σ multiplier for the conservative effective rating (rating − k·σ).
     pub uncertainty_k: f32,
+    /// Rating difference (between players, or team average ratings) at which the matchmaker's win
+    /// probability reaches 10:1 odds. Smaller values make a given gap more decisive. Fitted per mode
+    /// from match outcomes, since how decisive a rating gap is varies by mode and drifts over time.
+    pub win_prob_scale: f32,
     /// Base minimum quality (seconds of wait) a match must reach; relaxed adaptively in low pop.
     pub min_quality: f32,
     /// Comfortable population = this × `mode.total_players()`; at/above it the full threshold applies.
@@ -52,8 +60,9 @@ impl Default for ModeConfig {
         Self {
             weight_rating_variance: 0.005,
             weight_win_prob: 50.0,
-            weight_latency: 30.0,
+            weight_latency: 45.0,
             uncertainty_k: 1.0,
+            win_prob_scale: 400.0,
             min_quality: -30.0,
             adaptive_comfortable_multiplier: 2,
             adaptive_decay_per_missing: 15.0,
@@ -62,43 +71,65 @@ impl Default for ModeConfig {
     }
 }
 
-/// The full matchmaker configuration: process-level operational knobs plus the global per-mode
-/// defaults and any (pre-resolved) per-mode overrides.
+/// Built-in per-mode adjustments to [`ModeConfig::default`], for knobs whose best value depends on
+/// the mode's format. Stored overrides (global or per-mode) take precedence over these.
+pub fn builtin_mode_overrides(mode: MatchmakingType) -> ModeConfigOverrides {
+    if mode.team_size() == 1 {
+        ModeConfigOverrides {
+            // Each latency step raises failed starts and sub-5-minute games about twice as much in
+            // 1v1 as in team modes.
+            weight_latency: Some(60.0),
+            ..Default::default()
+        }
+    } else {
+        ModeConfigOverrides {
+            // Lowering uncertain players' ratings makes team win predictions worse (it can remove
+            // their predictive value entirely in a mode full of new players) and inflates the skill
+            // variance of any match containing a new player. In 1v1 it helps, so only teams drop it.
+            uncertainty_k: Some(0.0),
+            // Lopsided team games (past roughly 70/30) end in early departures noticeably more
+            // often, so imbalance should cost about as much as a wide skill spread.
+            weight_win_prob: Some(400.0),
+            // 2v2 ratings are compressed relative to outcomes: a given average-rating gap predicts a
+            // more lopsided result than the 1v1 scale implies.
+            win_prob_scale: (mode == MatchmakingType::Match2v2).then_some(210.0),
+            ..Default::default()
+        }
+    }
+}
+
+/// The full matchmaker configuration: process-level operational knobs plus the fully-resolved
+/// per-mode config.
 #[derive(Debug, Clone)]
 pub struct MatchmakerConfig {
     /// How often the search loop runs.
     pub search_interval: Duration,
     /// Max queue entries the matchmaker examines per mode per tick.
     pub max_players_examined: usize,
-    global: ModeConfig,
-    /// Fully-resolved config for the modes that carry an override (global merged with the override).
-    /// Modes absent here use `global` directly.
+    /// Fully-resolved config for every mode (all four layers applied; see the module docs).
     per_mode: HashMap<MatchmakingType, ModeConfig>,
 }
 
 impl Default for MatchmakerConfig {
     fn default() -> Self {
-        Self {
-            search_interval: Duration::from_secs(6),
-            max_players_examined: DEFAULT_MAX_PLAYERS_EXAMINED,
-            global: ModeConfig::default(),
-            per_mode: HashMap::new(),
-        }
+        Self::from_stored(&StoredConfig::default())
     }
 }
 
 impl MatchmakerConfig {
-    /// The resolved config for `mode`: its override if one exists, otherwise the global defaults.
+    /// The resolved config for `mode`.
     pub fn for_mode(&self, mode: MatchmakingType) -> &ModeConfig {
-        self.per_mode.get(&mode).unwrap_or(&self.global)
+        self.per_mode
+            .get(&mode)
+            .expect("every matchmaking mode has a resolved config")
     }
 
-    /// Builds a config from an explicit global [`ModeConfig`], with default operational knobs and no
-    /// per-mode overrides. For tests that need a specific knob value.
+    /// Builds a config that uses exactly `global` for every mode (no built-in per-mode adjustments),
+    /// with default operational knobs. For tests that need a specific knob value.
     #[cfg(test)]
     pub(crate) fn from_global(global: ModeConfig) -> Self {
         Self {
-            global,
+            per_mode: MatchmakingType::iter().map(|mode| (mode, global)).collect(),
             ..Default::default()
         }
     }
@@ -107,21 +138,29 @@ impl MatchmakerConfig {
     /// clamped, unknown mode keys dropped), so the admin write path can reload from exactly what it
     /// persisted rather than re-reading the DB (whose loader silently falls back to defaults).
     pub(crate) fn from_stored(stored: &StoredConfig) -> Self {
-        let global = stored.global.resolve_onto(ModeConfig::default());
-        // Per-mode overrides layer on top of the *resolved global*, so a mode that overrides only one
-        // field inherits the rest of the global config (including its overrides). An unrecognized mode
-        // key (e.g. a removed/renamed mode, or one written by a newer server) is dropped with a log
-        // rather than failing the whole parse — losing one mode's override is far better than silently
-        // reverting *every* knob to defaults.
-        let per_mode = stored
+        // An unrecognized mode key (e.g. a removed/renamed mode, or one written by a newer server) is
+        // dropped with a log rather than failing the whole parse — losing one mode's override is far
+        // better than silently reverting *every* knob to defaults.
+        let stored_per_mode = stored
             .per_mode
             .iter()
             .filter_map(|(key, over)| match parse_mode_key(key) {
-                Some(mode) => Some((mode, over.resolve_onto(global))),
+                Some(mode) => Some((mode, over)),
                 None => {
                     tracing::warn!("ignoring matchmaking_config override for unknown mode {key:?}");
                     None
                 }
+            })
+            .collect::<HashMap<_, _>>();
+        let per_mode = MatchmakingType::iter()
+            .map(|mode| {
+                let builtin = builtin_mode_overrides(mode).resolve_onto(ModeConfig::default());
+                let global = stored.global.resolve_onto(builtin);
+                let resolved = match stored_per_mode.get(&mode) {
+                    Some(over) => over.resolve_onto(global),
+                    None => global,
+                };
+                (mode, resolved)
             })
             .collect();
 
@@ -142,7 +181,6 @@ impl MatchmakerConfig {
                     clamped as usize
                 },
             ),
-            global,
             per_mode,
         }
     }
@@ -180,7 +218,7 @@ pub(crate) fn parse_mode_key(key: &str) -> Option<MatchmakingType> {
 /// Stored (JSON) form of [`ModeConfig`]: a sparse set of knob overrides. Doubles as the GraphQL
 /// `MatchmakerModeConfigOverrides` (output) / `MatchmakerModeConfigOverridesInput` (input) type, so
 /// the admin form sends and receives exactly the shape that is persisted.
-#[derive(Debug, Default, Clone, Deserialize, Serialize, SimpleObject, InputObject)]
+#[derive(Debug, Default, Clone, PartialEq, Deserialize, Serialize, SimpleObject, InputObject)]
 #[serde(rename_all = "camelCase", default)]
 #[graphql(
     name = "MatchmakerModeConfigOverrides",
@@ -191,6 +229,7 @@ pub struct ModeConfigOverrides {
     pub weight_win_prob: Option<f32>,
     pub weight_latency: Option<f32>,
     pub uncertainty_k: Option<f32>,
+    pub win_prob_scale: Option<f32>,
     pub min_quality: Option<f32>,
     pub adaptive_comfortable_multiplier: Option<i32>,
     pub adaptive_decay_per_missing: Option<f32>,
@@ -210,6 +249,7 @@ impl ModeConfigOverrides {
             weight_win_prob: clamp_f32(self.weight_win_prob, base.weight_win_prob, 0.0, 500.0),
             weight_latency: clamp_f32(self.weight_latency, base.weight_latency, 0.0, 300.0),
             uncertainty_k: clamp_f32(self.uncertainty_k, base.uncertainty_k, 0.0, 3.0),
+            win_prob_scale: clamp_f32(self.win_prob_scale, base.win_prob_scale, 100.0, 1000.0),
             min_quality: clamp_f32(self.min_quality, base.min_quality, -600.0, 60.0),
             adaptive_comfortable_multiplier: self
                 .adaptive_comfortable_multiplier
@@ -276,6 +316,11 @@ mod tests {
         MatchmakerConfig::from_stored(&serde_json::from_str(json).unwrap())
     }
 
+    /// The built-in config for `mode`: global defaults with that mode's built-in adjustments.
+    fn builtin(mode: MatchmakingType) -> ModeConfig {
+        builtin_mode_overrides(mode).resolve_onto(ModeConfig::default())
+    }
+
     #[test]
     fn empty_config_is_defaults() {
         let cfg = parse("{}");
@@ -283,10 +328,53 @@ mod tests {
         assert_eq!(defaults.max_players_examined, 20);
         assert_eq!(cfg.max_players_examined, defaults.max_players_examined);
         assert_eq!(cfg.search_interval, defaults.search_interval);
-        assert_eq!(
-            *cfg.for_mode(MatchmakingType::Match1v1),
-            ModeConfig::default()
+        for mode in MatchmakingType::iter() {
+            assert_eq!(*cfg.for_mode(mode), builtin(mode));
+            assert_eq!(*defaults.for_mode(mode), builtin(mode));
+        }
+    }
+
+    #[test]
+    fn builtin_mode_adjustments_apply() {
+        let cfg = parse("{}");
+        let one = cfg.for_mode(MatchmakingType::Match1v1);
+        assert_eq!(one.weight_latency, 60.0);
+        assert_eq!(one.uncertainty_k, 1.0);
+        assert_eq!(one.win_prob_scale, 400.0);
+
+        let two = cfg.for_mode(MatchmakingType::Match2v2);
+        assert_eq!(two.weight_latency, 45.0);
+        assert_eq!(two.uncertainty_k, 0.0);
+        assert_eq!(two.weight_win_prob, 400.0);
+        assert_eq!(two.win_prob_scale, 210.0);
+
+        let three = cfg.for_mode(MatchmakingType::Match3v3Bgh);
+        assert_eq!(three.uncertainty_k, 0.0);
+        assert_eq!(three.weight_win_prob, 400.0);
+        assert_eq!(three.win_prob_scale, 400.0);
+    }
+
+    #[test]
+    fn stored_values_beat_builtin_mode_adjustments() {
+        // A stored global value overrides every mode's built-in adjustment for that field, and a
+        // stored per-mode value overrides both.
+        let cfg = parse(
+            r#"{
+                "global": {"uncertaintyK": 0.5, "weightLatency": 40},
+                "perMode": {"2v2": {"winProbScale": 300, "uncertaintyK": 2}}
+            }"#,
         );
+        let one = cfg.for_mode(MatchmakingType::Match1v1);
+        assert_eq!(one.uncertainty_k, 0.5);
+        assert_eq!(one.weight_latency, 40.0);
+        let three = cfg.for_mode(MatchmakingType::Match3v3Bgh);
+        assert_eq!(three.uncertainty_k, 0.5);
+        // Untouched built-in adjustments survive.
+        assert_eq!(three.weight_win_prob, 400.0);
+        let two = cfg.for_mode(MatchmakingType::Match2v2);
+        assert_eq!(two.uncertainty_k, 2.0);
+        assert_eq!(two.win_prob_scale, 300.0);
+        assert_eq!(two.weight_latency, 40.0);
     }
 
     #[test]
@@ -294,7 +382,7 @@ mod tests {
         let cfg = parse(r#"{"somethingNew": 5, "global": {"alsoNew": true}}"#);
         assert_eq!(
             *cfg.for_mode(MatchmakingType::Match1v1),
-            ModeConfig::default()
+            builtin(MatchmakingType::Match1v1)
         );
     }
 
@@ -320,8 +408,11 @@ mod tests {
         for mode in [MatchmakingType::Match1v1, MatchmakingType::Match3v3Bgh] {
             assert_eq!(cfg.for_mode(mode).weight_win_prob, 75.0);
             assert_eq!(cfg.for_mode(mode).min_quality, -45.0);
-            // Untouched fields keep their defaults.
-            assert_eq!(cfg.for_mode(mode).weight_latency, 30.0);
+            // Untouched fields keep their built-in values.
+            assert_eq!(
+                cfg.for_mode(mode).weight_latency,
+                builtin(mode).weight_latency
+            );
         }
     }
 
@@ -346,7 +437,12 @@ mod tests {
             r#"{
                 "searchIntervalSeconds": 9000,
                 "maxPlayersExamined": 100000,
-                "global": {"weightWinProb": -10, "uncertaintyK": 999, "minQuality": -100000}
+                "global": {
+                    "weightWinProb": -10,
+                    "uncertaintyK": 999,
+                    "minQuality": -100000,
+                    "winProbScale": 5
+                }
             }"#,
         );
         assert_eq!(cfg.search_interval, Duration::from_secs(60));
@@ -355,6 +451,7 @@ mod tests {
         assert_eq!(m.weight_win_prob, 0.0); // clamped up from -10
         assert_eq!(m.uncertainty_k, 3.0); // clamped down from 999
         assert_eq!(m.min_quality, -600.0); // clamped up from -100000
+        assert_eq!(m.win_prob_scale, 100.0); // clamped up from 5
     }
 
     #[test]
