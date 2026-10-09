@@ -1184,6 +1184,28 @@
       "justNow": "刚刚"
     }
   },
+  "gameCommend": {
+    "action": "赞扬",
+    "blocked": {
+      "limit": "已达到每日赞扬上限。请在 {{time}} 后重试。",
+      "limitNoTime": "已达到每日赞扬上限。",
+      "recent": "您在过去 24 小时内赞扬过 {{user}}。请在 {{time}} 后重试。",
+      "recentNoTime": "您在过去 24 小时内赞扬过 {{user}}。"
+    },
+    "errors": {
+      "alreadyCommended": "您已经就这场游戏赞扬过该玩家了。",
+      "alreadyReported": "您已经就这场游戏举报过该玩家了。",
+      "closed": "这场游戏的赞扬和举报已关闭。",
+      "commendedRecently": "您在过去 24 小时内已经赞扬过 {{user}}。",
+      "generic": "未能赞扬 {{user}}。请重试。",
+      "rateLimited": "您已达到今天 10 次赞扬的上限。"
+    },
+    "menu": {
+      "commend": "赞扬"
+    },
+    "received": "<0>{{user}}</0> 赞扬了您。",
+    "sent": "您赞扬了 {{user}}。"
+  },
   "gameDetails": {
     "buttonCopyGameId": "复制ID",
     "buttonCopyLink": "复制游戏链接",
@@ -1349,15 +1371,21 @@
     }
   },
   "gameReport": {
-    "alreadyReported": "你已经就这场游戏举报过该玩家了。",
+    "action": "举报",
+    "alreadyCommended": "您已经就这场游戏赞扬过该玩家，因此无法举报。",
+    "alreadyReported": "您已经就这场游戏举报过该玩家了。",
     "badRequest": "无法提交举报。请检查详情后重试。",
+    "closed": "这场游戏的举报已关闭。玩家只能在游戏结束后 24 小时内被举报。",
     "description": "举报在这场游戏中违规的玩家。举报将由 ShieldBattery 工作人员审核。",
     "details": "详情",
     "detailsOptional": "详情（可选）",
     "detailsRequiredForOther": "请描述发生了什么。",
     "detailsTooLong": "详情不能超过 {{max}} 个字符。",
     "error": "提交举报时出错。请稍后再试。",
-    "rateLimited": "你最近提交的举报过多。请稍后再试。",
+    "menu": {
+      "report": "举报"
+    },
+    "rateLimited": "您最近提交的举报过多。请稍后再试。",
     "reason": {
       "abandoning": "中途退出游戏",
       "abusiveChat": "聊天辱骂",
@@ -1369,7 +1397,7 @@
     "reasonRequired": "请选择一个原因。",
     "reportedUser": "玩家",
     "reportedUserRequired": "请选择要举报的玩家。",
-    "restricted": "你当前被限制举报。",
+    "restricted": "您当前被限制举报。",
     "submitted": "举报已提交。",
     "title": "举报玩家",
     "unknownPlayer": "未知玩家"
@@ -3197,6 +3225,7 @@
         "removeAvatarBody": "这将永久删除 {{user}} 的头像。此操作无法撤销。",
         "removeAvatarTitle": "移除头像？"
       },
+      "commendCount_other": "{{count}} 次赞扬",
       "copyLink": "复制个人资料链接",
       "latestGames": "最近游戏",
       "points": "积分",
@@ -3231,6 +3260,7 @@
       "viewAllRanks": "查看全部{{total}}项排名"
     },
     "profileOverlay": {
+      "commends": "赞扬：{{commends}}",
       "info": "信息",
       "joined": "加入日期{{date}}",
       "ranked": "排位",

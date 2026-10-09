@@ -161,6 +161,8 @@ consistent. (Seed — extend over time.)
   transcript→transcripción; review (of a disputed game)→**revisión** (Solicitar revisión, Descartar
   solicitud). Map queue→**cola de mapas**, Up next→**A continuación**, Then→Después; lock
   alliances→**Bloquear alianzas**.
+- **Post-game commends** (Dota 2 terms): commend→**Elogiar** / elogio(s) (Elogios: N), report
+  button→**Reportar**.
 
 ### ru
 - Register: formal **Вы** (the existing file is consistently Вы; do not use ты here).
@@ -250,6 +252,9 @@ consistent. (Seed — extend over time.)
   dodge gendered past tense. review→**проверка** (Запросить проверку). Map queue→**очередь карт**,
   Up next→Далее, Then→Затем; lock alliances→**Закрепить союзы**. Playlist names get a governing
   noun («в плейлист {{playlist}}», «из плейлиста {{playlist}}»).
+- **Post-game commends** (Dota 2 terms): commend→**Похвалить** / похвала (Похвалы: N), report
+  button→**Пожаловаться**. Names get a governing noun (похвалить игрока {{user}}; «Игрок <0>…</0>
+  похвалил Вас»).
 
 ### ko
 - **Register: use formal-polite 합니다/습니다체 for sentences.** The existing `ko/global.json` is
@@ -338,6 +343,8 @@ consistent. (Seed — extend over time.)
   lines) are translated in character. **Chat transcript→채팅 기록**, scope tags **(전체) / (팀)**;
   review→**검토** (검토 요청 / 요청 기각). Map queue→**맵 대기열**, Up next→**다음 맵**,
   Then→그다음; lock alliances→**동맹 고정**.
+- **Post-game commends** (Dota 2 terms): commend→**칭찬하기** / 칭찬 (칭찬 N회, 받은 칭찬),
+  report→**신고하기**. Names take **님** ({{user}} 님을), which also sidesteps 을/를 agreement.
 
 ### zh-Hans
 - Register: use 您 for second person (the existing file is ~3:1 您 vs 你; it's the normal polite UI
@@ -413,3 +420,5 @@ consistent. (Seed — extend over time.)
   （队伍）**; review (disputed game)→**复核** (请求复核 / 驳回请求). Map queue→**地图队列**, Up
   next→**接下来**, Then→然后; lock alliances→**锁定同盟**. YouTube "Play" is media playback, so
   播放 is correct there.
+- **Post-game commends** (Dota 2 terms): commend→**赞扬** (N 次赞扬, 赞扬：N), report→**举报**.
+  The gameReport strings were moved from 你 to 您 to match the file.

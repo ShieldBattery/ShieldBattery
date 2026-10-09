@@ -1214,6 +1214,28 @@
       "justNow": "Ahora mismo"
     }
   },
+  "gameCommend": {
+    "action": "Elogiar",
+    "blocked": {
+      "limit": "Llegaste al límite diario de elogios. Inténtalo de nuevo a las {{time}}.",
+      "limitNoTime": "Llegaste al límite diario de elogios.",
+      "recent": "Ya elogiaste a {{user}} en las últimas 24 horas. Inténtalo de nuevo a las {{time}}.",
+      "recentNoTime": "Ya elogiaste a {{user}} en las últimas 24 horas."
+    },
+    "errors": {
+      "alreadyCommended": "Ya elogiaste a este jugador por esta partida.",
+      "alreadyReported": "Ya reportaste a este jugador por esta partida.",
+      "closed": "Los elogios y reportes de esta partida están cerrados.",
+      "commendedRecently": "Ya elogiaste a {{user}} en las últimas 24 horas.",
+      "generic": "No se pudo enviar tu elogio a {{user}}. Inténtalo de nuevo.",
+      "rateLimited": "Llegaste al límite de 10 elogios por hoy."
+    },
+    "menu": {
+      "commend": "Elogiar"
+    },
+    "received": "<0>{{user}}</0> te elogió.",
+    "sent": "Elogiaste a {{user}}."
+  },
   "gameDetails": {
     "buttonCopyGameId": "Copiar ID",
     "buttonCopyLink": "Copia el enlace al juego",
@@ -1379,14 +1401,20 @@
     }
   },
   "gameReport": {
+    "action": "Reportar",
+    "alreadyCommended": "Ya elogiaste a este jugador por esta partida, así que no puedes reportarlo.",
     "alreadyReported": "Ya reportaste a este jugador por esta partida.",
     "badRequest": "No se pudo enviar tu reporte. Revisa los detalles e inténtalo de nuevo.",
+    "closed": "Los reportes de esta partida están cerrados. Se puede reportar a un jugador hasta 24 horas después de que termine la partida.",
     "description": "Reporta a un jugador por incumplir las reglas en esta partida. El equipo de ShieldBattery revisa los reportes.",
     "details": "Detalles",
     "detailsOptional": "Detalles (opcional)",
     "detailsRequiredForOther": "Describe qué pasó.",
     "detailsTooLong": "Los detalles no pueden superar los {{max}} caracteres.",
     "error": "Algo salió mal al enviar tu reporte. Inténtalo de nuevo más tarde.",
+    "menu": {
+      "report": "Reportar"
+    },
     "rateLimited": "Has enviado demasiados reportes recientemente. Inténtalo de nuevo más tarde.",
     "reason": {
       "abandoning": "Abandonó la partida",
@@ -3287,6 +3315,9 @@
         "removeAvatarBody": "Esto eliminará permanentemente el avatar de {{user}}. No se puede deshacer.",
         "removeAvatarTitle": "¿Eliminar avatar?"
       },
+      "commendCount_one": "{{count}} elogio",
+      "commendCount_many": "{{count}} de elogios",
+      "commendCount_other": "{{count}} elogios",
       "copyLink": "Copiar enlace al perfil",
       "latestGames": "Últimos juegos",
       "points": "Puntos",
@@ -3323,6 +3354,7 @@
       "viewAllRanks": "Ver los {{total}} rangos"
     },
     "profileOverlay": {
+      "commends": "Elogios: {{commends}}",
       "info": "Información",
       "joined": "Se unió a {{date}}",
       "ranked": "Clasificado",

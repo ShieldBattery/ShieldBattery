@@ -1184,6 +1184,28 @@
       "justNow": "방금 전"
     }
   },
+  "gameCommend": {
+    "action": "칭찬하기",
+    "blocked": {
+      "limit": "오늘의 칭찬 한도에 도달했습니다. {{time}}에 다시 시도해 주세요.",
+      "limitNoTime": "오늘의 칭찬 한도에 도달했습니다.",
+      "recent": "최근 24시간 안에 {{user}} 님을 칭찬했습니다. {{time}}에 다시 시도해 주세요.",
+      "recentNoTime": "최근 24시간 안에 {{user}} 님을 칭찬했습니다."
+    },
+    "errors": {
+      "alreadyCommended": "이 게임에서 해당 플레이어를 이미 칭찬했습니다.",
+      "alreadyReported": "이 게임에서 해당 플레이어를 이미 신고했습니다.",
+      "closed": "이 게임의 칭찬 및 신고가 마감되었습니다.",
+      "commendedRecently": "최근 24시간 안에 이미 {{user}} 님을 칭찬했습니다.",
+      "generic": "{{user}} 님을 칭찬하지 못했습니다. 다시 시도해 주세요.",
+      "rateLimited": "오늘의 칭찬 한도(10회)에 도달했습니다."
+    },
+    "menu": {
+      "commend": "칭찬하기"
+    },
+    "received": "<0>{{user}}</0> 님이 회원님을 칭찬했습니다.",
+    "sent": "{{user}} 님을 칭찬했습니다."
+  },
   "gameDetails": {
     "buttonCopyGameId": "ID 복사",
     "buttonCopyLink": "게임 링크 복사하기",
@@ -1349,14 +1371,20 @@
     }
   },
   "gameReport": {
+    "action": "신고하기",
+    "alreadyCommended": "이 게임에서 해당 플레이어를 이미 칭찬했으므로 신고할 수 없습니다.",
     "alreadyReported": "이 게임에서 해당 플레이어를 이미 신고했습니다.",
     "badRequest": "신고를 제출할 수 없습니다. 세부 정보를 확인한 후 다시 시도해 주세요.",
+    "closed": "이 게임의 신고가 마감되었습니다. 플레이어 신고는 게임 종료 후 24시간 동안만 가능합니다.",
     "description": "이 게임에서 규칙을 위반한 플레이어를 신고합니다. 신고 내용은 ShieldBattery 스태프가 검토합니다.",
     "details": "세부 정보",
     "detailsOptional": "세부 정보 (선택 사항)",
     "detailsRequiredForOther": "무슨 일이 있었는지 설명해 주세요.",
     "detailsTooLong": "세부 정보는 {{max}}자 이하여야 합니다.",
     "error": "신고를 제출하는 중 문제가 발생했습니다. 나중에 다시 시도해 주세요.",
+    "menu": {
+      "report": "신고하기"
+    },
     "rateLimited": "최근 너무 많은 신고를 제출했습니다. 나중에 다시 시도해 주세요.",
     "reason": {
       "abandoning": "게임 이탈",
@@ -3197,6 +3225,7 @@
         "removeAvatarBody": "{{user}}님의 아바타를 영구적으로 삭제합니다. 이 작업은 되돌릴 수 없습니다.",
         "removeAvatarTitle": "아바타를 제거하시겠습니까?"
       },
+      "commendCount_other": "칭찬 {{count}}회",
       "copyLink": "프로필 링크 복사",
       "latestGames": "최근 게임",
       "points": "점수",
@@ -3231,6 +3260,7 @@
       "viewAllRanks": "{{total}}개 순위 모두 보기"
     },
     "profileOverlay": {
+      "commends": "받은 칭찬: {{commends}}",
       "info": "정보",
       "joined": "{{date}}에 가입함",
       "ranked": "랭크전",
