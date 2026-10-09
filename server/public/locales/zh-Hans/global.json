@@ -2154,6 +2154,7 @@
   "rootErrorBoundary": {
     "contents": "请在我们的 <2>Discord</2> 服务器上向我们报告此问题。",
     "reloadApp": "重新加载程序",
+    "reportBug": "反馈 bug",
     "title": "出错了:("
   },
   "settings": {

@@ -10,6 +10,7 @@ import { audioManager, AvailableSound } from './audio/audio-manager'
 import { logOut } from './auth/action-creators'
 import { redirectToLogin, useIsLoggedIn, useSelfUser } from './auth/auth-utils'
 import { ConnectedAvatar } from './avatars/avatar'
+import { useShowPendingBugReport } from './bugs/pending-bug-report'
 import { openDialog, openSimpleDialog } from './dialogs/action-creators'
 import { DialogType } from './dialogs/dialog-type'
 import { useBreakpoint } from './dom/dimension-hooks'
@@ -883,6 +884,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   }, [])
 
   useShowPolicyNotificationsIfNeeded()
+  useShowPendingBugReport()
 
   const isLoggedIn = useIsLoggedIn()
   const [sidebarOpen, setSidebarOpen] = useUserLocalStorageValue('socialSidebarOpen', isLoggedIn)
