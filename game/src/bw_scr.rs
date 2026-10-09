@@ -3058,36 +3058,23 @@ impl BwScr {
                     // get them to allocate a real string for us.
                     orig(result, dtr_scan_in_progress);
 
-                    let turn_rate = match (*self.game_data()).turn_rate {
-                        0 => 24, // This only happens with DTR, and is temporary anyway
-                        val => val,
-                    };
-                    // Under a live turn state the PIPE hook owns the latency pipeline, so the native
-                    // `2 + user_latency` builtin turns no longer describe the delay: `pipe_depth()`
-                    // reports the current pipe depth (floor 1, retunable mid-game by a relay's buffer
-                    // directive). Read it fresh each format call so the display tracks the live depth;
-                    // fall back to native state when there is no turn state (a replay).
-                    let v2_turns = if self.game_started.load(Ordering::Acquire) {
-                        netcode_v2::with_turn_state(|s| s.pipe_depth())
-                    } else {
-                        None
-                    };
-                    let effective_latency = match v2_turns {
-                        Some(latency_turns) => ((1000 * latency_turns + 500) / turn_rate) as f32,
-                        None => {
-                            let cur_user_latency = self.net_user_latency.resolve();
-                            let user_delay = 2 /* proto_latency */ + cur_user_latency;
-                            ((1000f32 * user_delay as f32 + 500f32) / turn_rate as f32).round()
-                        }
-                    };
-                    // A game that rolls back draws the network quality chip in place of this text,
-                    // whenever the game would have drawn the text.
-                    let value = if v2_turns.is_some()
-                        && netcode_v2::with_turn_state(|s| s.predicts_inputs()) == Some(true)
-                    {
+                    // A live game (anything with a turn state, solo games included) draws the network
+                    // quality chip in place of this text, whenever the game would have drawn the
+                    // text. Without a turn state (a replay) the native latency still applies.
+                    let live = self.game_started.load(Ordering::Acquire)
+                        && netcode_v2::with_turn_state(|_| ()).is_some();
+                    let value = if live {
                         *self.turn_rate_readout_at.lock() = Some(Instant::now());
                         String::new()
                     } else {
+                        let turn_rate = match (*self.game_data()).turn_rate {
+                            0 => 24, // This only happens with DTR, and is temporary anyway
+                            val => val,
+                        };
+                        let cur_user_latency = self.net_user_latency.resolve();
+                        let user_delay = 2 /* proto_latency */ + cur_user_latency;
+                        let effective_latency =
+                            ((1000f32 * user_delay as f32 + 500f32) / turn_rate as f32).round();
                         format!("Lat: {effective_latency:.0}ms")
                     };
                     (*result).text.replace_all(value.as_str());
@@ -5748,8 +5735,8 @@ impl BwScr {
         *c = Some(time);
     }
 
-    /// What the network quality chip shows, or `None` when it isn't drawn: outside games that roll
-    /// back, and while the player has the game's turn rate readout off.
+    /// What the network quality chip shows, or `None` when it isn't drawn: outside live games (a
+    /// replay), and while the player has the game's turn rate readout off.
     fn net_quality_view(&self) -> Option<NetQualityView> {
         // How long after the game last formatted its turn rate readout the chip stays up. The game
         // formats it on every frame it draws it, so a lapse this long means the readout was turned
@@ -5760,17 +5747,18 @@ impl BwScr {
             return None;
         }
         let fps_font_height = unsafe { self.small_font_height() };
-        netcode_v2::with_turn_state(|s| {
-            s.predicts_inputs().then(|| NetQualityView {
-                // The pipe holds the turn every command waits for anyway (a command issued on one
-                // frame runs on the next, as in single player), which isn't delay the connection
-                // added.
-                delay: s.pipe_depth().saturating_sub(1),
-                rollback: crate::rollback_live::shown_rollback(),
-                fps_font_height,
-            })
+        netcode_v2::with_turn_state(|s| NetQualityView {
+            // The pipe holds the turn every command waits for anyway (a command issued on one frame
+            // runs on the next, as in single player), which isn't delay the connection added. A solo
+            // game's pipe is just that turn.
+            delay: s.pipe_depth().saturating_sub(1),
+            rollback: if s.predicts_inputs() {
+                crate::rollback_live::shown_rollback()
+            } else {
+                0
+            },
+            fps_font_height,
         })
-        .flatten()
     }
 
     /// The line height of the game's smallest font, which its FPS and turn rate readouts are drawn
