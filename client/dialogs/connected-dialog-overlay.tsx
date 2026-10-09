@@ -128,6 +128,9 @@ const PrivacyPolicyDialog = React.lazy(async () => ({
 const TermsOfServiceDialog = React.lazy(async () => ({
   default: (await import('../policies/policy-displays')).TermsOfServiceDialog,
 }))
+const TitlePickerDialog = React.lazy(async () => ({
+  default: (await import('../titles/title-picker-dialog')).TitlePickerDialog,
+}))
 const CreatePlaylistDialog = React.lazy(async () => ({
   default: (await import('../replays/playlist-dialogs')).CreatePlaylistDialog,
 }))
@@ -304,6 +307,8 @@ function getDialog(dialogType: DialogType): {
       return { component: StarcraftHealthCheckupDialog }
     case DialogType.TermsOfService:
       return { component: TermsOfServiceDialog }
+    case DialogType.TitlePicker:
+      return { component: TitlePickerDialog }
     case DialogType.TwitchRemoveLiveStreamConfirmation:
       return { component: TwitchRemoveLiveStreamConfirmation }
     case DialogType.Whispers:

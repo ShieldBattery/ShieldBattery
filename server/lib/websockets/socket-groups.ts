@@ -204,6 +204,9 @@ export class UserSocketsManager extends EventEmitter<UserSocketsManagerEvents> {
     @inject('upsertUserIp') private upsertUserIp: UpsertUserIp,
   ) {
     super()
+    // Each service that tracks online users listens to this process-wide singleton once, so the
+    // default limit (meant to catch listeners leaking per request) is too low to be useful here.
+    this.setMaxListeners(50)
 
     // NOTE(tec27): This isn't really used, but it ensures ClientSocketsManager is always created
     // and registers it's event handlers *before* UserSocketsManager, so that events fire in a
