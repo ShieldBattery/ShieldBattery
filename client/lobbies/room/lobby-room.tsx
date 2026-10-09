@@ -27,15 +27,6 @@ const RoomBody = styled.div`
   display: flex;
 `
 
-const ChatColumn = styled.div`
-  flex-grow: 1;
-  min-width: 0;
-  min-height: 0;
-
-  display: flex;
-  flex-direction: column;
-`
-
 export interface LobbyRoomProps {
   /** The member whose point of view the room is rendered from. */
   viewerId: SbUserId
@@ -99,30 +90,32 @@ export function LobbyRoom({
             onLeaveLobby={onLeaveLobby}
           />
           <RoomBody>
-            <ChatColumn>
-              <RoomMapBanner
-                viewerId={viewerId}
-                onArrangeTeams={onArrangeTeams}
-                onWatchReplay={onWatchReplay}
-                onViewGameSummary={onViewGameSummary}
-              />
-              <RoomChat
-                viewerId={viewerId}
-                isRegrouping={isRegrouping}
-                onSendChatMessage={onSendChatMessage}
-                onWatchReplay={onWatchReplay}
-                onViewGameSummary={onViewGameSummary}
-              />
-            </ChatColumn>
-            <RoomRail
+            <RoomChat
               viewerId={viewerId}
-              onSetRace={onSetRace}
-              onSitInSlot={onSitInSlot}
-              onMoveSlot={onMoveSlot}
-              onStartGame={onStartGame}
-              onForceStart={onForceStart}
-              onCancelCountdown={onCancelCountdown}
-              onSlotAction={onSlotAction}
+              isRegrouping={isRegrouping}
+              header={
+                <RoomMapBanner
+                  viewerId={viewerId}
+                  onArrangeTeams={onArrangeTeams}
+                  onWatchReplay={onWatchReplay}
+                  onViewGameSummary={onViewGameSummary}
+                />
+              }
+              aside={
+                <RoomRail
+                  viewerId={viewerId}
+                  onSetRace={onSetRace}
+                  onSitInSlot={onSitInSlot}
+                  onMoveSlot={onMoveSlot}
+                  onStartGame={onStartGame}
+                  onForceStart={onForceStart}
+                  onCancelCountdown={onCancelCountdown}
+                  onSlotAction={onSlotAction}
+                />
+              }
+              onSendChatMessage={onSendChatMessage}
+              onWatchReplay={onWatchReplay}
+              onViewGameSummary={onViewGameSummary}
             />
           </RoomBody>
         </>
