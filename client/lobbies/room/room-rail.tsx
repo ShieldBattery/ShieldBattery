@@ -22,6 +22,7 @@ import { MenuItem } from '../../material/menu/item'
 import { MenuList } from '../../material/menu/menu'
 import { Popover } from '../../material/popover'
 import { Tooltip } from '../../material/tooltip'
+import { useMentionFilterClick } from '../../messaging/mention-hooks'
 import { useAppSelector } from '../../redux-hooks'
 import {
   bodyMedium,
@@ -585,6 +586,7 @@ function SlotRow({
   onSlotAction,
 }: SlotRowProps) {
   const { t } = useTranslation()
+  const filterClick = useMentionFilterClick()
   const isGathering = lifecycle === 'gathering'
   // The seating layout is the host's to change only while the lobby is gathering: the countdown
   // snapshots what the game will be, and the server refuses changes to it until the game is over.
@@ -677,7 +679,11 @@ function SlotRow({
             <RowAvatar userId={slot.userId!} />
           </DragHandle>
           <RowName as='span'>
-            <ConnectedUsername userId={slot.userId!} UserMenu={LobbyUserMenu} />
+            <ConnectedUsername
+              userId={slot.userId!}
+              filterClick={filterClick}
+              UserMenu={LobbyUserMenu}
+            />
           </RowName>
           <RowTrailing data-slot-controls>
             {isInGame ? <InGameTag>{t('lobbies.lobby.inGame', 'In game')}</InGameTag> : null}
@@ -722,6 +728,7 @@ function BenchRow({
   onSlotAction: (action: SlotAction, slotId: string) => void
 }) {
   const { t } = useTranslation()
+  const filterClick = useMentionFilterClick()
   // A benched member has no slot to name, so the server resolves them by user id instead.
   const slotId = String(userId)
   const actions: SlotMenuAction[] = canManage
@@ -735,7 +742,7 @@ function BenchRow({
     <BenchRowRoot data-testid='lobby-bench-row'>
       <RowAvatar userId={userId} />
       <RowName as='span'>
-        <ConnectedUsername userId={userId} UserMenu={LobbyUserMenu} />
+        <ConnectedUsername userId={userId} filterClick={filterClick} UserMenu={LobbyUserMenu} />
       </RowName>
       <RowActions data-slot-controls>
         {actions.length ? <SlotMenu actions={actions} /> : null}

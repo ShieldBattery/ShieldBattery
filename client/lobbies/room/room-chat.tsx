@@ -812,20 +812,29 @@ function RoomChatMessage({ message }: MessageComponentProps) {
 
 const ChatSurface = styled(Chat)`
   flex-grow: 1;
-  min-height: 0;
-  /* The base component sizes to its parent; here it fills whatever the room's chat column leaves. */
+  min-width: 0;
+  /* The base component sizes to its parent; here it stretches to the room's height beside the rail. */
   height: auto;
 `
 
-/** The room's conversation: the widest surface, because it's what a lobby actually does. */
+/**
+ * The room's conversation: the widest surface, because it's what a lobby actually does. The rest
+ * of the room that names members is rendered through it (`header` above the messages, `aside`
+ * beside them) so shift-clicking a name there mentions them in the input, and their user menus
+ * offer the same items as names in the conversation.
+ */
 export function RoomChat({
   viewerId,
   isRegrouping,
+  header,
+  aside,
   onSendChatMessage,
   onWatchReplay,
   onViewGameSummary,
 }: {
   viewerId: SbUserId
+  header: React.ReactNode
+  aside: React.ReactNode
   onSendChatMessage: (msg: string) => void
 } & GameSummaryActions) {
   const chat = useAppSelector(s => s.lobby.chat)
@@ -862,6 +871,8 @@ export function RoomChat({
           baseMentionableUsers: mentionableUsers,
         }}
         commandContext={commandContext}
+        header={header}
+        extraContent={aside}
         UserMenu={LobbyUserMenu}
         escapeJumpsToBottom
         jumpToBottomOnSend
