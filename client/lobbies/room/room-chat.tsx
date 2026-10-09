@@ -153,8 +153,6 @@ const SummaryHeadline = styled.div`
   ${singleLine};
   flex-grow: 1;
   min-width: 0;
-  /* The base component sizes to its parent; here it stretches to the room's height beside the rail. */
-  height: auto;
 `
 
 const SummaryBody = styled.div`
