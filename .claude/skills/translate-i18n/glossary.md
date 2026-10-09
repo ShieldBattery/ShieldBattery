@@ -152,6 +152,15 @@ consistent. (Seed — extend over time.)
   Classic/Cozy→**Clásico / Cómodo** (Discord's Spanish "Cómodo" for Cozy).
 - **Rollback netcode:** rollback→**rollback** (loanword, el rollback; Equilibrio del rollback);
   scale ends Más fluido/Más reactivo; value marker Recommended→**Recomendado**.
+- **/quote unit lines use the SC:R Latin American dub** (the game's `esMX` speech, Argentine cast),
+  not the Castilian redub (`esES`, which says Soldado / Espectro / vosotros). The text was
+  transcribed from the game's own speech files and the radio-filtered lines checked by ear (the dub
+  keeps the English radio jargon reversed or verbatim: Adelante, ComTac / ComNav configurada /
+  MilSpec ED-209 en línea). Khalani
+  phrases stay Khalani in the dub. **Chat transcript** scope tags **(TODOS) / (EQUIPO)**;
+  transcript→transcripción; review (of a disputed game)→**revisión** (Solicitar revisión, Descartar
+  solicitud). Map queue→**cola de mapas**, Up next→**A continuación**, Then→Después; lock
+  alliances→**Bloquear alianzas**.
 
 ### ru
 - Register: formal **Вы** (the existing file is consistently Вы; do not use ты here).
@@ -233,6 +242,14 @@ consistent. (Seed — extend over time.)
   Chat display modes Classic/Cozy→**Классический / Уютный**.
 - **Rollback netcode:** rollback→**откат** (Баланс отката); scale ends Плавнее/Отзывчивее;
   value marker Recommended→**Рекомендуется** (matches "Авто (рекомендуется)").
+- **/quote unit lines use the SC:R Russian dub** (the game's `ruRU` speech, transcribed from the
+  game files), which freely localizes the jokes (He's dead, Jim→«Ну всё, выносите.», FDIC
+  approved→«АБС в норме!»). Characters address the player as ты/кэп there. Khalani phrases stay
+  transliterated (Эн таро Адун!, Адун Торидас, За Айур!). **Chat transcript→лог чата**, scope tags **(ВСЕМ) /
+  (КОМАНДЕ)**; departure lines are verbless («<0>X</0>: выход из игры» / «обрыв соединения») to
+  dodge gendered past tense. review→**проверка** (Запросить проверку). Map queue→**очередь карт**,
+  Up next→Далее, Then→Затем; lock alliances→**Закрепить союзы**. Playlist names get a governing
+  noun («в плейлист {{playlist}}», «из плейлиста {{playlist}}»).
 
 ### ko
 - **Register: use formal-polite 합니다/습니다체 for sentences.** The existing `ko/global.json` is
@@ -312,6 +329,15 @@ consistent. (Seed — extend over time.)
   Classic/Cozy→**클래식 / 편안하게**.
 - **Rollback netcode:** rollback→**롤백** (롤백 밸런스, FGC usage); trade-off scale ends use the
   "~ 우선" pattern (부드러움 우선 / 반응 속도 우선); value marker Recommended→**권장**.
+- **/quote unit lines use the SC:R Korean dub** (음역 version: SCV / 고스트 / 레이스 / 배틀크루저,
+  not 건설로봇 / 유령 / 망령 / 전투순양함), taken from the StarCraft (Brood War) 대사 tables on
+  namu.wiki's unit pages, footnote markers dropped. The dub's text wins even where it departs from the
+  English (Power overwhelming→압도적인 힘으로!, Achtung!→준비 완료.). A line our catalogue gives to a
+  different unit than Brood War does uses that unit's dub (e.g. Khassar de templari is the High
+  Templar's). Lines with no Brood War counterpart (Shuttle, some Vulture/Corsair/Carrier/Arbiter
+  lines) are translated in character. **Chat transcript→채팅 기록**, scope tags **(전체) / (팀)**;
+  review→**검토** (검토 요청 / 요청 기각). Map queue→**맵 대기열**, Up next→**다음 맵**,
+  Then→그다음; lock alliances→**동맹 고정**.
 
 ### zh-Hans
 - Register: use 您 for second person (the existing file is ~3:1 您 vs 你; it's the normal polite UI
@@ -379,3 +405,11 @@ consistent. (Seed — extend over time.)
   Classic/Cozy→**经典 / 舒适**.
 - **Rollback netcode:** rollback→**回滚** (回滚平衡, FGC usage); trade-off scale ends use "~优先"
   (流畅优先 / 响应优先); value marker Recommended→**推荐**.
+- **/quote unit lines use the SC:R Simplified Chinese dub** (the game's `zhCN` speech, transcribed
+  from the game files; 你, not 您). Whisper's homophone slips were resolved by meaning where the
+  readings sound alike (交火 not 焦火, 借火 not 戒火, 杀虫剂, 已指定). The dub keeps Khalani spoken as
+  Khalani (En taro Adun！, not 阿顿在上), says Aiur as **艾尔**, and keeps radio jargon in English
+  (请讲，TacCom。 / 人皆有一死，Red。). **Chat transcript→聊天记录**, scope tags **（全体）/
+  （队伍）**; review (disputed game)→**复核** (请求复核 / 驳回请求). Map queue→**地图队列**, Up
+  next→**接下来**, Then→然后; lock alliances→**锁定同盟**. YouTube "Play" is media playback, so
+  播放 is correct there.
