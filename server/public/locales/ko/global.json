@@ -2157,6 +2157,7 @@
   "rootErrorBoundary": {
     "contents": "이 문제를 <2>디스코드</2>에서 저희에게 보고해 주세요.",
     "reloadApp": "앱 다시 실행",
+    "reportBug": "버그 신고",
     "title": "문제가 발생했습니다"
   },
   "settings": {

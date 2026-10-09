@@ -2217,6 +2217,7 @@
   "rootErrorBoundary": {
     "contents": "Infórmanos de este problema en nuestro <2>Discord</2>.",
     "reloadApp": "Recargar aplicación",
+    "reportBug": "Reportar un error",
     "title": "Algo salió mal :("
   },
   "settings": {

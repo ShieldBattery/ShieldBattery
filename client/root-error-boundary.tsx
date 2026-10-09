@@ -3,8 +3,9 @@ import { useLayoutEffect } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { DISCORD_URL } from '../common/url-constants'
+import { requestBugReportOnNextLoad } from './bugs/pending-bug-report'
 import logger from './logging/logger'
-import { FilledButton } from './material/button'
+import { FilledButton, OutlinedButton } from './material/button'
 import { zIndexSystemBar } from './material/zindex'
 import GlobalStyle from './styles/global'
 import ResetStyle from './styles/reset'
@@ -81,6 +82,11 @@ const Instructions = styled.div`
   ${bodyLarge};
   max-width: 960px;
   margin: 16px 16px 32px;
+`
+
+const Actions = styled.div`
+  display: flex;
+  gap: 16px;
 `
 
 /**
@@ -161,9 +167,17 @@ class ContentsErrorBoundary extends React.Component<
     const { hasTranslationError } = this.state
 
     return hasTranslationError ? (
-      <StaticErrorContents rootError={rootError} onReloadAppClick={this.reloadApp} />
+      <StaticErrorContents
+        rootError={rootError}
+        onReloadAppClick={this.reloadApp}
+        onReportBugClick={IS_ELECTRON ? this.reportBug : undefined}
+      />
     ) : (
-      <TranslatedErrorContents rootError={rootError} onReloadAppClick={this.reloadApp} />
+      <TranslatedErrorContents
+        rootError={rootError}
+        onReloadAppClick={this.reloadApp}
+        onReportBugClick={IS_ELECTRON ? this.reportBug : undefined}
+      />
     )
   }
 
@@ -175,14 +189,30 @@ class ContentsErrorBoundary extends React.Component<
       location.pathname = '/'
     }
   }
+
+  /**
+   * Reloads the app before showing the bug report dialog, since the app's state can't be trusted
+   * to show a dialog after an error made it here. The report still carries the error, as it was
+   * written to the logs that get uploaded with it.
+   */
+  reportBug = () => {
+    requestBugReportOnNextLoad()
+    this.reloadApp()
+  }
 }
 
 interface ErrorContentsProps {
   rootError: Error
   onReloadAppClick?: () => void
+  /** Reloads the app and then opens the bug report dialog. Omitted where there are no logs to send. */
+  onReportBugClick?: () => void
 }
 
-function TranslatedErrorContents({ rootError, onReloadAppClick }: ErrorContentsProps) {
+function TranslatedErrorContents({
+  rootError,
+  onReloadAppClick,
+  onReportBugClick,
+}: ErrorContentsProps) {
   const { t } = useTranslation()
 
   return (
@@ -198,15 +228,27 @@ function TranslatedErrorContents({ rootError, onReloadAppClick }: ErrorContentsP
           .
         </Trans>
       </Instructions>
-      <FilledButton
-        label={t('rootErrorBoundary.reloadApp', 'Reload app')}
-        onClick={onReloadAppClick}
-      />
+      <Actions>
+        <FilledButton
+          label={t('rootErrorBoundary.reloadApp', 'Reload app')}
+          onClick={onReloadAppClick}
+        />
+        {onReportBugClick ? (
+          <OutlinedButton
+            label={t('rootErrorBoundary.reportBug', 'Report a bug')}
+            onClick={onReportBugClick}
+          />
+        ) : undefined}
+      </Actions>
     </>
   )
 }
 
-function StaticErrorContents({ rootError, onReloadAppClick }: ErrorContentsProps) {
+function StaticErrorContents({
+  rootError,
+  onReloadAppClick,
+  onReportBugClick,
+}: ErrorContentsProps) {
   return (
     <>
       <TitleLarge>Something went wrong :(</TitleLarge>
@@ -218,7 +260,12 @@ function StaticErrorContents({ rootError, onReloadAppClick }: ErrorContentsProps
         </a>
         .
       </Instructions>
-      <FilledButton label='Reload app' onClick={onReloadAppClick} />
+      <Actions>
+        <FilledButton label='Reload app' onClick={onReloadAppClick} />
+        {onReportBugClick ? (
+          <OutlinedButton label='Report a bug' onClick={onReportBugClick} />
+        ) : undefined}
+      </Actions>
     </>
   )
 }
