@@ -1,10 +1,10 @@
-use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::atomic::{AtomicU8, AtomicUsize, Ordering};
 
 use bw_dat::dialog::{Control, Dialog, EventHandler};
 
 use crate::bw::players::StormPlayerId;
 use crate::bw::{self, Bw, get_bw};
-use crate::game_thread::send_game_results;
+use crate::game_thread::{self, send_game_results};
 use crate::netcode_v2;
 
 use super::{BwScr, console};
@@ -12,6 +12,7 @@ use super::{BwScr, console};
 static CHAT_BOX_EVENT_HANDLER: EventHandler = EventHandler::new();
 static MSG_FILTER_EVENT_HANDLER: EventHandler = EventHandler::new();
 static TIMEOUT_EVENT_HANDLER: EventHandler = EventHandler::new();
+static GAME_MENU_EVENT_HANDLER: EventHandler = EventHandler::new();
 static MINIMAP_EVENT_HANDLER: EventHandler = EventHandler::new();
 static MINIMAP_BUTTON1_EVENT_HANDLER: EventHandler = EventHandler::new();
 static MINIMAP_BUTTON2_EVENT_HANDLER: EventHandler = EventHandler::new();
@@ -65,6 +66,10 @@ pub unsafe fn spawn_dialog_hook(
         } else if name == "LMission" {
             send_game_results();
             event_handler
+        } else if name == "GameMenu" && !game_thread::is_replay() {
+            let inited = GAME_MENU_EVENT_HANDLER.init(game_menu_event_handler);
+            inited.set_orig(event_handler);
+            inited.func() as usize
         } else if name.eq_ignore_ascii_case("timeout")
             && netcode_v2::with_turn_state(|_| ()).is_some()
         {
@@ -409,6 +414,117 @@ unsafe extern "C" fn timeout_event_handler(
             return 0;
         }
         orig(ctrl, event)
+    }
+}
+
+/// The `GameMenu` control ids of its Save Game and Load Game buttons.
+const GAME_MENU_SAVE_GAME_ID: i16 = 1;
+const GAME_MENU_LOAD_GAME_ID: i16 = 2;
+
+static SAVE_BUTTON_EVENT_HANDLER: EventHandler = EventHandler::new();
+static LOAD_BUTTON_EVENT_HANDLER: EventHandler = EventHandler::new();
+/// The native draw function of the menu buttons [`disabled_button_draw`] wraps. Every push button
+/// shares one.
+static MENU_BUTTON_ORIG_DRAW: AtomicUsize = AtomicUsize::new(0);
+
+type ControlDrawFn =
+    unsafe extern "C" fn(*mut bw::scr::Control, i32, i32, *const bw::Rect, *const bw::Rect);
+
+/// Keeps the in-game menu's Save Game and Load Game buttons disabled: a saved game can't be loaded
+/// through ShieldBattery, and live games drop both commands anyway (see
+/// [`commands::filter_invalid_commands`](crate::bw::commands::filter_invalid_commands)).
+///
+/// BW re-enables Save Game on its own schedule while the menu is open, outside any of the menu's
+/// event handlers, so disabling it from events alone lets it draw enabled for a moment. Each button
+/// is therefore also wrapped at the two points that matter: its draw, which re-applies the disabled
+/// flag first, and its event handler, which swallows activation whatever the flag says.
+unsafe extern "C" fn game_menu_event_handler(
+    ctrl: *mut bw::Control,
+    event: *mut bw::ControlEvent,
+    orig: unsafe extern "C" fn(*mut bw::Control, *mut bw::ControlEvent) -> u32,
+) -> u32 {
+    unsafe {
+        let is_init = (*event).ty == 0xe && (*event).ext_type == 0x0;
+        let is_delete = (*event).ty == 0xe && (*event).ext_type == 0x1;
+        let ret = orig(ctrl, event);
+        // A deleted menu's controls are gone, so there's nothing to touch after that one.
+        if !is_delete {
+            let dialog = Control::new(ctrl).dialog();
+            for id in [GAME_MENU_SAVE_GAME_ID, GAME_MENU_LOAD_GAME_ID] {
+                if let Some(button) = dialog.child_by_id(id) {
+                    if is_init {
+                        wrap_disabled_button(button, id);
+                    }
+                    button.disable();
+                }
+            }
+        }
+        ret
+    }
+}
+
+unsafe fn wrap_disabled_button(button: Control, id: i16) {
+    unsafe {
+        let hook = match id {
+            GAME_MENU_SAVE_GAME_ID => &SAVE_BUTTON_EVENT_HANDLER,
+            _ => &LOAD_BUTTON_EVENT_HANDLER,
+        };
+        let inited = hook.init(disabled_button_event_handler);
+        if let Some(handler) = (*(*button)).event_handler
+            && handler as usize != inited.func() as usize
+        {
+            inited.set_orig(handler as usize);
+            button.set_event_handler(inited);
+        }
+
+        let ctrl: *mut bw::scr::Control = *button;
+        if let Some(draw) = (*ctrl).draw
+            && draw as usize != disabled_button_draw as ControlDrawFn as usize
+        {
+            let stored = MENU_BUTTON_ORIG_DRAW.load(Ordering::Relaxed);
+            if stored == 0 || stored == draw as usize {
+                MENU_BUTTON_ORIG_DRAW.store(draw as usize, Ordering::Relaxed);
+                (*ctrl).draw = Some(disabled_button_draw);
+            } else {
+                warn!("Game menu button {id} has an unexpected draw function, not wrapping it");
+            }
+        }
+    }
+}
+
+unsafe extern "C" fn disabled_button_event_handler(
+    ctrl: *mut bw::Control,
+    event: *mut bw::ControlEvent,
+    orig: unsafe extern "C" fn(*mut bw::Control, *mut bw::ControlEvent) -> u32,
+) -> u32 {
+    unsafe {
+        // Activation (a click) and the button's own hotkey, which BW may still deliver in the
+        // moment between re-enabling the button and the next disable.
+        if (*event).ty == 0xe && matches!((*event).ext_type, 0x2 | 0x3) {
+            debug!(
+                "Ignored activation of disabled game menu button {}",
+                Control::new(ctrl).id()
+            );
+            return 0;
+        }
+        orig(ctrl, event)
+    }
+}
+
+unsafe extern "C" fn disabled_button_draw(
+    ctrl: *mut bw::scr::Control,
+    x: i32,
+    y: i32,
+    area: *const bw::Rect,
+    clip: *const bw::Rect,
+) {
+    unsafe {
+        // The same flag `Control::disable` sets; set directly since a draw is no place to send the
+        // control an event.
+        (*ctrl).flags2 = ((*ctrl).flags2 & !0x4) | 0x1;
+        let orig: ControlDrawFn =
+            std::mem::transmute(MENU_BUTTON_ORIG_DRAW.load(Ordering::Relaxed));
+        orig(ctrl, x, y, area, clip)
     }
 }
 

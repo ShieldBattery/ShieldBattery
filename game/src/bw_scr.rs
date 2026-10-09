@@ -8423,6 +8423,15 @@ impl bw::Bw for BwScr {
         lparam: isize,
     ) -> Option<isize> {
         unsafe {
+            // Alt+S and Alt+L open BW's save and load dialogs straight from gameplay, without the
+            // game menu's buttons (which `dialog_hook` disables). A saved game can't be loaded
+            // through ShieldBattery, so a live game never lets BW see either hotkey.
+            if is_save_or_load_hotkey(msg, wparam)
+                && self.game_started.load(Ordering::Acquire)
+                && !game_thread::is_replay()
+            {
+                return Some(0);
+            }
             let mut render_state = match self.render_state.lock() {
                 Some(s) => s,
                 None => {
@@ -8443,6 +8452,19 @@ impl bw::Bw for BwScr {
 
     fn starting_fog(&self) -> StartingFog {
         self.starting_fog.load(Ordering::Acquire)
+    }
+}
+
+/// Whether a window message is part of an Alt+S (save game) or Alt+L (load game) keypress. Windows
+/// sends an Alt combination as `WM_SYSKEYDOWN`/`WM_SYSKEYUP` with the key's virtual key code, and
+/// `WM_SYSCHAR` with its character. An AltGr combination (Ctrl+Alt, which some layouts use to type
+/// characters) arrives as ordinary key messages instead, so text input is never caught here.
+fn is_save_or_load_hotkey(msg: u32, wparam: usize) -> bool {
+    use winapi::um::winuser::{WM_SYSCHAR, WM_SYSKEYDOWN, WM_SYSKEYUP};
+    match msg {
+        WM_SYSKEYDOWN | WM_SYSKEYUP => matches!(wparam, 0x53 | 0x4c),
+        WM_SYSCHAR => matches!(wparam, 0x53 | 0x73 | 0x4c | 0x6c),
+        _ => false,
     }
 }
 
@@ -9631,5 +9653,23 @@ mod tests {
         for slot in 12..16u8 {
             assert!(BwPlayerId(game_player_id_for_slot(slot)).is_observer());
         }
+    }
+
+    #[test]
+    fn save_and_load_hotkeys_are_only_their_alt_messages() {
+        use winapi::um::winuser::{WM_CHAR, WM_KEYDOWN, WM_SYSCHAR, WM_SYSKEYDOWN, WM_SYSKEYUP};
+        for &vk in b"SL" {
+            assert!(is_save_or_load_hotkey(WM_SYSKEYDOWN, vk as usize));
+            assert!(is_save_or_load_hotkey(WM_SYSKEYUP, vk as usize));
+            // Without Alt (or with AltGr) the same key is ordinary input.
+            assert!(!is_save_or_load_hotkey(WM_KEYDOWN, vk as usize));
+        }
+        for &ch in b"sSlL" {
+            assert!(is_save_or_load_hotkey(WM_SYSCHAR, ch as usize));
+            assert!(!is_save_or_load_hotkey(WM_CHAR, ch as usize));
+        }
+        // Other Alt hotkeys, like Alt+M for the game menu, pass through.
+        assert!(!is_save_or_load_hotkey(WM_SYSKEYDOWN, b'M' as usize));
+        assert!(!is_save_or_load_hotkey(WM_SYSCHAR, b'm' as usize));
     }
 }
