@@ -298,8 +298,19 @@ export const eventToAction: EventToActionMap = {
           }),
         )
       } else if (canceledMatch?.phase === 'load') {
+        // A failed load is the moment this client's logs say the most about why, so the app offers
+        // a bug report (which uploads them) right on the notice. The web client has no logs to send.
         externalShowSnackbar(
           i18n.t('matchmaking.match.gameFailedToLoad', 'The game has failed to load.'),
+          IS_ELECTRON ? DURATION_LONG : undefined,
+          IS_ELECTRON
+            ? {
+                action: {
+                  label: i18n.t('matchmaking.match.reportBug', 'Report a bug'),
+                  onClick: () => dispatch(openDialog({ type: DialogType.BugReport })),
+                },
+              }
+            : undefined,
         )
       }
       clearMatchmakingState(jotaiStore)

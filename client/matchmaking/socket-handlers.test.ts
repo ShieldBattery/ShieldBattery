@@ -285,6 +285,26 @@ describe('client/matchmaking/socket-handlers/canceled match', () => {
     expect(showSnackbarMock).not.toHaveBeenCalled()
   })
 
+  test('offers a bug report to a player removed from the queue by a failed load', () => {
+    runHandler(
+      eventToAction.cancelLoading(MatchmakingType.Match1v1, {
+        type: 'cancelLoading',
+        reason: 'playerFailedToLoad',
+      }),
+      [],
+    )
+    const dispatched = runQueueStatus()
+
+    expect(openedDialogs(dispatched)).toEqual([])
+    expect(showSnackbarMock).toHaveBeenCalledTimes(1)
+    const [message, , options] = showSnackbarMock.mock.calls[0]
+    expect(message).toBe('The game has failed to load.')
+    expect(options?.action?.label).toBe('Report a bug')
+
+    options!.action!.onClick()
+    expect(openedDialogs(dispatched)).toEqual([{ type: DialogType.BugReport }])
+  })
+
   test('shows the offender a pending-penalty anomaly dialog after queue removal', () => {
     runHandler(
       eventToAction.cancelLoading(MatchmakingType.Match1v1, {

@@ -1614,6 +1614,7 @@
         "leftLobby": "<0></0> salió del lobby",
         "loadFailedNoUsers": "La partida no pudo empezar",
         "loadFailedPrefix": "La partida no pudo empezar: la carga de",
+        "loadFailedReportBug": "Si te sigue pasando, <1>reporta un error</1>.",
         "loadFailedSuffix": "falló",
         "memberBack": "<0></0> volvió al lobby",
         "readyReset": "se reinició el estado de listo",
@@ -1965,7 +1966,8 @@
       "vetoesLeft": "<0>Vetos restantes: </0><1>{{vetoesLeft}}</1>"
     },
     "match": {
-      "gameFailedToLoad": "El juego no se ha podido cargar."
+      "gameFailedToLoad": "El juego no se ha podido cargar.",
+      "reportBug": "Reportar un error"
     },
     "matchCanceled": {
       "backInQueue": "Volviste a la cola de emparejamiento para buscar un nuevo partido.",
@@ -1976,6 +1978,7 @@
       "loadTimeout": "Un jugador tardó demasiado en cargar, así que el partido no pudo empezar.",
       "notYourFault": "No fue tu culpa. Quien lo provocó ya fue retirado de la cola.",
       "playerFailedToLoad": "Un jugador se desconectó o no pudo cargar, así que el partido no pudo empezar.",
+      "reportBug": "Reportar un error",
       "title": "Partido cancelado"
     },
     "postMatchDialog": {
