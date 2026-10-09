@@ -68,25 +68,37 @@ function CopyInviteLinkButton({ lobby }: { lobby: Lobby }) {
  */
 function ReadyButton({
   isViewerReady,
+  disabled,
   onToggleReady,
 }: {
   isViewerReady: boolean
+  disabled: boolean
   onToggleReady: () => void
 }) {
   const { t } = useTranslation()
   return isViewerReady ? (
     <OutlinedButton
       label={t('lobbies.room.header.cancelReady', 'Cancel ready')}
+      disabled={disabled}
       onClick={onToggleReady}
     />
   ) : (
-    <FilledButton label={t('lobbies.room.header.readyUp', 'Ready up')} onClick={onToggleReady} />
+    <FilledButton
+      label={t('lobbies.room.header.readyUp', 'Ready up')}
+      disabled={disabled}
+      onClick={onToggleReady}
+    />
   )
 }
 
 /**
  * The strip across the top of the room: who and what this lobby is on the left, and the viewer's
- * own start-related action on the right.
+ * own start-related action and the way out on the right.
+ *
+ * Leave sits at the far right edge so it can't slide under a click aimed at its neighbor: that
+ * neighbor changes width as its label toggles and is absent for a benched viewer. The neighbor
+ * itself stays in place, disabled, once the lobby is past gathering, since a countdown can begin
+ * just as the viewer goes to click it.
  */
 export function RoomHeader({
   viewerId,
@@ -123,23 +135,28 @@ export function RoomHeader({
       </NameRow>
 
       <HeaderActions>
+        {isHost ? (
+          <OutlinedButton
+            label={t('lobbies.gameSetup.title', 'Game setup')}
+            iconStart={<MaterialIcon icon='tune' />}
+            disabled={!isGathering}
+            onClick={onOpenGameSetup}
+            testName='lobby-settings-button'
+          />
+        ) : null}
+        {!isHost && !isBenched ? (
+          <ReadyButton
+            isViewerReady={isViewerReady}
+            disabled={!isGathering}
+            onToggleReady={onToggleReady}
+          />
+        ) : null}
         <TextButton
           label={t('lobbies.room.header.leave', 'Leave')}
           iconStart={<MaterialIcon icon='logout' />}
           onClick={onLeaveLobby}
           testName='leave-lobby-button'
         />
-        {isHost && isGathering ? (
-          <OutlinedButton
-            label={t('lobbies.gameSetup.title', 'Game setup')}
-            iconStart={<MaterialIcon icon='tune' />}
-            onClick={onOpenGameSetup}
-            testName='lobby-settings-button'
-          />
-        ) : null}
-        {!isHost && !isBenched && isGathering ? (
-          <ReadyButton isViewerReady={isViewerReady} onToggleReady={onToggleReady} />
-        ) : null}
       </HeaderActions>
     </HeaderRoot>
   )
