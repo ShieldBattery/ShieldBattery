@@ -5,7 +5,9 @@
 -- plain ratings rather than only the matchmaker's effective ones.
 --
 -- Each team's two arrays are index-aligned: team_a_player_ratings[i] belongs to
--- team_a_user_ids[i]. Team A is the first team of the match (index 0 in the game config's teams).
+-- team_a_user_ids[i]. Team A and team B follow the matchmaker's team order. In team modes,
+-- they correspond to game config teams 0 and 1. In 1v1 modes, the game config stores both
+-- opponents in teams[0], while these arrays keep the two sides separate.
 -- Nullable since rows recorded before this change have no player information.
 
 ALTER TABLE matchmaking_match_formations
