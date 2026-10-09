@@ -1562,6 +1562,7 @@
         "leftLobby": "<0></0> 离开了房间",
         "loadFailedNoUsers": "游戏无法开始",
         "loadFailedPrefix": "游戏无法开始：",
+        "loadFailedReportBug": "如果此问题反复出现，请<1>反馈 bug</1>。",
         "loadFailedSuffix": "加载失败",
         "memberBack": "<0></0> 回到了房间",
         "readyReset": "准备状态已重置",
@@ -1905,7 +1906,8 @@
       "vetoesLeft": "<0>剩余否决权：</0><1>{{vetoesLeft}}</1>"
     },
     "match": {
-      "gameFailedToLoad": "游戏加载失败。"
+      "gameFailedToLoad": "游戏加载失败。",
+      "reportBug": "反馈 bug"
     },
     "matchCanceled": {
       "backInQueue": "您已重新进入匹配队列，正在寻找新的比赛。",
@@ -1916,6 +1918,7 @@
       "loadTimeout": "有玩家加载时间过长，游戏无法开始。",
       "notYourFault": "这不是您的责任。导致取消的玩家已被移出队列。",
       "playerFailedToLoad": "有玩家断开连接或加载失败，游戏无法开始。",
+      "reportBug": "反馈 bug",
       "title": "比赛已取消"
     },
     "postMatchDialog": {

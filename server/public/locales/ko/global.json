@@ -1562,6 +1562,7 @@
         "leftLobby": "<0></0> 님이 로비를 떠났습니다",
         "loadFailedNoUsers": "게임을 시작할 수 없습니다",
         "loadFailedPrefix": "게임을 시작할 수 없습니다 —",
+        "loadFailedReportBug": "이 문제가 계속되면 <1>버그를 신고</1>해 주세요.",
         "loadFailedSuffix": "님의 로딩에 실패했습니다",
         "memberBack": "<0></0> 님이 로비로 돌아왔습니다",
         "readyReset": "준비 초기화",
@@ -1905,7 +1906,8 @@
       "vetoesLeft": "<0>남은 맵 밴 횟수: </0><1>{{vetoesLeft}}</1>"
     },
     "match": {
-      "gameFailedToLoad": "게임 로딩에 실패했습니다."
+      "gameFailedToLoad": "게임 로딩에 실패했습니다.",
+      "reportBug": "버그 신고"
     },
     "matchCanceled": {
       "backInQueue": "매치메이킹 대기열로 돌아가 새 상대를 찾고 있습니다.",
@@ -1916,6 +1918,7 @@
       "loadTimeout": "로딩이 너무 오래 걸린 플레이어가 있어 게임을 시작하지 못했습니다.",
       "notYourFault": "본인의 잘못이 아닙니다. 원인이 된 플레이어는 대기열에서 제외되었습니다.",
       "playerFailedToLoad": "플레이어의 연결이 끊기거나 로딩에 실패해 게임을 시작하지 못했습니다.",
+      "reportBug": "버그 신고",
       "title": "경기가 취소되었습니다"
     },
     "postMatchDialog": {
