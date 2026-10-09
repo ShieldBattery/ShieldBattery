@@ -5,6 +5,7 @@ use std::path::Path;
 use async_graphql::{EmptySubscription, MergedObject, Schema, SchemaBuilder};
 use tokio::io;
 
+use crate::game_commends::{GameCommendsMutation, GameCommendsQuery};
 use crate::game_reports::{GameReportsMutation, GameReportsQuery};
 use crate::games::GamesQuery;
 use crate::leagues::LeaguesQuery;
@@ -19,6 +20,7 @@ pub type SbSchemaBuilder = SchemaBuilder<Query, Mutation, EmptySubscription>;
 
 #[derive(MergedObject, Default)]
 pub struct Query(
+    GameCommendsQuery,
     GameReportsQuery,
     GamesQuery,
     LeaguesQuery,
@@ -31,6 +33,7 @@ pub struct Query(
 
 #[derive(MergedObject, Default)]
 pub struct Mutation(
+    GameCommendsMutation,
     GameReportsMutation,
     NewsMutation,
     TwitchMutation,

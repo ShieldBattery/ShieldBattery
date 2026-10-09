@@ -14,6 +14,7 @@ import { getClientShellTemplate, renderClientShell } from './lib/client-shell/cl
 import isDev from './lib/env/is-dev'
 import { getUrl, readFile } from './lib/files'
 import { FileStoreType, PublicAssetsConfig } from './lib/files/public-assets-config'
+import { GameCommendNotificationService } from './lib/games/game-commend-notification-service'
 import { GameReportNotificationService } from './lib/games/game-report-notification-service'
 import { applyApiRoutes, resolveAllHttpApis } from './lib/http/http-api'
 import { NewsService } from './lib/news/news-service'
@@ -39,8 +40,9 @@ export default function applyRoutes(app: Koa, graphqlOrigin: string) {
   // TODO(tec27): Move this somewhere better if we have any other news-related stuff and/or
   // services that don't have an attached HTTP API to hang off of
   container.resolve(NewsService)
-  // Has no HTTP API of its own; resolved here so its Redis subscription is set up at boot.
+  // Have no HTTP API of their own; resolved here so their Redis subscriptions are set up at boot.
   container.resolve(GameReportNotificationService)
+  container.resolve(GameCommendNotificationService)
 
   const router = new KoaRouter()
   app.use(router.routes()).use(router.allowedMethods())

@@ -3,12 +3,13 @@ import { Transition } from 'motion/react'
 import * as m from 'motion/react-m'
 import prettyBytes from 'pretty-bytes'
 import * as React from 'react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { useSearch } from 'wouter/use-browser-location'
 import { assertUnreachable } from '../../common/assert-unreachable'
+import { appendToMultimap } from '../../common/data-structures/maps'
 import { getErrorStack } from '../../common/errors'
 import { GameConfigPlayer, GameSource } from '../../common/games/configuration'
 import { isTeamType } from '../../common/games/game-type'
@@ -42,7 +43,8 @@ import ComputerAvatar from '../avatars/computer-avatar'
 import { ComingSoon } from '../coming-soon/coming-soon'
 import { openDialog, openSimpleDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
-import { longTimestamp, longTimestampWithSeconds } from '../i18n/date-formats'
+import { useContextMenu } from '../dom/use-context-menu'
+import { longTimestamp, longTimestampWithSeconds, shortTimestamp } from '../i18n/date-formats'
 import { dateTimeFormat, useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { RaceIcon } from '../lobbies/race-icon'
@@ -52,6 +54,7 @@ import { ReduxMapThumbnail } from '../maps/map-thumbnail'
 import { IconButton, OutlinedButton, TextButton, useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Card } from '../material/card'
+import { DestructiveMenuItem, MenuItem } from '../material/menu/item'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { Ripple } from '../material/ripple'
 import { elevationPlus1 } from '../material/shadows'
@@ -81,6 +84,11 @@ import {
 import { navigateToUserProfile } from '../users/action-creators'
 import { ConnectedUsername } from '../users/connected-username'
 import {
+  ConnectedUserContextMenu,
+  MenuItemCategory,
+  UserMenuProps,
+} from '../users/user-context-menu'
+import {
   dismissGameReviewRequest,
   navigateToGameResults,
   requestGameReview,
@@ -89,6 +97,8 @@ import {
   viewGame,
 } from './action-creators'
 import { ChatTranscriptSection } from './chat-transcript-display'
+import { CommendIcon } from './commend-icon'
+import { CommendAvailability, GameFeedbackState, useGameFeedback } from './game-feedback'
 import { ResultsSubPage } from './results-sub-page'
 import { SaveReplayMenuContent } from './save-replay-menu'
 
@@ -417,28 +427,6 @@ export function ConnectedGameResultsPage({
     )
   }
 
-  let content: React.ReactNode
-  switch (subPage) {
-    case ResultsSubPage.Summary:
-      content = (
-        <SummaryPage
-          gameId={gameId}
-          game={game}
-          loadingError={loadingError}
-          isLoading={isLoading}
-        />
-      )
-      break
-
-    case ResultsSubPage.Stats:
-    case ResultsSubPage.BuildOrders:
-      content = <ComingSoonPage />
-      break
-
-    default:
-      content = assertUnreachable(subPage)
-  }
-
   const isLive = !game?.results && !game?.canceledAt
   let statusText = t('gameDetails.statusFinal', 'Final')
   if (game?.canceledAt) {
@@ -451,7 +439,7 @@ export function ConnectedGameResultsPage({
     !!selfUser &&
     !!game &&
     game.config.teams.some(team => team.some(p => !p.isComputer && p.id === selfUser.id))
-  const reportCandidates = useMemo<SbUserId[]>(() => {
+  const otherPlayerIds = useMemo<SbUserId[]>(() => {
     if (!game || !selfUser) {
       return []
     }
@@ -460,8 +448,50 @@ export function ConnectedGameResultsPage({
       .filter(p => !p.isComputer && p.id !== selfUser.id)
       .map(p => p.id)
   }, [game, selfUser])
-  // Reporting is limited to finished games you played in, against another human player from it.
-  const canReport = !isLive && !game?.canceledAt && selfIsParticipant && reportCandidates.length > 0
+  // Commending and reporting are limited to finished (not canceled) games you played in, toward the
+  // other human players in them, for a day after the game ends.
+  const feedback = useGameFeedback(
+    gameId,
+    otherPlayerIds,
+    !isLive && !game?.canceledAt && selfIsParticipant,
+  )
+  const canReport = feedback.candidates.length > 0
+  const openReportDialog = (initialReportedUserId?: SbUserId) => {
+    dispatch(
+      openDialog({
+        type: DialogType.ReportGame,
+        initData: {
+          gameId,
+          reportedUserCandidates: [...feedback.candidates],
+          initialReportedUserId,
+        },
+      }),
+    )
+  }
+
+  let content: React.ReactNode
+  switch (subPage) {
+    case ResultsSubPage.Summary:
+      content = (
+        <SummaryPage
+          gameId={gameId}
+          game={game}
+          loadingError={loadingError}
+          isLoading={isLoading}
+          feedback={feedback}
+          onReport={openReportDialog}
+        />
+      )
+      break
+
+    case ResultsSubPage.Stats:
+    case ResultsSubPage.BuildOrders:
+      content = <ComingSoonPage />
+      break
+
+    default:
+      content = assertUnreachable(subPage)
+  }
 
   const isDisputed = !!game?.disputable && !game.canceledAt
   const showDisputeState = isDisputed && (selfIsParticipant || canManageGameReports)
@@ -709,14 +739,7 @@ export function ConnectedGameResultsPage({
           <OutlinedButton
             label={t('gameDetails.buttonReport', 'Report')}
             iconStart={<MaterialIcon icon='flag' />}
-            onClick={() => {
-              dispatch(
-                openDialog({
-                  type: DialogType.ReportGame,
-                  initData: { gameId, reportedUserCandidates: reportCandidates },
-                }),
-              )
-            }}
+            onClick={() => openReportDialog()}
           />
         ) : null}
         {showRequestReview ? (
@@ -858,11 +881,15 @@ function SummaryPage({
   game,
   loadingError,
   isLoading,
+  feedback,
+  onReport,
 }: {
   gameId: string
   game?: ReadonlyDeep<GameRecordJson>
   loadingError?: Error
   isLoading: boolean
+  feedback: GameFeedbackState
+  onReport: (userId: SbUserId) => void
 }) {
   const dispatch = useAppDispatch()
   const { t } = useTranslation()
@@ -973,7 +1000,9 @@ function SummaryPage({
   return (
     <SummaryRoot $isLoading={isLoading}>
       <PlayerListContainer>
-        <PlayerListCard>{playerListItems}</PlayerListCard>
+        <ResultsFeedbackContext.Provider value={{ feedback, onReport }}>
+          <PlayerListCard>{playerListItems}</PlayerListCard>
+        </ResultsFeedbackContext.Provider>
       </PlayerListContainer>
       <MapContainer>
         {map ? <StyledMapThumbnail mapId={map.id} size={MAP_SIZE} showInfoLayer /> : null}
@@ -998,22 +1027,176 @@ function SummaryPage({
   )
 }
 
-const PlayerResultContainer = styled.button`
-  ${buttonReset};
-
+const PlayerResultRow = styled.div`
   width: 100%;
-  height: 56px;
-  padding: 8px;
-
   display: flex;
   align-items: center;
-  cursor: pointer;
-  text-align: left;
 
   & + ${TeamLabel} {
     margin-top: 16px;
   }
 `
+
+const PlayerResultContainer = styled.button`
+  ${buttonReset};
+
+  height: 56px;
+  padding: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  text-align: left;
+`
+
+/**
+ * Commend and report buttons at the end of a row. The column is reserved on every row while any
+ * player can still be commended or reported, so the other columns line up; the buttons themselves
+ * appear on hover or keyboard focus.
+ */
+const FeedbackActions = styled.div`
+  width: 88px;
+  flex-shrink: 0;
+  padding-right: 4px;
+
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+
+  opacity: 0;
+  transform: translateX(6px) scale(0.92);
+  transition:
+    opacity 120ms ease-out,
+    transform 160ms cubic-bezier(0.2, 0.8, 0.3, 1.2);
+
+  ${PlayerResultRow}:hover &, ${PlayerResultRow}:focus-within & {
+    opacity: 1;
+    transform: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+`
+
+const FeedbackButton = styled(IconButton)`
+  width: 40px;
+  min-height: 40px;
+`
+
+const CommendButton = styled(FeedbackButton)`
+  color: var(--theme-amber);
+`
+
+const ReportButton = styled(FeedbackButton)`
+  color: var(--theme-negative);
+`
+
+const CommendMenuItem = styled(MenuItem)`
+  color: var(--theme-amber);
+`
+
+/**
+ * The tooltip for a commend that isn't available right now, naming when it will be. `timeFormat` is
+ * the caller's `useFormat(shortTimestamp)`, so the time is in the app's language.
+ */
+function commendBlockedText(
+  availability: CommendAvailability,
+  name: string,
+  t: TFunction,
+  timeFormat: Intl.DateTimeFormat,
+) {
+  if (availability.kind !== 'blocked') {
+    return undefined
+  }
+  const time = availability.until ? timeFormat.format(availability.until) : undefined
+  if (availability.reason === 'recent') {
+    return time
+      ? t('gameCommend.blocked.recent', {
+          defaultValue: 'You commended {{user}} in the last 24 hours. Try again at {{time}}.',
+          user: name,
+          time,
+        })
+      : t('gameCommend.blocked.recentNoTime', {
+          defaultValue: 'You commended {{user}} in the last 24 hours.',
+          user: name,
+        })
+  }
+  return time
+    ? t('gameCommend.blocked.limit', {
+        defaultValue: 'Daily commend limit reached. Try again at {{time}}.',
+        time,
+      })
+    : t('gameCommend.blocked.limitNoTime', 'Daily commend limit reached.')
+}
+
+interface ResultsFeedbackContextValue {
+  feedback: GameFeedbackState
+  onReport: (userId: SbUserId) => void
+}
+
+/** The current user's commend/report state for the game whose results are shown. */
+const ResultsFeedbackContext = React.createContext<ResultsFeedbackContextValue>({
+  feedback: {
+    candidates: [],
+    commendAvailability: () => ({ kind: 'available' }),
+    commend: () => {},
+  },
+  onReport: () => {},
+})
+
+/**
+ * Adds Commend and Report to a player's context menu on the results page, for players who can still
+ * be commended or reported in this game.
+ */
+function ResultsUserMenu({ userId, items, onMenuClose, MenuComponent }: UserMenuProps) {
+  const { t } = useTranslation()
+  const { feedback, onReport } = useContext(ResultsFeedbackContext)
+  const shortTimestampFormat = useFormat(shortTimestamp)
+  const name = useAppSelector(s => s.users.byId.get(userId)?.name) ?? ''
+
+  const menuItems = new Map(items)
+  if (feedback.candidates.includes(userId)) {
+    const availability = feedback.commendAvailability(userId)
+    appendToMultimap(
+      menuItems,
+      MenuItemCategory.GameFeedback,
+      availability.kind === 'available' ? (
+        <CommendMenuItem
+          key='commend'
+          text={t('gameCommend.menu.commend', 'Commend')}
+          onClick={() => {
+            feedback.commend(userId, name)
+            onMenuClose()
+          }}
+        />
+      ) : (
+        <MenuItem
+          key='commend'
+          text={t('gameCommend.menu.commend', 'Commend')}
+          secondaryText={commendBlockedText(availability, name, t, shortTimestampFormat)}
+          disabled={true}
+        />
+      ),
+    )
+    appendToMultimap(
+      menuItems,
+      MenuItemCategory.GameFeedback,
+      <DestructiveMenuItem
+        key='report'
+        text={t('gameReport.menu.report', 'Report')}
+        onClick={() => {
+          onReport(userId)
+          onMenuClose()
+        }}
+      />,
+    )
+  }
+
+  return <MenuComponent items={menuItems} userId={userId} onMenuClose={onMenuClose} />
+}
 
 const RaceRoot = styled.div`
   position: relative;
@@ -1106,37 +1289,94 @@ export function PlayerResult({
   mmrChange,
 }: PlayerResultProps) {
   const { t } = useTranslation()
+  const { feedback, onReport } = useContext(ResultsFeedbackContext)
+  const shortTimestampFormat = useFormat(shortTimestamp)
+  // Reserved on every row while any player can still be commended or reported, so columns align
+  const showFeedbackColumn = feedback.candidates.length > 0
   const user = useAppSelector(s => (config.isComputer ? undefined : s.users.byId.get(config.id)))
   const [buttonProps, rippleRef] = useButtonState({
     onClick: () => user && navigateToUserProfile(user.id, user.name),
   })
+  const { onContextMenu, contextMenuPopoverProps } = useContextMenu()
+
+  const isCandidate = !config.isComputer && feedback.candidates.includes(config.id)
+  const name = user?.name ?? ''
+  const commendAvailability = isCandidate ? feedback.commendAvailability(config.id) : undefined
+  const commendBlocked = commendAvailability
+    ? commendBlockedText(commendAvailability, name, t, shortTimestampFormat)
+    : undefined
+  const commendLabel = t('gameCommend.action', 'Commend')
+  const reportLabel = t('gameReport.action', 'Report')
+
+  const row = (
+    <PlayerResultRow onContextMenu={config.isComputer ? undefined : onContextMenu}>
+      <PlayerResultContainer className={className} {...buttonProps}>
+        <RaceRoot>
+          <StyledRaceIcon race={raceAssigned ? (result?.race ?? config.race) : config.race} />
+          {raceAssigned && result?.race && config.race === 'r' ? (
+            <SelectedRandomIcon race='r' />
+          ) : null}
+        </RaceRoot>
+        {config.isComputer ? (
+          <StyledComputerAvatar />
+        ) : (
+          <PlayerAvatar user={user?.name ?? ''} image={user?.avatarUrl} />
+        )}
+        <PlayerName>
+          {config.isComputer ? t('game.playerName.computer', 'Computer') : (user?.name ?? '')}
+        </PlayerName>
+        {mmrChange ? (
+          <MmrChangeColumn>
+            <StyledPointsChangeText change={mmrChange} />
+          </MmrChangeColumn>
+        ) : undefined}
+        <GameResultColumn>
+          <StyledGameResultText result={result?.result ?? 'unknown'} />
+        </GameResultColumn>
+        <Ripple ref={rippleRef} />
+      </PlayerResultContainer>
+      {showFeedbackColumn ? (
+        <FeedbackActions>
+          {isCandidate ? (
+            <>
+              <Tooltip
+                text={commendBlocked ?? commendLabel}
+                position='top'
+                tabIndex={commendBlocked ? 0 : -1}>
+                <CommendButton
+                  icon={<CommendIcon />}
+                  ariaLabel={commendBlocked ?? commendLabel}
+                  disabled={!!commendBlocked}
+                  onClick={() => feedback.commend(config.id, name)}
+                />
+              </Tooltip>
+              <Tooltip text={reportLabel} position='top' tabIndex={-1}>
+                <ReportButton
+                  icon={<MaterialIcon icon='flag' />}
+                  ariaLabel={reportLabel}
+                  onClick={() => onReport(config.id)}
+                />
+              </Tooltip>
+            </>
+          ) : null}
+        </FeedbackActions>
+      ) : null}
+    </PlayerResultRow>
+  )
+
+  if (config.isComputer) {
+    return row
+  }
 
   return (
-    <PlayerResultContainer className={className} {...buttonProps}>
-      <RaceRoot>
-        <StyledRaceIcon race={raceAssigned ? (result?.race ?? config.race) : config.race} />
-        {raceAssigned && result?.race && config.race === 'r' ? (
-          <SelectedRandomIcon race='r' />
-        ) : null}
-      </RaceRoot>
-      {config.isComputer ? (
-        <StyledComputerAvatar />
-      ) : (
-        <PlayerAvatar user={user?.name ?? ''} image={user?.avatarUrl} />
-      )}
-      <PlayerName>
-        {config.isComputer ? t('game.playerName.computer', 'Computer') : (user?.name ?? '')}
-      </PlayerName>
-      {mmrChange ? (
-        <MmrChangeColumn>
-          <StyledPointsChangeText change={mmrChange} />
-        </MmrChangeColumn>
-      ) : undefined}
-      <GameResultColumn>
-        <StyledGameResultText result={result?.result ?? 'unknown'} />
-      </GameResultColumn>
-      <Ripple ref={rippleRef} />
-    </PlayerResultContainer>
+    <>
+      <ConnectedUserContextMenu
+        userId={config.id}
+        popoverProps={contextMenuPopoverProps}
+        UserMenu={ResultsUserMenu}
+      />
+      {row}
+    </>
   )
 }
 

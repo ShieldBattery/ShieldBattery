@@ -8,6 +8,7 @@ import {
   ChannelKickNotificationUi,
   ChannelUnbanNotificationUi,
 } from '../chat/channel-moderation-notification-ui'
+import { CommendReceivedNotificationUi } from '../games/commend-received-notification-ui'
 import { GamePointsRefundedNotificationUi } from '../games/game-points-refunded-notification-ui'
 import { GameReportActionedNotificationUi } from '../games/game-report-actioned-notification-ui'
 import {
@@ -44,6 +45,7 @@ export function notificationHasUi(notification: SbNotification) {
     case NotificationType.ChannelDeleted:
     case NotificationType.GameReportActioned:
     case NotificationType.GamePointsRefunded:
+    case NotificationType.CommendReceived:
     case NotificationType.MatchmakingBan:
       return true
     case NotificationType.PartyInvite:
@@ -192,6 +194,15 @@ export function NotificationUi({ notification, showDivider, ref }: NotificationU
       return (
         <GamePointsRefundedNotificationUi
           ref={ref}
+          showDivider={showDivider}
+          read={notification.read}
+        />
+      )
+    case NotificationType.CommendReceived:
+      return (
+        <CommendReceivedNotificationUi
+          ref={ref}
+          commenderId={notification.commenderId}
           showDivider={showDivider}
           read={notification.read}
         />

@@ -43,6 +43,8 @@ const LoadingItem = styled(MenuItem)`
 export enum MenuItemCategory {
   /** Contains general menu items, like view profile, whisper, mention */
   General = 'General',
+  /** Contains post-game feedback about a player: commending or reporting them */
+  GameFeedback = 'GameFeedback',
   /** Contains destructive menu items, like kick/ban from chat channels, lobbies */
   Destructive = 'Destructive',
 }
