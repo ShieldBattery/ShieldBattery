@@ -68,6 +68,7 @@ import {
   bodyMedium,
   labelLarge,
   labelMedium,
+  labelSmall,
   singleLine,
   sofiaSansCondensed,
   TitleLarge,
@@ -910,6 +911,12 @@ const RunnerUpName = styled.div`
   ${singleLine};
 `
 
+const RunnerUpMeta = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`
+
 const RunnerUpPoints = styled.div`
   flex-shrink: 0;
   text-align: right;
@@ -945,6 +952,13 @@ const RaceBadge = styled.span<{ $race: RaceChar }>`
   border-radius: 4px;
   background-color: ${props => getRaceColor(props.$race)};
   color: var(--color-grey10);
+`
+
+/** Sized to fit inside a `labelLarge` line so it doesn't make the runner-up cards taller. */
+const SmallRaceBadge = styled(RaceBadge)`
+  ${labelSmall};
+  width: 18px;
+  height: 18px;
 `
 
 const JumpButton = styled.button`
@@ -1476,15 +1490,15 @@ function SpotlightPlayer({ player, username, bonusPool, onSelected }: PodiumPlay
       <SpotlightInfo>
         <SpotlightName>{username}</SpotlightName>
         <SpotlightMeta>
+          <DivisionLabelText $color={getDivisionColor(division)}>{divisionLabel}</DivisionLabelText>
+          <span>
+            · {player.wins} &ndash; {player.losses}
+          </span>
           <RaceBadgeTooltip stats={player}>
             <RaceBadge $race={race} role='img' aria-label={raceCharToLabel(race, t)}>
               {race.toUpperCase()}
             </RaceBadge>
           </RaceBadgeTooltip>
-          <DivisionLabelText $color={getDivisionColor(division)}>{divisionLabel}</DivisionLabelText>
-          <span>
-            · {player.wins} &ndash; {player.losses}
-          </span>
         </SpotlightMeta>
       </SpotlightInfo>
       <SpotlightSpacer />
@@ -1519,6 +1533,7 @@ function RunnerUpPlayer({
   const division = ladderPlayerToMatchmakingDivision(player, bonusPool)
   const divisionLabel = matchmakingDivisionToLabel(division, t)
   const medalColor = MEDAL_COLORS[place - 1] ?? MEDAL_COLORS[2]
+  const race = getMostPlayedRace(player)
   const isRated = player.lifetimeGames >= NUM_PLACEMENT_MATCHES
 
   return (
@@ -1529,7 +1544,14 @@ function RunnerUpPlayer({
       </PodiumIconTooltip>
       <RunnerUpInfo>
         <RunnerUpName>{username}</RunnerUpName>
-        <DivisionLabelText $color={getDivisionColor(division)}>{divisionLabel}</DivisionLabelText>
+        <RunnerUpMeta>
+          <DivisionLabelText $color={getDivisionColor(division)}>{divisionLabel}</DivisionLabelText>
+          <RaceBadgeTooltip stats={player}>
+            <SmallRaceBadge $race={race} role='img' aria-label={raceCharToLabel(race, t)}>
+              {race.toUpperCase()}
+            </SmallRaceBadge>
+          </RaceBadgeTooltip>
+        </RunnerUpMeta>
       </RunnerUpInfo>
       <RunnerUpPoints>
         <RunnerUpPointsValue>
