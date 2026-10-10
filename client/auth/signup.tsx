@@ -8,7 +8,7 @@ import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { useForm, useFormCallbacks } from '../forms/form-hook'
 import { composeValidators, requireChecked } from '../forms/validators'
-import { detectedLocale } from '../i18n/i18next'
+import i18n from '../i18n/i18next'
 import { FilledButton } from '../material/button'
 import { CheckBox, CheckBoxProps } from '../material/check-box'
 import { InputError } from '../material/input-error'
@@ -153,7 +153,7 @@ export function Signup() {
             username: model.username,
             email: model.email,
             password: model.password,
-            locale: detectedLocale.getValue(),
+            locale: i18n.language,
             signupCode: model.signupCode,
           },
           {

@@ -4,7 +4,7 @@ import styled from 'styled-components'
 import { Link } from 'wouter'
 import { useSearch } from 'wouter/use-browser-location'
 import { useForm, useFormCallbacks } from '../forms/form-hook'
-import { detectedLocale } from '../i18n/i18next'
+import i18n from '../i18n/i18next'
 import { FilledButton } from '../material/button'
 import { CheckBox } from '../material/check-box'
 import { PasswordTextField } from '../material/password-text-field'
@@ -116,7 +116,7 @@ export function Login() {
             username: model.username,
             password: model.password,
             remember: model.rememberMe,
-            locale: detectedLocale.getValue(),
+            locale: i18n.language,
           },
           {
             onSuccess: () => {},

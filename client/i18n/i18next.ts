@@ -7,8 +7,8 @@ import {
   TranslationLanguage,
   TranslationNamespace,
 } from '../../common/i18n'
+import { JsonLocalStorageValue } from '../local-storage'
 import { makePublicAssetUrl, makeServerUrl } from '../network/server-url'
-import { JsonSessionStorageValue } from '../session-storage'
 import { getBestLanguage } from './language-detector'
 
 const isDev = import.meta.env.DEV
@@ -24,11 +24,27 @@ const CUR_VERSION = import.meta.env.SB_VERSION
 export type TransInterpolation = any
 
 /**
- * The locale that was reported to us by the user's browser. This locale can be overwritten by
- * user's explicit choice in the settings. We send this locale to the server during
- * login/signup/getCurrentSession actions.
+ * The language this device last applied from an account's locale or the user's explicit choice.
+ * Logged-out startups use it, since the browser's language list can rank a language the user never
+ * picked above the one they did.
  */
-export const detectedLocale = new JsonSessionStorageValue<string | undefined>('detectedLocale')
+const lastLanguage = new JsonLocalStorageValue<string>('lastLanguage')
+
+export function rememberLanguage(language: string) {
+  lastLanguage.setValue(language)
+}
+
+/**
+ * The language to use before any account's locale is known: the remembered one if there is one,
+ * otherwise the best match for the browser's languages. We send this to the server during
+ * getCurrentSession, and an account without a locale adopts it.
+ */
+export function getStartupLanguage(): string {
+  const remembered = lastLanguage.getValue()
+  return remembered && (ALL_TRANSLATION_LANGUAGES as ReadonlyArray<string>).includes(remembered)
+    ? remembered
+    : getBestLanguage()
+}
 
 const i18nextDeferred = createDeferred<TFunction>()
 
@@ -53,7 +69,7 @@ export function initI18next() {
       saveMissing: isDev,
       saveMissingTo: 'all', // Save the missing keys to all languages
 
-      lng: getBestLanguage(),
+      lng: getStartupLanguage(),
       supportedLngs: ALL_TRANSLATION_LANGUAGES,
       fallbackLng: TranslationLanguage.English,
 

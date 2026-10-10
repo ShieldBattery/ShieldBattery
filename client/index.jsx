@@ -8,7 +8,7 @@ import { bootstrapSession, getCurrentSession } from './auth/action-creators'
 import createStore from './create-store'
 import { registerDispatch } from './dispatch-registry'
 import './dom/window-focus'
-import i18n, { detectedLocale, initI18next } from './i18n/i18next'
+import i18n, { getStartupLanguage, initI18next, rememberLanguage } from './i18n/i18next'
 import { getBestLanguage } from './i18n/language-detector'
 import log from './logging/logger'
 import { installHistoryEntryKeys } from './navigation/history-entry-key'
@@ -131,9 +131,6 @@ rootElemPromise
     registerDispatch(reduxStore.dispatch)
     await registerSocketHandlers()
 
-    const detected = getBestLanguage()
-    detectedLocale.setValue(Array.isArray(detected) ? detected[0] : detected)
-
     let action
     let configPromise
     let sessionPromise
@@ -149,7 +146,7 @@ rootElemPromise
     if (!window._sbInitData?.session) {
       sessionPromise = new Promise((resolve, reject) => {
         action = getCurrentSession(
-          { locale: detectedLocale.getValue() },
+          { locale: getStartupLanguage() },
           {
             onSuccess: () => resolve(),
             onError: err => reject(err),
@@ -193,7 +190,9 @@ rootElemPromise
       })
 
       if (locale) {
-        await i18n.changeLanguage(getBestLanguage([locale]))
+        const language = getBestLanguage([locale])
+        rememberLanguage(language)
+        await i18n.changeLanguage(language)
       }
     } catch (err) {
       log.error(`Error initializing i18next: ${err?.stack ?? err}`)

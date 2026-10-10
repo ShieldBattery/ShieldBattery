@@ -3,7 +3,7 @@ import { apiUrl } from '../../common/urls'
 import { ChangeLanguageRequest, ChangeLanguagesResponse } from '../../common/users/user-network'
 import { openSimpleDialog } from '../dialogs/action-creators'
 import type { ThunkAction } from '../dispatch-registry'
-import i18n from '../i18n/i18next'
+import i18n, { rememberLanguage } from '../i18n/i18next'
 import logger from '../logging/logger'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
@@ -13,15 +13,16 @@ import { getBestLanguage } from './language-detector'
 
 export function maybeChangeLanguageLocally(locale?: string): ThunkAction {
   return dispatch => {
-    if (!locale || locale === i18n.language || !i18n.isInitialized) {
+    if (!locale || !i18n.isInitialized) {
       return
     }
-    const detectedLanguage = getBestLanguage([locale])
-    if (!detectedLanguage || detectedLanguage === i18n.language) {
+    const language = getBestLanguage([locale])
+    rememberLanguage(language)
+    if (language === i18n.language) {
       return
     }
 
-    i18n.changeLanguage(detectedLanguage).catch(error => {
+    i18n.changeLanguage(language).catch(error => {
       logger.error(`There was an error changing the language: ${error?.stack ?? error}`)
       dispatch(
         openSimpleDialog(
