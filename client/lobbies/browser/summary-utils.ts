@@ -19,7 +19,10 @@ export function friendsInLobby(
   return friends.size ? summary.occupantIds.filter(userId => friends.has(userId)) : []
 }
 
-/** The platform-wide tally the browser's header reads out, over every listed lobby. */
+/**
+ * The tally the browser's header reads out. Pass it the lobbies the list is showing, so the header
+ * always describes the rows beneath it.
+ */
 export function lobbyListStats(summaries: Iterable<LobbySummary>): {
   lobbies: number
   players: number

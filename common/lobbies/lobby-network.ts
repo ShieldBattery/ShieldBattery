@@ -364,6 +364,22 @@ export interface LobbySummaryJson {
 }
 
 /**
+ * Whether a listed lobby offers no way in: no open player seat, no open observer seat, and no game
+ * in progress. A lobby with a running game never counts as full, since it takes joins onto its
+ * bench even with every seat taken. The lobby browser hides full lobbies by default and the
+ * open-lobby count leaves them out, so the two agree on what "open" means.
+ */
+export function isLobbySummaryFull(
+  summary: Pick<LobbySummaryJson, 'lifecycle' | 'playerSlots' | 'observerSlots'>,
+): boolean {
+  return (
+    summary.lifecycle !== 'inGame' &&
+    summary.playerSlots.open === 0 &&
+    summary.observerSlots.open === 0
+  )
+}
+
+/**
  * A single lobby as its previewers see it: its summary plus the seat-by-seat layout, so a browser
  * can show who is sitting where before joining. Published only on that lobby's preview channel,
  * which a client subscribes to one lobby at a time.
