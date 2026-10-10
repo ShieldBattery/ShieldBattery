@@ -180,26 +180,26 @@ export function ReplaySelectionSummary({
         <OutlinedButton
           ref={anchor}
           label={t('replays.library.addToPlaylist', 'Add to playlist…')}
-          iconStart={<MaterialIcon icon='playlist_add' />}
+          iconStart='playlist_add'
           onClick={openPlaylistMenu}
         />
         {inPlaylistView ? (
           <OutlinedButton
             label={t('replays.library.removeFromPlaylist', 'Remove from playlist')}
-            iconStart={<MaterialIcon icon='playlist_remove' />}
+            iconStart='playlist_remove'
             onClick={onRemoveFromPlaylist}
           />
         ) : null}
         {bookmark !== undefined ? (
           <OutlinedButton
             label={getBookmarkText(bookmark, t)}
-            iconStart={<MaterialIcon icon='bookmark' filled={!bookmark} />}
+            iconStart={<MaterialIcon icon='bookmark' size={20} filled={!bookmark} />}
             onClick={() => onSetBookmarked(bookmark)}
           />
         ) : null}
         <DestructiveOutlinedButton
           label={t('replays.library.moveToRecycleBin', 'Move to Recycle Bin')}
-          iconStart={<MaterialIcon icon='delete' />}
+          iconStart='delete'
           onClick={onMoveToRecycleBin}
         />
       </SummaryActions>

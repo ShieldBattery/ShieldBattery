@@ -1155,7 +1155,7 @@ export function Chat({
                   exit='exit'
                   transition={overlayTransition}>
                   <JumpToBottomButton
-                    iconStart={<MaterialIcon icon='arrow_downward' size={20} />}
+                    iconStart='arrow_downward'
                     label={
                       hasNewerMessages
                         ? t('messaging.jumpToPresent', 'Jump to present')

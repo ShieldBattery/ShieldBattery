@@ -8,7 +8,6 @@ import {
 } from '../../common/i18n'
 import { useForm, useFormCallbacks } from '../forms/form-hook'
 import { graphql } from '../gql'
-import { MaterialIcon } from '../icons/material/material-icon'
 import { Markdown } from '../markdown/markdown'
 import { FilledButton, OutlinedButton } from '../material/button'
 import { TextField } from '../material/text-field'
@@ -236,13 +235,13 @@ export function AdminUrgentMessage() {
                 handleLoad().catch(err => setOperationError(String(err)))
               }}
               disabled={busy}
-              iconStart={<MaterialIcon icon='edit' />}
+              iconStart='edit'
             />
             <FilledButton
               label='Clear Urgent Message'
               onClick={handleClear}
               disabled={busy}
-              iconStart={<MaterialIcon icon='delete' />}
+              iconStart='delete'
             />
           </Buttons>
         </TitleAndButtons>
@@ -288,12 +287,7 @@ export function AdminUrgentMessage() {
               </LanguageSection>
             )
           })}
-          <FilledButton
-            iconStart={<MaterialIcon icon='send' />}
-            label='Set Urgent Message'
-            type='submit'
-            disabled={busy}
-          />
+          <FilledButton iconStart='send' label='Set Urgent Message' type='submit' disabled={busy} />
         </Form>
       </Root>
     </CenteredContentContainer>

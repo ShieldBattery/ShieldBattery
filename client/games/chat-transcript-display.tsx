@@ -214,7 +214,7 @@ export function ChatTranscriptSection({
             ? t('gameDetails.chatTranscript.hide', 'Hide chat transcript')
             : t('gameDetails.chatTranscript.view', 'View chat transcript')
         }
-        iconStart={<MaterialIcon icon='forum' />}
+        iconStart='forum'
         onClick={onToggle}
         disabled={state.status === 'loading' || selectedReplays.length === 0}
       />

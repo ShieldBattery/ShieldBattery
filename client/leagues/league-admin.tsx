@@ -23,7 +23,6 @@ import { urlPath } from '../../common/urls'
 import { useObjectUrl } from '../dom/use-object-url'
 import { FormHook, useForm, useFormCallbacks } from '../forms/form-hook'
 import { maxFileSize, required } from '../forms/validators'
-import { MaterialIcon } from '../icons/material/material-icon'
 import { FilledButton } from '../material/button'
 import { CheckBox } from '../material/check-box'
 import { SingleFileInput } from '../material/file-input'
@@ -124,7 +123,7 @@ export function LeagueAdmin() {
               <div>
                 <FilledButton
                   label='Add league'
-                  iconStart={<MaterialIcon icon='add' />}
+                  iconStart='add'
                   onClick={() => push('/leagues/admin/new')}
                 />
               </div>

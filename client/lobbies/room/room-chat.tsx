@@ -645,7 +645,7 @@ function GameSummaryCard({ gameId }: { gameId: string }) {
               <SummaryActions>
                 <ReplayButton
                   label={t('lobbies.room.series.watchReplay', 'Watch replay')}
-                  iconStart={<MaterialIcon icon='play_arrow' size={20} />}
+                  iconStart='play_arrow'
                   onClick={() => onWatchReplay(gameId)}
                 />
                 <Tooltip text={t('lobbies.room.series.fullSummary', 'Full summary')} tabIndex={-1}>

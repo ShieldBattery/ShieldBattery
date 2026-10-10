@@ -3,7 +3,6 @@ import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { gameTypeToLabel } from '../../common/games/game-type'
 import { isLaunchingLifecycle, LobbySummaryResponse } from '../../common/lobbies/lobby-network'
-import { MaterialIcon } from '../icons/material/material-icon'
 import { FilledButton } from '../material/button'
 import { backdropTextShadow } from '../messaging/backdrop-card'
 import { useAppDispatch } from '../redux-hooks'
@@ -168,7 +167,7 @@ function JoinButton({ isJoining, onJoinClick }: { isJoining: boolean; onJoinClic
   return (
     <FilledButton
       label={t('lobbies.joinLobby.action', 'Join lobby')}
-      iconStart={<MaterialIcon icon='login' />}
+      iconStart='login'
       onClick={onJoinClick}
       disabled={isJoining}
       testName='join-lobby-button'

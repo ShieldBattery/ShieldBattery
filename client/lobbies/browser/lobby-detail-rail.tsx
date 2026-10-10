@@ -605,7 +605,7 @@ export function LobbyDetailRail({
         {isOwnLobby ? (
           <FullWidthFilledButton
             label={t('lobbies.browser.returnToLobby', 'Return to lobby')}
-            iconStart={<MaterialIcon icon='arrow_forward' size={20} />}
+            iconStart='arrow_forward'
             onClick={() => navigateToLobby(summary.id, summary.name)}
             testName='return-to-lobby-button'
           />
@@ -656,13 +656,7 @@ export function LobbyDetailRail({
             {!isInGame && summary.observerSlots.open > 0 ? (
               <FullWidthOutlinedButton
                 label={t('lobbies.browser.joinAsObserver', 'Join as observer')}
-                iconStart={
-                  pendingAsObserver === true ? (
-                    <DotsIndicator />
-                  ) : (
-                    <MaterialIcon icon='visibility' size={20} />
-                  )
-                }
+                iconStart={pendingAsObserver === true ? <DotsIndicator /> : 'visibility'}
                 onClick={() => onJoin(true)}
                 disabled={joinPending}
                 testName='join-as-observer-button'

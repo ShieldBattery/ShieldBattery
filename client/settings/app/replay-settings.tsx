@@ -220,7 +220,7 @@ export function AppReplaySettings() {
 
         <AddFolderButton
           label={t('settings.app.replays.addFolder', 'Add folder')}
-          iconStart={<MaterialIcon icon='add' />}
+          iconStart='add'
           onClick={onAddFolderClick}
         />
       </SectionContainer>

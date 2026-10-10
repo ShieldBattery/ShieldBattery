@@ -344,7 +344,7 @@ function MapPools({ activeTab }: { activeTab: MatchmakingType }) {
 
                 <TextButton
                   label='Use as template'
-                  iconStart={<MaterialIcon icon='content_copy' />}
+                  iconStart='content_copy'
                   onClick={() => {
                     createMapPoolFormRef.current?.setSelectedMaps(pool.maps)
                   }}

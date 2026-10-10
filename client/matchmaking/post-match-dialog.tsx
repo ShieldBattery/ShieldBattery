@@ -35,7 +35,6 @@ import { audioManager, AvailableSound, FadeableSound } from '../audio/audio-mana
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { PostMatchDialogPayload } from '../dialogs/dialog-type'
 import { recentReplayPathsAtom } from '../games/game-atoms'
-import { MaterialIcon } from '../icons/material/material-icon'
 import SearchAgainIcon from '../icons/shieldbattery/ic_satellite_dish_black_36px.svg?react'
 import { LeagueBadge } from '../leagues/league-badge'
 import logger from '../logging/logger'
@@ -151,7 +150,7 @@ const ButtonBar = styled.div`
 `
 
 const SizedSearchAgainIcon = styled(SearchAgainIcon)`
-  width: 24px;
+  width: 20px;
   height: auto;
 `
 
@@ -220,7 +219,7 @@ export function PostMatchDialog({
         />
         <FilledButton
           label={t('matchmaking.postMatchDialog.watchReplay', 'Watch replay')}
-          iconStart={<MaterialIcon icon='videocam' />}
+          iconStart='videocam'
           onClick={onWatchReplay}
           disabled={!replayPath}
         />

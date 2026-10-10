@@ -406,7 +406,7 @@ function LobbyStateContent({
           </BodyLarge>
           <StateMessageActionButton
             label={t('lobbies.createLobby.title', 'Create lobby')}
-            iconStart={<MaterialIcon icon='add' />}
+            iconStart='add'
             onClick={() => push('/play/lobbies/create')}
             testName='create-lobby-button'
           />
@@ -425,7 +425,7 @@ function BrowseLobbiesButton() {
   return (
     <StateMessageActionButton
       label={t('lobbies.joinLobby.browseLobbies', 'Browse lobbies')}
-      iconStart={<MaterialIcon icon='list' />}
+      iconStart='list'
       onClick={() => push('/play/lobbies')}
     />
   )
@@ -518,7 +518,7 @@ export function JoinableLobbyContent({
   const joinButton = (
     <StateMessageActionButton
       label={t('lobbies.joinLobby.action', 'Join lobby')}
-      iconStart={<MaterialIcon icon='add' />}
+      iconStart='add'
       onClick={onJoinClick}
       disabled={isJoining}
       testName='join-lobby-button'

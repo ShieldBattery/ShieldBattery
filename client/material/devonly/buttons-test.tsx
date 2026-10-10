@@ -41,36 +41,27 @@ export function ButtonsTest() {
         <TitleLarge>Press some buttons</TitleLarge>
         <Row>
           <FilledButton label='Filled' />
-          <FilledButton label='Filled icon' iconStart={<MaterialIcon icon='mood' size={20} />} />
+          <FilledButton label='Filled icon' iconStart='mood' />
           <FilledButton label='Filled disabled' disabled={true} />
         </Row>
         <Row>
           <FilledTonalButton label='Filled Tonal' />
-          <FilledTonalButton
-            label='Filled Tonal icon'
-            iconStart={<MaterialIcon icon='mood' size={20} />}
-          />
+          <FilledTonalButton label='Filled Tonal icon' iconStart='mood' />
           <FilledTonalButton label='Filled Tonal disabled' disabled={true} />
         </Row>
         <Row>
           <ElevatedButton label='Elevated' />
-          <ElevatedButton
-            label='Elevated icon'
-            iconStart={<MaterialIcon icon='mood' size={20} />}
-          />
+          <ElevatedButton label='Elevated icon' iconStart='mood' />
           <ElevatedButton label='Elevated disabled' disabled={true} />
         </Row>
         <Row>
           <OutlinedButton label='Outlined' />
-          <OutlinedButton
-            label='Outlined icon'
-            iconStart={<MaterialIcon icon='mood' size={20} />}
-          />
+          <OutlinedButton label='Outlined icon' iconStart='mood' />
           <OutlinedButton label='Outlined disabled' disabled={true} />
         </Row>
         <Row>
           <TextButton label='Text' />
-          <TextButton label='Text icon' iconStart={<MaterialIcon icon='mood' size={20} />} />
+          <TextButton label='Text icon' iconStart='mood' />
           <TextButton label='Text disabled' disabled={true} />
         </Row>
         <Row>

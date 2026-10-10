@@ -304,7 +304,7 @@ function DownloadButton() {
       <FilledButton
         styledAs='div'
         label={t('lobbies.landing.download', 'Download ShieldBattery')}
-        iconStart={<MaterialIcon icon='download' />}
+        iconStart='download'
       />
     </LinkButton>
   )
@@ -467,7 +467,7 @@ function OpenInAppPrimaryArea({
       return (
         <FilledButton
           label={t('lobbies.landing.appLaunch.button', 'Open in the ShieldBattery app')}
-          iconStart={<MaterialIcon icon='open_in_new' size={20} />}
+          iconStart='open_in_new'
           onClick={onLaunch}
         />
       )

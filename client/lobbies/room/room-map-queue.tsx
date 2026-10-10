@@ -182,7 +182,7 @@ export function MapQueueSection({
       )}
       <AddMapButton
         label={t('lobbies.mapQueue.addMap', 'Add map')}
-        iconStart={<MaterialIcon icon='add' />}
+        iconStart='add'
         disabled={queue.length >= MAX_MAP_QUEUE}
         onClick={onAddMap}
       />

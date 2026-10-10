@@ -18,7 +18,6 @@ import { ConnectedAvatar } from '../avatars/avatar'
 import { CommendIcon } from '../games/commend-icon'
 import { graphql } from '../gql'
 import TwitchIcon from '../icons/brands/twitch.svg?react'
-import { MaterialIcon } from '../icons/material/material-icon'
 import { RaceIcon } from '../lobbies/race-icon'
 import { FilledButton } from '../material/button'
 import { TabItem, Tabs } from '../material/tabs'
@@ -672,7 +671,7 @@ export function ProfileLiveBanner({
             <FilledButton
               styledAs='div'
               label={t('twitch.live.watch', 'Watch stream')}
-              iconStart={<MaterialIcon icon='play_arrow' size={20} />}
+              iconStart='play_arrow'
             />
           </BannerFoot>
         </BannerBody>

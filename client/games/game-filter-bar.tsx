@@ -448,7 +448,7 @@ export function GameFilterBar({
         {hasActiveFilters ? (
           <ClearButton
             label={t('common.actions.clear', 'Clear')}
-            iconStart={<MaterialIcon icon='close' />}
+            iconStart='close'
             onClick={() => {
               setRanked?.(false)
               setCustom?.(false)
