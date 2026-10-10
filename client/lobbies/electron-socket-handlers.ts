@@ -4,13 +4,13 @@ import { Lobby } from '../../common/lobbies'
 import { LobbyEvent } from '../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { audioManager, AvailableSound, FadeableSound } from '../audio/audio-manager'
-import { closeDialog, openDialog } from '../dialogs/action-creators'
+import { closeDialog, openDialog, openSimpleDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
-import { dispatch, Dispatchable } from '../dispatch-registry'
+import { dispatch, Dispatchable, ThunkAction } from '../dispatch-registry'
 import windowFocus from '../dom/window-focus'
 import i18n from '../i18n/i18next'
 import { RootState } from '../root-reducer'
-import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
+import { isInLobby } from './lobby-reducer'
 
 const ipcRenderer = new TypedIpcRenderer()
 
@@ -45,6 +45,46 @@ function clearCountdownTimer() {
   if (sound) {
     sound.fadeOut(0.5)
     countdownState.sound = undefined
+  }
+}
+
+/**
+ * Removes the current user from their lobby after the host kicked or banned them, telling them so
+ * in a dialog. The lobby view navigates away as soon as the lobby is cleared, so a transient
+ * notification would be easy to miss; the dialog stays up until it's dismissed.
+ */
+function removeSelfByHost(reason: 'kicked' | 'banned'): ThunkAction {
+  return (dispatch, getState) => {
+    const { lobby } = getState()
+    const lobbyName = lobby.info.name
+    clearCountdownTimer()
+
+    // Not being in a lobby means an earlier event already removed us, so there's nothing to report
+    if (isInLobby(lobby)) {
+      dispatch(
+        reason === 'kicked'
+          ? openSimpleDialog(
+              i18n.t('lobbies.events.kickedTitle', 'Kicked from lobby'),
+              i18n.t('lobbies.events.kickedBody', {
+                defaultValue: 'You have been kicked from {{lobbyName}}.',
+                lobbyName,
+              }),
+            )
+          : openSimpleDialog(
+              i18n.t('lobbies.events.bannedTitle', 'Banned from lobby'),
+              i18n.t('lobbies.events.bannedBody', {
+                defaultValue: "You have been banned from {{lobbyName}} and can't rejoin it.",
+                lobbyName,
+              }),
+            ),
+      )
+    }
+
+    dispatch(
+      reason === 'kicked'
+        ? { type: '@lobbies/updateKickSelf' }
+        : { type: '@lobbies/updateBanSelf' },
+    )
   }
 }
 
@@ -135,12 +175,7 @@ const eventToAction: EventToActionMap = {
 
     const user = auth.self!.user.id
     if (user === event.player.userId) {
-      // We have been kicked from a lobby
-      clearCountdownTimer()
-      externalShowSnackbar(i18n.t('lobbies.events.kicked', 'You have been kicked from the lobby.'))
-      dispatch({
-        type: '@lobbies/updateKickSelf',
-      })
+      dispatch(removeSelfByHost('kicked'))
     } else {
       dispatch({
         type: '@lobbies/updateKick',
@@ -154,12 +189,7 @@ const eventToAction: EventToActionMap = {
 
     const user = auth.self!.user.id
     if (user === event.player.userId) {
-      // It was us who has been banned from a lobby (shame on us!)
-      clearCountdownTimer()
-      externalShowSnackbar(i18n.t('lobbies.events.banned', 'You have been banned from the lobby.'))
-      dispatch({
-        type: '@lobbies/updateBanSelf',
-      })
+      dispatch(removeSelfByHost('banned'))
     } else {
       dispatch({
         type: '@lobbies/updateBan',
@@ -353,22 +383,8 @@ const eventToAction: EventToActionMap = {
         })
         break
       case 'kicked':
-        clearCountdownTimer()
-        externalShowSnackbar(
-          i18n.t('lobbies.events.kicked', 'You have been kicked from the lobby.'),
-        )
-        dispatch({
-          type: '@lobbies/updateKickSelf',
-        })
-        break
       case 'banned':
-        clearCountdownTimer()
-        externalShowSnackbar(
-          i18n.t('lobbies.events.banned', 'You have been banned from the lobby.'),
-        )
-        dispatch({
-          type: '@lobbies/updateBanSelf',
-        })
+        dispatch(removeSelfByHost(event.reason))
         break
       default:
         event.reason satisfies never
