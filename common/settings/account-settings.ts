@@ -53,6 +53,11 @@ export interface AccountSettings {
   /** How text messages are laid out in every chat surface that shares the message list. */
   chatDisplayMode: ChatDisplayMode
   /**
+   * Whether text messages from blocked users are left out of every chat surface that shares the
+   * message list entirely, rather than shown as a collapsed placeholder that can be expanded.
+   */
+  hideBlockedMessages: boolean
+  /**
    * The filename template for replays auto-saved after each game (see
    * `common/replay-name-template.ts` for the token syntax).
    */
@@ -80,6 +85,7 @@ export const DEFAULT_ACCOUNT_SETTINGS: ReadonlyDeep<AccountSettings> = {
   showWhispersEverywhere: true,
   availability: UserAvailability.Online,
   chatDisplayMode: 'classic',
+  hideBlockedMessages: false,
   replayNameTemplate: DEFAULT_REPLAY_NAME_TEMPLATE,
 }
 

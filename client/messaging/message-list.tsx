@@ -69,10 +69,16 @@ function isSameDay(d1: Date, d2: Date) {
   )
 }
 
-/** Whether the message at `index` starts a different day than the one before it. */
-function needsNewDayBefore(messages: ReadonlyArray<SbMessage>, index: number): boolean {
-  const prevMessage = index > 0 ? messages[index - 1] : undefined
-  return !!prevMessage && !isSameDay(new Date(prevMessage.time), new Date(messages[index].time))
+/** Whether a message is a text message sent by a user the viewer has blocked. */
+function isBlockedTextMessage(
+  message: SbMessage,
+  blockedUsers: ReadonlyDeep<Map<SbUserId, UserRelationshipJson>>,
+): boolean {
+  return (
+    (message.type === CommonMessageType.TextMessage ||
+      message.type === ServerChatMessageType.TextMessage) &&
+    blockedUsers.has(message.from)
+  )
 }
 
 /**
@@ -126,21 +132,74 @@ export function cozyLayoutFor(
   }
 }
 
-/** The cozy layout of each message in a list, in the same order. */
-function cozyLayoutsFor(
+/** A message a list renders, along with the dividers that go in front of it. */
+export interface MessageListEntry {
+  message: SbMessage
+  newDayBefore: boolean
+  unreadLineBefore: boolean
+  /** How the message is laid out in the cozy display mode, see `cozyLayoutFor`. */
+  layout: TextMessageLayout | undefined
+}
+
+/**
+ * Works out what a message list renders: which messages show, which dividers go in front of them
+ * and how text messages are laid out.
+ *
+ * With `hideBlocked`, text messages from blocked users are left out entirely and everything else is
+ * placed as if they had never been sent: a day holding only hidden messages gets no divider, an
+ * unread divider that would go in front of a hidden message goes in front of the next rendered one
+ * instead, and a hidden message doesn't break a cozy group. A hidden message has still been read,
+ * though, so it still shows the unread boundary falls within the loaded window.
+ */
+export function layoutMessageList(
   messages: ReadonlyArray<SbMessage>,
-  unreadLineIndex: number,
-  blockedUsers: ReadonlyDeep<Map<SbUserId, UserRelationshipJson>>,
-): Array<TextMessageLayout | undefined> {
-  const layouts: Array<TextMessageLayout | undefined> = []
-  let prev: CozyGroupTail | undefined
-  for (let i = 0; i < messages.length; i++) {
-    const hasDividerBefore = needsNewDayBefore(messages, i) || i === unreadLineIndex
-    const { layout, next } = cozyLayoutFor(messages[i], prev, hasDividerBefore, blockedUsers)
-    layouts.push(layout)
-    prev = next
+  {
+    unreadLineTime,
+    hasMoreHistory,
+    blockedUsers,
+    hideBlocked,
+    cozy,
+  }: {
+    unreadLineTime: number | undefined
+    hasMoreHistory: boolean | undefined
+    blockedUsers: ReadonlyDeep<Map<SbUserId, UserRelationshipJson>>
+    hideBlocked: boolean
+    cozy: boolean
+  },
+): MessageListEntry[] {
+  const isHidden = (m: SbMessage) => hideBlocked && isBlockedTextMessage(m, blockedUsers)
+
+  const unreadLineIndex = findUnreadLineIndex(messages, unreadLineTime, hasMoreHistory)
+  const unreadLineMessage =
+    unreadLineIndex === -1 ? undefined : messages.slice(unreadLineIndex).find(m => !isHidden(m))
+
+  const entries: MessageListEntry[] = []
+  let prev: SbMessage | undefined
+  let cozyTail: CozyGroupTail | undefined
+  for (const message of messages) {
+    if (isHidden(message)) {
+      continue
+    }
+
+    const newDayBefore = !!prev && !isSameDay(new Date(prev.time), new Date(message.time))
+    const unreadLineBefore = message === unreadLineMessage
+    let layout: TextMessageLayout | undefined
+    if (cozy) {
+      const cozyResult = cozyLayoutFor(
+        message,
+        cozyTail,
+        newDayBefore || unreadLineBefore,
+        blockedUsers,
+      )
+      layout = cozyResult.layout
+      cozyTail = cozyResult.next
+    }
+
+    entries.push({ message, newDayBefore, unreadLineBefore, layout })
+    prev = message
   }
-  return layouts
+
+  return entries
 }
 
 /**
@@ -277,6 +336,7 @@ function PureMessageList({
   const selfUser = useSelfUser()
   const blocks = useAppSelector(s => s.relationships.blocks)
   const accountDisplayMode = useAppSelector(s => s.settings.account.chatDisplayMode)
+  const hideBlocked = useAppSelector(s => s.settings.account.hideBlockedMessages)
   const effectiveDisplayMode = displayMode ?? accountDisplayMode
 
   // Message lists only exist behind a login in the real app, but /dev pages mount outside that
@@ -286,11 +346,23 @@ function PureMessageList({
   }
   const selfUserId = selfUser.id
 
-  if (messages.length < 1) {
+  const entries = layoutMessageList(messages, {
+    unreadLineTime,
+    hasMoreHistory,
+    blockedUsers: blocks,
+    hideBlocked,
+    cozy: effectiveDisplayMode === 'cozy',
+  })
+
+  if (entries.length < 1) {
     if (loading || hasHistoryError) {
       // The surrounding infinite scroll list is already accounting for the empty window at its
       // edge — a loader saying messages are on their way, or an error row saying they couldn't be
       // had. Empty state text alongside either would read as a contradiction.
+      return undefined
+    }
+    if (messages.length > 0 && hasMoreHistory) {
+      // Everything loaded is hidden, which says nothing about the older history still to come.
       return undefined
     }
     return showEmptyState ? (
@@ -298,13 +370,9 @@ function PureMessageList({
     ) : undefined
   }
 
-  const unreadLineIndex = findUnreadLineIndex(messages, unreadLineTime, hasMoreHistory)
-  const cozyLayouts =
-    effectiveDisplayMode === 'cozy' ? cozyLayoutsFor(messages, unreadLineIndex, blocks) : undefined
-
   return (
     <Messages>
-      {messages.map((m, index) => {
+      {entries.map(({ message: m, newDayBefore, unreadLineBefore, layout }) => {
         const messageLayout = (
           <CommonMessageOrFallback
             key={m.id}
@@ -312,19 +380,16 @@ function PureMessageList({
             selfUserId={selfUserId}
             blockedUsers={blocks}
             FallbackComponent={MessageComponent}
-            layout={cozyLayouts?.[index]}
+            layout={layout}
           />
         )
 
-        const needsNewDay = needsNewDayBefore(messages, index)
-        const needsUnreadLine = index === unreadLineIndex
-
-        if (!needsNewDay && !needsUnreadLine) {
+        if (!newDayBefore && !unreadLineBefore) {
           return messageLayout
         }
 
         const dividers: React.ReactNode[] = []
-        if (needsNewDay) {
+        if (newDayBefore) {
           const newDayMessage: CommonNewDayMessage = {
             id: m.time + '-' + CommonMessageType.NewDayMessage,
             type: CommonMessageType.NewDayMessage,
@@ -340,7 +405,7 @@ function PureMessageList({
             />,
           )
         }
-        if (needsUnreadLine) {
+        if (unreadLineBefore) {
           dividers.push(<UnreadLineMessage key={'unread-' + m.id} />)
         }
 
