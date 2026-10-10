@@ -31,6 +31,7 @@ import {
 import { normalizeJoinCode } from '../../../common/lobbies/join-code'
 import {
   changesGameSettings,
+  isLobbySummaryFull,
   LobbyBenchRemoveEvent,
   LobbyChangedSetting,
   LobbyInitEvent,
@@ -466,6 +467,8 @@ export class LobbyService {
     SbUserId,
     { lobbyId: SbLobbyId; client: ClientSocketsGroup; timer: TimeoutId }
   >()
+  /** The open-lobby count as last published, so a change that leaves it alone isn't republished. */
+  private lastPublishedLobbiesCount: number | undefined
 
   // Every parameter is a dependency the container injects, so the count is a measure of what a
   // lobby touches rather than of what a caller has to assemble.
@@ -2848,23 +2851,31 @@ export class LobbyService {
     }
   }
 
+  /**
+   * Counts the lobbies a browser with default filters shows: every listed lobby except the full
+   * ones it hides.
+   */
   getLobbiesCount() {
-    // TODO(tec27): Ideally this would remove full lobbies?
     let count = 0
-    for (const lobby of this.lobbies.values()) {
-      if (
-        lobby.visibility === 'listed' &&
-        !this.lobbyCountdowns.has(lobby.id) &&
-        !this.loadingLobbies.has(lobby.id)
-      ) {
+    for (const summary of this.getListedSummaries()) {
+      if (!isLobbySummaryFull(summary)) {
         count += 1
       }
     }
     return count
   }
 
+  /**
+   * Publishes the open-lobby count if it differs from the last one published. That channel reaches
+   * every connected client on the server, whether or not they're anywhere near the lobby browser,
+   * so the many list changes that leave the count alone (most joins and leaves) stay off it.
+   */
   _publishLobbiesCount() {
-    this.publisher.publish('/lobbiesCount', { count: this.getLobbiesCount() })
+    const count = this.getLobbiesCount()
+    if (count !== this.lastPublishedLobbiesCount) {
+      this.lastPublishedLobbiesCount = count
+      this.publisher.publish('/lobbiesCount', { count })
+    }
   }
 
   /**
@@ -2874,9 +2885,8 @@ export class LobbyService {
    * (not even the bare id in a `delete`) may reach the public list channel. Every list publish must
    * go through here so that filtering can't be forgotten at a callsite.
    *
-   * Only a lobby entering or leaving the list can change the open-lobby count, so only those
-   * refresh it. That count channel reaches every connected client on the server, whether or not
-   * they're anywhere near the lobby browser.
+   * Any change can move the open-lobby count, since an update can fill a lobby's last open seat or
+   * open one up, so each refreshes it.
    */
   _publishListChange(action: 'add' | 'delete' | 'update', lobby: Lobby) {
     if (lobby.visibility === 'listed') {
@@ -2885,9 +2895,7 @@ export class LobbyService {
         payload: action === 'delete' ? lobby.id : this._toSummaryJson(lobby),
       })
     }
-    if (action !== 'update') {
-      this._publishLobbiesCount()
-    }
+    this._publishLobbiesCount()
   }
 
   /** Publishes a lobby's current seat-by-seat layout to whoever is previewing it. */

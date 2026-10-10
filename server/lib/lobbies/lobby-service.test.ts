@@ -755,6 +755,44 @@ describe('lobbies/lobby-service', () => {
       expect(previewPublishes(id)[0].payload).toHaveProperty('teams')
       expect((listPublishes()[0].payload as any).teams).toBeUndefined()
     })
+
+    test('a lobby taking its last open seat leaves the count, and rejoins it when one opens', async () => {
+      const { id } = await createLobby(host, '1v1', 'listed', false, GameType.OneVsOne)
+      fakeNydus.publish.mockClear()
+
+      await joinLobby(joiner, id)
+      expect(countPublishes()).toEqual([{ count: 0 }])
+
+      lobbyService.leaveLobby({ client: joiner.client })
+      expect(countPublishes()).toEqual([{ count: 0 }, { count: 1 }])
+    })
+
+    test('a lobby filled by a computer leaves the count, and rejoins it when the computer goes', async () => {
+      const { id } = await createLobby(host, '1v1', 'listed', false, GameType.OneVsOne)
+      fakeNydus.publish.mockClear()
+
+      const openSlot = lobbyService.lobbies.get(id)!.teams[0].slots[1]
+      lobbyService.addComputer({ client: host.client, slotId: openSlot.id })
+      expect(countPublishes()).toEqual([{ count: 0 }])
+
+      const computerSlot = lobbyService.lobbies.get(id)!.teams[0].slots[1]
+      expect(computerSlot.type).toBe('computer')
+      lobbyService.kickPlayer({ client: host.client, slotId: computerSlot.id })
+      expect(countPublishes()).toEqual([{ count: 0 }, { count: 1 }])
+    })
+
+    test('an open observer seat keeps a lobby with every player seat taken in the count', async () => {
+      const { id } = await createLobby(host, '1v1', 'listed', true, GameType.OneVsOne)
+      const lobby = lobbyService.lobbies.get(id)!
+      const [, observerTeam] = getObserverTeam(lobby)
+      lobbyService.openSlot({ client: host.client, slotId: observerTeam!.slots[0].id })
+      fakeNydus.publish.mockClear()
+
+      await joinLobby(joiner, id)
+
+      expect(lobbyService.getLobbiesCount()).toBe(1)
+      expect(countPublishes()).toEqual([])
+    })
   })
 
   describe('join', () => {

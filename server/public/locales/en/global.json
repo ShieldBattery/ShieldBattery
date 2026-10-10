@@ -1664,6 +1664,8 @@
       "friendsInside_one": "{{count}} friend is in this lobby",
       "friendsInside_other": "{{count}} friends are in this lobby",
       "full": "Full",
+      "hiddenFullCount_one": "{{count}} full lobby hidden",
+      "hiddenFullCount_other": "{{count}} full lobbies hidden",
       "inGame": "In game",
       "joinAsObserver": "Join as observer",
       "joinLobby": "Join lobby",

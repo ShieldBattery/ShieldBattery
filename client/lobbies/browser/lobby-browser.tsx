@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { getErrorStack } from '../../../common/errors'
+import { isLobbySummaryFull } from '../../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import { SbUser } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
@@ -120,6 +121,11 @@ const EmptyState = styled.div`
   text-align: center;
 `
 
+const HiddenFullCount = styled.div`
+  ${bodyMedium};
+  margin-top: 4px;
+`
+
 const EmptyStateActions = styled.div`
   display: flex;
   align-items: center;
@@ -198,12 +204,7 @@ export function LobbyBrowser({ onNavigateToCreate }: LobbyBrowserProps) {
       // full filter reveals them. An open observer seat alone keeps a lobby listed: it's still
       // joinable, just not as a player. A lobby with a game in progress always shows: it's
       // joinable (onto the bench) even with every seat taken, and the server deliberately lists it.
-      if (
-        !showFull &&
-        summary.lifecycle !== 'inGame' &&
-        summary.playerSlots.open === 0 &&
-        summary.observerSlots.open === 0
-      ) {
+      if (!showFull && isLobbySummaryFull(summary)) {
         return false
       }
       if (gameType !== undefined && summary.gameType !== gameType) {
@@ -332,7 +333,7 @@ export function LobbyBrowser({ onNavigateToCreate }: LobbyBrowserProps) {
     })
   }
 
-  const stats = lobbyListStats(summaries)
+  const stats = lobbyListStats(visible)
   const canCreate = IS_ELECTRON
 
   let panes: React.ReactNode
@@ -353,13 +354,24 @@ export function LobbyBrowser({ onNavigateToCreate }: LobbyBrowserProps) {
   } else if (visible.length === 0) {
     // With nothing filtered, the only thing that can empty a non-empty list is the default of
     // hiding lobbies nobody can get into, so say that rather than blaming filters that aren't set.
+    // The header counts only what the list shows, so the empty state is what says how many full
+    // lobbies are out there.
     panes = (
       <EmptyState>
-        <div>
-          {filterState.hasActiveFilters
-            ? t('lobbies.browser.emptyNoMatches', 'No lobbies match your filters')
-            : t('lobbies.browser.emptyAllFull', 'Every lobby is full right now')}
-        </div>
+        {filterState.hasActiveFilters ? (
+          <div>{t('lobbies.browser.emptyNoMatches', 'No lobbies match your filters')}</div>
+        ) : (
+          <div>
+            <div>{t('lobbies.browser.emptyAllFull', 'Every lobby is full right now')}</div>
+            <HiddenFullCount>
+              {t('lobbies.browser.hiddenFullCount', {
+                defaultValue: '{{count}} full lobbies hidden',
+                defaultValue_one: '{{count}} full lobby hidden',
+                count: summaries.length,
+              })}
+            </HiddenFullCount>
+          </div>
+        )}
         <EmptyStateActions>
           {filterState.hasActiveFilters ? (
             <TextButton
