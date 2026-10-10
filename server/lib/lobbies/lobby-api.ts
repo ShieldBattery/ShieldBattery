@@ -1,4 +1,5 @@
 import { RouterContext } from '@koa/router'
+import httpErrors from 'http-errors'
 import Joi from 'joi'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { isValidLobbyName } from '../../../common/constants'
@@ -7,12 +8,15 @@ import { ALL_LOBBY_VISIBILITIES, MAX_MAP_QUEUE } from '../../../common/lobbies'
 import {
   CreateLobbyRequest,
   CreateLobbyResponse,
+  GetLobbySeatsResponse,
   GetLobbyStateResponse,
   JoinLobbyRequest,
   LobbyClientRequest,
   LobbyJoinErrorCode,
+  LobbyPlayerSeatJson,
   LobbyServiceErrorCode,
   LobbySlotRequest,
+  LobbySummaryTeamJson,
   MoveSlotRequest,
   SendLobbyChatRequest,
   SendLobbyOutcomeRequest,
@@ -33,6 +37,7 @@ import { ROLLED_OUTCOME_REQUEST_KEYS } from '../messaging/rolled-outcome-request
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware, { throttleByUser } from '../throttle/middleware'
+import { findUsersById } from '../users/user-model'
 import { validateRequest } from '../validation/joi-validator'
 import {
   ClientSocketsGroup,
@@ -64,6 +69,15 @@ const lobbyActionThrottle = createThrottle('lobbies/action', {
 const lobbyChatThrottle = createThrottle('lobbies/chat', {
   rate: 30,
   burst: 90,
+  window: 60000,
+})
+
+// Seat reads back the cards rendered for lobby links in chat, which a busy channel can show several
+// of at once, so they get their own bucket rather than eating into the ones joins and in-lobby
+// actions depend on.
+const lobbySeatsThrottle = createThrottle('lobbies/seats', {
+  rate: 40,
+  burst: 80,
   window: 60000,
 })
 
@@ -234,6 +248,38 @@ export function convertLobbyServiceError(err: unknown): void {
 }
 
 const convertLobbyServiceErrors = makeErrorConverterMiddleware(convertLobbyServiceError)
+
+/**
+ * Picks the player seats out of a lobby's preview layout, in seat order (team order, then slot
+ * order). Observer teams and closed seats are left out, since neither is a seat a player could hold.
+ */
+export function toPlayerSeats(teams: ReadonlyArray<LobbySummaryTeamJson>): LobbyPlayerSeatJson[] {
+  const seats: LobbyPlayerSeatJson[] = []
+  for (const team of teams) {
+    if (team.isObserver) {
+      continue
+    }
+    for (const slot of team.slots) {
+      switch (slot.type) {
+        case 'human':
+          seats.push({ type: 'human', userId: slot.userId })
+          break
+        case 'computer':
+          seats.push({ type: 'computer' })
+          break
+        case 'open':
+          seats.push({ type: 'open' })
+          break
+        case 'closed':
+        case 'observer':
+          break
+        default:
+          assertUnreachable(slot)
+      }
+    }
+  }
+  return seats
+}
 
 /**
  * Every client-initiated lobby operation. The websocket side of lobbies (`lobby-socket-api`)
@@ -587,6 +633,27 @@ export class LobbyApi {
     const { params } = validateRequest(ctx, { params: lobbyIdParams })
 
     return this.lobbyService.getLobbyState({ lobbyId: params.lobbyId })
+  }
+
+  /**
+   * Returns who sits in each of a lobby's player seats, for a viewer who isn't in it. Logged-in only:
+   * the unauthenticated summary endpoint answering the same lobby id never names its occupants.
+   */
+  @httpGet('/:lobbyId/seats')
+  @httpBefore(ensureLoggedIn, throttleMiddleware(lobbySeatsThrottle, throttleByUser))
+  async getSeats(ctx: RouterContext): Promise<GetLobbySeatsResponse> {
+    const { params } = validateRequest(ctx, { params: lobbyIdParams })
+
+    const preview = this.lobbyService.getPreview(params.lobbyId)
+    if (!preview) {
+      throw new httpErrors.NotFound('lobby not found')
+    }
+
+    const seats = toPlayerSeats(preview.teams)
+    const users = await findUsersById(
+      seats.flatMap(seat => (seat.type === 'human' ? [seat.userId] : [])),
+    )
+    return { seats, users }
   }
 
   /** Resolves the session's user and the named client session, or throws if either is unreachable. */

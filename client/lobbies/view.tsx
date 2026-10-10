@@ -2,12 +2,13 @@ import * as React from 'react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { ReadonlyDeep } from 'type-fest'
 import { Route, Switch } from 'wouter'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { getErrorStack } from '../../common/errors'
 import { ResultsSubPage } from '../../common/games/results-sub-page'
 import { LobbyState } from '../../common/lobbies'
-import { LobbyJoinErrorCode } from '../../common/lobbies/lobby-network'
+import { LobbyJoinErrorCode, LobbyPlayerSeatJson } from '../../common/lobbies/lobby-network'
 import { makeSbLobbyId, SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { isInActiveGame } from '../active-game/game-client-reducer'
 import { useRequireLogin, useSelfUser } from '../auth/auth-utils'
@@ -51,6 +52,7 @@ import { JoinPreview } from './join-preview'
 import { lobbyActionErrorMessage } from './lobby-action-errors'
 import { lobbyJoinErrorCode } from './lobby-join-errors'
 import { isInLobby } from './lobby-reducer'
+import { useLobbySeats } from './lobby-seats'
 import { LobbySummaryLoadState, useLobbySummary } from './lobby-summary'
 import { useCorrectLobbySlug } from './lobby-url'
 import { LobbyRoom } from './room/lobby-room'
@@ -456,6 +458,10 @@ const JoinPreviewLayout = styled.div`
 function JoinableLobbyView({ routeLobbyId }: { routeLobbyId: SbLobbyId }) {
   const snackbarController = useSnackbarController()
   const [summary, refreshSummary] = useLobbySummary(routeLobbyId)
+  // Seats only load for a lobby the summary found, so a lobby that's gone costs one request.
+  const [seats, refreshSeats] = useLobbySeats(
+    summary?.status === 'loaded' ? routeLobbyId : undefined,
+  )
   const [lobbyGone, setLobbyGone] = useState(false)
   const [join, isJoining] = useJoinLobbyAction()
 
@@ -480,6 +486,7 @@ function JoinableLobbyView({ routeLobbyId }: { routeLobbyId: SbLobbyId }) {
         }
 
         refreshSummary()
+        refreshSeats()
       },
     })
   }
@@ -487,6 +494,7 @@ function JoinableLobbyView({ routeLobbyId }: { routeLobbyId: SbLobbyId }) {
   return (
     <JoinableLobbyContent
       summary={summary}
+      seats={seats}
       lobbyGone={lobbyGone}
       isJoining={isJoining}
       onJoinClick={onJoinClick}
@@ -501,11 +509,14 @@ function JoinableLobbyView({ routeLobbyId }: { routeLobbyId: SbLobbyId }) {
  */
 export function JoinableLobbyContent({
   summary,
+  seats,
   lobbyGone,
   isJoining,
   onJoinClick,
 }: {
   summary: LobbySummaryLoadState | undefined
+  /** Who holds each player seat, once loaded. The preview shows seat counts alone until then. */
+  seats?: ReadonlyDeep<LobbyPlayerSeatJson[]>
   lobbyGone: boolean
   isJoining: boolean
   onJoinClick: () => void
@@ -556,7 +567,12 @@ export function JoinableLobbyContent({
 
   return (
     <JoinPreviewLayout>
-      <JoinPreview summary={summary.data} isJoining={isJoining} onJoinClick={onJoinClick} />
+      <JoinPreview
+        summary={summary.data}
+        seats={seats}
+        isJoining={isJoining}
+        onJoinClick={onJoinClick}
+      />
     </JoinPreviewLayout>
   )
 }

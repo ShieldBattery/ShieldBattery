@@ -431,6 +431,26 @@ export interface LobbySummaryResponse {
   joinCode?: string
 }
 
+/** A lobby player seat as its invite card and join preview show it. Closed seats are left out. */
+export type LobbyPlayerSeatJson =
+  | { type: 'human'; userId: SbUserId }
+  | { type: 'computer' }
+  | { type: 'open' }
+
+/**
+ * The response of the logged-in `GET /api/1/lobbies/:lobbyId/seats`: a lobby's player seats in seat
+ * order (team order, then slot order), and the users seated in them.
+ *
+ * This is a subset of what the lobby's preview channel already publishes to any logged-in client
+ * holding the lobby's id, so it discloses nothing new; it exists so a client can read several
+ * lobbies' seats at once without subscribing to (and swapping between) their previews. It stays
+ * off the unauthenticated summary response, which never names who is inside a lobby.
+ */
+export interface GetLobbySeatsResponse {
+  seats: LobbyPlayerSeatJson[]
+  users: SbUser[]
+}
+
 export interface LobbyInitEvent {
   type: 'init'
   // TODO(tec27): actually type this. This is the lobby as the server JSON-serialized it, so e.g.

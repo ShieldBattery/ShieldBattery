@@ -2,17 +2,21 @@ import { useEffect } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
+import { assertUnreachable } from '../../common/assert-unreachable'
 import { GameType, gameTypeToLabel } from '../../common/games/game-type'
-import { getPlayerSlots, openSlotCount, slotCount } from '../../common/lobbies'
+import { getPlayerSlots, Lobby, openSlotCount, slotCount } from '../../common/lobbies'
 import {
   isLaunchingLifecycle,
   LobbyLifecycle,
+  LobbyPlayerSeatJson,
   LobbyPlayerSlotCounts,
 } from '../../common/lobbies/lobby-network'
 import { lobbyIdFromPath } from '../../common/lobbies/lobby-url'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
+import { SlotType } from '../../common/lobbies/slot'
 import { MapImageInfo, SbMapId } from '../../common/maps'
 import { SbUserId } from '../../common/users/sb-user-id'
+import { ConnectedAvatar } from '../avatars/avatar'
 import { MaterialIcon } from '../icons/material/material-icon'
 import {
   BackdropCard,
@@ -34,7 +38,11 @@ import { shieldBatteryPathFromLink } from '../navigation/external-link'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { bodySmall, labelMedium, singleLine, titleLarge } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
+import { ConnectedUserContextMenu } from '../users/user-context-menu'
+import { useUserOverlays } from '../users/user-overlays'
+import { ConnectedUserProfileOverlay } from '../users/user-profile-overlay'
 import { isInLobby } from './lobby-reducer'
+import { useLobbySeats } from './lobby-seats'
 import { LobbySummaryLoadState, useLobbySummary } from './lobby-summary'
 import { navigateToLobby } from './lobby-url'
 import { useJoinLobbyAction } from './use-join-lobby-action'
@@ -82,6 +90,11 @@ export interface LobbyInviteDisplayData {
   hostId: SbUserId
   /** How many player seats the lobby has, and how many are filled or open (the rest are closed). */
   playerSlots: LobbyPlayerSlotCounts
+  /**
+   * Who holds each player seat, in seat order, when that's known. Without it the seats render from
+   * `playerSlots`' counts alone.
+   */
+  seats?: ReadonlyDeep<LobbyPlayerSeatJson[]>
   lifecycle: LobbyLifecycle
 }
 
@@ -124,52 +137,136 @@ const SeatCountText = styled.span`
   color: var(--theme-on-surface-variant);
 `
 
+const SeatAvatarButton = styled.span`
+  width: ${SEAT_TILE_SIZE}px;
+  height: ${SEAT_TILE_SIZE}px;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.5);
+  cursor: pointer;
+
+  &:hover {
+    outline: 2px solid var(--theme-on-surface);
+    outline-offset: 1px;
+  }
+`
+
+const SeatAvatar = styled(ConnectedAvatar)`
+  width: ${SEAT_TILE_SIZE}px;
+  height: ${SEAT_TILE_SIZE}px;
+`
+
 /**
- * A lobby's player seats as tiles, filled ones first: in a single row, or a grid of up to
- * {@link SEAT_TILES_PER_ROW} per row. Only counts are shown, since who holds each seat isn't part of
- * what a lobby link reveals.
+ * A seated player's avatar, which opens their profile overlay when clicked (and their context menu
+ * when right-clicked) rather than letting the click through to whatever it sits on.
+ */
+function PlayerSeat({ userId }: { userId: SbUserId }) {
+  const username = useAppSelector(s => s.users.byId.get(userId)?.name)
+  const { profileOverlayProps, contextMenuProps, onClick, onContextMenu } = useUserOverlays({
+    userId,
+    profileAnchorX: 'left',
+    profileAnchorY: 'top',
+    profileOriginX: 'right',
+    profileOriginY: 'top',
+    profileOffsetX: -4,
+  })
+
+  return (
+    <CardTooltip text={username} position='top' disabled={!username}>
+      <CardClickBoundary>
+        <SeatAvatarButton onClick={onClick} onContextMenu={onContextMenu}>
+          <SeatAvatar userId={userId} showLiveIndicator={false} />
+        </SeatAvatarButton>
+        <ConnectedUserProfileOverlay {...profileOverlayProps} />
+        <ConnectedUserContextMenu {...contextMenuProps} />
+      </CardClickBoundary>
+    </CardTooltip>
+  )
+}
+
+/**
+ * A lobby's player seats as tiles, filled ones first (in seat order): in a single row, or a grid of
+ * up to {@link SEAT_TILES_PER_ROW} per row.
+ *
+ * With `seats`, each filled seat shows who holds it: a seated user's avatar, or a computer tile.
+ * Those come from the logged-in seats endpoint (or, for the viewer's own lobby, its live state), and
+ * name nobody a logged-in viewer holding the lobby's id couldn't already see on its preview channel.
+ * The unauthenticated summary never names a lobby's occupants, so without `seats` the tiles show
+ * only how many seats are filled.
  */
 export function LobbySeats({
   playerSlots,
+  seats,
   lifecycle,
   layout,
 }: {
   playerSlots: LobbyPlayerSlotCounts
+  seats?: ReadonlyDeep<LobbyPlayerSeatJson[]>
   lifecycle: LobbyLifecycle
   layout: 'row' | 'grid'
 }) {
   const { t } = useTranslation()
-  const seats = [
-    ...Array.from({ length: playerSlots.taken }, () => true),
-    ...Array.from({ length: playerSlots.open }, () => false),
-  ]
-  const tooltip = t('lobbies.inviteCard.seats', {
-    defaultValue: '{{taken}} of {{total}} seats filled',
-    taken: playerSlots.taken,
-    total: playerSlots.taken + playerSlots.open,
-  })
+
+  const filledSeats = seats?.filter(seat => seat.type !== 'open')
+  const openCount = seats ? seats.length - filledSeats!.length : playerSlots.open
+  const tileCount = seats ? seats.length : playerSlots.taken + playerSlots.open
+
   const countText =
     lifecycle === 'gathering'
       ? t('lobbies.summary.openSlotCount', {
           defaultValue: '{{count}} open',
-          count: playerSlots.open,
+          count: openCount,
         })
       : undefined
 
-  const columns = layout === 'row' ? seats.length : Math.min(SEAT_TILES_PER_ROW, seats.length)
+  const columns = layout === 'row' ? tileCount : Math.min(SEAT_TILES_PER_ROW, tileCount)
+  const openTiles = Array.from({ length: openCount }, (_, i) => (
+    <SeatTile key={`open-${i}`} $filled={false} />
+  ))
+
+  if (!filledSeats) {
+    const tooltip = t('lobbies.inviteCard.seats', {
+      defaultValue: '{{taken}} of {{total}} seats filled',
+      taken: playerSlots.taken,
+      total: playerSlots.taken + playerSlots.open,
+    })
+
+    return (
+      <>
+        {countText ? <SeatCountText>{countText}</SeatCountText> : null}
+        <SeatsTooltip text={tooltip} position='top'>
+          <SeatTileGrid $columns={Math.max(1, columns)}>
+            {Array.from({ length: playerSlots.taken }, (_, i) => (
+              <SeatTile key={i} $filled={true}>
+                <MaterialIcon icon='person' size={16} filled={true} />
+              </SeatTile>
+            ))}
+            {openTiles}
+          </SeatTileGrid>
+        </SeatsTooltip>
+      </>
+    )
+  }
 
   return (
     <>
       {countText ? <SeatCountText>{countText}</SeatCountText> : null}
-      <SeatsTooltip text={tooltip} position='top'>
-        <SeatTileGrid $columns={Math.max(1, columns)}>
-          {seats.map((filled, i) => (
-            <SeatTile key={i} $filled={filled}>
-              {filled ? <MaterialIcon icon='person' size={16} filled={true} /> : null}
-            </SeatTile>
-          ))}
-        </SeatTileGrid>
-      </SeatsTooltip>
+      <SeatTileGrid $columns={Math.max(1, columns)}>
+        {filledSeats.map((seat, i) =>
+          seat.type === 'human' ? (
+            <PlayerSeat key={i} userId={seat.userId} />
+          ) : (
+            <CardTooltip
+              key={i}
+              text={t('lobbies.browser.slotComputer', 'Computer')}
+              position='top'>
+              <SeatTile $filled={true}>
+                <MaterialIcon icon='smart_toy' size={16} filled={true} />
+              </SeatTile>
+            </CardTooltip>
+          ),
+        )}
+        {openTiles}
+      </SeatTileGrid>
     </>
   )
 }
@@ -376,6 +473,7 @@ function LobbyInviteCardBody({
           <HostedBy hostId={display.hostId} />
           <LobbySeats
             playerSlots={display.playerSlots}
+            seats={display.seats}
             lifecycle={display.lifecycle}
             layout='row'
           />
@@ -397,10 +495,13 @@ function LobbyInviteCardBody({
  */
 export function LobbyInviteCardContent({
   state,
+  seats,
   onClick,
   onJoinClick,
 }: {
   state: LobbySummaryLoadState | undefined
+  /** Who holds each player seat, once loaded. The card renders from `state` alone until then. */
+  seats?: ReadonlyDeep<LobbyPlayerSeatJson[]>
   /** Opens the lobby's page, where the viewer can choose to join it. */
   onClick: () => void
   onJoinClick: () => void
@@ -433,6 +534,7 @@ export function LobbyInviteCardContent({
         gameType: lobby.gameType,
         hostId: host.id,
         playerSlots: lobby.playerSlots,
+        seats,
         lifecycle: lobby.lifecycle,
       }}
       joined={false}
@@ -491,6 +593,10 @@ function JoinableLobbyInviteCard({ lobbyId }: { lobbyId: SbLobbyId }) {
   const dispatch = useAppDispatch()
   const [joinLobbyAction] = useJoinLobbyAction()
   const [state] = useLobbySummary(lobbyId, { cached: true })
+  // Seats only load for a lobby the summary found, so a dead link doesn't cost a second request.
+  const [seats] = useLobbySeats(state?.status === 'loaded' ? lobbyId : undefined, {
+    cached: true,
+  })
   const host = state?.status === 'loaded' ? state.data.host : undefined
   const name = state?.status === 'loaded' ? state.data.summary.name : undefined
 
@@ -504,10 +610,43 @@ function JoinableLobbyInviteCard({ lobbyId }: { lobbyId: SbLobbyId }) {
   return (
     <LobbyInviteCardContent
       state={state}
+      seats={seats}
       onClick={() => navigateToLobby(lobbyId, name)}
       onJoinClick={() => joinLobbyAction(lobbyId, { name })}
     />
   )
+}
+
+/** A lobby's player seats in seat order (team order, then slot order), closed seats left out. */
+function playerSeatsOf(lobby: ReadonlyDeep<Lobby>): LobbyPlayerSeatJson[] {
+  const seats: LobbyPlayerSeatJson[] = []
+  for (const team of lobby.teams) {
+    if (team.isObserver) {
+      continue
+    }
+    for (const slot of team.slots) {
+      switch (slot.type) {
+        case SlotType.Human:
+          seats.push({ type: 'human', userId: slot.userId! })
+          break
+        case SlotType.Computer:
+        case SlotType.UmsComputer:
+          seats.push({ type: 'computer' })
+          break
+        case SlotType.Open:
+        case SlotType.ControlledOpen:
+          seats.push({ type: 'open' })
+          break
+        case SlotType.Closed:
+        case SlotType.ControlledClosed:
+        case SlotType.Observer:
+          break
+        default:
+          assertUnreachable(slot.type)
+      }
+    }
+  }
+  return seats
 }
 
 /**
@@ -542,6 +681,7 @@ function OwnLobbyInviteCard() {
           open: openSlotCount(info),
           total: slotCount(info),
         },
+        seats: playerSeatsOf(info),
         lifecycle,
       }}
       onClick={() => navigateToLobby(info.id, info.name)}

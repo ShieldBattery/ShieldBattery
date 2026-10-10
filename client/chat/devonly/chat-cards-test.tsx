@@ -3,7 +3,7 @@ import { GameConfigPlayer, GameSource, LobbyGameConfig } from '../../../common/g
 import { GameType } from '../../../common/games/game-type'
 import { GameRecordJson } from '../../../common/games/games'
 import { LadderPlayer } from '../../../common/ladder/ladder'
-import { LobbySummaryResponse } from '../../../common/lobbies/lobby-network'
+import { LobbyPlayerSeatJson, LobbySummaryResponse } from '../../../common/lobbies/lobby-network'
 import { makeSbMapId, MapInfoJson, MapVisibility, Tileset } from '../../../common/maps'
 import {
   makeSeasonId,
@@ -101,6 +101,44 @@ const LOBBY_WITH_CLOSED = withSummary(LOBBY_LOADED, {
   gameType: GameType.OneVsOne,
 })
 
+const SEAT_FLASH = makeSbUserId(940_071)
+const SEAT_JAEDONG = makeSbUserId(940_072)
+const SEAT_LONG_NAME = makeSbUserId(940_073)
+const SEAT_FFA = [940_074, 940_075, 940_076, 940_077, 940_078, 940_079].map(makeSbUserId)
+
+const SEAT_USERS: SbUser[] = [
+  { id: SEAT_FLASH, name: 'Flash', created: 0 },
+  { id: SEAT_JAEDONG, name: 'Jaedong', created: 0 },
+  { id: SEAT_LONG_NAME, name: 'AnExtremelyLongPlayerNameThatGoesOnAndOn', created: 0 },
+  ...SEAT_FFA.map((id, i) => ({
+    id,
+    name: ['Larva', 'Movie', 'Snow', 'Hero', 'Mini', 'Bisu'][i],
+    created: 0,
+  })),
+]
+
+function human(userId: SbUserId): LobbyPlayerSeatJson {
+  return { type: 'human', userId }
+}
+const COMPUTER_SEAT: LobbyPlayerSeatJson = { type: 'computer' }
+const OPEN_SEAT: LobbyPlayerSeatJson = { type: 'open' }
+
+/** Seats with a computer sitting between humans, to check filled seats keep their seat order. */
+const SEATS_MIXED = [human(MOCK_LOBBY_SUMMARY.host.id), OPEN_SEAT, COMPUTER_SEAT, human(SEAT_FLASH)]
+const SEATS_LONG_NAME = [human(LONG_NAME_HOST.id), human(SEAT_LONG_NAME), OPEN_SEAT, OPEN_SEAT]
+const SEATS_FFA = [
+  human(MOCK_LOBBY_SUMMARY.host.id),
+  ...SEAT_FFA.map(human),
+  OPEN_SEAT,
+  COMPUTER_SEAT,
+]
+const SEATS_IN_GAME = [
+  human(MOCK_LOBBY_SUMMARY.host.id),
+  human(SEAT_FLASH),
+  human(SEAT_JAEDONG),
+  COMPUTER_SEAT,
+]
+
 const LOBBY_JOINED_DISPLAY: LobbyInviteDisplayData = {
   name: LOBBY_LOADED.summary.name,
   map: LOBBY_LOADED.summary.map,
@@ -111,7 +149,7 @@ const LOBBY_JOINED_DISPLAY: LobbyInviteDisplayData = {
 }
 
 type LobbyScenario =
-  | { label: string; state: LobbySummaryLoadState | undefined }
+  | { label: string; state: LobbySummaryLoadState | undefined; seats?: LobbyPlayerSeatJson[] }
   | { label: string; joined: LobbyInviteDisplayData }
 
 const LOBBY_SCENARIOS: LobbyScenario[] = [
@@ -123,10 +161,31 @@ const LOBBY_SCENARIOS: LobbyScenario[] = [
   { label: 'Long map name', state: { status: 'loaded', data: LOBBY_LONG_MAP_NAME } },
   { label: 'Nearly full (8 slots)', state: { status: 'loaded', data: LOBBY_NEARLY_FULL } },
   { label: 'Closed seats (1 of 4 open)', state: { status: 'loaded', data: LOBBY_WITH_CLOSED } },
+  {
+    label: 'Seats: humans, computer, open',
+    state: { status: 'loaded', data: LOBBY_LOADED },
+    seats: SEATS_MIXED,
+  },
+  {
+    label: 'Seats: long names',
+    state: { status: 'loaded', data: LOBBY_LONG_NAME },
+    seats: SEATS_LONG_NAME,
+  },
+  {
+    label: 'Seats: 8 slots',
+    state: { status: 'loaded', data: LOBBY_NEARLY_FULL },
+    seats: SEATS_FFA,
+  },
+  {
+    label: 'Seats: in game',
+    state: { status: 'loaded', data: LOBBY_IN_GAME },
+    seats: SEATS_IN_GAME,
+  },
   { label: 'Not found', state: { status: 'notFound' } },
   { label: 'Error (renders nothing)', state: { status: 'error' } },
   { label: 'Joined (own lobby)', joined: LOBBY_JOINED_DISPLAY },
   { label: 'Joined, in game', joined: { ...LOBBY_JOINED_DISPLAY, lifecycle: 'inGame' } },
+  { label: 'Joined, with seats', joined: { ...LOBBY_JOINED_DISPLAY, seats: SEATS_MIXED } },
 ]
 
 function LobbyRow({ scenario }: { scenario: LobbyScenario }) {
@@ -139,6 +198,7 @@ function LobbyRow({ scenario }: { scenario: LobbyScenario }) {
         <div>
           <LobbyInviteCardContent
             state={scenario.state}
+            seats={scenario.seats}
             onClick={() => {}}
             onJoinClick={() => {}}
           />
@@ -684,7 +744,13 @@ function UserRow({ scenario }: { scenario: UserScenario }) {
 const SEED_ACTIONS: ReduxAction[] = [
   {
     type: '@users/loadUsers',
-    payload: [MOCK_LOBBY_SUMMARY.host, LONG_NAME_HOST, ...GAME_USERS, ...USER_CARD_USERS],
+    payload: [
+      MOCK_LOBBY_SUMMARY.host,
+      LONG_NAME_HOST,
+      ...SEAT_USERS,
+      ...GAME_USERS,
+      ...USER_CARD_USERS,
+    ],
   },
 ]
 

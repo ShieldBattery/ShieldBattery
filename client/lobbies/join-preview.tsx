@@ -1,8 +1,13 @@
 import { useEffect } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { ReadonlyDeep } from 'type-fest'
 import { gameTypeToLabel } from '../../common/games/game-type'
-import { isLaunchingLifecycle, LobbySummaryResponse } from '../../common/lobbies/lobby-network'
+import {
+  isLaunchingLifecycle,
+  LobbyPlayerSeatJson,
+  LobbySummaryResponse,
+} from '../../common/lobbies/lobby-network'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { FilledButton } from '../material/button'
 import { backdropTextShadow } from '../messaging/backdrop-card'
@@ -147,10 +152,21 @@ const SeatsLine = styled.div`
   color: var(--theme-on-surface-variant);
 `
 
-function Seats({ lobby }: { lobby: Lobby }) {
+function Seats({
+  lobby,
+  seats,
+}: {
+  lobby: Lobby
+  seats: ReadonlyDeep<LobbyPlayerSeatJson[]> | undefined
+}) {
   return (
     <SeatsLine>
-      <LobbySeats playerSlots={lobby.playerSlots} lifecycle={lobby.lifecycle} layout='grid' />
+      <LobbySeats
+        playerSlots={lobby.playerSlots}
+        seats={seats}
+        lifecycle={lobby.lifecycle}
+        layout='grid'
+      />
     </SeatsLine>
   )
 }
@@ -227,6 +243,8 @@ const Foot = styled.div`
 
 interface JoinPreviewProps {
   summary: LobbySummaryResponse
+  /** Who holds each player seat, once loaded. The seats show counts alone until then. */
+  seats: ReadonlyDeep<LobbyPlayerSeatJson[]> | undefined
   isJoining: boolean
   onJoinClick: () => void
 }
@@ -235,7 +253,7 @@ interface JoinPreviewProps {
  * A loaded lobby's join preview: what the lobby is, who hosts it, how full it is, and the button
  * that joins it, beside an image of its map (and over the same image, blurred).
  */
-export function JoinPreview({ summary, isJoining, onJoinClick }: JoinPreviewProps) {
+export function JoinPreview({ summary, seats, isJoining, onJoinClick }: JoinPreviewProps) {
   const dispatch = useAppDispatch()
   const lobby = summary.summary
   const host = summary.host
@@ -260,7 +278,7 @@ export function JoinPreview({ summary, isJoining, onJoinClick }: JoinPreviewProp
         <LobbyName>{lobby.name}</LobbyName>
         <HostLine summary={summary} />
         <Foot>
-          <Seats lobby={lobby} />
+          <Seats lobby={lobby} seats={seats} />
           <JoinButton isJoining={isJoining} onJoinClick={onJoinClick} />
         </Foot>
       </Info>
