@@ -258,6 +258,7 @@ function removeUserFromChannel(
   state: ChatState,
   channelId: SbChannelId,
   userId: SbUserId,
+  time: number,
   arrival: LiveArrival,
   newOwnerId?: SbUserId,
   reason?: ChannelModerationAction,
@@ -291,14 +292,14 @@ function removeUserFromChannel(
       id: nanoid(),
       type: messageType,
       channelId,
-      time: Date.now(),
+      time,
       userId,
     })
     return m
   })
 
   if (newOwnerId) {
-    setChannelOwner(state, channelId, newOwnerId, arrival)
+    setChannelOwner(state, channelId, newOwnerId, time, arrival)
   }
 }
 
@@ -306,6 +307,7 @@ function setChannelOwner(
   state: ChatState,
   channelId: SbChannelId,
   newOwnerId: SbUserId,
+  time: number,
   arrival: LiveArrival,
 ) {
   const joinedChannelInfo = state.idToJoinedInfo.get(channelId)
@@ -320,7 +322,7 @@ function setChannelOwner(
       id: nanoid(),
       type: ClientChatMessageType.NewChannelOwner,
       channelId,
-      time: Date.now(),
+      time,
       newOwnerId,
     })
     return m
@@ -348,8 +350,8 @@ function removeSelfFromChannel(state: ChatState, channelId: SbChannelId) {
 /**
  * Returns the time (epoch ms) of the newest message in `messages` that carries a server-recorded
  * timestamp, or `undefined` if there is none. Client-only messages (join/leave banners and the
- * like) are stamped with the local clock, so their times can't be compared against or handed back
- * to the server.
+ * like) carry the server's time of the event they announce, but they aren't stored, so they can't
+ * mark where a fetched page ends or stand in for a message the server could page from.
  */
 export function newestServerOriginTime(messages: readonly ChannelMessage[]): number | undefined {
   for (let i = messages.length - 1; i >= 0; i--) {
@@ -390,8 +392,8 @@ export function newestKnownChannelTime(
  * Returns the time (epoch ms) of the oldest message in `messages` that carries a server-recorded
  * timestamp, or `undefined` if there is none. See `newestServerOriginTime` for why client-only
  * messages are excluded: a window can open with one at its head (the self-join banner, or all
- * that's left after a drop leaves only carried messages behind), and such a message's local-clock
- * time is meaningless as a server request cursor or a window boundary.
+ * that's left after a drop leaves only carried messages behind), and such a message isn't stored, so
+ * its time means nothing as a server request cursor or a window boundary.
  */
 export function oldestServerOriginTime(messages: readonly ChannelMessage[]): number | undefined {
   for (const message of messages) {
@@ -630,7 +632,8 @@ interface LiveArrival {
   /**
    * The server-recorded time (epoch ms) of the arriving message: a message read on arrival advances
    * the read position over it. Unset for the client-only leave/kick/ban/owner-change banners, which
-   * are stamped with the local clock, a time the server would never accept as a read position.
+   * never count toward unreadness, so seeing one says nothing about the stored messages a read
+   * position covers.
    */
   time?: number
 }
@@ -700,7 +703,8 @@ function updateMessages(
  *
  * Server-origin messages only, as the parameter's type enforces: the banners this client puts in a
  * channel itself can never be re-fetched, so withholding one loses it for good (`carryClientMessage`
- * is what holds those), and their local-clock times are no use as a history cursor regardless.
+ * is what holds those), and with nothing stored behind them their times are no use as a history
+ * cursor regardless.
  */
 function addLiveServerMessage(
   state: ChatState,
@@ -800,6 +804,7 @@ function initChannel(state: ChatState, channelId: SbChannelId, data: InitialChan
     latestUnreadTime,
     lastReadTime,
     latestMentionTime,
+    time,
   } = data
 
   const messagesState: MessagesState = {
@@ -860,7 +865,7 @@ function initChannel(state: ChatState, channelId: SbChannelId, data: InitialChan
       id: nanoid(),
       type: ClientChatMessageType.SelfJoinChannel,
       channelId,
-      time: Date.now(),
+      time,
     })
     return m
   })
@@ -913,10 +918,10 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   },
 
   ['@chat/updateLeave'](state, action) {
-    const { userId, newOwnerId } = action.payload
+    const { userId, newOwnerId, time } = action.payload
     const { channelId, windowFocused } = action.meta
 
-    removeUserFromChannel(state, channelId, userId, { windowFocused }, newOwnerId)
+    removeUserFromChannel(state, channelId, userId, time, { windowFocused }, newOwnerId)
   },
 
   ['@chat/updateLeaveSelf'](state, action) {
@@ -926,13 +931,14 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   },
 
   ['@chat/updateKick'](state, action) {
-    const { targetId, newOwnerId } = action.payload
+    const { targetId, newOwnerId, time } = action.payload
     const { channelId, windowFocused } = action.meta
 
     removeUserFromChannel(
       state,
       channelId,
       targetId,
+      time,
       { windowFocused },
       newOwnerId,
       ChannelModerationAction.Kick,
@@ -946,13 +952,14 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   },
 
   ['@chat/updateBan'](state, action) {
-    const { targetId, newOwnerId } = action.payload
+    const { targetId, newOwnerId, time } = action.payload
     const { channelId, windowFocused } = action.meta
 
     removeUserFromChannel(
       state,
       channelId,
       targetId,
+      time,
       { windowFocused },
       newOwnerId,
       ChannelModerationAction.Ban,
@@ -972,10 +979,10 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
   },
 
   ['@chat/ownerChanged'](state, action) {
-    const { newOwnerId } = action.payload
+    const { newOwnerId, time } = action.payload
     const { channelId, windowFocused } = action.meta
 
-    setChannelOwner(state, channelId, newOwnerId, { windowFocused })
+    setChannelOwner(state, channelId, newOwnerId, time, { windowFocused })
   },
 
   ['@chat/updateMessage'](state, action) {

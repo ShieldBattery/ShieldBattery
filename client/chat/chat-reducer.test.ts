@@ -23,6 +23,7 @@ import type { HistoryLoadError } from '../messaging/message-load-error'
 import {
   CommonMessageType,
   CommonWhisperEchoMessage,
+  isServerOriginMessage,
   LocalMessage,
 } from '../messaging/message-records'
 import { ChatActions } from './actions'
@@ -69,7 +70,7 @@ function joinMessage(time: number): JoinChannelMessage {
   }
 }
 
-/** A client-only message: its `time` is stamped with the local clock, not the server's. */
+/** A client-only message: never stored, so no page the server returns can include it. */
 function selfJoinMessage(time: number): SelfJoinChannelMessage {
   return {
     id: `join-${time}`,
@@ -222,6 +223,7 @@ function initialChannelData(
     lastReadTime?: number
     ownerId?: SbUserId
     moderatorIds?: SbUserId[]
+    time?: number
   } = {},
 ): InitialChannelData {
   return {
@@ -238,6 +240,7 @@ function initialChannelData(
     latestUnreadTime: overrides.latestUnreadTime,
     lastReadTime: overrides.lastReadTime,
     latestMentionTime: overrides.latestMentionTime,
+    time: overrides.time ?? 0,
   }
 }
 
@@ -1001,7 +1004,7 @@ describe('client/chat/chat-reducer', () => {
 
       const result = chatReducer(state, {
         type: '@chat/updateLeave',
-        payload: { action: 'leave2', userId: MODERATOR_ID },
+        payload: { action: 'leave2', userId: MODERATOR_ID, time: 1000 },
         meta: { channelId: CHANNEL_ID, windowFocused: true },
       })
 
@@ -1017,6 +1020,7 @@ describe('client/chat/chat-reducer', () => {
           action: 'kick',
           targetId: MODERATOR_ID,
           channelName: CHANNEL_BASIC_INFO.name,
+          time: 1000,
         },
         meta: { channelId: CHANNEL_ID, windowFocused: true },
       })
@@ -1037,7 +1041,7 @@ describe('client/chat/chat-reducer', () => {
 
       const result = chatReducer(state, {
         type: '@chat/ownerChanged',
-        payload: { action: 'ownerChanged', newOwnerId: MODERATOR_ID },
+        payload: { action: 'ownerChanged', newOwnerId: MODERATOR_ID, time: 1000 },
         meta: { channelId: CHANNEL_ID, windowFocused: true },
       })
 
@@ -2656,6 +2660,127 @@ describe('client/chat/chat-reducer', () => {
 
     test('returns undefined when the window holds no server-origin message', () => {
       expect(oldestServerOriginTime([selfJoinMessage(100), selfJoinMessage(200)])).toBeUndefined()
+    })
+  })
+
+  describe('client-only banner times', () => {
+    const OTHER_ID = makeSbUserId(20)
+    const NEW_OWNER_ID = makeSbUserId(21)
+
+    // Far behind the local clock, so a banner stamped with `Date.now()` would be told apart.
+    const EVENT_TIME = 250
+
+    function initializedState(): Immutable<ChatState> {
+      return chatReducer(makeState(), getJoinedChannelsAction(initialChannelData({ time: 50 })))
+    }
+
+    function bannersOf(state: Immutable<ChatState>) {
+      return windowOf(state).messages.filter(m => !isServerOriginMessage(m))
+    }
+
+    test('stamps the self-join banner with the initialization data time', () => {
+      const result = initializedState()
+
+      expect(bannersOf(result).map(m => [m.type, m.time])).toEqual([
+        [ClientChatMessageType.SelfJoinChannel, 50],
+      ])
+    })
+
+    test.each([
+      [
+        ClientChatMessageType.LeaveChannel,
+        {
+          type: '@chat/updateLeave',
+          payload: {
+            action: 'leave2',
+            userId: OTHER_ID,
+            newOwnerId: NEW_OWNER_ID,
+            time: EVENT_TIME,
+          },
+          meta: { channelId: CHANNEL_ID, windowFocused: true },
+        },
+      ],
+      [
+        ClientChatMessageType.KickUser,
+        {
+          type: '@chat/updateKick',
+          payload: {
+            action: 'kick',
+            targetId: OTHER_ID,
+            channelName: CHANNEL_BASIC_INFO.name,
+            newOwnerId: NEW_OWNER_ID,
+            time: EVENT_TIME,
+          },
+          meta: { channelId: CHANNEL_ID, windowFocused: true },
+        },
+      ],
+      [
+        ClientChatMessageType.BanUser,
+        {
+          type: '@chat/updateBan',
+          payload: {
+            action: 'ban',
+            targetId: OTHER_ID,
+            channelName: CHANNEL_BASIC_INFO.name,
+            newOwnerId: NEW_OWNER_ID,
+            time: EVENT_TIME,
+          },
+          meta: { channelId: CHANNEL_ID, windowFocused: true },
+        },
+      ],
+    ] satisfies Array<[ClientChatMessageType, ChatActions]>)(
+      'stamps the %s banner and its owner change with the event time',
+      (bannerType, action) => {
+        const result = chatReducer(initializedState(), action)
+
+        expect(bannersOf(result).map(m => [m.type, m.time])).toEqual([
+          [ClientChatMessageType.SelfJoinChannel, 50],
+          [bannerType, EVENT_TIME],
+          [ClientChatMessageType.NewChannelOwner, EVENT_TIME],
+        ])
+      },
+    )
+
+    test('stamps the owner-change banner with the event time', () => {
+      const result = chatReducer(initializedState(), {
+        type: '@chat/ownerChanged',
+        payload: { action: 'ownerChanged', newOwnerId: NEW_OWNER_ID, time: EVENT_TIME },
+        meta: { channelId: CHANNEL_ID, windowFocused: true },
+      })
+
+      expect(bannersOf(result).map(m => [m.type, m.time])).toEqual([
+        [ClientChatMessageType.SelfJoinChannel, 50],
+        [ClientChatMessageType.NewChannelOwner, EVENT_TIME],
+      ])
+    })
+
+    test('a dropped kick banner returns between the stored messages around it', () => {
+      let result = initializedState()
+      result = chatReducer(result, updateMessageAction(100, false))
+      result = chatReducer(result, updateMessageAction(200, false))
+      result = chatReducer(result, {
+        type: '@chat/updateKick',
+        payload: {
+          action: 'kick',
+          targetId: OTHER_ID,
+          channelName: CHANNEL_BASIC_INFO.name,
+          time: EVENT_TIME,
+        },
+        meta: { channelId: CHANNEL_ID, windowFocused: true },
+      })
+      result = chatReducer(result, updateMessageAction(300, false))
+      const kickId = bannersOf(result).find(m => m.type === ClientChatMessageType.KickUser)!.id
+
+      result = chatReducer(result, resetMessageWindowAction())
+      result = chatReducer(
+        result,
+        loadMessageHistoryAction(
+          historyResponse([textMessage(100), textMessage(200), textMessage(300), textMessage(400)]),
+          { windowGen: 1 },
+        ),
+      )
+
+      expect(messageIdsOf(result)).toEqual(['text-100', 'text-200', kickId, 'text-300', 'text-400'])
     })
   })
 

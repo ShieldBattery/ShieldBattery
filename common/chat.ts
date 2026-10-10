@@ -99,8 +99,9 @@ const SERVER_CHAT_MESSAGE_TYPES: ReadonlySet<ChatMessageType> = new Set(
 
 /**
  * Returns whether a chat message originated on the server, i.e. it's stored in the database and its
- * `time` is a server-recorded time. Client-only messages stamp `time` with the local clock, so they
- * can't be used anywhere a durable server time is needed (e.g. read positions).
+ * `time` is the time it was recorded there. Client-only messages are never stored, so they can't be
+ * fetched again or used anywhere a durable server record is needed (e.g. read positions or history
+ * cursors), even though their `time` is the server's time of the event they announce.
  */
 export function isServerChatMessage(message: { type: ChatMessageType }): boolean {
   return SERVER_CHAT_MESSAGE_TYPES.has(message.type)
@@ -339,6 +340,13 @@ export interface InitialChannelData {
    * is newer than their read position for the channel. Omitted when there is no such message.
    */
   latestMentionTime?: number
+  /**
+   * Epoch millis (server clock) of the moment this data describes: the join itself for a channel
+   * the user has just joined, otherwise when the server produced the data. The client stamps the
+   * line announcing the channel with it, so that line sorts and reads consistently with the
+   * server-recorded times of the messages around it.
+   */
+  time: number
 }
 
 export interface ChatInitEvent extends InitialChannelData {
@@ -369,6 +377,8 @@ export interface ChatLeaveEvent {
   action: 'leave2'
   /** The ID of a user that has left the chat channel. */
   userId: SbUserId
+  /** Epoch millis (server clock) of when the user left. */
+  time: number
   /** The ID of a user that was selected as a new owner of the channel, if any. */
   newOwnerId?: SbUserId
 }
@@ -379,6 +389,8 @@ export interface ChatKickEvent {
   targetId: SbUserId
   /** The name of the chat channel user was kicked from. */
   channelName: string
+  /** Epoch millis (server clock) of when the user was kicked. */
+  time: number
   /** The ID of a user that was selected as a new owner of the channel, if any. */
   newOwnerId?: SbUserId
 }
@@ -389,6 +401,8 @@ export interface ChatBanEvent {
   targetId: SbUserId
   /** The name of the chat channel user was banned from. */
   channelName: string
+  /** Epoch millis (server clock) of when the user was banned. */
+  time: number
   /** The ID of a user that was selected as a new owner of the channel, if any. */
   newOwnerId?: SbUserId
 }
@@ -404,6 +418,8 @@ export interface ChatOwnerChangedEvent {
   action: 'ownerChanged'
   /** The ID of a user that is the new owner of the chat channel. */
   newOwnerId: SbUserId
+  /** Epoch millis (server clock) of when the ownership changed. */
+  time: number
 }
 
 export interface ChatMessageEvent {

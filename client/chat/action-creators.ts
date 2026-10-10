@@ -685,9 +685,9 @@ export function getMessageHistory(
     const channelMessages = idToMessages.get(channelId)
     // The window's first entry can be a client-only message (the self-join banner right after
     // joining, or a carried message left behind by a drop that hasn't found a covering window
-    // yet), whose time is stamped with the local clock and means nothing as a server cursor. -1
-    // is the "newest page" sentinel, used both when nothing is loaded and when nothing loaded
-    // carries a server-recorded time.
+    // yet), which isn't stored and so means nothing as a server cursor. -1 is the "newest page"
+    // sentinel, used both when nothing is loaded and when nothing loaded carries a server-recorded
+    // time.
     const earliestMessageTime = channelMessages
       ? (oldestServerOriginTime(channelMessages.messages) ?? -1)
       : -1

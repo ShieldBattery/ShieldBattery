@@ -365,6 +365,7 @@ export default class ChatService {
       getModeratorIdsForChannels(channelIds),
     ])
 
+    const now = Date.now()
     const channelInfosMap = new global.Map(channelInfos.map(c => [c.id, c]))
     const unreadChannelsMap = new global.Map(unreadChannelInfo.map(c => [c.channelId, c]))
 
@@ -385,6 +386,7 @@ export default class ChatService {
         // reported marker, so the marker has to sit one millisecond before the join.
         lastReadTime: c.lastReadTime?.getTime() ?? c.joinDate.getTime() - 1,
         latestMentionTime: unreadInfo?.latestMentionTime?.getTime(),
+        time: now,
       }
     })
   }
@@ -439,6 +441,7 @@ export default class ChatService {
           selfPermissions: userChannelEntry.channelPermissions,
           moderatorIds: moderatorIdsByChannel.get(channelId) ?? [],
           lastReadTime: userChannelEntry.joinDate.getTime() - 1,
+          time: Number(message.sent),
         })
       }
     }
@@ -1322,6 +1325,7 @@ export default class ChatService {
         action: 'leave2',
         userId: userSockets.userId,
         newOwnerId,
+        time: Date.now(),
       })
     }
     this.unsubscribeUserFromChannel(userSockets, channelId)
@@ -1417,6 +1421,7 @@ export default class ChatService {
         targetId,
         channelName: channelInfo.name,
         newOwnerId,
+        time: Date.now(),
       })
     }
 
@@ -1505,6 +1510,7 @@ export default class ChatService {
     this.publisher.publish(getChannelPath(channelId), {
       action: 'ownerChanged',
       newOwnerId: targetId,
+      time: Date.now(),
     })
   }
 
