@@ -69,6 +69,7 @@ function makeSbData(overrides: Partial<ShieldBatteryData> = {}): ShieldBatteryDa
     gameId: '12345678-9abc-def0-1234-56789abcdef0',
     userIds: makeUserIds({}),
     gameLogicVersion: 0,
+    disabledLogicFixes: undefined,
     ...overrides,
   }
 }

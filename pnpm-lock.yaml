@@ -199,8 +199,8 @@ importers:
         specifier: ^6.2.1
         version: 6.2.1(@node-rs/xxhash@1.7.8)(@opentelemetry/api@1.9.1)
       '@shieldbattery/broodrep':
-        specifier: ^0.5.0
-        version: 0.5.0
+        specifier: ^0.6.0
+        version: 0.6.0
       bcrypt:
         specifier: ^6.0.0
         version: 6.0.0
@@ -3338,8 +3338,8 @@ packages:
   '@selderee/plugin-htmlparser2@0.11.0':
     resolution: {integrity: sha512-P33hHGdldxGabLFjPPpaTxVolMrzrcegejx+0GxjrIb9Zv48D8yAIA/QTDR2dFl7Uz7urX8aX6+5bCZslr+gWQ==}
 
-  '@shieldbattery/broodrep@0.5.0':
-    resolution: {integrity: sha512-OOuVGkMUud87TbrdtBodJF/6HJu4ZdUTjLHggrHrgoRu3UnvN+pe4/USnVPBUu6nGw5CvsO+qX9YC8kCtPXH2g==}
+  '@shieldbattery/broodrep@0.6.0':
+    resolution: {integrity: sha512-HUxGjAOKzjnCuWVoaRGZmtUF5RgzVPmbhNTULhWDg+U6U7eiB/yLi/Y9FbTatznX0DyqECnhDykBl9jG1ueC1A==}
     engines: {node: '>= 22.12.0'}
 
   '@sindresorhus/is@4.6.0':
@@ -11124,7 +11124,7 @@ snapshots:
       domhandler: 5.0.3
       selderee: 0.11.0
 
-  '@shieldbattery/broodrep@0.5.0': {}
+  '@shieldbattery/broodrep@0.6.0': {}
 
   '@sindresorhus/is@4.6.0': {}
 
