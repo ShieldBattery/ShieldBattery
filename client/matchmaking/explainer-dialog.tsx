@@ -16,6 +16,12 @@ const ArticleMarkdown = styled(Markdown)`
     margin-top: 16px;
     margin-bottom: 16px;
   }
+
+  /* Korean separates words with spaces, so long prose should only wrap there rather than splitting
+     a word across lines. */
+  &:lang(ko) {
+    word-break: keep-all;
+  }
 `
 
 /**
