@@ -507,7 +507,12 @@ describe('chat/chat-service', () => {
   let client1: InspectableNydusClient
   let client2: InspectableNydusClient
 
+  /** The server clock every test runs at, which stamps the times of the events it publishes. */
+  const SERVER_NOW = new Date('2026-10-01T12:00:00.000Z')
+
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(SERVER_NOW)
     nydus = createFakeNydusServer()
     const sessionLookup = new RequestSessionLookup()
     const userSocketsManager = new UserSocketsManager(nydus, sessionLookup, async () => {})
@@ -531,6 +536,10 @@ describe('chat/chat-service', () => {
 
     vi.clearAllMocks()
     clearTestLogs(nydus)
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   describe('handleNewUser', () => {
@@ -713,6 +722,7 @@ describe('chat/chat-service', () => {
           moderatorIds: [],
           latestUnreadTime: undefined,
           lastReadTime: user1ShieldBatteryChannelEntry.joinDate.getTime() - 1,
+          time: SERVER_NOW.getTime(),
         },
         {
           channelInfo: testBasicInfo,
@@ -723,6 +733,7 @@ describe('chat/chat-service', () => {
           moderatorIds: [],
           latestUnreadTime: undefined,
           lastReadTime: user1TestChannelEntry.joinDate.getTime() - 1,
+          time: SERVER_NOW.getTime(),
         },
       ])
     })
@@ -792,6 +803,7 @@ describe('chat/chat-service', () => {
           moderatorIds: [],
           latestUnreadTime: latestUnreadTime.getTime(),
           lastReadTime: user1ShieldBatteryChannelEntry.joinDate.getTime() - 1,
+          time: SERVER_NOW.getTime(),
         },
       ])
     })
@@ -828,6 +840,7 @@ describe('chat/chat-service', () => {
           moderatorIds: [],
           latestUnreadTime: latestUnreadTime.getTime(),
           lastReadTime: user1ShieldBatteryChannelEntry.joinDate.getTime() - 1,
+          time: SERVER_NOW.getTime(),
           latestMentionTime: latestMentionTime.getTime(),
         },
       ])
@@ -862,6 +875,7 @@ describe('chat/chat-service', () => {
           moderatorIds: [],
           latestUnreadTime: undefined,
           lastReadTime: lastReadTime.getTime(),
+          time: SERVER_NOW.getTime(),
         },
       ])
     })
@@ -954,6 +968,7 @@ describe('chat/chat-service', () => {
           selfPermissions: channelPermissions,
           moderatorIds: [],
           lastReadTime: user1ShieldBatteryChannelEntry.joinDate.getTime() - 1,
+          time: joinUser1ShieldBatteryChannelMessage.sent.getTime(),
         },
       )
     })
@@ -1111,6 +1126,7 @@ describe('chat/chat-service', () => {
           selfPermissions: channelPermissions,
           moderatorIds: [],
           lastReadTime: user1ShieldBatteryChannelEntry.joinDate.getTime() - 1,
+          time: joinUser1ShieldBatteryChannelMessage.sent.getTime(),
         },
       )
     })
@@ -1183,6 +1199,7 @@ describe('chat/chat-service', () => {
         detailedChannelInfo: testDetailedInfo,
         joinedChannelInfo: testJoinedInfo,
         lastReadTime: user1TestChannelEntry.joinDate.getTime() - 1,
+        time: joinUser1TestChannelMessage.sent.getTime(),
         selfPreferences: channelPreferences,
         selfPermissions: channelPermissions,
         moderatorIds: [],
@@ -2634,6 +2651,7 @@ describe('chat/chat-service', () => {
         action: 'leave2',
         userId: user1.id,
         newOwnerId: undefined,
+        time: SERVER_NOW.getTime(),
       })
 
       await expectMessageWasNotReceived(user2, testChannel, client1)
@@ -2774,6 +2792,7 @@ describe('chat/chat-service', () => {
           targetId: user2.id,
           channelName: testChannel.name,
           newOwnerId: undefined,
+          time: SERVER_NOW.getTime(),
         })
 
         await expectMessageWasNotReceived(user1, testChannel, client2)
@@ -3253,6 +3272,7 @@ describe('chat/chat-service', () => {
       expect(client1.publish).toHaveBeenCalledWith(getChannelPath(testChannel.id), {
         action: 'ownerChanged',
         newOwnerId: user2.id,
+        time: SERVER_NOW.getTime(),
       })
     })
 
@@ -3276,6 +3296,7 @@ describe('chat/chat-service', () => {
       expect(client2.publish).toHaveBeenCalledWith(getChannelPath(testChannel.id), {
         action: 'ownerChanged',
         newOwnerId: user2.id,
+        time: SERVER_NOW.getTime(),
       })
     })
 

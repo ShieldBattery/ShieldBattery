@@ -120,6 +120,7 @@ function initialChannelData(moderatorIds: SbUserId[]): InitialChannelData {
       editPermissions: false,
     },
     moderatorIds,
+    time: Date.now(),
   }
 }
 
@@ -229,7 +230,7 @@ function RoleBadgesTestInner() {
   const onTransferOwnership = () => {
     dispatch({
       type: '@chat/ownerChanged',
-      payload: { action: 'ownerChanged', newOwnerId: MODERATOR },
+      payload: { action: 'ownerChanged', newOwnerId: MODERATOR, time: Date.now() },
       meta: { channelId: CHANNEL_ID, windowFocused: true },
     })
   }
@@ -247,7 +248,12 @@ function RoleBadgesTestInner() {
   const onKickModerator = () => {
     dispatch({
       type: '@chat/updateKick',
-      payload: { action: 'kick', targetId: MODERATOR, channelName: 'role-badges' },
+      payload: {
+        action: 'kick',
+        targetId: MODERATOR,
+        channelName: 'role-badges',
+        time: Date.now(),
+      },
       meta: { channelId: CHANNEL_ID, windowFocused: true },
     })
   }
