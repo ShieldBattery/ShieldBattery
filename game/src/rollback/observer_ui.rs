@@ -65,9 +65,10 @@ static OBSERVER_RESEARCH_KEYS: Mutex<Vec<(usize, u32)>> = Mutex::new(Vec::new())
 
 /// Notes the key the observer UI has just stored for `unit`'s research or upgrade, the newest of
 /// its owner's records. Called from the observer UI hook after a start notification has gone
-/// through. Only steps a rollback tick runs are tracked; see [`observer_research_finishing`].
+/// through. Only steps a rollback tick runs, and the steps of a replay that seeks by keyframe, are
+/// tracked; see [`observer_research_finishing`].
 pub(crate) unsafe fn observer_research_started(ui: usize, unit: *mut bw::Unit) {
-    if !super::tick_running() {
+    if !super::tick_running() && !crate::replay_seek::active() {
         return;
     }
     unsafe {
@@ -86,10 +87,14 @@ pub(crate) unsafe fn observer_research_started(ui: usize, unit: *mut bw::Unit) {
 /// gone, and those frames run ahead of the confirmed ones the notifications come from. Called from
 /// the observer UI hook for a finish notification it lets through.
 ///
-/// A step outside a rollback tick is always let through: every step of a game that rolls back runs
-/// in a tick, and a game that doesn't shows the frames its notifications come from.
+/// A replay that has restored a keyframe has the same problem: the UI's records come from
+/// wherever the replay was before the seek, and may hold nothing for research the restored
+/// simulation is finishing.
+///
+/// Any other step outside a rollback tick is let through: every step of a game that rolls back
+/// runs in a tick, and a game that doesn't shows the frames its notifications come from.
 pub(crate) unsafe fn observer_research_finishing(ui: usize, unit: *mut bw::Unit) -> bool {
-    if !super::tick_running() {
+    if !super::tick_running() && !crate::replay_seek::has_restored() {
         return true;
     }
     unsafe {

@@ -65,6 +65,7 @@ mod offline_cookie;
 mod recurse_checked_mutex;
 mod replay;
 mod replay_name;
+mod replay_seek;
 mod rollback;
 #[cfg(debug_assertions)]
 mod rollback_bench;
@@ -279,6 +280,8 @@ pub extern "C" fn OnInject() {
     rollback_bench::init_from_env();
     #[cfg(debug_assertions)]
     rollback_soak::init_from_env();
+    #[cfg(debug_assertions)]
+    replay_seek::init_from_env();
     #[cfg(debug_assertions)]
     rollback_live::init_from_env();
     #[cfg(debug_assertions)]

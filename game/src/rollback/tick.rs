@@ -226,7 +226,7 @@ pub(crate) unsafe fn run_tick(
 /// the pools have handed out again since. And they have to be back for the steps, which rely on
 /// them: a unit only leaves the local selection when it dies or changes owner if its sprite shows
 /// it selected, and a refinery started on a geyser takes the placement overlay off it.
-unsafe fn with_ui_images_off<R>(bw: &BwScr, f: impl FnOnce() -> R) -> R {
+pub(crate) unsafe fn with_ui_images_off<R>(bw: &BwScr, f: impl FnOnce() -> R) -> R {
     unsafe {
         bw.rollback_clear_selection_visuals();
         let overlays = bw.rollback_detach_placement_overlays();
