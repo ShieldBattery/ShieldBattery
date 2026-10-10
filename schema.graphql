@@ -443,6 +443,12 @@ type LiveStream {
 type LobbyExtra {
 	turnRate: Int
 	useLegacyLimits: Boolean
+	"""
+	Whether the game was played without the ShieldBattery game logic fixes that make replays
+	play back differently in StarCraft: Remastered without ShieldBattery. Missing for games
+	recorded before this setting existed, which should be treated as `false`.
+	"""
+	starcraftCompatibleReplays: Boolean
 }
 
 type LoginNameAuditEntry {

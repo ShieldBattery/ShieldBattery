@@ -851,6 +851,12 @@ export function RoomMapBanner({
       t('lobbies.room.banner.alliancesLocked', 'Locked'),
     ])
   }
+  if (lobby.starcraftCompatibleReplays) {
+    mapStats.push([
+      t('lobbies.room.banner.statEventMode', 'Event mode'),
+      t('lobbies.room.banner.eventModeOn', 'On'),
+    ])
+  }
   mapStats.push([
     t('lobbies.summary.slotsLabel', 'Slots'),
     isUms(lobby.gameType) ? map.mapData.umsSlots : map.mapData.slots,

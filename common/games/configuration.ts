@@ -75,6 +75,12 @@ export interface LobbyExtra {
   turnRate?: BwTurnRate | 0
   useLegacyLimits?: boolean
   /**
+   * Whether the game was played without the ShieldBattery game logic fixes that make replays play
+   * back differently in StarCraft: Remastered without ShieldBattery. Records created before this
+   * field existed won't have it set; readers should treat a missing value as `false`.
+   */
+  starcraftCompatibleReplays?: boolean
+  /**
    * The lobby's visibility when the game started. Records created before this field existed won't
    * have it set; readers should treat a missing value as `unlisted` (participants-only) rather than
    * public.

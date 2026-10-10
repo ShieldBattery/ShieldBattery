@@ -48,6 +48,7 @@ function toSummaryResponse(result: LiveLobbyWithHost): LobbySummaryResponse {
       host: { id: summary.host.id },
       playerSlots: { ...summary.playerSlots },
       useLegacyLimits: summary.useLegacyLimits,
+      starcraftCompatibleReplays: summary.starcraftCompatibleReplays,
       lifecycle: summary.lifecycle,
       map: {
         id: map.id,

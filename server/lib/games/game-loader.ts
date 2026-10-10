@@ -303,6 +303,7 @@ function getGeneralGameSetup({
       turnRate,
       userLatency,
       useLegacyLimits: gameConfig.gameSourceExtra?.useLegacyLimits,
+      starcraftCompatibleReplays: gameConfig.gameSourceExtra?.starcraftCompatibleReplays,
       disableAllianceChanges: gameConfig.lockedAlliances,
     }
   } else if (gameConfig.gameSource === GameSource.Matchmaking) {

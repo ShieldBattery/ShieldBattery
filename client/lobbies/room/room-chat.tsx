@@ -382,6 +382,8 @@ function changedSettingLabel(setting: LobbyChangedSetting, t: TFunction): string
       return t('lobbies.messageLayout.settingsChangeGameSubType', 'teams')
     case 'useLegacyLimits':
       return t('lobbies.messageLayout.settingsChangeUnitLimit', 'unit limit')
+    case 'starcraftCompatibleReplays':
+      return t('lobbies.messageLayout.settingsChangeEventMode', 'event mode')
     case 'lockedAlliances':
       return t('lobbies.messageLayout.settingsChangeLockedAlliances', 'alliance lock')
     case 'allowObservers':

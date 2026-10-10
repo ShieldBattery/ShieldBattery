@@ -80,6 +80,7 @@ const LOBBY: Lobby = {
   bench: [],
   host: HOST_SLOT,
   useLegacyLimits: false,
+  starcraftCompatibleReplays: false,
   lockedAlliances: false,
   visibility: 'listed',
   createdAt: 0,

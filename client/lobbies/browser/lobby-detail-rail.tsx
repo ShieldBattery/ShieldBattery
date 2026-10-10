@@ -500,6 +500,9 @@ export function LobbyDetailRail({
           {summary.useLegacyLimits ? (
             <RoomChip>{t('lobbies.browser.legacyLimits', 'Legacy limits')}</RoomChip>
           ) : null}
+          {summary.starcraftCompatibleReplays ? (
+            <RoomChip>{t('lobbies.browser.eventMode', 'Event mode')}</RoomChip>
+          ) : null}
           {hasLockedAlliances(summary) ? (
             <RoomChip>{t('lobbies.browser.lockedAlliances', 'Locked alliances')}</RoomChip>
           ) : null}

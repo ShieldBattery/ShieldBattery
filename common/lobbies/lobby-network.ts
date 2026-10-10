@@ -102,6 +102,7 @@ export interface CreateLobbyRequest extends LobbyClientRequest, LobbyNetworkPara
   gameSubType?: number
   allowObservers?: boolean
   useLegacyLimits?: boolean
+  starcraftCompatibleReplays?: boolean
   lockedAlliances?: boolean
   visibility?: LobbyVisibility
   /**
@@ -338,6 +339,7 @@ export interface LobbySummaryJson {
   gameSubType: number
   host: { id: SbUserId }
   useLegacyLimits: boolean
+  starcraftCompatibleReplays: boolean
   lockedAlliances: boolean
   playerSlots: LobbyPlayerSlotCounts
   observerSlots: LobbyObserverSlotCounts
@@ -596,6 +598,7 @@ export interface UpdateLobbySettingsRequest {
   gameType?: GameType
   gameSubType?: number
   useLegacyLimits?: boolean
+  starcraftCompatibleReplays?: boolean
   lockedAlliances?: boolean
   allowObservers?: boolean
   /**
@@ -613,6 +616,7 @@ export type LobbyChangedSetting =
   | 'gameType'
   | 'gameSubType'
   | 'useLegacyLimits'
+  | 'starcraftCompatibleReplays'
   | 'lockedAlliances'
   | 'allowObservers'
   | 'mapQueue'
@@ -684,6 +688,7 @@ export interface UpdateLobbyPreferencesRequest {
   recentMaps: SbMapId[]
   selectedMap?: SbMapId | null
   useLegacyLimits?: boolean
+  starcraftCompatibleReplays?: boolean
   lockedAlliances?: boolean
   visibility?: LobbyVisibility
   allowObservers?: boolean
@@ -705,6 +710,7 @@ export interface LobbyPreferencesResponse {
    */
   selectedMap?: SbMapId | null
   useLegacyLimits?: boolean
+  starcraftCompatibleReplays?: boolean
   lockedAlliances?: boolean
   visibility?: LobbyVisibility
   allowObservers?: boolean

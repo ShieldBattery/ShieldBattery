@@ -94,6 +94,12 @@ export interface GameSetup {
    * SC:R).
    */
   useLegacyLimits?: boolean
+  /**
+   * Whether to play without the ShieldBattery game logic fixes that make replays play back
+   * differently in StarCraft: Remastered without ShieldBattery. The game records which fixes it
+   * turned off in the replay.
+   */
+  starcraftCompatibleReplays?: boolean
   seed: number
   /**
    * Whether this game uses netcode v2 (rally-point2). When set, each client must generate a

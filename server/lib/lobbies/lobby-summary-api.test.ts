@@ -73,6 +73,7 @@ const BASE_SUMMARY: LobbySummaryJson = {
   gameSubType: 0,
   host: { id: HOST_ID },
   useLegacyLimits: false,
+  starcraftCompatibleReplays: false,
   lockedAlliances: false,
   playerSlots: { taken: 1, total: 4, open: 3 },
   observerSlots: { taken: 1, open: 2 },
@@ -120,6 +121,7 @@ describe('lobbies/lobby-summary-api/LobbySummaryApi#getSummary', () => {
         'name',
         'playerSlots',
         'useLegacyLimits',
+        'starcraftCompatibleReplays',
       ].sort(),
     )
     expect(Object.keys(response.summary.host)).toEqual(['id'])

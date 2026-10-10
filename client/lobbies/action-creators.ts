@@ -69,6 +69,7 @@ export interface CreateLobbyParams {
   gameType: GameType
   gameSubType?: number
   useLegacyLimits?: boolean
+  starcraftCompatibleReplays?: boolean
   lockedAlliances?: boolean
   allowObservers?: boolean
   visibility?: LobbyVisibility
@@ -86,6 +87,7 @@ export function createLobby(
     gameType,
     gameSubType,
     useLegacyLimits,
+    starcraftCompatibleReplays,
     lockedAlliances,
     allowObservers,
     visibility,
@@ -105,6 +107,7 @@ export function createLobby(
         gameType,
         gameSubType,
         useLegacyLimits,
+        starcraftCompatibleReplays,
         lockedAlliances,
         allowObservers,
         visibility,

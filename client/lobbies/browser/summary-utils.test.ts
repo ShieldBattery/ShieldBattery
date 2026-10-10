@@ -28,6 +28,7 @@ function makeSummary(overrides: Partial<LobbySummaryJson> = {}): LobbySummaryJso
     gameSubType: 0,
     host: { id: TEC27 },
     useLegacyLimits: false,
+    starcraftCompatibleReplays: false,
     lockedAlliances: false,
     benchCount: 0,
     lifecycle: 'gathering',

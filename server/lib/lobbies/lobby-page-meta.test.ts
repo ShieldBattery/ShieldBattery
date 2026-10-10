@@ -46,6 +46,7 @@ const BASE_SUMMARY: LobbySummaryJson = {
   gameSubType: 0,
   host: { id: HOST_ID },
   useLegacyLimits: false,
+  starcraftCompatibleReplays: false,
   lockedAlliances: false,
   playerSlots: { taken: 1, total: 4, open: 3 },
   observerSlots: { taken: 0, open: 0 },

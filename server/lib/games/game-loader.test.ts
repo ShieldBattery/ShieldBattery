@@ -7,6 +7,7 @@ import {
   GameConfig,
   GameConfigPlayer,
   GameSource,
+  LobbyExtra,
   LobbyGameConfig,
 } from '../../../common/games/configuration'
 import { PlayerInfo } from '../../../common/games/game-launch-config'
@@ -198,7 +199,7 @@ describe('games/game-loader/GameLoader', () => {
    * order, making p1 slot 0 and p2 slot 1. The pending load is returned wrapped, since an
    * `AsyncResult` is itself thenable and would otherwise be awaited away by this helper.
    */
-  async function startNetworkedLoad(gameId: string, matchmaking = false) {
+  async function startNetworkedLoad(gameId: string, matchmaking = false, lobbyExtra?: LobbyExtra) {
     const player1 = makePlayer(p1)
     const player2 = makePlayer(p2)
     registerActiveClients([player1.player, player2.player])
@@ -229,6 +230,7 @@ describe('games/game-loader/GameLoader', () => {
           [{ id: p1, race: 't', isComputer: false }],
           [{ id: p2, race: 'z', isComputer: false }],
         ]),
+        ...(lobbyExtra ? { gameSourceExtra: lobbyExtra } : {}),
         ...(matchmaking
           ? {
               gameSource: GameSource.Matchmaking as const,
@@ -961,6 +963,24 @@ describe('games/game-loader/GameLoader', () => {
       expect(error.data.unloaded).toEqual([p1])
       expect(netcodeV2Service.fetchSessionLoadState).not.toHaveBeenCalled()
     })
+  })
+
+  test("carries a lobby's StarCraft-compatible replays setting into every player's setup", async () => {
+    const { load } = await startNetworkedLoad('game-sc-compatible', false, {
+      starcraftCompatibleReplays: true,
+    })
+
+    const setups = publisher.publish.mock.calls
+      .filter((call: any[]) => call[1]?.type === 'setGameConfig')
+      .map((call: any[]) => call[1].setup)
+    expect(setups).toHaveLength(2)
+    for (const setup of setups) {
+      expect(setup.starcraftCompatibleReplays).toBe(true)
+    }
+
+    gameLoader.registerGameAsLoaded('game-sc-compatible', p1)
+    gameLoader.registerGameAsLoaded('game-sc-compatible', p2)
+    await load
   })
 
   test('reports a networked load as not local-only', async () => {

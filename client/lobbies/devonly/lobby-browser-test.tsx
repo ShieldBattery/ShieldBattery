@@ -116,6 +116,7 @@ interface SummarySpec {
   host: SbUserId
   teams: LobbySummaryTeamJson[]
   useLegacyLimits?: boolean
+  starcraftCompatibleReplays?: boolean
   lockedAlliances?: boolean
   /** How many members wait on the bench for a seat. */
   benchCount?: number
@@ -167,6 +168,7 @@ function makePreview(spec: SummarySpec): LobbyPreviewJson {
     gameSubType: spec.gameSubType ?? 0,
     host: { id: spec.host },
     useLegacyLimits: spec.useLegacyLimits ?? false,
+    starcraftCompatibleReplays: spec.starcraftCompatibleReplays ?? false,
     lockedAlliances: spec.lockedAlliances ?? false,
     ...slotCounts(spec.teams),
     benchCount: spec.benchCount ?? 0,
@@ -260,6 +262,7 @@ function busyEveningLobbies(): LobbyPreviewJson[] {
       map: FightingSpirit,
       gameType: GameType.Melee,
       host: NERDRAGE,
+      starcraftCompatibleReplays: true,
       ageMinutes: 30,
       teams: [
         team('', [human(NERDRAGE, 't'), human(DRONEBRO, 'z'), open(), open()]),

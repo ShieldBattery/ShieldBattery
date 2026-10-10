@@ -58,6 +58,7 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
     gameType: lobby.gameType,
     gameSubType: lobby.gameSubType,
     useLegacyLimits: lobby.useLegacyLimits,
+    starcraftCompatibleReplays: lobby.starcraftCompatibleReplays,
     lockedAlliances: lobby.lockedAlliances,
     allowObservers: hasObservers(lobby),
     mapId: lobby.map!.id,
@@ -172,6 +173,9 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
           }
           if (model.useLegacyLimits !== initialModel.useLegacyLimits) {
             settings.useLegacyLimits = model.useLegacyLimits
+          }
+          if (model.starcraftCompatibleReplays !== initialModel.starcraftCompatibleReplays) {
+            settings.starcraftCompatibleReplays = model.starcraftCompatibleReplays
           }
           if (model.lockedAlliances !== initialModel.lockedAlliances) {
             settings.lockedAlliances = model.lockedAlliances

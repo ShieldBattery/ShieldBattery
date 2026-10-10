@@ -1656,6 +1656,7 @@
       "emptyNoLobbies": "No one's hosting right now",
       "emptyNoMatches": "No lobbies match your filters",
       "enterCode": "Enter code",
+      "eventMode": "Event mode",
       "filterFriends": "Friends",
       "filterGameType": "Game type",
       "filterGameTypeAll": "All game types",
@@ -1690,9 +1691,12 @@
       "title": "Lobbies"
     },
     "createLobby": {
+      "advancedHeader": "Advanced",
       "allowObserversWithMax": "Allow observers (up to {{maxObservers}})",
       "errorDialogTitle": "Error creating lobby",
       "errorGeneric": "Something went wrong while creating the lobby. Please try again.",
+      "eventMode": "Event mode: Battle.net-compatible replays (not recommended)",
+      "eventModeDescription": "Lets replays play back in StarCraft: Remastered without ShieldBattery. Bugs that ShieldBattery normally fixes can happen in these games.",
       "gameSubTypeHeader": "Teams",
       "gameSubTypeOption": "{{numTeams}} teams",
       "gameSubTypeOptionTvB": "{{topSlots}} vs {{bottomSlots}}",
@@ -1833,6 +1837,7 @@
     },
     "messageLayout": {
       "gameStarted": "The game has started",
+      "settingsChangeEventMode": "event mode",
       "settingsChangeGameSubType": "teams",
       "settingsChangeGameType": "game type",
       "settingsChangeLockedAlliances": "alliance lock",
@@ -1846,9 +1851,11 @@
     "room": {
       "banner": {
         "alliancesLocked": "Locked",
+        "eventModeOn": "On",
         "shuffle": "Shuffle",
         "shuffleBlockedByComputers": "Remove the computers to shuffle",
         "statAlliances": "Alliances",
+        "statEventMode": "Event mode",
         "statMode": "Mode",
         "statSize": "Size",
         "statTileset": "Tileset",

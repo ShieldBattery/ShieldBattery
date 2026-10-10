@@ -1644,6 +1644,33 @@ describe('lobbies/lobby-service', () => {
       ])
     })
 
+    test('turning on StarCraft-compatible replays publishes it as the changed setting', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      expect(lobbyService.lobbies.get(id)!.starcraftCompatibleReplays).toBe(false)
+      fakeNydus.publish.mockClear()
+
+      await lobbyService.updateSettings({
+        client: host.client,
+        lobbyId: id,
+        starcraftCompatibleReplays: true,
+      })
+
+      expect(lobbyService.lobbies.get(id)!.starcraftCompatibleReplays).toBe(true)
+      expect(lobbyPublishes(id)).toEqual([
+        {
+          type: 'settingsChange',
+          changedSettings: ['starcraftCompatibleReplays'],
+          lobby: lobbyService.lobbies.get(id),
+        },
+      ])
+      expect(listPublishes()).toEqual([
+        {
+          action: 'update',
+          payload: expect.objectContaining({ starcraftCompatibleReplays: true }),
+        },
+      ])
+    })
+
     test('a change publishes the new lobby along with what the host changed', async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       fakeNydus.publish.mockClear()
@@ -2782,6 +2809,54 @@ describe('lobbies/lobby-service', () => {
         visibility: 'listed',
       })
       expect(loadGameRequests[0].gameConfig.observers).toEqual([])
+    })
+
+    test('records StarCraft-compatible replays as off by default', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+
+      await runCountdown(host)
+
+      expect(loadGameRequests).toHaveLength(1)
+      expect(loadGameRequests[0].gameConfig.gameSourceExtra).toMatchObject({
+        starcraftCompatibleReplays: false,
+      })
+    })
+
+    test('records StarCraft-compatible replays when the host created the lobby with them', async () => {
+      const { id } = await lobbyService.createLobby({
+        name: 'Tournament lobby',
+        map: BIG_GAME_HUNTERS.id,
+        gameType: GameType.Melee,
+        starcraftCompatibleReplays: true,
+        user: host.user,
+        client: host.client,
+      })
+      await joinLobby(joiner, id)
+
+      await runCountdown(host)
+
+      expect(loadGameRequests).toHaveLength(1)
+      expect(loadGameRequests[0].gameConfig.gameSourceExtra).toMatchObject({
+        starcraftCompatibleReplays: true,
+      })
+    })
+
+    test('records StarCraft-compatible replays when the host turned them on', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await lobbyService.updateSettings({
+        client: host.client,
+        lobbyId: id,
+        starcraftCompatibleReplays: true,
+      })
+      await joinLobby(joiner, id)
+
+      await runCountdown(host)
+
+      expect(loadGameRequests).toHaveLength(1)
+      expect(loadGameRequests[0].gameConfig.gameSourceExtra).toMatchObject({
+        starcraftCompatibleReplays: true,
+      })
     })
 
     test('leaves alliances unlocked by default', async () => {

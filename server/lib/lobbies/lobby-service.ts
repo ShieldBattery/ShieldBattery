@@ -320,6 +320,7 @@ function validatedLobbySettings({
   gameSubType,
   allowObservers,
   useLegacyLimits,
+  starcraftCompatibleReplays,
   lockedAlliances,
 }: Omit<Lobbies.LobbySettings, 'numSlots'>): Lobbies.LobbySettings {
   if (isUms(gameType) && !hasUmsPlayerSlots(map)) {
@@ -352,6 +353,7 @@ function validatedLobbySettings({
     numSlots,
     allowObservers,
     useLegacyLimits,
+    starcraftCompatibleReplays,
     lockedAlliances,
   }
 }
@@ -400,6 +402,7 @@ function advanceMapQueue(lobby: Lobby): { lobby: Lobby; skippedMapIds: SbMapId[]
           : 0,
         allowObservers: hasObservers(lobby),
         useLegacyLimits: lobby.useLegacyLimits,
+        starcraftCompatibleReplays: lobby.starcraftCompatibleReplays,
         lockedAlliances: lobby.lockedAlliances,
       })
       const updated = Lobbies.applySettingsChange(lobby, settings)
@@ -631,6 +634,7 @@ export class LobbyService {
     gameSubType,
     allowObservers,
     useLegacyLimits,
+    starcraftCompatibleReplays,
     lockedAlliances,
     visibility,
     region,
@@ -647,6 +651,7 @@ export class LobbyService {
     gameSubType?: number
     allowObservers?: boolean
     useLegacyLimits?: boolean
+    starcraftCompatibleReplays?: boolean
     lockedAlliances?: boolean
     visibility?: LobbyVisibility
     region?: GameServerRegionId
@@ -700,6 +705,7 @@ export class LobbyService {
       hostRegion,
       allowObservers: allowObservers ?? false,
       useLegacyLimits,
+      starcraftCompatibleReplays,
       lockedAlliances,
       visibility: lobbyVisibility,
     })
@@ -1248,6 +1254,7 @@ export class LobbyService {
     gameSubType,
     allowObservers,
     useLegacyLimits,
+    starcraftCompatibleReplays,
     lockedAlliances,
     mapQueue,
   }: {
@@ -1260,6 +1267,7 @@ export class LobbyService {
     gameSubType?: number
     allowObservers?: boolean
     useLegacyLimits?: boolean
+    starcraftCompatibleReplays?: boolean
     lockedAlliances?: boolean
     mapQueue?: SbMapId[]
   }): Promise<void> {
@@ -1297,6 +1305,8 @@ export class LobbyService {
     const nextGameSubType = isTeamType(nextGameType) ? (gameSubType ?? current.gameSubType) : 0
     const nextAllowObservers = allowObservers ?? hasObservers(current)
     const nextUseLegacyLimits = useLegacyLimits ?? current.useLegacyLimits
+    const nextStarcraftCompatibleReplays =
+      starcraftCompatibleReplays ?? current.starcraftCompatibleReplays
     const nextLockedAlliances = lockedAlliances ?? current.lockedAlliances
     const nextMapQueue = fetchedQueue ?? current.mapQueue
 
@@ -1306,6 +1316,7 @@ export class LobbyService {
       gameSubType: nextGameSubType,
       allowObservers: nextAllowObservers,
       useLegacyLimits: nextUseLegacyLimits,
+      starcraftCompatibleReplays: nextStarcraftCompatibleReplays,
       lockedAlliances: nextLockedAlliances,
     })
 
@@ -1317,6 +1328,9 @@ export class LobbyService {
     if (nextGameSubType !== current.gameSubType) changedSettings.push('gameSubType')
     if (nextAllowObservers !== hasObservers(current)) changedSettings.push('allowObservers')
     if (nextUseLegacyLimits !== current.useLegacyLimits) changedSettings.push('useLegacyLimits')
+    if (nextStarcraftCompatibleReplays !== current.starcraftCompatibleReplays) {
+      changedSettings.push('starcraftCompatibleReplays')
+    }
     if (nextLockedAlliances !== current.lockedAlliances) changedSettings.push('lockedAlliances')
     if (!sameMaps(nextMapQueue, current.mapQueue)) changedSettings.push('mapQueue')
     if (!changedSettings.length) {
@@ -2301,6 +2315,7 @@ export class LobbyService {
       gameSourceExtra: {
         host: lobby.host.userId,
         useLegacyLimits: lobby.useLegacyLimits,
+        starcraftCompatibleReplays: lobby.starcraftCompatibleReplays,
         visibility: lobby.visibility,
       },
       lockedAlliances: hasLockedAlliances(lobby),

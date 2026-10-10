@@ -197,6 +197,7 @@ export function toSummaryJson(
     gameSubType: lobby.gameSubType,
     host: { id: lobby.host.userId! },
     useLegacyLimits: lobby.useLegacyLimits,
+    starcraftCompatibleReplays: lobby.starcraftCompatibleReplays,
     lockedAlliances: lobby.lockedAlliances,
     ...toSummarySlotCounts(lobby),
     benchCount: lobby.bench.length,
@@ -361,6 +362,7 @@ export function createLobby({
   hostRegion,
   allowObservers,
   useLegacyLimits = false,
+  starcraftCompatibleReplays = false,
   lockedAlliances = false,
   visibility = 'listed',
 }: {
@@ -375,6 +377,7 @@ export function createLobby({
   hostRegion?: GameServerRegionId
   allowObservers: boolean
   useLegacyLimits?: boolean
+  starcraftCompatibleReplays?: boolean
   lockedAlliances?: boolean
   visibility?: LobbyVisibility
 }) {
@@ -408,6 +411,7 @@ export function createLobby({
     bench: [],
     host,
     useLegacyLimits,
+    starcraftCompatibleReplays,
     lockedAlliances,
     visibility,
     createdAt: Date.now(),
@@ -1194,6 +1198,7 @@ export interface LobbySettings {
   numSlots: number
   allowObservers: boolean
   useLegacyLimits: boolean
+  starcraftCompatibleReplays: boolean
   lockedAlliances: boolean
 }
 
@@ -1201,10 +1206,11 @@ export interface LobbySettings {
  * Applies a change to a lobby's settings, rebuilding its slot layout and reconciling everyone in it
  * into the result. Returns the updated lobby.
  *
- * A change that leaves the layout alone (a different unit limit or alliance lock, or new settings that describe
- * exactly the teams the lobby already has) keeps every slot as it is, so nobody moves. Turning
- * observers on or off only adds or removes the observer team, leaving the player slots — including
- * any the host has closed — as they are, and finding the people who were observing a seat.
+ * A change that leaves the layout alone (a different unit limit, alliance lock, or replay
+ * compatibility, or new settings that describe exactly the teams the lobby already has) keeps every
+ * slot as it is, so nobody moves. Turning observers on or off only adds or removes the observer
+ * team, leaving the player slots — including any the host has closed — as they are, and finding the
+ * people who were observing a seat.
  *
  * Any other change gives the lobby the layout the new settings describe, and pours the members who
  * held a slot back into it in order of who has the strongest claim to a seat: the host first, then
@@ -1245,6 +1251,7 @@ export function applySettingsChange(lobby: Lobby, next: LobbySettings): Lobby {
       gameType: next.gameType,
       gameSubType: next.gameSubType,
       useLegacyLimits: next.useLegacyLimits,
+      starcraftCompatibleReplays: next.starcraftCompatibleReplays,
       lockedAlliances: next.lockedAlliances,
     }
   }
@@ -1294,6 +1301,7 @@ export function applySettingsChange(lobby: Lobby, next: LobbySettings): Lobby {
     gameType: next.gameType,
     gameSubType: next.gameSubType,
     useLegacyLimits: next.useLegacyLimits,
+    starcraftCompatibleReplays: next.starcraftCompatibleReplays,
     lockedAlliances: next.lockedAlliances,
     teams,
     bench: [],

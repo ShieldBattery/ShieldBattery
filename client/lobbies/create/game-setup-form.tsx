@@ -1,4 +1,4 @@
-import { useImperativeHandle } from 'react'
+import { useId, useImperativeHandle } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
@@ -226,11 +226,25 @@ const OptionsRow = styled.div`
   gap: 4px 24px;
 `
 
+const AdvancedOption = styled.div`
+  display: flex;
+  flex-direction: column;
+`
+
+/** Lines up with the text of the checkbox label above it, past the box and its spacing. */
+const AdvancedOptionCaption = styled.div`
+  ${bodySmall};
+  margin-top: -4px;
+  padding-left: 30px;
+  color: var(--theme-on-surface-variant);
+`
+
 export interface GameSetupModel {
   mapId?: SbMapId
   gameType: GameType
   gameSubType: number
   useLegacyLimits: boolean
+  starcraftCompatibleReplays: boolean
   lockedAlliances: boolean
   allowObservers: boolean
 }
@@ -327,6 +341,7 @@ export function GameSetupForm({
 }: GameSetupFormProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
+  const starcraftCompatibleReplaysCaptionId = useId()
   // The model prop is only read at mount, so this only affects the initial form seeding: a saved
   // sub-type may be unset (0) or stale relative to the saved map, and is normalized against that
   // map before the form ever holds it. Afterwards the map/game-type change handlers below keep the
@@ -513,6 +528,31 @@ export function GameSetupForm({
                 />
               ) : null}
             </OptionsRow>
+          </Section>
+
+          <Section>
+            <SectionHeader>{t('lobbies.createLobby.advancedHeader', 'Advanced')}</SectionHeader>
+            <AdvancedOption>
+              <CheckBox
+                {...bindCheckable('starcraftCompatibleReplays')}
+                label={t(
+                  'lobbies.createLobby.eventMode',
+                  'Event mode: Battle.net-compatible replays (not recommended)',
+                )}
+                disabled={disabled}
+                inputProps={{
+                  tabIndex: 0,
+                  'aria-describedby': starcraftCompatibleReplaysCaptionId,
+                }}
+              />
+              <AdvancedOptionCaption id={starcraftCompatibleReplaysCaptionId}>
+                {t(
+                  'lobbies.createLobby.eventModeDescription',
+                  'Lets replays play back in StarCraft: Remastered without ShieldBattery. ' +
+                    'Bugs that ShieldBattery normally fixes can happen in these games.',
+                )}
+              </AdvancedOptionCaption>
+            </AdvancedOption>
           </Section>
         </SettingsColumn>
 

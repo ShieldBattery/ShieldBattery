@@ -15,6 +15,7 @@ export interface LobbyPreferences {
   recentMaps?: SbMapId[]
   selectedMap?: SbMapId
   useLegacyLimits?: boolean
+  starcraftCompatibleReplays?: boolean
   lockedAlliances?: boolean
   visibility?: LobbyVisibility
   allowObservers?: boolean
@@ -31,6 +32,8 @@ function fromDbLobbyPreferences(prefs: DbLobbyPreferences): LobbyPreferences {
     recentMaps: prefs.recent_maps !== null ? prefs.recent_maps : undefined,
     selectedMap: prefs.selected_map !== null ? prefs.selected_map : undefined,
     useLegacyLimits: prefs.use_legacy_limits !== null ? prefs.use_legacy_limits : undefined,
+    starcraftCompatibleReplays:
+      prefs.starcraft_compatible_replays !== null ? prefs.starcraft_compatible_replays : undefined,
     lockedAlliances: prefs.locked_alliances !== null ? prefs.locked_alliances : undefined,
     visibility: prefs.visibility !== null ? prefs.visibility : undefined,
     allowObservers: prefs.allow_observers !== null ? prefs.allow_observers : undefined,
@@ -46,6 +49,7 @@ export async function upsertLobbyPreferences(
     recentMaps,
     selectedMap,
     useLegacyLimits,
+    starcraftCompatibleReplays,
     lockedAlliances,
     visibility,
     allowObservers,
@@ -57,9 +61,10 @@ export async function upsertLobbyPreferences(
     const result = await client.query<DbLobbyPreferences>(sql`
       INSERT INTO lobby_preferences
         (user_id, name, game_type, game_sub_type, recent_maps, selected_map, use_legacy_limits,
-          locked_alliances, visibility, allow_observers)
+          starcraft_compatible_replays, locked_alliances, visibility, allow_observers)
       VALUES (${userId}, ${name}, ${gameType}, ${gameSubType}, ${recentMaps}, ${selectedMap},
-        ${useLegacyLimits}, ${lockedAlliances}, ${visibility}, ${allowObservers})
+        ${useLegacyLimits}, ${starcraftCompatibleReplays}, ${lockedAlliances}, ${visibility},
+        ${allowObservers})
       ON CONFLICT (user_id)
       DO UPDATE SET
         name = ${name},
@@ -68,6 +73,7 @@ export async function upsertLobbyPreferences(
         recent_maps = ${recentMaps},
         selected_map = ${selectedMap},
         use_legacy_limits = ${useLegacyLimits},
+        starcraft_compatible_replays = ${starcraftCompatibleReplays},
         locked_alliances = ${lockedAlliances},
         visibility = ${visibility},
         allow_observers = ${allowObservers}

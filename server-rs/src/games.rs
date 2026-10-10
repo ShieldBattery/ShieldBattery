@@ -292,6 +292,10 @@ pub struct GameConfigData<ExtraT: OutputType> {
 pub struct LobbyExtra {
     pub turn_rate: Option<u8>,
     pub use_legacy_limits: Option<bool>,
+    /// Whether the game was played without the ShieldBattery game logic fixes that make replays
+    /// play back differently in StarCraft: Remastered without ShieldBattery. Missing for games
+    /// recorded before this setting existed, which should be treated as `false`.
+    pub starcraft_compatible_replays: Option<bool>,
 }
 
 #[derive(Debug, Copy, Clone, Default, Serialize, Deserialize)]

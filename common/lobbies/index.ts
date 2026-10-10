@@ -85,6 +85,11 @@ export interface Lobby {
   readonly host: Slot
   readonly useLegacyLimits: boolean
   /**
+   * Whether games from this lobby play without the ShieldBattery game logic fixes that make replays
+   * play back differently in StarCraft: Remastered without ShieldBattery.
+   */
+  readonly starcraftCompatibleReplays: boolean
+  /**
    * Whether in-game alliance changes are disabled, keeping the lobby's teams fixed for the whole
    * game. Only takes effect for game types where alliances can change in-game (see
    * `gameTypeAllowsAllianceChanges`).

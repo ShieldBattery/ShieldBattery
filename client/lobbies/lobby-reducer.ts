@@ -48,6 +48,7 @@ const EMPTY_LOBBY: Lobby = Object.freeze({
   bench: [],
   host: EMPTY_SLOT,
   useLegacyLimits: false,
+  starcraftCompatibleReplays: false,
   lockedAlliances: false,
   visibility: 'listed',
   createdAt: 0,
