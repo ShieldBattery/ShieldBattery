@@ -19,6 +19,31 @@ struct SoundRequest {
     /// Where on the map the sound plays, or `None` for one that is not positioned.
     position: Option<(i32, i32)>,
     volume: f32,
+    /// The unit the sound is from, for the game to keep a unit type to one voice at a time.
+    unit: Option<SoundSource>,
+}
+
+/// The unit a sound request came from, by what tells it apart from a later occupant of its slot in
+/// the unit pool.
+#[derive(Copy, Clone)]
+struct SoundSource {
+    unit: *mut bw::Unit,
+    /// Changes each time the slot is given to a new unit.
+    generation: u8,
+}
+
+// Only ever dereferenced on the game thread, and the unit pool it points into lasts the game.
+unsafe impl Send for SoundSource {}
+
+impl SoundSource {
+    /// The unit, if its slot still holds it.
+    unsafe fn current_unit(&self) -> Option<*mut bw::Unit> {
+        unsafe {
+            let current = !(*self.unit).flingy.sprite.is_null()
+                && (*self.unit).minor_unique_index == self.generation;
+            current.then_some(self.unit)
+        }
+    }
 }
 
 impl SoundRequest {
@@ -66,8 +91,8 @@ pub(crate) struct SoundCounts {
 /// `play_sound` hook should answer in place of playing it, or `None` outside a tick to let the
 /// request through. Called from the `play_sound` hook with its arguments.
 ///
-/// A request tied to a unit is recorded at the unit's position: the sound is played only after the
-/// tick, by which point the unit may no longer exist.
+/// A request tied to a unit is recorded at the unit's position as well: the sound is played only
+/// after the tick, by which point the unit may no longer exist.
 pub(crate) fn intercept_play_sound(
     sound_id: u32,
     volume: f32,
@@ -79,10 +104,11 @@ pub(crate) fn intercept_play_sound(
         return None;
     }
     unsafe {
+        let unit = unit as *mut bw::Unit;
         let position = if !x.is_null() {
             Some((*x, if y.is_null() { 0 } else { *y }))
         } else {
-            bw_dat::Unit::from_ptr(unit as *mut bw::Unit).map(|unit| {
+            bw_dat::Unit::from_ptr(unit).map(|unit| {
                 let position = unit.position();
                 (position.x as i32, position.y as i32)
             })
@@ -92,6 +118,10 @@ pub(crate) fn intercept_play_sound(
             sound_id,
             position,
             volume,
+            unit: (!unit.is_null()).then(|| SoundSource {
+                unit,
+                generation: (*unit).minor_unique_index,
+            }),
         });
     }
     // The original reports whether a channel took the sound; nothing in the simulation reads it.
@@ -150,7 +180,10 @@ pub(crate) unsafe fn reconcile_sounds(
                     counts.late_frames += lateness;
                 }
             }
-            bw.rollback_play_sound(request.sound_id, request.volume, request.position);
+            // The game lets only one unit of a type speak at a time, which it can only tell from the
+            // unit the sound is played for.
+            let unit = request.unit.and_then(|x| x.current_unit());
+            bw.rollback_play_sound(request.sound_id, request.volume, request.position, unit);
         }
         counts
     }

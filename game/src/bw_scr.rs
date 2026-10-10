@@ -7665,13 +7665,15 @@ impl BwScr {
         }
     }
 
-    /// Asks BW to play a sound effect at a map position, or unpositioned when `position` is
-    /// `None`, through the same entry point the simulation's own sound requests take.
+    /// Asks BW to play a sound effect for `unit` at its current position, or without a unit at a
+    /// map position, or unpositioned when `position` is `None`, through the same entry point the
+    /// simulation's own sound requests take.
     pub(crate) unsafe fn rollback_play_sound(
         &self,
         sound_id: u32,
         volume: f32,
         position: Option<(i32, i32)>,
+        unit: Option<*mut bw::Unit>,
     ) -> u32 {
         unsafe {
             let mut coords = position.unwrap_or_default();
@@ -7679,7 +7681,8 @@ impl BwScr {
                 Some(_) => (&raw mut coords.0, &raw mut coords.1),
                 None => (std::ptr::null_mut(), std::ptr::null_mut()),
             };
-            (self.play_sound)(sound_id, volume, std::ptr::null_mut(), x, y)
+            let unit = unit.map_or(std::ptr::null_mut(), |x| x as *mut c_void);
+            (self.play_sound)(sound_id, volume, unit, x, y)
         }
     }
 
