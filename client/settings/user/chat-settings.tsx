@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { isChatDisplayMode } from '../../../common/settings/account-settings'
 import { useSelfUser } from '../../auth/auth-utils'
+import { CheckBox } from '../../material/check-box'
 import { RadioButton } from '../../material/radio'
 import { ChatContext, ChatContextValue } from '../../messaging/chat-context'
 import { TextMessage } from '../../messaging/common-message-layout'
@@ -48,6 +49,7 @@ export function UserChatSettings() {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const chatDisplayMode = useAppSelector(s => s.settings.account.chatDisplayMode)
+  const hideBlockedMessages = useAppSelector(s => s.settings.account.hideBlockedMessages)
 
   const onChange = (event: ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value
@@ -97,6 +99,35 @@ export function UserChatSettings() {
             <CozyChatPreview />
           </PreviewBox>
         </RadioPreviewGroup>
+      </SectionContainer>
+      <SectionContainer>
+        <SettingsSectionHeader>
+          {t('settings.user.chat.blockedMessages.title', 'Messages from blocked users')}
+        </SettingsSectionHeader>
+        <SettingsSectionDescription>
+          {t(
+            'settings.user.chat.blockedMessages.description',
+            'Messages from users you have blocked are shown as a "Blocked message" line you can ' +
+              'expand. Hiding them removes those lines from channels, whispers and lobby chat ' +
+              'entirely.',
+          )}
+        </SettingsSectionDescription>
+        <CheckBox
+          checked={hideBlockedMessages}
+          onChange={event =>
+            dispatch(
+              mergeAccountSettings(
+                { hideBlockedMessages: event.target.checked },
+                { onSuccess: () => {}, onError: () => {} },
+              ),
+            )
+          }
+          name='hideBlockedMessages'
+          label={t(
+            'settings.user.chat.blockedMessages.hide',
+            'Hide messages from blocked users completely',
+          )}
+        />
       </SectionContainer>
     </FormContainer>
   )

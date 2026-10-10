@@ -14,6 +14,7 @@ import {
   cozyLayoutFor,
   findUnreadLineIndex,
   isScrolledToBottom,
+  layoutMessageList,
 } from './message-list'
 import { CommonMessageType, type CommonTextMessage, type SbMessage } from './message-records'
 
@@ -294,5 +295,223 @@ describe('client/messaging/message-list/cozyLayoutFor', () => {
       'cozyHeader',
       'cozyContinuation',
     ])
+  })
+})
+
+describe('client/messaging/message-list/layoutMessageList', () => {
+  const BLOCKED_USER_ID = makeSbUserId(4)
+  const BLOCKS = new Map<SbUserId, UserRelationshipJson>([
+    [BLOCKED_USER_ID, {} as UserRelationshipJson],
+  ])
+  const DAY_MS = 24 * 60 * 60 * 1000
+  // Noon local time, so a day either side stays on a different calendar day in any time zone.
+  const DAY_ONE = new Date(2026, 0, 1, 12).getTime()
+
+  function textFrom(id: string, from: SbUserId, time: number): ChannelTextMessage {
+    return {
+      id,
+      type: ServerChatMessageType.TextMessage,
+      channelId: CHANNEL_ID,
+      time,
+      from,
+      text: 'hi',
+    }
+  }
+
+  function layout(
+    messages: ReadonlyArray<SbMessage>,
+    {
+      unreadLineTime,
+      hasMoreHistory = false,
+      hideBlocked = true,
+      cozy = false,
+    }: {
+      unreadLineTime?: number
+      hasMoreHistory?: boolean
+      hideBlocked?: boolean
+      cozy?: boolean
+    } = {},
+  ) {
+    return layoutMessageList(messages, {
+      unreadLineTime,
+      hasMoreHistory,
+      blockedUsers: BLOCKS,
+      hideBlocked,
+      cozy,
+    })
+  }
+
+  test('blocked messages are left out when hidden', () => {
+    const entries = layout([
+      textFrom('a', USER_ID, DAY_ONE),
+      textFrom('b', BLOCKED_USER_ID, DAY_ONE + 1000),
+      textFrom('c', USER_ID, DAY_ONE + 2000),
+    ])
+
+    expect(entries.map(e => e.message.id)).toEqual(['a', 'c'])
+  })
+
+  test('blocked messages are kept when not hidden', () => {
+    const entries = layout(
+      [textFrom('a', USER_ID, DAY_ONE), textFrom('b', BLOCKED_USER_ID, DAY_ONE + 1000)],
+      { hideBlocked: false },
+    )
+
+    expect(entries.map(e => e.message.id)).toEqual(['a', 'b'])
+  })
+
+  test('only text messages are hidden', () => {
+    const entries = layout([
+      textFrom('a', USER_ID, DAY_ONE),
+      {
+        id: 'b',
+        type: ServerChatMessageType.JoinChannel,
+        channelId: CHANNEL_ID,
+        time: DAY_ONE + 1000,
+        userId: BLOCKED_USER_ID,
+      },
+    ])
+
+    expect(entries.map(e => e.message.id)).toEqual(['a', 'b'])
+  })
+
+  test('a day divider goes in front of the first message of a new day', () => {
+    const entries = layout([
+      textFrom('a', USER_ID, DAY_ONE),
+      textFrom('b', USER_ID, DAY_ONE + DAY_MS),
+    ])
+
+    expect(entries.map(e => e.newDayBefore)).toEqual([false, true])
+  })
+
+  test('a day holding only hidden messages gets no divider', () => {
+    const entries = layout([
+      textFrom('a', USER_ID, DAY_ONE),
+      textFrom('b', BLOCKED_USER_ID, DAY_ONE + DAY_MS),
+      textFrom('c', USER_ID, DAY_ONE + DAY_MS * 2),
+    ])
+
+    expect(entries.map(e => [e.message.id, e.newDayBefore])).toEqual([
+      ['a', false],
+      ['c', true],
+    ])
+  })
+
+  test('a hidden message at the end of a day does not move the next day divider', () => {
+    const entries = layout([
+      textFrom('a', USER_ID, DAY_ONE),
+      textFrom('b', BLOCKED_USER_ID, DAY_ONE + DAY_MS),
+      textFrom('c', USER_ID, DAY_ONE + DAY_MS + 1000),
+    ])
+
+    expect(entries.map(e => [e.message.id, e.newDayBefore])).toEqual([
+      ['a', false],
+      ['c', true],
+    ])
+  })
+
+  test('a leading hidden message does not count as the previous day', () => {
+    const entries = layout([
+      textFrom('a', BLOCKED_USER_ID, DAY_ONE),
+      textFrom('b', USER_ID, DAY_ONE + DAY_MS),
+    ])
+
+    expect(entries.map(e => [e.message.id, e.newDayBefore])).toEqual([['b', false]])
+  })
+
+  test('the unread divider moves past a hidden first unread message', () => {
+    const entries = layout(
+      [
+        textFrom('a', USER_ID, DAY_ONE),
+        textFrom('b', BLOCKED_USER_ID, DAY_ONE + 1000),
+        textFrom('c', USER_ID, DAY_ONE + 2000),
+      ],
+      { unreadLineTime: DAY_ONE },
+    )
+
+    expect(entries.map(e => [e.message.id, e.unreadLineBefore])).toEqual([
+      ['a', false],
+      ['c', true],
+    ])
+  })
+
+  test('the unread divider is absent when every unread message is hidden', () => {
+    const entries = layout(
+      [
+        textFrom('a', USER_ID, DAY_ONE),
+        textFrom('b', BLOCKED_USER_ID, DAY_ONE + 1000),
+        textFrom('c', BLOCKED_USER_ID, DAY_ONE + 2000),
+      ],
+      { unreadLineTime: DAY_ONE },
+    )
+
+    expect(entries.some(e => e.unreadLineBefore)).toBe(false)
+  })
+
+  test('a hidden read message still places the unread boundary in the window', () => {
+    const entries = layout(
+      [textFrom('a', BLOCKED_USER_ID, DAY_ONE), textFrom('b', USER_ID, DAY_ONE + 1000)],
+      { unreadLineTime: DAY_ONE, hasMoreHistory: true },
+    )
+
+    expect(entries.map(e => [e.message.id, e.unreadLineBefore])).toEqual([['b', true]])
+  })
+
+  test('the unread divider stays on a blocked message that is not hidden', () => {
+    const entries = layout(
+      [
+        textFrom('a', USER_ID, DAY_ONE),
+        textFrom('b', BLOCKED_USER_ID, DAY_ONE + 1000),
+        textFrom('c', USER_ID, DAY_ONE + 2000),
+      ],
+      { unreadLineTime: DAY_ONE, hideBlocked: false },
+    )
+
+    expect(entries.map(e => e.unreadLineBefore)).toEqual([false, true, false])
+  })
+
+  test('a hidden message does not break a cozy group', () => {
+    const entries = layout(
+      [
+        textFrom('a', USER_ID, DAY_ONE),
+        textFrom('b', BLOCKED_USER_ID, DAY_ONE + 1000),
+        textFrom('c', USER_ID, DAY_ONE + 2000),
+      ],
+      { cozy: true },
+    )
+
+    expect(entries.map(e => e.layout)).toEqual(['cozyHeader', 'cozyContinuation'])
+  })
+
+  test('a blocked message that is not hidden still breaks a cozy group', () => {
+    const entries = layout(
+      [
+        textFrom('a', USER_ID, DAY_ONE),
+        textFrom('b', BLOCKED_USER_ID, DAY_ONE + 1000),
+        textFrom('c', USER_ID, DAY_ONE + 2000),
+      ],
+      { cozy: true, hideBlocked: false },
+    )
+
+    expect(entries.map(e => e.layout)).toEqual(['cozyHeader', undefined, 'cozyHeader'])
+  })
+
+  test('a moved unread divider starts a new cozy group', () => {
+    const entries = layout(
+      [
+        textFrom('a', USER_ID, DAY_ONE),
+        textFrom('b', BLOCKED_USER_ID, DAY_ONE + 1000),
+        textFrom('c', USER_ID, DAY_ONE + 2000),
+      ],
+      { cozy: true, unreadLineTime: DAY_ONE },
+    )
+
+    expect(entries.map(e => e.layout)).toEqual(['cozyHeader', 'cozyHeader'])
+  })
+
+  test('the classic display mode gets no cozy layout', () => {
+    const entries = layout([textFrom('a', USER_ID, DAY_ONE), textFrom('c', USER_ID, DAY_ONE + 1)])
+
+    expect(entries.map(e => e.layout)).toEqual([undefined, undefined])
   })
 })

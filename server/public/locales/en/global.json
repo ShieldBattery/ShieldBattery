@@ -3019,6 +3019,11 @@
         "unknownError": "Something went wrong, please try again later."
       },
       "chat": {
+        "blockedMessages": {
+          "description": "Messages from users you have blocked are shown as a \"Blocked message\" line you can expand. Hiding them removes those lines from channels, whispers and lobby chat entirely.",
+          "hide": "Hide messages from blocked users completely",
+          "title": "Messages from blocked users"
+        },
         "displayMode": {
           "classic": "Classic",
           "cozy": "Cozy",

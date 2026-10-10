@@ -30,6 +30,7 @@ export const updateAccountSettingsSchema = Joi.object<UpdateAccountSettingsReque
   showWhispersEverywhere: Joi.boolean(),
   availability: Joi.valid(...ALL_USER_AVAILABILITIES),
   chatDisplayMode: Joi.valid(...ALL_CHAT_DISPLAY_MODES),
+  hideBlockedMessages: Joi.boolean(),
   replayNameTemplate: Joi.string().allow('').max(MAX_REPLAY_NAME_TEMPLATE_LENGTH),
 })
   .min(1)
