@@ -121,11 +121,17 @@ From then on the client paces against the session clock through its home relay's
 - A phase nudge keeps the game loop's ticks centered in their steps, since a tick near a step's edge
   flips between stepping an extra frame and putting one off.
 - **The split** between delay and rollback: the lead (how far the client runs ahead of the
-  schedule) follows the rollback it measures over 2 s windows, sampled only on ticks where the
-  newest fully known step advanced. It drops when the window's median exceeds the target (or its
+  schedule) follows the rollback it measures over 2 s windows, one sample each time the newest
+  fully known step advances: the most rollback any tick ran with since the last one, so an outage
+  counts once and turns arriving several at a time count by the tick just before each batch. It
+  drops when the window's median exceeds the target (or its
   90th percentile exceeds the target plus one frame), at most 2 frames a window, and rises when even
-  the 90th percentile is short, a frame every six ticks. The pipe (`buffer - lead`) is capped at 14
-  turns, lockstep's deepest buffer, so rollback never costs more delay than lockstep could.
+  the 90th percentile is short, by the shortfall, taking effect a frame every six ticks. The
+  rollback measured is signed: turns already in for frames the client hasn't reached are headroom,
+  which is the only way a target of 0 sees delay it doesn't need. A rise still being taken up
+  counts as already in effect, so the next window doesn't make it again. The pipe (`buffer - lead`)
+  is capped at 14 turns, lockstep's deepest buffer, so rollback never costs more delay than
+  lockstep could.
 
 Send-phase alignment and the lockstep buffer law are off in rollback sessions after the start: the
 lead report sets each client's send timing outright, and the buffer only matters for the lockstep

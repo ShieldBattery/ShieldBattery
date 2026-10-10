@@ -168,10 +168,12 @@ const LEAD_WINDOW_TICKS: usize = 48;
 
 /// The rollback the ticks since the lead last moved ran with.
 struct LeadWindow {
-    rollbacks: [u32; LEAD_WINDOW_TICKS],
+    rollbacks: [i32; LEAD_WINDOW_TICKS],
     ticks: usize,
     /// The newest step whose turns were all known as of the last tick noted.
     known_until: u32,
+    /// The most rollback any tick ran with since more turns last became known.
+    worst_since_known: i32,
 }
 
 static LEAD_WINDOW: Mutex<LeadWindow> = Mutex::new(LeadWindow::new());
@@ -182,31 +184,46 @@ impl LeadWindow {
             rollbacks: [0; LEAD_WINDOW_TICKS],
             ticks: 0,
             known_until: 0,
+            worst_since_known: i32::MIN,
         }
     }
 
-    /// Notes the rollback a tick ran with, `ahead` frames past `known_until`, the newest step
-    /// whose turns were all known, and returns how far to move the lead once a whole window is in.
+    /// Notes the rollback a tick ran with, having reached frame `reached` with `known_until` the
+    /// newest step whose turns were all known, and returns how far to move the lead once a whole
+    /// window is in.
+    ///
+    /// The rollback noted is signed: below 0, the turns of frames the client hasn't reached yet
+    /// were already in, and that many more frames of lead would still have run without rolling
+    /// back. It counts the `to_follow` frames of lead the client has chosen but not taken up yet
+    /// as already in effect, since they will spend that much of any such headroom: a rise bigger
+    /// than a window can take up would otherwise be made again by the next window.
     ///
     /// The target is the rollback the client means to run steadily, and the frame past it is
     /// insurance against small delays: corrections stay hard to see up to a frame past the target,
     /// and only become visible beyond it. So the lead moves down (more input delay) once the
     /// window's median is past the target, or more than a tenth of its ticks ran past the
     /// insurance frame, by whichever excess is larger but at most [`MAX_LEAD_DROP`] frames; and it
-    /// moves up once even its 90th percentile is short of the target, by that shortfall. Moving
-    /// the lead by a frame moves the whole distribution by a frame, so one move never leads
-    /// straight to the opposite one.
+    /// moves up once even its 90th percentile is short of the target, by that shortfall, which at
+    /// a target of 0 only headroom shows. Moving the lead by a frame moves the whole distribution
+    /// by a frame, so one move never leads straight to the opposite one.
     ///
-    /// Only ticks by which more turns became known count. The lead follows how late turns arrive,
-    /// and while none arrive at all (a peer that stopped sending, or a lost link) the rollback just
-    /// sits at the prediction limit, which says nothing about lateness: following it would pile
-    /// input delay on for when turns resume.
-    fn note(&mut self, ahead: u32, known_until: u32, target: u32) -> i32 {
-        if known_until <= self.known_until {
+    /// The window takes one sample each time more turns become known: the most rollback any tick
+    /// ran with since the last time. The lead follows how late turns arrive, and while none arrive
+    /// at all (a peer that stopped sending, or a lost link) the rollback just sits at the
+    /// prediction limit, which says nothing about lateness: a sample for every such tick would
+    /// pile input delay on for when turns resume. Turns that arrive several at a time leave the
+    /// least rollback on the tick they arrive by and more on every tick until the next ones, and
+    /// those later ticks are the ones the lead has to cover. Once no turn is left to arrive, none
+    /// is late or early either.
+    fn note(&mut self, reached: u32, known_until: u32, to_follow: i32, target: u32) -> i32 {
+        let rollback = i64::from(reached) - i64::from(known_until) + i64::from(to_follow);
+        let rollback = rollback.clamp(i32::MIN.into(), i32::MAX.into()) as i32;
+        self.worst_since_known = self.worst_since_known.max(rollback);
+        if known_until == u32::MAX || known_until <= self.known_until {
             return 0;
         }
         self.known_until = known_until;
-        self.rollbacks[self.ticks] = ahead;
+        self.rollbacks[self.ticks] = std::mem::replace(&mut self.worst_since_known, i32::MIN);
         self.ticks += 1;
         if self.ticks < LEAD_WINDOW_TICKS {
             return 0;
@@ -215,13 +232,14 @@ impl LeadWindow {
         self.rollbacks.sort_unstable();
         let median = self.rollbacks[LEAD_WINDOW_TICKS / 2];
         let p90 = self.rollbacks[(LEAD_WINDOW_TICKS * 9).div_ceil(10) - 1];
+        let target = target as i32;
         let excess = median
             .saturating_sub(target)
             .max(p90.saturating_sub(target + 1));
-        if excess != 0 {
-            -(excess.min(MAX_LEAD_DROP) as i32)
+        if excess > 0 {
+            -excess.min(MAX_LEAD_DROP)
         } else {
-            target.saturating_sub(p90) as i32
+            target.saturating_sub(p90).max(0)
         }
     }
 }
@@ -230,9 +248,10 @@ impl LeadWindow {
 /// putting its next steps off a frame a tick (frames the player sees repeat), and a window can run
 /// at the prediction limit for no longer than one peer's link takes to fade for a couple of
 /// seconds: following its whole excess would pile on as much input delay as the limit allows, just
-/// as the fade ends, and rises take it back off only a couple of frames a window. Lateness that
-/// holds keeps moving the lead down, window after window.
-const MAX_LEAD_DROP: u32 = 2;
+/// as the fade ends, and a rise takes it back off only once a whole window has run without it, and
+/// then a frame every [`LEAD_FOLLOW_TICKS`] ticks. Lateness that holds keeps moving the lead down,
+/// window after window.
+const MAX_LEAD_DROP: i32 = 2;
 
 /// How many ticks go between the frames a rise in the lead takes effect by (see
 /// [`TurnState::follow_lead`](netcode_v2::TurnState::follow_lead)): four frames a second, each
@@ -606,6 +625,7 @@ pub unsafe fn run_game_logic_step(
             known_until,
             can_run,
             lead,
+            lead_to_follow,
             pipe_depth,
             in_flight,
             own_downlink,
@@ -617,6 +637,7 @@ pub unsafe fn run_game_logic_step(
                 s.known_until(),
                 s.can_run(next_frame),
                 s.lead(),
+                s.lead_to_follow(),
                 s.pipe_depth(),
                 s.outstanding_turns(),
                 s.waiting_on_own_downlink(tick_start),
@@ -729,7 +750,10 @@ pub unsafe fn run_game_logic_step(
         let mut lead_changed = false;
         if current >= LOCKSTEP_START_STEPS {
             RECENT_ROLLBACK.lock().record(Instant::now(), ahead);
-            let adjustment = LEAD_WINDOW.lock().note(ahead, known_until, rollback_target);
+            let adjustment =
+                LEAD_WINDOW
+                    .lock()
+                    .note(reached, known_until, lead_to_follow, rollback_target);
             let follow = LEAD_FOLLOW_WAIT.fetch_add(1, Ordering::Relaxed) + 1 >= LEAD_FOLLOW_TICKS;
             if follow {
                 LEAD_FOLLOW_WAIT.store(0, Ordering::Relaxed);
@@ -1029,20 +1053,32 @@ fn next_random() -> u32 {
 mod tests {
     use super::*;
 
-    /// Feeds a whole window of ticks running the given rollbacks in turn, and returns the lead
-    /// move it ends with.
-    fn window(target: u32, rollbacks: impl Fn(usize) -> u32) -> i32 {
-        let mut window = LeadWindow::new();
+    /// Feeds a fresh window a whole window of ticks running the given rollbacks in turn, and
+    /// returns the lead move it ends with.
+    fn window(target: u32, rollbacks: impl Fn(usize) -> i32) -> i32 {
+        feed(&mut LeadWindow::new(), target, 0, rollbacks)
+    }
+
+    /// Feeds `window` a whole window of ticks running the given rollbacks in turn, each with
+    /// `to_follow` frames of lead not in effect yet, and returns the lead move it ends with.
+    fn feed(
+        window: &mut LeadWindow,
+        target: u32,
+        to_follow: i32,
+        rollbacks: impl Fn(usize) -> i32,
+    ) -> i32 {
         let mut adjustment = 0;
         for tick in 0..LEAD_WINDOW_TICKS {
-            adjustment = window.note(rollbacks(tick), tick as u32 + 1, target);
+            let known_until = window.known_until.max(100) + 1;
+            let reached = known_until.checked_add_signed(rollbacks(tick)).unwrap();
+            adjustment = window.note(reached, known_until, to_follow, target);
         }
         adjustment
     }
 
     #[test]
     fn rollback_around_the_target_holds_the_lead() {
-        assert_eq!(window(2, |tick| 1 + (tick % 3) as u32), 0);
+        assert_eq!(window(2, |tick| 1 + (tick % 3) as i32), 0);
         assert_eq!(window(2, |_| 2), 0);
         // The insurance frame past the target, now and then.
         assert_eq!(window(2, |tick| if tick % 5 == 0 { 3 } else { 2 }), 0);
@@ -1062,7 +1098,7 @@ mod tests {
 
     #[test]
     fn a_window_at_the_prediction_limit_moves_the_lead_down_a_little_at_a_time() {
-        assert_eq!(window(2, |_| 8), -(MAX_LEAD_DROP as i32));
+        assert_eq!(window(2, |_| 8), -MAX_LEAD_DROP);
         assert_eq!(window(2, |tick| if tick % 2 == 0 { 8 } else { 6 }), -2);
     }
 
@@ -1073,8 +1109,79 @@ mod tests {
 
     #[test]
     fn rollback_short_of_the_target_even_in_bursts_takes_delay_off() {
-        assert_eq!(window(2, |tick| (tick % 2) as u32), 1);
+        assert_eq!(window(2, |tick| (tick % 2) as i32), 1);
         assert_eq!(window(3, |_| 0), 3);
+    }
+
+    #[test]
+    fn headroom_takes_delay_off_even_at_a_target_of_0() {
+        assert_eq!(window(0, |_| -3), 3);
+        // The ticks with the least headroom are what the lead stops short of.
+        assert_eq!(window(0, |tick| if tick % 2 == 0 { -1 } else { -4 }), 1);
+        assert_eq!(window(0, |_| 0), 0);
+        assert_eq!(window(2, |_| -3), 5);
+    }
+
+    #[test]
+    fn delay_a_burst_added_at_a_target_of_0_comes_back_off() {
+        let mut lead_window = LeadWindow::new();
+        assert_eq!(feed(&mut lead_window, 0, 0, |_| 8), -MAX_LEAD_DROP);
+        // The burst is over, and turns arrive as early as they did before it.
+        assert_eq!(
+            feed(&mut lead_window, 0, 0, |_| -MAX_LEAD_DROP),
+            MAX_LEAD_DROP
+        );
+    }
+
+    /// Feeds a fresh window ticks of a game whose turns arrive four at a time, every fourth tick,
+    /// until a whole window is in, running `arrival_rollback` past them on the tick they arrive by
+    /// and a frame further each tick until the next ones, and returns the lead move it ends with.
+    fn batched_window(target: u32, arrival_rollback: i32) -> i32 {
+        let mut window = LeadWindow::new();
+        let mut adjustment = 0;
+        for tick in 0..LEAD_WINDOW_TICKS as u32 * 4 {
+            let known_until = 100 + tick / 4 * 4;
+            let reached = known_until.checked_add_signed(arrival_rollback).unwrap() + tick % 4;
+            adjustment += window.note(reached, known_until, 0, target);
+        }
+        adjustment
+    }
+
+    #[test]
+    fn turns_arriving_several_at_a_time_are_measured_by_the_ticks_between() {
+        // Short of the turns on every tick, though only just by the last one before more arrive.
+        assert_eq!(batched_window(0, -3), 0);
+        // Rolling back on every tick but the ones turns arrive by.
+        assert_eq!(batched_window(0, 0), -MAX_LEAD_DROP);
+        assert_eq!(batched_window(2, -1), 0);
+        assert_eq!(batched_window(2, -3), 2);
+    }
+
+    #[test]
+    fn a_target_of_0_settles_where_batched_turns_are_never_predicted() {
+        // Turns arrive four at a time, every fourth tick, the first of them ten frames ahead of a
+        // client with no lead.
+        let mut lead_window = LeadWindow::new();
+        let (mut lead, mut in_effect) = (0, 0);
+        for tick in 0..LEAD_WINDOW_TICKS as u32 * 4 * 10 {
+            let known_until = 110 + tick / 4 * 4;
+            let reached = (100 + tick as i32 + in_effect) as u32;
+            lead += lead_window.note(reached, known_until, lead - in_effect, 0);
+            in_effect = in_effect.min(lead);
+            if tick % LEAD_FOLLOW_TICKS == 0 && in_effect < lead {
+                in_effect += 1;
+            }
+        }
+        // Seven frames of lead leave the tick before each arrival exactly on the newest known
+        // step, and any more would roll back.
+        assert_eq!((lead, in_effect), (7, 7));
+    }
+
+    #[test]
+    fn a_rise_not_in_effect_yet_is_not_made_again() {
+        let mut lead_window = LeadWindow::new();
+        assert_eq!(feed(&mut lead_window, 0, 3, |_| -3), 0);
+        assert_eq!(feed(&mut lead_window, 0, 3, |_| -5), 2);
     }
 
     #[test]
@@ -1123,7 +1230,15 @@ mod tests {
     fn ticks_without_new_turns_say_nothing() {
         let mut window = LeadWindow::new();
         for _ in 0..LEAD_WINDOW_TICKS * 2 {
-            assert_eq!(window.note(8, 1, 2), 0);
+            assert_eq!(window.note(9, 1, 0, 2), 0);
+        }
+    }
+
+    #[test]
+    fn ticks_once_no_turn_is_left_to_arrive_say_nothing() {
+        let mut window = LeadWindow::new();
+        for reached in 0..LEAD_WINDOW_TICKS as u32 * 2 {
+            assert_eq!(window.note(reached, u32::MAX, 0, 0), 0);
         }
     }
 }

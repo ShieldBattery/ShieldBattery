@@ -810,7 +810,8 @@ pub struct TurnState {
     local_chat_echoes: Vec<String>,
     /// How many fewer of its own turns than the relay's latency buffer this client means to keep
     /// in flight, before the buffer bounds it (see [`lead`](Self::lead)). Starts at the rollback target and is
-    /// moved by the rollback driver as it measures how late other players' turns reach it.
+    /// moved by the rollback driver as it measures how late or early other players' turns reach
+    /// it.
     lead: i32,
     /// The lead the pipe follows, at most [`lead`](Self::lead): it drops to a lower lead at once,
     /// but rises a frame at a time ([`follow_lead`](Self::follow_lead)), since each frame of lead
@@ -2219,6 +2220,19 @@ impl TurnState {
             Some(inputs) if !inputs.in_lockstep_start() => {
                 let (min, max) = self.lead_bounds();
                 self.lead_in_effect.min(self.lead).clamp(min, max)
+            }
+            _ => 0,
+        }
+    }
+
+    /// How many frames of the lead this client means to run with are not in effect yet, which
+    /// [`follow_lead`](Self::follow_lead) has still to add. 0 while the game's start runs in
+    /// lockstep.
+    pub fn lead_to_follow(&self) -> i32 {
+        match &self.inputs {
+            Some(inputs) if !inputs.in_lockstep_start() => {
+                let (min, max) = self.lead_bounds();
+                self.lead.clamp(min, max) - self.lead()
             }
             _ => 0,
         }
@@ -4144,18 +4158,20 @@ mod tests {
             6,
             "the whole buffer until the lead takes effect"
         );
+        assert_eq!(state.lead_to_follow(), 2);
         state.follow_lead();
-        assert_eq!(state.pipe_depth(), 5);
+        assert_eq!((state.pipe_depth(), state.lead_to_follow()), (5, 1));
         state.follow_lead();
         state.follow_lead();
         assert_eq!(state.pipe_depth(), 4, "no further than the rollback target");
+        assert_eq!(state.lead_to_follow(), 0);
         // A drop in the lead takes effect at once.
         state.adjust_lead(-3);
-        assert_eq!(state.pipe_depth(), 7);
+        assert_eq!((state.pipe_depth(), state.lead_to_follow()), (7, 0));
         state.adjust_lead(2);
-        assert_eq!(state.pipe_depth(), 7);
+        assert_eq!((state.pipe_depth(), state.lead_to_follow()), (7, 2));
         state.follow_lead();
-        assert_eq!(state.pipe_depth(), 6);
+        assert_eq!((state.pipe_depth(), state.lead_to_follow()), (6, 1));
     }
 
     #[test]
