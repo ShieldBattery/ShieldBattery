@@ -1241,6 +1241,7 @@
       "dropped": "<0>{{name}}</0>님의 연결이 끊겼습니다",
       "droppedText": "{{name}}님의 연결이 끊겼습니다",
       "empty": "이 리플레이들에는 기록된 채팅이나 퇴장이 없습니다.",
+      "hide": "채팅 기록 숨기기",
       "left": "<0>{{name}}</0>님이 게임을 나갔습니다",
       "leftText": "{{name}}님이 게임을 나갔습니다",
       "loadError": "채팅 기록을 불러오지 못했습니다.",
@@ -1636,6 +1637,7 @@
       "emptyNoLobbies": "지금은 열려 있는 로비가 없습니다",
       "emptyNoMatches": "필터와 일치하는 로비가 없습니다",
       "enterCode": "코드 입력",
+      "eventMode": "이벤트 모드",
       "filterFriends": "친구",
       "filterGameType": "게임 방식",
       "filterGameTypeAll": "모든 게임 방식",
@@ -1666,9 +1668,12 @@
       "title": "로비"
     },
     "createLobby": {
+      "advancedHeader": "고급",
       "allowObserversWithMax": "관전자 허용 (최대 {{maxObservers}}명)",
       "errorDialogTitle": "로비 생성 오류",
       "errorGeneric": "로비를 만드는 중 문제가 발생했습니다. 다시 시도해 주세요.",
+      "eventMode": "이벤트 모드: Battle.net 호환 리플레이(권장하지 않음)",
+      "eventModeDescription": "ShieldBattery 없이 스타크래프트: 리마스터에서 리플레이를 재생할 수 있습니다. ShieldBattery가 평소 수정하는 버그가 이 게임에서 발생할 수 있습니다.",
       "gameSubTypeHeader": "팀 구성",
       "gameSubTypeOption": "{{numTeams}} 팀",
       "gameSubTypeOptionTvB": "{{topSlots}} 대 {{bottomSlots}}",
@@ -1804,6 +1809,7 @@
     },
     "messageLayout": {
       "gameStarted": "게임이 시작되었습니다",
+      "settingsChangeEventMode": "이벤트 모드",
       "settingsChangeGameSubType": "팀 구성",
       "settingsChangeGameType": "게임 유형",
       "settingsChangeLockedAlliances": "동맹 고정",
@@ -1817,9 +1823,11 @@
     "room": {
       "banner": {
         "alliancesLocked": "고정",
+        "eventModeOn": "사용",
         "shuffle": "섞기",
         "shuffleBlockedByComputers": "컴퓨터를 제거해야 섞을 수 있습니다",
         "statAlliances": "동맹",
+        "statEventMode": "이벤트 모드",
         "statMode": "모드",
         "statSize": "크기",
         "statTileset": "타일셋",

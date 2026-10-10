@@ -1286,6 +1286,7 @@
       "dropped": "<0>{{name}}</0>: обрыв соединения",
       "droppedText": "{{name}}: обрыв соединения",
       "empty": "В этих реплеях не записано ни чата, ни выходов из игры.",
+      "hide": "Скрыть лог чата",
       "left": "<0>{{name}}</0>: выход из игры",
       "leftText": "{{name}}: выход из игры",
       "loadError": "Не удалось загрузить лог чата.",
@@ -1687,6 +1688,7 @@
       "emptyNoLobbies": "Сейчас нет открытых лобби",
       "emptyNoMatches": "Ни одно лобби не соответствует фильтрам",
       "enterCode": "Ввести код",
+      "eventMode": "Турнирный режим",
       "filterFriends": "Друзья",
       "filterGameType": "Тип игры",
       "filterGameTypeAll": "Все типы игр",
@@ -1729,9 +1731,12 @@
       "title": "Лобби"
     },
     "createLobby": {
+      "advancedHeader": "Дополнительно",
       "allowObserversWithMax": "Разрешить зрителей (до {{maxObservers}})",
       "errorDialogTitle": "Ошибка при создании лобби",
       "errorGeneric": "Что-то пошло не так при создании лобби. Пожалуйста, попробуйте ещё раз.",
+      "eventMode": "Турнирный режим: реплеи, совместимые с Battle.net (не рекомендуется)",
+      "eventModeDescription": "Реплеи можно будет смотреть в StarCraft: Remastered без ShieldBattery. В таких играх могут возникать баги, которые ShieldBattery обычно исправляет.",
       "gameSubTypeHeader": "Команды",
       "gameSubTypeOption": "{{numTeams}} команды",
       "gameSubTypeOptionTvB": "{{topSlots}} против {{bottomSlots}}",
@@ -1882,6 +1887,7 @@
     },
     "messageLayout": {
       "gameStarted": "Игра началась",
+      "settingsChangeEventMode": "турнирный режим",
       "settingsChangeGameSubType": "команды",
       "settingsChangeGameType": "тип игры",
       "settingsChangeLockedAlliances": "закрепление союзов",
@@ -1895,9 +1901,11 @@
     "room": {
       "banner": {
         "alliancesLocked": "Закреплены",
+        "eventModeOn": "Включён",
         "shuffle": "Перемешать",
         "shuffleBlockedByComputers": "Уберите компьютеры, чтобы перемешать",
         "statAlliances": "Союзы",
+        "statEventMode": "Турнирный режим",
         "statMode": "Режим",
         "statSize": "Размер",
         "statTileset": "Тайлсет",

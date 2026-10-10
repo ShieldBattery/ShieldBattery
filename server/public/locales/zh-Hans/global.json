@@ -1241,6 +1241,7 @@
       "dropped": "<0>{{name}}</0> 已掉线",
       "droppedText": "{{name}} 已掉线",
       "empty": "这些录像中没有记录到聊天或离开。",
+      "hide": "隐藏聊天记录",
       "left": "<0>{{name}}</0> 离开了游戏",
       "leftText": "{{name}} 离开了游戏",
       "loadError": "无法加载聊天记录。",
@@ -1636,6 +1637,7 @@
       "emptyNoLobbies": "目前没有人创建房间",
       "emptyNoMatches": "没有符合筛选条件的房间",
       "enterCode": "输入房间码",
+      "eventMode": "赛事模式",
       "filterFriends": "好友",
       "filterGameType": "游戏类型",
       "filterGameTypeAll": "所有游戏类型",
@@ -1666,9 +1668,12 @@
       "title": "房间"
     },
     "createLobby": {
+      "advancedHeader": "高级",
       "allowObserversWithMax": "允许观战者（最多{{maxObservers}}人）",
       "errorDialogTitle": "创建房间出错",
       "errorGeneric": "创建房间时出了点问题。请重试。",
+      "eventMode": "赛事模式：兼容 Battle.net 的录像（不推荐）",
+      "eventModeDescription": "录像可以在不使用 ShieldBattery 的《星际争霸：重制版》中播放。ShieldBattery 通常会修复的 bug 可能会在这些游戏中出现。",
       "gameSubTypeHeader": "队伍",
       "gameSubTypeOption": "{{numTeams}}支队伍",
       "gameSubTypeOptionTvB": "{{topSlots}}对{{bottomSlots}}",
@@ -1804,6 +1809,7 @@
     },
     "messageLayout": {
       "gameStarted": "游戏已开始",
+      "settingsChangeEventMode": "赛事模式",
       "settingsChangeGameSubType": "队伍分配",
       "settingsChangeGameType": "游戏类型",
       "settingsChangeLockedAlliances": "同盟锁定",
@@ -1817,9 +1823,11 @@
     "room": {
       "banner": {
         "alliancesLocked": "已锁定",
+        "eventModeOn": "开启",
         "shuffle": "打乱",
         "shuffleBlockedByComputers": "移除电脑玩家后才能打乱",
         "statAlliances": "同盟",
+        "statEventMode": "赛事模式",
         "statMode": "模式",
         "statSize": "大小",
         "statTileset": "地形类型",

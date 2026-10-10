@@ -163,6 +163,8 @@ consistent. (Seed — extend over time.)
   alliances→**Bloquear alianzas**.
 - **Post-game commends** (Dota 2 terms): commend→**Elogiar** / elogio(s) (Elogios: N), report
   button→**Reportar**.
+- **Event mode** (lobby option that turns off replay-affecting fixes)→**Modo evento**; banner value
+  On→Activado; Advanced (form section)→**Avanzado**. Game bugs→**bugs** (in-file loanword).
 
 ### ru
 - Register: formal **Вы** (the existing file is consistently Вы; do not use ты here).
@@ -255,6 +257,9 @@ consistent. (Seed — extend over time.)
 - **Post-game commends** (Dota 2 terms): commend→**Похвалить** / похвала (Похвалы: N), report
   button→**Пожаловаться**. Names get a governing noun (похвалить игрока {{user}}; «Игрок <0>…</0>
   похвалил Вас»).
+- **Event mode→Турнирный режим** (режим мероприятий is stiff, режим события is the wrong sense);
+  banner value On→**Включён**, Advanced (form section)→**Дополнительно**, game bugs→**баги** (the
+  bug-report strings use ошибка, which reads as "error" for in-game behavior).
 
 ### ko
 - **Register: use formal-polite 합니다/습니다체 for sentences.** The existing `ko/global.json` is
@@ -345,6 +350,8 @@ consistent. (Seed — extend over time.)
   Then→그다음; lock alliances→**동맹 고정**.
 - **Post-game commends** (Dota 2 terms): commend→**칭찬하기** / 칭찬 (칭찬 N회, 받은 칭찬),
   report→**신고하기**. Names take **님** ({{user}} 님을), which also sidesteps 을/를 agreement.
+- **Event mode→이벤트 모드**; banner value On→**사용** (the On/Off convention), Advanced (form
+  section)→**고급**, game bugs→**버그**. "(not recommended)"→(권장하지 않음), no space before it.
 
 ### zh-Hans
 - Register: use 您 for second person (the existing file is ~3:1 您 vs 你; it's the normal polite UI
@@ -422,3 +429,6 @@ consistent. (Seed — extend over time.)
   播放 is correct there.
 - **Post-game commends** (Dota 2 terms): commend→**赞扬** (N 次赞扬, 赞扬：N), report→**举报**.
   The gameReport strings were moved from 你 to 您 to match the file.
+- **Event mode→赛事模式**; banner value On→**开启**, Advanced (form section)→**高级**, game
+  bugs→**bug** (in-file 反馈 bug). StarCraft: Remastered in running text→《星际争霸：重制版》 (the
+  export form).
