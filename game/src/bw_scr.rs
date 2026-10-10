@@ -133,6 +133,9 @@ pub struct BwScr {
     /// frames also pushes real-time pacing that far ahead unless the value is restored. `None` if
     /// analysis could not find it, which only a game that rolls back needs.
     next_game_step_tick: Option<Value<u32>>,
+    /// The frame `step_game_logic` fast-forwards a replay to, which seeking by keyframe sets
+    /// itself. `None` if analysis could not find it, which turns seeking by keyframe off.
+    replay_seek_frame: Option<Value<u32>>,
     enable_rng: Value<u32>,
     replay_visions: Value<u8>,
     local_visions: Value<u8>,
@@ -2137,6 +2140,7 @@ impl BwScr {
             .trigger_execution_timer()
             .ok_or("trigger_execution_timer")?;
         let next_game_step_tick = analysis.next_game_step_tick();
+        let replay_seek_frame = analysis.replay_seek_frame();
         let local_selection = analysis.local_selection();
         let simulated_selections = analysis.selections();
         let enable_rng = analysis.enable_rng().ok_or("Enable RNG")?;
@@ -2432,6 +2436,7 @@ impl BwScr {
             replay_header: Value::new(ctx, replay_header),
             trigger_execution_timer: Value::new(ctx, trigger_execution_timer),
             next_game_step_tick: next_game_step_tick.map(|x| Value::new(ctx, x)),
+            replay_seek_frame: replay_seek_frame.map(|x| Value::new(ctx, x)),
             local_selection: local_selection.map(|x| Value::new(ctx, x)),
             simulated_selections: simulated_selections.map(|x| Value::new(ctx, x)),
             engine_selecting: AtomicBool::new(false),
@@ -2713,6 +2718,21 @@ impl BwScr {
                             commands::strip_sync_commands(&slice, &self.game_command_lengths)
                                 .into_owned(),
                         ),
+                        false => slice,
+                    };
+                    // The replay UI's seeks go to keyframe seeking when it handles them.
+                    let slice: Cow<'_, [u8]> = match is_replay && are_recorded_replay_commands == 0
+                    {
+                        true => match commands::replay_seek_target(&slice, &self.game_command_lengths)
+                        {
+                            Some(target) if crate::replay_seek::take_seek_request(self, target) => {
+                                Cow::Owned(
+                                    commands::strip_replay_seeks(&slice, &self.game_command_lengths)
+                                        .into_owned(),
+                                )
+                            }
+                            _ => slice,
+                        },
                         false => slice,
                     };
                     let strip_notice = are_recorded_replay_commands != 0
@@ -6434,6 +6454,7 @@ impl BwScr {
     fn reset_state_for_game_init(&self) {
         #[cfg(debug_assertions)]
         crate::rollback_harness::reset_for_game_init();
+        crate::replay_seek::reset_for_game_init();
         crate::rollback_live::reset_for_game_init();
         crate::frame_timing::reset();
         self.detection_status_copy.lock().clear();
@@ -7239,6 +7260,73 @@ impl BwScr {
             if let Some(tick) = &self.next_game_step_tick {
                 tick.write(value);
             }
+        }
+    }
+
+    /// Whether this build of the game lets a replay be fast-forwarded to a frame of our choosing,
+    /// which seeking by keyframe needs.
+    pub(crate) fn can_set_replay_seek_frame(&self) -> bool {
+        self.replay_seek_frame.is_some()
+    }
+
+    /// The frame `step_game_logic` is fast-forwarding the replay to, or 0 when this build has no
+    /// way to tell.
+    pub(crate) unsafe fn replay_seek_frame(&self) -> u32 {
+        unsafe { self.replay_seek_frame.as_ref().map_or(0, |x| x.resolve()) }
+    }
+
+    /// Has `step_game_logic` fast-forward the replay to frame count `frame`, simulating frames
+    /// without rendering in between until it gets there.
+    pub(crate) unsafe fn set_replay_seek_frame(&self, frame: u32) {
+        unsafe {
+            if let Some(seek_frame) = &self.replay_seek_frame {
+                seek_frame.write(frame);
+            }
+        }
+    }
+
+    /// Sends the replay UI's seek command, the way its seek bar does.
+    #[cfg(debug_assertions)]
+    pub(crate) unsafe fn send_replay_seek(&self, frame: u32) {
+        unsafe {
+            let mut command = [commands::id::REPLAY_SEEK, 0, 0, 0, 0];
+            LittleEndian::write_u32(&mut command[1..], frame);
+            (self.send_command)(command.as_ptr(), command.len());
+        }
+    }
+
+    /// Pauses or resumes replay playback at the fastest speed, the way the replay UI's pause button
+    /// does.
+    #[cfg(debug_assertions)]
+    pub(crate) unsafe fn send_replay_pause(&self, paused: bool) {
+        unsafe {
+            let mut command = [
+                commands::id::REPLAY_SPEED,
+                paused as u8,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+            ];
+            LittleEndian::write_u32(&mut command[2..], 6);
+            LittleEndian::write_u32(&mut command[6..], 1);
+            (self.send_command)(command.as_ptr(), command.len());
+        }
+    }
+
+    /// ShieldBattery's APM counts for the replay UI, which a keyframe carries so a seek can put
+    /// them back as they were on its frame.
+    pub(crate) fn apm_stats(&self) -> Option<ApmStats> {
+        self.apm_state.lock().map(|x| x.clone())
+    }
+
+    pub(crate) fn set_apm_stats(&self, stats: ApmStats) {
+        if let Some(mut apm) = self.apm_state.lock() {
+            *apm = stats;
         }
     }
 
@@ -9523,6 +9611,9 @@ unsafe fn step_one_game_logic_step(
         }
         #[cfg(debug_assertions)]
         if let Some(ret) = crate::rollback_bench::run_game_logic_step(bw, param, orig) {
+            return ret;
+        }
+        if let Some(ret) = crate::replay_seek::run_game_logic_step(bw, param, orig) {
             return ret;
         }
         step_outside_rollback(bw, param, orig)

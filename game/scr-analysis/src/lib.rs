@@ -685,6 +685,13 @@ impl<'e> Analysis<'e> {
         self.0.step_game_frames()
     }
 
+    /// Frame a replay is being fast-forwarded to. While the game's frame count is below it,
+    /// `step_game_logic` keeps simulating frames, without rendering in between, until it gets
+    /// there; the replay UI's seek command sets it.
+    pub fn replay_seek_frame(&mut self) -> Option<Operand<'e>> {
+        self.0.replay_seek_frame()
+    }
+
     /// Timestamp of the next scheduled logic step. `step_game_logic` advances it by the frame
     /// delay once per simulated frame, so the game loop paces itself against it; a call that
     /// simulates many frames pushes it that far into the future.

@@ -10,6 +10,7 @@ use crate::bw::commands;
 const RECENT_ACTIONS_BLOCK_SIZE: usize = 24;
 const RECENT_ACTIONS_BLOCKS: usize = 15;
 
+#[derive(Clone)]
 pub struct ApmStats {
     per_player: [PlayerApm; 8],
     shared: SharedState,
@@ -23,6 +24,7 @@ pub struct ApmStats {
 /// again.
 const COUNTED_STEPS_KEPT: usize = 64;
 
+#[derive(Clone)]
 struct SharedState {
     total_frames: u32,
     // Index to PlayerApm.recent_actions which is currently being updated.
@@ -37,6 +39,14 @@ struct PlayerApm {
 }
 
 impl ApmStats {
+    /// Allocations owned by these statistics, excluding the struct itself.
+    pub(crate) fn heap_bytes(&self) -> usize {
+        self.counted_steps
+            .iter()
+            .map(|steps| steps.capacity() * size_of::<u32>())
+            .sum()
+    }
+
     pub const fn new() -> ApmStats {
         ApmStats {
             per_player: [PlayerApm {

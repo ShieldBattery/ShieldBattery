@@ -46,7 +46,7 @@ pub(crate) struct TriggerLists {
     saved: Vec<Vec<SavedTriggerList>>,
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 struct SavedTriggerList {
     /// The list's header words.
     header: [usize; 3],
@@ -195,6 +195,27 @@ struct Slot {
     replay: ReplayCursor,
 }
 
+/// What a snapshot holds besides its bytes, for a caller that stores snapshots outside the slots.
+#[derive(Clone, Default)]
+pub(crate) struct SnapshotExtras {
+    replay: ReplayCursor,
+    /// Every player's trigger list, when the layout has them.
+    trigger_lists: Option<Vec<SavedTriggerList>>,
+}
+
+impl SnapshotExtras {
+    /// Allocations owned by the extras, excluding the struct itself.
+    pub(crate) fn heap_bytes(&self) -> usize {
+        self.trigger_lists.as_ref().map_or(0, |lists| {
+            lists.capacity() * size_of::<SavedTriggerList>()
+                + lists
+                    .iter()
+                    .map(|list| list.nodes.capacity() * size_of::<usize>() + list.bytes.capacity())
+                    .sum::<usize>()
+        })
+    }
+}
+
 /// The unit a slot's bytes are allocated in, so that every range in it can start on a cache line.
 #[derive(Clone)]
 #[repr(C, align(64))]
@@ -250,6 +271,11 @@ impl ReplayCursor {
 pub(crate) static SNAPSHOTS: Mutex<Option<Snapshots>> = Mutex::new(None);
 
 impl Snapshots {
+    /// Bytes needed by one raw snapshot slot, including alignment padding.
+    pub(crate) fn byte_len(&self) -> usize {
+        self.slot_bytes
+    }
+
     /// Turns the analysis results into concrete address ranges. Returns `None` before a game's
     /// state exists, so the next logic step can try again.
     pub(crate) unsafe fn build(bw: &BwScr) -> Option<Snapshots> {
@@ -409,23 +435,7 @@ impl Snapshots {
     /// the place of an earlier snapshot of the same frame.
     pub(crate) unsafe fn take(&mut self, frame: u32) {
         unsafe {
-            let slot = match self
-                .slots
-                .iter()
-                .position(|x| x.frame == Some(frame))
-                .or_else(|| self.slots.iter().position(|x| x.frame.is_none()))
-            {
-                Some(slot) => slot,
-                None => {
-                    self.slots.push(Slot {
-                        frame: None,
-                        bytes: vec![SlotLine([0; SLOT_ALIGN]); self.slot_bytes / SLOT_ALIGN]
-                            .into_boxed_slice(),
-                        replay: ReplayCursor::default(),
-                    });
-                    self.slots.len() - 1
-                }
-            };
+            let slot = self.free_slot_for(frame);
             self.copier.copy(
                 self.slots[slot].bytes.as_mut_ptr() as *mut u8,
                 Direction::ToSlot,
@@ -437,6 +447,28 @@ impl Snapshots {
                 self.slots[slot].replay = ReplayCursor::capture(self.replay_data);
             }
             self.slots[slot].frame = Some(frame);
+        }
+    }
+
+    /// The slot a snapshot of frame count `frame` goes in: the one already holding that frame, or
+    /// one holding nothing, allocated if there is none.
+    fn free_slot_for(&mut self, frame: u32) -> usize {
+        match self
+            .slots
+            .iter()
+            .position(|x| x.frame == Some(frame))
+            .or_else(|| self.slots.iter().position(|x| x.frame.is_none()))
+        {
+            Some(slot) => slot,
+            None => {
+                self.slots.push(Slot {
+                    frame: None,
+                    bytes: vec![SlotLine([0; SLOT_ALIGN]); self.slot_bytes / SLOT_ALIGN]
+                        .into_boxed_slice(),
+                    replay: ReplayCursor::default(),
+                });
+                self.slots.len() - 1
+            }
         }
     }
 
@@ -485,8 +517,7 @@ impl Snapshots {
         }
     }
 
-    /// Drops every snapshot, for a bench that moves the simulation on without the engine.
-    #[cfg(debug_assertions)]
+    /// Drops every snapshot.
     pub(crate) fn forget_all(&mut self) {
         for x in &mut self.slots {
             x.frame = None;
@@ -507,6 +538,63 @@ impl Snapshots {
     pub(crate) fn newest_at_or_before(&self, frame: u32) -> Option<u32> {
         self.slot_at_or_before(frame)
             .and_then(|x| self.slots[x].frame)
+    }
+
+    /// The bytes of the snapshot of frame count `frame`, every range at its offset in the slot,
+    /// for a caller that stores them elsewhere. The rest of the snapshot is its
+    /// [`SnapshotExtras`].
+    pub(crate) fn bytes_of(&self, frame: u32) -> Option<&[u8]> {
+        let slot = self.slots.iter().find(|x| x.frame == Some(frame))?;
+        // A slot is whole `SlotLine`s, so its bytes are that many lines' worth, with no padding
+        // between them.
+        unsafe {
+            Some(std::slice::from_raw_parts(
+                slot.bytes.as_ptr() as *const u8,
+                slot.bytes.len() * SLOT_ALIGN,
+            ))
+        }
+    }
+
+    /// The parts of the snapshot of frame count `frame` that aren't its [`bytes_of`](Self::bytes_of).
+    pub(crate) fn extras_of(&self, frame: u32) -> Option<SnapshotExtras> {
+        let slot = self.slots.iter().position(|x| x.frame == Some(frame))?;
+        Some(SnapshotExtras {
+            replay: self.slots[slot].replay,
+            trigger_lists: self
+                .trigger_lists
+                .as_ref()
+                .and_then(|x| x.saved.get(slot).cloned()),
+        })
+    }
+
+    /// Puts back a snapshot of frame count `frame` that a caller stored elsewhere, as if it had
+    /// just been taken: `fill` writes its [`bytes_of`](Self::bytes_of) into the slot, which holds
+    /// the snapshot once `fill` succeeds. Takes the place of a snapshot of the same frame.
+    pub(crate) fn load(
+        &mut self,
+        frame: u32,
+        extras: SnapshotExtras,
+        fill: impl FnOnce(&mut [u8]) -> std::io::Result<()>,
+    ) -> std::io::Result<()> {
+        let slot = self.free_slot_for(frame);
+        self.slots[slot].frame = None;
+        let bytes = &mut self.slots[slot].bytes;
+        // A slot is whole `SlotLine`s, so its bytes are that many lines' worth, with no padding
+        // between them.
+        let bytes = unsafe {
+            std::slice::from_raw_parts_mut(bytes.as_mut_ptr() as *mut u8, bytes.len() * SLOT_ALIGN)
+        };
+        fill(bytes)?;
+        self.slots[slot].replay = extras.replay;
+        if let (Some(trigger_lists), Some(saved)) = (&mut self.trigger_lists, extras.trigger_lists)
+        {
+            while trigger_lists.saved.len() <= slot {
+                trigger_lists.saved.push(Vec::new());
+            }
+            trigger_lists.saved[slot] = saved;
+        }
+        self.slots[slot].frame = Some(frame);
+        Ok(())
     }
 
     /// Whether no snapshot is held.

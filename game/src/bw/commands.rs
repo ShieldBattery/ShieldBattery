@@ -155,6 +155,31 @@ pub fn strip_sync_commands<'a>(input: &'a [u8], command_lengths: &[u32]) -> Cow<
     Cow::Owned(buffer)
 }
 
+/// The frame the last replay seek command in `input` asks for, if it has one.
+pub fn replay_seek_target(input: &[u8], command_lengths: &[u32]) -> Option<u32> {
+    iter_commands(input, command_lengths)
+        .filter_map(|command| match command {
+            [id::REPLAY_SEEK, rest @ ..] if rest.len() == 4 => Some(LittleEndian::read_u32(rest)),
+            _ => None,
+        })
+        .last()
+}
+
+/// Removes the replay UI's seek commands.
+pub fn strip_replay_seeks<'a>(input: &'a [u8], command_lengths: &[u32]) -> Cow<'a, [u8]> {
+    let is_seek = |cmd: &[u8]| cmd.first() == Some(&id::REPLAY_SEEK);
+    if !iter_commands(input, command_lengths).any(is_seek) {
+        return Cow::Borrowed(input);
+    }
+    let mut buffer = Vec::with_capacity(input.len());
+    for command in iter_commands(input, command_lengths) {
+        if !is_seek(command) {
+            buffer.extend_from_slice(command);
+        }
+    }
+    Cow::Owned(buffer)
+}
+
 /// Removes the notice ShieldBattery records at the start of every replay (see
 /// [`REPLAY_NOTICE_SENDER`]), which is addressed to viewers outside ShieldBattery.
 ///
@@ -339,6 +364,22 @@ mod test {
             &*filter_invalid_commands(data, true, false, LENGTHS),
             expected_bad
         );
+    }
+
+    #[test]
+    fn replay_seeks_are_found_and_stripped() {
+        let data = &[
+            0x5d, 0x10, 0x00, 0x00, 0x00, 0x20, 0xff, 0xff, 0x5d, 0x20, 0x00, 0x00, 0x00,
+        ];
+        assert_eq!(replay_seek_target(data, LENGTHS), Some(0x20));
+        assert_eq!(&*strip_replay_seeks(data, LENGTHS), &[0x20, 0xff, 0xff]);
+
+        let no_seek = &[0x20, 0xff, 0xff];
+        assert_eq!(replay_seek_target(no_seek, LENGTHS), None);
+        assert!(matches!(
+            strip_replay_seeks(no_seek, LENGTHS),
+            Cow::Borrowed(_)
+        ));
     }
 
     #[test]

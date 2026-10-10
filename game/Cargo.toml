@@ -95,6 +95,7 @@ tokio-debouncer = "0.3"
 tokio-stream = "0.1"
 tokio-tungstenite = "0.30"
 tower-service = "0.3"
+zstd = "0.13"
 
 [dependencies.winapi]
 version = "0.3"

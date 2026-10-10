@@ -87,6 +87,12 @@ pub unsafe fn run_game_logic_step(bw: &'static BwScr, step: impl FnOnce() -> usi
     }
 }
 
+/// Notes that the replay just seeked, which moves it on however long it had been stalled at its end
+/// before the seek.
+pub fn note_seek() {
+    STALLED_STEPS.store(0, Ordering::Relaxed);
+}
+
 fn finish(done_path: &PathBuf, frame: u32) -> ! {
     let result = json!({
         "frame": frame,

@@ -115,6 +115,11 @@ static AUDIT_FIRST_RESULT: Mutex<Option<Vec<u8>>> = Mutex::new(None);
 /// Whether the harness is armed.
 static ARMED: AtomicBool = AtomicBool::new(false);
 
+/// Whether the harness is armed, so it owns rolling the replay's simulation back.
+pub fn armed() -> bool {
+    ARMED.load(Ordering::Relaxed)
+}
+
 /// The depth in frames every tick rolls back whether or not a command came late.
 static FORCED_DEPTH: AtomicU32 = AtomicU32::new(0);
 
