@@ -76,6 +76,9 @@ const ReportGameDialog = React.lazy(async () => ({
 const ResolveGameResultsDialog = React.lazy(async () => ({
   default: (await import('../games/resolve-game-dialog')).ResolveGameResultsDialog,
 }))
+const LadderExplainerDialog = React.lazy(async () => ({
+  default: (await import('../ladder/ladder-explainer')).LadderExplainerDialog,
+}))
 const LeagueExplainerDialog = React.lazy(async () => ({
   default: (await import('../leagues/league-explainer')).LeagueExplainerDialog,
 }))
@@ -106,6 +109,9 @@ const MatchCanceledDialog = React.lazy(async () => ({
 }))
 const MatchmakingBannedDialog = React.lazy(async () => ({
   default: (await import('../matchmaking/matchmaking-banned-dialog')).MatchmakingBannedDialog,
+}))
+const MatchmakingExplainerDialog = React.lazy(async () => ({
+  default: (await import('../matchmaking/matchmaking-explainer')).MatchmakingExplainerDialog,
 }))
 const NewsPostDeleteConfirmation = React.lazy(async () => ({
   default: (await import('../news/news-post-delete-dialog')).NewsPostDeleteConfirmation,
@@ -258,6 +264,8 @@ function getDialog(dialogType: DialogType): {
       return { component: JoinCodeDialog }
     case DialogType.LaunchingGame:
       return { component: LaunchingGameDialog, modal: true }
+    case DialogType.LadderExplainer:
+      return { component: LadderExplainerDialog }
     case DialogType.LeagueExplainer:
       return { component: LeagueExplainerDialog }
     case DialogType.LobbyLeaveAndCreate:
@@ -276,6 +284,8 @@ function getDialog(dialogType: DialogType): {
       return { component: MatchCanceledDialog }
     case DialogType.MatchmakingBanned:
       return { component: MatchmakingBannedDialog }
+    case DialogType.MatchmakingExplainer:
+      return { component: MatchmakingExplainerDialog }
     case DialogType.NewsPostDeleteConfirmation:
       return { component: NewsPostDeleteConfirmation }
     case DialogType.NewsPostSettings:

@@ -21,6 +21,8 @@ import { AssignedRaceChar, RaceChar } from '../../common/races'
 import { urlPath } from '../../common/urls'
 import { useTrackPageView } from '../analytics/analytics'
 import { useSelfUser } from '../auth/auth-utils'
+import { openDialog } from '../dialogs/action-creators'
+import { DialogType } from '../dialogs/dialog-type'
 import { dateTimeFormat, useFormat, useFormatLocale } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
@@ -48,6 +50,7 @@ import {
   titleSmall,
 } from '../styles/typography'
 import { cancelFindMatch, findMatch, getCurrentMapPool } from './action-creators'
+import { ExplainerButton } from './explainer-button'
 import { FindMatchContent } from './find-match-content'
 import {
   currentSearchInfoAtom,
@@ -141,6 +144,13 @@ export const PageSubtitle = styled.div`
   ${bodySmall};
   color: var(--theme-on-surface-variant);
   margin-top: 4px;
+`
+
+const PageHeadEnd = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
 `
 
 export const SeasonLabel = styled.div`
@@ -1530,12 +1540,18 @@ export function FindMatch() {
               )}
             </PageSubtitle>
           </div>
-          {season ? (
-            <SeasonLabel>
-              <span>{season.name}</span>
-              {seasonEnd !== undefined ? <SeasonEndDate endDate={seasonEnd} /> : null}
-            </SeasonLabel>
-          ) : null}
+          <PageHeadEnd>
+            <ExplainerButton
+              label={t('matchmaking.explainer.title', 'How matchmaking works')}
+              onClick={() => dispatch(openDialog({ type: DialogType.MatchmakingExplainer }))}
+            />
+            {season ? (
+              <SeasonLabel>
+                <span>{season.name}</span>
+                {seasonEnd !== undefined ? <SeasonEndDate endDate={seasonEnd} /> : null}
+              </SeasonLabel>
+            ) : null}
+          </PageHeadEnd>
         </PageHead>
 
         {inLobby ? (

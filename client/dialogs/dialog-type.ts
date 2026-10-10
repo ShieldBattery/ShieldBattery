@@ -44,6 +44,7 @@ export enum DialogType {
   GameDefaultsFirstRun = 'gameDefaultsFirstRun',
   JoinCode = 'joinCode',
   LaunchingGame = 'launchingGame',
+  LadderExplainer = 'ladderExplainer',
   LeagueExplainer = 'leagueExplainer',
   LobbyLeaveAndCreate = 'lobbyLeaveAndCreate',
   LobbyLeaveAndJoin = 'lobbyLeaveAndJoin',
@@ -53,6 +54,7 @@ export enum DialogType {
   Markdown = 'markdown',
   MatchCanceled = 'matchCanceled',
   MatchmakingBanned = 'matchmakingBanned',
+  MatchmakingExplainer = 'matchmakingExplainer',
   NewsPostDeleteConfirmation = 'newsPostDeleteConfirmation',
   NewsPostSettings = 'newsPostSettings',
   PostMatch = 'postMatch',
@@ -274,6 +276,7 @@ type GameDefaultsApplyDialogPayload = BaseDialogPayload<
 type GameDefaultsFirstRunDialogPayload = BaseDialogPayload<typeof DialogType.GameDefaultsFirstRun>
 type JoinCodeDialogPayload = BaseDialogPayload<typeof DialogType.JoinCode>
 type LaunchingGameDialogPayload = BaseDialogPayload<typeof DialogType.LaunchingGame>
+type LadderExplainerDialogPayload = BaseDialogPayload<typeof DialogType.LadderExplainer>
 type LeagueExplainerDialogPayload = BaseDialogPayload<typeof DialogType.LeagueExplainer>
 type LobbyLeaveAndCreateDialogPayload = BaseDialogPayload<
   typeof DialogType.LobbyLeaveAndCreate,
@@ -332,6 +335,7 @@ type MatchCanceledDialogPayload = BaseDialogPayload<
   }
 >
 type MatchmakingBannedDialogPayload = BaseDialogPayload<typeof DialogType.MatchmakingBanned>
+type MatchmakingExplainerDialogPayload = BaseDialogPayload<typeof DialogType.MatchmakingExplainer>
 // Kept as an inline shape (rather than importing from the dialog's own file) so this file stays
 // free of dependencies on dialog implementations, which would otherwise cycle back here through
 // the dialog's use of form/state hooks that ultimately import the dialog reducer.
@@ -475,6 +479,7 @@ export type DialogPayload =
   | GameDefaultsFirstRunDialogPayload
   | JoinCodeDialogPayload
   | LaunchingGameDialogPayload
+  | LadderExplainerDialogPayload
   | LeagueExplainerDialogPayload
   | LobbyLeaveAndCreateDialogPayload
   | LobbyLeaveAndJoinDialogPayload
@@ -484,6 +489,7 @@ export type DialogPayload =
   | MarkdownDialogPayload
   | MatchCanceledDialogPayload
   | MatchmakingBannedDialogPayload
+  | MatchmakingExplainerDialogPayload
   | NewsPostDeleteConfirmationDialogPayload
   | NewsPostSettingsDialogPayload
   | PostMatchDialogPayload
