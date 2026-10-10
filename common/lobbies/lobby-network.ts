@@ -1,3 +1,4 @@
+import { assertUnreachable } from '../assert-unreachable'
 import { BasicChannelInfo } from '../chat'
 import { GameServerRegionId } from '../game-server-regions'
 import { GameType } from '../games/game-type'
@@ -9,7 +10,7 @@ import { SbUser } from '../users/sb-user'
 import { SbUserId } from '../users/sb-user-id'
 import { BenchedUser, Lobby, LobbyState, LobbyVisibility } from './index'
 import { SbLobbyId } from './sb-lobby-id'
-import { SlotJson } from './slot'
+import { SlotJson, SlotType } from './slot'
 
 /**
  * Machine-readable codes attached to the error body of failed lobby join requests, so the client
@@ -402,9 +403,9 @@ export interface LobbySummaryMapJson extends MapImageInfo {
 /**
  * The response of the unauthenticated lobby summary endpoint
  * (`GET /api/1/lobbies/:lobbyId/summary`), used by the logged-out web landing page for a lobby
- * link. Possessing a lobby's id is what grants access to this data (ids are unguessable, and for
- * unlisted lobbies the shared link is the invite), so it contains only what the landing page
- * shows.
+ * link, and by the logged-in invite cards and join preview. Possessing a lobby's id is what grants
+ * access to this data (ids are unguessable, and for unlisted lobbies the shared link is the
+ * invite), so it contains only what those views show.
  */
 export interface LobbySummaryResponse {
   /**
@@ -429,6 +430,12 @@ export interface LobbySummaryResponse {
    * which flows to the authenticated list/preview channels where the code serves no purpose.
    */
   joinCode?: string
+  /**
+   * Who holds each of the lobby's player seats. Only present for a logged-in caller: it is a subset
+   * of what the lobby's preview channel already publishes to any logged-in client holding the
+   * lobby's id, but a logged-out caller is never told who is inside a lobby.
+   */
+  seating?: LobbySeatingJson
 }
 
 /** A lobby player seat as its invite card and join preview show it. Closed seats are left out. */
@@ -437,18 +444,45 @@ export type LobbyPlayerSeatJson =
   | { type: 'computer' }
   | { type: 'open' }
 
-/**
- * The response of the logged-in `GET /api/1/lobbies/:lobbyId/seats`: a lobby's player seats in seat
- * order (team order, then slot order), and the users seated in them.
- *
- * This is a subset of what the lobby's preview channel already publishes to any logged-in client
- * holding the lobby's id, so it discloses nothing new; it exists so a client can read several
- * lobbies' seats at once without subscribing to (and swapping between) their previews. It stays
- * off the unauthenticated summary response, which never names who is inside a lobby.
- */
-export interface GetLobbySeatsResponse {
+/** A lobby's player seats (see {@link getPlayerSeats}) and the users seated in them. */
+export interface LobbySeatingJson {
   seats: LobbyPlayerSeatJson[]
   users: SbUser[]
+}
+
+/**
+ * Returns a lobby's player seats in seat order (team order, then slot order). Observer teams and
+ * closed seats are left out, since neither is a seat a player could hold.
+ */
+export function getPlayerSeats(lobby: Lobby): LobbyPlayerSeatJson[] {
+  const seats: LobbyPlayerSeatJson[] = []
+  for (const team of lobby.teams) {
+    if (team.isObserver) {
+      continue
+    }
+    for (const slot of team.slots) {
+      switch (slot.type) {
+        case SlotType.Human:
+          seats.push({ type: 'human', userId: slot.userId! })
+          break
+        case SlotType.Computer:
+        case SlotType.UmsComputer:
+          seats.push({ type: 'computer' })
+          break
+        case SlotType.Open:
+        case SlotType.ControlledOpen:
+          seats.push({ type: 'open' })
+          break
+        case SlotType.Closed:
+        case SlotType.ControlledClosed:
+        case SlotType.Observer:
+          break
+        default:
+          assertUnreachable(slot.type)
+      }
+    }
+  }
+  return seats
 }
 
 export interface LobbyInitEvent {

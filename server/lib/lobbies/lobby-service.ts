@@ -31,6 +31,7 @@ import {
 import { normalizeJoinCode } from '../../../common/lobbies/join-code'
 import {
   changesGameSettings,
+  getPlayerSeats,
   isLobbySummaryFull,
   LobbyBenchRemoveEvent,
   LobbyChangedSetting,
@@ -91,6 +92,7 @@ import { LobbyPlayerNetworkStore } from './lobby-player-network-store'
 import {
   setLobbyIdByJoinCodeGetter,
   setLobbyJoinCodeGetter,
+  setLobbySeatsGetter,
   setLobbySummaryGetter,
 } from './lobby-summaries'
 
@@ -499,6 +501,10 @@ export class LobbyService {
       return lobby ? this._toSummaryJson(lobby) : undefined
     })
     setLobbyJoinCodeGetter(id => this.lobbyJoinCodes.get(id))
+    setLobbySeatsGetter(id => {
+      const lobby = this.lobbies.get(id)
+      return lobby ? getPlayerSeats(lobby) : undefined
+    })
     setLobbyIdByJoinCodeGetter(code => this.joinCodeToLobby.get(code))
 
     this.gameLifecycleEvents.on('userGameEnded', ({ gameId, userId }) => {

@@ -2,10 +2,10 @@ import { useEffect } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
-import { assertUnreachable } from '../../common/assert-unreachable'
 import { GameType, gameTypeToLabel } from '../../common/games/game-type'
-import { getPlayerSlots, Lobby, openSlotCount, slotCount } from '../../common/lobbies'
+import { getPlayerSlots, openSlotCount, slotCount } from '../../common/lobbies'
 import {
+  getPlayerSeats,
   isLaunchingLifecycle,
   LobbyLifecycle,
   LobbyPlayerSeatJson,
@@ -13,7 +13,6 @@ import {
 } from '../../common/lobbies/lobby-network'
 import { lobbyIdFromPath } from '../../common/lobbies/lobby-url'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
-import { SlotType } from '../../common/lobbies/slot'
 import { MapImageInfo, SbMapId } from '../../common/maps'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { ConnectedAvatar } from '../avatars/avatar'
@@ -42,7 +41,6 @@ import { ConnectedUserContextMenu } from '../users/user-context-menu'
 import { useUserOverlays } from '../users/user-overlays'
 import { ConnectedUserProfileOverlay } from '../users/user-profile-overlay'
 import { isInLobby } from './lobby-reducer'
-import { useLobbySeats } from './lobby-seats'
 import { LobbySummaryLoadState, useLobbySummary } from './lobby-summary'
 import { navigateToLobby } from './lobby-url'
 import { useJoinLobbyAction } from './use-join-lobby-action'
@@ -188,10 +186,9 @@ function PlayerSeat({ userId }: { userId: SbUserId }) {
  * up to {@link SEAT_TILES_PER_ROW} per row.
  *
  * With `seats`, each filled seat shows who holds it: a seated user's avatar, or a computer tile.
- * Those come from the logged-in seats endpoint (or, for the viewer's own lobby, its live state), and
- * name nobody a logged-in viewer holding the lobby's id couldn't already see on its preview channel.
- * The unauthenticated summary never names a lobby's occupants, so without `seats` the tiles show
- * only how many seats are filled.
+ * Those come from the lobby's summary, which only carries them for a logged-in viewer (or, for the
+ * viewer's own lobby, from its live state). Without `seats` the tiles show only how many seats are
+ * filled.
  */
 export function LobbySeats({
   playerSlots,
@@ -495,13 +492,10 @@ function LobbyInviteCardBody({
  */
 export function LobbyInviteCardContent({
   state,
-  seats,
   onClick,
   onJoinClick,
 }: {
   state: LobbySummaryLoadState | undefined
-  /** Who holds each player seat, once loaded. The card renders from `state` alone until then. */
-  seats?: ReadonlyDeep<LobbyPlayerSeatJson[]>
   /** Opens the lobby's page, where the viewer can choose to join it. */
   onClick: () => void
   onJoinClick: () => void
@@ -524,7 +518,7 @@ export function LobbyInviteCardContent({
     )
   }
 
-  const { summary: lobby, host } = state.data
+  const { summary: lobby, host, seating } = state.data
 
   return (
     <LobbyInviteCardBody
@@ -534,7 +528,7 @@ export function LobbyInviteCardContent({
         gameType: lobby.gameType,
         hostId: host.id,
         playerSlots: lobby.playerSlots,
-        seats,
+        seats: seating?.seats,
         lifecycle: lobby.lifecycle,
       }}
       joined={false}
@@ -593,10 +587,6 @@ function JoinableLobbyInviteCard({ lobbyId }: { lobbyId: SbLobbyId }) {
   const dispatch = useAppDispatch()
   const [joinLobbyAction] = useJoinLobbyAction()
   const [state] = useLobbySummary(lobbyId, { cached: true })
-  // Seats only load for a lobby the summary found, so a dead link doesn't cost a second request.
-  const [seats] = useLobbySeats(state?.status === 'loaded' ? lobbyId : undefined, {
-    cached: true,
-  })
   const host = state?.status === 'loaded' ? state.data.host : undefined
   const name = state?.status === 'loaded' ? state.data.summary.name : undefined
 
@@ -610,43 +600,10 @@ function JoinableLobbyInviteCard({ lobbyId }: { lobbyId: SbLobbyId }) {
   return (
     <LobbyInviteCardContent
       state={state}
-      seats={seats}
       onClick={() => navigateToLobby(lobbyId, name)}
       onJoinClick={() => joinLobbyAction(lobbyId, { name })}
     />
   )
-}
-
-/** A lobby's player seats in seat order (team order, then slot order), closed seats left out. */
-function playerSeatsOf(lobby: ReadonlyDeep<Lobby>): LobbyPlayerSeatJson[] {
-  const seats: LobbyPlayerSeatJson[] = []
-  for (const team of lobby.teams) {
-    if (team.isObserver) {
-      continue
-    }
-    for (const slot of team.slots) {
-      switch (slot.type) {
-        case SlotType.Human:
-          seats.push({ type: 'human', userId: slot.userId! })
-          break
-        case SlotType.Computer:
-        case SlotType.UmsComputer:
-          seats.push({ type: 'computer' })
-          break
-        case SlotType.Open:
-        case SlotType.ControlledOpen:
-          seats.push({ type: 'open' })
-          break
-        case SlotType.Closed:
-        case SlotType.ControlledClosed:
-        case SlotType.Observer:
-          break
-        default:
-          assertUnreachable(slot.type)
-      }
-    }
-  }
-  return seats
 }
 
 /**
@@ -681,7 +638,7 @@ function OwnLobbyInviteCard() {
           open: openSlotCount(info),
           total: slotCount(info),
         },
-        seats: playerSeatsOf(info),
+        seats: getPlayerSeats(info),
         lifecycle,
       }}
       onClick={() => navigateToLobby(info.id, info.name)}

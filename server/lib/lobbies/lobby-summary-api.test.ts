@@ -12,9 +12,11 @@ import { findUsersById } from '../users/user-model'
 import {
   LobbyIdByJoinCodeGetter,
   LobbyJoinCodeGetter,
+  LobbySeatsGetter,
   LobbySummaryGetter,
   setLobbyIdByJoinCodeGetter,
   setLobbyJoinCodeGetter,
+  setLobbySeatsGetter,
   setLobbySummaryGetter,
 } from './lobby-summaries'
 import { LobbySummaryApi } from './lobby-summary-api'
@@ -84,18 +86,27 @@ const BASE_SUMMARY: LobbySummaryJson = {
   createdAt: 1234567890,
 }
 
-/** A fake `RouterContext` satisfying `getSummary`'s param validation. */
-function makeSummaryCtx(): RouterContext {
-  return { params: { lobbyId: LOBBY_PRETTY_ID } } as any
+/**
+ * A fake `RouterContext` satisfying `getSummary`'s param validation, from a logged-out caller unless
+ * `loggedIn` says otherwise.
+ */
+function makeSummaryCtx({ loggedIn = false } = {}): RouterContext {
+  return {
+    params: { lobbyId: LOBBY_PRETTY_ID },
+    session: loggedIn ? { userId: makeSbUserId(5) } : undefined,
+  } as any
 }
 
 describe('lobbies/lobby-summary-api/LobbySummaryApi#getSummary', () => {
   let summaryGetterMock: ReturnType<typeof vi.fn<LobbySummaryGetter>>
+  let seatsGetterMock: ReturnType<typeof vi.fn<LobbySeatsGetter>>
 
   beforeEach(() => {
     findUsersByIdMock.mockReset()
     summaryGetterMock = vi.fn()
     setLobbySummaryGetter(summaryGetterMock)
+    seatsGetterMock = vi.fn()
+    setLobbySeatsGetter(seatsGetterMock)
     // No lobby has a join code registered unless a test says otherwise.
     setLobbyJoinCodeGetter(() => undefined)
   })
@@ -209,6 +220,44 @@ describe('lobbies/lobby-summary-api/LobbySummaryApi#getSummary', () => {
     const response = await api.getSummary(makeSummaryCtx())
 
     expect(response.joinCode).toBeUndefined()
+  })
+
+  test('never tells a logged-out caller who is seated', async () => {
+    summaryGetterMock.mockReturnValueOnce(BASE_SUMMARY)
+    findUsersByIdMock.mockResolvedValueOnce([HOST])
+
+    const api = new LobbySummaryApi()
+    const response = await api.getSummary(makeSummaryCtx())
+
+    expect(response.seating).toBeUndefined()
+    expect(seatsGetterMock).not.toHaveBeenCalled()
+  })
+
+  test('tells a logged-in caller who holds each seat, with the seated users', async () => {
+    const guest: SbUser = { id: makeSbUserId(2), name: 'GuestUser', created: 0 }
+    summaryGetterMock.mockReturnValueOnce(BASE_SUMMARY)
+    seatsGetterMock.mockReturnValueOnce([
+      { type: 'human', userId: HOST_ID },
+      { type: 'computer' },
+      { type: 'human', userId: guest.id },
+      { type: 'open' },
+    ])
+    findUsersByIdMock.mockResolvedValueOnce([HOST]).mockResolvedValueOnce([HOST, guest])
+
+    const api = new LobbySummaryApi()
+    const response = await api.getSummary(makeSummaryCtx({ loggedIn: true }))
+
+    expect(seatsGetterMock).toHaveBeenCalledWith(LOBBY_ID)
+    expect(findUsersByIdMock).toHaveBeenLastCalledWith([HOST_ID, guest.id])
+    expect(response.seating).toEqual({
+      seats: [
+        { type: 'human', userId: HOST_ID },
+        { type: 'computer' },
+        { type: 'human', userId: guest.id },
+        { type: 'open' },
+      ],
+      users: [HOST, guest],
+    })
   })
 })
 

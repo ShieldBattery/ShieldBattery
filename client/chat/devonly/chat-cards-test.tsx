@@ -139,6 +139,11 @@ const SEATS_IN_GAME = [
   COMPUTER_SEAT,
 ]
 
+/** A summary as a logged-in viewer gets it, naming who holds each seat. */
+function withSeats(data: LobbySummaryResponse, seats: LobbyPlayerSeatJson[]): LobbySummaryResponse {
+  return { ...data, seating: { seats, users: [] } }
+}
+
 const LOBBY_JOINED_DISPLAY: LobbyInviteDisplayData = {
   name: LOBBY_LOADED.summary.name,
   map: LOBBY_LOADED.summary.map,
@@ -149,7 +154,7 @@ const LOBBY_JOINED_DISPLAY: LobbyInviteDisplayData = {
 }
 
 type LobbyScenario =
-  | { label: string; state: LobbySummaryLoadState | undefined; seats?: LobbyPlayerSeatJson[] }
+  | { label: string; state: LobbySummaryLoadState | undefined }
   | { label: string; joined: LobbyInviteDisplayData }
 
 const LOBBY_SCENARIOS: LobbyScenario[] = [
@@ -163,23 +168,19 @@ const LOBBY_SCENARIOS: LobbyScenario[] = [
   { label: 'Closed seats (1 of 4 open)', state: { status: 'loaded', data: LOBBY_WITH_CLOSED } },
   {
     label: 'Seats: humans, computer, open',
-    state: { status: 'loaded', data: LOBBY_LOADED },
-    seats: SEATS_MIXED,
+    state: { status: 'loaded', data: withSeats(LOBBY_LOADED, SEATS_MIXED) },
   },
   {
     label: 'Seats: long names',
-    state: { status: 'loaded', data: LOBBY_LONG_NAME },
-    seats: SEATS_LONG_NAME,
+    state: { status: 'loaded', data: withSeats(LOBBY_LONG_NAME, SEATS_LONG_NAME) },
   },
   {
     label: 'Seats: 8 slots',
-    state: { status: 'loaded', data: LOBBY_NEARLY_FULL },
-    seats: SEATS_FFA,
+    state: { status: 'loaded', data: withSeats(LOBBY_NEARLY_FULL, SEATS_FFA) },
   },
   {
     label: 'Seats: in game',
-    state: { status: 'loaded', data: LOBBY_IN_GAME },
-    seats: SEATS_IN_GAME,
+    state: { status: 'loaded', data: withSeats(LOBBY_IN_GAME, SEATS_IN_GAME) },
   },
   { label: 'Not found', state: { status: 'notFound' } },
   { label: 'Error (renders nothing)', state: { status: 'error' } },
@@ -198,7 +199,6 @@ function LobbyRow({ scenario }: { scenario: LobbyScenario }) {
         <div>
           <LobbyInviteCardContent
             state={scenario.state}
-            seats={scenario.seats}
             onClick={() => {}}
             onJoinClick={() => {}}
           />
