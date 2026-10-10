@@ -76,6 +76,10 @@ export const eventToAction: EventToActionMap = {
     // We clear out this state so that we don't e.g. show the user a dialog about their previous
     // match that prevents them from accepting the new match.
     jotaiStore.set(lastGameAtom, undefined)
+    // Notices about a previous match falling apart are stale once a new one is found, and one left
+    // open would sit under the accept dialog and then over the draft screen.
+    dispatch(closeDialog(DialogType.MatchCanceled))
+    dispatch(closeDialog(DialogType.FailedToAcceptMatch))
 
     dispatch(openAcceptMatchDialog())
   },

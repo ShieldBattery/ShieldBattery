@@ -163,6 +163,19 @@ describe('client/matchmaking/socket-handlers/matchFound', () => {
     expect(ipcSend).not.toHaveBeenCalled()
     expect(jotaiStore.get(foundMatchAtom)).toBeDefined()
   })
+
+  test("closes the previous match's failure notices", () => {
+    const dispatched = runMatchFound()
+
+    expect(dispatched).toContainEqual({
+      type: '@dialogs/close',
+      payload: { dialogType: DialogType.MatchCanceled },
+    })
+    expect(dispatched).toContainEqual({
+      type: '@dialogs/close',
+      payload: { dialogType: DialogType.FailedToAcceptMatch },
+    })
+  })
 })
 
 describe('client/matchmaking/socket-handlers/draftStarted', () => {
