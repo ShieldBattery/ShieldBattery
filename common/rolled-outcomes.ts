@@ -1,4 +1,4 @@
-import { QuoteLine, QuoteUnit } from './unit-quotes'
+import { QuoteUnit, StoredQuoteLine, StoredQuoteUnit } from './unit-quotes'
 
 /**
  * Outcomes that chat commands ask the server to settle (`/roll`, `/flip`, `/8ball`, `/quote`). The
@@ -61,10 +61,13 @@ export type RolledOutcome =
   | { kind: 'eightBall'; answer: EightBallAnswer }
   | {
       kind: 'quote'
-      /** The unit that says the line, as the key the client localizes its name by. */
-      unit: QuoteUnit
-      /** One of that unit's lines, as the key the client localizes it by. */
-      line: QuoteLine
+      /**
+       * The unit that says the line, as the key the client localizes its name by. A stored message
+       * can name a unit `/quote` no longer picks.
+       */
+      unit: StoredQuoteUnit
+      /** One of that unit's lines, as the key the client localizes it by; possibly a retired one. */
+      line: StoredQuoteLine
     }
 
 /** What a client asks the server to settle. The body of every `outcomes` endpoint. */

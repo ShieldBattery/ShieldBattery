@@ -1,5 +1,11 @@
 import { TFunction } from 'i18next'
-import { QuoteLine, QuoteUnit, UNIT_QUOTES } from '../../common/unit-quotes'
+import {
+  QuoteUnit,
+  RETIRED_UNIT_QUOTES,
+  StoredQuoteLine,
+  StoredQuoteUnit,
+  UNIT_QUOTES,
+} from '../../common/unit-quotes'
 
 /**
  * The text behind the quote keys the server settles on: a display name per unit, and the line
@@ -9,7 +15,7 @@ import { QuoteLine, QuoteUnit, UNIT_QUOTES } from '../../common/unit-quotes'
  * statically, which is why every key here is spelled out as a literal instead of built from the
  * unit and line it belongs to.
  */
-export const QUOTE_UNIT_NAME_TEXT: Record<QuoteUnit, (t: TFunction) => string> = {
+export const QUOTE_UNIT_NAME_TEXT: Record<StoredQuoteUnit, (t: TFunction) => string> = {
   scv: t => t('chat.outcomes.quote.units.scv', 'SCV'),
   marine: t => t('chat.outcomes.quote.units.marine', 'Marine'),
   firebat: t => t('chat.outcomes.quote.units.firebat', 'Firebat'),
@@ -112,11 +118,12 @@ export const QUOTE_LINE_TEXT: {
   },
   vulture: {
     bringItOn: t => t('chat.outcomes.quote.lines.vulture.bringItOn', 'Alright, bring it on!'),
-    gottaRide: t => t('chat.outcomes.quote.lines.vulture.gottaRide', 'I gotta ride!'),
-    goingIn: t => t('chat.outcomes.quote.lines.vulture.goingIn', "Hang on, I'm going in."),
+    whaddaYouWant: t => t('chat.outcomes.quote.lines.vulture.whaddaYouWant', 'Whadda you want?'),
     somethingOnYourMind: t =>
       t('chat.outcomes.quote.lines.vulture.somethingOnYourMind', 'Something on your mind?'),
-    imOnIt: t => t('chat.outcomes.quote.lines.vulture.imOnIt', "Yeah, I'm on it."),
+    yeahImGoin: t => t('chat.outcomes.quote.lines.vulture.yeahImGoin', "Yeah, I'm goin'!"),
+    iDig: t => t('chat.outcomes.quote.lines.vulture.iDig', 'I dig.'),
+    isThatIt: t => t('chat.outcomes.quote.lines.vulture.isThatIt', 'Oh... is that it?'),
   },
   tank: {
     readyToRollOut: t => t('chat.outcomes.quote.lines.tank.readyToRollOut', 'Ready to roll out!'),
@@ -232,9 +239,8 @@ export const QUOTE_LINE_TEXT: {
     myLifeForAiur: t => t('chat.outcomes.quote.lines.zealot.myLifeForAiur', 'My life for Aiur!'),
     longForCombat: t => t('chat.outcomes.quote.lines.zealot.longForCombat', 'I long for combat!'),
     enTaroAdun: t => t('chat.outcomes.quote.lines.zealot.enTaroAdun', 'En taro Adun!'),
-    forAiur: t => t('chat.outcomes.quote.lines.zealot.forAiur', 'For Aiur!'),
-    khassarDeTemplari: t =>
-      t('chat.outcomes.quote.lines.zealot.khassarDeTemplari', 'Khassar de templari!'),
+    doomToAll: t =>
+      t('chat.outcomes.quote.lines.zealot.doomToAll', 'Doom to all who threaten the homeworld!'),
   },
   dragoon: {
     iHaveReturned: t => t('chat.outcomes.quote.lines.dragoon.iHaveReturned', 'I have returned.'),
@@ -244,6 +250,9 @@ export const QUOTE_LINE_TEXT: {
     forVengeance: t => t('chat.outcomes.quote.lines.dragoon.forVengeance', 'For vengeance!'),
   },
   templar: {
+    khassarDeTemplari: t =>
+      t('chat.outcomes.quote.lines.templar.khassarDeTemplari', 'Khassar de templari!'),
+    shallBeDone: t => t('chat.outcomes.quote.lines.templar.shallBeDone', 'It shall be done.'),
     thoughtsBetrayYou: t =>
       t('chat.outcomes.quote.lines.templar.thoughtsBetrayYou', 'Your thoughts betray you.'),
     appetiteForDestruction: t =>
@@ -263,7 +272,14 @@ export const QUOTE_LINE_TEXT: {
     adunToridas: t => t('chat.outcomes.quote.lines.darktemplar.adunToridas', 'Adun Toridas.'),
     zerashkGulida: t => t('chat.outcomes.quote.lines.darktemplar.zerashkGulida', 'Zerashk gulida!'),
     imWaiting: t => t('chat.outcomes.quote.lines.darktemplar.imWaiting', "I'm waiting."),
-    ahAtLast: t => t('chat.outcomes.quote.lines.darktemplar.ahAtLast', 'Ah, at last.'),
+    forAiur: t => t('chat.outcomes.quote.lines.darktemplar.forAiur', 'For Aiur!'),
+    doNotProvoke: t =>
+      t('chat.outcomes.quote.lines.darktemplar.doNotProvoke', 'Do not provoke me to violence.'),
+    tauntsIllAdvised: t =>
+      t(
+        'chat.outcomes.quote.lines.darktemplar.tauntsIllAdvised',
+        'Your taunts are ill-advised, Templar...',
+      ),
   },
   archon: {
     mergingComplete: t =>
@@ -271,7 +287,71 @@ export const QUOTE_LINE_TEXT: {
     weBurn: t => t('chat.outcomes.quote.lines.archon.weBurn', 'We burn!'),
     powerOverwhelming: t =>
       t('chat.outcomes.quote.lines.archon.powerOverwhelming', 'Power overwhelming!'),
-    shallBeDone: t => t('chat.outcomes.quote.lines.archon.shallBeDone', 'It shall be done.'),
+    sentAPoet: t =>
+      t('chat.outcomes.quote.lines.archon.sentAPoet', 'They should have sent a poet...'),
+    soDifferent: t =>
+      t('chat.outcomes.quote.lines.archon.soDifferent', 'It all looks so different on this side.'),
+  },
+  carrier: {
+    carrierHasArrived: t =>
+      t('chat.outcomes.quote.lines.carrier.carrierHasArrived', 'Carrier has arrived.'),
+    instructions: t => t('chat.outcomes.quote.lines.carrier.instructions', 'Instructions.'),
+    enemiesAreLegion: t =>
+      t('chat.outcomes.quote.lines.carrier.enemiesAreLegion', 'Our enemies are legion!'),
+    commandOrBeRelieved: t =>
+      t(
+        'chat.outcomes.quote.lines.carrier.commandOrBeRelieved',
+        'Command, or you will be relieved.',
+      ),
+  },
+  arbiter: {
+    warpFieldStabilized: t =>
+      t('chat.outcomes.quote.lines.arbiter.warpFieldStabilized', 'Warp field stabilized.'),
+    senseASoul: t =>
+      t('chat.outcomes.quote.lines.arbiter.senseASoul', 'We sense a soul in search of answers.'),
+    feelYourPresence: t =>
+      t('chat.outcomes.quote.lines.arbiter.feelYourPresence', 'We feel your presence.'),
+    weAreVigilant: t => t('chat.outcomes.quote.lines.arbiter.weAreVigilant', 'We are vigilant.'),
+    takeThatAsAYes: t =>
+      t('chat.outcomes.quote.lines.arbiter.takeThatAsAYes', "We'll take that as a yes."),
+  },
+  corsair: {
+    goodDayToDie: t =>
+      t('chat.outcomes.quote.lines.corsair.goodDayToDie', 'It is a good day to die!'),
+    ahAtLast: t => t('chat.outcomes.quote.lines.corsair.ahAtLast', 'Ah, at last!'),
+    prettyLights: t =>
+      t('chat.outcomes.quote.lines.corsair.prettyLights', 'Look at all the pretty lights!'),
+    whatThisButtonDoes: t =>
+      t('chat.outcomes.quote.lines.corsair.whatThisButtonDoes', 'I wonder what this button does?'),
+  },
+}
+
+/**
+ * The text behind the retired line keys stored messages may still name. A line that was filed under
+ * the wrong unit reads as the line its rightful unit now says; the others keep the text they were
+ * sent with.
+ */
+const RETIRED_QUOTE_LINE_TEXT: {
+  [U in keyof typeof RETIRED_UNIT_QUOTES]: Record<
+    (typeof RETIRED_UNIT_QUOTES)[U][number],
+    (t: TFunction) => string
+  >
+} = {
+  vulture: {
+    gottaRide: t => t('chat.outcomes.quote.lines.vulture.gottaRide', 'I gotta ride!'),
+    goingIn: t => t('chat.outcomes.quote.lines.vulture.goingIn', "Hang on, I'm going in."),
+    imOnIt: t => t('chat.outcomes.quote.lines.vulture.imOnIt', "Yeah, I'm on it."),
+  },
+  zealot: {
+    forAiur: t => t('chat.outcomes.quote.lines.darktemplar.forAiur', 'For Aiur!'),
+    khassarDeTemplari: t =>
+      t('chat.outcomes.quote.lines.templar.khassarDeTemplari', 'Khassar de templari!'),
+  },
+  darktemplar: {
+    ahAtLast: t => t('chat.outcomes.quote.lines.corsair.ahAtLast', 'Ah, at last!'),
+  },
+  archon: {
+    shallBeDone: t => t('chat.outcomes.quote.lines.templar.shallBeDone', 'It shall be done.'),
   },
   shuttle: {
     transWarpEngaged: t =>
@@ -281,17 +361,10 @@ export const QUOTE_LINE_TEXT: {
       t('chat.outcomes.quote.lines.shuttle.awaitingCommand', 'Awaiting command.'),
   },
   carrier: {
-    carrierHasArrived: t =>
-      t('chat.outcomes.quote.lines.carrier.carrierHasArrived', 'Carrier has arrived.'),
-    instructions: t => t('chat.outcomes.quote.lines.carrier.instructions', 'Instructions.'),
     weAreHere: t => t('chat.outcomes.quote.lines.carrier.weAreHere', 'We are here.'),
     commander: t => t('chat.outcomes.quote.lines.carrier.commander', 'Commander.'),
   },
   arbiter: {
-    warpFieldStabilized: t =>
-      t('chat.outcomes.quote.lines.arbiter.warpFieldStabilized', 'Warp field stabilized.'),
-    senseASoul: t =>
-      t('chat.outcomes.quote.lines.arbiter.senseASoul', 'We sense a soul in search of answers.'),
     seekGuidance: t => t('chat.outcomes.quote.lines.arbiter.seekGuidance', 'Do you seek guidance?'),
     askOfUs: t => t('chat.outcomes.quote.lines.arbiter.askOfUs', 'What would you ask of us?'),
   },
@@ -303,10 +376,15 @@ export const QUOTE_LINE_TEXT: {
 }
 
 /** The line a unit says, in the viewer's language. */
-export function quoteLineText(unit: QuoteUnit, line: QuoteLine, t: TFunction): string {
-  // A `QuoteLine` is any unit's line key, while each record here holds only its own unit's, so the
-  // record has to be widened before it can be indexed by one. Falling back to the raw key keeps a
-  // quote readable if the two catalogues ever drift apart.
-  const lines: Partial<Record<QuoteLine, (t: TFunction) => string>> = QUOTE_LINE_TEXT[unit]
-  return lines[line]?.(t) ?? line
+export function quoteLineText(unit: StoredQuoteUnit, line: StoredQuoteLine, t: TFunction): string {
+  // A line key belongs to one unit's record in one of the two catalogues, so each record has to be
+  // widened before it can be indexed by any key. Falling back to the raw key keeps a quote readable
+  // if a stored message names a pair neither catalogue knows.
+  const current: Partial<Record<StoredQuoteLine, (t: TFunction) => string>> | undefined =
+    unit in QUOTE_LINE_TEXT ? QUOTE_LINE_TEXT[unit as QuoteUnit] : undefined
+  const retired: Partial<Record<StoredQuoteLine, (t: TFunction) => string>> | undefined =
+    unit in RETIRED_QUOTE_LINE_TEXT
+      ? RETIRED_QUOTE_LINE_TEXT[unit as keyof typeof RETIRED_UNIT_QUOTES]
+      : undefined
+  return (current?.[line] ?? retired?.[line])?.(t) ?? line
 }

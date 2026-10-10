@@ -778,14 +778,18 @@
         "lines": {
           "arbiter": {
             "askOfUs": "Чего ты хочешь от нас?",
+            "feelYourPresence": "Мы чувствуем твоё присутствие.",
             "seekGuidance": "Ты ищешь наставления?",
             "senseASoul": "Мы чувствуем душу, жаждущую узнать истину.",
-            "warpFieldStabilized": "Поля искривления стабилизированы."
+            "takeThatAsAYes": "Хорошо, мы научим тебя.",
+            "warpFieldStabilized": "Поля искривления стабилизированы.",
+            "weAreVigilant": "Мы всегда начеку!"
           },
           "archon": {
             "mergingComplete": "Слияние завершено.",
             "powerOverwhelming": "Нас переполняет мощь.",
-            "shallBeDone": "Да будет так!",
+            "sentAPoet": "Жаль, что я не поэт.",
+            "soDifferent": "У тебя необычная аура.",
             "weBurn": "Мы — пламя."
           },
           "battlecruiser": {
@@ -801,18 +805,26 @@
           "carrier": {
             "carrierHasArrived": "Авианосец прибыл!",
             "commander": "Командир.",
+            "commandOrBeRelieved": "Командуй или подавай в отставку!",
+            "enemiesAreLegion": "Наших врагов легион!",
             "instructions": "Жду указаний.",
             "weAreHere": "Мы здесь."
           },
           "corsair": {
+            "ahAtLast": "Наконец-то!",
+            "goodDayToDie": "Прекрасный день, чтобы умереть.",
             "hello": "Алло?",
             "interesting": "Интересно.",
-            "onStation": "Корсар на позиции."
+            "onStation": "Корсар на позиции.",
+            "prettyLights": "Какие красивые лампочки!",
+            "whatThisButtonDoes": "Что будет, если нажать на эту кнопку?"
           },
           "darktemplar": {
             "adunToridas": "Адун Торидас.",
-            "ahAtLast": "Наконец-то!",
+            "doNotProvoke": "Не провоцируй меня на насилие.",
+            "forAiur": "За Айур!",
             "imWaiting": "Я жду.",
+            "tauntsIllAdvised": "Предупреждаю тебя, тамплиер, моё терпение не безгранично.",
             "zerashkGulida": "Зерашк гулида!"
           },
           "dragoon": {
@@ -900,7 +912,9 @@
           },
           "templar": {
             "appetiteForDestruction": "Я чувствую в тебе страсть к разрушению.",
+            "khassarDeTemplari": "Кхассар де темплари!",
             "lackOfControlDisturbing": "Но меня беспокоит отсутствие контроля.",
+            "shallBeDone": "Да будет так!",
             "thoughtsBetrayYou": "Твои мысли выдают тебя.",
             "useYourIllusion": "И ты умеешь использовать иллюзии."
           },
@@ -917,8 +931,12 @@
             "bringItOn": "Завожу! Поехали!",
             "goingIn": "Держись, захожу.",
             "gottaRide": "Мне надо гнать!",
+            "iDig": "Тему понял!",
             "imOnIt": "Ага, уже занимаюсь.",
-            "somethingOnYourMind": "Что на этот раз?"
+            "isThatIt": "Ха! Это всё?",
+            "somethingOnYourMind": "Что на этот раз?",
+            "whaddaYouWant": "Чё нужно?",
+            "yeahImGoin": "Да, еду."
           },
           "wraith": {
             "attackFormation": "Боевое построение.",
@@ -930,9 +948,8 @@
             "whyAmISoGood": "Интересно, почему я так крут?"
           },
           "zealot": {
+            "doomToAll": "Смерть всем, кто угрожает нашей Родине!",
             "enTaroAdun": "Эн таро Адун!",
-            "forAiur": "За Айур!",
-            "khassarDeTemplari": "Кхассар де темплари!",
             "longForCombat": "Я жажду битвы!",
             "myLifeForAiur": "Жизнь за Айур!"
           }

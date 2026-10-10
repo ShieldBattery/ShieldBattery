@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import i18next from 'i18next'
 import { initReactI18next } from 'react-i18next'
 import { beforeAll, describe, expect, test } from 'vitest'
-import { QUOTE_UNITS, UNIT_QUOTES } from '../../common/unit-quotes'
+import { QUOTE_UNITS, RETIRED_UNIT_QUOTES, UNIT_QUOTES } from '../../common/unit-quotes'
 import { quoteLineText } from './quote-catalogue'
 import { RolledOutcomeLine } from './rolled-outcome-line'
 
@@ -69,5 +69,37 @@ describe('client/messaging/rolled-outcome-line', () => {
         expect(text).not.toBe(line)
       }
     }
+  })
+
+  test('every retired line a stored message can name still has text to show for it', () => {
+    const t = i18next.t
+
+    for (const unit of Object.keys(RETIRED_UNIT_QUOTES) as Array<
+      keyof typeof RETIRED_UNIT_QUOTES
+    >) {
+      for (const line of RETIRED_UNIT_QUOTES[unit]) {
+        expect(quoteLineText(unit, line, t)).not.toBe(line)
+      }
+    }
+  })
+
+  test('a stored quote of the retired Shuttle still names it', () => {
+    render(
+      <RolledOutcomeLine
+        outcome={{ kind: 'quote', unit: 'shuttle', line: 'transportReady' }}
+        text=''
+      />,
+    )
+
+    expect(screen.getByTestId('outcome-chip').textContent).toBe('Shuttle')
+    expect(screen.getByText(/Transport ready\./)).toBeDefined()
+  })
+
+  test('a line stored under the wrong unit reads as the line its rightful unit says', () => {
+    const t = i18next.t
+
+    expect(quoteLineText('zealot', 'khassarDeTemplari', t)).toBe(
+      quoteLineText('templar', 'khassarDeTemplari', t),
+    )
   })
 })
