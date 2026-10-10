@@ -1,9 +1,7 @@
-import { animate, frame, SpringOptions, useSpring, useTransform } from 'motion/react'
-import * as m from 'motion/react-m'
 import * as React from 'react'
-import { useEffect, useId, useState } from 'react'
+import { useId, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
+import styled, { keyframes } from 'styled-components'
 import { Link } from 'wouter'
 import { getErrorStack } from '../../common/errors'
 import { audioManager, AvailableSound } from '../audio/audio-manager'
@@ -15,12 +13,107 @@ import { elevationPlus1 } from '../material/shadows'
 import { useAppDispatch } from '../redux-hooks'
 import { showReplayInfo } from '../replays/action-creators'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
-import { BodyMedium } from '../styles/typography'
+import { BodyMedium, sofiaSans } from '../styles/typography'
+import psiFrost from './psi-frost.svg?no-inline'
 
 const WIDTH = 240
 const HEIGHT = 72
 
-const Root = styled(m.a)`
+const psiBreath = keyframes`
+  0%, 100% {
+    scale: 0.97;
+    opacity: var(--_psi-rest-opacity);
+  }
+  45% {
+    scale: 1.03;
+    opacity: var(--_psi-crest-opacity);
+  }
+`
+
+const psiFlow = keyframes`
+  0% {
+    transform: translate(-48px, 8px) rotate(-4deg) scale(0.86, 1.04);
+  }
+  55% {
+    transform: translate(12px, -2px) rotate(0deg) scale(1.12, 0.97);
+  }
+  100% {
+    transform: translate(52px, -8px) rotate(4deg) scale(0.94, 1.02);
+  }
+`
+
+const psiCounterflow = keyframes`
+  0% {
+    transform: translate(44px, -6px) rotate(176deg) scale(1.1, 0.98);
+  }
+  55% {
+    transform: translate(-10px, 2px) rotate(180deg) scale(0.88, 1.04);
+  }
+  100% {
+    transform: translate(-48px, 8px) rotate(184deg) scale(1.06, 1);
+  }
+`
+
+const EnergyField = styled.div<{ $reverse?: boolean }>`
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transition-property: transform, scale;
+  transition-duration: ${props => (props.$reverse ? '2100ms' : '1500ms')};
+  transition-timing-function: cubic-bezier(0.25, 0.35, 0.25, 1);
+
+  /* The texture is static; the browser composites its movement between pointer updates. */
+  &::before {
+    --_psi-rest-opacity: ${props => (props.$reverse ? 0.4 : 0.6)};
+    --_psi-crest-opacity: ${props => (props.$reverse ? 0.65 : 0.85)};
+
+    content: '';
+    position: absolute;
+    /* The light enters from opposite corners, leaving the label clear without a stationary mask. */
+    width: 320px;
+    height: 176px;
+    left: ${props => (props.$reverse ? '54px' : '-136px')};
+    top: ${props => (props.$reverse ? '8px' : '-96px')};
+    background:
+      radial-gradient(
+        ellipse closest-side at 35% 50%,
+        rgb(from var(--color-blue95) r g b / 0.5),
+        transparent 100%
+      ),
+      url('${psiFrost}') center / contain no-repeat;
+    opacity: ${props => (props.$reverse ? 0.45 : 0.65)};
+    transform: ${props => (props.$reverse ? 'rotate(180deg)' : 'none')};
+    /* Both layers breathe together while their slower currents drift independently. */
+    animation-name: ${props => (props.$reverse ? psiCounterflow : psiFlow)}, ${psiBreath};
+    animation-duration: ${props => (props.$reverse ? '36s' : '26s')}, 11s;
+    animation-delay: ${props => (props.$reverse ? '-18s' : '-8s')}, -2.5s;
+    animation-play-state: var(--_psi-play-state);
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+    animation-direction: alternate, normal;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transform: none !important;
+    scale: none !important;
+    transition: none;
+
+    &::before {
+      animation: none;
+    }
+  }
+`
+
+const CrystalLight = styled.div`
+  position: absolute;
+  inset: 0;
+  opacity: 0.85;
+  transition: opacity 250ms ease-out;
+`
+
+const Root = styled.a<{ $active: boolean }>`
+  --_psi-play-state: ${props => (props.$active ? 'running' : 'paused')};
+
   position: relative;
   width: ${WIDTH}px;
   height: ${HEIGHT}px;
@@ -31,11 +124,9 @@ const Root = styled(m.a)`
   display: flex;
   align-items: center;
   justify-content: center;
-
-  filter: drop-shadow(0px 2px 3px rgba(0, 0, 0, 0.15)) drop-shadow(0px 1px 1px rgba(0, 0, 0, 0.3))
-    drop-shadow(0px 0px 1px rgb(from var(--color-blue80) r g b / 0.32));
   overflow: visible;
 
+  ${sofiaSans};
   color: var(--theme-on-surface);
   font-size: 36px;
   font-variation-settings: 'wght' 870;
@@ -45,30 +136,48 @@ const Root = styled(m.a)`
   text-transform: uppercase;
 
   transform-origin: center top;
+  transition: transform 150ms ease-out;
 
   &:link,
   &:visited {
     color: var(--theme-on-surface);
   }
 
+  &:focus-visible {
+    outline: none;
+
+    &::after {
+      content: '';
+      position: absolute;
+      top: 8px;
+      left: 22px;
+      right: 22px;
+      bottom: 12px;
+      outline: 3px solid var(--theme-amber);
+      border-radius: 4px;
+      pointer-events: none;
+    }
+
+    ${CrystalLight} {
+      opacity: 1;
+    }
+
+    ${EnergyField} {
+      scale: 1.14 1.02;
+    }
+  }
+
   @media (hover: hover) {
     &:hover {
       color: var(--theme-on-surface);
       text-decoration: none;
-    }
 
-    &:focus-visible {
-      outline: none;
+      ${CrystalLight} {
+        opacity: 1;
+      }
 
-      &:after {
-        content: '';
-        position: absolute;
-        top: 8px;
-        left: 22px;
-        right: 22px;
-        bottom: 12px;
-        outline: 3px solid var(--theme-amber);
-        border-radius: 4px;
+      ${EnergyField} {
+        scale: 1.14 1.02;
       }
     }
   }
@@ -76,16 +185,14 @@ const Root = styled(m.a)`
   &:active {
     color: var(--theme-on-surface);
     text-decoration: none;
-    --menu-item-fill: var(--color-grey-blue50);
+    transform: scale(0.975);
+  }
 
-    &:before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 20px;
-      right: 20px;
-      bottom: 0;
-      background: var(--menu-item-fill);
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+
+    &:active {
+      transform: none;
     }
   }
 
@@ -95,65 +202,42 @@ const Root = styled(m.a)`
       This does make it hard to view the current lobby list but I think that's not a huge deal? If
       it is we can probably throw that into the navigation menu somehow.
     */
+    --_psi-play-state: paused;
     display: none;
   }
 `
 
-const PlayButtonBackground = styled(m.div)`
+const PlayButtonBackground = styled.div`
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  inset: 0;
+  pointer-events: none;
   clip-path: polygon(0% 0%, 100% 0%, 90.83% 100%, 9.17% 100%);
-
-  /** This is the border color */
-  background: var(--color-blue80);
+  background: linear-gradient(
+    110deg,
+    var(--color-blue70),
+    var(--color-blue95),
+    var(--color-blue70)
+  );
 `
 
 const PlayButtonBackgroundFill = styled.div`
   position: absolute;
-  /** Whatever space we leave here will be the border */
   left: 1px;
   right: 1px;
   top: 0;
   bottom: 1px;
-  /** Inherit the trapezoid shape */
+  overflow: hidden;
   clip-path: inherit;
-
-  background: linear-gradient(
-    145deg,
-    var(--color-blue50),
-    20%,
-    var(--color-blue30),
-    80%,
-    var(--color-blue50)
-  );
-
-  z-index: 1;
+  background:
+    linear-gradient(
+      110deg,
+      rgb(from var(--color-blue95) r g b / 0.16),
+      transparent 24%,
+      transparent 78%,
+      rgb(from var(--color-blue80) r g b / 0.12)
+    ),
+    linear-gradient(145deg, var(--color-blue50), 20%, var(--color-blue30), 80%, var(--color-blue50));
 `
-
-const GradientCircle = styled(m.div)`
-  position: absolute;
-  aspect-ratio: 1;
-  width: 200%;
-
-  background-color: var(--_color, rgb(from var(--color-blue70) r g b / 0.8));
-  border-radius: 9999px;
-  filter: blur(24px);
-  transform-origin: center;
-  will-change: transform;
-
-  z-index: 2;
-`
-
-const buttonSpring: SpringOptions = {
-  mass: 24,
-  damping: 360,
-  stiffness: 650,
-  restDelta: 0.0000001,
-  restSpeed: 0.0000001,
-}
 
 function PlayButtonDisplay({
   targetPath,
@@ -163,178 +247,47 @@ function PlayButtonDisplay({
   children: React.ReactNode
 }) {
   const isWindowFocused = useWindowFocus()
-  const [isHovered, setIsHovered] = useState(false)
-  const gradientX1 = useSpring(0, buttonSpring)
-  const gradientY1 = useSpring(0, buttonSpring)
-  const gradientX2 = useSpring(0, buttonSpring)
-  const gradientY2 = useSpring(0, buttonSpring)
-
-  const topLeftGradientX = useTransform(() => -2 * HEIGHT + HEIGHT / 6 + gradientX1.get())
-  const topLeftGradientY = useTransform(() => -HEIGHT - HEIGHT / 2 + gradientY1.get())
-  const bottomRightGradientX = useTransform(() => WIDTH - HEIGHT - HEIGHT / 5 + gradientX2.get())
-  const bottomRightGradientY = useTransform(() => -HEIGHT / 6 + gradientY2.get())
-
-  const isBreathing = isWindowFocused && !isHovered
-  useEffect(() => {
-    if (!isBreathing) {
-      return () => {}
-    }
-
-    const controllers: Array<ReturnType<typeof animate>> = []
-    const duration = 21
-
-    controllers.push(
-      animate(gradientX1, [null, WIDTH / 24, -WIDTH / 8, -WIDTH / 4], {
-        duration,
-        repeat: Infinity,
-        repeatType: 'mirror',
-      }),
-    )
-    controllers.push(
-      animate(gradientY1, [null, -HEIGHT / 2, 0, -HEIGHT / 4, HEIGHT / 6], {
-        duration,
-        repeat: Infinity,
-        repeatType: 'mirror',
-      }),
-    )
-    controllers.push(
-      animate(gradientX2, [null, -WIDTH / 16, WIDTH / 5, -WIDTH / 14, WIDTH / 3], {
-        duration: duration + 7,
-        repeat: Infinity,
-        repeatType: 'mirror',
-      }),
-    )
-    controllers.push(
-      animate(gradientY2, [null, -HEIGHT + HEIGHT / 3, 0, -HEIGHT + HEIGHT / 5, HEIGHT / 8], {
-        duration: duration + 7,
-        repeat: Infinity,
-        repeatType: 'mirror',
-      }),
-    )
-
-    return () => {
-      for (const controller of controllers) {
-        controller.stop()
-      }
-    }
-  }, [isBreathing, gradientX1, gradientY1, gradientX2, gradientY2])
+  const energyRef = useRef<HTMLDivElement>(null)
+  const counterflowRef = useRef<HTMLDivElement>(null)
 
   return (
     <Link href={targetPath} asChild={true}>
       <Root
         data-testid='nav-play-button'
         draggable={false}
-        animate={isBreathing ? 'animate' : undefined}
-        whileHover='hover'
-        whileTap='tap'
-        variants={{
-          tap: {
-            scale: 0.975,
-            transition: {
-              type: 'spring',
-              duration: 0.15,
-            },
-          },
-        }}
-        onMouseEnter={() => {
-          setIsHovered(true)
+        $active={isWindowFocused}
+        onMouseMove={event => {
+          const rect = event.currentTarget.getBoundingClientRect()
+          const x = Math.max(0, Math.min(rect.width, event.clientX - rect.left))
+          const y = Math.max(0, Math.min(rect.height, event.clientY - rect.top))
+          const offsetX = x / rect.width - 0.5
+          const offsetY = y / rect.height - 0.5
+          const trackingX = Math.max(
+            -rect.width * 0.3,
+            Math.min(rect.width * 0.3, x - rect.width / 2),
+          )
+          // The farther current travels less and settles more slowly, giving the light depth.
+          if (energyRef.current) {
+            energyRef.current.style.transform = `translate(${trackingX * 0.9}px, ${offsetY * 24 - offsetX * 24}px)`
+          }
+          if (counterflowRef.current) {
+            counterflowRef.current.style.transform = `translate(${trackingX * 0.5}px, ${offsetY * -10 + offsetX * 12}px)`
+          }
         }}
         onMouseLeave={() => {
-          setIsHovered(false)
-        }}
-        onMouseMove={(event: React.MouseEvent) => {
-          const { clientX, currentTarget } = event
-          frame.read(() => {
-            const rect = currentTarget.getBoundingClientRect()
-            const halfWidth = rect.width / 2
-            const halfHeight = rect.height / 2
-            const pointerX = clientX - rect.left
-            const pointerY = event.clientY - rect.top
-            // 0 (left edge) to 1 (right edge)
-            const xNorm = Math.max(0, Math.min(1, pointerX / rect.width))
-
-            const minY = -halfHeight
-            const maxY = halfHeight
-            const yValue = minY + (maxY - minY) * (1 - xNorm)
-
-            const fromCenterX = Math.max(
-              Math.min(pointerX - halfWidth, halfWidth * 0.6),
-              -halfWidth * 0.6,
-            )
-            const fromCenterY = Math.max(
-              Math.min(pointerY - halfHeight, halfHeight * 0.4),
-              -halfHeight * 0.4,
-            )
-
-            gradientX1.set(fromCenterX - 0.4 * halfWidth)
-            gradientY1.set(yValue + fromCenterY)
-            gradientX2.set(fromCenterX + 0.4 * halfWidth)
-            gradientY2.set(-yValue + fromCenterY)
-          })
+          energyRef.current?.style.removeProperty('transform')
+          counterflowRef.current?.style.removeProperty('transform')
         }}
         onMouseDown={() => {
           audioManager.playSound(AvailableSound.PlayButton)
         }}>
-        <PlayButtonBackground>
-          <PlayButtonBackgroundFill />
-          <GradientCircle
-            style={
-              {
-                '--_color': 'rgb(from var(--color-blue80) r g b / 0.6)',
-                width: HEIGHT * 3,
-                x: topLeftGradientX,
-                y: topLeftGradientY,
-                scale: 0.7,
-              } as any
-            }
-            variants={{
-              animate: {
-                scale: [null, 0.7, 1],
-                transition: {
-                  ease: 'easeInOut',
-                  duration: 21,
-                  repeat: Infinity,
-                  repeatType: 'reverse',
-                },
-              },
-              hover: {
-                scale: 1,
-                transition: {
-                  type: 'spring',
-                  ...buttonSpring,
-                },
-              },
-            }}
-          />
-          <GradientCircle
-            style={
-              {
-                '--_color': 'rgb(from var(--color-blue70) r g b / 0.6)',
-                width: HEIGHT * 3,
-                x: bottomRightGradientX,
-                y: bottomRightGradientY,
-                scale: 1,
-              } as any
-            }
-            variants={{
-              animate: {
-                scale: [null, 1, 0.7],
-                transition: {
-                  ease: 'easeInOut',
-                  duration: 28,
-                  repeat: Infinity,
-                  repeatType: 'reverse',
-                },
-              },
-              hover: {
-                scale: 1,
-                transition: {
-                  type: 'spring',
-                  ...buttonSpring,
-                },
-              },
-            }}
-          />
+        <PlayButtonBackground aria-hidden={true}>
+          <PlayButtonBackgroundFill>
+            <CrystalLight>
+              <EnergyField ref={energyRef} />
+              <EnergyField ref={counterflowRef} $reverse={true} />
+            </CrystalLight>
+          </PlayButtonBackgroundFill>
         </PlayButtonBackground>
         {children}
       </Root>

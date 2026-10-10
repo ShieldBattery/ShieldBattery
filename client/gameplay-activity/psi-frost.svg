@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="384" height="192" viewBox="0 0 384 192">
+  <defs>
+    <filter id="frost" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.012 0.034" numOctaves="3" seed="12" result="density" />
+      <feTurbulence type="fractalNoise" baseFrequency="0.009 0.018" numOctaves="2" seed="5" result="warp" />
+      <feDisplacementMap in="density" in2="warp" scale="58" xChannelSelector="R" yChannelSelector="G" />
+      <feColorMatrix values="0.2 0 0 0 0.45  0.15 0 0 0 0.68  0 0 0 0 1  2 0 0 0 -0.75" />
+      <feComponentTransfer>
+        <feFuncA type="gamma" amplitude="0.65" exponent="1.2" offset="0" />
+      </feComponentTransfer>
+      <feGaussianBlur stdDeviation="9" />
+    </filter>
+    <radialGradient id="fade">
+      <stop offset="0%" stop-color="white" />
+      <stop offset="55%" stop-color="#808080" />
+      <stop offset="85%" stop-color="#141414" />
+      <stop offset="100%" stop-color="black" />
+    </radialGradient>
+    <mask id="edges">
+      <rect width="384" height="192" fill="url(#fade)" />
+    </mask>
+  </defs>
+  <g mask="url(#edges)">
+    <rect width="384" height="192" filter="url(#frost)" />
+  </g>
+</svg>
