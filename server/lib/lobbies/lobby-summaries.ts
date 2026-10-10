@@ -1,4 +1,8 @@
-import { LobbySummaryJson } from '../../../common/lobbies/lobby-network'
+import {
+  LobbyPlayerSeatJson,
+  LobbySeatingJson,
+  LobbySummaryJson,
+} from '../../../common/lobbies/lobby-network'
 import { makeSbLobbyId, SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import { isPrettyId } from '../../../common/pretty-id'
 import { SbUser } from '../../../common/users/sb-user'
@@ -61,6 +65,35 @@ export function setLobbyIdByJoinCodeGetter(getter: LobbyIdByJoinCodeGetter): voi
 /** Returns the lobby id currently registered for `normalizedCode`, or `undefined`. */
 export function getLobbyIdByJoinCode(normalizedCode: string): SbLobbyId | undefined {
   return lobbyIdByJoinCodeGetter?.(normalizedCode)
+}
+
+/** Looks up a lobby's player seats by id, or `undefined` if no such lobby currently exists. */
+export type LobbySeatsGetter = (id: SbLobbyId) => LobbyPlayerSeatJson[] | undefined
+
+let seatsGetter: LobbySeatsGetter | undefined
+
+/**
+ * Registers the function used to resolve a lobby's player seats by id, mirroring
+ * {@link setLobbySummaryGetter}.
+ */
+export function setLobbySeatsGetter(getter: LobbySeatsGetter): void {
+  seatsGetter = getter
+}
+
+/**
+ * Resolves who holds each of a lobby's player seats, along with the seated users, or `undefined` if
+ * the lobby doesn't exist.
+ */
+export async function getLobbySeating(id: SbLobbyId): Promise<LobbySeatingJson | undefined> {
+  const seats = seatsGetter?.(id)
+  if (!seats) {
+    return undefined
+  }
+
+  const users = await findUsersById(
+    seats.flatMap(seat => (seat.type === 'human' ? [seat.userId] : [])),
+  )
+  return { seats, users }
 }
 
 /** The result of resolving a live lobby by id or join code: its summary, host, and current code. */

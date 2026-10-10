@@ -147,10 +147,15 @@ const SeatsLine = styled.div`
   color: var(--theme-on-surface-variant);
 `
 
-function Seats({ lobby }: { lobby: Lobby }) {
+function Seats({ summary }: { summary: LobbySummaryResponse }) {
   return (
     <SeatsLine>
-      <LobbySeats playerSlots={lobby.playerSlots} lifecycle={lobby.lifecycle} layout='grid' />
+      <LobbySeats
+        playerSlots={summary.summary.playerSlots}
+        seats={summary.seating?.seats}
+        lifecycle={summary.summary.lifecycle}
+        layout='grid'
+      />
     </SeatsLine>
   )
 }
@@ -260,7 +265,7 @@ export function JoinPreview({ summary, isJoining, onJoinClick }: JoinPreviewProp
         <LobbyName>{lobby.name}</LobbyName>
         <HostLine summary={summary} />
         <Foot>
-          <Seats lobby={lobby} />
+          <Seats summary={summary} />
           <JoinButton isJoining={isJoining} onJoinClick={onJoinClick} />
         </Foot>
       </Info>

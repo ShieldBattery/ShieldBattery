@@ -9,6 +9,7 @@ import throttleMiddleware, { throttleByIp } from '../throttle/middleware'
 import {
   getLiveLobbyWithHost,
   getLiveLobbyWithHostByJoinCode,
+  getLobbySeating,
   LiveLobbyWithHost,
 } from './lobby-summaries'
 
@@ -66,7 +67,8 @@ function toSummaryResponse(result: LiveLobbyWithHost): LobbySummaryResponse {
 }
 
 /**
- * Serves summary info for a single lobby, with no login required.
+ * Serves summary info for a single lobby, with no login required (though a logged-in caller is also
+ * told who is seated in it).
  *
  * A lobby's id is an unguessable capability token (see `common/lobbies/sb-lobby-id.ts`), and for
  * unlisted lobbies possessing the link *is* the invite — so handing back summary data to anyone who
@@ -83,7 +85,13 @@ export class LobbySummaryApi {
       throw new httpErrors.NotFound('lobby not found')
     }
 
-    return toSummaryResponse(result)
+    const response = toSummaryResponse(result)
+    // Who is seated is only for logged-in callers, who could already see it on the lobby's preview
+    // channel. A logged-out caller is never told who is inside a lobby.
+    if (ctx.session) {
+      response.seating = await getLobbySeating(result.summary.id)
+    }
+    return response
   }
 
   /**

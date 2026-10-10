@@ -7,6 +7,7 @@ import { gameTypeToLabel } from '../../common/games/game-type'
 import { isLaunchingLifecycle, LobbySummaryResponse } from '../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { apiUrl } from '../../common/urls'
+import { dispatch as globalDispatch } from '../dispatch-registry'
 import { MapThumbnail } from '../maps/map-thumbnail'
 import { fetchJson } from '../network/fetch'
 import { FetchBudget } from '../network/fetch-budget'
@@ -97,6 +98,17 @@ export function resetSummaryCacheForTesting() {
 }
 
 /**
+ * Wraps a fetched summary as loaded, first putting any seated users it carries into the store so
+ * their names and avatars render without lookups of their own.
+ */
+function toLoadedState(data: LobbySummaryResponse): LobbySummaryLoadState {
+  if (data.seating) {
+    globalDispatch({ type: '@users/loadUsers', payload: data.seating.users })
+  }
+  return { status: 'loaded', data }
+}
+
+/**
  * Fetches the unauthenticated lobby summary (`GET /api/1/lobbies/:lobbyId/summary`) for `lobbyId`,
  * either directly (`signal` aborts the request the same way a plain `fetchJson` call would) or,
  * with `cached: true`, through a short-lived cache shared by every caller that opts in.
@@ -115,10 +127,8 @@ export function fetchLobbySummary(
   if (!options.cached) {
     return fetchJson<LobbySummaryResponse>(apiUrl`lobbies/${lobbyId}/summary`, {
       signal: options.signal,
-    }).then(
-      (data): LobbySummaryLoadState => ({ status: 'loaded', data }),
-      (err): LobbySummaryLoadState =>
-        isFetchError(err) && err.status === 404 ? { status: 'notFound' } : { status: 'error' },
+    }).then(toLoadedState, (err): LobbySummaryLoadState =>
+      isFetchError(err) && err.status === 404 ? { status: 'notFound' } : { status: 'error' },
     )
   }
 
@@ -154,7 +164,7 @@ export function fetchLobbySummary(
       if (entry?.promise === promise) {
         entry.expiresAt = Date.now() + SUMMARY_CACHE_MS
       }
-      return { status: 'loaded', data }
+      return toLoadedState(data)
     },
     (err): LobbySummaryLoadState => {
       if (isFetchError(err) && err.status === 404) {
