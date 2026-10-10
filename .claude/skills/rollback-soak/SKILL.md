@@ -14,6 +14,16 @@ It exercises the snapshot/restore/re-simulate engine (`game/src/rollback/`) thro
 harness (`rollback_harness.rs`). It does **not** exercise live-only paths: `rollback_live` pacing,
 prediction, the relay, live leave timing. A replay also has no local player, so code that depends on
 the local player only runs when a run sets `SB_ROLLBACK_HARNESS_VISION` (the runner randomizes it).
+Nor does it have a local selection unless a run sets `SB_ROLLBACK_HARNESS_SELECT=<frames>` (the
+runner adds it to most vision runs). Every that many frames it selects one of the vision player's
+eggs or a group of their other units, and the frames between often select a unit of theirs the
+moment it appears, on its own or added to the selection, so restores go back to before a selected
+unit existed. While the game steps, it also makes that player the local
+player, so step code that only runs for the local player's selection runs too: a selected egg
+hatching selects its second zergling, and the debug log notes each such addition, along with the
+units a tick gives back to the selection once the re-simulation has created them again. Selections stick
+to what the game's UI could make (an egg only on its own, no buildings in a group). Anything else
+crashes SC:R's status panel renderer in `PrismRenderer_draw`, whatever rollback is doing.
 
 Everything here lives in this skill's directory; data goes to `.claude-scratch/rollback-soak/`.
 

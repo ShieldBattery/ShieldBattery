@@ -502,9 +502,17 @@ function randomConfig(game, arch) {
   if (Math.random() < 0.6) {
     // Vision is only applied once playback reaches SB_ROLLBACK_HARNESS_FROM.
     const viewer = rand(players)
-    env.SB_ROLLBACK_HARNESS_VISION = String(1 << viewer)
+    // The DLL reads the mask as hexadecimal.
+    env.SB_ROLLBACK_HARNESS_VISION = (1 << viewer).toString(16)
     env.SB_ROLLBACK_HARNESS_FROM = '1'
     desc.vision = viewer
+    if (Math.random() < 0.7) {
+      // Keeps the viewer's units (eggs first) selected through restores, with the viewer standing
+      // in as the local player while the game steps.
+      const select = pick([8, 24, 48])
+      env.SB_ROLLBACK_HARNESS_SELECT = String(select)
+      desc.select = select
+    }
   }
   desc.arch = arch
   return { env, desc }

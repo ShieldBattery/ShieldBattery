@@ -2995,7 +2995,22 @@ impl BwScr {
                     {
                         apm.new_frame();
                     }
+                    #[cfg(debug_assertions)]
+                    let local_ids = crate::rollback_harness::local_stand_in().map(|player| {
+                        let ids = (
+                            self.local_unique_player_id.resolve(),
+                            self.unique_command_user.resolve(),
+                        );
+                        self.local_unique_player_id.write(player.into());
+                        self.unique_command_user.write(player.into());
+                        ids
+                    });
                     orig();
+                    #[cfg(debug_assertions)]
+                    if let Some((local, command_user)) = local_ids {
+                        self.local_unique_player_id.write(local);
+                        self.unique_command_user.write(command_user);
+                    }
                     game_thread::after_step_game();
                     self.update_team_colors_from_alliances();
                 },
@@ -3543,6 +3558,19 @@ impl BwScr {
                         let before = self.rollback_local_selection();
                         orig(count, units, play_sound, send_command);
                         let after = self.rollback_local_selection();
+                        #[cfg(debug_assertions)]
+                        {
+                            let held = |x: &[Option<SelectedUnit>; 12]| x.iter().flatten().count();
+                            if held(&after) > held(&before) {
+                                debug!(
+                                    "A step at frame {} added to the local selection: {} -> {} \
+                                     units",
+                                    crate::rollback::step_frame(),
+                                    held(&before),
+                                    held(&after),
+                                );
+                            }
+                        }
                         crate::rollback::selection::note(
                             crate::rollback::step_frame(),
                             &before,
@@ -7901,6 +7929,128 @@ impl BwScr {
             right_click.push(0);
             (self.send_command)(right_click.as_ptr(), right_click.len());
             true
+        }
+    }
+
+    /// Makes some of `player`'s units the local selection, as a person selecting them would but
+    /// without the selection response or a selection command, and only as the game's selection UI
+    /// allows (its status panel can't draw anything else): one egg, which half the time is what
+    /// it selects when there is one, or one unit of any other kind, or up to twelve units that can
+    /// be selected together (see [`can_be_group_selected`]). `random` picks them. Returns how many
+    /// units it selected and whether they are an egg.
+    #[cfg(debug_assertions)]
+    pub(crate) unsafe fn rollback_select_for_harness(
+        &self,
+        player: u8,
+        mut random: impl FnMut() -> u32,
+    ) -> (usize, bool) {
+        unsafe {
+            let (eggs, others): (Vec<_>, Vec<_>) = self
+                .harness_selectable_units(player)
+                .into_iter()
+                .partition(|&unit| (*unit).unit_id == bw_dat::unit::EGG.0);
+            let groupable = others
+                .iter()
+                .copied()
+                .filter(|&unit| can_be_group_selected(unit))
+                .collect::<Vec<_>>();
+            let selection = if !eggs.is_empty() && (others.is_empty() || random().is_multiple_of(2))
+            {
+                vec![eggs[random() as usize % eggs.len()]]
+            } else if !others.is_empty() {
+                let count = 1 + random() as usize % 12;
+                if count == 1 || groupable.len() < 2 {
+                    vec![others[random() as usize % others.len()]]
+                } else {
+                    let mut selection = Vec::new();
+                    for _ in 0..count {
+                        let unit = groupable[random() as usize % groupable.len()];
+                        if !selection.contains(&unit) {
+                            selection.push(unit);
+                        }
+                    }
+                    selection
+                }
+            } else {
+                return (0, false);
+            };
+            self.engine_select(&selection);
+            let egg = (*selection[0]).unit_id == bw_dat::unit::EGG.0;
+            (selection.len(), egg)
+        }
+    }
+
+    /// Selects one of `player`'s units that has appeared since the last call, as a person
+    /// selecting a unit the moment it leaves its factory would, half the time that there is one:
+    /// on its own, or added to the local selection when they can be selected together. `seen`
+    /// holds the units the last call saw, and `random` picks. Returns how many units it selected,
+    /// if it selected any.
+    #[cfg(debug_assertions)]
+    pub(crate) unsafe fn rollback_select_new_for_harness(
+        &self,
+        player: u8,
+        seen: &mut Vec<SelectedUnit>,
+        mut random: impl FnMut() -> u32,
+    ) -> Option<usize> {
+        unsafe {
+            let now = self
+                .harness_selectable_units(player)
+                .into_iter()
+                .map(|unit| SelectedUnit::of(unit))
+                .collect::<Vec<_>>();
+            let new = now
+                .iter()
+                .filter(|x| {
+                    !seen
+                        .iter()
+                        .any(|old| old.unit == x.unit && old.generation == x.generation)
+                })
+                .map(|x| x.unit)
+                .collect::<Vec<_>>();
+            let first_call = seen.is_empty();
+            *seen = now;
+            if first_call || new.is_empty() || random().is_multiple_of(2) {
+                return None;
+            }
+            let unit = new[random() as usize % new.len()];
+            let mut selection = self
+                .rollback_local_selection()
+                .into_iter()
+                .flatten()
+                .map(|x| x.unit)
+                .collect::<Vec<_>>();
+            let add = selection.len() < 12
+                && random().is_multiple_of(2)
+                && std::iter::once(&unit)
+                    .chain(&selection)
+                    .all(|&x| can_be_group_selected(x));
+            if !add {
+                selection.clear();
+            }
+            selection.push(unit);
+            self.engine_select(&selection);
+            Some(selection.len())
+        }
+    }
+
+    /// The units of `player` the harness selects from: alive, not inside anything, and not the
+    /// turret of another unit.
+    #[cfg(debug_assertions)]
+    unsafe fn harness_selectable_units(&self, player: u8) -> Vec<*mut bw::Unit> {
+        unsafe {
+            let units = self.units.resolve();
+            let unit_ptr = (*units).data as *mut bw::Unit;
+            (0..(*units).length)
+                .map(|i| unit_ptr.add(i))
+                .filter(|&unit| {
+                    let sprite = (*unit).flingy.sprite;
+                    !sprite.is_null()
+                        && (*unit).player == player
+                        && (*unit).order != bw_dat::order::DIE.0
+                        && (*sprite).flags & SPRITE_HIDDEN == 0
+                        && !bw_dat::UnitId((*unit).unit_id).is_subunit()
+                })
+                .collect()
         }
     }
 

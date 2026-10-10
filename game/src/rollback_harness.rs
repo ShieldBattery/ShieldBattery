@@ -31,7 +31,7 @@ use parking_lot::Mutex;
 
 use crate::bw::players::StormPlayerId;
 use crate::bw::{self, Bw};
-use crate::bw_scr::BwScr;
+use crate::bw_scr::{BwScr, SelectedUnit};
 use crate::game_thread;
 use crate::rollback;
 use crate::rollback::ranges::Range;
@@ -99,6 +99,27 @@ const VISION_ENV_VAR: &str = "SB_ROLLBACK_HARNESS_VISION";
 
 /// The players [`VISION_ENV_VAR`] names, or -1 when it isn't set.
 static VISION: AtomicI32 = AtomicI32::new(-1);
+
+/// Environment variable holding a frame interval at which replay playback selects units of the
+/// lowest player [`VISION_ENV_VAR`] names, as a person playing them would keep selecting, so that
+/// restores happen under a local selection: with `SB_ROLLBACK_HARNESS_SELECT=24` every 24th frame
+/// selects one of their eggs or up to twelve of their other units (see
+/// [`BwScr::rollback_select_for_harness`]), and the frames between often select a unit of theirs
+/// the moment it appears (see [`BwScr::rollback_select_new_for_harness`]). That player also stands in as the local
+/// player while the game steps (see [`local_stand_in`]). Needs [`VISION_ENV_VAR`] and an armed
+/// harness.
+const SELECT_ENV_VAR: &str = "SB_ROLLBACK_HARNESS_SELECT";
+
+/// The interval [`SELECT_ENV_VAR`] names, or 0 when no selecting was asked for.
+static SELECT_INTERVAL: AtomicU32 = AtomicU32::new(0);
+
+/// State of the random number generator picking what [`SELECT_ENV_VAR`] selects (xorshift32,
+/// never 0).
+static SELECT_RANDOM: AtomicU32 = AtomicU32::new(0x9e37_79b9);
+
+/// The units of the player [`SELECT_ENV_VAR`] selects that the last tick saw, which tell it the
+/// units that appeared since.
+static SELECT_SEEN: Mutex<Vec<SelectedUnit>> = Mutex::new(Vec::new());
 
 /// Plain steps run per game loop tick while stepping to [`FROM_FRAME`].
 const FAST_FORWARD_STEPS_PER_TICK: u32 = 400;
@@ -402,6 +423,20 @@ pub fn init_from_env() {
         match u8::from_str_radix(spec.trim_start_matches("0x"), 16) {
             Ok(players) => VISION.store(players.into(), Ordering::Release),
             Err(_) => error!("{VISION_ENV_VAR}={spec:?} is not a player mask; ignoring it"),
+        }
+    }
+    if let Ok(spec) = std::env::var(SELECT_ENV_VAR) {
+        match spec.parse::<u32>() {
+            Ok(interval) if interval >= 1 && VISION.load(Ordering::Relaxed) > 0 => {
+                info!("{SELECT_ENV_VAR}: selecting every {interval} frames");
+                SELECT_INTERVAL.store(interval, Ordering::Release);
+            }
+            Ok(_) if VISION.load(Ordering::Relaxed) <= 0 => {
+                error!("{SELECT_ENV_VAR} needs {VISION_ENV_VAR} to name a player; ignoring it")
+            }
+            _ => {
+                error!("{SELECT_ENV_VAR}={spec:?} is not a frame count of at least 1; ignoring it")
+            }
         }
     }
     if let Ok(spec) = std::env::var(DUMP_ENV_VAR) {
@@ -987,12 +1022,61 @@ unsafe fn fast_forward(
     }
 }
 
+/// The player [`SELECT_ENV_VAR`] selects units of, who is the local player while the game steps
+/// so that what a step does only for the local player's selection happens for them, as it would
+/// in their own live game: a hatching egg they have selected selects its second zergling. Who the
+/// local player is never changes the simulation, which runs the same on every player's machine.
+pub fn local_stand_in() -> Option<u8> {
+    if SELECT_INTERVAL.load(Ordering::Relaxed) == 0
+        || !ARMED.load(Ordering::Relaxed)
+        || FROM_FRAME.load(Ordering::Relaxed) != 0
+    {
+        return None;
+    }
+    let vision = u8::try_from(VISION.load(Ordering::Relaxed)).ok()?;
+    (vision != 0).then(|| vision.trailing_zeros() as u8)
+}
+
+/// Selects units for [`local_stand_in`] if this tick's frame is one [`SELECT_ENV_VAR`] selects on.
+unsafe fn select_if_due(bw: &BwScr) {
+    unsafe {
+        let interval = SELECT_INTERVAL.load(Ordering::Relaxed);
+        let (Some(player), Some(frame)) = (local_stand_in(), bw.rollback_frame_count()) else {
+            return;
+        };
+        if !frame.is_multiple_of(interval) {
+            let mut seen = SELECT_SEEN.lock();
+            if let Some(selected) =
+                bw.rollback_select_new_for_harness(player, &mut seen, next_select_random)
+            {
+                debug!("{SELECT_ENV_VAR}: frame {frame} selected a new unit, {selected} in all");
+            }
+            return;
+        }
+        let (selected, egg) = bw.rollback_select_for_harness(player, next_select_random);
+        match egg {
+            true => debug!("{SELECT_ENV_VAR}: frame {frame} selected an egg"),
+            false => debug!("{SELECT_ENV_VAR}: frame {frame} selected {selected} units"),
+        }
+    }
+}
+
+fn next_select_random() -> u32 {
+    let mut x = SELECT_RANDOM.load(Ordering::Relaxed);
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    SELECT_RANDOM.store(x, Ordering::Relaxed);
+    x
+}
+
 unsafe fn run_tick(
     bw: &'static BwScr,
     param: usize,
     orig: unsafe extern "C" fn(usize) -> usize,
 ) -> usize {
     unsafe {
+        select_if_due(bw);
         let tick_start = Instant::now();
         let tick_start_cycles = thread_cycles();
         let mut guard = SNAPSHOTS.lock();
