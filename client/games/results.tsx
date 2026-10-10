@@ -37,6 +37,7 @@ import {
   ReconciledPlayerResult,
   ReconciledResult,
 } from '../../common/games/results'
+import { ResultsSubPage } from '../../common/games/results-sub-page'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { getTeamNames } from '../../common/maps'
 import { NUM_PLACEMENT_MATCHES, PublicMatchmakingRatingChangeJson } from '../../common/matchmaking'
@@ -105,7 +106,6 @@ import {
 import { ChatTranscriptSection } from './chat-transcript-display'
 import { CommendIcon } from './commend-icon'
 import { CommendAvailability, GameFeedbackState, useGameFeedback } from './game-feedback'
-import { ResultsSubPage } from './results-sub-page'
 import { SaveReplayMenuContent } from './save-replay-menu'
 
 const Container = styled(CenteredContentContainer)`

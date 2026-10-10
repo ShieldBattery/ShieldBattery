@@ -6,6 +6,7 @@ import styled, { css } from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { GameConfig, GameConfigPlayer, GameSource } from '../../common/games/configuration'
+import { gameFromPath } from '../../common/games/game-url'
 import {
   GameRecordJson,
   getGameDurationString,
@@ -14,6 +15,7 @@ import {
 } from '../../common/games/games'
 import { getTeamsFromConfig } from '../../common/games/matchups'
 import { ReconciledPlayerResult } from '../../common/games/results'
+import { ResultsSubPage } from '../../common/games/results-sub-page'
 import { MapInfoJson } from '../../common/maps'
 import {
   getDivisionBeforeRatingChange,
@@ -56,8 +58,6 @@ import { bodySmall, labelMedium, singleLine, titleMedium, titleSmall } from '../
 import { ConnectedUsername } from '../users/connected-username'
 import { navigateToGameResults } from './action-creators'
 import { PlayerResultMarker } from './result-chip'
-import { ResultsSubPage } from './results-sub-page'
-import { gameFromPath } from './route-game-id'
 
 /** The game a chat message link points at, and the results tab it links to (if any). */
 export interface GameLinkTarget {

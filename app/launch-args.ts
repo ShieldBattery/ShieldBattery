@@ -1,8 +1,8 @@
 import { GameDeepLink } from '../common/deep-links'
+import { gameFromPath } from '../common/games/game-url'
 import { parseReplayTimestamp, REPLAY_TIMESTAMP_PARAM } from '../common/games/replay-timestamp'
 import { lobbyIdFromPath } from '../common/lobbies/lobby-url'
 import { SbLobbyId } from '../common/lobbies/sb-lobby-id'
-import { decodePrettyId, isPrettyId } from '../common/pretty-id'
 
 /** Deep link argv entries over this length are dropped unparsed; no allowlisted route needs it. */
 export const MAX_DEEP_LINK_ARG_LENGTH = 512
@@ -83,25 +83,13 @@ function parseDeepLink(arg: string, expectedProtocol: string): DeepLink | undefi
   if (lobbyId !== undefined) {
     return { type: 'lobby', lobbyId }
   }
-  const gameId = gameIdFromPath(path)
-  if (gameId !== undefined) {
+  const game = gameFromPath(path)
+  if (game !== undefined) {
     return {
       type: 'game',
-      gameId,
+      gameId: game.gameId,
       timestampSeconds: parseReplayTimestamp(url.searchParams.get(REPLAY_TIMESTAMP_PARAM)),
     }
   }
   return undefined
-}
-
-/**
- * Returns the game id from a game results path (`/games/<routeId>` or `/games/<routeId>/<subPage>`),
- * or undefined if the path isn't one or its id segment isn't a valid pretty id.
- */
-function gameIdFromPath(pathname: string): string | undefined {
-  const segments = pathname.split('/').filter(segment => segment.length > 0)
-  if (segments.length < 2 || segments.length > 3 || segments[0] !== 'games') {
-    return undefined
-  }
-  return isPrettyId(segments[1]) ? decodePrettyId(segments[1]) : undefined
 }
