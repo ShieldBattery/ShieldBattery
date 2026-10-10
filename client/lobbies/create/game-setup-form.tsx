@@ -575,7 +575,7 @@ export function GameSetupForm({
               <ChangeMapButton
                 type='button'
                 label={t('lobbies.hostGame.changeMap', 'Change map')}
-                iconStart={<MaterialIcon icon='map' />}
+                iconStart='map'
                 disabled={disabled}
                 onClick={onChangeMap}
               />

@@ -9,7 +9,6 @@ import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { useForm, useFormCallbacks, ValidatorMap } from '../forms/form-hook'
 import { longTimestamp } from '../i18n/date-formats'
 import { useFormat } from '../i18n/locale-formats'
-import { MaterialIcon } from '../icons/material/material-icon'
 import logger from '../logging/logger'
 import { OutlinedButton, TextButton } from '../material/button'
 import { DateTimeTextField } from '../material/datetime-text-field'
@@ -313,7 +312,7 @@ export function NewsPostSettingsDialog({
                   ? t('admin.news.form.coverChange', 'Change cover')
                   : t('admin.news.form.coverUpload', 'Upload cover')
               }
-              iconStart={<MaterialIcon icon='image' />}
+              iconStart='image'
               onClick={() => coverFileInputRef.current?.click()}
               disabled={coverUploading}
             />

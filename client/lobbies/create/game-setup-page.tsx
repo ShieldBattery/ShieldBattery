@@ -157,7 +157,7 @@ export function GameSetupPage({
           <BrowseHeader>
             <TextButton
               label={t('common.actions.back', 'Back')}
-              iconStart={<MaterialIcon icon='arrow_back' />}
+              iconStart='arrow_back'
               onClick={() =>
                 onBrowseStateChange(
                   browseState === MapBrowseState.Local

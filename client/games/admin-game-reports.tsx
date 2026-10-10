@@ -913,7 +913,7 @@ function GameReportDetails({
                 {game ? (
                   <OutlinedButton
                     label='View game'
-                    iconStart={<MaterialIcon icon='strategy' />}
+                    iconStart='strategy'
                     onClick={() => push(getGameResultsUrl(game.id))}
                   />
                 ) : null}
@@ -921,7 +921,7 @@ function GameReportDetails({
                   <>
                     <OutlinedButton
                       label='Download replay'
-                      iconStart={<MaterialIcon icon='download' />}
+                      iconStart='download'
                       onClick={() => {
                         const a = document.createElement('a')
                         a.href = replay.url
@@ -932,7 +932,7 @@ function GameReportDetails({
                     {IS_ELECTRON ? (
                       <OutlinedButton
                         label='Watch replay'
-                        iconStart={<MaterialIcon icon='play_circle' />}
+                        iconStart='play_circle'
                         onClick={onWatchReplay}
                       />
                     ) : null}
@@ -976,7 +976,7 @@ function GameReportDetails({
                   {reporter ? (
                     <OutlinedButton
                       label='Restrict this reporter'
-                      iconStart={<MaterialIcon icon='gavel' />}
+                      iconStart='gavel'
                       onClick={() =>
                         push(urlPath`/users/${reporter.id}/${reporter.name}/admin/punishments`)
                       }
@@ -987,7 +987,7 @@ function GameReportDetails({
                   report.resolution === GameReportResolution.Actioned ? (
                     <OutlinedButton
                       label='Refund game points'
-                      iconStart={<MaterialIcon icon='paid' />}
+                      iconStart='paid'
                       disabled={refunding || confirmingRefund}
                       onClick={openRefundConfirmation}
                     />
@@ -1096,7 +1096,7 @@ function GameReportDetails({
               <ActionRow>
                 <OutlinedButton
                   label={`Resolve ${pendingSiblings.length} pending as Duplicate`}
-                  iconStart={<MaterialIcon icon='content_copy' />}
+                  iconStart='content_copy'
                   disabled={resolvingSiblings}
                   onClick={() => onResolveSiblings(GameReportResolution.Duplicate)}
                 />

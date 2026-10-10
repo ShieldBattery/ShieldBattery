@@ -211,7 +211,7 @@ export function LobbyBrowserFilters({
       {hasActiveFilters ? (
         <TextButton
           label={t('common.actions.clear', 'Clear')}
-          iconStart={<MaterialIcon icon='close' />}
+          iconStart='close'
           onClick={clearFilters}
         />
       ) : null}

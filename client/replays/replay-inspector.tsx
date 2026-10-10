@@ -452,7 +452,7 @@ export function ReplayInspector({
     <GameSidePanelActions>
       <GameSidePanelPrimaryAction
         label={t('replays.library.watchReplay', 'Watch replay')}
-        iconStart={<MaterialIcon icon='play_arrow' />}
+        iconStart='play_arrow'
         onClick={() => onWatch(entry)}
       />
       {/* Bookmarking keeps a button of its own rather than folding into the menu: it's a toggle

@@ -256,7 +256,7 @@ export function OnlyInApp() {
         <Actions>
           <FilledButton
             onClick={navigateToDownload}
-            iconStart={<MaterialIcon icon='download' size={20} />}
+            iconStart='download'
             label={
               <InstallerButtonLabel>
                 {t('clientDownload.download', 'Download')}

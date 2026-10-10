@@ -21,7 +21,6 @@ import { playRandomTickSound } from '../audio/tick-sounds'
 import { useSelfUser } from '../auth/auth-utils'
 import { Avatar, ConnectedAvatar } from '../avatars/avatar'
 import { useOverflowingElement } from '../dom/overflowing-element'
-import { MaterialIcon } from '../icons/material/material-icon'
 import { RaceIcon } from '../lobbies/race-icon'
 import { RacePicker, RacePickerSize } from '../lobbies/race-picker'
 import logger from '../logging/logger'
@@ -438,7 +437,7 @@ function DraftRacePicker({
         />
         <FilledButton
           key='lock-button'
-          iconStart={<MaterialIcon icon='lock' size={20} />}
+          iconStart='lock'
           label={t('matchmaking.draftScreen.lockInRaceButton', 'Lock in')}
           onClick={() => onLockInRace(curRace)}
           disabled={!isMyPick || optimisticLocked || isOverTime}

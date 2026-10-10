@@ -11,7 +11,6 @@ import { SbUserId } from '../../../common/users/sb-user-id'
 import { useTrackPageView } from '../../analytics/analytics'
 import { openDialog } from '../../dialogs/action-creators'
 import { DialogType } from '../../dialogs/dialog-type'
-import { MaterialIcon } from '../../icons/material/material-icon'
 import { useKeyListener } from '../../keyboard/key-listener'
 import logger from '../../logging/logger'
 import { isMatchmakingAtom } from '../../matchmaking/matchmaking-atoms'
@@ -344,7 +343,7 @@ export function LobbyBrowser({ onNavigateToCreate }: LobbyBrowserProps) {
         {canCreate ? (
           <FilledButton
             label={t('lobbies.createLobby.title', 'Create lobby')}
-            iconStart={<MaterialIcon icon='add' size={20} />}
+            iconStart='add'
             disabled={isMatchmaking}
             onClick={healthChecked(onNavigateToCreate)}
           />
@@ -376,14 +375,14 @@ export function LobbyBrowser({ onNavigateToCreate }: LobbyBrowserProps) {
           {filterState.hasActiveFilters ? (
             <TextButton
               label={t('common.actions.clear', 'Clear')}
-              iconStart={<MaterialIcon icon='close' />}
+              iconStart='close'
               onClick={filterState.clearFilters}
             />
           ) : null}
           {!showFull ? (
             <TextButton
               label={t('lobbies.browser.showFullLobbies', 'Show full lobbies')}
-              iconStart={<MaterialIcon icon='groups' />}
+              iconStart='groups'
               onClick={() => filterState.setShowFull(true)}
             />
           ) : null}
@@ -467,14 +466,14 @@ export function LobbyBrowser({ onNavigateToCreate }: LobbyBrowserProps) {
         <FlexSpacer />
         <TextButton
           label={t('lobbies.browser.enterCode', 'Enter code')}
-          iconStart={<MaterialIcon icon='key' size={20} />}
+          iconStart='key'
           onClick={() => dispatch(openDialog({ type: DialogType.JoinCode }))}
           testName='enter-join-code-button'
         />
         {canCreate ? (
           <FilledButton
             label={t('lobbies.createLobby.title', 'Create lobby')}
-            iconStart={<MaterialIcon icon='add' size={20} />}
+            iconStart='add'
             disabled={isMatchmaking}
             title={
               isMatchmaking

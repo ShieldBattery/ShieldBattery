@@ -3,7 +3,6 @@ import styled from 'styled-components'
 import GithubIcon from '../icons/brands/github.svg?react'
 import KofiIcon from '../icons/brands/kofi-color.svg?react'
 import PatreonIcon from '../icons/brands/patreon.svg?react'
-import { MaterialIcon } from '../icons/material/material-icon'
 import { FilledButton } from '../material/button'
 import { Tooltip } from '../material/tooltip'
 import { bodyLarge, titleLarge, titleSmall } from '../styles/typography'
@@ -122,7 +121,7 @@ export function Download() {
       <DownloadSection>
         <FilledButton
           onClick={navigateToDownload}
-          iconStart={<MaterialIcon icon='download' />}
+          iconStart='download'
           label={
             <InstallerButtonLabel>
               {t('clientDownload.downloadClient', 'Download client')}

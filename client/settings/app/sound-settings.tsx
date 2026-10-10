@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { audioManager, AvailableSound } from '../../audio/audio-manager'
 import { useForm, useFormCallbacks } from '../../forms/form-hook'
-import { MaterialIcon } from '../../icons/material/material-icon'
 import { TextButton } from '../../material/button'
 import { Slider } from '../../material/slider'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
@@ -93,13 +92,7 @@ export function AppSoundSettings() {
                   ? t('common.actions.stop', 'Stop')
                   : t('common.actions.test', 'Test')
               }
-              iconStart={
-                isPlayingTestSound ? (
-                  <MaterialIcon icon='stop' />
-                ) : (
-                  <MaterialIcon icon='play_arrow' />
-                )
-              }
+              iconStart={isPlayingTestSound ? 'stop' : 'play_arrow'}
               onClick={() => {
                 cleanupSound()
                 const sound = audioManager.playSound(AvailableSound.MatchFound)

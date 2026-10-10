@@ -342,6 +342,14 @@ const IconContainer = styled.div`
   margin-right: 8px;
 `
 
+function ButtonIcon({ icon }: { icon: React.ReactNode }) {
+  return (
+    <IconContainer>
+      {typeof icon === 'string' ? <MaterialIcon icon={icon} size={20} /> : icon}
+    </IconContainer>
+  )
+}
+
 const FilledButtonRoot = styled.button<{ $hasIcon: boolean }>`
   ${buttonReset};
   ${fastOutSlowInShort};
@@ -383,8 +391,9 @@ const FilledButtonRoot = styled.button<{ $hasIcon: boolean }>`
 export interface FilledButtonProps {
   label: string | React.ReactNode
   /**
-   * An optional icon to place at the starting edge of the button. For normally sized buttons, this
-   * should be sized to 20px.
+   * An optional icon to place at the starting edge of the button. A string is treated as a Material
+   * icon name and rendered at the standard 20px size. Other nodes are rendered as-is, and should be
+   * sized to 20px for normally sized buttons.
    */
   iconStart?: React.ReactNode
   className?: string
@@ -450,7 +459,7 @@ export function FilledButton({
       {...buttonProps}>
       {children}
       <Label>
-        {iconStart ? <IconContainer>{iconStart}</IconContainer> : null}
+        {iconStart ? <ButtonIcon icon={iconStart} /> : null}
         {label}
       </Label>
       <Ripple ref={rippleRef} disabled={disabled} />
@@ -535,8 +544,9 @@ const TextButtonRoot = styled.button<{ $hasIcon: boolean }>`
 export interface TextButtonProps {
   label: string | React.ReactNode
   /**
-   * An optional icon to place at the starting edge of the button. For normally sized buttons, this
-   * should be sized to 20px.
+   * An optional icon to place at the starting edge of the button. A string is treated as a Material
+   * icon name and rendered at the standard 20px size. Other nodes are rendered as-is, and should be
+   * sized to 20px for normally sized buttons.
    */
   iconStart?: React.ReactNode
   className?: string
@@ -599,7 +609,7 @@ export function TextButton({
       data-testid={testName}
       {...buttonProps}>
       <Label>
-        {iconStart ? <IconContainer>{iconStart}</IconContainer> : null}
+        {iconStart ? <ButtonIcon icon={iconStart} /> : null}
         {label}
       </Label>
       <Ripple ref={rippleRef} disabled={disabled} />

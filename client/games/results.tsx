@@ -701,7 +701,7 @@ export function ConnectedGameResultsPage({
               defaultValue: 'Watch from {{time}}',
               time: getGameDurationString(startTimestamp * 1000),
             })}
-            iconStart={<MaterialIcon icon='resume' />}
+            iconStart='resume'
             disabled={isDownloadingReplay}
             onClick={() => onWatchReplay(startTimestamp)}
           />
@@ -713,7 +713,7 @@ export function ConnectedGameResultsPage({
                 ? t('gameDetails.buttonWatchReplayLoading', 'Loading…')
                 : t('gameDetails.buttonWatchReplay', 'Watch replay')
             }
-            iconStart={<MaterialIcon icon='play_circle' />}
+            iconStart='play_circle'
             disabled={isDownloadingReplay}
             onClick={() => onWatchReplay()}
           />
@@ -721,7 +721,7 @@ export function ConnectedGameResultsPage({
         {replayInfo && !IS_ELECTRON && window.SB_DEEP_LINK_SCHEME ? (
           <OutlinedButton
             label={t('gameDetails.buttonOpenInApp', 'Open in ShieldBattery')}
-            iconStart={<MaterialIcon icon='open_in_new' />}
+            iconStart='open_in_new'
             onClick={() => {
               window.location.href = getGameDeepLink(
                 window.SB_DEEP_LINK_SCHEME!,
@@ -736,7 +736,7 @@ export function ConnectedGameResultsPage({
             <OutlinedButton
               ref={saveAnchor}
               label={saveReplayLabel}
-              iconStart={<MaterialIcon icon={isReplaySaved ? 'check' : 'save'} />}
+              iconStart={isReplaySaved ? 'check' : 'save'}
               disabled={isSavingReplay}
               onClick={openSaveMenu}
             />
@@ -771,7 +771,7 @@ export function ConnectedGameResultsPage({
         {replayInfo ? (
           <OutlinedButton
             label={t('gameDetails.buttonDownloadReplay', 'Download replay')}
-            iconStart={<MaterialIcon icon='download' />}
+            iconStart='download'
             onClick={() => {
               const a = document.createElement('a')
               a.href = replayInfo.url
@@ -783,14 +783,14 @@ export function ConnectedGameResultsPage({
         {canReport ? (
           <OutlinedButton
             label={t('gameDetails.buttonReport', 'Report')}
-            iconStart={<MaterialIcon icon='flag' />}
+            iconStart='flag'
             onClick={() => openReportDialog()}
           />
         ) : null}
         {showRequestReview ? (
           <OutlinedButton
             label={t('gameDetails.buttonRequestReview', 'Request review')}
-            iconStart={<MaterialIcon icon='gavel' />}
+            iconStart='gavel'
             disabled={isUpdatingReviewRequest}
             onClick={onRequestReview}
           />

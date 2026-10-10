@@ -424,7 +424,7 @@ export function LobbyWidget(props: WidgetContainerProps) {
       {statusContent}
       {latestMessage ? <LatestLobbyMessage message={latestMessage} /> : null}
       <OutlinedButton
-        iconStart={<MaterialIcon icon='arrow_forward' size={20} />}
+        iconStart='arrow_forward'
         label={t('gameplayActivity.lobby.viewLobby', 'View lobby')}
         onClick={() => push(urlForLobby(lobbyId, lobbyName))}
       />
@@ -533,7 +533,7 @@ export function MatchmakingWidget(props: WidgetContainerProps) {
       {bodyContent}
       {!isMatched ? (
         <OutlinedButton
-          iconStart={<MaterialIcon icon='close' size={20} />}
+          iconStart='close'
           label={t('common.actions.cancel', 'Cancel')}
           disabled={isCancelling}
           onClick={() => {

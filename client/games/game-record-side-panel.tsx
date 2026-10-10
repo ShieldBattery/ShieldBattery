@@ -122,7 +122,7 @@ function GameRecordSidePanelContent({
       {canWatchReplay ? (
         <GameSidePanelPrimaryAction
           label={t('gameDetails.buttonWatchReplay', 'Watch replay')}
-          iconStart={<MaterialIcon icon='play_arrow' />}
+          iconStart='play_arrow'
           onClick={onWatchReplay}
         />
       ) : (

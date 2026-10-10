@@ -5,7 +5,6 @@ import { MAX_IMAGE_SIZE_BYTES } from '../../../common/images'
 import { useObjectUrl } from '../../dom/use-object-url'
 import { FormHook, Validator } from '../../forms/form-hook'
 import { maxFileSize } from '../../forms/validators'
-import { MaterialIcon } from '../../icons/material/material-icon'
 import { TextButton } from '../../material/button'
 import { CheckBox } from '../../material/check-box'
 import { SingleFileInput } from '../../material/file-input'
@@ -161,7 +160,7 @@ export function ChannelSettingsFields({
           <TextButton
             label={t('chat.channelSettings.general.removeBanner', 'Remove banner')}
             disabled={disabled}
-            iconStart={<MaterialIcon icon='clear' />}
+            iconStart='clear'
             onClick={() => {
               setInputValue('uploadedBannerPath', undefined)
               setInputValue('banner', undefined)
@@ -188,7 +187,7 @@ export function ChannelSettingsFields({
           <TextButton
             label={t('chat.channelSettings.general.removeBadge', 'Remove badge')}
             disabled={disabled}
-            iconStart={<MaterialIcon icon='clear' />}
+            iconStart='clear'
             onClick={() => {
               setInputValue('uploadedBadgePath', undefined)
               setInputValue('badge', undefined)

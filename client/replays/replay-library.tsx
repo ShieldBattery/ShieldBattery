@@ -1201,7 +1201,7 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
           <EmptyStateTitle>{t('replays.library.noMatches', 'No replays match')}</EmptyStateTitle>
           <TextButton
             label={t('replays.library.clearFilters', 'Clear filters')}
-            iconStart={<MaterialIcon icon='close' />}
+            iconStart='close'
             onClick={clearAllFilters}
           />
         </CenteredState>

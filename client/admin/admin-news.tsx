@@ -418,7 +418,7 @@ function AdminNewsList() {
             />
             <FilledButton
               label={t('admin.news.newPost', 'New post')}
-              iconStart={<MaterialIcon icon='add' />}
+              iconStart='add'
               onClick={() => push('/admin/news/new')}
             />
           </HeaderActions>
@@ -1256,7 +1256,7 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
             {post ? (
               <TextButton
                 label={t('admin.news.viewPost', 'View post')}
-                iconStart={<MaterialIcon icon='open_in_new' />}
+                iconStart='open_in_new'
                 onClick={() => push(urlForNewsPost(post.id, post.title))}
               />
             ) : null}
@@ -1266,7 +1266,7 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
             />
             <OutlinedButton
               label={t('admin.news.form.postSettings', 'Post settings')}
-              iconStart={<MaterialIcon icon='settings' />}
+              iconStart='settings'
               onClick={() => openSettings()}
             />
             <FilledButton

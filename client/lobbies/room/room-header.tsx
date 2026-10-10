@@ -3,7 +3,6 @@ import styled from 'styled-components'
 import { findBenchedUser, Lobby } from '../../../common/lobbies'
 import { urlForLobby } from '../../../common/lobbies/lobby-url'
 import { SbUserId } from '../../../common/users/sb-user-id'
-import { MaterialIcon } from '../../icons/material/material-icon'
 import { FilledButton, OutlinedButton, TextButton } from '../../material/button'
 import { useLinkCopier } from '../../navigation/copy-link-button'
 import { getServerOrigin } from '../../network/server-url'
@@ -54,7 +53,7 @@ function CopyInviteLinkButton({ lobby }: { lobby: Lobby }) {
           ? t('lobbies.room.header.copiedInviteLink', 'Copied!')
           : t('lobbies.room.header.copyInviteLink', 'Copy invite link')
       }
-      iconStart={<MaterialIcon icon='link' />}
+      iconStart='link'
       onClick={copyLink}
       testName='copy-invite-link-button'
     />
@@ -138,7 +137,7 @@ export function RoomHeader({
         {isHost ? (
           <OutlinedButton
             label={t('lobbies.gameSetup.title', 'Game setup')}
-            iconStart={<MaterialIcon icon='tune' />}
+            iconStart='tune'
             disabled={!isGathering}
             onClick={onOpenGameSetup}
             testName='lobby-settings-button'
@@ -153,7 +152,7 @@ export function RoomHeader({
         ) : null}
         <TextButton
           label={t('lobbies.room.header.leave', 'Leave')}
-          iconStart={<MaterialIcon icon='logout' />}
+          iconStart='logout'
           onClick={onLeaveLobby}
           testName='leave-lobby-button'
         />
