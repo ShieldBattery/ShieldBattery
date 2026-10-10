@@ -29,7 +29,7 @@ use crate::bw::{Bw, BwGameType, get_bw};
 use crate::bw_scr::BwScr;
 use crate::forge::TRACK_WINDOW_POS;
 use crate::game_thread::lobby_init::LobbyInitCompleter;
-use crate::replay;
+use crate::replay::{self, LogicFix};
 use crate::{bw, forge};
 
 lazy_static! {
@@ -1026,7 +1026,7 @@ fn forced_game_logic_version() -> Option<u16> {
     })
 }
 
-pub fn sb_game_logic_version() -> u16 {
+fn sb_game_logic_version() -> u16 {
     #[cfg(debug_assertions)]
     if let Some(version) = forced_game_logic_version() {
         return version;
@@ -1040,6 +1040,28 @@ pub fn sb_game_logic_version() -> u16 {
     }
 }
 
+/// The [`LogicFix::disable_bit`]s of the fixes this game or replay plays without.
+pub fn disabled_logic_fixes() -> u32 {
+    if is_replay() {
+        sbat_replay_data()
+            .map(|x| x.disabled_logic_fixes)
+            .unwrap_or(0)
+    } else if setup_info().is_some_and(|x| x.starcraft_compatible_replays == Some(true)) {
+        LogicFix::starcraft_compatible_mask()
+    } else {
+        0
+    }
+}
+
+/// Whether this game or replay applies `fix`: its game logic version has the fix, and the game
+/// wasn't played without it.
+pub fn logic_fix_active(fix: LogicFix) -> bool {
+    sb_game_logic_version() >= fix.introduced_in()
+        && fix
+            .disable_bit()
+            .is_none_or(|bit| disabled_logic_fixes() & bit == 0)
+}
+
 pub unsafe fn order_harvest_gas(
     bw: &BwScr,
     unit: *mut bw::Unit,
@@ -1050,7 +1072,7 @@ pub unsafe fn order_harvest_gas(
     //
     // This should be very rare as BW doesn't usually let ground units to move on unwalkable
     // terrain.
-    if sb_game_logic_version() >= 3
+    if logic_fix_active(LogicFix::GasWorkerUnwalkableExit)
         && let Some(unit) = Unit::from_ptr(unit)
     {
         // Check if unit is about to try exiting gas building on this step.
@@ -1094,9 +1116,10 @@ pub unsafe fn check_unit_resources_and_supply(
     orig: unsafe extern "C" fn(u32, u32, u32, u32) -> u32,
 ) -> u32 {
     unsafe {
-        let free = (unit_id as u16 == bw_dat::unit::NONE.0 && sb_game_logic_version() >= 4)
-            .then(|| bw.check_free_unit_resources(player as u8, check_supply != 0, show_error))
-            .flatten();
+        let free = (unit_id as u16 == bw_dat::unit::NONE.0
+            && logic_fix_active(LogicFix::NoneUnitCostMatches64Bit))
+        .then(|| bw.check_free_unit_resources(player as u8, check_supply != 0, show_error))
+        .flatten();
         free.unwrap_or_else(|| orig(player, unit_id, check_supply, show_error))
     }
 }
@@ -1122,7 +1145,7 @@ pub unsafe fn order_reset_collision_harvester(
             start: &raw mut (*unit).order_queue_begin,
             end: &raw mut (*unit).order_queue_end,
         };
-        let requeues = sb_game_logic_version() >= 5
+        let requeues = logic_fix_active(LogicFix::HarvestCollisionRestore)
             && (*queue.start)
                 .as_ref()
                 .is_some_and(|next| is_uncollided_harvest_order(next.order_id));
@@ -1185,7 +1208,8 @@ unsafe fn restart_stalled_walk(unit: *mut bw::Unit) {
         const MOVING: u8 = 0x2;
         const ATTACK_ANIMATION: u8 = 0x8;
         const ISCRIPT_CONTROLLED_MOVEMENT: u8 = 2;
-        if sb_game_logic_version() < 6 || (*unit).order == bw_dat::order::DIE.0 {
+        if !logic_fix_active(LogicFix::RestartStalledWalk) || (*unit).order == bw_dat::order::DIE.0
+        {
             return;
         }
         let flingy = &raw mut (*unit).flingy;

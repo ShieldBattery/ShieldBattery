@@ -419,6 +419,11 @@ pub struct GameSetupInfo {
     pub ranks: Vec<GamePlayerRank>,
     pub disable_alliance_changes: Option<bool>,
     pub use_legacy_limits: Option<bool>,
+    /// Plays without the logic fixes that make replays play back differently in StarCraft:
+    /// Remastered without ShieldBattery ([`LogicFix::starcraft_compatible_mask`]).
+    ///
+    /// [`LogicFix::starcraft_compatible_mask`]: crate::replay::LogicFix::starcraft_compatible_mask
+    pub starcraft_compatible_replays: Option<bool>,
     pub turn_rate: Option<u32>,
     pub user_latency: Option<u32>,
     pub seed: u32,

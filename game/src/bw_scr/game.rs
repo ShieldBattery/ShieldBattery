@@ -8,6 +8,7 @@ use bw_dat::{OrderId, Unit, order};
 
 use crate::bw;
 use crate::game_thread;
+use crate::replay::LogicFix;
 
 use super::BwScr;
 
@@ -100,16 +101,19 @@ unsafe fn can_allocate_order(bw: &'static BwScr, unit: Unit, new_order: OrderId)
         //      (this call is from process_game_commands)) OR
         //   ((order queue length is less than 20) AND (this call is not from process_game_commands))
         //
-        // The ShieldBattery rules are chosen to have bit more space than 10 orders for
-        // player-issued orders, as certain orders that seem to be just one from player side
-        // will insert additional ones after it becomes the currently active order.
-        // And separate limit of 20, that should never be reached, for such orders that the game
-        // automatically inserts during gameplay.
+        // Player orders only reach this function when they're issued without queueing, after the
+        // interruptible orders already queued have been cleared, so the player limit only counts
+        // the uninterruptible ones left over. It leaves room for orders that seem to be just one
+        // from the player side but insert additional ones after becoming the active order.
+        // Shift-queued player orders are appended to the queue elsewhere, by SC:R's own
+        // `unit_issue_or_queue_order_by_target_kind`, and keep its limit (fewer than 8 orders with
+        // icon highlight, order supply not low). The separate limit of 20, that should never be
+        // reached, is for orders the game inserts by itself during gameplay.
         //
         // (*) Multiple separate values in replay can be used to trigger this Newer SC:R build rule.
 
         let order_supply_low = order_supply_low(bw);
-        if game_thread::sb_game_logic_version() >= 1 {
+        if game_thread::logic_fix_active(LogicFix::OrderQueueLimits) {
             if new_order == order::DIE {
                 return true;
             }

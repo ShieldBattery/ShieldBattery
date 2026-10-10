@@ -17,20 +17,86 @@ static REPLAY_MAGIC: &[u8] = &[
 ];
 
 pub const SECTION_ID: u32 = 0x74616253; // Sbat
-// Change added by each version
-// 1: Replay uses order queue limit fixes
-// 2: Replay has UMS user selectable slots saved correctly
-//      Was broken in SB replays before that; we don't currently do anything that
-//      would need to know this, but going to make it easy to tell if we do in future.
-// 3: Has workaround for workers getting stuck in gas building if they managed to enter
-//      it while on unwalkable terrain (game_thread::order_harvest_gas)
-// 4: The unit cost check answers for the "None" unit id the same way on 32 and 64-bit builds
-//      (game_thread::check_unit_resources_and_supply)
-// 5: Workers get their collision back before starting a non-harvest order queued behind a
-//      harvest order (game_thread::order_reset_collision_harvester)
-// 6: Units given somewhere to go while an attack had stalled them mid-move start walking again
-//      (game_thread::restart_stalled_walk)
+
+/// The game logic version games are played with: the newest [`LogicFix::introduced_in`]. Replays
+/// record the version they were played with and play back with exactly the fixes it had.
+///
+/// Version 2 changed no game logic. Replays from it on have UMS user selectable slots saved
+/// correctly, which was broken in SB replays before that; nothing currently needs to know this,
+/// but it makes it easy to tell if anything does in future.
 pub const GAME_LOGIC_VERSION: u16 = 0x6;
+
+/// A change ShieldBattery makes to how BW plays. Each one makes some games simulate differently
+/// than they would in StarCraft: Remastered alone, so a game (or replay) applies a fix only if its
+/// game logic version has it and the game didn't turn it off; see
+/// [`game_thread::logic_fix_active`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LogicFix {
+    /// Die orders always fit in a unit's order queue, and orders issued without queueing them or
+    /// inserted by the game itself have their own queue limits
+    /// (`bw_scr::game::can_allocate_order`).
+    OrderQueueLimits,
+    /// A worker that entered a gas building while on unwalkable terrain can still get out of it
+    /// (`game_thread::order_harvest_gas`).
+    GasWorkerUnwalkableExit,
+    /// The unit cost check answers for the "None" unit id the same way on 32 and 64-bit builds
+    /// (`game_thread::check_unit_resources_and_supply`).
+    NoneUnitCostMatches64Bit,
+    /// Workers get their collision back before starting a non-harvest order queued behind a
+    /// harvest order (`game_thread::order_reset_collision_harvester`).
+    HarvestCollisionRestore,
+    /// Units given somewhere to go while an attack had stalled them mid-move start walking again
+    /// (`game_thread::restart_stalled_walk`).
+    RestartStalledWalk,
+}
+
+impl LogicFix {
+    pub const ALL: [LogicFix; 5] = [
+        LogicFix::OrderQueueLimits,
+        LogicFix::GasWorkerUnwalkableExit,
+        LogicFix::NoneUnitCostMatches64Bit,
+        LogicFix::HarvestCollisionRestore,
+        LogicFix::RestartStalledWalk,
+    ];
+
+    /// The game logic version that introduced this fix.
+    pub const fn introduced_in(self) -> u16 {
+        match self {
+            LogicFix::OrderQueueLimits => 1,
+            LogicFix::GasWorkerUnwalkableExit => 3,
+            LogicFix::NoneUnitCostMatches64Bit => 4,
+            LogicFix::HarvestCollisionRestore => 5,
+            LogicFix::RestartStalledWalk => 6,
+        }
+    }
+
+    /// The bit in [`SbatReplayData::disabled_logic_fixes`] that turns this fix off, if a game can
+    /// be played without it. Bits are never reused or given a new meaning, so a replay's mask
+    /// means the same thing to every later version.
+    ///
+    /// Fixes without one leave replays of normal games playing back the same outside
+    /// ShieldBattery: they either only change games where something has already gone wrong (an
+    /// exploit, or a unit in a state normal play doesn't reach), or make a build play the way
+    /// StarCraft: Remastered's other build already does.
+    pub const fn disable_bit(self) -> Option<u32> {
+        match self {
+            LogicFix::RestartStalledWalk => Some(1 << 0),
+            LogicFix::OrderQueueLimits
+            | LogicFix::GasWorkerUnwalkableExit
+            | LogicFix::NoneUnitCostMatches64Bit
+            | LogicFix::HarvestCollisionRestore => None,
+        }
+    }
+
+    /// The [`disable_bit`](Self::disable_bit)s of the fixes a game turns off so that its replay
+    /// plays back the same in StarCraft: Remastered without ShieldBattery.
+    pub fn starcraft_compatible_mask() -> u32 {
+        LogicFix::ALL
+            .iter()
+            .filter_map(|fix| fix.disable_bit())
+            .fold(0, |mask, bit| mask | bit)
+    }
+}
 
 /// The notice recorded at the start of every replay, one chat line per entry, sent by
 /// [`REPLAY_NOTICE_SENDER`](crate::bw::commands::REPLAY_NOTICE_SENDER). ShieldBattery's game
@@ -52,6 +118,9 @@ pub struct SbatReplayData {
     /// is that player's user id). Non-human/empty slots are `0`.
     pub user_ids: [SbUserId; 8],
     pub game_logic_version: u16,
+    /// [`LogicFix::disable_bit`]s of the fixes the game was played without. Replays from before
+    /// this was recorded played with every fix their version had.
+    pub disabled_logic_fixes: u32,
 }
 
 /// Checks if the start of file matches what SC:R currently writes to every replay
@@ -92,7 +161,7 @@ pub unsafe fn add_shieldbattery_data(
     // Current format: (The first two u32s are required by SC:R, after that we can have anything)
     // u32 section_id
     // u32 data_length (Not counting these first 8 bytes)
-    // 0x0      u16 format_version (1)
+    // 0x0      u16 format_version (2)
     // 0x2      u32 starcraft_exe_build
     //      This is somewhat redundant as GCFG section that SC:R writes by default has it too,
     //      but may as well have a copy we control.
@@ -108,11 +177,13 @@ pub unsafe fn add_shieldbattery_data(
     //      header, though there are 12 of them)
     // --- Format version 1 ---
     // 0x56     u16 game_logic_version (GAME_LOGIC_VERSION)
+    // --- Format version 2 ---
+    // 0x58     u32 disabled_logic_fixes (LogicFix::disable_bit mask)
     let game = unsafe { bw.game() };
     let mut buffer = Vec::with_capacity(128);
     buffer.write_u32::<LE>(SECTION_ID)?;
     buffer.write_u32::<LE>(0)?;
-    buffer.write_u16::<LE>(1)?;
+    buffer.write_u16::<LE>(2)?;
     buffer.write_u32::<LE>(exe_build)?;
     let version = env!("SHIELDBATTERY_VERSION").as_bytes();
     let mut version_buf = [0u8; 16];
@@ -135,6 +206,7 @@ pub unsafe fn add_shieldbattery_data(
         buffer.write_u32::<LE>(user_id.into())?;
     }
     buffer.write_u16::<LE>(GAME_LOGIC_VERSION)?;
+    buffer.write_u32::<LE>(game_thread::disabled_logic_fixes())?;
 
     let length = buffer.len() as u32 - 8;
     (&mut buffer[4..]).write_u32::<LE>(length)?;
@@ -228,11 +300,50 @@ fn test_parse_user_ids() {
     assert_eq!(parsed.team_game_main_players, [1, 2, 3, 4]);
     assert_eq!(parsed.game_logic_version, GAME_LOGIC_VERSION);
     assert_eq!(parsed.user_ids.map(|id| id.0), user_ids);
+    assert_eq!(parsed.disabled_logic_fixes, 0);
+}
+
+#[test]
+fn test_parse_disabled_logic_fixes() {
+    let mut data = vec![0u8; 0x5c];
+    (&mut data[0x0..]).write_u16::<LE>(2).unwrap(); // format_version
+    (&mut data[0x56..])
+        .write_u16::<LE>(GAME_LOGIC_VERSION)
+        .unwrap();
+    (&mut data[0x58..])
+        .write_u32::<LE>(LogicFix::starcraft_compatible_mask())
+        .unwrap();
+
+    let parsed = parse_shieldbattery_data(&data).unwrap();
+    assert_eq!(
+        parsed.disabled_logic_fixes,
+        LogicFix::starcraft_compatible_mask()
+    );
+    // A format 2 section too short to hold the mask is malformed, not "nothing disabled".
+    assert!(parse_shieldbattery_data(&data[..0x58]).is_none());
+}
+
+#[test]
+fn game_logic_version_is_newest_fix() {
+    let newest = LogicFix::ALL.iter().map(|fix| fix.introduced_in()).max();
+    assert_eq!(newest, Some(GAME_LOGIC_VERSION));
+}
+
+#[test]
+fn logic_fix_disable_bits_are_distinct() {
+    let bits: Vec<u32> = LogicFix::ALL
+        .iter()
+        .filter_map(|fix| fix.disable_bit())
+        .collect();
+    for (i, bit) in bits.iter().enumerate() {
+        assert_eq!(bit.count_ones(), 1, "{bit:#x}");
+        assert!(!bits[i + 1..].contains(bit), "{bit:#x} used twice");
+    }
 }
 
 pub fn parse_shieldbattery_data(data: &[u8]) -> Option<SbatReplayData> {
     let format = (&data[0..]).read_u16::<LE>().ok()?;
-    if format > 1 {
+    if format > 2 {
         return None;
     }
     let team_game_main_players = data.get(0x16..)?.get(..4)?;
@@ -242,8 +353,13 @@ pub fn parse_shieldbattery_data(data: &[u8]) -> Option<SbatReplayData> {
     for out in user_ids.iter_mut() {
         *out = SbUserId(user_id_bytes.read_u32::<LE>().ok()?);
     }
-    let game_logic_version = if format == 1 {
+    let game_logic_version = if format >= 1 {
         data.get(0x56..)?.read_u16::<LE>().ok()?
+    } else {
+        0
+    };
+    let disabled_logic_fixes = if format >= 2 {
+        data.get(0x58..)?.read_u32::<LE>().ok()?
     } else {
         0
     };
@@ -252,5 +368,6 @@ pub fn parse_shieldbattery_data(data: &[u8]) -> Option<SbatReplayData> {
         starting_races: starting_races.try_into().ok()?,
         user_ids,
         game_logic_version,
+        disabled_logic_fixes,
     })
 }
