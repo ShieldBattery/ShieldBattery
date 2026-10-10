@@ -3,6 +3,7 @@
 //! SC:R seeks a replay by simulating up to the target frame: forward from where the replay is, or,
 //! for a target behind it, from the very start, after restarting the whole game. As a replay plays,
 //! this keeps a compressed copy of the simulation (a keyframe) every [`KEYFRAME_SPACING`] frames,
+//! widening that spacing when the cache fills,
 //! taken with the rollback engine's snapshot layout, and handles every seek the replay UI asks for
 //! itself: it restores the newest keyframe at or before the target when that is closer than where
 //! the replay is, and has BW's own fast-forward simulate the rest. A seek forward past every
@@ -17,7 +18,8 @@
 //! leaves that state behind. Whenever SC:R fast-forwards on its own, as it does after starting over,
 //! the fast-forward is taken over here so that it keeps keyframes too.
 //!
-//! A game whose build doesn't give the analysis this needs leaves seeking to SC:R.
+//! Use Map Settings replays, and builds without the analysis this needs, leave seeking to SC:R.
+//! UMS triggers can change state outside the snapshot, including EUD memory.
 
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::time::{Duration, Instant};
@@ -31,20 +33,30 @@ use crate::game_thread;
 use crate::rollback::snapshot::{SnapshotExtras, Snapshots};
 use crate::rollback::tick::with_ui_images_off;
 
-/// Frames between keyframes (20 seconds of game time). A seek simulates at most this many frames
-/// past the keyframe it restores, which takes up to about a quarter of a second late in a large
-/// team game.
+/// Initial frames between keyframes (20 seconds of game time). Cache pressure doubles the spacing
+/// and thins existing keyframes, keeping the first and latest so the whole replay stays reachable.
 const KEYFRAME_SPACING: u32 = 480;
 
 /// zstd's fastest level: the ones above it barely shrink a keyframe and take longer.
 const COMPRESSION_LEVEL: i32 = 1;
 
-/// Compressed keyframe bytes one replay may keep. Past this, no more keyframes are taken, and
-/// seeks into the rest of the replay simulate from the newest one before them.
-const MAX_KEYFRAME_BYTES: usize = 256 * 1024 * 1024;
+/// Retained keyframe allocations, including trigger lists, APM statistics and vector capacity.
+const MAX_KEYFRAME_BYTES: usize = 32 * 1024 * 1024;
 
-/// How long one call of `step_game_logic` may spend fast-forwarding before the game loop gets to
-/// draw a frame and handle input again.
+/// Bounds the raw slot and compressor scratch separately from the retained cache. A capture also
+/// temporarily owns its compressed output before cache eviction. Larger layouts use native seeking.
+const MAX_SNAPSHOT_BYTES: usize = 8 * 1024 * 1024;
+
+/// Non-UMS trigger lists are small, but are still copied during capture and restore. Do not retain
+/// a layout with unexpectedly large extras alongside the raw buffers.
+const MAX_EXTRA_BYTES: usize = 512 * 1024;
+
+/// Simulation batches are independent of keyframe spacing so expensive stretches can yield before
+/// reaching the next keyframe. A single native batch and capture can still overrun the time budget.
+const FAST_FORWARD_BATCH: u32 = 24;
+
+/// Time budget checked after each native simulation batch, before the game loop draws and handles
+/// input again. Snapshot capture and restoration are synchronous.
 const FAST_FORWARD_BUDGET: Duration = Duration::from_millis(100);
 
 /// [`REQUESTED`] with no seek waiting.
@@ -69,9 +81,11 @@ struct Seeker {
     /// The snapshot layout, found once a game's state exists, with at most one slot in use: the
     /// keyframe being taken or restored.
     layout: Option<Snapshots>,
+    codec: Option<Codec>,
     /// Sorted by frame.
     keyframes: Vec<Keyframe>,
     keyframe_bytes: usize,
+    spacing: u32,
     /// The frame a seek in progress is fast-forwarding to.
     target: Option<u32>,
     /// When the seek in progress started, for logging how long it took.
@@ -88,12 +102,46 @@ struct Keyframe {
     apm: Option<ApmStats>,
 }
 
+impl Keyframe {
+    fn heap_bytes(&self) -> usize {
+        self.data.len()
+            + self.extras.heap_bytes()
+            + self.apm.as_ref().map_or(0, ApmStats::heap_bytes)
+    }
+}
+
+/// Compression state and worst-case output storage reused across captures and restores.
+struct Codec {
+    compressor: zstd::bulk::Compressor<'static>,
+    decompressor: zstd::bulk::Decompressor<'static>,
+    scratch: Vec<u8>,
+}
+
+impl Codec {
+    fn new(bytes: usize) -> std::io::Result<Self> {
+        Ok(Self {
+            compressor: zstd::bulk::Compressor::new(COMPRESSION_LEVEL)?,
+            decompressor: zstd::bulk::Decompressor::new()?,
+            scratch: vec![0; zstd::zstd_safe::compress_bound(bytes)],
+        })
+    }
+
+    fn compress(&mut self, bytes: &[u8]) -> std::io::Result<Box<[u8]>> {
+        let len = self
+            .compressor
+            .compress_to_buffer(bytes, &mut self.scratch[..])?;
+        Ok(self.scratch[..len].into())
+    }
+}
+
 impl Seeker {
     const fn new() -> Seeker {
         Seeker {
             layout: None,
+            codec: None,
             keyframes: Vec::new(),
             keyframe_bytes: 0,
+            spacing: KEYFRAME_SPACING,
             target: None,
             started: None,
             unavailable: false,
@@ -101,56 +149,125 @@ impl Seeker {
     }
 
     /// Takes a keyframe of the simulation at frame count `frame` if none has been taken in its
-    /// stretch of [`KEYFRAME_SPACING`] frames yet.
+    /// stretch of the current cache spacing yet.
     unsafe fn keyframe_if_due(&mut self, bw: &BwScr, frame: u32) {
         unsafe {
-            let stretch = frame / KEYFRAME_SPACING;
+            let stretch = frame / self.spacing;
             let index = self.keyframes.partition_point(|x| x.frame < frame);
-            let taken = |x: &Keyframe| x.frame / KEYFRAME_SPACING == stretch;
+            let taken = |x: &Keyframe| x.frame / self.spacing == stretch;
             if index
                 .checked_sub(1)
                 .is_some_and(|i| taken(&self.keyframes[i]))
                 || self.keyframes.get(index).is_some_and(taken)
-                || self.keyframe_bytes >= MAX_KEYFRAME_BYTES
             {
                 return;
             }
             let Some(layout) = &mut self.layout else {
                 return;
             };
+            let started = Instant::now();
             with_ui_images_off(bw, || layout.take(frame));
             let (Some(bytes), Some(extras)) = (layout.bytes_of(frame), layout.extras_of(frame))
             else {
                 return;
             };
-            let data = match zstd::bulk::compress(bytes, COMPRESSION_LEVEL) {
-                Ok(data) => data.into_boxed_slice(),
+            if extras.heap_bytes() > MAX_EXTRA_BYTES {
+                warn!(
+                    "Leaving replay seeking to SC:R: snapshot extras exceed {MAX_EXTRA_BYTES} bytes"
+                );
+                self.disable();
+                return;
+            }
+            let compressed = self
+                .codec
+                .as_mut()
+                .expect("snapshots need a codec")
+                .compress(bytes);
+            layout.forget_all();
+            let data = match compressed {
+                Ok(data) => data,
                 Err(e) => {
                     error!("Couldn't compress the replay keyframe at frame {frame}: {e}");
                     return;
                 }
             };
-            layout.forget_all();
-            self.keyframe_bytes += data.len();
-            if self.keyframe_bytes >= MAX_KEYFRAME_BYTES {
-                warn!("Replay keyframes reached {MAX_KEYFRAME_BYTES} bytes; taking no more");
-            }
-            self.keyframes.insert(
-                index,
+            self.insert_keyframe(
                 Keyframe {
                     frame,
                     data,
                     extras,
                     apm: bw.apm_stats(),
                 },
+                MAX_KEYFRAME_BYTES,
+            );
+            debug!(
+                "Replay keyframe capture at {frame}: {:?}, {} retained bytes, spacing {}",
+                started.elapsed(),
+                self.keyframe_bytes,
+                self.spacing
             );
         }
+    }
+
+    /// Keeps the first keyframe in each increasingly wide frame bucket, plus the latest keyframe.
+    /// Both ends stay available while later parts of a long replay keep acquiring keyframes.
+    fn insert_keyframe(&mut self, keyframe: Keyframe, budget: usize) {
+        let frame = keyframe.frame;
+        let heap_bytes = keyframe.heap_bytes();
+        let first_bytes = self.keyframes.first().map_or(0, Keyframe::heap_bytes);
+        if heap_bytes + first_bytes + 2 * size_of::<Keyframe>() > budget {
+            return;
+        }
+        let index = self.keyframes.partition_point(|x| x.frame < frame);
+        self.keyframes.insert(index, keyframe);
+        self.update_keyframe_bytes();
+        while self.keyframe_bytes > budget && self.keyframes.len() > 2 {
+            self.spacing = self.spacing.saturating_mul(2);
+            let last = self.keyframes.last().unwrap().frame;
+            let mut previous_bucket = None;
+            self.keyframes.retain(|keyframe| {
+                let bucket = keyframe.frame / self.spacing;
+                let keep = previous_bucket != Some(bucket) || keyframe.frame == last;
+                previous_bucket = Some(bucket);
+                keep
+            });
+            self.keyframes.shrink_to_fit();
+            self.update_keyframe_bytes();
+        }
+        if self.keyframe_bytes > budget {
+            self.keyframes.shrink_to_fit();
+            self.update_keyframe_bytes();
+        }
+        // A keyframe inserted between existing ones can be larger than the latest one. If the
+        // retained endpoints still do not fit, keep the existing cache and drop that capture.
+        if self.keyframe_bytes > budget {
+            if let Ok(index) = self.keyframes.binary_search_by_key(&frame, |x| x.frame) {
+                self.keyframes.remove(index);
+            }
+            self.update_keyframe_bytes();
+        }
+    }
+
+    fn update_keyframe_bytes(&mut self) {
+        self.keyframe_bytes = self.keyframes.capacity() * size_of::<Keyframe>()
+            + self
+                .keyframes
+                .iter()
+                .map(Keyframe::heap_bytes)
+                .sum::<usize>();
+    }
+
+    fn disable(&mut self) {
+        *self = Self::new();
+        self.unavailable = true;
+        ACTIVE.store(false, Ordering::Relaxed);
     }
 
     /// Starts a seek from frame count `frame` to `target`, restoring a keyframe first when one is
     /// closer to the target than `frame` is.
     unsafe fn start_seek(&mut self, bw: &BwScr, frame: u32, target: u32) {
         unsafe {
+            let started = Instant::now();
             // Seeking to the replay's last frame or past it would end the replay.
             let header = bw.replay_header();
             let target = match header.is_null() {
@@ -180,7 +297,7 @@ impl Seeker {
                 return;
             }
             self.target = Some(target);
-            self.started = Some(Instant::now());
+            self.started = Some(started);
         }
     }
 
@@ -189,8 +306,11 @@ impl Seeker {
             let layout = self.layout.as_mut().expect("keyframes need the layout");
             let keyframe = &mut self.keyframes[index];
             let frame = keyframe.frame;
+            let codec = self.codec.as_mut().expect("snapshots need a codec");
             layout.load(frame, keyframe.extras.clone(), |bytes| {
-                let len = zstd::bulk::decompress_to_buffer(&keyframe.data, bytes)?;
+                let len = codec
+                    .decompressor
+                    .decompress_to_buffer(&keyframe.data, bytes)?;
                 match len == bytes.len() {
                     true => Ok(()),
                     false => Err(std::io::Error::other("keyframe has the wrong length")),
@@ -201,6 +321,7 @@ impl Seeker {
             let selection = bw.rollback_local_selection();
             let pylon_auras_shown = bw.rollback_pylon_auras_shown();
             RESTORED.store(true, Ordering::Relaxed);
+            crate::rollback::observer_ui::reset_for_replay_seek();
             with_ui_images_off(bw, || layout.restore_at_or_before(frame, bw));
             bw.rollback_set_pylon_auras_shown(pylon_auras_shown);
             bw.rollback_settle_local_selection(&selection);
@@ -213,6 +334,7 @@ impl Seeker {
             if let Some(apm) = &keyframe.apm {
                 bw.set_apm_stats(apm.clone());
             }
+            self.update_keyframe_bytes();
             Ok(())
         }
     }
@@ -255,7 +377,7 @@ pub unsafe fn run_game_logic_step(
     orig: unsafe extern "C" fn(usize) -> usize,
 ) -> Option<usize> {
     unsafe {
-        if !game_thread::is_replay() {
+        if !game_thread::is_replay() || game_thread::is_ums() {
             return None;
         }
         let frame = bw.rollback_frame_count()?;
@@ -278,7 +400,34 @@ pub unsafe fn run_game_logic_step(
                     seeker.unavailable = true;
                     return None;
                 }
-                seeker.layout = Snapshots::build(bw);
+                if let Some(layout) = Snapshots::build(bw) {
+                    if layout.byte_len() > MAX_SNAPSHOT_BYTES {
+                        info!(
+                            "Leaving replay seeking to SC:R: snapshot needs {} bytes",
+                            layout.byte_len()
+                        );
+                        seeker.disable();
+                        return None;
+                    }
+                    match Codec::new(layout.byte_len()) {
+                        Ok(codec) => {
+                            info!(
+                                "Replay seeking buffers: {} raw bytes, {} compression scratch bytes, {MAX_KEYFRAME_BYTES} cache budget",
+                                layout.byte_len(),
+                                codec.scratch.len()
+                            );
+                            seeker.codec = Some(codec);
+                            seeker.layout = Some(layout);
+                        }
+                        Err(e) => {
+                            error!(
+                                "Leaving replay seeking to SC:R: could not initialize compression: {e}"
+                            );
+                            seeker.disable();
+                            return None;
+                        }
+                    }
+                }
             }
             seeker.layout.as_ref()?;
             seeker.keyframe_if_due(bw, frame);
@@ -332,8 +481,8 @@ unsafe fn fast_forward(
                 finish_seek(bw, frame);
                 break;
             }
-            let stretch_end = (frame / KEYFRAME_SPACING + 1) * KEYFRAME_SPACING;
-            bw.set_replay_seek_frame(stretch_end.min(target));
+            let spacing = SEEKER.lock().spacing;
+            bw.set_replay_seek_frame(batch_end(frame, target, spacing));
             ret = orig(param);
             let after = bw.rollback_frame_count().unwrap_or(frame);
             if after <= frame {
@@ -350,6 +499,13 @@ unsafe fn fast_forward(
         bw.rollback_set_next_game_step_tick(paced_tick);
         ret
     }
+}
+
+fn batch_end(frame: u32, target: u32, spacing: u32) -> u32 {
+    let stretch_end = frame.saturating_add(spacing - frame % spacing);
+    target
+        .min(stretch_end)
+        .min(frame.saturating_add(FAST_FORWARD_BATCH))
 }
 
 /// Whether the replay has played to its end.
@@ -474,5 +630,121 @@ unsafe fn run_script(bw: &BwScr, frame: u32) {
         }
         SCRIPT_AWAITING.store(true, Ordering::Relaxed);
         unsafe { bw.send_replay_seek(to) };
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn keyframe(frame: u32, bytes: usize) -> Keyframe {
+        Keyframe {
+            frame,
+            data: vec![0; bytes].into_boxed_slice(),
+            extras: SnapshotExtras::default(),
+            apm: None,
+        }
+    }
+
+    #[test]
+    fn long_replay_cache_keeps_both_ends_under_budget() {
+        let mut seeker = Seeker::new();
+        let budget = 12 * (size_of::<Keyframe>() + 1024);
+        for i in 0..1000 {
+            let frame = i * KEYFRAME_SPACING;
+            // Variable sizes exercise budget enforcement across multiple thinning passes.
+            seeker.insert_keyframe(keyframe(frame, 256 + i as usize % 5 * 256), budget);
+            assert!(seeker.keyframe_bytes <= budget);
+            assert_eq!(seeker.keyframes.first().unwrap().frame, 0);
+            assert_eq!(seeker.keyframes.last().unwrap().frame, frame);
+            assert!(
+                seeker
+                    .keyframes
+                    .windows(2)
+                    .all(|pair| pair[0].frame < pair[1].frame)
+            );
+        }
+        assert!(seeker.spacing > KEYFRAME_SPACING);
+        assert!(
+            seeker
+                .keyframes
+                .iter()
+                .any(|x| x.frame > 500 * KEYFRAME_SPACING)
+        );
+    }
+
+    #[test]
+    fn filling_earlier_gaps_preserves_later_keyframes() {
+        let mut seeker = Seeker::new();
+        let budget = 8 * (size_of::<Keyframe>() + 1024);
+        seeker.insert_keyframe(keyframe(0, 1024), budget);
+        seeker.insert_keyframe(keyframe(100_000, 1024), budget);
+        for frame in (1..100).rev().map(|i| i * KEYFRAME_SPACING) {
+            seeker.insert_keyframe(keyframe(frame, 1024), budget);
+            assert!(seeker.keyframe_bytes <= budget);
+            assert_eq!(seeker.keyframes.first().unwrap().frame, 0);
+            assert_eq!(seeker.keyframes.last().unwrap().frame, 100_000);
+        }
+    }
+
+    #[test]
+    fn oversize_capture_does_not_displace_the_restart_keyframe() {
+        let mut seeker = Seeker::new();
+        let budget = 4 * (size_of::<Keyframe>() + 1024);
+        seeker.insert_keyframe(keyframe(0, 1024), budget);
+        seeker.insert_keyframe(keyframe(480, budget), budget);
+        assert_eq!(seeker.keyframes.len(), 1);
+        assert_eq!(seeker.keyframes[0].frame, 0);
+        assert!(seeker.keyframe_bytes <= budget);
+    }
+
+    #[test]
+    fn cache_accounts_for_apm_allocations_and_unused_vector_capacity() {
+        let mut seeker = Seeker::new();
+        let mut frame = keyframe(0, 1024);
+        let mut apm = ApmStats::new();
+        for player in 0..8 {
+            for step in 0..64 {
+                apm.counted_turn(player, step);
+            }
+        }
+        let apm_bytes = apm.heap_bytes();
+        assert!(apm_bytes >= 8 * 64 * size_of::<u32>());
+        frame.apm = Some(apm);
+        seeker.insert_keyframe(frame, MAX_KEYFRAME_BYTES);
+        assert_eq!(
+            seeker.keyframe_bytes,
+            seeker.keyframes.capacity() * size_of::<Keyframe>() + 1024 + apm_bytes
+        );
+    }
+
+    #[test]
+    fn batches_stop_at_targets_and_keyframe_boundaries() {
+        assert_eq!(batch_end(0, 10_000, 480), 24);
+        assert_eq!(batch_end(470, 10_000, 480), 480);
+        assert_eq!(batch_end(480, 10_000, 480), 504);
+        assert_eq!(batch_end(500, 510, 480), 510);
+        assert_eq!(batch_end(500, 10_000, 3840), 524);
+        assert_eq!(batch_end(u32::MAX - 5, u32::MAX, 480), u32::MAX);
+    }
+
+    #[test]
+    fn codec_reuses_scratch_and_round_trips_distinct_snapshots() {
+        let mut codec = Codec::new(64 * 1024).unwrap();
+        let scratch = codec.scratch.as_ptr();
+        let first = vec![7; 64 * 1024];
+        let second: Vec<_> = (0..64 * 1024).map(|i| (i % 251) as u8).collect();
+        let compressed_first = codec.compress(&first).unwrap();
+        let compressed_second = codec.compress(&second).unwrap();
+        let mut restored = vec![0; first.len()];
+        for (compressed, expected) in [(compressed_first, first), (compressed_second, second)] {
+            let len = codec
+                .decompressor
+                .decompress_to_buffer(&compressed, &mut restored[..])
+                .unwrap();
+            assert_eq!(len, expected.len());
+            assert_eq!(restored, expected);
+        }
+        assert_eq!(codec.scratch.as_ptr(), scratch);
     }
 }

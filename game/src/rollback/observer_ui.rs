@@ -61,7 +61,13 @@ unsafe fn observer_upgrade_records(ui: usize, unit: *mut bw::Unit) -> Vec<(u32, 
 
 /// The key of the in-progress observer UI record for each unit it was told started research or an
 /// upgrade, as the UI stored it.
-static OBSERVER_RESEARCH_KEYS: Mutex<Vec<(usize, u32)>> = Mutex::new(Vec::new());
+static OBSERVER_RESEARCH_KEYS: Mutex<Vec<ResearchKey>> = Mutex::new(Vec::new());
+
+struct ResearchKey {
+    unit: usize,
+    generation: u8,
+    key: u32,
+}
 
 /// Notes the key the observer UI has just stored for `unit`'s research or upgrade, the newest of
 /// its owner's records. Called from the observer UI hook after a start notification has gone
@@ -76,8 +82,12 @@ pub(crate) unsafe fn observer_research_started(ui: usize, unit: *mut bw::Unit) {
             return;
         };
         let mut keys = OBSERVER_RESEARCH_KEYS.lock();
-        keys.retain(|&(x, _)| x != unit as usize);
-        keys.push((unit as usize, key));
+        keys.retain(|x| x.unit != unit as usize);
+        keys.push(ResearchKey {
+            unit: unit as usize,
+            generation: (*unit).minor_unique_index,
+            key,
+        });
     }
 }
 
@@ -98,17 +108,7 @@ pub(crate) unsafe fn observer_research_finishing(ui: usize, unit: *mut bw::Unit)
         return true;
     }
     unsafe {
-        let key = {
-            let mut keys = OBSERVER_RESEARCH_KEYS.lock();
-            keys.iter()
-                .position(|&(x, _)| x == unit as usize)
-                .map(|index| keys.swap_remove(index).1)
-        };
-        let open = key.is_some_and(|key| {
-            observer_upgrade_records(ui, unit)
-                .iter()
-                .any(|&(id, state)| id == key && state == 0)
-        });
+        let open = take_open_research_key(&mut OBSERVER_RESEARCH_KEYS.lock(), ui, unit);
         if !open {
             let frame = crate::bw::get_bw().rollback_frame_count().unwrap_or(0);
             debug!(
@@ -120,7 +120,119 @@ pub(crate) unsafe fn observer_research_finishing(ui: usize, unit: *mut bw::Unit)
     }
 }
 
+/// Consumes the tracked key and checks that it belongs to the same occupant of the unit slot.
+/// The native callback searches for the unit's current unique id, which includes its generation.
+unsafe fn take_open_research_key(
+    keys: &mut Vec<ResearchKey>,
+    ui: usize,
+    unit: *mut bw::Unit,
+) -> bool {
+    unsafe {
+        let saved = keys
+            .iter()
+            .position(|x| x.unit == unit as usize)
+            .map(|index| keys.swap_remove(index));
+        saved.is_some_and(|saved| {
+            saved.generation == (*unit).minor_unique_index
+                && observer_upgrade_records(ui, unit)
+                    .iter()
+                    .any(|&(id, state)| id == saved.key && state == 0)
+        })
+    }
+}
+
+/// Drops keys from the simulation a replay seek replaces. Unit generations can wrap over a long
+/// replay, so even a matching generation cannot identify a record across an arbitrary seek.
+pub(crate) fn reset_for_replay_seek() {
+    OBSERVER_RESEARCH_KEYS.lock().clear();
+}
+
 /// Clears the in-progress research keys for a new game.
 pub(super) fn reset() {
     OBSERVER_RESEARCH_KEYS.lock().clear();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use observer_ui_layout::*;
+
+    struct ObserverUi {
+        header: [usize; 3],
+        _player: Vec<usize>,
+        _upgrades: Vec<[u32; OBSERVER_UPGRADE_SIZE / size_of::<u32>()]>,
+    }
+
+    impl ObserverUi {
+        fn new(player_id: u8, records: &[(u32, i32)]) -> Self {
+            let mut upgrades = vec![[0; OBSERVER_UPGRADE_SIZE / size_of::<u32>()]; records.len()];
+            for (record, &(key, state)) in upgrades.iter_mut().zip(records) {
+                record[0] = key;
+                record[OBSERVER_UPGRADE_STATE / size_of::<u32>()] = state as u32;
+            }
+            let mut player = vec![0; PLAYER_SIZE / size_of::<usize>()];
+            player[0] = player_id as usize;
+            player[PLAYER_UPGRADES / size_of::<usize>()] = upgrades.as_ptr() as usize;
+            player[PLAYER_UPGRADE_COUNT / size_of::<usize>()] = upgrades.len();
+            let mut header = [0; 3];
+            header[PLAYERS / size_of::<usize>()] = player.as_ptr() as usize;
+            header[PLAYER_COUNT / size_of::<usize>()] = 1;
+            Self {
+                header,
+                _player: player,
+                _upgrades: upgrades,
+            }
+        }
+
+        fn address(&self) -> usize {
+            self.header.as_ptr() as usize
+        }
+    }
+
+    fn key_for(unit: &mut bw::Unit, key: u32) -> ResearchKey {
+        ResearchKey {
+            unit: unit as *mut bw::Unit as usize,
+            generation: unit.minor_unique_index,
+            key,
+        }
+    }
+
+    #[test]
+    fn restored_slot_cannot_finish_another_generations_open_record() {
+        let mut unit: bw::Unit = unsafe { std::mem::zeroed() };
+        unit.minor_unique_index = 2;
+        let mut keys = vec![key_for(&mut unit, 0x4001)];
+        let ui = ObserverUi::new(unit.player, &[(0x4001, 0)]);
+
+        unit.minor_unique_index = 1;
+        assert!(!unsafe { take_open_research_key(&mut keys, ui.address(), &mut unit) });
+        assert!(keys.is_empty());
+    }
+
+    #[test]
+    fn same_generation_can_finish_its_matching_open_record_once() {
+        let mut unit: bw::Unit = unsafe { std::mem::zeroed() };
+        unit.minor_unique_index = 2;
+        let mut keys = vec![key_for(&mut unit, 0x4001)];
+        let ui = ObserverUi::new(unit.player, &[(0x2001, 0), (0x4001, 0)]);
+
+        assert!(unsafe { take_open_research_key(&mut keys, ui.address(), &mut unit) });
+        assert!(!unsafe { take_open_research_key(&mut keys, ui.address(), &mut unit) });
+    }
+
+    #[test]
+    fn missing_or_retired_records_cannot_finish() {
+        let mut unit: bw::Unit = unsafe { std::mem::zeroed() };
+        for records in [
+            vec![],
+            vec![(0x2001, 0)],
+            vec![(0x4001, 1)],
+            vec![(0x4001, 3)],
+        ] {
+            let mut keys = vec![key_for(&mut unit, 0x4001)];
+            let ui = ObserverUi::new(unit.player, &records);
+            assert!(!unsafe { take_open_research_key(&mut keys, ui.address(), &mut unit) });
+            assert!(keys.is_empty());
+        }
+    }
 }

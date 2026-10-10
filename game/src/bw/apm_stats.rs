@@ -39,6 +39,14 @@ struct PlayerApm {
 }
 
 impl ApmStats {
+    /// Allocations owned by these statistics, excluding the struct itself.
+    pub(crate) fn heap_bytes(&self) -> usize {
+        self.counted_steps
+            .iter()
+            .map(|steps| steps.capacity() * size_of::<u32>())
+            .sum()
+    }
+
     pub const fn new() -> ApmStats {
         ApmStats {
             per_player: [PlayerApm {

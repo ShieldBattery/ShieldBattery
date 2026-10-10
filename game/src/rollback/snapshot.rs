@@ -196,11 +196,24 @@ struct Slot {
 }
 
 /// What a snapshot holds besides its bytes, for a caller that stores snapshots outside the slots.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub(crate) struct SnapshotExtras {
     replay: ReplayCursor,
     /// Every player's trigger list, when the layout has them.
     trigger_lists: Option<Vec<SavedTriggerList>>,
+}
+
+impl SnapshotExtras {
+    /// Allocations owned by the extras, excluding the struct itself.
+    pub(crate) fn heap_bytes(&self) -> usize {
+        self.trigger_lists.as_ref().map_or(0, |lists| {
+            lists.capacity() * size_of::<SavedTriggerList>()
+                + lists
+                    .iter()
+                    .map(|list| list.nodes.capacity() * size_of::<usize>() + list.bytes.capacity())
+                    .sum::<usize>()
+        })
+    }
 }
 
 /// The unit a slot's bytes are allocated in, so that every range in it can start on a cache line.
@@ -258,6 +271,11 @@ impl ReplayCursor {
 pub(crate) static SNAPSHOTS: Mutex<Option<Snapshots>> = Mutex::new(None);
 
 impl Snapshots {
+    /// Bytes needed by one raw snapshot slot, including alignment padding.
+    pub(crate) fn byte_len(&self) -> usize {
+        self.slot_bytes
+    }
+
     /// Turns the analysis results into concrete address ranges. Returns `None` before a game's
     /// state exists, so the next logic step can try again.
     pub(crate) unsafe fn build(bw: &BwScr) -> Option<Snapshots> {
