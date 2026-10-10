@@ -1733,8 +1733,10 @@
       "load": "There was a problem loading this lobby"
     },
     "events": {
-      "banned": "You have been banned from the lobby.",
-      "kicked": "You have been kicked from the lobby."
+      "bannedBody": "You have been banned from {{lobbyName}} and can't rejoin it.",
+      "bannedTitle": "Banned from lobby",
+      "kickedBody": "You have been kicked from {{lobbyName}}.",
+      "kickedTitle": "Kicked from lobby"
     },
     "gameSetup": {
       "title": "Game setup"
