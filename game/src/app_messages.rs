@@ -518,6 +518,8 @@ pub enum MapInfo {
 pub struct ReplayMapInfo {
     pub is_replay: bool,
     pub path: String,
+    /// The frame to seek the replay to as soon as it starts, if not its beginning.
+    pub start_frame: Option<u32>,
 }
 
 #[derive(Clone, Debug, Deserialize)]

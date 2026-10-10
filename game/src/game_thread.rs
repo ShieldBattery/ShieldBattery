@@ -666,6 +666,14 @@ pub fn setup_info() -> Option<&'static GameSetupInfo> {
     SETUP_INFO.get()
 }
 
+/// The frame a replay's setup asks it to seek to as soon as it starts, if any.
+pub fn replay_start_frame() -> Option<u32> {
+    match &SETUP_INFO.get()?.map {
+        MapInfo::Replay(info) => info.start_frame,
+        MapInfo::Game(_) => None,
+    }
+}
+
 /// Returns map name (Title, or something else the uploader has renamed it to in SB),
 /// without any color chars (Even if the app also filters them out),
 /// or characters illegal in filenames on Windows.

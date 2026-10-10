@@ -365,6 +365,8 @@ pub struct BwScr {
     disable_hd: AtomicBool,
     sdf_cache: Arc<InitSdfCache>,
     is_replay_seeking: AtomicBool,
+    /// Whether the replay has been sent to the frame its setup asked it to start at.
+    replay_start_seek_sent: AtomicBool,
     lobby_game_init_command_seen: AtomicBool,
     shader_replaces: ShaderReplaces,
     renderer_state: Mutex<RendererState>,
@@ -2584,6 +2586,7 @@ impl BwScr {
             exe_build,
             sdf_cache,
             is_replay_seeking: AtomicBool::new(false),
+            replay_start_seek_sent: AtomicBool::new(false),
             lobby_game_init_command_seen: AtomicBool::new(false),
             disable_hd: AtomicBool::new(false),
             shader_replaces: ShaderReplaces::new(),
@@ -5206,6 +5209,33 @@ impl BwScr {
                 });
             }
             injected
+        }
+    }
+
+    /// Seeks a replay to the frame its setup asked it to start at, through the same command the
+    /// replay UI's own seeking sends. Only the first start of playback seeks: a backward seek
+    /// restarts playback from the beginning, and must not be sent on to the start frame again.
+    unsafe fn seek_to_replay_start_frame(&self) {
+        unsafe {
+            if self.replay_start_seek_sent.swap(true, Ordering::Relaxed) {
+                return;
+            }
+            let Some(frame) = game_thread::replay_start_frame() else {
+                return;
+            };
+            // Seeking to the last frame or past it would end the replay before it is shown.
+            let header = self.replay_header();
+            let frame = match header.is_null() {
+                true => frame,
+                false => frame.min((*header).replay_end_frame.saturating_sub(1)),
+            };
+            if (*self.game()).frame_count >= frame {
+                return;
+            }
+            debug!("Seeking replay to its start frame {frame}");
+            let mut command = [commands::id::REPLAY_SEEK, 0, 0, 0, 0];
+            LittleEndian::write_u32(&mut command[1..], frame);
+            (self.send_command)(command.as_ptr(), command.len());
         }
     }
 
@@ -9369,6 +9399,7 @@ unsafe fn step_game_logic_hook(
         if game_thread::is_replay() {
             // Make replay buttons line up better with the pre-SC:R replay ui
             bw.offset_statbtn_dialog(3, -3);
+            bw.seek_to_replay_start_frame();
         } else {
             bw.record_replay_notice();
         }

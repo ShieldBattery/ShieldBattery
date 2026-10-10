@@ -39,6 +39,8 @@ export interface PlayerInfo {
 export interface ReplayMapInfo {
   isReplay: true
   path: string
+  /** The frame to seek the replay to as soon as it starts, if not its beginning. */
+  startFrame?: number
 }
 
 export function isReplayLaunchConfig(config: GameLaunchConfig) {

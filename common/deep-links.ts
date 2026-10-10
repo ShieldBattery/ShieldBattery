@@ -13,3 +13,13 @@ export const DEEP_LINK_SCHEMES = {
 
 /** Every deep-link scheme any channel registers; the allowlist for parsing pasted links. */
 export const ALL_DEEP_LINK_SCHEMES: ReadonlyArray<string> = Object.values(DEEP_LINK_SCHEMES)
+
+/**
+ * A link into a game: its results page, and optionally a game time to start watching its replay
+ * from.
+ */
+export interface GameDeepLink {
+  gameId: string
+  /** Game time to start the replay at, in seconds. */
+  timestampSeconds?: number
+}

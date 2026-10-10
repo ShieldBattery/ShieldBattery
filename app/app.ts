@@ -29,7 +29,6 @@ import swallowNonBuiltins from '../common/async/swallow-non-builtins'
 import { DEEP_LINK_SCHEMES } from '../common/deep-links'
 import { getErrorStack } from '../common/errors'
 import { FsDirent, TwitchOauthFlowResult, TypedIpcMain, TypedIpcSender } from '../common/ipc'
-import { SbLobbyId } from '../common/lobbies/sb-lobby-id'
 import { LocalSettings } from '../common/settings/local-settings'
 import { setAppId } from './app-id'
 import { APP_ROOT } from './app-paths'
@@ -45,7 +44,7 @@ import { checkStarcraftPath } from './game/check-starcraft-path'
 import createGameServer, { GameServer } from './game/game-server'
 import { MapStore } from './game/map-store'
 import { ReplayStore } from './game/replay-store'
-import { classifyLaunchArgs } from './launch-args'
+import { classifyLaunchArgs, DeepLink } from './launch-args'
 import { appLogBaseName, gameLogBaseName } from './log-paths'
 import logger from './logger'
 import { ReplayLibraryService, setupReplayLibrary } from './replay-library'
@@ -165,10 +164,10 @@ let lastReplayFolders: string[] | undefined
 // listener attached are silently dropped.
 let rendererReady = false
 let pendingReplaysToOpen: string[] = []
-// The most recently seen deep-linked lobby id, held until the renderer reports ready. A newer
-// link always replaces an older pending one: clicking several lobby links in a row should offer
-// to join the last one clicked, not queue up every click.
-let pendingDeepLinkLobbyId: SbLobbyId | undefined
+// The most recently seen deep link, held until the renderer reports ready. A newer link always
+// replaces an older pending one: clicking several links in a row should open the last one clicked,
+// not queue up every click.
+let pendingDeepLink: DeepLink | undefined
 // Only one Twitch OAuth flow can run at a time (it binds a fixed loopback port).
 let twitchOauthFlowActive = false
 // Settles the in-flight Twitch OAuth flow early (set while one is running).
@@ -194,7 +193,7 @@ export function notifyNewInstance(data: NewInstanceNotification) {
 function handleLaunchArgs(args: string[]) {
   logger.info(`Handling launch args: ${JSON.stringify(args)}`)
 
-  const { replayPaths, deepLinkLobbyId } = classifyLaunchArgs(args, deepLinkScheme)
+  const { replayPaths, deepLink } = classifyLaunchArgs(args, deepLinkScheme)
 
   if (replayPaths.length) {
     const replays = replayPaths.map(p => path.resolve('.', p))
@@ -206,13 +205,30 @@ function handleLaunchArgs(args: string[]) {
     mainWindow?.show()
   }
 
-  if (deepLinkLobbyId) {
+  if (deepLink) {
     if (rendererReady) {
-      TypedIpcSender.from(mainWindow?.webContents).send('lobbyDeepLink', deepLinkLobbyId)
+      sendDeepLink(deepLink)
     } else {
-      pendingDeepLinkLobbyId = deepLinkLobbyId
+      pendingDeepLink = deepLink
     }
     mainWindow?.show()
+  }
+}
+
+function sendDeepLink(deepLink: DeepLink) {
+  const sender = TypedIpcSender.from(mainWindow?.webContents)
+  switch (deepLink.type) {
+    case 'lobby':
+      sender.send('lobbyDeepLink', deepLink.lobbyId)
+      break
+    case 'game':
+      sender.send('gameDeepLink', {
+        gameId: deepLink.gameId,
+        timestampSeconds: deepLink.timestampSeconds,
+      })
+      break
+    default:
+      deepLink satisfies never
   }
 }
 
@@ -494,9 +510,9 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
       TypedIpcSender.from(mainWindow?.webContents).send('replaysOpen', pendingReplaysToOpen)
       pendingReplaysToOpen = []
     }
-    if (pendingDeepLinkLobbyId) {
-      TypedIpcSender.from(mainWindow?.webContents).send('lobbyDeepLink', pendingDeepLinkLobbyId)
-      pendingDeepLinkLobbyId = undefined
+    if (pendingDeepLink) {
+      sendDeepLink(pendingDeepLink)
+      pendingDeepLink = undefined
     }
   })
 

@@ -27,6 +27,11 @@ import {
   NetcodeV2RequestedRegion,
 } from '../../common/games/netcode-v2'
 import {
+  parseReplayTimestamp,
+  REPLAY_TIMESTAMP_PARAM,
+  replayFrameForSeconds,
+} from '../../common/games/replay-timestamp'
+import {
   GameClientResult,
   getResultLabel,
   ReconciledPlayerResult,
@@ -90,6 +95,7 @@ import {
 } from '../users/user-context-menu'
 import {
   dismissGameReviewRequest,
+  getGameDeepLink,
   navigateToGameResults,
   requestGameReview,
   subscribeToGame,
@@ -241,7 +247,11 @@ export function ConnectedGameResultsPage({
   const longTimestampFormat = useFormat(longTimestamp)
   const gameDateFormatter = useFormat(gameDateFormat)
 
-  const isPostGame = useSearch() === '?post-game'
+  const search = useSearch()
+  const isPostGame = search === '?post-game'
+  const linkedTimestamp = parseReplayTimestamp(
+    new URLSearchParams(search).get(REPLAY_TIMESTAMP_PARAM),
+  )
   const onTabChange = useCallback(
     (tab: ResultsSubPage) => {
       navigateToGameResults(gameId, isPostGame, tab)
@@ -400,30 +410,41 @@ export function ConnectedGameResultsPage({
     return t('gameDetails.headlineDefault', 'Results')
   }, [game, t, selfUser])
 
-  const onWatchReplay = () => {
+  // A link to a time past the end of the game has nothing to show there.
+  const startTimestamp =
+    linkedTimestamp !== undefined && (!game?.gameLength || linkedTimestamp * 1000 < game.gameLength)
+      ? linkedTimestamp
+      : undefined
+
+  const onWatchReplay = (fromSeconds?: number) => {
     if (!replayInfo || !IS_ELECTRON) return
 
     setIsDownloadingReplay(true)
 
     dispatch(
-      watchReplayFromUrl(replayInfo, gameId, {
-        onSuccess: () => {
-          setIsDownloadingReplay(false)
-        },
-        onError: err => {
-          setIsDownloadingReplay(false)
-          logger.error(`Error watching replay: ${getErrorStack(err)}`)
-          dispatch(
-            openSimpleDialog(
-              t('replays.watch.errorTitle', 'Error loading replay'),
-              t(
-                'replays.watch.errorBody',
-                'There was a problem downloading or loading the replay. Please try again later.',
+      watchReplayFromUrl(
+        replayInfo,
+        gameId,
+        {
+          onSuccess: () => {
+            setIsDownloadingReplay(false)
+          },
+          onError: err => {
+            setIsDownloadingReplay(false)
+            logger.error(`Error watching replay: ${getErrorStack(err)}`)
+            dispatch(
+              openSimpleDialog(
+                t('replays.watch.errorTitle', 'Error loading replay'),
+                t(
+                  'replays.watch.errorBody',
+                  'There was a problem downloading or loading the replay. Please try again later.',
+                ),
               ),
-            ),
-          )
+            )
+          },
         },
-      }),
+        fromSeconds !== undefined ? replayFrameForSeconds(fromSeconds) : undefined,
+      ),
     )
   }
 
@@ -674,6 +695,17 @@ export function ConnectedGameResultsPage({
         </DisputeNotice>
       ) : null}
       <ButtonBar>
+        {replayInfo && IS_ELECTRON && startTimestamp !== undefined ? (
+          <OutlinedButton
+            label={t('gameDetails.buttonWatchReplayFrom', {
+              defaultValue: 'Watch from {{time}}',
+              time: getGameDurationString(startTimestamp * 1000),
+            })}
+            iconStart={<MaterialIcon icon='resume' />}
+            disabled={isDownloadingReplay}
+            onClick={() => onWatchReplay(startTimestamp)}
+          />
+        ) : null}
         {replayInfo && IS_ELECTRON ? (
           <OutlinedButton
             label={
@@ -683,7 +715,20 @@ export function ConnectedGameResultsPage({
             }
             iconStart={<MaterialIcon icon='play_circle' />}
             disabled={isDownloadingReplay}
-            onClick={onWatchReplay}
+            onClick={() => onWatchReplay()}
+          />
+        ) : null}
+        {replayInfo && !IS_ELECTRON && window.SB_DEEP_LINK_SCHEME ? (
+          <OutlinedButton
+            label={t('gameDetails.buttonOpenInApp', 'Open in ShieldBattery')}
+            iconStart={<MaterialIcon icon='open_in_new' />}
+            onClick={() => {
+              window.location.href = getGameDeepLink(
+                window.SB_DEEP_LINK_SCHEME!,
+                gameId,
+                startTimestamp,
+              )
+            }}
           />
         ) : null}
         {replayInfo && IS_ELECTRON ? (

@@ -5,6 +5,7 @@ import {
   gameServerRegionsReadyAtom,
 } from '../game-server-regions/game-server-regions-atoms'
 import gameServerRegionsIpc from '../game-server-regions/ipc-handlers'
+import gamesIpc from '../games/ipc-handlers'
 import { jotaiStore } from '../jotai-store'
 import lobbies from '../lobbies/electron-socket-handlers'
 import lobbiesIpc from '../lobbies/ipc-handlers'
@@ -47,6 +48,7 @@ const electronHandlers: SocketHandler[] = [
   download,
   gameServerRegionsHandler,
   gameServerRegionsIpc,
+  gamesIpc,
   idleReporting,
   lobbies,
   lobbiesIpc,
