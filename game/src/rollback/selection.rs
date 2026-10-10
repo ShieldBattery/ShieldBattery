@@ -9,6 +9,10 @@
 //! along. So each unit a step takes out of the selection is noted with the frame that step
 //! produced and where the unit was, and a restore to before that frame puts it back before
 //! simulating again; if the corrected simulation takes it out as well, its steps do so again.
+//! A restore to before a selected unit existed takes it out of the selection (see [`undo_after`]),
+//! since the steps read the selection's units, and the tick puts it back once the steps have
+//! created it again, whether the person selected it or a step did (an egg hatching two zerglings
+//! selects the second one).
 //!
 //! The person's own selections are decided on predictions too: a control group recalled while a
 //! prediction had one of its units dead selects the others. The command the recall sends has the
@@ -140,9 +144,24 @@ pub(crate) fn note(
     }
 }
 
-/// Puts back into the local selection the units that steps after `restored`, the frame a restore
-/// went back to, took out of it (see [`put_back`]).
-pub(crate) unsafe fn undo_after(bw: &BwScr, restored: u32) {
+/// Fits the local selection to the state a restore went back to, `restored`, before any step runs
+/// again: puts back the units steps after it took out (see [`put_back`]), and drops the units the
+/// restored state doesn't have. `before` is the selection as it was before the restore, which
+/// tells a unit the restore left in its slot from one it replaced there. Returns the units it
+/// dropped, which the steps after it may bring back as they were: created again, or put under the
+/// owner they had again (see [`BwScr::rollback_settle_local_selection`]).
+///
+/// A unit created after the snapshot leaves its slot empty in the restored state, and a step can
+/// give the slot to a unit the game never selected. The game only takes a dying unit out of the
+/// selection if its sprite is marked selected, so that unit stays in the selection once it dies,
+/// and steps read the selection's units: a hatching egg the person has selected selects the second
+/// zergling or scourge along with everything else selected, drawing a health bar into each unit's
+/// sprite, freed or not.
+pub(crate) unsafe fn undo_after(
+    bw: &BwScr,
+    restored: u32,
+    before: &[Option<SelectedUnit>; SELECTION_LEN],
+) -> Vec<SelectedUnit> {
     unsafe {
         let undone = {
             let mut deselections = DESELECTIONS.lock();
@@ -152,30 +171,36 @@ pub(crate) unsafe fn undo_after(bw: &BwScr, restored: u32) {
                 .unwrap_or(deselections.len());
             deselections.split_off(first_undone)
         };
-        if undone.is_empty() {
-            return;
-        }
-        let mut selection = bw
-            .rollback_local_selection()
-            .into_iter()
-            .flatten()
-            .collect::<Vec<_>>();
-        let changed = put_back(
-            &mut selection,
-            &undone,
-            |x| x.unit() as usize,
-            |x| x.is_current(),
-        );
-        if changed {
+        let before = before.iter().flatten().copied().collect::<Vec<_>>();
+        let dropped = before.iter().copied().filter(|x| !x.is_current()).collect();
+        if let Some(selection) = fitted(&before, &undone, |x| x.unit() as usize, |x| x.is_current())
+        {
             bw.rollback_select_local(&selection);
         }
+        dropped
     }
+}
+
+/// The selection `before` with the units `undone` took out put back and the units the state
+/// doesn't have (`is_current`) dropped, if that differs from `before`. `key` tells units apart.
+fn fitted<U: Copy>(
+    before: &[U],
+    undone: &[Deselection<U>],
+    key: impl Fn(&U) -> usize,
+    is_current: impl Fn(&U) -> bool,
+) -> Option<Vec<U>> {
+    let mut selection = before.to_vec();
+    let any_put_back = put_back(&mut selection, undone, &key, &is_current);
+    selection.retain(|x| is_current(x));
+    (any_put_back || selection.len() != before.len()).then_some(selection)
 }
 
 /// Puts the units `undone` took out back into `selection`, each where it was, newest first so each
 /// sees the selection as its step left it. A unit stays out if the state now doesn't have it
-/// (`is_current`), the person replaced the selection since, or the selection is full. `key` tells
-/// units apart. Returns whether any went back.
+/// (`is_current`), the person replaced the selection since, or the selection is full. Units in
+/// `selection` the state doesn't have still count towards it being the one the person kept, as the
+/// restore took them out rather than the person, but not towards it being full. `key` tells units
+/// apart. Returns whether any went back.
 fn put_back<U: Copy>(
     selection: &mut Vec<U>,
     undone: &[Deselection<U>],
@@ -185,7 +210,8 @@ fn put_back<U: Copy>(
     let mut changed = false;
     for deselection in undone.iter().rev() {
         let selected = |unit: &U| selection.iter().any(|x| key(x) == key(unit));
-        if selection.len() < SELECTION_LEN
+        let held = selection.iter().filter(|x| is_current(x)).count();
+        if held < SELECTION_LEN
             && !selected(&deselection.unit)
             && deselection.after.iter().all(selected)
             && is_current(&deselection.unit)
@@ -297,6 +323,37 @@ mod tests {
         assert!(adds_to(&[1, 3], &[3, 1], |&x| x));
         assert!(!adds_to(&[1, 3], &[1, 7], |&x| x));
         assert!(!adds_to(&[1, 3], &[8, 9], |&x| x));
+    }
+
+    #[test]
+    fn units_the_restored_state_lacks_go() {
+        let fitted = fitted(&[1, 2, 3], &[], |&x| x, |&x| x != 2);
+        assert_eq!(fitted, Some(vec![1, 3]));
+    }
+
+    #[test]
+    fn a_selection_the_restore_leaves_as_it_was_stays() {
+        let undone = [deselection(10, 2, 1, &[8, 9])];
+        assert_eq!(fitted(&[1, 3], &undone, |&x| x, |_| true), None);
+    }
+
+    #[test]
+    fn a_unit_goes_back_into_a_selection_the_restore_took_units_out_of() {
+        // Unit 4 died out of a selection of 1, 4 and 9, where 9 was created after the snapshot.
+        let undone = [deselection(10, 4, 1, &[1, 9])];
+        let fitted = fitted(&[1, 9], &undone, |&x| x, |&x| x != 9);
+        assert_eq!(fitted, Some(vec![1, 4]));
+    }
+
+    #[test]
+    fn units_the_restored_state_lacks_leave_room_for_ones_going_back() {
+        let undone = [deselection(10, 2, 1, &[1])];
+        let mut before = (20..32).collect::<Vec<_>>();
+        before[0] = 1;
+        let fitted = fitted(&before, &undone, |&x| x, |&x| x != 31).unwrap();
+        assert_eq!(fitted.len(), SELECTION_LEN);
+        assert_eq!(fitted[1], 2);
+        assert!(!fitted.contains(&31));
     }
 
     #[test]

@@ -1092,13 +1092,16 @@ struct SelectionVisuals {
 }
 
 /// A selected unit, by what tells it apart from a later occupant of its slot in the unit pool.
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone)]
 pub(crate) struct SelectedUnit {
     unit: *mut bw::Unit,
     /// Changes each time the slot is given to a new unit.
     generation: u8,
     /// A unit that changes owner leaves its old owner's selection.
     player: u8,
+    /// What the unit was when selected. Not part of telling it apart: a unit stays the same one
+    /// when it turns into another kind (a drone into a building, a larva into an egg).
+    unit_id: u16,
 }
 
 // Only ever dereferenced on the game thread, and the unit pool it points into lasts the game.
@@ -1111,6 +1114,7 @@ impl SelectedUnit {
                 unit,
                 generation: (*unit).minor_unique_index,
                 player: (*unit).player,
+                unit_id: (*unit).unit_id,
             }
         }
     }
@@ -1121,13 +1125,48 @@ impl SelectedUnit {
 
     /// Whether the unit's slot still holds this unit, with a sprite.
     pub(crate) unsafe fn is_current(&self) -> bool {
-        unsafe { !(*self.unit).flingy.sprite.is_null() && SelectedUnit::of(self.unit) == *self }
+        unsafe {
+            let now = SelectedUnit::of(self.unit);
+            !(*self.unit).flingy.sprite.is_null()
+                && now.generation == self.generation
+                && now.player == self.player
+        }
+    }
+
+    /// Whether the unit is still the kind it was when selected.
+    unsafe fn is_same_kind(&self) -> bool {
+        unsafe { (*self.unit).unit_id == self.unit_id }
     }
 }
 
 /// The sprite flag the game hides a unit's sprite with, as it does a unit inside a transport,
 /// bunker or refinery.
 const SPRITE_HIDDEN: u8 = 0x20;
+
+/// Whether the game's selection UI puts `unit` in a selection of several units, as its own check
+/// decides: not a building, a powerup, a hallucination, a disabled unit, a spider mine, a beacon or
+/// flag, an egg or cocoon, or one of the few other kinds it singles out by id.
+unsafe fn can_be_group_selected(unit: *mut bw::Unit) -> bool {
+    unsafe {
+        let id = (*unit).unit_id;
+        let type_flags = bw_dat::UnitId(id).flags();
+        let excluded = (id < 0xe4 && type_flags & 0x1 != 0)
+            || type_flags & 0x800 != 0
+            || (*unit).flags & 0x400 != 0
+            || (*unit).lockdown_timer != 0
+            || (*unit).stasis_timer != 0
+            || (*unit).maelstrom_timer != 0
+            || (0xcb..=0xd5).contains(&id)
+            || id == 0xd;
+        let by_id = {
+            let offset = id.wrapping_sub(0x24);
+            (offset <= 0x3c && (0x1e60_0000_0000_0001u64 >> offset) & 1 != 0)
+                || id == 0xca
+                || id == 0x69
+        };
+        !excluded && !by_id
+    }
+}
 
 /// How many images each of the building placement overlay pools holds: analysis only recognizes
 /// a pool by the size it is cleared with at startup.
@@ -7553,6 +7592,45 @@ impl BwScr {
         }
     }
 
+    /// Takes out of the local selection, right after a restore and before anything reads the
+    /// units it holds, each unit that isn't the one `before` (the selection before the restore)
+    /// held in its slot any more. Rebuilding the selection visuals, the game's own deselecting
+    /// when it next changes the selection, and the steps after the restore all read the units it
+    /// holds; a slot that was free when the snapshot was taken holds whatever its last unit left
+    /// there, such as a turret pointing at no tank. Changes only which units the selection holds:
+    /// selecting the ones left (see [`rollback_settle_local_selection`] and
+    /// [`crate::rollback::selection::undo_after`]) brings the rest of the selection UI in line.
+    pub(crate) unsafe fn rollback_drop_stale_local_selection(
+        &self,
+        before: &[Option<SelectedUnit>; 12],
+    ) {
+        unsafe {
+            let Some(local_selection) = &self.local_selection else {
+                return;
+            };
+            let selection = local_selection.resolve();
+            let mut kept = 0;
+            for i in 0..12 {
+                let unit = *selection.add(i);
+                if unit.is_null() {
+                    break;
+                }
+                if before
+                    .iter()
+                    .flatten()
+                    .find(|x| x.unit == unit)
+                    .is_some_and(|x| x.is_current())
+                {
+                    *selection.add(kept) = unit;
+                    kept += 1;
+                }
+            }
+            for i in kept..12 {
+                *selection.add(i) = null_mut();
+            }
+        }
+    }
+
     /// Settles the local selection after a tick that restored and simulated again, against
     /// `before`, the selection as it was before the restore.
     ///
@@ -7561,16 +7639,25 @@ impl BwScr {
     /// and the re-simulation didn't create it again, or a different unit. The game deselects a
     /// unit when it dies or changes owner, but a restore does neither, and the selection UI reads
     /// the sprite of a unit it holds without checking for one; so each unit that isn't the one
-    /// `before` held in its slot any more goes.
+    /// `before` held in its slot any more goes. The restore already took those out of the units
+    /// the selection holds ([`rollback_drop_stale_local_selection`]), and settling selects the
+    /// units left whenever they aren't the ones `before` held, which brings the rest of the
+    /// selection UI in line with them.
     ///
-    /// The other way round, the re-simulation can take out a unit that ends the tick just as it
-    /// was before the restore: one that changed owner after the snapshot, which the restored state
-    /// has under its old owner until the re-simulation changes it again, deselecting it. The person
-    /// can't change the selection during a tick, so such a unit goes back where it was, unless it is
-    /// dying or hidden in a transport, which the corrected simulation deselected it for.
+    /// The other way round, a unit the restore took out (`dropped`) can end the tick just as it
+    /// was before the restore: one created after the snapshot that the re-simulation created
+    /// again, such as a tank selected as it left its factory, or one that changed owner after the
+    /// snapshot that the re-simulation put under that owner again. The person can't change the
+    /// selection during a tick, so such a unit goes back where it was, as long as the game would
+    /// have kept it selected: it isn't dying, hidden in a transport, out of sight or another kind
+    /// of unit than it was, and can be selected together with the rest. Nothing the re-simulation
+    /// took out itself goes back. The game takes a unit out of the selection for reasons the
+    /// selection UI depends on: a drone that became a building leaves a selection of several
+    /// units, and the UI can't draw a building among them.
     pub(crate) unsafe fn rollback_settle_local_selection(
         &self,
         before: &[Option<SelectedUnit>; 12],
+        dropped: &[SelectedUnit],
     ) {
         unsafe {
             let Some(local_selection) = &self.local_selection else {
@@ -7597,18 +7684,38 @@ impl BwScr {
                 }
             }
             let mut kept = kept[..kept_count].to_vec();
+            let local_visions = self.local_visions.resolve();
+            let mut given_back = 0;
             for (index, old) in before.iter().flatten().enumerate() {
                 if kept.len() < 12
                     && !kept.contains(&old.unit)
+                    && dropped.iter().any(|x| x.unit == old.unit)
                     && old.is_current()
+                    && old.is_same_kind()
                     && (*old.unit).order != bw_dat::order::DIE.0
                     && (*(*old.unit).flingy.sprite).flags & SPRITE_HIDDEN == 0
+                    && (*(*old.unit).flingy.sprite).visibility_mask & local_visions != 0
+                    && (kept.is_empty()
+                        || std::iter::once(&old.unit)
+                            .chain(&kept)
+                            .all(|&x| can_be_group_selected(x)))
                 {
                     kept.insert(index.min(kept.len()), old.unit);
-                    changed = true;
+                    given_back += 1;
                 }
             }
-            if changed {
+            if given_back != 0 {
+                debug!(
+                    "Settling the local selection gave back {given_back} units the restore took out"
+                );
+            }
+            if given_back != 0
+                || changed
+                || !kept
+                    .iter()
+                    .copied()
+                    .eq(before.iter().flatten().map(|x| x.unit))
+            {
                 self.engine_select(&kept);
             }
         }

@@ -108,15 +108,21 @@ pub(crate) unsafe fn run_tick(
         // Every frame up to the one the simulation is on now has been shown already.
         let shown_through = current;
         let mut selection_before_restore = None;
+        let mut dropped = Vec::new();
         if let Some(target) = plan.rollback_to
             && target < current
         {
             let start = Instant::now();
-            selection_before_restore = Some(bw.rollback_local_selection());
+            let before = bw.rollback_local_selection();
+            selection_before_restore = Some(before);
             let pylon_auras_shown = bw.rollback_pylon_auras_shown();
-            if let Some(restored) =
-                with_ui_images_off(bw, || snapshots.restore_at_or_before(target, bw))
-            {
+            if let Some(restored) = with_ui_images_off(bw, || {
+                let restored = snapshots.restore_at_or_before(target, bw);
+                if restored.is_some() {
+                    bw.rollback_drop_stale_local_selection(&before);
+                }
+                restored
+            }) {
                 current = restored;
                 report.restored = Some(restored);
                 // The power fields are sprites the snapshot holds, which the UI shows and hides
@@ -124,7 +130,7 @@ pub(crate) unsafe fn run_tick(
                 // hidden since, or shown for a building being placed. So they go back to what the
                 // person was seeing, before steps that read it run again.
                 bw.rollback_set_pylon_auras_shown(pylon_auras_shown);
-                selection::undo_after(bw, restored);
+                dropped = selection::undo_after(bw, restored, &before);
             }
             report.restore_time = start.elapsed();
         }
@@ -194,13 +200,12 @@ pub(crate) unsafe fn run_tick(
         selection::forget_through(report.settled_through);
         report.retracted_announcements =
             announcements::finish_tick(report.window_start, report.settled_through);
-        // Between the restore and here, what looks at the units the selection holds skips a unit
-        // without a sprite or reads only the unit itself; input that reads them waits for the
-        // tick.
+        // The steps since the restore saw a selection holding only units the restored state has
+        // (see `selection::undo_after`); input that reads it waits for the tick.
         if let Some(before) = &selection_before_restore
             && let Some(restored) = report.restored
         {
-            bw.rollback_settle_local_selection(before);
+            bw.rollback_settle_local_selection(before, &dropped);
             selection::reconcile(bw, restored, current);
         }
         if let Some(paced_tick) = paced_tick {

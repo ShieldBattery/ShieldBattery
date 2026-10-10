@@ -322,9 +322,17 @@ impl Seeker {
             let pylon_auras_shown = bw.rollback_pylon_auras_shown();
             RESTORED.store(true, Ordering::Relaxed);
             crate::rollback::observer_ui::reset_for_replay_seek();
-            with_ui_images_off(bw, || layout.restore_at_or_before(frame, bw));
+            with_ui_images_off(bw, || {
+                let restored = layout.restore_at_or_before(frame, bw);
+                if restored.is_some() {
+                    bw.rollback_drop_stale_local_selection(&selection);
+                }
+                restored
+            });
             bw.rollback_set_pylon_auras_shown(pylon_auras_shown);
-            bw.rollback_settle_local_selection(&selection);
+            // Nothing simulates between the restore and settling, so nothing the restore took out
+            // of the selection is back.
+            bw.rollback_settle_local_selection(&selection, &[]);
             // Restoring a trigger list that had been freed since the keyframe allocates its nodes
             // anew, and the keyframe has to name the new ones for the next time it is restored.
             if let Some(extras) = layout.extras_of(frame) {

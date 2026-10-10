@@ -736,10 +736,14 @@ unsafe fn apply_pending_settings(bw: &BwScr) {
                 bw.rollback_clear_selection_visuals();
                 let overlays = bw.rollback_detach_placement_overlays();
                 let restored = snapshots.restore_at_or_before(confirmed, bw);
-                if let Some(restored) = restored {
-                    rollback::selection::undo_after(bw, restored);
+                if restored.is_some() {
+                    bw.rollback_drop_stale_local_selection(&selection);
                 }
-                bw.rollback_settle_local_selection(&selection);
+                let dropped = match restored {
+                    Some(restored) => rollback::selection::undo_after(bw, restored, &selection),
+                    None => Vec::new(),
+                };
+                bw.rollback_settle_local_selection(&selection, &dropped);
                 bw.rollback_reattach_placement_overlays(overlays);
                 bw.rollback_rebuild_selection_visuals();
             }
