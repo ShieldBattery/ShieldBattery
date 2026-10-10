@@ -7,6 +7,7 @@ import type {
   WebContents,
 } from 'electron'
 import { Promisable } from 'type-fest'
+import { GameDeepLink } from './deep-links'
 import { GameServerRegion, GameServerRegionLatencies } from './game-server-regions'
 import { GameDebugScreenshot, GameDebugState } from './games/game-debug'
 import { GameLaunchConfig } from './games/game-launch-config'
@@ -463,6 +464,12 @@ interface IpcMainSendables {
    * renderer was ready). The renderer navigates to that lobby's join preview.
    */
   lobbyDeepLink: (lobbyId: SbLobbyId) => void
+  /**
+   * A game link opened via the OS protocol handler (or one still pending from before the renderer
+   * was ready). The renderer navigates to that game's results page, which offers to watch its
+   * replay from the link's timestamp.
+   */
+  gameDeepLink: (link: GameDeepLink) => void
 
   /** Sent whenever the replay index changes (files added/removed/updated). */
   replayLibraryChanged: () => void

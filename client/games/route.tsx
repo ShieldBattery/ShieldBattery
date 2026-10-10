@@ -1,11 +1,11 @@
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useRoute } from 'wouter'
+import { ALL_RESULTS_SUB_PAGES, ResultsSubPage } from '../../common/games/results-sub-page'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { bodyLarge } from '../styles/typography'
 import { GameList } from './game-list'
 import { ConnectedGameResultsPage } from './results'
-import { ALL_RESULTS_SUB_PAGES, ResultsSubPage } from './results-sub-page'
 import { fromRouteGameId, makeRouteGameId } from './route-game-id'
 
 const NotFoundText = styled.div`

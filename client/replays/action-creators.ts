@@ -20,7 +20,7 @@ import { healthChecked } from '../starcraft/health-checked'
 const ipcRenderer = new TypedIpcRenderer()
 
 async function setGameConfig(
-  replay: { name: string; path: string },
+  replay: { name: string; path: string; startFrame?: number },
   user?: SelfUserJson,
   blockedUsers: SbUserId[] = [],
 ) {
@@ -50,7 +50,7 @@ async function setGameConfig(
     setup: {
       gameId: nanoid(),
       name: replay.name,
-      map: { isReplay: true, path: replay.path },
+      map: { isReplay: true, path: replay.path, startFrame: replay.startFrame },
       gameType: GameType.Melee,
       gameSubType: 0,
       slots,
@@ -64,9 +64,12 @@ async function setGameConfig(
 export function startReplay({
   path,
   name = 'Replay',
+  startFrame,
 }: {
   path: string
   name?: string
+  /** The frame to seek the replay to as soon as it starts, if not its beginning. */
+  startFrame?: number
 }): ThunkAction {
   return healthChecked((dispatch, getState) => {
     // Relationship state (the block list) resets on reconnect, so ensure it's loaded before reading
@@ -82,7 +85,7 @@ export function startReplay({
         // TODO(2Pac): Use the game loader on the server to register watching a replay, so we can
         // show to other people (like their friends) when a user is watching a replay.
         const blockedUsers = Array.from(relationships.blocks.keys())
-        setGameConfig({ path, name }, self?.user, blockedUsers).then(
+        setGameConfig({ path, name, startFrame }, self?.user, blockedUsers).then(
           gameId => {
             if (gameId) {
               dispatch(openDialog({ type: DialogType.ReplayLoad, initData: { gameId } }))
@@ -112,17 +115,19 @@ export function showReplayInfo(filePath: string) {
 }
 
 /**
- * Downloads a replay from the server (if not already cached) and starts watching it.
+ * Downloads a replay from the server (if not already cached) and starts watching it, from
+ * `startFrame` if given.
  */
 export function watchReplayFromUrl(
   replayInfo: Omit<GameReplayInfo, 'filename'>,
   gameId: string,
   spec: RequestHandlingSpec,
+  startFrame?: number,
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
     const replayPath = await ensureReplayCached(replayInfo, spec.signal)
     if (replayPath) {
-      dispatch(startReplay({ path: replayPath, name: `Replay ${gameId}` }))
+      dispatch(startReplay({ path: replayPath, name: `Replay ${gameId}`, startFrame }))
     }
   })
 }

@@ -1243,6 +1243,7 @@
     "buttonCopyLink": "Copy link to game",
     "buttonDismissReviewRequest": "Dismiss request",
     "buttonDownloadReplay": "Download replay",
+    "buttonOpenInApp": "Open in ShieldBattery",
     "buttonReplaySaved": "In library",
     "buttonReport": "Report",
     "buttonRequestReview": "Request review",
@@ -1250,6 +1251,7 @@
     "buttonSaveReplay": "Save replay",
     "buttonSaveReplayLoading": "Saving…",
     "buttonWatchReplay": "Watch replay",
+    "buttonWatchReplayFrom": "Watch from {{time}}",
     "buttonWatchReplayLoading": "Loading…",
     "chatTranscript": {
       "copy": "Copy transcript",

@@ -6,6 +6,8 @@ import {
   GetGamesResponse,
   ReviewRequestResponse,
 } from '../../common/games/games'
+import { formatReplayTimestamp, REPLAY_TIMESTAMP_PARAM } from '../../common/games/replay-timestamp'
+import { ResultsSubPage } from '../../common/games/results-sub-page'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { apiUrl, urlPath } from '../../common/urls'
 import { SbUserId } from '../../common/users/sb-user-id'
@@ -19,12 +21,34 @@ import { RequestCoalescer } from '../network/request-coalescer'
 import { ensureReplayCached } from '../replays/action-creators'
 import { buildChatTranscript, ChatTranscript } from './chat-transcript'
 import { buildGameListSearchParams } from './game-filter-url'
-import { ResultsSubPage } from './results-sub-page'
 import { toRouteGameId } from './route-game-id'
 
 export function getGameResultsUrl(gameId: string, asPostGame?: boolean, tab?: ResultsSubPage) {
   const routeId = toRouteGameId(gameId)
   return urlPath`/games/${routeId}/${tab ?? ''}` + (asPostGame ? '?post-game' : '')
+}
+
+/**
+ * Returns the URL of a game's results page that offers to watch its replay starting at
+ * `timestampSeconds` of game time.
+ */
+export function getGameReplayTimestampUrl(gameId: string, timestampSeconds: number) {
+  const params = new URLSearchParams({
+    [REPLAY_TIMESTAMP_PARAM]: formatReplayTimestamp(timestampSeconds),
+  })
+  return urlPath`/games/${toRouteGameId(gameId)}?${params}`
+}
+
+/**
+ * Returns the link that opens a game's results page in the desktop app registered for `scheme`,
+ * offering to watch its replay from `timestampSeconds` of game time if given.
+ */
+export function getGameDeepLink(scheme: string, gameId: string, timestampSeconds?: number) {
+  const path =
+    timestampSeconds !== undefined
+      ? getGameReplayTimestampUrl(gameId, timestampSeconds)
+      : getGameResultsUrl(gameId)
+  return `${scheme}:/${path}`
 }
 
 /**
