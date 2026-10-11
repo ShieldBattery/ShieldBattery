@@ -67,6 +67,12 @@ export function uploadLocalMap(
             'This map has no start locations or usable player slots, so it can never be ' +
               'played. Add start locations to the map and try again.',
           )
+        } else if (err.code === MapServiceErrorCode.InvalidMapFile) {
+          message = i18n.t(
+            'maps.local.uploadMapInvalidFileError',
+            "This file couldn't be read as a StarCraft map. It may be corrupted or protected in a " +
+              'way we cannot read.',
+          )
         }
       }
 

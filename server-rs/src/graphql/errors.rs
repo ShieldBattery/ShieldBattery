@@ -5,7 +5,7 @@ use async_graphql::{
     extensions::{Extension, ExtensionContext, ExtensionFactory, NextExecute},
 };
 use color_eyre::eyre::eyre;
-use tracing::error;
+use tracing::{error, info};
 
 // TODO(tec27): We need some better way of documenting/restricting codes here, and it would probably
 // make sense to do that via an Error type that can be converted into a graphql Error automatically
@@ -32,8 +32,15 @@ pub fn describe_metrics() {
     );
 }
 
-// async-graphql doesn't log errors as error level by default, so we add a custom extension to do so
-// so they end up in datadog
+/// Errors raised through `graphql_error` with one of these codes indicate a server-side failure;
+/// every other code is an expected, client-facing outcome (bad input, missing permissions, a
+/// cooldown, etc.).
+const SERVER_FAILURE_CODES: &[&str] = &["INTERNAL_SERVER_ERROR"];
+
+// async-graphql doesn't log errors by default, so we add a custom extension to do so so they end up
+// in datadog. Uncoded errors (unexpected failures propagated with `?`, or async-graphql's own
+// request errors) and server-failure codes log at error level; expected client-facing outcomes log
+// at info so they don't drown out real failures.
 #[derive(Default)]
 pub struct ErrorLoggerExtension;
 
@@ -59,14 +66,14 @@ impl Extension for ErrorLoggerExtension {
                     .and_then(|value| match value {
                         Value::String(code) => Some(code.as_str()),
                         _ => None,
-                    })
-                    .unwrap_or("unknown");
+                    });
                 ::metrics::counter!(
                     GRAPHQL_ERRORS_TOTAL,
-                    "code" => code.to_string(),
+                    "code" => code.unwrap_or("unknown").to_string(),
                     "operation" => operation.to_string()
                 )
                 .increment(1);
+                let is_server_failure = code.is_none_or(|c| SERVER_FAILURE_CODES.contains(&c));
 
                 let source = match &err.source {
                     Some(source) => {
@@ -79,8 +86,9 @@ impl Extension for ErrorLoggerExtension {
                     None => "None".to_string(),
                 };
 
+                let mut path = String::new();
                 if !err.path.is_empty() {
-                    let mut path = String::new();
+                    path.push_str("path=");
                     for (idx, s) in err.path.iter().enumerate() {
                         if idx > 0 {
                             path.push('.');
@@ -94,13 +102,19 @@ impl Extension for ErrorLoggerExtension {
                             }
                         }
                     }
+                    path.push(' ');
+                }
 
+                if is_server_failure {
                     error!(
-                        "[GraphQL Error] path={} message={} source={}",
-                        path, err.message, source
+                        "[GraphQL Error] {path}message={} source={source}",
+                        err.message
                     );
                 } else {
-                    error!("[GraphQL Error] message={} source={}", err.message, source);
+                    info!(
+                        "[GraphQL Error] {path}message={} source={source}",
+                        err.message
+                    );
                 }
             }
         }

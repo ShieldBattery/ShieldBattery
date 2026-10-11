@@ -196,7 +196,14 @@ async function mapParseWorker(
       .on('message', (response: MapParseWorkerResponse) => {
         settle(() => {
           if ('error' in response) {
-            reject(new Error(`Encountered error parsing map: ${response.error}`))
+            reject(
+              response.invalidMap
+                ? new MapServiceError(
+                    MapServiceErrorCode.InvalidMapFile,
+                    `Invalid map file: ${response.error}`,
+                  )
+                : new Error(`Encountered error parsing map: ${response.error}`),
+            )
           } else {
             resolve({
               mapData: response.mapData,

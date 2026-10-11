@@ -59,6 +59,7 @@ function convertMapServiceError(err: unknown) {
 
   switch (err.code) {
     case MapServiceErrorCode.NoPlayerSlots:
+    case MapServiceErrorCode.InvalidMapFile:
       throw asHttpError(400, err)
     default:
       assertUnreachable(err.code)

@@ -154,6 +154,8 @@ export enum MapServiceErrorCode {
    * and no active player slots in its force data (which UMS games use).
    */
   NoPlayerSlots = 'noPlayerSlots',
+  /** The file couldn't be parsed as a map (corrupt, truncated, or not a map file at all). */
+  InvalidMapFile = 'invalidMapFile',
 }
 
 export type NumPlayers = 2 | 3 | 4 | 5 | 6 | 7 | 8

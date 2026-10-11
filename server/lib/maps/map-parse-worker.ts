@@ -30,6 +30,11 @@ export interface MapParseWorkerSuccess {
 
 export interface MapParseWorkerFailure {
   error: string
+  /**
+   * True if the file itself couldn't be parsed as a map, as opposed to a failure after parsing
+   * (e.g. generating its images).
+   */
+  invalidMap: boolean
 }
 
 export type MapParseWorkerResponse = MapParseWorkerSuccess | MapParseWorkerFailure
@@ -98,9 +103,11 @@ async function generateImage(
 parentPort!.once('message', (request: MapParseWorkerRequest) => {
   const { path, extension, bwDataPath } = request
 
+  let parsed = false
   Promise.resolve()
     .then(async () => {
       const { hash, map } = await parseAndHashMap(path, extension)
+      parsed = true
       const [image256, image512, image1024, image2048] = await Promise.all([
         generateImage(map, bwDataPath, 256),
         generateImage(map, bwDataPath, 512),
@@ -131,7 +138,10 @@ parentPort!.once('message', (request: MapParseWorkerRequest) => {
       parentPort!.postMessage(response)
     })
     .catch(err => {
-      const response: MapParseWorkerFailure = { error: err.stack ?? String(err) }
+      const response: MapParseWorkerFailure = {
+        error: err.stack ?? String(err),
+        invalidMap: !parsed,
+      }
       parentPort!.postMessage(response)
     })
 })

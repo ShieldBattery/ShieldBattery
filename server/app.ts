@@ -107,12 +107,17 @@ app.on('error', (err: PossibleHttpError & PossibleNodeError, ctx?: RouterContext
 
   if (
     err.code &&
-    (err.code === 'ECONNRESET' || err.code === 'EPIPE' || err.code === 'ERR_STREAM_PREMATURE_CLOSE')
+    (err.code === 'ECONNRESET' ||
+      err.code === 'EPIPE' ||
+      err.code === 'ERR_STREAM_PREMATURE_CLOSE' ||
+      err.code === 'ECONNABORTED' ||
+      err.code === 'HPE_INVALID_EOF_STATE')
   ) {
-    // These all mean the client disconnected while we were still sending a response (the stream
-    // variant occurs when the body is piped through stream.pipeline). Server-sent event streams
-    // have no server-side end, so a client disconnect is how every one of those responses
-    // terminates — logging it would just be noise
+    // These all mean the client disconnected mid-request: the first three while we were still
+    // sending a response (the stream variant occurs when the body is piped through
+    // stream.pipeline), the last two while we were still reading the request body. Server-sent
+    // event streams have no server-side end, so a client disconnect is how every one of those
+    // responses terminates — logging it would just be noise
     if (ctx?.response?.type === 'text/event-stream') return
 
     // For other responses they aren't severe or even really fixable (AFAIK), but still may be

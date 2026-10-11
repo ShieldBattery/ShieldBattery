@@ -14,6 +14,10 @@ function convertFormidableError(err: Error) {
   }
 
   switch ((err as any).code) {
+    // formidable's `aborted`: the client disconnected before the upload finished. Rethrown with the
+    // Node-style code the app error handler recognizes as a client disconnect rather than a failure.
+    case 1002:
+      throw Object.assign(new Error('Request aborted', { cause: err }), { code: 'ECONNABORTED' })
     // TODO(2Pac): koa-body seems to be using an ancient version of formidable internally so we
     // can't use the actual error types here. In the newer version, these error codes correspond to
     // `biggerThanTotalMaxFileSize` and `biggerThanMaxFileSize` respectively. In the version that
