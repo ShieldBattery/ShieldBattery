@@ -985,6 +985,7 @@ async function doLaunch(
   // key with a blank string, launch the game, and then restore whatever value they had set. This is
   // best effort, if it fails we just continue trying to launch
   const registry = new WindowsRegistry()
+  const initialCompatLayer = process.env.__COMPAT_LAYER
   let compatValue: string | undefined
   try {
     compatValue = (await registry.read(
@@ -1020,6 +1021,11 @@ async function doLaunch(
     }
 
     await applyDevGameEnv()
+    // Compatibility settings applied "for all users" live in HKLM, which we can't overwrite without
+    // admin. A RunAsInvoker layer in the environment the game inherits cancels the elevation
+    // request from a RUNASADMIN layer there (which otherwise makes CreateProcess fail with
+    // ERROR_ELEVATION_REQUIRED), though any other HKLM layers still apply alongside it.
+    process.env.__COMPAT_LAYER = 'RunAsInvoker'
     const proc = await launchProcess({
       appPath,
       args: args as any,
@@ -1031,6 +1037,11 @@ async function doLaunch(
     log.verbose('Process launched')
     return proc
   } finally {
+    if (initialCompatLayer === undefined) {
+      delete process.env.__COMPAT_LAYER
+    } else {
+      process.env.__COMPAT_LAYER = initialCompatLayer
+    }
     if (compatValue) {
       log.debug(`Restoring compatibility settings after launch...`)
       try {
