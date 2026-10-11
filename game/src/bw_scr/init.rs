@@ -28,9 +28,9 @@ use super::{
     BottomOverpan, BwInitError, BwScr, ChatInjection, ClickFeedback, GrabPan, LinkedList,
     MinimapDrawHooks, ObserverUiCallbacks, PaletteColorLookup, PlacementOverlayPools, PylonAuras,
     RenderState, RendererState, SendPtr, SkinTable, SoftwareCursor, UnitCostCache, Value, chat,
-    chat_history, draw_inject, draw_overlay, game_locale, game_settings, hotkey_presses, pe_image,
-    replay_playback, replay_save, replay_vision_choice, resolve_operand, sound,
-    sprite_coordinate_decoder, stat_txt, tick_gates,
+    chat_history, draw_inject, draw_overlay, first_person, game_locale, game_settings,
+    hotkey_presses, pe_image, replay_playback, replay_save, replay_vision_choice, resolve_operand,
+    sound, sprite_coordinate_decoder, stat_txt, tick_gates,
 };
 
 impl BwScr {
@@ -601,6 +601,21 @@ impl BwScr {
             .cursor_scale_factor()
             .ok_or("cursor_scale_factor")?;
         let select_units = analysis.select_units().ok_or("select_units")?;
+        // Non-fatal: without the mouse position functions, first-person replays aren't recorded.
+        let first_person_mouse = match (analysis.get_mouse_x(), analysis.get_mouse_y()) {
+            (Some(x), Some(y)) => Some((x, y)),
+            _ => {
+                warn!("Could not find get_mouse_x/y, first-person replays won't be recorded");
+                None
+            }
+        };
+        let is_outside_game_screen = analysis.is_outside_game_screen();
+        let is_selecting = analysis.is_selecting();
+        let select_start = analysis.select_start_x().zip(analysis.select_start_y());
+        let game_cursor_visibility = analysis.hide_game_cursor().zip(analysis.show_game_cursor());
+        if game_cursor_visibility.is_none() {
+            warn!("Could not find hide/show_game_cursor, the replay viewer's cursor won't hide");
+        }
         let lookup_sound_id = analysis.lookup_sound_id().ok_or("lookup_sound")?;
         let play_sound = analysis.play_sound().ok_or("play_sound")?;
         let print_text_addr = analysis.print_text().ok_or("print_text")?;
@@ -784,6 +799,26 @@ impl BwScr {
                 global_event_handlers: Value::new(ctx, table),
                 anchor: Mutex::new(None),
             }),
+            first_person: first_person_mouse.map(|(get_mouse_x, get_mouse_y)| {
+                first_person::FirstPersonEngine {
+                    get_mouse_x: unsafe { mem::transmute(get_mouse_x.0) },
+                    get_mouse_y: unsafe { mem::transmute(get_mouse_y.0) },
+                    is_outside_game_screen: is_outside_game_screen
+                        .map(|f| unsafe { mem::transmute(f.0) }),
+                    is_selecting: is_selecting.map(|x| Value::new(ctx, x)),
+                    select_start: select_start
+                        .map(|(x, y)| (Value::new(ctx, x), Value::new(ctx, y))),
+                }
+            }),
+            last_cursor_type: AtomicU8::new(0),
+            game_cursor_visibility: game_cursor_visibility.map(|(hide, show)| {
+                first_person::GameCursorVisibility {
+                    hide: unsafe { mem::transmute(hide.0) },
+                    show: unsafe { mem::transmute(show.0) },
+                }
+            }),
+            viewer_cursor_hidden: AtomicBool::new(false),
+            first_person_mirrored_selection: Mutex::new(Vec::new()),
             grab_pan_sensitivity_on: AtomicBool::new(false),
             grab_pan_gain: AtomicU32::new(1.0f32.to_bits()),
             grab_pan_inverted: AtomicBool::new(false),

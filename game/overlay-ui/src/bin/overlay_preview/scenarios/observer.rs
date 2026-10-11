@@ -22,11 +22,12 @@ use overlay_ui::observer::{
     EconomyPlayerView, EconomyView, FightDegree, GraphGrouping, GraphLineView, GraphSeries,
     GraphsView, MapControlSideView, MapControlView, MatchupForm, MatchupPlayerView, MatchupView,
     MilitaryPlayerView, MilitaryView, ObserverView, OnScreenPlayerView, OnScreenUnitView,
-    OnScreenView, ProductionIcon, ProductionItemView, ProductionPlayerView, ProductionProgressView,
-    ProductionView, RaceView, ResourcesLeftView, SelectedUnitView, SelectionView, Significance,
-    StatusColor, SubjectProgress, TeamCardPlayerView, TeamCardTotalsView, TeamCardView,
-    TeamCardsView, TimelineEventKind, TimelineEventView, TimelineView, UnitResearchView,
-    UnitStatusView, UnitUpgradeView, UpgradeEffect, WeaponDamageView, team_name,
+    OnScreenView, PerspectiveChoice, PerspectiveView, ProductionIcon, ProductionItemView,
+    ProductionPlayerView, ProductionProgressView, ProductionView, RaceView, ResourcesLeftView,
+    SelectedUnitView, SelectionView, Significance, StatusColor, SubjectProgress,
+    TeamCardPlayerView, TeamCardTotalsView, TeamCardView, TeamCardsView, TimelineEventKind,
+    TimelineEventView, TimelineView, UnitResearchView, UnitStatusView, UnitUpgradeView,
+    UpgradeEffect, WeaponDamageView, team_name,
 };
 use overlay_ui::shell::PanelPrefs;
 use serde::{Deserialize, Serialize};
@@ -295,6 +296,93 @@ pub struct Knobs {
     /// Whether the list of players under the minimap's vision button starts open, which is a state
     /// an offline render has no click to reach.
     pub vision_picker: bool,
+    /// Whether the host has its players' perspectives recorded for the game, and how the fake game
+    /// starts out showing them.
+    pub perspective: PerspectiveKnob,
+    /// Whether the menu of perspectives the minimap frame's dropdown opens starts open, for the same
+    /// reason the vision list's knob is there.
+    pub perspective_picker: bool,
+}
+
+/// How the fake game starts out with its players' perspectives, which is each state the minimap
+/// frame's perspective row is drawn in.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default, Serialize, Deserialize)]
+pub enum PerspectiveKnob {
+    /// None recorded: the frame has no perspective row at all.
+    #[default]
+    Unrecorded,
+    /// Every player's recorded, and nobody's shown.
+    Recorded,
+    /// The first player's shown, with their camera followed.
+    Shown,
+    /// The first player's shown, with their camera followed and their selection and clicks not
+    /// shown, which has one toggle on and one off.
+    CameraOnly,
+    /// The first player's shown, and the camera taken from theirs by the watcher, part of the way
+    /// through the wait before it follows them again.
+    Returning,
+}
+
+impl PerspectiveKnob {
+    const ALL: [PerspectiveKnob; 5] = [
+        PerspectiveKnob::Unrecorded,
+        PerspectiveKnob::Recorded,
+        PerspectiveKnob::Shown,
+        PerspectiveKnob::CameraOnly,
+        PerspectiveKnob::Returning,
+    ];
+
+    fn label(self) -> &'static str {
+        match self {
+            PerspectiveKnob::Unrecorded => "unrecorded",
+            PerspectiveKnob::Recorded => "none shown",
+            PerspectiveKnob::Shown => "shown",
+            PerspectiveKnob::CameraOnly => "camera only",
+            PerspectiveKnob::Returning => "camera returning",
+        }
+    }
+
+    /// What a render of this state is filed under.
+    fn slug(self) -> &'static str {
+        match self {
+            PerspectiveKnob::Unrecorded => "unrecorded",
+            PerspectiveKnob::Recorded => "recorded",
+            PerspectiveKnob::Shown => "shown",
+            PerspectiveKnob::CameraOnly => "camera-only",
+            PerspectiveKnob::Returning => "returning",
+        }
+    }
+}
+
+/// How much of the wait before a followed camera comes back is left in the state that has the
+/// watcher holding it: most of it, so the bar standing for it reads as one that has started to
+/// drain rather than as an empty or a full one.
+const CAMERA_RETURNS_SHARE: f32 = 0.6;
+
+/// The fake game's answer to the perspective controls.
+#[derive(Clone, Copy)]
+pub struct PerspectiveState {
+    /// Which player's perspective is shown, by slot.
+    shown: Option<usize>,
+    camera: bool,
+    actions: bool,
+    /// Whether the watcher has taken the camera away from the shown player's.
+    overridden: bool,
+}
+
+impl PerspectiveState {
+    fn from_knob(knob: PerspectiveKnob) -> PerspectiveState {
+        let shown = matches!(
+            knob,
+            PerspectiveKnob::Shown | PerspectiveKnob::CameraOnly | PerspectiveKnob::Returning
+        );
+        PerspectiveState {
+            shown: shown.then_some(0),
+            camera: true,
+            actions: knob != PerspectiveKnob::CameraOnly,
+            overridden: knob == PerspectiveKnob::Returning,
+        }
+    }
 }
 
 impl Default for Knobs {
@@ -334,6 +422,8 @@ impl Default for Knobs {
             selection_spells: false,
             map_control: true,
             vision_picker: false,
+            perspective: PerspectiveKnob::default(),
+            perspective_picker: false,
         }
     }
 }
@@ -408,6 +498,13 @@ pub struct State {
     /// Whether the list of players under the minimap's vision button has been opened for a preset
     /// that asks for it. Once, so a watcher in the live preview can close it again.
     pub vision_picker_opened: bool,
+    /// The perspective the fake game shows, and the knob it was last started out from: moving the
+    /// knob starts it out again, and the panels' asks move it in between.
+    perspective: PerspectiveState,
+    perspective_knob: Option<PerspectiveKnob>,
+    /// Whether the menu of perspectives has been opened for a preset that asks for it, once, as
+    /// the vision list is.
+    pub perspective_picker_opened: bool,
 }
 
 impl State {
@@ -417,7 +514,52 @@ impl State {
             show_entire_map: false,
             last_selection: None,
             vision_picker_opened: false,
+            perspective: PerspectiveState::from_knob(PerspectiveKnob::default()),
+            perspective_knob: None,
+            perspective_picker_opened: false,
         }
+    }
+
+    /// Starts the perspective out the way `knob` asks, if it asks for something else than it last
+    /// did.
+    pub fn sync_perspective(&mut self, knob: PerspectiveKnob) {
+        if self.perspective_knob != Some(knob) {
+            self.perspective_knob = Some(knob);
+            self.perspective = PerspectiveState::from_knob(knob);
+        }
+    }
+
+    /// Shows the perspective at `index`, or none, as the game does when asked.
+    pub fn show_perspective(&mut self, index: Option<u8>) {
+        self.perspective.shown = index.map(usize::from);
+        self.perspective.overridden = false;
+    }
+
+    /// Answers the perspective key the way the game does: a camera the watcher took is given back
+    /// first, and otherwise the key steps to the next of `count` perspectives, or the previous one,
+    /// by way of none.
+    pub fn cycle_perspective(&mut self, forward: bool, count: usize) {
+        if self.perspective.overridden {
+            self.perspective.overridden = false;
+            return;
+        }
+        // Nobody shown sits after the last perspective and before the first.
+        let current = self.perspective.shown.unwrap_or(count);
+        let next = if forward {
+            (current + 1) % (count + 1)
+        } else {
+            (current + count) % (count + 1)
+        };
+        self.perspective.shown = (next < count).then_some(next);
+    }
+
+    pub fn set_perspective_camera(&mut self, follow: bool) {
+        self.perspective.camera = follow;
+        self.perspective.overridden &= follow;
+    }
+
+    pub fn set_perspective_actions(&mut self, show: bool) {
+        self.perspective.actions = show;
     }
 
     /// Answers a vision toggle the way the game does, by changing what the watcher is shown.
@@ -491,7 +633,35 @@ pub fn build_view(
         selection: selection(knobs, t),
         map_control: knobs.map_control.then(|| map_control(t)),
         on_screen: on_screen(knobs, state, t),
+        perspective: perspective(knobs, state),
     }
+}
+
+/// Every player's perspective, where the knobs have them recorded for the game.
+fn perspective(knobs: &Knobs, state: &State) -> Option<PerspectiveView> {
+    if knobs.perspective == PerspectiveKnob::Unrecorded {
+        return None;
+    }
+    let players = knobs.player_count();
+    let PerspectiveState {
+        shown,
+        camera,
+        actions,
+        overridden,
+    } = state.perspective;
+    let shown = shown.filter(|&index| index < players);
+    Some(PerspectiveView {
+        choices: (0..players)
+            .map(|index| PerspectiveChoice {
+                name: player_name(knobs, index),
+                color: overlay_ui::kit::theme::player_color(index),
+            })
+            .collect(),
+        shown,
+        camera,
+        actions,
+        camera_returns: (overridden && camera && shown.is_some()).then_some(CAMERA_RETURNS_SHARE),
+    })
 }
 
 /// The status line the game DLL reads out of the English stat_txt for a unit with a parasite on it,
@@ -1788,6 +1958,33 @@ pub enum Showcase {
     /// The single unit the knobs default to, with the list of players under the minimap's vision
     /// button open.
     VisionPicker,
+    /// The single unit the knobs default to, in a game with its players' perspectives recorded,
+    /// started out as `knob` asks, with `list` open over the minimap's frame, and the players given
+    /// the longest names the game allows where `long_names`.
+    Perspective {
+        knob: PerspectiveKnob,
+        list: OpenList,
+        long_names: bool,
+    },
+}
+
+/// Which of the lists hanging over the minimap's frame a preset opens.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum OpenList {
+    None,
+    Vision,
+    Perspectives,
+}
+
+impl OpenList {
+    /// What a render with this list open is filed under, after the rest of its name.
+    fn suffix(self) -> &'static str {
+        match self {
+            OpenList::None => "",
+            OpenList::Vision => "-vision-picker",
+            OpenList::Perspectives => "-menu",
+        }
+    }
 }
 
 /// Where a preset rests the pointer, for the readings the overlay only gives while it is hovered.
@@ -1811,6 +2008,12 @@ pub enum Hover {
     JumpChip,
     /// Over the minimap header's vision button, whose card names the key that opens its list.
     MinimapVision,
+    /// Over the minimap frame's perspective row, in a game with perspectives recorded, whose
+    /// card names the key that steps through them.
+    MinimapPerspective,
+    /// Over the camera toggle on the minimap frame's perspective row, with a perspective shown,
+    /// whose card names it.
+    PerspectiveCamera,
     /// Over the weapon upgrade of the unit the selection panel reads out, which names it, its
     /// level and the damage it comes to.
     UpgradeChip,
@@ -1861,6 +2064,20 @@ impl Hover {
                 24.0,
                 14.0,
             )),
+            // On the perspective row's dropdown, along the frame's top.
+            Hover::MinimapPerspective => Some(on(
+                egui::Id::new("sb_minimap_frame"),
+                egui::Align2::LEFT_TOP,
+                110.0,
+                14.0,
+            )),
+            // The first of the two toggles at the row's right end, inside the frame's edge.
+            Hover::PerspectiveCamera => Some(on(
+                egui::Id::new("sb_minimap_frame"),
+                egui::Align2::RIGHT_TOP,
+                -48.0,
+                16.0,
+            )),
             // The lone unit's weapon upgrade: the third chip, after its armor and its shields.
             Hover::UpgradeChip => Some(on(
                 egui::Id::new("sb_selection_panel"),
@@ -1881,6 +2098,8 @@ impl Hover {
             Hover::TrackMarker => "marker-hover",
             Hover::JumpChip => "jump-chip-hover",
             Hover::MinimapVision => "minimap-vision-hover",
+            Hover::MinimapPerspective => "minimap-perspective-hover",
+            Hover::PerspectiveCamera => "perspective-camera-hover",
             Hover::UpgradeChip => "upgrade-hover",
         }
     }
@@ -1945,7 +2164,39 @@ impl Preset {
         }
     }
 
-    pub const ALL: [Preset; 39] = [
+    /// A team game with its players' perspectives recorded, started out as `knob` asks, with `list`
+    /// open.
+    pub const fn perspective(knob: PerspectiveKnob, list: OpenList, long_names: bool) -> Preset {
+        Preset {
+            players: 4,
+            team_size: 2,
+            panels: Screen::Analyst,
+            showcase: Showcase::Perspective {
+                knob,
+                list,
+                long_names,
+            },
+            hover: Hover::None,
+        }
+    }
+
+    /// A duel watched live with its players' perspectives recorded and one of them shown, which
+    /// offers them as a replay does.
+    const fn live_perspective() -> Preset {
+        Preset {
+            players: 2,
+            team_size: 1,
+            panels: Screen::Live,
+            showcase: Showcase::Perspective {
+                knob: PerspectiveKnob::Shown,
+                list: OpenList::None,
+                long_names: false,
+            },
+            hover: Hover::None,
+        }
+    }
+
+    pub const ALL: [Preset; 50] = [
         Preset::game(2, 1, Screen::Minimal),
         Preset::game(2, 1, Screen::Standard),
         Preset::game(2, 1, Screen::Analyst),
@@ -1989,12 +2240,27 @@ impl Preset {
         Preset::selection_showcase(Showcase::Spells),
         // The vision list is shown over a team game, which is the one with a list worth reading.
         Preset::vision_picker(),
+        // The perspective row in each of its states, with its toggles both on, one on and one
+        // off, and disabled, the one whose name has to give way to the toggles beside it, its menu with a
+        // perspective shown and with none, the vision list hanging over the row too, and the row in
+        // a game watched live.
+        Preset::perspective(PerspectiveKnob::Recorded, OpenList::None, false),
+        Preset::perspective(PerspectiveKnob::Shown, OpenList::None, false),
+        Preset::perspective(PerspectiveKnob::CameraOnly, OpenList::None, false),
+        Preset::perspective(PerspectiveKnob::Returning, OpenList::None, false),
+        Preset::perspective(PerspectiveKnob::Returning, OpenList::None, true),
+        Preset::perspective(PerspectiveKnob::Shown, OpenList::Perspectives, false),
+        Preset::perspective(PerspectiveKnob::Recorded, OpenList::Perspectives, false),
+        Preset::perspective(PerspectiveKnob::Shown, OpenList::Vision, false),
+        Preset::live_perspective(),
         Preset::hover_showcase(Hover::Graphs),
         Preset::hover_showcase(Hover::DockMatchup),
         Preset::hover_showcase(Hover::TimelineRow),
         Preset::hover_showcase(Hover::TrackMarker),
         Preset::hover_showcase(Hover::JumpChip),
         Preset::hover_showcase(Hover::MinimapVision),
+        Preset::hover_showcase(Hover::MinimapPerspective),
+        Preset::hover_showcase(Hover::PerspectiveCamera),
         Preset::hover_showcase(Hover::UpgradeChip),
     ];
 
@@ -2011,6 +2277,24 @@ impl Preset {
             Showcase::Status => return "1v1-selection-status".to_string(),
             Showcase::Spells => return "1v1-selection-spells".to_string(),
             Showcase::VisionPicker => return format!("{}-vision-picker", self.shape()),
+            Showcase::Perspective {
+                knob,
+                list,
+                long_names,
+            } => {
+                return format!(
+                    "{}-perspective-{}{}{}{}",
+                    self.shape(),
+                    knob.slug(),
+                    if self.panels == Screen::Live {
+                        "-live"
+                    } else {
+                        ""
+                    },
+                    if long_names { "-long-names" } else { "" },
+                    list.suffix(),
+                );
+            }
             Showcase::Knobs => {}
         }
         if self.hover != Hover::None {
@@ -2066,7 +2350,11 @@ impl Preset {
             selection_defense: self.showcase == Showcase::Defense,
             selection_resource: self.showcase == Showcase::Resource,
             selection_status: self.showcase == Showcase::Status,
-            long_names: self.showcase == Showcase::Status,
+            long_names: match self.showcase {
+                Showcase::Status => true,
+                Showcase::Perspective { long_names, .. } => long_names,
+                _ => false,
+            },
             selection_spells: self.showcase == Showcase::Spells,
             selection: if self.showcase == Showcase::Spells {
                 SelectionView::MAX_UNITS
@@ -2078,7 +2366,27 @@ impl Preset {
             } else {
                 1
             },
-            vision_picker: self.showcase == Showcase::VisionPicker,
+            vision_picker: matches!(
+                self.showcase,
+                Showcase::VisionPicker
+                    | Showcase::Perspective {
+                        list: OpenList::Vision,
+                        ..
+                    }
+            ),
+            perspective: match self.showcase {
+                Showcase::Perspective { knob, .. } => knob,
+                _ if self.hover == Hover::MinimapPerspective => PerspectiveKnob::Recorded,
+                _ if self.hover == Hover::PerspectiveCamera => PerspectiveKnob::Shown,
+                _ => PerspectiveKnob::Unrecorded,
+            },
+            perspective_picker: matches!(
+                self.showcase,
+                Showcase::Perspective {
+                    list: OpenList::Perspectives,
+                    ..
+                }
+            ),
             ..Knobs::default()
         };
         // The buildings with chips to read out are the Protoss ones, whose shields every one of
@@ -2224,6 +2532,25 @@ pub fn knobs_ui(k: &mut Knobs, state: &State, ui: &mut egui::Ui) -> bool {
         .on_hover_text(
             "Opens the list of players under the minimap's vision button when the scenario \
              starts, the state the button's click leaves it in.",
+        )
+        .changed();
+    ui.horizontal(|ui| {
+        ui.label("perspectives:").on_hover_text(
+            "Whether the host has the players' perspectives recorded, and how the fake \
+                 game starts out showing them. Moving this starts the game out again; the \
+                 minimap's perspective row and key move it in between.",
+        );
+        for option in PerspectiveKnob::ALL {
+            changed |= ui
+                .selectable_value(&mut k.perspective, option, option.label())
+                .changed();
+        }
+    });
+    changed |= ui
+        .checkbox(&mut k.perspective_picker, "perspective menu open")
+        .on_hover_text(
+            "Opens the menu of perspectives the minimap frame's dropdown opens when the \
+             scenario starts, in a game with them recorded.",
         )
         .changed();
     changed |= ui

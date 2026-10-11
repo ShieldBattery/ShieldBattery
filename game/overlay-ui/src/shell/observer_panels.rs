@@ -18,11 +18,14 @@ pub(super) struct ObserverPanels {
     /// shell's while there is something behind it, and a keypress arrives between frames, so what
     /// the last frame was told has to be kept here.
     map_control_available: bool,
+    /// Whether the last observer frame carried any perspectives to watch the game from, which is
+    /// whether the key stepping through them is the shell's, for the same reason.
+    perspectives_available: bool,
     /// The player whose control groups are shown: the owner of the last unit the watcher selected.
     /// Kept across frames because it outlives the selection that set it.
     focused_player: Option<u8>,
-    /// Whether the list of players under the minimap's vision button is open.
-    vision_picker_open: bool,
+    /// Which of the lists hanging over the minimap's frame is open.
+    minimap_popover: Option<observer::MinimapPopover>,
     /// Whether the watcher had anything selected as of the last frame, which is whether Escape
     /// has a selection to let go of.
     has_selection: bool,
@@ -210,13 +213,28 @@ pub(super) struct ObserverFrame<'a> {
 }
 
 impl ObserverPanels {
-    /// Whether the list of players under the minimap's vision button is open.
-    pub(super) fn vision_picker_open(&self) -> bool {
-        self.vision_picker_open
+    /// Which of the lists hanging over the minimap's frame is open.
+    pub(super) fn minimap_popover(&self) -> Option<observer::MinimapPopover> {
+        self.minimap_popover
     }
 
-    pub(super) fn set_vision_picker_open(&mut self, open: bool) {
-        self.vision_picker_open = open;
+    /// Opens `popover`, closing the other one, or with `open` false closes it if it is the one
+    /// open.
+    pub(super) fn set_minimap_popover_open(
+        &mut self,
+        popover: observer::MinimapPopover,
+        open: bool,
+    ) {
+        if open {
+            self.minimap_popover = Some(popover);
+        } else if self.minimap_popover == Some(popover) {
+            self.minimap_popover = None;
+        }
+    }
+
+    /// Closes whichever list hangs over the minimap's frame, returning whether one was open.
+    pub(super) fn close_minimap_popover(&mut self) -> bool {
+        self.minimap_popover.take().is_some()
     }
 
     /// Asks for the watcher's selection to be let go of, returning whether there was one.
@@ -232,6 +250,11 @@ impl ObserverPanels {
     /// Whether the last observer frame carried a map-control measurement.
     pub(super) fn map_control_available(&self) -> bool {
         self.map_control_available
+    }
+
+    /// Whether the last observer frame carried any perspectives to watch the game from.
+    pub(super) fn perspectives_available(&self) -> bool {
+        self.perspectives_available
     }
 
     /// Draws the observer panels the watcher has left on screen, turning what they did with them
@@ -264,6 +287,7 @@ impl ObserverPanels {
         } = shell;
 
         self.map_control_available = view.map_control.is_some();
+        self.perspectives_available = view.perspectives().is_some();
         let screen = ctx.viewport_rect();
         let gap = observer::WING_GAP;
         let margin = layout::screen_margin(screen);
@@ -319,14 +343,21 @@ impl ObserverPanels {
             self.last_minimap_rect = host.minimap_rect;
         }
         let square = layout::minimap_square(screen, self.last_minimap_rect);
-        let minimap = observer::minimap::footprint(screen, square);
+        // A game with perspectives has a row of the frame's over its header, which everything
+        // around the minimap keeps clear of as it does the rest of the frame.
+        let perspective_row = self.perspectives_available;
+        let minimap = observer::minimap::footprint(screen, square, perspective_row);
         let minimap_on_left = minimap.center().x < screen.center().x;
         // The bottom panels keep clear of the frame the minimap has at its largest rather than the
         // one it is drawn with: the game draws a map smaller than its square, or one that is not
         // square, smaller, and reports no minimap at all while it is hidden, so panels kept to the
         // minimap's own frame would move with the map and with the minimap's key. Only a minimap
         // the game puts past that square moves them.
-        let reserve = observer::minimap::footprint(screen, observer::minimap_reserve(screen));
+        let reserve = observer::minimap::footprint(
+            screen,
+            observer::minimap_reserve(screen),
+            perspective_row,
+        );
         let minimap_right = minimap.right().max(reserve.right());
         let minimap_top = minimap.top().min(reserve.top());
         // The run of the bottom edge the bottom panels keep to: from the frame of a minimap in the
@@ -800,38 +831,52 @@ impl ObserverPanels {
     ) -> Vec<Rect> {
         let shown = wanted && square.is_some();
         if !shown {
-            self.vision_picker_open = false;
+            self.minimap_popover = None;
         }
         let Some(square) = square else {
             return Vec::new();
         };
-        let vision_keys = hotkeys
-            .chord_for(Action::ToggleVisionPicker)
-            .map(|chord| chord.keycaps(false))
-            .unwrap_or_default();
+        let keycaps = |action| {
+            hotkeys
+                .chord_for(action)
+                .map(|chord| chord.keycaps(false))
+                .unwrap_or_default()
+        };
+        let vision_keys = keycaps(Action::ToggleVisionPicker);
+        let perspective_keys = keycaps(Action::CyclePerspective);
         let menu_keys = hotkeys::MENU_CHORDS[0].keycaps(false);
         let Some(outcome) = observer::render_minimap_frame(
             ctx,
             square,
             shown,
             view,
-            self.vision_picker_open,
+            self.minimap_popover,
             observer::MinimapKeys {
                 vision: &vision_keys,
+                perspective: &perspective_keys,
                 menu: &menu_keys,
             },
         ) else {
             return Vec::new();
         };
-        self.vision_picker_open = shown && outcome.picker_open;
+        self.minimap_popover = outcome.popover.filter(|_| shown);
         if let Some(player_id) = outcome.toggled_vision {
             intents.push(Intent::ToggleVision { player_id });
         }
         if let Some(show) = outcome.show_entire_map {
             intents.push(Intent::SetShowEntireMap(show));
         }
+        if let Some(index) = outcome.show_perspective {
+            intents.push(Intent::ShowPerspective(index));
+        }
+        if let Some(follow) = outcome.perspective_camera {
+            intents.push(Intent::SetPerspectiveCamera(follow));
+        }
+        if let Some(show) = outcome.perspective_actions {
+            intents.push(Intent::SetPerspectiveActions(show));
+        }
         if outcome.open_menu {
-            self.vision_picker_open = false;
+            self.minimap_popover = None;
             intents.push(Intent::OpenGameMenu);
         }
         outcome.rects
@@ -906,11 +951,12 @@ mod tests {
     fn entire_map_switch_sends_its_new_value_and_keeps_the_picker_open() {
         use super::{ObserverPanels, hotkeys::Hotkeys};
         use crate::kit::{theme, tiers, widgets};
+        use crate::observer::MinimapPopover;
 
         for initial in [false, true] {
             let ctx = fresh_ctx();
             let mut panels = ObserverPanels {
-                vision_picker_open: true,
+                minimap_popover: Some(MinimapPopover::Vision),
                 ..Default::default()
             };
             let mut game = empty_game();
@@ -956,7 +1002,7 @@ mod tests {
             let intents = frame(&mut panels, vec![button(false)]);
             assert_eq!(intents.len(), 1, "{intents:?}");
             assert!(matches!(intents[0], Intent::SetShowEntireMap(value) if value != initial));
-            assert!(panels.vision_picker_open);
+            assert_eq!(panels.minimap_popover, Some(MinimapPopover::Vision));
         }
     }
 
@@ -1525,7 +1571,8 @@ mod tests {
                     )),
                 "{screen:?}"
             );
-            let frame = minimap::footprint(Rect::from_min_size(egui::Pos2::ZERO, screen), full);
+            let frame =
+                minimap::footprint(Rect::from_min_size(egui::Pos2::ZERO, screen), full, false);
             assert!(placed[0].left() > frame.right(), "{screen:?}");
         }
     }
@@ -1681,6 +1728,373 @@ mod tests {
         assert!(shell.panel_prefs().minimap);
         // With the list closed the key is the game's again.
         assert!(!shell.key_pressed(Key::Escape, Modifiers::NONE));
+    }
+
+    #[test]
+    fn the_perspective_key_is_the_games_until_a_frame_carries_perspectives() {
+        let ctx = fresh_ctx();
+        let mut shell = spectating_shell();
+        let playback = replay();
+        let mut nobody = with_perspectives(empty_game());
+        nobody.perspective.as_mut().unwrap().choices.clear();
+        // A game without perspectives, and a list with nobody on it, which is as good as none.
+        for (time, game) in [(0.0, empty_game()), (0.5, nobody)] {
+            run_watched_frame_at(&mut shell, &ctx, &playback, &game, SMALL_SCREEN, time);
+            assert!(!shell.key_pressed(Key::C, Modifiers::NONE));
+            assert!(!shell.key_pressed(Key::C, Modifiers::SHIFT));
+        }
+        let game = with_perspectives(empty_game());
+        run_watched_frame_at(&mut shell, &ctx, &playback, &game, SMALL_SCREEN, 1.0);
+        assert!(shell.key_pressed(Key::C, Modifiers::NONE));
+        assert!(shell.key_pressed(Key::C, Modifiers::SHIFT));
+        assert!(
+            shell.pending_intents().ends_with(&[
+                Intent::CyclePerspective { forward: true },
+                Intent::CyclePerspective { forward: false },
+            ]),
+            "{:?}",
+            shell.pending_intents()
+        );
+    }
+
+    #[test]
+    fn opening_either_list_on_the_minimap_closes_the_other() {
+        let mut shell = spectating_shell();
+        shell.set_vision_picker_open(true);
+        shell.set_perspective_picker_open(true);
+        assert!(shell.perspective_picker_open() && !shell.vision_picker_open());
+        // Closing the list that is not open leaves the one that is.
+        shell.set_vision_picker_open(false);
+        assert!(shell.perspective_picker_open());
+        assert!(shell.key_pressed(Key::Z, Modifiers::ALT));
+        assert!(shell.vision_picker_open() && !shell.perspective_picker_open());
+        shell.set_perspective_picker_open(true);
+        assert!(shell.key_pressed(Key::Escape, Modifiers::NONE));
+        assert!(!shell.vision_picker_open() && !shell.perspective_picker_open());
+        assert!(!shell.key_pressed(Key::Escape, Modifiers::NONE));
+    }
+
+    /// Where the minimap stands in the frames [`minimap_frame`] draws.
+    const MINIMAP_SQUARE: Rect = Rect {
+        min: egui::pos2(20.0, 400.0),
+        max: egui::pos2(270.0, 650.0),
+    };
+
+    /// Draws the minimap's frame the way the observer panels do, on a small screen a tenth of a
+    /// second after the last frame, with `events` arriving before it. Returns what it asked of the
+    /// host and the rects it took the pointer in.
+    fn minimap_frame(
+        ctx: &egui::Context,
+        panels: &mut super::ObserverPanels,
+        game: &crate::observer::ObserverView,
+        events: Vec<egui::Event>,
+    ) -> (Vec<Intent>, Vec<Rect>) {
+        let time = ctx.input(|input| input.time) + 0.1;
+        ctx.begin_pass(egui::RawInput {
+            screen_rect: Some(Rect::from_min_size(egui::Pos2::ZERO, SMALL_SCREEN)),
+            time: Some(time),
+            events,
+            ..Default::default()
+        });
+        let mut intents = Vec::new();
+        let rects = panels.frame_minimap(
+            ctx,
+            game,
+            Some(MINIMAP_SQUARE),
+            true,
+            &super::Hotkeys::default(),
+            &mut intents,
+        );
+        ctx.end_pass().textures_delta.clear();
+        (intents, rects)
+    }
+
+    /// Clicks at `pos` over three [`minimap_frame`]s, returning what they asked of the host.
+    fn click_minimap(
+        ctx: &egui::Context,
+        panels: &mut super::ObserverPanels,
+        game: &crate::observer::ObserverView,
+        pos: egui::Pos2,
+    ) -> Vec<Intent> {
+        let button = |pressed| egui::Event::PointerButton {
+            pos,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: Modifiers::NONE,
+        };
+        let mut intents = Vec::new();
+        for event in [egui::Event::PointerMoved(pos), button(true), button(false)] {
+            intents.extend(minimap_frame(ctx, panels, game, vec![event]).0);
+        }
+        intents
+    }
+
+    /// Where the menu of perspectives is, once it has been drawn.
+    fn perspective_menu(ctx: &egui::Context) -> Rect {
+        ctx.memory(|memory| memory.area_rect(egui::Id::new("sb_minimap_perspective_menu")))
+            .expect("the menu of perspectives is drawn")
+    }
+
+    /// The middle of the menu at `menu`'s row at `index`: nobody's at 0, then each perspective's.
+    fn menu_row(menu: Rect, index: usize) -> egui::Pos2 {
+        use crate::kit::{tiers, widgets::DENSE_ROW_HEIGHT};
+        egui::pos2(
+            menu.center().x,
+            menu.top() + tiers::PANEL_MARGIN_HEIGHT * 0.5 + DENSE_ROW_HEIGHT * (index as f32 + 0.5),
+        )
+    }
+
+    /// The perspective row and the header of the frame [`minimap_frame`] draws for a game with
+    /// perspectives.
+    fn perspective_row_and_header() -> (Rect, Rect) {
+        use crate::observer::minimap;
+        let screen = Rect::from_min_size(egui::Pos2::ZERO, SMALL_SCREEN);
+        let outer = minimap::footprint(screen, MINIMAP_SQUARE, true);
+        let row = Rect::from_min_size(
+            outer.left_top(),
+            egui::vec2(outer.width(), minimap::PERSPECTIVE_ROW_HEIGHT),
+        );
+        let header = Rect::from_min_size(
+            row.left_bottom(),
+            egui::vec2(outer.width(), minimap::HEADER_HEIGHT),
+        );
+        (row, header)
+    }
+
+    #[test]
+    fn a_menu_row_asks_for_its_perspective_and_closes_the_menu() {
+        use crate::observer::MinimapPopover;
+
+        // Each perspective's row, and nobody's whoever is shown.
+        for (shown, row, wanted) in [
+            (None, 2, Some(1)),
+            (Some(1), 1, Some(0)),
+            (Some(1), 0, None),
+            (None, 0, None),
+        ] {
+            let ctx = fresh_ctx();
+            let mut panels = super::ObserverPanels {
+                minimap_popover: Some(MinimapPopover::Perspective),
+                ..Default::default()
+            };
+            let mut game = with_perspectives(empty_game());
+            game.perspective.as_mut().unwrap().shown = shown;
+            for _ in 0..3 {
+                assert!(
+                    minimap_frame(&ctx, &mut panels, &game, Vec::new())
+                        .0
+                        .is_empty()
+                );
+            }
+            let menu = perspective_menu(&ctx);
+            let intents = click_minimap(&ctx, &mut panels, &game, menu_row(menu, row));
+            assert_eq!(
+                intents,
+                [Intent::ShowPerspective(wanted)],
+                "{shown:?} {row}"
+            );
+            assert_eq!(panels.minimap_popover, None, "{shown:?} {row}");
+        }
+    }
+
+    #[test]
+    fn a_toggle_asks_for_the_opposite_of_its_state_and_is_inert_with_nobody_shown() {
+        let (row, _) = perspective_row_and_header();
+        let layout = crate::observer::minimap::perspective_row_layout(row);
+        for shown in [None, Some(0)] {
+            for (camera, actions) in [(true, false), (false, true)] {
+                let ctx = fresh_ctx();
+                let mut panels = super::ObserverPanels::default();
+                let mut game = with_perspectives(empty_game());
+                let perspective = game.perspective.as_mut().unwrap();
+                perspective.shown = shown;
+                perspective.camera = camera;
+                perspective.actions = actions;
+                for _ in 0..3 {
+                    minimap_frame(&ctx, &mut panels, &game, Vec::new());
+                }
+                let pressed = click_minimap(&ctx, &mut panels, &game, layout.camera.center());
+                let wanted = shown.map(|_| Intent::SetPerspectiveCamera(!camera));
+                assert_eq!(pressed, wanted.as_slice(), "{shown:?} {camera}");
+                let pressed = click_minimap(&ctx, &mut panels, &game, layout.actions.center());
+                let wanted = shown.map(|_| Intent::SetPerspectiveActions(!actions));
+                assert_eq!(pressed, wanted.as_slice(), "{shown:?} {actions}");
+                // Neither opens anything.
+                assert_eq!(panels.minimap_popover, None);
+            }
+        }
+    }
+
+    #[test]
+    fn the_dropdown_opens_its_menu_in_place_of_the_vision_list_and_both_clear_the_row() {
+        use crate::observer::MinimapPopover;
+
+        let ctx = fresh_ctx();
+        let mut panels = super::ObserverPanels {
+            minimap_popover: Some(MinimapPopover::Vision),
+            ..Default::default()
+        };
+        let game = with_perspectives(empty_game());
+        let mut rects = Vec::new();
+        for _ in 0..3 {
+            rects = minimap_frame(&ctx, &mut panels, &game, Vec::new()).1;
+        }
+        let (row, header) = perspective_row_and_header();
+        let dropdown = crate::observer::minimap::perspective_row_layout(row).dropdown;
+        let vision_list = ctx
+            .memory(|memory| memory.area_rect(egui::Id::new("sb_minimap_vision_picker")))
+            .expect("the vision list is drawn");
+        assert!(vision_list.bottom() < row.top(), "{vision_list:?} {row:?}");
+        assert!(rects.contains(&vision_list), "{rects:?}");
+
+        assert!(click_minimap(&ctx, &mut panels, &game, dropdown.center()).is_empty());
+        assert_eq!(panels.minimap_popover, Some(MinimapPopover::Perspective));
+
+        // The row and the menu take the pointer along with the header, so a click on them is not
+        // the game's, and the menu hangs where the vision list did, over the row rather than on it,
+        // once it has been drawn long enough to know its own size.
+        minimap_frame(&ctx, &mut panels, &game, Vec::new());
+        let (_, rects) = minimap_frame(&ctx, &mut panels, &game, Vec::new());
+        let menu = perspective_menu(&ctx);
+        for taken in [menu, row, header] {
+            assert!(rects.contains(&taken), "{rects:?} {taken:?}");
+        }
+        assert!(menu.bottom() < row.top(), "{menu:?} {row:?}");
+        assert_eq!(menu.left(), vision_list.left());
+
+        // Pressed again, the dropdown puts its menu away.
+        click_minimap(&ctx, &mut panels, &game, dropdown.center());
+        assert_eq!(panels.minimap_popover, None);
+    }
+
+    #[test]
+    fn a_game_without_perspectives_has_no_row_over_the_header() {
+        let ctx = fresh_ctx();
+        let mut panels = super::ObserverPanels::default();
+        let mut rects = Vec::new();
+        for _ in 0..3 {
+            rects = minimap_frame(&ctx, &mut panels, &empty_game(), Vec::new()).1;
+        }
+        let screen = Rect::from_min_size(egui::Pos2::ZERO, SMALL_SCREEN);
+        let outer = crate::observer::minimap::footprint(screen, MINIMAP_SQUARE, false);
+        let header = Rect::from_min_size(
+            outer.left_top(),
+            egui::vec2(outer.width(), crate::observer::minimap::HEADER_HEIGHT),
+        );
+        assert_eq!(rects, [header]);
+    }
+
+    #[test]
+    fn a_live_game_with_perspectives_has_the_row_and_the_key() {
+        let ctx = fresh_ctx();
+        let mut shell = observing_shell();
+        let game = with_perspectives(empty_game());
+        let screen = egui::vec2(1920.0, 1080.0);
+        let square =
+            crate::observer::minimap_reserve(Rect::from_min_size(egui::Pos2::ZERO, screen));
+        let mut output = None;
+        for step in 0..4 {
+            output = Some(run_observed_frame_at(
+                &mut shell,
+                &ctx,
+                &game,
+                screen,
+                Some(square),
+                f64::from(step) * 0.5,
+            ));
+        }
+        let outer = crate::observer::minimap::footprint(
+            Rect::from_min_size(egui::Pos2::ZERO, screen),
+            square,
+            true,
+        );
+        let row = Rect::from_min_size(
+            outer.left_top(),
+            egui::vec2(
+                outer.width(),
+                crate::observer::minimap::PERSPECTIVE_ROW_HEIGHT,
+            ),
+        );
+        let output = output.unwrap();
+        assert!(
+            output.hit_rects.iter().any(|hit| hit.rect == row),
+            "{:?}",
+            output.hit_rects
+        );
+        assert!(shell.key_pressed(Key::C, Modifiers::NONE));
+        assert!(
+            shell
+                .pending_intents()
+                .ends_with(&[Intent::CyclePerspective { forward: true }])
+        );
+    }
+
+    #[test]
+    fn the_panels_beside_the_minimap_keep_clear_of_the_perspective_row() {
+        use crate::observer::{ControlGroupsPlayerView, minimap};
+
+        // A 720p replay stands production and control groups on the minimap's frame, the surface
+        // that sits right on top of it.
+        let with_groups = || {
+            let mut game = empty_game();
+            game.control_groups.players.push(ControlGroupsPlayerView {
+                player_id: 0,
+                color: crate::kit::theme::player_color(0),
+                vision: true,
+                groups: Vec::new(),
+            });
+            game
+        };
+        let playback = replay();
+        let screen = SMALL_SCREEN;
+        let screen_rect = Rect::from_min_size(egui::Pos2::ZERO, screen);
+        let square = crate::observer::minimap_reserve(screen_rect);
+        for perspectives in [false, true] {
+            let game = if perspectives {
+                with_perspectives(with_groups())
+            } else {
+                with_groups()
+            };
+            let ctx = fresh_ctx();
+            let mut shell = spectating_shell();
+            shell.set_panel_prefs(PanelPrefs {
+                control_groups: true,
+                ..PanelPrefs::default()
+            });
+            let mut output = None;
+            for step in 0..8 {
+                output = Some(run_watched_frame_with_minimap(
+                    &mut shell,
+                    &ctx,
+                    &playback,
+                    &game,
+                    screen,
+                    Some(square),
+                    f64::from(step) * 0.5,
+                ));
+            }
+            let frame = minimap::footprint(screen_rect, square, perspectives);
+            let rects: Vec<Rect> = output
+                .unwrap()
+                .hit_rects
+                .iter()
+                .map(|hit| hit.rect)
+                .collect();
+            let over = rects
+                .iter()
+                .filter(|rect| rect.bottom() <= frame.top() + 0.5 && rect.left() < frame.right())
+                .map(|rect| rect.bottom())
+                .fold(f32::NEG_INFINITY, f32::max);
+            assert!(
+                over.is_finite(),
+                "{perspectives}: nothing stands on the frame"
+            );
+            // Standing on the frame, as close to it with the row as without.
+            assert!(
+                (frame.top() - over - crate::observer::WING_GAP).abs() < 0.5,
+                "{perspectives}: {over} over {frame:?}"
+            );
+        }
     }
 
     #[test]

@@ -327,6 +327,7 @@ built leaves the game's own behavior alone.
 | Matchup (Shift: form)                | `E`       | Cycle vision              | `V`     |
 | Minimap                              | `Q`       | Spoiler-free              | `L`     |
 | Dock (Shift: form)                   | `R`       | Selection                 | `W`     |
+| Player view (Shift: back)            | `C`       |                           |         |
 
 **Holding `Alt`** (pressed without Ctrl, which with it is AltGr on many keyboards) brings up the
 **on-screen count** (`observer::on_screen`) for as long as it is held, drawn on the map itself
@@ -387,7 +388,11 @@ matchup between the bar and the compact scoreboard, `R` (or `` ` ``) takes the d
 and off screen while `Shift+R` switches it between its two forms, bringing a hidden dock back in
 the form it went away in, `G` toggles the
 graphs panel like any other panel key while `Shift+G` and `Ctrl+G` step it to the next and previous
-measurement, `N` moves the map-control bar but only while a host is reporting one, and `P`, `U`, `D`, `,`, `.` and `L` drive a replay. `V` is still a binding
+measurement, `N` moves the map-control bar but only while a host is reporting one, `C` asks the host
+to step through the player perspectives it has recorded for the game, replay or live (`Shift+C` the
+other way), but only while it is reporting some, which also gives the minimap's frame a row over its
+header with a dropdown for choosing one and toggles for following its camera and showing its
+selection and clicks, and `P`, `U`, `D`, `,`, `.` and `L` drive a replay. `V` is still a binding
 waiting for its surface. The playback keys are consumed only while a replay's view-model is being
 fed, and `L` only in a replay, so anywhere else they stay the game's. The keycap a panel's title row
 names its key with is a control as well: clicking it puts the panel away as the key does, and the

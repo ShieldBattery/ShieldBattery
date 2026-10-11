@@ -126,6 +126,18 @@ pub enum Intent {
     ToggleVision { player_id: u8 },
     /// Show the entire map while preserving the chosen player visions for switching back.
     SetShowEntireMap(bool),
+    /// Show the game from the recorded perspective at this index of
+    /// [`observer::PerspectiveView::choices`], or from none.
+    ShowPerspective(Option<u8>),
+    /// What the perspective key asks for, `forward` false with Shift held. What it comes to is the
+    /// host's to decide, since only the host knows whether the watcher has the camera at the
+    /// moment: a camera taken from a followed player is given back to them before the key moves on
+    /// to anybody else.
+    CyclePerspective { forward: bool },
+    /// Whether the shown perspective's camera is followed and its cursor drawn.
+    SetPerspectiveCamera(bool),
+    /// Whether the shown perspective's selection and clicks are shown.
+    SetPerspectiveActions(bool),
     /// Select whatever is making this entry of a player's production row, and on a repeated ask,
     /// move on to the next one of them.
     SelectProduction { player_id: u8, item: u32 },
@@ -373,13 +385,26 @@ impl Shell {
 
     /// Whether the list of players under the minimap's vision button is open.
     pub fn vision_picker_open(&self) -> bool {
-        self.observer.vision_picker_open()
+        self.observer.minimap_popover() == Some(observer::MinimapPopover::Vision)
     }
 
     /// Opens or closes the list of players under the minimap's vision button, for a host restoring
-    /// what a watcher had open.
+    /// what a watcher had open. Opening it closes the menu of perspectives.
     pub fn set_vision_picker_open(&mut self, open: bool) {
-        self.observer.set_vision_picker_open(open);
+        self.observer
+            .set_minimap_popover_open(observer::MinimapPopover::Vision, open);
+    }
+
+    /// Whether the menu of perspectives the minimap frame's dropdown opens is open.
+    pub fn perspective_picker_open(&self) -> bool {
+        self.observer.minimap_popover() == Some(observer::MinimapPopover::Perspective)
+    }
+
+    /// Opens or closes the menu of perspectives the minimap frame's dropdown opens, for a
+    /// host restoring what a watcher had open. Opening it closes the list of players.
+    pub fn set_perspective_picker_open(&mut self, open: bool) {
+        self.observer
+            .set_minimap_popover_open(observer::MinimapPopover::Perspective, open);
     }
 
     pub fn hotkeys(&self) -> &Hotkeys {
@@ -570,8 +595,7 @@ impl Shell {
             }
             // A modal of the game's own state takes the screen ahead of the list under it, so the
             // list only answers the key while no modal is up.
-            if self.observer.vision_picker_open() && self.top_modal().is_none() {
-                self.observer.set_vision_picker_open(false);
+            if self.top_modal().is_none() && self.observer.close_minimap_popover() {
                 return true;
             }
             // With nothing else to close, a watcher's Escape lets go of what they have selected.
@@ -990,8 +1014,8 @@ impl Shell {
                 true
             }
             Action::ToggleVisionPicker => {
-                let open = !self.observer.vision_picker_open();
-                self.observer.set_vision_picker_open(open);
+                let open = !self.vision_picker_open();
+                self.set_vision_picker_open(open);
                 // The list hangs off the minimap's frame, so asking for it brings the minimap back.
                 if open {
                     self.prefs.minimap = true;
@@ -1034,6 +1058,17 @@ impl Shell {
             // The bar reports a measurement the game does not keep, so a game whose host has none
             // leaves the key alone rather than moving a preference nothing can act on.
             Action::ToggleMapControl if !self.observer.map_control_available() => false,
+            // Only a game the host has recorded perspectives for has any to step through, replay or
+            // live, so anywhere else the key stays the game's. Shift walks the other way.
+            Action::CyclePerspective => {
+                if !self.observer.perspectives_available() {
+                    return false;
+                }
+                self.intents.push(Intent::CyclePerspective {
+                    forward: !modifiers.shift,
+                });
+                true
+            }
             _ => match Panel::for_action(action) {
                 Some(panel) => {
                     self.prefs.toggle(panel);

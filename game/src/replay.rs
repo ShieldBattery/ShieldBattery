@@ -232,6 +232,26 @@ pub unsafe fn add_shieldbattery_data(
     Ok(())
 }
 
+/// Adds the local player's recorded first-person track to the end of a winapi file, if anything
+/// was recorded. (Seeks to the end if not already)
+pub unsafe fn add_first_person_data(
+    file: *mut c_void,
+    setup_info: &GameSetupInfo,
+) -> Result<(), io::Error> {
+    let Some(track) = crate::first_person::recorded_track() else {
+        return Ok(());
+    };
+    let mut game_id = [0u8; 16];
+    write_uuid(&mut game_id[..], &setup_info.game_id)?;
+    let mut buffer = Vec::new();
+    crate::first_person::track::write_section(&mut buffer, game_id, &[track])?;
+    unsafe {
+        windows::file_seek(file, io::SeekFrom::End(0))?;
+        windows::file_write(file, &buffer)?;
+    }
+    Ok(())
+}
+
 /// Id is expected to be "12345678-9abc-def0-1234-56789abcdef0"
 /// format, otherwise returns error.
 /// Writes as big-endian bytes 0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0, ...

@@ -176,7 +176,8 @@ impl StackSlot {
 /// reserve, would move it every time the minimap came or went. Only the plate and the screen decide
 /// it.
 pub(crate) fn bottom_band(screen: Rect, run: Span, plate_corner: Option<Rect>) -> Span {
-    let reserve = super::minimap::footprint(screen, minimap_square(screen, None));
+    // Only the frame's right edge is read, which a perspective row over its header leaves in place.
+    let reserve = super::minimap::footprint(screen, minimap_square(screen, None), false);
     let mirror = screen.right() - (reserve.right() - screen.left()) - WING_GAP;
     let plate = plate_corner.map_or(f32::INFINITY, |corner| corner.left() - WING_GAP);
     Span {
@@ -287,7 +288,7 @@ mod tests {
             (1920.0, 1080.0, 10.0),
         ] {
             let screen = Rect::from_min_size(pos2(0.0, 0.0), vec2(width, height));
-            let frame = super::super::minimap::footprint(screen, minimap_reserve(screen));
+            let frame = super::super::minimap::footprint(screen, minimap_reserve(screen), false);
             assert_eq!(screen_margin(screen), margin, "{width}x{height}");
             assert!(
                 (frame.left() - margin).abs() <= 0.5,
@@ -343,7 +344,7 @@ mod tests {
     fn bottom_run(width: f32, height: f32, replay: bool) -> Span {
         use crate::observer::minimap;
         let screen = Rect::from_min_size(pos2(0.0, 0.0), vec2(width, height));
-        let frame = minimap::footprint(screen, minimap_square(screen, None));
+        let frame = minimap::footprint(screen, minimap_square(screen, None), false);
         let run = span(frame.right() + WING_GAP, width - screen_margin(screen));
         let corner = replay
             .then(|| crate::playback_controls::PlaybackControlsPlacement::default().rect(screen));
@@ -428,7 +429,7 @@ mod tests {
         use crate::observer::minimap;
         for (width, height) in [(1920.0, 1080.0), (2560.0, 1080.0), (2560.0, 1440.0)] {
             let screen = Rect::from_min_size(pos2(0.0, 0.0), vec2(width, height));
-            let frame = minimap::footprint(screen, minimap_square(screen, None));
+            let frame = minimap::footprint(screen, minimap_square(screen, None), false);
             let band = bottom_run(width, height, false);
             assert_eq!(
                 width - band.right,
@@ -479,7 +480,7 @@ mod tests {
         for (pixel_width, pixel_height) in NARROW_TARGETS.into_iter().chain([(1600.0, 900.0)]) {
             let (width, height) = points(pixel_width, pixel_height);
             let screen = Rect::from_min_size(pos2(0.0, 0.0), vec2(width, height));
-            let frame = minimap::footprint(screen, minimap_square(screen, None));
+            let frame = minimap::footprint(screen, minimap_square(screen, None), false);
             for plate in [true, false] {
                 let band = bottom_run(width, height, plate);
                 let run = groups_beside_minimap(band).unwrap_or_else(|| {
@@ -512,7 +513,7 @@ mod tests {
         for (pixel_width, pixel_height) in NARROW_TARGETS.into_iter().chain([(1280.0, 720.0)]) {
             let (width, height) = points(pixel_width, pixel_height);
             let screen = Rect::from_min_size(pos2(0.0, 0.0), vec2(width, height));
-            let frame = minimap::footprint(screen, minimap_square(screen, None));
+            let frame = minimap::footprint(screen, minimap_square(screen, None), false);
             let plate = PlaybackControlsPlacement::default().rect(screen);
             let beside = span(frame.right() + WING_GAP, plate.left() - WING_GAP);
             assert!(

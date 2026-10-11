@@ -7,6 +7,7 @@
 pub mod motion;
 pub mod off_grid;
 pub mod pixels;
+pub mod symbols;
 pub mod text;
 pub mod theme;
 pub mod tiers;

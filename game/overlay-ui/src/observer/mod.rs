@@ -19,6 +19,7 @@ pub(crate) mod matchup;
 pub(crate) mod military;
 pub(crate) mod minimap;
 pub(crate) mod on_screen;
+pub(crate) mod perspective;
 pub(crate) mod production;
 pub(crate) mod race_icon;
 pub(crate) mod scoreboard;
@@ -42,11 +43,12 @@ pub use matchup::{
     MatchupForm, MatchupOutcome, MatchupPlayerView, MatchupView, render_matchup_view,
 };
 pub use military::{MilitaryPlayerView, MilitaryView, render_military_view};
-pub use minimap::{MinimapFrameOutcome, MinimapKeys, render_minimap_frame};
+pub use minimap::{MinimapFrameOutcome, MinimapKeys, MinimapPopover, render_minimap_frame};
 pub use on_screen::{
     CountTuning, OnScreenBaseView, OnScreenOutcome, OnScreenPlayerView, OnScreenUnitView,
     OnScreenView, WorkerJob, render_on_screen_view,
 };
+pub use perspective::{PerspectiveChoice, PerspectiveView};
 pub use production::{
     ProductionIcon, ProductionItemView, ProductionOutcome, ProductionPlayerView, ProductionView,
     WIREFRAME_LAYERS, Wireframe, render_production_view,
@@ -109,6 +111,10 @@ pub struct ObserverView {
     pub map_control: Option<MapControlView>,
     /// How many units each player has in the view, for the count shown while Alt is held.
     pub on_screen: OnScreenView,
+    /// The players this game can be watched as, or `None` for a game the host has no recorded
+    /// perspectives for, replay or live. Nothing offers a perspective without one, and the key that
+    /// steps through them stays the game's.
+    pub perspective: Option<PerspectiveView>,
 }
 
 impl ObserverView {
@@ -119,6 +125,14 @@ impl ObserverView {
     /// would be offering the same plot twice.
     pub fn has_teams(&self) -> bool {
         self.matchup.has_teams()
+    }
+
+    /// The perspectives this game can be watched from, where it has at least one to offer: a list
+    /// with nobody in it is as good as none, and a button opening it would open onto nothing.
+    pub(crate) fn perspectives(&self) -> Option<&PerspectiveView> {
+        self.perspective
+            .as_ref()
+            .filter(|perspective| !perspective.choices.is_empty())
     }
 }
 

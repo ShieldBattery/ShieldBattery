@@ -182,7 +182,7 @@ impl Preset {
 /// translated strings, picked as the busiest state each one has, since that is where long text runs
 /// out of room first. The kitchen sink is left out — it is a specimen sheet of the kit, not a screen
 /// whose copy is translated.
-pub const PSEUDOLOCALE_PRESETS: [Preset; 13] = [
+pub const PSEUDOLOCALE_PRESETS: [Preset; 14] = [
     Preset::Disconnect(disconnect::Preset::Droppable),
     Preset::NetStat(netstat::Preset::Degraded),
     Preset::ChatHistory(chat_history::Preset::Busy),
@@ -192,6 +192,11 @@ pub const PSEUDOLOCALE_PRESETS: [Preset; 13] = [
     Preset::Observer(observer::Preset::hover_showcase(observer::Hover::JumpChip)),
     Preset::Observer(observer::Preset::game(6, 3, observer::Screen::Analyst)),
     Preset::Observer(observer::Preset::vision_picker()),
+    Preset::Observer(observer::Preset::perspective(
+        observer::PerspectiveKnob::Recorded,
+        observer::OpenList::Perspectives,
+        false,
+    )),
     Preset::Shell(shell::Preset::PlayerGameMenu),
     Preset::Shell(shell::Preset::Options(OptionsSection::Gameplay)),
     Preset::Shell(shell::Preset::Victory),
@@ -327,6 +332,9 @@ pub fn render(
                 shell.panel_prefs().spoiler_free,
             )
         });
+    if knobs.scenario == ScenarioKind::Observer {
+        state.observer.sync_perspective(knobs.observer.perspective);
+    }
     let observer_view = (knobs.scenario == ScenarioKind::Observer).then(|| {
         // In a replay the two clocks are the same clock: a matchup bar and a playback plate that
         // disagreed about how far into the game it is would be reporting on two different games.
@@ -390,6 +398,10 @@ pub fn render(
             state.observer.vision_picker_opened = true;
             shell.set_vision_picker_open(true);
         }
+        if knobs.observer.perspective_picker && !state.observer.perspective_picker_opened {
+            state.observer.perspective_picker_opened = true;
+            shell.set_perspective_picker_open(true);
+        }
     }
     let output = shell.frame(ctx, &host, &mut views);
     if knobs.scenario == ScenarioKind::NetQuality {
@@ -441,6 +453,18 @@ pub fn render(
             // watcher is shown, and a selection is what the game would put in its console.
             Intent::ToggleVision { player_id } => state.observer.toggle_vision(player_id),
             Intent::SetShowEntireMap(show) => state.observer.show_entire_map = show,
+            // The fake game shows nobody's camera or cursor, so what these move is only the state
+            // the minimap's perspective controls are drawn from.
+            Intent::ShowPerspective(index) => state.observer.show_perspective(index),
+            Intent::CyclePerspective { forward } => {
+                let count = observer_view
+                    .as_ref()
+                    .and_then(|view| view.perspective.as_ref())
+                    .map_or(0, |perspective| perspective.choices.len());
+                state.observer.cycle_perspective(forward, count);
+            }
+            Intent::SetPerspectiveCamera(follow) => state.observer.set_perspective_camera(follow),
+            Intent::SetPerspectiveActions(show) => state.observer.set_perspective_actions(show),
             Intent::SelectProduction { player_id, item } => {
                 state.observer.note_selection(player_id, item as usize)
             }

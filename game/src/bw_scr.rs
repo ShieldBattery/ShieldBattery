@@ -76,6 +76,7 @@ mod dialog_hook;
 mod draw_inject;
 mod draw_overlay;
 mod file_hook;
+mod first_person;
 mod fog_style;
 mod game;
 mod game_files;
@@ -516,6 +517,18 @@ pub struct BwScr {
     /// (any piece missing) leaves the game's built-in pan behavior untouched rather than failing
     /// game launch.
     grab_pan: Option<GrabPan>,
+    /// Engine pieces for recording first-person replays, or `None` when this build lacks the
+    /// mouse position functions, in which case nothing is recorded.
+    first_person: Option<first_person::FirstPersonEngine>,
+    /// The cursor graphic the game last chose, as a [`BwCursorType`] value.
+    last_cursor_type: AtomicU8,
+    /// `None` when this build lacks them, in which case the viewer's cursor never hides.
+    game_cursor_visibility: Option<first_person::GameCursorVisibility>,
+    /// Whether the viewer's cursor is hidden to leave a replay player's on screen alone.
+    viewer_cursor_hidden: AtomicBool,
+    /// The replay player's selection last copied to the viewer's, see
+    /// [`BwScr::first_person_mirror_selection`].
+    first_person_mirrored_selection: Mutex<Vec<SendPtr<*mut bw::Unit>>>,
     /// Whether the user's custom grab pan sensitivity replaces the game's built-in pan behavior
     /// (which moves the camera across the map's entire scrollable extent in 100 pixels of mouse
     /// travel). When false the built-in behavior runs unmodified.
@@ -3011,6 +3024,13 @@ impl BwScr {
                 if let Err(e) = result {
                     error!("Unable to write extended replay data: {e}");
                 }
+                let result = crate::replay::add_first_person_data(
+                    handle,
+                    game_thread::setup_info().unwrap(),
+                );
+                if let Err(e) = result {
+                    error!("Unable to write first-person replay data: {e}");
+                }
             }
         }
     }
@@ -5321,6 +5341,7 @@ impl bw::Bw for BwScr {
                 .write(frame.wrapping_add(1));
             (self.process_game_commands)(commands.as_ptr(), commands.len(), 1);
             self.netcode_v2.game_frame_count.write(turns);
+            self.first_person_command_feedback(commands, storm_player);
             if commands.first() == Some(&commands::id::LEAVE_GAME) {
                 // A live game applies a player's departure through the pending-leave drain, which
                 // besides removing the player also forces the trigger step to run on the next

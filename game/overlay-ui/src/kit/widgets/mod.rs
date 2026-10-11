@@ -31,9 +31,11 @@ pub use icons::{
     ColumnGlyph, IconSizes, ResourceGlyph, ResourceIcons, ResourceRace, paint_column_glyph,
     paint_resource_glyph, paint_resource_icon, set_resource_icons,
 };
+#[cfg(test)]
+pub(crate) use menus::DENSE_ROW_HEIGHT;
 pub use menus::{
     Glyph, ICON_BUTTON_SIZE, IconButtonState, MenuResponse, MenuRow, MenuSide, MenuTone,
-    dropdown_button, icon_button, menu_separator, paint_glyph, popup_menu,
+    dropdown_button, icon_button, menu_separator, paint_chevron, paint_glyph, popup_menu,
 };
 pub use panels::{
     PANEL_HEADER_HEIGHT, PanelHeader, STATUS_DOT_DIAMETER, TagStyle, centered_paragraph, divider,

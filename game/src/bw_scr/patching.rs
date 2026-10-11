@@ -1241,12 +1241,17 @@ impl BwScr {
             exe.hook_closure_address(
                 DecideCursorType,
                 move |orig| {
-                    if let Some(render_state) = self.render_state.lock()
-                        && let Some(val) = render_state.overlay.decide_cursor_type()
-                    {
-                        return val as u32;
-                    }
-                    orig()
+                    let overlay_choice = self
+                        .render_state
+                        .lock()
+                        .and_then(|render_state| render_state.overlay.decide_cursor_type());
+                    let cursor_type = match overlay_choice {
+                        Some(val) => val as u32,
+                        None => orig(),
+                    };
+                    self.last_cursor_type
+                        .store(cursor_type as u8, Ordering::Relaxed);
+                    cursor_type
                 },
                 address,
             );

@@ -95,6 +95,19 @@ impl BwScr {
                     if second_draw == 0 {
                         self.poll_team_color_mode();
                     }
+                    // The camera is moved to a followed replay player's before the frame is
+                    // drawn, so the frame shows the moved camera.
+                    let followed = if second_draw == 0 && self.is_replay.resolve() != 0 {
+                        self.first_person_follow()
+                    } else {
+                        None
+                    };
+                    if let Some(followed) = &followed {
+                        self.first_person_mirror_selection(followed);
+                    }
+                    if second_draw == 0 {
+                        self.first_person_update_viewer_cursor();
+                    }
                     // `extra_funcs` holds the game's per-frame HUD update, which must run whether
                     // or not the console is shown: it expires chat lines and cycles palettes
                     // among other things. A hidden console's art is held back by the hook on its
@@ -211,6 +224,17 @@ impl BwScr {
                     }
                     let ui_target = (self.get_render_target)(1);
                     let backbuffer = (self.get_render_target)(0);
+                    // Cursor and camera positions are in the UI target's pixels, which the game
+                    // view spans whatever the window's own resolution is.
+                    let game_view_size = ((*ui_target).width, (*ui_target).height);
+                    if game_started && !is_replay_or_obs {
+                        self.first_person_record(game_view_size);
+                    }
+                    let perspectives = if is_replay {
+                        self.first_person_frame(followed, game_view_size)
+                    } else {
+                        None
+                    };
                     let is_dx9_renderer = self
                         .dx9_renderer_vtables
                         .iter()
@@ -348,6 +372,7 @@ impl BwScr {
                                 &self.options,
                                 &self.option_lists,
                                 &self.observer_panels,
+                                perspectives.as_ref(),
                             );
                             if cfg!(debug_assertions) {
                                 self.handle_debug_ui_actions(&overlay_out, &mut render_state);

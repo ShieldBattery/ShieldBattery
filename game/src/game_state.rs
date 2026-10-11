@@ -296,7 +296,7 @@ impl GameState {
             .expect("Main thread should be waiting for a wakeup");
         async move {
             let sbat_replay_data = match info.is_replay() {
-                true => Some(read_sbat_replay_data(Path::new(&info.map_path))),
+                true => Some(read_replay_extensions(Path::new(&info.map_path))),
                 false => None,
             };
             // We tell BW thread to init, and then it'll stay in forge's WndProc until we're
@@ -707,11 +707,19 @@ impl GameState {
 
                 if let Some(sbat_replay_data_promise) = sbat_replay_data {
                     match sbat_replay_data_promise.await {
-                        Ok(Some(o)) => {
-                            debug!("Loaded shieldbattery replay extension");
-                            game_thread::set_sbat_replay_data(o);
+                        Ok(extensions) => {
+                            if let Some(sbat) = extensions.sbat {
+                                debug!("Loaded shieldbattery replay extension");
+                                game_thread::set_sbat_replay_data(sbat);
+                            }
+                            if !extensions.first_person.is_empty() {
+                                debug!(
+                                    "Loaded {} first-person replay tracks",
+                                    extensions.first_person.len()
+                                );
+                                crate::first_person::set_replay_tracks(extensions.first_person);
+                            }
                         }
-                        Ok(None) => (),
                         Err(e) => {
                             // A failure to read the extra replay data is usually not fatal, so log
                             // it and continue.
@@ -1974,7 +1982,13 @@ fn start_game_request(
     Ok(wait_done)
 }
 
-async fn read_sbat_replay_data(path: &Path) -> Result<Option<replay::SbatReplayData>, io::Error> {
+/// The sections ShieldBattery adds to the replays it saves.
+struct ReplayExtensions {
+    sbat: Option<replay::SbatReplayData>,
+    first_person: Vec<crate::first_person::track::Track>,
+}
+
+async fn read_replay_extensions(path: &Path) -> Result<ReplayExtensions, io::Error> {
     use byteorder::{ByteOrder, LittleEndian};
     use tokio::fs;
     use tokio::io::{AsyncReadExt, AsyncSeekExt};
@@ -1984,8 +1998,12 @@ async fn read_sbat_replay_data(path: &Path) -> Result<Option<replay::SbatReplayD
     file.read_exact(&mut buffer).await?;
     let magic = LittleEndian::read_u32(&buffer[0xc..]);
     let scr_extension_offset = LittleEndian::read_u32(&buffer[0x10..]);
+    let mut extensions = ReplayExtensions {
+        sbat: None,
+        first_person: Vec::new(),
+    };
     if magic != 0x53526573 {
-        return Ok(None);
+        return Ok(extensions);
     }
     let end_pos = file.seek(io::SeekFrom::End(0)).await?;
     file.seek(io::SeekFrom::Start(scr_extension_offset as u64))
@@ -2001,19 +2019,23 @@ async fn read_sbat_replay_data(path: &Path) -> Result<Option<replay::SbatReplayD
         };
         let id = LittleEndian::read_u32(header);
         let section_length = LittleEndian::read_u32(&header[4..]) as usize;
-        if id == replay::SECTION_ID {
-            let data = Some(())
-                .and_then(|()| buffer.get(pos.checked_add(8)?..)?.get(..section_length))
-                .and_then(replay::parse_shieldbattery_data);
-            return match data {
-                Some(o) => Ok(Some(o)),
-                None => Err(io::Error::other("Failed to parse shieldbattery section")),
-            };
-        } else {
-            pos = pos.saturating_add(section_length).saturating_add(8);
+        let payload = || buffer.get(pos.checked_add(8)?..)?.get(..section_length);
+        if id == replay::SECTION_ID && extensions.sbat.is_none() {
+            match payload().and_then(replay::parse_shieldbattery_data) {
+                Some(o) => extensions.sbat = Some(o),
+                None => return Err(io::Error::other("Failed to parse shieldbattery section")),
+            }
+        } else if id == crate::first_person::track::SECTION_ID && extensions.first_person.is_empty()
+        {
+            // First-person data is optional; a section that doesn't parse just isn't shown.
+            match payload().and_then(crate::first_person::track::parse_section) {
+                Some(section) => extensions.first_person = section.tracks,
+                None => warn!("Failed to parse first-person replay section"),
+            }
         }
+        pos = pos.saturating_add(section_length).saturating_add(8);
     }
-    Ok(None)
+    Ok(extensions)
 }
 
 #[cfg(test)]

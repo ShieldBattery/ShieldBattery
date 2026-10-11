@@ -56,6 +56,9 @@ pub enum Action {
     CycleVision,
     /// The list of players whose vision the game is shown through, which SC:R's diplomacy keys open.
     ToggleVisionPicker,
+    /// Step to the next of the perspectives the host has recorded for the game, or back to the camera a
+    /// followed player's was taken from; `Shift` steps to the previous one.
+    CyclePerspective,
     /// Spoiler-free mode, which hides everything that gives the outcome away.
     ToggleSpoilerFree,
     /// The dock holding the panel table, which SC:R calls its side panel; `Shift` changes which of
@@ -65,7 +68,7 @@ pub enum Action {
 
 impl Action {
     /// Every action, for a caller walking the table.
-    pub const ALL: [Action; 21] = [
+    pub const ALL: [Action; 22] = [
         Action::PauseResume,
         Action::SpeedUp,
         Action::SpeedDown,
@@ -85,6 +88,7 @@ impl Action {
         Action::ToggleMapControl,
         Action::CycleVision,
         Action::ToggleVisionPicker,
+        Action::CyclePerspective,
         Action::ToggleSpoilerFree,
         Action::ToggleDock,
     ];
@@ -111,6 +115,7 @@ impl Action {
             Action::ToggleMapControl => "map control",
             Action::CycleVision => "cycle vision",
             Action::ToggleVisionPicker => "vision list",
+            Action::CyclePerspective => "cycle player view",
             Action::ToggleSpoilerFree => "spoiler-free",
             Action::ToggleDock => "dock",
         }
@@ -296,6 +301,7 @@ impl Hotkeys {
             (Action::ToggleControlGroups, Chord::new(H)),
             (Action::ToggleMapControl, Chord::new(N)),
             (Action::CycleVision, Chord::new(V)),
+            (Action::CyclePerspective, Chord::new(C)),
             (Action::ToggleSpoilerFree, Chord::new(L)),
         ];
         Hotkeys { bindings }
@@ -468,6 +474,10 @@ mod tests {
         assert_eq!(
             hotkeys.action_for(Key::G, shift),
             Some(Action::ToggleGraphs)
+        );
+        assert_eq!(
+            hotkeys.action_for(Key::C, shift),
+            Some(Action::CyclePerspective)
         );
         assert_eq!(
             hotkeys.action_for(

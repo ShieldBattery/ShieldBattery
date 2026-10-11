@@ -6,8 +6,9 @@ use super::{FrameOutput, HostFrame, Intent, ModalId, Mode, Shell, Views};
 use crate::disconnect::{DisconnectView, SelfState};
 use crate::observer::{
     ControlGroupsView, EconomyView, GraphLineView, GraphsView, MapControlSideView, MapControlView,
-    MatchupView, MilitaryPlayerView, MilitaryView, ObserverView, OnScreenView, ProductionIcon,
-    ProductionView, RaceView, SelectedUnitView, SelectionView, TimelineView,
+    MatchupView, MilitaryPlayerView, MilitaryView, ObserverView, OnScreenView, PerspectiveChoice,
+    PerspectiveView, ProductionIcon, ProductionView, RaceView, SelectedUnitView, SelectionView,
+    TimelineView,
 };
 use crate::playback_controls::PlaybackView;
 
@@ -22,6 +23,17 @@ pub(super) fn spectating_shell() -> Shell {
         game_seconds: 0,
         pause_control: None,
         minimap_rect: None,
+    });
+    shell
+}
+
+/// A shell watching a live game from an observer's slot.
+pub(super) fn observing_shell() -> Shell {
+    let mut shell = Shell::new();
+    shell.set_host(&HostFrame {
+        mode: Mode::Observing,
+        game_started: true,
+        ..HostFrame::default()
     });
     shell
 }
@@ -70,12 +82,33 @@ pub(super) fn empty_game() -> ObserverView {
         selection: SelectionView::default(),
         map_control: None,
         on_screen: OnScreenView::default(),
+        perspective: None,
     }
 }
 
+/// `game` with the perspectives of two players recorded for it, neither of them shown.
+pub(super) fn with_perspectives(mut game: ObserverView) -> ObserverView {
+    game.perspective = Some(PerspectiveView {
+        choices: ["Rhynso", "tec27"]
+            .into_iter()
+            .enumerate()
+            .map(|(index, name)| PerspectiveChoice {
+                name: name.to_string(),
+                color: crate::kit::theme::player_color(index),
+            })
+            .collect(),
+        shown: None,
+        camera: true,
+        actions: true,
+        camera_returns: None,
+    });
+    game
+}
+
 /// [`empty_game`] with two players in it as far as the military panel and the graphs are concerned,
-/// which is what puts those two wings on the right edge, and a map-control reading, which gives the
-/// dock a row for its bar.
+/// which is what puts those two wings on the right edge, a map-control reading, which gives the dock
+/// a row for its bar, and the players' perspectives, which give the perspective key something to
+/// step through.
 pub(super) fn game_with_right_wings() -> ObserverView {
     let mut game = empty_game();
     for (index, name) in ["Rhynso", "tec27"].into_iter().enumerate() {
@@ -110,7 +143,7 @@ pub(super) fn game_with_right_wings() -> ObserverView {
             share: 0.4,
         },
     });
-    game
+    with_perspectives(game)
 }
 
 /// `game` with one of the first player's units selected, which puts the selection panel up.
@@ -192,6 +225,23 @@ pub(super) fn run_watched_frame_with_minimap(
 ) -> FrameOutput {
     let views = Views {
         playback: Some(playback),
+        observer: Some(observer),
+        ..Views::default()
+    };
+    run_frame_on(shell, ctx, views, screen, minimap, time, Vec::new())
+}
+
+/// Runs one shell frame of a live game being watched with the observer panels, which has no
+/// playback to drive, with the host reporting BW's minimap at `minimap`.
+pub(super) fn run_observed_frame_at(
+    shell: &mut Shell,
+    ctx: &Context,
+    observer: &ObserverView,
+    screen: egui::Vec2,
+    minimap: Option<Rect>,
+    time: f64,
+) -> FrameOutput {
+    let views = Views {
         observer: Some(observer),
         ..Views::default()
     };

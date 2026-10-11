@@ -15,9 +15,9 @@ use overlay_ui::observer::{
     EconomyPlayerView, EconomyView, GraphGrouping, GraphLineView, GraphSeries, GraphsView,
     MapControlSideView, MapControlView, MatchupPlayerView, MatchupView, MilitaryPlayerView,
     MilitaryView, ObserverView, OnScreenBaseView, OnScreenPlayerView, OnScreenUnitView,
-    OnScreenView, ProductionIcon, ProductionView, RaceView, ResourcesLeftView, SelectedUnitView,
-    SelectionView, StatusColor, TeamCardPlayerView, TeamCardTotalsView, TeamCardView,
-    TeamCardsView, TimelineEventView, TimelineView, UnitStatusView, WorkerJob,
+    OnScreenView, PerspectiveView, ProductionIcon, ProductionView, RaceView, ResourcesLeftView,
+    SelectedUnitView, SelectionView, StatusColor, TeamCardPlayerView, TeamCardTotalsView,
+    TeamCardView, TeamCardsView, TimelineEventView, TimelineView, UnitStatusView, WorkerJob,
 };
 use overlay_ui::playback_controls;
 use overlay_ui::shell::PanelPrefs;
@@ -511,6 +511,7 @@ impl ObserverViewCache {
         prefs: &PanelPrefs,
         matchup: MatchupView,
         production: ProductionView,
+        perspective: Option<PerspectiveView>,
     ) -> ObserverViewCache {
         let players = stats_players(bw);
         let stats = game_stats.map(|stats| stats.as_of(bw.game.frame_count()));
@@ -540,6 +541,7 @@ impl ObserverViewCache {
                 cache.view.selection = selection;
                 cache.view.map_control = map_control;
                 cache.view.on_screen = on_screen;
+                cache.view.perspective = perspective;
                 if cache.players != players {
                     cache.players = players;
                     cache.economy = None;
@@ -572,6 +574,7 @@ impl ObserverViewCache {
                     selection,
                     map_control,
                     on_screen,
+                    perspective,
                 },
                 players,
                 economy: None,

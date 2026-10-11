@@ -31,6 +31,7 @@ use crate::bw_scr::replay_playback::{PlaybackState, ReplayCommand};
 use crate::bw_scr::scr;
 use crate::bw_scr::stat_txt::StatTxt;
 use crate::bw_scr::{BwCursorType, DialogList, console, dialog_hook, hotkey_presses};
+use crate::first_person::track::MouseButton;
 use crate::netcode_v2::{self, DisconnectStatus, LoadingConnectivity, NetStatsStatus};
 
 pub use self::alliances::AllianceRules;
@@ -38,6 +39,8 @@ use self::alliances::AlliancesState;
 use self::chat_history::ChatHistoryCache;
 use self::production::ProductionState;
 use self::stats::ObserverViewCache;
+
+pub use self::first_person::{FirstPersonView, PerspectiveFrame, RecordedPerspective};
 
 // The overlay's fonts, colours, and disconnect presentation live in the host-compilable `overlay-ui`
 // crate; re-exported here so the DLL's other overlays keep referring to them by the same paths.
@@ -47,6 +50,7 @@ mod alliances;
 mod chat_history;
 mod disconnect;
 mod end_card;
+mod first_person;
 mod loading_screen;
 mod netstat;
 pub mod options;
@@ -153,6 +157,10 @@ pub struct OverlayState {
     /// character, so a number key recalls the game's own group on top of the one the shell
     /// selected unless the character is swallowed with the press.
     shell_held_keys: Vec<u16>,
+    /// The vision the viewer had before the perspective being shown took its place, while one is.
+    perspective_vision: Option<first_person::VisionBeforePerspective>,
+    /// The cursor sprites drawn for a replay player, loaded the first time one is drawn.
+    first_person_cursors: Option<egui::TextureHandle>,
 }
 
 /// Which physical key a key or character message is about, extended keys apart from the rest.
@@ -619,6 +627,8 @@ impl OverlayState {
             show_debug_ui: cfg!(debug_assertions)
                 && !std::env::var("SB_HIDE_DEBUG_UI").is_ok_and(|x| x == "1"),
             shell_held_keys: Vec::new(),
+            perspective_vision: None,
+            first_person_cursors: None,
             chat_history: None,
             observer_view: None,
             alliances: AlliancesState::default(),
@@ -662,6 +672,7 @@ impl OverlayState {
         options: &Mutex<OptionsView>,
         option_lists: &Mutex<Arc<OptionsLists>>,
         observer_panels: &Mutex<Option<PanelPrefs>>,
+        perspectives: Option<&PerspectiveFrame>,
     ) -> StepOutput {
         self.mouse_scaling = options.lock().mouse_scaling_on;
         if let Some(panels) = observer_panels.lock().take() {
@@ -898,6 +909,7 @@ impl OverlayState {
                 self.shell.panel_prefs(),
                 matchup,
                 production,
+                perspectives.map(PerspectiveFrame::controls_view),
             )
         });
         // Built for every frame of a replay whether or not the plate is on screen: the playback
@@ -973,6 +985,9 @@ impl OverlayState {
                         capture_mouse_scroll: hit.captures_scroll,
                     });
                 }
+                if let Some((view, render_size)) = perspectives.and_then(|x| x.view.as_ref()) {
+                    self.add_first_person_view(view, *render_size, &ctx);
+                }
                 if self.show_debug_ui {
                     self.add_debug_ui(bw, &ctx);
                 }
@@ -1014,6 +1029,10 @@ impl OverlayState {
                 }
                 intent => self.execute_intent(bw, intent, &mut replay_commands),
             }
+        }
+        // After the intents, one of which may have just chosen the perspective.
+        if let Some(perspectives) = perspectives {
+            self.update_perspective_vision(bw, &perspectives.recorded);
         }
         self.let_out_look_at(bw.game.frame_count());
         let prefs = *self.shell.panel_prefs();
@@ -1472,6 +1491,12 @@ impl OverlayState {
                 self.narrow_selection(bw, |selected| of_same_kind(selected, index, unit_kind))
             }
             Intent::ClearSelection => self.out_state.clear_selection = true,
+            Intent::ShowPerspective(track) => {
+                crate::first_person::show_perspective(track.map(usize::from))
+            }
+            Intent::CyclePerspective { forward } => crate::first_person::next_perspective(forward),
+            Intent::SetPerspectiveCamera(show) => crate::first_person::set_show_camera(show),
+            Intent::SetPerspectiveActions(show) => crate::first_person::set_show_actions(show),
             Intent::FollowSelectedUnit(index) => {
                 self.out_state.follow_unit =
                     bw.client_selection.iter().flatten().nth(index).copied();
@@ -1703,15 +1728,32 @@ impl OverlayState {
                     }
                     None
                 }
+                WM_MBUTTONDOWN | WM_MBUTTONUP => {
+                    let pressed = msg == WM_MBUTTONDOWN;
+                    crate::first_person::viewer_used_mouse();
+                    crate::first_person::set_viewer_middle_down(pressed);
+                    crate::first_person::record_button(MouseButton::Middle, pressed);
+                    None
+                }
+                WM_ACTIVATEAPP => {
+                    crate::first_person::record_focus(wparam != 0);
+                    None
+                }
                 WM_MOUSEMOVE => {
                     let x = lparam as i16;
                     let y = (lparam >> 16) as i16;
+                    // Windows also sends this without the mouse moving, e.g. when the cursor is
+                    // changed or confined, which mustn't count as the viewer using their mouse.
+                    if (x, y) != self.last_mouse_pos.0 {
+                        crate::first_person::viewer_used_mouse();
+                    }
                     let pos = self.window_pos_to_egui(x as i32, y as i32);
                     self.last_mouse_pos = ((x, y), pos);
                     self.events.push(Event::PointerMoved(pos));
                     None
                 }
                 WM_LBUTTONDOWN | WM_LBUTTONUP | WM_RBUTTONDOWN | WM_RBUTTONUP => {
+                    crate::first_person::viewer_used_mouse();
                     let (button, button_idx) = match msg {
                         WM_LBUTTONUP | WM_LBUTTONDOWN => (PointerButton::Primary, 0),
                         WM_RBUTTONUP | WM_RBUTTONDOWN => (PointerButton::Secondary, 1),
@@ -1738,6 +1780,13 @@ impl OverlayState {
                             self.bw_mouse_down[button_idx]
                         };
                         self.bw_mouse_down[button_idx] = pressed && deliver;
+                        if deliver {
+                            let button = match button_idx {
+                                0 => MouseButton::Left,
+                                _ => MouseButton::Right,
+                            };
+                            crate::first_person::record_button(button, pressed);
+                        }
                         return if deliver { None } else { Some(0) };
                     }
                     self.bw_mouse_down[button_idx] = false;

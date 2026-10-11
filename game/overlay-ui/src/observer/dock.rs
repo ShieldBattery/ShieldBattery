@@ -532,9 +532,9 @@ impl Hint {
     }
 }
 
-/// How a panel stands.
+/// How a panel stands, or anything else an on/off chip stands for.
 #[derive(Copy, Clone, PartialEq, Eq)]
-enum RowState {
+pub(crate) enum RowState {
     Off,
     On,
     /// Wanted on screen, with no room for it on this one.
@@ -1066,8 +1066,9 @@ fn paint_hatched_face(ui: &Ui, rect: Rect) -> Color32 {
 
 /// Paints the face of one of the dock's chips or rows, a keycap, a matchup style or a row of the
 /// table, lit while what it stands for is on screen and hollow while it is wanted with no room for
-/// it, and returns the color to mark it with.
-fn paint_chip_face(ui: &Ui, rect: Rect, state: RowState) -> Color32 {
+/// it, and returns the color to mark it with. The same face lights any other ambient on/off chip,
+/// so a switched-on control reads the same wherever a watcher meets one.
+pub(crate) fn paint_chip_face(ui: &Ui, rect: Rect, state: RowState) -> Color32 {
     let corner_radius = theme::radius(theme::RADIUS_CHIP);
     // A lit chip is filled in the overlay's own blue rather than tinted: the strip is read at a
     // glance from the corner of the screen, and a tint is not a state anyone reads from there.

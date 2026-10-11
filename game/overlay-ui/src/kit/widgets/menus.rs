@@ -37,6 +37,14 @@ const ROW_GAP: f32 = 10.0;
 /// The size of the glyph in front of a row's label.
 const ROW_GLYPH_SIZE: f32 = 15.0;
 
+/// The same measures for a dense row, which is set in the text of the ambient control its menu
+/// opens from: a row at a dialog's size would be the largest thing on a panel drawn over the game.
+pub(crate) const DENSE_ROW_HEIGHT: f32 = 26.0;
+const DENSE_ROW_LABEL_SIZE: f32 = 12.0;
+const DENSE_ROW_PAD_X: f32 = 8.0;
+const DENSE_ROW_GAP: f32 = 6.0;
+const DENSE_ROW_GLYPH_SIZE: f32 = 12.0;
+
 /// The size of the note at a row's far end.
 const ROW_NOTE_SIZE: f32 = 11.0;
 
@@ -142,7 +150,59 @@ pub struct MenuRow<'a> {
     tone: MenuTone,
     selected: bool,
     note: Option<&'a str>,
-    compact: bool,
+    size: RowSize,
+}
+
+/// How much room a menu row takes.
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
+enum RowSize {
+    #[default]
+    Regular,
+    Compact,
+    Dense,
+}
+
+/// What a row of one size is laid out by.
+struct RowMeasures {
+    height: f32,
+    label_size: f32,
+    label_weight: BodyWeight,
+    pad_x: f32,
+    gap: f32,
+    glyph_size: f32,
+}
+
+impl RowSize {
+    fn measures(self) -> RowMeasures {
+        match self {
+            RowSize::Regular => RowMeasures {
+                height: ROW_HEIGHT,
+                label_size: ROW_LABEL_SIZE,
+                label_weight: BodyWeight::Regular,
+                pad_x: ROW_PAD_X,
+                gap: ROW_GAP,
+                glyph_size: ROW_GLYPH_SIZE,
+            },
+            RowSize::Compact => RowMeasures {
+                height: COMPACT_ROW_HEIGHT,
+                label_size: COMPACT_ROW_LABEL_SIZE,
+                label_weight: BodyWeight::Regular,
+                pad_x: ROW_PAD_X,
+                gap: ROW_GAP,
+                glyph_size: ROW_GLYPH_SIZE,
+            },
+            // The weight an ambient control's own label is set in, which text this small needs
+            // over the game.
+            RowSize::Dense => RowMeasures {
+                height: DENSE_ROW_HEIGHT,
+                label_size: DENSE_ROW_LABEL_SIZE,
+                label_weight: BodyWeight::Medium,
+                pad_x: DENSE_ROW_PAD_X,
+                gap: DENSE_ROW_GAP,
+                glyph_size: DENSE_ROW_GLYPH_SIZE,
+            },
+        }
+    }
 }
 
 impl<'a> MenuRow<'a> {
@@ -184,15 +244,26 @@ impl<'a> MenuRow<'a> {
 
     /// The smaller row of a list of choices.
     pub fn compact(mut self) -> Self {
-        self.compact = true;
+        self.size = RowSize::Compact;
+        self
+    }
+
+    /// The row of a menu that opens from a control of an ambient panel, at that control's own text
+    /// size.
+    pub fn dense(mut self) -> Self {
+        self.size = RowSize::Dense;
         self
     }
 
     pub fn show(self, ui: &mut Ui) -> Response {
-        let (height, label_size) = match self.compact {
-            true => (COMPACT_ROW_HEIGHT, COMPACT_ROW_LABEL_SIZE),
-            false => (ROW_HEIGHT, ROW_LABEL_SIZE),
-        };
+        let RowMeasures {
+            height,
+            label_size,
+            label_weight,
+            pad_x,
+            gap,
+            glyph_size,
+        } = self.size.measures();
         let width = ui.available_width();
         let (rect, response) = ui.allocate_exact_size(vec2(width, height), Sense::click());
         if !ui.is_rect_visible(rect) {
@@ -210,32 +281,29 @@ impl<'a> MenuRow<'a> {
             MenuTone::Normal => GREY_BLUE95,
             MenuTone::Dim => GREY_BLUE70,
         };
-        let mut left = rect.left() + ROW_PAD_X;
+        let mut left = rect.left() + pad_x;
         if let Some(glyph) = self.glyph {
             let glyph_rect = Rect::from_min_size(
-                pos2(left, rect.center().y - ROW_GLYPH_SIZE * 0.5),
-                Vec2::splat(ROW_GLYPH_SIZE),
+                pos2(left, rect.center().y - glyph_size * 0.5),
+                Vec2::splat(glyph_size),
             );
             paint_glyph(ui.painter(), glyph_rect, glyph, color);
-            left = glyph_rect.right() + ROW_GAP;
+            left = glyph_rect.right() + gap;
         }
         if let Some(swatch) = self.swatch {
             let column =
                 Rect::from_min_size(pos2(left, rect.top()), vec2(PLAYER_SWATCH, rect.height()));
             paint_player_swatch_in(ui, column, swatch, 1.0);
-            left = column.right() + ROW_GAP;
+            left = column.right() + gap;
         }
-        let mut right = rect.right() - ROW_PAD_X;
+        let mut right = rect.right() - pad_x;
         if self.selected {
             let check = Rect::from_min_size(
-                pos2(
-                    right - ROW_GLYPH_SIZE,
-                    rect.center().y - ROW_GLYPH_SIZE * 0.5,
-                ),
-                Vec2::splat(ROW_GLYPH_SIZE),
+                pos2(right - glyph_size, rect.center().y - glyph_size * 0.5),
+                Vec2::splat(glyph_size),
             );
             paint_glyph(ui.painter(), check, Glyph::Check, AMBER60);
-            right = check.left() - ROW_GAP;
+            right = check.left() - gap;
         } else if let Some(note) = self.note {
             let galley = text::body(ROW_NOTE_SIZE, BodyWeight::Regular)
                 .with_color(GREY_BLUE60)
@@ -244,10 +312,10 @@ impl<'a> MenuRow<'a> {
                 right - galley.size().x,
                 rect.center().y - galley.size().y * 0.5,
             );
-            right = pos.x - ROW_GAP;
+            right = pos.x - gap;
             ui.painter().galley(pos, galley, GREY_BLUE60);
         }
-        let job = text::body(label_size, BodyWeight::Regular)
+        let job = text::body(label_size, label_weight)
             .with_color(color)
             .job_truncated(self.label, (right - left).max(0.0));
         let galley = ui.ctx().fonts_mut(|fonts| fonts.layout_job(job));
@@ -490,8 +558,9 @@ pub fn paint_glyph(painter: &egui::Painter, rect: Rect, glyph: Glyph, color: Col
     painter.extend(shapes);
 }
 
-/// Paints a dropdown's chevron into `rect`.
-fn paint_chevron(painter: &egui::Painter, rect: Rect, color: Color32) {
+/// Paints a dropdown's chevron into `rect`, the mark that says a control opens a list to choose
+/// from.
+pub fn paint_chevron(painter: &egui::Painter, rect: Rect, color: Color32) {
     let points: Vec<Pos2> = vec![
         rect.left_top(),
         pos2(rect.center().x, rect.bottom()),

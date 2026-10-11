@@ -54,6 +54,7 @@ mod companion;
 mod crash_dump;
 #[cfg(debug_assertions)]
 mod debug_control;
+mod first_person;
 mod forge;
 mod frame_pacing;
 mod frame_timing;
