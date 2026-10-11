@@ -128,7 +128,7 @@ export const PanelRoot = styled.div`
 
 export const PageHead = styled.div`
   display: flex;
-  align-items: flex-start;
+  align-items: baseline;
   justify-content: space-between;
   gap: 24px;
 `
@@ -145,11 +145,14 @@ export const PageSubtitle = styled.div`
   margin-top: 4px;
 `
 
-const PageHeadEnd = styled.div`
+const PageHeadArea = styled.div`
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
+  gap: 4px;
+`
+
+const PageGuideLink = styled(GuideLink)`
+  align-self: flex-end;
 `
 
 export const SeasonLabel = styled.div`
@@ -161,7 +164,6 @@ export const SeasonLabel = styled.div`
 
   color: var(--theme-on-surface-variant);
   white-space: nowrap;
-  margin-top: 4px;
 `
 
 // ─── Lobby banner ─────────────────────────────────────────────────────────────
@@ -1529,29 +1531,29 @@ export function FindMatch() {
   return (
     <PageRoot>
       <PanelRoot>
-        <PageHead>
-          <div>
-            <PageTitle>{t('matchmaking.findMatch.title', 'Find match')}</PageTitle>
-            <PageSubtitle>
-              {t(
-                'matchmaking.findMatch.subtitle',
-                'Choose one or more matchmaking types and we\u2019ll queue for them all at once.',
-              )}
-            </PageSubtitle>
-          </div>
-          <PageHeadEnd>
-            <GuideLink
-              label={t('matchmaking.explainer.linkLabel', 'How matchmaking works')}
-              href={MATCHMAKING_GUIDE_PATH}
-            />
+        <PageHeadArea>
+          <PageGuideLink
+            label={t('matchmaking.explainer.linkLabel', 'How matchmaking works')}
+            href={MATCHMAKING_GUIDE_PATH}
+          />
+          <PageHead>
+            <div>
+              <PageTitle>{t('matchmaking.findMatch.title', 'Find match')}</PageTitle>
+              <PageSubtitle>
+                {t(
+                  'matchmaking.findMatch.subtitle',
+                  'Choose one or more matchmaking types and we\u2019ll queue for them all at once.',
+                )}
+              </PageSubtitle>
+            </div>
             {season ? (
               <SeasonLabel>
                 <span>{season.name}</span>
                 {seasonEnd !== undefined ? <SeasonEndDate endDate={seasonEnd} /> : null}
               </SeasonLabel>
             ) : null}
-          </PageHeadEnd>
-        </PageHead>
+          </PageHead>
+        </PageHeadArea>
 
         {inLobby ? (
           <LobbyBanner>

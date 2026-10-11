@@ -149,7 +149,9 @@ const RailTitle = styled(TitleLarge)`
 `
 
 const RailGuideLink = styled(GuideLink)`
-  margin: 0 4px 8px;
+  /* Lines the text up with the season eyebrow below it. */
+  margin: 0 12px 4px;
+  align-self: flex-start;
 `
 
 const SeasonSection = styled.div`
