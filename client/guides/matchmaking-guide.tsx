@@ -149,7 +149,7 @@ export function MatchmakingGuidePage() {
   return (
     <GuidePage
       path={MATCHMAKING_GUIDE_PATH}
-      title={t('matchmaking.explainer.title', 'How matchmaking works')}
+      title={t('matchmaking.explainer.title', 'How matchmaking works in ShieldBattery')}
       markdown={markdown}
     />
   )

@@ -5,7 +5,7 @@ import { LinkButton } from '../material/link-button'
 import { Ripple } from '../material/ripple'
 import { elevationPlus1 } from '../material/shadows'
 import { ContainerLevel, containerStyles } from '../styles/colors'
-import { titleSmall } from '../styles/typography'
+import { singleLine, titleSmall } from '../styles/typography'
 
 const Root = styled(LinkButton)`
   ${elevationPlus1};
@@ -39,6 +39,8 @@ const Icon = styled(MaterialIcon)`
 
 const Label = styled.span`
   ${titleSmall};
+  ${singleLine};
+  min-width: 0;
 `
 
 /**

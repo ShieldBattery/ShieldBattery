@@ -223,9 +223,9 @@ describe('page-metadata/page-metadata', () => {
     const ladder = await resolvePageMetadata('/guides/ladder', CONTEXT)
 
     expect(matchmaking.url).toBe('https://shieldbattery.net/guides/matchmaking')
-    expect(matchmaking.title).toBe('How matchmaking works · ShieldBattery')
+    expect(matchmaking.title).toBe('How matchmaking works in ShieldBattery')
     expect(ladder.url).toBe('https://shieldbattery.net/guides/ladder')
-    expect(ladder.title).toBe('How ladder works · ShieldBattery')
+    expect(ladder.title).toBe('How the ladder works in ShieldBattery')
   })
 
   test('matches a static route registered with a trailing wildcard', async () => {

@@ -61,13 +61,13 @@ const ROUTES: ReadonlyArray<RouteDefinition> = [
   ),
   staticRoute(
     '/guides/matchmaking',
-    'How matchmaking works',
+    'How matchmaking works in ShieldBattery',
     'How the ShieldBattery matchmaker picks who plays together, and why a game can start without ' +
       "you while you're in the queue.",
   ),
   staticRoute(
     '/guides/ladder',
-    'How ladder works',
+    'How the ladder works in ShieldBattery',
     'How MMR, points and divisions work on the ShieldBattery ladder, and why ranks use points.',
   ),
   staticRoute(
