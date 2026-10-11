@@ -1541,7 +1541,7 @@ export function FindMatch() {
           </div>
           <PageHeadEnd>
             <GuideLink
-              label={t('matchmaking.explainer.title', 'How matchmaking works')}
+              label={t('matchmaking.explainer.linkLabel', 'How matchmaking works in ShieldBattery')}
               href={MATCHMAKING_GUIDE_PATH}
             />
             {season ? (
