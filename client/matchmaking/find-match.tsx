@@ -21,6 +21,8 @@ import { AssignedRaceChar, RaceChar } from '../../common/races'
 import { urlPath } from '../../common/urls'
 import { useTrackPageView } from '../analytics/analytics'
 import { useSelfUser } from '../auth/auth-utils'
+import { GuideLink } from '../guides/guide-link'
+import { MATCHMAKING_GUIDE_PATH } from '../guides/guide-urls'
 import { dateTimeFormat, useFormat, useFormatLocale } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
@@ -141,6 +143,13 @@ export const PageSubtitle = styled.div`
   ${bodySmall};
   color: var(--theme-on-surface-variant);
   margin-top: 4px;
+`
+
+const PageHeadEnd = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
 `
 
 export const SeasonLabel = styled.div`
@@ -1530,12 +1539,18 @@ export function FindMatch() {
               )}
             </PageSubtitle>
           </div>
-          {season ? (
-            <SeasonLabel>
-              <span>{season.name}</span>
-              {seasonEnd !== undefined ? <SeasonEndDate endDate={seasonEnd} /> : null}
-            </SeasonLabel>
-          ) : null}
+          <PageHeadEnd>
+            <GuideLink
+              label={t('matchmaking.explainer.linkLabel', 'How matchmaking works in ShieldBattery')}
+              href={MATCHMAKING_GUIDE_PATH}
+            />
+            {season ? (
+              <SeasonLabel>
+                <span>{season.name}</span>
+                {seasonEnd !== undefined ? <SeasonEndDate endDate={seasonEnd} /> : null}
+              </SeasonLabel>
+            ) : null}
+          </PageHeadEnd>
         </PageHead>
 
         {inLobby ? (

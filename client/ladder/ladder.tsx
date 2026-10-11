@@ -34,6 +34,8 @@ import { useSelfUser } from '../auth/auth-utils'
 import { Avatar } from '../avatars/avatar'
 import { useMediaQuery } from '../dom/use-media-query'
 import { useTargetVisibleInScrollParent } from '../dom/visibility-hooks'
+import { GuideLink } from '../guides/guide-link'
+import { LADDER_GUIDE_PATH } from '../guides/guide-urls'
 import { longTimestamp, narrowDuration, shortTimestamp } from '../i18n/date-formats'
 import { useFormat, useFormatLocale } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
@@ -46,8 +48,9 @@ import {
 } from '../matchmaking/matchmaking-type-nav'
 import { LadderPlayerIcon } from '../matchmaking/rank-icon'
 import { SeasonEndDate, useUpcomingSeasonEnd } from '../matchmaking/season-end-date'
-import { useButtonState } from '../material/button'
+import { IconButton, useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
+import { LinkButton } from '../material/link-button'
 import { Ripple } from '../material/ripple'
 import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
 import { SelectOption } from '../material/select/option'
@@ -143,6 +146,10 @@ const Rail = styled.div`
 
 const RailTitle = styled(TitleLarge)`
   padding: 0 12px 8px;
+`
+
+const RailGuideLink = styled(GuideLink)`
+  margin: 0 4px 8px;
 `
 
 const SeasonSection = styled.div`
@@ -564,6 +571,10 @@ export function Ladder({ matchmakingType: routeType, seasonId }: LadderProps) {
             onChange={onTabChange}
           />
           <FlexSpacer />
+          <RailGuideLink
+            label={t('ladder.explainer.linkLabel', 'How the ladder works in ShieldBattery')}
+            href={LADDER_GUIDE_PATH}
+          />
           <SeasonSection>
             <RailEyebrow>{t('ladder.season', 'Season')}</RailEyebrow>
             <SeasonSelect
@@ -691,6 +702,13 @@ function CompactModeControls({
         allowErrors={false}>
         {seasonOptions}
       </CompactSelect>
+      <LinkButton href={LADDER_GUIDE_PATH}>
+        <IconButton
+          styledAs='div'
+          icon={<MaterialIcon icon='help' />}
+          title={t('ladder.explainer.linkLabel', 'How the ladder works in ShieldBattery')}
+        />
+      </LinkButton>
     </CompactNav>
   )
 }

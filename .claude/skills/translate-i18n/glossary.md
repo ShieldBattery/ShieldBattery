@@ -165,6 +165,11 @@ consistent. (Seed — extend over time.)
   button→**Reportar**.
 - **Event mode** (lobby option that turns off replay-affecting fixes)→**Modo evento**; banner value
   On→Activado; Advanced (form section)→**Avanzado**. Game bugs→**bugs** (in-file loanword).
+- **Explainer articles** (`matchmaking.explainer.*`, `ladder.explainer.*`): the ladder
+  is **clasificatoria** (the page title), MMR is written **MMR** with "índice de emparejamiento"
+  glossed once, placement games→**partidas de posicionamiento** (in-file), bonus pool→**bono
+  acumulado**, catch-up bonus→**bono de recuperación**, grinding→**farmear**. The example players
+  (Arbiter, Reaver, …) stay in English: they're names in an English image.
 
 ### ru
 - Register: formal **Вы** (the existing file is consistently Вы; do not use ты here).
@@ -260,6 +265,11 @@ consistent. (Seed — extend over time.)
 - **Event mode→Турнирный режим** (режим мероприятий is stiff, режим события is the wrong sense);
   banner value On→**Включён**, Advanced (form section)→**Дополнительно**, game bugs→**баги** (the
   bug-report strings use ошибка, which reads as "error" for in-game behavior).
+- **Explainer articles** (`matchmaking.explainer.*`, `ladder.explainer.*`): the ladder is
+  **ладдер** in running text, because the page title «Рейтинг» collides with рейтинг = MMR (the
+  ladder article explains both). placement games→**калибровочные матчи** (in-file), bonus
+  pool→**бонусный пул**, catch-up bonus→**догоняющий бонус**, uncertainty→**неопределённость**.
+  The example players (Arbiter, Reaver, …) stay in English: they're names in an English image.
 
 ### ko
 - **Register: use formal-polite 합니다/습니다체 for sentences.** The existing `ko/global.json` is
@@ -352,6 +362,12 @@ consistent. (Seed — extend over time.)
   report→**신고하기**. Names take **님** ({{user}} 님을), which also sidesteps 을/를 agreement.
 - **Event mode→이벤트 모드**; banner value On→**사용** (the On/Off convention), Advanced (form
   section)→**고급**, game bugs→**버그**. "(not recommended)"→(권장하지 않음), no space before it.
+- **Explainer articles** (`matchmaking.explainer.*`, `ladder.explainer.*`): placement
+  games→**배치전** (in-file), bonus pool→**보너스 풀**, catch-up bonus→**따라잡기 보너스**,
+  uncertainty→**불확실성**, grinding→**노가다**; "you" in prose→**본인** (never 당신). Quoted player
+  questions use plain 해라체 (…됐다. 왜?) so they don't break the 합니다체 rule. Bold must not end in
+  punctuation right before a Korean letter (`**레이팅(MMR)**과` doesn't parse): bold the word, put
+  the parenthetical after it. The example players (Arbiter, Reaver, …) stay in English.
 
 ### zh-Hans
 - Register: use 您 for second person (the existing file is ~3:1 您 vs 你; it's the normal polite UI
@@ -432,3 +448,8 @@ consistent. (Seed — extend over time.)
 - **Event mode→赛事模式**; banner value On→**开启**, Advanced (form section)→**高级**, game
   bugs→**bug** (in-file 反馈 bug). StarCraft: Remastered in running text→《星际争霸：重制版》 (the
   export form).
+- **Explainer articles** (`matchmaking.explainer.*`, `ladder.explainer.*`):
+  placement games→**定级赛** (in-file), bonus pool→**加分池** (matches the 加分 label),
+  catch-up bonus→**追分奖励**, uncertainty→**不确定度**, a matchmade match→**对局**. Put full-width
+  punctuation **outside** bold (`**…玩家**。`): `**…。**` only parses when a space follows, which
+  shows as a gap. The example players (Arbiter, Reaver, …) stay in English.
