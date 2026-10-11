@@ -6,6 +6,7 @@ import { Login } from './auth/login'
 import { RecoverUsername } from './auth/recover-username'
 import { ResetPassword } from './auth/reset-password'
 import { OnlyInAppPage } from './download/only-in-app'
+import { LADDER_GUIDE_PATH, MATCHMAKING_GUIDE_PATH } from './guides/guide-urls'
 import { Home } from './home/home'
 import { MainLayoutLoadingDotsArea } from './main-layout'
 import { AnimatedSwitch } from './navigation/animated-switch'
@@ -58,6 +59,12 @@ const MapsRoot = React.lazy(async () => ({
 const NewsArchivePage = React.lazy(async () => ({
   default: (await import('./news/news-archive-page')).NewsArchivePage,
 }))
+const LadderGuidePage = React.lazy(async () => ({
+  default: (await import('./guides/ladder-guide')).LadderGuidePage,
+}))
+const MatchmakingGuidePage = React.lazy(async () => ({
+  default: (await import('./guides/matchmaking-guide')).MatchmakingGuidePage,
+}))
 const NewsPostPage = React.lazy(async () => ({
   default: (await import('./news/news-post-page')).NewsPostPage,
 }))
@@ -105,6 +112,8 @@ export function AppRoutes({
 
       <Route path='/chat/*?' component={ChannelRouteComponent} />
       <Route path='/games/*?' component={GamesRouteComponent} />
+      <Route path={LADDER_GUIDE_PATH} component={LadderGuidePage} />
+      <Route path={MATCHMAKING_GUIDE_PATH} component={MatchmakingGuidePage} />
       <Route path='/ladder/*?' component={LadderRouteComponent} />
       <Route path='/leagues/*?' component={LeagueRoot} />
       <Route path='/live' component={LiveStreamsPage} />

@@ -218,6 +218,16 @@ describe('page-metadata/page-metadata', () => {
     expect(result).toEqual(DEFAULT_METADATA)
   })
 
+  test('resolves each guide page to its own preview metadata', async () => {
+    const matchmaking = await resolvePageMetadata('/guides/matchmaking', CONTEXT)
+    const ladder = await resolvePageMetadata('/guides/ladder', CONTEXT)
+
+    expect(matchmaking.url).toBe('https://shieldbattery.net/guides/matchmaking')
+    expect(matchmaking.title).toBe('How matchmaking works · ShieldBattery')
+    expect(ladder.url).toBe('https://shieldbattery.net/guides/ladder')
+    expect(ladder.title).toBe('How ladder works · ShieldBattery')
+  })
+
   test('matches a static route registered with a trailing wildcard', async () => {
     const result = await resolvePageMetadata('/ladder/1v1', CONTEXT)
 

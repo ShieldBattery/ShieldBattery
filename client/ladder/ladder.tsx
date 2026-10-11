@@ -32,16 +32,15 @@ import { SbUserId } from '../../common/users/sb-user-id'
 import { useTrackPageView } from '../analytics/analytics'
 import { useSelfUser } from '../auth/auth-utils'
 import { Avatar } from '../avatars/avatar'
-import { openDialog } from '../dialogs/action-creators'
-import { DialogType } from '../dialogs/dialog-type'
 import { useMediaQuery } from '../dom/use-media-query'
 import { useTargetVisibleInScrollParent } from '../dom/visibility-hooks'
+import { GuideLink } from '../guides/guide-link'
+import { LADDER_GUIDE_PATH } from '../guides/guide-urls'
 import { longTimestamp, narrowDuration, shortTimestamp } from '../i18n/date-formats'
 import { useFormat, useFormatLocale } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { JsonLocalStorageValue } from '../local-storage'
 import { getMatchmakingSeasons } from '../matchmaking/action-creators'
-import { ExplainerButton } from '../matchmaking/explainer-button'
 import {
   MatchmakingTypeNav,
   ORDERED_MATCHMAKING_TYPES,
@@ -51,6 +50,7 @@ import { LadderPlayerIcon } from '../matchmaking/rank-icon'
 import { SeasonEndDate, useUpcomingSeasonEnd } from '../matchmaking/season-end-date'
 import { IconButton, useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
+import { LinkButton } from '../material/link-button'
 import { Ripple } from '../material/ripple'
 import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
 import { SelectOption } from '../material/select/option'
@@ -148,7 +148,7 @@ const RailTitle = styled(TitleLarge)`
   padding: 0 12px 8px;
 `
 
-const RailExplainerButton = styled(ExplainerButton)`
+const RailGuideLink = styled(GuideLink)`
   margin: 0 4px 8px;
 `
 
@@ -571,9 +571,9 @@ export function Ladder({ matchmakingType: routeType, seasonId }: LadderProps) {
             onChange={onTabChange}
           />
           <FlexSpacer />
-          <RailExplainerButton
+          <RailGuideLink
             label={t('ladder.explainer.title', 'How ladder works')}
-            onClick={() => dispatch(openDialog({ type: DialogType.LadderExplainer }))}
+            href={LADDER_GUIDE_PATH}
           />
           <SeasonSection>
             <RailEyebrow>{t('ladder.season', 'Season')}</RailEyebrow>
@@ -680,7 +680,6 @@ function CompactModeControls({
   seasonOptions: React.ReactNode
 }) {
   const { t } = useTranslation()
-  const dispatch = useAppDispatch()
   useMatchmakingTypeShortcuts({ activeType, onChange: onTypeChange })
 
   return (
@@ -703,11 +702,13 @@ function CompactModeControls({
         allowErrors={false}>
         {seasonOptions}
       </CompactSelect>
-      <IconButton
-        icon={<MaterialIcon icon='help' />}
-        title={t('ladder.explainer.title', 'How ladder works')}
-        onClick={() => dispatch(openDialog({ type: DialogType.LadderExplainer }))}
-      />
+      <LinkButton href={LADDER_GUIDE_PATH}>
+        <IconButton
+          styledAs='div'
+          icon={<MaterialIcon icon='help' />}
+          title={t('ladder.explainer.title', 'How ladder works')}
+        />
+      </LinkButton>
     </CompactNav>
   )
 }

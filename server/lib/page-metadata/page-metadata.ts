@@ -60,6 +60,17 @@ const ROUTES: ReadonlyArray<RouteDefinition> = [
     'Answers to frequently asked questions about ShieldBattery.',
   ),
   staticRoute(
+    '/guides/matchmaking',
+    'How matchmaking works',
+    'How the ShieldBattery matchmaker picks who plays together, and why a game can start without ' +
+      "you while you're in the queue.",
+  ),
+  staticRoute(
+    '/guides/ladder',
+    'How ladder works',
+    'How MMR, points and divisions work on the ShieldBattery ladder, and why ranks use points.',
+  ),
+  staticRoute(
     '/ladder/*?',
     'ShieldBattery Ladder',
     'See the best StarCraft: Brood War players on the ShieldBattery ladder rankings.',

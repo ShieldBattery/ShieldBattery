@@ -1499,6 +1499,9 @@
       "us-west": "EE. UU. Oeste"
     }
   },
+  "guides": {
+    "copyLink": "Copiar enlace a esta guía"
+  },
   "home": {
     "latestNewsTitle": "Últimas noticias",
     "supportTitle": "Apoya el proyecto"

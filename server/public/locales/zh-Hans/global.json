@@ -1467,6 +1467,9 @@
       "us-west": "美国西部"
     }
   },
+  "guides": {
+    "copyLink": "复制指南链接"
+  },
   "home": {
     "latestNewsTitle": "最新消息",
     "supportTitle": "支持这个项目"

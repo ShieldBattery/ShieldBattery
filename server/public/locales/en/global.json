@@ -1485,6 +1485,9 @@
       "us-west": "US West"
     }
   },
+  "guides": {
+    "copyLink": "Copy link to this guide"
+  },
   "home": {
     "latestNewsTitle": "Latest news",
     "supportTitle": "Support the project"

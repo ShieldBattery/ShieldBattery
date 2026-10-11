@@ -1467,6 +1467,9 @@
       "us-west": "미국 서부"
     }
   },
+  "guides": {
+    "copyLink": "가이드 링크 복사"
+  },
   "home": {
     "latestNewsTitle": "최신 소식",
     "supportTitle": "프로젝트 후원하기"

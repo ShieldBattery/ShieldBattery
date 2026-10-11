@@ -1,17 +1,15 @@
 import styled from 'styled-components'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useButtonState } from '../material/button'
-import { buttonReset } from '../material/button-reset'
+import { LinkButton } from '../material/link-button'
 import { Ripple } from '../material/ripple'
 import { elevationPlus1 } from '../material/shadows'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { titleSmall } from '../styles/typography'
 
-const Root = styled.button`
-  ${buttonReset};
+const Root = styled(LinkButton)`
   ${elevationPlus1};
   ${containerStyles(ContainerLevel.Low)};
-  position: relative;
   min-height: 44px;
   padding: 8px 12px;
 
@@ -20,10 +18,13 @@ const Root = styled.button`
   gap: 8px;
 
   border-radius: 4px;
-  color: var(--theme-on-surface);
   contain: content;
   outline-color: var(--theme-grey-blue);
-  text-align: left;
+
+  &:link,
+  &:visited {
+    color: var(--theme-on-surface);
+  }
 
   &:focus-visible {
     outline: 3px solid var(--theme-grey-blue);
@@ -41,21 +42,21 @@ const Label = styled.span`
 `
 
 /**
- * A raised card-style button that opens an explainer for the page it sits on, styled after the
- * home page's announcement notice so it reads as information rather than a page action.
+ * A raised card-style link to a guide about the page it sits on, styled after the home page's
+ * announcement notice so it reads as information rather than a page action.
  */
-export function ExplainerButton({
+export function GuideLink({
   label,
-  onClick,
+  href,
   className,
 }: {
   label: string
-  onClick: () => void
+  href: string
   className?: string
 }) {
-  const [buttonProps, rippleRef] = useButtonState({ onClick })
+  const [buttonProps, rippleRef] = useButtonState({})
   return (
-    <Root type='button' className={className} {...buttonProps}>
+    <Root href={href} className={className} {...buttonProps}>
       <Icon icon='help' size={20} />
       <Label>{label}</Label>
       <Ripple ref={rippleRef} />

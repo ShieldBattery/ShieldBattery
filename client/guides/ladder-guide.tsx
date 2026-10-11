@@ -1,8 +1,8 @@
 import { useTranslation } from 'react-i18next'
-import { CommonDialogProps } from '../dialogs/common-dialog-props'
-import { ExplainerDialog } from '../matchmaking/explainer-dialog'
+import { GuidePage } from './guide-page'
+import { LADDER_GUIDE_PATH } from './guide-urls'
 
-export function LadderExplainerDialog({ onCancel }: CommonDialogProps) {
+export function LadderGuidePage() {
   const { t } = useTranslation()
 
   const markdown = [
@@ -98,10 +98,10 @@ export function LadderExplainerDialog({ onCancel }: CommonDialogProps) {
   ].join('\n\n')
 
   return (
-    <ExplainerDialog
+    <GuidePage
+      path={LADDER_GUIDE_PATH}
       title={t('ladder.explainer.title', 'How ladder works')}
       markdown={markdown}
-      onCancel={onCancel}
     />
   )
 }

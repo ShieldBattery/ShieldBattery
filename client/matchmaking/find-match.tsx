@@ -21,8 +21,8 @@ import { AssignedRaceChar, RaceChar } from '../../common/races'
 import { urlPath } from '../../common/urls'
 import { useTrackPageView } from '../analytics/analytics'
 import { useSelfUser } from '../auth/auth-utils'
-import { openDialog } from '../dialogs/action-creators'
-import { DialogType } from '../dialogs/dialog-type'
+import { GuideLink } from '../guides/guide-link'
+import { MATCHMAKING_GUIDE_PATH } from '../guides/guide-urls'
 import { dateTimeFormat, useFormat, useFormatLocale } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
@@ -50,7 +50,6 @@ import {
   titleSmall,
 } from '../styles/typography'
 import { cancelFindMatch, findMatch, getCurrentMapPool } from './action-creators'
-import { ExplainerButton } from './explainer-button'
 import { FindMatchContent } from './find-match-content'
 import {
   currentSearchInfoAtom,
@@ -1541,9 +1540,9 @@ export function FindMatch() {
             </PageSubtitle>
           </div>
           <PageHeadEnd>
-            <ExplainerButton
+            <GuideLink
               label={t('matchmaking.explainer.title', 'How matchmaking works')}
-              onClick={() => dispatch(openDialog({ type: DialogType.MatchmakingExplainer }))}
+              href={MATCHMAKING_GUIDE_PATH}
             />
             {season ? (
               <SeasonLabel>

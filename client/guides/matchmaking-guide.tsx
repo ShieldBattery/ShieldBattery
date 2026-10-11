@@ -1,9 +1,9 @@
 import { useTranslation } from 'react-i18next'
-import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { makePublicAssetUrl } from '../network/server-url'
-import { escapeMarkdownImageText, ExplainerDialog } from './explainer-dialog'
+import { escapeMarkdownImageText, GuidePage } from './guide-page'
+import { MATCHMAKING_GUIDE_PATH } from './guide-urls'
 
-export function MatchmakingExplainerDialog({ onCancel }: CommonDialogProps) {
+export function MatchmakingGuidePage() {
   const { t } = useTranslation()
 
   const exampleAlt = escapeMarkdownImageText(
@@ -147,10 +147,10 @@ export function MatchmakingExplainerDialog({ onCancel }: CommonDialogProps) {
   ].join('\n\n')
 
   return (
-    <ExplainerDialog
+    <GuidePage
+      path={MATCHMAKING_GUIDE_PATH}
       title={t('matchmaking.explainer.title', 'How matchmaking works')}
       markdown={markdown}
-      onCancel={onCancel}
     />
   )
 }
