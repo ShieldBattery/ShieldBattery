@@ -31,6 +31,9 @@ export function getLoggerOptions() {
     serializers: stdSerializers,
     // Make sure pino-http doesn't re-wrap these since we're specifying the serializers already
     wrapSerializers: false,
+    // The request/response serializers include every header, and these ones carry credentials that
+    // would let anyone reading the logs act as the user
+    redact: ['req.headers.authorization', 'req.headers.cookie', 'res.headers["set-cookie"]'],
   }
 }
 
