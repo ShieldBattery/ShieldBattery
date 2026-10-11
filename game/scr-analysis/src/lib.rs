@@ -1098,6 +1098,49 @@ impl<'e> Analysis<'e> {
         self.0.zoom()
     }
 
+    /// Returns the cursor's x in render target pixels, `() -> i32`. The cursor position lives in
+    /// the input driver, so there is no global to read instead.
+    pub fn get_mouse_x(&mut self) -> Option<VirtualAddress> {
+        self.0.get_mouse_x()
+    }
+
+    /// Returns the cursor's y in render target pixels, `() -> i32`.
+    pub fn get_mouse_y(&mut self) -> Option<VirtualAddress> {
+        self.0.get_mouse_y()
+    }
+
+    /// Hit tests a render target point against the console, `(x, y) -> bool`: nonzero when the
+    /// point is over UI rather than the game view.
+    pub fn is_outside_game_screen(&mut self) -> Option<VirtualAddress> {
+        self.0.is_outside_game_screen()
+    }
+
+    /// Hides the game's cursor, `()`, as starting a middle mouse grab pan does. Covers both the
+    /// software-drawn and the hardware cursor.
+    pub fn hide_game_cursor(&mut self) -> Option<VirtualAddress> {
+        self.0.hide_game_cursor()
+    }
+
+    /// Shows the game's cursor again after [`hide_game_cursor`](Self::hide_game_cursor), `()`.
+    pub fn show_game_cursor(&mut self) -> Option<VirtualAddress> {
+        self.0.show_game_cursor()
+    }
+
+    /// `Mem8`, nonzero while the player is dragging a selection box.
+    pub fn is_selecting(&mut self) -> Option<Operand<'e>> {
+        self.0.is_selecting()
+    }
+
+    /// `Mem16` render target x where the current selection box drag started.
+    pub fn select_start_x(&mut self) -> Option<Operand<'e>> {
+        self.0.select_start_x()
+    }
+
+    /// `Mem16` render target y where the current selection box drag started.
+    pub fn select_start_y(&mut self) -> Option<Operand<'e>> {
+        self.0.select_start_y()
+    }
+
     pub fn console_vtables(&mut self) -> Vec<VirtualAddress> {
         let mut out = Vec::with_capacity(2);
         out.extend(self.0.vtables_for_class(b".?AVSDConsole@@"));
