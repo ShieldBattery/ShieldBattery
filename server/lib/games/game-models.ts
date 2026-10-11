@@ -738,8 +738,14 @@ export async function getGames(
 
     if (!includeShort) {
       // NULL-safe: legacy reconciled games with no recorded length must not disappear just because
-      // their length is unknown rather than known-short.
-      whereClauses.push(sql`(g.game_length IS NULL OR g.game_length >= ${MIN_GAME_LENGTH_MS})`)
+      // their length is unknown rather than known-short. Written as a COALESCE rather than
+      // `game_length IS NULL OR game_length >= n` because the planner badly underestimates how many
+      // rows that OR matches in `idx_games_public_completed_length` and turns it into a bitmap scan
+      // of nearly every public game followed by a sort, instead of walking
+      // `idx_games_public_completed_start` for the first page (~580ms vs <1ms in production).
+      whereClauses.push(
+        sql`COALESCE(g.game_length, ${MIN_GAME_LENGTH_MS}) >= ${MIN_GAME_LENGTH_MS}`,
+      )
     }
 
     if (mapName) {

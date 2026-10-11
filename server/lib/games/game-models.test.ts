@@ -231,7 +231,7 @@ describe('games/game-models/getGames', () => {
 
     expect(query).toHaveBeenCalledTimes(1)
     const template = query.mock.calls[0][0]
-    expect(template.text).toContain('g.game_length IS NULL OR g.game_length >=')
+    expect(template.text).toContain('COALESCE(g.game_length,')
     expect(template.values).toContain(MIN_GAME_LENGTH_MS)
   })
 
