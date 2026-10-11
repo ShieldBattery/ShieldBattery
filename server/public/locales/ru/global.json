@@ -290,7 +290,7 @@
     },
     "channelMenu": {
       "banAction": "Забанить {{user}}",
-      "kickAction": "Кик {{user}}"
+      "kickAction": "Кикнуть {{user}}"
     },
     "channelName": {
       "deletedChannel": "удалённый-канал",
@@ -1273,6 +1273,7 @@
     "buttonCopyLink": "Скопировать ссылку на игру",
     "buttonDismissReviewRequest": "Отклонить запрос",
     "buttonDownloadReplay": "Скачать реплей",
+    "buttonOpenInApp": "Открыть в ShieldBattery",
     "buttonReplaySaved": "В библиотеке",
     "buttonReport": "Пожаловаться",
     "buttonRequestReview": "Запросить проверку",
@@ -1280,6 +1281,7 @@
     "buttonSaveReplay": "Сохранить реплей",
     "buttonSaveReplayLoading": "Сохранение…",
     "buttonWatchReplay": "Смотреть реплей",
+    "buttonWatchReplayFrom": "Смотреть с {{time}}",
     "buttonWatchReplayLoading": "Загрузка…",
     "chatTranscript": {
       "copy": "Скопировать лог",
@@ -1711,6 +1713,10 @@
       "friendsInside_many": "{{count}} друзей в этом лобби",
       "friendsInside_other": "{{count}} друга в этом лобби",
       "full": "Заполнено",
+      "hiddenFullCount_one": "Скрыто {{count}} заполненное лобби",
+      "hiddenFullCount_few": "Скрыто {{count}} заполненных лобби",
+      "hiddenFullCount_many": "Скрыто {{count}} заполненных лобби",
+      "hiddenFullCount_other": "Скрыто {{count}} заполненного лобби",
       "inGame": "В игре",
       "joinAsObserver": "Присоединиться как зритель",
       "joinLobby": "Присоединиться к лобби",
@@ -1792,8 +1798,10 @@
       "load": "Не удалось загрузить это лобби"
     },
     "events": {
-      "banned": "Вы были заблокированы в лобби.",
-      "kicked": "Вас кикнули из лобби."
+      "bannedBody": "Вас забанили в лобби {{lobbyName}}, и вернуться в него больше нельзя.",
+      "bannedTitle": "Бан в лобби",
+      "kickedBody": "Вас кикнули из лобби {{lobbyName}}.",
+      "kickedTitle": "Кик из лобби"
     },
     "gameSetup": {
       "title": "Настройки игры"
@@ -2031,7 +2039,7 @@
       "addComputer": "Добавить компьютер",
       "banPlayer": "Забанить {{user}}",
       "closeSlot": "Закрыть слот",
-      "kickPlayer": "Кик {{user}}",
+      "kickPlayer": "Кикнуть {{user}}",
       "name": "Закрыто",
       "open": "Открыто",
       "openSlot": "Открыть слот",
@@ -2083,6 +2091,7 @@
       "title": "Локальные карты",
       "uploadMapError": "Произошла неизвестная ошибка при загрузке карты. Пожалуйста, попробуйте позже.",
       "uploadMapErrorTitle": "Ошибка при загрузке карты",
+      "uploadMapInvalidFileError": "Не удалось прочитать этот файл как карту StarCraft. Возможно, он повреждён или защищён так, что мы не можем его прочитать.",
       "uploadMapNoPlayerSlotsError": "На этой карте нет стартовых позиций и пригодных слотов для игроков, поэтому сыграть на ней невозможно. Добавьте на карту стартовые позиции и попробуйте снова."
     },
     "mapSelect": {
@@ -3130,6 +3139,11 @@
         "unknownError": "Что-то пошло не так. Пожалуйста, повторите попытку позже."
       },
       "chat": {
+        "blockedMessages": {
+          "description": "Сообщения от пользователей, которых Вы заблокировали, показываются строкой «Заблокированное сообщение», которую можно развернуть. Если их скрыть, эти строки полностью исчезнут из каналов, личных сообщений и чата лобби.",
+          "hide": "Полностью скрывать сообщения от заблокированных пользователей",
+          "title": "Сообщения от заблокированных пользователей"
+        },
         "displayMode": {
           "classic": "Классический",
           "cozy": "Уютный",

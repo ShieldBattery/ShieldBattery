@@ -82,6 +82,8 @@ consistent. (Seed — extend over time.)
   keeps "Fastest" English).
 - In-file term renderings to match: matchmaking→Emparejamiento, map pool→Grupo de mapas, queue→cola,
   ladder→escalera, veto→vetar/vetado, ban→banear, kick→expulsar, unrated→Sin clasificar.
+  Lobby removal dialogs: titles **Expulsado/Baneado del lobby**, bodies "Te expulsaron/banearon de
+  {{lobbyName}}". **slot actions → Acciones del espacio** (old MT had "tragamonedas", a slot machine).
 - **Replay library terms:** replay→replay (loanword, in-file), **playlist→playlist** (loanword,
   feminine: la playlist; Spotify-style), **bookmark/Bookmarked→marcador/Marcadores** (Añadir
   marcador/Quitar marcador; the replay bookmark — kept distinct from a map's favorite),
@@ -183,7 +185,9 @@ consistent. (Seed — extend over time.)
   style. Quotes use **«»** (in-file precedent), ё is written out (ещё). "by <user>" attribution
   prefix → **"автор: "** (works for both created and edited history entries).
 - In-file term renderings to match: matchmaking→матчмейкинг, map pool→Пул карт, queue→очередь,
-  veto→Вето, ban→забанить, kick→кикнуть, unrated→Без рейтинга.
+  veto→Вето, ban→забанить, kick→кикнуть, unrated→Без рейтинга. Menu actions use the verb
+  (**Кикнуть {{user}}**, Забанить {{user}}), never the bare noun "Кик"; lobby removal dialog titles
+  are the nouns **Кик из лобби / Бан в лобби**.
 - **Replay library terms:** replay→реплей (in-file), **playlist→плейлист**,
   **bookmark/Bookmarked→закладки** family (В закладки/Убрать из закладок/Закладки; kept distinct
   from a map's favorite, which stays избранное), **library→библиотека**,
@@ -320,6 +324,8 @@ consistent. (Seed — extend over time.)
   putting a particle on a number. Magic 8-ball→**매직 8볼** (8볼 in the line).
 - **Presence words** active/idle/offline→**활동 중 / 자리 비움 / 오프라인**, identical on
   `chat.userList.*` and `chat.commands.whois.presence.*` (the old 실행 / 개발 환경 were dev-tool MT).
+- **User-action menu items put the object first:** **{{user}} 강퇴 / {{user}} 차단** (not 강퇴 {{user}}).
+  kick→강퇴, lobby/channel ban→차단 (same word as block; in-file).
 - **Chat command vocabulary:** block→차단 / unblock→차단 해제, friend request→친구 요청,
   topic→**주제**, division→**디비전**, moderator→관리자, Brood War→**브루드 워**. "any game you
   launch" (block scope)→**참가하는 모든 게임** — 직접 실행하는 게임 reads as "games you host" and is
@@ -403,7 +409,7 @@ consistent. (Seed — extend over time.)
   paths are quoted: “设置 › 输入”.
 - **Chat commands:** whisper→私聊, /me action line→动作消息, aliases→别名, mute channel→**频道静音**, "only
   you" gutter→**仅您可见**, mention→提及 (level option 仅提及时通知).
-- **Chat command vocabulary:** block→**屏蔽** (ban→封禁, mute→静音), unblock→解除屏蔽,
+- **Chat command vocabulary:** block→**屏蔽** (ban→封禁, kick→踢出, mute→静音), unblock→解除屏蔽,
   friend/friends list→好友 / 好友列表, friend request→好友请求, topic→**主题** (not 话题),
   division→**分级**, errors→"无法…：{{errorMessage}}", presence words active/idle/offline→**活跃 /
   空闲 / 离线** (空闲 matches the 空闲用户 header). **mention→提及 everywhere**, including the

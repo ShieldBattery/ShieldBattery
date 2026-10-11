@@ -287,7 +287,7 @@
     },
     "channelMenu": {
       "banAction": "차단 {{user}}",
-      "kickAction": "강퇴 {{user}}"
+      "kickAction": "{{user}} 강퇴"
     },
     "channelName": {
       "deletedChannel": "삭제된 채널",
@@ -1228,6 +1228,7 @@
     "buttonCopyLink": "게임 링크 복사하기",
     "buttonDismissReviewRequest": "요청 기각",
     "buttonDownloadReplay": "리플레이 다운로드",
+    "buttonOpenInApp": "ShieldBattery에서 열기",
     "buttonReplaySaved": "라이브러리에 있음",
     "buttonReport": "신고",
     "buttonRequestReview": "검토 요청",
@@ -1235,6 +1236,7 @@
     "buttonSaveReplay": "리플레이 저장",
     "buttonSaveReplayLoading": "저장 중…",
     "buttonWatchReplay": "리플레이 보기",
+    "buttonWatchReplayFrom": "{{time}}부터 보기",
     "buttonWatchReplayLoading": "로딩 중…",
     "chatTranscript": {
       "copy": "기록 복사",
@@ -1657,6 +1659,7 @@
       "filterShowFull": "가득 찬 로비 표시",
       "friendsInside_other": "친구 {{count}}명이 이 로비에 있습니다",
       "full": "가득 참",
+      "hiddenFullCount_other": "가득 찬 로비 {{count}}개 숨김",
       "inGame": "게임 중",
       "joinAsObserver": "관전자로 참여",
       "joinLobby": "로비 참여",
@@ -1717,8 +1720,10 @@
       "load": "로비를 로드하는 중에 문제가 발생했습니다"
     },
     "events": {
-      "banned": "이 로비에서 차단되었습니다.",
-      "kicked": "로비에서 강퇴당했습니다."
+      "bannedBody": "{{lobbyName}}에서 차단되어 다시 참가할 수 없습니다.",
+      "bannedTitle": "로비에서 차단됨",
+      "kickedBody": "{{lobbyName}}에서 강퇴되었습니다.",
+      "kickedTitle": "로비에서 강퇴됨"
     },
     "gameSetup": {
       "title": "게임 설정"
@@ -1945,9 +1950,9 @@
     },
     "slots": {
       "addComputer": "컴퓨터 추가",
-      "banPlayer": "차단 {{user}}",
+      "banPlayer": "{{user}} 차단",
       "closeSlot": "슬롯 닫기",
-      "kickPlayer": "강퇴 {{user}}",
+      "kickPlayer": "{{user}} 강퇴",
       "name": "닫힘",
       "open": "열림",
       "openSlot": "슬롯 열기",
@@ -1996,6 +2001,7 @@
       "title": "로컬 맵",
       "uploadMapError": "맵 업로드 중 알 수 없는 오류가 발생했습니다. 나중에 다시 시도해 주세요.",
       "uploadMapErrorTitle": "맵 업로드 오류",
+      "uploadMapInvalidFileError": "이 파일을 스타크래프트 맵으로 읽을 수 없습니다. 파일이 손상되었거나 읽을 수 없는 방식으로 보호되어 있을 수 있습니다.",
       "uploadMapNoPlayerSlotsError": "이 맵에는 시작 위치나 사용 가능한 플레이어 슬롯이 없어 플레이할 수 없습니다. 맵에 시작 위치를 추가한 뒤 다시 시도하세요."
     },
     "mapSelect": {
@@ -3004,6 +3010,11 @@
         "unknownError": "문제가 발생했습니다. 나중에 다시 시도해 주세요."
       },
       "chat": {
+        "blockedMessages": {
+          "description": "차단한 사용자의 메시지는 펼쳐 볼 수 있는 \"차단된 메시지\" 줄로 표시됩니다. 숨기면 채널, 귓속말, 로비 채팅에서 이 줄이 완전히 사라집니다.",
+          "hide": "차단한 사용자의 메시지 완전히 숨기기",
+          "title": "차단한 사용자의 메시지"
+        },
         "displayMode": {
           "classic": "클래식",
           "cozy": "편안하게",

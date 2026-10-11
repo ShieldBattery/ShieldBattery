@@ -1258,6 +1258,7 @@
     "buttonCopyLink": "Copia el enlace al juego",
     "buttonDismissReviewRequest": "Descartar solicitud",
     "buttonDownloadReplay": "Descargar replay",
+    "buttonOpenInApp": "Abrir en ShieldBattery",
     "buttonReplaySaved": "En la biblioteca",
     "buttonReport": "Reportar",
     "buttonRequestReview": "Solicitar revisión",
@@ -1265,6 +1266,7 @@
     "buttonSaveReplay": "Guardar replay",
     "buttonSaveReplayLoading": "Guardando…",
     "buttonWatchReplay": "Ver replay",
+    "buttonWatchReplayFrom": "Ver desde {{time}}",
     "buttonWatchReplayLoading": "Cargando…",
     "chatTranscript": {
       "copy": "Copiar transcripción",
@@ -1693,6 +1695,9 @@
       "friendsInside_many": "{{count}} amigos están en este lobby",
       "friendsInside_other": "{{count}} amigos están en este lobby",
       "full": "Lleno",
+      "hiddenFullCount_one": "{{count}} lobby lleno oculto",
+      "hiddenFullCount_many": "{{count}} de lobbies llenos ocultos",
+      "hiddenFullCount_other": "{{count}} lobbies llenos ocultos",
       "inGame": "En partida",
       "joinAsObserver": "Unirse como observador",
       "joinLobby": "Unirse al lobby",
@@ -1767,8 +1772,10 @@
       "load": "Hubo un problema al cargar este lobby"
     },
     "events": {
-      "banned": "Has sido expulsado del lobby.",
-      "kicked": "Te han echado del lobby."
+      "bannedBody": "Te banearon de {{lobbyName}} y no puedes volver a entrar.",
+      "bannedTitle": "Baneado del lobby",
+      "kickedBody": "Te expulsaron de {{lobbyName}}.",
+      "kickedTitle": "Expulsado del lobby"
     },
     "gameSetup": {
       "title": "Configuración de la partida"
@@ -2007,7 +2014,7 @@
       "name": "Cerrado",
       "open": "Abierto",
       "openSlot": "Abrir espacio",
-      "slotActions": "Acciones de tragamonedas"
+      "slotActions": "Acciones del espacio"
     },
     "state": {
       "exists": "Actualmente no estás en este lobby. ¿Únete?",
@@ -2054,6 +2061,7 @@
       "title": "Mapas locales",
       "uploadMapError": "Ocurrió un error al cargar el mapa.",
       "uploadMapErrorTitle": "Error al subir el mapa",
+      "uploadMapInvalidFileError": "No se pudo leer este archivo como un mapa de StarCraft. Puede que esté dañado o protegido de una forma que no podemos leer.",
       "uploadMapNoPlayerSlotsError": "Este mapa no tiene posiciones iniciales ni espacios de jugador utilizables, así que nunca podría jugarse. Añade posiciones iniciales al mapa e inténtalo de nuevo."
     },
     "mapSelect": {
@@ -3088,6 +3096,11 @@
         "unknownError": "Algo salió mal, inténtalo de nuevo más tarde."
       },
       "chat": {
+        "blockedMessages": {
+          "description": "Los mensajes de los usuarios que bloqueaste se muestran como una línea de \"Mensaje bloqueado\" que puedes expandir. Al ocultarlos, esas líneas desaparecen por completo de los canales, los susurros y el chat del lobby.",
+          "hide": "Ocultar por completo los mensajes de usuarios bloqueados",
+          "title": "Mensajes de usuarios bloqueados"
+        },
         "displayMode": {
           "classic": "Clásico",
           "cozy": "Cómodo",

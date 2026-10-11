@@ -1228,6 +1228,7 @@
     "buttonCopyLink": "复制游戏链接",
     "buttonDismissReviewRequest": "驳回请求",
     "buttonDownloadReplay": "下载录像",
+    "buttonOpenInApp": "在 ShieldBattery 中打开",
     "buttonReplaySaved": "已在录像库",
     "buttonReport": "举报",
     "buttonRequestReview": "请求复核",
@@ -1235,6 +1236,7 @@
     "buttonSaveReplay": "保存录像",
     "buttonSaveReplayLoading": "保存中…",
     "buttonWatchReplay": "观看录像",
+    "buttonWatchReplayFrom": "从 {{time}} 开始观看",
     "buttonWatchReplayLoading": "加载中…",
     "chatTranscript": {
       "copy": "复制记录",
@@ -1657,6 +1659,7 @@
       "filterShowFull": "显示已满",
       "friendsInside_other": "{{count}}位好友在此房间中",
       "full": "已满",
+      "hiddenFullCount_other": "已隐藏 {{count}} 个已满房间",
       "inGame": "游戏中",
       "joinAsObserver": "以观战者身份加入",
       "joinLobby": "加入房间",
@@ -1717,8 +1720,10 @@
       "load": "加载该房间时遇到问题"
     },
     "events": {
-      "banned": "您已被该房间封禁。",
-      "kicked": "您已被踢出房间。"
+      "bannedBody": "您已被 {{lobbyName}} 封禁，无法再次加入。",
+      "bannedTitle": "已被房间封禁",
+      "kickedBody": "您已被踢出 {{lobbyName}}。",
+      "kickedTitle": "已被踢出房间"
     },
     "gameSetup": {
       "title": "游戏设置"
@@ -1951,7 +1956,7 @@
       "name": "关闭",
       "open": "开放",
       "openSlot": "开放空位",
-      "slotActions": "空位动作"
+      "slotActions": "空位操作"
     },
     "state": {
       "exists": "你现在不在这个房间。想加入吗？",
@@ -1996,6 +2001,7 @@
       "title": "本地地图",
       "uploadMapError": "上传地图时发生未知错误。请稍后再试。",
       "uploadMapErrorTitle": "上传地图时出错",
+      "uploadMapInvalidFileError": "无法将此文件识别为星际争霸地图。文件可能已损坏，或采用了我们无法读取的保护方式。",
       "uploadMapNoPlayerSlotsError": "此地图没有出生点，也没有可用的玩家位置，因此永远无法进行游戏。请为地图添加出生点后重试。"
     },
     "mapSelect": {
@@ -3004,6 +3010,11 @@
         "unknownError": "遇到错误。请稍后再试。"
       },
       "chat": {
+        "blockedMessages": {
+          "description": "已屏蔽用户的消息会显示为一行可展开的“消息被屏蔽”。隐藏后，这些行会从频道、私聊和房间聊天中完全消失。",
+          "hide": "完全隐藏已屏蔽用户的消息",
+          "title": "已屏蔽用户的消息"
+        },
         "displayMode": {
           "classic": "经典",
           "cozy": "舒适",
