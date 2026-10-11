@@ -58,13 +58,19 @@ impl GamesQuery {
         Ok(game.map(|g| g.into()))
     }
 
+    /// A selection of the matchmaking games currently in progress: up to six, favoring games
+    /// between higher-rated players while spreading the picks across matchmaking types. Ordered
+    /// with the best game of each type first, so a consumer showing fewer keeps the variety.
     async fn live_games(
         &self,
         ctx: &async_graphql::Context<'_>,
     ) -> async_graphql::Result<Vec<Game>> {
         let repo = ctx.data::<GamesRepo>()?;
-        let games = repo.load_live_games().await?;
-        Ok(games.into_iter().map(|g| g.into()).collect())
+        let candidates = repo.load_live_game_candidates().await?;
+        Ok(pick_live_games(candidates, LIVE_GAMES_LIMIT)
+            .into_iter()
+            .map(|g| g.into())
+            .collect())
     }
 }
 
@@ -144,6 +150,10 @@ pub struct ReconciledPlayerResultEntry {
     pub result: ReconciledPlayerResult,
 }
 
+/// The `results` column as stored. Named so query column overrides can refer to it without
+/// exceeding Postgres's 63-character identifier limit.
+pub type DbGameResults = sqlx::types::Json<Vec<(SbUserId, ReconciledPlayerResult)>>;
+
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct DbGame {
     pub id: Uuid,
@@ -154,7 +164,7 @@ pub struct DbGame {
     pub dispute_requested: bool,
     pub dispute_reviewed: bool,
     pub game_length: Option<i32>,
-    pub results: Option<sqlx::types::Json<Vec<(SbUserId, ReconciledPlayerResult)>>>,
+    pub results: Option<DbGameResults>,
 }
 
 impl From<DbGame> for Game {
@@ -442,33 +452,132 @@ impl GamesRepo {
         Self { db }
     }
 
-    pub async fn load_live_games(&self) -> eyre::Result<Vec<DbGame>> {
-        sqlx::query_as!(
-            DbGame,
+    /// Loads every matchmaking game that looks to be in progress (newest first), along with the
+    /// mean rating of its players, for [`pick_live_games`] to choose from.
+    pub async fn load_live_game_candidates(&self) -> eyre::Result<Vec<LiveGameCandidate>> {
+        let rows = sqlx::query!(
             r#"
-            SELECT id, start_time, map_id as "map_id: _", config as "config: _",
-                disputable, dispute_requested, dispute_reviewed,
-                game_length,
+            SELECT g.id, g.start_time, g.map_id as "map_id: SbMapId",
+                g.config as "config: sqlx::types::Json<GameConfig>",
+                g.disputable, g.dispute_requested, g.dispute_reviewed,
+                g.game_length,
                 -- Some legacy rows store `results` as an empty object `{}` instead of an array (or
                 -- null); coerce any non-array value to NULL so it decodes as `None` rather than
                 -- erroring ("invalid type: map, expected a sequence"). Matches the Node guard in
                 -- game-models.ts.
-                (CASE WHEN jsonb_typeof(results) = 'array' THEN results END) as "results: _"
-            FROM games
+                (CASE WHEN jsonb_typeof(g.results) = 'array' THEN g.results END)
+                    as "results: DbGameResults",
+                -- Ratings from the season the game started in (the last one to start at or before
+                -- it; season start dates are stored as UTC without a time zone). Players with no
+                -- rating in the mode that season are left out of the mean.
+                (
+                    SELECT AVG(r.rating)::float8
+                    FROM games_users gu
+                    JOIN matchmaking_ratings r
+                        ON r.user_id = gu.user_id
+                        AND r.matchmaking_type::text = g.config->'gameSourceExtra'->>'type'
+                        AND r.season_id = (
+                            SELECT s.id
+                            FROM matchmaking_seasons s
+                            WHERE s.start_date AT TIME ZONE 'UTC' <= g.start_time
+                            ORDER BY s.start_date DESC
+                            LIMIT 1
+                        )
+                    WHERE gu.game_id = g.id
+                ) as "mean_rating"
+            FROM games g
             WHERE
-                game_length IS NULL
-                AND canceled_at IS NULL
-                AND start_time < now() - interval '2 minutes'
-                AND start_time > now() - interval '1 hour'
-                AND config->>'gameSource' = 'MATCHMAKING'
-            ORDER BY start_time DESC
-            LIMIT 10
+                g.game_length IS NULL
+                AND g.canceled_at IS NULL
+                AND g.start_time < now() - interval '2 minutes'
+                AND g.start_time > now() - interval '1 hour'
+                AND g.config->>'gameSource' = 'MATCHMAKING'
+            ORDER BY g.start_time DESC
+            LIMIT 200
             "#,
         )
         .fetch_all(&self.db)
         .await
-        .wrap_err("Failed to load live games")
+        .wrap_err("Failed to load live games")?;
+
+        Ok(rows
+            .into_iter()
+            .map(|row| LiveGameCandidate {
+                game: DbGame {
+                    id: row.id,
+                    start_time: row.start_time,
+                    map_id: row.map_id,
+                    config: row.config,
+                    disputable: row.disputable,
+                    dispute_requested: row.dispute_requested,
+                    dispute_reviewed: row.dispute_reviewed,
+                    game_length: row.game_length,
+                    results: row.results,
+                },
+                mean_rating: row.mean_rating,
+            })
+            .collect())
     }
+}
+
+/// The most live games [`GamesQuery::live_games`] returns: two full rows of the Games page's
+/// three-column live games grid.
+const LIVE_GAMES_LIMIT: usize = 6;
+
+pub struct LiveGameCandidate {
+    pub game: DbGame,
+    /// The mean rating of the game's players in its matchmaking type, or `None` if none of them
+    /// has one.
+    pub mean_rating: Option<f64>,
+}
+
+impl LiveGameCandidate {
+    /// Identifies the game's matchmaking type, for spreading picks across types. Lobby games
+    /// (which never reach the live games query) all share one key.
+    fn type_key(&self) -> Option<std::mem::Discriminant<MatchmakingExtra>> {
+        match &self.game.config.0 {
+            GameConfig::Matchmaking(data) => Some(std::mem::discriminant(&data.game_source_extra)),
+            GameConfig::Lobby(_) => None,
+        }
+    }
+}
+
+/// Chooses up to `limit` of `candidates` (given newest first) to show as live games.
+///
+/// Picks are made in rounds: the first round takes the highest-rated game of each matchmaking
+/// type, the second the next highest of each, and so on, with each round ordered by rating. So
+/// every type with a live game gets shown before any type gets a second slot, and within those
+/// constraints higher-rated games win. Games with no rated players sort below every rated game,
+/// and ties keep the newer game first.
+fn pick_live_games(candidates: Vec<LiveGameCandidate>, limit: usize) -> Vec<DbGame> {
+    let mut by_rating = candidates;
+    // A stable sort, so ties keep the newest-first order the candidates came in.
+    by_rating.sort_by(|a, b| {
+        b.mean_rating
+            .unwrap_or(f64::NEG_INFINITY)
+            .total_cmp(&a.mean_rating.unwrap_or(f64::NEG_INFINITY))
+    });
+
+    let mut picked_per_type = HashMap::new();
+    let mut with_round = by_rating
+        .into_iter()
+        .map(|candidate| {
+            let picked = picked_per_type
+                .entry(candidate.type_key())
+                .or_insert(0usize);
+            let round = *picked;
+            *picked += 1;
+            (round, candidate)
+        })
+        .collect::<Vec<_>>();
+    // Stable, so each round stays in rating order.
+    with_round.sort_by_key(|&(round, _)| round);
+
+    with_round
+        .into_iter()
+        .take(limit)
+        .map(|(_, candidate)| candidate.game)
+        .collect()
 }
 
 /// Batches by-id game loads across a request so fields that resolve a game per row (e.g. `game` on
@@ -574,5 +683,109 @@ impl Loader<Uuid> for GameRanksLoader {
             });
         }
         Ok(ranks)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn candidate(
+        name: u128,
+        extra: MatchmakingExtra,
+        mean_rating: Option<f64>,
+    ) -> LiveGameCandidate {
+        LiveGameCandidate {
+            game: DbGame {
+                id: Uuid::from_u128(name),
+                start_time: DateTime::<Utc>::UNIX_EPOCH,
+                map_id: SbMapId(Uuid::nil()),
+                config: sqlx::types::Json(GameConfig::Matchmaking(GameConfigData {
+                    game_type: GameType::OneVsOne,
+                    game_sub_type: 0,
+                    teams: Vec::new(),
+                    game_source_extra: extra,
+                })),
+                disputable: false,
+                dispute_requested: false,
+                dispute_reviewed: false,
+                game_length: None,
+                results: None,
+            },
+            mean_rating,
+        }
+    }
+
+    fn one_v_one(name: u128, mean_rating: Option<f64>) -> LiveGameCandidate {
+        candidate(
+            name,
+            MatchmakingExtra::Match1v1(Default::default()),
+            mean_rating,
+        )
+    }
+
+    fn bgh(name: u128, mean_rating: Option<f64>) -> LiveGameCandidate {
+        candidate(
+            name,
+            MatchmakingExtra::Match3v3Bgh(Default::default()),
+            mean_rating,
+        )
+    }
+
+    fn ids(games: &[DbGame]) -> Vec<u128> {
+        games.iter().map(|g| g.id.as_u128()).collect()
+    }
+
+    #[test]
+    fn shows_every_type_before_any_type_gets_a_second_slot() {
+        let picked = pick_live_games(
+            vec![
+                one_v_one(1, Some(2000.0)),
+                one_v_one(2, Some(1900.0)),
+                one_v_one(3, Some(1800.0)),
+                bgh(4, Some(1200.0)),
+                bgh(5, Some(1100.0)),
+            ],
+            3,
+        );
+        assert_eq!(ids(&picked), vec![1, 4, 2]);
+    }
+
+    #[test]
+    fn orders_each_round_by_rating() {
+        let picked = pick_live_games(
+            vec![
+                bgh(1, Some(1500.0)),
+                one_v_one(2, Some(1600.0)),
+                bgh(3, Some(1700.0)),
+                one_v_one(4, Some(1400.0)),
+            ],
+            6,
+        );
+        assert_eq!(ids(&picked), vec![3, 2, 1, 4]);
+    }
+
+    #[test]
+    fn fills_remaining_slots_from_a_single_type() {
+        let picked = pick_live_games(
+            (1..=8)
+                .map(|i| one_v_one(i, Some(1000.0 + i as f64)))
+                .collect(),
+            6,
+        );
+        assert_eq!(ids(&picked), vec![8, 7, 6, 5, 4, 3]);
+    }
+
+    #[test]
+    fn puts_unrated_games_last_and_breaks_ties_by_recency() {
+        let picked = pick_live_games(
+            vec![
+                one_v_one(1, None),
+                one_v_one(2, Some(1500.0)),
+                one_v_one(3, Some(1500.0)),
+            ],
+            6,
+        );
+        assert_eq!(ids(&picked), vec![2, 3, 1]);
     }
 }

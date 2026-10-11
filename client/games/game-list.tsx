@@ -102,8 +102,8 @@ export function GameList() {
   // but if this page is meant to feel live we should re-run it periodically.
   const [{ data }] = useQuery({ query: GamesListQuery, context: { ttl: 10 * 1000 } })
 
-  // The live-games feed is matchmaking-only (`load_live_games` filters by source server-side), so
-  // showing it above a list filtered to custom games would contradict the filter.
+  // The live-games feed is matchmaking-only (`load_live_game_candidates` filters by source
+  // server-side), so showing it above a list filtered to custom games would contradict the filter.
   const [sourceParam] = useLocationSearchParam('source')
   const showLiveGames = parseSource(sourceParam) !== GameSourceFilter.Custom
 

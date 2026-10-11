@@ -856,6 +856,11 @@ type Query {
 	"""
 	gameReports(filter: GameReportFilter, after: String, before: String, first: Int, last: Int): GameReportConnection!
 	game(id: UUID!): Game
+	"""
+	A selection of the matchmaking games currently in progress: up to six, favoring games
+	between higher-rated players while spreading the picks across matchmaking types. Ordered
+	with the best game of each type first, so a consumer showing fewer keeps the variety.
+	"""
 	liveGames: [Game!]!
 	activeLeagues: [League!]!
 	futureLeagues: [League!]!
