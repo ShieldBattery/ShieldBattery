@@ -100,7 +100,7 @@ export function LadderGuidePage() {
   return (
     <GuidePage
       path={LADDER_GUIDE_PATH}
-      title={t('ladder.explainer.title', 'How ladder works')}
+      title={t('ladder.explainer.title', 'How the ladder works in ShieldBattery')}
       markdown={markdown}
     />
   )

@@ -572,7 +572,7 @@ export function Ladder({ matchmakingType: routeType, seasonId }: LadderProps) {
           />
           <FlexSpacer />
           <RailGuideLink
-            label={t('ladder.explainer.linkLabel', 'How the ladder works in ShieldBattery')}
+            label={t('ladder.explainer.linkLabel', 'How ladder works')}
             href={LADDER_GUIDE_PATH}
           />
           <SeasonSection>
@@ -706,7 +706,7 @@ function CompactModeControls({
         <IconButton
           styledAs='div'
           icon={<MaterialIcon icon='help' />}
-          title={t('ladder.explainer.linkLabel', 'How the ladder works in ShieldBattery')}
+          title={t('ladder.explainer.linkLabel', 'How ladder works')}
         />
       </LinkButton>
     </CompactNav>
