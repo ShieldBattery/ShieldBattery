@@ -537,11 +537,21 @@ impl DisconnectStatus {
 const MAX_PIPE_TURNS: u32 = rally_point_client::proto::control::GAME_SYNC_SAFE_BUFFER_MAX;
 
 /// The step of a game that predicts inputs whose turns a receive for `next_frame` dispatches: the
-/// turn index. `game_frame_count` reads one past the number of turns already dispatched when the IN
-/// hook runs, so the step that dispatches every slot's first in-game turn reads 1. It counts turns
+/// turn index, or `None` for the network step BW's game loop runs before its first frame.
+/// `game_frame_count` reads one past the number of turns already dispatched when the IN hook runs,
+/// so the step that dispatches every slot's first in-game turn reads 1. The loop's prelude network
+/// step reads 0 and belongs to no step: taking turns for it would put every turn a client sends a
+/// step further out than its pipe counts, a frame of input delay for everyone. It counts turns
 /// rather than frames: a paused game keeps taking turns without advancing a frame.
-fn input_step(next_frame: u32) -> u32 {
-    next_frame.saturating_sub(1)
+fn input_step(next_frame: u32) -> Option<u32> {
+    next_frame.checked_sub(1)
+}
+
+/// Whether a receive for `next_frame` in a game that predicts inputs dispatches a step's turns,
+/// and so takes one of this client's own turns out of the pipe. The game loop's prelude network
+/// step dispatches stand-ins instead (see [`input_step`]).
+pub fn dispatches_turns(next_frame: u32) -> bool {
+    input_step(next_frame).is_some()
 }
 
 /// The most turns past its pipe a client stalled on its own downlink keeps sending (two seconds'
@@ -1336,8 +1346,9 @@ impl TurnState {
         let mut blocking = [false; bw::MAX_STORM_PLAYERS];
         let ready = match &self.inputs {
             Some(inputs) => {
-                let ready =
-                    self.local_only || inputs.can_run(input_step(next_frame), &self.required);
+                let ready = self.local_only
+                    || input_step(next_frame)
+                        .is_none_or(|step| inputs.can_run(step, &self.required));
                 if !ready {
                     for storm in inputs.holding_back(&self.required) {
                         if Some(storm) != local_storm {
@@ -1378,7 +1389,15 @@ impl TurnState {
         // resets and ordinary between-turn jitter never accumulates toward the stall tier.
         self.stall_start = None;
         if let Some(inputs) = &mut self.inputs {
-            self.current_dispatch = inputs.dispatch(input_step(next_frame), &self.required).0;
+            let required = self.required;
+            self.current_dispatch = match input_step(next_frame) {
+                Some(step) => inputs.dispatch(step, &required).0,
+                // The game loop's prelude network step: no step's turns, and nothing a rollback
+                // simulates again.
+                None => std::array::from_fn(|storm| {
+                    required[storm].then(|| Bytes::from_static(input_table::PREDICTED_TURN))
+                }),
+            };
             return true;
         }
         // Release one turn per required slot; non-required slots dispatch nothing this step.
@@ -1429,7 +1448,9 @@ impl TurnState {
     pub fn can_run(&self, next_frame: u32) -> bool {
         match &self.inputs {
             Some(inputs) => {
-                self.local_only || inputs.can_run(input_step(next_frame), &self.required)
+                self.local_only
+                    || input_step(next_frame)
+                        .is_none_or(|step| inputs.can_run(step, &self.required))
             }
             None => true,
         }
@@ -1464,8 +1485,8 @@ impl TurnState {
     /// again whenever it is simulated again. `next_frame` is as [`receive_turns`](Self::receive_turns)
     /// takes it.
     pub fn note_injected_chat(&mut self, next_frame: u32, storm: StormPlayerId, text: &str) {
-        if let Some(inputs) = &mut self.inputs {
-            inputs.record_chat(input_step(next_frame), storm, text.to_string());
+        if let (Some(inputs), Some(step)) = (&mut self.inputs, input_step(next_frame)) {
+            inputs.record_chat(step, storm, text.to_string());
         }
     }
 
@@ -1484,9 +1505,8 @@ impl TurnState {
     /// predictions for the rest), and returns the chat the step injected when it first ran.
     /// `next_frame` is as [`receive_turns`](Self::receive_turns) takes it.
     pub fn redispatch(&mut self, next_frame: u32) -> Vec<(StormPlayerId, String)> {
-        let step = input_step(next_frame);
         let required = self.required;
-        let Some(inputs) = &mut self.inputs else {
+        let (Some(inputs), Some(step)) = (&mut self.inputs, input_step(next_frame)) else {
             return Vec::new();
         };
         self.current_dispatch = inputs.dispatch(step, &required).0;
@@ -1991,14 +2011,15 @@ impl TurnState {
         if !self.local_only
             && let Some(inputs) = &mut self.inputs
         {
-            let step = input_step(next_frame);
-            for (storm, reason) in inputs.take_due_leaves(step, &self.required) {
-                info!(
-                    "netcode v2: coordinated leave became due: storm_slot={} reason={:#010x} \
-                     step={step}",
-                    storm.0, reason,
-                );
-                out.push((storm, reason));
+            if let Some(step) = input_step(next_frame) {
+                for (storm, reason) in inputs.take_due_leaves(step, &self.required) {
+                    info!(
+                        "netcode v2: coordinated leave became due: storm_slot={} \
+                         reason={:#010x} step={step}",
+                        storm.0, reason,
+                    );
+                    out.push((storm, reason));
+                }
             }
             for &(storm, reason) in &out {
                 self.mark_slot_left(storm);
@@ -3788,6 +3809,56 @@ mod tests {
         state.begin_local_only();
         assert_eq!(state.take_due_leaves(5), vec![(PEER_STORM, DROPPED)]);
         assert!(state.take_due_leaves(5).is_empty());
+    }
+
+    #[test]
+    fn the_loop_prelude_takes_no_turns_so_a_turn_sent_during_a_step_runs_at_the_next() {
+        let (mut state, in_tx, _out_rx, _leave_tx, _leave_intent_rx, _lobby_out_rx, _lobby_in_tx) =
+            turn_state();
+        state.map_slot(LOCAL_SLOT, LOCAL_STORM);
+        state.map_slot(PEER_SLOT, PEER_STORM);
+        state.predict_inputs(InputTable::new(
+            8,
+            2,
+            24,
+            [Duration::ZERO; bw::MAX_STORM_PLAYERS],
+        ));
+        state.set_initial_latency_turns(1);
+        // The pre-loop pipe seed: every client's turn for step 0.
+        assert!(state.submit_local_turn(b"seed", None, None));
+        in_tx.try_send(peer_turn(PEER_SLOT, b"peer seed")).unwrap();
+
+        // BW's game loop runs a network step before its first frame, reading 0.
+        assert!(!dispatches_turns(0));
+        assert!(state.receive_turns(0));
+        assert_eq!(
+            dispatched(&state),
+            vec![(LOCAL_STORM, Vec::new()), (PEER_STORM, Vec::new())],
+            "stand-ins, not step 0's turns"
+        );
+        assert_eq!(state.turns_to_flush(), 0, "the seed is still in the pipe");
+
+        assert!(dispatches_turns(1));
+        assert!(state.receive_turns(1));
+        assert_eq!(
+            dispatched(&state),
+            vec![
+                (LOCAL_STORM, b"seed".to_vec()),
+                (PEER_STORM, b"peer seed".to_vec())
+            ],
+            "step 0 takes the seeds"
+        );
+        state.mark_local_turn_executed();
+        assert_eq!(state.turns_to_flush(), 1);
+        assert!(state.submit_local_turn(b"command", Some(1), None));
+        in_tx.try_send(peer_turn(PEER_SLOT, b"peer 1")).unwrap();
+
+        assert!(state.receive_turns(2));
+        assert_eq!(
+            dispatched(&state)[0],
+            (LOCAL_STORM, b"command".to_vec()),
+            "the turn sent while step 0 ran is step 1's"
+        );
     }
 
     /// A quit during a stall must not wait on a leave scheduled beyond the stalled step: the

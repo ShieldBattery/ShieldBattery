@@ -4615,7 +4615,9 @@ impl BwScr {
                     s.dispatch_buffers(),
                 );
                 s.apply_due_directive(step);
-                s.mark_local_turn_executed();
+                if netcode_v2::dispatches_turns(step) {
+                    s.mark_local_turn_executed();
+                }
                 true
             });
             match ready {
