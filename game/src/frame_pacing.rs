@@ -221,8 +221,10 @@ struct Plan {
     period: Duration,
     /// Whether frames are timed to the display's vertical blanks.
     synced: bool,
-    /// Whether an iteration woken for a step alone skips drawing.
-    skip_step_renders: bool,
+    /// Whether SC:R presents with vertical sync, queuing each frame for a refresh: an iteration
+    /// woken for a step alone then skips drawing, and a frame presented after the refresh it was
+    /// timed for takes the next one.
+    vsync: bool,
 }
 
 /// The frame the iteration in progress draws, timed from its wake to when it's presented.
@@ -231,6 +233,8 @@ struct FrameInProgress {
     woke: Instant,
     /// The vertical blank it was timed for.
     vblank: Option<Instant>,
+    /// The refresh the frame is shown at instead if it is presented late with vertical sync on.
+    shown_late_at: Option<Instant>,
     /// Whether the iteration ran a logic step.
     ran_step: bool,
 }
@@ -400,8 +404,8 @@ unsafe fn pace(bw: &BwScr) {
         .plan
         .as_ref()
         .and_then(|plan| plan.as_ref())
-        .map(|plan| (plan.period, plan.synced, plan.skip_step_renders));
-    if let Some((period, synced, skip_step_renders)) = paced {
+        .map(|plan| (plan.period, plan.synced, plan.vsync));
+    if let Some((period, synced, vsync)) = paced {
         let fit = synced
             .then(|| VBLANK.get().and_then(|clock| clock.fit(now)))
             .flatten();
@@ -459,13 +463,17 @@ unsafe fn pace(bw: &BwScr) {
         let timer_late = wait_until(wake_at);
         let woke = Instant::now();
         state = STATE.lock();
-        let skip_render = wake == Wake::Step && skip_step_renders;
+        let skip_render = wake == Wake::Step && vsync;
         SKIP_RENDER.set(skip_render);
         state.present_start = None;
         state.frame_end = None;
         state.frame = (!skip_render).then_some(FrameInProgress {
             woke,
             vblank: (wake != Wake::Step).then_some(vblank).flatten(),
+            shown_late_at: vblank
+                .zip(fit)
+                .filter(|_| vsync && wake != Wake::Step)
+                .map(|(vblank, fit)| vblank + fit.period),
             ran_step: false,
         });
         let stats = &mut state.stats;
@@ -546,6 +554,14 @@ fn finish_frame() {
             Some(early) => i32::try_from(early.as_micros()).unwrap_or(i32::MAX),
             None => -i32::try_from((end - vblank).as_micros()).unwrap_or(i32::MAX),
         };
+        // With vertical sync, a frame presented late is queued for the next refresh, so the next
+        // frame is timed for the one after: timing it for that same refresh would queue it behind,
+        // and every frame after it would be shown a refresh late too.
+        if slack < 0
+            && let Some(shown_at) = frame.shown_late_at
+        {
+            state.last_vblank = state.last_vblank.max(Some(shown_at));
+        }
         let stats = &mut state.stats;
         stats.synced_frames += 1;
         stats.present_us_max = stats.present_us_max.max(presenting);
@@ -620,7 +636,7 @@ fn resolve_plan() -> Option<Plan> {
     Some(Plan {
         period,
         synced,
-        skip_step_renders: vsync,
+        vsync,
     })
 }
 
