@@ -85,10 +85,10 @@ describe('common/titles', () => {
   test('the APM feat needs enough games', () => {
     const criterion = getTitleDefinition('keyboardWarrior').criterion
     expect(
-      meetsTitleCriterion(criterion, metrics({ recentApm: { average: 300, games: 49 } })),
+      meetsTitleCriterion(criterion, metrics({ rankedApm: { average: 300, games: 49 } })),
     ).toBe(false)
     expect(
-      meetsTitleCriterion(criterion, metrics({ recentApm: { average: 250, games: 50 } })),
+      meetsTitleCriterion(criterion, metrics({ rankedApm: { average: 250, games: 50 } })),
     ).toBe(true)
   })
 

@@ -166,7 +166,7 @@ export type TitleCriterion =
   | { kind: 'longWin'; minutes: number }
   /** Win `wins` ranked 1v1 games against the same race. */
   | { kind: 'mirrorWins'; wins: number }
-  /** Average at least `apm` APM over the last `games` ranked games. */
+  /** Average at least `apm` APM across all ranked games, with at least `games` of them played. */
   | { kind: 'averageApm'; apm: number; games: number }
   /** Granted by an admin rather than earned, and revocable. */
   | { kind: 'granted' }
@@ -419,8 +419,8 @@ export interface TitleMetrics {
   longWins: number
   /** Ranked 1v1 wins against the same race. */
   mirrorWins: number
-  /** Average APM over the most recent ranked games, and how many games that covers (up to 50). */
-  recentApm: { average: number; games: number }
+  /** Average APM across all ranked games, and how many games that covers. */
+  rankedApm: { average: number; games: number }
 }
 
 export function makeEmptyTitleMetrics(): TitleMetrics {
@@ -438,7 +438,7 @@ export function makeEmptyTitleMetrics(): TitleMetrics {
     quickWins: 0,
     longWins: 0,
     mirrorWins: 0,
-    recentApm: { average: 0, games: 0 },
+    rankedApm: { average: 0, games: 0 },
   }
 }
 
@@ -512,7 +512,7 @@ export function meetsTitleCriterion(criterion: TitleCriterion, metrics: TitleMet
       return metrics.longWins > 0
     case 'averageApm':
       return (
-        metrics.recentApm.games >= criterion.games && metrics.recentApm.average >= criterion.apm
+        metrics.rankedApm.games >= criterion.games && metrics.rankedApm.average >= criterion.apm
       )
     case 'raceWins':
     case 'everyRaceWins':

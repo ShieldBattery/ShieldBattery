@@ -3343,7 +3343,7 @@
       "hoursPlayed_one": "Pasa {{number}} hora en partida",
       "hoursPlayed_many": "Pasa {{number}} de horas en partida",
       "hoursPlayed_other": "Pasa {{number}} horas en partida",
-      "keyboardWarrior": "Promedia 250+ de APM en tus últimas 50 partidas clasificatorias",
+      "keyboardWarrior": "Promedia 250+ de APM en tus partidas clasificatorias (mínimo 50)",
       "leagueChampion": "Ganó una liga de ShieldBattery",
       "leagueWins_one": "Gana {{number}} partida de liga",
       "leagueWins_many": "Gana {{number}} de partidas de liga",

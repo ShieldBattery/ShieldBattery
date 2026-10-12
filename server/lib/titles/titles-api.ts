@@ -12,7 +12,7 @@ import { SbUserId } from '../../../common/users/sb-user-id'
 import { makeErrorConverterMiddleware } from '../errors/coded-error'
 import { asHttpError } from '../errors/error-with-payload'
 import { httpApi, httpBeforeAll } from '../http/http-api'
-import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
+import { httpBefore, httpGet, httpPost } from '../http/route-decorators'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
@@ -102,19 +102,6 @@ export class AdminTitlesApi {
       ctx.session!.user.id,
       ctx,
     )
-    return { unlocked }
-  }
-
-  @httpDelete('/users/:userId/:titleId')
-  async revokeTitle(ctx: RouterContext): Promise<AdminGetUserTitlesResponse> {
-    const { params } = validateRequest(ctx, {
-      params: Joi.object<{ userId: SbUserId; titleId: TitleId }>({
-        userId: joiUserId().required(),
-        titleId: joiTitleId().required(),
-      }).required(),
-    })
-
-    const unlocked = await this.titleService.revokeTitle(params.userId, params.titleId, ctx)
     return { unlocked }
   }
 }

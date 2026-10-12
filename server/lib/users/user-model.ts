@@ -36,10 +36,7 @@ interface UserInternal {
   avatarPath?: string
   /** Whether this account is marked as speaking for ShieldBattery. */
   staffBadge: boolean
-  /**
-   * The title the user displays, if they've equipped one. Not a column of `users`: selected from
-   * `user_titles` by `USER_COLUMNS`.
-   */
+  /** The title the user displays, if they've equipped one (otherwise they display Novice). */
   title?: TitleId
   emailVerified: boolean
   acceptedUsePolicyVersion: number
@@ -135,18 +132,6 @@ function convertToExternal(userInternal: UserInternal): SbUser {
   }
 }
 
-/**
- * The columns to select (or return) for a `DbUser`: every column of `users`, plus the user's
- * equipped title, which lives in `user_titles`. Queries producing `DbUser`s should use this rather
- * than `*` so the title isn't dropped.
- */
-const USER_COLUMNS = sql`
-  users.*,
-  (
-    SELECT ut.title_id FROM user_titles ut WHERE ut.user_id = users.id AND ut.equipped
-  ) AS title
-`
-
 /** Creates a new user with default permissions, returning both the user and permissions. */
 export async function createUser({
   name,
@@ -240,7 +225,7 @@ export type UserUpdatables = Omit<
   // The staff badge is managed through `setUserStaffBadge`, which works for any user (the generic
   // update path is only for the currently active one).
   | 'staffBadge'
-  // Titles are stored in `user_titles` and managed by the titles service.
+  // Titles can only be equipped once unlocked, so they're managed through `setUserTitle`.
   | 'title'
 >
 
@@ -297,12 +282,12 @@ export async function updateUser(
 
   query = query.append(sql`
     WHERE id = ${id}
-    RETURNING ${USER_COLUMNS};
+    RETURNING *;
   `)
 
   if (updatedPassword && updatedEntries.length === 1) {
     // Only updating user_private stuff, so we just need to query the current row
-    query = sql`SELECT ${USER_COLUMNS} FROM users WHERE id = ${id}`
+    query = sql`SELECT * FROM users WHERE id = ${id}`
   }
 
   const { client, done } = await db()
@@ -366,10 +351,39 @@ export async function setUserStaffBadge(
       UPDATE users
       SET staff_badge = ${staffBadge}
       WHERE id = ${userId}
-      RETURNING ${USER_COLUMNS};
+      RETURNING *;
     `)
 
     return result.rows.length > 0 ? convertToExternal(convertUserFromDb(result.rows[0])) : undefined
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Sets the title a user displays, or clears it (displaying Novice) if `titleId` is `undefined`.
+ *
+ * @returns whether the title was set (`false` if the user hasn't unlocked it)
+ */
+export async function setUserTitle(
+  userId: SbUserId,
+  titleId: TitleId | undefined,
+  withClient?: DbClient,
+): Promise<boolean> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query(sql`
+      UPDATE users
+      SET title = ${titleId ?? null}
+      WHERE id = ${userId}
+        AND (
+          ${titleId ?? null}::text IS NULL
+          OR EXISTS (
+            SELECT 1 FROM user_titles WHERE user_id = ${userId} AND title_id = ${titleId ?? null}
+          )
+        )
+    `)
+    return (result.rowCount ?? 0) > 0
   } finally {
     done()
   }
@@ -403,7 +417,7 @@ async function internalFindUserById(
   const { client, done } = await db(withClient)
   try {
     const result = await client.query<DbUser>(sql`
-      SELECT ${USER_COLUMNS} FROM users
+      SELECT * FROM users
       WHERE id = ${id}
     `)
 
@@ -432,7 +446,7 @@ async function internalFindUserByName(name: string): Promise<UserInternal | unde
   const { client, done } = await db()
   try {
     const result = await client.query<DbUser>(sql`
-      SELECT ${USER_COLUMNS} FROM users
+      SELECT * FROM users
       WHERE name = ${name}
     `)
 
@@ -446,7 +460,7 @@ async function internalFindUserByLoginName(name: string): Promise<UserInternal |
   const { client, done } = await db()
   try {
     const result = await client.query<DbUser>(sql`
-      SELECT ${USER_COLUMNS} FROM users
+      SELECT * FROM users
       WHERE login_name = ${name}
     `)
 
@@ -487,9 +501,7 @@ export async function findUsersByName(names: ReadonlyArray<string>): Promise<SbU
 
   const { client, done } = await db()
   try {
-    const result = await client.query<DbUser>(
-      sql`SELECT ${USER_COLUMNS} FROM users WHERE name = ANY (${names})`,
-    )
+    const result = await client.query<DbUser>(sql`SELECT * FROM users WHERE name = ANY (${names})`)
     return result.rows.map(r => convertToExternal(convertUserFromDb(r)))
   } finally {
     done()
@@ -519,9 +531,7 @@ export async function findUsersById(ids: ReadonlyArray<SbUserId>): Promise<SbUse
 
   const { client, done } = await db()
   try {
-    const result = await client.query<DbUser>(
-      sql`SELECT ${USER_COLUMNS} FROM users WHERE id = ANY (${ids})`,
-    )
+    const result = await client.query<DbUser>(sql`SELECT * FROM users WHERE id = ANY (${ids})`)
     return result.rows.map(r => convertToExternal(convertUserFromDb(r)))
   } finally {
     done()
@@ -544,7 +554,7 @@ export async function findUsersByIdQuery(
       WITH ids AS (
         ${idQuery}
       )
-      SELECT ${USER_COLUMNS}
+      SELECT *
       FROM users
       INNER JOIN ids ON users.id = ids."${sqlRaw(idColumn)}"
     `)

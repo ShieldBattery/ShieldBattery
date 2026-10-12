@@ -3247,7 +3247,7 @@
       "gamesPlayed_other": "进行 {{number}} 场游戏",
       "granted": "由 ShieldBattery 团队授予",
       "hoursPlayed_other": "游戏时长达到 {{number}} 小时",
-      "keyboardWarrior": "最近 50 场排位赛平均 APM 达到 250 以上",
+      "keyboardWarrior": "排位赛平均 APM 达到 250 以上（至少 50 场）",
       "leagueChampion": "赢得过 ShieldBattery 联赛",
       "leagueWins_other": "在联赛中赢得 {{number}} 场",
       "minedOut": "赢得一场超过 60 分钟的排位赛",

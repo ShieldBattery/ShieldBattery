@@ -1,5 +1,7 @@
 import { GameSource } from '../../../common/games/configuration'
 import { GameType } from '../../../common/games/game-type'
+import { MatchupString } from '../../../common/games/matchups'
+import { ReconciledResult } from '../../../common/games/results'
 import {
   getTotalBonusPool,
   isSoloType,
@@ -18,20 +20,20 @@ import {
 } from '../../../common/titles'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { DbClient } from '../db'
-import { sql } from '../db/sql'
+import { sql, sqlConcat } from '../db/sql'
 
 /** Ranked wins in games shorter than this count toward the quick-win feat. */
 const QUICK_WIN_MAX_MS = 4 * 60 * 1000
 /** Ranked wins in games longer than this count toward the long-win feat. */
 const LONG_WIN_MIN_MS = 60 * 60 * 1000
-/** How many of the most recent ranked games the APM feat averages over. */
-const RECENT_APM_GAMES = 50
+/** Game results that count as having played a game. */
+const PLAYED_RESULTS: ReadonlyArray<ReconciledResult> = ['win', 'loss', 'draw']
 
 const SOLO_MATCHMAKING_TYPES: ReadonlyArray<MatchmakingType> = [
   MatchmakingType.Match1v1,
   MatchmakingType.Match1v1Fastest,
 ]
-const MIRROR_MATCHUPS = ['p-p', 't-t', 'z-z']
+const MIRROR_MATCHUPS: ReadonlyArray<string> = ['p-p', 't-t', 'z-z']
 
 const DIVISION_TO_TITLE_DIVISION: Readonly<Record<MatchmakingDivision, TitleDivision | undefined>> =
   {
@@ -94,145 +96,295 @@ export function getPeakDivision(
   return peak
 }
 
-/**
- * Computes the play statistics that earned titles are checked against for a user, from the data
- * the server already keeps about their games.
- */
-export async function getTitleMetrics(
+/** Returns the points outcomes of a user's ranked games, optionally limited to a single game. */
+export async function getRatingChangePoints(
   client: DbClient,
   userId: SbUserId,
-  seasons: ReadonlyArray<MatchmakingSeason>,
-): Promise<TitleMetrics> {
-  const metrics = makeEmptyTitleMetrics()
-
-  const statsResult = await client.query<{
-    p_wins: number
-    t_wins: number
-    z_wins: number
-    r_wins: number
-    games: number
-  }>(sql`
-    SELECT p_wins, t_wins, z_wins, r_wins,
-      p_wins + p_losses + t_wins + t_losses + z_wins + z_losses + r_wins + r_losses AS games
-    FROM user_stats
-    WHERE user_id = ${userId}
-  `)
-  if (statsResult.rows.length) {
-    const stats = statsResult.rows[0]
-    metrics.raceWins = { p: stats.p_wins, t: stats.t_wins, z: stats.z_wins, r: stats.r_wins }
-    metrics.gamesPlayed = stats.games
-  }
-
-  const ratingsResult = await client.query<{
-    one_v_one: string | null
-    two_v_two: string | null
-    bgh: string | null
-    seasons: string
-  }>(sql`
-    SELECT
-      SUM(wins) FILTER (WHERE matchmaking_type = ${MatchmakingType.Match1v1}) AS one_v_one,
-      SUM(wins) FILTER (WHERE matchmaking_type = ${MatchmakingType.Match2v2}) AS two_v_two,
-      SUM(wins) FILTER (
-        WHERE matchmaking_type IN (${MatchmakingType.Match2v2Bgh}, ${MatchmakingType.Match3v3Bgh})
-      ) AS bgh,
-      COUNT(DISTINCT season_id) FILTER (WHERE num_games_played > 0) AS seasons
-    FROM matchmaking_ratings
-    WHERE user_id = ${userId}
-  `)
-  const ratings = ratingsResult.rows[0]
-  metrics.modeWins = {
-    [TitleMode.OneVOne]: Number(ratings?.one_v_one ?? 0),
-    [TitleMode.TwoVTwo]: Number(ratings?.two_v_two ?? 0),
-    [TitleMode.Bgh]: Number(ratings?.bgh ?? 0),
-  }
-  metrics.rankedSeasons = Number(ratings?.seasons ?? 0)
-
-  const leagueResult = await client.query<{ wins: string | null }>(sql`
-    SELECT SUM(wins) AS wins FROM league_users WHERE user_id = ${userId}
-  `)
-  metrics.leagueWins = Number(leagueResult.rows[0]?.wins ?? 0)
-
-  const gamesResult = await client.query<{
-    played: string
-    total_ms: string | null
-    ffa_wins: string
-    ums_games: string
-    quick_wins: string
-    long_wins: string
-    mirror_wins: string
-  }>(sql`
-    SELECT
-      COUNT(*) FILTER (WHERE gu.result IN ('win', 'loss', 'draw')) AS played,
-      SUM(g.game_length) AS total_ms,
-      COUNT(*) FILTER (
-        WHERE gu.result = 'win' AND g.config->>'gameType' = ${GameType.FreeForAll}
-      ) AS ffa_wins,
-      COUNT(*) FILTER (
-        WHERE gu.result IN ('win', 'loss', 'draw')
-          AND g.config->>'gameType' = ${GameType.UseMapSettings}
-      ) AS ums_games,
-      COUNT(*) FILTER (
-        WHERE gu.result = 'win' AND g.config->>'gameSource' = ${GameSource.Matchmaking}
-          AND g.game_length < ${QUICK_WIN_MAX_MS}
-      ) AS quick_wins,
-      COUNT(*) FILTER (
-        WHERE gu.result = 'win' AND g.config->>'gameSource' = ${GameSource.Matchmaking}
-          AND g.game_length > ${LONG_WIN_MIN_MS}
-      ) AS long_wins,
-      COUNT(*) FILTER (
-        WHERE gu.result = 'win' AND g.config->>'gameSource' = ${GameSource.Matchmaking}
-          AND g.config->'gameSourceExtra'->>'type' = ANY (${SOLO_MATCHMAKING_TYPES})
-          AND g.assigned_matchup = ANY (${MIRROR_MATCHUPS})
-      ) AS mirror_wins
-    FROM games_users gu
-    JOIN games g ON g.id = gu.game_id
-    WHERE gu.user_id = ${userId}
-  `)
-  const games = gamesResult.rows[0]
-  metrics.hasPlayed = Number(games?.played ?? 0) > 0
-  metrics.hoursPlayed = Number(games?.total_ms ?? 0) / (60 * 60 * 1000)
-  metrics.ffaWins = Number(games?.ffa_wins ?? 0)
-  metrics.umsGames = Number(games?.ums_games ?? 0)
-  metrics.quickWins = Number(games?.quick_wins ?? 0)
-  metrics.longWins = Number(games?.long_wins ?? 0)
-  metrics.mirrorWins = Number(games?.mirror_wins ?? 0)
-
-  const apmResult = await client.query<{ average: string | null; games: string }>(sql`
-    SELECT AVG(apm) AS average, COUNT(*) AS games
-    FROM (
-      SELECT gu.apm
-      FROM games_users gu
-      JOIN games g ON g.id = gu.game_id
-      WHERE gu.user_id = ${userId} AND gu.apm IS NOT NULL
-        AND g.config->>'gameSource' = ${GameSource.Matchmaking}
-      ORDER BY gu.start_time DESC
-      LIMIT ${RECENT_APM_GAMES}
-    ) recent
-  `)
-  metrics.recentApm = {
-    average: Number(apmResult.rows[0]?.average ?? 0),
-    games: Number(apmResult.rows[0]?.games ?? 0),
-  }
-
-  const changesResult = await client.query<{
+  gameId?: string,
+): Promise<RatingChangePoints[]> {
+  const result = await client.query<{
     matchmaking_type: MatchmakingType
     points: number
     change_date: Date
   }>(sql`
     SELECT matchmaking_type, points, change_date
     FROM matchmaking_rating_changes
-    WHERE user_id = ${userId}
+    WHERE user_id = ${userId} AND (${gameId ?? null}::uuid IS NULL OR game_id = ${gameId ?? null})
   `)
-  metrics.peakDivision = getPeakDivision(
-    changesResult.rows.map(r => ({
-      matchmakingType: r.matchmaking_type,
-      points: r.points,
-      changeDate: r.change_date,
-    })),
-    seasons,
-  )
+  return result.rows.map(r => ({
+    matchmakingType: r.matchmaking_type,
+    points: r.points,
+    changeDate: r.change_date,
+  }))
+}
 
-  return metrics
+/**
+ * The counts kept in `user_title_tracking.counters`, by name. A counter that hasn't been counted yet
+ * is absent, and counts as 0.
+ */
+export interface TitleCounters {
+  /** Games of any kind with a win, loss, or draw. */
+  games: number
+  /** Total length of those games. */
+  msPlayed: number
+  ffaWins: number
+  /** Use map settings games with a win, loss, or draw. */
+  umsGames: number
+  rankedQuickWins: number
+  rankedLongWins: number
+  /** Ranked 1v1 wins against the same race. */
+  rankedMirrorWins: number
+  /** Total APM across ranked games that were actually played, for averaging. */
+  rankedApmTotal: number
+  /** Ranked games counted in `rankedApmTotal`. */
+  rankedApmGames: number
+}
+
+export type TitleCounter = keyof TitleCounters
+
+/** The parts of a game that determine what it adds to its players' title counters. */
+export interface TitleTrackingGame {
+  gameType: GameType
+  /** The game's matchmaking type, for ranked games. */
+  matchmakingType?: MatchmakingType
+  lengthMs: number
+  /** The races every player was assigned, if they're all known. */
+  assignedMatchup?: MatchupString
+}
+
+/**
+ * Returns what a game adds to a player's title counters (leaving out counters it doesn't add to),
+ * or `undefined` if the player's result means the game doesn't count as played.
+ */
+export function getGameTitleCounters(
+  game: TitleTrackingGame,
+  player: { result: ReconciledResult; apm: number },
+): Partial<TitleCounters> | undefined {
+  if (!PLAYED_RESULTS.includes(player.result)) {
+    return undefined
+  }
+
+  const { matchmakingType } = game
+  const counters: Partial<TitleCounters> = { games: 1 }
+  if (game.lengthMs > 0) {
+    counters.msPlayed = game.lengthMs
+  }
+  if (game.gameType === GameType.UseMapSettings) {
+    counters.umsGames = 1
+  }
+  if (player.result === 'win' && game.gameType === GameType.FreeForAll) {
+    counters.ffaWins = 1
+  }
+
+  if (matchmakingType !== undefined) {
+    // A game that never got going (e.g. one ended by a lobby violation) has no meaningful APM
+    if (game.lengthMs > 0) {
+      counters.rankedApmTotal = Math.round(player.apm)
+      counters.rankedApmGames = 1
+    }
+    if (player.result === 'win') {
+      if (game.lengthMs < QUICK_WIN_MAX_MS) {
+        counters.rankedQuickWins = 1
+      } else if (game.lengthMs > LONG_WIN_MIN_MS) {
+        counters.rankedLongWins = 1
+      }
+      if (
+        SOLO_MATCHMAKING_TYPES.includes(matchmakingType) &&
+        game.assignedMatchup !== undefined &&
+        MIRROR_MATCHUPS.includes(game.assignedMatchup)
+      ) {
+        counters.rankedMirrorWins = 1
+      }
+    }
+  }
+
+  return counters
+}
+
+/**
+ * Adds to players' title counters. Must be called in the same transaction that applies the results
+ * being counted, so each game is counted exactly once.
+ */
+export async function addTitleCounters(
+  client: DbClient,
+  entries: ReadonlyArray<{ userId: SbUserId; counters: Partial<TitleCounters> }>,
+): Promise<void> {
+  if (!entries.length) {
+    return
+  }
+
+  // Sorted so concurrent games with players in common lock their rows in the same order
+  const values = entries
+    .toSorted((a, b) => a.userId - b.userId)
+    .map(({ userId, counters }) => sql`(${userId}, ${JSON.stringify(counters)}::jsonb)`)
+  await client.query(sql`
+    INSERT INTO user_title_tracking AS t (user_id, counters)
+    VALUES ${sqlConcat(', ', values)}
+    ON CONFLICT (user_id) DO UPDATE
+    SET counters = jsonb_add_counters(t.counters, EXCLUDED.counters)
+  `)
+}
+
+/**
+ * Replaces a user's game counters with ones counted from their whole game history, and returns the
+ * highest division they've reached. This reads every game the user has played, so it's only done
+ * once per user, on their first title evaluation: after that, `addTitleCounters` keeps the counters
+ * current as each game's results are applied.
+ *
+ * Must be called within a transaction. The user's counters stay locked until it ends, so the
+ * results of a game being applied concurrently are either already committed (and counted in the
+ * history read here) or wait to be added on top of these counts.
+ *
+ * @param seasons every matchmaking season, newest first (as `MatchmakingSeasonsService` returns them)
+ */
+export async function rebuildTitleCounters(
+  client: DbClient,
+  userId: SbUserId,
+  seasons: ReadonlyArray<MatchmakingSeason>,
+): Promise<TitleDivision | undefined> {
+  await client.query(sql`
+    INSERT INTO user_title_tracking (user_id) VALUES (${userId}) ON CONFLICT DO NOTHING
+  `)
+  await client.query(sql`
+    SELECT 1 FROM user_title_tracking WHERE user_id = ${userId} FOR UPDATE
+  `)
+
+  // Counts the same games, the same way, as `getGameTitleCounters` does as results are applied. A
+  // disputed game's results aren't applied until it has been resolved, which clears `disputable`.
+  await client.query(sql`
+    WITH played AS (
+      SELECT gu.result, gu.apm, g.game_length, g.assigned_matchup,
+        g.config->>'gameType' AS game_type,
+        CASE
+          WHEN g.config->>'gameSource' = ${GameSource.Matchmaking}
+          THEN g.config->'gameSourceExtra'->>'type'
+        END AS matchmaking_type
+      FROM games_users gu
+      JOIN games g ON g.id = gu.game_id
+      WHERE gu.user_id = ${userId}
+        AND gu.result = ANY (${PLAYED_RESULTS})
+        AND NOT g.disputable
+    )
+    UPDATE user_title_tracking t
+    SET counters = t.counters || jsonb_build_object(
+      'games', h.games,
+      'msPlayed', h.ms_played,
+      'ffaWins', h.ffa_wins,
+      'umsGames', h.ums_games,
+      'rankedQuickWins', h.ranked_quick_wins,
+      'rankedLongWins', h.ranked_long_wins,
+      'rankedMirrorWins', h.ranked_mirror_wins,
+      'rankedApmTotal', h.ranked_apm_total,
+      'rankedApmGames', h.ranked_apm_games
+    )
+    FROM (
+      SELECT
+        COUNT(*) AS games,
+        COALESCE(SUM(game_length) FILTER (WHERE game_length > 0), 0) AS ms_played,
+        COUNT(*) FILTER (WHERE result = 'win' AND game_type = ${GameType.FreeForAll}) AS ffa_wins,
+        COUNT(*) FILTER (WHERE game_type = ${GameType.UseMapSettings}) AS ums_games,
+        COUNT(*) FILTER (
+          WHERE result = 'win' AND matchmaking_type IS NOT NULL
+            AND game_length < ${QUICK_WIN_MAX_MS}
+        ) AS ranked_quick_wins,
+        COUNT(*) FILTER (
+          WHERE result = 'win' AND matchmaking_type IS NOT NULL
+            AND game_length > ${LONG_WIN_MIN_MS}
+        ) AS ranked_long_wins,
+        COUNT(*) FILTER (
+          WHERE result = 'win' AND matchmaking_type = ANY (${SOLO_MATCHMAKING_TYPES})
+            AND assigned_matchup = ANY (${MIRROR_MATCHUPS})
+        ) AS ranked_mirror_wins,
+        COALESCE(
+          SUM(ROUND(apm)) FILTER (WHERE matchmaking_type IS NOT NULL AND game_length > 0),
+          0
+        ) AS ranked_apm_total,
+        COUNT(apm) FILTER (
+          WHERE matchmaking_type IS NOT NULL AND game_length > 0
+        ) AS ranked_apm_games
+      FROM played
+    ) h
+    WHERE t.user_id = ${userId}
+  `)
+
+  return getPeakDivision(await getRatingChangePoints(client, userId), seasons)
+}
+
+/**
+ * Returns the play statistics that earned titles are checked against for a user. Every value comes
+ * from a running count or a handful of per-season and per-league rows, so this never reads through
+ * the user's games.
+ *
+ * The user's peak division isn't counted anywhere (the division titles they hold record it), so it's
+ * left for the caller to fill in.
+ */
+export async function getTitleMetrics(client: DbClient, userId: SbUserId): Promise<TitleMetrics> {
+  const result = await client.query<{
+    p_wins: number | null
+    t_wins: number | null
+    z_wins: number | null
+    r_wins: number | null
+    games_played: number | null
+    one_v_one: string | null
+    two_v_two: string | null
+    bgh: string | null
+    ranked_seasons: string
+    league_wins: string | null
+    counters: Partial<TitleCounters> | null
+  }>(sql`
+    SELECT
+      s.p_wins, s.t_wins, s.z_wins, s.r_wins,
+      s.p_wins + s.p_losses + s.t_wins + s.t_losses + s.z_wins + s.z_losses + s.r_wins + s.r_losses
+        AS games_played,
+      r.one_v_one, r.two_v_two, r.bgh, r.ranked_seasons,
+      l.league_wins,
+      t.counters
+    FROM (SELECT ${userId}::integer AS id) u
+    LEFT JOIN user_stats s ON s.user_id = u.id
+    LEFT JOIN user_title_tracking t ON t.user_id = u.id
+    CROSS JOIN LATERAL (
+      SELECT
+        SUM(wins) FILTER (WHERE matchmaking_type = ${MatchmakingType.Match1v1}) AS one_v_one,
+        SUM(wins) FILTER (WHERE matchmaking_type = ${MatchmakingType.Match2v2}) AS two_v_two,
+        SUM(wins) FILTER (
+          WHERE matchmaking_type IN (${MatchmakingType.Match2v2Bgh}, ${MatchmakingType.Match3v3Bgh})
+        ) AS bgh,
+        COUNT(DISTINCT season_id) FILTER (WHERE num_games_played > 0) AS ranked_seasons
+      FROM matchmaking_ratings
+      WHERE user_id = u.id
+    ) r
+    CROSS JOIN LATERAL (
+      SELECT SUM(wins) AS league_wins FROM league_users WHERE user_id = u.id
+    ) l
+  `)
+  const row = result.rows[0]
+  const counters = row.counters ?? {}
+  const count = (counter: TitleCounter) => Number(counters[counter] ?? 0)
+  const apmGames = count('rankedApmGames')
+
+  return {
+    ...makeEmptyTitleMetrics(),
+    raceWins: { p: row.p_wins ?? 0, t: row.t_wins ?? 0, z: row.z_wins ?? 0, r: row.r_wins ?? 0 },
+    gamesPlayed: row.games_played ?? 0,
+    hasPlayed: count('games') > 0,
+    hoursPlayed: count('msPlayed') / (60 * 60 * 1000),
+    modeWins: {
+      [TitleMode.OneVOne]: Number(row.one_v_one ?? 0),
+      [TitleMode.TwoVTwo]: Number(row.two_v_two ?? 0),
+      [TitleMode.Bgh]: Number(row.bgh ?? 0),
+    },
+    leagueWins: Number(row.league_wins ?? 0),
+    ffaWins: count('ffaWins'),
+    umsGames: count('umsGames'),
+    rankedSeasons: Number(row.ranked_seasons),
+    quickWins: count('rankedQuickWins'),
+    longWins: count('rankedLongWins'),
+    mirrorWins: count('rankedMirrorWins'),
+    rankedApm: {
+      average: apmGames > 0 ? count('rankedApmTotal') / apmGames : 0,
+      games: apmGames,
+    },
+  }
 }
 
 /** Returns the IDs of the players who have a result row for a game. */
@@ -256,16 +408,17 @@ export async function getUserTitles(client: DbClient, userId: SbUserId): Promise
     title_id: string
     unlocked_at: Date
     source: 'earned' | 'granted'
-    equipped: boolean
+    equipped: boolean | null
   }>(sql`
-    SELECT title_id, unlocked_at, source, equipped
-    FROM user_titles
-    WHERE user_id = ${userId}
-    ORDER BY unlocked_at, title_id
+    SELECT ut.title_id, ut.unlocked_at, ut.source, ut.title_id = u.title AS equipped
+    FROM user_titles ut
+    JOIN users u ON u.id = ut.user_id
+    WHERE ut.user_id = ${userId}
+    ORDER BY ut.unlocked_at, ut.title_id
   `)
   return result.rows.flatMap(r =>
     isTitleId(r.title_id)
-      ? [{ id: r.title_id, unlockedAt: r.unlocked_at, source: r.source, equipped: r.equipped }]
+      ? [{ id: r.title_id, unlockedAt: r.unlocked_at, source: r.source, equipped: !!r.equipped }]
       : [],
   )
 }
@@ -309,63 +462,4 @@ export async function grantTitle(
     ON CONFLICT (user_id, title_id) DO NOTHING
   `)
   return (result.rowCount ?? 0) > 0
-}
-
-/**
- * Removes a title from a user.
- *
- * @returns whether the user held the title, and whether it was the one they had equipped
- */
-export async function revokeTitle(
-  client: DbClient,
-  userId: SbUserId,
-  titleId: TitleId,
-): Promise<{ removed: boolean; wasEquipped: boolean }> {
-  const result = await client.query<{ equipped: boolean }>(sql`
-    DELETE FROM user_titles
-    WHERE user_id = ${userId} AND title_id = ${titleId}
-    RETURNING equipped
-  `)
-  return { removed: result.rows.length > 0, wasEquipped: !!result.rows[0]?.equipped }
-}
-
-/**
- * Sets the title a user displays. `undefined` equips the default title. Must be called within a
- * transaction, since it clears the previous title before setting the new one (the equipped index
- * is checked row by row, so the two can't be swapped in a single statement).
- *
- * @returns whether the title could be equipped (`false`, with nothing changed, if the user doesn't
- *   hold it)
- */
-export async function setEquippedTitle(
-  client: DbClient,
-  userId: SbUserId,
-  titleId: TitleId | undefined,
-): Promise<boolean> {
-  if (titleId !== undefined) {
-    // Locks the row so the title can't be revoked between this check and equipping it
-    const held = await client.query(sql`
-      SELECT 1
-      FROM user_titles
-      WHERE user_id = ${userId} AND title_id = ${titleId}
-      FOR UPDATE
-    `)
-    if (!held.rowCount) {
-      return false
-    }
-  }
-
-  await client.query(sql`
-    UPDATE user_titles
-    SET equipped = false
-    WHERE user_id = ${userId} AND equipped
-  `)
-  if (titleId !== undefined) {
-    await client.query(sql`
-      UPDATE user_titles
-      SET equipped = true
-      WHERE user_id = ${userId} AND title_id = ${titleId}
-    `)
-  }
-  return true
 }

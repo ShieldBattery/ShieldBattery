@@ -6,7 +6,9 @@ import {
   getEarnedTitleIds,
   getTitleDefinition,
   isGrantedTitle,
+  TitleDivision,
   TitleId,
+  TITLES,
   TitleTrack,
 } from '../../../common/titles'
 import { GetSelfTitlesResponse, UnlockedTitleJson } from '../../../common/titles-network'
@@ -20,18 +22,19 @@ import { GameLifecycleEvents } from '../games/game-lifecycle-events'
 import logger from '../logging/logger'
 import { MatchmakingSeasonsService } from '../matchmaking/matchmaking-seasons'
 import NotificationService from '../notifications/notification-service'
-import { findUserById } from '../users/user-model'
+import { findUserById, setUserTitle } from '../users/user-model'
 import { CacheBehavior, UserService } from '../users/user-service'
 import { UserSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import {
   getGamePlayerIds,
+  getPeakDivision,
+  getRatingChangePoints,
   getTitleMetrics,
   getUserTitles,
   grantTitle,
   insertEarnedTitles,
-  revokeTitle,
-  setEquippedTitle,
+  rebuildTitleCounters,
   UserTitle,
 } from './title-models'
 
@@ -48,14 +51,39 @@ function toUnlockedJson(title: UserTitle): UnlockedTitleJson {
 }
 
 /**
+ * Returns the highest division a user has reached, as recorded by the division titles they hold.
+ * Division titles are permanent, so they're a record of the user's peak that never has to be
+ * recomputed from their rating history.
+ */
+function getHeldPeakDivision(held: ReadonlySet<TitleId>): TitleDivision | undefined {
+  let peak: TitleDivision | undefined
+  for (const title of TITLES) {
+    if (title.criterion.kind === 'division' && held.has(title.id)) {
+      peak = maxDivision(peak, title.criterion.division)
+    }
+  }
+  return peak
+}
+
+function maxDivision(
+  a: TitleDivision | undefined,
+  b: TitleDivision | undefined,
+): TitleDivision | undefined {
+  return a === undefined || (b !== undefined && b > a) ? b : a
+}
+
+/**
  * Awards titles as players earn them, and manages which title each player displays.
  *
- * Earned titles are checked against a player's whole history whenever it changes (a game's results
- * are applied) and whenever they come online, and every newly met title is written to `user_titles`
- * once. Checking the whole history each time keeps the check idempotent: an event that's delivered
- * twice, or missed entirely, is caught by the next one. A player's first check records the titles
- * their existing history already earned without notifying for each, sending a single summary
- * notification instead.
+ * Earned titles are checked against running counts of a player's play (kept current as each game's
+ * results are applied) whenever a game of theirs finishes and whenever they come online, and every
+ * newly met title is written to `user_titles` once. Checking the counts rather than only the game
+ * that just finished keeps the check idempotent: an event that's delivered twice, or missed
+ * entirely, is caught by the next one. Division titles are the exception, since a player's peak
+ * division isn't counted anywhere: they're checked against the ranked game that just finished.
+ *
+ * A player's first check counts their play from their existing history, and records the titles it
+ * already earned without notifying for each, sending a single summary notification instead.
  */
 @singleton()
 export class TitleService {
@@ -90,18 +118,20 @@ export class TitleService {
     const playerIds = await withDbClient(client => getGamePlayerIds(client, gameId))
     // One at a time, so a large game doesn't hold several pool connections at once.
     for (const userId of playerIds) {
-      await this.evaluateUser(userId)
+      await this.evaluateUser(userId, gameId)
     }
   }
 
   /**
    * Awards any earned titles the user doesn't hold yet and notifies them about the new ones.
+   *
+   * @param gameId the game whose results prompted this, if any, which is checked for a new division
    */
-  evaluateUser(userId: SbUserId): Promise<void> {
+  evaluateUser(userId: SbUserId, gameId?: string): Promise<void> {
     const previous = this.evaluations.get(userId) ?? Promise.resolve()
     const next = previous
       .catch(() => {})
-      .then(() => this.doEvaluateUser(userId))
+      .then(() => this.doEvaluateUser(userId, gameId))
       .finally(() => {
         if (this.evaluations.get(userId) === next) {
           this.evaluations.delete(userId)
@@ -111,11 +141,27 @@ export class TitleService {
     return next
   }
 
-  private async doEvaluateUser(userId: SbUserId): Promise<void> {
-    const seasons = await this.matchmakingSeasonsService.getAllSeasons()
-    const newTitles = await withDbClient(async client => {
-      const metrics = await getTitleMetrics(client, userId, seasons)
-      return await insertEarnedTitles(client, userId, getEarnedTitleIds(metrics))
+  private async doEvaluateUser(userId: SbUserId, gameId?: string): Promise<void> {
+    const newTitles = await transact(async client => {
+      const held = new Set((await getUserTitles(client, userId)).map(t => t.id))
+      let peakDivision = getHeldPeakDivision(held)
+      // Every user holds the default title once they've been evaluated, so it's only missing before
+      // the first evaluation, which is when their play needs to be counted from their history.
+      if (!held.has(DEFAULT_TITLE_ID)) {
+        const seasons = await this.matchmakingSeasonsService.getAllSeasons()
+        peakDivision = maxDivision(
+          peakDivision,
+          await rebuildTitleCounters(client, userId, seasons),
+        )
+      } else if (gameId) {
+        const seasons = await this.matchmakingSeasonsService.getAllSeasons()
+        const changes = await getRatingChangePoints(client, userId, gameId)
+        peakDivision = maxDivision(peakDivision, getPeakDivision(changes, seasons))
+      }
+
+      const metrics = { ...(await getTitleMetrics(client, userId)), peakDivision }
+      const unearned = getEarnedTitleIds(metrics).filter(id => !held.has(id))
+      return await insertEarnedTitles(client, userId, unearned)
     })
     if (!newTitles.length) {
       return
@@ -144,16 +190,15 @@ export class TitleService {
     // their last game is still pending.
     await this.evaluateUser(userId)
 
-    const seasons = await this.matchmakingSeasonsService.getAllSeasons()
     return await withDbClient(async client => {
       const [titles, metrics] = await Promise.all([
         getUserTitles(client, userId),
-        getTitleMetrics(client, userId, seasons),
+        getTitleMetrics(client, userId),
       ])
       return {
         unlocked: titles.map(toUnlockedJson),
         equipped: titles.find(t => t.equipped)?.id,
-        metrics,
+        metrics: { ...metrics, peakDivision: getHeldPeakDivision(new Set(titles.map(t => t.id))) },
       }
     })
   }
@@ -169,9 +214,7 @@ export class TitleService {
    * @returns the user's updated info
    */
   async equipTitle(userId: SbUserId, titleId: TitleId, ctx?: Koa.Context): Promise<SbUser> {
-    const equipped = await transact(client =>
-      setEquippedTitle(client, userId, titleId === DEFAULT_TITLE_ID ? undefined : titleId),
-    )
+    const equipped = await setUserTitle(userId, titleId === DEFAULT_TITLE_ID ? undefined : titleId)
     if (!equipped) {
       throw new TitleServiceError(
         TitleServiceErrorCode.NotUnlocked,
@@ -203,7 +246,7 @@ export class TitleService {
     const granted = await transact(async client => {
       const granted = await grantTitle(client, userId, titleId, grantedBy)
       if (granted && isStaff) {
-        await setEquippedTitle(client, userId, titleId)
+        await setUserTitle(userId, titleId, client)
       }
       return granted
     })
@@ -216,27 +259,6 @@ export class TitleService {
         userId,
         data: { type: NotificationType.TitleUnlocked, titleIds: [titleId] },
       })
-    }
-
-    return await this.getUserTitles(userId)
-  }
-
-  /** Removes a title an admin handed out. If the user displayed it, they revert to the default. */
-  async revokeTitle(
-    userId: SbUserId,
-    titleId: TitleId,
-    ctx?: Koa.Context,
-  ): Promise<UnlockedTitleJson[]> {
-    if (!isGrantedTitle(titleId)) {
-      throw new TitleServiceError(
-        TitleServiceErrorCode.NotGrantable,
-        "earned titles can't be revoked",
-      )
-    }
-
-    const { wasEquipped } = await withDbClient(client => revokeTitle(client, userId, titleId))
-    if (wasEquipped) {
-      await this.onTitleChanged(userId, ctx)
     }
 
     return await this.getUserTitles(userId)

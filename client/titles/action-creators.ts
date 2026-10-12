@@ -52,17 +52,16 @@ export function adminGetUserTitles(
   })
 }
 
-/** Grants (`granted: true`) or revokes a title an admin hands out by hand. */
-export function adminSetUserTitleGranted(
+/** Grants a title an admin hands out by hand. Titles are permanent once granted. */
+export function adminGrantUserTitle(
   userId: SbUserId,
   titleId: TitleId,
-  granted: boolean,
   spec: RequestHandlingSpec<AdminGetUserTitlesResponse>,
 ): ThunkAction {
   return abortableThunk(spec, async () => {
     return await fetchJson<AdminGetUserTitlesResponse>(
       apiUrl`admin/titles/users/${userId}/${titleId}`,
-      { method: granted ? 'POST' : 'DELETE', signal: spec.signal },
+      { method: 'POST', signal: spec.signal },
     )
   })
 }

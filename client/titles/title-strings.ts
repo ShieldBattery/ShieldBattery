@@ -339,7 +339,7 @@ function getCriterionRequirement(
     case 'averageApm':
       return t(
         'titles.requirements.keyboardWarrior',
-        'Average 250+ APM across your last 50 ranked games',
+        'Average 250+ APM across your ranked games (at least 50)',
       )
     default:
       return assertUnreachable(criterion)

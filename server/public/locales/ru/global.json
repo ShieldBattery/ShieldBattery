@@ -3391,7 +3391,7 @@
       "hoursPlayed_few": "Проведите в игре {{number}} часа",
       "hoursPlayed_many": "Проведите в игре {{number}} часов",
       "hoursPlayed_other": "Проведите в игре {{number}} часа",
-      "keyboardWarrior": "Средний APM 250+ за последние 50 рейтинговых игр",
+      "keyboardWarrior": "Средний APM 250+ в рейтинговых играх (минимум 50)",
       "leagueChampion": "Победитель лиги ShieldBattery",
       "leagueWins_one": "Одержите {{number}} победу в лигах",
       "leagueWins_few": "Одержите {{number}} победы в лигах",

@@ -17,7 +17,7 @@ import { LoadingDotsArea } from '../../progress/dots'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { useSnackbarController } from '../../snackbars/snackbar-overlay'
 import { bodyLarge, TitleLarge } from '../../styles/typography'
-import { adminGetUserTitles, adminSetUserTitleGranted } from '../../titles/action-creators'
+import { adminGetUserTitles, adminGrantUserTitle } from '../../titles/action-creators'
 import { getTitleName } from '../../titles/title-strings'
 import { adminSetStaffBadge } from '../action-creators'
 
@@ -226,14 +226,14 @@ function GrantedTitlesEditor({ userId }: { userId: SbUserId }) {
     return () => abortController.abort()
   }, [dispatch, snackbarController, userId])
 
-  const onChange = (titleId: TitleId, granted: boolean) => {
+  const onGrant = (titleId: TitleId) => {
     setSavingTitle(titleId)
     dispatch(
-      adminSetUserTitleGranted(userId, titleId, granted, {
+      adminGrantUserTitle(userId, titleId, {
         onSuccess: res => {
           setSavingTitle(undefined)
           setHeld(new Set(res.unlocked.map(u => u.id)))
-          snackbarController.showSnackbar(granted ? 'Title granted' : 'Title revoked')
+          snackbarController.showSnackbar('Title granted')
         },
         onError: () => {
           setSavingTitle(undefined)
@@ -246,8 +246,9 @@ function GrantedTitlesEditor({ userId }: { userId: SbUserId }) {
   return (
     <StaffBadgeContent>
       <SectionDescription>
-        Titles handed out by hand rather than earned. Granting a staff title (Administrator,
-        Moderator, Developer) also makes it the one they display.
+        Titles handed out by hand rather than earned. Titles are permanent, so a granted title
+        can&apos;t be taken back. Granting a staff title (Administrator, Moderator, Developer) also
+        makes it the one they display.
       </SectionDescription>
       {held ? (
         <GrantedTitlesGrid>
@@ -255,10 +256,10 @@ function GrantedTitlesEditor({ userId }: { userId: SbUserId }) {
             <CheckBox
               key={titleId}
               checked={held.has(titleId)}
-              onChange={event => onChange(titleId, event.target.checked)}
+              onChange={() => onGrant(titleId)}
               label={getTitleName(titleId, t)}
               inputProps={{ tabIndex: 0 }}
-              disabled={savingTitle !== undefined}
+              disabled={held.has(titleId) || savingTitle !== undefined}
             />
           ))}
         </GrantedTitlesGrid>

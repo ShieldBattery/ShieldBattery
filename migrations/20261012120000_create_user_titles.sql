@@ -1,6 +1,5 @@
 -- Titles a user has unlocked (see `TITLES` in common/titles.ts, whose ids are stored in
--- `title_id`). A row is written once, when the title is earned or granted, and is never recomputed;
--- earned titles are permanent, while granted ones are removed when an admin revokes them.
+-- `title_id`). A row is written once, when the title is earned or granted, and is permanent.
 --
 -- The `novice` row doubles as a marker that the user's titles have been evaluated at least once, so
 -- the first evaluation can award a player's existing history silently instead of notifying them
@@ -14,10 +13,37 @@ CREATE TABLE user_titles (
   source title_source NOT NULL,
   -- The admin who granted the title, for `granted` titles.
   granted_by integer REFERENCES users (id) ON DELETE SET NULL,
-  -- Whether this is the title the user displays. At most one per user (enforced below); a user with
-  -- no equipped title displays Novice.
-  equipped boolean NOT NULL DEFAULT false,
   PRIMARY KEY (user_id, title_id)
 );
 
-CREATE UNIQUE INDEX user_titles_equipped_idx ON user_titles (user_id) WHERE equipped;
+-- The title the user displays, or NULL for Novice. Only a title the user has unlocked can be
+-- displayed.
+ALTER TABLE users
+  ADD COLUMN title text,
+  ADD CONSTRAINT users_title_fkey FOREIGN KEY (id, title) REFERENCES user_titles (user_id, title_id);
+
+-- Running counts of the things earned titles are checked against that no other table already counts,
+-- so checking a user's titles never has to read through their games. `counters` maps a counter's
+-- name (see `TitleCounter` in server/lib/titles/title-models.ts) to its count, and a counter that
+-- isn't present counts as 0, so new counters can be added without changing this table.
+--
+-- Game counters are added to in the same transaction that applies a game's results, so each game is
+-- counted once. A user's games from before their first title evaluation are counted by that
+-- evaluation, which replaces their game counters with ones computed from their whole history.
+CREATE TABLE user_title_tracking (
+  user_id integer PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
+  counters jsonb NOT NULL DEFAULT '{}'
+);
+
+-- Adds each count in `increments` to the matching count in `counters` (starting from 0 for counts
+-- `counters` doesn't have yet), leaving every other count as it is.
+CREATE FUNCTION jsonb_add_counters(counters jsonb, increments jsonb) RETURNS jsonb
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+  SELECT counters || COALESCE(
+    (
+      SELECT jsonb_object_agg(i.key, COALESCE((counters->>i.key)::numeric, 0) + i.value::numeric)
+      FROM jsonb_each_text(increments) i
+    ),
+    '{}'::jsonb
+  )
+$$;

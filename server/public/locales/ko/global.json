@@ -3247,7 +3247,7 @@
       "gamesPlayed_other": "{{number}}판 플레이",
       "granted": "ShieldBattery 운영진이 수여함",
       "hoursPlayed_other": "게임 시간 {{number}}시간 달성",
-      "keyboardWarrior": "최근 랭크전 50판 평균 APM 250 이상",
+      "keyboardWarrior": "랭크전 평균 APM 250 이상 (최소 50판)",
       "leagueChampion": "ShieldBattery 리그 우승",
       "leagueWins_other": "리그에서 {{number}}승",
       "minedOut": "60분 넘게 이어진 랭크전에서 승리",

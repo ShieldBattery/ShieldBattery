@@ -3295,7 +3295,7 @@
       "granted": "Awarded by ShieldBattery staff",
       "hoursPlayed_one": "Spend {{number}} hour in game",
       "hoursPlayed_other": "Spend {{number}} hours in game",
-      "keyboardWarrior": "Average 250+ APM across your last 50 ranked games",
+      "keyboardWarrior": "Average 250+ APM across your ranked games (at least 50)",
       "leagueChampion": "Won a ShieldBattery league",
       "leagueWins_one": "Win {{number}} league game",
       "leagueWins_other": "Win {{number}} league games",

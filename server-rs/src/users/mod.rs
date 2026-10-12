@@ -1444,11 +1444,7 @@ impl CurrentUserRepo {
                         login_name::TEXT as "login_name!", email, email_verified,
                         accepted_privacy_version, accepted_terms_version,
                         accepted_use_policy_version, locale, last_login_name_change,
-                        last_name_change, name_change_tokens, avatar_path, staff_badge,
-                        (
-                            SELECT ut.title_id FROM user_titles ut
-                            WHERE ut.user_id = users.id AND ut.equipped
-                        ) AS title
+                        last_name_change, name_change_tokens, avatar_path, staff_badge, title
                     FROM users
                     WHERE id = $1
                 "#,
