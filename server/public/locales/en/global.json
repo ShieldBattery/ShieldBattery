@@ -1820,7 +1820,8 @@
       "dialogTitle": "Leave your current lobby?",
       "hostAloneNotice": "Creating this lobby will close {{current}}, since no one else is in it.",
       "hostNotice": "You're hosting {{current}}. Creating a new lobby will hand it off to another player.",
-      "memberNotice": "Creating this lobby will remove you from {{current}}."
+      "memberNotice": "Creating this lobby will remove you from {{current}}.",
+      "runningGameNotice": "You're still in the game from {{current}}. It will close when your new lobby starts its game."
     },
     "leaveAndJoin": {
       "confirmAction": "Leave and join",
@@ -1828,7 +1829,8 @@
       "genericLobbyName": "the new lobby",
       "hostAloneBody": "Joining {{target}} will close {{current}}, since no one else is in it.",
       "hostBody": "You're hosting {{current}}. Joining {{target}} will hand it off to another player.",
-      "memberBody": "Joining {{target}} will remove you from {{current}}."
+      "memberBody": "Joining {{target}} will remove you from {{current}}.",
+      "runningGameNotice": "You're still in the game from {{current}}. It will close when {{target}} starts its game."
     },
     "lobby": {
       "gameSubType": "Teams",

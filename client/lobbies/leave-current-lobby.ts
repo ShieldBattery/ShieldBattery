@@ -1,7 +1,7 @@
 import { humanSlotCount, Lobby } from '../../common/lobbies'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useAppSelector } from '../redux-hooks'
-import { isInLobby } from './lobby-reducer'
+import { CurrentLobbyState, isInLobby } from './lobby-reducer'
 
 /**
  * Which "you'll be leaving your current lobby" copy applies to the viewer, given their current
@@ -34,23 +34,37 @@ export function leaveCurrentLobbyVariant(
 }
 
 /**
+ * Whether the viewer is still in their current lobby's running game. Leaving the lobby doesn't end
+ * that game process, but the app runs only one participating game at a time, so it closes once
+ * the next lobby's game launches. A member who was benched for the game, or whose game already
+ * ended, has nothing running to lose.
+ */
+export function isInCurrentLobbyGame(lobby: CurrentLobbyState, viewerId: SbUserId): boolean {
+  return isInLobby(lobby) && !!lobby.runState?.inGameUsers.includes(viewerId)
+}
+
+/**
  * Reads the viewer's leave-current-lobby situation out of the store for a confirmation prompt:
- * which copy variant applies, and the current lobby's name to slot into it. Falls back to
- * `Member` when the viewer isn't in a lobby at all (a prompt shown in that state has nothing to
- * warn about, but should still render sensibly).
+ * which copy variant applies, the current lobby's name to slot into it, and whether the viewer's
+ * game from that lobby is still running. Falls back to `Member` when the viewer isn't in a lobby
+ * at all (a prompt shown in that state has nothing to warn about, but should still render
+ * sensibly).
  */
 export function useLeaveCurrentLobbyPrompt(): {
   variant: LeaveCurrentLobbyVariant
   currentLobbyName: string
+  inRunningGame: boolean
 } {
   const selfId = useAppSelector(s => s.auth.self!.user.id)
   const inCurrentLobby = useAppSelector(s => isInLobby(s.lobby))
   const currentLobbyInfo = useAppSelector(s => s.lobby.info)
+  const inRunningGame = useAppSelector(s => isInCurrentLobbyGame(s.lobby, selfId))
 
   return {
     variant: inCurrentLobby
       ? leaveCurrentLobbyVariant(currentLobbyInfo, selfId)
       : LeaveCurrentLobbyVariant.Member,
     currentLobbyName: currentLobbyInfo.name,
+    inRunningGame,
   }
 }

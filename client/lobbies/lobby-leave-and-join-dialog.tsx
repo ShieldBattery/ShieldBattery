@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import styled from 'styled-components'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { closeDialog } from '../dialogs/action-creators'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
@@ -21,6 +22,12 @@ export interface LobbyLeaveAndJoinProps extends CommonDialogProps {
   onJoinFailed?: (message: string, error: unknown) => void
 }
 
+const Paragraphs = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+`
+
 /**
  * Confirms trading the viewer's current lobby for a different one before actually doing it: the
  * server can only ever seat a client in one lobby at a time, so moving to another one means
@@ -36,7 +43,7 @@ export function LobbyLeaveAndJoinDialog({
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
-  const { variant, currentLobbyName } = useLeaveCurrentLobbyPrompt()
+  const { variant, currentLobbyName, inRunningGame } = useLeaveCurrentLobbyPrompt()
   const [isJoining, setIsJoining] = useState(false)
 
   const targetName = name ?? t('lobbies.leaveAndJoin.genericLobbyName', 'the new lobby')
@@ -116,7 +123,19 @@ export function LobbyLeaveAndJoinDialog({
 
   return (
     <Dialog title={title} buttons={buttons} onCancel={onCancel}>
-      <BodyLarge>{body}</BodyLarge>
+      <Paragraphs>
+        <BodyLarge>{body}</BodyLarge>
+        {inRunningGame ? (
+          <BodyLarge>
+            {t('lobbies.leaveAndJoin.runningGameNotice', {
+              defaultValue:
+                "You're still in the game from {{current}}. It will close when {{target}} starts its game.",
+              current: currentLobbyName,
+              target: targetName,
+            })}
+          </BodyLarge>
+        ) : null}
+      </Paragraphs>
     </Dialog>
   )
 }
