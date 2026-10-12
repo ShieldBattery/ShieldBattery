@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import styled from 'styled-components'
 import { closeDialog } from '../dialogs/action-creators'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { DialogType } from '../dialogs/dialog-type'
@@ -13,6 +14,12 @@ export interface LobbyLeaveAndCreateProps extends CommonDialogProps {
   onConfirm: () => void
 }
 
+const Paragraphs = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+`
+
 /**
  * Confirms trading the viewer's current lobby for a brand-new one before actually creating it: the
  * server can only ever seat a client in one lobby at a time, so hosting a new one means leaving the
@@ -23,7 +30,7 @@ export interface LobbyLeaveAndCreateProps extends CommonDialogProps {
 export function LobbyLeaveAndCreateDialog({ onCancel, onConfirm }: LobbyLeaveAndCreateProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
-  const { variant, currentLobbyName } = useLeaveCurrentLobbyPrompt()
+  const { variant, currentLobbyName, inRunningGame } = useLeaveCurrentLobbyPrompt()
 
   const onConfirmClick = () => {
     dispatch(closeDialog(DialogType.LobbyLeaveAndCreate))
@@ -68,7 +75,18 @@ export function LobbyLeaveAndCreateDialog({ onCancel, onConfirm }: LobbyLeaveAnd
 
   return (
     <Dialog title={title} buttons={buttons} onCancel={onCancel}>
-      <BodyLarge>{body}</BodyLarge>
+      <Paragraphs>
+        <BodyLarge>{body}</BodyLarge>
+        {inRunningGame ? (
+          <BodyLarge>
+            {t('lobbies.leaveAndCreate.runningGameNotice', {
+              defaultValue:
+                "You're still in the game from {{current}}. It will close when your new lobby starts its game.",
+              current: currentLobbyName,
+            })}
+          </BodyLarge>
+        ) : null}
+      </Paragraphs>
     </Dialog>
   )
 }
