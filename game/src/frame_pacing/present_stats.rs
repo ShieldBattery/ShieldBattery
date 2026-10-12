@@ -7,6 +7,10 @@
 //! only read on the game thread right after SC:R presents, when the swap chain is known to be
 //! alive, so no reference to it is kept and SC:R stays free to release and recreate it.
 //!
+//! The swap chain's own `Present` is replaced the same way, so pacing can have a frame it timed
+//! for a blank flip at the blank instead of tearing in just before it (see
+//! [`crate::frame_pacing::presents_without_tearing`]).
+//!
 //! Anything missing (no factory, or statistics an implementation doesn't keep) leaves pacing on
 //! its own timing.
 
@@ -38,6 +42,7 @@ static SWAP_CHAIN: AtomicUsize = AtomicUsize::new(0);
 /// The methods the factory's table had before they were replaced.
 static CREATE_FOR_HWND: AtomicUsize = AtomicUsize::new(0);
 static CREATE: AtomicUsize = AtomicUsize::new(0);
+static PRESENT: AtomicUsize = AtomicUsize::new(0);
 static INSTALLED: OnceLock<()> = OnceLock::new();
 static WARNED_UNAVAILABLE: AtomicBool = AtomicBool::new(false);
 
@@ -75,6 +80,8 @@ type CreateForHwnd = unsafe extern "system" fn(
     *mut IDXGIOutput,
     *mut *mut IDXGISwapChain1,
 ) -> HRESULT;
+
+type Present = unsafe extern "system" fn(*mut IDXGISwapChain, u32, u32) -> HRESULT;
 
 type Create = unsafe extern "system" fn(
     *mut IDXGIFactory,
@@ -197,8 +204,33 @@ fn note_swap_chain(window: HWND, swap_chain: usize) {
     let game_window = crate::forge::game_window_handle();
     if game_window.is_none_or(|game| game == window) {
         info!("Frame statistics: tracking the game's swap chain");
+        unsafe {
+            let swap_chain = swap_chain as *mut IDXGISwapChain;
+            let vtable = (*swap_chain).lpVtbl as *mut winapi::shared::dxgi::IDXGISwapChainVtbl;
+            replace(
+                (&raw mut (*vtable).Present).cast(),
+                present as Present as usize,
+                &PRESENT,
+            );
+        }
         SWAP_CHAIN.store(swap_chain, Ordering::Release);
         *TRACKER.lock() = Tracker::new();
+    }
+}
+
+unsafe extern "system" fn present(
+    swap_chain: *mut IDXGISwapChain,
+    sync_interval: u32,
+    flags: u32,
+) -> HRESULT {
+    use winapi::shared::dxgi::DXGI_PRESENT_ALLOW_TEARING;
+    unsafe {
+        let original: Present = std::mem::transmute(PRESENT.load(Ordering::Acquire));
+        let flags = match crate::frame_pacing::presents_without_tearing() {
+            true => flags & !DXGI_PRESENT_ALLOW_TEARING,
+            false => flags,
+        };
+        original(swap_chain, sync_interval, flags)
     }
 }
 

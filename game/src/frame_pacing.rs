@@ -14,16 +14,20 @@
 //!   the frame is presented with the newest input just before the display shows it. When the
 //!   window is composed by the desktop window manager rather than flipped to the display
 //!   directly, a frame has to be presented well before the blank to make it, so the lead also
-//!   grows to whatever the swap chain's statistics show it takes (see [`present_stats`]). The
-//!   other modes keep frames on a fixed grid.
+//!   grows to whatever the swap chain's statistics show it takes (see [`present_stats`]). A
+//!   composed window can't do better that way than the newest of many frames would, though, so
+//!   while the statistics show composition, pacing steps aside for SC:R's own frame cap. Frames
+//!   timed for a blank are presented without tearing, so they flip at the blank rather than
+//!   tearing in just before it. The other modes keep frames on a fixed grid.
 //! - the instant the next step comes due, so it runs on time with all input up to that instant. A
 //!   step coming due within [`MERGE`] before a frame's time runs in the frame's iteration instead.
 //!
-//! An iteration woken for a step alone still draws and presents, so that what the step did shows
-//! right away (torn, without vertical sync). With vertical sync on, a present would queue behind
-//! the frames timed for the display, and a variable refresh display can't show frames closer
-//! together than its top rate, so the iteration skips drawing instead (see [`OwnDraw`]) and what
-//! the step did shows in the next frame. Where skipping a draw isn't safe (see [`iteration`]),
+//! An iteration woken for a step alone on a fixed grid without vertical sync still draws and
+//! presents, so that what the step did shows right away (torn). Otherwise it skips drawing (see
+//! [`OwnDraw`]) and what the step did shows in the next frame: with vertical sync on, a present
+//! would queue behind the frames timed for the display; frames timed for a blank flip at it, so the
+//! next replaces one presented between them before it's shown; and a variable refresh display
+//! can't show frames closer together than its top rate. Where skipping a draw isn't safe (see [`iteration`]),
 //! steps aren't given wakes of their own at all and run in the next frame's iteration.
 //!
 //! A variable refresh display shows each frame as it arrives, but no sooner than its top rate
@@ -82,6 +86,10 @@ const DEADLINE_DECAY: Duration = Duration::from_micros(2);
 /// How far from a measured blank a time the swap chain's statistics give for a flip can be and
 /// still count as that blank.
 const BLANK_TOLERANCE: Duration = Duration::from_micros(500);
+
+/// Frames in a row the statistics have to show composed, or flipped, to change which pacing takes
+/// the window to be.
+const COMPOSITION_VOTES: i32 = 3;
 
 /// Iterations in a row woken right away for steps already due, after which the next one waits for
 /// its frame. A step stays due across iterations when BW is behind (fast replays, seeking), which
@@ -306,6 +314,10 @@ struct State {
     /// How long before its blank a frame has to be presented to be shown at it, as learned from
     /// frames that weren't.
     deadline_lead: Duration,
+    /// Whether the desktop window manager is composing the game window, as the statistics show,
+    /// and the evidence for it: up for each frame composed, down for each flipped.
+    composed: bool,
+    composition_votes: i32,
     stats: Stats,
 }
 
@@ -404,6 +416,8 @@ static STATE: Mutex<State> = Mutex::new(State {
     frame_end: None,
     work_us: [VecDeque::new(), VecDeque::new()],
     deadline_lead: Duration::ZERO,
+    composed: false,
+    composition_votes: 0,
     stats: Stats::new(),
 });
 
@@ -480,16 +494,19 @@ unsafe fn pace(bw: &BwScr, can_skip_draw: bool) {
                 immediate_allowed && (tick_moved || last_iteration.is_some_and(|last| due > last))
             }
         });
+    let composed = state.composed;
     let paced = state
         .plan
         .as_ref()
         .and_then(|plan| plan.as_ref())
+        .filter(|_| !composed)
         .map(|plan| (plan.period, plan.synced, plan.vsync, plan.variable_refresh));
     if let Some((period, synced, vsync, variable_refresh)) = paced {
         // An iteration for a step alone mustn't present with vertical sync on or on a variable
-        // refresh display; when it can't skip drawing either, steps run in frames' iterations
-        // instead.
-        let no_step_presents = vsync || variable_refresh;
+        // refresh display, and gains nothing presenting between frames that flip at the blank
+        // (the next one replaces it before it's shown); when it can't skip drawing either, steps
+        // run in frames' iterations instead.
+        let no_step_presents = vsync || variable_refresh || synced;
         let fold_steps = no_step_presents && !can_skip_draw;
         let fit = synced
             .then(|| VBLANK.get().and_then(|clock| clock.fit(now)))
@@ -631,6 +648,32 @@ impl State {
         self.expected_work(with_step) + margin.max(self.deadline_lead)
     }
 
+    /// Counts a frame the statistics show composed or flipped towards deciding which the window
+    /// is, changing only after several agree.
+    fn note_composition(&mut self, composed: bool) {
+        self.composition_votes = match composed {
+            true => (self.composition_votes + 1).min(COMPOSITION_VOTES),
+            false => (self.composition_votes - 1).max(-COMPOSITION_VOTES),
+        };
+        let now_composed = match self.composition_votes {
+            COMPOSITION_VOTES => true,
+            votes if votes == -COMPOSITION_VOTES => false,
+            _ => self.composed,
+        };
+        if now_composed != self.composed {
+            self.composed = now_composed;
+            self.next_frame = None;
+            self.last_vblank = None;
+            info!(
+                "Frame pacing: the game window is {}",
+                match now_composed {
+                    true => "composed by the desktop window manager, leaving frames to SC:R's cap",
+                    false => "flipped to the display, pacing frames",
+                }
+            );
+        }
+    }
+
     /// Learns from a frame the display showed when it was shown relative to the blank it was
     /// timed for.
     fn note_shown(&mut self, shown: present_stats::Shown) {
@@ -648,6 +691,11 @@ impl State {
                         .unwrap_or(shown.shown),
                 )
             });
+        if matches!(&self.plan, Some(Some(plan)) if plan.synced) {
+            self.note_composition(
+                shown_at.saturating_duration_since(shown.shown) > BLANK_TOLERANCE,
+            );
+        }
         let after = shown_at.saturating_duration_since(shown.presented);
         let stats = &mut self.stats;
         stats.shown += 1;
@@ -948,7 +996,18 @@ pub fn draw() -> Draw {
 }
 
 fn is_pacing() -> bool {
-    matches!(STATE.lock().plan, Some(Some(_)))
+    let state = STATE.lock();
+    matches!(state.plan, Some(Some(_))) && !state.composed
+}
+
+/// Whether SC:R's present in progress should flip at the next blank rather than tear in: a frame
+/// pacing timed for that blank, which arrives just before it.
+pub fn presents_without_tearing() -> bool {
+    if !IN_OWN_DRAW.get() {
+        return false;
+    }
+    let state = STATE.lock();
+    !state.composed && state.frame.is_some_and(|frame| frame.vblank.is_some())
 }
 
 /// The in-game loop drawing the frame of an iteration pacing woke, until dropped. Other draws
@@ -1153,5 +1212,7 @@ pub fn reset() {
     state.frame_end = None;
     state.work_us = Default::default();
     state.deadline_lead = Duration::ZERO;
+    state.composed = false;
+    state.composition_votes = 0;
     state.stats = Stats::new();
 }
