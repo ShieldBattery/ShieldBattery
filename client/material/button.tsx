@@ -333,18 +333,18 @@ export const HotkeyedText = React.memo(({ hotkey, text, disabled }: HotkeyedText
   }
 })
 
-const IconContainer = styled.div`
+const IconContainer = styled.div<{ $atEnd?: boolean }>`
   width: auto;
   height: 100%;
   display: flex;
   align-items: center;
 
-  margin-right: 8px;
+  ${props => (props.$atEnd ? 'margin-left: 8px;' : 'margin-right: 8px;')}
 `
 
-function ButtonIcon({ icon }: { icon: React.ReactNode }) {
+function ButtonIcon({ icon, atEnd }: { icon: React.ReactNode; atEnd?: boolean }) {
   return (
-    <IconContainer>
+    <IconContainer $atEnd={atEnd}>
       {typeof icon === 'string' ? <MaterialIcon icon={icon} size={20} /> : icon}
     </IconContainer>
   )
@@ -511,13 +511,22 @@ export const OutlinedButton = styled(FilledButton)`
   }
 `
 
-const TextButtonRoot = styled.button<{ $hasIcon: boolean }>`
+const TextButtonRoot = styled.button<{ $iconSide?: 'start' | 'end' }>`
   ${buttonReset};
   ${fastOutSlowInShort};
 
   min-width: 64px;
   min-height: 40px;
-  padding-inline: ${props => (props.$hasIcon ? '12px 16px' : '12px')};
+  padding-inline: ${props => {
+    switch (props.$iconSide) {
+      case 'start':
+        return '12px 16px'
+      case 'end':
+        return '16px 12px'
+      default:
+        return '12px'
+    }
+  }};
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -549,6 +558,12 @@ export interface TextButtonProps {
    * sized to 20px for normally sized buttons.
    */
   iconStart?: React.ReactNode
+  /**
+   * An optional icon to place at the ending edge of the button, e.g. to show that the button
+   * expands or opens something. Takes the same values as `iconStart`, and isn't meant to be used
+   * together with it.
+   */
+  iconEnd?: React.ReactNode
   className?: string
   disabled?: boolean
   onBlur?: React.FocusEventHandler
@@ -561,6 +576,8 @@ export interface TextButtonProps {
   type?: 'button' | 'reset' | 'submit'
   name?: string
   testName?: string
+  ariaExpanded?: boolean
+  ariaControls?: string
   ref?: React.Ref<HTMLButtonElement>
   styledAs?: WebTarget
 }
@@ -574,6 +591,7 @@ export function TextButton({
   className,
   disabled,
   iconStart,
+  iconEnd,
   onBlur,
   onFocus,
   onClick,
@@ -584,9 +602,17 @@ export function TextButton({
   type = 'button',
   name,
   testName,
+  ariaExpanded,
+  ariaControls,
   ref,
   styledAs,
 }: TextButtonProps) {
+  let iconSide: 'start' | 'end' | undefined
+  if (iconStart) {
+    iconSide = 'start'
+  } else if (iconEnd) {
+    iconSide = 'end'
+  }
   const [buttonProps, rippleRef] = useButtonState({
     disabled,
     onBlur,
@@ -599,7 +625,7 @@ export function TextButton({
   return (
     <TextButtonRoot
       as={styledAs}
-      $hasIcon={!!iconStart}
+      $iconSide={iconSide}
       ref={ref}
       className={className}
       tabIndex={tabIndex}
@@ -607,10 +633,13 @@ export function TextButton({
       type={type}
       name={name}
       data-testid={testName}
+      aria-expanded={ariaExpanded}
+      aria-controls={ariaControls}
       {...buttonProps}>
       <Label>
         {iconStart ? <ButtonIcon icon={iconStart} /> : null}
         {label}
+        {iconEnd ? <ButtonIcon icon={iconEnd} atEnd={true} /> : null}
       </Label>
       <Ripple ref={rippleRef} disabled={disabled} />
     </TextButtonRoot>

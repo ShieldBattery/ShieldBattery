@@ -1,10 +1,13 @@
 import { Link, Route, Switch } from 'wouter'
 import { ButtonsTest } from './buttons-test'
+import { CalloutTest } from './callout-test'
 import { ChipTest } from './chip-test'
 import { ColorPickerTest } from './color-picker-test'
 import { MenuTest } from './menu-test'
 import DevPopover from './popover-test'
+import { RadioCardTest } from './radio-card-test'
 import { RadioTest } from './radio-test'
+import { SegmentedButtonTest } from './segmented-button-test'
 import { SelectsTest } from './selects-test'
 import { SliderTest } from './slider-test'
 import { SnackbarTest } from './snackbar-test'
@@ -21,6 +24,9 @@ function DevMaterialDashboard() {
         <Link href={`${BASE_URL}/button`}>Button component</Link>
       </li>
       <li>
+        <Link href={`${BASE_URL}/callout`}>Callout component</Link>
+      </li>
+      <li>
         <Link href={`${BASE_URL}/chip`}>Chip component</Link>
       </li>
       <li>
@@ -34,6 +40,12 @@ function DevMaterialDashboard() {
       </li>
       <li>
         <Link href={`${BASE_URL}/radio`}>Radio component</Link>
+      </li>
+      <li>
+        <Link href={`${BASE_URL}/radio-card`}>Radio card component</Link>
+      </li>
+      <li>
+        <Link href={`${BASE_URL}/segmented-button`}>Segmented button component</Link>
       </li>
       <li>
         <Link href={`${BASE_URL}/select`}>Select component</Link>
@@ -61,11 +73,14 @@ export default function DevMaterialRoutes() {
   return (
     <Switch>
       <Route path={`${BASE_URL}/button`} component={ButtonsTest} />
+      <Route path={`${BASE_URL}/callout`} component={CalloutTest} />
       <Route path={`${BASE_URL}/chip`} component={ChipTest} />
       <Route path={`${BASE_URL}/color-picker`} component={ColorPickerTest} />
       <Route path={`${BASE_URL}/menu`} component={MenuTest} />
       <Route path={`${BASE_URL}/popover`} component={DevPopover} />
       <Route path={`${BASE_URL}/radio`} component={RadioTest} />
+      <Route path={`${BASE_URL}/radio-card`} component={RadioCardTest} />
+      <Route path={`${BASE_URL}/segmented-button`} component={SegmentedButtonTest} />
       <Route path={`${BASE_URL}/select`} component={SelectsTest} />
       <Route path={`${BASE_URL}/slider`} component={SliderTest} />
       <Route path={`${BASE_URL}/snackbar`} component={SnackbarTest} />
