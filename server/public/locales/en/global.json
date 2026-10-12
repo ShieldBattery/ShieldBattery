@@ -2992,15 +2992,27 @@
         "fpsLimitUnused": "Not used with frame pacing on",
         "framePacing": {
           "explainer": {
-            "body": "Your monitor only shows a new image at each refresh. StarCraft normally waits between drawing a frame and showing it, so the frame you see is a few milliseconds old. Frame pacing draws each frame just before the refresh, using your newest input.",
-            "chartNote": "Median, 120 Hz monitor. Shorter is better.",
+            "body": "Your monitor only shows a new image at each refresh. StarCraft normally draws up to 300 frames a second, most of which you never see, and waits between drawing each one and showing it. Frame pacing draws one frame per refresh, right before it’s shown.",
+            "chartNote": "240 Hz monitor. Shorter is better.",
             "chartTitle": "Input to screen",
-            "customFpsLimit": "Custom FPS limit (120)",
+            "customFpsLimit": "Custom FPS limit (240)",
             "defaultFpsLimit": "Default FPS limit (300)",
             "framePacing": "Frame pacing",
+            "lessDelay": {
+              "description": "Each frame is drawn with your newest input, just before your monitor shows it.",
+              "title": "Less delay"
+            },
+            "lessGpuWork": {
+              "description": "Your GPU draws one frame per refresh instead of up to 300 a second, so it runs cooler and quieter.",
+              "title": "Less work for your GPU"
+            },
             "milliseconds": "{{ms}} ms",
+            "noTearing": {
+              "description": "Every frame is shown whole, without the delay vertical sync adds.",
+              "title": "No tearing"
+            },
             "tearingNote": "The two FPS limit rows also tear.",
-            "toggle": "How frame pacing lowers delay",
+            "toggle": "How frame pacing works",
             "verticalSync": "Vertical sync"
           },
           "match": {
@@ -3009,9 +3021,9 @@
             "title": "Match refresh"
           },
           "nudge": {
-            "body": "StarCraft normally waits between drawing a frame and showing it. Frame pacing draws each frame right before it’s shown, and stops tearing.",
+            "body": "StarCraft normally draws up to 300 frames a second, most of which you never see. Frame pacing draws one per refresh, right before it’s shown: no tearing, and far less work for your GPU.",
             "dismiss": "Not now",
-            "title": "Lower your input delay with frame pacing",
+            "title": "Try frame pacing",
             "turnOn": "Turn on",
             "vsyncBody": "Vertical sync adds a lot of input delay. Frame pacing stops tearing without it, and shows each frame with your newest input."
           },

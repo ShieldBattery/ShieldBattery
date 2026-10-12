@@ -3025,15 +3025,27 @@
         "fpsLimitUnused": "No se usa con el ritmo de fotogramas activado",
         "framePacing": {
           "explainer": {
-            "body": "Tu monitor solo muestra una imagen nueva en cada refresco. StarCraft normalmente espera entre dibujar un fotograma y mostrarlo, así que el fotograma que ves tiene unos milisegundos de antigüedad. El ritmo de fotogramas dibuja cada fotograma justo antes del refresco, con tus acciones más recientes.",
-            "chartNote": "Mediana, monitor de 120 Hz. Menos es mejor.",
+            "body": "Tu monitor solo muestra una imagen nueva en cada refresco. StarCraft normalmente dibuja hasta 300 fotogramas por segundo, la mayoría de los cuales nunca ves, y espera entre dibujar cada uno y mostrarlo. El ritmo de fotogramas dibuja un fotograma por refresco, justo antes de mostrarlo.",
+            "chartNote": "Monitor de 240 Hz. Menos es mejor.",
             "chartTitle": "De la entrada a la pantalla",
-            "customFpsLimit": "Límite de FPS personalizado (120)",
+            "customFpsLimit": "Límite de FPS personalizado (240)",
             "defaultFpsLimit": "Límite de FPS por defecto (300)",
             "framePacing": "Ritmo de fotogramas",
+            "lessDelay": {
+              "description": "Cada fotograma se dibuja con tus acciones más recientes, justo antes de que el monitor lo muestre.",
+              "title": "Menos retraso"
+            },
+            "lessGpuWork": {
+              "description": "Tu GPU dibuja un fotograma por refresco en vez de hasta 300 por segundo, así que funciona más fría y silenciosa.",
+              "title": "Menos trabajo para tu GPU"
+            },
             "milliseconds": "{{ms}} ms",
+            "noTearing": {
+              "description": "Cada fotograma se muestra entero, sin el retraso que añade la sincronización vertical.",
+              "title": "Sin tearing"
+            },
             "tearingNote": "Las dos filas de límite de FPS también producen tearing.",
-            "toggle": "Cómo el ritmo de fotogramas reduce el retraso",
+            "toggle": "Cómo funciona el ritmo de fotogramas",
             "verticalSync": "Sincronización vertical"
           },
           "match": {
@@ -3042,9 +3054,9 @@
             "title": "Igualar refresco"
           },
           "nudge": {
-            "body": "StarCraft normalmente espera entre dibujar un fotograma y mostrarlo. El ritmo de fotogramas dibuja cada fotograma justo antes de mostrarlo y elimina el tearing.",
+            "body": "StarCraft normalmente dibuja hasta 300 fotogramas por segundo, la mayoría de los cuales nunca ves. El ritmo de fotogramas dibuja uno por refresco, justo antes de mostrarlo: sin tearing y con mucho menos trabajo para tu GPU.",
             "dismiss": "Ahora no",
-            "title": "Reduce tu retraso de entrada con el ritmo de fotogramas",
+            "title": "Prueba el ritmo de fotogramas",
             "turnOn": "Activar",
             "vsyncBody": "La sincronización vertical añade mucho retraso de entrada. El ritmo de fotogramas elimina el tearing sin ella y muestra cada fotograma con tus acciones más recientes."
           },

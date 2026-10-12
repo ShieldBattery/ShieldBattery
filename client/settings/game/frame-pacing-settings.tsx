@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { DisplayMode, getDisplayModeName } from '../../../common/settings/blizz-settings'
 import { FramePacing } from '../../../common/settings/local-settings'
+import { MaterialIcon } from '../../icons/material/material-icon'
 import { JsonLocalStorageValue } from '../../local-storage'
 import { FilledButton, TextButton } from '../../material/button'
 import { Callout } from '../../material/callout'
@@ -17,14 +18,15 @@ import {
 import { settingsRowSurface } from '../settings-rows'
 
 /**
- * Input to screen, median, measured on a 120 Hz monitor in windowed fullscreen, the custom FPS
- * limit set to the refresh rate.
+ * Input to screen on a 240 Hz monitor in windowed fullscreen, the custom FPS limit set to the
+ * refresh rate: the measured median from reading input to showing the frame, plus the average wait
+ * for the game to read the input (half the time between frames).
  */
 const MEASURED_INPUT_TO_SCREEN_MS = {
-  framePacing: 3.3,
-  defaultFpsLimit: 3.2,
-  customFpsLimit: 8.4,
-  verticalSync: 24.7,
+  framePacing: 4.9,
+  defaultFpsLimit: 5.0,
+  customFpsLimit: 6.4,
+  verticalSync: 14.3,
 }
 
 const Fieldset = styled.fieldset`
@@ -150,6 +152,37 @@ const ExplainerText = styled.p`
   color: var(--theme-on-surface-variant);
 `
 
+const BenefitList = styled.ul`
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+`
+
+const Benefit = styled.li`
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+`
+
+const BenefitIcon = styled(MaterialIcon).attrs({ size: 20 })`
+  color: var(--theme-amber);
+`
+
+const BenefitText = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+`
+
+const BenefitTitle = styled.span`
+  ${titleSmall};
+  color: var(--theme-on-surface);
+`
+
 const Chart = styled.div`
   display: flex;
   flex-direction: column;
@@ -231,7 +264,7 @@ function LatencyExplainer() {
     {
       label: t(
         'settings.game.video.framePacing.explainer.customFpsLimit',
-        'Custom FPS limit (120)',
+        'Custom FPS limit (240)',
       ),
       ms: MEASURED_INPUT_TO_SCREEN_MS.customFpsLimit,
       best: false,
@@ -244,13 +277,41 @@ function LatencyExplainer() {
   ]
   const longest = Math.max(...rows.map(row => row.ms))
 
+  const benefits = [
+    {
+      icon: 'bolt',
+      title: t('settings.game.video.framePacing.explainer.lessDelay.title', 'Less delay'),
+      description: t(
+        'settings.game.video.framePacing.explainer.lessDelay.description',
+        'Each frame is drawn with your newest input, just before your monitor shows it.',
+      ),
+    },
+    {
+      icon: 'image',
+      title: t('settings.game.video.framePacing.explainer.noTearing.title', 'No tearing'),
+      description: t(
+        'settings.game.video.framePacing.explainer.noTearing.description',
+        'Every frame is shown whole, without the delay vertical sync adds.',
+      ),
+    },
+    {
+      icon: 'memory',
+      title: t(
+        'settings.game.video.framePacing.explainer.lessGpuWork.title',
+        'Less work for your GPU',
+      ),
+      description: t(
+        'settings.game.video.framePacing.explainer.lessGpuWork.description',
+        'Your GPU draws one frame per refresh instead of up to 300 a second, so it runs cooler ' +
+          'and quieter.',
+      ),
+    },
+  ]
+
   return (
     <ExplainerArea>
       <ExplainerToggle
-        label={t(
-          'settings.game.video.framePacing.explainer.toggle',
-          'How frame pacing lowers delay',
-        )}
+        label={t('settings.game.video.framePacing.explainer.toggle', 'How frame pacing works')}
         iconEnd={open ? 'expand_less' : 'expand_more'}
         ariaExpanded={open}
         ariaControls={panelId}
@@ -261,12 +322,23 @@ function LatencyExplainer() {
           <ExplainerText>
             {t(
               'settings.game.video.framePacing.explainer.body',
-              'Your monitor only shows a new image at each refresh. StarCraft normally waits ' +
-                'between drawing a frame and showing it, so the frame you see is a few ' +
-                'milliseconds old. Frame pacing draws each frame just before the refresh, using ' +
-                'your newest input.',
+              'Your monitor only shows a new image at each refresh. StarCraft normally draws up ' +
+                'to 300 frames a second, most of which you never see, and waits between drawing ' +
+                'each one and showing it. Frame pacing draws one frame per refresh, right before ' +
+                'it’s shown.',
             )}
           </ExplainerText>
+          <BenefitList>
+            {benefits.map(benefit => (
+              <Benefit key={benefit.icon}>
+                <BenefitIcon icon={benefit.icon} />
+                <BenefitText>
+                  <BenefitTitle>{benefit.title}</BenefitTitle>
+                  <ExplainerText>{benefit.description}</ExplainerText>
+                </BenefitText>
+              </Benefit>
+            ))}
+          </BenefitList>
           <Chart>
             <ChartHeader>
               <ChartTitle>
@@ -275,7 +347,7 @@ function LatencyExplainer() {
               <ChartNote>
                 {t(
                   'settings.game.video.framePacing.explainer.chartNote',
-                  'Median, 120 Hz monitor. Shorter is better.',
+                  '240 Hz monitor. Shorter is better.',
                 )}
               </ChartNote>
             </ChartHeader>
@@ -452,10 +524,7 @@ export function FramePacingNudge({
   return (
     <Callout
       icon='bolt'
-      title={t(
-        'settings.game.video.framePacing.nudge.title',
-        'Lower your input delay with frame pacing',
-      )}
+      title={t('settings.game.video.framePacing.nudge.title', 'Try frame pacing')}
       actions={
         <>
           <TextButton
@@ -479,8 +548,9 @@ export function FramePacingNudge({
           )
         : t(
             'settings.game.video.framePacing.nudge.body',
-            'StarCraft normally waits between drawing a frame and showing it. Frame pacing ' +
-              'draws each frame right before it’s shown, and stops tearing.',
+            'StarCraft normally draws up to 300 frames a second, most of which you never see. ' +
+              'Frame pacing draws one per refresh, right before it’s shown: no tearing, and far ' +
+              'less work for your GPU.',
           )}
     </Callout>
   )
