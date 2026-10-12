@@ -2578,6 +2578,10 @@
         "title": "声音"
       },
       "system": {
+        "emulateTurnRate24Delay": {
+          "description": "即使网络足够快，指令也总会延迟至少 2 帧才执行。这只会影响您自己的游戏。",
+          "label": "增加输入延迟以匹配 TR24 Low"
+        },
         "networkOverline": "网络",
         "rollbackTarget": {
           "description": "数值越高，指令响应越快，但单位可能会更频繁地出现明显的跳动。",

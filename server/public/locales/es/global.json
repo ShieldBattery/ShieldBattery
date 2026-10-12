@@ -2658,6 +2658,10 @@
         "title": "Sonido"
       },
       "system": {
+        "emulateTurnRate24Delay": {
+          "description": "Tus comandos siempre tardan al menos 2 fotogramas en ejecutarse, aunque tu conexión permita menos. Esto solo cambia tu propia partida.",
+          "label": "Añadir retraso de entrada para igualar TR24 Low"
+        },
         "networkOverline": "Red",
         "rollbackTarget": {
           "description": "Los valores más altos hacen que tus comandos respondan más rápido, pero las unidades pueden dar saltos visibles más a menudo.",
@@ -2667,7 +2671,7 @@
           "responsive": "Más reactivo",
           "smoother": "Más fluido"
         },
-        "runOnStartup": "Ejecute ShieldBattery al iniciar el sistema",
+        "runOnStartup": "Ejecutar ShieldBattery al iniciar el sistema",
         "serverRegion": {
           "autoPlain": "Automática (recomendada)",
           "autoResolved": "Automática — {{region}} ({{rtt}}ms)",
