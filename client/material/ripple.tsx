@@ -69,6 +69,9 @@ const RippleRoot = styled.div<{
   contain: strict;
   overflow: hidden;
   pointer-events: none;
+  // Electron includes transformed pseudo-elements in native drag regions despite overflow clipping.
+  // Keep decorative ripples from inheriting a title-bar button's no-drag region.
+  -webkit-app-region: initial;
 
   --sb-ripple-fg-opacity: var(--sb-ripple-press-opacity, 0.1);
 
