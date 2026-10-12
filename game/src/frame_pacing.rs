@@ -318,6 +318,10 @@ struct State {
     /// and the evidence for it: up for each frame composed, down for each flipped.
     composed: bool,
     composition_votes: i32,
+    /// Whether the next frame should leave a blank without one, to empty a vertical sync queue
+    /// that holds a frame too many, and when that was last decided.
+    skip_blank: bool,
+    queue_drained_at: Option<Instant>,
     stats: Stats,
 }
 
@@ -363,6 +367,8 @@ struct Stats {
     shown_after_us: Vec<u32>,
     missed_deadlines: u32,
     deadline_lead_us_max: u32,
+    /// Refreshes left without a frame to empty the vertical sync queue.
+    queue_drains: u32,
 }
 
 impl Stats {
@@ -398,6 +404,7 @@ impl Stats {
             shown_after_us: Vec::new(),
             missed_deadlines: 0,
             deadline_lead_us_max: 0,
+            queue_drains: 0,
         }
     }
 }
@@ -418,6 +425,8 @@ static STATE: Mutex<State> = Mutex::new(State {
     deadline_lead: Duration::ZERO,
     composed: false,
     composition_votes: 0,
+    skip_blank: false,
+    queue_drained_at: None,
     stats: Stats::new(),
 });
 
@@ -516,8 +525,11 @@ unsafe fn pace(bw: &BwScr, can_skip_draw: bool) {
         let (frame_at, vblank) = match fit {
             Some(fit) => {
                 let lead = state.lead(false);
-                // One frame per refresh: never time two for the same vertical blank.
+                // One frame per refresh: never time two for the same vertical blank, and leave
+                // one without a frame when the vertical sync queue needs emptying.
+                let skip = std::mem::take(&mut state.skip_blank);
                 let earliest = match state.last_vblank {
+                    Some(last) if skip => (now + lead).max(last + fit.period * 3 / 2),
                     Some(last) => (now + lead).max(last + fit.period / 2),
                     None => now + lead,
                 };
@@ -702,8 +714,8 @@ impl State {
         if stats.shown_after_us.len() < 8192 {
             stats.shown_after_us.push(micros(after));
         }
-        let period = match &self.plan {
-            Some(Some(plan)) if plan.synced => plan.period,
+        let (period, vsync) = match &self.plan {
+            Some(Some(plan)) if plan.synced => (plan.period, plan.vsync),
             _ => return,
         };
         // Only a frame presented before its blank says anything about when it had to be: one
@@ -714,7 +726,20 @@ impl State {
         let Some(ahead) = timed_for.checked_duration_since(shown.presented) else {
             return;
         };
-        if shown_at > timed_for + period / 2 {
+        if shown_at > timed_for + period / 2 && vsync {
+            // With vertical sync the deadline is the blank itself, so a frame presented before
+            // it yet shown later waited behind another: the queue holds a frame more than it
+            // should, and every frame is shown a refresh late until one refresh goes without a
+            // frame. Frames presented before that are still behind it.
+            if self
+                .queue_drained_at
+                .is_none_or(|drained| shown.presented > drained)
+            {
+                stats.queue_drains += 1;
+                self.skip_blank = true;
+                self.queue_drained_at = Some(Instant::now());
+            }
+        } else if shown_at > timed_for + period / 2 {
             stats.missed_deadlines += 1;
             self.deadline_lead = self
                 .deadline_lead
@@ -1157,12 +1182,13 @@ fn log_stats(stats: &mut Stats, plan: Option<&Plan>, elapsed: Duration) {
             let shown = match stats.shown {
                 0 if reads.ok + reads.disjoint + reads.failed == 0 => String::new(),
                 count => format!(
-                    "; {:.1} frames/s shown, presented to shown p50 {:.2} ms p90 {:.2} ms, {} shown                      after the blank they were presented in time for, deadline lead max {:.2} ms                      (statistics {reads:?})",
+                    "; {:.1} frames/s shown, presented to shown p50 {:.2} ms p90 {:.2} ms, {} shown                      after the blank they were presented in time for, deadline lead max {:.2} ms,                      {} vertical sync queue drains (statistics {reads:?})",
                     per_sec(count),
                     quantile(&stats.shown_after_us, 0.5),
                     quantile(&stats.shown_after_us, 0.9),
                     stats.missed_deadlines,
                     ms(f64::from(stats.deadline_lead_us_max)),
+                    stats.queue_drains,
                 ),
             };
             format!(
@@ -1214,5 +1240,7 @@ pub fn reset() {
     state.deadline_lead = Duration::ZERO;
     state.composed = false;
     state.composition_votes = 0;
+    state.skip_blank = false;
+    state.queue_drained_at = None;
     state.stats = Stats::new();
 }
