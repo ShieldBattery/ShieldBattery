@@ -302,8 +302,7 @@ function LatencyExplainer() {
       ),
       description: t(
         'settings.game.video.framePacing.explainer.lessGpuWork.description',
-        'Your GPU draws one frame per refresh instead of up to 300 a second, so it runs cooler ' +
-          'and quieter.',
+        'Your GPU only draws the frames you’ll actually see, so it runs cooler and quieter.',
       ),
     },
   ]
@@ -322,10 +321,10 @@ function LatencyExplainer() {
           <ExplainerText>
             {t(
               'settings.game.video.framePacing.explainer.body',
-              'Your monitor only shows a new image at each refresh. StarCraft normally draws up ' +
-                'to 300 frames a second, most of which you never see, and waits between drawing ' +
-                'each one and showing it. Frame pacing draws one frame per refresh, right before ' +
-                'it’s shown.',
+              'Your monitor only shows a new image at each refresh. StarCraft normally draws as ' +
+                'many frames as your FPS limit allows, most of which you never see, and waits ' +
+                'between drawing each one and showing it. Frame pacing draws one frame per ' +
+                'refresh, right before it’s shown.',
             )}
           </ExplainerText>
           <BenefitList>
@@ -548,9 +547,9 @@ export function FramePacingNudge({
           )
         : t(
             'settings.game.video.framePacing.nudge.body',
-            'StarCraft normally draws up to 300 frames a second, most of which you never see. ' +
-              'Frame pacing draws one per refresh, right before it’s shown: no tearing, and far ' +
-              'less work for your GPU.',
+            'StarCraft normally draws as many frames as your FPS limit allows, most of which ' +
+              'you never see. Frame pacing draws one per refresh, right before it’s shown: no ' +
+              'tearing, and far less work for your GPU.',
           )}
     </Callout>
   )

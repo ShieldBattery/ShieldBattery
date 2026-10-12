@@ -3025,7 +3025,7 @@
         "fpsLimitUnused": "No se usa con el ritmo de fotogramas activado",
         "framePacing": {
           "explainer": {
-            "body": "Tu monitor solo muestra una imagen nueva en cada refresco. StarCraft normalmente dibuja hasta 300 fotogramas por segundo, la mayoría de los cuales nunca ves, y espera entre dibujar cada uno y mostrarlo. El ritmo de fotogramas dibuja un fotograma por refresco, justo antes de mostrarlo.",
+            "body": "Tu monitor solo muestra una imagen nueva en cada refresco. StarCraft normalmente dibuja tantos fotogramas como permita tu límite de FPS, la mayoría de los cuales nunca ves, y espera entre dibujar cada uno y mostrarlo. El ritmo de fotogramas dibuja un fotograma por refresco, justo antes de mostrarlo.",
             "chartNote": "Monitor de 240 Hz. Menos es mejor.",
             "chartTitle": "De la entrada a la pantalla",
             "customFpsLimit": "Límite de FPS personalizado (240)",
@@ -3036,7 +3036,7 @@
               "title": "Menos retraso"
             },
             "lessGpuWork": {
-              "description": "Tu GPU dibuja un fotograma por refresco en vez de hasta 300 por segundo, así que funciona más fría y silenciosa.",
+              "description": "Tu GPU solo dibuja los fotogramas que de verdad vas a ver, así que funciona más fría y silenciosa.",
               "title": "Menos trabajo para tu GPU"
             },
             "milliseconds": "{{ms}} ms",
@@ -3054,7 +3054,7 @@
             "title": "Igualar refresco"
           },
           "nudge": {
-            "body": "StarCraft normalmente dibuja hasta 300 fotogramas por segundo, la mayoría de los cuales nunca ves. El ritmo de fotogramas dibuja uno por refresco, justo antes de mostrarlo: sin tearing y con mucho menos trabajo para tu GPU.",
+            "body": "StarCraft normalmente dibuja tantos fotogramas como permita tu límite de FPS, la mayoría de los cuales nunca ves. El ritmo de fotogramas dibuja uno por refresco, justo antes de mostrarlo: sin tearing y con mucho menos trabajo para tu GPU.",
             "dismiss": "Ahora no",
             "title": "Prueba el ritmo de fotogramas",
             "turnOn": "Activar",

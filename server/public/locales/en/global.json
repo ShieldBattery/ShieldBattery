@@ -2992,7 +2992,7 @@
         "fpsLimitUnused": "Not used with frame pacing on",
         "framePacing": {
           "explainer": {
-            "body": "Your monitor only shows a new image at each refresh. StarCraft normally draws up to 300 frames a second, most of which you never see, and waits between drawing each one and showing it. Frame pacing draws one frame per refresh, right before it’s shown.",
+            "body": "Your monitor only shows a new image at each refresh. StarCraft normally draws as many frames as your FPS limit allows, most of which you never see, and waits between drawing each one and showing it. Frame pacing draws one frame per refresh, right before it’s shown.",
             "chartNote": "240 Hz monitor. Shorter is better.",
             "chartTitle": "Input to screen",
             "customFpsLimit": "Custom FPS limit (240)",
@@ -3003,7 +3003,7 @@
               "title": "Less delay"
             },
             "lessGpuWork": {
-              "description": "Your GPU draws one frame per refresh instead of up to 300 a second, so it runs cooler and quieter.",
+              "description": "Your GPU only draws the frames you’ll actually see, so it runs cooler and quieter.",
               "title": "Less work for your GPU"
             },
             "milliseconds": "{{ms}} ms",
@@ -3021,7 +3021,7 @@
             "title": "Match refresh"
           },
           "nudge": {
-            "body": "StarCraft normally draws up to 300 frames a second, most of which you never see. Frame pacing draws one per refresh, right before it’s shown: no tearing, and far less work for your GPU.",
+            "body": "StarCraft normally draws as many frames as your FPS limit allows, most of which you never see. Frame pacing draws one per refresh, right before it’s shown: no tearing, and far less work for your GPU.",
             "dismiss": "Not now",
             "title": "Try frame pacing",
             "turnOn": "Turn on",
