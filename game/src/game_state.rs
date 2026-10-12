@@ -193,6 +193,13 @@ impl GameState {
                     u32::try_from(target).unwrap_or(u32::MAX),
                 );
             }
+            crate::netcode_v2::set_turn_rate_24_delay(
+                settings
+                    .local
+                    .get("emulateTurnRate24Delay")
+                    .and_then(|x| x.as_bool())
+                    .unwrap_or(false),
+            );
             get_bw().set_settings(settings);
             state.settings_set = true;
         } else {

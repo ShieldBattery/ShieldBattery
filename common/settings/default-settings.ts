@@ -49,6 +49,7 @@ export const DEFAULT_LOCAL_SETTINGS: ReadonlyDeep<
   grabPanInverted: false,
   gameServerRegion: undefined,
   rollbackTarget: 2,
+  emulateTurnRate24Delay: false,
   launch32Bit: false,
   replayLibraryFolders: undefined,
 }

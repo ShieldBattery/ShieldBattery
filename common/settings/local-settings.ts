@@ -324,6 +324,13 @@ export interface LocalSettings extends ShieldBatteryAppSettings {
   rollbackTarget: number
 
   /**
+   * Whether the local player's commands always take at least as long to run as on Battle.net at
+   * turn rate 24 with Low latency (two frames at the Fastest speed), even when their connection
+   * allows less. Only changes the local player's own game.
+   */
+  emulateTurnRate24Delay: boolean
+
+  /**
    * Whether to launch the 32-bit game client instead of the (default) 64-bit one. Discouraged;
    * exists as an escape hatch for systems where the 64-bit client doesn't work.
    */

@@ -44,7 +44,7 @@
 mod credentials;
 
 use std::collections::{HashMap, VecDeque};
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{Duration, Instant};
 
 use bytes::Bytes;
@@ -536,6 +536,27 @@ impl DisconnectStatus {
 /// player more of it than lockstep could.
 const MAX_PIPE_TURNS: u32 = rally_point_client::proto::control::GAME_SYNC_SAFE_BUFFER_MAX;
 
+/// The pipe Battle.net keeps at turn rate 24 on Low latency: two turns in flight, a frame each at
+/// the Fastest speed, so a command runs two frames after it is issued.
+const TURN_RATE_24_PIPE_TURNS: u32 = 2;
+
+/// The fewest of its own turns this client keeps in flight, which turn states take when they are
+/// built (see [`set_turn_rate_24_delay`]).
+static MIN_PIPE_TURNS: AtomicU32 = AtomicU32::new(1);
+
+/// Makes this client keep at least the input delay of Battle.net's turn rate 24 on Low latency,
+/// when the player chose to, even where its connection allows less. Its turns still leave when
+/// they would otherwise, so nobody else's game changes: it only sees each frame later.
+pub fn set_turn_rate_24_delay(on: bool) {
+    let turns = if on { TURN_RATE_24_PIPE_TURNS } else { 1 };
+    MIN_PIPE_TURNS.store(turns, Ordering::Relaxed);
+}
+
+/// The fewest of its own turns this client keeps in flight, as the player's settings ask.
+pub fn min_pipe_turns() -> u32 {
+    MIN_PIPE_TURNS.load(Ordering::Relaxed)
+}
+
 /// The step of a game that predicts inputs whose turns a receive for `next_frame` dispatches: the
 /// turn index, or `None` for the network step BW's game loop runs before its first frame.
 /// `game_frame_count` reads one past the number of turns already dispatched when the IN hook runs,
@@ -829,6 +850,9 @@ pub struct TurnState {
     /// during which none of its turns leave. All at once, as when the game's lockstep start ends
     /// and the lead first takes effect, that is a visible sprint.
     lead_in_effect: i32,
+    /// The fewest of its own turns this client keeps in flight, however little delay its link
+    /// needs: 1, or more when the player asked for a minimum input delay.
+    min_pipe_turns: u32,
 }
 
 impl TurnState {
@@ -900,6 +924,7 @@ impl TurnState {
             local_chat_echoes: Vec::new(),
             lead: 0,
             lead_in_effect: 0,
+            min_pipe_turns: min_pipe_turns(),
         }
     }
 
@@ -2233,7 +2258,8 @@ impl TurnState {
     /// client is simulating when each one leaves. That trade is the client's own: a frame of lead
     /// is a frame less input delay and a frame more of other players' turns arriving after it has
     /// simulated past them. At least one turn always stays in
-    /// the pipe, and at most [`MAX_PIPE_TURNS`]. 0 while the game's start runs in lockstep, which
+    /// the pipe (more when the player asked for a minimum input delay), and at most
+    /// [`MAX_PIPE_TURNS`]. 0 while the game's start runs in lockstep, which
     /// needs the whole buffer. A rise in the lead takes effect a frame at a time (see
     /// [`follow_lead`](Self::follow_lead)).
     pub fn lead(&self) -> i32 {
@@ -2282,10 +2308,13 @@ impl TurnState {
     }
 
     /// The lowest and highest lead the relay's buffer allows: the ones that leave
-    /// [`MAX_PIPE_TURNS`] and a single turn in the pipe.
+    /// [`MAX_PIPE_TURNS`] and the fewest turns this client keeps in the pipe.
     fn lead_bounds(&self) -> (i32, i32) {
         let buffer = self.buffer_turns() as i32;
-        (buffer - MAX_PIPE_TURNS as i32, buffer - 1)
+        (
+            buffer - MAX_PIPE_TURNS as i32,
+            buffer - self.min_pipe_turns as i32,
+        )
     }
 
     /// The newest lead report this client's home relay sent since the last call, in a rollback
@@ -2299,9 +2328,11 @@ impl TurnState {
     }
 
     /// How many of this client's own turns the pipe keeps in flight, which is its input delay:
-    /// the relay's latency buffer less the [`lead`](Self::lead).
+    /// the relay's latency buffer less the [`lead`](Self::lead), and never fewer than the player's
+    /// minimum. A deeper pipe than other players' only sends this client's turns earlier, so it
+    /// needs no agreement, in lockstep as well.
     pub fn pipe_depth(&self) -> u32 {
-        (self.buffer_turns() as i32 - self.lead()).max(1) as u32
+        (self.buffer_turns() as i32 - self.lead()).max(self.min_pipe_turns as i32) as u32
     }
 
     /// The latency buffer in force: the relay's, or the input table's floor on it when that is
@@ -4212,6 +4243,40 @@ mod tests {
         );
         state.turns_in_flight = pipe + 3;
         assert_eq!(state.turns_to_flush(), 0, "and the owed turns went once");
+    }
+
+    #[test]
+    fn a_minimum_input_delay_keeps_the_pipe_from_draining_below_it() {
+        let (mut lockstep, _result_rx, _result_expected) = turn_state_with_result();
+        lockstep.min_pipe_turns = TURN_RATE_24_PIPE_TURNS;
+        lockstep.set_initial_latency_turns(1);
+        assert_eq!(lockstep.pipe_depth(), 2, "a lockstep game too");
+
+        let (mut state, _result_rx, _result_expected) = turn_state_with_result();
+        state.min_pipe_turns = TURN_RATE_24_PIPE_TURNS;
+        state.predict_inputs(InputTable::new(
+            8,
+            2,
+            0,
+            [Duration::ZERO; bw::MAX_STORM_PLAYERS],
+        ));
+        state.set_initial_latency_turns(1);
+        assert_eq!(
+            state.pipe_depth(),
+            2,
+            "a link that needs no delay at all still gets the minimum"
+        );
+        state.set_initial_latency_turns(4);
+        state.follow_lead();
+        state.follow_lead();
+        assert_eq!(state.pipe_depth(), 2);
+        assert_eq!(
+            state.lead_to_follow(),
+            0,
+            "the rollback target can't take it lower"
+        );
+        state.set_initial_latency_turns(6);
+        assert_eq!(state.pipe_depth(), 4, "a link that needs more gets more");
     }
 
     #[test]

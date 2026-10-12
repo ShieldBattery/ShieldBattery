@@ -65,6 +65,17 @@ const RollbackTargetScale = styled.div`
   color: var(--color-grey-blue80);
 `
 
+const InputDelaySetting = styled.div`
+  margin-top: 32px;
+`
+
+const InputDelayDescription = styled.div`
+  ${bodySmall};
+  max-width: 560px;
+  margin-left: 28px;
+  color: var(--theme-on-surface-variant);
+`
+
 const ScaleEnd = styled.span<{ $end: 'start' | 'end' }>`
   position: absolute;
   ${props => (props.$end === 'start' ? 'left: 0;' : 'right: 0;')}
@@ -121,6 +132,7 @@ interface AppSystemSettingsModel {
 
   gameServerRegion: string
   rollbackTarget: number
+  emulateTurnRate24Delay: boolean
 }
 
 export function AppSystemSettings() {
@@ -138,6 +150,7 @@ export function AppSystemSettings() {
 
   const rollbackTitleId = useId()
   const rollbackDescriptionId = useId()
+  const inputDelayDescriptionId = useId()
 
   const { bindCheckable, bindCustom, getInputValue, submit, form } =
     useForm<AppSystemSettingsModel>(
@@ -150,6 +163,7 @@ export function AppSystemSettings() {
             ? localSettings.gameServerRegion
             : AUTO_REGION_VALUE,
         rollbackTarget: localSettings.rollbackTarget,
+        emulateTurnRate24Delay: localSettings.emulateTurnRate24Delay,
       },
       {},
     )
@@ -168,6 +182,7 @@ export function AppSystemSettings() {
                 ? undefined
                 : (model.gameServerRegion as GameServerRegionId),
             rollbackTarget: model.rollbackTarget,
+            emulateTurnRate24Delay: model.emulateTurnRate24Delay,
           },
           {
             onSuccess: () => {},
@@ -267,6 +282,23 @@ export function AppSystemSettings() {
                 </ScaleEnd>
               </RollbackTargetScale>
             </RollbackTarget>
+            <InputDelaySetting>
+              <CheckBox
+                {...bindCheckable('emulateTurnRate24Delay')}
+                label={t(
+                  'settings.app.system.emulateTurnRate24Delay.label',
+                  'Add input delay to match TR24 Low',
+                )}
+                inputProps={{ tabIndex: 0, 'aria-describedby': inputDelayDescriptionId }}
+              />
+              <InputDelayDescription id={inputDelayDescriptionId}>
+                {t(
+                  'settings.app.system.emulateTurnRate24Delay.description',
+                  'Your commands always take at least 2 frames to happen, even when your ' +
+                    'connection is fast enough for less. This only changes your own game.',
+                )}
+              </InputDelayDescription>
+            </InputDelaySetting>
           </SectionContainer>
         ) : null}
       </FormContainer>

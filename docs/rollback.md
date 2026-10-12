@@ -189,6 +189,10 @@ The granted mode rides the player's netcode v2 setup to the DLL (`arm_for_sessio
 
 - **Rollback balance** (System settings, 0-4, default 2) is the player's rollback target. The DLL
   reads it from the local settings the app sends. The prediction limit is 8 for everyone.
+- **Add input delay to match TR24 Low** (System settings, off by default) keeps at least 2 of the
+  player's own turns in flight, Battle.net's TR24 Low delay, in every kind of game. Turns still
+  leave on the session clock, so only that player sees frames later (more delay, less rollback);
+  nobody else's game changes.
 - **The network quality chip** (`overlay-ui/src/net_quality.rs`) replaces SC:R's turn rate text in
   rollback games, under the same conditions (ShowTurnRate on, multiplayer, not a replay). D is the
   pipe minus one (0 means no added delay); R is a high percentile over the last few seconds of how
