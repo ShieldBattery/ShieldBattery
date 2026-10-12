@@ -2551,6 +2551,8 @@
     "loading": {
       "dialogTitle": "Loading replay…",
       "errorGeneric": "Something went wrong while loading the replay.",
+      "inGameBody": "Replays can't be started while you're in a game. To watch replays while other games run, turn on \"Allow replays to run alongside other games\" in the StarCraft game settings.",
+      "inGameTitle": "Can't start replay",
       "initFailureBody": "The selected replay could not be loaded. It may either be corrupt, or was created by a version of StarCraft newer than is currently supported.",
       "initFailureTitle": "Error loading replay"
     },
@@ -2958,6 +2960,10 @@
         "instructions": {
           "advanced": "If detection fails, you can set the path manually. Click the button below and select the directory that contains your StarCraft: Remastered installation.",
           "description": "ShieldBattery requires a valid, up-to-date installation of StarCraft: Remastered. Click the button below to automatically detect the installation folder."
+        },
+        "keepReplaysAlongsideGames": {
+          "description": "Replays stay open when a match or another replay starts, so several can run at once. Each one is a separate copy of StarCraft, which takes more of your computer's resources.",
+          "label": "Allow replays to run alongside other games"
         },
         "launch32Bit": "Launch the 32-bit game client (not recommended)",
         "pathInvalid": "This path does not point to a valid StarCraft: Remastered installation. Please ensure your installation is up to date or try a different path.",

@@ -72,9 +72,22 @@ const AdvancedOverline = styled(LabelMedium)`
   margin-top: 48px;
 `
 
+const CheckBoxWithInfo = styled.div`
+  margin-top: 32px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+`
+
+const InfoIcon = styled.span`
+  display: flex;
+  color: var(--theme-on-surface-variant);
+`
+
 interface StarcraftSettingsModel {
   starcraftPath: string
   launch32Bit?: boolean
+  keepReplaysAlongsideGames?: boolean
   disableHd?: boolean
 }
 
@@ -91,6 +104,7 @@ export function StarcraftSettings() {
       {
         starcraftPath: localSettings.starcraftPath,
         launch32Bit: localSettings.launch32Bit,
+        keepReplaysAlongsideGames: localSettings.keepReplaysAlongsideGames,
         disableHd: localSettings.disableHd,
       },
       {},
@@ -103,6 +117,7 @@ export function StarcraftSettings() {
           {
             starcraftPath: model.starcraftPath,
             launch32Bit: model.launch32Bit || false,
+            keepReplaysAlongsideGames: model.keepReplaysAlongsideGames || false,
             disableHd: model.disableHd || false,
           },
           {
@@ -208,6 +223,29 @@ export function StarcraftSettings() {
             onClick={onDetectPathClick}
             label={t('settings.game.starcraft.detectPath', 'Detect installation')}
           />
+
+          <CheckBoxWithInfo>
+            <CheckBox
+              {...bindCheckable('keepReplaysAlongsideGames')}
+              label={t(
+                'settings.game.starcraft.keepReplaysAlongsideGames.label',
+                'Allow replays to run alongside other games',
+              )}
+              inputProps={{ tabIndex: 0 }}
+            />
+            <Tooltip
+              text={t(
+                'settings.game.starcraft.keepReplaysAlongsideGames.description',
+                'Replays stay open when a match or another replay starts, so several can run ' +
+                  'at once. Each one is a separate copy of StarCraft, which takes more of your ' +
+                  "computer's resources.",
+              )}
+              position='right'>
+              <InfoIcon>
+                <MaterialIcon icon='info' size={18} />
+              </InfoIcon>
+            </Tooltip>
+          </CheckBoxWithInfo>
 
           <AdvancedOverline>Advanced</AdvancedOverline>
 

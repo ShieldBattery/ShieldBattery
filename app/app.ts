@@ -835,6 +835,8 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
       )
     })
 
+  app.on('will-quit', () => activeGameManager.quitWatchOnlyGamesOnAppExit())
+
   ipcMain.handle('activeGameClearConfig', (event, gameId) =>
     activeGameManager.clearGameConfig(gameId),
   )

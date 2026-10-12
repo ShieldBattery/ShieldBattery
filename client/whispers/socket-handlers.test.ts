@@ -242,6 +242,7 @@ describe('whisper message echoes', () => {
       gameClient: {
         gameId: options.inGame ? 'game-1' : undefined,
         status: options.inGame ? { id: 'game-1', state: 'playing', isReplay: false } : undefined,
+        watchOnly: {},
       },
     } as unknown as RootState
     const dispatched = vi.fn()

@@ -6,6 +6,7 @@ import { ReplaySaveOrganize, TypedIpcRenderer } from '../../common/ipc'
 import { SlotType } from '../../common/lobbies/slot'
 import { SbUser, SelfUserJson } from '../../common/users/sb-user'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
+import { isInParticipatingGame } from '../active-game/game-client-reducer'
 import { openDialog, openSimpleDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { ThunkAction } from '../dispatch-registry'
@@ -72,6 +73,24 @@ export function startReplay({
   startFrame?: number
 }): ThunkAction {
   return healthChecked((dispatch, getState) => {
+    const { gameClient, settings } = getState()
+    if (isInParticipatingGame(gameClient) && !settings.local.keepReplaysAlongsideGames) {
+      // Only one game runs at a time with this setting off, and a replay never closes a game the
+      // user takes part in.
+      dispatch(
+        openSimpleDialog(
+          i18n.t('replays.loading.inGameTitle', "Can't start replay"),
+          i18n.t(
+            'replays.loading.inGameBody',
+            "Replays can't be started while you're in a game. To watch replays while other " +
+              'games run, turn on "Allow replays to run alongside other games" in the ' +
+              'StarCraft game settings.',
+          ),
+        ),
+      )
+      return
+    }
+
     // Relationship state (the block list) resets on reconnect, so ensure it's loaded before reading
     // it — otherwise a replay launched right after a reconnect would hide nothing. Consistent with
     // the game-launch path in active-game/socket-handlers.ts.
