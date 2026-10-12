@@ -11,8 +11,11 @@
 //!
 //! - the time to start the next frame. In [`Mode::Display`] that is the next vertical blank of the
 //!   display (see [`vblank`]) minus how long a frame takes to draw and present plus [`MARGIN`], so
-//!   the frame is presented with the newest input just before the display shows it. The other
-//!   modes keep frames on a fixed grid.
+//!   the frame is presented with the newest input just before the display shows it. When the
+//!   window is composed by the desktop window manager rather than flipped to the display
+//!   directly, a frame has to be presented well before the blank to make it, so the lead also
+//!   grows to whatever the swap chain's statistics show it takes (see [`present_stats`]). The
+//!   other modes keep frames on a fixed grid.
 //! - the instant the next step comes due, so it runs on time with all input up to that instant. A
 //!   step coming due within [`MERGE`] before a frame's time runs in the frame's iteration instead.
 //!
@@ -35,6 +38,7 @@
 //! The statistics logged every [`STATS_INTERVAL`] (iteration rate, step lateness, and how often
 //! BW's screen scrolling runs) are gathered whether or not pacing is on, to compare against.
 
+mod present_stats;
 mod vblank;
 
 use std::cell::Cell;
@@ -66,6 +70,18 @@ const MARGIN: Duration = Duration::from_micros(1500);
 
 /// Frames whose iteration times decide how long the next one is expected to take.
 const WORK_SAMPLES: usize = 64;
+
+/// How much further ahead of its blank than a frame that was presented in time for it yet shown
+/// later the next ones are presented.
+const DEADLINE_STEP: Duration = Duration::from_micros(500);
+
+/// How much the learned lead shrinks for each frame shown at the blank it was timed for, to find
+/// the latest a frame can be presented again once less is needed.
+const DEADLINE_DECAY: Duration = Duration::from_micros(2);
+
+/// How far from a measured blank a time the swap chain's statistics give for a flip can be and
+/// still count as that blank.
+const BLANK_TOLERANCE: Duration = Duration::from_micros(500);
 
 /// Iterations in a row woken right away for steps already due, after which the next one waits for
 /// its frame. A step stays due across iterations when BW is behind (fast replays, seeking), which
@@ -174,6 +190,9 @@ pub fn configure(setting: Option<&str>, vsync: bool) {
         "Frame pacing: {mode:?}, vertical sync {}",
         if vsync { "on" } else { "off" }
     );
+    if mode != Mode::Off {
+        present_stats::install();
+    }
     *CONFIG.lock() = Config { mode, vsync };
 }
 
@@ -284,6 +303,9 @@ struct State {
     /// How long recent frames took from their wake to being presented, in microseconds: those
     /// that didn't run a logic step, and those that did.
     work_us: [VecDeque<u32>; 2],
+    /// How long before its blank a frame has to be presented to be shown at it, as learned from
+    /// frames that weren't.
+    deadline_lead: Duration,
     stats: Stats,
 }
 
@@ -323,6 +345,12 @@ struct Stats {
     /// Presents held back to keep them a refresh apart, and how long in all.
     held_presents: u32,
     held_present_us_total: u64,
+    /// Frames the swap chain's statistics showed being shown, how long after they were presented,
+    /// and of those timed for a blank, ones shown later than it though presented before it.
+    shown: u32,
+    shown_after_us: Vec<u32>,
+    missed_deadlines: u32,
+    deadline_lead_us_max: u32,
 }
 
 impl Stats {
@@ -354,6 +382,10 @@ impl Stats {
             skipped_sleep_ms: 0,
             held_presents: 0,
             held_present_us_total: 0,
+            shown: 0,
+            shown_after_us: Vec::new(),
+            missed_deadlines: 0,
+            deadline_lead_us_max: 0,
         }
     }
 }
@@ -371,6 +403,7 @@ static STATE: Mutex<State> = Mutex::new(State {
     present_requested: None,
     frame_end: None,
     work_us: [VecDeque::new(), VecDeque::new()],
+    deadline_lead: Duration::ZERO,
     stats: Stats::new(),
 });
 
@@ -594,7 +627,55 @@ impl State {
     /// How long before a vertical blank the next frame's iteration should start, `with_step` if
     /// it will run a logic step.
     fn lead(&self, with_step: bool) -> Duration {
-        self.expected_work(with_step) + MARGIN_OVERRIDE.lock().unwrap_or(MARGIN)
+        let margin = MARGIN_OVERRIDE.lock().unwrap_or(MARGIN);
+        self.expected_work(with_step) + margin.max(self.deadline_lead)
+    }
+
+    /// Learns from a frame the display showed when it was shown relative to the blank it was
+    /// timed for.
+    fn note_shown(&mut self, shown: present_stats::Shown) {
+        // The statistics give the time the frame was flipped to the display, which is a blank,
+        // or when the desktop window manager composed it, after which it's shown at the next
+        // blank. With the blanks measured, either comes out as the blank it was shown at.
+        let shown_at = VBLANK
+            .get()
+            .and_then(|clock| clock.fit(shown.shown))
+            .map_or(shown.shown, |fit| {
+                fit.next_after(
+                    shown
+                        .shown
+                        .checked_sub(BLANK_TOLERANCE)
+                        .unwrap_or(shown.shown),
+                )
+            });
+        let after = shown_at.saturating_duration_since(shown.presented);
+        let stats = &mut self.stats;
+        stats.shown += 1;
+        if stats.shown_after_us.len() < 8192 {
+            stats.shown_after_us.push(micros(after));
+        }
+        let period = match &self.plan {
+            Some(Some(plan)) if plan.synced => plan.period,
+            _ => return,
+        };
+        // Only a frame presented before its blank says anything about when it had to be: one
+        // presented after it was late however the display works.
+        let Some(timed_for) = shown.timed_for else {
+            return;
+        };
+        let Some(ahead) = timed_for.checked_duration_since(shown.presented) else {
+            return;
+        };
+        if shown_at > timed_for + period / 2 {
+            stats.missed_deadlines += 1;
+            self.deadline_lead = self
+                .deadline_lead
+                .max(ahead + DEADLINE_STEP)
+                .min(period * 3 / 4);
+        } else {
+            self.deadline_lead = self.deadline_lead.saturating_sub(DEADLINE_DECAY);
+        }
+        stats.deadline_lead_us_max = stats.deadline_lead_us_max.max(micros(self.deadline_lead));
     }
 
     /// How long the next frame's iteration is expected to take to present it, `with_step` if it
@@ -707,8 +788,16 @@ pub fn presenting_frame() {
 
 /// SC:R presented a frame.
 pub fn frame_presented() {
-    if IN_OWN_DRAW.get() {
-        STATE.lock().frame_end = Some(Instant::now());
+    if !IN_OWN_DRAW.get() {
+        return;
+    }
+    let mut state = STATE.lock();
+    state.frame_end = Some(Instant::now());
+    let timed_for = state.frame.and_then(|frame| frame.vblank);
+    if let Some(presented) = state.present_start
+        && let Some(shown) = present_stats::after_present(presented, timed_for)
+    {
+        state.note_shown(shown);
     }
 }
 
@@ -1004,10 +1093,23 @@ fn log_stats(stats: &mut Stats, plan: Option<&Plan>, elapsed: Duration) {
                     )
                 }
             };
+            stats.shown_after_us.sort_unstable();
+            let reads = present_stats::take_reads();
+            let shown = match stats.shown {
+                0 if reads.ok + reads.disjoint + reads.failed == 0 => String::new(),
+                count => format!(
+                    "; {:.1} frames/s shown, presented to shown p50 {:.2} ms p90 {:.2} ms, {} shown                      after the blank they were presented in time for, deadline lead max {:.2} ms                      (statistics {reads:?})",
+                    per_sec(count),
+                    quantile(&stats.shown_after_us, 0.5),
+                    quantile(&stats.shown_after_us, 0.9),
+                    stats.missed_deadlines,
+                    ms(f64::from(stats.deadline_lead_us_max)),
+                ),
+            };
             format!(
                 "paced at {:.1} fps: {} frame / {} step / {} merged wakes, {} renders skipped, \
                  oversleep avg {:.3} ms max {:.3} ms (timer {:.3} ms), waiting {:.0}% of the \
-                 time, {} cap sleeps skipped ({} ms), {} presents held avg {:.2} ms{synced}",
+                 time, {} cap sleeps skipped ({} ms), {} presents held avg {:.2} ms{synced}{shown}",
                 1.0 / plan.period.as_secs_f64(),
                 stats.frame_wakes,
                 stats.step_wakes,
@@ -1050,5 +1152,6 @@ pub fn reset() {
     state.present_requested = None;
     state.frame_end = None;
     state.work_us = Default::default();
+    state.deadline_lead = Duration::ZERO;
     state.stats = Stats::new();
 }
