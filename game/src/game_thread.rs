@@ -160,6 +160,20 @@ pub fn step_lobby_init() -> bool {
     }
 }
 
+/// Steps lobby init only if no other thread is currently stepping it, returning whether lobby init
+/// is completed (false if the step was skipped).
+///
+/// This is for callers that may already hold the event processing lock (e.g. a `WM_TIMER`
+/// dispatched from inside SC:R's `process_events`). Stepping takes `LOBBY_INIT_COMPLETER` and then
+/// the event processing lock, so blocking on the completer while holding the event processing lock
+/// would deadlock against the async thread stepping in that order.
+pub fn try_step_lobby_init() -> bool {
+    match LOBBY_INIT_COMPLETER.try_lock() {
+        Ok(mut completer) => completer.step(),
+        Err(_) => false,
+    }
+}
+
 pub fn until_next_lobby_init_step() -> u64 {
     if let Ok(completer) = LOBBY_INIT_COMPLETER.lock() {
         completer.until_next_step()

@@ -351,7 +351,7 @@ unsafe fn msg_timer(window: HWND, timer_id: usize) {
             debug!("Bringing window to foreground");
             SetForegroundWindow(window);
             ShowWindow(window, SW_SHOWNORMAL);
-        } else if timer_id == STEP_LOBBY_COMPLETION_ID && game_thread::step_lobby_init() {
+        } else if timer_id == STEP_LOBBY_COMPLETION_ID && game_thread::try_step_lobby_init() {
             debug!("Lobby init completed during WM_TIMER");
             force_mouse_up();
         }
