@@ -81,6 +81,73 @@ pub fn module_name(handle: HMODULE) -> Option<OsString> {
     }
 }
 
+/// Whether the calling thread has its implicit TLS array, which every `thread_local!` access
+/// reads through.
+///
+/// ntdll's parallel loader maps DLLs on thread pool workers that skip loader initialization, so
+/// those threads have no TLS array and any `thread_local!` access on them faults. They still call
+/// hooked winapi functions: with software restriction or AppLocker policies active, the loader's
+/// policy check opens files with CreateFileW for each DLL it maps.
+pub fn thread_has_tls() -> bool {
+    let tls_array: *mut c_void;
+    // TEB::ThreadLocalStoragePointer
+    unsafe {
+        #[cfg(target_arch = "x86_64")]
+        std::arch::asm!(
+            "mov {}, gs:[0x58]",
+            out(reg) tls_array,
+            options(nostack, readonly, preserves_flags),
+        );
+        #[cfg(target_arch = "x86")]
+        std::arch::asm!(
+            "mov {}, fs:[0x2c]",
+            out(reg) tls_array,
+            options(nostack, readonly, preserves_flags),
+        );
+    }
+    !tls_array.is_null()
+}
+
+/// Current time as a FILETIME value (100ns intervals since 1601-01-01 UTC), read without going
+/// through `GetSystemTimePreciseAsFileTime`, which is hooked to hand SC:R a fake time.
+///
+/// `resolve_precise_system_time` must have been called for this to have sub-tick precision;
+/// until then it falls back to the coarser `GetSystemTimeAsFileTime`.
+pub fn precise_system_time() -> u64 {
+    use std::sync::atomic::Ordering;
+    use winapi::shared::minwindef::FILETIME;
+    use winapi::um::sysinfoapi::GetSystemTimeAsFileTime;
+
+    let func = RTL_GET_SYSTEM_TIME_PRECISE.load(Ordering::Acquire);
+    unsafe {
+        if func.is_null() {
+            let mut time: FILETIME = mem::zeroed();
+            GetSystemTimeAsFileTime(&mut time);
+            ((time.dwHighDateTime as u64) << 32) | time.dwLowDateTime as u64
+        } else {
+            let func: unsafe extern "system" fn() -> i64 = mem::transmute(func);
+            func() as u64
+        }
+    }
+}
+
+static RTL_GET_SYSTEM_TIME_PRECISE: std::sync::atomic::AtomicPtr<c_void> =
+    std::sync::atomic::AtomicPtr::new(null_mut());
+
+/// Looks up `ntdll!RtlGetSystemTimePrecise` for `precise_system_time`. Done ahead of time rather
+/// than on first use, since the first use may be on a thread in the middle of loading a DLL, where
+/// GetProcAddress can wait on that same load.
+pub fn resolve_precise_system_time() {
+    use std::sync::atomic::Ordering;
+    // Failure goes unlogged, as logging isn't set up yet when this runs, and the fallback only
+    // costs precision.
+    if let Ok(func) =
+        load_library("ntdll").and_then(|lib| lib.proc_address("RtlGetSystemTimePrecise"))
+    {
+        RTL_GET_SYSTEM_TIME_PRECISE.store(func as *mut c_void, Ordering::Release);
+    }
+}
+
 pub fn message_box(caption: &str, msg: &str) {
     unsafe {
         MessageBoxW(
@@ -254,5 +321,39 @@ pub unsafe fn file_write(file: *mut c_void, data: &[u8]) -> Result<(), io::Error
         0 => Err(io::Error::last_os_error()),
         _ if written != data.len() as u32 => Err(io::Error::other("Failed to write everything")),
         _ => Ok(()),
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+    use super::*;
+
+    #[test]
+    fn ordinary_threads_have_tls() {
+        assert!(thread_has_tls());
+        assert!(std::thread::spawn(thread_has_tls).join().unwrap());
+    }
+
+    #[test]
+    fn precise_system_time_is_current_time() {
+        /// FILETIME of 1970-01-01 00:00:00 UTC.
+        const UNIX_EPOCH_FILETIME: u64 = 116_444_736_000_000_000;
+        let check = || {
+            let filetime = precise_system_time();
+            let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+            let since_epoch = Duration::from_nanos((filetime - UNIX_EPOCH_FILETIME) * 100);
+            assert!(now.abs_diff(since_epoch) < Duration::from_secs(1));
+        };
+        // Both the fallback and the ntdll function.
+        check();
+        resolve_precise_system_time();
+        assert!(
+            !RTL_GET_SYSTEM_TIME_PRECISE
+                .load(std::sync::atomic::Ordering::Acquire)
+                .is_null()
+        );
+        check();
     }
 }

@@ -9019,6 +9019,9 @@ fn create_file_hook(
     use winapi::um::fileapi::{CREATE_ALWAYS, CREATE_NEW, OPEN_EXISTING};
     use winapi::um::winnt::{DELETE, GENERIC_READ, GENERIC_WRITE};
     unsafe {
+        // The loader's worker threads reach this without TLS (see `windows::thread_has_tls`), so
+        // paths they can take must not use `thread_local!`; the cookie.bin handling below that
+        // does is only reached by the game opening its own files.
         let mut is_replay = false;
         let mut access = access;
         let mut needs_time_hook = false;
@@ -9355,9 +9358,6 @@ fn ascii_compare_u16_u8(a: &[u16], b: &[u8]) -> bool {
 thread_local! {
     /// A counter for how many GetSystemTimePreciseAsFileTime hooks to modify on this thread.
     static PRECISE_SYSTEM_TIME_HOOK_ENABLED_COUNT: Cell<u32> = const { Cell::new(0) };
-
-    /// Avoids hooking our own time retrieval during logging
-    pub static IS_LOGGING_TIME_CALL: Cell<bool> = const { Cell::new(false) };
 }
 
 pub fn start_precise_system_time_hook() {
@@ -9376,7 +9376,12 @@ fn get_system_time_precise_as_file_time_hook(
     unsafe {
         orig(time);
 
-        if PRECISE_SYSTEM_TIME_HOOK_ENABLED_COUNT.get() > 0 && !IS_LOGGING_TIME_CALL.get() {
+        // Only the thread that opened cookie.bin ever has the count set, and the count lives in
+        // TLS, which some threads don't have.
+        if !windows::thread_has_tls() {
+            return;
+        }
+        if PRECISE_SYSTEM_TIME_HOOK_ENABLED_COUNT.get() > 0 {
             debug!("Modifying GetSystemTimePreciseAsFileTime result");
             // Making StarCraft feel young again makes it initialize a bit faster
             (*time).dwHighDateTime = 0x01BF53B7;

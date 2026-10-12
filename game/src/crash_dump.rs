@@ -30,6 +30,7 @@ use winapi::um::errhandlingapi::{
 use winapi::um::fileapi::{CREATE_ALWAYS, CreateFileW, WriteFile};
 use winapi::um::handleapi::{CloseHandle, INVALID_HANDLE_VALUE};
 use winapi::um::memoryapi::VirtualQuery;
+use winapi::um::minwinbase::EXCEPTION_ACCESS_VIOLATION;
 use winapi::um::processthreadsapi::{
     GetCurrentProcess, GetCurrentProcessId, GetCurrentThreadId, SetThreadStackGuarantee,
     TerminateProcess,
@@ -38,8 +39,9 @@ use winapi::um::synchapi::{CreateEventW, SetEvent, WaitForSingleObject};
 use winapi::um::tlhelp32::MODULEENTRY32W;
 use winapi::um::winbase::{INFINITE, WAIT_OBJECT_0};
 use winapi::um::winnt::{
-    EXCEPTION_POINTERS, FILE_ATTRIBUTE_NORMAL, GENERIC_WRITE, HANDLE, MEMORY_BASIC_INFORMATION,
-    PAGE_EXECUTE_READ, PAGE_EXECUTE_READWRITE, PAGE_READONLY, PAGE_READWRITE, PAGE_WRITECOPY,
+    EXCEPTION_POINTERS, FILE_ATTRIBUTE_NORMAL, GENERIC_WRITE, HANDLE, IMAGE_DOS_HEADER,
+    IMAGE_NT_HEADERS, MEMORY_BASIC_INFORMATION, PAGE_EXECUTE_READ, PAGE_EXECUTE_READWRITE,
+    PAGE_READONLY, PAGE_READWRITE, PAGE_WRITECOPY,
 };
 use winapi::vc::excpt::EXCEPTION_CONTINUE_SEARCH;
 
@@ -69,6 +71,11 @@ static DUMP_DONE: AtomicUsize = AtomicUsize::new(0);
 /// Second handle to the log file, written with plain `WriteFile` from the crash path so that a
 /// trace lands on disk even when the logger can't be used (no stack, held lock, broken heap).
 static BREADCRUMB_FILE: AtomicUsize = AtomicUsize::new(0);
+/// Address range of this DLL, so breadcrumbs can give crash addresses as offsets into it. Its
+/// load address differs per process, which leaves a bare address only partially comparable
+/// across reports.
+static OWN_IMAGE_START: AtomicUsize = AtomicUsize::new(0);
+static OWN_IMAGE_END: AtomicUsize = AtomicUsize::new(0);
 
 type MiniDumpWriteDumpFn = unsafe extern "system" fn(
     HANDLE,
@@ -95,6 +102,7 @@ pub unsafe fn init_crash_handler() {
     unsafe {
         use self::hooks::SetUnhandledExceptionFilterDecl;
 
+        record_own_image_range();
         SetUnhandledExceptionFilter(Some(exception_handler));
         let kernel32 = windows::load_library("kernel32").unwrap();
         let address = kernel32
@@ -107,6 +115,21 @@ pub unsafe fn init_crash_handler() {
             |_new, _orig| null_mut(),
             address as usize - kernel32.handle() as usize,
         );
+    }
+}
+
+unsafe fn record_own_image_range() {
+    unsafe extern "C" {
+        /// Linker-provided start of this DLL's image.
+        static __ImageBase: IMAGE_DOS_HEADER;
+    }
+    unsafe {
+        let base = &raw const __ImageBase;
+        let nt_headers =
+            (base as *const u8).add((*base).e_lfanew as usize) as *const IMAGE_NT_HEADERS;
+        let size = (*nt_headers).OptionalHeader.SizeOfImage as usize;
+        OWN_IMAGE_START.store(base as usize, Ordering::Relaxed);
+        OWN_IMAGE_END.store(base as usize + size, Ordering::Relaxed);
     }
 }
 
@@ -275,6 +298,35 @@ unsafe fn exception_place(exception: *mut EXCEPTION_POINTERS) -> usize {
 
 unsafe fn exception_code(exception: *mut EXCEPTION_POINTERS) -> u32 {
     unsafe { (*(*exception).ExceptionRecord).ExceptionCode }
+}
+
+/// What a breadcrumb can say about an exception beyond its address and code. Formats without
+/// allocating.
+struct CrashDetail(*mut EXCEPTION_POINTERS);
+
+impl fmt::Display for CrashDetail {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let (place, record) = unsafe { (exception_place(self.0), &*(*self.0).ExceptionRecord) };
+        let start = OWN_IMAGE_START.load(Ordering::Relaxed);
+        if (start..OWN_IMAGE_END.load(Ordering::Relaxed)).contains(&place) {
+            write!(f, "shieldbattery+{:x}", place - start)?;
+        } else {
+            f.write_str("outside shieldbattery")?;
+        }
+        if record.ExceptionCode == EXCEPTION_ACCESS_VIOLATION && record.NumberParameters >= 2 {
+            let kind = match record.ExceptionInformation[0] {
+                0 => "reading",
+                1 => "writing",
+                8 => "executing",
+                _ => "accessing",
+            };
+            write!(f, ", {kind} {:x}", record.ExceptionInformation[1])?;
+        }
+        if !windows::thread_has_tls() {
+            f.write_str(", thread has no TLS")?;
+        }
+        Ok(())
+    }
 }
 
 /// The thread that is (or will be) writing the dump: the dump thread when it is running,
@@ -475,8 +527,9 @@ unsafe fn crash_dump_and_exit(exception: *mut EXCEPTION_POINTERS) -> ! {
             CRASHING_THREAD.compare_exchange(0, thread_id, Ordering::AcqRel, Ordering::Acquire)
         {
             breadcrumb!(
-                "Thread {thread_id:x} crashed @ {place:08x} (exception {code:08x}) while the \
-                 crash on thread {other:x} is being handled"
+                "Thread {thread_id:x} crashed @ {place:08x} (exception {code:08x}; {}) while the \
+                 crash on thread {other:x} is being handled",
+                CrashDetail(exception),
             );
             // Hoping that the other thread kills the process, but if it makes no progress in
             // 20 sec then just die
@@ -486,6 +539,19 @@ unsafe fn crash_dump_and_exit(exception: *mut EXCEPTION_POINTERS) -> ! {
 
         // The one line that must make it to disk, before anything that could fault again.
         breadcrumb!("Thread {thread_id:x} crashed @ {place:08x}, exception {code:08x}");
+        breadcrumb!(
+            "Thread {thread_id:x} crash detail: {}",
+            CrashDetail(exception)
+        );
+
+        if !windows::thread_has_tls() {
+            // A thread without TLS is one of the loader's workers (see `windows::thread_has_tls`),
+            // so the DLL load it was part of can't finish, and every other thread that loads a
+            // DLL waits on that load forever. Writing the dump loads DLLs, so it would only leave
+            // the game hanging.
+            breadcrumb!("Not writing a dump, as the crashed thread was loading a DLL");
+            terminate(code);
+        }
 
         AddVectoredExceptionHandler(1, Some(crash_dump_exception_handler));
 

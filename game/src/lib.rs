@@ -30,7 +30,6 @@ use std::time::Duration;
 use crate::app_messages::ReplaySaved;
 use crate::app_messages::SetUserBlocked;
 use crate::app_messages::WindowMove;
-use crate::bw_scr::IS_LOGGING_TIME_CALL;
 use crate::forge::TRACK_WINDOW_POS;
 use lazy_static::lazy_static;
 use libc::c_void;
@@ -213,6 +212,20 @@ fn panic_hook(info: &std::panic::PanicHookInfo) {
     }
 }
 
+/// Timestamp for a log line.
+///
+/// The formatter runs on whichever thread logs, including the loader's worker threads where
+/// `thread_local!` access faults (see `windows::thread_has_tls`), so this can't use any. It also
+/// mustn't go through the hooked `GetSystemTimePreciseAsFileTime`, which `chrono::Utc::now` would.
+fn log_time() -> chrono::DateTime<chrono::Utc> {
+    /// FILETIME of 1970-01-01 00:00:00 UTC.
+    const UNIX_EPOCH_FILETIME: u64 = 116_444_736_000_000_000;
+    let since_epoch = windows::precise_system_time().saturating_sub(UNIX_EPOCH_FILETIME);
+    let secs = (since_epoch / 10_000_000) as i64;
+    let nanos = (since_epoch % 10_000_000) as u32 * 100;
+    chrono::DateTime::from_timestamp(secs, nanos).unwrap_or_default()
+}
+
 #[unsafe(no_mangle)]
 #[allow(non_snake_case)]
 pub extern "C" fn OnInject() {
@@ -220,19 +233,16 @@ pub extern "C" fn OnInject() {
     unsafe {
         crash_dump::init_crash_handler();
     }
+    windows::resolve_precise_system_time();
     let log_file = log_file();
     // The crash path writes to the log through its own duplicate of the handle, since the logger
     // itself can't be trusted from a crashing thread.
     let breadcrumb_file = log_file.try_clone();
     let _ = fern::Dispatch::new()
         .format(|out, message, record| {
-            let old = IS_LOGGING_TIME_CALL.replace(true);
-            let time = chrono::Utc::now();
-            IS_LOGGING_TIME_CALL.replace(old);
-
             out.finish(format_args!(
                 "{}[{}:{}][{}] {}",
-                time.format("[%Y-%m-%d][%H:%M:%S%.3f]"),
+                log_time().format("[%Y-%m-%d][%H:%M:%S%.3f]"),
                 record.file().unwrap_or(""),
                 record.line().unwrap_or(0),
                 record.level(),
