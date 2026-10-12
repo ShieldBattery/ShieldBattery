@@ -17,12 +17,14 @@ import {
 } from '../../game-server-regions/game-server-regions-atoms'
 import { getRegionDisplayName } from '../../game-server-regions/region-names'
 import { pickAutoRegion } from '../../game-server-regions/region-resolution'
+import { MaterialIcon } from '../../icons/material/material-icon'
 import { isInLobby } from '../../lobbies/lobby-reducer'
 import { isMatchmakingAtom, matchLaunchingAtom } from '../../matchmaking/matchmaking-atoms'
 import { CheckBox } from '../../material/check-box'
 import { SelectOption } from '../../material/select/option'
 import { Select } from '../../material/select/select'
 import { Slider, sliderPosition } from '../../material/slider'
+import { Tooltip } from '../../material/tooltip'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { bodyMedium, bodySmall, labelMedium, titleSmall } from '../../styles/typography'
 import { mergeLocalSettings } from '../action-creators'
@@ -67,12 +69,13 @@ const RollbackTargetScale = styled.div`
 
 const InputDelaySetting = styled.div`
   margin-top: 32px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 `
 
-const InputDelayDescription = styled.div`
-  ${bodySmall};
-  max-width: 560px;
-  margin-left: 28px;
+const InfoIcon = styled.span`
+  display: flex;
   color: var(--theme-on-surface-variant);
 `
 
@@ -150,7 +153,6 @@ export function AppSystemSettings() {
 
   const rollbackTitleId = useId()
   const rollbackDescriptionId = useId()
-  const inputDelayDescriptionId = useId()
 
   const { bindCheckable, bindCustom, getInputValue, submit, form } =
     useForm<AppSystemSettingsModel>(
@@ -289,15 +291,19 @@ export function AppSystemSettings() {
                   'settings.app.system.emulateTurnRate24Delay.label',
                   'Add input delay to match TR24 Low',
                 )}
-                inputProps={{ tabIndex: 0, 'aria-describedby': inputDelayDescriptionId }}
+                inputProps={{ tabIndex: 0 }}
               />
-              <InputDelayDescription id={inputDelayDescriptionId}>
-                {t(
+              <Tooltip
+                text={t(
                   'settings.app.system.emulateTurnRate24Delay.description',
                   'Your commands always take at least 2 frames to happen, even when your ' +
                     'connection is fast enough for less. This only changes your own game.',
                 )}
-              </InputDelayDescription>
+                position='right'>
+                <InfoIcon>
+                  <MaterialIcon icon='info' size={18} />
+                </InfoIcon>
+              </Tooltip>
             </InputDelaySetting>
           </SectionContainer>
         ) : null}
