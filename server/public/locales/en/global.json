@@ -3011,7 +3011,7 @@
               "description": "Every frame is shown whole, without the delay vertical sync adds.",
               "title": "No tearing"
             },
-            "tearingNote": "The two FPS limit rows also tear.",
+            "tearingNote": "Allows tearing, where the screen shows parts of two frames at once, split along a line.",
             "toggle": "How frame pacing works",
             "verticalSync": "Vertical sync"
           },
@@ -3032,7 +3032,7 @@
             "subtitle": "Original timing",
             "title": "Off"
           },
-          "prompt": "G-SYNC or FreeSync turned on? Choose Variable refresh. Otherwise, or if you're not sure, choose Match refresh.",
+          "prompt": "G-SYNC or FreeSync turned on? Choose <1>Variable refresh</1>. Otherwise, or if you’re not sure, choose <3>Match refresh</3>.",
           "recommended": "Recommended",
           "title": "Frame pacing",
           "useMode": "Use {{mode}}",

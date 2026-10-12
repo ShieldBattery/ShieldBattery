@@ -3044,7 +3044,7 @@
               "description": "Cada fotograma se muestra entero, sin el retraso que añade la sincronización vertical.",
               "title": "Sin tearing"
             },
-            "tearingNote": "Las dos filas de límite de FPS también producen tearing.",
+            "tearingNote": "Permite tearing: la pantalla muestra partes de dos fotogramas a la vez, separadas por una línea.",
             "toggle": "Cómo funciona el ritmo de fotogramas",
             "verticalSync": "Sincronización vertical"
           },
@@ -3065,7 +3065,7 @@
             "subtitle": "Comportamiento original",
             "title": "Desactivado"
           },
-          "prompt": "¿Tienes G-SYNC o FreeSync activado? Elige Frecuencia variable. Si no, o si no estás seguro, elige Igualar refresco.",
+          "prompt": "¿Tienes G-SYNC o FreeSync activado? Elige <1>Frecuencia variable</1>. Si no, o si no estás seguro, elige <3>Igualar refresco</3>.",
           "recommended": "Recomendado",
           "title": "Ritmo de fotogramas",
           "useMode": "Usar {{mode}}",

@@ -1,5 +1,5 @@
 import { useId, useState } from 'react'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { DisplayMode, getDisplayModeName } from '../../../common/settings/blizz-settings'
 import { FramePacing } from '../../../common/settings/local-settings'
@@ -61,6 +61,11 @@ const LegendTitle = styled.span`
 const LegendPrompt = styled.span`
   ${bodyMedium};
   color: var(--theme-on-surface-variant);
+`
+
+const OptionName = styled.b`
+  color: var(--theme-on-surface);
+  font-weight: 600;
 `
 
 const Timeline = styled.span`
@@ -221,6 +226,11 @@ const ChartLabel = styled.span`
   line-height: 18px;
 `
 
+const TearingMark = styled.span`
+  margin-left: 2px;
+  color: var(--theme-amber);
+`
+
 const ChartTrack = styled.span`
   display: block;
   height: 10px;
@@ -252,6 +262,7 @@ function LatencyExplainer() {
       label: t('settings.game.video.framePacing.explainer.framePacing', 'Frame pacing'),
       ms: MEASURED_INPUT_TO_SCREEN_MS.framePacing,
       best: true,
+      tears: false,
     },
     {
       label: t(
@@ -260,6 +271,7 @@ function LatencyExplainer() {
       ),
       ms: MEASURED_INPUT_TO_SCREEN_MS.defaultFpsLimit,
       best: false,
+      tears: true,
     },
     {
       label: t(
@@ -268,11 +280,13 @@ function LatencyExplainer() {
       ),
       ms: MEASURED_INPUT_TO_SCREEN_MS.customFpsLimit,
       best: false,
+      tears: true,
     },
     {
       label: t('settings.game.video.framePacing.explainer.verticalSync', 'Vertical sync'),
       ms: MEASURED_INPUT_TO_SCREEN_MS.verticalSync,
       best: false,
+      tears: false,
     },
   ]
   const longest = Math.max(...rows.map(row => row.ms))
@@ -352,7 +366,10 @@ function LatencyExplainer() {
             </ChartHeader>
             {rows.map(row => (
               <ChartRow key={row.label} $best={row.best}>
-                <ChartLabel>{row.label}</ChartLabel>
+                <ChartLabel>
+                  {row.label}
+                  {row.tears ? <TearingMark>*</TearingMark> : null}
+                </ChartLabel>
                 <ChartTrack>
                   <ChartBar $best={row.best} style={{ width: `${(row.ms / longest) * 100}%` }} />
                 </ChartTrack>
@@ -365,9 +382,11 @@ function LatencyExplainer() {
               </ChartRow>
             ))}
             <ChartNote>
+              <TearingMark>*</TearingMark>{' '}
               {t(
                 'settings.game.video.framePacing.explainer.tearingNote',
-                'The two FPS limit rows also tear.',
+                'Allows tearing, where the screen shows parts of two frames at once, split along ' +
+                  'a line.',
               )}
             </ChartNote>
           </Chart>
@@ -400,11 +419,10 @@ export function FramePacingChooser({
           {t('settings.game.video.framePacing.title', 'Frame pacing')}
         </LegendTitle>
         <LegendPrompt id={promptId}>
-          {t(
-            'settings.game.video.framePacing.prompt',
-            "G-SYNC or FreeSync turned on? Choose Variable refresh. Otherwise, or if you're not " +
-              'sure, choose Match refresh.',
-          )}
+          <Trans t={t} i18nKey='settings.game.video.framePacing.prompt'>
+            G-SYNC or FreeSync turned on? Choose <OptionName>Variable refresh</OptionName>.
+            Otherwise, or if you’re not sure, choose <OptionName>Match refresh</OptionName>.
+          </Trans>
         </LegendPrompt>
       </Legend>
 
