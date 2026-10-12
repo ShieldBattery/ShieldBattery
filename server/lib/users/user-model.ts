@@ -7,6 +7,7 @@ import {
   PRIVACY_POLICY_VERSION,
   TERMS_OF_SERVICE_VERSION,
 } from '../../../common/policies/versions'
+import { isTitleId, TitleId } from '../../../common/titles'
 import { SbPermissions } from '../../../common/users/permissions'
 import { SbUser, SelfUser } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
@@ -35,6 +36,8 @@ interface UserInternal {
   avatarPath?: string
   /** Whether this account is marked as speaking for ShieldBattery. */
   staffBadge: boolean
+  /** The title the user displays, if they've equipped one (otherwise they display Novice). */
+  title?: TitleId
   emailVerified: boolean
   acceptedUsePolicyVersion: number
   acceptedTermsVersion: number
@@ -68,6 +71,8 @@ function convertUserFromDb(dbUser: DbUser): UserInternal {
     signupIpAddress: dbUser.signup_ip_address ?? undefined,
     avatarPath: dbUser.avatar_path ?? undefined,
     staffBadge: dbUser.staff_badge,
+    // A title that has been removed from the catalog is displayed as the default instead.
+    title: isTitleId(dbUser.title) ? dbUser.title : undefined,
     emailVerified: dbUser.email_verified,
     acceptedPrivacyVersion: dbUser.accepted_privacy_version,
     acceptedTermsVersion: dbUser.accepted_terms_version,
@@ -97,6 +102,7 @@ function convertToExternalSelf(userInternal: UserInternal): SelfUser {
     created: Number(userInternal.created),
     avatarUrl: userInternal.avatarPath ? getUrl(userInternal.avatarPath) : undefined,
     staffBadge: userInternal.staffBadge ? true : undefined,
+    title: userInternal.title,
     loginName: userInternal.loginName,
     email: userInternal.email,
     emailVerified: userInternal.emailVerified,
@@ -122,6 +128,7 @@ function convertToExternal(userInternal: UserInternal): SbUser {
     avatarUrl: userInternal.avatarPath ? getUrl(userInternal.avatarPath) : undefined,
     // Left off the wire entirely for the common case of accounts without the badge.
     staffBadge: userInternal.staffBadge ? true : undefined,
+    title: userInternal.title,
   }
 }
 
@@ -218,6 +225,8 @@ export type UserUpdatables = Omit<
   // The staff badge is managed through `setUserStaffBadge`, which works for any user (the generic
   // update path is only for the currently active one).
   | 'staffBadge'
+  // Titles can only be equipped once unlocked, so they're managed through `setUserTitle`.
+  | 'title'
 >
 
 /**
@@ -346,6 +355,35 @@ export async function setUserStaffBadge(
     `)
 
     return result.rows.length > 0 ? convertToExternal(convertUserFromDb(result.rows[0])) : undefined
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Sets the title a user displays, or clears it (displaying Novice) if `titleId` is `undefined`.
+ *
+ * @returns whether the title was set (`false` if the user hasn't unlocked it)
+ */
+export async function setUserTitle(
+  userId: SbUserId,
+  titleId: TitleId | undefined,
+  withClient?: DbClient,
+): Promise<boolean> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query(sql`
+      UPDATE users
+      SET title = ${titleId ?? null}
+      WHERE id = ${userId}
+        AND (
+          ${titleId ?? null}::text IS NULL
+          OR EXISTS (
+            SELECT 1 FROM user_titles WHERE user_id = ${userId} AND title_id = ${titleId ?? null}
+          )
+        )
+    `)
+    return (result.rowCount ?? 0) > 0
   } finally {
     done()
   }

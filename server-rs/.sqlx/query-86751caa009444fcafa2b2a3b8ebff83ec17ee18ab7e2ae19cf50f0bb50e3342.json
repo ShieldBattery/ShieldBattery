@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                    SELECT id as \"id: SbUserId\", name::TEXT as \"name!\",\n                        login_name::TEXT as \"login_name!\", email, email_verified,\n                        accepted_privacy_version, accepted_terms_version,\n                        accepted_use_policy_version, locale, last_login_name_change,\n                        last_name_change, name_change_tokens, avatar_path, staff_badge\n                    FROM users\n                    WHERE id = $1\n                ",
+  "query": "\n                    SELECT id as \"id: SbUserId\", name::TEXT as \"name!\",\n                        login_name::TEXT as \"login_name!\", email, email_verified,\n                        accepted_privacy_version, accepted_terms_version,\n                        accepted_use_policy_version, locale, last_login_name_change,\n                        last_name_change, name_change_tokens, avatar_path, staff_badge, title\n                    FROM users\n                    WHERE id = $1\n                ",
   "describe": {
     "columns": [
       {
@@ -146,6 +146,17 @@
             "name": "staff_badge"
           }
         }
+      },
+      {
+        "ordinal": 14,
+        "name": "title",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "users",
+            "name": "title"
+          }
+        }
       }
     ],
     "parameters": {
@@ -167,8 +178,9 @@
       true,
       false,
       true,
-      false
+      false,
+      true
     ]
   },
-  "hash": "86cae0bae3f011d6a8103eae6897c10bd25ffc425942a576d7330fede52a5691"
+  "hash": "86751caa009444fcafa2b2a3b8ebff83ec17ee18ab7e2ae19cf50f0bb50e3342"
 }

@@ -100,6 +100,7 @@ import {
 import { checkSessionsAlive, loadConfigFromEnv } from '../netcode-v2/netcode-v2-service'
 import { Redis } from '../redis/redis'
 import { Clock, TimeoutId } from '../time/clock'
+import { addTitleCounters, getGameTitleCounters, TitleTrackingGame } from '../titles/title-models'
 import { ClientIdentifierString } from '../users/client-ids'
 import {
   incrementUserStatsCount,
@@ -471,6 +472,8 @@ interface ReconciledResultEffectsOptions {
   onlyUserId?: SbUserId
   /** Leaves every games_users assigned-race/APM field null because the game never started. */
   preserveUnassignedRaces?: boolean
+  /** The game's assigned matchup, if every player's assigned race is known. */
+  assignedMatchup?: MatchupString | null
 }
 
 function makeLobbyViolationCountKeys(
@@ -698,6 +701,7 @@ export default class GameResultService {
     if (completed) {
       try {
         this.gameLifecycleEvents.emit('gameReconciled', { gameId })
+        this.gameLifecycleEvents.emit('gameResultsApplied', { gameId })
         await this.publishReconciledGame(gameId)
       } catch (err: unknown) {
         logger.error({ err, gameId }, 'failed to publish lobby violation result')
@@ -1160,7 +1164,9 @@ export default class GameResultService {
 
       await setReconciledResult(client, gameId, reconciled, assignedMatchup)
 
-      await this.applyReconciledResultEffects(client, gameRecord, reconciled, reconcileDate)
+      await this.applyReconciledResultEffects(client, gameRecord, reconciled, reconcileDate, {
+        assignedMatchup,
+      })
 
       return true
     })
@@ -1172,6 +1178,7 @@ export default class GameResultService {
       // failing must not fail the reconcile itself.
       try {
         this.gameLifecycleEvents.emit('gameReconciled', { gameId })
+        this.gameLifecycleEvents.emit('gameResultsApplied', { gameId })
       } catch (err: unknown) {
         logger.error({ err }, `error announcing the reconciliation of game ${gameId}`)
       }
@@ -1486,6 +1493,27 @@ export default class GameResultService {
       }
     }
 
+    if (!reconciled.disputed) {
+      const { config } = gameRecord
+      const titleTrackingGame: TitleTrackingGame = {
+        gameType: config.gameType,
+        matchmakingType:
+          config.gameSource === GameSource.Matchmaking ? config.gameSourceExtra.type : undefined,
+        lengthMs: reconciled.time,
+        assignedMatchup: options.assignedMatchup ?? undefined,
+      }
+      await addTitleCounters(
+        client,
+        resultEntries.flatMap(([userId, result]) => {
+          if (options.onlyUserId && userId !== options.onlyUserId) {
+            return []
+          }
+          const counters = getGameTitleCounters(titleTrackingGame, result)
+          return counters ? [{ userId, counters }] : []
+        }),
+      )
+    }
+
     if (matchmakingRankingChanges.length) {
       // NOTE(tec27): This is a best-effort thing, as these leaderboards are basically just a
       // cache and can be regenerated from the data at any time. We don't want to update them
@@ -1631,6 +1659,7 @@ export default class GameResultService {
         gameRecord,
         reconciled,
         resolvedAt,
+        { assignedMatchup: derived?.matchup },
       )
 
       return { ratingsApplied }
@@ -1641,6 +1670,7 @@ export default class GameResultService {
     // applied points is the point. The resolution is already committed, so a publish failure is
     // logged rather than failing the request.
     try {
+      this.gameLifecycleEvents.emit('gameResultsApplied', { gameId })
       await this.publishReconciledGame(gameId)
     } catch (err) {
       logger.error({ err }, `failed to publish manually resolved game ${gameId}`)

@@ -1,6 +1,7 @@
 import { SetRequired } from 'type-fest'
 import { SbChannelId } from '../../../common/chat'
 import { NotificationType } from '../../../common/notifications'
+import { TitleId } from '../../../common/titles'
 import { RestrictionKind, RestrictionReason } from '../../../common/users/restrictions'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import db from '../db/index'
@@ -32,6 +33,8 @@ export type NotificationData =
   | GameReportActionedNotificationData
   | GamePointsRefundedNotificationData
   | MatchmakingBanNotificationData
+  | TitleUnlockedNotificationData
+  | TitlesIntroducedNotificationData
 
 export interface FriendRequestNotificationData extends BaseNotificationData {
   type: NotificationType.FriendRequest
@@ -143,6 +146,19 @@ export interface MatchmakingBanNotificationData extends BaseNotificationData {
 }
 
 type MatchmakingBanSearchNotificationData = MakeSearchable<MatchmakingBanNotificationData>
+export interface TitleUnlockedNotificationData extends BaseNotificationData {
+  type: NotificationType.TitleUnlocked
+  titleIds: TitleId[]
+}
+
+type TitleUnlockedSearchNotificationData = MakeSearchable<TitleUnlockedNotificationData>
+
+export interface TitlesIntroducedNotificationData extends BaseNotificationData {
+  type: NotificationType.TitlesIntroduced
+  count: number
+}
+
+type TitlesIntroducedSearchNotificationData = MakeSearchable<TitlesIntroducedNotificationData>
 
 /**
  * Notification data type that can be used to retrieve notifications by.
@@ -163,6 +179,8 @@ export type SearchNotificationData =
   | GameReportActionedSearchNotificationData
   | GamePointsRefundedSearchNotificationData
   | MatchmakingBanSearchNotificationData
+  | TitleUnlockedSearchNotificationData
+  | TitlesIntroducedSearchNotificationData
   | Record<string, never>
 
 export interface Notification {

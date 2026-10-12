@@ -71,6 +71,11 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       state.self.user = { ...action.payload.user }
     }
   },
+  ['@auth/titleChanged'](state, { payload: { user } }) {
+    if (state.self?.user.id === user.id) {
+      state.self.user.title = user.title
+    }
+  },
   ['@users/avatarCleared'](state, { payload: { userId } }) {
     if (state.self?.user.id === userId) {
       state.self.user.avatarUrl = undefined
