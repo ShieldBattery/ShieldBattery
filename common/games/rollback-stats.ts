@@ -9,7 +9,10 @@ import { SbUserId } from '../users/sb-user-id'
  * clients may send additional fields, which are kept as-is.
  */
 export interface RollbackStats {
-  /** Layout version. */
+  /**
+   * Layout version. 2 adds `minPipeTurns`, and its pipe histogram counts the turns each step really
+   * waits on: clients sending layout 1 ran every turn a step further out than the pipe they counted.
+   */
   version: number
   /** The turn the stats run through. */
   throughTurn: number
@@ -17,6 +20,11 @@ export interface RollbackStats {
   rollbackTarget: number
   /** The client's prediction limit, in frames. */
   predictionLimit: number
+  /**
+   * The fewest of its own turns the player's settings had the client keep in flight (2 when they
+   * chose to match TR24 Low's input delay). Absent from layout 1.
+   */
+  minPipeTurns?: number
   /** Game loop ticks counted. */
   ticks: number
   /**

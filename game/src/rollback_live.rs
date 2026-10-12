@@ -323,6 +323,8 @@ pub struct GameStats {
     pub through_turn: u32,
     pub rollback_target: u32,
     pub prediction_limit: u32,
+    /// The fewest of its own turns the player's settings had this client keep in flight.
+    pub min_pipe_turns: u32,
     pub ticks: u32,
     /// Ticks by the rollback shown: how many frames the frame shown was past the newest one whose
     /// turns were all known.
@@ -364,8 +366,10 @@ pub struct GameStats {
     pub step_us: u64,
 }
 
-/// Which layout of [`GameStats`] this DLL sends.
-const GAME_STATS_VERSION: u32 = 1;
+/// Which layout of [`GameStats`] this DLL sends. 2 adds `min_pipe_turns`, and its pipe histogram
+/// counts the turns each step really waits on: layout 1's DLLs ran every turn a step further out
+/// than the pipe they counted.
+const GAME_STATS_VERSION: u32 = 2;
 
 /// What the current game has done since its lockstep start, if it rolls back.
 static GAME_STATS: Mutex<Option<GameStats>> = Mutex::new(None);
@@ -843,6 +847,7 @@ pub unsafe fn run_game_logic_step(
                 version: GAME_STATS_VERSION,
                 rollback_target,
                 prediction_limit: SETTINGS.lock().limit,
+                min_pipe_turns: netcode_v2::min_pipe_turns(),
                 ..GameStats::default()
             });
             stats.through_turn = present;
@@ -1193,6 +1198,7 @@ mod tests {
             "throughTurn",
             "rollbackTarget",
             "predictionLimit",
+            "minPipeTurns",
             "ticks",
             "rollbackHistogram",
             "pipeHistogram",
@@ -1221,7 +1227,7 @@ mod tests {
         ] {
             assert!(fields.contains_key(name), "{name}");
         }
-        assert_eq!(fields.len(), 29);
+        assert_eq!(fields.len(), 30);
         assert_eq!(fields["rollbackHistogram"].as_array().unwrap().len(), 12);
         assert_eq!(fields["pipeHistogram"].as_array().unwrap().len(), 15);
     }

@@ -490,6 +490,17 @@ describe('games/game-api/GameApi#submitRollbackStats', () => {
     expect(ctx.status).toBe(204)
   })
 
+  test('stores the minimum pipe a layout 2 client reports', async () => {
+    const api = makeRollbackStatsApi()
+    const stats = { ...makeRollbackStats(), version: 2, minPipeTurns: 2 }
+    const ctx = makeRollbackStatsCtx(stats)
+
+    await api.submitRollbackStats(ctx)
+
+    expect(insertGameRollbackStats).toHaveBeenCalledWith({ gameId: 'game-1', userId: 1, stats })
+    expect(ctx.status).toBe(204)
+  })
+
   test('answers 204 when stats were already stored for the user', async () => {
     vi.mocked(insertGameRollbackStats).mockResolvedValue(false)
     const api = makeRollbackStatsApi()
@@ -544,6 +555,8 @@ describe('games/game-api/GameApi#submitRollbackStats', () => {
     ['a histogram with a fractional entry', { pipeHistogram: [1, 0.5] }],
     ['a histogram with too many entries', { pipeHistogram: new Array(65).fill(0) }],
     ['a histogram that is not an array', { rollbackHistogram: 5 }],
+    ['a minimum pipe of no turns', { minPipeTurns: 0 }],
+    ['a fractional minimum pipe', { minPipeTurns: 1.5 }],
   ])('rejects stats with %s', async (_, overrides) => {
     const api = makeRollbackStatsApi()
     const stats: Record<string, unknown> = { ...makeRollbackStats(), ...overrides }

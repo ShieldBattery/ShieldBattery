@@ -165,6 +165,7 @@ const ROLLBACK_STATS_SCHEMA = Joi.object<RollbackStats>({
   throughTurn: joiRollbackCount(),
   rollbackTarget: joiRollbackCount(),
   predictionLimit: joiRollbackCount(),
+  minPipeTurns: Joi.number().integer().min(1).max(MAX_PG_INTEGER),
   ticks: joiRollbackCount(),
   rollbackHistogram: joiRollbackHistogram(),
   pipeHistogram: joiRollbackHistogram(),

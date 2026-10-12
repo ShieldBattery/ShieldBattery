@@ -53,13 +53,14 @@ export async function insertGameRollbackStats({
   return await withDbClient(async client => {
     const result = await client.query(sql`
       INSERT INTO game_rollback_stats (
-        game_id, user_id, ticks, through_turn, rollback_target, prediction_limit, capped_ticks,
-        rollbacks, resimulated_frames, deepest_rollback, mispredicted_turns, slow_ticks,
-        worst_tick_us, rollback_p50, rollback_p90, pipe_p50, pipe_p90, rollback_histogram,
-        pipe_histogram, details
+        game_id, user_id, ticks, through_turn, rollback_target, prediction_limit, min_pipe_turns,
+        capped_ticks, rollbacks, resimulated_frames, deepest_rollback, mispredicted_turns,
+        slow_ticks, worst_tick_us, rollback_p50, rollback_p90, pipe_p50, pipe_p90,
+        rollback_histogram, pipe_histogram, details
       ) VALUES (
         ${gameId}, ${userId}, ${stats.ticks}, ${stats.throughTurn}, ${stats.rollbackTarget},
-        ${stats.predictionLimit}, ${stats.cappedTicks}, ${stats.rollbacks},
+        ${stats.predictionLimit}, ${stats.minPipeTurns ?? null}, ${stats.cappedTicks},
+        ${stats.rollbacks},
         ${stats.resimulatedFrames}, ${stats.deepestRollback}, ${stats.mispredictedTurns},
         ${stats.slowTicks}, ${stats.worstTickUs},
         ${histogramPercentile(stats.rollbackHistogram, 50)},
