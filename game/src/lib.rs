@@ -59,6 +59,8 @@ mod game_state;
 mod game_thread;
 mod http;
 mod http_proxy;
+#[cfg(debug_assertions)]
+mod input_latency_probe;
 mod netcode_v2;
 mod offline_cookie;
 mod recurse_checked_mutex;
@@ -296,6 +298,8 @@ pub extern "C" fn OnInject() {
     rollback_live::init_from_env();
     #[cfg(debug_assertions)]
     frame_timing::init_from_env();
+    #[cfg(debug_assertions)]
+    input_latency_probe::init_from_env();
     unsafe {
         let init_helper = load_init_helper().expect("Unable to load sb_init.dll");
         init_helper(scr_init, crash_dump::cdecl_crash_dump);

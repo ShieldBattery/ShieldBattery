@@ -2732,6 +2732,24 @@ impl BwScr {
 
             let address = self.load_snp_list.0 as usize - base;
             exe.hook_closure_address(LoadSnpList, load_snp_list_hook, address);
+            #[cfg(debug_assertions)]
+            if crate::input_latency_probe::enabled() {
+                let address = self.send_command as usize - base;
+                exe.hook_closure_address(
+                    SendCommand,
+                    move |data, len, orig| {
+                        let game = self.game();
+                        if !game.is_null() && !data.is_null() {
+                            crate::input_latency_probe::on_send_command(
+                                std::slice::from_raw_parts(data, len),
+                                (*game).frame_count,
+                            );
+                        }
+                        orig(data, len)
+                    },
+                    address,
+                );
+            }
             // The UDP server seems to be just Bonjour stuff, which we don't use.
             let address = self.start_udp_server.0 as usize - base;
             exe.hook_closure_address(StartUdpServer, |_, _| 1, address);
@@ -2783,6 +2801,20 @@ impl BwScr {
                         ),
                         false => slice,
                     };
+                    #[cfg(debug_assertions)]
+                    if !is_replay
+                        && unique_command_user == self.local_unique_player_id.resolve()
+                        && !rollback_resimulating()
+                    {
+                        let game = self.game();
+                        if !game.is_null() {
+                            crate::input_latency_probe::on_local_commands(
+                                &slice,
+                                (*game).frame_count,
+                                &self.game_command_lengths,
+                            );
+                        }
+                    }
                     let mut sync_seen = false;
                     let mut alliance_or_vision_seen = false;
                     // New scope for mutex locks (Not necessarily needed but avoiding calling back to
@@ -4320,6 +4352,8 @@ impl BwScr {
                         let _timing = crate::frame_timing::render();
                         orig(renderer, commands, width, height)
                     };
+                    #[cfg(debug_assertions)]
+                    crate::input_latency_probe::on_rendered();
                     if let Some(mut render_state) = self.render_state.lock() {
                         draw_inject::free_textures(&mut render_state.render);
                     }
@@ -4401,6 +4435,8 @@ impl BwScr {
             } else {
                 None
             };
+            #[cfg(debug_assertions)]
+            crate::input_latency_probe::on_local_turn(&filtered, frame, &self.game_command_lengths);
             match netcode_v2::with_turn_state(|s| {
                 s.submit_local_turn(&filtered, Some(frame), sync_ring)
             }) {
@@ -7881,6 +7917,34 @@ impl BwScr {
         }
     }
 
+    /// Selects one of the local player's workers, both in the local UI (so its hotkeys work) and
+    /// with a selection command. Returns whether there was one.
+    #[cfg(debug_assertions)]
+    pub(crate) unsafe fn input_probe_select_worker(&self) -> bool {
+        unsafe {
+            let local_player = self.local_unique_player_id.resolve();
+            if local_player >= 8 {
+                return false;
+            }
+            let worker = self
+                .harness_selectable_units(local_player as u8)
+                .into_iter()
+                .find(|&unit| matches!((*unit).unit_id, 7 | 41 | 64));
+            let Some(worker) = worker else {
+                return false;
+            };
+            self.engine_select(&[worker]);
+            let units = self.units.resolve();
+            let index = (worker as usize - (*units).data as usize) / mem::size_of::<bw::Unit>();
+            let tag = (index as u16 + 1) | (((*worker).minor_unique_index as u16 & 0x1f) << 11);
+            let mut select = vec![0x63, 1];
+            select.extend_from_slice(&tag.to_le_bytes());
+            select.extend_from_slice(&[0, 0]);
+            (self.send_command)(select.as_ptr(), select.len());
+            true
+        }
+    }
+
     /// Issues commands the way a player's clicks would, through the local command buffer the
     /// game's own UI fills: selects some of the local player's units and right-clicks a map
     /// position with them. `random` picks the units and the position. Returns whether there was
@@ -8794,6 +8858,13 @@ impl bw::Bw for BwScr {
             // Alt+S and Alt+L open BW's save and load dialogs straight from gameplay, without the
             // game menu's buttons (which `dialog_hook` disables). A saved game can't be loaded
             // through ShieldBattery, so a live game never lets BW see either hotkey.
+            #[cfg(debug_assertions)]
+            if self.game_started.load(Ordering::Acquire) {
+                let game = self.game();
+                if !game.is_null() {
+                    crate::input_latency_probe::on_window_message(msg, wparam, (*game).frame_count);
+                }
+            }
             if is_save_or_load_hotkey(msg, wparam)
                 && self.game_started.load(Ordering::Acquire)
                 && !game_thread::is_replay()
@@ -9802,6 +9873,15 @@ unsafe fn step_game_logic_hook(
                     trigger_timer,
                 );
             }
+        }
+    }
+    #[cfg(debug_assertions)]
+    if !game_thread::is_replay() {
+        let game = bw.game();
+        if !game.is_null() {
+            crate::input_latency_probe::on_step((*game).frame_count, || {
+                bw.input_probe_select_worker()
+            });
         }
     }
     let has_obs_vision_ui = game_thread::is_replay()
