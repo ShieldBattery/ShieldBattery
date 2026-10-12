@@ -18,9 +18,15 @@
 //!
 //! An iteration woken for a step alone still draws and presents, so that what the step did shows
 //! right away (torn, without vertical sync). With vertical sync on, a present would queue behind
-//! the frames timed for the display, so the iteration skips drawing instead (see [`OwnDraw`]).
-//! Where skipping a draw isn't safe (see [`iteration`]), steps aren't given wakes of their own at
-//! all and run in the next frame's iteration.
+//! the frames timed for the display, and a variable refresh display can't show frames closer
+//! together than its top rate, so the iteration skips drawing instead (see [`OwnDraw`]) and what
+//! the step did shows in the next frame. Where skipping a draw isn't safe (see [`iteration`]),
+//! steps aren't given wakes of their own at all and run in the next frame's iteration.
+//!
+//! A variable refresh display shows each frame as it arrives, but no sooner than its top rate
+//! allows: one presented sooner tears or waits. Frames are paced a little under that rate, and
+//! because how long a frame takes to draw varies, each present is also held until a refresh at
+//! the top rate has passed since the one before (see [`presenting_frame`]).
 //!
 //! SC:R's own frame cap sleeps between drawing a frame and presenting it, which only makes what is
 //! presented older, so those sleeps are skipped for the frames pacing times (see [`skip_sleep`]).
@@ -233,6 +239,11 @@ struct Plan {
     /// woken for a step alone then mustn't present (see [`iteration`]), and a frame presented after
     /// the refresh it was timed for takes the next one.
     vsync: bool,
+    /// Whether the display refreshes as frames arrive. It can't show two closer together than its
+    /// top rate, so an iteration woken for a step alone mustn't present either.
+    variable_refresh: bool,
+    /// The least time between two presents, on a variable refresh display.
+    min_present_interval: Option<Duration>,
 }
 
 /// The frame the iteration in progress draws, timed from its wake to when it's presented.
@@ -264,6 +275,10 @@ struct State {
     frame: Option<FrameInProgress>,
     /// When SC:R started presenting the frame in progress.
     present_start: Option<Instant>,
+    /// When SC:R last started presenting a paced frame.
+    last_present: Option<Instant>,
+    /// When SC:R went to present the frame in progress, before any hold.
+    present_requested: Option<Instant>,
     /// When SC:R finished presenting the frame in progress.
     frame_end: Option<Instant>,
     /// How long recent frames took from their wake to being presented, in microseconds: those
@@ -305,6 +320,9 @@ struct Stats {
     last_scroll_tick: Option<u32>,
     skipped_sleeps: u32,
     skipped_sleep_ms: u32,
+    /// Presents held back to keep them a refresh apart, and how long in all.
+    held_presents: u32,
+    held_present_us_total: u64,
 }
 
 impl Stats {
@@ -334,6 +352,8 @@ impl Stats {
             last_scroll_tick: None,
             skipped_sleeps: 0,
             skipped_sleep_ms: 0,
+            held_presents: 0,
+            held_present_us_total: 0,
         }
     }
 }
@@ -347,6 +367,8 @@ static STATE: Mutex<State> = Mutex::new(State {
     immediate_step_wakes: 0,
     frame: None,
     present_start: None,
+    last_present: None,
+    present_requested: None,
     frame_end: None,
     work_us: [VecDeque::new(), VecDeque::new()],
     stats: Stats::new(),
@@ -429,11 +451,13 @@ unsafe fn pace(bw: &BwScr, can_skip_draw: bool) {
         .plan
         .as_ref()
         .and_then(|plan| plan.as_ref())
-        .map(|plan| (plan.period, plan.synced, plan.vsync));
-    if let Some((period, synced, vsync)) = paced {
-        // An iteration for a step alone mustn't present with vertical sync on; when it can't skip
-        // drawing either, steps run in frames' iterations instead.
-        let fold_steps = vsync && !can_skip_draw;
+        .map(|plan| (plan.period, plan.synced, plan.vsync, plan.variable_refresh));
+    if let Some((period, synced, vsync, variable_refresh)) = paced {
+        // An iteration for a step alone mustn't present with vertical sync on or on a variable
+        // refresh display; when it can't skip drawing either, steps run in frames' iterations
+        // instead.
+        let no_step_presents = vsync || variable_refresh;
+        let fold_steps = no_step_presents && !can_skip_draw;
         let fit = synced
             .then(|| VBLANK.get().and_then(|clock| clock.fit(now)))
             .flatten();
@@ -463,6 +487,18 @@ unsafe fn pace(bw: &BwScr, can_skip_draw: bool) {
                 };
                 state.stats.lead_us_total += u64::from(micros(lead));
                 (frame_at, Some(vblank))
+            }
+            // A variable refresh display shows a frame when it's presented, so frames are timed to
+            // be presented a period after the one before rather than started a period apart: how
+            // long they take to draw varies, and one presented early would be held back.
+            None if variable_refresh && state.last_present.is_some() => {
+                let target = state.last_present.map_or(now, |last| last + period);
+                (
+                    target
+                        .checked_sub(state.expected_work(false))
+                        .unwrap_or(now),
+                    None,
+                )
             }
             None => {
                 // Behind by more than a frame (a slow frame, or the first iteration): restart the
@@ -499,9 +535,10 @@ unsafe fn pace(bw: &BwScr, can_skip_draw: bool) {
         let timer_late = wait_until(wake_at);
         let woke = Instant::now();
         state = STATE.lock();
-        let skip_render = wake == Wake::Step && vsync && can_skip_draw;
+        let skip_render = wake == Wake::Step && no_step_presents && can_skip_draw;
         SKIP_RENDER.set(skip_render);
         state.present_start = None;
+        state.present_requested = None;
         state.frame_end = None;
         state.frame = (!skip_render).then_some(FrameInProgress {
             woke,
@@ -557,18 +594,23 @@ impl State {
     /// How long before a vertical blank the next frame's iteration should start, `with_step` if
     /// it will run a logic step.
     fn lead(&self, with_step: bool) -> Duration {
-        let margin = MARGIN_OVERRIDE.lock().unwrap_or(MARGIN);
+        self.expected_work(with_step) + MARGIN_OVERRIDE.lock().unwrap_or(MARGIN)
+    }
+
+    /// How long the next frame's iteration is expected to take to present it, `with_step` if it
+    /// will run a logic step: longer than most recent ones took.
+    fn expected_work(&self, with_step: bool) -> Duration {
         let samples = match &self.work_us {
-            [plain, stepped] if with_step && !stepped.is_empty() => stepped,
+            [_, stepped] if with_step && !stepped.is_empty() => stepped,
             [plain, _] => plain,
         };
         if samples.is_empty() {
-            return margin + Duration::from_millis(2);
+            return Duration::from_millis(2);
         }
         let mut work: Vec<u32> = samples.iter().copied().collect();
         work.sort_unstable();
         let p90 = work[(work.len() - 1) * 9 / 10];
-        Duration::from_micros(u64::from(p90)) + margin
+        Duration::from_micros(u64::from(p90))
     }
 }
 
@@ -576,6 +618,7 @@ impl State {
 fn finish_frame() {
     let mut state = STATE.lock();
     let present_start = state.present_start.take();
+    let present_requested = state.present_requested.take();
     let (Some(frame), Some(end)) = (state.frame.take(), state.frame_end.take()) else {
         return;
     };
@@ -591,7 +634,12 @@ fn finish_frame() {
     if samples.len() == WORK_SAMPLES {
         samples.pop_front();
     }
-    samples.push_back(micros(end - frame.woke).min(ceiling));
+    // Up to when SC:R went to present it: a present held back to keep presents a refresh apart
+    // isn't the frame taking longer.
+    let work = present_requested
+        .unwrap_or(end)
+        .saturating_duration_since(frame.woke);
+    samples.push_back(micros(work).min(ceiling));
     if let Some(vblank) = frame.vblank {
         // Whether it made its blank depends on when it was handed to DXGI; `swap_buffers` goes on
         // to wait for an earlier frame's GPU work after presenting.
@@ -632,9 +680,29 @@ pub fn render_started() {
 
 /// SC:R is presenting a frame.
 pub fn presenting_frame() {
-    if IN_OWN_DRAW.get() {
-        STATE.lock().present_start = Some(Instant::now());
+    if !IN_OWN_DRAW.get() {
+        return;
     }
+    let mut state = STATE.lock();
+    state.present_requested = Some(Instant::now());
+    let gate = match &state.plan {
+        Some(Some(plan)) => plan.min_present_interval,
+        _ => None,
+    };
+    if let (Some(gate), Some(last)) = (gate, state.last_present) {
+        let at = last + gate;
+        let now = Instant::now();
+        if at > now {
+            drop(state);
+            wait_until(at);
+            state = STATE.lock();
+            state.stats.held_presents += 1;
+            state.stats.held_present_us_total += u64::from(micros(at - now));
+        }
+    }
+    let now = Instant::now();
+    state.present_start = Some(now);
+    state.last_present = Some(now);
 }
 
 /// SC:R presented a frame.
@@ -656,13 +724,16 @@ fn resolve_plan() -> Option<Plan> {
         }
         f64::from(rate.unwrap_or(60))
     };
+    let variable_refresh = mode == Mode::VariableRefresh;
+    let mut min_present_interval = None;
     let (rate, synced) = match mode {
         Mode::Off => return None,
         Mode::Display => (display_rate(), true),
-        // Pacing right at a variable refresh display's top rate has it fall back to fixed
-        // refreshes whenever a frame comes early, so stay a little under it.
+        // A variable refresh display can't show a frame that comes sooner than its top rate allows
+        // (it waits, or tears), so stay a little under it, and hold presents a refresh apart.
         Mode::VariableRefresh => {
             let rate = display_rate();
+            min_present_interval = Some(Duration::from_secs_f64(1.01 / rate));
             ((rate - 3.0).min(rate * 0.97), false)
         }
         Mode::Rate(rate) => (rate, false),
@@ -673,8 +744,8 @@ fn resolve_plan() -> Option<Plan> {
     }
     info!(
         "Frame pacing: {mode:?} at {rate:.2} fps{}",
-        if vsync {
-            ", vertical sync on: steps don't present frames of their own"
+        if vsync || variable_refresh {
+            ", steps don't present frames of their own"
         } else {
             ""
         }
@@ -683,6 +754,8 @@ fn resolve_plan() -> Option<Plan> {
         period,
         synced,
         vsync,
+        variable_refresh,
+        min_present_interval,
     })
 }
 
@@ -934,7 +1007,7 @@ fn log_stats(stats: &mut Stats, plan: Option<&Plan>, elapsed: Duration) {
             format!(
                 "paced at {:.1} fps: {} frame / {} step / {} merged wakes, {} renders skipped, \
                  oversleep avg {:.3} ms max {:.3} ms (timer {:.3} ms), waiting {:.0}% of the \
-                 time, {} cap sleeps skipped ({} ms){synced}",
+                 time, {} cap sleeps skipped ({} ms), {} presents held avg {:.2} ms{synced}",
                 1.0 / plan.period.as_secs_f64(),
                 stats.frame_wakes,
                 stats.step_wakes,
@@ -946,6 +1019,8 @@ fn log_stats(stats: &mut Stats, plan: Option<&Plan>, elapsed: Duration) {
                 stats.waited_us_total as f64 / elapsed.as_micros() as f64 * 100.0,
                 stats.skipped_sleeps,
                 stats.skipped_sleep_ms,
+                stats.held_presents,
+                ms(stats.held_present_us_total as f64) / f64::from(stats.held_presents.max(1)),
             )
         }
     };
@@ -971,6 +1046,8 @@ pub fn reset() {
     state.immediate_step_wakes = 0;
     state.frame = None;
     state.present_start = None;
+    state.last_present = None;
+    state.present_requested = None;
     state.frame_end = None;
     state.work_us = Default::default();
     state.stats = Stats::new();
