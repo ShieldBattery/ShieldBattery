@@ -79,24 +79,6 @@ export enum FramePacing {
   VariableRefresh = 'variableRefresh',
 }
 
-export const ALL_FRAME_PACING_MODES: Readonly<FramePacing[]> = Object.values(FramePacing)
-
-export function getFramePacingLabel(mode: FramePacing, t: TFunction): string {
-  switch (mode) {
-    case FramePacing.Off:
-      return t('settings.game.video.framePacing.off', 'Off')
-    case FramePacing.Display:
-      return t('settings.game.video.framePacing.display', 'Match display refresh')
-    case FramePacing.VariableRefresh:
-      return t(
-        'settings.game.video.framePacing.variableRefresh',
-        'Variable refresh (G-SYNC/FreeSync)',
-      )
-    default:
-      return assertUnreachable(mode)
-  }
-}
-
 /** The size of the game's play area, not counting the window's title bar and borders. */
 export interface GameWindowSize {
   width: number

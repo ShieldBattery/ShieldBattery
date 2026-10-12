@@ -12,50 +12,35 @@ import {
   SCR_GAMMA_MIN,
 } from '../../../common/settings/blizz-settings'
 import {
-  ALL_FRAME_PACING_MODES,
   ALL_GAME_WINDOW_PLACEMENTS,
   FramePacing,
   GAME_WINDOW_PRESET_GROUPS,
   GameWindowPlacement,
   GameWindowSize,
-  getFramePacingLabel,
   getGameWindowPlacementLabel,
 } from '../../../common/settings/local-settings'
-import { FormHook, useForm, useFormCallbacks } from '../../forms/form-hook'
+import { useForm, useFormCallbacks } from '../../forms/form-hook'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import logger from '../../logging/logger'
-import { OutlinedButton } from '../../material/button'
-import { CheckBox } from '../../material/check-box'
+import { TextButton } from '../../material/button'
 import { Divider } from '../../material/menu/divider'
+import { OnOffSegmentedButtons } from '../../material/segmented-button'
 import { SelectOption } from '../../material/select/option'
 import { Select } from '../../material/select/select'
 import { Slider } from '../../material/slider'
-import { Tooltip } from '../../material/tooltip'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
+import { bodyMedium } from '../../styles/typography'
 import { mergeLocalSettings, mergeScrSettings } from '../action-creators'
-import { FormContainer, SectionContainer } from '../settings-content'
+import {
+  SettingsRow,
+  SettingsRowGroup,
+  SettingsRowNote,
+  SettingsSection,
+  SettingsStackedRow,
+} from '../settings-rows'
+import { FramePacingChooser, FramePacingNudge } from './frame-pacing-settings'
 
 const ipcRenderer = new TypedIpcRenderer()
-
-const ResetWindowPositionButton = styled(OutlinedButton)`
-  align-self: flex-start;
-  margin-bottom: 20px;
-`
-
-const FramePacingSetting = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 4px;
-
-  & > :first-child {
-    flex-grow: 1;
-  }
-`
-
-const InfoIcon = styled.span`
-  display: flex;
-  color: var(--theme-on-surface-variant);
-`
 
 const GAMMA_SLIDER_MIN = 0
 const GAMMA_SLIDER_MAX = 100
@@ -75,29 +60,32 @@ function sliderValueToGamma(value: number): number {
   return Math.round(SCR_GAMMA_MIN + (clamped / GAMMA_SLIDER_MAX) * (SCR_GAMMA_MAX - SCR_GAMMA_MIN))
 }
 
-// NOTE(tec27): Vsync is weird and is a number in the settings, but actually a boolean value. This
-// component just acts as a custom one and does the conversion
-function VsyncCheckBox(props: {
-  name: string
-  value: number | null
-  errorText?: string
-  label: string
-  inputProps: any
-  onChange: (newValue: number) => void
-}) {
-  return (
-    <CheckBox
-      name={props.name}
-      checked={!!props.value}
-      label={props.label}
-      inputProps={props.inputProps}
-      onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
-        const { checked } = event.target
-        props.onChange(checked ? 1 : 0)
-      }}
-    />
-  )
-}
+const Sections = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+`
+
+const FrameRateSection = styled(SettingsSection)`
+  gap: 16px;
+`
+
+/** The slider fills its row, which already spaces it from the label above. */
+const RowSlider = styled(Slider)`
+  padding-block: 0;
+`
+
+const RowSelect = styled(Select)`
+  width: 100%;
+`
+
+const UnusedNote = styled.span`
+  ${bodyMedium};
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--theme-on-surface-variant);
+`
 
 interface GameVideoSettingsModel {
   displayMode: DisplayMode
@@ -119,36 +107,12 @@ interface GameVideoSettingsModel {
   windowSize: Readonly<GameWindowSize>
 }
 
+type BooleanSetting = {
+  [K in keyof GameVideoSettingsModel]: GameVideoSettingsModel[K] extends boolean ? K : never
+}[keyof GameVideoSettingsModel]
+
 function isSameWindowSize(a: Readonly<GameWindowSize>, b: Readonly<GameWindowSize>): boolean {
   return a.width === b.width && a.height === b.height
-}
-
-function WindowSizeSelect({ bindCustom }: Pick<FormHook<GameVideoSettingsModel>, 'bindCustom'>) {
-  const { t } = useTranslation()
-
-  return (
-    <Select
-      {...bindCustom('windowSize')}
-      label={t('settings.game.video.windowSize', 'Window size')}
-      compareValues={isSameWindowSize}
-      tabIndex={0}>
-      {GAME_WINDOW_PRESET_GROUPS.flatMap(({ aspectRatio, sizes }, i) => [
-        ...(i > 0 ? [<Divider key={`${aspectRatio}-divider`} />] : []),
-        ...sizes.map(size => (
-          <SelectOption
-            key={`${size.width}x${size.height}`}
-            value={size}
-            text={t('settings.game.video.windowSizeOption', {
-              defaultValue: '{{width}} × {{height}} ({{aspectRatio}})',
-              width: size.width,
-              height: size.height,
-              aspectRatio,
-            })}
-          />
-        )),
-      ])}
-    </Select>
-  )
 }
 
 export function GameVideoSettings() {
@@ -179,7 +143,7 @@ export function GameVideoSettings() {
     windowSize: localSettings.gameWinSetSize,
   }
 
-  const { bindCustom, bindCheckable, getInputValue, submit, form } =
+  const { bindCustom, getInputValue, setInputValue, submit, form } =
     useForm<GameVideoSettingsModel>(initialModel, {})
 
   useFormCallbacks(form, {
@@ -253,172 +217,263 @@ export function GameVideoSettings() {
       })
   }, [])
 
+  const displayMode = getInputValue('displayMode')
+  const framePacing = getInputValue('framePacing')
+  const pacingOn = framePacing !== FramePacing.Off
+  const vsyncOn = getInputValue('vsyncOn') === 1
+  const windowed = displayMode === DisplayMode.Windowed
+
+  const onOffRow = (name: BooleanSetting, label: string) => (
+    <SettingsRow label={label}>
+      {labelId => (
+        <OnOffSegmentedButtons
+          value={getInputValue(name)}
+          onChange={value => setInputValue(name, value)}
+          ariaLabelledBy={labelId}
+        />
+      )}
+    </SettingsRow>
+  )
+
   return (
     <form noValidate={true} onSubmit={submit}>
-      <FormContainer>
-        <SectionContainer>
-          <Select
-            {...bindCustom('displayMode')}
-            label={t('settings.game.video.displayMode.title', 'Display mode')}
-            tabIndex={0}>
-            {ALL_DISPLAY_MODES.map((dm, i) => (
-              <SelectOption key={i} value={dm} text={getDisplayModeName(dm, t)} />
-            ))}
-          </Select>
-          {getInputValue('displayMode') !== DisplayMode.Windowed ? (
-            <Select
-              {...bindCustom('monitorId')}
-              label={t('settings.game.video.monitor', 'Monitor')}
-              tabIndex={0}>
-              <SelectOption
-                key={'primary'}
-                value={null}
-                text={t('settings.game.video.primaryMonitor', 'Default (primary monitor)')}
-              />
-              {monitors.map((m, i) => (
-                <SelectOption
-                  key={m.id}
-                  value={m.id}
-                  text={t('settings.game.video.monitorItem', {
-                    defaultValue: 'Monitor {{index}} - {{label}}',
-                    index: i,
-                    label: m.label,
-                  })}
-                />
-              ))}
-            </Select>
-          ) : (
-            <>
-              <Select
-                {...bindCustom('windowPlacement')}
-                label={t('settings.game.video.windowPlacement.title', 'Window placement')}
-                tabIndex={0}>
-                {ALL_GAME_WINDOW_PLACEMENTS.map(placement => (
-                  <SelectOption
-                    key={placement}
-                    value={placement}
-                    text={getGameWindowPlacementLabel(placement, t)}
-                  />
-                ))}
-              </Select>
-              {getInputValue('windowPlacement') === GameWindowPlacement.SetSize ? (
-                <WindowSizeSelect bindCustom={bindCustom} />
-              ) : null}
-              <ResetWindowPositionButton
-                label={t('settings.game.video.resetWindowPosition', 'Reset window position')}
-                disabled={localSettings.gameWinX === undefined}
-                onClick={resetWindowPosition}
-                testName='reset-game-window-position'
-              />
-            </>
-          )}
-          <Slider
-            {...bindCustom('gamma')}
-            label={t('settings.game.video.brightness', 'Brightness')}
-            tabIndex={0}
-            min={GAMMA_SLIDER_MIN}
-            max={GAMMA_SLIDER_MAX}
-            step={GAMMA_SLIDER_STEP}
-            disabled={getInputValue('displayMode') !== DisplayMode.Fullscreen}
-          />
-        </SectionContainer>
-        <SectionContainer>
-          <Slider
-            {...bindCustom('sdGraphicsFilter')}
-            label={t('settings.game.video.sdGraphicsFilter', 'SD graphics filter')}
-            tabIndex={0}
-            min={0}
-            max={3}
-            step={1}
-          />
-        </SectionContainer>
-        <SectionContainer>
-          <FramePacingSetting>
-            <Select
-              {...bindCustom('framePacing')}
-              label={t('settings.game.video.framePacing.title', 'Frame pacing')}
-              tabIndex={0}>
-              {ALL_FRAME_PACING_MODES.map(mode => (
-                <SelectOption key={mode} value={mode} text={getFramePacingLabel(mode, t)} />
-              ))}
-            </Select>
-            <Tooltip
-              text={t(
-                'settings.game.video.framePacing.description',
-                'Draws one frame per refresh of your display, each just before it is shown, ' +
-                  'with your newest input. Gives the low input delay of a very high frame rate ' +
-                  'while drawing far fewer frames. With a G-SYNC or FreeSync display, pick ' +
-                  'variable refresh to stay just under its top refresh rate instead. Replaces ' +
-                  'the FPS limit. With vertical sync off, a frame showing a new game step ' +
-                  'appears right away and may tear.',
+      <Sections>
+        <SettingsSection title={t('settings.game.video.sections.display', 'Display')}>
+          <SettingsRowGroup>
+            <SettingsRow label={t('settings.game.video.displayMode.title', 'Display mode')}>
+              {labelId => (
+                <RowSelect
+                  {...bindCustom('displayMode')}
+                  dense={true}
+                  allowErrors={false}
+                  ariaLabelledBy={labelId}
+                  tabIndex={0}>
+                  {ALL_DISPLAY_MODES.map((dm, i) => (
+                    <SelectOption key={i} value={dm} text={getDisplayModeName(dm, t)} />
+                  ))}
+                </RowSelect>
               )}
-              position='right'>
-              <InfoIcon>
-                <MaterialIcon icon='info' size={18} />
-              </InfoIcon>
-            </Tooltip>
-          </FramePacingSetting>
-          <CheckBox
-            {...bindCheckable('fpsLimitOn')}
-            label={t('settings.game.video.customFpsLimit', 'Custom FPS limit')}
-            inputProps={{ tabIndex: 0 }}
-            disabled={getInputValue('framePacing') !== FramePacing.Off}
-          />
-          <Slider
-            {...bindCustom('fpsLimit')}
-            label={t('settings.game.video.fpsLimit', 'FPS limit')}
-            tabIndex={0}
-            min={100}
-            max={1000}
-            step={1}
-            disabled={
-              !getInputValue('fpsLimitOn') || getInputValue('framePacing') !== FramePacing.Off
+            </SettingsRow>
+            {windowed ? (
+              <>
+                <SettingsRow
+                  label={t('settings.game.video.windowPlacement.title', 'Window placement')}>
+                  {labelId => (
+                    <RowSelect
+                      {...bindCustom('windowPlacement')}
+                      dense={true}
+                      allowErrors={false}
+                      ariaLabelledBy={labelId}
+                      tabIndex={0}>
+                      {ALL_GAME_WINDOW_PLACEMENTS.map(placement => (
+                        <SelectOption
+                          key={placement}
+                          value={placement}
+                          text={getGameWindowPlacementLabel(placement, t)}
+                        />
+                      ))}
+                    </RowSelect>
+                  )}
+                </SettingsRow>
+                {getInputValue('windowPlacement') === GameWindowPlacement.SetSize ? (
+                  <SettingsRow label={t('settings.game.video.windowSize', 'Window size')}>
+                    {labelId => (
+                      <RowSelect
+                        {...bindCustom('windowSize')}
+                        dense={true}
+                        allowErrors={false}
+                        ariaLabelledBy={labelId}
+                        compareValues={isSameWindowSize}
+                        tabIndex={0}>
+                        {GAME_WINDOW_PRESET_GROUPS.flatMap(({ aspectRatio, sizes }, i) => [
+                          ...(i > 0 ? [<Divider key={`${aspectRatio}-divider`} />] : []),
+                          ...sizes.map(size => (
+                            <SelectOption
+                              key={`${size.width}x${size.height}`}
+                              value={size}
+                              text={t('settings.game.video.windowSizeOption', {
+                                defaultValue: '{{width}} × {{height}} ({{aspectRatio}})',
+                                width: size.width,
+                                height: size.height,
+                                aspectRatio,
+                              })}
+                            />
+                          )),
+                        ])}
+                      </RowSelect>
+                    )}
+                  </SettingsRow>
+                ) : null}
+                <SettingsRow label={t('settings.game.video.windowPosition', 'Window position')}>
+                  <TextButton
+                    label={t('settings.game.video.resetWindowPositionButton', 'Reset')}
+                    disabled={localSettings.gameWinX === undefined}
+                    onClick={resetWindowPosition}
+                    testName='reset-game-window-position'
+                  />
+                </SettingsRow>
+              </>
+            ) : (
+              <SettingsRow label={t('settings.game.video.monitor', 'Monitor')}>
+                {labelId => (
+                  <RowSelect
+                    {...bindCustom('monitorId')}
+                    dense={true}
+                    allowErrors={false}
+                    ariaLabelledBy={labelId}
+                    tabIndex={0}>
+                    <SelectOption
+                      key={'primary'}
+                      value={null}
+                      text={t('settings.game.video.primaryMonitor', 'Default (primary monitor)')}
+                    />
+                    {monitors.map((m, i) => (
+                      <SelectOption
+                        key={m.id}
+                        value={m.id}
+                        text={t('settings.game.video.monitorItem', {
+                          defaultValue: 'Monitor {{index}} - {{label}}',
+                          index: i,
+                          label: m.label,
+                        })}
+                      />
+                    ))}
+                  </RowSelect>
+                )}
+              </SettingsRow>
+            )}
+            <SettingsStackedRow
+              label={t('settings.game.video.brightness', 'Brightness')}
+              readout={String(getInputValue('gamma'))}
+              disabled={displayMode !== DisplayMode.Fullscreen}
+              helperText={
+                displayMode !== DisplayMode.Fullscreen
+                  ? t(
+                      'settings.game.video.brightnessFullscreenOnly',
+                      'Only available in Fullscreen',
+                    )
+                  : undefined
+              }>
+              {labelId => (
+                <RowSlider
+                  {...bindCustom('gamma')}
+                  min={GAMMA_SLIDER_MIN}
+                  max={GAMMA_SLIDER_MAX}
+                  step={GAMMA_SLIDER_STEP}
+                  disabled={displayMode !== DisplayMode.Fullscreen}
+                  ariaLabelledBy={labelId}
+                />
+              )}
+            </SettingsStackedRow>
+            {onOffRow(
+              'pillarboxOn',
+              t('settings.game.video.pillarbox', 'Pillarbox (4:3 aspect ratio)'),
+            )}
+          </SettingsRowGroup>
+        </SettingsSection>
+
+        <FrameRateSection
+          title={t('settings.game.video.sections.frameRate', 'Frame rate and input delay')}>
+          {pacingOn ? null : (
+            <FramePacingNudge
+              vsyncOn={vsyncOn}
+              onTurnOn={() => setInputValue('framePacing', FramePacing.Display)}
+            />
+          )}
+          <FramePacingChooser
+            value={framePacing}
+            onChange={value => setInputValue('framePacing', value)}
+            displayMode={displayMode}
+            onUseWindowedFullscreen={() =>
+              setInputValue('displayMode', DisplayMode.WindowedFullscreen)
             }
           />
-        </SectionContainer>
-        <SectionContainer>
-          <VsyncCheckBox
-            {...bindCustom('vsyncOn')}
-            label={t('settings.game.video.enableVerticalSync', 'Enable vertical sync')}
-            inputProps={{ tabIndex: 0 }}
-          />
-          <CheckBox
-            {...bindCheckable('hdGraphicsOn')}
-            label={t('settings.game.video.hdGraphics', 'HD graphics')}
-            inputProps={{ tabIndex: 0 }}
-          />
-          <CheckBox
-            {...bindCheckable('environmentEffectsOn')}
-            label={t('settings.game.video.environmentEffects', 'Environment effects')}
-            inputProps={{ tabIndex: 0 }}
-          />
-          <CheckBox
-            {...bindCheckable('realTimeLightingOn')}
-            label={t('settings.game.video.realTimeLighting', 'Real-time lighting')}
-            inputProps={{ tabIndex: 0 }}
-          />
-          <CheckBox
-            {...bindCheckable('smoothUnitTurningOn')}
-            label={t('settings.game.video.smoothUnitTurning', 'Smooth unit turning')}
-            inputProps={{ tabIndex: 0 }}
-          />
-          <CheckBox
-            {...bindCheckable('shadowStackingOn')}
-            label={t('settings.game.video.shadowStacking', 'Shadow stacking')}
-            inputProps={{ tabIndex: 0 }}
-          />
-          <CheckBox
-            {...bindCheckable('pillarboxOn')}
-            label={t('settings.game.video.pillarbox', 'Pillarbox (4:3 aspect ratio)')}
-            inputProps={{ tabIndex: 0 }}
-          />
-          <CheckBox
-            {...bindCheckable('showFps')}
-            label={t('settings.game.video.showFps', 'Show FPS')}
-            inputProps={{ tabIndex: 0 }}
-          />
-        </SectionContainer>
-      </FormContainer>
+          <SettingsRowGroup>
+            {pacingOn ? (
+              <SettingsRow label={t('settings.game.video.fpsLimit', 'FPS limit')} disabled={true}>
+                <UnusedNote>
+                  <MaterialIcon icon='info' size={18} filled={false} />
+                  {t('settings.game.video.fpsLimitUnused', 'Not used with frame pacing on')}
+                </UnusedNote>
+              </SettingsRow>
+            ) : (
+              <>
+                {onOffRow(
+                  'fpsLimitOn',
+                  t('settings.game.video.customFpsLimit', 'Custom FPS limit'),
+                )}
+                {getInputValue('fpsLimitOn') ? (
+                  <SettingsStackedRow
+                    label={t('settings.game.video.fpsLimit', 'FPS limit')}
+                    readout={String(getInputValue('fpsLimit'))}>
+                    {labelId => (
+                      <RowSlider
+                        {...bindCustom('fpsLimit')}
+                        min={100}
+                        max={1000}
+                        step={1}
+                        ariaLabelledBy={labelId}
+                      />
+                    )}
+                  </SettingsStackedRow>
+                ) : null}
+              </>
+            )}
+            <SettingsRow label={t('settings.game.video.verticalSync', 'Vertical sync')}>
+              {labelId => (
+                <OnOffSegmentedButtons
+                  value={vsyncOn}
+                  onChange={value => setInputValue('vsyncOn', value ? 1 : 0)}
+                  ariaLabelledBy={labelId}
+                />
+              )}
+            </SettingsRow>
+            {vsyncOn && windowed ? (
+              <SettingsRowNote>
+                {t(
+                  'settings.game.video.verticalSyncWindowedNote',
+                  'Avoid vertical sync in a bordered window, where it adds a lot of input delay.',
+                )}
+              </SettingsRowNote>
+            ) : null}
+            {onOffRow('showFps', t('settings.game.video.showFps', 'Show FPS'))}
+          </SettingsRowGroup>
+        </FrameRateSection>
+
+        <SettingsSection title={t('settings.game.video.sections.graphics', 'Graphics')}>
+          <SettingsRowGroup>
+            <SettingsStackedRow
+              label={t('settings.game.video.sdGraphicsFilter', 'SD graphics filter')}>
+              {labelId => (
+                <RowSlider
+                  {...bindCustom('sdGraphicsFilter')}
+                  min={0}
+                  max={3}
+                  step={1}
+                  ariaLabelledBy={labelId}
+                />
+              )}
+            </SettingsStackedRow>
+            {onOffRow('hdGraphicsOn', t('settings.game.video.hdGraphics', 'HD graphics'))}
+            {onOffRow(
+              'environmentEffectsOn',
+              t('settings.game.video.environmentEffects', 'Environment effects'),
+            )}
+            {onOffRow(
+              'realTimeLightingOn',
+              t('settings.game.video.realTimeLighting', 'Real-time lighting'),
+            )}
+            {onOffRow(
+              'smoothUnitTurningOn',
+              t('settings.game.video.smoothUnitTurning', 'Smooth unit turning'),
+            )}
+            {onOffRow(
+              'shadowStackingOn',
+              t('settings.game.video.shadowStacking', 'Shadow stacking'),
+            )}
+          </SettingsRowGroup>
+        </SettingsSection>
+      </Sections>
     </form>
   )
 }
