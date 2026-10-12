@@ -3018,6 +3018,13 @@
         "enableVerticalSync": "Habilitar sincronización vertical",
         "environmentEffects": "Efectos ambientales",
         "fpsLimit": "límite de FPS",
+        "framePacing": {
+          "description": "Dibuja un fotograma por cada refresco de tu pantalla, justo antes de mostrarse, con tus acciones más recientes. Te da el bajo retraso de entrada de una tasa de fotogramas muy alta dibujando muchos menos fotogramas. Reemplaza el límite de FPS. Con la sincronización vertical desactivada, un fotograma que muestra un nuevo paso del juego aparece al instante y puede verse cortado (tearing).",
+          "display": "Igualar la frecuencia de la pantalla",
+          "off": "Desactivado",
+          "title": "Ritmo de fotogramas",
+          "variableRefresh": "Frecuencia variable (G-SYNC/FreeSync)"
+        },
         "hdGraphics": "Gráficos de alta definición",
         "monitor": "Monitor",
         "monitorItem": "Monitor {{index}} - {{label}}",

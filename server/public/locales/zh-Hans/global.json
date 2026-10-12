@@ -2936,6 +2936,13 @@
         "enableVerticalSync": "启用垂直同步",
         "environmentEffects": "环境特效",
         "fpsLimit": "帧数限制",
+        "framePacing": {
+          "description": "显示器每刷新一次只绘制一帧，并在显示前一刻才绘制，用上你最新的操作。用少得多的帧数获得极高帧率才有的低输入延迟。会取代帧数限制。关闭垂直同步时，反映游戏新进展的那一帧会立即显示，可能出现画面撕裂。",
+          "display": "匹配显示器刷新率",
+          "off": "关闭",
+          "title": "帧节奏控制",
+          "variableRefresh": "可变刷新率 (G-SYNC/FreeSync)"
+        },
         "hdGraphics": "高清版图像",
         "monitor": "显示器",
         "monitorItem": "显示器 {{index}} - {{label}}",

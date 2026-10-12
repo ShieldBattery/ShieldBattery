@@ -2936,6 +2936,13 @@
         "enableVerticalSync": "수직 동기화 사용",
         "environmentEffects": "환경 효과",
         "fpsLimit": "FPS 제한",
+        "framePacing": {
+          "description": "디스플레이가 화면을 갱신할 때마다 표시 직전에 가장 최신 입력을 반영한 프레임을 하나씩 그립니다. 훨씬 적은 프레임으로 매우 높은 프레임 레이트와 같은 낮은 입력 지연을 얻을 수 있습니다. FPS 제한을 대체합니다. 수직 동기화가 꺼져 있으면 새로운 게임 진행을 보여 주는 프레임이 바로 표시되며 티어링이 생길 수 있습니다.",
+          "display": "디스플레이 주사율에 맞춤",
+          "off": "사용 안 함",
+          "title": "프레임 페이싱",
+          "variableRefresh": "가변 주사율 (G-SYNC/FreeSync)"
+        },
         "hdGraphics": "HD 그래픽",
         "monitor": "모니터",
         "monitorItem": "모니터 {{index}} - {{label}}",
