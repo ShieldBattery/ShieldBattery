@@ -14,6 +14,9 @@ import { zIndexWindowControls } from '../material/zindex'
 const ipcRenderer = new TypedIpcRenderer()
 
 const windowControlsHeight = IS_ELECTRON ? '32px' : '0px'
+const buttonWidth = 48
+/** The total width taken up by the window controls at the right edge of the system bar. */
+export const windowControlsWidth = `${buttonWidth * 3}px`
 
 const WindowControlsStyle = createGlobalStyle`
   .sb-window-controls {
@@ -26,7 +29,7 @@ const WindowControlsStyle = createGlobalStyle`
 
 const button = css`
   ${buttonReset};
-  width: 48px;
+  width: ${buttonWidth}px;
   height: ${windowControlsHeight};
   padding: 4px 0;
 

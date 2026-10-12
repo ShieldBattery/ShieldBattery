@@ -3200,6 +3200,9 @@
       "title": "Installation problems detected"
     }
   },
+  "systemBar": {
+    "support": "Support"
+  },
   "twitch": {
     "live": {
       "avatarTooltip": "Live on Twitch",

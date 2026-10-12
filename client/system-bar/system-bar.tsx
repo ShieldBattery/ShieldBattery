@@ -10,7 +10,8 @@ import { Tooltip } from '../material/tooltip'
 import { zIndexSystemBar } from '../material/zindex'
 import { push } from '../navigation/routing'
 import { labelLarge, labelMedium } from '../styles/typography'
-import { SizeLeft, SizeRight, SizeTop } from './window-controls'
+import { SupportButton } from './support-button'
+import { SizeLeft, SizeRight, SizeTop, windowControlsWidth } from './window-controls'
 
 const Container = styled.header`
   flex-grow: 0;
@@ -39,6 +40,15 @@ const LeftSide = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
+`
+
+const RightSide = styled.div`
+  height: 100%;
+  margin-left: auto;
+  padding-right: calc(${windowControlsWidth} + 8px);
+
+  display: flex;
+  align-items: center;
 `
 
 const StyledIconButton = styled(IconButton)`
@@ -126,6 +136,9 @@ export function SystemBar() {
         ) : null}
         {isAdmin ? <AdminReportCounts /> : null}
       </LeftSide>
+      <RightSide>
+        <SupportButton />
+      </RightSide>
     </Container>
   )
 }
