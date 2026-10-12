@@ -369,6 +369,9 @@ struct Stats {
     deadline_lead_us_max: u32,
     /// Refreshes left without a frame to empty the vertical sync queue.
     queue_drains: u32,
+    /// For each frame the in-game loop drew, how long after its iteration pumped input SC:R went
+    /// to present it, in microseconds.
+    sampled_to_present_us: Vec<u32>,
 }
 
 impl Stats {
@@ -405,6 +408,7 @@ impl Stats {
             missed_deadlines: 0,
             deadline_lead_us_max: 0,
             queue_drains: 0,
+            sampled_to_present_us: Vec::new(),
         }
     }
 }
@@ -838,7 +842,16 @@ pub fn presenting_frame() {
         return;
     }
     let mut state = STATE.lock();
-    state.present_requested = Some(Instant::now());
+    let requested = Instant::now();
+    state.present_requested = Some(requested);
+    // The iteration pumped input right after it started, so this is how old the newest input in
+    // the frame is when SC:R goes to present it.
+    if let Some(started) = state.last_iteration
+        && state.stats.sampled_to_present_us.len() < 8192
+    {
+        let age = micros(requested.saturating_duration_since(started));
+        state.stats.sampled_to_present_us.push(age);
+    }
     let gate = match &state.plan {
         Some(Some(plan)) => plan.min_present_interval,
         _ => None,
@@ -1182,7 +1195,9 @@ fn log_stats(stats: &mut Stats, plan: Option<&Plan>, elapsed: Duration) {
             let shown = match stats.shown {
                 0 if reads.ok + reads.disjoint + reads.failed == 0 => String::new(),
                 count => format!(
-                    "; {:.1} frames/s shown, presented to shown p50 {:.2} ms p90 {:.2} ms, {} shown                      after the blank they were presented in time for, deadline lead max {:.2} ms,                      {} vertical sync queue drains (statistics {reads:?})",
+                    "; {:.1} frames/s shown, presented to shown p50 {:.2} ms p90 {:.2} ms, {} \
+                     shown after the blank they were presented in time for, deadline lead max \
+                     {:.2} ms, {} vertical sync queue drains (statistics {reads:?})",
                     per_sec(count),
                     quantile(&stats.shown_after_us, 0.5),
                     quantile(&stats.shown_after_us, 0.9),
@@ -1211,10 +1226,14 @@ fn log_stats(stats: &mut Stats, plan: Option<&Plan>, elapsed: Duration) {
             )
         }
     };
+    stats.sampled_to_present_us.sort_unstable();
     debug!(
-        "Frame pacing: {:.1} iterations/s, {steps}, scrolling {:.1}/s, {pacing}",
+        "Frame pacing: {:.1} iterations/s, {steps}, scrolling {:.1}/s, input sampled to \
+         presented p50 {:.2} ms p90 {:.2} ms, {pacing}",
         per_sec(stats.iterations),
         per_sec(stats.scroll_runs),
+        quantile(&stats.sampled_to_present_us, 0.5),
+        quantile(&stats.sampled_to_present_us, 0.9),
     );
 }
 
