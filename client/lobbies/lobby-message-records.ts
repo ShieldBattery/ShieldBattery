@@ -80,6 +80,8 @@ export interface SettingsChangeMessage extends BaseMessage {
   readonly changedSettings: ReadonlyArray<LobbyChangedSetting>
   /** Who made the change. Only the host can change a lobby's settings, so this is always them. */
   readonly changedBy: SbUserId
+  /** Whether Warp Field ended up on, when the change turned it on or off. */
+  readonly warpFieldOn?: boolean
 }
 
 export interface BenchJoinMessage extends BaseMessage {

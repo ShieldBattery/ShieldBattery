@@ -138,7 +138,7 @@ function HostGameContent({
     gameType: prefsGameType ?? GameType.Melee,
     gameSubType: prefsGameSubType,
     useLegacyLimits: prefsUseLegacyLimits ?? false,
-    starcraftCompatibleReplays: prefsStarcraftCompatibleReplays ?? false,
+    starcraftCompatibleReplays: prefsStarcraftCompatibleReplays ?? true,
     lockedAlliances: prefsLockedAlliances ?? false,
     visibility: prefsVisibility ?? ('listed' as LobbyVisibility),
     allowObservers: prefsAllowObservers ?? true,

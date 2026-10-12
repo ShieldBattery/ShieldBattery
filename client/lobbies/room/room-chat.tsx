@@ -367,8 +367,11 @@ function ArrivalCard({ userId, arrivalSeat }: Pick<JoinLobbyMessage, 'userId' | 
   )
 }
 
+/** A changed setting that's announced by name in a joined list. */
+type ListedChangedSetting = Exclude<LobbyChangedSetting, 'starcraftCompatibleReplays'>
+
 /** A short, human-readable label for a single changed lobby setting, used in a joined list. */
-function changedSettingLabel(setting: LobbyChangedSetting, t: TFunction): string {
+function changedSettingLabel(setting: ListedChangedSetting, t: TFunction): string {
   switch (setting) {
     case 'name':
       return t('lobbies.messageLayout.settingsChangeName', 'lobby name')
@@ -382,8 +385,6 @@ function changedSettingLabel(setting: LobbyChangedSetting, t: TFunction): string
       return t('lobbies.messageLayout.settingsChangeGameSubType', 'teams')
     case 'useLegacyLimits':
       return t('lobbies.messageLayout.settingsChangeUnitLimit', 'unit limit')
-    case 'starcraftCompatibleReplays':
-      return t('lobbies.messageLayout.settingsChangeEventMode', 'event mode')
     case 'lockedAlliances':
       return t('lobbies.messageLayout.settingsChangeLockedAlliances', 'alliance lock')
     case 'allowObservers':
@@ -402,23 +403,59 @@ function changedSettingLabel(setting: LobbyChangedSetting, t: TFunction): string
 function SettingsNoticeCard({
   changedBy,
   changedSettings,
+  warpFieldOn,
 }: {
   changedBy: SbUserId
   changedSettings: ReadonlyArray<LobbyChangedSetting>
+  warpFieldOn?: boolean
 }) {
   const { t } = useTranslation()
-  const settings = changedSettings.map(setting => changedSettingLabel(setting, t)).join(', ')
+  // Warp Field is announced as being turned on or off rather than by name in the list, since
+  // "changed the Warp Field" doesn't say which way it went.
+  const listedSettings = changedSettings.filter(
+    (setting): setting is ListedChangedSetting => setting !== 'starcraftCompatibleReplays',
+  )
+  const settings = listedSettings.map(setting => changedSettingLabel(setting, t)).join(', ')
   // A rename or visibility change touches nothing about the game being set up, so neither resets
   // readiness; any other setting can, so its notice calls that out.
   const resetsReady = changesGameSettings(changedSettings)
+
+  let notice: React.ReactNode
+  if (warpFieldOn === undefined) {
+    notice = (
+      <Trans t={t} i18nKey='lobbies.room.chat.settingsChanged'>
+        <Username userId={changedBy} /> changed the {{ settings } as TransInterpolation}
+      </Trans>
+    )
+  } else if (!listedSettings.length) {
+    notice = warpFieldOn ? (
+      <Trans t={t} i18nKey='lobbies.room.chat.warpFieldTurnedOn'>
+        <Username userId={changedBy} /> turned Warp Field on
+      </Trans>
+    ) : (
+      <Trans t={t} i18nKey='lobbies.room.chat.warpFieldTurnedOff'>
+        <Username userId={changedBy} /> turned Warp Field off
+      </Trans>
+    )
+  } else {
+    notice = warpFieldOn ? (
+      <Trans t={t} i18nKey='lobbies.room.chat.settingsChangedWarpFieldOn'>
+        <Username userId={changedBy} /> changed the {{ settings } as TransInterpolation} and turned
+        Warp Field on
+      </Trans>
+    ) : (
+      <Trans t={t} i18nKey='lobbies.room.chat.settingsChangedWarpFieldOff'>
+        <Username userId={changedBy} /> changed the {{ settings } as TransInterpolation} and turned
+        Warp Field off
+      </Trans>
+    )
+  }
 
   return (
     <NoticeCard>
       <MaterialIcon icon='tune' size={20} />
       <NoticeCardText>
-        <Trans t={t} i18nKey='lobbies.room.chat.settingsChanged'>
-          <Username userId={changedBy} /> changed the {{ settings } as TransInterpolation}
-        </Trans>
+        {notice}
         {resetsReady ? ` · ${t('lobbies.room.chat.readyReset', 'ready reset')}` : ''}
       </NoticeCardText>
     </NoticeCard>
@@ -682,7 +719,11 @@ function RoomChatMessage({ message }: MessageComponentProps) {
     case LobbyMessageType.LobbySettingsChange:
       return (
         <SystemMessage time={msg.time}>
-          <SettingsNoticeCard changedBy={msg.changedBy} changedSettings={msg.changedSettings} />
+          <SettingsNoticeCard
+            changedBy={msg.changedBy}
+            changedSettings={msg.changedSettings}
+            warpFieldOn={msg.warpFieldOn}
+          />
         </SystemMessage>
       )
     case LobbyMessageType.LobbyRegroup:

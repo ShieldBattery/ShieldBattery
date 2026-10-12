@@ -22,6 +22,7 @@ import { FilterChip } from '../../material/filter-chip'
 import { InputError } from '../../material/input-error'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { bodyLarge, bodySmall, labelLarge, singleLine } from '../../styles/typography'
+import { warpFieldDescription, WarpFieldFixesInfo } from '../warp-field'
 import { SlotsPreview } from './slots-preview'
 import { TeamSplitPicker } from './team-split-picker'
 
@@ -231,6 +232,12 @@ const AdvancedOption = styled.div`
   flex-direction: column;
 `
 
+const AdvancedOptionRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 4px;
+`
+
 /** Lines up with the text of the checkbox label above it, past the box and its spacing. */
 const AdvancedOptionCaption = styled.div`
   ${bodySmall};
@@ -341,7 +348,7 @@ export function GameSetupForm({
 }: GameSetupFormProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
-  const starcraftCompatibleReplaysCaptionId = useId()
+  const warpFieldCaptionId = useId()
   // The model prop is only read at mount, so this only affects the initial form seeding: a saved
   // sub-type may be unset (0) or stale relative to the saved map, and is normalized against that
   // map before the form ever holds it. Afterwards the map/game-type change handlers below keep the
@@ -533,24 +540,24 @@ export function GameSetupForm({
           <Section>
             <SectionHeader>{t('lobbies.createLobby.advancedHeader', 'Advanced')}</SectionHeader>
             <AdvancedOption>
-              <CheckBox
-                {...bindCheckable('starcraftCompatibleReplays')}
-                label={t(
-                  'lobbies.createLobby.eventMode',
-                  'Event mode: Battle.net-compatible replays (not recommended)',
-                )}
-                disabled={disabled}
-                inputProps={{
-                  tabIndex: 0,
-                  'aria-describedby': starcraftCompatibleReplaysCaptionId,
-                }}
-              />
-              <AdvancedOptionCaption id={starcraftCompatibleReplaysCaptionId}>
-                {t(
-                  'lobbies.createLobby.eventModeDescription',
-                  'Lets replays play back in StarCraft: Remastered without ShieldBattery. ' +
-                    'Bugs that ShieldBattery normally fixes can happen in these games.',
-                )}
+              <AdvancedOptionRow>
+                <CheckBox
+                  name='warpField'
+                  checked={!getInputValue('starcraftCompatibleReplays')}
+                  onChange={event =>
+                    setInputValue('starcraftCompatibleReplays', !event.target.checked)
+                  }
+                  label={t('lobbies.createLobby.useWarpField', 'Use Warp Field')}
+                  disabled={disabled}
+                  inputProps={{
+                    tabIndex: 0,
+                    'aria-describedby': warpFieldCaptionId,
+                  }}
+                />
+                <WarpFieldFixesInfo />
+              </AdvancedOptionRow>
+              <AdvancedOptionCaption id={warpFieldCaptionId}>
+                {warpFieldDescription(t)}
               </AdvancedOptionCaption>
             </AdvancedOption>
           </Section>

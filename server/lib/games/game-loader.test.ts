@@ -983,6 +983,22 @@ describe('games/game-loader/GameLoader', () => {
     await load
   })
 
+  test('sets up matchmaking games with StarCraft-compatible replays', async () => {
+    const { load } = await startNetworkedLoad('game-mm-sc-compatible', true)
+
+    const setups = publisher.publish.mock.calls
+      .filter((call: any[]) => call[1]?.type === 'setGameConfig')
+      .map((call: any[]) => call[1].setup)
+    expect(setups).toHaveLength(2)
+    for (const setup of setups) {
+      expect(setup.starcraftCompatibleReplays).toBe(true)
+    }
+
+    gameLoader.registerGameAsLoaded('game-mm-sc-compatible', p1)
+    gameLoader.registerGameAsLoaded('game-mm-sc-compatible', p2)
+    await load
+  })
+
   test('reports a networked load as not local-only', async () => {
     const { load } = await startNetworkedLoad('game-networked-flag')
 

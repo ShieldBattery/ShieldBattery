@@ -168,7 +168,7 @@ function makePreview(spec: SummarySpec): LobbyPreviewJson {
     gameSubType: spec.gameSubType ?? 0,
     host: { id: spec.host },
     useLegacyLimits: spec.useLegacyLimits ?? false,
-    starcraftCompatibleReplays: spec.starcraftCompatibleReplays ?? false,
+    starcraftCompatibleReplays: spec.starcraftCompatibleReplays ?? true,
     lockedAlliances: spec.lockedAlliances ?? false,
     ...slotCounts(spec.teams),
     benchCount: spec.benchCount ?? 0,
@@ -262,7 +262,7 @@ function busyEveningLobbies(): LobbyPreviewJson[] {
       map: FightingSpirit,
       gameType: GameType.Melee,
       host: NERDRAGE,
-      starcraftCompatibleReplays: true,
+      starcraftCompatibleReplays: false,
       ageMinutes: 30,
       teams: [
         team('', [human(NERDRAGE, 't'), human(DRONEBRO, 'z'), open(), open()]),

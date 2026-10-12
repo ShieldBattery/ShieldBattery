@@ -1652,7 +1652,6 @@
       "emptyNoLobbies": "지금은 열려 있는 로비가 없습니다",
       "emptyNoMatches": "필터와 일치하는 로비가 없습니다",
       "enterCode": "코드 입력",
-      "eventMode": "이벤트 모드",
       "filterFriends": "친구",
       "filterGameType": "게임 방식",
       "filterGameTypeAll": "모든 게임 방식",
@@ -1681,15 +1680,14 @@
       "sortOpenSlots": "빈 자리 순",
       "statLobbies_other": "로비 {{count}}개",
       "statPlayers_other": "플레이어 {{count}}명",
-      "title": "로비"
+      "title": "로비",
+      "warpField": "Warp Field"
     },
     "createLobby": {
       "advancedHeader": "고급",
       "allowObserversWithMax": "관전자 허용 (최대 {{maxObservers}}명)",
       "errorDialogTitle": "로비 생성 오류",
       "errorGeneric": "로비를 만드는 중 문제가 발생했습니다. 다시 시도해 주세요.",
-      "eventMode": "이벤트 모드: Battle.net 호환 리플레이(권장하지 않음)",
-      "eventModeDescription": "ShieldBattery 없이 스타크래프트: 리마스터에서 리플레이를 재생할 수 있습니다. ShieldBattery가 평소 수정하는 버그가 이 게임에서 발생할 수 있습니다.",
       "gameSubTypeHeader": "팀 구성",
       "gameSubTypeOption": "{{numTeams}} 팀",
       "gameSubTypeOptionTvB": "{{topSlots}} 대 {{bottomSlots}}",
@@ -1712,6 +1710,7 @@
       "teamSplitOption": "{{top}}:{{bottom}}",
       "title": "로비 만들기",
       "useLegacyLimits": "옛 유닛 제한 사용",
+      "useWarpField": "Warp Field 사용",
       "visibility": "공개 범위",
       "visibilityListed": "공개",
       "visibilityUnlisted": "일부 공개"
@@ -1827,7 +1826,6 @@
     },
     "messageLayout": {
       "gameStarted": "게임이 시작되었습니다",
-      "settingsChangeEventMode": "이벤트 모드",
       "settingsChangeGameSubType": "팀 구성",
       "settingsChangeGameType": "게임 유형",
       "settingsChangeLockedAlliances": "동맹 고정",
@@ -1841,15 +1839,15 @@
     "room": {
       "banner": {
         "alliancesLocked": "고정",
-        "eventModeOn": "사용",
         "shuffle": "섞기",
         "shuffleBlockedByComputers": "컴퓨터를 제거해야 섞을 수 있습니다",
         "statAlliances": "동맹",
-        "statEventMode": "이벤트 모드",
         "statMode": "모드",
         "statSize": "크기",
         "statTileset": "타일셋",
-        "swapTeams": "팀 교체"
+        "statWarpField": "Warp Field",
+        "swapTeams": "팀 교체",
+        "warpFieldActive": "활성"
       },
       "chat": {
         "countdownCanceled": "카운트다운이 취소되었습니다",
@@ -1871,7 +1869,11 @@
         "seatedOn": "{{seat}}에 앉았습니다",
         "selfJoinLobby": "<2>{{lobby}}</2>에 참가했습니다. 호스트는 <4></4> 님입니다.",
         "settingsChanged": "<0></0> 님이 설정을 변경했습니다: {{settings}}",
+        "settingsChangedWarpFieldOff": "<0></0> 님이 설정을 변경하고 Warp Field를 껐습니다: {{settings}}",
+        "settingsChangedWarpFieldOn": "<0></0> 님이 설정을 변경하고 Warp Field를 켰습니다: {{settings}}",
         "waitingForSeat": "<0></0> 님이 자리를 기다리고 있습니다",
+        "warpFieldTurnedOff": "<0></0> 님이 Warp Field를 껐습니다",
+        "warpFieldTurnedOn": "<0></0> 님이 Warp Field를 켰습니다",
         "wasBanned": "<0></0> 님이 차단되었습니다",
         "wasKicked": "<0></0> 님이 강퇴되었습니다"
       },
@@ -1970,6 +1972,11 @@
       "openSlotCount_other": "{{count}}개 열림",
       "slotsLabel": "슬롯",
       "startingGame": "게임 시작 중"
+    },
+    "warpField": {
+      "description": "ShieldBattery가 신중하게 테스트한 소수의 게임플레이 문제 수정 사항을 적용합니다. 이 게임의 리플레이는 ShieldBattery 밖에서 제대로 재생되지 않을 수 있습니다.",
+      "fixesHeading": "현재 Warp Field에 포함된 수정 사항:",
+      "fixStalledWalk": "공격 후 유닛이 제자리에 멈춰 정지 명령을 받기 전까지 이동 명령을 무시하는 문제가 더 이상 발생하지 않습니다."
     }
   },
   "map": {

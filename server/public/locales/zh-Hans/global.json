@@ -1652,7 +1652,6 @@
       "emptyNoLobbies": "目前没有人创建房间",
       "emptyNoMatches": "没有符合筛选条件的房间",
       "enterCode": "输入房间码",
-      "eventMode": "赛事模式",
       "filterFriends": "好友",
       "filterGameType": "游戏类型",
       "filterGameTypeAll": "所有游戏类型",
@@ -1681,15 +1680,14 @@
       "sortOpenSlots": "空位最多",
       "statLobbies_other": "{{count}}个房间",
       "statPlayers_other": "{{count}}名玩家",
-      "title": "房间"
+      "title": "房间",
+      "warpField": "Warp Field"
     },
     "createLobby": {
       "advancedHeader": "高级",
       "allowObserversWithMax": "允许观战者（最多{{maxObservers}}人）",
       "errorDialogTitle": "创建房间出错",
       "errorGeneric": "创建房间时出了点问题。请重试。",
-      "eventMode": "赛事模式：兼容 Battle.net 的录像（不推荐）",
-      "eventModeDescription": "录像可以在不使用 ShieldBattery 的《星际争霸：重制版》中播放。ShieldBattery 通常会修复的 bug 可能会在这些游戏中出现。",
       "gameSubTypeHeader": "队伍",
       "gameSubTypeOption": "{{numTeams}}支队伍",
       "gameSubTypeOptionTvB": "{{topSlots}}对{{bottomSlots}}",
@@ -1712,6 +1710,7 @@
       "teamSplitOption": "{{top}}v{{bottom}}",
       "title": "创建房间",
       "useLegacyLimits": "使用旧版单位数量限制",
+      "useWarpField": "使用 Warp Field",
       "visibility": "可见性",
       "visibilityListed": "公开",
       "visibilityUnlisted": "不公开列出"
@@ -1827,7 +1826,6 @@
     },
     "messageLayout": {
       "gameStarted": "游戏已开始",
-      "settingsChangeEventMode": "赛事模式",
       "settingsChangeGameSubType": "队伍分配",
       "settingsChangeGameType": "游戏类型",
       "settingsChangeLockedAlliances": "同盟锁定",
@@ -1841,15 +1839,15 @@
     "room": {
       "banner": {
         "alliancesLocked": "已锁定",
-        "eventModeOn": "开启",
         "shuffle": "打乱",
         "shuffleBlockedByComputers": "移除电脑玩家后才能打乱",
         "statAlliances": "同盟",
-        "statEventMode": "赛事模式",
         "statMode": "模式",
         "statSize": "大小",
         "statTileset": "地形类型",
-        "swapTeams": "交换队伍"
+        "statWarpField": "Warp Field",
+        "swapTeams": "交换队伍",
+        "warpFieldActive": "已开启"
       },
       "chat": {
         "countdownCanceled": "倒计时已取消",
@@ -1871,7 +1869,11 @@
         "seatedOn": "入座 {{seat}}",
         "selfJoinLobby": "您加入了 <2>{{lobby}}</2>。房主是 <4></4>。",
         "settingsChanged": "<0></0> 更改了{{settings}}",
+        "settingsChangedWarpFieldOff": "<0></0> 更改了{{settings}}，并关闭了 Warp Field",
+        "settingsChangedWarpFieldOn": "<0></0> 更改了{{settings}}，并开启了 Warp Field",
         "waitingForSeat": "<0></0> 正在等待座位",
+        "warpFieldTurnedOff": "<0></0> 关闭了 Warp Field",
+        "warpFieldTurnedOn": "<0></0> 开启了 Warp Field",
         "wasBanned": "<0></0> 已被封禁",
         "wasKicked": "<0></0> 已被踢出"
       },
@@ -1970,6 +1972,11 @@
       "openSlotCount_other": "剩余{{count}}个",
       "slotsLabel": "座位",
       "startingGame": "正在开始游戏"
+    },
+    "warpField": {
+      "description": "应用 ShieldBattery 经过精心测试的一小组游戏问题修复。这些游戏的录像在 ShieldBattery 之外可能无法正确播放。",
+      "fixesHeading": "Warp Field 目前包括：",
+      "fixStalledWalk": "单位在攻击后不会再卡在原地、无视移动指令，直到被命令停止。"
     }
   },
   "map": {

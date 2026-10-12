@@ -158,7 +158,7 @@ function makeLobby(topSlots: Slot[], bottomSlots: Slot[], observers: Slot[]): Lo
     bench: [makeBenched(BLUESKY, 'z')],
     host: topSlots[0],
     useLegacyLimits: false,
-    starcraftCompatibleReplays: false,
+    starcraftCompatibleReplays: true,
     lockedAlliances: false,
     visibility: 'listed',
   }
@@ -442,8 +442,8 @@ function seedScenario(dispatch: LobbyTestDispatch, scenario: ScenarioId) {
       type: '@lobbies/updateSettingsChange',
       payload: {
         type: 'settingsChange',
-        changedSettings: ['useLegacyLimits'],
-        lobby: { ...lobby, useLegacyLimits: true },
+        changedSettings: ['useLegacyLimits', 'starcraftCompatibleReplays'],
+        lobby: { ...lobby, useLegacyLimits: true, starcraftCompatibleReplays: false },
       },
     })
   }

@@ -1703,7 +1703,6 @@
       "emptyNoLobbies": "Сейчас нет открытых лобби",
       "emptyNoMatches": "Ни одно лобби не соответствует фильтрам",
       "enterCode": "Ввести код",
-      "eventMode": "Турнирный режим",
       "filterFriends": "Друзья",
       "filterGameType": "Тип игры",
       "filterGameTypeAll": "Все типы игр",
@@ -1747,15 +1746,14 @@
       "statPlayers_few": "{{count}} игрока",
       "statPlayers_many": "{{count}} игроков",
       "statPlayers_other": "{{count}} игрока",
-      "title": "Лобби"
+      "title": "Лобби",
+      "warpField": "Warp Field"
     },
     "createLobby": {
       "advancedHeader": "Дополнительно",
       "allowObserversWithMax": "Разрешить зрителей (до {{maxObservers}})",
       "errorDialogTitle": "Ошибка при создании лобби",
       "errorGeneric": "Что-то пошло не так при создании лобби. Пожалуйста, попробуйте ещё раз.",
-      "eventMode": "Турнирный режим: реплеи, совместимые с Battle.net (не рекомендуется)",
-      "eventModeDescription": "Реплеи можно будет смотреть в StarCraft: Remastered без ShieldBattery. В таких играх могут возникать баги, которые ShieldBattery обычно исправляет.",
       "gameSubTypeHeader": "Команды",
       "gameSubTypeOption": "{{numTeams}} команды",
       "gameSubTypeOptionTvB": "{{topSlots}} против {{bottomSlots}}",
@@ -1790,6 +1788,7 @@
       "teamSplitOption": "{{top}}v{{bottom}}",
       "title": "Создать лобби",
       "useLegacyLimits": "Использовать классический лимит юнитов",
+      "useWarpField": "Использовать Warp Field",
       "visibility": "Видимость",
       "visibilityListed": "Публичное",
       "visibilityUnlisted": "Доступ по ссылке"
@@ -1908,7 +1907,6 @@
     },
     "messageLayout": {
       "gameStarted": "Игра началась",
-      "settingsChangeEventMode": "турнирный режим",
       "settingsChangeGameSubType": "команды",
       "settingsChangeGameType": "тип игры",
       "settingsChangeLockedAlliances": "закрепление союзов",
@@ -1922,15 +1920,15 @@
     "room": {
       "banner": {
         "alliancesLocked": "Закреплены",
-        "eventModeOn": "Включён",
         "shuffle": "Перемешать",
         "shuffleBlockedByComputers": "Уберите компьютеры, чтобы перемешать",
         "statAlliances": "Союзы",
-        "statEventMode": "Турнирный режим",
         "statMode": "Режим",
         "statSize": "Размер",
         "statTileset": "Тайлсет",
-        "swapTeams": "Поменять команды местами"
+        "statWarpField": "Warp Field",
+        "swapTeams": "Поменять команды местами",
+        "warpFieldActive": "Активен"
       },
       "chat": {
         "countdownCanceled": "Обратный отсчёт отменён",
@@ -1955,7 +1953,11 @@
         "seatedOn": "занимает {{seat}}",
         "selfJoinLobby": "Вы вошли в <2>{{lobby}}</2>. Хост — <4></4>.",
         "settingsChanged": "<0></0> меняет настройки: {{settings}}",
+        "settingsChangedWarpFieldOff": "<0></0> меняет настройки: {{settings}} и выключает Warp Field",
+        "settingsChangedWarpFieldOn": "<0></0> меняет настройки: {{settings}} и включает Warp Field",
         "waitingForSeat": "<0></0> ждёт свободное место",
+        "warpFieldTurnedOff": "<0></0> выключает Warp Field",
+        "warpFieldTurnedOn": "<0></0> включает Warp Field",
         "wasBanned": "<0></0> получает бан",
         "wasKicked": "<0></0> получает кик"
       },
@@ -2060,6 +2062,11 @@
       "openSlotCount_other": "{{count}} открыто",
       "slotsLabel": "Слоты",
       "startingGame": "Запуск игры"
+    },
+    "warpField": {
+      "description": "Применяет небольшой, тщательно проверенный набор исправлений ShieldBattery для игровых проблем. Реплеи таких игр могут некорректно воспроизводиться вне ShieldBattery.",
+      "fixesHeading": "Сейчас Warp Field включает:",
+      "fixStalledWalk": "Юниты больше не застревают на месте после атаки, игнорируя приказы двигаться, пока их не остановят."
     }
   },
   "map": {

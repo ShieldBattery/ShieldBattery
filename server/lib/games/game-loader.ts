@@ -320,6 +320,8 @@ function getGeneralGameSetup({
       // Matchmaking always locks alliances; fall back to that if a caller ever constructs a
       // matchmaking config without setting the field explicitly.
       disableAllianceChanges: gameConfig.lockedAlliances ?? true,
+      // The fixes this turns off are only offered as an opt-in for lobbies.
+      starcraftCompatibleReplays: true,
       seed,
       turnRate,
       userLatency,

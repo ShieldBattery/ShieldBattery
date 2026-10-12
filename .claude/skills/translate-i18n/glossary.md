@@ -26,6 +26,10 @@ stays consistent.
 ## Brand & proper nouns (all languages)
 
 - **ShieldBattery** — never translated, never transliterated. Always "ShieldBattery".
+- **Warp Field** (the lobby option that turns on ShieldBattery's gameplay fixes) — a brand name, kept
+  in English in every language. Inflect around it, not in it (ko `Warp Field를`, ru "включает Warp Field").
+  It nods to the Arbiter's voice line "Warp field stabilized"; that exists only in the dubbed audio, so
+  `terms/` has no official rendering. Kept English so players across languages share one name.
 - **StarCraft**, **Brood War**, **Remastered** — use Blizzard's official localized form for the
   language if one exists (see `terms/`); otherwise keep the English name.
 - Map names, unit names, race names (Terran/Protoss/Zerg) — follow Blizzard's official localization

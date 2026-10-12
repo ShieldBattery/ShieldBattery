@@ -362,7 +362,7 @@ export function createLobby({
   hostRegion,
   allowObservers,
   useLegacyLimits = false,
-  starcraftCompatibleReplays = false,
+  starcraftCompatibleReplays = true,
   lockedAlliances = false,
   visibility = 'listed',
 }: {

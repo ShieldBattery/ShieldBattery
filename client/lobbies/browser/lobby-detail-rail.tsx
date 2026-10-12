@@ -28,8 +28,16 @@ import { ConnectedUsername } from '../../users/connected-username'
 import { isInLobby } from '../lobby-reducer'
 import { navigateToLobby } from '../lobby-url'
 import { HostCrown, RaceMark, RoomChip, SectionLabel } from '../room/room-parts'
+import { WarpFieldDescriptionInfo } from '../warp-field'
 import { InGameChip } from './in-game-chip'
 import { LobbyPreviewTeams, LobbySummary } from './summary-utils'
+
+/** A chip with an info icon after its label. */
+const InfoChip = styled(RoomChip)`
+  display: flex;
+  align-items: center;
+  gap: 4px;
+`
 
 const RailRoot = styled.div`
   /* The rail sits on a raised surface, so avatar-stack rings need to match it rather than the page. */
@@ -500,8 +508,11 @@ export function LobbyDetailRail({
           {summary.useLegacyLimits ? (
             <RoomChip>{t('lobbies.browser.legacyLimits', 'Legacy limits')}</RoomChip>
           ) : null}
-          {summary.starcraftCompatibleReplays ? (
-            <RoomChip>{t('lobbies.browser.eventMode', 'Event mode')}</RoomChip>
+          {!summary.starcraftCompatibleReplays ? (
+            <InfoChip>
+              {t('lobbies.browser.warpField', 'Warp Field')}
+              <WarpFieldDescriptionInfo />
+            </InfoChip>
           ) : null}
           {hasLockedAlliances(summary) ? (
             <RoomChip>{t('lobbies.browser.lockedAlliances', 'Locked alliances')}</RoomChip>

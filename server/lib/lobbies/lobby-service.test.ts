@@ -1682,18 +1682,18 @@ describe('lobbies/lobby-service', () => {
       ])
     })
 
-    test('turning on StarCraft-compatible replays publishes it as the changed setting', async () => {
+    test('turning off StarCraft-compatible replays publishes it as the changed setting', async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
-      expect(lobbyService.lobbies.get(id)!.starcraftCompatibleReplays).toBe(false)
+      expect(lobbyService.lobbies.get(id)!.starcraftCompatibleReplays).toBe(true)
       fakeNydus.publish.mockClear()
 
       await lobbyService.updateSettings({
         client: host.client,
         lobbyId: id,
-        starcraftCompatibleReplays: true,
+        starcraftCompatibleReplays: false,
       })
 
-      expect(lobbyService.lobbies.get(id)!.starcraftCompatibleReplays).toBe(true)
+      expect(lobbyService.lobbies.get(id)!.starcraftCompatibleReplays).toBe(false)
       expect(lobbyPublishes(id)).toEqual([
         {
           type: 'settingsChange',
@@ -1704,7 +1704,7 @@ describe('lobbies/lobby-service', () => {
       expect(listPublishes()).toEqual([
         {
           action: 'update',
-          payload: expect.objectContaining({ starcraftCompatibleReplays: true }),
+          payload: expect.objectContaining({ starcraftCompatibleReplays: false }),
         },
       ])
     })
@@ -2849,8 +2849,27 @@ describe('lobbies/lobby-service', () => {
       expect(loadGameRequests[0].gameConfig.observers).toEqual([])
     })
 
-    test('records StarCraft-compatible replays as off by default', async () => {
+    test('records StarCraft-compatible replays as on by default', async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+
+      await runCountdown(host)
+
+      expect(loadGameRequests).toHaveLength(1)
+      expect(loadGameRequests[0].gameConfig.gameSourceExtra).toMatchObject({
+        starcraftCompatibleReplays: true,
+      })
+    })
+
+    test('records StarCraft-compatible replays as off when the host created the lobby without them', async () => {
+      const { id } = await lobbyService.createLobby({
+        name: 'Tournament lobby',
+        map: BIG_GAME_HUNTERS.id,
+        gameType: GameType.Melee,
+        starcraftCompatibleReplays: false,
+        user: host.user,
+        client: host.client,
+      })
       await joinLobby(joiner, id)
 
       await runCountdown(host)
@@ -2861,31 +2880,12 @@ describe('lobbies/lobby-service', () => {
       })
     })
 
-    test('records StarCraft-compatible replays when the host created the lobby with them', async () => {
-      const { id } = await lobbyService.createLobby({
-        name: 'Tournament lobby',
-        map: BIG_GAME_HUNTERS.id,
-        gameType: GameType.Melee,
-        starcraftCompatibleReplays: true,
-        user: host.user,
-        client: host.client,
-      })
-      await joinLobby(joiner, id)
-
-      await runCountdown(host)
-
-      expect(loadGameRequests).toHaveLength(1)
-      expect(loadGameRequests[0].gameConfig.gameSourceExtra).toMatchObject({
-        starcraftCompatibleReplays: true,
-      })
-    })
-
-    test('records StarCraft-compatible replays when the host turned them on', async () => {
+    test('records StarCraft-compatible replays as off when the host turned them off', async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       await lobbyService.updateSettings({
         client: host.client,
         lobbyId: id,
-        starcraftCompatibleReplays: true,
+        starcraftCompatibleReplays: false,
       })
       await joinLobby(joiner, id)
 
@@ -2893,7 +2893,7 @@ describe('lobbies/lobby-service', () => {
 
       expect(loadGameRequests).toHaveLength(1)
       expect(loadGameRequests[0].gameConfig.gameSourceExtra).toMatchObject({
-        starcraftCompatibleReplays: true,
+        starcraftCompatibleReplays: false,
       })
     })
 

@@ -40,6 +40,7 @@ import {
   titleMedium,
 } from '../../styles/typography'
 import { getBatchUserInfo } from '../../users/action-creators'
+import { WarpFieldDescriptionInfo } from '../warp-field'
 import { LobbyScoreboard } from './lobby-scoreboard'
 import {
   lobbyTeamLabel,
@@ -150,6 +151,13 @@ const StatLabel = styled.div`
   color: var(--theme-on-surface-variant);
   text-transform: uppercase;
   letter-spacing: 0.08em;
+`
+
+const StatLabelRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
 `
 
 const StatValue = styled.div`
@@ -829,7 +837,7 @@ export function RoomMapBanner({
   // seats are what the game was configured with.
   const showHostTools = isHost && lifecycle === 'gathering' && (canSwap || canShuffle)
 
-  const mapStats: Array<[label: string, value: React.ReactNode]> = [
+  const mapStats: Array<[label: string, value: React.ReactNode, labelInfo?: React.ReactNode]> = [
     [t('lobbies.room.banner.statMode', 'Mode'), gameTypeToLabel(lobby.gameType, t)],
   ]
   if (isTeamType(lobby.gameType)) {
@@ -851,10 +859,11 @@ export function RoomMapBanner({
       t('lobbies.room.banner.alliancesLocked', 'Locked'),
     ])
   }
-  if (lobby.starcraftCompatibleReplays) {
+  if (!lobby.starcraftCompatibleReplays) {
     mapStats.push([
-      t('lobbies.room.banner.statEventMode', 'Event mode'),
-      t('lobbies.room.banner.eventModeOn', 'On'),
+      t('lobbies.room.banner.statWarpField', 'Warp Field'),
+      t('lobbies.room.banner.warpFieldActive', 'Active'),
+      <WarpFieldDescriptionInfo key='info' size={12} />,
     ])
   }
   mapStats.push([
@@ -920,11 +929,14 @@ export function RoomMapBanner({
         </ThumbnailCard>
         <InfoColumn>
           <StatsRow>
-            {mapStats.map(([label, value], i) => (
+            {mapStats.map(([label, value, labelInfo], i) => (
               <React.Fragment key={label}>
                 {i > 0 ? <StatDivider /> : null}
                 <StatBlock>
-                  <StatLabel>{label}</StatLabel>
+                  <StatLabelRow>
+                    <StatLabel>{label}</StatLabel>
+                    {labelInfo}
+                  </StatLabelRow>
                   <StatValue>{value}</StatValue>
                 </StatBlock>
               </React.Fragment>

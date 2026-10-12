@@ -48,7 +48,7 @@ const EMPTY_LOBBY: Lobby = Object.freeze({
   bench: [],
   host: EMPTY_SLOT,
   useLegacyLimits: false,
-  starcraftCompatibleReplays: false,
+  starcraftCompatibleReplays: true,
   lockedAlliances: false,
   visibility: 'listed',
   createdAt: 0,
@@ -323,6 +323,9 @@ const lobbyHandlers = {
       time: Date.now(),
       changedSettings: action.payload.changedSettings,
       changedBy: draft.info.host.userId!,
+      warpFieldOn: action.payload.changedSettings.includes('starcraftCompatibleReplays')
+        ? !action.payload.lobby.starcraftCompatibleReplays
+        : undefined,
     })
     pushNewBenchJoins(draft, previousBenchIds)
   },

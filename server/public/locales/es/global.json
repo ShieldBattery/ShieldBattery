@@ -1686,7 +1686,6 @@
       "emptyNoLobbies": "Ahora mismo no hay ningún lobby abierto",
       "emptyNoMatches": "Ningún lobby coincide con tus filtros",
       "enterCode": "Introducir código",
-      "eventMode": "Modo evento",
       "filterFriends": "Amigos",
       "filterGameType": "Tipo de juego",
       "filterGameTypeAll": "Todos los tipos de juego",
@@ -1725,15 +1724,14 @@
       "statPlayers_one": "{{count}} jugador",
       "statPlayers_many": "{{count}} jugadores",
       "statPlayers_other": "{{count}} jugadores",
-      "title": "Lobbies"
+      "title": "Lobbies",
+      "warpField": "Warp Field"
     },
     "createLobby": {
       "advancedHeader": "Avanzado",
       "allowObserversWithMax": "Permitir observadores (hasta {{maxObservers}})",
       "errorDialogTitle": "Error al crear el lobby",
       "errorGeneric": "Algo salió mal al crear el lobby. Intenta de nuevo.",
-      "eventMode": "Modo evento: replays compatibles con Battle.net (no recomendado)",
-      "eventModeDescription": "Permite reproducir los replays en StarCraft: Remastered sin ShieldBattery. En estas partidas pueden aparecer bugs que ShieldBattery normalmente corrige.",
       "gameSubTypeHeader": "Equipos",
       "gameSubTypeOption": "{{numTeams}} equipos",
       "gameSubTypeOptionTvB": "{{topSlots}} contra {{bottomSlots}}",
@@ -1764,6 +1762,7 @@
       "teamSplitOption": "{{top}}x{{bottom}}",
       "title": "Crear lobby",
       "useLegacyLimits": "Usar límite de unidades clásico",
+      "useWarpField": "Usar Warp Field",
       "visibility": "Visibilidad",
       "visibilityListed": "Público",
       "visibilityUnlisted": "No listado"
@@ -1881,7 +1880,6 @@
     },
     "messageLayout": {
       "gameStarted": "La partida ha empezado",
-      "settingsChangeEventMode": "modo evento",
       "settingsChangeGameSubType": "equipos",
       "settingsChangeGameType": "tipo de partida",
       "settingsChangeLockedAlliances": "bloqueo de alianzas",
@@ -1895,15 +1893,15 @@
     "room": {
       "banner": {
         "alliancesLocked": "Bloqueadas",
-        "eventModeOn": "Activado",
         "shuffle": "Mezclar",
         "shuffleBlockedByComputers": "Quita las computadoras para mezclar",
         "statAlliances": "Alianzas",
-        "statEventMode": "Modo evento",
         "statMode": "Modo",
         "statSize": "Tamaño",
         "statTileset": "Tileset",
-        "swapTeams": "Intercambiar equipos"
+        "statWarpField": "Warp Field",
+        "swapTeams": "Intercambiar equipos",
+        "warpFieldActive": "Activo"
       },
       "chat": {
         "countdownCanceled": "Se canceló la cuenta regresiva",
@@ -1927,7 +1925,11 @@
         "seatedOn": "ocupa {{seat}}",
         "selfJoinLobby": "Te uniste a <2>{{lobby}}</2>. El anfitrión es <4></4>.",
         "settingsChanged": "<0></0> cambió: {{settings}}",
+        "settingsChangedWarpFieldOff": "<0></0> cambió: {{settings}} y desactivó Warp Field",
+        "settingsChangedWarpFieldOn": "<0></0> cambió: {{settings}} y activó Warp Field",
         "waitingForSeat": "<0></0> está esperando un asiento",
+        "warpFieldTurnedOff": "<0></0> desactivó Warp Field",
+        "warpFieldTurnedOn": "<0></0> activó Warp Field",
         "wasBanned": "<0></0> fue baneado",
         "wasKicked": "<0></0> fue expulsado"
       },
@@ -2030,6 +2032,11 @@
       "openSlotCount_other": "{{count}} abiertas",
       "slotsLabel": "Espacios",
       "startingGame": "Iniciando partida"
+    },
+    "warpField": {
+      "description": "Aplica el pequeño conjunto de correcciones de ShieldBattery para problemas de jugabilidad, probadas con cuidado. Puede que los replays de estas partidas no se reproduzcan bien fuera de ShieldBattery.",
+      "fixesHeading": "Warp Field incluye actualmente:",
+      "fixStalledWalk": "Las unidades ya no se quedan clavadas tras un ataque, ignorando las órdenes de movimiento hasta que les das la orden de detenerse."
     }
   },
   "map": {
