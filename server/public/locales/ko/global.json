@@ -2322,6 +2322,10 @@
     "passwordField": {
       "hide": "비밀번호 숨기기",
       "show": "비밀번호 표시"
+    },
+    "segmentedButton": {
+      "off": "끄기",
+      "on": "켜기"
     }
   },
   "messaging": {
@@ -2926,6 +2930,7 @@
       "title": "게임",
       "video": {
         "brightness": "밝기",
+        "brightnessFullscreenOnly": "전체 화면에서만 사용할 수 있습니다",
         "customFpsLimit": "사용자 지정 FPS 제한",
         "displayMode": {
           "fullscreen": "전체 화면",
@@ -2933,15 +2938,49 @@
           "windowed": "창 모드",
           "windowedFullscreen": "창 모드(전체 화면)"
         },
-        "enableVerticalSync": "수직 동기화 사용",
         "environmentEffects": "환경 효과",
         "fpsLimit": "FPS 제한",
+        "fpsLimitUnused": "프레임 페이싱을 켜면 사용되지 않습니다",
         "framePacing": {
-          "description": "디스플레이가 화면을 갱신할 때마다 표시 직전에 가장 최신 입력을 반영한 프레임을 하나씩 그립니다. 훨씬 적은 프레임으로 매우 높은 프레임 레이트와 같은 낮은 입력 지연을 얻을 수 있습니다. G-SYNC 또는 FreeSync 디스플레이에서는 가변 주사율을 선택하면 최대 주사율보다 살짝 낮게 유지합니다. FPS 제한을 대체합니다. 수직 동기화가 꺼져 있으면 새로운 게임 진행을 보여 주는 프레임이 바로 표시되며 티어링이 생길 수 있습니다.",
-          "display": "디스플레이 주사율에 맞춤",
-          "off": "사용 안 함",
+          "explainer": {
+            "body": "모니터는 화면을 갱신할 때만 새 이미지를 표시합니다. 스타크래프트는 보통 프레임을 그린 뒤 표시하기 전까지 기다리기 때문에, 보이는 프레임은 몇 밀리초 전의 것입니다. 프레임 페이싱은 가장 최신 입력을 반영해 갱신 직전에 각 프레임을 그립니다.",
+            "chartNote": "중앙값, 120Hz 모니터 기준. 짧을수록 좋습니다.",
+            "chartTitle": "입력부터 화면까지",
+            "customFpsLimit": "사용자 지정 FPS 제한 (120)",
+            "defaultFpsLimit": "기본 FPS 제한 (300)",
+            "framePacing": "프레임 페이싱",
+            "milliseconds": "{{ms}}ms",
+            "tearingNote": "두 FPS 제한 항목은 티어링도 발생합니다.",
+            "toggle": "프레임 페이싱이 지연을 줄이는 방법",
+            "verticalSync": "수직 동기화"
+          },
+          "match": {
+            "description": "갱신 직전에 새 프레임을 하나씩 그립니다. 낮은 지연, 티어링 없음.",
+            "subtitle": "모든 모니터",
+            "title": "주사율에 맞춤"
+          },
+          "nudge": {
+            "body": "스타크래프트는 보통 프레임을 그린 뒤 표시하기 전까지 기다립니다. 프레임 페이싱은 표시 직전에 각 프레임을 그리고, 티어링도 없앱니다.",
+            "dismiss": "나중에",
+            "title": "프레임 페이싱으로 입력 지연 줄이기",
+            "turnOn": "켜기",
+            "vsyncBody": "수직 동기화는 입력 지연을 크게 늘립니다. 프레임 페이싱은 수직 동기화 없이도 티어링을 없애고, 가장 최신 입력이 반영된 프레임을 보여 줍니다."
+          },
+          "off": {
+            "description": "FPS 제한이 허용하는 만큼 빠르게 그립니다. 수직 동기화를 켜지 않으면 티어링이 생깁니다.",
+            "subtitle": "기존 방식",
+            "title": "끄기"
+          },
+          "prompt": "G-SYNC나 FreeSync를 켜셨나요? 가변 주사율을 선택하세요. 그렇지 않거나 잘 모르겠다면 주사율에 맞춤을 선택하세요.",
+          "recommended": "추천",
           "title": "프레임 페이싱",
-          "variableRefresh": "가변 주사율 (G-SYNC/FreeSync)"
+          "useMode": "{{mode}} 사용",
+          "variableRefresh": {
+            "description": "각 프레임이 준비되면 모니터가 화면을 갱신합니다. 가장 낮은 지연, 티어링 없음.",
+            "subtitle": "G-SYNC / FreeSync",
+            "title": "가변 주사율"
+          },
+          "windowedHint": "테두리가 있는 창에서는 프레임 페이싱이 도움이 되지 않습니다. Windows가 자체 지연을 추가하기 때문입니다."
         },
         "hdGraphics": "HD 그래픽",
         "monitor": "모니터",
@@ -2949,18 +2988,26 @@
         "pillarbox": "필러박스 (4:3 화면 비율)",
         "primaryMonitor": "기본값 (주 모니터)",
         "realTimeLighting": "실시간 조명",
-        "resetWindowPosition": "창 위치 초기화",
+        "resetWindowPositionButton": "초기화",
         "sdGraphicsFilter": "SD 그래픽 필터",
+        "sections": {
+          "display": "화면",
+          "frameRate": "프레임 레이트 및 입력 지연",
+          "graphics": "그래픽"
+        },
         "shadowStacking": "섀도우 스태킹",
         "showFps": "FPS 표시",
         "smoothUnitTurning": "부드러운 유닛 회전",
         "title": "비디오",
+        "verticalSync": "수직 동기화",
+        "verticalSyncWindowedNote": "테두리가 있는 창에서는 수직 동기화를 피하세요. 입력 지연이 크게 늘어납니다.",
         "windowPlacement": {
           "remember": "위치와 크기 기억",
           "rememberSize": "크기 기억, 가운데 배치",
           "setSize": "크기 지정, 가운데 배치",
           "title": "창 배치"
         },
+        "windowPosition": "창 위치",
         "windowSize": "창 크기",
         "windowSizeOption": "{{width}} × {{height}} ({{aspectRatio}})"
       }

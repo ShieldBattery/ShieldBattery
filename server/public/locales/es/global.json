@@ -2388,6 +2388,10 @@
     "passwordField": {
       "hide": "Ocultar contraseña",
       "show": "Mostrar contraseña"
+    },
+    "segmentedButton": {
+      "off": "No",
+      "on": "Sí"
     }
   },
   "messaging": {
@@ -3008,6 +3012,7 @@
       "title": "Juego",
       "video": {
         "brightness": "Brillo",
+        "brightnessFullscreenOnly": "Solo disponible en pantalla completa",
         "customFpsLimit": "Límite de FPS personalizado",
         "displayMode": {
           "fullscreen": "Pantalla completa",
@@ -3015,15 +3020,49 @@
           "windowed": "Modo de ventana",
           "windowedFullscreen": "Modo de ventana (pantalla completa)"
         },
-        "enableVerticalSync": "Habilitar sincronización vertical",
         "environmentEffects": "Efectos ambientales",
         "fpsLimit": "límite de FPS",
+        "fpsLimitUnused": "No se usa con el ritmo de fotogramas activado",
         "framePacing": {
-          "description": "Dibuja un fotograma por cada refresco de tu pantalla, justo antes de mostrarse, con tus acciones más recientes. Te da el bajo retraso de entrada de una tasa de fotogramas muy alta dibujando muchos menos fotogramas. Con una pantalla G-SYNC o FreeSync, elige frecuencia variable para quedarte justo por debajo de su frecuencia máxima. Reemplaza el límite de FPS. Con la sincronización vertical desactivada, un fotograma que muestra un nuevo paso del juego aparece al instante y puede verse cortado (tearing).",
-          "display": "Igualar la frecuencia de la pantalla",
-          "off": "Desactivado",
+          "explainer": {
+            "body": "Tu monitor solo muestra una imagen nueva en cada refresco. StarCraft normalmente espera entre dibujar un fotograma y mostrarlo, así que el fotograma que ves tiene unos milisegundos de antigüedad. El ritmo de fotogramas dibuja cada fotograma justo antes del refresco, con tus acciones más recientes.",
+            "chartNote": "Mediana, monitor de 120 Hz. Menos es mejor.",
+            "chartTitle": "De la entrada a la pantalla",
+            "customFpsLimit": "Límite de FPS personalizado (120)",
+            "defaultFpsLimit": "Límite de FPS por defecto (300)",
+            "framePacing": "Ritmo de fotogramas",
+            "milliseconds": "{{ms}} ms",
+            "tearingNote": "Las dos filas de límite de FPS también producen tearing.",
+            "toggle": "Cómo el ritmo de fotogramas reduce el retraso",
+            "verticalSync": "Sincronización vertical"
+          },
+          "match": {
+            "description": "Un fotograma nuevo justo antes de cada refresco. Poco retraso, sin tearing.",
+            "subtitle": "Cualquier monitor",
+            "title": "Igualar refresco"
+          },
+          "nudge": {
+            "body": "StarCraft normalmente espera entre dibujar un fotograma y mostrarlo. El ritmo de fotogramas dibuja cada fotograma justo antes de mostrarlo y elimina el tearing.",
+            "dismiss": "Ahora no",
+            "title": "Reduce tu retraso de entrada con el ritmo de fotogramas",
+            "turnOn": "Activar",
+            "vsyncBody": "La sincronización vertical añade mucho retraso de entrada. El ritmo de fotogramas elimina el tearing sin ella y muestra cada fotograma con tus acciones más recientes."
+          },
+          "off": {
+            "description": "Dibuja tan rápido como permita tu límite de FPS. Produce tearing salvo con la sincronización vertical activada.",
+            "subtitle": "Comportamiento original",
+            "title": "Desactivado"
+          },
+          "prompt": "¿Tienes G-SYNC o FreeSync activado? Elige Frecuencia variable. Si no, o si no estás seguro, elige Igualar refresco.",
+          "recommended": "Recomendado",
           "title": "Ritmo de fotogramas",
-          "variableRefresh": "Frecuencia variable (G-SYNC/FreeSync)"
+          "useMode": "Usar {{mode}}",
+          "variableRefresh": {
+            "description": "El monitor se refresca cuando cada fotograma está listo. El menor retraso, sin tearing.",
+            "subtitle": "G-SYNC / FreeSync",
+            "title": "Frecuencia variable"
+          },
+          "windowedHint": "El ritmo de fotogramas no puede ayudar en una ventana con bordes: Windows añade su propio retraso."
         },
         "hdGraphics": "Gráficos de alta definición",
         "monitor": "Monitor",
@@ -3031,18 +3070,26 @@
         "pillarbox": "Pillarbox (relación de aspecto 4:3)",
         "primaryMonitor": "Predeterminado (monitor principal)",
         "realTimeLighting": "Iluminación en tiempo real",
-        "resetWindowPosition": "Restablecer posición de la ventana",
+        "resetWindowPositionButton": "Restablecer",
         "sdGraphicsFilter": "Filtro de gráficos SD",
+        "sections": {
+          "display": "Pantalla",
+          "frameRate": "Fotogramas y retraso de entrada",
+          "graphics": "Gráficos"
+        },
         "shadowStacking": "Apilamiento de sombras",
         "showFps": "Mostrar FPS",
         "smoothUnitTurning": "Giro suave de la unidad",
         "title": "Video",
+        "verticalSync": "Sincronización vertical",
+        "verticalSyncWindowedNote": "Evita la sincronización vertical en una ventana con bordes, donde añade mucho retraso de entrada.",
         "windowPlacement": {
           "remember": "Recordar posición y tamaño",
           "rememberSize": "Recordar tamaño, centrada",
           "setSize": "Fijar tamaño, centrada",
           "title": "Ubicación de la ventana"
         },
+        "windowPosition": "Posición de la ventana",
         "windowSize": "Tamaño de la ventana",
         "windowSizeOption": "{{width}} × {{height}} ({{aspectRatio}})"
       }
