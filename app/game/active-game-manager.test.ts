@@ -1,3 +1,4 @@
+import { EventEmitter } from 'node:events'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { GameLaunchConfig } from '../../common/games/game-launch-config'
 import { NetcodeV2ServerSetup } from '../../common/games/netcode-v2'
@@ -30,16 +31,32 @@ vi.mock('./check-starcraft-path', () => ({
 }))
 
 function makeManager(): ActiveGameManager {
+  return makeManagerWithSettings().manager
+}
+
+function makeManagerWithSettings() {
   // The launch path's very first step awaits the local settings; pinning that await keeps the
   // launch permanently in flight (see the `checkStarcraftPath` mock note above), so the launch
-  // outcome handlers never race the assertions.
-  const neverSettings = { get: () => new Promise(() => {}) }
-  return new ActiveGameManager({} as any, neverSettings as any, neverSettings as any)
+  // outcome handlers never race the assertions. Settings changes still reach the manager through
+  // `change` events.
+  const localSettings = Object.assign(new EventEmitter(), { get: () => new Promise(() => {}) })
+  const scrSettings = {
+    get: () => new Promise(() => {}),
+    syncWithGameSettingsFile: vi.fn(async () => {}),
+  }
+  const manager = new ActiveGameManager({} as any, localSettings as any, scrSettings as any)
+  return { manager, localSettings, scrSettings }
 }
 
 function configFor(gameId: string): GameLaunchConfig {
   // `map` must exist for the replay-config checks status reporting runs through.
   return { setup: { gameId, useNetcodeV2: true, map: {} } } as unknown as GameLaunchConfig
+}
+
+function replayConfigFor(gameId: string): GameLaunchConfig {
+  return {
+    setup: { gameId, map: { isReplay: true, path: `C:\\replays\\${gameId}.rep` } },
+  } as unknown as GameLaunchConfig
 }
 
 function setupFor(clientPubkey: string | undefined): NetcodeV2ServerSetup {
@@ -165,5 +182,203 @@ describe('ActiveGameManager block list updates', () => {
     expect(commands.filter(([, command]) => command === 'blockRequestFailed')).toEqual([
       ['game-1', 'blockRequestFailed', failure],
     ])
+  })
+})
+
+describe('ActiveGameManager watch-only games', () => {
+  let manager: ActiveGameManager
+  let localSettings: EventEmitter
+  let scrSettings: { syncWithGameSettingsFile: ReturnType<typeof vi.fn> }
+  let commands: Array<[string, string, ...any[]]>
+
+  beforeEach(() => {
+    ;({ manager, localSettings, scrSettings } = makeManagerWithSettings())
+    commands = []
+    manager.on('gameCommand', (gameId, command, ...args) => {
+      commands.push([gameId, command, ...args])
+    })
+  })
+
+  function setKeepReplays(keepReplaysAlongsideGames: boolean) {
+    localSettings.emit('change', { keepReplaysAlongsideGames })
+  }
+
+  function quitsSentTo(gameId: string) {
+    return commands.filter(([id, command]) => id === gameId && command === 'quit')
+  }
+
+  async function settingsSyncCount() {
+    // The sync is started from a resolved promise, so let it run before counting.
+    await Promise.resolve()
+    await Promise.resolve()
+    return scrSettings.syncWithGameSettingsFile.mock.calls.length
+  }
+
+  describe('with replays kept alongside other games', () => {
+    beforeEach(() => setKeepReplays(true))
+
+    it('keeps a replay running when a networked game launches', () => {
+      expect(manager.setGameConfig(replayConfigFor('replay-1'))).toBe('replay-1')
+      expect(manager.setGameConfig(configFor('game-1'))).toBe('game-1')
+
+      expect(quitsSentTo('replay-1')).toEqual([])
+      expect(manager.getStatus('replay-1')?.state).toBe('launching')
+      expect(manager.getStatus()?.id).toBe('game-1')
+    })
+
+    it('launches a replay alongside a running networked game', () => {
+      manager.setGameConfig(configFor('game-1'))
+      manager.handleGameStart('game-1')
+      expect(manager.setGameConfig(replayConfigFor('replay-1'))).toBe('replay-1')
+
+      expect(commands).toEqual([])
+      expect(manager.getStatus()).toMatchObject({ id: 'game-1', state: 'playing' })
+      expect(manager.getStatus('replay-1')).toMatchObject({ state: 'launching', isReplay: true })
+    })
+
+    it('handles a replay exiting without disturbing the networked game', async () => {
+      const statuses: Array<{ id: string; state: string }> = []
+      manager.on('gameStatus', status => statuses.push(status))
+
+      manager.setGameConfig(replayConfigFor('replay-1'))
+      manager.handleGameStart('replay-1')
+      manager.setGameConfig(configFor('game-1'))
+      manager.handleGameStart('game-1')
+      statuses.length = 0
+
+      manager.handleGameExit('replay-1', 0)
+
+      expect(statuses).toEqual([expect.objectContaining({ id: 'replay-1', state: 'unknown' })])
+      expect(manager.getStatus('replay-1')).toBeNull()
+      expect(manager.getStatus()).toMatchObject({ id: 'game-1', state: 'playing' })
+      expect(commands).toEqual([])
+      // The networked game still runs, so the settings file isn't read back yet.
+      expect(await settingsSyncCount()).toBe(0)
+
+      manager.handleGameResult('game-1', {}, 1000)
+      expect(manager.getStatus()?.state).toBe('hasResult')
+      manager.handleGameExit('game-1', 0)
+      expect(await settingsSyncCount()).toBe(1)
+    })
+
+    it('handles a networked game exiting while a replay keeps running', async () => {
+      const resends: unknown[] = []
+      manager.on('resendReplay', request => resends.push(request))
+
+      manager.setGameConfig(replayConfigFor('replay-1'))
+      manager.handleGameStart('replay-1')
+      const config = configFor('game-1')
+      manager.setGameConfig({
+        ...config,
+        localUser: { id: makeSbUserId(1) },
+        setup: { ...config.setup, resultCode: 'code' },
+      } as unknown as GameLaunchConfig)
+      manager.handleGameStart('game-1')
+      manager.handleGameResult('game-1', {}, 1000, 'C:\\temp\\game-1.rep')
+      manager.handleGameFinished('game-1')
+
+      manager.handleGameExit('game-1', 0)
+
+      expect(manager.getStatus()).toBeNull()
+      expect(resends).toEqual([expect.objectContaining({ gameId: 'game-1' })])
+      expect(manager.getStatus('replay-1')?.state).toBe('playing')
+      expect(quitsSentTo('replay-1')).toEqual([])
+      expect(await settingsSyncCount()).toBe(0)
+
+      manager.handleGameExit('replay-1', 0)
+      expect(await settingsSyncCount()).toBe(1)
+    })
+
+    it('runs two replays at once', () => {
+      manager.setGameConfig(replayConfigFor('replay-1'))
+      manager.setGameConfig(replayConfigFor('replay-2'))
+
+      expect(commands).toEqual([])
+      expect(manager.getStatus('replay-1')?.state).toBe('launching')
+      expect(manager.getStatus('replay-2')?.state).toBe('launching')
+    })
+
+    it('still quits a previous networked game when another one launches', () => {
+      manager.setGameConfig(replayConfigFor('replay-1'))
+      manager.setGameConfig(configFor('game-1'))
+      manager.setGameConfig(configFor('game-2'))
+
+      expect(commands).toEqual([['game-1', 'quit']])
+      expect(manager.getStatus()?.id).toBe('game-2')
+      expect(manager.getStatus('replay-1')?.state).toBe('launching')
+    })
+
+    it('configures a connecting replay instead of quitting it', () => {
+      manager.setGameConfig(replayConfigFor('replay-1'))
+      manager.setGameConfig(configFor('game-1'))
+
+      // Connecting goes on to read the local settings, which never resolve here; the status
+      // update before that read is what tells a tracked game apart from an abandoned one.
+      manager.handleGameConnected('replay-1').catch(() => {})
+
+      expect(quitsSentTo('replay-1')).toEqual([])
+      expect(manager.getStatus('replay-1')?.state).toBe('configuring')
+    })
+
+    it('sends block list changes to every game', () => {
+      manager.setGameConfig(replayConfigFor('replay-1'))
+      manager.setGameConfig(configFor('game-1'))
+
+      manager.setBlockedUsers([makeSbUserId(5)])
+
+      expect(commands).toEqual([
+        ['game-1', 'blockedUsers', [makeSbUserId(5)]],
+        ['replay-1', 'blockedUsers', [makeSbUserId(5)]],
+      ])
+    })
+
+    it('quits only the replays as the app exits', () => {
+      manager.setGameConfig(replayConfigFor('replay-1'))
+      manager.setGameConfig(replayConfigFor('replay-2'))
+      manager.setGameConfig(configFor('game-1'))
+
+      manager.quitWatchOnlyGamesOnAppExit()
+
+      expect(commands).toEqual([
+        ['replay-1', 'quit'],
+        ['replay-2', 'quit'],
+      ])
+    })
+  })
+
+  describe('with one game at a time', () => {
+    beforeEach(() => setKeepReplays(false))
+
+    it('quits a running replay when a networked game launches', () => {
+      manager.setGameConfig(replayConfigFor('replay-1'))
+      manager.setGameConfig(configFor('game-1'))
+
+      expect(commands).toEqual([['replay-1', 'quit']])
+      expect(manager.getStatus('replay-1')).toBeNull()
+      expect(manager.getStatus()?.id).toBe('game-1')
+    })
+
+    it('replaces a running replay with a new one', () => {
+      manager.setGameConfig(replayConfigFor('replay-1'))
+      manager.setGameConfig(replayConfigFor('replay-2'))
+
+      expect(commands).toEqual([['replay-1', 'quit']])
+      expect(manager.getStatus('replay-1')).toBeNull()
+      expect(manager.getStatus('replay-2')?.state).toBe('launching')
+    })
+
+    it('refuses a replay while a networked game runs, without touching the game', () => {
+      const statuses: unknown[] = []
+      manager.setGameConfig(configFor('game-1'))
+      manager.handleGameStart('game-1')
+      manager.on('gameStatus', status => statuses.push(status))
+
+      expect(manager.setGameConfig(replayConfigFor('replay-1'))).toBeNull()
+
+      expect(commands).toEqual([])
+      expect(statuses).toEqual([])
+      expect(manager.getStatus('replay-1')).toBeNull()
+      expect(manager.getStatus()).toMatchObject({ id: 'game-1', state: 'playing' })
+    })
   })
 })

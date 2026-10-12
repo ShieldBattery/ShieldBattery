@@ -337,6 +337,14 @@ export interface LocalSettings extends ShieldBatteryAppSettings {
   launch32Bit: boolean
 
   /**
+   * Whether replays keep running when another game launches, so replays can run alongside each
+   * other and alongside a game the user takes part in. Off by default since running several game
+   * processes at once is taxing on the machine. When off, only one game runs at a time, and a
+   * replay can't be started while a game the user takes part in is running.
+   */
+  keepReplaysAlongsideGames: boolean
+
+  /**
    * Absolute paths of the folders indexed by the replay library. `undefined` means the user has
    * never configured folders: the default folder, `Documents/Starcraft/maps/replays`, is used and
    * presented as a regular (removable) entry. An empty array means the user removed every

@@ -51,6 +51,7 @@ export const DEFAULT_LOCAL_SETTINGS: ReadonlyDeep<
   rollbackTarget: 2,
   emulateTurnRate24Delay: false,
   launch32Bit: false,
+  keepReplaysAlongsideGames: false,
   replayLibraryFolders: undefined,
 }
 

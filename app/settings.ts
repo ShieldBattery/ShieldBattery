@@ -18,7 +18,7 @@ import { cloneCustomTeamColors, DEFAULT_FFA_COLORS } from '../common/settings/te
 import { findInstallPath } from './find-install-path'
 import log from './logger'
 
-const VERSION = 26
+const VERSION = 27
 const SCR_VERSION = 6
 
 /**
@@ -406,6 +406,11 @@ export class LocalSettingsManager extends SettingsManager<LocalSettings> {
     if (!settings.version || settings.version < 26) {
       log.verbose('Found settings version 25, migrating to version 26')
       newSettings.emulateTurnRate24Delay = DEFAULT_LOCAL_SETTINGS.emulateTurnRate24Delay
+    }
+
+    if (!settings.version || settings.version < 27) {
+      log.verbose('Found settings version 26, migrating to version 27')
+      newSettings.keepReplaysAlongsideGames = DEFAULT_LOCAL_SETTINGS.keepReplaysAlongsideGames
     }
 
     newSettings.version = VERSION
