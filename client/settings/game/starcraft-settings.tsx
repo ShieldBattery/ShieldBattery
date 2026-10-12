@@ -229,7 +229,7 @@ export function StarcraftSettings() {
               {...bindCheckable('keepReplaysAlongsideGames')}
               label={t(
                 'settings.game.starcraft.keepReplaysAlongsideGames.label',
-                'Keep watching replays while other games run',
+                'Allow replays to run alongside other games',
               )}
               inputProps={{ tabIndex: 0 }}
             />

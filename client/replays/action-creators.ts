@@ -83,7 +83,7 @@ export function startReplay({
           i18n.t(
             'replays.loading.inGameBody',
             "Replays can't be started while you're in a game. To watch replays while other " +
-              'games run, turn on "Keep watching replays while other games run" in the ' +
+              'games run, turn on "Allow replays to run alongside other games" in the ' +
               'StarCraft game settings.',
           ),
         ),
