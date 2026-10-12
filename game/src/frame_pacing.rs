@@ -843,8 +843,9 @@ fn log_stats(stats: &mut Stats, plan: Option<&Plan>, elapsed: Duration) {
                             .get()
                             .and_then(|clock| clock.fit(Instant::now()))
                             .map_or("unmeasured".to_owned(), |fit| format!(
-                                "{:.4} ms",
-                                fit.period.as_secs_f64() * 1000.0
+                                "{:.4} ms, blanks seen within {:.3} ms",
+                                fit.period.as_secs_f64() * 1000.0,
+                                fit.spread.as_secs_f64() * 1000.0,
                             )),
                         ms(stats.lead_us_total as f64) / f64::from(frames.max(1)),
                         at(0.1),
