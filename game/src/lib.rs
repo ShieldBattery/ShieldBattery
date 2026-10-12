@@ -54,6 +54,7 @@ mod crash_dump;
 #[cfg(debug_assertions)]
 mod debug_control;
 mod forge;
+mod frame_pacing;
 mod frame_timing;
 mod game_state;
 mod game_thread;
@@ -296,6 +297,7 @@ pub extern "C" fn OnInject() {
     replay_seek::init_from_env();
     #[cfg(debug_assertions)]
     rollback_live::init_from_env();
+    frame_pacing::init_from_env();
     #[cfg(debug_assertions)]
     frame_timing::init_from_env();
     #[cfg(debug_assertions)]
