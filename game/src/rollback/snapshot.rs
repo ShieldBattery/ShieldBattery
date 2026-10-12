@@ -1,11 +1,12 @@
 //! The snapshot the rollback engine restores and re-simulates from.
 //!
-//! A snapshot is a memcpy of every range [`super::ranges`] resolves, plus the per-player trigger
-//! lists, which are heap nodes copied and relinked rather than flat ranges (see
-//! [`TriggerLists`]). [`Snapshots`] keeps several, each labeled with the frame count the
+//! A snapshot is a memcpy of every range [`super::ranges`] resolves, plus the few bytes of the
+//! per-player trigger lists the simulation changes, which live in heap nodes rather than flat ranges
+//! (see [`TriggerLists`]). [`Snapshots`] keeps several, each labeled with the frame count the
 //! simulation had reached when it was taken, so a rollback can restore the newest one at or before
 //! the frame it needs and re-simulate from there.
 
+use std::collections::HashMap;
 use std::mem::size_of;
 
 use parking_lot::Mutex;
@@ -23,49 +24,90 @@ use super::ranges::{
 /// with its runtime state (execution flags, the action in progress) in it.
 const TRIGGER_SIZE: usize = 0x960;
 
-/// Upper bound on the nodes one trigger list is walked for, against a list whose links have been
-/// overwritten.
-const MAX_TRIGGERS_PER_PLAYER: usize = 0x10000;
+/// Bytes of a trigger list node's two links, which come before its trigger.
+const TRIGGER_LINKS_SIZE: usize = 2 * size_of::<usize>();
 
 /// Bytes of one trigger list node: its two links, then its trigger.
-const TRIGGER_NODE_SIZE: usize = 2 * size_of::<usize>() + TRIGGER_SIZE;
+const TRIGGER_NODE_SIZE: usize = TRIGGER_LINKS_SIZE + TRIGGER_SIZE;
 
-/// The per-player trigger lists, which the snapshot copies node by node rather than as ranges.
+/// Offset in a trigger of its execution flags, a word of which the simulation only ever changes
+/// bits of the lowest byte.
+const TRIGGER_FLAGS: usize = 0x940;
+
+/// Offset in a trigger of the index of the action it is running.
+const TRIGGER_CURRENT_ACTION: usize = 0x95f;
+
+/// Offset in a trigger of its actions.
+const TRIGGER_ACTIONS: usize = 0x140;
+const TRIGGER_ACTION_COUNT: usize = 64;
+const ACTION_SIZE: usize = 0x20;
+const ACTION_TYPE: usize = 0x1a;
+
+/// Offset in an action of its flags, the lowest bit of which an action that waits across frames
+/// sets while it waits.
+const ACTION_FLAGS: usize = 0x1c;
+
+/// The action types that wait across frames: Wait, Transmission and Center View.
+const WAITING_ACTION_TYPES: [u8; 3] = [4, 7, 10];
+
+/// Environment variable that, set to anything, makes every snapshot check that the simulation has
+/// changed no byte of a trigger list node other than the ones [`TriggerLists`] keeps.
+#[cfg(debug_assertions)]
+const VERIFY_TRIGGERS_ENV_VAR: &str = "SB_ROLLBACK_VERIFY_TRIGGERS";
+
+/// The per-player trigger lists, of which a snapshot keeps only the bytes the simulation changes.
 ///
 /// Each player's triggers are a circular doubly linked list of heap nodes whose header lives in a
-/// static array, and the nodes hold state the simulation changes (which triggers have run, how far
-/// a waiting one has got). The lists never grow during a game, but a trigger pass that decides a
-/// player's defeat, or a player leaving, frees that player's whole list; a re-simulation of the
-/// same frames then has to find the list as it was. So a snapshot keeps each list's header and
-/// whole nodes, and a restore copies the nodes back when the same ones are still linked, or
-/// allocates new nodes for them, with their links translated, when the list has been freed since.
+/// static array. Once a game is running, nothing but the trigger step writes to the nodes, and it
+/// only writes a trigger's execution flags, the index of the action it is running, and the flags of
+/// its actions that wait. The lists never grow or change order during a game, but a trigger pass
+/// that decides a player's defeat, or a player leaving, frees that player's whole list; a
+/// re-simulation of the same frames then has to find the list as it was. So the lists' nodes are
+/// copied whole once, when the layout is built, and each snapshot keeps the bytes that can change,
+/// or the header of a list freed by then. A restore writes those bytes back into the same nodes,
+/// or, when the list has been freed since, into new nodes made from the copy.
 pub(crate) struct TriggerLists {
-    /// The first of the [`TRIGGER_LIST_PLAYERS`] list headers, each `next, previous, count`.
+    /// The first of the [`TRIGGER_LIST_PLAYERS`] list headers, each `last, first, count`.
     heads: usize,
+    /// Every player's list as it was when the layout was built.
+    lists: Vec<TriggerList>,
     /// For each snapshot slot, every player's list.
     saved: Vec<Vec<SavedTriggerList>>,
 }
 
-#[derive(Clone, Default)]
-struct SavedTriggerList {
-    /// The list's header words.
+struct TriggerList {
+    /// The header's words while the list has its nodes.
     header: [usize; 3],
-    /// The nodes' addresses, in the order they were walked.
+    /// The nodes' addresses, in the order they are walked.
     nodes: Vec<usize>,
     /// The nodes' bytes, links included, [`TRIGGER_NODE_SIZE`] each, in the same order.
     bytes: Vec<u8>,
+    /// Where the bytes the simulation can change are, as the index of their node in `nodes` and
+    /// their offset in it, in node order.
+    state: Vec<(u32, u16)>,
+}
+
+#[derive(Clone, Default)]
+struct SavedTriggerList {
+    /// The header's words when the list had been freed, or `None` while it had its nodes.
+    freed_header: Option<[usize; 3]>,
+    /// While the list had its nodes, the byte at each of its [`TriggerList::state`] places, in the
+    /// same order.
+    state: Vec<u8>,
 }
 
 impl TriggerLists {
-    fn new(heads: usize) -> TriggerLists {
-        TriggerLists {
-            heads,
-            saved: Vec::new(),
+    unsafe fn new(heads: usize) -> TriggerLists {
+        unsafe {
+            let lists = (0..TRIGGER_LIST_PLAYERS)
+                .map(|player| TriggerList::new(head(heads, player)))
+                .collect();
+            TriggerLists {
+                heads,
+                lists,
+                saved: Vec::new(),
+            }
         }
-    }
-
-    fn head(&self, player: usize) -> *mut usize {
-        (self.heads + player * 3 * size_of::<usize>()) as *mut usize
     }
 
     unsafe fn take(&mut self, slot: usize) {
@@ -77,81 +119,192 @@ impl TriggerLists {
                         .collect(),
                 );
             }
-            for player in 0..TRIGGER_LIST_PLAYERS {
-                let head = self.head(player);
+            for (player, list) in self.lists.iter().enumerate() {
+                let head = head(self.heads, player);
                 let saved = &mut self.saved[slot][player];
-                saved.header = [head.read(), head.add(1).read(), head.add(2).read()];
-                saved.nodes.clear();
-                saved.nodes.extend(list_nodes(head));
-                saved.bytes.clear();
-                for &node in &saved.nodes {
-                    saved.bytes.extend_from_slice(std::slice::from_raw_parts(
-                        node as *const u8,
-                        TRIGGER_NODE_SIZE,
-                    ));
+                saved.state.clear();
+                if !has_nodes(head) {
+                    saved.freed_header = Some(read_header(head));
+                    continue;
                 }
+                debug_assert!(
+                    !list.nodes.is_empty(),
+                    "Trigger list {player} has nodes it didn't have when the layout was built",
+                );
+                #[cfg(debug_assertions)]
+                if verify_triggers() {
+                    list.verify(head, player);
+                }
+                saved.freed_header = None;
+                saved.state.extend(list.state.iter().map(|&(node, offset)| {
+                    ((list.nodes[node as usize] + offset as usize) as *const u8).read()
+                }));
             }
         }
     }
 
     unsafe fn restore(&mut self, slot: usize, bw: &BwScr) {
         unsafe {
-            for player in 0..TRIGGER_LIST_PLAYERS {
-                let head = self.head(player);
-                let saved = &mut self.saved[slot][player];
-                if list_nodes(head).eq(saved.nodes.iter().copied()) {
-                    for (i, &node) in saved.nodes.iter().enumerate() {
-                        std::ptr::copy_nonoverlapping(
-                            saved.bytes.as_ptr().add(i * TRIGGER_NODE_SIZE),
-                            node as *mut u8,
-                            TRIGGER_NODE_SIZE,
-                        );
+            for (player, list) in self.lists.iter_mut().enumerate() {
+                let head = head(self.heads, player);
+                let saved = &self.saved[slot][player];
+                if let Some(header) = saved.freed_header {
+                    if has_nodes(head) {
+                        for node in list_nodes(head).collect::<Vec<_>>() {
+                            bw.free(node as *mut u8);
+                        }
                     }
+                    write_header(head, header);
                     continue;
                 }
-                // The list was freed since the snapshot: bring its nodes back in allocations of
-                // our own, pointing every link that pointed at an old node at its replacement.
-                for node in list_nodes(head).collect::<Vec<_>>() {
-                    bw.free(node as *mut u8);
+                if !has_nodes(head) {
+                    list.relink(head, bw);
                 }
-                let replacements = saved
-                    .nodes
-                    .iter()
-                    .map(|_| bw.alloc(TRIGGER_NODE_SIZE) as usize)
-                    .collect::<Vec<_>>();
-                let old_nodes = std::mem::replace(&mut saved.nodes, replacements);
-                let translate = |link: usize| {
-                    old_nodes
-                        .iter()
-                        .position(|&x| x == link)
-                        .map(|i| saved.nodes[i])
-                        .unwrap_or(link)
-                };
-                // The saved copy's links are translated as well as the live ones: this snapshot
-                // can be restored again, and its nodes are the replacements from now on.
-                let word = size_of::<usize>();
-                for (i, &node) in saved.nodes.iter().enumerate() {
-                    let saved_node = saved.bytes.as_mut_ptr().add(i * TRIGGER_NODE_SIZE);
-                    for link in 0..2 {
-                        let at = saved_node.add(link * word) as *mut usize;
-                        at.write_unaligned(translate(at.read_unaligned()));
-                    }
-                    std::ptr::copy_nonoverlapping(saved_node, node as *mut u8, TRIGGER_NODE_SIZE);
+                for (&(node, offset), &value) in list.state.iter().zip(&saved.state) {
+                    ((list.nodes[node as usize] + offset as usize) as *mut u8).write(value);
                 }
-                saved.header[0] = translate(saved.header[0]);
-                saved.header[1] = translate(saved.header[1]);
-                head.write(saved.header[0]);
-                head.add(1).write(saved.header[1]);
-                head.add(2).write(saved.header[2]);
             }
         }
     }
 }
 
+impl TriggerList {
+    unsafe fn new(head: *mut usize) -> TriggerList {
+        unsafe {
+            let nodes = list_nodes(head).collect::<Vec<_>>();
+            let mut bytes = Vec::with_capacity(nodes.len() * TRIGGER_NODE_SIZE);
+            let mut state = Vec::new();
+            for (index, &node) in nodes.iter().enumerate() {
+                let node = std::slice::from_raw_parts(node as *const u8, TRIGGER_NODE_SIZE);
+                bytes.extend_from_slice(node);
+                state.extend(state_offsets(node).map(|offset| (index as u32, offset as u16)));
+            }
+            TriggerList {
+                header: read_header(head),
+                nodes,
+                bytes,
+                state,
+            }
+        }
+    }
+
+    /// Brings back the nodes of a list the game has freed, in allocations of our own made from the
+    /// copy, pointing every link that pointed at an old node at its replacement. The copy's links
+    /// are translated as well, since its nodes are the replacements from now on.
+    unsafe fn relink(&mut self, head: *mut usize, bw: &BwScr) {
+        unsafe {
+            let replacements = self
+                .nodes
+                .iter()
+                .map(|_| bw.alloc(TRIGGER_NODE_SIZE) as usize)
+                .collect::<Vec<_>>();
+            let translations = self
+                .nodes
+                .iter()
+                .copied()
+                .zip(replacements.iter().copied())
+                .collect::<HashMap<_, _>>();
+            let translate = |link: usize| translations.get(&link).copied().unwrap_or(link);
+            let word = size_of::<usize>();
+            for (i, &node) in replacements.iter().enumerate() {
+                let copy = self.bytes.as_mut_ptr().add(i * TRIGGER_NODE_SIZE);
+                for link in 0..2 {
+                    let at = copy.add(link * word) as *mut usize;
+                    at.write_unaligned(translate(at.read_unaligned()));
+                }
+                std::ptr::copy_nonoverlapping(copy, node as *mut u8, TRIGGER_NODE_SIZE);
+            }
+            self.header[0] = translate(self.header[0]);
+            self.header[1] = translate(self.header[1]);
+            write_header(head, self.header);
+            self.nodes = replacements;
+        }
+    }
+
+    /// Panics if the list at `head` isn't this list's nodes, or if any byte of them other than the
+    /// ones a snapshot keeps differs from the copy.
+    #[cfg(debug_assertions)]
+    unsafe fn verify(&self, head: *mut usize, player: usize) {
+        unsafe {
+            assert!(
+                list_nodes(head).eq(self.nodes.iter().copied()),
+                "Trigger list {player} isn't linked the way it was when the layout was built",
+            );
+            let mut state = self.state.iter().peekable();
+            for (index, &node) in self.nodes.iter().enumerate() {
+                let live = std::slice::from_raw_parts(node as *const u8, TRIGGER_NODE_SIZE);
+                let mut expected: [u8; TRIGGER_NODE_SIZE] = self.bytes[index * TRIGGER_NODE_SIZE..]
+                    [..TRIGGER_NODE_SIZE]
+                    .try_into()
+                    .expect("A node's copy is a node long");
+                while let Some(&(_, offset)) = state.next_if(|x| x.0 as usize == index) {
+                    expected[offset as usize] = live[offset as usize];
+                }
+                if let Some(offset) = live.iter().zip(&expected).position(|(a, b)| a != b) {
+                    panic!(
+                        "Trigger {index} of player {player}'s list changed at node offset \
+                        {offset:#x}, which snapshots don't keep: {:#x} -> {:#x}",
+                        expected[offset], live[offset],
+                    );
+                }
+            }
+        }
+    }
+}
+
+/// Offsets in the trigger list node `node` of the bytes the simulation can change: its trigger's
+/// execution flags (the lowest byte, the only one that changes), the index of the action it is
+/// running, and the flags of each of its actions that waits.
+fn state_offsets(node: &[u8]) -> impl Iterator<Item = usize> + '_ {
+    let trigger = TRIGGER_LINKS_SIZE;
+    let actions = (0..TRIGGER_ACTION_COUNT)
+        .map(move |i| trigger + TRIGGER_ACTIONS + i * ACTION_SIZE)
+        .filter(|&action| WAITING_ACTION_TYPES.contains(&node[action + ACTION_TYPE]))
+        .map(|action| action + ACTION_FLAGS);
+    [trigger + TRIGGER_FLAGS, trigger + TRIGGER_CURRENT_ACTION]
+        .into_iter()
+        .chain(actions)
+}
+
+#[cfg(debug_assertions)]
+fn verify_triggers() -> bool {
+    static VERIFY: std::sync::LazyLock<bool> =
+        std::sync::LazyLock::new(|| std::env::var_os(VERIFY_TRIGGERS_ENV_VAR).is_some());
+    *VERIFY
+}
+
+/// The header of player `player`'s trigger list, given the first of the headers.
+fn head(heads: usize, player: usize) -> *mut usize {
+    (heads + player * 3 * size_of::<usize>()) as *mut usize
+}
+
+unsafe fn read_header(head: *mut usize) -> [usize; 3] {
+    unsafe { [head.read(), head.add(1).read(), head.add(2).read()] }
+}
+
+unsafe fn write_header(head: *mut usize, header: [usize; 3]) {
+    unsafe {
+        head.write(header[0]);
+        head.add(1).write(header[1]);
+        head.add(2).write(header[2]);
+    }
+}
+
+/// Whether the trigger list whose header is at `head` has nodes. Freeing a list points its header
+/// at itself.
+unsafe fn has_nodes(head: *mut usize) -> bool {
+    unsafe {
+        let first = head.add(1).read();
+        first != head as usize && first != 0
+    }
+}
+
 /// Every node of the trigger list whose header is at `head`, found by following the second link
-/// from the header round to the header again.
+/// from the header round to the header again, and no more than the header counts, against a list
+/// whose links have been overwritten.
 unsafe fn list_nodes(head: *mut usize) -> impl Iterator<Item = usize> {
     unsafe {
+        let count = head.add(2).read();
         let head = head as usize;
         let mut node = (head as *const usize).add(1).read();
         std::iter::from_fn(move || {
@@ -162,7 +315,7 @@ unsafe fn list_nodes(head: *mut usize) -> impl Iterator<Item = usize> {
             node = (node as *const usize).add(1).read();
             Some(current)
         })
-        .take(MAX_TRIGGERS_PER_PLAYER)
+        .take(count)
     }
 }
 
@@ -210,7 +363,7 @@ impl SnapshotExtras {
             lists.capacity() * size_of::<SavedTriggerList>()
                 + lists
                     .iter()
-                    .map(|list| list.nodes.capacity() * size_of::<usize>() + list.bytes.capacity())
+                    .map(|list| list.state.capacity())
                     .sum::<usize>()
         })
     }
@@ -637,5 +790,31 @@ impl Snapshots {
     #[cfg(debug_assertions)]
     pub(crate) fn ranges(&self) -> &[ranges::Range] {
         &self.ranges
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn state_offsets_cover_flags_current_action_and_waiting_actions() {
+        let mut node = vec![0u8; TRIGGER_NODE_SIZE];
+        let action = |i: usize| TRIGGER_LINKS_SIZE + TRIGGER_ACTIONS + i * ACTION_SIZE;
+        // A Wait, a Create Unit, a Transmission past an empty action, and a Center View in the
+        // last slot.
+        for (i, kind) in [(0, 4), (1, 44), (5, 7), (63, 10)] {
+            node[action(i) + ACTION_TYPE] = kind;
+        }
+        assert_eq!(
+            state_offsets(&node).collect::<Vec<_>>(),
+            vec![
+                TRIGGER_LINKS_SIZE + TRIGGER_FLAGS,
+                TRIGGER_LINKS_SIZE + TRIGGER_CURRENT_ACTION,
+                action(0) + ACTION_FLAGS,
+                action(5) + ACTION_FLAGS,
+                action(63) + ACTION_FLAGS,
+            ],
+        );
     }
 }
