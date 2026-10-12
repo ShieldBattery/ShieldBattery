@@ -103,7 +103,7 @@ fn measure(window: HWND, fallback: Duration, fit: &Mutex<Option<Fit>>) {
     loop {
         *fit.lock() = None;
         let monitor = unsafe { MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST) };
-        let Some((output, refresh)) = (unsafe { output_for_monitor(monitor) }) else {
+        let Some((output, device, refresh)) = (unsafe { output_for_monitor(monitor) }) else {
             if !warned {
                 warn!("Vertical blank clock: no DXGI output for the game's monitor");
                 warned = true;
@@ -117,7 +117,11 @@ fn measure(window: HWND, fallback: Duration, fit: &Mutex<Option<Fit>>) {
         let mut checked = Instant::now();
         loop {
             if checked.elapsed() >= MONITOR_CHECK {
-                if unsafe { MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST) } != monitor {
+                // A display mode change to a rate the blanks still fit, as halving it is (every
+                // other blank looks missed), only shows in the mode.
+                if unsafe { MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST) } != monitor
+                    || unsafe { mode_refresh(&device) } != refresh
+                {
                     break;
                 }
                 checked = Instant::now();
@@ -146,7 +150,7 @@ fn measure(window: HWND, fallback: Duration, fit: &Mutex<Option<Fit>>) {
                     *fit.lock() = Some(new_fit);
                 }
                 None => {
-                    *fit.lock() = None;
+                    // The last fit stands until it goes stale; a few late wakes shouldn't drop it.
                     unfit += 1;
                     // Blanks that haven't fit for a whole window of samples aren't at the rate the
                     // clock expects (the display's mode changed), so it starts over from the
@@ -208,8 +212,11 @@ fn fit_blanks(samples: &VecDeque<Instant>, nominal: Duration) -> Option<Fit> {
     })
 }
 
-/// The DXGI output showing `monitor`, and the refresh period of its current display mode.
-unsafe fn output_for_monitor(monitor: HMONITOR) -> Option<(Com<IDXGIOutput>, Option<Duration>)> {
+/// The DXGI output showing `monitor`, its device name, and the refresh period of its current
+/// display mode.
+unsafe fn output_for_monitor(
+    monitor: HMONITOR,
+) -> Option<(Com<IDXGIOutput>, [u16; 32], Option<Duration>)> {
     unsafe {
         let mut factory = null_mut();
         if CreateDXGIFactory1(&IDXGIFactory1::uuidof(), &mut factory) < 0 {
@@ -230,21 +237,24 @@ unsafe fn output_for_monitor(monitor: HMONITOR) -> Option<(Com<IDXGIOutput>, Opt
                 let output = Com::new(output)?;
                 let mut desc: DXGI_OUTPUT_DESC = std::mem::zeroed();
                 if output.as_ref().GetDesc(&mut desc) >= 0 && desc.Monitor == monitor {
-                    let mut mode: DEVMODEW = std::mem::zeroed();
-                    mode.dmSize = size_of::<DEVMODEW>() as u16;
-                    let found = EnumDisplaySettingsW(
-                        desc.DeviceName.as_ptr(),
-                        ENUM_CURRENT_SETTINGS,
-                        &mut mode,
-                    ) != 0;
-                    // 0 and 1 stand for the hardware's default rate rather than a rate.
-                    let refresh = (found && mode.dmDisplayFrequency > 1)
-                        .then(|| Duration::from_secs_f64(1.0 / f64::from(mode.dmDisplayFrequency)));
-                    return Some((output, refresh));
+                    let refresh = mode_refresh(&desc.DeviceName);
+                    return Some((output, desc.DeviceName, refresh));
                 }
             }
         }
         None
+    }
+}
+
+/// The refresh period of the current display mode of the display device named `device`.
+unsafe fn mode_refresh(device: &[u16; 32]) -> Option<Duration> {
+    unsafe {
+        let mut mode: DEVMODEW = std::mem::zeroed();
+        mode.dmSize = size_of::<DEVMODEW>() as u16;
+        let found = EnumDisplaySettingsW(device.as_ptr(), ENUM_CURRENT_SETTINGS, &mut mode) != 0;
+        // 0 and 1 stand for the hardware's default rate rather than a rate.
+        (found && mode.dmDisplayFrequency > 1)
+            .then(|| Duration::from_secs_f64(1.0 / f64::from(mode.dmDisplayFrequency)))
     }
 }
 

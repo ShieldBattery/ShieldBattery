@@ -3511,7 +3511,11 @@ impl BwScr {
                 exe.hook_closure_address(
                     StepGameLoop,
                     move |orig| {
-                        let _iteration = crate::frame_pacing::iteration(self);
+                        let _iteration = crate::frame_pacing::iteration(
+                            self,
+                            self.skip_render.is_some()
+                                && (game_thread::is_replay() || native_sync_disabled()),
+                        );
                         orig();
                     },
                     address,
@@ -3521,13 +3525,9 @@ impl BwScr {
             exe.hook_closure_address(
                 RenderScreen,
                 move |callback, draw_ui, orig| {
-                    // Drawing is also what refreshes the vision state native sync (0x37) compares
-                    // between players, so a game that checks it draws every iteration.
+                    let own = crate::frame_pacing::own_draw(!callback.is_null() && draw_ui == 1);
                     if let Some(skip_render) = self.skip_render
-                        && (game_thread::is_replay() || native_sync_disabled())
-                        && crate::frame_pacing::take_render_skip(
-                            !callback.is_null() && draw_ui == 1,
-                        )
+                        && own.as_ref().is_some_and(|own| own.skips())
                     {
                         skip_render();
                     } else {

@@ -17,12 +17,14 @@
 //!   step coming due within [`MERGE`] before a frame's time runs in the frame's iteration instead.
 //!
 //! An iteration woken for a step alone still draws and presents, so that what the step did shows
-//! right away (torn, without vertical sync), unless vertical sync is on: a present would then
-//! queue behind the frame timed for the refresh, so the iteration skips drawing
-//! (see [`skips_render`]).
+//! right away (torn, without vertical sync). With vertical sync on, a present would queue behind
+//! the frames timed for the display, so the iteration skips drawing instead (see [`OwnDraw`]).
+//! Where skipping a draw isn't safe (see [`iteration`]), steps aren't given wakes of their own at
+//! all and run in the next frame's iteration.
 //!
 //! SC:R's own frame cap sleeps between drawing a frame and presenting it, which only makes what is
-//! presented older, so while pacing those sleeps are skipped (see [`skip_sleep`]).
+//! presented older, so those sleeps are skipped for the frames pacing times (see [`skip_sleep`]).
+//! Loops that draw while the game waits (on the network, or a modal dialog) are left to the cap.
 //!
 //! The statistics logged every [`STATS_INTERVAL`] (iteration rate, step lateness, and how often
 //! BW's screen scrolling runs) are gathered whether or not pacing is on, to compare against.
@@ -58,6 +60,12 @@ const MARGIN: Duration = Duration::from_micros(1500);
 
 /// Frames whose iteration times decide how long the next one is expected to take.
 const WORK_SAMPLES: usize = 64;
+
+/// Iterations in a row woken right away for steps already due, after which the next one waits for
+/// its frame. A step stays due across iterations when BW is behind (fast replays, seeking), which
+/// catching up handles, but a tick that keeps moving without a step running would otherwise spin
+/// the loop.
+const MAX_IMMEDIATE_STEP_WAKES: u32 = 32;
 
 /// A step due further out than this is not a value the loop is pacing against (the game hasn't
 /// started stepping, or the tick is stale), so it doesn't schedule a wake.
@@ -222,8 +230,8 @@ struct Plan {
     /// Whether frames are timed to the display's vertical blanks.
     synced: bool,
     /// Whether SC:R presents with vertical sync, queuing each frame for a refresh: an iteration
-    /// woken for a step alone then skips drawing, and a frame presented after the refresh it was
-    /// timed for takes the next one.
+    /// woken for a step alone then mustn't present (see [`iteration`]), and a frame presented after
+    /// the refresh it was timed for takes the next one.
     vsync: bool,
 }
 
@@ -249,6 +257,10 @@ struct State {
     last_vblank: Option<Instant>,
     /// When the previous iteration started, after its wait.
     last_iteration: Option<Instant>,
+    /// The step tick the previous iteration saw.
+    last_step_tick: Option<u32>,
+    /// Iterations in a row woken right away for a step already due.
+    immediate_step_wakes: u32,
     frame: Option<FrameInProgress>,
     /// When SC:R started presenting the frame in progress.
     present_start: Option<Instant>,
@@ -331,6 +343,8 @@ static STATE: Mutex<State> = Mutex::new(State {
     next_frame: None,
     last_vblank: None,
     last_iteration: None,
+    last_step_tick: None,
+    immediate_step_wakes: 0,
     frame: None,
     present_start: None,
     frame_end: None,
@@ -343,9 +357,11 @@ thread_local! {
     /// iteration from inside the pump when the OS asks the game for a frame, as it does while
     /// the window is being moved or resized.
     static LOOP_DEPTH: Cell<u32> = const { Cell::new(0) };
-    /// Set between BW queuing a frame's draws and handing them to the renderer, where the only
-    /// sleep is SC:R's frame cap, while pacing has the iteration in hand.
+    /// Set between BW queuing a paced frame's draws and handing them to the renderer, where the
+    /// only sleep is SC:R's frame cap.
     static IN_CAP_WINDOW: Cell<bool> = const { Cell::new(false) };
+    /// Set while the in-game loop draws its own frame (see [`OwnDraw`]).
+    static IN_OWN_DRAW: Cell<bool> = const { Cell::new(false) };
     /// Set for an iteration that skips drawing, until its draw is skipped.
     static SKIP_RENDER: Cell<bool> = const { Cell::new(false) };
     /// Set while a logic step runs.
@@ -370,35 +386,44 @@ impl Drop for Iteration {
 }
 
 /// Starts an iteration of the in-game loop, first waiting for its turn when pacing. Hold the
-/// returned value until the iteration finishes.
-pub unsafe fn iteration(bw: &BwScr) -> Iteration {
+/// returned value until the iteration finishes. `can_skip_draw` is whether the iteration may skip
+/// drawing its frame: drawing is also what refreshes the vision state native sync (0x37) compares
+/// between players, so only a game without it can.
+pub unsafe fn iteration(bw: &BwScr, can_skip_draw: bool) -> Iteration {
     let depth = LOOP_DEPTH.get();
     LOOP_DEPTH.set(depth + 1);
     IN_CAP_WINDOW.set(false);
     if depth == 0 {
-        unsafe { pace(bw) };
+        unsafe { pace(bw, can_skip_draw) };
     }
     Iteration {
         outermost: depth == 0,
     }
 }
 
-unsafe fn pace(bw: &BwScr) {
+unsafe fn pace(bw: &BwScr, can_skip_draw: bool) {
     let now = Instant::now();
     let mut state = STATE.lock();
     if state.plan.is_none() {
         state.plan = Some(resolve_plan());
     }
-    // A step that came due after the previous iteration started may have come due after that
-    // iteration checked for one, so it runs as soon as possible. One already due before then that
-    // still hasn't run is held back (the game is paused, or waiting on the network) and doesn't
-    // schedule anything.
+    // A step already due runs as soon as possible if it can have become due since the previous
+    // iteration checked: the tick moved (a step ran there, and BW, being behind, owes another, or
+    // a seek put the tick back), or it came due after that iteration started. A step due before
+    // then whose tick hasn't moved is held back (the game is paused, or waiting on the network)
+    // and doesn't schedule anything.
+    let step_tick = unsafe { bw.next_game_step_tick() };
+    let tick_moved = step_tick != state.last_step_tick;
+    state.last_step_tick = step_tick;
     let last_iteration = state.last_iteration;
-    let step_due = unsafe { bw.next_game_step_tick() }
+    let immediate_allowed = state.immediate_step_wakes < MAX_IMMEDIATE_STEP_WAKES;
+    let step_due = step_tick
         .and_then(instant_of_tick)
         .filter(|&due| match due > now {
             true => due - now <= MAX_STEP_LOOKAHEAD,
-            false => last_iteration.is_some_and(|last| due > last),
+            false => {
+                immediate_allowed && (tick_moved || last_iteration.is_some_and(|last| due > last))
+            }
         });
     let paced = state
         .plan
@@ -406,6 +431,9 @@ unsafe fn pace(bw: &BwScr) {
         .and_then(|plan| plan.as_ref())
         .map(|plan| (plan.period, plan.synced, plan.vsync));
     if let Some((period, synced, vsync)) = paced {
+        // An iteration for a step alone mustn't present with vertical sync on; when it can't skip
+        // drawing either, steps run in frames' iterations instead.
+        let fold_steps = vsync && !can_skip_draw;
         let fit = synced
             .then(|| VBLANK.get().and_then(|clock| clock.fit(now)))
             .flatten();
@@ -424,7 +452,10 @@ unsafe fn pace(bw: &BwScr) {
                 // A frame that runs a step takes longer, so it starts earlier for the same blank.
                 let step_lead = state.lead(true).max(lead);
                 let (frame_at, lead) = match step_due {
-                    Some(step) if step <= frame_at && step + MERGE >= vblank - step_lead => {
+                    Some(step)
+                        if step <= frame_at
+                            && (fold_steps || step + MERGE >= vblank - step_lead) =>
+                    {
                         merge_until = Some(frame_at);
                         (vblank.checked_sub(step_lead).unwrap_or(now), step_lead)
                     }
@@ -445,13 +476,18 @@ unsafe fn pace(bw: &BwScr) {
         };
         let merge_until = merge_until.unwrap_or(frame_at);
         let wake = match step_due {
-            Some(step) if step + MERGE < frame_at => Wake::Step,
+            Some(step) if !fold_steps && step + MERGE < frame_at => Wake::Step,
             Some(step) if step <= merge_until => Wake::Merged,
             _ => Wake::Frame,
         };
-        let wake_at = match wake {
-            Wake::Step | Wake::Merged => step_due.unwrap_or(frame_at),
-            Wake::Frame => frame_at,
+        let wake_at = match (wake, step_due) {
+            (Wake::Step, Some(step)) => step,
+            (Wake::Merged, Some(step)) if !fold_steps => step.min(frame_at),
+            _ => frame_at,
+        };
+        state.immediate_step_wakes = match wake != Wake::Frame && wake_at <= now {
+            true => state.immediate_step_wakes + 1,
+            false => 0,
         };
         if wake != Wake::Step {
             state.next_frame = Some(frame_at + period);
@@ -463,7 +499,7 @@ unsafe fn pace(bw: &BwScr) {
         let timer_late = wait_until(wake_at);
         let woke = Instant::now();
         state = STATE.lock();
-        let skip_render = wake == Wake::Step && vsync;
+        let skip_render = wake == Wake::Step && vsync && can_skip_draw;
         SKIP_RENDER.set(skip_render);
         state.present_start = None;
         state.frame_end = None;
@@ -544,15 +580,25 @@ fn finish_frame() {
         return;
     };
     let presenting = present_start.map_or(0, |start| micros(end.saturating_duration_since(start)));
+    // An iteration that ran long for a reason of its own (the window being dragged, which runs
+    // inside its pump) counts as no worse than two frames, so it doesn't have every frame after it
+    // start as early as it could.
+    let ceiling = match &state.plan {
+        Some(Some(plan)) => micros(plan.period * 2),
+        _ => u32::MAX,
+    };
     let samples = &mut state.work_us[usize::from(frame.ran_step)];
     if samples.len() == WORK_SAMPLES {
         samples.pop_front();
     }
-    samples.push_back(micros(end - frame.woke));
+    samples.push_back(micros(end - frame.woke).min(ceiling));
     if let Some(vblank) = frame.vblank {
-        let slack = match vblank.checked_duration_since(end) {
+        // Whether it made its blank depends on when it was handed to DXGI; `swap_buffers` goes on
+        // to wait for an earlier frame's GPU work after presenting.
+        let presented = present_start.unwrap_or(end);
+        let slack = match vblank.checked_duration_since(presented) {
             Some(early) => i32::try_from(early.as_micros()).unwrap_or(i32::MAX),
-            None => -i32::try_from((end - vblank).as_micros()).unwrap_or(i32::MAX),
+            None => -i32::try_from((presented - vblank).as_micros()).unwrap_or(i32::MAX),
         };
         // With vertical sync, a frame presented late is queued for the next refresh, so the next
         // frame is timed for the one after: timing it for that same refresh would queue it behind,
@@ -586,14 +632,14 @@ pub fn render_started() {
 
 /// SC:R is presenting a frame.
 pub fn presenting_frame() {
-    if LOOP_DEPTH.get() == 1 {
+    if IN_OWN_DRAW.get() {
         STATE.lock().present_start = Some(Instant::now());
     }
 }
 
 /// SC:R presented a frame.
 pub fn frame_presented() {
-    if LOOP_DEPTH.get() == 1 {
+    if IN_OWN_DRAW.get() {
         STATE.lock().frame_end = Some(Instant::now());
     }
 }
@@ -628,7 +674,7 @@ fn resolve_plan() -> Option<Plan> {
     info!(
         "Frame pacing: {mode:?} at {rate:.2} fps{}",
         if vsync {
-            ", step-only iterations skip drawing"
+            ", vertical sync on: steps don't present frames of their own"
         } else {
             ""
         }
@@ -727,7 +773,7 @@ pub struct Draw(());
 
 impl Drop for Draw {
     fn drop(&mut self) {
-        if LOOP_DEPTH.get() != 0 && is_pacing() {
+        if IN_OWN_DRAW.get() && is_pacing() {
             IN_CAP_WINDOW.set(true);
         }
     }
@@ -743,24 +789,49 @@ fn is_pacing() -> bool {
     matches!(STATE.lock().plan, Some(Some(_)))
 }
 
-/// Whether the in-game loop's own draw, which `main_loop_draw` says this `render_screen` call
-/// looks like, should be skipped this iteration: a step having woken it while what it would present
-/// has to wait for the frame timed for the display's refresh. Only the first such draw outside the
-/// logic step is skipped; the loops that keep the game drawing while it waits on the network run
-/// inside the step, and modal dialogs draw without the in-game layers.
-pub fn take_render_skip(main_loop_draw: bool) -> bool {
-    if !main_loop_draw || LOOP_DEPTH.get() != 1 || IN_STEP_LOGIC.get() || !SKIP_RENDER.get() {
-        return false;
+/// The in-game loop drawing the frame of an iteration pacing woke, until dropped. Other draws
+/// (the loops that keep the game drawing while it waits on the network, which run inside the
+/// logic step, modal dialogs, and iterations nested in the pump) aren't paced, so SC:R's frame cap
+/// still holds them back and they don't count as the iteration's frame.
+pub struct OwnDraw {
+    skip: bool,
+}
+
+impl OwnDraw {
+    /// Whether the iteration skips drawing, a step having woken it while what it would present
+    /// has to wait for the frame timed for the display.
+    pub fn skips(&self) -> bool {
+        self.skip
     }
-    SKIP_RENDER.set(false);
-    STATE.lock().stats.skipped_renders += 1;
-    true
+}
+
+impl Drop for OwnDraw {
+    fn drop(&mut self) {
+        IN_OWN_DRAW.set(false);
+    }
+}
+
+/// Starts a `render_screen` call that `main_loop_draw` says looks like the in-game loop's own draw,
+/// returning a value to hold until it returns if it is. Only the first such call outside the logic
+/// step in an outermost iteration is.
+pub fn own_draw(main_loop_draw: bool) -> Option<OwnDraw> {
+    if !main_loop_draw || LOOP_DEPTH.get() != 1 || IN_STEP_LOGIC.get() || IN_OWN_DRAW.get() {
+        return None;
+    }
+    IN_OWN_DRAW.set(true);
+    let skip = SKIP_RENDER.replace(false);
+    if skip {
+        STATE.lock().stats.skipped_renders += 1;
+    }
+    Some(OwnDraw { skip })
 }
 
 /// Whether a `Sleep` for `millis` is SC:R's frame cap holding back a paced frame, which the caller
 /// should then skip.
 pub fn skip_sleep(millis: u32) -> bool {
-    if !IN_CAP_WINDOW.get() {
+    // Every thread's `Sleep` comes through here, including loader worker threads that have no
+    // thread-local storage to read.
+    if !crate::windows::thread_has_tls() || !IN_CAP_WINDOW.get() {
         return false;
     }
     let mut state = STATE.lock();
@@ -896,6 +967,8 @@ pub fn reset() {
     state.next_frame = None;
     state.last_vblank = None;
     state.last_iteration = None;
+    state.last_step_tick = None;
+    state.immediate_step_wakes = 0;
     state.frame = None;
     state.present_start = None;
     state.frame_end = None;
