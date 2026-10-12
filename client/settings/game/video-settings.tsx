@@ -347,8 +347,10 @@ export function GameVideoSettings() {
                 'settings.game.video.framePacing.description',
                 'Draws one frame per refresh of your display, each just before it is shown, ' +
                   'with your newest input. Gives the low input delay of a very high frame rate ' +
-                  'while drawing far fewer frames. Replaces the FPS limit. With vertical sync ' +
-                  'off, a frame showing a new game step appears right away and may tear.',
+                  'while drawing far fewer frames. With a G-SYNC or FreeSync display, pick ' +
+                  'variable refresh to stay just under its top refresh rate instead. Replaces ' +
+                  'the FPS limit. With vertical sync off, a frame showing a new game step ' +
+                  'appears right away and may tear.',
               )}
               position='right'>
               <InfoIcon>
