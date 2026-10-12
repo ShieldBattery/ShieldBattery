@@ -2,6 +2,7 @@ import { ReadonlyDeep } from 'type-fest'
 import { Announcer, ConsoleSkin, IngameSkin, SCR_GAMMA_DEFAULT } from './blizz-settings'
 import {
   FfaColorPreset,
+  FramePacing,
   GameWindowPlacement,
   LocalSettings,
   MinimapColorMode,
@@ -50,6 +51,7 @@ export const DEFAULT_LOCAL_SETTINGS: ReadonlyDeep<
   gameServerRegion: undefined,
   rollbackTarget: 2,
   emulateTurnRate24Delay: false,
+  framePacing: FramePacing.Off,
   launch32Bit: false,
   keepReplaysAlongsideGames: false,
   replayLibraryFolders: undefined,

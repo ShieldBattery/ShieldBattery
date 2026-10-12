@@ -12,13 +12,17 @@ import {
   SCR_GAMMA_MIN,
 } from '../../../common/settings/blizz-settings'
 import {
+  ALL_FRAME_PACING_MODES,
   ALL_GAME_WINDOW_PLACEMENTS,
+  FramePacing,
   GAME_WINDOW_PRESET_GROUPS,
   GameWindowPlacement,
   GameWindowSize,
+  getFramePacingLabel,
   getGameWindowPlacementLabel,
 } from '../../../common/settings/local-settings'
 import { FormHook, useForm, useFormCallbacks } from '../../forms/form-hook'
+import { MaterialIcon } from '../../icons/material/material-icon'
 import logger from '../../logging/logger'
 import { OutlinedButton } from '../../material/button'
 import { CheckBox } from '../../material/check-box'
@@ -26,6 +30,7 @@ import { Divider } from '../../material/menu/divider'
 import { SelectOption } from '../../material/select/option'
 import { Select } from '../../material/select/select'
 import { Slider } from '../../material/slider'
+import { Tooltip } from '../../material/tooltip'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { mergeLocalSettings, mergeScrSettings } from '../action-creators'
 import { FormContainer, SectionContainer } from '../settings-content'
@@ -35,6 +40,21 @@ const ipcRenderer = new TypedIpcRenderer()
 const ResetWindowPositionButton = styled(OutlinedButton)`
   align-self: flex-start;
   margin-bottom: 20px;
+`
+
+const FramePacingSetting = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  & > :first-child {
+    flex-grow: 1;
+  }
+`
+
+const InfoIcon = styled.span`
+  display: flex;
+  color: var(--theme-on-surface-variant);
 `
 
 const GAMMA_SLIDER_MIN = 0
@@ -84,6 +104,7 @@ interface GameVideoSettingsModel {
   monitorId: number | null
   gamma: number
   sdGraphicsFilter: number
+  framePacing: FramePacing
   fpsLimitOn: boolean
   fpsLimit: number
   vsyncOn: number
@@ -143,6 +164,7 @@ export function GameVideoSettings() {
     monitorId: localSettings.monitorId ?? null,
     gamma: gammaToSliderValue(scrSettings.gamma),
     sdGraphicsFilter: scrSettings.sdGraphicsFilter,
+    framePacing: localSettings.framePacing,
     fpsLimitOn: scrSettings.fpsLimitOn,
     fpsLimit: scrSettings.fpsLimit,
     vsyncOn: scrSettings.vsyncOn,
@@ -192,6 +214,7 @@ export function GameVideoSettings() {
             monitorId: model.monitorId === null ? undefined : model.monitorId,
             gameWinPlacement: model.windowPlacement,
             gameWinSetSize: model.windowSize,
+            framePacing: model.framePacing,
           },
           {
             onSuccess: () => {},
@@ -310,10 +333,34 @@ export function GameVideoSettings() {
           />
         </SectionContainer>
         <SectionContainer>
+          <FramePacingSetting>
+            <Select
+              {...bindCustom('framePacing')}
+              label={t('settings.game.video.framePacing.title', 'Frame pacing')}
+              tabIndex={0}>
+              {ALL_FRAME_PACING_MODES.map(mode => (
+                <SelectOption key={mode} value={mode} text={getFramePacingLabel(mode, t)} />
+              ))}
+            </Select>
+            <Tooltip
+              text={t(
+                'settings.game.video.framePacing.description',
+                'Draws one frame per refresh of your display, each just before it is shown, ' +
+                  'with your newest input. Gives the low input delay of a very high frame rate ' +
+                  'while drawing far fewer frames. Replaces the FPS limit. With vertical sync ' +
+                  'off, a frame showing a new game step appears right away and may tear.',
+              )}
+              position='right'>
+              <InfoIcon>
+                <MaterialIcon icon='info' size={18} />
+              </InfoIcon>
+            </Tooltip>
+          </FramePacingSetting>
           <CheckBox
             {...bindCheckable('fpsLimitOn')}
             label={t('settings.game.video.customFpsLimit', 'Custom FPS limit')}
             inputProps={{ tabIndex: 0 }}
+            disabled={getInputValue('framePacing') !== FramePacing.Off}
           />
           <Slider
             {...bindCustom('fpsLimit')}
@@ -322,7 +369,9 @@ export function GameVideoSettings() {
             min={100}
             max={1000}
             step={1}
-            disabled={!getInputValue('fpsLimitOn')}
+            disabled={
+              !getInputValue('fpsLimitOn') || getInputValue('framePacing') !== FramePacing.Off
+            }
           />
         </SectionContainer>
         <SectionContainer>

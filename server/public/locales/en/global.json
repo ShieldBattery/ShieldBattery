@@ -2985,6 +2985,13 @@
         "enableVerticalSync": "Enable vertical sync",
         "environmentEffects": "Environment effects",
         "fpsLimit": "FPS limit",
+        "framePacing": {
+          "description": "Draws one frame per refresh of your display, each just before it is shown, with your newest input. Gives the low input delay of a very high frame rate while drawing far fewer frames. Replaces the FPS limit. With vertical sync off, a frame showing a new game step appears right away and may tear.",
+          "display": "Match display refresh",
+          "off": "Off",
+          "title": "Frame pacing",
+          "variableRefresh": "Variable refresh (G-SYNC/FreeSync)"
+        },
         "hdGraphics": "HD graphics",
         "monitor": "Monitor",
         "monitorItem": "Monitor {{index}} - {{label}}",

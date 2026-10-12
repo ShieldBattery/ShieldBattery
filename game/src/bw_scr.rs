@@ -284,6 +284,9 @@ pub struct BwScr {
     update_game_screen_size: unsafe extern "C" fn(f32),
     move_unit: Thiscall<unsafe extern "C" fn(*mut bw::Unit, i32, i32)>,
     render_screen: unsafe extern "C" fn(*mut c_void, usize),
+    /// What the in-game loop calls instead of `render_screen` on an iteration it doesn't draw:
+    /// ends the renderer's frame without drawing or presenting it, and begins the next.
+    skip_render: Option<unsafe extern "C" fn()>,
     lookup_sound_id: unsafe extern "C" fn(*const scr::BwString) -> u32,
     play_sound: unsafe extern "C" fn(u32, f32, *mut c_void, *mut i32, *mut i32) -> u32,
     print_text: unsafe extern "C" fn(*const u8, u32, u32),
@@ -2364,6 +2367,7 @@ impl BwScr {
             .draw_graphic_layers()
             .ok_or("draw_graphic_layers")?;
         let render_screen = analysis.render_screen().ok_or("render_screen")?;
+        let skip_render = analysis.skip_render();
         let decide_cursor_type = analysis.decide_cursor_type().ok_or("decide_cursor_type")?;
         let load_ddsgrp_cursor = analysis.load_ddsgrp_cursor().ok_or("load_ddsgrp_cursor")?;
         let cursor_scale_factor = analysis
@@ -2582,6 +2586,7 @@ impl BwScr {
             get_ui_consoles: unsafe { mem::transmute(get_ui_consoles.0) },
             select_units: unsafe { mem::transmute(select_units.0) },
             render_screen: unsafe { mem::transmute(render_screen.0) },
+            skip_render: skip_render.map(|x| unsafe { mem::transmute(x.0) }),
             lookup_sound_id: unsafe { mem::transmute(lookup_sound_id.0) },
             play_sound: unsafe { mem::transmute(play_sound.0) },
             print_text: unsafe { mem::transmute(print_text_addr.0) },
@@ -3495,7 +3500,7 @@ impl BwScr {
             exe.hook_closure_address(
                 StepGameLogic,
                 move |a, o| {
-                    crate::frame_pacing::note_step(self.next_game_step_tick());
+                    let _pacing = crate::frame_pacing::step(self.next_game_step_tick());
                     let _timing = crate::frame_timing::step();
                     step_game_logic_hook(self, a, o)
                 },
@@ -3512,6 +3517,25 @@ impl BwScr {
                     address,
                 );
             }
+            let address = self.render_screen as usize - base;
+            exe.hook_closure_address(
+                RenderScreen,
+                move |callback, draw_ui, orig| {
+                    // Drawing is also what refreshes the vision state native sync (0x37) compares
+                    // between players, so a game that checks it draws every iteration.
+                    if let Some(skip_render) = self.skip_render
+                        && (game_thread::is_replay() || native_sync_disabled())
+                        && crate::frame_pacing::take_render_skip(
+                            !callback.is_null() && draw_ui == 1,
+                        )
+                    {
+                        skip_render();
+                    } else {
+                        orig(callback, draw_ui);
+                    }
+                },
+                address,
+            );
 
             {
                 let address = self.play_sound as usize - base;
@@ -3969,6 +3993,7 @@ impl BwScr {
             let renderer_vtable = self.prism_renderer_vtable.0 as *const scr::V_Renderer;
 
             let draw = (*renderer_vtable).draw;
+            let swap_buffers = (*renderer_vtable).swap_buffers;
             let create_shader = (*renderer_vtable).create_shader;
 
             let address = self.draw_graphic_layers.0 as usize - base;
@@ -4375,6 +4400,18 @@ impl BwScr {
                     if let Some(mut render_state) = self.render_state.lock() {
                         draw_inject::free_textures(&mut render_state.render);
                     }
+                    ret
+                },
+                relative,
+            );
+
+            let relative = swap_buffers - base;
+            exe.hook_closure_address(
+                Renderer_SwapBuffers,
+                move |renderer, orig| {
+                    crate::frame_pacing::presenting_frame();
+                    let ret = orig(renderer);
+                    crate::frame_pacing::frame_presented();
                     ret
                 },
                 relative,
@@ -9624,6 +9661,8 @@ mod hooks {
         !0 => InitUnitData();
         !0 => StepGame();
         !0 => StepGameLoop();
+        // The callback draws extra layers; the main loop's call passes 1 for the second argument.
+        !0 => RenderScreen(*mut c_void, usize);
         !0 => StepReplayCommands();
         // Takes the full replay file path; returns nonzero on success.
         !0 => SaveReplay(*const i8) -> u32;
@@ -9749,6 +9788,8 @@ mod hooks {
         !0 => StartUdpServer(*mut c_void) -> u32;
         !0 => StepIo(*mut c_void);
         !0 => Renderer_Render(*mut scr::Renderer, *mut scr::DrawCommands, u32, u32) -> u32;
+        // Ignores `this`; SC:R's Prism renderer keeps its swap chain in globals.
+        !0 => Renderer_SwapBuffers(*mut scr::Renderer) -> usize;
         !0 => Renderer_CreateShader(
             *mut scr::Renderer,
             *mut scr::Shader,

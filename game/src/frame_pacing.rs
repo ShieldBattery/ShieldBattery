@@ -1,17 +1,25 @@
-//! Paces BW's in-game loop to a frame rate while keeping its logic steps on time.
+//! Paces BW's in-game loop to the display while keeping its logic steps on time.
 //!
 //! Each iteration of the loop (`step_game_loop`) pumps window messages, which is where clicks and
 //! hotkeys become commands, runs a logic step if one is due, then draws and presents a frame. BW
 //! checks whether a step is due once per iteration, so a step runs at the first iteration after
 //! it comes due, and only input pumped before that iteration makes it into the turn the step
-//! sends. Iterating as fast as possible keeps both close to on time, at the cost of drawing far
-//! more frames than the display shows.
+//! sends. Iterating as fast as possible keeps both close to on time, and keeps the newest frame
+//! close to the display's next refresh, at the cost of drawing far more frames than are shown.
 //!
-//! Pacing waits at the top of each iteration, before the pump, until whichever comes first: the
-//! next slot on a grid of frames at the target rate, or the instant the next step comes due. A
-//! frame slot then has the newest input in it, and a step runs on time with all input up to that
-//! instant. A frame slot within [`MERGE`] of a step coming due is served by the step's iteration
-//! rather than one of its own.
+//! Pacing waits at the top of each iteration, before the pump, until whichever comes first:
+//!
+//! - the time to start the next frame. In [`Mode::Display`] that is the next vertical blank of the
+//!   display (see [`vblank`]) minus how long a frame takes to draw and present plus [`MARGIN`], so
+//!   the frame is presented with the newest input just before the display shows it. The other
+//!   modes keep frames on a fixed grid.
+//! - the instant the next step comes due, so it runs on time with all input up to that instant. A
+//!   step coming due within [`MERGE`] before a frame's time runs in the frame's iteration instead.
+//!
+//! An iteration woken for a step alone still draws and presents, so that what the step did shows
+//! right away (torn, without vertical sync), unless vertical sync is on: a present would then
+//! queue behind the frame timed for the refresh, so the iteration skips drawing
+//! (see [`skips_render`]).
 //!
 //! SC:R's own frame cap sleeps between drawing a frame and presenting it, which only makes what is
 //! presented older, so while pacing those sleeps are skipped (see [`skip_sleep`]).
@@ -19,7 +27,10 @@
 //! The statistics logged every [`STATS_INTERVAL`] (iteration rate, step lateness, and how often
 //! BW's screen scrolling runs) are gathered whether or not pacing is on, to compare against.
 
+mod vblank;
+
 use std::cell::Cell;
+use std::collections::VecDeque;
 use std::ptr::null_mut;
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
@@ -33,10 +44,20 @@ use winapi::um::winnt::{HANDLE, TIMER_ALL_ACCESS};
 
 use crate::bw_scr::BwScr;
 
-const ENV_VAR: &str = "SB_FRAME_PACE";
+use self::vblank::VblankClock;
 
-/// A frame slot this close to a step coming due is drawn by the step's iteration instead.
+const ENV_VAR: &str = "SB_FRAME_PACE";
+const MARGIN_ENV_VAR: &str = "SB_FRAME_PACE_MARGIN_US";
+
+/// A step coming due this long or less before a frame's time runs in the frame's iteration.
 const MERGE: Duration = Duration::from_micros(2000);
+
+/// How long before a vertical blank a frame aims to be presented, beyond the time its iteration
+/// has been taking: room for the GPU to finish drawing it, and for iterations that run long.
+const MARGIN: Duration = Duration::from_micros(1500);
+
+/// Frames whose iteration times decide how long the next one is expected to take.
+const WORK_SAMPLES: usize = 64;
 
 /// A step due further out than this is not a value the loop is pacing against (the game hasn't
 /// started stepping, or the tick is stale), so it doesn't schedule a wake.
@@ -56,34 +77,90 @@ const CREATE_WAITABLE_TIMER_HIGH_RESOLUTION: u32 = 0x2;
 const SCROLL_GATE_TICKS: i32 = 10;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-enum Target {
+pub enum Mode {
     Off,
-    /// Frames per second.
+    /// One frame per refresh of the display, presented just before its vertical blank.
+    Display,
+    /// A little under the display's refresh rate, on a fixed grid, for displays with variable
+    /// refresh rate, which refresh when a frame arrives.
+    VariableRefresh,
+    /// A fixed frame rate on a grid, for testing.
     Rate(f64),
-    /// The refresh rate of the monitor the game window is on.
-    DisplayRate,
 }
 
-static TARGET: Mutex<Target> = Mutex::new(Target::Off);
+impl Mode {
+    /// The mode a `framePacing` local setting names.
+    fn from_setting(value: &str) -> Option<Mode> {
+        match value {
+            "off" => Some(Mode::Off),
+            "display" => Some(Mode::Display),
+            "variableRefresh" => Some(Mode::VariableRefresh),
+            _ => None,
+        }
+    }
+}
 
-/// Reads [`ENV_VAR`]: a frame rate, or `auto` for the display's refresh rate. Called once while the
-/// DLL initializes.
+struct Config {
+    mode: Mode,
+    vsync: bool,
+}
+
+static CONFIG: Mutex<Config> = Mutex::new(Config {
+    mode: Mode::Off,
+    vsync: false,
+});
+
+/// The mode [`ENV_VAR`] asks for, overriding the settings.
+static ENV_MODE: Mutex<Option<Mode>> = Mutex::new(None);
+static MARGIN_OVERRIDE: Mutex<Option<Duration>> = Mutex::new(None);
+
+/// Reads [`ENV_VAR`] (`off`, `display`, `vrr`, or a frame rate) and [`MARGIN_ENV_VAR`]. Called once
+/// while the DLL initializes.
 pub fn init_from_env() {
-    let Ok(spec) = std::env::var(ENV_VAR) else {
-        return;
-    };
-    let target = match spec.trim() {
-        "auto" => Target::DisplayRate,
-        rate => match rate.parse::<f64>() {
-            Ok(rate) if rate >= 10.0 => Target::Rate(rate),
-            _ => {
-                error!("{ENV_VAR}={spec:?} is neither a frame rate of 10 or more nor `auto`");
-                return;
+    if let Ok(spec) = std::env::var(ENV_VAR) {
+        let mode = match spec.trim() {
+            "off" => Some(Mode::Off),
+            "display" | "auto" => Some(Mode::Display),
+            "vrr" => Some(Mode::VariableRefresh),
+            rate => match rate.parse::<f64>() {
+                Ok(rate) if rate >= 10.0 => Some(Mode::Rate(rate)),
+                _ => None,
+            },
+        };
+        match mode {
+            Some(mode) => {
+                info!("Frame pacing: {ENV_VAR} sets {mode:?}");
+                *ENV_MODE.lock() = Some(mode);
             }
-        },
-    };
-    info!("Frame pacing: {target:?}");
-    *TARGET.lock() = target;
+            None => error!(
+                "{ENV_VAR}={spec:?} is none of `off`, `display`, `vrr` or a frame rate of 10 or more"
+            ),
+        }
+    }
+    if let Ok(spec) = std::env::var(MARGIN_ENV_VAR) {
+        match spec.trim().parse::<u64>() {
+            Ok(us) => *MARGIN_OVERRIDE.lock() = Some(Duration::from_micros(us)),
+            Err(_) => error!("{MARGIN_ENV_VAR}={spec:?} is not a number of microseconds"),
+        }
+    }
+}
+
+/// Sets the pacing for the next game from its settings: the `framePacing` local setting, and
+/// whether SC:R's vertical sync is on.
+pub fn configure(setting: Option<&str>, vsync: bool) {
+    let mode = ENV_MODE.lock().unwrap_or_else(|| {
+        setting.and_then(Mode::from_setting).unwrap_or_else(|| {
+            if let Some(setting) = setting {
+                warn!("Frame pacing: unknown setting {setting:?}");
+            }
+            Mode::Off
+        })
+    });
+    info!(
+        "Frame pacing: {mode:?}, vertical sync {}",
+        if vsync { "on" } else { "off" }
+    );
+    *CONFIG.lock() = Config { mode, vsync };
 }
 
 /// The clock our `GetTickCount` hook serves BW: milliseconds since the hook was installed, offset
@@ -124,23 +201,58 @@ fn instant_of_tick(tick: u32) -> Option<Instant> {
         .checked_add(Duration::from_millis(u64::from(millis)))
 }
 
+/// The vertical blank clock of the game window's display, started the first time a game paces to
+/// it. The game window lives as long as the process.
+static VBLANK: OnceLock<VblankClock> = OnceLock::new();
+
 /// What a wait at the top of an iteration was for.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum Wake {
     Frame,
     Step,
-    /// A step coming due within [`MERGE`] of a frame slot.
+    /// A step coming due shortly before a frame's time.
     Merged,
 }
 
+/// How a game is paced, resolved at its first iteration.
+struct Plan {
+    /// Time between frames on the grid, and between refreshes before the vertical blank clock has
+    /// measured them.
+    period: Duration,
+    /// Whether frames are timed to the display's vertical blanks.
+    synced: bool,
+    /// Whether an iteration woken for a step alone skips drawing.
+    skip_step_renders: bool,
+}
+
+/// The frame the iteration in progress draws, timed from its wake to when it's presented.
+#[derive(Clone, Copy)]
+struct FrameInProgress {
+    woke: Instant,
+    /// The vertical blank it was timed for.
+    vblank: Option<Instant>,
+    /// Whether the iteration ran a logic step.
+    ran_step: bool,
+}
+
 struct State {
-    /// The resolved target frame time for this game, once the first iteration resolved it. `None`
-    /// inside means pacing is off for this game.
-    period: Option<Option<Duration>>,
+    /// The plan for this game, once its first iteration resolved it. `None` inside means it's
+    /// unpaced.
+    plan: Option<Option<Plan>>,
     /// The next slot on the frame grid.
     next_frame: Option<Instant>,
+    /// The vertical blank the last frame was timed for.
+    last_vblank: Option<Instant>,
     /// When the previous iteration started, after its wait.
     last_iteration: Option<Instant>,
+    frame: Option<FrameInProgress>,
+    /// When SC:R started presenting the frame in progress.
+    present_start: Option<Instant>,
+    /// When SC:R finished presenting the frame in progress.
+    frame_end: Option<Instant>,
+    /// How long recent frames took from their wake to being presented, in microseconds: those
+    /// that didn't run a logic step, and those that did.
+    work_us: [VecDeque<u32>; 2],
     stats: Stats,
 }
 
@@ -150,6 +262,20 @@ struct Stats {
     frame_wakes: u32,
     step_wakes: u32,
     merged_wakes: u32,
+    /// Frames timed to a vertical blank, and of those, ones presented after it.
+    synced_frames: u32,
+    late_frames: u32,
+    /// Of the late frames, ones whose iteration ran a logic step.
+    late_step_frames: u32,
+    /// Of the late frames, the time from their wake to being presented, and the part of it spent
+    /// presenting.
+    late_work_us_total: u64,
+    late_present_us_total: u64,
+    present_us_max: u32,
+    /// How long before their vertical blank synced frames were presented, in microseconds.
+    slack_us: Vec<i32>,
+    lead_us_total: u64,
+    skipped_renders: u32,
     /// How late each step ran after coming due, in microseconds.
     step_late_us: Vec<u32>,
     /// Wakes that had to sleep.
@@ -173,6 +299,15 @@ impl Stats {
             frame_wakes: 0,
             step_wakes: 0,
             merged_wakes: 0,
+            synced_frames: 0,
+            late_frames: 0,
+            late_step_frames: 0,
+            late_work_us_total: 0,
+            late_present_us_total: 0,
+            present_us_max: 0,
+            slack_us: Vec::new(),
+            lead_us_total: 0,
+            skipped_renders: 0,
             step_late_us: Vec::new(),
             slept: 0,
             oversleep_us_total: 0,
@@ -188,9 +323,14 @@ impl Stats {
 }
 
 static STATE: Mutex<State> = Mutex::new(State {
-    period: None,
+    plan: None,
     next_frame: None,
+    last_vblank: None,
     last_iteration: None,
+    frame: None,
+    present_start: None,
+    frame_end: None,
+    work_us: [VecDeque::new(), VecDeque::new()],
     stats: Stats::new(),
 });
 
@@ -202,16 +342,26 @@ thread_local! {
     /// Set between BW queuing a frame's draws and handing them to the renderer, where the only
     /// sleep is SC:R's frame cap, while pacing has the iteration in hand.
     static IN_CAP_WINDOW: Cell<bool> = const { Cell::new(false) };
+    /// Set for an iteration that skips drawing, until its draw is skipped.
+    static SKIP_RENDER: Cell<bool> = const { Cell::new(false) };
+    /// Set while a logic step runs.
+    static IN_STEP_LOGIC: Cell<bool> = const { Cell::new(false) };
     static WAIT_TIMER: Cell<Option<usize>> = const { Cell::new(None) };
 }
 
 /// Ends an iteration of the in-game loop when dropped.
-pub struct Iteration(());
+pub struct Iteration {
+    outermost: bool,
+}
 
 impl Drop for Iteration {
     fn drop(&mut self) {
         LOOP_DEPTH.set(LOOP_DEPTH.get().saturating_sub(1));
         IN_CAP_WINDOW.set(false);
+        if self.outermost {
+            SKIP_RENDER.set(false);
+            finish_frame();
+        }
     }
 }
 
@@ -224,13 +374,17 @@ pub unsafe fn iteration(bw: &BwScr) -> Iteration {
     if depth == 0 {
         unsafe { pace(bw) };
     }
-    Iteration(())
+    Iteration {
+        outermost: depth == 0,
+    }
 }
 
 unsafe fn pace(bw: &BwScr) {
     let now = Instant::now();
     let mut state = STATE.lock();
-    let period = *state.period.get_or_insert_with(resolve_period);
+    if state.plan.is_none() {
+        state.plan = Some(resolve_plan());
+    }
     // A step that came due after the previous iteration started may have come due after that
     // iteration checked for one, so it runs as soon as possible. One already due before then that
     // still hasn't run is held back (the game is paused, or waiting on the network) and doesn't
@@ -242,25 +396,78 @@ unsafe fn pace(bw: &BwScr) {
             true => due - now <= MAX_STEP_LOOKAHEAD,
             false => last_iteration.is_some_and(|last| due > last),
         });
-    if let Some(period) = period {
-        // Behind by more than a frame (a slow frame, or the first iteration): restart the grid
-        // rather than run the missed slots back to back.
-        let frame_at = match state.next_frame {
-            Some(slot) if slot + period >= now => slot,
-            _ => now,
+    let paced = state
+        .plan
+        .as_ref()
+        .and_then(|plan| plan.as_ref())
+        .map(|plan| (plan.period, plan.synced, plan.skip_step_renders));
+    if let Some((period, synced, skip_step_renders)) = paced {
+        let fit = synced
+            .then(|| VBLANK.get().and_then(|clock| clock.fit(now)))
+            .flatten();
+        // The latest a step can come due and still run in the frame's iteration.
+        let mut merge_until = None;
+        let (frame_at, vblank) = match fit {
+            Some(fit) => {
+                let lead = state.lead(false);
+                // One frame per refresh: never time two for the same vertical blank.
+                let earliest = match state.last_vblank {
+                    Some(last) => (now + lead).max(last + fit.period / 2),
+                    None => now + lead,
+                };
+                let vblank = fit.next_after(earliest);
+                let frame_at = vblank - lead;
+                // A frame that runs a step takes longer, so it starts earlier for the same blank.
+                let step_lead = state.lead(true).max(lead);
+                let (frame_at, lead) = match step_due {
+                    Some(step) if step <= frame_at && step + MERGE >= vblank - step_lead => {
+                        merge_until = Some(frame_at);
+                        (vblank.checked_sub(step_lead).unwrap_or(now), step_lead)
+                    }
+                    _ => (frame_at, lead),
+                };
+                state.stats.lead_us_total += u64::from(micros(lead));
+                (frame_at, Some(vblank))
+            }
+            None => {
+                // Behind by more than a frame (a slow frame, or the first iteration): restart the
+                // grid rather than run the missed slots back to back.
+                let slot = match state.next_frame {
+                    Some(slot) if slot + period >= now => slot,
+                    _ => now,
+                };
+                (slot, None)
+            }
         };
-        let (wake_at, wake) = match step_due {
-            Some(step) if step + MERGE < frame_at => (step, Wake::Step),
-            Some(step) if step <= frame_at + MERGE => (step, Wake::Merged),
-            _ => (frame_at, Wake::Frame),
+        let merge_until = merge_until.unwrap_or(frame_at);
+        let wake = match step_due {
+            Some(step) if step + MERGE < frame_at => Wake::Step,
+            Some(step) if step <= merge_until => Wake::Merged,
+            _ => Wake::Frame,
+        };
+        let wake_at = match wake {
+            Wake::Step | Wake::Merged => step_due.unwrap_or(frame_at),
+            Wake::Frame => frame_at,
         };
         if wake != Wake::Step {
             state.next_frame = Some(frame_at + period);
+            if vblank.is_some() {
+                state.last_vblank = vblank;
+            }
         }
         drop(state);
         let timer_late = wait_until(wake_at);
         let woke = Instant::now();
         state = STATE.lock();
+        let skip_render = wake == Wake::Step && skip_step_renders;
+        SKIP_RENDER.set(skip_render);
+        state.present_start = None;
+        state.frame_end = None;
+        state.frame = (!skip_render).then_some(FrameInProgress {
+            woke,
+            vblank: (wake != Wake::Step).then_some(vblank).flatten(),
+            ran_step: false,
+        });
         let stats = &mut state.stats;
         match wake {
             Wake::Frame => stats.frame_wakes += 1,
@@ -291,7 +498,10 @@ unsafe fn pace(bw: &BwScr) {
         stats.last_scroll_tick = Some(tick);
     }
     if now - started >= STATS_INTERVAL {
-        log_stats(stats, period, now - started);
+        let state = &mut *state;
+        let paced = state.plan.as_ref().and_then(|plan| plan.as_ref());
+        log_stats(&mut state.stats, paced, now - started);
+        let stats = &mut state.stats;
         let last_scroll_tick = stats.last_scroll_tick;
         *stats = Stats::new();
         stats.started = Some(now);
@@ -299,23 +509,119 @@ unsafe fn pace(bw: &BwScr) {
     }
 }
 
-/// The frame time to pace this game to, or `None` to leave it unpaced.
-fn resolve_period() -> Option<Duration> {
-    let rate = match *TARGET.lock() {
-        Target::Off => return None,
-        Target::Rate(rate) => rate,
-        Target::DisplayRate => match display_refresh_rate() {
-            Some(rate) => {
-                info!("Frame pacing: display refreshes at {rate} Hz");
-                f64::from(rate)
-            }
-            None => {
-                warn!("Frame pacing: couldn't find the display's refresh rate, not pacing");
-                return None;
-            }
-        },
+impl State {
+    /// How long before a vertical blank the next frame's iteration should start, `with_step` if
+    /// it will run a logic step.
+    fn lead(&self, with_step: bool) -> Duration {
+        let margin = MARGIN_OVERRIDE.lock().unwrap_or(MARGIN);
+        let samples = match &self.work_us {
+            [plain, stepped] if with_step && !stepped.is_empty() => stepped,
+            [plain, _] => plain,
+        };
+        if samples.is_empty() {
+            return margin + Duration::from_millis(2);
+        }
+        let mut work: Vec<u32> = samples.iter().copied().collect();
+        work.sort_unstable();
+        let p90 = work[(work.len() - 1) * 9 / 10];
+        Duration::from_micros(u64::from(p90)) + margin
+    }
+}
+
+/// Records how long the frame the iteration drew took, once it ends.
+fn finish_frame() {
+    let mut state = STATE.lock();
+    let present_start = state.present_start.take();
+    let (Some(frame), Some(end)) = (state.frame.take(), state.frame_end.take()) else {
+        return;
     };
-    Some(Duration::from_secs_f64(1.0 / rate))
+    let presenting = present_start.map_or(0, |start| micros(end.saturating_duration_since(start)));
+    let samples = &mut state.work_us[usize::from(frame.ran_step)];
+    if samples.len() == WORK_SAMPLES {
+        samples.pop_front();
+    }
+    samples.push_back(micros(end - frame.woke));
+    if let Some(vblank) = frame.vblank {
+        let slack = match vblank.checked_duration_since(end) {
+            Some(early) => i32::try_from(early.as_micros()).unwrap_or(i32::MAX),
+            None => -i32::try_from((end - vblank).as_micros()).unwrap_or(i32::MAX),
+        };
+        let stats = &mut state.stats;
+        stats.synced_frames += 1;
+        stats.present_us_max = stats.present_us_max.max(presenting);
+        if slack < 0 {
+            stats.late_frames += 1;
+            stats.late_present_us_total += u64::from(presenting);
+            stats.late_work_us_total += u64::from(micros(end - frame.woke));
+            if frame.ran_step {
+                stats.late_step_frames += 1;
+            }
+        }
+        if stats.slack_us.len() < 8192 {
+            stats.slack_us.push(slack);
+        }
+    }
+}
+
+/// The renderer is taking a frame's draw commands, so SC:R's frame cap is behind it.
+pub fn render_started() {
+    IN_CAP_WINDOW.set(false);
+}
+
+/// SC:R is presenting a frame.
+pub fn presenting_frame() {
+    if LOOP_DEPTH.get() == 1 {
+        STATE.lock().present_start = Some(Instant::now());
+    }
+}
+
+/// SC:R presented a frame.
+pub fn frame_presented() {
+    if LOOP_DEPTH.get() == 1 {
+        STATE.lock().frame_end = Some(Instant::now());
+    }
+}
+
+/// How this game is paced, or `None` to leave it unpaced.
+fn resolve_plan() -> Option<Plan> {
+    let config = CONFIG.lock();
+    let (mode, vsync) = (config.mode, config.vsync);
+    drop(config);
+    let display_rate = || {
+        let rate = display_refresh_rate();
+        if rate.is_none() {
+            warn!("Frame pacing: couldn't find the display's refresh rate, pacing to 60 Hz");
+        }
+        f64::from(rate.unwrap_or(60))
+    };
+    let (rate, synced) = match mode {
+        Mode::Off => return None,
+        Mode::Display => (display_rate(), true),
+        // Pacing right at a variable refresh display's top rate has it fall back to fixed
+        // refreshes whenever a frame comes early, so stay a little under it.
+        Mode::VariableRefresh => {
+            let rate = display_rate();
+            ((rate - 3.0).min(rate * 0.97), false)
+        }
+        Mode::Rate(rate) => (rate, false),
+    };
+    let period = Duration::from_secs_f64(1.0 / rate);
+    if synced && let Some(window) = crate::forge::game_window_handle() {
+        VBLANK.get_or_init(|| VblankClock::start(window, period));
+    }
+    info!(
+        "Frame pacing: {mode:?} at {rate:.2} fps{}",
+        if vsync {
+            ", step-only iterations skip drawing"
+        } else {
+            ""
+        }
+    );
+    Some(Plan {
+        period,
+        synced,
+        skip_step_renders: vsync,
+    })
 }
 
 /// The refresh rate of the monitor the game window is on, in whole Hz.
@@ -417,13 +723,22 @@ pub fn draw() -> Draw {
     Draw(())
 }
 
-/// The renderer is taking a frame's draw commands, so SC:R's frame cap is behind it.
-pub fn render_started() {
-    IN_CAP_WINDOW.set(false);
+fn is_pacing() -> bool {
+    matches!(STATE.lock().plan, Some(Some(_)))
 }
 
-fn is_pacing() -> bool {
-    matches!(STATE.lock().period, Some(Some(_)))
+/// Whether the in-game loop's own draw, which `main_loop_draw` says this `render_screen` call
+/// looks like, should be skipped this iteration: a step having woken it while what it would present
+/// has to wait for the frame timed for the display's refresh. Only the first such draw outside the
+/// logic step is skipped; the loops that keep the game drawing while it waits on the network run
+/// inside the step, and modal dialogs draw without the in-game layers.
+pub fn take_render_skip(main_loop_draw: bool) -> bool {
+    if !main_loop_draw || LOOP_DEPTH.get() != 1 || IN_STEP_LOGIC.get() || !SKIP_RENDER.get() {
+        return false;
+    }
+    SKIP_RENDER.set(false);
+    STATE.lock().stats.skipped_renders += 1;
+    true
 }
 
 /// Whether a `Sleep` for `millis` is SC:R's frame cap holding back a paced frame, which the caller
@@ -438,48 +753,108 @@ pub fn skip_sleep(millis: u32) -> bool {
     true
 }
 
-/// Notes a logic step starting, scheduled for `due_tick`.
-pub fn note_step(due_tick: Option<u32>) {
-    let Some(due) = due_tick.and_then(instant_of_tick) else {
-        return;
-    };
-    let late = micros(Instant::now().saturating_duration_since(due));
-    let mut state = STATE.lock();
-    if state.stats.step_late_us.len() < 4096 {
-        state.stats.step_late_us.push(late);
+/// Ends a logic step when dropped.
+pub struct Step {
+    was_in_step: bool,
+}
+
+impl Drop for Step {
+    fn drop(&mut self) {
+        IN_STEP_LOGIC.set(self.was_in_step);
     }
 }
 
-fn log_stats(stats: &mut Stats, period: Option<Duration>, elapsed: Duration) {
+/// Starts a logic step scheduled for `due_tick`. Hold the returned value until it returns.
+pub fn step(due_tick: Option<u32>) -> Step {
+    let step = Step {
+        was_in_step: IN_STEP_LOGIC.replace(true),
+    };
+    if LOOP_DEPTH.get() == 1
+        && let Some(frame) = STATE.lock().frame.as_mut()
+    {
+        frame.ran_step = true;
+    }
+    if let Some(due) = due_tick.and_then(instant_of_tick) {
+        let late = micros(Instant::now().saturating_duration_since(due));
+        let mut state = STATE.lock();
+        if state.stats.step_late_us.len() < 4096 {
+            state.stats.step_late_us.push(late);
+        }
+    }
+    step
+}
+
+fn log_stats(stats: &mut Stats, plan: Option<&Plan>, elapsed: Duration) {
     let secs = elapsed.as_secs_f64();
     let per_sec = |count: u32| f64::from(count) / secs;
-    let ms = |us: u64| us as f64 / 1000.0;
-    let late = &mut stats.step_late_us;
-    late.sort_unstable();
-    let quantile = |q: f64| {
-        late.get(((late.len().saturating_sub(1)) as f64 * q).round() as usize)
-            .map_or(0.0, |&us| ms(u64::from(us)))
+    let ms = |us: f64| us / 1000.0;
+    let quantile = |values: &[u32], q: f64| {
+        values
+            .get(((values.len().saturating_sub(1)) as f64 * q).round() as usize)
+            .map_or(0.0, |&us| ms(f64::from(us)))
     };
+    stats.step_late_us.sort_unstable();
+    let late = &stats.step_late_us;
     let steps = format!(
         "{} steps late p50 {:.2} ms p90 {:.2} ms max {:.2} ms",
         late.len(),
-        quantile(0.5),
-        quantile(0.9),
-        quantile(1.0),
+        quantile(late, 0.5),
+        quantile(late, 0.9),
+        quantile(late, 1.0),
     );
-    let pacing = match period {
+    let pacing = match plan {
         None => "unpaced".to_owned(),
-        Some(period) => {
+        Some(plan) => {
+            let synced = match plan.synced {
+                false => String::new(),
+                true => {
+                    stats.slack_us.sort_unstable();
+                    let slack = &stats.slack_us;
+                    let at = |q: f64| {
+                        slack
+                            .get(((slack.len().saturating_sub(1)) as f64 * q).round() as usize)
+                            .map_or(0.0, |&us| ms(f64::from(us)))
+                    };
+                    let frames = stats.frame_wakes + stats.merged_wakes;
+                    format!(
+                        "; {} of {} frames timed to a refresh (period {}), lead avg {:.2} ms, \
+                         presented before the refresh p10 {:.2} ms p50 {:.2} ms min {:.2} ms, \
+                         {} after it ({} running a step, taking avg {:.2} ms of which {:.2} ms \
+                         presenting), presenting max {:.2} ms",
+                        stats.synced_frames,
+                        frames,
+                        VBLANK
+                            .get()
+                            .and_then(|clock| clock.fit(Instant::now()))
+                            .map_or("unmeasured".to_owned(), |fit| format!(
+                                "{:.4} ms",
+                                fit.period.as_secs_f64() * 1000.0
+                            )),
+                        ms(stats.lead_us_total as f64) / f64::from(frames.max(1)),
+                        at(0.1),
+                        at(0.5),
+                        at(0.0),
+                        stats.late_frames,
+                        stats.late_step_frames,
+                        ms(stats.late_work_us_total as f64) / f64::from(stats.late_frames.max(1)),
+                        ms(stats.late_present_us_total as f64)
+                            / f64::from(stats.late_frames.max(1)),
+                        ms(f64::from(stats.present_us_max)),
+                    )
+                }
+            };
             format!(
-                "paced at {:.1} fps: {} frame / {} step / {} merged wakes, oversleep avg {:.3} ms \
-                 max {:.3} ms (timer {:.3} ms), waiting {:.0}% of the time, {} cap sleeps skipped                  ({} ms)",
-                1.0 / period.as_secs_f64(),
+                "paced at {:.1} fps: {} frame / {} step / {} merged wakes, {} renders skipped, \
+                 oversleep avg {:.3} ms max {:.3} ms (timer {:.3} ms), waiting {:.0}% of the \
+                 time, {} cap sleeps skipped ({} ms){synced}",
+                1.0 / plan.period.as_secs_f64(),
                 stats.frame_wakes,
                 stats.step_wakes,
                 stats.merged_wakes,
-                ms(stats.oversleep_us_total) / f64::from(stats.slept.max(1)),
-                ms(u64::from(stats.oversleep_us_max)),
-                ms(u64::from(stats.timer_late_us_max)),
+                stats.skipped_renders,
+                ms(stats.oversleep_us_total as f64) / f64::from(stats.slept.max(1)),
+                ms(f64::from(stats.oversleep_us_max)),
+                ms(f64::from(stats.timer_late_us_max)),
                 stats.waited_us_total as f64 / elapsed.as_micros() as f64 * 100.0,
                 stats.skipped_sleeps,
                 stats.skipped_sleep_ms,
@@ -497,11 +872,16 @@ fn micros(duration: Duration) -> u32 {
     u32::try_from(duration.as_micros()).unwrap_or(u32::MAX)
 }
 
-/// Forgets the previous game's pacing, so the next one resolves its target again.
+/// Forgets the previous game's pacing, so the next one resolves its plan again.
 pub fn reset() {
     let mut state = STATE.lock();
-    state.period = None;
+    state.plan = None;
     state.next_frame = None;
+    state.last_vblank = None;
     state.last_iteration = None;
+    state.frame = None;
+    state.present_start = None;
+    state.frame_end = None;
+    state.work_us = Default::default();
     state.stats = Stats::new();
 }
