@@ -606,13 +606,26 @@ unsafe extern "C" fn console_dialog_event_handler(
 ) -> u32 {
     unsafe {
         let bw = get_bw();
-        if bw.console_dialog_hidden(Control::new(ctrl).string())
+        let control = Control::new(ctrl);
+        let name = control.string();
+        if bw.console_dialog_hidden(name)
             && !allow_event_on_hidden_dialog(event)
+            && !(name == MENU_BUTTON_DIALOG && !is_pointer_event(event))
         {
             return 0;
         }
         orig(ctrl, event)
     }
+}
+
+/// The console's menu button, which also carries the keys that open the game menu (`F10`,
+/// `Alt+M`). Hidden with the rest of the console, it still has to answer them, or a watcher with the
+/// console hidden could not open the menu at all; only the pointer is kept from it.
+const MENU_BUTTON_DIALOG: &str = "Stat_F10";
+
+/// Whether a dialog event comes from the mouse: a move, a button, or the wheel.
+unsafe fn is_pointer_event(event: *mut bw::ControlEvent) -> bool {
+    unsafe { matches!((*event).ty, 0x3..=0xc | 0x11 | 0x12) }
 }
 
 unsafe extern "C" fn prevent_button_hide(
