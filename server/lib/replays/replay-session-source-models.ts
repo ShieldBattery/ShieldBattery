@@ -66,21 +66,56 @@ export async function createReplaySessionUpload(
   }
 }
 
-/** Returns an upload only while its owner can still use it to create a replay session. */
-export async function getReplaySessionUploadForOwner(
+/**
+ * Resolves an owner's unexpired upload and pushes its expiry out to at least `expiresAt` in the
+ * same statement. Cleanup only claims rows that have already expired, so an upload this returns
+ * can't be deleted out from under the session that retained it until `expiresAt` passes.
+ */
+export async function retainReplaySessionUploadForOwner(
   id: string,
   ownerUserId: SbUserId,
   now: Date,
+  expiresAt: Date,
   withClient?: DbClient,
 ): Promise<ReplaySessionUpload | undefined> {
   const { client, done } = await db(withClient)
   try {
     const result = await client.query<DbReplaySessionUpload>(sql`
-      SELECT *
-      FROM replay_session_uploads
+      UPDATE replay_session_uploads
+      SET expires_at = GREATEST(expires_at, ${expiresAt})
       WHERE id = ${id} AND owner_user_id = ${ownerUserId} AND expires_at > ${now}
+      RETURNING *
     `)
     return result.rows[0] ? fromDb(result.rows[0]) : undefined
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Pushes the expiry of every listed, still-unexpired upload out to at least `expiresAt`, returning
+ * the ids that were retained. An id missing from the result had already expired, and its object
+ * may already be gone.
+ */
+export async function retainReplaySessionUploads(
+  ids: ReadonlyArray<string>,
+  now: Date,
+  expiresAt: Date,
+  withClient?: DbClient,
+): Promise<string[]> {
+  if (ids.length === 0) {
+    return []
+  }
+
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<{ id: string }>(sql`
+      UPDATE replay_session_uploads
+      SET expires_at = GREATEST(expires_at, ${expiresAt})
+      WHERE id = ANY(${ids}) AND expires_at > ${now}
+      RETURNING id
+    `)
+    return result.rows.map(row => row.id)
   } finally {
     done()
   }

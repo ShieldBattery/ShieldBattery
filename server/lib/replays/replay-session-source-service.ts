@@ -1,3 +1,4 @@
+import type { ReplayHeader } from '@shieldbattery/broodrep'
 import { createHash, randomUUID } from 'crypto'
 import { createReadStream } from 'fs'
 import { stat } from 'fs/promises'
@@ -17,9 +18,10 @@ import {
   createReplaySessionUpload,
   deleteClaimedReplaySessionUploads,
   deleteReplaySessionUpload,
-  getReplaySessionUploadForOwner,
   releaseReplaySessionUploadClaims,
   ReplaySessionUpload,
+  retainReplaySessionUploadForOwner,
+  retainReplaySessionUploads,
 } from './replay-session-source-models'
 
 const SOURCE_LIFETIME_MS = 24 * 60 * 60 * 1000
@@ -55,11 +57,12 @@ async function deleteStoredUpload(sourceId: string): Promise<void> {
   }
 }
 
-function toMetadata(upload: ReplaySessionUpload): ReplaySessionSourceMetadata {
+/** Returns the display metadata a replay session shows for a replay with this header. */
+export function replaySessionSourceMetadata(header: ReplayHeader): ReplaySessionSourceMetadata {
   return {
-    mapName: upload.header.mapName,
-    gameType: String(upload.header.gameType),
-    durationFrames: upload.header.frames,
+    mapName: header.mapName,
+    gameType: String(header.gameType),
+    durationFrames: header.frames,
   }
 }
 
@@ -68,7 +71,7 @@ function toResponse(upload: ReplaySessionUpload): StageReplaySessionSourceRespon
     sourceId: upload.id,
     hash: upload.hash.toString('hex'),
     size: upload.size,
-    metadata: toMetadata(upload),
+    metadata: replaySessionSourceMetadata(upload.header),
   }
 }
 
@@ -142,17 +145,41 @@ export class ReplaySessionSourceService {
     return toResponse(source)
   }
 
-  /** Resolves a source only when it is still valid and belongs to the requesting user. */
-  async getSourceForOwner(
+  /**
+   * Resolves a source only when it is still valid and belongs to the requesting user, keeping it
+   * alive for at least another full source lifetime.
+   */
+  async retainSourceForOwner(
     sourceId: string,
     ownerUserId: SbUserId,
   ): Promise<ReplaySessionUpload | undefined> {
-    return await getReplaySessionUploadForOwner(sourceId, ownerUserId, new Date(this.clock.now()))
+    const now = this.clock.now()
+    return await retainReplaySessionUploadForOwner(
+      sourceId,
+      ownerUserId,
+      new Date(now),
+      new Date(now + SOURCE_LIFETIME_MS),
+    )
   }
 
   /**
-   * Claims expired source rows before deleting their private objects. A future replay-session
-   * service must extend `expiresAt` while a room still references a source.
+   * Keeps every listed, still-valid source alive for at least another full source lifetime and
+   * returns the ids that were retained. A source missing from the result has expired, and its
+   * stored file may already be gone.
+   */
+  async retainSources(sourceIds: ReadonlyArray<string>): Promise<Set<string>> {
+    const now = this.clock.now()
+    const retained = await retainReplaySessionUploads(
+      sourceIds,
+      new Date(now),
+      new Date(now + SOURCE_LIFETIME_MS),
+    )
+    return new Set(retained)
+  }
+
+  /**
+   * Claims expired source rows before deleting their private objects. Sources in use by a replay
+   * session are kept from expiring through `retainSources`.
    */
   async removeExpiredSources(): Promise<void> {
     const now = new Date(this.clock.now())

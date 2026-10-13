@@ -13,9 +13,10 @@ import {
   createReplaySessionUpload,
   deleteClaimedReplaySessionUploads,
   deleteReplaySessionUpload,
-  getReplaySessionUploadForOwner,
   releaseReplaySessionUploadClaims,
   ReplaySessionUpload,
+  retainReplaySessionUploadForOwner,
+  retainReplaySessionUploads,
 } from './replay-session-source-models'
 import {
   ReplaySessionSourceErrorCode,
@@ -35,8 +36,9 @@ vi.mock('./replay-session-source-models', () => ({
   claimExpiredReplaySessionUploads: vi.fn(),
   deleteClaimedReplaySessionUploads: vi.fn(),
   deleteReplaySessionUpload: vi.fn(),
-  getReplaySessionUploadForOwner: vi.fn(),
   releaseReplaySessionUploadClaims: vi.fn(),
+  retainReplaySessionUploadForOwner: vi.fn(),
+  retainReplaySessionUploads: vi.fn(),
 }))
 
 const OWNER = makeSbUserId(1)
@@ -158,19 +160,38 @@ describe('ReplaySessionSourceService', () => {
   })
 
   test('does not resolve expired sources or sources owned by a different user', async () => {
-    asMockedFunction(getReplaySessionUploadForOwner).mockResolvedValue(undefined)
+    asMockedFunction(retainReplaySessionUploadForOwner).mockResolvedValue(undefined)
 
-    await expect(service.getSourceForOwner('expired-source', OWNER)).resolves.toBeUndefined()
+    await expect(service.retainSourceForOwner('expired-source', OWNER)).resolves.toBeUndefined()
     await expect(
-      service.getSourceForOwner('other-users-source', OTHER_USER),
+      service.retainSourceForOwner('other-users-source', OTHER_USER),
     ).resolves.toBeUndefined()
 
-    expect(getReplaySessionUploadForOwner).toHaveBeenNthCalledWith(1, 'expired-source', OWNER, NOW)
-    expect(getReplaySessionUploadForOwner).toHaveBeenNthCalledWith(
+    expect(retainReplaySessionUploadForOwner).toHaveBeenNthCalledWith(
+      1,
+      'expired-source',
+      OWNER,
+      NOW,
+      new Date(NOW.getTime() + 24 * 60 * 60 * 1000),
+    )
+    expect(retainReplaySessionUploadForOwner).toHaveBeenNthCalledWith(
       2,
       'other-users-source',
       OTHER_USER,
       NOW,
+      new Date(NOW.getTime() + 24 * 60 * 60 * 1000),
+    )
+  })
+
+  test('retains in-use sources for another full lifetime', async () => {
+    asMockedFunction(retainReplaySessionUploads).mockResolvedValue(['live'])
+
+    await expect(service.retainSources(['live', 'expired'])).resolves.toEqual(new Set(['live']))
+
+    expect(retainReplaySessionUploads).toHaveBeenCalledWith(
+      ['live', 'expired'],
+      NOW,
+      new Date(NOW.getTime() + 24 * 60 * 60 * 1000),
     )
   })
 
