@@ -1395,9 +1395,29 @@ fn player_teams(bw: &BwVars) -> [u8; 8] {
         any_team |= *team != 0;
     }
     if any_team {
-        return teams;
+        return numbered_from_one(teams, |player_id| is_active_player(bw, player_id));
     }
     alliance_teams(bw)
+}
+
+/// Renumbers the active slots' sides 1, 2, 3 in the order of the game's own numbers, which is what
+/// every surface names them by: the game's numbers can start at zero or skip, and a watcher reads
+/// "Team 0" or a missing "Team 2" as a mistake.
+fn numbered_from_one(teams: [u8; 8], active: impl Fn(usize) -> bool) -> [u8; 8] {
+    let mut seen: Vec<u8> = (0..8)
+        .filter(|&player_id| active(player_id))
+        .map(|player_id| teams[player_id])
+        .collect();
+    seen.sort_unstable();
+    seen.dedup();
+    let mut numbered = [0u8; 8];
+    for (player_id, team) in numbered.iter_mut().enumerate() {
+        if active(player_id) {
+            let position = seen.iter().position(|&raw| raw == teams[player_id]).unwrap_or(0);
+            *team = position as u8 + 1;
+        }
+    }
+    numbered
 }
 
 /// Groups the active slots by who they are mutually allied with, numbering the groups in slot
@@ -1644,4 +1664,23 @@ fn vkey_to_egui_key(key: i32) -> Option<Key> {
         VK_F20 => F20,
         _ => return None,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::numbered_from_one;
+
+    #[test]
+    fn sides_are_numbered_from_one_in_the_games_own_order() {
+        let active = |player_id: usize| player_id < 4;
+        assert_eq!(
+            numbered_from_one([0, 0, 1, 1, 0, 0, 0, 0], active),
+            [1, 1, 2, 2, 0, 0, 0, 0]
+        );
+        // Numbers that skip are closed up, and empty slots keep no side.
+        assert_eq!(
+            numbered_from_one([3, 1, 3, 1, 7, 7, 7, 7], active),
+            [2, 1, 2, 1, 0, 0, 0, 0]
+        );
+    }
 }
