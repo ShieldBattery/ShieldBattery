@@ -57,6 +57,20 @@ pub enum ChatLineKind {
     System,
 }
 
+/// A printed chat line without the sender's name the game prints ahead of it, as `Name: words`
+/// with color codes around the name. The line comes back whole when it doesn't start that way.
+pub fn strip_sender_prefix<'a>(text: &'a str, sender_name: &str) -> &'a str {
+    let Some(colon) = text.find(':') else {
+        return text;
+    };
+    let printed_name: String = text[..colon].chars().filter(|c| !c.is_control()).collect();
+    if printed_name.trim() == sender_name {
+        text[colon + 1..].trim_start_matches(|c: char| c.is_control() || c == ' ')
+    } else {
+        text
+    }
+}
+
 /// One line of the history.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ChatLine {
@@ -111,6 +125,25 @@ impl ChatHistory {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_printed_line_loses_its_senders_name() {
+        use super::strip_sender_prefix;
+        assert_eq!(
+            strip_sender_prefix("Blergh100: gl hf", "Blergh100"),
+            "gl hf"
+        );
+        assert_eq!(
+            strip_sender_prefix("ssjgoku: glhf: again", "ssjgoku"),
+            "glhf: again"
+        );
+        // A line that isn't that sender's keeps everything, colon and all.
+        assert_eq!(
+            strip_sender_prefix("Note: something", "ssjgoku"),
+            "Note: something"
+        );
+        assert_eq!(strip_sender_prefix("no colon", "ssjgoku"), "no colon");
+    }
+
     use super::*;
 
     fn line(frame: u32, text: &str) -> ChatLine {

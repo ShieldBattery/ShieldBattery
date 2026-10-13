@@ -3923,7 +3923,11 @@ impl BwScr {
                         if handled {
                             return;
                         }
-                        self.record_chat_history_system_line(text, player);
+                        if game_thread::is_replay() {
+                            self.record_replay_chat_history_line(text, player);
+                        } else {
+                            self.record_chat_history_system_line(text, player);
+                        }
                     }
 
                     orig(text, player, unused);
@@ -5677,6 +5681,33 @@ impl BwScr {
                 game_frame: self.current_game_frame(),
                 kind: chat_history::ChatLineKind::System,
                 text: text.to_string(),
+            };
+            self.chat_history.lock().push(line);
+        }
+    }
+
+    /// Records a line a replay printed. A replay's chat comes from its recorded commands rather than
+    /// from anything injected, so the printed line is the only record of it: one with a chat sender
+    /// is that player's message, printed after their name, and anything else is a notice.
+    unsafe fn record_replay_chat_history_line(&self, text: &str, player: u32) {
+        unsafe {
+            let player_index = match player {
+                0..=11 => player,
+                128..=131 => player - 128 + 12,
+                _ => return self.record_chat_history_system_line(text, player),
+            };
+            let sender_name = self.player_display_name(player_index as u8);
+            let line = chat_history::ChatLine {
+                game_frame: self.current_game_frame(),
+                kind: chat_history::ChatLineKind::Player {
+                    sender_game_id: player as u8,
+                    own: false,
+                    // The game's classic chat record carries no scope: a replay shows its watcher
+                    // every line as said to everyone.
+                    scope: chat_history::ChatScope::All,
+                    sender_name: sender_name.clone(),
+                },
+                text: chat_history::strip_sender_prefix(text, &sender_name).to_string(),
             };
             self.chat_history.lock().push(line);
         }
