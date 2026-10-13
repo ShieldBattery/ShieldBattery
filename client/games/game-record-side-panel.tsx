@@ -97,7 +97,7 @@ function GameRecordSidePanelContent({
 }: GameRecordSidePanelContentProps) {
   const { t } = useTranslation()
   const map = useAppSelector(s => s.maps.byId.get(game.mapId))
-  const { replayInfo, onWatchReplay } = useGameReplayActions(game)
+  const { replayInfo, onWatchReplay, onWatchWithOthers } = useGameReplayActions(game)
 
   const mapName = map?.name ?? t('game.mapName.unknown', 'Unknown map')
 
@@ -136,6 +136,15 @@ function GameRecordSidePanelContent({
           renderItems={({ closeMenu, openSubmenu }) =>
             canWatchReplay
               ? [
+                  <MenuItem
+                    key='watch-with-others'
+                    icon={<MaterialIcon icon='group' />}
+                    text={t('gameDetails.buttonWatchWithOthers', 'Watch with others')}
+                    onClick={() => {
+                      closeMenu()
+                      onWatchWithOthers()
+                    }}
+                  />,
                   <MenuItem
                     key='view-full-results'
                     icon={<MaterialIcon icon='open_in_new' />}

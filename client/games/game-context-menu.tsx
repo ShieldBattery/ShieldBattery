@@ -28,7 +28,7 @@ export function GameContextMenuContent({
   onOpenSaveMenu: (event: React.MouseEvent | KeyboardEvent) => void
 }) {
   const { t } = useTranslation()
-  const { replayInfo, onWatchReplay } = useGameReplayActions(game)
+  const { replayInfo, onWatchReplay, onWatchWithOthers } = useGameReplayActions(game)
 
   // Built as a flat array (rather than a conditional fragment) so every item stays a direct
   // child of `MenuList`: it only clones `dense`/focus state onto, and lets arrow-key navigation
@@ -55,6 +55,15 @@ export function GameContextMenuContent({
         onClick={() => {
           onDismiss()
           onWatchReplay()
+        }}
+      />,
+      <MenuItem
+        key='watch-with-others'
+        icon={<MaterialIcon icon='group' />}
+        text={t('gameDetails.buttonWatchWithOthers', 'Watch with others')}
+        onClick={() => {
+          onDismiss()
+          onWatchWithOthers()
         }}
       />,
       <MenuItem

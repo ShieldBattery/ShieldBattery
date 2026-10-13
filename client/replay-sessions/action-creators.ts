@@ -2,11 +2,9 @@ import { TypedIpcRenderer } from '../../common/ipc'
 import {
   CreateReplaySessionRequest,
   CreateReplaySessionResponse,
-  GetReplaySessionSourceResponse,
   InviteToReplaySessionRequest,
   ReplaySessionClientRequest,
   ReplaySessionJson,
-  ReportReplaySessionLoadedRequest,
   SbReplaySessionId,
   SendReplaySessionChatRequest,
   StageReplaySessionSourceResponse,
@@ -18,7 +16,6 @@ import { jotaiStore } from '../jotai-store'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { clientId } from '../network/client-id'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
-import { ensureReplayCached } from '../replays/action-creators'
 import { replaySessionAtom, replaySessionChatAtom } from './replay-session-atoms'
 
 const ipcRenderer = new TypedIpcRenderer()
@@ -160,35 +157,5 @@ export function sendReplaySessionChat(
       body: encodeBodyAsParams<SendReplaySessionChatRequest>({ clientId, text }),
       signal: spec.signal,
     })
-  })
-}
-
-/**
- * Downloads a session's replay into the local replay cache, which only keeps it if its bytes hash
- * to what the server says the session plays.
- */
-export async function ensureSessionReplayCached(
-  sessionId: SbReplaySessionId,
-): Promise<{ path: string; hash: string }> {
-  const source = await fetchJson<GetReplaySessionSourceResponse>(
-    apiUrl`replay-sessions/${sessionId}/source`,
-  )
-  // The cache verifies a replay against its hash before keeping it, so the hash also serves as
-  // the cache entry's id: a session replay's identity is its content.
-  const path = await ensureReplayCached({ id: source.hash, url: source.url, hash: source.hash })
-  if (!path) {
-    throw new Error('Could not cache the session replay')
-  }
-  return { path, hash: source.hash }
-}
-
-/** Tells the server this client has loaded the session's replay and is ready to play it. */
-export async function reportReplaySessionLoaded(
-  sessionId: SbReplaySessionId,
-  hash: string,
-): Promise<void> {
-  await fetchJson<void>(apiUrl`replay-sessions/${sessionId}/loaded`, {
-    method: 'POST',
-    body: encodeBodyAsParams<ReportReplaySessionLoadedRequest>({ clientId, hash }),
   })
 }

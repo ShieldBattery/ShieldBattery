@@ -1,16 +1,13 @@
 import { atom } from 'jotai'
 import { ReplaySessionPlaybackControl } from '../../common/games/game-launch-config'
-import {
-  ReplaySessionChatMessage,
-  ReplaySessionInviteJson,
-  ReplaySessionJson,
-} from '../../common/replay-sessions'
+import { ReplaySessionInviteJson, ReplaySessionJson } from '../../common/replay-sessions'
+import { CommonTextMessage } from '../messaging/message-records'
 
 /** The replay session this client is in, as of the newest snapshot the server sent. */
 export const replaySessionAtom = atom<ReplaySessionJson | undefined>(undefined)
 
 /** Chat sent in the current replay session since this client joined it. */
-export const replaySessionChatAtom = atom<ReplaySessionChatMessage[]>([])
+export const replaySessionChatAtom = atom<CommonTextMessage[]>([])
 
 /** Every replay session invite the local user currently holds. */
 export const replaySessionInvitesAtom = atom<ReplaySessionInviteJson[]>([])

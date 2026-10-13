@@ -1,32 +1,67 @@
+import { nanoid } from 'nanoid'
 import { NydusClient } from 'nydus-client'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { getErrorStack } from '../../common/errors'
 import { ReplaySessionPlaybackControl } from '../../common/games/game-launch-config'
 import { TypedIpcRenderer } from '../../common/ipc'
 import {
+  GetReplaySessionSourceResponse,
   ReplaySessionEvent,
   ReplaySessionInvitesEvent,
   ReplaySessionJson,
+  ReportReplaySessionLoadedRequest,
   SbReplaySessionId,
 } from '../../common/replay-sessions'
+import { apiUrl } from '../../common/urls'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { dispatch } from '../dispatch-registry'
 import i18n from '../i18n/i18next'
 import { jotaiStore } from '../jotai-store'
 import logger from '../logging/logger'
-import { startReplay } from '../replays/action-creators'
+import { CommonMessageType, CommonTextMessage } from '../messaging/message-records'
+import { clientId } from '../network/client-id'
+import { encodeBodyAsParams, fetchJson } from '../network/fetch'
+import { ensureReplayCached, startReplay } from '../replays/action-creators'
 import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
-import {
-  ensureSessionReplayCached,
-  leaveReplaySession,
-  reportReplaySessionLoaded,
-} from './action-creators'
+import { DURATION_LONG } from '../snackbars/snackbar-durations'
+import { leaveReplaySession } from './action-creators'
 import {
   replaySessionAtom,
   replaySessionChatAtom,
   replaySessionGameAtom,
   replaySessionInvitesAtom,
 } from './replay-session-atoms'
+import { navigateToReplaySession } from './replay-session-url'
+
+/**
+ * Downloads a session's replay into the local replay cache, which only keeps it if its bytes hash
+ * to what the server says the session plays.
+ */
+async function ensureSessionReplayCached(
+  sessionId: SbReplaySessionId,
+): Promise<{ path: string; hash: string }> {
+  const source = await fetchJson<GetReplaySessionSourceResponse>(
+    apiUrl`replay-sessions/${sessionId}/source`,
+  )
+  // The cache verifies a replay against its hash before keeping it, so the hash also serves as
+  // the cache entry's id: a session replay's identity is its content.
+  const path = await ensureReplayCached({ id: source.hash, url: source.url, hash: source.hash })
+  if (!path) {
+    throw new Error('Could not cache the session replay')
+  }
+  return { path, hash: source.hash }
+}
+
+/** Tells the server this client has loaded the session's replay and is ready to play it. */
+async function reportReplaySessionLoaded(
+  sessionId: SbReplaySessionId,
+  hash: string,
+): Promise<void> {
+  await fetchJson<void>(apiUrl`replay-sessions/${sessionId}/loaded`, {
+    method: 'POST',
+    body: encodeBodyAsParams<ReportReplaySessionLoadedRequest>({ clientId, hash }),
+  })
+}
 
 /** Sessions whose replay this client has begun launching, so each launches at most once. */
 const launchedSessions = new Set<SbReplaySessionId>()
@@ -170,7 +205,14 @@ export default function ({
           return
         }
         dispatch({ type: '@users/loadUsers', payload: event.mentions })
-        jotaiStore.set(replaySessionChatAtom, messages => [...messages, event.message])
+        const message: CommonTextMessage = {
+          id: nanoid(),
+          type: CommonMessageType.TextMessage,
+          time: event.message.time,
+          from: event.message.from,
+          text: event.message.text,
+        }
+        jotaiStore.set(replaySessionChatAtom, messages => [...messages, message])
       })
     } else {
       event satisfies never
@@ -180,7 +222,26 @@ export default function ({
   siteSocket.registerRoute(
     '/replay-session-invites/:userId',
     (route, event: ReplaySessionInvitesEvent) => {
+      const previous = new Set(jotaiStore.get(replaySessionInvitesAtom).map(i => i.sessionId))
       jotaiStore.set(replaySessionInvitesAtom, event.invites)
+
+      for (const invite of event.invites) {
+        if (!previous.has(invite.sessionId)) {
+          externalShowSnackbar(
+            i18n.t('replaySessions.invite.received', {
+              defaultValue: "You've been invited to watch a replay on {{mapName}}.",
+              mapName: invite.source.metadata.mapName,
+            }),
+            DURATION_LONG,
+            {
+              action: {
+                label: i18n.t('replaySessions.invite.view', 'View'),
+                onClick: () => navigateToReplaySession(invite.sessionId),
+              },
+            },
+          )
+        }
+      }
     },
   )
 

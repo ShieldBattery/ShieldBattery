@@ -1,3 +1,4 @@
+import { useAtomValue } from 'jotai'
 import * as React from 'react'
 import { useContext } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -15,6 +16,8 @@ import { Popover, PopoverProps } from '../material/popover'
 import { useIsNavigationAvailable } from '../navigation/navigation-available'
 import { useNavigationTracker } from '../navigation/navigation-tracker'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { inviteToReplaySession } from '../replay-sessions/action-creators'
+import { replaySessionAtom } from '../replay-sessions/replay-session-atoms'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import {
   acceptFriendRequest,
@@ -177,6 +180,7 @@ function ConnectedUserContextMenuContents({
   const snackbarController = useSnackbarController()
   const { onNavigation } = useNavigationTracker()
   const isNavigationAvailable = useIsNavigationAvailable()
+  const replaySession = useAtomValue(replaySessionAtom)
 
   const relationshipKind = useAppSelector(s => {
     if (s.relationships.friends.has(userId)) {
@@ -259,6 +263,40 @@ function ConnectedUserContextMenuContents({
             onClick={() => {
               navigateToWhisper(user!.id, user!.name)
               onNavigation()
+              onDismiss()
+            }}
+          />,
+        )
+      }
+
+      if (
+        replaySession &&
+        replaySession.hostId === selfUser?.id &&
+        replaySession.state !== 'viewing' &&
+        !replaySession.members.some(m => m.userId === user.id) &&
+        !replaySession.invitedUserIds.includes(user.id)
+      ) {
+        const sessionId = replaySession.id
+        appendToMultimap(
+          items,
+          MenuItemCategory.General,
+          <MenuItem
+            key='invite-to-replay-session'
+            text={t('users.contextMenu.inviteToReplaySession', 'Invite to watch replay')}
+            onClick={() => {
+              dispatch(
+                inviteToReplaySession(sessionId, user!.id, {
+                  onSuccess: () => {},
+                  onError: () => {
+                    snackbarController.showSnackbar(
+                      t(
+                        'users.contextMenu.inviteToReplaySessionFailed',
+                        "Couldn't invite them to watch.",
+                      ),
+                    )
+                  },
+                }),
+              )
               onDismiss()
             }}
           />,

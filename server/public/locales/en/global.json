@@ -1252,6 +1252,7 @@
     "buttonWatchReplay": "Watch replay",
     "buttonWatchReplayFrom": "Watch from {{time}}",
     "buttonWatchReplayLoading": "Loading…",
+    "buttonWatchWithOthers": "Watch with others",
     "chatTranscript": {
       "copy": "Copy transcript",
       "dropped": "<0>{{name}}</0> was dropped",
@@ -2552,7 +2553,8 @@
       "unavailableBody": "Your replays couldn't be loaded right now. Restarting ShieldBattery usually fixes this.",
       "unreadableReplays": "Unreadable replays",
       "viewGamePage": "View game page",
-      "watchReplay": "Watch replay"
+      "watchReplay": "Watch replay",
+      "watchWithOthers": "Watch with others"
     },
     "loading": {
       "dialogTitle": "Loading replay…",
@@ -2574,6 +2576,44 @@
     "watch": {
       "errorBody": "There was a problem downloading or loading the replay. Please try again later.",
       "errorTitle": "Error loading replay"
+    }
+  },
+  "replaySessions": {
+    "create": {
+      "alreadyInSession": "You are already in a replay session. Leave it to start another.",
+      "errorBody": "There was a problem setting up the replay session. Please try again later.",
+      "errorTitle": "Couldn't start watching with others"
+    },
+    "invite": {
+      "decline": "Decline",
+      "join": "Join",
+      "joinFailed": "Couldn't join that session.",
+      "prompt": "You were invited to watch a replay on {{mapName}}.",
+      "received": "You've been invited to watch a replay on {{mapName}}.",
+      "view": "View"
+    },
+    "launchFailed": "The session's replay couldn't be downloaded, so you left the session.",
+    "room": {
+      "actionFailed": "Something went wrong. Please try again.",
+      "close": "End session",
+      "goHome": "Go home",
+      "invite": "Invite",
+      "invited": "Invited",
+      "inviteFailed": "Couldn't send the invite.",
+      "inviteFriends": "Invite friends",
+      "inviteNoAccess": "That user can't watch this game's replay.",
+      "leave": "Leave",
+      "loading": "Loading",
+      "ready": "Ready",
+      "start": "Start watching",
+      "stateGathering": "Gathering viewers",
+      "stateLoading_one": "Waiting for {{count}} viewer",
+      "stateLoading_other": "Waiting for {{count}} viewers",
+      "stateViewing": "Watching",
+      "subtitle": "{{duration}} replay",
+      "unavailable": "This replay session isn't available.",
+      "viewers_one": "Viewers · {{count}}",
+      "viewers_other": "Viewers · {{count}}"
     }
   },
   "rootErrorBoundary": {
@@ -3385,6 +3425,8 @@
       "friendRequestAccepted": "Friend request accepted",
       "friendRequestRemoved": "Friend request removed",
       "friendRequestSent": "Friend request sent",
+      "inviteToReplaySession": "Invite to watch replay",
+      "inviteToReplaySessionFailed": "Couldn't invite them to watch.",
       "loadingUsers": "Loading user…",
       "removeFriend": "Remove friend",
       "removeFriendRequest": "Remove friend request",
