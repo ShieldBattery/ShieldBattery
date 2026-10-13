@@ -9,6 +9,7 @@ use bw_dat::dialog::{Control, Dialog};
 use bw_dat::{Race, Unit};
 use egui::epaint;
 use egui::{Color32, Event, Key, PointerButton, Pos2, Rect, Slider, pos2};
+use overlay_ui::end_card::EndCardView;
 use overlay_ui::net_quality::NetQualityView;
 use overlay_ui::observer::{
     GraphGrouping, MatchupForm, MatchupPlayerView, MatchupView, ObserverView, RaceView,
@@ -42,6 +43,7 @@ pub use overlay_ui::{colors, fonts};
 
 mod chat_history;
 mod disconnect;
+mod end_card;
 mod loading_screen;
 mod netstat;
 pub mod options;
@@ -71,6 +73,10 @@ pub struct OverlayState {
     logged_minimap_area: Option<(i16, i16, i16, i16)>,
     /// The chat log the last frame handed the shell, kept only while its modal is on screen.
     chat_history: Option<ChatHistoryCache>,
+    /// What the end-of-game card reports, read once as the card comes up and kept while it is on
+    /// the stack: it is about the game as it was decided, and the numbers behind it keep moving for
+    /// as long as the player keeps playing.
+    end_card: Option<EndCardView>,
     out_state: OutState,
     window_size: (u32, u32),
     /// If (and only if) a mouse button down event was captured,
@@ -296,6 +302,7 @@ impl OverlayState {
             capture: InputCapture::PASS_THROUGH,
             native_dialogs_live: [false; NativeDialog::ALL.len()],
             logged_minimap_area: None,
+            end_card: None,
             out_state: OutState {
                 replay_visions: 0,
                 select_unit: None,
@@ -484,7 +491,7 @@ impl OverlayState {
         // the frames the shell draws nothing on.
         self.shell.set_host(&host_frame);
         dialog_hook::advance_quit(bw.first_dialog);
-        self.sync_native_dialogs();
+        self.sync_native_dialogs(bw.first_dialog);
         let users = setup_info.map(|info| info.users.as_slice()).unwrap_or(&[]);
         let now = Instant::now();
         let self_lost = disconnect_status.self_state(now) != netcode_v2::SelfState::Healthy;
@@ -519,6 +526,23 @@ impl OverlayState {
             self.chat_history = None;
             None
         };
+        let end_card_result = self
+            .shell
+            .open_modals()
+            .find_map(|modal| modal.game_result());
+        self.end_card = match (end_card_result, self.end_card) {
+            (Some(result), Some(view)) if view.result == result => Some(view),
+            (Some(result), _) => Some(end_card::build_end_card_view(
+                bw,
+                apm,
+                result,
+                host_frame.game_seconds,
+            )),
+            (None, _) => None,
+        };
+        // A copy for the frame: the render closure below takes `self` mutably, so a view it reads
+        // cannot be borrowed out of a field.
+        let end_card_view = self.end_card;
         // Read before the views are built rather than while they are drawn: the panels report on
         // the frame that is being drawn, and a production list sampled after it would be one frame
         // behind everything beside it.
@@ -590,6 +614,7 @@ impl OverlayState {
             net_quality,
             net_stats: net_stats_view.as_ref(),
             chat_history: chat_history_view.as_ref().map(ChatHistoryCache::view),
+            end_card: end_card_view.as_ref(),
             transport: transport_view.as_ref(),
             observer: observer_view.as_ref(),
             options: Some(&options_view),
@@ -681,7 +706,7 @@ impl OverlayState {
     /// Tells the shell about every replaced native dialog that has spawned or been deleted since
     /// the last frame. The spawn hook records the dialogs as they come and go; the transitions are
     /// what the shell's modal stack is built from.
-    fn sync_native_dialogs(&mut self) {
+    fn sync_native_dialogs(&mut self, first_dialog: Option<Dialog>) {
         let live = dialog_hook::live_replaced_dialogs();
         for dialog in NativeDialog::ALL {
             let index = dialog.index();
@@ -690,6 +715,7 @@ impl OverlayState {
             }
             self.native_dialogs_live[index] = live[index];
             if live[index] {
+                dialog_hook::log_replaced_dialog_controls(first_dialog, dialog);
                 self.shell.native_dialog_spawned(dialog);
             } else {
                 self.shell.native_dialog_closed(dialog);
@@ -995,6 +1021,14 @@ impl OverlayState {
             // leave handling speaks for it.
             Intent::LeaveGame | Intent::AbandonGame => self.out_state.leave_game = true,
             Intent::QuitGame => dialog_hook::begin_quit(bw.first_dialog),
+            // The game's result is already reported by the time the card is up, so a result dialog
+            // that has no End Mission to press is left by ending the game loop instead, rather than
+            // keeping the player in a game they asked to leave.
+            Intent::EndMission(dialog) => {
+                if !dialog_hook::end_mission(bw.first_dialog, dialog) {
+                    self.out_state.leave_game = true;
+                }
+            }
             Intent::OpenSocialDialog(dialog) => {
                 dialog_hook::open_social_dialog(bw.first_dialog, dialog)
             }

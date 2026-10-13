@@ -35,6 +35,10 @@ pub struct Knobs {
     pub chat_history_spawned: bool,
     /// Whether the emulated game has spawned its in-game menu.
     pub game_menu_spawned: bool,
+    /// Whether the emulated game has spawned its victory popup.
+    pub victory_spawned: bool,
+    /// Whether the emulated game has spawned its defeat popup.
+    pub defeat_spawned: bool,
     /// Outlines the rects the shell reports as its own over the emulated screen, which is what
     /// decides whether a click is the overlay's or the game's.
     pub show_hit_rects: bool,
@@ -63,6 +67,8 @@ impl Default for Knobs {
             time_out_spawned: false,
             chat_history_spawned: false,
             game_menu_spawned: false,
+            victory_spawned: false,
+            defeat_spawned: false,
             show_hit_rects: false,
             panels: PanelPrefs::default(),
             pointer: None,
@@ -88,6 +94,8 @@ impl Knobs {
             NativeDialog::TimeOut => self.time_out_spawned,
             NativeDialog::ChatHistory => self.chat_history_spawned,
             NativeDialog::GameMenu => self.game_menu_spawned,
+            NativeDialog::Victory => self.victory_spawned,
+            NativeDialog::Defeat => self.defeat_spawned,
         }
     }
 
@@ -96,6 +104,8 @@ impl Knobs {
             NativeDialog::TimeOut => self.time_out_spawned = spawned,
             NativeDialog::ChatHistory => self.chat_history_spawned = spawned,
             NativeDialog::GameMenu => self.game_menu_spawned = spawned,
+            NativeDialog::Victory => self.victory_spawned = spawned,
+            NativeDialog::Defeat => self.defeat_spawned = spawned,
         }
     }
 }

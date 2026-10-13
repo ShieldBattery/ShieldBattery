@@ -58,6 +58,11 @@ fn replacement_at_spawn(name: &str) -> Option<NativeDialog> {
             .is_some()
             .then_some(dialog),
         NativeDialog::ChatHistory | NativeDialog::GameMenu => Some(dialog),
+        // The result popups are a player's. Whatever a watcher or a replay gets at the end of a
+        // game is left to SC:R, since nothing of ours stands in for it there.
+        NativeDialog::Victory | NativeDialog::Defeat => {
+            (!get_bw().is_replay_or_obs()).then_some(dialog)
+        }
     }
 }
 
@@ -76,7 +81,38 @@ pub fn close_replaced_dialog(first_dialog: Option<Dialog>, dialog: NativeDialog)
     activate_replaced_dialog_control(first_dialog, dialog, dialog.return_control_id());
 }
 
-/// Activates one of a replaced native dialog's controls, the way a click on it would.
+/// Ends the game from a result popup through its own End Mission control, the way a click on it
+/// would. Returns whether the control was there to press.
+pub fn end_mission(first_dialog: Option<Dialog>, dialog: NativeDialog) -> bool {
+    let Some(control_id) = dialog.end_mission_control_id() else {
+        warn!("The {} dialog has no End Mission control", dialog.label());
+        return false;
+    };
+    activate_replaced_dialog_control(first_dialog, dialog, control_id)
+}
+
+/// Logs a replaced native dialog's controls, once its spawn has finished building them, so a log
+/// from a live game says which ids a dialog actually has.
+pub fn log_replaced_dialog_controls(first_dialog: Option<Dialog>, dialog: NativeDialog) {
+    let name = dialog.runtime_name();
+    let Some(live) = bw::iter_dialogs(first_dialog)
+        .find(|candidate| candidate.as_control().string().eq_ignore_ascii_case(name))
+    else {
+        return;
+    };
+    let controls = live
+        .children()
+        .map(|child| format!("{} ({:#x})", child.id(), child.control_type()))
+        .collect::<Vec<_>>();
+    debug!(
+        "The {} dialog's controls are {}",
+        dialog.label(),
+        controls.join(", ")
+    );
+}
+
+/// Activates one of a replaced native dialog's controls, the way a click on it would, returning
+/// whether the control was there to press.
 ///
 /// This is how the overlay asks for anything a replaced dialog does: its buttons run the game's own
 /// code for leaving a game or opening a sub-menu, and pressing them keeps every side effect that
@@ -85,14 +121,14 @@ pub fn activate_replaced_dialog_control(
     first_dialog: Option<Dialog>,
     dialog: NativeDialog,
     control_id: i16,
-) {
+) -> bool {
     let label = dialog.label();
     let name = dialog.runtime_name();
     let Some(live) = bw::iter_dialogs(first_dialog)
         .find(|candidate| candidate.as_control().string().eq_ignore_ascii_case(name))
     else {
         debug!("The {label} dialog is already gone");
-        return;
+        return false;
     };
     let Some(control) = live.child_by_id(control_id) else {
         let controls = live
@@ -103,7 +139,7 @@ pub fn activate_replaced_dialog_control(
             "The {label} dialog has no control {control_id}; its controls are {}",
             controls.join(", ")
         );
-        return;
+        return false;
     };
     // The dialog's own mouse dispatch addresses a control in coordinates relative to the dialog,
     // which is what a control's area is already in.
@@ -113,6 +149,7 @@ pub fn activate_replaced_dialog_control(
     debug!("Pressing control {control_id} of the {label} dialog");
     REPLACED_DIALOG_DRIVEN[dialog.index()].store(true, Ordering::Relaxed);
     control.send_ext_event_mouse(ACTIVATE_EXT_EVENT, x, y);
+    true
 }
 
 /// Opens one of SC:R's alliances and messaging dialogs in place of the game menu, the way the
@@ -306,17 +343,23 @@ pub unsafe fn spawn_dialog_hook(
             let inited = CONSOLE_DIALOG_EVENT_HANDLERS[index].init(console_dialog_event_handler);
             inited.set_orig(event_handler);
             inited.func() as usize
-        } else if name == "WMission" {
+        } else if name == native_dialogs::VICTORY_DIALOG_NAME {
             send_game_results();
             // Victory decides the game for everyone, so the session can end and any further play is
             // local-only. Defeat is deliberately not handled the same way: a loss doesn't end the
             // game for the other players, so the defeated client stays a normal networked
             // participant until it exits, at which point its clean leave fires as the game loop ends.
             crate::netcode_v2::begin_local_only();
-            event_handler
-        } else if name == "LMission" {
+            match replacement_at_spawn(name) {
+                Some(replaced) => replace_at_spawn(raw, replaced, event_handler),
+                None => event_handler,
+            }
+        } else if name == native_dialogs::DEFEAT_DIALOG_NAME {
             send_game_results();
-            event_handler
+            match replacement_at_spawn(name) {
+                Some(replaced) => replace_at_spawn(raw, replaced, event_handler),
+                None => event_handler,
+            }
         } else if quit_chain_step(name).is_some() {
             // A step of a quit the player already confirmed in the overlay: it is pressed through
             // on the next frame, and showing it for that one frame would only flash a question the
@@ -324,23 +367,35 @@ pub unsafe fn spawn_dialog_hook(
             (*(raw as *mut bw::scr::Control)).flags &= !0x2;
             event_handler
         } else if let Some(replaced) = replacement_at_spawn(name) {
-            // The overlay draws this dialog's replacement, so BW's own must never show: hide it at
-            // spawn and swap in an event handler that swallows everything but its own init/delete,
-            // and it neither draws nor responds. The native spawn still runs below — only the
-            // dialog's visibility and interactivity are stripped, never its creation, because
-            // dismissing the replacement has to close the real dialog through its own path.
-            (*(raw as *mut bw::scr::Control)).flags &= !0x2;
-            REPLACED_DIALOG_LIVE[replaced.index()].store(true, Ordering::Relaxed);
-            REPLACED_DIALOG_DRIVEN[replaced.index()].store(false, Ordering::Relaxed);
-            let inited = REPLACED_DIALOG_EVENT_HANDLERS[replaced.index()]
-                .init(replaced_dialog_event_handler);
-            inited.set_orig(event_handler);
-            inited.func() as usize
+            replace_at_spawn(raw, replaced, event_handler)
         } else {
             event_handler
         };
         orig(raw, unk, event_handler)
     }
+}
+
+/// Hides a spawning dialog the overlay draws a replacement for, returning the event handler it must
+/// spawn with.
+///
+/// BW's own dialog must never show: it is hidden at spawn and given an event handler that swallows
+/// everything but its own init/delete, so it neither draws nor responds. The native spawn still
+/// runs — only the dialog's visibility and interactivity are stripped, never its creation, because
+/// dismissing the replacement has to close the real dialog through its own path.
+unsafe fn replace_at_spawn(
+    raw: *mut bw::Dialog,
+    replaced: NativeDialog,
+    event_handler: usize,
+) -> usize {
+    unsafe {
+        (*(raw as *mut bw::scr::Control)).flags &= !0x2;
+    }
+    REPLACED_DIALOG_LIVE[replaced.index()].store(true, Ordering::Relaxed);
+    REPLACED_DIALOG_DRIVEN[replaced.index()].store(false, Ordering::Relaxed);
+    let inited =
+        REPLACED_DIALOG_EVENT_HANDLERS[replaced.index()].init(replaced_dialog_event_handler);
+    inited.set_orig(event_handler);
+    inited.func() as usize
 }
 
 unsafe extern "C" fn chat_box_event_handler(

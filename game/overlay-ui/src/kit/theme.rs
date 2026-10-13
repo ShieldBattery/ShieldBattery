@@ -48,6 +48,14 @@ pub const HIT_DIALOG: f32 = 42.0;
 pub const MOTION_PANEL_SECS: f32 = 0.15;
 /// How far a panel slides while it fades.
 pub const MOTION_PANEL_SLIDE: f32 = 8.0;
+/// How long a hero moment takes to arrive: longer than a panel's entrance, because it is the one
+/// surface the player is meant to stop and look at, and a card that snapped in would read as a
+/// popup rather than as the end of the game.
+pub const MOTION_HERO_SECS: f32 = 0.32;
+/// How far a hero moment rises while it arrives.
+pub const MOTION_HERO_SLIDE: f32 = 14.0;
+/// How small a hero moment starts, as a fraction of its resting size.
+pub const MOTION_HERO_SCALE: f32 = 0.97;
 /// Period of anything that pulses to say "still working".
 pub const MOTION_PULSE_SECS: f32 = 1.4;
 /// How long a destructive action must be held before it fires.
@@ -146,6 +154,9 @@ pub const TIER1_STROKE: Color32 = alpha(BLUE60, 0.40);
 /// A light line just inside the top edge, which is what gives a tier-1 panel its lift.
 pub const TIER1_BEVEL: Color32 = alpha(BLUE80, 0.22);
 pub const TIER1_HEADER: Color32 = AMBER60;
+/// The rule between the sections of a hero surface: the tier's own blue edge, let down far enough
+/// that it divides without boxing anything in.
+pub const TIER1_DIVIDER: Color32 = alpha(BLUE60, 0.22);
 
 // Tier 2: modal chrome. It owns the screen, so it is allowed to glow.
 pub const TIER2_FILL_TOP: Color32 = alpha(Color32::from_rgb(18, 34, 74), 0.96);

@@ -25,6 +25,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::chat_history::{ChatHistoryView, render_chat_history_view};
 use crate::disconnect::{DisconnectView, SelfState, render_disconnect_view};
+use crate::end_card::{EndCardChoice, EndCardView, GameResult, render_end_card};
 pub use crate::game_menu::SocialDialog;
 use crate::game_menu::render_game_menu;
 use crate::net_quality::{NetQualityView, render_net_quality};
@@ -316,6 +317,10 @@ pub enum ModalId {
     ChatHistory,
     /// The settings screen, standing in for SC:R's own options popup.
     Options,
+    /// The end-of-game card for a player who has won, standing in for SC:R's victory popup.
+    Victory,
+    /// The end-of-game card for a player who has lost, standing in for SC:R's defeat popup.
+    Defeat,
 }
 
 impl ModalId {
@@ -328,7 +333,13 @@ impl ModalId {
             ModalId::WaitingForPlayers | ModalId::ConnectionInterrupted | ModalId::SessionEnded => {
                 false
             }
-            ModalId::GameMenu | ModalId::ChatHistory | ModalId::Options => true,
+            // Dismissing an end-of-game card is choosing to keep playing, which the card's own
+            // native dialog carries out when the dismissal closes it.
+            ModalId::GameMenu
+            | ModalId::ChatHistory
+            | ModalId::Options
+            | ModalId::Victory
+            | ModalId::Defeat => true,
         }
     }
 
@@ -351,6 +362,17 @@ impl ModalId {
             | ModalId::Options => None,
             ModalId::GameMenu => Some(NativeDialog::GameMenu),
             ModalId::ChatHistory => Some(NativeDialog::ChatHistory),
+            ModalId::Victory => Some(NativeDialog::Victory),
+            ModalId::Defeat => Some(NativeDialog::Defeat),
+        }
+    }
+
+    /// The result an end-of-game card reports, for the modals that are one.
+    pub fn game_result(self) -> Option<GameResult> {
+        match self {
+            ModalId::Victory => Some(GameResult::Victory),
+            ModalId::Defeat => Some(GameResult::Defeat),
+            _ => None,
         }
     }
 
@@ -363,6 +385,8 @@ impl ModalId {
             ModalId::GameMenu => "game menu",
             ModalId::ChatHistory => "chat history",
             ModalId::Options => "options",
+            ModalId::Victory => "victory",
+            ModalId::Defeat => "defeat",
         }
     }
 }
@@ -379,6 +403,8 @@ impl NativeDialog {
             NativeDialog::TimeOut => None,
             NativeDialog::ChatHistory => Some(ModalId::ChatHistory),
             NativeDialog::GameMenu => Some(ModalId::GameMenu),
+            NativeDialog::Victory => Some(ModalId::Victory),
+            NativeDialog::Defeat => Some(ModalId::Defeat),
         }
     }
 }
@@ -398,6 +424,9 @@ pub enum Intent {
     /// Quit a running game through SC:R's own quit path, which tells the other players this one has
     /// left and settles the result the way its menu does.
     QuitGame,
+    /// End a game whose result is in, through the End Mission control of the victory or defeat
+    /// dialog standing behind the card ([`NativeDialog::end_mission_control_id`]).
+    EndMission(NativeDialog),
     /// Leave the game menu for one of SC:R's alliances and messaging dialogs. Nothing of ours
     /// replaces them.
     OpenSocialDialog(SocialDialog),
@@ -573,6 +602,10 @@ pub struct Views<'a> {
     /// The chat log, which a host only builds while [`ModalId::ChatHistory`] is on the stack — it
     /// is a copy of every line said this game, and nothing but that modal reads it.
     pub chat_history: Option<&'a ChatHistoryView>,
+    /// What the end-of-game card reports, which a host builds once as the card comes up rather than
+    /// every frame: the card is about the game as it was decided, and the numbers under it keep
+    /// moving for as long as the player keeps playing.
+    pub end_card: Option<&'a EndCardView>,
     /// Replay playback, which a host builds for every frame of a replay whether or not the plate is
     /// on screen: the transport keys keep working with it hidden, and only the shell knows whether
     /// the player has hidden it.
@@ -953,6 +986,13 @@ impl Shell {
             }
             if outcome.quit {
                 self.intents.push(Intent::QuitGame);
+            }
+            if let Some(dialog) = outcome.end_mission {
+                // Off the stack as soon as it is answered, without asking the host to close the
+                // dialog: ending the mission closes it, and a card left up until then could be
+                // answered a second time.
+                self.modals.retain(|entry| entry.id != modal.id);
+                self.intents.push(Intent::EndMission(dialog));
             }
             if let Some(dialog) = outcome.open_social {
                 // The host leaves the game menu itself on the way to the dialog, so the menu goes
@@ -1662,6 +1702,8 @@ struct ModalOutcome {
     leave: bool,
     /// Whether the player asked to quit a game that is still running.
     quit: bool,
+    /// The result dialog whose End Mission the player asked for.
+    end_mission: Option<NativeDialog>,
     /// Whether the player asked for the alliances and chat settings.
     open_social: Option<SocialDialog>,
     /// Whether the player gave up on their own connection.
@@ -1728,6 +1770,29 @@ fn draw_modal(
             hit_rects.push(HitRect::scrolling(dialog.response.rect));
             ModalOutcome {
                 dismissed: dialog.inner || dialog.scrim_clicked,
+                ..ModalOutcome::default()
+            }
+        }
+        ModalId::Victory | ModalId::Defeat => {
+            // A host that could not build the card's view still gets a card the player can act on:
+            // the result is the modal's own, and the clock is the frame's.
+            let result = id.game_result().unwrap_or(GameResult::Defeat);
+            let fallback = EndCardView {
+                result,
+                game_seconds: host.game_seconds,
+                stats: None,
+            };
+            let view = views
+                .end_card
+                .filter(|view| view.result == result)
+                .unwrap_or(&fallback);
+            let card = render_end_card(ctx, view);
+            hit_rects.push(HitRect::new(card.response.rect));
+            ModalOutcome {
+                dismissed: card.inner == Some(EndCardChoice::KeepPlaying),
+                end_mission: (card.inner == Some(EndCardChoice::Leave))
+                    .then(|| id.native_dialog())
+                    .flatten(),
                 ..ModalOutcome::default()
             }
         }
@@ -1980,6 +2045,30 @@ mod tests {
             shell.pending_intents(),
             [Intent::CloseNativeDialog(NativeDialog::GameMenu)]
         );
+    }
+
+    #[test]
+    fn escape_on_a_result_card_keeps_playing_through_its_dialog() {
+        for (dialog, modal) in [
+            (NativeDialog::Victory, ModalId::Victory),
+            (NativeDialog::Defeat, ModalId::Defeat),
+        ] {
+            let mut shell = Shell::new();
+            shell.native_dialog_spawned(dialog);
+            assert_eq!(shell.top_modal(), Some(modal));
+            assert!(shell.capture().blocks_game_pointer());
+
+            assert!(shell.key_pressed(Key::Escape, Modifiers::NONE));
+            assert_eq!(shell.top_modal(), None);
+            assert_eq!(shell.pending_intents(), [Intent::CloseNativeDialog(dialog)]);
+            assert_eq!(
+                dialog.return_control_id(),
+                match dialog {
+                    NativeDialog::Victory => native_dialogs::VICTORY_CONTINUE_CONTROL_ID,
+                    _ => native_dialogs::DEFEAT_CONTINUE_CONTROL_ID,
+                }
+            );
+        }
     }
 
     #[test]

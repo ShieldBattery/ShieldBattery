@@ -135,6 +135,19 @@ impl ApmStats {
         true
     }
 
+    /// A player's actions per minute over every frame counted so far, or `None` before a whole
+    /// second of the game has been counted.
+    pub fn player_average_apm(&self, player: u8) -> Option<u32> {
+        let player_apm = self.per_player.get(player as usize)?;
+        if self.shared.total_frames < RECENT_ACTIONS_BLOCK_SIZE as u32 {
+            return None;
+        }
+        // Fastest game speed, the same assumption the recent rate makes.
+        let frames_per_minute = 60_000.0 / 42.0;
+        let minutes = self.shared.total_frames as f64 / frames_per_minute;
+        Some((f64::from(player_apm.total_actions) / minutes).round() as u32)
+    }
+
     pub fn player_recent_apm(&self, player: u8) -> u32 {
         let player_apm = match self.per_player.get(player as usize) {
             Some(s) => s,
@@ -210,5 +223,21 @@ mod tests {
         }
         run_turn(&mut apm, 1, 10, &[MOVE]);
         assert_eq!(apm.per_player[1].total_actions, 4);
+    }
+
+    #[test]
+    fn the_average_rate_spreads_every_action_over_the_whole_game() {
+        let mut apm = ApmStats::new();
+        assert_eq!(apm.player_average_apm(0), None);
+        // Two minutes of fastest-speed frames, with 300 actions in the first of them and none in
+        // the second.
+        for frame in 0..2857 {
+            if frame < 300 {
+                apm.action(0, MOVE);
+            }
+            apm.new_frame();
+        }
+        assert_eq!(apm.player_average_apm(0), Some(150));
+        assert_eq!(apm.player_average_apm(1), Some(0));
     }
 }

@@ -195,7 +195,7 @@ fn draw_footer(ui: &mut Ui) {
 }
 
 /// Seconds as the game's own clock reads them, growing an hours field only once there is one.
-fn clock_text(seconds: u64) -> String {
+pub(crate) fn clock_text(seconds: u64) -> String {
     let minutes = seconds / 60;
     let seconds = seconds % 60;
     if minutes >= 60 {

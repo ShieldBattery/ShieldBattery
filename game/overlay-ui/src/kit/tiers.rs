@@ -331,31 +331,38 @@ fn band<R>(ui: &mut Ui, margin: Margin, add: impl FnOnce(&mut Ui) -> R) -> Inner
 }
 
 /// Draws a dialog's title with a faint amber glow behind it.
-///
-/// The glow stands in for a blurred shadow (10 units wide, a third of the text's alpha in total),
-/// which the game's renderer cannot blur for us: the same text is stamped around itself at three
-/// radii, each ring so faint that no single copy reads as a second outline. The rings start well
-/// outside the glyph strokes and thin out with distance, so the sum is a soft field behind the
-/// letters rather than a fat edge on them, and the letters themselves stay sharp.
 pub fn dialog_title(ui: &mut Ui, title: &str) {
-    let spec = text::dialog_title();
-    let galley = spec.galley(ui, title);
+    glowing_text(ui, &text::dialog_title(), title, theme::ACCENT);
+}
+
+/// Draws `label` in `spec` with a faint glow of `glow` behind it.
+///
+/// The glow stands in for a blurred shadow (10 units wide at a dialog title's size, a third of the
+/// text's alpha in total), which the game's renderer cannot blur for us: the same text is stamped
+/// around itself at three radii, each ring so faint that no single copy reads as a second outline.
+/// The rings start well outside the glyph strokes and thin out with distance, so the sum is a soft
+/// field behind the letters rather than a fat edge on them, and the letters themselves stay sharp.
+/// The radii grow with the text, so a headline's glow is as soft relative to its letters as a
+/// title's is.
+pub fn glowing_text(ui: &mut Ui, spec: &text::TextSpec, label: &str, glow: Color32) {
+    let galley = spec.galley(ui, label);
     let halo = spec
         .clone()
         .with_color(Color32::PLACEHOLDER)
-        .galley(ui, title);
+        .galley(ui, label);
     let size = galley.size();
-    // Exactly as wide as the letters, so a caller decides where the title sits by the layout it
+    // Exactly as wide as the letters, so a caller decides where the text sits by the layout it
     // puts this in rather than by a rule of its own.
     let (rect, _) = ui.allocate_exact_size(size, Sense::hover());
     let origin = rect.min;
     let painter = ui.painter();
+    let spread = (spec.font.size / text::dialog_title().font.size).max(1.0);
     const STAMPS_PER_RING: usize = 8;
     for (radius, alpha) in [(10.0f32, 0.005f32), (6.0, 0.008), (3.0, 0.011)] {
-        let color = theme::ACCENT.gamma_multiply(alpha);
+        let color = glow.gamma_multiply(alpha);
         for step in 0..STAMPS_PER_RING {
             let angle = std::f32::consts::TAU * step as f32 / STAMPS_PER_RING as f32;
-            let offset = vec2(angle.cos(), angle.sin()) * radius;
+            let offset = vec2(angle.cos(), angle.sin()) * radius * spread;
             painter.galley(origin + offset, halo.clone(), color);
         }
     }

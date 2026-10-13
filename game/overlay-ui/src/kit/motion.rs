@@ -90,6 +90,50 @@ pub fn presence_area_along<R>(
     Some(inner)
 }
 
+/// Where a surface is in an entrance it makes every time it starts being drawn, over `secs`.
+///
+/// For a surface that comes and goes with a state it does not own, such as a modal raised by a
+/// dialog the game spawns: there is no `shown` flag to animate between, only a surface that was
+/// absent on the last pass and is drawn on this one. The entrance restarts whenever a pass goes by
+/// without the surface asking, so a surface that leaves and comes back arrives again rather than
+/// reappearing at rest.
+///
+/// The fade runs on the plain clock and the travel on an ease-out, so the surface is mostly visible
+/// while it is still settling and lands softly rather than stopping dead.
+pub fn arrival(ctx: &Context, id: Id, secs: f32) -> Presence {
+    #[derive(Clone, Copy)]
+    struct Entrance {
+        started: f64,
+        last_pass: u64,
+    }
+
+    let now = ctx.input(|input| input.time);
+    let pass = ctx.cumulative_pass_nr();
+    let entrance = ctx.data_mut(|data| {
+        let entrance = match data.get_temp::<Entrance>(id) {
+            Some(entrance) if entrance.last_pass + 1 >= pass => Entrance {
+                last_pass: pass,
+                ..entrance
+            },
+            _ => Entrance {
+                started: now,
+                last_pass: pass,
+            },
+        };
+        data.insert_temp(id, entrance);
+        entrance
+    });
+    let t = (((now - entrance.started) as f32) / secs.max(f32::EPSILON)).clamp(0.0, 1.0);
+    if t < 1.0 {
+        ctx.request_repaint();
+    }
+    let eased = 1.0 - (1.0 - t).powi(3);
+    Presence {
+        alpha: (t * 1.6).min(1.0),
+        progress: eased,
+    }
+}
+
 /// A 0 to 1 to 0 ramp over the pulse period, for anything that breathes to say "still working".
 ///
 /// The caller is responsible for asking for the next frame; a pulse that nobody repaints is a

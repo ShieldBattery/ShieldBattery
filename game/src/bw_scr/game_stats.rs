@@ -47,9 +47,10 @@ const UNIT_ID_COUNT: u32 = 0xe4;
 const UPGRADE_COUNT: u32 = 0x3d;
 const TECH_COUNT: u32 = 0x2c;
 
-/// Which of the game's score tables hold the unit trade.
-const SCORE_UNITS_LOST: u8 = 3;
-const SCORE_UNITS_KILLED: u8 = 4;
+/// Which of the game's score tables hold the units a player made, and the unit trade.
+pub(crate) const SCORE_UNITS_PRODUCED: u8 = 2;
+pub(crate) const SCORE_UNITS_LOST: u8 = 3;
+pub(crate) const SCORE_UNITS_KILLED: u8 = 4;
 
 /// How far from a player's own start location a finished resource depot has to be before it counts
 /// as an expansion rather than as another building in the main, in map pixels.

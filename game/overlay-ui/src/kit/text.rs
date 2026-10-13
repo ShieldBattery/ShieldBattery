@@ -152,6 +152,11 @@ pub fn dialog_title() -> TextSpec {
     TextSpec::new(22.0, fonts::display(), theme::ACCENT)
 }
 
+/// A headline in the display face, for the few moments the screen is meant to stop on.
+pub fn headline(size: f32) -> TextSpec {
+    TextSpec::new(size, fonts::display(), theme::ACCENT)
+}
+
 /// The title of a panel, in capitals with the tracking that keeps them from clumping.
 pub fn panel_title() -> TextSpec {
     TextSpec {

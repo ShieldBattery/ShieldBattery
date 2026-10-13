@@ -153,7 +153,7 @@ impl Preset {
 /// translated strings, picked as the busiest state each one has, since that is where long text runs
 /// out of room first. The kitchen sink is left out — it is a specimen sheet of the kit, not a screen
 /// whose copy is translated.
-pub const PSEUDOLOCALE_PRESETS: [Preset; 7] = [
+pub const PSEUDOLOCALE_PRESETS: [Preset; 8] = [
     Preset::Disconnect(disconnect::Preset::Droppable),
     Preset::NetStat(netstat::Preset::Degraded),
     Preset::ChatHistory(chat_history::Preset::Busy),
@@ -161,6 +161,7 @@ pub const PSEUDOLOCALE_PRESETS: [Preset; 7] = [
     Preset::Observer(observer::Preset::game(6, 3, observer::Screen::Analyst)),
     Preset::Shell(shell::Preset::GameMenu),
     Preset::Shell(shell::Preset::Options(OptionsSection::Gameplay)),
+    Preset::Shell(shell::Preset::Victory),
 ];
 
 /// Every scenario preset, in selector order.
@@ -240,6 +241,12 @@ pub fn render(
         .open_modals()
         .any(|modal| modal == ModalId::ChatHistory)
         .then(|| chat_history::build_view(&knobs.chat_history));
+    // Built only while a result card is on the stack, the way the DLL builds it as the card comes
+    // up.
+    let end_card_view = shell
+        .top_modal()
+        .and_then(ModalId::game_result)
+        .map(|result| shell::end_card_view(result, knobs.host.game_seconds));
     // Built for every frame of the emulated replay whether or not the plate is on screen, the way
     // the game DLL builds it: the transport keys keep working with the plate hidden. The observer
     // scenario carries it too, because a replay's screen is the whole set at once — the plate is
@@ -290,6 +297,7 @@ pub fn render(
         net_quality: net_quality_view.as_ref(),
         net_stats: net_stats_view.as_ref(),
         chat_history: chat_history_view.as_ref(),
+        end_card: end_card_view.as_ref(),
         transport: transport_view.as_ref(),
         observer: observer_view.as_ref(),
         options: options_view.as_ref(),
@@ -326,7 +334,7 @@ pub fn render(
             // Leaving a game is the host's to carry out; the preview has no game to leave, so it
             // only reports what was asked for.
             Intent::AbandonGame => outcome.abandoned = true,
-            Intent::LeaveGame | Intent::QuitGame => outcome.left = true,
+            Intent::LeaveGame | Intent::QuitGame | Intent::EndMission(_) => outcome.left = true,
             // SC:R's social popup has no stand-in here.
             Intent::OpenSocialDialog(_) => {}
             // The game answers this by spawning its menu, which the overlay's own replaces; here the

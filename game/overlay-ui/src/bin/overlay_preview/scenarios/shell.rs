@@ -5,6 +5,7 @@
 //! stands in for it: with the network-stats panel up and the mode set to observing, a frame here is
 //! an ambient panel under whatever modal the native dialogs raise.
 
+use overlay_ui::end_card::{EndCardStats, EndCardView, GameResult};
 use overlay_ui::options::{
     DisplayMode, FramePacing, MonitorView, OptionsLists, OptionsSection, OptionsView,
 };
@@ -50,10 +51,14 @@ pub enum Preset {
     ChatHistory,
     /// The options screen over the menu that opens it, on one of its pages.
     Options(OptionsSection),
+    /// The end-of-game card of a player who has won, raised by the victory popup spawning.
+    Victory,
+    /// The end-of-game card of a player who has lost, raised by the defeat popup spawning.
+    Defeat,
 }
 
 impl Preset {
-    pub const ALL: [Preset; 8] = [
+    pub const ALL: [Preset; 10] = [
         Preset::Observer,
         Preset::GameMenu,
         Preset::ChatHistory,
@@ -62,6 +67,8 @@ impl Preset {
         Preset::Options(OptionsSection::Sound),
         Preset::Options(OptionsSection::Video),
         Preset::Options(OptionsSection::Network),
+        Preset::Victory,
+        Preset::Defeat,
     ];
 
     pub fn label(self) -> String {
@@ -70,6 +77,8 @@ impl Preset {
             Preset::GameMenu => "game-menu".to_string(),
             Preset::ChatHistory => "chat-history".to_string(),
             Preset::Options(section) => format!("options-{}", section.slug()),
+            Preset::Victory => "victory".to_string(),
+            Preset::Defeat => "defeat".to_string(),
         }
     }
 
@@ -79,7 +88,14 @@ impl Preset {
         // The options screen stacks over the menu it is opened from, so the menu comes up under it.
         knobs.host.game_menu_spawned = matches!(self, Preset::GameMenu | Preset::Options(_));
         knobs.host.chat_history_spawned = matches!(self, Preset::ChatHistory);
-        knobs.host.mode = overlay_ui::shell::Mode::Observing;
+        knobs.host.victory_spawned = matches!(self, Preset::Victory);
+        knobs.host.defeat_spawned = matches!(self, Preset::Defeat);
+        // The result popups are a player's; the rest of the shell's states are shown to a watcher,
+        // with the observer panels' ambient stand-in under them.
+        knobs.host.mode = match self {
+            Preset::Victory | Preset::Defeat => overlay_ui::shell::Mode::Playing,
+            _ => overlay_ui::shell::Mode::Observing,
+        };
         knobs.shell.ambient_panel = matches!(self, Preset::Observer);
         knobs.shell.options_open = matches!(self, Preset::Options(_));
         if let Preset::Options(section) = self {
@@ -120,6 +136,33 @@ pub fn option_lists() -> OptionsLists {
             },
         ],
         rollback_game: true,
+    }
+}
+
+/// What the emulated game reports on the end-of-game card: a mid-length game with a busy army on
+/// both sides, so every cell of the summary carries a number of realistic width.
+pub fn end_card_view(result: GameResult, game_seconds: u64) -> EndCardView {
+    EndCardView {
+        result,
+        game_seconds,
+        stats: Some(match result {
+            GameResult::Victory => EndCardStats {
+                units_produced: 87,
+                units_killed: 64,
+                units_lost: 38,
+                minerals_gathered: 18_450,
+                gas_gathered: 6_125,
+                average_apm: Some(214),
+            },
+            GameResult::Defeat => EndCardStats {
+                units_produced: 71,
+                units_killed: 38,
+                units_lost: 64,
+                minerals_gathered: 14_225,
+                gas_gathered: 4_350,
+                average_apm: Some(187),
+            },
+        }),
     }
 }
 
