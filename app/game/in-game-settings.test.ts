@@ -69,7 +69,7 @@ describe('app/game/in-game-settings', () => {
   })
 
   test('keeps the observer panels the game saves, and nothing shaped otherwise', () => {
-    const panels = { matchup: true, graphs: false, graph_series: 'Income' }
+    const panels = { matchup: true, graphs: false, series: 'Income' }
     expect(readInGameSettingsChange({ local: { observerPanels: panels } }).change.local).toEqual({
       observerPanels: panels,
     })
