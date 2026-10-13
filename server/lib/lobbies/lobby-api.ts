@@ -1,5 +1,6 @@
 import { RouterContext } from '@koa/router'
 import Joi from 'joi'
+import { container } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { isValidLobbyName } from '../../../common/constants'
 import { ALL_GAME_TYPES } from '../../../common/games/game-type'
@@ -14,6 +15,7 @@ import {
   LobbyServiceErrorCode,
   LobbySlotRequest,
   MoveSlotRequest,
+  ReportLobbyReplayLoadedRequest,
   SendLobbyChatRequest,
   SendLobbyOutcomeRequest,
   SetLobbyRaceRequest,
@@ -24,6 +26,10 @@ import {
 import { SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import { isPrettyId } from '../../../common/pretty-id'
 import { ALL_RACE_CHARS } from '../../../common/races'
+import {
+  GetReplaySessionSourceResponse,
+  ReplaySessionSource,
+} from '../../../common/replay-sessions'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { makeErrorConverterMiddleware } from '../errors/coded-error'
 import { asHttpError, HttpErrorWithPayload } from '../errors/error-with-payload'
@@ -40,6 +46,7 @@ import {
   UserSocketsGroup,
 } from '../websockets/socket-groups'
 import { LobbyService, LobbyServiceError } from './lobby-service'
+import { ReplayLobbySourceRetentionJob } from './replay-lobby-source-retention'
 
 // Creating, joining, and leaving are one-off transitions in and out of a lobby, so a
 // matchmaking-like rate is plenty. Leaving deliberately sits here rather than on the in-lobby
@@ -192,6 +199,7 @@ export function convertLobbyServiceError(err: unknown): void {
     case LobbyServiceErrorCode.NotInLobby:
     case LobbyServiceErrorCode.NotObserverSlot:
     case LobbyServiceErrorCode.NotSeated:
+    case LobbyServiceErrorCode.ReplayHashMismatch:
     case LobbyServiceErrorCode.UserOffline:
       throw asHttpError(400, err)
 
@@ -202,6 +210,9 @@ export function convertLobbyServiceError(err: unknown): void {
     case LobbyServiceErrorCode.NotSlotController:
       throw asHttpError(403, err)
 
+    case LobbyServiceErrorCode.ReplayNotFound:
+      throw asHttpError(404, err)
+
     case LobbyServiceErrorCode.AlreadyInActivity:
     case LobbyServiceErrorCode.AlreadyInSlot:
     case LobbyServiceErrorCode.AlreadyStarted:
@@ -210,6 +221,8 @@ export function convertLobbyServiceError(err: unknown): void {
     case LobbyServiceErrorCode.InvalidTeamLayout:
     case LobbyServiceErrorCode.NotCountingDown:
     case LobbyServiceErrorCode.NotEveryoneReady:
+    case LobbyServiceErrorCode.ReplayLobby:
+    case LobbyServiceErrorCode.ReplayNotLoading:
     case LobbyServiceErrorCode.TargetNoActiveClient:
       throw asHttpError(409, err)
 
@@ -226,6 +239,10 @@ export function convertLobbyServiceError(err: unknown): void {
     case LobbyServiceErrorCode.JoinAlreadyInActivity:
       throw new HttpErrorWithPayload(409, err.message, {
         code: LobbyJoinErrorCode.AlreadyInActivity,
+      })
+    case LobbyServiceErrorCode.ReplayNotAccessible:
+      throw new HttpErrorWithPayload(403, err.message, {
+        code: LobbyJoinErrorCode.ReplayNotAccessible,
       })
 
     default:
@@ -249,7 +266,9 @@ export class LobbyApi {
   constructor(
     private lobbyService: LobbyService,
     private clientSocketsManager: ClientSocketsManager,
-  ) {}
+  ) {
+    container.resolve(ReplayLobbySourceRetentionJob)
+  }
 
   @httpPost('/')
   @httpBefore(...authed)
@@ -262,10 +281,12 @@ export class LobbyApi {
             isValidLobbyName(value) ? value : helpers.error('any.invalid'),
           )
           .required(),
-        map: Joi.string().required(),
+        map: Joi.string(),
         gameType: Joi.string()
           .valid(...ALL_GAME_TYPES)
-          .required(),
+          .when('map', { is: Joi.exist(), then: Joi.required() }),
+        replayGameId: Joi.string(),
+        replayUploadId: Joi.string().uuid(),
         gameSubType: Joi.number().min(1).max(7),
         allowObservers: Joi.boolean(),
         useLegacyLimits: Joi.boolean(),
@@ -277,15 +298,23 @@ export class LobbyApi {
         regionManual: regionManualSchema,
         clientPubkey: clientPubkeySchema,
         leaveCurrentLobby: Joi.boolean(),
-      }),
+      }).xor('map', 'replayGameId', 'replayUploadId'),
     })
 
     const { user, client } = this.getSockets(ctx, body.clientId)
+
+    let replay: ReplaySessionSource | undefined
+    if (body.replayGameId !== undefined) {
+      replay = { kind: 'game', gameId: body.replayGameId }
+    } else if (body.replayUploadId !== undefined) {
+      replay = { kind: 'upload', sourceId: body.replayUploadId }
+    }
 
     return await this.lobbyService.createLobby({
       name: body.name,
       map: body.map,
       gameType: body.gameType,
+      replay,
       gameSubType: body.gameSubType,
       allowObservers: body.allowObservers,
       useLegacyLimits: body.useLegacyLimits,
@@ -579,6 +608,45 @@ export class LobbyApi {
     const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
 
     this.lobbyService.cancelCountdown({ client, lobbyId: params.lobbyId })
+  }
+
+  @httpGet('/:lobbyId/replay-source')
+  @httpBefore(...authedAction)
+  async getReplaySource(ctx: RouterContext): Promise<GetReplaySessionSourceResponse> {
+    const { params, query } = validateRequest(ctx, {
+      params: lobbyIdParams,
+      query: lobbyClientBody,
+    })
+    const client = this.getClientSockets(ctx.session!.user.id, query.clientId)
+
+    return await this.lobbyService.getReplayDownload({ client, lobbyId: params.lobbyId })
+  }
+
+  @httpPost('/:lobbyId/replay-loaded')
+  @httpBefore(...authedAction)
+  async reportReplayLoaded(ctx: RouterContext): Promise<void> {
+    const { params, body } = validateRequest(ctx, {
+      params: lobbyIdParams,
+      body: Joi.object<ReportLobbyReplayLoadedRequest>({
+        clientId: clientIdSchema,
+        hash: Joi.string().hex().length(64).required(),
+      }),
+    })
+    const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
+
+    this.lobbyService.reportReplayLoaded({ client, lobbyId: params.lobbyId, hash: body.hash })
+  }
+
+  @httpPost('/:lobbyId/replay-ended')
+  @httpBefore(...authedAction)
+  async reportReplayEnded(ctx: RouterContext): Promise<void> {
+    const { params, body } = validateRequest(ctx, {
+      params: lobbyIdParams,
+      body: lobbyClientBody,
+    })
+    const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
+
+    this.lobbyService.reportReplayEnded({ client, lobbyId: params.lobbyId })
   }
 
   @httpGet('/:lobbyId/state')

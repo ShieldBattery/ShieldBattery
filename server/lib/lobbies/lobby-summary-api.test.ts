@@ -141,7 +141,7 @@ describe('lobbies/lobby-summary-api/LobbySummaryApi#getSummary', () => {
     // The presigned `mapUrl`, and the uploader/hash/visibility details, must never re-enter this
     // unauthenticated response unnoticed -- if a field is added to MapInfoJson later, this list
     // won't silently grow to include it.
-    expect(Object.keys(response.summary.map).sort()).toEqual(
+    expect(Object.keys(response.summary.map!).sort()).toEqual(
       [
         'id',
         'image1024Url',
@@ -152,7 +152,7 @@ describe('lobbies/lobby-summary-api/LobbySummaryApi#getSummary', () => {
         'name',
       ].sort(),
     )
-    expect(Object.keys(response.summary.map.mapData).sort()).toEqual(['height', 'width'].sort())
+    expect(Object.keys(response.summary.map!.mapData).sort()).toEqual(['height', 'width'].sort())
   })
 
   test('passes through the whitelisted map values unchanged', async () => {

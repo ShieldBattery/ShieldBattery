@@ -51,15 +51,20 @@ function toSummaryResponse(result: LiveLobbyWithHost): LobbySummaryResponse {
       useLegacyLimits: summary.useLegacyLimits,
       starcraftCompatibleReplays: summary.starcraftCompatibleReplays,
       lifecycle: summary.lifecycle,
-      map: {
-        id: map.id,
-        name: map.name,
-        image256Url: map.image256Url,
-        image512Url: map.image512Url,
-        image1024Url: map.image1024Url,
-        image2048Url: map.image2048Url,
-        mapData: { width: map.mapData.width, height: map.mapData.height },
-      },
+      ...(map
+        ? {
+            map: {
+              id: map.id,
+              name: map.name,
+              image256Url: map.image256Url,
+              image512Url: map.image512Url,
+              image1024Url: map.image1024Url,
+              image2048Url: map.image2048Url,
+              mapData: { width: map.mapData.width, height: map.mapData.height },
+            },
+          }
+        : {}),
+      ...(summary.replay ? { replay: summary.replay } : {}),
     },
     host,
     joinCode,

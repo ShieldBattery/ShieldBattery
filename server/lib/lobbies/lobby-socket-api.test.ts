@@ -15,6 +15,7 @@ import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import { getMapInfos } from '../maps/map-models'
 import { reparseMapsAsNeeded } from '../maps/map-operations'
 import { NetcodeV2Service } from '../netcode-v2/netcode-v2-service'
+import { ReplaySessionSources } from '../replays/replay-session-sources'
 import { FakeClock } from '../time/testing/fake-clock'
 import { RestrictionService } from '../users/restriction-service'
 import { createFakeActivityStatusService } from '../users/testing/activity-status-service'
@@ -126,6 +127,7 @@ describe('lobbies/lobby-socket-api', () => {
       new GameLifecycleEvents(),
       clientSockets,
       clock,
+      {} as unknown as ReplaySessionSources,
     )
     // The API resolves its service from the container, so the instance under test has to be
     // registered before it's constructed.

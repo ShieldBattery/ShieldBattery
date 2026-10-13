@@ -8,7 +8,7 @@ import { RaceChar } from '../races'
 import { RolledOutcome, RolledOutcomeRequest } from '../rolled-outcomes'
 import { SbUser } from '../users/sb-user'
 import { SbUserId } from '../users/sb-user-id'
-import { BenchedUser, Lobby, LobbyState, LobbyVisibility } from './index'
+import { BenchedUser, Lobby, LobbyReplay, LobbyState, LobbyVisibility } from './index'
 import { SbLobbyId } from './sb-lobby-id'
 import { SlotJson, SlotType } from './slot'
 
@@ -22,6 +22,7 @@ export enum LobbyJoinErrorCode {
   ObserversFull = 'observersFull',
   Banned = 'banned',
   AlreadyInActivity = 'alreadyInActivity',
+  ReplayNotAccessible = 'replayNotAccessible',
 }
 
 /**
@@ -65,6 +66,12 @@ export enum LobbyServiceErrorCode {
   NotSeated = 'NotSeated',
   NotSlotController = 'NotSlotController',
   ObserversFull = 'ObserversFull',
+  /** The operation only applies to lobbies that play a game, and this one watches a replay. */
+  ReplayLobby = 'ReplayLobby',
+  ReplayHashMismatch = 'ReplayHashMismatch',
+  ReplayNotAccessible = 'ReplayNotAccessible',
+  ReplayNotFound = 'ReplayNotFound',
+  ReplayNotLoading = 'ReplayNotLoading',
   TargetNoActiveClient = 'TargetNoActiveClient',
   UserOffline = 'UserOffline',
 }
@@ -95,11 +102,18 @@ export interface LobbyNetworkParams {
   clientPubkey?: string
 }
 
-/** The body of a request to create a new lobby. */
+/**
+ * The body of a request to create a new lobby. A game lobby names a `map` and `gameType`; a replay
+ * lobby instead names the replay it watches, either a ShieldBattery game (`replayGameId`) or a
+ * replay its host staged (`replayUploadId`). Exactly one of `map`, `replayGameId`, and
+ * `replayUploadId` is given.
+ */
 export interface CreateLobbyRequest extends LobbyClientRequest, LobbyNetworkParams {
   name: string
-  map: SbMapId
-  gameType: GameType
+  map?: SbMapId
+  gameType?: GameType
+  replayGameId?: string
+  replayUploadId?: string
   gameSubType?: number
   allowObservers?: boolean
   useLegacyLimits?: boolean
@@ -160,6 +174,14 @@ export interface SetLobbyReadyRequest extends LobbyClientRequest {
 }
 
 /** The body of a request by the host to start the lobby's game. */
+/**
+ * Reports that a replay lobby member has loaded its replay, holding it at the start. `hash` is the
+ * hash of the bytes they loaded, which must be the lobby's replay.
+ */
+export interface ReportLobbyReplayLoadedRequest extends LobbyClientRequest {
+  hash: string
+}
+
 export interface StartLobbyCountdownRequest extends LobbyClientRequest {
   /**
    * When set, the countdown begins even though some of the lobby's seated members have not marked
@@ -287,6 +309,7 @@ export type LobbyEvent =
   | LobbyMapQueueAdvanceEvent
   | LobbySeriesGameUpdatedEvent
   | LobbyReadyChangeEvent
+  | LobbyReplayLoadEvent
 
 /**
  * A slot as shown to a lobby's previewers: its occupancy and just enough about the occupant to
@@ -335,7 +358,9 @@ export interface LobbyObserverSlotCounts {
 export interface LobbySummaryJson {
   id: SbLobbyId
   name: string
-  map: MapInfoJson
+  /** The map a game lobby plays. Absent for a replay lobby, which has `replay` instead. */
+  map?: MapInfoJson
+  replay?: LobbyReplay
   gameType: GameType
   gameSubType: number
   host: { id: SbUserId }
@@ -422,7 +447,7 @@ export interface LobbySummaryResponse {
     | 'benchCount'
     | 'elapsedMs'
     | 'lockedAlliances'
-  > & { map: LobbySummaryMapJson }
+  > & { map?: LobbySummaryMapJson }
   host: SbUser
   /**
    * The lobby's join code, normalized (undashed, uppercase). Present whenever the lobby still has
@@ -555,6 +580,15 @@ export interface LobbyCancelCountdownEvent {
   type: 'cancelCountdown'
 }
 
+/**
+ * A replay lobby's countdown finished: every member should download the replay, check it against
+ * the lobby's hash, and load it, reporting back once it is held at the start. Playback begins for
+ * everyone with the {@link LobbyGameStartedEvent} that follows once every member has loaded.
+ */
+export interface LobbyReplayLoadEvent {
+  type: 'replayLoad'
+}
+
 export interface LobbyCancelLoadingEvent {
   type: 'cancelLoading'
   reason?: 'gameAnomaly'
@@ -582,7 +616,8 @@ export interface LobbyMemberGameEndedEvent {
  */
 export interface LobbyRegroupEvent {
   type: 'regroup'
-  game: LobbySeriesGameJson
+  /** The finished game. Absent when a replay lobby finishes watching, which keeps no series. */
+  game?: LobbySeriesGameJson
 }
 
 /**

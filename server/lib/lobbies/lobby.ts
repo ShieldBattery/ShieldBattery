@@ -15,8 +15,10 @@ import {
   isSlotUnoccupied,
   isUms,
   Lobby,
+  LobbyReplay,
   LobbyVisibility,
   MAX_OBSERVERS,
+  MAX_REPLAY_VIEWERS,
   slotCount,
   SlotWithIndexes,
   takenSlotCount,
@@ -192,7 +194,8 @@ export function toSummaryJson(
   return {
     id: lobby.id,
     name: lobby.name,
-    map: toMapInfoJson(lobby.map!),
+    ...(lobby.map ? { map: toMapInfoJson(lobby.map) } : {}),
+    ...(lobby.replay ? { replay: lobby.replay } : {}),
     gameType: lobby.gameType,
     gameSubType: lobby.gameSubType,
     host: { id: lobby.host.userId! },
@@ -417,6 +420,51 @@ export function createLobby({
     createdAt: Date.now(),
   }
   return addPlayer(lobby, hostTeamIndex, hostSlotIndex, host)
+}
+
+/**
+ * Creates a new replay lobby with its host as the first viewer. Everyone in a replay lobby watches
+ * from a single team of viewer seats; it has no map, and its game type is never played.
+ */
+export function createReplayLobby({
+  name,
+  replay,
+  hostUserId,
+  hostRegion,
+  visibility = 'listed',
+}: {
+  name: string
+  replay: LobbyReplay
+  hostUserId: SbUserId
+  hostRegion?: GameServerRegionId
+  visibility?: LobbyVisibility
+}): Lobby {
+  const viewers: Team = {
+    name: 'Viewers',
+    teamId: 0,
+    isObserver: false,
+    slots: Array.from({ length: MAX_REPLAY_VIEWERS }, () => createOpen()),
+    hiddenSlots: [],
+  }
+  const host: Slot = { ...createHuman(hostUserId), region: hostRegion }
+
+  const lobby: Lobby = {
+    id: makeSbLobbyId(encodePrettyId(randomUUID())),
+    name,
+    replay,
+    mapQueue: [],
+    gameType: GameType.Melee,
+    gameSubType: 0,
+    teams: [viewers],
+    bench: [],
+    host,
+    useLegacyLimits: false,
+    starcraftCompatibleReplays: true,
+    lockedAlliances: false,
+    visibility,
+    createdAt: Date.now(),
+  }
+  return addPlayer(lobby, 0, 0, host)
 }
 
 /**

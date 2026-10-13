@@ -16,6 +16,7 @@ import {
   hasOpposingSides,
   LobbyVisibility,
   MAX_BENCH,
+  MAX_REPLAY_VIEWERS,
   openSlotCount,
 } from '../../../common/lobbies'
 import { isValidJoinCode } from '../../../common/lobbies/join-code'
@@ -24,6 +25,7 @@ import { findSeriesGameWinner } from '../../../common/lobbies/lobby-series'
 import { makeSbLobbyId, SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import { makeSbMapId, MapInfo, MapVisibility, Tileset } from '../../../common/maps'
 import { RaceChar } from '../../../common/races'
+import { ReplaySessionSourceInfo } from '../../../common/replay-sessions'
 import { RolledOutcome } from '../../../common/rolled-outcomes'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { FriendActivityStatus } from '../../../common/users/relationships'
@@ -39,6 +41,12 @@ import { getMapInfos } from '../maps/map-models'
 import { reparseMapsAsNeeded } from '../maps/map-operations'
 import { rollOutcome } from '../messaging/roll-outcome'
 import { NetcodeV2Service } from '../netcode-v2/netcode-v2-service'
+import {
+  ReplaySessionSourceAccessError,
+  ReplaySessionSourceAccessErrorCode,
+  ReplaySessionSources,
+  ResolvedReplaySessionSource,
+} from '../replays/replay-session-sources'
 import { FakeClock, StopCriteria } from '../time/testing/fake-clock'
 import {
   ActivityStatusService,
@@ -200,6 +208,22 @@ const JOINER_USER: SbUser = { id: makeSbUserId(2), name: 'JoinerUser' } as SbUse
 const OTHER_HOST_USER: SbUser = { id: makeSbUserId(3), name: 'OtherHostUser' } as SbUser
 const LISTER_USER: SbUser = { id: makeSbUserId(4), name: 'ListerUser' } as SbUser
 
+const REPLAY_HASH = 'ab'.repeat(32)
+
+const GAME_REPLAY_SOURCE: ResolvedReplaySessionSource = {
+  kind: 'game',
+  gameId: 'replayed-game-id',
+  replayFileId: 'replay-file-id',
+  hash: REPLAY_HASH,
+  size: 1234,
+}
+
+const GAME_REPLAY_INFO: ReplaySessionSourceInfo = {
+  kind: 'game',
+  gameId: 'replayed-game-id',
+  metadata: { mapName: 'Fighting Spirit', gameType: '2', durationFrames: 12000 },
+}
+
 /** The socket groups a single connected client of a user is identified by. */
 interface Sockets {
   user: UserSocketsGroup
@@ -244,6 +268,13 @@ describe('lobbies/lobby-service', () => {
 
   /** The stubbed `GameLoader.loadGame`, for tests that need to control when/how a load finishes. */
   let loadGameMock: ReturnType<typeof vi.fn<(request: GameLoadRequest) => Promise<unknown>>>
+
+  /** The stub that resolves replay lobbies' replays and decides who may watch them. */
+  let replaySources: {
+    resolve: ReturnType<typeof vi.fn>
+    canAccess: ReturnType<typeof vi.fn>
+    download: ReturnType<typeof vi.fn>
+  }
 
   /** Returns the data published on the public lobby list channel, in order. */
   function listPublishes(): Array<{ action: string; payload: any }> {
@@ -394,6 +425,11 @@ describe('lobbies/lobby-service', () => {
       clock,
     )
     activityRegistry = new GameplayActivityRegistry(activityStatusService)
+    replaySources = {
+      resolve: vi.fn(async () => ({ source: GAME_REPLAY_SOURCE, info: GAME_REPLAY_INFO })),
+      canAccess: vi.fn(async () => true),
+      download: vi.fn(async () => ({ url: 'replay-url', hash: REPLAY_HASH, size: 1234 })),
+    }
     lobbyService = new LobbyService(
       new TypedPublisher(nydus),
       activityRegistry,
@@ -413,6 +449,7 @@ describe('lobbies/lobby-service', () => {
       gameLifecycleEvents,
       clientSockets,
       clock,
+      replaySources as unknown as ReplaySessionSources,
     )
 
     asMockedFunction(getMapInfos).mockResolvedValue([BIG_GAME_HUNTERS])
@@ -4327,6 +4364,199 @@ describe('lobbies/lobby-service', () => {
       expect(lobbyService.lobbies.has(id)).toBe(false)
       expect(lobbyService.series.has(id)).toBe(false)
       expect(lobbyService.seriesGameLobbies.has(GAME_ID)).toBe(false)
+    })
+  })
+
+  describe('replay lobbies', () => {
+    async function createReplayLobby(sockets = host, visibility?: LobbyVisibility) {
+      return await lobbyService.createLobby({
+        name: 'Replay lobby',
+        replay: { kind: 'game', gameId: 'replayed-game-id' },
+        visibility,
+        user: sockets.user,
+        client: sockets.client,
+      })
+    }
+
+    /** Counts down a replay lobby's start, leaving it waiting for its members to load. */
+    async function startReplayLoad(sockets = host) {
+      vi.useFakeTimers()
+      lobbyService.startCountdown({ client: sockets.client, force: true })
+      await vi.advanceTimersByTimeAsync(5000)
+      vi.useRealTimers()
+    }
+
+    test('seats the host as the only viewer, with the replay in place of a map', async () => {
+      const { id } = await createReplayLobby()
+
+      const lobby = lobbyService.lobbies.get(id)!
+      expect(replaySources.resolve).toHaveBeenCalledWith(
+        { kind: 'game', gameId: 'replayed-game-id' },
+        HOST_USER.id,
+      )
+      expect(lobby.map).toBeUndefined()
+      expect(lobby.replay).toEqual({ source: GAME_REPLAY_INFO, hash: REPLAY_HASH })
+      expect(lobby.teams).toHaveLength(1)
+      expect(lobby.teams[0].slots).toHaveLength(MAX_REPLAY_VIEWERS)
+      expect(getHumanSlots(lobby).map(s => s.userId)).toEqual([HOST_USER.id])
+      expect(listPublishes()).toEqual([
+        { action: 'add', payload: expect.objectContaining({ replay: lobby.replay }) },
+      ])
+      expect(listPublishes()[0].payload.map).toBeUndefined()
+    })
+
+    test("refuses a replay the host can't watch", async () => {
+      replaySources.resolve.mockRejectedValue(
+        new ReplaySessionSourceAccessError(
+          ReplaySessionSourceAccessErrorCode.NotAccessible,
+          'no access',
+        ),
+      )
+
+      await expect(createReplayLobby()).rejects.toMatchObject({
+        code: LobbyServiceErrorCode.ReplayNotAccessible,
+      })
+      expect(lobbyService.lobbies.size).toBe(0)
+    })
+
+    test("refuses a joiner who can't watch the replay themselves", async () => {
+      const { id } = await createReplayLobby()
+      replaySources.canAccess.mockResolvedValue(false)
+
+      await expect(joinLobby(joiner, id)).rejects.toMatchObject({
+        code: LobbyServiceErrorCode.ReplayNotAccessible,
+      })
+      expect(replaySources.canAccess).toHaveBeenCalledWith(GAME_REPLAY_SOURCE, JOINER_USER.id)
+      expect(getHumanSlots(lobbyService.lobbies.get(id)!)).toHaveLength(1)
+    })
+
+    test('seats a joiner who can watch the replay as another viewer', async () => {
+      const { id } = await createReplayLobby()
+
+      await joinLobby(joiner, id)
+
+      expect(getHumanSlots(lobbyService.lobbies.get(id)!).map(s => s.userId)).toEqual([
+        HOST_USER.id,
+        JOINER_USER.id,
+      ])
+    })
+
+    test('refuses the operations that only apply to playing a game', async () => {
+      const { id } = await createReplayLobby()
+      const openSlot = lobbyService.lobbies.get(id)!.teams[0].slots[1]
+      const hostSlot = lobbyService.lobbies.get(id)!.teams[0].slots[0]
+
+      await expect(
+        lobbyService.updateSettings({ client: host.client, lobbyId: id, visibility: 'unlisted' }),
+      ).rejects.toMatchObject({ code: LobbyServiceErrorCode.ReplayLobby })
+      expect(() => lobbyService.addComputer({ client: host.client, slotId: openSlot.id })).toThrow(
+        expect.objectContaining({ code: LobbyServiceErrorCode.ReplayLobby }),
+      )
+      expect(() =>
+        lobbyService.setRace({ client: host.client, slotId: hostSlot.id, race: 'z' }),
+      ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.ReplayLobby }))
+    })
+
+    test('starts without opposing sides, and loads the replay instead of a game', async () => {
+      const { id } = await createReplayLobby()
+      await joinLobby(joiner, id)
+
+      await startReplayLoad()
+
+      expect(loadGameMock).not.toHaveBeenCalled()
+      expect(lobbyPublishes(id)).toContainEqual({ type: 'replayLoad' })
+      expect(listPublishes().at(-1)).toEqual({ action: 'delete', payload: id })
+    })
+
+    test('plays once every viewer has loaded the same replay', async () => {
+      const { id } = await createReplayLobby()
+      await joinLobby(joiner, id)
+      await startReplayLoad()
+
+      lobbyService.reportReplayLoaded({ client: host.client, lobbyId: id, hash: REPLAY_HASH })
+      expect(lobbyPublishes(id).some(d => d?.type === 'gameStarted')).toBe(false)
+
+      expect(() =>
+        lobbyService.reportReplayLoaded({
+          client: joiner.client,
+          lobbyId: id,
+          hash: 'cd'.repeat(32),
+        }),
+      ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.ReplayHashMismatch }))
+
+      lobbyService.reportReplayLoaded({
+        client: joiner.client,
+        lobbyId: id,
+        hash: REPLAY_HASH.toUpperCase(),
+      })
+      expect(lobbyPublishes(id).find(d => d?.type === 'gameStarted')).toEqual({
+        type: 'gameStarted',
+        runState: expect.objectContaining({ inGameUsers: [HOST_USER.id, JOINER_USER.id] }),
+      })
+    })
+
+    test("refuses a load report while the lobby isn't loading its replay", async () => {
+      const { id } = await createReplayLobby()
+
+      expect(() =>
+        lobbyService.reportReplayLoaded({ client: host.client, lobbyId: id, hash: REPLAY_HASH }),
+      ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.ReplayNotLoading }))
+    })
+
+    test('gives up on viewers who never load, blaming them', async () => {
+      const { id } = await createReplayLobby()
+      await joinLobby(joiner, id)
+      await startReplayLoad()
+      lobbyService.reportReplayLoaded({ client: host.client, lobbyId: id, hash: REPLAY_HASH })
+
+      await clock.runTimeoutsUntil({ criteria: StopCriteria.EmptyQueue })
+
+      expect(lobbyPublishes(id)).toContainEqual({
+        type: 'cancelLoading',
+        usersAtFault: [JOINER_USER.id],
+      })
+      expect(() =>
+        lobbyService.reportReplayLoaded({ client: joiner.client, lobbyId: id, hash: REPLAY_HASH }),
+      ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.ReplayNotLoading }))
+    })
+
+    test('regroups without a series entry once every viewer closes the replay', async () => {
+      const { id } = await createReplayLobby()
+      await joinLobby(joiner, id)
+      await startReplayLoad()
+      lobbyService.reportReplayLoaded({ client: host.client, lobbyId: id, hash: REPLAY_HASH })
+      lobbyService.reportReplayLoaded({ client: joiner.client, lobbyId: id, hash: REPLAY_HASH })
+
+      lobbyService.reportReplayEnded({ client: host.client, lobbyId: id })
+      expect(lobbyPublishes(id)).toContainEqual({ type: 'memberGameEnded', userId: HOST_USER.id })
+      lobbyService.reportReplayEnded({ client: joiner.client, lobbyId: id })
+
+      expect(lobbyPublishes(id)).toContainEqual({ type: 'regroup' })
+      expect(lobbyService.series.has(id)).toBe(false)
+      expect(lobbyService.runStates.has(id)).toBe(false)
+    })
+
+    test('hands members a download of the replay, checked for each of them', async () => {
+      const { id } = await createReplayLobby()
+      await joinLobby(joiner, id)
+
+      await expect(
+        lobbyService.getReplayDownload({ client: joiner.client, lobbyId: id }),
+      ).resolves.toEqual({ url: 'replay-url', hash: REPLAY_HASH, size: 1234 })
+      expect(replaySources.download).toHaveBeenCalledWith(GAME_REPLAY_SOURCE, JOINER_USER.id)
+    })
+
+    test('keeps track of the uploads its lobbies are watching until they close', async () => {
+      replaySources.resolve.mockResolvedValue({
+        source: { kind: 'upload', sourceId: 'upload-id', hash: REPLAY_HASH, size: 1 },
+        info: { kind: 'upload', metadata: GAME_REPLAY_INFO.metadata },
+      })
+      await createReplayLobby()
+
+      expect(lobbyService.getWatchedReplayUploadIds()).toEqual(['upload-id'])
+
+      lobbyService.leaveLobby({ client: host.client })
+      expect(lobbyService.getWatchedReplayUploadIds()).toEqual([])
     })
   })
 })
