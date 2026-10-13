@@ -2,14 +2,12 @@ import { useEffect, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MapVisibility, SbMapId, tilesetToName } from '../../common/maps'
-import { matchmakingTypeToLabel } from '../../common/matchmaking'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { useForm, useFormCallbacks } from '../forms/form-hook'
 import { SubmitOnEnter } from '../forms/submit-on-enter'
 import { required } from '../forms/validators'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
-import { useCurrentMapPoolTypes } from '../matchmaking/map-pool-membership'
 import { useAutoFocusRef } from '../material/auto-focus'
 import { IconButton } from '../material/button'
 import { Dialog } from '../material/dialog'
@@ -85,10 +83,6 @@ const MapData = styled.div`
 const MapDataItem = styled.div`
   ${bodyMedium};
   color: var(--theme-on-surface-variant);
-`
-
-const MapPoolsItem = styled(MapDataItem)`
-  margin-top: 8px;
 `
 
 const StyledMapThumbnail = styled(ReduxMapThumbnail)`
@@ -225,7 +219,6 @@ export default function MapDetails({ mapId, onCancel }: MapDetailsProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const map = useAppSelector(s => s.maps.byId.get(mapId))
-  const mapPoolTypes = useCurrentMapPoolTypes(mapId)
   const auth = useAppSelector(s => s.auth)
 
   const [isEditingName, setIsEditingName] = useState(false)
@@ -337,18 +330,13 @@ export default function MapDetails({ mapId, onCancel }: MapDetailsProps) {
               </Trans>
             </MapDataItem>
           </MapData>
-          {mapPoolTypes.length ? (
-            <MapPoolsItem>
-              <Trans t={t} i18nKey='maps.details.ladderPools'>
-                Ladder pools:{' '}
-                {{
-                  modes: mapPoolTypes.map(type => matchmakingTypeToLabel(type, t)).join(', '),
-                }}
-              </Trans>
-            </MapPoolsItem>
-          ) : null}
         </MapInfo>
-        <StyledMapThumbnail mapId={map.id} hasMapPreviewAction={false} hasFavoriteAction={false} />
+        <StyledMapThumbnail
+          mapId={map.id}
+          hasMapPreviewAction={false}
+          hasFavoriteAction={false}
+          hasMapPoolChips={true}
+        />
       </Container>
     )
   }

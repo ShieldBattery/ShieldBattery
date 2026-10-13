@@ -2024,7 +2024,6 @@
     "details": {
       "editDescription": "Edit description",
       "editName": "Edit name",
-      "ladderPools": "Ladder pools: {{modes}}",
       "mapDescription": "Map description",
       "mapDescriptionRequired": "Enter a map description",
       "mapName": "Map name",
@@ -2105,6 +2104,7 @@
       "addToFavorites": "Add to favorites",
       "downloadMap": "Download",
       "mapActions": "Map actions",
+      "mapPoolChipTooltip": "In the current {{mode}} ladder map pool",
       "noMapPreview": "Map preview not available",
       "regenerateImage": "Regenerate image",
       "removeFromFavorites": "Remove from favorites",

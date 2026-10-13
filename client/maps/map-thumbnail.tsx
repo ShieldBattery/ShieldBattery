@@ -14,6 +14,7 @@ import { IconButton } from '../material/button'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
+import { Tooltip } from '../material/tooltip'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
@@ -171,7 +172,7 @@ const MapPoolChips = styled.div<{ $aboveInfoLayer?: boolean }>`
   justify-content: flex-end;
   gap: 4px;
 
-  /* Purely informational, so clicks fall through to the tile's overlay. */
+  /* Clicks between the chips fall through to the tile's overlay. */
   pointer-events: none;
 
   @container (max-width: 175px) {
@@ -179,10 +180,12 @@ const MapPoolChips = styled.div<{ $aboveInfoLayer?: boolean }>`
   }
 `
 
-const MapPoolChip = styled.div`
+const MapPoolChip = styled(Tooltip)`
   ${labelMedium};
   ${singleLine};
   padding: 2px 8px;
+  /* Hoverable so the chip can show its tooltip. */
+  pointer-events: auto;
 
   border-radius: 999px;
   background-color: rgb(from var(--color-blue10) r g b / 0.72);
@@ -360,9 +363,19 @@ export function MapThumbnail({
         />
       ) : null}
       {mapPoolLabels?.length ? (
-        <MapPoolChips $aboveInfoLayer={showInfoLayer}>
+        <MapPoolChips $aboveInfoLayer={showInfoLayer} onClick={onClick}>
           {mapPoolLabels.map(label => (
-            <MapPoolChip key={label}>{label}</MapPoolChip>
+            <MapPoolChip
+              key={label}
+              text={t(
+                'maps.thumbnail.mapPoolChipTooltip',
+                'In the current {{mode}} ladder map pool',
+                { mode: label },
+              )}
+              position='top'
+              tabIndex={-1}>
+              {label}
+            </MapPoolChip>
           ))}
         </MapPoolChips>
       ) : null}
