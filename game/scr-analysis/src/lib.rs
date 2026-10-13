@@ -1410,6 +1410,22 @@ impl<'e> Analysis<'e> {
         self.0.last_free_selection_circle()
     }
 
+    /// The settings registry: a map of group names to maps of setting keys, as the game's own
+    /// options popup reads and writes them.
+    pub fn game_setting_groups(&mut self) -> Option<Operand<'e>> {
+        self.0.game_setting_groups()
+    }
+
+    /// `(setting, &i32, defer_persist)`, thiscall: the registry's write of an integer setting.
+    pub fn update_game_setting_int(&mut self) -> Option<VirtualAddress> {
+        self.0.update_game_setting_int()
+    }
+
+    /// `(setting, &u8, defer_persist)`, thiscall: the registry's write of an on/off setting.
+    pub fn update_game_setting_bool(&mut self) -> Option<VirtualAddress> {
+        self.0.update_game_setting_bool()
+    }
+
     /// Base of the `u16[player][hotkey group]` array holding the frame each selection hotkey
     /// group was last written on.
     pub fn selection_hotkey_last_used_frames(&mut self) -> Option<Operand<'e>> {
