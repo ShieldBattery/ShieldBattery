@@ -47,6 +47,17 @@ pub struct Fit {
 }
 
 impl Fit {
+    /// A fit with blanks `period` apart from `anchor`, as if the newest was seen there.
+    #[cfg(test)]
+    pub fn new(anchor: Instant, period: Duration) -> Fit {
+        Fit {
+            anchor,
+            period,
+            spread: Duration::ZERO,
+            newest: anchor,
+        }
+    }
+
     /// The first vertical blank after `at`.
     pub fn next_after(&self, at: Instant) -> Instant {
         let period = self.period.as_secs_f64();

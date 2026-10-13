@@ -60,7 +60,7 @@ use winapi::um::winnt::{HANDLE, TIMER_ALL_ACCESS};
 
 use crate::bw_scr::BwScr;
 
-use self::vblank::VblankClock;
+use self::vblank::{Fit, VblankClock};
 
 const ENV_VAR: &str = "SB_FRAME_PACE";
 const MARGIN_ENV_VAR: &str = "SB_FRAME_PACE_MARGIN_US";
@@ -529,30 +529,20 @@ unsafe fn pace(bw: &BwScr, can_skip_draw: bool) {
         let (frame_at, vblank) = match fit {
             Some(fit) => {
                 let lead = state.lead(false);
-                // One frame per refresh: never time two for the same vertical blank, and leave
-                // one without a frame when the vertical sync queue needs emptying.
-                let skip = std::mem::take(&mut state.skip_blank);
-                let earliest = match state.last_vblank {
-                    Some(last) if skip => (now + lead).max(last + fit.period * 3 / 2),
-                    Some(last) => (now + lead).max(last + fit.period / 2),
-                    None => now + lead,
-                };
-                let vblank = fit.next_after(earliest);
-                let frame_at = vblank - lead;
-                // A frame that runs a step takes longer, so it starts earlier for the same blank.
                 let step_lead = state.lead(true).max(lead);
-                let (frame_at, lead) = match step_due {
-                    Some(step)
-                        if step <= frame_at
-                            && (fold_steps || step + MERGE >= vblank - step_lead) =>
-                    {
-                        merge_until = Some(frame_at);
-                        (vblank.checked_sub(step_lead).unwrap_or(now), step_lead)
-                    }
-                    _ => (frame_at, lead),
-                };
-                state.stats.lead_us_total += u64::from(micros(lead));
-                (frame_at, Some(vblank))
+                let skip_blank = std::mem::take(&mut state.skip_blank);
+                let frame = time_for_blank(
+                    &fit,
+                    now,
+                    state.last_vblank,
+                    skip_blank,
+                    (lead, step_lead),
+                    step_due,
+                    fold_steps,
+                );
+                merge_until = frame.merge_until;
+                state.stats.lead_us_total += u64::from(micros(frame.lead));
+                (frame.frame_at, Some(frame.vblank))
             }
             // A variable refresh display shows a frame when it's presented, so frames are timed to
             // be presented a period after the one before rather than started a period apart: how
@@ -576,17 +566,12 @@ unsafe fn pace(bw: &BwScr, can_skip_draw: bool) {
                 (slot, None)
             }
         };
-        let merge_until = merge_until.unwrap_or(frame_at);
-        let wake = match step_due {
-            Some(step) if !fold_steps && step + MERGE < frame_at => Wake::Step,
-            Some(step) if step <= merge_until => Wake::Merged,
-            _ => Wake::Frame,
-        };
-        let wake_at = match (wake, step_due) {
-            (Wake::Step, Some(step)) => step,
-            (Wake::Merged, Some(step)) if !fold_steps => step.min(frame_at),
-            _ => frame_at,
-        };
+        let (wake, wake_at) = choose_wake(
+            frame_at,
+            merge_until.unwrap_or(frame_at),
+            step_due,
+            fold_steps,
+        );
         state.immediate_step_wakes = match wake != Wake::Frame && wake_at <= now {
             true => state.immediate_step_wakes + 1,
             false => 0,
@@ -653,6 +638,86 @@ unsafe fn pace(bw: &BwScr, can_skip_draw: bool) {
         *stats = Stats::new();
         stats.started = Some(now);
         stats.last_scroll_tick = last_scroll_tick;
+    }
+}
+
+/// A frame timed for a vertical blank.
+#[derive(Clone, Copy, Debug)]
+struct BlankFrame {
+    vblank: Instant,
+    /// When the frame's iteration should start.
+    frame_at: Instant,
+    /// How long before the blank that is.
+    lead: Duration,
+    /// When a step runs in the frame's iteration, the latest it can come due and still do so.
+    merge_until: Option<Instant>,
+}
+
+/// Times the next frame for a blank of `fit`: the first one the frame can make from `now`, given
+/// `leads` (how long before its blank a frame's iteration starts without and with a logic step),
+/// and never one closer than a refresh after `last_vblank`. When `skip_blank`, the refresh after
+/// `last_vblank` is left without a frame, to empty a vertical sync queue that holds one too many.
+///
+/// A step due by the frame's time runs in its iteration when `fold_steps`, or when it comes due
+/// within [`MERGE`] of when the frame would start with it. The frame then starts the step lead
+/// before its blank, since it takes longer.
+fn time_for_blank(
+    fit: &Fit,
+    now: Instant,
+    last_vblank: Option<Instant>,
+    skip_blank: bool,
+    (lead, step_lead): (Duration, Duration),
+    step_due: Option<Instant>,
+    fold_steps: bool,
+) -> BlankFrame {
+    let earliest = match last_vblank {
+        Some(last) if skip_blank => (now + lead).max(last + fit.period * 3 / 2),
+        Some(last) => (now + lead).max(last + fit.period / 2),
+        None => now + lead,
+    };
+    let vblank = fit.next_after(earliest);
+    let frame_at = vblank - lead;
+    match step_due {
+        Some(step) if step <= frame_at && (fold_steps || step + MERGE >= vblank - step_lead) => {
+            BlankFrame {
+                vblank,
+                frame_at: vblank.checked_sub(step_lead).unwrap_or(now),
+                lead: step_lead,
+                merge_until: Some(frame_at),
+            }
+        }
+        _ => BlankFrame {
+            vblank,
+            frame_at,
+            lead,
+            merge_until: None,
+        },
+    }
+}
+
+/// What the next iteration wakes for and when, given when its frame should start, the latest a
+/// step can come due and still run in that frame's iteration, and when the next step comes due.
+///
+/// BW runs a step only in an iteration that starts once it's due, so a wake that runs one is never
+/// earlier than the step. A frame merged with a step due after its start waits for the step: with
+/// `fold_steps` the frame starts late (by less than a step takes beyond a plain frame), rather
+/// than the step slipping to the next frame's iteration.
+fn choose_wake(
+    frame_at: Instant,
+    merge_until: Instant,
+    step_due: Option<Instant>,
+    fold_steps: bool,
+) -> (Wake, Instant) {
+    match step_due {
+        Some(step) if !fold_steps && step + MERGE < frame_at => (Wake::Step, step),
+        Some(step) if step <= merge_until => {
+            let wake_at = match fold_steps {
+                true => frame_at.max(step),
+                false => step,
+            };
+            (Wake::Merged, wake_at)
+        }
+        _ => (Wake::Frame, frame_at),
     }
 }
 
@@ -1262,4 +1327,94 @@ pub fn reset() {
     state.skip_blank = false;
     state.queue_drained_at = None;
     state.stats = Stats::new();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const PERIOD: Duration = Duration::from_nanos(16_666_667);
+    const LEAD: Duration = Duration::from_micros(3000);
+    const STEP_LEAD: Duration = Duration::from_micros(6000);
+
+    /// The frame and wake the pacer picks at `now` for the blank after it, with a step due at
+    /// `step`.
+    fn plan(
+        fit: &Fit,
+        now: Instant,
+        step: Instant,
+        fold_steps: bool,
+    ) -> (BlankFrame, Wake, Instant) {
+        let frame = time_for_blank(
+            fit,
+            now,
+            None,
+            false,
+            (LEAD, STEP_LEAD),
+            Some(step),
+            fold_steps,
+        );
+        let merge_until = frame.merge_until.unwrap_or(frame.frame_at);
+        let (wake, wake_at) = choose_wake(frame.frame_at, merge_until, Some(step), fold_steps);
+        (frame, wake, wake_at)
+    }
+
+    /// Wherever in the refresh a step comes due, an iteration woken to run it starts once it's
+    /// due, and one that leaves it out only does so for a step due after a plain frame's start.
+    #[test]
+    fn steps_run_once_due() {
+        let anchor = Instant::now();
+        let fit = Fit::new(anchor, PERIOD);
+        let now = anchor + Duration::from_micros(100);
+        let vblank = anchor + PERIOD;
+        for fold_steps in [false, true] {
+            for step_us in (0..16_000).step_by(50) {
+                let step = now + Duration::from_micros(step_us);
+                let (frame, wake, wake_at) = plan(&fit, now, step, fold_steps);
+                assert_eq!(frame.vblank, vblank);
+                match wake {
+                    Wake::Step | Wake::Merged => assert!(
+                        wake_at >= step,
+                        "{wake:?} {:?} before a step due at {step_us} us (fold {fold_steps})",
+                        step - wake_at,
+                    ),
+                    Wake::Frame => assert!(
+                        step > vblank - LEAD,
+                        "step due at {step_us} us left out (fold {fold_steps})",
+                    ),
+                }
+                assert!(wake_at <= vblank - LEAD);
+            }
+        }
+    }
+
+    /// A step due after a frame with a step would start but before a plain frame would runs in
+    /// that frame's iteration, which waits for it.
+    #[test]
+    fn step_due_between_the_leads_waits_in_its_frame() {
+        let anchor = Instant::now();
+        let fit = Fit::new(anchor, PERIOD);
+        let now = anchor + Duration::from_micros(100);
+        let vblank = anchor + PERIOD;
+        let step = vblank - Duration::from_micros(4500);
+        for fold_steps in [false, true] {
+            let (frame, wake, wake_at) = plan(&fit, now, step, fold_steps);
+            assert_eq!(frame.vblank, vblank);
+            assert_eq!((wake, wake_at), (Wake::Merged, step), "fold {fold_steps}");
+        }
+    }
+
+    /// A step due well before the frame wakes on its own, unless steps fold into frames.
+    #[test]
+    fn early_steps_wake_on_their_own_unless_folded() {
+        let anchor = Instant::now();
+        let fit = Fit::new(anchor, PERIOD);
+        let now = anchor + Duration::from_micros(100);
+        let vblank = anchor + PERIOD;
+        let step = now + Duration::from_millis(2);
+        let (_, wake, wake_at) = plan(&fit, now, step, false);
+        assert_eq!((wake, wake_at), (Wake::Step, step));
+        let (_, wake, wake_at) = plan(&fit, now, step, true);
+        assert_eq!((wake, wake_at), (Wake::Merged, vblank - STEP_LEAD));
+    }
 }
