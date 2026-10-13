@@ -4,19 +4,24 @@
 //! DLL and in the host preview.
 //!
 //! It stands in for the game's own options popup, so it is drawn at the kit's modal tier. It is
-//! organised the way the app's game settings are — input, sound, video, gameplay, in that order,
+//! organized the way the app's game settings are — input, sound, video, gameplay, in that order,
 //! with the same groups and the same words inside each — because the two screens are one setting
 //! list seen from two places, and a player who learned where a setting lives in the app must not
-//! have to learn it again here.
+//! have to learn it again here. The network settings the app keeps with its system settings follow
+//! them, as a section of their own.
 //!
-//! What it does not carry: the network latency the app no longer lets anyone change, the player
-//! colors the app resolves before a game starts, and the settings that exist only in a dev client.
+//! What it does not carry: the color schemes the app resolves into player colors before a game
+//! starts (only which of the game's color modes is in use), the window placement a windowed game is
+//! launched with, and the settings that exist only in a dev client.
 //!
 //! Nothing here writes a setting. A row reports a [`SettingChange`] carrying the value the player
 //! moved it to, and the host applies it: the view-model is what the game currently holds, not a
 //! place to stage edits in.
 
-use egui::{Align, Context, Id, Layout, Sense, Shape, Stroke, Ui, Vec2, pos2, vec2};
+use egui::{
+    Align, Color32, Context, EventFilter, Id, Key, Layout, Sense, Shape, Stroke, Ui, Vec2, pos2,
+    vec2,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::colors::{BLUE70, GREY_BLUE70, GREY_BLUE95};
@@ -107,15 +112,17 @@ pub enum OptionsSection {
     /// Where the screen opens: the settings a player changes mid-match are here.
     #[default]
     Gameplay,
+    Network,
 }
 
 impl OptionsSection {
     /// Every section, in the order the app's own settings list them.
-    pub const ALL: [OptionsSection; 4] = [
+    pub const ALL: [OptionsSection; 5] = [
         OptionsSection::Input,
         OptionsSection::Sound,
         OptionsSection::Video,
         OptionsSection::Gameplay,
+        OptionsSection::Network,
     ];
 
     /// What the nav calls this section.
@@ -125,6 +132,7 @@ impl OptionsSection {
             OptionsSection::Sound => tr!("options.sectionSound", "Sound"),
             OptionsSection::Video => tr!("options.sectionVideo", "Video"),
             OptionsSection::Gameplay => tr!("options.sectionGameplay", "Gameplay"),
+            OptionsSection::Network => tr!("options.sectionNetwork", "Network"),
         }
     }
 
@@ -135,6 +143,7 @@ impl OptionsSection {
             OptionsSection::Sound => "sound",
             OptionsSection::Video => "video",
             OptionsSection::Gameplay => "gameplay",
+            OptionsSection::Network => "network",
         }
     }
 }
@@ -225,12 +234,25 @@ pub const SD_GRAPHICS_FILTER: SliderRange = SliderRange {
     step: 1,
 };
 
-/// The rate the APM alert fires below.
+/// The rate the APM alert fires below. The app takes any whole number up to 999 here, typed rather
+/// than dragged, so every one of them is a notch: a coarser slider would show a player's typed 125
+/// as some other number, and hand that number back as theirs the moment the row was touched.
 pub const APM_ALERT_VALUE: SliderRange = SliderRange {
     min: 0,
-    max: 300,
-    step: 10,
+    max: 999,
+    step: 1,
 };
+
+/// How many frames of the other players' lateness a game that rolls back hides by running ahead of
+/// their commands, rather than by holding back the local player's own.
+pub const ROLLBACK_TARGET: SliderRange = SliderRange {
+    min: 0,
+    max: 4,
+    step: 1,
+};
+
+/// The rollback balance the app recommends, which its own slider marks.
+pub const RECOMMENDED_ROLLBACK_TARGET: u32 = 2;
 
 /// How the game is presented on the display.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize)]
@@ -344,13 +366,79 @@ impl StartingFog {
     fn label(self) -> String {
         match self {
             StartingFog::ShowTerrainAndResources => tr!(
-                "options.startingFogShowTerrainAndResources",
-                "Terrain and resources"
+                "options.startingFogTerrainAndResourcesShown",
+                "Show terrain and resources"
             ),
             StartingFog::ShowResources => {
-                tr!("options.startingFogShowResources", "Resources")
+                tr!("options.startingFogResourcesShown", "Show resources")
             }
             StartingFog::Legacy => tr!("options.startingFogLegacy", "Legacy"),
+        }
+    }
+}
+
+/// Whether the game's own player colors are swapped for the color scheme the app resolved before
+/// the game started, and where.
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize)]
+pub enum MinimapColorMode {
+    /// The game's own colors everywhere.
+    #[default]
+    Standard,
+    /// The scheme's colors on the minimap, the game's own on the units.
+    PresetOnMinimapOnly,
+    /// The scheme's colors on the minimap and on the units.
+    Preset,
+}
+
+impl MinimapColorMode {
+    pub const ALL: [MinimapColorMode; 3] = [
+        MinimapColorMode::Standard,
+        MinimapColorMode::PresetOnMinimapOnly,
+        MinimapColorMode::Preset,
+    ];
+
+    fn label(self) -> String {
+        match self {
+            MinimapColorMode::Standard => tr!("options.colorOverridesOff", "Off"),
+            MinimapColorMode::PresetOnMinimapOnly => {
+                tr!(
+                    "options.colorOverridesMinimapOnly",
+                    "On for the minimap only"
+                )
+            }
+            MinimapColorMode::Preset => tr!("options.colorOverridesEverywhere", "On everywhere"),
+        }
+    }
+}
+
+/// How the game times the frames it draws.
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize)]
+pub enum FramePacing {
+    /// One frame per refresh of the display, drawn just before the display shows it.
+    Display,
+    /// A little under the display's refresh rate, untimed, for a display that refreshes whenever a
+    /// frame arrives.
+    VariableRefresh,
+    /// As many frames as the game's own frame limit allows.
+    #[default]
+    Off,
+}
+
+impl FramePacing {
+    /// In the order the app offers them, which puts the one it recommends first.
+    pub const ALL: [FramePacing; 3] = [
+        FramePacing::Display,
+        FramePacing::VariableRefresh,
+        FramePacing::Off,
+    ];
+
+    fn label(self) -> String {
+        match self {
+            FramePacing::Display => tr!("options.framePacingMatchRefresh", "Match refresh"),
+            FramePacing::VariableRefresh => {
+                tr!("options.framePacingVariableRefresh", "Variable refresh")
+            }
+            FramePacing::Off => tr!("options.framePacingOff", "Off"),
         }
     }
 }
@@ -479,44 +567,36 @@ pub struct MonitorView {
     /// What the display is called: the name its own hardware reports where there is one, and the
     /// system's name for the output where there is not.
     pub name: String,
-    /// Whether this is the display the desktop treats as the main one.
-    pub primary: bool,
+    /// Where the display sits on the desktop, as `(x, y, width, height)`. The app knows its displays
+    /// by ids of its own that this machine's enumeration does not carry, so this rectangle is what
+    /// a choice made here is matched to one of them by.
+    pub bounds: (i32, i32, u32, u32),
 }
 
-/// The lists on the options screen that only a host can fill, because they are read off the
-/// machine the game is running on rather than out of a setting.
+/// What the options screen shows that is not a setting: the lists read off the machine the game is
+/// running on, and what the host knows about the game being played.
 ///
 /// Kept beside [`OptionsView`] rather than in it: the view is copied every frame and compared
-/// against the last one a host handed over, which a list of names cannot be.
+/// against the last one a host handed over, which a list of names cannot be, and everything in the
+/// view is something a row can change.
 #[derive(Clone, PartialEq, Eq, Debug, Default)]
 pub struct OptionsLists {
     /// Every display the game can be put on, in the order the host enumerated them.
     pub monitors: Vec<MonitorView>,
+    /// Whether the game being played rolls back. The rollback balance means nothing to one that
+    /// does not, so its row is only shown in one that does.
+    pub rollback_game: bool,
 }
 
-/// What a stepper shows in place of a value while its list is empty.
-const EMPTY_CHOICE: &str = "\u{2014}";
-
 /// What the monitor row calls one display: the place it takes in the list, counted from one the way
-/// the game's own video options count it, then the name the system gives it. The display the
-/// desktop treats as the main one says so, because that is the one a player who has never touched
-/// this setting is playing on.
+/// the game's own video options count it, then the name the system gives it.
 fn monitor_label(index: usize, monitor: &MonitorView) -> String {
-    let numbered = tr!(
-        "options.monitorItem",
-        "{{index}}. {{name}}",
+    tr!(
+        "options.monitorNumbered",
+        "Monitor {{index}} - {{name}}",
         index = index + 1,
         name = monitor.name,
-    );
-    if monitor.primary {
-        tr!(
-            "options.monitorPrimary",
-            "{{monitor}} (primary monitor)",
-            monitor = numbered,
-        )
-    } else {
-        numbered
-    }
+    )
 }
 
 /// Everything the options screen shows, as the game currently holds it.
@@ -560,10 +640,11 @@ pub struct OptionsView {
     // Video.
     pub display_mode: DisplayMode,
     /// Which of the host's [`OptionsLists::monitors`] the game is to be put on while it is not in
-    /// a window. The first entry where nothing has been chosen, which is the display the host
-    /// enumerated first.
-    pub monitor: usize,
+    /// a window, or `None` for whichever display the desktop treats as the main one, which is what
+    /// a player who never chose one plays on.
+    pub monitor: Option<usize>,
     pub brightness: u32,
+    pub frame_pacing: FramePacing,
     pub fps_limit_on: bool,
     pub fps_limit: u32,
     pub vsync_on: bool,
@@ -580,9 +661,11 @@ pub struct OptionsView {
     pub game_timer_on: bool,
     pub color_cycling_on: bool,
     pub unit_portraits: UnitPortraits,
+    pub show_latency: bool,
     pub minimap_position: MinimapPosition,
     pub minimap_terrain: MinimapTerrain,
     pub starting_fog: StartingFog,
+    pub minimap_color_mode: MinimapColorMode,
     pub apm_display_on: bool,
     pub apm_alert_on: bool,
     pub apm_alert_value: u32,
@@ -593,6 +676,11 @@ pub struct OptionsView {
     /// Which of [`UNIT_SKINS`] is selected.
     pub unit_skin: usize,
     pub show_bonus_skins: bool,
+
+    // Network.
+    /// See [`ROLLBACK_TARGET`].
+    pub rollback_target: u32,
+    pub turn_rate_24_delay_on: bool,
 }
 
 impl Default for OptionsView {
@@ -626,8 +714,9 @@ impl Default for OptionsView {
             announcer: 0,
 
             display_mode: DisplayMode::Windowed,
-            monitor: 0,
+            monitor: None,
             brightness: 50,
+            frame_pacing: FramePacing::Off,
             fps_limit_on: false,
             fps_limit: FPS_LIMIT.min,
             vsync_on: false,
@@ -643,9 +732,11 @@ impl Default for OptionsView {
             game_timer_on: false,
             color_cycling_on: true,
             unit_portraits: UnitPortraits::Disabled,
+            show_latency: false,
             minimap_position: MinimapPosition::Standard,
             minimap_terrain: MinimapTerrain::Shown,
             starting_fog: StartingFog::ShowTerrainAndResources,
+            minimap_color_mode: MinimapColorMode::Standard,
             apm_display_on: false,
             apm_alert_on: false,
             apm_alert_value: 0,
@@ -654,6 +745,9 @@ impl Default for OptionsView {
             console_skin: 0,
             unit_skin: 0,
             show_bonus_skins: false,
+
+            rollback_target: RECOMMENDED_ROLLBACK_TARGET,
+            turn_rate_24_delay_on: false,
         }
     }
 }
@@ -693,6 +787,7 @@ impl OptionsView {
             SettingChange::DisplayMode(value) => self.display_mode = value,
             SettingChange::Monitor(index) => self.monitor = index,
             SettingChange::Brightness(value) => self.brightness = value,
+            SettingChange::FramePacing(value) => self.frame_pacing = value,
             SettingChange::FpsLimitOn(value) => self.fps_limit_on = value,
             SettingChange::FpsLimit(value) => self.fps_limit = value,
             SettingChange::VsyncOn(value) => self.vsync_on = value,
@@ -708,9 +803,11 @@ impl OptionsView {
             SettingChange::GameTimerOn(value) => self.game_timer_on = value,
             SettingChange::ColorCyclingOn(value) => self.color_cycling_on = value,
             SettingChange::UnitPortraits(value) => self.unit_portraits = value,
+            SettingChange::ShowLatency(value) => self.show_latency = value,
             SettingChange::MinimapPosition(value) => self.minimap_position = value,
             SettingChange::MinimapTerrain(value) => self.minimap_terrain = value,
             SettingChange::StartingFog(value) => self.starting_fog = value,
+            SettingChange::MinimapColorMode(value) => self.minimap_color_mode = value,
             SettingChange::ApmDisplayOn(value) => self.apm_display_on = value,
             SettingChange::ApmAlertOn(value) => self.apm_alert_on = value,
             SettingChange::ApmAlertValue(value) => self.apm_alert_value = value,
@@ -719,6 +816,9 @@ impl OptionsView {
             SettingChange::ConsoleSkin(id) => self.console_skin = index_of(CONSOLE_SKINS, id),
             SettingChange::UnitSkin(id) => self.unit_skin = index_of(UNIT_SKINS, id),
             SettingChange::ShowBonusSkins(value) => self.show_bonus_skins = value,
+
+            SettingChange::RollbackTarget(value) => self.rollback_target = value,
+            SettingChange::TurnRate24DelayOn(value) => self.turn_rate_24_delay_on = value,
         }
     }
 }
@@ -729,66 +829,137 @@ impl OptionsView {
 /// directly, and a string key would push the question of what a value means out to whoever was
 /// reading it. The list choices carry the id the game's own settings file holds, which is the value
 /// a host writes.
+///
+/// Each variant names the key the app keeps the setting under, and which of the app's two settings
+/// objects holds it: `scr` for the ones SC:R owns, `local` for ShieldBattery's own. A value is the
+/// app's own encoding wherever that is a plain flag or number; the others say how they differ.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum SettingChange {
+    /// `scr.mouseSensitivityOn`.
     MouseSensitivityOn(bool),
+    /// `scr.mouseSensitivity`.
     MouseSensitivity(u32),
+    /// `scr.mouseScalingOn`.
     MouseScalingOn(bool),
+    /// `scr.hardwareCursorOn`.
     HardwareCursorOn(bool),
+    /// `scr.mouseConfineOn`.
     MouseConfineOn(bool),
+    /// `scr.keyboardScrollSpeed`.
     KeyboardScrollSpeed(u32),
+    /// `scr.mouseScrollSpeed`.
     MouseScrollSpeed(u32),
+    /// `local.grabPanSensitivityOn`.
     GrabPanOn(bool),
+    /// `local.grabPanSensitivity`.
     GrabPanSensitivity(u32),
+    /// `local.grabPanInverted`.
     GrabPanInverted(bool),
+    /// `local.legacyCursorSizing`.
     LegacyCursorSizing(bool),
+    /// `local.useCustomCursorSize`.
     CustomCursorSizeOn(bool),
-    /// The cursor scale in eighths; see [`CURSOR_SIZE_EIGHTHS`].
+    /// `local.customCursorSize`, which the app keeps as a fraction of the cursor's full size: this
+    /// many eighths of it. See [`CURSOR_SIZE_EIGHTHS`].
     CursorSizeEighths(u32),
 
+    /// `scr.musicOn`.
     MusicOn(bool),
+    /// `scr.musicVolume`.
     MusicVolume(u32),
+    /// `scr.soundOn`.
     SoundOn(bool),
+    /// `scr.soundVolume`.
     SoundVolume(u32),
+    /// `scr.unitSpeechOn`.
     UnitSpeechOn(bool),
+    /// `scr.unitAcknowledgementsOn`.
     UnitAcknowledgementsOn(bool),
+    /// `scr.backgroundSoundsOn`.
     BackgroundSoundsOn(bool),
+    /// `scr.buildingSoundsOn`.
     BuildingSoundsOn(bool),
+    /// `scr.gameSubtitlesOn`.
     GameSubtitlesOn(bool),
+    /// `scr.cinematicSubtitlesOn`.
     CinematicSubtitlesOn(bool),
+    /// `scr.originalVoiceOversOn`.
     OriginalVoiceOversOn(bool),
+    /// `scr.selectedAnnouncer`, as the id the app keeps.
     Announcer(&'static str),
 
+    /// `scr.displayMode`: 0 windowed, 1 windowed fullscreen, 2 fullscreen.
     DisplayMode(DisplayMode),
-    /// Which of the host's [`OptionsLists::monitors`] to put the game on.
-    Monitor(usize),
+    /// `local.monitorId`. `None` is the app's "Default (primary monitor)", which it keeps as the key
+    /// being absent. `Some` is an index into the host's [`OptionsLists::monitors`]; the app knows a
+    /// display by an id of its own, which is found from the entry's
+    /// [`bounds`](MonitorView::bounds).
+    Monitor(Option<usize>),
+    /// `scr.gamma`, on the 0-100 scale the app's own slider shows rather than as the gamma
+    /// percentage SC:R keeps. See [`BRIGHTNESS`].
     Brightness(u32),
+    /// `local.framePacing`: `'display'`, `'variableRefresh'` or `'off'`.
+    FramePacing(FramePacing),
+    /// `scr.fpsLimitOn`.
     FpsLimitOn(bool),
+    /// `scr.fpsLimit`.
     FpsLimit(u32),
+    /// `scr.vsyncOn`, which the app keeps as 1 or 0 rather than as a bool.
     VsyncOn(bool),
+    /// `scr.hdGraphicsOn`.
     HdGraphicsOn(bool),
+    /// `scr.sdGraphicsFilter`.
     SdGraphicsFilter(u32),
+    /// `scr.environmentEffectsOn`.
     EnvironmentEffectsOn(bool),
+    /// `scr.realTimeLightingOn`.
     RealTimeLightingOn(bool),
+    /// `scr.smoothUnitTurningOn`.
     SmoothUnitTurningOn(bool),
+    /// `scr.shadowStackingOn`.
     ShadowStackingOn(bool),
+    /// `scr.pillarboxOn`.
     PillarboxOn(bool),
+    /// `scr.showFps`.
     ShowFps(bool),
 
+    /// `scr.gameTimerOn`.
     GameTimerOn(bool),
+    /// `scr.colorCyclingOn`.
     ColorCyclingOn(bool),
+    /// `scr.unitPortraits`: 2 animated, 1 still, 0 disabled.
     UnitPortraits(UnitPortraits),
+    /// `scr.showTurnRate`.
+    ShowLatency(bool),
+    /// `scr.minimapPosition`: true for the bottom-left corner, false for standard.
     MinimapPosition(MinimapPosition),
+    /// `local.minimapTerrainHidden`: true when hidden.
     MinimapTerrain(MinimapTerrain),
+    /// `local.startingFog`: `'transparent'`, `'showResources'` or `'legacy'`.
     StartingFog(StartingFog),
+    /// `local.minimapColorMode`: 0 standard, 1 preset on the minimap only, 2 preset everywhere.
+    MinimapColorMode(MinimapColorMode),
+    /// `scr.apmDisplayOn`.
     ApmDisplayOn(bool),
+    /// `scr.apmAlertOn`.
     ApmAlertOn(bool),
+    /// `scr.apmAlertValue`.
     ApmAlertValue(u32),
+    /// `scr.apmAlertColorOn`.
     ApmAlertColorOn(bool),
+    /// `scr.apmAlertSoundOn`.
     ApmAlertSoundOn(bool),
+    /// `scr.consoleSkin`, as the id the app keeps.
     ConsoleSkin(&'static str),
+    /// `scr.selectedSkin`, as the id the app keeps.
     UnitSkin(&'static str),
+    /// `scr.showBonusSkins`.
     ShowBonusSkins(bool),
+
+    /// `local.rollbackTarget`. See [`ROLLBACK_TARGET`].
+    RollbackTarget(u32),
+    /// `local.emulateTurnRate24Delay`.
+    TurnRate24DelayOn(bool),
 }
 
 /// What the player did with the options screen this frame.
@@ -964,6 +1135,7 @@ fn draw_content(
                                 OptionsSection::Sound => draw_sound(ui, view, outcome),
                                 OptionsSection::Video => draw_video(ui, view, lists, outcome),
                                 OptionsSection::Gameplay => draw_gameplay(ui, view, outcome),
+                                OptionsSection::Network => draw_network(ui, view, lists, outcome),
                             }
                         },
                     );
@@ -995,57 +1167,11 @@ fn draw_footer(ui: &mut Ui, outcome: &mut OptionsOutcome) {
 }
 
 // The sections. Each is a list of rows in the order the app's own settings page lists them, so the
-// two screens read the same way down.
+// two screens read the same way down. Where the app explains a setting in a tooltip, the line under
+// the row says the same thing, since a hover is a poor thing to ask for over a game in progress.
 
 fn draw_input(ui: &mut Ui, view: &OptionsView, outcome: &mut OptionsOutcome) {
-    group_header(
-        ui,
-        &tr!("options.groupMouseSensitivity", "Mouse sensitivity"),
-        false,
-    );
-    switch_row(
-        ui,
-        &tr!("options.customMouseSensitivity", "Custom mouse sensitivity"),
-        view.mouse_sensitivity_on,
-        false,
-        outcome,
-        SettingChange::MouseSensitivityOn,
-    );
-    slider_row(
-        ui,
-        &tr!("options.mouseSensitivity", "Mouse sensitivity"),
-        view.mouse_sensitivity,
-        MOUSE_SENSITIVITY,
-        !view.mouse_sensitivity_on,
-        outcome,
-        SettingChange::MouseSensitivity,
-    );
-    switch_row(
-        ui,
-        &tr!("options.mouseScaling", "Use mouse scaling"),
-        view.mouse_scaling_on,
-        false,
-        outcome,
-        SettingChange::MouseScalingOn,
-    );
-    switch_row(
-        ui,
-        &tr!("options.hardwareCursor", "Hardware cursor"),
-        view.hardware_cursor_on,
-        false,
-        outcome,
-        SettingChange::HardwareCursorOn,
-    );
-    switch_row(
-        ui,
-        &tr!("options.lockCursor", "Lock cursor to window"),
-        view.mouse_confine_on,
-        false,
-        outcome,
-        SettingChange::MouseConfineOn,
-    );
-
-    group_header(ui, &tr!("options.groupScrolling", "Scrolling"), true);
+    group_header(ui, &tr!("options.groupScrolling", "Scrolling"), false);
     slider_row(
         ui,
         &tr!("options.keyboardScrollSpeed", "Keyboard scroll speed"),
@@ -1064,8 +1190,6 @@ fn draw_input(ui: &mut Ui, view: &OptionsView, outcome: &mut OptionsOutcome) {
         outcome,
         SettingChange::MouseScrollSpeed,
     );
-
-    group_header(ui, &tr!("options.groupGrabPan", "Grab pan"), true);
     switch_row(
         ui,
         &tr!("options.grabPan", "Custom grab pan sensitivity"),
@@ -1073,6 +1197,14 @@ fn draw_input(ui: &mut Ui, view: &OptionsView, outcome: &mut OptionsOutcome) {
         false,
         outcome,
         SettingChange::GrabPanOn,
+    );
+    hint(
+        ui,
+        &tr!(
+            "options.grabPanTooltip",
+            "Adjusts how fast the camera moves when panning with the middle mouse button. When \
+             disabled, matches the legacy StarCraft: Remastered behavior."
+        ),
     );
     slider_row(
         ui,
@@ -1096,26 +1228,60 @@ fn draw_input(ui: &mut Ui, view: &OptionsView, outcome: &mut OptionsOutcome) {
         SettingChange::GrabPanInverted,
     );
 
+    group_header(
+        ui,
+        &tr!("options.groupMouseSensitivity", "Mouse sensitivity"),
+        true,
+    );
+    switch_row(
+        ui,
+        &tr!("options.customMouseSensitivity", "Custom mouse sensitivity"),
+        view.mouse_sensitivity_on,
+        false,
+        outcome,
+        SettingChange::MouseSensitivityOn,
+    );
+    slider_row(
+        ui,
+        &tr!("options.mouseSensitivity", "Mouse sensitivity"),
+        view.mouse_sensitivity,
+        MOUSE_SENSITIVITY,
+        !view.mouse_sensitivity_on,
+        outcome,
+        SettingChange::MouseSensitivity,
+    );
+
+    // The cursor's size is only the game's to choose while the system draws the cursor for it.
+    let software_cursor = !view.hardware_cursor_on;
     group_header(ui, &tr!("options.groupCursor", "Cursor"), true);
     switch_row(
         ui,
-        &tr!("options.legacyCursorSizing", "Use legacy cursor sizing"),
-        view.legacy_cursor_sizing,
+        &tr!("options.lockCursor", "Lock cursor to window"),
+        view.mouse_confine_on,
         false,
         outcome,
-        SettingChange::LegacyCursorSizing,
+        SettingChange::MouseConfineOn,
     );
-    // The sizing is a patch the DLL applies while it installs its hooks, before the game has drawn
-    // a cursor, so a change here is only seen by the next game the app launches.
+    switch_row(
+        ui,
+        &tr!("options.hardwareCursor", "Hardware cursor"),
+        view.hardware_cursor_on,
+        false,
+        outcome,
+        SettingChange::HardwareCursorOn,
+    );
     hint(
         ui,
-        &tr!("options.legacyCursorSizingHint", "Takes effect next game"),
+        &tr!(
+            "options.hardwareCursorTooltip",
+            "Recommended for best performance and input responsiveness"
+        ),
     );
     switch_row(
         ui,
         &tr!("options.customCursorSize", "Use custom cursor size"),
         view.custom_cursor_size_on,
-        false,
+        software_cursor,
         outcome,
         SettingChange::CustomCursorSizeOn,
     );
@@ -1124,7 +1290,7 @@ fn draw_input(ui: &mut Ui, view: &OptionsView, outcome: &mut OptionsOutcome) {
         &tr!("options.cursorSize", "Cursor size"),
         view.cursor_size_eighths,
         CURSOR_SIZE_EIGHTHS,
-        !view.custom_cursor_size_on,
+        software_cursor || !view.custom_cursor_size_on,
         outcome,
         SettingChange::CursorSizeEighths,
     );
@@ -1134,6 +1300,51 @@ fn draw_input(ui: &mut Ui, view: &OptionsView, outcome: &mut OptionsOutcome) {
             "options.cursorSizeHint",
             "Smallest \u{2190} \u{2192} largest"
         ),
+    );
+    // The size is applied as the game loads its cursor art, which it does once per game.
+    hint(
+        ui,
+        &tr!("options.cursorSizeNextGameHint", "Takes effect next game"),
+    );
+    switch_row(
+        ui,
+        &tr!("options.legacyCursorSizing", "Use legacy cursor sizing"),
+        view.legacy_cursor_sizing,
+        software_cursor,
+        outcome,
+        SettingChange::LegacyCursorSizing,
+    );
+    hint(
+        ui,
+        &tr!(
+            "options.legacyCursorSizingTooltip",
+            "Uses the original StarCraft: Remastered cursor sizes, which have inconsistent scales \
+             at higher resolutions."
+        ),
+    );
+    // The sizing is a patch the DLL applies while it installs its hooks, before the game has drawn
+    // a cursor, so a change here is only seen by the next game the app launches.
+    hint(
+        ui,
+        &tr!("options.legacyCursorSizingHint", "Takes effect next game"),
+    );
+
+    group_header(ui, &tr!("options.groupLegacy", "Legacy settings"), true);
+    group_note(
+        ui,
+        &tr!(
+            "options.legacyDescription",
+            "These settings are available for compatibility with the StarCraft: Remastered \
+             settings, but are not recommended for use because they cause performance issues."
+        ),
+    );
+    switch_row(
+        ui,
+        &tr!("options.mouseScaling", "Use mouse scaling"),
+        view.mouse_scaling_on,
+        view.hardware_cursor_on,
+        outcome,
+        SettingChange::MouseScalingOn,
     );
 }
 
@@ -1173,6 +1384,27 @@ fn draw_sound(ui: &mut Ui, view: &OptionsView, outcome: &mut OptionsOutcome) {
         outcome,
         SettingChange::SoundVolume,
     );
+
+    group_header(ui, &tr!("options.groupAnnouncer", "Announcer"), true);
+    group_note(
+        ui,
+        &tr!(
+            "options.announcerPacks",
+            "Packs (must be purchased from Blizzard)"
+        ),
+    );
+    if let Some(index) = stepper_row(
+        ui,
+        &tr!("options.announcer", "Announcer"),
+        ANNOUNCERS,
+        view.announcer,
+        false,
+    ) {
+        outcome
+            .changes
+            .push(SettingChange::Announcer(ANNOUNCERS[index].id));
+    }
+    hint(ui, &tr!("options.announcerHint", "Takes effect next game"));
 
     group_header(ui, &tr!("options.groupInGameSound", "In game"), true);
     switch_row(
@@ -1234,23 +1466,11 @@ fn draw_sound(ui: &mut Ui, view: &OptionsView, outcome: &mut OptionsOutcome) {
         outcome,
         SettingChange::OriginalVoiceOversOn,
     );
-
-    group_header(ui, &tr!("options.groupAnnouncer", "Announcer"), true);
-    if let Some(index) = stepper_row(
-        ui,
-        &tr!("options.announcer", "Announcer"),
-        ANNOUNCERS,
-        view.announcer,
-        false,
-    ) {
-        outcome
-            .changes
-            .push(SettingChange::Announcer(ANNOUNCERS[index].id));
-    }
-    hint(ui, &tr!("options.announcerHint", "Takes effect next game"));
 }
 
 fn draw_video(ui: &mut Ui, view: &OptionsView, lists: &OptionsLists, outcome: &mut OptionsOutcome) {
+    let windowed = view.display_mode == DisplayMode::Windowed;
+
     group_header(ui, &tr!("options.groupDisplay", "Display"), false);
     if let Some(mode) = segmented_row(
         ui,
@@ -1262,65 +1482,148 @@ fn draw_video(ui: &mut Ui, view: &OptionsView, lists: &OptionsLists, outcome: &m
     ) {
         outcome.changes.push(SettingChange::DisplayMode(mode));
     }
-    // A windowed game is played wherever its window is dragged, so the display it was launched on
-    // decides nothing and the row says as much by standing dim.
-    let monitors = &lists.monitors;
-    if let Some(index) = stepper_row_with(
-        ui,
-        &tr!("options.monitor", "Monitor"),
-        monitors.len(),
-        view.monitor,
-        view.display_mode == DisplayMode::Windowed,
-        |index| monitor_label(index, &monitors[index]),
-    ) {
-        outcome.changes.push(SettingChange::Monitor(index));
+    // A windowed game is played wherever its window is dragged, so which display it goes on is not
+    // a question while it is in one. The window's own placement is decided as the game launches,
+    // and nothing here can move a window that already exists.
+    if !windowed {
+        let monitors = &lists.monitors;
+        // The first entry is the main display, whichever one that is, and the rest are the host's
+        // list after it.
+        if let Some(index) = stepper_row_with(
+            ui,
+            &tr!("options.monitor", "Monitor"),
+            monitors.len() + 1,
+            view.monitor.map_or(0, |monitor| monitor + 1),
+            false,
+            |index| match index.checked_sub(1) {
+                None => tr!("options.monitorDefault", "Default (primary monitor)"),
+                Some(monitor) => monitor_label(monitor, &monitors[monitor]),
+            },
+        ) {
+            outcome
+                .changes
+                .push(SettingChange::Monitor(index.checked_sub(1)));
+        }
+        // The display is chosen as the game's window is created, long before the overlay exists.
+        hint(ui, &tr!("options.monitorHint", "Takes effect next game"));
     }
-    // The display is chosen as the game's window is created, long before the overlay exists.
-    hint(ui, &tr!("options.monitorHint", "Takes effect next game"));
+    // Outside of fullscreen the desktop's own gamma is what the game is shown at.
+    let fullscreen = view.display_mode == DisplayMode::Fullscreen;
     slider_row(
         ui,
         &tr!("options.brightness", "Brightness"),
         view.brightness,
         BRIGHTNESS,
-        false,
+        !fullscreen,
         outcome,
         SettingChange::Brightness,
     );
+    if !fullscreen {
+        hint(
+            ui,
+            &tr!(
+                "options.brightnessFullscreenOnly",
+                "Only available in Fullscreen"
+            ),
+        );
+    }
     switch_row(
         ui,
-        &tr!("options.fpsLimitOn", "Custom FPS limit"),
-        view.fps_limit_on,
+        &tr!("options.pillarbox", "Pillarbox (4:3 aspect ratio)"),
+        view.pillarbox_on,
         false,
         outcome,
-        SettingChange::FpsLimitOn,
+        SettingChange::PillarboxOn,
     );
-    slider_row(
+
+    group_header(
         ui,
-        &tr!("options.fpsLimit", "FPS limit"),
-        view.fps_limit,
-        FPS_LIMIT,
-        !view.fps_limit_on,
-        outcome,
-        SettingChange::FpsLimit,
+        &tr!("options.groupFrameRate", "Frame rate and input delay"),
+        true,
     );
+    if let Some(pacing) = segmented_row(
+        ui,
+        &tr!("options.framePacing", "Frame pacing"),
+        &FramePacing::ALL,
+        view.frame_pacing,
+        FramePacing::label,
+        false,
+    ) {
+        outcome.changes.push(SettingChange::FramePacing(pacing));
+    }
+    hint(
+        ui,
+        &tr!(
+            "options.framePacingPrompt",
+            "G-SYNC or FreeSync turned on? Choose Variable refresh. Otherwise, or if you\u{2019}re \
+             not sure, choose Match refresh."
+        ),
+    );
+    let paced = view.frame_pacing != FramePacing::Off;
+    if paced && windowed {
+        warning(
+            ui,
+            &tr!(
+                "options.framePacingWindowed",
+                "Frame pacing can\u{2019}t help in a bordered window: Windows adds its own delay \
+                 there."
+            ),
+        );
+    }
+    // Pacing decides when every frame is drawn, which leaves the game's own frame limit nothing to
+    // limit.
+    if paced {
+        note_row(
+            ui,
+            &tr!("options.fpsLimit", "FPS limit"),
+            &tr!("options.fpsLimitUnused", "Not used with frame pacing on"),
+        );
+    } else {
+        switch_row(
+            ui,
+            &tr!("options.fpsLimitOn", "Custom FPS limit"),
+            view.fps_limit_on,
+            false,
+            outcome,
+            SettingChange::FpsLimitOn,
+        );
+        slider_row(
+            ui,
+            &tr!("options.fpsLimit", "FPS limit"),
+            view.fps_limit,
+            FPS_LIMIT,
+            !view.fps_limit_on,
+            outcome,
+            SettingChange::FpsLimit,
+        );
+    }
     switch_row(
         ui,
-        &tr!("options.vsync", "Enable vertical sync"),
+        &tr!("options.verticalSync", "Vertical sync"),
         view.vsync_on,
         false,
         outcome,
         SettingChange::VsyncOn,
     );
-
-    group_header(ui, &tr!("options.groupGraphics", "Graphics"), true);
+    if view.vsync_on && windowed {
+        warning(
+            ui,
+            &tr!(
+                "options.verticalSyncWindowed",
+                "Avoid vertical sync in a bordered window, where it adds a lot of input delay."
+            ),
+        );
+    }
     switch_row(
         ui,
-        &tr!("options.hdGraphics", "HD graphics"),
-        view.hd_graphics_on,
+        &tr!("options.showFps", "Show FPS"),
+        view.show_fps,
         false,
         outcome,
-        SettingChange::HdGraphicsOn,
+        SettingChange::ShowFps,
     );
+
+    group_header(ui, &tr!("options.groupGraphics", "Graphics"), true);
     slider_row(
         ui,
         &tr!("options.sdGraphicsFilter", "SD graphics filter"),
@@ -1337,6 +1640,16 @@ fn draw_video(ui: &mut Ui, view: &OptionsView, lists: &OptionsLists, outcome: &m
             "Sharp \u{2190} \u{2192} filtered"
         ),
     );
+    switch_row(
+        ui,
+        &tr!("options.hdGraphics", "HD graphics"),
+        view.hd_graphics_on,
+        false,
+        outcome,
+        SettingChange::HdGraphicsOn,
+    );
+    // SC:R switches its art set through an asset check of its own that only a launch runs.
+    hint(ui, &tr!("options.hdGraphicsHint", "Takes effect next game"));
     switch_row(
         ui,
         &tr!("options.environmentEffects", "Environment effects"),
@@ -1369,42 +1682,10 @@ fn draw_video(ui: &mut Ui, view: &OptionsView, lists: &OptionsLists, outcome: &m
         outcome,
         SettingChange::ShadowStackingOn,
     );
-    switch_row(
-        ui,
-        &tr!("options.pillarbox", "Pillarbox (4:3 aspect ratio)"),
-        view.pillarbox_on,
-        false,
-        outcome,
-        SettingChange::PillarboxOn,
-    );
-    switch_row(
-        ui,
-        &tr!("options.showFps", "Show FPS"),
-        view.show_fps,
-        false,
-        outcome,
-        SettingChange::ShowFps,
-    );
 }
 
 fn draw_gameplay(ui: &mut Ui, view: &OptionsView, outcome: &mut OptionsOutcome) {
     group_header(ui, &tr!("options.groupInterface", "Interface"), false);
-    switch_row(
-        ui,
-        &tr!("options.gameTimer", "Game timer"),
-        view.game_timer_on,
-        false,
-        outcome,
-        SettingChange::GameTimerOn,
-    );
-    switch_row(
-        ui,
-        &tr!("options.colorCycling", "Enable color cycling"),
-        view.color_cycling_on,
-        false,
-        outcome,
-        SettingChange::ColorCyclingOn,
-    );
     if let Some(portraits) = segmented_row(
         ui,
         &tr!("options.portraits", "Portraits"),
@@ -1417,6 +1698,40 @@ fn draw_gameplay(ui: &mut Ui, view: &OptionsView, outcome: &mut OptionsOutcome) 
             .changes
             .push(SettingChange::UnitPortraits(portraits));
     }
+    switch_row(
+        ui,
+        &tr!("options.gameTimer", "Game timer"),
+        view.game_timer_on,
+        false,
+        outcome,
+        SettingChange::GameTimerOn,
+    );
+    switch_row(
+        ui,
+        &tr!("options.apmDisplay", "APM display"),
+        view.apm_display_on,
+        false,
+        outcome,
+        SettingChange::ApmDisplayOn,
+    );
+    switch_row(
+        ui,
+        &tr!("options.showLatency", "Show latency"),
+        view.show_latency,
+        false,
+        outcome,
+        SettingChange::ShowLatency,
+    );
+    switch_row(
+        ui,
+        &tr!("options.colorCycling", "Enable color cycling"),
+        view.color_cycling_on,
+        false,
+        outcome,
+        SettingChange::ColorCyclingOn,
+    );
+
+    group_header(ui, &tr!("options.groupMapMinimap", "Map & minimap"), true);
     if let Some(position) = segmented_row(
         ui,
         &tr!("options.minimapPosition", "Minimap position"),
@@ -1449,16 +1764,72 @@ fn draw_gameplay(ui: &mut Ui, view: &OptionsView, outcome: &mut OptionsOutcome) 
     ) {
         outcome.changes.push(SettingChange::StartingFog(fog));
     }
+    // The fog is laid over the map once, as the game begins.
+    hint(
+        ui,
+        &tr!("options.startingFogHint", "Takes effect next game"),
+    );
 
-    group_header(ui, &tr!("options.groupApm", "APM"), true);
+    group_header(ui, &tr!("options.groupPlayerColors", "Player colors"), true);
+    group_note(
+        ui,
+        &tr!(
+            "options.playerColorsDescription",
+            "How player colors appear in your games. Cycle between modes in-game with Shift+Tab."
+        ),
+    );
+    if let Some(mode) = segmented_row(
+        ui,
+        &tr!("options.colorOverrides", "Color overrides"),
+        &MinimapColorMode::ALL,
+        view.minimap_color_mode,
+        MinimapColorMode::label,
+        false,
+    ) {
+        outcome.changes.push(SettingChange::MinimapColorMode(mode));
+    }
+
+    group_header(ui, &tr!("options.groupSkins", "Skins"), true);
+    group_note(
+        ui,
+        &tr!(
+            "options.skinsDescription",
+            "Must be purchased from Blizzard."
+        ),
+    );
     switch_row(
         ui,
-        &tr!("options.apmDisplay", "APM display"),
-        view.apm_display_on,
+        &tr!("options.showBonusSkins", "Show bonus skins"),
+        view.show_bonus_skins,
         false,
         outcome,
-        SettingChange::ApmDisplayOn,
+        SettingChange::ShowBonusSkins,
     );
+    if let Some(index) = stepper_row(
+        ui,
+        &tr!("options.unitSkin", "Ingame skin"),
+        UNIT_SKINS,
+        view.unit_skin,
+        !view.show_bonus_skins,
+    ) {
+        outcome
+            .changes
+            .push(SettingChange::UnitSkin(UNIT_SKINS[index].id));
+    }
+    if let Some(index) = stepper_row(
+        ui,
+        &tr!("options.consoleSkin", "Console skin"),
+        CONSOLE_SKINS,
+        view.console_skin,
+        false,
+    ) {
+        outcome
+            .changes
+            .push(SettingChange::ConsoleSkin(CONSOLE_SKINS[index].id));
+    }
+    hint(ui, &tr!("options.skinsHint", "Skins take effect next game"));
+
+    group_header(ui, &tr!("options.groupApmAlert", "APM alert"), true);
     switch_row(
         ui,
         &tr!("options.apmAlert", "Alert when APM falls below"),
@@ -1492,38 +1863,63 @@ fn draw_gameplay(ui: &mut Ui, view: &OptionsView, outcome: &mut OptionsOutcome) 
         outcome,
         SettingChange::ApmAlertSoundOn,
     );
+}
 
-    group_header(ui, &tr!("options.groupSkins", "Skins"), true);
-    if let Some(index) = stepper_row(
-        ui,
-        &tr!("options.consoleSkin", "Console skin"),
-        CONSOLE_SKINS,
-        view.console_skin,
-        false,
-    ) {
-        outcome
-            .changes
-            .push(SettingChange::ConsoleSkin(CONSOLE_SKINS[index].id));
+fn draw_network(
+    ui: &mut Ui,
+    view: &OptionsView,
+    lists: &OptionsLists,
+    outcome: &mut OptionsOutcome,
+) {
+    group_header(ui, &tr!("options.groupNetwork", "Network"), false);
+    if lists.rollback_game {
+        slider_row(
+            ui,
+            &tr!("options.rollbackTarget", "Rollback balance"),
+            view.rollback_target,
+            ROLLBACK_TARGET,
+            false,
+            outcome,
+            SettingChange::RollbackTarget,
+        );
+        hint(
+            ui,
+            &tr!(
+                "options.rollbackTargetScale",
+                "Smoother \u{2190} \u{2192} more responsive"
+            ),
+        );
+        hint(
+            ui,
+            &tr!(
+                "options.rollbackTargetDescription",
+                "Higher values make your commands more responsive, but units may visibly jump \
+                 more often. {{value}} is recommended.",
+                value = RECOMMENDED_ROLLBACK_TARGET,
+            ),
+        );
     }
-    if let Some(index) = stepper_row(
-        ui,
-        &tr!("options.unitSkin", "Ingame skin"),
-        UNIT_SKINS,
-        view.unit_skin,
-        !view.show_bonus_skins,
-    ) {
-        outcome
-            .changes
-            .push(SettingChange::UnitSkin(UNIT_SKINS[index].id));
-    }
-    hint(ui, &tr!("options.skinsHint", "Skins take effect next game"));
     switch_row(
         ui,
-        &tr!("options.showBonusSkins", "Show bonus skins"),
-        view.show_bonus_skins,
+        &tr!("options.turnRate24Delay", "Add TR24 Low input delay"),
+        view.turn_rate_24_delay_on,
         false,
         outcome,
-        SettingChange::ShowBonusSkins,
+        SettingChange::TurnRate24DelayOn,
+    );
+    hint(
+        ui,
+        &tr!(
+            "options.turnRate24DelayTooltip",
+            "Your commands always take at least 2 frames to happen, even when your connection is \
+             fast enough for less. This only changes your own game."
+        ),
+    );
+    // How many turns the game keeps in flight is fixed when its turn pipeline is built, before the
+    // first frame, and kept for the rest of the game.
+    hint(
+        ui,
+        &tr!("options.turnRate24DelayHint", "Takes effect next game"),
     );
 }
 
@@ -1549,6 +1945,31 @@ fn group_header(ui: &mut Ui, label: &str, after_group: bool) {
     ui.add_space(theme::SPACE_MD);
 }
 
+/// A line under a group's overline about every row in the group, across the whole column.
+fn group_note(ui: &mut Ui, text: &str) {
+    paragraph(ui, text, CONTENT_WIDTH, GREY_BLUE70);
+    ui.add_space(theme::SPACE_MD);
+}
+
+/// Text in the hint style, wrapped at `width` and taking the height it wrapped to. Translations run
+/// longer than English, and a line about a setting that lost its tail would lose the part that
+/// says what to do.
+fn paragraph(ui: &mut Ui, text: &str, width: f32, color: Color32) {
+    let job = text::body(HINT_SIZE, BodyWeight::Regular)
+        .with_color(color)
+        .job_wrapped(text, width);
+    let galley = ui.ctx().fonts_mut(|fonts| fonts.layout_job(job));
+    let (rect, _) = ui.allocate_exact_size(vec2(width, galley.size().y), Sense::hover());
+    if ui.is_rect_visible(rect) {
+        ui.painter().galley(rect.min, galley, color);
+    }
+}
+
+/// The text a row's label is set in.
+fn label_spec() -> text::TextSpec {
+    text::body(LABEL_SIZE, BodyWeight::Regular).with_color(GREY_BLUE95)
+}
+
 /// The frame every row stands in: the label in its column, then the control in the rest of it.
 fn row(ui: &mut Ui, label: &str, disabled: bool, add: impl FnOnce(&mut Ui)) {
     ui.allocate_ui_with_layout(
@@ -1559,7 +1980,7 @@ fn row(ui: &mut Ui, label: &str, disabled: bool, add: impl FnOnce(&mut Ui)) {
             widgets::set_disabled(ui, disabled);
             widgets::text_cell(
                 ui,
-                &text::body(LABEL_SIZE, BodyWeight::Regular).with_color(GREY_BLUE95),
+                &label_spec(),
                 label,
                 vec2(LABEL_WIDTH, ROW_HEIGHT),
                 Align::LEFT,
@@ -1570,20 +1991,58 @@ fn row(ui: &mut Ui, label: &str, disabled: bool, add: impl FnOnce(&mut Ui)) {
     ui.add_space(ROW_SPACING);
 }
 
+/// A row whose setting nothing is using, saying why in place of its control.
+///
+/// The label stands dim the way a disabled row's does, but the reason is drawn at full strength:
+/// it is the one thing on the row worth reading.
+fn note_row(ui: &mut Ui, label: &str, note: &str) {
+    ui.allocate_ui_with_layout(
+        vec2(ui.available_width(), ROW_HEIGHT),
+        Layout::left_to_right(Align::Center),
+        |ui| {
+            ui.spacing_mut().item_spacing = Vec2::ZERO;
+            ui.scope(|ui| {
+                widgets::set_disabled(ui, true);
+                widgets::text_cell(
+                    ui,
+                    &label_spec(),
+                    label,
+                    vec2(LABEL_WIDTH, ROW_HEIGHT),
+                    Align::LEFT,
+                );
+            });
+            widgets::text_cell(
+                ui,
+                &text::body(HINT_SIZE, BodyWeight::Regular).with_color(GREY_BLUE70),
+                note,
+                vec2(CONTROL_WIDTH, ROW_HEIGHT),
+                Align::LEFT,
+            );
+        },
+    );
+    ui.add_space(ROW_SPACING);
+}
+
 /// A line under the row above, saying what that row means or when it takes effect.
 ///
 /// It sits in the control's column rather than the label's, because it is about the value rather
-/// than about the setting's name.
+/// than about the setting's name. Several in a row stack under the same setting.
 fn hint(ui: &mut Ui, text: &str) {
-    // The hint belongs to the row above, so it takes back the gap that row left behind it.
+    hint_line(ui, text, GREY_BLUE70);
+}
+
+/// The same line for a warning: the row above is set in a way that works against something else
+/// on the screen.
+fn warning(ui: &mut Ui, text: &str) {
+    hint_line(ui, text, theme::TEXT_WARNING);
+}
+
+fn hint_line(ui: &mut Ui, text: &str, color: Color32) {
+    // The line belongs to the row above, so it takes back the gap that row left behind it.
     ui.add_space(-ROW_SPACING + theme::SPACE_XS);
-    ui.horizontal(|ui| {
+    ui.horizontal_top(|ui| {
         ui.add_space(LABEL_WIDTH);
-        ui.label(
-            text::body(HINT_SIZE, BodyWeight::Regular)
-                .with_color(GREY_BLUE70)
-                .job_truncated(text, CONTROL_WIDTH),
-        );
+        paragraph(ui, text, CONTROL_WIDTH, color);
     });
     ui.add_space(ROW_SPACING);
 }
@@ -1606,6 +2065,10 @@ fn switch_row(
 }
 
 /// A row carrying a setting the game keeps in notches.
+///
+/// A drag lands wherever the pointer lets go, which on a long range is several notches to a pixel,
+/// so the arrow keys walk a held slider one notch at a time. Grabbing it hands it the keyboard: a
+/// player who dragged close to a value steps onto it without having to tab their way back.
 fn slider_row(
     ui: &mut Ui,
     label: &str,
@@ -1616,20 +2079,52 @@ fn slider_row(
     change: fn(u32) -> SettingChange,
 ) {
     row(ui, label, disabled, |ui| {
-        let mut moved = range.clamp(value) as f32;
+        let held = range.clamp(value);
+        let mut dragged = held as f32;
         let response = widgets::slider_sized(
             ui,
-            &mut moved,
+            &mut dragged,
             range.min as f32..=range.max as f32,
             range.step as f32,
             vec2(CONTROL_WIDTH, ROW_HEIGHT),
         );
-        if response.changed() {
-            outcome
-                .changes
-                .push(change(range.clamp(moved.round() as u32)));
+        let mut moved = if response.changed() {
+            range.clamp(dragged.round() as u32)
+        } else {
+            held
+        };
+        if response.clicked() || response.drag_started() {
+            response.request_focus();
+        }
+        if response.has_focus() {
+            // Left and right step the value rather than moving the keyboard to the next control.
+            ui.memory_mut(|memory| {
+                memory.set_focus_lock_filter(
+                    response.id,
+                    EventFilter {
+                        horizontal_arrows: true,
+                        ..EventFilter::default()
+                    },
+                );
+            });
+            let (down, up) = ui.input(|input| {
+                (
+                    input.num_presses(Key::ArrowLeft),
+                    input.num_presses(Key::ArrowRight),
+                )
+            });
+            moved = stepped_notches(range, moved, up as i64 - down as i64);
+        }
+        if moved != held {
+            outcome.changes.push(change(moved));
         }
     });
+}
+
+/// `value` moved `notches` notches along `range`, stopping at either end.
+fn stepped_notches(range: SliderRange, value: u32, notches: i64) -> u32 {
+    let moved = i64::from(value) + notches * i64::from(range.step);
+    moved.clamp(i64::from(range.min), i64::from(range.max)) as u32
 }
 
 /// A row carrying a choice short enough to lay out as chips. Returns the choice the player took.
@@ -1671,12 +2166,9 @@ fn stepper_row(
     })
 }
 
-/// The same, for a list of `len` entries the host built rather than one the overlay knows by name.
-/// `entry_label` is asked what to show for an entry, and is only ever passed an index the list has.
-///
-/// A list with nothing in it still draws its row, dimmed and showing a dash: the setting exists
-/// either way, and a row that came and went with the list would read as the screen rearranging
-/// itself.
+/// The same, for a list of `len` entries the caller builds rather than one the overlay knows by
+/// name. Every such list has at least one entry, a default the game can always fall back on, so
+/// `entry_label` is only ever passed an index the list has.
 fn stepper_row_with(
     ui: &mut Ui,
     label: &str,
@@ -1686,15 +2178,10 @@ fn stepper_row_with(
     entry_label: impl Fn(usize) -> String,
 ) -> Option<usize> {
     let mut picked = None;
-    row(ui, label, disabled || len == 0, |ui| {
+    row(ui, label, disabled, |ui| {
         let index = index.min(len.saturating_sub(1));
-        let current = if len == 0 {
-            EMPTY_CHOICE.to_string()
-        } else {
-            entry_label(index)
-        };
-        let delta = widgets::stepper(ui, &current, vec2(CONTROL_WIDTH, ROW_HEIGHT));
-        if delta != 0 && len != 0 {
+        let delta = widgets::stepper(ui, &entry_label(index), vec2(CONTROL_WIDTH, ROW_HEIGHT));
+        if delta != 0 {
             picked = Some(stepped(len, index, delta));
         }
     });
@@ -1737,8 +2224,9 @@ mod tests {
             SettingChange::OriginalVoiceOversOn(true),
             SettingChange::Announcer(ANNOUNCERS[3].id),
             SettingChange::DisplayMode(DisplayMode::Fullscreen),
-            SettingChange::Monitor(1),
+            SettingChange::Monitor(Some(1)),
             SettingChange::Brightness(75),
+            SettingChange::FramePacing(FramePacing::VariableRefresh),
             SettingChange::FpsLimitOn(true),
             SettingChange::FpsLimit(240),
             SettingChange::VsyncOn(true),
@@ -1753,9 +2241,11 @@ mod tests {
             SettingChange::GameTimerOn(true),
             SettingChange::ColorCyclingOn(false),
             SettingChange::UnitPortraits(UnitPortraits::Animated),
+            SettingChange::ShowLatency(true),
             SettingChange::MinimapPosition(MinimapPosition::BottomLeft),
             SettingChange::MinimapTerrain(MinimapTerrain::Hidden),
             SettingChange::StartingFog(StartingFog::Legacy),
+            SettingChange::MinimapColorMode(MinimapColorMode::PresetOnMinimapOnly),
             SettingChange::ApmDisplayOn(true),
             SettingChange::ApmAlertOn(true),
             SettingChange::ApmAlertValue(120),
@@ -1764,6 +2254,8 @@ mod tests {
             SettingChange::ConsoleSkin(CONSOLE_SKINS[2].id),
             SettingChange::UnitSkin(UNIT_SKINS[2].id),
             SettingChange::ShowBonusSkins(true),
+            SettingChange::RollbackTarget(4),
+            SettingChange::TurnRate24DelayOn(true),
         ]
     }
 
@@ -1814,6 +2306,7 @@ mod tests {
                 OptionsSection::Sound,
                 OptionsSection::Video,
                 OptionsSection::Gameplay,
+                OptionsSection::Network,
             ]
         );
         assert_eq!(OptionsSection::default(), OptionsSection::Gameplay);
@@ -1835,6 +2328,7 @@ mod tests {
             (FPS_LIMIT, view.fps_limit),
             (SD_GRAPHICS_FILTER, view.sd_graphics_filter),
             (APM_ALERT_VALUE, view.apm_alert_value),
+            (ROLLBACK_TARGET, view.rollback_target),
         ] {
             assert!(range.holds(value), "{value} is not a value {range:?} takes");
         }
@@ -1851,6 +2345,20 @@ mod tests {
         assert_eq!(FPS_LIMIT.clamp(0), 100);
         assert_eq!(FPS_LIMIT.clamp(144), 144);
         assert_eq!(CURSOR_SIZE_EIGHTHS.clamp(1), 2);
+        // Every whole number the app lets a player type into the APM alert is one the row holds.
+        assert_eq!(APM_ALERT_VALUE.clamp(123), 123);
+        assert_eq!(APM_ALERT_VALUE.clamp(5_000), 999);
+    }
+
+    /// The arrow keys walk a slider a notch at a time and stop at its ends rather than wrapping.
+    #[test]
+    fn arrow_keys_step_a_notch_and_stop_at_the_ends() {
+        assert_eq!(stepped_notches(APM_ALERT_VALUE, 123, 1), 124);
+        assert_eq!(stepped_notches(APM_ALERT_VALUE, 123, -3), 120);
+        assert_eq!(stepped_notches(VOLUME, 50, 2), 60);
+        assert_eq!(stepped_notches(VOLUME, 5, -4), 0);
+        assert_eq!(stepped_notches(ROLLBACK_TARGET, 4, 1), 4);
+        assert_eq!(stepped_notches(FPS_LIMIT, 100, 0), 100);
     }
 
     /// A stepper walks its list both ways and wraps at both ends.
@@ -1864,23 +2372,14 @@ mod tests {
         assert_eq!(stepped(0, 0, -1), 0);
     }
 
-    /// The monitor row counts displays the way the game's own video options do, from one, and says
-    /// which of them the desktop treats as the main one.
+    /// The monitor row counts displays the way the game's own video options do, from one.
     #[test]
-    fn monitors_are_numbered_from_one_and_the_primary_is_marked() {
-        let primary = MonitorView {
-            name: "AORUS FO27Q2".to_string(),
-            primary: true,
-        };
+    fn monitors_are_numbered_from_one() {
         let second = MonitorView {
             name: "DELL U2415".to_string(),
-            primary: false,
+            bounds: (2560, 0, 1920, 1200),
         };
-        assert_eq!(
-            monitor_label(0, &primary),
-            "1. AORUS FO27Q2 (primary monitor)"
-        );
-        assert_eq!(monitor_label(1, &second), "2. DELL U2415");
+        assert_eq!(monitor_label(1, &second), "Monitor 2 - DELL U2415");
     }
 
     /// A list choice a host hands over is found by the id the game's own settings file holds, and

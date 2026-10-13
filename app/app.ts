@@ -1514,7 +1514,7 @@ app.on('ready', () => {
       setupIpc(localSettings, scrSettings)
       setupCspProtocol(currentSession())
       setupRefererOverrides(currentSession())
-      gameServer = createGameServer(localSettings)
+      gameServer = createGameServer(localSettings, scrSettings)
       await createWindow()
 
       try {

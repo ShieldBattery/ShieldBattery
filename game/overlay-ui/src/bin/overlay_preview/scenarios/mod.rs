@@ -312,7 +312,9 @@ pub fn render(
             // Leaving a game is the host's to carry out; the preview has no game to leave, so it
             // only reports what was asked for.
             Intent::AbandonGame => outcome.abandoned = true,
-            Intent::LeaveGame => outcome.left = true,
+            Intent::LeaveGame | Intent::QuitGame => outcome.left = true,
+            // SC:R's social popup has no stand-in here.
+            Intent::OpenAlliances => {}
             // The emulated game has no settings to write, so a change is only reported: the shell
             // is already showing it, which is what the screen is being looked at for.
             Intent::ChangeSetting(change) => outcome.setting_changes.push(change),

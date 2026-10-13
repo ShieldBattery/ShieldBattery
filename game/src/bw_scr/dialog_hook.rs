@@ -1,18 +1,20 @@
 use std::sync::atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering};
+use std::time::{Duration, Instant};
+
+use parking_lot::Mutex;
 
 use bw_dat::dialog::{Control, Dialog, EventHandler};
-use overlay_ui::shell::native_dialogs::{self, NativeDialog, RETURN_CONTROL_ID};
+use overlay_ui::shell::native_dialogs::{self, NativeDialog};
 
 use crate::bw::players::StormPlayerId;
 use crate::bw::{self, Bw, get_bw};
-use crate::game_thread::{self, send_game_results};
+use crate::game_thread::send_game_results;
 use crate::netcode_v2;
 
 use super::{BwScr, console};
 
 static CHAT_BOX_EVENT_HANDLER: EventHandler = EventHandler::new();
 static MSG_FILTER_EVENT_HANDLER: EventHandler = EventHandler::new();
-static GAME_MENU_EVENT_HANDLER: EventHandler = EventHandler::new();
 static MINIMAP_EVENT_HANDLER: EventHandler = EventHandler::new();
 static MINIMAP_BUTTON1_EVENT_HANDLER: EventHandler = EventHandler::new();
 static MINIMAP_BUTTON2_EVENT_HANDLER: EventHandler = EventHandler::new();
@@ -28,35 +30,26 @@ static PREVENT_BUTTON_HIDE_COUNT: AtomicU8 = AtomicU8::new(0);
 static REPLACED_DIALOG_LIVE: [AtomicBool; NativeDialog::ALL.len()] =
     [const { AtomicBool::new(false) }; NativeDialog::ALL.len()];
 
-/// Whether the console's menu button is handed to the shell as the game menu's replacement.
-///
-/// `Stat_F10` is the button, not the menu it opens, and the menu's own runtime name has not been
-/// captured yet (see [`native_dialogs::GAME_MENU_DIALOG_NAME`]), so this is the only route to the
-/// shell's game menu that exists at all. It stays off until that menu is a screen worth putting in
-/// SC:R's place; while it is off, `Stat_F10` is an ordinary console dialog.
-const GAME_MENU_REPLACEMENT_ENABLED: bool = false;
+/// Whether each replaced native dialog has been asked by us to act on one of its controls, indexed
+/// by [`NativeDialog::index`]. From then on its event handler stops swallowing: a button's
+/// activation reaches the game by way of events the button sends its dialog, and those are exactly
+/// what the swallowing handler exists to drop. Nothing of the player's reaches the dialog either way
+/// while its replacement is up, since the replacement's capture keeps the input from the game.
+/// Cleared at spawn.
+static REPLACED_DIALOG_DRIVEN: [AtomicBool; NativeDialog::ALL.len()] =
+    [const { AtomicBool::new(false) }; NativeDialog::ALL.len()];
 
-/// The dialog-system event a click on a control dispatches.
-const CLICK_EXT_EVENT: u32 = 0x4;
+/// The dialog-system event that activates a control, which is what a click on a button sends it.
+const ACTIVATE_EXT_EVENT: u32 = 0x2;
 
 // Helper needed for initializing array of event handlers
 #[allow(clippy::declare_interior_mutable_const)]
 const NEW_EVENT_HANDLER: EventHandler = EventHandler::new();
 
-/// Which replacement stands in for a dialog of this name at all, regardless of whether the session
-/// it spawned in is one where the replacement runs. A dialog already hidden at spawn is identified
-/// through this, so it is still recognized once whatever gated its replacement has gone away.
-fn replaced_dialog_for(name: &str) -> Option<NativeDialog> {
-    native_dialogs::replacement_for(name).or_else(|| {
-        (GAME_MENU_REPLACEMENT_ENABLED && name.eq_ignore_ascii_case(console::MENU_BUTTON_DIALOG))
-            .then_some(NativeDialog::GameMenu)
-    })
-}
-
 /// Which replacement a dialog spawning under this name gets, or `None` when BW's own dialog should
 /// run untouched.
 fn replacement_at_spawn(name: &str) -> Option<NativeDialog> {
-    let dialog = replaced_dialog_for(name)?;
+    let dialog = native_dialogs::replacement_for(name)?;
     match dialog {
         // BW's native waiting-for-players dialog is replaced only where the egui disconnect surface
         // that stands in for it is actually driven. Outside a netcode v2 session nothing feeds that
@@ -66,16 +59,6 @@ fn replacement_at_spawn(name: &str) -> Option<NativeDialog> {
             .then_some(dialog),
         NativeDialog::ChatHistory | NativeDialog::GameMenu => Some(dialog),
     }
-}
-
-/// The name the dialog this replacement stands in for carries at runtime.
-fn replaced_dialog_name(dialog: NativeDialog) -> Option<&'static str> {
-    dialog.runtime_name().or(match dialog {
-        NativeDialog::GameMenu if GAME_MENU_REPLACEMENT_ENABLED => {
-            Some(console::MENU_BUTTON_DIALOG)
-        }
-        _ => None,
-    })
 }
 
 /// Which replaced native dialogs are spawned right now, indexed by [`NativeDialog::index`].
@@ -90,28 +73,123 @@ pub fn live_replaced_dialogs() -> [bool; NativeDialog::ALL.len()] {
 /// dialog closes through its own path. Hiding the dialog never undoes that, so closing a replacement
 /// means driving the hidden dialog's return button the way a click on it would.
 pub fn close_replaced_dialog(first_dialog: Option<Dialog>, dialog: NativeDialog) {
+    activate_replaced_dialog_control(first_dialog, dialog, dialog.return_control_id());
+}
+
+/// Activates one of a replaced native dialog's controls, the way a click on it would.
+///
+/// This is how the overlay asks for anything a replaced dialog does: its buttons run the game's own
+/// code for leaving a game or opening a sub-menu, and pressing them keeps every side effect that
+/// code has without the overlay having to know what those are.
+pub fn activate_replaced_dialog_control(
+    first_dialog: Option<Dialog>,
+    dialog: NativeDialog,
+    control_id: i16,
+) {
     let label = dialog.label();
-    let Some(name) = replaced_dialog_name(dialog) else {
-        warn!("No runtime name known for the {label} dialog, cannot close it");
-        return;
-    };
+    let name = dialog.runtime_name();
     let Some(live) = bw::iter_dialogs(first_dialog)
         .find(|candidate| candidate.as_control().string().eq_ignore_ascii_case(name))
     else {
         debug!("The {label} dialog is already gone");
         return;
     };
-    let Some(return_control) = live.child_by_id(RETURN_CONTROL_ID) else {
-        warn!("The {label} dialog has no return control, cannot close it");
+    let Some(control) = live.child_by_id(control_id) else {
+        let controls = live
+            .children()
+            .map(|child| format!("{} ({:#x})", child.id(), child.control_type()))
+            .collect::<Vec<_>>();
+        warn!(
+            "The {label} dialog has no control {control_id}; its controls are {}",
+            controls.join(", ")
+        );
         return;
     };
     // The dialog's own mouse dispatch addresses a control in coordinates relative to the dialog,
     // which is what a control's area is already in.
-    let area = return_control.dialog_coords();
+    let area = control.dialog_coords();
     let x = area.left + (area.right - area.left) / 2;
     let y = area.top + (area.bottom - area.top) / 2;
-    debug!("Closing the {label} dialog through its return control");
-    return_control.send_ext_event_mouse(CLICK_EXT_EVENT, x, y);
+    debug!("Pressing control {control_id} of the {label} dialog");
+    REPLACED_DIALOG_DRIVEN[dialog.index()].store(true, Ordering::Relaxed);
+    control.send_ext_event_mouse(ACTIVATE_EXT_EVENT, x, y);
+}
+
+/// The game menu's control that leads towards quitting the game.
+const GAME_MENU_QUIT_CONTROL_ID: i16 = 7;
+
+/// The dialogs SC:R walks a player through between the game menu and leaving, with the control in
+/// each that carries on towards the exit.
+const QUIT_CHAIN: [(&str, i16); 3] = [("AbrtMenu", 2), ("Quit2Mnu", -2), ("QuitRepl", -2)];
+
+/// How long a quit the overlay started keeps confirming SC:R's quit dialogs on the player's behalf.
+/// Long enough for the chain to spawn one dialog after another, short enough that a quit dialog the
+/// player opens themselves later is theirs to answer.
+const QUIT_CHAIN_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// When the overlay asked SC:R to quit the game, while that request is still being carried through.
+static QUIT_REQUESTED_AT: Mutex<Option<Instant>> = Mutex::new(None);
+
+/// The quit dialog [`advance_quit`] last pressed on through. A dialog can outlive the press that
+/// dismisses it by a frame, and pressing it twice could carry the second press into whatever opens
+/// next.
+static QUIT_LAST_PRESSED: AtomicUsize = AtomicUsize::new(0);
+
+/// Quits the game through SC:R's own quit path, starting from its hidden game menu.
+///
+/// SC:R's quit does more than end the game loop: it sends the command that tells every other
+/// player this one has left, and settles this player's result the way any quit does. Pressing the
+/// hidden menu's own buttons keeps all of that, where ending the loop directly would not. The
+/// confirmation dialogs the menu opens next spawn hidden while the quit is under way, and
+/// [`advance_quit`] presses on through them.
+pub fn begin_quit(first_dialog: Option<Dialog>) {
+    *QUIT_REQUESTED_AT.lock() = Some(Instant::now());
+    activate_replaced_dialog_control(
+        first_dialog,
+        NativeDialog::GameMenu,
+        GAME_MENU_QUIT_CONTROL_ID,
+    );
+}
+
+/// The quit chain's step a dialog of this name is, while a quit the overlay started is under way.
+fn quit_chain_step(name: &str) -> Option<i16> {
+    let requested_at = (*QUIT_REQUESTED_AT.lock())?;
+    if requested_at.elapsed() > QUIT_CHAIN_TIMEOUT {
+        return None;
+    }
+    QUIT_CHAIN
+        .iter()
+        .find(|(dialog, _)| dialog.eq_ignore_ascii_case(name))
+        .map(|&(_, control)| control)
+}
+
+/// Presses on through whichever of SC:R's quit dialogs is up, for a quit [`begin_quit`] started.
+/// Called once per frame: each dialog of the chain spawns only after the previous one is done with,
+/// and only exists to be pressed once it has finished initializing.
+pub fn advance_quit(first_dialog: Option<Dialog>) {
+    if QUIT_REQUESTED_AT.lock().is_none() {
+        return;
+    }
+    for dialog in bw::iter_dialogs(first_dialog) {
+        let ctrl = dialog.as_control();
+        let name = ctrl.string();
+        let Some(control_id) = quit_chain_step(name) else {
+            continue;
+        };
+        if QUIT_LAST_PRESSED.swap(*dialog as usize, Ordering::Relaxed) == *dialog as usize {
+            continue;
+        }
+        let Some(control) = dialog.child_by_id(control_id) else {
+            warn!("The {name} dialog has no control {control_id}, cannot carry the quit on");
+            continue;
+        };
+        let area = control.dialog_coords();
+        let x = area.left + (area.right - area.left) / 2;
+        let y = area.top + (area.bottom - area.top) / 2;
+        debug!("Quitting: pressing control {control_id} of {name}");
+        control.send_ext_event_mouse(ACTIVATE_EXT_EVENT, x, y);
+        return;
+    }
 }
 
 pub unsafe fn spawn_dialog_hook(
@@ -156,6 +234,12 @@ pub unsafe fn spawn_dialog_hook(
         } else if name == "LMission" {
             send_game_results();
             event_handler
+        } else if quit_chain_step(name).is_some() {
+            // A step of a quit the player already confirmed in the overlay: it is pressed through
+            // on the next frame, and showing it for that one frame would only flash a question the
+            // player has answered.
+            (*(raw as *mut bw::scr::Control)).flags &= !0x2;
+            event_handler
         } else if let Some(replaced) = replacement_at_spawn(name) {
             // The overlay draws this dialog's replacement, so BW's own must never show: hide it at
             // spawn and swap in an event handler that swallows everything but its own init/delete,
@@ -164,12 +248,9 @@ pub unsafe fn spawn_dialog_hook(
             // dismissing the replacement has to close the real dialog through its own path.
             (*(raw as *mut bw::scr::Control)).flags &= !0x2;
             REPLACED_DIALOG_LIVE[replaced.index()].store(true, Ordering::Relaxed);
+            REPLACED_DIALOG_DRIVEN[replaced.index()].store(false, Ordering::Relaxed);
             let inited = REPLACED_DIALOG_EVENT_HANDLERS[replaced.index()]
                 .init(replaced_dialog_event_handler);
-            inited.set_orig(event_handler);
-            inited.func() as usize
-        } else if name == "GameMenu" && !game_thread::is_replay() {
-            let inited = GAME_MENU_EVENT_HANDLER.init(game_menu_event_handler);
             inited.set_orig(event_handler);
             inited.func() as usize
         } else {
@@ -501,127 +582,20 @@ unsafe extern "C" fn replaced_dialog_event_handler(
 ) -> u32 {
     unsafe {
         // Delete: the dialog is going away, so its replacement must not outlive it.
+        let replaced = native_dialogs::replacement_for(Control::new(ctrl).string());
         if (*event).ty == 0xe
             && (*event).ext_type == 0x1
-            && let Some(replaced) = replaced_dialog_for(Control::new(ctrl).string())
+            && let Some(replaced) = replaced
         {
             REPLACED_DIALOG_LIVE[replaced.index()].store(false, Ordering::Relaxed);
         }
-        if !allow_event_on_hidden_dialog(event) {
+        let driven = replaced.is_some_and(|replaced| {
+            REPLACED_DIALOG_DRIVEN[replaced.index()].load(Ordering::Relaxed)
+        });
+        if !driven && !allow_event_on_hidden_dialog(event) {
             return 0;
         }
         orig(ctrl, event)
-    }
-}
-
-/// The `GameMenu` control ids of its Save Game and Load Game buttons.
-const GAME_MENU_SAVE_GAME_ID: i16 = 1;
-const GAME_MENU_LOAD_GAME_ID: i16 = 2;
-
-static SAVE_BUTTON_EVENT_HANDLER: EventHandler = EventHandler::new();
-static LOAD_BUTTON_EVENT_HANDLER: EventHandler = EventHandler::new();
-/// The native draw function of the menu buttons [`disabled_button_draw`] wraps. Every push button
-/// shares one.
-static MENU_BUTTON_ORIG_DRAW: AtomicUsize = AtomicUsize::new(0);
-
-type ControlDrawFn =
-    unsafe extern "C" fn(*mut bw::scr::Control, i32, i32, *const bw::Rect, *const bw::Rect);
-
-/// Keeps the in-game menu's Save Game and Load Game buttons disabled: a saved game can't be loaded
-/// through ShieldBattery, and live games drop both commands anyway (see
-/// [`commands::filter_invalid_commands`](crate::bw::commands::filter_invalid_commands)).
-///
-/// BW re-enables Save Game on its own schedule while the menu is open, outside any of the menu's
-/// event handlers, so disabling it from events alone lets it draw enabled for a moment. Each button
-/// is therefore also wrapped at the two points that matter: its draw, which re-applies the disabled
-/// flag first, and its event handler, which swallows activation whatever the flag says.
-unsafe extern "C" fn game_menu_event_handler(
-    ctrl: *mut bw::Control,
-    event: *mut bw::ControlEvent,
-    orig: unsafe extern "C" fn(*mut bw::Control, *mut bw::ControlEvent) -> u32,
-) -> u32 {
-    unsafe {
-        let is_init = (*event).ty == 0xe && (*event).ext_type == 0x0;
-        let is_delete = (*event).ty == 0xe && (*event).ext_type == 0x1;
-        let ret = orig(ctrl, event);
-        // A deleted menu's controls are gone, so there's nothing to touch after that one.
-        if !is_delete {
-            let dialog = Control::new(ctrl).dialog();
-            for id in [GAME_MENU_SAVE_GAME_ID, GAME_MENU_LOAD_GAME_ID] {
-                if let Some(button) = dialog.child_by_id(id) {
-                    if is_init {
-                        wrap_disabled_button(button, id);
-                    }
-                    button.disable();
-                }
-            }
-        }
-        ret
-    }
-}
-
-unsafe fn wrap_disabled_button(button: Control, id: i16) {
-    unsafe {
-        let hook = match id {
-            GAME_MENU_SAVE_GAME_ID => &SAVE_BUTTON_EVENT_HANDLER,
-            _ => &LOAD_BUTTON_EVENT_HANDLER,
-        };
-        let inited = hook.init(disabled_button_event_handler);
-        if let Some(handler) = (*(*button)).event_handler
-            && handler as usize != inited.func() as usize
-        {
-            inited.set_orig(handler as usize);
-            button.set_event_handler(inited);
-        }
-
-        let ctrl: *mut bw::scr::Control = *button;
-        if let Some(draw) = (*ctrl).draw
-            && draw as usize != disabled_button_draw as ControlDrawFn as usize
-        {
-            let stored = MENU_BUTTON_ORIG_DRAW.load(Ordering::Relaxed);
-            if stored == 0 || stored == draw as usize {
-                MENU_BUTTON_ORIG_DRAW.store(draw as usize, Ordering::Relaxed);
-                (*ctrl).draw = Some(disabled_button_draw);
-            } else {
-                warn!("Game menu button {id} has an unexpected draw function, not wrapping it");
-            }
-        }
-    }
-}
-
-unsafe extern "C" fn disabled_button_event_handler(
-    ctrl: *mut bw::Control,
-    event: *mut bw::ControlEvent,
-    orig: unsafe extern "C" fn(*mut bw::Control, *mut bw::ControlEvent) -> u32,
-) -> u32 {
-    unsafe {
-        // Activation (a click) and the button's own hotkey, which BW may still deliver in the
-        // moment between re-enabling the button and the next disable.
-        if (*event).ty == 0xe && matches!((*event).ext_type, 0x2 | 0x3) {
-            debug!(
-                "Ignored activation of disabled game menu button {}",
-                Control::new(ctrl).id()
-            );
-            return 0;
-        }
-        orig(ctrl, event)
-    }
-}
-
-unsafe extern "C" fn disabled_button_draw(
-    ctrl: *mut bw::scr::Control,
-    x: i32,
-    y: i32,
-    area: *const bw::Rect,
-    clip: *const bw::Rect,
-) {
-    unsafe {
-        // The same flag `Control::disable` sets; set directly since a draw is no place to send the
-        // control an event.
-        (*ctrl).flags2 = ((*ctrl).flags2 & !0x4) | 0x1;
-        let orig: ControlDrawFn =
-            std::mem::transmute(MENU_BUTTON_ORIG_DRAW.load(Ordering::Relaxed));
-        orig(ctrl, x, y, area, clip)
     }
 }
 

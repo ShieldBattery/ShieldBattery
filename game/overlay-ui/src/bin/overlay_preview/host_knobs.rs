@@ -215,10 +215,7 @@ pub fn knobs_ui(knobs: &mut Knobs, shell: &mut Shell, ui: &mut Ui) -> bool {
                     knobs.set_spawned(dialog, false);
                     changed = true;
                 }
-                match dialog.runtime_name() {
-                    Some(name) => ui.weak(name),
-                    None => ui.weak("(runtime name not captured)"),
-                };
+                ui.weak(dialog.runtime_name());
             });
         });
     }

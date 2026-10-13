@@ -250,6 +250,20 @@ pub struct MinimapSettings {
     pub terrain_hidden: Option<bool>,
 }
 
+/// Settings the player changed on the in-game options screen, keyed and encoded as the app's two
+/// settings objects keep them, for the app to save. The app checks every key and value itself.
+#[derive(Serialize, Debug, Default)]
+pub struct SettingsChanged {
+    pub local: serde_json::Map<String, serde_json::Value>,
+    pub scr: serde_json::Map<String, serde_json::Value>,
+    /// The display the player chose, when they chose one: `Some(None)` for the system's primary
+    /// display, otherwise its desktop rectangle as `(x, y, width, height)`, in the same terms as
+    /// the bounds the app sent at launch. The app names displays by ids of its own, which it looks
+    /// up by that rectangle.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub monitor: Option<Option<(i32, i32, u32, u32)>>,
+}
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Deserialize)]
 pub enum UmsLobbyRace {
     #[serde(rename = "z")]

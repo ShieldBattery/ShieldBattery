@@ -13,7 +13,7 @@ use overlay_ui::net_quality::NetQualityView;
 use overlay_ui::observer::{
     GraphGrouping, MatchupForm, MatchupPlayerView, MatchupView, ObserverView, RaceView,
 };
-use overlay_ui::options::{OptionsLists, OptionsView};
+use overlay_ui::options::{OptionsLists, OptionsView, SettingChange};
 use overlay_ui::shell::{
     DisconnectSurface, FrameOutput, HostFrame, InputCapture, Intent, ModalId, Mode, NativeDialog,
     Shell, Views,
@@ -141,6 +141,9 @@ pub struct StepOutput {
     pub command_panel_visible: bool,
     /// What the overlay wants done to replay playback this frame, in the order it asked.
     pub replay_commands: Vec<ReplayCommand>,
+    /// Settings the player moved on the options screen this frame, in the order they moved them,
+    /// for the game to apply and the app to save.
+    pub setting_changes: Vec<SettingChange>,
     // true to run second draw to avoid ugly flickering due to screen size changing.
     pub run_second_draw: bool,
     /// Whether the player asked to leave the game, the way the in-game menu's End Game does.
@@ -366,6 +369,12 @@ impl OverlayState {
             (screen_size.1 as f32 / pixels_per_point).round() as u32,
         );
         let screen_size_changed = self.screen_size != screen_size;
+        if screen_size_changed {
+            debug!(
+                "Overlay screen is {}x{} points at {pixels_per_point} pixels per point",
+                screen_size.0, screen_size.1
+            );
+        }
         self.screen_size = screen_size;
         let screen_rect = Rect {
             min: Pos2 { x: 0.0, y: 0.0 },
@@ -438,14 +447,12 @@ impl OverlayState {
             // `ui_active` is exactly "no BW menu is sitting on top of the game", which is when the
             // keyboard is BW's rather than ours.
             native_dialog_open: !self.ui_active,
-            // Derived by exclusion: the only dialogs that top BW's stack without the player having
-            // opened one are the always-present in-game "Minimap" and the hidden "TimeOut" BW
-            // spawns during a stall.
-            native_menu_open: bw.first_dialog.is_some_and(|dialog| {
-                let control = dialog.as_control();
-                let name = control.string();
-                name != "Minimap" && name != "TimeOut"
-            }),
+            // Menus spawn ahead of the always-present "Minimap", so any of them the player can see
+            // sits before it. A hidden one is not the player's to operate: the "TimeOut" BW spawns
+            // during a stall, or a menu the overlay has replaced with a surface of its own.
+            native_menu_open: bw::iter_dialogs(bw.first_dialog)
+                .take_while(|dialog| dialog.as_control().string() != "Minimap")
+                .any(|dialog| !dialog.as_control().is_hidden()),
             game_seconds: transport::frames_to_seconds(
                 bw.game.frame_count(),
                 bw.replay
@@ -455,6 +462,7 @@ impl OverlayState {
         // Keypresses arrive between frames and are decided against this, so it is refreshed even on
         // the frames the shell draws nothing on.
         self.shell.set_host(&host_frame);
+        dialog_hook::advance_quit(bw.first_dialog);
         self.sync_native_dialogs();
         let users = setup_info.map(|info| info.users.as_slice()).unwrap_or(&[]);
         let now = Instant::now();
@@ -547,7 +555,14 @@ impl OverlayState {
         let options_view = *options.lock();
         // Shared rather than copied: the names in it are read every frame and written only when
         // the app's settings arrive.
-        let option_lists_view = option_lists.lock().clone();
+        let mut option_lists_view = option_lists.lock().clone();
+        // Rollback balance only means anything in a game that rolls back, which the session decides
+        // after the lists were built, so the lists learn it here.
+        let rolls_back = crate::rollback_live::native_sync_off();
+        if option_lists_view.rollback_game != rolls_back {
+            Arc::make_mut(&mut option_lists_view).rollback_game = rolls_back;
+            *option_lists.lock() = option_lists_view.clone();
+        }
         let mut views = Views {
             disconnect: (!disconnect_view.is_empty()).then(|| DisconnectSurface {
                 view: &disconnect_view,
@@ -603,8 +618,17 @@ impl OverlayState {
         self.chat_history = chat_history_view;
         self.capture = frame_output.capture;
         let mut replay_commands = Vec::new();
+        let mut setting_changes = Vec::new();
         for intent in frame_output.intents {
-            self.execute_intent(bw, intent, &mut replay_commands, options);
+            match intent {
+                // The overlay holds what the player moved, so the screen keeps showing it for the
+                // rest of the game; making it real is the game's side, which owns the settings.
+                Intent::ChangeSetting(change) => {
+                    options.lock().apply(change);
+                    setting_changes.push(change);
+                }
+                intent => self.execute_intent(bw, intent, &mut replay_commands),
+            }
         }
         let prefs = *self.shell.panel_prefs();
         let ui_primitives = self.ctx.tessellate(output.shapes, pixels_per_point);
@@ -621,10 +645,12 @@ impl OverlayState {
             select_unit: self.out_state.select_unit,
             show_hide_control: self.out_state.show_hide_control,
             show_hide_graphic_layer: self.out_state.show_hide_graphic_layer,
-            console_visible: prefs.console,
-            minimap_visible: prefs.minimap,
+            // The panel preferences are a watcher's; a player always has the whole console.
+            console_visible: !bw.is_replay_or_obs || prefs.console,
+            minimap_visible: !bw.is_replay_or_obs || prefs.minimap,
             command_panel_visible: !frame_output.transport_shown,
             replay_commands,
+            setting_changes,
             statbtn_dialog_offset: self.replay_ui_values.statbtn_dialog_offset,
             run_second_draw: screen_size_changed,
             leave_game: self.out_state.leave_game,
@@ -740,13 +766,6 @@ impl OverlayState {
         ui.collapsing("BW Dialogs", |ui| {
             self.dialog_debug_ui(bw, ui);
         });
-        // The chat log normally opens because SC:R's own chat history dialog spawned and was
-        // replaced, which needs that dialog's runtime name (see
-        // `overlay_ui::shell::native_dialogs`). Until it is captured, this is the only way to put
-        // the screen in front of a real game's chat.
-        if ui.button("Open chat history").clicked() {
-            self.shell.open_modal(ModalId::ChatHistory);
-        }
         ui.collapsing("Pre-SC:R graphic layers", |ui| {
             ui.label("Click to show / hide");
             if let Some(layers) = bw.graphic_layers {
@@ -886,7 +905,6 @@ impl OverlayState {
         bw: &BwVars,
         intent: Intent,
         replay_commands: &mut Vec<ReplayCommand>,
-        options: &Mutex<OptionsView>,
     ) {
         match intent {
             // Safe to reach the turn state here: the draw path holds no turn-state lock across
@@ -897,7 +915,16 @@ impl OverlayState {
             Intent::CloseNativeDialog(dialog) => {
                 dialog_hook::close_replaced_dialog(bw.first_dialog, dialog);
             }
-            Intent::LeaveGame => self.out_state.leave_game = true,
+            // Both leave a game this client cannot play on any more, its session over or its link
+            // given up on, so no other player can be told through the game and the session's own
+            // leave handling speaks for it.
+            Intent::LeaveGame | Intent::AbandonGame => self.out_state.leave_game = true,
+            Intent::QuitGame => dialog_hook::begin_quit(bw.first_dialog),
+            Intent::OpenAlliances => dialog_hook::activate_replaced_dialog_control(
+                bw.first_dialog,
+                NativeDialog::GameMenu,
+                GAME_MENU_SOCIAL_CONTROL_ID,
+            ),
             Intent::Seek(frame) => replay_commands.push(ReplayCommand::Seek { frame }),
             Intent::SetSpeed {
                 speed_index,
@@ -912,17 +939,8 @@ impl OverlayState {
             Intent::SelectProduction { player_id, item } => {
                 self.select_production(player_id, item as usize)
             }
-            // Leaving the game is not something the overlay can ask of BW yet, so the request is
-            // recorded and nothing else happens: the player stays in a game they asked to leave,
-            // which is the honest behaviour until the host side of it exists.
-            Intent::AbandonGame => info!("Overlay: abandon requested"),
-            // The overlay holds what the player moved, so the screen keeps showing it for the rest
-            // of the game. Writing a setting through the game's own settings registry is not built
-            // yet, so SC:R keeps playing on what it was launched with either way.
-            Intent::ChangeSetting(change) => {
-                options.lock().apply(change);
-                info!("Overlay: setting change requested: {change:?}");
-            }
+            // Collected by `step` for the game to apply, since the game owns the settings.
+            Intent::ChangeSetting(_) => {}
         }
     }
 
@@ -1356,6 +1374,10 @@ fn has_player_vision(bw: &BwVars, player_id: u8) -> bool {
         None => true,
     }
 }
+
+/// The game menu's control that opens SC:R's social popup, where its alliances and chat settings
+/// live.
+const GAME_MENU_SOCIAL_CONTROL_ID: i16 = 4;
 
 /// The game speed a live game is played at, which is what turns its frame count into the clock the
 /// matchup bar shows. A replay carries its own recorded speed instead.

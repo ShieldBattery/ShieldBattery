@@ -11,11 +11,13 @@
 
 use overlay_ui::options::{
     ANNOUNCERS, APM_ALERT_VALUE, BRIGHTNESS, CONSOLE_SKINS, CURSOR_SIZE_EIGHTHS, DisplayMode,
-    FPS_LIMIT, GRAB_PAN_SENSITIVITY, MOUSE_SENSITIVITY, MinimapPosition, MinimapTerrain,
-    NamedChoice, OptionsView, SCROLL_SPEED, SD_GRAPHICS_FILTER, StartingFog, UNIT_SKINS,
-    UnitPortraits, VOLUME,
+    FPS_LIMIT, FramePacing, GRAB_PAN_SENSITIVITY, MOUSE_SENSITIVITY, MinimapColorMode,
+    MinimapPosition, MinimapTerrain, NamedChoice, OptionsView, ROLLBACK_TARGET, SCROLL_SPEED,
+    SD_GRAPHICS_FILTER, SettingChange, StartingFog, UNIT_SKINS, UnitPortraits, VOLUME,
 };
 use serde_json::{Map, Value};
+
+use crate::bw_scr::game_settings::SettingValue;
 
 /// SC:R keeps brightness as an integer gamma percentage between these bounds. The options screen's
 /// own 0-100 scale is that range stretched over it, which is the scale the app's own slider shows
@@ -37,9 +39,14 @@ enum Source {
 }
 
 /// Everything the options screen shows, read out of the settings the app sent.
+///
+/// `launched_monitor` is the display the game was launched on, as an index into the host's own list
+/// of them: the app names its displays by ids this machine's enumeration does not carry, so which
+/// one a chosen `monitorId` stands for is only known from where the launch put the game.
 pub fn options_view_from_settings(
     scr: &Map<String, Value>,
     local: &Map<String, Value>,
+    launched_monitor: usize,
 ) -> OptionsView {
     let mut settings = Settings {
         scr,
@@ -154,6 +161,21 @@ pub fn options_view_from_settings(
                 / (GAMMA_MAX - GAMMA_MIN);
             BRIGHTNESS.clamp((across * f64::from(BRIGHTNESS.max)).round() as u32)
         });
+    // The app keeps "Default (primary monitor)" as no id at all, so a missing key is a choice the
+    // player made rather than one the app failed to send.
+    view.monitor = match settings.raw(Source::Local, "monitorId") {
+        None => None,
+        Some(id) if id.is_number() => Some(launched_monitor),
+        Some(_) => settings.miss("monitorId"),
+    };
+    view.frame_pacing = settings
+        .keyed(Source::Local, "framePacing", |value| match value {
+            "display" => Some(FramePacing::Display),
+            "variableRefresh" => Some(FramePacing::VariableRefresh),
+            "off" => Some(FramePacing::Off),
+            _ => None,
+        })
+        .unwrap_or(view.frame_pacing);
     view.fps_limit_on = settings
         .flag(Source::Scr, "fpsLimitOn")
         .unwrap_or(view.fps_limit_on);
@@ -208,6 +230,9 @@ pub fn options_view_from_settings(
             _ => None,
         })
         .unwrap_or(view.unit_portraits);
+    view.show_latency = settings
+        .flag(Source::Scr, "showTurnRate")
+        .unwrap_or(view.show_latency);
     // The minimap has two places it can stand, so the app carries the one that is not standard as
     // a flag.
     view.minimap_position = settings.flag(Source::Scr, "minimapPosition").map_or(
@@ -239,6 +264,14 @@ pub fn options_view_from_settings(
             _ => None,
         })
         .unwrap_or(view.starting_fog);
+    view.minimap_color_mode = settings
+        .decoded(Source::Local, "minimapColorMode", |value| match value {
+            0 => Some(MinimapColorMode::Standard),
+            1 => Some(MinimapColorMode::PresetOnMinimapOnly),
+            2 => Some(MinimapColorMode::Preset),
+            _ => None,
+        })
+        .unwrap_or(view.minimap_color_mode);
     view.apm_display_on = settings
         .flag(Source::Scr, "apmDisplayOn")
         .unwrap_or(view.apm_display_on);
@@ -264,6 +297,14 @@ pub fn options_view_from_settings(
         .flag(Source::Scr, "showBonusSkins")
         .unwrap_or(view.show_bonus_skins);
 
+    // Network.
+    view.rollback_target = settings
+        .number(Source::Local, "rollbackTarget")
+        .map_or(view.rollback_target, |value| ROLLBACK_TARGET.clamp(value));
+    view.turn_rate_24_delay_on = settings
+        .flag(Source::Local, "emulateTurnRate24Delay")
+        .unwrap_or(view.turn_rate_24_delay_on);
+
     if !settings.unread.is_empty() {
         warn!(
             "In-game options screen is showing defaults for settings the app did not send, or \
@@ -272,6 +313,218 @@ pub fn options_view_from_settings(
         );
     }
     view
+}
+
+/// One setting as the app keeps it: which of its two settings objects, under which key, encoded as
+/// the app encodes it.
+pub struct AppSetting {
+    /// Whether the key is one of ShieldBattery's own settings rather than one of SC:R's.
+    pub local: bool,
+    pub key: &'static str,
+    pub value: Value,
+}
+
+/// What the app should save for a change made on the options screen: the exact inverse of
+/// [`options_view_from_settings`], so a value written here reads back as the row it came from.
+///
+/// `None` for the monitor, which the app knows by an id of its own that the game never sees; the
+/// caller sends the display's bounds for the app to look that id up by.
+pub fn app_setting(change: SettingChange) -> Option<AppSetting> {
+    let scr = |key, value: Value| AppSetting {
+        local: false,
+        key,
+        value,
+    };
+    let local = |key, value: Value| AppSetting {
+        local: true,
+        key,
+        value,
+    };
+    Some(match change {
+        SettingChange::MouseSensitivityOn(on) => scr("mouseSensitivityOn", on.into()),
+        SettingChange::MouseSensitivity(value) => scr("mouseSensitivity", value.into()),
+        SettingChange::MouseScalingOn(on) => scr("mouseScalingOn", on.into()),
+        SettingChange::HardwareCursorOn(on) => scr("hardwareCursorOn", on.into()),
+        SettingChange::MouseConfineOn(on) => scr("mouseConfineOn", on.into()),
+        SettingChange::KeyboardScrollSpeed(value) => scr("keyboardScrollSpeed", value.into()),
+        SettingChange::MouseScrollSpeed(value) => scr("mouseScrollSpeed", value.into()),
+        SettingChange::GrabPanOn(on) => local("grabPanSensitivityOn", on.into()),
+        SettingChange::GrabPanSensitivity(value) => local("grabPanSensitivity", value.into()),
+        SettingChange::GrabPanInverted(on) => local("grabPanInverted", on.into()),
+        SettingChange::LegacyCursorSizing(on) => local("legacyCursorSizing", on.into()),
+        SettingChange::CustomCursorSizeOn(on) => local("useCustomCursorSize", on.into()),
+        SettingChange::CursorSizeEighths(eighths) => local(
+            "customCursorSize",
+            (f64::from(eighths) / CURSOR_SIZE_PARTS).into(),
+        ),
+        SettingChange::MusicOn(on) => scr("musicOn", on.into()),
+        SettingChange::MusicVolume(value) => scr("musicVolume", value.into()),
+        SettingChange::SoundOn(on) => scr("soundOn", on.into()),
+        SettingChange::SoundVolume(value) => scr("soundVolume", value.into()),
+        SettingChange::UnitSpeechOn(on) => scr("unitSpeechOn", on.into()),
+        SettingChange::UnitAcknowledgementsOn(on) => scr("unitAcknowledgementsOn", on.into()),
+        SettingChange::BackgroundSoundsOn(on) => scr("backgroundSoundsOn", on.into()),
+        SettingChange::BuildingSoundsOn(on) => scr("buildingSoundsOn", on.into()),
+        SettingChange::GameSubtitlesOn(on) => scr("gameSubtitlesOn", on.into()),
+        SettingChange::CinematicSubtitlesOn(on) => scr("cinematicSubtitlesOn", on.into()),
+        SettingChange::OriginalVoiceOversOn(on) => scr("originalVoiceOversOn", on.into()),
+        SettingChange::Announcer(id) => scr("selectedAnnouncer", id.into()),
+        SettingChange::DisplayMode(mode) => scr("displayMode", display_mode_value(mode).into()),
+        SettingChange::Monitor(_) => return None,
+        SettingChange::Brightness(value) => scr("gamma", brightness_to_gamma(value).into()),
+        SettingChange::FramePacing(pacing) => local("framePacing", frame_pacing_id(pacing).into()),
+        SettingChange::FpsLimitOn(on) => scr("fpsLimitOn", on.into()),
+        SettingChange::FpsLimit(value) => scr("fpsLimit", value.into()),
+        // SC:R keeps vertical sync as a number standing for a flag, and so does the app.
+        SettingChange::VsyncOn(on) => scr("vsyncOn", u32::from(on).into()),
+        SettingChange::HdGraphicsOn(on) => scr("hdGraphicsOn", on.into()),
+        SettingChange::SdGraphicsFilter(value) => scr("sdGraphicsFilter", value.into()),
+        SettingChange::EnvironmentEffectsOn(on) => scr("environmentEffectsOn", on.into()),
+        SettingChange::RealTimeLightingOn(on) => scr("realTimeLightingOn", on.into()),
+        SettingChange::SmoothUnitTurningOn(on) => scr("smoothUnitTurningOn", on.into()),
+        SettingChange::ShadowStackingOn(on) => scr("shadowStackingOn", on.into()),
+        SettingChange::PillarboxOn(on) => scr("pillarboxOn", on.into()),
+        SettingChange::ShowFps(on) => scr("showFps", on.into()),
+        SettingChange::GameTimerOn(on) => scr("gameTimerOn", on.into()),
+        SettingChange::ColorCyclingOn(on) => scr("colorCyclingOn", on.into()),
+        SettingChange::UnitPortraits(portraits) => {
+            scr("unitPortraits", unit_portraits_value(portraits).into())
+        }
+        SettingChange::ShowLatency(on) => scr("showTurnRate", on.into()),
+        SettingChange::MinimapPosition(position) => scr(
+            "minimapPosition",
+            (position == MinimapPosition::BottomLeft).into(),
+        ),
+        SettingChange::MinimapTerrain(terrain) => local(
+            "minimapTerrainHidden",
+            (terrain == MinimapTerrain::Hidden).into(),
+        ),
+        SettingChange::StartingFog(fog) => local("startingFog", starting_fog_id(fog).into()),
+        SettingChange::MinimapColorMode(mode) => {
+            local("minimapColorMode", minimap_color_mode_value(mode).into())
+        }
+        SettingChange::ApmDisplayOn(on) => scr("apmDisplayOn", on.into()),
+        SettingChange::ApmAlertOn(on) => scr("apmAlertOn", on.into()),
+        SettingChange::ApmAlertValue(value) => scr("apmAlertValue", value.into()),
+        SettingChange::ApmAlertColorOn(on) => scr("apmAlertColorOn", on.into()),
+        SettingChange::ApmAlertSoundOn(on) => scr("apmAlertSoundOn", on.into()),
+        SettingChange::ConsoleSkin(id) => scr("consoleSkin", id.into()),
+        SettingChange::UnitSkin(id) => scr("selectedSkin", id.into()),
+        SettingChange::ShowBonusSkins(on) => scr("showBonusSkins", on.into()),
+        SettingChange::RollbackTarget(value) => local("rollbackTarget", value.into()),
+        SettingChange::TurnRate24DelayOn(on) => local("emulateTurnRate24Delay", on.into()),
+    })
+}
+
+/// Where a change lands in SC:R's own settings registry, for the settings the registry's generic
+/// write applies while the game runs. `None` for the ones it doesn't: ShieldBattery's own settings,
+/// and the SC:R ones only a launch picks up (the monitor, HD graphics, skins, the announcer).
+///
+/// SC:R's values are the app's own: the app copies them into the game's settings file unconverted.
+pub fn registry_setting(
+    change: SettingChange,
+) -> Option<(&'static str, &'static str, SettingValue)> {
+    use SettingValue::{Bool, Int};
+    let int = |value: u32| Int(i32::try_from(value).unwrap_or(i32::MAX));
+    Some(match change {
+        SettingChange::MouseSensitivityOn(on) => ("speed", "MouseUseSensitivity", Bool(on)),
+        SettingChange::MouseSensitivity(value) => ("speed", "MouseSensitivity", int(value)),
+        SettingChange::MouseScalingOn(on) => ("speed", "MouseScaling", Bool(on)),
+        SettingChange::HardwareCursorOn(on) => ("speed", "MouseHardwareCursor", Bool(on)),
+        SettingChange::MouseConfineOn(on) => ("speed", "MouseConfine", Bool(on)),
+        SettingChange::KeyboardScrollSpeed(value) => ("speed", "m_kscroll", int(value)),
+        SettingChange::MouseScrollSpeed(value) => ("speed", "m_mscroll", int(value)),
+        SettingChange::MusicOn(on) => ("sound", "music_enabled", Bool(on)),
+        SettingChange::MusicVolume(value) => ("sound", "music_volume", int(value)),
+        SettingChange::SoundOn(on) => ("sound", "sfx_enabled", Bool(on)),
+        SettingChange::SoundVolume(value) => ("sound", "sfx_volume", int(value)),
+        SettingChange::UnitSpeechOn(on) => ("sound", "unitspeech", Bool(on)),
+        SettingChange::UnitAcknowledgementsOn(on) => ("sound", "unitnoise", Bool(on)),
+        SettingChange::BackgroundSoundsOn(on) => ("sound", "sound_in_background", Bool(on)),
+        SettingChange::BuildingSoundsOn(on) => ("sound", "bldgnoise", Bool(on)),
+        SettingChange::GameSubtitlesOn(on) => ("sound", "trigtext", Bool(on)),
+        SettingChange::CinematicSubtitlesOn(on) => {
+            ("language", "cinematicSubtitlesEnabled", Bool(on))
+        }
+        SettingChange::OriginalVoiceOversOn(on) => ("language", "originalUnitVO", Bool(on)),
+        SettingChange::DisplayMode(mode) => ("video", "WindowMode", int(display_mode_value(mode))),
+        SettingChange::Brightness(value) => ("video", "Gamma", int(brightness_to_gamma(value))),
+        SettingChange::FpsLimitOn(on) => ("video", "FPSLimitEnabled", Bool(on)),
+        SettingChange::FpsLimit(value) => ("video", "FPSLimit", int(value)),
+        SettingChange::VsyncOn(on) => ("video", "VSync", Int(i32::from(on))),
+        SettingChange::SdGraphicsFilter(value) => ("video", "SDFilterMode", int(value)),
+        SettingChange::RealTimeLightingOn(on) => ("video", "RealtimeLightingEnabled", Bool(on)),
+        SettingChange::EnvironmentEffectsOn(on) => ("game", "ShowFoliage", Bool(on)),
+        SettingChange::SmoothUnitTurningOn(on) => ("game", "UseHDRotation", Bool(on)),
+        SettingChange::ShadowStackingOn(on) => ("game", "ShadowStacking", Bool(on)),
+        SettingChange::PillarboxOn(on) => ("game", "OriginalAspectRatio", Bool(on)),
+        SettingChange::ShowFps(on) => ("game", "ShowFPS", Bool(on)),
+        SettingChange::ShowLatency(on) => ("game", "ShowTurnRate", Bool(on)),
+        SettingChange::GameTimerOn(on) => ("game", "GameTimer", Bool(on)),
+        SettingChange::ColorCyclingOn(on) => ("game", "ColorCycle", Bool(on)),
+        SettingChange::UnitPortraits(portraits) => (
+            "game",
+            "UnitPortraits",
+            int(unit_portraits_value(portraits)),
+        ),
+        SettingChange::MinimapPosition(position) => (
+            "game",
+            "consoleSplit",
+            Bool(position == MinimapPosition::BottomLeft),
+        ),
+        SettingChange::ApmDisplayOn(on) => ("game", "apm_Showing", Bool(on)),
+        SettingChange::ApmAlertOn(on) => ("game", "apm_AlertUser", Bool(on)),
+        SettingChange::ApmAlertValue(value) => ("game", "apm_AlertValue", int(value)),
+        SettingChange::ApmAlertColorOn(on) => ("game", "apm_AlertUseColor", Bool(on)),
+        SettingChange::ApmAlertSoundOn(on) => ("game", "apm_AlertUseSound", Bool(on)),
+        _ => return None,
+    })
+}
+
+fn display_mode_value(mode: DisplayMode) -> u32 {
+    match mode {
+        DisplayMode::Windowed => 0,
+        DisplayMode::WindowedFullscreen => 1,
+        DisplayMode::Fullscreen => 2,
+    }
+}
+
+fn unit_portraits_value(portraits: UnitPortraits) -> u32 {
+    match portraits {
+        UnitPortraits::Animated => 2,
+        UnitPortraits::Still => 1,
+        UnitPortraits::Disabled => 0,
+    }
+}
+
+fn minimap_color_mode_value(mode: MinimapColorMode) -> u32 {
+    match mode {
+        MinimapColorMode::Standard => 0,
+        MinimapColorMode::PresetOnMinimapOnly => 1,
+        MinimapColorMode::Preset => 2,
+    }
+}
+
+pub fn frame_pacing_id(pacing: FramePacing) -> &'static str {
+    match pacing {
+        FramePacing::Display => "display",
+        FramePacing::VariableRefresh => "variableRefresh",
+        FramePacing::Off => "off",
+    }
+}
+
+fn starting_fog_id(fog: StartingFog) -> &'static str {
+    match fog {
+        StartingFog::ShowTerrainAndResources => "transparent",
+        StartingFog::ShowResources => "showResources",
+        StartingFog::Legacy => "legacy",
+    }
+}
+
+/// The options screen's 0-100 brightness as the gamma percentage SC:R keeps.
+fn brightness_to_gamma(brightness: u32) -> u32 {
+    let across = f64::from(brightness.min(BRIGHTNESS.max)) / f64::from(BRIGHTNESS.max);
+    (GAMMA_MIN + across * (GAMMA_MAX - GAMMA_MIN)).round() as u32
 }
 
 /// The settings objects the app sent, and what could not be read out of them.
@@ -410,6 +663,7 @@ mod tests {
             "gameTimerOn": true,
             "colorCyclingOn": false,
             "unitPortraits": 2,
+            "showTurnRate": true,
             "minimapPosition": true,
             "apmDisplayOn": true,
             "apmAlertOn": true,
@@ -429,9 +683,18 @@ mod tests {
             "customCursorSize": 0.625,
             "minimapTerrainHidden": true,
             "startingFog": "legacy",
+            "minimapColorMode": 2,
+            "monitorId": 2_528_732_444u64,
+            "framePacing": "variableRefresh",
+            "rollbackTarget": 4,
+            "emulateTurnRate24Delay": true,
         });
         (as_map(scr), as_map(local))
     }
+
+    /// Where the tests' launches put the game: not the first display, so a mapping that ignored it
+    /// would be caught.
+    const LAUNCHED_MONITOR: usize = 1;
 
     fn as_map(value: Value) -> Map<String, Value> {
         match value {
@@ -441,6 +704,94 @@ mod tests {
     }
 
     /// What [`full_settings`] says, row by row.
+    /// Every change the screen can make, each to something other than its default.
+    fn every_change() -> Vec<SettingChange> {
+        vec![
+            SettingChange::MouseSensitivityOn(true),
+            SettingChange::MouseSensitivity(35),
+            SettingChange::MouseScalingOn(true),
+            SettingChange::HardwareCursorOn(true),
+            SettingChange::MouseConfineOn(true),
+            SettingChange::KeyboardScrollSpeed(5),
+            SettingChange::MouseScrollSpeed(1),
+            SettingChange::GrabPanOn(false),
+            SettingChange::GrabPanSensitivity(95),
+            SettingChange::GrabPanInverted(true),
+            SettingChange::LegacyCursorSizing(true),
+            SettingChange::CustomCursorSizeOn(true),
+            SettingChange::CursorSizeEighths(5),
+            SettingChange::MusicOn(false),
+            SettingChange::MusicVolume(40),
+            SettingChange::SoundOn(false),
+            SettingChange::SoundVolume(15),
+            SettingChange::UnitSpeechOn(false),
+            SettingChange::UnitAcknowledgementsOn(false),
+            SettingChange::BackgroundSoundsOn(true),
+            SettingChange::BuildingSoundsOn(false),
+            SettingChange::GameSubtitlesOn(false),
+            SettingChange::CinematicSubtitlesOn(false),
+            SettingChange::OriginalVoiceOversOn(true),
+            SettingChange::Announcer(ANNOUNCERS[1].id),
+            SettingChange::DisplayMode(DisplayMode::Fullscreen),
+            SettingChange::Brightness(65),
+            SettingChange::FramePacing(FramePacing::VariableRefresh),
+            SettingChange::FpsLimitOn(true),
+            SettingChange::FpsLimit(237),
+            SettingChange::VsyncOn(true),
+            SettingChange::HdGraphicsOn(false),
+            SettingChange::SdGraphicsFilter(2),
+            SettingChange::EnvironmentEffectsOn(false),
+            SettingChange::RealTimeLightingOn(false),
+            SettingChange::SmoothUnitTurningOn(false),
+            SettingChange::ShadowStackingOn(true),
+            SettingChange::PillarboxOn(true),
+            SettingChange::ShowFps(true),
+            SettingChange::GameTimerOn(false),
+            SettingChange::ColorCyclingOn(false),
+            SettingChange::UnitPortraits(UnitPortraits::Still),
+            SettingChange::ShowLatency(true),
+            SettingChange::MinimapPosition(MinimapPosition::BottomLeft),
+            SettingChange::MinimapTerrain(MinimapTerrain::Hidden),
+            SettingChange::StartingFog(StartingFog::Legacy),
+            SettingChange::MinimapColorMode(MinimapColorMode::PresetOnMinimapOnly),
+            SettingChange::ApmDisplayOn(true),
+            SettingChange::ApmAlertOn(true),
+            SettingChange::ApmAlertValue(123),
+            SettingChange::ApmAlertColorOn(true),
+            SettingChange::ApmAlertSoundOn(true),
+            SettingChange::ConsoleSkin(CONSOLE_SKINS[2].id),
+            SettingChange::UnitSkin(UNIT_SKINS[1].id),
+            SettingChange::ShowBonusSkins(false),
+            SettingChange::RollbackTarget(4),
+            SettingChange::TurnRate24DelayOn(true),
+        ]
+    }
+
+    #[test]
+    fn a_saved_change_reads_back_as_the_row_it_came_from() {
+        for change in every_change() {
+            let saved = app_setting(change).expect("every change but the monitor is saved");
+            let (mut scr, mut local) = full_settings();
+            let target = if saved.local { &mut local } else { &mut scr };
+            target.insert(saved.key.into(), saved.value);
+            let mut expected =
+                options_view_from_settings(&full_settings().0, &full_settings().1, 0);
+            expected.apply(change);
+            assert_eq!(
+                options_view_from_settings(&scr, &local, 0),
+                expected,
+                "{change:?} did not read back"
+            );
+        }
+    }
+
+    #[test]
+    fn brightness_lands_on_the_gamma_ends() {
+        assert_eq!(brightness_to_gamma(0), 60);
+        assert_eq!(brightness_to_gamma(50), 100);
+        assert_eq!(brightness_to_gamma(100), 140);
+    }
+
     #[test]
     fn every_setting_the_app_sends_reaches_its_row() {
         let (scr, local) = full_settings();
@@ -473,10 +824,10 @@ mod tests {
             announcer: 5,
 
             display_mode: DisplayMode::Fullscreen,
-            // Which display the game is on is read off the machine rather than out of either
-            // settings object, so it stays where a fresh view has it.
-            monitor: 0,
+            // Which display a chosen monitor is comes from where the launch put the game.
+            monitor: Some(LAUNCHED_MONITOR),
             brightness: 100,
+            frame_pacing: FramePacing::VariableRefresh,
             fps_limit_on: true,
             fps_limit: 240,
             vsync_on: true,
@@ -492,9 +843,11 @@ mod tests {
             game_timer_on: true,
             color_cycling_on: false,
             unit_portraits: UnitPortraits::Animated,
+            show_latency: true,
             minimap_position: MinimapPosition::BottomLeft,
             minimap_terrain: MinimapTerrain::Hidden,
             starting_fog: StartingFog::Legacy,
+            minimap_color_mode: MinimapColorMode::Preset,
             apm_display_on: true,
             apm_alert_on: true,
             apm_alert_value: 120,
@@ -503,8 +856,14 @@ mod tests {
             console_skin: 5,
             unit_skin: 2,
             show_bonus_skins: true,
+
+            rollback_target: 4,
+            turn_rate_24_delay_on: true,
         };
-        assert_eq!(options_view_from_settings(&scr, &local), expected);
+        assert_eq!(
+            options_view_from_settings(&scr, &local, LAUNCHED_MONITOR),
+            expected
+        );
         // Every row moved off its default, so none of them was read from a key that isn't there.
         assert_ne!(expected, OptionsView::default());
     }
@@ -560,6 +919,36 @@ mod tests {
                 fog
             );
         }
+        for (encoded, mode) in [
+            (0, MinimapColorMode::Standard),
+            (1, MinimapColorMode::PresetOnMinimapOnly),
+            (2, MinimapColorMode::Preset),
+        ] {
+            assert_eq!(
+                view_of_local("minimapColorMode", json!(encoded)).minimap_color_mode,
+                mode
+            );
+        }
+        for (encoded, pacing) in [
+            ("display", FramePacing::Display),
+            ("variableRefresh", FramePacing::VariableRefresh),
+            ("off", FramePacing::Off),
+        ] {
+            assert_eq!(
+                view_of_local("framePacing", json!(encoded)).frame_pacing,
+                pacing
+            );
+        }
+        // No monitor id is the app's "Default (primary monitor)", which is a choice in its own
+        // right; any id is a display, and the one it is is where the launch put the game.
+        assert_eq!(
+            options_view_from_settings(&Map::new(), &Map::new(), LAUNCHED_MONITOR).monitor,
+            None
+        );
+        assert_eq!(
+            view_of_local("monitorId", json!(7)).monitor,
+            Some(LAUNCHED_MONITOR)
+        );
         // Vsync is a number standing for a flag, which is how SC:R's own settings carry it.
         assert!(view_of_scr("vsyncOn", json!(1)).vsync_on);
         assert!(!view_of_scr("vsyncOn", json!(0)).vsync_on);
@@ -574,13 +963,13 @@ mod tests {
     fn settings_the_app_did_not_send_keep_their_defaults() {
         let empty = Map::new();
         assert_eq!(
-            options_view_from_settings(&empty, &empty),
+            options_view_from_settings(&empty, &empty, LAUNCHED_MONITOR),
             OptionsView::default()
         );
         // One missing key costs its own row and nothing else.
         let (mut scr, local) = full_settings();
         scr.remove("apmAlertValue");
-        let view = options_view_from_settings(&scr, &local);
+        let view = options_view_from_settings(&scr, &local, LAUNCHED_MONITOR);
         assert_eq!(view.apm_alert_value, OptionsView::default().apm_alert_value);
         assert!(view.apm_alert_on);
     }
@@ -606,6 +995,18 @@ mod tests {
             view_of_scr("consoleSkin", json!("a-skin-from-a-later-patch")).console_skin,
             defaults.console_skin
         );
+        assert_eq!(
+            view_of_local("framePacing", json!("a-mode-from-a-later-build")).frame_pacing,
+            defaults.frame_pacing
+        );
+        assert_eq!(
+            view_of_local("minimapColorMode", json!(7)).minimap_color_mode,
+            defaults.minimap_color_mode
+        );
+        assert_eq!(
+            view_of_local("monitorId", json!("primary")).monitor,
+            defaults.monitor
+        );
     }
 
     /// Whatever the app holds in a slider setting, the screen shows a value that slider can be left
@@ -622,6 +1023,16 @@ mod tests {
             100
         );
         assert_eq!(view_of_scr("apmAlertValue", json!(-30)).apm_alert_value, 0);
+        // Every value the app lets a player type is one the APM row holds as it is.
+        assert_eq!(
+            view_of_scr("apmAlertValue", json!(123)).apm_alert_value,
+            123
+        );
+        assert_eq!(
+            view_of_scr("apmAlertValue", json!(1500)).apm_alert_value,
+            999
+        );
+        assert_eq!(view_of_local("rollbackTarget", json!(9)).rollback_target, 4);
         // The app holds a cap of zero while the custom limit is off.
         assert_eq!(view_of_scr("fpsLimit", json!(0)).fps_limit, FPS_LIMIT.min);
         assert_eq!(view_of_scr("fpsLimit", json!(144)).fps_limit, 144);
@@ -643,12 +1054,12 @@ mod tests {
     fn view_of_scr(key: &str, value: Value) -> OptionsView {
         let mut scr = Map::new();
         scr.insert(key.to_string(), value);
-        options_view_from_settings(&scr, &Map::new())
+        options_view_from_settings(&scr, &Map::new(), LAUNCHED_MONITOR)
     }
 
     fn view_of_local(key: &str, value: Value) -> OptionsView {
         let mut local = Map::new();
         local.insert(key.to_string(), value);
-        options_view_from_settings(&Map::new(), &local)
+        options_view_from_settings(&Map::new(), &local, LAUNCHED_MONITOR)
     }
 }

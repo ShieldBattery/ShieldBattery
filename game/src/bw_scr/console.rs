@@ -25,10 +25,6 @@ pub const MINIMAP_DIALOG: &str = "Minimap";
 /// transport gets SC:R's back rather than no controls at all.
 pub const COMMAND_PANEL_DIALOG: &str = "StatBtn";
 
-/// The console's menu button. Not the menu it opens, which is a dialog of its own built from
-/// `rez/gamemenu.ui.json`.
-pub const MENU_BUTTON_DIALOG: &str = "Stat_F10";
-
 impl BwScr {
     pub fn console_hidden(&self) -> bool {
         self.console_hidden_state.load(Ordering::Relaxed)

@@ -13,7 +13,7 @@ use std::os::windows::ffi::OsStringExt;
 use std::ptr::{null, null_mut};
 
 use hashbrown::HashMap;
-use overlay_ui::options::{MonitorView, OptionsLists};
+use overlay_ui::options::MonitorView;
 use winapi::shared::basetsd::UINT32;
 use winapi::shared::minwindef::{BOOL, DWORD, LPARAM, TRUE};
 use winapi::shared::windef::{HDC, HMONITOR, LPRECT};
@@ -64,19 +64,17 @@ pub struct Monitor {
 
 /// Every display this machine has, and which of them a game launched with `monitor_bounds` is being
 /// put on.
-pub fn displays(monitor_bounds: Option<(i32, i32, u32, u32)>) -> (OptionsLists, usize) {
+pub fn displays(monitor_bounds: Option<(i32, i32, u32, u32)>) -> (Vec<MonitorView>, usize) {
     let monitors = enumerate();
     let selected = index_for_bounds(&monitors, monitor_bounds);
-    let lists = OptionsLists {
-        monitors: monitors
-            .into_iter()
-            .map(|monitor| MonitorView {
-                name: monitor.name,
-                primary: monitor.primary,
-            })
-            .collect(),
-    };
-    (lists, selected)
+    let views = monitors
+        .into_iter()
+        .map(|monitor| MonitorView {
+            name: monitor.name,
+            bounds: monitor.bounds,
+        })
+        .collect();
+    (views, selected)
 }
 
 /// Which display `wanted` is, or the main one when nothing was asked for and when what was asked

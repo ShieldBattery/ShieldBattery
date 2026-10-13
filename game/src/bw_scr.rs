@@ -15,6 +15,7 @@ use byteorder::{ByteOrder, LittleEndian};
 use hashbrown::HashMap;
 use libc::c_void;
 use overlay_ui::net_quality::NetQualityView;
+use overlay_ui::options::SettingChange;
 use parking_lot::{Mutex, RwLock};
 use smallvec::SmallVec;
 use winapi::shared::minwindef::FILETIME;
@@ -32,7 +33,7 @@ pub use thiscall::Thiscall;
 use crate::GameThreadMessage;
 use crate::app_messages::{
     AtomicStartingFog, BlockRequestFailed, MapInfo, MinimapColorMode, SbUserId, Settings,
-    StartingFog,
+    SettingsChanged, StartingFog,
 };
 use crate::bw::apm_stats::ApmStats;
 use crate::bw::players::{BwPlayerId, StormPlayerId};
@@ -65,6 +66,7 @@ mod draw_inject;
 mod draw_overlay;
 mod file_hook;
 mod game;
+mod game_settings;
 mod game_stats;
 mod monitors;
 mod pe_image;
@@ -506,6 +508,9 @@ pub struct BwScr {
     /// which is the displays the game can be put on. Read once, when the settings arrive; shared
     /// rather than copied so a frame takes the list without cloning the names in it.
     option_lists: Mutex<Arc<overlay_ui::options::OptionsLists>>,
+    /// SC:R's own settings registry, which the options screen writes its changes through. `None`
+    /// when the analysis could not place it, which leaves SC:R's settings to take effect next game.
+    game_settings: Option<game_settings::GameSettings>,
     /// Ensures that things that qualify as "event processing" (e.g. process_events,
     /// maybe_receive_turns) don't execute from multiple threads at the same time (which may happen
     /// at certain points during game init).
@@ -2250,6 +2255,24 @@ impl BwScr {
         let units = analysis.units().ok_or("units")?;
         // Non-fatal: the control-groups panel simply does not dim a group nobody has recalled.
         let selection_hotkey_last_used_frames = analysis.selection_hotkey_last_used_frames();
+        // Non-fatal: without the registry the in-game options screen still saves what the player
+        // changes, and SC:R picks it up next game.
+        let game_settings = match (
+            // A global the analysis resolves to its address, like the other struct globals.
+            analysis
+                .game_setting_groups()
+                .and_then(|groups| groups.if_constant()),
+            analysis.update_game_setting_int(),
+            analysis.update_game_setting_bool(),
+        ) {
+            (Some(groups), Some(write_int), Some(write_bool)) => {
+                Some((groups, write_int, write_bool))
+            }
+            _ => {
+                warn!("Could not find SC:R's settings registry");
+                None
+            }
+        };
         let vertex_buffer = analysis.vertex_buffer().ok_or("vertex_buffer")?;
         let renderer = analysis.renderer().ok_or("renderer")?;
         let draw_commands = analysis.draw_commands().ok_or("draw_commands")?;
@@ -2733,6 +2756,13 @@ impl BwScr {
             replay_transport: Mutex::new(replay_transport::ReplayTransport::new()),
             options: Mutex::new(overlay_ui::options::OptionsView::default()),
             option_lists: Mutex::new(Arc::new(overlay_ui::options::OptionsLists::default())),
+            game_settings: game_settings.map(|(groups, write_int, write_bool)| {
+                game_settings::GameSettings::new(
+                    groups as usize,
+                    write_int.0 as usize,
+                    write_bool.0 as usize,
+                )
+            }),
             event_processing_lock: DumbSpinLock::new(),
         })
     }
@@ -4272,6 +4302,9 @@ impl BwScr {
                             }
                             for command in &overlay_out.replay_commands {
                                 self.send_replay_command(*command);
+                            }
+                            if !overlay_out.setting_changes.is_empty() {
+                                self.apply_setting_changes(&overlay_out.setting_changes);
                             }
                             let bw = &draw_inject::BwVars {
                                 renderer,
@@ -6912,6 +6945,112 @@ impl BwScr {
         !self.game_results_sent.swap(true, Ordering::Relaxed)
     }
 
+    /// Puts settings the player moved on the in-game options screen into effect, and hands them to
+    /// the app to save.
+    ///
+    /// SC:R's own settings go through its settings registry, which applies most of them on the
+    /// spot; ShieldBattery's go to whatever in the DLL reads them. A setting only a launch reads
+    /// (the screen marks those) is saved and nothing more. Must run on the game's main thread, as
+    /// the registry's listeners do.
+    fn apply_setting_changes(&self, changes: &[SettingChange]) {
+        let mut saved = SettingsChanged::default();
+        for &change in changes {
+            if let Some((group, key, value)) = draw_overlay::options::registry_setting(change) {
+                match &self.game_settings {
+                    Some(settings) => {
+                        if !unsafe { settings.set(group, key, value) } {
+                            debug!("SC:R has no {group}.{key} setting yet, saving it only");
+                        }
+                    }
+                    None => debug!("No settings registry, saving {group}.{key} only"),
+                }
+            }
+            self.apply_local_setting_change(change);
+            match draw_overlay::options::app_setting(change) {
+                Some(setting) => {
+                    let object = if setting.local {
+                        &mut saved.local
+                    } else {
+                        &mut saved.scr
+                    };
+                    object.insert(setting.key.into(), setting.value);
+                }
+                None => {
+                    if let SettingChange::Monitor(choice) = change {
+                        let lists = self.option_lists.lock();
+                        saved.monitor = Some(choice.and_then(|index| {
+                            lists.monitors.get(index).map(|monitor| monitor.bounds)
+                        }));
+                    }
+                }
+            }
+        }
+        send_game_msg_to_async(GameThreadMessage::SettingsChanged(saved));
+    }
+
+    /// Hands one of ShieldBattery's own settings to what reads it in the DLL, for the ones read
+    /// while a game runs.
+    fn apply_local_setting_change(&self, change: SettingChange) {
+        match change {
+            SettingChange::GrabPanOn(on) => {
+                self.grab_pan_sensitivity_on.store(on, Ordering::Release);
+            }
+            SettingChange::GrabPanSensitivity(value) => {
+                self.grab_pan_gain
+                    .store(grab_pan_gain(value as f32).to_bits(), Ordering::Release);
+            }
+            SettingChange::GrabPanInverted(on) => {
+                self.grab_pan_inverted.store(on, Ordering::Release);
+            }
+            SettingChange::MinimapTerrain(terrain) => {
+                let hidden = terrain == overlay_ui::options::MinimapTerrain::Hidden;
+                self.saved_minimap_terrain_hidden
+                    .store(hidden, Ordering::Release);
+                if let Some(value) = self.minimap_terrain_hidden.as_ref() {
+                    unsafe { value.write(u8::from(hidden)) };
+                }
+            }
+            SettingChange::MinimapColorMode(mode) => {
+                let mode = match mode {
+                    overlay_ui::options::MinimapColorMode::Standard => MinimapColorMode::Standard,
+                    overlay_ui::options::MinimapColorMode::PresetOnMinimapOnly => {
+                        MinimapColorMode::PresetOnMinimapOnly
+                    }
+                    overlay_ui::options::MinimapColorMode::Preset => MinimapColorMode::Preset,
+                };
+                self.saved_minimap_color_mode
+                    .store(mode as u8, Ordering::Release);
+                // With team colors on, the mode the player sees is the engine's own, and the
+                // game's global is pinned to whatever that mode needs.
+                let mut guard = self.team_color_runtime.lock();
+                if let Some(runtime) = guard.as_mut() {
+                    runtime.virtual_mode = mode;
+                    unsafe { self.apply_team_color_mode(runtime) };
+                } else if let Some(value) = self.minimap_color_mode.as_ref() {
+                    unsafe { value.write(mode as u8) };
+                }
+            }
+            SettingChange::FramePacing(pacing) => {
+                let options = *self.options.lock();
+                crate::frame_pacing::reconfigure(
+                    Some(draw_overlay::options::frame_pacing_id(pacing)),
+                    options.vsync_on,
+                );
+            }
+            SettingChange::VsyncOn(on) => {
+                let options = *self.options.lock();
+                crate::frame_pacing::reconfigure(
+                    Some(draw_overlay::options::frame_pacing_id(options.frame_pacing)),
+                    on,
+                );
+            }
+            SettingChange::RollbackTarget(target) => {
+                crate::rollback_live::set_player_rollback_target(target);
+            }
+            _ => (),
+        }
+    }
+
     /// Reads the current Shift+Tab minimap player-color mode, or `None` if the global wasn't located
     /// during analysis (or holds an unrecognized value). Only valid to call while a game is running.
     pub fn read_minimap_color_mode(&self) -> Option<MinimapColorMode> {
@@ -8551,12 +8690,7 @@ impl bw::Bw for BwScr {
             .get("grabPanInverted")
             .and_then(|x| x.as_bool())
             .unwrap_or(false);
-        // The 0-150 slider value maps exponentially onto a camera-px-per-mouse-px gain of
-        // 0.125..=512 (2^-3..=2^9): the floor pans at an eighth of the cursor's speed for
-        // precise framing, 50 is 1:1, and each 12.5 slider units doubles the speed from there.
-        // The drag callback accumulates sub-pixel remainder so gains below 1 still move the
-        // camera on slow drags.
-        let grab_pan_gain = (grab_pan_sensitivity.clamp(0.0, 150.0) * 0.08 - 3.0).exp2();
+        let grab_pan_gain = grab_pan_gain(grab_pan_sensitivity);
 
         self.is_carbot.store(is_carbot, Ordering::Release);
         self.show_skins.store(show_skins, Ordering::Release);
@@ -8580,15 +8714,19 @@ impl bw::Bw for BwScr {
 
         // The overlay's options screen opens on what the app was playing on. Nothing writes back
         // into these settings from here, so this is the only time the game's side of them is read.
-        let mut options =
-            draw_overlay::options::options_view_from_settings(&settings.scr, &settings.local);
-        // Which display the game is on is the one setting the screen shows that is not in either
-        // settings object: a launch names it by the desktop rectangle it covers, and the list it
-        // is an index into is this machine's rather than anything the app sent.
-        let (option_lists, monitor) = monitors::displays(settings.monitor_bounds);
-        options.monitor = monitor;
-        *self.options.lock() = options;
-        *self.option_lists.lock() = Arc::new(option_lists);
+        // Which display the game is on is the one setting the screen shows that the app names in
+        // its own terms: a launch names it by the desktop rectangle it covers, and the list the
+        // screen picks from is this machine's rather than anything the app sent.
+        let (displays, launched_monitor) = monitors::displays(settings.monitor_bounds);
+        *self.options.lock() = draw_overlay::options::options_view_from_settings(
+            &settings.scr,
+            &settings.local,
+            launched_monitor,
+        );
+        *self.option_lists.lock() = Arc::new(overlay_ui::options::OptionsLists {
+            monitors: displays,
+            ..overlay_ui::options::OptionsLists::default()
+        });
 
         // The overlay reads its language from a process-wide locale, set here because settings
         // arrive long before any overlay exists. A tag we ship no catalog for keeps English, which
@@ -9252,6 +9390,16 @@ impl bw::Bw for BwScr {
 /// sends an Alt combination as `WM_SYSKEYDOWN`/`WM_SYSKEYUP` with the key's virtual key code, and
 /// `WM_SYSCHAR` with its character. An AltGr combination (Ctrl+Alt, which some layouts use to type
 /// characters) arrives as ordinary key messages instead, so text input is never caught here.
+/// The camera-px-per-mouse-px gain the grab pan sensitivity setting stands for.
+///
+/// The 0-150 slider value maps exponentially onto a gain of 0.125..=512 (2^-3..=2^9): the floor
+/// pans at an eighth of the cursor's speed for precise framing, 50 is 1:1, and each 12.5 slider
+/// units doubles the speed from there. The drag callback accumulates sub-pixel remainder so gains
+/// below 1 still move the camera on slow drags.
+fn grab_pan_gain(sensitivity: f32) -> f32 {
+    (sensitivity.clamp(0.0, 150.0) * 0.08 - 3.0).exp2()
+}
+
 fn is_save_or_load_hotkey(msg: u32, wparam: usize) -> bool {
     use winapi::um::winuser::{WM_SYSCHAR, WM_SYSKEYDOWN, WM_SYSKEYUP};
     match msg {

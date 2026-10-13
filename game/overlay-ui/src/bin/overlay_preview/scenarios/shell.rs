@@ -5,7 +5,9 @@
 //! stands in for it: with the network-stats panel up and the mode set to observing, a frame here is
 //! an ambient panel under whatever modal the native dialogs raise.
 
-use overlay_ui::options::{MonitorView, OptionsLists, OptionsSection, OptionsView};
+use overlay_ui::options::{
+    DisplayMode, FramePacing, MonitorView, OptionsLists, OptionsSection, OptionsView,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::knobs::Knobs as AllKnobs;
@@ -51,7 +53,7 @@ pub enum Preset {
 }
 
 impl Preset {
-    pub const ALL: [Preset; 7] = [
+    pub const ALL: [Preset; 8] = [
         Preset::Observer,
         Preset::GameMenu,
         Preset::ChatHistory,
@@ -59,6 +61,7 @@ impl Preset {
         Preset::Options(OptionsSection::Input),
         Preset::Options(OptionsSection::Sound),
         Preset::Options(OptionsSection::Video),
+        Preset::Options(OptionsSection::Network),
     ];
 
     pub fn label(self) -> String {
@@ -101,20 +104,22 @@ pub fn sync_options_modal(knobs: &Knobs, shell: &mut overlay_ui::shell::Shell) {
     }
 }
 
-/// The displays the emulated host reports. Two of them, so the monitor row is a choice to step
-/// through rather than a single entry, and the first is the primary the way a desktop has one.
+/// What the emulated host reports beside the settings: two displays, so the monitor row has more
+/// than its default to step through, and a game that rolls back, so the network section shows
+/// every row it can.
 pub fn option_lists() -> OptionsLists {
     OptionsLists {
         monitors: vec![
             MonitorView {
                 name: "AORUS FO27Q2".to_string(),
-                primary: true,
+                bounds: (0, 0, 2560, 1440),
             },
             MonitorView {
                 name: "DELL U2415".to_string(),
-                primary: false,
+                bounds: (2560, 0, 1920, 1200),
             },
         ],
+        rollback_game: true,
     }
 }
 
@@ -164,8 +169,35 @@ pub fn knobs_ui(knobs: &mut Knobs, ui: &mut egui::Ui) -> bool {
             "custom mouse sensitivity",
             &mut knobs.options.mouse_sensitivity_on,
         ),
+        ("hardware cursor", &mut knobs.options.hardware_cursor_on),
+        ("vertical sync", &mut knobs.options.vsync_on),
     ] {
         changed |= ui.checkbox(value, label).changed();
     }
+    // The video section's rows come and go with these two, so each of their states is a layout.
+    ui.horizontal_wrapped(|ui| {
+        ui.label("display mode:");
+        for (mode, label) in [
+            (DisplayMode::Windowed, "windowed"),
+            (DisplayMode::WindowedFullscreen, "windowed fullscreen"),
+            (DisplayMode::Fullscreen, "fullscreen"),
+        ] {
+            changed |= ui
+                .selectable_value(&mut knobs.options.display_mode, mode, label)
+                .changed();
+        }
+    });
+    ui.horizontal_wrapped(|ui| {
+        ui.label("frame pacing:");
+        for (pacing, label) in [
+            (FramePacing::Display, "match refresh"),
+            (FramePacing::VariableRefresh, "variable refresh"),
+            (FramePacing::Off, "off"),
+        ] {
+            changed |= ui
+                .selectable_value(&mut knobs.options.frame_pacing, pacing, label)
+                .changed();
+        }
+    });
     changed
 }

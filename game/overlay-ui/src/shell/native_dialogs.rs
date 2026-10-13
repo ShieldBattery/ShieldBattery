@@ -6,10 +6,7 @@
 //! dialogs get that treatment, so the list lives here, next to the shell that owns the replacement
 //! surfaces.
 //!
-//! Matching is by the name SC:R gives a dialog at runtime, which is not the same as the template
-//! file it is built from: the name is what the spawn hook sees. For a dialog whose runtime name has
-//! not been captured from a live session yet, the constant below is `None` and the registry simply
-//! never matches it, so nothing is hidden that has no replacement.
+//! Matching is by the name SC:R gives a dialog at runtime, which is what the spawn hook sees.
 
 /// A native SC:R dialog the overlay stands in for.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
@@ -26,26 +23,11 @@ pub enum NativeDialog {
 pub const TIME_OUT_DIALOG_NAME: &str = "TimeOut";
 
 /// The chat history dialog's runtime name, built from the template `rez/chathist.ui.json`.
-///
-/// `None` until it is captured: open the chat log in a live game and read the name off that
-/// session's `spawn_dialog:` log line. The template name is not it — SC:R names the dialog from
-/// inside the `.ui.json`, and only the spawn hook sees what that name is.
-pub const CHAT_HISTORY_DIALOG_NAME: Option<&str> = None;
+pub const CHAT_HISTORY_DIALOG_NAME: &str = "ChatHistory";
 
-/// The game menu dialog's runtime name, built from the template `rez/gamemenu.ui.json`.
-///
-/// `None` until it is captured: open the menu in a live game and read the name off that session's
-/// `spawn_dialog:` log line. Note that `Stat_F10`, which the console owns, is the *button* that
-/// opens this menu and not the menu itself.
-pub const GAME_MENU_DIALOG_NAME: Option<&str> = None;
-
-/// The id of the control every in-game menu template gives its return/cancel button.
-///
-/// Dismissing a replaced menu means sending this control the event a click on it would: SC:R's
-/// in-game menus enter a modal state (single-player pause, suspended cursor updates, a restricted
-/// hotkey context) before their dialog spawns and leave it only when the dialog closes through its
-/// own path, so a replacement that merely leaves the dialog hidden strands the game in that state.
-pub const RETURN_CONTROL_ID: i16 = -3;
+/// The game menu dialog's runtime name, built from the template `rez/gamemenu.ui.json`. Note that
+/// `Stat_F10`, which the console owns, is the *button* that opens this menu and not the menu itself.
+pub const GAME_MENU_DIALOG_NAME: &str = "GameMenu";
 
 impl NativeDialog {
     /// Every replaceable dialog, in the order a host may index by.
@@ -65,12 +47,27 @@ impl NativeDialog {
         }
     }
 
-    /// The name SC:R gives this dialog at runtime, or `None` while that name is still uncaptured.
-    pub fn runtime_name(self) -> Option<&'static str> {
+    /// The name SC:R gives this dialog at runtime.
+    pub fn runtime_name(self) -> &'static str {
         match self {
-            NativeDialog::TimeOut => Some(TIME_OUT_DIALOG_NAME),
+            NativeDialog::TimeOut => TIME_OUT_DIALOG_NAME,
             NativeDialog::ChatHistory => CHAT_HISTORY_DIALOG_NAME,
             NativeDialog::GameMenu => GAME_MENU_DIALOG_NAME,
+        }
+    }
+
+    /// The id of the control that dismisses this dialog, its return or close button.
+    ///
+    /// Dismissing a replaced dialog means sending this control the event a click on it would:
+    /// SC:R's in-game menus enter a modal state (single-player pause, suspended cursor updates, a
+    /// restricted hotkey context) before their dialog spawns and leave it only when the dialog
+    /// closes through its own path, so a replacement that merely leaves the dialog hidden strands
+    /// the game in that state. The menus give their return button id -3; the chat log has no such
+    /// button and closes from its default button, -2.
+    pub fn return_control_id(self) -> i16 {
+        match self {
+            NativeDialog::TimeOut | NativeDialog::GameMenu => -3,
+            NativeDialog::ChatHistory => -2,
         }
     }
 
@@ -89,11 +86,9 @@ impl NativeDialog {
 /// Case-insensitive: the name comes from the dialog template's own spelling, and nothing guarantees
 /// which case that is.
 pub fn replacement_for(runtime_name: &str) -> Option<NativeDialog> {
-    NativeDialog::ALL.into_iter().find(|dialog| {
-        dialog
-            .runtime_name()
-            .is_some_and(|name| name.eq_ignore_ascii_case(runtime_name))
-    })
+    NativeDialog::ALL
+        .into_iter()
+        .find(|dialog| dialog.runtime_name().eq_ignore_ascii_case(runtime_name))
 }
 
 #[cfg(test)]
@@ -108,22 +103,19 @@ mod tests {
     }
 
     #[test]
-    fn leaves_every_other_dialog_to_the_game() {
-        for name in ["StatBtn", "Minimap", "TextBox", "Stat_F10", ""] {
-            assert_eq!(replacement_for(name), None, "{name} must not be replaced");
-        }
+    fn matches_the_game_menu_but_not_its_console_button() {
+        assert_eq!(replacement_for("GameMenu"), Some(NativeDialog::GameMenu));
+        assert_eq!(
+            replacement_for("chathistory"),
+            Some(NativeDialog::ChatHistory)
+        );
+        assert_eq!(replacement_for("Stat_F10"), None);
     }
 
     #[test]
-    fn an_uncaptured_name_never_matches() {
-        // A dialog whose runtime name is still unknown must stay inert rather than matching on an
-        // empty or guessed name, which would hide a dialog nothing replaces.
-        assert_eq!(NativeDialog::ChatHistory.runtime_name(), None);
-        assert_eq!(NativeDialog::GameMenu.runtime_name(), None);
-        for dialog in NativeDialog::ALL {
-            if let Some(name) = dialog.runtime_name() {
-                assert_eq!(replacement_for(name), Some(dialog));
-            }
+    fn leaves_every_other_dialog_to_the_game() {
+        for name in ["StatBtn", "Minimap", "TextBox", "Stat_F10", ""] {
+            assert_eq!(replacement_for(name), None, "{name} must not be replaced");
         }
     }
 

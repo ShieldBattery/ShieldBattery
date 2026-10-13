@@ -204,6 +204,13 @@ pub fn configure(setting: Option<&str>, vsync: bool) {
     *CONFIG.lock() = Config { mode, vsync };
 }
 
+/// Changes the pacing while a game runs: the new configuration, and a plan resolved from it on the
+/// next iteration of the game loop.
+pub fn reconfigure(setting: Option<&str>, vsync: bool) {
+    configure(setting, vsync);
+    reset();
+}
+
 /// The clock our `GetTickCount` hook serves BW: milliseconds since the hook was installed, offset
 /// by the real tick count at that point. Other APIs' timestamps (notably `GetMessageTime`) are
 /// expected to be in the same range; without the offset SC:R discards some otherwise valid events,

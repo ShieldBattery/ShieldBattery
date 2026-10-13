@@ -35,7 +35,7 @@ use crate::options::{
 use crate::transport::{self, SpeedStep, TransportView, render_transport_view};
 
 pub use hotkeys::{Action, Chord, Hotkeys};
-pub use native_dialogs::{NativeDialog, RETURN_CONTROL_ID, replacement_for};
+pub use native_dialogs::{NativeDialog, replacement_for};
 
 /// The shortest time between two seeks reaching the game.
 ///
@@ -213,7 +213,9 @@ impl Default for PanelPrefs {
             production: true,
             control_groups: true,
             selection: true,
-            console: true,
+            // Watchers keep the minimap and nothing else of SC:R's console: the bottom panels stand
+            // where the rest of it would be.
+            console: false,
             minimap: true,
             transport: true,
             dock: true,
@@ -267,15 +269,35 @@ impl PanelPrefs {
     }
 
     /// Whether every panel is on screen.
+    /// Whether every panel "all panels" moves is on screen.
     pub fn all_shown(&self) -> bool {
-        Panel::ALL.into_iter().all(|panel| self.shown(panel))
+        Self::ALL_PANELS_SET
+            .into_iter()
+            .all(|panel| self.shown(panel))
     }
 
     pub fn set_all(&mut self, shown: bool) {
-        for panel in Panel::ALL {
+        for panel in Self::ALL_PANELS_SET {
             self.set(panel, shown);
         }
     }
+
+    /// What "all panels" shows and hides: everything but SC:R's console. A watcher keeps the
+    /// console off unless they ask for it by name, since the bottom panels take its place, so
+    /// bringing every panel back must not put it back over them.
+    const ALL_PANELS_SET: [Panel; Panel::ALL.len() - 1] = {
+        let mut set = [Panel::Matchup; Panel::ALL.len() - 1];
+        let mut from = 0;
+        let mut to = 0;
+        while from < Panel::ALL.len() {
+            if !matches!(Panel::ALL[from], Panel::Console) {
+                set[to] = Panel::ALL[from];
+                to += 1;
+            }
+            from += 1;
+        }
+        set
+    };
 }
 
 /// Which modal surface is on the stack.
@@ -364,13 +386,20 @@ impl NativeDialog {
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Intent {
     /// Dismiss a replaced native dialog through its own return control
-    /// ([`RETURN_CONTROL_ID`](native_dialogs::RETURN_CONTROL_ID)), because the surface standing in
+    /// ([`NativeDialog::return_control_id`]), because the surface standing in
     /// for it has been closed.
     CloseNativeDialog(NativeDialog),
     /// Request that the player in this rally-point2 slot be dropped from the session.
     DropPlayer { slot: u8 },
-    /// Leave the game, the way the in-game menu's End Game does.
+    /// Leave a game whose session is already over, by ending the game loop. There is nobody left to
+    /// tell and no result left to decide.
     LeaveGame,
+    /// Quit a running game through SC:R's own quit path, which tells the other players this one has
+    /// left and settles the result the way its menu does.
+    QuitGame,
+    /// Open SC:R's social popup, where its alliances and chat settings live. Nothing of ours
+    /// replaces it.
+    OpenAlliances,
     /// Give up on a connection that will not come back and leave the game.
     AbandonGame,
     /// Put one setting on the value the player moved it to, in the game and wherever the host
@@ -865,7 +894,7 @@ impl Shell {
                 ctx,
                 modal.id,
                 views,
-                self.host.game_seconds,
+                &self.host,
                 &ModalContext {
                     options: &self.options,
                     option_lists,
@@ -878,6 +907,12 @@ impl Shell {
             }
             if outcome.leave {
                 self.intents.push(Intent::LeaveGame);
+            }
+            if outcome.quit {
+                self.intents.push(Intent::QuitGame);
+            }
+            if outcome.open_alliances {
+                self.intents.push(Intent::OpenAlliances);
             }
             if outcome.abandoned {
                 self.intents.push(Intent::AbandonGame);
@@ -1322,8 +1357,12 @@ struct ModalOutcome {
     dismissed: bool,
     /// Slots whose Drop button was clicked.
     drop_requests: Vec<u8>,
-    /// Whether the player asked to leave the game.
+    /// Whether the player asked to leave the game, on a surface whose session is already over.
     leave: bool,
+    /// Whether the player asked to quit a game that is still running.
+    quit: bool,
+    /// Whether the player asked for the alliances and chat settings.
+    open_alliances: bool,
     /// Whether the player gave up on their own connection.
     abandoned: bool,
     /// Whether the player asked for the options screen.
@@ -1345,7 +1384,7 @@ fn draw_modal(
     ctx: &Context,
     id: ModalId,
     views: &mut Views<'_>,
-    game_seconds: u64,
+    host: &HostFrame,
     shell: &ModalContext<'_>,
     hit_rects: &mut Vec<HitRect>,
 ) -> ModalOutcome {
@@ -1368,11 +1407,13 @@ fn draw_modal(
             }
         }
         ModalId::GameMenu => {
-            let dialog = render_game_menu(ctx, game_seconds);
+            let dialog = render_game_menu(ctx, host.game_seconds, host.mode == Mode::Playing);
             hit_rects.push(HitRect::new(dialog.response.rect));
             ModalOutcome {
                 dismissed: dialog.inner.return_to_game || dialog.scrim_clicked,
                 open_options: dialog.inner.open_options,
+                open_alliances: dialog.inner.open_alliances,
+                quit: dialog.inner.leave,
                 ..ModalOutcome::default()
             }
         }
@@ -1737,7 +1778,7 @@ mod tests {
     fn panel_hotkeys_toggle_their_panel_while_spectating() {
         let mut shell = spectating_shell();
         assert!(shell.key_pressed(Key::W, Modifiers::NONE));
-        assert!(!shell.panel_prefs().console);
+        assert!(shell.panel_prefs().console);
         assert!(shell.key_pressed(Key::Q, Modifiers::NONE));
         assert!(!shell.panel_prefs().minimap);
         assert!(shell.key_pressed(Key::R, Modifiers::NONE));
@@ -1749,8 +1790,9 @@ mod tests {
     #[test]
     fn the_console_and_the_minimap_move_independently() {
         let mut shell = spectating_shell();
-        assert!(shell.key_pressed(Key::W, Modifiers::NONE));
         assert!(!shell.panel_prefs().console);
+        assert!(shell.key_pressed(Key::W, Modifiers::NONE));
+        assert!(shell.panel_prefs().console);
         assert!(shell.panel_prefs().minimap);
     }
 
@@ -1764,9 +1806,16 @@ mod tests {
         assert!(shell.panel_prefs().all_shown());
 
         // With one panel already hidden, the key restores the set rather than hiding the rest.
-        shell.key_pressed(Key::W, Modifiers::NONE);
+        shell.key_pressed(Key::Q, Modifiers::NONE);
         assert!(shell.key_pressed(Key::A, Modifiers::NONE));
         assert!(shell.panel_prefs().all_shown());
+
+        // SC:R's console is no panel of ours: the key neither brings it back nor counts it.
+        assert!(!shell.panel_prefs().console);
+        shell.key_pressed(Key::W, Modifiers::NONE);
+        assert!(shell.key_pressed(Key::A, Modifiers::NONE));
+        assert!(!shell.panel_prefs().all_shown());
+        assert!(shell.panel_prefs().console);
     }
 
     #[test]
@@ -1970,7 +2019,7 @@ mod tests {
             let mut shell = Shell::new();
             shell.set_host(&host);
             assert!(!shell.key_pressed(Key::W, Modifiers::NONE), "{host:?}");
-            assert!(shell.panel_prefs().console);
+            assert!(!shell.panel_prefs().console);
         }
     }
 
@@ -1983,7 +2032,7 @@ mod tests {
             blocks_input: false,
         }));
         assert!(shell.key_pressed(Key::W, Modifiers::NONE));
-        assert!(!shell.panel_prefs().console);
+        assert!(shell.panel_prefs().console);
     }
 
     #[test]
@@ -2132,6 +2181,6 @@ mod tests {
         let mut shell = spectating_shell();
         shell.native_dialog_spawned(NativeDialog::ChatHistory);
         assert!(!shell.key_pressed(Key::W, Modifiers::NONE));
-        assert!(shell.panel_prefs().console);
+        assert!(!shell.panel_prefs().console);
     }
 }

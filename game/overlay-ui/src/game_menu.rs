@@ -9,7 +9,7 @@
 use egui::{Align, Context, Id, Layout, Ui, Vec2, vec2};
 
 use crate::kit::text::{self, BodyWeight};
-use crate::kit::widgets::{self, ButtonPlate};
+use crate::kit::widgets::{self, ButtonPlate, HoldState};
 use crate::kit::{theme, tiers};
 use crate::tr;
 
@@ -35,25 +35,30 @@ const CLOCK_SIZE: f32 = 18.0;
 const WORDMARK: &str = "ShieldBattery";
 
 /// What the player asked the menu for this frame.
-///
-/// Only the actions the overlay can carry out today are reported. The rest of the stack is drawn
-/// so the menu is the menu, and each will report itself here as the host action behind it is built.
 #[derive(Default)]
 pub struct GameMenuOutcome {
     /// Whether the player asked to go back to the game, which is the same thing `Esc` asks for.
     pub return_to_game: bool,
     /// Whether the player asked for the options screen, which opens over this menu.
     pub open_options: bool,
+    /// Whether the player asked for the alliances and chat settings.
+    pub open_alliances: bool,
+    /// Whether the player asked to leave the game.
+    pub leave: bool,
 }
 
-/// Draws the in-game menu over the paused game.
+/// Draws the in-game menu over the game.
+///
+/// `playing` is whether the client is a player in the game rather than watching it, which decides
+/// what leaving costs and whether there are alliances to set.
 pub fn render_game_menu(
     ctx: &Context,
     game_seconds: u64,
+    playing: bool,
 ) -> tiers::DialogResponse<GameMenuOutcome> {
     tiers::tier2_dialog(ctx, Id::new("sb_game_menu"), MENU_WIDTH, |ui| {
         tiers::dialog_header(ui, |ui| draw_header(ui, game_seconds));
-        let outcome = tiers::dialog_body(ui, draw_actions);
+        let outcome = tiers::dialog_body(ui, |ui| draw_actions(ui, playing));
         tiers::dialog_footer(ui, draw_footer);
         outcome
     })
@@ -94,7 +99,7 @@ fn draw_clock(ui: &mut Ui, game_seconds: u64) {
 }
 
 /// The stack of things that can be done from here, loudest first.
-fn draw_actions(ui: &mut Ui) -> GameMenuOutcome {
+fn draw_actions(ui: &mut Ui, playing: bool) -> GameMenuOutcome {
     let width = ui.available_width();
     let spec = text::button_label(BUTTON_LABEL_SIZE).with_letter_spacing(BUTTON_TRACKING);
     let size = vec2(width, BUTTON_HEIGHT);
@@ -107,7 +112,7 @@ fn draw_actions(ui: &mut Ui) -> GameMenuOutcome {
             ButtonPlate::primary(),
         )
         .clicked(),
-        open_options: false,
+        ..GameMenuOutcome::default()
     };
     ui.add_space(BUTTON_GAP);
     outcome.open_options = widgets::plate_button(
@@ -118,25 +123,35 @@ fn draw_actions(ui: &mut Ui) -> GameMenuOutcome {
         ButtonPlate::standard(),
     )
     .clicked();
-    // The rest of the stack has no host action behind it yet: the screen one of them opens has
-    // not been built, and leaving a game is a command the overlay does not send. They are drawn
-    // because a menu missing half its entries is not the menu it replaces.
-    for (label, plate) in [
-        (
-            tr!("gameMenu.alliancesAndChat", "Alliances & chat"),
-            ButtonPlate::standard(),
-        ),
-        // Multiplayer has no surrender; the label is a catalog entry rather than a literal so the
-        // word can follow whatever the game ends up offering.
-        (tr!("gameMenu.surrender", "Surrender"), ButtonPlate::quiet()),
-        (
-            tr!("gameMenu.leaveGame", "Leave game"),
-            ButtonPlate::destructive(),
-        ),
-    ] {
+    // Someone watching has no alliances of their own to set, and chat scope is all they could
+    // change there, which the chat box already does.
+    if playing {
         ui.add_space(BUTTON_GAP);
-        widgets::plate_button(ui, &spec, &label, size, plate);
+        outcome.open_alliances = widgets::plate_button(
+            ui,
+            &spec,
+            &tr!("gameMenu.alliancesAndChat", "Alliances & chat"),
+            size,
+            ButtonPlate::standard(),
+        )
+        .clicked();
     }
+    ui.add_space(BUTTON_GAP);
+    // A player leaving a game loses it, so that takes a hold rather than a click. Leaving a game
+    // only being watched costs nothing.
+    outcome.leave = if playing {
+        widgets::hold_to_confirm(ui, &tr!("gameMenu.holdToLeave", "Hold to leave game"), size)
+            == HoldState::Confirmed
+    } else {
+        widgets::plate_button(
+            ui,
+            &spec,
+            &tr!("gameMenu.leaveGame", "Leave game"),
+            size,
+            ButtonPlate::destructive(),
+        )
+        .clicked()
+    };
     outcome
 }
 

@@ -1179,6 +1179,11 @@ impl GameState {
                 .map(|_| ())
                 .boxed();
             }
+            SettingsChanged(changed) => {
+                return app_socket::send_message(&self.ws_send, "/game/settingsChanged", changed)
+                    .map(|_| ())
+                    .boxed();
+            }
             PlayersRandomized(new_mapping) => {
                 if let InitState::Started(ref mut state) = self.init_state {
                     if state.setup_info.is_replay() {

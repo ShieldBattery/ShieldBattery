@@ -124,6 +124,8 @@ pub enum GameThreadMessage {
         color_mode: Option<MinimapColorMode>,
         terrain_hidden: Option<bool>,
     },
+    /// Settings the player changed on the in-game options screen, for the app to save.
+    SettingsChanged(crate::app_messages::SettingsChanged),
 }
 
 /// Sends a message from game thread to the async system.
