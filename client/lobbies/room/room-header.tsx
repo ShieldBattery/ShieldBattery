@@ -1,9 +1,9 @@
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { findBenchedUser, Lobby } from '../../../common/lobbies'
+import { Lobby } from '../../../common/lobbies'
 import { urlForLobby } from '../../../common/lobbies/lobby-url'
 import { SbUserId } from '../../../common/users/sb-user-id'
-import { FilledButton, OutlinedButton, TextButton } from '../../material/button'
+import { OutlinedButton, TextButton } from '../../material/button'
 import { useLinkCopier } from '../../navigation/copy-link-button'
 import { getServerOrigin } from '../../network/server-url'
 import { useAppSelector } from '../../redux-hooks'
@@ -61,64 +61,28 @@ function CopyInviteLinkButton({ lobby }: { lobby: Lobby }) {
 }
 
 /**
- * The viewer's own half of the ready check: a call to action until they answer it, and a way to
- * back out once they have. The button always names the action it performs — the viewer's own
- * ready state reads off their row's mark in the rail and the rail's "N of M ready" tally.
- */
-function ReadyButton({
-  isViewerReady,
-  disabled,
-  onToggleReady,
-}: {
-  isViewerReady: boolean
-  disabled: boolean
-  onToggleReady: () => void
-}) {
-  const { t } = useTranslation()
-  return isViewerReady ? (
-    <OutlinedButton
-      label={t('lobbies.room.header.cancelReady', 'Cancel ready')}
-      disabled={disabled}
-      onClick={onToggleReady}
-    />
-  ) : (
-    <FilledButton
-      label={t('lobbies.room.header.readyUp', 'Ready up')}
-      disabled={disabled}
-      onClick={onToggleReady}
-    />
-  )
-}
-
-/**
- * The strip across the top of the room: who and what this lobby is on the left, and the viewer's
- * own start-related action and the way out on the right.
+ * The strip across the top of the room: who and what this lobby is on the left, and the host's
+ * setup and the way out on the right.
  *
- * Leave sits at the far right edge so it can't slide under a click aimed at its neighbor: that
- * neighbor changes width as its label toggles and is absent for a benched viewer. The neighbor
- * itself stays in place, disabled, once the lobby is past gathering, since a countdown can begin
- * just as the viewer goes to click it.
+ * Leave sits at the far right edge so it stays put whether or not the host's setup button is
+ * beside it. That button stays in place, disabled, once the lobby is past gathering, since a
+ * countdown can begin just as the host goes to click it.
  */
 export function RoomHeader({
   viewerId,
   onOpenGameSetup,
-  onToggleReady,
   onLeaveLobby,
 }: {
   viewerId: SbUserId
   onOpenGameSetup: () => void
-  onToggleReady: () => void
   onLeaveLobby: () => void
 }) {
   const { t } = useTranslation()
   const lobby = useAppSelector(s => s.lobby.info)
-  const readyUserIds = useAppSelector(s => s.lobby.readyUserIds)
 
   const isHost = lobby.host.userId === viewerId
-  const isBenched = !!findBenchedUser(lobby, viewerId)
-  const isViewerReady = readyUserIds.includes(viewerId)
   // A countdown snapshots what the lobby is about to play, so from then until the game is over
-  // there's nothing left to ready up for or to change about the setup.
+  // there's nothing left to change about the setup.
   const isGathering = useLobbyLifecycle() === 'gathering'
 
   return (
@@ -141,13 +105,6 @@ export function RoomHeader({
             disabled={!isGathering}
             onClick={onOpenGameSetup}
             testName='lobby-settings-button'
-          />
-        ) : null}
-        {!isHost && !isBenched ? (
-          <ReadyButton
-            isViewerReady={isViewerReady}
-            disabled={!isGathering}
-            onToggleReady={onToggleReady}
           />
         ) : null}
         <TextButton

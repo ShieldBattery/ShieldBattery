@@ -1915,11 +1915,9 @@
         "swap": "Swap places"
       },
       "header": {
-        "cancelReady": "Cancel ready",
         "copiedInviteLink": "Copied!",
         "copyInviteLink": "Copy invite link",
         "leave": "Leave",
-        "readyUp": "Ready up",
         "visibilityPublic": "Public",
         "visibilityUnlisted": "Unlisted"
       },
@@ -1929,11 +1927,13 @@
       "rail": {
         "benchHeading": "Bench · {{benchCount}}",
         "benchTooltip": "Joined while seats were full. The first in line takes the next opening.",
+        "cancelReady": "Cancel ready",
         "everyoneReady": "Everyone is ready",
         "holdToBypassReadiness": "Hold for {{seconds}} seconds to start without waiting",
         "holdToStartAnyway": "Hold to start anyway",
         "needsOpposingSides": "Needs at least two opposing players",
         "readyCount": "{{readyCount}} of {{readyTotal}} ready",
+        "readyUp": "Ready up",
         "startGame": "Start game",
         "startingGame": "Starting game",
         "waitingForHost": "Waiting for the host to start"

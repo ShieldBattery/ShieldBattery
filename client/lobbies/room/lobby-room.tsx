@@ -86,7 +86,6 @@ export function LobbyRoom({
           <RoomHeader
             viewerId={viewerId}
             onOpenGameSetup={() => setIsSetupOpen(true)}
-            onToggleReady={onToggleReady}
             onLeaveLobby={onLeaveLobby}
           />
           <RoomBody>
@@ -107,6 +106,7 @@ export function LobbyRoom({
                   onSetRace={onSetRace}
                   onSitInSlot={onSitInSlot}
                   onMoveSlot={onMoveSlot}
+                  onToggleReady={onToggleReady}
                   onStartGame={onStartGame}
                   onForceStart={onForceStart}
                   onCancelCountdown={onCancelCountdown}
