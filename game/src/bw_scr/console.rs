@@ -109,6 +109,19 @@ impl BwScr {
         }
     }
 
+    /// Whether the game has given the console's band back to the console while it is hidden.
+    ///
+    /// Every map load sets the game view's height ratio to the map's own, and a replay seek reloads
+    /// the map and makes the console dialogs anew, so a hidden console has to be hidden again after
+    /// either: otherwise the view stops where the console was, over a black band.
+    pub fn console_space_returned(&self) -> bool {
+        self.console_hidden()
+            && self
+                .game_screen_height_ratio
+                .as_ref()
+                .is_some_and(|ratio| unsafe { ratio.resolve() } != 1.0)
+    }
+
     unsafe fn set_game_screen_height(&self, value: f32) {
         unsafe {
             if let Some(ratio) = self.game_screen_height_ratio {

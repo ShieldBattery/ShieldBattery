@@ -4284,8 +4284,14 @@ impl BwScr {
                                 (self.select_units)(units.len(), units.as_ptr(), 1, 1);
                                 self.center_screen(&unit.position());
                             }
+                            // Only once the game runs: before then there is no game view to
+                            // resize, and the map load ahead resets its height anyway.
                             let console_shown = !self.console_hidden();
-                            if overlay_out.console_visible != console_shown {
+                            if game_started
+                                && (overlay_out.console_visible != console_shown
+                                    || (!overlay_out.console_visible
+                                        && self.console_space_returned()))
+                            {
                                 self.set_console_visible(first_dialog, overlay_out.console_visible);
                             }
                             let minimap_shown = !self.minimap_hidden();
