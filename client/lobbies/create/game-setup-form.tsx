@@ -319,6 +319,11 @@ export interface GameSetupFormProps {
   nameSection?: React.ReactNode
   /** Host-page-owned content rendered between the Slots and Options sections. */
   visibilitySection?: React.ReactNode
+  /**
+   * Host-page-owned content rendered in the map column directly below the map, e.g. a way to watch
+   * a replay instead of picking a map to play.
+   */
+  mapAlternativeSection?: React.ReactNode
   /** Host-page-owned content rendered in the map column, below the selected map. */
   mapQueueSection?: React.ReactNode
   /** Maps to offer as one-click picks below the map card, in display order. */
@@ -342,6 +347,7 @@ export function GameSetupForm({
   onChangeMap,
   nameSection,
   visibilitySection,
+  mapAlternativeSection,
   mapQueueSection,
   recentMaps,
   ref,
@@ -595,6 +601,8 @@ export function GameSetupForm({
             </EmptyMapPlaceholder>
           )}
           {mapIdError ? <InputError error={mapIdError} /> : null}
+
+          {mapAlternativeSection}
 
           {mapQueueSection}
 

@@ -311,6 +311,7 @@ export interface ReplayInspectorProps {
   canMoveUp: boolean
   canMoveDown: boolean
   onWatch: (entry: ReplayLibraryEntry) => void
+  onWatchWithOthers: (entry: ReplayLibraryEntry) => void
   onReveal: (entry: ReplayLibraryEntry) => void
   onToggleBookmark: (entry: ReplayLibraryEntry) => void
   onAddToPlaylist: (playlistId: number, playlistName: string, entry: ReplayLibraryEntry) => void
@@ -330,6 +331,7 @@ export function ReplayInspector({
   canMoveUp,
   canMoveDown,
   onWatch,
+  onWatchWithOthers,
   onReveal,
   onToggleBookmark,
   onAddToPlaylist,
@@ -468,8 +470,17 @@ export function ReplayInspector({
         onClick={() => onToggleBookmark(entry)}
       />
       <GameSidePanelOverflow
-        renderItems={({ closeMenu, openSubmenu }) =>
-          getReplayActionMenuItems({
+        renderItems={({ closeMenu, openSubmenu }) => [
+          <MenuItem
+            key='watch-with-others'
+            icon={<MaterialIcon icon='group' />}
+            text={t('replays.library.watchWithOthers', 'Watch with others')}
+            onClick={() => {
+              closeMenu()
+              onWatchWithOthers(entry)
+            }}
+          />,
+          ...getReplayActionMenuItems({
             entry,
             inPlaylistView,
             closeMenu,
@@ -483,8 +494,8 @@ export function ReplayInspector({
                 : undefined,
             sbGameMissing,
             t,
-          })
-        }
+          }),
+        ]}
         renderSubmenu={({ closeSubmenu }) => (
           <MenuList dense={true}>
             {getAddToPlaylistMenuItems({

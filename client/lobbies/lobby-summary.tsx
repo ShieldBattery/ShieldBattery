@@ -13,6 +13,7 @@ import { fetchJson } from '../network/fetch'
 import { FetchBudget } from '../network/fetch-budget'
 import { isFetchError } from '../network/fetch-errors'
 import { bodyLarge, HeadlineMedium, labelMedium } from '../styles/typography'
+import { lobbyDisplayMapName, ReplayThumbnail } from './lobby-replay'
 
 const LobbyName = styled(HeadlineMedium)`
   margin-bottom: 24px;
@@ -288,12 +289,16 @@ export function LobbySummaryDetails({ summary }: { summary: LobbySummaryResponse
       <LobbyName>{lobby.name}</LobbyName>
       <InfoLayout>
         <MapThumbnailContainer>
-          <MapThumbnail map={lobby.map} size={MAP_THUMBNAIL_SIZE} />
+          {lobby.map ? (
+            <MapThumbnail map={lobby.map} size={MAP_THUMBNAIL_SIZE} />
+          ) : (
+            <ReplayThumbnail />
+          )}
         </MapThumbnailContainer>
         <DetailsList>
           <DetailRow>
             <DetailLabel>{t('lobbies.summary.mapLabel', 'Map')}</DetailLabel>
-            <DetailValue>{lobby.map.name}</DetailValue>
+            <DetailValue>{lobbyDisplayMapName(lobby)}</DetailValue>
           </DetailRow>
           <DetailRow>
             <DetailLabel>{t('lobbies.summary.hostLabel', 'Host')}</DetailLabel>

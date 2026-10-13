@@ -135,6 +135,7 @@ describe('ReplaySessionSourceService', () => {
         mapName: 'Fighting Spirit',
         gameType: 'Melee',
         durationFrames: 1234,
+        players: [],
       },
     })
 

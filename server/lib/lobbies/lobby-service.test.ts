@@ -221,7 +221,7 @@ const GAME_REPLAY_SOURCE: ResolvedReplaySessionSource = {
 const GAME_REPLAY_INFO: ReplaySessionSourceInfo = {
   kind: 'game',
   gameId: 'replayed-game-id',
-  metadata: { mapName: 'Fighting Spirit', gameType: '2', durationFrames: 12000 },
+  metadata: { mapName: 'Fighting Spirit', gameType: 'melee', durationFrames: 12000, players: [] },
 }
 
 /** The socket groups a single connected client of a user is identified by. */
@@ -4518,6 +4518,23 @@ describe('lobbies/lobby-service', () => {
       expect(() =>
         lobbyService.reportReplayLoaded({ client: joiner.client, lobbyId: id, hash: REPLAY_HASH }),
       ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.ReplayNotLoading }))
+    })
+
+    test("calls off the load as soon as a viewer can't load the replay", async () => {
+      const { id } = await createReplayLobby()
+      await joinLobby(joiner, id)
+      await startReplayLoad()
+
+      lobbyService.reportReplayLoadFailed({ client: joiner.client, lobbyId: id })
+
+      expect(lobbyPublishes(id)).toContainEqual({
+        type: 'cancelLoading',
+        usersAtFault: [JOINER_USER.id],
+      })
+      expect(listPublishes().at(-1)).toEqual({
+        action: 'add',
+        payload: expect.objectContaining({ id, lifecycle: 'gathering' }),
+      })
     })
 
     test('regroups without a series entry once every viewer closes the replay', async () => {

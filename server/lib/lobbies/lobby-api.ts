@@ -637,6 +637,18 @@ export class LobbyApi {
     this.lobbyService.reportReplayLoaded({ client, lobbyId: params.lobbyId, hash: body.hash })
   }
 
+  @httpPost('/:lobbyId/replay-load-failed')
+  @httpBefore(...authedAction)
+  async reportReplayLoadFailed(ctx: RouterContext): Promise<void> {
+    const { params, body } = validateRequest(ctx, {
+      params: lobbyIdParams,
+      body: lobbyClientBody,
+    })
+    const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
+
+    this.lobbyService.reportReplayLoadFailed({ client, lobbyId: params.lobbyId })
+  }
+
   @httpPost('/:lobbyId/replay-ended')
   @httpBefore(...authedAction)
   async reportReplayEnded(ctx: RouterContext): Promise<void> {

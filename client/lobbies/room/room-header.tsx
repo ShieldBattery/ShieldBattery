@@ -98,7 +98,7 @@ export function RoomHeader({
       </NameRow>
 
       <HeaderActions>
-        {isHost ? (
+        {isHost && !lobby.replay ? (
           <OutlinedButton
             label={t('lobbies.gameSetup.title', 'Game setup')}
             iconStart='tune'

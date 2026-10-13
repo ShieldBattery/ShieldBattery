@@ -11,6 +11,14 @@ import windowFocus from '../dom/window-focus'
 import i18n from '../i18n/i18next'
 import { RootState } from '../root-reducer'
 import { isInLobby } from './lobby-reducer'
+import {
+  cancelLobbyReplay,
+  loadLobbyReplay,
+  registerReplayLobbyGameEvents,
+  releaseLobbyReplay,
+  startLobbyReplay,
+  updateLobbyReplayController,
+} from './replay-lobby-game'
 
 const ipcRenderer = new TypedIpcRenderer()
 
@@ -58,6 +66,7 @@ function removeSelfByHost(reason: 'kicked' | 'banned'): ThunkAction {
     const { lobby } = getState()
     const lobbyName = lobby.info.name
     clearCountdownTimer()
+    releaseLobbyReplay(lobby.info.id)
 
     // Not being in a lobby means an earlier event already removed us, so there's nothing to report
     if (isInLobby(lobby)) {
@@ -111,14 +120,17 @@ function downloadLobbyMap(lobby: Lobby) {
 const eventToAction: EventToActionMap = {
   init: (lobbyId, event) => {
     clearCountdownTimer()
-    const { hash, mapData, mapUrl } = event.lobby.map!
-    ipcRenderer.invoke('mapStoreDownloadMap', hash, mapData.format, mapUrl!)?.catch(err => {
-      // TODO(tec27): Report this to the server so the loading is canceled immediately
+    // A replay lobby has no map to play: its replay is downloaded when it starts
+    if (event.lobby.map) {
+      const { hash, mapData, mapUrl } = event.lobby.map
+      ipcRenderer.invoke('mapStoreDownloadMap', hash, mapData.format, mapUrl!)?.catch(err => {
+        // TODO(tec27): Report this to the server so the loading is canceled immediately
 
-      // This is already logged to our file by the map store, so we just log it to the console for
-      // easy visibility during development
-      console.error('Error downloading map: ' + err.stack)
-    })
+        // This is already logged to our file by the map store, so we just log it to the console for
+        // easy visibility during development
+        console.error('Error downloading map: ' + err.stack)
+      })
+    }
 
     return {
       type: '@lobbies/init',
@@ -159,6 +171,7 @@ const eventToAction: EventToActionMap = {
     if (user === event.player.userId) {
       // The leaver was me all along!!!
       clearCountdownTimer()
+      releaseLobbyReplay(lobbyId)
       dispatch({
         type: '@lobbies/updateLeaveSelf',
       })
@@ -198,10 +211,14 @@ const eventToAction: EventToActionMap = {
     }
   },
 
-  hostChange: (lobbyId, event) => ({
-    type: '@lobbies/updateHostChange',
-    payload: event.host,
-  }),
+  hostChange: (lobbyId, event) => dispatch => {
+    dispatch({
+      type: '@lobbies/updateHostChange',
+      payload: event.host,
+    })
+    // Whoever hosts a replay lobby controls its playback
+    dispatch(updateLobbyReplayController(lobbyId))
+  },
 
   slotChange: (lobbyId, event) => ({
     type: '@lobbies/updateSlotChange',
@@ -231,8 +248,9 @@ const eventToAction: EventToActionMap = {
         dispatch({ type: '@lobbies/updateLoadingStart' })
 
         // A benched member holds no slot in the game being loaded, so nothing launches locally for
-        // them and this dialog would have nothing to resolve it: they stay on the lobby instead.
-        if (!selfIsBenched(getState())) {
+        // them and this dialog would have nothing to resolve it: they stay on the lobby instead. A
+        // replay lobby launches no game, and shows its own progress while its replay loads.
+        if (!selfIsBenched(getState()) && !getState().lobby.info.replay) {
           dispatch(openDialog({ type: DialogType.LaunchingGame }))
         }
       }
@@ -246,7 +264,17 @@ const eventToAction: EventToActionMap = {
     })
   },
 
+  replayLoad: (lobbyId, event) => (dispatch, getState) => {
+    const state = getState()
+    // Only the seated members watch the replay; the bench waits in the lobby, as it does for games
+    if (selfIsBenched(state) || !state.lobby.info.replay) {
+      return
+    }
+    dispatch(loadLobbyReplay(lobbyId, state.lobby.info.replay.source.metadata.mapName))
+  },
+
   cancelLoading: (lobbyId, event) => dispatch => {
+    cancelLobbyReplay(lobbyId)
     // NOTE(tec27): In very low latency environments things can interleave such that the server
     // cancels loading before our client actually finishes the countdown/gets into the loading
     // state. Clearing the countdown timer here ensures that our client doesn't try to take us to
@@ -274,6 +302,8 @@ const eventToAction: EventToActionMap = {
       type: '@lobbies/updateGameStarted',
       payload: { runState: event.runState },
     })
+    // In a replay lobby, this means everyone has loaded the replay and it can play
+    dispatch(startLobbyReplay(lobbyId))
   },
 
   chat(lobbyId, event) {
@@ -378,6 +408,7 @@ const eventToAction: EventToActionMap = {
         break
       case 'left':
         clearCountdownTimer()
+        releaseLobbyReplay(lobbyId)
         dispatch({
           type: '@lobbies/updateLeaveSelf',
         })
@@ -396,6 +427,8 @@ const eventToAction: EventToActionMap = {
 }
 
 export default function registerModule({ siteSocket }: { siteSocket: NydusClient }) {
+  registerReplayLobbyGameEvents(thunk => dispatch(thunk))
+
   const lobbyHandler: RouteHandler = (route, event) => {
     const handler = eventToAction[event.type as LobbyEvent['type']]
     if (!handler) return

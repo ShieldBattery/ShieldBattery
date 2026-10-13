@@ -1,6 +1,7 @@
 import { ReadonlyDeep } from 'type-fest'
 import { LobbySummaryJson, LobbySummaryTeamJson } from '../../../common/lobbies/lobby-network'
 import { SbUserId } from '../../../common/users/sb-user-id'
+import { lobbyDisplayMapName } from '../lobby-replay'
 
 /** A lobby list entry as the browser reads it: rendered and derived from, never mutated. */
 export type LobbySummary = ReadonlyDeep<LobbySummaryJson>
@@ -93,7 +94,7 @@ export function lobbyMatchesSearch(
 
   return (
     summary.name.toLowerCase().includes(needle) ||
-    summary.map.name.toLowerCase().includes(needle) ||
+    lobbyDisplayMapName(summary).toLowerCase().includes(needle) ||
     (hostName?.toLowerCase().includes(needle) ?? false)
   )
 }

@@ -21,7 +21,7 @@ function withEclipse(summary: LobbySummaryResponse): LobbySummaryResponse {
     summary: {
       ...summary.summary,
       map: {
-        ...summary.summary.map,
+        ...summary.summary.map!,
         name: 'Eclipse 1.2',
         image256Url: makeServerUrl(`${ECLIPSE_BASE}-256.jpg?v=1`),
         image512Url: makeServerUrl(`${ECLIPSE_BASE}-512.jpg?v=1`),

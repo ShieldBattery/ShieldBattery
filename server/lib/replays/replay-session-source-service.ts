@@ -1,9 +1,10 @@
-import type { ReplayHeader } from '@shieldbattery/broodrep'
+import type { Player, ReplayHeader } from '@shieldbattery/broodrep'
 import { createHash, randomUUID } from 'crypto'
 import { createReadStream } from 'fs'
 import { stat } from 'fs/promises'
 import { pipeline } from 'stream/promises'
 import { singleton } from 'tsyringe'
+import { filterColorCodes } from '../../../common/maps'
 import {
   ReplaySessionSourceMetadata,
   StageReplaySessionSourceResponse,
@@ -57,12 +58,21 @@ async function deleteStoredUpload(sourceId: string): Promise<void> {
   }
 }
 
-/** Returns the display metadata a replay session shows for a replay with this header. */
-export function replaySessionSourceMetadata(header: ReplayHeader): ReplaySessionSourceMetadata {
+/** Returns the display metadata shown for a replay with this header and these players. */
+export function replaySessionSourceMetadata(
+  header: ReplayHeader,
+  slots: ReadonlyArray<Player>,
+): ReplaySessionSourceMetadata {
   return {
-    mapName: header.mapName,
+    mapName: filterColorCodes(header.mapName),
     gameType: String(header.gameType),
     durationFrames: header.frames,
+    players: slots
+      .filter(
+        p =>
+          !p.isEmpty && !p.isObserver && (p.playerType === 'human' || p.playerType === 'computer'),
+      )
+      .map(p => ({ name: p.name, race: p.race, team: p.team })),
   }
 }
 
@@ -71,7 +81,7 @@ function toResponse(upload: ReplaySessionUpload): StageReplaySessionSourceRespon
     sourceId: upload.id,
     hash: upload.hash.toString('hex'),
     size: upload.size,
-    metadata: replaySessionSourceMetadata(upload.header),
+    metadata: replaySessionSourceMetadata(upload.header, upload.slots),
   }
 }
 

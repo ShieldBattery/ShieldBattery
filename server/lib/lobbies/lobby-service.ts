@@ -2670,6 +2670,28 @@ export class LobbyService {
     this._onGameStarted(lobby.id, randomUUID(), [...replayLoad.viewers])
   }
 
+  /**
+   * Records that a replay lobby member couldn't download or launch the replay, which calls off the
+   * load for everyone rather than leaving them waiting out its deadline.
+   */
+  reportReplayLoadFailed({
+    client,
+    lobbyId,
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+  }): void {
+    const lobby = this.getLobbyForClient(client, lobbyId)
+    const replayLoad = this.replayLoads.get(lobby.id)
+    if (!replayLoad?.viewers.has(client.userId)) {
+      return
+    }
+
+    if (this._maybeCancelLoading(lobby, false, [client.userId])) {
+      this._releaseLaunchBench(lobby.id)
+    }
+  }
+
   /** Records that a replay lobby member closed the replay and is back in the lobby. */
   reportReplayEnded({
     client,

@@ -1757,6 +1757,7 @@
       "defaultLobbyName": "{{name}}'s lobby",
       "defaultLobbyNameFallback": "My lobby",
       "defaultLobbyNameFromMap": "{{mapName}} {{gameType}}",
+      "defaultLobbyNameFromReplay": "{{mapName}} replay",
       "summaryObserversOff": "No observers",
       "summaryObserversOn": "Observers on",
       "summarySlots_one": "{{count}} slots",
@@ -1863,6 +1864,27 @@
       "settingsChangeObservers": "observers",
       "settingsChangeUnitLimit": "unit limit",
       "settingsChangeVisibility": "visibility"
+    },
+    "replayLobby": {
+      "changeReplay": "Change replay",
+      "chooseMapInstead": "Choose a map instead",
+      "duration": "{{duration}} replay",
+      "invalidReplayBody": "The selected file may be corrupt, or not be a StarCraft replay.",
+      "invalidReplayTitle": "Couldn't read that replay",
+      "loadFailed": "The lobby's replay couldn't be loaded.",
+      "loading": "Loading replay for everyone",
+      "readyHint": "Viewers can ready up before watching",
+      "replay": "Replay",
+      "roomDescription": "Everyone watches the same replay with their own observer view. Playback starts when every viewer has loaded it.",
+      "selectReplay": "Select replay",
+      "startWatching": "Start watching",
+      "summaryReplay": "Replay",
+      "versus": "vs",
+      "viewersCount_one": "Viewers · {{count}}",
+      "viewersCount_other": "Viewers · {{count}}",
+      "watching": "Watching replay",
+      "watchingTogetherBody": "Everyone in the lobby watches this replay in their own game, with their own observer view. Playback starts once everyone has loaded it, and only the host controls pausing, speed, and seeking.",
+      "watchingTogetherHeader": "Watching together"
     },
     "room": {
       "banner": {
@@ -2552,7 +2574,8 @@
       "unavailableBody": "Your replays couldn't be loaded right now. Restarting ShieldBattery usually fixes this.",
       "unreadableReplays": "Unreadable replays",
       "viewGamePage": "View game page",
-      "watchReplay": "Watch replay"
+      "watchReplay": "Watch replay",
+      "watchWithOthers": "Watch with others"
     },
     "loading": {
       "dialogTitle": "Loading replay…",

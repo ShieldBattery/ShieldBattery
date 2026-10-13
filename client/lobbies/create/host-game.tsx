@@ -4,6 +4,7 @@ import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
+import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { LOBBY_NAME_MAXLENGTH } from '../../../common/constants'
 import { GameType, gameTypeToLabel, isTeamType } from '../../../common/games/game-type'
 import { LobbyVisibility, NUM_RECENT_MAPS } from '../../../common/lobbies'
@@ -20,6 +21,8 @@ import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import {
   createLobby,
   CreateLobbyParams,
+  createReplayLobby,
+  CreateReplayLobbyParams,
   getLobbyPreferences,
   updateLobbyPreferences,
 } from '../action-creators'
@@ -33,6 +36,12 @@ import {
   SectionHeader,
 } from './game-setup-form'
 import { formatGameSetupSummary, GameSetupPage, MapBrowseState } from './game-setup-page'
+import {
+  ChosenLobbyReplay,
+  ReplayLobbySetup,
+  SelectReplayButton,
+  useBrowseForReplay,
+} from './replay-lobby-setup'
 import { VisibilityPicker } from './visibility-picker'
 
 const LoadingContainer = styled.div`
@@ -146,6 +155,21 @@ function HostGameContent({
     recentMaps: prefsRecentMaps,
   }))
 
+  // A replay another surface asked to host a lobby for becomes this form's starting replay.
+  const [replay, setReplay] = useState<ReadonlyDeep<ChosenLobbyReplay> | undefined>(
+    () => (history.state as { lobbyReplay?: ChosenLobbyReplay } | null)?.lobbyReplay,
+  )
+  const browseForReplay = useBrowseForReplay()
+  const pickReplay = () => {
+    browseForReplay()
+      .then(chosen => {
+        if (chosen) {
+          setReplay(chosen)
+        }
+      })
+      .catch(swallowNonBuiltins)
+  }
+
   const [isCreating, setIsCreating] = useState(false)
   const [name, setName] = useState(initial.name)
   const [visibility, setVisibility] = useState<LobbyVisibility>(initial.visibility)
@@ -251,14 +275,29 @@ function HostGameContent({
     )
   }
 
+  const doCreateReplayLobby = (params: CreateReplayLobbyParams) => {
+    setIsCreating(true)
+    dispatch(
+      createReplayLobby(params, {
+        onSuccess: result => navigateToLobby(result.id, params.name),
+        onError: () => {
+          setIsCreating(false)
+          showErrorDialog()
+        },
+      }),
+    )
+  }
+
+  // Seeded from whatever the form last held, so going back to picking a map after choosing a
+  // replay (which unmounts the form) picks up where it left off.
   const setupModel: GameSetupModel = {
-    mapId: initial.selectedMap,
-    gameType: initial.gameType,
-    gameSubType: initial.gameSubType,
-    useLegacyLimits: initial.useLegacyLimits,
-    starcraftCompatibleReplays: initial.starcraftCompatibleReplays,
-    lockedAlliances: initial.lockedAlliances,
-    allowObservers: initial.allowObservers,
+    mapId: setup.mapId,
+    gameType: setup.gameType,
+    gameSubType: setup.gameSubType,
+    useLegacyLimits: setup.useLegacyLimits,
+    starcraftCompatibleReplays: setup.starcraftCompatibleReplays,
+    lockedAlliances: setup.lockedAlliances,
+    allowObservers: setup.allowObservers,
   }
 
   // Once a map is selected, the placeholder names the lobby after the map and game type instead
@@ -267,7 +306,15 @@ function HostGameContent({
   // when the map-based name would exceed the lobby name cap (and be rejected by the server), the
   // host-based name is used instead.
   let placeholderName = defaultLobbyName(t, selfUser?.name)
-  if (selectedMapInfo) {
+  if (replay) {
+    const replayBasedName = t('lobbies.hostGame.defaultLobbyNameFromReplay', {
+      defaultValue: '{{mapName}} replay',
+      mapName: replay.mapName,
+    })
+    if (replayBasedName.length <= LOBBY_NAME_MAXLENGTH) {
+      placeholderName = replayBasedName
+    }
+  } else if (selectedMapInfo) {
     const mapBasedName = t('lobbies.hostGame.defaultLobbyNameFromMap', {
       defaultValue: '{{mapName}} {{gameType}}',
       mapName: selectedMapInfo.name,
@@ -278,7 +325,70 @@ function HostGameContent({
     }
   }
 
-  const summary = formatGameSetupSummary(t, { visibility, setup, mapInfo: selectedMapInfo })
+  const visibilityLabel =
+    visibility === 'listed'
+      ? t('lobbies.createLobby.visibilityListed', 'Public')
+      : t('lobbies.createLobby.visibilityUnlisted', 'Unlisted')
+  const summary = replay
+    ? [visibilityLabel, t('lobbies.replayLobby.summaryReplay', 'Replay'), replay.mapName].join(
+        ' · ',
+      )
+    : formatGameSetupSummary(t, { visibility, setup, mapInfo: selectedMapInfo })
+
+  const submitReplayLobby = (chosen: ReadonlyDeep<ChosenLobbyReplay>) => {
+    const params: CreateReplayLobbyParams = {
+      name: name.trim() ? name.trim() : placeholderName,
+      replay: chosen.choice,
+      visibility,
+      leaveCurrentLobby: inCurrentLobby,
+    }
+    if (inCurrentLobby) {
+      dispatch(
+        openDialog({
+          type: DialogType.LobbyLeaveAndCreate,
+          initData: { onConfirm: () => doCreateReplayLobby(params) },
+        }),
+      )
+    } else {
+      doCreateReplayLobby(params)
+    }
+  }
+
+  const nameSection = (
+    <TextField
+      value={name}
+      onChange={event => {
+        setName(event.target.value)
+        debouncedSaveRef.current?.()
+      }}
+      disabled={isCreating}
+      floatingLabel={true}
+      alwaysHasValue={true}
+      label={t('lobbies.createLobby.lobbyName', 'Lobby name')}
+      testName='lobby-name-input'
+      inputProps={{
+        placeholder: placeholderName,
+        maxLength: LOBBY_NAME_MAXLENGTH,
+        autoCapitalize: 'off',
+        autoComplete: 'off',
+        autoCorrect: 'off',
+        spellCheck: false,
+      }}
+    />
+  )
+  const visibilitySection = (
+    <Section>
+      <SectionHeader>{t('lobbies.createLobby.visibility', 'Visibility')}</SectionHeader>
+      <VisibilityPicker
+        value={visibility}
+        disabled={isCreating}
+        onChange={value => {
+          setVisibility(value)
+          debouncedSaveRef.current?.()
+        }}
+      />
+    </Section>
+  )
 
   return (
     <GameSetupPage
@@ -293,104 +403,87 @@ function HostGameContent({
           label={t('lobbies.createLobby.title', 'Create lobby')}
           iconStart={isCreating ? <DotsIndicator /> : undefined}
           disabled={isCreating}
-          onClick={() => formRef.current?.submit()}
+          onClick={() => (replay ? submitReplayLobby(replay) : formRef.current?.submit())}
           testName='create-lobby-submit'
         />
       }>
-      <GameSetupForm
-        ref={formRef}
-        disabled={isCreating}
-        model={setupModel}
-        recentMaps={recentMaps}
-        nameSection={
-          <TextField
-            value={name}
-            onChange={event => {
-              setName(event.target.value)
-              debouncedSaveRef.current?.()
-            }}
-            disabled={isCreating}
-            floatingLabel={true}
-            alwaysHasValue={true}
-            label={t('lobbies.createLobby.lobbyName', 'Lobby name')}
-            testName='lobby-name-input'
-            inputProps={{
-              placeholder: placeholderName,
-              maxLength: LOBBY_NAME_MAXLENGTH,
-              autoCapitalize: 'off',
-              autoComplete: 'off',
-              autoCorrect: 'off',
-              spellCheck: false,
-            }}
-          />
-        }
-        visibilitySection={
-          <Section>
-            <SectionHeader>{t('lobbies.createLobby.visibility', 'Visibility')}</SectionHeader>
-            <VisibilityPicker
-              value={visibility}
-              disabled={isCreating}
-              onChange={value => {
-                setVisibility(value)
-                debouncedSaveRef.current?.()
-              }}
-            />
-          </Section>
-        }
-        onChangeMap={() => setBrowseState(MapBrowseState.Server)}
-        onValidatedChange={model => {
-          setSetup(model)
-          debouncedSaveRef.current?.()
-        }}
-        onSubmit={model => {
-          const finalName = name.trim() ? name.trim() : placeholderName
-
-          const params: CreateLobbyParams = {
-            name: finalName,
-            map: model.mapId!,
-            gameType: model.gameType,
-            gameSubType: isTeamType(model.gameType) ? model.gameSubType : undefined,
-            useLegacyLimits: model.useLegacyLimits,
-            starcraftCompatibleReplays: model.starcraftCompatibleReplays,
-            lockedAlliances: model.lockedAlliances,
-            allowObservers: model.allowObservers,
-            visibility,
-            leaveCurrentLobby: inCurrentLobby,
+      {replay ? (
+        <ReplayLobbySetup
+          replay={replay}
+          nameSection={nameSection}
+          visibilitySection={visibilitySection}
+          disabled={isCreating}
+          onChangeReplay={pickReplay}
+          onChooseMap={() => setReplay(undefined)}
+        />
+      ) : (
+        <GameSetupForm
+          ref={formRef}
+          disabled={isCreating}
+          model={setupModel}
+          recentMaps={recentMaps}
+          nameSection={nameSection}
+          visibilitySection={visibilitySection}
+          mapAlternativeSection={
+            IS_ELECTRON ? (
+              <SelectReplayButton disabled={isCreating} onClick={pickReplay} />
+            ) : undefined
           }
+          onChangeMap={() => setBrowseState(MapBrowseState.Server)}
+          onValidatedChange={model => {
+            setSetup(model)
+            debouncedSaveRef.current?.()
+          }}
+          onSubmit={model => {
+            const finalName = name.trim() ? name.trim() : placeholderName
 
-          // Trading the current lobby for a new one is worth confirming before it happens;
-          // the dialog performs no request of its own, so `doCreateLobby` runs unchanged once
-          // it's confirmed.
-          if (inCurrentLobby) {
-            dispatch(
-              openDialog({
-                type: DialogType.LobbyLeaveAndCreate,
-                initData: { onConfirm: () => doCreateLobby(params) },
-              }),
-            )
-          } else {
-            doCreateLobby(params)
-          }
+            const params: CreateLobbyParams = {
+              name: finalName,
+              map: model.mapId!,
+              gameType: model.gameType,
+              gameSubType: isTeamType(model.gameType) ? model.gameSubType : undefined,
+              useLegacyLimits: model.useLegacyLimits,
+              starcraftCompatibleReplays: model.starcraftCompatibleReplays,
+              lockedAlliances: model.lockedAlliances,
+              allowObservers: model.allowObservers,
+              visibility,
+              leaveCurrentLobby: inCurrentLobby,
+            }
 
-          debouncedSaveRef.current?.cancel()
+            // Trading the current lobby for a new one is worth confirming before it happens;
+            // the dialog performs no request of its own, so `doCreateLobby` runs unchanged once
+            // it's confirmed.
+            if (inCurrentLobby) {
+              dispatch(
+                openDialog({
+                  type: DialogType.LobbyLeaveAndCreate,
+                  initData: { onConfirm: () => doCreateLobby(params) },
+                }),
+              )
+            } else {
+              doCreateLobby(params)
+            }
 
-          savePreferences({
-            // The preferences record what the user actually typed (possibly nothing), so a
-            // left-empty name stays a ghost placeholder on the next visit instead of
-            // materializing the auto-generated name into the field.
-            name,
-            selectedMap: model.mapId,
-            recentMaps: updateRecentMaps(model.mapId!, recentMaps),
-            gameType: model.gameType,
-            gameSubType: model.gameSubType,
-            useLegacyLimits: model.useLegacyLimits,
-            starcraftCompatibleReplays: model.starcraftCompatibleReplays,
-            lockedAlliances: model.lockedAlliances,
-            visibility,
-            allowObservers: model.allowObservers,
-          })
-        }}
-      />
+            debouncedSaveRef.current?.cancel()
+
+            savePreferences({
+              // The preferences record what the user actually typed (possibly nothing), so a
+              // left-empty name stays a ghost placeholder on the next visit instead of
+              // materializing the auto-generated name into the field.
+              name,
+              selectedMap: model.mapId,
+              recentMaps: updateRecentMaps(model.mapId!, recentMaps),
+              gameType: model.gameType,
+              gameSubType: model.gameSubType,
+              useLegacyLimits: model.useLegacyLimits,
+              starcraftCompatibleReplays: model.starcraftCompatibleReplays,
+              lockedAlliances: model.lockedAlliances,
+              visibility,
+              allowObservers: model.allowObservers,
+            })
+          }}
+        />
+      )}
     </GameSetupPage>
   )
 }

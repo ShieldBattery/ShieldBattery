@@ -48,6 +48,7 @@ import { useFormatLocale } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
+import { navigateToCreateReplayLobby } from '../lobbies/create/replay-lobby-setup'
 import logger from '../logging/logger'
 import { IconButton, TextButton, useButtonState } from '../material/button'
 import { MenuItem } from '../material/menu/item'
@@ -781,6 +782,18 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
   const watchEntry = (entry: ReplayLibraryEntry) => {
     dispatch(startReplay({ path: entry.path, name: entry.fileName }))
   }
+  const watchEntryWithOthers = (entry: ReplayLibraryEntry) => {
+    navigateToCreateReplayLobby({
+      choice: { kind: 'local', path: entry.path },
+      mapName: entry.mapName,
+      durationFrames: entry.durationFrames,
+      players: entry.players.map(player => ({
+        name: player.name,
+        race: player.race,
+        team: player.team,
+      })),
+    })
+  }
   const revealEntry = (entry: ReplayLibraryEntry) => {
     ipcRenderer.invoke('pathsShowItemInFolder', entry.path)?.catch(swallowNonBuiltins)
   }
@@ -1343,6 +1356,7 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
         canMoveUp={canMoveUp}
         canMoveDown={canMoveDown}
         onWatch={watchEntry}
+        onWatchWithOthers={watchEntryWithOthers}
         onReveal={revealEntry}
         onToggleBookmark={toggleBookmark}
         onAddToPlaylist={(playlistId, playlistName, entry) =>
@@ -1383,6 +1397,14 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
           onClick={() => {
             contextMenuPopoverProps.onDismiss()
             watchEntry(focusedEntry)
+          }}
+        />
+        <MenuItem
+          icon={<MaterialIcon icon='group' />}
+          text={t('replays.library.watchWithOthers', 'Watch with others')}
+          onClick={() => {
+            contextMenuPopoverProps.onDismiss()
+            watchEntryWithOthers(focusedEntry)
           }}
         />
         <MenuItem

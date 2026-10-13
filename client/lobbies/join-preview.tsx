@@ -16,6 +16,7 @@ import {
 } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
 import { LobbySeats, StatusChip } from './lobby-invite-card'
+import { lobbyDisplayMapName } from './lobby-replay'
 
 type Lobby = LobbySummaryResponse['summary']
 
@@ -74,7 +75,10 @@ function LobbyMeta({ lobby }: { lobby: Lobby }) {
     <MetaLine>
       <MetaTitle>{t('lobbies.inviteCard.title', 'Lobby')}</MetaTitle>
       <MetaText>
-        {lobby.map.name} · {gameTypeToLabel(lobby.gameType, t)}
+        {lobbyDisplayMapName(lobby)} ·{' '}
+        {lobby.replay
+          ? t('lobbies.replayLobby.replay', 'Replay')
+          : gameTypeToLabel(lobby.gameType, t)}
       </MetaText>
       <LifecycleChip lobby={lobby} />
     </MetaLine>
@@ -243,7 +247,7 @@ export function JoinPreview({ summary, isJoining, onJoinClick }: JoinPreviewProp
   const dispatch = useAppDispatch()
   const lobby = summary.summary
   const host = summary.host
-  const image = lobby.map.image512Url ?? lobby.map.image256Url
+  const image = lobby.map?.image512Url ?? lobby.map?.image256Url
 
   useEffect(() => {
     // The summary carries the host's user info, so their name renders without a lookup of its own.
@@ -255,7 +259,7 @@ export function JoinPreview({ summary, isJoining, onJoinClick }: JoinPreviewProp
       {image ? <BackdropImage src={image} alt='' draggable={false} /> : null}
       <Scrim />
       {image ? (
-        <MapImage src={image} alt={lobby.map.name} draggable={false} />
+        <MapImage src={image} alt={lobbyDisplayMapName(lobby)} draggable={false} />
       ) : (
         <MapImagePlaceholder />
       )}

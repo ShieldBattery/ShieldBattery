@@ -24,6 +24,7 @@ import {
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { SbMapId } from '../../common/maps'
 import { RaceChar } from '../../common/races'
+import { StageReplaySessionSourceResponse } from '../../common/replay-sessions'
 import { RolledOutcomeRequest } from '../../common/rolled-outcomes'
 import { apiUrl } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
@@ -112,6 +113,69 @@ export function createLobby(
         allowObservers,
         visibility,
         leaveCurrentLobby,
+        ...network,
+      }),
+      signal: spec.signal,
+    })
+  })
+}
+
+/** The replay a replay lobby is created to watch. */
+export type LobbyReplayChoice = { kind: 'game'; gameId: string } | { kind: 'local'; path: string }
+
+export interface CreateReplayLobbyParams {
+  name: string
+  replay: LobbyReplayChoice
+  visibility?: LobbyVisibility
+  /**
+   * When set, a client currently in a different lobby is removed from it in the same operation
+   * before hosting this one. Without it, being in any gameplay activity fails the create.
+   */
+  leaveCurrentLobby?: boolean
+}
+
+/** Stages a local replay on the server so a replay lobby can be created to watch it. */
+async function stageLocalReplay(
+  localPath: string,
+  signal?: AbortSignal,
+): Promise<StageReplaySessionSourceResponse> {
+  const data = await ipcRenderer.invoke('fsReadFile', localPath)
+  if (!data) {
+    throw new Error('Could not read the replay file')
+  }
+  const formData = new FormData()
+  formData.append('replay', new Blob([data], { type: 'application/octet-stream' }), 'replay.rep')
+
+  return await fetchJson<StageReplaySessionSourceResponse>(apiUrl`replay-sessions/sources`, {
+    method: 'POST',
+    body: formData,
+    signal,
+  })
+}
+
+/** Creates a lobby that watches a replay together, uploading a local replay first. */
+export function createReplayLobby(
+  { name, replay, visibility, leaveCurrentLobby }: CreateReplayLobbyParams,
+  spec: RequestHandlingSpec<CreateLobbyResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    const [network, replayParams] = await Promise.all([
+      resolveNetworkParams(),
+      replay.kind === 'game'
+        ? Promise.resolve({ replayGameId: replay.gameId })
+        : stageLocalReplay(replay.path, spec.signal).then(staged => ({
+            replayUploadId: staged.sourceId,
+          })),
+    ])
+
+    return await fetchJson<CreateLobbyResponse>(apiUrl`lobbies`, {
+      method: 'POST',
+      body: encodeBodyAsParams<CreateLobbyRequest>({
+        clientId,
+        name,
+        visibility,
+        leaveCurrentLobby,
+        ...replayParams,
         ...network,
       }),
       signal: spec.signal,

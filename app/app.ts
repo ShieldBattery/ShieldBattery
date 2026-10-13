@@ -800,6 +800,17 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
 
   ipcMain.handle('settingsGetDefaultReplayFolder', async () => defaultReplayFolder())
 
+  ipcMain.handle('replaysBrowseForReplay', async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow!, {
+      title: 'Select replay',
+      defaultPath: defaultReplayFolder(),
+      filters: [{ name: 'StarCraft replays', extensions: ['rep'] }],
+      properties: ['openFile'],
+    })
+
+    return { canceled, filePaths }
+  })
+
   ipcMain.handle('settingsGetPrimaryResolution', async event => {
     const primaryDisplay = screen.getPrimaryDisplay()
     return primaryDisplay.size

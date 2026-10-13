@@ -92,11 +92,13 @@ export function LobbyStartButton({
   disabled,
   onStartGame,
   onForceStart,
+  isReplay = false,
 }: {
   allReady: boolean
   disabled: boolean
   onStartGame: () => void
   onForceStart: () => void
+  isReplay?: boolean
 }) {
   const { t } = useTranslation()
   const hintId = useId()
@@ -108,13 +110,21 @@ export function LobbyStartButton({
     onForceStart,
   })
   const ready = allReady && !disabled
-  const label =
-    !disabled && !allReady && (isHolding || showHoldHint)
-      ? t('lobbies.room.rail.holdToStartAnyway', 'Hold to start anyway')
-      : t('lobbies.room.rail.startGame', 'Start game')
+  let label: string
+  if (isReplay) {
+    label = t('lobbies.replayLobby.startWatching', 'Start watching')
+  } else if (!disabled && !allReady && (isHolding || showHoldHint)) {
+    label = t('lobbies.room.rail.holdToStartAnyway', 'Hold to start anyway')
+  } else {
+    label = t('lobbies.room.rail.startGame', 'Start game')
+  }
 
   let hint: string
-  if (disabled) {
+  if (isReplay) {
+    hint = allReady
+      ? t('lobbies.room.rail.everyoneReady', 'Everyone is ready')
+      : t('lobbies.replayLobby.readyHint', 'Viewers can ready up before watching')
+  } else if (disabled) {
     hint = t('lobbies.room.rail.needsOpposingSides', 'Needs at least two opposing players')
   } else if (ready) {
     hint = t('lobbies.room.rail.everyoneReady', 'Everyone is ready')

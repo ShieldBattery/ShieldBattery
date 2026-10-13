@@ -472,14 +472,19 @@ const lobbyHandlers = {
     }
 
     draft.runState = undefined
-    draft.series.push(castDraft(action.payload.game))
     // A lobby coming out of a game gathers for the next one with nobody ready yet.
     clearReady(draft)
+    const { game } = action.payload
+    if (!game) {
+      // A replay lobby finished watching: there's no game to add to the series
+      return
+    }
+    draft.series.push(castDraft(game))
     pushChat(draft, {
       id: nanoid(),
       type: LobbyMessageType.LobbyRegroup,
       time: Date.now(),
-      gameId: action.payload.game.gameId,
+      gameId: game.gameId,
     })
   },
 

@@ -3,6 +3,7 @@ import styled from 'styled-components'
 import { RaceChar } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { useAppSelector } from '../../redux-hooks'
+import { ReplayRoomBanner } from './replay-room-banner'
 import { RoomChat } from './room-chat'
 import { RoomGameSetup } from './room-game-setup'
 import { RoomHeader } from './room-header'
@@ -70,6 +71,7 @@ export function LobbyRoom({
 }: LobbyRoomProps) {
   const runState = useAppSelector(s => s.lobby.runState)
   const series = useAppSelector(s => s.lobby.series)
+  const isReplay = useAppSelector(s => !!s.lobby.info.replay)
   const [isSetupOpen, setIsSetupOpen] = useState(false)
 
   // A lobby that has finished a game and isn't in another one is between games, which is a
@@ -79,7 +81,7 @@ export function LobbyRoom({
 
   return (
     <RoomRoot>
-      {isSetupOpen ? (
+      {isSetupOpen && !isReplay ? (
         <RoomGameSetup onClose={() => setIsSetupOpen(false)} />
       ) : (
         <>
@@ -93,12 +95,16 @@ export function LobbyRoom({
               viewerId={viewerId}
               isRegrouping={isRegrouping}
               header={
-                <RoomMapBanner
-                  viewerId={viewerId}
-                  onArrangeTeams={onArrangeTeams}
-                  onWatchReplay={onWatchReplay}
-                  onViewGameSummary={onViewGameSummary}
-                />
+                isReplay ? (
+                  <ReplayRoomBanner />
+                ) : (
+                  <RoomMapBanner
+                    viewerId={viewerId}
+                    onArrangeTeams={onArrangeTeams}
+                    onWatchReplay={onWatchReplay}
+                    onViewGameSummary={onViewGameSummary}
+                  />
+                )
               }
               aside={
                 <RoomRail

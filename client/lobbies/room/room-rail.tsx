@@ -768,12 +768,124 @@ export interface RoomRailProps {
   onSlotAction: (action: SlotAction, slotId: string) => void
 }
 
+/** A replay lobby has one viewer roster and no game seats or race choices. */
+function ReplayRoomRail({
+  viewerId,
+  onToggleReady,
+  onStartGame,
+  onForceStart,
+  onCancelCountdown,
+  onSlotAction,
+}: RoomRailProps) {
+  const { t } = useTranslation()
+  const filterClick = useMentionFilterClick()
+  const lobby = useAppSelector(s => s.lobby.info)
+  const readyUserIds = useAppSelector(s => s.lobby.readyUserIds)
+  const loadingState = useAppSelector(s => s.lobby.loadingState)
+  const runState = useAppSelector(s => s.lobby.runState)
+  const lifecycle = useLobbyLifecycle()
+  const isHost = lobby.host.userId === viewerId
+  const viewers = lobby.teams.flatMap(team => team.slots).filter(slot => !!slot.userId)
+  const readyUsers = new Set(readyUserIds)
+  readyUsers.add(lobby.host.userId!)
+  const readyCount = viewers.filter(slot => readyUsers.has(slot.userId!)).length
+  const isViewerReadyEligible = viewers.some(slot => slot.userId === viewerId)
+  const isViewerReady = readyUsers.has(viewerId)
+
+  return (
+    <RailRoot>
+      <RailScroll>
+        <Section>
+          <SectionHeading>
+            {t('lobbies.replayLobby.viewersCount', 'Viewers · {{count}}', {
+              count: viewers.length,
+            })}
+          </SectionHeading>
+          {viewers.map(slot => {
+            const actions: SlotMenuAction[] =
+              isHost && lifecycle === 'gathering' && slot.userId !== viewerId
+                ? [
+                    [
+                      t('lobbies.room.slotMenu.kick', 'Kick'),
+                      () => onSlotAction(SlotAction.Kick, slot.id),
+                    ],
+                    [
+                      t('lobbies.room.slotMenu.ban', 'Ban'),
+                      () => onSlotAction(SlotAction.Ban, slot.id),
+                    ],
+                  ]
+                : []
+            return (
+              <OccupiedRow
+                key={slot.id}
+                $isViewer={slot.userId === viewerId}
+                $inGame={runState?.inGameUsers.includes(slot.userId!)}
+                data-testid='lobby-slot'>
+                <RowAvatar userId={slot.userId!} />
+                <RowName as='span'>
+                  <ConnectedUsername
+                    userId={slot.userId!}
+                    filterClick={filterClick}
+                    UserMenu={LobbyUserMenu}
+                  />
+                </RowName>
+                <RowActions>
+                  <RowStatus>
+                    {slot.userId === lobby.host.userId ? (
+                      <HostCrown tabIndex={-1} />
+                    ) : (
+                      <ReadyMark ready={readyUsers.has(slot.userId!)} tabIndex={-1} />
+                    )}
+                  </RowStatus>
+                  {actions.length ? <SlotMenu actions={actions} /> : null}
+                </RowActions>
+              </OccupiedRow>
+            )
+          })}
+          {lobby.bench.map(benched => (
+            <BenchRow
+              key={benched.userId}
+              userId={benched.userId}
+              canManage={isHost && (lifecycle === 'gathering' || lifecycle === 'inGame')}
+              onSlotAction={onSlotAction}
+            />
+          ))}
+        </Section>
+      </RailScroll>
+      <RailFoot>
+        <RailFootContents
+          isHost={isHost}
+          isViewerReadyEligible={isViewerReadyEligible}
+          isViewerReady={isViewerReady}
+          isReplay={true}
+          lifecycle={lifecycle}
+          readyCount={readyCount}
+          readyTotal={viewers.length}
+          allReady={readyCount === viewers.length}
+          hasTwoSides={true}
+          countdownTimer={loadingState.countdownTimer}
+          gameStartedAt={runState?.startedAt}
+          onToggleReady={onToggleReady}
+          onStartGame={onStartGame}
+          onForceStart={onForceStart}
+          onCancelCountdown={onCancelCountdown}
+        />
+      </RailFoot>
+    </RailRoot>
+  )
+}
+
+export function RoomRail(props: RoomRailProps) {
+  const isReplay = useAppSelector(s => !!s.lobby.info.replay)
+  return isReplay ? <ReplayRoomRail {...props} /> : <GameRoomRail {...props} />
+}
+
 /**
  * The column down the right side of the room. It's the lobby's seating layout itself rather than a
  * summary of it: every seat is a row, and sitting down, picking a race, and the host's slot surgery
  * all happen in place.
  */
-export function RoomRail({
+function GameRoomRail({
   viewerId,
   onSetRace,
   onSitInSlot,
@@ -926,6 +1038,7 @@ export function RoomRail({
           isHost={isHost}
           isViewerReadyEligible={isViewerReadyEligible}
           isViewerReady={isViewerReady}
+          isReplay={false}
           lifecycle={lifecycle}
           readyCount={readyCount}
           readyTotal={eligible.length}
@@ -951,6 +1064,7 @@ function RailFootContents({
   isHost,
   isViewerReadyEligible,
   isViewerReady,
+  isReplay,
   lifecycle,
   readyCount,
   readyTotal,
@@ -966,6 +1080,7 @@ function RailFootContents({
   isHost: boolean
   isViewerReadyEligible: boolean
   isViewerReady: boolean
+  isReplay: boolean
   lifecycle: LobbyLifecycle
   readyCount: number
   readyTotal: number
@@ -996,11 +1111,19 @@ function RailFootContents({
     case 'loading':
       // The server refuses a cancel once the countdown has handed off to loading, so there's
       // nothing to offer here but the news.
-      return <RunStatus>{t('lobbies.room.rail.startingGame', 'Starting game')}</RunStatus>
+      return (
+        <RunStatus>
+          {isReplay
+            ? t('lobbies.replayLobby.loading', 'Loading replay for everyone')
+            : t('lobbies.room.rail.startingGame', 'Starting game')}
+        </RunStatus>
+      )
     case 'inGame':
       return (
         <RunStatus>
-          {t('lobbies.lobby.inGame', 'In game')}
+          {isReplay
+            ? t('lobbies.replayLobby.watching', 'Watching replay')
+            : t('lobbies.lobby.inGame', 'In game')}
           {gameStartedAt !== undefined ? (
             <StatusElapsedTime startTimeMs={gameStartedAt} prefix=' · ' />
           ) : null}
@@ -1012,6 +1135,7 @@ function RailFootContents({
           isHost={isHost}
           isViewerReadyEligible={isViewerReadyEligible}
           isViewerReady={isViewerReady}
+          isReplay={isReplay}
           readyCount={readyCount}
           readyTotal={readyTotal}
           allReady={allReady}
@@ -1036,6 +1160,7 @@ function StartControls({
   isHost,
   isViewerReadyEligible,
   isViewerReady,
+  isReplay,
   readyCount,
   readyTotal,
   allReady,
@@ -1047,6 +1172,7 @@ function StartControls({
   isHost: boolean
   isViewerReadyEligible: boolean
   isViewerReady: boolean
+  isReplay: boolean
   readyCount: number
   readyTotal: number
   allReady: boolean
@@ -1066,6 +1192,7 @@ function StartControls({
   if (isHost) {
     action = (
       <LobbyStartButton
+        isReplay={isReplay}
         allReady={allReady}
         disabled={!hasTwoSides}
         onStartGame={onStartGame}

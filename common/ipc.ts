@@ -241,6 +241,8 @@ interface IpcInvokeables {
   /** Reveals `path` in the OS file manager (opens its containing folder and selects it). */
   pathsShowItemInFolder: (path: string) => Promise<void>
 
+  /** Opens a picker for a single replay file, starting in the user's default replay folder. */
+  replaysBrowseForReplay: () => Promise<{ canceled: boolean; filePaths: string[] }>
   replayParseMetadata: (replayPath: string) => Promise<{
     headerData: ReplayHeader
     players: Player[]

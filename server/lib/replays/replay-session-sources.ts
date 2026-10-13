@@ -70,7 +70,10 @@ export class ReplaySessionSources {
           hash: upload.hash.toString('hex'),
           size: upload.size,
         },
-        info: { kind: 'upload', metadata: replaySessionSourceMetadata(upload.header) },
+        info: {
+          kind: 'upload',
+          metadata: replaySessionSourceMetadata(upload.header, upload.slots),
+        },
       }
     }
 
@@ -100,7 +103,7 @@ export class ReplaySessionSources {
       info: {
         kind: 'game',
         gameId: source.gameId,
-        metadata: replaySessionSourceMetadata(replay.header),
+        metadata: replaySessionSourceMetadata(replay.header, replay.slots),
       },
     }
   }
