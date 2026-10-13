@@ -81,6 +81,36 @@ const ZERG_TRANSPORT: u16 = 0x2a;
 const TERRAN_TRANSPORT: u16 = 0x0b;
 const PROTOSS_TRANSPORT: u16 = 0x45;
 
+/// The names the game's English stat_txt gives the units and buildings above, by the same id.
+fn unit_name(id: u16) -> Option<String> {
+    let name = match id {
+        0 => "Terran Marine",
+        2 => "Terran Vulture",
+        5 => "Terran Siege Tank",
+        7 => "Terran SCV",
+        8 => "Terran Wraith",
+        TERRAN_TRANSPORT => "Terran Dropship",
+        37 => "Zerg Zergling",
+        38 => "Zerg Hydralisk",
+        41 => "Zerg Drone",
+        ZERG_TRANSPORT => "Zerg Overlord",
+        43 => "Zerg Mutalisk",
+        64 => "Protoss Probe",
+        65 => "Protoss Zealot",
+        66 => "Protoss Dragoon",
+        PROTOSS_TRANSPORT => "Protoss Shuttle",
+        71 => "Protoss Arbiter",
+        0x6a => "Terran Command Center",
+        0x71 => "Terran Barracks",
+        0x83 => "Zerg Hatchery",
+        0x8e => "Zerg Spawning Pool",
+        0x9a => "Protoss Nexus",
+        0xa0 => "Protoss Gateway",
+        _ => return None,
+    };
+    Some(name.to_string())
+}
+
 /// How many units the loaded transport is carrying, which is short of the eight one holds: a row
 /// drawn to its last slot would not say whether the panel draws the room or only what is in it.
 const CARGO_UNITS: usize = 4;
@@ -722,16 +752,14 @@ fn selection(knobs: &Knobs, t: f64) -> SelectionView {
                 } else {
                     80 + 40 * index as u32
                 };
+                let id = if building {
+                    buildings[0]
+                } else {
+                    units[index % units.len()]
+                };
                 SelectedUnitView {
-                    icon: ProductionIcon {
-                        texture: None,
-                        index: if building {
-                            buildings[0]
-                        } else {
-                            units[index % units.len()]
-                        },
-                        size: None,
-                    },
+                    icon: unit_icon(id),
+                    name: unit_name(id),
                     owner_color: overlay_ui::kit::theme::player_color(owner),
                     owner_name: player_name(knobs, owner),
                     owner: Some(owner as u8),
@@ -762,6 +790,7 @@ fn producing_building(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
     let full_health = 1250;
     SelectedUnitView {
         icon: unit_icon(race_buildings(race)[0]),
+        name: unit_name(race_buildings(race)[0]),
         owner_color: overlay_ui::kit::theme::player_color(owner),
         owner_name: player_name(knobs, owner),
         owner: Some(owner as u8),
@@ -772,6 +801,7 @@ fn producing_building(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
         building: true,
         production: Some(ProductionProgressView {
             icon: unit_icon(race_units(race)[0]),
+            name: unit_name(race_units(race)[0]),
             progress: fraction(t * 0.09),
             queue: Some(
                 race_units(race)
@@ -798,6 +828,7 @@ fn loaded_transport(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
     let full_health = 150;
     SelectedUnitView {
         icon: unit_icon(race_transport(race)),
+        name: unit_name(race_transport(race)),
         owner_color: overlay_ui::kit::theme::player_color(owner),
         owner_name: player_name(knobs, owner),
         owner: Some(owner as u8),
@@ -814,6 +845,7 @@ fn loaded_transport(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
                 let full_health = 80 + 20 * slot as u32;
                 SelectedUnitView {
                     icon: unit_icon(units[slot % units.len()]),
+                    name: unit_name(units[slot % units.len()]),
                     owner_color: overlay_ui::kit::theme::player_color(owner),
                     owner_name: player_name(knobs, owner),
                     owner: Some(owner as u8),

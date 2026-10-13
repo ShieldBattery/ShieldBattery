@@ -74,6 +74,7 @@ mod replay_save;
 mod replay_transport;
 mod sdf_cache;
 mod shader_replaces;
+mod stat_txt;
 pub(crate) mod thiscall;
 
 const NET_PLAYER_COUNT: usize = 12;
@@ -522,6 +523,9 @@ pub struct BwScr {
     /// SC:R's own settings registry, which the options screen writes its changes through. `None`
     /// when the analysis could not place it, which leaves SC:R's settings to take effect next game.
     game_settings: Option<game_settings::GameSettings>,
+    /// Where the game's names for units, upgrades and techs are read from. `None` when the analysis
+    /// could not place stat_txt, which leaves the overlay's panels without names.
+    stat_txt: Option<stat_txt::StatTxt>,
     /// Ensures that things that qualify as "event processing" (e.g. process_events,
     /// maybe_receive_turns) don't execute from multiple threads at the same time (which may happen
     /// at certain points during game init).
@@ -2285,6 +2289,30 @@ impl BwScr {
                 None
             }
         };
+        // Non-fatal: without stat_txt the overlay's panels only go without names. Both are globals
+        // the analysis resolves to their address; the map's renames are only needed to know when
+        // the stock name is the wrong one, so a build without them still names every unit.
+        let stat_txt = match analysis
+            .stat_txt_string_table()
+            .and_then(|table| table.if_constant())
+        {
+            Some(table) => {
+                let overrides = analysis
+                    .unit_map_name_overrides()
+                    .and_then(|overrides| overrides.if_constant());
+                if overrides.is_none() {
+                    warn!("Could not find unit_map_name_overrides");
+                }
+                Some(stat_txt::StatTxt::new(
+                    table as usize,
+                    overrides.map(|x| x as usize),
+                ))
+            }
+            None => {
+                warn!("Could not find stat_txt_string_table; the overlay will not name units");
+                None
+            }
+        };
         let vertex_buffer = analysis.vertex_buffer().ok_or("vertex_buffer")?;
         let renderer = analysis.renderer().ok_or("renderer")?;
         let draw_commands = analysis.draw_commands().ok_or("draw_commands")?;
@@ -2778,6 +2806,7 @@ impl BwScr {
                     write_bool.0 as usize,
                 )
             }),
+            stat_txt,
             event_processing_lock: DumbSpinLock::new(),
         })
     }
@@ -4280,6 +4309,7 @@ impl BwScr {
                                     game_started,
                                     local_player_id,
                                     replay,
+                                    stat_txt: self.stat_txt,
                                 },
                                 apm,
                                 game_stats,

@@ -336,6 +336,7 @@ pub(super) fn selected_production(unit: Unit, bw: &BwVars) -> Option<ProductionP
     let (production, progress) = unit_production(unit)?;
     Some(ProductionProgressView {
         icon: production_icon(production, bw),
+        name: production_name(production, bw),
         progress: progress.as_float(),
         queue: queued_units(unit, production)
             .map(|queue| queue.map(|unit_id| unit_icon(unit_id, bw)).collect()),
@@ -427,6 +428,19 @@ pub fn timeline_icon(subject: TimelineSubject, bw: &BwVars) -> ProductionIcon {
         TimelineSubject::Tech(id) => Production::Tech(id),
     };
     production_icon(production, bw)
+}
+
+/// What the game calls what is being made, in the game's language.
+fn production_name(production: Production, bw: &BwVars) -> Option<String> {
+    let stat_txt = bw.stat_txt?;
+    // The overlay is built in the game's draw, on its main thread.
+    unsafe {
+        match production {
+            Production::Unit(id) => stat_txt.unit_name(id),
+            Production::Upgrade(id) => stat_txt.upgrade_name(id),
+            Production::Tech(id) => stat_txt.tech_name(id),
+        }
+    }
 }
 
 /// Which frame of the game's own command-icon atlas stands for a production, and the texture id the

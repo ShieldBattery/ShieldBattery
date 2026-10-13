@@ -1426,6 +1426,18 @@ impl<'e> Analysis<'e> {
         self.0.update_game_setting_bool()
     }
 
+    /// The `StringTable` object holding stat_txt's strings (unit, upgrade and tech names among
+    /// them) in the game's language, loaded from `rez/stat_txt.json`.
+    pub fn stat_txt_string_table(&mut self) -> Option<Operand<'e>> {
+        self.0.stat_txt_string_table()
+    }
+
+    /// Base of the `u16[unit type]` array of map string ids a map gives its units as custom names,
+    /// 0 for a unit that keeps its stat_txt name.
+    pub fn unit_map_name_overrides(&mut self) -> Option<Operand<'e>> {
+        self.0.unit_map_name_overrides()
+    }
+
     /// Base of the `u16[player][hotkey group]` array holding the frame each selection hotkey
     /// group was last written on.
     pub fn selection_hotkey_last_used_frames(&mut self) -> Option<Operand<'e>> {

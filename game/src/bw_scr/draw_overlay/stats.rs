@@ -387,6 +387,10 @@ fn carried_unit_view(bw: &BwVars, players: &[StatsPlayer], unit: Unit) -> Select
         .find(|player| player.player_id == unit.player());
     SelectedUnitView {
         icon: production::unit_icon(unit_id, bw),
+        // The overlay is built in the game's draw, on its main thread.
+        name: bw
+            .stat_txt
+            .and_then(|stat_txt| unsafe { stat_txt.unit_name(unit_id) }),
         owner_color: owner.map_or(theme::TEXT_DIM, |player| player.color),
         owner_name: owner.map(|player| player.name.clone()).unwrap_or_default(),
         owner: owner.map(|player| player.player_id),

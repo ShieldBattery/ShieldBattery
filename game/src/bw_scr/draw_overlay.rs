@@ -29,6 +29,7 @@ use crate::bw::apm_stats::ApmStats;
 use crate::bw_scr::game_stats::GameStats;
 use crate::bw_scr::replay_transport::{ReplayCommand, TransportState};
 use crate::bw_scr::scr;
+use crate::bw_scr::stat_txt::StatTxt;
 use crate::bw_scr::{BwCursorType, console, dialog_hook};
 use crate::netcode_v2::{self, DisconnectStatus, LoadingConnectivity, NetStatsStatus};
 
@@ -196,6 +197,9 @@ pub struct BwVars {
     /// The replay's own header numbers, and how playback is running, for the transport plate.
     /// `None` outside a replay, which is every mode the plate is not drawn in.
     pub replay: Option<ReplayVars>,
+    /// Where the game's names for units, upgrades and techs are read from. `None` when the analysis
+    /// could not find it, which leaves the panels to go without names.
+    pub stat_txt: Option<StatTxt>,
 }
 
 /// What the replay transport needs of the game: the replay's length and recorded speed, from its
@@ -1413,7 +1417,10 @@ fn numbered_from_one(teams: [u8; 8], active: impl Fn(usize) -> bool) -> [u8; 8] 
     let mut numbered = [0u8; 8];
     for (player_id, team) in numbered.iter_mut().enumerate() {
         if active(player_id) {
-            let position = seen.iter().position(|&raw| raw == teams[player_id]).unwrap_or(0);
+            let position = seen
+                .iter()
+                .position(|&raw| raw == teams[player_id])
+                .unwrap_or(0);
             *team = position as u8 + 1;
         }
     }

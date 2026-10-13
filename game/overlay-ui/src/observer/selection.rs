@@ -19,9 +19,11 @@
 //! - Several units are the console's own grid: twelve slots in two rows of six, in the game's order,
 //!   each with a thin bar of how much of the unit is left.
 //! - One unit is read out: the unit drawn large, its hit points under it in the color of its health
-//!   and its shields and energy under those, and to the right whose it is and what it has killed.
+//!   and its shields and energy under those, and to the right its name, as the console heads its
+//!   readout with it, then whose it is and what it has killed.
 //! - One thing making something shows what it is making in the console's queue: the slots of the
-//!   queue in a row, the first being worked on, and how far along that one is under them.
+//!   queue in a row, the first being worked on, and what that one is and how far along it is under
+//!   them.
 //! - One transport or bunker with units inside shows them in the console's cargo slots, two rows of
 //!   four.
 //!
@@ -46,6 +48,9 @@ pub struct SelectedUnitView {
     /// The game's own icon for this kind of unit, which is what names it until the host can draw
     /// the unit's wireframe.
     pub icon: ProductionIcon,
+    /// What the game calls this kind of unit, in the game's language, or `None` where the host has
+    /// no name for it.
+    pub name: Option<String>,
     /// The color of the player who owns it, and their name.
     pub owner_color: Color32,
     pub owner_name: String,
@@ -74,6 +79,9 @@ pub struct SelectedUnitView {
 pub struct ProductionProgressView {
     /// The game's own icon for what is being made.
     pub icon: ProductionIcon,
+    /// What the game calls what is being made, in the game's language, or `None` where the host has
+    /// no name for it.
+    pub name: Option<String>,
     /// How far along it is, from 0 to 1.
     pub progress: f32,
     /// What is waiting behind it, for a building training units, whose queue the console draws as a
@@ -170,9 +178,8 @@ const READOUT_LEAD: f32 = 4.0;
 /// The most readouts there are: hit points, shields and energy.
 const READOUTS: usize = 3;
 
-/// How tall the panel's body is: the subject's column at its tallest, which every other reading is
-/// laid out in so that the panels stacked on this one stay put.
-const BODY_HEIGHT: f32 = SUBJECT_TILE + READOUT_LEAD + READOUT_ROW * READOUTS as f32;
+/// How tall the subject's column is at its tallest, with every readout under the tile.
+const SUBJECT_HEIGHT: f32 = SUBJECT_TILE + READOUT_LEAD + READOUT_ROW * READOUTS as f32;
 
 /// Gap between the subject's column and the text beside it.
 const COLUMN_GAP: f32 = 16.0;
@@ -181,15 +188,22 @@ const COLUMN_GAP: f32 = 16.0;
 const TEXT_LEFT: f32 = SUBJECT_COLUMN + COLUMN_GAP;
 const TEXT_WIDTH: f32 = CONTENT_WIDTH - TEXT_LEFT;
 
+/// Height of the line the subject's name heads the text column with.
+const NAME_ROW: f32 = 22.0;
+
 /// Width of the bar of the owner's color, the gap between it and their name, and the height of the
 /// line the two of them share.
 const OWNER_BAR: f32 = 4.0;
 const OWNER_GAP: f32 = 8.0;
-const OWNER_ROW: f32 = 20.0;
+const OWNER_ROW: f32 = 18.0;
 
 /// Gap under the owner's line, and the height of the line of kills under it.
 const OWNER_LEAD: f32 = 6.0;
 const KILLS_ROW: f32 = 16.0;
+
+/// How much of the text column the name and the owner's line take, above whatever the reading
+/// draws under them.
+const HEADER_HEIGHT: f32 = NAME_ROW + OWNER_ROW + OWNER_LEAD;
 
 /// Gap between the label at the head of the kills line and the count after it.
 const KILLS_LABEL_GAP: f32 = theme::SPACE_SM;
@@ -214,6 +228,24 @@ const fn tile_row(side: f32) -> f32 {
     side + HEALTH_GAP + HEALTH_BAR
 }
 
+/// The cargo slots, which are the console's own: two rows of four.
+const CARGO_COLUMNS: usize = 4;
+const CARGO_ROWS: usize = 2;
+const CARGO_SLOT: f32 = 34.0;
+const CARGO_GAP: f32 = 6.0;
+
+/// How tall the cargo slots are, both rows of them.
+const CARGO_HEIGHT: f32 = tile_row(CARGO_SLOT) * CARGO_ROWS as f32 + GRID_ROW_GAP;
+
+/// How tall the panel's body is: its tallest reading, which is the subject's column or a full head
+/// of text over the cargo slots. Every other reading is laid out in the same height, so that the
+/// panels stacked on this one stay put.
+const BODY_HEIGHT: f32 = max(SUBJECT_HEIGHT, HEADER_HEIGHT + CARGO_HEIGHT);
+
+const fn max(a: f32, b: f32) -> f32 {
+    if a > b { a } else { b }
+}
+
 /// The grid is the selection: a slot fewer than the game hands out would drop units off the end of
 /// a full selection with nothing to say it had. And it is drawn inside the body.
 const _: () = assert!(GRID_COLUMNS * GRID_ROWS == SelectionView::MAX_UNITS);
@@ -232,45 +264,44 @@ const QUEUE_GAP: f32 = 6.0;
 /// Width of the queue's row of slots.
 const QUEUE_WIDTH: f32 = QUEUE_SLOT * QUEUE_SLOTS as f32 + QUEUE_GAP * (QUEUE_SLOTS as f32 - 1.0);
 
-/// Gap between the queue and the progress line under it, and that line's height.
+/// Gap between the queue and the progress line under it.
 const PROGRESS_LEAD: f32 = 6.0;
-const PROGRESS_ROW: f32 = 14.0;
 
-/// Width of the percentage at the end of a progress line, and the gap before it.
+/// A progress line: the name of what is being made, then the bar of how far along it is with the
+/// percentage after it, and the gap between the two rows.
+const PROGRESS_NAME_ROW: f32 = 16.0;
+const PROGRESS_NAME_LEAD: f32 = 2.0;
+const PROGRESS_ROW: f32 = 14.0;
+const PROGRESS_HEIGHT: f32 = PROGRESS_NAME_ROW + PROGRESS_NAME_LEAD + PROGRESS_ROW;
+
+/// Width of the percentage at the end of a progress bar, and the gap before it.
 const PERCENT_WIDTH: f32 = 40.0;
 const PERCENT_GAP: f32 = 8.0;
 
 /// How thick a progress bar is.
 const PROGRESS_TRACK: f32 = 5.0;
 
-/// The queue and its progress line sit under the owner's line in the text column.
-const _: () =
-    assert!(OWNER_ROW + OWNER_LEAD + QUEUE_SLOT + PROGRESS_LEAD + PROGRESS_ROW <= BODY_HEIGHT);
+/// The queue and its progress line sit under the head of the text column, and a progress line with
+/// no queue sits beside its one slot.
+const _: () = assert!(HEADER_HEIGHT + QUEUE_SLOT + PROGRESS_LEAD + PROGRESS_HEIGHT <= BODY_HEIGHT);
 const _: () = assert!(QUEUE_WIDTH + PERCENT_GAP + PERCENT_WIDTH <= TEXT_WIDTH);
-
-/// The cargo slots, which are the console's own: two rows of four.
-const CARGO_COLUMNS: usize = 4;
-const CARGO_ROWS: usize = 2;
-const CARGO_SLOT: f32 = 34.0;
-const CARGO_GAP: f32 = 6.0;
+const _: () = assert!(PROGRESS_HEIGHT <= QUEUE_SLOT);
 
 /// The most carried units the panel draws, which is the most the game puts inside anything.
 const MAX_CARGO: usize = CARGO_COLUMNS * CARGO_ROWS;
-
-const _: () = assert!(
-    OWNER_ROW + OWNER_LEAD + tile_row(CARGO_SLOT) * CARGO_ROWS as f32 + GRID_ROW_GAP <= BODY_HEIGHT
-);
 
 /// Text size of a unit's code on the subject's tile, on a small tile, and on a queue slot.
 const SUBJECT_CODE_SIZE: f32 = 16.0;
 const SLOT_CODE_SIZE: f32 = 12.0;
 const QUEUE_CODE_SIZE: f32 = 11.0;
 
-/// Text size of the readouts under the subject, of the owner's name, of the kills count and of the
-/// percentage on a progress line.
+/// Text size of the subject's name, of the readouts under the subject, of the owner's name, of the
+/// kills count, and of the name and the percentage on a progress line.
+const NAME_SIZE: f32 = 17.0;
 const READOUT_SIZE: f32 = 14.0;
-const OWNER_NAME_SIZE: f32 = 16.0;
+const OWNER_NAME_SIZE: f32 = 15.0;
 const KILLS_SIZE: f32 = 15.0;
+const PROGRESS_NAME_SIZE: f32 = 13.0;
 const PERCENT_SIZE: f32 = 14.0;
 
 /// How much of itself an empty queue slot is drawn at: faint, because it is the queue's shape rather
@@ -350,8 +381,10 @@ fn draw_grid(ui: &Ui, body: Rect, units: &[SelectedUnitView]) {
     }
 }
 
-/// Draws a selection of one: the unit with what it has left under it, then whose it is beside it,
-/// and whatever it is making or carrying under that.
+/// Draws a selection of one: the unit with what it has left under it, then its name and whose it is
+/// beside it, and whatever it is making or carrying under that.
+///
+/// A unit the host has no name for leaves no gap for one: the owner's line heads the column instead.
 fn draw_subject(ui: &Ui, body: Rect, unit: &SelectedUnitView, case: SelectionCase) {
     let column = Rect::from_min_size(body.left_top(), vec2(SUBJECT_COLUMN, BODY_HEIGHT));
     let tile = Rect::from_min_size(
@@ -367,15 +400,23 @@ fn draw_subject(ui: &Ui, body: Rect, unit: &SelectedUnitView, case: SelectionCas
         pos2(body.left() + TEXT_LEFT, body.top()),
         vec2(TEXT_WIDTH, BODY_HEIGHT),
     );
+    let mut top = text.top();
+    if let Some(name) = &unit.name {
+        paint_text(
+            ui,
+            Rect::from_min_size(pos2(text.left(), top), vec2(TEXT_WIDTH, NAME_ROW)),
+            &text::body(NAME_SIZE, text::BodyWeight::Semibold),
+            name,
+            Align::LEFT,
+        );
+        top += NAME_ROW;
+    }
     draw_owner(
         ui,
-        Rect::from_min_size(text.left_top(), vec2(TEXT_WIDTH, OWNER_ROW)),
+        Rect::from_min_size(pos2(text.left(), top), vec2(TEXT_WIDTH, OWNER_ROW)),
         unit,
     );
-    let below = Rect::from_min_max(
-        pos2(text.left(), text.top() + OWNER_ROW + OWNER_LEAD),
-        text.max,
-    );
+    let below = Rect::from_min_max(pos2(text.left(), top + OWNER_ROW + OWNER_LEAD), text.max);
     match (case, &unit.production) {
         (SelectionCase::Producing, Some(production)) => draw_production(ui, below, production),
         (SelectionCase::Loaded, _) => draw_cargo(ui, below, &unit.cargo),
@@ -424,7 +465,7 @@ fn draw_owner(ui: &Ui, rect: Rect, unit: &SelectedUnitView) {
     paint_text(
         ui,
         Rect::from_min_max(pos2(bar.right() + OWNER_GAP, rect.top()), rect.max),
-        &text::player_name(OWNER_NAME_SIZE).with_color(theme::TEXT_PRIMARY),
+        &text::player_name(OWNER_NAME_SIZE).with_color(theme::TEXT_SECONDARY),
         &unit.owner_name,
         Align::LEFT,
     );
@@ -456,14 +497,14 @@ fn draw_kills(ui: &Ui, rect: Rect, kills: u32) {
 
 /// Draws what the subject is making the way the console draws its queue: a building training units
 /// gets the queue's row of slots, the first being what is worked on and the rest what waits behind
-/// it, with how far along the first one is under the row. Anything else is one thing worked through
-/// alone, and gets its one slot with the progress beside it.
+/// it, with what the first one is and how far along it is under the row. Anything else is one thing
+/// worked through alone, and gets its one slot with those beside it.
 fn draw_production(ui: &Ui, rect: Rect, production: &ProductionProgressView) {
     let progress = production.progress.clamp(0.0, 1.0);
     let first = Rect::from_min_size(rect.left_top(), vec2(QUEUE_SLOT, QUEUE_SLOT));
     paint_tile(ui, first, Some(theme::ACCENT), 1.0);
     paint_icon(ui, first, production.icon, QUEUE_CODE_SIZE);
-    let line = match &production.queue {
+    let block = match &production.queue {
         Some(queue) => {
             for index in 1..QUEUE_SLOTS {
                 let slot = first.translate(vec2(index as f32 * (QUEUE_SLOT + QUEUE_GAP), 0.0));
@@ -477,20 +518,31 @@ fn draw_production(ui: &Ui, rect: Rect, production: &ProductionProgressView) {
             }
             Rect::from_min_size(
                 pos2(rect.left(), first.bottom() + PROGRESS_LEAD),
-                vec2(QUEUE_WIDTH + PERCENT_GAP + PERCENT_WIDTH, PROGRESS_ROW),
+                vec2(QUEUE_WIDTH + PERCENT_GAP + PERCENT_WIDTH, PROGRESS_HEIGHT),
             )
         }
         None => Rect::from_min_size(
             pos2(
                 first.right() + QUEUE_GAP,
-                first.center().y - PROGRESS_ROW * 0.5,
+                first.center().y - PROGRESS_HEIGHT * 0.5,
             ),
             vec2(
                 QUEUE_WIDTH - QUEUE_SLOT - QUEUE_GAP + PERCENT_GAP + PERCENT_WIDTH,
-                PROGRESS_ROW,
+                PROGRESS_HEIGHT,
             ),
         ),
     };
+    if let Some(name) = &production.name {
+        paint_text(
+            ui,
+            Rect::from_min_size(block.left_top(), vec2(block.width(), PROGRESS_NAME_ROW)),
+            &text::body(PROGRESS_NAME_SIZE, text::BodyWeight::Medium)
+                .with_color(theme::TEXT_SECONDARY),
+            name,
+            Align::LEFT,
+        );
+    }
+    let line = Rect::from_min_max(pos2(block.left(), block.bottom() - PROGRESS_ROW), block.max);
     let track = centred(
         Rect::from_min_max(
             line.left_top(),
@@ -619,6 +671,7 @@ mod tests {
                 index,
                 size: None,
             },
+            name: None,
             owner_color: Color32::WHITE,
             owner_name: String::new(),
             owner: None,
@@ -697,6 +750,7 @@ mod tests {
                 index: 0x1E,
                 size: None,
             },
+            name: None,
             progress: 0.5,
             queue: Some(Vec::new()),
         });
