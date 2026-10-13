@@ -78,6 +78,7 @@ export function startReplay({
   startFrame,
   session,
   onLaunched,
+  onLaunchFailed,
 }: {
   path: string
   name?: string
@@ -87,6 +88,8 @@ export function startReplay({
   session?: ReplaySessionPlaybackControl
   /** Called with the launched game's id once the app has accepted its configuration. */
   onLaunched?: (gameId: string) => void
+  /** Called if the replay can't be launched at all. */
+  onLaunchFailed?: () => void
 }): ThunkAction {
   return healthChecked((dispatch, getState) => {
     const { gameClient, settings } = getState()
@@ -125,10 +128,13 @@ export function startReplay({
             if (gameId) {
               onLaunched?.(gameId)
               dispatch(openDialog({ type: DialogType.ReplayLoad, initData: { gameId } }))
+            } else {
+              onLaunchFailed?.()
             }
           },
           err => {
             logger.error(`Error starting replay file [${path}]: ${err?.stack ?? err}`)
+            onLaunchFailed?.()
             dispatch(
               openSimpleDialog(
                 i18n.t('replays.loading.initFailureTitle', 'Error loading replay'),
@@ -143,7 +149,7 @@ export function startReplay({
         )
       }),
     )
-  })
+  }, onLaunchFailed)
 }
 
 export function showReplayInfo(filePath: string) {

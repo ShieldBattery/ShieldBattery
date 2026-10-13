@@ -17,9 +17,6 @@ const AdminPanel = React.lazy(() => import('./admin/panel'))
 const LobbyView = React.lazy(async () => ({
   default: (await import('./lobbies/view')).LobbyView,
 }))
-const ReplaySessionView = React.lazy(async () => ({
-  default: (await import('./replay-sessions/replay-session-view')).ReplaySessionView,
-}))
 const LobbyLandingPage = React.lazy(async () => ({
   default: (await import('./lobbies/lobby-landing')).LobbyLandingPage,
 }))
@@ -125,10 +122,6 @@ export function AppRoutes({
       <Route path='/news/:id/*?' component={NewsPostPage} />
       <Route path='/news' component={NewsArchivePage} />
       <Route path='/play/*?' component={PlayRoot} />
-      <Route
-        path='/replay-sessions/:sessionId'
-        component={IS_ELECTRON ? ReplaySessionView : OnlyInAppPage}
-      />
       <Route path='/replays/*?' component={ReplaysRoot} />
       <Route path='/static-news/:id' component={StaticNewsRedirect} />
       <Route path='/users/*?' component={ProfileRouteComponent} />

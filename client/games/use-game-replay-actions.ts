@@ -5,7 +5,6 @@ import { GameRecordJson, GameReplayInfo } from '../../common/games/games'
 import { openSimpleDialog } from '../dialogs/action-creators'
 import logger from '../logging/logger'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { useCreateReplaySession } from '../replay-sessions/use-create-replay-session'
 import { watchReplayFromUrl } from '../replays/action-creators'
 
 export interface UseGameReplayActionsResult {
@@ -13,8 +12,6 @@ export interface UseGameReplayActionsResult {
   replayInfo: GameReplayInfo | undefined
   /** Downloads (if needed) and starts watching this game's replay. No-op if there isn't one. */
   onWatchReplay: () => void
-  /** Opens a replay session for this game's replay. No-op if there isn't one. */
-  onWatchWithOthers: () => void
 }
 
 /**
@@ -54,12 +51,5 @@ export function useGameReplayActions(
     )
   }
 
-  const createReplaySession = useCreateReplaySession()
-  const onWatchWithOthers = () => {
-    if (replayInfo) {
-      createReplaySession({ gameId: game.id })
-    }
-  }
-
-  return { replayInfo, onWatchReplay, onWatchWithOthers }
+  return { replayInfo, onWatchReplay }
 }

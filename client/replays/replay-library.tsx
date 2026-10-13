@@ -63,7 +63,6 @@ import { useRefreshToken } from '../network/refresh-token'
 import { LoadingDotsArea } from '../progress/dots'
 import { useUserLocalStorageValue } from '../react/state-hooks'
 import { useAppDispatch } from '../redux-hooks'
-import { useCreateReplaySession } from '../replay-sessions/use-create-replay-session'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
@@ -443,7 +442,6 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
   const locale = useFormatLocale()
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
-  const createReplaySession = useCreateReplaySession()
 
   const entryKey = useHistoryEntryKey()
   // Read once per mount: the store contract allows a lazy initializer since it runs at most once
@@ -782,9 +780,6 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
 
   const watchEntry = (entry: ReplayLibraryEntry) => {
     dispatch(startReplay({ path: entry.path, name: entry.fileName }))
-  }
-  const watchEntryWithOthers = (entry: ReplayLibraryEntry) => {
-    createReplaySession({ localPath: entry.path })
   }
   const revealEntry = (entry: ReplayLibraryEntry) => {
     ipcRenderer.invoke('pathsShowItemInFolder', entry.path)?.catch(swallowNonBuiltins)
@@ -1348,7 +1343,6 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
         canMoveUp={canMoveUp}
         canMoveDown={canMoveDown}
         onWatch={watchEntry}
-        onWatchWithOthers={watchEntryWithOthers}
         onReveal={revealEntry}
         onToggleBookmark={toggleBookmark}
         onAddToPlaylist={(playlistId, playlistName, entry) =>
@@ -1389,14 +1383,6 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
           onClick={() => {
             contextMenuPopoverProps.onDismiss()
             watchEntry(focusedEntry)
-          }}
-        />
-        <MenuItem
-          icon={<MaterialIcon icon='group' />}
-          text={t('replays.library.watchWithOthers', 'Watch with others')}
-          onClick={() => {
-            contextMenuPopoverProps.onDismiss()
-            watchEntryWithOthers(focusedEntry)
           }}
         />
         <MenuItem
