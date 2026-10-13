@@ -572,6 +572,7 @@ export function GameSetupForm({
                   forceAspectRatio={1}
                   size={512}
                   showInfoLayer={true}
+                  hasMapPoolChips={true}
                   onClick={disabled ? undefined : onChangeMap}
                 />
               </MapThumbnailWrapper>

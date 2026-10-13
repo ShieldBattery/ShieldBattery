@@ -2024,6 +2024,7 @@
     "details": {
       "editDescription": "Edit description",
       "editName": "Edit name",
+      "ladderPools": "Ladder pools: {{modes}}",
       "mapDescription": "Map description",
       "mapDescriptionRequired": "Enter a map description",
       "mapName": "Map name",

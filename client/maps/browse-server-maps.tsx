@@ -615,6 +615,7 @@ function MapSection({
               forceAspectRatio={1}
               size={layout.columnCount === 2 ? 512 : 256}
               showInfoLayer={true}
+              hasMapPoolChips={true}
               onClick={onMapClick ? () => onMapClick(mapId) : undefined}
               onAddToFavorites={onAddToFavorites}
               onRemoveFromFavorites={onRemoveFromFavorites}
