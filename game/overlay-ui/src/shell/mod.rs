@@ -916,7 +916,15 @@ impl Shell {
             self.frame_observer(ctx, view, views.transport.is_some(), &mut hit_rects);
         }
         let transport_shown = match views.transport {
-            Some(view) => self.frame_transport(ctx, view, &mut hit_rects),
+            Some(view) => {
+                // The plate's track is ticked with the timeline's events, which only the observer
+                // view carries: a replay without one has a plate and no ticks.
+                let events = views
+                    .observer
+                    .filter(|_| self.host.mode.is_spectating())
+                    .map_or(&[][..], |observer| &observer.timeline.events[..]);
+                self.frame_transport(ctx, view, events, &mut hit_rects)
+            }
             None => false,
         };
 
@@ -1283,6 +1291,9 @@ impl Shell {
         if self.prefs.graphs && !view.graphs.is_empty() && !graphs_fit {
             displaced.push(Panel::Graphs);
         }
+        // The panels that report on the game so far are ways back into it, where it can be moved
+        // through at all: a replay, with playback to move.
+        let seekable = self.seekable_replay();
         if let Some(outcome) = observer::render_graphs_view(
             &view.graphs,
             ctx,
@@ -1290,6 +1301,7 @@ impl Shell {
             graphs_top,
             right_floor,
             right_inset,
+            seekable.is_some(),
         ) {
             hit_rects.push(HitRect::new(outcome.rect));
             if let Some(series) = outcome.series {
@@ -1297,6 +1309,9 @@ impl Shell {
             }
             if let Some(per_player) = outcome.per_player {
                 self.prefs.graph_per_player = per_player;
+            }
+            if let (Some(replay), Some(secs)) = (seekable, outcome.seek_secs) {
+                self.queue_seek(replay.frame_at_secs(u64::from(secs)));
             }
         }
         let timeline_top =
@@ -1307,14 +1322,18 @@ impl Shell {
         {
             displaced.push(Panel::Timeline);
         }
-        if let Some(rect) = observer::render_timeline_view(
+        if let Some(outcome) = observer::render_timeline_view(
             &view.timeline,
             ctx,
             self.prefs.timeline,
             timeline_top,
             left_floor,
+            seekable.is_some(),
         ) {
-            hit_rects.push(HitRect::new(rect));
+            hit_rects.push(HitRect::new(outcome.rect));
+            if let (Some(replay), Some(secs)) = (seekable, outcome.clicked_secs) {
+                self.queue_seek(replay.event_seek_target(secs));
+            }
         }
 
         let dock = observer::render_obs_dock(
@@ -1374,12 +1393,19 @@ impl Shell {
         }
     }
 
+    /// The playback a click on a reporting panel moves, or `None` where nothing can be moved: a live
+    /// game, watched or played, only ever runs forwards.
+    fn seekable_replay(&self) -> Option<TransportView> {
+        self.transport.filter(|_| self.host.mode == Mode::Replay)
+    }
+
     /// Draws the replay transport and turns what the player did with it into intents, returning
-    /// whether the plate is on screen.
+    /// whether the plate is on screen. `events` are the timeline's, which its track is ticked with.
     fn frame_transport(
         &mut self,
         ctx: &Context,
         view: &TransportView,
+        events: &[observer::TimelineEventView],
         hit_rects: &mut Vec<HitRect>,
     ) -> bool {
         let outcome = render_transport_view(
@@ -1387,6 +1413,7 @@ impl Shell {
             ctx,
             self.prefs.shown(Panel::Transport),
             self.transport_placement,
+            events,
         );
         if let Some(outcome) = &outcome {
             hit_rects.push(HitRect::new(outcome.rect));
@@ -2402,6 +2429,17 @@ mod tests {
                 ready.seek_target(-crate::transport::SEEK_STEP_SECS)
             )]
         );
+    }
+
+    #[test]
+    fn only_a_replay_makes_the_reporting_panels_ways_back_into_the_game() {
+        let mut shell = spectating_shell();
+        assert_eq!(shell.seekable_replay(), None);
+        shell.transport = Some(replay());
+        assert_eq!(shell.seekable_replay(), Some(replay()));
+        // A live game being watched has no playback to move, whatever a host hands over.
+        shell.host.mode = Mode::Observing;
+        assert_eq!(shell.seekable_replay(), None);
     }
 
     #[test]

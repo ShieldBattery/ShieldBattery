@@ -57,16 +57,52 @@ pub struct Series<'a> {
 /// a card off the pointer listing what each of them is worth there. A host that forwards no pointer
 /// gets none of that and the same plot as ever.
 pub fn line_plot(ui: &mut Ui, series: &[Series<'_>], size: Vec2, span_secs: u32) -> Response {
-    let (rect, response) = ui.allocate_exact_size(size, Sense::hover());
-    if !ui.is_rect_visible(rect) {
-        return response;
-    }
+    draw_line_plot(ui, series, size, span_secs, None).response
+}
+
+/// What a clickable plot reported back.
+pub struct PlotResponse {
+    pub response: Response,
+    /// How far into the span the sample the pointer clicked on was taken, in seconds: the same time
+    /// the hover card was showing, so a click lands on exactly what was being read.
+    pub clicked_secs: Option<u32>,
+}
+
+/// The same plot, taking a click anywhere along it as a pick of the time under the pointer.
+///
+/// `click_hint` closes the hover card, saying what the click does: a plot that only looks like a
+/// chart gives nobody a reason to try clicking it.
+pub fn line_plot_clickable(
+    ui: &mut Ui,
+    series: &[Series<'_>],
+    size: Vec2,
+    span_secs: u32,
+    click_hint: &str,
+) -> PlotResponse {
+    draw_line_plot(ui, series, size, span_secs, Some(click_hint))
+}
+
+fn draw_line_plot(
+    ui: &mut Ui,
+    series: &[Series<'_>],
+    size: Vec2,
+    span_secs: u32,
+    click_hint: Option<&str>,
+) -> PlotResponse {
+    let sense = match click_hint {
+        Some(_) => Sense::click(),
+        None => Sense::hover(),
+    };
+    let (rect, response) = ui.allocate_exact_size(size, sense);
     let plot = Rect::from_min_max(
         pos2(rect.left() + Y_AXIS_WIDTH, rect.top() + LEGEND_HEIGHT),
         pos2(rect.right(), rect.bottom() - X_AXIS_HEIGHT),
     );
-    if !plot.is_positive() {
-        return response;
+    if !ui.is_rect_visible(rect) || !plot.is_positive() {
+        return PlotResponse {
+            response,
+            clicked_secs: None,
+        };
     }
 
     let painter = ui.painter();
@@ -108,6 +144,10 @@ pub fn line_plot(ui: &mut Ui, series: &[Series<'_>], size: Vec2, span_secs: u32)
     }
 
     let hover = hover_state(&response, plot, series, top_value);
+    let clicked_secs = hover
+        .as_ref()
+        .filter(|_| response.clicked())
+        .map(|hover| hover.seconds(span_secs));
     if let Some(hover) = &hover {
         ui.painter().add(Shape::line_segment(
             [pos2(hover.x, plot.top()), pos2(hover.x, plot.bottom())],
@@ -177,9 +217,19 @@ pub fn line_plot(ui: &mut Ui, series: &[Series<'_>], size: Vec2, span_secs: u32)
                 series[reading.series].color,
             );
         }
-        hover_card(ui, response.id.with("hover"), hover, series, span_secs);
+        hover_card(
+            ui,
+            response.id.with("hover"),
+            hover,
+            series,
+            span_secs,
+            click_hint,
+        );
     }
-    response
+    PlotResponse {
+        response,
+        clicked_secs,
+    }
 }
 
 /// One series' reading at the crosshair.
@@ -264,8 +314,16 @@ fn hover_state(
 }
 
 /// Hangs the readings off the pointer: when the sample was taken, then one row per series, biggest
-/// first, so the order on the card is the order the lines are stacked on the plot.
-fn hover_card(ui: &Ui, id: Id, hover: &Hover, series: &[Series<'_>], span_secs: u32) {
+/// first, so the order on the card is the order the lines are stacked on the plot, then what a
+/// click does for a plot that takes one.
+fn hover_card(
+    ui: &Ui,
+    id: Id,
+    hover: &Hover,
+    series: &[Series<'_>],
+    span_secs: u32,
+    click_hint: Option<&str>,
+) {
     let mut rows: Vec<(&Series<'_>, f32, bool)> = hover
         .readings
         .iter()
@@ -341,6 +399,14 @@ fn hover_card(ui: &Ui, id: Id, hover: &Hover, series: &[Series<'_>], span_secs: 
                 pos2(rect.right() - value.size().x, middle - value.size().y * 0.5),
                 value,
                 theme::TEXT_SECONDARY,
+            );
+        }
+        if let Some(hint) = click_hint {
+            ui.add_space(theme::SPACE_XS);
+            ui.label(
+                text::body(12.0, BodyWeight::Regular)
+                    .with_color(theme::TEXT_DIM)
+                    .job(hint),
             );
         }
     });

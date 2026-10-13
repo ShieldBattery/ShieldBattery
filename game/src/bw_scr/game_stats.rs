@@ -37,9 +37,9 @@ pub const MAX_SAMPLES: usize = 2 * 60 * 60;
 /// a new patch does not move the number, and short enough that a base lost is visible at once.
 const INCOME_WINDOW: usize = 60;
 
-/// How many timeline entries are kept. The panel draws six; the rest are what a taller feed or a
-/// scrollback would be built from, and they cost almost nothing to keep.
-const MAX_EVENTS: usize = 64;
+/// How many timeline entries are kept: enough for every building, upgrade and expansion of a long
+/// game, which a replay's seek bar marks, at a few bytes each.
+const MAX_EVENTS: usize = 512;
 
 /// How many unit, upgrade and technology entries are walked. These are the counts the game's own
 /// fixed-size tables hold; a mod with more entries than this is simply not reported on past them.

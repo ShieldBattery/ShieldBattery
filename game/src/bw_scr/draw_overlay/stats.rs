@@ -30,9 +30,10 @@ use super::{
 /// would lose the shape of a fight, more would be line segments too short to see.
 const GRAPH_POINTS: usize = 180;
 
-/// How many timeline entries are handed over. More than the panel draws, so the six it shows are
-/// still the six newest after any of them is filtered out.
-const TIMELINE_DEPTH: usize = 24;
+/// How many timeline entries are handed over. Far more than the panel draws: the panel shows the
+/// newest that fit, and a replay's seek bar marks every one of them, which is what lets a watcher
+/// go back to anything they have seen happen.
+const TIMELINE_DEPTH: usize = 256;
 
 /// One player as every stats wing names them.
 pub struct StatsPlayer {

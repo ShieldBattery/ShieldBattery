@@ -49,9 +49,9 @@ const GRAPH_POINTS: usize = 120;
 /// How often the fake game puts something on the timeline, in seconds of game time.
 const EVENT_INTERVAL_SECS: u64 = 37;
 
-/// How many events the fake game keeps. More than the panel draws, so a host that grew the feed
-/// would have something to grow it with.
-const TIMELINE_DEPTH: usize = 12;
+/// How many events the fake game hands over, which is as many as the game DLL does: more than the
+/// panel draws, and what the replay plate's track is ticked with.
+const TIMELINE_DEPTH: usize = 24;
 
 /// What the fake game's timeline events are about, walked in turn: something is built, an upgrade
 /// runs its course, an expansion goes up, a technology runs its course.
@@ -1003,6 +1003,10 @@ pub enum Showcase {
     VisionPicker,
 }
 
+/// Where along the replay plate's track the marker hover rests, as the plate stands on the duel's
+/// analyst screen: on a tick well clear of the playhead, so the card is not read against its glow.
+const TRACK_MARKER_X: f32 = 1640.0;
+
 /// Where a preset rests the pointer, for the readings the overlay only gives while it is hovered.
 ///
 /// An offline render has no pointer of its own, so a screen whose whole point is what the pointer
@@ -1016,6 +1020,10 @@ pub enum Hover {
     Graphs,
     /// Over the economy row's keycap on the collapsed dock.
     DockEconomy,
+    /// Over one of the timeline's rows, which in a replay says what clicking it does.
+    TimelineRow,
+    /// Over one of the markers ticked along the replay plate's track.
+    TrackMarker,
 }
 
 impl Hover {
@@ -1025,6 +1033,8 @@ impl Hover {
             Hover::None => None,
             Hover::Graphs => Some((1550.0, 380.0)),
             Hover::DockEconomy => Some((1878.0, 402.0)),
+            Hover::TimelineRow => Some((250.0, 336.0)),
+            Hover::TrackMarker => Some((TRACK_MARKER_X, 996.0)),
         }
     }
 
@@ -1034,6 +1044,8 @@ impl Hover {
             Hover::None => "",
             Hover::Graphs => "graph-hover",
             Hover::DockEconomy => "dock-hover",
+            Hover::TimelineRow => "timeline-hover",
+            Hover::TrackMarker => "marker-hover",
         }
     }
 }
@@ -1086,7 +1098,7 @@ impl Preset {
         }
     }
 
-    pub const ALL: [Preset; 23] = [
+    pub const ALL: [Preset; 25] = [
         Preset::game(2, 1, Screen::Minimal),
         Preset::game(2, 1, Screen::Standard),
         Preset::game(2, 1, Screen::Analyst),
@@ -1123,6 +1135,8 @@ impl Preset {
         },
         Preset::hover_showcase(Hover::Graphs),
         Preset::hover_showcase(Hover::DockEconomy),
+        Preset::hover_showcase(Hover::TimelineRow),
+        Preset::hover_showcase(Hover::TrackMarker),
     ];
 
     /// What a render of this preset is filed under: the shape of its game, then its screen.

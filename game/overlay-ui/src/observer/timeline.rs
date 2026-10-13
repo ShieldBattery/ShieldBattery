@@ -9,8 +9,11 @@
 //! several hundred units, upgrades and technologies, the game does not hand out their names in a
 //! form the overlay can read, and a caster recognises the icon faster than they read a word anyway.
 //! A host with no icon atlas draws the icon's number instead, which is enough to judge the layout.
+//!
+//! In a replay a row is also a way back to its moment: clicking one moves playback to just before
+//! it, so the watcher sees it happen rather than arriving after it has.
 
-use egui::{Align, Color32, Context, Id, Rect, Sense, Ui, pos2, vec2};
+use egui::{Align, Color32, Context, Id, Pos2, Rect, Sense, Ui, pos2, vec2};
 
 use crate::kit::text::{self, BodyWeight};
 use crate::kit::theme;
@@ -82,7 +85,7 @@ pub enum TimelineEventKind {
 
 impl TimelineEventKind {
     /// What the row says happened. The thing it happened to is named by the icon beside it.
-    fn label(self) -> String {
+    pub(crate) fn label(self) -> String {
         match self {
             TimelineEventKind::BuildingCompleted => tr!("observer.eventBuilt", "Built"),
             TimelineEventKind::ExpansionTaken => tr!("observer.eventExpansion", "Expansion"),
@@ -143,19 +146,31 @@ pub(crate) fn fits(top: f32, floor: f32) -> bool {
     rows_that_fit(top, floor) > 0
 }
 
+/// What the watcher did with the timeline this frame.
+pub struct TimelineOutcome {
+    /// Where the panel is on screen, for the host's hit testing.
+    pub rect: Rect,
+    /// How far into the game the event whose row was clicked happened, in seconds.
+    pub clicked_secs: Option<u64>,
+}
+
 /// Draws the timeline against the left edge of the screen at `top`, fading and sliding it in and
 /// out. Returns nothing at all once it is gone, or before anything has happened.
 ///
 /// The panel ends above `floor`, dropping its oldest rows to do so: it is the lowest thing hung on
 /// the left edge, and under it is the corner the game's minimap owns. A feed short a few rows is
 /// still the feed; a feed drawn over the minimap is neither.
+///
+/// `seekable` is whether the game being watched can be moved to a time, which only a replay can: a
+/// row then answers the pointer, says what a click on it does, and reports the click.
 pub fn render_timeline_view(
     view: &TimelineView,
     ctx: &Context,
     shown: bool,
     top: f32,
     floor: f32,
-) -> Option<Rect> {
+    seekable: bool,
+) -> Option<TimelineOutcome> {
     let id = Id::new("sb_timeline_panel");
     let rows = rows_that_fit(top, floor);
     let inner = wing_panel(
@@ -165,22 +180,66 @@ pub fn render_timeline_view(
         top,
         PANEL_WIDTH,
         shown && !view.is_empty() && rows > 0,
-        |ui| draw_panel(ui, view, rows),
+        |ui| draw_panel(ui, view, rows, seekable),
     )?;
-    Some(inner.response.rect)
+    Some(TimelineOutcome {
+        rect: inner.response.rect,
+        clicked_secs: inner.inner,
+    })
 }
 
-fn draw_panel(ui: &mut Ui, view: &TimelineView, rows: usize) {
+/// Draws the panel, returning when the event whose row was clicked happened.
+fn draw_panel(ui: &mut Ui, view: &TimelineView, rows: usize, seekable: bool) -> Option<u64> {
     widgets::panel_header(ui, &tr!("observer.panelTimeline", "Timeline"), Some("T"));
+    let mut clicked = None;
     for index in 0..rows {
         if index > 0 {
             ui.add_space(STAT_ROW_GAP);
         }
-        let (row, _) = ui.allocate_exact_size(vec2(CONTENT_WIDTH, ROW_HEIGHT), Sense::hover());
-        if let Some(event) = view.events.get(index) {
-            draw_row(ui, row, event);
+        let event = view.events.get(index);
+        // Only a row with something on it is a target: an empty row has no moment to go back to.
+        let sense = match seekable && event.is_some() {
+            true => Sense::click(),
+            false => Sense::hover(),
+        };
+        let (row, response) = ui.allocate_exact_size(vec2(CONTENT_WIDTH, ROW_HEIGHT), sense);
+        let Some(event) = event else {
+            continue;
+        };
+        if seekable {
+            // The kit's wash runs a little past the row's own cells, so the row reads as one
+            // target rather than as its clock or its text.
+            let wash = row.expand2(vec2(theme::SPACE_XS, STAT_ROW_GAP * 0.5));
+            widgets::state_overlay(ui, &response, wash, theme::radius(theme::RADIUS_TIGHT));
+            if let Some(pointer) = response.hover_pos() {
+                draw_seek_hint(ui, pointer);
+            }
+            if response.clicked() {
+                clicked = Some(event.secs);
+            }
         }
+        draw_row(ui, row, event);
     }
+    clicked
+}
+
+/// Says what clicking the row under the pointer does.
+fn draw_seek_hint(ui: &Ui, pointer: Pos2) {
+    widgets::tooltip(ui.ctx(), Id::new("sb_timeline_seek_hint"), pointer, |ui| {
+        ui.label(
+            text::body(12.0, BodyWeight::Regular)
+                .with_color(theme::TEXT_SECONDARY)
+                .job(&seek_hint()),
+        );
+    });
+}
+
+/// What clicking an event does in a replay, wherever an event can be clicked.
+pub(crate) fn seek_hint() -> String {
+    tr!(
+        "observer.timelineSeekHint",
+        "Click to jump to just before this"
+    )
 }
 
 /// Draws one row: when it happened, whose it was, what it was about, and what happened to it.
@@ -260,7 +319,8 @@ mod tests {
                 ..Default::default()
             };
             ctx.begin_pass(raw);
-            height = render_timeline_view(view, &ctx, true, top, floor).map(|rect| rect.height());
+            height = render_timeline_view(view, &ctx, true, top, floor, false)
+                .map(|outcome| outcome.rect.height());
             let mut out = ctx.end_pass();
             let _ = ctx.tessellate(out.shapes, ctx.pixels_per_point());
             out.textures_delta.clear();

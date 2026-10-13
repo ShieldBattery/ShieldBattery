@@ -3,7 +3,7 @@
 
 use std::ops::RangeInclusive;
 
-use egui::{Rect, Response, Sense, Shape, Stroke, StrokeKind, Ui, Vec2, pos2, vec2};
+use egui::{Color32, Pos2, Rect, Response, Sense, Shape, Stroke, StrokeKind, Ui, Vec2, pos2, vec2};
 
 use crate::colors::{
     BLUE60, BLUE70, BLUE80, BLUE95, BLUE99, GREY_BLUE40, GREY_BLUE60, GREY_BLUE70,
@@ -27,6 +27,18 @@ const SCRUB_BAR: f32 = 5.0;
 const SCRUB_HEAD: f32 = 5.5;
 /// Corner radius of the bar, which is round enough at this thickness to read as a capsule.
 const SCRUB_RADIUS: u8 = 2;
+/// A scrub track's marker: a tick standing just above the bar, as tall as this and this far clear
+/// of it. Small enough to stay part of the track rather than a row of its own.
+const MARKER_HEIGHT: f32 = 4.5;
+const MARKER_GAP: f32 = 2.0;
+/// How much taller and wider the marker the pointer is resting on is drawn.
+const MARKER_HOVER_GROW: f32 = 2.0;
+/// How far either side of a marker the pointer may be and still be on it. Wider than the tick by a
+/// good margin: a one-point target is not one anybody can hit on purpose.
+const MARKER_REACH: f32 = 4.0;
+/// How strongly a marker is drawn while nothing is pointing at it. The track is ambient chrome, and
+/// a row of full-strength player colors along it would read louder than the playhead.
+const MARKER_ALPHA: f32 = 0.7;
 /// Radius of a slider's knob.
 const SLIDER_KNOB: f32 = 8.0;
 /// Room kept to the right of a slider for its value, and the size that value is set at.
@@ -280,6 +292,19 @@ pub struct ScrubTrack {
     /// Where the pointer is asking to move to, from 0 to 1, while it is pressing the track.
     /// `None` on every frame the player is not moving it.
     pub target: Option<f32>,
+    /// Which of the track's markers the pointer is resting on, as an index into the ones it was
+    /// given.
+    pub hovered_marker: Option<usize>,
+    /// Which marker was clicked this frame.
+    pub clicked_marker: Option<usize>,
+}
+
+/// One moment called out along a scrub track.
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub struct TrackMarker {
+    /// How far along the track it stands, from 0 to 1.
+    pub fraction: f32,
+    pub color: Color32,
 }
 
 /// A track carrying a playhead: the part already behind it is filled, and a click or a drag
@@ -289,17 +314,60 @@ pub struct ScrubTrack {
 /// says, because whatever is being scrubbed takes time to follow: a head that snapped back to the
 /// old position every frame could not be dragged at all.
 pub fn scrub_track(ui: &mut Ui, fraction: f32, size: Vec2) -> ScrubTrack {
+    scrub_track_marked(ui, fraction, size, &[])
+}
+
+/// A scrub track with `markers` ticked along it, just above the bar.
+///
+/// A marker is a target of its own: the pointer resting on one reports it, and a press that starts
+/// on one is a click on that marker rather than the start of a scrub, so aiming at a moment never
+/// also drags the playhead to wherever the press happened to land. Everywhere else the track
+/// scrubs exactly as it does without them.
+pub fn scrub_track_marked(
+    ui: &mut Ui,
+    fraction: f32,
+    size: Vec2,
+    markers: &[TrackMarker],
+) -> ScrubTrack {
     let (rect, response) = ui.allocate_exact_size(size, Sense::click_and_drag());
     let bar = Rect::from_min_max(
         pos2(rect.left() + SCRUB_HEAD, rect.center().y - SCRUB_BAR * 0.5),
         pos2(rect.right() - SCRUB_HEAD, rect.center().y + SCRUB_BAR * 0.5),
     );
-    let target = response.interact_pointer_pos().map(|pointer| {
-        ((pointer.x - bar.left()) / bar.width().max(f32::MIN_POSITIVE)).clamp(0.0, 1.0)
-    });
+    let marker_xs: Vec<f32> = markers
+        .iter()
+        .map(|marker| bar.left() + bar.width() * marker.fraction.clamp(0.0, 1.0))
+        .collect();
+    // Markers are only aimed at above the bar, so a press on the bar itself always scrubs however
+    // close to a marker it lands.
+    let marker_at = |pos: Pos2| {
+        let band = Rect::from_min_max(rect.left_top(), pos2(rect.right(), bar.top()));
+        band.contains(pos)
+            .then(|| nearest_marker(&marker_xs, pos.x, MARKER_REACH))
+            .flatten()
+    };
+    let hovered_marker = response.hover_pos().and_then(marker_at);
+    // The press is judged by where it started: once the button is released the input no longer
+    // says, but a click is a press that never moved, so where it is now is where it began.
+    let pressed_at = ui
+        .input(|input| input.pointer.press_origin())
+        .or(response.interact_pointer_pos());
+    let pressed_marker = pressed_at.and_then(marker_at);
+    let clicked_marker = response.clicked().then_some(pressed_marker).flatten();
+    let target = match pressed_marker {
+        Some(_) => None,
+        None => response.interact_pointer_pos().map(|pointer| {
+            ((pointer.x - bar.left()) / bar.width().max(f32::MIN_POSITIVE)).clamp(0.0, 1.0)
+        }),
+    };
     let drawn = target.unwrap_or(fraction).clamp(0.0, 1.0);
     if !ui.is_rect_visible(rect) {
-        return ScrubTrack { response, target };
+        return ScrubTrack {
+            response,
+            target,
+            hovered_marker,
+            clicked_marker,
+        };
     }
 
     let corner_radius = theme::radius(SCRUB_RADIUS);
@@ -311,6 +379,26 @@ pub fn scrub_track(ui: &mut Ui, fraction: f32, size: Vec2) -> ScrubTrack {
         painter.rect_filled(played, corner_radius, BLUE60);
     }
 
+    // Under the playhead, which is the one thing on the track that must never be hidden.
+    for (index, (marker, x)) in markers.iter().zip(&marker_xs).enumerate() {
+        let (grow, color) = match hovered_marker == Some(index) {
+            true => (MARKER_HOVER_GROW, marker.color),
+            false => (0.0, marker.color.gamma_multiply(MARKER_ALPHA)),
+        };
+        let bottom = bar.top() - MARKER_GAP;
+        painter.rect_filled(
+            Rect::from_min_max(
+                pos2(
+                    x - (theme::HAIRLINE + grow) * 0.5,
+                    bottom - MARKER_HEIGHT - grow,
+                ),
+                pos2(x + (theme::HAIRLINE + grow) * 0.5, bottom),
+            ),
+            0,
+            color,
+        );
+    }
+
     let head = pos2(played.right(), bar.center().y);
     if response.hovered() || response.is_pointer_button_down_on() {
         for (step, alpha) in [(2.0f32, 0.35f32), (4.0, 0.16), (6.0, 0.07)] {
@@ -319,7 +407,28 @@ pub fn scrub_track(ui: &mut Ui, fraction: f32, size: Vec2) -> ScrubTrack {
     }
     painter.circle_filled(head, SCRUB_HEAD, BLUE99);
     focus_ring(ui, &response, rect, corner_radius);
-    ScrubTrack { response, target }
+    ScrubTrack {
+        response,
+        target,
+        hovered_marker,
+        clicked_marker,
+    }
+}
+
+/// Which of the markers drawn at `xs` the pointer at `x` is on: the nearest one no further than
+/// `reach` from it, or `None` with none that close.
+///
+/// A tie goes to the later marker, which is the one drawn over the other.
+fn nearest_marker(xs: &[f32], x: f32, reach: f32) -> Option<usize> {
+    xs.iter()
+        .enumerate()
+        .map(|(index, marker)| (index, (marker - x).abs()))
+        .filter(|(_, distance)| *distance <= reach)
+        .reduce(|best, candidate| match candidate.1 <= best.1 {
+            true => candidate,
+            false => best,
+        })
+        .map(|(index, _)| index)
 }
 
 /// A value between two bounds, with the value itself shown in condensed numerals beside it.
@@ -551,5 +660,25 @@ fn fitted_labels(natural: &[f32], room: f32) -> Vec<f32> {
             fitted[index] = Some(natural[index]);
             left -= natural[index];
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_pointer_is_on_the_nearest_marker_within_reach() {
+        let xs = [10.0, 30.0, 33.0];
+        assert_eq!(nearest_marker(&xs, 12.0, MARKER_REACH), Some(0));
+        assert_eq!(nearest_marker(&xs, 31.0, MARKER_REACH), Some(1));
+        assert_eq!(nearest_marker(&xs, 32.0, MARKER_REACH), Some(2));
+        assert_eq!(nearest_marker(&xs, 20.0, MARKER_REACH), None);
+        assert_eq!(nearest_marker(&[], 20.0, MARKER_REACH), None);
+    }
+
+    #[test]
+    fn two_markers_drawn_on_one_spot_answer_as_the_one_drawn_on_top() {
+        assert_eq!(nearest_marker(&[50.0, 50.0], 50.0, MARKER_REACH), Some(1));
     }
 }

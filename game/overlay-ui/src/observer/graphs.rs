@@ -167,6 +167,8 @@ pub struct GraphsOutcome {
     pub series: Option<GraphSeries>,
     /// Whether the lines should be the players rather than the sides they are on.
     pub per_player: Option<bool>,
+    /// How far into the game the watcher clicked the plot, in seconds, for a plot that takes clicks.
+    pub seek_secs: Option<u32>,
 }
 
 /// Draws the graphs panel against the right edge of the screen at `top`, fading and sliding it in
@@ -176,6 +178,9 @@ pub struct GraphsOutcome {
 /// The panel ends above `floor`, shortening its plot to do so, and gives way altogether where even
 /// the shortest plot would not: it is the last thing on the right edge, and a plot too short to
 /// show two lines crossing is not worth the room it would take from the game.
+///
+/// `seekable` is whether the game being watched can be moved to a time, which only a replay can:
+/// the plot then takes a click as a pick of the time under the pointer, and its hover card says so.
 pub fn render_graphs_view(
     view: &GraphsView,
     ctx: &Context,
@@ -183,6 +188,7 @@ pub fn render_graphs_view(
     top: f32,
     floor: f32,
     right_inset: f32,
+    seekable: bool,
 ) -> Option<GraphsOutcome> {
     let id = Id::new("sb_graphs_panel");
     let plot = plot_height(top, floor);
@@ -193,17 +199,24 @@ pub fn render_graphs_view(
         top,
         PANEL_WIDTH,
         shown && !view.is_empty() && plot.is_some(),
-        |ui| draw_panel(ui, view, plot.unwrap_or(MIN_PLOT_HEIGHT)),
+        |ui| draw_panel(ui, view, plot.unwrap_or(MIN_PLOT_HEIGHT), seekable),
     )?;
-    let (series, per_player) = inner.inner;
+    let ((series, per_player), seek_secs) = inner.inner;
     Some(GraphsOutcome {
         rect: inner.response.rect,
         series,
         per_player,
+        seek_secs,
     })
 }
 
-fn draw_panel(ui: &mut Ui, view: &GraphsView, plot: f32) -> (Option<GraphSeries>, Option<bool>) {
+/// Draws the panel, returning what its tabs picked and the time a click on the plot picked.
+fn draw_panel(
+    ui: &mut Ui,
+    view: &GraphsView,
+    plot: f32,
+    seekable: bool,
+) -> ((Option<GraphSeries>, Option<bool>), Option<u32>) {
     widgets::panel_header(ui, &tr!("observer.panelGraphs", "Graphs"), Some("G"));
     let picked = ui
         .allocate_ui_with_layout(
@@ -228,8 +241,15 @@ fn draw_panel(ui: &mut Ui, view: &GraphsView, plot: f32) -> (Option<GraphSeries>
             filled: false,
         })
         .collect();
-    widgets::line_plot(ui, &series, vec2(CONTENT_WIDTH, plot), view.span_secs);
-    picked
+    let size = vec2(CONTENT_WIDTH, plot);
+    let seek_secs = if seekable {
+        let hint = tr!("observer.graphSeekHint", "Click to jump here");
+        widgets::line_plot_clickable(ui, &series, size, view.span_secs, &hint).clicked_secs
+    } else {
+        widgets::line_plot(ui, &series, size, view.span_secs);
+        None
+    };
+    (picked, seek_secs)
 }
 
 /// Draws the row under the header: the measurements on the left, and what the lines stand for at
@@ -314,7 +334,8 @@ mod tests {
         };
         for floor in [1000.0, 100.0 + CHROME_HEIGHT + MIN_PLOT_HEIGHT + 20.0] {
             let rect = crate::observer::test_support::settled_rect(|ctx| {
-                render_graphs_view(&view, ctx, true, 100.0, floor, 0.0).map(|outcome| outcome.rect)
+                render_graphs_view(&view, ctx, true, 100.0, floor, 0.0, false)
+                    .map(|outcome| outcome.rect)
             })
             .expect("the panel is drawn");
             assert_eq!(

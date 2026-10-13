@@ -16,16 +16,22 @@
 //!
 //! Playback state is not read off the game but tracked from the commands that change it, so the
 //! numbers here are whatever the last speed command said — ours or SC:R's own plate's.
+//!
+//! The standard form's track is ticked with the timeline's events, each one a way back to its
+//! moment. The spoiler-free form has no track and so no ticks: a tick stands at its fraction of the
+//! replay's length, which is the very thing that form withholds.
 
 use egui::{
-    Align, Align2, Area, Color32, Context, Id, Layout, Order, Rect, Response, Sense, Shape, Stroke,
-    StrokeKind, Ui, Vec2, pos2, vec2,
+    Align, Align2, Area, Color32, Context, Id, Layout, Order, Pos2, Rect, Response, Sense, Shape,
+    Stroke, StrokeKind, Ui, Vec2, pos2, vec2,
 };
 
 use crate::colors::{BLUE60, BLUE80};
 use crate::kit::text::{self, BodyWeight};
-use crate::kit::widgets::{self, TagStyle};
+use crate::kit::widgets::{self, TagStyle, TrackMarker};
 use crate::kit::{motion, theme, tiers};
+use crate::observer::TimelineEventView;
+use crate::observer::timeline::seek_hint;
 use crate::tr;
 
 /// How wide the plate is, in overlay points.
@@ -127,6 +133,14 @@ pub const SEEK_STEP_SECS: i32 = 10;
 
 /// How far they move it with `Shift` held.
 pub const SEEK_STEP_LONG_SECS: i32 = 60;
+
+/// How far ahead of an event a jump to it lands, in seconds. An event is stamped with the moment it
+/// finished, so landing on that moment would show its result rather than it happening; a few
+/// seconds earlier is enough to see it come about without having to wait for it.
+pub const SEEK_LEAD_IN_SECS: u64 = 5;
+
+/// Diameter of the dot naming whose event a track marker is, on the card it hangs off the pointer.
+const MARKER_CARD_DOT: f32 = 8.0;
 
 /// Milliseconds one frame takes at each of the classic game speeds, which is what turns a frame
 /// count into game time. Constant: this is the recorded speed the replay's frames were simulated
@@ -331,6 +345,20 @@ impl TransportView {
         frame.clamp(0, i64::from(self.end_frames)) as u32
     }
 
+    /// The frame `secs` of game time in, clamped to the replay.
+    pub fn frame_at_secs(&self, secs: u64) -> u32 {
+        let secs = i64::try_from(secs)
+            .unwrap_or(i64::MAX)
+            .min(i64::from(u32::MAX));
+        self.frame_at(seconds_to_frames(secs, self.game_speed))
+    }
+
+    /// Where a jump to an event `secs` of game time in lands: [`SEEK_LEAD_IN_SECS`] ahead of it,
+    /// or the start of the replay for an event closer to the start than that.
+    pub fn event_seek_target(&self, secs: u64) -> u32 {
+        self.frame_at_secs(secs.saturating_sub(SEEK_LEAD_IN_SECS))
+    }
+
     /// The rung playback is standing on.
     pub fn step(&self) -> SpeedStep {
         SPEED_LADDER[current_step(self.speed_index, self.multiplier)]
@@ -392,11 +420,14 @@ impl TransportPlacement {
 
 /// Draws the transport plate at `placement`, fading and sliding it in and out. Returns nothing at
 /// all once it is gone, which is when the game's own plate may come back.
+///
+/// `events` are the timeline's, which the standard form's track is ticked with.
 pub fn render_transport_view(
     view: &TransportView,
     ctx: &Context,
     shown: bool,
     placement: TransportPlacement,
+    events: &[TimelineEventView],
 ) -> Option<TransportOutcome> {
     let id = Id::new("sb_replay_transport");
     let area = Area::new(id)
@@ -411,7 +442,7 @@ pub fn render_transport_view(
     let inner = motion::presence_area(ctx, id.with("presence"), shown, area, |ui| {
         tiers::tier0_panel(ui, |ui| {
             ui.set_width(CONTENT_WIDTH);
-            draw_plate(ui, view)
+            draw_plate(ui, view, events)
         })
         .inner
     })?;
@@ -420,7 +451,7 @@ pub fn render_transport_view(
     Some(outcome)
 }
 
-fn draw_plate(ui: &mut Ui, view: &TransportView) -> TransportOutcome {
+fn draw_plate(ui: &mut Ui, view: &TransportView, events: &[TimelineEventView]) -> TransportOutcome {
     // The rows are stacked by the gaps written here and by nothing else: the plate's height is the
     // footprint its two forms share, and egui's own spacing between items would add to it.
     ui.spacing_mut().item_spacing = Vec2::ZERO;
@@ -431,7 +462,7 @@ fn draw_plate(ui: &mut Ui, view: &TransportView) -> TransportOutcome {
         if view.spoiler_free {
             draw_hidden_length(ui, &mut outcome);
         } else {
-            draw_track_row(ui, view, &mut outcome);
+            draw_track_row(ui, view, events, &mut outcome);
         }
     });
     ui.add_space(ROW_GAP);
@@ -509,10 +540,26 @@ fn draw_speed_stepper(ui: &mut Ui, view: &TransportView, outcome: &mut Transport
 
 /// The track row of the standard form: where the replay is, how long it runs, and the one click
 /// that stops saying so.
-fn draw_track_row(ui: &mut Ui, view: &TransportView, outcome: &mut TransportOutcome) {
-    let track = widgets::scrub_track(ui, view.progress(), vec2(TRACK_WIDTH, TRACK_ROW));
+fn draw_track_row(
+    ui: &mut Ui,
+    view: &TransportView,
+    events: &[TimelineEventView],
+    outcome: &mut TransportOutcome,
+) {
+    let marked = marked_events(view, events);
+    let markers: Vec<TrackMarker> = marked.iter().map(|(_, marker)| *marker).collect();
+    let track =
+        widgets::scrub_track_marked(ui, view.progress(), vec2(TRACK_WIDTH, TRACK_ROW), &markers);
     if let Some(target) = track.target {
         outcome.seek_to = Some(view.seek_fraction(target));
+    }
+    if let Some((event, _)) = track.clicked_marker.and_then(|index| marked.get(index)) {
+        outcome.seek_to = Some(view.event_seek_target(event.secs));
+    }
+    if let Some((event, _)) = track.hovered_marker.and_then(|index| marked.get(index))
+        && let Some(pointer) = track.response.hover_pos()
+    {
+        draw_marker_card(ui, pointer, event);
     }
     ui.add_space(ITEM_GAP);
     clock(
@@ -527,6 +574,68 @@ fn draw_track_row(ui: &mut Ui, view: &TransportView, outcome: &mut TransportOutc
     if eye_button(ui).clicked() {
         outcome.spoiler_free = Some(true);
     }
+}
+
+/// The events the track is ticked with, each beside the marker standing for it.
+///
+/// None at all in the spoiler-free form, and none for a replay whose header carries no length: a
+/// marker stands at its fraction of the replay, so a marker ahead of the playhead says the game runs
+/// at least that long and every marker together says how far through it playback is. An event past
+/// the replay's end has no place on the track and is left off it.
+fn marked_events<'a>(
+    view: &TransportView,
+    events: &'a [TimelineEventView],
+) -> Vec<(&'a TimelineEventView, TrackMarker)> {
+    if view.spoiler_free || view.end_frames == 0 {
+        return Vec::new();
+    }
+    events
+        .iter()
+        .filter_map(|event| {
+            let secs = i64::try_from(event.secs).ok()?;
+            let frame = seconds_to_frames(secs, view.game_speed);
+            (frame <= i64::from(view.end_frames)).then(|| {
+                let marker = TrackMarker {
+                    fraction: frame as f32 / view.end_frames as f32,
+                    color: event.color,
+                };
+                (event, marker)
+            })
+        })
+        .collect()
+}
+
+/// Names the event under the pointer, when it happened and what clicking it does.
+fn draw_marker_card(ui: &Ui, pointer: Pos2, event: &TimelineEventView) {
+    widgets::tooltip(
+        ui.ctx(),
+        Id::new("sb_replay_transport").with("marker"),
+        pointer,
+        |ui| {
+            ui.spacing_mut().item_spacing = vec2(theme::SPACE_SM, theme::SPACE_XS);
+            ui.horizontal(|ui| {
+                let (dot, _) =
+                    ui.allocate_exact_size(vec2(MARKER_CARD_DOT, MARKER_CARD_DOT), Sense::hover());
+                ui.painter()
+                    .circle_filled(dot.center(), MARKER_CARD_DOT * 0.5, event.color);
+                ui.label(
+                    text::body(13.0, BodyWeight::Medium)
+                        .with_color(theme::TEXT_PRIMARY)
+                        .job(&event.kind.label()),
+                );
+                ui.label(
+                    text::numeral(13.0)
+                        .with_color(theme::TEXT_DIM)
+                        .job(&clock_text(event.secs)),
+                );
+            });
+            ui.label(
+                text::body(12.0, BodyWeight::Regular)
+                    .with_color(theme::TEXT_SECONDARY)
+                    .job(&seek_hint()),
+            );
+        },
+    );
 }
 
 /// What stands in for the track in the spoiler-free form: the reason it is not there, and the one
@@ -830,6 +939,81 @@ mod tests {
         assert_eq!(view.seek_fraction(0.8), 0);
     }
 
+    #[test]
+    fn a_jump_to_an_event_lands_the_lead_in_ahead_of_it() {
+        let view = view();
+        let at = |secs: i64| seconds_to_frames(secs, view.game_speed) as u32;
+        assert_eq!(view.frame_at_secs(600), at(600));
+        assert_eq!(
+            view.event_seek_target(600),
+            at(600 - SEEK_LEAD_IN_SECS as i64)
+        );
+        // Game time is the recorded speed's, not the fastest one's.
+        let slow = TransportView {
+            game_speed: 0,
+            end_frames: 100_000,
+            ..view
+        };
+        assert_eq!(slow.event_seek_target(600), 3562);
+    }
+
+    #[test]
+    fn a_jump_to_an_event_never_leaves_the_replay() {
+        let view = view();
+        assert_eq!(view.event_seek_target(2), 0);
+        assert_eq!(view.event_seek_target(0), 0);
+        assert_eq!(view.frame_at_secs(1_000_000), view.end_frames);
+        assert_eq!(view.event_seek_target(u64::MAX), view.end_frames);
+    }
+
+    fn event(secs: u64) -> TimelineEventView {
+        TimelineEventView {
+            secs,
+            color: Color32::WHITE,
+            kind: crate::observer::TimelineEventKind::ExpansionTaken,
+            icon: None,
+        }
+    }
+
+    #[test]
+    fn markers_stand_at_their_fraction_of_the_replay() {
+        // The fixture's replay runs 60,000 frames, which at the fastest speed is 2,520 seconds.
+        let events = [event(1260), event(630), event(0)];
+        let marked = marked_events(&view(), &events);
+        let fractions: Vec<f32> = marked.iter().map(|(_, marker)| marker.fraction).collect();
+        assert_eq!(fractions.len(), 3);
+        assert!((fractions[0] - 0.5).abs() < 0.001, "{fractions:?}");
+        assert!((fractions[1] - 0.25).abs() < 0.001, "{fractions:?}");
+        assert_eq!(fractions[2], 0.0);
+        assert_eq!(marked[1].0.secs, 630);
+    }
+
+    #[test]
+    fn markers_ahead_of_the_playhead_show_only_once_the_length_does() {
+        // Playback is at 15,000 frames, a quarter of the way through.
+        let events = [event(2000), event(300)];
+        assert_eq!(marked_events(&view(), &events).len(), 2);
+        let spoiler_free = TransportView {
+            spoiler_free: true,
+            ..view()
+        };
+        assert!(marked_events(&spoiler_free, &events).is_empty());
+        // Not even the ones behind the playhead: where they stand along the track would say how far
+        // through the replay playback is.
+        assert!(marked_events(&spoiler_free, &[event(300)]).is_empty());
+    }
+
+    #[test]
+    fn an_event_with_no_place_on_the_track_gets_no_marker() {
+        let past_the_end = [event(9999)];
+        assert!(marked_events(&view(), &past_the_end).is_empty());
+        let no_length = TransportView {
+            end_frames: 0,
+            ..view()
+        };
+        assert!(marked_events(&no_length, &[event(0)]).is_empty());
+    }
+
     fn fresh_ctx() -> Context {
         let ctx = Context::default();
         crate::install_fonts_and_style(&ctx, &crate::DynamicFonts::default());
@@ -847,7 +1031,7 @@ mod tests {
                 ..Default::default()
             };
             ctx.begin_pass(raw);
-            size = render_transport_view(view, ctx, true, TransportPlacement::default())
+            size = render_transport_view(view, ctx, true, TransportPlacement::default(), &[])
                 .map(|outcome| outcome.rect.size())
                 .unwrap_or(Vec2::ZERO);
             let mut out = ctx.end_pass();
