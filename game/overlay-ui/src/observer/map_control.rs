@@ -6,9 +6,10 @@
 //! rather than beside it so the strip is symmetrical: a label at one end would put the share
 //! itself off the centre line the matchup bar above it is built on.
 //!
-//! It is the one surface here drawn from a measurement the game does not keep, so a host that has
-//! none reports `None` and the bar is not drawn at all. A share bar with nothing behind it would
-//! read as a game where neither side holds anything, which is a claim rather than a gap.
+//! The game measures no control of territory, so the share is each side's part of the map in sight,
+//! which is where its units and buildings stand. A host with no reading reports `None` and the bar
+//! is not drawn at all: a share bar with nothing behind it would read as a game where neither side
+//! holds anything, which is a claim rather than a gap.
 
 use egui::{Align, Align2, Area, Color32, Context, Id, Order, Rect, Sense, Ui, UiBuilder, vec2};
 
@@ -126,7 +127,21 @@ pub fn render_map_control_view(
 }
 
 fn draw_bar(ui: &mut Ui, view: &MapControlView, width: f32) {
-    let (rect, _) = ui.allocate_exact_size(vec2(width, BAR_HEIGHT), Sense::hover());
+    let (rect, response) = ui.allocate_exact_size(vec2(width, BAR_HEIGHT), Sense::hover());
+    // What the share measures, for the watcher wondering what "control" is counted in: it is the
+    // map in sight rather than anything held, and saying so keeps the number honest.
+    if let Some(pointer) = response.hover_pos() {
+        widgets::tooltip(ui.ctx(), Id::new("sb_map_control_hint"), pointer, |ui| {
+            ui.label(
+                text::body(12.0, text::BodyWeight::Regular)
+                    .with_color(theme::TEXT_SECONDARY)
+                    .job(&tr!(
+                        "observer.mapControlHint",
+                        "Share of the map each side has in sight"
+                    )),
+            );
+        });
+    }
     let corner_radius = theme::radius(theme::RADIUS_PANEL);
     ui.painter()
         .rect_filled(rect, corner_radius, theme::TIER0_FILL);
