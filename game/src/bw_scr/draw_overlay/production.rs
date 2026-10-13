@@ -430,6 +430,16 @@ pub fn timeline_icon(subject: TimelineSubject, bw: &BwVars) -> ProductionIcon {
     production_icon(production, bw)
 }
 
+/// What the game calls something the timeline is about, in the game's language.
+pub fn timeline_name(subject: TimelineSubject, bw: &BwVars) -> Option<String> {
+    let production = match subject {
+        TimelineSubject::Unit(id) => Production::Unit(id),
+        TimelineSubject::Upgrade(id) => Production::Upgrade(id),
+        TimelineSubject::Tech(id) => Production::Tech(id),
+    };
+    production_name(production, bw)
+}
+
 /// What the game calls what is being made, in the game's language.
 fn production_name(production: Production, bw: &BwVars) -> Option<String> {
     let stat_txt = bw.stat_txt?;

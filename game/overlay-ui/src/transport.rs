@@ -618,9 +618,20 @@ fn draw_marker_card(ui: &Ui, pointer: Pos2, event: &TimelineEventView) {
                     ui.allocate_exact_size(vec2(MARKER_CARD_DOT, MARKER_CARD_DOT), Sense::hover());
                 ui.painter()
                     .circle_filled(dot.center(), MARKER_CARD_DOT * 0.5, event.color);
+                if let Some(name) = &event.name {
+                    ui.label(
+                        text::body(13.0, BodyWeight::Medium)
+                            .with_color(theme::TEXT_PRIMARY)
+                            .job(name),
+                    );
+                }
                 ui.label(
                     text::body(13.0, BodyWeight::Medium)
-                        .with_color(theme::TEXT_PRIMARY)
+                        .with_color(if event.name.is_some() {
+                            theme::TEXT_SECONDARY
+                        } else {
+                            theme::TEXT_PRIMARY
+                        })
                         .job(&event.kind.label()),
                 );
                 ui.label(
@@ -972,6 +983,7 @@ mod tests {
             color: Color32::WHITE,
             kind: crate::observer::TimelineEventKind::ExpansionTaken,
             icon: None,
+            name: None,
         }
     }
 

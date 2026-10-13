@@ -523,6 +523,7 @@ fn timeline_events(knobs: &Knobs, game_secs: u64) -> Vec<TimelineEventView> {
                     index: units[index as usize % units.len()],
                     size: None,
                 }),
+                name: unit_name(units[index as usize % units.len()]),
             }
         })
         .collect()

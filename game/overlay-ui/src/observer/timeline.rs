@@ -111,6 +111,9 @@ pub struct TimelineEventView {
     /// The game's own icon for whatever the event is about, or `None` for an event that names no
     /// particular thing.
     pub icon: Option<ProductionIcon>,
+    /// What the game calls whatever the event is about, in the game's language, or `None` where the
+    /// host has no name for it.
+    pub name: Option<String>,
 }
 
 /// Everything the timeline draws from.
@@ -257,14 +260,35 @@ fn draw_row(ui: &Ui, row: Rect, event: &TimelineEventView) {
     cursor.skip(BAR_GAP);
     draw_icon(ui, centred(cursor.take(ICON), ICON), event.icon);
     cursor.skip(ICON_GAP);
-    paint_text(
-        ui,
-        cursor.take(TEXT_WIDTH),
-        &text::body(TEXT_SIZE, BodyWeight::Regular).with_color(crate::colors::GREY_BLUE95),
-        &event.kind.label(),
-        Align::LEFT,
-    );
+    let text_rect = cursor.take(TEXT_WIDTH);
+    let label = text::body(TEXT_SIZE, BodyWeight::Regular).with_color(crate::colors::GREY_BLUE95);
+    match &event.name {
+        // The thing first and what happened to it after, quieter: a watcher scanning the feed is
+        // looking for a building or an upgrade, and "Built" six times over names none of them.
+        Some(name) => {
+            let name_spec =
+                text::body(TEXT_SIZE, BodyWeight::Medium).with_color(theme::TEXT_PRIMARY);
+            let name_width = name_spec
+                .galley(ui, name)
+                .size()
+                .x
+                .min(text_rect.width() * NAME_SHARE);
+            let (name_rect, rest) = text_rect.split_left_right_at_x(text_rect.left() + name_width);
+            paint_text(ui, name_rect, &name_spec, name, Align::LEFT);
+            paint_text(
+                ui,
+                rest.with_min_x(rest.left() + theme::SPACE_SM),
+                &label.with_color(theme::TEXT_DIM),
+                &event.kind.label(),
+                Align::LEFT,
+            );
+        }
+        None => paint_text(ui, text_rect, &label, &event.kind.label(), Align::LEFT),
+    }
 }
+
+/// The most of a row's text a name may take, leaving what happened to it room to be read.
+const NAME_SHARE: f32 = 0.62;
 
 /// Draws the tile naming what an event was about, or nothing at all for an event about nothing.
 fn draw_icon(ui: &Ui, rect: Rect, icon: Option<ProductionIcon>) {
@@ -303,6 +327,7 @@ mod tests {
                     color: Color32::WHITE,
                     kind: TimelineEventKind::BuildingCompleted,
                     icon: None,
+                    name: None,
                 })
                 .collect(),
         }

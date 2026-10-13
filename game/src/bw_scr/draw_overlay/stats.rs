@@ -473,6 +473,7 @@ pub fn build_timeline_view(
                 color: player.color,
                 kind: event.kind,
                 icon: Some(production::timeline_icon(event.subject, bw)),
+                name: production::timeline_name(event.subject, bw),
             })
         })
         .take(TIMELINE_DEPTH)
