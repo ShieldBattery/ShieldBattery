@@ -66,9 +66,11 @@ const ALT_D = { keyCode: keycode('d'), altKey: true }
 const ALT_F = { keyCode: keycode('f'), altKey: true }
 const ALT_G = { keyCode: keycode('g'), altKey: true }
 const ALT_J = { keyCode: keycode('j'), altKey: true }
+const ALT_LEFT = { keyCode: keycode('left'), altKey: true }
 const ALT_M = { keyCode: keycode('m'), altKey: true }
 const ALT_O = { keyCode: keycode('o'), altKey: true }
 const ALT_R = { keyCode: keycode('r'), altKey: true }
+const ALT_RIGHT = { keyCode: keycode('right'), altKey: true }
 const ALT_S = { keyCode: keycode('s'), altKey: true }
 
 const SIDEBAR_WIDTH = 320
@@ -606,6 +608,37 @@ function AppBarUser({
   )
 }
 
+/**
+ * Moves back/forward through history on Alt+Left/Right, which a browser would handle itself but
+ * Electron does not (Chromium already handles the mouse's back/forward buttons). Every key press
+ * moves exactly one step (repeats are ignored), which `NavigationTrapProvider` relies on to keep
+ * users in a trap.
+ */
+function useHistoryNavigationShortcuts() {
+  useKeyListener({
+    onKeyDown: (event: KeyboardEvent) => {
+      if (!IS_ELECTRON) {
+        return false
+      }
+
+      if (keyEventMatches(event, ALT_LEFT)) {
+        if (!event.repeat) {
+          history.back()
+        }
+        return true
+      }
+      if (keyEventMatches(event, ALT_RIGHT)) {
+        if (!event.repeat) {
+          history.forward()
+        }
+        return true
+      }
+
+      return false
+    },
+  })
+}
+
 function AppBar({
   onToggleSocial,
   sidebarOpen,
@@ -631,6 +664,7 @@ function AppBar({
   const hasNewNewsPost = useHasNewNewsPost()
   const homeHasPip = hasNewUrgentMessage || hasNewNewsPost
 
+  useHistoryNavigationShortcuts()
   useKeyListener({
     onKeyDown: (event: KeyboardEvent) => {
       if (keyEventMatches(event, ALT_F)) {
