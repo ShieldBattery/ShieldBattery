@@ -68,6 +68,17 @@ describe('app/game/in-game-settings', () => {
     expect(readInGameSettingsChange({ monitor: [1, 2] }).rejected).toEqual(['monitor'])
   })
 
+  test('keeps the observer panels the game saves, and nothing shaped otherwise', () => {
+    const panels = { matchup: true, graphs: false, graph_series: 'Income' }
+    expect(readInGameSettingsChange({ local: { observerPanels: panels } }).change.local).toEqual({
+      observerPanels: panels,
+    })
+    expect(
+      readInGameSettingsChange({ local: { observerPanels: { matchup: { nested: true } } } })
+        .rejected,
+    ).toEqual(['observerPanels'])
+  })
+
   test('tolerates a payload missing either half', () => {
     expect(readInGameSettingsChange(undefined).change).toEqual({ local: {}, scr: {} })
     expect(readInGameSettingsChange({ scr: 'nope' }).change).toEqual({ local: {}, scr: {} })

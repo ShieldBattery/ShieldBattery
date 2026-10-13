@@ -16,7 +16,7 @@ use overlay_ui::observer::{
 use overlay_ui::options::{OptionsLists, OptionsView, SettingChange};
 use overlay_ui::shell::{
     DisconnectSurface, FrameOutput, HostFrame, InputCapture, Intent, ModalId, Mode, NativeDialog,
-    Shell, Views,
+    PanelPrefs, Shell, Views,
 };
 use overlay_ui::transport::{self, TransportView};
 use parking_lot::Mutex;
@@ -99,6 +99,8 @@ pub struct OverlayState {
     /// long it has been. The turn state reports only that the link is down, and a clock started
     /// from the first frame that says so is the same clock either way.
     self_link_lost_since: Option<Instant>,
+    /// The observer panels as last saved, so a change is saved once rather than every frame.
+    saved_observer_panels: Option<PanelPrefs>,
 }
 
 struct UiRect {
@@ -146,6 +148,9 @@ pub struct StepOutput {
     /// Settings the player moved on the options screen this frame, in the order they moved them,
     /// for the game to apply and the app to save.
     pub setting_changes: Vec<SettingChange>,
+    /// The observer panels, when the watcher has changed which are on screen since they were last
+    /// saved.
+    pub observer_panels_changed: Option<PanelPrefs>,
     // true to run second draw to avoid ugly flickering due to screen size changing.
     pub run_second_draw: bool,
     /// Whether the player asked to leave the game, the way the in-game menu's End Game does.
@@ -309,6 +314,8 @@ impl OverlayState {
             dialog_debug_inspect_children: false,
             was_loading: false,
             self_link_lost_since: None,
+            // What the shell starts on: a watcher who never changes a panel has nothing to save.
+            saved_observer_panels: Some(PanelPrefs::default()),
             chat_history: None,
         }
     }
@@ -327,7 +334,12 @@ impl OverlayState {
         chat_history: &Mutex<crate::bw_scr::chat_history::ChatHistory>,
         options: &Mutex<OptionsView>,
         option_lists: &Mutex<Arc<OptionsLists>>,
+        observer_panels: &Mutex<Option<PanelPrefs>>,
     ) -> StepOutput {
+        if let Some(panels) = observer_panels.lock().take() {
+            self.shell.set_panel_prefs(panels);
+            self.saved_observer_panels = Some(panels);
+        }
         // BW seems to use different render target sizes depending on SD/HD/4k
         // sprites; with 1280x960 for SD, 1920x1080 for lowres HD, and
         // 3840x2160 for 4k HD?
@@ -631,6 +643,10 @@ impl OverlayState {
             }
         }
         let prefs = *self.shell.panel_prefs();
+        let observer_panels_changed = (self.saved_observer_panels != Some(prefs)).then(|| {
+            self.saved_observer_panels = Some(prefs);
+            prefs
+        });
         let ui_primitives = self.ctx.tessellate(output.shapes, pixels_per_point);
         let mut primitives = Vec::with_capacity(8);
         if bw.is_replay && prefs.console {
@@ -651,6 +667,7 @@ impl OverlayState {
             command_panel_visible: !frame_output.transport_shown,
             replay_commands,
             setting_changes,
+            observer_panels_changed,
             statbtn_dialog_offset: self.replay_ui_values.statbtn_dialog_offset,
             run_second_draw: screen_size_changed,
             leave_game: self.out_state.leave_game,

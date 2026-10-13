@@ -79,6 +79,14 @@ const LOCAL_SETTING_VALIDATORS: Partial<Record<keyof LocalSettings, Validator>> 
   framePacing: isOneOf(ALL_FRAME_PACINGS),
   rollbackTarget: isIntegerIn(0, MAX_ROLLBACK_TARGET),
   emulateTurnRate24Delay: isBoolean,
+  observerPanels: value =>
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Object.keys(value).length <= 64 &&
+    Object.values(value).every(
+      v => typeof v === 'boolean' || (typeof v === 'string' && v.length <= 64),
+    ),
 }
 
 /** The SC:R settings the game may write, each with what a value it sends has to look like. */

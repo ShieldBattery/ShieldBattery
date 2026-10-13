@@ -516,6 +516,9 @@ pub struct BwScr {
     /// which is the displays the game can be put on. Read once, when the settings arrive; shared
     /// rather than copied so a frame takes the list without cloning the names in it.
     option_lists: Mutex<Arc<overlay_ui::options::OptionsLists>>,
+    /// The observer panels the player last left on screen, as the app saved them, until the overlay
+    /// takes them up.
+    observer_panels: Mutex<Option<overlay_ui::shell::PanelPrefs>>,
     /// SC:R's own settings registry, which the options screen writes its changes through. `None`
     /// when the analysis could not place it, which leaves SC:R's settings to take effect next game.
     game_settings: Option<game_settings::GameSettings>,
@@ -2767,6 +2770,7 @@ impl BwScr {
             replay_transport: Mutex::new(replay_transport::ReplayTransport::new()),
             options: Mutex::new(overlay_ui::options::OptionsView::default()),
             option_lists: Mutex::new(Arc::new(overlay_ui::options::OptionsLists::default())),
+            observer_panels: Mutex::new(None),
             game_settings: game_settings.map(|(groups, write_int, write_bool)| {
                 game_settings::GameSettings::new(
                     groups as usize,
@@ -4288,6 +4292,7 @@ impl BwScr {
                                 &self.chat_history,
                                 &self.options,
                                 &self.option_lists,
+                                &self.observer_panels,
                             );
                             if cfg!(debug_assertions) {
                                 self.handle_debug_ui_actions(&overlay_out, &mut render_state);
@@ -4338,6 +4343,9 @@ impl BwScr {
                             }
                             if !overlay_out.setting_changes.is_empty() {
                                 self.apply_setting_changes(&overlay_out.setting_changes);
+                            }
+                            if let Some(panels) = overlay_out.observer_panels_changed {
+                                save_observer_panels(panels);
                             }
                             let bw = &draw_inject::BwVars {
                                 renderer,
@@ -8812,6 +8820,13 @@ impl bw::Bw for BwScr {
             ..overlay_ui::options::OptionsLists::default()
         });
 
+        // A watcher's panels are as they left them in the last game they watched. Saved by an older
+        // or newer client, unknown fields are ignored and missing ones take their defaults.
+        *self.observer_panels.lock() = settings
+            .local
+            .get("observerPanels")
+            .and_then(|panels| serde_json::from_value(panels.clone()).ok());
+
         // The overlay reads its language from a process-wide locale, set here because settings
         // arrive long before any overlay exists. A tag we ship no catalog for keeps English, which
         // every string falls back to anyway.
@@ -9474,6 +9489,19 @@ impl bw::Bw for BwScr {
 /// sends an Alt combination as `WM_SYSKEYDOWN`/`WM_SYSKEYUP` with the key's virtual key code, and
 /// `WM_SYSCHAR` with its character. An AltGr combination (Ctrl+Alt, which some layouts use to type
 /// characters) arrives as ordinary key messages instead, so text input is never caught here.
+/// Hands the observer panels the watcher has on screen to the app, which saves them for the next
+/// game they watch.
+fn save_observer_panels(panels: overlay_ui::shell::PanelPrefs) {
+    match serde_json::to_value(panels) {
+        Ok(value) => {
+            let mut saved = SettingsChanged::default();
+            saved.local.insert("observerPanels".into(), value);
+            send_game_msg_to_async(GameThreadMessage::SettingsChanged(saved));
+        }
+        Err(e) => warn!("Couldn't save the observer panels: {e}"),
+    }
+}
+
 /// The camera-px-per-mouse-px gain the grab pan sensitivity setting stands for.
 ///
 /// The 0-150 slider value maps exponentially onto a gain of 0.125..=512 (2^-3..=2^9): the floor
