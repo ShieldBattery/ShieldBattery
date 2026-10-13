@@ -40,8 +40,8 @@ pub use matchup::{
 pub use military::{MilitaryPlayerView, MilitaryView, render_military_view};
 pub use minimap::{MinimapFrameOutcome, render_minimap_frame};
 pub use production::{
-    ProductionIcon, ProductionItemView, ProductionOutcome, ProductionPlayerView, ProductionView,
-    render_production_view,
+    CompletedResearchView, ProductionIcon, ProductionItemView, ProductionOutcome,
+    ProductionPlayerView, ProductionView, render_production_view,
 };
 pub use selection::{
     ProductionProgressView, SelectedUnitView, SelectionCase, SelectionView, render_selection_view,

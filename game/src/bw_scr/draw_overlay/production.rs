@@ -4,13 +4,13 @@ use bw_dat::{TechId, Unit, UnitId, UpgradeId};
 use egui::{Color32, TextureId, Vec2};
 use hashbrown::HashMap;
 use overlay_ui::observer::{
-    ProductionIcon, ProductionItemView, ProductionPlayerView, ProductionProgressView,
-    ProductionView,
+    CompletedResearchView, ProductionIcon, ProductionItemView, ProductionPlayerView,
+    ProductionProgressView, ProductionView,
 };
 
 use crate::bw;
 use crate::bw_scr::draw_inject;
-use crate::bw_scr::game_stats::TimelineSubject;
+use crate::bw_scr::game_stats::{GameStats, TECH_COUNT, TimelineSubject, UPGRADE_COUNT};
 
 use super::{BwVars, OverlayState, Texture, player_has_units, replay_players_by_team};
 
@@ -172,13 +172,13 @@ impl OverlayState {
         }
     }
 
-    /// Builds the production panel's view: one row per player with something on the way, in the
-    /// order the replay lists their players.
+    /// Builds the production panel's view: one row per player, in the order the replay lists their
+    /// players, with what they are making and the research they already have.
     ///
     /// Players with no units of their own are left out, as are a team game's players who are not the
     /// one commanding the team: in a team game every unit belongs to the commanding player, so the
     /// others would each carry a row of everything or a row of nothing.
-    pub fn build_production_view(&self, bw: &BwVars) -> ProductionView {
+    pub fn build_production_view(&self, bw: &BwVars, stats: Option<&GameStats>) -> ProductionView {
         let is_team_game = crate::game_thread::is_team_game();
         let players = replay_players_by_team(bw)
             .filter(|&(_team, player_id)| player_has_units(bw, player_id))
@@ -208,6 +208,7 @@ impl OverlayState {
                             progress: group.progress,
                         })
                         .collect(),
+                    completed: completed_research(bw, stats, player_id),
                 })
             })
             .collect();
@@ -272,6 +273,58 @@ impl OverlayState {
         self.production.last_clicked = Some(unit);
         self.out_state.select_unit = Some(unit);
     }
+}
+
+/// The research a player already has, in the order their row lists it: the upgrades with levels to
+/// them (armor, weapons, shields) first, then technologies, then the upgrades that are simply had or
+/// not, each by id so nothing moves while the game goes on. A row short of room drops chips off the
+/// end, so the levels a caster quotes as "+1/+1" are the last to go.
+///
+/// An upgrade being taken to its next level counts at the level it has, which is what the player's
+/// units fight with until the tile for the next one finishes. Technologies the player started the
+/// game with are left out, as `stats` recorded them; until it has, so is every technology, rather
+/// than the row opening on a run of chips for things nobody researched.
+fn completed_research(
+    bw: &BwVars,
+    stats: Option<&GameStats>,
+    player: u8,
+) -> Vec<CompletedResearchView> {
+    let game = bw.game;
+    let mut leveled = Vec::new();
+    let mut single = Vec::new();
+    for id in 0..UPGRADE_COUNT.min(UpgradeId::entry_amount()) {
+        let upgrade = UpgradeId(id as u16);
+        let level = game.upgrade_level(player, upgrade);
+        if level == 0 {
+            continue;
+        }
+        // A map can grant levels past the limit it sets, so whichever is higher says whether the
+        // upgrade has levels to tell apart.
+        let has_levels = game.upgrade_max_level(player, upgrade).max(level) > 1;
+        let chip = CompletedResearchView {
+            icon: production_icon(Production::Upgrade(upgrade), bw),
+            level: has_levels.then_some(level),
+            name: production_name(Production::Upgrade(upgrade), bw),
+        };
+        match has_levels {
+            true => leveled.push(chip),
+            false => single.push(chip),
+        }
+    }
+    let techs = (0..TECH_COUNT.min(TechId::entry_amount()))
+        .map(|id| TechId(id as u16))
+        .filter(|&tech| {
+            game.tech_researched(player, tech)
+                && stats.and_then(|stats| stats.started_with_tech(player, tech)) == Some(false)
+        })
+        .map(|tech| CompletedResearchView {
+            icon: production_icon(Production::Tech(tech), bw),
+            level: None,
+            name: production_name(Production::Tech(tech), bw),
+        });
+    leveled.extend(techs);
+    leveled.append(&mut single);
+    leveled
 }
 
 /// Returns Some((Production, progress)) if the unit is actively producing something.

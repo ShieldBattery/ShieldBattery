@@ -574,7 +574,7 @@ impl OverlayState {
                 military: stats::build_military_view(&players, game_stats),
                 graphs: stats::build_graphs_view(bw, &players, game_stats, series, grouping),
                 timeline: stats::build_timeline_view(bw, &players, game_stats),
-                production: self.build_production_view(bw),
+                production: self.build_production_view(bw, game_stats),
                 control_groups: stats::build_control_groups_view(bw, &players, game_stats),
                 selection: stats::build_selection_view(bw, &players),
                 map_control: stats::build_map_control_view(&matchup, game_stats),

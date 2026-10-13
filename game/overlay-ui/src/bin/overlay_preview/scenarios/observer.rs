@@ -18,13 +18,13 @@
 
 use egui::{Color32, Rect, pos2, vec2};
 use overlay_ui::observer::{
-    ControlGroupView, ControlGroupsPlayerView, ControlGroupsView, EconomyPlayerView, EconomyView,
-    GraphGrouping, GraphLineView, GraphSeries, GraphsView, MapControlSideView, MapControlView,
-    MatchupForm, MatchupPlayerView, MatchupView, MilitaryPlayerView, MilitaryView, ObserverView,
-    ProductionIcon, ProductionItemView, ProductionPlayerView, ProductionProgressView,
-    ProductionView, RaceView, SelectedUnitView, SelectionView, TeamCardPlayerView,
-    TeamCardTotalsView, TeamCardView, TeamCardsView, TimelineEventKind, TimelineEventView,
-    TimelineView, team_name,
+    CompletedResearchView, ControlGroupView, ControlGroupsPlayerView, ControlGroupsView,
+    EconomyPlayerView, EconomyView, GraphGrouping, GraphLineView, GraphSeries, GraphsView,
+    MapControlSideView, MapControlView, MatchupForm, MatchupPlayerView, MatchupView,
+    MilitaryPlayerView, MilitaryView, ObserverView, ProductionIcon, ProductionItemView,
+    ProductionPlayerView, ProductionProgressView, ProductionView, RaceView, SelectedUnitView,
+    SelectionView, TeamCardPlayerView, TeamCardTotalsView, TeamCardView, TeamCardsView,
+    TimelineEventKind, TimelineEventView, TimelineView, team_name,
 };
 use overlay_ui::shell::PanelPrefs;
 use serde::{Deserialize, Serialize};
@@ -664,7 +664,57 @@ fn production_player(knobs: &Knobs, index: usize, t: f64) -> ProductionPlayerVie
         player_id: index as u8,
         color: overlay_ui::kit::theme::player_color(index),
         items,
+        completed: completed_research(knobs.race(index), index),
     }
+}
+
+/// One piece of research a player of the fake game has: the frame its icon would be drawn from,
+/// the level it has reached for an upgrade with levels, and the name the game's English stat_txt
+/// gives it.
+type Research = (u16, Option<u8>, &'static str);
+
+/// What a player of each race has researched by the scenario's ten minutes, in the order the game
+/// DLL lists it: upgrades with levels, then technologies, then the upgrades that are had or not.
+/// The icon frames are stand-ins, since nothing here has the game's atlas to draw them from.
+const ZERG_RESEARCH: [Research; 5] = [
+    (0x123, Some(1), "Zerg Missile Attacks"),
+    (0x11c, Some(2), "Zerg Carapace"),
+    (0x0f2, None, "Lurker Aspect"),
+    (0x0f0, None, "Burrowing"),
+    (0x13e, None, "Metabolic Boost"),
+];
+const TERRAN_RESEARCH: [Research; 5] = [
+    (0x11f, Some(1), "Terran Infantry Weapons"),
+    (0x118, Some(1), "Terran Infantry Armor"),
+    (0x0ed, None, "Stim Packs"),
+    (0x0f1, None, "Tank Siege Mode"),
+    (0x128, None, "U-238 Shells"),
+];
+const PROTOSS_RESEARCH: [Research; 5] = [
+    (0x125, Some(2), "Protoss Ground Weapons"),
+    (0x11d, Some(1), "Protoss Ground Armor"),
+    (0x0f3, None, "Psionic Storm"),
+    (0x133, None, "Singularity Charge"),
+    (0x134, None, "Leg Enhancements"),
+];
+
+/// The research a player's row ends with: all of their race's for the first player and a little
+/// less for each one after, so rows of different lengths are judged side by side.
+fn completed_research(race: RaceView, index: usize) -> Vec<CompletedResearchView> {
+    let research = match race {
+        RaceView::Zerg => ZERG_RESEARCH,
+        RaceView::Terran => TERRAN_RESEARCH,
+        RaceView::Protoss | RaceView::Random => PROTOSS_RESEARCH,
+    };
+    research
+        .iter()
+        .take(research.len() - index % 3)
+        .map(|&(frame, level, name)| CompletedResearchView {
+            icon: unit_icon(frame),
+            level,
+            name: Some(name.to_string()),
+        })
+        .collect()
 }
 
 /// What a player has bound to their number keys: the first few of the ten, so the panel is judged
@@ -1057,6 +1107,8 @@ pub enum Hover {
     TimelineRow,
     /// Over one of the markers ticked along the replay plate's track.
     TrackMarker,
+    /// Over an upgrade chip at the end of a production row, which names it and its level.
+    ResearchChip,
 }
 
 impl Hover {
@@ -1068,6 +1120,7 @@ impl Hover {
             Hover::DockEconomy => Some((1878.0, 402.0)),
             Hover::TimelineRow => Some((250.0, 336.0)),
             Hover::TrackMarker => Some((TRACK_MARKER_X, 996.0)),
+            Hover::ResearchChip => Some((1153.0, 812.0)),
         }
     }
 
@@ -1079,6 +1132,7 @@ impl Hover {
             Hover::DockEconomy => "dock-hover",
             Hover::TimelineRow => "timeline-hover",
             Hover::TrackMarker => "marker-hover",
+            Hover::ResearchChip => "research-hover",
         }
     }
 }
@@ -1131,7 +1185,7 @@ impl Preset {
         }
     }
 
-    pub const ALL: [Preset; 25] = [
+    pub const ALL: [Preset; 26] = [
         Preset::game(2, 1, Screen::Minimal),
         Preset::game(2, 1, Screen::Standard),
         Preset::game(2, 1, Screen::Analyst),
@@ -1170,6 +1224,7 @@ impl Preset {
         Preset::hover_showcase(Hover::DockEconomy),
         Preset::hover_showcase(Hover::TimelineRow),
         Preset::hover_showcase(Hover::TrackMarker),
+        Preset::hover_showcase(Hover::ResearchChip),
     ];
 
     /// What a render of this preset is filed under: the shape of its game, then its screen.
