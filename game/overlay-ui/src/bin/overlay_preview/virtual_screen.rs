@@ -34,16 +34,18 @@ pub enum ResolutionPreset {
     R2560x1440,
     R3840x2160,
     R1024x768,
+    R1280x960,
     R1600x1200,
 }
 
 impl ResolutionPreset {
-    pub const ALL: [ResolutionPreset; 6] = [
+    pub const ALL: [ResolutionPreset; 7] = [
         ResolutionPreset::R1280x720,
         ResolutionPreset::R1920x1080,
         ResolutionPreset::R2560x1440,
         ResolutionPreset::R3840x2160,
         ResolutionPreset::R1024x768,
+        ResolutionPreset::R1280x960,
         ResolutionPreset::R1600x1200,
     ];
 
@@ -54,6 +56,7 @@ impl ResolutionPreset {
             ResolutionPreset::R2560x1440 => [2560, 1440],
             ResolutionPreset::R3840x2160 => [3840, 2160],
             ResolutionPreset::R1024x768 => [1024, 768],
+            ResolutionPreset::R1280x960 => [1280, 960],
             ResolutionPreset::R1600x1200 => [1600, 1200],
         }
     }
@@ -65,6 +68,7 @@ impl ResolutionPreset {
             ResolutionPreset::R2560x1440 => "2560x1440",
             ResolutionPreset::R3840x2160 => "3840x2160",
             ResolutionPreset::R1024x768 => "1024x768",
+            ResolutionPreset::R1280x960 => "1280x960",
             ResolutionPreset::R1600x1200 => "1600x1200",
         }
     }

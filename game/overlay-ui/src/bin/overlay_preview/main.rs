@@ -65,9 +65,13 @@ const LETTERBOX_FILL: Color32 = Color32::from_rgb(0x08, 0x0a, 0x0e);
 /// The hairline marking where the emulated screen ends.
 const VIEWPORT_EDGE: Color32 = Color32::from_rgb(0x35, 0x3d, 0x45);
 
-/// The resolutions every scenario preset is rendered at offline.
-const RENDER_SIZES: [ResolutionPreset; 2] =
-    [ResolutionPreset::R1280x720, ResolutionPreset::R1920x1080];
+/// The resolutions every scenario preset is rendered at offline: the smallest and the reference
+/// 16:9 screens, and the 4:3 screen SD graphics give the game.
+const RENDER_SIZES: [ResolutionPreset; 3] = [
+    ResolutionPreset::R1280x720,
+    ResolutionPreset::R1920x1080,
+    ResolutionPreset::R1280x960,
+];
 
 /// How many passes an offline render runs before keeping one, and how far its clock advances
 /// between them. egui settles a freshly built context over several passes: auto-sized areas learn
