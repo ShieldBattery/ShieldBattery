@@ -39,19 +39,18 @@ pub const VICTORY_DIALOG_NAME: &str = "WMission";
 /// The defeat popup's runtime name.
 pub const DEFEAT_DIALOG_NAME: &str = "LMission";
 
-// The victory and defeat popups' two buttons. Their ids are inferred from the convention SC:R's
-// other in-game dialogs follow rather than read from the templates: a button sets the dialog's
-// return code to its own id, -2 is the button that carries on (the quit confirmation's "yes") and
-// -3 the one that goes back to the game (the menu's "return to game"). A press that finds no such
-// control logs the ids the dialog does have, which is what to correct these from.
+// The victory and defeat popups' two buttons. The victory popup's were read off a live game: its
+// default button, -2, ends the mission and its other button, 1, carries on playing. The defeat
+// popup is built the same way and is taken to number its buttons alike; a press that finds no such
+// control logs the ids the dialog does have.
 /// The victory popup's End Mission button.
 pub const VICTORY_END_MISSION_CONTROL_ID: i16 = -2;
 /// The victory popup's Continue Playing button.
-pub const VICTORY_CONTINUE_CONTROL_ID: i16 = -3;
+pub const VICTORY_CONTINUE_CONTROL_ID: i16 = 1;
 /// The defeat popup's End Mission button.
 pub const DEFEAT_END_MISSION_CONTROL_ID: i16 = -2;
 /// The defeat popup's Continue Playing button.
-pub const DEFEAT_CONTINUE_CONTROL_ID: i16 = -3;
+pub const DEFEAT_CONTINUE_CONTROL_ID: i16 = 1;
 
 impl NativeDialog {
     /// Every replaceable dialog, in the order a host may index by.
