@@ -1,6 +1,6 @@
 import keycode from 'keycode'
 import * as m from 'motion/react-m'
-import React, { useEffect, useId, useLayoutEffect, useState } from 'react'
+import React, { useId, useLayoutEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { Link, useRoute } from 'wouter'
@@ -609,9 +609,10 @@ function AppBarUser({
 }
 
 /**
- * Moves back/forward through history on Alt+Left/Right and the mouse's back/forward buttons, which
- * a browser would handle itself but Electron does not. Every user action moves exactly one step
- * (key repeats are ignored), which `NavigationTrapProvider` relies on to keep users in a trap.
+ * Moves back/forward through history on Alt+Left/Right, which a browser would handle itself but
+ * Electron does not (Chromium already handles the mouse's back/forward buttons). Every key press
+ * moves exactly one step (repeats are ignored), which `NavigationTrapProvider` relies on to keep
+ * users in a trap.
  */
 function useHistoryNavigationShortcuts() {
   useKeyListener({
@@ -636,29 +637,6 @@ function useHistoryNavigationShortcuts() {
       return false
     },
   })
-
-  useEffect(() => {
-    if (!IS_ELECTRON) {
-      return undefined
-    }
-
-    const onMouseUp = (event: MouseEvent) => {
-      if (event.defaultPrevented) {
-        return
-      }
-
-      if (event.button === 3) {
-        event.preventDefault()
-        history.back()
-      } else if (event.button === 4) {
-        event.preventDefault()
-        history.forward()
-      }
-    }
-
-    document.addEventListener('mouseup', onMouseUp)
-    return () => document.removeEventListener('mouseup', onMouseUp)
-  }, [])
 }
 
 function AppBar({
