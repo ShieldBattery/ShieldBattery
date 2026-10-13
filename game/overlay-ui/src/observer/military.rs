@@ -20,7 +20,8 @@ use crate::kit::widgets::{self, ResourceGlyph};
 use crate::observer::{
     EdgeCursor, STAT_COLOR_BAR, STAT_HEADING_HEIGHT, STAT_ROW_GAP, STAT_ROW_HEIGHT,
     STAT_VALUE_SIZE, Wing, paint_column_heading, paint_resource_value, paint_stat_identity,
-    paint_team_divider, paint_text, teams_worth_dividing, vision_alpha, wing_panel,
+    paint_team_divider, paint_text, stat_table_height, teams_worth_dividing, vision_alpha,
+    wing_panel,
 };
 use crate::tr;
 
@@ -107,6 +108,12 @@ impl MilitaryView {
     pub fn is_empty(&self) -> bool {
         self.players.is_empty()
     }
+}
+
+/// How tall the panel is for `view`, chrome included, which is what the wing it hangs in has to
+/// have room for before it is drawn.
+pub(crate) fn panel_height(view: &MilitaryView) -> f32 {
+    stat_table_height(view.players.iter().map(|player| player.team))
 }
 
 /// Draws the military panel against the right edge of the screen at `top`, fading and sliding it in

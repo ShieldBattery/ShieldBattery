@@ -101,6 +101,11 @@ fn width_for(screen_width: f32) -> Option<f32> {
     (width >= MIN_WIDTH).then_some(width)
 }
 
+/// Whether the bar has room between the wings on a screen `screen_width` wide.
+pub(crate) fn fits(screen_width: f32) -> bool {
+    width_for(screen_width).is_some()
+}
+
 /// Draws the map-control bar at `top`, fading and sliding it in and out. Returns nothing at all
 /// once it is gone, or on a screen too narrow to hold it beside the stats wings.
 pub fn render_map_control_view(

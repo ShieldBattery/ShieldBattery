@@ -79,6 +79,7 @@ impl Knobs {
             native_dialog_open: self.native_dialog_open,
             native_menu_open: self.native_menu_open,
             game_seconds: self.game_seconds,
+            minimap_rect: None,
         }
     }
 

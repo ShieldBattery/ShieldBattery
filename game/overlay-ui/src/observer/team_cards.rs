@@ -25,7 +25,7 @@ use crate::kit::widgets::{self, ResourceGlyph};
 use crate::kit::{motion, theme, tiers};
 use crate::observer::{
     EdgeCursor, RaceView, STAT_GLYPH, STAT_GLYPH_GAP, STAT_HEADING_HEIGHT, STAT_ROW_GAP,
-    STAT_ROW_HEIGHT, WING_MARGIN, Wing, centred, paint_column_heading, paint_player_bar,
+    STAT_ROW_HEIGHT, WING_GAP, WING_MARGIN, Wing, centred, paint_column_heading, paint_player_bar,
     paint_race_chip, paint_text, team_name, vision_alpha,
 };
 use crate::tr;
@@ -111,14 +111,59 @@ const _: () = assert!(
     FOOTER_INCOME + FOOTER_ARMY + FOOTER_WORKERS + FOOTER_TRADE + FOOTER_GAP * 3.0 == CONTENT_WIDTH
 );
 
-/// Width of one of the two halves of a footer cell that carries both resources.
-const FOOTER_HALF: f32 = (FOOTER_INCOME - FOOTER_GAP) / 2.0;
-
 /// Width of the slash between a kill count and a loss count, and of the kill count ahead of it:
 /// room for four digits, so the loss count sits a fixed distance from the kills rather than
 /// wherever the cell's middle falls.
 const SLASH_WIDTH: f32 = 10.0;
 const TRADE_KILLS_WIDTH: f32 = 40.0;
+
+/// The narrowest a card's name column is squeezed to on a narrow screen before the card gives up
+/// its rate column instead.
+const MIN_NAME_WIDTH: f32 = 72.0;
+
+/// How a card is laid out across the width a screen leaves it.
+///
+/// The design's columns where the card has its design's width, and on a narrower screen the name
+/// column squeezed first, then the rate dropped: a side's bank and supply are what the card is read
+/// for, and a name elided a few letters early is still the player it names. The totals along the
+/// bottom are spread across whatever the card is, since they are four cells with room to spare.
+#[derive(Copy, Clone, PartialEq, Debug)]
+struct CardLayout {
+    content_width: f32,
+    name_width: f32,
+    apm: bool,
+}
+
+impl CardLayout {
+    /// The card a corner `width` points wide holds, at most the design's own.
+    fn fitted(width: f32) -> CardLayout {
+        let content_width = tiers::panel_content_width(width.min(CARD_WIDTH));
+        let mut layout = CardLayout {
+            content_width,
+            name_width: NAME_WIDTH,
+            apm: true,
+        };
+        let excess = CONTENT_WIDTH - content_width;
+        if excess <= 0.0 {
+            return layout;
+        }
+        let squeeze = excess.min(NAME_WIDTH - MIN_NAME_WIDTH);
+        layout.name_width -= squeeze;
+        if excess > squeeze {
+            // The rate's column and the gap ahead of it go back to the name, which is what was
+            // squeezed to make room for them.
+            layout.apm = false;
+            layout.name_width =
+                (layout.name_width + APM_WIDTH + COLUMN_GAP - (excess - squeeze)).max(0.0);
+        }
+        layout
+    }
+
+    /// How much of its design width each cell of the totals keeps.
+    fn footer_scale(&self) -> f32 {
+        (self.content_width - FOOTER_GAP * 3.0) / (CONTENT_WIDTH - FOOTER_GAP * 3.0)
+    }
+}
 
 /// Text size of a player's name.
 const NAME_SIZE: f32 = 15.0;
@@ -205,12 +250,19 @@ pub struct TeamCardsOutcome {
 
 /// Draws the two team cards in the screen's top corners, fading and sliding them in and out.
 /// Returns nothing at all once they are gone, or for a game that has no two sides to draw.
+///
+/// Both cards are as wide as the narrower of the two corners leaves, which is the right one while
+/// the dock holds the right edge: two cards of different widths would read as two kinds of card. A
+/// corner ends where the clock the bar has become begins.
 pub fn render_team_cards_view(
     view: &TeamCardsView,
     ctx: &Context,
     shown: bool,
     right_inset: f32,
 ) -> TeamCardsOutcome {
+    let screen = ctx.viewport_rect();
+    let corner = (screen.width() - super::matchup::CLOCK_WIDTH) * 0.5 - WING_GAP - WING_MARGIN;
+    let layout = CardLayout::fitted(corner - right_inset);
     let mut outcome = TeamCardsOutcome {
         rects: Vec::new(),
         left_bottom: None,
@@ -239,7 +291,7 @@ pub fn render_team_cards_view(
             area,
             |ui| {
                 if let Some(team) = team {
-                    draw_card(ui, team);
+                    draw_card(ui, team, layout);
                 }
             },
         ) else {
@@ -256,36 +308,37 @@ pub fn render_team_cards_view(
     outcome
 }
 
-fn draw_card(ui: &mut Ui, team: &TeamCardView) {
+fn draw_card(ui: &mut Ui, team: &TeamCardView, layout: CardLayout) {
     tiers::tier1_panel(ui, theme::radius(CARD_RADIUS), |ui| {
         // The rows are stacked by the gaps written here and by nothing else: this is a fixed
         // layout, and egui's own item spacing would add to every one of them.
         ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
-        ui.set_width(CONTENT_WIDTH);
+        ui.set_width(layout.content_width);
         // A card standing for a half of the game rather than for a side of it is given neither a
         // title nor totals: both speak for a side, and players who share a card only because the
         // game had to be cut somewhere are not one. The rows take the room the title would have
         // had rather than standing under a band of nothing.
         if let Some(number) = team.team {
-            draw_header(ui, team, number);
+            draw_header(ui, team, number, layout);
         }
-        draw_headings(ui);
+        draw_headings(ui, layout);
         for player in &team.players {
             ui.add_space(STAT_ROW_GAP);
-            draw_player(ui, player);
+            draw_player(ui, player, layout);
         }
         if let Some(totals) = &team.totals {
             ui.add_space(theme::SPACE_SM);
             widgets::divider(ui);
             ui.add_space(theme::SPACE_SM);
-            draw_totals(ui, totals);
+            draw_totals(ui, totals, layout);
         }
     });
 }
 
 /// Draws the card's title row: whose side it is, and what the side is sitting on between them.
-fn draw_header(ui: &mut Ui, team: &TeamCardView, number: u8) {
-    let (rect, _) = ui.allocate_exact_size(vec2(CONTENT_WIDTH, HEADER_HEIGHT), Sense::hover());
+fn draw_header(ui: &mut Ui, team: &TeamCardView, number: u8, layout: CardLayout) {
+    let (rect, _) =
+        ui.allocate_exact_size(vec2(layout.content_width, HEADER_HEIGHT), Sense::hover());
     let mut cursor = EdgeCursor::from_left(rect);
     // A side's own bar, which is what ties the card in the corner to the units on the map before
     // its title has been read. The colour is the first player's: a side is named after where it
@@ -303,7 +356,7 @@ fn draw_header(ui: &mut Ui, team: &TeamCardView, number: u8) {
     cursor.skip(BAR_GAP);
     paint_text(
         ui,
-        cursor.take(CONTENT_WIDTH),
+        cursor.take(layout.content_width),
         &text::hero_title(),
         &team_name(number),
         Align::LEFT,
@@ -340,19 +393,21 @@ fn draw_header(ui: &mut Ui, team: &TeamCardView, number: u8) {
 }
 
 /// Draws the row of column headings, each aligned the way its column's values are.
-fn draw_headings(ui: &mut Ui) {
-    let (row, _) = ui.allocate_exact_size(vec2(CONTENT_WIDTH, STAT_HEADING_HEIGHT), Sense::hover());
+fn draw_headings(ui: &mut Ui, layout: CardLayout) {
+    let (row, _) = ui.allocate_exact_size(
+        vec2(layout.content_width, STAT_HEADING_HEIGHT),
+        Sense::hover(),
+    );
     let mut cursor = EdgeCursor::from_left(row);
-    cursor.skip(COLOR_BAR + BAR_GAP + CHIP + CHIP_GAP + NAME_WIDTH + COLUMN_GAP);
-    for (index, (width, label)) in [
+    cursor.skip(COLOR_BAR + BAR_GAP + CHIP + CHIP_GAP + layout.name_width + COLUMN_GAP);
+    let columns = [
         (MINERAL_WIDTH, tr!("observer.columnMinerals", "Min")),
         (GAS_WIDTH, tr!("observer.columnGas", "Gas")),
         (SUPPLY_WIDTH, tr!("observer.columnSupply", "Supply")),
         (APM_WIDTH, tr!("observer.apm", "APM")),
-    ]
-    .into_iter()
-    .enumerate()
-    {
+    ];
+    let shown = if layout.apm { 4 } else { 3 };
+    for (index, (width, label)) in columns.into_iter().take(shown).enumerate() {
         if index > 0 {
             cursor.skip(COLUMN_GAP);
         }
@@ -361,8 +416,9 @@ fn draw_headings(ui: &mut Ui) {
 }
 
 /// Draws one player's row.
-fn draw_player(ui: &mut Ui, player: &TeamCardPlayerView) {
-    let (row, _) = ui.allocate_exact_size(vec2(CONTENT_WIDTH, STAT_ROW_HEIGHT), Sense::hover());
+fn draw_player(ui: &mut Ui, player: &TeamCardPlayerView, layout: CardLayout) {
+    let (row, _) =
+        ui.allocate_exact_size(vec2(layout.content_width, STAT_ROW_HEIGHT), Sense::hover());
     let alpha = vision_alpha(player.vision);
     let mut cursor = EdgeCursor::from_left(row);
     let bar = cursor.take(COLOR_BAR);
@@ -379,7 +435,7 @@ fn draw_player(ui: &mut Ui, player: &TeamCardPlayerView) {
     cursor.skip(CHIP_GAP);
     paint_text(
         ui,
-        cursor.take(NAME_WIDTH),
+        cursor.take(layout.name_width),
         &text::player_name(NAME_SIZE).with_color(theme::TEXT_PRIMARY.gamma_multiply(alpha)),
         &player.name,
         Align::LEFT,
@@ -416,23 +472,31 @@ fn draw_player(ui: &mut Ui, player: &TeamCardPlayerView) {
         supply_color,
         cursor.take(SUPPLY_WIDTH),
     );
-    cursor.skip(COLUMN_GAP);
-    value(&player.apm.to_string(), primary, cursor.take(APM_WIDTH));
+    if layout.apm {
+        cursor.skip(COLUMN_GAP);
+        value(&player.apm.to_string(), primary, cursor.take(APM_WIDTH));
+    }
 }
 
 /// Draws the side's totals: two labelled rows, so each number keeps the word that says what it is.
-fn draw_totals(ui: &mut Ui, totals: &TeamCardTotalsView) {
-    let (headings, _) =
-        ui.allocate_exact_size(vec2(CONTENT_WIDTH, STAT_HEADING_HEIGHT), Sense::hover());
+fn draw_totals(ui: &mut Ui, totals: &TeamCardTotalsView, layout: CardLayout) {
+    let scale = layout.footer_scale();
+    let (income, army, workers, trade) = (
+        FOOTER_INCOME * scale,
+        FOOTER_ARMY * scale,
+        FOOTER_WORKERS * scale,
+        FOOTER_TRADE * scale,
+    );
+    let (headings, _) = ui.allocate_exact_size(
+        vec2(layout.content_width, STAT_HEADING_HEIGHT),
+        Sense::hover(),
+    );
     let mut cursor = EdgeCursor::from_left(headings);
     for (index, (width, label)) in [
-        (FOOTER_INCOME, tr!("observer.columnIncome", "Income")),
-        (FOOTER_ARMY, tr!("observer.columnArmy", "Army")),
-        (FOOTER_WORKERS, tr!("observer.columnWorkers", "Workers")),
-        (
-            FOOTER_TRADE,
-            tr!("observer.columnUnitsKillsLosses", "Units k/l"),
-        ),
+        (income, tr!("observer.columnIncome", "Income")),
+        (army, tr!("observer.columnArmy", "Army")),
+        (workers, tr!("observer.columnWorkers", "Workers")),
+        (trade, tr!("observer.columnUnitsKillsLosses", "Units k/l")),
     ]
     .into_iter()
     .enumerate()
@@ -443,25 +507,21 @@ fn draw_totals(ui: &mut Ui, totals: &TeamCardTotalsView) {
         paint_column_heading(ui, cursor.take(width), &label, Align::LEFT);
     }
 
-    let (row, _) = ui.allocate_exact_size(vec2(CONTENT_WIDTH, STAT_ROW_HEIGHT), Sense::hover());
+    let (row, _) =
+        ui.allocate_exact_size(vec2(layout.content_width, STAT_ROW_HEIGHT), Sense::hover());
     let mut cursor = EdgeCursor::from_left(row);
     draw_pair(
         ui,
-        cursor.take(FOOTER_INCOME),
+        cursor.take(income),
         totals.minerals_per_minute,
         totals.gas_per_minute,
     );
     cursor.skip(FOOTER_GAP);
-    draw_pair(
-        ui,
-        cursor.take(FOOTER_ARMY),
-        totals.army_minerals,
-        totals.army_gas,
-    );
+    draw_pair(ui, cursor.take(army), totals.army_minerals, totals.army_gas);
     cursor.skip(FOOTER_GAP);
     paint_text(
         ui,
-        cursor.take(FOOTER_WORKERS),
+        cursor.take(workers),
         &text::numeral(TOTAL_SIZE),
         &totals.workers.to_string(),
         Align::LEFT,
@@ -469,7 +529,7 @@ fn draw_totals(ui: &mut Ui, totals: &TeamCardTotalsView) {
     cursor.skip(FOOTER_GAP);
     draw_trade(
         ui,
-        cursor.take(FOOTER_TRADE),
+        cursor.take(trade),
         totals.units_killed,
         totals.units_lost,
     );
@@ -477,6 +537,7 @@ fn draw_totals(ui: &mut Ui, totals: &TeamCardTotalsView) {
 
 /// Draws one footer cell carrying both resources.
 fn draw_pair(ui: &Ui, rect: Rect, minerals: u32, gas: u32) {
+    let half = (rect.width() - FOOTER_GAP) * 0.5;
     let mut cursor = EdgeCursor::from_left(rect);
     for (index, (glyph, value)) in [
         (ResourceGlyph::Minerals, minerals),
@@ -488,7 +549,7 @@ fn draw_pair(ui: &Ui, rect: Rect, minerals: u32, gas: u32) {
         if index > 0 {
             cursor.skip(FOOTER_GAP);
         }
-        let cell = cursor.take(FOOTER_HALF);
+        let cell = cursor.take(half);
         let mut inner = EdgeCursor::from_left(cell);
         widgets::paint_resource_glyph(
             ui.painter(),
@@ -499,7 +560,7 @@ fn draw_pair(ui: &Ui, rect: Rect, minerals: u32, gas: u32) {
         inner.skip(STAT_GLYPH_GAP);
         paint_text(
             ui,
-            inner.take(FOOTER_HALF - STAT_GLYPH - STAT_GLYPH_GAP),
+            inner.take(half - STAT_GLYPH - STAT_GLYPH_GAP),
             &text::numeral(TOTAL_SIZE),
             &value.to_string(),
             Align::LEFT,
@@ -542,6 +603,40 @@ mod tests {
         assert_eq!(
             crate::kit::tiers::panel_content_width(CARD_WIDTH),
             CONTENT_WIDTH
+        );
+    }
+
+    #[test]
+    fn a_card_with_its_design_width_keeps_the_design_columns() {
+        let layout = CardLayout::fitted(CARD_WIDTH + 40.0);
+        assert_eq!(layout.content_width, CONTENT_WIDTH);
+        assert_eq!(layout.name_width, NAME_WIDTH);
+        assert!(layout.apm);
+        assert_eq!(layout.footer_scale(), 1.0);
+    }
+
+    #[test]
+    fn a_narrow_card_squeezes_names_before_it_gives_up_the_rate() {
+        let layout = CardLayout::fitted(CARD_WIDTH - 48.0);
+        assert_eq!(layout.name_width, NAME_WIDTH - 48.0);
+        assert!(layout.apm);
+
+        let layout = CardLayout::fitted(CARD_WIDTH - 100.0);
+        assert!(!layout.apm);
+        // What is left of the row still adds up to the card.
+        assert_eq!(
+            COLOR_BAR
+                + BAR_GAP
+                + CHIP
+                + CHIP_GAP
+                + layout.name_width
+                + COLUMN_GAP
+                + MINERAL_WIDTH
+                + COLUMN_GAP
+                + GAS_WIDTH
+                + COLUMN_GAP
+                + SUPPLY_WIDTH,
+            layout.content_width
         );
     }
 

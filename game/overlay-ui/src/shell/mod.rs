@@ -397,14 +397,16 @@ pub enum Intent {
     /// Quit a running game through SC:R's own quit path, which tells the other players this one has
     /// left and settles the result the way its menu does.
     QuitGame,
-    /// Open SC:R's social popup, where its alliances and chat settings live. Nothing of ours
-    /// replaces it.
+    /// Leave the game menu for SC:R's alliances and chat dialog. Nothing of ours replaces it.
     OpenAlliances,
     /// Give up on a connection that will not come back and leave the game.
     AbandonGame,
     /// Put one setting on the value the player moved it to, in the game and wherever the host
     /// persists it.
     ChangeSetting(SettingChange),
+    /// Open the game's own menu, the way its own key for the menu does, so the overlay's
+    /// replacement for it comes up exactly as it would from the keyboard.
+    OpenGameMenu,
     /// Show or stop showing the game through this player's eyes. What that means for their allies
     /// is the host's to decide: vision is shared, and taking half of a shared pair would leave a
     /// watcher looking at a map neither player sees.
@@ -523,7 +525,7 @@ impl InputCapture {
 }
 
 /// What the host knows about the game this frame.
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
+#[derive(Copy, Clone, PartialEq, Debug, Default)]
 pub struct HostFrame {
     pub mode: Mode,
     /// Whether the game proper is running, as opposed to still loading.
@@ -543,6 +545,10 @@ pub struct HostFrame {
     /// report on the game as a whole rather than on one player, which is the menu and nothing else
     /// while a client is playing its own game.
     pub game_seconds: u64,
+    /// Where BW's minimap is on screen, in the overlay's points, for a host that can say. The frame
+    /// a watcher gets around the minimap is drawn from this, and `None` draws no frame; the panels
+    /// placed around the minimap keep clear of the corner the design reserves for it either way.
+    pub minimap_rect: Option<Rect>,
 }
 
 /// The disconnect surface the host wants drawn.
@@ -661,6 +667,11 @@ pub struct Shell {
     /// The player whose control groups are shown: the owner of the last unit the watcher selected.
     /// Kept across frames because it outlives the selection that set it.
     focused_player: Option<u8>,
+    /// Whether the list of players under the minimap's vision button is open.
+    vision_picker_open: bool,
+    /// Where the replay plate stands this frame, which the observer panels decide: they share the
+    /// bottom of the screen with it.
+    transport_placement: transport::TransportPlacement,
     /// The frame a seek has been asked for and not yet sent, which is the latest one asked for: a
     /// drag across the track is one seek to where the pointer ended up, not one per frame of it.
     pending_seek: Option<u32>,
@@ -696,6 +707,8 @@ impl Shell {
             transport: None,
             map_control_available: false,
             focused_player: None,
+            vision_picker_open: false,
+            transport_placement: transport::TransportPlacement::default(),
             pending_seek: None,
             last_seek_secs: f64::NEG_INFINITY,
             options: OptionsView::default(),
@@ -711,6 +724,17 @@ impl Shell {
 
     pub fn set_panel_prefs(&mut self, prefs: PanelPrefs) {
         self.prefs = prefs;
+    }
+
+    /// Whether the list of players under the minimap's vision button is open.
+    pub fn vision_picker_open(&self) -> bool {
+        self.vision_picker_open
+    }
+
+    /// Opens or closes the list of players under the minimap's vision button, for a host restoring
+    /// what a watcher had open.
+    pub fn set_vision_picker_open(&mut self, open: bool) {
+        self.vision_picker_open = open;
     }
 
     pub fn hotkeys(&self) -> &Hotkeys {
@@ -837,6 +861,12 @@ impl Shell {
                 self.dismiss_top_modal();
                 return true;
             }
+            // A modal of the game's own state takes the screen ahead of the list under it, so the
+            // list only answers the key while no modal is up.
+            if self.vision_picker_open && self.top_modal().is_none() {
+                self.vision_picker_open = false;
+                return true;
+            }
             return false;
         }
         if !self.hotkeys_active() {
@@ -873,12 +903,15 @@ impl Shell {
         if let Some(net_stats) = views.net_stats {
             render_netstat_view(net_stats, ctx);
         }
+        // The plate keeps its corner unless the observer panels, which share the bottom of the
+        // screen with it, move it this frame.
+        self.transport_placement = transport::TransportPlacement::default();
         // The observer panels belong to the modes they report on: a host that kept feeding them
         // after the client stopped watching must not be able to put them over someone's own game.
         if self.host.mode.is_spectating()
             && let Some(view) = views.observer
         {
-            self.frame_observer(ctx, view, &mut hit_rects);
+            self.frame_observer(ctx, view, views.transport.is_some(), &mut hit_rects);
         }
         let transport_shown = match views.transport {
             Some(view) => self.frame_transport(ctx, view, &mut hit_rects),
@@ -912,6 +945,9 @@ impl Shell {
                 self.intents.push(Intent::QuitGame);
             }
             if outcome.open_alliances {
+                // The host leaves the game menu itself on the way to the alliances dialog, so the
+                // menu goes from the stack without asking the host to close it a second time.
+                self.modals.retain(|modal| modal.id != ModalId::GameMenu);
                 self.intents.push(Intent::OpenAlliances);
             }
             if outcome.abandoned {
@@ -946,11 +982,34 @@ impl Shell {
 
     /// Draws the observer panels the watcher has left on screen, turning what they did with them
     /// into intents for the host and into preferences of its own.
-    fn frame_observer(&mut self, ctx: &Context, view: &ObserverView, hit_rects: &mut Vec<HitRect>) {
+    ///
+    /// The panels are placed against each other rather than at the design's coordinates (see
+    /// [`observer::layout`]), so they are drawn in the order the screen's room is handed out: the
+    /// surfaces hung from the top edge, the minimap's frame, then the stack along the bottom edge,
+    /// which between them say how much of each side is left for the wings, and the dock last, which
+    /// is told what found no room. `has_transport` is whether there is a replay plate to share the
+    /// bottom of the screen with.
+    fn frame_observer(
+        &mut self,
+        ctx: &Context,
+        view: &ObserverView,
+        has_transport: bool,
+        hit_rects: &mut Vec<HitRect>,
+    ) {
+        use observer::layout::{self, Span};
+
         self.map_control_available = view.map_control.is_some();
+        let screen = ctx.viewport_rect();
+        let gap = observer::WING_GAP;
+        // What the watcher wants on screen and the screen had no room for this frame.
+        let mut displaced = Vec::new();
+        // The surfaces hung from the screen's top edge, which everything below keeps under.
+        let mut top_surfaces = Vec::new();
+
         if let Some(outcome) = observer::render_matchup_view(&view.matchup, ctx, self.prefs.matchup)
         {
             hit_rects.push(HitRect::new(outcome.rect));
+            top_surfaces.push(outcome.rect);
             if let Some(player_id) = outcome.toggled_vision {
                 self.intents.push(Intent::ToggleVision { player_id });
             }
@@ -965,99 +1024,161 @@ impl Shell {
                 observer::render_team_cards_view(cards, ctx, self.prefs.matchup, right_inset);
             for rect in outcome.rects {
                 hit_rects.push(HitRect::new(rect));
+                top_surfaces.push(rect);
             }
             if let Some(bottom) = outcome.left_bottom {
-                tops.left = tops.left.max(bottom + observer::WING_GAP);
+                tops.left = tops.left.max(bottom + gap);
             }
             if let Some(bottom) = outcome.right_bottom {
-                tops.right = tops.right.max(bottom + observer::WING_GAP);
+                tops.right = tops.right.max(bottom + gap);
             }
         }
         // The reporting panels take no clicks of their own, but every one of them is an opaque
         // surface: a click that landed on a number and went on to select whatever unit was behind
         // it would make the panels unusable exactly where they are most worth reading.
-        if let Some(map_control) = &view.map_control
-            && let Some(rect) = observer::render_map_control_view(
+        if let Some(map_control) = &view.map_control {
+            if self.prefs.map_control && !observer::map_control::fits(screen.width()) {
+                displaced.push(Panel::MapControl);
+            }
+            if let Some(rect) = observer::render_map_control_view(
                 map_control,
                 ctx,
                 self.prefs.map_control,
                 view.matchup.form().height() + observer::MAP_CONTROL_GAP,
+            ) {
+                hit_rects.push(HitRect::new(rect));
+                top_surfaces.push(rect);
+            }
+        }
+
+        // The minimap's square is the game's wherever it is, and the frame around it is kept clear
+        // whether or not it is drawn: a watcher who hides the minimap has not asked for the panels
+        // to move into its corner.
+        let square = layout::minimap_square(screen, self.host.minimap_rect);
+        let minimap = observer::minimap::footprint(screen, square);
+        self.frame_minimap(ctx, view, hit_rects);
+        let minimap_on_left = minimap.center().x < screen.center().x;
+
+        // The run of the bottom edge the centred stack has: from the minimap's frame to whatever
+        // holds the right edge, which is the transport plate where it stands in the corner and the
+        // dock's column where it does not.
+        let edge_right = screen.right() - observer::WING_MARGIN - right_inset;
+        let mut span = if minimap_on_left {
+            Span {
+                left: minimap.right() + gap,
+                right: edge_right,
+            }
+        } else {
+            Span {
+                left: screen.left() + observer::WING_MARGIN,
+                right: edge_right.min(minimap.left() - gap),
+            }
+        };
+        let transport_shown = has_transport && self.prefs.transport;
+        let mut transport = transport::TransportPlacement::default();
+        let dock_width = observer::dock::column_width(self.prefs.dock_expanded);
+        let dock_column = Span {
+            left: screen.right() - dock_width,
+            right: screen.right(),
+        };
+        // The keycap strip is there all game and keeps clear of the surfaces over its column. The
+        // rail is something the watcher has just opened to read, and like every other panel it
+        // passes over it may pass over those too: only the plate, a control of its own, it keeps
+        // clear of.
+        let dock_top = if self.prefs.dock_expanded {
+            screen.top() + observer::WING_MARGIN
+        } else {
+            layout::lowest_bottom_over(dock_column, &top_surfaces, screen.top()) + gap
+        };
+        // How far the plate stands in to clear the dock's column, following the dock off the edge
+        // and back the way the panels on that side do.
+        let dock_clearance = right_inset / observer::dock::column_width(false) * dock_width;
+        let dock_fit = |bottom: f32| {
+            observer::DockPlacement::fit(
+                self.host.mode,
+                self.map_control_available,
+                screen.center().y,
+                dock_top,
+                bottom,
             )
-        {
-            hit_rects.push(HitRect::new(rect));
+        };
+        let mut dock = None;
+        let mut lifted = false;
+        if transport_shown {
+            // The plate keeps the corner while the stack still has its narrowest width beside it
+            // and the dock still fits above it. Where the dock does not, the plate stands in from
+            // the dock's column and the dock runs down past it; where the stack does not, the plate
+            // gives the stack the bottom edge and is lifted over it, standing in from the dock's
+            // column too so the dock keeps the whole edge.
+            let corner = transport.rect(screen);
+            if self.prefs.dock {
+                dock = dock_fit(corner.top() - gap);
+                if dock.is_none() {
+                    transport.right_inset = dock_clearance;
+                }
+            }
+            let beside = span.right.min(transport.rect(screen).left() - gap);
+            if beside - span.left >= observer::MIN_STACK_WIDTH {
+                span.right = beside;
+            } else {
+                transport.right_inset = dock_clearance;
+                lifted = true;
+            }
         }
-        let economy =
-            observer::render_economy_view(&view.economy, ctx, self.prefs.economy, tops.left);
-        if let Some(rect) = economy {
-            hit_rects.push(HitRect::new(rect));
-        }
-        let military = observer::render_military_view(
-            &view.military,
-            ctx,
-            self.prefs.military,
-            tops.right,
-            right_inset,
-        );
-        if let Some(rect) = military {
-            hit_rects.push(HitRect::new(rect));
-        }
-        if let Some(outcome) = observer::render_graphs_view(
-            &view.graphs,
-            ctx,
-            self.prefs.graphs,
-            observer::WingTops::below(
-                ctx,
-                egui::Id::new("sb_stack_military"),
-                tops.right,
-                military,
+        let dock = match dock {
+            Some(dock) => dock,
+            None => dock_fit(screen.bottom() - observer::WING_MARGIN).unwrap_or(
+                observer::DockPlacement::centred(
+                    self.host.mode,
+                    self.map_control_available,
+                    screen.height(),
+                ),
             ),
-            right_inset,
-        ) {
-            hit_rects.push(HitRect::new(outcome.rect));
-            if let Some(series) = outcome.series {
-                self.prefs.graph_series = series;
-            }
-            if let Some(per_player) = outcome.per_player {
-                self.prefs.graph_per_player = per_player;
-            }
-        }
-        if let Some(rect) = observer::render_timeline_view(
-            &view.timeline,
-            ctx,
-            self.prefs.timeline,
-            observer::WingTops::below(ctx, egui::Id::new("sb_stack_economy"), tops.left, economy),
-            observer::minimap_reserve_top(ctx.viewport_rect()) - observer::WING_GAP,
-        ) {
-            hit_rects.push(HitRect::new(rect));
-        }
-        // The three centred strips are one stack too, drawn bottom first: each is as tall as the
-        // game it reports on — a production panel with a row per player of an eight-player game is
-        // three times the height the design drew it at — so every one of them is placed over
-        // whatever the one under it actually came out as, and drops onto the one below when a panel
-        // between them is hidden.
-        //
-        // The stack stands on the screen's own bottom edge: an observer's screen keeps the minimap
-        // and nothing else of the game's console band. At every 16:9 resolution the overlay is 1920
-        // points wide, so the widest of the three — control groups at 790 — leaves its left edge at
-        // 565, well clear of the 348-point square BW's minimap owns in that corner. A 4:3 screen is
-        // 1440 points wide and that edge falls at 325, which is inside the minimap's column: on
-        // those screens the bottom of the stack overlaps the minimap's top-right corner.
+        };
+
+        // The three centred strips are one stack, drawn bottom first: each is as tall as the game it
+        // reports on, so every one of them is placed over whatever the one under it actually came
+        // out as, and drops onto the one below when a panel between them is hidden or has no room.
+        let ceiling = layout::lowest_bottom_over(span, &top_surfaces, screen.top());
+        let slot = |bottom: f32| observer::StackSlot {
+            bottom,
+            span,
+            middle: screen.center().x,
+            ceiling,
+            screen_bottom: screen.bottom(),
+        };
         let base = observer::WING_MARGIN;
+        let mut stack = Vec::new();
+        if self.prefs.selection
+            && !view.selection.units.is_empty()
+            && !observer::selection::fits(slot(base))
+        {
+            displaced.push(Panel::Selection);
+        }
         let selection =
-            observer::render_selection_view(&view.selection, ctx, self.prefs.selection, base);
+            observer::render_selection_view(&view.selection, ctx, self.prefs.selection, slot(base));
         if let Some(rect) = selection {
             hit_rects.push(HitRect::new(rect));
+            stack.push(rect);
         }
         let over_selection =
             base + observer::eased_stack_share(ctx, egui::Id::new("sb_stack_selection"), selection);
+        if self.prefs.production
+            && !view.production.is_empty()
+            && observer::production::ProductionFit::of(&view.production, slot(over_selection))
+                .is_none()
+        {
+            displaced.push(Panel::Production);
+        }
         let production = observer::render_production_view(
             &view.production,
             ctx,
             self.prefs.production,
-            over_selection,
+            slot(over_selection),
         );
         if let Some(outcome) = &production {
             hit_rects.push(HitRect::new(outcome.rect));
+            stack.push(outcome.rect);
             if let Some((player_id, item)) = outcome.clicked {
                 self.intents.push(Intent::SelectProduction {
                     player_id,
@@ -1070,25 +1191,139 @@ impl Shell {
         if let Some(owner) = view.selection.units.first().and_then(|unit| unit.owner) {
             self.focused_player = Some(owner);
         }
-        if let Some(rect) = observer::render_control_groups_view(
+        let over_production = over_selection
+            + observer::eased_stack_share(
+                ctx,
+                egui::Id::new("sb_stack_production"),
+                production.as_ref().map(|outcome| outcome.rect),
+            );
+        if self.prefs.control_groups
+            && !view.control_groups.is_empty()
+            && observer::control_groups::fitted_width(slot(over_production)).is_none()
+        {
+            displaced.push(Panel::ControlGroups);
+        }
+        let control_groups = observer::render_control_groups_view(
             &view.control_groups,
             ctx,
             self.prefs.control_groups,
-            over_selection
+            slot(over_production),
+            self.focused_player,
+        );
+        if let Some(rect) = control_groups {
+            hit_rects.push(HitRect::new(rect));
+            stack.push(rect);
+        }
+        if lifted {
+            let over_stack = over_production
                 + observer::eased_stack_share(
                     ctx,
-                    egui::Id::new("sb_stack_production"),
-                    production.as_ref().map(|outcome| outcome.rect),
-                ),
-            self.focused_player,
+                    egui::Id::new("sb_stack_control_groups"),
+                    control_groups,
+                );
+            transport.lift = over_stack - observer::WING_MARGIN;
+        }
+        self.transport_placement = transport;
+
+        // The wings hang from under the top surfaces and end above whatever stands under them in
+        // their own column: the stack, the minimap's frame, and the plate.
+        let mut bottom_surfaces = stack;
+        bottom_surfaces.push(minimap);
+        if transport_shown {
+            bottom_surfaces.push(transport.rect(screen));
+        }
+        let left_span = layout::left_wing_span(screen, observer::economy::PANEL_WIDTH);
+        let right_span =
+            layout::right_wing_span(screen, observer::military::PANEL_WIDTH, right_inset);
+        let left_floor =
+            layout::highest_top_under(left_span, &bottom_surfaces, screen.bottom()) - gap;
+        let right_floor =
+            layout::highest_top_under(right_span, &bottom_surfaces, screen.bottom()) - gap;
+        // A screen too narrow for both wings side by side keeps the left one, which reports the
+        // economy, over the right one, which reports what it bought.
+        let right_room = right_span.left >= left_span.right + gap;
+
+        let economy_fits = tops.left + observer::economy::panel_height(&view.economy) <= left_floor;
+        if self.prefs.economy && !view.economy.is_empty() && !economy_fits {
+            displaced.push(Panel::Economy);
+        }
+        let economy = observer::render_economy_view(
+            &view.economy,
+            ctx,
+            self.prefs.economy && economy_fits,
+            tops.left,
+        );
+        if let Some(rect) = economy {
+            hit_rects.push(HitRect::new(rect));
+        }
+        let military_fits = right_room
+            && tops.right + observer::military::panel_height(&view.military) <= right_floor;
+        if self.prefs.military && !view.military.is_empty() && !military_fits {
+            displaced.push(Panel::Military);
+        }
+        let military = observer::render_military_view(
+            &view.military,
+            ctx,
+            self.prefs.military && military_fits,
+            tops.right,
+            right_inset,
+        );
+        if let Some(rect) = military {
+            hit_rects.push(HitRect::new(rect));
+        }
+        let graphs_top = observer::WingTops::below(
+            ctx,
+            egui::Id::new("sb_stack_military"),
+            tops.right,
+            military,
+        );
+        let graphs_fit = right_room && observer::graphs::fits(graphs_top, right_floor);
+        if self.prefs.graphs && !view.graphs.is_empty() && !graphs_fit {
+            displaced.push(Panel::Graphs);
+        }
+        if let Some(outcome) = observer::render_graphs_view(
+            &view.graphs,
+            ctx,
+            self.prefs.graphs && right_room,
+            graphs_top,
+            right_floor,
+            right_inset,
+        ) {
+            hit_rects.push(HitRect::new(outcome.rect));
+            if let Some(series) = outcome.series {
+                self.prefs.graph_series = series;
+            }
+            if let Some(per_player) = outcome.per_player {
+                self.prefs.graph_per_player = per_player;
+            }
+        }
+        let timeline_top =
+            observer::WingTops::below(ctx, egui::Id::new("sb_stack_economy"), tops.left, economy);
+        if self.prefs.timeline
+            && !view.timeline.is_empty()
+            && !observer::timeline::fits(timeline_top, left_floor)
+        {
+            displaced.push(Panel::Timeline);
+        }
+        if let Some(rect) = observer::render_timeline_view(
+            &view.timeline,
+            ctx,
+            self.prefs.timeline,
+            timeline_top,
+            left_floor,
         ) {
             hit_rects.push(HitRect::new(rect));
         }
+
         let dock = observer::render_obs_dock(
             &self.prefs,
-            &self.hotkeys,
-            self.host.mode,
-            self.map_control_available,
+            &observer::DockContext {
+                hotkeys: &self.hotkeys,
+                mode: self.host.mode,
+                map_control_available: self.map_control_available,
+                placement: dock,
+                displaced: &displaced,
+            },
             ctx,
         );
         if let Some(outcome) = dock {
@@ -1105,6 +1340,38 @@ impl Shell {
         }
     }
 
+    /// Draws the frame around the game's minimap, where the host can say where the minimap is, and
+    /// turns what the watcher did with its header into intents.
+    fn frame_minimap(&mut self, ctx: &Context, view: &ObserverView, hit_rects: &mut Vec<HitRect>) {
+        let shown = self.prefs.minimap && self.host.minimap_rect.is_some();
+        if !shown {
+            self.vision_picker_open = false;
+        }
+        let Some(square) = self.host.minimap_rect else {
+            return;
+        };
+        let Some(outcome) = observer::render_minimap_frame(
+            ctx,
+            square,
+            shown,
+            &view.matchup.players,
+            self.vision_picker_open,
+        ) else {
+            return;
+        };
+        for rect in outcome.rects {
+            hit_rects.push(HitRect::new(rect));
+        }
+        self.vision_picker_open = shown && outcome.picker_open;
+        if let Some(player_id) = outcome.toggled_vision {
+            self.intents.push(Intent::ToggleVision { player_id });
+        }
+        if outcome.open_menu {
+            self.vision_picker_open = false;
+            self.intents.push(Intent::OpenGameMenu);
+        }
+    }
+
     /// Draws the replay transport and turns what the player did with it into intents, returning
     /// whether the plate is on screen.
     fn frame_transport(
@@ -1113,7 +1380,12 @@ impl Shell {
         view: &TransportView,
         hit_rects: &mut Vec<HitRect>,
     ) -> bool {
-        let outcome = render_transport_view(view, ctx, self.prefs.shown(Panel::Transport));
+        let outcome = render_transport_view(
+            view,
+            ctx,
+            self.prefs.shown(Panel::Transport),
+            self.transport_placement,
+        );
         if let Some(outcome) = &outcome {
             hit_rects.push(HitRect::new(outcome.rect));
             if let Some(frame) = outcome.seek_to {
@@ -1466,6 +1738,7 @@ mod tests {
             native_dialog_open: false,
             native_menu_open: false,
             game_seconds: 0,
+            minimap_rect: None,
         });
         shell
     }
@@ -1505,6 +1778,7 @@ mod tests {
             native_dialog_open: false,
             native_menu_open: false,
             game_seconds: 0,
+            minimap_rect: None,
         };
         let raw = egui::RawInput {
             screen_rect: Some(Rect::from_min_size(
@@ -1983,6 +2257,7 @@ mod tests {
             native_dialog_open: false,
             native_menu_open: false,
             game_seconds: 0,
+            minimap_rect: None,
         });
         assert!(!shell.key_pressed(Key::A, Modifiers::NONE));
         assert!(shell.panel_prefs().all_shown());
@@ -1998,6 +2273,7 @@ mod tests {
                 native_dialog_open: false,
                 native_menu_open: false,
                 game_seconds: 0,
+                minimap_rect: None,
             },
             HostFrame {
                 mode: Mode::Replay,
@@ -2006,6 +2282,7 @@ mod tests {
                 native_dialog_open: true,
                 native_menu_open: false,
                 game_seconds: 0,
+                minimap_rect: None,
             },
             HostFrame {
                 mode: Mode::Replay,
@@ -2014,6 +2291,7 @@ mod tests {
                 native_dialog_open: false,
                 native_menu_open: false,
                 game_seconds: 0,
+                minimap_rect: None,
             },
         ] {
             let mut shell = Shell::new();
@@ -2153,6 +2431,7 @@ mod tests {
             native_dialog_open: false,
             native_menu_open: false,
             game_seconds: 0,
+            minimap_rect: None,
         });
         assert!(!observing.key_pressed(Key::L, Modifiers::NONE));
         assert!(!observing.panel_prefs().spoiler_free);
@@ -2174,6 +2453,17 @@ mod tests {
         let mut elsewhere = spectating_shell();
         let ctx = fresh_ctx();
         assert!(!run_frame_at(&mut elsewhere, &ctx, None, 0.0).transport_shown);
+    }
+
+    #[test]
+    fn escape_closes_the_vision_list_and_nothing_else() {
+        let mut shell = spectating_shell();
+        shell.set_vision_picker_open(true);
+        assert!(shell.key_pressed(Key::Escape, Modifiers::NONE));
+        assert!(!shell.vision_picker_open());
+        assert!(shell.panel_prefs().minimap);
+        // With the list closed the key is the game's again.
+        assert!(!shell.key_pressed(Key::Escape, Modifiers::NONE));
     }
 
     #[test]

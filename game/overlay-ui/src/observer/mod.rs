@@ -9,32 +9,36 @@
 //! glancing at production is reading it against the supply and the bank on the matchup bar. The
 //! shell decides which of them are on screen and what a click on one asks of the game.
 
-mod control_groups;
-mod dock;
-mod economy;
-mod graphs;
-mod map_control;
-mod matchup;
-mod military;
-mod production;
-mod selection;
-mod team_cards;
-mod timeline;
+pub(crate) mod control_groups;
+pub(crate) mod dock;
+pub(crate) mod economy;
+pub(crate) mod graphs;
+pub(crate) mod layout;
+pub(crate) mod map_control;
+pub(crate) mod matchup;
+pub(crate) mod military;
+pub(crate) mod minimap;
+pub(crate) mod production;
+pub(crate) mod selection;
+pub(crate) mod team_cards;
+pub(crate) mod timeline;
 mod unit_codes;
 
 pub use control_groups::{
     ControlGroupView, ControlGroupsPlayerView, ControlGroupsView, render_control_groups_view,
 };
-pub use dock::{DockOutcome, render_obs_dock};
+pub use dock::{DockContext, DockOutcome, DockPlacement, render_obs_dock};
 pub use economy::{EconomyPlayerView, EconomyView, render_economy_view};
 pub use graphs::{
     GraphGrouping, GraphLineView, GraphSeries, GraphsOutcome, GraphsView, render_graphs_view,
 };
+pub use layout::{Span, StackSlot};
 pub use map_control::{MapControlSideView, MapControlView, render_map_control_view};
 pub use matchup::{
     MatchupForm, MatchupOutcome, MatchupPlayerView, MatchupView, render_matchup_view,
 };
 pub use military::{MilitaryPlayerView, MilitaryView, render_military_view};
+pub use minimap::{MinimapFrameOutcome, render_minimap_frame};
 pub use production::{
     ProductionIcon, ProductionItemView, ProductionOutcome, ProductionPlayerView, ProductionView,
     render_production_view,
@@ -365,6 +369,22 @@ pub(crate) const WING_TOP_GAP: f32 = 14.0;
 /// Gap between a panel and whatever the next one down is placed under.
 pub(crate) const WING_GAP: f32 = 12.0;
 
+/// The narrowest run of the bottom edge the centred stack is given beside the replay plate. Any
+/// narrower and the plate is lifted out of the stack's way instead: the narrowest any of the stack's
+/// panels is drawn at.
+pub(crate) const MIN_STACK_WIDTH: f32 = {
+    let widest = if control_groups::MIN_WIDTH > production::MIN_WIDTH {
+        control_groups::MIN_WIDTH
+    } else {
+        production::MIN_WIDTH
+    };
+    if widest > selection::PANEL_WIDTH {
+        widest
+    } else {
+        selection::PANEL_WIDTH
+    }
+};
+
 /// Gap between the matchup bar and the map-control strip hanging under it.
 pub(crate) const MAP_CONTROL_GAP: f32 = 8.0;
 
@@ -406,6 +426,34 @@ pub(crate) const STAT_VALUE_SIZE: f32 = 19.0;
 
 /// Text size of a player's name in a stats wing.
 pub(crate) const STAT_NAME_SIZE: f32 = 16.0;
+
+/// How tall a stats wing's table is, chrome included, with a row for each player of `teams` (their
+/// sides, in the order the rows list them): the panel's header, the row of column headings, every
+/// player's row, and the rule over each side after the first where the table is split into sides.
+///
+/// Worked out rather than measured, because a wing has to know whether it fits under the surfaces
+/// below it before it is drawn: one drawn to find out would already be on screen over them.
+pub(crate) fn stat_table_height(teams: impl Iterator<Item = u8> + Clone) -> f32 {
+    let rows = teams.clone().count() as f32;
+    let dividers = if teams_worth_dividing(teams.clone()) {
+        let mut sides = 0usize;
+        let mut current = None;
+        for team in teams {
+            if current != Some(team) {
+                current = Some(team);
+                sides += 1;
+            }
+        }
+        sides.saturating_sub(1) as f32
+    } else {
+        0.0
+    };
+    tiers::PANEL_MARGIN_HEIGHT
+        + widgets::PANEL_HEADER_HEIGHT
+        + STAT_HEADING_HEIGHT
+        + rows * (STAT_ROW_GAP + STAT_ROW_HEIGHT)
+        + dividers * (STAT_ROW_GAP + STAT_HEADING_HEIGHT)
+}
 
 /// Where each of the observer's stacked surfaces puts its top edge this frame.
 ///
@@ -465,15 +513,6 @@ pub(crate) fn eased_stack_share(ctx: &Context, id: Id, rect: Option<Rect>) -> f3
 /// 1080ths of the screen's own height: the full 348 on any screen at least 1080 tall, and less on a
 /// shorter one, where a point is a pixel and the console shrinks with the screen.
 pub(crate) const MINIMAP_RESERVE_UNITS: f32 = 348.0;
-
-/// The height the design's units are drawn at one to one.
-const DESIGN_HEIGHT: f32 = 1080.0;
-
-/// How far down from the screen's top edge the minimap's square begins, which is as far as anything
-/// hung on the left edge may reach.
-pub(crate) fn minimap_reserve_top(screen: Rect) -> f32 {
-    screen.height() - MINIMAP_RESERVE_UNITS * screen.height() / DESIGN_HEIGHT
-}
 
 /// Whether a table of rows in team order is worth splitting into the sides they belong to.
 ///
@@ -629,6 +668,35 @@ pub(crate) fn paint_stat_identity(
     );
 }
 
+/// What the panels' own tests draw with: a context with the overlay's fonts, and passes enough of
+/// it for a panel to settle into the size it is drawn at.
+#[cfg(test)]
+pub(crate) mod test_support {
+    use egui::{Context, Rect, pos2, vec2};
+
+    /// The rect `draw` reports once a 1920x1080 screen has settled around it: the passes it takes
+    /// an area to learn its size and a panel to finish its entrance.
+    pub(crate) fn settled_rect(mut draw: impl FnMut(&Context) -> Option<Rect>) -> Option<Rect> {
+        let ctx = Context::default();
+        crate::install_fonts_and_style(&ctx, &crate::DynamicFonts::default());
+        let mut rect = None;
+        for pass in 0..6 {
+            let raw = egui::RawInput {
+                screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), vec2(1920.0, 1080.0))),
+                time: Some(f64::from(pass) * 0.25),
+                ..Default::default()
+            };
+            ctx.begin_pass(raw);
+            rect = draw(&ctx);
+            let mut out = ctx.end_pass();
+            let _ = ctx.tessellate(out.shapes, ctx.pixels_per_point());
+            // A layout check has no GPU texture store to hand the atlas to.
+            out.textures_delta.clear();
+        }
+        rect
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -684,13 +752,6 @@ mod tests {
         assert_eq!(stack_share(Some(upper)), 158.0 + WING_GAP);
         // A surface hidden or empty adds nothing, so the next one stands where it stood.
         assert_eq!(stack_share(None), 0.0);
-    }
-
-    #[test]
-    fn the_minimap_square_scales_with_the_screens_height() {
-        let screen = |height| Rect::from_min_max(pos2(0.0, 0.0), pos2(1920.0, height));
-        assert_eq!(minimap_reserve_top(screen(1080.0)), 1080.0 - 348.0);
-        assert_eq!(minimap_reserve_top(screen(720.0)), 720.0 - 232.0);
     }
 
     #[test]

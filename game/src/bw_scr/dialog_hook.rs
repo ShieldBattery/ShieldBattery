@@ -1,4 +1,4 @@
-use std::sync::atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
 use parking_lot::Mutex;
@@ -22,7 +22,6 @@ static CONSOLE_DIALOG_EVENT_HANDLERS: [EventHandler; console::CONSOLE_DIALOGS.le
     [NEW_EVENT_HANDLER; console::CONSOLE_DIALOGS.len()];
 static REPLACED_DIALOG_EVENT_HANDLERS: [EventHandler; NativeDialog::ALL.len()] =
     [NEW_EVENT_HANDLER; NativeDialog::ALL.len()];
-static PREVENT_BUTTON_HIDE_COUNT: AtomicU8 = AtomicU8::new(0);
 
 /// Whether each replaced native dialog is currently spawned, indexed by [`NativeDialog::index`].
 /// Written by the spawn hook and by the swallowing event handler's delete event, read by the draw
@@ -113,6 +112,88 @@ pub fn activate_replaced_dialog_control(
     debug!("Pressing control {control_id} of the {label} dialog");
     REPLACED_DIALOG_DRIVEN[dialog.index()].store(true, Ordering::Relaxed);
     control.send_ext_event_mouse(ACTIVATE_EXT_EVENT, x, y);
+}
+
+/// The minimap panel's button that opens SC:R's alliances dialog, the one beside the chat-scope
+/// button above the minimap.
+const MINIMAP_ALLIANCES_CONTROL_ID: i16 = 3;
+
+/// Opens SC:R's alliances and chat dialog in place of the game menu, the way the button above the
+/// minimap opens it. The game menu has no entry for it; leaving the menu first keeps the alliances
+/// dialog from opening under the menu's modal state.
+pub fn open_alliances(first_dialog: Option<Dialog>) {
+    close_replaced_dialog(first_dialog, NativeDialog::GameMenu);
+    let Some(minimap) = bw::iter_dialogs(first_dialog)
+        .find(|dialog| dialog.as_control().string() == console::MINIMAP_DIALOG)
+    else {
+        warn!("No minimap panel to open the alliances dialog from");
+        return;
+    };
+    let Some(button) = minimap.child_by_id(MINIMAP_ALLIANCES_CONTROL_ID) else {
+        warn!("The minimap panel has no control {MINIMAP_ALLIANCES_CONTROL_ID}");
+        return;
+    };
+    let area = button.dialog_coords();
+    let x = area.left + (area.right - area.left) / 2;
+    let y = area.top + (area.bottom - area.top) / 2;
+    debug!("Opening the alliances dialog");
+    button.send_ext_event_mouse(ACTIVATE_EXT_EVENT, x, y);
+}
+
+/// Opens the game's menu the way its own key does, by pressing the console's menu button: the menu
+/// that spawns is the one the overlay replaces, so this brings up the overlay's menu exactly as
+/// `F10` would. The button is hidden with the rest of a watcher's console, which keeps the pointer
+/// from it but not a press sent to it.
+///
+/// Where the button cannot be found, the key itself is posted to the game's window instead.
+pub fn open_game_menu(first_dialog: Option<Dialog>) {
+    let button = bw::iter_dialogs(first_dialog)
+        .find(|dialog| dialog.as_control().string() == MENU_BUTTON_DIALOG)
+        .and_then(|dialog| {
+            let button = dialog
+                .children()
+                .find(|child| matches!(child.control_type(), 0x1 | 0x2));
+            if button.is_none() {
+                let controls = dialog
+                    .children()
+                    .map(|child| format!("{} ({:#x})", child.id(), child.control_type()))
+                    .collect::<Vec<_>>();
+                warn!(
+                    "The {MENU_BUTTON_DIALOG} dialog has no button; its controls are {}",
+                    controls.join(", ")
+                );
+            }
+            button
+        });
+    match button {
+        Some(button) => {
+            let area = button.dialog_coords();
+            let x = area.left + (area.right - area.left) / 2;
+            let y = area.top + (area.bottom - area.top) / 2;
+            debug!("Pressing the menu button to open the game menu");
+            button.send_ext_event_mouse(ACTIVATE_EXT_EVENT, x, y);
+        }
+        None => post_menu_key(),
+    }
+}
+
+/// Posts the game's menu key to its window, a press and a release, as Windows delivers `F10`.
+fn post_menu_key() {
+    use winapi::um::winuser::{
+        MAPVK_VK_TO_VSC, MapVirtualKeyW, PostMessageW, VK_F10, WM_SYSKEYDOWN, WM_SYSKEYUP,
+    };
+    let Some(window) = crate::forge::game_window_handle() else {
+        warn!("No game window to post the menu key to");
+        return;
+    };
+    debug!("Posting the menu key to open the game menu");
+    unsafe {
+        let scan = MapVirtualKeyW(VK_F10 as u32, MAPVK_VK_TO_VSC) & 0xff;
+        let down = 1 | (scan << 16);
+        let up = down | (1 << 30) | (1 << 31);
+        PostMessageW(window, WM_SYSKEYDOWN, VK_F10 as usize, down as isize);
+        PostMessageW(window, WM_SYSKEYUP, VK_F10 as usize, up as isize);
+    }
 }
 
 /// The game menu's control that leads towards quitting the game.
@@ -527,12 +608,11 @@ unsafe extern "C" fn minimap_event_handler(
             // associated globals) are initialized. Done after `orig` so it wins over any reset the
             // game's own init does.
             bw.restore_minimap_settings();
-            // Replay / obs UI won't have the alliance / chat buttons show above
-            // minimap unless explicitly shown.
-            // But annoyingly they are not immediately hidden by the init event, but
-            // a timer is queued to hide them after a bit, so knowing when to show them
-            // again is kind of annoying.. Have to hook the relevant control's event handlers
-            // and have them ignore the hide event.
+            // A watcher's minimap gets the overlay's own header in place of the two buttons SC:R
+            // keeps above it, so those stay hidden for a watcher. The game shows and hides them on
+            // timers of its own, so hiding them once is not enough: their handlers are hooked to
+            // refuse every show from here on. Everything else still reaches them, so the overlay
+            // can still press one through the game's own code.
             if bw.is_replay_or_obs() {
                 let ctrl = Control::new(ctrl);
                 for child in ctrl.dialog().children() {
@@ -542,12 +622,11 @@ unsafe extern "C" fn minimap_event_handler(
                             _ => &MINIMAP_BUTTON2_EVENT_HANDLER,
                         };
                         if let Some(handler) = (*(*child)).event_handler {
-                            let inited = handler_hook.init(prevent_button_hide);
+                            let inited = handler_hook.init(keep_button_hidden);
                             inited.set_orig(handler as usize);
                             child.set_event_handler(inited);
-                            PREVENT_BUTTON_HIDE_COUNT.fetch_add(1, Ordering::Relaxed);
                         }
-                        child.show();
+                        child.hide();
                     }
                 }
             }
@@ -628,20 +707,16 @@ unsafe fn is_pointer_event(event: *mut bw::ControlEvent) -> bool {
     unsafe { matches!((*event).ty, 0x3..=0xc | 0x11 | 0x12) }
 }
 
-unsafe extern "C" fn prevent_button_hide(
+/// The event handler of a button above a watcher's minimap, which refuses to be shown.
+unsafe extern "C" fn keep_button_hidden(
     ctrl: *mut bw::Control,
     event: *mut bw::ControlEvent,
     orig: unsafe extern "C" fn(*mut bw::Control, *mut bw::ControlEvent) -> u32,
 ) -> u32 {
     unsafe {
-        if (*event).ty == 0xe && (*event).ext_type == 0xe {
-            // Hide
-            let hide_skip_count = PREVENT_BUTTON_HIDE_COUNT.load(Ordering::Relaxed);
-            if hide_skip_count != 0 {
-                debug!("Skipping minimap button hide");
-                PREVENT_BUTTON_HIDE_COUNT.store(hide_skip_count - 1, Ordering::Relaxed);
-                return 0;
-            }
+        // 0xd is the dialog system's show event.
+        if (*event).ty == 0xe && (*event).ext_type == 0xd {
+            return 0;
         }
         orig(ctrl, event as _)
     }

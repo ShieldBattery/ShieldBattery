@@ -23,7 +23,7 @@ use crate::colors::{BLUE60, GREY_BLUE60};
 use crate::kit::text;
 use crate::kit::{motion, theme, tiers};
 use crate::observer::{
-    centred, fit_icon, paint_player_bar, paint_text, paint_tile_chrome, unit_codes,
+    StackSlot, centred, fit_icon, paint_player_bar, paint_text, paint_tile_chrome, unit_codes,
 };
 
 /// How wide the panel is, in overlay points.
@@ -64,9 +64,27 @@ const COUNT_TEXT_SIZE: f32 = 11.0;
 /// How far the count sits from the tile's own corner.
 const COUNT_INSET: f32 = 3.0;
 
-/// How many tiles fit in a row, which is what the row's width allows and not a design limit: a
-/// player producing more than this is producing more than the panel was ever meant to list.
+/// How many tiles fit in a row of the panel's design width, which is what the row's width allows
+/// and not a design limit: a player producing more than this is producing more than the panel was
+/// ever meant to list.
 const MAX_TILES: usize = 9;
+
+/// The narrowest the panel is drawn at: a row of five tiles, which is still a reading of what a
+/// player is making rather than of the first thing they queued.
+pub(crate) const MIN_WIDTH: f32 =
+    COLOR_BAR + BAR_GAP + TILE_WIDTH * 5.0 + TILE_GAP * 4.0 + tiers::PANEL_MARGIN_WIDTH;
+
+/// How many tiles a row of a panel `width` wide holds.
+fn tiles_that_fit(width: f32) -> usize {
+    let room = tiers::panel_content_width(width) - COLOR_BAR - BAR_GAP + TILE_GAP;
+    ((room / (TILE_WIDTH + TILE_GAP)).floor().max(0.0) as usize).min(MAX_TILES)
+}
+
+/// How many players' rows fit in `room` points of height, chrome included.
+fn rows_that_fit(room: f32) -> usize {
+    let room = room - tiers::PANEL_MARGIN_HEIGHT + ROW_GAP;
+    (room / (ROW_HEIGHT + ROW_GAP)).floor().max(0.0) as usize
+}
 
 /// The tiles are the row and the row is the panel: checked where the widths are written, because one
 /// tile more than fits would be drawn outside the panel's chrome.
@@ -133,28 +151,65 @@ pub struct ProductionOutcome {
     pub clicked: Option<(u8, usize)>,
 }
 
-/// Draws the production panel `bottom` points above the screen's own bottom edge, fading and
-/// sliding it in and out. Returns nothing at all once it is gone, or while there is nothing being
-/// made.
+/// How the panel fits a slot: as wide as the slot leaves it, up to the design's width, and with as
+/// many players' rows as the room under the ceiling holds.
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub(crate) struct ProductionFit {
+    pub(crate) width: f32,
+    pub(crate) tiles: usize,
+    pub(crate) rows: usize,
+}
+
+impl ProductionFit {
+    /// How `view` fits `slot`, or `None` where not even one row of the narrowest panel does: a panel
+    /// that has to give way altogether.
+    pub(crate) fn of(view: &ProductionView, slot: StackSlot) -> Option<ProductionFit> {
+        let (span, _) = slot.place(PANEL_WIDTH);
+        let width = span.width();
+        let producing = view.players.iter().filter(|p| !p.items.is_empty()).count();
+        let rows = producing.min(rows_that_fit(slot.room()));
+        (width >= MIN_WIDTH && rows > 0).then(|| ProductionFit {
+            width,
+            tiles: tiles_that_fit(width),
+            rows,
+        })
+    }
+}
+
+/// Draws the production panel in `slot`, fading and sliding it in and out. Returns nothing at all
+/// once it is gone, or while there is nothing being made.
+///
+/// On a screen that leaves the slot narrower than the panel's design width a row carries fewer
+/// tiles, and under a ceiling too low for every row the panel keeps the first players' rows: a
+/// production panel short of a row is still the panel, where one drawn over the surfaces above it
+/// is neither.
 pub fn render_production_view(
     view: &ProductionView,
     ctx: &Context,
     shown: bool,
-    bottom: f32,
+    slot: StackSlot,
 ) -> Option<ProductionOutcome> {
     let id = Id::new("sb_production_panel");
+    let fit = ProductionFit::of(view, slot);
+    let (_, offset_x) = slot.place(fit.map_or(PANEL_WIDTH, |fit| fit.width));
     let area = Area::new(id)
-        .anchor(Align2::CENTER_BOTTOM, vec2(0.0, -bottom))
+        .anchor(Align2::CENTER_BOTTOM, vec2(offset_x, -slot.bottom))
         .order(Order::Foreground);
+    // A panel on its way out keeps the shape it last had rather than collapsing into nothing.
+    let fit = fit.unwrap_or(ProductionFit {
+        width: PANEL_WIDTH,
+        tiles: MAX_TILES,
+        rows: view.players.len(),
+    });
     let inner = motion::presence_area(
         ctx,
         id.with("presence"),
-        shown && !view.is_empty(),
+        shown && !view.is_empty() && ProductionFit::of(view, slot).is_some(),
         area,
         |ui| {
             tiers::tier0_panel(ui, |ui| {
-                ui.set_width(CONTENT_WIDTH);
-                draw_rows(ui, view)
+                ui.set_width(tiers::panel_content_width(fit.width));
+                draw_rows(ui, view, fit)
             })
             .inner
         },
@@ -165,14 +220,21 @@ pub fn render_production_view(
     })
 }
 
-/// Draws one row per player with something on the way, and reports which tile was clicked.
-fn draw_rows(ui: &mut Ui, view: &ProductionView) -> Option<(u8, usize)> {
+/// Draws one row per player with something on the way, as many as `fit` has room for, and reports
+/// which tile was clicked.
+fn draw_rows(ui: &mut Ui, view: &ProductionView, fit: ProductionFit) -> Option<(u8, usize)> {
     // The rows are stacked by the gap written here and by nothing else, so the panel is exactly as
     // tall as the players producing anything.
     ui.spacing_mut().item_spacing = vec2(0.0, ROW_GAP);
+    let content_width = tiers::panel_content_width(fit.width);
     let mut clicked = None;
-    for player in view.players.iter().filter(|p| !p.items.is_empty()) {
-        let (row, _) = ui.allocate_exact_size(vec2(CONTENT_WIDTH, ROW_HEIGHT), Sense::hover());
+    for player in view
+        .players
+        .iter()
+        .filter(|p| !p.items.is_empty())
+        .take(fit.rows)
+    {
+        let (row, _) = ui.allocate_exact_size(vec2(content_width, ROW_HEIGHT), Sense::hover());
         paint_player_bar(
             ui,
             centred(
@@ -183,7 +245,7 @@ fn draw_rows(ui: &mut Ui, view: &ProductionView) -> Option<(u8, usize)> {
             1.0,
         );
         let mut x = row.left() + COLOR_BAR + BAR_GAP;
-        for (index, item) in player.items.iter().take(MAX_TILES).enumerate() {
+        for (index, item) in player.items.iter().take(fit.tiles).enumerate() {
             let tile = Rect::from_min_size(pos2(x, row.top()), vec2(TILE_WIDTH, TILE_HEIGHT));
             x += TILE_WIDTH + TILE_GAP;
             let response = ui.interact(

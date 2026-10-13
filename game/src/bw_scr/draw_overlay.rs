@@ -29,7 +29,7 @@ use crate::bw::apm_stats::ApmStats;
 use crate::bw_scr::game_stats::GameStats;
 use crate::bw_scr::replay_transport::{ReplayCommand, TransportState};
 use crate::bw_scr::scr;
-use crate::bw_scr::{BwCursorType, dialog_hook};
+use crate::bw_scr::{BwCursorType, console, dialog_hook};
 use crate::netcode_v2::{self, DisconnectStatus, LoadingConnectivity, NetStatsStatus};
 
 use self::chat_history::ChatHistoryCache;
@@ -66,6 +66,8 @@ pub struct OverlayState {
     /// Which replaced native dialogs were live as of the last [`step`](Self::step), so the shell
     /// hears about a spawn or a delete exactly once.
     native_dialogs_live: [bool; NativeDialog::ALL.len()],
+    /// The minimap dialog's rect, in BW's dialog coordinates, as last logged.
+    logged_minimap_area: Option<(i16, i16, i16, i16)>,
     /// The chat log the last frame handed the shell, kept only while its modal is on screen.
     chat_history: Option<ChatHistoryCache>,
     out_state: OutState,
@@ -284,6 +286,7 @@ impl OverlayState {
             shell: Shell::new(),
             capture: InputCapture::PASS_THROUGH,
             native_dialogs_live: [false; NativeDialog::ALL.len()],
+            logged_minimap_area: None,
             out_state: OutState {
                 replay_visions: 0,
                 select_unit: None,
@@ -455,6 +458,11 @@ impl OverlayState {
                 bw.replay
                     .map_or(FASTEST_GAME_SPEED, |replay| replay.game_speed),
             ),
+            minimap_rect: if bw.is_replay_or_obs {
+                self.minimap_rect(bw)
+            } else {
+                None
+            },
         };
         // Keypresses arrive between frames and are decided against this, so it is refreshed even on
         // the frames the shell draws nothing on.
@@ -713,6 +721,60 @@ impl OverlayState {
         self.ctx.tessellate(shapes, pixels_per_point)
     }
 
+    /// Where BW's minimap square is on screen, in overlay points, while its dialog is up.
+    ///
+    /// The dialog's own rect carries the strip of buttons above the map as well as the map, so the
+    /// square is taken from the dialog's bottom: as wide as the dialog, and as tall as it is wide.
+    /// The rect is logged whenever it moves, children and all, which is what to check the square
+    /// against when a layout of the game's puts the minimap somewhere new.
+    fn minimap_rect(&mut self, bw: &BwVars) -> Option<Rect> {
+        let dialog = bw::iter_dialogs(bw.first_dialog)
+            .find(|dialog| dialog.as_control().string() == console::MINIMAP_DIALOG)?;
+        let control = dialog.as_control();
+        if control.is_hidden() {
+            return None;
+        }
+        let area = control.screen_coords();
+        if self.logged_minimap_area != Some((area.left, area.top, area.right, area.bottom)) {
+            self.logged_minimap_area = Some((area.left, area.top, area.right, area.bottom));
+            let children = dialog
+                .children()
+                .map(|child| {
+                    let rect = child.dialog_coords();
+                    format!(
+                        "{} ({:#x}) {},{}-{},{}{}",
+                        child.id(),
+                        child.control_type(),
+                        rect.left,
+                        rect.top,
+                        rect.right,
+                        rect.bottom,
+                        if child.is_hidden() { " hidden" } else { "" },
+                    )
+                })
+                .collect::<Vec<_>>();
+            debug!(
+                "Minimap dialog at {},{}-{},{}; controls {}",
+                area.left,
+                area.top,
+                area.right,
+                area.bottom,
+                children.join(", ")
+            );
+        }
+        let min = self.bw_dialog_point_to_egui(area.left, area.top);
+        let max = self.bw_dialog_point_to_egui(area.right, area.bottom);
+        let width = max.x - min.x;
+        if width <= 0.0 || max.y <= min.y {
+            return None;
+        }
+        let side = width.min(max.y - min.y);
+        Some(Rect::from_min_max(
+            pos2(min.x, max.y - side),
+            pos2(max.x, max.y),
+        ))
+    }
+
     fn bw_dialog_coords_max_x(&self) -> f32 {
         // BW dialog coordinates are in 640x480-range if aspect ratio is 4:3,
         // and for wider aspect ratios Y range stays 480 while X range grows.
@@ -914,11 +976,8 @@ impl OverlayState {
             // leave handling speaks for it.
             Intent::LeaveGame | Intent::AbandonGame => self.out_state.leave_game = true,
             Intent::QuitGame => dialog_hook::begin_quit(bw.first_dialog),
-            Intent::OpenAlliances => dialog_hook::activate_replaced_dialog_control(
-                bw.first_dialog,
-                NativeDialog::GameMenu,
-                GAME_MENU_SOCIAL_CONTROL_ID,
-            ),
+            Intent::OpenAlliances => dialog_hook::open_alliances(bw.first_dialog),
+            Intent::OpenGameMenu => dialog_hook::open_game_menu(bw.first_dialog),
             Intent::Seek(frame) => replay_commands.push(ReplayCommand::Seek { frame }),
             Intent::SetSpeed {
                 speed_index,
@@ -1368,10 +1427,6 @@ fn has_player_vision(bw: &BwVars, player_id: u8) -> bool {
         None => true,
     }
 }
-
-/// The game menu's control that opens SC:R's social popup, where its alliances and chat settings
-/// live.
-const GAME_MENU_SOCIAL_CONTROL_ID: i16 = 4;
 
 /// The game speed a live game is played at, which is what turns its frame count into the clock the
 /// matchup bar shows. A replay carries its own recorded speed instead.

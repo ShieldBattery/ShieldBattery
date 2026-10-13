@@ -138,6 +138,11 @@ fn rows_that_fit(top: f32, floor: f32) -> usize {
     (1 + further).min(ROWS)
 }
 
+/// Whether at least one row of the feed fits between `top` and `floor`.
+pub(crate) fn fits(top: f32, floor: f32) -> bool {
+    rows_that_fit(top, floor) > 0
+}
+
 /// Draws the timeline against the left edge of the screen at `top`, fading and sliding it in and
 /// out. Returns nothing at all once it is gone, or before anything has happened.
 ///

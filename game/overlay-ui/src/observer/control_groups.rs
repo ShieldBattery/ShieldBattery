@@ -32,8 +32,8 @@ use crate::colors::{BLUE80, GREY_BLUE10};
 use crate::kit::text;
 use crate::kit::{motion, theme, tiers};
 use crate::observer::{
-    EdgeCursor, ProductionIcon, centred, fit_icon, paint_player_bar, paint_text, unit_codes,
-    vision_alpha,
+    EdgeCursor, ProductionIcon, StackSlot, centred, fit_icon, paint_player_bar, paint_text,
+    unit_codes, vision_alpha,
 };
 
 /// How wide the panel is, in overlay points.
@@ -65,8 +65,30 @@ const TILE_HEIGHT: f32 = 46.0;
 /// Gap between two slots.
 const TILE_GAP: f32 = 6.0;
 
-/// Gap between two players' rows.
-const ROW_GAP: f32 = 4.0;
+/// The narrowest a slot is drawn, on a screen that leaves the panel less than its design width: as
+/// narrow as a group of two kinds still names both of them in.
+const MIN_TILE_WIDTH: f32 = 46.0;
+
+/// The narrowest the panel is drawn at, with every slot at its narrowest. Narrower than that the
+/// panel gives way rather than drop a key: the same key always being in the same place is the
+/// point of it.
+pub(crate) const MIN_WIDTH: f32 = PANEL_WIDTH - (TILE_WIDTH - MIN_TILE_WIDTH) * 10.0;
+
+/// How tall the panel is, chrome included.
+pub(crate) const PANEL_HEIGHT: f32 = TILE_HEIGHT + tiers::PANEL_MARGIN_HEIGHT;
+
+/// How wide one slot is in a panel `width` wide.
+fn tile_width(width: f32) -> f32 {
+    let slots = GROUP_KEYS.len() as f32;
+    ((tiers::panel_content_width(width) - COLOR_BAR - BAR_GAP - TILE_GAP * (slots - 1.0)) / slots)
+        .min(TILE_WIDTH)
+}
+
+/// How wide the panel is drawn in `slot`, or `None` where the slot has no room for it.
+pub(crate) fn fitted_width(slot: StackSlot) -> Option<f32> {
+    let (span, _) = slot.place(PANEL_WIDTH);
+    (span.width() >= MIN_WIDTH && slot.room() >= PANEL_HEIGHT).then_some(span.width())
+}
 
 /// The slots are the row and the row is the panel: checked where the widths are written, because
 /// one slot more than fits would be drawn outside the panel's chrome.
@@ -183,32 +205,36 @@ impl ControlGroupsView {
     }
 }
 
-/// Draws the control groups panel `bottom` points above the screen's own bottom edge, fading and
-/// sliding it in and out, with the row of the player `focus` names. Returns nothing at all once it
-/// is gone, or while nobody has a group.
+/// Draws the control groups panel in `slot`, fading and sliding it in and out, with the row of the
+/// player `focus` names. Returns nothing at all once it is gone, while nobody has a group, or where
+/// the slot has no room for it.
+///
+/// A slot narrower than the panel's design width narrows every key's slot alike rather than
+/// dropping any of them.
 pub fn render_control_groups_view(
     view: &ControlGroupsView,
     ctx: &Context,
     shown: bool,
-    bottom: f32,
+    slot: StackSlot,
     focus: Option<u8>,
 ) -> Option<Rect> {
     let id = Id::new("sb_control_groups_panel");
+    let fitted = fitted_width(slot);
+    let width = fitted.unwrap_or(PANEL_WIDTH);
+    let (_, offset_x) = slot.place(width);
     let area = Area::new(id)
-        .anchor(Align2::CENTER_BOTTOM, vec2(0.0, -bottom))
+        .anchor(Align2::CENTER_BOTTOM, vec2(offset_x, -slot.bottom))
         .order(Order::Foreground);
     let inner = motion::presence_area(
         ctx,
         id.with("presence"),
-        shown && !view.is_empty(),
+        shown && !view.is_empty() && fitted.is_some(),
         area,
         |ui| {
             tiers::tier0_panel(ui, |ui| {
-                // The rows are stacked by the gap written here and by nothing else, so the panel is
-                // exactly as tall as the players who have bound anything.
-                ui.spacing_mut().item_spacing = vec2(0.0, ROW_GAP);
-                ui.set_width(CONTENT_WIDTH);
-                draw_rows(ui, view, focus);
+                ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
+                ui.set_width(tiers::panel_content_width(width));
+                draw_rows(ui, view, focus, width);
             })
             .inner
         },
@@ -216,10 +242,14 @@ pub fn render_control_groups_view(
     Some(inner.response.rect)
 }
 
-/// Draws the one row the panel shows.
-fn draw_rows(ui: &mut Ui, view: &ControlGroupsView, focus: Option<u8>) {
+/// Draws the one row the panel shows, across a panel `width` wide.
+fn draw_rows(ui: &mut Ui, view: &ControlGroupsView, focus: Option<u8>, width: f32) {
     if let Some(player) = view.shown(focus) {
-        let (row, _) = ui.allocate_exact_size(vec2(CONTENT_WIDTH, TILE_HEIGHT), Sense::hover());
+        let (row, _) = ui.allocate_exact_size(
+            vec2(tiers::panel_content_width(width), TILE_HEIGHT),
+            Sense::hover(),
+        );
+        let tile_width = tile_width(width);
         let alpha = vision_alpha(player.vision);
         let mut cursor = EdgeCursor::from_left(row);
         let bar = cursor.take(COLOR_BAR);
@@ -236,7 +266,7 @@ fn draw_rows(ui: &mut Ui, view: &ControlGroupsView, focus: Option<u8>) {
             if index > 0 {
                 cursor.skip(TILE_GAP);
             }
-            let slot = cursor.take(TILE_WIDTH);
+            let slot = cursor.take(tile_width);
             let group = player.groups.iter().find(|group| group.key == key);
             draw_slot(ui, slot, key, group, alpha);
         }

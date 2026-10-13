@@ -296,7 +296,21 @@ pub fn render(
         option_lists: option_lists.as_ref(),
     };
 
-    let output = shell.frame(ctx, &knobs.host.host_frame(), &mut views);
+    // The game draws its own minimap under the overlay and tells the shell where it is; the preview
+    // has no minimap, so it paints a stand-in where SC:R puts one for a watcher and reports that.
+    let mut host = knobs.host.host_frame();
+    if knobs.scenario == ScenarioKind::Observer {
+        let square = observer::minimap_square(ctx.viewport_rect());
+        if shell.panel_prefs().minimap {
+            observer::paint_minimap_stand_in(ctx, square);
+        }
+        host.minimap_rect = Some(square);
+        if knobs.observer.vision_picker && !state.observer.vision_picker_opened {
+            state.observer.vision_picker_opened = true;
+            shell.set_vision_picker_open(true);
+        }
+    }
+    let output = shell.frame(ctx, &host, &mut views);
     if knobs.scenario == ScenarioKind::NetQuality {
         net_quality::paint_stand_ins(&knobs.net_quality, ctx);
     }
@@ -315,6 +329,9 @@ pub fn render(
             Intent::LeaveGame | Intent::QuitGame => outcome.left = true,
             // SC:R's social popup has no stand-in here.
             Intent::OpenAlliances => {}
+            // The game answers this by spawning its menu, which the overlay's own replaces; here the
+            // switch standing in for that spawn is what moves.
+            Intent::OpenGameMenu => outcome.open_game_menu = true,
             // The emulated game has no settings to write, so a change is only reported: the shell
             // is already showing it, which is what the screen is being looked at for.
             Intent::ChangeSetting(change) => outcome.setting_changes.push(change),
@@ -360,6 +377,8 @@ pub struct Outcome {
     /// The game DLL drives the real dialog's return control; the preview closes the switch that
     /// stands in for it.
     pub close_native_dialogs: Vec<NativeDialog>,
+    /// Whether the overlay asked for the game's menu, which a game answers by spawning it.
+    pub open_game_menu: bool,
     /// The rects the shell reports as its own this frame, in the emulated screen's points.
     pub hit_rects: Vec<HitRect>,
     pub capture: InputCapture,

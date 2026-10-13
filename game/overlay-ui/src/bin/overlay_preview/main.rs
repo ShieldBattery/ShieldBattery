@@ -450,6 +450,10 @@ impl PreviewApp {
             self.knobs.host.set_spawned(*dialog, false);
             self.dirty = true;
         }
+        if outcome.open_game_menu {
+            self.knobs.host.game_menu_spawned = true;
+            self.dirty = true;
+        }
         // Hotkeys move the panel prefs, and where they leave them is what persists.
         let prefs = *self.shell.panel_prefs();
         if prefs != self.knobs.host.panels {

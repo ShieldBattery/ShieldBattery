@@ -10,13 +10,19 @@
 //! The list is the shell's panel table rather than a list of its own, so a surface built later
 //! appears here the day its toggle does, and one that does not exist yet is not advertised.
 //!
-//! It is anchored to the middle of the screen's right edge rather than to a fixed height: the list
-//! grows with the panels that exist and with what is being watched, and a fixed top would sooner or
-//! later push its last rows into the console band the game's own interface owns.
+//! It is centred on the screen's right edge rather than hung at a fixed height: the list grows with
+//! the panels that exist and with what is being watched, and a fixed top would sooner or later push
+//! its last rows into the console band the game's own interface owns. Where the surfaces above and
+//! below it on that edge leave less than the middle, it moves off the middle into the room they
+//! leave, and on a screen too short even for that its rows give up some of their height.
+//!
+//! A panel the watcher wants on screen but the screen has no room for is a row of its own kind: on,
+//! and not on screen. Its lamp is a ring in the accent rather than a filled dot, so the dock never
+//! claims a panel is up that the watcher cannot find.
 
 use egui::{
     Align, Align2, Area, Context, Id, Order, Pos2, Rect, Response, Sense, Shape, Stroke,
-    StrokeKind, Ui, pos2, vec2,
+    StrokeKind, Ui, Vec2, pos2, vec2,
 };
 
 use crate::kit::text::{self, BodyWeight};
@@ -35,8 +41,22 @@ const EXPANDED_WIDTH: f32 = 208.0;
 /// How far the dock sits from the screen's right edge.
 const EDGE_MARGIN: f32 = 16.0;
 
+/// How much of the right edge the dock takes in the form `expanded` says, its margin included.
+pub(crate) fn column_width(expanded: bool) -> f32 {
+    EDGE_MARGIN
+        + if expanded {
+            EXPANDED_WIDTH
+        } else {
+            COLLAPSED_WIDTH
+        }
+}
+
 /// Height of one row.
 const ROW_HEIGHT: f32 = theme::HIT_PANEL;
+
+/// The least height a row keeps on a screen too short for the dock at its full height: still a
+/// keycap's height with a little room around it.
+const MIN_ROW_HEIGHT: f32 = 26.0;
 
 /// Gap between two rows.
 const ROW_GAP: f32 = 4.0;
@@ -125,6 +145,75 @@ fn entries(mode: Mode, map_control_available: bool) -> Vec<Entry> {
     entries
 }
 
+/// How tall the dock is with rows `row_height` tall, chrome included.
+fn height(mode: Mode, map_control_available: bool, row_height: f32) -> f32 {
+    let rows = entries(mode, map_control_available).len() as f32;
+    tiers::PANEL_MARGIN_HEIGHT + CHEVRON_HEIGHT + rows * (ROW_GAP + row_height)
+}
+
+/// Where the dock goes on the right edge and how tall its rows are.
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub struct DockPlacement {
+    /// How far the dock's middle is from the screen's, downwards.
+    pub offset_y: f32,
+    pub row_height: f32,
+    /// The run of the screen's height the dock covers.
+    pub top: f32,
+    pub bottom: f32,
+}
+
+impl DockPlacement {
+    /// Where the dock goes between `top` and `bottom` on a screen whose middle is `middle`: on the
+    /// middle where that leaves it inside the room, moved into the room where it does not, with its
+    /// rows shortened where even the whole room is too short. `None` where the room is too short for
+    /// the dock with its rows at their shortest.
+    pub(crate) fn fit(
+        mode: Mode,
+        map_control_available: bool,
+        middle: f32,
+        top: f32,
+        bottom: f32,
+    ) -> Option<DockPlacement> {
+        let room = bottom - top;
+        let full = height(mode, map_control_available, ROW_HEIGHT);
+        let row_height = if full <= room {
+            ROW_HEIGHT
+        } else {
+            let rows = entries(mode, map_control_available).len() as f32;
+            let fixed = height(mode, map_control_available, 0.0);
+            let row = ((room - fixed) / rows).floor();
+            if row < MIN_ROW_HEIGHT {
+                return None;
+            }
+            row
+        };
+        let height = height(mode, map_control_available, row_height);
+        let centre = middle.clamp(top + height * 0.5, (bottom - height * 0.5).max(top));
+        Some(DockPlacement {
+            offset_y: centre - middle,
+            row_height,
+            top: centre - height * 0.5,
+            bottom: centre + height * 0.5,
+        })
+    }
+
+    /// The dock at its full height on the middle of a screen `screen_height` tall, for a screen with
+    /// no room to give it anything better.
+    pub(crate) fn centred(
+        mode: Mode,
+        map_control_available: bool,
+        screen_height: f32,
+    ) -> DockPlacement {
+        let height = height(mode, map_control_available, ROW_HEIGHT);
+        DockPlacement {
+            offset_y: 0.0,
+            row_height: ROW_HEIGHT,
+            top: (screen_height - height) * 0.5,
+            bottom: (screen_height + height) * 0.5,
+        }
+    }
+}
+
 /// What the watcher asked of the dock this frame.
 pub struct DockOutcome {
     /// Where the dock is on screen, for the host's hit testing.
@@ -149,18 +238,29 @@ impl DockOutcome {
     }
 }
 
+/// What the dock draws from besides the panel preferences themselves.
+pub struct DockContext<'a> {
+    pub hotkeys: &'a Hotkeys,
+    pub mode: Mode,
+    pub map_control_available: bool,
+    pub placement: DockPlacement,
+    /// The panels the watcher wants on screen that the screen has no room for this frame.
+    pub displaced: &'a [Panel],
+}
+
 /// Draws the dock against the right edge of the screen, fading and sliding it in and out. Returns
 /// nothing at all once it is gone.
 pub fn render_obs_dock(
     prefs: &PanelPrefs,
-    hotkeys: &Hotkeys,
-    mode: Mode,
-    map_control_available: bool,
+    dock: &DockContext<'_>,
     ctx: &Context,
 ) -> Option<DockOutcome> {
     let id = Id::new("sb_obs_dock");
     let area = Area::new(id)
-        .anchor(Align2::RIGHT_CENTER, vec2(-EDGE_MARGIN, 0.0))
+        .anchor(
+            Align2::RIGHT_CENTER,
+            vec2(-EDGE_MARGIN, dock.placement.offset_y),
+        )
         .order(Order::Foreground);
     let width = if prefs.dock_expanded {
         EXPANDED_WIDTH
@@ -179,11 +279,14 @@ pub fn render_obs_dock(
         |ui| {
             tiers::tier0_panel(ui, |ui| {
                 ui.set_width(tiers::panel_content_width(width));
-                draw_dock(ui, prefs, hotkeys, mode, map_control_available)
+                draw_dock(ui, prefs, dock)
             })
             .inner
         },
     )?;
+    // The rail is the one surface allowed over the panels, being something the watcher has just
+    // opened to read, so it is kept over whichever of them came on screen after it.
+    ctx.move_to_top(inner.response.layer_id);
     let mut outcome = inner.inner;
     outcome.rect = inner.response.rect;
     Some(outcome)
@@ -197,6 +300,8 @@ struct Hint {
     title: String,
     /// The key that does the same thing without the pointer, for a row that has one.
     key: Option<String>,
+    /// Whether the row's panel is wanted and has no room, which the card says in words.
+    displaced: bool,
 }
 
 impl Hint {
@@ -206,17 +311,22 @@ impl Hint {
             anchor: response.hover_pos()?,
             title,
             key: key.map(str::to_string),
+            displaced: false,
         })
     }
 }
 
-fn draw_dock(
-    ui: &mut Ui,
-    prefs: &PanelPrefs,
-    hotkeys: &Hotkeys,
-    mode: Mode,
-    map_control_available: bool,
-) -> DockOutcome {
+/// How a row stands.
+#[derive(Copy, Clone, PartialEq, Eq)]
+enum RowState {
+    Off,
+    On,
+    /// Wanted on screen, with no room for it on this one.
+    Displaced,
+}
+
+fn draw_dock(ui: &mut Ui, prefs: &PanelPrefs, dock: &DockContext<'_>) -> DockOutcome {
+    let hotkeys = dock.hotkeys;
     // The rows are stacked by the gaps written here and by nothing else: this is a fixed layout, and
     // egui's own spacing between items would add to every one of them.
     ui.spacing_mut().item_spacing = vec2(0.0, ROW_GAP);
@@ -238,15 +348,35 @@ fn draw_dock(
     };
     let mut hint = Hint::hovered(&header, chevron_title, None);
 
-    for entry in entries(mode, map_control_available) {
+    for entry in entries(dock.mode, dock.map_control_available) {
         let key = hotkeys
             .chord_for(entry.action())
             .map(|chord| chord.key.symbol_or_name());
-        let response = draw_row(ui, content_width, prefs.dock_expanded, entry, key, prefs);
+        let state = match entry {
+            Entry::Panel(panel) if prefs.shown(panel) && dock.displaced.contains(&panel) => {
+                RowState::Displaced
+            }
+            _ if entry.is_on(prefs) => RowState::On,
+            _ => RowState::Off,
+        };
+        let response = draw_row(
+            ui,
+            vec2(content_width, dock.placement.row_height),
+            prefs.dock_expanded,
+            entry,
+            key,
+            state,
+        );
         // Collapsed a row is a keycap and nothing else, so the card is what names it; expanded the
-        // rail has already said everything the card would.
-        if !prefs.dock_expanded {
-            hint = hint.or_else(|| Hint::hovered(&response, entry.label(), key));
+        // rail has already said everything the card would, bar a panel with no room, which nothing
+        // else on screen explains.
+        if !prefs.dock_expanded || state == RowState::Displaced {
+            hint = hint.or_else(|| {
+                Hint::hovered(&response, entry.label(), key).map(|hint| Hint {
+                    displaced: state == RowState::Displaced,
+                    ..hint
+                })
+            });
         }
         if !response.clicked() {
             continue;
@@ -272,6 +402,13 @@ fn draw_hint(ui: &Ui, hint: &Hint) {
         |ui| {
             ui.spacing_mut().item_spacing = vec2(0.0, theme::SPACE_XS);
             ui.label(text::body(13.0, BodyWeight::Medium).job(&hint.title));
+            if hint.displaced {
+                ui.label(
+                    text::body(12.0, BodyWeight::Regular)
+                        .with_color(theme::TEXT_SECONDARY)
+                        .job(&tr!("observer.dockNoRoom", "No room for it on this screen")),
+                );
+            }
             if let Some(key) = &hint.key {
                 widgets::kbd(ui, key);
             }
@@ -305,7 +442,7 @@ fn draw_header(ui: &mut Ui, width: f32, expanded: bool, key: Option<&str>) -> Re
             ),
             vec2(KEY_WIDTH, KEY_HEIGHT),
         );
-        paint_key_chip(ui, key_rect, key, false);
+        paint_key_chip(ui, key_rect, key, RowState::Off);
         paint_text(
             ui,
             Rect::from_min_max(
@@ -344,14 +481,14 @@ fn draw_header(ui: &mut Ui, width: f32, expanded: bool, key: Option<&str>) -> Re
 /// Draws one row, returning what the pointer did to it.
 fn draw_row(
     ui: &mut Ui,
-    width: f32,
+    size: Vec2,
     expanded: bool,
     entry: Entry,
     key: Option<&str>,
-    prefs: &PanelPrefs,
+    state: RowState,
 ) -> Response {
-    let (rect, response) = ui.allocate_exact_size(vec2(width, ROW_HEIGHT), Sense::click());
-    let on = entry.is_on(prefs);
+    let (rect, response) = ui.allocate_exact_size(size, Sense::click());
+    let on = state == RowState::On;
     let corner_radius = theme::radius(theme::RADIUS_TIGHT);
     if on && expanded {
         ui.painter()
@@ -364,7 +501,12 @@ fn draw_row(
     if !expanded {
         // Square, and as wide as the dock lets it be: collapsed there is nothing else in the row,
         // so the keycap is the row.
-        paint_key_chip(ui, centred(rect, rect.width().min(rect.height())), key, on);
+        paint_key_chip(
+            ui,
+            centred(rect, rect.width().min(rect.height())),
+            key,
+            state,
+        );
         return response;
     }
 
@@ -372,20 +514,20 @@ fn draw_row(
         pos2(rect.left(), rect.center().y - LAMP * 0.5),
         vec2(LAMP, LAMP),
     );
-    paint_lamp(ui, lamp, on);
+    paint_lamp(ui, lamp, state);
     let key_rect = Rect::from_min_size(
         pos2(rect.right() - KEY_WIDTH, rect.center().y - KEY_HEIGHT * 0.5),
         vec2(KEY_WIDTH, KEY_HEIGHT),
     );
-    paint_key_chip(ui, key_rect, key, on);
+    paint_key_chip(ui, key_rect, key, state);
     let label = Rect::from_min_max(
         pos2(lamp.right() + ROW_GUTTER, rect.top()),
         pos2(key_rect.left() - ROW_GUTTER, rect.bottom()),
     );
-    let color = if on {
-        theme::TEXT_PRIMARY
-    } else {
-        theme::TEXT_DIM
+    let color = match state {
+        RowState::On => theme::TEXT_PRIMARY,
+        RowState::Displaced => theme::TEXT_SECONDARY,
+        RowState::Off => theme::TEXT_DIM,
     };
     paint_text(
         ui,
@@ -398,41 +540,52 @@ fn draw_row(
 }
 
 /// Draws the lamp that says whether a surface is on screen: filled when it is, an empty ring when it
-/// is not, so the two states differ in shape as well as in brightness.
-fn paint_lamp(ui: &Ui, rect: Rect, on: bool) {
+/// is not, so the two states differ in shape as well as in brightness. A surface wanted but with no
+/// room is a ring in the accent: asked for, like a lit lamp, and not there, like an unlit one.
+fn paint_lamp(ui: &Ui, rect: Rect, state: RowState) {
     let centre = rect.center();
     let radius = rect.width() * 0.5;
-    if on {
-        ui.painter().circle_filled(centre, radius, theme::ACCENT);
-    } else {
+    let ring = |color| {
         ui.painter().circle_stroke(
             centre,
             radius - theme::HAIRLINE * 0.5,
-            Stroke::new(theme::HAIRLINE, theme::TEXT_LABEL),
+            Stroke::new(theme::HAIRLINE, color),
         );
+    };
+    match state {
+        RowState::On => {
+            ui.painter().circle_filled(centre, radius, theme::ACCENT);
+        }
+        RowState::Displaced => ring(theme::ACCENT),
+        RowState::Off => ring(theme::TEXT_LABEL),
     }
 }
 
-/// Draws the keycap chip for a row, lit while the surface it opens is on screen.
-fn paint_key_chip(ui: &Ui, rect: Rect, key: Option<&str>, on: bool) {
+/// Draws the keycap chip for a row, lit while the surface it opens is on screen, and unlit but
+/// edged in the accent while it is wanted with no room for it.
+fn paint_key_chip(ui: &Ui, rect: Rect, key: Option<&str>, state: RowState) {
     let Some(key) = key else {
         return;
     };
     let corner_radius = theme::radius(theme::RADIUS_CHIP);
     // A lit keycap is filled in the overlay's own blue rather than tinted: the dock is read at a
     // glance from the edge of the screen, and a tint is not a state anyone reads from there.
-    let (fill, edge, color) = if on {
-        (
+    let (fill, edge, color) = match state {
+        RowState::On => (
             theme::alpha(crate::colors::BLUE60, 0.40),
             theme::alpha(crate::colors::BLUE80, 0.45),
             theme::TEXT_PRIMARY,
-        )
-    } else {
-        (
+        ),
+        RowState::Displaced => (
+            theme::alpha(crate::colors::GREY_BLUE10, 0.60),
+            theme::alpha(theme::ACCENT, 0.70),
+            theme::TEXT_SECONDARY,
+        ),
+        RowState::Off => (
             theme::alpha(crate::colors::GREY_BLUE10, 0.60),
             theme::CHIP_STROKE,
             theme::TEXT_DIM,
-        )
+        ),
     };
     ui.painter().rect_filled(rect, corner_radius, fill);
     ui.painter().add(Shape::rect_stroke(
@@ -448,4 +601,56 @@ fn paint_key_chip(ui: &Ui, rect: Rect, key: Option<&str>, on: bool) {
         key,
         Align::Center,
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn placed(prefs: &PanelPrefs, placement: DockPlacement) -> Option<Rect> {
+        let hotkeys = Hotkeys::defaults();
+        crate::observer::test_support::settled_rect(|ctx| {
+            render_obs_dock(
+                prefs,
+                &DockContext {
+                    hotkeys: &hotkeys,
+                    mode: Mode::Replay,
+                    map_control_available: false,
+                    placement,
+                    displaced: &[],
+                },
+                ctx,
+            )
+            .map(|outcome| outcome.rect)
+        })
+    }
+
+    #[test]
+    fn the_dock_is_drawn_where_it_was_placed() {
+        let prefs = PanelPrefs::default();
+        let middle = DockPlacement::centred(Mode::Replay, false, 1080.0);
+        let rect = placed(&prefs, middle).expect("the dock is drawn");
+        assert_eq!(rect.top(), middle.top);
+        assert_eq!(rect.bottom(), middle.bottom);
+
+        // Short of room, the rows give up height and the dock moves into the room it has.
+        let squeezed = DockPlacement::fit(Mode::Replay, false, 540.0, 600.0, 1060.0).unwrap();
+        assert!(squeezed.row_height < ROW_HEIGHT);
+        let rect = placed(&prefs, squeezed).expect("the dock is drawn");
+        assert!(rect.top() >= 600.0 - 0.5 && rect.bottom() <= 1060.0 + 0.5);
+        assert_eq!(rect.height(), squeezed.bottom - squeezed.top);
+    }
+
+    #[test]
+    fn the_dock_keeps_the_middle_while_it_fits_there() {
+        let placement = DockPlacement::fit(Mode::Replay, false, 540.0, 16.0, 1064.0).unwrap();
+        assert_eq!(placement.offset_y, 0.0);
+        assert_eq!(placement.row_height, ROW_HEIGHT);
+        // Under a bar that reaches into its column it moves down, without shrinking.
+        let placement = DockPlacement::fit(Mode::Replay, false, 360.0, 98.0, 704.0).unwrap();
+        assert!(placement.top >= 98.0);
+        assert_eq!(placement.row_height, ROW_HEIGHT);
+        // With no room even for its shortest rows it has no place at all.
+        assert!(DockPlacement::fit(Mode::Replay, false, 360.0, 300.0, 500.0).is_none());
+    }
 }

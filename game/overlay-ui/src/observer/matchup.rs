@@ -26,8 +26,8 @@ use crate::kit::text::{self, BodyWeight};
 use crate::kit::widgets::{self, ResourceGlyph, TagStyle};
 use crate::kit::{motion, theme, tiers};
 use crate::observer::{
-    EdgeCursor, RaceView, centred, game_clock, paint_player_bar, paint_race_chip, paint_text,
-    vision_alpha,
+    EdgeCursor, RaceView, WING_MARGIN, centred, game_clock, paint_player_bar, paint_race_chip,
+    paint_text, vision_alpha,
 };
 use crate::tr;
 
@@ -98,7 +98,7 @@ const APM_VALUE: f32 = 42.0;
 const APM_LABEL: f32 = 26.0;
 
 /// One resource cell of a half: which glyph names it, and the room its number is laid out in.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 struct StatCell {
     glyph: ResourceGlyph,
     value_width: f32,
@@ -166,8 +166,9 @@ const STACKED_INSET: f32 = 5.0;
 const STACKED_ROW_GAP: f32 = 2.0;
 
 /// The sizes one player's row is laid out at. All that differs between the bar's two
-/// player-carrying forms, since both are built from the same cells in the same order.
-#[derive(Copy, Clone)]
+/// player-carrying forms, since both are built from the same cells in the same order, and what a
+/// screen too narrow for either takes away from them.
+#[derive(Copy, Clone, PartialEq)]
 struct RowMetrics {
     chip: f32,
     name_width: f32,
@@ -178,10 +179,14 @@ struct RowMetrics {
     supply: StatCell,
     apm_value: f32,
     pad_inner: f32,
+    /// Whether the row carries the rate at its inner end. The first cell a narrow screen gives up,
+    /// and the last it gives up on: a player's bank and supply are the reading, their rate is
+    /// colour.
+    apm: bool,
 }
 
 impl RowMetrics {
-    /// Everything the row takes but the name, which is what a side's width has to hold besides it.
+    /// What the row takes of its side.
     ///
     /// A row is the design's grid and nothing else: every cell is placed against the side's own
     /// outer edge, so no number and no translation can move one.
@@ -197,13 +202,84 @@ impl RowMetrics {
             + self.gas.width()
             + STAT_GAP
             + self.supply.width()
-            + STAT_GAP
-            + APM_LABEL
-            + GLYPH_GAP
-            + self.apm_value
+            + self.apm_width()
             + self.pad_inner
     }
+
+    /// What the rate cell takes, with the gap ahead of it.
+    const fn apm_width(&self) -> f32 {
+        if self.apm {
+            STAT_GAP + APM_LABEL + GLYPH_GAP + self.apm_value
+        } else {
+            0.0
+        }
+    }
+
+    /// How much wider than the duel's own the row's numbers and its inner padding are, which is the
+    /// room a narrow screen takes back first: it is room the wider bar was given to breathe in,
+    /// not room any number needs.
+    fn spare(&self) -> f32 {
+        (self.minerals.value_width - MINERAL_VALUE)
+            + (self.gas.value_width - GAS_VALUE)
+            + (self.supply.value_width - SUPPLY_VALUE)
+            + (self.apm_value - APM_VALUE)
+            + (self.pad_inner - PAD_INNER)
+    }
+
+    /// This row with `share` of its [`spare`](Self::spare) room taken back, from 0 (none) to 1.
+    fn shed(self, share: f32) -> RowMetrics {
+        let shed = |value: f32, base: f32| value - (value - base) * share;
+        RowMetrics {
+            minerals: StatCell {
+                value_width: shed(self.minerals.value_width, MINERAL_VALUE),
+                ..self.minerals
+            },
+            gas: StatCell {
+                value_width: shed(self.gas.value_width, GAS_VALUE),
+                ..self.gas
+            },
+            supply: StatCell {
+                value_width: shed(self.supply.value_width, SUPPLY_VALUE),
+                ..self.supply
+            },
+            apm_value: shed(self.apm_value, APM_VALUE),
+            pad_inner: shed(self.pad_inner, PAD_INNER),
+            ..self
+        }
+    }
+
+    /// This row squeezed into a side `side` wide.
+    ///
+    /// Taken back in the order a watcher misses least: the breathing room the wider bar was given,
+    /// then the name down to the narrowest that still reads as one, then the rate. A side narrower
+    /// than a row with all of that gone keeps the row anyway, which no screen the game runs at
+    /// comes near.
+    fn fitted(self, side: f32) -> RowMetrics {
+        let mut row = self;
+        let excess = row.width() - side;
+        if excess <= 0.0 {
+            return row;
+        }
+        let spare = row.spare();
+        if spare > 0.0 {
+            row = row.shed((excess / spare).min(1.0));
+        }
+        let excess = row.width() - side;
+        if excess <= 0.0 {
+            return row;
+        }
+        let squeeze = excess.min((row.name_width - MIN_NAME_WIDTH).max(0.0));
+        row.name_width -= squeeze;
+        if row.width() > side {
+            row.apm = false;
+        }
+        row
+    }
 }
+
+/// The narrowest a name slot is squeezed to before the row gives up its rate instead: about the
+/// width of six letters, which is a name a watcher still recognises with its end elided.
+const MIN_NAME_WIDTH: f32 = 64.0;
 
 /// The row of a bar carrying one player a side.
 const DUEL_ROW: RowMetrics = RowMetrics {
@@ -216,6 +292,7 @@ const DUEL_ROW: RowMetrics = RowMetrics {
     supply: SUPPLY_STAT,
     apm_value: APM_VALUE,
     pad_inner: PAD_INNER,
+    apm: true,
 };
 
 /// The row of a bar carrying two of them stacked.
@@ -229,6 +306,7 @@ const STACKED_ROW: RowMetrics = RowMetrics {
     supply: SUPPLY_STAT.widened(STACKED_VALUE_EXTRA),
     apm_value: APM_VALUE + STACKED_VALUE_EXTRA,
     pad_inner: PAD_INNER + STACKED_PAD_EXTRA,
+    apm: true,
 };
 
 // Checked where the widths are written, because a row that overran would draw its last number
@@ -285,13 +363,32 @@ impl MatchupForm {
         self.size().1
     }
 
-    /// How wide and how tall the bar is in this form.
+    /// How wide and how tall the bar is in this form, given all the room it wants.
     fn size(self) -> (f32, f32) {
         match self {
             MatchupForm::Duel => (BAR_WIDTH, BAR_HEIGHT),
             MatchupForm::Stacked => (STACKED_WIDTH, STACKED_HEIGHT),
             MatchupForm::ClockOnly => (CLOCK_WIDTH, BAR_HEIGHT),
         }
+    }
+
+    /// How the bar is laid out across `available` points of the screen's width: its width, and
+    /// the row each half's players are drawn in.
+    ///
+    /// The design's widths where they fit, and the halves squeezed to fit where they do not: a 4:3
+    /// screen is 1280 points wide, which the stacked bar's 1400 would run off both ends of. The
+    /// middle block is never squeezed, being the one part of the bar that is about the game itself.
+    fn layout(self, available: f32) -> (f32, RowMetrics) {
+        let (natural, _) = self.size();
+        let row = match self {
+            MatchupForm::Stacked => STACKED_ROW,
+            _ => DUEL_ROW,
+        };
+        if self == MatchupForm::ClockOnly || natural <= available {
+            return (natural, row);
+        }
+        let side = ((available - CENTRE_WIDTH) * 0.5).max(0.0);
+        (side * 2.0 + CENTRE_WIDTH, row.fitted(side))
     }
 }
 
@@ -408,6 +505,9 @@ pub struct MatchupOutcome {
 
 /// Draws the matchup bar against the top edge of the screen, fading and sliding it in and out.
 /// Returns nothing at all once it is gone.
+///
+/// The bar takes no more of the screen's width than leaves the margin every edge surface keeps at
+/// both ends.
 pub fn render_matchup_view(
     view: &MatchupView,
     ctx: &Context,
@@ -417,8 +517,9 @@ pub fn render_matchup_view(
     let area = Area::new(id)
         .anchor(Align2::CENTER_TOP, vec2(0.0, 0.0))
         .order(Order::Foreground);
+    let available = ctx.viewport_rect().width() - WING_MARGIN * 2.0;
     let inner = motion::presence_area(ctx, id.with("presence"), shown, area, |ui| {
-        draw_bar(ui, view)
+        draw_bar(ui, view, available)
     })?;
     Some(MatchupOutcome {
         rect: inner.response.rect,
@@ -426,10 +527,11 @@ pub fn render_matchup_view(
     })
 }
 
-/// Draws the bar and reports which player was clicked.
-fn draw_bar(ui: &mut Ui, view: &MatchupView) -> Option<u8> {
+/// Draws the bar across no more than `available` points and reports which player was clicked.
+fn draw_bar(ui: &mut Ui, view: &MatchupView, available: f32) -> Option<u8> {
     let form = view.form();
-    let (width, height) = form.size();
+    let (width, metrics) = form.layout(available);
+    let height = form.height();
     let (rect, _) = ui.allocate_exact_size(vec2(width, height), Sense::hover());
     ui.painter()
         .add(tiers::tier1_chrome(rect, theme::radius_bottom(BAR_RADIUS)));
@@ -442,9 +544,9 @@ fn draw_bar(ui: &mut Ui, view: &MatchupView) -> Option<u8> {
     // height of two. The slot is left blank rather than filled with anything of its own: the bar
     // is a reading of the game, and a row standing in for a player who does not exist would be a
     // claim the game never made.
-    let (metrics, rows) = match form {
-        MatchupForm::Stacked => (STACKED_ROW, 2),
-        _ => (DUEL_ROW, 1),
+    let rows = match form {
+        MatchupForm::Stacked => 2,
+        _ => 1,
     };
     if form != MatchupForm::ClockOnly {
         for (index, (_, members)) in view.halves().each().into_iter().enumerate() {
@@ -615,8 +717,10 @@ fn draw_half(ui: &Ui, rect: Rect, player: &MatchupPlayerView, mirrored: bool, me
         supply_color.gamma_multiply(alpha),
         alpha,
     );
-    cursor.skip(STAT_GAP);
-    draw_apm(ui, &mut cursor, player.apm, alpha, metrics);
+    if metrics.apm {
+        cursor.skip(STAT_GAP);
+        draw_apm(ui, &mut cursor, player.apm, alpha, metrics);
+    }
 }
 
 /// Draws the supply cell, whose two halves are not read alike: what a player is on is a number they
@@ -840,6 +944,42 @@ mod tests {
             sides[1].1.iter().map(|p| p.player_id).collect::<Vec<_>>(),
             vec![2, 3]
         );
+    }
+
+    #[test]
+    fn the_bar_keeps_its_design_widths_wherever_they_fit() {
+        let (width, row) = MatchupForm::Duel.layout(1888.0);
+        assert_eq!(width, BAR_WIDTH);
+        assert!(row == DUEL_ROW);
+        let (width, row) = MatchupForm::Stacked.layout(1888.0);
+        assert_eq!(width, STACKED_WIDTH);
+        assert!(row == STACKED_ROW);
+        assert_eq!(MatchupForm::Duel.layout(1248.0).0, BAR_WIDTH);
+    }
+
+    #[test]
+    fn a_narrow_screen_squeezes_the_halves_and_never_the_clock() {
+        // A 4:3 screen, less the margin at each end.
+        let (width, row) = MatchupForm::Stacked.layout(1248.0);
+        assert_eq!(width, 1248.0);
+        assert!(row.width() <= (1248.0 - CENTRE_WIDTH) * 0.5 + 0.01);
+        // The breathing room goes first, so the names give up only the little it did not cover,
+        // and keep more room than a duel's do. The rate is all there.
+        assert!(row.name_width < STACKED_ROW.name_width);
+        assert!(row.name_width > NAME_WIDTH);
+        assert!(row.apm);
+    }
+
+    #[test]
+    fn the_rate_is_the_last_thing_a_row_gives_up() {
+        let side = |row: RowMetrics| row.width();
+        let squeezed = DUEL_ROW.fitted(side(DUEL_ROW) - 40.0);
+        assert!(squeezed.apm);
+        assert_eq!(squeezed.name_width, NAME_WIDTH - 40.0);
+        let squeezed = DUEL_ROW.fitted(side(DUEL_ROW) - 80.0);
+        assert!(!squeezed.apm);
+        assert_eq!(squeezed.name_width, MIN_NAME_WIDTH);
+        assert!(squeezed.width() <= side(DUEL_ROW) - 80.0);
     }
 
     #[test]

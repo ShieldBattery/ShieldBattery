@@ -1,30 +1,32 @@
-//! The selection panel: what the watcher has selected, standing in for the game's own console.
+//! The selection panel: what the watcher has selected, laid out the way the game's own console lays
+//! out the middle of itself.
 //!
 //! An observer who hides the console loses the one thing on it they still use, which is the
-//! selection: the wireframes of whatever they clicked, and the numbers on a single unit. This panel
-//! is that part of the console alone, at the kit's ambient tier in the band the console would have
-//! taken, so the centred panels above it stack on it the way they stack on the console.
+//! selection. This panel is that part of the console alone, at the kit's ambient tier and about the
+//! console's own footprint, with everything where the console puts it, so a watcher who has read
+//! SC:R's console for twenty years finds every number where their eye already goes: the unit on the
+//! left with what it has left under it, and whose it is to the right.
 //!
-//! A wireframe is a piece of the game's own art that no host here can draw yet, so a tile carries
-//! the unit's icon where the host has the game's atlas and its short code where it has not, and the
-//! tint the game puts on a wireframe is put on the tile's outline instead: green, yellow and red as
-//! the unit's health falls through two thirds and a third of what it started with.
+//! A wireframe is a piece of the game's own art that no host here can draw yet, so the unit is drawn
+//! as its icon where the host has the game's atlas and its short code where it has not, and the tint
+//! the game puts on a wireframe goes on the tile's outline and on the bar under each small tile:
+//! green, yellow and red as the unit's health falls through two thirds and a third of what it
+//! started with.
 //!
 //! The console reads a selection as one of a few things at a time, and so does this:
 //!
-//! - Nothing selected is the line that says so. The panel is drawn then as readily as with
-//!   something, because a watcher clicking around a map selects and deselects constantly.
-//! - Several units are the console's own grid alone: twelve slots in two rows of six, in the game's
-//!   order. Twelve sets of numbers at once are not numbers anybody reads, so there are none.
-//! - One unit is read out: the unit drawn large, whose it is, then what it has left and what it has
-//!   killed, on as many rows as it has readings for. A transport or a bunker adds the units it is
-//!   carrying beside those numbers.
-//! - One thing making something, which is a building training or researching and an egg or a cocoon
-//!   mid-morph, shows what it is making and how far along it is in place of carried units.
+//! - Nothing selected is nothing drawn. A box that only says it is empty is a box in the way.
+//! - Several units are the console's own grid: twelve slots in two rows of six, in the game's order,
+//!   each with a thin bar of how much of the unit is left.
+//! - One unit is read out: the unit drawn large, its hit points under it in the color of its health
+//!   and its shields and energy under those, and to the right whose it is and what it has killed.
+//! - One thing making something shows what it is making in the console's queue: the slots of the
+//!   queue in a row, the first being worked on, and how far along that one is under them.
+//! - One transport or bunker with units inside shows them in the console's cargo slots, two rows of
+//!   four.
 //!
-//! The body is the same height whichever of those is drawn, and the production and control-group
-//! panels are stacked directly on top of it: a body that grew and shrank with the selection would
-//! move every panel above it each time the watcher clicked the ground.
+//! The body is the same height whichever of those is drawn, so the production and control-group
+//! panels stacked on it stay where they are as the watcher clicks from one unit to the next.
 
 use egui::{
     Align, Align2, Area, Color32, Context, Id, Order, Rect, Sense, Shape, Stroke, StrokeKind, Ui,
@@ -33,10 +35,9 @@ use egui::{
 
 use crate::colors::{BLUE60, BLUE80, GREY_BLUE10, PURPLE70};
 use crate::kit::text;
-use crate::kit::widgets;
 use crate::kit::{motion, theme, tiers};
 use crate::observer::{
-    ProductionIcon, centred, fit_icon, paint_player_bar, paint_text, paint_tile_chrome, unit_codes,
+    ProductionIcon, StackSlot, centred, fit_icon, paint_player_bar, paint_text, unit_codes,
 };
 use crate::tr;
 
@@ -75,8 +76,10 @@ pub struct ProductionProgressView {
     pub icon: ProductionIcon,
     /// How far along it is, from 0 to 1.
     pub progress: f32,
-    /// How many more are queued behind it.
-    pub queued: u32,
+    /// What is waiting behind it, for a building training units, whose queue the console draws as a
+    /// row of slots; empty while nothing is waiting. `None` for something with no queue at all:
+    /// research, an upgrade, or a morph, each of which is one thing worked through alone.
+    pub queue: Option<Vec<ProductionIcon>>,
 }
 
 impl SelectedUnitView {
@@ -112,7 +115,7 @@ pub struct SelectionView {
 }
 
 impl SelectionView {
-    /// The most units the game lets a selection hold, and the most wireframes the panel draws.
+    /// The most units the game lets a selection hold, and the most the grid draws.
     pub const MAX_UNITS: usize = 12;
 
     /// Which reading this selection is, which is the one thing that decides what the body draws.
@@ -136,7 +139,7 @@ impl SelectionView {
 pub enum SelectionCase {
     /// Nothing at all is selected.
     Empty,
-    /// Several units, read as the grid of wireframes alone.
+    /// Several units, read as the grid alone.
     Many,
     /// One unit or building, read out as its own numbers.
     One,
@@ -146,179 +149,151 @@ pub enum SelectionCase {
     Loaded,
 }
 
-/// How wide the panel is, in overlay points.
-///
-/// The production panel's own width rather than one of its own: the two are drawn one above the
-/// other in the middle of the screen, and a centred stack of surfaces of different widths reads as
-/// a pile rather than as a column.
-pub const PANEL_WIDTH: f32 = crate::observer::production::PANEL_WIDTH;
+/// How wide the panel is, in overlay points: about what the console's own middle section takes at
+/// the design's scale, which is narrower than the panels stacked on it.
+pub const PANEL_WIDTH: f32 = 460.0;
 
 /// The room inside the panel's chrome.
 const CONTENT_WIDTH: f32 = PANEL_WIDTH - 24.0;
 
-/// The shape of the wireframe grid, which is the console's own: two rows of six.
-const SLOT_COLUMNS: usize = 6;
-const SLOT_ROWS: usize = 2;
-
-/// Size of one slot of that grid, and the gap between two of them.
-const SLOT_WIDTH: f32 = 42.0;
-const SLOT_HEIGHT: f32 = 42.0;
-const SLOT_GAP: f32 = 6.0;
-
-/// What the grid takes of the panel.
-const GRID_WIDTH: f32 = SLOT_WIDTH * SLOT_COLUMNS as f32 + SLOT_GAP * (SLOT_COLUMNS as f32 - 1.0);
-const GRID_HEIGHT: f32 = SLOT_HEIGHT * SLOT_ROWS as f32 + SLOT_GAP * (SLOT_ROWS as f32 - 1.0);
-
-/// The grid is the selection: a slot fewer than the game hands out would drop units off the end of
-/// a full selection with nothing to say it had.
-const _: () = assert!(SLOT_COLUMNS * SLOT_ROWS == SelectionView::MAX_UNITS);
-
-/// Size of the tile a selection of one is drawn at, which is the unit large enough to be the
-/// subject of the panel rather than one slot of a grid.
+/// Size of the tile a selection of one is drawn at, standing in for the console's wireframe.
 const SUBJECT_TILE: f32 = 64.0;
 
-/// Gap between that tile and the reading beside it.
-const SUBJECT_GAP: f32 = 12.0;
+/// Width of the column the subject is drawn in, with its readouts under it. Wider than the tile, so
+/// a building's four-digit hit points fit under it on one line.
+const SUBJECT_COLUMN: f32 = 92.0;
+
+/// Height of one readout under the subject, and the gap between the tile and the first of them.
+const READOUT_ROW: f32 = 15.0;
+const READOUT_LEAD: f32 = 4.0;
+
+/// The most readouts there are: hit points, shields and energy.
+const READOUTS: usize = 3;
+
+/// How tall the panel's body is: the subject's column at its tallest, which every other reading is
+/// laid out in so that the panels stacked on this one stay put.
+const BODY_HEIGHT: f32 = SUBJECT_TILE + READOUT_LEAD + READOUT_ROW * READOUTS as f32;
+
+/// Gap between the subject's column and the text beside it.
+const COLUMN_GAP: f32 = 16.0;
+
+/// Where the text column starts, and how wide it is.
+const TEXT_LEFT: f32 = SUBJECT_COLUMN + COLUMN_GAP;
+const TEXT_WIDTH: f32 = CONTENT_WIDTH - TEXT_LEFT;
 
 /// Width of the bar of the owner's color, the gap between it and their name, and the height of the
 /// line the two of them share.
 const OWNER_BAR: f32 = 4.0;
 const OWNER_GAP: f32 = 8.0;
-const OWNER_ROW: f32 = 18.0;
+const OWNER_ROW: f32 = 20.0;
 
-/// Gap between that line and the rows of numbers under it.
-const OWNER_LEAD: f32 = 10.0;
+/// Gap under the owner's line, and the height of the line of kills under it.
+const OWNER_LEAD: f32 = 6.0;
+const KILLS_ROW: f32 = 16.0;
 
-/// Height of one row of numbers, and the gap between two of them.
-const DETAIL_ROW: f32 = 17.0;
-const DETAIL_ROW_GAP: f32 = 6.0;
+/// Gap between the label at the head of the kills line and the count after it.
+const KILLS_LABEL_GAP: f32 = theme::SPACE_SM;
 
-/// The most rows of numbers a unit has: health, shields, energy, and what it has killed.
-const DETAIL_ROWS: usize = 4;
+/// The shape of the grid, which is the console's own: two rows of six.
+const GRID_COLUMNS: usize = 6;
+const GRID_ROWS: usize = 2;
 
-/// How tall the panel's body is.
-///
-/// The tallest of the readings, which is a unit with every row of numbers it can have. The others
-/// are laid out in the same box rather than in one of their own, so that the panels stacked on this
-/// one stay where they are as the selection changes under them.
-const BODY_HEIGHT: f32 = OWNER_ROW
-    + OWNER_LEAD
-    + DETAIL_ROW * DETAIL_ROWS as f32
-    + DETAIL_ROW_GAP * (DETAIL_ROWS as f32 - 1.0);
+/// Side of one slot of the grid, and the gap between two of them.
+const GRID_SLOT: f32 = 48.0;
+const GRID_GAP: f32 = 8.0;
 
-/// The grid is drawn inside the body it shares with the readings that are taller than it.
-const _: () = assert!(BODY_HEIGHT >= GRID_HEIGHT);
+/// The bar under a small tile saying how much of its unit is left, and its gap from the tile.
+const HEALTH_BAR: f32 = 3.0;
+const HEALTH_GAP: f32 = 2.0;
 
-/// Width of the label at the head of a row of numbers, and of the pair of numbers at its tail.
-///
-/// The label column is wider than the English abbreviations in it need, because those words are
-/// abbreviations rather than symbols: a language whose shortest word for shields is five letters
-/// long writes five letters here.
-const ROW_LABEL_WIDTH: f32 = 62.0;
-const ROW_VALUE_WIDTH: f32 = 74.0;
+/// Gap between the two rows of a grid of small tiles.
+const GRID_ROW_GAP: f32 = 6.0;
 
-/// Gap between a row's bar and what is written on either side of it.
-const ROW_INNER_GAP: f32 = 6.0;
+/// How tall one row of a grid of small tiles of `side` is, its health bar included.
+const fn tile_row(side: f32) -> f32 {
+    side + HEALTH_GAP + HEALTH_BAR
+}
 
-/// Width of the bar itself.
-const BAR_WIDTH: f32 = 112.0;
+/// The grid is the selection: a slot fewer than the game hands out would drop units off the end of
+/// a full selection with nothing to say it had. And it is drawn inside the body.
+const _: () = assert!(GRID_COLUMNS * GRID_ROWS == SelectionView::MAX_UNITS);
+const _: () = assert!(tile_row(GRID_SLOT) * GRID_ROWS as f32 + GRID_ROW_GAP <= BODY_HEIGHT);
+const _: () = assert!(
+    GRID_SLOT * GRID_COLUMNS as f32 + GRID_GAP * (GRID_COLUMNS as f32 - 1.0) <= CONTENT_WIDTH
+);
 
-/// How thick a bar is. Thin, because it is the shape of a number the row already writes out: a bar
-/// of any weight beside those numbers would be read first and say less.
-const BAR_TRACK: f32 = 5.0;
+/// How many slots the console's queue has, which is how many units a building can have waiting.
+const QUEUE_SLOTS: usize = 5;
 
-/// Width of the column of numbers, which the owner's line shares so that a long name ends where the
-/// numbers under it do.
-const NUMBERS_WIDTH: f32 =
-    ROW_LABEL_WIDTH + ROW_INNER_GAP + BAR_WIDTH + ROW_INNER_GAP + ROW_VALUE_WIDTH;
+/// Side of one queue slot, and the gap between two of them.
+const QUEUE_SLOT: f32 = 36.0;
+const QUEUE_GAP: f32 = 6.0;
 
-/// Gap between the numbers and the column beside them.
-const SIDE_GAP: f32 = 24.0;
+/// Width of the queue's row of slots.
+const QUEUE_WIDTH: f32 = QUEUE_SLOT * QUEUE_SLOTS as f32 + QUEUE_GAP * (QUEUE_SLOTS as f32 - 1.0);
 
-/// Width of that column: whatever the tile, the numbers and the gaps leave of the panel.
-const SIDE_WIDTH: f32 = CONTENT_WIDTH - SUBJECT_TILE - SUBJECT_GAP - NUMBERS_WIDTH - SIDE_GAP;
+/// Gap between the queue and the progress line under it, and that line's height.
+const PROGRESS_LEAD: f32 = 6.0;
+const PROGRESS_ROW: f32 = 14.0;
 
-/// How far the numbers sit below the top of what they are read with: the owner's line, and the gap
-/// under it. The column beside them starts there too, since what it carries is read against the
-/// numbers rather than against the name above them.
-const NUMBERS_TOP: f32 = OWNER_ROW + OWNER_LEAD;
+/// Width of the percentage at the end of a progress line, and the gap before it.
+const PERCENT_WIDTH: f32 = 40.0;
+const PERCENT_GAP: f32 = 8.0;
 
-/// The lowest the column beside the numbers can start, which is against the shortest reading there
-/// is: one row of numbers, centred in a body sized for four of them.
-const LOWEST_SIDE_TOP: f32 = (BODY_HEIGHT - NUMBERS_TOP - DETAIL_ROW) * 0.5 + NUMBERS_TOP;
+/// How thick a progress bar is.
+const PROGRESS_TRACK: f32 = 5.0;
+
+/// The queue and its progress line sit under the owner's line in the text column.
+const _: () =
+    assert!(OWNER_ROW + OWNER_LEAD + QUEUE_SLOT + PROGRESS_LEAD + PROGRESS_ROW <= BODY_HEIGHT);
+const _: () = assert!(QUEUE_WIDTH + PERCENT_GAP + PERCENT_WIDTH <= TEXT_WIDTH);
+
+/// The cargo slots, which are the console's own: two rows of four.
+const CARGO_COLUMNS: usize = 4;
+const CARGO_ROWS: usize = 2;
+const CARGO_SLOT: f32 = 34.0;
+const CARGO_GAP: f32 = 6.0;
 
 /// The most carried units the panel draws, which is the most the game puts inside anything.
-const MAX_CARGO: usize = 8;
+const MAX_CARGO: usize = CARGO_COLUMNS * CARGO_ROWS;
 
-/// Size of one carried unit's slot, and the gap between two of them.
-const CARGO_SLOT: f32 = 26.0;
-const CARGO_GAP: f32 = 4.0;
+const _: () = assert!(
+    OWNER_ROW + OWNER_LEAD + tile_row(CARGO_SLOT) * CARGO_ROWS as f32 + GRID_ROW_GAP <= BODY_HEIGHT
+);
 
-/// Height of the label over the carried units, and the gap between it and them.
-const CARGO_LABEL_HEIGHT: f32 = 14.0;
-const CARGO_LABEL_GAP: f32 = 4.0;
-
-/// How tall the carried units and their label are together.
-const CARGO_HEIGHT: f32 = CARGO_LABEL_HEIGHT + CARGO_LABEL_GAP + CARGO_SLOT;
-
-/// The carried units are one row of the panel: checked where the sizes are written, because a slot
-/// more than fits would be drawn outside the panel's chrome.
-const _: () =
-    assert!(CARGO_SLOT * MAX_CARGO as f32 + CARGO_GAP * (MAX_CARGO as f32 - 1.0) <= SIDE_WIDTH);
-const _: () = assert!(LOWEST_SIDE_TOP + CARGO_HEIGHT <= BODY_HEIGHT);
-
-/// Size of the tile carrying what is being made, and the gap between it and the progress beside it.
-const ITEM_TILE: f32 = 40.0;
-const ITEM_GAP: f32 = 10.0;
-
-/// Height of the line how far along something is is written on, of the line what is behind it is
-/// written on, and of the gaps around the bar between them.
-const PERCENT_ROW: f32 = 16.0;
-const QUEUED_ROW: f32 = 14.0;
-const PROGRESS_GAP: f32 = 5.0;
-
-/// How tall what is being made is drawn: its tile, or the lines beside it where those run longer.
-const PRODUCTION_HEIGHT: f32 = {
-    let lines = PERCENT_ROW + PROGRESS_GAP + BAR_TRACK + PROGRESS_GAP + QUEUED_ROW;
-    if lines > ITEM_TILE { lines } else { ITEM_TILE }
-};
-const _: () = assert!(LOWEST_SIDE_TOP + PRODUCTION_HEIGHT <= BODY_HEIGHT);
-
-/// Text size of the unit's code in a grid slot, in the subject's own larger tile, in a carried
-/// unit's slot, and on the tile of what is being made.
-const SLOT_CODE_SIZE: f32 = 12.0;
+/// Text size of a unit's code on the subject's tile, on a small tile, and on a queue slot.
 const SUBJECT_CODE_SIZE: f32 = 16.0;
-const CARGO_CODE_SIZE: f32 = 11.0;
-const ITEM_CODE_SIZE: f32 = 11.5;
+const SLOT_CODE_SIZE: f32 = 12.0;
+const QUEUE_CODE_SIZE: f32 = 11.0;
 
-/// Text size of the owner's name, matching the other centred panels' so the stack reads as one set.
-const OWNER_NAME_SIZE: f32 = 15.0;
-
-/// Text size of the pair of numbers at the end of a row, of how far along something being made is,
-/// of what is waiting behind it, and of the line that says nothing is selected.
-const VALUE_SIZE: f32 = 12.5;
+/// Text size of the readouts under the subject, of the owner's name, of the kills count and of the
+/// percentage on a progress line.
+const READOUT_SIZE: f32 = 14.0;
+const OWNER_NAME_SIZE: f32 = 16.0;
+const KILLS_SIZE: f32 = 15.0;
 const PERCENT_SIZE: f32 = 14.0;
-const QUEUED_SIZE: f32 = 12.0;
-const EMPTY_SIZE: f32 = 13.0;
 
-/// How much of itself a slot with nothing in it is drawn at.
-///
-/// Faint, because it is the grid rather than a reading: all twelve slots are always drawn so that
-/// the units in them never move, and an empty one has nothing of its own to say.
+/// How much of itself an empty queue slot is drawn at: faint, because it is the queue's shape rather
+/// than anything in it.
 const EMPTY_ALPHA: f32 = 0.32;
 
-/// Draws the selection panel `bottom` points above the screen's own bottom edge, fading and sliding
-/// it in and out. Returns nothing at all once it is gone.
+/// How tall the panel is on screen, chrome included.
+pub(crate) const PANEL_HEIGHT: f32 = BODY_HEIGHT + tiers::PANEL_MARGIN_HEIGHT;
+
+/// Draws the selection panel in `slot`, fading and sliding it in and out. Returns nothing at all
+/// once it is gone, and nothing while nothing is selected or the slot has no room for it.
 pub fn render_selection_view(
     view: &SelectionView,
     ctx: &Context,
     shown: bool,
-    bottom: f32,
+    slot: StackSlot,
 ) -> Option<Rect> {
     let id = Id::new("sb_selection_panel");
+    let (_, offset_x) = slot.place(PANEL_WIDTH);
     let area = Area::new(id)
-        .anchor(Align2::CENTER_BOTTOM, vec2(0.0, -bottom))
+        .anchor(Align2::CENTER_BOTTOM, vec2(offset_x, -slot.bottom))
         .order(Order::Foreground);
+    let shown = shown && view.case() != SelectionCase::Empty && fits(slot);
     let inner = motion::presence_area(ctx, id.with("presence"), shown, area, |ui| {
         tiers::tier0_panel(ui, |ui| {
             // The body is placed by the sizes written here and by nothing else: this is a fixed
@@ -332,26 +307,17 @@ pub fn render_selection_view(
     Some(inner.response.rect)
 }
 
+/// Whether the panel has room in `slot`.
+pub(crate) fn fits(slot: StackSlot) -> bool {
+    slot.room() >= PANEL_HEIGHT
+}
+
 fn draw_body(ui: &mut Ui, view: &SelectionView) {
-    widgets::panel_header(ui, &tr!("observer.panelSelection", "Selection"), Some("S"));
     let (body, _) = ui.allocate_exact_size(vec2(CONTENT_WIDTH, BODY_HEIGHT), Sense::hover());
     let case = view.case();
     match case {
-        SelectionCase::Empty => paint_text(
-            ui,
-            body,
-            &text::body(EMPTY_SIZE, text::BodyWeight::Medium).with_color(theme::TEXT_LABEL),
-            &tr!("observer.selectionEmpty", "Nothing selected"),
-            Align::Center,
-        ),
-        // Centred in the body rather than hung from its left edge: with no numbers beside it the
-        // grid is the whole of what the panel has to say, and a panel half of which is empty reads
-        // as one that failed to draw the rest.
-        SelectionCase::Many => draw_grid(
-            ui,
-            Rect::from_center_size(body.center(), vec2(GRID_WIDTH, GRID_HEIGHT)),
-            &view.units,
-        ),
+        SelectionCase::Empty => {}
+        SelectionCase::Many => draw_grid(ui, body, &view.units),
         SelectionCase::One | SelectionCase::Producing | SelectionCase::Loaded => {
             if let Some(subject) = view.units.first() {
                 draw_subject(ui, body, subject, case);
@@ -360,135 +326,101 @@ fn draw_body(ui: &mut Ui, view: &SelectionView) {
     }
 }
 
-/// Draws the grid of slots, filled or not.
-fn draw_grid(ui: &Ui, rect: Rect, units: &[SelectedUnitView]) {
-    for index in 0..SLOT_COLUMNS * SLOT_ROWS {
-        let column = (index % SLOT_COLUMNS) as f32;
-        let row = (index / SLOT_COLUMNS) as f32;
-        let slot = Rect::from_min_size(
+/// Draws the grid of small tiles, filling it in the game's order from the top left.
+///
+/// Centred in the body: with no column of text beside it the grid is the whole of what the panel has
+/// to say.
+fn draw_grid(ui: &Ui, body: Rect, units: &[SelectedUnitView]) {
+    let size = vec2(
+        GRID_SLOT * GRID_COLUMNS as f32 + GRID_GAP * (GRID_COLUMNS as f32 - 1.0),
+        tile_row(GRID_SLOT) * GRID_ROWS as f32 + GRID_ROW_GAP,
+    );
+    let grid = Rect::from_center_size(body.center(), size);
+    for (index, unit) in units.iter().take(SelectionView::MAX_UNITS).enumerate() {
+        let column = (index % GRID_COLUMNS) as f32;
+        let row = (index / GRID_COLUMNS) as f32;
+        let tile = Rect::from_min_size(
             pos2(
-                rect.left() + column * (SLOT_WIDTH + SLOT_GAP),
-                rect.top() + row * (SLOT_HEIGHT + SLOT_GAP),
+                grid.left() + column * (GRID_SLOT + GRID_GAP),
+                grid.top() + row * (tile_row(GRID_SLOT) + GRID_ROW_GAP),
             ),
-            vec2(SLOT_WIDTH, SLOT_HEIGHT),
+            vec2(GRID_SLOT, GRID_SLOT),
         );
-        paint_unit_tile(ui, slot, units.get(index), SLOT_CODE_SIZE);
+        paint_small_tile(ui, tile, unit, SLOT_CODE_SIZE);
     }
 }
 
-/// Draws a selection of one: the unit itself, whose it is, the numbers it has, and whatever it is
-/// making or carrying.
+/// Draws a selection of one: the unit with what it has left under it, then whose it is beside it,
+/// and whatever it is making or carrying under that.
 fn draw_subject(ui: &Ui, body: Rect, unit: &SelectedUnitView, case: SelectionCase) {
-    paint_unit_tile(
-        ui,
-        Rect::from_center_size(
-            pos2(body.left() + SUBJECT_TILE * 0.5, body.center().y),
-            vec2(SUBJECT_TILE, SUBJECT_TILE),
-        ),
-        Some(unit),
-        SUBJECT_CODE_SIZE,
+    let column = Rect::from_min_size(body.left_top(), vec2(SUBJECT_COLUMN, BODY_HEIGHT));
+    let tile = Rect::from_min_size(
+        pos2(column.center().x - SUBJECT_TILE * 0.5, column.top()),
+        vec2(SUBJECT_TILE, SUBJECT_TILE),
     );
+    let tint = health_tint(unit.health_fraction());
+    paint_tile(ui, tile, Some(tint), 1.0);
+    paint_icon(ui, tile, unit.icon, SUBJECT_CODE_SIZE);
+    draw_readouts(ui, column, tile.bottom() + READOUT_LEAD, unit, tint);
 
-    // The reading is centred in a body sized for the longest one there is, so that the two or three
-    // lines a bunker has are a block against the tile rather than a line hung from the ceiling of a
-    // mostly empty panel.
-    let rows = number_rows(unit);
-    let height =
-        NUMBERS_TOP + DETAIL_ROW * rows.len() as f32 + DETAIL_ROW_GAP * (rows.len() - 1) as f32;
-    let top = body.top() + ((BODY_HEIGHT - height) * 0.5).max(0.0);
-    let left = body.left() + SUBJECT_TILE + SUBJECT_GAP;
+    let text = Rect::from_min_size(
+        pos2(body.left() + TEXT_LEFT, body.top()),
+        vec2(TEXT_WIDTH, BODY_HEIGHT),
+    );
     draw_owner(
         ui,
-        Rect::from_min_size(pos2(left, top), vec2(NUMBERS_WIDTH, OWNER_ROW)),
+        Rect::from_min_size(text.left_top(), vec2(TEXT_WIDTH, OWNER_ROW)),
         unit,
     );
-    for (index, row) in rows.iter().enumerate() {
-        let rect = Rect::from_min_size(
-            pos2(
-                left,
-                top + NUMBERS_TOP + index as f32 * (DETAIL_ROW + DETAIL_ROW_GAP),
-            ),
-            vec2(NUMBERS_WIDTH, DETAIL_ROW),
-        );
-        match row {
-            NumberRow::Pool {
-                label,
-                value,
-                color,
-            } => paint_bar_row(ui, rect, label, *value, *color),
-            NumberRow::Tally { label, value } => paint_value_row(ui, rect, label, value),
-        }
-    }
-
-    let side = Rect::from_min_max(
-        pos2(body.right() - SIDE_WIDTH, top + NUMBERS_TOP),
-        body.right_bottom(),
+    let below = Rect::from_min_max(
+        pos2(text.left(), text.top() + OWNER_ROW + OWNER_LEAD),
+        text.max,
     );
     match (case, &unit.production) {
-        (SelectionCase::Producing, Some(production)) => draw_production(ui, side, production),
-        (SelectionCase::Loaded, _) => draw_cargo(ui, side, &unit.cargo),
+        (SelectionCase::Producing, Some(production)) => draw_production(ui, below, production),
+        (SelectionCase::Loaded, _) => draw_cargo(ui, below, &unit.cargo),
+        // What a building is worth to a watcher is how much of it is left and what it is making, so
+        // a tally of kills is a unit's own reading.
+        _ if !unit.building => draw_kills(ui, below, unit.kills),
         _ => {}
     }
 }
 
-/// One row of what a selection of one is read out as.
-enum NumberRow {
-    /// How much of a pool is left, against what it holds.
-    Pool {
-        label: String,
-        value: (u32, u32),
-        color: Color32,
-    },
-    /// A number that stands on its own.
-    Tally { label: String, value: String },
-}
-
-/// The rows this unit has, in the order they are read.
-///
-/// Only the ones it has a reading for, packed: a marine's two lines sit together rather than around
-/// the gaps where a templar's shields and energy would be. What a building is worth to a watcher is
-/// how much of it is left and what it is making, so the energy pool and the tally of kills are a
-/// unit's own reading.
-fn number_rows(unit: &SelectedUnitView) -> Vec<NumberRow> {
-    let mut rows = vec![NumberRow::Pool {
-        label: tr!("observer.selectionHitPoints", "HP"),
-        value: unit.hit_points,
-        color: theme::TEXT_POSITIVE,
-    }];
+/// Draws what the subject has left, one line each, the way the console writes them under its
+/// wireframe: hit points in the color of its health, then shields and energy for a unit that has
+/// them, each in the color the game gives that pool.
+fn draw_readouts(ui: &Ui, column: Rect, top: f32, unit: &SelectedUnitView, tint: Color32) {
+    let mut readouts = vec![(unit.hit_points, tint)];
     if let Some(shields) = unit.shields {
-        rows.push(NumberRow::Pool {
-            label: tr!("observer.selectionShields", "SHL"),
-            value: shields,
-            color: BLUE60,
-        });
+        readouts.push((shields, BLUE80));
     }
-    if !unit.building {
-        if let Some(energy) = unit.energy {
-            rows.push(NumberRow::Pool {
-                label: tr!("observer.selectionEnergy", "NRG"),
-                value: energy,
-                color: PURPLE70,
-            });
-        }
-        rows.push(NumberRow::Tally {
-            label: tr!("observer.selectionKills", "Kills"),
-            value: unit.kills.to_string(),
-        });
+    if let Some(energy) = unit.energy {
+        readouts.push((energy, PURPLE70));
     }
-    rows
+    for (index, ((current, full), color)) in readouts.into_iter().enumerate() {
+        let rect = Rect::from_min_size(
+            pos2(column.left(), top + index as f32 * READOUT_ROW),
+            vec2(column.width(), READOUT_ROW),
+        );
+        paint_text(
+            ui,
+            rect,
+            &text::numeral(READOUT_SIZE).with_color(color),
+            &format!("{current}/{full}"),
+            Align::Center,
+        );
+    }
 }
 
 /// Draws whose the selection is: the bar of their color, then their name.
 fn draw_owner(ui: &Ui, rect: Rect, unit: &SelectedUnitView) {
-    let bar = Rect::from_min_size(rect.left_top(), vec2(OWNER_BAR, rect.height()));
-    paint_player_bar(
-        ui,
-        bar,
-        unit.owner_color,
-        // The bar is what says whose the selection is, and it is read against the colors on the map
-        // rather than against the panel, so it is never drawn at less than its own color.
-        1.0,
+    let bar = centred(
+        Rect::from_min_size(rect.left_top(), vec2(OWNER_BAR, rect.height())),
+        rect.height() - theme::SPACE_XS,
     );
+    // The bar is what says whose the selection is, and it is read against the colors on the map
+    // rather than against the panel, so it is never drawn at less than its own color.
+    paint_player_bar(ui, bar, unit.owner_color, 1.0);
     paint_text(
         ui,
         Rect::from_min_max(pos2(bar.right() + OWNER_GAP, rect.top()), rect.max),
@@ -498,92 +430,136 @@ fn draw_owner(ui: &Ui, rect: Rect, unit: &SelectedUnitView) {
     );
 }
 
-/// Draws the units a transport or a bunker is carrying, each tinted by its own health.
-///
-/// Only the units that are actually in there: the game tells the panel what is loaded and not what
-/// the room for it was, and a row padded out to eight would say a full bunker was half empty.
-fn draw_cargo(ui: &Ui, rect: Rect, cargo: &[SelectedUnitView]) {
+/// Draws the line of what the subject has killed.
+fn draw_kills(ui: &Ui, rect: Rect, kills: u32) {
+    let line = Rect::from_min_size(
+        pos2(rect.left() + OWNER_BAR + OWNER_GAP, rect.top()),
+        vec2(rect.width() - OWNER_BAR - OWNER_GAP, KILLS_ROW),
+    );
+    // The number follows its label at the label's own length rather than in a column of its own:
+    // a column wide enough for the longest translation of the word would leave English's count
+    // stranded from it.
+    let label = tr!("observer.selectionKills", "Kills");
+    let label_width = text::column_label().galley(ui, &label).size().x;
+    paint_text(ui, line, &text::column_label(), &label, Align::LEFT);
     paint_text(
         ui,
-        Rect::from_min_size(rect.left_top(), vec2(rect.width(), CARGO_LABEL_HEIGHT)),
-        &text::column_label(),
-        &tr!("observer.selectionCargo", "Cargo"),
+        Rect::from_min_max(
+            pos2(line.left() + label_width + KILLS_LABEL_GAP, line.top()),
+            line.max,
+        ),
+        &text::numeral(KILLS_SIZE),
+        &kills.to_string(),
         Align::LEFT,
     );
-    let top = rect.top() + CARGO_LABEL_HEIGHT + CARGO_LABEL_GAP;
-    for (index, unit) in cargo.iter().take(MAX_CARGO).enumerate() {
-        let slot = Rect::from_min_size(
-            pos2(rect.left() + index as f32 * (CARGO_SLOT + CARGO_GAP), top),
-            vec2(CARGO_SLOT, CARGO_SLOT),
-        );
-        paint_unit_tile(ui, slot, Some(unit), CARGO_CODE_SIZE);
-    }
 }
 
-/// Draws what the selection is making: the thing itself, how far along it is, and how much is
-/// waiting behind it.
+/// Draws what the subject is making the way the console draws its queue: a building training units
+/// gets the queue's row of slots, the first being what is worked on and the rest what waits behind
+/// it, with how far along the first one is under the row. Anything else is one thing worked through
+/// alone, and gets its one slot with the progress beside it.
 fn draw_production(ui: &Ui, rect: Rect, production: &ProductionProgressView) {
-    let tile = Rect::from_min_size(rect.left_top(), vec2(ITEM_TILE, ITEM_TILE));
-    paint_tile_chrome(ui, tile, false);
-    paint_icon(ui, tile, production.icon, ITEM_CODE_SIZE);
-
-    let left = tile.right() + ITEM_GAP;
-    let width = rect.right() - left;
     let progress = production.progress.clamp(0.0, 1.0);
-    paint_text(
-        ui,
-        Rect::from_min_size(pos2(left, rect.top()), vec2(width, PERCENT_ROW)),
-        &text::numeral(PERCENT_SIZE),
-        &format!("{}%", (progress * 100.0).round() as u32),
-        Align::LEFT,
-    );
-    let track = Rect::from_min_size(
-        pos2(left, rect.top() + PERCENT_ROW + PROGRESS_GAP),
-        vec2(width, BAR_TRACK),
+    let first = Rect::from_min_size(rect.left_top(), vec2(QUEUE_SLOT, QUEUE_SLOT));
+    paint_tile(ui, first, Some(theme::ACCENT), 1.0);
+    paint_icon(ui, first, production.icon, QUEUE_CODE_SIZE);
+    let line = match &production.queue {
+        Some(queue) => {
+            for index in 1..QUEUE_SLOTS {
+                let slot = first.translate(vec2(index as f32 * (QUEUE_SLOT + QUEUE_GAP), 0.0));
+                match queue.get(index - 1) {
+                    Some(icon) => {
+                        paint_tile(ui, slot, None, 1.0);
+                        paint_icon(ui, slot, *icon, QUEUE_CODE_SIZE);
+                    }
+                    None => paint_tile(ui, slot, None, EMPTY_ALPHA),
+                }
+            }
+            Rect::from_min_size(
+                pos2(rect.left(), first.bottom() + PROGRESS_LEAD),
+                vec2(QUEUE_WIDTH + PERCENT_GAP + PERCENT_WIDTH, PROGRESS_ROW),
+            )
+        }
+        None => Rect::from_min_size(
+            pos2(
+                first.right() + QUEUE_GAP,
+                first.center().y - PROGRESS_ROW * 0.5,
+            ),
+            vec2(
+                QUEUE_WIDTH - QUEUE_SLOT - QUEUE_GAP + PERCENT_GAP + PERCENT_WIDTH,
+                PROGRESS_ROW,
+            ),
+        ),
+    };
+    let track = centred(
+        Rect::from_min_max(
+            line.left_top(),
+            pos2(line.right() - PERCENT_WIDTH - PERCENT_GAP, line.bottom()),
+        ),
+        PROGRESS_TRACK,
     );
     paint_track(ui, track, progress, BLUE60);
-    // An empty queue writes nothing at all: what the line is read for is that more is on the way,
-    // and one saying that none is would have to be read before it could be dismissed.
-    if production.queued > 0 {
-        paint_text(
-            ui,
-            Rect::from_min_size(
-                pos2(left, track.bottom() + PROGRESS_GAP),
-                vec2(width, QUEUED_ROW),
+    paint_text(
+        ui,
+        Rect::from_min_max(pos2(line.right() - PERCENT_WIDTH, line.top()), line.max),
+        &text::numeral(PERCENT_SIZE),
+        &format!("{}%", (progress * 100.0).round() as u32),
+        Align::RIGHT,
+    );
+}
+
+/// Draws the units a transport or a bunker is carrying in the console's cargo slots, each with how
+/// much of it is left.
+///
+/// Only the units that are actually in there: the game tells the panel what is loaded and not what
+/// the room for it was, and slots padded out to eight would say a full bunker was half empty.
+fn draw_cargo(ui: &Ui, rect: Rect, cargo: &[SelectedUnitView]) {
+    for (index, unit) in cargo.iter().take(MAX_CARGO).enumerate() {
+        let column = (index % CARGO_COLUMNS) as f32;
+        let row = (index / CARGO_COLUMNS) as f32;
+        let tile = Rect::from_min_size(
+            pos2(
+                rect.left() + column * (CARGO_SLOT + CARGO_GAP),
+                rect.top() + row * (tile_row(CARGO_SLOT) + GRID_ROW_GAP),
             ),
-            &text::body(QUEUED_SIZE, text::BodyWeight::Medium).with_color(theme::TEXT_SECONDARY),
-            &tr!(
-                "observer.selectionQueued",
-                "+{{count}} queued",
-                count = production.queued
-            ),
-            Align::LEFT,
+            vec2(CARGO_SLOT, CARGO_SLOT),
         );
+        paint_small_tile(ui, tile, unit, QUEUE_CODE_SIZE);
     }
 }
 
-/// Paints one tile: its chrome, outlined in what the unit's health tints it, then the unit itself.
-fn paint_unit_tile(ui: &Ui, rect: Rect, unit: Option<&SelectedUnitView>, code_size: f32) {
+/// Paints one unit as a small tile with the bar of its health under it, which is how the console
+/// draws every unit that is one of several.
+fn paint_small_tile(ui: &Ui, tile: Rect, unit: &SelectedUnitView, code_size: f32) {
+    paint_tile(ui, tile, None, 1.0);
+    paint_icon(ui, tile, unit.icon, code_size);
+    let health = unit.health_fraction();
+    let bar = Rect::from_min_size(
+        pos2(tile.left(), tile.bottom() + HEALTH_GAP),
+        vec2(tile.width(), HEALTH_BAR),
+    );
+    paint_track(ui, bar, health, health_tint(health));
+}
+
+/// Paints a tile's chrome, outlined in `edge` where the tile has something to say through its edge
+/// and in the panel's own quiet stroke where it has not.
+fn paint_tile(ui: &Ui, rect: Rect, edge: Option<Color32>, alpha: f32) {
     let corner_radius = theme::radius(theme::RADIUS_CHIP);
-    let alpha = if unit.is_some() { 1.0 } else { EMPTY_ALPHA };
     ui.painter().rect_filled(
         rect,
         corner_radius,
         theme::alpha(GREY_BLUE10, 0.85).gamma_multiply(alpha),
     );
-    let edge = match unit {
-        Some(unit) => health_tint(unit.health_fraction()).gamma_multiply(0.85),
-        None => theme::alpha(BLUE80, 0.20).gamma_multiply(alpha),
+    let edge = match edge {
+        Some(edge) => edge.gamma_multiply(0.85),
+        None => theme::alpha(BLUE80, 0.20),
     };
     ui.painter().add(Shape::rect_stroke(
         rect,
         corner_radius,
-        Stroke::new(theme::HAIRLINE, edge),
+        Stroke::new(theme::HAIRLINE, edge.gamma_multiply(alpha)),
         StrokeKind::Inside,
     ));
-    if let Some(unit) = unit {
-        paint_icon(ui, rect, unit.icon, code_size);
-    }
 }
 
 /// Paints what a tile carries: the game's own icon where the host has the atlas for it, and the
@@ -618,58 +594,6 @@ fn health_tint(fraction: f32) -> Color32 {
     } else {
         theme::TEXT_NEGATIVE
     }
-}
-
-/// Draws one labelled bar: what it measures, how full it is, and the two numbers that is.
-fn paint_bar_row(ui: &Ui, rect: Rect, label: &str, value: (u32, u32), color: Color32) {
-    let (current, full) = value;
-    paint_row_label(ui, rect, label);
-    let track = centred(
-        Rect::from_min_size(
-            pos2(rect.left() + ROW_LABEL_WIDTH + ROW_INNER_GAP, rect.top()),
-            vec2(BAR_WIDTH, rect.height()),
-        ),
-        BAR_TRACK,
-    );
-    let fraction = if full == 0 {
-        0.0
-    } else {
-        current as f32 / full as f32
-    };
-    paint_track(ui, track, fraction, color);
-    paint_text(
-        ui,
-        Rect::from_min_max(pos2(track.right() + ROW_INNER_GAP, rect.top()), rect.max),
-        &text::numeral(VALUE_SIZE),
-        &format!("{current}/{full}"),
-        Align::RIGHT,
-    );
-}
-
-/// Draws one row that is a single number rather than a reading against a pool.
-fn paint_value_row(ui: &Ui, rect: Rect, label: &str, value: &str) {
-    paint_row_label(ui, rect, label);
-    paint_text(
-        ui,
-        Rect::from_min_max(
-            pos2(rect.left() + ROW_LABEL_WIDTH + ROW_INNER_GAP, rect.top()),
-            rect.max,
-        ),
-        &text::numeral(VALUE_SIZE),
-        value,
-        Align::LEFT,
-    );
-}
-
-/// Paints what a row of numbers measures, at the head of the row.
-fn paint_row_label(ui: &Ui, rect: Rect, label: &str) {
-    paint_text(
-        ui,
-        Rect::from_min_size(rect.left_top(), vec2(ROW_LABEL_WIDTH, rect.height())),
-        &text::column_label(),
-        label,
-        Align::LEFT,
-    );
 }
 
 /// Paints a bar: its track, and however much of it is filled.
@@ -718,10 +642,7 @@ mod tests {
             crate::kit::tiers::panel_content_width(PANEL_WIDTH),
             CONTENT_WIDTH
         );
-        assert_eq!(
-            SUBJECT_TILE + SUBJECT_GAP + NUMBERS_WIDTH + SIDE_GAP + SIDE_WIDTH,
-            CONTENT_WIDTH
-        );
+        assert_eq!(TEXT_LEFT + TEXT_WIDTH, CONTENT_WIDTH);
     }
 
     #[test]
@@ -746,24 +667,6 @@ mod tests {
 
         // A unit the game keeps no health for reads as whole rather than as about to die.
         assert_eq!(unit((0, 0), None, 0x42).health_fraction(), 1.0);
-    }
-
-    #[test]
-    fn a_thing_is_read_out_on_the_rows_it_has_a_reading_for() {
-        // The body is sized for the longest reading there is, which is a unit with every pool.
-        let mut templar = unit((40, 40), Some((40, 40)), 0x43);
-        templar.energy = Some((200, 200));
-        assert_eq!(number_rows(&templar).len(), DETAIL_ROWS);
-
-        // A marine has its health and its kills and nothing else.
-        assert_eq!(number_rows(&unit((40, 40), None, 0x00)).len(), 2);
-
-        let mut bunker = unit((350, 350), None, 0x7D);
-        bunker.building = true;
-        assert_eq!(number_rows(&bunker).len(), 1);
-        let mut pylon = unit((300, 300), Some((300, 300)), 0x9C);
-        pylon.building = true;
-        assert_eq!(number_rows(&pylon).len(), 2);
     }
 
     #[test]
@@ -795,10 +698,26 @@ mod tests {
                 size: None,
             },
             progress: 0.5,
-            queued: 2,
+            queue: Some(Vec::new()),
         });
         // What is being made is read before what is being carried, for the thing doing both.
         factory.cargo = vec![unit((40, 40), None, 0x00)];
         assert_eq!(selection(vec![factory]).case(), SelectionCase::Producing);
+    }
+
+    #[test]
+    fn the_panel_gives_way_where_its_slot_has_no_room() {
+        let slot = |ceiling: f32| StackSlot {
+            bottom: 16.0,
+            span: crate::observer::layout::Span {
+                left: 0.0,
+                right: 1280.0,
+            },
+            middle: 640.0,
+            ceiling,
+            screen_bottom: 960.0,
+        };
+        assert!(fits(slot(100.0)));
+        assert!(!fits(slot(960.0 - 16.0 - PANEL_HEIGHT)));
     }
 }

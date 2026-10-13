@@ -11,8 +11,8 @@
 use egui::{Align, Color32, Context, Id, Layout, Rect, Ui, vec2};
 use serde::{Deserialize, Serialize};
 
-use crate::kit::theme;
 use crate::kit::widgets::{self, Series};
+use crate::kit::{theme, tiers};
 use crate::observer::{Wing, wing_panel};
 use crate::tr;
 
@@ -22,8 +22,31 @@ pub const PANEL_WIDTH: f32 = 486.0;
 /// The room inside the panel's chrome.
 const CONTENT_WIDTH: f32 = 462.0;
 
-/// How tall the plot is, axes and legend included.
+/// How tall the plot is, axes and legend included, with all the room it wants.
 const PLOT_HEIGHT: f32 = 150.0;
+
+/// The shortest the plot is drawn, on a screen with less room under the panel than it wants: about
+/// what still shows two lines crossing. Shorter than that the panel gives way altogether.
+const MIN_PLOT_HEIGHT: f32 = 90.0;
+
+/// Height of the row of tabs under the header.
+const TAB_ROW: f32 = 24.0;
+
+/// What the panel takes from top to bottom besides its plot.
+const CHROME_HEIGHT: f32 =
+    tiers::PANEL_MARGIN_HEIGHT + widgets::PANEL_HEADER_HEIGHT + TAB_ROW + theme::SPACE_SM;
+
+/// How tall the plot is drawn in a panel whose top is at `top` and which must end above `floor`, or
+/// `None` where not even the shortest plot fits.
+fn plot_height(top: f32, floor: f32) -> Option<f32> {
+    let room = floor - top - CHROME_HEIGHT;
+    (room >= MIN_PLOT_HEIGHT).then(|| room.min(PLOT_HEIGHT))
+}
+
+/// Whether the panel fits between `top` and `floor` at all.
+pub(crate) fn fits(top: f32, floor: f32) -> bool {
+    plot_height(top, floor).is_some()
+}
 
 /// Which measurement of the game the panel is plotting.
 ///
@@ -149,22 +172,28 @@ pub struct GraphsOutcome {
 /// Draws the graphs panel against the right edge of the screen at `top`, fading and sliding it in
 /// and out. Returns nothing at all once it is gone, or before there are two samples to draw a line
 /// between.
+///
+/// The panel ends above `floor`, shortening its plot to do so, and gives way altogether where even
+/// the shortest plot would not: it is the last thing on the right edge, and a plot too short to
+/// show two lines crossing is not worth the room it would take from the game.
 pub fn render_graphs_view(
     view: &GraphsView,
     ctx: &Context,
     shown: bool,
     top: f32,
+    floor: f32,
     right_inset: f32,
 ) -> Option<GraphsOutcome> {
     let id = Id::new("sb_graphs_panel");
+    let plot = plot_height(top, floor);
     let inner = wing_panel(
         ctx,
         id,
         Wing::Right { inset: right_inset },
         top,
         PANEL_WIDTH,
-        shown && !view.is_empty(),
-        |ui| draw_panel(ui, view),
+        shown && !view.is_empty() && plot.is_some(),
+        |ui| draw_panel(ui, view, plot.unwrap_or(MIN_PLOT_HEIGHT)),
     )?;
     let (series, per_player) = inner.inner;
     Some(GraphsOutcome {
@@ -174,9 +203,18 @@ pub fn render_graphs_view(
     })
 }
 
-fn draw_panel(ui: &mut Ui, view: &GraphsView) -> (Option<GraphSeries>, Option<bool>) {
+fn draw_panel(ui: &mut Ui, view: &GraphsView, plot: f32) -> (Option<GraphSeries>, Option<bool>) {
     widgets::panel_header(ui, &tr!("observer.panelGraphs", "Graphs"), Some("G"));
-    let picked = draw_tabs(ui, view);
+    let picked = ui
+        .allocate_ui_with_layout(
+            vec2(CONTENT_WIDTH, TAB_ROW),
+            Layout::top_down(Align::Min),
+            |ui| {
+                ui.set_min_height(TAB_ROW);
+                draw_tabs(ui, view)
+            },
+        )
+        .inner;
     ui.add_space(theme::SPACE_SM);
     let series: Vec<Series<'_>> = view
         .lines
@@ -190,12 +228,7 @@ fn draw_panel(ui: &mut Ui, view: &GraphsView) -> (Option<GraphSeries>, Option<bo
             filled: false,
         })
         .collect();
-    widgets::line_plot(
-        ui,
-        &series,
-        vec2(CONTENT_WIDTH, PLOT_HEIGHT),
-        view.span_secs,
-    );
+    widgets::line_plot(ui, &series, vec2(CONTENT_WIDTH, plot), view.span_secs);
     picked
 }
 
@@ -265,6 +298,38 @@ mod tests {
             crate::kit::tiers::panel_content_width(PANEL_WIDTH),
             CONTENT_WIDTH
         );
+    }
+
+    #[test]
+    fn the_panel_is_its_chrome_and_its_plot() {
+        let view = GraphsView {
+            series: GraphSeries::ArmyValue,
+            span_secs: 600,
+            lines: vec![GraphLineView {
+                label: "Rhynso".to_string(),
+                color: Color32::WHITE,
+                values: vec![0.0, 1.0, 2.0],
+            }],
+            grouping: Some(GraphGrouping::Teams),
+        };
+        for floor in [1000.0, 100.0 + CHROME_HEIGHT + MIN_PLOT_HEIGHT + 20.0] {
+            let rect = crate::observer::test_support::settled_rect(|ctx| {
+                render_graphs_view(&view, ctx, true, 100.0, floor, 0.0).map(|outcome| outcome.rect)
+            })
+            .expect("the panel is drawn");
+            assert_eq!(
+                rect.height(),
+                CHROME_HEIGHT + plot_height(100.0, floor).unwrap()
+            );
+        }
+    }
+
+    #[test]
+    fn the_plot_shortens_to_fit_and_then_gives_way() {
+        assert_eq!(plot_height(100.0, 1000.0), Some(PLOT_HEIGHT));
+        let short = 100.0 + CHROME_HEIGHT + MIN_PLOT_HEIGHT + 10.0;
+        assert_eq!(plot_height(100.0, short), Some(MIN_PLOT_HEIGHT + 10.0));
+        assert_eq!(plot_height(100.0, short - 20.0), None);
     }
 
     #[test]

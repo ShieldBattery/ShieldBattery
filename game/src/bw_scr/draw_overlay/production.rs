@@ -329,7 +329,7 @@ fn unit_production(unit: Unit) -> Option<(Production, Progress)> {
 }
 
 /// What one unit is making, as the selection panel reads it: the same production the panel of
-/// everything on the way reads, plus whatever is waiting behind it.
+/// everything on the way reads, plus the queue behind it where it has one.
 ///
 /// `None` for a unit that is making nothing, which is most of them.
 pub(super) fn selected_production(unit: Unit, bw: &BwVars) -> Option<ProductionProgressView> {
@@ -337,29 +337,26 @@ pub(super) fn selected_production(unit: Unit, bw: &BwVars) -> Option<ProductionP
     Some(ProductionProgressView {
         icon: production_icon(production, bw),
         progress: progress.as_float(),
-        queued: queued_units(unit, production),
+        queue: queued_units(unit, production)
+            .map(|queue| queue.map(|unit_id| unit_icon(unit_id, bw)).collect()),
     })
 }
 
-/// How many more units are waiting behind the one this unit is making.
+/// The units waiting behind the one this unit is making, in the order they will be made, or
+/// `None` for production that has no queue.
 ///
 /// Only a completed building training units has a queue: an upgrade or a technology is one item a
 /// building works through alone, and a building that is itself still being built (or an egg) holds
 /// what it is turning into in the same queue rather than a line of work behind it.
 ///
 /// The queue is a ring of [`BUILD_QUEUE_LEN`] slots starting at the one being worked on and filled
-/// forward from it, so the count walks forward and stops at the first empty slot rather than
-/// counting every non-empty slot in the ring.
-fn queued_units(unit: Unit, production: Production) -> u32 {
+/// forward from it, so the walk goes forward and stops at the first empty slot rather than taking
+/// every non-empty slot in the ring.
+fn queued_units(unit: Unit, production: Production) -> Option<impl Iterator<Item = UnitId>> {
     let is_training = matches!(production, Production::Unit(..))
         && unit.id().is_building()
         && unit.is_completed();
-    if !is_training {
-        return 0;
-    }
-    (1..BUILD_QUEUE_LEN)
-        .take_while(|&slot| unit.nth_queued_unit(slot).is_some())
-        .count() as u32
+    is_training.then(|| (1..BUILD_QUEUE_LEN).map_while(move |slot| unit.nth_queued_unit(slot)))
 }
 
 /// How many entries the game's build queue holds.

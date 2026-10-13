@@ -22,7 +22,8 @@ use crate::kit::widgets::{self, ResourceGlyph};
 use crate::observer::{
     EdgeCursor, STAT_COLOR_BAR, STAT_HEADING_HEIGHT, STAT_ROW_GAP, STAT_ROW_HEIGHT,
     STAT_VALUE_SIZE, Wing, paint_column_heading, paint_resource_value, paint_stat_identity,
-    paint_team_divider, paint_text, teams_worth_dividing, vision_alpha, wing_panel,
+    paint_team_divider, paint_text, stat_table_height, teams_worth_dividing, vision_alpha,
+    wing_panel,
 };
 use crate::{tr, tr_plural};
 
@@ -129,6 +130,12 @@ impl EconomyView {
     pub fn is_empty(&self) -> bool {
         self.players.is_empty()
     }
+}
+
+/// How tall the panel is for `view`, chrome included, which is what the wing it hangs in has to
+/// have room for before it is drawn.
+pub(crate) fn panel_height(view: &EconomyView) -> f32 {
+    stat_table_height(view.players.iter().map(|player| player.team))
 }
 
 /// Draws the economy panel against the left edge of the screen at `top`, fading and sliding it in
@@ -285,6 +292,30 @@ fn draw_workers(ui: &Ui, rect: Rect, player: &EconomyPlayerView, alpha: f32) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_worked_out_height_is_the_height_the_panel_draws_at() {
+        let player = |team| EconomyPlayerView {
+            name: "Rhynso".to_string(),
+            team,
+            color: Color32::WHITE,
+            vision: true,
+            minerals_per_minute: 900,
+            gas_per_minute: 300,
+            workers: 60,
+            idle_workers: 2,
+        };
+        for teams in [vec![1, 2], vec![1, 1, 2, 2], vec![1, 1, 1, 2, 2, 2]] {
+            let view = EconomyView {
+                players: teams.iter().map(|team| player(*team)).collect(),
+            };
+            let rect = crate::observer::test_support::settled_rect(|ctx| {
+                render_economy_view(&view, ctx, true, 100.0)
+            })
+            .expect("the panel is drawn");
+            assert_eq!(rect.height(), panel_height(&view), "{teams:?}");
+        }
+    }
 
     #[test]
     fn the_columns_fill_the_panels_own_width() {

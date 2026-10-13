@@ -16,6 +16,7 @@
 //! matchup bar, up to two a half from its stacked form, and anything wider from the corner team
 //! cards.
 
+use egui::{Color32, Rect, pos2, vec2};
 use overlay_ui::observer::{
     ControlGroupView, ControlGroupsPlayerView, ControlGroupsView, EconomyPlayerView, EconomyView,
     GraphGrouping, GraphLineView, GraphSeries, GraphsView, MapControlSideView, MapControlView,
@@ -85,7 +86,7 @@ const PROTOSS_TRANSPORT: u16 = 0x45;
 const CARGO_UNITS: usize = 4;
 
 /// How many more units the producing building has waiting behind the one on the way.
-const QUEUED_UNITS: u32 = 2;
+const QUEUED_UNITS: usize = 2;
 
 /// Which slot of a player's control groups the two building groups start at, which is where a
 /// player who binds their buildings at all puts them: after the armies they made with them.
@@ -133,6 +134,9 @@ pub struct Knobs {
     /// measurement yet, so this is the switch that proves the bar disappears without one rather
     /// than drawing an empty share.
     pub map_control: bool,
+    /// Whether the list of players under the minimap's vision button starts open, which is a state
+    /// an offline render has no click to reach.
+    pub vision_picker: bool,
 }
 
 impl Default for Knobs {
@@ -159,6 +163,7 @@ impl Default for Knobs {
             selection_building: false,
             selection_cargo: false,
             map_control: true,
+            vision_picker: false,
         }
     }
 }
@@ -221,6 +226,9 @@ pub struct State {
     /// The last production entry a click asked to be selected, which the knob panel reads back: the
     /// preview has no units to select, so the ask is all there is to see.
     pub last_selection: Option<(u8, usize)>,
+    /// Whether the list of players under the minimap's vision button has been opened for a preset
+    /// that asks for it. Once, so a watcher in the live preview can close it again.
+    pub vision_picker_opened: bool,
 }
 
 impl State {
@@ -228,6 +236,7 @@ impl State {
         State {
             vision: [true; MAX_PLAYERS],
             last_selection: None,
+            vision_picker_opened: false,
         }
     }
 
@@ -764,7 +773,13 @@ fn producing_building(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
         production: Some(ProductionProgressView {
             icon: unit_icon(race_units(race)[0]),
             progress: fraction(t * 0.09),
-            queued: QUEUED_UNITS,
+            queue: Some(
+                race_units(race)
+                    .iter()
+                    .take(QUEUED_UNITS)
+                    .map(|&index| unit_icon(index))
+                    .collect(),
+            ),
         }),
         cargo: Vec::new(),
     }
@@ -828,6 +843,57 @@ fn race_transport(race: RaceView) -> u16 {
 /// races has.
 fn has_shields(race: RaceView) -> bool {
     matches!(race, RaceView::Protoss | RaceView::Random)
+}
+
+/// Where SC:R puts the minimap for a watcher: the square of the console's own minimap, in the
+/// screen's bottom-left corner, which the console scales with the screen's height.
+pub fn minimap_square(screen: Rect) -> Rect {
+    let side = MINIMAP_UNITS * screen.height() / DESIGN_HEIGHT;
+    Rect::from_min_size(
+        pos2(screen.left(), screen.bottom() - side),
+        vec2(side, side),
+    )
+}
+
+/// The side of the minimap's square at the design's 1080 points of height.
+const MINIMAP_UNITS: f32 = 348.0;
+const DESIGN_HEIGHT: f32 = 1080.0;
+
+/// Paints something where the game's minimap would be, under the overlay, so the frame the overlay
+/// draws around it is judged against a square that is there: dark ground with a few patches of
+/// terrain and the screen box, which is the shape a minimap reads as at a glance.
+pub fn paint_minimap_stand_in(ctx: &egui::Context, square: Rect) {
+    let painter = ctx.layer_painter(egui::LayerId::new(
+        egui::Order::Background,
+        egui::Id::new("minimap_stand_in"),
+    ));
+    painter.rect_filled(square, 0.0, Color32::from_rgb(0x0c, 0x10, 0x0e));
+    let unit = square.width() / 12.0;
+    for (x, y, w, h) in [
+        (1.0, 1.0, 3.0, 2.0),
+        (7.5, 1.5, 3.0, 3.0),
+        (4.5, 5.0, 3.0, 2.5),
+        (1.5, 8.5, 3.5, 2.5),
+        (8.0, 8.0, 2.5, 3.0),
+    ] {
+        painter.rect_filled(
+            Rect::from_min_size(
+                square.min + vec2(x * unit, y * unit),
+                vec2(w * unit, h * unit),
+            ),
+            2.0,
+            Color32::from_rgb(0x2a, 0x33, 0x27),
+        );
+    }
+    painter.rect_stroke(
+        Rect::from_min_size(
+            square.min + vec2(4.0 * unit, 3.5 * unit),
+            vec2(3.0 * unit, 2.0 * unit),
+        ),
+        0.0,
+        egui::Stroke::new(1.0, Color32::WHITE),
+        egui::StrokeKind::Inside,
+    );
 }
 
 /// A tile's icon. Nothing here has the game's own icon atlas, so every tile draws its number: these
@@ -932,6 +998,9 @@ pub enum Showcase {
     Producing,
     /// A transport with an army inside it.
     Loaded,
+    /// The single unit the knobs default to, with the list of players under the minimap's vision
+    /// button open.
+    VisionPicker,
 }
 
 /// Where a preset rests the pointer, for the readings the overlay only gives while it is hovered.
@@ -1017,7 +1086,7 @@ impl Preset {
         }
     }
 
-    pub const ALL: [Preset; 22] = [
+    pub const ALL: [Preset; 23] = [
         Preset::game(2, 1, Screen::Minimal),
         Preset::game(2, 1, Screen::Standard),
         Preset::game(2, 1, Screen::Analyst),
@@ -1044,6 +1113,14 @@ impl Preset {
         Preset::game(8, 4, Screen::Analyst),
         Preset::selection_showcase(Showcase::Producing),
         Preset::selection_showcase(Showcase::Loaded),
+        // The vision list is shown over a team game, which is the one with a list worth reading.
+        Preset {
+            players: 4,
+            team_size: 2,
+            panels: Screen::Analyst,
+            showcase: Showcase::VisionPicker,
+            hover: Hover::None,
+        },
         Preset::hover_showcase(Hover::Graphs),
         Preset::hover_showcase(Hover::DockEconomy),
     ];
@@ -1053,6 +1130,7 @@ impl Preset {
         match self.showcase {
             Showcase::Producing => return "1v1-selection-building".to_string(),
             Showcase::Loaded => return "1v1-selection-cargo".to_string(),
+            Showcase::VisionPicker => return format!("{}-vision-picker", self.shape()),
             Showcase::Knobs => {}
         }
         if self.hover != Hover::None {
@@ -1096,6 +1174,7 @@ impl Preset {
             team_size: self.team_size,
             selection_building: self.showcase == Showcase::Producing,
             selection_cargo: self.showcase == Showcase::Loaded,
+            vision_picker: self.showcase == Showcase::VisionPicker,
             ..Knobs::default()
         };
     }
@@ -1177,6 +1256,13 @@ pub fn knobs_ui(k: &mut Knobs, state: &State, ui: &mut egui::Ui) -> bool {
         .on_hover_text(
             "Selects a transport with four units inside it at mixed health, which is what the row \
              of carried units is drawn for.",
+        )
+        .changed();
+    changed |= ui
+        .checkbox(&mut k.vision_picker, "vision list open")
+        .on_hover_text(
+            "Opens the list of players under the minimap's vision button when the scenario \
+             starts, the state the button's click leaves it in.",
         )
         .changed();
     changed |= ui
