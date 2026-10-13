@@ -86,6 +86,8 @@ struct Args {
     smoke: bool,
     backdrop: Option<String>,
     render_dir: Option<PathBuf>,
+    /// A language to render the translated screens in, instead of every preset in English.
+    lang: Option<Locale>,
 }
 
 fn parse_args() -> Args {
@@ -93,6 +95,7 @@ fn parse_args() -> Args {
         smoke: false,
         backdrop: None,
         render_dir: None,
+        lang: None,
     };
     let mut it = std::env::args().skip(1);
     while let Some(arg) = it.next() {
@@ -100,6 +103,12 @@ fn parse_args() -> Args {
             "--smoke" => args.smoke = true,
             "--backdrop" => args.backdrop = it.next(),
             "--render" => args.render_dir = it.next().map(PathBuf::from),
+            "--lang" => match it.next().as_deref().and_then(Locale::from_tag) {
+                Some(locale) => args.lang = Some(locale),
+                None => {
+                    eprintln!("overlay-preview: --lang takes a language tag we have strings for")
+                }
+            },
             other => eprintln!("overlay-preview: ignoring unknown argument `{other}`"),
         }
     }
@@ -118,7 +127,7 @@ fn main() -> eframe::Result<()> {
     );
 
     if let Some(dir) = &args.render_dir {
-        match render_all(dir, backdrop.as_ref()) {
+        match render_all(dir, backdrop.as_ref(), args.lang) {
             Ok(paths) => {
                 for path in paths {
                     println!("{}", path.display());
@@ -134,7 +143,7 @@ fn main() -> eframe::Result<()> {
 
     if args.smoke {
         let dir = std::env::temp_dir().join("overlay-preview-smoke");
-        match render_all(&dir, backdrop.as_ref()) {
+        match render_all(&dir, backdrop.as_ref(), None) {
             Ok(paths) => {
                 println!(
                     "overlay-preview smoke: OK ({} images under {})",
@@ -191,6 +200,17 @@ struct RenderCase {
     pseudolocale: bool,
 }
 
+/// The renders for one real language: every screen drawn from translated strings, which is the set
+/// the pseudolocale pass checks against long text, checked against what translators actually wrote.
+fn language_cases() -> Vec<RenderCase> {
+    scenarios::PSEUDOLOCALE_PRESETS
+        .map(|preset| RenderCase {
+            preset,
+            pseudolocale: false,
+        })
+        .into()
+}
+
 /// Every offline render, in file order: each preset in English, then one pseudolocale pass per
 /// screen that is drawn from translated strings. The second pass is what proves a layout survives
 /// text a third longer than the English it was designed against.
@@ -230,14 +250,25 @@ fn pinned_pointer_event(knobs: &Knobs) -> Option<Event> {
 }
 
 /// Renders every scenario preset at every offline resolution into `dir`, returning what it wrote.
-fn render_all(dir: &Path, backdrop: Option<&RgbaImage>) -> std::io::Result<Vec<PathBuf>> {
+fn render_all(
+    dir: &Path,
+    backdrop: Option<&RgbaImage>,
+    lang: Option<Locale>,
+) -> std::io::Result<Vec<PathBuf>> {
     std::fs::create_dir_all(dir)?;
     let mut written = Vec::new();
-    for case in render_cases() {
+    let cases = match lang {
+        Some(_) => language_cases(),
+        None => render_cases(),
+    };
+    for case in cases {
         for resolution in RENDER_SIZES {
             let mut knobs = Knobs::default();
             case.preset.apply(&mut knobs);
             knobs.pseudolocale = case.pseudolocale;
+            if let Some(lang) = lang {
+                knobs.language = lang;
+            }
             apply_language(&knobs);
             // Offline there is no window to match, so the preset's own pixels set the scale.
             let screen = VirtualScreen::resolve(
@@ -287,10 +318,12 @@ fn render_all(dir: &Path, backdrop: Option<&RgbaImage>) -> std::io::Result<Vec<P
                 backdrop,
             );
             let path = dir.join(format!(
-                "{}-{}{}-{}x{}.png",
+                "{}-{}{}{}-{}x{}.png",
                 case.preset.kind().slug(),
                 case.preset.label(),
                 if case.pseudolocale { "-pseudo" } else { "" },
+                lang.map(|lang| format!("-{}", lang.tag()))
+                    .unwrap_or_default(),
                 width,
                 height
             ));
