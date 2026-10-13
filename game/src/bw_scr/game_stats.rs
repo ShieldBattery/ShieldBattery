@@ -90,6 +90,8 @@ const STALE_FRAMES: u16 = 60 * SAMPLE_INTERVAL_FRAMES as u16;
 /// changes.
 #[derive(Copy, Clone, Default)]
 pub struct Sample {
+    /// The frame it was taken on.
+    pub frame: u32,
     /// Everything this player has ever gathered, which only climbs.
     pub gathered_minerals: u32,
     pub gathered_gas: u32,
@@ -292,6 +294,39 @@ impl GameStats {
         self.vision = None;
     }
 
+    /// The frame the newest sample was taken on.
+    fn latest_sample_frame(&self) -> Option<u32> {
+        self.players
+            .iter()
+            .filter_map(|player| player.samples.back())
+            .map(|sample| sample.frame)
+            .max()
+    }
+
+    /// Forgets everything recorded after `frame`, for a game that has gone back to it.
+    ///
+    /// A replay seeking backwards restores a snapshot of the game rather than playing it again from
+    /// the start, and a game that rolls back simulates frames again; either way the samples and
+    /// events after the frame describe a game that has not happened yet. What came before stays.
+    /// The next sample then takes stock of the game afresh, as the first one does, so the depots,
+    /// buildings and research the restored game already has are not reported as new.
+    fn rewind(&mut self, frame: u32) {
+        for player in &mut self.players {
+            while player
+                .samples
+                .back()
+                .is_some_and(|sample| sample.frame > frame)
+            {
+                player.samples.pop_back();
+            }
+            player.known_depots.clear();
+        }
+        self.events.retain(|event| event.frame <= frame);
+        self.previous = PreviousState::new();
+        self.next_sample_frame = frame;
+        self.seeded = false;
+    }
+
     /// How much of the map each player could see as of the last sample.
     pub fn vision(&self) -> Option<&MapVision> {
         self.vision.as_ref()
@@ -400,6 +435,12 @@ impl GameStats {
         tile_flags: Option<&[u32]>,
     ) {
         let frame = game.frame_count();
+        if self
+            .latest_sample_frame()
+            .is_some_and(|latest| frame < latest)
+        {
+            self.rewind(frame);
+        }
         if frame < self.next_sample_frame {
             return;
         }
@@ -435,6 +476,7 @@ impl GameStats {
         for player in 0..MAX_PLAYERS {
             let totals = &totals[player];
             let sample = Sample {
+                frame,
                 gathered_minerals: bw::gathered_minerals(game, player as u8),
                 gathered_gas: bw::gathered_gas(game, player as u8),
                 army_minerals: totals.army_minerals,
@@ -879,6 +921,37 @@ mod tests {
         let mut stats = GameStats::new();
         stats.players[0].samples = samples;
         stats
+    }
+
+    #[test]
+    fn going_back_forgets_what_came_after_and_keeps_what_came_before() {
+        let samples = (0..10u32)
+            .map(|second| Sample {
+                frame: second * SAMPLE_INTERVAL_FRAMES,
+                ..Sample::default()
+            })
+            .collect();
+        let mut stats = stats_with(samples);
+        for frame in [48, 120, 200] {
+            stats.events.push_back(TimelineEvent {
+                frame,
+                player: 0,
+                kind: TimelineEventKind::BuildingCompleted,
+                subject: TimelineSubject::Unit(UnitId(0)),
+            });
+        }
+        stats.seeded = true;
+        stats.rewind(130);
+        assert_eq!(stats.latest_sample_frame(), Some(120));
+        assert_eq!(
+            stats
+                .events
+                .iter()
+                .map(|event| event.frame)
+                .collect::<Vec<_>>(),
+            [48, 120]
+        );
+        assert!(!stats.seeded, "the next sample takes stock afresh");
     }
 
     #[test]
