@@ -2322,6 +2322,10 @@
     "passwordField": {
       "hide": "隐藏密码",
       "show": "显示密码"
+    },
+    "segmentedButton": {
+      "off": "关",
+      "on": "开"
     }
   },
   "messaging": {
@@ -2926,6 +2930,7 @@
       "title": "游戏",
       "video": {
         "brightness": "亮度",
+        "brightnessFullscreenOnly": "仅在全屏模式下可用",
         "customFpsLimit": "自定义帧率上限",
         "displayMode": {
           "fullscreen": "全屏",
@@ -2933,27 +2938,88 @@
           "windowed": "窗口化",
           "windowedFullscreen": "全屏窗口"
         },
-        "enableVerticalSync": "启用垂直同步",
         "environmentEffects": "环境特效",
         "fpsLimit": "帧数限制",
+        "fpsLimitUnused": "开启帧节奏控制时不使用",
+        "framePacing": {
+          "explainer": {
+            "body": "显示器只在每次刷新时显示新画面。星际争霸通常会按帧数限制允许的最多帧数来绘制，其中大部分你根本看不到，而且在绘制每一帧和显示它之间还会等待一段时间。帧节奏控制每次刷新只绘制一帧，就在它显示之前。",
+            "chartNote": "240 Hz 显示器。越短越好。",
+            "chartTitle": "从输入到画面",
+            "customFpsLimit": "自定义帧率上限 (240)",
+            "defaultFpsLimit": "默认帧数限制 (300)",
+            "framePacing": "帧节奏控制",
+            "lessDelay": {
+              "description": "每一帧都用你最新的操作绘制，就在显示器显示它之前。",
+              "title": "延迟更低"
+            },
+            "lessGpuWork": {
+              "description": "显卡只绘制你真正能看到的帧，因此温度更低、噪音更小。",
+              "title": "显卡负担更小"
+            },
+            "milliseconds": "{{ms}} 毫秒",
+            "noTearing": {
+              "description": "每一帧都完整显示，也没有垂直同步带来的延迟。",
+              "title": "无撕裂"
+            },
+            "tearingNote": "会出现画面撕裂：屏幕同时显示两帧的各一部分，中间有一条分界线。",
+            "toggle": "帧节奏控制的工作原理",
+            "verticalSync": "垂直同步"
+          },
+          "match": {
+            "description": "每次刷新前一刻绘制一帧新画面。延迟低，无撕裂。",
+            "subtitle": "适用于任何显示器",
+            "title": "匹配刷新率"
+          },
+          "nudge": {
+            "body": "星际争霸通常会按帧数限制允许的最多帧数来绘制，其中大部分你根本看不到。帧节奏控制每次刷新只绘制一帧，就在它显示之前：没有撕裂，显卡的负担也小得多。",
+            "dismiss": "以后再说",
+            "title": "试试帧节奏控制",
+            "turnOn": "开启",
+            "vsyncBody": "垂直同步会大幅增加输入延迟。帧节奏控制无需垂直同步即可消除撕裂，并让每一帧都用上你最新的操作。"
+          },
+          "off": {
+            "description": "按帧数限制允许的最快速度绘制。不开垂直同步会出现撕裂。",
+            "subtitle": "原始方式",
+            "title": "关闭"
+          },
+          "prompt": "开启了 G-SYNC 或 FreeSync？请选择<1>“可变刷新率”</1>。否则或不确定时，请选择<3>“匹配刷新率”</3>。",
+          "recommended": "推荐",
+          "title": "帧节奏控制",
+          "useMode": "使用{{mode}}",
+          "variableRefresh": {
+            "description": "每帧准备好时显示器才刷新。延迟最低，无撕裂。",
+            "subtitle": "G-SYNC / FreeSync",
+            "title": "可变刷新率"
+          },
+          "windowedHint": "帧节奏控制在带边框的窗口中无效：Windows 会在那里加入自己的延迟。"
+        },
         "hdGraphics": "高清版图像",
         "monitor": "显示器",
         "monitorItem": "显示器 {{index}} - {{label}}",
         "pillarbox": "黑边模式（4:3纵横比）",
         "primaryMonitor": "默认（主显示器）",
         "realTimeLighting": "实时光照",
-        "resetWindowPosition": "重置窗口位置",
+        "resetWindowPositionButton": "重置",
         "sdGraphicsFilter": "旧版图像滤镜",
+        "sections": {
+          "display": "显示",
+          "frameRate": "帧率与输入延迟",
+          "graphics": "图形"
+        },
         "shadowStacking": "阴影重叠",
         "showFps": "显示帧数",
         "smoothUnitTurning": "单位转身更平滑",
         "title": "图像",
+        "verticalSync": "垂直同步",
+        "verticalSyncWindowedNote": "在带边框的窗口中请避免开启垂直同步，它会大幅增加输入延迟。",
         "windowPlacement": {
           "remember": "记住位置和大小",
           "rememberSize": "记住大小，居中显示",
           "setSize": "指定大小，居中显示",
           "title": "窗口位置"
         },
+        "windowPosition": "窗口位置",
         "windowSize": "窗口大小",
         "windowSizeOption": "{{width}} × {{height}}（{{aspectRatio}}）"
       }

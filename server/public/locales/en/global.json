@@ -2357,6 +2357,10 @@
     "passwordField": {
       "hide": "Hide password",
       "show": "Show password"
+    },
+    "segmentedButton": {
+      "off": "Off",
+      "on": "On"
     }
   },
   "messaging": {
@@ -2975,6 +2979,7 @@
       "title": "Game",
       "video": {
         "brightness": "Brightness",
+        "brightnessFullscreenOnly": "Only available in Fullscreen",
         "customFpsLimit": "Custom FPS limit",
         "displayMode": {
           "fullscreen": "Fullscreen",
@@ -2982,27 +2987,88 @@
           "windowed": "Windowed",
           "windowedFullscreen": "Windowed (Fullscreen)"
         },
-        "enableVerticalSync": "Enable vertical sync",
         "environmentEffects": "Environment effects",
         "fpsLimit": "FPS limit",
+        "fpsLimitUnused": "Not used with frame pacing on",
+        "framePacing": {
+          "explainer": {
+            "body": "Your monitor only shows a new image at each refresh. StarCraft normally draws as many frames as your FPS limit allows, most of which you never see, and waits between drawing each one and showing it. Frame pacing draws one frame per refresh, right before it’s shown.",
+            "chartNote": "240 Hz monitor. Shorter is better.",
+            "chartTitle": "Input to screen",
+            "customFpsLimit": "Custom FPS limit (240)",
+            "defaultFpsLimit": "Default FPS limit (300)",
+            "framePacing": "Frame pacing",
+            "lessDelay": {
+              "description": "Each frame is drawn with your newest input, just before your monitor shows it.",
+              "title": "Less delay"
+            },
+            "lessGpuWork": {
+              "description": "Your GPU only draws the frames you’ll actually see, so it runs cooler and quieter.",
+              "title": "Less work for your GPU"
+            },
+            "milliseconds": "{{ms}} ms",
+            "noTearing": {
+              "description": "Every frame is shown whole, without the delay vertical sync adds.",
+              "title": "No tearing"
+            },
+            "tearingNote": "Allows tearing, where the screen shows parts of two frames at once, split along a line.",
+            "toggle": "How frame pacing works",
+            "verticalSync": "Vertical sync"
+          },
+          "match": {
+            "description": "One fresh frame just before each refresh. Low delay, no tearing.",
+            "subtitle": "Any monitor",
+            "title": "Match refresh"
+          },
+          "nudge": {
+            "body": "StarCraft normally draws as many frames as your FPS limit allows, most of which you never see. Frame pacing draws one per refresh, right before it’s shown: no tearing, and far less work for your GPU.",
+            "dismiss": "Not now",
+            "title": "Try frame pacing",
+            "turnOn": "Turn on",
+            "vsyncBody": "Vertical sync adds a lot of input delay. Frame pacing stops tearing without it, and shows each frame with your newest input."
+          },
+          "off": {
+            "description": "Draws as fast as your FPS limit allows. Tears unless vertical sync is on.",
+            "subtitle": "Original timing",
+            "title": "Off"
+          },
+          "prompt": "G-SYNC or FreeSync turned on? Choose <1>Variable refresh</1>. Otherwise, or if you’re not sure, choose <3>Match refresh</3>.",
+          "recommended": "Recommended",
+          "title": "Frame pacing",
+          "useMode": "Use {{mode}}",
+          "variableRefresh": {
+            "description": "The monitor refreshes when each frame is ready. Lowest delay, no tearing.",
+            "subtitle": "G-SYNC / FreeSync",
+            "title": "Variable refresh"
+          },
+          "windowedHint": "Frame pacing can't help in a bordered window: Windows adds its own delay there."
+        },
         "hdGraphics": "HD graphics",
         "monitor": "Monitor",
         "monitorItem": "Monitor {{index}} - {{label}}",
         "pillarbox": "Pillarbox (4:3 aspect ratio)",
         "primaryMonitor": "Default (primary monitor)",
         "realTimeLighting": "Real-time lighting",
-        "resetWindowPosition": "Reset window position",
+        "resetWindowPositionButton": "Reset",
         "sdGraphicsFilter": "SD graphics filter",
+        "sections": {
+          "display": "Display",
+          "frameRate": "Frame rate and input delay",
+          "graphics": "Graphics"
+        },
         "shadowStacking": "Shadow stacking",
         "showFps": "Show FPS",
         "smoothUnitTurning": "Smooth unit turning",
         "title": "Video",
+        "verticalSync": "Vertical sync",
+        "verticalSyncWindowedNote": "Avoid vertical sync in a bordered window, where it adds a lot of input delay.",
         "windowPlacement": {
           "remember": "Remember position and size",
           "rememberSize": "Remember size, centered",
           "setSize": "Set size, centered",
           "title": "Window placement"
         },
+        "windowPosition": "Window position",
         "windowSize": "Window size",
         "windowSizeOption": "{{width}} × {{height}} ({{aspectRatio}})"
       }

@@ -200,6 +200,10 @@ impl GameState {
                     .and_then(|x| x.as_bool())
                     .unwrap_or(false),
             );
+            crate::frame_pacing::configure(
+                settings.local.get("framePacing").and_then(|x| x.as_str()),
+                settings.scr.get("vsyncOn").and_then(|x| x.as_u64()) == Some(1),
+            );
             get_bw().set_settings(settings);
             state.settings_set = true;
         } else {

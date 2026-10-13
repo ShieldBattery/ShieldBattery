@@ -63,6 +63,22 @@ export function getGameWindowPlacementLabel(placement: GameWindowPlacement, t: T
   }
 }
 
+/** How the game paces the frames it draws while in a game. */
+export enum FramePacing {
+  /** As many frames as SC:R's own frame limit allows. */
+  Off = 'off',
+  /**
+   * One frame per refresh of the display, each drawn just before the display shows it, with the
+   * newest input.
+   */
+  Display = 'display',
+  /**
+   * A little under the display's refresh rate without timing frames to its refreshes, for
+   * displays with variable refresh rate (G-SYNC, FreeSync), which show each frame as it arrives.
+   */
+  VariableRefresh = 'variableRefresh',
+}
+
 /** The size of the game's play area, not counting the window's title bar and borders. */
 export interface GameWindowSize {
   width: number
@@ -329,6 +345,12 @@ export interface LocalSettings extends ShieldBatteryAppSettings {
    * allows less. Only changes the local player's own game.
    */
   emulateTurnRate24Delay: boolean
+
+  /**
+   * How the game paces the frames it draws in game. Pacing replaces SC:R's own frame limit, and
+   * runs logic steps on time regardless of when frames are drawn.
+   */
+  framePacing: FramePacing
 
   /**
    * Whether to launch the 32-bit game client instead of the (default) 64-bit one. Discouraged;

@@ -284,6 +284,9 @@ pub struct BwScr {
     update_game_screen_size: unsafe extern "C" fn(f32),
     move_unit: Thiscall<unsafe extern "C" fn(*mut bw::Unit, i32, i32)>,
     render_screen: unsafe extern "C" fn(*mut c_void, usize),
+    /// What the in-game loop calls instead of `render_screen` on an iteration it doesn't draw:
+    /// ends the renderer's frame without drawing or presenting it, and begins the next.
+    skip_render: Option<unsafe extern "C" fn()>,
     lookup_sound_id: unsafe extern "C" fn(*const scr::BwString) -> u32,
     play_sound: unsafe extern "C" fn(u32, f32, *mut c_void, *mut i32, *mut i32) -> u32,
     print_text: unsafe extern "C" fn(*const u8, u32, u32),
@@ -317,6 +320,9 @@ pub struct BwScr {
     create_game_multiplayer: VirtualAddress,
     spawn_dialog: VirtualAddress,
     step_game_logic: VirtualAddress,
+    /// One iteration of the in-game loop: message pump, logic step when due, draw and present.
+    /// Frame pacing waits at its start; without it the game runs unpaced.
+    step_game_loop: Option<VirtualAddress>,
     net_format_turn_rate: VirtualAddress,
     init_obs_ui: VirtualAddress,
     draw_graphic_layers: VirtualAddress,
@@ -2203,6 +2209,7 @@ impl BwScr {
             .ok_or("create_game_multiplayer")?;
         let spawn_dialog = analysis.spawn_dialog().ok_or("spawn_dialog")?;
         let step_game_logic = analysis.step_game_logic().ok_or("step_game_logic")?;
+        let step_game_loop = analysis.step_game_loop();
         let anti_troll = analysis.anti_troll();
         let first_dialog = analysis.first_dialog();
         let graphic_layers = analysis.graphic_layers();
@@ -2360,6 +2367,7 @@ impl BwScr {
             .draw_graphic_layers()
             .ok_or("draw_graphic_layers")?;
         let render_screen = analysis.render_screen().ok_or("render_screen")?;
+        let skip_render = analysis.skip_render();
         let decide_cursor_type = analysis.decide_cursor_type().ok_or("decide_cursor_type")?;
         let load_ddsgrp_cursor = analysis.load_ddsgrp_cursor().ok_or("load_ddsgrp_cursor")?;
         let cursor_scale_factor = analysis
@@ -2578,6 +2586,7 @@ impl BwScr {
             get_ui_consoles: unsafe { mem::transmute(get_ui_consoles.0) },
             select_units: unsafe { mem::transmute(select_units.0) },
             render_screen: unsafe { mem::transmute(render_screen.0) },
+            skip_render: skip_render.map(|x| unsafe { mem::transmute(x.0) }),
             lookup_sound_id: unsafe { mem::transmute(lookup_sound_id.0) },
             play_sound: unsafe { mem::transmute(play_sound.0) },
             print_text: unsafe { mem::transmute(print_text_addr.0) },
@@ -2611,6 +2620,7 @@ impl BwScr {
             create_game_multiplayer,
             spawn_dialog,
             step_game_logic,
+            step_game_loop,
             print_text_addr,
             net_player_count_addr,
             #[cfg(debug_assertions)]
@@ -3490,8 +3500,39 @@ impl BwScr {
             exe.hook_closure_address(
                 StepGameLogic,
                 move |a, o| {
+                    let _pacing = crate::frame_pacing::step(self.next_game_step_tick());
                     let _timing = crate::frame_timing::step();
                     step_game_logic_hook(self, a, o)
+                },
+                address,
+            );
+            if let Some(step_game_loop) = self.step_game_loop {
+                let address = step_game_loop.0 as usize - base;
+                exe.hook_closure_address(
+                    StepGameLoop,
+                    move |orig| {
+                        let _iteration = crate::frame_pacing::iteration(
+                            self,
+                            self.skip_render.is_some()
+                                && (game_thread::is_replay() || native_sync_disabled()),
+                        );
+                        orig();
+                    },
+                    address,
+                );
+            }
+            let address = self.render_screen as usize - base;
+            exe.hook_closure_address(
+                RenderScreen,
+                move |callback, draw_ui, orig| {
+                    let own = crate::frame_pacing::own_draw(!callback.is_null() && draw_ui == 1);
+                    if let Some(skip_render) = self.skip_render
+                        && own.as_ref().is_some_and(|own| own.skips())
+                    {
+                        skip_render();
+                    } else {
+                        orig(callback, draw_ui);
+                    }
                 },
                 address,
             );
@@ -3887,19 +3928,17 @@ impl BwScr {
                 self.check_replay_file_finish(handle);
                 orig(handle)
             };
-            let init_time = Instant::now();
-            let init_tick_count = winapi::um::sysinfoapi::GetTickCount();
-            let get_tick_count_hook = move |_orig: unsafe extern "C" fn() -> u32| {
-                // BW uses GetTickCount for a lot of things that should really have better than
-                // 16ms resolution, so we hook this to give them a better timer. In practice this
-                // improves the reliability of turn timing, which hopefully improves the reliability of
-                // the netcode, and maybe other things
-
-                // We add the initial tick count here because some other Windows APIs
-                // (notably GetMessageTime) return values that are expected to be in the same range.
-                // Without doing this, SC:R will discard some otherwise valid events and make it so
-                // things like keypresses take multiple presses to achieve one action.
-                (init_time.elapsed().as_millis() as u32).wrapping_add(init_tick_count)
+            // BW uses GetTickCount for a lot of things that should really have better than
+            // 16ms resolution, so we hook this to give them a better timer. In practice this
+            // improves the reliability of turn timing, which hopefully improves the reliability of
+            // the netcode, and maybe other things
+            crate::frame_pacing::start_tick_clock();
+            let get_tick_count_hook =
+                |_orig: unsafe extern "C" fn() -> u32| crate::frame_pacing::tick_count();
+            let sleep_hook = |millis, orig: unsafe extern "C" fn(u32)| {
+                if !crate::frame_pacing::skip_sleep(millis) {
+                    orig(millis);
+                }
             };
             drop(exe);
             hook_winapi_exports!(&mut active_patcher, "kernel32",
@@ -3909,6 +3948,7 @@ impl BwScr {
                 "CloseHandle", CloseHandle, close_handle_hook;
                 "GetFileAttributesW", GetFileAttributesW, get_file_attributes_closure;
                 "GetTickCount", GetTickCount, get_tick_count_hook;
+                "Sleep", Sleep, sleep_hook;
                 "GetSystemTimePreciseAsFileTime", GetSystemTimePreciseAsFileTime, get_system_time_precise_as_file_time_hook;
             );
             hook_winapi_exports!(&mut active_patcher, "shell32",
@@ -3953,6 +3993,7 @@ impl BwScr {
             let renderer_vtable = self.prism_renderer_vtable.0 as *const scr::V_Renderer;
 
             let draw = (*renderer_vtable).draw;
+            let swap_buffers = (*renderer_vtable).swap_buffers;
             let create_shader = (*renderer_vtable).create_shader;
 
             let address = self.draw_graphic_layers.0 as usize - base;
@@ -3965,6 +4006,7 @@ impl BwScr {
                 DrawGraphicLayers,
                 move |extra_funcs, extra_func_len, second_draw, orig| {
                     let _timing = crate::frame_timing::draw(second_draw == 0);
+                    let _pacing = crate::frame_pacing::draw();
                     // Detect a Shift+Tab color-mode cycle before queuing draws, so this frame renders
                     // with the corrected mode/colors. A no-op unless custom team colors are active.
                     // Only on the primary pass; the SD/HD-fade second pass sees the same global.
@@ -4254,6 +4296,7 @@ impl BwScr {
             exe.hook_closure_address(
                 Renderer_Render,
                 move |renderer, commands, width, height, orig| {
+                    crate::frame_pacing::render_started();
                     let draw_command_count = (*commands).draw_command_count as usize;
 
                     // Update is_hd value based on what BW output to final render target draw
@@ -4357,6 +4400,18 @@ impl BwScr {
                     if let Some(mut render_state) = self.render_state.lock() {
                         draw_inject::free_textures(&mut render_state.render);
                     }
+                    ret
+                },
+                relative,
+            );
+
+            let relative = swap_buffers - base;
+            exe.hook_closure_address(
+                Renderer_SwapBuffers,
+                move |renderer, orig| {
+                    crate::frame_pacing::presenting_frame();
+                    let ret = orig(renderer);
+                    crate::frame_pacing::frame_presented();
                     ret
                 },
                 relative,
@@ -6562,6 +6617,7 @@ impl BwScr {
         crate::replay_seek::reset_for_game_init();
         crate::rollback_live::reset_for_game_init();
         crate::frame_timing::reset();
+        crate::frame_pacing::reset();
         self.detection_status_copy.lock().clear();
         self.first_game_logic_frame_done
             .store(false, Ordering::Relaxed);
@@ -7357,7 +7413,12 @@ impl BwScr {
 
     /// The tick the game loop schedules its next logic step for, or 0 if analysis didn't find it.
     pub(crate) unsafe fn rollback_next_game_step_tick(&self) -> u32 {
-        unsafe { self.next_game_step_tick.as_ref().map_or(0, |x| x.resolve()) }
+        unsafe { self.next_game_step_tick().unwrap_or(0) }
+    }
+
+    /// The tick the game loop schedules its next logic step for, if analysis found it.
+    pub(crate) unsafe fn next_game_step_tick(&self) -> Option<u32> {
+        unsafe { self.next_game_step_tick.as_ref().map(|x| x.resolve()) }
     }
 
     pub(crate) unsafe fn rollback_set_next_game_step_tick(&self, value: u32) {
@@ -9599,6 +9660,9 @@ mod hooks {
         !0 => InitObsUi();
         !0 => InitUnitData();
         !0 => StepGame();
+        !0 => StepGameLoop();
+        // The callback draws extra layers; the main loop's call passes 1 for the second argument.
+        !0 => RenderScreen(*mut c_void, usize);
         !0 => StepReplayCommands();
         // Takes the full replay file path; returns nonzero on success.
         !0 => SaveReplay(*const i8) -> u32;
@@ -9702,6 +9766,7 @@ mod hooks {
         !0 => CreateEventW(*mut c_void, u32, u32, *const u16) -> *mut c_void;
         !0 => CloseHandle(*mut c_void) -> u32;
         !0 => GetTickCount() -> u32;
+        !0 => Sleep(u32);
         !0 => CreateFileW(
             *const u16,
             u32,
@@ -9723,6 +9788,8 @@ mod hooks {
         !0 => StartUdpServer(*mut c_void) -> u32;
         !0 => StepIo(*mut c_void);
         !0 => Renderer_Render(*mut scr::Renderer, *mut scr::DrawCommands, u32, u32) -> u32;
+        // Ignores `this`; SC:R's Prism renderer keeps its swap chain in globals.
+        !0 => Renderer_SwapBuffers(*mut scr::Renderer) -> usize;
         !0 => Renderer_CreateShader(
             *mut scr::Renderer,
             *mut scr::Shader,

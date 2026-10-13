@@ -534,6 +534,10 @@ impl<'e> Analysis<'e> {
         self.0.step_game_logic()
     }
 
+    pub fn step_game_loop(&mut self) -> Option<VirtualAddress> {
+        self.0.step_game_loop()
+    }
+
     pub fn units(&mut self) -> Option<Operand<'e>> {
         // This function returns pointer to unit array `vector<bw::Unit>`,
         // samase_scarf units analysis returns pointer to the actual array
@@ -818,6 +822,10 @@ impl<'e> Analysis<'e> {
 
     pub fn render_screen(&mut self) -> Option<VirtualAddress> {
         self.0.render_screen()
+    }
+
+    pub fn skip_render(&mut self) -> Option<VirtualAddress> {
+        self.0.skip_render()
     }
 
     pub fn main_palette(&mut self) -> Option<Operand<'e>> {

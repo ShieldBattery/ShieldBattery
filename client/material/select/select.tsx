@@ -152,9 +152,15 @@ export interface SelectProps {
   /** Whether the input should be styled in a more compact way (defaults to false). */
   dense?: boolean
   /**
-   * A label to include with the input, specifying what the input is for to users.
+   * A label to include with the input, specifying what the input is for to users. Shown as a
+   * floating label inside the input; leave it out when the input is labeled by something beside
+   * it, and name it with `ariaLabel` or `ariaLabelledBy` instead.
    */
   label?: string
+  /** An accessible name for an input with no `label`. */
+  ariaLabel?: string
+  /** The id of an element naming an input with no `label`, such as a label beside it. */
+  ariaLabelledBy?: string
   /** Whether or not the Select is currently reacting to user input. */
   disabled?: boolean
   /** Value to use for the `tabindex` form attribute. */
@@ -189,6 +195,8 @@ export function Select({
   errorText,
   dense = false,
   label,
+  ariaLabel,
+  ariaLabelledBy,
   disabled,
   tabIndex,
   onChange,
@@ -292,6 +300,8 @@ export function Select({
         }}
         id={id}
         type='button'
+        aria-label={ariaLabel}
+        aria-labelledby={ariaLabelledBy}
         $disabled={disabled}
         $focused={focused}
         $dense={dense}
