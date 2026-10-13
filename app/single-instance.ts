@@ -1,4 +1,4 @@
-import { app } from 'electron'
+import { app, dialog } from 'electron'
 import fs from 'fs'
 import net from 'net'
 import os from 'os'
@@ -50,7 +50,25 @@ export default function (
       })
     })
     .on('error', err => {
-      if ((err as any).code !== 'ENOENT') throw err
+      const code = (err as any).code
+      if (code === 'EPERM' || code === 'EACCES') {
+        // The pipe exists but this process may not open it. On Windows this happens when the
+        // running instance is elevated and this one isn't: the pipe's default DACL grants access
+        // to the elevated token's owner (Administrators), which a filtered token only holds as a
+        // deny-only group.
+        dialog.showErrorBox(
+          'ShieldBattery is running as an administrator',
+          'ShieldBattery is already open, but it was started as an administrator, so Windows ' +
+            "won't let it receive requests from here (like opening a replay file).\r\n\r\n" +
+            'To fix this, exit ShieldBattery (including its icon in the system tray) and start ' +
+            'it again normally. If it keeps starting as an administrator, right-click ' +
+            'ShieldBattery or its shortcut, choose Properties, open the Compatibility tab, and ' +
+            'uncheck "Run this program as an administrator".',
+        )
+        app.quit()
+        return
+      }
+      if (code !== 'ENOENT') throw err
       if (process.platform === 'win32') {
         try {
           fs.unlinkSync(socket)

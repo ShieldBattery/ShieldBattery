@@ -35,6 +35,7 @@ import { APP_ROOT } from './app-paths'
 import { checkShieldBatteryFiles } from './check-shieldbattery-files'
 import { getClientShellTemplate, renderClientShell } from './client-shell'
 import currentSession from './current-session'
+import { logElevationStatus } from './elevation'
 import { registerCurrentProgram } from './file-association'
 import { findInstallPath } from './find-install-path'
 import { RegionLatencyManager } from './game-server-regions/region-latency-manager'
@@ -1460,6 +1461,7 @@ app.on('ready', () => {
   const localSettingsPromise = createLocalSettings()
   const scrSettingsPromise = createScrSettings()
   const programRegistrationPromise = registerCurrentProgram()
+  logElevationStatus()
 
   if (!isDev) {
     // Packaged builds also get this scheme from the installer (the NSIS include under tools/nsis
