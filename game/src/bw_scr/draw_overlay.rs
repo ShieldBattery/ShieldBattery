@@ -976,7 +976,9 @@ impl OverlayState {
             // leave handling speaks for it.
             Intent::LeaveGame | Intent::AbandonGame => self.out_state.leave_game = true,
             Intent::QuitGame => dialog_hook::begin_quit(bw.first_dialog),
-            Intent::OpenAlliances => dialog_hook::open_alliances(bw.first_dialog),
+            Intent::OpenSocialDialog(dialog) => {
+                dialog_hook::open_social_dialog(bw.first_dialog, dialog)
+            }
             Intent::OpenGameMenu => dialog_hook::open_game_menu(bw.first_dialog),
             Intent::Seek(frame) => replay_commands.push(ReplayCommand::Seek { frame }),
             Intent::SetSpeed {

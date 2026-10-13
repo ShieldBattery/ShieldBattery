@@ -328,7 +328,7 @@ pub fn render(
             Intent::AbandonGame => outcome.abandoned = true,
             Intent::LeaveGame | Intent::QuitGame => outcome.left = true,
             // SC:R's social popup has no stand-in here.
-            Intent::OpenAlliances => {}
+            Intent::OpenSocialDialog(_) => {}
             // The game answers this by spawning its menu, which the overlay's own replaces; here the
             // switch standing in for that spawn is what moves.
             Intent::OpenGameMenu => outcome.open_game_menu = true,

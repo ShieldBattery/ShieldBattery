@@ -34,6 +34,16 @@ const CLOCK_SIZE: f32 = 18.0;
 /// overlay speaks, so it never goes through the translation catalogs.
 const WORDMARK: &str = "ShieldBattery";
 
+/// One of SC:R's own dialogs for a player's alliances and chat, which the menu opens rather than
+/// replaces.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum SocialDialog {
+    /// Who the player is allied with and shares vision with.
+    Alliances,
+    /// Who the player's chat messages go to.
+    Messaging,
+}
+
 /// What the player asked the menu for this frame.
 #[derive(Default)]
 pub struct GameMenuOutcome {
@@ -41,8 +51,8 @@ pub struct GameMenuOutcome {
     pub return_to_game: bool,
     /// Whether the player asked for the options screen, which opens over this menu.
     pub open_options: bool,
-    /// Whether the player asked for the alliances and chat settings.
-    pub open_alliances: bool,
+    /// Which of SC:R's own alliances and messaging dialogs the player asked for, if either.
+    pub open_social: Option<SocialDialog>,
     /// Whether the player asked to leave the game.
     pub leave: bool,
 }
@@ -124,17 +134,29 @@ fn draw_actions(ui: &mut Ui, playing: bool) -> GameMenuOutcome {
     )
     .clicked();
     // Someone watching has no alliances of their own to set, and chat scope is all they could
-    // change there, which the chat box already does.
+    // change there, which the chat box already does. The two share a row: they are the two buttons
+    // SC:R puts side by side above the minimap, and each opens its own dialog.
     if playing {
         ui.add_space(BUTTON_GAP);
-        outcome.open_alliances = widgets::plate_button(
-            ui,
-            &spec,
-            &tr!("gameMenu.alliancesAndChat", "Alliances & chat"),
-            size,
-            ButtonPlate::standard(),
-        )
-        .clicked();
+        let half = vec2((width - BUTTON_GAP) / 2.0, BUTTON_HEIGHT);
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = BUTTON_GAP;
+            for (dialog, label) in [
+                (
+                    SocialDialog::Alliances,
+                    tr!("gameMenu.alliances", "Alliances"),
+                ),
+                (
+                    SocialDialog::Messaging,
+                    tr!("gameMenu.messaging", "Messaging"),
+                ),
+            ] {
+                if widgets::plate_button(ui, &spec, &label, half, ButtonPlate::standard()).clicked()
+                {
+                    outcome.open_social = Some(dialog);
+                }
+            }
+        });
     }
     ui.add_space(BUTTON_GAP);
     // A player leaving a game loses it, so that takes a hold rather than a click. Leaving a game

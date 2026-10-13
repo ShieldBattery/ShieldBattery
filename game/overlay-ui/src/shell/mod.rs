@@ -25,6 +25,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::chat_history::{ChatHistoryView, render_chat_history_view};
 use crate::disconnect::{DisconnectView, SelfState, render_disconnect_view};
+pub use crate::game_menu::SocialDialog;
 use crate::game_menu::render_game_menu;
 use crate::net_quality::{NetQualityView, render_net_quality};
 use crate::netstat::{NetStatsView, render_netstat_view};
@@ -397,8 +398,9 @@ pub enum Intent {
     /// Quit a running game through SC:R's own quit path, which tells the other players this one has
     /// left and settles the result the way its menu does.
     QuitGame,
-    /// Leave the game menu for SC:R's alliances and chat dialog. Nothing of ours replaces it.
-    OpenAlliances,
+    /// Leave the game menu for one of SC:R's alliances and messaging dialogs. Nothing of ours
+    /// replaces them.
+    OpenSocialDialog(SocialDialog),
     /// Give up on a connection that will not come back and leave the game.
     AbandonGame,
     /// Put one setting on the value the player moved it to, in the game and wherever the host
@@ -944,11 +946,11 @@ impl Shell {
             if outcome.quit {
                 self.intents.push(Intent::QuitGame);
             }
-            if outcome.open_alliances {
-                // The host leaves the game menu itself on the way to the alliances dialog, so the
-                // menu goes from the stack without asking the host to close it a second time.
+            if let Some(dialog) = outcome.open_social {
+                // The host leaves the game menu itself on the way to the dialog, so the menu goes
+                // from the stack without asking the host to close it a second time.
                 self.modals.retain(|modal| modal.id != ModalId::GameMenu);
-                self.intents.push(Intent::OpenAlliances);
+                self.intents.push(Intent::OpenSocialDialog(dialog));
             }
             if outcome.abandoned {
                 self.intents.push(Intent::AbandonGame);
@@ -1634,7 +1636,7 @@ struct ModalOutcome {
     /// Whether the player asked to quit a game that is still running.
     quit: bool,
     /// Whether the player asked for the alliances and chat settings.
-    open_alliances: bool,
+    open_social: Option<SocialDialog>,
     /// Whether the player gave up on their own connection.
     abandoned: bool,
     /// Whether the player asked for the options screen.
@@ -1684,7 +1686,7 @@ fn draw_modal(
             ModalOutcome {
                 dismissed: dialog.inner.return_to_game || dialog.scrim_clicked,
                 open_options: dialog.inner.open_options,
-                open_alliances: dialog.inner.open_alliances,
+                open_social: dialog.inner.open_social,
                 quit: dialog.inner.leave,
                 ..ModalOutcome::default()
             }

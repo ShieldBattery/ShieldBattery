@@ -4,6 +4,7 @@ use std::time::{Duration, Instant};
 use parking_lot::Mutex;
 
 use bw_dat::dialog::{Control, Dialog, EventHandler};
+use overlay_ui::shell::SocialDialog;
 use overlay_ui::shell::native_dialogs::{self, NativeDialog};
 
 use crate::bw::players::StormPlayerId;
@@ -114,29 +115,30 @@ pub fn activate_replaced_dialog_control(
     control.send_ext_event_mouse(ACTIVATE_EXT_EVENT, x, y);
 }
 
-/// The minimap panel's button that opens SC:R's alliances dialog, the one beside the chat-scope
-/// button above the minimap.
-const MINIMAP_ALLIANCES_CONTROL_ID: i16 = 3;
-
-/// Opens SC:R's alliances and chat dialog in place of the game menu, the way the button above the
-/// minimap opens it. The game menu has no entry for it; leaving the menu first keeps the alliances
-/// dialog from opening under the menu's modal state.
-pub fn open_alliances(first_dialog: Option<Dialog>) {
+/// Opens one of SC:R's alliances and messaging dialogs in place of the game menu, the way the
+/// buttons above the minimap open them. The game menu has no entry for either; leaving the menu
+/// first keeps the dialog from opening under the menu's modal state.
+pub fn open_social_dialog(first_dialog: Option<Dialog>, dialog: SocialDialog) {
+    // The minimap panel's own buttons for the two, side by side above the minimap.
+    let control_id: i16 = match dialog {
+        SocialDialog::Messaging => 3,
+        SocialDialog::Alliances => 4,
+    };
     close_replaced_dialog(first_dialog, NativeDialog::GameMenu);
     let Some(minimap) = bw::iter_dialogs(first_dialog)
-        .find(|dialog| dialog.as_control().string() == console::MINIMAP_DIALOG)
+        .find(|candidate| candidate.as_control().string() == console::MINIMAP_DIALOG)
     else {
-        warn!("No minimap panel to open the alliances dialog from");
+        warn!("No minimap panel to open the {dialog:?} dialog from");
         return;
     };
-    let Some(button) = minimap.child_by_id(MINIMAP_ALLIANCES_CONTROL_ID) else {
-        warn!("The minimap panel has no control {MINIMAP_ALLIANCES_CONTROL_ID}");
+    let Some(button) = minimap.child_by_id(control_id) else {
+        warn!("The minimap panel has no control {control_id}");
         return;
     };
     let area = button.dialog_coords();
     let x = area.left + (area.right - area.left) / 2;
     let y = area.top + (area.bottom - area.top) / 2;
-    debug!("Opening the alliances dialog");
+    debug!("Opening the {dialog:?} dialog");
     button.send_ext_event_mouse(ACTIVATE_EXT_EVENT, x, y);
 }
 
