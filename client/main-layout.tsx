@@ -1,6 +1,6 @@
 import keycode from 'keycode'
 import * as m from 'motion/react-m'
-import React, { useId, useLayoutEffect, useState } from 'react'
+import React, { useEffect, useId, useLayoutEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { Link, useRoute } from 'wouter'
@@ -66,9 +66,11 @@ const ALT_D = { keyCode: keycode('d'), altKey: true }
 const ALT_F = { keyCode: keycode('f'), altKey: true }
 const ALT_G = { keyCode: keycode('g'), altKey: true }
 const ALT_J = { keyCode: keycode('j'), altKey: true }
+const ALT_LEFT = { keyCode: keycode('left'), altKey: true }
 const ALT_M = { keyCode: keycode('m'), altKey: true }
 const ALT_O = { keyCode: keycode('o'), altKey: true }
 const ALT_R = { keyCode: keycode('r'), altKey: true }
+const ALT_RIGHT = { keyCode: keycode('right'), altKey: true }
 const ALT_S = { keyCode: keycode('s'), altKey: true }
 
 const SIDEBAR_WIDTH = 320
@@ -606,6 +608,59 @@ function AppBarUser({
   )
 }
 
+/**
+ * Moves back/forward through history on Alt+Left/Right and the mouse's back/forward buttons, which
+ * a browser would handle itself but Electron does not. Every user action moves exactly one step
+ * (key repeats are ignored), which `NavigationTrapProvider` relies on to keep users in a trap.
+ */
+function useHistoryNavigationShortcuts() {
+  useKeyListener({
+    onKeyDown: (event: KeyboardEvent) => {
+      if (!IS_ELECTRON) {
+        return false
+      }
+
+      if (keyEventMatches(event, ALT_LEFT)) {
+        if (!event.repeat) {
+          history.back()
+        }
+        return true
+      }
+      if (keyEventMatches(event, ALT_RIGHT)) {
+        if (!event.repeat) {
+          history.forward()
+        }
+        return true
+      }
+
+      return false
+    },
+  })
+
+  useEffect(() => {
+    if (!IS_ELECTRON) {
+      return undefined
+    }
+
+    const onMouseUp = (event: MouseEvent) => {
+      if (event.defaultPrevented) {
+        return
+      }
+
+      if (event.button === 3) {
+        event.preventDefault()
+        history.back()
+      } else if (event.button === 4) {
+        event.preventDefault()
+        history.forward()
+      }
+    }
+
+    document.addEventListener('mouseup', onMouseUp)
+    return () => document.removeEventListener('mouseup', onMouseUp)
+  }, [])
+}
+
 function AppBar({
   onToggleSocial,
   sidebarOpen,
@@ -631,6 +686,7 @@ function AppBar({
   const hasNewNewsPost = useHasNewNewsPost()
   const homeHasPip = hasNewUrgentMessage || hasNewNewsPost
 
+  useHistoryNavigationShortcuts()
   useKeyListener({
     onKeyDown: (event: KeyboardEvent) => {
       if (keyEventMatches(event, ALT_F)) {
