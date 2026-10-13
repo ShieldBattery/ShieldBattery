@@ -8,6 +8,7 @@ import path from 'node:path'
 import { singleton } from 'tsyringe'
 import { getErrorStack } from '../../common/errors'
 import {
+  GameDebugInputEvent,
   GameDebugScreenshot,
   GameDebugScreenshotReply,
   GameDebugState,
@@ -675,6 +676,21 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     }
 
     this.emit('gameCommand', gameId, 'debugControl', { type: 'toggleNetStats' })
+  }
+
+  /**
+   * Posts a sequence of synthetic key/char/mouse events to the active game process's window (debug
+   * game builds only). `wait` events sleep between the others so a click can span frames.
+   * Fire-and-forget: there's no reply; verify via a screenshot. Posted modifier keys don't change
+   * the game's key state, so shifted combinations can't be driven this way.
+   */
+  debugInput(gameId: string, events: GameDebugInputEvent[]): void {
+    if (!this.gameFor(gameId)) {
+      log.verbose(`Got debugInput for ${gameId}, but it is not an active game`)
+      return
+    }
+
+    this.emit('gameCommand', gameId, 'debugControl', { type: 'input', events })
   }
 
   /**

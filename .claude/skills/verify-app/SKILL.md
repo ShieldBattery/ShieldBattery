@@ -295,7 +295,13 @@ Poll both instances in the same loop for a two-client game. If the session does 
   `sendChat(gameId, text)`, `requestDrop(gameId, slot)`, `toggleNetStats(gameId)`,
   `forceQuit(gameId)`, `crash(gameId, kind)`, `screenshot(gameId)` and
   `setRollback(gameId, depth, { [stormPlayer]: frames })` for driving/inspecting a running game
-  over CDP (a release DLL doesn't implement these, so query calls time out). `setRollback` only
+  over CDP (a release DLL doesn't implement these, so query calls time out). Input injection:
+  `input(gameId, events)` posts `{type:'key',vkey,down}`, `{type:'char',code}`,
+  `{type:'mouseMove',x,y}`, `{type:'mouseButton',x,y,button:'left'|'right',down}` and
+  `{type:'wait',ms}` events to the game window, with `pressKey(gameId, vkey)` and
+  `click(gameId, x, y, button = 'left')` as helpers. Coordinates are game-window client pixels, as in
+  the `screenshot`; posted modifiers don't change the game's key state, so shifted combos can't be
+  driven. `setRollback` only
   works in a replay launched with `SB_ROLLBACK_HARNESS` set; depth 0 turns rolling back off.
   `crash(gameId, 'accessViolation' | 'stackOverflow')` kills the game process with that fault to
   exercise the DLL's crash handler: expect `[CRASH]` lines in the game log, a fresh non-empty

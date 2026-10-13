@@ -1116,6 +1116,13 @@ impl GameState {
                         }
                         .boxed();
                     }
+                    DebugControlCommand::Input { events } => {
+                        // The sequence can sleep between events, so it runs off the async thread
+                        // and is not awaited. No reply.
+                        tokio::task::spawn_blocking(move || {
+                            crate::debug_control::post_input(&events);
+                        });
+                    }
                     DebugControlCommand::Screenshot => {
                         let ws_send = self.ws_send.clone();
                         return async move {

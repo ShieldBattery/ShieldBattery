@@ -9,7 +9,7 @@ import type {
 import { Promisable } from 'type-fest'
 import { GameDeepLink } from './deep-links'
 import { GameServerRegion, GameServerRegionLatencies } from './game-server-regions'
-import { GameDebugScreenshot, GameDebugState } from './games/game-debug'
+import { GameDebugInputEvent, GameDebugScreenshot, GameDebugState } from './games/game-debug'
 import { GameLaunchConfig } from './games/game-launch-config'
 import { ReportedGameStatus } from './games/game-status'
 import { NetcodeV2ServerSetup } from './games/netcode-v2'
@@ -167,6 +167,14 @@ interface IpcInvokeables {
    * the per-slot stats under `rows`).
    */
   activeGameToggleNetStats: (gameId: string) => void
+  /**
+   * Posts a sequence of synthetic key/char/mouse events to the active game process's window (debug
+   * game builds only). Only registered in development (`isDev`). Mouse coordinates are game-window
+   * client pixels; `wait` events sleep between the others. Fire-and-forget: there's no reply;
+   * verify via {@link IpcInvokeables.activeGameDebugScreenshot}. Posted modifiers don't change the
+   * game's key state.
+   */
+  activeGameDebugInput: (gameId: string, events: GameDebugInputEvent[]) => void
   /**
    * Changes the active game process's rollback harness depth and per-player command delays
    * mid-replay (debug game builds only, in a replay launched with `SB_ROLLBACK_HARNESS` set). Only

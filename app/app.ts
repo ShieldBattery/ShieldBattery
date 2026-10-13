@@ -888,6 +888,9 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     ipcMain.handle('activeGameToggleNetStats', (event, gameId) =>
       activeGameManager.toggleGameNetStats(gameId),
     )
+    ipcMain.handle('activeGameDebugInput', (event, gameId, events) =>
+      activeGameManager.debugInput(gameId, events),
+    )
     ipcMain.handle('activeGameSetRollback', (event, gameId, depth, delays) =>
       activeGameManager.setGameRollback(gameId, depth, delays),
     )
