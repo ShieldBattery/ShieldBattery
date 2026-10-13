@@ -1,4 +1,5 @@
 import { TFunction } from 'i18next'
+import { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { assertUnreachable } from '../../../common/assert-unreachable'
@@ -17,7 +18,7 @@ import { SbUserId } from '../../../common/users/sb-user-id'
 import { ConnectedAvatar } from '../../avatars/avatar'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { ElapsedTime } from '../../matchmaking/elapsed-time'
-import { IconButton, OutlinedButton } from '../../material/button'
+import { FilledButton, IconButton, OutlinedButton } from '../../material/button'
 import { MenuItem } from '../../material/menu/item'
 import { MenuList } from '../../material/menu/menu'
 import { Popover } from '../../material/popover'
@@ -382,6 +383,10 @@ const StatusElapsedTime = styled(ElapsedTime)`
 `
 
 const FullWidthOutlinedButton = styled(OutlinedButton)`
+  width: 100%;
+`
+
+const FullWidthFilledButton = styled(FilledButton)`
   width: 100%;
 `
 
@@ -756,6 +761,7 @@ export interface RoomRailProps {
   onSetRace: (slotId: string, race: RaceChar) => void
   onSitInSlot: (slotId: string) => void
   onMoveSlot: (fromSlotId: string, toSlotId: string) => void
+  onToggleReady: () => void
   onStartGame: () => void
   onForceStart: () => void
   onCancelCountdown: () => void
@@ -772,6 +778,7 @@ export function RoomRail({
   onSetRace,
   onSitInSlot,
   onMoveSlot,
+  onToggleReady,
   onStartGame,
   onForceStart,
   onCancelCountdown,
@@ -794,6 +801,8 @@ export function RoomRail({
   readyUsers.add(lobby.host.userId!)
   const readyCount = eligible.filter(userId => readyUsers.has(userId)).length
   const allReady = eligible.length > 0 && readyCount === eligible.length
+  const isViewerReadyEligible = eligible.includes(viewerId)
+  const isViewerReady = readyUsers.has(viewerId)
   const hasTwoSides = hasOpposingSides(lobby)
 
   const playerTeams: Team[] = []
@@ -915,6 +924,8 @@ export function RoomRail({
       <RailFoot>
         <RailFootContents
           isHost={isHost}
+          isViewerReadyEligible={isViewerReadyEligible}
+          isViewerReady={isViewerReady}
           lifecycle={lifecycle}
           readyCount={readyCount}
           readyTotal={eligible.length}
@@ -922,6 +933,7 @@ export function RoomRail({
           hasTwoSides={hasTwoSides}
           countdownTimer={loadingState.countdownTimer}
           gameStartedAt={runState?.startedAt}
+          onToggleReady={onToggleReady}
           onStartGame={onStartGame}
           onForceStart={onForceStart}
           onCancelCountdown={onCancelCountdown}
@@ -937,6 +949,8 @@ export function RoomRail({
  */
 function RailFootContents({
   isHost,
+  isViewerReadyEligible,
+  isViewerReady,
   lifecycle,
   readyCount,
   readyTotal,
@@ -944,11 +958,14 @@ function RailFootContents({
   hasTwoSides,
   countdownTimer,
   gameStartedAt,
+  onToggleReady,
   onStartGame,
   onForceStart,
   onCancelCountdown,
 }: {
   isHost: boolean
+  isViewerReadyEligible: boolean
+  isViewerReady: boolean
   lifecycle: LobbyLifecycle
   readyCount: number
   readyTotal: number
@@ -956,6 +973,7 @@ function RailFootContents({
   hasTwoSides: boolean
   countdownTimer: number
   gameStartedAt: number | undefined
+  onToggleReady: () => void
   onStartGame: () => void
   onForceStart: () => void
   onCancelCountdown: () => void
@@ -992,10 +1010,13 @@ function RailFootContents({
       return (
         <StartControls
           isHost={isHost}
+          isViewerReadyEligible={isViewerReadyEligible}
+          isViewerReady={isViewerReady}
           readyCount={readyCount}
           readyTotal={readyTotal}
           allReady={allReady}
           hasTwoSides={hasTwoSides}
+          onToggleReady={onToggleReady}
           onStartGame={onStartGame}
           onForceStart={onForceStart}
         />
@@ -1005,25 +1026,75 @@ function RailFootContents({
   }
 }
 
-/** Shows readiness and the host's click-or-hold action for starting the next game. */
+/**
+ * Shows readiness and the viewer's own part in starting the next game: the host's click-or-hold
+ * start, or a seated member's half of the ready check. The host counts as ready without asking, so
+ * the two never need the same spot. The ready button always names the action it performs; the
+ * viewer's own ready state reads off their row's mark and the tally above it.
+ */
 function StartControls({
   isHost,
+  isViewerReadyEligible,
+  isViewerReady,
   readyCount,
   readyTotal,
   allReady,
   hasTwoSides,
+  onToggleReady,
   onStartGame,
   onForceStart,
 }: {
   isHost: boolean
+  isViewerReadyEligible: boolean
+  isViewerReady: boolean
   readyCount: number
   readyTotal: number
   allReady: boolean
   hasTwoSides: boolean
+  onToggleReady: () => void
   onStartGame: () => void
   onForceStart: () => void
 }) {
   const { t } = useTranslation()
+
+  const waitingForHost = (
+    <WaitingForHost>
+      {t('lobbies.room.rail.waitingForHost', 'Waiting for the host to start')}
+    </WaitingForHost>
+  )
+  let action: ReactNode
+  if (isHost) {
+    action = (
+      <LobbyStartButton
+        allReady={allReady}
+        disabled={!hasTwoSides}
+        onStartGame={onStartGame}
+        onForceStart={onForceStart}
+      />
+    )
+  } else if (!isViewerReadyEligible) {
+    action = waitingForHost
+  } else if (!isViewerReady) {
+    action = (
+      <FullWidthFilledButton
+        label={t('lobbies.room.rail.readyUp', 'Ready up')}
+        onClick={onToggleReady}
+        testName='ready-up-button'
+      />
+    )
+  } else {
+    action = (
+      <>
+        <FullWidthOutlinedButton
+          label={t('lobbies.room.rail.cancelReady', 'Cancel ready')}
+          onClick={onToggleReady}
+          testName='cancel-ready-button'
+        />
+        {waitingForHost}
+      </>
+    )
+  }
+
   return (
     <>
       <ReadyProgress>
@@ -1037,18 +1108,7 @@ function StartControls({
           <ProgressFill $fraction={readyTotal ? readyCount / readyTotal : 0} />
         </ProgressTrack>
       </ReadyProgress>
-      {isHost ? (
-        <LobbyStartButton
-          allReady={allReady}
-          disabled={!hasTwoSides}
-          onStartGame={onStartGame}
-          onForceStart={onForceStart}
-        />
-      ) : (
-        <WaitingForHost>
-          {t('lobbies.room.rail.waitingForHost', 'Waiting for the host to start')}
-        </WaitingForHost>
-      )}
+      {action}
     </>
   )
 }
