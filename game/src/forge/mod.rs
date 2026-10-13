@@ -32,6 +32,7 @@ mod scr_hooks {
         !0 => CreateWindowExW(
             u32, *const u16, *const u16, u32, i32, i32, i32, i32, HWND, HMENU, HINSTANCE, *mut c_void,
         ) -> HWND;
+        !0 => GetCursorPos(*mut POINT) -> i32;
         !0 => MonitorFromPoint32(i32, i32, u32) -> HMONITOR;
         !0 => MonitorFromPoint64(POINT, u32) -> HMONITOR;
         !0 => PeekMessageW(*mut MSG, HWND, u32, u32, u32) -> i32;
@@ -86,6 +87,36 @@ thread_local! {
     /// How long the current drain loop on this thread has spent in `PeekMessageW`; see
     /// [`peek_message_w`].
     static DRAIN_PEEKING: Cell<Duration> = const { Cell::new(Duration::ZERO) };
+    /// The mouse message [`peek_message_w`] last removed on this thread, and the cursor position
+    /// Windows recorded when the message was sent.
+    static REMOVED_MOUSE_MESSAGE: Cell<Option<RemovedMouseMessage>> = const { Cell::new(None) };
+    /// How many calls into SC:R's window procedure are running on this thread.
+    static WND_PROC_DEPTH: Cell<u32> = const { Cell::new(0) };
+    /// The position [`get_cursor_pos`] reports to the next call made while SC:R's window procedure
+    /// handles a mouse message, and the window procedure depth handling it; see [`wnd_proc_scr`].
+    static DISPATCHED_MOUSE_POINT: Cell<Option<(u32, POINT)>> = const { Cell::new(None) };
+}
+
+#[derive(Clone, Copy)]
+struct RemovedMouseMessage {
+    msg: u32,
+    wparam: usize,
+    lparam: isize,
+    point: POINT,
+}
+
+/// The position Windows recorded for a mouse message SC:R's window procedure is about to handle, if
+/// it's the one [`peek_message_w`] last removed from the queue (rather than one sent directly).
+fn queued_mouse_message_point(msg: u32, wparam: usize, lparam: isize) -> Option<POINT> {
+    if !(WM_MOUSEFIRST..=WM_MOUSELAST).contains(&msg) {
+        return None;
+    }
+    REMOVED_MOUSE_MESSAGE
+        .take()
+        .filter(|removed| {
+            removed.msg == msg && removed.wparam == wparam && removed.lparam == lparam
+        })
+        .map(|removed| removed.point)
 }
 
 fn scr_hooks_disabled() -> bool {
@@ -295,7 +326,28 @@ unsafe extern "system" fn wnd_proc_scr(
 
             ret
         } else {
-            orig_wnd_proc(window, msg, wparam, lparam)
+            // SC:R's window procedure ignores a mouse message's coordinates and reads the cursor's
+            // current position for it, so a click handled a frame after it happened lands wherever
+            // the cursor moved to since, a drag selection's corner included. Its first
+            // `GetCursorPos` call for the message gets the position from when the message was sent
+            // instead; any later ones (window mode clamping, say) still get the cursor's current
+            // position.
+            //
+            // Only calls made at this message's own depth get it: handling a click captures the
+            // mouse before reading the cursor, which can send the window another message first.
+            let depth = WND_PROC_DEPTH.get() + 1;
+            let point = queued_mouse_message_point(msg, wparam, lparam).map(|point| (depth, point));
+            let outer = match point {
+                Some(point) => DISPATCHED_MOUSE_POINT.replace(Some(point)),
+                None => DISPATCHED_MOUSE_POINT.get(),
+            };
+            WND_PROC_DEPTH.set(depth);
+            let ret = orig_wnd_proc(window, msg, wparam, lparam);
+            WND_PROC_DEPTH.set(depth - 1);
+            if point.is_some() {
+                DISPATCHED_MOUSE_POINT.set(outer);
+            }
+            ret
         }
     }
 }
@@ -558,6 +610,9 @@ fn non_activating_show_command(show: i32) -> Option<i32> {
 /// the limit, so clicks and keys queued behind a mouse move are handled in the same pump. Whether
 /// any are queued can't be asked cheaply: Windows only sorts input into the queue status bits
 /// when a `PeekMessage` scans that far.
+///
+/// Also records each mouse message it removes for [`wnd_proc_scr`] to report the message's own
+/// cursor position while SC:R handles it.
 fn peek_message_w(
     msg: *mut MSG,
     window: HWND,
@@ -581,6 +636,16 @@ fn peek_message_w(
         return result;
     }
     let removed = (result != 0).then(|| unsafe { *msg });
+    if let Some(removed) = removed
+        && (WM_MOUSEFIRST..=WM_MOUSELAST).contains(&removed.message)
+    {
+        REMOVED_MOUSE_MESSAGE.set(Some(RemovedMouseMessage {
+            msg: removed.message,
+            wparam: removed.wParam,
+            lparam: removed.lParam,
+            point: removed.pt,
+        }));
+    }
     if limit_drain {
         MOUSE_MOVE_DRAINED.set(removed.is_some_and(|removed| removed.message == WM_MOUSEMOVE));
         DRAIN_PEEKING.set(match removed {
@@ -589,6 +654,23 @@ fn peek_message_w(
         });
     }
     result
+}
+
+/// Reports the position [`wnd_proc_scr`] set for SC:R's window procedure to read for the mouse
+/// message it's handling, once; every other call gets the cursor's current position.
+fn get_cursor_pos(point: *mut POINT, orig: unsafe extern "C" fn(*mut POINT) -> i32) -> i32 {
+    if !point.is_null()
+        && !scr_hooks_disabled()
+        && let Some((depth, dispatched)) = DISPATCHED_MOUSE_POINT.get()
+        && depth == WND_PROC_DEPTH.get()
+    {
+        DISPATCHED_MOUSE_POINT.set(None);
+        unsafe {
+            *point = dispatched;
+        }
+        return 1;
+    }
+    unsafe { orig(point) }
 }
 
 fn show_window(window: HWND, show: i32, orig: unsafe extern "C" fn(HWND, i32) -> u32) -> u32 {
@@ -853,6 +935,7 @@ pub unsafe fn init_hooks_scr(patcher: &mut whack::Patcher) {
             "ChangeDisplaySettingsExW", ChangeDisplaySettingsExW, change_display_settings_ex;
             "ClipCursor", ClipCursor, clip_cursor;
             "CreateWindowExW", CreateWindowExW, create_window_w;
+            "GetCursorPos", GetCursorPos, get_cursor_pos;
             "PeekMessageW", PeekMessageW, peek_message_w;
             "RegisterClassExW", RegisterClassExW, register_class_w;
             "RegisterHotKey", RegisterHotKey, register_hot_key;
