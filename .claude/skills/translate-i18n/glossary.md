@@ -190,9 +190,13 @@ consistent. (Seed — extend over time.)
   groups→**Grupos de control**, the grouped graph titles are "{{series}} por equipo" /
   "{{series}} por jugador", team name→**Equipo {{number}}** (matches `game.teamName.number`).
 
-- **Game menu / disconnect dialog (`game.json`):** the menu's five buttons are Volver a la partida /
-  Opciones / Alianzas y chat / Rendirse / Salir de la partida, all inside a 344 px plate in tracked
-  caps. Abandoning from the disconnect notice is **abandonar**; its 300 px hold plate draws its
+- **Game menu / disconnect dialog (`game.json`):** the menu's buttons are Volver a la partida /
+  Opciones / Alianzas + Mensajes (two half-width plates on one row, each opening SC:R's own dialog) /
+  Salir de la partida (a player holds it: **"Mantén pulsado para salir"**), inside a 344 px plate in
+  tracked caps. Victory/defeat card: Victoria / Derrota, Unidades producidas / eliminadas /
+  perdidas, Minerales / Gas extraídos (SC:R's "extraer"), APM promedio, Seguir jugando.
+  Long app chip labels are shortened in game where the row can't hold them (color overrides: En
+  todas partes / Solo en el minimapa / Desactivado; TR24: Retraso de entrada TR24 Low). Abandoning from the disconnect notice is **abandonar**; its 300 px hold plate draws its
   label uncropped, so the usual "Mantén pulsado para abandonar" overruns it and the button is
   **"Mantén pulsado: abandonar"**. The roster's state column is 150 px and set lowercase like its
   siblings: conectado / no responde / reconectando… {{time}} / expulsión pedida.
@@ -314,9 +318,13 @@ consistent. (Seed — extend over time.)
   ~135 px and the dock's label slot is 132 px, so it would elide. Grouped graph titles
   "{{series}} по командам" / "{{series}} по игрокам"; team name→**Команда {{number}}**.
 
-- **Game menu / disconnect dialog (`game.json`):** the menu's five buttons are Вернуться в игру /
-  Настройки (Options) / Союзы и чат / Сдаться / Покинуть игру, all inside a 344 px plate in tracked
-  caps. Abandoning from the disconnect notice is **бросить игру**, kept apart from the menu's
+- **Game menu / disconnect dialog (`game.json`):** the menu's buttons are Вернуться в игру /
+  Настройки (Options) / Союзы + Сообщения (two half-width plates, each opening SC:R's own dialog) /
+  Покинуть игру (a player holds it: «Удерживайте: покинуть игру»), inside a 344 px plate in tracked
+  caps. Victory/defeat card: Победа / Поражение, Создано / Убито / Потеряно юнитов, Добыто
+  минералов / газа, Средний APM, Продолжить игру. Long app chip labels are shortened in game
+  where the row can't hold them (color overrides: Выключено / Только на миникарте / Везде;
+  starting fog: Местность и ресурсы / Ресурсы; TR24: Добавить задержку TR24 Low). Abandoning from the disconnect notice is **бросить игру**, kept apart from the menu's
   Покинуть игру; its 300 px hold plate draws its label uncropped, so it is «Удерживайте: бросить
   игру». The roster's state column is 150 px and set lowercase like its siblings: на связи /
   не отвечает / подключается… {{time}} / кик запрошен. teammate→**союзник** (84 px tag).
@@ -434,8 +442,10 @@ consistent. (Seed — extend over time.)
   modifier-first: **팀별 {{series}} / 플레이어별 {{series}}** (player→플레이어, matching
   `netstat.columnPlayer`). Team name→**{{number}} 팀** (matches `game.teamName.number`).
 
-- **Game menu / disconnect dialog (`game.json`):** the menu's five buttons are 게임으로 돌아가기 /
-  설정 (Options) / 동맹 및 채팅 / 항복 / 게임 나가기. Abandoning from the disconnect notice is
+- **Game menu / disconnect dialog (`game.json`):** the menu's buttons are 게임으로 돌아가기 /
+  설정 (Options) / 동맹 + 메시지 (two half-width plates, each opening SC:R's own dialog) / 게임
+  나가기 (a player holds it: 길게 눌러 게임 나가기). Victory/defeat card: 승리 / 패배, 생산한 유닛 /
+  처치한 유닛 / 잃은 유닛 / 채취한 미네랄 / 채취한 가스 / 평균 APM, 계속 플레이. desync→디싱크. Abandoning from the disconnect notice is
   **게임 포기**, kept apart from the menu's 게임 나가기, and the hold plate follows the in-file
   길게 눌러 … pattern: 길게 눌러 게임 포기. Roster state column: 연결됨 / 응답 없음 /
   재연결 중… {{time}} / 강퇴 요청됨 — English set these lowercase, which Korean does not mirror.
@@ -538,8 +548,10 @@ consistent. (Seed — extend over time.)
   **晶矿 / 瓦斯 / 补给** (补给 matches `seriesSupply`), control groups→**编队**, grouped graph
   titles→**各队{{series}} / 各玩家{{series}}**, team name→**{{number}}队** (matches
   `game.teamName.number`).
-- **Game menu / disconnect dialog (`game.json`):** the menu's five buttons are 返回游戏 / 设置
-  (Options) / 同盟与聊天 / 投降 / 离开游戏. Abandoning from the disconnect notice is **放弃游戏**,
+- **Game menu / disconnect dialog (`game.json`):** the menu's buttons are 返回游戏 / 设置
+  (Options) / 同盟 + 发送消息 (two half-width plates, each opening SC:R's own dialog) / 离开游戏 (a
+  player holds it: 长按离开游戏). Victory/defeat card: 胜利 / 失败, 生产单位 / 消灭单位 / 损失单位 /
+  采集晶矿 / 采集瓦斯 / 平均 APM, 继续游戏. Vision→视野, frame pacing→帧节奏控制, desync→不同步. Abandoning from the disconnect notice is **放弃游戏**,
   kept apart from the menu's 离开游戏, and the hold plate uses the in-file 长按: 长按放弃游戏.
   Roster state column: 已连接 / 无响应 / 正在重连… {{time}} / 已请求踢出 — English set these
   lowercase, which Chinese does not mirror. teammate→**队友**.
