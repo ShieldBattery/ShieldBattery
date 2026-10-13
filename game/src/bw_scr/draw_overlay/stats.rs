@@ -9,9 +9,10 @@ use egui::Color32;
 use overlay_ui::kit::theme;
 use overlay_ui::observer::{
     ControlGroupView, ControlGroupsPlayerView, ControlGroupsView, EconomyPlayerView, EconomyView,
-    GraphGrouping, GraphLineView, GraphSeries, GraphsView, MatchupView, MilitaryPlayerView,
-    MilitaryView, SelectedUnitView, SelectionView, TeamCardPlayerView, TeamCardTotalsView,
-    TeamCardView, TeamCardsView, TimelineEventView, TimelineView,
+    GraphGrouping, GraphLineView, GraphSeries, GraphsView, MapControlSideView, MapControlView,
+    MatchupPlayerView, MatchupView, MilitaryPlayerView, MilitaryView, SelectedUnitView,
+    SelectionView, TeamCardPlayerView, TeamCardTotalsView, TeamCardView, TeamCardsView,
+    TimelineEventView, TimelineView,
 };
 use overlay_ui::transport;
 
@@ -66,6 +67,33 @@ pub fn stats_players(bw: &BwVars) -> Vec<StatsPlayer> {
 }
 
 /// Builds the economy panel's view.
+/// Each side's share of the map in sight, for a game of exactly two sides. The game measures no
+/// control of territory, but it does keep what every player can see, and the part of the map a side
+/// has in sight is where its units and buildings are: the closest reading of map control the game
+/// itself backs.
+pub fn build_map_control_view(
+    matchup: &MatchupView,
+    stats: Option<&GameStats>,
+) -> Option<MapControlView> {
+    let vision = stats?.vision()?;
+    let halves = matchup.halves();
+    halves.teams?;
+    let side = |players: &[&MatchupPlayerView]| {
+        let mask = players
+            .iter()
+            .filter(|player| player.player_id < 8)
+            .fold(0u8, |mask, player| mask | (1 << player.player_id));
+        Some(MapControlSideView {
+            color: players.first()?.color,
+            share: vision.seen_by(mask),
+        })
+    };
+    Some(MapControlView {
+        left: side(&halves.left)?,
+        right: side(&halves.right)?,
+    })
+}
+
 pub fn build_economy_view(players: &[StatsPlayer], stats: Option<&GameStats>) -> EconomyView {
     EconomyView {
         players: players

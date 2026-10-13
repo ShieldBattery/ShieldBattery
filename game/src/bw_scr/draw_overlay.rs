@@ -537,9 +537,7 @@ impl OverlayState {
                 production: self.build_production_view(bw),
                 control_groups: stats::build_control_groups_view(bw, &players, game_stats),
                 selection: stats::build_selection_view(bw, &players),
-                // The game keeps no measurement of who holds the map, and one invented here would
-                // be a claim rather than a reading. The bar is simply not drawn until there is one.
-                map_control: None,
+                map_control: stats::build_map_control_view(&matchup, game_stats),
                 matchup,
             }
         });

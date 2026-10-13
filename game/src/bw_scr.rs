@@ -169,6 +169,10 @@ pub struct BwScr {
     /// written on. `None` when the analysis could not place it, which costs the control-groups
     /// panel its stale marking and nothing else.
     selection_hotkey_last_used_frames: Option<Value<*mut u16>>,
+    /// The map's per-tile flags, `width * height` of them, which carry each player's vision of the
+    /// tile. `None` when the analysis could not place them, which costs the observer panels their
+    /// map-vision reading and nothing else.
+    map_tile_flags: Option<Value<*mut u32>>,
     vertex_buffer: Value<*mut scr::VertexBuffer>,
     renderer: Value<*mut scr::Renderer>,
     draw_commands: Value<*mut scr::DrawCommands>,
@@ -2259,6 +2263,7 @@ impl BwScr {
         let units = analysis.units().ok_or("units")?;
         // Non-fatal: the control-groups panel simply does not dim a group nobody has recalled.
         let selection_hotkey_last_used_frames = analysis.selection_hotkey_last_used_frames();
+        let map_tile_flags = analysis.map_tile_flags();
         // Non-fatal: without the registry the in-game options screen still saves what the player
         // changes, and SC:R picks it up next game.
         let game_settings = match (
@@ -2559,6 +2564,7 @@ impl BwScr {
             units: Value::new(ctx, units),
             selection_hotkey_last_used_frames: selection_hotkey_last_used_frames
                 .map(|frames| Value::new(ctx, frames)),
+            map_tile_flags: map_tile_flags.map(|flags| Value::new(ctx, flags)),
             vertex_buffer: Value::new(ctx, vertex_buffer),
             renderer: Value::new(ctx, renderer),
             draw_commands: Value::new(ctx, draw_commands),
@@ -6986,8 +6992,21 @@ impl BwScr {
                     &units,
                     self.selection_hotkey_last_used_frames
                         .map(|frames| frames.resolve() as *const u16),
+                    self.map_tile_flags_slice(game),
                 );
             }
+        }
+    }
+
+    /// The map's per-tile flags, one for every tile of the map being played.
+    unsafe fn map_tile_flags_slice(&self, game: bw_dat::Game) -> Option<&[u32]> {
+        unsafe {
+            let flags = self.map_tile_flags.as_ref()?.resolve();
+            if flags.is_null() {
+                return None;
+            }
+            let count = usize::from(game.map_width_tiles()) * usize::from(game.map_height_tiles());
+            Some(std::slice::from_raw_parts(flags, count))
         }
     }
 

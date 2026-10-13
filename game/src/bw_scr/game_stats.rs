@@ -226,6 +226,45 @@ pub struct GameStats {
     /// and bases already placed, and reporting each of them as having just happened would open every
     /// game with a timeline nobody can read.
     seeded: bool,
+    /// How much of the map each player could see as of the last sample, or `None` before one.
+    vision: Option<MapVision>,
+}
+
+/// How much of the map is in sight, read off the game's own per-tile visibility.
+///
+/// Kept as a count of the map's tiles for every combination of players that cannot see them, which
+/// is what each tile records: one bit per player, set while that player has no vision of it. Any set
+/// of players' share of the map comes out of those counts without walking the map again.
+pub struct MapVision {
+    hidden_from: Box<[u32; 256]>,
+    total: u32,
+}
+
+impl MapVision {
+    /// Counts the map's tiles by who cannot see them.
+    pub fn read(tile_flags: &[u32]) -> MapVision {
+        let mut hidden_from = Box::new([0u32; 256]);
+        for &flags in tile_flags {
+            hidden_from[(flags & 0xff) as usize] += 1;
+        }
+        MapVision {
+            hidden_from,
+            total: tile_flags.len() as u32,
+        }
+    }
+
+    /// The share of the map, from 0 to 1, that at least one of `players` (a mask of player ids
+    /// 0 to 7) can see.
+    pub fn seen_by(&self, players: u8) -> f32 {
+        if self.total == 0 {
+            return 0.0;
+        }
+        let seen: u32 = (0..=255u8)
+            .filter(|&hidden| !hidden & players != 0)
+            .map(|hidden| self.hidden_from[hidden as usize])
+            .sum();
+        seen as f32 / self.total as f32
+    }
 }
 
 impl GameStats {
@@ -236,6 +275,7 @@ impl GameStats {
             previous: PreviousState::new(),
             next_sample_frame: 0,
             seeded: false,
+            vision: None,
         }
     }
 
@@ -248,6 +288,12 @@ impl GameStats {
         self.previous = PreviousState::new();
         self.next_sample_frame = 0;
         self.seeded = false;
+        self.vision = None;
+    }
+
+    /// How much of the map each player could see as of the last sample.
+    pub fn vision(&self) -> Option<&MapVision> {
+        self.vision.as_ref()
     }
 
     /// The most recent sample for a player, or `None` before the first one is taken.
@@ -350,10 +396,14 @@ impl GameStats {
         active_units: UnitIterator,
         units: &UnitArray,
         hotkey_frames: Option<*const u16>,
+        tile_flags: Option<&[u32]>,
     ) {
         let frame = game.frame_count();
         if frame < self.next_sample_frame {
             return;
+        }
+        if let Some(tile_flags) = tile_flags {
+            self.vision = Some(MapVision::read(tile_flags));
         }
         // Counted from the frame actually sampled rather than from the one that was due, so a game
         // whose frame count jumped ahead resumes on the next second instead of catching up through
@@ -801,6 +851,17 @@ fn within(ax: i16, ay: i16, bx: i16, by: i16, distance: i32) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_side_sees_every_tile_any_of_its_players_does() {
+        // Four tiles: hidden from everyone, seen by player 0 alone, by player 1 alone, by both.
+        let vision = MapVision::read(&[0xff, 0xfe, 0xfd, 0xfc]);
+        assert_eq!(vision.seen_by(0b01), 0.5);
+        assert_eq!(vision.seen_by(0b10), 0.5);
+        assert_eq!(vision.seen_by(0b11), 0.75);
+        assert_eq!(vision.seen_by(0b100), 0.0);
+        assert_eq!(MapVision::read(&[]).seen_by(0b1), 0.0);
+    }
 
     /// A history of `count` samples, each gathering `per_second` of each resource.
     fn steady(count: usize, per_second: u32) -> VecDeque<Sample> {
