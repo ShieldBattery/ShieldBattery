@@ -3,6 +3,7 @@ use std::mem;
 use std::ptr::null_mut;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::time::{Duration, Instant};
 
 use lazy_static::lazy_static;
 use libc::c_void;
@@ -43,6 +44,9 @@ mod scr_hooks {
     );
 }
 
+/// How long a message pump drain can keep removing mouse moves; see [`peek_message_w`].
+const MAX_MOUSE_MOVE_DRAIN: Duration = Duration::from_millis(1);
+
 const FOREGROUND_HOTKEY_ID: i32 = 1337;
 const FOREGROUND_HOTKEY_TIMEOUT: u32 = 1000;
 
@@ -79,6 +83,9 @@ thread_local! {
     /// Set while the current drain loop on this thread has removed a `WM_MOUSEMOVE`; see
     /// [`peek_message_w`].
     static MOUSE_MOVE_DRAINED: Cell<bool> = const { Cell::new(false) };
+    /// How long the current drain loop on this thread has spent in `PeekMessageW`; see
+    /// [`peek_message_w`].
+    static DRAIN_PEEKING: Cell<Duration> = const { Cell::new(Duration::ZERO) };
 }
 
 fn scr_hooks_disabled() -> bool {
@@ -538,8 +545,8 @@ fn non_activating_show_command(show: i32) -> Option<i32> {
     }
 }
 
-/// Ends a `PM_REMOVE` drain loop once it has removed a `WM_MOUSEMOVE` and no mouse button or
-/// keyboard messages remain queued, by reporting an empty queue for the next call.
+/// Ends a `PM_REMOVE` drain loop that has spent [`MAX_MOUSE_MOVE_DRAIN`] removing messages and just
+/// removed a `WM_MOUSEMOVE`, by reporting an empty queue for the next call.
 ///
 /// Every mouse input message a thread removes makes Windows notify each out-of-context WinEvent
 /// hook on the desktop (Chromium-based apps commonly have one), and those hook threads contend
@@ -547,9 +554,10 @@ fn non_activating_show_command(show: i32) -> Option<i32> {
 /// can then take longer than the gap until the next one arrives, so SC:R's drain-until-empty
 /// message pump keeps chasing new input and stalls a frame for tens of milliseconds. Pending
 /// mouse moves coalesce into a single queued message, so leaving one behind loses nothing: the
-/// next pump receives the latest position. Button and key messages arrive at human rates and
-/// don't coalesce, so the drain continues while any are queued to handle them without a frame of
-/// delay.
+/// next pump receives the latest position. A drain ordinarily takes microseconds and never reaches
+/// the limit, so clicks and keys queued behind a mouse move are handled in the same pump. Whether
+/// any are queued can't be asked cheaply: Windows only sorts input into the queue status bits
+/// when a `PeekMessage` scans that far.
 fn peek_message_w(
     msg: *mut MSG,
     window: HWND,
@@ -558,22 +566,27 @@ fn peek_message_w(
     remove: u32,
     orig: unsafe extern "C" fn(*mut MSG, HWND, u32, u32, u32) -> i32,
 ) -> i32 {
+    let removing = remove & PM_REMOVE != 0;
     let can_return_mouse_move =
         (filter_min == 0 && filter_max == 0) || (filter_min..=filter_max).contains(&WM_MOUSEMOVE);
-    if remove & PM_REMOVE == 0 || !can_return_mouse_move {
-        return unsafe { orig(msg, window, filter_min, filter_max, remove) };
-    }
-    // GetInputState only reads the queue's status bits, so unlike PeekMessage it doesn't scan
-    // the input queue or notify WinEvent hooks.
-    if MOUSE_MOVE_DRAINED.get() && unsafe { GetInputState() } == 0 {
+    let limit_drain = removing && can_return_mouse_move;
+    if limit_drain && MOUSE_MOVE_DRAINED.get() && DRAIN_PEEKING.get() >= MAX_MOUSE_MOVE_DRAIN {
         MOUSE_MOVE_DRAINED.set(false);
+        DRAIN_PEEKING.set(Duration::ZERO);
         return 0;
     }
+    let peek_start = Instant::now();
     let result = unsafe { orig(msg, window, filter_min, filter_max, remove) };
-    if result == 0 {
-        MOUSE_MOVE_DRAINED.set(false);
-    } else if unsafe { (*msg).message } == WM_MOUSEMOVE {
-        MOUSE_MOVE_DRAINED.set(true);
+    if !removing {
+        return result;
+    }
+    let removed = (result != 0).then(|| unsafe { *msg });
+    if limit_drain {
+        MOUSE_MOVE_DRAINED.set(removed.is_some_and(|removed| removed.message == WM_MOUSEMOVE));
+        DRAIN_PEEKING.set(match removed {
+            Some(_) => DRAIN_PEEKING.get() + peek_start.elapsed(),
+            None => Duration::ZERO,
+        });
     }
     result
 }
