@@ -401,6 +401,10 @@ pub struct BwScr {
     /// just finished switching between SD/HD. Renderer_Render hook uses this to manually fix
     /// the values if it detects this.
     last_overlay_hd_value: AtomicBool,
+    /// The span of this frame's draw commands that are the overlay's, as `(first, end)` indices.
+    /// The overlay draws straight to the backbuffer like the game's own final pass does, so the
+    /// render hook reading the HD mode off that pass must step past these.
+    overlay_draw_commands: (AtomicU32, AtomicU32),
     starting_fog: AtomicStartingFog,
     /// Saved Shift+Tab minimap color mode to restore at the start of a game (from local settings).
     saved_minimap_color_mode: AtomicU8,
@@ -2713,6 +2717,7 @@ impl BwScr {
             show_skins: AtomicBool::new(false),
             is_hd_mode: [AtomicBool::new(true), AtomicBool::new(false)],
             last_overlay_hd_value: AtomicBool::new(false),
+            overlay_draw_commands: (AtomicU32::new(0), AtomicU32::new(0)),
             starting_fog: AtomicStartingFog::new(StartingFog::Transparent),
             saved_minimap_color_mode: AtomicU8::new(0),
             saved_minimap_terrain_hidden: AtomicBool::new(false),
@@ -4186,9 +4191,21 @@ impl BwScr {
                     // SC:R only enables carbot if both of these flags are set
                     let is_carbot = self.is_carbot.load(Ordering::Relaxed)
                         && self.show_skins.load(Ordering::Relaxed);
-                    // Render target 1 is for UI layers (0xb to 0x1d inclusive)
-                    let render_target =
-                        draw_inject::RenderTarget::new((self.get_render_target)(1), 1);
+                    // The overlay draws to the backbuffer (render target 0), at the window's own
+                    // resolution; its one surface among the game's UI layers goes to their target, 1.
+                    // A second pass of this hook is the other graphics mode's while SD and HD fade
+                    // into each other, and draws to its own UI target; the backbuffer is shared, so
+                    // the overlay is drawn by the first pass alone.
+                    if second_draw != 0 {
+                        return;
+                    }
+                    let ui_target = (self.get_render_target)(1);
+                    let render_target = draw_inject::RenderTarget::backbuffer(
+                        (self.get_render_target)(0),
+                        ui_target,
+                    );
+                    let ui_render_target =
+                        draw_inject::RenderTarget::sharing_points(ui_target, 1, &render_target);
                     if let Some(mut render_state) = self.render_state.lock() {
                         let countdown_start = *self.countdown_start.lock();
                         let apm_guard = self.apm_state.lock();
@@ -4198,7 +4215,7 @@ impl BwScr {
                         // which reports the game as it was before its first second.
                         let game_stats_guard = self.game_stats.lock();
                         let game_stats = game_stats_guard.as_deref();
-                        let size = ((*render_target.bw).width, (*render_target.bw).height);
+                        let size = render_target.size();
                         // A snapshot of who has lost connection, for the survivor overlay. `None`
                         // (a replay, or a re-entrant lock) renders as an all-healthy status.
                         let disconnect_status =
@@ -4328,12 +4345,21 @@ impl BwScr {
                                     overlay_out,
                                 );
                             } else {
+                                let first = (*commands).draw_command_count;
                                 draw_inject::add_overlays(
                                     &mut render_state.render,
                                     bw,
                                     overlay_out,
                                     &render_target,
+                                    &ui_render_target,
                                 );
+                                let end = (*commands).draw_command_count;
+                                self.overlay_draw_commands
+                                    .0
+                                    .store(u32::from(first), Ordering::Relaxed);
+                                self.overlay_draw_commands
+                                    .1
+                                    .store(u32::from(end), Ordering::Relaxed);
                                 break;
                             }
                         }
@@ -4440,9 +4466,11 @@ impl BwScr {
                     // Update is_hd value based on what BW output to final render target draw
                     // (Can have two values when doing the transfer between SD/HD)
                     let mut n = 0;
+                    let overlay = self.overlay_draw_commands.0.swap(0, Ordering::Relaxed) as usize
+                        ..self.overlay_draw_commands.1.swap(0, Ordering::Relaxed) as usize;
                     for i in 0..draw_command_count {
                         let cmd = &raw mut (*commands).commands[i];
-                        if (*cmd).render_target_id == 0 {
+                        if (*cmd).render_target_id == 0 && !overlay.contains(&i) {
                             self.is_hd_mode[n].store((*cmd).is_hd != 0, Ordering::Relaxed);
                             n += 1;
                             if n == 2 {

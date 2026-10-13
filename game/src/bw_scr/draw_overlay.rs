@@ -251,21 +251,18 @@ fn load_dynamic_fonts() -> overlay_ui::DynamicFonts {
     overlay_ui::load_dynamic_fonts(&directory.join(overlay_ui::fonts::DYNAMIC_FONT_DIR))
 }
 
-const fn get_normal_draw_layer() -> u16 {
-    // - 26 is the first layer that is drawn above minimap
-    // (Or maybe a tie with later draw taking prioriry)
-    // - 22 is first above F10 menu
-    // - 20 is first above the console UI
-    // Since egui doesn't really have a way (for now?) to tell some
-    // of the output to be drawn on different layer from others
-    // (Other than managing multiple `egui::Context`s and drawing output
-    // from different context on different layer),
-    // going to set the layer higher on debug builds so that the debug
-    // window is nicer to use.
-    // Layer 19 as default could be fine too, but probably better to
-    // go bit over BW console UI if our UI ever ends up being that big.
-    if cfg!(debug_assertions) { 26 } else { 21 }
-}
+/// The draw layer the overlay is drawn at.
+///
+/// Above every layer SC:R draws, including the final pass that scales its UI render target onto the
+/// backbuffer (layers 0x6001 and 0x6002), so the overlay goes straight to the backbuffer and egui
+/// rasterizes its text at the window's own resolution rather than at the UI target's, which SD
+/// graphics fix at 1280x960 whatever the window. Being on top of all of it also covers what the
+/// game draws during loading (the FPS counter and the like).
+pub const OVERLAY_DRAW_LAYER: u16 = 0x6100;
+
+/// The layer of the backing drawn behind SC:R's replay buttons, which sits in the game's own UI
+/// render target, just above its console (20) and below its menus.
+const REPLAY_BUTTONS_BACKING_LAYER: u16 = 21;
 
 impl OverlayState {
     pub fn new() -> OverlayState {
@@ -305,7 +302,7 @@ impl OverlayState {
             },
             player_vision_was_auto_disabled: [false; 8],
             replay_start_handled: false,
-            draw_layer: get_normal_draw_layer(),
+            draw_layer: OVERLAY_DRAW_LAYER,
             dialog_debug_inspect_children: false,
             was_loading: false,
             self_link_lost_since: None,
@@ -586,7 +583,6 @@ impl OverlayState {
         let output = ctx.run_ui(input, |ui| {
             if bw.game_started {
                 if self.was_loading {
-                    self.draw_layer = get_normal_draw_layer();
                     self.was_loading = false;
                     // Free up all the loading screen images since we'll never need them again
                     ctx.forget_all_images();
@@ -609,8 +605,6 @@ impl OverlayState {
                     self.add_debug_ui(bw, &ctx);
                 }
             } else {
-                // Draw the loading UI higher so it hides everything BW may draw (FPS counter, etc.)
-                self.draw_layer = 26;
                 self.was_loading = true;
                 self.add_loading_screen_ui(bw, setup_info, loading_connectivity, ui);
             }
@@ -635,7 +629,7 @@ impl OverlayState {
         let mut primitives = Vec::with_capacity(8);
         if bw.is_replay && prefs.console {
             let rect = self.make_button_panel_rect(bw, pixels_per_point);
-            primitives.push((21, rect));
+            primitives.push((REPLAY_BUTTONS_BACKING_LAYER, rect));
         }
         primitives.push((self.draw_layer, ui_primitives));
         StepOutput {
@@ -787,7 +781,7 @@ impl OverlayState {
                 }
             }
         });
-        ui.add(Slider::new(&mut self.draw_layer, 0u16..=0x1f).text("Draw layer"));
+        ui.add(Slider::new(&mut self.draw_layer, 0u16..=OVERLAY_DRAW_LAYER).text("Draw layer"));
         let msg = format!(
             "Windows mouse {}, {},\n    egui {}, {}",
             self.last_mouse_pos.0.0,

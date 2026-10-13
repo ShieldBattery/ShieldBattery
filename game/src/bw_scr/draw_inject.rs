@@ -63,7 +63,6 @@ quick_error! {
 }
 
 pub struct RenderTarget {
-    pub bw: *mut scr::RenderTarget,
     pub id: u32,
     /// 1.0 / scaled_render_target_width
     /// Where scaled width / height are determined so that if height is above 1080, and
@@ -79,30 +78,73 @@ pub struct RenderTarget {
 }
 
 impl RenderTarget {
-    pub unsafe fn new(bw: *mut scr::RenderTarget, id: u32) -> RenderTarget {
+    /// The backbuffer, which reports the whole window as its size while its viewport is only the
+    /// part the game is shown in: with SD graphics or the pillarbox setting, the 4:3 middle of a
+    /// wider window. That part is exactly where the game's UI target is scaled to at the end of a
+    /// frame, so it has the UI target's shape at the backbuffer's height.
+    pub unsafe fn backbuffer(
+        bw: *mut scr::RenderTarget,
+        ui: *mut scr::RenderTarget,
+    ) -> RenderTarget {
         unsafe {
-            let width = (*bw).width as f32;
-            let height = (*bw).height as f32;
-            // TODO(neive): This is more or less duplicating logic in draw_overlay::OverlayState::step,
-            // (And assuming the render target sizes here are same as the values passed to step())
-            // would be more cleaner to have the egui-visible width/height be passed from there.
-            let (scale, h_recip) = if height > 1080.0 {
-                (height / 1080.0, 1.0 / 1080.0)
-            } else {
-                (1.0, 1.0 / height)
-            };
-            let w_recip = 1.0 / (width / scale);
+            let height = (*bw).height;
+            let aspect = (*ui).width as f32 / ((*ui).height as f32).max(1.0);
+            let width = ((height as f32 * aspect).round() as u32).min((*bw).width);
+            RenderTarget::with_size(0, width, height)
+        }
+    }
+
+    /// The size of the part of the target that is drawn into, in pixels.
+    pub fn size(&self) -> (u32, u32) {
+        (
+            (1.0 / self.bw_w_recip).round() as u32,
+            (1.0 / self.bw_h_recip).round() as u32,
+        )
+    }
+
+    fn with_size(id: u32, width: u32, height: u32) -> RenderTarget {
+        let width = width.max(1) as f32;
+        let height = height.max(1) as f32;
+        // TODO(neive): This is more or less duplicating logic in draw_overlay::OverlayState::step,
+        // (And assuming the render target sizes here are same as the values passed to step())
+        // would be more cleaner to have the egui-visible width/height be passed from there.
+        let (scale, h_recip) = if height > 1080.0 {
+            (height / 1080.0, 1.0 / 1080.0)
+        } else {
+            (1.0, 1.0 / height)
+        };
+        let w_recip = 1.0 / (width / scale);
+        RenderTarget {
+            id,
+            w_recip,
+            h_recip,
+            bw_w_recip: 1.0 / width,
+            bw_h_recip: 1.0 / height,
+        }
+    }
+
+    /// A target covering the same part of the screen as `points_from`, addressed in the same overlay
+    /// points: positions are a fraction of the screen whichever target's pixels they land in.
+    pub unsafe fn sharing_points(
+        bw: *mut scr::RenderTarget,
+        id: u32,
+        points_from: &RenderTarget,
+    ) -> RenderTarget {
+        unsafe {
             RenderTarget {
-                bw,
                 id,
-                w_recip,
-                h_recip,
-                bw_w_recip: 1.0 / width,
-                bw_h_recip: 1.0 / height,
+                w_recip: points_from.w_recip,
+                h_recip: points_from.h_recip,
+                bw_w_recip: 1.0 / (*bw).width.max(1) as f32,
+                bw_h_recip: 1.0 / (*bw).height.max(1) as f32,
             }
         }
     }
 }
+
+/// The highest draw layer SC:R sends to its UI render target; anything above goes straight to the
+/// backbuffer. The game's own layer-to-target rule, which the overlay's layers follow too.
+const LAST_UI_TARGET_LAYER: u16 = 0x1e;
 
 #[repr(C)]
 #[derive(Copy, Clone, Pod, Zeroable)]
@@ -174,15 +216,23 @@ pub struct BwVars {
     pub is_carbot: bool,
 }
 
+/// Adds the overlay's draw commands, each layer to the target SC:R itself would draw that layer
+/// into: `screen` for the layers above the game's own UI, `ui` for the ones among them.
 pub unsafe fn add_overlays(
     state: &mut RenderState,
     bw: &BwVars,
     mut overlay_out: draw_overlay::StepOutput,
-    render_target: &RenderTarget,
+    screen: &RenderTarget,
+    ui: &RenderTarget,
 ) {
     unsafe {
         update_textures(bw.renderer, state, &mut overlay_out.textures_delta);
         for (layer, primitives) in overlay_out.primitives.into_iter() {
+            let render_target = if layer > LAST_UI_TARGET_LAYER {
+                screen
+            } else {
+                ui
+            };
             for primitive in primitives {
                 match primitive.primitive {
                     epaint::Primitive::Mesh(mesh) => {
