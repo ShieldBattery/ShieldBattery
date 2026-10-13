@@ -331,7 +331,12 @@ export default function MapDetails({ mapId, onCancel }: MapDetailsProps) {
             </MapDataItem>
           </MapData>
         </MapInfo>
-        <StyledMapThumbnail mapId={map.id} hasMapPreviewAction={false} hasFavoriteAction={false} />
+        <StyledMapThumbnail
+          mapId={map.id}
+          hasMapPreviewAction={false}
+          hasFavoriteAction={false}
+          hasMapPoolChips={true}
+        />
       </Container>
     )
   }

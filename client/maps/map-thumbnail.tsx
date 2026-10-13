@@ -4,19 +4,22 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep, Simplify } from 'type-fest'
 import { MapImageInfo, MapVisibility, SbMapId } from '../../common/maps'
+import { matchmakingTypeToLabel } from '../../common/matchmaking'
 import { useSelfPermissions, useSelfUser } from '../auth/auth-utils'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { IconRoot, MaterialIcon } from '../icons/material/material-icon'
+import { useCurrentMapPoolTypes } from '../matchmaking/map-pool-membership'
 import { IconButton } from '../material/button'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
+import { Tooltip } from '../material/tooltip'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
-import { singleLine, titleMedium } from '../styles/typography'
+import { labelMedium, singleLine, titleMedium } from '../styles/typography'
 import {
   addToFavorites,
   batchGetMapInfo,
@@ -158,6 +161,37 @@ const TextProtection = styled.div`
   }
 `
 
+const MapPoolChips = styled.div<{ $aboveInfoLayer?: boolean }>`
+  position: absolute;
+  right: 4px;
+  bottom: ${props => (props.$aboveInfoLayer ? TEXT_PROTECTION_HEIGHT_PX + 4 : 4)}px;
+  max-width: calc(100% - 8px);
+
+  display: flex;
+  flex-wrap: wrap-reverse;
+  justify-content: flex-end;
+  gap: 4px;
+
+  /* Clicks between the chips fall through to the tile's overlay. */
+  pointer-events: none;
+
+  @container (max-width: 175px) {
+    display: none;
+  }
+`
+
+const MapPoolChip = styled(Tooltip)`
+  ${labelMedium};
+  ${singleLine};
+  padding: 2px 8px;
+  /* Hoverable so the chip can show its tooltip. */
+  pointer-events: auto;
+
+  border-radius: 999px;
+  background-color: rgb(from var(--color-blue10) r g b / 0.72);
+  color: var(--theme-on-surface);
+`
+
 const MapName = styled.div`
   ${titleMedium};
   ${singleLine};
@@ -208,6 +242,11 @@ export interface MapThumbnailProps {
   isSelected?: boolean
   isFocused?: boolean
   selectedIcon?: React.ReactNode
+  /**
+   * Labels of the matchmaking modes whose current map pool contains this map, shown as chips in
+   * the bottom-right corner.
+   */
+  mapPoolLabels?: ReadonlyArray<string>
   onClick?: (event: React.MouseEvent) => void
   onDownload?: (mapId: SbMapId) => void
   onPreview?: () => void
@@ -229,6 +268,7 @@ export function MapThumbnail({
   isSelected,
   isFocused,
   selectedIcon,
+  mapPoolLabels,
   onClick,
   onDownload,
   onPreview,
@@ -322,6 +362,23 @@ export function MapThumbnail({
           }
         />
       ) : null}
+      {mapPoolLabels?.length ? (
+        <MapPoolChips $aboveInfoLayer={showInfoLayer} onClick={onClick}>
+          {mapPoolLabels.map(label => (
+            <MapPoolChip
+              key={label}
+              text={t(
+                'maps.thumbnail.mapPoolChipTooltip',
+                'In the current {{mode}} ladder map pool',
+                { mode: label },
+              )}
+              position='top'
+              tabIndex={-1}>
+              {label}
+            </MapPoolChip>
+          ))}
+        </MapPoolChips>
+      ) : null}
       {showInfoLayer ? (
         <TextProtection>
           <MapName title={map.name}>{map.name}</MapName>
@@ -357,11 +414,12 @@ export function ReduxMapThumbnail({
   hasFavoriteAction = true,
   hasMapPreviewAction = true,
   hasRegenMapImageAction = true,
+  hasMapPoolChips = false,
   ...props
 }: Simplify<
   Omit<
     MapThumbnailProps,
-    'map' | 'isFavorited' | 'onMapDetails' | 'onRegenMapImage' | 'onPreview'
+    'map' | 'isFavorited' | 'onMapDetails' | 'onRegenMapImage' | 'onPreview' | 'mapPoolLabels'
   > & {
     mapId: SbMapId
     hasMapDetailsAction?: boolean
@@ -369,6 +427,8 @@ export function ReduxMapThumbnail({
     hasFavoriteAction?: boolean
     hasMapPreviewAction?: boolean
     hasRegenMapImageAction?: boolean
+    /** Whether to show a chip for each matchmaking mode whose current map pool has this map. */
+    hasMapPoolChips?: boolean
   }
 >) {
   const { t } = useTranslation()
@@ -380,6 +440,7 @@ export function ReduxMapThumbnail({
 
   const map = useAppSelector(s => s.maps.byId.get(mapId))
   const favoritedMapIds = useAppSelector(s => s.maps.favoritedMapIds)
+  const mapPoolTypes = useCurrentMapPoolTypes(mapId)
 
   useEffect(() => {
     dispatch(batchGetMapInfo(mapId))
@@ -414,6 +475,9 @@ export function ReduxMapThumbnail({
       {...props}
       map={map}
       isFavorited={isFavorited}
+      mapPoolLabels={
+        hasMapPoolChips ? mapPoolTypes.map(type => matchmakingTypeToLabel(type, t)) : undefined
+      }
       onMapDetails={
         canOpenMapDetails
           ? () => dispatch(openDialog({ type: DialogType.MapDetails, initData: { mapId: map.id } }))

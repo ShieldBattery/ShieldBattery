@@ -702,6 +702,7 @@ function MapSelect({
               forceAspectRatio={1}
               size={256}
               showInfoLayer={true}
+              hasMapPoolChips={true}
               isSelected={value.includes(mapId)}
               selectedIcon={<StyledSelectedIcon />}
               onClick={() => {

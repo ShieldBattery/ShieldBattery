@@ -925,7 +925,12 @@ export function RoomMapBanner({
       <Scrim />
       <Content>
         <ThumbnailCard $aspectRatio={map.mapData.width / map.mapData.height}>
-          <ReduxMapThumbnail mapId={map.id} size={512} showInfoLayer={true} />
+          <ReduxMapThumbnail
+            mapId={map.id}
+            size={512}
+            showInfoLayer={true}
+            hasMapPoolChips={true}
+          />
         </ThumbnailCard>
         <InfoColumn>
           <StatsRow>
