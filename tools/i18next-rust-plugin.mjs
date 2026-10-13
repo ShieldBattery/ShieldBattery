@@ -311,7 +311,8 @@ class Scanner {
           this.advance(2)
           break
         case 'x': {
-          const match = /^\\x([0-7][0-9A-Fa-f])/.exec(this.source.slice(this.pos, this.pos + 4))
+          // Any byte for a byte string (`b"\xff"`); rustc already holds a plain string to 0x7f.
+          const match = /^\\x([0-9A-Fa-f]{2})/.exec(this.source.slice(this.pos, this.pos + 4))
           if (!match) this.fail('malformed \\x escape')
           value += String.fromCharCode(parseInt(match[1], 16))
           this.advance(match[0].length)
