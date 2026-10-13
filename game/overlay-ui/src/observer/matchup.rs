@@ -701,10 +701,11 @@ fn draw_half(ui: &Ui, rect: Rect, player: &MatchupPlayerView, mirrored: bool, me
         metrics.value_size,
     );
     cursor.skip(STAT_GAP);
-    // Supply past the cap is production time a player is losing, so it is the one number on the bar
+    // A supply block is production time a player is losing, so it is the one number on the bar
     // that changes color: a watcher scanning the bar sees the block before they have read either
-    // half of the fraction.
-    let supply_color = if player.supply_used > player.supply_max {
+    // half of the fraction. Blocked is at or past what their depots provide; a player at the
+    // game's own ceiling is maxed out rather than blocked, and has nothing more to build.
+    let supply_color = if supply_blocked(player.supply_used, player.supply_max) {
         theme::TEXT_NEGATIVE
     } else {
         theme::TEXT_PRIMARY
@@ -721,6 +722,14 @@ fn draw_half(ui: &Ui, rect: Rect, player: &MatchupPlayerView, mirrored: bool, me
         cursor.skip(STAT_GAP);
         draw_apm(ui, &mut cursor, player.apm, alpha, metrics);
     }
+}
+
+/// The most supply the game lets anyone have, in the units the game shows.
+const SUPPLY_CEILING: u32 = 200;
+
+/// Whether a player can build nothing more until they provide more supply.
+pub(crate) fn supply_blocked(used: u32, max: u32) -> bool {
+    used > 0 && used >= max && max < SUPPLY_CEILING
 }
 
 /// Draws the supply cell, whose two halves are not read alike: what a player is on is a number they
@@ -823,6 +832,15 @@ fn draw_apm(ui: &Ui, cursor: &mut EdgeCursor, apm: u32, alpha: f32, metrics: Row
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_player_at_their_depots_cap_is_blocked_and_one_at_the_ceiling_is_not() {
+        assert!(supply_blocked(9, 9));
+        assert!(supply_blocked(30, 26));
+        assert!(!supply_blocked(8, 9));
+        assert!(!supply_blocked(200, 200));
+        assert!(!supply_blocked(0, 0));
+    }
     use crate::observer::RaceView;
 
     fn player(player_id: u8, team: u8) -> MatchupPlayerView {

@@ -462,7 +462,7 @@ fn draw_player(ui: &mut Ui, player: &TeamCardPlayerView, layout: CardLayout) {
     cursor.skip(COLUMN_GAP);
     // Supply past the cap is production time a player is losing, so it is the one number on the
     // card that changes color.
-    let supply_color = if player.supply_used > player.supply_max {
+    let supply_color = if super::matchup::supply_blocked(player.supply_used, player.supply_max) {
         theme::TEXT_NEGATIVE.gamma_multiply(alpha)
     } else {
         primary
