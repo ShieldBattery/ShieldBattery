@@ -144,6 +144,7 @@
     "raceTerran": "T",
     "raceZerg": "Z",
     "replayTag": "Replay",
+    "researchLevel": "Level {{level}}",
     "selectionKills": "Kills",
     "seriesArmyValue": "Army value",
     "seriesIncome": "Income",

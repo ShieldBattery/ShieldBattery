@@ -154,6 +154,7 @@
     "raceTerran": "Т",
     "raceZerg": "З",
     "replayTag": "Реплей",
+    "researchLevel": "Уровень {{level}}",
     "selectionKills": "Убийства",
     "seriesArmyValue": "Стоимость армии",
     "seriesIncome": "Доход",

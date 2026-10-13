@@ -139,6 +139,7 @@
     "raceTerran": "테",
     "raceZerg": "저",
     "replayTag": "리플레이",
+    "researchLevel": "레벨 {{level}}",
     "selectionKills": "처치",
     "seriesArmyValue": "병력 가치",
     "seriesIncome": "수입",
