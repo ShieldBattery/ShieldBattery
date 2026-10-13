@@ -16,7 +16,7 @@ use crate::kit::text::{self, BodyWeight};
 use crate::kit::theme;
 use crate::kit::{tiers, widgets};
 use crate::observer::{
-    EdgeCursor, ProductionIcon, STAT_COLOR_BAR, STAT_ROW_GAP, Wing, centred, game_clock,
+    EdgeCursor, ProductionIcon, STAT_COLOR_BAR, STAT_ROW_GAP, Wing, centred, fit_icon, game_clock,
     paint_player_dot, paint_text, paint_tile_chrome, wing_panel,
 };
 use crate::tr;
@@ -212,7 +212,7 @@ fn draw_icon(ui: &Ui, rect: Rect, icon: Option<ProductionIcon>) {
         Some(texture) => {
             ui.painter().image(
                 texture,
-                rect.shrink(theme::HAIRLINE),
+                fit_icon(rect.shrink(theme::HAIRLINE), icon.size),
                 Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
                 Color32::WHITE,
             );

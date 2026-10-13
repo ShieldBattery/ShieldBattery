@@ -4212,6 +4212,8 @@ impl BwScr {
                                     first_dialog,
                                     graphic_layers,
                                     is_hd,
+                                    is_carbot,
+                                    cmdicons,
                                     has_init_bw,
                                     countdown_start,
                                     game_started,

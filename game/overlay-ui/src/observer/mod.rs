@@ -50,7 +50,7 @@ pub use unit_codes::unit_code;
 
 use egui::{
     Align, Align2, Area, Color32, Context, Id, InnerResponse, Order, Rect, Stroke, StrokeKind, Ui,
-    pos2, vec2,
+    Vec2, pos2, vec2,
 };
 use serde::{Deserialize, Serialize};
 
@@ -322,6 +322,18 @@ impl EdgeCursor {
     pub(crate) fn skip(&mut self, width: f32) {
         self.x += width * self.step;
     }
+}
+
+/// The largest rect with an icon frame's proportions that fits inside its tile, centered in it.
+///
+/// The atlas holds frames of different shapes, and drawing one into a tile of another shape
+/// stretches it. A frame whose size is unknown fills the tile.
+pub(crate) fn fit_icon(tile: Rect, size: Option<Vec2>) -> Rect {
+    let Some(size) = size.filter(|size| size.x > 0.0 && size.y > 0.0) else {
+        return tile;
+    };
+    let scale = (tile.width() / size.x).min(tile.height() / size.y);
+    Rect::from_center_size(tile.center(), size * scale)
 }
 
 /// The same rect, inset vertically to `height` about its own middle.
@@ -620,6 +632,29 @@ pub(crate) fn paint_stat_identity(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_icon_keeps_its_frames_proportions_inside_its_tile() {
+        let tile = Rect::from_min_size(pos2(10.0, 20.0), vec2(40.0, 40.0));
+
+        let wide = fit_icon(tile, Some(vec2(60.0, 30.0)));
+        assert_eq!(
+            wide,
+            Rect::from_center_size(tile.center(), vec2(40.0, 20.0))
+        );
+
+        let tall = fit_icon(tile, Some(vec2(30.0, 60.0)));
+        assert_eq!(
+            tall,
+            Rect::from_center_size(tile.center(), vec2(20.0, 40.0))
+        );
+
+        let square = fit_icon(tile, Some(vec2(32.0, 32.0)));
+        assert_eq!(square, tile);
+
+        assert_eq!(fit_icon(tile, None), tile);
+        assert_eq!(fit_icon(tile, Some(vec2(0.0, 30.0))), tile);
+    }
 
     #[test]
     fn a_clock_grows_an_hours_field_only_once_there_is_one() {

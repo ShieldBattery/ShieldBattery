@@ -281,10 +281,10 @@ pub fn build_control_groups_view(
                     .iter()
                     .map(|group| ControlGroupView {
                         key: group.key,
-                        icon: production::unit_icon(group.unit_id, bw.is_hd),
+                        icon: production::unit_icon(group.unit_id, bw),
                         combo: group
                             .secondary_unit_id
-                            .map(|unit_id| production::unit_icon(unit_id, bw.is_hd)),
+                            .map(|unit_id| production::unit_icon(unit_id, bw)),
                         count: group.count,
                         building: group.building,
                         stale: group.stale,
@@ -315,7 +315,7 @@ pub fn build_selection_view(bw: &BwVars, players: &[StatsPlayer]) -> SelectionVi
 /// is making and what it is carrying.
 fn selected_unit_view(bw: &BwVars, players: &[StatsPlayer], unit: Unit) -> SelectedUnitView {
     let mut view = carried_unit_view(bw, players, unit);
-    view.production = production::selected_production(unit, bw.is_hd);
+    view.production = production::selected_production(unit, bw);
     view.cargo = cargo_views(bw, players, unit);
     view
 }
@@ -357,7 +357,7 @@ fn carried_unit_view(bw: &BwVars, players: &[StatsPlayer], unit: Unit) -> Select
         .iter()
         .find(|player| player.player_id == unit.player());
     SelectedUnitView {
-        icon: production::unit_icon(unit_id, bw.is_hd),
+        icon: production::unit_icon(unit_id, bw),
         owner_color: owner.map_or(theme::TEXT_DIM, |player| player.color),
         owner_name: owner.map(|player| player.name.clone()).unwrap_or_default(),
         owner: owner.map(|player| player.player_id),
@@ -439,7 +439,7 @@ pub fn build_timeline_view(
                 secs: transport::frames_to_seconds(event.frame, game_speed),
                 color: player.color,
                 kind: event.kind,
-                icon: Some(production::timeline_icon(event.subject, bw.is_hd)),
+                icon: Some(production::timeline_icon(event.subject, bw)),
             })
         })
         .take(TIMELINE_DEPTH)

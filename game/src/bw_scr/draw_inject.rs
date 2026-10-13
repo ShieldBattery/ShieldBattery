@@ -256,13 +256,20 @@ unsafe fn draw_overlay_texture_ptr(
     }
 }
 
-unsafe fn ddsgrp_frame(
+/// The frame of a graphics set that the renderer draws at this graphics quality, which is what
+/// both the draw path and anything measuring the frame must agree on.
+///
+/// # Safety
+///
+/// `grp` must point to a live `DdsGrpSet`.
+pub unsafe fn ddsgrp_texture(
     grp: *mut scr::DdsGrpSet,
-    bw: &BwVars,
+    is_hd: bool,
+    is_carbot: bool,
     frame: u16,
-) -> Option<*mut scr::RendererTexture> {
+) -> Option<*mut scr::Texture> {
     unsafe {
-        let index = match (bw.is_hd, bw.is_carbot) {
+        let index = match (is_hd, is_carbot) {
             (false, _) => 0,
             (true, false) => 1,
             (true, true) => 2,
@@ -271,7 +278,17 @@ unsafe fn ddsgrp_frame(
         if frame >= (*ddsgrp).frame_count || (*ddsgrp).textures.is_null() {
             return None;
         }
-        let texture = (*ddsgrp).textures.add(frame as usize);
+        Some((*ddsgrp).textures.add(frame as usize))
+    }
+}
+
+unsafe fn ddsgrp_frame(
+    grp: *mut scr::DdsGrpSet,
+    bw: &BwVars,
+    frame: u16,
+) -> Option<*mut scr::RendererTexture> {
+    unsafe {
+        let texture = ddsgrp_texture(grp, bw.is_hd, bw.is_carbot, frame)?;
         let renderer_texture = (*texture).renderer_texture;
         if renderer_texture.is_null() {
             return None;

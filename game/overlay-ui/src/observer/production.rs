@@ -16,13 +16,15 @@
 //! and honest about what it is.
 
 use egui::{
-    Align, Align2, Area, Color32, Context, Id, Order, Rect, Sense, TextureId, Ui, pos2, vec2,
+    Align, Align2, Area, Color32, Context, Id, Order, Rect, Sense, TextureId, Ui, Vec2, pos2, vec2,
 };
 
 use crate::colors::{BLUE60, GREY_BLUE60};
 use crate::kit::text;
 use crate::kit::{motion, theme, tiers};
-use crate::observer::{centred, paint_player_bar, paint_text, paint_tile_chrome, unit_codes};
+use crate::observer::{
+    centred, fit_icon, paint_player_bar, paint_text, paint_tile_chrome, unit_codes,
+};
 
 /// How wide the panel is, in overlay points.
 pub const PANEL_WIDTH: f32 = 620.0;
@@ -83,6 +85,9 @@ pub struct ProductionIcon {
     pub texture: Option<TextureId>,
     /// The frame's own number, which names the icon whether or not it can be drawn.
     pub index: u16,
+    /// The pixel size of the atlas frame being drawn, whose proportions the icon is drawn at; `None`
+    /// where the host cannot say, which draws it to fill its tile.
+    pub size: Option<Vec2>,
 }
 
 /// One thing a player is making.
@@ -203,7 +208,7 @@ fn draw_tile(ui: &Ui, rect: Rect, item: &ProductionItemView, hovered: bool) {
         Some(texture) => {
             ui.painter().image(
                 texture,
-                icon_rect,
+                fit_icon(icon_rect, item.icon.size),
                 Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
                 if hovered {
                     theme::ACCENT

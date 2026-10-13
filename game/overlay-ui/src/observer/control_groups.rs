@@ -25,14 +25,15 @@
 
 use egui::{
     Align, Align2, Area, Color32, Context, Id, Order, Rect, Sense, Shape, Stroke, StrokeKind,
-    TextureId, Ui, pos2, vec2,
+    TextureId, Ui, Vec2, pos2, vec2,
 };
 
 use crate::colors::{BLUE80, GREY_BLUE10};
 use crate::kit::text;
 use crate::kit::{motion, theme, tiers};
 use crate::observer::{
-    EdgeCursor, ProductionIcon, centred, paint_player_bar, paint_text, unit_codes, vision_alpha,
+    EdgeCursor, ProductionIcon, centred, fit_icon, paint_player_bar, paint_text, unit_codes,
+    vision_alpha,
 };
 
 /// How wide the panel is, in overlay points.
@@ -306,13 +307,20 @@ fn paint_subject(ui: &Ui, rect: Rect, group: &ControlGroupView, alpha: f32) {
                     vec2(COMBO_ICON, COMBO_ICON),
                 )
             };
-            paint_icon(ui, icon(0.0), first, alpha);
-            paint_icon(ui, icon(1.0), second, alpha);
+            paint_icon(ui, icon(0.0), first, group.icon.size, alpha);
+            paint_icon(
+                ui,
+                icon(1.0),
+                second,
+                combo.and_then(|icon| icon.size),
+                alpha,
+            );
         }
         (Some(texture), None) => paint_icon(
             ui,
             Rect::from_center_size(rect.center(), vec2(ICON, ICON)),
             texture,
+            group.icon.size,
             alpha,
         ),
         (None, _) => {
@@ -335,10 +343,10 @@ fn paint_subject(ui: &Ui, rect: Rect, group: &ControlGroupView, alpha: f32) {
 }
 
 /// Draws one of the game's own icons.
-fn paint_icon(ui: &Ui, rect: Rect, texture: TextureId, alpha: f32) {
+fn paint_icon(ui: &Ui, rect: Rect, texture: TextureId, size: Option<Vec2>, alpha: f32) {
     ui.painter().image(
         texture,
-        rect,
+        fit_icon(rect, size),
         Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
         Color32::WHITE.gamma_multiply(alpha),
     );

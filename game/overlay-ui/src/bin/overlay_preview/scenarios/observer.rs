@@ -482,6 +482,7 @@ fn timeline_events(knobs: &Knobs, game_secs: u64) -> Vec<TimelineEventView> {
                 icon: Some(ProductionIcon {
                     texture: None,
                     index: units[index as usize % units.len()],
+                    size: None,
                 }),
             }
         })
@@ -612,6 +613,7 @@ fn production_player(knobs: &Knobs, index: usize, t: f64) -> ProductionPlayerVie
                 icon: ProductionIcon {
                     texture: None,
                     index: unit,
+                    size: None,
                 },
                 count: 1 + ((t / 7.0) as u32 + slot as u32) % 4,
                 progress: fraction(t * (0.13 + 0.05 * slot as f64) + index as f64 * 0.4),
@@ -643,6 +645,7 @@ fn control_groups_player(
     let icon = |id: u16| ProductionIcon {
         texture: None,
         index: id,
+        size: None,
     };
     let groups = (0..knobs.control_groups.min(10))
         .map(|slot| {
@@ -718,6 +721,7 @@ fn selection(knobs: &Knobs, t: f64) -> SelectionView {
                         } else {
                             units[index % units.len()]
                         },
+                        size: None,
                     },
                     owner_color: overlay_ui::kit::theme::player_color(owner),
                     owner_name: player_name(knobs, owner),
@@ -833,6 +837,7 @@ fn unit_icon(index: u16) -> ProductionIcon {
     ProductionIcon {
         texture: None,
         index,
+        size: None,
     }
 }
 

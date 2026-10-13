@@ -28,6 +28,7 @@ use crate::bw;
 use crate::bw::apm_stats::ApmStats;
 use crate::bw_scr::game_stats::GameStats;
 use crate::bw_scr::replay_transport::{ReplayCommand, TransportState};
+use crate::bw_scr::scr;
 use crate::bw_scr::{BwCursorType, dialog_hook};
 use crate::netcode_v2::{self, DisconnectStatus, LoadingConnectivity, NetStatsStatus};
 
@@ -170,6 +171,12 @@ pub struct BwVars {
     pub first_dialog: Option<Dialog>,
     pub graphic_layers: Option<NonNull<bw::GraphicLayer>>,
     pub is_hd: bool,
+    /// Whether the carbot skin set is the one being drawn, which picks the command-icon frames
+    /// the renderer shows along with `is_hd`.
+    pub is_carbot: bool,
+    /// The game's command-icon atlas, read for the pixel size of the frame an icon will be drawn
+    /// with. Valid for as long as the game is running.
+    pub cmdicons: *mut scr::DdsGrpSet,
     pub has_init_bw: bool,
     pub countdown_start: Option<Instant>,
     pub game_started: bool,

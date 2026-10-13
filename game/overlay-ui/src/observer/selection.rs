@@ -36,7 +36,7 @@ use crate::kit::text;
 use crate::kit::widgets;
 use crate::kit::{motion, theme, tiers};
 use crate::observer::{
-    ProductionIcon, centred, paint_player_bar, paint_text, paint_tile_chrome, unit_codes,
+    ProductionIcon, centred, fit_icon, paint_player_bar, paint_text, paint_tile_chrome, unit_codes,
 };
 use crate::tr;
 
@@ -593,7 +593,7 @@ fn paint_icon(ui: &Ui, rect: Rect, icon: ProductionIcon, code_size: f32) {
         Some(texture) => {
             ui.painter().image(
                 texture,
-                rect.shrink(theme::SPACE_XS),
+                fit_icon(rect.shrink(theme::SPACE_XS), icon.size),
                 Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
                 Color32::WHITE,
             );
@@ -693,6 +693,7 @@ mod tests {
             icon: ProductionIcon {
                 texture: None,
                 index,
+                size: None,
             },
             owner_color: Color32::WHITE,
             owner_name: String::new(),
@@ -791,6 +792,7 @@ mod tests {
             icon: ProductionIcon {
                 texture: None,
                 index: 0x1E,
+                size: None,
             },
             progress: 0.5,
             queued: 2,

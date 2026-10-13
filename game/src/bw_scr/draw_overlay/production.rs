@@ -1,7 +1,7 @@
 use std::ptr;
 
 use bw_dat::{TechId, Unit, UnitId, UpgradeId};
-use egui::{Color32, TextureId};
+use egui::{Color32, TextureId, Vec2};
 use hashbrown::HashMap;
 use overlay_ui::observer::{
     ProductionIcon, ProductionItemView, ProductionPlayerView, ProductionProgressView,
@@ -9,6 +9,7 @@ use overlay_ui::observer::{
 };
 
 use crate::bw;
+use crate::bw_scr::draw_inject;
 use crate::bw_scr::game_stats::TimelineSubject;
 
 use super::{BwVars, OverlayState, Texture, player_has_units, replay_players_by_team};
@@ -202,7 +203,7 @@ impl OverlayState {
                         .groups()
                         .into_iter()
                         .map(|group| ProductionItemView {
-                            icon: production_icon(group.production, bw.is_hd),
+                            icon: production_icon(group.production, bw),
                             count: group.count,
                             progress: group.progress,
                         })
@@ -331,10 +332,10 @@ fn unit_production(unit: Unit) -> Option<(Production, Progress)> {
 /// everything on the way reads, plus whatever is waiting behind it.
 ///
 /// `None` for a unit that is making nothing, which is most of them.
-pub(super) fn selected_production(unit: Unit, is_hd: bool) -> Option<ProductionProgressView> {
+pub(super) fn selected_production(unit: Unit, bw: &BwVars) -> Option<ProductionProgressView> {
     let (production, progress) = unit_production(unit)?;
     Some(ProductionProgressView {
-        icon: production_icon(production, is_hd),
+        icon: production_icon(production, bw),
         progress: progress.as_float(),
         queued: queued_units(unit, production),
     })
@@ -414,26 +415,28 @@ fn research_completion(unit: Unit, time: u32) -> Progress {
 ///
 /// Every panel that names a unit names it with this same icon, so no two surfaces show the same
 /// thing two different ways.
-pub fn unit_icon(id: UnitId, is_hd: bool) -> ProductionIcon {
-    production_icon(Production::Unit(id), is_hd)
+pub fn unit_icon(id: UnitId, bw: &BwVars) -> ProductionIcon {
+    production_icon(Production::Unit(id), bw)
 }
 
 /// Which frame of the game's own command-icon atlas stands for something the timeline is about.
 ///
 /// The timeline names a unit, an upgrade or a technology by the same icon the production panel draws
 /// for it, so the two surfaces never show the same thing two different ways.
-pub fn timeline_icon(subject: TimelineSubject, is_hd: bool) -> ProductionIcon {
+pub fn timeline_icon(subject: TimelineSubject, bw: &BwVars) -> ProductionIcon {
     let production = match subject {
         TimelineSubject::Unit(id) => Production::Unit(id),
         TimelineSubject::Upgrade(id) => Production::Upgrade(id),
         TimelineSubject::Tech(id) => Production::Tech(id),
     };
-    production_icon(production, is_hd)
+    production_icon(production, bw)
 }
 
 /// Which frame of the game's own command-icon atlas stands for a production, and the texture id the
-/// renderer has that frame under.
-fn production_icon(production: Production, is_hd: bool) -> ProductionIcon {
+/// renderer has that frame under, along with the frame's pixel size so a panel can draw it at its
+/// own proportions.
+fn production_icon(production: Production, bw: &BwVars) -> ProductionIcon {
+    let is_hd = bw.is_hd;
     let frame = match production {
         Production::Unit(id) => {
             // SD cmdicons have lair and hive icons swapped.
@@ -448,8 +451,17 @@ fn production_icon(production: Production, is_hd: bool) -> ProductionIcon {
         Production::Upgrade(id) => id.icon() as u16,
         Production::Tech(id) => id.icon() as u16,
     };
+    // SAFETY: `cmdicons` is the game's own atlas, which outlives the frames drawn from it.
+    let size = unsafe {
+        (!bw.cmdicons.is_null())
+            .then(|| draw_inject::ddsgrp_texture(bw.cmdicons, is_hd, bw.is_carbot, frame))
+            .flatten()
+            .filter(|texture| (**texture).width != 0 && (**texture).height != 0)
+            .map(|texture| Vec2::new((*texture).width as f32, (*texture).height as f32))
+    };
     ProductionIcon {
         texture: Some(TextureId::User(Texture::CmdIcon(frame).to_egui_id())),
         index: frame,
+        size,
     }
 }
