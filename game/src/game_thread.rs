@@ -113,6 +113,8 @@ pub enum GameThreadMessage {
     Results(GameThreadResults),
     NetworkStall(Duration),
     ReplaySaved(PathBuf),
+    /// A replay session replay is holding playback at its start, ready to play.
+    ReplaySessionReady,
     /// The local user blocked or unblocked a player with an in-game chat command; the app saves it.
     SetUserBlocked {
         user_id: SbUserId,

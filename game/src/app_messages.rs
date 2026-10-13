@@ -525,6 +525,19 @@ pub struct ReplayMapInfo {
     pub path: String,
     /// The frame to seek the replay to as soon as it starts, if not its beginning.
     pub start_frame: Option<u32>,
+    /// Set when the replay is watched in a replay session, which holds playback at the start
+    /// until the session lets it go.
+    pub session: Option<ReplaySessionPlaybackControl>,
+}
+
+/// How a replay session governs local playback. Only the controller gets the replay's playback
+/// controls; every other viewer follows `paused`.
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
+pub struct ReplaySessionPlaybackControl {
+    pub controller: bool,
+    pub paused: bool,
 }
 
 #[derive(Clone, Debug, Deserialize)]

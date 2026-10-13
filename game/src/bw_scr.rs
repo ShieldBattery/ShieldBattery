@@ -2853,6 +2853,15 @@ impl BwScr {
                                             self.is_replay_seeking.store(true, Ordering::Relaxed);
                                         }
                                     }
+                                [commands::id::REPLAY_SPEED, paused, rest @ ..] if rest.len() == 8
+                                    && is_replay
+                                    && are_recorded_replay_commands == 0 => {
+                                        crate::replay_session::note_speed_command(
+                                            *paused != 0,
+                                            LittleEndian::read_u32(rest),
+                                            LittleEndian::read_u32(&rest[4..]),
+                                        );
+                                    }
                                 [commands::id::SYNC, ..] | [commands::id::NOP, ..]
                                     if are_recorded_replay_commands == 0 => {
                                         sync_seen = true;
@@ -4012,6 +4021,9 @@ impl BwScr {
                     // Only on the primary pass; the SD/HD-fade second pass sees the same global.
                     if second_draw == 0 {
                         self.poll_team_color_mode();
+                        if game_thread::is_replay() {
+                            crate::replay_session::apply_playback(self);
+                        }
                     }
                     // It is expected that extra_funcs array has one (just one) function that
                     // draws the UI console. If console is hidden just call orig with 0 extra funcs
@@ -7465,6 +7477,12 @@ impl BwScr {
     /// does.
     #[cfg(debug_assertions)]
     pub(crate) unsafe fn send_replay_pause(&self, paused: bool) {
+        unsafe { self.send_replay_speed(paused, 6, 1) }
+    }
+
+    /// Sends the replay UI's speed command, which sets whether playback is paused along with its
+    /// speed and speed multiplier.
+    pub(crate) unsafe fn send_replay_speed(&self, paused: bool, speed: u32, multiplier: u32) {
         unsafe {
             let mut command = [
                 commands::id::REPLAY_SPEED,
@@ -7478,8 +7496,8 @@ impl BwScr {
                 0,
                 0,
             ];
-            LittleEndian::write_u32(&mut command[2..], 6);
-            LittleEndian::write_u32(&mut command[6..], 1);
+            LittleEndian::write_u32(&mut command[2..], speed);
+            LittleEndian::write_u32(&mut command[6..], multiplier);
             (self.send_command)(command.as_ptr(), command.len());
         }
     }
@@ -9893,6 +9911,7 @@ unsafe fn step_game_logic_hook(
             // Make replay buttons line up better with the pre-SC:R replay ui
             bw.offset_statbtn_dialog(3, -3);
             bw.seek_to_replay_start_frame();
+            crate::replay_session::hold_at_start(bw);
         } else {
             bw.record_replay_notice();
         }

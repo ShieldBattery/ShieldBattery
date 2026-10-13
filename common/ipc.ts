@@ -10,7 +10,7 @@ import { Promisable } from 'type-fest'
 import { GameDeepLink } from './deep-links'
 import { GameServerRegion, GameServerRegionLatencies } from './game-server-regions'
 import { GameDebugScreenshot, GameDebugState } from './games/game-debug'
-import { GameLaunchConfig } from './games/game-launch-config'
+import { GameLaunchConfig, ReplaySessionPlaybackControl } from './games/game-launch-config'
 import { ReportedGameStatus } from './games/game-status'
 import { NetcodeV2ServerSetup } from './games/netcode-v2'
 import { GameClientPlayerResult } from './games/results'
@@ -200,6 +200,14 @@ interface IpcInvokeables {
    * in-game chat. Does nothing if there's no active game.
    */
   activeGameSetBlockedUsers: (blockedUsers: SbUserId[]) => void
+  /**
+   * Tells the active replay session game who controls playback and whether it is paused. Does
+   * nothing unless `gameId` is the active game.
+   */
+  activeGameSetReplaySessionPlayback: (
+    gameId: string,
+    playback: ReplaySessionPlaybackControl,
+  ) => void
 
   bugReportCollectFiles: () => Promise<Uint8Array<ArrayBuffer>>
 
@@ -431,6 +439,8 @@ interface IpcRendererSendables {
 
 /** Events that can be sent from the main process to a renderer process. */
 interface IpcMainSendables {
+  /** A replay session game has loaded its replay and is holding playback paused at the start. */
+  activeGameReplaySessionReady: (gameId: string) => void
   activeGameReplaySaved: (gameId: string, replayPath: string) => void
   activeGameResult: (data: {
     gameId: string

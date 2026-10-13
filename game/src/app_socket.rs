@@ -257,6 +257,17 @@ fn handle_app_message(text: String) -> Result<MessageResult, HandleMessageError>
             let setup = parse_payload(payload, "Invalid game setup", err_input, sensitive)?;
             Ok(MessageResult::Game(GameStateMessage::SetupGame(setup)))
         }
+        "replaySessionPlayback" => {
+            let control = parse_payload(
+                payload,
+                "Invalid replay session playback",
+                err_input,
+                sensitive,
+            )?;
+            Ok(MessageResult::Game(
+                GameStateMessage::SetReplaySessionPlayback(control),
+            ))
+        }
         "quit" => Ok(MessageResult::Stop),
         "cleanup_and_quit" => Ok(MessageResult::Game(GameStateMessage::CleanupQuit)),
         #[cfg(debug_assertions)]
@@ -328,7 +339,25 @@ pub fn send_message<'a, T: serde::Serialize>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::app_messages::ReplaySessionPlaybackControl;
     use crate::debug_control::DebugControlCommand;
+
+    #[test]
+    fn replay_session_playback_dispatches_to_game_state() {
+        let result = handle_app_message(
+            r#"{"command":"replaySessionPlayback","payload":{"controller":false,"paused":true}}"#
+                .into(),
+        );
+        assert!(matches!(
+            result,
+            Ok(MessageResult::Game(
+                GameStateMessage::SetReplaySessionPlayback(ReplaySessionPlaybackControl {
+                    controller: false,
+                    paused: true,
+                })
+            ))
+        ));
+    }
 
     #[test]
     fn debug_control_ping_dispatches_to_game_state() {

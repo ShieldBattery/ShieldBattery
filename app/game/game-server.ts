@@ -122,6 +122,9 @@ export class GameServer {
           }
         }
         break
+      case '/game/replaySessionReady':
+        this.activeGameManager.handleReplaySessionReady(gameId)
+        break
       case '/game/replayUploaded':
         this.activeGameManager.handleReplayUploaded(gameId)
         break

@@ -63,6 +63,13 @@ commands must remain local to playback and must never enter the recorded replay 
 Replay session load/status messages go to the replay room service, not the normal game results or
 game loader endpoints.
 
+## In-game presentation
+
+Each viewer sees the normal replay player. Only the controller gets the play/pause and speed
+buttons; for every other viewer those button slots are empty, as in Battle.net's Watch with Others.
+This rule belongs to the session, not to the current replay UI's layout, so it must carry over to
+any replay interface that replaces it. Session chat appears in-game, as chat does in a normal game.
+
 ## Implementation checkpoints
 
 1. Add source types and authenticated source staging/resolution, including hash verification,

@@ -119,9 +119,11 @@ export interface ReplaySessionInvitesEvent {
   invites: ReplaySessionInviteJson[]
 }
 
+/** Names exactly one source: a ShieldBattery game, or a staged upload's `sourceId`. */
 export interface CreateReplaySessionRequest {
   clientId: string
-  source: ReplaySessionSource
+  gameId?: string
+  uploadId?: string
 }
 
 export interface CreateReplaySessionResponse {

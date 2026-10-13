@@ -18,8 +18,9 @@ use tokio::sync::{mpsc, oneshot};
 use crate::app_messages::{
     BlockRequestFailed, GAME_STATUS_ERROR, GamePlayerResult, GameResults, GameResultsMessage,
     GameSetupInfo, GameType, MapForce, MapInfo, NetcodeV2Setup, NetworkStallInfo, NetworkStatus,
-    NetworkTransport, PlayerInfo, RawGameResultsReport, RawNetPlayer, RawPlayerResult, SbUser,
-    SbUserId, ServerConfig, Settings, SetupProgress, UmsLobbyRace,
+    NetworkTransport, PlayerInfo, RawGameResultsReport, RawNetPlayer, RawPlayerResult,
+    ReplaySessionPlaybackControl, SbUser, SbUserId, ServerConfig, Settings, SetupProgress,
+    UmsLobbyRace,
 };
 use crate::app_socket;
 use crate::bw::players::{AllianceState, BwPlayerId, PlayerLoseType, StormPlayerId, VictoryState};
@@ -110,6 +111,7 @@ pub enum GameStateMessage {
     /// The local user's full block list. Accepted at any point in the game's life, since blocks
     /// can change while it runs.
     SetBlockedUsers(Vec<SbUserId>),
+    SetReplaySessionPlayback(ReplaySessionPlaybackControl),
     /// The app couldn't save a block or unblock made with an in-game chat command.
     BlockRequestFailed(BlockRequestFailed),
     SetServerConfig(ServerConfig),
@@ -878,6 +880,9 @@ impl GameState {
             SetBlockedUsers(users) => {
                 self.set_blocked_users(users);
             }
+            SetReplaySessionPlayback(control) => {
+                crate::replay_session::set_playback(control);
+            }
             BlockRequestFailed(failure) => {
                 get_bw().block_request_failed(&failure);
             }
@@ -1153,6 +1158,7 @@ impl GameState {
         match message {
             WindowMove(..) => (),
             ReplaySaved(..) => (),
+            ReplaySessionReady => (),
             SetUserBlocked { .. } => (),
             MinimapSettings {
                 color_mode,

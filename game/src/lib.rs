@@ -68,6 +68,7 @@ mod recurse_checked_mutex;
 mod replay;
 mod replay_name;
 mod replay_seek;
+mod replay_session;
 mod rollback;
 #[cfg(debug_assertions)]
 mod rollback_bench;
@@ -466,6 +467,12 @@ async fn handle_messages_from_game_thread(
 
                         let msg =
                             app_socket::encode_message("/game/replaySaved", ReplaySaved { path });
+                        if let Some(msg) = msg {
+                            let _ = ws_send.send(msg).await;
+                        }
+                    }
+                    GameThreadMessage::ReplaySessionReady => {
+                        let msg = app_socket::encode_message("/game/replaySessionReady", ());
                         if let Some(msg) = msg {
                             let _ = ws_send.send(msg).await;
                         }

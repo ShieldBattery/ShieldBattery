@@ -41,6 +41,20 @@ export interface ReplayMapInfo {
   path: string
   /** The frame to seek the replay to as soon as it starts, if not its beginning. */
   startFrame?: number
+  /**
+   * Set when the replay is watched in a replay session. The game holds playback paused at its
+   * start until the session's first {@link ReplaySessionPlaybackControl} lets it go.
+   */
+  session?: ReplaySessionPlaybackControl
+}
+
+/**
+ * How a replay session governs local playback. Only the controller gets the replay's playback
+ * controls; every other viewer follows `paused`.
+ */
+export interface ReplaySessionPlaybackControl {
+  controller: boolean
+  paused: boolean
 }
 
 export function isReplayLaunchConfig(config: GameLaunchConfig) {

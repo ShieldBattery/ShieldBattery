@@ -823,6 +823,9 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     .on('replaySaved', (gameId, replayPath) => {
       TypedIpcSender.from(mainWindow?.webContents).send('activeGameReplaySaved', gameId, replayPath)
     })
+    .on('replaySessionReady', gameId => {
+      TypedIpcSender.from(mainWindow?.webContents).send('activeGameReplaySessionReady', gameId)
+    })
     .on('resendReplay', request => {
       // Pass to renderer process since its network stack is more reliable
       TypedIpcSender.from(mainWindow?.webContents).send('activeGameResendReplay', request)
@@ -860,6 +863,9 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
   )
   ipcMain.handle('activeGameBlockRequestFailed', (event, gameId, failure) =>
     activeGameManager.blockRequestFailed(gameId, failure),
+  )
+  ipcMain.handle('activeGameSetReplaySessionPlayback', (event, gameId, playback) =>
+    activeGameManager.setReplaySessionPlayback(gameId, playback),
   )
   if (isDev) {
     // Dev-only handlers: a release game build doesn't implement the underlying commands anyway,

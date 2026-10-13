@@ -79,11 +79,6 @@ const sessionClientBody = Joi.object<ReplaySessionClientRequest>({
   clientId: clientIdSchema,
 })
 
-const sourceSchema = Joi.alternatives<ReplaySessionSource>().try(
-  Joi.object({ kind: Joi.valid('game').required(), gameId: Joi.string().required() }),
-  Joi.object({ kind: Joi.valid('upload').required(), sourceId: Joi.string().uuid().required() }),
-)
-
 function convertReplaySessionErrors(err: unknown): void {
   if (err instanceof ReplaySessionSourceError) {
     switch (err.code) {
@@ -170,12 +165,16 @@ export class ReplaySessionApi {
     const { body } = validateRequest(ctx, {
       body: Joi.object<CreateReplaySessionRequest>({
         clientId: clientIdSchema,
-        source: sourceSchema.required(),
-      }),
+        gameId: Joi.string(),
+        uploadId: Joi.string().uuid(),
+      }).xor('gameId', 'uploadId'),
     })
 
+    const source: ReplaySessionSource = body.gameId
+      ? { kind: 'game', gameId: body.gameId }
+      : { kind: 'upload', sourceId: body.uploadId! }
     const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
-    return { session: await this.sessionService.createSession({ client, source: body.source }) }
+    return { session: await this.sessionService.createSession({ client, source }) }
   }
 
   @httpPost('/:sessionId/invite')

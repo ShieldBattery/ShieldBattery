@@ -16,6 +16,7 @@ import {
   GameLaunchConfig,
   isReplayLaunchConfig,
   isReplayMapInfo,
+  ReplaySessionPlaybackControl,
 } from '../../common/games/game-launch-config'
 import {
   GameNetworkStatus,
@@ -148,6 +149,7 @@ export type ActiveGameManagerEvents = {
   ]
   gameStatus: [statusInfo: ReportedGameStatus]
   replaySaved: [gameId: string, path: string]
+  replaySessionReady: [gameId: string]
   resendReplay: [request: ResendReplayRequest]
   setUserBlocked: [gameId: string, userId: SbUserId, blocked: boolean]
 }
@@ -636,6 +638,26 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
    * Enter-key send uses. Fire-and-forget: there's no reply; verify via a peer's rendered chat, or
    * this client's own via {@link debugQueryState}'s `turnState.chatLog`.
    */
+  /** Forwards a replay session's playback state to its game. */
+  setReplaySessionPlayback(gameId: string, playback: ReplaySessionPlaybackControl): void {
+    if (!this.activeGame || this.activeGame.id !== gameId) {
+      log.verbose(`Got setReplaySessionPlayback for ${gameId}, but it is not the active game`)
+      return
+    }
+
+    this.emit('gameCommand', gameId, 'replaySessionPlayback', playback)
+  }
+
+  /** Notes that a replay session game is holding its replay paused at the start. */
+  handleReplaySessionReady(gameId: string): void {
+    if (!this.activeGame || this.activeGame.id !== gameId) {
+      return
+    }
+
+    log.verbose(`Replay session game ${gameId} is ready`)
+    this.emit('replaySessionReady', gameId)
+  }
+
   sendGameChat(gameId: string, text: string): void {
     if (!this.gameFor(gameId)) {
       log.verbose(`Got sendGameChat for ${gameId}, but it is not an active game`)

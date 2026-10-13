@@ -1,5 +1,5 @@
 import { nanoid } from 'nanoid'
-import { PlayerInfo } from '../../common/games/game-launch-config'
+import { PlayerInfo, ReplaySessionPlaybackControl } from '../../common/games/game-launch-config'
 import { GameType } from '../../common/games/game-type'
 import { GameReplayInfo } from '../../common/games/games'
 import { ReplaySaveOrganize, TypedIpcRenderer } from '../../common/ipc'
@@ -21,7 +21,12 @@ import { healthChecked } from '../starcraft/health-checked'
 const ipcRenderer = new TypedIpcRenderer()
 
 async function setGameConfig(
-  replay: { name: string; path: string; startFrame?: number },
+  replay: {
+    name: string
+    path: string
+    startFrame?: number
+    session?: ReplaySessionPlaybackControl
+  },
   user?: SelfUserJson,
   blockedUsers: SbUserId[] = [],
 ) {
@@ -51,7 +56,12 @@ async function setGameConfig(
     setup: {
       gameId: nanoid(),
       name: replay.name,
-      map: { isReplay: true, path: replay.path, startFrame: replay.startFrame },
+      map: {
+        isReplay: true,
+        path: replay.path,
+        startFrame: replay.startFrame,
+        session: replay.session,
+      },
       gameType: GameType.Melee,
       gameSubType: 0,
       slots,
@@ -66,11 +76,17 @@ export function startReplay({
   path,
   name = 'Replay',
   startFrame,
+  session,
+  onLaunched,
 }: {
   path: string
   name?: string
   /** The frame to seek the replay to as soon as it starts, if not its beginning. */
   startFrame?: number
+  /** Set when the replay is watched in a replay session. */
+  session?: ReplaySessionPlaybackControl
+  /** Called with the launched game's id once the app has accepted its configuration. */
+  onLaunched?: (gameId: string) => void
 }): ThunkAction {
   return healthChecked((dispatch, getState) => {
     const { gameClient, settings } = getState()
@@ -104,9 +120,10 @@ export function startReplay({
         // TODO(2Pac): Use the game loader on the server to register watching a replay, so we can
         // show to other people (like their friends) when a user is watching a replay.
         const blockedUsers = Array.from(relationships.blocks.keys())
-        setGameConfig({ path, name, startFrame }, self?.user, blockedUsers).then(
+        setGameConfig({ path, name, startFrame, session }, self?.user, blockedUsers).then(
           gameId => {
             if (gameId) {
+              onLaunched?.(gameId)
               dispatch(openDialog({ type: DialogType.ReplayLoad, initData: { gameId } }))
             }
           },
