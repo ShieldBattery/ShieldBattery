@@ -349,7 +349,7 @@ impl GameStats {
         game: Game,
         active_units: UnitIterator,
         units: &UnitArray,
-        hotkey_frames_offset: Option<usize>,
+        hotkey_frames: Option<*const u16>,
     ) {
         let frame = game.frame_count();
         if frame < self.next_sample_frame {
@@ -402,7 +402,7 @@ impl GameStats {
         self.record_depots(game, frame, &depots);
         self.record_buildings(game, frame);
         self.record_research(game, frame);
-        self.record_control_groups(game, frame, units, hotkey_frames_offset);
+        self.record_control_groups(game, frame, units, hotkey_frames);
         self.seeded = true;
     }
 
@@ -412,7 +412,7 @@ impl GameStats {
         game: Game,
         frame: u32,
         units: &UnitArray,
-        hotkey_frames_offset: Option<usize>,
+        hotkey_frames: Option<*const u16>,
     ) {
         // Truncated to the width the game stores a group's stamp at, so the two are subtracted in
         // the same arithmetic: a group untouched for longer than that width wraps and reads as
@@ -425,8 +425,8 @@ impl GameStats {
                 let Some(contents) = read_control_group(game, units, player, group) else {
                     continue;
                 };
-                let stale = hotkey_frames_offset
-                    .and_then(|offset| unsafe { last_used_frame(game, offset, player, group) })
+                let stale = hotkey_frames
+                    .and_then(|frames| unsafe { last_used_frame(frames, player, group) })
                     .is_some_and(|used| now.wrapping_sub(used) > STALE_FRAMES);
                 groups.push(ControlGroup {
                     // The game indexes a group by the digit it is bound with.
@@ -675,21 +675,17 @@ fn group_composition(tally: &[(UnitId, u32, u32)]) -> Option<(UnitId, Option<Uni
     Some((tally[leader].0, runner_up))
 }
 
-/// The frame a group was last written on, read out of the table `game` keeps it in.
+/// The frame a group was last written on, read out of the table the game keeps it in.
 ///
 /// # Safety
 ///
-/// `offset` must be the byte offset of the game's own `u16[player][group]` stamp table, which is
-/// what the binary analysis resolves it as.
-unsafe fn last_used_frame(game: Game, offset: usize, player: usize, group: usize) -> Option<u16> {
-    if player >= MAX_PLAYERS || group >= HOTKEY_GROUPS {
+/// `frames` must point at the game's own `u16[player][group]` stamp table, which is what the binary
+/// analysis resolves it as.
+unsafe fn last_used_frame(frames: *const u16, player: usize, group: usize) -> Option<u16> {
+    if frames.is_null() || player >= MAX_PLAYERS || group >= HOTKEY_GROUPS {
         return None;
     }
-    unsafe {
-        let base = (*game) as *const u8;
-        let stamps = base.add(offset) as *const u16;
-        Some(stamps.add(player * HOTKEY_GROUPS + group).read_unaligned())
-    }
+    unsafe { Some(frames.add(player * HOTKEY_GROUPS + group).read_unaligned()) }
 }
 
 /// What one player owns, summed over the game's own per-unit counts.

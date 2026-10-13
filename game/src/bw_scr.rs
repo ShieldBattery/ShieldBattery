@@ -77,10 +77,6 @@ pub(crate) mod thiscall;
 const NET_PLAYER_COUNT: usize = 12;
 const SHADER_ID_MASK: u32 = 0x1c;
 
-/// Size of the game's `u16[8 players][0x12 groups]` selection-group stamp table, which is what a
-/// resolved offset for it has to leave room for inside `game`.
-const SELECTION_HOTKEY_FRAMES_SIZE: usize = 8 * 0x12 * 2;
-
 pub struct BwScr {
     game: Value<*mut bw::Game>,
     game_data: Value<*mut bw::BwGameData>,
@@ -167,10 +163,10 @@ pub struct BwScr {
     zoom: Value<f32>,
     cursor_scale_factor: Value<f32>,
     units: Value<*mut scr::BwVector>,
-    /// Byte offset into `game` of the `u16[player][group]` table holding the frame each selection
-    /// group was last written on. `None` when the analysis could not place it, which costs the
-    /// control-groups panel its stale marking and nothing else.
-    selection_hotkey_last_used_offset: Option<usize>,
+    /// The global `u16[player][group]` table holding the frame each selection group was last
+    /// written on. `None` when the analysis could not place it, which costs the control-groups
+    /// panel its stale marking and nothing else.
+    selection_hotkey_last_used_frames: Option<Value<*mut u16>>,
     vertex_buffer: Value<*mut scr::VertexBuffer>,
     renderer: Value<*mut scr::Renderer>,
     draw_commands: Value<*mut scr::DrawCommands>,
@@ -2253,14 +2249,7 @@ impl BwScr {
         let snet_local_player_list = analysis.snet_local_player_list();
         let units = analysis.units().ok_or("units")?;
         // Non-fatal: the control-groups panel simply does not dim a group nobody has recalled.
-        let selection_hotkey_last_used_offset = analysis
-            .selection_hotkey_last_used_frames()
-            .and_then(|offset| offset.if_constant())
-            .and_then(|offset| usize::try_from(offset).ok())
-            .filter(|offset| {
-                offset.saturating_add(SELECTION_HOTKEY_FRAMES_SIZE)
-                    <= mem::size_of::<bw_dat::structs::Game>()
-            });
+        let selection_hotkey_last_used_frames = analysis.selection_hotkey_last_used_frames();
         let vertex_buffer = analysis.vertex_buffer().ok_or("vertex_buffer")?;
         let renderer = analysis.renderer().ok_or("renderer")?;
         let draw_commands = analysis.draw_commands().ok_or("draw_commands")?;
@@ -2541,7 +2530,8 @@ impl BwScr {
             allocated_order_count: Value::new(ctx, allocated_order_count),
             order_limit: Value::new(ctx, order_limit),
             units: Value::new(ctx, units),
-            selection_hotkey_last_used_offset,
+            selection_hotkey_last_used_frames: selection_hotkey_last_used_frames
+                .map(|frames| Value::new(ctx, frames)),
             vertex_buffer: Value::new(ctx, vertex_buffer),
             renderer: Value::new(ctx, renderer),
             draw_commands: Value::new(ctx, draw_commands),
@@ -6894,7 +6884,8 @@ impl BwScr {
                     game,
                     active_units,
                     &units,
-                    self.selection_hotkey_last_used_offset,
+                    self.selection_hotkey_last_used_frames
+                        .map(|frames| frames.resolve() as *const u16),
                 );
             }
         }
