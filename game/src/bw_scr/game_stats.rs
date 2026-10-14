@@ -261,14 +261,6 @@ pub struct GameStats {
     seeded: bool,
     /// How much of the map each player could see as of the last sample, or `None` before one.
     vision: Option<MapVision>,
-    /// Which technologies each player had as the game began, or `None` before the game's first
-    /// step. A melee game hands every player a few without any research (Scanner Sweep, Defensive
-    /// Matrix and Infestation among them), and a map can hand out more; none of them is anything
-    /// the player did.
-    ///
-    /// Kept through a rewind, which goes back to a frame that came after the start rather than to
-    /// the start itself.
-    starting_techs: Option<[[bool; TECH_COUNT as usize]; MAX_PLAYERS]>,
 }
 
 /// How much of the map is in sight, read off the game's own per-tile visibility.
@@ -317,7 +309,6 @@ impl GameStats {
             next_sample_frame: 0,
             seeded: false,
             vision: None,
-            starting_techs: None,
         }
     }
 
@@ -331,7 +322,6 @@ impl GameStats {
         self.next_sample_frame = 0;
         self.seeded = false;
         self.vision = None;
-        self.starting_techs = None;
     }
 
     /// The frame the newest sample was taken on.
@@ -454,19 +444,6 @@ impl GameStats {
         self.events.iter().rev()
     }
 
-    /// Whether a player had a technology from the start of the game rather than by researching it,
-    /// or `None` before the game's first step has looked.
-    pub fn started_with_tech(&self, player: u8, tech: TechId) -> Option<bool> {
-        let starting = self.starting_techs.as_ref()?;
-        Some(
-            starting
-                .get(player as usize)
-                .and_then(|techs| techs.get(tech.0 as usize))
-                .copied()
-                .unwrap_or(false),
-        )
-    }
-
     /// What a player has on their number keys, as of the last sample.
     pub fn control_groups(&self, player: u8) -> &[ControlGroup] {
         match self.players.get(player as usize) {
@@ -493,14 +470,6 @@ impl GameStats {
             .is_some_and(|latest| frame < latest)
         {
             self.rewind(frame);
-        }
-        if self.starting_techs.is_none() {
-            let techs = TECH_COUNT.min(TechId::entry_amount());
-            self.starting_techs = Some(std::array::from_fn(|player| {
-                std::array::from_fn(|tech| {
-                    (tech as u32) < techs && game.tech_researched(player as u8, TechId(tech as u16))
-                })
-            }));
         }
         if frame < self.next_sample_frame {
             return;

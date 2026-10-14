@@ -40,11 +40,12 @@ pub use matchup::{
 pub use military::{MilitaryPlayerView, MilitaryView, render_military_view};
 pub use minimap::{MinimapFrameOutcome, render_minimap_frame};
 pub use production::{
-    CompletedResearchView, ProductionIcon, ProductionItemView, ProductionOutcome,
-    ProductionPlayerView, ProductionView, render_production_view,
+    ProductionIcon, ProductionItemView, ProductionOutcome, ProductionPlayerView, ProductionView,
+    render_production_view,
 };
 pub use selection::{
-    ProductionProgressView, SelectedUnitView, SelectionCase, SelectionView, render_selection_view,
+    ProductionProgressView, SelectedUnitView, SelectionCase, SelectionView, UnitUpgradeView,
+    UpgradeEffect, WeaponDamageView, render_selection_view,
 };
 pub use team_cards::{
     TeamCardPlayerView, TeamCardTotalsView, TeamCardView, TeamCardsView, render_team_cards_view,
@@ -222,11 +223,11 @@ pub(crate) fn paint_player_dot(ui: &Ui, rect: Rect, color: Color32, diameter: f3
 }
 
 /// How far an owner's color is lifted toward white before a unit's icon is tinted with it.
-const OWNER_TINT_LIFT: f32 = 0.7;
+const OWNER_TINT_LIFT: f32 = 0.8;
 
 /// How strongly a tile showing a unit is washed in its owner's color, and how strongly its edge is
 /// drawn in it.
-const OWNER_WASH_ALPHA: f32 = 0.2;
+const OWNER_WASH_ALPHA: f32 = 0.1;
 const OWNER_EDGE_ALPHA: f32 = 0.7;
 
 /// The color a unit's icon is tinted with for `owner`: their color brought up to full brightness

@@ -6,13 +6,6 @@
 //! control-group panel and over whatever band the game's own console is taking, which is where a
 //! watcher's eye already is during a fight.
 //!
-//! Research that has finished is no longer being made, so it has no tile; yet who has +1 attack,
-//! Stim Packs or Lurker Aspect is what a caster is asked about most. The end of each row carries it
-//! as a run of small chips, one per upgrade or technology the player has, an upgrade's chip marked
-//! with the level it has reached. The chips are state rather than activity, so they are drawn
-//! smaller and dimmer than the tiles, and they stand against the row's right edge, where the tiles
-//! coming and going at the other end do not move them.
-//!
 //! A tile acts when it is clicked: it selects what is making that thing, and clicking it again
 //! walks to the next one, which is how a caster follows a reinforcement wave back to the buildings
 //! producing it.
@@ -23,18 +16,16 @@
 //! and honest about what it is.
 
 use egui::{
-    Align, Align2, Area, Color32, Context, Id, Order, Pos2, Rect, Sense, Stroke, StrokeKind,
-    TextureId, Ui, Vec2, pos2, vec2,
+    Align, Align2, Area, Color32, Context, Id, Order, Rect, Sense, TextureId, Ui, Vec2, pos2, vec2,
 };
 
-use crate::colors::{BLUE80, GREY_BLUE20, GREY_BLUE30, GREY_BLUE60};
-use crate::kit::text::{self, BodyWeight};
-use crate::kit::{motion, theme, tiers, widgets};
+use crate::colors::GREY_BLUE60;
+use crate::kit::text;
+use crate::kit::{motion, theme, tiers};
 use crate::observer::{
     StackSlot, centred, fit_icon, owner_tint, paint_owner_wash, paint_player_bar, paint_text,
     paint_tile_chrome, paint_tinted_icon, unit_codes,
 };
-use crate::tr;
 
 /// How wide the panel is, in overlay points.
 pub const PANEL_WIDTH: f32 = 620.0;
@@ -74,31 +65,6 @@ const COUNT_TEXT_SIZE: f32 = 11.0;
 /// How far the count sits from the tile's own corner.
 const COUNT_INSET: f32 = 3.0;
 
-/// Size of one chip of research a player already has: square, and well short of a tile's height,
-/// so the two never read as the same kind of thing.
-const CHIP_SIZE: f32 = 26.0;
-
-/// Gap between two chips, tighter than between two tiles: the chips are one run of state.
-const CHIP_GAP: f32 = 4.0;
-
-/// The least room between the last tile and the first chip, with the divider halfway across it.
-const CHIP_SET_GAP: f32 = 16.0;
-
-/// Text size of the level an upgrade's chip carries, and of the number a host with no atlas writes
-/// in place of a chip's icon.
-const CHIP_TEXT_SIZE: f32 = 11.0;
-
-/// How far an upgrade's level plate hangs past the chip's own corner, which keeps the digit off the
-/// middle of an icon only a few times its height.
-const LEVEL_OVERHANG: f32 = 2.0;
-
-/// Room on either side of the level's digit on its plate.
-const LEVEL_PAD: f32 = 2.0;
-
-/// How bright a chip's icon is drawn while nothing is pointing at it: dimmed, since a chip is
-/// something the player has rather than something going on.
-const CHIP_ICON_TINT: Color32 = Color32::from_gray(176);
-
 /// How many tiles fit in a row of the panel's design width, which is what the row's width allows
 /// and not a design limit: a player producing more than this is producing more than the panel was
 /// ever meant to list.
@@ -113,19 +79,6 @@ pub(crate) const MIN_WIDTH: f32 =
 fn tiles_that_fit(width: f32) -> usize {
     let room = tiers::panel_content_width(width) - COLOR_BAR - BAR_GAP + TILE_GAP;
     ((room / (TILE_WIDTH + TILE_GAP)).floor().max(0.0) as usize).min(MAX_TILES)
-}
-
-/// How many chips fit beside `tiles` production tiles in a row whose content is `content_width`
-/// wide, keeping the gap that sets the two apart.
-fn chips_that_fit(content_width: f32, tiles: usize) -> usize {
-    let start = match tiles {
-        0 => COLOR_BAR + BAR_GAP,
-        tiles => {
-            COLOR_BAR + BAR_GAP + tiles as f32 * (TILE_WIDTH + TILE_GAP) - TILE_GAP + CHIP_SET_GAP
-        }
-    };
-    let room = content_width - start + CHIP_GAP;
-    (room / (CHIP_SIZE + CHIP_GAP)).floor().max(0.0) as usize
 }
 
 /// How many players' rows fit in `room` points of height, chrome included.
@@ -166,18 +119,6 @@ pub struct ProductionItemView {
     pub progress: f32,
 }
 
-/// Something a player already has: an upgrade at the level they have taken it to, or a technology
-/// they have researched.
-pub struct CompletedResearchView {
-    pub icon: ProductionIcon,
-    /// The level the upgrade has reached, for an upgrade with more than one level to it; `None` for
-    /// a technology or an upgrade that is simply had or not.
-    pub level: Option<u8>,
-    /// What the game calls it, for the card that names it under the pointer; `None` where the host
-    /// cannot say.
-    pub name: Option<String>,
-}
-
 /// One player's row.
 pub struct ProductionPlayerView {
     /// The game's own player id, which is what a click on a tile names.
@@ -186,22 +127,19 @@ pub struct ProductionPlayerView {
     pub color: Color32,
     /// What they are making, in the order the row lists it.
     pub items: Vec<ProductionItemView>,
-    /// The research they already have, in the order the row lists it. A row without room for all
-    /// of it drops chips off the end of this list first, so the host puts what matters most first.
-    pub completed: Vec<CompletedResearchView>,
 }
 
 impl ProductionPlayerView {
-    /// Whether the player has a row: anything on the way, or anything already researched.
+    /// Whether the player has a row, which is whether they have anything on the way.
     fn has_row(&self) -> bool {
-        !self.items.is_empty() || !self.completed.is_empty()
+        !self.items.is_empty()
     }
 }
 
 /// Everything the production panel draws from.
 pub struct ProductionView {
-    /// The players being watched. A player making nothing and with nothing researched has no row,
-    /// and a frame where that is every player has no panel.
+    /// The players being watched. A player making nothing has no row, and a frame where that is
+    /// every player has no panel.
     pub players: Vec<ProductionPlayerView>,
 }
 
@@ -247,10 +185,10 @@ impl ProductionFit {
 }
 
 /// Draws the production panel in `slot`, fading and sliding it in and out. Returns nothing at all
-/// once it is gone, or while no player has anything being made or researched.
+/// once it is gone, or while no player has anything being made.
 ///
 /// On a screen that leaves the slot narrower than the panel's design width a row carries fewer
-/// chips and then fewer tiles, and under a ceiling too low for every row the panel keeps the first
+/// tiles, and under a ceiling too low for every row the panel keeps the first
 /// players' rows: a production panel short of a row is still the panel, where one drawn over the
 /// surfaces above it is neither.
 pub fn render_production_view(
@@ -327,132 +265,8 @@ fn draw_rows(ui: &mut Ui, view: &ProductionView, fit: ProductionFit) -> Option<(
                 clicked = Some((player.player_id, index));
             }
         }
-        let tiles = player.items.len().min(fit.tiles);
-        draw_chips(
-            ui,
-            row,
-            player,
-            chips_that_fit(content_width, tiles),
-            tiles > 0,
-        );
     }
     clicked
-}
-
-/// Draws as many of a player's research chips as `room` allows against the row's right edge, with
-/// the divider that sets them apart from the tiles when there are tiles to set them apart from.
-fn draw_chips(ui: &Ui, row: Rect, player: &ProductionPlayerView, room: usize, after_tiles: bool) {
-    let shown = player.completed.len().min(room);
-    if shown == 0 {
-        return;
-    }
-    // Level with the middle of the tiles rather than of the row, which has the progress bars in it.
-    let top = row.top() + (TILE_HEIGHT - CHIP_SIZE) * 0.5;
-    let left = row.right() - shown as f32 * (CHIP_SIZE + CHIP_GAP) + CHIP_GAP;
-    if after_tiles {
-        ui.painter().vline(
-            left - CHIP_SET_GAP * 0.5,
-            top..=top + CHIP_SIZE,
-            Stroke::new(theme::HAIRLINE, theme::TIER0_DIVIDER),
-        );
-    }
-    let mut hovered = None;
-    for (index, chip) in player.completed.iter().take(shown).enumerate() {
-        let rect = Rect::from_min_size(
-            pos2(left + index as f32 * (CHIP_SIZE + CHIP_GAP), top),
-            Vec2::splat(CHIP_SIZE),
-        );
-        let response = ui.interact(
-            rect,
-            ui.id().with(("research_chip", player.player_id, index)),
-            Sense::hover(),
-        );
-        draw_chip(ui, rect, chip, response.hovered());
-        if let Some(pointer) = response.hover_pos() {
-            hovered = Some((pointer, chip));
-        }
-    }
-    if let Some((pointer, chip)) = hovered {
-        draw_chip_hint(ui, pointer, chip);
-    }
-}
-
-/// Draws one chip: the icon of what the player has, and the level an upgrade has reached.
-fn draw_chip(ui: &Ui, rect: Rect, chip: &CompletedResearchView, hovered: bool) {
-    let corner_radius = theme::radius(theme::RADIUS_CHIP);
-    ui.painter()
-        .rect_filled(rect, corner_radius, theme::alpha(GREY_BLUE20, 0.70));
-    ui.painter().add(egui::Shape::rect_stroke(
-        rect,
-        corner_radius,
-        Stroke::new(
-            theme::HAIRLINE,
-            theme::alpha(BLUE80, if hovered { 0.45 } else { 0.10 }),
-        ),
-        StrokeKind::Inside,
-    ));
-    let icon_rect = rect.shrink(theme::HAIRLINE);
-    match chip.icon.texture {
-        Some(texture) => {
-            ui.painter().image(
-                texture,
-                fit_icon(icon_rect, chip.icon.size),
-                Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
-                if hovered {
-                    Color32::WHITE
-                } else {
-                    CHIP_ICON_TINT
-                },
-            );
-        }
-        None => paint_text(
-            ui,
-            icon_rect,
-            &text::body(CHIP_TEXT_SIZE, BodyWeight::Semibold).with_color(theme::TEXT_DIM),
-            &unit_codes::code_or_index(chip.icon.index),
-            Align::Center,
-        ),
-    }
-
-    if let Some(level) = chip.level {
-        // On a plate of its own rather than straight over the icon the way a tile's count is: at
-        // this size the digit is half the chip's height, and over a busy icon it would be lost.
-        let galley =
-            text::body(CHIP_TEXT_SIZE, BodyWeight::Semibold).galley(ui, &level.to_string());
-        let corner = rect.right_bottom() + Vec2::splat(LEVEL_OVERHANG);
-        let plate = Rect::from_min_max(corner - galley.size() - vec2(LEVEL_PAD * 2.0, 0.0), corner);
-        ui.painter()
-            .rect_filled(plate, theme::radius(theme::RADIUS_TIGHT), GREY_BLUE30);
-        ui.painter().galley(
-            pos2(plate.left() + LEVEL_PAD, plate.top()),
-            galley,
-            theme::TEXT_SECONDARY,
-        );
-    }
-}
-
-/// Names the research under the pointer, and the level an upgrade has reached.
-fn draw_chip_hint(ui: &Ui, pointer: Pos2, chip: &CompletedResearchView) {
-    if chip.name.is_none() && chip.level.is_none() {
-        return;
-    }
-    widgets::tooltip(ui.ctx(), Id::new("sb_research_chip_hint"), pointer, |ui| {
-        ui.spacing_mut().item_spacing = vec2(0.0, theme::SPACE_XS);
-        if let Some(name) = &chip.name {
-            ui.label(text::body(13.0, BodyWeight::Medium).job(name));
-        }
-        if let Some(level) = chip.level {
-            ui.label(
-                text::body(12.0, BodyWeight::Regular)
-                    .with_color(theme::TEXT_SECONDARY)
-                    .job(&tr!(
-                        "observer.researchLevel",
-                        "Level {{level}}",
-                        level = level
-                    )),
-            );
-        }
-    });
 }
 
 /// Draws one tile: what is being made, in its `owner`'s color, how many of it, and how far along
@@ -512,57 +326,5 @@ fn draw_tile(ui: &Ui, rect: Rect, item: &ProductionItemView, owner: Color32, hov
     if filled.width() > 0.0 {
         ui.painter()
             .rect_filled(filled, corner_radius, theme::ACCENT);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// Where the last of `tiles` tiles ends, from the left edge of a row.
-    fn tiles_end(tiles: usize) -> f32 {
-        COLOR_BAR + BAR_GAP + tiles as f32 * (TILE_WIDTH + TILE_GAP) - TILE_GAP
-    }
-
-    /// Where the first of `chips` chips starts, from the left edge of a row `content_width` wide.
-    fn chips_start(content_width: f32, chips: usize) -> f32 {
-        content_width - chips as f32 * (CHIP_SIZE + CHIP_GAP) + CHIP_GAP
-    }
-
-    #[test]
-    fn chips_never_come_closer_to_the_tiles_than_the_gap_between_them() {
-        let mut width = MIN_WIDTH;
-        while width <= PANEL_WIDTH {
-            let content = tiers::panel_content_width(width);
-            for tiles in 1..=tiles_that_fit(width) {
-                let chips = chips_that_fit(content, tiles);
-                if chips > 0 {
-                    assert!(
-                        chips_start(content, chips) - tiles_end(tiles) >= CHIP_SET_GAP,
-                        "{chips} chips beside {tiles} tiles in a panel {width} wide",
-                    );
-                }
-            }
-            width += 7.0;
-        }
-    }
-
-    #[test]
-    fn a_row_of_tiles_as_wide_as_the_panel_leaves_no_room_for_chips() {
-        assert_eq!(chips_that_fit(CONTENT_WIDTH, MAX_TILES), 0);
-    }
-
-    #[test]
-    fn a_row_with_no_tiles_gives_the_chips_all_of_it_past_the_color_bar() {
-        let chips = chips_that_fit(CONTENT_WIDTH, 0);
-        assert!(chips_start(CONTENT_WIDTH, chips) >= COLOR_BAR + BAR_GAP);
-        assert!(chips_start(CONTENT_WIDTH, chips + 1) < COLOR_BAR + BAR_GAP);
-    }
-
-    #[test]
-    fn a_busy_row_of_production_still_has_room_for_a_players_upgrades() {
-        // Six things on the way at once is a busy macro game; weapons, armor and a few technologies
-        // are what a caster wants to read beside it.
-        assert!(chips_that_fit(CONTENT_WIDTH, 6) >= 5);
     }
 }

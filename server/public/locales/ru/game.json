@@ -167,7 +167,10 @@
     "seriesWorkers": "Рабочие",
     "spoilerFree": "Без спойлеров",
     "teamName": "Команда {{number}}",
-    "timelineEmpty": "Пока ничего не произошло"
+    "timelineEmpty": "Пока ничего не произошло",
+    "underConstruction": "Строится",
+    "upgradeArmor": "Броня {{value}}",
+    "upgradeDamage": "Урон {{value}}"
   },
   "options": {
     "announcer": "Диктор",

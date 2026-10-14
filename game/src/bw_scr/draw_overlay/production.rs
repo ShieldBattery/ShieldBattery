@@ -1,16 +1,16 @@
 use std::ptr;
 
-use bw_dat::{TechId, Unit, UnitId, UpgradeId};
+use bw_dat::{TechId, Unit, UnitId, UpgradeId, WeaponId};
 use egui::{Color32, TextureId, Vec2};
 use hashbrown::HashMap;
 use overlay_ui::observer::{
-    CompletedResearchView, ProductionIcon, ProductionItemView, ProductionPlayerView,
-    ProductionProgressView, ProductionView,
+    ProductionIcon, ProductionItemView, ProductionPlayerView, ProductionProgressView,
+    ProductionView, UnitUpgradeView, UpgradeEffect, WeaponDamageView,
 };
 
 use crate::bw;
 use crate::bw_scr::draw_inject;
-use crate::bw_scr::game_stats::{GameStats, TECH_COUNT, TimelineSubject, UPGRADE_COUNT};
+use crate::bw_scr::game_stats::TimelineSubject;
 
 use super::{BwVars, OverlayState, Texture, player_has_units, replay_players_by_team};
 
@@ -173,12 +173,12 @@ impl OverlayState {
     }
 
     /// Builds the production panel's view: one row per player, in the order the replay lists their
-    /// players, with what they are making and the research they already have.
+    /// players, with what they are making.
     ///
     /// Players with no units of their own are left out, as are a team game's players who are not the
     /// one commanding the team: in a team game every unit belongs to the commanding player, so the
     /// others would each carry a row of everything or a row of nothing.
-    pub fn build_production_view(&self, bw: &BwVars, stats: Option<&GameStats>) -> ProductionView {
+    pub fn build_production_view(&self, bw: &BwVars) -> ProductionView {
         let is_team_game = crate::game_thread::is_team_game();
         let players = replay_players_by_team(bw)
             .filter(|&(_team, player_id)| player_has_units(bw, player_id))
@@ -208,7 +208,6 @@ impl OverlayState {
                             progress: group.progress,
                         })
                         .collect(),
-                    completed: completed_research(bw, stats, player_id),
                 })
             })
             .collect();
@@ -273,58 +272,6 @@ impl OverlayState {
         self.production.last_clicked = Some(unit);
         self.out_state.select_unit = Some(unit);
     }
-}
-
-/// The research a player already has, in the order their row lists it: the upgrades with levels to
-/// them (armor, weapons, shields) first, then technologies, then the upgrades that are simply had or
-/// not, each by id so nothing moves while the game goes on. A row short of room drops chips off the
-/// end, so the levels a caster quotes as "+1/+1" are the last to go.
-///
-/// An upgrade being taken to its next level counts at the level it has, which is what the player's
-/// units fight with until the tile for the next one finishes. Technologies the player started the
-/// game with are left out, as `stats` recorded them; until it has, so is every technology, rather
-/// than the row opening on a run of chips for things nobody researched.
-fn completed_research(
-    bw: &BwVars,
-    stats: Option<&GameStats>,
-    player: u8,
-) -> Vec<CompletedResearchView> {
-    let game = bw.game;
-    let mut leveled = Vec::new();
-    let mut single = Vec::new();
-    for id in 0..UPGRADE_COUNT.min(UpgradeId::entry_amount()) {
-        let upgrade = UpgradeId(id as u16);
-        let level = game.upgrade_level(player, upgrade);
-        if level == 0 {
-            continue;
-        }
-        // A map can grant levels past the limit it sets, so whichever is higher says whether the
-        // upgrade has levels to tell apart.
-        let has_levels = game.upgrade_max_level(player, upgrade).max(level) > 1;
-        let chip = CompletedResearchView {
-            icon: production_icon(Production::Upgrade(upgrade), bw),
-            level: has_levels.then_some(level),
-            name: production_name(Production::Upgrade(upgrade), bw),
-        };
-        match has_levels {
-            true => leveled.push(chip),
-            false => single.push(chip),
-        }
-    }
-    let techs = (0..TECH_COUNT.min(TechId::entry_amount()))
-        .map(|id| TechId(id as u16))
-        .filter(|&tech| {
-            game.tech_researched(player, tech)
-                && stats.and_then(|stats| stats.started_with_tech(player, tech)) == Some(false)
-        })
-        .map(|tech| CompletedResearchView {
-            icon: production_icon(Production::Tech(tech), bw),
-            level: None,
-            name: production_name(Production::Tech(tech), bw),
-        });
-    leveled.extend(techs);
-    leveled.append(&mut single);
-    leveled
 }
 
 /// Returns Some((Production, progress)) if the unit is actively producing something.
@@ -393,7 +340,91 @@ pub(super) fn selected_production(unit: Unit, bw: &BwVars) -> Option<ProductionP
         progress: progress.as_float(),
         queue: queued_units(unit, production)
             .map(|queue| queue.map(|unit_id| unit_icon(unit_id, bw)).collect()),
+        // A building under construction is made as itself, and so is a drone turning into one: by
+        // then the unit already is the building it is becoming.
+        is_subject: production == Production::Unit(unit.id()),
     })
+}
+
+/// The upgrades a unit fights with, as the game's console lists them beside a unit selected alone:
+/// its armor, its shields for a unit that has any, then whatever improves its weapons, each at the
+/// level its owner has taken it to.
+///
+/// A unit whose guns are on a turret (a goliath, a siege tank) has its weapons on the turret's
+/// units.dat entry rather than its own, so the turret's are read too, and an upgrade improving two
+/// weapons is one upgrade with both under it.
+///
+/// An upgrade the owner can never take a level of is left out. Every building's armor and a few
+/// weapons (a spider mine's, a sunken colony's) name an upgrade slot no race researches, and a chip
+/// that can only ever read 0 says nothing.
+pub(super) fn selected_upgrades(unit: Unit, bw: &BwVars) -> Vec<UnitUpgradeView> {
+    // The upgrade tables are indexed by player slot and assert on anything past the twelfth.
+    const PLAYER_SLOTS: u8 = 0xc;
+    let player = unit.player();
+    if player >= PLAYER_SLOTS {
+        return Vec::new();
+    }
+    let game = bw.game;
+    let id = unit.id();
+    let mut upgrades: Vec<(UpgradeId, UpgradeEffect)> = Vec::new();
+    if let Some(armor) = id.armor_upgrade() {
+        let base = id.armor();
+        upgrades.push((
+            armor,
+            UpgradeEffect::Armor {
+                base,
+                bonus: unit.armor(game).saturating_sub(base),
+            },
+        ));
+    }
+    if id.has_shields() {
+        upgrades.push((bw_dat::upgrade::PLASMA_SHIELDS, UpgradeEffect::Shields));
+    }
+    let mut weapons: Vec<WeaponId> = Vec::new();
+    for weapon in [Some(id), id.subunit()]
+        .into_iter()
+        .flatten()
+        .flat_map(|id| [id.ground_weapon(), id.air_weapon()])
+        .flatten()
+    {
+        if !weapons.contains(&weapon) {
+            weapons.push(weapon);
+        }
+    }
+    for weapon in weapons {
+        let Some(upgrade) = weapon.upgrade() else {
+            continue;
+        };
+        let damage = WeaponDamageView {
+            // The overlay is built in the game's draw, on its main thread.
+            name: bw
+                .stat_txt
+                .and_then(|stat_txt| unsafe { stat_txt.weapon_name(weapon) }),
+            base: weapon.damage(),
+            bonus: weapon
+                .bonus()
+                .saturating_mul(u32::from(game.upgrade_level(player, upgrade))),
+            hits: weapon.factor(),
+        };
+        match upgrades.iter_mut().find(|(known, _)| *known == upgrade) {
+            Some((_, UpgradeEffect::Damage(weapons))) => weapons.push(damage),
+            Some(_) => {}
+            None => upgrades.push((upgrade, UpgradeEffect::Damage(vec![damage]))),
+        }
+    }
+    upgrades
+        .into_iter()
+        .filter_map(|(upgrade, effect)| {
+            let level = game.upgrade_level(player, upgrade);
+            // A map can grant levels past the limit it sets, so either says the upgrade has levels.
+            (level.max(game.upgrade_max_level(player, upgrade)) > 0).then(|| UnitUpgradeView {
+                icon: production_icon(Production::Upgrade(upgrade), bw),
+                level,
+                name: production_name(Production::Upgrade(upgrade), bw),
+                effect,
+            })
+        })
+        .collect()
 }
 
 /// The units waiting behind the one this unit is making, in the order they will be made, or

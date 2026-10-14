@@ -157,7 +157,10 @@
     "seriesWorkers": "Workers",
     "spoilerFree": "Spoiler-free",
     "teamName": "Team {{number}}",
-    "timelineEmpty": "Nothing has happened yet"
+    "timelineEmpty": "Nothing has happened yet",
+    "underConstruction": "Under construction",
+    "upgradeArmor": "Armor {{value}}",
+    "upgradeDamage": "Damage {{value}}"
   },
   "options": {
     "announcer": "Announcer",

@@ -329,23 +329,37 @@ pub fn build_control_groups_view(
 /// Read straight off the selection rather than off the sampler, so the panel changes in the same
 /// frame the click does.
 pub fn build_selection_view(bw: &BwVars, players: &[StatsPlayer]) -> SelectionView {
+    let selected: Vec<Unit> = bw
+        .client_selection
+        .iter()
+        .flatten()
+        .take(SelectionView::MAX_UNITS)
+        .copied()
+        .collect();
+    let alone = selected.len() == 1;
     SelectionView {
-        units: bw
-            .client_selection
-            .iter()
-            .flatten()
-            .take(SelectionView::MAX_UNITS)
-            .map(|&unit| selected_unit_view(bw, players, unit))
+        units: selected
+            .into_iter()
+            .map(|unit| selected_unit_view(bw, players, unit, alone))
             .collect(),
     }
 }
 
 /// One selected unit, named and measured the way the game's own console measures it, with what it
-/// is making and what it is carrying.
-fn selected_unit_view(bw: &BwVars, players: &[StatsPlayer], unit: Unit) -> SelectedUnitView {
+/// is making and what it is carrying, and the upgrades it fights with where it is selected `alone`:
+/// those are only read out for a unit selected alone, so they are only read for one.
+fn selected_unit_view(
+    bw: &BwVars,
+    players: &[StatsPlayer],
+    unit: Unit,
+    alone: bool,
+) -> SelectedUnitView {
     let mut view = carried_unit_view(bw, players, unit);
     view.production = production::selected_production(unit, bw);
     view.cargo = cargo_views(bw, players, unit);
+    if alone {
+        view.upgrades = production::selected_upgrades(unit, bw);
+    }
     view
 }
 
@@ -416,6 +430,7 @@ fn carried_unit_view(bw: &BwVars, players: &[StatsPlayer], unit: Unit) -> Select
         building: unit_id.is_building(),
         production: None,
         cargo: Vec::new(),
+        upgrades: Vec::new(),
     }
 }
 

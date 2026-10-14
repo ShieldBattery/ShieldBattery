@@ -13,7 +13,7 @@
 
 use std::ffi::c_void;
 
-use bw_dat::{TechId, UnitId, UpgradeId};
+use bw_dat::{TechId, UnitId, UpgradeId, WeaponId};
 
 /// The start of SC:R's string table object, as far as the string buffer.
 ///
@@ -102,6 +102,15 @@ impl StatTxt {
     /// Must be called on the game's main thread, after the dat files are loaded.
     pub unsafe fn tech_name(&self, tech_id: TechId) -> Option<String> {
         unsafe { self.string(tech_id.label()) }
+    }
+
+    /// The name the game gives a weapon, or `None` before stat_txt is loaded.
+    ///
+    /// # Safety
+    ///
+    /// Must be called on the game's main thread, after the dat files are loaded.
+    pub unsafe fn weapon_name(&self, weapon_id: WeaponId) -> Option<String> {
+        unsafe { self.string(weapon_id.label()) }
     }
 
     /// The string with stat_txt id `id`, which counts from 1 as the dat files' labels do.

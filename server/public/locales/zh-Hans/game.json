@@ -152,7 +152,10 @@
     "seriesWorkers": "农民",
     "spoilerFree": "无剧透",
     "teamName": "{{number}}队",
-    "timelineEmpty": "暂无事件"
+    "timelineEmpty": "暂无事件",
+    "underConstruction": "正在建造",
+    "upgradeArmor": "护甲 {{value}}",
+    "upgradeDamage": "伤害 {{value}}"
   },
   "options": {
     "announcer": "播报员",

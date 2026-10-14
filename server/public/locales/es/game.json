@@ -162,7 +162,10 @@
     "seriesWorkers": "Trabajadores",
     "spoilerFree": "Sin spoilers",
     "teamName": "Equipo {{number}}",
-    "timelineEmpty": "Todavía no ha pasado nada"
+    "timelineEmpty": "Todavía no ha pasado nada",
+    "underConstruction": "En construcción",
+    "upgradeArmor": "Armadura {{value}}",
+    "upgradeDamage": "Daño {{value}}"
   },
   "options": {
     "announcer": "Locutor",

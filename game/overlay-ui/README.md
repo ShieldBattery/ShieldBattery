@@ -181,11 +181,15 @@ bottom of that stack, and is the game console's own selection with nothing else 
 around it. It draws whichever reading the selection is: several units are the console's own twelve
 slots in two rows of six and nothing besides, since twelve sets of numbers at once are numbers
 nobody reads; one unit is drawn large with whose it is and the numbers the console only ever shows
-for a selection of one — health, shields and energy against what the unit has room for, and what it
-has killed — on as many rows as it has readings for, with the units a transport or a bunker is
-carrying beside them; anything making something, a building training or researching and an egg
-mid-morph alike, puts what is on the way, how far along it is and what is queued behind it where
-those carried units would be; and a selection of none leaves the panel on screen saying so. No host
+for a selection of one — a bar each for its health, shields and energy, as many as it has, then the
+upgrades it fights with (armor, shields, weapons, each a chip with its owner's level in the corner
+and a card under the pointer putting the armor or damage it comes to into numbers) and what it has
+killed; one building, or a transport or bunker with units inside, is drawn smaller with those
+numbers under it, and with the units it is carrying beside them; anything making something, a
+building training or researching and an egg mid-morph alike, puts what is on the way, how far along
+it is and what is queued behind it where those carried units would be, except a building that is
+itself going up, which is named once and gets only its progress; and a selection of none leaves the
+panel on screen saying so. No host
 can draw a wireframe yet, so a tile carries the same icon or code the other panels fall back to, and
 the tint the game puts on a wireframe goes on the tile's outline instead: green, yellow and red as
 the unit's health and shields together fall through two thirds and a third. The body is the same
@@ -410,14 +414,14 @@ many players the game has (split down the middle into two sides, which is what w
 through its three forms), each player's race, whether the left player is over their supply cap,
 whether they all carry the longest names the game allows, how many entries each production row
 holds, how many of the ten number keys each player has a group on, how many units the watcher has
-selected and whether that selection is instead a building part way through a unit or a transport
-with an army inside it, and whether the game reports map control at all — the real one does not yet,
-so that switch is how the bar's absence is judged. Its presets are each of its three screens —
-minimal, everything, and everything with the game's console hidden — at each of `1v1`, `2v2`, `3v3`
-and `4v4`, plus two duels on the analyst's screen that put the selection panel into its producing
-and its loaded readings, and the panels answer a vision toggle and a production click the way the
-game would. Production tiles draw their atlas frame's number, since only the game DLL can reach the
-icons themselves. Clicks the overlay reports back (the disconnect Drop and Leave buttons, the
+selected and whether that selection is instead a building part way through a unit, a transport
+with an army inside it or a building still going up, and whether the game reports map control at
+all — the real one does not yet, so that switch is how the bar's absence is judged. Its presets are
+each of its three screens — minimal, everything, and everything with the game's console hidden — at
+each of `1v1`, `2v2`, `3v3` and `4v4`, plus three duels on the analyst's screen that put the
+selection panel into its producing, its loaded and its under-construction readings, and the panels
+answer a vision toggle and a production click the way the game would. Production tiles draw their
+atlas frame's number, since only the game DLL can reach the icons themselves. Clicks the overlay reports back (the disconnect Drop and Leave buttons, the
 production selection) are logged under the knobs.
 
 The **kitchen sink** is not a screen the game shows. It lays the whole kit out at once — a tier-0

@@ -18,13 +18,13 @@
 
 use egui::{Color32, Rect, pos2, vec2};
 use overlay_ui::observer::{
-    CompletedResearchView, ControlGroupView, ControlGroupsPlayerView, ControlGroupsView,
-    EconomyPlayerView, EconomyView, GraphGrouping, GraphLineView, GraphSeries, GraphsView,
-    MapControlSideView, MapControlView, MatchupForm, MatchupPlayerView, MatchupView,
-    MilitaryPlayerView, MilitaryView, ObserverView, ProductionIcon, ProductionItemView,
-    ProductionPlayerView, ProductionProgressView, ProductionView, RaceView, SelectedUnitView,
-    SelectionView, TeamCardPlayerView, TeamCardTotalsView, TeamCardView, TeamCardsView,
-    TimelineEventKind, TimelineEventView, TimelineView, team_name,
+    ControlGroupView, ControlGroupsPlayerView, ControlGroupsView, EconomyPlayerView, EconomyView,
+    GraphGrouping, GraphLineView, GraphSeries, GraphsView, MapControlSideView, MapControlView,
+    MatchupForm, MatchupPlayerView, MatchupView, MilitaryPlayerView, MilitaryView, ObserverView,
+    ProductionIcon, ProductionItemView, ProductionPlayerView, ProductionProgressView,
+    ProductionView, RaceView, SelectedUnitView, SelectionView, TeamCardPlayerView,
+    TeamCardTotalsView, TeamCardView, TeamCardsView, TimelineEventKind, TimelineEventView,
+    TimelineView, UnitUpgradeView, UpgradeEffect, WeaponDamageView, team_name,
 };
 use overlay_ui::shell::PanelPrefs;
 use serde::{Deserialize, Serialize};
@@ -160,6 +160,10 @@ pub struct Knobs {
     /// Whether what is selected is a transport with an army inside it, which is the reading the
     /// carried units are drawn for. Takes the selection over from the count.
     pub selection_cargo: bool,
+    /// Whether what is selected is a building that is itself still going up, which is the reading
+    /// that names the building once rather than again as what it is making. Takes the selection
+    /// over from the count.
+    pub selection_constructing: bool,
     /// Whether the game reports how much of the map each side holds. The real game has no such
     /// measurement yet, so this is the switch that proves the bar disappears without one rather
     /// than drawing an empty share.
@@ -192,6 +196,7 @@ impl Default for Knobs {
             selection: 1,
             selection_building: false,
             selection_cargo: false,
+            selection_constructing: false,
             map_control: true,
             vision_picker: false,
         }
@@ -665,57 +670,7 @@ fn production_player(knobs: &Knobs, index: usize, t: f64) -> ProductionPlayerVie
         player_id: index as u8,
         color: overlay_ui::kit::theme::player_color(index),
         items,
-        completed: completed_research(knobs.race(index), index),
     }
-}
-
-/// One piece of research a player of the fake game has: the frame its icon would be drawn from,
-/// the level it has reached for an upgrade with levels, and the name the game's English stat_txt
-/// gives it.
-type Research = (u16, Option<u8>, &'static str);
-
-/// What a player of each race has researched by the scenario's ten minutes, in the order the game
-/// DLL lists it: upgrades with levels, then technologies, then the upgrades that are had or not.
-/// The icon frames are stand-ins, since nothing here has the game's atlas to draw them from.
-const ZERG_RESEARCH: [Research; 5] = [
-    (0x123, Some(1), "Zerg Missile Attacks"),
-    (0x11c, Some(2), "Zerg Carapace"),
-    (0x0f2, None, "Lurker Aspect"),
-    (0x0f0, None, "Burrowing"),
-    (0x13e, None, "Metabolic Boost"),
-];
-const TERRAN_RESEARCH: [Research; 5] = [
-    (0x11f, Some(1), "Terran Infantry Weapons"),
-    (0x118, Some(1), "Terran Infantry Armor"),
-    (0x0ed, None, "Stim Packs"),
-    (0x0f1, None, "Tank Siege Mode"),
-    (0x128, None, "U-238 Shells"),
-];
-const PROTOSS_RESEARCH: [Research; 5] = [
-    (0x125, Some(2), "Protoss Ground Weapons"),
-    (0x11d, Some(1), "Protoss Ground Armor"),
-    (0x0f3, None, "Psionic Storm"),
-    (0x133, None, "Singularity Charge"),
-    (0x134, None, "Leg Enhancements"),
-];
-
-/// The research a player's row ends with: all of their race's for the first player and a little
-/// less for each one after, so rows of different lengths are judged side by side.
-fn completed_research(race: RaceView, index: usize) -> Vec<CompletedResearchView> {
-    let research = match race {
-        RaceView::Zerg => ZERG_RESEARCH,
-        RaceView::Terran => TERRAN_RESEARCH,
-        RaceView::Protoss | RaceView::Random => PROTOSS_RESEARCH,
-    };
-    research
-        .iter()
-        .take(research.len() - index % 3)
-        .map(|&(frame, level, name)| CompletedResearchView {
-            icon: unit_icon(frame),
-            level,
-            name: Some(name.to_string()),
-        })
-        .collect()
 }
 
 /// What a player has bound to their number keys: the first few of the ten, so the panel is judged
@@ -790,6 +745,11 @@ fn selection(knobs: &Knobs, t: f64) -> SelectionView {
             units: vec![loaded_transport(knobs, owner, t)],
         };
     }
+    if knobs.selection_constructing {
+        return SelectionView {
+            units: vec![building_going_up(knobs, owner, t)],
+        };
+    }
     let units = race_units(knobs.race(owner));
     let buildings = race_buildings(knobs.race(owner));
     let count = knobs.selection.min(SelectionView::MAX_UNITS);
@@ -827,10 +787,81 @@ fn selection(knobs: &Knobs, t: f64) -> SelectionView {
                     building,
                     production: None,
                     cargo: Vec::new(),
+                    // Index 0 is dealt shields, so a lone unit carries the shields chip as well.
+                    upgrades: if count == 1 && !building {
+                        unit_upgrades(knobs.race(owner), index % 3 == 0)
+                    } else {
+                        Vec::new()
+                    },
                 }
             })
             .collect(),
     }
+}
+
+/// One upgrade of the fake game's: the frame its icon would be drawn from, the level it has
+/// reached, and the name the game's English stat_txt gives it.
+type Upgrade = (u16, u8, &'static str);
+
+/// What a lone unit of each race fights with: its armor, its weapons, and the weapon those improve
+/// with what one hit of it deals and how many hits an attack is. The icon frames are stand-ins,
+/// since nothing here has the game's atlas to draw them from.
+struct RaceUpgrades {
+    armor: (Upgrade, u32),
+    weapons: (Upgrade, &'static str, u32, u32),
+}
+
+const ZERG_UPGRADES: RaceUpgrades = RaceUpgrades {
+    armor: ((0x11c, 2, "Zerg Carapace"), 0),
+    weapons: ((0x121, 1, "Zerg Melee Attacks"), "Spines", 5, 1),
+};
+const TERRAN_UPGRADES: RaceUpgrades = RaceUpgrades {
+    armor: ((0x118, 1, "Terran Infantry Armor"), 0),
+    weapons: ((0x11f, 1, "Terran Infantry Weapons"), "Gauss Rifle", 6, 1),
+};
+const PROTOSS_UPGRADES: RaceUpgrades = RaceUpgrades {
+    armor: ((0x11d, 1, "Protoss Ground Armor"), 1),
+    weapons: ((0x125, 2, "Protoss Ground Weapons"), "Psi Blades", 8, 2),
+};
+
+/// The plasma shields every unit with shields is dealt, which nobody has started on.
+const PLASMA_SHIELDS: Upgrade = (0x12a, 0, "Protoss Plasma Shields");
+
+/// The upgrades a lone unit of `race` fights with, in the order the game DLL lists them: armor,
+/// shields for a unit that has any, then weapons.
+fn unit_upgrades(race: RaceView, shields: bool) -> Vec<UnitUpgradeView> {
+    let upgrades = match race {
+        RaceView::Zerg => ZERG_UPGRADES,
+        RaceView::Terran => TERRAN_UPGRADES,
+        RaceView::Protoss | RaceView::Random => PROTOSS_UPGRADES,
+    };
+    let view = |(frame, level, name): Upgrade, effect| UnitUpgradeView {
+        icon: unit_icon(frame),
+        level,
+        name: Some(name.to_string()),
+        effect,
+    };
+    let ((armor, base), (weapons, weapon, damage, hits)) = (upgrades.armor, upgrades.weapons);
+    let mut views = vec![view(
+        armor,
+        UpgradeEffect::Armor {
+            base,
+            bonus: u32::from(armor.1),
+        },
+    )];
+    if shields {
+        views.push(view(PLASMA_SHIELDS, UpgradeEffect::Shields));
+    }
+    views.push(view(
+        weapons,
+        UpgradeEffect::Damage(vec![WeaponDamageView {
+            name: Some(weapon.to_string()),
+            base: damage,
+            bonus: u32::from(weapons.1),
+            hits,
+        }]),
+    ));
+    views
 }
 
 /// A building of the first player's, part way through a unit with more of them queued behind it.
@@ -862,8 +893,43 @@ fn producing_building(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
                     .map(|&index| unit_icon(index))
                     .collect(),
             ),
+            is_subject: false,
         }),
         cargo: Vec::new(),
+        upgrades: Vec::new(),
+    }
+}
+
+/// A production building of the first player's that is itself still going up, its hit points
+/// climbing with it the way a building's do while it is built.
+fn building_going_up(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
+    let race = knobs.race(owner);
+    let building = race_buildings(race)[0];
+    let progress = fraction(t * 0.05);
+    let full_health = 1000;
+    SelectedUnitView {
+        icon: unit_icon(building),
+        name: unit_name(building),
+        owner_color: overlay_ui::kit::theme::player_color(owner),
+        owner_name: player_name(knobs, owner),
+        owner: Some(owner as u8),
+        hit_points: (
+            (full_health as f32 * (0.1 + 0.9 * progress)) as u32,
+            full_health,
+        ),
+        shields: has_shields(race).then_some(((500.0 * progress) as u32, 500)),
+        energy: None,
+        kills: 0,
+        building: true,
+        production: Some(ProductionProgressView {
+            icon: unit_icon(building),
+            name: unit_name(building),
+            progress,
+            queue: None,
+            is_subject: true,
+        }),
+        cargo: Vec::new(),
+        upgrades: Vec::new(),
     }
 }
 
@@ -908,9 +974,11 @@ fn loaded_transport(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
                     building: false,
                     production: None,
                     cargo: Vec::new(),
+                    upgrades: Vec::new(),
                 }
             })
             .collect(),
+        upgrades: Vec::new(),
     }
 }
 
@@ -1082,6 +1150,8 @@ pub enum Showcase {
     Producing,
     /// A transport with an army inside it.
     Loaded,
+    /// A building that is itself still going up.
+    Constructing,
     /// The single unit the knobs default to, with the list of players under the minimap's vision
     /// button open.
     VisionPicker,
@@ -1090,6 +1160,11 @@ pub enum Showcase {
 /// Where along the replay plate's track the marker hover rests, as the plate stands on the duel's
 /// analyst screen: on a tick well clear of the playhead, so the card is not read against its glow.
 const TRACK_MARKER_X: f32 = 1640.0;
+
+/// Where the weapon upgrade of the lone unit the selection panel reads out sits on the duel's
+/// analyst screen: the third chip, after its armor and its shields.
+const UPGRADE_CHIP_X: f32 = 1331.0;
+const UPGRADE_CHIP_Y: f32 = 1040.0;
 
 /// Where a preset rests the pointer, for the readings the overlay only gives while it is hovered.
 ///
@@ -1108,8 +1183,9 @@ pub enum Hover {
     TimelineRow,
     /// Over one of the markers ticked along the replay plate's track.
     TrackMarker,
-    /// Over an upgrade chip at the end of a production row, which names it and its level.
-    ResearchChip,
+    /// Over the weapon upgrade of the unit the selection panel reads out, which names it, its
+    /// level and the damage it comes to.
+    UpgradeChip,
 }
 
 impl Hover {
@@ -1121,7 +1197,7 @@ impl Hover {
             Hover::DockEconomy => Some((1878.0, 402.0)),
             Hover::TimelineRow => Some((250.0, 336.0)),
             Hover::TrackMarker => Some((TRACK_MARKER_X, 996.0)),
-            Hover::ResearchChip => Some((1153.0, 812.0)),
+            Hover::UpgradeChip => Some((UPGRADE_CHIP_X, UPGRADE_CHIP_Y)),
         }
     }
 
@@ -1133,7 +1209,7 @@ impl Hover {
             Hover::DockEconomy => "dock-hover",
             Hover::TimelineRow => "timeline-hover",
             Hover::TrackMarker => "marker-hover",
-            Hover::ResearchChip => "research-hover",
+            Hover::UpgradeChip => "upgrade-hover",
         }
     }
 }
@@ -1186,7 +1262,7 @@ impl Preset {
         }
     }
 
-    pub const ALL: [Preset; 26] = [
+    pub const ALL: [Preset; 27] = [
         Preset::game(2, 1, Screen::Minimal),
         Preset::game(2, 1, Screen::Standard),
         Preset::game(2, 1, Screen::Analyst),
@@ -1213,6 +1289,7 @@ impl Preset {
         Preset::game(8, 4, Screen::Analyst),
         Preset::selection_showcase(Showcase::Producing),
         Preset::selection_showcase(Showcase::Loaded),
+        Preset::selection_showcase(Showcase::Constructing),
         // The vision list is shown over a team game, which is the one with a list worth reading.
         Preset {
             players: 4,
@@ -1225,7 +1302,7 @@ impl Preset {
         Preset::hover_showcase(Hover::DockEconomy),
         Preset::hover_showcase(Hover::TimelineRow),
         Preset::hover_showcase(Hover::TrackMarker),
-        Preset::hover_showcase(Hover::ResearchChip),
+        Preset::hover_showcase(Hover::UpgradeChip),
     ];
 
     /// What a render of this preset is filed under: the shape of its game, then its screen.
@@ -1233,6 +1310,7 @@ impl Preset {
         match self.showcase {
             Showcase::Producing => return "1v1-selection-building".to_string(),
             Showcase::Loaded => return "1v1-selection-cargo".to_string(),
+            Showcase::Constructing => return "1v1-selection-constructing".to_string(),
             Showcase::VisionPicker => return format!("{}-vision-picker", self.shape()),
             Showcase::Knobs => {}
         }
@@ -1277,6 +1355,7 @@ impl Preset {
             team_size: self.team_size,
             selection_building: self.showcase == Showcase::Producing,
             selection_cargo: self.showcase == Showcase::Loaded,
+            selection_constructing: self.showcase == Showcase::Constructing,
             vision_picker: self.showcase == Showcase::VisionPicker,
             ..Knobs::default()
         };
@@ -1359,6 +1438,13 @@ pub fn knobs_ui(k: &mut Knobs, state: &State, ui: &mut egui::Ui) -> bool {
         .on_hover_text(
             "Selects a transport with four units inside it at mixed health, which is what the row \
              of carried units is drawn for.",
+        )
+        .changed();
+    changed |= ui
+        .checkbox(&mut k.selection_constructing, "selection is going up")
+        .on_hover_text(
+            "Selects a building that is itself still being built, which names the building once \
+             and reads its progress as its own.",
         )
         .changed();
     changed |= ui
