@@ -760,6 +760,9 @@ pub struct Shell {
     /// fades out from: a panel leaving because the plate beside it left too would otherwise jump
     /// across the screen on its way out.
     held_slots: HeldSlots,
+    /// Which of the stacked panels were drawn last frame, which is whether they ease toward a new
+    /// place in their stack or simply take it.
+    drawn: DrawnLastFrame,
     /// The minimap's square as the host last reported it, which the panels beside it keep clear of
     /// while it is hidden and the host has no square to report.
     last_minimap_rect: Option<Rect>,
@@ -804,6 +807,7 @@ impl Shell {
             vision_picker_open: false,
             number_keys: None,
             held_slots: HeldSlots::default(),
+            drawn: DrawnLastFrame::default(),
             last_minimap_rect: None,
             transport_placement: transport::TransportPlacement::default(),
             pending_seek: None,
@@ -1343,8 +1347,13 @@ impl Shell {
             hit_rects.push(HitRect::new(rect));
             stack.push(rect);
         }
-        let over_selection =
-            base + observer::eased_stack_share(ctx, egui::Id::new("sb_stack_selection"), selection);
+        let over_selection = base
+            + observer::eased_stack_share(
+                ctx,
+                egui::Id::new("sb_stack_selection"),
+                selection,
+                self.drawn.control_groups,
+            );
         let under_groups = if row.is_some() { base } else { over_selection };
         // The row shown is the selected unit's owner, and stays theirs after the selection is
         // cleared: a watcher who clicks the ground has not asked to see somebody else's keys.
@@ -1383,11 +1392,13 @@ impl Shell {
             hit_rects.push(HitRect::new(rect));
             stack.push(rect);
         }
+        self.drawn.control_groups = control_groups.is_some();
         let over_groups = under_groups
             + observer::eased_stack_share(
                 ctx,
                 egui::Id::new("sb_stack_control_groups"),
                 control_groups,
+                self.drawn.production,
             );
         if self.prefs.production
             && !view.production.is_empty()
@@ -1407,6 +1418,7 @@ impl Shell {
             self.prefs.production,
             production_slot,
         );
+        self.drawn.production = production.is_some();
         if let Some(outcome) = &production {
             hit_rects.push(HitRect::new(outcome.rect));
             stack.push(outcome.rect);
@@ -1425,6 +1437,7 @@ impl Shell {
                         ctx,
                         egui::Id::new("sb_stack_production"),
                         production.as_ref().map(|outcome| outcome.rect),
+                        self.drawn.plate,
                     );
                 transport.lift = over_stack - observer::WING_MARGIN;
             }
@@ -1482,6 +1495,7 @@ impl Shell {
             egui::Id::new("sb_stack_military"),
             tops.right,
             military,
+            self.drawn.graphs,
         );
         let graphs_fit = right_room && observer::graphs::fits(graphs_top, right_floor);
         if self.prefs.graphs && !view.graphs.is_empty() && !graphs_fit {
@@ -1490,7 +1504,7 @@ impl Shell {
         // The panels that report on the game so far are ways back into it, where it can be moved
         // through at all: a replay, with playback to move.
         let seekable = self.seekable_replay();
-        if let Some(outcome) = observer::render_graphs_view(
+        let graphs = observer::render_graphs_view(
             &view.graphs,
             ctx,
             self.prefs.graphs && right_room,
@@ -1498,7 +1512,9 @@ impl Shell {
             right_floor,
             right_inset,
             seekable.is_some(),
-        ) {
+        );
+        self.drawn.graphs = graphs.is_some();
+        if let Some(outcome) = graphs {
             hit_rects.push(HitRect::new(outcome.rect));
             if let Some(series) = outcome.series {
                 self.prefs.graph_series = series;
@@ -1510,22 +1526,29 @@ impl Shell {
                 self.queue_seek(replay.frame_at_secs(u64::from(secs)), None);
             }
         }
-        let timeline_top =
-            observer::WingTops::below(ctx, egui::Id::new("sb_stack_economy"), tops.left, economy);
+        let timeline_top = observer::WingTops::below(
+            ctx,
+            egui::Id::new("sb_stack_economy"),
+            tops.left,
+            economy,
+            self.drawn.timeline,
+        );
         if self.prefs.timeline
             && !view.timeline.is_empty()
             && !observer::timeline::fits(timeline_top, left_floor)
         {
             displaced.push(Panel::Timeline);
         }
-        if let Some(outcome) = observer::render_timeline_view(
+        let timeline = observer::render_timeline_view(
             &view.timeline,
             ctx,
             self.prefs.timeline,
             timeline_top,
             left_floor,
             seekable.is_some(),
-        ) {
+        );
+        self.drawn.timeline = timeline.is_some();
+        if let Some(outcome) = timeline {
             hit_rects.push(HitRect::new(outcome.rect));
             if let (Some(replay), Some(event)) = (seekable, outcome.clicked) {
                 self.queue_seek(replay.event_seek_target(event.secs), event.position);
@@ -1611,6 +1634,7 @@ impl Shell {
             self.transport_placement,
             events,
         );
+        self.drawn.plate = outcome.is_some();
         if let Some(outcome) = &outcome {
             hit_rects.push(HitRect::new(outcome.rect));
             if let Some(frame) = outcome.seek_to {
@@ -1879,6 +1903,16 @@ impl Shell {
 }
 
 /// Which panel an action toggles, for the actions whose panel exists.
+/// Which of the panels standing on another in a stack were drawn last frame.
+#[derive(Default)]
+struct DrawnLastFrame {
+    control_groups: bool,
+    production: bool,
+    plate: bool,
+    graphs: bool,
+    timeline: bool,
+}
+
 /// The slots the bottom panels were last placed in while they were wanted on screen.
 #[derive(Default)]
 struct HeldSlots {

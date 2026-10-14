@@ -539,9 +539,16 @@ impl WingTops {
     }
 
     /// Where the wing under one of these goes: under the one above it while that one is drawn, and
-    /// in its place once it is gone, crossing the difference at the stack's own pace.
-    pub(crate) fn below(ctx: &Context, id: Id, top: f32, upper: Option<Rect>) -> f32 {
-        top + eased_stack_share(ctx, id, upper)
+    /// in its place once it is gone, crossing the difference at the stack's own pace while the wing
+    /// is `settled` on screen (see [`eased_stack_share`]).
+    pub(crate) fn below(
+        ctx: &Context,
+        id: Id,
+        top: f32,
+        upper: Option<Rect>,
+        settled: bool,
+    ) -> f32 {
+        top + eased_stack_share(ctx, id, upper, settled)
     }
 }
 
@@ -558,8 +565,17 @@ pub(crate) fn stack_share(rect: Option<Rect>) -> f32 {
 /// would set off at different times and run through each other on the way. egui starts an animated
 /// value at its first target, so a surface drawn for the first time is placed rather than slid into
 /// place.
-pub(crate) fn eased_stack_share(ctx: &Context, id: Id, rect: Option<Rect>) -> f32 {
-    ctx.animate_value_with_time(id, stack_share(rect), theme::MOTION_PANEL_SECS)
+///
+/// Eased only while the surface under it was `settled` on screen the frame before. One arriving
+/// takes its place at once and makes its own short entrance from there: two panels shown together
+/// would otherwise have the lower one start from where the upper one is and travel its whole height.
+pub(crate) fn eased_stack_share(ctx: &Context, id: Id, rect: Option<Rect>, settled: bool) -> f32 {
+    let secs = if settled {
+        theme::MOTION_PANEL_SECS
+    } else {
+        0.0
+    };
+    ctx.animate_value_with_time(id, stack_share(rect), secs)
 }
 
 /// The side of the square BW's minimap owns in the screen's bottom-left corner, in design units.
