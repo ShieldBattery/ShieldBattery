@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
+import styled, { css } from 'styled-components'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { CHANNEL_HEADER_HEIGHT } from '../chat/channel-header'
@@ -7,13 +7,21 @@ import { useAppSelector } from '../redux-hooks'
 import { bodyLarge, singleLine, titleLarge } from '../styles/typography'
 import { UserStatusText } from './whisper-header'
 
-const Root = styled.div`
+const Root = styled.div<{ $inline: boolean }>`
   ${bodyLarge};
 
-  position: absolute;
-  /* Centered in the space between the header and the message input. */
-  inset: ${CHANNEL_HEADER_HEIGHT}px 0 72px;
-  padding: 32px;
+  ${props =>
+    props.$inline
+      ? css`
+          padding: 32px 16px 24px;
+        `
+      : css`
+          position: absolute;
+          /* Centered in the space between the header and the message input. */
+          inset: ${CHANNEL_HEADER_HEIGHT}px 0 72px;
+          padding: 32px;
+          pointer-events: none;
+        `}
 
   display: flex;
   flex-direction: column;
@@ -23,7 +31,6 @@ const Root = styled.div`
 
   color: var(--theme-on-surface-variant);
   text-align: center;
-  pointer-events: none;
 `
 
 const IntroAvatar = styled(ConnectedAvatar)`
@@ -39,13 +46,16 @@ const Username = styled.div`
   color: var(--theme-on-surface);
 `
 
-/** What a conversation shows before anything has been said in it. */
-export function WhisperIntro({ userId }: { userId: SbUserId }) {
+/**
+ * Who a conversation is with and that it starts here: centered in a conversation where nothing has
+ * been said yet, or (`inline`) above the oldest message of one that has history.
+ */
+export function WhisperIntro({ userId, inline = false }: { userId: SbUserId; inline?: boolean }) {
   const { t } = useTranslation()
   const username = useAppSelector(s => s.users.byId.get(userId)?.name) ?? ''
 
   return (
-    <Root>
+    <Root $inline={inline}>
       <IntroAvatar userId={userId} showAvailability={true} />
       <Username>{username}</Username>
       <UserStatusText userId={userId} />

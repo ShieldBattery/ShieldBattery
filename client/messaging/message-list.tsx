@@ -453,6 +453,11 @@ export interface MessageListProps {
   /** Whether to show empty state text when they are no messages. Defaults to true. */
   showEmptyState?: boolean
   /**
+   * Content shown above the oldest message once the beginning of the history is loaded, marking
+   * where the conversation starts.
+   */
+  historyStartContent?: React.ReactNode
+  /**
    * Component type which will be used to render each message that is not a common message type. If
    * not provided, only common messages will be rendered.
    */
@@ -777,9 +782,11 @@ export class MessageList extends React.Component<MessageListProps> {
       onLoadMoreMessages,
       onLoadNewerMessages,
       showEmptyState = true,
+      historyStartContent,
       unreadLineTime,
       displayMode,
     } = this.props
+    const atHistoryStart = !hasMoreHistory && !loading && !historyError && messages.length > 0
 
     return (
       <Scrollable
@@ -798,6 +805,7 @@ export class MessageList extends React.Component<MessageListProps> {
           refreshToken={refreshToken}
           onLoadPrevData={onLoadMoreMessages}
           onLoadNextData={onLoadNewerMessages}>
+          {atHistoryStart ? historyStartContent : null}
           <PureMessageList
             showEmptyState={showEmptyState}
             messages={messages}

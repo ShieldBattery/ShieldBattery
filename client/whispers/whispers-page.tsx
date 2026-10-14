@@ -14,7 +14,8 @@ const Root = styled(CenteredContentContainer)`
   container: whispers-page / inline-size;
 
   display: flex;
-  gap: 24px;
+  /* Matches the gap between the conversation and the profile panel beside it. */
+  gap: 8px;
 
   /* Each column scrolls on its own; the page itself never does. */
   overflow-y: hidden;

@@ -447,6 +447,7 @@ export function ConnectedWhisper({
           messages: whisperSession.messages,
           // The intro stands in for the list's own empty state.
           showEmptyState: !isEmpty,
+          historyStartContent: <WhisperIntro userId={targetId} inline={true} />,
           loading: whisperSession.loadingHistory,
           hasMoreHistory: whisperSession.hasHistory,
           loadingNewer: whisperSession.loadingNewer,
