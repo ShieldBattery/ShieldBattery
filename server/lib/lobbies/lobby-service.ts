@@ -936,16 +936,6 @@ export class LobbyService {
       return
     }
 
-    // A replay lobby's members each have to be allowed to watch its replay themselves: joining is
-    // never a way into a game's replay that the joiner couldn't download on their own.
-    const replaySource = this.lobbyReplays.get(id)
-    if (replaySource && !(await this.replaySessionSources.canAccess(replaySource, client.userId))) {
-      throw new LobbyServiceError(
-        LobbyServiceErrorCode.ReplayNotAccessible,
-        "you can't watch this lobby's replay",
-      )
-    }
-
     // TODO(tec27): Fix map signing URL refreshing in a more general way, see #593
     // Fetched before the lobby snapshot below: everything from the snapshot to the write-back has
     // to stay synchronous, or a concurrent operation on the lobby (e.g. a settings change
@@ -1560,6 +1550,103 @@ export class LobbyService {
       // Published as the lobby was while it was still listed, since the list only ever hears about
       // listed lobbies. Its id is all the public channel learns, and it already had that.
       this._publishListChange('delete', current)
+    }
+  }
+
+  /** Replaces a gathering lobby's map or replay without changing its id, invites, or members. */
+  async changeSource({
+    client,
+    lobbyId,
+    replay,
+    map,
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+    replay?: ReplaySessionSource
+    map?: SbMapId
+  }): Promise<void> {
+    const lobby = this.getLobbyForClient(client, lobbyId)
+    const [, , player] = findSlotByUserId(lobby, client.userId)
+    this.ensureIsLobbyHost(lobby, player)
+    this.ensureLobbyNotTransient(lobby)
+
+    let resolved: Awaited<ReturnType<ReplaySessionSources['resolve']>> | undefined
+    let mapInfo: MapInfo | undefined
+    if (replay) {
+      try {
+        resolved = await this.replaySessionSources.resolve(replay, client.userId)
+      } catch (err) {
+        throw toLobbyReplayError(err)
+      }
+    } else if (map) {
+      const found = (await getMapInfos([map]))[0]
+      if (!found) {
+        throw new LobbyServiceError(LobbyServiceErrorCode.InvalidMap, 'invalid map')
+      }
+      ;[mapInfo] = await reparseMapsAsNeeded([found])
+    } else {
+      throw new LobbyServiceError(LobbyServiceErrorCode.InvalidMap, 'no map or replay selected')
+    }
+
+    const current = this.getLobbyForClient(client, lobbyId)
+    const [, , currentPlayer] = findSlotByUserId(current, client.userId)
+    this.ensureIsLobbyHost(current, currentPlayer)
+    this.ensureLobbyNotTransient(current)
+
+    let template: Lobby
+    if (resolved) {
+      template = Lobbies.createReplayLobby({
+        name: current.name,
+        replay: { source: resolved.info, hash: resolved.source.hash },
+        hostUserId: client.userId,
+        hostRegion: current.host.region,
+        visibility: current.visibility,
+      })
+    } else {
+      const gameMap = mapInfo!
+      const settings = validatedLobbySettings({
+        map: gameMap,
+        gameType: GameType.Melee,
+        gameSubType: 0,
+        allowObservers: true,
+        useLegacyLimits: false,
+        starcraftCompatibleReplays: true,
+        lockedAlliances: false,
+      })
+      template = Lobbies.createLobby({
+        name: current.name,
+        ...settings,
+        hostUserId: client.userId,
+        hostRegion: current.host.region,
+        visibility: current.visibility,
+      })
+    }
+
+    let updated: Lobby
+    try {
+      updated = Lobbies.replaceLobbySource(current, template)
+    } catch (err) {
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.InvalidSlotOperation,
+        (err as Error).message,
+        { cause: err },
+      )
+    }
+    this.lobbies.set(updated.id, updated)
+    if (resolved) {
+      this.lobbyReplays.set(updated.id, resolved.source)
+    } else {
+      this.lobbyReplays.delete(updated.id)
+    }
+    this.readyUsers.delete(updated.id)
+    this._publishTo(updated, {
+      type: 'settingsChange',
+      changedSettings: resolved ? ['replay'] : ['map'],
+      lobby: updated,
+    })
+    this._publishPreview(updated)
+    if (updated.visibility === 'listed') {
+      this._publishListChange('update', updated)
     }
   }
 
@@ -2895,10 +2982,23 @@ export class LobbyService {
     }
 
     try {
-      return await this.replaySessionSources.download(source, client.userId)
+      return await this.replaySessionSources.download(source)
     } catch (err) {
       throw toLobbyReplayError(err)
     }
+  }
+
+  /** Returns an embedded map preview only to a current member of this replay lobby. */
+  async getReplayThumbnail({
+    client,
+    lobbyId,
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+  }): Promise<Buffer | undefined> {
+    const lobby = this.getLobbyForClient(client, lobbyId)
+    const source = this.lobbyReplays.get(lobby.id)
+    return source ? await this.replaySessionSources.thumbnail(source) : undefined
   }
 
   /** The uploaded replays that live replay lobbies are watching, which must be kept alive. */

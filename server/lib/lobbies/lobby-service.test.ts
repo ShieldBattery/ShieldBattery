@@ -269,11 +269,11 @@ describe('lobbies/lobby-service', () => {
   /** The stubbed `GameLoader.loadGame`, for tests that need to control when/how a load finishes. */
   let loadGameMock: ReturnType<typeof vi.fn<(request: GameLoadRequest) => Promise<unknown>>>
 
-  /** The stub that resolves replay lobbies' replays and decides who may watch them. */
+  /** The stub that resolves and serves replay lobbies' replays. */
   let replaySources: {
     resolve: ReturnType<typeof vi.fn>
-    canAccess: ReturnType<typeof vi.fn>
     download: ReturnType<typeof vi.fn>
+    thumbnail: ReturnType<typeof vi.fn>
   }
 
   /** Returns the data published on the public lobby list channel, in order. */
@@ -427,8 +427,8 @@ describe('lobbies/lobby-service', () => {
     activityRegistry = new GameplayActivityRegistry(activityStatusService)
     replaySources = {
       resolve: vi.fn(async () => ({ source: GAME_REPLAY_SOURCE, info: GAME_REPLAY_INFO })),
-      canAccess: vi.fn(async () => true),
       download: vi.fn(async () => ({ url: 'replay-url', hash: REPLAY_HASH, size: 1234 })),
+      thumbnail: vi.fn(async () => Buffer.from('map preview')),
     }
     lobbyService = new LobbyService(
       new TypedPublisher(nydus),
@@ -4419,16 +4419,18 @@ describe('lobbies/lobby-service', () => {
       expect(lobbyService.lobbies.size).toBe(0)
     })
 
-    test("refuses a joiner who can't watch the replay themselves", async () => {
-      const { id } = await createReplayLobby()
-      replaySources.canAccess.mockResolvedValue(false)
+    test.each(['listed', 'unlisted'] as const)(
+      'grants a member of a %s lobby session access to an otherwise unlisted replay',
+      async visibility => {
+        const { id } = await createReplayLobby(host, visibility)
+        await joinLobby(joiner, id)
 
-      await expect(joinLobby(joiner, id)).rejects.toMatchObject({
-        code: LobbyServiceErrorCode.ReplayNotAccessible,
-      })
-      expect(replaySources.canAccess).toHaveBeenCalledWith(GAME_REPLAY_SOURCE, JOINER_USER.id)
-      expect(getHumanSlots(lobbyService.lobbies.get(id)!)).toHaveLength(1)
-    })
+        await expect(
+          lobbyService.getReplayDownload({ client: joiner.client, lobbyId: id }),
+        ).resolves.toEqual({ url: 'replay-url', hash: REPLAY_HASH, size: 1234 })
+        expect(getHumanSlots(lobbyService.lobbies.get(id)!)).toHaveLength(2)
+      },
+    )
 
     test('seats a joiner who can watch the replay as another viewer', async () => {
       const { id } = await createReplayLobby()
@@ -4693,14 +4695,63 @@ describe('lobbies/lobby-service', () => {
       expect(lobbyPublishes(id).filter(e => e.type === 'replaySeek')).toHaveLength(1)
     })
 
-    test('hands members a download of the replay, checked for each of them', async () => {
+    test('hands members a download of the replay', async () => {
       const { id } = await createReplayLobby()
       await joinLobby(joiner, id)
 
       await expect(
         lobbyService.getReplayDownload({ client: joiner.client, lobbyId: id }),
       ).resolves.toEqual({ url: 'replay-url', hash: REPLAY_HASH, size: 1234 })
-      expect(replaySources.download).toHaveBeenCalledWith(GAME_REPLAY_SOURCE, JOINER_USER.id)
+      expect(replaySources.download).toHaveBeenCalledWith(GAME_REPLAY_SOURCE)
+    })
+
+    test('hands members the embedded map preview', async () => {
+      const { id } = await createReplayLobby()
+      await joinLobby(joiner, id)
+
+      await expect(
+        lobbyService.getReplayThumbnail({ client: joiner.client, lobbyId: id }),
+      ).resolves.toEqual(Buffer.from('map preview'))
+      expect(replaySources.thumbnail).toHaveBeenCalledWith(GAME_REPLAY_SOURCE)
+    })
+
+    test('does not give a nonmember a replay download or map preview', async () => {
+      const { id } = await createReplayLobby(host, 'listed')
+
+      await expect(
+        lobbyService.getReplayDownload({ client: joiner.client, lobbyId: id }),
+      ).rejects.toMatchObject({ code: LobbyServiceErrorCode.NotInLobby })
+      await expect(
+        lobbyService.getReplayThumbnail({ client: joiner.client, lobbyId: id }),
+      ).rejects.toMatchObject({ code: LobbyServiceErrorCode.NotInLobby })
+      expect(replaySources.download).not.toHaveBeenCalled()
+      expect(replaySources.thumbnail).not.toHaveBeenCalled()
+    })
+
+    test('switches map to replay and back in the same public lobby with the same members', async () => {
+      const { id } = await createLobby(host, 'Game lobby', 'listed')
+      await joinLobby(joiner, id)
+
+      await lobbyService.changeSource({
+        client: host.client,
+        lobbyId: id,
+        replay: { kind: 'game', gameId: 'replayed-game-id' },
+      })
+      const replayLobby = lobbyService.lobbies.get(id)!
+      expect(replayLobby.replay?.hash).toBe(REPLAY_HASH)
+      expect(replayLobby.map).toBeUndefined()
+      expect(replayLobby.visibility).toBe('listed')
+      expect(getHumanSlots(replayLobby).map(s => s.userId)).toEqual([HOST_USER.id, JOINER_USER.id])
+
+      await lobbyService.changeSource({
+        client: host.client,
+        lobbyId: id,
+        map: BIG_GAME_HUNTERS.id,
+      })
+      const gameLobby = lobbyService.lobbies.get(id)!
+      expect(gameLobby.replay).toBeUndefined()
+      expect(gameLobby.map?.id).toBe(BIG_GAME_HUNTERS.id)
+      expect(getHumanSlots(gameLobby).map(s => s.userId)).toEqual([HOST_USER.id, JOINER_USER.id])
     })
 
     test('keeps track of the uploads its lobbies are watching until they close', async () => {

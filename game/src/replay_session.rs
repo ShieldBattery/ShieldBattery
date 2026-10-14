@@ -72,6 +72,10 @@ pub fn is_active() -> bool {
         .is_some_and(|info| matches!(&info.map, MapInfo::Replay(r) if r.session.is_some()))
 }
 
+pub fn timeline_controls_visible() -> bool {
+    STARTED.load(Ordering::Relaxed) && CONTROLLER.load(Ordering::Relaxed)
+}
+
 pub fn send_chat(text: &str) {
     if is_active() {
         game_thread::send_game_msg_to_async(GameThreadMessage::ReplaySessionChat {

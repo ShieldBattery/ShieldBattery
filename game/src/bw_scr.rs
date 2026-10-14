@@ -6088,11 +6088,14 @@ impl BwScr {
             return;
         };
         for control in dialog.children() {
-            if (7..=9).contains(&control.id()) && control.is_hidden() == visible {
-                if visible {
-                    control.show();
-                } else {
-                    control.hide();
+            if (7..=9).contains(&control.id()) {
+                unsafe { dialog_hook::wrap_replay_timeline_button_draw(control) };
+                if control.is_hidden() == visible {
+                    if visible {
+                        control.show();
+                    } else {
+                        control.hide();
+                    }
                 }
             }
         }

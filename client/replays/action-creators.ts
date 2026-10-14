@@ -181,6 +181,7 @@ export function watchReplayFromUrl(
 export async function ensureReplayCached(
   replayInfo: Pick<GameReplayInfo, 'id' | 'url' | 'hash'>,
   signal?: AbortSignal,
+  progress?: { totalBytes: number; onProgress: (loadedBytes: number, totalBytes: number) => void },
 ): Promise<string | undefined> {
   const cachedPath = await ipcRenderer.invoke('replayStoreGetPath', replayInfo.id, replayInfo.hash)
   if (cachedPath) {
@@ -195,7 +196,31 @@ export async function ensureReplayCached(
   if (!response.ok) {
     throw new Error(`Failed to download replay: ${response.status} ${response.statusText}`)
   }
-  const data = await response.arrayBuffer()
+  let data: ArrayBuffer
+  if (progress && response.body) {
+    const reader = response.body.getReader()
+    const chunks: Uint8Array[] = []
+    let loadedBytes = 0
+    const contentLength = Number(response.headers.get('content-length'))
+    const totalBytes = contentLength > 0 ? contentLength : progress.totalBytes
+    progress.onProgress(0, totalBytes)
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      chunks.push(value)
+      loadedBytes += value.byteLength
+      progress.onProgress(loadedBytes, totalBytes)
+    }
+    const bytes = new Uint8Array(loadedBytes)
+    let offset = 0
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset)
+      offset += chunk.byteLength
+    }
+    data = bytes.buffer
+  } else {
+    data = await response.arrayBuffer()
+  }
 
   return await ipcRenderer.invoke('replayStoreStoreReplay', replayInfo.id, replayInfo.hash, data)
 }

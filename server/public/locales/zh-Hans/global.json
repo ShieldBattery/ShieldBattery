@@ -1834,12 +1834,14 @@
       "settingsChangeMapQueue": "地图队列",
       "settingsChangeName": "房间名称",
       "settingsChangeObservers": "观战者",
+      "settingsChangeReplay": "录像",
       "settingsChangeUnitLimit": "单位限制",
       "settingsChangeVisibility": "可见性"
     },
     "replayLobby": {
       "changeReplay": "更换录像",
       "chooseMapInstead": "改选地图",
+      "downloading": "正在下载录像：{{percent}}%",
       "duration": "录像 · {{duration}}",
       "invalidReplayBody": "所选文件可能已损坏，或不是《星际争霸》的录像。",
       "invalidReplayTitle": "无法读取该录像",
@@ -1847,6 +1849,7 @@
       "loading": "正在为所有人加载录像",
       "readyHint": "观众可以在观看前准备就绪",
       "replay": "录像",
+      "replaySetup": "录像设置",
       "roomDescription": "所有人观看同一场录像，但各自拥有独立的观战视角。所有人加载完成后开始播放。",
       "selectReplay": "选择录像",
       "startWatching": "开始观看",

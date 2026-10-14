@@ -431,9 +431,65 @@ static LOAD_BUTTON_EVENT_HANDLER: EventHandler = EventHandler::new();
 /// The native draw function of the menu buttons [`disabled_button_draw`] wraps. Every push button
 /// shares one.
 static MENU_BUTTON_ORIG_DRAW: AtomicUsize = AtomicUsize::new(0);
+static REPLAY_BUTTON_ORIG_DRAWS: [AtomicUsize; 3] = [
+    AtomicUsize::new(0),
+    AtomicUsize::new(0),
+    AtomicUsize::new(0),
+];
 
 type ControlDrawFn =
     unsafe extern "C" fn(*mut bw::scr::Control, i32, i32, *const bw::Rect, *const bw::Rect);
+
+/// Keeps follower replay timeline buttons invisible even when SC:R shows them between game ticks.
+/// The game thread still hides their controls, but a draw can happen before that next hide.
+pub(crate) unsafe fn wrap_replay_timeline_button_draw(button: Control) {
+    unsafe {
+        let id = button.id();
+        if !(7..=9).contains(&id) {
+            return;
+        }
+        let Some(original) = REPLAY_BUTTON_ORIG_DRAWS.get((id - 7) as usize) else {
+            return;
+        };
+        let ctrl: *mut bw::scr::Control = *button;
+        if let Some(draw) = (*ctrl).draw
+            && draw as usize != replay_timeline_button_draw as ControlDrawFn as usize
+        {
+            let stored = original.load(Ordering::Relaxed);
+            if stored == 0 || stored == draw as usize {
+                original.store(draw as usize, Ordering::Relaxed);
+                (*ctrl).draw = Some(replay_timeline_button_draw);
+            } else {
+                warn!("Replay button {id} has an unexpected draw function, not wrapping it");
+            }
+        }
+    }
+}
+
+unsafe extern "C" fn replay_timeline_button_draw(
+    ctrl: *mut bw::scr::Control,
+    x: i32,
+    y: i32,
+    area: *const bw::Rect,
+    clip: *const bw::Rect,
+) {
+    if !crate::replay_session::timeline_controls_visible() {
+        return;
+    }
+    unsafe {
+        let id = Control::new(ctrl.cast()).id();
+        if !(7..=9).contains(&id) {
+            return;
+        }
+        if let Some(original) = REPLAY_BUTTON_ORIG_DRAWS.get((id - 7) as usize) {
+            let original = original.load(Ordering::Relaxed);
+            if original != 0 {
+                let draw: ControlDrawFn = std::mem::transmute(original);
+                draw(ctrl, x, y, area, clip);
+            }
+        }
+    }
+}
 
 /// Keeps the in-game menu's Save Game and Load Game buttons disabled: a saved game can't be loaded
 /// through ShieldBattery, and live games drop both commands anyway (see

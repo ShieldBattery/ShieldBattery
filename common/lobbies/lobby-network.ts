@@ -5,7 +5,7 @@ import { GameType } from '../games/game-type'
 import { ReconciledResult } from '../games/results'
 import { MapImageInfo, MapInfoJson, SbMapId } from '../maps'
 import { RaceChar } from '../races'
-import { ReplaySessionSeek, ReplaySessionSpeed } from '../replay-sessions'
+import { ReplaySessionSeek, ReplaySessionSource, ReplaySessionSpeed } from '../replay-sessions'
 import { RolledOutcome, RolledOutcomeRequest } from '../rolled-outcomes'
 import { SbUser } from '../users/sb-user'
 import { SbUserId } from '../users/sb-user-id'
@@ -743,11 +743,18 @@ export interface UpdateLobbySettingsRequest {
   mapQueue?: SbMapId[]
 }
 
+/** The host's choice of what an existing gathering lobby will launch next. */
+export interface ChangeLobbySourceRequest extends LobbyClientRequest {
+  replay?: ReplaySessionSource
+  map?: SbMapId
+}
+
 /** A lobby setting whose value changed, as reported in a `LobbySettingsChangeEvent`. */
 export type LobbyChangedSetting =
   | 'name'
   | 'visibility'
   | 'map'
+  | 'replay'
   | 'gameType'
   | 'gameSubType'
   | 'useLegacyLimits'

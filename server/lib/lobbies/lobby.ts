@@ -6,6 +6,7 @@ import { GameType, isTeamType } from '../../../common/games/game-type'
 import {
   BenchedUser,
   findSlotById,
+  getHumanSlots,
   getLobbySlots,
   getLobbySlotsWithIndexes,
   getObserverTeam,
@@ -465,6 +466,45 @@ export function createReplayLobby({
     createdAt: Date.now(),
   }
   return addPlayer(lobby, 0, 0, host)
+}
+
+/** Changes what an existing lobby hosts while preserving its identity and its members. */
+export function replaceLobbySource(current: Lobby, template: Lobby): Lobby {
+  const host = occupantOf(current.host)
+  const members = getHumanSlots(current)
+    .filter(slot => slot.userId !== current.host.userId)
+    .sort((a, b) => a.joinedAt - b.joinedAt)
+    .map(occupantOf)
+  members.push(...current.bench.map(occupantOfBenched))
+  if (template.replay && members.length + 1 > MAX_REPLAY_VIEWERS) {
+    throw new Error('too many lobby members for replay viewing')
+  }
+
+  const hostSlot = humanSlotFor(host, template.teams[0].slots[0], template.gameType)
+  let updated: Lobby = {
+    ...template,
+    id: current.id,
+    createdAt: current.createdAt,
+    host: hostSlot,
+    teams: template.teams.map((team, index) =>
+      index === 0 ? { ...team, slots: [hostSlot, ...team.slots.slice(1)] } : team,
+    ),
+  }
+  for (const member of members) {
+    const seat = findPlayerSeat(updated)
+    if (seat) {
+      const [teamIndex, slotIndex] = seat
+      updated = addPlayer(
+        updated,
+        teamIndex,
+        slotIndex,
+        humanSlotFor(member, updated.teams[teamIndex].slots[slotIndex], updated.gameType),
+      )
+    } else {
+      updated = addToBench(updated, benchedFromOccupant(member))
+    }
+  }
+  return updated
 }
 
 /**

@@ -20,11 +20,13 @@ import {
 import { apiUrl } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
 import i18n from '../i18n/i18next'
+import { jotaiStore } from '../jotai-store'
 import logger from '../logging/logger'
 import { clientId } from '../network/client-id'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { ensureReplayCached, startReplay } from '../replays/action-creators'
 import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
+import { replayDownloadProgressAtom } from './replay-download-progress'
 
 const ipcRenderer = new TypedIpcRenderer()
 
@@ -103,6 +105,7 @@ function selfIsHost(getState: Parameters<ThunkAction>[1]): boolean {
 }
 
 function failLoad(lobbyId: SbLobbyId) {
+  jotaiStore.set(replayDownloadProgressAtom, undefined)
   if (current?.lobbyId === lobbyId) {
     current = undefined
   }
@@ -121,17 +124,32 @@ export function loadLobbyReplay(lobbyId: SbLobbyId, mapName: string): ThunkActio
     const isHost = selfIsHost(getState)
     const generation = ++loadGeneration
     pendingLobbyId = lobbyId
+    jotaiStore.set(replayDownloadProgressAtom, undefined)
     fetchJson<GetReplaySessionSourceResponse>(
       apiUrl`lobbies/${lobbyId}/replay-source` + `?${new URLSearchParams({ clientId })}`,
     )
       .then(async source => {
         // The cache only keeps a replay whose bytes hash to what the server says the lobby plays,
         // so the hash also serves as the cache entry's id: a lobby replay's identity is its content.
-        const path = await ensureReplayCached({
-          id: source.hash,
-          url: source.url,
-          hash: source.hash,
-        })
+        const path = await ensureReplayCached(
+          {
+            id: source.hash,
+            url: source.url,
+            hash: source.hash,
+          },
+          undefined,
+          {
+            totalBytes: source.size,
+            onProgress: (loadedBytes, totalBytes) => {
+              if (generation === loadGeneration && pendingLobbyId === lobbyId) {
+                jotaiStore.set(replayDownloadProgressAtom, { lobbyId, loadedBytes, totalBytes })
+              }
+            },
+          },
+        )
+        if (generation === loadGeneration) {
+          jotaiStore.set(replayDownloadProgressAtom, undefined)
+        }
         if (!path) {
           throw new Error('Could not cache the replay')
         }
@@ -245,6 +263,7 @@ export function cancelLobbyReplay(lobbyId: SbLobbyId) {
   }
   loadGeneration += 1
   pendingLobbyId = undefined
+  jotaiStore.set(replayDownloadProgressAtom, undefined)
   if (current?.lobbyId === lobbyId) {
     if (current.gameId && !current.started) {
       ipcRenderer.invoke('activeGameClearConfig', current.gameId)?.catch(swallowNonBuiltins)

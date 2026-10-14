@@ -10,6 +10,7 @@ import { RoomHeader } from './room-header'
 import { RoomMapBanner } from './room-map-banner'
 import { TeamArrangement } from './room-parts'
 import { RoomRail, SlotAction } from './room-rail'
+import { RoomReplaySetup } from './room-replay-setup'
 
 const RoomRoot = styled.div`
   width: 100%;
@@ -81,9 +82,9 @@ export function LobbyRoom({
 
   return (
     <RoomRoot>
-      {isSetupOpen && !isReplay ? (
-        <RoomGameSetup onClose={() => setIsSetupOpen(false)} />
-      ) : (
+      {isSetupOpen && isReplay ? <RoomReplaySetup onClose={() => setIsSetupOpen(false)} /> : null}
+      {isSetupOpen && !isReplay ? <RoomGameSetup onClose={() => setIsSetupOpen(false)} /> : null}
+      {!isSetupOpen ? (
         <>
           <RoomHeader
             viewerId={viewerId}
@@ -125,7 +126,7 @@ export function LobbyRoom({
             />
           </RoomBody>
         </>
-      )}
+      ) : null}
     </RoomRoot>
   )
 }

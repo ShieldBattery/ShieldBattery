@@ -1,3 +1,4 @@
+import { MapImageInfo } from './maps'
 import { RaceChar } from './races'
 
 /** Someone who played in a replay, as its header records them. */
@@ -10,6 +11,8 @@ export interface ReplaySessionPlayer {
 /** Metadata for a replay that can be watched with others. */
 export interface ReplaySessionSourceMetadata {
   mapName: string
+  /** A library map preview when the replay's game still has a map in ShieldBattery. */
+  mapImage?: MapImageInfo
   gameType: string
   durationFrames: number
   /** Everyone who played in the replay (not its observers), in slot order. */

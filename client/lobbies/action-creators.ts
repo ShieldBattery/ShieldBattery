@@ -4,6 +4,7 @@ import { GameType } from '../../common/games/game-type'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { LobbyVisibility } from '../../common/lobbies'
 import {
+  ChangeLobbySourceRequest,
   CreateLobbyRequest,
   CreateLobbyResponse,
   GetLobbyStateResponse,
@@ -351,6 +352,35 @@ export function updateLobbySettings(
       signal: spec.signal,
     }),
   )
+}
+
+/** Changes the source of the current lobby, staging local replay bytes when needed. */
+export function changeLobbySource(
+  source: { kind: 'map'; mapId: SbMapId } | LobbyReplayChoice,
+  spec: RequestHandlingSpec<void>,
+): ThunkAction {
+  return abortableThunk(spec, async (_dispatch, getState) => {
+    const { lobby } = getState()
+    if (!isInLobby(lobby)) return
+    let sourceParams: Omit<ChangeLobbySourceRequest, 'clientId'>
+    if (source.kind === 'map') {
+      sourceParams = { map: source.mapId }
+    } else if (source.kind === 'game') {
+      sourceParams = { replay: { kind: 'game', gameId: source.gameId } }
+    } else {
+      sourceParams = {
+        replay: {
+          kind: 'upload',
+          sourceId: (await stageLocalReplay(source.path, spec.signal)).sourceId,
+        },
+      }
+    }
+    await fetchJson<void>(apiUrl`lobbies/${lobby.info.id}/source`, {
+      method: 'POST',
+      body: JSON.stringify({ clientId, ...sourceParams } satisfies ChangeLobbySourceRequest),
+      signal: spec.signal,
+    })
+  })
 }
 
 /** Moves the occupant of `fromSlotId` into `toSlotId`, swapping the two occupants if it's taken. */

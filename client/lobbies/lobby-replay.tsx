@@ -5,8 +5,10 @@ import { ReadonlyDeep } from 'type-fest'
 import { getGameDurationString } from '../../common/games/games'
 import { MS_PER_GAME_FRAME } from '../../common/games/replay-timestamp'
 import { LobbyReplay } from '../../common/lobbies'
+import { MapImageInfo } from '../../common/maps'
 import { ReplaySessionPlayer } from '../../common/replay-sessions'
 import { MaterialIcon } from '../icons/material/material-icon'
+import { MapInfoImage } from '../maps/map-image'
 import { bodyMedium, bodySmall, labelLarge, singleLine, titleLarge } from '../styles/typography'
 import { RaceIcon } from './race-icon'
 
@@ -36,8 +38,17 @@ const ThumbnailRoot = styled.div`
 `
 
 /** Stands in for a map thumbnail on a lobby that watches a replay rather than playing a map. */
-export function ReplayThumbnail({ className }: { className?: string }) {
+export function ReplayThumbnail({
+  className,
+  mapImage,
+}: {
+  className?: string
+  mapImage?: ReadonlyDeep<MapImageInfo>
+}) {
   const { t } = useTranslation()
+  if (mapImage?.image512Url) {
+    return <MapInfoImage map={mapImage} size={512} forceAspectRatio={1} className={className} />
+  }
   return (
     <ThumbnailRoot
       className={className}

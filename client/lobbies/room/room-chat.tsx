@@ -379,6 +379,8 @@ function changedSettingLabel(setting: ListedChangedSetting, t: TFunction): strin
       return t('lobbies.messageLayout.settingsChangeVisibility', 'visibility')
     case 'map':
       return t('lobbies.messageLayout.settingsChangeMap', 'map')
+    case 'replay':
+      return t('lobbies.messageLayout.settingsChangeReplay', 'replay')
     case 'gameType':
       return t('lobbies.messageLayout.settingsChangeGameType', 'game type')
     case 'gameSubType':

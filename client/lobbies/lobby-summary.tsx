@@ -292,7 +292,7 @@ export function LobbySummaryDetails({ summary }: { summary: LobbySummaryResponse
           {lobby.map ? (
             <MapThumbnail map={lobby.map} size={MAP_THUMBNAIL_SIZE} />
           ) : (
-            <ReplayThumbnail />
+            <ReplayThumbnail mapImage={lobby.replay?.source.metadata.mapImage} />
           )}
         </MapThumbnailContainer>
         <DetailsList>

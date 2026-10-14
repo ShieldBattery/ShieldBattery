@@ -1862,12 +1862,14 @@
       "settingsChangeMapQueue": "map queue",
       "settingsChangeName": "lobby name",
       "settingsChangeObservers": "observers",
+      "settingsChangeReplay": "replay",
       "settingsChangeUnitLimit": "unit limit",
       "settingsChangeVisibility": "visibility"
     },
     "replayLobby": {
       "changeReplay": "Change replay",
       "chooseMapInstead": "Choose a map instead",
+      "downloading": "Downloading replay: {{percent}}%",
       "duration": "{{duration}} replay",
       "invalidReplayBody": "The selected file may be corrupt, or not be a StarCraft replay.",
       "invalidReplayTitle": "Couldn't read that replay",
@@ -1875,6 +1877,7 @@
       "loading": "Loading replay for everyone",
       "readyHint": "Viewers can ready up before watching",
       "replay": "Replay",
+      "replaySetup": "Replay setup",
       "roomDescription": "Everyone watches the same replay with their own observer view. Playback starts when every viewer has loaded it.",
       "selectReplay": "Select replay",
       "startWatching": "Start watching",

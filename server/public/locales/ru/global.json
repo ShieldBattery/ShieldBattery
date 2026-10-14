@@ -1915,12 +1915,14 @@
       "settingsChangeMapQueue": "очередь карт",
       "settingsChangeName": "название лобби",
       "settingsChangeObservers": "зрители",
+      "settingsChangeReplay": "реплей",
       "settingsChangeUnitLimit": "лимит юнитов",
       "settingsChangeVisibility": "видимость"
     },
     "replayLobby": {
       "changeReplay": "Сменить реплей",
       "chooseMapInstead": "Выбрать карту вместо реплея",
+      "downloading": "Загрузка реплея: {{percent}}%",
       "duration": "Реплей · {{duration}}",
       "invalidReplayBody": "Выбранный файл может быть повреждён или не являться реплеем StarCraft.",
       "invalidReplayTitle": "Не удалось прочитать реплей",
@@ -1928,6 +1930,7 @@
       "loading": "Загрузка реплея для всех",
       "readyHint": "Зрители могут отметить готовность перед просмотром",
       "replay": "Реплей",
+      "replaySetup": "Настройки реплея",
       "roomDescription": "Все смотрят один и тот же реплей, каждый со своей точки зрения наблюдателя. Воспроизведение начнётся, когда реплей загрузится у всех.",
       "selectReplay": "Выбрать реплей",
       "startWatching": "Начать просмотр",

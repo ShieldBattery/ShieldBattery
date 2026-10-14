@@ -6,6 +6,7 @@ import { isValidLobbyName } from '../../../common/constants'
 import { ALL_GAME_TYPES } from '../../../common/games/game-type'
 import { ALL_LOBBY_VISIBILITIES, MAX_MAP_QUEUE } from '../../../common/lobbies'
 import {
+  ChangeLobbySourceRequest,
   CreateLobbyRequest,
   CreateLobbyResponse,
   GetLobbyStateResponse,
@@ -166,6 +167,24 @@ const updateLobbySettingsBody = Joi.object<UpdateLobbySettingsRequest>({
     'mapQueue',
   )
   .required()
+
+const changeLobbySourceBody = Joi.object<ChangeLobbySourceRequest>({
+  clientId: clientIdSchema,
+  replay: Joi.object({
+    kind: Joi.string().valid('game', 'upload').required(),
+    gameId: Joi.when('kind', {
+      is: 'game',
+      then: Joi.string().required(),
+      otherwise: Joi.forbidden(),
+    }),
+    sourceId: Joi.when('kind', {
+      is: 'upload',
+      then: Joi.string().required(),
+      otherwise: Joi.forbidden(),
+    }),
+  }),
+  map: Joi.string(),
+}).xor('replay', 'map')
 
 /** The body of a request to move a slot's occupant somewhere else. */
 const moveSlotBody = Joi.object<MoveSlotRequest>({
@@ -440,6 +459,22 @@ export class LobbyApi {
     })
   }
 
+  @httpPost('/:lobbyId/source')
+  @httpBefore(...authedAction)
+  async changeSource(ctx: RouterContext): Promise<void> {
+    const { params, body } = validateRequest(ctx, {
+      params: lobbyIdParams,
+      body: changeLobbySourceBody,
+    })
+    const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
+    await this.lobbyService.changeSource({
+      client,
+      lobbyId: params.lobbyId,
+      replay: body.replay,
+      map: body.map,
+    })
+  }
+
   @httpPost('/:lobbyId/move-slot')
   @httpBefore(...authedAction)
   async moveSlot(ctx: RouterContext): Promise<void> {
@@ -625,6 +660,21 @@ export class LobbyApi {
     const client = this.getClientSockets(ctx.session!.user.id, query.clientId)
 
     return await this.lobbyService.getReplayDownload({ client, lobbyId: params.lobbyId })
+  }
+
+  @httpGet('/:lobbyId/replay-thumbnail')
+  @httpBefore(...authedAction)
+  async getReplayThumbnail(ctx: RouterContext): Promise<Buffer> {
+    const { params, query } = validateRequest(ctx, {
+      params: lobbyIdParams,
+      query: lobbyClientBody,
+    })
+    const client = this.getClientSockets(ctx.session!.user.id, query.clientId)
+    const image = await this.lobbyService.getReplayThumbnail({ client, lobbyId: params.lobbyId })
+    if (!image) throw new HttpErrorWithPayload(404, 'replay thumbnail unavailable', {})
+    ctx.type = 'image/jpeg'
+    ctx.set('Cache-Control', 'private, max-age=60')
+    return image
   }
 
   @httpPost('/:lobbyId/replay-loaded')

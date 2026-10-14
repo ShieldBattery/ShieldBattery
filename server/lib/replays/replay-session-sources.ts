@@ -1,4 +1,6 @@
+import { Worker } from 'node:worker_threads'
 import { singleton } from 'tsyringe'
+import { MapImageInfo } from '../../../common/maps'
 import {
   GetReplaySessionSourceResponse,
   ReplaySessionSource,
@@ -6,8 +8,10 @@ import {
 } from '../../../common/replay-sessions'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { CodedError } from '../errors/coded-error'
-import { getSignedUrl } from '../files'
+import { getSignedUrl, readFile } from '../files'
 import { getGameRecord } from '../games/game-models'
+import logger from '../logging/logger'
+import { getMapInfos } from '../maps/map-models'
 import { replayPath } from './paths'
 import { canUserAccessReplay } from './replay-access'
 import { getBestReplayForGame } from './replay-models'
@@ -37,14 +41,81 @@ export type ResolvedReplaySessionSource =
   | { kind: 'upload'; sourceId: string; hash: string; size: number }
 
 /**
- * Resolves the replays users ask to watch with others and decides who may download them. A
- * ShieldBattery game's replay follows the game's own replay access rules for every viewer
- * individually, so being invited to watch never grants access to a replay the viewer couldn't
- * download themselves. An uploaded replay is shared with whoever its owner watches it with.
+ * Resolves the replays users ask to watch with others. The host must be allowed to select a game
+ * replay. Once selected, lobby membership grants session access to its bytes, including when the
+ * game is unlisted and the lobby is public.
  */
 @singleton()
 export class ReplaySessionSources {
   constructor(private sourceService: ReplaySessionSourceService) {}
+
+  private readonly thumbnailCache = new Map<string, Promise<Buffer | undefined>>()
+
+  /** Renders the map embedded in a replay when no library map image is available. */
+  async thumbnail(source: ResolvedReplaySessionSource): Promise<Buffer | undefined> {
+    if (!process.env.SB_SPRITE_DATA) return undefined
+    const cached = this.thumbnailCache.get(source.hash)
+    if (cached) return cached
+    const render = this.renderThumbnail(source).catch(err => {
+      logger.warn({ err, replayHash: source.hash }, 'failed to render replay map thumbnail')
+      this.thumbnailCache.delete(source.hash)
+      return undefined
+    })
+    this.thumbnailCache.set(source.hash, render)
+    if (this.thumbnailCache.size > 16) {
+      this.thumbnailCache.delete(this.thumbnailCache.keys().next().value!)
+    }
+    return render
+  }
+
+  private async renderThumbnail(source: ResolvedReplaySessionSource): Promise<Buffer | undefined> {
+    const path =
+      source.kind === 'game'
+        ? replayPath(source.replayFileId)
+        : replaySessionUploadPath(source.sourceId)
+    const replayBytes = await readFile(path)
+    return await new Promise<Buffer | undefined>((resolve, reject) => {
+      const worker = new Worker(require.resolve('./replay-map-image-worker'), {
+        name: 'replay-map-image-worker',
+        workerData: { replayBytes, bwDataPath: process.env.SB_SPRITE_DATA },
+      })
+      const timeout = setTimeout(() => {
+        worker.terminate().catch(() => {})
+        reject(new Error('timed out rendering replay map'))
+      }, 60000)
+      worker.once('message', (message: { image?: Uint8Array; error?: string }) => {
+        clearTimeout(timeout)
+        if (message.error) reject(new Error(message.error))
+        else resolve(message.image ? Buffer.from(message.image) : undefined)
+      })
+      worker.once('error', err => {
+        clearTimeout(timeout)
+        reject(err instanceof Error ? err : new Error(String(err)))
+      })
+      worker.once('exit', code => {
+        if (code !== 0) {
+          clearTimeout(timeout)
+          reject(new Error(`replay map image worker exited with ${code}`))
+        }
+      })
+    })
+  }
+
+  private async mapImageForGame(gameId: string | undefined): Promise<MapImageInfo | undefined> {
+    if (!gameId) return undefined
+    const game = await getGameRecord(gameId)
+    if (!game?.mapId) return undefined
+    const map = (await getMapInfos([game.mapId]))[0]
+    if (!map) return undefined
+    return {
+      name: map.name,
+      image256Url: map.image256Url,
+      image512Url: map.image512Url,
+      image1024Url: map.image1024Url,
+      image2048Url: map.image2048Url,
+      mapData: { width: map.mapData.width, height: map.mapData.height },
+    }
+  }
 
   /**
    * Resolves the replay `userId` asked to watch, keeping an uploaded replay alive for another full
@@ -63,6 +134,7 @@ export class ReplaySessionSources {
         )
       }
 
+      const mapImage = await this.mapImageForGame(upload.sbData?.gameId)
       return {
         source: {
           kind: 'upload',
@@ -72,7 +144,7 @@ export class ReplaySessionSources {
         },
         info: {
           kind: 'upload',
-          metadata: replaySessionSourceMetadata(upload.header, upload.slots),
+          metadata: { ...replaySessionSourceMetadata(upload.header, upload.slots), mapImage },
         },
       }
     }
@@ -92,6 +164,7 @@ export class ReplaySessionSources {
       )
     }
 
+    const mapImage = await this.mapImageForGame(source.gameId)
     return {
       source: {
         kind: 'game',
@@ -103,33 +176,13 @@ export class ReplaySessionSources {
       info: {
         kind: 'game',
         gameId: source.gameId,
-        metadata: replaySessionSourceMetadata(replay.header, replay.slots),
+        metadata: { ...replaySessionSourceMetadata(replay.header, replay.slots), mapImage },
       },
     }
   }
 
-  /** Whether `userId` may watch a resolved replay. */
-  async canAccess(source: ResolvedReplaySessionSource, userId: SbUserId): Promise<boolean> {
-    if (source.kind === 'upload') {
-      return true
-    }
-
-    const game = await getGameRecord(source.gameId)
-    return !!game && canUserAccessReplay(game, userId)
-  }
-
-  /** Returns a short-lived download URL for a resolved replay, if `userId` may watch it. */
-  async download(
-    source: ResolvedReplaySessionSource,
-    userId: SbUserId,
-  ): Promise<GetReplaySessionSourceResponse> {
-    if (!(await this.canAccess(source, userId))) {
-      throw new ReplaySessionSourceAccessError(
-        ReplaySessionSourceAccessErrorCode.NotAccessible,
-        'you cannot access this replay',
-      )
-    }
-
+  /** Returns a short-lived URL after the lobby service has checked membership. */
+  async download(source: ResolvedReplaySessionSource): Promise<GetReplaySessionSourceResponse> {
     const path =
       source.kind === 'game'
         ? replayPath(source.replayFileId)

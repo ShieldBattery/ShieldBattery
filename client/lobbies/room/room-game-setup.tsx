@@ -2,6 +2,7 @@ import { nanoid } from 'nanoid'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ReadonlyDeep } from 'type-fest'
+import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { LOBBY_NAME_MAXLENGTH } from '../../../common/constants'
 import { hasObservers, LobbyVisibility } from '../../../common/lobbies'
 import {
@@ -16,7 +17,7 @@ import { FilledButton, TextButton } from '../../material/button'
 import { TextField } from '../../material/text-field'
 import { isFetchError } from '../../network/fetch-errors'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
-import { getLobbyPreferences, updateLobbySettings } from '../action-creators'
+import { changeLobbySource, getLobbyPreferences, updateLobbySettings } from '../action-creators'
 import {
   GameSetupForm,
   GameSetupFormHandle,
@@ -25,6 +26,7 @@ import {
   SectionHeader,
 } from '../create/game-setup-form'
 import { formatGameSetupSummary, GameSetupPage, MapBrowseState } from '../create/game-setup-page'
+import { SelectReplayButton, useBrowseForReplay } from '../create/replay-lobby-setup'
 import { VisibilityPicker } from '../create/visibility-picker'
 import { MapQueueSection, QueuedMapEntry } from './room-map-queue'
 
@@ -46,6 +48,30 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
   const dispatch = useAppDispatch()
   const lobby = useAppSelector(s => s.lobby.info)
   const recentMaps = useAppSelector(s => s.lobbyPreferences.recentMaps)
+  const browseForReplay = useBrowseForReplay()
+
+  const pickReplay = () => {
+    browseForReplay()
+      .then(chosen => {
+        if (!chosen) return
+        dispatch(
+          changeLobbySource(chosen.choice, {
+            onSuccess: onClose,
+            onError: () =>
+              dispatch(
+                openSimpleDialog(
+                  t('lobbies.replayLobby.changeFailed', 'Could not choose replay'),
+                  t(
+                    'lobbies.replayLobby.changeFailedBody',
+                    'The lobby could not switch to this replay.',
+                  ),
+                ),
+              ),
+          }),
+        )
+      })
+      .catch(swallowNonBuiltins)
+  }
 
   useEffect(() => {
     dispatch(getLobbyPreferences())
@@ -150,6 +176,9 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
             onChange={setQueue}
             onAddMap={() => browseFor(MapPickTarget.Queue)}
           />
+        }
+        mapAlternativeSection={
+          IS_ELECTRON ? <SelectReplayButton onClick={pickReplay} /> : undefined
         }
         onChangeMap={() => browseFor(MapPickTarget.Current)}
         onValidatedChange={model => setSetup(model)}

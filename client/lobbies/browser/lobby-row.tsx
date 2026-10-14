@@ -306,7 +306,7 @@ export function LobbyRow({
         {summary.map ? (
           <MapThumbnail map={summary.map} size={256} forceAspectRatio={1} />
         ) : (
-          <ReplayThumbnail />
+          <ReplayThumbnail mapImage={summary.replay?.source.metadata.mapImage} />
         )}
       </Thumbnail>
       <Main>

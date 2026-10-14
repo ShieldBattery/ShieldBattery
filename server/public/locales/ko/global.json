@@ -1834,12 +1834,14 @@
       "settingsChangeMapQueue": "맵 대기열",
       "settingsChangeName": "로비 이름",
       "settingsChangeObservers": "관전자",
+      "settingsChangeReplay": "리플레이",
       "settingsChangeUnitLimit": "유닛 제한",
       "settingsChangeVisibility": "공개 범위"
     },
     "replayLobby": {
       "changeReplay": "리플레이 변경",
       "chooseMapInstead": "대신 맵 선택",
+      "downloading": "리플레이 다운로드 중: {{percent}}%",
       "duration": "{{duration}} 리플레이",
       "invalidReplayBody": "선택한 파일이 손상되었거나 스타크래프트 리플레이가 아닐 수 있습니다.",
       "invalidReplayTitle": "리플레이를 읽을 수 없습니다",
@@ -1847,6 +1849,7 @@
       "loading": "모든 관전자의 리플레이를 불러오는 중",
       "readyHint": "관전자는 시청 전에 준비할 수 있습니다",
       "replay": "리플레이",
+      "replaySetup": "리플레이 설정",
       "roomDescription": "모두 같은 리플레이를 각자의 관전자 시점으로 시청합니다. 모두 불러오면 재생이 시작됩니다.",
       "selectReplay": "리플레이 선택",
       "startWatching": "시청 시작",

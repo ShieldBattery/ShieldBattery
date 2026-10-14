@@ -15,6 +15,13 @@ replay source in place of a map. Its room shows one viewer list, replay metadata
 watching** action, and loading progress. Map settings, teams, races, and observer slot controls do
 not apply. A replay run creates no game record or results.
 
+An existing gathering lobby starts in game mode. Its host can choose a replay in Game setup to
+switch to replay mode, or choose a map in Replay setup to switch back. The lobby ID, visibility,
+invitation link, chat, and members persist through either change. The public lobby preview may show
+the map, replay players, and current members. A replay tied to a ShieldBattery game uses that game's
+library map image when available. Other replays use a thumbnail rendered from the embedded map;
+this rendering needs the same `SB_SPRITE_DATA` assets as map image generation.
+
 The first release allows joining while the lobby gathers. The countdown locks the viewing group.
 Each viewer downloads the same replay, verifies its SHA-256 hash, launches it locally, and holds at
 frame zero. The server starts playback when every viewer reports ready. A failed or timed-out load
@@ -29,12 +36,14 @@ The source selector is a discriminated union:
 type ReplaySessionSource = { kind: 'game'; gameId: string } | { kind: 'upload'; sourceId: string }
 ```
 
-For a ShieldBattery game, the server resolves a stored replay. Joining checks each viewer's own
-access; a lobby invitation cannot grant access to an unlisted game's replay. A local file is staged
+For a ShieldBattery game, the server resolves a stored replay and checks the host's access when
+selecting it. Membership in the resulting lobby grants session access to its bytes, including when
+the source game is unlisted and the replay lobby is public. A local file is staged
 through an authenticated, size-limited upload. The server parses it, hashes it, stores it privately,
 and returns an opaque expiring source ID. The lobby issues short-lived downloads to its members.
-Local paths and download URLs stay out of public lobby summaries. Retention cleanup preserves
-staged files still referenced by a lobby.
+Nonmembers cannot request the download or an embedded map thumbnail. Local paths and download URLs
+stay out of public lobby summaries. Retention cleanup preserves staged files still referenced by a
+lobby. The viewer sees byte progress while downloading; cached replays skip the download.
 
 ## Playback protocol
 
@@ -64,8 +73,11 @@ Host transfer paused playback and transferred the replay controls. In-game chat 
 through the native text box, and lobby chat appeared in the game. Closing each replay returned the
 viewers to the gathering room.
 
-A development game replay fixture confirmed that a nonparticipant could not join a room watching
-an unlisted game's replay. After the fixture was marked listed, both clients joined and played it.
-An authenticated download matched the expected size and SHA-256 hash. A deliberately incorrect
-hash made the viewer reject the file, and the lobby canceled the run when that viewer failed to
-load. The temporary fixture was removed after verification.
+Two development clients switched a public lobby from map to replay and back while keeping the same
+ID and members. A fresh replay download showed viewer progress from 0% through 97%, and both
+clients reached playback. The upload endpoint rejected arbitrary bytes named `.rep` with
+`InvalidReplay`. Service tests cover member downloads in both public and unlisted lobbies, and
+reject nonmember downloads and thumbnail requests. An authenticated download matched the expected
+size and SHA-256 hash; a deliberately incorrect hash made the viewer reject the file and cancel the
+run. The embedded map parses correctly, but the development server lacks `SB_SPRITE_DATA`, so JPEG
+rendering still needs verification in an environment with those assets.
