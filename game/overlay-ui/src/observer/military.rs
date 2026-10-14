@@ -23,6 +23,7 @@ use crate::observer::{
     paint_team_divider, paint_text, stat_table_height, teams_worth_dividing, vision_alpha,
     wing_panel,
 };
+use crate::shell::Panel;
 use crate::tr;
 
 /// How wide the panel is, in overlay points.
@@ -139,7 +140,11 @@ pub fn render_military_view(
 }
 
 fn draw_panel(ui: &mut Ui, view: &MilitaryView) {
-    widgets::panel_header(ui, &tr!("observer.panelMilitary", "Military"), Some("M"));
+    widgets::panel_header(
+        ui,
+        &tr!("observer.panelMilitary", "Military"),
+        Panel::Military.key_label().as_deref(),
+    );
     draw_headings(ui);
     let divided = teams_worth_dividing(view.players.iter().map(|player| player.team));
     let mut side = view.players.first().map(|player| player.team);

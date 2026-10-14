@@ -3,7 +3,7 @@
 //! The left of the two upper stats wings, at the kit's ambient tier. One row per player, led by the
 //! bar of their own color and their name, then three columns:
 //!
-//! - **Income**, minerals and gas gathered per minute, which is the number a caster reads a build
+//! - **Income / min**, minerals and gas gathered per minute, which is the number a caster reads a build
 //!   against: a player two hundred minerals a minute behind is losing the game quietly.
 //! - **Workers**, with how many of them are standing still. Idle workers are the single most common
 //!   unforced error in the game, and a count nobody can see is one nobody calls.
@@ -14,7 +14,7 @@
 //! Every column is a fixed width. These numbers move every second, and a table that resized itself
 //! around them would be unreadable over a game.
 
-use egui::{Align, Color32, Context, Id, Rect, Sense, Ui, vec2};
+use egui::{Align, Color32, Context, Id, Rect, Sense, Ui, pos2, vec2};
 
 use crate::kit::text;
 use crate::kit::theme;
@@ -25,6 +25,7 @@ use crate::observer::{
     paint_team_divider, paint_text, stat_table_height, teams_worth_dividing, vision_alpha,
     wing_panel,
 };
+use crate::shell::Panel;
 use crate::{tr, tr_plural};
 
 /// How wide the panel is, in overlay points.
@@ -160,7 +161,11 @@ pub fn render_economy_view(
 }
 
 fn draw_panel(ui: &mut Ui, view: &EconomyView) {
-    widgets::panel_header(ui, &tr!("observer.panelEconomy", "Economy"), Some("E"));
+    widgets::panel_header(
+        ui,
+        &tr!("observer.panelEconomy", "Economy"),
+        Panel::Economy.key_label().as_deref(),
+    );
     draw_headings(ui);
     let divided = teams_worth_dividing(view.players.iter().map(|player| player.team));
     let mut side = view.players.first().map(|player| player.team);
@@ -177,31 +182,67 @@ fn draw_panel(ui: &mut Ui, view: &EconomyView) {
     }
 }
 
-/// Draws the row of column headings, each aligned the way its column's values are.
+/// Draws the row of column headings, each aligned the way its column's values are, and saying on
+/// hover what its column counts: the headings are a word each, and two of the columns are rates.
 fn draw_headings(ui: &mut Ui) {
     let (row, _) = ui.allocate_exact_size(vec2(CONTENT_WIDTH, STAT_HEADING_HEIGHT), Sense::hover());
     let mut cursor = EdgeCursor::from_left(row);
     cursor.skip(STAT_COLOR_BAR + BAR_GAP + NAME_WIDTH + COLUMN_GAP);
-    paint_column_heading(
+    draw_heading(
         ui,
         cursor.take(INCOME_WIDTH),
-        &tr!("observer.columnIncome", "Income"),
-        Align::LEFT,
+        "income",
+        &tr!("observer.columnIncomePerMinute", "Income / min"),
+        &tr!(
+            "observer.columnIncomeHint",
+            "Minerals and gas gathered per minute, over the last minute"
+        ),
     );
     cursor.skip(COLUMN_GAP);
-    paint_column_heading(
+    draw_heading(
         ui,
         cursor.take(WORKERS_WIDTH),
+        "workers",
         &tr!("observer.columnWorkers", "Workers"),
-        Align::LEFT,
+        &tr!(
+            "observer.columnWorkersHint",
+            "Workers alive, and how many are standing idle"
+        ),
     );
     cursor.skip(COLUMN_GAP);
-    paint_column_heading(
+    draw_heading(
         ui,
         cursor.take(EFFICIENCY_WIDTH),
+        "efficiency",
         &tr!("observer.columnEfficiency", "Eff"),
-        Align::LEFT,
+        &tr!(
+            "observer.columnEfficiencyHint",
+            "Income per worker, per minute"
+        ),
     );
+}
+
+/// Draws one column heading, with `hint` under the pointer while it rests on the heading's words.
+fn draw_heading(ui: &Ui, rect: Rect, key: &str, label: &str, hint: &str) {
+    paint_column_heading(ui, rect, label, Align::LEFT);
+    // The words rather than the column: the column's empty width is where the pointer passes on
+    // its way to something else, and a card that sprang up there would be in the way.
+    let words = text::column_label().galley(ui, label).size();
+    let target = Rect::from_min_size(
+        pos2(rect.left(), rect.center().y - words.y * 0.5),
+        vec2(words.x.min(rect.width()), words.y),
+    );
+    let id = Id::new(("sb_economy_heading", key));
+    let response = ui.interact(target, id, Sense::hover());
+    if let Some(pointer) = response.hover_pos() {
+        widgets::tooltip(ui.ctx(), id.with("hint"), pointer, |ui| {
+            ui.label(
+                text::body(12.0, text::BodyWeight::Regular)
+                    .with_color(theme::TEXT_SECONDARY)
+                    .job(hint),
+            );
+        });
+    }
 }
 
 /// Draws one player's row.

@@ -106,7 +106,6 @@ impl Entry {
                 tr!("observer.panelControlGroups", "Control groups")
             }
             Entry::Panel(Panel::Selection) => tr!("observer.panelSelection", "Selection"),
-            Entry::Panel(Panel::Console) => tr!("observer.panelConsole", "Console"),
             Entry::Panel(Panel::Minimap) => tr!("observer.panelMinimap", "Minimap"),
             Entry::Panel(Panel::Transport) => tr!("observer.panelTransport", "Transport"),
             Entry::Panel(Panel::Dock) => tr!("observer.panelDock", "Dock"),

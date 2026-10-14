@@ -4357,6 +4357,17 @@ impl BwScr {
                                 (self.select_units)(units.len(), units.as_ptr(), 1, 1);
                                 self.center_screen(&unit.position());
                             }
+                            if let Some(point) = overlay_out.look_at {
+                                self.center_screen(&point);
+                            }
+                            if let Some(group) = &overlay_out.select_group {
+                                let units =
+                                    group.units.iter().map(|unit| **unit).collect::<Vec<_>>();
+                                (self.select_units)(units.len(), units.as_ptr(), 1, 1);
+                                if group.center {
+                                    self.center_screen(&group.units[0].position());
+                                }
+                            }
                             // Only once the game runs: before then there is no game view to
                             // resize, and the map load ahead resets its height anyway.
                             let console_shown = !self.console_hidden();
@@ -7114,17 +7125,6 @@ impl BwScr {
         send_game_msg_to_async(GameThreadMessage::SettingsChanged(saved));
     }
 
-    /// Hands one of ShieldBattery's own settings to what reads it in the DLL, for the ones read
-    /// while a game runs.
-    fn apply_local_setting_change(&self, change: SettingChange) {
-        match change {
-            SettingChange::GrabPanOn(on) => {
-                self.grab_pan_sensitivity_on.store(on, Ordering::Release);
-            }
-            SettingChange::GrabPanSensitivity(value) => {
-                self.grab_pan_gain
-                    .store(grab_pan_gain(value as f32).to_bits(), Ordering::Release);
-            }
     /// Writes the options screen's queued changes into SC:R's settings registry. Must run on the
     /// game's main thread between frames, as SC:R's own writes do.
     fn write_pending_game_settings(&self) {
@@ -7141,6 +7141,17 @@ impl BwScr {
         }
     }
 
+    /// Hands one of ShieldBattery's own settings to what reads it in the DLL, for the ones read
+    /// while a game runs.
+    fn apply_local_setting_change(&self, change: SettingChange) {
+        match change {
+            SettingChange::GrabPanOn(on) => {
+                self.grab_pan_sensitivity_on.store(on, Ordering::Release);
+            }
+            SettingChange::GrabPanSensitivity(value) => {
+                self.grab_pan_gain
+                    .store(grab_pan_gain(value as f32).to_bits(), Ordering::Release);
+            }
             SettingChange::GrabPanInverted(on) => {
                 self.grab_pan_inverted.store(on, Ordering::Release);
             }

@@ -20,8 +20,8 @@
 //! panel is that the same key is always in the same place. An empty one keeps its space and fades
 //! nearly out of the row, so what the row is made of is the keys the player is using.
 //!
-//! It sits at the kit's ambient tier at the top of the centred bottom stack, over the production
-//! panel, so the surfaces a watcher glances at during a fight are all in the same place.
+//! It sits at the kit's ambient tier along the screen's bottom edge, under the production panel, so
+//! the surfaces a watcher glances at during a fight are all in the same place.
 
 use egui::{
     Align, Align2, Area, Color32, Context, Id, Order, Rect, Sense, Shape, Stroke, StrokeKind,
@@ -32,8 +32,8 @@ use crate::colors::{BLUE80, GREY_BLUE10};
 use crate::kit::text;
 use crate::kit::{motion, theme, tiers};
 use crate::observer::{
-    EdgeCursor, ProductionIcon, StackSlot, centred, fit_icon, paint_player_bar, paint_text,
-    unit_codes, vision_alpha,
+    EdgeCursor, ProductionIcon, StackSlot, centred, fit_icon, paint_outlined_icon,
+    paint_player_bar, paint_text, unit_codes, vision_alpha,
 };
 
 /// How wide the panel is, in overlay points.
@@ -193,15 +193,16 @@ impl ControlGroupsView {
         self.players.iter().all(|player| player.groups.is_empty())
     }
 
-    /// The player whose row is drawn: `focus` while they have a group to show, and otherwise the
-    /// first player who has, so the panel always has a row while anybody has bound anything.
-    fn shown(&self, focus: Option<u8>) -> Option<&ControlGroupsPlayerView> {
-        let bound = |player: &&ControlGroupsPlayerView| !player.groups.is_empty();
-        self.players
-            .iter()
-            .filter(bound)
-            .find(|player| Some(player.player_id) == focus)
-            .or_else(|| self.players.iter().find(bound))
+    /// The player whose row is drawn: `focus`, whatever they have bound, and before anyone has been
+    /// focused, the first player who has bound something.
+    ///
+    /// A focused player with nothing bound still gets their row, empty: a watcher who clicked one
+    /// player's building and was shown somebody else's keys would read them as that player's.
+    pub(crate) fn shown(&self, focus: Option<u8>) -> Option<&ControlGroupsPlayerView> {
+        match focus {
+            Some(focus) => self.players.iter().find(|player| player.player_id == focus),
+            None => self.players.iter().find(|player| !player.groups.is_empty()),
+        }
     }
 }
 
@@ -268,14 +269,21 @@ fn draw_rows(ui: &mut Ui, view: &ControlGroupsView, focus: Option<u8>, width: f3
             }
             let slot = cursor.take(tile_width);
             let group = player.groups.iter().find(|group| group.key == key);
-            draw_slot(ui, slot, key, group, alpha);
+            draw_slot(ui, slot, key, group, player.color, alpha);
         }
     }
 }
 
 /// Draws one slot: the digit it answers to and, when there is a group on it, what that group is and
 /// how much of it there is.
-fn draw_slot(ui: &Ui, rect: Rect, key: u8, group: Option<&ControlGroupView>, alpha: f32) {
+fn draw_slot(
+    ui: &Ui,
+    rect: Rect,
+    key: u8,
+    group: Option<&ControlGroupView>,
+    owner: Color32,
+    alpha: f32,
+) {
     let alpha = match group {
         Some(group) if group.stale => alpha * STALE_ALPHA,
         Some(_) => alpha,
@@ -296,7 +304,7 @@ fn draw_slot(ui: &Ui, rect: Rect, key: u8, group: Option<&ControlGroupView>, alp
     let Some(group) = group else {
         return;
     };
-    paint_subject(ui, line(SUBJECT_ROW), group, alpha);
+    paint_subject(ui, line(SUBJECT_ROW), group, owner, alpha);
     if !group.building {
         paint_text(
             ui,
@@ -321,9 +329,9 @@ fn paint_key(ui: &Ui, rect: Rect, key: u8, alpha: f32) {
     );
 }
 
-/// Draws what a group is: the game's own icons where the host has them, and the units' codes where
-/// it has not.
-fn paint_subject(ui: &Ui, rect: Rect, group: &ControlGroupView, alpha: f32) {
+/// Draws what a group is: the game's own icons, outlined in its `owner`'s color, where the host
+/// has them, and the units' codes where it has not.
+fn paint_subject(ui: &Ui, rect: Rect, group: &ControlGroupView, owner: Color32, alpha: f32) {
     let combo = group.combo;
     match (group.icon.texture, combo.and_then(|icon| icon.texture)) {
         (Some(first), Some(second)) => {
@@ -337,12 +345,13 @@ fn paint_subject(ui: &Ui, rect: Rect, group: &ControlGroupView, alpha: f32) {
                     vec2(COMBO_ICON, COMBO_ICON),
                 )
             };
-            paint_icon(ui, icon(0.0), first, group.icon.size, alpha);
+            paint_icon(ui, icon(0.0), first, group.icon.size, owner, alpha);
             paint_icon(
                 ui,
                 icon(1.0),
                 second,
                 combo.and_then(|icon| icon.size),
+                owner,
                 alpha,
             );
         }
@@ -351,6 +360,7 @@ fn paint_subject(ui: &Ui, rect: Rect, group: &ControlGroupView, alpha: f32) {
             Rect::from_center_size(rect.center(), vec2(ICON, ICON)),
             texture,
             group.icon.size,
+            owner,
             alpha,
         ),
         (None, _) => {
@@ -372,13 +382,22 @@ fn paint_subject(ui: &Ui, rect: Rect, group: &ControlGroupView, alpha: f32) {
     }
 }
 
-/// Draws one of the game's own icons.
-fn paint_icon(ui: &Ui, rect: Rect, texture: TextureId, size: Option<Vec2>, alpha: f32) {
-    ui.painter().image(
+/// Draws one of the game's own icons, outlined in its `owner`'s color.
+fn paint_icon(
+    ui: &Ui,
+    rect: Rect,
+    texture: TextureId,
+    size: Option<Vec2>,
+    owner: Color32,
+    alpha: f32,
+) {
+    paint_outlined_icon(
+        ui.painter(),
         texture,
         fit_icon(rect, size),
-        Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
-        Color32::WHITE.gamma_multiply(alpha),
+        owner,
+        Color32::WHITE,
+        alpha,
     );
 }
 

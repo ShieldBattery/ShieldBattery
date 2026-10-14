@@ -27,15 +27,15 @@
 //! - One transport or bunker with units inside shows them in the console's cargo slots, two rows of
 //!   four.
 //!
-//! The body is the same height whichever of those is drawn, so the production and control-group
-//! panels stacked on it stay where they are as the watcher clicks from one unit to the next.
+//! The body is the same height whichever of those is drawn, so the panels stacked on it, where the
+//! bottom panels are one stack, stay where they are as the watcher clicks from one unit to the next.
 
 use egui::{
     Align, Align2, Area, Color32, Context, Id, Order, Rect, Sense, Shape, Stroke, StrokeKind, Ui,
     pos2, vec2,
 };
 
-use crate::colors::{BLUE60, BLUE80, GREY_BLUE10, PURPLE70};
+use crate::colors::{BLUE80, GREY_BLUE10, PURPLE70};
 use crate::kit::text;
 use crate::kit::{motion, theme, tiers};
 use crate::observer::{
@@ -158,7 +158,7 @@ pub enum SelectionCase {
 }
 
 /// How wide the panel is, in overlay points: about what the console's own middle section takes at
-/// the design's scale, which is narrower than the panels stacked on it.
+/// the design's scale, which is narrower than the production and control-group panels.
 pub const PANEL_WIDTH: f32 = 460.0;
 
 /// The room inside the panel's chrome.
@@ -550,7 +550,7 @@ fn draw_production(ui: &Ui, rect: Rect, production: &ProductionProgressView) {
         ),
         PROGRESS_TRACK,
     );
-    paint_track(ui, track, progress, BLUE60);
+    paint_track(ui, track, progress, theme::ACCENT);
     paint_text(
         ui,
         Rect::from_min_max(pos2(line.right() - PERCENT_WIDTH, line.top()), line.max),
@@ -767,6 +767,7 @@ mod tests {
                 left: 0.0,
                 right: 1280.0,
             },
+            anchor: crate::observer::StackAnchor::Middle,
             middle: 640.0,
             ceiling,
             screen_bottom: 960.0,

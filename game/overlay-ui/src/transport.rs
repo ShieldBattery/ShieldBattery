@@ -30,8 +30,8 @@ use crate::colors::{BLUE60, BLUE80};
 use crate::kit::text::{self, BodyWeight};
 use crate::kit::widgets::{self, TagStyle, TrackMarker};
 use crate::kit::{motion, theme, tiers};
-use crate::observer::TimelineEventView;
 use crate::observer::timeline::seek_hint;
+use crate::observer::{MapPoint, TimelineEventView};
 use crate::tr;
 
 /// How wide the plate is, in overlay points.
@@ -372,6 +372,8 @@ pub struct TransportOutcome {
     pub rect: Rect,
     /// A frame to jump to.
     pub seek_to: Option<u32>,
+    /// Where on the map to look once the jump lands: the place of the event whose mark was clicked.
+    pub look_at: Option<MapPoint>,
     /// A speed step to move to.
     pub speed: Option<SpeedStep>,
     /// Whether playback should be stopped.
@@ -385,6 +387,7 @@ impl TransportOutcome {
         TransportOutcome {
             rect: Rect::NOTHING,
             seek_to: None,
+            look_at: None,
             speed: None,
             paused: None,
             spoiler_free: None,
@@ -555,6 +558,7 @@ fn draw_track_row(
     }
     if let Some((event, _)) = track.clicked_marker.and_then(|index| marked.get(index)) {
         outcome.seek_to = Some(view.event_seek_target(event.secs));
+        outcome.look_at = event.position;
     }
     if let Some((event, _)) = track.hovered_marker.and_then(|index| marked.get(index))
         && let Some(pointer) = track.response.hover_pos()
@@ -984,6 +988,7 @@ mod tests {
             kind: crate::observer::TimelineEventKind::ExpansionTaken,
             icon: None,
             name: None,
+            position: None,
         }
     }
 

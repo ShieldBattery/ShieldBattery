@@ -16,8 +16,9 @@
 //! rather than growing without limit.
 
 use std::collections::VecDeque;
+use std::mem;
 
-use bw_dat::{Game, TechId, UnitArray, UnitId, UpgradeId, order, unit};
+use bw_dat::{Game, TechId, Unit, UnitArray, UnitId, UpgradeId, order, unit};
 use overlay_ui::observer::{GraphSeries, TimelineEventKind};
 
 use crate::bw;
@@ -139,6 +140,27 @@ pub struct TimelineEvent {
     pub player: u8,
     pub kind: TimelineEventKind,
     pub subject: TimelineSubject,
+    /// Where on the map it happened, in map pixels: the building that finished or that the research
+    /// runs in. `None` where the sampler could not tell which building it was.
+    pub position: Option<(i16, i16)>,
+}
+
+/// A building standing on the map, as one sample found it.
+#[derive(Copy, Clone, PartialEq, Eq)]
+struct BuildingSite {
+    player: u8,
+    unit_id: UnitId,
+    x: i16,
+    y: i16,
+}
+
+/// Research one sample found running, and the building it runs in.
+#[derive(Copy, Clone)]
+struct ResearchSite {
+    player: u8,
+    subject: TimelineSubject,
+    x: i16,
+    y: i16,
 }
 
 /// One of a player's number-key selection groups, as the last sample found it.
@@ -202,6 +224,12 @@ struct PreviousState {
     upgrade_in_progress: [[bool; UPGRADE_COUNT as usize]; MAX_PLAYERS],
     tech_researched: [[bool; TECH_COUNT as usize]; MAX_PLAYERS],
     tech_in_progress: [[bool; TECH_COUNT as usize]; MAX_PLAYERS],
+    /// Every finished building other than a depot, so a building count that went up can be put at
+    /// the building that was not standing before.
+    buildings: Vec<BuildingSite>,
+    /// Where each research seen running runs, so its finish can be put where its start was: by the
+    /// sample that sees it finish, the building has nothing in progress any more.
+    research_sites: Vec<ResearchSite>,
 }
 
 impl PreviousState {
@@ -212,6 +240,8 @@ impl PreviousState {
             upgrade_in_progress: [[false; UPGRADE_COUNT as usize]; MAX_PLAYERS],
             tech_researched: [[false; TECH_COUNT as usize]; MAX_PLAYERS],
             tech_in_progress: [[false; TECH_COUNT as usize]; MAX_PLAYERS],
+            buildings: Vec::new(),
+            research_sites: Vec::new(),
         }
     }
 }
@@ -485,6 +515,8 @@ impl GameStats {
 
         let mut idle_workers = [0u32; MAX_PLAYERS];
         let mut depots: Vec<(u8, UnitId, i16, i16)> = Vec::new();
+        let mut buildings: Vec<BuildingSite> = Vec::new();
+        let mut research: Vec<ResearchSite> = Vec::new();
         for unit in active_units {
             let player = unit.player() as usize;
             if player >= MAX_PLAYERS {
@@ -497,9 +529,30 @@ impl GameStats {
             if id.is_worker() && is_idle(unit) {
                 idle_workers[player] = idle_workers[player].saturating_add(1);
             }
+            let position = unit.position();
             if id.is_town_hall() {
-                let position = unit.position();
                 depots.push((player as u8, id, position.x, position.y));
+            } else if id.is_building() {
+                buildings.push(BuildingSite {
+                    player: player as u8,
+                    unit_id: id,
+                    x: position.x,
+                    y: position.y,
+                });
+            }
+            if id.is_building() {
+                let subjects = [
+                    unit.tech_in_progress().map(TimelineSubject::Tech),
+                    unit.upgrade_in_progress().map(TimelineSubject::Upgrade),
+                ];
+                for subject in subjects.into_iter().flatten() {
+                    research.push(ResearchSite {
+                        player: player as u8,
+                        subject,
+                        x: position.x,
+                        y: position.y,
+                    });
+                }
             }
         }
 
@@ -524,8 +577,8 @@ impl GameStats {
         }
 
         self.record_depots(game, frame, &depots);
-        self.record_buildings(game, frame);
-        self.record_research(game, frame);
+        self.record_buildings(game, frame, buildings);
+        self.record_research(game, frame, &research);
         self.record_control_groups(game, frame, units, hotkey_frames);
         self.seeded = true;
     }
@@ -576,6 +629,7 @@ impl GameStats {
         player: u8,
         kind: TimelineEventKind,
         subject: TimelineSubject,
+        position: Option<(i16, i16)>,
     ) {
         if !self.seeded {
             return;
@@ -588,6 +642,7 @@ impl GameStats {
             player,
             kind,
             subject,
+            position,
         });
     }
 
@@ -614,7 +669,7 @@ impl GameStats {
                 true => TimelineEventKind::BuildingCompleted,
                 false => TimelineEventKind::ExpansionTaken,
             };
-            self.push_event(frame, player, kind, TimelineSubject::Unit(id));
+            self.push_event(frame, player, kind, TimelineSubject::Unit(id), Some((x, y)));
         }
     }
 
@@ -622,7 +677,16 @@ impl GameStats {
     ///
     /// Resource depots are left out: they are reported from where they stand, which is the only way
     /// to tell an expansion from another building in the main.
-    fn record_buildings(&mut self, game: Game, frame: u32) {
+    ///
+    /// Counted from the game's own tallies, and put on the map at the buildings of the kind that
+    /// were not standing at the last sample (`buildings` is every finished one now).
+    fn record_buildings(&mut self, game: Game, frame: u32, buildings: Vec<BuildingSite>) {
+        let previous_buildings = mem::take(&mut self.previous.buildings);
+        let mut fresh = buildings
+            .iter()
+            .filter(|site| !previous_buildings.contains(site))
+            .copied()
+            .collect::<Vec<_>>();
         for id in 0..UNIT_ID_COUNT.min(UnitId::entry_amount()) {
             let unit_id = UnitId(id as u16);
             if !unit_id.is_building() || unit_id.is_town_hall() {
@@ -634,23 +698,49 @@ impl GameStats {
                 let built = count.saturating_sub(*previous);
                 *previous = count;
                 for _ in 0..built {
+                    let site = fresh
+                        .iter()
+                        .position(|site| site.player == player as u8 && site.unit_id == unit_id)
+                        .map(|index| fresh.swap_remove(index));
                     self.push_event(
                         frame,
                         player as u8,
                         TimelineEventKind::BuildingCompleted,
                         TimelineSubject::Unit(unit_id),
+                        site.map(|site| (site.x, site.y)),
                     );
                 }
             }
         }
+        self.previous.buildings = buildings;
+    }
+
+    /// Where `player`'s research `subject` was last seen running.
+    fn research_site(&self, player: u8, subject: TimelineSubject) -> Option<(i16, i16)> {
+        self.previous
+            .research_sites
+            .iter()
+            .find(|site| site.player == player && site.subject == subject)
+            .map(|site| (site.x, site.y))
     }
 
     /// Reports every upgrade and technology that was started or finished since the last sample.
     ///
     /// A start is the game's in-progress flag going up and a finish is the level or the researched
     /// flag moving, so an upgrade cancelled halfway reports its start and nothing else, which is
-    /// exactly what happened.
-    fn record_research(&mut self, game: Game, frame: u32) {
+    /// exactly what happened. Both are put on the map at the building the research runs in, as found
+    /// in `running` (every research in progress now) by this sample or an earlier one.
+    fn record_research(&mut self, game: Game, frame: u32, running: &[ResearchSite]) {
+        for site in running {
+            let known = &mut self.previous.research_sites;
+            match known
+                .iter_mut()
+                .find(|known| known.player == site.player && known.subject == site.subject)
+            {
+                Some(known) => *known = *site,
+                None => known.push(*site),
+            }
+        }
         for id in 0..UPGRADE_COUNT.min(UpgradeId::entry_amount()) {
             let upgrade = UpgradeId(id as u16);
             for player in 0..MAX_PLAYERS {
@@ -668,6 +758,7 @@ impl GameStats {
                         player as u8,
                         TimelineEventKind::UpgradeStarted,
                         TimelineSubject::Upgrade(upgrade),
+                        self.research_site(player as u8, TimelineSubject::Upgrade(upgrade)),
                     );
                 }
                 if finished {
@@ -676,6 +767,7 @@ impl GameStats {
                         player as u8,
                         TimelineEventKind::UpgradeCompleted,
                         TimelineSubject::Upgrade(upgrade),
+                        self.research_site(player as u8, TimelineSubject::Upgrade(upgrade)),
                     );
                 }
             }
@@ -697,6 +789,7 @@ impl GameStats {
                         player as u8,
                         TimelineEventKind::TechStarted,
                         TimelineSubject::Tech(tech),
+                        self.research_site(player as u8, TimelineSubject::Tech(tech)),
                     );
                 }
                 if finished {
@@ -705,6 +798,7 @@ impl GameStats {
                         player as u8,
                         TimelineEventKind::TechCompleted,
                         TimelineSubject::Tech(tech),
+                        self.research_site(player as u8, TimelineSubject::Tech(tech)),
                     );
                 }
             }
@@ -729,6 +823,25 @@ struct GroupContents {
 /// templar walked into is still an army of zealots — and above it the group really was built as a
 /// mix, which is a different army and worth saying so.
 const COMBO_SHARE_DIVISOR: u32 = 4;
+
+/// The living units on one of a player's number keys, in the group's order: what recalling it would
+/// select.
+pub fn control_group_units(game: Game, units: &UnitArray, player: u8, group: u8) -> Vec<Unit> {
+    let Some(ids) = (unsafe {
+        (**game)
+            .selection_hotkeys
+            .get(player as usize)
+            .and_then(|groups| groups.get(group as usize))
+            .copied()
+    }) else {
+        return Vec::new();
+    };
+    ids.iter()
+        // Zero is the game's own end of the group rather than a unit it failed to find.
+        .take_while(|&&id| id != 0)
+        .filter_map(|&id| units.get_by_unique_id(id))
+        .collect()
+}
 
 /// Reads one of a player's selection groups: what it is made of and how many living units are in
 /// it, or `None` for a group with nothing on it.
@@ -969,6 +1082,7 @@ mod tests {
                 player: 0,
                 kind: TimelineEventKind::BuildingCompleted,
                 subject: TimelineSubject::Unit(UnitId(0)),
+                position: None,
             });
         }
         stats.seeded = true;

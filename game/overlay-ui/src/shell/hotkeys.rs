@@ -1,9 +1,11 @@
 //! The shell's key bindings: one table from action to chord, and the rule for reading a keypress
 //! against it.
 //!
-//! The bindings reuse SC:R's own replay-viewer key wherever the concept matches, so a caster's
-//! muscle memory carries over, and fill the gaps with plain letters SC:R leaves unbound. Keeping
-//! them in one table is what makes them user-customizable later without touching the shell.
+//! The bindings are SC:R's own observer keys wherever SC:R has one for the same surface, every
+//! form of them included (`W`, `Ctrl+W`, `Ctrl+U` and `Alt+U` all toggle the selection panel there,
+//! so they all do here), so a caster's muscle memory carries over. The gaps are filled with plain
+//! letters SC:R leaves unbound. Keeping them in one table is what makes them user-customizable later
+//! without touching the shell.
 
 use egui::{Key, Modifiers};
 
@@ -24,16 +26,14 @@ pub enum Action {
     SeekBackward,
     /// Seek forward; `Shift` lengthens the step.
     SeekForward,
-    /// Show every panel, or hide every panel when they are all already shown.
+    /// Hide every panel on screen, or bring back the ones that hid.
     ToggleAllPanels,
     /// The economy panel.
     ToggleEconomy,
     /// The production panel.
     ToggleProduction,
-    /// BW's own bottom console.
-    ToggleConsole,
-    /// The side panel: the matchup bar, or the team cards in a larger game.
-    ToggleSidePanel,
+    /// The matchup bar, or the team cards in a larger game: what SC:R calls its statistics panel.
+    ToggleMatchup,
     /// BW's own minimap, which is independent of the rest of the console.
     ToggleMinimap,
     /// The replay transport plate.
@@ -52,9 +52,12 @@ pub enum Action {
     ToggleMapControl,
     /// Step the observer vision selection.
     CycleVision,
+    /// The list of players whose vision the game is shown through, which SC:R's diplomacy keys open.
+    ToggleVisionPicker,
     /// Spoiler-free mode, which hides everything that gives the outcome away.
     ToggleSpoilerFree,
-    /// The edge dock holding the panel rail; `Shift` changes which of its two forms it is in.
+    /// The edge dock holding the panel rail, which SC:R calls its side panel; `Shift` changes
+    /// which of its two forms it is in.
     ToggleDock,
 }
 
@@ -69,8 +72,7 @@ impl Action {
         Action::ToggleAllPanels,
         Action::ToggleEconomy,
         Action::ToggleProduction,
-        Action::ToggleConsole,
-        Action::ToggleSidePanel,
+        Action::ToggleMatchup,
         Action::ToggleMinimap,
         Action::ToggleTransport,
         Action::ToggleMilitary,
@@ -80,6 +82,7 @@ impl Action {
         Action::ToggleSelection,
         Action::ToggleMapControl,
         Action::CycleVision,
+        Action::ToggleVisionPicker,
         Action::ToggleSpoilerFree,
         Action::ToggleDock,
     ];
@@ -95,8 +98,7 @@ impl Action {
             Action::ToggleAllPanels => "all panels",
             Action::ToggleEconomy => "economy",
             Action::ToggleProduction => "production",
-            Action::ToggleConsole => "console",
-            Action::ToggleSidePanel => "side panel",
+            Action::ToggleMatchup => "matchup",
             Action::ToggleMinimap => "minimap",
             Action::ToggleTransport => "transport",
             Action::ToggleMilitary => "military",
@@ -106,35 +108,83 @@ impl Action {
             Action::ToggleSelection => "selection",
             Action::ToggleMapControl => "map control",
             Action::CycleVision => "cycle vision",
+            Action::ToggleVisionPicker => "vision list",
             Action::ToggleSpoilerFree => "spoiler-free",
             Action::ToggleDock => "dock",
         }
     }
 }
 
+/// Which of Ctrl and Alt a chord is pressed with.
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
+pub enum Held {
+    /// Neither.
+    Bare,
+    Ctrl,
+    Alt,
+}
+
 /// The keystroke that triggers an action.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Chord {
     pub key: Key,
+    pub held: Held,
 }
 
 impl Chord {
     pub const fn new(key: Key) -> Chord {
-        Chord { key }
+        Chord {
+            key,
+            held: Held::Bare,
+        }
+    }
+
+    pub const fn ctrl(key: Key) -> Chord {
+        Chord {
+            key,
+            held: Held::Ctrl,
+        }
+    }
+
+    pub const fn alt(key: Key) -> Chord {
+        Chord {
+            key,
+            held: Held::Alt,
+        }
     }
 
     /// Whether this keypress is this chord.
     ///
-    /// Ctrl and Alt must be up. SC:R binds nearly every modified chord in game (`Alt+M` opens its
-    /// menu, `Ctrl+M` cycles music, `Ctrl+Q` quits), so a bare-letter binding that also fired with
-    /// those held would take keystrokes the game still owns. Shift is allowed through, because it
-    /// scales an action — a longer seek, a walk the other way — rather than selecting a different one.
+    /// Exactly the chord's own one of Ctrl and Alt must be down. SC:R binds nearly every modified
+    /// chord in game (`Alt+M` opens its menu, `Ctrl+M` cycles music), so a bare-letter binding
+    /// that also fired with those held would take keystrokes the game still owns. Shift is allowed
+    /// through, because it scales an action — a longer seek, a walk the other way — rather than
+    /// selecting a different one.
     pub fn matches(self, key: Key, modifiers: Modifiers) -> bool {
-        self.key == key && !modifiers.ctrl && !modifiers.alt
+        let held = match (modifiers.ctrl, modifiers.alt) {
+            (false, false) => Held::Bare,
+            (true, false) => Held::Ctrl,
+            (false, true) => Held::Alt,
+            (true, true) => return false,
+        };
+        self.key == key && self.held == held
     }
 }
 
-/// The action-to-chord table.
+/// Whether this keypress is one that opens the game's menu: `F10`, or `Alt+M`.
+pub fn is_menu_chord(key: Key, modifiers: Modifiers) -> bool {
+    Chord::new(Key::F10).matches(key, modifiers) || Chord::alt(Key::M).matches(key, modifiers)
+}
+
+/// Whether this keypress is one of SC:R's quit keys: `Q` or `X` with Ctrl or Alt.
+pub fn is_quit_chord(key: Key, modifiers: Modifiers) -> bool {
+    [Key::Q, Key::X].into_iter().any(|quit| {
+        Chord::ctrl(quit).matches(key, modifiers) || Chord::alt(quit).matches(key, modifiers)
+    })
+}
+
+/// The action-to-chord table. An action may have several chords; the first is the one a surface
+/// names when it says which key does what.
 #[derive(Clone, Debug)]
 pub struct Hotkeys {
     bindings: Vec<(Action, Chord)>,
@@ -149,28 +199,47 @@ impl Default for Hotkeys {
 impl Hotkeys {
     /// The shipped bindings.
     pub fn defaults() -> Hotkeys {
+        use Key::*;
         let bindings = vec![
-            (Action::PauseResume, Chord::new(Key::P)),
-            (Action::SpeedUp, Chord::new(Key::U)),
-            (Action::SpeedDown, Chord::new(Key::D)),
-            (Action::SeekBackward, Chord::new(Key::Comma)),
-            (Action::SeekForward, Chord::new(Key::Period)),
-            (Action::ToggleAllPanels, Chord::new(Key::A)),
-            (Action::ToggleEconomy, Chord::new(Key::E)),
-            (Action::ToggleProduction, Chord::new(Key::F)),
-            (Action::ToggleConsole, Chord::new(Key::W)),
-            (Action::ToggleSidePanel, Chord::new(Key::R)),
-            (Action::ToggleMinimap, Chord::new(Key::Q)),
-            (Action::ToggleTransport, Chord::new(Key::Y)),
-            (Action::ToggleMilitary, Chord::new(Key::M)),
-            (Action::ToggleGraphs, Chord::new(Key::G)),
-            (Action::ToggleTimeline, Chord::new(Key::T)),
-            (Action::ToggleControlGroups, Chord::new(Key::H)),
-            (Action::ToggleSelection, Chord::new(Key::S)),
-            (Action::ToggleMapControl, Chord::new(Key::N)),
-            (Action::CycleVision, Chord::new(Key::V)),
-            (Action::ToggleSpoilerFree, Chord::new(Key::L)),
-            (Action::ToggleDock, Chord::new(Key::Backtick)),
+            (Action::PauseResume, Chord::new(P)),
+            (Action::SpeedUp, Chord::new(U)),
+            (Action::SpeedDown, Chord::new(D)),
+            (Action::SeekBackward, Chord::new(Comma)),
+            (Action::SeekForward, Chord::new(Period)),
+            (Action::ToggleAllPanels, Chord::new(A)),
+            (Action::ToggleAllPanels, Chord::ctrl(A)),
+            (Action::ToggleAllPanels, Chord::alt(A)),
+            (Action::ToggleMatchup, Chord::new(E)),
+            (Action::ToggleMatchup, Chord::ctrl(E)),
+            (Action::ToggleMatchup, Chord::alt(E)),
+            (Action::ToggleEconomy, Chord::new(I)),
+            (Action::ToggleProduction, Chord::new(F)),
+            (Action::ToggleProduction, Chord::ctrl(F)),
+            (Action::ToggleProduction, Chord::alt(F)),
+            (Action::ToggleMinimap, Chord::new(Q)),
+            (Action::ToggleMinimap, Chord::ctrl(I)),
+            (Action::ToggleMinimap, Chord::alt(I)),
+            (Action::ToggleSelection, Chord::new(W)),
+            (Action::ToggleSelection, Chord::ctrl(W)),
+            (Action::ToggleSelection, Chord::ctrl(U)),
+            (Action::ToggleSelection, Chord::alt(U)),
+            (Action::ToggleTransport, Chord::new(Y)),
+            (Action::ToggleTransport, Chord::ctrl(Y)),
+            (Action::ToggleTransport, Chord::alt(Y)),
+            (Action::ToggleVisionPicker, Chord::ctrl(Z)),
+            (Action::ToggleVisionPicker, Chord::alt(Z)),
+            // `Ctrl+R` is not taken: the game's own binding for it beats SC:R's side panel too.
+            (Action::ToggleDock, Chord::new(R)),
+            (Action::ToggleDock, Chord::alt(R)),
+            (Action::ToggleDock, Chord::alt(W)),
+            (Action::ToggleDock, Chord::new(Backtick)),
+            (Action::ToggleMilitary, Chord::new(M)),
+            (Action::ToggleGraphs, Chord::new(G)),
+            (Action::ToggleTimeline, Chord::new(T)),
+            (Action::ToggleControlGroups, Chord::new(H)),
+            (Action::ToggleMapControl, Chord::new(N)),
+            (Action::CycleVision, Chord::new(V)),
+            (Action::ToggleSpoilerFree, Chord::new(L)),
         ];
         Hotkeys { bindings }
     }
@@ -188,7 +257,7 @@ impl Hotkeys {
             .map(|(action, _)| *action)
     }
 
-    /// Which chord triggers this action.
+    /// The chord a surface names for this action: the first one bound to it.
     pub fn chord_for(&self, action: Action) -> Option<Chord> {
         self.bindings
             .iter()
@@ -205,8 +274,23 @@ mod tests {
         Modifiers::NONE
     }
 
+    fn alt() -> Modifiers {
+        Modifiers {
+            alt: true,
+            ..Modifiers::NONE
+        }
+    }
+
+    fn ctrl() -> Modifiers {
+        Modifiers {
+            ctrl: true,
+            command: true,
+            ..Modifiers::NONE
+        }
+    }
+
     #[test]
-    fn every_action_is_bound_exactly_once() {
+    fn every_action_is_bound() {
         let hotkeys = Hotkeys::defaults();
         for action in Action::ALL {
             assert!(
@@ -214,11 +298,10 @@ mod tests {
                 "{action:?} has no binding"
             );
         }
-        assert_eq!(hotkeys.bindings().len(), Action::ALL.len());
     }
 
     #[test]
-    fn no_two_actions_share_a_key() {
+    fn no_two_bindings_share_a_chord() {
         let hotkeys = Hotkeys::defaults();
         for (index, (action, chord)) in hotkeys.bindings().iter().enumerate() {
             for (other_action, other_chord) in &hotkeys.bindings()[index + 1..] {
@@ -231,38 +314,60 @@ mod tests {
     }
 
     #[test]
-    fn reads_the_documented_defaults() {
+    fn a_surface_names_the_bare_key_where_there_is_one() {
         let hotkeys = Hotkeys::defaults();
-        for (key, action) in [
-            (Key::P, Action::PauseResume),
-            (Key::A, Action::ToggleAllPanels),
-            (Key::E, Action::ToggleEconomy),
-            (Key::F, Action::ToggleProduction),
-            (Key::W, Action::ToggleConsole),
-            (Key::Q, Action::ToggleMinimap),
-            (Key::M, Action::ToggleMilitary),
-            (Key::S, Action::ToggleSelection),
-            (Key::Backtick, Action::ToggleDock),
+        for action in Action::ALL {
+            let has_bare = hotkeys
+                .bindings()
+                .iter()
+                .any(|(bound, chord)| *bound == action && chord.held == Held::Bare);
+            let named = hotkeys.chord_for(action).unwrap();
+            assert!(
+                !has_bare || named.held == Held::Bare,
+                "{action:?} is named by {named:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn reads_scrs_observer_keys() {
+        let hotkeys = Hotkeys::defaults();
+        for (key, modifiers, action) in [
+            (Key::E, plain(), Action::ToggleMatchup),
+            (Key::E, alt(), Action::ToggleMatchup),
+            (Key::F, ctrl(), Action::ToggleProduction),
+            (Key::Q, plain(), Action::ToggleMinimap),
+            (Key::I, alt(), Action::ToggleMinimap),
+            (Key::W, plain(), Action::ToggleSelection),
+            (Key::W, ctrl(), Action::ToggleSelection),
+            (Key::U, alt(), Action::ToggleSelection),
+            (Key::R, plain(), Action::ToggleDock),
+            (Key::W, alt(), Action::ToggleDock),
+            (Key::Z, ctrl(), Action::ToggleVisionPicker),
+            (Key::Y, alt(), Action::ToggleTransport),
+            (Key::A, ctrl(), Action::ToggleAllPanels),
         ] {
-            assert_eq!(hotkeys.action_for(key, plain()), Some(action));
+            assert_eq!(
+                hotkeys.action_for(key, modifiers),
+                Some(action),
+                "{key:?} with {modifiers:?}"
+            );
         }
     }
 
     #[test]
     fn leaves_the_games_modified_chords_alone() {
         let hotkeys = Hotkeys::defaults();
-        let alt = Modifiers {
+        // Alt+M is SC:R's menu and Ctrl+M its music toggle; neither may reach our military panel.
+        assert_eq!(hotkeys.action_for(Key::M, alt()), None);
+        assert_eq!(hotkeys.action_for(Key::M, ctrl()), None);
+        assert_eq!(hotkeys.action_for(Key::R, ctrl()), None);
+        let both = Modifiers {
+            ctrl: true,
             alt: true,
             ..Modifiers::NONE
         };
-        let ctrl = Modifiers {
-            ctrl: true,
-            command: true,
-            ..Modifiers::NONE
-        };
-        // Alt+M is SC:R's menu and Ctrl+M its music toggle; neither may reach our military panel.
-        assert_eq!(hotkeys.action_for(Key::M, alt), None);
-        assert_eq!(hotkeys.action_for(Key::M, ctrl), None);
+        assert_eq!(hotkeys.action_for(Key::E, both), None);
     }
 
     #[test]
@@ -280,6 +385,18 @@ mod tests {
             hotkeys.action_for(Key::G, shift),
             Some(Action::ToggleGraphs)
         );
+    }
+
+    #[test]
+    fn the_menu_and_quit_keys_are_the_games() {
+        assert!(is_menu_chord(Key::F10, plain()));
+        assert!(is_menu_chord(Key::M, alt()));
+        assert!(!is_menu_chord(Key::M, plain()));
+        for key in [Key::Q, Key::X] {
+            assert!(is_quit_chord(key, alt()));
+            assert!(is_quit_chord(key, ctrl()));
+            assert!(!is_quit_chord(key, plain()));
+        }
     }
 
     #[test]

@@ -474,6 +474,9 @@ pub fn build_timeline_view(
                 kind: event.kind,
                 icon: Some(production::timeline_icon(event.subject, bw)),
                 name: production::timeline_name(event.subject, bw),
+                position: event
+                    .position
+                    .map(|(x, y)| overlay_ui::observer::MapPoint { x, y }),
             })
         })
         .take(TIMELINE_DEPTH)

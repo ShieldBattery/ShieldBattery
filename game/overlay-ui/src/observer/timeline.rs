@@ -22,6 +22,7 @@ use crate::observer::{
     EdgeCursor, ProductionIcon, STAT_COLOR_BAR, STAT_ROW_GAP, Wing, centred, fit_icon, game_clock,
     paint_player_dot, paint_text, paint_tile_chrome, wing_panel,
 };
+use crate::shell::Panel;
 use crate::tr;
 
 /// How wide the panel is, in overlay points.
@@ -114,6 +115,24 @@ pub struct TimelineEventView {
     /// What the game calls whatever the event is about, in the game's language, or `None` where the
     /// host has no name for it.
     pub name: Option<String>,
+    /// Where on the map it happened, or `None` where the host cannot say.
+    pub position: Option<MapPoint>,
+}
+
+/// A place on the game's map, in map pixels.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub struct MapPoint {
+    pub x: i16,
+    pub y: i16,
+}
+
+/// An event a watcher clicked, as the panels report it.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub struct ClickedEvent {
+    /// How far into the game it happened, in seconds.
+    pub secs: u64,
+    /// Where on the map it happened, if the host said.
+    pub position: Option<MapPoint>,
 }
 
 /// Everything the timeline draws from.
@@ -153,8 +172,8 @@ pub(crate) fn fits(top: f32, floor: f32) -> bool {
 pub struct TimelineOutcome {
     /// Where the panel is on screen, for the host's hit testing.
     pub rect: Rect,
-    /// How far into the game the event whose row was clicked happened, in seconds.
-    pub clicked_secs: Option<u64>,
+    /// The event whose row was clicked.
+    pub clicked: Option<ClickedEvent>,
 }
 
 /// Draws the timeline against the left edge of the screen at `top`, fading and sliding it in and
@@ -187,13 +206,22 @@ pub fn render_timeline_view(
     )?;
     Some(TimelineOutcome {
         rect: inner.response.rect,
-        clicked_secs: inner.inner,
+        clicked: inner.inner,
     })
 }
 
-/// Draws the panel, returning when the event whose row was clicked happened.
-fn draw_panel(ui: &mut Ui, view: &TimelineView, rows: usize, seekable: bool) -> Option<u64> {
-    widgets::panel_header(ui, &tr!("observer.panelTimeline", "Timeline"), Some("T"));
+/// Draws the panel, returning the event whose row was clicked.
+fn draw_panel(
+    ui: &mut Ui,
+    view: &TimelineView,
+    rows: usize,
+    seekable: bool,
+) -> Option<ClickedEvent> {
+    widgets::panel_header(
+        ui,
+        &tr!("observer.panelTimeline", "Timeline"),
+        Panel::Timeline.key_label().as_deref(),
+    );
     let mut clicked = None;
     for index in 0..rows {
         if index > 0 {
@@ -218,7 +246,10 @@ fn draw_panel(ui: &mut Ui, view: &TimelineView, rows: usize, seekable: bool) -> 
                 draw_seek_hint(ui, pointer);
             }
             if response.clicked() {
-                clicked = Some(event.secs);
+                clicked = Some(ClickedEvent {
+                    secs: event.secs,
+                    position: event.position,
+                });
             }
         }
         draw_row(ui, row, event);
@@ -328,6 +359,7 @@ mod tests {
                     kind: TimelineEventKind::BuildingCompleted,
                     icon: None,
                     name: None,
+                    position: None,
                 })
                 .collect(),
         }

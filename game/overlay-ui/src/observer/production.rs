@@ -2,8 +2,8 @@
 //!
 //! One row per player, led by the bar of their own color, then a tile per thing being made — a unit,
 //! an upgrade, a technology — carrying how many of it are on the way and how far along the nearest
-//! one is. It sits at the kit's ambient tier in the middle of the screen's bottom edge, on top of
-//! the selection panel and of whatever band the game's own console is taking, which is where a
+//! one is. It sits at the kit's ambient tier along the screen's bottom edge, stood on the
+//! control-group panel and over whatever band the game's own console is taking, which is where a
 //! watcher's eye already is during a fight.
 //!
 //! Research that has finished is no longer being made, so it has no tile; yet who has +1 attack,
@@ -27,11 +27,12 @@ use egui::{
     TextureId, Ui, Vec2, pos2, vec2,
 };
 
-use crate::colors::{BLUE60, BLUE80, GREY_BLUE20, GREY_BLUE30, GREY_BLUE60};
+use crate::colors::{BLUE80, GREY_BLUE20, GREY_BLUE30, GREY_BLUE60};
 use crate::kit::text::{self, BodyWeight};
 use crate::kit::{motion, theme, tiers, widgets};
 use crate::observer::{
-    StackSlot, centred, fit_icon, paint_player_bar, paint_text, paint_tile_chrome, unit_codes,
+    StackSlot, centred, fit_icon, paint_outlined_icon, paint_player_bar, paint_text,
+    paint_tile_chrome, unit_codes,
 };
 use crate::tr;
 
@@ -317,7 +318,7 @@ fn draw_rows(ui: &mut Ui, view: &ProductionView, fit: ProductionFit) -> Option<(
                 ui.id().with(("production_tile", player.player_id, index)),
                 Sense::click(),
             );
-            draw_tile(ui, tile, item, response.hovered());
+            draw_tile(ui, tile, item, player.color, response.hovered());
             if response.clicked() {
                 clicked = Some((player.player_id, index));
             }
@@ -450,21 +451,24 @@ fn draw_chip_hint(ui: &Ui, pointer: Pos2, chip: &CompletedResearchView) {
     });
 }
 
-/// Draws one tile: what is being made, how many of it, and how far along it is.
-fn draw_tile(ui: &Ui, rect: Rect, item: &ProductionItemView, hovered: bool) {
+/// Draws one tile: what is being made, outlined in its `owner`'s color, how many of it, and how
+/// far along it is.
+fn draw_tile(ui: &Ui, rect: Rect, item: &ProductionItemView, owner: Color32, hovered: bool) {
     paint_tile_chrome(ui, rect, hovered);
     let icon_rect = rect.shrink(theme::HAIRLINE);
     match item.icon.texture {
         Some(texture) => {
-            ui.painter().image(
+            paint_outlined_icon(
+                ui.painter(),
                 texture,
                 fit_icon(icon_rect, item.icon.size),
-                Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
+                owner,
                 if hovered {
                     theme::ACCENT
                 } else {
                     Color32::WHITE
                 },
+                1.0,
             );
         }
         None => paint_text(
@@ -502,7 +506,8 @@ fn draw_tile(ui: &Ui, rect: Rect, item: &ProductionItemView, hovered: bool) {
     let mut filled = track;
     filled.set_right(track.left() + track.width() * item.progress.clamp(0.0, 1.0));
     if filled.width() > 0.0 {
-        ui.painter().rect_filled(filled, corner_radius, BLUE60);
+        ui.painter()
+            .rect_filled(filled, corner_radius, theme::ACCENT);
     }
 }
 

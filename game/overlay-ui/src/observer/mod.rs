@@ -32,7 +32,7 @@ pub use economy::{EconomyPlayerView, EconomyView, render_economy_view};
 pub use graphs::{
     GraphGrouping, GraphLineView, GraphSeries, GraphsOutcome, GraphsView, render_graphs_view,
 };
-pub use layout::{Span, StackSlot};
+pub use layout::{Span, StackAnchor, StackSlot};
 pub use map_control::{MapControlSideView, MapControlView, render_map_control_view};
 pub use matchup::{
     MatchupForm, MatchupOutcome, MatchupPlayerView, MatchupView, render_matchup_view,
@@ -50,7 +50,8 @@ pub use team_cards::{
     TeamCardPlayerView, TeamCardTotalsView, TeamCardView, TeamCardsView, render_team_cards_view,
 };
 pub use timeline::{
-    TimelineEventKind, TimelineEventView, TimelineOutcome, TimelineView, render_timeline_view,
+    ClickedEvent, MapPoint, TimelineEventKind, TimelineEventView, TimelineOutcome, TimelineView,
+    render_timeline_view,
 };
 pub use unit_codes::unit_code;
 
@@ -221,6 +222,45 @@ pub(crate) fn paint_player_dot(ui: &Ui, rect: Rect, color: Color32, diameter: f3
 }
 
 /// Paints the bar of a player's own color that marks which side of a panel is theirs.
+/// How far out a unit's icon is outlined in its owner's color.
+const OWNER_OUTLINE: f32 = 1.0;
+
+/// Draws one of the game's own icons from `texture` into `rect`, in `fill`, outlined in `owner`:
+/// the icon's own silhouette stamped around it in the owner's color, then the icon over it.
+///
+/// An outline rather than a tint, because the game's icons are white line art with nothing in them
+/// for a color to fill, and a white icon tinted toward a dark color (a deep blue) is lost against a
+/// dark panel. Around a white icon even a dark color reads as a color.
+pub(crate) fn paint_outlined_icon(
+    painter: &egui::Painter,
+    texture: egui::TextureId,
+    rect: Rect,
+    owner: Color32,
+    fill: Color32,
+    alpha: f32,
+) {
+    let uv = Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0));
+    let outline = owner.gamma_multiply(alpha);
+    for (x, y) in [
+        (-1.0, -1.0),
+        (0.0, -1.0),
+        (1.0, -1.0),
+        (-1.0, 0.0),
+        (1.0, 0.0),
+        (-1.0, 1.0),
+        (0.0, 1.0),
+        (1.0, 1.0),
+    ] {
+        painter.image(
+            texture,
+            rect.translate(vec2(x, y) * OWNER_OUTLINE),
+            uv,
+            outline,
+        );
+    }
+    painter.image(texture, rect, uv, fill.gamma_multiply(alpha));
+}
+
 pub(crate) fn paint_player_bar(ui: &Ui, rect: Rect, color: Color32, alpha: f32) {
     ui.painter().rect_filled(
         rect,
@@ -385,6 +425,19 @@ pub(crate) const MIN_STACK_WIDTH: f32 = {
     } else {
         selection::PANEL_WIDTH
     }
+};
+
+/// The narrowest run of the bottom edge the bottom panels are laid along as one row rather than
+/// stacked in the middle of it: the production and control-group column at the design's width of
+/// the wider of the two, and the selection panel beside it. Any narrower and the row would have to
+/// squeeze the column that a stack has the room to draw whole.
+pub(crate) const ROW_WIDTH: f32 = {
+    let column = if control_groups::PANEL_WIDTH > production::PANEL_WIDTH {
+        control_groups::PANEL_WIDTH
+    } else {
+        production::PANEL_WIDTH
+    };
+    column + WING_GAP + selection::PANEL_WIDTH
 };
 
 /// Gap between the matchup bar and the map-control strip hanging under it.

@@ -524,6 +524,7 @@ fn timeline_events(knobs: &Knobs, game_secs: u64) -> Vec<TimelineEventView> {
                     size: None,
                 }),
                 name: unit_name(units[index as usize % units.len()]),
+                position: None,
             }
         })
         .collect()
@@ -1007,10 +1008,10 @@ fn fraction(value: f64) -> f32 {
 pub enum Screen {
     /// The game and as little else as possible: the matchup bar, the minimap and the plate.
     Minimal,
-    /// Every panel the overlay has, over the game's own console.
+    /// A caster's working set: the minimal screen with the economy, production, control groups and
+    /// selection panels added.
     Standard,
-    /// Every panel with the game's console hidden, which is where our own bottom panels have the
-    /// room the design draws them in.
+    /// Every panel the overlay has.
     Analyst,
     /// The analyst's screen with the upper stats wings and the dock hidden, so the panels under
     /// the wings are drawn where the wings would have been, and the right-hand ones against the
@@ -1025,20 +1026,20 @@ impl Screen {
     /// Moves `prefs` to this screen's set of surfaces, leaving the dock where the watcher put it
     /// unless the screen is about the dock being gone.
     fn apply(self, prefs: &mut PanelPrefs) {
-        // Everything a minimal screen gives up.
+        // Everything a minimal screen gives up, and the part of it a standard one keeps.
         let analysis = self != Screen::Minimal;
+        let deep = analysis && self != Screen::Standard;
         prefs.matchup = true;
         prefs.minimap = true;
         prefs.transport = true;
-        prefs.map_control = analysis;
+        prefs.map_control = deep;
         prefs.economy = analysis;
-        prefs.military = analysis;
-        prefs.graphs = analysis;
-        prefs.timeline = analysis;
+        prefs.military = deep;
+        prefs.graphs = deep;
+        prefs.timeline = deep;
         prefs.production = analysis;
         prefs.control_groups = analysis;
         prefs.selection = analysis;
-        prefs.console = self == Screen::Standard;
         // Each reflow screen is the analyst's with a hole in it, which is what the panels around
         // the hole are meant to close up into.
         match self {

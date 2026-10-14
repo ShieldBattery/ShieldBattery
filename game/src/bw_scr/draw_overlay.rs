@@ -3,11 +3,10 @@ use std::mem;
 use std::path::Path;
 use std::ptr::NonNull;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use bw_dat::dialog::{Control, Dialog};
 use bw_dat::{Race, Unit};
-use egui::epaint;
 use egui::{Color32, Event, Key, PointerButton, Pos2, Rect, Slider, pos2};
 use overlay_ui::end_card::EndCardView;
 use overlay_ui::net_quality::NetQualityView;
@@ -17,7 +16,7 @@ use overlay_ui::observer::{
 use overlay_ui::options::{OptionsLists, OptionsView, SettingChange};
 use overlay_ui::shell::{
     DisconnectSurface, FrameOutput, HostFrame, InputCapture, Intent, ModalId, Mode, NativeDialog,
-    PanelPrefs, Shell, Views,
+    PanelPrefs, Shell, Views, hotkeys,
 };
 use overlay_ui::transport::{self, TransportView};
 use parking_lot::Mutex;
@@ -27,7 +26,7 @@ use winapi::shared::windef::{HWND, POINT};
 use crate::app_messages::GameSetupInfo;
 use crate::bw;
 use crate::bw::apm_stats::ApmStats;
-use crate::bw_scr::game_stats::GameStats;
+use crate::bw_scr::game_stats::{self, GameStats};
 use crate::bw_scr::replay_transport::{ReplayCommand, TransportState};
 use crate::bw_scr::scr;
 use crate::bw_scr::stat_txt::StatTxt;
@@ -108,7 +107,30 @@ pub struct OverlayState {
     self_link_lost_since: Option<Instant>,
     /// The observer panels as last saved, so a change is saved once rather than every frame.
     saved_observer_panels: Option<PanelPrefs>,
+    /// The frame the overlay last asked a replay to seek to, which a look at a place belongs to.
+    last_requested_seek: Option<u32>,
+    /// A place to center the view on once the replay reaches the frame a seek asked for.
+    pending_look_at: Option<PendingLookAt>,
+    /// The last number-key group recalled, and when, so a second press can center on it.
+    last_group_recall: Option<(u8, u8, Instant)>,
 }
+
+/// A look at a place that waits for a seek to land: centered before it, the view would be moved
+/// for a game the seek is about to replace.
+struct PendingLookAt {
+    frame: u32,
+    point: overlay_ui::observer::MapPoint,
+    asked: Instant,
+}
+
+/// How far past a seek's frame the replay may already be when the look waiting on it is let out:
+/// a seek lands on its frame and the game runs on, and the draw that sees it may come a few frames
+/// later.
+const LOOK_AT_WINDOW_FRAMES: u32 = 72;
+
+/// How long a look waits for its seek to land before it is given up, for a seek the game refused or
+/// one another seek replaced.
+const LOOK_AT_TIMEOUT: Duration = Duration::from_secs(5);
 
 struct UiRect {
     area: Rect,
@@ -131,7 +153,21 @@ struct OutState {
     show_hide_control: Option<(Control, bool)>,
     show_hide_graphic_layer: Option<(u8, bool)>,
     leave_game: bool,
+    look_at: Option<bw::Point>,
+    select_group: Option<GroupSelection>,
 }
+
+/// One of a player's number-key groups, selected for the watcher.
+pub struct GroupSelection {
+    /// The group's living units, in the group's order.
+    pub units: Vec<Unit>,
+    /// Whether the view is to be centered on them too: the key was pressed twice in a row, which is
+    /// what centers a group in the game.
+    pub center: bool,
+}
+
+/// How soon a second press of a number key must follow the first to center the view on its group.
+const GROUP_DOUBLE_PRESS: Duration = Duration::from_millis(500);
 
 pub struct StepOutput {
     pub textures_delta: egui::TexturesDelta,
@@ -162,6 +198,10 @@ pub struct StepOutput {
     pub run_second_draw: bool,
     /// Whether the player asked to leave the game, the way the in-game menu's End Game does.
     pub leave_game: bool,
+    /// A place on the map to center the game's view on.
+    pub look_at: Option<bw::Point>,
+    /// A number-key group to select.
+    pub select_group: Option<GroupSelection>,
 }
 
 /// Bw globals used by OverlayState::step
@@ -277,9 +317,8 @@ fn load_dynamic_fonts() -> overlay_ui::DynamicFonts {
 /// game draws during loading (the FPS counter and the like).
 pub const OVERLAY_DRAW_LAYER: u16 = 0x6100;
 
-/// The layer of the backing drawn behind SC:R's replay buttons, which sits in the game's own UI
-/// render target, just above its console (20) and below its menus.
-const REPLAY_BUTTONS_BACKING_LAYER: u16 = 21;
+/// The id of the control in BW's minimap dialog that the map itself is drawn in.
+const MINIMAP_MAP_CONTROL: i16 = 1;
 
 impl OverlayState {
     pub fn new() -> OverlayState {
@@ -309,6 +348,8 @@ impl OverlayState {
                 show_hide_control: None,
                 show_hide_graphic_layer: None,
                 leave_game: false,
+                look_at: None,
+                select_group: None,
             },
             captured_mouse_down: [false; 2],
             bw_mouse_down: [false; 2],
@@ -327,6 +368,9 @@ impl OverlayState {
             self_link_lost_since: None,
             // What the shell starts on: a watcher who never changes a panel has nothing to save.
             saved_observer_panels: Some(PanelPrefs::default()),
+            last_requested_seek: None,
+            pending_look_at: None,
+            last_group_recall: None,
             chat_history: None,
         }
     }
@@ -451,6 +495,8 @@ impl OverlayState {
             show_hide_control: None,
             show_hide_graphic_layer: None,
             leave_game: false,
+            look_at: None,
+            select_group: None,
         };
         let chat_textbox_open = bw::iter_dialogs(bw.first_dialog)
             .find(|x| x.as_control().string() == "TextBox")
@@ -671,18 +717,15 @@ impl OverlayState {
                 intent => self.execute_intent(bw, intent, &mut replay_commands),
             }
         }
+        self.let_out_look_at(bw.game.frame_count());
         let prefs = *self.shell.panel_prefs();
         let observer_panels_changed = (self.saved_observer_panels != Some(prefs)).then(|| {
             self.saved_observer_panels = Some(prefs);
             prefs
         });
+        overlay_ui::kit::pixels::crisp_hairlines(&mut output.shapes, pixels_per_point);
         let ui_primitives = self.ctx.tessellate(output.shapes, pixels_per_point);
-        let mut primitives = Vec::with_capacity(8);
-        if bw.is_replay && prefs.console {
-            let rect = self.make_button_panel_rect(bw, pixels_per_point);
-            primitives.push((REPLAY_BUTTONS_BACKING_LAYER, rect));
-        }
-        primitives.push((self.draw_layer, ui_primitives));
+        let primitives = vec![(self.draw_layer, ui_primitives)];
         StepOutput {
             textures_delta: output.textures_delta,
             primitives,
@@ -690,8 +733,8 @@ impl OverlayState {
             select_unit: self.out_state.select_unit,
             show_hide_control: self.out_state.show_hide_control,
             show_hide_graphic_layer: self.out_state.show_hide_graphic_layer,
-            // The panel preferences are a watcher's; a player always has the whole console.
-            console_visible: !bw.is_replay_or_obs || prefs.console,
+            // A watcher keeps only the minimap of the console; a player always has all of it.
+            console_visible: !bw.is_replay_or_obs,
             minimap_visible: !bw.is_replay_or_obs || prefs.minimap,
             command_panel_visible: !frame_output.transport_shown,
             replay_commands,
@@ -700,6 +743,8 @@ impl OverlayState {
             statbtn_dialog_offset: self.replay_ui_values.statbtn_dialog_offset,
             run_second_draw: screen_size_changed,
             leave_game: self.out_state.leave_game,
+            look_at: self.out_state.look_at,
+            select_group: self.out_state.select_group.take(),
         }
     }
 
@@ -723,54 +768,11 @@ impl OverlayState {
         }
     }
 
-        overlay_ui::kit::pixels::crisp_hairlines(&mut output.shapes, pixels_per_point);
-    /// Draws a black rectangle behind replay UI buttons as it doesn't have proper black
-    /// background otherwise.
-    fn make_button_panel_rect(
-        &mut self,
-        bw: &BwVars,
-        pixels_per_point: f32,
-    ) -> Vec<egui::ClippedPrimitive> {
-        let mut shapes = Vec::new();
-        let full_clip_rect = Rect::from_two_pos(
-            pos2(0.0, 0.0),
-            pos2(self.screen_size.0 as f32, self.screen_size.1 as f32),
-        );
-
-        let statbtn_dialog =
-            bw::iter_dialogs(bw.first_dialog).find(|x| x.as_control().string() == "StatBtn");
-        if let Some(dialog) = statbtn_dialog {
-            let ctrl = dialog.as_control();
-            if !ctrl.is_hidden() {
-                let area = ctrl.screen_coords();
-                let max_x = self.bw_dialog_coords_max_x() as i16;
-                let rect = epaint::RectShape::new(
-                    Rect::from_two_pos(
-                        // left - 1 just since otherwise there'd be a thin column of lighter
-                        // pixels left there.
-                        self.bw_dialog_point_to_egui(area.left - 1, area.top),
-                        // Dialog goes off the screen unless using minimap-on-center layout;
-                        // clamp to screen width so that border stays visible.
-                        self.bw_dialog_point_to_egui(area.right.min(max_x), 480),
-                    ),
-                    egui::CornerRadius::same(2),
-                    Color32::BLACK,
-                    egui::Stroke::new(2.0, Color32::DARK_GREEN),
-                    egui::StrokeKind::Inside,
-                );
-                shapes.push(epaint::ClippedShape {
-                    clip_rect: full_clip_rect,
-                    shape: rect.into(),
-                });
-            }
-        }
-        self.ctx.tessellate(shapes, pixels_per_point)
-    }
-
     /// Where BW's minimap square is on screen, in overlay points, while its dialog is up.
     ///
-    /// The dialog's own rect carries the strip of buttons above the map as well as the map, so the
-    /// square is taken from the dialog's bottom: as wide as the dialog, and as tall as it is wide.
+    /// The square is the control the map is drawn in. Without that control, it is taken from the
+    /// dialog's own rect, which carries the strip of buttons above the map as well as the map: as
+    /// wide as the dialog, and as tall as it is wide, from its bottom.
     /// The rect is logged whenever it moves, children and all, which is what to check the square
     /// against when a layout of the game's puts the minimap somewhere new.
     fn minimap_rect(&mut self, bw: &BwVars) -> Option<Rect> {
@@ -807,6 +809,16 @@ impl OverlayState {
                 area.bottom,
                 children.join(", ")
             );
+        }
+        // The map is drawn in a control of its own, inset from the dialog's edges: with the console
+        // art hidden, the dialog's margin around it is see-through, so the square is the control's.
+        if let Some(map) = dialog.child_by_id(MINIMAP_MAP_CONTROL) {
+            let area = map.screen_coords();
+            let min = self.bw_dialog_point_to_egui(area.left, area.top);
+            let max = self.bw_dialog_point_to_egui(area.right, area.bottom);
+            if max.x > min.x && max.y > min.y {
+                return Some(Rect::from_min_max(min, max));
+            }
         }
         let min = self.bw_dialog_point_to_egui(area.left, area.top);
         let max = self.bw_dialog_point_to_egui(area.right, area.bottom);
@@ -1002,6 +1014,31 @@ impl OverlayState {
     /// The transport's commands go into `replay_commands` rather than being sent here: submitting a
     /// game command needs the `BwScr` this draw path was called from, which the overlay deliberately
     /// knows nothing about.
+    /// Hands the waiting look at a place to the game once the replay is at the frame its seek asked
+    /// for, and gives it up once it has waited too long for that.
+    fn let_out_look_at(&mut self, frame: u32) {
+        let Some(pending) = &self.pending_look_at else {
+            return;
+        };
+        if (pending.frame..=pending.frame.saturating_add(LOOK_AT_WINDOW_FRAMES)).contains(&frame) {
+            debug!(
+                "Looking at {},{} after the seek to {} landed on {frame}",
+                pending.point.x, pending.point.y, pending.frame
+            );
+            self.out_state.look_at = Some(bw::Point {
+                x: pending.point.x,
+                y: pending.point.y,
+            });
+            self.pending_look_at = None;
+        } else if pending.asked.elapsed() > LOOK_AT_TIMEOUT {
+            debug!(
+                "Gave up looking at {},{}: the seek to {} never landed",
+                pending.point.x, pending.point.y, pending.frame
+            );
+            self.pending_look_at = None;
+        }
+    }
+
     fn execute_intent(
         &mut self,
         bw: &BwVars,
@@ -1034,7 +1071,17 @@ impl OverlayState {
                 dialog_hook::open_social_dialog(bw.first_dialog, dialog)
             }
             Intent::OpenGameMenu => dialog_hook::open_game_menu(bw.first_dialog),
-            Intent::Seek(frame) => replay_commands.push(ReplayCommand::Seek { frame }),
+            Intent::Seek(frame) => {
+                self.last_requested_seek = Some(frame);
+                replay_commands.push(ReplayCommand::Seek { frame });
+            }
+            Intent::LookAt(point) => {
+                self.pending_look_at = self.last_requested_seek.map(|frame| PendingLookAt {
+                    frame,
+                    point,
+                    asked: Instant::now(),
+                });
+            }
             Intent::SetSpeed {
                 speed_index,
                 multiplier,
@@ -1047,6 +1094,22 @@ impl OverlayState {
             Intent::ToggleVision { player_id } => self.toggle_player_vision(bw, player_id),
             Intent::SelectProduction { player_id, item } => {
                 self.select_production(player_id, item as usize)
+            }
+            Intent::SelectControlGroup { player_id, key } => {
+                let now = Instant::now();
+                let center = self.last_group_recall.is_some_and(|(player, group, at)| {
+                    player == player_id
+                        && group == key
+                        && now.duration_since(at) < GROUP_DOUBLE_PRESS
+                });
+                self.last_group_recall = Some((player_id, key, now));
+                let units = match &bw.units {
+                    Some(units) => game_stats::control_group_units(bw.game, units, player_id, key),
+                    None => Vec::new(),
+                };
+                if !units.is_empty() {
+                    self.out_state.select_group = Some(GroupSelection { units, center });
+                }
             }
             // Collected by `step` for the game to apply, since the game owns the settings.
             Intent::ChangeSetting(_) => {}
@@ -1297,10 +1360,22 @@ impl OverlayState {
                     let mut modifiers = current_egui_modifiers();
                     let is_syskey = matches!(msg, WM_SYSKEYDOWN | WM_SYSKEYUP);
                     let pressed = matches!(msg, WM_KEYDOWN | WM_SYSKEYDOWN);
-                    modifiers.alt |= is_syskey;
                     let vkey = wparam as i32;
+                    // Windows sends an Alt chord as a system key, and F10 too, Alt or not: it is the
+                    // key that opens a window's menu bar.
+                    modifiers.alt |= is_syskey && vkey != VK_F10;
                     let key = vkey_to_egui_key(vkey);
                     if let Some(key) = key {
+                        // The menu and quit keys are the shell's whatever has the keyboard: they type
+                        // nothing, and with a modal up a focused button would otherwise take the key
+                        // that is meant to close it.
+                        if pressed
+                            && (hotkeys::is_menu_chord(key, modifiers)
+                                || hotkeys::is_quit_chord(key, modifiers))
+                            && self.shell.key_pressed(key, modifiers)
+                        {
+                            return Some(0);
+                        }
                         if !is_syskey && self.ctx.egui_wants_keyboard_input() {
                             self.events.push(Event::Key {
                                 key,

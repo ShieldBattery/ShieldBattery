@@ -27,7 +27,7 @@ use crate::chat_history::{ChatHistoryView, render_chat_history_view};
 use crate::disconnect::{DisconnectView, SelfState, render_disconnect_view};
 use crate::end_card::{EndCardChoice, EndCardView, GameResult, render_end_card};
 pub use crate::game_menu::SocialDialog;
-use crate::game_menu::render_game_menu;
+use crate::game_menu::{render_game_menu, render_leave_confirm};
 use crate::net_quality::{NetQualityView, render_net_quality};
 use crate::netstat::{NetStatsView, render_netstat_view};
 use crate::observer::{self, GraphSeries, ObserverView};
@@ -97,8 +97,6 @@ pub enum Panel {
     ControlGroups,
     /// The selection panel, which stands in for the console's own.
     Selection,
-    /// BW's own bottom console.
-    Console,
     /// BW's own minimap.
     Minimap,
     /// The replay transport plate.
@@ -109,8 +107,8 @@ pub enum Panel {
 
 impl Panel {
     /// Every panel, in the order the dock lists them: the surfaces that report on the game, from
-    /// the top of the screen down, then the game's own surfaces, then the controls.
-    pub const ALL: [Panel; 13] = [
+    /// the top of the screen down, then the game's own minimap, then the controls.
+    pub const ALL: [Panel; 12] = [
         Panel::Matchup,
         Panel::MapControl,
         Panel::Economy,
@@ -120,16 +118,22 @@ impl Panel {
         Panel::Production,
         Panel::ControlGroups,
         Panel::Selection,
-        Panel::Console,
         Panel::Minimap,
         Panel::Transport,
         Panel::Dock,
     ];
 
+    /// The key a panel's header names, which is the first one bound to its action.
+    pub fn key_label(self) -> Option<String> {
+        Hotkeys::defaults()
+            .chord_for(self.action())
+            .map(|chord| chord.key.symbol_or_name().to_string())
+    }
+
     /// The action that toggles this panel, which is also where its keycap comes from.
     pub fn action(self) -> Action {
         match self {
-            Panel::Matchup => Action::ToggleSidePanel,
+            Panel::Matchup => Action::ToggleMatchup,
             Panel::MapControl => Action::ToggleMapControl,
             Panel::Economy => Action::ToggleEconomy,
             Panel::Military => Action::ToggleMilitary,
@@ -138,7 +142,6 @@ impl Panel {
             Panel::Production => Action::ToggleProduction,
             Panel::ControlGroups => Action::ToggleControlGroups,
             Panel::Selection => Action::ToggleSelection,
-            Panel::Console => Action::ToggleConsole,
             Panel::Minimap => Action::ToggleMinimap,
             Panel::Transport => Action::ToggleTransport,
             Panel::Dock => Action::ToggleDock,
@@ -156,7 +159,6 @@ impl Panel {
             Panel::Production => "production",
             Panel::ControlGroups => "control groups",
             Panel::Selection => "selection",
-            Panel::Console => "console",
             Panel::Minimap => "minimap",
             Panel::Transport => "transport",
             Panel::Dock => "dock",
@@ -167,9 +169,10 @@ impl Panel {
 /// What the player wants of the overlay: which ambient panels are on screen, and whether it keeps
 /// a replay's outcome to itself.
 ///
-/// Independent booleans rather than named sets of them: the console and the minimap in particular
-/// are separate surfaces in the game, and observers routinely keep one without the other.
-/// Serializable so a host can persist the set per profile.
+/// Independent booleans rather than named sets of them: a watcher's screen is whatever mix of
+/// surfaces they built up one key at a time. Serializable so a host can persist the set per
+/// profile. A watcher never gets SC:R's own console back: the bottom panels stand where it was, and
+/// the minimap they keep of it is a panel of its own.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct PanelPrefs {
@@ -182,7 +185,6 @@ pub struct PanelPrefs {
     pub production: bool,
     pub control_groups: bool,
     pub selection: bool,
-    pub console: bool,
     pub minimap: bool,
     pub transport: bool,
     /// Whether the observer dock is on screen.
@@ -201,23 +203,55 @@ pub struct PanelPrefs {
     /// Sides by default: in a team game the question is which side is ahead, and four lines answer
     /// that only once the watcher has added them up themselves.
     pub graph_per_player: bool,
+    /// The panels the all-panels key last hid, which it brings back next. Kept for the game rather
+    /// than saved: a watcher who leaves with everything hidden comes back to a clear screen, and
+    /// the key then brings back the panels everyone starts with.
+    #[serde(skip)]
+    pub hidden_by_all: Option<PanelSet>,
+}
+
+/// Some of the panels, as one bit per entry of [`Panel::ALL`].
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
+pub struct PanelSet(u16);
+
+impl PanelSet {
+    fn bit(panel: Panel) -> u16 {
+        let index = Panel::ALL
+            .iter()
+            .position(|&entry| entry == panel)
+            .unwrap_or(0);
+        1 << index
+    }
+
+    pub fn contains(self, panel: Panel) -> bool {
+        self.0 & PanelSet::bit(panel) != 0
+    }
+
+    fn insert(&mut self, panel: Panel) {
+        self.0 |= PanelSet::bit(panel);
+    }
+
+    fn is_empty(self) -> bool {
+        self.0 == 0
+    }
 }
 
 impl Default for PanelPrefs {
     fn default() -> PanelPrefs {
+        // A first-time watcher starts on the least that still tells the game: who is playing and
+        // how they stand, the map, and what they click on (the selection panel shows only while
+        // something is selected). The dock lists every other panel with its key, and whatever the
+        // watcher turns on is remembered for their next game.
         PanelPrefs {
             matchup: true,
-            map_control: true,
-            economy: true,
-            military: true,
-            graphs: true,
-            timeline: true,
-            production: true,
-            control_groups: true,
+            map_control: false,
+            economy: false,
+            military: false,
+            graphs: false,
+            timeline: false,
+            production: false,
+            control_groups: false,
             selection: true,
-            // Watchers keep the minimap and nothing else of SC:R's console: the bottom panels stand
-            // where the rest of it would be.
-            console: false,
             minimap: true,
             transport: true,
             dock: true,
@@ -225,6 +259,7 @@ impl Default for PanelPrefs {
             spoiler_free: false,
             graph_series: GraphSeries::ArmyValue,
             graph_per_player: false,
+            hidden_by_all: None,
         }
     }
 }
@@ -241,7 +276,6 @@ impl PanelPrefs {
             Panel::Production => self.production,
             Panel::ControlGroups => self.control_groups,
             Panel::Selection => self.selection,
-            Panel::Console => self.console,
             Panel::Minimap => self.minimap,
             Panel::Transport => self.transport,
             Panel::Dock => self.dock,
@@ -259,7 +293,6 @@ impl PanelPrefs {
             Panel::Production => self.production = shown,
             Panel::ControlGroups => self.control_groups = shown,
             Panel::Selection => self.selection = shown,
-            Panel::Console => self.console = shown,
             Panel::Minimap => self.minimap = shown,
             Panel::Transport => self.transport = shown,
             Panel::Dock => self.dock = shown,
@@ -270,36 +303,39 @@ impl PanelPrefs {
         self.set(panel, !self.shown(panel));
     }
 
-    /// Whether every panel is on screen.
-    /// Whether every panel "all panels" moves is on screen.
-    pub fn all_shown(&self) -> bool {
-        Self::ALL_PANELS_SET
-            .into_iter()
-            .all(|panel| self.shown(panel))
-    }
-
-    pub fn set_all(&mut self, shown: bool) {
-        for panel in Self::ALL_PANELS_SET {
-            self.set(panel, shown);
-        }
-    }
-
-    /// What "all panels" shows and hides: everything but SC:R's console. A watcher keeps the
-    /// console off unless they ask for it by name, since the bottom panels take its place, so
-    /// bringing every panel back must not put it back over them.
-    const ALL_PANELS_SET: [Panel; Panel::ALL.len() - 1] = {
-        let mut set = [Panel::Matchup; Panel::ALL.len() - 1];
-        let mut from = 0;
-        let mut to = 0;
-        while from < Panel::ALL.len() {
-            if !matches!(Panel::ALL[from], Panel::Console) {
-                set[to] = Panel::ALL[from];
-                to += 1;
+    /// The panels on screen.
+    pub fn shown_set(&self) -> PanelSet {
+        let mut set = PanelSet::default();
+        for panel in Panel::ALL {
+            if self.shown(panel) {
+                set.insert(panel);
             }
-            from += 1;
         }
         set
-    };
+    }
+
+    /// Carries out the all-panels key: a quick way to a clear screen and back.
+    ///
+    /// With anything on screen, it hides all of it and remembers what that was, whatever was turned
+    /// on since the last time. With nothing on screen, it brings back what it last hid, or the
+    /// panels everyone starts with if it hid nothing.
+    pub fn toggle_all(&mut self) {
+        let shown = self.shown_set();
+        if shown.is_empty() {
+            let restore = self
+                .hidden_by_all
+                .take()
+                .unwrap_or_else(|| PanelPrefs::default().shown_set());
+            for panel in Panel::ALL {
+                self.set(panel, restore.contains(panel));
+            }
+        } else {
+            for panel in Panel::ALL {
+                self.set(panel, false);
+            }
+            self.hidden_by_all = Some(shown);
+        }
+    }
 }
 
 /// Which modal surface is on the stack.
@@ -321,6 +357,8 @@ pub enum ModalId {
     Victory,
     /// The end-of-game card for a player who has lost, standing in for SC:R's defeat popup.
     Defeat,
+    /// The question SC:R's quit keys ask, standing in for its quit dialogs.
+    LeaveGame,
 }
 
 impl ModalId {
@@ -339,7 +377,8 @@ impl ModalId {
             | ModalId::ChatHistory
             | ModalId::Options
             | ModalId::Victory
-            | ModalId::Defeat => true,
+            | ModalId::Defeat
+            | ModalId::LeaveGame => true,
         }
     }
 
@@ -356,10 +395,14 @@ impl ModalId {
         match self {
             // Nothing of the game's stands behind the options screen: SC:R's own options are a
             // web popup its menu opens, and the menu that would have opened it is ours already.
+            //
+            // SC:R's quit dialogs are never spawned behind the leave question: the keys that open
+            // them are taken before the game sees them.
             ModalId::WaitingForPlayers
             | ModalId::ConnectionInterrupted
             | ModalId::SessionEnded
-            | ModalId::Options => None,
+            | ModalId::Options
+            | ModalId::LeaveGame => None,
             ModalId::GameMenu => Some(NativeDialog::GameMenu),
             ModalId::ChatHistory => Some(NativeDialog::ChatHistory),
             ModalId::Victory => Some(NativeDialog::Victory),
@@ -387,6 +430,7 @@ impl ModalId {
             ModalId::Options => "options",
             ModalId::Victory => "victory",
             ModalId::Defeat => "defeat",
+            ModalId::LeaveGame => "leave game",
         }
     }
 }
@@ -445,8 +489,13 @@ pub enum Intent {
     /// Select whatever is making this entry of a player's production row, and on a repeated ask,
     /// move on to the next one of them.
     SelectProduction { player_id: u8, item: u32 },
+    /// Select the units on one of a player's number keys, as the player would by pressing it.
+    SelectControlGroup { player_id: u8, key: u8 },
     /// Move replay playback to this frame.
     Seek(u32),
+    /// Center the game's view on this place once the seek asked for just before this lands. Sent
+    /// only right behind a `Seek`, for a jump to something that happened somewhere in particular.
+    LookAt(observer::MapPoint),
     /// Set how replay playback runs: where on the classic speed ladder, scaled by what, and whether
     /// it runs at all. One intent rather than three, because the game carries all three in one
     /// command and sending a partial one would reset the other two.
@@ -704,12 +753,15 @@ pub struct Shell {
     focused_player: Option<u8>,
     /// Whether the list of players under the minimap's vision button is open.
     vision_picker_open: bool,
+    /// The player whose number keys a digit recalls, and which of their keys have a group on them
+    /// (one bit per digit), as the control groups row last showed them.
+    number_keys: Option<(u8, u16)>,
     /// Where the replay plate stands this frame, which the observer panels decide: they share the
     /// bottom of the screen with it.
     transport_placement: transport::TransportPlacement,
     /// The frame a seek has been asked for and not yet sent, which is the latest one asked for: a
     /// drag across the track is one seek to where the pointer ended up, not one per frame of it.
-    pending_seek: Option<u32>,
+    pending_seek: Option<(u32, Option<observer::MapPoint>)>,
     /// When the last seek went out, on the context's own clock.
     last_seek_secs: f64,
     /// What the settings screen shows. The shell's own copy rather than the host's, because a
@@ -743,6 +795,7 @@ impl Shell {
             map_control_available: false,
             focused_player: None,
             vision_picker_open: false,
+            number_keys: None,
             transport_placement: transport::TransportPlacement::default(),
             pending_seek: None,
             last_seek_secs: f64::NEG_INFINITY,
@@ -891,6 +944,16 @@ impl Shell {
     /// Only a keypress the shell can actually carry out is consumed. A binding whose surface has not
     /// been built yet leaves the key to the game rather than swallowing it into a no-op.
     pub fn key_pressed(&mut self, key: Key, modifiers: Modifiers) -> bool {
+        // The keys that open the game's menu close ours, as a toggle: the menu is something the
+        // player reaches for and puts away with the same hand.
+        if hotkeys::is_menu_chord(key, modifiers) && self.top_modal() == Some(ModalId::GameMenu) {
+            self.dismiss_top_modal();
+            return true;
+        }
+        if hotkeys::is_quit_chord(key, modifiers) && self.quit_keys_active() {
+            self.open_modal(ModalId::LeaveGame);
+            return true;
+        }
         if key == Key::Escape {
             if self.top_modal().is_some_and(ModalId::is_dismissible) {
                 self.dismiss_top_modal();
@@ -906,6 +969,11 @@ impl Shell {
         }
         if !self.hotkeys_active() {
             return false;
+        }
+        if let Some(digit) = number_key_digit(key)
+            && modifiers.is_none()
+        {
+            return self.recall_control_group(digit);
         }
         match self.hotkeys.action_for(key, modifiers) {
             Some(action) => self.apply_action(action, modifiers),
@@ -1109,7 +1177,7 @@ impl Shell {
         self.frame_minimap(ctx, view, hit_rects);
         let minimap_on_left = minimap.center().x < screen.center().x;
 
-        // The run of the bottom edge the centred stack has: from the minimap's frame to whatever
+        // The run of the bottom edge the bottom panels have: from the minimap's frame to whatever
         // holds the right edge, which is the transport plate where it stands in the corner and the
         // dock's column where it does not.
         let edge_right = screen.right() - observer::WING_MARGIN - right_inset;
@@ -1152,14 +1220,29 @@ impl Shell {
                 bottom,
             )
         };
+        // What the plate stands on where it gives the corner up to the panels along the bottom edge.
+        enum PlateStand {
+            Corner,
+            Stack,
+        }
+        // The panels are laid along the edge as one row where it is wide enough for one, beside a
+        // minimap in the corner the row can start from.
+        let row_along = |run: Span| {
+            if minimap_on_left {
+                layout::BottomRow::along(run)
+            } else {
+                None
+            }
+        };
         let mut dock = None;
-        let mut lifted = false;
-        if transport_shown {
-            // The plate keeps the corner while the stack still has its narrowest width beside it
-            // and the dock still fits above it. Where the dock does not, the plate stands in from
-            // the dock's column and the dock runs down past it; where the stack does not, the plate
-            // gives the stack the bottom edge and is lifted over it, standing in from the dock's
-            // column too so the dock keeps the whole edge.
+        let mut plate = PlateStand::Corner;
+        let row = if transport_shown {
+            // The plate keeps the corner while the panels still have their row beside it, or
+            // failing that their stack's narrowest width, and the dock still fits above it. Where
+            // the dock does not, the plate stands in from the dock's column and the dock runs down
+            // past it. Where not even the stack fits beside it, it gives the stack the bottom edge
+            // and is lifted over it, standing in from the dock's column too, so the dock keeps the
+            // whole edge.
             let corner = transport.rect(screen);
             if self.prefs.dock {
                 dock = dock_fit(corner.top() - gap);
@@ -1167,14 +1250,24 @@ impl Shell {
                     transport.right_inset = dock_clearance;
                 }
             }
-            let beside = span.right.min(transport.rect(screen).left() - gap);
-            if beside - span.left >= observer::MIN_STACK_WIDTH {
-                span.right = beside;
+            let beside = Span {
+                right: span.right.min(transport.rect(screen).left() - gap),
+                ..span
+            };
+            if let Some(row) = row_along(beside) {
+                Some(row)
             } else {
-                transport.right_inset = dock_clearance;
-                lifted = true;
+                if beside.width() >= observer::MIN_STACK_WIDTH {
+                    span = beside;
+                } else {
+                    transport.right_inset = dock_clearance;
+                    plate = PlateStand::Stack;
+                }
+                None
             }
-        }
+        } else {
+            row_along(span)
+        };
         let dock = match dock {
             Some(dock) => dock,
             None => dock_fit(screen.bottom() - observer::WING_MARGIN).unwrap_or(
@@ -1186,36 +1279,98 @@ impl Shell {
             ),
         };
 
-        // The three centred strips are one stack, drawn bottom first: each is as tall as the game it
-        // reports on, so every one of them is placed over whatever the one under it actually came
-        // out as, and drops onto the one below when a panel between them is hidden or has no room.
-        let ceiling = layout::lowest_bottom_over(span, &top_surfaces, screen.top());
-        let slot = |bottom: f32| observer::StackSlot {
+        // The bottom panels are drawn bottom first: each is as tall as the game it reports on, so
+        // one stood on another is placed over whatever that one actually came out as, and drops
+        // onto the one below when a panel between them is hidden or has no room. Along a row the
+        // selection panel stands alone at the far end, and the column by the minimap is production
+        // stood on control groups. In the centered stack the selection panel stands lowest, where
+        // the game's console reads a selection out, with control groups and then production on it.
+        let slot = |run: Span, anchor: observer::StackAnchor, bottom: f32| observer::StackSlot {
             bottom,
-            span,
+            span: run,
+            anchor,
             middle: screen.center().x,
-            ceiling,
+            ceiling: layout::lowest_bottom_over(run, &top_surfaces, screen.top()),
             screen_bottom: screen.bottom(),
         };
+        let (selection_run, selection_anchor, column_run, column_anchor) = match row {
+            Some(row) => (
+                row.selection,
+                observer::StackAnchor::Right,
+                row.column,
+                observer::StackAnchor::Left,
+            ),
+            None => (
+                span,
+                observer::StackAnchor::Middle,
+                span,
+                observer::StackAnchor::Middle,
+            ),
+        };
         let base = observer::WING_MARGIN;
+        let selection_slot = slot(selection_run, selection_anchor, base);
+        let column_slot = |bottom: f32| slot(column_run, column_anchor, bottom);
         let mut stack = Vec::new();
         if self.prefs.selection
             && !view.selection.units.is_empty()
-            && !observer::selection::fits(slot(base))
+            && !observer::selection::fits(selection_slot)
         {
             displaced.push(Panel::Selection);
         }
-        let selection =
-            observer::render_selection_view(&view.selection, ctx, self.prefs.selection, slot(base));
+        let selection = observer::render_selection_view(
+            &view.selection,
+            ctx,
+            self.prefs.selection,
+            selection_slot,
+        );
         if let Some(rect) = selection {
             hit_rects.push(HitRect::new(rect));
             stack.push(rect);
         }
         let over_selection =
             base + observer::eased_stack_share(ctx, egui::Id::new("sb_stack_selection"), selection);
+        let under_groups = if row.is_some() { base } else { over_selection };
+        // The row shown is the selected unit's owner, and stays theirs after the selection is
+        // cleared: a watcher who clicks the ground has not asked to see somebody else's keys.
+        if let Some(owner) = view.selection.units.first().and_then(|unit| unit.owner) {
+            self.focused_player = Some(owner);
+        }
+        self.number_keys = view
+            .control_groups
+            .shown(self.focused_player)
+            .map(|player| {
+                let keys = player
+                    .groups
+                    .iter()
+                    .fold(0u16, |keys, group| keys | 1 << group.key);
+                (player.player_id, keys)
+            });
+        if self.prefs.control_groups
+            && !view.control_groups.is_empty()
+            && observer::control_groups::fitted_width(column_slot(under_groups)).is_none()
+        {
+            displaced.push(Panel::ControlGroups);
+        }
+        let control_groups = observer::render_control_groups_view(
+            &view.control_groups,
+            ctx,
+            self.prefs.control_groups,
+            column_slot(under_groups),
+            self.focused_player,
+        );
+        if let Some(rect) = control_groups {
+            hit_rects.push(HitRect::new(rect));
+            stack.push(rect);
+        }
+        let over_groups = under_groups
+            + observer::eased_stack_share(
+                ctx,
+                egui::Id::new("sb_stack_control_groups"),
+                control_groups,
+            );
         if self.prefs.production
             && !view.production.is_empty()
-            && observer::production::ProductionFit::of(&view.production, slot(over_selection))
+            && observer::production::ProductionFit::of(&view.production, column_slot(over_groups))
                 .is_none()
         {
             displaced.push(Panel::Production);
@@ -1224,7 +1379,7 @@ impl Shell {
             &view.production,
             ctx,
             self.prefs.production,
-            slot(over_selection),
+            column_slot(over_groups),
         );
         if let Some(outcome) = &production {
             hit_rects.push(HitRect::new(outcome.rect));
@@ -1236,42 +1391,17 @@ impl Shell {
                 });
             }
         }
-        // The row shown is the selected unit's owner, and stays theirs after the selection is
-        // cleared: a watcher who clicks the ground has not asked to see somebody else's keys.
-        if let Some(owner) = view.selection.units.first().and_then(|unit| unit.owner) {
-            self.focused_player = Some(owner);
-        }
-        let over_production = over_selection
-            + observer::eased_stack_share(
-                ctx,
-                egui::Id::new("sb_stack_production"),
-                production.as_ref().map(|outcome| outcome.rect),
-            );
-        if self.prefs.control_groups
-            && !view.control_groups.is_empty()
-            && observer::control_groups::fitted_width(slot(over_production)).is_none()
-        {
-            displaced.push(Panel::ControlGroups);
-        }
-        let control_groups = observer::render_control_groups_view(
-            &view.control_groups,
-            ctx,
-            self.prefs.control_groups,
-            slot(over_production),
-            self.focused_player,
-        );
-        if let Some(rect) = control_groups {
-            hit_rects.push(HitRect::new(rect));
-            stack.push(rect);
-        }
-        if lifted {
-            let over_stack = over_production
-                + observer::eased_stack_share(
-                    ctx,
-                    egui::Id::new("sb_stack_control_groups"),
-                    control_groups,
-                );
-            transport.lift = over_stack - observer::WING_MARGIN;
+        match plate {
+            PlateStand::Corner => {}
+            PlateStand::Stack => {
+                let over_stack = over_groups
+                    + observer::eased_stack_share(
+                        ctx,
+                        egui::Id::new("sb_stack_production"),
+                        production.as_ref().map(|outcome| outcome.rect),
+                    );
+                transport.lift = over_stack - observer::WING_MARGIN;
+            }
         }
         self.transport_placement = transport;
 
@@ -1351,7 +1481,7 @@ impl Shell {
                 self.prefs.graph_per_player = per_player;
             }
             if let (Some(replay), Some(secs)) = (seekable, outcome.seek_secs) {
-                self.queue_seek(replay.frame_at_secs(u64::from(secs)));
+                self.queue_seek(replay.frame_at_secs(u64::from(secs)), None);
             }
         }
         let timeline_top =
@@ -1371,8 +1501,8 @@ impl Shell {
             seekable.is_some(),
         ) {
             hit_rects.push(HitRect::new(outcome.rect));
-            if let (Some(replay), Some(secs)) = (seekable, outcome.clicked_secs) {
-                self.queue_seek(replay.event_seek_target(secs));
+            if let (Some(replay), Some(event)) = (seekable, outcome.clicked) {
+                self.queue_seek(replay.event_seek_target(event.secs), event.position);
             }
         }
 
@@ -1458,7 +1588,7 @@ impl Shell {
         if let Some(outcome) = &outcome {
             hit_rects.push(HitRect::new(outcome.rect));
             if let Some(frame) = outcome.seek_to {
-                self.queue_seek(frame);
+                self.queue_seek(frame, outcome.look_at);
             }
             if outcome.speed.is_some() || outcome.paused.is_some() {
                 self.request_speed(outcome.speed, outcome.paused);
@@ -1471,9 +1601,10 @@ impl Shell {
         outcome.is_some()
     }
 
-    /// Queues a jump to `frame`, replacing whatever was queued before it.
-    fn queue_seek(&mut self, frame: u32) {
-        self.pending_seek = Some(frame);
+    /// Queues a jump to `frame`, and a look at `look_at` once it lands, replacing whatever was queued
+    /// before it.
+    fn queue_seek(&mut self, frame: u32, look_at: Option<observer::MapPoint>) {
+        self.pending_seek = Some((frame, look_at));
     }
 
     /// Lets the queued seek out once the game is ready for one.
@@ -1482,7 +1613,7 @@ impl Shell {
     /// refused outright, and a refusal that swallowed the player's final drag position would leave
     /// the playhead somewhere they never asked for.
     fn send_queued_seek(&mut self, ctx: &Context, view: &TransportView) {
-        let Some(frame) = self.pending_seek else {
+        let Some((frame, look_at)) = self.pending_seek else {
             return;
         };
         let now = ctx.input(|input| input.time);
@@ -1494,6 +1625,9 @@ impl Shell {
         self.pending_seek = None;
         self.last_seek_secs = now;
         self.intents.push(Intent::Seek(frame));
+        if let Some(point) = look_at {
+            self.intents.push(Intent::LookAt(point));
+        }
     }
 
     /// Asks for a change to how playback runs, filling in whichever half of it the player did not
@@ -1537,10 +1671,12 @@ impl Shell {
                 };
                 // Counted from where the queued seek would put playback rather than from where it
                 // is now, so two presses in a row add up instead of one eating the other.
-                let from = self.pending_seek.unwrap_or(view.elapsed_frames);
+                let from = self
+                    .pending_seek
+                    .map_or(view.elapsed_frames, |(frame, _)| frame);
                 let delta = transport::seconds_to_frames(i64::from(step), view.game_speed);
                 let frame = view.frame_at(i64::from(from) + delta);
-                self.queue_seek(frame);
+                self.queue_seek(frame, None);
             }
             _ => return false,
         }
@@ -1552,6 +1688,31 @@ impl Shell {
     /// Spectating only, and never while something else owns the keyboard: a capturing modal of ours,
     /// one of BW's own dialogs, or the chat box the player is typing into. A modal that takes no
     /// input takes no hotkeys either — a passing stall notice must cost an observer nothing.
+    /// Selects the group on `digit` of the player whose keys the control groups row shows, the way
+    /// that player pressing it would. A digit with nothing on it, or nobody's keys to read, stays
+    /// the game's, which recalls the watcher's own groups with it.
+    fn recall_control_group(&mut self, digit: u8) -> bool {
+        match self.number_keys {
+            Some((player_id, keys)) if keys & 1 << digit != 0 => {
+                self.intents.push(Intent::SelectControlGroup {
+                    player_id,
+                    key: digit,
+                });
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// Whether SC:R's quit keys open the leave question. They do in every mode once the game runs,
+    /// as SC:R's own do, except while the chat box has the keyboard or a modal the player cannot
+    /// close owns the screen: that one already says how this game ends.
+    fn quit_keys_active(&self) -> bool {
+        self.host.game_started
+            && !self.host.native_textbox_open
+            && self.top_modal().is_none_or(ModalId::is_dismissible)
+    }
+
     fn hotkeys_active(&self) -> bool {
         self.host.game_started
             && self.host.mode.is_spectating()
@@ -1567,8 +1728,15 @@ impl Shell {
     fn apply_action(&mut self, action: Action, modifiers: Modifiers) -> bool {
         match action {
             Action::ToggleAllPanels => {
-                let show = !self.prefs.all_shown();
-                self.prefs.set_all(show);
+                self.prefs.toggle_all();
+                true
+            }
+            Action::ToggleVisionPicker => {
+                self.vision_picker_open = !self.vision_picker_open;
+                // The list hangs off the minimap's frame, so asking for it brings the minimap back.
+                if self.vision_picker_open {
+                    self.prefs.minimap = true;
+                }
                 true
             }
             // A viewing preference rather than a surface, and only a replay has an outcome worth
@@ -1685,6 +1853,25 @@ impl Shell {
 }
 
 /// Which panel an action toggles, for the actions whose panel exists.
+/// The digit a number key stands for.
+fn number_key_digit(key: Key) -> Option<u8> {
+    [
+        Key::Num0,
+        Key::Num1,
+        Key::Num2,
+        Key::Num3,
+        Key::Num4,
+        Key::Num5,
+        Key::Num6,
+        Key::Num7,
+        Key::Num8,
+        Key::Num9,
+    ]
+    .iter()
+    .position(|&digit| digit == key)
+    .map(|digit| digit as u8)
+}
+
 fn action_panel(action: Action) -> Option<Panel> {
     Panel::ALL
         .into_iter()
@@ -1756,6 +1943,16 @@ fn draw_modal(
                 dismissed: dialog.inner.return_to_game || dialog.scrim_clicked,
                 open_options: dialog.inner.open_options,
                 open_social: dialog.inner.open_social,
+                quit: dialog.inner.leave,
+                ..ModalOutcome::default()
+            }
+        }
+        ModalId::LeaveGame => {
+            let dialog =
+                render_leave_confirm(ctx, host.mode == Mode::Playing, host.mode == Mode::Replay);
+            hit_rects.push(HitRect::new(dialog.response.rect));
+            ModalOutcome {
+                dismissed: dialog.inner.return_to_game || dialog.scrim_clicked,
                 quit: dialog.inner.leave,
                 ..ModalOutcome::default()
             }
@@ -2169,45 +2366,62 @@ mod tests {
     #[test]
     fn panel_hotkeys_toggle_their_panel_while_spectating() {
         let mut shell = spectating_shell();
-        assert!(shell.key_pressed(Key::W, Modifiers::NONE));
-        assert!(shell.panel_prefs().console);
-        assert!(shell.key_pressed(Key::Q, Modifiers::NONE));
-        assert!(!shell.panel_prefs().minimap);
-        assert!(shell.key_pressed(Key::R, Modifiers::NONE));
-        assert!(!shell.panel_prefs().matchup);
-        assert!(shell.key_pressed(Key::F, Modifiers::NONE));
-        assert!(!shell.panel_prefs().production);
+        type IsShown = fn(&PanelPrefs) -> bool;
+        let panels: [(Key, IsShown); 5] = [
+            (Key::W, |prefs| prefs.selection),
+            (Key::Q, |prefs| prefs.minimap),
+            (Key::E, |prefs| prefs.matchup),
+            (Key::R, |prefs| prefs.dock),
+            (Key::F, |prefs| prefs.production),
+        ];
+        for (key, is_shown) in panels {
+            let was_shown = is_shown(shell.panel_prefs());
+            assert!(shell.key_pressed(key, Modifiers::NONE));
+            assert_ne!(
+                is_shown(shell.panel_prefs()),
+                was_shown,
+                "{key:?} moved nothing"
+            );
+        }
     }
 
     #[test]
-    fn the_console_and_the_minimap_move_independently() {
+    fn all_panels_hides_whatever_is_shown_and_brings_back_just_that() {
         let mut shell = spectating_shell();
-        assert!(!shell.panel_prefs().console);
-        assert!(shell.key_pressed(Key::W, Modifiers::NONE));
-        assert!(shell.panel_prefs().console);
-        assert!(shell.panel_prefs().minimap);
+        shell.set_panel_prefs(PanelPrefs {
+            economy: true,
+            graphs: true,
+            ..PanelPrefs::default()
+        });
+        let before = shell.panel_prefs().shown_set();
+        assert!(shell.key_pressed(Key::A, Modifiers::NONE));
+        assert_eq!(shell.panel_prefs().shown_set(), PanelSet::default());
+        assert!(shell.key_pressed(Key::A, Modifiers::NONE));
+        assert_eq!(shell.panel_prefs().shown_set(), before);
+
+        // Whatever came on since the last press is what the next one hides, and all it brings
+        // back: a panel shown on a clear screen becomes the set.
+        assert!(shell.key_pressed(Key::A, Modifiers::NONE));
+        assert!(shell.key_pressed(Key::T, Modifiers::NONE));
+        assert!(shell.key_pressed(Key::A, Modifiers::NONE));
+        assert!(shell.key_pressed(Key::A, Modifiers::NONE));
+        assert!(shell.panel_prefs().timeline);
+        assert!(!shell.panel_prefs().economy);
     }
 
     #[test]
-    fn all_panels_hides_everything_then_shows_everything() {
+    fn all_panels_on_a_clear_screen_with_nothing_hidden_brings_back_the_defaults() {
         let mut shell = spectating_shell();
+        let mut cleared = PanelPrefs::default();
+        for panel in Panel::ALL {
+            cleared.set(panel, false);
+        }
+        shell.set_panel_prefs(cleared);
         assert!(shell.key_pressed(Key::A, Modifiers::NONE));
-        assert!(!shell.panel_prefs().all_shown());
-        assert!(!shell.panel_prefs().console);
-        assert!(shell.key_pressed(Key::A, Modifiers::NONE));
-        assert!(shell.panel_prefs().all_shown());
-
-        // With one panel already hidden, the key restores the set rather than hiding the rest.
-        shell.key_pressed(Key::Q, Modifiers::NONE);
-        assert!(shell.key_pressed(Key::A, Modifiers::NONE));
-        assert!(shell.panel_prefs().all_shown());
-
-        // SC:R's console is no panel of ours: the key neither brings it back nor counts it.
-        assert!(!shell.panel_prefs().console);
-        shell.key_pressed(Key::W, Modifiers::NONE);
-        assert!(shell.key_pressed(Key::A, Modifiers::NONE));
-        assert!(!shell.panel_prefs().all_shown());
-        assert!(shell.panel_prefs().console);
+        assert_eq!(
+            shell.panel_prefs().shown_set(),
+            PanelPrefs::default().shown_set()
+        );
     }
 
     #[test]
@@ -2228,8 +2442,9 @@ mod tests {
         let mut shell = spectating_shell();
         assert!(!shell.key_pressed(Key::N, Modifiers::NONE));
         shell.map_control_available = true;
+        let was_shown = shell.panel_prefs().map_control;
         assert!(shell.key_pressed(Key::N, Modifiers::NONE));
-        assert!(!shell.panel_prefs().map_control);
+        assert_ne!(shell.panel_prefs().map_control, was_shown);
     }
 
     #[test]
@@ -2293,14 +2508,18 @@ mod tests {
         let mut shell = spectating_shell();
         type IsShown = fn(&PanelPrefs) -> bool;
         let wings: [(Key, IsShown); 3] = [
-            (Key::E, |prefs| prefs.economy),
+            (Key::I, |prefs| prefs.economy),
             (Key::M, |prefs| prefs.military),
             (Key::T, |prefs| prefs.timeline),
         ];
         for (key, is_shown) in wings {
-            assert!(is_shown(shell.panel_prefs()));
+            let was_shown = is_shown(shell.panel_prefs());
             assert!(shell.key_pressed(key, Modifiers::NONE));
-            assert!(!is_shown(shell.panel_prefs()), "{key:?} moved nothing");
+            assert_ne!(
+                is_shown(shell.panel_prefs()),
+                was_shown,
+                "{key:?} moved nothing"
+            );
         }
     }
 
@@ -2311,12 +2530,16 @@ mod tests {
         let stack: [(Key, IsShown); 3] = [
             (Key::F, |prefs| prefs.production),
             (Key::H, |prefs| prefs.control_groups),
-            (Key::S, |prefs| prefs.selection),
+            (Key::W, |prefs| prefs.selection),
         ];
         for (key, is_shown) in stack {
-            assert!(is_shown(shell.panel_prefs()));
+            let was_shown = is_shown(shell.panel_prefs());
             assert!(shell.key_pressed(key, Modifiers::NONE));
-            assert!(!is_shown(shell.panel_prefs()), "{key:?} moved nothing");
+            assert_ne!(
+                is_shown(shell.panel_prefs()),
+                was_shown,
+                "{key:?} moved nothing"
+            );
         }
     }
 
@@ -2378,7 +2601,7 @@ mod tests {
             minimap_rect: None,
         });
         assert!(!shell.key_pressed(Key::A, Modifiers::NONE));
-        assert!(shell.panel_prefs().all_shown());
+        assert_eq!(*shell.panel_prefs(), PanelPrefs::default());
     }
 
     #[test]
@@ -2415,7 +2638,7 @@ mod tests {
             let mut shell = Shell::new();
             shell.set_host(&host);
             assert!(!shell.key_pressed(Key::W, Modifiers::NONE), "{host:?}");
-            assert!(!shell.panel_prefs().console);
+            assert!(shell.panel_prefs().selection);
         }
     }
 
@@ -2428,7 +2651,7 @@ mod tests {
             blocks_input: false,
         }));
         assert!(shell.key_pressed(Key::W, Modifiers::NONE));
-        assert!(shell.panel_prefs().console);
+        assert!(!shell.panel_prefs().selection);
     }
 
     #[test]
@@ -2548,6 +2771,11 @@ mod tests {
         assert!(shell.key_pressed(Key::L, Modifiers::NONE));
         assert!(shell.panel_prefs().spoiler_free);
         // Hiding every panel is a request for a clear screen, not for the outcome to be given away.
+        let mut every_panel = *shell.panel_prefs();
+        for panel in Panel::ALL {
+            every_panel.set(panel, true);
+        }
+        shell.set_panel_prefs(every_panel);
         assert!(shell.key_pressed(Key::A, Modifiers::NONE));
         assert!(shell.panel_prefs().spoiler_free);
         assert!(!shell.panel_prefs().transport);
@@ -2600,6 +2828,6 @@ mod tests {
         let mut shell = spectating_shell();
         shell.native_dialog_spawned(NativeDialog::ChatHistory);
         assert!(!shell.key_pressed(Key::W, Modifiers::NONE));
-        assert!(!shell.panel_prefs().console);
+        assert!(shell.panel_prefs().selection);
     }
 }

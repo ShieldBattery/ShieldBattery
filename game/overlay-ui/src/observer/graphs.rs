@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 use crate::kit::widgets::{self, Series};
 use crate::kit::{theme, tiers};
 use crate::observer::{Wing, wing_panel};
+use crate::shell::Panel;
 use crate::tr;
 
 /// How wide the panel is, in overlay points.
@@ -217,7 +218,11 @@ fn draw_panel(
     plot: f32,
     seekable: bool,
 ) -> ((Option<GraphSeries>, Option<bool>), Option<u32>) {
-    widgets::panel_header(ui, &tr!("observer.panelGraphs", "Graphs"), Some("G"));
+    widgets::panel_header(
+        ui,
+        &tr!("observer.panelGraphs", "Graphs"),
+        Panel::Graphs.key_label().as_deref(),
+    );
     let picked = ui
         .allocate_ui_with_layout(
             vec2(CONTENT_WIDTH, TAB_ROW),

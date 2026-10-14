@@ -177,6 +177,70 @@ fn draw_actions(ui: &mut Ui, playing: bool) -> GameMenuOutcome {
     outcome
 }
 
+/// What the player answered when asked whether to leave.
+#[derive(Default)]
+pub struct LeaveConfirmOutcome {
+    /// Whether they chose to stay.
+    pub return_to_game: bool,
+    /// Whether they chose to leave.
+    pub leave: bool,
+}
+
+/// How wide the confirmation is: narrower than the menu, since it asks one question.
+const CONFIRM_WIDTH: f32 = 360.0;
+
+/// Asks whether to leave the game, for the keys SC:R quits with (`Alt+Q`, `Alt+X` and their `Ctrl`
+/// forms), which in ShieldBattery all come to the same thing: the game ends for this client.
+///
+/// Leaving costs what it costs from the menu, with the same controls: a hold for a player, whose
+/// leaving loses the game, and a click for someone watching.
+pub fn render_leave_confirm(
+    ctx: &Context,
+    playing: bool,
+    replay: bool,
+) -> tiers::DialogResponse<LeaveConfirmOutcome> {
+    tiers::tier2_dialog(ctx, Id::new("sb_leave_confirm"), CONFIRM_WIDTH, |ui| {
+        let title = match replay {
+            true => tr!("gameMenu.leaveReplayTitle", "Leave the replay?"),
+            false => tr!("gameMenu.leaveGameTitle", "Leave the game?"),
+        };
+        tiers::dialog_header(ui, |ui| tiers::dialog_title(ui, &title));
+        tiers::dialog_body(ui, |ui| draw_leave_actions(ui, playing))
+    })
+}
+
+fn draw_leave_actions(ui: &mut Ui, playing: bool) -> LeaveConfirmOutcome {
+    let width = ui.available_width();
+    let spec = text::button_label(BUTTON_LABEL_SIZE).with_letter_spacing(BUTTON_TRACKING);
+    let size = vec2(width, BUTTON_HEIGHT);
+    let mut outcome = LeaveConfirmOutcome {
+        return_to_game: widgets::plate_button(
+            ui,
+            &spec,
+            &tr!("gameMenu.returnToGame", "Return to game"),
+            size,
+            ButtonPlate::primary(),
+        )
+        .clicked(),
+        ..LeaveConfirmOutcome::default()
+    };
+    ui.add_space(BUTTON_GAP);
+    outcome.leave = if playing {
+        widgets::hold_to_confirm(ui, &tr!("gameMenu.holdToLeave", "Hold to leave game"), size)
+            == HoldState::Confirmed
+    } else {
+        widgets::plate_button(
+            ui,
+            &spec,
+            &tr!("gameMenu.leaveGame", "Leave game"),
+            size,
+            ButtonPlate::destructive(),
+        )
+        .clicked()
+    };
+    outcome
+}
+
 /// The footer: the key that closes the menu, and the reason closing it is not urgent.
 fn draw_footer(ui: &mut Ui) {
     let width = ui.available_width();
