@@ -1513,15 +1513,19 @@ impl OverlayState {
                     }
                     if let Some(key) = key {
                         // The menu and quit keys are the shell's whatever has the keyboard, and so is
-                        // every key while the menu or the leave question is up (their buttons answer
-                        // to letters): they type nothing, and with a modal up a focused button would
-                        // otherwise take the key that is meant for it.
+                        // every key while the menu, the leave question or the message history is up
+                        // (their buttons answer to keys): they type nothing, and with a modal up a
+                        // focused button would otherwise take the key that is meant for it.
                         if pressed
                             && (hotkeys::is_menu_chord(key, modifiers)
                                 || hotkeys::is_quit_chord(key, modifiers)
                                 || matches!(
                                     self.shell.top_modal(),
-                                    Some(ModalId::LeaveGame | ModalId::GameMenu)
+                                    Some(
+                                        ModalId::LeaveGame
+                                            | ModalId::GameMenu
+                                            | ModalId::ChatHistory
+                                    )
                                 ))
                             && self.shell.key_pressed(key, modifiers)
                         {
@@ -1902,8 +1906,20 @@ fn vkey_to_egui_key(key: i32) -> Option<Key> {
         VK_END => End,
         VK_PRIOR => PageUp,
         VK_NEXT => PageDown,
-        VK_SUBTRACT => Minus,
+        VK_SUBTRACT | VK_OEM_MINUS => Minus,
         VK_ADD => Plus,
+        // The punctuation keys as a US layout places them, which is where SC:R's own bindings for
+        // them sit.
+        VK_OEM_PLUS => Equals,
+        VK_OEM_COMMA => Comma,
+        VK_OEM_PERIOD => Period,
+        VK_OEM_1 => Semicolon,
+        VK_OEM_2 => Slash,
+        VK_OEM_3 => Backtick,
+        VK_OEM_4 => OpenBracket,
+        VK_OEM_5 => Backslash,
+        VK_OEM_6 => CloseBracket,
+        VK_OEM_7 => Quote,
         0x30 | VK_NUMPAD0 => Num0,
         0x31 | VK_NUMPAD1 => Num1,
         0x32 | VK_NUMPAD2 => Num2,

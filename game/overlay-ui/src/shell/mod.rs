@@ -1162,9 +1162,13 @@ impl Shell {
         // rather than guessed at from a player count.
         let mut tops = observer::WingTops::under_bar(view.matchup.form().height());
         let right_inset = observer::dock_inset(ctx, self.prefs.dock);
+        // A wing arriving takes its place beside the dock at once, the way the left wings simply
+        // appear where they stand; one already on screen follows the dock as it comes and goes.
+        let settled_inset = observer::settled_dock_inset(self.prefs.dock);
         if let Some(cards) = &view.team_cards {
-            let outcome =
-                observer::render_team_cards_view(cards, ctx, self.prefs.matchup, right_inset);
+            let inset = self.drawn.team_cards.inset(right_inset, settled_inset);
+            let outcome = observer::render_team_cards_view(cards, ctx, self.prefs.matchup, inset);
+            self.drawn.team_cards.drawn(outcome.right_bottom.is_some());
             for rect in outcome.rects {
                 hit_rects.push(HitRect::new(rect));
                 top_surfaces.push(rect);
@@ -1506,9 +1510,6 @@ impl Shell {
         if self.prefs.military && !view.military.is_empty() && !military_fits {
             displaced.push(Panel::Military);
         }
-        // A wing arriving takes its place beside the dock at once, the way the left wings simply
-        // appear where they stand; one already on screen follows the dock as it comes and goes.
-        let settled_inset = observer::settled_dock_inset(self.prefs.dock);
         let military_inset = self.drawn.military.inset(right_inset, settled_inset);
         let military = observer::render_military_view(
             &view.military,
@@ -1810,6 +1811,9 @@ impl Shell {
                 self.open_social_dialog(SocialDialog::Messaging)
             }
             (Some(ModalId::LeaveGame), Key::Q | Key::E) => self.intents.push(Intent::QuitGame),
+            // The key SC:R opens its message history with closes it again, and so does its OK
+            // button's.
+            (Some(ModalId::ChatHistory), Key::Equals | Key::O) => self.dismiss_top_modal(),
             _ => return false,
         }
         true
@@ -1979,6 +1983,8 @@ impl Shell {
 /// Which of the panels whose place eases as their neighbors come and go were drawn last frame.
 #[derive(Default)]
 struct DrawnLastFrame {
+    /// The team cards' right-hand card.
+    team_cards: RightWing,
     military: RightWing,
     control_groups: bool,
     production: bool,
