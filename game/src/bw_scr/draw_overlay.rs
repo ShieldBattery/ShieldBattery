@@ -73,8 +73,12 @@ pub struct OverlayState {
     logged_minimap_area: Option<(i16, i16, i16, i16)>,
     /// The chat log the last frame handed the shell, kept only while its modal is on screen.
     chat_history: Option<ChatHistoryCache>,
-    /// The game's own resource icons, once read for the icon set in use.
+    /// The game's own resource icons, once read.
     resource_icons: Option<resource_icons::LoadedResourceIcons>,
+    /// How much of the screen's height the band the minimap stands in takes, from the screen's
+    /// bottom edge to the minimap's top, as last seen. Kept while the minimap is hidden: the other
+    /// bottom panels still stand in that band.
+    bottom_band_share: f32,
     /// What the end-of-game card reports, read once as the card comes up and kept while it is on
     /// the stack: it is about the game as it was decided, and the numbers behind it keep moving for
     /// as long as the player keeps playing.
@@ -220,6 +224,9 @@ pub struct StepOutput {
     pub select_group: Option<GroupSelection>,
     /// A unit for the game's view to follow from now on.
     pub follow_unit: Option<Unit>,
+    /// How much of the view's height it may scroll past the map's bottom edge: the band the
+    /// overlay's bottom panels cover for a watcher, nothing for a player.
+    pub bottom_overpan_share: f32,
 }
 
 /// Where a window position is on the overlay's screen of `screen` points while SC:R's mouse scaling
@@ -429,6 +436,7 @@ impl OverlayState {
             shell_held_keys: Vec::new(),
             chat_history: None,
             resource_icons: None,
+            bottom_band_share: 0.0,
         }
     }
 
@@ -605,6 +613,12 @@ impl OverlayState {
                 None
             },
         };
+        if let Some(minimap) = host_frame.minimap_rect {
+            let screen = self.ctx.viewport_rect();
+            if screen.height() > 0.0 {
+                self.bottom_band_share = (screen.bottom() - minimap.top()) / screen.height();
+            }
+        }
         // Keypresses arrive between frames and are decided against this, so it is refreshed even on
         // the frames the shell draws nothing on.
         self.shell.set_host(&host_frame);
@@ -818,6 +832,11 @@ impl OverlayState {
             look_at: self.out_state.look_at,
             select_group: self.out_state.select_group.take(),
             follow_unit: self.out_state.follow_unit,
+            bottom_overpan_share: if bw.is_replay_or_obs {
+                self.bottom_band_share
+            } else {
+                0.0
+            },
         }
     }
 

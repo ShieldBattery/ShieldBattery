@@ -165,6 +165,10 @@ pub struct BwScr {
     /// Usually ~0.8 so that the ui console doesn't cover bottom of the map.
     game_screen_height_ratio: Option<Value<f32>>,
     zoom: Value<f32>,
+    /// What lets a watcher's view scroll past the map's bottom edge, out from under the overlay's
+    /// bottom panels. `None` where the analysis did not find it, which leaves the edge where the
+    /// game puts it.
+    bottom_overpan: Option<BottomOverpan>,
     cursor_scale_factor: Value<f32>,
     units: Value<*mut scr::BwVector>,
     /// The global `u16[player][group]` table holding the frame each selection group was last
@@ -2448,6 +2452,20 @@ impl BwScr {
             .ok_or("game_screen_height_bwpx")?;
         let game_screen_height_ratio = analysis.game_screen_height_ratio();
         let zoom = analysis.zoom().ok_or("zoom")?;
+        let bottom_overpan = (|| {
+            Some(BottomOverpan {
+                padding_tiles: Value::new(ctx, analysis.screen_scroll_bottom_padding_tiles()?),
+                scroll_max_y: Value::new(ctx, analysis.screen_scroll_max_y()?),
+                update_scroll_bounds: unsafe {
+                    std::mem::transmute::<usize, unsafe extern "C" fn()>(
+                        analysis.update_screen_scroll_bounds()?.0 as usize,
+                    )
+                },
+            })
+        })();
+        if bottom_overpan.is_none() {
+            warn!("No screen scroll padding; the view stops at the map's bottom edge");
+        }
         let move_screen = analysis.move_screen().ok_or("move_screen")?;
         // Non-fatal: without these the middle-mouse grab pan keeps the game's built-in behavior
         // instead of failing game launch. Resolve each piece separately so a missing one names
@@ -2661,6 +2679,7 @@ impl BwScr {
             game_screen_width_bwpx: Value::new(ctx, game_screen_width_bwpx),
             game_screen_height_bwpx: Value::new(ctx, game_screen_height_bwpx),
             zoom: Value::new(ctx, zoom),
+            bottom_overpan,
             cursor_scale_factor: Value::new(ctx, cursor_scale_factor),
             game_screen_height_ratio: game_screen_height_ratio.map(move |x| Value::new(ctx, x)),
             replay_bfix: replay_bfix.map(move |x| Value::new(ctx, x)),
@@ -4422,6 +4441,7 @@ impl BwScr {
                                     self.center_screen(&group.units[0].position());
                                 }
                             }
+                            self.set_bottom_overpan(overlay_out.bottom_overpan_share);
                             // After everything else that moves the view this frame, which ends
                             // a follow rather than being undone by it.
                             self.follow_unit(overlay_out.follow_unit);
@@ -6551,6 +6571,59 @@ impl BwScr {
         }
     }
 
+    /// The furthest down the view's top edge may scroll, in map pixels: the game's own bound where
+    /// it can be read, which counts the room past the map's bottom edge. `None` for a map shorter
+    /// than the view.
+    unsafe fn screen_max_y(&self) -> Option<u32> {
+        unsafe {
+            match &self.bottom_overpan {
+                Some(overpan) => Some(overpan.scroll_max_y.resolve()),
+                None => self
+                    .map_height_pixels
+                    .resolve()
+                    .checked_sub(self.game_screen_height_bwpx.resolve()),
+            }
+        }
+    }
+
+    /// Lets the view scroll past the map's bottom edge by `share` of the view's height, so what is
+    /// at the bottom of the map can be brought out from under the overlay's bottom panels. The
+    /// game draws nothing past the edge.
+    ///
+    /// The room is the game's own, which it keeps in tiles at default zoom and so the same height
+    /// on screen at any zoom; every clamp on the view's position counts it. It stays short of the
+    /// view's own height less a tile, past which the game's fog pass would start reading rows
+    /// below the map's last.
+    unsafe fn set_bottom_overpan(&self, share: f32) {
+        unsafe {
+            let Some(overpan) = &self.bottom_overpan else {
+                return;
+            };
+            let zoom = self.zoom.resolve();
+            let view_height = self.game_screen_height_bwpx.resolve() as f32;
+            let limit = ((view_height - TILE_PIXELS) * zoom / TILE_PIXELS)
+                .floor()
+                .max(0.0);
+            let tiles = (share.max(0.0) * view_height * zoom / TILE_PIXELS)
+                .ceil()
+                .min(limit) as u16;
+            if overpan.padding_tiles.resolve() != tiles {
+                overpan.padding_tiles.write(tiles);
+                (overpan.update_scroll_bounds)();
+                debug!(
+                    "View may scroll {tiles} tiles past the map's bottom edge: top edge at most \
+                     {} for a map {} tall and a view {} tall",
+                    overpan.scroll_max_y.resolve(),
+                    self.map_height_pixels.resolve(),
+                    view_height,
+                );
+                // Through the game's own move, which redraws the view for a position the new
+                // bounds pulled in.
+                (self.move_screen)(self.screen_x.resolve(), self.screen_y.resolve());
+            }
+        }
+    }
+
     unsafe fn center_screen(&self, pos: &bw::Point) {
         unsafe {
             let width = self.game_screen_width_bwpx.resolve();
@@ -6559,7 +6632,7 @@ impl BwScr {
                 Some(s) => s,
                 None => return,
             };
-            let max_height = match self.map_height_pixels.resolve().checked_sub(height) {
+            let max_height = match self.screen_max_y() {
                 Some(s) => s,
                 None => return,
             };
@@ -9694,6 +9767,19 @@ impl bw::Bw for BwScr {
         self.starting_fog.load(Ordering::Acquire)
     }
 }
+
+/// The game's room for scrolling past the map's bottom edge.
+struct BottomOverpan {
+    /// The room, in tiles at default zoom.
+    padding_tiles: Value<u16>,
+    /// The bound every clamp on the view's top edge reads, which counts the room.
+    scroll_max_y: Value<u32>,
+    /// Recomputes the bounds after the room changes.
+    update_scroll_bounds: unsafe extern "C" fn(),
+}
+
+/// How many map pixels a tile is.
+const TILE_PIXELS: f32 = 32.0;
 
 /// A unit the game's view follows: its unique id, and where following it last left the view.
 struct FollowedUnit {

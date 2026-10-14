@@ -741,6 +741,23 @@ impl<'e> Analysis<'e> {
         self.0.move_screen()
     }
 
+    /// Recomputes the furthest the view can scroll from the map's size, the view's size and the
+    /// bottom padding, and pulls the view back within it.
+    pub fn update_screen_scroll_bounds(&mut self) -> Option<VirtualAddress> {
+        self.0.update_screen_scroll_bounds()
+    }
+
+    /// How far past the map's bottom edge the view may scroll, in tiles at default zoom. Every
+    /// clamp on the view's position reads the bounds it feeds.
+    pub fn screen_scroll_bottom_padding_tiles(&mut self) -> Option<Operand<'e>> {
+        self.0.screen_scroll_bottom_padding_tiles()
+    }
+
+    /// The furthest down the view's top edge may scroll, in map pixels.
+    pub fn screen_scroll_max_y(&mut self) -> Option<Operand<'e>> {
+        self.0.screen_scroll_max_y()
+    }
+
     /// Base address (as an operand) of the UI input dispatch's function-pointer table, indexed by
     /// event type. Slot 3 holds the active drag callback (grab pan / selection box), or null when
     /// no drag is in progress.

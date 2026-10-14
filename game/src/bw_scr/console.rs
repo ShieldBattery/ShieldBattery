@@ -131,8 +131,7 @@ impl BwScr {
 
                 // Keep screen Y same as it was so that extra space is added/removed at bottom
                 // where the console is.
-                let new_height = self.game_screen_height_bwpx.resolve();
-                let max_y = self.map_height_pixels.resolve().saturating_sub(new_height);
+                let max_y = self.screen_max_y().unwrap_or(0);
                 let y = old_y.min(max_y);
                 let x = self.screen_x.resolve();
                 (self.move_screen)(x, y);
