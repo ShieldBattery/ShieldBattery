@@ -238,9 +238,15 @@ fn post_menu_key() {
 /// The game menu's control that leads towards quitting the game.
 const GAME_MENU_QUIT_CONTROL_ID: i16 = 7;
 
-/// The dialogs SC:R walks a player through between the game menu and leaving, with the control in
-/// each that carries on towards the exit.
-const QUIT_CHAIN: [(&str, i16); 3] = [("AbrtMenu", 2), ("Quit2Mnu", -2), ("QuitRepl", -2)];
+/// The dialogs SC:R walks a player through from the game menu to leaving, with the control in each
+/// that carries on towards the exit. The game menu itself is a step for a quit asked for without it
+/// open: it is opened for the quit, hidden like every other step, and pressed on through.
+const QUIT_CHAIN: [(&str, i16); 4] = [
+    ("GameMenu", GAME_MENU_QUIT_CONTROL_ID),
+    ("AbrtMenu", 2),
+    ("Quit2Mnu", -2),
+    ("QuitRepl", -2),
+];
 
 /// How long a quit the overlay started keeps confirming SC:R's quit dialogs on the player's behalf.
 /// Long enough for the chain to spawn one dialog after another, short enough that a quit dialog the
@@ -262,13 +268,26 @@ static QUIT_LAST_PRESSED: AtomicUsize = AtomicUsize::new(0);
 /// hidden menu's own buttons keeps all of that, where ending the loop directly would not. The
 /// confirmation dialogs the menu opens next spawn hidden while the quit is under way, and
 /// [`advance_quit`] presses on through them.
+///
+/// From the overlay's leave question, which SC:R's quit keys open, the game menu is not open: it is
+/// opened for the quit instead, and spawns as the chain's first step.
 pub fn begin_quit(first_dialog: Option<Dialog>) {
     *QUIT_REQUESTED_AT.lock() = Some(Instant::now());
-    activate_replaced_dialog_control(
-        first_dialog,
-        NativeDialog::GameMenu,
-        GAME_MENU_QUIT_CONTROL_ID,
-    );
+    let menu_name = NativeDialog::GameMenu.runtime_name();
+    let open_menu = bw::iter_dialogs(first_dialog)
+        .find(|dialog| dialog.as_control().string().eq_ignore_ascii_case(menu_name));
+    match open_menu {
+        Some(menu) => {
+            // Pressed here, so the chain does not press it a second time.
+            QUIT_LAST_PRESSED.store(*menu as usize, Ordering::Relaxed);
+            activate_replaced_dialog_control(
+                first_dialog,
+                NativeDialog::GameMenu,
+                GAME_MENU_QUIT_CONTROL_ID,
+            );
+        }
+        None => open_game_menu(first_dialog),
+    }
 }
 
 /// The quit chain's step a dialog of this name is, while a quit the overlay started is under way.

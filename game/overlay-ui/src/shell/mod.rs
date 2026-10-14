@@ -963,6 +963,12 @@ impl Shell {
             self.dismiss_top_modal();
             return true;
         }
+        // Q answers the leave question the way it answers SC:R's own quit dialogs, whose Quit
+        // button it is: Alt+Q, then Q, leaves.
+        if self.top_modal() == Some(ModalId::LeaveGame) && key == Key::Q && modifiers.is_none() {
+            self.intents.push(Intent::QuitGame);
+            return true;
+        }
         if hotkeys::is_quit_chord(key, modifiers) && self.quit_keys_active() {
             self.open_modal(ModalId::LeaveGame);
             return true;
@@ -2904,6 +2910,19 @@ mod tests {
         assert!(shell.panel_prefs().minimap);
         // With the list closed the key is the game's again.
         assert!(!shell.key_pressed(Key::Escape, Modifiers::NONE));
+    }
+
+    #[test]
+    fn q_answers_the_leave_question_scrs_quit_keys_open() {
+        let mut shell = spectating_shell();
+        let alt = Modifiers {
+            alt: true,
+            ..Modifiers::NONE
+        };
+        assert!(shell.key_pressed(Key::Q, alt));
+        assert_eq!(shell.top_modal(), Some(ModalId::LeaveGame));
+        assert!(shell.key_pressed(Key::Q, Modifiers::NONE));
+        assert!(shell.pending_intents().contains(&Intent::QuitGame));
     }
 
     #[test]

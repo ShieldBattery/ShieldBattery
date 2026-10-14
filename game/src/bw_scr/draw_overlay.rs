@@ -1405,12 +1405,14 @@ impl OverlayState {
                     modifiers.alt |= is_syskey && vkey != VK_F10;
                     let key = vkey_to_egui_key(vkey);
                     if let Some(key) = key {
-                        // The menu and quit keys are the shell's whatever has the keyboard: they type
+                        // The menu and quit keys are the shell's whatever has the keyboard, and so is
+                        // every key while the leave question is up (its Q answers it): they type
                         // nothing, and with a modal up a focused button would otherwise take the key
                         // that is meant to close it.
                         if pressed
                             && (hotkeys::is_menu_chord(key, modifiers)
-                                || hotkeys::is_quit_chord(key, modifiers))
+                                || hotkeys::is_quit_chord(key, modifiers)
+                                || self.shell.top_modal() == Some(ModalId::LeaveGame))
                             && self.shell.key_pressed(key, modifiers)
                         {
                             return Some(0);
