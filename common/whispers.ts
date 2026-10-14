@@ -172,6 +172,36 @@ export function whisperServiceErrorToString(
 }
 
 /** Response to resolving a whisper message link: which whisper the message belongs to, from the requester's side. */
+/** A conversation the user has had with another user, open in their sidebar or not. */
+export interface WhisperConversation {
+  /** The other participant of the conversation. */
+  target: SbUserId
+  /** The newest message in the conversation. */
+  lastMessage: WhisperMessage
+}
+
+/** The most conversations a single conversation list request returns. */
+export const WHISPER_CONVERSATIONS_LIMIT = 50
+
+/**
+ * A page of the user's whisper conversations, newest activity first. The next page starts after
+ * the last conversation returned: pass its `lastMessage.time` as `beforeTime` and its `target` as
+ * `beforeTarget`.
+ */
+export interface GetWhisperConversationsResponse {
+  conversations: WhisperConversation[]
+  /** Whether more conversations exist past this page. */
+  hasMore: boolean
+  /** User infos for the other participants of the returned conversations. */
+  users: SbUser[]
+  /** User infos for all users mentioned in the returned messages, if any. */
+  mentions: SbUser[]
+  /** Basic channel data for all channels mentioned in the returned messages, if any. */
+  channelMentions: BasicChannelInfo[]
+  /** Channel IDs mentioned in the returned messages that no longer exist. */
+  deletedChannels: SbChannelId[]
+}
+
 export interface GetWhisperMessageLinkResponse {
   /** The other participant of the whisper the message is in. */
   targetId: SbUserId

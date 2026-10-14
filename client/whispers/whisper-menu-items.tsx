@@ -1,5 +1,9 @@
 import { useTranslation } from 'react-i18next'
-import { appendToMultimap } from '../../common/data-structures/maps'
+import {
+  appendToMultimap,
+  cloneMultimap,
+  prependToMultimap,
+} from '../../common/data-structures/maps'
 import { getErrorStack } from '../../common/errors'
 import logger from '../logging/logger'
 import { MenuItem } from '../material/menu/item'
@@ -8,6 +12,9 @@ import {
   MessageMenuProps,
 } from '../messaging/message-context-menu'
 import { getServerOrigin } from '../network/server-url'
+import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { MenuItemCategory, UserMenuProps } from '../users/user-context-menu'
+import { markWhisperReadNow } from './action-creators'
 import { urlForWhisperMessageLink } from './whisper-url'
 
 export function WhisperMessageMenu({
@@ -35,4 +42,39 @@ export function WhisperMessageMenu({
   )
 
   return <MenuComponent items={menuItems} messageId={messageId} onMenuClose={onMenuClose} />
+}
+
+/**
+ * Adds "Mark as read" to the user context menu when it's opened from a whisper conversation's entry,
+ * the one place the menu is about the conversation as much as the user.
+ */
+export function WhisperConversationUserMenu({
+  userId,
+  items,
+  onMenuClose,
+  MenuComponent,
+}: UserMenuProps) {
+  const { t } = useTranslation()
+  const dispatch = useAppDispatch()
+  const canMarkRead = useAppSelector(s => {
+    const session = s.whispers.byId.get(userId)
+    return session !== undefined && (session.hasUnread || session.unreadLine !== undefined)
+  })
+
+  const menuItems = cloneMultimap(items)
+  prependToMultimap(
+    menuItems,
+    MenuItemCategory.General,
+    <MenuItem
+      key='mark-as-read'
+      text={t('common.actions.markAsRead', 'Mark as read')}
+      disabled={!canMarkRead}
+      onClick={() => {
+        onMenuClose()
+        dispatch(markWhisperReadNow(userId))
+      }}
+    />,
+  )
+
+  return <MenuComponent items={menuItems} userId={userId} onMenuClose={onMenuClose} />
 }

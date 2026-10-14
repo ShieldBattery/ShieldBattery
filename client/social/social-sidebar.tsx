@@ -8,7 +8,7 @@ import styled, { css } from 'styled-components'
 import { Link } from 'wouter'
 import { usePathname } from 'wouter/use-browser-location'
 import { SbChannelId } from '../../common/chat'
-import { cloneMultimap, prependToMultimap } from '../../common/data-structures/maps'
+
 import { getErrorStack } from '../../common/errors'
 import { urlPath } from '../../common/urls'
 import { FriendActivityStatus } from '../../common/users/relationships'
@@ -29,8 +29,7 @@ import {
   isChannelMuted,
 } from '../chat/chat-reducer'
 import { copyChannelLink } from '../chat/copy-channel-link'
-import { openDialog } from '../dialogs/action-creators'
-import { DialogType } from '../dialogs/dialog-type'
+
 import { useWindowSize } from '../dom/dimension-hooks'
 import { FocusTrap } from '../dom/focus-trap'
 import { useOverflowingElement } from '../dom/overflowing-element'
@@ -59,17 +58,10 @@ import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { dialogScrimOpacity } from '../styles/colors'
 import { labelMedium, singleLine, titleSmall } from '../styles/typography'
 import { getBatchUserInfo } from '../users/action-creators'
-import {
-  ConnectedUserContextMenu,
-  MenuItemCategory,
-  UserMenuProps,
-} from '../users/user-context-menu'
+import { ConnectedUserContextMenu } from '../users/user-context-menu'
 import { useUserOverlays } from '../users/user-overlays'
-import {
-  closeWhisperSession,
-  getWhisperSessions,
-  markWhisperReadNow,
-} from '../whispers/action-creators'
+import { closeWhisperSession, getWhisperSessions } from '../whispers/action-creators'
+import { WhisperConversationUserMenu } from '../whispers/whisper-menu-items'
 import { urlForWhisper } from '../whispers/whisper-url'
 import { ChannelReorderList } from './channel-reorder-list'
 import { FriendActivityStatusGlyph } from './friend-activity-status'
@@ -562,7 +554,9 @@ function ChatContent({
       {whisperSessionsList}
       <ChatListButton
         onClick={() => {
-          dispatch(openDialog({ type: DialogType.Whispers }))
+          if (location.pathname !== '/whispers') {
+            push('/whispers')
+          }
           onNavigation()
         }}
         label={t('chat.whispers.startWhisperButton', 'Start a whisper')}
@@ -709,7 +703,7 @@ function WhisperEntry({ userId }: { userId: SbUserId }) {
 
   const { isOverlayOpen, contextMenuProps, onContextMenu } = useUserOverlays({
     userId,
-    UserMenu: WhisperEntryUserMenu,
+    UserMenu: WhisperConversationUserMenu,
   })
 
   useEffect(() => {
@@ -768,36 +762,6 @@ function WhisperEntry({ userId }: { userId: SbUserId }) {
       </Entry>
     </>
   )
-}
-
-/**
- * Adds "Mark as read" to the user context menu when it's opened from a whisper entry, the one place
- * the menu is about the conversation as much as the user.
- */
-function WhisperEntryUserMenu({ userId, items, onMenuClose, MenuComponent }: UserMenuProps) {
-  const { t } = useTranslation()
-  const dispatch = useAppDispatch()
-  const canMarkRead = useAppSelector(s => {
-    const session = s.whispers.byId.get(userId)
-    return session !== undefined && (session.hasUnread || session.unreadLine !== undefined)
-  })
-
-  const menuItems = cloneMultimap(items)
-  prependToMultimap(
-    menuItems,
-    MenuItemCategory.General,
-    <MenuItem
-      key='mark-as-read'
-      text={t('common.actions.markAsRead', 'Mark as read')}
-      disabled={!canMarkRead}
-      onClick={() => {
-        onMenuClose()
-        dispatch(markWhisperReadNow(userId))
-      }}
-    />,
-  )
-
-  return <MenuComponent items={menuItems} userId={userId} onMenuClose={onMenuClose} />
 }
 
 const LoadingName = styled.span`

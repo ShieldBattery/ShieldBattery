@@ -68,7 +68,6 @@ export enum DialogType {
   StarcraftHealth = 'starcraftHealth',
   TermsOfService = 'termsOfService',
   TwitchRemoveLiveStreamConfirmation = 'twitchRemoveLiveStreamConfirmation',
-  Whispers = 'whispers',
 }
 
 type BaseDialogPayload<D, DataType = undefined> = DataType extends undefined
@@ -442,7 +441,6 @@ type TwitchRemoveLiveStreamConfirmationDialogPayload = BaseDialogPayload<
     onConfirm: () => void
   }
 >
-type WhispersDialogPayload = BaseDialogPayload<typeof DialogType.Whispers>
 
 export type DialogPayload =
   | AcceptableUseDialogPayload
@@ -499,4 +497,3 @@ export type DialogPayload =
   | StarcraftHealthDialogPayload
   | TermsOfServiceDialogPayload
   | TwitchRemoveLiveStreamConfirmationDialogPayload
-  | WhispersDialogPayload

@@ -1,7 +1,7 @@
 import { Map as IMap, Set as ISet, OrderedSet } from 'immutable'
 import { singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
-import { SbChannelId } from '../../../common/chat'
+import { BasicChannelInfo, SbChannelId } from '../../../common/chat'
 import { subtract } from '../../../common/data-structures/sets'
 import { RolledOutcome, RolledOutcomeRequest } from '../../../common/rolled-outcomes'
 import { urlPath } from '../../../common/urls'
@@ -10,6 +10,7 @@ import { SbUser } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import {
   GetSessionHistoryResponse,
+  GetWhisperConversationsResponse,
   GetWhisperMessageLinkResponse,
   GetWhisperSessionsResponse,
   WhisperEvent,
@@ -37,14 +38,17 @@ import { UserSocketsGroup, UserSocketsManager } from '../websockets/socket-group
 import { TypedPublisher } from '../websockets/typed-publisher'
 import {
   addMessageToWhisper,
+  ConversationCursor,
   closeWhisperSession as dbCloseWhisperSession,
   startWhisperSession as dbStartWhisperSession,
   startWhisperSessionsBothDirections as dbStartWhisperSessionsBothDirections,
   getMessagesForWhisperSession,
   getUnreadWhisperInfo,
+  getWhisperConversationsForUser,
   getWhisperMessageParticipants,
   getWhisperMessageSentTime,
   getWhisperSessionsForUser,
+  WhisperMessage as StoredWhisperMessage,
   updateLastReadTime,
 } from './whisper-models'
 
@@ -360,56 +364,14 @@ export default class WhisperService {
       hasMoreAfter,
     } = await getMessagesForWhisperSession(user.id, target.id, limit, cursor)
 
-    const messages: WhisperMessage[] = []
-    const userMentionIds = new Set<SbUserId>()
-    const channelMentionIds = new Set<SbChannelId>()
-
-    for (const msg of dbMessages) {
-      switch (msg.data.type) {
-        case WhisperMessageType.TextMessage:
-          messages.push({
-            id: msg.id,
-            type: msg.data.type,
-            from: msg.from,
-            to: msg.to,
-            time: Number(msg.sent),
-            text: msg.data.text,
-            ...emoteField(msg.data.emote),
-            ...outcomeField(msg.data.outcome),
-          })
-          for (const mention of msg.data.mentions ?? []) {
-            userMentionIds.add(mention)
-          }
-          for (const mention of msg.data.channelMentions ?? []) {
-            channelMentionIds.add(mention)
-          }
-          break
-
-        default:
-          return assertUnreachable(msg.data.type)
-      }
-    }
-
-    const [userMentions, channelMentions] = await Promise.all([
-      findUsersById(Array.from(userMentionIds)),
-      getChannelInfos(Array.from(channelMentionIds)),
-    ])
-
-    const deletedChannels =
-      channelMentionIds.size === channelMentions.length
-        ? []
-        : Array.from(
-            subtract(
-              channelMentionIds,
-              channelMentions.map(c => c.id),
-            ),
-          )
+    const { messages, mentions, channelMentions, deletedChannels } =
+      await toClientMessages(dbMessages)
 
     return {
       messages,
       users: [user, target],
-      mentions: userMentions,
-      channelMentions: channelMentions.map(c => toBasicChannelInfo(c)),
+      mentions,
+      channelMentions,
       deletedChannels,
       hasMoreBefore,
       hasMoreAfter,
@@ -440,6 +402,34 @@ export default class WhisperService {
     const target = await this.getUserById(targetId)
 
     return { targetId, users: [target] }
+  }
+
+  /**
+   * Returns a page of every conversation `userId` has had, whether or not its session is open,
+   * newest activity first.
+   */
+  async getConversations(
+    userId: SbUserId,
+    limit: number,
+    cursor?: ConversationCursor,
+  ): Promise<GetWhisperConversationsResponse> {
+    const { conversations, hasMore } = await getWhisperConversationsForUser(userId, limit, cursor)
+    const [users, { messages, mentions, channelMentions, deletedChannels }] = await Promise.all([
+      findUsersById(conversations.map(c => c.targetId)),
+      toClientMessages(conversations.map(c => c.lastMessage)),
+    ])
+
+    return {
+      conversations: conversations.map((c, i) => ({
+        target: c.targetId,
+        lastMessage: messages[i],
+      })),
+      hasMore,
+      users,
+      mentions,
+      channelMentions,
+      deletedChannels,
+    }
   }
 
   async getUserById(id: SbUserId): Promise<SbUser> {
@@ -530,5 +520,68 @@ export default class WhisperService {
         : this.sessionUsers.delete(target)
     }
     this.userSessions = this.userSessions.delete(userId)
+  }
+}
+
+/**
+ * Converts stored whisper messages into what's sent to clients, along with the users and channels
+ * they mention (and which mentioned channels no longer exist). Messages keep their order.
+ */
+async function toClientMessages(dbMessages: ReadonlyArray<StoredWhisperMessage>): Promise<{
+  messages: WhisperMessage[]
+  mentions: SbUser[]
+  channelMentions: BasicChannelInfo[]
+  deletedChannels: SbChannelId[]
+}> {
+  const messages: WhisperMessage[] = []
+  const userMentionIds = new Set<SbUserId>()
+  const channelMentionIds = new Set<SbChannelId>()
+
+  for (const msg of dbMessages) {
+    switch (msg.data.type) {
+      case WhisperMessageType.TextMessage:
+        messages.push({
+          id: msg.id,
+          type: msg.data.type,
+          from: msg.from,
+          to: msg.to,
+          time: Number(msg.sent),
+          text: msg.data.text,
+          ...emoteField(msg.data.emote),
+          ...outcomeField(msg.data.outcome),
+        })
+        for (const mention of msg.data.mentions ?? []) {
+          userMentionIds.add(mention)
+        }
+        for (const mention of msg.data.channelMentions ?? []) {
+          channelMentionIds.add(mention)
+        }
+        break
+
+      default:
+        return assertUnreachable(msg.data.type)
+    }
+  }
+
+  const [mentions, channelInfos] = await Promise.all([
+    findUsersById(Array.from(userMentionIds)),
+    getChannelInfos(Array.from(channelMentionIds)),
+  ])
+
+  const deletedChannels =
+    channelMentionIds.size === channelInfos.length
+      ? []
+      : Array.from(
+          subtract(
+            channelMentionIds,
+            channelInfos.map(c => c.id),
+          ),
+        )
+
+  return {
+    messages,
+    mentions,
+    channelMentions: channelInfos.map(c => toBasicChannelInfo(c)),
+    deletedChannels,
   }
 }

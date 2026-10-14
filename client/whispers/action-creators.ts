@@ -5,10 +5,13 @@ import { apiUrl } from '../../common/urls'
 import { SbUserId } from '../../common/users/sb-user-id'
 import {
   GetSessionHistoryResponse,
+  GetWhisperConversationsResponse,
   GetWhisperMessageLinkResponse,
   GetWhisperSessionsResponse,
   MarkWhisperReadRequest,
   SendWhisperMessageRequest,
+  WHISPER_CONVERSATIONS_LIMIT,
+  WhisperConversation,
 } from '../../common/whispers'
 import { ThunkAction } from '../dispatch-registry'
 import logger from '../logging/logger'
@@ -42,6 +45,28 @@ export function getWhisperSessions(spec: RequestHandlingSpec<void>): ThunkAction
       type: '@whispers/getWhisperSessions',
       payload: result,
     })
+  })
+}
+
+/**
+ * Loads a page of the user's whisper conversations, open or closed, newest activity first. Pass the
+ * last conversation of the previous page as `after` to continue from it.
+ */
+export function getWhisperConversations(
+  after: WhisperConversation | undefined,
+  spec: RequestHandlingSpec<GetWhisperConversationsResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const limit = WHISPER_CONVERSATIONS_LIMIT
+    const result = await fetchJson<GetWhisperConversationsResponse>(
+      after
+        ? apiUrl`whispers/conversations?limit=${limit}&beforeTime=${after.lastMessage.time}&beforeTarget=${after.target}`
+        : apiUrl`whispers/conversations?limit=${limit}`,
+      { signal: spec.signal },
+    )
+    dispatch({ type: '@whispers/getConversations', payload: result })
+
+    return result
   })
 }
 

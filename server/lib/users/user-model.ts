@@ -11,6 +11,7 @@ import { SbPermissions } from '../../../common/users/permissions'
 import { SbUser, SelfUser } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import db, { DbClient } from '../db'
+import { escapeSearchString } from '../db/escape-search-string'
 import { sql, sqlConcat, sqlRaw, SqlTemplate } from '../db/sql'
 import transact from '../db/transaction'
 import { Dbify } from '../db/types'
@@ -450,6 +451,25 @@ async function internalGetUserPrivateById(id: number): Promise<UserPrivate | und
 export async function findUserByName(name: string): Promise<SbUser | undefined> {
   const user = await internalFindUserByName(name)
   return user ? convertToExternal(user) : undefined
+}
+
+/**
+ * Returns up to `limit` users whose name starts with `prefix` (ignoring case), shortest names
+ * first so an exact or near-exact match leads.
+ */
+export async function findUsersByNamePrefix(prefix: string, limit: number): Promise<SbUser[]> {
+  const { client, done } = await db()
+  try {
+    const result = await client.query<DbUser>(sql`
+      SELECT * FROM users
+      WHERE name LIKE ${escapeSearchString(prefix) + '%'}
+      ORDER BY char_length(name), name
+      LIMIT ${limit}
+    `)
+    return result.rows.map(r => convertToExternal(convertUserFromDb(r)))
+  } finally {
+    done()
+  }
 }
 
 /**

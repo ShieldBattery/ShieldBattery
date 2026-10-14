@@ -27,6 +27,7 @@ import {
   GetUserByNameResponse,
   GetUserProfileResponse,
   GetUserRankingHistoryResponse,
+  SearchUsersResponse,
 } from '../../common/users/user-network'
 import { ThunkAction } from '../dispatch-registry'
 import { buildGameListSearchParams } from '../games/game-filter-url'
@@ -187,6 +188,21 @@ export function findUserByName(name: string, spec: RequestHandlingSpec<SbUser>):
     dispatch({ type: '@users/loadUsers', payload: [user] })
 
     return user
+  })
+}
+
+/**
+ * Finds users whose name starts with `query`, without regard to case, merging them into the store.
+ * Resolves to them shortest name first.
+ */
+export function searchUsers(query: string, spec: RequestHandlingSpec<SbUser[]>): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const { users } = await fetchJson<SearchUsersResponse>(apiUrl`users/search?q=${query}`, {
+      signal: spec.signal,
+    })
+    dispatch({ type: '@users/loadUsers', payload: users })
+
+    return users
   })
 }
 

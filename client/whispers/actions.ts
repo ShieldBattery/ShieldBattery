@@ -1,6 +1,7 @@
 import { SbUserId } from '../../common/users/sb-user-id'
 import {
   GetSessionHistoryResponse,
+  GetWhisperConversationsResponse,
   GetWhisperMessageLinkResponse,
   GetWhisperSessionsResponse,
   WhisperMessageEvent,
@@ -26,6 +27,7 @@ export type WhisperActions =
   | WhisperSessionClose
   | WhisperMessageUpdate
   | GetWhisperSessions
+  | GetWhisperConversations
   | UpdateLastReadTime
   | ResolveWhisperMessageLink
 
@@ -35,6 +37,15 @@ export type WhisperActions =
 export interface GetWhisperSessions {
   type: '@whispers/getWhisperSessions'
   payload: GetWhisperSessionsResponse
+}
+
+/**
+ * A page of the user's whisper conversations was loaded. Only the users and channels it mentions
+ * are kept in the store; the page itself belongs to whoever requested it.
+ */
+export interface GetWhisperConversations {
+  type: '@whispers/getConversations'
+  payload: GetWhisperConversationsResponse
 }
 
 export interface LoadMessageHistoryBegin {

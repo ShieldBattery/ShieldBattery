@@ -78,6 +78,8 @@ import {
   RecoverUsernameRequest,
   RequestPasswordResetRequest,
   ResetPasswordRequest,
+  SEARCH_USERS_LIMIT,
+  SearchUsersResponse,
   toBanHistoryEntryJson,
   toUserIpInfoJson,
   toUserRestrictionHistoryJson,
@@ -148,6 +150,7 @@ import {
   findUserById,
   findUserByName,
   findUsersById,
+  findUsersByNamePrefix,
   isUsernameAvailable,
   UserUpdatables,
 } from './user-model'
@@ -189,6 +192,12 @@ const avatarUpdateThrottle = createThrottle('avatarupdate', {
 const accountRetrievalThrottle = createThrottle('accountretrieval', {
   rate: 40,
   burst: 80,
+  window: 60000,
+})
+
+const userSearchThrottle = createThrottle('usersearch', {
+  rate: 60,
+  burst: 120,
   window: 60000,
 })
 
@@ -581,6 +590,22 @@ export class UserApi {
     return {
       userInfos: users,
     }
+  }
+
+  /**
+   * Finds users whose name starts with the given text, matching without regard to case. Meant for
+   * completing a name as it's typed, so it answers with a short list rather than paging.
+   */
+  @httpGet('/search')
+  @httpBefore(ensureLoggedIn, throttleMiddleware(userSearchThrottle, throttleByUser))
+  async searchUsers(ctx: RouterContext): Promise<SearchUsersResponse> {
+    const { query } = validateRequest(ctx, {
+      query: Joi.object<{ q: string }>({
+        q: Joi.string().trim().min(1).max(USERNAME_MAXLENGTH).required(),
+      }).required(),
+    })
+
+    return { users: await findUsersByNamePrefix(query.q, SEARCH_USERS_LIMIT) }
   }
 
   /**

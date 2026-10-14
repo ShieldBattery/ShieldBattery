@@ -2,13 +2,14 @@ import { useRoute } from 'wouter'
 import { makeSbUserId } from '../../common/users/sb-user-id'
 import { useRequireLogin } from '../auth/auth-utils'
 import { replace } from '../navigation/routing'
-import { ConnectedWhisper } from './whisper'
 import { WhisperMessageLinkRedirect } from './whisper-message-link-redirect'
+import { WhispersPage } from './whispers-page'
 
 export function WhisperRouteComponent(props: { params: any }) {
   const [matchesMessageLink, messageLinkParams] = useRoute<{ messageId: string }>(
     '/whispers/m/:messageId',
   )
+  const [matchesNew] = useRoute('/whispers')
   const [matches, params] = useRoute<{ targetId: string; username: string }>(
     '/whispers/:targetId/:username',
   )
@@ -26,6 +27,10 @@ export function WhisperRouteComponent(props: { params: any }) {
     return <WhisperMessageLinkRedirect messageId={messageLinkParams!.messageId} />
   }
 
+  if (matchesNew) {
+    return <WhispersPage />
+  }
+
   if (!matches) {
     return null
   }
@@ -35,5 +40,5 @@ export function WhisperRouteComponent(props: { params: any }) {
     return null
   }
 
-  return <ConnectedWhisper targetId={makeSbUserId(targetIdNum)} targetUsername={params!.username} />
+  return <WhispersPage targetId={makeSbUserId(targetIdNum)} targetUsername={params!.username} />
 }

@@ -1068,7 +1068,6 @@
       "search": "Search",
       "selectAll": "Select All",
       "show": "Show",
-      "start": "Start",
       "stop": "Stop",
       "submit": "Submit",
       "test": "Test",
@@ -3497,13 +3496,6 @@
     }
   },
   "whispers": {
-    "createWhisper": {
-      "error": "Error: {{errorMessage}}",
-      "title": "Send a message",
-      "username": "Username",
-      "usernamePattern": "Username contains invalid characters",
-      "usernameRequired": "Enter a username"
-    },
     "errors": {
       "cantWhisperYourself": "You can't whisper with yourself.",
       "invalidAction": "Must have an active whisper session with a user to retrieve message history",
@@ -3522,6 +3514,14 @@
     },
     "navEntry": {
       "closeWhisper": "Close whisper"
+    },
+    "newWhisper": {
+      "error": "Error starting the whisper: {{errorMessage}}",
+      "recipient": "To"
+    },
+    "page": {
+      "loadConversationsError": "Error loading conversations",
+      "newWhisper": "New whisper"
     }
   },
   "windowControls": {

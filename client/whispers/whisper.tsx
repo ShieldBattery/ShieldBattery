@@ -21,7 +21,6 @@ import { usePrevious, useStableCallback } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { DURATION_LONG } from '../snackbars/snackbar-durations'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
-import { CenteredContentContainer } from '../styles/centered-container'
 import { UserProfileOverlayContents } from '../users/user-profile-overlay'
 import {
   activateWhisperSession,
@@ -45,9 +44,13 @@ import { WhisperMessageMenu } from './whisper-menu-items'
 
 const MESSAGES_LIMIT = 50
 
-const Container = styled(CenteredContentContainer).attrs({ $targetHorizontalPadding: 16 })`
-  display: flex;
+const Container = styled.div`
+  flex-grow: 1;
+  min-width: 0;
+  height: 100%;
   padding-top: 8px;
+
+  display: flex;
   gap: 8px;
 `
 
@@ -56,6 +59,7 @@ const StyledChat = styled(Chat)`
 `
 
 const LoadingArea = styled.div`
+  flex-grow: 1;
   padding-top: 16px;
   display: flex;
   align-items: center;
@@ -115,7 +119,7 @@ export function ConnectedWhisper({
   const isClosingWhisper = targetId === prevTargetId && prevIsSessionOpen && !isSessionOpen
   useEffect(() => {
     if (isClosingWhisper) {
-      push('/')
+      push('/whispers')
     }
   }, [isClosingWhisper])
 

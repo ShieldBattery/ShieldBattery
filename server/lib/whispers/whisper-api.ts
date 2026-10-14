@@ -5,10 +5,12 @@ import { assertUnreachable } from '../../../common/assert-unreachable'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import {
   GetSessionHistoryResponse,
+  GetWhisperConversationsResponse,
   GetWhisperMessageLinkResponse,
   GetWhisperSessionsResponse,
   MarkWhisperReadRequest,
   SendWhisperMessageRequest,
+  WHISPER_CONVERSATIONS_LIMIT,
   WhisperServiceErrorCode,
 } from '../../../common/whispers'
 import { makeErrorConverterMiddleware } from '../errors/coded-error'
@@ -31,9 +33,11 @@ const getWhisperSessionsThrottle = createThrottle('whispersessions', {
   window: 60000,
 })
 
+// Opening a conversation from the whispers page starts its session, so this has to allow clicking
+// through past conversations at a normal pace.
 const startThrottle = createThrottle('whisperstart', {
-  rate: 3,
-  burst: 10,
+  rate: 20,
+  burst: 40,
   window: 60000,
 })
 
@@ -91,6 +95,28 @@ export class WhisperApi {
   @httpBefore(throttleMiddleware(getWhisperSessionsThrottle, throttleByUser))
   async getWhisperSessions(ctx: RouterContext): Promise<GetWhisperSessionsResponse> {
     return await this.whisperService.getWhisperSessions(ctx.session!.user.id)
+  }
+
+  @httpGet('/conversations')
+  @httpBefore(throttleMiddleware(retrievalThrottle, throttleByUser))
+  async getConversations(ctx: RouterContext): Promise<GetWhisperConversationsResponse> {
+    const {
+      query: { limit, beforeTime, beforeTarget },
+    } = validateRequest(ctx, {
+      query: Joi.object<{ limit: number; beforeTime?: number; beforeTarget?: SbUserId }>({
+        limit: Joi.number().integer().min(1).max(WHISPER_CONVERSATIONS_LIMIT).required(),
+        beforeTime: joiTimestampMillis().integer().min(0),
+        beforeTarget: joiUserId(),
+      }).and('beforeTime', 'beforeTarget'),
+    })
+
+    return await this.whisperService.getConversations(
+      ctx.session!.user.id,
+      limit,
+      beforeTime !== undefined && beforeTarget !== undefined
+        ? { lastMessageTime: beforeTime, targetId: beforeTarget }
+        : undefined,
+    )
   }
 
   @httpPost('/by-name/:targetName')
