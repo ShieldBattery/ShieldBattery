@@ -956,14 +956,15 @@ fn unit_totals(game: Game) -> [UnitTotals; MAX_PLAYERS] {
 /// Buildings are what an army is made in rather than part of it, workers have a panel of their own,
 /// subunits are the turret half of a unit already counted, and the things eggs and scarabs are do
 /// not survive being counted: an egg is a unit on the way, which the production panel is already
-/// showing.
+/// showing. Overlords are a zerg's supply, as depots and pylons are the other races', whatever else
+/// they can be put to.
 fn counts_as_army(id: UnitId) -> bool {
     if id.is_building() || id.is_worker() || id.is_subunit() || id.is_powerup() {
         return false;
     }
     !matches!(
         id,
-        unit::LARVA | unit::EGG | unit::LURKER_EGG | unit::COCOON | unit::SCARAB
+        unit::LARVA | unit::EGG | unit::LURKER_EGG | unit::COCOON | unit::SCARAB | unit::OVERLORD
     )
 }
 
