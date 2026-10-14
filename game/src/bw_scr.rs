@@ -4387,7 +4387,6 @@ impl BwScr {
                                     graphic_layers,
                                     is_hd,
                                     is_carbot,
-                                    map_bottom_in_view: self.map_bottom_in_view(),
                                     cmdicons,
                                     has_init_bw,
                                     countdown_start,
@@ -6630,20 +6629,6 @@ impl BwScr {
                 // bound pulled in.
                 (self.move_screen)(self.screen_x.resolve(), self.screen_y.resolve());
             }
-        }
-    }
-
-    /// Where the map's bottom edge is in the view, as a share of the view's height from its top:
-    /// past 1 while the edge is below the view, which is all of the time but for a watcher who has
-    /// scrolled past it.
-    unsafe fn map_bottom_in_view(&self) -> f32 {
-        unsafe {
-            let view_height = self.game_screen_height_bwpx.resolve() as f32;
-            if view_height <= 0.0 {
-                return f32::INFINITY;
-            }
-            let below = self.map_height_pixels.resolve() as f32 - self.screen_y.resolve() as f32;
-            below / view_height
         }
     }
 

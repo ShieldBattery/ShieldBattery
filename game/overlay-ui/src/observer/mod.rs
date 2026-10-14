@@ -15,7 +15,6 @@ pub(crate) mod economy;
 pub(crate) mod graphs;
 pub(crate) mod layout;
 pub(crate) mod map_control;
-mod map_edge;
 pub(crate) mod matchup;
 pub(crate) mod military;
 pub(crate) mod minimap;
@@ -36,7 +35,6 @@ pub use graphs::{
 };
 pub use layout::{Span, StackAnchor, StackSlot};
 pub use map_control::{MapControlSideView, MapControlView, render_map_control_view};
-pub use map_edge::paint_past_map_edge;
 pub use matchup::{
     MatchupForm, MatchupOutcome, MatchupPlayerView, MatchupView, render_matchup_view,
 };
