@@ -417,12 +417,30 @@ pub(crate) const PANEL_HEIGHT: f32 = BODY_HEIGHT + tiers::PANEL_MARGIN_HEIGHT;
 
 /// Draws the selection panel in `slot`, fading and sliding it in and out. Returns nothing at all
 /// once it is gone, and nothing while nothing is selected or the slot has no room for it.
+/// What the selection panel did this frame.
+pub struct SelectionOutcome {
+    /// Where the panel was drawn.
+    pub rect: Rect,
+    /// A unit of the selection the watcher clicked.
+    pub clicked: Option<SelectedUnitClick>,
+}
+
+/// A click on one of the selected units, by its place in [`SelectionView::units`].
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum SelectedUnitClick {
+    /// A click: select that unit alone, or for a unit already selected alone, look at it.
+    Pick(usize),
+    /// A right click: have the game's view follow that unit, as a right click on it in the game
+    /// does in a replay.
+    Follow(usize),
+}
+
 pub fn render_selection_view(
     view: &SelectionView,
     ctx: &Context,
     shown: bool,
     slot: StackSlot,
-) -> Option<Rect> {
+) -> Option<SelectionOutcome> {
     let id = Id::new("sb_selection_panel");
     let placed = slot.place(PANEL_WIDTH);
     // Pinned by its own bottom-left corner rather than by its middle: an area anchored by its
@@ -439,11 +457,14 @@ pub fn render_selection_view(
             // layout, and egui's own item spacing would add to every gap in it.
             ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
             ui.set_width(CONTENT_WIDTH);
-            draw_body(ui, view);
+            draw_body(ui, view)
         })
         .inner
     })?;
-    Some(inner.response.rect)
+    Some(SelectionOutcome {
+        rect: inner.response.rect,
+        clicked: inner.inner,
+    })
 }
 
 /// Whether the panel has room in `slot`.
@@ -451,22 +472,38 @@ pub(crate) fn fits(slot: StackSlot) -> bool {
     slot.room() >= PANEL_HEIGHT
 }
 
-fn draw_body(ui: &mut Ui, view: &SelectionView) {
+fn draw_body(ui: &mut Ui, view: &SelectionView) -> Option<SelectedUnitClick> {
     let (body, _) = ui.allocate_exact_size(vec2(CONTENT_WIDTH, BODY_HEIGHT), Sense::hover());
     let case = view.case();
     match case {
-        SelectionCase::Empty => {}
+        SelectionCase::Empty => None,
         SelectionCase::Many => draw_grid(ui, body, &view.units),
-        SelectionCase::Unit => {
-            if let Some(subject) = view.units.first() {
-                draw_unit(ui, body, subject);
-            }
-        }
-        SelectionCase::Building | SelectionCase::Producing | SelectionCase::Loaded => {
-            if let Some(subject) = view.units.first() {
-                draw_subject(ui, body, subject, case);
-            }
-        }
+        SelectionCase::Unit => view
+            .units
+            .first()
+            .and_then(|subject| draw_unit(ui, body, subject)),
+        SelectionCase::Building | SelectionCase::Producing | SelectionCase::Loaded => view
+            .units
+            .first()
+            .and_then(|subject| draw_subject(ui, body, subject, case)),
+    }
+}
+
+/// Makes `tile` the target for the unit at `index` of the selection, washing it while the pointer
+/// is over it or pressing it.
+fn unit_target(ui: &Ui, tile: Rect, index: usize) -> Option<SelectedUnitClick> {
+    let response = ui.interact(
+        tile,
+        ui.id().with(("sb_selected_unit", index)),
+        Sense::click(),
+    );
+    widgets::state_overlay(ui, &response, tile, theme::radius(theme::RADIUS_CHIP));
+    if response.secondary_clicked() {
+        Some(SelectedUnitClick::Follow(index))
+    } else if response.clicked() {
+        Some(SelectedUnitClick::Pick(index))
+    } else {
+        None
     }
 }
 
@@ -474,7 +511,8 @@ fn draw_body(ui: &mut Ui, view: &SelectionView) {
 ///
 /// Centred in the body: with no column of text beside it the grid is the whole of what the panel has
 /// to say.
-fn draw_grid(ui: &Ui, body: Rect, units: &[SelectedUnitView]) {
+fn draw_grid(ui: &Ui, body: Rect, units: &[SelectedUnitView]) -> Option<SelectedUnitClick> {
+    let mut clicked = None;
     let size = vec2(
         GRID_SLOT * GRID_COLUMNS as f32 + GRID_GAP * (GRID_COLUMNS as f32 - 1.0),
         tile_row(GRID_SLOT) * GRID_ROWS as f32 + GRID_ROW_GAP,
@@ -491,7 +529,9 @@ fn draw_grid(ui: &Ui, body: Rect, units: &[SelectedUnitView]) {
             vec2(GRID_SLOT, GRID_SLOT),
         );
         paint_small_tile(ui, tile, unit, SLOT_CODE_SIZE);
+        clicked = clicked.or(unit_target(ui, tile, index));
     }
+    clicked
 }
 
 /// Draws a building, or anything making or carrying something: the subject with what it has left
@@ -500,7 +540,12 @@ fn draw_grid(ui: &Ui, body: Rect, units: &[SelectedUnitView]) {
 ///
 /// What a building is worth to a watcher is how much of it is left and what it is making, so it is
 /// given no tally of kills: that is a unit's own reading.
-fn draw_subject(ui: &Ui, body: Rect, unit: &SelectedUnitView, case: SelectionCase) {
+fn draw_subject(
+    ui: &Ui,
+    body: Rect,
+    unit: &SelectedUnitView,
+    case: SelectionCase,
+) -> Option<SelectedUnitClick> {
     let column = Rect::from_min_size(body.left_top(), vec2(SUBJECT_COLUMN, BODY_HEIGHT));
     let tile = Rect::from_min_size(
         pos2(column.center().x - SUBJECT_TILE * 0.5, column.top()),
@@ -509,6 +554,7 @@ fn draw_subject(ui: &Ui, body: Rect, unit: &SelectedUnitView, case: SelectionCas
     let tint = health_tint(unit.health_fraction());
     paint_tile(ui, tile, Some(tint), 1.0);
     paint_icon(ui, tile, unit.icon, SUBJECT_CODE_SIZE);
+    let clicked = unit_target(ui, tile, 0);
     draw_readouts(ui, column, tile.bottom() + READOUT_LEAD, unit, tint);
 
     let text = Rect::from_min_size(
@@ -521,6 +567,7 @@ fn draw_subject(ui: &Ui, body: Rect, unit: &SelectedUnitView, case: SelectionCas
         (SelectionCase::Loaded, _) => draw_cargo(ui, below, &unit.cargo),
         _ => {}
     }
+    clicked
 }
 
 /// Draws a unit selected alone: the unit drawn large, and beside it its name and whose it is, a bar
@@ -530,13 +577,14 @@ fn draw_subject(ui: &Ui, body: Rect, unit: &SelectedUnitView, case: SelectionCas
 /// The bars are packed from the top, as many as the unit has pools, while the row of upgrades
 /// keeps to the bottom of the body, so the chips stay where the eye left them as the watcher clicks
 /// from a marine to a medic.
-fn draw_unit(ui: &Ui, body: Rect, unit: &SelectedUnitView) {
+fn draw_unit(ui: &Ui, body: Rect, unit: &SelectedUnitView) -> Option<SelectedUnitClick> {
     let tile = Rect::from_center_size(
         pos2(body.left() + UNIT_TILE * 0.5, body.center().y),
         vec2(UNIT_TILE, UNIT_TILE),
     );
     paint_tile(ui, tile, Some(health_tint(unit.health_fraction())), 1.0);
     paint_icon(ui, tile, unit.icon, UNIT_CODE_SIZE);
+    let clicked = unit_target(ui, tile, 0);
 
     let text = Rect::from_min_size(
         pos2(body.left() + UNIT_TEXT_LEFT, body.top()),
@@ -579,6 +627,7 @@ fn draw_unit(ui: &Ui, body: Rect, unit: &SelectedUnitView) {
     let row = Rect::from_min_max(pos2(text.left(), text.bottom() - UPGRADE_CHIP), text.max);
     draw_upgrades(ui, row, &unit.upgrades);
     draw_kills(ui, row, unit.kills);
+    clicked
 }
 
 /// Draws the head of the text column: the subject's name, then whose it is. Returns the room left

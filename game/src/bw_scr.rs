@@ -476,6 +476,8 @@ pub struct BwScr {
     original_game_screen_height_ratio: AtomicU32,
     /// If console was hidden in replay / obs ui
     console_hidden_state: AtomicBool,
+    /// The unit the game's view follows for a watcher who asked it to.
+    followed_unit: Mutex<Option<FollowedUnit>>,
     /// If the minimap was hidden in replay / obs ui. Separate from the console's state: the minimap
     /// is its own surface and observers keep it while hiding the rest of the console.
     minimap_hidden_state: AtomicBool,
@@ -2810,6 +2812,7 @@ impl BwScr {
             game_stats: RecurseCheckedMutex::new(GameStats::new()),
             original_game_screen_height_ratio: AtomicU32::new(0),
             console_hidden_state: AtomicBool::new(false),
+            followed_unit: Mutex::new(None),
             minimap_hidden_state: AtomicBool::new(false),
             command_panel_hidden_state: AtomicBool::new(false),
             game_started: AtomicBool::new(false),
@@ -4258,13 +4261,7 @@ impl BwScr {
                     let active_units = self.active_units();
                     // The whole unit array, which is what a unique id (as the loaded-unit slots of
                     // a transport hold) has to be looked up in. Null until the game allocates it.
-                    let units = match self.units.resolve() {
-                        vector if vector.is_null() => None,
-                        vector => Some(bw_dat::UnitArray::new(
-                            (*vector).data as *mut bw::Unit,
-                            (*vector).length,
-                        )),
-                    };
+                    let units = self.unit_array();
                     let client_selection = self.client_selection();
                     let first_player_unit = self.first_player_unit.resolve();
                     let first_dialog = self.resolve_first_dialog();
@@ -4417,6 +4414,9 @@ impl BwScr {
                                     self.center_screen(&group.units[0].position());
                                 }
                             }
+                            // After everything else that moves the view this frame, which ends
+                            // a follow rather than being undone by it.
+                            self.follow_unit(overlay_out.follow_unit);
                             // Only once the game runs: before then there is no game view to
                             // resize, and the map load ahead resets its height anyway.
                             let console_shown = !self.console_hidden();
@@ -6489,6 +6489,57 @@ impl BwScr {
             true
         } else {
             false
+        }
+    }
+
+    /// The whole unit array, which is what a unique id has to be looked up in. `None` until the
+    /// game allocates it.
+    unsafe fn unit_array(&self) -> Option<bw_dat::UnitArray> {
+        unsafe {
+            match self.units.resolve() {
+                vector if vector.is_null() => None,
+                vector => Some(bw_dat::UnitArray::new(
+                    (*vector).data as *mut bw::Unit,
+                    (*vector).length,
+                )),
+            }
+        }
+    }
+
+    /// Keeps the game's view on the unit a watcher asked it to follow, starting on `start` when
+    /// they have just asked.
+    ///
+    /// Following ends once the unit is gone or out of sight inside something, and once the view is
+    /// anywhere but where following it left the view the frame before: the watcher (or something
+    /// they asked for) has moved it, and following on would pull it straight back.
+    unsafe fn follow_unit(&self, start: Option<Unit>) {
+        unsafe {
+            let mut followed = self.followed_unit.lock();
+            let Some(units) = self.unit_array() else {
+                *followed = None;
+                return;
+            };
+            if let Some(unit) = start {
+                *followed = Some(FollowedUnit {
+                    unique_id: units.to_unique_id(unit),
+                    left_screen_at: None,
+                });
+            }
+            let Some(follow) = followed.as_mut() else {
+                return;
+            };
+            let screen = (self.screen_x.resolve(), self.screen_y.resolve());
+            let unit = units
+                .get_by_unique_id(follow.unique_id)
+                .filter(|unit| !unit.is_hidden());
+            match unit {
+                Some(unit) if follow.left_screen_at.is_none_or(|left| left == screen) => {
+                    self.center_screen(&unit.position());
+                    follow.left_screen_at =
+                        Some((self.screen_x.resolve(), self.screen_y.resolve()));
+                }
+                _ => *followed = None,
+            }
         }
     }
 
@@ -9634,6 +9685,12 @@ impl bw::Bw for BwScr {
     fn starting_fog(&self) -> StartingFog {
         self.starting_fog.load(Ordering::Acquire)
     }
+}
+
+/// A unit the game's view follows: its unique id, and where following it last left the view.
+struct FollowedUnit {
+    unique_id: u32,
+    left_screen_at: Option<(u32, u32)>,
 }
 
 /// SC:R's software cursor draw, and the stack of render modes that sets the layer and render target

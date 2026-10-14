@@ -167,6 +167,7 @@ struct OutState {
     leave_game: bool,
     look_at: Option<bw::Point>,
     select_group: Option<GroupSelection>,
+    follow_unit: Option<Unit>,
 }
 
 /// One of a player's number-key groups, selected for the watcher.
@@ -214,6 +215,8 @@ pub struct StepOutput {
     pub look_at: Option<bw::Point>,
     /// A number-key group to select.
     pub select_group: Option<GroupSelection>,
+    /// A unit for the game's view to follow from now on.
+    pub follow_unit: Option<Unit>,
 }
 
 /// Where a window position is on the overlay's screen of `screen` points while SC:R's mouse scaling
@@ -397,6 +400,7 @@ impl OverlayState {
                 leave_game: false,
                 look_at: None,
                 select_group: None,
+                follow_unit: None,
             },
             captured_mouse_down: [false; 2],
             bw_mouse_down: [false; 2],
@@ -547,6 +551,7 @@ impl OverlayState {
             leave_game: false,
             look_at: None,
             select_group: None,
+            follow_unit: None,
         };
         let chat_textbox_open = bw::iter_dialogs(bw.first_dialog)
             .find(|x| x.as_control().string() == "TextBox")
@@ -795,6 +800,7 @@ impl OverlayState {
             leave_game: self.out_state.leave_game,
             look_at: self.out_state.look_at,
             select_group: self.out_state.select_group.take(),
+            follow_unit: self.out_state.follow_unit,
         }
     }
 
@@ -1144,6 +1150,24 @@ impl OverlayState {
             Intent::ToggleVision { player_id } => self.toggle_player_vision(bw, player_id),
             Intent::SelectProduction { player_id, item } => {
                 self.select_production(player_id, item as usize)
+            }
+            Intent::PickSelectedUnit(index) => {
+                let selected = bw.client_selection.iter().flatten();
+                let alone = selected.clone().count() == 1;
+                if let Some(&unit) = selected.clone().nth(index) {
+                    if alone {
+                        self.out_state.look_at = Some(unit.position());
+                    } else {
+                        self.out_state.select_group = Some(GroupSelection {
+                            units: vec![unit],
+                            center: false,
+                        });
+                    }
+                }
+            }
+            Intent::FollowSelectedUnit(index) => {
+                self.out_state.follow_unit =
+                    bw.client_selection.iter().flatten().nth(index).copied();
             }
             Intent::SelectControlGroup { player_id, key } => {
                 let now = Instant::now();

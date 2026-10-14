@@ -30,7 +30,7 @@ pub use crate::game_menu::SocialDialog;
 use crate::game_menu::{render_game_menu, render_leave_confirm};
 use crate::net_quality::{NetQualityView, render_net_quality};
 use crate::netstat::{NetStatsView, render_netstat_view};
-use crate::observer::{self, GraphSeries, ObserverView};
+use crate::observer::{self, GraphSeries, ObserverView, SelectedUnitClick};
 use crate::options::{
     OptionsLists, OptionsOutcome, OptionsSection, OptionsView, SettingChange, render_options_view,
 };
@@ -491,6 +491,10 @@ pub enum Intent {
     SelectProduction { player_id: u8, item: u32 },
     /// Select the units on one of a player's number keys, as the player would by pressing it.
     SelectControlGroup { player_id: u8, key: u8 },
+    /// Select the unit at this place in the selection alone, or look at it where it already is.
+    PickSelectedUnit(usize),
+    /// Have the game's view follow the unit at this place in the selection.
+    FollowSelectedUnit(usize),
     /// Move replay playback to this frame.
     Seek(u32),
     /// Center the game's view on this place once the seek asked for just before this lands. Sent
@@ -1349,10 +1353,20 @@ impl Shell {
             self.prefs.selection,
             selection_slot,
         );
-        if let Some(rect) = selection {
-            hit_rects.push(HitRect::new(rect));
-            stack.push(rect);
+        if let Some(outcome) = &selection {
+            hit_rects.push(HitRect::new(outcome.rect));
+            stack.push(outcome.rect);
+            match outcome.clicked {
+                Some(SelectedUnitClick::Pick(index)) => {
+                    self.intents.push(Intent::PickSelectedUnit(index));
+                }
+                Some(SelectedUnitClick::Follow(index)) => {
+                    self.intents.push(Intent::FollowSelectedUnit(index));
+                }
+                None => {}
+            }
         }
+        let selection = selection.map(|outcome| outcome.rect);
         let over_selection = base
             + observer::eased_stack_share(
                 ctx,

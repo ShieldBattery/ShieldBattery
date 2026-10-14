@@ -346,17 +346,16 @@ pub(super) fn selected_production(unit: Unit, bw: &BwVars) -> Option<ProductionP
     })
 }
 
-/// The upgrades a unit fights with, as the game's console lists them beside a unit selected alone:
-/// its armor, its shields for a unit that has any, then whatever improves its weapons, each at the
-/// level its owner has taken it to.
+/// What a unit fights with, as the game's console lists it beside a unit selected alone: its armor
+/// upgrade, its shields for a unit that has any, then each of its weapons, each at the level its
+/// owner has taken the upgrade improving it to.
 ///
 /// A unit whose guns are on a turret (a goliath, a siege tank) has its weapons on the turret's
-/// units.dat entry rather than its own, so the turret's are read too, and an upgrade improving two
-/// weapons is one upgrade with both under it.
+/// units.dat entry rather than its own, so the turret's are read too.
 ///
-/// An upgrade the owner can never take a level of is left out. Every building's armor and a few
-/// weapons (a spider mine's, a sunken colony's) name an upgrade slot no race researches, and a chip
-/// that can only ever read 0 says nothing.
+/// An armor upgrade the owner can never take a level of is left out: every building's armor names
+/// an upgrade slot no race researches, and a chip that can only ever read 0 says nothing. A weapon
+/// stays whatever improves it.
 pub(super) fn selected_upgrades(unit: Unit, bw: &BwVars) -> Vec<UnitUpgradeView> {
     // The upgrade tables are indexed by player slot and assert on anything past the twelfth.
     const PLAYER_SLOTS: u8 = 0xc;
@@ -391,28 +390,7 @@ pub(super) fn selected_upgrades(unit: Unit, bw: &BwVars) -> Vec<UnitUpgradeView>
             weapons.push(weapon);
         }
     }
-    for weapon in weapons {
-        let Some(upgrade) = weapon.upgrade() else {
-            continue;
-        };
-        let damage = WeaponDamageView {
-            // The overlay is built in the game's draw, on its main thread.
-            name: bw
-                .stat_txt
-                .and_then(|stat_txt| unsafe { stat_txt.weapon_name(weapon) }),
-            base: weapon.damage(),
-            bonus: weapon
-                .bonus()
-                .saturating_mul(u32::from(game.upgrade_level(player, upgrade))),
-            hits: weapon.factor(),
-        };
-        match upgrades.iter_mut().find(|(known, _)| *known == upgrade) {
-            Some((_, UpgradeEffect::Damage(weapons))) => weapons.push(damage),
-            Some(_) => {}
-            None => upgrades.push((upgrade, UpgradeEffect::Damage(vec![damage]))),
-        }
-    }
-    upgrades
+    let mut chips: Vec<UnitUpgradeView> = upgrades
         .into_iter()
         .filter_map(|(upgrade, effect)| {
             let level = game.upgrade_level(player, upgrade);
@@ -424,8 +402,35 @@ pub(super) fn selected_upgrades(unit: Unit, bw: &BwVars) -> Vec<UnitUpgradeView>
                 effect,
             })
         })
-        .collect()
+        .collect();
+    // A weapon is shown by its own icon whether or not anything upgrades it, as the game's own
+    // status panel does: a worker's attack takes no upgrades but is still what the unit fights
+    // with, and reads level 0.
+    for weapon in weapons {
+        let level = weapon
+            .upgrade()
+            .map_or(0, |upgrade| game.upgrade_level(player, upgrade));
+        // The overlay is built in the game's draw, on its main thread.
+        let name = bw
+            .stat_txt
+            .and_then(|stat_txt| unsafe { stat_txt.weapon_name(weapon) });
+        chips.push(UnitUpgradeView {
+            icon: atlas_icon(weapon.get(WEAPON_ICON_FIELD) as u16, 0.0, bw),
+            level,
+            name: name.clone(),
+            effect: UpgradeEffect::Damage(vec![WeaponDamageView {
+                name,
+                base: weapon.damage(),
+                bonus: weapon.bonus().saturating_mul(u32::from(level)),
+                hits: weapon.factor(),
+            }]),
+        });
+    }
+    chips
 }
+
+/// The weapons.dat field holding the frame of the command-icon atlas a weapon is shown by.
+const WEAPON_ICON_FIELD: u32 = 23;
 
 /// The units waiting behind the one this unit is making, in the order they will be made, or
 /// `None` for production that has no queue.
@@ -560,9 +565,10 @@ const BLANK_UNIT_ICONS: [u16; 47] = [
 fn production_icon(production: Production, bw: &BwVars) -> ProductionIcon {
     let is_hd = bw.is_hd;
     let frame = match production {
-        // An egg about to hatch a lurker is shown as the lurker, as nothing else in the atlas says
-        // what it is.
-        Production::Unit(bw_dat::unit::LURKER_EGG) => bw_dat::unit::LURKER.0,
+        // The atlas has no egg: a larva's egg's frame is a radiation symbol and a lurker egg's
+        // reads BLANK. The cocoon is the one pod it draws, and what an egg hatches into is named
+        // beside it wherever it is shown.
+        Production::Unit(bw_dat::unit::EGG | bw_dat::unit::LURKER_EGG) => bw_dat::unit::COCOON.0,
         Production::Unit(id) if BLANK_UNIT_ICONS.contains(&id.0) => {
             return ProductionIcon {
                 texture: None,
@@ -584,17 +590,23 @@ fn production_icon(production: Production, bw: &BwVars) -> ProductionIcon {
         Production::Upgrade(id) => id.icon() as u16,
         Production::Tech(id) => id.icon() as u16,
     };
-    // SAFETY: `cmdicons` is the game's own atlas, which outlives the frames drawn from it.
-    let size = unsafe {
-        (!bw.cmdicons.is_null())
-            .then(|| draw_inject::ddsgrp_texture(bw.cmdicons, is_hd, bw.is_carbot, frame))
-            .flatten()
-            .filter(|texture| (**texture).width != 0 && (**texture).height != 0)
-            .map(|texture| Vec2::new((*texture).width as f32, (*texture).height as f32))
-    };
     let margin = match production {
         Production::Unit(_) if is_hd && !bw.is_carbot => HD_UNIT_ICON_MARGIN,
         _ => 0.0,
+    };
+    atlas_icon(frame, margin, bw)
+}
+
+/// One frame of the game's own command-icon atlas, under the texture id the renderer has it as,
+/// with the frame's pixel size and the share of each side of it that is empty padding.
+fn atlas_icon(frame: u16, margin: f32, bw: &BwVars) -> ProductionIcon {
+    // SAFETY: `cmdicons` is the game's own atlas, which outlives the frames drawn from it.
+    let size = unsafe {
+        (!bw.cmdicons.is_null())
+            .then(|| draw_inject::ddsgrp_texture(bw.cmdicons, bw.is_hd, bw.is_carbot, frame))
+            .flatten()
+            .filter(|texture| (**texture).width != 0 && (**texture).height != 0)
+            .map(|texture| Vec2::new((*texture).width as f32, (*texture).height as f32))
     };
     ProductionIcon {
         texture: Some(TextureId::User(Texture::CmdIcon(frame).to_egui_id())),

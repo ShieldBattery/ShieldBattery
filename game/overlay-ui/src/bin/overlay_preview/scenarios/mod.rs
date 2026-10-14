@@ -347,7 +347,10 @@ pub fn render(
             // The fake replay answers these, the way the game answers them by moving its own clock.
             Intent::Seek(frame) => state.transport.seek_to(frame),
             // The emulated game has no map to look at, and no units to select.
-            Intent::LookAt(_) | Intent::SelectControlGroup { .. } => {}
+            Intent::LookAt(_)
+            | Intent::SelectControlGroup { .. }
+            | Intent::PickSelectedUnit(_)
+            | Intent::FollowSelectedUnit(_) => {}
             Intent::SetSpeed {
                 speed_index,
                 multiplier,
