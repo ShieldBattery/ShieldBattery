@@ -233,7 +233,7 @@
     "hardwareCursor": "Cursores de hardware",
     "hardwareCursorTooltip": "Recomendado para un mejor rendimiento y mayor capacidad de respuesta",
     "hdGraphics": "Gráficos de alta definición",
-    "hdGraphicsHint": "Se aplica en la próxima partida",
+    "hdGraphicsUnavailableHint": "No disponible con los recursos HD desactivados",
     "keyboardScrollSpeed": "Velocidad del teclado",
     "legacyCursorSizing": "Usar el tamaño de cursor clásico",
     "legacyCursorSizingHint": "Se aplica en la próxima partida",

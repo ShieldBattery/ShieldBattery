@@ -187,6 +187,11 @@ pub fn options_view_from_settings(
     view.vsync_on = settings
         .flag(Source::Scr, "vsyncOn")
         .unwrap_or(view.vsync_on);
+    // A launch with the HD art left out is a developer's setting, so its absence is no unread key.
+    view.hd_graphics_available = !local
+        .get("disableHd")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
     view.hd_graphics_on = settings
         .flag(Source::Scr, "hdGraphicsOn")
         .unwrap_or(view.hd_graphics_on);
@@ -832,6 +837,7 @@ mod tests {
             fps_limit: 240,
             vsync_on: true,
             hd_graphics_on: false,
+            hd_graphics_available: true,
             sd_graphics_filter: 2,
             environment_effects_on: false,
             real_time_lighting_on: true,

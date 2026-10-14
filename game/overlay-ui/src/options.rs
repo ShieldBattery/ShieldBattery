@@ -649,6 +649,9 @@ pub struct OptionsView {
     pub fps_limit: u32,
     pub vsync_on: bool,
     pub hd_graphics_on: bool,
+    /// Whether the game has HD graphics to switch to. Not when it was launched with its HD art left
+    /// out, which a game cannot then be switched to.
+    pub hd_graphics_available: bool,
     pub sd_graphics_filter: u32,
     pub environment_effects_on: bool,
     pub real_time_lighting_on: bool,
@@ -721,6 +724,7 @@ impl Default for OptionsView {
             fps_limit: FPS_LIMIT.min,
             vsync_on: false,
             hd_graphics_on: true,
+            hd_graphics_available: true,
             sd_graphics_filter: 0,
             environment_effects_on: true,
             real_time_lighting_on: false,
@@ -1644,12 +1648,19 @@ fn draw_video(ui: &mut Ui, view: &OptionsView, lists: &OptionsLists, outcome: &m
         ui,
         &tr!("options.hdGraphics", "HD graphics"),
         view.hd_graphics_on,
-        false,
+        !view.hd_graphics_available,
         outcome,
         SettingChange::HdGraphicsOn,
     );
-    // SC:R switches its art set through an asset check of its own that only a launch runs.
-    hint(ui, &tr!("options.hdGraphicsHint", "Takes effect next game"));
+    if !view.hd_graphics_available {
+        hint(
+            ui,
+            &tr!(
+                "options.hdGraphicsUnavailableHint",
+                "Unavailable while HD assets are disabled"
+            ),
+        );
+    }
     switch_row(
         ui,
         &tr!("options.environmentEffects", "Environment effects"),

@@ -228,7 +228,7 @@
     "hardwareCursor": "Hardware cursor",
     "hardwareCursorTooltip": "Recommended for best performance and input responsiveness",
     "hdGraphics": "HD graphics",
-    "hdGraphicsHint": "Takes effect next game",
+    "hdGraphicsUnavailableHint": "Unavailable while HD assets are disabled",
     "keyboardScrollSpeed": "Keyboard scroll speed",
     "legacyCursorSizing": "Use legacy cursor sizing",
     "legacyCursorSizingHint": "Takes effect next game",

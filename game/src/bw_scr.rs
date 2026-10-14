@@ -528,6 +528,9 @@ pub struct BwScr {
     /// does), which is only safe while no draw command refers to them: between frames, where SC:R's
     /// own options and hotkeys make their changes. The options screen runs mid-frame, so its
     /// changes wait here.
+    /// How many of the F5 key messages the options screen posted to switch graphics are still on
+    /// their way to the window: those are SC:R's, past whatever the overlay holds the keyboard for.
+    posted_graphics_keys: AtomicU8,
     pending_game_setting_writes:
         Mutex<Vec<(&'static str, &'static str, game_settings::SettingValue)>>,
     /// Where the game's names for units, upgrades and techs are read from. `None` when the analysis
@@ -2813,6 +2816,7 @@ impl BwScr {
                     write_bool.0 as usize,
                 )
             }),
+            posted_graphics_keys: AtomicU8::new(0),
             pending_game_setting_writes: Mutex::new(Vec::new()),
             stat_txt,
             event_processing_lock: DumbSpinLock::new(),
@@ -7102,6 +7106,9 @@ impl BwScr {
             if let Some(write) = draw_overlay::options::registry_setting(change) {
                 self.pending_game_setting_writes.lock().push(write);
             }
+            if let SettingChange::HdGraphicsOn(on) = change {
+                self.switch_graphics(on);
+            }
             self.apply_local_setting_change(change);
             match draw_overlay::options::app_setting(change) {
                 Some(setting) => {
@@ -7123,6 +7130,30 @@ impl BwScr {
             }
         }
         send_game_msg_to_async(GameThreadMessage::SettingsChanged(saved));
+    }
+
+    /// Switches between SD and HD graphics the way the game's own F5 key does, by pressing it: the
+    /// key switches whichever way the game is not drawing, so it is pressed only while that differs
+    /// from what the player asked for. The game refuses it while a switch is still fading in.
+    fn switch_graphics(&self, hd: bool) {
+        use winapi::um::winuser::{PostMessageW, VK_F5, WM_KEYDOWN, WM_KEYUP};
+        if self.disable_hd.load(Ordering::Acquire)
+            || self.is_hd_mode[0].load(Ordering::Relaxed) == hd
+        {
+            return;
+        }
+        let Some(window) = crate::forge::game_window_handle() else {
+            return;
+        };
+        // A repeat count of one for the press; a release also marks the key as having been down and
+        // as going up.
+        const PRESS: isize = 1;
+        const RELEASE: isize = 1 | (1 << 30) | (1 << 31);
+        self.posted_graphics_keys.store(2, Ordering::Release);
+        unsafe {
+            PostMessageW(window, WM_KEYDOWN, VK_F5 as usize, PRESS);
+            PostMessageW(window, WM_KEYUP, VK_F5 as usize, RELEASE);
+        }
     }
 
     /// Writes the options screen's queued changes into SC:R's settings registry. Must run on the
@@ -9522,6 +9553,20 @@ impl bw::Bw for BwScr {
                 && !game_thread::is_replay()
             {
                 return Some(0);
+            }
+            // The options screen's own F5 presses go straight to the game, whatever the overlay is
+            // holding the keyboard for: the screen is open while they arrive.
+            use winapi::um::winuser::{VK_F5, WM_KEYDOWN, WM_KEYUP};
+            if (msg == WM_KEYDOWN || msg == WM_KEYUP)
+                && wparam == VK_F5 as usize
+                && self
+                    .posted_graphics_keys
+                    .try_update(Ordering::AcqRel, Ordering::Acquire, |left| {
+                        left.checked_sub(1)
+                    })
+                    .is_ok()
+            {
+                return None;
             }
             let mut render_state = match self.render_state.lock() {
                 Some(s) => s,

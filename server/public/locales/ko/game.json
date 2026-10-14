@@ -223,7 +223,7 @@
     "hardwareCursor": "하드웨어 커서",
     "hardwareCursorTooltip": "최적의 성능과 입력 반응 속도를 위해 권장됩니다",
     "hdGraphics": "HD 그래픽",
-    "hdGraphicsHint": "다음 게임부터 적용됩니다",
+    "hdGraphicsUnavailableHint": "HD 에셋이 비활성화되어 사용할 수 없습니다",
     "keyboardScrollSpeed": "키보드 스크롤 속도",
     "legacyCursorSizing": "이전 커서 크기 방식을 사용",
     "legacyCursorSizingHint": "다음 게임부터 적용됩니다",

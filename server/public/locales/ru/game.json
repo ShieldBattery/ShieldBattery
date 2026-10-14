@@ -238,7 +238,7 @@
     "hardwareCursor": "Аппаратный курсор",
     "hardwareCursorTooltip": "Рекомендуется для лучшей производительности и отзывчивости управления",
     "hdGraphics": "HD-графика",
-    "hdGraphicsHint": "Применится в следующей игре",
+    "hdGraphicsUnavailableHint": "Недоступно, пока HD-ресурсы отключены",
     "keyboardScrollSpeed": "Скорость прокрутки клавиатуры",
     "legacyCursorSizing": "Классический масштаб курсора",
     "legacyCursorSizingHint": "Применится в следующей игре",

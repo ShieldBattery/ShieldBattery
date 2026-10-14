@@ -223,7 +223,7 @@
     "hardwareCursor": "硬件光标",
     "hardwareCursorTooltip": "推荐此设置以获得最佳性能和响应速度",
     "hdGraphics": "高清版图像",
-    "hdGraphicsHint": "下一局游戏生效",
+    "hdGraphicsUnavailableHint": "高清资源已禁用，无法使用",
     "keyboardScrollSpeed": "按键滚屏速度",
     "legacyCursorSizing": "使用传统光标大小调整",
     "legacyCursorSizingHint": "下一局游戏生效",
