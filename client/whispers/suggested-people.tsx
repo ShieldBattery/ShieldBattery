@@ -4,12 +4,13 @@ import { FriendActivityStatus } from '../../common/users/relationships'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { GameRelativeTime } from '../games/game-list-entry'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { MessagePreviewLine } from '../messaging/message-preview-line'
 import { CommonTextMessage } from '../messaging/message-records'
 import { push } from '../navigation/routing'
 import { useAppSelector } from '../redux-hooks'
 import { NameBlock, NameLine } from '../social/friend-activity-status'
-import { bodyMedium, bodySmall, labelMedium } from '../styles/typography'
+import { bodyLarge, bodyMedium, bodySmall, labelMedium, titleLarge } from '../styles/typography'
 import { UserStatusText } from './whisper-header'
 import { urlForWhisper } from './whisper-url'
 
@@ -75,6 +76,26 @@ const RowTime = styled(GameRelativeTime)`
   color: var(--theme-on-surface-variant);
 `
 
+const EmptyState = styled.div`
+  ${bodyLarge};
+  min-height: 320px;
+  padding: 32px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+
+  color: var(--theme-on-surface-variant);
+  text-align: center;
+`
+
+const EmptyStateTitle = styled.div`
+  ${titleLarge};
+  color: var(--theme-on-surface);
+`
+
 function PersonRow({
   userId,
   secondary,
@@ -121,6 +142,7 @@ export function SuggestedPeople() {
   const friendActivityStatus = useAppSelector(s => s.relationships.friendActivityStatus)
   const usersById = useAppSelector(s => s.users.byId)
   const lastMessages = useAppSelector(s => s.whispers.lastMessages)
+  const conversationsLoaded = useAppSelector(s => s.whispers.conversationsLoaded)
 
   const onlineFriends = Array.from(friends.keys())
     .filter(
@@ -135,6 +157,25 @@ export function SuggestedPeople() {
     .filter(([id]) => id !== selfId && !blocks.has(id))
     .sort(([, a], [, b]) => b.time - a.time)
     .slice(0, MAX_RECENT)
+
+  if (onlineFriends.length === 0 && recent.length === 0) {
+    // Until the conversation list has loaded, an empty list says nothing about whether there are
+    // conversations.
+    return conversationsLoaded ? (
+      <EmptyState>
+        <MaterialIcon icon='forum' size={40} />
+        <EmptyStateTitle>
+          {t('whispers.newWhisper.emptyTitle', 'Start a conversation')}
+        </EmptyStateTitle>
+        <div>
+          {t(
+            'whispers.newWhisper.emptyText',
+            "Type a player's name above to whisper them. Friends show up here while they're online.",
+          )}
+        </div>
+      </EmptyState>
+    ) : null
+  }
 
   return (
     <>

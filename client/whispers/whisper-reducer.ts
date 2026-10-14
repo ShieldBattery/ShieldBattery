@@ -147,12 +147,15 @@ export interface WhisperState {
    * Closing a session leaves its entry in place, since the conversation still exists.
    */
   lastMessages: Map<SbUserId, CommonTextMessage>
+  /** Whether a page of the conversation list has loaded since connecting. */
+  conversationsLoaded: boolean
 }
 
 const DEFAULT_STATE: Immutable<WhisperState> = {
   sessions: new Set(),
   byId: new Map(),
   lastMessages: new Map(),
+  conversationsLoaded: false,
 }
 
 /** Records `message` as the newest one in its conversation with `target`, unless it's older. */
@@ -548,6 +551,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
   },
 
   ['@whispers/getConversations'](state, action) {
+    state.conversationsLoaded = true
     const { conversations } = action.payload
     const lastMessages = toTextMessages(conversations.map(c => c.lastMessage))
     for (const [i, { target }] of conversations.entries()) {

@@ -41,7 +41,9 @@ import {
   updateSessionAtBottom,
 } from './action-creators'
 import { WhisperHeader } from './whisper-header'
+import { WhisperIntro } from './whisper-intro'
 import { WhisperMessageMenu } from './whisper-menu-items'
+import type { WhisperSession } from './whisper-reducer'
 
 const MESSAGES_LIMIT = 50
 
@@ -436,11 +438,15 @@ export function ConnectedWhisper({
     )
   }
 
+  const isEmpty = isEmptyConversation(whisperSession)
+
   return (
     <Container>
       <StyledChat
         listProps={{
           messages: whisperSession.messages,
+          // The intro stands in for the list's own empty state.
+          showEmptyState: !isEmpty,
           loading: whisperSession.loadingHistory,
           hasMoreHistory: whisperSession.hasHistory,
           loadingNewer: whisperSession.loadingNewer,
@@ -473,6 +479,7 @@ export function ConnectedWhisper({
         escapeJumpsToBottom
         jumpToBottomOnSend
         header={<WhisperHeader key={targetId} userId={targetId} />}
+        backgroundContent={isEmpty ? <WhisperIntro userId={targetId} /> : undefined}
         extraContent={
           <UserInfoContainer>
             <UserProfileOverlayContents userId={targetId} showHintText={false} />
@@ -481,5 +488,19 @@ export function ConnectedWhisper({
         MessageMenu={WhisperMessageMenu}
       />
     </Container>
+  )
+}
+
+/** Whether nothing has ever been said in a conversation, as far as what's loaded can tell. */
+function isEmptyConversation(
+  session: Pick<WhisperSession, 'hasHistory' | 'loadingHistory' | 'historyError'> & {
+    messages: ReadonlyArray<unknown>
+  },
+): boolean {
+  return (
+    session.messages.length === 0 &&
+    !session.hasHistory &&
+    !session.loadingHistory &&
+    !session.historyError
   )
 }

@@ -3512,6 +3512,9 @@
     "header": {
       "moreActions": "More actions"
     },
+    "intro": {
+      "start": "This is the start of your whispers with {{username}}."
+    },
     "messageMenu": {
       "copyMessageLink": "Copy message link"
     },
@@ -3519,6 +3522,8 @@
       "closeWhisper": "Close whisper"
     },
     "newWhisper": {
+      "emptyText": "Type a player's name above to whisper them. Friends show up here while they're online.",
+      "emptyTitle": "Start a conversation",
       "error": "Error starting the whisper: {{errorMessage}}",
       "onlineFriends": "Online friends",
       "recent": "Recent",

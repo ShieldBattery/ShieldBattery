@@ -119,6 +119,7 @@ function makeState(
     sessions: new Set([TARGET_ID]),
     byId: new Map([[TARGET_ID, session]]),
     lastMessages: new Map(),
+    conversationsLoaded: false,
   }
 
   return state as Immutable<WhisperState>
