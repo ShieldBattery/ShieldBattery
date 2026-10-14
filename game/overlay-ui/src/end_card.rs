@@ -9,8 +9,8 @@
 
 use egui::emath::TSTransform;
 use egui::{
-    Align, Align2, Area, Color32, Context, Frame, Id, InnerResponse, Layout, Margin, Mesh, Order,
-    Rect, Sense, Shape, Stroke, Ui, Vec2, pos2, vec2,
+    Align, Align2, Area, Color32, Context, Frame, Id, InnerResponse, Key, Layout, Margin, Mesh,
+    Order, Rect, Sense, Shape, Stroke, Ui, Vec2, pos2, vec2,
 };
 
 use crate::game_menu::clock_text;
@@ -53,6 +53,26 @@ const BUTTON_TRACKING: f32 = 1.8;
 
 /// How wide the rule under the headline is at its brightest, and how far it fades out either side.
 const FLOURISH_WIDTH: f32 = 220.0;
+
+/// The keys the card's buttons answer to, as their keycaps name them: SC:R's own for the popup the
+/// card stands in for. Its victory popup ends the mission on `E` (End Mission) and carries on with
+/// `C` (Continue Playing); its defeat popup leaves on `O` (OK) and carries on with `B` (Become
+/// Observer). See [`key_choice`] for every key that answers.
+pub const VICTORY_LEAVE_KEY: &str = "E";
+pub const VICTORY_KEEP_PLAYING_KEY: &str = "C";
+pub const DEFEAT_LEAVE_KEY: &str = "O";
+pub const DEFEAT_KEEP_PLAYING_KEY: &str = "B";
+
+/// What `key` chooses on either card. Each card answers to the other's keys as well, and leaving
+/// also to `V`, which SC:R's victory popup labels its ending button with outside a multiplayer
+/// game: a hand that knows one of the popups does not have to learn which one this is.
+pub fn key_choice(key: Key) -> Option<EndCardChoice> {
+    match key {
+        Key::E | Key::V | Key::O => Some(EndCardChoice::Leave),
+        Key::C | Key::B => Some(EndCardChoice::KeepPlaying),
+        _ => None,
+    }
+}
 
 /// How the game went for the local player.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -97,8 +117,14 @@ pub enum EndCardChoice {
 ///
 /// The card arrives rather than appearing, and its buttons only answer once it has landed: it comes
 /// up at the moment a game is decided, which is often in the middle of a fight, and a click the
-/// player aimed at a unit must not end the game they just won.
-pub fn render_end_card(ctx: &Context, view: &EndCardView) -> InnerResponse<Option<EndCardChoice>> {
+/// player aimed at a unit must not end the game they just won. `key_choice` is what a key pressed
+/// since the last frame chose (see [`key_choice`]), which waits for the landing the same way: the
+/// keys are the game's command keys too.
+pub fn render_end_card(
+    ctx: &Context,
+    view: &EndCardView,
+    key_choice: Option<EndCardChoice>,
+) -> InnerResponse<Option<EndCardChoice>> {
     let id = Id::new("sb_end_card");
     let presence = motion::arrival(ctx, id.with("arrival"), theme::MOTION_HERO_SECS);
     let screen = ctx.viewport_rect();
@@ -122,7 +148,7 @@ pub fn render_end_card(ctx: &Context, view: &EndCardView) -> InnerResponse<Optio
             let inner = Frame::NONE.show(ui, |ui| {
                 ui.set_width(CARD_WIDTH);
                 ui.spacing_mut().item_spacing = Vec2::ZERO;
-                draw_card(ui, view, settled)
+                draw_card(ui, view, settled, key_choice)
             });
             ui.painter().set(
                 background,
@@ -143,14 +169,21 @@ pub fn render_end_card(ctx: &Context, view: &EndCardView) -> InnerResponse<Optio
 }
 
 /// The card's three sections, top to bottom, returning what the player chose.
-fn draw_card(ui: &mut Ui, view: &EndCardView, settled: bool) -> Option<EndCardChoice> {
+fn draw_card(
+    ui: &mut Ui,
+    view: &EndCardView,
+    settled: bool,
+    key_choice: Option<EndCardChoice>,
+) -> Option<EndCardChoice> {
     band(ui, 36, 24, |ui| draw_heading(ui, view));
     if let Some(stats) = &view.stats {
         rule(ui);
         band(ui, 22, 22, |ui| draw_stats(ui, stats));
     }
     rule(ui);
-    band(ui, 22, 20, |ui| draw_actions(ui, settled))
+    band(ui, 22, 20, |ui| {
+        draw_actions(ui, view.result, settled).or(key_choice.filter(|_| settled))
+    })
 }
 
 /// The result and how long the game took to reach it.
@@ -327,35 +360,38 @@ fn draw_stat_cell(ui: &Ui, rect: Rect, cell: &StatCell) {
     painter.galley(pos2(value_left + glyph_room, value_top), value, value_color);
 }
 
-/// The two ways on from here, and the key that takes the gentler one.
-fn draw_actions(ui: &mut Ui, settled: bool) -> Option<EndCardChoice> {
+/// The two ways on from here, each marked with the key SC:R's own popup for `result` takes it on,
+/// and the key that takes the gentler one.
+fn draw_actions(ui: &mut Ui, result: GameResult, settled: bool) -> Option<EndCardChoice> {
     let width = ui.available_width();
     let spec = text::button_label(BUTTON_LABEL_SIZE).with_letter_spacing(BUTTON_TRACKING);
     let half = vec2((width - BUTTON_GAP) / 2.0, BUTTON_HEIGHT);
+    let (leave_key, keep_playing_key) = match result {
+        GameResult::Victory => (VICTORY_LEAVE_KEY, VICTORY_KEEP_PLAYING_KEY),
+        GameResult::Defeat => (DEFEAT_LEAVE_KEY, DEFEAT_KEEP_PLAYING_KEY),
+    };
     let mut choice = None;
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = BUTTON_GAP;
-        if widgets::plate_button(
-            ui,
-            &spec,
-            &tr!("endCard.leaveGame", "Leave game"),
-            half,
-            ButtonPlate::primary(),
-        )
-        .clicked()
-        {
-            choice = Some(EndCardChoice::Leave);
-        }
-        if widgets::plate_button(
-            ui,
-            &spec,
-            &tr!("endCard.keepPlaying", "Keep playing"),
-            half,
-            ButtonPlate::standard(),
-        )
-        .clicked()
-        {
-            choice = Some(EndCardChoice::KeepPlaying);
+        for (label, plate, key, chosen) in [
+            (
+                tr!("endCard.leaveGame", "Leave game"),
+                ButtonPlate::primary(),
+                leave_key,
+                EndCardChoice::Leave,
+            ),
+            (
+                tr!("endCard.keepPlaying", "Keep playing"),
+                ButtonPlate::standard(),
+                keep_playing_key,
+                EndCardChoice::KeepPlaying,
+            ),
+        ] {
+            let button = widgets::plate_button(ui, &spec, &label, half, plate);
+            widgets::paint_button_kbd(ui, button.rect, key);
+            if button.clicked() {
+                choice = Some(chosen);
+            }
         }
     });
     ui.add_space(theme::SPACE_MD + 2.0);
@@ -453,7 +489,7 @@ mod tests {
         };
         let mut choice = None;
         let mut output = ctx.run_ui(raw, |_| {
-            choice = render_end_card(ctx, &view()).inner;
+            choice = render_end_card(ctx, &view(), None).inner;
         });
         output.textures_delta.clear();
         choice

@@ -25,7 +25,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::chat_history::{ChatHistoryView, render_chat_history_view};
 use crate::disconnect::{DisconnectView, SelfState, render_disconnect_view};
-use crate::end_card::{EndCardChoice, EndCardView, GameResult, render_end_card};
+use crate::end_card::{self, EndCardChoice, EndCardView, GameResult, render_end_card};
 pub use crate::game_menu::SocialDialog;
 use crate::game_menu::{leave_is_held, render_game_menu, render_leave_confirm};
 use crate::net_quality::{NetQualityView, render_net_quality};
@@ -374,6 +374,24 @@ impl ModalId {
             // Dismissing an end-of-game card is choosing to keep playing, which the card's own
             // native dialog carries out when the dismissal closes it.
             ModalId::GameMenu
+            | ModalId::ChatHistory
+            | ModalId::Options
+            | ModalId::Victory
+            | ModalId::Defeat
+            | ModalId::LeaveGame => true,
+        }
+    }
+
+    /// Whether this modal's buttons answer to keys (see [`Shell::key_pressed`]), which is when a host
+    /// hands the shell every keypress first: the keys type nothing here, and a control holding the
+    /// keyboard would otherwise take a key that is meant for one of the buttons.
+    pub fn buttons_answer_to_keys(self) -> bool {
+        match self {
+            // A roster's drop controls are one per player, so no one key could stand for them.
+            ModalId::WaitingForPlayers => false,
+            ModalId::ConnectionInterrupted
+            | ModalId::SessionEnded
+            | ModalId::GameMenu
             | ModalId::ChatHistory
             | ModalId::Options
             | ModalId::Victory
@@ -760,9 +778,12 @@ pub struct Shell {
     /// The player whose number keys a digit recalls, and which of their keys have a group on them
     /// (one bit per digit), as the control groups row last showed them.
     number_keys: Option<(u8, u16)>,
-    /// The key holding a player's leave button in the menu, from a press made while the menu was up
-    /// until the key comes up (see [`Shell::update_held_keys`]).
-    menu_leave_key: Option<Key>,
+    /// The key holding a hold-to-confirm button, and the modal the button is on, from a press made
+    /// while that modal was on top until the key comes up (see [`Shell::update_held_keys`]).
+    held_button_key: Option<(ModalId, Key)>,
+    /// What a key pressed since the last frame chose on an end-of-game card. Carried to the card
+    /// rather than acted on here, because the card only takes a choice once it has landed.
+    end_card_key: Option<EndCardChoice>,
     /// Where each bottom panel was last placed while it was wanted on screen, which is where it
     /// fades out from: a panel leaving because the plate beside it left too would otherwise jump
     /// across the screen on its way out.
@@ -813,7 +834,8 @@ impl Shell {
             focused_player: None,
             vision_picker_open: false,
             number_keys: None,
-            menu_leave_key: None,
+            held_button_key: None,
+            end_card_key: None,
             held_slots: HeldSlots::default(),
             drawn: DrawnLastFrame::default(),
             last_minimap_rect: None,
@@ -971,10 +993,11 @@ impl Shell {
             self.dismiss_top_modal();
             return true;
         }
-        // The menu's buttons answer to SC:R's keys for them, and the leave question to both of the
-        // keys SC:R's own quit questions leave on (see `game_menu`'s key constants): Alt+Q then Q,
-        // and F10 then E then Q, leave the way they always have.
-        if modifiers.is_none() && self.menu_key_pressed(key) {
+        // A dialog's buttons answer to SC:R's keys for the buttons they stand in for, which their
+        // keycaps name (see each dialog's key constants), and the leave question to both of the
+        // keys SC:R's own quit questions leave on: Alt+Q then Q, and F10 then E then Q, leave the
+        // way they always have.
+        if modifiers.is_none() && self.dialog_key_pressed(key) {
             return true;
         }
         if hotkeys::is_quit_chord(key, modifiers) && self.quit_keys_active() {
@@ -1056,6 +1079,9 @@ impl Shell {
             None => false,
         };
 
+        // Taken whether or not a card is drawn to take it: a choice made for a card that has since
+        // gone is not one to carry over to the next.
+        let end_card_key = self.end_card_key.take();
         if let Some(modal) = self.modals.last().copied() {
             // Stands in for a host that hands over no lists at all, so the rows built from them
             // draw as empty rather than the screen having to know whether it has any.
@@ -1070,7 +1096,10 @@ impl Shell {
                     options: &self.options,
                     option_lists,
                     options_section: self.options_section,
-                    menu_leave_key_held: self.menu_leave_key.is_some(),
+                    button_key_held: self
+                        .held_button_key
+                        .is_some_and(|(held, _)| held == modal.id),
+                    end_card_key,
                 },
                 &mut hit_rects,
             );
@@ -1779,29 +1808,44 @@ impl Shell {
         true
     }
 
-    /// Lets go of the menu's held leave key once `is_down` says it is no longer down, or once the
-    /// menu is no longer on top. Asked of the keyboard itself every frame rather than told by key-up
-    /// messages, which a switch away from the game can swallow: a hold that outlived its key would
-    /// leave the game on its own.
+    /// Lets go of a held button's key once `is_down` says it is no longer down, or once the modal
+    /// the button is on is no longer on top. Asked of the keyboard itself every frame rather than
+    /// told by key-up messages, which a switch away from the game can swallow: a hold that outlived
+    /// its key would leave the game on its own.
     pub fn update_held_keys(&mut self, is_down: impl Fn(Key) -> bool) {
-        if let Some(key) = self.menu_leave_key
-            && (!is_down(key) || self.top_modal() != Some(ModalId::GameMenu))
+        if let Some((modal, key)) = self.held_button_key
+            && (!is_down(key) || self.top_modal() != Some(modal))
         {
-            self.menu_leave_key = None;
+            self.held_button_key = None;
         }
     }
 
-    /// Carries out what the menu or the leave question's key `key` does, while either is on top,
-    /// and returns whether it did anything.
-    fn menu_key_pressed(&mut self, key: Key) -> bool {
+    /// Carries out what `key` does to the buttons of the modal on top, the keys their keycaps name
+    /// and the others each dialog's doc lists, and returns whether it did anything.
+    fn dialog_key_pressed(&mut self, key: Key) -> bool {
         let playing = self.host.mode == Mode::Playing;
         let replay = self.host.mode == Mode::Replay;
-        match (self.top_modal(), key) {
+        let top = self.top_modal();
+        if top == Some(ModalId::Options)
+            && let Some(section) = OptionsSection::ALL
+                .into_iter()
+                .find(|section| section.key() == key)
+        {
+            self.options_section = section;
+            return true;
+        }
+        if matches!(top, Some(ModalId::Victory | ModalId::Defeat))
+            && let Some(choice) = end_card::key_choice(key)
+        {
+            self.end_card_key = Some(choice);
+            return true;
+        }
+        match (top, key) {
             (Some(ModalId::GameMenu), Key::O) => self.open_modal(ModalId::Options),
             // The key works the leave button as the pointer does: held where leaving is held, and
             // the hold only starts on a press made with the menu up; a tap in a replay.
             (Some(ModalId::GameMenu), Key::E) if leave_is_held(replay) => {
-                self.menu_leave_key.get_or_insert(Key::E);
+                self.held_button_key = Some((ModalId::GameMenu, Key::E));
             }
             (Some(ModalId::GameMenu), Key::E) => self.intents.push(Intent::QuitGame),
             (Some(ModalId::GameMenu), Key::A | Key::C) if playing => {
@@ -1814,6 +1858,11 @@ impl Shell {
             // The key SC:R opens its message history with closes it again, and so does its OK
             // button's.
             (Some(ModalId::ChatHistory), Key::Equals | Key::O) => self.dismiss_top_modal(),
+            // Abandoning is always held: the game goes on for everyone else in it.
+            (Some(ModalId::ConnectionInterrupted), Key::E) => {
+                self.held_button_key = Some((ModalId::ConnectionInterrupted, Key::E));
+            }
+            (Some(ModalId::SessionEnded), Key::O | Key::E) => self.intents.push(Intent::LeaveGame),
             _ => return false,
         }
         true
@@ -2102,8 +2151,10 @@ struct ModalContext<'a> {
     options: &'a OptionsView,
     option_lists: &'a OptionsLists,
     options_section: OptionsSection,
-    /// Whether a player is holding the menu's leave key.
-    menu_leave_key_held: bool,
+    /// Whether a key is holding the drawn modal's hold-to-confirm button.
+    button_key_held: bool,
+    /// What a key pressed since the last frame chose on an end-of-game card.
+    end_card_key: Option<EndCardChoice>,
 }
 
 fn draw_modal(
@@ -2119,7 +2170,7 @@ fn draw_modal(
             let Some(surface) = views.disconnect.as_ref() else {
                 return ModalOutcome::default();
             };
-            let dialog = render_disconnect_view(surface.view, ctx);
+            let dialog = render_disconnect_view(surface.view, ctx, shell.button_key_held);
             // The surface only takes clicks once it has a control to take them for: a passive
             // notice must not cost the game a click.
             if surface.view.has_button() || id == ModalId::ConnectionInterrupted {
@@ -2138,7 +2189,7 @@ fn draw_modal(
                 host.game_seconds,
                 host.mode == Mode::Playing,
                 host.mode == Mode::Replay,
-                shell.menu_leave_key_held,
+                shell.button_key_held,
             );
             hit_rects.push(HitRect::new(dialog.response.rect));
             ModalOutcome {
@@ -2184,7 +2235,7 @@ fn draw_modal(
                 .end_card
                 .filter(|view| view.result == result)
                 .unwrap_or(&fallback);
-            let card = render_end_card(ctx, view);
+            let card = render_end_card(ctx, view, shell.end_card_key);
             hit_rects.push(HitRect::new(card.response.rect));
             ModalOutcome {
                 dismissed: card.inner == Some(EndCardChoice::KeepPlaying),
@@ -3067,13 +3118,90 @@ mod tests {
         shell.open_modal(ModalId::GameMenu);
         assert!(shell.key_pressed(Key::E, Modifiers::NONE));
         assert_eq!(shell.top_modal(), Some(ModalId::GameMenu));
-        assert_eq!(shell.menu_leave_key, Some(Key::E));
+        assert_eq!(shell.held_button_key, Some((ModalId::GameMenu, Key::E)));
         // Held for as long as the key is down, and not a frame longer.
         shell.update_held_keys(|_| true);
-        assert_eq!(shell.menu_leave_key, Some(Key::E));
+        assert_eq!(shell.held_button_key, Some((ModalId::GameMenu, Key::E)));
         shell.update_held_keys(|_| false);
-        assert_eq!(shell.menu_leave_key, None);
+        assert_eq!(shell.held_button_key, None);
         assert!(!shell.pending_intents().contains(&Intent::QuitGame));
+    }
+
+    /// Puts one of the disconnect surface's modals on top, the way a frame's status sync does.
+    fn raise_status_modal(shell: &mut Shell, id: ModalId) {
+        shell.modals.push(Modal {
+            id,
+            captures_input: true,
+        });
+    }
+
+    #[test]
+    fn the_dialogs_answer_to_scrs_keys_for_their_buttons() {
+        let mut shell = spectating_shell();
+        shell.native_dialog_spawned(NativeDialog::ChatHistory);
+        assert!(shell.key_pressed(Key::O, Modifiers::NONE));
+        assert_eq!(shell.top_modal(), None);
+        assert_eq!(
+            shell.pending_intents(),
+            [Intent::CloseNativeDialog(NativeDialog::ChatHistory)]
+        );
+
+        shell.open_modal(ModalId::Options);
+        for section in OptionsSection::ALL {
+            assert!(shell.key_pressed(section.key(), Modifiers::NONE));
+            assert_eq!(shell.options_section(), section);
+        }
+        // A key no page is on is left to whatever has the keyboard, which may be a slider.
+        assert!(!shell.key_pressed(Key::ArrowLeft, Modifiers::NONE));
+        assert!(shell.key_pressed(Key::Escape, Modifiers::NONE));
+        assert_eq!(shell.top_modal(), None);
+
+        let mut ended = spectating_shell();
+        raise_status_modal(&mut ended, ModalId::SessionEnded);
+        assert!(ended.key_pressed(Key::O, Modifiers::NONE));
+        assert!(ended.pending_intents().contains(&Intent::LeaveGame));
+    }
+
+    #[test]
+    fn abandoning_by_key_takes_a_hold() {
+        let mut shell = spectating_shell();
+        raise_status_modal(&mut shell, ModalId::ConnectionInterrupted);
+        assert!(shell.key_pressed(Key::E, Modifiers::NONE));
+        assert_eq!(
+            shell.held_button_key,
+            Some((ModalId::ConnectionInterrupted, Key::E))
+        );
+        assert!(!shell.pending_intents().contains(&Intent::AbandonGame));
+        shell.update_held_keys(|_| false);
+        assert_eq!(shell.held_button_key, None);
+    }
+
+    #[test]
+    fn an_end_card_takes_its_keys_once_it_has_landed() {
+        let ctx = fresh_ctx();
+        let mut shell = spectating_shell();
+        shell.native_dialog_spawned(NativeDialog::Victory);
+        run_frame_at(&mut shell, &ctx, None, 0.0);
+        // Pressed while the card is still arriving: the key is the card's, but chooses nothing.
+        assert!(shell.key_pressed(Key::E, Modifiers::NONE));
+        let arriving = run_frame_at(&mut shell, &ctx, None, 0.05).intents;
+        assert!(!arriving.contains(&Intent::EndMission(NativeDialog::Victory)));
+        assert_eq!(shell.top_modal(), Some(ModalId::Victory));
+        run_frame_at(&mut shell, &ctx, None, 1.0);
+        assert!(shell.key_pressed(Key::E, Modifiers::NONE));
+        let landed = run_frame_at(&mut shell, &ctx, None, 1.05).intents;
+        assert!(landed.contains(&Intent::EndMission(NativeDialog::Victory)));
+        assert_eq!(shell.top_modal(), None);
+
+        // The defeat card's own key for carrying on.
+        let mut lost = spectating_shell();
+        lost.native_dialog_spawned(NativeDialog::Defeat);
+        run_frame_at(&mut lost, &ctx, None, 2.0);
+        run_frame_at(&mut lost, &ctx, None, 3.0);
+        assert!(lost.key_pressed(Key::B, Modifiers::NONE));
+        let kept = run_frame_at(&mut lost, &ctx, None, 3.05).intents;
+        assert!(kept.contains(&Intent::CloseNativeDialog(NativeDialog::Defeat)));
+        assert_eq!(lost.top_modal(), None);
     }
 
     #[test]

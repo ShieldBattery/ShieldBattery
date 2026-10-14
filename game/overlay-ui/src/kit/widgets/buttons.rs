@@ -89,6 +89,21 @@ pub fn button_sized(ui: &mut Ui, label: &str, variant: ButtonVariant, min_width:
     response
 }
 
+/// A button with its variant's chrome, marked with the keycap of the key that presses it (see
+/// [`paint_button_kbd`]).
+///
+/// Sized to its label like [`button`], with the keycap's room kept on both sides so the label stays
+/// centered and clear of the cap however long a translation runs.
+pub fn button_with_kbd(ui: &mut Ui, label: &str, variant: ButtonVariant, key: &str) -> Response {
+    let spec = text::button_label(variant.label_size());
+    let label_width = spec.galley(ui, label).size().x;
+    let kbd_room = kbd_size(ui, key).x + PLATE_GUTTER + theme::SPACE_SM * 2.0;
+    let width = (label_width + (kbd_room + theme::SPACE_SM) * 2.0).max(variant.min_width());
+    let response = button_sized(ui, label, variant, width);
+    paint_button_kbd(ui, response.rect, key);
+    response
+}
+
 /// A compact chip that acts when it is clicked.
 ///
 /// The chip is given its size rather than taking it from its label, because chips come in rows —

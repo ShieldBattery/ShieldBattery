@@ -89,8 +89,19 @@ const BUTTON_MARGIN: f32 = 24.0;
 /// The footprint of a row's drop control, the same whichever of its states it is wearing.
 const BUTTON_SIZE: Vec2 = Vec2::new(152.0, 38.0);
 
-/// The footprint of the self notice's abandon control.
-const ABANDON_SIZE: Vec2 = Vec2::new(300.0, 46.0);
+/// The footprint of the self notices' one way out: the abandon control while the client re-dials,
+/// and the leave button once the session is over. The same for both, so the notice keeps its shape
+/// as one turns into the other.
+const EXIT_SIZE: Vec2 = Vec2::new(300.0, 46.0);
+
+/// The key that holds the abandon control, as its keycap names it: the overlay's key for leaving a
+/// game, which the game menu's leave button answers to as well. Held, as the pointer holds it.
+pub const ABANDON_KEY: &str = "E";
+
+/// The key the leave button of a session-ended notice answers to, as its keycap names it: SC:R tells
+/// a player they were disconnected in a popup that closes on its OK button's `O`. The overlay's
+/// own leave key, `E`, answers too; with the session over, leaving costs nothing more.
+pub const SESSION_ENDED_LEAVE_KEY: &str = "O";
 
 /// What a player's connection is doing, which decides their row's edge, its dot and what it says.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -233,9 +244,13 @@ pub struct DisconnectOutcome {
 }
 
 /// Renders the disconnect view and reports what the player did with it.
+///
+/// `abandon_key_held` is whether the abandon key ([`ABANDON_KEY`]) is held, which holds the
+/// abandon control as the pointer does.
 pub fn render_disconnect_view(
     view: &DisconnectView,
     ctx: &egui::Context,
+    abandon_key_held: bool,
 ) -> InnerResponse<DisconnectOutcome> {
     let width = match view.self_state {
         SelfState::Reconnecting | SelfState::Disconnected | SelfState::Desynced => NOTICE_WIDTH,
@@ -246,7 +261,7 @@ pub fn render_disconnect_view(
         Id::new("sb_disconnect_overlay"),
         width,
         |ui| match view.self_state {
-            SelfState::Reconnecting => draw_self_notice(ui, view),
+            SelfState::Reconnecting => draw_self_notice(ui, view, abandon_key_held),
             SelfState::Disconnected | SelfState::Desynced => {
                 draw_session_ended(ui, view.self_state)
             }
@@ -259,7 +274,11 @@ pub fn render_disconnect_view(
 /// Draws this client's own connection notice: that the attempt is still running, how long it has
 /// been, and the one thing the player can do about it. Only ever shown for a relay-confirmed
 /// self-link loss (see [`SelfState`]) — never on a mere guess from the remote roster's behavior.
-fn draw_self_notice(ui: &mut Ui, view: &DisconnectView) -> DisconnectOutcome {
+fn draw_self_notice(
+    ui: &mut Ui,
+    view: &DisconnectView,
+    abandon_key_held: bool,
+) -> DisconnectOutcome {
     tiers::dialog_header(ui, |ui| {
         draw_title_block(
             ui,
@@ -295,11 +314,23 @@ fn draw_self_notice(ui: &mut Ui, view: &DisconnectView) -> DisconnectOutcome {
         ui.add_space(theme::SPACE_SM + 2.0);
         let abandoned = ui
             .vertical_centered(|ui| {
-                widgets::hold_to_confirm(
+                // Where the centered layout is about to put the control, which reports no rect of
+                // its own to mark.
+                let rect = Rect::from_center_size(
+                    pos2(
+                        ui.max_rect().center().x,
+                        ui.cursor().top() + EXIT_SIZE.y * 0.5,
+                    ),
+                    EXIT_SIZE,
+                );
+                let state = widgets::hold_to_confirm_by_key(
                     ui,
                     &tr!("disconnect.abandonAction", "Hold to abandon"),
-                    ABANDON_SIZE,
-                ) == HoldState::Confirmed
+                    EXIT_SIZE,
+                    abandon_key_held,
+                );
+                widgets::paint_button_kbd(ui, rect, ABANDON_KEY);
+                state == HoldState::Confirmed
             })
             .inner;
         ui.add_space(theme::SPACE_SM);
@@ -351,14 +382,15 @@ fn draw_session_ended(ui: &mut Ui, self_state: SelfState) -> DisconnectOutcome {
     let leave = tiers::dialog_footer(ui, |ui| {
         ui.vertical_centered(|ui| {
             let spec = text::button_label(12.5).with_letter_spacing(1.4);
-            widgets::plate_button(
+            let button = widgets::plate_button(
                 ui,
                 &spec,
                 &tr!("disconnect.leaveAction", "Leave game"),
-                BUTTON_SIZE,
+                EXIT_SIZE,
                 ButtonPlate::primary(),
-            )
-            .clicked()
+            );
+            widgets::paint_button_kbd(ui, button.rect, SESSION_ENDED_LEAVE_KEY);
+            button.clicked()
         })
         .inner
     });
@@ -700,7 +732,10 @@ mod tests {
             ..Default::default()
         };
         ctx.begin_pass(raw);
-        let width = render_disconnect_view(view, ctx).response.rect.width();
+        let width = render_disconnect_view(view, ctx, false)
+            .response
+            .rect
+            .width();
         let mut out = ctx.end_pass();
         let _ = ctx.tessellate(out.shapes, ctx.pixels_per_point());
         // Layout checks have no GPU texture store to update.

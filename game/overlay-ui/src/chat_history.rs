@@ -81,6 +81,11 @@ const NAME_GAP: f32 = theme::SPACE_SM;
 /// keeps a wrapped message reading as one line and its neighbours as others.
 const LINE_GAP: f32 = theme::SPACE_SM;
 
+/// The key the Close button answers to, as its keycap names it: SC:R's own message history closes
+/// on its OK button's `O`, which a player's hand already knows. The `=` that opens the history
+/// closes it as well, but a toggle is not something a button stands for.
+pub const CLOSE_KEY: &str = "O";
+
 /// Who a message was addressed to, as the tag over it reads.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum ChatScopeView {
@@ -150,8 +155,13 @@ pub fn render_chat_history_view(
             tiers::dialog_body(ui, |ui| draw_list(ui, view));
             tiers::dialog_footer(ui, |ui| {
                 ui.vertical_centered(|ui| {
-                    widgets::button(ui, &tr!("common.close", "Close"), ButtonVariant::Tier2)
-                        .clicked()
+                    widgets::button_with_kbd(
+                        ui,
+                        &tr!("common.close", "Close"),
+                        ButtonVariant::Tier2,
+                        CLOSE_KEY,
+                    )
+                    .clicked()
                 })
                 .inner
             })
