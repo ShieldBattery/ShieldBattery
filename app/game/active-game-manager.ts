@@ -229,6 +229,11 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     return this.activeGame?.id === gameId ? this.activeGame : this.watchOnlyGames.get(gameId)
   }
 
+  private isReplaySessionGame(gameId: string): boolean {
+    const map = this.gameFor(gameId)?.config?.setup.map
+    return !!map && isReplayMapInfo(map) && !!map.session
+  }
+
   private untrackGame(game: ActiveGameInfo) {
     if (this.activeGame === game) {
       this.activeGame = null
@@ -638,16 +643,10 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     this.emit('gameCommand', gameId, 'debugControl', { type: 'crash', kind })
   }
 
-  /**
-   * Tells the active game process to send an in-game chat message over its netcode v2 session, as
-   * this client (debug game builds only), through the same send path the in-game chat box's own
-   * Enter-key send uses. Fire-and-forget: there's no reply; verify via a peer's rendered chat, or
-   * this client's own via {@link debugQueryState}'s `turnState.chatLog`.
-   */
   /** Forwards a replay session's playback state to its game. */
   setReplaySessionPlayback(gameId: string, playback: ReplaySessionPlaybackControl): void {
-    if (!this.activeGame || this.activeGame.id !== gameId) {
-      log.verbose(`Got setReplaySessionPlayback for ${gameId}, but it is not the active game`)
+    if (!this.isReplaySessionGame(gameId)) {
+      log.verbose(`Got setReplaySessionPlayback for ${gameId}, but it is not a replay session game`)
       return
     }
 
@@ -655,14 +654,14 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
   }
 
   showReplaySessionChat(gameId: string, from: string, text: string): void {
-    if (this.activeGame?.id === gameId) {
+    if (this.isReplaySessionGame(gameId)) {
       this.emit('gameCommand', gameId, 'replaySessionChat', { from, text })
     }
   }
 
   /** Notes that a replay session game is holding its replay paused at the start. */
   handleReplaySessionReady(gameId: string): void {
-    if (!this.activeGame || this.activeGame.id !== gameId) {
+    if (!this.isReplaySessionGame(gameId)) {
       return
     }
 
@@ -671,36 +670,40 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
   }
 
   handleReplaySessionSpeed(gameId: string, speed: ReplaySessionSpeed): void {
-    if (!this.activeGame || this.activeGame.id !== gameId) {
+    if (!this.isReplaySessionGame(gameId)) {
       return
     }
     this.emit('replaySessionSpeed', gameId, speed)
   }
 
   handleReplaySessionSeek(gameId: string, frame: number): void {
-    if (this.activeGame?.id === gameId) {
+    if (this.isReplaySessionGame(gameId)) {
       this.emit('replaySessionSeek', gameId, frame)
     }
   }
 
   handleReplaySessionSeekReached(gameId: string, seek: ReplaySessionSeek): void {
-    if (this.activeGame?.id === gameId) {
+    if (this.isReplaySessionGame(gameId)) {
       this.emit('replaySessionSeekReached', gameId, seek)
     }
   }
 
   handleReplaySessionFrame(gameId: string, frame: number): void {
-    if (this.activeGame?.id === gameId) {
+    if (this.isReplaySessionGame(gameId)) {
       this.emit('replaySessionFrame', gameId, frame)
     }
   }
 
   handleReplaySessionChat(gameId: string, text: string): void {
-    if (this.activeGame?.id === gameId) {
+    if (this.isReplaySessionGame(gameId)) {
       this.emit('replaySessionChat', gameId, text)
     }
   }
 
+  /**
+   * Tells a tracked game process to send chat over its netcode v2 session (debug builds only).
+   * Verify via a peer's rendered chat or this client's {@link debugQueryState} chat log.
+   */
   sendGameChat(gameId: string, text: string): void {
     if (!this.gameFor(gameId)) {
       log.verbose(`Got sendGameChat for ${gameId}, but it is not an active game`)

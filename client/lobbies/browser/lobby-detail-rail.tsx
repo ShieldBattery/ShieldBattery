@@ -492,7 +492,7 @@ export function LobbyDetailRail({
                 mapId={map.id}
                 size={512}
                 showInfoLayer={true}
-              hasMapPoolChips={true}
+                hasMapPoolChips={true}
                 onClick={() => dispatch(openMapPreviewDialog(map.id))}
               />
             </MapFrame>
