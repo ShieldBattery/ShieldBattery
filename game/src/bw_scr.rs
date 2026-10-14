@@ -7204,12 +7204,6 @@ impl BwScr {
                 }
                 None => debug!("No settings registry, saving {group}.{key} only"),
             }
-            // The game keeps the cursor confined, or released, until its window next changes
-            // size or focus, whatever the setting now says; a resize run through its own path
-            // re-applies the setting at once.
-            if key == "MouseConfine" {
-                crate::forge::fix_clip_cursor();
-            }
         }
     }
 
