@@ -4,10 +4,12 @@ import { ReplaySessionPlaybackControl } from '../../common/games/game-launch-con
 import { TypedIpcRenderer } from '../../common/ipc'
 import {
   LobbyClientRequest,
+  ReportLobbyReplayFrameRequest,
   ReportLobbyReplayLoadedRequest,
   ReportLobbyReplaySeekReachedRequest,
   ReportLobbyReplaySeekRequest,
   ReportLobbyReplaySpeedRequest,
+  SendLobbyChatRequest,
 } from '../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import {
@@ -212,6 +214,30 @@ export function applyLobbyReplaySeek(lobbyId: SbLobbyId, seek?: ReplaySessionSee
   }
 }
 
+/** Restores both playback fields together when a lobby socket reconnects during a seek. */
+export function restoreLobbyReplayPlayback(
+  lobbyId: SbLobbyId,
+  speed: ReplaySessionSpeed | undefined,
+  seek: ReplaySessionSeek | undefined,
+): ThunkAction {
+  return (dispatch, getState) => {
+    if (current?.lobbyId === lobbyId) {
+      current.speed = speed ?? current.speed
+      current.seek = seek
+      sendPlayback(selfIsHost(getState))
+    }
+  }
+}
+
+/** Mirrors lobby chat into the replay game's text log while this client is watching. */
+export function showLobbyReplayChat(lobbyId: SbLobbyId, from: string, text: string) {
+  if (current?.lobbyId === lobbyId && current.gameId && current.started) {
+    ipcRenderer
+      .invoke('activeGameShowReplaySessionChat', current.gameId, from, text)
+      ?.catch(swallowNonBuiltins)
+  }
+}
+
 /** Quits a replay lobby's replay that never got to play, since its load was called off. */
 export function cancelLobbyReplay(lobbyId: SbLobbyId) {
   if (current?.lobbyId !== lobbyId && pendingLobbyId !== lobbyId) {
@@ -293,6 +319,30 @@ export function registerReplayLobbyGameEvents(dispatchThunk: (thunk: ThunkAction
         body,
       }).catch(err => {
         logger.error(`Error reporting replay seek: ${getErrorStack(err)}`)
+      })
+    })
+    .on('activeGameReplaySessionFrame', (event, gameId, frame) => {
+      if (current?.gameId !== gameId || !current.started || current.seek) {
+        return
+      }
+      const body = encodeBodyAsParams<ReportLobbyReplayFrameRequest>({ clientId, frame })
+      fetchJson<void>(apiUrl`lobbies/${current.lobbyId}/replay-frame`, {
+        method: 'POST',
+        body,
+      }).catch(err => {
+        logger.error(`Error reporting replay frame: ${getErrorStack(err)}`)
+      })
+    })
+    .on('activeGameReplaySessionChat', (event, gameId, text) => {
+      if (current?.gameId !== gameId || !current.started) {
+        return
+      }
+      const body = encodeBodyAsParams<SendLobbyChatRequest>({ clientId, text })
+      fetchJson<void>(apiUrl`lobbies/${current.lobbyId}/chat`, {
+        method: 'POST',
+        body,
+      }).catch(err => {
+        logger.error(`Error sending replay chat: ${getErrorStack(err)}`)
       })
     })
     .on('activeGameStatus', (event, status) => {

@@ -189,7 +189,7 @@ export function ReplayLobbySetup({
                 'lobbies.replayLobby.watchingTogetherBody',
                 'Everyone in the lobby watches this replay in their own game, with their own ' +
                   'observer view. Playback starts once everyone has loaded it, and only the host ' +
-                  'controls pausing and speed.',
+                  'controls playback.',
               )}
             </ExplainerText>
           </Section>

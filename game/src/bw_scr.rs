@@ -6079,6 +6079,25 @@ impl BwScr {
         }
     }
 
+    /// The replay progress dialog's children 7–9 are its pause and speed buttons. Its progress
+    /// slider, elapsed time, and speed label stay visible to every replay viewer.
+    pub(crate) fn set_replay_timeline_buttons_visible(&self, visible: bool) {
+        let Some(dialog) = bw::iter_dialogs(self.resolve_first_dialog())
+            .find(|dialog| dialog.as_control().string() == "StatBtn")
+        else {
+            return;
+        };
+        for control in dialog.children() {
+            if (7..=9).contains(&control.id()) && control.is_hidden() == visible {
+                if visible {
+                    control.show();
+                } else {
+                    control.hide();
+                }
+            }
+        }
+    }
+
     unsafe fn center_screen(&self, pos: &bw::Point) {
         unsafe {
             let width = self.game_screen_width_bwpx.resolve();

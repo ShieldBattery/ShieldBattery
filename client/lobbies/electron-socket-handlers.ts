@@ -18,6 +18,8 @@ import {
   loadLobbyReplay,
   registerReplayLobbyGameEvents,
   releaseLobbyReplay,
+  restoreLobbyReplayPlayback,
+  showLobbyReplayChat,
   startLobbyReplay,
   updateLobbyReplayController,
 } from './replay-lobby-game'
@@ -138,12 +140,7 @@ const eventToAction: EventToActionMap = {
       type: '@lobbies/init',
       payload: event,
     })
-    if (event.replaySpeed) {
-      dispatch(applyLobbyReplaySpeed(lobbyId, event.replaySpeed))
-    }
-    if (event.replaySeek) {
-      dispatch(applyLobbyReplaySeek(lobbyId, event.replaySeek))
-    }
+    dispatch(restoreLobbyReplayPlayback(lobbyId, event.replaySpeed, event.replaySeek))
   },
 
   diff: (lobbyId, event) => dispatch => {
@@ -344,6 +341,12 @@ const eventToAction: EventToActionMap = {
         type: '@lobbies/updateChatMessage',
         payload: event,
       })
+      if (lobby.info.replay) {
+        const name = getState().users.byId.get(event.message.from)?.name
+        if (name) {
+          showLobbyReplayChat(lobbyId, event.message.emote ? `* ${name}` : name, event.message.text)
+        }
+      }
 
       if (
         !isBlocked &&

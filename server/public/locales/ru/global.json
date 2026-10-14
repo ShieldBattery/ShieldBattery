@@ -1810,6 +1810,7 @@
       "defaultLobbyName": "Лобби {{name}}",
       "defaultLobbyNameFallback": "Моё лобби",
       "defaultLobbyNameFromMap": "{{mapName}} {{gameType}}",
+      "defaultLobbyNameFromReplay": "{{mapName}} — реплей",
       "summaryObserversOff": "Без зрителей",
       "summaryObserversOn": "Со зрителями",
       "summarySlots_one": "{{count}} слот",
@@ -1916,6 +1917,29 @@
       "settingsChangeObservers": "зрители",
       "settingsChangeUnitLimit": "лимит юнитов",
       "settingsChangeVisibility": "видимость"
+    },
+    "replayLobby": {
+      "changeReplay": "Сменить реплей",
+      "chooseMapInstead": "Выбрать карту вместо реплея",
+      "duration": "Реплей · {{duration}}",
+      "invalidReplayBody": "Выбранный файл может быть повреждён или не являться реплеем StarCraft.",
+      "invalidReplayTitle": "Не удалось прочитать реплей",
+      "loadFailed": "Не удалось загрузить реплей лобби.",
+      "loading": "Загрузка реплея для всех",
+      "readyHint": "Зрители могут отметить готовность перед просмотром",
+      "replay": "Реплей",
+      "roomDescription": "Все смотрят один и тот же реплей, каждый со своей точки зрения наблюдателя. Воспроизведение начнётся, когда реплей загрузится у всех.",
+      "selectReplay": "Выбрать реплей",
+      "startWatching": "Начать просмотр",
+      "summaryReplay": "Реплей",
+      "versus": "vs",
+      "viewersCount_one": "Зритель · {{count}}",
+      "viewersCount_few": "Зрителя · {{count}}",
+      "viewersCount_many": "Зрителей · {{count}}",
+      "viewersCount_other": "Зрителя · {{count}}",
+      "watching": "Просмотр реплея",
+      "watchingTogetherBody": "Все участники лобби смотрят этот реплей в своей игре, каждый со своей точки зрения наблюдателя. Воспроизведение начнётся, когда реплей загрузится у всех. Управлять воспроизведением может только хост.",
+      "watchingTogetherHeader": "Совместный просмотр"
     },
     "room": {
       "banner": {
@@ -2630,7 +2654,8 @@
       "unavailableBody": "Не удалось загрузить реплеи. Обычно это исправляет перезапуск ShieldBattery.",
       "unreadableReplays": "Нечитаемые реплеи",
       "viewGamePage": "Открыть страницу игры",
-      "watchReplay": "Посмотреть реплей"
+      "watchReplay": "Посмотреть реплей",
+      "watchWithOthers": "Смотреть вместе"
     },
     "loading": {
       "dialogTitle": "Загрузка реплея…",

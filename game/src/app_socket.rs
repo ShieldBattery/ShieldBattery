@@ -268,6 +268,12 @@ fn handle_app_message(text: String) -> Result<MessageResult, HandleMessageError>
                 GameStateMessage::SetReplaySessionPlayback(control),
             ))
         }
+        "replaySessionChat" => {
+            let line = parse_payload(payload, "Invalid replay session chat", err_input, sensitive)?;
+            Ok(MessageResult::Game(
+                GameStateMessage::ShowReplaySessionChat(line),
+            ))
+        }
         "quit" => Ok(MessageResult::Stop),
         "cleanup_and_quit" => Ok(MessageResult::Game(GameStateMessage::CleanupQuit)),
         #[cfg(debug_assertions)]

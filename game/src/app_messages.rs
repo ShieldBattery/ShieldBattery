@@ -556,6 +556,18 @@ pub struct ReplaySessionSeekRequest {
     pub frame: u32,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReplaySessionChatLine {
+    pub from: String,
+    pub text: String,
+}
+
+#[derive(Serialize)]
+pub struct ReplaySessionChatRequest<'a> {
+    pub text: &'a str,
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReplaySessionSpeed {

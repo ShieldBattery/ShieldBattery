@@ -1732,6 +1732,7 @@
       "defaultLobbyName": "{{name}}的房间",
       "defaultLobbyNameFallback": "我的房间",
       "defaultLobbyNameFromMap": "{{mapName}} {{gameType}}",
+      "defaultLobbyNameFromReplay": "{{mapName}} 录像",
       "summaryObserversOff": "无观战者",
       "summaryObserversOn": "允许观战",
       "summarySlots_other": "{{count}}个槽位",
@@ -1835,6 +1836,26 @@
       "settingsChangeObservers": "观战者",
       "settingsChangeUnitLimit": "单位限制",
       "settingsChangeVisibility": "可见性"
+    },
+    "replayLobby": {
+      "changeReplay": "更换录像",
+      "chooseMapInstead": "改选地图",
+      "duration": "录像 · {{duration}}",
+      "invalidReplayBody": "所选文件可能已损坏，或不是《星际争霸》的录像。",
+      "invalidReplayTitle": "无法读取该录像",
+      "loadFailed": "无法加载房间的录像。",
+      "loading": "正在为所有人加载录像",
+      "readyHint": "观众可以在观看前准备就绪",
+      "replay": "录像",
+      "roomDescription": "所有人观看同一场录像，但各自拥有独立的观战视角。所有人加载完成后开始播放。",
+      "selectReplay": "选择录像",
+      "startWatching": "开始观看",
+      "summaryReplay": "录像",
+      "versus": "vs",
+      "viewersCount_other": "观众 · {{count}}",
+      "watching": "正在观看录像",
+      "watchingTogetherBody": "房间内的每个人都在自己的游戏中观看这场录像，并可独立调整观战视角。所有人加载完成后开始播放，只有房主能控制播放。",
+      "watchingTogetherHeader": "一起观看"
     },
     "room": {
       "banner": {
@@ -2510,7 +2531,8 @@
       "unavailableBody": "暂时无法加载您的录像。重启 ShieldBattery 通常可以解决此问题。",
       "unreadableReplays": "无法读取的录像",
       "viewGamePage": "查看游戏页面",
-      "watchReplay": "观看录像"
+      "watchReplay": "观看录像",
+      "watchWithOthers": "与他人一起观看"
     },
     "loading": {
       "dialogTitle": "正在加载录像……",

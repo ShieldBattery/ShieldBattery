@@ -15,6 +15,7 @@ import {
   LobbyServiceErrorCode,
   LobbySlotRequest,
   MoveSlotRequest,
+  ReportLobbyReplayFrameRequest,
   ReportLobbyReplayLoadedRequest,
   ReportLobbyReplaySeekReachedRequest,
   ReportLobbyReplaySeekRequest,
@@ -712,6 +713,20 @@ export class LobbyApi {
       lobbyId: params.lobbyId,
       seek: { epoch: body.epoch, frame: body.frame },
     })
+  }
+
+  @httpPost('/:lobbyId/replay-frame')
+  @httpBefore(...authedAction)
+  async reportReplayFrame(ctx: RouterContext): Promise<void> {
+    const { params, body } = validateRequest(ctx, {
+      params: lobbyIdParams,
+      body: Joi.object<ReportLobbyReplayFrameRequest>({
+        clientId: clientIdSchema,
+        frame: Joi.number().integer().min(0).max(0xffffffff).required(),
+      }),
+    })
+    const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
+    this.lobbyService.reportReplayFrame({ client, lobbyId: params.lobbyId, frame: body.frame })
   }
 
   @httpGet('/:lobbyId/state')

@@ -121,15 +121,20 @@ unsafe extern "C" fn chat_box_event_handler(
                         // submit, no local echo injection) and fall through to the native `orig`
                         // call below, which closes the box exactly as it does after a real send.
                     } else {
-                        // A live netcode v2 session carries chat over its own relay channel — the
-                        // native battlenet-gateway send is dead under it, and this client's own
-                        // copy renders only via `send_chat_message`'s injected local echo (see its
-                        // doc comment). Clear the box the same way a handled slash command does so
-                        // the dead native send below (and its local ClientSdk loopback echo) never
-                        // fires and never doubles up our own already-injected echo.
-                        let target = chat_target_scope();
-                        if bw.send_chat_message(target, text) {
+                        if crate::replay_session::is_active() {
+                            crate::replay_session::send_chat(text);
                             edit_box.set_string(b"");
+                        } else {
+                            // A live netcode v2 session carries chat over its own relay channel — the
+                            // native battlenet-gateway send is dead under it, and this client's own
+                            // copy renders only via `send_chat_message`'s injected local echo (see its
+                            // doc comment). Clear the box the same way a handled slash command does so
+                            // the dead native send below (and its local ClientSdk loopback echo) never
+                            // fires and never doubles up our own already-injected echo.
+                            let target = chat_target_scope();
+                            if bw.send_chat_message(target, text) {
+                                edit_box.set_string(b"");
+                            }
                         }
                         // No live session: fall through unchanged to the native `orig` call below.
                     }

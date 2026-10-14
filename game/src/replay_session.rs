@@ -10,12 +10,16 @@
 
 use std::borrow::Cow;
 use std::collections::VecDeque;
+use std::ffi::CString;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::time::{Duration, Instant};
 
 use byteorder::{ByteOrder, LittleEndian};
 use parking_lot::Mutex;
 
-use crate::app_messages::{MapInfo, ReplaySessionPlaybackControl, ReplaySessionSeek};
+use crate::app_messages::{
+    MapInfo, ReplaySessionChatLine, ReplaySessionPlaybackControl, ReplaySessionSeek,
+};
 use crate::bw::commands;
 use crate::bw_scr::BwScr;
 use crate::game_thread::{self, GameThreadMessage};
@@ -54,15 +58,32 @@ struct PendingSeek {
     seek: ReplaySessionSeek,
     command_sent: bool,
     command_accepted: bool,
-    ack_sent: bool,
+    last_ack: Option<Instant>,
 }
 
 static SEEK: Mutex<Option<PendingSeek>> = Mutex::new(None);
+static LAST_FRAME_REPORT: Mutex<Option<Instant>> = Mutex::new(None);
+static CHAT: Mutex<VecDeque<ReplaySessionChatLine>> = Mutex::new(VecDeque::new());
+const FRAME_REPORT_INTERVAL: Duration = Duration::from_secs(2);
 
 /// Whether this game is a replay watched in a replay session.
 pub fn is_active() -> bool {
     game_thread::setup_info()
         .is_some_and(|info| matches!(&info.map, MapInfo::Replay(r) if r.session.is_some()))
+}
+
+pub fn send_chat(text: &str) {
+    if is_active() {
+        game_thread::send_game_msg_to_async(GameThreadMessage::ReplaySessionChat {
+            text: text.to_string(),
+        });
+    }
+}
+
+pub fn queue_chat(line: ReplaySessionChatLine) {
+    if is_active() {
+        CHAT.lock().push_back(line);
+    }
 }
 
 /// Takes on the session's latest playback state, which the game thread applies on its next frame.
@@ -84,7 +105,7 @@ pub fn set_playback(control: ReplaySessionPlaybackControl) {
                 seek,
                 command_sent: false,
                 command_accepted: false,
-                ack_sent: false,
+                last_ack: None,
             });
         }
         None => *SEEK.lock() = None,
@@ -177,6 +198,13 @@ pub unsafe fn apply_playback(bw: &BwScr) {
     if !HELD.load(Ordering::Relaxed) {
         return;
     }
+    bw.set_replay_timeline_buttons_visible(CONTROLLER.load(Ordering::Relaxed));
+    let chat = std::mem::take(&mut *CHAT.lock());
+    for line in chat {
+        if let Ok(text) = CString::new(format!("{}: {}", line.from, line.text)) {
+            bw.print_text(&text);
+        }
+    }
     if PENDING.swap(false, Ordering::Acquire) {
         let want_paused = WANT_PAUSED.load(Ordering::Relaxed);
         let speed = WANT_SPEED.load(Ordering::Relaxed);
@@ -191,6 +219,20 @@ pub unsafe fn apply_playback(bw: &BwScr) {
 
     let mut pending = SEEK.lock();
     let Some(seek) = pending.as_mut() else {
+        drop(pending);
+        if STARTED.load(Ordering::Relaxed) {
+            let now = Instant::now();
+            let mut last = LAST_FRAME_REPORT.lock();
+            if last.is_none_or(|at| now.duration_since(at) >= FRAME_REPORT_INTERVAL)
+                && let Some(frame) = unsafe { bw.rollback_frame_count() }
+            {
+                *last = Some(now);
+                drop(last);
+                game_thread::send_game_msg_to_async(GameThreadMessage::ReplaySessionFrame {
+                    frame,
+                });
+            }
+        }
         return;
     };
     if !seek.command_sent {
@@ -216,11 +258,16 @@ pub unsafe fn apply_playback(bw: &BwScr) {
         unsafe { bw.send_replay_seek(frame) };
         return;
     }
-    if seek.command_accepted && !seek.ack_sent {
+    if seek.command_accepted {
         let frame = seek.seek.frame;
-        if unsafe { bw.rollback_frame_count() } == Some(frame) {
+        let now = Instant::now();
+        if unsafe { bw.rollback_frame_count() } == Some(frame)
+            && seek
+                .last_ack
+                .is_none_or(|at| now.duration_since(at) >= FRAME_REPORT_INTERVAL)
+        {
             let epoch = seek.seek.epoch;
-            seek.ack_sent = true;
+            seek.last_ack = Some(now);
             drop(pending);
             game_thread::send_game_msg_to_async(GameThreadMessage::ReplaySessionSeekReached {
                 epoch,

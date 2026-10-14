@@ -43,23 +43,21 @@ staged files still referenced by a lobby.
 The Electron app launches the normal replay player with a session marker. The injected DLL pauses
 on the first logic frame and reports readiness. The lobby start event releases all viewers. The
 host's native replay commands are reported through the app to the lobby service, which broadcasts
-playback state. Followers discard direct timeline commands. Session commands stay local to replay
-playback and do not enter the recorded replay stream. A host transfer pauses playback and assigns
-control to the new host.
+playback state. Followers discard direct timeline commands, and their pause and speed button
+positions are empty. Session commands stay local to replay playback and do not enter the recorded
+replay stream. A host transfer pauses playback and assigns control to the new host. Messages typed
+in the game's chat box use the lobby chat channel; lobby messages appear in the game's text log.
 
 Seeking uses a coordinated epoch: the host's native seek request pauses all viewers, sends a
 target frame, and waits for each game to acknowledge the frame after its local seek. Backward
 seeks use the same barrier. The lobby then restores the speed and pause state from before the
 seek. A reconnect receives the current target and epoch in the lobby initialization event.
-Periodic frame reports should detect drift and correct it without changing recorded commands.
+The DLL retries its frame acknowledgment while a seek remains active. Periodic frame reports from
+every viewer let the server detect drift and correct it with the same coordinated seek barrier.
 Camera and vision changes remain local.
 
 ## Remaining implementation checkpoints
 
-1. Verify pause and speed propagation in two real Electron clients, including host transfer and
-   follower input rejection.
-2. Add periodic frame reports and drift correction; verify reconnect during a seek.
-3. Hide follower timeline buttons while keeping their positions empty. Route session chat through
-   the in-game chat UI and the lobby chat channel.
-4. Translate new UI strings and verify local and hosted sources, access control, load failure,
-   replay closure, and both x64 and x86 DLLs before review.
+1. Verify physical input through the game's chat box.
+2. Verify a ShieldBattery game replay source, unlisted-game access control, and replay load failure
+   in real clients. Source resolution, access, and load failure have server unit coverage.

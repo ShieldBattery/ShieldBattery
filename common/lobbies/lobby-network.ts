@@ -193,6 +193,10 @@ export interface ReportLobbyReplaySeekRequest extends LobbyClientRequest {
 export interface ReportLobbyReplaySeekReachedRequest
   extends LobbyClientRequest, ReplaySessionSeek {}
 
+export interface ReportLobbyReplayFrameRequest extends LobbyClientRequest {
+  frame: number
+}
+
 export interface StartLobbyCountdownRequest extends LobbyClientRequest {
   /**
    * When set, the countdown begins even though some of the lobby's seated members have not marked

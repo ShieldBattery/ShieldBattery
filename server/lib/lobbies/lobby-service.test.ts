@@ -4673,6 +4673,26 @@ describe('lobbies/lobby-service', () => {
       ])
     })
 
+    test('corrects a viewer whose reported frame has diverged from the host', async () => {
+      const { id } = await createReplayLobby()
+      await joinLobby(joiner, id)
+      await startReplayLoad()
+      lobbyService.reportReplayLoaded({ client: host.client, lobbyId: id, hash: REPLAY_HASH })
+      lobbyService.reportReplayLoaded({ client: joiner.client, lobbyId: id, hash: REPLAY_HASH })
+
+      lobbyService.reportReplayFrame({ client: host.client, lobbyId: id, frame: 1000 })
+      lobbyService.reportReplayFrame({ client: joiner.client, lobbyId: id, frame: 1020 })
+      expect(lobbyPublishes(id).filter(e => e.type === 'replaySeek')).toEqual([])
+
+      lobbyService.reportReplayFrame({ client: joiner.client, lobbyId: id, frame: 1200 })
+      expect(lobbyPublishes(id)).toContainEqual({
+        type: 'replaySeek',
+        seek: { epoch: 1, frame: 1000 },
+      })
+      lobbyService.reportReplayFrame({ client: joiner.client, lobbyId: id, frame: 1400 })
+      expect(lobbyPublishes(id).filter(e => e.type === 'replaySeek')).toHaveLength(1)
+    })
+
     test('hands members a download of the replay, checked for each of them', async () => {
       const { id } = await createReplayLobby()
       await joinLobby(joiner, id)

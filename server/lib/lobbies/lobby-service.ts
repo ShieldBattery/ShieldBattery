@@ -234,6 +234,11 @@ interface ReplaySeekState {
   resumeSpeed: ReplaySessionSpeed
 }
 
+interface ReplayFrameReport {
+  frame: number
+  at: number
+}
+
 /** Converts a replay that can't be resolved for a user into the matching lobby error. */
 function toLobbyReplayError(err: unknown): unknown {
   if (!(err instanceof ReplaySessionSourceAccessError)) {
@@ -519,6 +524,7 @@ export class LobbyService {
   private readonly replaySpeeds = new Map<SbLobbyId, ReplaySessionSpeed>()
   private readonly replaySeeks = new Map<SbLobbyId, ReplaySeekState>()
   private readonly replaySeekEpochs = new Map<SbLobbyId, number>()
+  private readonly replayFrames = new Map<SbLobbyId, Map<SbUserId, ReplayFrameReport>>()
   /** A lobby's normalized join code, keyed by lobby id. Populated at create, gone once it closes. */
   private readonly lobbyJoinCodes = new Map<SbLobbyId, string>()
   /** The inverse of {@link lobbyJoinCodes}, for resolving a typed-in code back to its lobby. */
@@ -2745,6 +2751,7 @@ export class LobbyService {
     }
 
     this.replaySpeeds.set(lobby.id, speed)
+    this.replayFrames.delete(lobby.id)
     this._publishTo(lobby, { type: 'replaySpeed', speed })
   }
 
@@ -2776,6 +2783,58 @@ export class LobbyService {
       )
     }
 
+    this._beginReplaySeek(lobby, runState, frame)
+  }
+
+  /** Uses the host's recent frame as a correction target when a viewer has fallen behind or ahead. */
+  reportReplayFrame({
+    client,
+    lobbyId,
+    frame,
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+    frame: number
+  }): void {
+    const lobby = this.getLobbyForClient(client, lobbyId)
+    const runState = this.runStates.get(lobby.id)
+    if (!runState?.isReplay || !runState.inGameUsers.has(client.userId)) {
+      throw new LobbyServiceError(LobbyServiceErrorCode.ReplayNotLoading, 'not watching a replay')
+    }
+    if (this.replaySeeks.has(lobby.id) || !Number.isInteger(frame) || frame < 0) {
+      return
+    }
+
+    const reports = this.replayFrames.get(lobby.id) ?? new Map<SbUserId, ReplayFrameReport>()
+    this.replayFrames.set(lobby.id, reports)
+    reports.set(client.userId, { frame, at: this.clock.now() })
+    const hostId = lobby.host.userId
+    if (hostId === undefined) {
+      return
+    }
+    const host = reports.get(hostId)
+    if (!host || host.frame >= lobby.replay!.source.metadata.durationFrames) {
+      return
+    }
+    for (const [userId, report] of reports) {
+      if (userId === hostId || !runState.inGameUsers.has(userId)) {
+        continue
+      }
+      const elapsed = Math.abs(host.at - report.at)
+      if (elapsed > 1000) {
+        continue
+      }
+      const multiplier = this.replaySpeeds.get(lobby.id)?.multiplier ?? 1
+      const toleratedFrames = 48 + Math.ceil((elapsed * 24 * multiplier) / 1000)
+      if (Math.abs(host.frame - report.frame) > toleratedFrames) {
+        this._beginReplaySeek(lobby, runState, host.frame)
+        return
+      }
+    }
+  }
+
+  private _beginReplaySeek(lobby: Lobby, runState: LobbyRunState, frame: number): void {
+    this.replayFrames.delete(lobby.id)
     const previous = this.replaySeeks.get(lobby.id)
     const resumeSpeed = previous?.resumeSpeed ?? this.replaySpeeds.get(lobby.id)!
     const epoch = (this.replaySeekEpochs.get(lobby.id) ?? 0) + 1
@@ -2970,6 +3029,7 @@ export class LobbyService {
     }
 
     runState.inGameUsers.delete(userId)
+    this.replayFrames.get(lobbyId)?.delete(userId)
     const replaySeek = this.replaySeeks.get(lobbyId)
     if (replaySeek) {
       if (lobby.host.userId === userId) {
@@ -3182,6 +3242,7 @@ export class LobbyService {
     this.replaySpeeds.delete(lobbyId)
     this.replaySeeks.delete(lobbyId)
     this.replaySeekEpochs.delete(lobbyId)
+    this.replayFrames.delete(lobbyId)
   }
 
   /**
@@ -3423,6 +3484,7 @@ export class LobbyService {
       }
     }
     if (newLobby.host.id !== oldLobby.host.id || hostUserChanged) {
+      this.replayFrames.delete(oldLobby.id)
       diffEvents.push({
         type: 'hostChange',
         host: newLobby.host,

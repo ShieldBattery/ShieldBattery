@@ -858,6 +858,16 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
         seek,
       )
     })
+    .on('replaySessionFrame', (gameId, frame) => {
+      TypedIpcSender.from(mainWindow?.webContents).send(
+        'activeGameReplaySessionFrame',
+        gameId,
+        frame,
+      )
+    })
+    .on('replaySessionChat', (gameId, text) => {
+      TypedIpcSender.from(mainWindow?.webContents).send('activeGameReplaySessionChat', gameId, text)
+    })
     .on('resendReplay', request => {
       // Pass to renderer process since its network stack is more reliable
       TypedIpcSender.from(mainWindow?.webContents).send('activeGameResendReplay', request)
@@ -898,6 +908,9 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
   )
   ipcMain.handle('activeGameSetReplaySessionPlayback', (event, gameId, playback) =>
     activeGameManager.setReplaySessionPlayback(gameId, playback),
+  )
+  ipcMain.handle('activeGameShowReplaySessionChat', (event, gameId, from, text) =>
+    activeGameManager.showReplaySessionChat(gameId, from, text),
   )
   if (isDev) {
     // Dev-only handlers: a release game build doesn't implement the underlying commands anyway,

@@ -154,6 +154,8 @@ export type ActiveGameManagerEvents = {
   replaySessionSpeed: [gameId: string, speed: ReplaySessionSpeed]
   replaySessionSeek: [gameId: string, frame: number]
   replaySessionSeekReached: [gameId: string, seek: ReplaySessionSeek]
+  replaySessionFrame: [gameId: string, frame: number]
+  replaySessionChat: [gameId: string, text: string]
   resendReplay: [request: ResendReplayRequest]
   setUserBlocked: [gameId: string, userId: SbUserId, blocked: boolean]
 }
@@ -652,6 +654,12 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     this.emit('gameCommand', gameId, 'replaySessionPlayback', playback)
   }
 
+  showReplaySessionChat(gameId: string, from: string, text: string): void {
+    if (this.activeGame?.id === gameId) {
+      this.emit('gameCommand', gameId, 'replaySessionChat', { from, text })
+    }
+  }
+
   /** Notes that a replay session game is holding its replay paused at the start. */
   handleReplaySessionReady(gameId: string): void {
     if (!this.activeGame || this.activeGame.id !== gameId) {
@@ -678,6 +686,18 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
   handleReplaySessionSeekReached(gameId: string, seek: ReplaySessionSeek): void {
     if (this.activeGame?.id === gameId) {
       this.emit('replaySessionSeekReached', gameId, seek)
+    }
+  }
+
+  handleReplaySessionFrame(gameId: string, frame: number): void {
+    if (this.activeGame?.id === gameId) {
+      this.emit('replaySessionFrame', gameId, frame)
+    }
+  }
+
+  handleReplaySessionChat(gameId: string, text: string): void {
+    if (this.activeGame?.id === gameId) {
+      this.emit('replaySessionChat', gameId, text)
     }
   }
 

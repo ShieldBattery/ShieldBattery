@@ -134,6 +134,12 @@ export class GameServer {
       case '/game/replaySessionSeekReached':
         this.activeGameManager.handleReplaySessionSeekReached(gameId, payload)
         break
+      case '/game/replaySessionFrame':
+        this.activeGameManager.handleReplaySessionFrame(gameId, payload.frame)
+        break
+      case '/game/replaySessionChat':
+        this.activeGameManager.handleReplaySessionChat(gameId, payload.text)
+        break
       case '/game/replayUploaded':
         this.activeGameManager.handleReplayUploaded(gameId)
         break

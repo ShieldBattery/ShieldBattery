@@ -112,6 +112,7 @@ pub enum GameStateMessage {
     /// can change while it runs.
     SetBlockedUsers(Vec<SbUserId>),
     SetReplaySessionPlayback(ReplaySessionPlaybackControl),
+    ShowReplaySessionChat(crate::app_messages::ReplaySessionChatLine),
     /// The app couldn't save a block or unblock made with an in-game chat command.
     BlockRequestFailed(BlockRequestFailed),
     SetServerConfig(ServerConfig),
@@ -883,6 +884,9 @@ impl GameState {
             SetReplaySessionPlayback(control) => {
                 crate::replay_session::set_playback(control);
             }
+            ShowReplaySessionChat(line) => {
+                crate::replay_session::queue_chat(line);
+            }
             BlockRequestFailed(failure) => {
                 get_bw().block_request_failed(&failure);
             }
@@ -1003,21 +1007,27 @@ impl GameState {
                         // receive. No reply.
                     }
                     DebugControlCommand::SendChat { text, target } => {
-                        use crate::debug_control::DebugChatTarget;
-                        let target = match target {
-                            DebugChatTarget::All => netcode_v2::ChatTarget::All,
-                            DebugChatTarget::Allies => netcode_v2::ChatTarget::Allies,
-                            DebugChatTarget::Observers => netcode_v2::ChatTarget::Observers,
-                            DebugChatTarget::Player { slot } => {
-                                netcode_v2::ChatTarget::Players(netcode_v2::SlotMask::single(
-                                    rally_point_client::proto::ids::SlotId(slot),
-                                ))
-                            }
-                        };
-                        crate::netcode_v2::with_turn_state(|s| s.debug_queue_chat(target, text));
-                        // Fire-and-forget: sent + locally echoed on the game thread's next receive
-                        // (see `bw_scr::apply_debug_chat`), through the same path the in-game chat
-                        // box's own send tap uses. No reply.
+                        if crate::replay_session::is_active() {
+                            crate::replay_session::send_chat(&text);
+                        } else {
+                            use crate::debug_control::DebugChatTarget;
+                            let target = match target {
+                                DebugChatTarget::All => netcode_v2::ChatTarget::All,
+                                DebugChatTarget::Allies => netcode_v2::ChatTarget::Allies,
+                                DebugChatTarget::Observers => netcode_v2::ChatTarget::Observers,
+                                DebugChatTarget::Player { slot } => {
+                                    netcode_v2::ChatTarget::Players(netcode_v2::SlotMask::single(
+                                        rally_point_client::proto::ids::SlotId(slot),
+                                    ))
+                                }
+                            };
+                            crate::netcode_v2::with_turn_state(|s| {
+                                s.debug_queue_chat(target, text)
+                            });
+                            // Fire-and-forget: sent + locally echoed on the game thread's next receive
+                            // (see `bw_scr::apply_debug_chat`), through the same path the in-game chat
+                            // box's own send tap uses. No reply.
+                        }
                     }
                     DebugControlCommand::RequestDrop { slot } => {
                         crate::netcode_v2::with_turn_state(|s| {
@@ -1161,7 +1171,9 @@ impl GameState {
             ReplaySessionReady
             | ReplaySessionSpeed { .. }
             | ReplaySessionSeek { .. }
-            | ReplaySessionSeekReached { .. } => (),
+            | ReplaySessionSeekReached { .. }
+            | ReplaySessionFrame { .. }
+            | ReplaySessionChat { .. } => (),
             SetUserBlocked { .. } => (),
             MinimapSettings {
                 color_mode,

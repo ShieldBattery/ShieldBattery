@@ -1784,6 +1784,7 @@
       "defaultLobbyName": "Lobby de {{name}}",
       "defaultLobbyNameFallback": "Mi lobby",
       "defaultLobbyNameFromMap": "{{mapName}} {{gameType}}",
+      "defaultLobbyNameFromReplay": "Replay de {{mapName}}",
       "summaryObserversOff": "Sin observadores",
       "summaryObserversOn": "Con observadores",
       "summarySlots_one": "{{count}} espacio",
@@ -1889,6 +1890,28 @@
       "settingsChangeObservers": "observadores",
       "settingsChangeUnitLimit": "límite de unidades",
       "settingsChangeVisibility": "visibilidad"
+    },
+    "replayLobby": {
+      "changeReplay": "Cambiar replay",
+      "chooseMapInstead": "Elegir un mapa en su lugar",
+      "duration": "{{duration}} de replay",
+      "invalidReplayBody": "El archivo seleccionado puede estar dañado o no ser un replay de StarCraft.",
+      "invalidReplayTitle": "No se pudo leer el replay",
+      "loadFailed": "No se pudo cargar el replay del lobby.",
+      "loading": "Cargando el replay para todos",
+      "readyHint": "Los espectadores pueden marcarse como listos antes de verlo",
+      "replay": "Replay",
+      "roomDescription": "Todos ven el mismo replay, cada uno con su propia vista de observador. La reproducción empieza cuando todos lo han cargado.",
+      "selectReplay": "Seleccionar replay",
+      "startWatching": "Empezar a ver",
+      "summaryReplay": "Replay",
+      "versus": "vs",
+      "viewersCount_one": "Espectador · {{count}}",
+      "viewersCount_many": "Espectadores · {{count}}",
+      "viewersCount_other": "Espectadores · {{count}}",
+      "watching": "Viendo el replay",
+      "watchingTogetherBody": "Todos los miembros del lobby ven este replay en su propia partida, con su propia vista de observador. La reproducción empieza cuando todos lo han cargado, y solo el anfitrión controla la reproducción.",
+      "watchingTogetherHeader": "Ver juntos"
     },
     "room": {
       "banner": {
@@ -2590,7 +2613,8 @@
       "unavailableBody": "No se pudieron cargar tus replays en este momento. Reiniciar ShieldBattery suele solucionarlo.",
       "unreadableReplays": "Replays ilegibles",
       "viewGamePage": "Ver página de la partida",
-      "watchReplay": "Ver replay"
+      "watchReplay": "Ver replay",
+      "watchWithOthers": "Ver con otros"
     },
     "loading": {
       "dialogTitle": "Cargando replay…",

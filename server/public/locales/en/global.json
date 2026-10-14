@@ -1883,7 +1883,7 @@
       "viewersCount_one": "Viewers · {{count}}",
       "viewersCount_other": "Viewers · {{count}}",
       "watching": "Watching replay",
-      "watchingTogetherBody": "Everyone in the lobby watches this replay in their own game, with their own observer view. Playback starts once everyone has loaded it, and only the host controls pausing and speed.",
+      "watchingTogetherBody": "Everyone in the lobby watches this replay in their own game, with their own observer view. Playback starts once everyone has loaded it, and only the host controls playback.",
       "watchingTogetherHeader": "Watching together"
     },
     "room": {

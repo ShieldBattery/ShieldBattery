@@ -209,6 +209,7 @@ interface IpcInvokeables {
     gameId: string,
     playback: ReplaySessionPlaybackControl,
   ) => void
+  activeGameShowReplaySessionChat: (gameId: string, from: string, text: string) => void
 
   bugReportCollectFiles: () => Promise<Uint8Array<ArrayBuffer>>
 
@@ -447,6 +448,8 @@ interface IpcMainSendables {
   activeGameReplaySessionSpeed: (gameId: string, speed: ReplaySessionSpeed) => void
   activeGameReplaySessionSeek: (gameId: string, frame: number) => void
   activeGameReplaySessionSeekReached: (gameId: string, seek: ReplaySessionSeek) => void
+  activeGameReplaySessionFrame: (gameId: string, frame: number) => void
+  activeGameReplaySessionChat: (gameId: string, text: string) => void
   activeGameReplaySaved: (gameId: string, replayPath: string) => void
   activeGameResult: (data: {
     gameId: string
