@@ -1748,11 +1748,6 @@ impl Shell {
         true
     }
 
-    /// Whether the panel hotkeys are the shell's to consume right now.
-    ///
-    /// Spectating only, and never while something else owns the keyboard: a capturing modal of ours,
-    /// one of BW's own dialogs, or the chat box the player is typing into. A modal that takes no
-    /// input takes no hotkeys either — a passing stall notice must cost an observer nothing.
     /// Selects the group on `digit` of the player whose keys the control groups row shows, the way
     /// that player pressing it would. A digit with nothing on it, or nobody's keys to read, stays
     /// the game's, which recalls the watcher's own groups with it.
@@ -1778,6 +1773,11 @@ impl Shell {
             && self.top_modal().is_none_or(ModalId::is_dismissible)
     }
 
+    /// Whether the panel hotkeys are the shell's to consume right now.
+    ///
+    /// Spectating only, and never while something else owns the keyboard: a capturing modal of ours,
+    /// one of BW's own dialogs, or the chat box the player is typing into. A modal that takes no
+    /// input takes no hotkeys either — a passing stall notice must cost an observer nothing.
     fn hotkeys_active(&self) -> bool {
         self.host.game_started
             && self.host.mode.is_spectating()

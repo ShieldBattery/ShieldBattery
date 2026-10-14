@@ -32,8 +32,8 @@ use crate::colors::{BLUE80, GREY_BLUE10};
 use crate::kit::text;
 use crate::kit::{motion, theme, tiers};
 use crate::observer::{
-    EdgeCursor, ProductionIcon, StackSlot, centred, fit_icon, paint_outlined_icon,
-    paint_player_bar, paint_text, unit_codes, vision_alpha,
+    EdgeCursor, ProductionIcon, StackSlot, centred, fit_icon, owner_tint, paint_owner_wash,
+    paint_player_bar, paint_text, paint_tinted_icon, unit_codes, vision_alpha,
 };
 
 /// How wide the panel is, in overlay points.
@@ -58,7 +58,7 @@ const BAR_GAP: f32 = 9.0;
 /// it does in the game's table: a watcher looking for a group is looking along the number row.
 const GROUP_KEYS: [u8; 10] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0];
 
-/// Size of one slot, which is three lines tall: the digit, what the group is, and how many.
+/// Size of one slot: the digit over what the group is, with how many tucked into its corner.
 const TILE_WIDTH: f32 = 56.0;
 const TILE_HEIGHT: f32 = 46.0;
 
@@ -100,23 +100,27 @@ const _: () = assert!(
         == CONTENT_WIDTH
 );
 
-/// Height of each of a slot's three lines: the digit it answers to, what the group is, and how many
-/// units are on it.
+/// Height of a slot's two lines: the digit it answers to, and what the group is.
 const KEY_ROW: f32 = 11.0;
-const SUBJECT_ROW: f32 = 20.0;
-const COUNT_ROW: f32 = 13.0;
+const SUBJECT_ROW: f32 = 34.0;
 
-/// Gap between two of those lines. A hairline, because the three of them are one reading rather
-/// than three: what tells them apart is their weight and their color.
+/// Gap between those lines.
 const ROW_LEAD: f32 = 1.0;
 
 /// A slot's lines are the slot: checked here, because a line more than fits would be drawn over the
 /// slot's own chrome.
-const _: () = assert!(KEY_ROW + ROW_LEAD + SUBJECT_ROW + ROW_LEAD + COUNT_ROW == TILE_HEIGHT);
+const _: () = assert!(KEY_ROW + ROW_LEAD + SUBJECT_ROW == TILE_HEIGHT);
 
-/// Side of the icon on a slot, and of the two a group of two kinds is drawn with.
-const ICON: f32 = 20.0;
-const COMBO_ICON: f32 = 16.0;
+/// Side of the icon on a slot, and of the two a group of two kinds is drawn with. As big as the
+/// subject line holds: the game's icons are detailed renders that turn to smudges any smaller.
+const ICON: f32 = 32.0;
+const COMBO_ICON: f32 = 22.0;
+
+/// The two icons of a group of two kinds fit the narrowest slot.
+const _: () = assert!(COMBO_ICON * 2.0 + COMBO_ICON_GAP <= MIN_TILE_WIDTH);
+
+/// How far the count stands in from the corner of the subject line it is tucked into.
+const COUNT_INSET: f32 = 3.0;
 
 /// Gap between the two icons of a group of two kinds.
 const COMBO_ICON_GAP: f32 = 2.0;
@@ -308,15 +312,20 @@ fn draw_slot(
     let Some(group) = group else {
         return;
     };
-    paint_subject(ui, line(SUBJECT_ROW), group, owner, alpha);
+    paint_owner_wash(ui.painter(), rect, owner, alpha);
+    let subject = line(SUBJECT_ROW);
+    paint_subject(ui, subject, group, owner, alpha);
     if !group.building {
-        paint_text(
-            ui,
-            line(COUNT_ROW),
-            &text::body(COUNT_TEXT_SIZE, text::BodyWeight::Semibold)
-                .with_color(theme::TEXT_PRIMARY.gamma_multiply(alpha)),
-            &group.count.to_string(),
-            Align::Center,
+        // Tucked into the corner the way the production tiles count, so the icon has the slot.
+        let count = text::body(COUNT_TEXT_SIZE, text::BodyWeight::Semibold);
+        let galley = count.galley(ui, &group.count.to_string());
+        ui.painter().galley(
+            pos2(
+                subject.right() - COUNT_INSET - galley.size().x,
+                subject.bottom() - COUNT_INSET - galley.size().y,
+            ),
+            galley,
+            theme::TEXT_PRIMARY.gamma_multiply(alpha),
         );
     }
 }
@@ -333,8 +342,8 @@ fn paint_key(ui: &Ui, rect: Rect, key: u8, alpha: f32) {
     );
 }
 
-/// Draws what a group is: the game's own icons, outlined in its `owner`'s color, where the host
-/// has them, and the units' codes where it has not.
+/// Draws what a group is: the game's own icons, in its `owner`'s color, where the host has them,
+/// and the units' codes where it has not.
 fn paint_subject(ui: &Ui, rect: Rect, group: &ControlGroupView, owner: Color32, alpha: f32) {
     let combo = group.combo;
     match (group.icon.texture, combo.and_then(|icon| icon.texture)) {
@@ -386,7 +395,7 @@ fn paint_subject(ui: &Ui, rect: Rect, group: &ControlGroupView, owner: Color32, 
     }
 }
 
-/// Draws one of the game's own icons, outlined in its `owner`'s color.
+/// Draws one of the game's own icons, in its `owner`'s color.
 fn paint_icon(
     ui: &Ui,
     rect: Rect,
@@ -395,12 +404,11 @@ fn paint_icon(
     owner: Color32,
     alpha: f32,
 ) {
-    paint_outlined_icon(
+    paint_tinted_icon(
         ui.painter(),
         texture,
         fit_icon(rect, size),
-        owner,
-        Color32::WHITE,
+        owner_tint(owner),
         alpha,
     );
 }

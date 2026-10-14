@@ -31,8 +31,8 @@ use crate::colors::{BLUE80, GREY_BLUE20, GREY_BLUE30, GREY_BLUE60};
 use crate::kit::text::{self, BodyWeight};
 use crate::kit::{motion, theme, tiers, widgets};
 use crate::observer::{
-    StackSlot, centred, fit_icon, paint_outlined_icon, paint_player_bar, paint_text,
-    paint_tile_chrome, unit_codes,
+    StackSlot, centred, fit_icon, owner_tint, paint_owner_wash, paint_player_bar, paint_text,
+    paint_tile_chrome, paint_tinted_icon, unit_codes,
 };
 use crate::tr;
 
@@ -455,22 +455,22 @@ fn draw_chip_hint(ui: &Ui, pointer: Pos2, chip: &CompletedResearchView) {
     });
 }
 
-/// Draws one tile: what is being made, outlined in its `owner`'s color, how many of it, and how
-/// far along it is.
+/// Draws one tile: what is being made, in its `owner`'s color, how many of it, and how far along
+/// it is.
 fn draw_tile(ui: &Ui, rect: Rect, item: &ProductionItemView, owner: Color32, hovered: bool) {
     paint_tile_chrome(ui, rect, hovered);
+    paint_owner_wash(ui.painter(), rect, owner, 1.0);
     let icon_rect = rect.shrink(theme::HAIRLINE);
     match item.icon.texture {
         Some(texture) => {
-            paint_outlined_icon(
+            paint_tinted_icon(
                 ui.painter(),
                 texture,
                 fit_icon(icon_rect, item.icon.size),
-                owner,
                 if hovered {
                     theme::ACCENT
                 } else {
-                    Color32::WHITE
+                    owner_tint(owner)
                 },
                 1.0,
             );

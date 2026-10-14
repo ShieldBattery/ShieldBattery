@@ -221,46 +221,51 @@ pub(crate) fn paint_player_dot(ui: &Ui, rect: Rect, color: Color32, diameter: f3
         .circle_filled(rect.center(), diameter * 0.5, color);
 }
 
-/// Paints the bar of a player's own color that marks which side of a panel is theirs.
-/// How far out a unit's icon is outlined in its owner's color.
-const OWNER_OUTLINE: f32 = 1.0;
+/// How far an owner's color is lifted toward white before a unit's icon is tinted with it.
+const OWNER_TINT_LIFT: f32 = 0.35;
 
-/// Draws one of the game's own icons from `texture` into `rect`, in `fill`, outlined in `owner`:
-/// the icon's own silhouette stamped around it in the owner's color, then the icon over it.
+/// How strongly a tile showing a unit is washed in its owner's color.
+const OWNER_WASH_ALPHA: f32 = 0.14;
+
+/// The color a unit's icon is tinted with for `owner`: their color brought up to full brightness
+/// and lifted toward white.
 ///
-/// An outline rather than a tint, because the game's icons are white line art with nothing in them
-/// for a color to fill, and a white icon tinted toward a dark color (a deep blue) is lost against a
-/// dark panel. Around a white icon even a dark color reads as a color.
-pub(crate) fn paint_outlined_icon(
+/// The game's icons are grey renders (white line art in SD) that a tint can only darken, so a deep
+/// player color (a navy blue, a dark red) multiplied in as it is would sink the icon into the
+/// panel. At full brightness the icon's highlights keep their strength and take the color.
+pub(crate) fn owner_tint(owner: Color32) -> Color32 {
+    let [r, g, b, _] = owner.to_array();
+    let peak = r.max(g).max(b).max(1) as f32;
+    let channel = |value: u8| {
+        let full = value as f32 * 255.0 / peak;
+        (full + (255.0 - full) * OWNER_TINT_LIFT).round() as u8
+    };
+    Color32::from_rgb(channel(r), channel(g), channel(b))
+}
+
+/// Draws one of the game's own icons from `texture` into `rect`, tinted with `tint`.
+pub(crate) fn paint_tinted_icon(
     painter: &egui::Painter,
     texture: egui::TextureId,
     rect: Rect,
-    owner: Color32,
-    fill: Color32,
+    tint: Color32,
     alpha: f32,
 ) {
     let uv = Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0));
-    let outline = owner.gamma_multiply(alpha);
-    for (x, y) in [
-        (-1.0, -1.0),
-        (0.0, -1.0),
-        (1.0, -1.0),
-        (-1.0, 0.0),
-        (1.0, 0.0),
-        (-1.0, 1.0),
-        (0.0, 1.0),
-        (1.0, 1.0),
-    ] {
-        painter.image(
-            texture,
-            rect.translate(vec2(x, y) * OWNER_OUTLINE),
-            uv,
-            outline,
-        );
-    }
-    painter.image(texture, rect, uv, fill.gamma_multiply(alpha));
+    painter.image(texture, rect, uv, tint.gamma_multiply(alpha));
 }
 
+/// Washes a tile showing one of `owner`'s units in their color, under the icon: what says whose
+/// it is at a glance, and a ground the icon's dark parts stand out from.
+pub(crate) fn paint_owner_wash(painter: &egui::Painter, rect: Rect, owner: Color32, alpha: f32) {
+    painter.rect_filled(
+        rect,
+        theme::radius(theme::RADIUS_CHIP),
+        owner.gamma_multiply(OWNER_WASH_ALPHA * alpha),
+    );
+}
+
+/// Paints the bar of a player's own color that marks which side of a panel is theirs.
 pub(crate) fn paint_player_bar(ui: &Ui, rect: Rect, color: Color32, alpha: f32) {
     ui.painter().rect_filled(
         rect,

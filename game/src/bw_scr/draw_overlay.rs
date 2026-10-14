@@ -115,6 +115,16 @@ pub struct OverlayState {
     pending_look_at: Option<PendingLookAt>,
     /// The last number-key group recalled, and when, so a second press can center on it.
     last_group_recall: Option<(u8, u8, Instant)>,
+    /// The scan codes of the keys held down whose press the shell took. The rest of each keystroke
+    /// (its character and its release) is kept from the game too: SC:R acts on some keys from their
+    /// character, so a number key recalls the game's own group on top of the one the shell
+    /// selected unless the character is swallowed with the press.
+    shell_held_keys: Vec<u16>,
+}
+
+/// Which physical key a key or character message is about, extended keys apart from the rest.
+fn message_scan_code(lparam: isize) -> u16 {
+    ((lparam >> 16) & 0x1ff) as u16
 }
 
 /// A look at a place that waits for a seek to land: centered before it, the view would be moved
@@ -409,6 +419,7 @@ impl OverlayState {
             last_requested_seek: None,
             pending_look_at: None,
             last_group_recall: None,
+            shell_held_keys: Vec::new(),
             chat_history: None,
         }
     }
@@ -1404,6 +1415,24 @@ impl OverlayState {
                     // key that opens a window's menu bar.
                     modifiers.alt |= is_syskey && vkey != VK_F10;
                     let key = vkey_to_egui_key(vkey);
+                    let scan_code = message_scan_code(lparam);
+                    if !pressed {
+                        if let Some(index) = self
+                            .shell_held_keys
+                            .iter()
+                            .position(|&held| held == scan_code)
+                        {
+                            self.shell_held_keys.swap_remove(index);
+                            return Some(0);
+                        }
+                    } else if self.shell_held_keys.contains(&scan_code) {
+                        // A held key repeating: the shell took the press, so the repeats are its
+                        // too, whatever it does with them.
+                        if let Some(key) = key {
+                            self.shell.key_pressed(key, modifiers);
+                        }
+                        return Some(0);
+                    }
                     if let Some(key) = key {
                         // The menu and quit keys are the shell's whatever has the keyboard, and so is
                         // every key while the leave question is up (its Q answers it): they type
@@ -1415,6 +1444,7 @@ impl OverlayState {
                                 || self.shell.top_modal() == Some(ModalId::LeaveGame))
                             && self.shell.key_pressed(key, modifiers)
                         {
+                            self.shell_held_keys.push(scan_code);
                             return Some(0);
                         }
                         if !is_syskey && self.ctx.egui_wants_keyboard_input() {
@@ -1435,6 +1465,7 @@ impl OverlayState {
                         // Nothing focused wanted the key, so the shell gets its turn at it before
                         // the game does. It takes only what it can act on.
                         if pressed && self.shell.key_pressed(key, modifiers) {
+                            self.shell_held_keys.push(scan_code);
                             return Some(0);
                         }
                     }
@@ -1442,6 +1473,11 @@ impl OverlayState {
                         return Some(0);
                     }
                     None
+                }
+                WM_CHAR | WM_SYSCHAR
+                    if self.shell_held_keys.contains(&message_scan_code(lparam)) =>
+                {
+                    Some(0)
                 }
                 WM_CHAR => {
                     if !self.ctx.egui_wants_keyboard_input() {

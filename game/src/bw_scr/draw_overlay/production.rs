@@ -506,12 +506,31 @@ fn production_name(production: Production, bw: &BwVars) -> Option<String> {
     }
 }
 
+/// The units whose frame in the command-icon atlas is a placeholder reading "BLANK", the same in
+/// every graphics mode: turrets, heroes, and units no button ever makes. A panel names these by
+/// their unit code instead.
+const BLANK_UNIT_ICONS: [u16; 47] = [
+    4, 6, 18, 24, 26, 27, 31, 87, 97, 98, 102, 105, 119, 153, 158, 161, 179, 180, 181, 182, 183,
+    184, 185, 186, 187, 191, 192, 193, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 213, 220,
+    221, 222, 223, 224, 225, 226, 227,
+];
+
 /// Which frame of the game's own command-icon atlas stands for a production, and the texture id the
 /// renderer has that frame under, along with the frame's pixel size so a panel can draw it at its
 /// own proportions.
 fn production_icon(production: Production, bw: &BwVars) -> ProductionIcon {
     let is_hd = bw.is_hd;
     let frame = match production {
+        // An egg about to hatch a lurker is shown as the lurker, as nothing else in the atlas says
+        // what it is.
+        Production::Unit(bw_dat::unit::LURKER_EGG) => bw_dat::unit::LURKER.0,
+        Production::Unit(id) if BLANK_UNIT_ICONS.contains(&id.0) => {
+            return ProductionIcon {
+                texture: None,
+                index: id.0,
+                size: None,
+            };
+        }
         Production::Unit(id) => {
             // SD cmdicons have lair and hive icons swapped.
             if !is_hd && id == bw_dat::unit::LAIR {
