@@ -375,8 +375,9 @@ pub fn scrub_track_marked(
     painter.rect_filled(bar, corner_radius, theme::alpha(GREY_BLUE60, 0.30));
     let mut played = bar;
     played.set_right(bar.left() + bar.width() * drawn);
+    // Amber, as the app's own sliders and progress are: the filled part is the value.
     if played.width() > 0.0 {
-        painter.rect_filled(played, corner_radius, BLUE60);
+        painter.rect_filled(played, corner_radius, theme::ACCENT);
     }
 
     // Under the playhead, which is the one thing on the track that must never be hidden.
@@ -402,10 +403,10 @@ pub fn scrub_track_marked(
     let head = pos2(played.right(), bar.center().y);
     if response.hovered() || response.is_pointer_button_down_on() {
         for (step, alpha) in [(2.0f32, 0.35f32), (4.0, 0.16), (6.0, 0.07)] {
-            painter.circle_filled(head, SCRUB_HEAD + step, BLUE60.gamma_multiply(alpha));
+            painter.circle_filled(head, SCRUB_HEAD + step, theme::ACCENT.gamma_multiply(alpha));
         }
     }
-    painter.circle_filled(head, SCRUB_HEAD, BLUE99);
+    painter.circle_filled(head, SCRUB_HEAD, theme::ACCENT);
     focus_ring(ui, &response, rect, corner_radius);
     ScrubTrack {
         response,
@@ -482,13 +483,17 @@ pub fn slider_sized(
     painter.rect_filled(track, corner_radius, theme::alpha(GREY_BLUE60, 0.35));
     let mut filled = track;
     filled.set_right(track.left() + track.width() * fraction);
-    painter.rect_filled(filled, corner_radius, BLUE60);
+    painter.rect_filled(filled, corner_radius, theme::ACCENT);
 
     let centre = pos2(filled.right(), track.center().y);
     for (ring, alpha) in [(3.0f32, 0.30f32), (6.0, 0.14), (9.0, 0.06)] {
-        painter.circle_filled(centre, SLIDER_KNOB + ring, BLUE60.gamma_multiply(alpha));
+        painter.circle_filled(
+            centre,
+            SLIDER_KNOB + ring,
+            theme::ACCENT.gamma_multiply(alpha),
+        );
     }
-    painter.circle_filled(centre, SLIDER_KNOB, BLUE99);
+    painter.circle_filled(centre, SLIDER_KNOB, theme::ACCENT);
     focus_ring(ui, &response, track.expand(SLIDER_KNOB), corner_radius);
 
     // A stepped slider reports whole notches, so its readout has no decimals to show.
