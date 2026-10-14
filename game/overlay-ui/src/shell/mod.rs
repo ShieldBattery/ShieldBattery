@@ -760,6 +760,9 @@ pub struct Shell {
     /// The player whose number keys a digit recalls, and which of their keys have a group on them
     /// (one bit per digit), as the control groups row last showed them.
     number_keys: Option<(u8, u16)>,
+    /// The key holding a player's leave button in the menu, from a press made while the menu was up
+    /// until the key comes up (see [`Shell::update_held_keys`]).
+    menu_leave_key: Option<Key>,
     /// Where each bottom panel was last placed while it was wanted on screen, which is where it
     /// fades out from: a panel leaving because the plate beside it left too would otherwise jump
     /// across the screen on its way out.
@@ -810,6 +813,7 @@ impl Shell {
             focused_player: None,
             vision_picker_open: false,
             number_keys: None,
+            menu_leave_key: None,
             held_slots: HeldSlots::default(),
             drawn: DrawnLastFrame::default(),
             last_minimap_rect: None,
@@ -1066,6 +1070,7 @@ impl Shell {
                     options: &self.options,
                     option_lists,
                     options_section: self.options_section,
+                    menu_leave_key_held: self.menu_leave_key.is_some(),
                 },
                 &mut hit_rects,
             );
@@ -1773,12 +1778,29 @@ impl Shell {
         true
     }
 
+    /// Lets go of the menu's held leave key once `is_down` says it is no longer down, or once the
+    /// menu is no longer on top. Asked of the keyboard itself every frame rather than told by key-up
+    /// messages, which a switch away from the game can swallow: a hold that outlived its key would
+    /// leave the game on its own.
+    pub fn update_held_keys(&mut self, is_down: impl Fn(Key) -> bool) {
+        if let Some(key) = self.menu_leave_key
+            && (!is_down(key) || self.top_modal() != Some(ModalId::GameMenu))
+        {
+            self.menu_leave_key = None;
+        }
+    }
+
     /// Carries out what the menu or the leave question's key `key` does, while either is on top,
     /// and returns whether it did anything.
     fn menu_key_pressed(&mut self, key: Key) -> bool {
         let playing = self.host.mode == Mode::Playing;
         match (self.top_modal(), key) {
             (Some(ModalId::GameMenu), Key::O) => self.open_modal(ModalId::Options),
+            // A player's leave button is held, by the key as by the pointer, and the hold only
+            // starts on a press made with the menu up. Someone watching is asked instead.
+            (Some(ModalId::GameMenu), Key::E) if playing => {
+                self.menu_leave_key.get_or_insert(Key::E);
+            }
             (Some(ModalId::GameMenu), Key::E) => self.open_modal(ModalId::LeaveGame),
             (Some(ModalId::GameMenu), Key::A | Key::C) if playing => {
                 self.open_social_dialog(SocialDialog::Alliances)
@@ -2073,6 +2095,8 @@ struct ModalContext<'a> {
     options: &'a OptionsView,
     option_lists: &'a OptionsLists,
     options_section: OptionsSection,
+    /// Whether a player is holding the menu's leave key.
+    menu_leave_key_held: bool,
 }
 
 fn draw_modal(
@@ -2102,7 +2126,12 @@ fn draw_modal(
             }
         }
         ModalId::GameMenu => {
-            let dialog = render_game_menu(ctx, host.game_seconds, host.mode == Mode::Playing);
+            let dialog = render_game_menu(
+                ctx,
+                host.game_seconds,
+                host.mode == Mode::Playing,
+                shell.menu_leave_key_held,
+            );
             hit_rects.push(HitRect::new(dialog.response.rect));
             ModalOutcome {
                 dismissed: dialog.inner.return_to_game || dialog.scrim_clicked,
@@ -3016,6 +3045,30 @@ mod tests {
         assert_eq!(shell.top_modal(), Some(ModalId::LeaveGame));
         assert!(shell.key_pressed(Key::E, Modifiers::NONE));
         assert!(shell.pending_intents().contains(&Intent::QuitGame));
+    }
+
+    #[test]
+    fn a_players_menu_key_holds_leave_rather_than_asking() {
+        let mut shell = Shell::new();
+        shell.set_host(&HostFrame {
+            mode: Mode::Playing,
+            game_started: true,
+            native_textbox_open: false,
+            native_dialog_open: false,
+            native_menu_open: false,
+            game_seconds: 0,
+            minimap_rect: None,
+        });
+        shell.open_modal(ModalId::GameMenu);
+        assert!(shell.key_pressed(Key::E, Modifiers::NONE));
+        assert_eq!(shell.top_modal(), Some(ModalId::GameMenu));
+        assert_eq!(shell.menu_leave_key, Some(Key::E));
+        // Held for as long as the key is down, and not a frame longer.
+        shell.update_held_keys(|_| true);
+        assert_eq!(shell.menu_leave_key, Some(Key::E));
+        shell.update_held_keys(|_| false);
+        assert_eq!(shell.menu_leave_key, None);
+        assert!(!shell.pending_intents().contains(&Intent::QuitGame));
     }
 
     #[test]

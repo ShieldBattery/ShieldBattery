@@ -789,6 +789,7 @@ impl OverlayState {
                 // modal owns the screen. Its rects are registered unconditionally: a BW dialog
                 // sitting on the stack (the hidden `TimeOut` among them) must never be able to
                 // steal a click from a modal of ours.
+                self.shell.update_held_keys(letter_key_is_down);
                 frame_output = self.shell.frame(&ctx, &host_frame, &mut views);
                 for hit in &frame_output.hit_rects {
                     self.ui_rects.push(UiRect {
@@ -1839,6 +1840,29 @@ fn control_type_name(ty: u16) -> Cow<'static, str> {
         _ => return format!("Type_{ty:02x}").into(),
     }
     .into()
+}
+
+/// Whether a letter key is down on the keyboard right now, with the game's own window in front: a
+/// key held after switching away is no longer held at the game. Read from the keyboard rather than
+/// from key messages, which a switch away can leave without their key-up. Keys other than letters
+/// are never reported down.
+fn letter_key_is_down(key: egui::Key) -> bool {
+    use winapi::um::processthreadsapi::GetCurrentProcessId;
+    use winapi::um::winuser::{GetAsyncKeyState, GetForegroundWindow, GetWindowThreadProcessId};
+
+    let name = key.name();
+    let [letter] = name.as_bytes() else {
+        return false;
+    };
+    if !letter.is_ascii_uppercase() {
+        return false;
+    }
+    unsafe {
+        let mut process = 0;
+        GetWindowThreadProcessId(GetForegroundWindow(), &mut process);
+        process == GetCurrentProcessId()
+            && GetAsyncKeyState(i32::from(*letter)) as u16 & 0x8000 != 0
+    }
 }
 
 fn current_egui_modifiers() -> egui::Modifiers {

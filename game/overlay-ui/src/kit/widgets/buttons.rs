@@ -437,11 +437,19 @@ impl Sweep {
 /// destructive action, because an overlay drawn over a live game cannot afford a misclick that
 /// drops a player.
 pub fn hold_to_confirm(ui: &mut Ui, label: &str, size: Vec2) -> HoldState {
+    hold_to_confirm_by_key(ui, label, size, false)
+}
+
+/// [`hold_to_confirm`] for a button a key can hold as well: `key_held` is whether the key that
+/// presses it is down, which sweeps it the same as the pointer does. The host decides what counts as
+/// that key being held, which should be a press made while the button was there to see: a key
+/// already down when the button appears is not a choice made about it.
+pub fn hold_to_confirm_by_key(ui: &mut Ui, label: &str, size: Vec2, key_held: bool) -> HoldState {
     let spec = text::button_label(14.0).with_color(theme::TEXT_DANGER);
     let galley = spec.galley(ui, label);
     let (rect, response) = ui.allocate_exact_size(size, Sense::click_and_drag());
 
-    let held = response.is_pointer_button_down_on();
+    let held = response.is_pointer_button_down_on() || key_held;
     let corner_radius = theme::radius(theme::RADIUS_TIGHT);
     // The sweep always moves at the same speed: a full hold takes the whole hold time and a full
     // unwind the whole release time, so a press that lands on a half-unwound sweep finishes in
