@@ -32,6 +32,7 @@ pub mod netstat;
 pub mod observer;
 pub mod options;
 pub mod shell;
+pub mod straight_alpha;
 mod style;
 pub mod transport;
 

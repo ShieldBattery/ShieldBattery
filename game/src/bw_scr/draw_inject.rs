@@ -88,8 +88,7 @@ impl RenderTarget {
     ) -> RenderTarget {
         unsafe {
             let height = (*bw).height;
-            let aspect = (*ui).width as f32 / ((*ui).height as f32).max(1.0);
-            let width = ((height as f32 * aspect).round() as u32).min((*bw).width);
+            let width = shown_width((*bw).width, height, (*ui).width, (*ui).height);
             RenderTarget::with_size(0, width, height)
         }
     }
@@ -142,6 +141,25 @@ impl RenderTarget {
     }
 }
 
+/// How wide the part of a `backbuffer_width` x `height` backbuffer is that the game is shown in,
+/// given the size of the game's UI target.
+///
+/// The UI target has the shape of the shown part, but only to the nearest pixel below: a 16:9 UI
+/// target 960 tall is 1706 wide, not 1706.67. Scaled to the backbuffer, that shortfall would make
+/// the shown part a pixel narrower than a 16:9 window and center it half a pixel in, which leaves
+/// every edge the overlay draws straddling two pixel columns. A backbuffer no wider than the UI
+/// target could have meant is shown whole.
+fn shown_width(backbuffer_width: u32, height: u32, ui_width: u32, ui_height: u32) -> u32 {
+    let ui_height = ui_height.max(1) as f32;
+    let narrowest = height as f32 * ui_width as f32 / ui_height;
+    let widest = height as f32 * (ui_width + 1) as f32 / ui_height;
+    if backbuffer_width as f32 <= widest {
+        backbuffer_width
+    } else {
+        narrowest.round() as u32
+    }
+}
+
 /// The highest draw layer SC:R sends to its UI render target; anything above goes straight to the
 /// backbuffer. The game's own layer-to-target rule, which the overlay's layers follow too.
 const LAST_UI_TARGET_LAYER: u16 = 0x1e;
@@ -191,6 +209,7 @@ impl<T: Copy + bytemuck::NoUninit + bytemuck::AnyBitPattern> VertexBufferAlloc<T
 fn egui_vertex_to_colored_vertex(
     render_target: &RenderTarget,
     vertex: &epaint::Vertex,
+    color: [u8; 4],
 ) -> ColoredVertex {
     ColoredVertex {
         // egui vertex position is in 0.0 .. screen_points range with origin in top left,
@@ -200,8 +219,8 @@ fn egui_vertex_to_colored_vertex(
             1.0 - vertex.pos.y * render_target.h_recip,
         ],
         texture: [vertex.uv.x, vertex.uv.y],
-        // Straight alpha, like the textures (see `egui_image_data_to_rgba`).
-        color: u32::from_le_bytes(vertex.color.to_srgba_unmultiplied()),
+        // Straight alpha, like the textures (see `overlay_ui::straight_alpha`).
+        color: u32::from_le_bytes(color),
     }
 }
 
@@ -268,7 +287,7 @@ pub unsafe fn update_textures_without_adding_overlays(
     queue_free_textures(state, &mut overlay_out.textures_delta);
 }
 
-trait IndexSize: Copy {
+trait IndexSize: Copy + Into<u32> {
     fn to_u16(self) -> u16;
 }
 
@@ -408,10 +427,12 @@ unsafe fn draw_egui_mesh_main<I: IndexSize>(
         let index_count = quad_count * 6;
         let vertex_alloc = allocate_vertices(bw.vertex_buf, 0x8, vertex_count);
         let index_alloc = allocate_indices(bw.vertex_buf, index_count);
+        let colors = overlay_ui::straight_alpha::vertex_colors(vertices, indices);
         vertex_alloc.set_map(vertices.len(), |i| {
             bytemuck::cast::<ColoredVertex, [f32; 5]>(egui_vertex_to_colored_vertex(
                 render_target,
                 &vertices[i],
+                colors[i],
             ))
         });
         index_alloc.set_map(indices.len(), |i| [indices[i].to_u16()]);
@@ -812,12 +833,8 @@ unsafe fn update_textures(
     }
 }
 
-/// The RGBA bytes to upload for an egui texture, with straight alpha.
-///
-/// egui's colors and textures are premultiplied by alpha, but no blend mode BW's renderers offer
-/// blends premultiplied colors: the one that blends at all multiplies the source by its alpha
-/// itself. Uploaded as is, everything translucent would have its alpha applied twice and draw much
-/// fainter than egui means it to, so textures and vertex colors are both handed over unmultiplied.
+/// The RGBA bytes to upload for an egui texture, with straight alpha (see
+/// `overlay_ui::straight_alpha`).
 fn egui_image_data_to_rgba(image: &epaint::ImageData) -> Vec<u8> {
     // As of egui 0.34 the font atlas is delivered as a color image too, so every delta is a
     // `Color32` buffer.
@@ -825,7 +842,7 @@ fn egui_image_data_to_rgba(image: &epaint::ImageData) -> Vec<u8> {
         epaint::ImageData::Color(image) => image
             .pixels
             .iter()
-            .flat_map(|pixel| pixel.to_srgba_unmultiplied())
+            .flat_map(|&pixel| overlay_ui::straight_alpha::texel(pixel))
             .collect(),
     }
 }
@@ -845,5 +862,23 @@ pub fn free_textures(state: &mut RenderState) {
         for texture in state.queued_texture_frees.drain(..) {
             texture.intentional_drop();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_wide_window_is_shown_whole_despite_the_ui_targets_rounding() {
+        // HD at 1600x900: the UI target is 16:9 rounded down to 1706x960.
+        assert_eq!(shown_width(1600, 900, 1706, 960), 1600);
+        assert_eq!(shown_width(1920, 1080, 1706, 960), 1920);
+        assert_eq!(shown_width(1600, 900, 1920, 1080), 1600);
+        // SD, or the pillarbox setting: the 4:3 middle of the window.
+        assert_eq!(shown_width(1600, 900, 1280, 960), 1200);
+        assert_eq!(shown_width(1920, 1080, 1280, 960), 1440);
+        // A window narrower than the UI target's shape is never asked for more than it has.
+        assert_eq!(shown_width(1200, 900, 1280, 960), 1200);
     }
 }
