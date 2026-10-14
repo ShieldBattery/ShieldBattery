@@ -432,21 +432,15 @@ impl OverlayState {
         }
     }
 
-    /// Whether the game's resource icons have yet to be read for the icon set in use (`carbot` or
-    /// the regular one). Read once per set, whether or not the game had them.
-    pub fn needs_resource_icons(&self, carbot: bool) -> bool {
-        self.resource_icons
-            .as_ref()
-            .is_none_or(|loaded| loaded.carbot != carbot)
+    /// Whether the game's resource icons have yet to be read. Read once, whether or not the game
+    /// had them.
+    pub fn needs_resource_icons(&self) -> bool {
+        self.resource_icons.is_none()
     }
 
     /// Reads the game's resource icons through `read` and hands them to the panels.
-    pub fn load_resource_icons(
-        &mut self,
-        carbot: bool,
-        read: impl FnMut(&std::ffi::CString) -> Option<Vec<u8>>,
-    ) {
-        let loaded = resource_icons::load(&self.ctx, carbot, read);
+    pub fn load_resource_icons(&mut self, read: impl FnMut(&std::ffi::CString) -> Option<Vec<u8>>) {
+        let loaded = resource_icons::load(&self.ctx, read);
         overlay_ui::kit::widgets::set_resource_icons(&self.ctx, Some(loaded.icons.clone()));
         self.resource_icons = Some(loaded);
     }

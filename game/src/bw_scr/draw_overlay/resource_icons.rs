@@ -5,6 +5,10 @@
 //! as a box around every number. The minerals and gas art is lifted off its tile by clearing the
 //! tile's colors inward from its edge; supply's art is a dark figure cut out of a pale tile, so its
 //! darkness is taken as the coverage of a figure drawn in supply's own color instead.
+//!
+//! The regular set is used with carbot graphics too. Carbot's tiles are a pale blue its own art
+//! shares, and its supply icons are colored creatures rather than cut-out figures, so neither way
+//! of lifting the art works on them.
 
 use std::ffi::CString;
 
@@ -29,23 +33,19 @@ const RACES: [&str; 3] = ["zerg", "terran", "protoss"];
 /// do.
 pub struct LoadedResourceIcons {
     pub icons: ResourceIcons,
-    pub carbot: bool,
     _textures: Vec<TextureHandle>,
 }
 
-/// Loads every resource icon of the carbot or the regular set through `read`, which reads a file
-/// out of the game's storage. An icon the game has no file for, or one that does not decode, is
-/// left with no sizes, and its panels draw their own glyph for it.
+/// Loads every resource icon through `read`, which reads a file out of the game's storage. An icon
+/// the game has no file for, or one that does not decode, is left with no sizes, and its panels
+/// draw their own glyph for it.
 pub fn load(
     ctx: &Context,
-    carbot: bool,
     mut read: impl FnMut(&CString) -> Option<Vec<u8>>,
 ) -> LoadedResourceIcons {
-    let prefix = if carbot { "carbot_" } else { "" };
     let mut textures = Vec::new();
     let mut load_one = |name: &str, kind: Art| -> IconSizes {
-        let Ok(path) = CString::new(format!("webui/dist/lib/images/{prefix}icon_{name}.png"))
-        else {
+        let Ok(path) = CString::new(format!("webui/dist/lib/images/icon_{name}.png")) else {
             return IconSizes::default();
         };
         let Some(art) = read(&path).and_then(|bytes| lift_art(&bytes, kind)) else {
@@ -77,7 +77,6 @@ pub fn load(
             gas,
             supply,
         },
-        carbot,
         _textures: textures,
     }
 }

@@ -4343,10 +4343,10 @@ impl BwScr {
                         // but the performance should not be that bad..
                         // Read out of the game's storage here rather than at setup: the draw is on
                         // the main thread, and by now the storage is open.
-                        if render_state.overlay.needs_resource_icons(is_carbot) {
+                        if render_state.overlay.needs_resource_icons() {
                             render_state
                                 .overlay
-                                .load_resource_icons(is_carbot, |path| self.read_game_file(path));
+                                .load_resource_icons(|path| self.read_game_file(path));
                         }
                         for _ in 0..2 {
                             let overlay_out = render_state.overlay.step(
