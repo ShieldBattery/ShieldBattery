@@ -26,9 +26,7 @@ have closed it.
 The source selector is a discriminated union:
 
 ```ts
-type ReplaySessionSource =
-  | { kind: 'game'; gameId: string }
-  | { kind: 'upload'; sourceId: string }
+type ReplaySessionSource = { kind: 'game'; gameId: string } | { kind: 'upload'; sourceId: string }
 ```
 
 For a ShieldBattery game, the server resolves a stored replay. Joining checks each viewer's own
@@ -56,8 +54,18 @@ The DLL retries its frame acknowledgment while a seek remains active. Periodic f
 every viewer let the server detect drift and correct it with the same coordinated seek barrier.
 Camera and vision changes remain local.
 
-## Remaining implementation checkpoints
+## Verification
 
-1. Verify physical input through the game's chat box.
-2. Verify a ShieldBattery game replay source, unlisted-game access control, and replay load failure
-   in real clients. Source resolution, access, and load failure have server unit coverage.
+Two real Electron clients have watched local and ShieldBattery game replays together using x64 and
+x86 DLLs. Both acknowledged forward and backward seeks at the same frame. A viewer reconnected
+during a seek and received the active seek state; repeated acknowledgments held the barrier until
+both viewers were ready. A deliberately divergent frame report caused a coordinated correction.
+Host transfer paused playback and transferred the replay controls. In-game chat reached the lobby
+through the native text box, and lobby chat appeared in the game. Closing each replay returned the
+viewers to the gathering room.
+
+A development game replay fixture confirmed that a nonparticipant could not join a room watching
+an unlisted game's replay. After the fixture was marked listed, both clients joined and played it.
+An authenticated download matched the expected size and SHA-256 hash. A deliberately incorrect
+hash made the viewer reject the file, and the lobby canceled the run when that viewer failed to
+load. The temporary fixture was removed after verification.
