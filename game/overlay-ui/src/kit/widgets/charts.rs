@@ -1,7 +1,10 @@
 //! The plots and bars that turn a stream of numbers into something readable at a glance.
 
+use std::sync::Arc;
+
 use egui::{
-    Color32, Id, Mesh, Pos2, Rect, Response, Sense, Shape, Stroke, StrokeKind, Ui, Vec2, pos2, vec2,
+    Color32, Galley, Id, Mesh, Pos2, Rect, Response, Sense, Shape, Stroke, StrokeKind, Ui, Vec2,
+    pos2, vec2,
 };
 
 use crate::colors::{BLUE10, GREY_BLUE40, GREY_BLUE80};
@@ -16,6 +19,10 @@ const X_AXIS_HEIGHT: f32 = 15.0;
 /// Height kept above a plot for its legend, which sits outside the plot so it can never land on
 /// the data it is naming.
 const LEGEND_HEIGHT: f32 = 16.0;
+/// Height kept above a plot with no legend, for the top of the value axis's highest label.
+const NO_LEGEND_HEIGHT: f32 = theme::SPACE_SM;
+/// Width of the colour swatch opening each of the legend's names.
+const LEGEND_SWATCH_WIDTH: f32 = 10.0;
 /// Thickness of a plotted line.
 const LINE_WIDTH: f32 = 1.5;
 /// Thickness of the one line the pointer is nearest, which is how a plot of five says which of them
@@ -94,8 +101,17 @@ fn draw_line_plot(
         None => Sense::hover(),
     };
     let (rect, response) = ui.allocate_exact_size(size, sense);
+    // A legend too long for its row is left off rather than run past the plot's edge or wrapped
+    // into the plot's height: the hover card names every line, and the panels around the plot name
+    // every player in the same colors.
+    let legend = legend_entries(ui, series)
+        .filter(|entries| legend_width(entries) <= rect.width() - Y_AXIS_WIDTH);
+    let legend_height = match legend {
+        Some(_) => LEGEND_HEIGHT,
+        None => NO_LEGEND_HEIGHT,
+    };
     let plot = Rect::from_min_max(
-        pos2(rect.left() + Y_AXIS_WIDTH, rect.top() + LEGEND_HEIGHT),
+        pos2(rect.left() + Y_AXIS_WIDTH, rect.top() + legend_height),
         pos2(rect.right(), rect.bottom() - X_AXIS_HEIGHT),
     );
     if !ui.is_rect_visible(rect) || !plot.is_positive() {
@@ -184,23 +200,21 @@ fn draw_line_plot(
     }
 
     let mut legend_right = rect.right();
-    for line in series.iter().rev() {
-        let galley = text::column_label().galley(ui, line.label);
-        let swatch_width = 10.0;
-        let left = legend_right - galley.size().x - swatch_width - theme::SPACE_XS;
+    for (galley, color) in legend.into_iter().flatten().rev() {
+        let left = legend_right - galley.size().x - LEGEND_SWATCH_WIDTH - theme::SPACE_XS;
         let middle = rect.top() + LEGEND_HEIGHT * 0.5;
         ui.painter().rect_filled(
-            Rect::from_min_size(pos2(left, middle - 1.5), vec2(swatch_width, 3.0)),
+            Rect::from_min_size(pos2(left, middle - 1.5), vec2(LEGEND_SWATCH_WIDTH, 3.0)),
             0,
-            line.color,
+            color,
         );
         ui.painter().galley(
             pos2(
-                left + swatch_width + theme::SPACE_XS,
+                left + LEGEND_SWATCH_WIDTH + theme::SPACE_XS,
                 middle - galley.size().y * 0.5,
             ),
             galley,
-            line.color,
+            color,
         );
         legend_right = left - theme::SPACE_MD;
     }
@@ -428,6 +442,26 @@ fn nearest_sample(plot: Rect, pointer_x: f32, count: usize) -> usize {
 
 /// Which of `ys` the pointer is nearest, or `None` when nothing is plotted there.
 ///
+/// The legend's names, laid out, with the colour of the line each names. `None` for a plot with no
+/// lines.
+fn legend_entries(ui: &Ui, series: &[Series<'_>]) -> Option<Vec<(Arc<Galley>, Color32)>> {
+    (!series.is_empty()).then(|| {
+        series
+            .iter()
+            .map(|line| (text::column_label().galley(ui, line.label), line.color))
+            .collect()
+    })
+}
+
+/// How wide the legend runs, from its first swatch to its last name.
+fn legend_width(entries: &[(Arc<Galley>, Color32)]) -> f32 {
+    let names: f32 = entries
+        .iter()
+        .map(|(galley, _)| galley.size().x + LEGEND_SWATCH_WIDTH + theme::SPACE_XS)
+        .sum();
+    names + theme::SPACE_MD * entries.len().saturating_sub(1) as f32
+}
+
 /// A tie goes to the first, which is the series the legend names first: two lines crossing under
 /// the pointer are the one place the pick is arbitrary, and an arbitrary pick that at least never
 /// changes is one the watcher can move away from.
