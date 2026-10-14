@@ -347,27 +347,37 @@ pub(super) fn selected_production(unit: Unit, bw: &BwVars) -> Option<ProductionP
     })
 }
 
-/// What a unit fights with, as the game's console lists it beside a unit selected alone: its armor
-/// upgrade, its shields for a unit that has any, then each of its weapons, each at the level its
-/// owner has taken the upgrade improving it to.
+/// What a unit fights with, as the game's console lists it beside the unit: its armor upgrade, its
+/// shields for a unit that has any, then each of its weapons, each at the level its owner has
+/// taken the upgrade improving it to.
+///
+/// Which of those a unit has is the console's own rule, read off its units.dat entry alone: armor
+/// unless its armor upgrade is the slot that stands for none, shields for anything with shields,
+/// and each weapon, the air one only where it is not the ground one again. That makes an egg's
+/// carapace a chip as much as a zergling's, and a photon cannon its shields and its two cannons,
+/// while a barracks has nothing at all. An upgrade a map lets nobody take a level of keeps its
+/// chip, reading 0, as the console's icon does.
 ///
 /// A unit whose guns are on a turret (a goliath, a siege tank) has its weapons on the turret's
-/// units.dat entry rather than its own, so the turret's are read too.
+/// units.dat entry rather than its own, so the turret's are read too. A lurker's spines are not a
+/// weapon until it burrows, and the console lists none before then.
 ///
-/// An armor upgrade the owner can never take a level of is left out: every building's armor names
-/// an upgrade slot no race researches, and a chip that can only ever read 0 says nothing. A weapon
-/// stays whatever improves it.
+/// A hallucination has none: the console reads no upgrades out for one to anybody who could know
+/// it for a hallucination, its owner or anyone watching, which is everyone this panel is drawn for.
 pub(super) fn selected_upgrades(unit: Unit, bw: &BwVars) -> Vec<UnitUpgradeView> {
     // The upgrade tables are indexed by player slot and assert on anything past the twelfth.
     const PLAYER_SLOTS: u8 = 0xc;
     let player = unit.player();
-    if player >= PLAYER_SLOTS {
+    if player >= PLAYER_SLOTS || unit.is_hallucination() {
         return Vec::new();
     }
     let game = bw.game;
     let id = unit.id();
     let mut upgrades: Vec<(UpgradeId, UpgradeEffect)> = Vec::new();
-    if let Some(armor) = id.armor_upgrade() {
+    if let Some(armor) = id
+        .armor_upgrade()
+        .filter(|&armor| armor != NO_ARMOR_UPGRADE)
+    {
         let base = id.armor();
         upgrades.push((
             armor,
@@ -380,10 +390,12 @@ pub(super) fn selected_upgrades(unit: Unit, bw: &BwVars) -> Vec<UnitUpgradeView>
     if id.has_shields() {
         upgrades.push((bw_dat::upgrade::PLASMA_SHIELDS, UpgradeEffect::Shields));
     }
+    let armed = id != bw_dat::unit::LURKER || unit.is_burrowed();
     let mut weapons: Vec<WeaponId> = Vec::new();
     for weapon in [Some(id), id.subunit()]
         .into_iter()
         .flatten()
+        .filter(|_| armed)
         .flat_map(|id| [id.ground_weapon(), id.air_weapon()])
         .flatten()
     {
@@ -393,15 +405,11 @@ pub(super) fn selected_upgrades(unit: Unit, bw: &BwVars) -> Vec<UnitUpgradeView>
     }
     let mut chips: Vec<UnitUpgradeView> = upgrades
         .into_iter()
-        .filter_map(|(upgrade, effect)| {
-            let level = game.upgrade_level(player, upgrade);
-            // A map can grant levels past the limit it sets, so either says the upgrade has levels.
-            (level.max(game.upgrade_max_level(player, upgrade)) > 0).then(|| UnitUpgradeView {
-                icon: production_icon(Production::Upgrade(upgrade), bw),
-                level,
-                name: production_name(Production::Upgrade(upgrade), bw),
-                effect,
-            })
+        .map(|(upgrade, effect)| UnitUpgradeView {
+            icon: production_icon(Production::Upgrade(upgrade), bw),
+            level: game.upgrade_level(player, upgrade),
+            name: production_name(Production::Upgrade(upgrade), bw),
+            effect,
         })
         .collect();
     // A weapon is shown by its own icon whether or not anything upgrades it, as the game's own
@@ -429,6 +437,11 @@ pub(super) fn selected_upgrades(unit: Unit, bw: &BwVars) -> Vec<UnitUpgradeView>
     }
     chips
 }
+
+/// The upgrade units.dat names as the armor upgrade of everything with no armor to upgrade: every
+/// building, a spider mine, a nuke, a scanner sweep. The console draws no armor icon for it, and
+/// it is not the slot past the table's end that the dat crate reads as no upgrade at all.
+const NO_ARMOR_UPGRADE: UpgradeId = UpgradeId(0x3c);
 
 /// The weapons.dat field holding the frame of the command-icon atlas a weapon is shown by.
 const WEAPON_ICON_FIELD: u32 = 23;

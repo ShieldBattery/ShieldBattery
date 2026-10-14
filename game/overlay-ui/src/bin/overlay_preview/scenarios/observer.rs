@@ -81,6 +81,15 @@ const ZERG_TRANSPORT: u16 = 0x2a;
 const TERRAN_TRANSPORT: u16 = 0x0b;
 const PROTOSS_TRANSPORT: u16 = 0x45;
 
+/// What each race defends its bases with, for the selection that is a building with guns of its own.
+const ZERG_DEFENSE: u16 = 0x92;
+const TERRAN_DEFENSE: u16 = 0x7c;
+const PROTOSS_DEFENSE: u16 = 0xa2;
+
+/// The egg a larva turns into while it morphs, for the selection that is a unit on its way to
+/// being another.
+const ZERG_EGG: u16 = 0x24;
+
 /// The names the game's English stat_txt gives the units and buildings above, by the same id.
 fn unit_name(id: u16) -> Option<String> {
     let name = match id {
@@ -90,6 +99,7 @@ fn unit_name(id: u16) -> Option<String> {
         7 => "Terran SCV",
         8 => "Terran Wraith",
         TERRAN_TRANSPORT => "Terran Dropship",
+        ZERG_EGG => "Zerg Egg",
         37 => "Zerg Zergling",
         38 => "Zerg Hydralisk",
         41 => "Zerg Drone",
@@ -106,6 +116,9 @@ fn unit_name(id: u16) -> Option<String> {
         0x8e => "Zerg Spawning Pool",
         0x9a => "Protoss Nexus",
         0xa0 => "Protoss Gateway",
+        ZERG_DEFENSE => "Zerg Sunken Colony",
+        TERRAN_DEFENSE => "Terran Missile Turret",
+        PROTOSS_DEFENSE => "Protoss Photon Cannon",
         _ => return None,
     };
     Some(name.to_string())
@@ -164,6 +177,14 @@ pub struct Knobs {
     /// that names the building once rather than again as what it is making. Takes the selection
     /// over from the count.
     pub selection_constructing: bool,
+    /// Whether what is selected is an egg part way through its morph, which is the reading that
+    /// has one slot of what it is turning into and its carapace under that. Takes the selection
+    /// over from the count.
+    pub selection_morphing: bool,
+    /// Whether what is selected is a building with guns of its own and nothing on the way, which
+    /// is the reading of a building with upgrades to read out. Takes the selection over from the
+    /// count.
+    pub selection_defense: bool,
     /// Whether the game reports how much of the map each side holds. The real game has no such
     /// measurement yet, so this is the switch that proves the bar disappears without one rather
     /// than drawing an empty share.
@@ -199,6 +220,8 @@ impl Default for Knobs {
             selection_building: false,
             selection_cargo: false,
             selection_constructing: false,
+            selection_morphing: false,
+            selection_defense: false,
             map_control: true,
             vision_picker: false,
         }
@@ -739,7 +762,8 @@ fn control_groups_player(
 ///
 /// Every reading the panel has is reachable from here, because each of them is a different layout:
 /// no units at all, an army the panel draws as wireframes alone, one unit read out as numbers, a
-/// building part way through something, and a transport with an army inside it.
+/// building part way through something, an egg part way through its morph, a building with guns,
+/// and a transport with an army inside it.
 ///
 /// A selection of one is the only one whose numbers are read out, so it is dealt both a shield and
 /// an energy pool: the rows only some units have are the ones a layout gets wrong.
@@ -758,6 +782,16 @@ fn selection(knobs: &Knobs, t: f64) -> SelectionView {
     if knobs.selection_constructing {
         return SelectionView {
             units: vec![building_going_up(knobs, owner, t)],
+        };
+    }
+    if knobs.selection_morphing {
+        return SelectionView {
+            units: vec![morphing_egg(knobs, owner, t)],
+        };
+    }
+    if knobs.selection_defense {
+        return SelectionView {
+            units: vec![defense_building(knobs, owner, t)],
         };
     }
     let units = race_units(knobs.race(owner));
@@ -874,6 +908,42 @@ fn unit_upgrades(race: RaceView, shields: bool) -> Vec<UnitUpgradeView> {
     views
 }
 
+/// The upgrades a building of `race` fights with, in the order the game DLL lists them: no armor,
+/// since a building has none to upgrade, then shields where the race has any, then `weapons`, each
+/// the weapon's name with what one hit of it deals.
+fn building_upgrades(race: RaceView, weapons: &[(&'static str, u32)]) -> Vec<UnitUpgradeView> {
+    let upgrades = match race {
+        RaceView::Zerg => ZERG_UPGRADES,
+        RaceView::Terran => TERRAN_UPGRADES,
+        RaceView::Protoss | RaceView::Random => PROTOSS_UPGRADES,
+    };
+    let mut views = Vec::new();
+    if has_shields(race) {
+        let (frame, level, name) = PLASMA_SHIELDS;
+        views.push(UnitUpgradeView {
+            icon: unit_icon(frame),
+            level,
+            name: Some(name.to_string()),
+            effect: UpgradeEffect::Shields,
+        });
+    }
+    // Static defense takes none of the race's weapon upgrades: its weapons read level 0, under the
+    // icon of the race's own weapon upgrade standing in for the weapon's.
+    let ((frame, _, _), _, _, _) = upgrades.weapons;
+    views.extend(weapons.iter().map(|&(name, damage)| UnitUpgradeView {
+        icon: unit_icon(frame),
+        level: 0,
+        name: Some(name.to_string()),
+        effect: UpgradeEffect::Damage(vec![WeaponDamageView {
+            name: Some(name.to_string()),
+            base: damage,
+            bonus: 0,
+            hits: 1,
+        }]),
+    }));
+    views
+}
+
 /// A building of the first player's, part way through a unit with more of them queued behind it.
 ///
 /// Shields only where the race has any, which is what proves the panel packs the rows a thing
@@ -906,7 +976,8 @@ fn producing_building(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
             is_subject: false,
         }),
         cargo: Vec::new(),
-        upgrades: Vec::new(),
+        // Dealt as the game DLL deals them, which is what proves a queue leaves no row for them.
+        upgrades: building_upgrades(race, &[]),
     }
 }
 
@@ -939,7 +1010,78 @@ fn building_going_up(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
             is_subject: true,
         }),
         cargo: Vec::new(),
-        upgrades: Vec::new(),
+        upgrades: building_upgrades(race, &[]),
+    }
+}
+
+/// An egg of the first player's, part way through its morph into the race's second unit.
+///
+/// The egg is dealt the carapace the race's units are, at the level they have it: an egg is armored
+/// by the same upgrade, and the console reads it out as the egg's own.
+fn morphing_egg(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
+    let target = race_units(RaceView::Zerg)[2];
+    let ((frame, level, name), _) = ZERG_UPGRADES.armor;
+    SelectedUnitView {
+        icon: unit_icon(ZERG_EGG),
+        name: unit_name(ZERG_EGG),
+        owner_color: overlay_ui::kit::theme::player_color(owner),
+        owner_name: player_name(knobs, owner),
+        owner: Some(owner as u8),
+        hit_points: (200, 200),
+        shields: None,
+        energy: None,
+        kills: 0,
+        building: false,
+        production: Some(ProductionProgressView {
+            icon: unit_icon(target),
+            name: unit_name(target),
+            progress: fraction(t * 0.07),
+            queue: None,
+            is_subject: false,
+        }),
+        cargo: Vec::new(),
+        upgrades: vec![UnitUpgradeView {
+            icon: unit_icon(frame),
+            level,
+            name: Some(name.to_string()),
+            effect: UpgradeEffect::Armor {
+                base: 10,
+                bonus: u32::from(level),
+            },
+        }],
+    }
+}
+
+/// A building of the first player's that defends with guns of its own, idle: for a race with
+/// shields, the reading with every chip a building can have.
+fn defense_building(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
+    let race = knobs.race(owner);
+    let (id, full_health, weapons): (u16, u32, &[(&'static str, u32)]) = match race {
+        RaceView::Zerg => (ZERG_DEFENSE, 300, &[("Subterranean Tentacle", 40)]),
+        RaceView::Terran => (TERRAN_DEFENSE, 200, &[("Longbolt Missile", 20)]),
+        RaceView::Protoss | RaceView::Random => (
+            PROTOSS_DEFENSE,
+            100,
+            &[("STS Photon Cannon", 20), ("STS Photon Cannon", 20)],
+        ),
+    };
+    SelectedUnitView {
+        icon: unit_icon(id),
+        name: unit_name(id),
+        owner_color: overlay_ui::kit::theme::player_color(owner),
+        owner_name: player_name(knobs, owner),
+        owner: Some(owner as u8),
+        hit_points: (
+            full_health - wave(0.0, t, 0.05, full_health as f64 * 0.4),
+            full_health,
+        ),
+        shields: has_shields(race).then(|| (wave(1.0, t, 0.04, 100.0), 100)),
+        energy: None,
+        kills: 0,
+        building: true,
+        production: None,
+        cargo: Vec::new(),
+        upgrades: building_upgrades(race, weapons),
     }
 }
 
@@ -1164,6 +1306,10 @@ pub enum Showcase {
     Loaded,
     /// A building that is itself still going up.
     Constructing,
+    /// An egg part way through its morph.
+    Morphing,
+    /// A building with guns of its own, with nothing on the way.
+    Defense,
     /// The single unit the knobs default to, with the list of players under the minimap's vision
     /// button open.
     VisionPicker,
@@ -1274,7 +1420,7 @@ impl Preset {
         }
     }
 
-    pub const ALL: [Preset; 27] = [
+    pub const ALL: [Preset; 29] = [
         Preset::game(2, 1, Screen::Minimal),
         Preset::game(2, 1, Screen::Standard),
         Preset::game(2, 1, Screen::Analyst),
@@ -1302,6 +1448,8 @@ impl Preset {
         Preset::selection_showcase(Showcase::Producing),
         Preset::selection_showcase(Showcase::Loaded),
         Preset::selection_showcase(Showcase::Constructing),
+        Preset::selection_showcase(Showcase::Morphing),
+        Preset::selection_showcase(Showcase::Defense),
         // The vision list is shown over a team game, which is the one with a list worth reading.
         Preset {
             players: 4,
@@ -1323,6 +1471,8 @@ impl Preset {
             Showcase::Producing => return "1v1-selection-building".to_string(),
             Showcase::Loaded => return "1v1-selection-cargo".to_string(),
             Showcase::Constructing => return "1v1-selection-constructing".to_string(),
+            Showcase::Morphing => return "1v1-selection-morphing".to_string(),
+            Showcase::Defense => return "1v1-selection-defense".to_string(),
             Showcase::VisionPicker => return format!("{}-vision-picker", self.shape()),
             Showcase::Knobs => {}
         }
@@ -1368,9 +1518,16 @@ impl Preset {
             selection_building: self.showcase == Showcase::Producing,
             selection_cargo: self.showcase == Showcase::Loaded,
             selection_constructing: self.showcase == Showcase::Constructing,
+            selection_morphing: self.showcase == Showcase::Morphing,
+            selection_defense: self.showcase == Showcase::Defense,
             vision_picker: self.showcase == Showcase::VisionPicker,
             ..Knobs::default()
         };
+        // The buildings with chips to read out are the Protoss ones, whose shields every one of
+        // them has, so the readings of a building are watched from a Protoss player's side.
+        if matches!(self.showcase, Showcase::Constructing | Showcase::Defense) {
+            knobs.observer.races[0] = RaceView::Protoss;
+        }
     }
 }
 
@@ -1441,8 +1598,8 @@ pub fn knobs_ui(k: &mut Knobs, state: &State, ui: &mut egui::Ui) -> bool {
     changed |= ui
         .checkbox(&mut k.selection_building, "selection is producing")
         .on_hover_text(
-            "Selects a building part way through a unit with two more queued, which is the reading \
-             an egg mid-morph gets as well.",
+            "Selects a building part way through a unit with two more queued, which leaves no room \
+             for the building's upgrades.",
         )
         .changed();
     changed |= ui
@@ -1457,6 +1614,20 @@ pub fn knobs_ui(k: &mut Knobs, state: &State, ui: &mut egui::Ui) -> bool {
         .on_hover_text(
             "Selects a building that is itself still being built, which names the building once \
              and reads its progress as its own.",
+        )
+        .changed();
+    changed |= ui
+        .checkbox(&mut k.selection_morphing, "selection is morphing")
+        .on_hover_text(
+            "Selects an egg part way through its morph, which has one slot of what it is turning \
+             into and its carapace under that.",
+        )
+        .changed();
+    changed |= ui
+        .checkbox(&mut k.selection_defense, "selection is static defense")
+        .on_hover_text(
+            "Selects the first player's static defense with nothing on the way, which reads out \
+             its shields and its guns.",
         )
         .changed();
     changed |= ui

@@ -26,11 +26,15 @@
 //!   chip under the pointer names it and puts a number to it, the armor or the damage it comes to.
 //! - One building is read out the way the console reads one out: the building drawn smaller, its
 //!   hit points under it in the color of its health and its shields under those, and to the right
-//!   its name and whose it is.
+//!   its name and whose it is, with the upgrades it fights with along the bottom where it has any:
+//!   a cannon's shields and guns, a sunken colony's tentacle. A building has no armor upgrade, so
+//!   most have no chips at all.
 //! - One thing making something shows what it is making in the console's queue: the slots of the
 //!   queue in a row, the first being worked on, and what that one is and how far along it is under
 //!   them. A building that is itself going up is named and drawn once, at the head of the panel,
-//!   and under that is only how far along it is.
+//!   and under that is only how far along it is. Anything working through one thing alone (an egg,
+//!   research, a building going up) leaves room under that for its upgrades, which is where an
+//!   egg's carapace goes; a queue does not.
 //! - One transport or bunker with units inside shows them in the console's cargo slots, two rows of
 //!   four.
 //!
@@ -82,7 +86,8 @@ pub struct SelectedUnitView {
     pub cargo: Vec<SelectedUnitView>,
     /// The upgrades it fights with, in the order the console lists them: its armor, its shields for
     /// a unit that has any, then whatever improves its weapons. Only read out for a unit selected
-    /// alone, so a host may leave it empty for any other.
+    /// alone, and not under a queue or cargo, which leave no room for them, so a host may leave it
+    /// empty for any other.
     pub upgrades: Vec<UnitUpgradeView>,
 }
 
@@ -202,7 +207,7 @@ pub enum SelectionCase {
     Many,
     /// One unit, read out as its own numbers and the upgrades it fights with.
     Unit,
-    /// One building, read out as its own numbers.
+    /// One building, read out as its own numbers and the upgrades it fights with.
     Building,
     /// One unit or building with something on the way out of it.
     Producing,
@@ -418,6 +423,17 @@ const _: () = assert!(
 );
 const _: () = assert!(POOL_VALUE_WIDTH + POOL_VALUE_GAP < UNIT_TEXT_WIDTH * 0.5);
 
+/// Under a building's header the row of upgrades sits clear of a lone slot and of the progress
+/// line beside it, and of the progress line a building going up has in their place; and the row
+/// fits the narrower text column a building is read out with.
+const _: () = assert!(
+    HEADER_HEIGHT + max(QUEUE_SLOT, PROGRESS_HEIGHT) + theme::SPACE_SM
+        <= BODY_HEIGHT - UPGRADE_CHIP
+);
+const _: () = assert!(
+    UPGRADE_CHIP * MAX_UPGRADES as f32 + UPGRADE_GAP * (MAX_UPGRADES as f32 - 1.0) <= TEXT_WIDTH
+);
+
 /// How tall the panel is on screen, chrome included.
 pub(crate) const PANEL_HEIGHT: f32 = BODY_HEIGHT + tiers::PANEL_MARGIN_HEIGHT;
 
@@ -545,7 +561,8 @@ fn draw_grid(ui: &Ui, body: Rect, units: &[SelectedUnitView]) -> Option<Selected
 /// that.
 ///
 /// What a building is worth to a watcher is how much of it is left and what it is making, so it is
-/// given no tally of kills: that is a unit's own reading.
+/// given no tally of kills: that is a unit's own reading. The upgrades it fights with run along the
+/// bottom of the text column, as a unit's do, wherever the reading leaves that row free.
 fn draw_subject(
     ui: &Ui,
     body: Rect,
@@ -573,7 +590,35 @@ fn draw_subject(
         (SelectionCase::Loaded, _) => draw_cargo(ui, below, &unit.cargo),
         _ => {}
     }
+    if has_upgrade_row(unit, case) {
+        draw_upgrades(
+            ui,
+            Rect::from_min_max(pos2(text.left(), text.bottom() - UPGRADE_CHIP), text.max),
+            &unit.upgrades,
+        );
+    }
     clicked
+}
+
+/// Whether the reading of a building, or of anything making or carrying something, leaves the
+/// bottom of its text column free for the row of its upgrades.
+///
+/// A queue's progress line runs down to the floor of the body, and cargo slots fill it, so those
+/// two readings have no row; the console gives up its own icons for both. Everything else here is
+/// a header and at most one slot's line beside it, which leaves the row free: an egg's carapace
+/// under what it is turning into, a cannon's shields and guns under the cannon going up.
+fn has_upgrade_row(unit: &SelectedUnitView, case: SelectionCase) -> bool {
+    match case {
+        SelectionCase::Building => true,
+        SelectionCase::Producing => unit
+            .production
+            .as_ref()
+            .is_some_and(|production| production.is_subject || production.queue.is_none()),
+        SelectionCase::Empty
+        | SelectionCase::Many
+        | SelectionCase::Unit
+        | SelectionCase::Loaded => false,
+    }
 }
 
 /// Draws a unit selected alone: the unit drawn large, and beside it its name and whose it is, a bar
@@ -1197,6 +1242,47 @@ mod tests {
         // What is being made is read before what is being carried, for the thing doing both.
         factory.cargo = vec![unit((40, 40), None, 0x00)];
         assert_eq!(selection(vec![factory]).case(), SelectionCase::Producing);
+    }
+
+    #[test]
+    fn a_building_has_its_upgrades_wherever_its_reading_leaves_room() {
+        let progress = |queue: Option<Vec<ProductionIcon>>, is_subject: bool| {
+            Some(ProductionProgressView {
+                icon: ProductionIcon {
+                    texture: None,
+                    index: 0x26,
+                    size: None,
+                    margin: 0.0,
+                    wireframe: None,
+                },
+                name: None,
+                progress: 0.5,
+                queue,
+                is_subject,
+            })
+        };
+        let mut cannon = unit((100, 100), Some((100, 100)), 0xA2);
+        cannon.building = true;
+        assert!(has_upgrade_row(&cannon, SelectionCase::Building));
+
+        // Going up, the cannon is still read out with its shields and guns under its progress.
+        cannon.production = progress(None, true);
+        assert!(has_upgrade_row(&cannon, SelectionCase::Producing));
+
+        // An egg's carapace sits under what it is turning into.
+        let mut egg = unit((200, 200), None, 0x24);
+        egg.production = progress(None, false);
+        assert!(has_upgrade_row(&egg, SelectionCase::Producing));
+
+        // A queue runs down to the floor of the body even with nothing waiting in it.
+        let mut gateway = unit((500, 500), Some((500, 500)), 0xA0);
+        gateway.building = true;
+        gateway.production = progress(Some(Vec::new()), false);
+        assert!(!has_upgrade_row(&gateway, SelectionCase::Producing));
+
+        let mut shuttle = unit((80, 80), Some((60, 60)), 0x45);
+        shuttle.cargo = vec![unit((100, 100), Some((60, 60)), 0x41)];
+        assert!(!has_upgrade_row(&shuttle, SelectionCase::Loaded));
     }
 
     #[test]
