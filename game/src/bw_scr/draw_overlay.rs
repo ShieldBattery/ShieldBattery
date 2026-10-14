@@ -5,13 +5,13 @@ use std::ptr::NonNull;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use bw_dat::Unit;
 use bw_dat::dialog::{Control, Dialog};
-use bw_dat::{Race, Unit};
 use egui::{Color32, Event, Key, PointerButton, Pos2, Rect, Slider, pos2};
 use overlay_ui::end_card::EndCardView;
 use overlay_ui::net_quality::NetQualityView;
 use overlay_ui::observer::{
-    GraphGrouping, MatchupForm, MatchupPlayerView, MatchupView, ObserverView, RaceView,
+    GraphGrouping, MatchupForm, MatchupPlayerView, MatchupView, ObserverView,
 };
 use overlay_ui::options::{OptionsLists, OptionsView, SettingChange};
 use overlay_ui::shell::{
@@ -47,6 +47,7 @@ mod loading_screen;
 mod netstat;
 pub mod options;
 mod production;
+mod resource_icons;
 mod stats;
 
 pub struct OverlayState {
@@ -72,6 +73,8 @@ pub struct OverlayState {
     logged_minimap_area: Option<(i16, i16, i16, i16)>,
     /// The chat log the last frame handed the shell, kept only while its modal is on screen.
     chat_history: Option<ChatHistoryCache>,
+    /// The game's own resource icons, once read for the icon set in use.
+    resource_icons: Option<resource_icons::LoadedResourceIcons>,
     /// What the end-of-game card reports, read once as the card comes up and kept while it is on
     /// the stack: it is about the game as it was decided, and the numbers behind it keep moving for
     /// as long as the player keeps playing.
@@ -425,7 +428,27 @@ impl OverlayState {
             last_group_recall: None,
             shell_held_keys: Vec::new(),
             chat_history: None,
+            resource_icons: None,
         }
+    }
+
+    /// Whether the game's resource icons have yet to be read for the icon set in use (`carbot` or
+    /// the regular one). Read once per set, whether or not the game had them.
+    pub fn needs_resource_icons(&self, carbot: bool) -> bool {
+        self.resource_icons
+            .as_ref()
+            .is_none_or(|loaded| loaded.carbot != carbot)
+    }
+
+    /// Reads the game's resource icons through `read` and hands them to the panels.
+    pub fn load_resource_icons(
+        &mut self,
+        carbot: bool,
+        read: impl FnMut(&std::ffi::CString) -> Option<Vec<u8>>,
+    ) {
+        let loaded = resource_icons::load(&self.ctx, carbot, read);
+        overlay_ui::kit::widgets::set_resource_icons(&self.ctx, Some(loaded.icons.clone()));
+        self.resource_icons = Some(loaded);
     }
 
     pub fn step(
@@ -1704,14 +1727,7 @@ unsafe fn matchup_player_view(
 ) -> MatchupPlayerView {
     unsafe {
         let game = bw.game;
-        let race = match (*player).race {
-            0 => (Race::Zerg, RaceView::Zerg),
-            1 => (Race::Terran, RaceView::Terran),
-            2 => (Race::Protoss, RaceView::Protoss),
-            // A random player's race is resolved before the game starts, so anything else here is a
-            // slot whose race the game itself does not know.
-            _ => (Race::Zerg, RaceView::Random),
-        };
+        let race = stats::player_race(bw, player_id);
         // Supply is counted internally at twice what the game shows, because a zergling costs half
         // of one, so what is used rounds up and what is available divides evenly.
         let supply_used = game.supply_used(player_id, race.0).wrapping_add(1) / 2;

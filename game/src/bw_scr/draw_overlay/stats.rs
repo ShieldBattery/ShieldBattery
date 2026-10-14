@@ -4,13 +4,13 @@
 //! once and the four builders share it. That is also what keeps a row in one wing lined up with the
 //! row for the same player in the other.
 
-use bw_dat::{Game, Unit, UnitId};
+use bw_dat::{Game, Race, Unit, UnitId};
 use egui::Color32;
 use overlay_ui::kit::theme;
 use overlay_ui::observer::{
     ControlGroupView, ControlGroupsPlayerView, ControlGroupsView, EconomyPlayerView, EconomyView,
     GraphGrouping, GraphLineView, GraphSeries, GraphsView, MapControlSideView, MapControlView,
-    MatchupPlayerView, MatchupView, MilitaryPlayerView, MilitaryView, SelectedUnitView,
+    MatchupPlayerView, MatchupView, MilitaryPlayerView, MilitaryView, RaceView, SelectedUnitView,
     SelectionView, TeamCardPlayerView, TeamCardTotalsView, TeamCardView, TeamCardsView,
     TimelineEventView, TimelineView,
 };
@@ -44,6 +44,7 @@ pub struct StatsPlayer {
     pub name: String,
     pub color: Color32,
     pub vision: bool,
+    pub race: RaceView,
 }
 
 /// The players the stats wings have rows for, in the order the replay lists them.
@@ -63,6 +64,7 @@ pub fn stats_players(bw: &BwVars) -> Vec<StatsPlayer> {
             name: player_name(bw, player_id),
             color: player_color(bw, player_id),
             vision: has_player_vision(bw, player_id),
+            race: player_race(bw, player_id).1,
         })
         .collect()
 }
@@ -109,6 +111,7 @@ pub fn build_economy_view(players: &[StatsPlayer], stats: Option<&GameStats>) ->
                     team: player.team,
                     color: player.color,
                     vision: player.vision,
+                    race: player.race,
                     minerals_per_minute,
                     gas_per_minute,
                     workers: sample.workers,
@@ -131,6 +134,7 @@ pub fn build_military_view(players: &[StatsPlayer], stats: Option<&GameStats>) -
                     team: player.team,
                     color: player.color,
                     vision: player.vision,
+                    race: player.race,
                     army_minerals: sample.army_minerals,
                     army_gas: sample.army_gas,
                     units_killed: sample.units_killed,
@@ -535,6 +539,19 @@ pub(super) fn player_color(bw: &BwVars, player_id: u8) -> Color32 {
 }
 
 /// What this player is called, falling back to their slot for a slot that carries no name.
+/// A player's race, as the game counts its supply and as a panel draws it.
+pub(super) fn player_race(bw: &BwVars, player_id: u8) -> (Race, RaceView) {
+    // SAFETY: the player table is the game's, with a slot for every player id.
+    match unsafe { (*bw.players.add(player_id as usize)).race } {
+        0 => (Race::Zerg, RaceView::Zerg),
+        1 => (Race::Terran, RaceView::Terran),
+        2 => (Race::Protoss, RaceView::Protoss),
+        // A random player's race is resolved before the game starts, so anything else here is a
+        // slot whose race the game itself does not know.
+        _ => (Race::Zerg, RaceView::Random),
+    }
+}
+
 pub(super) fn player_name(bw: &BwVars, player_id: u8) -> String {
     let name = unsafe { bw::player_name(bw.players.add(player_id as usize)) };
     if name.is_empty() {
@@ -555,6 +572,7 @@ mod tests {
             name: String::new(),
             color: Color32::WHITE,
             vision: true,
+            race: RaceView::Terran,
         }
     }
 

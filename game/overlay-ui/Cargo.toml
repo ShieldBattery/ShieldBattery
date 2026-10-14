@@ -21,6 +21,11 @@ serde_json = { version = "1.0" }
 # of the hosts that persists prefs, and it already carries serde.
 serde = { version = "1.0", features = ["derive"] }
 
+# Rasterizes the race icons, which are the web client's SVGs (see `observer::race_icon`). Not
+# optional: the game DLL already carries this exact version through egui_extras' SVG loader, and its
+# default features (text, system fonts, raster images) are left off, since the icons are bare paths.
+resvg = { version = "0.45.1", default-features = false }
+
 # Preview-host-only dependencies. All optional and gated behind the `preview` feature, which only the
 # `overlay-preview` binary requires, so the game DLL — which depends on this crate for its lib alone —
 # never pulls eframe/winit/image into its build graph.

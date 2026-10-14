@@ -3538,6 +3538,7 @@ dependencies = [
  "eframe",
  "egui",
  "image",
+ "resvg",
  "serde",
  "serde_json",
 ]

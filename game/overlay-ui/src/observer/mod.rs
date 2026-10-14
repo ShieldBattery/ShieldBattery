@@ -19,6 +19,7 @@ pub(crate) mod matchup;
 pub(crate) mod military;
 pub(crate) mod minimap;
 pub(crate) mod production;
+mod race_icon;
 pub(crate) mod selection;
 pub(crate) mod team_cards;
 pub(crate) mod timeline;
@@ -105,8 +106,8 @@ impl ObserverView {
     }
 }
 
-/// The race a player is playing, which decides the color and the letter of their chip.
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize)]
+/// The race a player is playing, which decides the color and the icon of their chip.
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Default, Serialize, Deserialize)]
 pub enum RaceView {
     Zerg,
     Terran,
@@ -124,6 +125,17 @@ impl RaceView {
         RaceView::Random,
     ];
 
+    /// Whose art a resource is drawn in for a player of this race, or `None` while a random pick
+    /// has yet to resolve.
+    pub(crate) fn resource_race(self) -> Option<widgets::ResourceRace> {
+        match self {
+            RaceView::Zerg => Some(widgets::ResourceRace::Zerg),
+            RaceView::Terran => Some(widgets::ResourceRace::Terran),
+            RaceView::Protoss => Some(widgets::ResourceRace::Protoss),
+            RaceView::Random => None,
+        }
+    }
+
     /// The race's own color, which its chip is drawn in.
     pub fn color(self) -> Color32 {
         match self {
@@ -131,19 +143,6 @@ impl RaceView {
             RaceView::Terran => TERRAN,
             RaceView::Protoss => PROTOSS,
             RaceView::Random => RANDOM,
-        }
-    }
-
-    /// The single letter that stands for the race on a chip.
-    ///
-    /// Translated, because the letter is an abbreviation of the race's name rather than a symbol:
-    /// a Korean reader expects the first syllable of the Korean name, not a `Z`.
-    pub fn letter(self) -> String {
-        match self {
-            RaceView::Zerg => tr!("observer.raceZerg", "Z"),
-            RaceView::Terran => tr!("observer.raceTerran", "T"),
-            RaceView::Protoss => tr!("observer.raceProtoss", "P"),
-            RaceView::Random => tr!("observer.raceRandom", "R"),
         }
     }
 
@@ -197,24 +196,36 @@ pub(crate) fn paint_text(ui: &Ui, rect: Rect, spec: &TextSpec, text: &str, align
     );
 }
 
-/// Paints a player's race chip: a disc in the race's color with the race's letter cut out of it.
+/// Paints a player's race chip: the race's icon in the race's color, over a faint disc of it.
 ///
-/// Filled rather than outlined, because the race is the first thing read off a name: a disc of
-/// color carries across a room where a ring of it reads as one more piece of chrome.
+/// The icon carries the color because it is what the rest of ShieldBattery shows a race as, and
+/// a watcher who knows the hydralisk from the site reads it here without learning anything new.
+/// The disc gives every race the same round footprint beside the name: the icons' silhouettes are
+/// all different shapes, and without it a row's name would start at a different distance from
+/// each of them.
 pub(crate) fn paint_race_chip(ui: &Ui, rect: Rect, race: RaceView, alpha: f32) {
     let diameter = rect.width().min(rect.height());
-    ui.painter().circle_filled(
+    let icon = race_icon::icon_rect(
         rect.center(),
-        diameter * 0.5,
-        race.color().gamma_multiply(alpha),
+        diameter * RACE_ICON_RATIO,
+        ui.ctx().pixels_per_point(),
     );
-    let spec = crate::kit::text::player_name(diameter * RACE_LETTER_RATIO)
-        .with_color(Color32::BLACK.gamma_multiply(alpha));
-    paint_text(ui, rect, &spec, &race.letter(), Align::Center);
+    // Around the icon's square rather than the rect's middle: the two differ by under a pixel,
+    // which is nothing beside the name but would show as the icon sitting off-center in its disc.
+    ui.painter().circle_filled(
+        icon.center(),
+        diameter * 0.5,
+        race.color().gamma_multiply(RACE_DISC_ALPHA * alpha),
+    );
+    race_icon::paint_race_icon(ui.painter(), icon, race, race.color().gamma_multiply(alpha));
 }
 
-/// How much of a race chip's diameter its letter is set at.
-const RACE_LETTER_RATIO: f32 = 0.46;
+/// How strongly a race chip's disc is filled with the race's color: enough to read as the chip's
+/// edge against the bar, faint enough that the icon in the same color stands out from it.
+const RACE_DISC_ALPHA: f32 = 0.22;
+
+/// How much of a race chip's diameter its icon's square is drawn at.
+const RACE_ICON_RATIO: f32 = 0.84;
 
 /// Paints the dot that marks whose a row is, where the row is too short for a bar of their color.
 pub(crate) fn paint_player_dot(ui: &Ui, rect: Rect, color: Color32, diameter: f32) {
@@ -714,12 +725,14 @@ pub(crate) fn paint_column_heading(ui: &Ui, rect: Rect, label: &str, align: Alig
     paint_text(ui, rect, &text::column_label(), label, align);
 }
 
-/// Paints one resource cell of a stats wing: the glyph that says which resource, then the number,
-/// aligned within the room to its right the way the column it sits in aligns its values.
+/// Paints one resource cell of a stats wing: the glyph that says which resource, in `race`'s art,
+/// then the number, aligned within the room to its right the way the column it sits in aligns its
+/// values.
 pub(crate) fn paint_resource_value(
     ui: &Ui,
     rect: Rect,
     glyph: ResourceGlyph,
+    race: RaceView,
     value: &str,
     align: Align,
     alpha: f32,
@@ -731,7 +744,7 @@ pub(crate) fn paint_resource_value(
         ),
         STAT_GLYPH,
     );
-    widgets::paint_resource_glyph(ui.painter(), glyph_rect, glyph, alpha);
+    widgets::paint_resource_icon(ui.painter(), glyph_rect, glyph, race.resource_race(), alpha);
     let value_rect = Rect::from_min_max(
         pos2(glyph_rect.right() + STAT_GLYPH_GAP, rect.top()),
         rect.right_bottom(),

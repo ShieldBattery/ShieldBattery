@@ -179,11 +179,13 @@ impl Default for Knobs {
             start_secs: 612,
             players: 2,
             team_size: 1,
+            // Every race within the first four slots, so a two-against-two game shows all four
+            // chips side by side.
             races: vec![
                 RaceView::Zerg,
                 RaceView::Terran,
                 RaceView::Protoss,
-                RaceView::Zerg,
+                RaceView::Random,
                 RaceView::Terran,
                 RaceView::Protoss,
                 RaceView::Zerg,
@@ -402,6 +404,7 @@ fn economy_player(knobs: &Knobs, state: &State, index: usize, t: f64) -> Economy
         team: knobs.team_of(index),
         color: overlay_ui::kit::theme::player_color(index),
         vision: state.vision[index],
+        race: knobs.race(index),
         minerals_per_minute,
         gas_per_minute,
         workers,
@@ -418,6 +421,7 @@ fn military_player(knobs: &Knobs, state: &State, index: usize, t: f64) -> Milita
         team: knobs.team_of(index),
         color: overlay_ui::kit::theme::player_color(index),
         vision: state.vision[index],
+        race: knobs.race(index),
         army_minerals,
         army_gas,
         units_killed,

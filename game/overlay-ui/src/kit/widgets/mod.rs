@@ -23,7 +23,10 @@ pub use controls::{
     ScrubTrack, TrackMarker, scrub_track, scrub_track_marked, segmented, segmented_sized,
     segmented_width, slider, slider_sized, stepper, switch, tab_strip, tab_strip_width,
 };
-pub use icons::{ResourceGlyph, paint_resource_glyph};
+pub use icons::{
+    IconSizes, ResourceGlyph, ResourceIcons, ResourceRace, paint_resource_glyph,
+    paint_resource_icon, set_resource_icons,
+};
 pub use panels::{
     PANEL_HEADER_HEIGHT, STATUS_DOT_DIAMETER, TagStyle, centered_paragraph, divider, panel_header,
     panel_header_with_close, pulsing_dots, stat_row, status_dot, tag, tag_exact, tag_height,

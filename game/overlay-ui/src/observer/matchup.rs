@@ -687,8 +687,8 @@ fn draw_half(ui: &Ui, rect: Rect, player: &MatchupPlayerView, mirrored: bool, me
         ui,
         &mut cursor,
         metrics.minerals,
+        player.race,
         &player.minerals.to_string(),
-        theme::TEXT_PRIMARY.gamma_multiply(alpha),
         alpha,
         metrics.value_size,
     );
@@ -697,8 +697,8 @@ fn draw_half(ui: &Ui, rect: Rect, player: &MatchupPlayerView, mirrored: bool, me
         ui,
         &mut cursor,
         metrics.gas,
+        player.race,
         &player.gas.to_string(),
-        theme::TEXT_PRIMARY.gamma_multiply(alpha),
         alpha,
         metrics.value_size,
     );
@@ -747,10 +747,11 @@ fn draw_supply(
 ) {
     let cell = metrics.supply;
     let mut inner = EdgeCursor::from_left(cursor.take(cell.width()));
-    widgets::paint_resource_glyph(
+    widgets::paint_resource_icon(
         ui.painter(),
         centred(inner.take(GLYPH), GLYPH),
         cell.glyph,
+        player.race.resource_race(),
         alpha,
     );
     inner.skip(GLYPH_GAP);
@@ -785,18 +786,25 @@ fn draw_stat(
     ui: &Ui,
     cursor: &mut EdgeCursor,
     cell: StatCell,
+    race: RaceView,
     value: &str,
-    color: Color32,
     alpha: f32,
     value_size: f32,
 ) {
+    let color = theme::TEXT_PRIMARY.gamma_multiply(alpha);
     // A cell reads the same way in both halves: the glyph names the resource and the number
     // follows it. Only the order of the cells across a half is mirrored, because a half is read
     // from the screen's edge inwards, while what is inside a cell is read the way every language
     // the overlay speaks reads a label and its value.
     let mut inner = EdgeCursor::from_left(cursor.take(cell.width()));
     let glyph_rect = centred(inner.take(GLYPH), GLYPH);
-    widgets::paint_resource_glyph(ui.painter(), glyph_rect, cell.glyph, alpha);
+    widgets::paint_resource_icon(
+        ui.painter(),
+        glyph_rect,
+        cell.glyph,
+        race.resource_race(),
+        alpha,
+    );
     inner.skip(GLYPH_GAP);
     let value_rect = inner.take(cell.value_width);
     paint_text(

@@ -18,7 +18,7 @@ use crate::kit::text;
 use crate::kit::theme;
 use crate::kit::widgets::{self, ResourceGlyph};
 use crate::observer::{
-    EdgeCursor, STAT_COLOR_BAR, STAT_HEADING_HEIGHT, STAT_ROW_GAP, STAT_ROW_HEIGHT,
+    EdgeCursor, RaceView, STAT_COLOR_BAR, STAT_HEADING_HEIGHT, STAT_ROW_GAP, STAT_ROW_HEIGHT,
     STAT_VALUE_SIZE, Wing, paint_column_heading, paint_resource_value, paint_stat_identity,
     paint_team_divider, paint_text, stat_table_height, teams_worth_dividing, vision_alpha,
     wing_panel,
@@ -89,6 +89,8 @@ pub struct MilitaryPlayerView {
     pub color: Color32,
     /// Whether the watcher currently sees the game through this player's eyes.
     pub vision: bool,
+    /// Which race's art their gas is drawn in.
+    pub race: RaceView,
     /// What the player's standing army cost to build, in each resource.
     pub army_minerals: u32,
     pub army_gas: u32,
@@ -208,6 +210,7 @@ fn draw_row(ui: &mut Ui, player: &MilitaryPlayerView) {
         ui,
         cursor.take(VALUE_WIDTH),
         ResourceGlyph::Minerals,
+        player.race,
         &player.army_minerals.to_string(),
         Align::LEFT,
         alpha,
@@ -217,6 +220,7 @@ fn draw_row(ui: &mut Ui, player: &MilitaryPlayerView) {
         ui,
         cursor.take(VALUE_WIDTH),
         ResourceGlyph::Gas,
+        player.race,
         &player.army_gas.to_string(),
         Align::LEFT,
         alpha,

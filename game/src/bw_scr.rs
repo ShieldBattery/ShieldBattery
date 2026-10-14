@@ -66,6 +66,7 @@ mod draw_inject;
 mod draw_overlay;
 mod file_hook;
 mod game;
+mod game_files;
 mod game_settings;
 mod game_stats;
 mod monitors;
@@ -4340,6 +4341,13 @@ impl BwScr {
                         // to request a second pass to provide nicer look.
                         // This means we do 4 passes per frame while changing graphics quality,
                         // but the performance should not be that bad..
+                        // Read out of the game's storage here rather than at setup: the draw is on
+                        // the main thread, and by now the storage is open.
+                        if render_state.overlay.needs_resource_icons(is_carbot) {
+                            render_state
+                                .overlay
+                                .load_resource_icons(is_carbot, |path| self.read_game_file(path));
+                        }
                         for _ in 0..2 {
                             let overlay_out = render_state.overlay.step(
                                 &draw_overlay::BwVars {
