@@ -230,7 +230,7 @@
     "legacyCursorSizingTooltip": "使用《星际争霸：重制版》的原始光标大小设置，高分辨率下缩放比例不一致。",
     "legacyDescription": "这些设置是为了兼容《星际争霸：重制版》的设置而保留的，但不推荐使用，因为它们可能导致性能问题。",
     "lockCursor": "将光标锁定在窗口内",
-    "lockCursorWindowedOnly": "非窗口化模式下始终开启",
+    "lockCursorWindowedOnly": "仅可在窗口化模式下关闭",
     "minimapPosition": "小地图位置",
     "minimapPositionBottomLeft": "左下角",
     "minimapPositionStandard": "标准",

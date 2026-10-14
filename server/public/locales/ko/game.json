@@ -230,7 +230,7 @@
     "legacyCursorSizingTooltip": "원래 스타크래프트: 리마스터 커서 크기를 사용하며, 고해상도에서 크기 비율이 일관되지 않을 수 있습니다.",
     "legacyDescription": "이 설정들은 스타크래프트: 리마스터 설정과의 호환성을 위해 제공되지만, 성능 문제를 일으킬 수 있으므로 사용을 권장하지 않습니다.",
     "lockCursor": "커서를 창에 고정",
-    "lockCursorWindowedOnly": "창 모드가 아닐 때는 항상 켜져 있습니다",
+    "lockCursorWindowedOnly": "창 모드에서만 끌 수 있습니다",
     "minimapPosition": "미니맵 위치",
     "minimapPositionBottomLeft": "좌측 하단",
     "minimapPositionStandard": "기본 위치",

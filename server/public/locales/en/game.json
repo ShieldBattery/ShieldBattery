@@ -235,7 +235,7 @@
     "legacyCursorSizingTooltip": "Uses the original StarCraft: Remastered cursor sizes, which have inconsistent scales at higher resolutions.",
     "legacyDescription": "These settings are available for compatibility with the StarCraft: Remastered settings, but are not recommended for use because they cause performance issues.",
     "lockCursor": "Lock cursor to window",
-    "lockCursorWindowedOnly": "Always on outside Windowed mode",
+    "lockCursorWindowedOnly": "Can only be disabled in Windowed mode",
     "minimapPosition": "Minimap position",
     "minimapPositionBottomLeft": "Bottom-left corner",
     "minimapPositionStandard": "Standard",

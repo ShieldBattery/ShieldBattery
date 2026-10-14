@@ -1274,7 +1274,7 @@ fn draw_input(ui: &mut Ui, view: &OptionsView, outcome: &mut OptionsOutcome) {
             ui,
             &tr!(
                 "options.lockCursorWindowedOnly",
-                "Always on outside Windowed mode"
+                "Can only be disabled in Windowed mode"
             ),
         );
     }
