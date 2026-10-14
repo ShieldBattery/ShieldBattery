@@ -4080,6 +4080,18 @@ impl BwScr {
                     },
                     relative,
                 );
+                // The console's art is queued by its own draw entry from the game's per-frame HUD
+                // update. That update also expires chat lines, cycles palettes and keeps the
+                // selection state current, so it always runs and only the art is held back.
+                let relative = (*vtable).draw.cast_usize() - base;
+                exe.hook_closure_address(
+                    Console_Draw,
+                    move |console, orig| match self.console_hidden() {
+                        true => 0,
+                        false => orig(console),
+                    },
+                    relative,
+                );
             }
 
             sdf_cache::apply_sdf_cache_hooks(self, &mut exe, base);
@@ -4194,26 +4206,24 @@ impl BwScr {
                     if second_draw == 0 {
                         self.poll_team_color_mode();
                     }
-                    // It is expected that extra_funcs array has one (just one) function that
-                    // draws the UI console. If console is hidden just call orig with 0 extra funcs
-                    // and it should make the static parts of console hidden.
-                    // (Interactable parts of the console are dialogs which need to be hidden
-                    // separately.)
+                    // `extra_funcs` holds the game's per-frame HUD update, which must run whether
+                    // or not the console is shown: it expires chat lines and cycles palettes
+                    // among other things. A hidden console's art is held back by the hook on its
+                    // own draw entry instead (see `Console_Draw`), and its interactable parts are
+                    // dialogs, hidden separately.
                     let graphic_layers =
                         self.graphic_layers.and_then(|x| NonNull::new(x.resolve()));
-                    if self.console_hidden() {
-                        if let Some(layers) = graphic_layers {
-                            // Don't draw tooltip layer if it was active.
-                            // It can stay active when hiding console depending on where
-                            // the mouse was on when console was hidden, even if the control
-                            // becomes uninteractable.
-                            // (Pretty sure that none of the menus use tooltips)
-                            (*layers.as_ptr().add(1)).draw = 0;
-                        }
-                        orig(extra_funcs, 0, second_draw);
-                    } else {
-                        orig(extra_funcs, extra_func_len, second_draw);
+                    if self.console_hidden()
+                        && let Some(layers) = graphic_layers
+                    {
+                        // Don't draw tooltip layer if it was active.
+                        // It can stay active when hiding console depending on where
+                        // the mouse was on when console was hidden, even if the control
+                        // becomes uninteractable.
+                        // (Pretty sure that none of the menus use tooltips)
+                        (*layers.as_ptr().add(1)).draw = 0;
                     }
+                    orig(extra_funcs, extra_func_len, second_draw);
                     let renderer = self.renderer.resolve();
                     let commands = self.draw_commands.resolve();
                     let vertex_buffer = self.vertex_buffer.resolve();
@@ -10503,6 +10513,7 @@ mod hooks {
             *mut c_void,
         ) -> usize;
         !0 => Console_HitTest(*mut scr::UiConsole, i32, i32) -> u8;
+        !0 => Console_Draw(*mut scr::UiConsole) -> u32;
         !0 => OrderFn(*mut bw::Unit);
     );
 
