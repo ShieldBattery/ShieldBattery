@@ -231,6 +231,8 @@ pub struct BwVars {
     pub vertex_buf: *mut scr::VertexBuffer,
     pub statres_icons: *mut scr::DdsGrpSet,
     pub cmdicons: *mut scr::DdsGrpSet,
+    /// Null where the analysis could not find the wireframes, in which case none are asked for.
+    pub wirefram: *mut scr::DdsGrpSet,
     pub is_hd: bool,
     pub is_carbot: bool,
 }
@@ -321,6 +323,10 @@ unsafe fn draw_overlay_texture_ptr(
         match Texture::from_egui_user_id(egui_user_id)? {
             Texture::StatRes(frame) => ddsgrp_frame(bw.statres_icons, bw, frame),
             Texture::CmdIcon(frame) => ddsgrp_frame(bw.cmdicons, bw, frame),
+            Texture::Wireframe(frame) if !bw.wirefram.is_null() => {
+                ddsgrp_frame(bw.wirefram, bw, frame)
+            }
+            Texture::Wireframe(_) => None,
         }
     }
 }
@@ -342,6 +348,13 @@ pub unsafe fn ddsgrp_texture(
             (false, _) => 0,
             (true, false) => 1,
             (true, true) => 2,
+        };
+        // A set the carbot skins are not required to have frames of is drawn from its HD frames
+        // where they have none.
+        let index = if index == 2 && (*grp).dds_grps[2].frame_count == 0 {
+            1
+        } else {
+            index
         };
         let ddsgrp = addr_of_mut!((*grp).dds_grps[index]);
         if frame >= (*ddsgrp).frame_count || (*ddsgrp).textures.is_null() {

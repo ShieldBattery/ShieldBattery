@@ -112,21 +112,101 @@ pub struct ProductionIcon {
     /// The frame's own number, which names the icon whether or not it can be drawn.
     pub index: u16,
     /// The pixel size of the atlas frame being drawn, whose proportions the icon is drawn at; `None`
-    /// where the host cannot say, which draws it to fill its tile.
+    /// where the host cannot say, which draws it to fill its tile. For a wireframe, the size of one
+    /// of its cells.
     pub size: Option<Vec2>,
     /// How much of each side of the frame is empty padding around the art, as a share of the
     /// frame. The icon is drawn cropped of it, so the art rather than its padding fills the tile.
+    /// For a wireframe, a share of one of its cells.
     pub margin: f32,
+    /// A unit drawn as the game's status panel draws it, as a wireframe, rather than as a frame of
+    /// the icon atlas; `None` for an atlas icon.
+    pub wireframe: Option<Wireframe>,
 }
+
+/// How a frame of the game's unit wireframes is drawn.
+///
+/// A wireframe frame is a row of square cells side by side from its left edge, each a white mask
+/// of one layer of the unit: its hit-point layers, then the layers of shields only a unit with
+/// shields draws. A frame can reach past its last cell, as the HD set's are padded out to a power
+/// of two wide, so how wide a cell is comes with it. The game colors every layer on its own to show
+/// how hurt the unit is, and draws them over each other; the overlay draws them in shades of the
+/// icon's own tint instead (see [`layer_shades`]), so the wireframe reads as one of the panel's
+/// icons.
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub struct Wireframe {
+    /// The color of each hit-point layer.
+    pub layers: [Color32; WIREFRAME_LAYERS],
+    /// How wide one cell is, as a share of the frame's width.
+    pub cell_width: f32,
+}
+
+/// How many of a wireframe's cells are its hit-point layers, which are the first of them.
+pub const WIREFRAME_LAYERS: usize = 4;
 
 impl ProductionIcon {
     /// Draws this icon's art from `texture` fitted into `tile`, tinted with `tint`.
     pub(crate) fn paint(&self, painter: &Painter, texture: TextureId, tile: Rect, tint: Color32) {
         let margin = self.margin;
-        let uv = Rect::from_min_max(pos2(margin, margin), pos2(1.0 - margin, 1.0 - margin));
         let size = self.size.map(|size| size * (1.0 - 2.0 * margin));
-        painter.image(texture, fit_icon(tile, size), uv, tint);
+        match self.wireframe {
+            None => {
+                let uv = Rect::from_min_max(pos2(margin, margin), pos2(1.0 - margin, 1.0 - margin));
+                painter.image(texture, fit_icon(tile, size), uv, tint);
+            }
+            Some(wireframe) => {
+                // Cells are square, so one whose size the host cannot say is still drawn square.
+                let rect = fit_icon(tile, size.or(Some(Vec2::splat(1.0))));
+                for (cell, shade) in layer_shades(wireframe.layers).into_iter().enumerate() {
+                    let uv = wireframe_cell_uv(cell, wireframe.cell_width, margin);
+                    let [r, g, b, a] = tint.to_array();
+                    let scale = |channel: u8| (f32::from(channel) * shade).round() as u8;
+                    let color = Color32::from_rgba_premultiplied(scale(r), scale(g), scale(b), a);
+                    painter.image(texture, rect, uv, color);
+                }
+            }
+        }
     }
+}
+
+/// The darkest shade a wireframe layer is drawn in, as a share of the icon's tint.
+const DARKEST_LAYER_SHADE: f32 = 0.32;
+
+/// The shade each of a wireframe's layers is drawn in, as a share of the icon's tint.
+///
+/// A wireframe is drawn in grey like the command icons around it rather than in the game's colors,
+/// its layers told apart by how light the game draws each: ranked by brightness and spread evenly
+/// from [`DARKEST_LAYER_SHADE`] to full, rather than taken at their own brightness, which puts some
+/// of the game's colors (its green and its orange) at nearly the same grey.
+fn layer_shades(layers: [Color32; WIREFRAME_LAYERS]) -> [f32; WIREFRAME_LAYERS] {
+    let brightness = |color: Color32| {
+        0.299 * f32::from(color.r()) + 0.587 * f32::from(color.g()) + 0.114 * f32::from(color.b())
+    };
+    let mut distinct: Vec<f32> = layers.iter().map(|&color| brightness(color)).collect();
+    distinct.sort_by(f32::total_cmp);
+    distinct.dedup();
+    let steps = distinct.len().saturating_sub(1).max(1) as f32;
+    layers.map(|color| {
+        let rank = distinct
+            .iter()
+            .position(|&level| level == brightness(color))
+            .unwrap_or(0);
+        if distinct.len() == 1 {
+            1.0
+        } else {
+            DARKEST_LAYER_SHADE + (1.0 - DARKEST_LAYER_SHADE) * rank as f32 / steps
+        }
+    })
+}
+
+/// Where one cell of a wireframe frame is in the frame's texture, for cells `width` of the frame
+/// wide, cropped of `margin` of the cell on every side.
+fn wireframe_cell_uv(cell: usize, width: f32, margin: f32) -> Rect {
+    let left = cell as f32 * width;
+    Rect::from_min_max(
+        pos2(left + margin * width, margin),
+        pos2(left + (1.0 - margin) * width, 1.0 - margin),
+    )
 }
 
 /// One thing a player is making.
@@ -365,5 +445,47 @@ fn draw_tile(ui: &Ui, rect: Rect, item: &ProductionItemView, owner: Color32, hov
     if filled.width() > 0.0 {
         ui.painter()
             .rect_filled(filled, corner_radius, theme::ACCENT);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn wireframe_layers_are_shaded_by_how_light_the_game_draws_them() {
+        let red = Color32::from_rgb(200, 24, 24);
+        let green = Color32::from_rgb(16, 252, 24);
+        let orange = Color32::from_rgb(248, 140, 20);
+        let yellow = Color32::from_rgb(252, 252, 56);
+        let shades = layer_shades([red, green, orange, yellow]);
+        assert_eq!(shades[0], DARKEST_LAYER_SHADE);
+        assert_eq!(shades[3], 1.0);
+        assert!(shades[0] < shades[1] && shades[1] < shades[2] && shades[2] < shades[3]);
+        // One color throughout is the whole tint.
+        assert_eq!(
+            layer_shades([red; WIREFRAME_LAYERS]),
+            [1.0; WIREFRAME_LAYERS]
+        );
+    }
+
+    #[test]
+    fn wireframe_cells_split_the_frame_side_by_side_from_its_left_edge() {
+        let first = wireframe_cell_uv(0, 0.125, 0.0);
+        assert_eq!(first, Rect::from_min_max(pos2(0.0, 0.0), pos2(0.125, 1.0)));
+        let last_hit_points = wireframe_cell_uv(WIREFRAME_LAYERS - 1, 0.125, 0.0);
+        assert_eq!(
+            last_hit_points,
+            Rect::from_min_max(pos2(0.375, 0.0), pos2(0.5, 1.0))
+        );
+    }
+
+    #[test]
+    fn wireframe_margin_crops_each_cell_rather_than_the_frame() {
+        let cell = wireframe_cell_uv(2, 0.125, 0.25);
+        assert_eq!(
+            cell,
+            Rect::from_min_max(pos2(0.28125, 0.25), pos2(0.34375, 0.75))
+        );
     }
 }

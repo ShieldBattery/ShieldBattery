@@ -42,7 +42,7 @@ pub use military::{MilitaryPlayerView, MilitaryView, render_military_view};
 pub use minimap::{MinimapFrameOutcome, render_minimap_frame};
 pub use production::{
     ProductionIcon, ProductionItemView, ProductionOutcome, ProductionPlayerView, ProductionView,
-    render_production_view,
+    WIREFRAME_LAYERS, Wireframe, render_production_view,
 };
 pub use selection::{
     ProductionProgressView, SelectedUnitClick, SelectedUnitView, SelectionCase, SelectionOutcome,

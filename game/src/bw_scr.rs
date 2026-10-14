@@ -6,8 +6,8 @@ use std::mem;
 use std::os::windows::ffi::OsStringExt;
 use std::path::{Path, PathBuf};
 use std::ptr::{self, NonNull, null, null_mut};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU8, AtomicU32, AtomicUsize, Ordering};
+use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
 use bw_dat::UnitId;
@@ -218,6 +218,13 @@ pub struct BwScr {
     chat_box_mode: Option<Value<u8>>,
     statres_icons: Value<*mut scr::DdsGrpSet>,
     cmdicons: Value<*mut scr::DdsGrpSet>,
+    /// The status panel's unit wireframes, one frame per unit id. `None` (unlocated) leaves the
+    /// overlay drawing every unit with its command icon.
+    wirefram: Option<Value<*mut scr::DdsGrpSet>>,
+    /// The palette remap the wireframes' layers are colored through, read from the game's files on
+    /// the first draw. Its outer `None` is a remap not yet read; its inner one a remap the game had
+    /// no readable file for.
+    wireframe_remap: OnceLock<Option<draw_overlay::WireframeRemap>>,
     replay_bfix: Option<Value<*mut scr::ReplayBfix>>,
     replay_gcfg: Option<Value<*mut scr::ReplayGcfg>>,
     anti_troll: Option<Value<*mut scr::AntiTroll>>,
@@ -2443,6 +2450,10 @@ impl BwScr {
         }
         let statres_icons = analysis.statres_icons().ok_or("statres_icons")?;
         let cmdicons = analysis.cmdicons().ok_or("cmdicons")?;
+        let wirefram = analysis.wirefram();
+        if wirefram.is_none() {
+            warn!("Could not find wirefram ddsgrp");
+        }
         let screen_x = analysis.screen_x().ok_or("screen_x")?;
         let screen_y = analysis.screen_y().ok_or("screen_y")?;
         let game_screen_width_bwpx = analysis
@@ -2666,6 +2677,8 @@ impl BwScr {
             chat_box_mode: chat_box_mode.map(|op| Value::new(ctx, op)),
             statres_icons: Value::new(ctx, statres_icons),
             cmdicons: Value::new(ctx, cmdicons),
+            wirefram: wirefram.map(|op| Value::new(ctx, op)),
+            wireframe_remap: OnceLock::new(),
             screen_x: Value::new(ctx, screen_x),
             screen_y: Value::new(ctx, screen_y),
             grab_pan: grab_pan.map(|(middle_down_handler, middle_up_handler, table)| GrabPan {
@@ -4268,6 +4281,7 @@ impl BwScr {
                     let use_rgb_colors = self.use_rgb_colors.resolve();
                     let statres_icons = self.statres_icons.resolve();
                     let cmdicons = self.cmdicons.resolve();
+                    let wirefram = self.wirefram.map_or(null_mut(), |x| x.resolve());
                     let replay_visions = self.replay_visions.resolve();
                     let local_player_id = self.local_unique_player_id.resolve() as u8;
                     // The header is only a replay's, and it is only populated once one is running.
@@ -4368,6 +4382,9 @@ impl BwScr {
                                 .overlay
                                 .load_resource_icons(|path| self.read_game_file(path));
                         }
+                        let wireframe_remap = *self.wireframe_remap.get_or_init(|| {
+                            draw_overlay::WireframeRemap::load(|path| self.read_game_file(path))
+                        });
                         for _ in 0..2 {
                             let overlay_out = render_state.overlay.step(
                                 &draw_overlay::BwVars {
@@ -4389,6 +4406,8 @@ impl BwScr {
                                     is_hd,
                                     is_carbot,
                                     cmdicons,
+                                    wirefram,
+                                    wireframe_remap,
                                     has_init_bw,
                                     countdown_start,
                                     game_started,
@@ -4485,6 +4504,7 @@ impl BwScr {
                                 is_carbot,
                                 statres_icons,
                                 cmdicons,
+                                wirefram,
                             };
                             if overlay_out.run_second_draw {
                                 draw_inject::update_textures_without_adding_overlays(

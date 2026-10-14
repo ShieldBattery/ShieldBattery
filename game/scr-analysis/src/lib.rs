@@ -877,6 +877,10 @@ impl<'e> Analysis<'e> {
         self.0.cmdicons_ddsgrp()
     }
 
+    pub fn wirefram(&mut self) -> Option<Operand<'e>> {
+        self.0.wirefram_ddsgrp()
+    }
+
     pub fn use_rgb_colors(&mut self) -> Option<Operand<'e>> {
         self.0.use_rgb_colors()
     }

@@ -5,13 +5,14 @@ use egui::{Color32, TextureId, Vec2};
 use hashbrown::HashMap;
 use overlay_ui::observer::{
     ProductionIcon, ProductionItemView, ProductionPlayerView, ProductionProgressView,
-    ProductionView, UnitUpgradeView, UpgradeEffect, WeaponDamageView,
+    ProductionView, UnitUpgradeView, UpgradeEffect, WIREFRAME_LAYERS, WeaponDamageView, Wireframe,
 };
 
 use crate::bw;
 use crate::bw_scr::draw_inject;
 use crate::bw_scr::game_stats::TimelineSubject;
 
+use super::wireframe::{self, FULL_HEALTH};
 use super::{BwVars, OverlayState, Texture, player_has_units, replay_players_by_team};
 
 pub struct ProductionState {
@@ -498,12 +499,26 @@ fn research_completion(unit: Unit, time: u32) -> Progress {
     }
 }
 
-/// Which frame of the game's own command-icon atlas stands for a unit.
+/// Which of the game's own icons stands for a kind of unit: a frame of the command-icon atlas, or
+/// for the units the atlas has no icon of, their wireframe as a unit at full health draws it.
 ///
 /// Every panel that names a unit names it with this same icon, so no two surfaces show the same
 /// thing two different ways.
 pub fn unit_icon(id: UnitId, bw: &BwVars) -> ProductionIcon {
     production_icon(Production::Unit(id), bw)
+}
+
+/// The icon of one unit in particular, at `hit_points` of `max_hit_points`: its kind's
+/// [`unit_icon`], except that a unit drawn as its wireframe has its layers colored for how hurt it
+/// is, as the game's status panel colors them.
+pub fn unit_icon_at_health(
+    id: UnitId,
+    hit_points: u32,
+    max_hit_points: u32,
+    bw: &BwVars,
+) -> ProductionIcon {
+    let level = wireframe::health_level(hit_points, max_hit_points);
+    wireframe_icon(id, level, bw).unwrap_or_else(|| unit_icon(id, bw))
 }
 
 /// Which frame of the game's own command-icon atlas stands for something the timeline is about.
@@ -559,15 +574,21 @@ const BLANK_UNIT_ICONS: [u16; 47] = [
     221, 222, 223, 224, 225, 226, 227,
 ];
 
-/// Which frame of the game's own command-icon atlas stands for a production, and the texture id the
-/// renderer has that frame under, along with the frame's pixel size so a panel can draw it at its
-/// own proportions.
+/// Which frame of the game's own command-icon atlas (or for the units it has no icon of, of their
+/// wireframes) stands for a production, and the texture id the renderer has that frame under, along
+/// with the frame's pixel size so a panel can draw it at its own proportions.
 fn production_icon(production: Production, bw: &BwVars) -> ProductionIcon {
+    // A kind of unit rather than one unit, so drawn as a unit at full health would be.
+    if let Production::Unit(id) = production
+        && let Some(icon) = wireframe_icon(id, FULL_HEALTH, bw)
+    {
+        return icon;
+    }
     let is_hd = bw.is_hd;
     let frame = match production {
         // The atlas has no egg: a larva's egg's frame is a radiation symbol and a lurker egg's
-        // reads BLANK. The cocoon is the one pod it draws, and what an egg hatches into is named
-        // beside it wherever it is shown.
+        // reads BLANK. Where the wireframes cannot be drawn either, the cocoon is the one pod the
+        // atlas draws, and what an egg hatches into is named beside it wherever it is shown.
         Production::Unit(bw_dat::unit::EGG | bw_dat::unit::LURKER_EGG) => bw_dat::unit::COCOON.0,
         Production::Unit(id) if BLANK_UNIT_ICONS.contains(&id.0) => {
             return ProductionIcon {
@@ -575,6 +596,7 @@ fn production_icon(production: Production, bw: &BwVars) -> ProductionIcon {
                 index: id.0,
                 size: None,
                 margin: 0.0,
+                wireframe: None,
             };
         }
         Production::Unit(id) => {
@@ -613,5 +635,43 @@ fn atlas_icon(frame: u16, margin: f32, bw: &BwVars) -> ProductionIcon {
         index: frame,
         size,
         margin,
+        wireframe: None,
     }
+}
+
+/// A unit drawn as its wireframe, its hit-point layers colored for the `level` of health
+/// [`wireframe::health_level`] reckons, or `None` for a kind of unit drawn by its command icon, and
+/// where the game's wireframes or the remap that colors them could not be read.
+///
+/// A frame too narrow to hold a square cell for every hit-point layer is `None` too, rather than a
+/// slice of art drawn as if it were a wireframe.
+fn wireframe_icon(id: UnitId, level: usize, bw: &BwVars) -> Option<ProductionIcon> {
+    if !wireframe::draws_as_wireframe(id) || bw.wirefram.is_null() {
+        return None;
+    }
+    let remap = bw.wireframe_remap?;
+    // SAFETY: `wirefram` is the game's own set, which outlives the frames drawn from it.
+    let (width, height) = unsafe {
+        let texture = draw_inject::ddsgrp_texture(bw.wirefram, bw.is_hd, bw.is_carbot, id.0)?;
+        ((*texture).width, (*texture).height)
+    };
+    if height == 0 || u32::from(width) < u32::from(height) * WIREFRAME_LAYERS as u32 {
+        return None;
+    }
+    // SAFETY: The main palette is the game's own 256 entries of four bytes, alive for as long as
+    // the game runs, and a remap entry is a byte.
+    let colors = remap.pod_layer_colors(level).map(|index| unsafe {
+        let color = bw.main_palette.add(4 * usize::from(index));
+        Color32::from_rgb(*color, *color.add(1), *color.add(2))
+    });
+    Some(ProductionIcon {
+        texture: Some(TextureId::User(Texture::Wireframe(id.0).to_egui_id())),
+        index: id.0,
+        size: Some(Vec2::splat(f32::from(height))),
+        margin: 0.0,
+        wireframe: Some(Wireframe {
+            layers: colors,
+            cell_width: f32::from(height) / f32::from(width),
+        }),
+    })
 }

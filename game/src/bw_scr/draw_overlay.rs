@@ -49,6 +49,9 @@ pub mod options;
 mod production;
 mod resource_icons;
 mod stats;
+mod wireframe;
+
+pub use self::wireframe::WireframeRemap;
 
 pub struct OverlayState {
     ctx: egui::Context,
@@ -286,6 +289,13 @@ pub struct BwVars {
     /// The game's command-icon atlas, read for the pixel size of the frame an icon will be drawn
     /// with. Valid for as long as the game is running.
     pub cmdicons: *mut scr::DdsGrpSet,
+    /// The game's unit wireframes, read for the pixel size of the frame a wireframe will be drawn
+    /// with. Valid for as long as the game is running; null where the analysis could not find them,
+    /// which leaves every unit on its command icon.
+    pub wirefram: *mut scr::DdsGrpSet,
+    /// The remap the wireframes' layers are colored through. `None` where the game had none to
+    /// read, which leaves every unit on its command icon too.
+    pub wireframe_remap: Option<WireframeRemap>,
     pub has_init_bw: bool,
     pub countdown_start: Option<Instant>,
     pub game_started: bool,
@@ -313,6 +323,7 @@ pub struct ReplayVars {
 pub enum Texture {
     StatRes(u16),
     CmdIcon(u16),
+    Wireframe(u16),
 }
 
 // No real reason to start with 0x2000_0000, but since egui gives u64 range,
@@ -321,12 +332,15 @@ const TEXTURE_FIRST_STATRES: u64 = 0x2000_0000;
 const TEXTURE_LAST_STATRES: u64 = TEXTURE_FIRST_STATRES + 0xffff;
 const TEXTURE_FIRST_CMDICON: u64 = TEXTURE_LAST_STATRES + 1;
 const TEXTURE_LAST_CMDICON: u64 = TEXTURE_FIRST_CMDICON + 0xffff;
+const TEXTURE_FIRST_WIREFRAME: u64 = TEXTURE_LAST_CMDICON + 1;
+const TEXTURE_LAST_WIREFRAME: u64 = TEXTURE_FIRST_WIREFRAME + 0xffff;
 
 impl Texture {
     pub fn to_egui_id(self) -> u64 {
         match self {
             Texture::StatRes(frame) => TEXTURE_FIRST_STATRES + frame as u64,
             Texture::CmdIcon(frame) => TEXTURE_FIRST_CMDICON + frame as u64,
+            Texture::Wireframe(frame) => TEXTURE_FIRST_WIREFRAME + frame as u64,
         }
     }
 
@@ -337,6 +351,9 @@ impl Texture {
             }
             TEXTURE_FIRST_CMDICON..=TEXTURE_LAST_CMDICON => {
                 Texture::CmdIcon((val - TEXTURE_FIRST_CMDICON) as u16)
+            }
+            TEXTURE_FIRST_WIREFRAME..=TEXTURE_LAST_WIREFRAME => {
+                Texture::Wireframe((val - TEXTURE_FIRST_WIREFRAME) as u16)
             }
             _ => return None,
         })

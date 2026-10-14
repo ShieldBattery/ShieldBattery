@@ -532,6 +532,7 @@ fn timeline_events(knobs: &Knobs, game_secs: u64) -> Vec<TimelineEventView> {
                     index: units[index as usize % units.len()],
                     size: None,
                     margin: 0.0,
+                    wireframe: None,
                 }),
                 name: unit_name(units[index as usize % units.len()]),
                 position: None,
@@ -666,6 +667,7 @@ fn production_player(knobs: &Knobs, index: usize, t: f64) -> ProductionPlayerVie
                     index: unit,
                     size: None,
                     margin: 0.0,
+                    wireframe: None,
                 },
                 count: 1 + ((t / 7.0) as u32 + slot as u32) % 4,
                 progress: fraction(t * (0.13 + 0.05 * slot as f64) + index as f64 * 0.4),
@@ -699,6 +701,7 @@ fn control_groups_player(
         index: id,
         size: None,
         margin: 0.0,
+        wireframe: None,
     };
     let groups = (0..knobs.control_groups.min(10))
         .map(|slot| {
@@ -1064,6 +1067,7 @@ fn unit_icon(index: u16) -> ProductionIcon {
         index,
         size: None,
         margin: 0.0,
+        wireframe: None,
     }
 }
 

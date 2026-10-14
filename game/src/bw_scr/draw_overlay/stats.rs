@@ -403,8 +403,12 @@ fn carried_unit_view(bw: &BwVars, players: &[StatsPlayer], unit: Unit) -> Select
     let owner = players
         .iter()
         .find(|player| player.player_id == unit.player());
+    let hit_points = whole_points(unit.hitpoints());
+    // Already the game's "never zero" maximum: the unit's own hit points stand in for a dat entry
+    // of zero, and one point stands in for both being zero.
+    let max_hit_points = unit.max_hp_displayed().max(0) as u32;
     SelectedUnitView {
-        icon: production::unit_icon(unit_id, bw),
+        icon: production::unit_icon_at_health(unit_id, hit_points, max_hit_points, bw),
         // The overlay is built in the game's draw, on its main thread.
         name: bw
             .stat_txt
@@ -412,12 +416,7 @@ fn carried_unit_view(bw: &BwVars, players: &[StatsPlayer], unit: Unit) -> Select
         owner_color: owner.map_or(theme::TEXT_DIM, |player| player.color),
         owner_name: owner.map(|player| player.name.clone()).unwrap_or_default(),
         owner: owner.map(|player| player.player_id),
-        hit_points: (
-            whole_points(unit.hitpoints()),
-            // Already the game's "never zero" maximum: the unit's own hit points stand in for a
-            // dat entry of zero, and one point stands in for both being zero.
-            unit.max_hp_displayed().max(0) as u32,
-        ),
+        hit_points: (hit_points, max_hit_points),
         shields: unit_id.has_shields().then(|| {
             (
                 whole_points(unit.shields()),
