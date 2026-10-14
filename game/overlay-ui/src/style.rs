@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 use egui::epaint::text::VariationCoords;
 use egui::style::{ScrollStyle, TextStyle};
@@ -33,17 +33,37 @@ pub fn install_fonts_and_style(ctx: &egui::Context, dynamic: &DynamicFonts) {
         .cloned()
         .unwrap_or_default();
 
-    // The same file registered once per weight. `FontData` holds a `Cow`, so the extra weights
-    // borrow the embedded bytes instead of copying them.
-    insert(&mut fonts, fonts::INTER_400, embedded(INTER, 400.0));
-    insert(&mut fonts, fonts::INTER_500, embedded(INTER, 500.0));
-    insert(&mut fonts, fonts::INTER_550, embedded(INTER, 550.0));
-    insert(&mut fonts, fonts::INTER_600, embedded(INTER, 600.0));
-    insert(&mut fonts, fonts::SOFIA_600, embedded(SOFIA_SANS, 600.0));
+    // The same file registered once per weight. `FontData` holds a `Cow`, so every weight borrows
+    // the one autohinted copy instead of copying it again.
+    insert(
+        &mut fonts,
+        fonts::INTER_400,
+        embedded(&INTER_AUTOHINTED, 400.0),
+    );
+    insert(
+        &mut fonts,
+        fonts::INTER_500,
+        embedded(&INTER_AUTOHINTED, 500.0),
+    );
+    insert(
+        &mut fonts,
+        fonts::INTER_550,
+        embedded(&INTER_AUTOHINTED, 550.0),
+    );
+    insert(
+        &mut fonts,
+        fonts::INTER_600,
+        embedded(&INTER_AUTOHINTED, 600.0),
+    );
+    insert(
+        &mut fonts,
+        fonts::SOFIA_600,
+        embedded(&SOFIA_SANS_AUTOHINTED, 600.0),
+    );
     insert(
         &mut fonts,
         fonts::CONDENSED_400,
-        embedded(SOFIA_SANS_CONDENSED, 400.0),
+        embedded(&SOFIA_SANS_CONDENSED_AUTOHINTED, 400.0),
     );
     insert(&mut fonts, fonts::DO_HYEON, FontData::from_static(DO_HYEON));
 
@@ -137,7 +157,48 @@ pub fn install_fonts_and_style(ctx: &egui::Context, dynamic: &DynamicFonts) {
             font.size = size;
         }
     }
+    // Glyphs start on whole pixels. Binning places each one at a quarter-pixel offset instead, which
+    // evens out spacing but smears every stem across two pixel columns.
+    style.visuals.text_options.subpixel_binning = false;
     ctx.set_global_style(style_arc);
+}
+
+/// The Latin faces as egui reads them: with their TrueType `prep` program emptied, so they are
+/// autohinted.
+///
+/// Inter and Sofia Sans carry no hinting of their own, only a `prep` that sets dropout control,
+/// which matters to 1-bit rendering alone. Its presence is still enough for the rasterizer
+/// (following FreeType) to run the TrueType interpreter instead of its autohinter, so their outlines
+/// would be drawn unhinted, with x-heights and horizontal stems straddling pixel rows: soft at every
+/// size the overlay is drawn at, and softest at the fractional ones 1440p gives. Emptied, the faces
+/// are autohinted and those edges land on whole pixels.
+static INTER_AUTOHINTED: LazyLock<Vec<u8>> = LazyLock::new(|| without_prep_program(INTER));
+static SOFIA_SANS_AUTOHINTED: LazyLock<Vec<u8>> =
+    LazyLock::new(|| without_prep_program(SOFIA_SANS));
+static SOFIA_SANS_CONDENSED_AUTOHINTED: LazyLock<Vec<u8>> =
+    LazyLock::new(|| without_prep_program(SOFIA_SANS_CONDENSED));
+
+/// A copy of the TrueType font `font` whose `prep` table is zero bytes long. The table's bytes stay
+/// where they are; only its directory record stops pointing at them.
+fn without_prep_program(font: &[u8]) -> Vec<u8> {
+    const TABLE_RECORDS: usize = 12;
+    const TABLE_RECORD_LEN: usize = 16;
+    const RECORD_LENGTH_FIELD: usize = 12;
+    let mut font = font.to_vec();
+    let table_count = font
+        .get(4..6)
+        .map(|count| usize::from(u16::from_be_bytes([count[0], count[1]])))
+        .unwrap_or(0);
+    for index in 0..table_count {
+        let record = TABLE_RECORDS + index * TABLE_RECORD_LEN;
+        if font.get(record..record + 4) == Some(b"prep") {
+            let length = record + RECORD_LENGTH_FIELD;
+            if let Some(field) = font.get_mut(length..length + 4) {
+                field.copy_from_slice(&0u32.to_be_bytes());
+            }
+        }
+    }
+    font
 }
 
 fn insert(fonts: &mut FontDefinitions, name: &str, data: FontData) {
@@ -158,5 +219,37 @@ fn weight_tweak(weight: f32) -> FontTweak {
     FontTweak {
         coords: VariationCoords::new([(b"wght", weight)]),
         ..FontTweak::default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The length the table directory of `font` gives the table `tag`, if it has one.
+    fn table_length(font: &[u8], tag: &[u8; 4]) -> Option<u32> {
+        let count = usize::from(u16::from_be_bytes([font[4], font[5]]));
+        (0..count).map(|index| 12 + index * 16).find_map(|record| {
+            (&font[record..record + 4] == tag)
+                .then(|| u32::from_be_bytes(font[record + 12..record + 16].try_into().unwrap()))
+        })
+    }
+
+    #[test]
+    fn latin_faces_are_left_to_the_autohinter() {
+        for (shipped, read) in [
+            (INTER, &*INTER_AUTOHINTED),
+            (SOFIA_SANS, &*SOFIA_SANS_AUTOHINTED),
+            (SOFIA_SANS_CONDENSED, &*SOFIA_SANS_CONDENSED_AUTOHINTED),
+        ] {
+            // A face that gained real hinting would be worth keeping: its instructions would sit in
+            // `fpgm`, and emptying `prep` alone would break them rather than hand over to the
+            // autohinter.
+            assert_eq!(table_length(shipped, b"fpgm"), None);
+            assert!(table_length(shipped, b"prep").is_some_and(|length| length > 0));
+            assert_eq!(table_length(read, b"prep"), Some(0));
+            assert_eq!(read.len(), shipped.len());
+            assert_eq!(table_length(read, b"glyf"), table_length(shipped, b"glyf"));
+        }
     }
 }
