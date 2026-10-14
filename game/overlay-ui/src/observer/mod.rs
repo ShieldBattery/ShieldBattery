@@ -222,25 +222,31 @@ pub(crate) fn paint_player_dot(ui: &Ui, rect: Rect, color: Color32, diameter: f3
 }
 
 /// How far an owner's color is lifted toward white before a unit's icon is tinted with it.
-const OWNER_TINT_LIFT: f32 = 0.35;
+const OWNER_TINT_LIFT: f32 = 0.7;
 
-/// How strongly a tile showing a unit is washed in its owner's color.
-const OWNER_WASH_ALPHA: f32 = 0.14;
+/// How strongly a tile showing a unit is washed in its owner's color, and how strongly its edge is
+/// drawn in it.
+const OWNER_WASH_ALPHA: f32 = 0.2;
+const OWNER_EDGE_ALPHA: f32 = 0.7;
 
 /// The color a unit's icon is tinted with for `owner`: their color brought up to full brightness
-/// and lifted toward white.
+/// and lifted most of the way toward white.
 ///
-/// The game's icons are grey renders (white line art in SD) that a tint can only darken, so a deep
-/// player color (a navy blue, a dark red) multiplied in as it is would sink the icon into the
-/// panel. At full brightness the icon's highlights keep their strength and take the color.
+/// The game's icons are grey renders (white line art in SD) that a tint can only darken, and the
+/// renders are mostly mid greys already: anything more than a cast of the owner's color sinks them
+/// into the panel. The tile around the icon carries the color instead (see [`paint_owner_wash`]).
 pub(crate) fn owner_tint(owner: Color32) -> Color32 {
-    let [r, g, b, _] = owner.to_array();
+    let [r, g, b, _] = full_brightness(owner).to_array();
+    let lift = |value: u8| (value as f32 + (255.0 - value as f32) * OWNER_TINT_LIFT).round() as u8;
+    Color32::from_rgb(lift(r), lift(g), lift(b))
+}
+
+/// `color` scaled up until its brightest channel is full, keeping its hue.
+fn full_brightness(color: Color32) -> Color32 {
+    let [r, g, b, _] = color.to_array();
     let peak = r.max(g).max(b).max(1) as f32;
-    let channel = |value: u8| {
-        let full = value as f32 * 255.0 / peak;
-        (full + (255.0 - full) * OWNER_TINT_LIFT).round() as u8
-    };
-    Color32::from_rgb(channel(r), channel(g), channel(b))
+    let scale = |value: u8| (value as f32 * 255.0 / peak).round() as u8;
+    Color32::from_rgb(scale(r), scale(g), scale(b))
 }
 
 /// Draws one of the game's own icons from `texture` into `rect`, tinted with `tint`.
@@ -255,13 +261,24 @@ pub(crate) fn paint_tinted_icon(
     painter.image(texture, rect, uv, tint.gamma_multiply(alpha));
 }
 
-/// Washes a tile showing one of `owner`'s units in their color, under the icon: what says whose
-/// it is at a glance, and a ground the icon's dark parts stand out from.
+/// Washes a tile showing one of `owner`'s units in their color and edges it in that color at full
+/// brightness: what says whose it is at a glance, and a ground the icon's dark parts stand out
+/// from.
 pub(crate) fn paint_owner_wash(painter: &egui::Painter, rect: Rect, owner: Color32, alpha: f32) {
+    let corner_radius = theme::radius(theme::RADIUS_CHIP);
     painter.rect_filled(
         rect,
-        theme::radius(theme::RADIUS_CHIP),
+        corner_radius,
         owner.gamma_multiply(OWNER_WASH_ALPHA * alpha),
+    );
+    painter.rect_stroke(
+        rect,
+        corner_radius,
+        Stroke::new(
+            theme::HAIRLINE,
+            full_brightness(owner).gamma_multiply(OWNER_EDGE_ALPHA * alpha),
+        ),
+        StrokeKind::Inside,
     );
 }
 

@@ -1749,19 +1749,20 @@ impl Shell {
     }
 
     /// Selects the group on `digit` of the player whose keys the control groups row shows, the way
-    /// that player pressing it would. A digit with nothing on it, or nobody's keys to read, stays
-    /// the game's, which recalls the watcher's own groups with it.
+    /// that player pressing it would. A digit with nothing on it does nothing, as it would for that
+    /// player: left to the game, it would recall another player's group on that digit. With nobody's
+    /// keys to read the digit stays the game's.
     fn recall_control_group(&mut self, digit: u8) -> bool {
-        match self.number_keys {
-            Some((player_id, keys)) if keys & 1 << digit != 0 => {
-                self.intents.push(Intent::SelectControlGroup {
-                    player_id,
-                    key: digit,
-                });
-                true
-            }
-            _ => false,
+        let Some((player_id, keys)) = self.number_keys else {
+            return false;
+        };
+        if keys & 1 << digit != 0 {
+            self.intents.push(Intent::SelectControlGroup {
+                player_id,
+                key: digit,
+            });
         }
+        true
     }
 
     /// Whether SC:R's quit keys open the leave question. They do in every mode once the game runs,
@@ -2933,6 +2934,33 @@ mod tests {
         assert_eq!(shell.top_modal(), Some(ModalId::LeaveGame));
         assert!(shell.key_pressed(Key::Q, Modifiers::NONE));
         assert!(shell.pending_intents().contains(&Intent::QuitGame));
+    }
+
+    #[test]
+    fn number_keys_are_the_shown_players_even_where_they_have_no_group() {
+        let mut shell = spectating_shell();
+        // Nobody's keys are shown: the game recalls the watcher's own groups.
+        assert!(!shell.key_pressed(Key::Num1, Modifiers::NONE));
+        shell.number_keys = Some((3, 1 << 1));
+        assert!(shell.key_pressed(Key::Num1, Modifiers::NONE));
+        assert!(
+            shell
+                .pending_intents()
+                .contains(&Intent::SelectControlGroup {
+                    player_id: 3,
+                    key: 1,
+                })
+        );
+        // Taken but empty, rather than left to recall somebody else's group on the same digit.
+        assert!(shell.key_pressed(Key::Num6, Modifiers::NONE));
+        assert!(
+            !shell
+                .pending_intents()
+                .contains(&Intent::SelectControlGroup {
+                    player_id: 3,
+                    key: 6,
+                })
+        );
     }
 
     #[test]
