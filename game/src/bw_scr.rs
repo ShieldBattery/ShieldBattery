@@ -1223,9 +1223,10 @@ impl SelectedUnit {
 const SPRITE_HIDDEN: u8 = 0x20;
 
 /// Whether the game's selection UI puts `unit` in a selection of several units, as its own check
-/// decides: not a building, a powerup, a hallucination, a disabled unit, a spider mine, a beacon or
-/// flag, an egg or cocoon, or one of the few other kinds it singles out by id.
-unsafe fn can_be_group_selected(unit: *mut bw::Unit) -> bool {
+/// decides: not a building (beacons and flags among them), a powerup, a disabled unit, a spider
+/// mine, an egg, a critter, or one of the few other kinds it singles out by id. Larvae, cocoons,
+/// lurker eggs and hallucinations may all be selected with others.
+pub(super) unsafe fn can_be_group_selected(unit: *mut bw::Unit) -> bool {
     unsafe {
         let id = (*unit).unit_id;
         let type_flags = bw_dat::UnitId(id).flags();

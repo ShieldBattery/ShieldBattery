@@ -805,10 +805,20 @@ pub fn control_group_units(game: Game, units: &UnitArray, player: u8, group: u8)
     }) else {
         return Vec::new();
     };
-    ids.iter()
-        // Zero is the game's own end of the group rather than a unit it failed to find.
-        .take_while(|&&id| id != 0)
+    // Zero is the game's own end of the group rather than a unit it failed to find.
+    let stored = ids.iter().take_while(|&&id| id != 0);
+    // The game's own recall: a group stored with more than one unit leaves out what can only be
+    // selected alone (an egg, a building), and what is out of sight inside something or no longer
+    // the player's. Counted as stored, so a group whose other units have died still leaves out
+    // its egg.
+    let alone = stored.clone().count() <= 1;
+    stored
         .filter_map(|&id| units.get_by_unique_id(id))
+        .filter(|unit| {
+            !unit.is_hidden()
+                && unit.player() == player
+                && (alone || unsafe { super::can_be_group_selected(**unit) })
+        })
         .collect()
 }
 
