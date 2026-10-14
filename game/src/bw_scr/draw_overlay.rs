@@ -95,6 +95,8 @@ pub struct OverlayState {
     screen_size: (u32, u32),
     /// Winapi coords, egui coords
     last_mouse_pos: ((i16, i16), Pos2),
+    /// Whether SC:R's mouse scaling is on, which changes where a window position is in the game.
+    mouse_scaling: bool,
     replay_ui_values: ReplayUiValues,
     player_vision_was_auto_disabled: [bool; 8],
     replay_start_handled: bool,
@@ -202,6 +204,33 @@ pub struct StepOutput {
     pub look_at: Option<bw::Point>,
     /// A number-key group to select.
     pub select_group: Option<GroupSelection>,
+}
+
+/// Where a window position is on the overlay's screen of `screen` points while SC:R's mouse scaling
+/// is on, for a window `window` client pixels in size.
+///
+/// With scaling on, the game keeps the OS cursor inside a box in the middle of the window, one
+/// window pixel to one game pixel (the game's 480 rows and its width in game pixels across them),
+/// and reads a position as how far into that box it is. The cursor it draws is that game pixel
+/// stretched over the whole shown area, which is where the pointer has to be for the overlay too.
+fn scaled_mouse_pos_to_egui(
+    (x, y): (i32, i32),
+    (window_w, window_h): (f32, f32),
+    (screen_w, screen_h): (f32, f32),
+) -> Pos2 {
+    const GAME_HEIGHT: f32 = 480.0;
+    let game_w = (GAME_HEIGHT * screen_w / screen_h.max(1.0))
+        .round()
+        .max(1.0);
+    // Halved the way the game halves it, in whole pixels rounded towards zero.
+    let origin_x = ((window_w - game_w) / 2.0).trunc();
+    let origin_y = ((window_h - GAME_HEIGHT) / 2.0).trunc();
+    let game_x = (x as f32 - origin_x).clamp(0.0, game_w - 1.0);
+    let game_y = (y as f32 - origin_y).clamp(0.0, GAME_HEIGHT - 1.0);
+    Pos2 {
+        x: game_x / game_w * screen_w,
+        y: game_y / GAME_HEIGHT * screen_h,
+    }
 }
 
 /// Bw globals used by OverlayState::step
@@ -365,6 +394,7 @@ impl OverlayState {
             window_size: (100, 100),
             screen_size: (100, 100),
             last_mouse_pos: ((0, 0), Pos2 { x: 0.0, y: 0.0 }),
+            mouse_scaling: false,
             replay_ui_values: ReplayUiValues {
                 statbtn_dialog_offset: (0, 0),
             },
@@ -399,6 +429,7 @@ impl OverlayState {
         option_lists: &Mutex<Arc<OptionsLists>>,
         observer_panels: &Mutex<Option<PanelPrefs>>,
     ) -> StepOutput {
+        self.mouse_scaling = options.lock().mouse_scaling_on;
         if let Some(panels) = observer_panels.lock().take() {
             self.shell.set_panel_prefs(panels);
             self.saved_observer_panels = Some(panels);
@@ -1434,6 +1465,13 @@ impl OverlayState {
     }
 
     fn window_pos_to_egui(&self, x: i32, y: i32) -> Pos2 {
+        if self.mouse_scaling {
+            return scaled_mouse_pos_to_egui(
+                (x, y),
+                (self.window_size.0 as f32, self.window_size.1 as f32),
+                (self.screen_size.0 as f32, self.screen_size.1 as f32),
+            );
+        }
         // If the draw surface is 4:3, but window is 16:9, assumes
         // that the draw surface be centered on the window.
         // (In that case screen_window_ratio will be 0.75)
@@ -1793,7 +1831,31 @@ fn vkey_to_egui_key(key: i32) -> Option<Key> {
 
 #[cfg(test)]
 mod tests {
-    use super::numbered_from_one;
+    use super::{numbered_from_one, scaled_mouse_pos_to_egui};
+
+    use egui::pos2;
+
+    #[test]
+    fn scaled_mouse_positions_are_read_from_the_box_in_the_middle_of_the_window() {
+        // A 16:9 window 1600x900, drawn 1600x900 points: the box is 853x480 game pixels.
+        let window = (1600.0, 900.0);
+        let screen = (1600.0, 900.0);
+        let origin = ((1600 - 853) / 2, (900 - 480) / 2);
+        assert_eq!(
+            scaled_mouse_pos_to_egui(origin, window, screen),
+            pos2(0.0, 0.0)
+        );
+        let middle = scaled_mouse_pos_to_egui((origin.0 + 426, origin.1 + 240), window, screen);
+        assert!(
+            (middle.x - 799.06).abs() < 0.01 && middle.y == 450.0,
+            "{middle:?}"
+        );
+        // Outside the box is the box's edge, as the game clamps it.
+        assert_eq!(
+            scaled_mouse_pos_to_egui((0, 0), window, screen),
+            pos2(0.0, 0.0)
+        );
+    }
 
     #[test]
     fn sides_are_numbered_from_one_in_the_games_own_order() {
