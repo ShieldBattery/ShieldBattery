@@ -7,7 +7,15 @@ use crate::kit::theme;
 use crate::kit::tiers;
 
 /// How far the card is held off the pointer, which has to clear the cursor the game is drawing.
+///
+/// The game's cursor is an arrow hanging down and to the right of the pointer's tip, several times
+/// taller than egui's own and larger again at the bigger cursor sizes. A card below and right of
+/// the tip goes under the arrow's body unless it starts below it; a card flipped above or left of
+/// the tip is clear of the arrow by any gap at all.
 const POINTER_GAP: f32 = 14.0;
+
+/// How far below the pointer's tip the card starts, which is past the bottom of the game's arrow.
+const CURSOR_CLEARANCE: f32 = 40.0;
 
 /// How close to the screen's own edge the card may come.
 const EDGE_MARGIN: f32 = 8.0;
@@ -83,7 +91,7 @@ pub fn tooltip(ctx: &Context, id: Id, anchor: Pos2, add: impl FnOnce(&mut Ui)) {
 fn clamped_offset(screen: Rect, anchor: Pos2, rect: Rect) -> Vec2 {
     let room = screen.shrink(EDGE_MARGIN);
     let size = rect.size();
-    let mut wanted = anchor + vec2(POINTER_GAP, POINTER_GAP);
+    let mut wanted = anchor + vec2(POINTER_GAP, CURSOR_CLEARANCE);
     if wanted.x + size.x > room.right() {
         wanted.x = anchor.x - POINTER_GAP - size.x;
     }
@@ -111,7 +119,7 @@ mod tests {
 
     /// The card as egui would have laid it out at the pointer, which is what the offset moves.
     fn laid_out(anchor: Pos2, size: Vec2) -> Rect {
-        Rect::from_min_size(anchor + vec2(POINTER_GAP, POINTER_GAP), size)
+        Rect::from_min_size(anchor + vec2(POINTER_GAP, CURSOR_CLEARANCE), size)
     }
 
     #[test]
