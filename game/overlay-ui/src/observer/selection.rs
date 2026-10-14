@@ -320,9 +320,13 @@ pub fn render_selection_view(
     slot: StackSlot,
 ) -> Option<Rect> {
     let id = Id::new("sb_selection_panel");
-    let (_, offset_x) = slot.place(PANEL_WIDTH);
+    let placed = slot.place(PANEL_WIDTH);
+    // Pinned by its own bottom-left corner rather than by its middle: an area anchored by its
+    // middle is placed from its size, which a panel coming back on screen does not know until it has
+    // been laid out once, and would arrive sideways from half its width away.
     let area = Area::new(id)
-        .anchor(Align2::CENTER_BOTTOM, vec2(offset_x, -slot.bottom))
+        .pivot(Align2::LEFT_BOTTOM)
+        .fixed_pos(pos2(placed.left, slot.screen_bottom - slot.bottom))
         .order(Order::Foreground);
     let shown = shown && view.case() != SelectionCase::Empty && fits(slot);
     let inner = motion::presence_area(ctx, id.with("presence"), shown, area, |ui| {

@@ -86,7 +86,7 @@ fn tile_width(width: f32) -> f32 {
 
 /// How wide the panel is drawn in `slot`, or `None` where the slot has no room for it.
 pub(crate) fn fitted_width(slot: StackSlot) -> Option<f32> {
-    let (span, _) = slot.place(PANEL_WIDTH);
+    let span = slot.place(PANEL_WIDTH);
     (span.width() >= MIN_WIDTH && slot.room() >= PANEL_HEIGHT).then_some(span.width())
 }
 
@@ -222,9 +222,13 @@ pub fn render_control_groups_view(
     let id = Id::new("sb_control_groups_panel");
     let fitted = fitted_width(slot);
     let width = fitted.unwrap_or(PANEL_WIDTH);
-    let (_, offset_x) = slot.place(width);
+    let placed = slot.place(width);
+    // Pinned by its own bottom-left corner rather than by its middle: an area anchored by its
+    // middle is placed from its size, which a panel coming back on screen does not know until it has
+    // been laid out once, and would arrive sideways from half its width away.
     let area = Area::new(id)
-        .anchor(Align2::CENTER_BOTTOM, vec2(offset_x, -slot.bottom))
+        .pivot(Align2::LEFT_BOTTOM)
+        .fixed_pos(pos2(placed.left, slot.screen_bottom - slot.bottom))
         .order(Order::Foreground);
     let inner = motion::presence_area(
         ctx,

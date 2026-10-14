@@ -756,6 +756,13 @@ pub struct Shell {
     /// The player whose number keys a digit recalls, and which of their keys have a group on them
     /// (one bit per digit), as the control groups row last showed them.
     number_keys: Option<(u8, u16)>,
+    /// Where each bottom panel was last placed while it was wanted on screen, which is where it
+    /// fades out from: a panel leaving because the plate beside it left too would otherwise jump
+    /// across the screen on its way out.
+    held_slots: HeldSlots,
+    /// The minimap's square as the host last reported it, which the panels beside it keep clear of
+    /// while it is hidden and the host has no square to report.
+    last_minimap_rect: Option<Rect>,
     /// Where the replay plate stands this frame, which the observer panels decide: they share the
     /// bottom of the screen with it.
     transport_placement: transport::TransportPlacement,
@@ -796,6 +803,8 @@ impl Shell {
             focused_player: None,
             vision_picker_open: false,
             number_keys: None,
+            held_slots: HeldSlots::default(),
+            last_minimap_rect: None,
             transport_placement: transport::TransportPlacement::default(),
             pending_seek: None,
             last_seek_secs: f64::NEG_INFINITY,
@@ -1172,7 +1181,10 @@ impl Shell {
         // The minimap's square is the game's wherever it is, and the frame around it is kept clear
         // whether or not it is drawn: a watcher who hides the minimap has not asked for the panels
         // to move into its corner.
-        let square = layout::minimap_square(screen, self.host.minimap_rect);
+        if self.host.minimap_rect.is_some() {
+            self.last_minimap_rect = self.host.minimap_rect;
+        }
+        let square = layout::minimap_square(screen, self.last_minimap_rect);
         let minimap = observer::minimap::footprint(screen, square);
         self.frame_minimap(ctx, view, hit_rects);
         let minimap_on_left = minimap.center().x < screen.center().x;
@@ -1308,7 +1320,11 @@ impl Shell {
             ),
         };
         let base = observer::WING_MARGIN;
-        let selection_slot = slot(selection_run, selection_anchor, base);
+        let selection_slot = hold_slot(
+            &mut self.held_slots.selection,
+            self.prefs.selection && !view.selection.units.is_empty(),
+            slot(selection_run, selection_anchor, base),
+        );
         let column_slot = |bottom: f32| slot(column_run, column_anchor, bottom);
         let mut stack = Vec::new();
         if self.prefs.selection
@@ -1351,11 +1367,16 @@ impl Shell {
         {
             displaced.push(Panel::ControlGroups);
         }
+        let control_groups_slot = hold_slot(
+            &mut self.held_slots.control_groups,
+            self.prefs.control_groups && !view.control_groups.is_empty(),
+            column_slot(under_groups),
+        );
         let control_groups = observer::render_control_groups_view(
             &view.control_groups,
             ctx,
             self.prefs.control_groups,
-            column_slot(under_groups),
+            control_groups_slot,
             self.focused_player,
         );
         if let Some(rect) = control_groups {
@@ -1375,11 +1396,16 @@ impl Shell {
         {
             displaced.push(Panel::Production);
         }
+        let production_slot = hold_slot(
+            &mut self.held_slots.production,
+            self.prefs.production && !view.production.is_empty(),
+            column_slot(over_groups),
+        );
         let production = observer::render_production_view(
             &view.production,
             ctx,
             self.prefs.production,
-            column_slot(over_groups),
+            production_slot,
         );
         if let Some(outcome) = &production {
             hit_rects.push(HitRect::new(outcome.rect));
@@ -1853,6 +1879,29 @@ impl Shell {
 }
 
 /// Which panel an action toggles, for the actions whose panel exists.
+/// The slots the bottom panels were last placed in while they were wanted on screen.
+#[derive(Default)]
+struct HeldSlots {
+    selection: Option<observer::StackSlot>,
+    control_groups: Option<observer::StackSlot>,
+    production: Option<observer::StackSlot>,
+}
+
+/// The slot a bottom panel is drawn in: `slot` while it is `wanted` on screen, kept as `held`, and
+/// `held` while it is not, so a panel fading out does so where it was.
+fn hold_slot(
+    held: &mut Option<observer::StackSlot>,
+    wanted: bool,
+    slot: observer::StackSlot,
+) -> observer::StackSlot {
+    if wanted {
+        *held = Some(slot);
+        slot
+    } else {
+        held.unwrap_or(slot)
+    }
+}
+
 /// The digit a number key stands for.
 fn number_key_digit(key: Key) -> Option<u8> {
     [

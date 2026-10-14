@@ -234,7 +234,7 @@ impl ProductionFit {
     /// How `view` fits `slot`, or `None` where not even one row of the narrowest panel does: a panel
     /// that has to give way altogether.
     pub(crate) fn of(view: &ProductionView, slot: StackSlot) -> Option<ProductionFit> {
-        let (span, _) = slot.place(PANEL_WIDTH);
+        let span = slot.place(PANEL_WIDTH);
         let width = span.width();
         let rows = view.players.iter().filter(|p| p.has_row()).count();
         let rows = rows.min(rows_that_fit(slot.room()));
@@ -261,9 +261,13 @@ pub fn render_production_view(
 ) -> Option<ProductionOutcome> {
     let id = Id::new("sb_production_panel");
     let fit = ProductionFit::of(view, slot);
-    let (_, offset_x) = slot.place(fit.map_or(PANEL_WIDTH, |fit| fit.width));
+    let placed = slot.place(fit.map_or(PANEL_WIDTH, |fit| fit.width));
+    // Pinned by its own bottom-left corner rather than by its middle: an area anchored by its
+    // middle is placed from its size, which a panel coming back on screen does not know until it has
+    // been laid out once, and would arrive sideways from half its width away.
     let area = Area::new(id)
-        .anchor(Align2::CENTER_BOTTOM, vec2(offset_x, -slot.bottom))
+        .pivot(Align2::LEFT_BOTTOM)
+        .fixed_pos(pos2(placed.left, slot.screen_bottom - slot.bottom))
         .order(Order::Foreground);
     // A panel on its way out keeps the shape it last had rather than collapsing into nothing.
     let fit = fit.unwrap_or(ProductionFit {

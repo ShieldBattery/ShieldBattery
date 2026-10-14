@@ -135,19 +135,15 @@ impl StackSlot {
         (self.screen_bottom - self.bottom - self.ceiling - WING_GAP).max(0.0)
     }
 
-    /// Where a panel of `width` goes in the slot's run, and how far it is moved off the screen's
-    /// middle line to get there, which is what a panel anchored to the middle of the bottom edge is
-    /// offset by.
-    pub(crate) fn place(&self, width: f32) -> (Span, f32) {
+    /// Where a panel of `width` goes in the slot's run.
+    pub(crate) fn place(&self, width: f32) -> Span {
         // A line past either end of the run pulls the panel in against that end.
         let line = match self.anchor {
             StackAnchor::Middle => self.middle,
             StackAnchor::Left => self.span.left,
             StackAnchor::Right => self.span.right,
         };
-        let placed = self.span.place(line, width);
-        let center = (placed.left + placed.right) * 0.5;
-        (placed, center - self.middle)
+        self.span.place(line, width)
     }
 }
 
@@ -299,12 +295,12 @@ mod tests {
             control_groups::fitted_width(slot),
             Some(control_groups::PANEL_WIDTH)
         );
-        let (placed, _) = slot.place(production::PANEL_WIDTH);
+        let placed = slot.place(production::PANEL_WIDTH);
         assert_eq!(placed.width(), production::PANEL_WIDTH);
         // Both stand against the minimap, which nothing the selection does can move.
         assert_eq!(placed.left, row.column.left);
         assert_eq!(
-            slot.place(control_groups::PANEL_WIDTH).0.left,
+            slot.place(control_groups::PANEL_WIDTH).left,
             row.column.left
         );
     }
@@ -340,18 +336,9 @@ mod tests {
             ceiling: 0.0,
             screen_bottom: 1080.0,
         };
-        assert_eq!(
-            slot(StackAnchor::Middle).place(460.0),
-            (span(730.0, 1190.0), 0.0)
-        );
-        assert_eq!(
-            slot(StackAnchor::Left).place(460.0),
-            (span(364.0, 824.0), 594.0 - 960.0)
-        );
-        assert_eq!(
-            slot(StackAnchor::Right).place(460.0),
-            (span(1108.0, 1568.0), 1338.0 - 960.0)
-        );
+        assert_eq!(slot(StackAnchor::Middle).place(460.0), span(730.0, 1190.0));
+        assert_eq!(slot(StackAnchor::Left).place(460.0), span(364.0, 824.0));
+        assert_eq!(slot(StackAnchor::Right).place(460.0), span(1108.0, 1568.0));
     }
 
     #[test]
