@@ -119,7 +119,8 @@ impl GameHost {
         };
         self.ctx.begin_pass(raw);
         draw(&self.ctx);
-        let output = self.ctx.end_pass();
+        let mut output = self.ctx.end_pass();
+        overlay_ui::kit::pixels::crisp_hairlines(&mut output.shapes, output.pixels_per_point);
         let primitives = self.ctx.tessellate(output.shapes, output.pixels_per_point);
         let repaint_delay = output
             .viewport_output

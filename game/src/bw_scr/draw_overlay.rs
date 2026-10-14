@@ -627,7 +627,7 @@ impl OverlayState {
         // the whole screen (no margin/background) instead of the bare `&Context`. Floating Windows
         // and Areas still attach to the context (`&ctx`); only the loading screen's `CentralPanel`
         // needs the root `Ui`, so it alone is threaded `ui`.
-        let output = ctx.run_ui(input, |ui| {
+        let mut output = ctx.run_ui(input, |ui| {
             if bw.game_started {
                 if self.was_loading {
                     self.was_loading = false;
@@ -723,6 +723,7 @@ impl OverlayState {
         }
     }
 
+        overlay_ui::kit::pixels::crisp_hairlines(&mut output.shapes, pixels_per_point);
     /// Draws a black rectangle behind replay UI buttons as it doesn't have proper black
     /// background otherwise.
     fn make_button_panel_rect(

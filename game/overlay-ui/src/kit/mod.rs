@@ -5,6 +5,7 @@
 //! design lands in one place and every overlay moves with it.
 
 pub mod motion;
+pub mod pixels;
 pub mod text;
 pub mod theme;
 pub mod tiers;
