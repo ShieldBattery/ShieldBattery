@@ -66,10 +66,13 @@ const LETTERBOX_FILL: Color32 = Color32::from_rgb(0x08, 0x0a, 0x0e);
 const VIEWPORT_EDGE: Color32 = Color32::from_rgb(0x35, 0x3d, 0x45);
 
 /// The resolutions every scenario preset is rendered at offline: the smallest and the reference
-/// 16:9 screens, and the 4:3 screen SD graphics give the game.
-const RENDER_SIZES: [ResolutionPreset; 3] = [
+/// 16:9 screens, the common windowed one between them, 1440p, where the overlay is drawn at a third
+/// more pixels than points, and the 4:3 screen SD graphics give the game.
+const RENDER_SIZES: [ResolutionPreset; 5] = [
     ResolutionPreset::R1280x720,
+    ResolutionPreset::R1600x900,
     ResolutionPreset::R1920x1080,
+    ResolutionPreset::R2560x1440,
     ResolutionPreset::R1280x960,
 ];
 
@@ -88,6 +91,8 @@ struct Args {
     render_dir: Option<PathBuf>,
     /// A language to render the translated screens in, instead of every preset in English.
     lang: Option<Locale>,
+    /// How offline renders blend: egui's way, or the game's.
+    blending: raster::Blending,
 }
 
 fn parse_args() -> Args {
@@ -96,6 +101,7 @@ fn parse_args() -> Args {
         backdrop: None,
         render_dir: None,
         lang: None,
+        blending: raster::Blending::Premultiplied,
     };
     let mut it = std::env::args().skip(1);
     while let Some(arg) = it.next() {
@@ -103,6 +109,7 @@ fn parse_args() -> Args {
             "--smoke" => args.smoke = true,
             "--backdrop" => args.backdrop = it.next(),
             "--render" => args.render_dir = it.next().map(PathBuf::from),
+            "--game-blending" => args.blending = raster::Blending::Straight,
             "--lang" => match it.next().as_deref().and_then(Locale::from_tag) {
                 Some(locale) => args.lang = Some(locale),
                 None => {
@@ -127,7 +134,7 @@ fn main() -> eframe::Result<()> {
     );
 
     if let Some(dir) = &args.render_dir {
-        match render_all(dir, backdrop.as_ref(), args.lang) {
+        match render_all(dir, backdrop.as_ref(), args.lang, args.blending) {
             Ok(paths) => {
                 for path in paths {
                     println!("{}", path.display());
@@ -143,7 +150,7 @@ fn main() -> eframe::Result<()> {
 
     if args.smoke {
         let dir = std::env::temp_dir().join("overlay-preview-smoke");
-        match render_all(&dir, backdrop.as_ref(), None) {
+        match render_all(&dir, backdrop.as_ref(), None, args.blending) {
             Ok(paths) => {
                 println!(
                     "overlay-preview smoke: OK ({} images under {})",
@@ -254,6 +261,7 @@ fn render_all(
     dir: &Path,
     backdrop: Option<&RgbaImage>,
     lang: Option<Locale>,
+    blending: raster::Blending,
 ) -> std::io::Result<Vec<PathBuf>> {
     std::fs::create_dir_all(dir)?;
     let mut written = Vec::new();
@@ -316,6 +324,7 @@ fn render_all(
                 [width, height],
                 screen.pixels_per_point,
                 backdrop,
+                blending,
             );
             let path = dir.join(format!(
                 "{}-{}{}{}-{}x{}.png",

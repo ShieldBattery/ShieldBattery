@@ -29,6 +29,7 @@ const HIT_RECT_COLOR: Color32 = Color32::from_rgb(0x3f, 0xf5, 0xa6);
 #[derive(Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum ResolutionPreset {
     R1280x720,
+    R1600x900,
     #[default]
     R1920x1080,
     R2560x1440,
@@ -39,8 +40,9 @@ pub enum ResolutionPreset {
 }
 
 impl ResolutionPreset {
-    pub const ALL: [ResolutionPreset; 7] = [
+    pub const ALL: [ResolutionPreset; 8] = [
         ResolutionPreset::R1280x720,
+        ResolutionPreset::R1600x900,
         ResolutionPreset::R1920x1080,
         ResolutionPreset::R2560x1440,
         ResolutionPreset::R3840x2160,
@@ -52,6 +54,7 @@ impl ResolutionPreset {
     pub fn size(self) -> [u32; 2] {
         match self {
             ResolutionPreset::R1280x720 => [1280, 720],
+            ResolutionPreset::R1600x900 => [1600, 900],
             ResolutionPreset::R1920x1080 => [1920, 1080],
             ResolutionPreset::R2560x1440 => [2560, 1440],
             ResolutionPreset::R3840x2160 => [3840, 2160],
@@ -64,6 +67,7 @@ impl ResolutionPreset {
     pub fn label(self) -> &'static str {
         match self {
             ResolutionPreset::R1280x720 => "1280x720",
+            ResolutionPreset::R1600x900 => "1600x900",
             ResolutionPreset::R1920x1080 => "1920x1080",
             ResolutionPreset::R2560x1440 => "2560x1440",
             ResolutionPreset::R3840x2160 => "3840x2160",

@@ -10,6 +10,18 @@ use std::collections::HashMap;
 use egui::epaint::{ClippedPrimitive, ImageData, Primitive};
 use egui::{Color32, Pos2, TextureId, TexturesDelta};
 use image::RgbaImage;
+use overlay_ui::straight_alpha;
+
+/// How rasterized colors are blended onto what is under them.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum Blending {
+    /// egui's own: premultiplied colors, blended as such. What the overlay means to look like.
+    Premultiplied,
+    /// SC:R's: the straight-alpha colors the game DLL hands the game's renderer (see
+    /// `overlay_ui::straight_alpha`), each multiplied by its own alpha as it is blended. What the
+    /// overlay looks like in game.
+    Straight,
+}
 
 /// A CPU-side mirror of the game context's texture store, kept up to date from its texture deltas.
 #[derive(Default)]
@@ -69,7 +81,7 @@ impl TextureStore {
     /// Bilinearly samples a texture, clamping at its edges. This matches the filtering egui asks for
     /// on its font atlas; the alternative (nearest) would only differ where a mesh is scaled, which
     /// the overlay never does.
-    fn sample(&self, id: TextureId, uv: Pos2) -> [f32; 4] {
+    fn sample(&self, id: TextureId, uv: Pos2, blending: Blending) -> [f32; 4] {
         let Some(texture) = self.textures.get(&id) else {
             // A mesh whose texture never arrived still shows its vertex colors rather than
             // vanishing, which makes the missing texture visible instead of silent.
@@ -97,6 +109,10 @@ impl TextureStore {
                     continue;
                 }
                 let texel = texture.pixels[sy * w + sx];
+                let texel = match blending {
+                    Blending::Premultiplied => texel.to_array(),
+                    Blending::Straight => straight_alpha::texel(texel),
+                };
                 for (channel, value) in out.iter_mut().enumerate() {
                     *value += weight * texel[channel] as f32 / 255.0;
                 }
@@ -110,15 +126,15 @@ impl TextureStore {
 ///
 /// `primitives` are in the game context's points; `pixels_per_point` scales them to `size_px`.
 /// egui's tessellator already feathers every edge, so no further anti-aliasing is applied: sampling
-/// pixel centres reproduces exactly what a GPU would draw. Colors are premultiplied sRGBA and are
-/// blended in that space rather than in linear light, which is a touch heavier on text edges than
-/// the game's shader but does not move anything.
+/// pixel centres reproduces exactly what a GPU would draw. Colors are sRGBA, blended in that space
+/// rather than in linear light, as the game blends them; `blending` picks whose blending.
 pub fn rasterize(
     primitives: &[ClippedPrimitive],
     textures: &TextureStore,
     size_px: [u32; 2],
     pixels_per_point: f32,
     backdrop: Option<&RgbaImage>,
+    blending: Blending,
 ) -> RgbaImage {
     let width = size_px[0].max(1) as usize;
     let height = size_px[1].max(1) as usize;
@@ -137,18 +153,31 @@ pub fn rasterize(
         if clip_x0 >= clip_x1 || clip_y0 >= clip_y1 {
             continue;
         }
+        let colors = match blending {
+            Blending::Premultiplied => mesh.vertices.iter().map(|v| v.color.to_array()).collect(),
+            Blending::Straight => straight_alpha::vertex_colors(&mesh.vertices, &mesh.indices),
+        };
         for triangle in mesh.indices.as_chunks::<3>().0 {
-            let vertices = [
-                &mesh.vertices[triangle[0] as usize],
-                &mesh.vertices[triangle[1] as usize],
-                &mesh.vertices[triangle[2] as usize],
-            ];
-            let points = vertices.map(|v| (v.pos.to_vec2() * pixels_per_point).to_pos2());
-            let area = (points[1] - points[0]).x * (points[2] - points[0]).y
-                - (points[1] - points[0]).y * (points[2] - points[0]).x;
-            if area.abs() < 1e-6 {
+            // Wound one way, so which of its edges are top or left edges is decided the same for
+            // every triangle (see `owns`).
+            let mut triangle = *triangle;
+            let corner_points = |triangle: [u32; 3]| {
+                triangle.map(|index| {
+                    (mesh.vertices[index as usize].pos.to_vec2() * pixels_per_point).to_pos2()
+                })
+            };
+            let mut points = corner_points(triangle);
+            let mut area = edge(points[0], points[1], points[2]);
+            if area < 0.0 {
+                triangle.swap(1, 2);
+                points = corner_points(triangle);
+                area = -area;
+            }
+            if area < 1e-6 {
                 continue;
             }
+            let corner_colors = triangle.map(|index| colors[index as usize]);
+            let vertices = triangle.map(|index| &mesh.vertices[index as usize]);
             let min_x = points.iter().fold(f32::MAX, |a, p| a.min(p.x));
             let max_x = points.iter().fold(f32::MIN, |a, p| a.max(p.x));
             let min_y = points.iter().fold(f32::MAX, |a, p| a.min(p.y));
@@ -160,26 +189,35 @@ pub fn rasterize(
             for y in y0..y1 {
                 for x in x0..x1 {
                     let point = Pos2::new(x as f32 + 0.5, y as f32 + 0.5);
-                    // Barycentric weights from the signed sub-triangle areas, divided by the signed
-                    // total: the sign cancels, so both winding orders rasterize the same. egui is
-                    // not consistent about winding, so this must not care.
-                    let w0 = edge(points[1], points[2], point) / area;
-                    let w1 = edge(points[2], points[0], point) / area;
-                    let w2 = 1.0 - w0 - w1;
-                    if w0 < 0.0 || w1 < 0.0 || w2 < 0.0 {
+                    // Barycentric weights from the sub-triangle areas. A pixel centre on an edge two
+                    // triangles share belongs to one of them only, as on a GPU: egui centres every
+                    // hairline on such an edge, and drawn by both it would come out twice as strong.
+                    let w0 = edge(points[1], points[2], point);
+                    let w1 = edge(points[2], points[0], point);
+                    let w2 = edge(points[0], points[1], point);
+                    if !owns(w0, points[1], points[2])
+                        || !owns(w1, points[2], points[0])
+                        || !owns(w2, points[0], points[1])
+                    {
                         continue;
                     }
+                    let (w0, w1, w2) = (w0 / area, w1 / area, w2 / area);
                     let uv = Pos2::new(
                         w0 * vertices[0].uv.x + w1 * vertices[1].uv.x + w2 * vertices[2].uv.x,
                         w0 * vertices[0].uv.y + w1 * vertices[1].uv.y + w2 * vertices[2].uv.y,
                     );
-                    let texel = textures.sample(mesh.texture_id, uv);
+                    let texel = textures.sample(mesh.texture_id, uv, blending);
                     let mut src = [0.0f32; 4];
                     for (channel, value) in src.iter_mut().enumerate() {
-                        let vertex_color = w0 * vertices[0].color[channel] as f32
-                            + w1 * vertices[1].color[channel] as f32
-                            + w2 * vertices[2].color[channel] as f32;
+                        let vertex_color = w0 * corner_colors[0][channel] as f32
+                            + w1 * corner_colors[1][channel] as f32
+                            + w2 * corner_colors[2][channel] as f32;
                         *value = vertex_color / 255.0 * texel[channel];
+                    }
+                    if blending == Blending::Straight {
+                        for channel in 0..3 {
+                            src[channel] *= src[3];
+                        }
                     }
                     let dst = &mut buffer[y * width + x];
                     let inverse_alpha = 1.0 - src[3];
@@ -203,6 +241,13 @@ pub fn rasterize(
 /// Twice the signed area of the triangle `(a, b, point)`.
 fn edge(a: Pos2, b: Pos2, point: Pos2) -> f32 {
     (b.x - a.x) * (point.y - a.y) - (b.y - a.y) * (point.x - a.x)
+}
+
+/// Whether a pixel centre whose edge function for the edge `a` → `b` is `weight` is inside a
+/// triangle wound clockwise on screen, by the GPU's top-left rule: one exactly on the edge is
+/// inside only when the edge is a top edge (level, running right) or a left edge (running up).
+fn owns(weight: f32, a: Pos2, b: Pos2) -> bool {
+    weight > 0.0 || (weight == 0.0 && ((a.y == b.y && b.x > a.x) || b.y < a.y))
 }
 
 fn to_u8(value: f32) -> u8 {
@@ -243,6 +288,62 @@ fn fill_background(
                 texel[2] as f32 / 255.0,
                 1.0,
             ];
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use egui::epaint::{Mesh, Vertex};
+    use egui::{Rect, pos2};
+
+    /// A 4x4 square of `color` split along the diagonal that runs through its pixels' centres, the
+    /// second triangle wound the other way round from the first.
+    fn split_square(color: Color32) -> ClippedPrimitive {
+        let mut mesh = Mesh::default();
+        for (x, y) in [(0.0, 0.0), (4.0, 0.0), (4.0, 4.0), (0.0, 4.0)] {
+            mesh.vertices.push(Vertex {
+                pos: pos2(x, y),
+                uv: egui::epaint::WHITE_UV,
+                color,
+            });
+        }
+        mesh.indices = vec![0, 1, 2, 0, 3, 2];
+        ClippedPrimitive {
+            clip_rect: Rect::EVERYTHING,
+            primitive: Primitive::Mesh(mesh),
+        }
+    }
+
+    #[test]
+    fn a_shared_edge_through_pixel_centres_is_drawn_once() {
+        let mut textures = TextureStore::new();
+        let mut delta = TexturesDelta::default();
+        delta.set.insert(
+            TextureId::default(),
+            [egui::epaint::ImageDelta::full(
+                egui::ColorImage::new([1, 1], vec![Color32::WHITE]),
+                egui::TextureOptions::LINEAR,
+            )]
+            .into_iter()
+            .collect(),
+        );
+        textures.apply(&mut delta);
+        for blending in [Blending::Premultiplied, Blending::Straight] {
+            let image = rasterize(
+                &[split_square(Color32::from_white_alpha(64))],
+                &textures,
+                [4, 4],
+                1.0,
+                None,
+                blending,
+            );
+            let corner = image.get_pixel(3, 0).0;
+            for (x, y, pixel) in image.enumerate_pixels() {
+                assert_eq!(pixel.0, corner, "({x}, {y}) under {blending:?}");
+            }
         }
     }
 }

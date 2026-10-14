@@ -332,8 +332,9 @@ Pass arguments through the watcher after a `--`, e.g.
 | Flag               | Effect                                                                                                                                                |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--backdrop <png>` | Draws this image behind the overlay instead of the gameplay frame in `backdrops/` (see the README there; also persisted into the knobs).              |
-| `--render <dir>`   | Renders every scenario preset at 1280x720 and 1920x1080 into `<dir>`, prints each path, exits 0. No window is opened.                                 |
+| `--render <dir>`   | Renders every scenario preset at 1280x720, 1600x900, 1920x1080, 2560x1440 and 1280x960 into `<dir>`, prints each path, exits 0. No window is opened.             |
 | `--smoke`          | The same renders into a temp directory, printing one summary line. Exits 0 on success and non-zero on any failure, so CI can prove the pipeline runs. |
+| `--game-blending`  | Renders blend the way they do in game: straight-alpha colors blended by SC:R's renderer, rather than egui's premultiplied ones.                          |
 
 `--render` and `--smoke` go through a small CPU rasterizer over the tessellated meshes, so they need
 neither a GPU nor a window. File names are `<scenario>-<preset>-<width>x<height>.png`, plus a
@@ -347,7 +348,8 @@ defaults independently, so a file written by an older build still loads.
 
 **Emulated screen**
 
-- _Resolution_ — 1280x720, 1920x1080, 2560x1440, 3840x2160 (16:9) and 1024x768, 1600x1200 (4:3).
+- _Resolution_ — 1280x720, 1600x900, 1920x1080, 2560x1440, 3840x2160 (16:9) and 1024x768, 1280x960,
+  1600x1200 (4:3).
 - _Scale mode_ — see below.
 - _Compact ramp_ — the design's opt-in denser ramp, which divides the scale by 1.25 so the overlay
   takes less of a high-resolution screen.
