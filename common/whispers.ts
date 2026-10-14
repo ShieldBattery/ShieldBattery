@@ -171,7 +171,6 @@ export function whisperServiceErrorToString(
   }
 }
 
-/** Response to resolving a whisper message link: which whisper the message belongs to, from the requester's side. */
 /** A conversation the user has had with another user, open in their sidebar or not. */
 export interface WhisperConversation {
   /** The other participant of the conversation. */
@@ -202,6 +201,7 @@ export interface GetWhisperConversationsResponse {
   deletedChannels: SbChannelId[]
 }
 
+/** Response to resolving a whisper message link: which whisper the message belongs to, from the requester's side. */
 export interface GetWhisperMessageLinkResponse {
   /** The other participant of the whisper the message is in. */
   targetId: SbUserId
