@@ -58,7 +58,6 @@
     "escHint": "Esc возвращает в игру",
     "gameTime": "Время игры",
     "holdToLeave": "Удерживайте: покинуть игру",
-    "keepsRunning": "Игра продолжается, пока открыто это меню",
     "leaveGame": "Покинуть игру",
     "leaveGameTitle": "Покинуть игру?",
     "leaveReplayTitle": "Покинуть реплей?",
@@ -168,8 +167,7 @@
     "seriesWorkers": "Рабочие",
     "spoilerFree": "Без спойлеров",
     "teamName": "Команда {{number}}",
-    "timelineEmpty": "Пока ничего не произошло",
-    "timelineSeekHint": "Нажмите, чтобы перейти чуть раньше этого события"
+    "timelineEmpty": "Пока ничего не произошло"
   },
   "options": {
     "announcer": "Диктор",

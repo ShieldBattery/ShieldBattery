@@ -1564,7 +1564,7 @@ impl Shell {
         );
         self.drawn.timeline = timeline.is_some();
         if let Some(outcome) = timeline {
-            hit_rects.push(HitRect::new(outcome.rect));
+            hit_rects.push(HitRect::scrolling(outcome.rect));
             if let (Some(replay), Some(event)) = (seekable, outcome.clicked) {
                 self.queue_seek(replay.event_seek_target(event.secs), event.position);
             }

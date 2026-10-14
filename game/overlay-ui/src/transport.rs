@@ -30,7 +30,6 @@ use crate::colors::{BLUE60, BLUE80};
 use crate::kit::text::{self, BodyWeight};
 use crate::kit::widgets::{self, TagStyle, TrackMarker};
 use crate::kit::{motion, theme, tiers};
-use crate::observer::timeline::seek_hint;
 use crate::observer::{MapPoint, TimelineEventView};
 use crate::tr;
 
@@ -644,11 +643,6 @@ fn draw_marker_card(ui: &Ui, pointer: Pos2, event: &TimelineEventView) {
                         .job(&clock_text(event.secs)),
                 );
             });
-            ui.label(
-                text::body(12.0, BodyWeight::Regular)
-                    .with_color(theme::TEXT_SECONDARY)
-                    .job(&seek_hint()),
-            );
         },
     );
 }

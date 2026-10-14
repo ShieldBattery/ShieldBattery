@@ -56,7 +56,6 @@
     "escHint": "Esc returns to the game",
     "gameTime": "Game time",
     "holdToLeave": "Hold to leave game",
-    "keepsRunning": "Game keeps running while this menu is open",
     "leaveGame": "Leave game",
     "leaveGameTitle": "Leave the game?",
     "leaveReplayTitle": "Leave the replay?",
@@ -158,8 +157,7 @@
     "seriesWorkers": "Workers",
     "spoilerFree": "Spoiler-free",
     "teamName": "Team {{number}}",
-    "timelineEmpty": "Nothing has happened yet",
-    "timelineSeekHint": "Click to jump to just before this"
+    "timelineEmpty": "Nothing has happened yet"
   },
   "options": {
     "announcer": "Announcer",

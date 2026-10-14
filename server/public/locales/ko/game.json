@@ -55,7 +55,6 @@
     "escHint": "Esc를 누르면 게임으로 돌아갑니다",
     "gameTime": "게임 시간",
     "holdToLeave": "길게 눌러 게임 나가기",
-    "keepsRunning": "이 메뉴가 열려 있어도 게임은 계속 진행됩니다",
     "leaveGame": "게임 나가기",
     "leaveGameTitle": "게임에서 나가시겠습니까?",
     "leaveReplayTitle": "리플레이에서 나가시겠습니까?",
@@ -153,8 +152,7 @@
     "seriesWorkers": "일꾼",
     "spoilerFree": "스포일러 방지",
     "teamName": "{{number}} 팀",
-    "timelineEmpty": "아직 아무 일도 일어나지 않았습니다",
-    "timelineSeekHint": "클릭하면 이 직전 시점으로 이동합니다"
+    "timelineEmpty": "아직 아무 일도 일어나지 않았습니다"
   },
   "options": {
     "announcer": "아나운서",

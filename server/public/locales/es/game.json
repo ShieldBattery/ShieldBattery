@@ -57,7 +57,6 @@
     "escHint": "Esc vuelve a la partida",
     "gameTime": "Tiempo de partida",
     "holdToLeave": "Mantén pulsado para salir",
-    "keepsRunning": "La partida sigue mientras este menú está abierto",
     "leaveGame": "Salir de la partida",
     "leaveGameTitle": "¿Salir de la partida?",
     "leaveReplayTitle": "¿Salir del replay?",
@@ -163,8 +162,7 @@
     "seriesWorkers": "Trabajadores",
     "spoilerFree": "Sin spoilers",
     "teamName": "Equipo {{number}}",
-    "timelineEmpty": "Todavía no ha pasado nada",
-    "timelineSeekHint": "Haz clic para saltar justo antes"
+    "timelineEmpty": "Todavía no ha pasado nada"
   },
   "options": {
     "announcer": "Locutor",

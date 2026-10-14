@@ -241,21 +241,12 @@ fn draw_leave_actions(ui: &mut Ui, playing: bool) -> LeaveConfirmOutcome {
     outcome
 }
 
-/// The footer: the key that closes the menu, and the reason closing it is not urgent.
+/// The footer: the key that closes the menu.
 fn draw_footer(ui: &mut Ui) {
     let width = ui.available_width();
     let spec = text::body(11.0, BodyWeight::Regular).with_color(theme::TEXT_LABEL);
-    // One line each rather than one sentence run together: wrapped at the menu's width, the
-    // second half breaks wherever the language's words happen to fall.
-    for note in [
-        tr!("gameMenu.escHint", "Esc returns to the game"),
-        tr!(
-            "gameMenu.keepsRunning",
-            "Game keeps running while this menu is open"
-        ),
-    ] {
-        widgets::centered_paragraph(ui, &spec, &note, width);
-    }
+    let note = tr!("gameMenu.escHint", "Esc returns to the game");
+    widgets::centered_paragraph(ui, &spec, &note, width);
 }
 
 /// Seconds as the game's own clock reads them, growing an hours field only once there is one.

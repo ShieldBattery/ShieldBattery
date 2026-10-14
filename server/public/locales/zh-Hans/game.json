@@ -55,7 +55,6 @@
     "escHint": "按 Esc 返回游戏",
     "gameTime": "游戏时间",
     "holdToLeave": "长按离开游戏",
-    "keepsRunning": "此菜单打开时游戏仍在继续",
     "leaveGame": "离开游戏",
     "leaveGameTitle": "离开游戏？",
     "leaveReplayTitle": "离开录像？",
@@ -153,8 +152,7 @@
     "seriesWorkers": "农民",
     "spoilerFree": "无剧透",
     "teamName": "{{number}}队",
-    "timelineEmpty": "暂无事件",
-    "timelineSeekHint": "点击跳转到该事件前一刻"
+    "timelineEmpty": "暂无事件"
   },
   "options": {
     "announcer": "播报员",

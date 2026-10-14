@@ -13,7 +13,7 @@
 //! In a replay a row is also a way back to its moment: clicking one moves playback to just before
 //! it, so the watcher sees it happen rather than arriving after it has.
 
-use egui::{Align, Color32, Context, Id, Pos2, Rect, Sense, Ui, pos2, vec2};
+use egui::{Align, Color32, Context, Id, Rect, Sense, Ui, pos2, vec2};
 
 use crate::kit::text::{self, BodyWeight};
 use crate::kit::theme;
@@ -237,57 +237,40 @@ fn draw_panel(
         return None;
     }
     let mut clicked = None;
-    for index in 0..rows {
-        if index > 0 {
-            ui.add_space(STAT_ROW_GAP);
-        }
-        let event = view.events.get(index);
-        // Only a row with something on it is a target: an empty row has no moment to go back to.
-        let sense = match seekable && event.is_some() {
-            true => Sense::click(),
-            false => Sense::hover(),
-        };
-        let (row, response) = ui.allocate_exact_size(vec2(CONTENT_WIDTH, ROW_HEIGHT), sense);
-        let Some(event) = event else {
-            continue;
-        };
-        if seekable {
-            // The kit's wash runs a little past the row's own cells, so the row reads as one
-            // target rather than as its clock or its text.
-            let wash = row.expand2(vec2(theme::SPACE_XS, STAT_ROW_GAP * 0.5));
-            widgets::state_overlay(ui, &response, wash, theme::radius(theme::RADIUS_TIGHT));
-            if let Some(pointer) = response.hover_pos() {
-                draw_seek_hint(ui, pointer);
+    // `rows` of the feed are in view, newest first, and the wheel scrolls back through the rest.
+    ui.spacing_mut().item_spacing.y = STAT_ROW_GAP;
+    let height = rows as f32 * ROW_HEIGHT + rows.saturating_sub(1) as f32 * STAT_ROW_GAP;
+    egui::ScrollArea::vertical()
+        .id_salt("sb_timeline_rows")
+        .max_height(height)
+        .min_scrolled_height(height)
+        .auto_shrink([false, false])
+        .show_rows(ui, ROW_HEIGHT, view.events.len(), |ui, range| {
+            let width = ui.available_width();
+            // The rows' wash reaches past their sides (see below), which the area would clip.
+            ui.set_clip_rect(ui.clip_rect().expand2(vec2(theme::SPACE_XS, 0.0)));
+            for event in &view.events[range] {
+                let sense = match seekable {
+                    true => Sense::click(),
+                    false => Sense::hover(),
+                };
+                let (row, response) = ui.allocate_exact_size(vec2(width, ROW_HEIGHT), sense);
+                if seekable {
+                    // The kit's wash runs a little past the row's own cells, so the row reads as
+                    // one target rather than as its clock or its text.
+                    let wash = row.expand2(vec2(theme::SPACE_XS, STAT_ROW_GAP * 0.5));
+                    widgets::state_overlay(ui, &response, wash, theme::radius(theme::RADIUS_TIGHT));
+                    if response.clicked() {
+                        clicked = Some(ClickedEvent {
+                            secs: event.secs,
+                            position: event.position,
+                        });
+                    }
+                }
+                draw_row(ui, row, event);
             }
-            if response.clicked() {
-                clicked = Some(ClickedEvent {
-                    secs: event.secs,
-                    position: event.position,
-                });
-            }
-        }
-        draw_row(ui, row, event);
-    }
+        });
     clicked
-}
-
-/// Says what clicking the row under the pointer does.
-fn draw_seek_hint(ui: &Ui, pointer: Pos2) {
-    widgets::tooltip(ui.ctx(), Id::new("sb_timeline_seek_hint"), pointer, |ui| {
-        ui.label(
-            text::body(12.0, BodyWeight::Regular)
-                .with_color(theme::TEXT_SECONDARY)
-                .job(&seek_hint()),
-        );
-    });
-}
-
-/// What clicking an event does in a replay, wherever an event can be clicked.
-pub(crate) fn seek_hint() -> String {
-    tr!(
-        "observer.timelineSeekHint",
-        "Click to jump to just before this"
-    )
 }
 
 /// Draws one row: when it happened, whose it was, what it was about, and what happened to it.
