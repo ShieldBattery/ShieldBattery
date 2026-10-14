@@ -163,6 +163,7 @@
     "seriesWorkers": "Trabajadores",
     "spoilerFree": "Sin spoilers",
     "teamName": "Equipo {{number}}",
+    "timelineEmpty": "Todavía no ha pasado nada",
     "timelineSeekHint": "Haz clic para saltar justo antes"
   },
   "options": {

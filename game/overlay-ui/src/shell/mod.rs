@@ -1486,13 +1486,21 @@ impl Shell {
         if self.prefs.military && !view.military.is_empty() && !military_fits {
             displaced.push(Panel::Military);
         }
+        // A wing arriving takes its place beside the dock at once, the way the left wings simply
+        // appear where they stand; one already on screen follows the dock as it comes and goes.
+        let arriving_inset = observer::settled_dock_inset(self.prefs.dock);
         let military = observer::render_military_view(
             &view.military,
             ctx,
             self.prefs.military && military_fits,
             tops.right,
-            right_inset,
+            if self.drawn.military {
+                right_inset
+            } else {
+                arriving_inset
+            },
         );
+        self.drawn.military = military.is_some();
         if let Some(rect) = military {
             hit_rects.push(HitRect::new(rect));
         }
@@ -1516,7 +1524,11 @@ impl Shell {
             self.prefs.graphs && right_room,
             graphs_top,
             right_floor,
-            right_inset,
+            if self.drawn.graphs {
+                right_inset
+            } else {
+                arriving_inset
+            },
             seekable.is_some(),
         );
         self.drawn.graphs = graphs.is_some();
@@ -1539,10 +1551,7 @@ impl Shell {
             economy,
             self.drawn.timeline,
         );
-        if self.prefs.timeline
-            && !view.timeline.is_empty()
-            && !observer::timeline::fits(timeline_top, left_floor)
-        {
+        if self.prefs.timeline && !observer::timeline::fits(timeline_top, left_floor) {
             displaced.push(Panel::Timeline);
         }
         let timeline = observer::render_timeline_view(
@@ -1909,9 +1918,10 @@ impl Shell {
 }
 
 /// Which panel an action toggles, for the actions whose panel exists.
-/// Which of the panels standing on another in a stack were drawn last frame.
+/// Which of the panels whose place eases as their neighbors come and go were drawn last frame.
 #[derive(Default)]
 struct DrawnLastFrame {
+    military: bool,
     control_groups: bool,
     production: bool,
     plate: bool,

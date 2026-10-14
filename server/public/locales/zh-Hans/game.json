@@ -153,6 +153,7 @@
     "seriesWorkers": "农民",
     "spoilerFree": "无剧透",
     "teamName": "{{number}}队",
+    "timelineEmpty": "暂无事件",
     "timelineSeekHint": "点击跳转到该事件前一刻"
   },
   "options": {

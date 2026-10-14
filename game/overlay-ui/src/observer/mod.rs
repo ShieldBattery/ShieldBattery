@@ -455,8 +455,18 @@ pub(crate) const DOCK_RESERVE: f32 = dock::COLLAPSED_WIDTH + WING_MARGIN;
 /// dock is on screen, and nothing once it is not, eased between the two so they follow the dock
 /// off the edge and make way for it coming back rather than jumping either way.
 pub(crate) fn dock_inset(ctx: &Context, dock_shown: bool) -> f32 {
-    let inset = if dock_shown { DOCK_RESERVE } else { 0.0 };
-    ctx.animate_value_with_time(Id::new("sb_dock_inset"), inset, theme::MOTION_PANEL_SECS)
+    ctx.animate_value_with_time(
+        Id::new("sb_dock_inset"),
+        settled_dock_inset(dock_shown),
+        theme::MOTION_PANEL_SECS,
+    )
+}
+
+/// Where [`dock_inset`] is heading: what a surface arriving on the right edge stands in by, since
+/// it has no place of its own to ease from and arriving from the side would read as a second motion
+/// on top of its own entrance.
+pub(crate) fn settled_dock_inset(dock_shown: bool) -> f32 {
+    if dock_shown { DOCK_RESERVE } else { 0.0 }
 }
 
 /// Height of one player's row in a stats wing.

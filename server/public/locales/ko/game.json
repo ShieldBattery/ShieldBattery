@@ -153,6 +153,7 @@
     "seriesWorkers": "일꾼",
     "spoilerFree": "스포일러 방지",
     "teamName": "{{number}} 팀",
+    "timelineEmpty": "아직 아무 일도 일어나지 않았습니다",
     "timelineSeekHint": "클릭하면 이 직전 시점으로 이동합니다"
   },
   "options": {

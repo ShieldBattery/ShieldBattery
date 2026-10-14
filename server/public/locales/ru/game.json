@@ -168,6 +168,7 @@
     "seriesWorkers": "Рабочие",
     "spoilerFree": "Без спойлеров",
     "teamName": "Команда {{number}}",
+    "timelineEmpty": "Пока ничего не произошло",
     "timelineSeekHint": "Нажмите, чтобы перейти чуть раньше этого события"
   },
   "options": {

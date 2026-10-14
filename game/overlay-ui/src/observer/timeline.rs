@@ -177,7 +177,10 @@ pub struct TimelineOutcome {
 }
 
 /// Draws the timeline against the left edge of the screen at `top`, fading and sliding it in and
-/// out. Returns nothing at all once it is gone, or before anything has happened.
+/// out. Returns nothing at all once it is gone.
+///
+/// Before anything has happened it is still drawn, with a line saying so: a watcher turning the
+/// feed on early in a game would otherwise see nothing come of the key and take it for broken.
 ///
 /// The panel ends above `floor`, dropping its oldest rows to do so: it is the lowest thing hung on
 /// the left edge, and under it is the corner the game's minimap owns. A feed short a few rows is
@@ -201,7 +204,7 @@ pub fn render_timeline_view(
         Wing::Left,
         top,
         PANEL_WIDTH,
-        shown && !view.is_empty() && rows > 0,
+        shown && rows > 0,
         |ui| draw_panel(ui, view, rows, seekable),
     )?;
     Some(TimelineOutcome {
@@ -222,6 +225,17 @@ fn draw_panel(
         &tr!("observer.panelTimeline", "Timeline"),
         Panel::Timeline.key_label().as_deref(),
     );
+    if view.is_empty() {
+        let (row, _) = ui.allocate_exact_size(vec2(CONTENT_WIDTH, ROW_HEIGHT), Sense::hover());
+        paint_text(
+            ui,
+            row,
+            &text::body(TIME_SIZE, BodyWeight::Regular).with_color(theme::TEXT_DIM),
+            &tr!("observer.timelineEmpty", "Nothing has happened yet"),
+            Align::LEFT,
+        );
+        return None;
+    }
     let mut clicked = None;
     for index in 0..rows {
         if index > 0 {

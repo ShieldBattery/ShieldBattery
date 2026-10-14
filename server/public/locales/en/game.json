@@ -158,6 +158,7 @@
     "seriesWorkers": "Workers",
     "spoilerFree": "Spoiler-free",
     "teamName": "Team {{number}}",
+    "timelineEmpty": "Nothing has happened yet",
     "timelineSeekHint": "Click to jump to just before this"
   },
   "options": {
