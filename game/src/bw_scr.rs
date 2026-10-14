@@ -523,6 +523,13 @@ pub struct BwScr {
     /// SC:R's own settings registry, which the options screen writes its changes through. `None`
     /// when the analysis could not place it, which leaves SC:R's settings to take effect next game.
     game_settings: Option<game_settings::GameSettings>,
+    /// Changes to SC:R's settings registry waiting for the start of the next frame. Some of the
+    /// registry's listeners rebuild the renderer's render targets on the spot (real-time lighting
+    /// does), which is only safe while no draw command refers to them: between frames, where SC:R's
+    /// own options and hotkeys make their changes. The options screen runs mid-frame, so its
+    /// changes wait here.
+    pending_game_setting_writes:
+        Mutex<Vec<(&'static str, &'static str, game_settings::SettingValue)>>,
     /// Where the game's names for units, upgrades and techs are read from. `None` when the analysis
     /// could not place stat_txt, which leaves the overlay's panels without names.
     stat_txt: Option<stat_txt::StatTxt>,
@@ -2806,6 +2813,7 @@ impl BwScr {
                     write_bool.0 as usize,
                 )
             }),
+            pending_game_setting_writes: Mutex::new(Vec::new()),
             stat_txt,
             event_processing_lock: DumbSpinLock::new(),
         })
@@ -3651,6 +3659,9 @@ impl BwScr {
             exe.hook_closure_address(
                 RenderScreen,
                 move |callback, draw_ui, orig| {
+                    // Nothing of this frame has been drawn yet, so a setting that rebuilds the
+                    // renderer's targets can't leave a queued draw pointing at the old ones.
+                    self.write_pending_game_settings();
                     let own = crate::frame_pacing::own_draw(!callback.is_null() && draw_ui == 1);
                     if let Some(skip_render) = self.skip_render
                         && own.as_ref().is_some_and(|own| own.skips())
@@ -7070,22 +7081,15 @@ impl BwScr {
     /// Puts settings the player moved on the in-game options screen into effect, and hands them to
     /// the app to save.
     ///
-    /// SC:R's own settings go through its settings registry, which applies most of them on the
-    /// spot; ShieldBattery's go to whatever in the DLL reads them. A setting only a launch reads
-    /// (the screen marks those) is saved and nothing more. Must run on the game's main thread, as
-    /// the registry's listeners do.
+    /// SC:R's own settings go through its settings registry at the start of the next frame (see
+    /// `pending_game_setting_writes`), which applies most of them on the spot; ShieldBattery's go
+    /// to whatever in the DLL reads them. A setting only a launch reads (the screen marks those) is
+    /// saved and nothing more.
     fn apply_setting_changes(&self, changes: &[SettingChange]) {
         let mut saved = SettingsChanged::default();
         for &change in changes {
-            if let Some((group, key, value)) = draw_overlay::options::registry_setting(change) {
-                match &self.game_settings {
-                    Some(settings) => {
-                        if !unsafe { settings.set(group, key, value) } {
-                            debug!("SC:R has no {group}.{key} setting yet, saving it only");
-                        }
-                    }
-                    None => debug!("No settings registry, saving {group}.{key} only"),
-                }
+            if let Some(write) = draw_overlay::options::registry_setting(change) {
+                self.pending_game_setting_writes.lock().push(write);
             }
             self.apply_local_setting_change(change);
             match draw_overlay::options::app_setting(change) {
@@ -7121,6 +7125,22 @@ impl BwScr {
                 self.grab_pan_gain
                     .store(grab_pan_gain(value as f32).to_bits(), Ordering::Release);
             }
+    /// Writes the options screen's queued changes into SC:R's settings registry. Must run on the
+    /// game's main thread between frames, as SC:R's own writes do.
+    fn write_pending_game_settings(&self) {
+        let writes = mem::take(&mut *self.pending_game_setting_writes.lock());
+        for (group, key, value) in writes {
+            match &self.game_settings {
+                Some(settings) => {
+                    if !unsafe { settings.set(group, key, value) } {
+                        debug!("SC:R has no {group}.{key} setting yet, saving it only");
+                    }
+                }
+                None => debug!("No settings registry, saving {group}.{key} only"),
+            }
+        }
+    }
+
             SettingChange::GrabPanInverted(on) => {
                 self.grab_pan_inverted.store(on, Ordering::Release);
             }
