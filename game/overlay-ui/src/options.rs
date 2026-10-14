@@ -1258,14 +1258,26 @@ fn draw_input(ui: &mut Ui, view: &OptionsView, outcome: &mut OptionsOutcome) {
     // The cursor's size is only the game's to choose while the system draws the cursor for it.
     let software_cursor = !view.hardware_cursor_on;
     group_header(ui, &tr!("options.groupCursor", "Cursor"), true);
+    // SC:R keeps the cursor in a fullscreen window whatever the setting says, and greys its own
+    // checkbox out there too: the setting only decides anything for a window.
+    let windowed = view.display_mode == DisplayMode::Windowed;
     switch_row(
         ui,
         &tr!("options.lockCursor", "Lock cursor to window"),
         view.mouse_confine_on,
-        false,
+        !windowed,
         outcome,
         SettingChange::MouseConfineOn,
     );
+    if !windowed {
+        hint(
+            ui,
+            &tr!(
+                "options.lockCursorWindowedOnly",
+                "Always on outside Windowed mode"
+            ),
+        );
+    }
     switch_row(
         ui,
         &tr!("options.hardwareCursor", "Hardware cursor"),
