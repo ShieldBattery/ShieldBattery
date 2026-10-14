@@ -186,7 +186,7 @@ impl OverlayState {
             .filter(|&(_team, player_id)| {
                 !is_team_game || unsafe { (**bw.game).team_game_main_player.contains(&player_id) }
             })
-            .filter_map(|(_team, player_id)| {
+            .filter_map(|(team, player_id)| {
                 let production = self.production.per_player.get(player_id as usize)?;
                 let color = unsafe {
                     bw::player_color(
@@ -199,6 +199,7 @@ impl OverlayState {
                 };
                 Some(ProductionPlayerView {
                     player_id,
+                    team,
                     color: Color32::from_rgb(color[0], color[1], color[2]),
                     items: production
                         .groups()

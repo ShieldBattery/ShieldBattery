@@ -699,6 +699,7 @@ fn production_player(knobs: &Knobs, index: usize, t: f64) -> ProductionPlayerVie
         .collect();
     ProductionPlayerView {
         player_id: index as u8,
+        team: knobs.team_of(index),
         color: overlay_ui::kit::theme::player_color(index),
         items,
     }
@@ -1420,7 +1421,7 @@ impl Preset {
         }
     }
 
-    pub const ALL: [Preset; 29] = [
+    pub const ALL: [Preset; 30] = [
         Preset::game(2, 1, Screen::Minimal),
         Preset::game(2, 1, Screen::Standard),
         Preset::game(2, 1, Screen::Analyst),
@@ -1438,6 +1439,9 @@ impl Preset {
         Preset::game(6, 3, Screen::Minimal),
         Preset::game(6, 3, Screen::Standard),
         Preset::game(6, 3, Screen::Analyst),
+        // Two sides a player apart, which the production panel splits into a column for each side
+        // rather than into two even ones.
+        Preset::game(7, 4, Screen::Analyst),
         // A free-for-all and a game of four sides: both are read from cards the game names no side
         // for, which is what the unlabelled card is drawn for.
         Preset::game(6, 1, Screen::Analyst),
