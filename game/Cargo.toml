@@ -225,6 +225,3 @@ overflow-checks = false
 [profile.release.build-override]
 opt-level = 0
 debug = 0
-
-[patch."https://github.com/tec27/samase_scarf.git"]
-samase_scarf = { path = "../../samase_scarf" }
