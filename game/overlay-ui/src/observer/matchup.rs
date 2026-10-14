@@ -604,9 +604,11 @@ fn draw_centre(ui: &mut Ui, rect: Rect, view: &MatchupView) {
         .rect_filled(rect, 0, theme::alpha(crate::colors::BLUE10, 0.50));
     for x in [rect.left(), rect.right()] {
         ui.painter().add(egui::Shape::line_segment(
+            // Inside the bar's own edge at both ends: a translucent line drawn on into the edge
+            // doubles up with it into a brighter pixel where the two cross.
             [
-                pos2(x, rect.top()),
-                pos2(x, rect.bottom() - f32::from(BAR_RADIUS)),
+                pos2(x, rect.top() + theme::HAIRLINE),
+                pos2(x, rect.bottom() - theme::HAIRLINE),
             ],
             egui::Stroke::new(theme::HAIRLINE, theme::alpha(crate::colors::BLUE60, 0.30)),
         ));
