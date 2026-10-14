@@ -16,15 +16,16 @@
 //! and honest about what it is.
 
 use egui::{
-    Align, Align2, Area, Color32, Context, Id, Order, Rect, Sense, TextureId, Ui, Vec2, pos2, vec2,
+    Align, Align2, Area, Color32, Context, Id, Order, Painter, Rect, Sense, TextureId, Ui, Vec2,
+    pos2, vec2,
 };
 
 use crate::colors::GREY_BLUE60;
 use crate::kit::text;
 use crate::kit::{motion, theme, tiers};
 use crate::observer::{
-    StackSlot, centred, fit_icon, owner_tint, paint_owner_wash, paint_player_bar, paint_text,
-    paint_tile_chrome, paint_tinted_icon, unit_codes,
+    StackSlot, centred, fit_icon, owner_tint, paint_icon_glow, paint_owner_wash, paint_player_bar,
+    paint_text, paint_tile_chrome, unit_codes,
 };
 
 /// How wide the panel is, in overlay points.
@@ -75,6 +76,12 @@ const MAX_TILES: usize = 9;
 pub(crate) const MIN_WIDTH: f32 =
     COLOR_BAR + BAR_GAP + TILE_WIDTH * 5.0 + TILE_GAP * 4.0 + tiers::PANEL_MARGIN_WIDTH;
 
+/// How wide a panel is whose longest row carries `tiles` tiles.
+fn width_for_tiles(tiles: usize) -> f32 {
+    let tiles = tiles.max(1) as f32;
+    tiers::PANEL_MARGIN_WIDTH + COLOR_BAR + BAR_GAP + TILE_WIDTH * tiles + TILE_GAP * (tiles - 1.0)
+}
+
 /// How many tiles a row of a panel `width` wide holds.
 fn tiles_that_fit(width: f32) -> usize {
     let room = tiers::panel_content_width(width) - COLOR_BAR - BAR_GAP + TILE_GAP;
@@ -107,6 +114,19 @@ pub struct ProductionIcon {
     /// The pixel size of the atlas frame being drawn, whose proportions the icon is drawn at; `None`
     /// where the host cannot say, which draws it to fill its tile.
     pub size: Option<Vec2>,
+    /// How much of each side of the frame is empty padding around the art, as a share of the
+    /// frame. The icon is drawn cropped of it, so the art rather than its padding fills the tile.
+    pub margin: f32,
+}
+
+impl ProductionIcon {
+    /// Draws this icon's art from `texture` fitted into `tile`, tinted with `tint`.
+    pub(crate) fn paint(&self, painter: &Painter, texture: TextureId, tile: Rect, tint: Color32) {
+        let margin = self.margin;
+        let uv = Rect::from_min_max(pos2(margin, margin), pos2(1.0 - margin, 1.0 - margin));
+        let size = self.size.map(|size| size * (1.0 - 2.0 * margin));
+        painter.image(texture, fit_icon(tile, size), uv, tint);
+    }
 }
 
 /// One thing a player is making.
@@ -199,7 +219,24 @@ pub fn render_production_view(
 ) -> Option<ProductionOutcome> {
     let id = Id::new("sb_production_panel");
     let fit = ProductionFit::of(view, slot);
-    let placed = slot.place(fit.map_or(PANEL_WIDTH, |fit| fit.width));
+    // As wide as its longest row, up to what the slot has room for, easing between widths as rows
+    // grow and shrink. A panel on its way out keeps the width it last had.
+    let target_id = id.with("width_target");
+    let target = match fit {
+        Some(fit) => {
+            let longest = view.players.iter().map(|p| p.items.len()).max();
+            let target = fit
+                .width
+                .min(width_for_tiles(longest.unwrap_or(0).min(MAX_TILES)));
+            ctx.data_mut(|data| data.insert_temp(target_id, target));
+            target
+        }
+        None => ctx
+            .data(|data| data.get_temp(target_id))
+            .unwrap_or(PANEL_WIDTH),
+    };
+    let width = ctx.animate_value_with_time(id.with("width"), target, theme::MOTION_PANEL_SECS);
+    let placed = slot.place(width);
     // Pinned by its own bottom-left corner rather than by its middle: an area anchored by its
     // middle is placed from its size, which a panel coming back on screen does not know until it has
     // been laid out once, and would arrive sideways from half its width away.
@@ -207,12 +244,14 @@ pub fn render_production_view(
         .pivot(Align2::LEFT_BOTTOM)
         .fixed_pos(pos2(placed.left, slot.screen_bottom - slot.bottom))
         .order(Order::Foreground);
-    // A panel on its way out keeps the shape it last had rather than collapsing into nothing.
-    let fit = fit.unwrap_or(ProductionFit {
-        width: PANEL_WIDTH,
-        tiles: MAX_TILES,
-        rows: view.players.len(),
-    });
+    // A panel on its way out keeps the shape it last had rather than collapsing into nothing. A
+    // row holds what the panel's width does this frame, so a tile arriving waits for the room it
+    // needs rather than reaching past the panel's edge as it widens.
+    let fit = ProductionFit {
+        width,
+        tiles: tiles_that_fit(width),
+        rows: fit.map_or(view.players.len(), |fit| fit.rows),
+    };
     let inner = motion::presence_area(
         ctx,
         id.with("presence"),
@@ -277,16 +316,16 @@ fn draw_tile(ui: &Ui, rect: Rect, item: &ProductionItemView, owner: Color32, hov
     let icon_rect = rect.shrink(theme::HAIRLINE);
     match item.icon.texture {
         Some(texture) => {
-            paint_tinted_icon(
+            paint_icon_glow(ui.painter(), icon_rect, 1.0);
+            item.icon.paint(
                 ui.painter(),
                 texture,
-                fit_icon(icon_rect, item.icon.size),
+                icon_rect,
                 if hovered {
                     theme::ACCENT
                 } else {
                     owner_tint(owner)
                 },
-                1.0,
             );
         }
         None => paint_text(

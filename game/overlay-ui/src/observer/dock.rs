@@ -107,7 +107,7 @@ impl Entry {
             }
             Entry::Panel(Panel::Selection) => tr!("observer.panelSelection", "Selection"),
             Entry::Panel(Panel::Minimap) => tr!("observer.panelMinimap", "Minimap"),
-            Entry::Panel(Panel::Transport) => tr!("observer.panelTransport", "Transport"),
+            Entry::Panel(Panel::Transport) => tr!("observer.panelPlayback", "Playback"),
             Entry::Panel(Panel::Dock) => tr!("observer.panelDock", "Dock"),
             Entry::SpoilerFree => tr!("observer.spoilerFree", "Spoiler-free"),
         }

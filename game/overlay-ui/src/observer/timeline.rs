@@ -13,13 +13,13 @@
 //! In a replay a row is also a way back to its moment: clicking one moves playback to just before
 //! it, so the watcher sees it happen rather than arriving after it has.
 
-use egui::{Align, Color32, Context, Id, Rect, Sense, Ui, pos2, vec2};
+use egui::{Align, Color32, Context, Id, Rect, Sense, Ui, vec2};
 
 use crate::kit::text::{self, BodyWeight};
 use crate::kit::theme;
 use crate::kit::{tiers, widgets};
 use crate::observer::{
-    EdgeCursor, ProductionIcon, STAT_COLOR_BAR, STAT_ROW_GAP, Wing, centred, fit_icon, game_clock,
+    EdgeCursor, ProductionIcon, STAT_COLOR_BAR, STAT_ROW_GAP, Wing, centred, game_clock,
     paint_player_dot, paint_text, paint_tile_chrome, wing_panel,
 };
 use crate::shell::Panel;
@@ -326,10 +326,10 @@ fn draw_icon(ui: &Ui, rect: Rect, icon: Option<ProductionIcon>) {
     paint_tile_chrome(ui, rect, false);
     match icon.texture {
         Some(texture) => {
-            ui.painter().image(
+            icon.paint(
+                ui.painter(),
                 texture,
-                fit_icon(rect.shrink(theme::HAIRLINE), icon.size),
-                Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
+                rect.shrink(theme::HAIRLINE),
                 Color32::WHITE,
             );
         }
@@ -369,7 +369,7 @@ mod tests {
         let mut height = None;
         for _ in 0..4 {
             let raw = egui::RawInput {
-                screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), vec2(1920.0, 1080.0))),
+                screen_rect: Some(Rect::from_min_size(egui::Pos2::ZERO, vec2(1920.0, 1080.0))),
                 ..Default::default()
             };
             ctx.begin_pass(raw);

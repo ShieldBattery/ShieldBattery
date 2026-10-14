@@ -537,6 +537,14 @@ fn production_name(production: Production, bw: &BwVars) -> Option<String> {
     }
 }
 
+/// How much of each side of an HD unit's command-icon frame is empty padding around its render.
+///
+/// The renders are centered in their frames with about a tenth of a frame free on every side. The
+/// few that reach a little closer to an edge lose only the soft fringe of their outermost pixels to
+/// the crop. Upgrade and technology icons fill their frames, and the SD and carbot atlases are drawn
+/// edge to edge.
+const HD_UNIT_ICON_MARGIN: f32 = 0.09;
+
 /// The units whose frame in the command-icon atlas is a placeholder reading "BLANK", the same in
 /// every graphics mode: turrets, heroes, and units no button ever makes. A panel names these by
 /// their unit code instead.
@@ -560,6 +568,7 @@ fn production_icon(production: Production, bw: &BwVars) -> ProductionIcon {
                 texture: None,
                 index: id.0,
                 size: None,
+                margin: 0.0,
             };
         }
         Production::Unit(id) => {
@@ -583,9 +592,14 @@ fn production_icon(production: Production, bw: &BwVars) -> ProductionIcon {
             .filter(|texture| (**texture).width != 0 && (**texture).height != 0)
             .map(|texture| Vec2::new((*texture).width as f32, (*texture).height as f32))
     };
+    let margin = match production {
+        Production::Unit(_) if is_hd && !bw.is_carbot => HD_UNIT_ICON_MARGIN,
+        _ => 0.0,
+    };
     ProductionIcon {
         texture: Some(TextureId::User(Texture::CmdIcon(frame).to_egui_id())),
         index: frame,
         size,
+        margin,
     }
 }

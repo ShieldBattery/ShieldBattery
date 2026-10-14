@@ -223,7 +223,7 @@ pub(crate) fn paint_player_dot(ui: &Ui, rect: Rect, color: Color32, diameter: f3
 }
 
 /// How far an owner's color is lifted toward white before a unit's icon is tinted with it.
-const OWNER_TINT_LIFT: f32 = 0.8;
+const OWNER_TINT_LIFT: f32 = 0.9;
 
 /// How strongly a tile showing a unit is washed in its owner's color, and how strongly its edge is
 /// drawn in it.
@@ -250,16 +250,22 @@ fn full_brightness(color: Color32) -> Color32 {
     Color32::from_rgb(scale(r), scale(g), scale(b))
 }
 
-/// Draws one of the game's own icons from `texture` into `rect`, tinted with `tint`.
-pub(crate) fn paint_tinted_icon(
-    painter: &egui::Painter,
-    texture: egui::TextureId,
-    rect: Rect,
-    tint: Color32,
-    alpha: f32,
-) {
-    let uv = Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0));
-    painter.image(texture, rect, uv, tint.gamma_multiply(alpha));
+/// How bright the light pooled behind a unit's icon is at its middle.
+const ICON_GLOW_ALPHA: f32 = 0.14;
+
+/// Pools a soft light behind a unit's icon drawn in `rect`: the game's renders are dark at their
+/// edges (zerg ones throughout), and against the dark panel their silhouettes would dissolve.
+///
+/// Three rings rather than a gradient, standing in for a blur the way the other halos do.
+pub(crate) fn paint_icon_glow(painter: &egui::Painter, rect: Rect, alpha: f32) {
+    let radius = rect.width().min(rect.height()) * 0.5;
+    for (scale, strength) in [(0.95, 0.175), (0.75, 0.3), (0.55, 0.5)] {
+        painter.circle_filled(
+            rect.center(),
+            radius * scale,
+            Color32::WHITE.gamma_multiply(ICON_GLOW_ALPHA * strength * alpha),
+        );
+    }
 }
 
 /// Washes a tile showing one of `owner`'s units in their color and edges it in that color at full

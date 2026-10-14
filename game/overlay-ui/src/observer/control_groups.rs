@@ -25,15 +25,15 @@
 
 use egui::{
     Align, Align2, Area, Color32, Context, Id, Order, Rect, Response, Sense, Shape, Stroke,
-    StrokeKind, TextureId, Ui, Vec2, pos2, vec2,
+    StrokeKind, TextureId, Ui, pos2, vec2,
 };
 
 use crate::colors::{BLUE80, GREY_BLUE10};
 use crate::kit::text;
 use crate::kit::{motion, theme, tiers, widgets};
 use crate::observer::{
-    EdgeCursor, ProductionIcon, StackSlot, centred, fit_icon, owner_tint, paint_owner_wash,
-    paint_player_bar, paint_text, paint_tinted_icon, unit_codes, vision_alpha,
+    EdgeCursor, ProductionIcon, StackSlot, centred, owner_tint, paint_icon_glow, paint_owner_wash,
+    paint_player_bar, paint_text, unit_codes, vision_alpha,
 };
 
 /// How wide the panel is, in overlay points.
@@ -147,7 +147,7 @@ const COMBO_JOIN: &str = "+";
 ///
 /// Dimmed rather than dropped: a forgotten group is exactly what a watcher wants pointed out, and a
 /// slot that emptied itself would read as a group that no longer exists.
-const STALE_ALPHA: f32 = 0.45;
+const STALE_ALPHA: f32 = 0.7;
 
 /// How much of itself a slot with nothing on it is drawn at.
 ///
@@ -387,21 +387,16 @@ fn paint_subject(ui: &Ui, rect: Rect, group: &ControlGroupView, owner: Color32, 
                     vec2(COMBO_ICON, COMBO_ICON),
                 )
             };
-            paint_icon(ui, icon(0.0), first, group.icon.size, owner, alpha);
-            paint_icon(
-                ui,
-                icon(1.0),
-                second,
-                combo.and_then(|icon| icon.size),
-                owner,
-                alpha,
-            );
+            paint_icon(ui, icon(0.0), &group.icon, first, owner, alpha);
+            if let Some(combo) = &combo {
+                paint_icon(ui, icon(1.0), combo, second, owner, alpha);
+            }
         }
         (Some(texture), None) => paint_icon(
             ui,
             Rect::from_center_size(rect.center(), vec2(ICON, ICON)),
+            &group.icon,
             texture,
-            group.icon.size,
             owner,
             alpha,
         ),
@@ -428,17 +423,17 @@ fn paint_subject(ui: &Ui, rect: Rect, group: &ControlGroupView, owner: Color32, 
 fn paint_icon(
     ui: &Ui,
     rect: Rect,
+    icon: &ProductionIcon,
     texture: TextureId,
-    size: Option<Vec2>,
     owner: Color32,
     alpha: f32,
 ) {
-    paint_tinted_icon(
+    paint_icon_glow(ui.painter(), rect, alpha);
+    icon.paint(
         ui.painter(),
         texture,
-        fit_icon(rect, size),
-        owner_tint(owner),
-        alpha,
+        rect,
+        owner_tint(owner).gamma_multiply(alpha),
     );
 }
 

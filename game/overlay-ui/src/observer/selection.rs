@@ -46,7 +46,7 @@ use crate::colors::{BLUE80, GREY_BLUE10, GREY_BLUE20, GREY_BLUE60, PURPLE70};
 use crate::kit::text;
 use crate::kit::{motion, theme, tiers, widgets};
 use crate::observer::{
-    ProductionIcon, StackSlot, centred, fit_icon, paint_player_bar, paint_text, unit_codes,
+    ProductionIcon, StackSlot, centred, paint_player_bar, paint_text, unit_codes,
 };
 use crate::tr;
 
@@ -725,10 +725,10 @@ fn draw_upgrade_chip(ui: &Ui, rect: Rect, upgrade: &UnitUpgradeView, hovered: bo
     let icon_rect = rect.shrink(theme::HAIRLINE);
     match upgrade.icon.texture {
         Some(texture) => {
-            ui.painter().image(
+            upgrade.icon.paint(
+                ui.painter(),
                 texture,
-                fit_icon(icon_rect, upgrade.icon.size),
-                Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
+                icon_rect,
                 if hovered {
                     Color32::WHITE
                 } else {
@@ -978,10 +978,10 @@ fn paint_tile(ui: &Ui, rect: Rect, edge: Option<Color32>, alpha: f32) {
 fn paint_icon(ui: &Ui, rect: Rect, icon: ProductionIcon, code_size: f32) {
     match icon.texture {
         Some(texture) => {
-            ui.painter().image(
+            icon.paint(
+                ui.painter(),
                 texture,
-                fit_icon(rect.shrink(theme::SPACE_XS), icon.size),
-                Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
+                rect.shrink(theme::SPACE_XS),
                 Color32::WHITE,
             );
         }
@@ -1033,6 +1033,7 @@ mod tests {
                 texture: None,
                 index,
                 size: None,
+                margin: 0.0,
             },
             name: None,
             owner_color: Color32::WHITE,
@@ -1116,6 +1117,7 @@ mod tests {
                 texture: None,
                 index: 0x1E,
                 size: None,
+                margin: 0.0,
             },
             name: None,
             progress: 0.5,
