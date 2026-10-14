@@ -5,4 +5,4 @@ edition = "2024"
 
 [dependencies.samase_scarf]
 git = "https://github.com/tec27/samase_scarf.git"
-rev = "f98773d3b31428027c5fd704f1a61d09c0481243"
+rev = "480a8b7e4406375489e69cd86401d35a5f5716cd"

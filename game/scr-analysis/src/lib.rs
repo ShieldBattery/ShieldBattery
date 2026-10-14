@@ -820,6 +820,26 @@ impl<'e> Analysis<'e> {
         self.0.draw_graphic_layers()
     }
 
+    /// `fn()`; draws the software cursor (render mode 0x1d) on top of everything else. Returns
+    /// without drawing when the cursor is hidden or the hardware cursor is in use. Last call
+    /// of `draw_graphic_layers`.
+    pub fn draw_software_cursor(&mut self) -> Option<VirtualAddress> {
+        self.0.draw_software_cursor()
+    }
+
+    /// `fn(render_mode: u16)`, cdecl on 32-bit. Makes following draw commands use
+    /// `render_mode` as their sort layer and render target until the matching
+    /// [`pop_renderer_mode_override`](Self::pop_renderer_mode_override).
+    pub fn push_renderer_mode_override(&mut self) -> Option<VirtualAddress> {
+        self.0.push_renderer_mode_override()
+    }
+
+    /// `fn()`; undoes the latest
+    /// [`push_renderer_mode_override`](Self::push_renderer_mode_override).
+    pub fn pop_renderer_mode_override(&mut self) -> Option<VirtualAddress> {
+        self.0.pop_renderer_mode_override()
+    }
+
     pub fn render_screen(&mut self) -> Option<VirtualAddress> {
         self.0.render_screen()
     }

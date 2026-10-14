@@ -342,6 +342,9 @@ pub struct BwScr {
     net_format_turn_rate: VirtualAddress,
     init_obs_ui: VirtualAddress,
     draw_graphic_layers: VirtualAddress,
+    /// What draws the software cursor, and moves it above the overlay; `None` where the analysis
+    /// cannot place it all, which leaves the cursor drawn under the overlay.
+    software_cursor: Option<SoftwareCursor>,
     decide_cursor_type: VirtualAddress,
     load_ddsgrp_cursor: VirtualAddress,
     lobby_create_callback_offset: usize,
@@ -2474,6 +2477,20 @@ impl BwScr {
         let draw_graphic_layers = analysis
             .draw_graphic_layers()
             .ok_or("draw_graphic_layers")?;
+        let software_cursor = match (
+            analysis.draw_software_cursor(),
+            analysis.push_renderer_mode_override(),
+            analysis.pop_renderer_mode_override(),
+        ) {
+            (Some(draw), Some(push_mode_override), Some(pop_mode_override)) => {
+                Some(SoftwareCursor {
+                    draw,
+                    push_mode_override: unsafe { mem::transmute(push_mode_override.0) },
+                    pop_mode_override: unsafe { mem::transmute(pop_mode_override.0) },
+                })
+            }
+            _ => None,
+        };
         let render_screen = analysis.render_screen().ok_or("render_screen")?;
         let skip_render = analysis.skip_render();
         let decide_cursor_type = analysis.decide_cursor_type().ok_or("decide_cursor_type")?;
@@ -2661,6 +2678,7 @@ impl BwScr {
             net_format_turn_rate,
             init_obs_ui,
             draw_graphic_layers,
+            software_cursor,
             decide_cursor_type,
             load_ddsgrp_cursor,
             update_game_screen_size: unsafe { mem::transmute(update_game_screen_size.0) },
@@ -4141,6 +4159,23 @@ impl BwScr {
             let draw = (*renderer_vtable).draw;
             let swap_buffers = (*renderer_vtable).swap_buffers;
             let create_shader = (*renderer_vtable).create_shader;
+
+            if let Some(cursor) = &self.software_cursor {
+                let address = cursor.draw.0 as usize - base;
+                let push_mode_override = cursor.push_mode_override;
+                let pop_mode_override = cursor.pop_mode_override;
+                // Everything the cursor queues takes the overridden layer, which also picks the
+                // render target it goes to: the backbuffer, over the overlay.
+                exe.hook_closure_address(
+                    DrawSoftwareCursor,
+                    move |orig| {
+                        push_mode_override(draw_overlay::SOFTWARE_CURSOR_DRAW_LAYER);
+                        orig();
+                        pop_mode_override();
+                    },
+                    address,
+                );
+            }
 
             let address = self.draw_graphic_layers.0 as usize - base;
             // draw_graphic_layers is the main BW draw command queuing function.
@@ -9591,6 +9626,15 @@ impl bw::Bw for BwScr {
     }
 }
 
+/// SC:R's software cursor draw, and the stack of render modes that sets the layer and render target
+/// every draw command queued under it goes to.
+struct SoftwareCursor {
+    /// `fn()`; draws the cursor unless it is hidden or the hardware cursor is in use.
+    draw: VirtualAddress,
+    push_mode_override: unsafe extern "C" fn(u16),
+    pop_mode_override: unsafe extern "C" fn(),
+}
+
 /// Whether a window message is part of an Alt+S (save game) or Alt+L (load game) keypress. Windows
 /// sends an Alt combination as `WM_SYSKEYDOWN`/`WM_SYSKEYUP` with the key's virtual key code, and
 /// `WM_SYSCHAR` with its character. An AltGr combination (Ctrl+Alt, which some layouts use to type
@@ -10357,6 +10401,7 @@ mod hooks {
         !0 => DrawMinimapPlayerUnits(u32);
         !0 => DrawMinimapMainPlayerUnits(u32);
         !0 => DrawGraphicLayers(*mut c_void, usize, u32);
+        !0 => DrawSoftwareCursor();
         !0 => DecideCursorType() -> u32;
         !0 => PrintText(*const i8, u32, u32);
         !0 => NetPlayerCount() -> u32;

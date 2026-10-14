@@ -317,6 +317,14 @@ fn load_dynamic_fonts() -> overlay_ui::DynamicFonts {
 /// game draws during loading (the FPS counter and the like).
 pub const OVERLAY_DRAW_LAYER: u16 = 0x6100;
 
+/// The draw layer SC:R's software cursor is moved up to, so it is drawn over the overlay.
+///
+/// The game draws the cursor into its UI render target, at a layer the final pass then scales
+/// onto the backbuffer underneath the overlay. Drawn at a layer above the overlay instead, the
+/// cursor goes straight to the backbuffer over it. Below 0x8000, which the game's sort reads as
+/// negative.
+pub const SOFTWARE_CURSOR_DRAW_LAYER: u16 = OVERLAY_DRAW_LAYER + 0x100;
+
 /// The id of the control in BW's minimap dialog that the map itself is drawn in.
 const MINIMAP_MAP_CONTROL: i16 = 1;
 
