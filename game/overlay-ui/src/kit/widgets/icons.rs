@@ -8,7 +8,9 @@
 
 use std::sync::Arc;
 
-use egui::{Color32, Context, Id, Painter, Rect, Shape, Stroke, TextureId, pos2, vec2};
+use egui::{Color32, Context, Id, Painter, Rect, Shape, Stroke, StrokeKind, TextureId, pos2, vec2};
+
+use crate::colors::{GREY_BLUE10, GREY_BLUE60};
 
 use crate::kit::theme;
 
@@ -30,6 +32,14 @@ impl ResourceGlyph {
         }
     }
 }
+
+/// How far the game's art is set in from the edge of the chip it is drawn in, and how round the
+/// chip's corners are, as shares of the chip's side.
+const ICON_INSET: f32 = 0.1;
+const ICON_CORNER: f32 = 0.15;
+
+/// How strongly the chip's edge is drawn.
+const ICON_EDGE_ALPHA: f32 = 0.6;
 
 /// Whose art a resource that differs by race is drawn in.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -122,15 +132,29 @@ pub fn paint_resource_icon(
         ResourceGlyph::Gas => &icons.gas[race.index()],
         ResourceGlyph::Supply => &icons.supply[race.index()],
     });
-    let pixels = side * painter.ctx().pixels_per_point();
+    let square = Rect::from_center_size(rect.center(), vec2(side, side));
+    let art = square.shrink(side * ICON_INSET);
+    let pixels = art.width() * painter.ctx().pixels_per_point();
     if let Some(texture) = sizes.and_then(|sizes| sizes.for_pixels(pixels)) {
+        // The art is the game's square tile's, cut off at the tile's edge, so it is set in a chip
+        // of its own that makes the edge the chip's.
+        let corner_radius = side * ICON_CORNER;
+        painter.rect_filled(square, corner_radius, GREY_BLUE10.gamma_multiply(alpha));
+        painter.rect_stroke(
+            square,
+            corner_radius,
+            Stroke::new(
+                theme::HAIRLINE,
+                GREY_BLUE60.gamma_multiply(ICON_EDGE_ALPHA * alpha),
+            ),
+            StrokeKind::Inside,
+        );
         let tint = match glyph {
             ResourceGlyph::Supply => glyph.color(),
             ResourceGlyph::Minerals | ResourceGlyph::Gas => Color32::WHITE,
         };
         let uv = Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0));
-        let square = Rect::from_center_size(rect.center(), vec2(side, side));
-        painter.image(texture, square, uv, tint.gamma_multiply(alpha));
+        painter.image(texture, art, uv, tint.gamma_multiply(alpha));
         return;
     }
     paint_drawn_glyph(painter, rect, glyph, alpha, side);

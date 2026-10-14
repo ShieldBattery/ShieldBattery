@@ -273,18 +273,24 @@ const GRID_GAP: f32 = 8.0;
 const HEALTH_BAR: f32 = 3.0;
 const HEALTH_GAP: f32 = 2.0;
 
+/// The bar under that one for a unit with shields, and its gap from it. Thinner, as the reading
+/// that only some units have.
+const SHIELD_BAR: f32 = 2.0;
+const SHIELD_GAP: f32 = 1.0;
+
 /// Gap between the two rows of a grid of small tiles.
 const GRID_ROW_GAP: f32 = 6.0;
 
-/// How tall one row of a grid of small tiles of `side` is, its health bar included.
+/// How tall one row of a grid of small tiles of `side` is, its bars included. Every row has room
+/// for a shield bar, so a row's bars line up whichever of its units have shields.
 const fn tile_row(side: f32) -> f32 {
-    side + HEALTH_GAP + HEALTH_BAR
+    side + HEALTH_GAP + HEALTH_BAR + SHIELD_GAP + SHIELD_BAR
 }
 
 /// The cargo slots, which are the console's own: two rows of four.
 const CARGO_COLUMNS: usize = 4;
 const CARGO_ROWS: usize = 2;
-const CARGO_SLOT: f32 = 34.0;
+const CARGO_SLOT: f32 = 31.0;
 const CARGO_GAP: f32 = 6.0;
 
 /// How tall the cargo slots are, both rows of them.
@@ -993,12 +999,25 @@ fn draw_cargo(ui: &Ui, rect: Rect, cargo: &[SelectedUnitView]) {
 fn paint_small_tile(ui: &Ui, tile: Rect, unit: &SelectedUnitView, code_size: f32) {
     paint_tile(ui, tile, None, 1.0);
     paint_icon(ui, tile, unit.icon, code_size);
-    let health = unit.health_fraction();
+    // Hit points alone where the shields have a bar of their own under it.
+    let health = hit_point_fraction(unit);
     let bar = Rect::from_min_size(
         pos2(tile.left(), tile.bottom() + HEALTH_GAP),
         vec2(tile.width(), HEALTH_BAR),
     );
     paint_track(ui, bar, health, health_tint(health));
+    if let Some((shields, full)) = unit.shields {
+        let fraction = if full == 0 {
+            1.0
+        } else {
+            shields as f32 / full as f32
+        };
+        let shield_bar = Rect::from_min_size(
+            pos2(tile.left(), bar.bottom() + SHIELD_GAP),
+            vec2(tile.width(), SHIELD_BAR),
+        );
+        paint_track(ui, shield_bar, fraction.clamp(0.0, 1.0), BLUE80);
+    }
 }
 
 /// Paints a tile's chrome, outlined in `edge` where the tile has something to say through its edge

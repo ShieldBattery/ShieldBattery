@@ -4387,6 +4387,7 @@ impl BwScr {
                                     graphic_layers,
                                     is_hd,
                                     is_carbot,
+                                    map_bottom_in_view: self.map_bottom_in_view(),
                                     cmdicons,
                                     has_init_bw,
                                     countdown_start,
@@ -6586,14 +6587,15 @@ impl BwScr {
         }
     }
 
-    /// Lets the view scroll past the map's bottom edge by `share` of the view's height, so what is
-    /// at the bottom of the map can be brought out from under the overlay's bottom panels. The
-    /// game draws nothing past the edge.
+    /// Lets the view scroll past the map's bottom edge by `share` of the view's height, less a
+    /// sliver, so what is at the bottom of the map can be brought out from under the overlay's
+    /// bottom panels while the map's last pixels still reach under them rather than leaving a gap.
     ///
-    /// The room is the game's own, which it keeps in tiles at default zoom and so the same height
-    /// on screen at any zoom; every clamp on the view's position counts it. It stays short of the
-    /// view's own height less a tile, past which the game's fog pass would start reading rows
-    /// below the map's last.
+    /// The room is the game's own, kept in tiles at default zoom, which every clamp on the view's
+    /// position counts through the bound it feeds. Tiles are coarser than the panels' edge, so the
+    /// room is set to the tiles that cover the share and the bound itself to the exact pixel. Both
+    /// stay short of the view's own height less a tile, past which the game's fog pass would start
+    /// reading rows below the map's last. A share of nothing leaves the game's own bound alone.
     unsafe fn set_bottom_overpan(&self, share: f32) {
         unsafe {
             let Some(overpan) = &self.bottom_overpan else {
@@ -6601,26 +6603,47 @@ impl BwScr {
             };
             let zoom = self.zoom.resolve();
             let view_height = self.game_screen_height_bwpx.resolve() as f32;
-            let limit = ((view_height - TILE_PIXELS) * zoom / TILE_PIXELS)
-                .floor()
-                .max(0.0);
-            let tiles = (share.max(0.0) * view_height * zoom / TILE_PIXELS)
-                .ceil()
-                .min(limit) as u16;
+            let room = (share.max(0.0) * view_height - OVERPAN_UNDERLAP)
+                .clamp(0.0, (view_height - TILE_PIXELS).max(0.0));
+            let tiles = (room * zoom / TILE_PIXELS).ceil() as u16;
+            let mut moved = false;
             if overpan.padding_tiles.resolve() != tiles {
                 overpan.padding_tiles.write(tiles);
                 (overpan.update_scroll_bounds)();
-                debug!(
-                    "View may scroll {tiles} tiles past the map's bottom edge: top edge at most \
-                     {} for a map {} tall and a view {} tall",
-                    overpan.scroll_max_y.resolve(),
-                    self.map_height_pixels.resolve(),
-                    view_height,
-                );
+                moved = true;
+            }
+            let map_height = self.map_height_pixels.resolve() as f32;
+            if room > 0.0 && map_height + room >= view_height {
+                let max_y = (map_height + room - view_height).round() as u32;
+                if overpan.scroll_max_y.resolve() != max_y {
+                    overpan.scroll_max_y.write(max_y);
+                    debug!(
+                        "View may scroll {room} pixels ({tiles} tiles) past the map's bottom edge: \
+                         top edge at most {max_y} for a map {map_height} tall and a view \
+                         {view_height} tall",
+                    );
+                    moved = true;
+                }
+            }
+            if moved {
                 // Through the game's own move, which redraws the view for a position the new
-                // bounds pulled in.
+                // bound pulled in.
                 (self.move_screen)(self.screen_x.resolve(), self.screen_y.resolve());
             }
+        }
+    }
+
+    /// Where the map's bottom edge is in the view, as a share of the view's height from its top:
+    /// past 1 while the edge is below the view, which is all of the time but for a watcher who has
+    /// scrolled past it.
+    unsafe fn map_bottom_in_view(&self) -> f32 {
+        unsafe {
+            let view_height = self.game_screen_height_bwpx.resolve() as f32;
+            if view_height <= 0.0 {
+                return f32::INFINITY;
+            }
+            let below = self.map_height_pixels.resolve() as f32 - self.screen_y.resolve() as f32;
+            below / view_height
         }
     }
 
@@ -9780,6 +9803,12 @@ struct BottomOverpan {
 
 /// How many map pixels a tile is.
 const TILE_PIXELS: f32 = 32.0;
+
+/// How much of the map, in map pixels, still reaches under the overlay's bottom panels with the view
+/// scrolled as far past the map's bottom edge as it goes: a quarter of a tile, so the map meets the
+/// panels rather than leaving a strip of nothing between them, and nothing at the bottom of the
+/// map is hidden by more than a sliver.
+const OVERPAN_UNDERLAP: f32 = TILE_PIXELS / 4.0;
 
 /// A unit the game's view follows: its unique id, and where following it last left the view.
 struct FollowedUnit {

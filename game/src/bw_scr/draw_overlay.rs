@@ -283,6 +283,9 @@ pub struct BwVars {
     /// Whether the carbot skin set is the one being drawn, which picks the command-icon frames
     /// the renderer shows along with `is_hd`.
     pub is_carbot: bool,
+    /// Where the map's bottom edge is in the game view, as a share of the view's height from its
+    /// top: past 1 but for a watcher who has scrolled the view past the edge.
+    pub map_bottom_in_view: f32,
     /// The game's command-icon atlas, read for the pixel size of the frame an icon will be drawn
     /// with. Valid for as long as the game is running.
     pub cmdicons: *mut scr::DdsGrpSet,
@@ -772,6 +775,11 @@ impl OverlayState {
                 // modal owns the screen. Its rects are registered unconditionally: a BW dialog
                 // sitting on the stack (the hidden `TimeOut` among them) must never be able to
                 // steal a click from a modal of ours.
+                // A watcher's view fills the screen's height, its console hidden, so a share of the
+                // one is a share of the other.
+                if bw.is_replay_or_obs {
+                    overlay_ui::observer::paint_past_map_edge(&ctx, bw.map_bottom_in_view);
+                }
                 frame_output = self.shell.frame(&ctx, &host_frame, &mut views);
                 for hit in &frame_output.hit_rects {
                     self.ui_rects.push(UiRect {
