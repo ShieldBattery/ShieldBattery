@@ -27,7 +27,7 @@ use crate::chat_history::{ChatHistoryView, render_chat_history_view};
 use crate::disconnect::{DisconnectView, SelfState, render_disconnect_view};
 use crate::end_card::{EndCardChoice, EndCardView, GameResult, render_end_card};
 pub use crate::game_menu::SocialDialog;
-use crate::game_menu::{render_game_menu, render_leave_confirm};
+use crate::game_menu::{leave_is_held, render_game_menu, render_leave_confirm};
 use crate::net_quality::{NetQualityView, render_net_quality};
 use crate::netstat::{NetStatsView, render_netstat_view};
 use crate::observer::{self, GraphSeries, ObserverView, SelectedUnitClick};
@@ -1794,14 +1794,15 @@ impl Shell {
     /// and returns whether it did anything.
     fn menu_key_pressed(&mut self, key: Key) -> bool {
         let playing = self.host.mode == Mode::Playing;
+        let replay = self.host.mode == Mode::Replay;
         match (self.top_modal(), key) {
             (Some(ModalId::GameMenu), Key::O) => self.open_modal(ModalId::Options),
-            // A player's leave button is held, by the key as by the pointer, and the hold only
-            // starts on a press made with the menu up. Someone watching is asked instead.
-            (Some(ModalId::GameMenu), Key::E) if playing => {
+            // The key works the leave button as the pointer does: held where leaving is held, and
+            // the hold only starts on a press made with the menu up; a tap in a replay.
+            (Some(ModalId::GameMenu), Key::E) if leave_is_held(replay) => {
                 self.menu_leave_key.get_or_insert(Key::E);
             }
-            (Some(ModalId::GameMenu), Key::E) => self.open_modal(ModalId::LeaveGame),
+            (Some(ModalId::GameMenu), Key::E) => self.intents.push(Intent::QuitGame),
             (Some(ModalId::GameMenu), Key::A | Key::C) if playing => {
                 self.open_social_dialog(SocialDialog::Alliances)
             }
@@ -2130,6 +2131,7 @@ fn draw_modal(
                 ctx,
                 host.game_seconds,
                 host.mode == Mode::Playing,
+                host.mode == Mode::Replay,
                 shell.menu_leave_key_held,
             );
             hit_rects.push(HitRect::new(dialog.response.rect));
@@ -2142,8 +2144,7 @@ fn draw_modal(
             }
         }
         ModalId::LeaveGame => {
-            let dialog =
-                render_leave_confirm(ctx, host.mode == Mode::Playing, host.mode == Mode::Replay);
+            let dialog = render_leave_confirm(ctx, host.mode == Mode::Replay);
             hit_rects.push(HitRect::new(dialog.response.rect));
             ModalOutcome {
                 dismissed: dialog.inner.return_to_game || dialog.scrim_clicked,
@@ -3040,9 +3041,7 @@ mod tests {
         assert_eq!(shell.top_modal(), Some(ModalId::GameMenu));
         // A watcher has no alliances to set, so the key is not the menu's.
         assert!(!shell.key_pressed(Key::A, Modifiers::NONE));
-        // End Mission asks first, and either of SC:R's quit keys answers.
-        assert!(shell.key_pressed(Key::E, Modifiers::NONE));
-        assert_eq!(shell.top_modal(), Some(ModalId::LeaveGame));
+        // A replay is left with a tap, watched alone as it is.
         assert!(shell.key_pressed(Key::E, Modifiers::NONE));
         assert!(shell.pending_intents().contains(&Intent::QuitGame));
     }

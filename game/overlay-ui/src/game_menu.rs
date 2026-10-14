@@ -37,8 +37,8 @@ const CLOCK_SIZE: f32 = 18.0;
 const WORDMARK: &str = "ShieldBattery";
 
 /// The keys the menu's buttons answer to, as their keycaps name them. SC:R's own where it has one:
-/// `O` for Options and `E` for End Mission, which holds a player's leave button like the pointer
-/// does and for someone watching asks the same question SC:R's `Alt+Q` asks. SC:R puts alliances and chat behind one Social button on `C`; the two buttons that stand in
+/// `O` for Options and `E` for End Mission, which works the leave button the way the pointer does:
+/// held where leaving is held (see [`leave_is_held`]), a tap in a replay. SC:R puts alliances and chat behind one Social button on `C`; the two buttons that stand in
 /// for it here take `A` (and `C`, for that habit) and `M`.
 pub const OPTIONS_KEY: &str = "O";
 pub const ALLIANCES_KEY: &str = "A";
@@ -77,18 +77,21 @@ pub struct GameMenuOutcome {
 /// Draws the in-game menu over the game.
 ///
 /// `playing` is whether the client is a player in the game rather than watching it, which decides
-/// what leaving costs and whether there are alliances to set. `leave_key_held` is whether a player
-/// is holding the leave key ([`LEAVE_KEY`]), which holds the leave button as the pointer does: from
-/// the menu, the key leaves only the way the button does.
+/// whether there are alliances to set. `replay` is whether this is a replay, which decides what
+/// leaving costs (see [`leave_is_held`]). `leave_key_held` is whether the leave key ([`LEAVE_KEY`])
+/// is held, which holds a held leave button as the pointer does.
 pub fn render_game_menu(
     ctx: &Context,
     game_seconds: u64,
     playing: bool,
+    replay: bool,
     leave_key_held: bool,
 ) -> tiers::DialogResponse<GameMenuOutcome> {
     tiers::tier2_dialog(ctx, Id::new("sb_game_menu"), MENU_WIDTH, |ui| {
         tiers::dialog_header(ui, |ui| draw_header(ui, game_seconds));
-        tiers::dialog_body(ui, |ui| draw_actions(ui, playing, leave_key_held))
+        tiers::dialog_body(ui, |ui| {
+            draw_actions(ui, playing, leave_is_held(replay), leave_key_held)
+        })
     })
 }
 
@@ -128,7 +131,12 @@ fn draw_clock(ui: &mut Ui, game_seconds: u64) {
 
 /// The stack of things that can be done from here, in SC:R's order: Options first, then the
 /// social dialogs, then leaving, with the way back to the game at the bottom where SC:R keeps it.
-fn draw_actions(ui: &mut Ui, playing: bool, leave_key_held: bool) -> GameMenuOutcome {
+fn draw_actions(
+    ui: &mut Ui,
+    playing: bool,
+    hold_to_leave: bool,
+    leave_key_held: bool,
+) -> GameMenuOutcome {
     let width = ui.available_width();
     let spec = text::button_label(BUTTON_LABEL_SIZE).with_letter_spacing(BUTTON_TRACKING);
     let size = vec2(width, BUTTON_HEIGHT);
@@ -172,20 +180,26 @@ fn draw_actions(ui: &mut Ui, playing: bool, leave_key_held: bool) -> GameMenuOut
         });
     }
     ui.add_space(BUTTON_GAP);
-    outcome.leave = leave_button(ui, playing, LEAVE_KEY, leave_key_held);
+    outcome.leave = leave_button(ui, hold_to_leave, LEAVE_KEY, leave_key_held);
     ui.add_space(BUTTON_GAP);
     outcome.return_to_game = return_button(ui);
     outcome
 }
 
-/// The button that leaves the game, marked with `key`. A player leaving a game loses it, so that
-/// takes a hold rather than a click, by the pointer or while `key_held`; leaving a game only being
-/// watched costs nothing.
-fn leave_button(ui: &mut Ui, playing: bool, key: &str, key_held: bool) -> bool {
+/// Whether leaving takes a hold rather than a click: in a game with other people in it, which a
+/// slip of the hand would walk out on (and lose, for a player), but not in a replay, which is
+/// watched alone and costs nothing to leave.
+pub fn leave_is_held(replay: bool) -> bool {
+    !replay
+}
+
+/// The button that leaves the game, marked with `key`: held, by the pointer or while `key_held`,
+/// where `hold` says leaving takes a hold, and clicked otherwise.
+fn leave_button(ui: &mut Ui, hold: bool, key: &str, key_held: bool) -> bool {
     let width = ui.available_width();
     let size = vec2(width, BUTTON_HEIGHT);
     let rect = Rect::from_min_size(ui.cursor().min, size);
-    let leave = if playing {
+    let leave = if hold {
         widgets::hold_to_confirm_by_key(
             ui,
             &tr!("gameMenu.holdToLeave", "Hold to leave game"),
@@ -237,11 +251,9 @@ const CONFIRM_WIDTH: f32 = 360.0;
 /// Asks whether to leave the game, for the keys SC:R quits with (`Alt+Q`, `Alt+X` and their `Ctrl`
 /// forms), which in ShieldBattery all come to the same thing: the game ends for this client.
 ///
-/// Leaving costs what it costs from the menu, with the same controls: a hold for a player, whose
-/// leaving loses the game, and a click for someone watching.
+/// Leaving costs what it costs from the menu (see [`leave_is_held`]), with the same controls.
 pub fn render_leave_confirm(
     ctx: &Context,
-    playing: bool,
     replay: bool,
 ) -> tiers::DialogResponse<LeaveConfirmOutcome> {
     tiers::tier2_dialog(ctx, Id::new("sb_leave_confirm"), CONFIRM_WIDTH, |ui| {
@@ -250,20 +262,20 @@ pub fn render_leave_confirm(
             false => tr!("gameMenu.leaveGameTitle", "Leave the game?"),
         };
         tiers::dialog_header(ui, |ui| tiers::dialog_title(ui, &title));
-        tiers::dialog_body(ui, |ui| draw_leave_actions(ui, playing, replay))
+        tiers::dialog_body(ui, |ui| draw_leave_actions(ui, replay))
     })
 }
 
 /// The question's answers in SC:R's order, leaving above the way back. The leave button shows the
 /// key SC:R's own question takes here (`E` in a replay, `Q` otherwise); both answer either way.
-fn draw_leave_actions(ui: &mut Ui, playing: bool, replay: bool) -> LeaveConfirmOutcome {
+fn draw_leave_actions(ui: &mut Ui, replay: bool) -> LeaveConfirmOutcome {
     let key = match replay {
         true => LEAVE_CONFIRM_KEYS[1],
         false => LEAVE_CONFIRM_KEYS[0],
     };
     // Answered with a tap: the question only comes up for SC:R's quit keys, which are already one
     // deliberate keypress, and the tap is how SC:R's own question answers them.
-    let leave = leave_button(ui, playing, key, false);
+    let leave = leave_button(ui, leave_is_held(replay), key, false);
     ui.add_space(BUTTON_GAP);
     LeaveConfirmOutcome {
         leave,
