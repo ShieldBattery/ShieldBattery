@@ -174,10 +174,6 @@ const RemoveUserAvatarDialog = React.lazy(async () => ({
 const TwitchRemoveLiveStreamConfirmation = React.lazy(async () => ({
   default: (await import('../twitch/remove-live-stream-dialog')).TwitchRemoveLiveStreamConfirmation,
 }))
-const CreateWhisperSessionDialog = React.lazy(async () => ({
-  default: (await import('../whispers/create-whisper')).CreateWhisper,
-}))
-
 const Scrim = styled(m.div)`
   position: fixed;
   left: 0;
@@ -306,8 +302,6 @@ function getDialog(dialogType: DialogType): {
       return { component: TermsOfServiceDialog }
     case DialogType.TwitchRemoveLiveStreamConfirmation:
       return { component: TwitchRemoveLiveStreamConfirmation }
-    case DialogType.Whispers:
-      return { component: CreateWhisperSessionDialog }
     default:
       return dialogType satisfies never
   }

@@ -27,9 +27,8 @@ import { FilledButton, IconButton, OutlinedButton } from '../material/button'
 import { Portal } from '../material/portal'
 import { elevationPlus2 } from '../material/shadows'
 import { zIndexDialogScrim } from '../material/zindex'
-import { parseMessageText } from '../messaging/common-message-layout'
+import { MessagePreviewLine } from '../messaging/message-preview-line'
 import { CommonMessageType, CommonTextMessage } from '../messaging/message-records'
-import { RolledOutcomeLine } from '../messaging/rolled-outcome-line'
 import { push } from '../navigation/routing'
 import { isConnectedAtom } from '../network/network-atoms'
 import { useMultiplexRef } from '../react/refs'
@@ -44,7 +43,6 @@ import {
   titleLarge,
   titleMedium,
 } from '../styles/typography'
-import { ConnectedUsername } from '../users/connected-username'
 
 const widgetXAtom = atom(0)
 const widgetYAtom = atom(0)
@@ -325,52 +323,6 @@ const LobbyStatusText = styled(BodyMedium)`
   color: var(--theme-on-surface-variant);
 `
 
-const LatestMessageText = styled(BodyMedium)`
-  ${singleLine};
-  color: var(--theme-on-surface-variant);
-`
-
-const LatestMessageAuthor = styled.span`
-  color: var(--theme-on-surface);
-`
-
-/**
- * A one-line preview of a lobby chat message, written the way the lobby's chat writes it
- * (`Name: text`, or `* Name action` for an action line) but with nothing in it interactive.
- */
-function LatestLobbyMessage({ message }: { message: CommonTextMessage }) {
-  const author = (
-    <LatestMessageAuthor>
-      <ConnectedUsername userId={message.from} interactive={false} />
-    </LatestMessageAuthor>
-  )
-
-  let line: React.ReactNode
-  if (message.outcome) {
-    line = (
-      <>
-        * {author} <RolledOutcomeLine outcome={message.outcome} text={message.text} />
-      </>
-    )
-  } else {
-    const content = parseMessageText(message.text, {
-      interactive: false,
-      allowJumboEmoji: false,
-    }).nodes
-    line = message.emote ? (
-      <>
-        * {author} {content}
-      </>
-    ) : (
-      <>
-        {author}: {content}
-      </>
-    )
-  }
-
-  return <LatestMessageText>{line}</LatestMessageText>
-}
-
 export function LobbyWidget(props: WidgetContainerProps) {
   const { t } = useTranslation()
   const lobbyName = useAppSelector(s => s.lobby.info.name)
@@ -422,7 +374,7 @@ export function LobbyWidget(props: WidgetContainerProps) {
   return (
     <Widget {...props} title={lobbyName} hasTitlePip={hasUnread}>
       {statusContent}
-      {latestMessage ? <LatestLobbyMessage message={latestMessage} /> : null}
+      {latestMessage ? <MessagePreviewLine message={latestMessage} /> : null}
       <OutlinedButton
         iconStart='arrow_forward'
         label={t('gameplayActivity.lobby.viewLobby', 'View lobby')}

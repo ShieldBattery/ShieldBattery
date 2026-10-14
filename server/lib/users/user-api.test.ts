@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { USERNAME_MAXLENGTH } from '../../../common/constants'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
-import { UserErrorCode } from '../../../common/users/user-network'
+import { SEARCH_USERS_LIMIT, UserErrorCode } from '../../../common/users/user-network'
 import { UserApi } from './user-api'
 import { convertUserApiErrors } from './user-api-errors'
-import { findUserByName } from './user-model'
+import { findUserByName, findUsersByNamePrefix } from './user-model'
 
 // The real module hashes `SB_CANONICAL_HOST` at import time, which isn't set outside a running
 // server process and would otherwise crash merely importing `UserApi`.
@@ -20,9 +21,11 @@ vi.mock('./user-ips-cleanup', () => ({ UserIpsCleanupJob: class {} }))
 vi.mock('./user-model', async importOriginal => ({
   ...(await importOriginal<typeof import('./user-model')>()),
   findUserByName: vi.fn(),
+  findUsersByNamePrefix: vi.fn(),
 }))
 
 const findUserByNameMock = asMockedFunction(findUserByName)
+const findUsersByNamePrefixMock = asMockedFunction(findUsersByNamePrefix)
 
 function makeApi(): UserApi {
   return new UserApi(
@@ -81,5 +84,50 @@ describe('users/user-api/UserApi#getUserByName', () => {
 
     await expect(api.getUserByName({ params: { name: '' } } as any)).rejects.toThrow()
     expect(findUserByNameMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('users/user-api/UserApi#searchUsers', () => {
+  beforeEach(() => {
+    findUsersByNamePrefixMock.mockReset()
+    findUsersByNamePrefixMock.mockResolvedValue([])
+  })
+
+  function search(q: unknown) {
+    return makeApi().searchUsers({ request: { query: { q } } } as any)
+  }
+
+  test('searches for the trimmed text, capped at the search limit', async () => {
+    const user = { id: makeSbUserId(7), name: 'tec27', created: 0 }
+    findUsersByNamePrefixMock.mockResolvedValue([user])
+
+    const result = await search('  tec  ')
+
+    expect(result.users).toEqual([user])
+    expect(findUsersByNamePrefixMock).toHaveBeenCalledWith('tec', SEARCH_USERS_LIMIT)
+  })
+
+  test('rejects a missing query before searching', async () => {
+    await expect(search(undefined)).rejects.toThrow()
+    expect(findUsersByNamePrefixMock).not.toHaveBeenCalled()
+  })
+
+  test('rejects a query that is empty once trimmed before searching', async () => {
+    await expect(search('   ')).rejects.toThrow()
+    expect(findUsersByNamePrefixMock).not.toHaveBeenCalled()
+  })
+
+  test('rejects a query longer than any username before searching', async () => {
+    await expect(search('a'.repeat(USERNAME_MAXLENGTH + 1))).rejects.toThrow()
+    expect(findUsersByNamePrefixMock).not.toHaveBeenCalled()
+  })
+
+  test('accepts a query as long as the longest username', async () => {
+    await search('a'.repeat(USERNAME_MAXLENGTH))
+
+    expect(findUsersByNamePrefixMock).toHaveBeenCalledWith(
+      'a'.repeat(USERNAME_MAXLENGTH),
+      SEARCH_USERS_LIMIT,
+    )
   })
 })

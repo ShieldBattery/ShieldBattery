@@ -1630,6 +1630,11 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     updateChannelInfos(state, action.payload.channelMentions)
   },
 
+  ['@whispers/getConversations'](state, action) {
+    updateChannelInfos(state, action.payload.channelMentions)
+    updateDeletedChannels(state, action.payload.deletedChannels)
+  },
+
   ['@whispers/loadMessageHistory'](state, action) {
     if (!action.error) {
       updateChannelInfos(state, action.payload.channelMentions)

@@ -141,11 +141,29 @@ function defaultWhisperSession(target: SbUserId): WhisperSession {
 export interface WhisperState {
   sessions: Set<SbUserId>
   byId: Map<SbUserId, WhisperSession>
+  /**
+   * The newest message known for each conversation the user has had, open or closed, as loaded
+   * for the whispers page's conversation list and kept current by the messages that arrive after.
+   * Closing a session leaves its entry in place, since the conversation still exists.
+   */
+  lastMessages: Map<SbUserId, CommonTextMessage>
+  /** Whether a page of the conversation list has loaded since connecting. */
+  conversationsLoaded: boolean
 }
 
 const DEFAULT_STATE: Immutable<WhisperState> = {
   sessions: new Set(),
   byId: new Map(),
+  lastMessages: new Map(),
+  conversationsLoaded: false,
+}
+
+/** Records `message` as the newest one in its conversation with `target`, unless it's older. */
+function recordLastMessage(state: WhisperState, target: SbUserId, message: CommonTextMessage) {
+  const known = state.lastMessages.get(target)
+  if (!known || message.time >= known.time) {
+    state.lastMessages.set(target, message)
+  }
 }
 
 /** Converts messages as the server sends them into the shape the message list renders. */
@@ -532,6 +550,15 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
   },
 
+  ['@whispers/getConversations'](state, action) {
+    state.conversationsLoaded = true
+    const { conversations } = action.payload
+    const lastMessages = toTextMessages(conversations.map(c => c.lastMessage))
+    for (const [i, { target }] of conversations.entries()) {
+      recordLastMessage(state, target, lastMessages[i])
+    }
+  },
+
   ['@whispers/initSession'](state, action) {
     const { target } = action.payload
     state.byId.set(target, defaultWhisperSession(target))
@@ -566,6 +593,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
 
     // Reorder the sessions to put the one that got the message on top of the list
     state.sessions = new Set([target, ...state.sessions])
+    recordLastMessage(state, target, newMessage)
 
     const session = state.byId.get(target)
     if (session?.hasNewer) {

@@ -21,6 +21,7 @@ import {
   addMessageToWhisper,
   getMessagesForWhisperSession,
   getUnreadWhisperInfo,
+  getWhisperConversationsForUser,
   getWhisperMessageParticipants,
   getWhisperMessageSentTime,
   getWhisperSessionsForUser,
@@ -75,6 +76,7 @@ vi.mock('./whisper-models', () => ({
     .mockResolvedValue({ messages: [], hasMoreBefore: false, hasMoreAfter: false }),
   getWhisperMessageSentTime: vi.fn(),
   getWhisperMessageParticipants: vi.fn(),
+  getWhisperConversationsForUser: vi.fn(),
 }))
 
 const mockRestrictionService = {
@@ -533,6 +535,81 @@ describe('whispers/whisper-service', () => {
       await expect(whisperService.getMessageLinkTarget(user1.id, messageId)).rejects.toMatchObject({
         code: WhisperServiceErrorCode.MessageNotFound,
       })
+    })
+  })
+
+  describe('getConversations', () => {
+    function storedMessage(id: string, from: SbUserId, to: SbUserId, sent: number) {
+      return {
+        id,
+        from,
+        to,
+        sent: new Date(sent),
+        data: { type: WhisperMessageType.TextMessage as const, text: `text of ${id}` },
+      }
+    }
+
+    test("pairs each conversation with its own last message and the target's user info", async () => {
+      asMockedFunction(getWhisperConversationsForUser).mockResolvedValue({
+        conversations: [
+          { targetId: user2.id, lastMessage: storedMessage('MSG_2', user2.id, user1.id, 2000) },
+          { targetId: user3.id, lastMessage: storedMessage('MSG_3', user1.id, user3.id, 1000) },
+        ],
+        hasMore: true,
+      })
+
+      const result = await whisperService.getConversations(user1.id, 2)
+
+      expect(result.conversations).toEqual([
+        {
+          target: user2.id,
+          lastMessage: {
+            id: 'MSG_2',
+            type: WhisperMessageType.TextMessage,
+            from: user2.id,
+            to: user1.id,
+            time: 2000,
+            text: 'text of MSG_2',
+          },
+        },
+        {
+          target: user3.id,
+          lastMessage: {
+            id: 'MSG_3',
+            type: WhisperMessageType.TextMessage,
+            from: user1.id,
+            to: user3.id,
+            time: 1000,
+            text: 'text of MSG_3',
+          },
+        },
+      ])
+      expect(result.hasMore).toBe(true)
+      expect(result.users).toEqual([user2, user3])
+    })
+
+    test('reports no more conversations when the model says the list is exhausted', async () => {
+      asMockedFunction(getWhisperConversationsForUser).mockResolvedValue({
+        conversations: [],
+        hasMore: false,
+      })
+
+      const result = await whisperService.getConversations(user1.id, 50)
+
+      expect(result.conversations).toEqual([])
+      expect(result.hasMore).toBe(false)
+    })
+
+    test('passes the limit and cursor through to the model', async () => {
+      asMockedFunction(getWhisperConversationsForUser).mockResolvedValue({
+        conversations: [],
+        hasMore: false,
+      })
+      const cursor = { lastMessageTime: 1000, targetId: user3.id }
+
+      await whisperService.getConversations(user1.id, 25, cursor)
+
+      expect(getWhisperConversationsForUser).toHaveBeenCalledWith(user1.id, 25, cursor)
     })
   })
 

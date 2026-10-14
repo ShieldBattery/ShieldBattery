@@ -21,7 +21,6 @@ import { usePrevious, useStableCallback } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { DURATION_LONG } from '../snackbars/snackbar-durations'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
-import { CenteredContentContainer } from '../styles/centered-container'
 import { UserProfileOverlayContents } from '../users/user-profile-overlay'
 import {
   activateWhisperSession,
@@ -41,13 +40,20 @@ import {
   startWhisperSessionById,
   updateSessionAtBottom,
 } from './action-creators'
+import { WhisperHeader } from './whisper-header'
+import { WhisperIntro } from './whisper-intro'
 import { WhisperMessageMenu } from './whisper-menu-items'
+import type { WhisperSession } from './whisper-reducer'
 
 const MESSAGES_LIMIT = 50
 
-const Container = styled(CenteredContentContainer).attrs({ $targetHorizontalPadding: 16 })`
-  display: flex;
+const Container = styled.div`
+  flex-grow: 1;
+  min-width: 0;
+  height: 100%;
   padding-top: 8px;
+
+  display: flex;
   gap: 8px;
 `
 
@@ -56,6 +62,7 @@ const StyledChat = styled(Chat)`
 `
 
 const LoadingArea = styled.div`
+  flex-grow: 1;
   padding-top: 16px;
   display: flex;
   align-items: center;
@@ -115,7 +122,7 @@ export function ConnectedWhisper({
   const isClosingWhisper = targetId === prevTargetId && prevIsSessionOpen && !isSessionOpen
   useEffect(() => {
     if (isClosingWhisper) {
-      push('/')
+      push('/whispers')
     }
   }, [isClosingWhisper])
 
@@ -431,11 +438,16 @@ export function ConnectedWhisper({
     )
   }
 
+  const isEmpty = isEmptyConversation(whisperSession)
+
   return (
     <Container>
       <StyledChat
         listProps={{
           messages: whisperSession.messages,
+          // The intro stands in for the list's own empty state.
+          showEmptyState: !isEmpty,
+          historyStartContent: <WhisperIntro userId={targetId} inline={true} />,
           loading: whisperSession.loadingHistory,
           hasMoreHistory: whisperSession.hasHistory,
           loadingNewer: whisperSession.loadingNewer,
@@ -467,6 +479,8 @@ export function ConnectedWhisper({
         onMarkRead={onMarkRead}
         escapeJumpsToBottom
         jumpToBottomOnSend
+        header={<WhisperHeader key={targetId} userId={targetId} />}
+        backgroundContent={isEmpty ? <WhisperIntro userId={targetId} /> : undefined}
         extraContent={
           <UserInfoContainer>
             <UserProfileOverlayContents userId={targetId} showHintText={false} />
@@ -475,5 +489,19 @@ export function ConnectedWhisper({
         MessageMenu={WhisperMessageMenu}
       />
     </Container>
+  )
+}
+
+/** Whether nothing has ever been said in a conversation, as far as what's loaded can tell. */
+function isEmptyConversation(
+  session: Pick<WhisperSession, 'hasHistory' | 'loadingHistory' | 'historyError'> & {
+    messages: ReadonlyArray<unknown>
+  },
+): boolean {
+  return (
+    session.messages.length === 0 &&
+    !session.hasHistory &&
+    !session.loadingHistory &&
+    !session.historyError
   )
 }

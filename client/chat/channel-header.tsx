@@ -40,7 +40,8 @@ import { copyChannelLink } from './copy-channel-link'
 
 export const CHANNEL_HEADER_HEIGHT = 72
 
-const ChannelHeaderRoot = styled.div<{ $hasActions: boolean }>`
+/** The bar across the top of a chat surface, holding what it is and the actions for it. */
+export const ChatHeaderRoot = styled.div<{ $hasActions: boolean }>`
   width: 100%;
   height: ${CHANNEL_HEADER_HEIGHT}px;
   padding: 8px;
@@ -326,7 +327,7 @@ export function ChannelHeader({
   )
 
   return (
-    <ChannelHeaderRoot $hasActions={actions.length === 0}>
+    <ChatHeaderRoot $hasActions={actions.length === 0}>
       {actions.length > 0 ? (
         <Popover
           open={overflowMenuOpen}
@@ -385,6 +386,6 @@ export function ChannelHeader({
           <div />
         )}
       </ActionsArea>
-    </ChannelHeaderRoot>
+    </ChatHeaderRoot>
   )
 }

@@ -124,6 +124,14 @@ export interface GetUserByNameResponse {
   user: SbUser
 }
 
+/** The most users a name search returns. */
+export const SEARCH_USERS_LIMIT = 10
+
+export interface SearchUsersResponse {
+  /** Users whose name starts with the searched text, shortest names first. */
+  users: SbUser[]
+}
+
 export interface AcceptPoliciesRequest {
   policies: Array<[policyType: SbPolicyType, version: number]>
 }

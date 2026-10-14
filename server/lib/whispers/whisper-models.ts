@@ -458,3 +458,80 @@ export async function getMessagesForWhisperSession(
     done()
   }
 }
+
+/** Where a page of a user's whisper conversations starts: just past the given conversation. */
+export interface ConversationCursor {
+  /** The epoch ms of the newest message in the last conversation already returned. */
+  lastMessageTime: number
+  /** The other participant of the last conversation already returned. */
+  targetId: SbUserId
+}
+
+/** A user's conversation with another user, as the newest message between them. */
+export interface WhisperConversationEntry {
+  targetId: SbUserId
+  lastMessage: WhisperMessage
+}
+
+/**
+ * Returns a page of every whisper conversation `userId` has had, open or closed, newest activity
+ * first, along with whether more conversations exist past the page.
+ */
+export async function getWhisperConversationsForUser(
+  userId: SbUserId,
+  limit: number,
+  cursor?: ConversationCursor,
+): Promise<{ conversations: WhisperConversationEntry[]; hasMore: boolean }> {
+  const { client, done } = await db()
+  try {
+    // Activity times are compared at millisecond precision, the same precision the cursor carries,
+    // with the target ID breaking ties so no conversation is skipped or repeated across pages.
+    const result = await client.query<DbWhisperMessage & { target_id: SbUserId }>(sql`
+      WITH partners AS (
+        SELECT target_id, date_trunc('milliseconds', MAX(sent)) AS last_sent
+        FROM (
+          SELECT user_high AS target_id, sent FROM whisper_messages WHERE user_low = ${userId}::int4
+          UNION ALL
+          SELECT user_low AS target_id, sent FROM whisper_messages WHERE user_high = ${userId}::int4
+        ) AS m
+        WHERE target_id <> ${userId}::int4
+        GROUP BY target_id
+      ), page AS (
+        SELECT target_id, last_sent
+        FROM partners
+        ${
+          cursor
+            ? sql`WHERE (last_sent, target_id) <
+                (${new Date(cursor.lastMessageTime)}, ${cursor.targetId}::int4)`
+            : sql``
+        }
+        ORDER BY last_sent DESC, target_id DESC
+        LIMIT ${limit + 1}
+      )
+      SELECT p.target_id, wm.id, wm.from_id AS "from", wm.to_id AS "to", wm.sent, wm.data
+      FROM page p
+      CROSS JOIN LATERAL (
+        SELECT id, from_id, to_id, sent, data
+        FROM whisper_messages
+        WHERE user_low = LEAST(${userId}::int4, p.target_id)
+          AND user_high = GREATEST(${userId}::int4, p.target_id)
+        ORDER BY sent DESC
+        LIMIT 1
+      ) wm
+      ORDER BY p.last_sent DESC, p.target_id DESC;
+    `)
+    // A `limit`+1'th row means more conversations exist past the page; it's dropped below rather
+    // than returned.
+    const hasMore = result.rows.length > limit
+    const rows = hasMore ? result.rows.slice(0, limit) : result.rows
+    return {
+      conversations: rows.map(row => ({
+        targetId: row.target_id,
+        lastMessage: convertMessageFromDb(row),
+      })),
+      hasMore,
+    }
+  } finally {
+    done()
+  }
+}

@@ -118,6 +118,8 @@ function makeState(
   const state: WhisperState = {
     sessions: new Set([TARGET_ID]),
     byId: new Map([[TARGET_ID, session]]),
+    lastMessages: new Map(),
+    conversationsLoaded: false,
   }
 
   return state as Immutable<WhisperState>
@@ -2149,6 +2151,56 @@ describe('client/whispers/whisper-reducer', () => {
 
     test("a read whisper doesn't need attention", () => {
       expect(hasAttentionWorthyWhisper(makeState(), new Map())).toBe(false)
+    })
+  })
+
+  describe('lastMessages', () => {
+    function conversationsAction(times: number[]): WhisperActions {
+      return {
+        type: '@whispers/getConversations',
+        payload: {
+          conversations: times.map(time => ({
+            target: TARGET_ID,
+            lastMessage: serverMessage(time),
+          })),
+          hasMore: false,
+          users: [],
+          mentions: [],
+          channelMentions: [],
+          deletedChannels: [],
+        },
+      }
+    }
+
+    test('a loaded conversation records its newest message', () => {
+      const result = whisperReducer(makeState(), conversationsAction([300]))
+
+      expect(result.lastMessages.get(TARGET_ID)?.time).toBe(300)
+    })
+
+    test('an arriving message replaces the newest one recorded', () => {
+      let result = whisperReducer(makeState(), conversationsAction([300]))
+      result = whisperReducer(result, updateMessageAction(500))
+
+      expect(result.lastMessages.get(TARGET_ID)?.time).toBe(500)
+    })
+
+    test('a page loaded after a newer message arrived does not wind it back', () => {
+      let result = whisperReducer(makeState(), updateMessageAction(500))
+      result = whisperReducer(result, conversationsAction([300]))
+
+      expect(result.lastMessages.get(TARGET_ID)?.time).toBe(500)
+    })
+
+    test('closing the session keeps the conversation', () => {
+      let result = whisperReducer(makeState(), updateMessageAction(500))
+      result = whisperReducer(result, {
+        type: '@whispers/closeSession',
+        payload: { target: TARGET_ID },
+      })
+
+      expect(result.sessions.has(TARGET_ID)).toBe(false)
+      expect(result.lastMessages.get(TARGET_ID)?.time).toBe(500)
     })
   })
 })
