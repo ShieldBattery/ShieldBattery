@@ -5,10 +5,16 @@ import { TypedIpcRenderer } from '../../common/ipc'
 import {
   LobbyClientRequest,
   ReportLobbyReplayLoadedRequest,
+  ReportLobbyReplaySeekReachedRequest,
+  ReportLobbyReplaySeekRequest,
   ReportLobbyReplaySpeedRequest,
 } from '../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
-import { GetReplaySessionSourceResponse, ReplaySessionSpeed } from '../../common/replay-sessions'
+import {
+  GetReplaySessionSourceResponse,
+  ReplaySessionSeek,
+  ReplaySessionSpeed,
+} from '../../common/replay-sessions'
 import { apiUrl } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
 import i18n from '../i18n/i18next'
@@ -32,6 +38,7 @@ interface ReplayLobbyGame {
   /** Whether the lobby's run has started, letting playback go. */
   started: boolean
   speed: ReplaySessionSpeed
+  seek?: ReplaySessionSeek
   /** The playback state last sent to the game, so it is only sent again when it changes. */
   playback?: ReplaySessionPlaybackControl
 }
@@ -69,12 +76,15 @@ function sendPlayback(isHost: boolean) {
     paused: !current.started || current.speed.paused,
     speed: current.speed.speed,
     multiplier: current.speed.multiplier,
+    seek: current.seek,
   }
   if (
     current.playback?.controller === playback.controller &&
     current.playback.paused === playback.paused &&
     current.playback.speed === playback.speed &&
-    current.playback.multiplier === playback.multiplier
+    current.playback.multiplier === playback.multiplier &&
+    current.playback.seek?.epoch === playback.seek?.epoch &&
+    current.playback.seek?.frame === playback.seek?.frame
   ) {
     return
   }
@@ -192,6 +202,16 @@ export function applyLobbyReplaySpeed(lobbyId: SbLobbyId, speed: ReplaySessionSp
   }
 }
 
+/** Applies a coordinated timeline move to this viewer's game. */
+export function applyLobbyReplaySeek(lobbyId: SbLobbyId, seek?: ReplaySessionSeek): ThunkAction {
+  return (dispatch, getState) => {
+    if (current?.lobbyId === lobbyId) {
+      current.seek = seek
+      sendPlayback(selfIsHost(getState))
+    }
+  }
+}
+
 /** Quits a replay lobby's replay that never got to play, since its load was called off. */
 export function cancelLobbyReplay(lobbyId: SbLobbyId) {
   if (current?.lobbyId !== lobbyId && pendingLobbyId !== lobbyId) {
@@ -216,6 +236,7 @@ export function releaseLobbyReplay(lobbyId: SbLobbyId) {
     return
   }
   if (current?.lobbyId === lobbyId && current.started) {
+    current.seek = undefined
     sendPlayback(true)
     current = undefined
   } else {
@@ -244,6 +265,34 @@ export function registerReplayLobbyGameEvents(dispatchThunk: (thunk: ThunkAction
         body,
       }).catch(err => {
         logger.error(`Error reporting replay speed: ${getErrorStack(err)}`)
+      })
+    })
+    .on('activeGameReplaySessionSeek', (event, gameId, frame) => {
+      if (current?.gameId !== gameId || !current.started) {
+        return
+      }
+      const body = encodeBodyAsParams<ReportLobbyReplaySeekRequest>({ clientId, frame })
+      fetchJson<void>(apiUrl`lobbies/${current.lobbyId}/replay-seek`, {
+        method: 'POST',
+        body,
+      }).catch(err => {
+        logger.error(`Error requesting replay seek: ${getErrorStack(err)}`)
+      })
+    })
+    .on('activeGameReplaySessionSeekReached', (event, gameId, seek) => {
+      if (
+        current?.gameId !== gameId ||
+        current.seek?.epoch !== seek.epoch ||
+        current.seek.frame !== seek.frame
+      ) {
+        return
+      }
+      const body = encodeBodyAsParams<ReportLobbyReplaySeekReachedRequest>({ clientId, ...seek })
+      fetchJson<void>(apiUrl`lobbies/${current.lobbyId}/replay-seek-reached`, {
+        method: 'POST',
+        body,
+      }).catch(err => {
+        logger.error(`Error reporting replay seek: ${getErrorStack(err)}`)
       })
     })
     .on('activeGameStatus', (event, status) => {

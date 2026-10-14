@@ -128,6 +128,12 @@ export class GameServer {
       case '/game/replaySessionSpeed':
         this.activeGameManager.handleReplaySessionSpeed(gameId, payload)
         break
+      case '/game/replaySessionSeek':
+        this.activeGameManager.handleReplaySessionSeek(gameId, payload.frame)
+        break
+      case '/game/replaySessionSeekReached':
+        this.activeGameManager.handleReplaySessionSeekReached(gameId, payload)
+        break
       case '/game/replayUploaded':
         this.activeGameManager.handleReplayUploaded(gameId)
         break

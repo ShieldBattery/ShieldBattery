@@ -61,3 +61,9 @@ export interface ReplaySessionSpeed {
   speed: number
   multiplier: number
 }
+
+/** One coordinated seek of every viewer in a replay lobby. */
+export interface ReplaySessionSeek {
+  epoch: number
+  frame: number
+}

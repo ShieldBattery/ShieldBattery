@@ -540,6 +540,20 @@ pub struct ReplaySessionPlaybackControl {
     pub paused: bool,
     pub speed: Option<u32>,
     pub multiplier: Option<u32>,
+    pub seek: Option<ReplaySessionSeek>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReplaySessionSeek {
+    pub epoch: u32,
+    pub frame: u32,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReplaySessionSeekRequest {
+    pub frame: u32,
 }
 
 #[derive(Serialize)]

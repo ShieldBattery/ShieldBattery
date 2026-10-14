@@ -5,7 +5,7 @@ import { GameType } from '../games/game-type'
 import { ReconciledResult } from '../games/results'
 import { MapImageInfo, MapInfoJson, SbMapId } from '../maps'
 import { RaceChar } from '../races'
-import { ReplaySessionSpeed } from '../replay-sessions'
+import { ReplaySessionSeek, ReplaySessionSpeed } from '../replay-sessions'
 import { RolledOutcome, RolledOutcomeRequest } from '../rolled-outcomes'
 import { SbUser } from '../users/sb-user'
 import { SbUserId } from '../users/sb-user-id'
@@ -73,6 +73,7 @@ export enum LobbyServiceErrorCode {
   ReplayNotAccessible = 'ReplayNotAccessible',
   ReplayNotFound = 'ReplayNotFound',
   ReplayNotLoading = 'ReplayNotLoading',
+  ReplaySeeking = 'ReplaySeeking',
   TargetNoActiveClient = 'TargetNoActiveClient',
   UserOffline = 'UserOffline',
 }
@@ -184,6 +185,13 @@ export interface ReportLobbyReplayLoadedRequest extends LobbyClientRequest {
 }
 
 export interface ReportLobbyReplaySpeedRequest extends LobbyClientRequest, ReplaySessionSpeed {}
+
+export interface ReportLobbyReplaySeekRequest extends LobbyClientRequest {
+  frame: number
+}
+
+export interface ReportLobbyReplaySeekReachedRequest
+  extends LobbyClientRequest, ReplaySessionSeek {}
 
 export interface StartLobbyCountdownRequest extends LobbyClientRequest {
   /**
@@ -314,6 +322,7 @@ export type LobbyEvent =
   | LobbyReadyChangeEvent
   | LobbyReplayLoadEvent
   | LobbyReplaySpeedEvent
+  | LobbyReplaySeekEvent
 
 /**
  * A slot as shown to a lobby's previewers: its occupancy and just enough about the occupant to
@@ -523,6 +532,7 @@ export interface LobbyInitEvent {
   runState?: LobbyRunStateJson
   /** The latest pause and speed state while a replay lobby is playing. */
   replaySpeed?: ReplaySessionSpeed
+  replaySeek?: ReplaySessionSeek
   /** An array of infos for all users that were in the lobby at this point. */
   userInfos: SbUser[]
   /** The members who have marked themselves ready for the lobby's next game. */
@@ -609,6 +619,11 @@ export interface LobbyGameStartedEvent {
 export interface LobbyReplaySpeedEvent {
   type: 'replaySpeed'
   speed: ReplaySessionSpeed
+}
+
+export interface LobbyReplaySeekEvent {
+  type: 'replaySeek'
+  seek?: ReplaySessionSeek
 }
 
 /** A member's game ended and they are back in the lobby; the game itself may still be running. */

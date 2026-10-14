@@ -844,6 +844,20 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
         speed,
       )
     })
+    .on('replaySessionSeek', (gameId, frame) => {
+      TypedIpcSender.from(mainWindow?.webContents).send(
+        'activeGameReplaySessionSeek',
+        gameId,
+        frame,
+      )
+    })
+    .on('replaySessionSeekReached', (gameId, seek) => {
+      TypedIpcSender.from(mainWindow?.webContents).send(
+        'activeGameReplaySessionSeekReached',
+        gameId,
+        seek,
+      )
+    })
     .on('resendReplay', request => {
       // Pass to renderer process since its network stack is more reliable
       TypedIpcSender.from(mainWindow?.webContents).send('activeGameResendReplay', request)

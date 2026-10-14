@@ -12,6 +12,7 @@ import i18n from '../i18n/i18next'
 import { RootState } from '../root-reducer'
 import { isInLobby } from './lobby-reducer'
 import {
+  applyLobbyReplaySeek,
   applyLobbyReplaySpeed,
   cancelLobbyReplay,
   loadLobbyReplay,
@@ -140,6 +141,9 @@ const eventToAction: EventToActionMap = {
     if (event.replaySpeed) {
       dispatch(applyLobbyReplaySpeed(lobbyId, event.replaySpeed))
     }
+    if (event.replaySeek) {
+      dispatch(applyLobbyReplaySeek(lobbyId, event.replaySeek))
+    }
   },
 
   diff: (lobbyId, event) => dispatch => {
@@ -226,6 +230,10 @@ const eventToAction: EventToActionMap = {
 
   replaySpeed: (lobbyId, event) => dispatch => {
     dispatch(applyLobbyReplaySpeed(lobbyId, event.speed))
+  },
+
+  replaySeek: (lobbyId, event) => dispatch => {
+    dispatch(applyLobbyReplaySeek(lobbyId, event.seek))
   },
 
   slotChange: (lobbyId, event) => ({

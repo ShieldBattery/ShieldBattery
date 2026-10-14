@@ -58,6 +58,8 @@ export interface ReplaySessionPlaybackControl {
   /** Replay speed preset and multiplier. Absent until the lobby receives its first speed change. */
   speed?: number
   multiplier?: number
+  /** The coordinated seek currently awaiting this viewer's frame acknowledgement. */
+  seek?: { epoch: number; frame: number }
 }
 
 export function isReplayLaunchConfig(config: GameLaunchConfig) {

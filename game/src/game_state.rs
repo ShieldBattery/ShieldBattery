@@ -1158,7 +1158,10 @@ impl GameState {
         match message {
             WindowMove(..) => (),
             ReplaySaved(..) => (),
-            ReplaySessionReady | ReplaySessionSpeed { .. } => (),
+            ReplaySessionReady
+            | ReplaySessionSpeed { .. }
+            | ReplaySessionSeek { .. }
+            | ReplaySessionSeekReached { .. } => (),
             SetUserBlocked { .. } => (),
             MinimapSettings {
                 color_mode,

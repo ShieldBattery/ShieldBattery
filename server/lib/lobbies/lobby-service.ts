@@ -58,6 +58,7 @@ import { RaceChar } from '../../../common/races'
 import { multipleRandomItems } from '../../../common/random'
 import {
   GetReplaySessionSourceResponse,
+  ReplaySessionSeek,
   ReplaySessionSource,
   ReplaySessionSpeed,
 } from '../../../common/replay-sessions'
@@ -224,6 +225,13 @@ interface ReplayLoad {
   viewers: ReadonlySet<SbUserId>
   loaded: Set<SbUserId>
   timer: TimeoutId
+}
+
+/** A replay seek waiting for every viewer still in the run to reach the same frame. */
+interface ReplaySeekState {
+  seek: ReplaySessionSeek
+  waiting: Set<SbUserId>
+  resumeSpeed: ReplaySessionSpeed
 }
 
 /** Converts a replay that can't be resolved for a user into the matching lobby error. */
@@ -509,6 +517,8 @@ export class LobbyService {
   /** The replay lobbies whose members are loading the replay, keyed by lobby id. */
   private readonly replayLoads = new Map<SbLobbyId, ReplayLoad>()
   private readonly replaySpeeds = new Map<SbLobbyId, ReplaySessionSpeed>()
+  private readonly replaySeeks = new Map<SbLobbyId, ReplaySeekState>()
+  private readonly replaySeekEpochs = new Map<SbLobbyId, number>()
   /** A lobby's normalized join code, keyed by lobby id. Populated at create, gone once it closes. */
   private readonly lobbyJoinCodes = new Map<SbLobbyId, string>()
   /** The inverse of {@link lobbyJoinCodes}, for resolving a typed-in code back to its lobby. */
@@ -1112,6 +1122,7 @@ export class LobbyService {
             lobby,
             runState: this._runStateJson(lobbyId),
             replaySpeed: this.replaySpeeds.get(lobbyId),
+            replaySeek: this.replaySeeks.get(lobbyId)?.seek,
             userInfos,
             readyUsers: this._readyUsersJson(lobbyId),
             series: this._seriesJson(lobbyId),
@@ -1123,6 +1134,7 @@ export class LobbyService {
             lobby,
             runState: this._runStateJson(lobbyId),
             replaySpeed: this.replaySpeeds.get(lobbyId),
+            replaySeek: this.replaySeeks.get(lobbyId)?.seek,
             // Generally this should be okay (the client can batch retrieve the user info later),
             // just higher latency
             userInfos: [],
@@ -2728,9 +2740,85 @@ export class LobbyService {
     if (!runState?.isReplay || !runState.inGameUsers.has(client.userId)) {
       throw new LobbyServiceError(LobbyServiceErrorCode.ReplayNotLoading, 'not watching a replay')
     }
+    if (this.replaySeeks.has(lobby.id)) {
+      throw new LobbyServiceError(LobbyServiceErrorCode.ReplaySeeking, 'replay is seeking')
+    }
 
     this.replaySpeeds.set(lobby.id, speed)
     this._publishTo(lobby, { type: 'replaySpeed', speed })
+  }
+
+  /** Pauses every viewer and asks them to seek to the host's requested frame. */
+  reportReplaySeek({
+    client,
+    lobbyId,
+    frame,
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+    frame: number
+  }): void {
+    const lobby = this.getLobbyForClient(client, lobbyId)
+    const [, , player] = findSlotByUserId(lobby, client.userId)
+    this.ensureIsLobbyHost(lobby, player)
+    const runState = this.runStates.get(lobby.id)
+    if (!runState?.isReplay || !runState.inGameUsers.has(client.userId)) {
+      throw new LobbyServiceError(LobbyServiceErrorCode.ReplayNotLoading, 'not watching a replay')
+    }
+    if (
+      !Number.isInteger(frame) ||
+      frame < 0 ||
+      frame >= lobby.replay!.source.metadata.durationFrames
+    ) {
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.InvalidSlotOperation,
+        'seek is past replay end',
+      )
+    }
+
+    const previous = this.replaySeeks.get(lobby.id)
+    const resumeSpeed = previous?.resumeSpeed ?? this.replaySpeeds.get(lobby.id)!
+    const epoch = (this.replaySeekEpochs.get(lobby.id) ?? 0) + 1
+    const seek = { epoch, frame }
+    this.replaySeekEpochs.set(lobby.id, epoch)
+    this.replaySeeks.set(lobby.id, {
+      seek,
+      waiting: new Set(runState.inGameUsers),
+      resumeSpeed,
+    })
+    const paused = { ...resumeSpeed, paused: true }
+    this.replaySpeeds.set(lobby.id, paused)
+    this._publishTo(lobby, { type: 'replaySpeed', speed: paused })
+    this._publishTo(lobby, { type: 'replaySeek', seek })
+  }
+
+  /** Records that one viewer reached the target of the current coordinated seek. */
+  reportReplaySeekReached({
+    client,
+    lobbyId,
+    seek,
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+    seek: ReplaySessionSeek
+  }): void {
+    const lobby = this.getLobbyForClient(client, lobbyId)
+    const state = this.replaySeeks.get(lobby.id)
+    if (!state || state.seek.epoch !== seek.epoch || state.seek.frame !== seek.frame) {
+      return
+    }
+    state.waiting.delete(client.userId)
+    this._finishReplaySeekIfReady(lobby, state)
+  }
+
+  private _finishReplaySeekIfReady(lobby: Lobby, state: ReplaySeekState): void {
+    if (state.waiting.size || this.replaySeeks.get(lobby.id) !== state) {
+      return
+    }
+    this.replaySeeks.delete(lobby.id)
+    this._publishTo(lobby, { type: 'replaySeek' })
+    this.replaySpeeds.set(lobby.id, state.resumeSpeed)
+    this._publishTo(lobby, { type: 'replaySpeed', speed: state.resumeSpeed })
   }
 
   /** Returns a short-lived download of a replay lobby's replay for one of its members. */
@@ -2882,6 +2970,14 @@ export class LobbyService {
     }
 
     runState.inGameUsers.delete(userId)
+    const replaySeek = this.replaySeeks.get(lobbyId)
+    if (replaySeek) {
+      if (lobby.host.userId === userId) {
+        replaySeek.resumeSpeed = { ...replaySeek.resumeSpeed, paused: true }
+      }
+      replaySeek.waiting.delete(userId)
+      this._finishReplaySeekIfReady(lobby, replaySeek)
+    }
     this.activityRegistry.reapplyStatus(userId)
     this._publishTo(lobby, { type: 'memberGameEnded', userId })
     this._maybeRegroup(lobbyId)
@@ -3084,6 +3180,8 @@ export class LobbyService {
     this.clock.clearTimeout(runState.deadlineTimer)
     this.runStates.delete(lobbyId)
     this.replaySpeeds.delete(lobbyId)
+    this.replaySeeks.delete(lobbyId)
+    this.replaySeekEpochs.delete(lobbyId)
   }
 
   /**
@@ -3318,6 +3416,10 @@ export class LobbyService {
         const paused = { ...replaySpeed, paused: true }
         this.replaySpeeds.set(oldLobby.id, paused)
         diffEvents.push({ type: 'replaySpeed', speed: paused })
+      }
+      const replaySeek = this.replaySeeks.get(oldLobby.id)
+      if (replaySeek) {
+        replaySeek.resumeSpeed = { ...replaySeek.resumeSpeed, paused: true }
       }
     }
     if (newLobby.host.id !== oldLobby.host.id || hostUserChanged) {

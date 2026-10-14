@@ -16,6 +16,8 @@ import {
   LobbySlotRequest,
   MoveSlotRequest,
   ReportLobbyReplayLoadedRequest,
+  ReportLobbyReplaySeekReachedRequest,
+  ReportLobbyReplaySeekRequest,
   ReportLobbyReplaySpeedRequest,
   SendLobbyChatRequest,
   SendLobbyOutcomeRequest,
@@ -224,6 +226,7 @@ export function convertLobbyServiceError(err: unknown): void {
     case LobbyServiceErrorCode.NotEveryoneReady:
     case LobbyServiceErrorCode.ReplayLobby:
     case LobbyServiceErrorCode.ReplayNotLoading:
+    case LobbyServiceErrorCode.ReplaySeeking:
     case LobbyServiceErrorCode.TargetNoActiveClient:
       throw asHttpError(409, err)
 
@@ -676,6 +679,39 @@ export class LobbyApi {
     })
     const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
     this.lobbyService.reportReplaySpeed({ client, lobbyId: params.lobbyId, speed: body })
+  }
+
+  @httpPost('/:lobbyId/replay-seek')
+  @httpBefore(...authedAction)
+  async reportReplaySeek(ctx: RouterContext): Promise<void> {
+    const { params, body } = validateRequest(ctx, {
+      params: lobbyIdParams,
+      body: Joi.object<ReportLobbyReplaySeekRequest>({
+        clientId: clientIdSchema,
+        frame: Joi.number().integer().min(0).max(0xffffffff).required(),
+      }),
+    })
+    const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
+    this.lobbyService.reportReplaySeek({ client, lobbyId: params.lobbyId, frame: body.frame })
+  }
+
+  @httpPost('/:lobbyId/replay-seek-reached')
+  @httpBefore(...authedAction)
+  async reportReplaySeekReached(ctx: RouterContext): Promise<void> {
+    const { params, body } = validateRequest(ctx, {
+      params: lobbyIdParams,
+      body: Joi.object<ReportLobbyReplaySeekReachedRequest>({
+        clientId: clientIdSchema,
+        epoch: Joi.number().integer().min(1).required(),
+        frame: Joi.number().integer().min(0).max(0xffffffff).required(),
+      }),
+    })
+    const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
+    this.lobbyService.reportReplaySeekReached({
+      client,
+      lobbyId: params.lobbyId,
+      seek: { epoch: body.epoch, frame: body.frame },
+    })
   }
 
   @httpGet('/:lobbyId/state')

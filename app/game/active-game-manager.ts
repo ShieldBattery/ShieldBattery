@@ -28,7 +28,7 @@ import { NetcodeV2ServerSetup, NetcodeV2Setup } from '../../common/games/netcode
 import { GameClientPlayerResult } from '../../common/games/results'
 import { GameBlockRequestFailure } from '../../common/ipc'
 import { SlotType } from '../../common/lobbies/slot'
-import { ReplaySessionSpeed } from '../../common/replay-sessions'
+import { ReplaySessionSeek, ReplaySessionSpeed } from '../../common/replay-sessions'
 import { DEFAULT_LOCAL_SETTINGS } from '../../common/settings/default-settings'
 import { LocalSettings } from '../../common/settings/local-settings'
 import {
@@ -152,6 +152,8 @@ export type ActiveGameManagerEvents = {
   replaySaved: [gameId: string, path: string]
   replaySessionReady: [gameId: string]
   replaySessionSpeed: [gameId: string, speed: ReplaySessionSpeed]
+  replaySessionSeek: [gameId: string, frame: number]
+  replaySessionSeekReached: [gameId: string, seek: ReplaySessionSeek]
   resendReplay: [request: ResendReplayRequest]
   setUserBlocked: [gameId: string, userId: SbUserId, blocked: boolean]
 }
@@ -665,6 +667,18 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       return
     }
     this.emit('replaySessionSpeed', gameId, speed)
+  }
+
+  handleReplaySessionSeek(gameId: string, frame: number): void {
+    if (this.activeGame?.id === gameId) {
+      this.emit('replaySessionSeek', gameId, frame)
+    }
+  }
+
+  handleReplaySessionSeekReached(gameId: string, seek: ReplaySessionSeek): void {
+    if (this.activeGame?.id === gameId) {
+      this.emit('replaySessionSeekReached', gameId, seek)
+    }
   }
 
   sendGameChat(gameId: string, text: string): void {

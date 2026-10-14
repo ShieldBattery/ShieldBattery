@@ -15,7 +15,7 @@ use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use byteorder::{ByteOrder, LittleEndian};
 use parking_lot::Mutex;
 
-use crate::app_messages::{MapInfo, ReplaySessionPlaybackControl};
+use crate::app_messages::{MapInfo, ReplaySessionPlaybackControl, ReplaySessionSeek};
 use crate::bw::commands;
 use crate::bw_scr::BwScr;
 use crate::game_thread::{self, GameThreadMessage};
@@ -33,6 +33,7 @@ static CONTROLLER: AtomicBool = AtomicBool::new(false);
 static STARTED: AtomicBool = AtomicBool::new(false);
 /// The next command sent by this module must pass through the native processor on a follower.
 static EXPECTED_SPEED: Mutex<VecDeque<(bool, u32, u32)>> = Mutex::new(VecDeque::new());
+static EXPECTED_SEEK: Mutex<VecDeque<u32>> = Mutex::new(VecDeque::new());
 /// Set when the session's playback state arrives, until the game thread applies it. Applying it
 /// only then, rather than enforcing it every frame, leaves the replay's own controls working in
 /// between.
@@ -41,10 +42,22 @@ static PENDING: AtomicBool = AtomicBool::new(false);
 static PAUSED: AtomicBool = AtomicBool::new(false);
 static SPEED: AtomicU32 = AtomicU32::new(INITIAL_SPEED);
 static MULTIPLIER: AtomicU32 = AtomicU32::new(INITIAL_MULTIPLIER);
+static NATIVE_PAUSED: AtomicBool = AtomicBool::new(false);
+static WAITING_FOR_PAUSE: AtomicBool = AtomicBool::new(false);
 /// Set once the replay has been held at its start and reported ready, after which the session's
 /// pause state is applied.
 static HELD: AtomicBool = AtomicBool::new(false);
 static READY_REPORTED: AtomicBool = AtomicBool::new(false);
+static LAST_SEEK_EPOCH: AtomicU32 = AtomicU32::new(0);
+
+struct PendingSeek {
+    seek: ReplaySessionSeek,
+    command_sent: bool,
+    command_accepted: bool,
+    ack_sent: bool,
+}
+
+static SEEK: Mutex<Option<PendingSeek>> = Mutex::new(None);
 
 /// Whether this game is a replay watched in a replay session.
 pub fn is_active() -> bool {
@@ -63,6 +76,20 @@ pub fn set_playback(control: ReplaySessionPlaybackControl) {
         WANT_SPEED.store(speed, Ordering::Relaxed);
         WANT_MULTIPLIER.store(multiplier, Ordering::Relaxed);
     }
+    match control.seek {
+        Some(seek) if LAST_SEEK_EPOCH.load(Ordering::Relaxed) != seek.epoch => {
+            LAST_SEEK_EPOCH.store(seek.epoch, Ordering::Relaxed);
+            EXPECTED_SEEK.lock().clear();
+            *SEEK.lock() = Some(PendingSeek {
+                seek,
+                command_sent: false,
+                command_accepted: false,
+                ack_sent: false,
+            });
+        }
+        None => *SEEK.lock() = None,
+        _ => (),
+    }
     PENDING.store(true, Ordering::Release);
 }
 
@@ -79,7 +106,11 @@ pub fn filter_local_commands<'a>(input: &'a [u8], lengths: &[u32]) -> Cow<'a, [u
                 expected.remove(index);
                 return true;
             }
-            if !STARTED.load(Ordering::Relaxed) || !CONTROLLER.load(Ordering::Relaxed) {
+            drop(expected);
+            if !STARTED.load(Ordering::Relaxed)
+                || !CONTROLLER.load(Ordering::Relaxed)
+                || SEEK.lock().is_some()
+            {
                 return false;
             }
             game_thread::send_game_msg_to_async(GameThreadMessage::ReplaySessionSpeed {
@@ -89,8 +120,28 @@ pub fn filter_local_commands<'a>(input: &'a [u8], lengths: &[u32]) -> Cow<'a, [u
             });
             true
         }
-        // A seek must reach every viewer before anyone moves to its target frame.
-        [commands::id::REPLAY_SEEK, rest @ ..] if rest.len() == 4 => false,
+        [commands::id::REPLAY_SEEK, rest @ ..] if rest.len() == 4 => {
+            let frame = LittleEndian::read_u32(rest);
+            let mut expected = EXPECTED_SEEK.lock();
+            if let Some(index) = expected.iter().position(|&sent| sent == frame) {
+                expected.remove(index);
+                drop(expected);
+                if let Some(pending) = SEEK.lock().as_mut()
+                    && pending.seek.frame == frame
+                {
+                    pending.command_accepted = true;
+                }
+                return true;
+            }
+            drop(expected);
+            if STARTED.load(Ordering::Relaxed)
+                && CONTROLLER.load(Ordering::Relaxed)
+                && SEEK.lock().is_none()
+            {
+                game_thread::send_game_msg_to_async(GameThreadMessage::ReplaySessionSeek { frame });
+            }
+            false
+        }
         _ => true,
     })
 }
@@ -100,6 +151,10 @@ pub fn note_speed_command(paused: bool, speed: u32, multiplier: u32) {
     PAUSED.store(paused, Ordering::Relaxed);
     SPEED.store(speed, Ordering::Relaxed);
     MULTIPLIER.store(multiplier, Ordering::Relaxed);
+    NATIVE_PAUSED.store(paused, Ordering::Relaxed);
+    if paused {
+        WAITING_FOR_PAUSE.store(false, Ordering::Relaxed);
+    }
     if paused && HELD.load(Ordering::Relaxed) && !READY_REPORTED.swap(true, Ordering::Relaxed) {
         game_thread::send_game_msg_to_async(GameThreadMessage::ReplaySessionReady);
     }
@@ -119,17 +174,59 @@ pub unsafe fn hold_at_start(bw: &BwScr) {
 /// Applies playback state the session sent since the last call. Must be called on the game thread
 /// regularly, including while the replay is paused.
 pub unsafe fn apply_playback(bw: &BwScr) {
-    if !HELD.load(Ordering::Relaxed) || !PENDING.swap(false, Ordering::Acquire) {
+    if !HELD.load(Ordering::Relaxed) {
         return;
     }
-    let want_paused = WANT_PAUSED.load(Ordering::Relaxed);
-    let speed = WANT_SPEED.load(Ordering::Relaxed);
-    let multiplier = WANT_MULTIPLIER.load(Ordering::Relaxed);
-    if want_paused != PAUSED.load(Ordering::Relaxed)
-        || speed != SPEED.load(Ordering::Relaxed)
-        || multiplier != MULTIPLIER.load(Ordering::Relaxed)
-    {
-        unsafe { send_speed(bw, want_paused, speed, multiplier) };
+    if PENDING.swap(false, Ordering::Acquire) {
+        let want_paused = WANT_PAUSED.load(Ordering::Relaxed);
+        let speed = WANT_SPEED.load(Ordering::Relaxed);
+        let multiplier = WANT_MULTIPLIER.load(Ordering::Relaxed);
+        if want_paused != PAUSED.load(Ordering::Relaxed)
+            || speed != SPEED.load(Ordering::Relaxed)
+            || multiplier != MULTIPLIER.load(Ordering::Relaxed)
+        {
+            unsafe { send_speed(bw, want_paused, speed, multiplier) };
+        }
+    }
+
+    let mut pending = SEEK.lock();
+    let Some(seek) = pending.as_mut() else {
+        return;
+    };
+    if !seek.command_sent {
+        if !NATIVE_PAUSED.load(Ordering::Relaxed) {
+            if !WAITING_FOR_PAUSE.load(Ordering::Relaxed) {
+                drop(pending);
+                unsafe { send_paused(bw, true) };
+            }
+            return;
+        }
+        if WAITING_FOR_PAUSE.load(Ordering::Relaxed) {
+            return;
+        }
+        let frame = seek.seek.frame;
+        seek.command_sent = true;
+        drop(pending);
+        let mut expected = EXPECTED_SEEK.lock();
+        if expected.len() == 8 {
+            expected.pop_front();
+        }
+        expected.push_back(frame);
+        drop(expected);
+        unsafe { bw.send_replay_seek(frame) };
+        return;
+    }
+    if seek.command_accepted && !seek.ack_sent {
+        let frame = seek.seek.frame;
+        if unsafe { bw.rollback_frame_count() } == Some(frame) {
+            let epoch = seek.seek.epoch;
+            seek.ack_sent = true;
+            drop(pending);
+            game_thread::send_game_msg_to_async(GameThreadMessage::ReplaySessionSeekReached {
+                epoch,
+                frame,
+            });
+        }
     }
 }
 
@@ -156,5 +253,8 @@ unsafe fn send_speed(bw: &BwScr, paused: bool, speed: u32, multiplier: u32) {
     PAUSED.store(paused, Ordering::Relaxed);
     SPEED.store(speed, Ordering::Relaxed);
     MULTIPLIER.store(multiplier, Ordering::Relaxed);
+    if paused {
+        WAITING_FOR_PAUSE.store(true, Ordering::Relaxed);
+    }
     unsafe { bw.send_replay_speed(paused, speed, multiplier) };
 }

@@ -492,6 +492,24 @@ async fn handle_messages_from_game_thread(
                             let _ = ws_send.send(msg).await;
                         }
                     }
+                    GameThreadMessage::ReplaySessionSeek { frame } => {
+                        let msg = app_socket::encode_message(
+                            "/game/replaySessionSeek",
+                            app_messages::ReplaySessionSeekRequest { frame },
+                        );
+                        if let Some(msg) = msg {
+                            let _ = ws_send.send(msg).await;
+                        }
+                    }
+                    GameThreadMessage::ReplaySessionSeekReached { epoch, frame } => {
+                        let msg = app_socket::encode_message(
+                            "/game/replaySessionSeekReached",
+                            app_messages::ReplaySessionSeek { epoch, frame },
+                        );
+                        if let Some(msg) = msg {
+                            let _ = ws_send.send(msg).await;
+                        }
+                    }
                     GameThreadMessage::SetUserBlocked { user_id, blocked } => {
                         let msg = app_socket::encode_message(
                             "/game/setUserBlocked",

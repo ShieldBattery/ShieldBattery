@@ -7478,7 +7478,6 @@ impl BwScr {
     }
 
     /// Sends the replay UI's seek command, the way its seek bar does.
-    #[cfg(debug_assertions)]
     pub(crate) unsafe fn send_replay_seek(&self, frame: u32) {
         unsafe {
             let mut command = [commands::id::REPLAY_SEEK, 0, 0, 0, 0];

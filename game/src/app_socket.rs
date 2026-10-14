@@ -356,6 +356,7 @@ mod tests {
                     paused: true,
                     speed: None,
                     multiplier: None,
+                    seek: None,
                 })
             ))
         ));

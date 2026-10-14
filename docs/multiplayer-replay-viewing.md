@@ -47,18 +47,18 @@ playback state. Followers discard direct timeline commands. Session commands sta
 playback and do not enter the recorded replay stream. A host transfer pauses playback and assigns
 control to the new host.
 
-Direct seeking is blocked for now so one viewer cannot diverge from the others. Seeking needs a
-coordinated epoch: pause all viewers, send a target frame, wait for frame
-acknowledgements after each client's seek (including backward seeks that restart replay logic),
-then resume. Periodic frame reports should detect drift and correct it without changing recorded
-commands. Reconnect must restore the current playback state and epoch. Camera and vision changes
-remain local.
+Seeking uses a coordinated epoch: the host's native seek request pauses all viewers, sends a
+target frame, and waits for each game to acknowledge the frame after its local seek. Backward
+seeks use the same barrier. The lobby then restores the speed and pause state from before the
+seek. A reconnect receives the current target and epoch in the lobby initialization event.
+Periodic frame reports should detect drift and correct it without changing recorded commands.
+Camera and vision changes remain local.
 
 ## Remaining implementation checkpoints
 
 1. Verify pause and speed propagation in two real Electron clients, including host transfer and
    follower input rejection.
-2. Add seek dispatch, per-viewer frame acknowledgement, drift correction, and reconnect recovery.
+2. Add periodic frame reports and drift correction; verify reconnect during a seek.
 3. Hide follower timeline buttons while keeping their positions empty. Route session chat through
    the in-game chat UI and the lobby chat channel.
 4. Translate new UI strings and verify local and hosted sources, access control, load failure,

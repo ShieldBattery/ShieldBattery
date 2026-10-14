@@ -4587,6 +4587,92 @@ describe('lobbies/lobby-service', () => {
       lobbyService.reportReplaySpeed({ client: joiner.client, lobbyId: id, speed })
     })
 
+    test('waits for every current viewer to reach the same seek before resuming', async () => {
+      const { id } = await createReplayLobby()
+      await joinLobby(joiner, id)
+      await startReplayLoad()
+      lobbyService.reportReplayLoaded({ client: host.client, lobbyId: id, hash: REPLAY_HASH })
+      lobbyService.reportReplayLoaded({ client: joiner.client, lobbyId: id, hash: REPLAY_HASH })
+
+      expect(() =>
+        lobbyService.reportReplaySeek({ client: joiner.client, lobbyId: id, frame: 600 }),
+      ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.NotHost }))
+      expect(() =>
+        lobbyService.reportReplaySeek({ client: host.client, lobbyId: id, frame: 12000 }),
+      ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.InvalidSlotOperation }))
+
+      lobbyService.reportReplaySeek({ client: host.client, lobbyId: id, frame: 600 })
+      expect(lobbyPublishes(id)).toContainEqual({
+        type: 'replaySpeed',
+        speed: { paused: true, speed: 6, multiplier: 1 },
+      })
+      expect(lobbyPublishes(id)).toContainEqual({
+        type: 'replaySeek',
+        seek: { epoch: 1, frame: 600 },
+      })
+      expect(() =>
+        lobbyService.reportReplaySpeed({
+          client: host.client,
+          lobbyId: id,
+          speed: { paused: false, speed: 4, multiplier: 1 },
+        }),
+      ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.ReplaySeeking }))
+
+      lobbyService.reportReplaySeekReached({
+        client: host.client,
+        lobbyId: id,
+        seek: { epoch: 1, frame: 600 },
+      })
+      expect(lobbyPublishes(id).filter(e => e.type === 'replaySeek' && !e.seek)).toEqual([])
+
+      lobbyService.reportReplaySeek({ client: host.client, lobbyId: id, frame: 300 })
+      lobbyService.reportReplaySeekReached({
+        client: joiner.client,
+        lobbyId: id,
+        seek: { epoch: 1, frame: 600 },
+      })
+      expect(lobbyPublishes(id)).toContainEqual({
+        type: 'replaySeek',
+        seek: { epoch: 2, frame: 300 },
+      })
+      lobbyService.reportReplaySeekReached({
+        client: joiner.client,
+        lobbyId: id,
+        seek: { epoch: 2, frame: 300 },
+      })
+      lobbyService.reportReplaySeekReached({
+        client: host.client,
+        lobbyId: id,
+        seek: { epoch: 2, frame: 300 },
+      })
+      expect(lobbyPublishes(id).slice(-2)).toEqual([
+        { type: 'replaySeek' },
+        { type: 'replaySpeed', speed: { paused: false, speed: 6, multiplier: 1 } },
+      ])
+    })
+
+    test('releases a seek barrier when a viewer closes the replay', async () => {
+      const { id } = await createReplayLobby()
+      await joinLobby(joiner, id)
+      await startReplayLoad()
+      lobbyService.reportReplayLoaded({ client: host.client, lobbyId: id, hash: REPLAY_HASH })
+      lobbyService.reportReplayLoaded({ client: joiner.client, lobbyId: id, hash: REPLAY_HASH })
+
+      lobbyService.reportReplaySeek({ client: host.client, lobbyId: id, frame: 600 })
+      lobbyService.reportReplaySeekReached({
+        client: host.client,
+        lobbyId: id,
+        seek: { epoch: 1, frame: 600 },
+      })
+      lobbyService.reportReplayEnded({ client: joiner.client, lobbyId: id })
+
+      expect(lobbyPublishes(id).slice(-3)).toEqual([
+        { type: 'replaySeek' },
+        { type: 'replaySpeed', speed: { paused: false, speed: 6, multiplier: 1 } },
+        { type: 'memberGameEnded', userId: JOINER_USER.id },
+      ])
+    })
+
     test('hands members a download of the replay, checked for each of them', async () => {
       const { id } = await createReplayLobby()
       await joinLobby(joiner, id)

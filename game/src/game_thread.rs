@@ -121,6 +121,13 @@ pub enum GameThreadMessage {
         speed: u32,
         multiplier: u32,
     },
+    ReplaySessionSeek {
+        frame: u32,
+    },
+    ReplaySessionSeekReached {
+        epoch: u32,
+        frame: u32,
+    },
     /// The local user blocked or unblocked a player with an in-game chat command; the app saves it.
     SetUserBlocked {
         user_id: SbUserId,

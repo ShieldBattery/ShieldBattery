@@ -16,7 +16,7 @@ import { NetcodeV2ServerSetup } from './games/netcode-v2'
 import { GameClientPlayerResult } from './games/results'
 import { SbLobbyId } from './lobbies/sb-lobby-id'
 import { MapExtension } from './maps'
-import { ReplaySessionSpeed } from './replay-sessions'
+import { ReplaySessionSeek, ReplaySessionSpeed } from './replay-sessions'
 import { ReplayChat } from './replays'
 import {
   ReplayBackfillProgress,
@@ -445,6 +445,8 @@ interface IpcMainSendables {
   /** A replay session game has loaded its replay and is holding playback paused at the start. */
   activeGameReplaySessionReady: (gameId: string) => void
   activeGameReplaySessionSpeed: (gameId: string, speed: ReplaySessionSpeed) => void
+  activeGameReplaySessionSeek: (gameId: string, frame: number) => void
+  activeGameReplaySessionSeekReached: (gameId: string, seek: ReplaySessionSeek) => void
   activeGameReplaySaved: (gameId: string, replayPath: string) => void
   activeGameResult: (data: {
     gameId: string
