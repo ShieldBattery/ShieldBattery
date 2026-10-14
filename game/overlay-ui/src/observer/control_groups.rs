@@ -24,13 +24,13 @@
 //! the surfaces a watcher glances at during a fight are all in the same place.
 
 use egui::{
-    Align, Align2, Area, Color32, Context, Id, Order, Rect, Sense, Shape, Stroke, StrokeKind,
-    TextureId, Ui, Vec2, pos2, vec2,
+    Align, Align2, Area, Color32, Context, Id, Order, Rect, Response, Sense, Shape, Stroke,
+    StrokeKind, TextureId, Ui, Vec2, pos2, vec2,
 };
 
 use crate::colors::{BLUE80, GREY_BLUE10};
 use crate::kit::text;
-use crate::kit::{motion, theme, tiers};
+use crate::kit::{motion, theme, tiers, widgets};
 use crate::observer::{
     EdgeCursor, ProductionIcon, StackSlot, centred, fit_icon, owner_tint, paint_owner_wash,
     paint_player_bar, paint_text, paint_tinted_icon, unit_codes, vision_alpha,
@@ -210,6 +210,14 @@ impl ControlGroupsView {
     }
 }
 
+/// What the control groups panel did this frame.
+pub struct ControlGroupsOutcome {
+    /// Where the panel was drawn.
+    pub rect: Rect,
+    /// The digit of a group the watcher clicked, which recalls it as pressing the digit does.
+    pub clicked: Option<u8>,
+}
+
 /// Draws the control groups panel in `slot`, fading and sliding it in and out, with the row of the
 /// player `focus` names. Returns nothing at all once it is gone, while nobody has a group, or where
 /// the slot has no room for it.
@@ -222,7 +230,7 @@ pub fn render_control_groups_view(
     shown: bool,
     slot: StackSlot,
     focus: Option<u8>,
-) -> Option<Rect> {
+) -> Option<ControlGroupsOutcome> {
     let id = Id::new("sb_control_groups_panel");
     let fitted = fitted_width(slot);
     let width = fitted.unwrap_or(PANEL_WIDTH);
@@ -243,16 +251,21 @@ pub fn render_control_groups_view(
             tiers::tier0_panel(ui, |ui| {
                 ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
                 ui.set_width(tiers::panel_content_width(width));
-                draw_rows(ui, view, focus, width);
+                draw_rows(ui, view, focus, width)
             })
             .inner
         },
     )?;
-    Some(inner.response.rect)
+    Some(ControlGroupsOutcome {
+        rect: inner.response.rect,
+        clicked: inner.inner,
+    })
 }
 
-/// Draws the one row the panel shows, across a panel `width` wide.
-fn draw_rows(ui: &mut Ui, view: &ControlGroupsView, focus: Option<u8>, width: f32) {
+/// Draws the one row the panel shows, across a panel `width` wide, and returns the digit of the
+/// group clicked, if one was.
+fn draw_rows(ui: &mut Ui, view: &ControlGroupsView, focus: Option<u8>, width: f32) -> Option<u8> {
+    let mut clicked = None;
     if let Some(player) = view.shown(focus) {
         let (row, _) = ui.allocate_exact_size(
             vec2(tiers::panel_content_width(width), TILE_HEIGHT),
@@ -277,13 +290,25 @@ fn draw_rows(ui: &mut Ui, view: &ControlGroupsView, focus: Option<u8>, width: f3
             }
             let slot = cursor.take(tile_width);
             let group = player.groups.iter().find(|group| group.key == key);
-            draw_slot(ui, slot, key, group, player.color, alpha);
+            // Only a slot with a group on it is a target: an empty one has nothing to recall.
+            let response = group.map(|_| {
+                ui.interact(
+                    slot,
+                    Id::new(("sb_control_group_slot", key)),
+                    Sense::click(),
+                )
+            });
+            draw_slot(ui, slot, key, group, player.color, alpha, response.as_ref());
+            if response.is_some_and(|response| response.clicked()) {
+                clicked = Some(key);
+            }
         }
     }
+    clicked
 }
 
 /// Draws one slot: the digit it answers to and, when there is a group on it, what that group is and
-/// how much of it there is.
+/// how much of it there is, washed while the pointer is over it or pressing it.
 fn draw_slot(
     ui: &Ui,
     rect: Rect,
@@ -291,6 +316,7 @@ fn draw_slot(
     group: Option<&ControlGroupView>,
     owner: Color32,
     alpha: f32,
+    response: Option<&Response>,
 ) {
     let alpha = match group {
         Some(group) if group.stale => alpha * STALE_ALPHA,
@@ -313,6 +339,9 @@ fn draw_slot(
         return;
     };
     paint_owner_wash(ui.painter(), rect, owner, alpha);
+    if let Some(response) = response {
+        widgets::state_overlay(ui, response, rect, theme::radius(theme::RADIUS_CHIP));
+    }
     let subject = line(SUBJECT_ROW);
     paint_subject(ui, subject, group, owner, alpha);
     if !group.building {

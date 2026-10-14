@@ -1394,10 +1394,14 @@ impl Shell {
             control_groups_slot,
             self.focused_player,
         );
-        if let Some(rect) = control_groups {
-            hit_rects.push(HitRect::new(rect));
-            stack.push(rect);
+        if let Some(outcome) = &control_groups {
+            hit_rects.push(HitRect::new(outcome.rect));
+            stack.push(outcome.rect);
+            if let Some(digit) = outcome.clicked {
+                self.recall_control_group(digit);
+            }
         }
+        let control_groups = control_groups.map(|outcome| outcome.rect);
         self.drawn.control_groups = control_groups.is_some();
         let over_groups = under_groups
             + observer::eased_stack_share(
@@ -1488,19 +1492,16 @@ impl Shell {
         }
         // A wing arriving takes its place beside the dock at once, the way the left wings simply
         // appear where they stand; one already on screen follows the dock as it comes and goes.
-        let arriving_inset = observer::settled_dock_inset(self.prefs.dock);
+        let settled_inset = observer::settled_dock_inset(self.prefs.dock);
+        let military_inset = self.drawn.military.inset(right_inset, settled_inset);
         let military = observer::render_military_view(
             &view.military,
             ctx,
             self.prefs.military && military_fits,
             tops.right,
-            if self.drawn.military {
-                right_inset
-            } else {
-                arriving_inset
-            },
+            military_inset,
         );
-        self.drawn.military = military.is_some();
+        self.drawn.military.drawn(military.is_some());
         if let Some(rect) = military {
             hit_rects.push(HitRect::new(rect));
         }
@@ -1509,7 +1510,7 @@ impl Shell {
             egui::Id::new("sb_stack_military"),
             tops.right,
             military,
-            self.drawn.graphs,
+            self.drawn.graphs.on_screen,
         );
         let graphs_fit = right_room && observer::graphs::fits(graphs_top, right_floor);
         if self.prefs.graphs && !view.graphs.is_empty() && !graphs_fit {
@@ -1524,14 +1525,10 @@ impl Shell {
             self.prefs.graphs && right_room,
             graphs_top,
             right_floor,
-            if self.drawn.graphs {
-                right_inset
-            } else {
-                arriving_inset
-            },
+            self.drawn.graphs.inset(right_inset, settled_inset),
             seekable.is_some(),
         );
-        self.drawn.graphs = graphs.is_some();
+        self.drawn.graphs.drawn(graphs.is_some());
         if let Some(outcome) = graphs {
             hit_rects.push(HitRect::new(outcome.rect));
             if let Some(series) = outcome.series {
@@ -1918,16 +1915,45 @@ impl Shell {
     }
 }
 
-/// Which panel an action toggles, for the actions whose panel exists.
 /// Which of the panels whose place eases as their neighbors come and go were drawn last frame.
 #[derive(Default)]
 struct DrawnLastFrame {
-    military: bool,
+    military: RightWing,
     control_groups: bool,
     production: bool,
     plate: bool,
-    graphs: bool,
+    graphs: RightWing,
     timeline: bool,
+}
+
+/// A wing on the right edge, which stands in from it by however much room the dock takes.
+#[derive(Default)]
+struct RightWing {
+    /// Whether the wing was drawn last frame.
+    on_screen: bool,
+    /// Whether the wing follows the dock's eased inset rather than standing where the dock settles.
+    ///
+    /// A wing arrives where the dock settles and keeps to it until the dock's easing gets there:
+    /// shown together with the dock, a wing that followed the easing from its second frame would
+    /// jump to the screen's edge and slide back in beside the dock.
+    follows_dock: bool,
+}
+
+impl RightWing {
+    /// How far in from the right edge the wing stands this frame, given the dock's `eased` inset
+    /// and the `settled` one it eases toward.
+    fn inset(&mut self, eased: f32, settled: f32) -> f32 {
+        if !self.on_screen {
+            self.follows_dock = false;
+        } else if (eased - settled).abs() < 0.5 {
+            self.follows_dock = true;
+        }
+        if self.follows_dock { eased } else { settled }
+    }
+
+    fn drawn(&mut self, on_screen: bool) {
+        self.on_screen = on_screen;
+    }
 }
 
 /// The slots the bottom panels were last placed in while they were wanted on screen.
@@ -1972,6 +1998,7 @@ fn number_key_digit(key: Key) -> Option<u8> {
     .map(|digit| digit as u8)
 }
 
+/// Which panel an action toggles, for the actions whose panel exists.
 fn action_panel(action: Action) -> Option<Panel> {
     Panel::ALL
         .into_iter()
