@@ -8,6 +8,8 @@ import { SbUser } from '../../common/users/sb-user'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { whisperServiceErrorToString } from '../../common/whispers'
 import { ConnectedAvatar } from '../avatars/avatar'
+import { ChatHeaderRoot } from '../chat/channel-header'
+import { MaterialIcon } from '../icons/material/material-icon'
 import logger from '../logging/logger'
 import { useAutoFocusRef } from '../material/auto-focus'
 import { MenuItem } from '../material/menu/item'
@@ -18,14 +20,67 @@ import { rankByQuery } from '../messaging/rank-by-query'
 import { MAX_TYPEAHEAD_ROWS } from '../messaging/typeahead'
 import { describeFetchError, isFetchError } from '../network/fetch-errors'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { titleLarge } from '../styles/typography'
 import { searchUsers } from '../users/action-creators'
 import { navigateToWhisper, startWhisperSessionByName } from './action-creators'
+import { SuggestedPeople } from './suggested-people'
 
 const Root = styled.div`
   flex-grow: 1;
   min-width: 0;
-  max-width: 720px;
+  height: 100%;
   padding-top: 8px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+`
+
+const HeaderIcon = styled.div`
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+  background-color: var(--theme-primary-container);
+  color: var(--theme-on-primary-container);
+`
+
+const HeaderTitle = styled.div`
+  ${titleLarge};
+  flex-grow: 1;
+`
+
+const HeaderIdentity = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 16px;
+`
+
+const Body = styled.div`
+  flex-grow: 1;
+  min-height: 0;
+  padding-bottom: 16px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+
+  overflow-y: auto;
+`
+
+const BodyContent = styled.div`
+  width: 100%;
+  max-width: 720px;
+  padding-inline: 8px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 `
 
 const SuggestionList = styled(MenuList)`
@@ -112,8 +167,9 @@ function useNameSearch(query: string): SbUser[] {
 }
 
 /**
- * The people suggested for `query`: online friends while nothing is typed, otherwise the known
- * people (friends and open whispers) that match it, followed by the server's matches.
+ * The people suggested for `query`: the known people (friends and open whispers) that match it,
+ * followed by the server's matches. Nothing is suggested before anything is typed; the page lists
+ * who's worth whispering for that.
  */
 function useSuggestions(query: string): Array<{ user: SbUser; online: boolean | undefined }> {
   const selfId = useAppSelector(s => s.auth.self?.user.id)
@@ -144,17 +200,16 @@ function useSuggestions(query: string): Array<{ user: SbUser; online: boolean | 
   }
   known.sort((a, b) => a.name.localeCompare(b.name))
 
-  let suggested: SbUser[]
   const trimmed = query.trim()
   if (trimmed.length === 0) {
-    suggested = known.filter(u => isOnline(u.id))
-  } else {
-    suggested = rankByQuery(known, u => [u.name], trimmed)
-    const included = new Set(suggested.map(u => u.id))
-    for (const user of searched) {
-      if (!included.has(user.id) && canSuggest(user.id)) {
-        suggested.push(user)
-      }
+    return []
+  }
+
+  const suggested = rankByQuery(known, u => [u.name], trimmed)
+  const included = new Set(suggested.map(u => u.id))
+  for (const user of searched) {
+    if (!included.has(user.id) && canSuggest(user.id)) {
+      suggested.push(user)
     }
   }
 
@@ -222,47 +277,61 @@ export function NewWhisper() {
 
   return (
     <Root>
-      <TextField
-        ref={inputRef}
-        containerRef={anchorRef}
-        value={query}
-        label={t('whispers.newWhisper.recipient', 'To')}
-        floatingLabel={true}
-        errorText={errorText}
-        disabled={isStarting}
-        maxLength={USERNAME_MAXLENGTH}
-        inputProps={{
-          autoCapitalize: 'off',
-          autoComplete: 'off',
-          autoCorrect: 'off',
-          spellCheck: false,
-          'aria-autocomplete': 'list',
-          'aria-controls': paletteShowing ? listId : undefined,
-          'aria-activedescendant': paletteShowing
-            ? getMenuItemId(listId, clampedActiveIndex)
-            : undefined,
-          onClick: event => {
-            // Keeps the click that opens the suggestions from also counting as one outside of them.
-            event.stopPropagation()
-            openPalette(event)
-          },
-        }}
-        onChange={event => {
-          setQuery(event.target.value)
-          setActiveIndex(0)
-          setError(undefined)
-          openPalette(event)
-        }}
-        onFocus={event => openPalette(event)}
-        onEnterKeyDown={() => {
-          const active = paletteShowing ? suggestions[clampedActiveIndex] : undefined
-          if (active) {
-            startWith(active.user)
-          } else {
-            startWithTypedName()
-          }
-        }}
-      />
+      <ChatHeaderRoot $hasActions={true}>
+        <HeaderIdentity>
+          <HeaderIcon>
+            <MaterialIcon icon='edit' size={20} />
+          </HeaderIcon>
+          <HeaderTitle>{t('whispers.page.newWhisper', 'New whisper')}</HeaderTitle>
+        </HeaderIdentity>
+      </ChatHeaderRoot>
+
+      <Body>
+        <BodyContent>
+          <TextField
+            ref={inputRef}
+            containerRef={anchorRef}
+            value={query}
+            label={t('whispers.newWhisper.recipient', 'To')}
+            floatingLabel={true}
+            errorText={errorText}
+            disabled={isStarting}
+            maxLength={USERNAME_MAXLENGTH}
+            inputProps={{
+              autoCapitalize: 'off',
+              autoComplete: 'off',
+              autoCorrect: 'off',
+              spellCheck: false,
+              'aria-autocomplete': 'list',
+              'aria-controls': paletteShowing ? listId : undefined,
+              'aria-activedescendant': paletteShowing
+                ? getMenuItemId(listId, clampedActiveIndex)
+                : undefined,
+              onClick: event => {
+                // Keeps the click that opens the suggestions from also counting as one outside of them.
+                event.stopPropagation()
+                openPalette(event)
+              },
+            }}
+            onChange={event => {
+              setQuery(event.target.value)
+              setActiveIndex(0)
+              setError(undefined)
+              openPalette(event)
+            }}
+            onFocus={event => openPalette(event)}
+            onEnterKeyDown={() => {
+              const active = paletteShowing ? suggestions[clampedActiveIndex] : undefined
+              if (active) {
+                startWith(active.user)
+              } else {
+                startWithTypedName()
+              }
+            }}
+          />
+          <SuggestedPeople />
+        </BodyContent>
+      </Body>
 
       {paletteShowing ? (
         <Popover

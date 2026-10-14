@@ -40,6 +40,7 @@ import {
   startWhisperSessionById,
   updateSessionAtBottom,
 } from './action-creators'
+import { WhisperHeader } from './whisper-header'
 import { WhisperMessageMenu } from './whisper-menu-items'
 
 const MESSAGES_LIMIT = 50
@@ -471,6 +472,7 @@ export function ConnectedWhisper({
         onMarkRead={onMarkRead}
         escapeJumpsToBottom
         jumpToBottomOnSend
+        header={<WhisperHeader key={targetId} userId={targetId} />}
         extraContent={
           <UserInfoContainer>
             <UserProfileOverlayContents userId={targetId} showHintText={false} />

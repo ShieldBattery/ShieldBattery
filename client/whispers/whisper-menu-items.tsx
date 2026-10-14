@@ -13,8 +13,10 @@ import {
 } from '../messaging/message-context-menu'
 import { getServerOrigin } from '../network/server-url'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { DURATION_LONG } from '../snackbars/snackbar-durations'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { MenuItemCategory, UserMenuProps } from '../users/user-context-menu'
-import { markWhisperReadNow } from './action-creators'
+import { closeWhisperSession, markWhisperReadNow } from './action-creators'
 import { urlForWhisperMessageLink } from './whisper-url'
 
 export function WhisperMessageMenu({
@@ -56,10 +58,12 @@ export function WhisperConversationUserMenu({
 }: UserMenuProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
   const canMarkRead = useAppSelector(s => {
     const session = s.whispers.byId.get(userId)
     return session !== undefined && (session.hasUnread || session.unreadLine !== undefined)
   })
+  const isSessionOpen = useAppSelector(s => s.whispers.sessions.has(userId))
 
   const menuItems = cloneMultimap(items)
   prependToMultimap(
@@ -75,6 +79,34 @@ export function WhisperConversationUserMenu({
       }}
     />,
   )
+
+  if (isSessionOpen) {
+    appendToMultimap(
+      menuItems,
+      MenuItemCategory.General,
+      <MenuItem
+        key='close-whisper'
+        text={t('whispers.navEntry.closeWhisper', 'Close whisper')}
+        onClick={() => {
+          onMenuClose()
+          dispatch(
+            closeWhisperSession(userId, {
+              onSuccess: () => {},
+              onError: err => {
+                snackbarController.showSnackbar(
+                  t('navigation.leftNav.whisperCloseError', {
+                    defaultValue: 'Error closing whisper session: {{errorMessage}}',
+                    errorMessage: err.message,
+                  }),
+                  DURATION_LONG,
+                )
+              },
+            }),
+          )
+        }}
+      />,
+    )
+  }
 
   return <MenuComponent items={menuItems} userId={userId} onMenuClose={onMenuClose} />
 }

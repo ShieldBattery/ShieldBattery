@@ -5,6 +5,7 @@ import { SbUserId } from '../../common/users/sb-user-id'
 import { WhisperConversation } from '../../common/whispers'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { useBreakpoint } from '../dom/dimension-hooks'
+import { GameRelativeTime } from '../games/game-list-entry'
 import { MaterialIcon } from '../icons/material/material-icon'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
 import { LoadErrorRow } from '../lists/load-error-row'
@@ -15,7 +16,8 @@ import { push } from '../navigation/routing'
 import { describeFetchError } from '../network/fetch-errors'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { bodyMedium, singleLine } from '../styles/typography'
+import { SearchInput } from '../search/search-input'
+import { bodyMedium, bodySmall, singleLine } from '../styles/typography'
 import { ConnectedUserContextMenu } from '../users/user-context-menu'
 import { useUserOverlays } from '../users/user-overlays'
 import { getWhisperConversations } from './action-creators'
@@ -35,9 +37,36 @@ const RAIL_COLLAPSE_BREAKPOINTS: Array<[minWidth: number, collapsed: boolean]> =
 
 const RailRoot = styled.div`
   width: 280px;
+  height: calc(100% - 16px);
+  margin-block: 8px;
   flex-shrink: 0;
-  height: 100%;
-  padding-block: 8px;
+
+  display: flex;
+  flex-direction: column;
+  contain: content;
+
+  background-color: var(--theme-container-low);
+  --availability-dot-ring: var(--theme-container-low);
+  border-radius: 8px;
+
+  @container whispers-page (width < ${RAIL_COLLAPSE_BELOW_PX}px) {
+    width: 72px;
+  }
+`
+
+const FilterContainer = styled.div`
+  flex-shrink: 0;
+  padding: 8px 8px 0;
+
+  @container whispers-page (width < ${RAIL_COLLAPSE_BELOW_PX}px) {
+    display: none;
+  }
+`
+
+const RailList = styled.div`
+  flex-grow: 1;
+  min-height: 0;
+  padding: 8px;
 
   display: flex;
   flex-direction: column;
@@ -51,8 +80,19 @@ const RailRoot = styled.div`
   }
 
   @container whispers-page (width < ${RAIL_COLLAPSE_BELOW_PX}px) {
-    width: 56px;
     scrollbar-width: none;
+  }
+`
+
+const RowTime = styled(GameRelativeTime)`
+  ${bodySmall};
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: 2px;
+  color: var(--theme-on-surface-variant);
+
+  @container whispers-page (width < ${RAIL_COLLAPSE_BELOW_PX}px) {
+    display: none;
   }
 `
 
@@ -232,46 +272,62 @@ export function ConversationRail({ selectedTarget }: { selectedTarget?: SbUserId
     false,
   )
   const { rows, hasMore, isLoading, loadError, loadMore } = useConversationList(selectedTarget)
+  const [filter, setFilter] = useState('')
+  const usersById = useAppSelector(s => s.users.byId)
+  // Filters what's loaded so far; the list keeps paging in as it's scrolled, filtered or not.
+  const loweredFilter = filter.trim().toLowerCase()
+  const filteredRows = loweredFilter
+    ? rows.filter(r => usersById.get(r.target)?.name.toLowerCase().includes(loweredFilter))
+    : rows
 
   const newWhisperLabel = t('whispers.page.newWhisper', 'New whisper')
 
   return (
     <RailRoot ref={railRef}>
-      <Tooltip text={newWhisperLabel} position='right' disabled={!collapsed} tabIndex={-1}>
-        <RailRow url='/whispers' selected={selectedTarget === undefined} label={newWhisperLabel}>
-          <NewWhisperIcon>
-            <MaterialIcon icon='edit' size={20} />
-          </NewWhisperIcon>
-          <RowText>
-            <RowName>{newWhisperLabel}</RowName>
-          </RowText>
-        </RailRow>
-      </Tooltip>
+      <FilterContainer>
+        <SearchInput
+          searchQuery={filter}
+          onSearchChange={setFilter}
+          label={t('whispers.page.filterConversations', 'Filter conversations')}
+        />
+      </FilterContainer>
+      <RailList>
+        <Tooltip text={newWhisperLabel} position='right' disabled={!collapsed} tabIndex={-1}>
+          <RailRow url='/whispers' selected={selectedTarget === undefined} label={newWhisperLabel}>
+            <NewWhisperIcon>
+              <MaterialIcon icon='edit' size={20} />
+            </NewWhisperIcon>
+            <RowText>
+              <RowName>{newWhisperLabel}</RowName>
+            </RowText>
+          </RailRow>
+        </Tooltip>
 
-      <InfiniteScrollList
-        nextLoadingEnabled={true}
-        isLoadingNext={isLoading}
-        hasNextData={hasMore}
-        nextError={
-          loadError ? (
-            <LoadErrorRow
-              message={t('whispers.page.loadConversationsError', 'Error loading conversations')}
-              onRetry={loadMore}
+        <InfiniteScrollList
+          nextLoadingEnabled={true}
+          isLoadingNext={isLoading}
+          hasNextData={hasMore}
+          nextError={
+            loadError ? (
+              <LoadErrorRow
+                message={t('whispers.page.loadConversationsError', 'Error loading conversations')}
+                onRetry={loadMore}
+              />
+            ) : undefined
+          }
+          onLoadNextData={loadMore}>
+          {filteredRows.map(({ target, lastMessage }) => (
+            <ConversationRow
+              key={target}
+              target={target}
+              lastMessage={lastMessage}
+              selected={target === selectedTarget}
+              collapsed={collapsed}
             />
-          ) : undefined
-        }
-        onLoadNextData={loadMore}>
-        {rows.map(({ target, lastMessage }) => (
-          <ConversationRow
-            key={target}
-            target={target}
-            lastMessage={lastMessage}
-            selected={target === selectedTarget}
-            collapsed={collapsed}
-          />
-        ))}
-      </InfiniteScrollList>
-      {isLoading && rows.length === 0 ? <LoadingDotsArea /> : null}
+          ))}
+        </InfiniteScrollList>
+        {isLoading && rows.length === 0 ? <LoadingDotsArea /> : null}
+      </RailList>
     </RailRoot>
   )
 }
@@ -283,7 +339,7 @@ function ConversationRow({
   collapsed,
 }: {
   target: SbUserId
-  lastMessage: PreviewableMessage | undefined
+  lastMessage: (PreviewableMessage & { time: number }) | undefined
   selected: boolean
   collapsed: boolean
 }) {
@@ -311,6 +367,7 @@ function ConversationRow({
             <RowName>{username}</RowName>
             {lastMessage ? <MessagePreviewLine message={lastMessage} /> : null}
           </RowText>
+          {lastMessage ? <RowTime timestampMs={lastMessage.time} /> : null}
         </RailRow>
       </Tooltip>
     </>

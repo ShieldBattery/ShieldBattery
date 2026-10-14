@@ -3509,6 +3509,9 @@
       "userChatRestricted": "You are currently restricted from sending chat messages",
       "userNotFound": "User not found"
     },
+    "header": {
+      "moreActions": "More actions"
+    },
     "messageMenu": {
       "copyMessageLink": "Copy message link"
     },
@@ -3517,9 +3520,12 @@
     },
     "newWhisper": {
       "error": "Error starting the whisper: {{errorMessage}}",
+      "onlineFriends": "Online friends",
+      "recent": "Recent",
       "recipient": "To"
     },
     "page": {
+      "filterConversations": "Filter conversations",
       "loadConversationsError": "Error loading conversations",
       "newWhisper": "New whisper"
     }
