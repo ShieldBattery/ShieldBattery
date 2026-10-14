@@ -54,7 +54,6 @@
   },
   "gameMenu": {
     "alliances": "Alianzas",
-    "escHint": "Esc vuelve a la partida",
     "gameTime": "Tiempo de partida",
     "holdToLeave": "Mantén pulsado para salir",
     "leaveGame": "Salir de la partida",

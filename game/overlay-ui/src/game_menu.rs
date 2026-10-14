@@ -2,11 +2,13 @@
 //!
 //! It is the one screen the player reaches for on purpose while playing, so it is the one screen
 //! that says where they are: the wordmark and the game's own clock over a short stack of the things
-//! that can be done from here, in the order they are likely to be wanted. Everything here is a pure
-//! fn of plain data plus an [`egui::Context`], so the same code renders in the injected game DLL and
-//! in the host preview.
+//! that can be done from here. The stack keeps SC:R's order and its keys, which players' hands
+//! already know: Options (`O`) first, leaving (`E`, SC:R's End Mission) below it, and the way back to
+//! the game (`Esc`) last. Each button carries the keycap of its key (see [`OPTIONS_KEY`]). Everything
+//! here is a pure fn of plain data plus an [`egui::Context`], so the same code renders in the
+//! injected game DLL and in the host preview.
 
-use egui::{Align, Context, Id, Layout, Ui, Vec2, vec2};
+use egui::{Align, Context, Id, Layout, Rect, Ui, Vec2, vec2};
 
 use crate::kit::text::{self, BodyWeight};
 use crate::kit::widgets::{self, ButtonPlate, HoldState};
@@ -33,6 +35,21 @@ const CLOCK_SIZE: f32 = 18.0;
 /// The product's name, which is a name and not a phrase: it reads the same in every language the
 /// overlay speaks, so it never goes through the translation catalogs.
 const WORDMARK: &str = "ShieldBattery";
+
+/// The keys the menu's buttons answer to, as their keycaps name them. SC:R's own where it has one:
+/// `O` for Options and `E` for End Mission, which leaves by way of the same question its `Alt+Q`
+/// asks. SC:R puts alliances and chat behind one Social button on `C`; the two buttons that stand in
+/// for it here take `A` (and `C`, for that habit) and `M`.
+pub const OPTIONS_KEY: &str = "O";
+pub const ALLIANCES_KEY: &str = "A";
+pub const MESSAGING_KEY: &str = "M";
+pub const LEAVE_KEY: &str = "E";
+pub const RETURN_KEY: &str = "Esc";
+
+/// The keys the leave question takes as its answer: SC:R's own quit dialogs leave on `Q` from a
+/// game (Quit Mission) and on `E` from a replay (Exit Replay); either answers here, so a hand that
+/// knows one doesn't have to learn which this is.
+pub const LEAVE_CONFIRM_KEYS: [&str; 2] = ["Q", "E"];
 
 /// One of SC:R's own dialogs for a player's alliances and chat, which the menu opens rather than
 /// replaces.
@@ -68,9 +85,7 @@ pub fn render_game_menu(
 ) -> tiers::DialogResponse<GameMenuOutcome> {
     tiers::tier2_dialog(ctx, Id::new("sb_game_menu"), MENU_WIDTH, |ui| {
         tiers::dialog_header(ui, |ui| draw_header(ui, game_seconds));
-        let outcome = tiers::dialog_body(ui, |ui| draw_actions(ui, playing));
-        tiers::dialog_footer(ui, draw_footer);
-        outcome
+        tiers::dialog_body(ui, |ui| draw_actions(ui, playing))
     })
 }
 
@@ -108,31 +123,22 @@ fn draw_clock(ui: &mut Ui, game_seconds: u64) {
     });
 }
 
-/// The stack of things that can be done from here, loudest first.
+/// The stack of things that can be done from here, in SC:R's order: Options first, then the
+/// social dialogs, then leaving, with the way back to the game at the bottom where SC:R keeps it.
 fn draw_actions(ui: &mut Ui, playing: bool) -> GameMenuOutcome {
     let width = ui.available_width();
     let spec = text::button_label(BUTTON_LABEL_SIZE).with_letter_spacing(BUTTON_TRACKING);
     let size = vec2(width, BUTTON_HEIGHT);
-    let mut outcome = GameMenuOutcome {
-        return_to_game: widgets::plate_button(
-            ui,
-            &spec,
-            &tr!("gameMenu.returnToGame", "Return to game"),
-            size,
-            ButtonPlate::primary(),
-        )
-        .clicked(),
-        ..GameMenuOutcome::default()
-    };
-    ui.add_space(BUTTON_GAP);
-    outcome.open_options = widgets::plate_button(
+    let mut outcome = GameMenuOutcome::default();
+    let options = widgets::plate_button(
         ui,
         &spec,
         &tr!("gameMenu.options", "Options"),
         size,
         ButtonPlate::standard(),
-    )
-    .clicked();
+    );
+    widgets::paint_button_kbd(ui, options.rect, OPTIONS_KEY);
+    outcome.open_options = options.clicked();
     // Someone watching has no alliances of their own to set, and chat scope is all they could
     // change there, which the chat box already does. The two share a row: they are the two buttons
     // SC:R puts side by side above the minimap, and each opens its own dialog.
@@ -141,30 +147,45 @@ fn draw_actions(ui: &mut Ui, playing: bool) -> GameMenuOutcome {
         let half = vec2((width - BUTTON_GAP) / 2.0, BUTTON_HEIGHT);
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = BUTTON_GAP;
-            for (dialog, label) in [
+            for (dialog, label, key) in [
                 (
                     SocialDialog::Alliances,
                     tr!("gameMenu.alliances", "Alliances"),
+                    ALLIANCES_KEY,
                 ),
                 (
                     SocialDialog::Messaging,
                     tr!("gameMenu.messaging", "Messaging"),
+                    MESSAGING_KEY,
                 ),
             ] {
-                if widgets::plate_button(ui, &spec, &label, half, ButtonPlate::standard()).clicked()
-                {
+                let button =
+                    widgets::plate_button(ui, &spec, &label, half, ButtonPlate::standard());
+                widgets::paint_button_kbd(ui, button.rect, key);
+                if button.clicked() {
                     outcome.open_social = Some(dialog);
                 }
             }
         });
     }
     ui.add_space(BUTTON_GAP);
-    // A player leaving a game loses it, so that takes a hold rather than a click. Leaving a game
-    // only being watched costs nothing.
-    outcome.leave = if playing {
+    outcome.leave = leave_button(ui, playing, LEAVE_KEY);
+    ui.add_space(BUTTON_GAP);
+    outcome.return_to_game = return_button(ui);
+    outcome
+}
+
+/// The button that leaves the game, marked with `key`. A player leaving a game loses it, so that
+/// takes a hold rather than a click; leaving a game only being watched costs nothing.
+fn leave_button(ui: &mut Ui, playing: bool, key: &str) -> bool {
+    let width = ui.available_width();
+    let size = vec2(width, BUTTON_HEIGHT);
+    let rect = Rect::from_min_size(ui.cursor().min, size);
+    let leave = if playing {
         widgets::hold_to_confirm(ui, &tr!("gameMenu.holdToLeave", "Hold to leave game"), size)
             == HoldState::Confirmed
     } else {
+        let spec = text::button_label(BUTTON_LABEL_SIZE).with_letter_spacing(BUTTON_TRACKING);
         widgets::plate_button(
             ui,
             &spec,
@@ -174,7 +195,23 @@ fn draw_actions(ui: &mut Ui, playing: bool) -> GameMenuOutcome {
         )
         .clicked()
     };
-    outcome
+    widgets::paint_button_kbd(ui, rect, key);
+    leave
+}
+
+/// The button back to the game, which is what `Esc` does wherever the menu or its question is up.
+fn return_button(ui: &mut Ui) -> bool {
+    let spec = text::button_label(BUTTON_LABEL_SIZE).with_letter_spacing(BUTTON_TRACKING);
+    let size = vec2(ui.available_width(), BUTTON_HEIGHT);
+    let button = widgets::plate_button(
+        ui,
+        &spec,
+        &tr!("gameMenu.returnToGame", "Return to game"),
+        size,
+        ButtonPlate::primary(),
+    );
+    widgets::paint_button_kbd(ui, button.rect, RETURN_KEY);
+    button.clicked()
 }
 
 /// What the player answered when asked whether to leave.
@@ -205,48 +242,23 @@ pub fn render_leave_confirm(
             false => tr!("gameMenu.leaveGameTitle", "Leave the game?"),
         };
         tiers::dialog_header(ui, |ui| tiers::dialog_title(ui, &title));
-        tiers::dialog_body(ui, |ui| draw_leave_actions(ui, playing))
+        tiers::dialog_body(ui, |ui| draw_leave_actions(ui, playing, replay))
     })
 }
 
-fn draw_leave_actions(ui: &mut Ui, playing: bool) -> LeaveConfirmOutcome {
-    let width = ui.available_width();
-    let spec = text::button_label(BUTTON_LABEL_SIZE).with_letter_spacing(BUTTON_TRACKING);
-    let size = vec2(width, BUTTON_HEIGHT);
-    let mut outcome = LeaveConfirmOutcome {
-        return_to_game: widgets::plate_button(
-            ui,
-            &spec,
-            &tr!("gameMenu.returnToGame", "Return to game"),
-            size,
-            ButtonPlate::primary(),
-        )
-        .clicked(),
-        ..LeaveConfirmOutcome::default()
+/// The question's answers in SC:R's order, leaving above the way back. The leave button shows the
+/// key SC:R's own question takes here (`E` in a replay, `Q` otherwise); both answer either way.
+fn draw_leave_actions(ui: &mut Ui, playing: bool, replay: bool) -> LeaveConfirmOutcome {
+    let key = match replay {
+        true => LEAVE_CONFIRM_KEYS[1],
+        false => LEAVE_CONFIRM_KEYS[0],
     };
+    let leave = leave_button(ui, playing, key);
     ui.add_space(BUTTON_GAP);
-    outcome.leave = if playing {
-        widgets::hold_to_confirm(ui, &tr!("gameMenu.holdToLeave", "Hold to leave game"), size)
-            == HoldState::Confirmed
-    } else {
-        widgets::plate_button(
-            ui,
-            &spec,
-            &tr!("gameMenu.leaveGame", "Leave game"),
-            size,
-            ButtonPlate::destructive(),
-        )
-        .clicked()
-    };
-    outcome
-}
-
-/// The footer: the key that closes the menu.
-fn draw_footer(ui: &mut Ui) {
-    let width = ui.available_width();
-    let spec = text::body(11.0, BodyWeight::Regular).with_color(theme::TEXT_LABEL);
-    let note = tr!("gameMenu.escHint", "Esc returns to the game");
-    widgets::centered_paragraph(ui, &spec, &note, width);
+    LeaveConfirmOutcome {
+        leave,
+        return_to_game: return_button(ui),
+    }
 }
 
 /// Seconds as the game's own clock reads them, growing an hours field only once there is one.

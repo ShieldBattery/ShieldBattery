@@ -511,25 +511,53 @@ pub fn hold_to_confirm(ui: &mut Ui, label: &str, size: Vec2) -> HoldState {
 
 /// A keycap chip, for telling the player which key opens or closes something.
 pub fn kbd(ui: &mut Ui, key: &str) -> Response {
-    let spec = text::body(11.0, text::BodyWeight::Medium).with_color(theme::TEXT_DIM);
-    let galley = spec.galley(ui, key);
-    let size = vec2(
-        (galley.size().x + theme::SPACE_MD).max(20.0),
-        galley.size().y + theme::SPACE_XS + 2.0,
-    );
-    let (rect, response) = ui.allocate_exact_size(size, Sense::hover());
+    let (rect, response) = ui.allocate_exact_size(kbd_size(ui, key), Sense::hover());
     if ui.is_rect_visible(rect) {
-        let corner_radius = theme::radius(theme::RADIUS_CHIP);
-        let painter = ui.painter();
-        painter.add(Shape::rect_stroke(
-            rect,
-            corner_radius,
-            Stroke::new(theme::HAIRLINE, theme::CHIP_STROKE),
-            StrokeKind::Inside,
-        ));
-        painter.galley(rect.center() - galley.size() * 0.5, galley, theme::TEXT_DIM);
+        paint_kbd(ui, rect, key);
     }
     response
+}
+
+/// How big the keycap chip for `key` is.
+pub fn kbd_size(ui: &Ui, key: &str) -> Vec2 {
+    let galley = kbd_spec().galley(ui, key);
+    vec2(
+        (galley.size().x + theme::SPACE_MD).max(20.0),
+        galley.size().y + theme::SPACE_XS + 2.0,
+    )
+}
+
+/// Paints the keycap chip for `key` into `rect`, without taking room in the layout.
+pub fn paint_kbd(ui: &Ui, rect: Rect, key: &str) {
+    let galley = kbd_spec().galley(ui, key);
+    let corner_radius = theme::radius(theme::RADIUS_CHIP);
+    let painter = ui.painter();
+    painter.add(Shape::rect_stroke(
+        rect,
+        corner_radius,
+        Stroke::new(theme::HAIRLINE, theme::CHIP_STROKE),
+        StrokeKind::Inside,
+    ));
+    painter.galley(rect.center() - galley.size() * 0.5, galley, theme::TEXT_DIM);
+}
+
+/// Marks `button` with the keycap of the key that presses it, set in from its right edge clear of a
+/// plate's inner edge: a button's own label says what it does, and the key it answers to is a fact
+/// about it beside that.
+pub fn paint_button_kbd(ui: &Ui, button: Rect, key: &str) {
+    let size = kbd_size(ui, key);
+    let rect = Rect::from_min_size(
+        pos2(
+            button.right() - PLATE_GUTTER - theme::SPACE_SM - size.x,
+            button.center().y - size.y * 0.5,
+        ),
+        size,
+    );
+    paint_kbd(ui, rect, key);
+}
+
+fn kbd_spec() -> text::TextSpec {
+    text::body(11.0, text::BodyWeight::Medium).with_color(theme::TEXT_DIM)
 }
 
 #[cfg(test)]

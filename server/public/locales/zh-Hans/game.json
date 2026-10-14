@@ -52,7 +52,6 @@
   },
   "gameMenu": {
     "alliances": "同盟",
-    "escHint": "按 Esc 返回游戏",
     "gameTime": "游戏时间",
     "holdToLeave": "长按离开游戏",
     "leaveGame": "离开游戏",

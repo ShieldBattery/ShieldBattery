@@ -1512,13 +1512,16 @@ impl OverlayState {
                     }
                     if let Some(key) = key {
                         // The menu and quit keys are the shell's whatever has the keyboard, and so is
-                        // every key while the leave question is up (its Q answers it): they type
-                        // nothing, and with a modal up a focused button would otherwise take the key
-                        // that is meant to close it.
+                        // every key while the menu or the leave question is up (their buttons answer
+                        // to letters): they type nothing, and with a modal up a focused button would
+                        // otherwise take the key that is meant for it.
                         if pressed
                             && (hotkeys::is_menu_chord(key, modifiers)
                                 || hotkeys::is_quit_chord(key, modifiers)
-                                || self.shell.top_modal() == Some(ModalId::LeaveGame))
+                                || matches!(
+                                    self.shell.top_modal(),
+                                    Some(ModalId::LeaveGame | ModalId::GameMenu)
+                                ))
                             && self.shell.key_pressed(key, modifiers)
                         {
                             self.shell_held_keys.push(scan_code);

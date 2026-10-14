@@ -55,7 +55,6 @@
   },
   "gameMenu": {
     "alliances": "Союзы",
-    "escHint": "Esc возвращает в игру",
     "gameTime": "Время игры",
     "holdToLeave": "Удерживайте: покинуть игру",
     "leaveGame": "Покинуть игру",

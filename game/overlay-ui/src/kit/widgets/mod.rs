@@ -13,7 +13,7 @@ mod tooltip;
 
 pub use buttons::{
     ButtonPlate, ButtonVariant, HoldState, button, button_sized, chip_button, hold_to_confirm, kbd,
-    plate_button, plate_button_aligned,
+    kbd_size, paint_button_kbd, paint_kbd, plate_button, plate_button_aligned,
 };
 pub use charts::{
     PlotResponse, Series, line_plot, line_plot_clickable, progress_bar, share_bar, sparkline,

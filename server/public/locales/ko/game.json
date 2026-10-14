@@ -52,7 +52,6 @@
   },
   "gameMenu": {
     "alliances": "동맹",
-    "escHint": "Esc를 누르면 게임으로 돌아갑니다",
     "gameTime": "게임 시간",
     "holdToLeave": "길게 눌러 게임 나가기",
     "leaveGame": "게임 나가기",

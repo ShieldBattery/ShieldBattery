@@ -967,10 +967,10 @@ impl Shell {
             self.dismiss_top_modal();
             return true;
         }
-        // Q answers the leave question the way it answers SC:R's own quit dialogs, whose Quit
-        // button it is: Alt+Q, then Q, leaves.
-        if self.top_modal() == Some(ModalId::LeaveGame) && key == Key::Q && modifiers.is_none() {
-            self.intents.push(Intent::QuitGame);
+        // The menu's buttons answer to SC:R's keys for them, and the leave question to both of the
+        // keys SC:R's own quit questions leave on (see `game_menu`'s key constants): Alt+Q then Q,
+        // and F10 then E then Q, leave the way they always have.
+        if modifiers.is_none() && self.menu_key_pressed(key) {
             return true;
         }
         if hotkeys::is_quit_chord(key, modifiers) && self.quit_keys_active() {
@@ -1086,10 +1086,7 @@ impl Shell {
                 self.intents.push(Intent::EndMission(dialog));
             }
             if let Some(dialog) = outcome.open_social {
-                // The host leaves the game menu itself on the way to the dialog, so the menu goes
-                // from the stack without asking the host to close it a second time.
-                self.modals.retain(|modal| modal.id != ModalId::GameMenu);
-                self.intents.push(Intent::OpenSocialDialog(dialog));
+                self.open_social_dialog(dialog);
             }
             if outcome.abandoned {
                 self.intents.push(Intent::AbandonGame);
@@ -1774,6 +1771,33 @@ impl Shell {
             });
         }
         true
+    }
+
+    /// Carries out what the menu or the leave question's key `key` does, while either is on top,
+    /// and returns whether it did anything.
+    fn menu_key_pressed(&mut self, key: Key) -> bool {
+        let playing = self.host.mode == Mode::Playing;
+        match (self.top_modal(), key) {
+            (Some(ModalId::GameMenu), Key::O) => self.open_modal(ModalId::Options),
+            (Some(ModalId::GameMenu), Key::E) => self.open_modal(ModalId::LeaveGame),
+            (Some(ModalId::GameMenu), Key::A | Key::C) if playing => {
+                self.open_social_dialog(SocialDialog::Alliances)
+            }
+            (Some(ModalId::GameMenu), Key::M) if playing => {
+                self.open_social_dialog(SocialDialog::Messaging)
+            }
+            (Some(ModalId::LeaveGame), Key::Q | Key::E) => self.intents.push(Intent::QuitGame),
+            _ => return false,
+        }
+        true
+    }
+
+    /// Leaves the menu for one of SC:R's own social dialogs. The host leaves the game menu itself on
+    /// the way to the dialog, so the menu goes from the stack without asking the host to close it a
+    /// second time.
+    fn open_social_dialog(&mut self, dialog: SocialDialog) {
+        self.modals.retain(|modal| modal.id != ModalId::GameMenu);
+        self.intents.push(Intent::OpenSocialDialog(dialog));
     }
 
     /// Whether SC:R's quit keys open the leave question. They do in every mode once the game runs,
@@ -2974,6 +2998,23 @@ mod tests {
         assert!(shell.key_pressed(Key::Q, alt));
         assert_eq!(shell.top_modal(), Some(ModalId::LeaveGame));
         assert!(shell.key_pressed(Key::Q, Modifiers::NONE));
+        assert!(shell.pending_intents().contains(&Intent::QuitGame));
+    }
+
+    #[test]
+    fn the_menu_answers_to_scrs_keys_for_its_buttons() {
+        let mut shell = spectating_shell();
+        shell.open_modal(ModalId::GameMenu);
+        assert!(shell.key_pressed(Key::O, Modifiers::NONE));
+        assert_eq!(shell.top_modal(), Some(ModalId::Options));
+        assert!(shell.key_pressed(Key::Escape, Modifiers::NONE));
+        assert_eq!(shell.top_modal(), Some(ModalId::GameMenu));
+        // A watcher has no alliances to set, so the key is not the menu's.
+        assert!(!shell.key_pressed(Key::A, Modifiers::NONE));
+        // End Mission asks first, and either of SC:R's quit keys answers.
+        assert!(shell.key_pressed(Key::E, Modifiers::NONE));
+        assert_eq!(shell.top_modal(), Some(ModalId::LeaveGame));
+        assert!(shell.key_pressed(Key::E, Modifiers::NONE));
         assert!(shell.pending_intents().contains(&Intent::QuitGame));
     }
 
