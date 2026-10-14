@@ -538,6 +538,16 @@ pub struct ReplayMapInfo {
 pub struct ReplaySessionPlaybackControl {
     pub controller: bool,
     pub paused: bool,
+    pub speed: Option<u32>,
+    pub multiplier: Option<u32>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReplaySessionSpeed {
+    pub paused: bool,
+    pub speed: u32,
+    pub multiplier: u32,
 }
 
 #[derive(Clone, Debug, Deserialize)]

@@ -28,6 +28,7 @@ import { NetcodeV2ServerSetup, NetcodeV2Setup } from '../../common/games/netcode
 import { GameClientPlayerResult } from '../../common/games/results'
 import { GameBlockRequestFailure } from '../../common/ipc'
 import { SlotType } from '../../common/lobbies/slot'
+import { ReplaySessionSpeed } from '../../common/replay-sessions'
 import { DEFAULT_LOCAL_SETTINGS } from '../../common/settings/default-settings'
 import { LocalSettings } from '../../common/settings/local-settings'
 import {
@@ -150,6 +151,7 @@ export type ActiveGameManagerEvents = {
   gameStatus: [statusInfo: ReportedGameStatus]
   replaySaved: [gameId: string, path: string]
   replaySessionReady: [gameId: string]
+  replaySessionSpeed: [gameId: string, speed: ReplaySessionSpeed]
   resendReplay: [request: ResendReplayRequest]
   setUserBlocked: [gameId: string, userId: SbUserId, blocked: boolean]
 }
@@ -656,6 +658,13 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
 
     log.verbose(`Replay session game ${gameId} is ready`)
     this.emit('replaySessionReady', gameId)
+  }
+
+  handleReplaySessionSpeed(gameId: string, speed: ReplaySessionSpeed): void {
+    if (!this.activeGame || this.activeGame.id !== gameId) {
+      return
+    }
+    this.emit('replaySessionSpeed', gameId, speed)
   }
 
   sendGameChat(gameId: string, text: string): void {

@@ -54,3 +54,10 @@ export interface GetReplaySessionSourceResponse {
   hash: string
   size: number
 }
+
+/** A native replay speed command, including the pause bit carried by every speed change. */
+export interface ReplaySessionSpeed {
+  paused: boolean
+  speed: number
+  multiplier: number
+}

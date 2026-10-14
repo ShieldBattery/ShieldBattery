@@ -2787,6 +2787,20 @@ impl BwScr {
                         ),
                         false => slice,
                     };
+                    let slice: Cow<'_, [u8]> =
+                        if is_replay && are_recorded_replay_commands == 0
+                            && crate::replay_session::is_active()
+                        {
+                            match crate::replay_session::filter_local_commands(
+                                &slice,
+                                &self.game_command_lengths,
+                            ) {
+                                Cow::Owned(filtered) => Cow::Owned(filtered),
+                                Cow::Borrowed(_) => slice,
+                            }
+                        } else {
+                            slice
+                        };
                     // The replay UI's seeks go to keyframe seeking when it handles them.
                     let slice: Cow<'_, [u8]> = match is_replay && are_recorded_replay_commands == 0
                     {

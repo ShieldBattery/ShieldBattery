@@ -55,6 +55,9 @@ export interface ReplayMapInfo {
 export interface ReplaySessionPlaybackControl {
   controller: boolean
   paused: boolean
+  /** Replay speed preset and multiplier. Absent until the lobby receives its first speed change. */
+  speed?: number
+  multiplier?: number
 }
 
 export function isReplayLaunchConfig(config: GameLaunchConfig) {

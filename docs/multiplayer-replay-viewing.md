@@ -2,31 +2,28 @@
 
 ## Goal
 
-A user can choose either a local `.rep` file or a replay stored by ShieldBattery, open a replay
-room, invite others, and start watching together. Every viewer can use their own observer UI. The
-room host controls playback speed, pause, and seeking for everyone. Viewers can chat during the
-session. This follows Battle.net's [Watch with Others](https://news.blizzard.com/en-gb/article/10054757/new-replay-and-resume-features-coming-in-heart-of-the-swarm)
-behavior without including its separate Take Command feature.
+A user can select a local `.rep` file or a ShieldBattery-hosted replay, create a replay lobby,
+invite others, and watch it together. The host controls playback for everyone. Each viewer keeps
+their own camera, vision, and observer UI. Viewers can chat in-game. The follower's replay play,
+pause, and speed button positions are empty, as in Battle.net's Watch with Others.
 
-## Runtime model
+## Lobby model
 
-Each client runs the existing local replay player on the same verified replay bytes. A separate
-server room coordinates membership and playback state. Replay viewing does not create a game record,
-use GameLoader, or establish a netcode v2 game session: those paths require a playable map, player
-slots, results, and live turns, while replay commands come from the `.rep` file.
+Replay viewing uses the existing lobby service, routes, chat, invitations, membership, and host
+transfer. The create form offers **Select replay** below **Select map**. A replay lobby carries a
+replay source in place of a map. Its room shows one viewer list, replay metadata, a **Start
+watching** action, and loading progress. Map settings, teams, races, and observer slot controls do
+not apply. A replay run creates no game record or results.
 
-The server owns a playback epoch, target frame, paused state, speed, and controller user ID. The
-host's controls update that state and are sent to the other viewers. A viewer reports its loaded
-state and current frame; the room begins playback only after everyone admitted to the start has
-loaded the same replay. Viewer camera, player vision, and other observer UI state stay local.
-
-The first release admits viewers while the room is gathering or loading. Joining a running replay
-requires seeking and catch-up behavior and can be added after the initial synchronized path is
-verified. If the host leaves, playback pauses until the room selects a new controller or closes.
+The first release allows joining while the lobby gathers. The countdown locks the viewing group.
+Each viewer downloads the same replay, verifies its SHA-256 hash, launches it locally, and holds at
+frame zero. The server starts playback when every viewer reports ready. A failed or timed-out load
+cancels the run. Closing a replay reports that viewer finished; the lobby regroups after all viewers
+have closed it.
 
 ## Replay sources and access
 
-The public source selector is a discriminated union:
+The source selector is a discriminated union:
 
 ```ts
 type ReplaySessionSource =
@@ -34,53 +31,35 @@ type ReplaySessionSource =
   | { kind: 'upload'; sourceId: string }
 ```
 
-For a ShieldBattery game, the server resolves the best available replay. Creating or joining a
-room checks `canUserAccessReplay` for that viewer. A room invitation does not grant access to an
-unlisted game's replay.
+For a ShieldBattery game, the server resolves a stored replay. Joining checks each viewer's own
+access; a lobby invitation cannot grant access to an unlisted game's replay. A local file is staged
+through an authenticated, size-limited upload. The server parses it, hashes it, stores it privately,
+and returns an opaque expiring source ID. The lobby issues short-lived downloads to its members.
+Local paths and download URLs stay out of public lobby summaries. Retention cleanup preserves
+staged files still referenced by a lobby.
 
-For a local file, the client uploads the `.rep` through an authenticated, size-limited staging
-endpoint. The server parses it, computes its SHA-256 hash, stores it privately, and returns an
-opaque, expiring source ID owned by the uploader. The room gives authorized members a short-lived
-download URL. No local filesystem path or client-supplied hash is distributed to members. Staged
-files need expiry and cleanup that preserve replay files referenced by actual games.
+## Playback protocol
 
-Every participant downloads the source before launch and checks its hash using the existing replay
-cache. Each client then passes its own local path to `ReplayMapInfo`. The URL stays out of public
-room summaries and is sent only to authorized members.
+The Electron app launches the normal replay player with a session marker. The injected DLL pauses
+on the first logic frame and reports readiness. The lobby start event releases all viewers. The
+host's native replay commands are reported through the app to the lobby service, which broadcasts
+playback state. Followers discard direct timeline commands. Session commands stay local to replay
+playback and do not enter the recorded replay stream. A host transfer pauses playback and assigns
+control to the new host.
 
-## Room and playback protocol
+Direct seeking is blocked for now so one viewer cannot diverge from the others. Seeking needs a
+coordinated epoch: pause all viewers, send a target frame, wait for frame
+acknowledgements after each client's seek (including backward seeks that restart replay logic),
+then resume. Periodic frame reports should detect drift and correct it without changing recorded
+commands. Reconnect must restore the current playback state and epoch. Camera and vision changes
+remain local.
 
-The replay room has its own service, API, and socket namespace. It can reuse lobby UI patterns but
-not the game loader. Its lifecycle is `gathering → loading → viewing → ended`, with membership,
-ready state, invitations, chat, disconnect handling, and a host-controlled start. Room events carry
-a monotonically increasing revision so a reconnect can discard stale control messages and request
-the current state. A playback epoch changes on seek or controller change. Within an epoch, reports
-include the replay frame so drift can be measured and corrected without altering recorded commands.
+## Remaining implementation checkpoints
 
-The app forwards room control messages to the local DLL. The DLL reports host replay controls
-originating in SC:R; followers do not apply direct timeline controls. Injected speed and seek
-commands must remain local to playback and must never enter the recorded replay command stream.
-Replay session load/status messages go to the replay room service, not the normal game results or
-game loader endpoints.
-
-## In-game presentation
-
-Each viewer sees the normal replay player. Only the controller gets the play/pause and speed
-buttons; for every other viewer those button slots are empty, as in Battle.net's Watch with Others.
-This rule belongs to the session, not to the current replay UI's layout, so it must carry over to
-any replay interface that replaces it. Session chat appears in-game, as chat does in a normal game.
-
-## Implementation checkpoints
-
-1. Add source types and authenticated source staging/resolution, including hash verification,
-   access checks, expiry, and cleanup tests.
-2. Add room membership, invitations, readiness, source handoff, lifecycle, and chat. Test access
-   to listed, unlisted, and uploaded sources and the all-viewers-ready start barrier.
-3. Launch the same verified replay on every client and report loaded/ended status to the room.
-   Expose room creation from both the replay library and ShieldBattery game replays.
-4. Synchronize host pause/speed, then seeking. Validate native command forwarding, drift recovery,
-   host departure, and reconnect in two real Electron clients. Build the DLL for x64 and x86.
-
-The runtime command injection and seek completion behavior need a focused native spike before the
-fourth checkpoint. In particular, a backward seek restarts SC:R's local replay loop, so the room
-must wait for the DLL's resulting frame acknowledgement before resuming followers.
+1. Verify pause and speed propagation in two real Electron clients, including host transfer and
+   follower input rejection.
+2. Add seek dispatch, per-viewer frame acknowledgement, drift correction, and reconnect recovery.
+3. Hide follower timeline buttons while keeping their positions empty. Route session chat through
+   the in-game chat UI and the lobby chat channel.
+4. Translate new UI strings and verify local and hosted sources, access control, load failure,
+   replay closure, and both x64 and x86 DLLs before review.

@@ -354,6 +354,8 @@ mod tests {
                 GameStateMessage::SetReplaySessionPlayback(ReplaySessionPlaybackControl {
                     controller: false,
                     paused: true,
+                    speed: None,
+                    multiplier: None,
                 })
             ))
         ));

@@ -4553,6 +4553,40 @@ describe('lobbies/lobby-service', () => {
       expect(lobbyService.runStates.has(id)).toBe(false)
     })
 
+    test('only the current host can broadcast replay speed while watching', async () => {
+      const { id } = await createReplayLobby()
+      await joinLobby(joiner, id)
+      const speed = { paused: true, speed: 4, multiplier: 2 }
+
+      expect(() =>
+        lobbyService.reportReplaySpeed({ client: host.client, lobbyId: id, speed }),
+      ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.ReplayNotLoading }))
+
+      await startReplayLoad()
+      lobbyService.reportReplayLoaded({ client: host.client, lobbyId: id, hash: REPLAY_HASH })
+      lobbyService.reportReplayLoaded({ client: joiner.client, lobbyId: id, hash: REPLAY_HASH })
+
+      expect(() =>
+        lobbyService.reportReplaySpeed({ client: joiner.client, lobbyId: id, speed }),
+      ).toThrow()
+      lobbyService.reportReplaySpeed({ client: host.client, lobbyId: id, speed })
+      expect(lobbyPublishes(id)).toContainEqual({ type: 'replaySpeed', speed })
+
+      const lobby = lobbyService.lobbies.get(id)!
+      const [, , joinerSlot] = findSlotByUserId(lobby, JOINER_USER.id)
+      const transferred = { ...lobby, host: joinerSlot! }
+      lobbyService.lobbies.set(id, transferred)
+      lobbyService._publishLobbyDiff(lobby, transferred)
+      expect(diffEvents(id)).toContainEqual({
+        type: 'replaySpeed',
+        speed: { ...speed, paused: true },
+      })
+      expect(() =>
+        lobbyService.reportReplaySpeed({ client: host.client, lobbyId: id, speed }),
+      ).toThrow()
+      lobbyService.reportReplaySpeed({ client: joiner.client, lobbyId: id, speed })
+    })
+
     test('hands members a download of the replay, checked for each of them', async () => {
       const { id } = await createReplayLobby()
       await joinLobby(joiner, id)

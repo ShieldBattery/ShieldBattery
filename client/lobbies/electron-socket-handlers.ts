@@ -12,6 +12,7 @@ import i18n from '../i18n/i18next'
 import { RootState } from '../root-reducer'
 import { isInLobby } from './lobby-reducer'
 import {
+  applyLobbyReplaySpeed,
   cancelLobbyReplay,
   loadLobbyReplay,
   registerReplayLobbyGameEvents,
@@ -118,7 +119,7 @@ function downloadLobbyMap(lobby: Lobby) {
 }
 
 const eventToAction: EventToActionMap = {
-  init: (lobbyId, event) => {
+  init: (lobbyId, event) => dispatch => {
     clearCountdownTimer()
     // A replay lobby has no map to play: its replay is downloaded when it starts
     if (event.lobby.map) {
@@ -132,9 +133,12 @@ const eventToAction: EventToActionMap = {
       })
     }
 
-    return {
+    dispatch({
       type: '@lobbies/init',
       payload: event,
+    })
+    if (event.replaySpeed) {
+      dispatch(applyLobbyReplaySpeed(lobbyId, event.replaySpeed))
     }
   },
 
@@ -218,6 +222,10 @@ const eventToAction: EventToActionMap = {
     })
     // Whoever hosts a replay lobby controls its playback
     dispatch(updateLobbyReplayController(lobbyId))
+  },
+
+  replaySpeed: (lobbyId, event) => dispatch => {
+    dispatch(applyLobbyReplaySpeed(lobbyId, event.speed))
   },
 
   slotChange: (lobbyId, event) => ({

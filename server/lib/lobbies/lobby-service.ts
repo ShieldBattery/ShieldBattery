@@ -59,6 +59,7 @@ import { multipleRandomItems } from '../../../common/random'
 import {
   GetReplaySessionSourceResponse,
   ReplaySessionSource,
+  ReplaySessionSpeed,
 } from '../../../common/replay-sessions'
 import { RolledOutcome, RolledOutcomeRequest } from '../../../common/rolled-outcomes'
 import { urlPath } from '../../../common/urls'
@@ -507,6 +508,7 @@ export class LobbyService {
   private readonly lobbyReplays = new Map<SbLobbyId, ResolvedReplaySessionSource>()
   /** The replay lobbies whose members are loading the replay, keyed by lobby id. */
   private readonly replayLoads = new Map<SbLobbyId, ReplayLoad>()
+  private readonly replaySpeeds = new Map<SbLobbyId, ReplaySessionSpeed>()
   /** A lobby's normalized join code, keyed by lobby id. Populated at create, gone once it closes. */
   private readonly lobbyJoinCodes = new Map<SbLobbyId, string>()
   /** The inverse of {@link lobbyJoinCodes}, for resolving a typed-in code back to its lobby. */
@@ -1109,6 +1111,7 @@ export class LobbyService {
             type: 'init',
             lobby,
             runState: this._runStateJson(lobbyId),
+            replaySpeed: this.replaySpeeds.get(lobbyId),
             userInfos,
             readyUsers: this._readyUsersJson(lobbyId),
             series: this._seriesJson(lobbyId),
@@ -1119,6 +1122,7 @@ export class LobbyService {
             type: 'init',
             lobby,
             runState: this._runStateJson(lobbyId),
+            replaySpeed: this.replaySpeeds.get(lobbyId),
             // Generally this should be okay (the client can batch retrieve the user info later),
             // just higher latency
             userInfos: [],
@@ -2707,6 +2711,28 @@ export class LobbyService {
     }
   }
 
+  /** Broadcasts a native replay speed change from the current room host. */
+  reportReplaySpeed({
+    client,
+    lobbyId,
+    speed,
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+    speed: ReplaySessionSpeed
+  }): void {
+    const lobby = this.getLobbyForClient(client, lobbyId)
+    const runState = this.runStates.get(lobby.id)
+    const [, , player] = findSlotByUserId(lobby, client.userId)
+    this.ensureIsLobbyHost(lobby, player)
+    if (!runState?.isReplay || !runState.inGameUsers.has(client.userId)) {
+      throw new LobbyServiceError(LobbyServiceErrorCode.ReplayNotLoading, 'not watching a replay')
+    }
+
+    this.replaySpeeds.set(lobby.id, speed)
+    this._publishTo(lobby, { type: 'replaySpeed', speed })
+  }
+
   /** Returns a short-lived download of a replay lobby's replay for one of its members. */
   async getReplayDownload({
     client,
@@ -2817,6 +2843,9 @@ export class LobbyService {
       teams: toSeriesTeams(lobby),
     }
     this.runStates.set(lobbyId, runState)
+    if (runState.isReplay) {
+      this.replaySpeeds.set(lobbyId, { paused: false, speed: 6, multiplier: 1 })
+    }
     if (!runState.isReplay) {
       // The lobby is what remembers this game once it's over, so a result reconciled at any later
       // point has to be able to find its way back here.
@@ -3054,6 +3083,7 @@ export class LobbyService {
 
     this.clock.clearTimeout(runState.deadlineTimer)
     this.runStates.delete(lobbyId)
+    this.replaySpeeds.delete(lobbyId)
   }
 
   /**
@@ -3283,6 +3313,12 @@ export class LobbyService {
       // Ready marks belong to the person who chose them. A former host can remain seated after a
       // host transfer and must mark ready explicitly before the next game can start.
       this.readyUsers.get(oldLobby.id)?.delete(oldLobby.host.userId!)
+      const replaySpeed = this.replaySpeeds.get(oldLobby.id)
+      if (replaySpeed) {
+        const paused = { ...replaySpeed, paused: true }
+        this.replaySpeeds.set(oldLobby.id, paused)
+        diffEvents.push({ type: 'replaySpeed', speed: paused })
+      }
     }
     if (newLobby.host.id !== oldLobby.host.id || hostUserChanged) {
       diffEvents.push({

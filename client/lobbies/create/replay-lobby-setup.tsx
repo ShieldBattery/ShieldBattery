@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { ReadonlyDeep } from 'type-fest'
+import { ReadonlyDeep, StructuredCloneable } from 'type-fest'
 import { getErrorStack } from '../../../common/errors'
 import { TypedIpcRenderer } from '../../../common/ipc'
 import { filterColorCodes } from '../../../common/maps'
@@ -189,7 +189,7 @@ export function ReplayLobbySetup({
                 'lobbies.replayLobby.watchingTogetherBody',
                 'Everyone in the lobby watches this replay in their own game, with their own ' +
                   'observer view. Playback starts once everyone has loaded it, and only the host ' +
-                  'controls pausing, speed, and seeking.',
+                  'controls pausing and speed.',
               )}
             </ExplainerText>
           </Section>

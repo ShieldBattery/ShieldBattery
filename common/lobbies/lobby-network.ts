@@ -5,6 +5,7 @@ import { GameType } from '../games/game-type'
 import { ReconciledResult } from '../games/results'
 import { MapImageInfo, MapInfoJson, SbMapId } from '../maps'
 import { RaceChar } from '../races'
+import { ReplaySessionSpeed } from '../replay-sessions'
 import { RolledOutcome, RolledOutcomeRequest } from '../rolled-outcomes'
 import { SbUser } from '../users/sb-user'
 import { SbUserId } from '../users/sb-user-id'
@@ -182,6 +183,8 @@ export interface ReportLobbyReplayLoadedRequest extends LobbyClientRequest {
   hash: string
 }
 
+export interface ReportLobbyReplaySpeedRequest extends LobbyClientRequest, ReplaySessionSpeed {}
+
 export interface StartLobbyCountdownRequest extends LobbyClientRequest {
   /**
    * When set, the countdown begins even though some of the lobby's seated members have not marked
@@ -310,6 +313,7 @@ export type LobbyEvent =
   | LobbySeriesGameUpdatedEvent
   | LobbyReadyChangeEvent
   | LobbyReplayLoadEvent
+  | LobbyReplaySpeedEvent
 
 /**
  * A slot as shown to a lobby's previewers: its occupancy and just enough about the occupant to
@@ -517,6 +521,8 @@ export interface LobbyInitEvent {
   lobby: Lobby
   /** The running game, when the lobby is `inGame` (e.g. for someone joining the bench mid-game). */
   runState?: LobbyRunStateJson
+  /** The latest pause and speed state while a replay lobby is playing. */
+  replaySpeed?: ReplaySessionSpeed
   /** An array of infos for all users that were in the lobby at this point. */
   userInfos: SbUser[]
   /** The members who have marked themselves ready for the lobby's next game. */
@@ -598,6 +604,11 @@ export interface LobbyCancelLoadingEvent {
 export interface LobbyGameStartedEvent {
   type: 'gameStarted'
   runState: LobbyRunStateJson
+}
+
+export interface LobbyReplaySpeedEvent {
+  type: 'replaySpeed'
+  speed: ReplaySessionSpeed
 }
 
 /** A member's game ended and they are back in the lobby; the game itself may still be running. */

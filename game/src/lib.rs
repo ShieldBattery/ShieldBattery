@@ -477,6 +477,21 @@ async fn handle_messages_from_game_thread(
                             let _ = ws_send.send(msg).await;
                         }
                     }
+                    GameThreadMessage::ReplaySessionSpeed {
+                        paused,
+                        speed,
+                        multiplier,
+                    } => {
+                        let payload = app_messages::ReplaySessionSpeed {
+                            paused,
+                            speed,
+                            multiplier,
+                        };
+                        let msg = app_socket::encode_message("/game/replaySessionSpeed", payload);
+                        if let Some(msg) = msg {
+                            let _ = ws_send.send(msg).await;
+                        }
+                    }
                     GameThreadMessage::SetUserBlocked { user_id, blocked } => {
                         let msg = app_socket::encode_message(
                             "/game/setUserBlocked",

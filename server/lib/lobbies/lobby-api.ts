@@ -16,6 +16,7 @@ import {
   LobbySlotRequest,
   MoveSlotRequest,
   ReportLobbyReplayLoadedRequest,
+  ReportLobbyReplaySpeedRequest,
   SendLobbyChatRequest,
   SendLobbyOutcomeRequest,
   SetLobbyRaceRequest,
@@ -659,6 +660,22 @@ export class LobbyApi {
     const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
 
     this.lobbyService.reportReplayEnded({ client, lobbyId: params.lobbyId })
+  }
+
+  @httpPost('/:lobbyId/replay-speed')
+  @httpBefore(...authedAction)
+  async reportReplaySpeed(ctx: RouterContext): Promise<void> {
+    const { params, body } = validateRequest(ctx, {
+      params: lobbyIdParams,
+      body: Joi.object<ReportLobbyReplaySpeedRequest>({
+        clientId: clientIdSchema,
+        paused: Joi.boolean().required(),
+        speed: Joi.number().integer().min(0).max(6).required(),
+        multiplier: Joi.number().integer().min(1).max(32).required(),
+      }),
+    })
+    const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
+    this.lobbyService.reportReplaySpeed({ client, lobbyId: params.lobbyId, speed: body })
   }
 
   @httpGet('/:lobbyId/state')

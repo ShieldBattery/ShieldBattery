@@ -5,9 +5,10 @@ import { TypedIpcRenderer } from '../../common/ipc'
 import {
   LobbyClientRequest,
   ReportLobbyReplayLoadedRequest,
+  ReportLobbyReplaySpeedRequest,
 } from '../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
-import { GetReplaySessionSourceResponse } from '../../common/replay-sessions'
+import { GetReplaySessionSourceResponse, ReplaySessionSpeed } from '../../common/replay-sessions'
 import { apiUrl } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
 import i18n from '../i18n/i18next'
@@ -30,6 +31,7 @@ interface ReplayLobbyGame {
   ready: boolean
   /** Whether the lobby's run has started, letting playback go. */
   started: boolean
+  speed: ReplaySessionSpeed
   /** The playback state last sent to the game, so it is only sent again when it changes. */
   playback?: ReplaySessionPlaybackControl
 }
@@ -37,6 +39,7 @@ interface ReplayLobbyGame {
 let current: ReplayLobbyGame | undefined
 let pendingLobbyId: SbLobbyId | undefined
 let loadGeneration = 0
+const initialSpeed: ReplaySessionSpeed = { paused: false, speed: 6, multiplier: 1 }
 
 function postLobbyReplayAction(
   lobbyId: SbLobbyId,
@@ -61,10 +64,17 @@ function sendPlayback(isHost: boolean) {
   if (!current?.gameId || !current.ready) {
     return
   }
-  const playback: ReplaySessionPlaybackControl = { controller: isHost, paused: !current.started }
+  const playback: ReplaySessionPlaybackControl = {
+    controller: isHost,
+    paused: !current.started || current.speed.paused,
+    speed: current.speed.speed,
+    multiplier: current.speed.multiplier,
+  }
   if (
     current.playback?.controller === playback.controller &&
-    current.playback.paused === playback.paused
+    current.playback.paused === playback.paused &&
+    current.playback.speed === playback.speed &&
+    current.playback.multiplier === playback.multiplier
   ) {
     return
   }
@@ -120,7 +130,7 @@ export function loadLobbyReplay(lobbyId: SbLobbyId, mapName: string): ThunkActio
           return
         }
         pendingLobbyId = undefined
-        current = { lobbyId, hash, ready: false, started: false }
+        current = { lobbyId, hash, ready: false, started: false, speed: initialSpeed }
         dispatch(
           startReplay({
             path,
@@ -172,6 +182,16 @@ export function updateLobbyReplayController(lobbyId: SbLobbyId): ThunkAction {
   }
 }
 
+/** Applies the room host's timeline state to this viewer's game. */
+export function applyLobbyReplaySpeed(lobbyId: SbLobbyId, speed: ReplaySessionSpeed): ThunkAction {
+  return (dispatch, getState) => {
+    if (current?.lobbyId === lobbyId) {
+      current.speed = speed
+      sendPlayback(selfIsHost(getState))
+    }
+  }
+}
+
 /** Quits a replay lobby's replay that never got to play, since its load was called off. */
 export function cancelLobbyReplay(lobbyId: SbLobbyId) {
   if (current?.lobbyId !== lobbyId && pendingLobbyId !== lobbyId) {
@@ -213,6 +233,18 @@ export function registerReplayLobbyGameEvents(dispatchThunk: (thunk: ThunkAction
       current.ready = true
       postLobbyReplayAction(current.lobbyId, 'replay-loaded', current.hash)
       dispatchThunk((dispatch, getState) => sendPlayback(selfIsHost(getState)))
+    })
+    .on('activeGameReplaySessionSpeed', (event, gameId, speed) => {
+      if (current?.gameId !== gameId || !current.started) {
+        return
+      }
+      const body = encodeBodyAsParams<ReportLobbyReplaySpeedRequest>({ clientId, ...speed })
+      fetchJson<void>(apiUrl`lobbies/${current.lobbyId}/replay-speed`, {
+        method: 'POST',
+        body,
+      }).catch(err => {
+        logger.error(`Error reporting replay speed: ${getErrorStack(err)}`)
+      })
     })
     .on('activeGameStatus', (event, status) => {
       if (!current || current.gameId !== status.id) {
