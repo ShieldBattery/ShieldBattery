@@ -1,25 +1,31 @@
 import { init, parseReplay } from '@shieldbattery/broodrep'
 import Chk from 'bw-chk'
 import jpeg from 'jpeg-js'
+import { createHash } from 'node:crypto'
 import { isMainThread, parentPort, workerData } from 'node:worker_threads'
 
 if (isMainThread) {
   throw new Error('replay-map-image-worker must run in a worker thread')
 }
 
-const { replayBytes, bwDataPath } = workerData as {
+const { replayBytes, bwDataPath, mode } = workerData as {
   replayBytes: Uint8Array
-  bwDataPath: string
+  bwDataPath?: string
+  mode: 'thumbnail' | 'scenario'
 }
 
 Promise.resolve()
   .then(async () => {
-    if (!bwDataPath) throw new Error('map sprite data is unavailable')
     init()
     const replay = parseReplay(replayBytes)
     const mapData = replay.getRawSection('mapData')
     if (!mapData) throw new Error('replay has no embedded map')
+    if (mode === 'scenario') {
+      parentPort!.postMessage({ scenarioHash: createHash('sha256').update(mapData).digest('hex') })
+      return
+    }
     const map = new Chk(Buffer.from(mapData))
+    if (!bwDataPath) throw new Error('map sprite data is unavailable')
     const width = 512
     const height = Math.round((width * map.size[1]) / map.size[0])
     if (!Number.isFinite(height) || height < 1 || height > 2048) {

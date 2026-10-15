@@ -1,6 +1,6 @@
 import { Worker } from 'node:worker_threads'
 import { singleton } from 'tsyringe'
-import { MapImageInfo } from '../../../common/maps'
+import { MapImageInfo, MapInfo } from '../../../common/maps'
 import {
   GetReplaySessionSourceResponse,
   ReplaySessionSource,
@@ -11,9 +11,11 @@ import { CodedError } from '../errors/coded-error'
 import { getSignedUrl, readFile } from '../files'
 import { getGameRecord } from '../games/game-models'
 import logger from '../logging/logger'
-import { getMapInfos } from '../maps/map-models'
+import { getMapInfos, getReplayMapCandidates } from '../maps/map-models'
+import { mapPath } from '../maps/paths'
 import { replayPath } from './paths'
 import { canUserAccessReplay } from './replay-access'
+import { scenarioHashForMap } from './replay-map-scenario'
 import { getBestReplayForGame } from './replay-models'
 import {
   replaySessionSourceMetadata,
@@ -30,6 +32,52 @@ export class ReplaySessionSourceAccessError extends CodedError<ReplaySessionSour
 
 /** How long a viewer's replay download URL stays valid. */
 const DOWNLOAD_URL_LIFETIME_SECONDS = 5 * 60
+
+interface ReplayMapWorkerResult {
+  image?: Uint8Array
+  scenarioHash?: string
+  error?: string
+}
+
+function mapImageInfo(map: MapInfo): MapImageInfo {
+  return {
+    name: map.name,
+    image256Url: map.image256Url,
+    image512Url: map.image512Url,
+    image1024Url: map.image1024Url,
+    image2048Url: map.image2048Url,
+    mapData: { width: map.mapData.width, height: map.mapData.height },
+  }
+}
+
+async function runReplayMapWorker(
+  replayBytes: Buffer,
+  mode: 'thumbnail' | 'scenario',
+): Promise<ReplayMapWorkerResult> {
+  return await new Promise((resolve, reject) => {
+    const worker = new Worker(require.resolve('./replay-map-image-worker'), {
+      name: 'replay-map-image-worker',
+      workerData: { replayBytes, bwDataPath: process.env.SB_SPRITE_DATA, mode },
+    })
+    const timeout = setTimeout(() => {
+      worker.terminate().catch(() => {})
+      reject(new Error('timed out parsing replay map'))
+    }, 60000)
+    worker.once('message', (message: ReplayMapWorkerResult) => {
+      clearTimeout(timeout)
+      if (message.error) reject(new Error(message.error))
+      else resolve(message)
+    })
+    worker.once('error', err => {
+      clearTimeout(timeout)
+      reject(err instanceof Error ? err : new Error(String(err)))
+    })
+    worker.once('exit', code => {
+      clearTimeout(timeout)
+      reject(new Error(`replay map image worker exited before responding with ${code}`))
+    })
+  })
+}
 
 /**
  * A replay chosen to be watched with others, fixed when it is chosen so that every viewer downloads
@@ -50,6 +98,7 @@ export class ReplaySessionSources {
   constructor(private sourceService: ReplaySessionSourceService) {}
 
   private readonly thumbnailCache = new Map<string, Promise<Buffer | undefined>>()
+  private readonly libraryImageCache = new Map<string, Promise<MapImageInfo | undefined>>()
 
   /** Renders the map embedded in a replay when no library map image is available. */
   async thumbnail(source: ResolvedReplaySessionSource): Promise<Buffer | undefined> {
@@ -74,31 +123,8 @@ export class ReplaySessionSources {
         ? replayPath(source.replayFileId)
         : replaySessionUploadPath(source.sourceId)
     const replayBytes = await readFile(path)
-    return await new Promise<Buffer | undefined>((resolve, reject) => {
-      const worker = new Worker(require.resolve('./replay-map-image-worker'), {
-        name: 'replay-map-image-worker',
-        workerData: { replayBytes, bwDataPath: process.env.SB_SPRITE_DATA },
-      })
-      const timeout = setTimeout(() => {
-        worker.terminate().catch(() => {})
-        reject(new Error('timed out rendering replay map'))
-      }, 60000)
-      worker.once('message', (message: { image?: Uint8Array; error?: string }) => {
-        clearTimeout(timeout)
-        if (message.error) reject(new Error(message.error))
-        else resolve(message.image ? Buffer.from(message.image) : undefined)
-      })
-      worker.once('error', err => {
-        clearTimeout(timeout)
-        reject(err instanceof Error ? err : new Error(String(err)))
-      })
-      worker.once('exit', code => {
-        if (code !== 0) {
-          clearTimeout(timeout)
-          reject(new Error(`replay map image worker exited with ${code}`))
-        }
-      })
-    })
+    const result = await runReplayMapWorker(replayBytes, 'thumbnail')
+    return result.image ? Buffer.from(result.image) : undefined
   }
 
   private async mapImageForGame(gameId: string | undefined): Promise<MapImageInfo | undefined> {
@@ -106,15 +132,62 @@ export class ReplaySessionSources {
     const game = await getGameRecord(gameId)
     if (!game?.mapId) return undefined
     const map = (await getMapInfos([game.mapId]))[0]
-    if (!map) return undefined
-    return {
-      name: map.name,
-      image256Url: map.image256Url,
-      image512Url: map.image512Url,
-      image1024Url: map.image1024Url,
-      image2048Url: map.image2048Url,
-      mapData: { width: map.mapData.width, height: map.mapData.height },
+    return map ? mapImageInfo(map) : undefined
+  }
+
+  /** Matches an uploaded replay's embedded scenario to a library map before extraction. */
+  private async mapImageForUpload(
+    sourceId: string,
+    hash: string,
+    mapName: string,
+    width: number,
+    height: number,
+    userId: SbUserId,
+  ): Promise<MapImageInfo | undefined> {
+    const key = `${hash}:${userId}`
+    const cached = this.libraryImageCache.get(key)
+    if (cached) return cached
+    const find = this.findLibraryMapImage(sourceId, mapName, width, height, userId)
+      .then(image => {
+        if (!image) this.libraryImageCache.delete(key)
+        return image
+      })
+      .catch(err => {
+        logger.warn({ err, replayHash: hash }, 'failed to match replay to library map')
+        this.libraryImageCache.delete(key)
+        return undefined
+      })
+    this.libraryImageCache.set(key, find)
+    if (this.libraryImageCache.size > 16) {
+      this.libraryImageCache.delete(this.libraryImageCache.keys().next().value!)
     }
+    return find
+  }
+
+  private async findLibraryMapImage(
+    sourceId: string,
+    mapName: string,
+    width: number,
+    height: number,
+    userId: SbUserId,
+  ): Promise<MapImageInfo | undefined> {
+    const candidates = await getReplayMapCandidates({ name: mapName, width, height, userId })
+    if (!candidates.length) return undefined
+    const replayBytes = await readFile(replaySessionUploadPath(sourceId))
+    const { scenarioHash } = await runReplayMapWorker(replayBytes, 'scenario')
+    if (!scenarioHash) return undefined
+    for (const candidate of candidates) {
+      try {
+        const mapBytes = await readFile(mapPath(candidate.hash, candidate.extension))
+        if ((await scenarioHashForMap(mapBytes)) === scenarioHash) {
+          const map = (await getMapInfos([candidate.id]))[0]
+          return map ? mapImageInfo(map) : undefined
+        }
+      } catch (err) {
+        logger.warn({ err, mapHash: candidate.hash }, 'failed to inspect replay map candidate')
+      }
+    }
+    return undefined
   }
 
   /**
@@ -134,7 +207,17 @@ export class ReplaySessionSources {
         )
       }
 
-      const mapImage = await this.mapImageForGame(upload.sbData?.gameId)
+      const metadata = replaySessionSourceMetadata(upload.header, upload.slots)
+      const mapImage =
+        (await this.mapImageForGame(upload.sbData?.gameId)) ??
+        (await this.mapImageForUpload(
+          upload.id,
+          upload.hash.toString('hex'),
+          metadata.mapName,
+          upload.header.mapWidth,
+          upload.header.mapHeight,
+          userId,
+        ))
       return {
         source: {
           kind: 'upload',
@@ -144,7 +227,7 @@ export class ReplaySessionSources {
         },
         info: {
           kind: 'upload',
-          metadata: { ...replaySessionSourceMetadata(upload.header, upload.slots), mapImage },
+          metadata: { ...metadata, mapImage },
         },
       }
     }

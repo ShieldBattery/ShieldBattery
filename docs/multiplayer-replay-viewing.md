@@ -19,8 +19,9 @@ An existing gathering lobby starts in game mode. Its host can choose a replay in
 switch to replay mode, or choose a map in Replay setup to switch back. The lobby ID, visibility,
 invitation link, chat, and members persist through either change. The public lobby preview may show
 the map, replay players, and current members. A replay tied to a ShieldBattery game uses that game's
-library map image when available. Other replays use a thumbnail rendered from the embedded map;
-this rendering needs the same `SB_SPRITE_DATA` assets as map image generation.
+library map image when available. Uploaded replays are matched against library maps by their
+embedded scenario and use the library image when it matches. Other replays use a thumbnail rendered
+from the embedded map; this rendering needs the same `SB_SPRITE_DATA` assets as map image generation.
 
 The first release allows joining while the lobby gathers. The countdown locks the viewing group.
 Each viewer downloads the same replay, verifies its SHA-256 hash, launches it locally, and holds at
@@ -81,3 +82,6 @@ reject nonmember downloads and thumbnail requests. An authenticated download mat
 size and SHA-256 hash; a deliberately incorrect hash made the viewer reject the file and cancel the
 run. The embedded map parses correctly, but the development server lacks `SB_SPRITE_DATA`, so JPEG
 rendering still needs verification in an environment with those assets.
+
+Exact scenario matching was checked with a Bottleneck replay and installed library map, which
+produced identical SHA-256 hashes. A different installed map did not match.
