@@ -251,7 +251,9 @@ const CONFIRM_WIDTH: f32 = 360.0;
 /// Asks whether to leave the game, for the keys SC:R quits with (`Alt+Q`, `Alt+X` and their `Ctrl`
 /// forms), which in ShieldBattery all come to the same thing: the game ends for this client.
 ///
-/// Leaving costs what it costs from the menu (see [`leave_is_held`]), with the same controls.
+/// The answer is a click or a tap rather than a hold wherever leaving is held from the menu: the
+/// question only comes up for SC:R's quit keys, which are already one deliberate press, and a tap is
+/// how SC:R's own question answers them.
 pub fn render_leave_confirm(
     ctx: &Context,
     replay: bool,
@@ -273,9 +275,7 @@ fn draw_leave_actions(ui: &mut Ui, replay: bool) -> LeaveConfirmOutcome {
         true => LEAVE_CONFIRM_KEYS[1],
         false => LEAVE_CONFIRM_KEYS[0],
     };
-    // Answered with a tap: the question only comes up for SC:R's quit keys, which are already one
-    // deliberate keypress, and the tap is how SC:R's own question answers them.
-    let leave = leave_button(ui, leave_is_held(replay), key, false);
+    let leave = leave_button(ui, false, key, false);
     ui.add_space(BUTTON_GAP);
     LeaveConfirmOutcome {
         leave,
