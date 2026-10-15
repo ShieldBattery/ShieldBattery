@@ -4,6 +4,7 @@ use std::time::{Duration, Instant};
 use parking_lot::Mutex;
 
 use bw_dat::dialog::{Control, Dialog, EventHandler};
+use overlay_ui::shell::PauseControl;
 use overlay_ui::shell::native_dialogs::{self, NativeDialog};
 
 use crate::bw::players::StormPlayerId;
@@ -153,6 +154,29 @@ pub fn activate_replaced_dialog_control(
     REPLACED_DIALOG_DRIVEN[dialog.index()].store(true, Ordering::Relaxed);
     control.send_ext_event_mouse(ACTIVATE_EXT_EVENT, x, y);
     true
+}
+
+/// The game menu's Pause and Resume buttons, which send the pause and resume commands.
+const GAME_MENU_PAUSE_CONTROL_ID: i16 = 8;
+const GAME_MENU_RESUME_CONTROL_ID: i16 = 9;
+
+/// Pauses the game, or resumes it, through the game menu's own button for it, which stays open
+/// afterwards. Pressing a button sends its command whatever the game's rules would say, so it is
+/// only pressed for what `offered`, the game's own rules for this frame, allows.
+pub fn set_paused(first_dialog: Option<Dialog>, paused: bool, offered: Option<PauseControl>) {
+    let offers_it = matches!(
+        (paused, offered),
+        (true, Some(PauseControl::Pause { .. })) | (false, Some(PauseControl::Resume))
+    );
+    if !offers_it {
+        debug!("Not pressing the game menu's pause button: the game offers {offered:?}");
+        return;
+    }
+    let control_id = match paused {
+        true => GAME_MENU_PAUSE_CONTROL_ID,
+        false => GAME_MENU_RESUME_CONTROL_ID,
+    };
+    activate_replaced_dialog_control(first_dialog, NativeDialog::GameMenu, control_id);
 }
 
 /// Opens the game's menu the way its own key does, by pressing the console's menu button: the menu

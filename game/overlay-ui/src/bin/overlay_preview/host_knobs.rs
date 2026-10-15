@@ -8,7 +8,7 @@
 
 use egui::Ui;
 use overlay_ui::observer::GraphSeries;
-use overlay_ui::shell::{HostFrame, Mode, NativeDialog, Panel, PanelPrefs, Shell};
+use overlay_ui::shell::{HostFrame, Mode, NativeDialog, Panel, PanelPrefs, PauseControl, Shell};
 use serde::{Deserialize, Serialize};
 
 /// Every switch standing in for host state.
@@ -91,6 +91,9 @@ impl Knobs {
             native_dialog_open: self.native_dialog_open,
             native_menu_open: self.native_menu_open,
             game_seconds: self.game_seconds,
+            // A live game offers a player its pauses, as SC:R's own menu would; nothing else does.
+            pause_control: (self.mode == Mode::Playing)
+                .then_some(PauseControl::Pause { left: Some(3) }),
             minimap_rect: None,
         }
     }

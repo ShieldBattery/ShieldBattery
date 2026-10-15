@@ -16,6 +16,7 @@ use hashbrown::HashMap;
 use libc::c_void;
 use overlay_ui::net_quality::NetQualityView;
 use overlay_ui::options::SettingChange;
+use overlay_ui::shell::PauseControl;
 use parking_lot::{Mutex, RwLock};
 use smallvec::SmallVec;
 use winapi::shared::minwindef::FILETIME;
@@ -216,6 +217,8 @@ pub struct BwScr {
     /// 2 = everyone, 3 = allies, 4 = a specific player, 5 = observers. Read at chat-send time to
     /// scope the netcode v2 relay message. Non-fatal if unlocated (chat degrades to everyone).
     chat_box_mode: Option<Value<u8>>,
+    /// Whether the game is paused. Non-fatal if unlocated: the menu then offers no pausing.
+    is_paused: Option<Value<u8>>,
     statres_icons: Value<*mut scr::DdsGrpSet>,
     cmdicons: Value<*mut scr::DdsGrpSet>,
     /// The status panel's unit wireframes, one frame per unit id. `None` (unlocated) leaves the
@@ -2448,6 +2451,10 @@ impl BwScr {
         if chat_box_mode.is_none() {
             warn!("Could not find chat_box_mode global");
         }
+        let is_paused = analysis.is_paused();
+        if is_paused.is_none() {
+            warn!("Could not find is_paused global");
+        }
         let statres_icons = analysis.statres_icons().ok_or("statres_icons")?;
         let cmdicons = analysis.cmdicons().ok_or("cmdicons")?;
         let wirefram = analysis.wirefram();
@@ -2675,6 +2682,7 @@ impl BwScr {
             palette_color_lookup,
             replay_autosave,
             chat_box_mode: chat_box_mode.map(|op| Value::new(ctx, op)),
+            is_paused: is_paused.map(|op| Value::new(ctx, op)),
             statres_icons: Value::new(ctx, statres_icons),
             cmdicons: Value::new(ctx, cmdicons),
             wirefram: wirefram.map(|op| Value::new(ctx, op)),
@@ -4277,6 +4285,7 @@ impl BwScr {
                     let is_replay = self.is_replay.resolve() != 0;
                     let is_team_game = game_thread::is_team_game();
                     let alliance_rules = self.alliance_rules();
+                    let pause_control = self.pause_control(game, is_replay);
                     let main_palette = self.main_palette.resolve();
                     let rgb_colors = self.rgb_colors.resolve();
                     let use_rgb_colors = self.use_rgb_colors.resolve();
@@ -4416,6 +4425,7 @@ impl BwScr {
                                     replay,
                                     stat_txt: self.stat_txt,
                                     alliance_rules,
+                                    pause_control,
                                 },
                                 apm,
                                 game_stats,
@@ -8060,6 +8070,25 @@ impl BwScr {
         self.chat_manager
             .lock()
             .handle_send_chat(text, |player| unsafe { !self.is_allied_with(player.0) })
+    }
+
+    /// What the game offers the local player for pausing: SC:R's own rules, which its menu shows
+    /// as one button or the other. A player with pauses left may pause a running game (three a
+    /// game), and anyone in the game may resume a paused one. Only a live multiplayer game pauses
+    /// this way: a replay has its own playback controls.
+    unsafe fn pause_control(&self, game: bw_dat::Game, is_replay: bool) -> Option<PauseControl> {
+        unsafe {
+            if is_replay || netcode_v2::with_turn_state(|_| ()).is_none() {
+                return None;
+            }
+            let paused = self.is_paused.as_ref()?.resolve() != 0;
+            if paused {
+                return Some(PauseControl::Resume);
+            }
+            let local = self.local_player_id.resolve() as usize;
+            let left = *(**game).pauses_remaining.get(local)?;
+            (left > 0).then_some(PauseControl::Pause { left: Some(left) })
+        }
     }
 
     /// What this game's rules allow of alliances and chat recipients, for the alliances screen.

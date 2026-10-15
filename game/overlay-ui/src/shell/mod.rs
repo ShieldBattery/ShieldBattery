@@ -27,6 +27,7 @@ use crate::alliances::{AlliancesAction, AlliancesMenu, AlliancesView, render_all
 use crate::chat_history::{ChatHistoryView, render_chat_history_view};
 use crate::disconnect::{DisconnectView, SelfState, render_disconnect_view};
 use crate::end_card::{self, EndCardChoice, EndCardView, GameResult, render_end_card};
+pub use crate::game_menu::PauseControl;
 use crate::game_menu::{leave_is_held, render_game_menu, render_leave_confirm};
 use crate::net_quality::{NetQualityView, render_net_quality};
 use crate::netstat::{NetStatsView, render_netstat_view};
@@ -502,6 +503,8 @@ pub enum Intent {
     EndMission(NativeDialog),
     /// Carry out something the player did on the alliances screen.
     Alliances(AlliancesAction),
+    /// Pause the game (`true`) or resume it (`false`), the way the game's own menu does.
+    SetPaused(bool),
     /// Give up on a connection that will not come back and leave the game.
     AbandonGame,
     /// Put one setting on the value the player moved it to, in the game and wherever the host
@@ -657,6 +660,9 @@ pub struct HostFrame {
     /// report on the game as a whole rather than on one player, which is the menu and nothing else
     /// while a client is playing its own game.
     pub game_seconds: u64,
+    /// What the game's own menu offers for pausing, while it is up behind the overlay's: `None`
+    /// where it offers nothing, as in a replay.
+    pub pause_control: Option<PauseControl>,
     /// Where BW's minimap is on screen, in the overlay's points, for a host that can say. The frame
     /// a watcher gets around the minimap is drawn from this, and `None` draws no frame; the panels
     /// placed around the minimap keep clear of the corner the design reserves for it either way.
@@ -1170,6 +1176,9 @@ impl Shell {
             }
             if outcome.open_alliances {
                 self.open_modal(ModalId::Alliances);
+            }
+            if let Some(paused) = outcome.set_paused {
+                self.intents.push(Intent::SetPaused(paused));
             }
         }
 
@@ -1880,6 +1889,10 @@ impl Shell {
             (Some(ModalId::GameMenu), Key::A | Key::C) if playing => {
                 self.open_modal(ModalId::Alliances)
             }
+            (Some(ModalId::GameMenu), Key::P) if self.host.pause_control.is_some() => {
+                let pausing = matches!(self.host.pause_control, Some(PauseControl::Pause { .. }));
+                self.intents.push(Intent::SetPaused(pausing));
+            }
             (Some(ModalId::LeaveGame), Key::Q | Key::E) => self.intents.push(Intent::QuitGame),
             // The key SC:R opens its message history with closes it again, and so does its OK
             // button's.
@@ -2162,6 +2175,8 @@ struct ModalOutcome {
     end_mission: Option<NativeDialog>,
     /// Whether the player asked for the alliances screen.
     open_alliances: bool,
+    /// Whether the player asked to pause the game (`true`) or resume it (`false`).
+    set_paused: Option<bool>,
     /// What the player did on the alliances screen.
     alliances_actions: Vec<AlliancesAction>,
     /// The menu the alliances screen should have open, where that changed.
@@ -2221,6 +2236,7 @@ fn draw_modal(
                 host.game_seconds,
                 host.mode == Mode::Playing,
                 host.mode == Mode::Replay,
+                host.pause_control,
                 shell.button_key_held,
             );
             hit_rects.push(HitRect::new(dialog.response.rect));
@@ -2228,6 +2244,7 @@ fn draw_modal(
                 dismissed: dialog.inner.return_to_game || dialog.scrim_clicked,
                 open_options: dialog.inner.open_options,
                 open_alliances: dialog.inner.open_alliances,
+                set_paused: dialog.inner.set_paused,
                 quit: dialog.inner.leave,
                 ..ModalOutcome::default()
             }
@@ -2334,6 +2351,7 @@ mod tests {
             native_dialog_open: false,
             native_menu_open: false,
             game_seconds: 0,
+            pause_control: None,
             minimap_rect: None,
         });
         shell
@@ -2374,6 +2392,7 @@ mod tests {
             native_dialog_open: false,
             native_menu_open: false,
             game_seconds: 0,
+            pause_control: None,
             minimap_rect: None,
         };
         let raw = egui::RawInput {
@@ -2637,6 +2656,31 @@ mod tests {
         assert_eq!(
             shell.pending_intents(),
             [Intent::CloseNativeDialog(NativeDialog::GameMenu)]
+        );
+    }
+
+    /// `P` on the menu does what the game offers: pauses a running game for a player with pauses
+    /// left, resumes a paused one, and is left alone where the game offers neither.
+    #[test]
+    fn the_pause_key_does_what_the_game_offers() {
+        let mut shell = Shell::new();
+        let mut host = HostFrame {
+            mode: Mode::Playing,
+            game_started: true,
+            ..HostFrame::default()
+        };
+        shell.set_host(&host);
+        shell.native_dialog_spawned(NativeDialog::GameMenu);
+        assert!(!shell.key_pressed(Key::P, Modifiers::NONE));
+        host.pause_control = Some(PauseControl::Pause { left: Some(2) });
+        shell.set_host(&host);
+        assert!(shell.key_pressed(Key::P, Modifiers::NONE));
+        host.pause_control = Some(PauseControl::Resume);
+        shell.set_host(&host);
+        assert!(shell.key_pressed(Key::P, Modifiers::NONE));
+        assert_eq!(
+            shell.pending_intents(),
+            [Intent::SetPaused(true), Intent::SetPaused(false)]
         );
     }
 
@@ -2959,6 +3003,7 @@ mod tests {
             native_dialog_open: false,
             native_menu_open: false,
             game_seconds: 0,
+            pause_control: None,
             minimap_rect: None,
         });
         assert!(!shell.key_pressed(Key::A, Modifiers::NONE));
@@ -2975,6 +3020,7 @@ mod tests {
                 native_dialog_open: false,
                 native_menu_open: false,
                 game_seconds: 0,
+                pause_control: None,
                 minimap_rect: None,
             },
             HostFrame {
@@ -2984,6 +3030,7 @@ mod tests {
                 native_dialog_open: true,
                 native_menu_open: false,
                 game_seconds: 0,
+                pause_control: None,
                 minimap_rect: None,
             },
             HostFrame {
@@ -2993,6 +3040,7 @@ mod tests {
                 native_dialog_open: false,
                 native_menu_open: false,
                 game_seconds: 0,
+                pause_control: None,
                 minimap_rect: None,
             },
         ] {
@@ -3149,6 +3197,7 @@ mod tests {
             native_dialog_open: false,
             native_menu_open: false,
             game_seconds: 0,
+            pause_control: None,
             minimap_rect: None,
         });
         assert!(!observing.key_pressed(Key::L, Modifiers::NONE));
@@ -3222,6 +3271,7 @@ mod tests {
             native_dialog_open: false,
             native_menu_open: false,
             game_seconds: 0,
+            pause_control: None,
             minimap_rect: None,
         });
         shell.open_modal(ModalId::GameMenu);

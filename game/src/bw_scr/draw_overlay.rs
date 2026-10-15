@@ -16,7 +16,7 @@ use overlay_ui::observer::{
 use overlay_ui::options::{OptionsLists, OptionsView, SettingChange};
 use overlay_ui::shell::{
     DisconnectSurface, FrameOutput, HostFrame, InputCapture, Intent, ModalId, Mode, NativeDialog,
-    PanelPrefs, Shell, Views, hotkeys,
+    PanelPrefs, PauseControl, Shell, Views, hotkeys,
 };
 use overlay_ui::transport::{self, TransportView};
 use parking_lot::Mutex;
@@ -319,6 +319,8 @@ pub struct BwVars {
     pub stat_txt: Option<StatTxt>,
     /// What the game's rules allow of alliances and chat recipients.
     pub alliance_rules: AllianceRules,
+    /// What the game offers the local player for pausing.
+    pub pause_control: Option<PauseControl>,
 }
 
 /// What the replay transport needs of the game: the replay's length and recorded speed, from its
@@ -637,6 +639,7 @@ impl OverlayState {
                 bw.replay
                     .map_or(FASTEST_GAME_SPEED, |replay| replay.game_speed),
             ),
+            pause_control: bw.pause_control,
             minimap_rect: if bw.is_replay_or_obs {
                 self.minimap_rect(bw)
             } else {
@@ -1210,6 +1213,9 @@ impl OverlayState {
             // leave handling speaks for it.
             Intent::LeaveGame | Intent::AbandonGame => self.out_state.leave_game = true,
             Intent::QuitGame => dialog_hook::begin_quit(bw.first_dialog),
+            Intent::SetPaused(paused) => {
+                dialog_hook::set_paused(bw.first_dialog, paused, bw.pause_control)
+            }
             // The game's result is already reported by the time the card is up, so a result dialog
             // that has no End Mission to press is left by ending the game loop instead, rather than
             // keeping the player in a game they asked to leave.

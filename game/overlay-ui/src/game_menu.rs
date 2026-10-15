@@ -13,7 +13,7 @@ use egui::{Align, Context, Id, Layout, Rect, Ui, Vec2, vec2};
 use crate::kit::text::{self, BodyWeight};
 use crate::kit::widgets::{self, ButtonPlate, HoldState};
 use crate::kit::{theme, tiers};
-use crate::tr;
+use crate::{tr, tr_plural};
 
 /// How wide the menu is, in overlay points.
 const MENU_WIDTH: f32 = 400.0;
@@ -43,6 +43,8 @@ const WORDMARK: &str = "ShieldBattery";
 /// that habit).
 pub const OPTIONS_KEY: &str = "O";
 pub const ALLIANCES_KEY: &str = "A";
+/// SC:R gives pausing no key of its own; `P` is the one a player reaches for.
+pub const PAUSE_KEY: &str = "P";
 pub const LEAVE_KEY: &str = "E";
 pub const RETURN_KEY: &str = "Esc";
 
@@ -50,6 +52,19 @@ pub const RETURN_KEY: &str = "Esc";
 /// game (Quit Mission) and on `E` from a replay (Exit Replay); either answers here, so a hand that
 /// knows one doesn't have to learn which this is.
 pub const LEAVE_CONFIRM_KEYS: [&str; 2] = ["Q", "E"];
+
+/// What the game's own menu offers for pausing, which decides what the menu's pause button does.
+///
+/// The game keeps the rules: a player has a few pauses a game, and anyone in it can resume. The
+/// host reads which of the two the game's own menu is showing, so this menu never offers a pause
+/// the game would refuse.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum PauseControl {
+    /// The game can be paused, by a player with `left` pauses left, where the host knows how many.
+    Pause { left: Option<u8> },
+    /// The game is paused, and can be resumed.
+    Resume,
+}
 
 /// What the player asked the menu for this frame.
 #[derive(Default)]
@@ -60,6 +75,8 @@ pub struct GameMenuOutcome {
     pub open_options: bool,
     /// Whether the player asked for the alliances screen, which opens over this menu.
     pub open_alliances: bool,
+    /// Whether the player asked to pause the game (`true`) or resume it (`false`).
+    pub set_paused: Option<bool>,
     /// Whether the player asked to leave the game.
     pub leave: bool,
 }
@@ -68,19 +85,21 @@ pub struct GameMenuOutcome {
 ///
 /// `playing` is whether the client is a player in the game rather than watching it, which decides
 /// whether there are alliances to set. `replay` is whether this is a replay, which decides what
-/// leaving costs (see [`leave_is_held`]). `leave_key_held` is whether the leave key ([`LEAVE_KEY`])
-/// is held, which holds a held leave button as the pointer does.
+/// leaving costs (see [`leave_is_held`]). `pause` is what the game offers for pausing, if anything.
+/// `leave_key_held` is whether the leave key ([`LEAVE_KEY`]) is held, which holds a held leave
+/// button as the pointer does.
 pub fn render_game_menu(
     ctx: &Context,
     game_seconds: u64,
     playing: bool,
     replay: bool,
+    pause: Option<PauseControl>,
     leave_key_held: bool,
 ) -> tiers::DialogResponse<GameMenuOutcome> {
     tiers::tier2_dialog(ctx, Id::new("sb_game_menu"), MENU_WIDTH, |ui| {
         tiers::dialog_header(ui, |ui| draw_header(ui, game_seconds));
         tiers::dialog_body(ui, |ui| {
-            draw_actions(ui, playing, leave_is_held(replay), leave_key_held)
+            draw_actions(ui, playing, pause, leave_is_held(replay), leave_key_held)
         })
     })
 }
@@ -120,10 +139,12 @@ fn draw_clock(ui: &mut Ui, game_seconds: u64) {
 }
 
 /// The stack of things that can be done from here, in SC:R's order: Options first, then alliances
-/// and chat, then leaving, with the way back to the game at the bottom where SC:R keeps it.
+/// and chat, then pausing, then leaving, with the way back to the game at the bottom where SC:R
+/// keeps it.
 fn draw_actions(
     ui: &mut Ui,
     playing: bool,
+    pause: Option<PauseControl>,
     hold_to_leave: bool,
     leave_key_held: bool,
 ) -> GameMenuOutcome {
@@ -153,6 +174,27 @@ fn draw_actions(
         );
         widgets::paint_button_kbd(ui, alliances.rect, ALLIANCES_KEY);
         outcome.open_alliances = alliances.clicked();
+    }
+    if let Some(pause) = pause {
+        ui.add_space(BUTTON_GAP);
+        let (label, pausing) = match pause {
+            PauseControl::Pause { left: Some(left) } => (
+                tr_plural!(
+                    "gameMenu.pauseGameLeft",
+                    u64::from(left),
+                    one = "Pause game ({{count}} left)",
+                    other = "Pause game ({{count}} left)"
+                ),
+                true,
+            ),
+            PauseControl::Pause { left: None } => (tr!("gameMenu.pauseGame", "Pause game"), true),
+            PauseControl::Resume => (tr!("gameMenu.resumeGame", "Resume game"), false),
+        };
+        let button = widgets::plate_button(ui, &spec, &label, size, ButtonPlate::standard());
+        widgets::paint_button_kbd(ui, button.rect, PAUSE_KEY);
+        if button.clicked() {
+            outcome.set_paused = Some(pausing);
+        }
     }
     ui.add_space(BUTTON_GAP);
     outcome.leave = leave_button(ui, hold_to_leave, LEAVE_KEY, leave_key_held);

@@ -383,6 +383,8 @@ pub fn render(
             Intent::LeaveGame | Intent::QuitGame | Intent::EndMission(_) => outcome.left = true,
             // The fake game keeps the alliances and chat settings, so the next frame shows them.
             Intent::Alliances(action) => state.alliances.apply(&knobs.alliances, action),
+            // The emulated game has no clock to stop.
+            Intent::SetPaused(_) => {}
             // The game answers this by spawning its menu, which the overlay's own replaces; here the
             // switch standing in for that spawn is what moves.
             Intent::OpenGameMenu => outcome.open_game_menu = true,
