@@ -4,8 +4,10 @@
 //! hangs off the top edge of the screen, where nothing the game draws competes with it: SC:R's own
 //! resource counters sit in the top-right corner, and the bar is centred.
 //!
-//! Its two halves are mirror images about a middle block holding the clock. Each carries one
-//! player, and a click on one is how a watcher takes that player's vision: the bar is the only
+//! Its two halves sit either side of a middle block holding the clock. Each player's color, race and
+//! name stand at the screen's edge, framing the bar from the outside, and their numbers stand against
+//! the clock; the numbers read in the same order in both halves, minerals to the rate, so a watcher
+//! reading across one half has already learned the other. Each carries one player, and a click on one is how a watcher takes that player's vision: the bar is the only
 //! place every player in the game is named, which makes it the natural place to ask to see through
 //! one of their eyes. A player whose vision is off is dimmed rather than dropped — they are still in
 //! the game, and their numbers are still the ones the other side's are read against.
@@ -197,13 +199,18 @@ impl RowMetrics {
             + CHIP_GAP
             + self.name_width
             + NAME_GAP
-            + self.minerals.width()
+            + self.stats_width()
+            + self.pad_inner
+    }
+
+    /// What the row's numbers take together, from the first resource to the rate.
+    const fn stats_width(&self) -> f32 {
+        self.minerals.width()
             + STAT_GAP
             + self.gas.width()
             + STAT_GAP
             + self.supply.width()
             + self.apm_width()
-            + self.pad_inner
     }
 
     /// What the rate cell takes, with the gap ahead of it.
@@ -649,7 +656,8 @@ fn draw_centre(ui: &mut Ui, rect: Rect, view: &MatchupView) {
     });
 }
 
-/// Draws one player's row, mirrored about the bar's middle for the side on the right.
+/// Draws one player's row: who they are from the half's outer edge inwards, mirrored for the side on
+/// the right, then their numbers in the one order both halves share.
 fn draw_half(ui: &Ui, rect: Rect, player: &MatchupPlayerView, mirrored: bool, metrics: RowMetrics) {
     let alpha = vision_alpha(player.vision);
     let mut cursor = if mirrored {
@@ -683,6 +691,9 @@ fn draw_half(ui: &Ui, rect: Rect, player: &MatchupPlayerView, mirrored: bool, me
     );
     cursor.skip(NAME_GAP);
 
+    // The numbers are one block, taken from whichever side the half is laid out from and read left
+    // to right inside it.
+    let mut cursor = EdgeCursor::from_left(cursor.take(metrics.stats_width()));
     draw_stat(
         ui,
         &mut cursor,
@@ -792,10 +803,7 @@ fn draw_stat(
     value_size: f32,
 ) {
     let color = theme::TEXT_PRIMARY.gamma_multiply(alpha);
-    // A cell reads the same way in both halves: the glyph names the resource and the number
-    // follows it. Only the order of the cells across a half is mirrored, because a half is read
-    // from the screen's edge inwards, while what is inside a cell is read the way every language
-    // the overlay speaks reads a label and its value.
+    // The glyph names the resource and the number follows it.
     let mut inner = EdgeCursor::from_left(cursor.take(cell.width()));
     let glyph_rect = centred(inner.take(GLYPH), GLYPH);
     widgets::paint_resource_icon(
