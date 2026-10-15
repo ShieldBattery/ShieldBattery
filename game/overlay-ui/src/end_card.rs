@@ -54,23 +54,21 @@ const BUTTON_TRACKING: f32 = 1.8;
 /// How wide the rule under the headline is at its brightest, and how far it fades out either side.
 const FLOURISH_WIDTH: f32 = 220.0;
 
-/// The keys the card's buttons answer to, as their keycaps name them. Leaving shows `E` on both
-/// cards, SC:R's End Mission key and the one the overlay leaves with everywhere; carrying on shows
-/// SC:R's own key for each popup, `C` (Continue Playing) after a victory and `B` (Become Observer)
-/// after a defeat. See [`key_choice`] for every key that answers.
-pub const VICTORY_LEAVE_KEY: &str = "E";
-pub const VICTORY_KEEP_PLAYING_KEY: &str = "C";
-pub const DEFEAT_LEAVE_KEY: &str = "E";
-pub const DEFEAT_KEEP_PLAYING_KEY: &str = "B";
+/// The keys the card's buttons answer to, as their keycaps name them. Leaving shows `E`, SC:R's End
+/// Mission key and the one the overlay leaves with everywhere; carrying on after a victory shows
+/// SC:R's `C` (Continue Playing). A defeat has no carrying on: SC:R's defeat popup offers only its
+/// OK. See [`key_choice`] for every key that answers.
+pub const LEAVE_KEY: &str = "E";
+pub const KEEP_PLAYING_KEY: &str = "C";
 
 /// What `key` chooses on either card. Leaving answers to every key SC:R leaves a game with: `E`
 /// (End Mission), `O` (its defeat popup's OK), `V` (its victory popup's ending button outside a
-/// multiplayer game), `Q` (Quit Mission) and `X` (Exit Program). Each card answers to the other's
-/// carry-on key as well: a hand that knows one of the popups does not have to learn which this is.
-pub fn key_choice(key: Key) -> Option<EndCardChoice> {
-    match key {
-        Key::E | Key::V | Key::O | Key::Q | Key::X => Some(EndCardChoice::Leave),
-        Key::C | Key::B => Some(EndCardChoice::KeepPlaying),
+/// multiplayer game), `Q` (Quit Mission) and `X` (Exit Program). Carrying on after a victory also
+/// answers to `B`, the key of the observer button SC:R's defeat popup keeps hidden.
+pub fn key_choice(key: Key, result: GameResult) -> Option<EndCardChoice> {
+    match (key, result) {
+        (Key::E | Key::V | Key::O | Key::Q | Key::X, _) => Some(EndCardChoice::Leave),
+        (Key::C | Key::B, GameResult::Victory) => Some(EndCardChoice::KeepPlaying),
         _ => None,
     }
 }
@@ -361,16 +359,27 @@ fn draw_stat_cell(ui: &Ui, rect: Rect, cell: &StatCell) {
     painter.galley(pos2(value_left + glyph_room, value_top), value, value_color);
 }
 
-/// The two ways on from here, each marked with the key SC:R's own popup for `result` takes it on,
-/// and the key that takes the gentler one.
+/// The ways on from here, each marked with its key: leaving, and after a victory carrying on, with
+/// the key that takes the gentler one. A defeated player can only leave, as SC:R's own defeat popup
+/// offers nothing else.
 fn draw_actions(ui: &mut Ui, result: GameResult, settled: bool) -> Option<EndCardChoice> {
     let width = ui.available_width();
     let spec = text::button_label(BUTTON_LABEL_SIZE).with_letter_spacing(BUTTON_TRACKING);
+    if result == GameResult::Defeat {
+        let button = widgets::plate_button(
+            ui,
+            &spec,
+            &tr!("endCard.leaveGame", "Leave game"),
+            vec2(width, BUTTON_HEIGHT),
+            ButtonPlate::primary(),
+        );
+        widgets::paint_button_kbd(ui, button.rect, LEAVE_KEY);
+        return button
+            .clicked()
+            .then_some(EndCardChoice::Leave)
+            .filter(|_| settled);
+    }
     let half = vec2((width - BUTTON_GAP) / 2.0, BUTTON_HEIGHT);
-    let (leave_key, keep_playing_key) = match result {
-        GameResult::Victory => (VICTORY_LEAVE_KEY, VICTORY_KEEP_PLAYING_KEY),
-        GameResult::Defeat => (DEFEAT_LEAVE_KEY, DEFEAT_KEEP_PLAYING_KEY),
-    };
     let mut choice = None;
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = BUTTON_GAP;
@@ -378,13 +387,13 @@ fn draw_actions(ui: &mut Ui, result: GameResult, settled: bool) -> Option<EndCar
             (
                 tr!("endCard.leaveGame", "Leave game"),
                 ButtonPlate::primary(),
-                leave_key,
+                LEAVE_KEY,
                 EndCardChoice::Leave,
             ),
             (
                 tr!("endCard.keepPlaying", "Keep playing"),
                 ButtonPlate::standard(),
-                keep_playing_key,
+                KEEP_PLAYING_KEY,
                 EndCardChoice::KeepPlaying,
             ),
         ] {

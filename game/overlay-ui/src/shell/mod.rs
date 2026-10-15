@@ -371,13 +371,14 @@ impl ModalId {
             ModalId::WaitingForPlayers | ModalId::ConnectionInterrupted | ModalId::SessionEnded => {
                 false
             }
-            // Dismissing an end-of-game card is choosing to keep playing, which the card's own
-            // native dialog carries out when the dismissal closes it.
+            // A defeated player can only leave: SC:R's defeat popup stays up until its OK.
+            ModalId::Defeat => false,
+            // Dismissing the victory card is choosing to keep playing, which the card's own native
+            // dialog carries out when the dismissal closes it.
             ModalId::GameMenu
             | ModalId::ChatHistory
             | ModalId::Options
             | ModalId::Victory
-            | ModalId::Defeat
             | ModalId::LeaveGame => true,
         }
     }
@@ -1834,8 +1835,8 @@ impl Shell {
             self.options_section = section;
             return true;
         }
-        if matches!(top, Some(ModalId::Victory | ModalId::Defeat))
-            && let Some(choice) = end_card::key_choice(key)
+        if let Some(result) = top.and_then(ModalId::game_result)
+            && let Some(choice) = end_card::key_choice(key, result)
         {
             self.end_card_key = Some(choice);
             return true;
@@ -2497,27 +2498,31 @@ mod tests {
     }
 
     #[test]
-    fn escape_on_a_result_card_keeps_playing_through_its_dialog() {
-        for (dialog, modal) in [
-            (NativeDialog::Victory, ModalId::Victory),
-            (NativeDialog::Defeat, ModalId::Defeat),
-        ] {
-            let mut shell = Shell::new();
-            shell.native_dialog_spawned(dialog);
-            assert_eq!(shell.top_modal(), Some(modal));
-            assert!(shell.capture().blocks_game_pointer());
+    fn escape_on_a_victory_card_keeps_playing_through_its_dialog() {
+        let mut shell = Shell::new();
+        shell.native_dialog_spawned(NativeDialog::Victory);
+        assert_eq!(shell.top_modal(), Some(ModalId::Victory));
+        assert!(shell.capture().blocks_game_pointer());
 
-            assert!(shell.key_pressed(Key::Escape, Modifiers::NONE));
-            assert_eq!(shell.top_modal(), None);
-            assert_eq!(shell.pending_intents(), [Intent::CloseNativeDialog(dialog)]);
-            assert_eq!(
-                dialog.return_control_id(),
-                match dialog {
-                    NativeDialog::Victory => native_dialogs::VICTORY_CONTINUE_CONTROL_ID,
-                    _ => native_dialogs::DEFEAT_CONTINUE_CONTROL_ID,
-                }
-            );
-        }
+        assert!(shell.key_pressed(Key::Escape, Modifiers::NONE));
+        assert_eq!(shell.top_modal(), None);
+        assert_eq!(
+            shell.pending_intents(),
+            [Intent::CloseNativeDialog(NativeDialog::Victory)]
+        );
+        assert_eq!(
+            NativeDialog::Victory.return_control_id(),
+            native_dialogs::VICTORY_CONTINUE_CONTROL_ID
+        );
+    }
+
+    #[test]
+    fn a_defeat_card_can_only_be_left() {
+        let mut shell = Shell::new();
+        shell.native_dialog_spawned(NativeDialog::Defeat);
+        shell.key_pressed(Key::Escape, Modifiers::NONE);
+        assert_eq!(shell.top_modal(), Some(ModalId::Defeat));
+        assert!(shell.pending_intents().is_empty());
     }
 
     #[test]
@@ -3193,14 +3198,15 @@ mod tests {
         assert!(landed.contains(&Intent::EndMission(NativeDialog::Victory)));
         assert_eq!(shell.top_modal(), None);
 
-        // The defeat card's own key for carrying on.
+        // The defeat card has no carrying on, and leaves on the same key.
         let mut lost = spectating_shell();
         lost.native_dialog_spawned(NativeDialog::Defeat);
         run_frame_at(&mut lost, &ctx, None, 2.0);
         run_frame_at(&mut lost, &ctx, None, 3.0);
-        assert!(lost.key_pressed(Key::B, Modifiers::NONE));
-        let kept = run_frame_at(&mut lost, &ctx, None, 3.05).intents;
-        assert!(kept.contains(&Intent::CloseNativeDialog(NativeDialog::Defeat)));
+        assert!(!lost.key_pressed(Key::B, Modifiers::NONE));
+        assert!(lost.key_pressed(Key::E, Modifiers::NONE));
+        let left = run_frame_at(&mut lost, &ctx, None, 3.05).intents;
+        assert!(left.contains(&Intent::EndMission(NativeDialog::Defeat)));
         assert_eq!(lost.top_modal(), None);
     }
 
