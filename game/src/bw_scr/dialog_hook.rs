@@ -107,7 +107,14 @@ pub fn log_replaced_dialog_controls(first_dialog: Option<Dialog>, dialog: Native
     };
     let controls = live
         .children()
-        .map(|child| format!("{} ({:#x})", child.id(), child.control_type()))
+        .map(|child| {
+            format!(
+                "{} ({:#x}, {:?})",
+                child.id(),
+                child.control_type(),
+                child.string()
+            )
+        })
         .collect::<Vec<_>>();
     debug!(
         "The {} dialog's controls are {}",
