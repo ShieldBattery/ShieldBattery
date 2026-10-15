@@ -1558,14 +1558,13 @@ impl OverlayState {
                         return Some(0);
                     }
                     if let Some(key) = key {
-                        // The menu and quit keys are the shell's whatever has the keyboard, and so is
+                        // SC:R's menu keys are the shell's whatever has the keyboard, and so is
                         // every key while a modal whose buttons answer to keys is up: they type
                         // nothing, and a focused control would otherwise take the key that is meant
                         // for one of the buttons. The shell leaves what it has no use for, such as a
                         // focused slider's arrow keys, to go on to the control.
                         if pressed
-                            && (hotkeys::is_menu_chord(key, modifiers)
-                                || hotkeys::is_quit_chord(key, modifiers)
+                            && (hotkeys::is_game_menu_key(key, modifiers)
                                 || self
                                     .shell
                                     .top_modal()

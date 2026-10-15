@@ -183,6 +183,26 @@ pub fn is_quit_chord(key: Key, modifiers: Modifiers) -> bool {
     })
 }
 
+/// Whether this keypress is SC:R's key for its options: `Alt+O`.
+pub fn is_options_chord(key: Key, modifiers: Modifiers) -> bool {
+    Chord::alt(Key::O).matches(key, modifiers)
+}
+
+/// Whether this keypress is SC:R's key for saving the game: `Alt+S`. A ShieldBattery game is never
+/// saved, so the key does nothing.
+pub fn is_save_chord(key: Key, modifiers: Modifiers) -> bool {
+    Chord::alt(Key::S).matches(key, modifiers)
+}
+
+/// Whether this keypress is one of SC:R's own menu keys, which the shell answers whatever has the
+/// keyboard: the game menu, quitting, options and saving.
+pub fn is_game_menu_key(key: Key, modifiers: Modifiers) -> bool {
+    is_menu_chord(key, modifiers)
+        || is_quit_chord(key, modifiers)
+        || is_options_chord(key, modifiers)
+        || is_save_chord(key, modifiers)
+}
+
 /// The action-to-chord table. An action may have several chords; the first is the one a surface
 /// names when it says which key does what.
 #[derive(Clone, Debug)]

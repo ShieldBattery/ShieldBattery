@@ -1027,6 +1027,20 @@ impl Shell {
             self.open_modal(ModalId::LeaveGame);
             return true;
         }
+        // SC:R's options key brings up the overlay's options screen, as its own key brings up its
+        // own; the same key puts it away again.
+        if hotkeys::is_options_chord(key, modifiers) && self.quit_keys_active() {
+            match self.top_modal() == Some(ModalId::Options) {
+                true => self.dismiss_top_modal(),
+                false => self.open_modal(ModalId::Options),
+            }
+            return true;
+        }
+        // A ShieldBattery game is never saved, so the key is taken and does nothing: what it would
+        // open is a dialog for something the game cannot do.
+        if hotkeys::is_save_chord(key, modifiers) && self.host.game_started {
+            return true;
+        }
         if key == Key::Escape {
             // A menu open on the screen closes ahead of the screen itself.
             if self.top_modal() == Some(ModalId::Alliances) && self.alliances_menu.is_some() {
@@ -2657,6 +2671,53 @@ mod tests {
             shell.pending_intents(),
             [Intent::CloseNativeDialog(NativeDialog::GameMenu)]
         );
+    }
+
+    fn playing_shell() -> Shell {
+        let mut shell = Shell::new();
+        shell.set_host(&HostFrame {
+            mode: Mode::Playing,
+            game_started: true,
+            ..HostFrame::default()
+        });
+        shell
+    }
+
+    /// SC:R quits on `Q` and `X` with either Ctrl or Alt, and every one of them asks the same
+    /// question here.
+    #[test]
+    fn every_quit_chord_asks_whether_to_leave() {
+        let ctrl = Modifiers {
+            ctrl: true,
+            command: true,
+            ..Modifiers::NONE
+        };
+        for key in [Key::Q, Key::X] {
+            for modifiers in [Modifiers::ALT, ctrl] {
+                let mut shell = playing_shell();
+                assert!(shell.key_pressed(key, modifiers), "{key:?} {modifiers:?}");
+                assert_eq!(shell.top_modal(), Some(ModalId::LeaveGame));
+            }
+        }
+    }
+
+    /// SC:R's options key opens the overlay's options screen, and puts it away again.
+    #[test]
+    fn the_options_key_opens_and_closes_options() {
+        let mut shell = playing_shell();
+        assert!(shell.key_pressed(Key::O, Modifiers::ALT));
+        assert_eq!(shell.top_modal(), Some(ModalId::Options));
+        assert!(shell.key_pressed(Key::O, Modifiers::ALT));
+        assert_eq!(shell.top_modal(), None);
+    }
+
+    /// The save key is taken and does nothing: a ShieldBattery game is never saved.
+    #[test]
+    fn the_save_key_does_nothing() {
+        let mut shell = playing_shell();
+        assert!(shell.key_pressed(Key::S, Modifiers::ALT));
+        assert_eq!(shell.top_modal(), None);
+        assert!(shell.pending_intents().is_empty());
     }
 
     /// `P` on the menu does what the game offers: pauses a running game for a player with pauses
