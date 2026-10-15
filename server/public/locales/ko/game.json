@@ -1,4 +1,33 @@
 {
+  "alliances": {
+    "alliedVictory": "동맹 승리",
+    "block": "{{name}}님 차단",
+    "blockedTag": "차단됨",
+    "changesNote": "동맹 변경은 즉시 적용됩니다. 배신은 본인 책임입니다.",
+    "chatAll": "모든 플레이어",
+    "chatAllies": "아군",
+    "chatTeam": "{{number}} 팀",
+    "columnAlly": "동맹",
+    "columnMute": "음소거",
+    "columnPlayer": "플레이어",
+    "columnVision": "시야",
+    "defeated": "패배",
+    "empty": "이 게임에는 다른 사람이 없습니다",
+    "left": "게임 나감",
+    "lockedNote": "이 게임에서는 동맹과 시야 공유를 바꿀 수 없습니다.",
+    "muteAll": "전체 음소거",
+    "mutedNote": "음소거됨",
+    "mutedTag": "음소거됨",
+    "persistenceNote": "음소거는 이번 게임에만 적용됩니다. 차단은 계정에 저장되며, 신고는 게임이 끝난 뒤 ShieldBattery에서 열립니다.",
+    "report": "플레이어 신고하기",
+    "reportRequested": "게임 후 신고 예정",
+    "sendChatTo": "채팅 대상",
+    "teammate": "팀원",
+    "title": "동맹 및 채팅",
+    "unblock": "{{name}}님 차단 해제",
+    "unmuteAll": "전체 음소거 해제",
+    "viewProfile": "ShieldBattery 프로필 보기"
+  },
   "chatHistory": {
     "empty": "아직 메시지가 없습니다",
     "scopeAll": "전체",
@@ -51,13 +80,12 @@
     "victory": "승리"
   },
   "gameMenu": {
-    "alliances": "동맹",
+    "alliancesAndChat": "동맹 및 채팅",
     "gameTime": "게임 시간",
     "holdToLeave": "길게 눌러 게임 나가기",
     "leaveGame": "게임 나가기",
     "leaveGameTitle": "게임에서 나가시겠습니까?",
     "leaveReplayTitle": "리플레이에서 나가시겠습니까?",
-    "messaging": "메시지",
     "options": "설정",
     "returnToGame": "게임으로 돌아가기"
   },

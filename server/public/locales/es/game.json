@@ -1,4 +1,33 @@
 {
+  "alliances": {
+    "alliedVictory": "Victoria aliada",
+    "block": "Bloquear a {{name}}",
+    "blockedTag": "Bloqueado",
+    "changesNote": "Los cambios de alianza se aplican al instante. Las traiciones corren de tu cuenta.",
+    "chatAll": "Todos los jugadores",
+    "chatAllies": "Aliados",
+    "chatTeam": "Equipo {{number}}",
+    "columnAlly": "Aliado",
+    "columnMute": "Silenciar",
+    "columnPlayer": "Jugador",
+    "columnVision": "Visión",
+    "defeated": "derrotado",
+    "empty": "No hay nadie más en esta partida",
+    "left": "salió de la partida",
+    "lockedNote": "Las alianzas y la visión compartida son fijas en esta partida.",
+    "muteAll": "Silenciar a todos",
+    "mutedNote": "silenciado",
+    "mutedTag": "Silenciado",
+    "persistenceNote": "El silencio dura solo esta partida. Los bloqueos se guardan en tu cuenta y los reportes se abren en ShieldBattery al terminar.",
+    "report": "Reportar jugador",
+    "reportRequested": "Se reportará al terminar",
+    "sendChatTo": "Enviar chat a",
+    "teammate": "compañero",
+    "title": "Alianzas y chat",
+    "unblock": "Desbloquear a {{name}}",
+    "unmuteAll": "Quitar silencios",
+    "viewProfile": "Ver perfil de ShieldBattery"
+  },
   "chatHistory": {
     "empty": "Aún no hay mensajes",
     "scopeAll": "Todos",
@@ -53,13 +82,12 @@
     "victory": "Victoria"
   },
   "gameMenu": {
-    "alliances": "Alianzas",
+    "alliancesAndChat": "Alianzas y chat",
     "gameTime": "Tiempo de partida",
     "holdToLeave": "Mantén pulsado para salir",
     "leaveGame": "Salir de la partida",
     "leaveGameTitle": "¿Salir de la partida?",
     "leaveReplayTitle": "¿Salir del replay?",
-    "messaging": "Mensajes",
     "options": "Opciones",
     "returnToGame": "Volver a la partida"
   },

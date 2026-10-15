@@ -1,4 +1,33 @@
 {
+  "alliances": {
+    "alliedVictory": "同盟胜利",
+    "block": "屏蔽{{name}}",
+    "blockedTag": "已屏蔽",
+    "changesNote": "同盟变更立即生效。背刺后果自负。",
+    "chatAll": "所有玩家",
+    "chatAllies": "盟友",
+    "chatTeam": "{{number}}队",
+    "columnAlly": "同盟",
+    "columnMute": "静音",
+    "columnPlayer": "玩家",
+    "columnVision": "视野",
+    "defeated": "已战败",
+    "empty": "这局游戏里没有其他人",
+    "left": "已离开游戏",
+    "lockedNote": "本局游戏的同盟和共享视野已固定。",
+    "muteAll": "全部静音",
+    "mutedNote": "已静音",
+    "mutedTag": "已静音",
+    "persistenceNote": "静音仅在本局有效。屏蔽会保存到您的账号，举报会在游戏结束后在 ShieldBattery 中打开。",
+    "report": "举报玩家",
+    "reportRequested": "游戏结束后举报",
+    "sendChatTo": "聊天发送给",
+    "teammate": "队友",
+    "title": "同盟与聊天",
+    "unblock": "解除屏蔽{{name}}",
+    "unmuteAll": "全部取消静音",
+    "viewProfile": "查看 ShieldBattery 资料"
+  },
   "chatHistory": {
     "empty": "还没有消息",
     "scopeAll": "全部",
@@ -51,13 +80,12 @@
     "victory": "胜利"
   },
   "gameMenu": {
-    "alliances": "同盟",
+    "alliancesAndChat": "同盟与聊天",
     "gameTime": "游戏时间",
     "holdToLeave": "长按离开游戏",
     "leaveGame": "离开游戏",
     "leaveGameTitle": "离开游戏？",
     "leaveReplayTitle": "离开录像？",
-    "messaging": "发送消息",
     "options": "设置",
     "returnToGame": "返回游戏"
   },

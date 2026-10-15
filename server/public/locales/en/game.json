@@ -1,4 +1,33 @@
 {
+  "alliances": {
+    "alliedVictory": "Allied victory",
+    "block": "Block {{name}}",
+    "blockedTag": "Blocked",
+    "changesNote": "Alliance changes take effect immediately. Backstabs are on you.",
+    "chatAll": "All players",
+    "chatAllies": "Allies",
+    "chatTeam": "Team {{number}}",
+    "columnAlly": "Ally",
+    "columnMute": "Mute",
+    "columnPlayer": "Player",
+    "columnVision": "Vision",
+    "defeated": "defeated",
+    "empty": "Nobody else is in this game",
+    "left": "left the game",
+    "lockedNote": "Alliances and shared vision are fixed in this game.",
+    "muteAll": "Mute all",
+    "mutedNote": "muted",
+    "mutedTag": "Muted",
+    "persistenceNote": "Mute lasts for this game. Blocks are saved to your account, and reports open in ShieldBattery after the game.",
+    "report": "Report player",
+    "reportRequested": "Reporting after the game",
+    "sendChatTo": "Send chat to",
+    "teammate": "teammate",
+    "title": "Alliances & chat",
+    "unblock": "Unblock {{name}}",
+    "unmuteAll": "Unmute all",
+    "viewProfile": "View ShieldBattery profile"
+  },
   "chatHistory": {
     "empty": "No messages yet",
     "scopeAll": "All",
@@ -52,13 +81,12 @@
     "victory": "Victory"
   },
   "gameMenu": {
-    "alliances": "Alliances",
+    "alliancesAndChat": "Alliances & chat",
     "gameTime": "Game time",
     "holdToLeave": "Hold to leave game",
     "leaveGame": "Leave game",
     "leaveGameTitle": "Leave the game?",
     "leaveReplayTitle": "Leave the replay?",
-    "messaging": "Messaging",
     "options": "Options",
     "returnToGame": "Return to game"
   },

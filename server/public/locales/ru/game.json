@@ -1,4 +1,33 @@
 {
+  "alliances": {
+    "alliedVictory": "Общая победа",
+    "block": "Заблокировать {{name}}",
+    "blockedTag": "Заблокирован",
+    "changesNote": "Изменения союзов вступают в силу сразу. За предательство отвечаете Вы.",
+    "chatAll": "Всем игрокам",
+    "chatAllies": "Союзникам",
+    "chatTeam": "Команда {{number}}",
+    "columnAlly": "Союз",
+    "columnMute": "Звук",
+    "columnPlayer": "Игрок",
+    "columnVision": "Обзор",
+    "defeated": "побеждён",
+    "empty": "Больше в этой игре никого нет",
+    "left": "покинул игру",
+    "lockedNote": "В этой игре союзы и общий обзор изменить нельзя.",
+    "muteAll": "Заглушить всех",
+    "mutedNote": "заглушён",
+    "mutedTag": "Заглушён",
+    "persistenceNote": "Заглушение действует только в этой игре. Блокировки сохраняются в Вашем аккаунте, а жалобу можно подать в ShieldBattery после игры.",
+    "report": "Пожаловаться",
+    "reportRequested": "Жалоба после игры",
+    "sendChatTo": "Чат для",
+    "teammate": "союзник",
+    "title": "Союзы и чат",
+    "unblock": "Разблокировать {{name}}",
+    "unmuteAll": "Включить всех",
+    "viewProfile": "Профиль на ShieldBattery"
+  },
   "chatHistory": {
     "empty": "Сообщений пока нет",
     "scopeAll": "Все",
@@ -54,13 +83,12 @@
     "victory": "Победа"
   },
   "gameMenu": {
-    "alliances": "Союзы",
+    "alliancesAndChat": "Союзы и чат",
     "gameTime": "Время игры",
     "holdToLeave": "Удерживайте: покинуть игру",
     "leaveGame": "Покинуть игру",
     "leaveGameTitle": "Покинуть игру?",
     "leaveReplayTitle": "Покинуть реплей?",
-    "messaging": "Сообщения",
     "options": "Настройки",
     "returnToGame": "Вернуться в игру"
   },
