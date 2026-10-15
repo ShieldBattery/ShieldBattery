@@ -134,6 +134,27 @@ export async function getBestReplayForGame(
   }
 }
 
+/** Confirms that bytes staged as a local replay belong to a stored ShieldBattery game. */
+export async function hasReplayForGameWithHash(
+  gameId: string,
+  hash: Buffer,
+  client?: DbClient,
+): Promise<boolean> {
+  const { client: dbClient, done } = await db(client)
+  try {
+    const result = await dbClient.query(sql`
+      SELECT 1
+      FROM replay_files rf
+      JOIN games_users gu ON gu.replay_file_id = rf.id
+      WHERE gu.game_id = ${gameId} AND rf.hash = ${hash}
+      LIMIT 1
+    `)
+    return result.rows.length > 0
+  } finally {
+    done()
+  }
+}
+
 /**
  * Gets the "best" replay for each of the specified games in a single query (longest duration based
  * on frame count). Returns a map of game ID -> ReplayFile for games that have a replay.

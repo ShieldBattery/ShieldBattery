@@ -6,6 +6,7 @@ import { pipeline } from 'stream/promises'
 import { singleton } from 'tsyringe'
 import { filterColorCodes } from '../../../common/maps'
 import {
+  ReplaySessionPlayer,
   ReplaySessionSourceMetadata,
   StageReplaySessionSourceResponse,
 } from '../../../common/replay-sessions'
@@ -62,6 +63,7 @@ async function deleteStoredUpload(sourceId: string): Promise<void> {
 export function replaySessionSourceMetadata(
   header: ReplayHeader,
   slots: ReadonlyArray<Player>,
+  playerDetails?: (slot: Readonly<Player>) => Partial<ReplaySessionPlayer>,
 ): ReplaySessionSourceMetadata {
   return {
     mapName: filterColorCodes(header.mapName),
@@ -72,7 +74,7 @@ export function replaySessionSourceMetadata(
         p =>
           !p.isEmpty && !p.isObserver && (p.playerType === 'human' || p.playerType === 'computer'),
       )
-      .map(p => ({ name: p.name, race: p.race, team: p.team })),
+      .map(p => ({ name: p.name, race: p.race, team: p.team, ...playerDetails?.(p) })),
   }
 }
 

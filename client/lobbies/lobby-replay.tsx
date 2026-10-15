@@ -7,8 +7,11 @@ import { MS_PER_GAME_FRAME } from '../../common/games/replay-timestamp'
 import { LobbyReplay } from '../../common/lobbies'
 import { MapImageInfo } from '../../common/maps'
 import { ReplaySessionPlayer } from '../../common/replay-sessions'
+import { urlPath } from '../../common/urls'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { MapInfoImage } from '../maps/map-image'
+import { DivisionIcon } from '../matchmaking/rank-icon'
+import { LinkButton } from '../material/link-button'
 import { bodyMedium, bodySmall, labelLarge, singleLine, titleLarge } from '../styles/typography'
 import { RaceIcon } from './race-icon'
 
@@ -127,6 +130,30 @@ const PlayerName = styled.div`
   min-width: 0;
 `
 
+const PlayerProfileLink = styled(LinkButton)`
+  ${singleLine};
+  min-width: 0;
+
+  &:hover,
+  &:focus-visible {
+    color: var(--theme-amber);
+    text-decoration: underline;
+  }
+`
+
+const PlayerDivision = styled(DivisionIcon)`
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+`
+
+const PlayerMmr = styled.span`
+  ${bodySmall};
+  margin-left: auto;
+  white-space: nowrap;
+  color: var(--theme-on-surface-variant);
+`
+
 /**
  * Groups players into the sides that faced each other, keeping the order sides first appear in.
  * Melee and free-for-all replays put every player on the same team, which really means everyone
@@ -190,7 +217,23 @@ export function ReplayCard({
               {team.map((player, j) => (
                 <PlayerRow key={j}>
                   <PlayerRace race={player.race} />
-                  <PlayerName title={player.name}>{player.name}</PlayerName>
+                  {player.userId ? (
+                    <PlayerProfileLink
+                      href={urlPath`/users/${player.userId}/${player.name}`}
+                      title={player.name}>
+                      {player.name}
+                    </PlayerProfileLink>
+                  ) : (
+                    <PlayerName title={player.name}>{player.name}</PlayerName>
+                  )}
+                  {player.ranked ? (
+                    <PlayerDivision division={player.ranked.division} size={24} />
+                  ) : null}
+                  {player.ranked?.mmr !== undefined ? (
+                    <PlayerMmr>
+                      {player.ranked.mmr} {t('gameDetails.summary.mmr', 'MMR')}
+                    </PlayerMmr>
+                  ) : null}
                 </PlayerRow>
               ))}
             </React.Fragment>

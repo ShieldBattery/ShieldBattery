@@ -3166,16 +3166,25 @@ export class LobbyService {
     }
   }
 
-  /** Returns an embedded map preview only to a current member of this replay lobby. */
+  /** Returns an embedded map preview only to a current lobby member. */
   async getReplayThumbnail({
     client,
     lobbyId,
+    hash,
   }: {
     client: ClientSocketsGroup
     lobbyId?: SbLobbyId
+    hash?: string
   }): Promise<Buffer | undefined> {
     const lobby = this.getLobbyForClient(client, lobbyId)
-    const source = this.lobbyReplays.get(lobby.id)
+    let source = this.lobbyReplays.get(lobby.id)
+    if (hash) {
+      source = queuedSources(lobby).some(
+        entry => entry.kind === 'replay' && entry.replay.hash === hash,
+      )
+        ? this.queuedReplaySources.get(lobby.id)?.get(hash)
+        : undefined
+    }
     return source ? await this.replaySessionSources.thumbnail(source) : undefined
   }
 

@@ -1,16 +1,12 @@
 import { useAtomValue } from 'jotai'
-import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
-import { apiUrl } from '../../../common/urls'
 import { MapInfoImage } from '../../maps/map-image'
-import { clientId } from '../../network/client-id'
-import { fetchRaw } from '../../network/fetch'
 import { useAppSelector } from '../../redux-hooks'
 import { labelMedium } from '../../styles/typography'
 import { ReplayCard, ReplayThumbnail } from '../lobby-replay'
 import { replayDownloadProgressAtom } from '../replay-download-progress'
+import { ExtractedReplayMapImage } from '../replay-map-image'
 
 const Banner = styled.div`
   padding: 20px 24px;
@@ -34,56 +30,6 @@ const ReplayArt = styled.div`
   overflow: hidden;
   border-radius: 8px;
 `
-
-const ThumbnailImage = styled.img`
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-`
-
-function ExtractedMapImage({
-  lobbyId,
-  hash,
-  mapName,
-}: {
-  lobbyId: SbLobbyId
-  hash: string
-  mapName: string
-}) {
-  const [imageUrl, setImageUrl] = useState<string>()
-
-  useEffect(() => {
-    const controller = new AbortController()
-    let url: string | undefined
-    fetchRaw(
-      apiUrl`lobbies/${lobbyId}/replay-thumbnail` + `?${new URLSearchParams({ clientId })}`,
-      {
-        signal: controller.signal,
-        headers: { Accept: 'image/jpeg' },
-      },
-    )
-      .then(response => {
-        if (!response.ok) throw new Error(`Replay map preview failed: ${response.status}`)
-        return response.blob()
-      })
-      .then(blob => {
-        if (!controller.signal.aborted) {
-          url = URL.createObjectURL(blob)
-          setImageUrl(url)
-        }
-      })
-      .catch(() => {})
-
-    return () => {
-      controller.abort()
-      if (url) URL.revokeObjectURL(url)
-    }
-  }, [lobbyId, hash])
-
-  return imageUrl ? <ThumbnailImage src={imageUrl} alt={mapName} /> : null
-}
 
 const LibraryImage = styled(MapInfoImage)`
   position: absolute;
@@ -146,7 +92,7 @@ export function ReplayRoomBanner() {
         {replay.source.metadata.mapImage?.image512Url ? (
           <LibraryImage map={replay.source.metadata.mapImage} size={512} />
         ) : (
-          <ExtractedMapImage
+          <ExtractedReplayMapImage
             key={replay.hash}
             lobbyId={lobbyId}
             hash={replay.hash}

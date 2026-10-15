@@ -1,22 +1,35 @@
+import type { Player, ReplayHeader, ShieldBatteryData } from '@shieldbattery/broodrep'
 import { Worker } from 'node:worker_threads'
 import { singleton } from 'tsyringe'
+import { GameSource } from '../../../common/games/configuration'
+import { GameRecord } from '../../../common/games/games'
 import { MapImageInfo, MapInfo } from '../../../common/maps'
 import {
+  getDivisionBeforeRatingChange,
+  getTotalBonusPoolForSeason,
+  NUM_PLACEMENT_MATCHES,
+} from '../../../common/matchmaking'
+import {
   GetReplaySessionSourceResponse,
+  ReplaySessionPlayer,
   ReplaySessionSource,
   ReplaySessionSourceInfo,
+  ReplaySessionSourceMetadata,
 } from '../../../common/replay-sessions'
-import { SbUserId } from '../../../common/users/sb-user-id'
+import { NON_EXISTING_USER_ID } from '../../../common/replays'
+import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { CodedError } from '../errors/coded-error'
 import { getSignedUrl, readFile } from '../files'
 import { getGameRecord } from '../games/game-models'
 import logger from '../logging/logger'
 import { getMapInfos, getReplayMapCandidates } from '../maps/map-models'
 import { mapPath } from '../maps/paths'
+import { MatchmakingSeasonsService } from '../matchmaking/matchmaking-seasons'
+import { getMatchmakingRatingChangesForGame } from '../matchmaking/models'
 import { replayPath } from './paths'
 import { canUserAccessReplay } from './replay-access'
 import { scenarioHashForMap } from './replay-map-scenario'
-import { getBestReplayForGame } from './replay-models'
+import { getBestReplayForGame, hasReplayForGameWithHash } from './replay-models'
 import {
   replaySessionSourceMetadata,
   ReplaySessionSourceService,
@@ -95,7 +108,10 @@ export type ResolvedReplaySessionSource =
  */
 @singleton()
 export class ReplaySessionSources {
-  constructor(private sourceService: ReplaySessionSourceService) {}
+  constructor(
+    private sourceService: ReplaySessionSourceService,
+    private seasonsService: MatchmakingSeasonsService,
+  ) {}
 
   private readonly thumbnailCache = new Map<string, Promise<Buffer | undefined>>()
   private readonly libraryImageCache = new Map<string, Promise<MapImageInfo | undefined>>()
@@ -133,6 +149,52 @@ export class ReplaySessionSources {
     if (!game?.mapId) return undefined
     const map = (await getMapInfos([game.mapId]))[0]
     return map ? mapImageInfo(map) : undefined
+  }
+
+  /** Adds game-verified profile identities and the ranked standing recorded for that match. */
+  private async metadataForGame(
+    game: GameRecord | undefined,
+    header: ReplayHeader,
+    slots: ReadonlyArray<Player>,
+    sbData: ShieldBatteryData | null,
+  ): Promise<ReplaySessionSourceMetadata> {
+    if (!game || sbData?.gameId !== game.id) {
+      return replaySessionSourceMetadata(header, slots)
+    }
+
+    const participantIds = new Set(
+      game.config.teams.flatMap(team =>
+        team.filter(player => !player.isComputer).map(player => player.id),
+      ),
+    )
+    const rankedByUser = new Map<SbUserId, ReplaySessionPlayer['ranked']>()
+    if (game.config.gameSource === GameSource.Matchmaking) {
+      const [changes, [season]] = await Promise.all([
+        getMatchmakingRatingChangesForGame(game.id),
+        this.seasonsService.getSeasonForDate(game.startTime),
+      ])
+      const bonusPool = getTotalBonusPoolForSeason(game.startTime, season)
+      for (const change of changes) {
+        if (change.matchmakingType !== game.config.gameSourceExtra.type) continue
+        rankedByUser.set(change.userId, {
+          matchmakingType: change.matchmakingType,
+          division: getDivisionBeforeRatingChange(change, bonusPool),
+          mmr:
+            change.lifetimeGames - 1 >= NUM_PLACEMENT_MATCHES
+              ? Math.round(change.rating - change.ratingChange)
+              : undefined,
+        })
+      }
+    }
+
+    return replaySessionSourceMetadata(header, slots, slot => {
+      const rawUserId = sbData.userIds[slot.slotId]
+      if (rawUserId === undefined || rawUserId === 0 || rawUserId === NON_EXISTING_USER_ID) {
+        return {}
+      }
+      const userId = makeSbUserId(rawUserId)
+      return participantIds.has(userId) ? { userId, ranked: rankedByUser.get(userId) } : {}
+    })
   }
 
   /** Matches an uploaded replay's embedded scenario to a library map before extraction. */
@@ -207,9 +269,21 @@ export class ReplaySessionSources {
         )
       }
 
-      const metadata = replaySessionSourceMetadata(upload.header, upload.slots)
+      const game = upload.sbData?.gameId ? await getGameRecord(upload.sbData.gameId) : undefined
+      const verifiedGame =
+        game &&
+        canUserAccessReplay(game, userId) &&
+        (await hasReplayForGameWithHash(game.id, upload.hash))
+          ? game
+          : undefined
+      const metadata = await this.metadataForGame(
+        verifiedGame,
+        upload.header,
+        upload.slots,
+        upload.sbData,
+      )
       const mapImage =
-        (await this.mapImageForGame(upload.sbData?.gameId)) ??
+        (await this.mapImageForGame(verifiedGame?.id)) ??
         (await this.mapImageForUpload(
           upload.id,
           upload.hash.toString('hex'),
@@ -259,7 +333,10 @@ export class ReplaySessionSources {
       info: {
         kind: 'game',
         gameId: source.gameId,
-        metadata: { ...replaySessionSourceMetadata(replay.header, replay.slots), mapImage },
+        metadata: {
+          ...(await this.metadataForGame(game, replay.header, replay.slots, replay.sbData)),
+          mapImage,
+        },
       },
     }
   }

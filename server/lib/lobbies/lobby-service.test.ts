@@ -4776,6 +4776,28 @@ describe('lobbies/lobby-service', () => {
       expect(replaySources.thumbnail).toHaveBeenCalledWith(GAME_REPLAY_SOURCE)
     })
 
+    test('hands members a queued replay map preview by hash', async () => {
+      const { id } = await createLobby(host, 'Replay queue', 'listed')
+      await lobbyService.updateSettings({
+        client: host.client,
+        lobbyId: id,
+        sourceQueue: [{ kind: 'replay', source: { kind: 'game', gameId: 'replayed-game-id' } }],
+      })
+
+      await expect(
+        lobbyService.getReplayThumbnail({ client: joiner.client, lobbyId: id, hash: REPLAY_HASH }),
+      ).rejects.toMatchObject({ code: LobbyServiceErrorCode.NotInLobby })
+      await joinLobby(joiner, id)
+      await expect(
+        lobbyService.getReplayThumbnail({ client: joiner.client, lobbyId: id, hash: REPLAY_HASH }),
+      ).resolves.toEqual(Buffer.from('map preview'))
+      await expect(
+        lobbyService.getReplayThumbnail({ client: joiner.client, lobbyId: id, hash: 'unknown' }),
+      ).resolves.toBeUndefined()
+      expect(replaySources.thumbnail).toHaveBeenCalledTimes(1)
+      expect(replaySources.thumbnail).toHaveBeenCalledWith(GAME_REPLAY_SOURCE)
+    })
+
     test('does not give a nonmember a replay download or map preview', async () => {
       const { id } = await createReplayLobby(host, 'listed')
 

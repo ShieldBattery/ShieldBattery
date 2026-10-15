@@ -734,7 +734,6 @@ function QueuedMapRow({ map, gameNumber }: { map: MapInfo; gameNumber: number })
 }
 
 function QueuedReplayRow({ name }: { name: string }) {
-  const { t } = useTranslation()
   return (
     <SeriesRow>
       <SeriesGameNumber>
@@ -742,7 +741,6 @@ function QueuedReplayRow({ name }: { name: string }) {
       </SeriesGameNumber>
       <SeriesMain>
         <SeriesMapName title={name}>{name}</SeriesMapName>
-        <SeriesFactRow>{t('lobbies.replayLobby.replay', 'Replay')}</SeriesFactRow>
       </SeriesMain>
     </SeriesRow>
   )

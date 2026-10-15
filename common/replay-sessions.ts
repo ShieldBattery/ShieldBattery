@@ -1,11 +1,21 @@
 import { MapImageInfo } from './maps'
+import { MatchmakingDivision, MatchmakingType } from './matchmaking'
 import { RaceChar } from './races'
+import { SbUserId } from './users/sb-user-id'
 
 /** Someone who played in a replay, as its header records them. */
 export interface ReplaySessionPlayer {
   name: string
   race: RaceChar
   team: number
+  /** Present when a stored ShieldBattery game verifies this replay slot's account. */
+  userId?: SbUserId
+  /** Ranked standing immediately before this game, when its rating change was recorded. */
+  ranked?: {
+    matchmakingType: MatchmakingType
+    division: MatchmakingDivision
+    mmr?: number
+  }
 }
 
 /** Metadata for a replay that can be watched with others. */

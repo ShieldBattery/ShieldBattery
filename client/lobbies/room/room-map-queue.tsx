@@ -1,14 +1,16 @@
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MAX_MAP_QUEUE } from '../../../common/lobbies'
-import { SbMapId } from '../../../common/maps'
+import { MapImageInfo, SbMapId } from '../../../common/maps'
 import { MaterialIcon } from '../../icons/material/material-icon'
+import { MapInfoImage } from '../../maps/map-image'
 import { ReduxMapThumbnail } from '../../maps/map-thumbnail'
 import { IconButton, TextButton } from '../../material/button'
 import { useAppSelector } from '../../redux-hooks'
 import { bodyMedium, bodySmall, labelMedium, singleLine } from '../../styles/typography'
 import { LobbyReplayChoice } from '../action-creators'
 import { Section, SectionHeader } from '../create/game-setup-form'
+import { ExtractedReplayMapImage } from '../replay-map-image'
 
 /**
  * One source in a queue being edited. The same source can be queued more than once, so each entry
@@ -16,7 +18,14 @@ import { Section, SectionHeader } from '../create/game-setup-form'
  */
 export type QueuedSourceEntry =
   | { key: string; kind: 'map'; mapId: SbMapId }
-  | { key: string; kind: 'replay'; hash?: string; choice?: LobbyReplayChoice; mapName: string }
+  | {
+      key: string
+      kind: 'replay'
+      hash?: string
+      choice?: LobbyReplayChoice
+      mapName: string
+      mapImage?: MapImageInfo
+    }
 
 const QueueList = styled.ol`
   margin: 0;
@@ -49,11 +58,31 @@ const QueueThumbnail = styled.div`
 `
 
 const ReplayThumbnail = styled(QueueThumbnail)`
+  position: relative;
   display: grid;
   place-items: center;
+  overflow: hidden;
   color: var(--theme-on-surface-variant);
   background: var(--theme-container-low);
   border-radius: 4px;
+`
+
+const ReplayPlayOverlay = styled.div`
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--theme-on-surface);
+  background: rgb(0 0 0 / 0.3);
+`
+
+const ReplayPlayCircle = styled.div`
+  width: 25px;
+  height: 25px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 0.7);
 `
 
 const QueueMapName = styled.div`
@@ -101,10 +130,26 @@ function QueuedSourceRow({
   onRemove: () => void
 }) {
   const { t } = useTranslation()
+  const lobbyId = useAppSelector(s => s.lobby.info.id)
   const mapName = useAppSelector(s =>
     entry.kind === 'map' ? s.maps.byId.get(entry.mapId)?.name : undefined,
   )
   const name = entry.kind === 'replay' ? entry.mapName : (mapName ?? '')
+  let replayArtwork = <MaterialIcon icon='map' size={28} />
+  if (entry.kind === 'replay') {
+    if (entry.mapImage?.image512Url) {
+      replayArtwork = <MapInfoImage map={entry.mapImage} size={64} forceAspectRatio={1} />
+    } else if (entry.hash) {
+      replayArtwork = (
+        <ExtractedReplayMapImage
+          lobbyId={lobbyId}
+          hash={entry.hash}
+          mapName={entry.mapName}
+          queued={true}
+        />
+      )
+    }
+  }
 
   return (
     <QueueRow>
@@ -124,13 +169,15 @@ function QueuedSourceRow({
         </QueueThumbnail>
       ) : (
         <ReplayThumbnail>
-          <MaterialIcon icon='smart_display' size={22} />
+          {replayArtwork}
+          <ReplayPlayOverlay>
+            <ReplayPlayCircle>
+              <MaterialIcon icon='play_arrow' size={20} filled={true} />
+            </ReplayPlayCircle>
+          </ReplayPlayOverlay>
         </ReplayThumbnail>
       )}
-      <QueueMapName title={name}>
-        {entry.kind === 'replay' ? t('lobbies.replayLobby.replay', 'Replay') + ' · ' : ''}
-        {name}
-      </QueueMapName>
+      <QueueMapName title={name}>{name}</QueueMapName>
       <QueueActions>
         <QueueActionButton
           icon={<MaterialIcon icon='arrow_upward' size={20} />}

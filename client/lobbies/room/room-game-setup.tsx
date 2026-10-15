@@ -108,6 +108,7 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
             kind: 'replay',
             hash: entry.replay.hash,
             mapName: entry.replay.source.metadata.mapName,
+            mapImage: entry.replay.source.metadata.mapImage,
           },
     ),
   )

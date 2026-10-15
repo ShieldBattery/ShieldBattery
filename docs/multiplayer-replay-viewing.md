@@ -35,7 +35,9 @@ the lobby regroups after all viewers have closed it.
 Game setup has an **Up next** queue with **Add map** and **Add replay**. The host can arrange maps
 and replays in one order. After a game or replay ends, the lobby advances to the next queued source
 while keeping its ID, visibility, invites, and members. Queued local replays are staged on save and
-remain accessible to lobby members when their turn comes.
+remain accessible to lobby members when their turn comes. Replay rows use the map image with a play
+icon overlay and show only the map name. Members can request extracted map previews for queued
+replays when no matching library image is available.
 
 ## Replay sources and access
 
@@ -54,6 +56,12 @@ Nonmembers cannot request the download or an embedded map thumbnail. Local paths
 stay out of public lobby summaries. Retention cleanup preserves staged files still referenced by a
 lobby or its queue. The viewer sees byte progress from selection or joining; cached replays show a
 full ready bar.
+
+For a stored ShieldBattery game replay, the replay's embedded slot IDs identify accounts only when
+they match participants in the game record. An uploaded local replay gets the same attribution only
+if its bytes match a replay stored for that game and the selecting user can access it. Player names
+then link to profiles. Ranked games show each player's division and pregame MMR from the rating
+change recorded for that match. Players still in placements have an unrated icon and no MMR value.
 
 ## Playback protocol
 

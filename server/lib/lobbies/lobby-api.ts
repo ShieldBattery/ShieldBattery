@@ -710,10 +710,17 @@ export class LobbyApi {
   async getReplayThumbnail(ctx: RouterContext): Promise<Buffer> {
     const { params, query } = validateRequest(ctx, {
       params: lobbyIdParams,
-      query: lobbyClientBody,
+      query: Joi.object<{ clientId: string; hash?: string }>({
+        clientId: clientIdSchema,
+        hash: Joi.string().hex().length(64),
+      }),
     })
     const client = this.getClientSockets(ctx.session!.user.id, query.clientId)
-    const image = await this.lobbyService.getReplayThumbnail({ client, lobbyId: params.lobbyId })
+    const image = await this.lobbyService.getReplayThumbnail({
+      client,
+      lobbyId: params.lobbyId,
+      hash: query.hash,
+    })
     if (!image) throw new HttpErrorWithPayload(404, 'replay thumbnail unavailable', {})
     ctx.type = 'image/jpeg'
     ctx.set('Cache-Control', 'private, max-age=60')
