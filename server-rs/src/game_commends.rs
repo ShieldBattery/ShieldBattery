@@ -13,7 +13,8 @@ use crate::redis::RedisPool;
 use crate::users::{CurrentUser, SbUser, SbUserId, UsersLoader, increment_commend_count};
 
 /// How long after a game ends (its start time plus its length) its players can commend or report
-/// each other.
+/// each other. Reports can also be filed while the game is being played, for this long after it
+/// started.
 pub const FEEDBACK_WINDOW: chrono::Duration = chrono::Duration::hours(24);
 /// The rolling window both commend limits are measured over.
 const COMMEND_LIMIT_WINDOW: chrono::Duration = chrono::Duration::hours(24);
@@ -137,7 +138,14 @@ impl GameCommendsMutation {
             .begin()
             .await
             .wrap_err("Failed to start transaction")?;
-        lock_and_check_feedback(&mut tx, game_id, commender_id, user_id).await?;
+        lock_and_check_feedback(
+            &mut tx,
+            GameFeedbackKind::Commend,
+            game_id,
+            commender_id,
+            user_id,
+        )
+        .await?;
 
         let limits = load_commend_limits(&mut tx, commender_id, Some(user_id)).await?;
         if let Some(last) = limits.last_to_target {
@@ -209,7 +217,7 @@ impl GameCommendsMutation {
 
 /// Locks `giver`'s feedback until `conn`'s transaction ends, then checks the rules commending and
 /// reporting share: the target is someone else, both of them played in the game (a canceled game
-/// counts as not played), the game has results and its feedback window is still open, and the giver
+/// counts as not played), the game is open to `kind` feedback (see [`feedback_open`]), and the giver
 /// hasn't already commended or reported the target in this game.
 ///
 /// One lock per giver serializes all of that user's commends and reports, which is what makes
@@ -218,6 +226,7 @@ impl GameCommendsMutation {
 /// moment never wait on each other.
 pub(crate) async fn lock_and_check_feedback(
     conn: &mut PgConnection,
+    kind: GameFeedbackKind,
     game_id: Uuid,
     giver: SbUserId,
     target: SbUserId,
@@ -280,14 +289,16 @@ pub(crate) async fn lock_and_check_feedback(
             "That player wasn't in this game",
         ));
     }
-    match closes_at(row.start_time, row.game_length) {
-        Some(closes_at) if Utc::now() < closes_at => {}
-        _ => {
-            return Err(graphql_error(
-                "FEEDBACK_CLOSED",
-                "Commends and reports for this game are closed",
-            ));
-        }
+    if !feedback_open(kind, row.start_time, row.game_length, Utc::now()) {
+        return Err(graphql_error(
+            "FEEDBACK_CLOSED",
+            match (kind, row.game_length) {
+                (GameFeedbackKind::Commend, None) => {
+                    "Players can be commended once the game has finished"
+                }
+                _ => "Commends and reports for this game are closed",
+            },
+        ));
     }
     if row.commended {
         return Err(graphql_error(
@@ -303,6 +314,23 @@ pub(crate) async fn lock_and_check_feedback(
     }
 
     Ok(())
+}
+
+/// Whether a game takes `kind` feedback at `now`. Once the game has results, both commends and
+/// reports are open until [`closes_at`]. Before that, only reports are: a player can report what
+/// they see while the game is still being played, for up to [`FEEDBACK_WINDOW`] after it started (by
+/// then, a game without results isn't going to get any).
+fn feedback_open(
+    kind: GameFeedbackKind,
+    start_time: DateTime<Utc>,
+    game_length_ms: Option<i32>,
+    now: DateTime<Utc>,
+) -> bool {
+    match (closes_at(start_time, game_length_ms), kind) {
+        (Some(closes_at), _) => now < closes_at,
+        (None, GameFeedbackKind::Report) => now < start_time + FEEDBACK_WINDOW,
+        (None, GameFeedbackKind::Commend) => false,
+    }
 }
 
 /// When a game's feedback window closes, or `None` if the game has no results yet (`game_length` is
@@ -476,5 +504,52 @@ mod tests {
     #[test]
     fn closes_at_is_none_without_results() {
         assert_eq!(closes_at(Utc::now(), None), None);
+    }
+
+    fn time(rfc3339: &str) -> DateTime<Utc> {
+        DateTime::parse_from_rfc3339(rfc3339)
+            .unwrap()
+            .with_timezone(&Utc)
+    }
+
+    #[test]
+    fn reports_are_open_during_a_game() {
+        let start = time("2026-09-25T10:00:00Z");
+        let now = time("2026-09-25T10:05:00Z");
+        assert!(feedback_open(GameFeedbackKind::Report, start, None, now));
+    }
+
+    #[test]
+    fn commends_are_closed_during_a_game() {
+        let start = time("2026-09-25T10:00:00Z");
+        let now = time("2026-09-25T10:05:00Z");
+        assert!(!feedback_open(GameFeedbackKind::Commend, start, None, now));
+    }
+
+    #[test]
+    fn reports_close_for_a_game_that_never_got_results() {
+        let start = time("2026-09-25T10:00:00Z");
+        let now = time("2026-09-26T10:00:01Z");
+        assert!(!feedback_open(GameFeedbackKind::Report, start, None, now));
+    }
+
+    #[test]
+    fn both_kinds_are_open_until_the_window_after_results_closes() {
+        let start = time("2026-09-25T10:00:00Z");
+        let length_ms = Some(750_000);
+        for kind in [GameFeedbackKind::Commend, GameFeedbackKind::Report] {
+            assert!(feedback_open(
+                kind,
+                start,
+                length_ms,
+                time("2026-09-26T10:12:29Z")
+            ));
+            assert!(!feedback_open(
+                kind,
+                start,
+                length_ms,
+                time("2026-09-26T10:12:30Z")
+            ));
+        }
     }
 }

@@ -1406,6 +1406,9 @@
   },
   "gameReport": {
     "action": "Report",
+    "admin": {
+      "reportedAtGameTime": "Reported at {{gameTime}} in game"
+    },
     "alreadyCommended": "You've already commended this player for this game, so you can't report them.",
     "alreadyReported": "You've already reported this player for this game.",
     "badRequest": "Your report could not be submitted. Please check the details and try again.",

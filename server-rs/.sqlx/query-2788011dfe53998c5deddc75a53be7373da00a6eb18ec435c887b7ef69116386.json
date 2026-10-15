@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO game_reports (game_id, reporter_id, reported_user_id, reason, details)\n            VALUES ($1, $2, $3, $4, $5)\n            ON CONFLICT (reporter_id, game_id, reported_user_id) DO NOTHING\n            RETURNING id, game_id, reporter_id as \"reporter_id: _\",\n                reported_user_id as \"reported_user_id: _\", reason, details, created_at,\n                resolved_at, resolver_id as \"resolver_id: _\", resolution, resolution_notes\n        ",
+  "query": "\n                UPDATE game_reports\n                SET resolved_at = NOW(), resolver_id = $2, resolution = $3, resolution_notes = $4\n                WHERE id = $1 AND resolved_at IS NULL\n                RETURNING id, game_id, reporter_id as \"reporter_id: _\",\n                    reported_user_id as \"reported_user_id: _\", reason, details, game_time_seconds,\n                    created_at, resolved_at, resolver_id as \"resolver_id: _\", resolution,\n                    resolution_notes\n            ",
   "describe": {
     "columns": [
       {
@@ -71,6 +71,17 @@
       },
       {
         "ordinal": 6,
+        "name": "game_time_seconds",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "game_reports",
+            "name": "game_time_seconds"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -81,7 +92,7 @@
         }
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "resolved_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -92,7 +103,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "resolver_id: _",
         "type_info": "Int4",
         "origin": {
@@ -103,7 +114,7 @@
         }
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "resolution",
         "type_info": "Text",
         "origin": {
@@ -114,7 +125,7 @@
         }
       },
       {
-        "ordinal": 10,
+        "ordinal": 11,
         "name": "resolution_notes",
         "type_info": "Text",
         "origin": {
@@ -129,7 +140,6 @@
       "Left": [
         "Uuid",
         "Int4",
-        "Int4",
         "Text",
         "Text"
       ]
@@ -141,6 +151,7 @@
       false,
       false,
       true,
+      true,
       false,
       true,
       true,
@@ -148,5 +159,5 @@
       true
     ]
   },
-  "hash": "39cb7a6825bd0f40b7d075576008767b3c52e238b7b5e204dc5e51831ed90294"
+  "hash": "2788011dfe53998c5deddc75a53be7373da00a6eb18ec435c887b7ef69116386"
 }

@@ -1422,6 +1422,9 @@
   },
   "gameReport": {
     "action": "Reportar",
+    "admin": {
+      "reportedAtGameTime": "Reportado en el minuto {{gameTime}} de la partida"
+    },
     "alreadyCommended": "Ya elogiaste a este jugador por esta partida, así que no puedes reportarlo.",
     "alreadyReported": "Ya reportaste a este jugador por esta partida.",
     "badRequest": "No se pudo enviar tu reporte. Revisa los detalles e inténtalo de nuevo.",

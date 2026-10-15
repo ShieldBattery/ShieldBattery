@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                SELECT id, game_id, reporter_id as \"reporter_id: _\",\n                    reported_user_id as \"reported_user_id: _\", reason, details, created_at,\n                    resolved_at, resolver_id as \"resolver_id: _\", resolution, resolution_notes\n                FROM game_reports\n                WHERE id = $1\n            ",
+  "query": "\n                SELECT id, game_id, reporter_id as \"reporter_id: _\",\n                    reported_user_id as \"reported_user_id: _\", reason, details, game_time_seconds,\n                    created_at, resolved_at, resolver_id as \"resolver_id: _\", resolution,\n                    resolution_notes\n                FROM game_reports\n                WHERE game_id = $1 AND reported_user_id = $2 AND id != $3\n                ORDER BY created_at DESC\n            ",
   "describe": {
     "columns": [
       {
@@ -71,6 +71,17 @@
       },
       {
         "ordinal": 6,
+        "name": "game_time_seconds",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "game_reports",
+            "name": "game_time_seconds"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -81,7 +92,7 @@
         }
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "resolved_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -92,7 +103,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "resolver_id: _",
         "type_info": "Int4",
         "origin": {
@@ -103,7 +114,7 @@
         }
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "resolution",
         "type_info": "Text",
         "origin": {
@@ -114,7 +125,7 @@
         }
       },
       {
-        "ordinal": 10,
+        "ordinal": 11,
         "name": "resolution_notes",
         "type_info": "Text",
         "origin": {
@@ -127,6 +138,8 @@
     ],
     "parameters": {
       "Left": [
+        "Uuid",
+        "Int4",
         "Uuid"
       ]
     },
@@ -137,6 +150,7 @@
       false,
       false,
       true,
+      true,
       false,
       true,
       true,
@@ -144,5 +158,5 @@
       true
     ]
   },
-  "hash": "0c79f1823f8901d630c188892df792fb296772c9f680a4abfd5ba82db3679506"
+  "hash": "727a8ef61fad509e3505f383e899b1c542281f3a17df9c6e7d0008e4c676b810"
 }

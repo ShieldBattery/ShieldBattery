@@ -14,7 +14,7 @@ use typeshare::typeshare;
 use uuid::Uuid;
 
 use crate::file_store::FileStore;
-use crate::game_commends::lock_and_check_feedback;
+use crate::game_commends::{GameFeedbackKind, lock_and_check_feedback};
 use crate::games::{Game, GamesLoader};
 use crate::graphql::errors::graphql_error;
 use crate::graphql::schema_builder::SchemaBuilderModule;
@@ -176,6 +176,9 @@ pub struct GameReport {
     pub reported_user_id: SbUserId,
     pub reason: GameReportReason,
     pub details: Option<String>,
+    /// How far into the game, in seconds of game time, the report was filed. Null for reports filed
+    /// after the game.
+    pub game_time_seconds: Option<i32>,
     pub created_at: DateTime<Utc>,
     pub resolved_at: Option<DateTime<Utc>>,
     #[graphql(skip)]
@@ -315,6 +318,9 @@ pub struct ReportGameInput {
     pub reported_user_id: SbUserId,
     pub reason: GameReportReason,
     pub details: Option<String>,
+    /// How far into the game, in seconds of game time, the report is being filed. Only set for
+    /// reports filed while the game is being played.
+    pub game_time_seconds: Option<i32>,
 }
 
 #[derive(InputObject, Default)]
@@ -396,10 +402,11 @@ pub struct GameReportsMutation;
 
 #[Object]
 impl GameReportsMutation {
-    /// Files a report against another player from a game both users participated in, until the
-    /// game's feedback window closes. Any logged-in user may call this (subject to the reporting
-    /// restriction and the per-hour cap), but not for a player they already commended in that game.
-    /// Filed reports never expire; only the chance to file one does.
+    /// Files a report against another player from a game both users participated in, either while
+    /// the game is being played or afterward until the game's feedback window closes. Any logged-in
+    /// user may call this (subject to the reporting restriction and the per-hour cap), but not for a
+    /// player they already commended in that game. Filed reports never expire; only the chance to
+    /// file one does.
     async fn report_game(&self, ctx: &Context<'_>, input: ReportGameInput) -> Result<GameReport> {
         let Some(user) = ctx.data::<Option<CurrentUser>>()? else {
             return Err(graphql_error("UNAUTHORIZED", "Unauthorized"));
@@ -428,6 +435,12 @@ impl GameReportsMutation {
         {
             return Err(graphql_error("BAD_REQUEST", "Details are too long"));
         }
+        if input.game_time_seconds.is_some_and(|s| s < 0) {
+            return Err(graphql_error(
+                "BAD_REQUEST",
+                "The game time can't be negative",
+            ));
+        }
 
         let repo = ctx.data::<GameReportsRepo>()?;
 
@@ -445,8 +458,14 @@ impl GameReportsMutation {
             .wrap_err("Failed to start transaction")?;
         // Participation, the feedback window, and "commend or report, never both" are shared with
         // commends; this also holds the reporter's feedback lock until the transaction ends.
-        lock_and_check_feedback(&mut tx, input.game_id, reporter_id, input.reported_user_id)
-            .await?;
+        lock_and_check_feedback(
+            &mut tx,
+            GameFeedbackKind::Report,
+            input.game_id,
+            reporter_id,
+            input.reported_user_id,
+        )
+        .await?;
 
         if recent_report_count(&mut tx, reporter_id).await? >= MAX_REPORTS_PER_HOUR {
             return Err(graphql_error(
@@ -462,6 +481,7 @@ impl GameReportsMutation {
             input.reported_user_id,
             input.reason,
             details,
+            input.game_time_seconds,
         )
         .await?;
 
@@ -616,6 +636,7 @@ struct DbGameReport {
     reported_user_id: SbUserId,
     reason: String,
     details: Option<String>,
+    game_time_seconds: Option<i32>,
     created_at: DateTime<Utc>,
     resolved_at: Option<DateTime<Utc>>,
     resolver_id: Option<SbUserId>,
@@ -645,22 +666,26 @@ async fn create_report(
     reported_user_id: SbUserId,
     reason: GameReportReason,
     details: Option<String>,
+    game_time_seconds: Option<i32>,
 ) -> eyre::Result<Option<GameReport>> {
     let row = sqlx::query_as!(
         DbGameReport,
         r#"
-            INSERT INTO game_reports (game_id, reporter_id, reported_user_id, reason, details)
-            VALUES ($1, $2, $3, $4, $5)
+            INSERT INTO game_reports
+                (game_id, reporter_id, reported_user_id, reason, details, game_time_seconds)
+            VALUES ($1, $2, $3, $4, $5, $6)
             ON CONFLICT (reporter_id, game_id, reported_user_id) DO NOTHING
             RETURNING id, game_id, reporter_id as "reporter_id: _",
-                reported_user_id as "reported_user_id: _", reason, details, created_at,
-                resolved_at, resolver_id as "resolver_id: _", resolution, resolution_notes
+                reported_user_id as "reported_user_id: _", reason, details, game_time_seconds,
+                created_at, resolved_at, resolver_id as "resolver_id: _", resolution,
+                resolution_notes
         "#,
         game_id,
         reporter_id.0,
         reported_user_id.0,
         reason.to_db(),
         details,
+        game_time_seconds,
     )
     .fetch_optional(conn)
     .await
@@ -686,6 +711,7 @@ impl GameReportsRepo {
             reported_user_id: db.reported_user_id,
             reason: GameReportReason::from_db(&db.reason)?,
             details: db.details,
+            game_time_seconds: db.game_time_seconds,
             created_at: db.created_at,
             resolved_at: db.resolved_at,
             resolver_id: db.resolver_id,
@@ -729,8 +755,9 @@ impl GameReportsRepo {
                 SET resolved_at = NOW(), resolver_id = $2, resolution = $3, resolution_notes = $4
                 WHERE id = $1 AND resolved_at IS NULL
                 RETURNING id, game_id, reporter_id as "reporter_id: _",
-                    reported_user_id as "reported_user_id: _", reason, details, created_at,
-                    resolved_at, resolver_id as "resolver_id: _", resolution, resolution_notes
+                    reported_user_id as "reported_user_id: _", reason, details, game_time_seconds,
+                    created_at, resolved_at, resolver_id as "resolver_id: _", resolution,
+                    resolution_notes
             "#,
             id,
             resolver_id.0,
@@ -820,8 +847,9 @@ impl GameReportsRepo {
             DbGameReport,
             r#"
                 SELECT id, game_id, reporter_id as "reporter_id: _",
-                    reported_user_id as "reported_user_id: _", reason, details, created_at,
-                    resolved_at, resolver_id as "resolver_id: _", resolution, resolution_notes
+                    reported_user_id as "reported_user_id: _", reason, details, game_time_seconds,
+                    created_at, resolved_at, resolver_id as "resolver_id: _", resolution,
+                    resolution_notes
                 FROM game_reports
                 WHERE id = $1
             "#,
@@ -857,8 +885,9 @@ impl GameReportsRepo {
             DbGameReport,
             r#"
                 SELECT id, game_id, reporter_id as "reporter_id: _",
-                    reported_user_id as "reported_user_id: _", reason, details, created_at,
-                    resolved_at, resolver_id as "resolver_id: _", resolution, resolution_notes
+                    reported_user_id as "reported_user_id: _", reason, details, game_time_seconds,
+                    created_at, resolved_at, resolver_id as "resolver_id: _", resolution,
+                    resolution_notes
                 FROM game_reports
                 WHERE game_id = $1 AND reported_user_id = $2 AND id != $3
                 ORDER BY created_at DESC
@@ -907,8 +936,9 @@ impl GameReportsRepo {
     ) -> eyre::Result<(bool, bool, Vec<GameReport>)> {
         let mut builder = QueryBuilder::new(
             r#"
-                SELECT id, game_id, reporter_id, reported_user_id, reason, details, created_at,
-                    resolved_at, resolver_id, resolution, resolution_notes
+                SELECT id, game_id, reporter_id, reported_user_id, reason, details,
+                    game_time_seconds, created_at, resolved_at, resolver_id, resolution,
+                    resolution_notes
                 FROM game_reports
                 WHERE true
             "#,
