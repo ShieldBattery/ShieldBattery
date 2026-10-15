@@ -438,6 +438,15 @@ impl ModalId {
         }
     }
 
+    /// The result an end-of-game card reports for this modal, from the vantage point the game is
+    /// watched from: whatever the game's own popup says, a watcher's game is simply over.
+    pub fn end_card_result(self, mode: Mode) -> Option<GameResult> {
+        self.game_result().map(|result| match mode.is_spectating() {
+            true => GameResult::GameOver,
+            false => result,
+        })
+    }
+
     /// The result an end-of-game card reports, for the modals that are one.
     pub fn game_result(self) -> Option<GameResult> {
         match self {
@@ -1886,7 +1895,7 @@ impl Shell {
             self.options_section = section;
             return true;
         }
-        if let Some(result) = top.and_then(ModalId::game_result)
+        if let Some(result) = top.and_then(|top| top.end_card_result(self.host.mode))
             && let Some(choice) = end_card::key_choice(key, result)
         {
             self.end_card_key = Some(choice);
@@ -2288,7 +2297,7 @@ fn draw_modal(
         ModalId::Victory | ModalId::Defeat => {
             // A host that could not build the card's view still gets a card the player can act on:
             // the result is the modal's own, and the clock is the frame's.
-            let result = id.game_result().unwrap_or(GameResult::Defeat);
+            let result = id.end_card_result(host.mode).unwrap_or(GameResult::Defeat);
             let fallback = EndCardView {
                 result,
                 game_seconds: host.game_seconds,
@@ -2400,7 +2409,7 @@ mod tests {
         time: f64,
     ) -> FrameOutput {
         let host = HostFrame {
-            mode: Mode::Replay,
+            mode: shell.host.mode,
             game_started: true,
             native_textbox_open: false,
             native_dialog_open: false,
@@ -3399,7 +3408,7 @@ mod tests {
     #[test]
     fn an_end_card_takes_its_keys_once_it_has_landed() {
         let ctx = fresh_ctx();
-        let mut shell = spectating_shell();
+        let mut shell = playing_shell();
         shell.native_dialog_spawned(NativeDialog::Victory);
         run_frame_at(&mut shell, &ctx, None, 0.0);
         // Pressed while the card is still arriving: the key is the card's, but chooses nothing.
@@ -3414,7 +3423,7 @@ mod tests {
         assert_eq!(shell.top_modal(), None);
 
         // The defeat card has no carrying on, and leaves on the same key.
-        let mut lost = spectating_shell();
+        let mut lost = playing_shell();
         lost.native_dialog_spawned(NativeDialog::Defeat);
         run_frame_at(&mut lost, &ctx, None, 4.0);
         run_frame_at(&mut lost, &ctx, None, 7.0);
@@ -3423,6 +3432,26 @@ mod tests {
         let left = run_frame_at(&mut lost, &ctx, None, 7.05).intents;
         assert!(left.contains(&Intent::EndMission(NativeDialog::Defeat)));
         assert_eq!(lost.top_modal(), None);
+    }
+
+    /// A watcher's game is simply over, whatever the game's own popup says, and they can keep
+    /// watching from it.
+    #[test]
+    fn a_watchers_end_card_is_game_over() {
+        assert_eq!(
+            ModalId::Defeat.end_card_result(Mode::Observing),
+            Some(GameResult::GameOver)
+        );
+        assert_eq!(
+            ModalId::Victory.end_card_result(Mode::Playing),
+            Some(GameResult::Victory)
+        );
+        let ctx = fresh_ctx();
+        let mut shell = spectating_shell();
+        shell.native_dialog_spawned(NativeDialog::Defeat);
+        run_frame_at(&mut shell, &ctx, None, 0.0);
+        run_frame_at(&mut shell, &ctx, None, 3.0);
+        assert!(shell.key_pressed(Key::C, Modifiers::NONE));
     }
 
     #[test]

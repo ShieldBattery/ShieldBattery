@@ -72,9 +72,11 @@
   "endCard": {
     "averageApm": "平均 APM",
     "defeat": "失败",
+    "gameOver": "游戏结束",
     "gameTime": "游戏时间",
     "gasGathered": "采集瓦斯",
     "keepPlaying": "继续游戏",
+    "keepWatching": "继续观战",
     "leaveGame": "离开游戏",
     "mineralsGathered": "采集晶矿",
     "unitsKilled": "消灭单位",

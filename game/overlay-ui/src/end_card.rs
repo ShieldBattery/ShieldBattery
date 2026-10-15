@@ -21,8 +21,8 @@ use egui::{
 };
 
 use crate::colors::{
-    AMBER50, AMBER60, AMBER80, AMBER99, BLUE10, CONTAINER, GREY_BLUE20, GREY_BLUE60, GREY_BLUE70,
-    GREY_BLUE80, GREY10,
+    AMBER50, AMBER60, AMBER80, AMBER99, BLUE10, BLUE60, BLUE70, BLUE95, BLUE99, CONTAINER,
+    GREY_BLUE20, GREY_BLUE60, GREY_BLUE70, GREY_BLUE80, GREY_BLUE95, GREY10,
 };
 use crate::game_menu::clock_text;
 use crate::kit::text::{self, TextSpec};
@@ -130,7 +130,9 @@ pub const KEEP_PLAYING_KEY: &str = "C";
 pub fn key_choice(key: Key, result: GameResult) -> Option<EndCardChoice> {
     match (key, result) {
         (Key::E | Key::V | Key::O | Key::Q | Key::X, _) => Some(EndCardChoice::Leave),
-        (Key::C | Key::B, GameResult::Victory) => Some(EndCardChoice::KeepPlaying),
+        (Key::C | Key::B, GameResult::Victory | GameResult::GameOver) => {
+            Some(EndCardChoice::KeepPlaying)
+        }
         _ => None,
     }
 }
@@ -140,6 +142,9 @@ pub fn key_choice(key: Key, result: GameResult) -> Option<EndCardChoice> {
 pub enum GameResult {
     Victory,
     Defeat,
+    /// The game is decided, for someone watching it rather than playing: it was nobody's here to
+    /// win or lose.
+    GameOver,
 }
 
 /// The local player's own game, in numbers the game itself kept.
@@ -318,7 +323,7 @@ const BUTTONS_SECS: f32 = 0.3;
 impl Timeline {
     fn of(result: GameResult, cells: usize) -> Timeline {
         let (backdrop, band, word) = match result {
-            GameResult::Victory => (
+            GameResult::Victory | GameResult::GameOver => (
                 Beat::new(0.0, 0.4),
                 Beat::new(0.0, 0.45),
                 Beat::new(0.1, 0.55),
@@ -436,6 +441,23 @@ impl Look {
                 glow: Some(theme::ACCENT),
                 rule: theme::ACCENT.gamma_multiply(0.6),
                 emblem: theme::ACCENT.gamma_multiply(0.08),
+            },
+            // The end of a game someone watched is neither a win nor a loss: the overlay's own cool
+            // blue, lit enough to read as an ending, with no gold and nothing red in it.
+            GameResult::GameOver => Look {
+                shade: BLUE10,
+                shade_middle: 0.68,
+                shade_edge: 0.94,
+                shade_reach: 0.4,
+                band_middle: CONTAINER,
+                band_edge: BLUE10,
+                band_alpha: 0.9,
+                light: BLUE60,
+                light_alpha: 0.1,
+                word: [BLUE99, BLUE95, GREY_BLUE95],
+                glow: None,
+                rule: BLUE70.gamma_multiply(0.5),
+                emblem: BLUE70.gamma_multiply(0.07),
             },
             // A loss is reported, not celebrated: steel rather than gold, no bloom, and only the
             // faintest red in the rules.
@@ -649,6 +671,7 @@ impl Word {
         let title = match result {
             GameResult::Victory => tr!("endCard.victory", "Victory"),
             GameResult::Defeat => tr!("endCard.defeat", "Defeat"),
+            GameResult::GameOver => tr!("endCard.gameOver", "Game over"),
         };
         let screen = ui.ctx().viewport_rect();
         let spec = |size: f32, tracking: f32| TextSpec {
@@ -664,7 +687,7 @@ impl Word {
         let size = WORD_SIZE * fit.min(1.0);
         let landing = timeline.word.progress(t);
         let (scale, drop, tracking, alpha) = match result {
-            GameResult::Victory => (
+            GameResult::Victory | GameResult::GameOver => (
                 1.0 + VICTORY_WORD_LIFT * (1.0 - slam(landing)),
                 0.0,
                 WORD_TRACKING,
@@ -990,9 +1013,14 @@ impl Record<'_> {
             LEAVE_KEY,
             EndCardChoice::Leave,
         )];
-        if result == GameResult::Victory {
+        let keep_going = match result {
+            GameResult::Victory => Some(tr!("endCard.keepPlaying", "Keep playing")),
+            GameResult::GameOver => Some(tr!("endCard.keepWatching", "Keep watching")),
+            GameResult::Defeat => None,
+        };
+        if let Some(label) = keep_going {
             buttons.push((
-                tr!("endCard.keepPlaying", "Keep playing"),
+                label,
                 ButtonPlate::standard(),
                 KEEP_PLAYING_KEY,
                 EndCardChoice::KeepPlaying,
@@ -1148,7 +1176,11 @@ mod tests {
 
     #[test]
     fn the_whole_entrance_lands_well_inside_the_time_the_tests_give_it() {
-        for result in [GameResult::Victory, GameResult::Defeat] {
+        for result in [
+            GameResult::Victory,
+            GameResult::Defeat,
+            GameResult::GameOver,
+        ] {
             let timeline = Timeline::of(result, 6);
             assert!(timeline.settled() <= timeline.rest());
             assert!(f64::from(timeline.rest()) < LANDED);

@@ -73,9 +73,11 @@
   "endCard": {
     "averageApm": "Average APM",
     "defeat": "Defeat",
+    "gameOver": "Game over",
     "gameTime": "Game time",
     "gasGathered": "Gas gathered",
     "keepPlaying": "Keep playing",
+    "keepWatching": "Keep watching",
     "leaveGame": "Leave game",
     "mineralsGathered": "Minerals gathered",
     "unitsKilled": "Units killed",

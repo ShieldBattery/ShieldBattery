@@ -290,7 +290,7 @@ pub fn render(
     // up.
     let end_card_view = shell
         .top_modal()
-        .and_then(ModalId::game_result)
+        .and_then(|modal| modal.end_card_result(knobs.host.mode))
         .map(|result| shell::end_card_view(result, knobs.host.game_seconds, knobs.shell.race));
     // Built for every frame of the emulated replay whether or not the plate is on screen, the way
     // the game DLL builds it: the transport keys keep working with the plate hidden. The observer

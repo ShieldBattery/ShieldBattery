@@ -709,7 +709,7 @@ impl OverlayState {
         let end_card_result = self
             .shell
             .open_modals()
-            .find_map(|modal| modal.game_result());
+            .find_map(|modal| modal.end_card_result(host_frame.mode));
         self.end_card = match (end_card_result, self.end_card) {
             (Some(result), Some(view)) if view.result == result => Some(view),
             (Some(result), _) => Some(end_card::build_end_card_view(

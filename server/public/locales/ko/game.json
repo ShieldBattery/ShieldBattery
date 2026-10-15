@@ -72,9 +72,11 @@
   "endCard": {
     "averageApm": "평균 APM",
     "defeat": "패배",
+    "gameOver": "게임 종료",
     "gameTime": "게임 시간",
     "gasGathered": "채취한 가스",
     "keepPlaying": "계속 플레이",
+    "keepWatching": "계속 관전",
     "leaveGame": "게임 나가기",
     "mineralsGathered": "채취한 미네랄",
     "unitsKilled": "처치한 유닛",

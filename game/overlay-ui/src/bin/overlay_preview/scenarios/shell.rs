@@ -178,7 +178,7 @@ pub fn end_card_view(result: GameResult, game_seconds: u64, race: RaceView) -> E
     EndCardView {
         result,
         game_seconds,
-        race: Some(race),
+        race: (result != GameResult::GameOver).then_some(race),
         stats: Some(match result {
             GameResult::Victory => EndCardStats {
                 units_produced: 87,
@@ -196,6 +196,15 @@ pub fn end_card_view(result: GameResult, game_seconds: u64, race: RaceView) -> E
                 gas_gathered: 4_350,
                 average_apm: Some(187),
             },
+            // A watcher played no game of their own to sum up.
+            GameResult::GameOver => {
+                return EndCardView {
+                    result,
+                    game_seconds,
+                    race: None,
+                    stats: None,
+                };
+            }
         }),
     }
 }

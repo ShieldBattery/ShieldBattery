@@ -58,10 +58,10 @@ fn replacement_at_spawn(name: &str) -> Option<NativeDialog> {
             .is_some()
             .then_some(dialog),
         NativeDialog::ChatHistory | NativeDialog::GameMenu => Some(dialog),
-        // The result popups are a player's. Whatever a watcher or a replay gets at the end of a
-        // game is left to SC:R, since nothing of ours stands in for it there.
+        // A player's result, and a live watcher's end of the game, which the card reads as the
+        // game being over. A replay ends on its own playback controls.
         NativeDialog::Victory | NativeDialog::Defeat => {
-            (!get_bw().is_replay_or_obs()).then_some(dialog)
+            (!crate::game_thread::is_replay()).then_some(dialog)
         }
         // A player's alliances and chat recipient are set on the overlay's alliances screen. A
         // watcher's use of the two dialogs (a replay's vision, an observer's read-only lists) has

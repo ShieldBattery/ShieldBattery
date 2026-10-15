@@ -75,9 +75,11 @@
   "endCard": {
     "averageApm": "Средний APM",
     "defeat": "Поражение",
+    "gameOver": "Игра окончена",
     "gameTime": "Время игры",
     "gasGathered": "Добыто газа",
     "keepPlaying": "Продолжить игру",
+    "keepWatching": "Смотреть дальше",
     "leaveGame": "Покинуть игру",
     "mineralsGathered": "Добыто минералов",
     "unitsKilled": "Убито юнитов",
