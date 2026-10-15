@@ -1401,7 +1401,7 @@ export function ReplayLibrary({ view }: ReplayLibraryProps) {
         />
         <MenuItem
           icon={<MaterialIcon icon='group' />}
-          text={t('replays.library.watchWithOthers', 'Watch with others')}
+          text={t('replays.library.watchWithOthers', 'Watch Together')}
           onClick={() => {
             contextMenuPopoverProps.onDismiss()
             watchEntryWithOthers(focusedEntry)

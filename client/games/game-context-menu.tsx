@@ -60,7 +60,7 @@ export function GameContextMenuContent({
       <MenuItem
         key='watch-with-others'
         icon={<MaterialIcon icon='group' />}
-        text={t('replays.library.watchWithOthers', 'Watch with others')}
+        text={t('replays.library.watchWithOthers', 'Watch Together')}
         onClick={() => {
           onDismiss()
           onWatchWithOthers()
