@@ -4381,7 +4381,7 @@ describe('lobbies/lobby-service', () => {
     /** Counts down a replay lobby's start, leaving it waiting for its members to load. */
     async function startReplayLoad(sockets = host) {
       vi.useFakeTimers()
-      lobbyService.startCountdown({ client: sockets.client, force: true })
+      lobbyService.startCountdown({ client: sockets.client })
       await vi.advanceTimersByTimeAsync(5000)
       vi.useRealTimers()
     }
@@ -4495,6 +4495,30 @@ describe('lobbies/lobby-service', () => {
         type: 'gameStarted',
         runState: expect.objectContaining({ inGameUsers: [HOST_USER.id, JOINER_USER.id] }),
       })
+    })
+
+    test('keeps in-replay chat out of lobby chat', async () => {
+      const { id } = await createReplayLobby()
+      await joinLobby(joiner, id)
+      await expect(
+        lobbyService.sendReplayChat({ client: host.client, lobbyId: id, text: 'Too early' }),
+      ).rejects.toMatchObject({ code: LobbyServiceErrorCode.ReplayNotLoading })
+
+      await startReplayLoad()
+      lobbyService.reportReplayLoaded({ client: host.client, lobbyId: id, hash: REPLAY_HASH })
+      lobbyService.reportReplayLoaded({ client: joiner.client, lobbyId: id, hash: REPLAY_HASH })
+      fakeNydus.publish.mockClear()
+
+      await lobbyService.sendReplayChat({ client: joiner.client, lobbyId: id, text: 'Hello' })
+
+      const message = {
+        type: 'replayChat',
+        from: JOINER_USER.id,
+        text: 'Hello',
+      }
+      expect(lobbyPublishes(id)).toEqual([])
+      expect(fakeNydus.publish).toHaveBeenCalledWith(`/lobbies/${id}/${HOST_USER.id}`, message)
+      expect(fakeNydus.publish).toHaveBeenCalledWith(`/lobbies/${id}/${JOINER_USER.id}`, message)
     })
 
     test("refuses a load report while the lobby isn't loading its replay", async () => {

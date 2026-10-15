@@ -1249,6 +1249,31 @@ export class LobbyService {
     })
   }
 
+  /** Sends native replay chat only to viewers who currently have the replay open. */
+  async sendReplayChat({
+    client,
+    lobbyId,
+    text,
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+    text: string
+  }): Promise<void> {
+    const lobby = await this.ensureCanSendChat(client, lobbyId)
+    const runState = this.runStates.get(lobby.id)
+    if (!runState?.isReplay || !runState.inGameUsers.has(client.userId)) {
+      throw new LobbyServiceError(LobbyServiceErrorCode.ReplayNotLoading, 'not watching a replay')
+    }
+    const message = {
+      type: 'replayChat',
+      from: client.userId,
+      text: filterChatMessage(text),
+    }
+    for (const userId of runState.inGameUsers) {
+      this._publishToUser(lobby, userId, message)
+    }
+  }
+
   /**
    * Settles an outcome (a roll, a coin flip, an 8-ball answer, a unit quote) for a client and
    * announces it to their lobby's chat as an action line.
@@ -2539,7 +2564,7 @@ export class LobbyService {
     this.ensureIsLobbyHost(lobby, player)
     this.ensureLobbyNotTransient(lobby)
 
-    if (!force) {
+    if (!force && !isReplayLobby(lobby)) {
       // Everyone else the game will contain gets a say in whether it starts. The host can start
       // the game without marking ready, while seated players and observers must still mark ready.
       const ready = this.readyUsers.get(lobby.id)

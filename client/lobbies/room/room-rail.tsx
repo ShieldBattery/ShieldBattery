@@ -780,17 +780,11 @@ function ReplayRoomRail({
   const { t } = useTranslation()
   const filterClick = useMentionFilterClick()
   const lobby = useAppSelector(s => s.lobby.info)
-  const readyUserIds = useAppSelector(s => s.lobby.readyUserIds)
   const loadingState = useAppSelector(s => s.lobby.loadingState)
   const runState = useAppSelector(s => s.lobby.runState)
   const lifecycle = useLobbyLifecycle()
   const isHost = lobby.host.userId === viewerId
   const viewers = lobby.teams.flatMap(team => team.slots).filter(slot => !!slot.userId)
-  const readyUsers = new Set(readyUserIds)
-  readyUsers.add(lobby.host.userId!)
-  const readyCount = viewers.filter(slot => readyUsers.has(slot.userId!)).length
-  const isViewerReadyEligible = viewers.some(slot => slot.userId === viewerId)
-  const isViewerReady = readyUsers.has(viewerId)
 
   return (
     <RailRoot>
@@ -830,13 +824,11 @@ function ReplayRoomRail({
                   />
                 </RowName>
                 <RowActions>
-                  <RowStatus>
-                    {slot.userId === lobby.host.userId ? (
+                  {slot.userId === lobby.host.userId ? (
+                    <RowStatus>
                       <HostCrown tabIndex={-1} />
-                    ) : (
-                      <ReadyMark ready={readyUsers.has(slot.userId!)} tabIndex={-1} />
-                    )}
-                  </RowStatus>
+                    </RowStatus>
+                  ) : null}
                   {actions.length ? <SlotMenu actions={actions} /> : null}
                 </RowActions>
               </OccupiedRow>
@@ -855,13 +847,13 @@ function ReplayRoomRail({
       <RailFoot>
         <RailFootContents
           isHost={isHost}
-          isViewerReadyEligible={isViewerReadyEligible}
-          isViewerReady={isViewerReady}
+          isViewerReadyEligible={false}
+          isViewerReady={false}
           isReplay={true}
           lifecycle={lifecycle}
-          readyCount={readyCount}
-          readyTotal={viewers.length}
-          allReady={readyCount === viewers.length}
+          readyCount={0}
+          readyTotal={0}
+          allReady={true}
           hasTwoSides={true}
           countdownTimer={loadingState.countdownTimer}
           gameStartedAt={runState?.startedAt}
@@ -1183,6 +1175,22 @@ function StartControls({
 }) {
   const { t } = useTranslation()
 
+  if (isReplay) {
+    return isHost ? (
+      <LobbyStartButton
+        isReplay={true}
+        allReady={true}
+        disabled={false}
+        onStartGame={onStartGame}
+        onForceStart={onForceStart}
+      />
+    ) : (
+      <WaitingForHost>
+        {t('lobbies.room.rail.waitingForHost', 'Waiting for the host to start')}
+      </WaitingForHost>
+    )
+  }
+
   const waitingForHost = (
     <WaitingForHost>
       {t('lobbies.room.rail.waitingForHost', 'Waiting for the host to start')}
@@ -1192,7 +1200,7 @@ function StartControls({
   if (isHost) {
     action = (
       <LobbyStartButton
-        isReplay={isReplay}
+        isReplay={false}
         allReady={allReady}
         disabled={!hasTwoSides}
         onStartGame={onStartGame}

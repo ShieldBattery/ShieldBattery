@@ -1081,7 +1081,6 @@
       "search": "Buscar",
       "selectAll": "Seleccionar todo",
       "show": "Mostrar",
-      "start": "Comenzar",
       "stop": "Detener",
       "submit": "Enviar",
       "test": "Probar",
@@ -1893,18 +1892,19 @@
       "settingsChangeVisibility": "visibilidad"
     },
     "replayLobby": {
+      "changeFailed": "No se pudo elegir el replay",
+      "changeFailedBody": "No se pudo cambiar el lobby a este replay.",
+      "changeMapFailedBody": "No se pudo cambiar el lobby a este mapa.",
       "changeReplay": "Cambiar replay",
-      "chooseMapInstead": "Elegir un mapa en su lugar",
+      "chooseMap": "Elegir mapa",
       "downloading": "Descargando replay: {{percent}}%",
       "duration": "{{duration}} de replay",
       "invalidReplayBody": "El archivo seleccionado puede estar dañado o no ser un replay de StarCraft.",
       "invalidReplayTitle": "No se pudo leer el replay",
       "loadFailed": "No se pudo cargar el replay del lobby.",
       "loading": "Cargando el replay para todos",
-      "readyHint": "Los espectadores pueden marcarse como listos antes de verlo",
       "replay": "Replay",
       "replaySetup": "Configuración del replay",
-      "roomDescription": "Todos ven el mismo replay, cada uno con su propia vista de observador. La reproducción empieza cuando todos lo han cargado.",
       "selectReplay": "Seleccionar replay",
       "startWatching": "Empezar a ver",
       "summaryReplay": "Replay",
@@ -1913,7 +1913,6 @@
       "viewersCount_many": "Espectadores · {{count}}",
       "viewersCount_other": "Espectadores · {{count}}",
       "watching": "Viendo el replay",
-      "watchingTogetherBody": "Todos los miembros del lobby ven este replay en su propia partida, con su propia vista de observador. La reproducción empieza cuando todos lo han cargado, y solo el anfitrión controla la reproducción.",
       "watchingTogetherHeader": "Ver juntos"
     },
     "room": {
@@ -1967,11 +1966,9 @@
         "swap": "Intercambiar sitios"
       },
       "header": {
-        "cancelReady": "No estoy listo",
         "copiedInviteLink": "¡Copiado!",
         "copyInviteLink": "Copiar enlace de invitación",
         "leave": "Salir",
-        "readyUp": "Listo",
         "visibilityPublic": "Público",
         "visibilityUnlisted": "No listado"
       },
@@ -3561,13 +3558,6 @@
     }
   },
   "whispers": {
-    "createWhisper": {
-      "error": "Error: {{errorMessage}}",
-      "title": "Enviar un mensaje",
-      "username": "Nombre de usuario",
-      "usernamePattern": "Nombre de usuario contiene caracteres inválidos",
-      "usernameRequired": "Introduzca un nombre de usuario"
-    },
     "errors": {
       "cantWhisperYourself": "No puedes susurrarte a ti mismo.",
       "invalidAction": "Debe tener una sesión de susurro activa con un usuario para recuperar el historial de mensajes",

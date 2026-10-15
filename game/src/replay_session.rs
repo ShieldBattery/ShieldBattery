@@ -205,7 +205,8 @@ pub unsafe fn apply_playback(bw: &BwScr) {
     bw.set_replay_timeline_buttons_visible(CONTROLLER.load(Ordering::Relaxed));
     let chat = std::mem::take(&mut *CHAT.lock());
     for line in chat {
-        if let Ok(text) = CString::new(format!("{}: {}", line.from, line.text)) {
+        let prefix = if line.is_self { "\x07" } else { "" };
+        if let Ok(text) = CString::new(format!("{prefix}{}: {}", line.from, line.text)) {
             bw.print_text(&text);
         }
     }

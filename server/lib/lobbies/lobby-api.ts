@@ -23,6 +23,7 @@ import {
   ReportLobbyReplaySpeedRequest,
   SendLobbyChatRequest,
   SendLobbyOutcomeRequest,
+  SendLobbyReplayChatRequest,
   SetLobbyRaceRequest,
   SetLobbyReadyRequest,
   StartLobbyCountdownRequest,
@@ -419,6 +420,21 @@ export class LobbyApi {
       text: body.text,
       emote: body.emote,
     })
+  }
+
+  @httpPost('/:lobbyId/replay-chat')
+  @httpBefore(ensureLoggedIn, throttleMiddleware(lobbyChatThrottle, throttleByUser))
+  async sendReplayChat(ctx: RouterContext): Promise<void> {
+    const { params, body } = validateRequest(ctx, {
+      params: lobbyIdParams,
+      body: Joi.object<SendLobbyReplayChatRequest>({
+        clientId: clientIdSchema,
+        text: Joi.string().min(1).required(),
+      }),
+    })
+
+    const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
+    await this.lobbyService.sendReplayChat({ client, lobbyId: params.lobbyId, text: body.text })
   }
 
   @httpPost('/:lobbyId/outcomes')

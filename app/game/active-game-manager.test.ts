@@ -233,14 +233,14 @@ describe('ActiveGameManager watch-only games', () => {
       manager.setGameConfig(replay)
       manager.setGameConfig(configFor('game-1'))
       manager.setReplaySessionPlayback('replay-1', { controller: true, paused: false })
-      manager.showReplaySessionChat('replay-1', 'Codex-2', 'Hello')
+      manager.showReplaySessionChat('replay-1', 'Codex-2', 'Hello', false)
       manager.handleReplaySessionReady('replay-1')
       manager.handleReplaySessionSpeed('replay-1', { paused: false, speed: 2, multiplier: 1 })
       manager.handleReplaySessionSeekReached('replay-1', { epoch: 1, frame: 2400 })
 
       expect(commands).toEqual([
         ['replay-1', 'replaySessionPlayback', { controller: true, paused: false }],
-        ['replay-1', 'replaySessionChat', { from: 'Codex-2', text: 'Hello' }],
+        ['replay-1', 'replaySessionChat', { from: 'Codex-2', text: 'Hello', isSelf: false }],
       ])
       expect(ready).toHaveBeenCalledWith('replay-1')
       expect(speedChanged).toHaveBeenCalledWith('replay-1', {

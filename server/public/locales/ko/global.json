@@ -1055,7 +1055,6 @@
       "search": "찾기",
       "selectAll": "모두 선택",
       "show": "보기",
-      "start": "시작해",
       "stop": "멈추기",
       "submit": "제출해",
       "test": "테스트",
@@ -1839,25 +1838,25 @@
       "settingsChangeVisibility": "공개 범위"
     },
     "replayLobby": {
+      "changeFailed": "리플레이를 선택할 수 없습니다",
+      "changeFailedBody": "로비를 이 리플레이로 전환할 수 없습니다.",
+      "changeMapFailedBody": "로비를 이 맵으로 전환할 수 없습니다.",
       "changeReplay": "리플레이 변경",
-      "chooseMapInstead": "대신 맵 선택",
+      "chooseMap": "맵 선택",
       "downloading": "리플레이 다운로드 중: {{percent}}%",
       "duration": "{{duration}} 리플레이",
       "invalidReplayBody": "선택한 파일이 손상되었거나 스타크래프트 리플레이가 아닐 수 있습니다.",
       "invalidReplayTitle": "리플레이를 읽을 수 없습니다",
       "loadFailed": "로비의 리플레이를 불러올 수 없습니다.",
       "loading": "모든 관전자의 리플레이를 불러오는 중",
-      "readyHint": "관전자는 시청 전에 준비할 수 있습니다",
       "replay": "리플레이",
       "replaySetup": "리플레이 설정",
-      "roomDescription": "모두 같은 리플레이를 각자의 관전자 시점으로 시청합니다. 모두 불러오면 재생이 시작됩니다.",
       "selectReplay": "리플레이 선택",
       "startWatching": "시청 시작",
       "summaryReplay": "리플레이",
       "versus": "vs",
       "viewersCount_other": "관전자 · {{count}}",
       "watching": "리플레이 시청 중",
-      "watchingTogetherBody": "로비의 모든 사용자가 각자의 게임에서 관전자 시점으로 이 리플레이를 시청합니다. 모두 불러오면 재생이 시작되며, 호스트만 재생을 조작할 수 있습니다.",
       "watchingTogetherHeader": "함께 시청"
     },
     "room": {
@@ -1909,11 +1908,9 @@
         "swap": "자리 바꾸기"
       },
       "header": {
-        "cancelReady": "준비 취소",
         "copiedInviteLink": "복사됨!",
         "copyInviteLink": "초대 링크 복사",
         "leave": "나가기",
-        "readyUp": "준비 완료",
         "visibilityPublic": "공개",
         "visibilityUnlisted": "일부 공개"
       },
@@ -3461,13 +3458,6 @@
     }
   },
   "whispers": {
-    "createWhisper": {
-      "error": "오류: {{errorMessage}}",
-      "title": "메시지 보내기",
-      "username": "사용자 이름",
-      "usernamePattern": "사용자 이름에 잘못된 문자가 포함되어 있습니다",
-      "usernameRequired": "사용자 이름을 입력하세요"
-    },
     "errors": {
       "cantWhisperYourself": "자기 자신에게는 귓속말을 보낼 수 없습니다.",
       "invalidAction": "메시지 기록을 검색하려면 사용자와의 활성 귓속말 세션이 있어야 합니다",

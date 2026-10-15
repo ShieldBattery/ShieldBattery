@@ -1867,18 +1867,19 @@
       "settingsChangeVisibility": "visibility"
     },
     "replayLobby": {
+      "changeFailed": "Could not choose replay",
+      "changeFailedBody": "The lobby could not switch to this replay.",
+      "changeMapFailedBody": "The lobby could not switch to this map.",
       "changeReplay": "Change replay",
-      "chooseMapInstead": "Choose a map instead",
+      "chooseMap": "Choose Map",
       "downloading": "Downloading replay: {{percent}}%",
       "duration": "{{duration}} replay",
       "invalidReplayBody": "The selected file may be corrupt, or not be a StarCraft replay.",
       "invalidReplayTitle": "Couldn't read that replay",
       "loadFailed": "The lobby's replay couldn't be loaded.",
       "loading": "Loading replay for everyone",
-      "readyHint": "Viewers can ready up before watching",
       "replay": "Replay",
       "replaySetup": "Replay setup",
-      "roomDescription": "Everyone watches the same replay with their own observer view. Playback starts when every viewer has loaded it.",
       "selectReplay": "Select replay",
       "startWatching": "Start watching",
       "summaryReplay": "Replay",
@@ -1886,7 +1887,6 @@
       "viewersCount_one": "Viewers · {{count}}",
       "viewersCount_other": "Viewers · {{count}}",
       "watching": "Watching replay",
-      "watchingTogetherBody": "Everyone in the lobby watches this replay in their own game, with their own observer view. Playback starts once everyone has loaded it, and only the host controls playback.",
       "watchingTogetherHeader": "Watching together"
     },
     "room": {

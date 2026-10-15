@@ -9,7 +9,7 @@ import {
   ReportLobbyReplaySeekReachedRequest,
   ReportLobbyReplaySeekRequest,
   ReportLobbyReplaySpeedRequest,
-  SendLobbyChatRequest,
+  SendLobbyReplayChatRequest,
 } from '../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import {
@@ -247,11 +247,16 @@ export function restoreLobbyReplayPlayback(
   }
 }
 
-/** Mirrors lobby chat into the replay game's text log while this client is watching. */
-export function showLobbyReplayChat(lobbyId: SbLobbyId, from: string, text: string) {
+/** Shows replay chat in the native game log while this client is watching. */
+export function showLobbyReplayChat(
+  lobbyId: SbLobbyId,
+  from: string,
+  text: string,
+  isSelf: boolean,
+) {
   if (current?.lobbyId === lobbyId && current.gameId && current.started) {
     ipcRenderer
-      .invoke('activeGameShowReplaySessionChat', current.gameId, from, text)
+      .invoke('activeGameShowReplaySessionChat', current.gameId, from, text, isSelf)
       ?.catch(swallowNonBuiltins)
   }
 }
@@ -356,8 +361,8 @@ export function registerReplayLobbyGameEvents(dispatchThunk: (thunk: ThunkAction
       if (current?.gameId !== gameId || !current.started) {
         return
       }
-      const body = encodeBodyAsParams<SendLobbyChatRequest>({ clientId, text })
-      fetchJson<void>(apiUrl`lobbies/${current.lobbyId}/chat`, {
+      const body = encodeBodyAsParams<SendLobbyReplayChatRequest>({ clientId, text })
+      fetchJson<void>(apiUrl`lobbies/${current.lobbyId}/replay-chat`, {
         method: 'POST',
         body,
       }).catch(err => {

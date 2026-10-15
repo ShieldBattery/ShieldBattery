@@ -909,8 +909,8 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
   ipcMain.handle('activeGameSetReplaySessionPlayback', (event, gameId, playback) =>
     activeGameManager.setReplaySessionPlayback(gameId, playback),
   )
-  ipcMain.handle('activeGameShowReplaySessionChat', (event, gameId, from, text) =>
-    activeGameManager.showReplaySessionChat(gameId, from, text),
+  ipcMain.handle('activeGameShowReplaySessionChat', (event, gameId, from, text, isSelf) =>
+    activeGameManager.showReplaySessionChat(gameId, from, text, isSelf),
   )
   if (isDev) {
     // Dev-only handlers: a release game build doesn't implement the underlying commands anyway,
@@ -1555,7 +1555,11 @@ app.on('ready', () => {
       const mapStore = new MapStore(mapDirPath)
       container.register(MapStore, { useValue: mapStore })
 
-      const replayDirPath = path.join(app.getPath('userData'), 'replays')
+      // Independent dev clients need independent caches to exercise replay downloads.
+      const replayDirPath = path.join(
+        app.getPath('userData'),
+        process.env.SB_SESSION ? `replays-${process.env.SB_SESSION}` : 'replays',
+      )
       const replayStore = new ReplayStore(replayDirPath)
       container.register(ReplayStore, { useValue: replayStore })
 

@@ -653,9 +653,9 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     this.emit('gameCommand', gameId, 'replaySessionPlayback', playback)
   }
 
-  showReplaySessionChat(gameId: string, from: string, text: string): void {
+  showReplaySessionChat(gameId: string, from: string, text: string, isSelf: boolean): void {
     if (this.isReplaySessionGame(gameId)) {
-      this.emit('gameCommand', gameId, 'replaySessionChat', { from, text })
+      this.emit('gameCommand', gameId, 'replaySessionChat', { from, text, isSelf })
     }
   }
 

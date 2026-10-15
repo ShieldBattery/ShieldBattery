@@ -9,11 +9,12 @@ pause, and speed button positions are empty, as in Battle.net's Watch with Other
 
 ## Lobby model
 
-Replay viewing uses the existing lobby service, routes, chat, invitations, membership, and host
+Replay viewing uses the existing lobby service, routes, invitations, membership, and host
 transfer. The create form offers **Select replay** below **Select map**. A replay lobby carries a
 replay source in place of a map. Its room shows one viewer list, replay metadata, a **Start
 watching** action, and loading progress. Map settings, teams, races, and observer slot controls do
-not apply. A replay run creates no game record or results.
+not apply. A replay run creates no game record or results. Replay chat appears only in the native
+game text log and uses green text for the sender's own messages.
 
 An existing gathering lobby starts in game mode. Its host can choose a replay in Game setup to
 switch to replay mode, or choose a map in Replay setup to switch back. The lobby ID, visibility,
@@ -23,7 +24,8 @@ library map image when available. Uploaded replays are matched against library m
 embedded scenario and use the library image when it matches. Other replays use a thumbnail rendered
 from the embedded map; this rendering needs the same `SB_SPRITE_DATA` assets as map image generation.
 
-The first release allows joining while the lobby gathers. The countdown locks the viewing group.
+The first release allows joining while the lobby gathers. The host can start without viewers
+marking ready. The countdown locks the viewing group.
 Each viewer downloads the same replay, verifies its SHA-256 hash, launches it locally, and holds at
 frame zero. The server starts playback when every viewer reports ready. A failed or timed-out load
 cancels the run. Closing a replay reports that viewer finished; the lobby regroups after all viewers
@@ -49,12 +51,13 @@ lobby. The viewer sees byte progress while downloading; cached replays skip the 
 ## Playback protocol
 
 The Electron app launches the normal replay player with a session marker. The injected DLL pauses
-on the first logic frame and reports readiness. The lobby start event releases all viewers. The
-host's native replay commands are reported through the app to the lobby service, which broadcasts
+on the first logic frame and reports that it has loaded. The lobby start event releases all viewers.
+The host's native replay commands are reported through the app to the lobby service, which broadcasts
 playback state. Followers discard direct timeline commands, and their pause and speed button
 positions are empty. Session commands stay local to replay playback and do not enter the recorded
 replay stream. A host transfer pauses playback and assigns control to the new host. Messages typed
-in the game's chat box use the lobby chat channel; lobby messages appear in the game's text log.
+in the game's chat box use a separate replay chat event. They appear only in the viewers' native
+game text logs, with the sender's own line green.
 
 Seeking uses a coordinated epoch: the host's native seek request pauses all viewers, sends a
 target frame, and waits for each game to acknowledge the frame after its local seek. Backward
@@ -70,9 +73,8 @@ Two real Electron clients have watched local and ShieldBattery game replays toge
 x86 DLLs. Both acknowledged forward and backward seeks at the same frame. A viewer reconnected
 during a seek and received the active seek state; repeated acknowledgments held the barrier until
 both viewers were ready. A deliberately divergent frame report caused a coordinated correction.
-Host transfer paused playback and transferred the replay controls. In-game chat reached the lobby
-through the native text box, and lobby chat appeared in the game. Closing each replay returned the
-viewers to the gathering room.
+Host transfer paused playback and transferred the replay controls. In-game chat stayed in the native
+game text log. Closing each replay returned the viewers to the gathering room.
 
 Two development clients switched a public lobby from map to replay and back while keeping the same
 ID and members. A fresh replay download showed viewer progress from 0% through 97%, and both
@@ -85,3 +87,10 @@ rendering still needs verification in an environment with those assets.
 
 Exact scenario matching was checked with a Bottleneck replay and installed library map, which
 produced identical SHA-256 hashes. A different installed map did not match.
+
+The development clients use separate replay caches when launched with different `SB_SESSION`
+values. In a two-client run, the host started a replay with an unready viewer, and both clients
+downloaded independent copies with identical size and SHA-256 hash. A native screenshot showed the
+sender's line in green; logs showed the other viewer received the same line without the self color
+flag. Neither lobby transcript contained the in-game line. The replay ended normally, returning
+both clients to the gathering room.

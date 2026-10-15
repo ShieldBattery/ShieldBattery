@@ -121,9 +121,7 @@ export function LobbyStartButton({
 
   let hint: string
   if (isReplay) {
-    hint = allReady
-      ? t('lobbies.room.rail.everyoneReady', 'Everyone is ready')
-      : t('lobbies.replayLobby.readyHint', 'Viewers can ready up before watching')
+    hint = ''
   } else if (disabled) {
     hint = t('lobbies.room.rail.needsOpposingSides', 'Needs at least two opposing players')
   } else if (ready) {
@@ -150,7 +148,7 @@ export function LobbyStartButton({
           type='button'
           disabled={disabled}
           $ready={ready}
-          aria-describedby={hintId}
+          aria-describedby={isReplay ? undefined : hintId}
           data-testid='start-game-button'
           animate={{ scale: isHolding && !reducedMotion ? 0.985 : 1 }}
           transition={{ duration: 0.15 }}>
@@ -178,18 +176,20 @@ export function LobbyStartButton({
           </AnimatePresence>
         </StartButton>
       </ButtonFrame>
-      <Hint
-        id={hintId}
-        aria-live='polite'
-        animate={{
-          color:
-            isHolding || showHoldHint
-              ? 'var(--theme-on-surface)'
-              : 'var(--theme-on-surface-variant)',
-        }}
-        transition={{ duration: 0.15 }}>
-        {hint}
-      </Hint>
+      {!isReplay && (
+        <Hint
+          id={hintId}
+          aria-live='polite'
+          animate={{
+            color:
+              isHolding || showHoldHint
+                ? 'var(--theme-on-surface)'
+                : 'var(--theme-on-surface-variant)',
+          }}
+          transition={{ duration: 0.15 }}>
+          {hint}
+        </Hint>
+      )}
     </Root>
   )
 }

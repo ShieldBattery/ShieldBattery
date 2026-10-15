@@ -160,6 +160,11 @@ export interface SendLobbyChatRequest extends LobbyClientRequest {
   emote?: boolean
 }
 
+/** A chat line sent from a replay game's native chat box. */
+export interface SendLobbyReplayChatRequest extends LobbyClientRequest {
+  text: string
+}
+
 /**
  * The body of a request to have the server settle an outcome (a roll, a coin flip, an 8-ball
  * answer) and announce it to the lobby's chat as an action line.
@@ -315,6 +320,7 @@ export type LobbyEvent =
   | LobbyCancelLoadingEvent
   | LobbyGameStartedEvent
   | LobbyChatEvent
+  | LobbyReplayChatEvent
   | LobbyStatusEvent
   | LobbySettingsChangeEvent
   | LobbyBenchAddEvent
@@ -713,6 +719,13 @@ export interface LobbyChatEvent {
   message: LobbyChatMessage
   mentions: SbUser[]
   channelMentions: BasicChannelInfo[]
+}
+
+/** Delivered to viewers' replay games without entering the lobby chat transcript. */
+export interface LobbyReplayChatEvent {
+  type: 'replayChat'
+  from: SbUserId
+  text: string
 }
 
 export interface LobbyStatusEvent {

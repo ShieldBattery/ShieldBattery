@@ -561,6 +561,7 @@ pub struct ReplaySessionSeekRequest {
 pub struct ReplaySessionChatLine {
     pub from: String,
     pub text: String,
+    pub is_self: bool,
 }
 
 #[derive(Serialize)]

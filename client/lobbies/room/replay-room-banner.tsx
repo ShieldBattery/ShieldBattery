@@ -8,7 +8,7 @@ import { MapInfoImage } from '../../maps/map-image'
 import { clientId } from '../../network/client-id'
 import { fetchRaw } from '../../network/fetch'
 import { useAppSelector } from '../../redux-hooks'
-import { bodyMedium, labelMedium } from '../../styles/typography'
+import { labelMedium } from '../../styles/typography'
 import { ReplayCard, ReplayThumbnail } from '../lobby-replay'
 import { replayDownloadProgressAtom } from '../replay-download-progress'
 
@@ -88,11 +88,6 @@ function ExtractedMapImage({
 const LibraryImage = styled(MapInfoImage)`
   position: absolute;
   inset: 0;
-`
-
-const Description = styled.div`
-  ${bodyMedium};
-  color: var(--theme-on-surface-variant);
 `
 
 const Eyebrow = styled.div`
@@ -184,12 +179,6 @@ export function ReplayRoomBanner() {
           </div>
         ) : null}
       </ReplayDetails>
-      <Description>
-        {t(
-          'lobbies.replayLobby.roomDescription',
-          'Everyone watches the same replay with their own observer view. Playback starts when every viewer has loaded it.',
-        )}
-      </Description>
     </Banner>
   )
 }

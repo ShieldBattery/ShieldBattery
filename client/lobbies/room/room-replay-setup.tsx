@@ -3,9 +3,8 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { openSimpleDialog } from '../../dialogs/action-creators'
-import { FilledButton, TextButton } from '../../material/button'
+import { FilledButton, OutlinedButton, TextButton } from '../../material/button'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
-import { bodyMedium } from '../../styles/typography'
 import { changeLobbySource } from '../action-creators'
 import { GameSetupPage, MapBrowseState } from '../create/game-setup-page'
 import { useBrowseForReplay } from '../create/replay-lobby-setup'
@@ -16,11 +15,6 @@ const Content = styled.div`
   display: flex;
   flex-direction: column;
   gap: 20px;
-`
-
-const Explanation = styled.div`
-  ${bodyMedium};
-  color: var(--theme-on-surface-variant);
 `
 
 /** Lets the host replace the replay or choose a map in the same lobby. */
@@ -100,20 +94,14 @@ export function RoomReplaySetup({ onClose }: { onClose: () => void }) {
           durationFrames={replay.source.metadata.durationFrames}
           players={replay.source.metadata.players}
         />
-        <Explanation>
-          {t(
-            'lobbies.replayLobby.watchingTogetherBody',
-            'Everyone in the lobby watches this replay in their own game, with their own observer view. Playback starts once everyone has loaded it, and only the host controls playback.',
-          )}
-        </Explanation>
         <FilledButton
           label={t('lobbies.replayLobby.changeReplay', 'Change replay')}
           iconStart='smart_display'
           disabled={submitting}
           onClick={changeReplay}
         />
-        <TextButton
-          label={t('lobbies.replayLobby.chooseMapInstead', 'Choose a map instead')}
+        <OutlinedButton
+          label={t('lobbies.replayLobby.chooseMap', 'Choose Map')}
           iconStart='map'
           disabled={submitting}
           onClick={() => setBrowseState(MapBrowseState.Server)}

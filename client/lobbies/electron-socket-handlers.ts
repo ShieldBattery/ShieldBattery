@@ -341,13 +341,6 @@ const eventToAction: EventToActionMap = {
         type: '@lobbies/updateChatMessage',
         payload: event,
       })
-      if (lobby.info.replay) {
-        const name = getState().users.byId.get(event.message.from)?.name
-        if (name) {
-          showLobbyReplayChat(lobbyId, event.message.emote ? `* ${name}` : name, event.message.text)
-        }
-      }
-
       if (
         !isBlocked &&
         accountSettings.playMessageSounds &&
@@ -355,6 +348,15 @@ const eventToAction: EventToActionMap = {
       ) {
         audioManager.playSound(AvailableSound.MessageAlert)
       }
+    }
+  },
+
+  replayChat: (lobbyId, event) => (_dispatch, getState) => {
+    const { auth, relationships, users } = getState()
+    if (relationships.blocks.has(event.from)) return
+    const name = users.byId.get(event.from)?.name
+    if (name) {
+      showLobbyReplayChat(lobbyId, name, event.text, event.from === auth.self?.user.id)
     }
   },
 

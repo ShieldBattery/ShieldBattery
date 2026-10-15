@@ -209,7 +209,12 @@ interface IpcInvokeables {
     gameId: string,
     playback: ReplaySessionPlaybackControl,
   ) => void
-  activeGameShowReplaySessionChat: (gameId: string, from: string, text: string) => void
+  activeGameShowReplaySessionChat: (
+    gameId: string,
+    from: string,
+    text: string,
+    isSelf: boolean,
+  ) => void
 
   bugReportCollectFiles: () => Promise<Uint8Array<ArrayBuffer>>
 

@@ -8,13 +8,11 @@ import { filterColorCodes } from '../../../common/maps'
 import { ReplaySessionPlayer } from '../../../common/replay-sessions'
 import { openSimpleDialog } from '../../dialogs/action-creators'
 import logger from '../../logging/logger'
-import { OutlinedButton, TextButton } from '../../material/button'
+import { OutlinedButton } from '../../material/button'
 import { push } from '../../navigation/routing'
 import { useAppDispatch } from '../../redux-hooks'
-import { bodyMedium } from '../../styles/typography'
 import { LobbyReplayChoice } from '../action-creators'
 import { ReplayCard } from '../lobby-replay'
-import { Section, SectionHeader } from './game-setup-form'
 
 const ipcRenderer = new TypedIpcRenderer()
 
@@ -147,11 +145,6 @@ const ReplayColumn = styled.div`
   }
 `
 
-const ExplainerText = styled.div`
-  ${bodyMedium};
-  color: var(--theme-on-surface-variant);
-`
-
 /**
  * The host form for a replay lobby: what the lobby is called and who can find it, next to the
  * replay it will watch. Takes the place of the game settings once a replay is chosen, since none of
@@ -180,19 +173,6 @@ export function ReplayLobbySetup({
         <SettingsColumn>
           {nameSection}
           {visibilitySection}
-          <Section>
-            <SectionHeader>
-              {t('lobbies.replayLobby.watchingTogetherHeader', 'Watching together')}
-            </SectionHeader>
-            <ExplainerText>
-              {t(
-                'lobbies.replayLobby.watchingTogetherBody',
-                'Everyone in the lobby watches this replay in their own game, with their own ' +
-                  'observer view. Playback starts once everyone has loaded it, and only the host ' +
-                  'controls playback.',
-              )}
-            </ExplainerText>
-          </Section>
         </SettingsColumn>
 
         <ReplayColumn>
@@ -208,12 +188,13 @@ export function ReplayLobbySetup({
               onClick={onChangeReplay}
             />
           </ReplayCard>
-          <TextButton
+          <FullWidthButton
             type='button'
-            label={t('lobbies.replayLobby.chooseMapInstead', 'Choose a map instead')}
+            label={t('lobbies.replayLobby.chooseMap', 'Choose Map')}
             iconStart='map'
             disabled={disabled}
             onClick={onChooseMap}
+            testName='select-map-button'
           />
         </ReplayColumn>
       </Columns>
