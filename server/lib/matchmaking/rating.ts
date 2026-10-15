@@ -61,6 +61,7 @@ export function calculateChangedRatings({
         gameId,
         gameDate,
         player: mmrs[0],
+        teammates: [],
         opponentRating: mmrs[1].rating,
         opponentUncertainty: mmrs[1].uncertainty,
         result: results.get(mmrs[0].userId)!.result,
@@ -74,6 +75,7 @@ export function calculateChangedRatings({
         gameId,
         gameDate,
         player: mmrs[1],
+        teammates: [],
         opponentRating: mmrs[0].rating,
         opponentUncertainty: mmrs[0].uncertainty,
         result: results.get(mmrs[1].userId)!.result,
@@ -91,38 +93,32 @@ export function calculateChangedRatings({
     const teamBRatings = teamB.map(userId => mmrById.get(userId)!)
     const [teamBEffective, teamBUncertainty] = calcTeamRating(teamBRatings)
 
-    // All players on team A get their rating adjusted based on the effective rating of team B
-    for (const player of teamARatings) {
-      result.set(
-        player.userId,
-        makeRatingChanges({
-          season,
-          gameId,
-          gameDate,
-          player,
-          opponentRating: teamBEffective,
-          opponentUncertainty: teamBUncertainty,
-          result: results.get(player.userId)!.result,
-          activeLeagues: activeLeagues.get(player.userId) ?? [],
-        }),
-      )
-    }
-
-    // All players on team B get their rating adjusted based on the effective rating of team A
-    for (const player of teamBRatings) {
-      result.set(
-        player.userId,
-        makeRatingChanges({
-          season,
-          gameId,
-          gameDate,
-          player,
-          opponentRating: teamAEffective,
-          opponentUncertainty: teamAUncertainty,
-          result: results.get(player.userId)!.result,
-          activeLeagues: activeLeagues.get(player.userId) ?? [],
-        }),
-      )
+    // Each player is rated individually, but against the result their whole team was expected to
+    // get versus the other team. Players can't queue together, so teammates are reshuffled from game
+    // to game; over many games the player is the only constant across their teams, which is what
+    // lets team results separate out individual skill. Rating a player against the opposing team
+    // without their teammates instead punishes whoever the matchmaker pairs with weaker teammates to
+    // balance a match, and rewards whoever it pairs with stronger ones.
+    for (const [team, opponentRating, opponentUncertainty] of [
+      [teamARatings, teamBEffective, teamBUncertainty],
+      [teamBRatings, teamAEffective, teamAUncertainty],
+    ] as const) {
+      for (const player of team) {
+        result.set(
+          player.userId,
+          makeRatingChanges({
+            season,
+            gameId,
+            gameDate,
+            player,
+            teammates: team.filter(teammate => teammate.userId !== player.userId),
+            opponentRating,
+            opponentUncertainty,
+            result: results.get(player.userId)!.result,
+            activeLeagues: activeLeagues.get(player.userId) ?? [],
+          }),
+        )
+      }
     }
   }
 
@@ -178,13 +174,29 @@ export function adjustMatchmakingRatingForInactivity(
 
 const VOLATILITY_CHANGE = 0.5
 const POINTS_ELO_K_FACTOR = 24
-const MIN_UNCERTAINTY = 30
+/**
+ * The lowest a player's uncertainty can go, by team size. A team game says much less about any one
+ * player than a 1v1 does, and team-mode rating moves are scaled down to match (see
+ * `makeRatingChanges`), so at the 1v1 floor a team-mode rating would barely respond to a lasting
+ * change in the player's skill. Higher floors keep those ratings moving.
+ */
+function minUncertainty(teamSize: number): number {
+  switch (teamSize) {
+    case 1:
+      return 30
+    case 2:
+      return 80
+    default:
+      return 100
+  }
+}
 
 function makeRatingChanges({
   season,
   gameId,
   gameDate,
   player,
+  teammates,
   opponentRating: opponentRatingGlicko,
   opponentUncertainty: opponentUncertaintyGlicko,
   result,
@@ -194,6 +206,8 @@ function makeRatingChanges({
   gameId: string
   gameDate: Date
   player: MatchmakingRating
+  /** The player's teammates in this game, not including the player. Empty for 1v1. */
+  teammates: ReadonlyArray<MatchmakingRating>
   opponentRating: number
   opponentUncertainty: number
   result: ReconciledResult
@@ -201,17 +215,27 @@ function makeRatingChanges({
 }): RatingChanges {
   // Calculations are described here:
   // https://docs.google.com/document/d/1gHY9t3fe2qK2dwFjpVz6U2gaET-nc1iXhgMdOhcyDaE/view
+  // In team games, the expected result is the player's whole team versus the opposing team. The
+  // player's own rating is only 1/teamSize of their team's average, so it moves their team's
+  // expected result by only that fraction, and the rating move is scaled to match; otherwise
+  // team-mode ratings wander far more than skill differences justify. Without teammates both reduce
+  // to the standard calculation.
+  const teamSize = teammates.length + 1
+  const teammateRatingSum = teammates.reduce((sum, teammate) => sum + teammate.rating, 0)
+  const teamRatingGlicko = (player.rating + teammateRatingSum) / teamSize
+  const ratingStep = 1 / teamSize
 
   // 1) Convert from Glicko to Glicko-2 scale
   const selfRating = (player.rating - 1500) / 173.7178
   const selfUncertainty = player.uncertainty / 173.7178
   const selfVolatility = player.volatility
+  const teamRating = (teamRatingGlicko - 1500) / 173.7178
   const opponentRating = (opponentRatingGlicko - 1500) / 173.7178
   const opponentUncertainty = opponentUncertaintyGlicko / 173.7178
   // 2) Determine variance
   const opponentWeight =
     1 / Math.sqrt(1 + (3 * opponentUncertainty * opponentUncertainty) / (Math.PI * Math.PI))
-  const expectedProbability = 1 / (1 + Math.exp(-opponentWeight * (selfRating - opponentRating)))
+  const expectedProbability = 1 / (1 + Math.exp(-opponentWeight * (teamRating - opponentRating)))
 
   const variance =
     1 / (opponentWeight * opponentWeight * expectedProbability * (1 - expectedProbability))
@@ -266,14 +290,16 @@ function makeRatingChanges({
   // 6.1) Update the RD and rating to new values
   let newUncertainty = 1 / Math.sqrt(1 / Math.pow(periodValue, 2) + 1 / variance)
   let newRating =
-    selfRating + Math.pow(newUncertainty, 2) * opponentWeight * (outcome - expectedProbability)
+    selfRating +
+    ratingStep * Math.pow(newUncertainty, 2) * opponentWeight * (outcome - expectedProbability)
 
   // 8) Convert ratings and RDs back to Glicko
   newRating = Math.max(173.7178 * newRating + 1500, 0)
-  newUncertainty = Math.min(Math.max(173.7178 * newUncertainty, MIN_UNCERTAINTY), 350)
+  newUncertainty = Math.min(Math.max(173.7178 * newUncertainty, minUncertainty(teamSize)), 350)
 
   // Calculate change in points
   const totalBonusPool = getTotalBonusPoolForSeason(gameDate, season)
+  const teammateRatings = teammates.map(teammate => teammate.rating)
   const [pointsChange, bonusApplied, pointsConverged] = calcPointsChange({
     rating: player.rating,
     points: player.points,
@@ -282,6 +308,7 @@ function makeRatingChanges({
       bonusUsed: player.bonusUsed,
       bonusAvailable: Math.max(Math.floor(totalBonusPool - player.bonusUsed), 0),
     },
+    teammateRatings,
     opponentRatingGlicko,
     result,
   })
@@ -313,6 +340,7 @@ function makeRatingChanges({
       rating: player.rating,
       points: league.points,
       pointsConverged: league.pointsConverged,
+      teammateRatings,
       opponentRatingGlicko,
       result,
     })
@@ -345,6 +373,7 @@ function calcPointsChange({
   points,
   pointsConverged,
   bonusInfo,
+  teammateRatings,
   opponentRatingGlicko,
   result,
 }: {
@@ -352,19 +381,24 @@ function calcPointsChange({
   points: number
   pointsConverged: boolean
   bonusInfo?: BonusInfo
+  /** Ratings of the player's teammates in this game, not including the player. Empty for 1v1. */
+  teammateRatings: ReadonlyArray<number>
   opponentRatingGlicko: number
   result: ReconciledResult
 }): [pointsChange: number, bonusApplied: number, pointsConverged: boolean] {
   const outcome = result === 'win' ? 1 : 0
 
   const pointsWithoutBonus = bonusInfo ? Math.max(points - bonusInfo.bonusUsed, 0) : points
+  // The player's points stand in for their own rating within their team's average, so wins with
+  // strong teammates are expected and earn little, while losses with them cost more.
+  const teamStrength =
+    (pointsWithoutBonus +
+      POINTS_FOR_RATING_TARGET_FACTOR * teammateRatings.reduce((sum, r) => sum + r, 0)) /
+    (teammateRatings.length + 1)
   const winProbability =
     1 /
     (1 +
-      Math.pow(
-        10,
-        (POINTS_FOR_RATING_TARGET_FACTOR * opponentRatingGlicko - pointsWithoutBonus) / 1600,
-      ))
+      Math.pow(10, (POINTS_FOR_RATING_TARGET_FACTOR * opponentRatingGlicko - teamStrength) / 1600))
   let pointsChange =
     POINTS_FOR_RATING_TARGET_FACTOR * POINTS_ELO_K_FACTOR * (outcome - winProbability)
   if (result === 'win' && pointsChange < 1) {
