@@ -38,11 +38,11 @@ const WORDMARK: &str = "ShieldBattery";
 
 /// The keys the menu's buttons answer to, as their keycaps name them. SC:R's own where it has one:
 /// `O` for Options and `E` for End Mission, which works the leave button the way the pointer does:
-/// held where leaving is held (see [`leave_is_held`]), a tap in a replay. SC:R puts alliances and chat behind one Social button on `C`; the two buttons that stand in
-/// for it here take `A` (and `C`, for that habit) and `M`.
+/// held where leaving is held (see [`leave_is_held`]), a tap in a replay. SC:R puts alliances and
+/// chat behind a Social button on `C`; the button that stands in for it here takes `A` (and `C`, for
+/// that habit).
 pub const OPTIONS_KEY: &str = "O";
 pub const ALLIANCES_KEY: &str = "A";
-pub const MESSAGING_KEY: &str = "M";
 pub const LEAVE_KEY: &str = "E";
 pub const RETURN_KEY: &str = "Esc";
 
@@ -51,16 +51,6 @@ pub const RETURN_KEY: &str = "Esc";
 /// knows one doesn't have to learn which this is.
 pub const LEAVE_CONFIRM_KEYS: [&str; 2] = ["Q", "E"];
 
-/// One of SC:R's own dialogs for a player's alliances and chat, which the menu opens rather than
-/// replaces.
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub enum SocialDialog {
-    /// Who the player is allied with and shares vision with.
-    Alliances,
-    /// Who the player's chat messages go to.
-    Messaging,
-}
-
 /// What the player asked the menu for this frame.
 #[derive(Default)]
 pub struct GameMenuOutcome {
@@ -68,8 +58,8 @@ pub struct GameMenuOutcome {
     pub return_to_game: bool,
     /// Whether the player asked for the options screen, which opens over this menu.
     pub open_options: bool,
-    /// Which of SC:R's own alliances and messaging dialogs the player asked for, if either.
-    pub open_social: Option<SocialDialog>,
+    /// Whether the player asked for the alliances screen, which opens over this menu.
+    pub open_alliances: bool,
     /// Whether the player asked to leave the game.
     pub leave: bool,
 }
@@ -129,8 +119,8 @@ fn draw_clock(ui: &mut Ui, game_seconds: u64) {
     });
 }
 
-/// The stack of things that can be done from here, in SC:R's order: Options first, then the
-/// social dialogs, then leaving, with the way back to the game at the bottom where SC:R keeps it.
+/// The stack of things that can be done from here, in SC:R's order: Options first, then alliances
+/// and chat, then leaving, with the way back to the game at the bottom where SC:R keeps it.
 fn draw_actions(
     ui: &mut Ui,
     playing: bool,
@@ -150,34 +140,19 @@ fn draw_actions(
     );
     widgets::paint_button_kbd(ui, options.rect, OPTIONS_KEY);
     outcome.open_options = options.clicked();
-    // Someone watching has no alliances of their own to set, and chat scope is all they could
-    // change there, which the chat box already does. The two share a row: they are the two buttons
-    // SC:R puts side by side above the minimap, and each opens its own dialog.
+    // Someone watching has no alliances of their own to set, and their chat only ever goes to the
+    // other watchers.
     if playing {
         ui.add_space(BUTTON_GAP);
-        let half = vec2((width - BUTTON_GAP) / 2.0, BUTTON_HEIGHT);
-        ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = BUTTON_GAP;
-            for (dialog, label, key) in [
-                (
-                    SocialDialog::Alliances,
-                    tr!("gameMenu.alliances", "Alliances"),
-                    ALLIANCES_KEY,
-                ),
-                (
-                    SocialDialog::Messaging,
-                    tr!("gameMenu.messaging", "Messaging"),
-                    MESSAGING_KEY,
-                ),
-            ] {
-                let button =
-                    widgets::plate_button(ui, &spec, &label, half, ButtonPlate::standard());
-                widgets::paint_button_kbd(ui, button.rect, key);
-                if button.clicked() {
-                    outcome.open_social = Some(dialog);
-                }
-            }
-        });
+        let alliances = widgets::plate_button(
+            ui,
+            &spec,
+            &tr!("gameMenu.alliancesAndChat", "Alliances & chat"),
+            size,
+            ButtonPlate::standard(),
+        );
+        widgets::paint_button_kbd(ui, alliances.rect, ALLIANCES_KEY);
+        outcome.open_alliances = alliances.clicked();
     }
     ui.add_space(BUTTON_GAP);
     outcome.leave = leave_button(ui, hold_to_leave, LEAVE_KEY, leave_key_held);

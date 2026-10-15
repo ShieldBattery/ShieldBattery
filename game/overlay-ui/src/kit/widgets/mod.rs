@@ -8,6 +8,7 @@ mod buttons;
 mod charts;
 mod controls;
 mod icons;
+mod menus;
 mod panels;
 mod tooltip;
 
@@ -27,6 +28,10 @@ pub use controls::{
 pub use icons::{
     IconSizes, ResourceGlyph, ResourceIcons, ResourceRace, paint_resource_glyph,
     paint_resource_icon, set_resource_icons,
+};
+pub use menus::{
+    Glyph, IconButtonState, MenuResponse, MenuRow, MenuSide, MenuTone, dropdown_button,
+    icon_button, menu_separator, paint_glyph, popup_menu,
 };
 pub use panels::{
     PANEL_HEADER_HEIGHT, STATUS_DOT_DIAMETER, TagStyle, centered_paragraph, divider, panel_header,

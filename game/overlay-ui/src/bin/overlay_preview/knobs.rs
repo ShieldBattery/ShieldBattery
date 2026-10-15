@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::host_knobs;
 use crate::scenarios::{
-    self, ScenarioKind, chat_history, disconnect, kitchen_sink, net_quality, netstat, observer,
-    transport,
+    self, ScenarioKind, alliances, chat_history, disconnect, kitchen_sink, net_quality, netstat,
+    observer, transport,
 };
 use crate::virtual_screen::{ResolutionPreset, ScaleMode};
 
@@ -67,6 +67,7 @@ pub struct Knobs {
     /// Draws every string accented, bracketed and padded out to roughly 135% of its English length,
     /// which is what a layout has to survive before any translator has written a word of it.
     pub pseudolocale: bool,
+    pub alliances: alliances::Knobs,
     pub chat_history: chat_history::Knobs,
     pub disconnect: disconnect::Knobs,
     pub net_quality: net_quality::Knobs,

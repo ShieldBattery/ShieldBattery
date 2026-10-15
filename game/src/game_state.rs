@@ -1160,7 +1160,7 @@ impl GameState {
         match message {
             WindowMove(..) => (),
             ReplaySaved(..) => (),
-            SetUserBlocked { .. } => (),
+            SetUserBlocked { .. } | ReportPlayer { .. } | ViewProfile { .. } => (),
             MinimapSettings {
                 color_mode,
                 terrain_hidden,

@@ -23,10 +23,10 @@ pub mod native_dialogs;
 use egui::{Context, Key, Modifiers, Rect};
 use serde::{Deserialize, Serialize};
 
+use crate::alliances::{AlliancesAction, AlliancesMenu, AlliancesView, render_alliances_view};
 use crate::chat_history::{ChatHistoryView, render_chat_history_view};
 use crate::disconnect::{DisconnectView, SelfState, render_disconnect_view};
 use crate::end_card::{self, EndCardChoice, EndCardView, GameResult, render_end_card};
-pub use crate::game_menu::SocialDialog;
 use crate::game_menu::{leave_is_held, render_game_menu, render_leave_confirm};
 use crate::net_quality::{NetQualityView, render_net_quality};
 use crate::netstat::{NetStatsView, render_netstat_view};
@@ -359,6 +359,9 @@ pub enum ModalId {
     Defeat,
     /// The question SC:R's quit keys ask, standing in for its quit dialogs.
     LeaveGame,
+    /// Alliances, shared vision, and whose chat a player hears and who theirs goes to, standing in
+    /// for SC:R's alliance and chat recipient dialogs.
+    Alliances,
 }
 
 impl ModalId {
@@ -379,7 +382,8 @@ impl ModalId {
             | ModalId::ChatHistory
             | ModalId::Options
             | ModalId::Victory
-            | ModalId::LeaveGame => true,
+            | ModalId::LeaveGame
+            | ModalId::Alliances => true,
         }
     }
 
@@ -397,7 +401,8 @@ impl ModalId {
             | ModalId::Options
             | ModalId::Victory
             | ModalId::Defeat
-            | ModalId::LeaveGame => true,
+            | ModalId::LeaveGame
+            | ModalId::Alliances => true,
         }
     }
 
@@ -409,8 +414,8 @@ impl ModalId {
         )
     }
 
-    /// The native dialog this modal stands in for, which the host must dismiss along with it.
-    pub fn native_dialog(self) -> Option<NativeDialog> {
+    /// The native dialogs this modal stands in for, which the host must dismiss along with it.
+    pub fn native_dialogs(self) -> &'static [NativeDialog] {
         match self {
             // Nothing of the game's stands behind the options screen: SC:R's own options are a
             // web popup its menu opens, and the menu that would have opened it is ours already.
@@ -421,11 +426,14 @@ impl ModalId {
             | ModalId::ConnectionInterrupted
             | ModalId::SessionEnded
             | ModalId::Options
-            | ModalId::LeaveGame => None,
-            ModalId::GameMenu => Some(NativeDialog::GameMenu),
-            ModalId::ChatHistory => Some(NativeDialog::ChatHistory),
-            ModalId::Victory => Some(NativeDialog::Victory),
-            ModalId::Defeat => Some(NativeDialog::Defeat),
+            | ModalId::LeaveGame => &[],
+            ModalId::GameMenu => &[NativeDialog::GameMenu],
+            ModalId::ChatHistory => &[NativeDialog::ChatHistory],
+            ModalId::Victory => &[NativeDialog::Victory],
+            ModalId::Defeat => &[NativeDialog::Defeat],
+            // One screen for what SC:R splits across two dialogs: whichever of them the minimap's
+            // buttons opened is the one behind it.
+            ModalId::Alliances => &[NativeDialog::AllianceFilter, NativeDialog::MessageFilter],
         }
     }
 
@@ -450,6 +458,7 @@ impl ModalId {
             ModalId::Victory => "victory",
             ModalId::Defeat => "defeat",
             ModalId::LeaveGame => "leave game",
+            ModalId::Alliances => "alliances",
         }
     }
 }
@@ -468,6 +477,7 @@ impl NativeDialog {
             NativeDialog::GameMenu => Some(ModalId::GameMenu),
             NativeDialog::Victory => Some(ModalId::Victory),
             NativeDialog::Defeat => Some(ModalId::Defeat),
+            NativeDialog::AllianceFilter | NativeDialog::MessageFilter => Some(ModalId::Alliances),
         }
     }
 }
@@ -490,9 +500,8 @@ pub enum Intent {
     /// End a game whose result is in, through the End Mission control of the victory or defeat
     /// dialog standing behind the card ([`NativeDialog::end_mission_control_id`]).
     EndMission(NativeDialog),
-    /// Leave the game menu for one of SC:R's alliances and messaging dialogs. Nothing of ours
-    /// replaces them.
-    OpenSocialDialog(SocialDialog),
+    /// Carry out something the player did on the alliances screen.
+    Alliances(AlliancesAction),
     /// Give up on a connection that will not come back and leave the game.
     AbandonGame,
     /// Put one setting on the value the player moved it to, in the game and wherever the host
@@ -674,6 +683,8 @@ pub struct Views<'a> {
     /// The chat log, which a host only builds while [`ModalId::ChatHistory`] is on the stack — it
     /// is a copy of every line said this game, and nothing but that modal reads it.
     pub chat_history: Option<&'a ChatHistoryView>,
+    /// The alliances screen, which a host only builds while [`ModalId::Alliances`] is on the stack.
+    pub alliances: Option<&'a AlliancesView>,
     /// What the end-of-game card reports, which a host builds once as the card comes up rather than
     /// every frame: the card is about the game as it was decided, and the numbers under it keep
     /// moving for as long as the player keeps playing.
@@ -813,6 +824,9 @@ pub struct Shell {
     /// Which page of the settings screen is on. Not persisted: it is where the player was looking
     /// a moment ago, which is worth nothing once the game is over.
     options_section: OptionsSection,
+    /// The menu open on the alliances screen. Held here rather than by the screen so `Esc` can close
+    /// it ahead of the screen under it.
+    alliances_menu: Option<AlliancesMenu>,
     intents: Vec<Intent>,
 }
 
@@ -846,6 +860,7 @@ impl Shell {
             options: OptionsView::default(),
             host_options: None,
             options_section: OptionsSection::default(),
+            alliances_menu: None,
             intents: Vec::new(),
         }
     }
@@ -881,6 +896,11 @@ impl Shell {
     /// Which page of the options screen is on.
     pub fn options_section(&self) -> OptionsSection {
         self.options_section
+    }
+
+    /// Opens or closes a menu on the alliances screen, for a host restoring what a player had open.
+    pub fn set_alliances_menu(&mut self, menu: Option<AlliancesMenu>) {
+        self.alliances_menu = menu;
     }
 
     /// Opens the options screen on `section`, for a host restoring where a player was.
@@ -966,11 +986,7 @@ impl Shell {
             return;
         };
         self.modals.remove(index);
-        if let Some(dialog) = id.native_dialog()
-            && self.live_native_dialogs[dialog.index()]
-        {
-            self.intents.push(Intent::CloseNativeDialog(dialog));
-        }
+        self.close_native_dialogs(id);
     }
 
     /// Records that a replaced native dialog is gone, so its replacement goes with it. Asks for no
@@ -1006,6 +1022,11 @@ impl Shell {
             return true;
         }
         if key == Key::Escape {
+            // A menu open on the screen closes ahead of the screen itself.
+            if self.top_modal() == Some(ModalId::Alliances) && self.alliances_menu.is_some() {
+                self.alliances_menu = None;
+                return true;
+            }
             if self.top_modal().is_some_and(ModalId::is_dismissible) {
                 self.dismiss_top_modal();
                 return true;
@@ -1101,6 +1122,7 @@ impl Shell {
                         .held_button_key
                         .is_some_and(|(held, _)| held == modal.id),
                     end_card_key,
+                    alliances_menu: self.alliances_menu,
                 },
                 &mut hit_rects,
             );
@@ -1120,8 +1142,11 @@ impl Shell {
                 self.modals.retain(|entry| entry.id != modal.id);
                 self.intents.push(Intent::EndMission(dialog));
             }
-            if let Some(dialog) = outcome.open_social {
-                self.open_social_dialog(dialog);
+            for action in outcome.alliances_actions {
+                self.intents.push(Intent::Alliances(action));
+            }
+            if let Some(menu) = outcome.alliances_menu {
+                self.alliances_menu = menu;
             }
             if outcome.abandoned {
                 self.intents.push(Intent::AbandonGame);
@@ -1142,6 +1167,9 @@ impl Shell {
             }
             if outcome.open_options {
                 self.open_modal(ModalId::Options);
+            }
+            if outcome.open_alliances {
+                self.open_modal(ModalId::Alliances);
             }
         }
 
@@ -1850,10 +1878,7 @@ impl Shell {
             }
             (Some(ModalId::GameMenu), Key::E) => self.intents.push(Intent::QuitGame),
             (Some(ModalId::GameMenu), Key::A | Key::C) if playing => {
-                self.open_social_dialog(SocialDialog::Alliances)
-            }
-            (Some(ModalId::GameMenu), Key::M) if playing => {
-                self.open_social_dialog(SocialDialog::Messaging)
+                self.open_modal(ModalId::Alliances)
             }
             (Some(ModalId::LeaveGame), Key::Q | Key::E) => self.intents.push(Intent::QuitGame),
             // The key SC:R opens its message history with closes it again, and so does its OK
@@ -1867,14 +1892,6 @@ impl Shell {
             _ => return false,
         }
         true
-    }
-
-    /// Leaves the menu for one of SC:R's own social dialogs. The host leaves the game menu itself on
-    /// the way to the dialog, so the menu goes from the stack without asking the host to close it a
-    /// second time.
-    fn open_social_dialog(&mut self, dialog: SocialDialog) {
-        self.modals.retain(|modal| modal.id != ModalId::GameMenu);
-        self.intents.push(Intent::OpenSocialDialog(dialog));
     }
 
     /// Whether SC:R's quit keys open the leave question. They do in every mode once the game runs,
@@ -1998,10 +2015,18 @@ impl Shell {
         let Some(modal) = self.modals.pop() else {
             return;
         };
-        if let Some(dialog) = modal.id.native_dialog()
-            && self.live_native_dialogs[dialog.index()]
-        {
-            self.intents.push(Intent::CloseNativeDialog(dialog));
+        self.close_native_dialogs(modal.id);
+    }
+
+    /// Asks the host to dismiss whichever of the native dialogs behind `id` are still up.
+    fn close_native_dialogs(&mut self, id: ModalId) {
+        if id == ModalId::Alliances {
+            self.alliances_menu = None;
+        }
+        for &dialog in id.native_dialogs() {
+            if self.live_native_dialogs[dialog.index()] {
+                self.intents.push(Intent::CloseNativeDialog(dialog));
+            }
         }
     }
 
@@ -2135,8 +2160,12 @@ struct ModalOutcome {
     quit: bool,
     /// The result dialog whose End Mission the player asked for.
     end_mission: Option<NativeDialog>,
-    /// Whether the player asked for the alliances and chat settings.
-    open_social: Option<SocialDialog>,
+    /// Whether the player asked for the alliances screen.
+    open_alliances: bool,
+    /// What the player did on the alliances screen.
+    alliances_actions: Vec<AlliancesAction>,
+    /// The menu the alliances screen should have open, where that changed.
+    alliances_menu: Option<Option<AlliancesMenu>>,
     /// Whether the player gave up on their own connection.
     abandoned: bool,
     /// Whether the player asked for the options screen.
@@ -2156,6 +2185,8 @@ struct ModalContext<'a> {
     button_key_held: bool,
     /// What a key pressed since the last frame chose on an end-of-game card.
     end_card_key: Option<EndCardChoice>,
+    /// The menu open on the alliances screen.
+    alliances_menu: Option<AlliancesMenu>,
 }
 
 fn draw_modal(
@@ -2196,7 +2227,7 @@ fn draw_modal(
             ModalOutcome {
                 dismissed: dialog.inner.return_to_game || dialog.scrim_clicked,
                 open_options: dialog.inner.open_options,
-                open_social: dialog.inner.open_social,
+                open_alliances: dialog.inner.open_alliances,
                 quit: dialog.inner.leave,
                 ..ModalOutcome::default()
             }
@@ -2242,8 +2273,25 @@ fn draw_modal(
             ModalOutcome {
                 dismissed: card.choice == Some(EndCardChoice::KeepPlaying),
                 end_mission: (card.choice == Some(EndCardChoice::Leave))
-                    .then(|| id.native_dialog())
+                    .then(|| id.native_dialogs().first().copied())
                     .flatten(),
+                ..ModalOutcome::default()
+            }
+        }
+        ModalId::Alliances => {
+            let Some(view) = views.alliances else {
+                // A host that has not built the screen yet still gets a way out: the scrim and the
+                // key close it, and nothing else is drawn rather than a table of nobody.
+                return ModalOutcome::default();
+            };
+            let dialog = render_alliances_view(view, ctx, shell.alliances_menu);
+            hit_rects.push(HitRect::new(dialog.response.rect));
+            // A click outside the screen while one of its menus is open closes the menu alone.
+            let scrim_dismisses = shell.alliances_menu.is_none() && dialog.scrim_clicked;
+            ModalOutcome {
+                dismissed: dialog.inner.done || scrim_dismisses,
+                alliances_actions: dialog.inner.actions,
+                alliances_menu: dialog.inner.menu,
                 ..ModalOutcome::default()
             }
         }

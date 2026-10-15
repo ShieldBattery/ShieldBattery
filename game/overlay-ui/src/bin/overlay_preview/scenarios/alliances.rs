@@ -1,0 +1,463 @@
+//! The alliances and chat scenario.
+//!
+//! The screen is a modal that the alliance filter dialog's replacement raises, so selecting this
+//! scenario also spawns that dialog in the emulated host — otherwise the screen would have nothing
+//! to draw on.
+//!
+//! The roster is synthesized deterministically from the knobs, so the same knob settings always
+//! produce the same screen and an offline render is reproducible. What the player does on the screen
+//! is kept in [`State`], the way the game would keep it: a toggle changes the next frame's view, and
+//! the knobs only decide what the game started out as.
+
+use std::collections::{HashMap, HashSet};
+
+use egui::vec2;
+use overlay_ui::alliances::{
+    AlliancePlayerView, AllianceState, AlliancesAction, AlliancesMenu, AlliancesView,
+    ChatTargetChoice, ChatTargetOption, PlayerNote, RecipientName,
+};
+use overlay_ui::kit::theme;
+use overlay_ui::observer::RaceView;
+use overlay_ui::shell::Mode;
+use serde::{Deserialize, Serialize};
+
+use crate::knobs::Knobs as AllKnobs;
+
+/// The people the roster is dealt from, in the game's order. The local player is not among them: the
+/// screen only lists everyone else.
+const NAMES: [&str; 7] = [
+    "Zerglot",
+    "pachi",
+    "Artanis_Fan",
+    "tec27",
+    "mineral_walker",
+    "Cleric",
+    "ShieldBat",
+];
+
+/// The name the long-name knob gives the second row, long enough to run out of room for the tags
+/// and the note after it.
+const LONG_NAME: &str = "an-extremely-long-player-name-that-keeps-going";
+
+/// The ShieldBattery account the first row has; the rest follow it.
+const FIRST_USER_ID: u32 = 100;
+
+/// The game's own id for the first row. Slot zero is the local player.
+const FIRST_PLAYER_ID: u8 = 1;
+
+/// The alliances scenario's emulation knobs.
+#[derive(Clone, Copy, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Knobs {
+    /// How many other people are in the game.
+    pub players: u32,
+    /// Whether every other row is on the player's own team, which has nothing to set with them.
+    pub team_game: bool,
+    /// Whether the game lets the player change alliances and vision at all.
+    pub alliances_open: bool,
+    /// Whether the last row is someone who has left the game.
+    pub departed_player: bool,
+    /// Whether the second row is someone who has been beaten but is still in the game.
+    pub defeated_player: bool,
+    /// Whether the second row's name is long enough to be cut short.
+    pub long_name: bool,
+    /// How many rows, from the top, start out allied with the player.
+    pub allied_rows: u32,
+    /// How many rows, from the top, start out muted.
+    pub muted_rows: u32,
+    /// How many rows, from the bottom, start out blocked.
+    pub blocked_rows: u32,
+    /// Whether "Allies" is one of the places chat can go.
+    pub allies_chat_target: bool,
+    /// Which of the screen's menus is open as the scenario comes up.
+    pub open_menu: OpenMenu,
+}
+
+/// A menu of the screen's, as a knob opens it.
+#[derive(Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum OpenMenu {
+    #[default]
+    None,
+    /// The first row's menu of what can be done about them.
+    Player,
+    /// Where chat goes.
+    ChatTarget,
+}
+
+/// The menu `k` asks to have open.
+pub fn open_menu(k: &Knobs) -> Option<AlliancesMenu> {
+    match k.open_menu {
+        OpenMenu::None => None,
+        OpenMenu::Player => rows(k).first().map(|row| AlliancesMenu::Player {
+            user_id: row.user_id,
+        }),
+        OpenMenu::ChatTarget => Some(AlliancesMenu::ChatTarget),
+    }
+}
+
+impl Default for Knobs {
+    fn default() -> Knobs {
+        Knobs {
+            players: 3,
+            team_game: false,
+            alliances_open: true,
+            departed_player: false,
+            defeated_player: false,
+            long_name: false,
+            allied_rows: 1,
+            muted_rows: 0,
+            blocked_rows: 0,
+            allies_chat_target: true,
+            open_menu: OpenMenu::None,
+        }
+    }
+}
+
+/// A one-click preview state: a free-for-all, a game with teams, a game whose alliances are fixed,
+/// and a crowded game with every kind of row in it.
+#[derive(Clone, Copy)]
+pub enum Preset {
+    Ffa,
+    TeamGame,
+    Locked,
+    Crowded,
+    PlayerMenu,
+    ChatMenu,
+}
+
+impl Preset {
+    pub const ALL: [Preset; 6] = [
+        Preset::Ffa,
+        Preset::TeamGame,
+        Preset::Locked,
+        Preset::Crowded,
+        Preset::PlayerMenu,
+        Preset::ChatMenu,
+    ];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Preset::Ffa => "ffa",
+            Preset::TeamGame => "team-game",
+            Preset::Locked => "locked",
+            Preset::Crowded => "crowded",
+            Preset::PlayerMenu => "player-menu",
+            Preset::ChatMenu => "chat-menu",
+        }
+    }
+
+    /// Presets this scenario's knobs, and puts the host where the screen exists: a player's game,
+    /// with the native dialog the screen replaces spawned.
+    pub fn apply(self, knobs: &mut AllKnobs) {
+        knobs.host.alliance_filter_spawned = true;
+        knobs.host.mode = Mode::Playing;
+        self.apply_knobs(&mut knobs.alliances);
+    }
+
+    /// Presets only what this scenario owns, for the preset row inside its own knob section, where
+    /// the dialog has already been spawned by the selector.
+    pub fn apply_knobs(self, k: &mut Knobs) {
+        *k = match self {
+            Preset::Ffa => Knobs::default(),
+            Preset::TeamGame => Knobs {
+                players: 5,
+                team_game: true,
+                allied_rows: 0,
+                ..Knobs::default()
+            },
+            Preset::Locked => Knobs {
+                players: 4,
+                alliances_open: false,
+                allied_rows: 2,
+                ..Knobs::default()
+            },
+            Preset::Crowded => Knobs {
+                players: 7,
+                team_game: true,
+                departed_player: true,
+                defeated_player: true,
+                long_name: true,
+                allied_rows: 3,
+                muted_rows: 2,
+                blocked_rows: 1,
+                ..Knobs::default()
+            },
+            Preset::PlayerMenu => Knobs {
+                players: 4,
+                muted_rows: 1,
+                open_menu: OpenMenu::Player,
+                ..Knobs::default()
+            },
+            Preset::ChatMenu => Knobs {
+                players: 4,
+                muted_rows: 1,
+                open_menu: OpenMenu::ChatTarget,
+                ..Knobs::default()
+            },
+        };
+    }
+}
+
+/// What the fake game remembers of what the screen asked of it. Each map holds only what the player
+/// has changed; a row the player has not touched keeps what the knobs gave it.
+#[derive(Default)]
+pub struct State {
+    allied: HashMap<u8, bool>,
+    vision: HashMap<u8, bool>,
+    muted: HashMap<u32, bool>,
+    blocked: HashMap<u32, bool>,
+    reported: HashSet<u32>,
+    allied_victory: bool,
+    chat_target: Option<ChatTargetChoice>,
+    /// The menu knob as the shell was last told it, so the knob opens the menu once rather than
+    /// holding it open against the player's clicks.
+    pub menu_applied: Option<OpenMenu>,
+}
+
+impl State {
+    pub fn new() -> State {
+        State::default()
+    }
+
+    /// Puts everything back to what the knobs say.
+    pub fn reset(&mut self) {
+        *self = State::new();
+    }
+
+    /// Carries out what the screen asked for, the way the game would.
+    pub fn apply(&mut self, k: &Knobs, action: AlliancesAction) {
+        match action {
+            AlliancesAction::SetAllied { player_id, allied } => {
+                self.allied.insert(player_id, allied);
+            }
+            AlliancesAction::SetSharedVision { player_id, shared } => {
+                self.vision.insert(player_id, shared);
+            }
+            AlliancesAction::SetAlliedVictory(on) => self.allied_victory = on,
+            AlliancesAction::SetMuted { user_id, muted } => {
+                self.muted.insert(user_id, muted);
+            }
+            AlliancesAction::SetAllMuted(muted) => {
+                for row in rows(k) {
+                    self.muted.insert(row.user_id, muted);
+                }
+            }
+            AlliancesAction::SetBlocked { user_id, blocked } => {
+                self.blocked.insert(user_id, blocked);
+            }
+            AlliancesAction::Report { user_id } => {
+                self.reported.insert(user_id);
+            }
+            // The emulated host has no ShieldBattery window to bring up.
+            AlliancesAction::ViewProfile { .. } => {}
+            AlliancesAction::SetChatTarget(choice) => self.chat_target = Some(choice),
+        }
+    }
+}
+
+/// What the knobs say about one row before the player has touched anything.
+struct Row {
+    index: usize,
+    user_id: u32,
+    player_id: u8,
+    teammate: bool,
+    departed: bool,
+}
+
+/// The roster the knobs describe, in the game's order.
+fn rows(k: &Knobs) -> Vec<Row> {
+    let count = (k.players as usize).min(NAMES.len());
+    (0..count)
+        .map(|index| Row {
+            index,
+            user_id: FIRST_USER_ID + index as u32,
+            player_id: FIRST_PLAYER_ID + index as u8,
+            teammate: k.team_game && index % 2 == 0,
+            departed: k.departed_player && index + 1 == count,
+        })
+        .collect()
+}
+
+/// Builds the view the game would hand the overlay.
+pub fn build_view(k: &Knobs, state: &State) -> AlliancesView {
+    let count = (k.players as usize).min(NAMES.len());
+    let rows = rows(k);
+    let players = rows
+        .iter()
+        .map(|row| {
+            let name = if k.long_name && row.index == 1 {
+                LONG_NAME
+            } else {
+                NAMES[row.index]
+            };
+            let has_alliance = !row.teammate && !row.departed;
+            let note = if row.departed {
+                Some(PlayerNote::Left)
+            } else if row.teammate {
+                Some(PlayerNote::Teammate)
+            } else if k.defeated_player && row.index == 1 {
+                Some(PlayerNote::Defeated)
+            } else {
+                None
+            };
+            let allied = state
+                .allied
+                .get(&row.player_id)
+                .copied()
+                .unwrap_or(row.index < k.allied_rows as usize);
+            let vision = state
+                .vision
+                .get(&row.player_id)
+                .copied()
+                .unwrap_or(row.index < k.allied_rows as usize && row.index % 2 == 0);
+            AlliancePlayerView {
+                user_id: row.user_id,
+                name: name.to_string(),
+                color: theme::player_color(row.index + 1),
+                race: RaceView::ALL[row.index % RaceView::ALL.len()],
+                alliance: has_alliance.then_some(AllianceState {
+                    player_id: row.player_id,
+                    allied,
+                    vision,
+                }),
+                note,
+                muted: state
+                    .muted
+                    .get(&row.user_id)
+                    .copied()
+                    .unwrap_or(row.index < k.muted_rows as usize),
+                blocked: state
+                    .blocked
+                    .get(&row.user_id)
+                    .copied()
+                    .unwrap_or(row.index >= count.saturating_sub(k.blocked_rows as usize)),
+                report_requested: state.reported.contains(&row.user_id),
+            }
+        })
+        .collect::<Vec<_>>();
+
+    let mut chat_targets = vec![ChatTargetOption {
+        choice: ChatTargetChoice::All,
+        recipient: None,
+        color: None,
+        muted: false,
+    }];
+    if k.allies_chat_target {
+        chat_targets.push(ChatTargetOption {
+            choice: ChatTargetChoice::Allies,
+            recipient: None,
+            color: None,
+            muted: false,
+        });
+    }
+    for player in &players {
+        if let Some(alliance) = player.alliance {
+            chat_targets.push(ChatTargetOption {
+                choice: ChatTargetChoice::Recipient(alliance.player_id),
+                recipient: Some(RecipientName::Player(player.name.clone())),
+                color: Some(player.color),
+                muted: player.muted,
+            });
+        }
+    }
+    // A choice the knobs have since removed falls back to everyone, the way the game would stop
+    // sending to someone who is no longer in it.
+    let chat_target = state
+        .chat_target
+        .filter(|choice| chat_targets.iter().any(|option| option.choice == *choice))
+        .unwrap_or(ChatTargetChoice::All);
+
+    AlliancesView {
+        players,
+        alliances_open: k.alliances_open,
+        allied_victory: state.allied_victory,
+        chat_target,
+        chat_targets,
+    }
+}
+
+/// The scenario's knob section. Returns whether anything changed.
+pub fn knobs_ui(k: &mut Knobs, state: &mut State, ui: &mut egui::Ui) -> bool {
+    let mut changed = false;
+
+    ui.horizontal_wrapped(|ui| {
+        ui.label("Preset:");
+        for preset in Preset::ALL {
+            if ui.button(preset.label()).clicked() {
+                preset.apply_knobs(k);
+                state.reset();
+                changed = true;
+            }
+        }
+    });
+
+    ui.add_space(4.0);
+    egui::Grid::new("alliances_knobs")
+        .num_columns(2)
+        .spacing(vec2(8.0, 6.0))
+        .show(ui, |ui| {
+            ui.label("Players");
+            changed |= ui
+                .add(egui::DragValue::new(&mut k.players).range(0..=NAMES.len() as u32))
+                .changed();
+            ui.end_row();
+
+            ui.label("Allied rows");
+            changed |= ui
+                .add(egui::DragValue::new(&mut k.allied_rows).range(0..=NAMES.len() as u32))
+                .on_hover_text("How many rows, from the top, start out allied with the player.")
+                .changed();
+            ui.end_row();
+
+            ui.label("Muted rows");
+            changed |= ui
+                .add(egui::DragValue::new(&mut k.muted_rows).range(0..=NAMES.len() as u32))
+                .on_hover_text("How many rows, from the top, start out muted.")
+                .changed();
+            ui.end_row();
+
+            ui.label("Blocked rows");
+            changed |= ui
+                .add(egui::DragValue::new(&mut k.blocked_rows).range(0..=NAMES.len() as u32))
+                .on_hover_text("How many rows, from the bottom, start out blocked.")
+                .changed();
+            ui.end_row();
+        });
+
+    changed |= ui
+        .checkbox(&mut k.team_game, "team game")
+        .on_hover_text("Every other row is a teammate, which has no alliance to set.")
+        .changed();
+    changed |= ui
+        .checkbox(&mut k.alliances_open, "alliances open")
+        .on_hover_text("Off fixes alliances and shared vision, as a game with set teams does.")
+        .changed();
+    changed |= ui
+        .checkbox(&mut k.departed_player, "departed player")
+        .on_hover_text("The last row has left the game.")
+        .changed();
+    changed |= ui
+        .checkbox(&mut k.defeated_player, "defeated player")
+        .on_hover_text("The second row has been beaten but is still in the game.")
+        .changed();
+    changed |= ui
+        .checkbox(&mut k.long_name, "long name")
+        .on_hover_text("The second row's name is too long to fit beside its tags.")
+        .changed();
+    changed |= ui
+        .checkbox(&mut k.allies_chat_target, "allies chat target")
+        .on_hover_text("Whether \"Allies\" is one of the places chat can go.")
+        .changed();
+
+    ui.add_space(4.0);
+    if ui
+        .button("reset changes")
+        .on_hover_text("Forgets what has been toggled on the screen, going back to the knobs.")
+        .clicked()
+    {
+        state.reset();
+        changed = true;
+    }
+
+    changed
+}

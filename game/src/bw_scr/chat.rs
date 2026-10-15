@@ -23,6 +23,15 @@ pub struct ChatManager {
     pending_notices: Vec<CString>,
 }
 
+/// Another person in the game, as the local user's chat settings see them.
+pub struct OtherPlayer {
+    pub name: String,
+    pub user_id: SbUserId,
+    pub player_id: Option<BwPlayerId>,
+    pub muted: bool,
+    pub blocked: bool,
+}
+
 /// What a `/block` or `/unblock` command did to the block list.
 #[derive(Debug, PartialEq, Eq)]
 enum BlockCommandOutcome {
@@ -150,6 +159,40 @@ impl ChatManager {
 
     pub fn take_pending_notices(&mut self) -> Vec<CString> {
         std::mem::take(&mut self.pending_notices)
+    }
+
+    /// Everyone in the game but the local user, with what the local user has chosen about hearing
+    /// them.
+    pub fn others(&self) -> Vec<OtherPlayer> {
+        self.players
+            .iter()
+            .filter(|player| Some(player.sb_user_id) != self.local_user_id)
+            .map(|player| OtherPlayer {
+                name: player.name.clone(),
+                user_id: player.sb_user_id,
+                player_id: player.player_id,
+                muted: self.muted_players.contains(&player.sb_user_id),
+                blocked: self.blocked_players.contains(&player.sb_user_id),
+            })
+            .collect()
+    }
+
+    /// Blocks or unblocks one of this game's players locally and has the app save it, returning
+    /// whether anything changed.
+    pub fn set_blocked(&mut self, user_id: SbUserId, blocked: bool) -> bool {
+        if self.local_user_id == Some(user_id)
+            || !self.players.iter().any(|p| p.sb_user_id == user_id)
+            || self.blocked_players.contains(&user_id) == blocked
+        {
+            return false;
+        }
+        if blocked {
+            self.add_blocked_player(user_id);
+        } else {
+            self.remove_blocked_player(user_id);
+        }
+        send_game_msg_to_async(GameThreadMessage::SetUserBlocked { user_id, blocked });
+        true
     }
 
     pub fn add_muted_player(&mut self, player_id: SbUserId) {

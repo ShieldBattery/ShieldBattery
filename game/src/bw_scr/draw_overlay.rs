@@ -26,6 +26,7 @@ use winapi::shared::windef::{HWND, POINT};
 use crate::app_messages::GameSetupInfo;
 use crate::bw;
 use crate::bw::apm_stats::ApmStats;
+use crate::bw_scr::chat::ChatManager;
 use crate::bw_scr::game_stats::{self, GameStats};
 use crate::bw_scr::replay_transport::{ReplayCommand, TransportState};
 use crate::bw_scr::scr;
@@ -33,6 +34,8 @@ use crate::bw_scr::stat_txt::StatTxt;
 use crate::bw_scr::{BwCursorType, console, dialog_hook};
 use crate::netcode_v2::{self, DisconnectStatus, LoadingConnectivity, NetStatsStatus};
 
+pub use self::alliances::AllianceRules;
+use self::alliances::AlliancesState;
 use self::chat_history::ChatHistoryCache;
 use self::production::ProductionState;
 
@@ -40,6 +43,7 @@ use self::production::ProductionState;
 // crate; re-exported here so the DLL's other overlays keep referring to them by the same paths.
 pub use overlay_ui::{colors, fonts};
 
+mod alliances;
 mod chat_history;
 mod disconnect;
 mod end_card;
@@ -76,6 +80,8 @@ pub struct OverlayState {
     logged_minimap_area: Option<(i16, i16, i16, i16)>,
     /// The chat log the last frame handed the shell, kept only while its modal is on screen.
     chat_history: Option<ChatHistoryCache>,
+    /// What the alliances screen keeps between frames.
+    alliances: AlliancesState,
     /// The game's own resource icons, once read.
     resource_icons: Option<resource_icons::LoadedResourceIcons>,
     /// How much of the screen's height the band the minimap stands in takes, from the screen's
@@ -211,6 +217,9 @@ pub struct StepOutput {
     pub command_panel_visible: bool,
     /// What the overlay wants done to replay playback this frame, in the order it asked.
     pub replay_commands: Vec<ReplayCommand>,
+    /// Game commands the player issued from the overlay this frame, in the order they issued them,
+    /// for the game to send as though its own UI had.
+    pub game_commands: Vec<Vec<u8>>,
     /// Settings the player moved on the options screen this frame, in the order they moved them,
     /// for the game to apply and the app to save.
     pub setting_changes: Vec<SettingChange>,
@@ -308,6 +317,8 @@ pub struct BwVars {
     /// Where the game's names for units, upgrades and techs are read from. `None` when the analysis
     /// could not find it, which leaves the panels to go without names.
     pub stat_txt: Option<StatTxt>,
+    /// What the game's rules allow of alliances and chat recipients.
+    pub alliance_rules: AllianceRules,
 }
 
 /// What the replay transport needs of the game: the replay's length and recorded speed, from its
@@ -452,6 +463,7 @@ impl OverlayState {
             last_group_recall: None,
             shell_held_keys: Vec::new(),
             chat_history: None,
+            alliances: AlliancesState::default(),
             resource_icons: None,
             bottom_band_share: 0.0,
         }
@@ -482,6 +494,7 @@ impl OverlayState {
         net_quality: Option<&NetQualityView>,
         loading_connectivity: Option<&LoadingConnectivity>,
         chat_history: &Mutex<crate::bw_scr::chat_history::ChatHistory>,
+        chat_manager: &Mutex<ChatManager>,
         options: &Mutex<OptionsView>,
         option_lists: &Mutex<Arc<OptionsLists>>,
         observer_panels: &Mutex<Option<PanelPrefs>>,
@@ -675,6 +688,16 @@ impl OverlayState {
             self.chat_history = None;
             None
         };
+        // Built only while its modal is up, like the log: it reads the chat settings under their
+        // lock, which nothing else in a frame needs.
+        let alliances_view = self
+            .shell
+            .open_modals()
+            .any(|modal| modal == ModalId::Alliances)
+            .then(|| {
+                self.alliances
+                    .build_view(bw, bw.alliance_rules, chat_manager, Instant::now())
+            });
         let end_card_result = self
             .shell
             .open_modals()
@@ -763,6 +786,7 @@ impl OverlayState {
             net_quality,
             net_stats: net_stats_view.as_ref(),
             chat_history: chat_history_view.as_ref().map(ChatHistoryCache::view),
+            alliances: alliances_view.as_ref(),
             end_card: end_card_view.as_ref(),
             transport: transport_view.as_ref(),
             observer: observer_view.as_ref(),
@@ -810,6 +834,7 @@ impl OverlayState {
         self.capture = frame_output.capture;
         let mut replay_commands = Vec::new();
         let mut setting_changes = Vec::new();
+        let mut game_commands = Vec::new();
         for intent in frame_output.intents {
             match intent {
                 // The overlay holds what the player moved, so the screen keeps showing it for the
@@ -817,6 +842,16 @@ impl OverlayState {
                 Intent::ChangeSetting(change) => {
                     options.lock().apply(change);
                     setting_changes.push(change);
+                }
+                Intent::Alliances(action) => {
+                    let command = self.alliances.apply(
+                        action,
+                        bw,
+                        bw.alliance_rules,
+                        chat_manager,
+                        Instant::now(),
+                    );
+                    game_commands.extend(command);
                 }
                 intent => self.execute_intent(bw, intent, &mut replay_commands),
             }
@@ -842,6 +877,7 @@ impl OverlayState {
             minimap_visible: !bw.is_replay_or_obs || prefs.minimap,
             command_panel_visible: !frame_output.transport_shown,
             replay_commands,
+            game_commands,
             setting_changes,
             observer_panels_changed,
             statbtn_dialog_offset: self.replay_ui_values.statbtn_dialog_offset,
@@ -1177,9 +1213,6 @@ impl OverlayState {
                     self.out_state.leave_game = true;
                 }
             }
-            Intent::OpenSocialDialog(dialog) => {
-                dialog_hook::open_social_dialog(bw.first_dialog, dialog)
-            }
             Intent::OpenGameMenu => dialog_hook::open_game_menu(bw.first_dialog),
             Intent::Seek(frame) => {
                 self.last_requested_seek = Some(frame);
@@ -1241,6 +1274,8 @@ impl OverlayState {
             }
             // Collected by `step` for the game to apply, since the game owns the settings.
             Intent::ChangeSetting(_) => {}
+            // Carried out by `step`, which holds the chat settings they act on.
+            Intent::Alliances(_) => {}
         }
     }
 

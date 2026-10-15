@@ -4276,6 +4276,7 @@ impl BwScr {
                     let is_replay_or_obs = self.is_replay_or_obs();
                     let is_replay = self.is_replay.resolve() != 0;
                     let is_team_game = game_thread::is_team_game();
+                    let alliance_rules = self.alliance_rules();
                     let main_palette = self.main_palette.resolve();
                     let rgb_colors = self.rgb_colors.resolve();
                     let use_rgb_colors = self.use_rgb_colors.resolve();
@@ -4414,6 +4415,7 @@ impl BwScr {
                                     local_player_id,
                                     replay,
                                     stat_txt: self.stat_txt,
+                                    alliance_rules,
                                 },
                                 apm,
                                 game_stats,
@@ -4424,6 +4426,7 @@ impl BwScr {
                                 net_quality.as_ref(),
                                 loading_connectivity.as_ref(),
                                 &self.chat_history,
+                                &self.chat_manager,
                                 &self.options,
                                 &self.option_lists,
                                 &self.observer_panels,
@@ -4489,6 +4492,9 @@ impl BwScr {
                             }
                             for command in &overlay_out.replay_commands {
                                 self.send_replay_command(*command);
+                            }
+                            for command in &overlay_out.game_commands {
+                                (self.send_command)(command.as_ptr(), command.len());
                             }
                             if !overlay_out.setting_changes.is_empty() {
                                 self.apply_setting_changes(&overlay_out.setting_changes);
@@ -8054,6 +8060,25 @@ impl BwScr {
         self.chat_manager
             .lock()
             .handle_send_chat(text, |player| unsafe { !self.is_allied_with(player.0) })
+    }
+
+    /// What this game's rules allow of alliances and chat recipients, for the alliances screen.
+    unsafe fn alliance_rules(&self) -> draw_overlay::AllianceRules {
+        unsafe {
+            let game_data = self.game_data();
+            if game_data.is_null() {
+                return draw_overlay::AllianceRules::default();
+            }
+            let game_type = (*game_data).game_type();
+            draw_overlay::AllianceRules {
+                // The game allows alliance changes only at exactly this value, and ignores the
+                // commands for them otherwise.
+                alliances_open: (*game_data).game_template.allies_enabled == 1,
+                allies_chat: bw::get_had_allies_enabled(),
+                team_forces: game_type.has_team_forces(),
+                shared_control: game_type.is_team_game(),
+            }
+        }
     }
 
     pub fn init_chat_manager(

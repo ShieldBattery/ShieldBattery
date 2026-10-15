@@ -391,6 +391,14 @@ pub struct SetUserBlocked {
     pub blocked: bool,
 }
 
+/// Names the player an in-game request about a player (`/game/reportPlayer`,
+/// `/game/viewProfile`) is about.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlayerRequest {
+    pub user_id: SbUserId,
+}
+
 /// Sent by the app when it couldn't save a [`SetUserBlocked`] request.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

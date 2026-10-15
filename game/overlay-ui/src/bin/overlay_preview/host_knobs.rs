@@ -39,6 +39,10 @@ pub struct Knobs {
     pub victory_spawned: bool,
     /// Whether the emulated game has spawned its defeat popup.
     pub defeat_spawned: bool,
+    /// Whether the emulated game has spawned its alliance dialog, from the minimap's button.
+    pub alliance_filter_spawned: bool,
+    /// Whether the emulated game has spawned its chat recipient dialog, from the minimap's button.
+    pub message_filter_spawned: bool,
     /// Outlines the rects the shell reports as its own over the emulated screen, which is what
     /// decides whether a click is the overlay's or the game's.
     pub show_hit_rects: bool,
@@ -69,6 +73,8 @@ impl Default for Knobs {
             game_menu_spawned: false,
             victory_spawned: false,
             defeat_spawned: false,
+            alliance_filter_spawned: false,
+            message_filter_spawned: false,
             show_hit_rects: false,
             panels: PanelPrefs::default(),
             pointer: None,
@@ -96,6 +102,8 @@ impl Knobs {
             NativeDialog::GameMenu => self.game_menu_spawned,
             NativeDialog::Victory => self.victory_spawned,
             NativeDialog::Defeat => self.defeat_spawned,
+            NativeDialog::AllianceFilter => self.alliance_filter_spawned,
+            NativeDialog::MessageFilter => self.message_filter_spawned,
         }
     }
 
@@ -106,6 +114,8 @@ impl Knobs {
             NativeDialog::GameMenu => self.game_menu_spawned = spawned,
             NativeDialog::Victory => self.victory_spawned = spawned,
             NativeDialog::Defeat => self.defeat_spawned = spawned,
+            NativeDialog::AllianceFilter => self.alliance_filter_spawned = spawned,
+            NativeDialog::MessageFilter => self.message_filter_spawned = spawned,
         }
     }
 }
@@ -226,7 +236,7 @@ pub fn knobs_ui(knobs: &mut Knobs, shell: &mut Shell, ui: &mut Ui) -> bool {
                     knobs.set_spawned(dialog, false);
                     changed = true;
                 }
-                ui.weak(dialog.runtime_name());
+                ui.weak(dialog.runtime_names().join(" / "));
             });
         });
     }

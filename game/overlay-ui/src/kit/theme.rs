@@ -187,6 +187,12 @@ pub const TIER2_ROW_FILL: Color32 = alpha(Color32::from_rgb(13, 22, 44), 0.70);
 pub const TIER2_DIVIDER: Color32 = alpha(BLUE70, 0.50);
 /// The halo a tier-2 control wears while it is the active one.
 pub const TIER2_ACTIVE_HALO: Color32 = alpha(BLUE60, 0.50);
+/// A menu opened from a modal's control: the modal's fill, a shade lighter and almost opaque, since
+/// the rows of the dialog under it must not read through its own.
+pub const MENU_FILL_TOP: Color32 = alpha(Color32::from_rgb(20, 36, 76), 0.98);
+pub const MENU_FILL_BOTTOM: Color32 = alpha(Color32::from_rgb(13, 22, 44), 0.98);
+/// The fill of a menu's row under the pointer, or of the row holding the current choice.
+pub const MENU_ROW_LIT: Color32 = alpha(BLUE60, 0.25);
 /// What a modal lays over the rest of the screen.
 pub const SCRIM: Color32 = alpha(Color32::from_rgb(8, 11, 17), 0.62);
 

@@ -4,7 +4,6 @@ use std::time::{Duration, Instant};
 use parking_lot::Mutex;
 
 use bw_dat::dialog::{Control, Dialog, EventHandler};
-use overlay_ui::shell::SocialDialog;
 use overlay_ui::shell::native_dialogs::{self, NativeDialog};
 
 use crate::bw::players::StormPlayerId;
@@ -63,6 +62,12 @@ fn replacement_at_spawn(name: &str) -> Option<NativeDialog> {
         NativeDialog::Victory | NativeDialog::Defeat => {
             (!get_bw().is_replay_or_obs()).then_some(dialog)
         }
+        // A player's alliances and chat recipient are set on the overlay's alliances screen. A
+        // watcher's use of the two dialogs (a replay's vision, an observer's read-only lists) has
+        // nothing of ours standing in for it.
+        NativeDialog::AllianceFilter | NativeDialog::MessageFilter => {
+            (!get_bw().is_replay_or_obs()).then_some(dialog)
+        }
     }
 }
 
@@ -94,9 +99,8 @@ pub fn end_mission(first_dialog: Option<Dialog>, dialog: NativeDialog) -> bool {
 /// Logs a replaced native dialog's controls, once its spawn has finished building them, so a log
 /// from a live game says which ids a dialog actually has.
 pub fn log_replaced_dialog_controls(first_dialog: Option<Dialog>, dialog: NativeDialog) {
-    let name = dialog.runtime_name();
     let Some(live) = bw::iter_dialogs(first_dialog)
-        .find(|candidate| candidate.as_control().string().eq_ignore_ascii_case(name))
+        .find(|candidate| dialog.is_named(candidate.as_control().string()))
     else {
         return;
     };
@@ -123,9 +127,8 @@ pub fn activate_replaced_dialog_control(
     control_id: i16,
 ) -> bool {
     let label = dialog.label();
-    let name = dialog.runtime_name();
     let Some(live) = bw::iter_dialogs(first_dialog)
-        .find(|candidate| candidate.as_control().string().eq_ignore_ascii_case(name))
+        .find(|candidate| dialog.is_named(candidate.as_control().string()))
     else {
         debug!("The {label} dialog is already gone");
         return false;
@@ -150,33 +153,6 @@ pub fn activate_replaced_dialog_control(
     REPLACED_DIALOG_DRIVEN[dialog.index()].store(true, Ordering::Relaxed);
     control.send_ext_event_mouse(ACTIVATE_EXT_EVENT, x, y);
     true
-}
-
-/// Opens one of SC:R's alliances and messaging dialogs in place of the game menu, the way the
-/// buttons above the minimap open them. The game menu has no entry for either; leaving the menu
-/// first keeps the dialog from opening under the menu's modal state.
-pub fn open_social_dialog(first_dialog: Option<Dialog>, dialog: SocialDialog) {
-    // The minimap panel's own buttons for the two, side by side above the minimap.
-    let control_id: i16 = match dialog {
-        SocialDialog::Messaging => 3,
-        SocialDialog::Alliances => 4,
-    };
-    close_replaced_dialog(first_dialog, NativeDialog::GameMenu);
-    let Some(minimap) = bw::iter_dialogs(first_dialog)
-        .find(|candidate| candidate.as_control().string() == console::MINIMAP_DIALOG)
-    else {
-        warn!("No minimap panel to open the {dialog:?} dialog from");
-        return;
-    };
-    let Some(button) = minimap.child_by_id(control_id) else {
-        warn!("The minimap panel has no control {control_id}");
-        return;
-    };
-    let area = button.dialog_coords();
-    let x = area.left + (area.right - area.left) / 2;
-    let y = area.top + (area.bottom - area.top) / 2;
-    debug!("Opening the {dialog:?} dialog");
-    button.send_ext_event_mouse(ACTIVATE_EXT_EVENT, x, y);
 }
 
 /// Opens the game's menu the way its own key does, by pressing the console's menu button: the menu
@@ -273,9 +249,8 @@ static QUIT_LAST_PRESSED: AtomicUsize = AtomicUsize::new(0);
 /// opened for the quit instead, and spawns as the chain's first step.
 pub fn begin_quit(first_dialog: Option<Dialog>) {
     *QUIT_REQUESTED_AT.lock() = Some(Instant::now());
-    let menu_name = NativeDialog::GameMenu.runtime_name();
     let open_menu = bw::iter_dialogs(first_dialog)
-        .find(|dialog| dialog.as_control().string().eq_ignore_ascii_case(menu_name));
+        .find(|dialog| NativeDialog::GameMenu.is_named(dialog.as_control().string()));
     match open_menu {
         Some(menu) => {
             // Pressed here, so the chain does not press it a second time.
@@ -348,7 +323,7 @@ pub unsafe fn spawn_dialog_hook(
             let inited = CHAT_BOX_EVENT_HANDLER.init(chat_box_event_handler);
             inited.set_orig(event_handler);
             inited.func() as usize
-        } else if name == "MsgFltr" {
+        } else if name == "MsgFltr" && replacement_at_spawn(name).is_none() {
             let inited = MSG_FILTER_EVENT_HANDLER.init(msg_filter_event_handler);
             inited.set_orig(event_handler);
             inited.func() as usize

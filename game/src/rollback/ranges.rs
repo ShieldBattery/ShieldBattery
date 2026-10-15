@@ -36,6 +36,7 @@ const _: () = assert!(std::mem::offset_of!(bw::Game, screen_pos_x_tiles) == 0xe0
 const _: () = assert!(std::mem::offset_of!(bw::Game, screen_pos_y_tiles) == 0xe2);
 const _: () = assert!(std::mem::offset_of!(bw::Game, map_width_tiles) == 0xe4);
 const _: () = assert!(std::mem::offset_of!(bw::Game, saved_screen_positions) == 0x180);
+const _: () = assert!(std::mem::offset_of!(bw::Game, chat_dialog_recipient) == 0x2c70);
 
 /// Fields of the game struct, as `(name, offset, length)` in offset order, that only the person
 /// watching changes and only the UI reads, which the snapshot leaves out: restoring one would undo
@@ -45,6 +46,9 @@ const _: () = assert!(std::mem::offset_of!(bw::Game, saved_screen_positions) == 
 ///   would yank the view back to wherever it was.
 /// - The screen positions saved with Shift+F2 to F4, which F2 to F4 jump back to; restoring them
 ///   would forget a position saved since.
+/// - Who the player's chat goes to, which the alliances screen writes and the chat box reads when
+///   it opens; restoring it would quietly send the next message somewhere the player moved it
+///   away from.
 pub(crate) const VIEWER_LOCAL_GAME_FIELDS: &[(&str, usize, usize)] = &[
     (
         "screen_pos_tiles",
@@ -55,6 +59,11 @@ pub(crate) const VIEWER_LOCAL_GAME_FIELDS: &[(&str, usize, usize)] = &[
         "saved_screen_positions",
         std::mem::offset_of!(bw::Game, saved_screen_positions),
         size_of::<[[u16; 2]; 3]>(),
+    ),
+    (
+        "chat_dialog_recipient",
+        std::mem::offset_of!(bw::Game, chat_dialog_recipient),
+        size_of::<u8>(),
     ),
 ];
 const _: () = assert!(size_of::<bw::Player>() == 0x24);

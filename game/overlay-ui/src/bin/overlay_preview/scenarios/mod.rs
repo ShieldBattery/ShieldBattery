@@ -8,6 +8,7 @@
 //! owns, exactly as it does in the game. The kitchen sink is the exception, being a specimen sheet
 //! of the kit rather than a screen the game ever shows.
 
+pub mod alliances;
 pub mod chat_history;
 pub mod disconnect;
 pub mod kitchen_sink;
@@ -35,6 +36,7 @@ pub enum ScenarioKind {
     NetQuality,
     NetStat,
     ChatHistory,
+    Alliances,
     Transport,
     Observer,
     Shell,
@@ -42,11 +44,12 @@ pub enum ScenarioKind {
 }
 
 impl ScenarioKind {
-    pub const ALL: [ScenarioKind; 8] = [
+    pub const ALL: [ScenarioKind; 9] = [
         ScenarioKind::Disconnect,
         ScenarioKind::NetQuality,
         ScenarioKind::NetStat,
         ScenarioKind::ChatHistory,
+        ScenarioKind::Alliances,
         ScenarioKind::Transport,
         ScenarioKind::Observer,
         ScenarioKind::Shell,
@@ -59,6 +62,7 @@ impl ScenarioKind {
             ScenarioKind::NetQuality => "Network quality",
             ScenarioKind::NetStat => "Network stats",
             ScenarioKind::ChatHistory => "Chat history",
+            ScenarioKind::Alliances => "Alliances",
             ScenarioKind::Transport => "Replay transport",
             ScenarioKind::Observer => "Observer panels",
             ScenarioKind::Shell => "Shell",
@@ -73,6 +77,8 @@ impl ScenarioKind {
             // The observer panels exist while observing too; a replay is where the whole set is on
             // screen at once, transport plate included, so that is what selecting them lands on.
             ScenarioKind::Transport | ScenarioKind::Observer => Some(Mode::Replay),
+            // Alliances are between players, so there is nothing to set from the stands.
+            ScenarioKind::Alliances => Some(Mode::Playing),
             _ => None,
         }
     }
@@ -84,6 +90,7 @@ impl ScenarioKind {
             ScenarioKind::NetQuality => "net-quality",
             ScenarioKind::NetStat => "netstat",
             ScenarioKind::ChatHistory => "chat-history",
+            ScenarioKind::Alliances => "alliances",
             ScenarioKind::Transport => "transport",
             ScenarioKind::Observer => "observer",
             ScenarioKind::Shell => "shell",
@@ -99,6 +106,7 @@ pub enum Preset {
     NetQuality(net_quality::Preset),
     NetStat(netstat::Preset),
     ChatHistory(chat_history::Preset),
+    Alliances(alliances::Preset),
     Transport(transport::Preset),
     Observer(observer::Preset),
     Shell(shell::Preset),
@@ -112,6 +120,7 @@ impl Preset {
             Preset::NetQuality(_) => ScenarioKind::NetQuality,
             Preset::NetStat(_) => ScenarioKind::NetStat,
             Preset::ChatHistory(_) => ScenarioKind::ChatHistory,
+            Preset::Alliances(_) => ScenarioKind::Alliances,
             Preset::Transport(_) => ScenarioKind::Transport,
             Preset::Observer(_) => ScenarioKind::Observer,
             Preset::Shell(_) => ScenarioKind::Shell,
@@ -126,6 +135,7 @@ impl Preset {
             Preset::NetQuality(preset) => preset.label().to_string(),
             Preset::NetStat(preset) => preset.label().to_string(),
             Preset::ChatHistory(preset) => preset.label().to_string(),
+            Preset::Alliances(preset) => preset.label().to_string(),
             Preset::Transport(preset) => preset.label().to_string(),
             Preset::Observer(preset) => preset.label(),
             Preset::Shell(preset) => preset.label(),
@@ -159,6 +169,7 @@ impl Preset {
             Preset::NetQuality(preset) => preset.apply(&mut knobs.net_quality),
             Preset::NetStat(preset) => preset.apply(&mut knobs.netstat),
             Preset::ChatHistory(preset) => preset.apply(knobs),
+            Preset::Alliances(preset) => preset.apply(knobs),
             Preset::Transport(preset) => preset.apply(knobs),
             Preset::Observer(preset) => preset.apply(knobs),
             Preset::Shell(preset) => preset.apply(knobs),
@@ -171,10 +182,11 @@ impl Preset {
 /// translated strings, picked as the busiest state each one has, since that is where long text runs
 /// out of room first. The kitchen sink is left out — it is a specimen sheet of the kit, not a screen
 /// whose copy is translated.
-pub const PSEUDOLOCALE_PRESETS: [Preset; 8] = [
+pub const PSEUDOLOCALE_PRESETS: [Preset; 9] = [
     Preset::Disconnect(disconnect::Preset::Droppable),
     Preset::NetStat(netstat::Preset::Degraded),
     Preset::ChatHistory(chat_history::Preset::Busy),
+    Preset::Alliances(alliances::Preset::Crowded),
     Preset::Transport(transport::Preset::SpoilerFree),
     Preset::Observer(observer::Preset::game(6, 3, observer::Screen::Analyst)),
     Preset::Shell(shell::Preset::GameMenu),
@@ -194,6 +206,7 @@ pub fn all_presets() -> Vec<Preset> {
                 .into_iter()
                 .map(Preset::ChatHistory),
         )
+        .chain(alliances::Preset::ALL.into_iter().map(Preset::Alliances))
         .chain(transport::Preset::ALL.into_iter().map(Preset::Transport))
         .chain(observer::Preset::ALL.into_iter().map(Preset::Observer))
         .chain(shell::Preset::ALL.into_iter().map(Preset::Shell))
@@ -213,6 +226,8 @@ pub struct UiState {
     pub transport: transport::Clock,
     /// What the fake game remembers of what the observer panels asked of it.
     pub observer: observer::State,
+    /// What the fake game remembers of what the alliances screen asked of it.
+    pub alliances: alliances::State,
 }
 
 impl UiState {
@@ -222,6 +237,7 @@ impl UiState {
             net_quality: net_quality::SimState::new(),
             transport: transport::Clock::new(&knobs.transport),
             observer: observer::State::new(),
+            alliances: alliances::State::new(),
         }
     }
 }
@@ -259,6 +275,17 @@ pub fn render(
         .open_modals()
         .any(|modal| modal == ModalId::ChatHistory)
         .then(|| chat_history::build_view(&knobs.chat_history));
+    // Built only while the alliances modal is on the stack, for the same reason.
+    let alliances_view = shell
+        .open_modals()
+        .any(|modal| modal == ModalId::Alliances)
+        .then(|| alliances::build_view(&knobs.alliances, &state.alliances));
+    if knobs.scenario == ScenarioKind::Alliances
+        && state.alliances.menu_applied != Some(knobs.alliances.open_menu)
+    {
+        state.alliances.menu_applied = Some(knobs.alliances.open_menu);
+        shell.set_alliances_menu(alliances::open_menu(&knobs.alliances));
+    }
     // Built only while a result card is on the stack, the way the DLL builds it as the card comes
     // up.
     let end_card_view = shell
@@ -315,6 +342,7 @@ pub fn render(
         net_quality: net_quality_view.as_ref(),
         net_stats: net_stats_view.as_ref(),
         chat_history: chat_history_view.as_ref(),
+        alliances: alliances_view.as_ref(),
         end_card: end_card_view.as_ref(),
         transport: transport_view.as_ref(),
         observer: observer_view.as_ref(),
@@ -353,8 +381,8 @@ pub fn render(
             // only reports what was asked for.
             Intent::AbandonGame => outcome.abandoned = true,
             Intent::LeaveGame | Intent::QuitGame | Intent::EndMission(_) => outcome.left = true,
-            // SC:R's social popup has no stand-in here.
-            Intent::OpenSocialDialog(_) => {}
+            // The fake game keeps the alliances and chat settings, so the next frame shows them.
+            Intent::Alliances(action) => state.alliances.apply(&knobs.alliances, action),
             // The game answers this by spawning its menu, which the overlay's own replaces; here the
             // switch standing in for that spawn is what moves.
             Intent::OpenGameMenu => outcome.open_game_menu = true,
@@ -434,6 +462,10 @@ pub fn knobs_ui(knobs: &mut Knobs, state: &mut UiState, ui: &mut egui::Ui) -> bo
                 if kind == ScenarioKind::ChatHistory {
                     knobs.host.chat_history_spawned = true;
                 }
+                // The same goes for the alliances screen and the alliance filter it replaces.
+                if kind == ScenarioKind::Alliances {
+                    knobs.host.alliance_filter_spawned = true;
+                }
             }
         }
     });
@@ -447,6 +479,9 @@ pub fn knobs_ui(knobs: &mut Knobs, state: &mut UiState, ui: &mut egui::Ui) -> bo
         }
         ScenarioKind::NetStat => netstat::knobs_ui(&mut knobs.netstat, ui),
         ScenarioKind::ChatHistory => chat_history::knobs_ui(&mut knobs.chat_history, ui),
+        ScenarioKind::Alliances => {
+            alliances::knobs_ui(&mut knobs.alliances, &mut state.alliances, ui)
+        }
         ScenarioKind::Transport => transport::knobs_ui(&mut knobs.transport, ui),
         ScenarioKind::Observer => observer::knobs_ui(&mut knobs.observer, &state.observer, ui),
         ScenarioKind::Shell => shell::knobs_ui(&mut knobs.shell, ui),

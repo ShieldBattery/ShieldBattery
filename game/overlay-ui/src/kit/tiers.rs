@@ -221,6 +221,49 @@ pub fn tier2_chrome(rect: Rect) -> Shape {
     Shape::Vec(shapes)
 }
 
+/// The shapes a menu hung off a modal's control is built from: the modal's own fill and inner edge,
+/// lifted off the dialog under it by a short glow and a shadow. One edge rather than the modal's two,
+/// because a menu is a part of the dialog it opens from rather than a second dialog.
+pub fn menu_chrome(rect: Rect) -> Shape {
+    let corner_radius = theme::radius(theme::RADIUS_TIGHT);
+    let mut shapes = vec![
+        Shape::from(MENU_SHADOW.as_shape(rect, corner_radius)),
+        gradient_round_rect(
+            rect,
+            corner_radius,
+            [theme::MENU_FILL_TOP, theme::MENU_FILL_BOTTOM],
+        ),
+        Shape::rect_stroke(
+            rect,
+            corner_radius,
+            Stroke::new(theme::HAIRLINE, theme::TIER2_STROKE_INNER),
+            StrokeKind::Inside,
+        ),
+    ];
+    for (step, color) in theme::TIER2_GLOW.iter().take(MENU_GLOW_STEPS).enumerate() {
+        shapes.push(Shape::rect_stroke(
+            rect.expand(step as f32 + 1.0),
+            corner_radius,
+            Stroke::new(theme::HAIRLINE, *color),
+            StrokeKind::Outside,
+        ));
+    }
+    Shape::Vec(shapes)
+}
+
+/// The shadow under a menu: a modal's, shortened, since a menu sits just above the dialog it opens
+/// from rather than above the whole screen.
+const MENU_SHADOW: Shadow = Shadow {
+    offset: [0, 16],
+    blur: 40,
+    spread: 0,
+    color: Color32::from_black_alpha(153),
+};
+
+/// How many of the modal's glow rings a menu keeps: the inner ones, which say "lit" without
+/// reaching across the rows of the dialog under it.
+const MENU_GLOW_STEPS: usize = 4;
+
 /// What a modal dialog reported back.
 pub struct DialogResponse<R> {
     pub inner: R,
