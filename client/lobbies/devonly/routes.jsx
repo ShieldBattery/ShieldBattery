@@ -6,6 +6,7 @@ import { LobbyBrowserTest } from './lobby-browser-test'
 import { LobbyLandingTest } from './lobby-landing-test'
 import { LobbyRoomTest } from './lobby-room-test'
 import RacePickerTest from './race-picker-test'
+import { ReplayCardTest } from './replay-card-test'
 
 const BASE_URL = '/dev/lobbies'
 
@@ -31,6 +32,9 @@ class DevLobbiesDashboard extends Component {
         <li>
           <Link href={`${BASE_URL}/join-preview`}>Lobby join preview</Link>
         </li>
+        <li>
+          <Link href={`${BASE_URL}/replay-card`}>Ranked replay card</Link>
+        </li>
       </ul>
     )
   }
@@ -45,6 +49,7 @@ export default () => {
       <Route path={`${BASE_URL}/race-picker`} component={RacePickerTest} />
       <Route path={`${BASE_URL}/lobby-landing`} component={LobbyLandingTest} />
       <Route path={`${BASE_URL}/join-preview`} component={JoinPreviewTest} />
+      <Route path={`${BASE_URL}/replay-card`} component={ReplayCardTest} />
       <Route>
         <DevLobbiesDashboard />
       </Route>
