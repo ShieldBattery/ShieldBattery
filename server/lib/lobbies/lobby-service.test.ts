@@ -199,6 +199,7 @@ const HOST_USER: SbUser = { id: makeSbUserId(1), name: 'HostUser' } as SbUser
 const JOINER_USER: SbUser = { id: makeSbUserId(2), name: 'JoinerUser' } as SbUser
 const OTHER_HOST_USER: SbUser = { id: makeSbUserId(3), name: 'OtherHostUser' } as SbUser
 const LISTER_USER: SbUser = { id: makeSbUserId(4), name: 'ListerUser' } as SbUser
+const SECOND_JOINER_USER: SbUser = { id: makeSbUserId(5), name: 'SecondJoinerUser' } as SbUser
 
 /** The socket groups a single connected client of a user is identified by. */
 interface Sockets {
@@ -223,6 +224,7 @@ describe('lobbies/lobby-service', () => {
   let joiner: Sockets
   let otherHost: Sockets
   let lister: Sockets
+  let secondJoiner: Sockets
   /** Connects a client for a user that isn't one of the four the tests share. */
   let connectExtra: (id: number) => Sockets
   /** Connects another client session for a user that already has one. */
@@ -435,6 +437,7 @@ describe('lobbies/lobby-service', () => {
     joiner = connect(JOINER_USER, 'JOINER_CLIENT')
     otherHost = connect(OTHER_HOST_USER, 'OTHER_HOST_CLIENT')
     lister = connect(LISTER_USER, 'LISTER_CLIENT')
+    secondJoiner = connect(SECOND_JOINER_USER, 'SECOND_JOINER_CLIENT')
     connectExtra = id =>
       connect({ id: makeSbUserId(id), name: `User${id}` } as SbUser, `CLIENT_${id}`)
     connectSecondClient = user => connect(user, `SECOND_CLIENT_${user.id}`)
@@ -828,11 +831,10 @@ describe('lobbies/lobby-service', () => {
       lobbyService.setRace({ client: host.client, slotId: hostTeam.slots[2].id, race: 'p' })
 
       // Both teams now have 3 open slots, and the tie goes to team 1
-      const secondJoiner = connectExtra(100)
       await joinLobby(secondJoiner, id)
 
       const lobby = lobbyService.lobbies.get(id)!
-      expect(lobby.teams[0].slots[1]).toMatchObject({ userId: makeSbUserId(100), race: 'z' })
+      expect(lobby.teams[0].slots[1]).toMatchObject({ userId: SECOND_JOINER_USER.id, race: 'z' })
       expect(lobby.teams[0].slots[2]).toMatchObject({ type: 'controlledOpen', race: 'p' })
     })
 
@@ -846,11 +848,10 @@ describe('lobbies/lobby-service', () => {
 
       // The emptied team 2 has more room than the host's team, so the next joiner lands in its
       // first slot
-      const nextJoiner = connectExtra(100)
-      await joinLobby(nextJoiner, id)
+      await joinLobby(secondJoiner, id)
 
       const lobby = lobbyService.lobbies.get(id)!
-      expect(lobby.teams[1].slots[0]).toMatchObject({ userId: makeSbUserId(100), race: 'p' })
+      expect(lobby.teams[1].slots[0]).toMatchObject({ userId: SECOND_JOINER_USER.id, race: 'p' })
       expect(lobby.teams[1].slots[1]).toMatchObject({ type: 'controlledOpen', race: 't' })
     })
 
