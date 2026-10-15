@@ -847,6 +847,8 @@ export class LobbyService {
           // Every player slot was taken, and the search above fell through to the observer team.
           player = Slots.createObserver(client.userId)
         } else {
+          // A UMS slot's race and player id come from the map, and a team melee/ffa slot's race
+          // decides the starting units it adds to its team, so a joiner takes those on.
           player = isUms(lobby.gameType)
             ? Slots.createHuman(
                 client.userId,
@@ -854,7 +856,10 @@ export class LobbyService {
                 availableSlot.hasForcedRace,
                 availableSlot.playerId,
               )
-            : Slots.createHuman(client.userId)
+            : Slots.createHuman(
+                client.userId,
+                hasControlledOpens(lobby.gameType) ? availableSlot.race : undefined,
+              )
         }
         player = { ...player, region: joinRegion }
 

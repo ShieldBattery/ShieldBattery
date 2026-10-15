@@ -802,6 +802,49 @@ describe('lobbies/lobby-service', () => {
       })
     })
 
+    /** Creates a 4v4 team melee lobby hosted by `host`. */
+    async function createTeamMeleeLobby() {
+      return await lobbyService.createLobby({
+        name: 'Team lobby',
+        map: BIG_GAME_HUNTERS.id,
+        gameType: GameType.TeamMelee,
+        gameSubType: 2,
+        visibility: 'listed',
+        user: host.user,
+        client: host.client,
+      })
+    }
+
+    test('a team melee joiner takes on the race of the slot they join', async () => {
+      const { id } = await createTeamMeleeLobby()
+      // The empty team has the most room, so the first joiner gets it to themselves
+      await joinLobby(joiner, id)
+      const hostTeam = lobbyService.lobbies.get(id)!.teams[0]
+      lobbyService.setRace({ client: host.client, slotId: hostTeam.slots[1].id, race: 'z' })
+      lobbyService.setRace({ client: host.client, slotId: hostTeam.slots[2].id, race: 'p' })
+
+      await joinLobby(otherHost, id)
+
+      const lobby = lobbyService.lobbies.get(id)!
+      expect(lobby.teams[0].slots[1]).toMatchObject({ userId: OTHER_HOST_USER.id, race: 'z' })
+      expect(lobby.teams[0].slots[2]).toMatchObject({ type: 'controlledOpen', race: 'p' })
+    })
+
+    test('a team melee joiner takes on the races an emptied team kept', async () => {
+      const { id } = await createTeamMeleeLobby()
+      await joinLobby(joiner, id)
+      const joinerTeam = lobbyService.lobbies.get(id)!.teams[1]
+      lobbyService.setRace({ client: joiner.client, slotId: joinerTeam.slots[0].id, race: 'p' })
+      lobbyService.setRace({ client: joiner.client, slotId: joinerTeam.slots[1].id, race: 't' })
+      lobbyService.leaveLobby({ client: joiner.client })
+
+      await joinLobby(otherHost, id)
+
+      const lobby = lobbyService.lobbies.get(id)!
+      expect(lobby.teams[1].slots[0]).toMatchObject({ userId: OTHER_HOST_USER.id, race: 'p' })
+      expect(lobby.teams[1].slots[1]).toMatchObject({ type: 'controlledOpen', race: 't' })
+    })
+
     test('a join does not clobber changes that land during its map refresh', async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
 
