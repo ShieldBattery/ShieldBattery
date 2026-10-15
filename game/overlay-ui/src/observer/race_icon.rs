@@ -9,9 +9,10 @@
 
 use std::collections::HashMap;
 
+use egui::epaint::Vertex;
 use egui::{
-    Color32, ColorImage, Context, Id, Painter, Pos2, Rect, TextureHandle, TextureOptions, Vec2,
-    pos2, vec2,
+    Color32, ColorImage, Context, Id, Mesh, Painter, Pos2, Rect, Shape, TextureHandle,
+    TextureOptions, Vec2, pos2, vec2,
 };
 use resvg::{tiny_skia, usvg};
 
@@ -183,6 +184,43 @@ pub(crate) fn paint_race_icon(painter: &Painter, rect: Rect, race: RaceView, col
         Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
         color,
     );
+}
+
+/// Paints `race`'s icon into `rect`, a square from [`icon_rect`], tinted by `color` at each point
+/// of it: for an icon that fades out across its own extent rather than ending at its edges.
+///
+/// The tint is sampled on a grid over the square and blended between the samples, so it has to
+/// change smoothly; a grid a sixteenth of the icon across follows any falloff that does.
+pub(crate) fn paint_race_icon_shaded(
+    painter: &Painter,
+    rect: Rect,
+    race: RaceView,
+    color: impl Fn(Pos2) -> Color32,
+) {
+    const STEPS: u32 = 16;
+    let pixels = (rect.width() * painter.ctx().pixels_per_point()).round() as u32;
+    let texture = texture(painter.ctx(), race, pixels.max(1));
+    let mut mesh = Mesh::with_texture(texture.id());
+    for row in 0..=STEPS {
+        for column in 0..=STEPS {
+            let uv = pos2(column as f32, row as f32) / STEPS as f32;
+            let position = rect.min + uv.to_vec2() * rect.size();
+            mesh.vertices.push(Vertex {
+                pos: position,
+                uv,
+                color: color(position),
+            });
+        }
+    }
+    let stride = STEPS + 1;
+    for row in 0..STEPS {
+        for column in 0..STEPS {
+            let corner = row * stride + column;
+            mesh.add_triangle(corner, corner + 1, corner + stride);
+            mesh.add_triangle(corner + 1, corner + stride + 1, corner + stride);
+        }
+    }
+    painter.add(Shape::mesh(mesh));
 }
 
 #[cfg(test)]

@@ -2231,16 +2231,17 @@ fn draw_modal(
                 result,
                 game_seconds: host.game_seconds,
                 stats: None,
+                race: None,
             };
             let view = views
                 .end_card
                 .filter(|view| view.result == result)
                 .unwrap_or(&fallback);
             let card = render_end_card(ctx, view, shell.end_card_key);
-            hit_rects.push(HitRect::new(card.response.rect));
+            hit_rects.push(HitRect::new(card.rect));
             ModalOutcome {
-                dismissed: card.inner == Some(EndCardChoice::KeepPlaying),
-                end_mission: (card.inner == Some(EndCardChoice::Leave))
+                dismissed: card.choice == Some(EndCardChoice::KeepPlaying),
+                end_mission: (card.choice == Some(EndCardChoice::Leave))
                     .then(|| id.native_dialog())
                     .flatten(),
                 ..ModalOutcome::default()
@@ -3192,20 +3193,20 @@ mod tests {
         let arriving = run_frame_at(&mut shell, &ctx, None, 0.05).intents;
         assert!(!arriving.contains(&Intent::EndMission(NativeDialog::Victory)));
         assert_eq!(shell.top_modal(), Some(ModalId::Victory));
-        run_frame_at(&mut shell, &ctx, None, 1.0);
+        run_frame_at(&mut shell, &ctx, None, 3.0);
         assert!(shell.key_pressed(Key::E, Modifiers::NONE));
-        let landed = run_frame_at(&mut shell, &ctx, None, 1.05).intents;
+        let landed = run_frame_at(&mut shell, &ctx, None, 3.05).intents;
         assert!(landed.contains(&Intent::EndMission(NativeDialog::Victory)));
         assert_eq!(shell.top_modal(), None);
 
         // The defeat card has no carrying on, and leaves on the same key.
         let mut lost = spectating_shell();
         lost.native_dialog_spawned(NativeDialog::Defeat);
-        run_frame_at(&mut lost, &ctx, None, 2.0);
-        run_frame_at(&mut lost, &ctx, None, 3.0);
+        run_frame_at(&mut lost, &ctx, None, 4.0);
+        run_frame_at(&mut lost, &ctx, None, 7.0);
         assert!(!lost.key_pressed(Key::B, Modifiers::NONE));
         assert!(lost.key_pressed(Key::E, Modifiers::NONE));
-        let left = run_frame_at(&mut lost, &ctx, None, 3.05).intents;
+        let left = run_frame_at(&mut lost, &ctx, None, 7.05).intents;
         assert!(left.contains(&Intent::EndMission(NativeDialog::Defeat)));
         assert_eq!(lost.top_modal(), None);
     }

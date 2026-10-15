@@ -1,12 +1,14 @@
 //! The end-of-game card's numbers, read off the game at the moment it was decided.
 
 use overlay_ui::end_card::{EndCardStats, EndCardView, GameResult};
+use overlay_ui::observer::RaceView;
 
 use crate::bw;
 use crate::bw::apm_stats::ApmStats;
 use crate::bw_scr::game_stats::{SCORE_UNITS_KILLED, SCORE_UNITS_LOST, SCORE_UNITS_PRODUCED};
 
 use super::BwVars;
+use super::stats::player_race;
 
 /// The most players the game's per-player tables have a row for.
 const MAX_PLAYERS: u8 = 8;
@@ -30,9 +32,14 @@ pub fn build_end_card_view(
         gas_gathered: bw::gathered_gas(bw.game, player),
         average_apm: apm.and_then(|apm| apm.player_average_apm(player)),
     });
+    // A race the game itself does not know is left off the card rather than drawn as a guess.
+    let race = (player < MAX_PLAYERS)
+        .then(|| player_race(bw, player).1)
+        .filter(|&race| race != RaceView::Random);
     EndCardView {
         result,
         game_seconds,
         stats,
+        race,
     }
 }

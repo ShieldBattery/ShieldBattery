@@ -48,14 +48,6 @@ pub const HIT_DIALOG: f32 = 42.0;
 pub const MOTION_PANEL_SECS: f32 = 0.15;
 /// How far a panel slides while it fades.
 pub const MOTION_PANEL_SLIDE: f32 = 8.0;
-/// How long a hero moment takes to arrive: longer than a panel's entrance, because it is the one
-/// surface the player is meant to stop and look at, and a card that snapped in would read as a
-/// popup rather than as the end of the game.
-pub const MOTION_HERO_SECS: f32 = 0.32;
-/// How far a hero moment rises while it arrives.
-pub const MOTION_HERO_SLIDE: f32 = 14.0;
-/// How small a hero moment starts, as a fraction of its resting size.
-pub const MOTION_HERO_SCALE: f32 = 0.97;
 /// Period of anything that pulses to say "still working".
 pub const MOTION_PULSE_SECS: f32 = 1.4;
 /// How long a destructive action must be held before it fires.

@@ -133,6 +133,24 @@ impl Preset {
         }
     }
 
+    /// Moments into this preset's entrance worth rendering as stills of their own; see
+    /// [`shell::Preset::timeline`].
+    pub fn timeline(self) -> &'static [f64] {
+        match self {
+            Preset::Shell(preset) => preset.timeline(),
+            _ => &[],
+        }
+    }
+
+    /// How long after it appears this preset has come to rest, for one that takes longer than an
+    /// offline render's usual settling.
+    pub fn settle_secs(self) -> Option<f64> {
+        match self {
+            Preset::Shell(preset) => preset.settle_secs(),
+            _ => None,
+        }
+    }
+
     /// Selects this preset's scenario and presets its knobs.
     pub fn apply(self, knobs: &mut Knobs) {
         knobs.scenario = self.kind();
@@ -246,7 +264,7 @@ pub fn render(
     let end_card_view = shell
         .top_modal()
         .and_then(ModalId::game_result)
-        .map(|result| shell::end_card_view(result, knobs.host.game_seconds));
+        .map(|result| shell::end_card_view(result, knobs.host.game_seconds, knobs.shell.race));
     // Built for every frame of the emulated replay whether or not the plate is on screen, the way
     // the game DLL builds it: the transport keys keep working with the plate hidden. The observer
     // scenario carries it too, because a replay's screen is the whole set at once — the plate is

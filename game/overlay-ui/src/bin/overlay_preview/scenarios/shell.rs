@@ -6,6 +6,7 @@
 //! an ambient panel under whatever modal the native dialogs raise.
 
 use overlay_ui::end_card::{EndCardStats, EndCardView, GameResult};
+use overlay_ui::observer::RaceView;
 use overlay_ui::options::{
     DisplayMode, FramePacing, MonitorView, OptionsLists, OptionsSection, OptionsView,
 };
@@ -27,6 +28,11 @@ pub struct Knobs {
     pub options_section: OptionsSection,
     /// The settings the emulated host reports, standing in for what the game holds.
     pub options: OptionsView,
+    /// The race the emulated player played, whose emblem the end-of-game screen shows.
+    pub race: RaceView,
+    /// A moment of the end-of-game screen's entrance to hold it at, in seconds after it appeared,
+    /// or `None` to let it play. Holding it is how a stage of the entrance is looked at as a still.
+    pub end_card_moment: Option<f32>,
 }
 
 impl Default for Knobs {
@@ -36,6 +42,8 @@ impl Default for Knobs {
             options_open: false,
             options_section: OptionsSection::default(),
             options: OptionsView::default(),
+            race: RaceView::Protoss,
+            end_card_moment: None,
         }
     }
 }
@@ -101,6 +109,31 @@ impl Preset {
         if let Preset::Options(section) = self {
             knobs.shell.options_section = section;
         }
+        // A different emblem behind each result, so the renders of both show two of them.
+        match self {
+            Preset::Victory => knobs.shell.race = RaceView::Protoss,
+            Preset::Defeat => knobs.shell.race = RaceView::Zerg,
+            _ => {}
+        }
+    }
+
+    /// Moments into this preset's entrance worth rendering as stills of their own, in seconds after
+    /// it appeared: the end-of-game screen arrives in stages over a couple of seconds, and its
+    /// resting frame shows none of them.
+    pub fn timeline(self) -> &'static [f64] {
+        match self {
+            Preset::Victory | Preset::Defeat => &[0.15, 0.3, 0.6, 1.0, 1.4, 1.8],
+            _ => &[],
+        }
+    }
+
+    /// How long after it appears this preset has come to rest, for a preset that takes longer than
+    /// an offline render's usual settling.
+    pub fn settle_secs(self) -> Option<f64> {
+        match self {
+            Preset::Victory | Preset::Defeat => Some(3.0),
+            _ => None,
+        }
     }
 }
 
@@ -140,11 +173,12 @@ pub fn option_lists() -> OptionsLists {
 }
 
 /// What the emulated game reports on the end-of-game card: a mid-length game with a busy army on
-/// both sides, so every cell of the summary carries a number of realistic width.
-pub fn end_card_view(result: GameResult, game_seconds: u64) -> EndCardView {
+/// both sides, so every cell of the summary carries a number of realistic width, played as `race`.
+pub fn end_card_view(result: GameResult, game_seconds: u64, race: RaceView) -> EndCardView {
     EndCardView {
         result,
         game_seconds,
+        race: Some(race),
         stats: Some(match result {
             GameResult::Victory => EndCardStats {
                 units_produced: 87,
@@ -200,6 +234,33 @@ pub fn knobs_ui(knobs: &mut Knobs, ui: &mut egui::Ui) -> bool {
         for section in OptionsSection::ALL {
             changed |= ui
                 .selectable_value(&mut knobs.options_section, section, section.slug())
+                .changed();
+        }
+    });
+    ui.horizontal_wrapped(|ui| {
+        ui.label("end card race:");
+        for race in RaceView::ALL {
+            changed |= ui
+                .selectable_value(&mut knobs.race, race, race.label())
+                .changed();
+        }
+    });
+    ui.horizontal(|ui| {
+        let mut held = knobs.end_card_moment.is_some();
+        if ui
+            .checkbox(&mut held, "hold end card at")
+            .on_hover_text(
+                "Freezes the end-of-game screen's entrance this many seconds after it appeared, \
+                 so a stage of it can be looked at as a still.",
+            )
+            .changed()
+        {
+            knobs.end_card_moment = held.then_some(0.4);
+            changed = true;
+        }
+        if let Some(moment) = &mut knobs.end_card_moment {
+            changed |= ui
+                .add(egui::Slider::new(moment, 0.0..=2.5).suffix(" s"))
                 .changed();
         }
     });

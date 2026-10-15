@@ -4,11 +4,13 @@
 //! carries the match's identity. Tier 2 owns the screen: it dims everything behind it and is the
 //! only tier allowed to glow.
 
+use std::sync::Arc;
+
 use egui::epaint::tessellator::path::rounded_rectangle;
 use egui::epaint::{CornerRadiusF32, Shadow};
 use egui::{
-    Align2, Area, Color32, Context, CornerRadius, Frame, Id, InnerResponse, Margin, Mesh, Order,
-    Rect, Response, Sense, Shape, Stroke, StrokeKind, Ui, Vec2, pos2, vec2,
+    Align2, Area, Color32, Context, CornerRadius, Frame, Galley, Id, InnerResponse, Margin, Mesh,
+    Order, Pos2, Rect, Response, Sense, Shape, Stroke, StrokeKind, Ui, Vec2, pos2, vec2,
 };
 
 use crate::kit::text;
@@ -356,17 +358,33 @@ pub fn glowing_text(ui: &mut Ui, spec: &text::TextSpec, label: &str, glow: Color
     let (rect, _) = ui.allocate_exact_size(size, Sense::hover());
     let origin = rect.min;
     let painter = ui.painter();
-    let spread = (spec.font.size / text::dialog_title().font.size).max(1.0);
-    const STAMPS_PER_RING: usize = 8;
-    for (radius, alpha) in [(10.0f32, 0.005f32), (6.0, 0.008), (3.0, 0.011)] {
-        let color = glow.gamma_multiply(alpha);
-        for step in 0..STAMPS_PER_RING {
-            let angle = std::f32::consts::TAU * step as f32 / STAMPS_PER_RING as f32;
-            let offset = vec2(angle.cos(), angle.sin()) * radius * spread;
-            painter.galley(origin + offset, halo.clone(), color);
-        }
+    for stamp in glow_stamps(origin, &halo, glow, spec.font.size) {
+        painter.add(stamp);
     }
     painter.galley(origin, galley, spec.color);
+}
+
+/// The stamps [`glowing_text`] lays behind its letters, for a caller that paints the letters
+/// itself: `halo` is the text laid out in [`Color32::PLACEHOLDER`] at `origin`, set in a face
+/// `size` points tall.
+pub fn glow_stamps(
+    origin: Pos2,
+    halo: &Arc<Galley>,
+    glow: Color32,
+    size: f32,
+) -> impl Iterator<Item = Shape> {
+    const STAMPS_PER_RING: usize = 8;
+    let spread = (size / text::dialog_title().font.size).max(1.0);
+    [(10.0f32, 0.005f32), (6.0, 0.008), (3.0, 0.011)]
+        .into_iter()
+        .flat_map(move |(radius, alpha)| {
+            let color = glow.gamma_multiply(alpha);
+            (0..STAMPS_PER_RING).map(move |step| {
+                let angle = std::f32::consts::TAU * step as f32 / STAMPS_PER_RING as f32;
+                (vec2(angle.cos(), angle.sin()) * radius * spread, color)
+            })
+        })
+        .map(move |(offset, color)| Shape::galley(origin + offset, halo.clone(), color))
 }
 
 /// Dims the whole screen, for a caller that owns its modal layer itself.

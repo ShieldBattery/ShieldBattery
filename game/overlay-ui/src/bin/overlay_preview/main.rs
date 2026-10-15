@@ -76,13 +76,18 @@ const RENDER_SIZES: [ResolutionPreset; 5] = [
     ResolutionPreset::R1280x960,
 ];
 
-/// How many passes an offline render runs before keeping one, and how far its clock advances
-/// between them. egui settles a freshly built context over several passes: auto-sized areas learn
+/// The resolutions the stills of an entrance are rendered at: the reference screen, and 1440p,
+/// where anything drawn in fractions of a pixel shows it.
+const TIMELINE_SIZES: [ResolutionPreset; 2] =
+    [ResolutionPreset::R1920x1080, ResolutionPreset::R2560x1440];
+
+/// How many passes an offline render runs before keeping one, and how far its clock has run by the
+/// last of them. egui settles a freshly built context over several passes: auto-sized areas learn
 /// their size, the font atlas grows to hold the glyphs that were asked for, and a newly shown area
 /// fades in over the style's animation time — which only finishes if the clock moves. A first pass
 /// is never what the game would show.
 const SETTLE_PASSES: usize = 4;
-const SETTLE_STEP_SECS: f64 = 0.25;
+const SETTLE_SECS: f64 = 0.75;
 
 /// Parsed command line.
 struct Args {
@@ -93,6 +98,9 @@ struct Args {
     lang: Option<Locale>,
     /// How offline renders blend: egui's way, or the game's.
     blending: raster::Blending,
+    /// Only the offline renders whose file name contains this, for looking at one screen without
+    /// waiting on all of them.
+    only: Option<String>,
 }
 
 fn parse_args() -> Args {
@@ -102,6 +110,7 @@ fn parse_args() -> Args {
         render_dir: None,
         lang: None,
         blending: raster::Blending::Premultiplied,
+        only: None,
     };
     let mut it = std::env::args().skip(1);
     while let Some(arg) = it.next() {
@@ -110,6 +119,7 @@ fn parse_args() -> Args {
             "--backdrop" => args.backdrop = it.next(),
             "--render" => args.render_dir = it.next().map(PathBuf::from),
             "--game-blending" => args.blending = raster::Blending::Straight,
+            "--only" => args.only = it.next(),
             "--lang" => match it.next().as_deref().and_then(Locale::from_tag) {
                 Some(locale) => args.lang = Some(locale),
                 None => {
@@ -134,7 +144,13 @@ fn main() -> eframe::Result<()> {
     );
 
     if let Some(dir) = &args.render_dir {
-        match render_all(dir, backdrop.as_ref(), args.lang, args.blending) {
+        match render_all(
+            dir,
+            backdrop.as_ref(),
+            args.lang,
+            args.blending,
+            args.only.as_deref(),
+        ) {
             Ok(paths) => {
                 for path in paths {
                     println!("{}", path.display());
@@ -150,7 +166,7 @@ fn main() -> eframe::Result<()> {
 
     if args.smoke {
         let dir = std::env::temp_dir().join("overlay-preview-smoke");
-        match render_all(&dir, backdrop.as_ref(), None, args.blending) {
+        match render_all(&dir, backdrop.as_ref(), None, args.blending, None) {
             Ok(paths) => {
                 println!(
                     "overlay-preview smoke: OK ({} images under {})",
@@ -201,38 +217,61 @@ fn decode_backdrop(backdrop: &Backdrop) -> Result<Option<RgbaImage>, image::Imag
     }
 }
 
-/// One offline render: a scenario preset, and whether it is rendered in the pseudolocale.
+/// One offline render: a scenario preset, whether it is rendered in the pseudolocale, and the
+/// moment of its entrance it is held at, or `None` for the preset at rest.
 struct RenderCase {
     preset: scenarios::Preset,
     pseudolocale: bool,
+    moment: Option<f64>,
+}
+
+impl RenderCase {
+    fn at_rest(preset: scenarios::Preset, pseudolocale: bool) -> RenderCase {
+        RenderCase {
+            preset,
+            pseudolocale,
+            moment: None,
+        }
+    }
+
+    /// What the clock reads on the render's last pass, the one that is kept.
+    fn final_secs(&self) -> f64 {
+        self.moment
+            .or(self.preset.settle_secs())
+            .unwrap_or(SETTLE_SECS)
+    }
+
+    fn sizes(&self) -> &'static [ResolutionPreset] {
+        match self.moment {
+            Some(_) => &TIMELINE_SIZES,
+            None => &RENDER_SIZES,
+        }
+    }
 }
 
 /// The renders for one real language: every screen drawn from translated strings, which is the set
 /// the pseudolocale pass checks against long text, checked against what translators actually wrote.
 fn language_cases() -> Vec<RenderCase> {
     scenarios::PSEUDOLOCALE_PRESETS
-        .map(|preset| RenderCase {
-            preset,
-            pseudolocale: false,
-        })
+        .map(|preset| RenderCase::at_rest(preset, false))
         .into()
 }
 
-/// Every offline render, in file order: each preset in English, then one pseudolocale pass per
-/// screen that is drawn from translated strings. The second pass is what proves a layout survives
-/// text a third longer than the English it was designed against.
+/// Every offline render, in file order: each preset in English, with stills of its entrance if it
+/// has one worth reviewing, then one pseudolocale pass per screen that is drawn from translated
+/// strings. The pseudolocale pass is what proves a layout survives text a third longer than the
+/// English it was designed against.
 fn render_cases() -> Vec<RenderCase> {
-    let mut cases: Vec<RenderCase> = scenarios::all_presets()
-        .into_iter()
-        .map(|preset| RenderCase {
+    let mut cases = Vec::new();
+    for preset in scenarios::all_presets() {
+        cases.push(RenderCase::at_rest(preset, false));
+        cases.extend(preset.timeline().iter().map(|&moment| RenderCase {
             preset,
             pseudolocale: false,
-        })
-        .collect();
-    cases.extend(scenarios::PSEUDOLOCALE_PRESETS.map(|preset| RenderCase {
-        preset,
-        pseudolocale: true,
-    }));
+            moment: Some(moment),
+        }));
+    }
+    cases.extend(scenarios::PSEUDOLOCALE_PRESETS.map(|preset| RenderCase::at_rest(preset, true)));
     cases
 }
 
@@ -257,11 +296,13 @@ fn pinned_pointer_event(knobs: &Knobs) -> Option<Event> {
 }
 
 /// Renders every scenario preset at every offline resolution into `dir`, returning what it wrote.
+/// `only` keeps the renders whose file name contains it.
 fn render_all(
     dir: &Path,
     backdrop: Option<&RgbaImage>,
     lang: Option<Locale>,
     blending: raster::Blending,
+    only: Option<&str>,
 ) -> std::io::Result<Vec<PathBuf>> {
     std::fs::create_dir_all(dir)?;
     let mut written = Vec::new();
@@ -270,7 +311,7 @@ fn render_all(
         None => render_cases(),
     };
     for case in cases {
-        for resolution in RENDER_SIZES {
+        for &resolution in case.sizes() {
             let mut knobs = Knobs::default();
             case.preset.apply(&mut knobs);
             knobs.pseudolocale = case.pseudolocale;
@@ -292,32 +333,49 @@ fn render_all(
             shell.set_panel_prefs(knobs.host.panels);
             let mut textures = TextureStore::new();
             let mut primitives = Vec::new();
+            let width = screen.physical.x.round() as u32;
+            let height = screen.physical.y.round() as u32;
+            let path = dir.join(format!(
+                "{}-{}{}{}{}-{}x{}.png",
+                case.preset.kind().slug(),
+                case.preset.label(),
+                case.moment
+                    .map(|moment| format!("-t{moment:.2}"))
+                    .unwrap_or_default(),
+                if case.pseudolocale { "-pseudo" } else { "" },
+                lang.map(|lang| format!("-{}", lang.tag()))
+                    .unwrap_or_default(),
+                width,
+                height
+            ));
+            if only.is_some_and(|only| {
+                !path
+                    .file_name()
+                    .is_some_and(|name| name.to_string_lossy().contains(only))
+            }) {
+                continue;
+            }
             for pass in 0..SETTLE_PASSES {
+                // Evenly spaced up to the moment being rendered, so the kept pass is exactly that
+                // far after whatever was shown on the first.
+                let time = case.final_secs() * pass as f64 / (SETTLE_PASSES - 1) as f64;
                 let mut output = host.run_pass(
                     PassInput {
                         points: screen.points,
                         pixels_per_point: screen.pixels_per_point,
-                        time: pass as f64 * SETTLE_STEP_SECS,
+                        time,
                         events: pinned_pointer_event(&knobs).into_iter().collect(),
                         focused: false,
                         predicted_dt: 1.0 / 60.0,
                     },
                     |ctx| {
-                        scenarios::render(
-                            &knobs,
-                            &mut state,
-                            pass as f64 * SETTLE_STEP_SECS,
-                            ctx,
-                            &mut shell,
-                        );
+                        scenarios::render(&knobs, &mut state, time, ctx, &mut shell);
                     },
                 );
                 textures.apply(&mut output.textures_delta);
                 primitives = output.primitives;
             }
 
-            let width = screen.physical.x.round() as u32;
-            let height = screen.physical.y.round() as u32;
             let image = raster::rasterize(
                 &primitives,
                 &textures,
@@ -326,16 +384,6 @@ fn render_all(
                 backdrop,
                 blending,
             );
-            let path = dir.join(format!(
-                "{}-{}{}{}-{}x{}.png",
-                case.preset.kind().slug(),
-                case.preset.label(),
-                if case.pseudolocale { "-pseudo" } else { "" },
-                lang.map(|lang| format!("-{}", lang.tag()))
-                    .unwrap_or_default(),
-                width,
-                height
-            ));
             image
                 .save(&path)
                 .map_err(|err| std::io::Error::other(format!("{}: {err}", path.display())))?;
@@ -371,6 +419,8 @@ struct PreviewApp {
     /// Last backdrop-load error, shown in the panel.
     backdrop_error: Option<String>,
     status: Option<Status>,
+    /// The overlay clock's reading on the pass the end-of-game screen came up, while it is up.
+    end_card_shown_at: Option<f64>,
 }
 
 impl PreviewApp {
@@ -395,6 +445,7 @@ impl PreviewApp {
             backdrop: None,
             backdrop_error: None,
             status: None,
+            end_card_shown_at: None,
         }
     }
 
@@ -463,7 +514,13 @@ impl PreviewApp {
         // emulated screen.
         events.extend(pinned_pointer_event(&self.knobs));
         apply_language(&self.knobs);
-        let elapsed = self.start.elapsed().as_secs_f64();
+        // Holding the end-of-game screen's entrance holds the overlay's whole clock at that moment
+        // after the screen came up: its stages are all read off that clock, and nothing else on the
+        // shell's screen moves with it.
+        let elapsed = match (self.end_card_shown_at, self.knobs.shell.end_card_moment) {
+            (Some(shown_at), Some(moment)) => shown_at + f64::from(moment),
+            _ => self.start.elapsed().as_secs_f64(),
+        };
         let knobs = &self.knobs;
         let scenario_state = &mut self.scenario_ui;
         let shell = &mut self.shell;
@@ -481,6 +538,8 @@ impl PreviewApp {
                 outcome = scenarios::render(knobs, scenario_state, elapsed, ctx, shell);
             },
         );
+        let end_card_up = outcome.top_modal.and_then(ModalId::game_result).is_some();
+        self.end_card_shown_at = end_card_up.then(|| self.end_card_shown_at.unwrap_or(elapsed));
         self.scenario_ui.disconnect.note_clicks(
             outcome.disconnect_clicks,
             outcome.abandoned,

@@ -19,7 +19,7 @@ pub(crate) mod matchup;
 pub(crate) mod military;
 pub(crate) mod minimap;
 pub(crate) mod production;
-mod race_icon;
+pub(crate) mod race_icon;
 pub(crate) mod selection;
 pub(crate) mod team_cards;
 pub(crate) mod timeline;
