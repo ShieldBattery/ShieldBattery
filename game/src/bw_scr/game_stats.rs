@@ -367,6 +367,24 @@ impl GameStats {
         self.players.get(player as usize)?.samples.back()
     }
 
+    /// How much more a player gathered over the last minute of game time than over the minute
+    /// before it, minerals and gas together: negative where their income fell. `None` until there
+    /// are two whole minutes to compare.
+    pub fn income_trend(&self, player: u8) -> Option<i32> {
+        let samples = &self.players.get(player as usize)?.samples;
+        let len = samples.len();
+        if len < INCOME_WINDOW * 2 + 1 {
+            return None;
+        }
+        let gathered =
+            |sample: &Sample| i64::from(sample.gathered_minerals) + i64::from(sample.gathered_gas);
+        let now = gathered(&samples[len - 1]);
+        let minute_ago = gathered(&samples[len - 1 - INCOME_WINDOW]);
+        let two_minutes_ago = gathered(&samples[len - 1 - INCOME_WINDOW * 2]);
+        let trend = (now - minute_ago) - (minute_ago - two_minutes_ago);
+        Some(trend.clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32)
+    }
+
     /// What a player gathered of each resource over the last minute of game time.
     ///
     /// Measured over however much history there is when there is less than a minute of it, and
@@ -1090,6 +1108,33 @@ mod tests {
         // Ten seconds in at ten a second is six hundred a minute, not the hundred gathered so far.
         let stats = stats_with(steady(11, 10));
         assert_eq!(stats.income_per_minute(0), (600, 600));
+    }
+
+    #[test]
+    fn the_trend_is_this_minutes_income_against_the_last() {
+        // Ten a second of each resource for two minutes, then fifteen.
+        let mut samples = steady(121, 10);
+        let base = samples.back().unwrap().gathered_minerals;
+        for second in 1..=60u32 {
+            samples.push_back(Sample {
+                gathered_minerals: base + second * 15,
+                gathered_gas: base + second * 15,
+                ..Sample::default()
+            });
+        }
+        let stats = stats_with(samples);
+        // 1,800 a minute against 1,200 the minute before.
+        assert_eq!(stats.income_trend(0), Some(600));
+    }
+
+    #[test]
+    fn a_steady_income_has_no_trend() {
+        assert_eq!(stats_with(steady(200, 10)).income_trend(0), Some(0));
+    }
+
+    #[test]
+    fn there_is_no_trend_before_two_minutes() {
+        assert_eq!(stats_with(steady(120, 10)).income_trend(0), None);
     }
 
     #[test]

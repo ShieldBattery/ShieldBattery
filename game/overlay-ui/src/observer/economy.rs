@@ -7,9 +7,10 @@
 //!   against: a player two hundred minerals a minute behind is losing the game quietly.
 //! - **Workers**, with how many of them are standing still. Idle workers are the single most common
 //!   unforced error in the game, and a count nobody can see is one nobody calls.
-//! - **Efficiency**: income per worker per minute. It falls when workers idle, when they are walking
-//!   to a new base, and when a mineral line is oversaturated, so it says whether a worker count is
-//!   actually being converted into a bank.
+//! - **Trend**: how much the income column has moved over the last minute. It climbs as new workers
+//!   and new bases start mining and falls when a mineral line is harassed or workers are pulled, so
+//!   it says which way an economy is heading, where income alone only says where it is.
+//!   Growing is good play, so the number grows with it.
 //!
 //! Every column is a fixed width. These numbers move every second, and a table that resized itself
 //! around them would be unreadable over a game.
@@ -57,9 +58,9 @@ const INCOME_WIDTH: f32 = RATE_WIDTH * 2.0 + RATE_GAP;
 /// Width of the worker column, which carries a count and how many of it are standing still.
 const WORKERS_WIDTH: f32 = 92.0;
 
-/// Width of the efficiency column. The narrowest of the three, because it is the only one carrying
-/// a single number with no second half and no word beside it.
-const EFFICIENCY_WIDTH: f32 = 58.0;
+/// Width of the trend column. The narrowest of the three, because it is the only one carrying a
+/// single number with no second half and no word beside it.
+const TREND_WIDTH: f32 = 58.0;
 
 /// The columns are the row and the row is the panel. Checked where the widths are written, because
 /// a column more than fits would be drawn outside the panel's chrome.
@@ -72,16 +73,16 @@ const _: () = assert!(
         + COLUMN_GAP
         + WORKERS_WIDTH
         + COLUMN_GAP
-        + EFFICIENCY_WIDTH
+        + TREND_WIDTH
         == CONTENT_WIDTH
 );
 
 /// Text size of the idle-worker count, which is a footnote to the worker count beside it.
 const IDLE_SIZE: f32 = 12.0;
 
-/// Text size of the efficiency column, which carries a verdict rather than a quantity and so is set
-/// in the body face the rest of the overlay's judgements are.
-const EFFICIENCY_SIZE: f32 = 12.5;
+/// Text size of the trend column, which carries a direction rather than a quantity and so is set in
+/// the body face the rest of the overlay's judgements are.
+const TREND_SIZE: f32 = 12.5;
 
 /// Gap between the worker count and the idle count.
 const IDLE_GAP: f32 = 6.0;
@@ -107,18 +108,31 @@ pub struct EconomyPlayerView {
     pub workers: u32,
     /// How many of those workers are standing still.
     pub idle_workers: u32,
+    /// How much more the player gathered per minute, minerals and gas together, over the last
+    /// minute than over the minute before it: negative where it fell. `None` until the game has
+    /// run two minutes and there is a minute before the last to compare with.
+    pub income_trend: Option<i32>,
 }
 
-impl EconomyPlayerView {
-    /// Resources gathered per minute for each worker the player owns.
-    ///
-    /// Zero without workers rather than undefined: a player with no workers has no income either, so
-    /// the whole row reads as the same zero rather than as a gap.
-    fn efficiency(&self) -> u32 {
-        match self.workers {
-            0 => 0,
-            workers => (self.minerals_per_minute + self.gas_per_minute) / workers,
-        }
+/// What the trend column reads for `trend`: signed, so a rise and a fall of the same size never
+/// read alike, and empty while there is nothing to compare yet.
+fn trend_text(trend: Option<i32>) -> String {
+    match trend {
+        None => String::new(),
+        Some(trend) if trend > 0 => format!("+{trend}"),
+        // A true minus sign, which sits at the plus sign's height and width.
+        Some(trend) if trend < 0 => format!("\u{2212}{}", trend.unsigned_abs()),
+        Some(_) => "0".to_string(),
+    }
+}
+
+/// What color the trend column is drawn in for `trend`: the overlay's own green for an economy
+/// growing and red for one shrinking, and quiet for one holding where it is.
+fn trend_color(trend: Option<i32>) -> Color32 {
+    match trend {
+        Some(trend) if trend > 0 => theme::TEXT_POSITIVE,
+        Some(trend) if trend < 0 => theme::TEXT_NEGATIVE,
+        _ => theme::TEXT_DIM,
     }
 }
 
@@ -214,12 +228,12 @@ fn draw_headings(ui: &mut Ui) {
     cursor.skip(COLUMN_GAP);
     draw_heading(
         ui,
-        cursor.take(EFFICIENCY_WIDTH),
-        "efficiency",
-        &tr!("observer.columnEfficiency", "Eff"),
+        cursor.take(TREND_WIDTH),
+        "trend",
+        &tr!("observer.columnTrend", "Trend"),
         &tr!(
-            "observer.columnEfficiencyHint",
-            "Income per worker, per minute"
+            "observer.columnTrendHint",
+            "How income per minute has changed since a minute ago"
         ),
     );
 }
@@ -287,15 +301,15 @@ fn draw_row(ui: &mut Ui, player: &EconomyPlayerView) {
     draw_workers(ui, cursor.take(WORKERS_WIDTH), player, alpha);
 
     cursor.skip(COLUMN_GAP);
-    // Efficiency is the one column that is a verdict rather than a count, so it is the one drawn
-    // in a color: a watcher scanning the panel reads whether a base is working before they read by
-    // how much.
+    // The trend is the one column that is a direction rather than a count, so it is the one drawn
+    // in a color: a watcher scanning the panel reads which way an economy is heading before they
+    // read by how much.
     paint_text(
         ui,
-        cursor.take(EFFICIENCY_WIDTH),
-        &text::body(EFFICIENCY_SIZE, text::BodyWeight::Medium)
-            .with_color(theme::TEXT_POSITIVE.gamma_multiply(alpha)),
-        &player.efficiency().to_string(),
+        cursor.take(TREND_WIDTH),
+        &text::body(TREND_SIZE, text::BodyWeight::Medium)
+            .with_color(trend_color(player.income_trend).gamma_multiply(alpha)),
+        &trend_text(player.income_trend),
         Align::LEFT,
     );
 }
@@ -350,6 +364,7 @@ mod tests {
             gas_per_minute: 300,
             workers: 60,
             idle_workers: 2,
+            income_trend: Some(120),
         };
         for teams in [vec![1, 2], vec![1, 1, 2, 2], vec![1, 1, 1, 2, 2, 2]] {
             let view = EconomyView {
@@ -372,20 +387,10 @@ mod tests {
     }
 
     #[test]
-    fn efficiency_is_what_each_worker_earns() {
-        let player = |workers, minerals, gas| EconomyPlayerView {
-            name: String::new(),
-            team: 1,
-            color: Color32::WHITE,
-            vision: true,
-            race: RaceView::Terran,
-            minerals_per_minute: minerals,
-            gas_per_minute: gas,
-            workers,
-            idle_workers: 0,
-        };
-        assert_eq!(player(20, 900, 100).efficiency(), 50);
-        // A player with nothing left to mine with has no income to divide up either.
-        assert_eq!(player(0, 0, 0).efficiency(), 0);
+    fn the_trend_reads_with_its_sign() {
+        assert_eq!(trend_text(Some(180)), "+180");
+        assert_eq!(trend_text(Some(-60)), "\u{2212}60");
+        assert_eq!(trend_text(Some(0)), "0");
+        assert_eq!(trend_text(None), "");
     }
 }

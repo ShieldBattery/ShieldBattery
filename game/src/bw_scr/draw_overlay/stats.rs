@@ -116,6 +116,7 @@ pub fn build_economy_view(players: &[StatsPlayer], stats: Option<&GameStats>) ->
                     gas_per_minute,
                     workers: sample.workers,
                     idle_workers: sample.idle_workers,
+                    income_trend: stats.and_then(|stats| stats.income_trend(player.player_id)),
                 }
             })
             .collect(),

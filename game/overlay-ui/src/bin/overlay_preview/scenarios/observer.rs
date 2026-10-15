@@ -432,7 +432,18 @@ fn economy_player(knobs: &Knobs, state: &State, index: usize, t: f64) -> Economy
         gas_per_minute,
         workers,
         idle_workers,
+        income_trend: income_trend(index, t),
     }
+}
+
+/// How much a player's income has moved over the last minute: what the income stand-in climbed by
+/// since a minute ago, once there has been a minute.
+fn income_trend(index: usize, t: f64) -> Option<i32> {
+    (t >= 120.0).then(|| {
+        let now = income(index, t);
+        let then = income(index, t - 60.0);
+        (now.0 + now.1) as i32 - (then.0 + then.1) as i32
+    })
 }
 
 fn military_player(knobs: &Knobs, state: &State, index: usize, t: f64) -> MilitaryPlayerView {
