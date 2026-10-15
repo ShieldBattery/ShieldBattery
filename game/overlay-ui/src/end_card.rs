@@ -25,7 +25,7 @@ use crate::colors::{
     GREY_BLUE80, GREY10,
 };
 use crate::game_menu::clock_text;
-use crate::kit::text::{self, BodyWeight, TextSpec};
+use crate::kit::text::{self, TextSpec};
 use crate::kit::widgets::{self, ButtonPlate, ResourceGlyph};
 use crate::kit::{motion, theme, tiers};
 use crate::observer::RaceView;
@@ -1026,21 +1026,6 @@ impl Record<'_> {
                 });
         }
         self.top += BUTTON_HEIGHT;
-        if result == GameResult::Victory {
-            let hint = text::body(11.0, BodyWeight::Regular)
-                .with_color(theme::TEXT_LABEL)
-                .galley(self.ui, &tr!("endCard.escHint", "Esc keeps playing"));
-            self.top += theme::SPACE_MD;
-            let mut painter = self.ui.painter().clone();
-            painter.set_opacity(shown);
-            let size = hint.size();
-            painter.galley(
-                pos2(self.center_x - size.x / 2.0, self.top + rise),
-                hint,
-                theme::TEXT_LABEL,
-            );
-            self.top += size.y;
-        }
         let rect = Rect::from_x_y_ranges(
             self.center_x - row_width / 2.0..=self.center_x + row_width / 2.0,
             top..=self.top,

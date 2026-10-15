@@ -72,7 +72,6 @@
   "endCard": {
     "averageApm": "平均 APM",
     "defeat": "失败",
-    "escHint": "按 Esc 继续游戏",
     "gameTime": "游戏时间",
     "gasGathered": "采集瓦斯",
     "keepPlaying": "继续游戏",
