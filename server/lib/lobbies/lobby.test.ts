@@ -2246,6 +2246,28 @@ describe('Lobbies - settings changes', () => {
     expect(updated.teams.flatMap(team => team.slots).some(slot => slot.controlledBy)).toBe(false)
   })
 
+  test('should drop the races picked for empty slots when controlled teams give way', () => {
+    let lobby = withTeamRaces(TEAM_MELEE_2, 0, ['p', 'z', 't', 'z'])
+    lobby = addPlayer(lobby, 1, 0, humanAt(1, 't', 1000))
+
+    const updated = applySettingsChange(
+      lobby,
+      settingsFor(lobby, { gameType: GameType.TopVsBottom, gameSubType: 4 }),
+    )
+
+    // The players keep the races they had. The races picked for the slots around them go with
+    // the controlled slots: a top vs bottom slot nobody sits in adds nothing to the game.
+    expect(updated.teams[0].slots[0]).toMatchObject({ userId: HOST_USER_ID, race: 'p' })
+    expect(updated.teams[1].slots[0]).toMatchObject({ userId: makeSbUserId(1), race: 't' })
+    for (const team of updated.teams) {
+      expect(team.slots.slice(1).map(slot => [slot.type, slot.race])).toEqual([
+        ['open', 'r'],
+        ['open', 'r'],
+        ['open', 'r'],
+      ])
+    }
+  })
+
   test('should send the players a shrink leaves over to the observer team, closed slots first', () => {
     let lobby = createLobby({
       name: 'Shrinking',
