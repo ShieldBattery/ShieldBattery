@@ -51,7 +51,7 @@ pub const MOTION_PANEL_SLIDE: f32 = 8.0;
 /// Period of anything that pulses to say "still working".
 pub const MOTION_PULSE_SECS: f32 = 1.4;
 /// How long a destructive action must be held before it fires.
-pub const MOTION_HOLD_SECS: f32 = 3.0;
+pub const MOTION_HOLD_SECS: f32 = 1.0;
 /// How long an abandoned hold takes to unwind.
 pub const MOTION_HOLD_RELEASE_SECS: f32 = 0.15;
 

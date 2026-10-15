@@ -14,7 +14,7 @@
   },
   "disconnect": {
     "abandonAction": "Mantén pulsado: abandonar",
-    "abandonNote": "Mantén pulsado {{seconds}} segundos. Si sueltas antes, se cancela. Abandonar suele contar como derrota, salvo que tu equipo gane sin ti.",
+    "abandonNote": "Si sueltas antes, se cancela. Abandonar suele contar como derrota, salvo que tu equipo gane sin ti.",
     "desyncedBody": "El estado de tu partida se separó del de los demás jugadores, así que no puede continuar para ti. Salir no afecta a la partida de nadie más.",
     "desyncedTitle": "Partida desincronizada",
     "disconnectedSubtitle": "Ya no es posible volver a conectarse a la partida.",

@@ -14,7 +14,7 @@
   },
   "disconnect": {
     "abandonAction": "Hold to abandon",
-    "abandonNote": "Hold for {{seconds}} seconds. Releasing early cancels. Abandoning usually counts as a loss, unless your team wins without you.",
+    "abandonNote": "Releasing early cancels. Abandoning usually counts as a loss, unless your team wins without you.",
     "desyncedBody": "Your game's state has diverged from the other players', so it can't continue for you. Leaving won't affect anyone else's game.",
     "desyncedTitle": "Game desync detected",
     "disconnectedSubtitle": "Reconnecting to the game is no longer possible.",

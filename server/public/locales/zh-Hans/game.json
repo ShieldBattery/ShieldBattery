@@ -14,7 +14,7 @@
   },
   "disconnect": {
     "abandonAction": "长按放弃游戏",
-    "abandonNote": "长按 {{seconds}} 秒。提前松开则取消。放弃通常记为失败，除非队伍在您缺席时获胜。",
+    "abandonNote": "提前松开则取消。放弃通常记为失败，除非队伍在您缺席时获胜。",
     "desyncedBody": "您的游戏状态已与其他玩家不一致，无法继续进行。离开不会影响其他人的游戏。",
     "desyncedTitle": "检测到游戏不同步",
     "disconnectedSubtitle": "已无法重新连接到游戏。",

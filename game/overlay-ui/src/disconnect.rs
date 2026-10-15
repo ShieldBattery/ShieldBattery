@@ -340,9 +340,8 @@ fn draw_self_notice(
             &footnote_spec(),
             &tr!(
                 "disconnect.abandonNote",
-                "Hold for {{seconds}} seconds. Releasing early cancels. Abandoning usually counts \
-                 as a loss, unless your team wins without you.",
-                seconds = theme::MOTION_HOLD_SECS.round() as u64
+                "Releasing early cancels. Abandoning usually counts as a loss, unless your team \
+                 wins without you."
             ),
             width,
         );

@@ -468,7 +468,7 @@ pub fn hold_to_confirm_by_key(ui: &mut Ui, label: &str, size: Vec2, key_held: bo
     let corner_radius = theme::radius(theme::RADIUS_TIGHT);
     // The sweep always moves at the same speed: a full hold takes the whole hold time and a full
     // unwind the whole release time, so a press that lands on a half-unwound sweep finishes in
-    // half the time rather than crawling the remaining distance over the full three seconds. The
+    // half the time rather than crawling the remaining distance over the full hold time. The
     // sweep keeps its own clock rather than using egui's value animation, which reads where a
     // changing value stands off the duration it is handed on the frame the target changes: a leg
     // that begins mid-sweep would then be measured against its own, shorter length and start from
