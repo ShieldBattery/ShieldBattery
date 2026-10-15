@@ -2,18 +2,39 @@ use std::collections::VecDeque;
 
 use crate::bw::commands;
 
-/// Show recent APM as a APM of sliding window of 15 seconds.
-/// Collect action count from 24 frames (~1 sec on fastest) to a "block"
-/// and then calculate APM based on last 15 of those blocks.
-///
-/// Not necessarily same what SC:R does by default.
-const RECENT_ACTIONS_BLOCK_SIZE: usize = 24;
-const RECENT_ACTIONS_BLOCKS: usize = 15;
+/// How long one game frame lasts at Fastest, in milliseconds, which is the speed every
+/// ShieldBattery game is played at. Rates are measured in game time, so a paused game, a replay
+/// played fast and a stretch simulated again after a late turn all count the same as the game they
+/// show.
+const FRAME_MS: f64 = 42.0;
 
+/// How many game frames make a minute.
+const FRAMES_PER_MINUTE: f64 = 60_000.0 / FRAME_MS;
+
+/// The time constant of each of the current rate's two stages, in game frames. Together they weigh
+/// an action by how long ago it was made, its weight peaking this long after and averaging twice
+/// this: about 20 seconds, short enough that a fight shows as a rise a watcher can see, long enough
+/// that one burst of clicks doesn't throw the number around.
+const RECENT_TIME_CONSTANT_FRAMES: f64 = 10_000.0 / FRAME_MS;
+
+/// How long the game has to have run before its average rate means anything: a second.
+const AVERAGE_MIN_FRAMES: u32 = 24;
+
+/// Counts each player's actions, for their average rate over the game and their current rate.
+///
+/// The current rate is an exponentially weighted average of the player's actions over game time,
+/// run twice: once, every action would bump the number the moment it is made and the number would
+/// sag between actions, a sawtooth a watcher reads as noise; run twice, it rises and falls smoothly
+/// through the same average. A weighted average starting from nothing reads low until it has
+/// filled, so it is divided by the same filter's response to a steady one action per frame since
+/// the game began: what is left is a rate, fair from the game's first second.
 #[derive(Clone)]
 pub struct ApmStats {
     per_player: [PlayerApm; 8],
-    shared: SharedState,
+    /// Game frames counted so far.
+    total_frames: u32,
+    /// The filter's response to one action every frame since the game began, at both stages.
+    reference: Smoothed,
     /// For each player, the steps whose actions were counted, in a game that simulates steps
     /// again when turns arrive late (see [`ApmStats::counts_turn`]), the newest
     /// [`COUNTED_STEPS_KEPT`].
@@ -24,18 +45,28 @@ pub struct ApmStats {
 /// again.
 const COUNTED_STEPS_KEPT: usize = 64;
 
-#[derive(Clone)]
-struct SharedState {
-    total_frames: u32,
-    // Index to PlayerApm.recent_actions which is currently being updated.
-    recent_actions_pos: usize,
-}
-
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 struct PlayerApm {
     total_actions: u32,
-    // The extra 1 entry is for window currently being updated.
-    recent_actions: [u32; RECENT_ACTIONS_BLOCKS + 1],
+    recent: Smoothed,
+}
+
+/// A count of actions put through the two stages of the current rate's average.
+#[derive(Copy, Clone, Debug, Default)]
+struct Smoothed {
+    /// Actions, each weighted down by how long ago it was made.
+    first: f64,
+    /// The first stage, averaged over time the same way.
+    second: f64,
+}
+
+impl Smoothed {
+    /// Moves on by one frame, whose actions have been added to [`first`](Self::first).
+    fn step(&mut self) {
+        let keep = (-1.0 / RECENT_TIME_CONSTANT_FRAMES).exp();
+        self.second = self.second * keep + self.first * (1.0 - keep);
+        self.first *= keep;
+    }
 }
 
 impl ApmStats {
@@ -51,11 +82,15 @@ impl ApmStats {
         ApmStats {
             per_player: [PlayerApm {
                 total_actions: 0,
-                recent_actions: [0; RECENT_ACTIONS_BLOCKS + 1],
+                recent: Smoothed {
+                    first: 0.0,
+                    second: 0.0,
+                },
             }; 8],
-            shared: SharedState {
-                total_frames: 0,
-                recent_actions_pos: 0,
+            total_frames: 0,
+            reference: Smoothed {
+                first: 0.0,
+                second: 0.0,
             },
             counted_steps: [const { VecDeque::new() }; 8],
         }
@@ -84,21 +119,13 @@ impl ApmStats {
         }
     }
 
+    /// Moves on by one game frame, closing the frame whose actions have just been counted.
     pub fn new_frame(&mut self) {
-        self.shared.total_frames = self.shared.total_frames.saturating_add(1);
-        if self
-            .shared
-            .total_frames
-            .is_multiple_of(RECENT_ACTIONS_BLOCK_SIZE as u32)
-        {
-            self.shared.recent_actions_pos += 1;
-            if self.shared.recent_actions_pos > RECENT_ACTIONS_BLOCKS {
-                self.shared.recent_actions_pos = 0;
-            }
-            let pos = self.shared.recent_actions_pos;
-            for player_apm in &mut self.per_player {
-                player_apm.recent_actions[pos] = 0;
-            }
+        self.total_frames = self.total_frames.saturating_add(1);
+        self.reference.first += 1.0;
+        self.reference.step();
+        for player_apm in &mut self.per_player {
+            player_apm.recent.step();
         }
     }
 
@@ -113,8 +140,7 @@ impl ApmStats {
         };
 
         player_apm.total_actions = player_apm.total_actions.saturating_add(1);
-        let pos = self.shared.recent_actions_pos;
-        player_apm.recent_actions[pos] = player_apm.recent_actions[pos].saturating_add(1);
+        player_apm.recent.first += 1.0;
         true
     }
 
@@ -122,41 +148,23 @@ impl ApmStats {
     /// second of the game has been counted.
     pub fn player_average_apm(&self, player: u8) -> Option<u32> {
         let player_apm = self.per_player.get(player as usize)?;
-        if self.shared.total_frames < RECENT_ACTIONS_BLOCK_SIZE as u32 {
+        if self.total_frames < AVERAGE_MIN_FRAMES {
             return None;
         }
-        // Fastest game speed, the same assumption the recent rate makes.
-        let frames_per_minute = 60_000.0 / 42.0;
-        let minutes = self.shared.total_frames as f64 / frames_per_minute;
+        let minutes = f64::from(self.total_frames) / FRAMES_PER_MINUTE;
         Some((f64::from(player_apm.total_actions) / minutes).round() as u32)
     }
 
+    /// A player's actions per minute lately, weighted toward the last few tens of seconds.
     pub fn player_recent_apm(&self, player: u8) -> u32 {
-        let player_apm = match self.per_player.get(player as usize) {
-            Some(s) => s,
-            None => return 0,
+        let Some(player_apm) = self.per_player.get(player as usize) else {
+            return 0;
         };
-        let mut sum = 0u32;
-        let mut frames = 0u32;
-        let filled_blocks = ((self.shared.total_frames as usize) / RECENT_ACTIONS_BLOCK_SIZE + 1)
-            .min(player_apm.recent_actions.len());
-        for i in 0..filled_blocks {
-            sum = sum.saturating_add(player_apm.recent_actions[i]);
-            if i == self.shared.recent_actions_pos {
-                // Clamp frames here to multiple of to 8 so that the ui doesn't fluctuate too
-                // much when the players issue commands infrequently.
-                // Bit weird but looks better than having it show the exact value every frame.
-                // Could also just reduce block size to 8 i guess.
-                let amount = self.shared.total_frames % RECENT_ACTIONS_BLOCK_SIZE as u32;
-                frames = frames.saturating_add(amount & !7);
-            } else {
-                frames = frames.saturating_add(RECENT_ACTIONS_BLOCK_SIZE as u32);
-            }
+        if self.reference.second <= 0.0 {
+            return 0;
         }
-        // TODO: Hardcoded for fastest game speed (mostly fine as SB does not support other speeds)
-        let ms_per_frame = 42;
-        let frames_per_minute = 60000 / ms_per_frame;
-        (sum as f32 * (frames_per_minute as f32 / frames as f32)).round() as u32
+        let per_frame = player_apm.recent.second / self.reference.second;
+        (per_frame * FRAMES_PER_MINUTE).round() as u32
     }
 }
 
@@ -267,5 +275,73 @@ mod tests {
         }
         assert_eq!(apm.player_average_apm(0), Some(150));
         assert_eq!(apm.player_average_apm(1), Some(0));
+    }
+
+    /// Runs `frames` frames with an action every `every` frames, or none when `every` is 0,
+    /// returning the current rate after each frame.
+    fn play(apm: &mut ApmStats, frames: u32, every: u32) -> Vec<u32> {
+        (0..frames)
+            .map(|frame| {
+                if every != 0 && frame % every == 0 {
+                    apm.action(0, MOVE);
+                }
+                apm.new_frame();
+                apm.player_recent_apm(0)
+            })
+            .collect()
+    }
+
+    /// An action every 6 frames at Fastest is 238 a minute.
+    const STEADY_APM: f64 = FRAMES_PER_MINUTE / 6.0;
+
+    /// A player keeping a steady pace reads at that pace, and from early on rather than climbing
+    /// toward it for the first minute.
+    #[test]
+    fn a_steady_pace_reads_as_itself_from_the_start() {
+        let mut apm = ApmStats::new();
+        let rates = play(&mut apm, 4 * 60 * 24, 6);
+        // Ten seconds in.
+        let early = f64::from(rates[240]);
+        assert!((early - STEADY_APM).abs() / STEADY_APM < 0.05, "{early}");
+        let settled = f64::from(*rates.last().unwrap());
+        assert!(
+            (settled - STEADY_APM).abs() / STEADY_APM < 0.02,
+            "{settled}"
+        );
+    }
+
+    /// Steady clicking reads as a steady number: the individual actions don't show through as a
+    /// sawtooth.
+    #[test]
+    fn steady_clicking_reads_steadily() {
+        let mut apm = ApmStats::new();
+        let rates = play(&mut apm, 3 * 60 * 24, 6);
+        let last_second = &rates[rates.len() - 24..];
+        let (low, high) = (
+            last_second.iter().min().unwrap(),
+            last_second.iter().max().unwrap(),
+        );
+        assert!(high - low <= 2, "{low}..{high}");
+    }
+
+    /// A fight's burst of actions eases out of the rate rather than dropping off a ledge, and is
+    /// mostly gone a minute later.
+    #[test]
+    fn a_burst_fades_smoothly() {
+        let mut apm = ApmStats::new();
+        play(&mut apm, 60 * 24, 6);
+        let peak = apm.player_recent_apm(0);
+        let fading = play(&mut apm, 60 * 24, 0);
+        for pair in fading.windows(2) {
+            assert!(pair[1] <= pair[0], "rose while idle: {pair:?}");
+            assert!(pair[0] - pair[1] <= 2, "dropped off a ledge: {pair:?}");
+        }
+        assert!(f64::from(*fading.last().unwrap()) < f64::from(peak) * 0.1);
+    }
+
+    #[test]
+    fn nothing_is_read_before_the_game_has_run() {
+        let apm = ApmStats::new();
+        assert_eq!(apm.player_recent_apm(0), 0);
     }
 }
