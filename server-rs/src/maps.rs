@@ -329,10 +329,13 @@ impl Loader<SbMapId> for MapsLoader {
             r#"
                 SELECT id as "id: _", hash as "map_hash: _", name as "name!",
                     COALESCE(public_description, description) as "description!",
-                    CASE WHEN listing <> 'UNLISTED' THEN published_by END
-                        as "published_by: _",
-                    CASE WHEN listing <> 'UNLISTED' THEN published_at END as published_at,
-                    listing as "visibility: _"
+                    CASE WHEN listed THEN published_by END as "published_by: _",
+                    CASE WHEN listed THEN published_at END as published_at,
+                    (CASE
+                        WHEN NOT listed THEN 'UNLISTED'
+                        WHEN official THEN 'OFFICIAL'
+                        ELSE 'PUBLIC'
+                    END)::map_visibility as "visibility!: _"
                 FROM maps
                 WHERE id = ANY($1)
             "#,

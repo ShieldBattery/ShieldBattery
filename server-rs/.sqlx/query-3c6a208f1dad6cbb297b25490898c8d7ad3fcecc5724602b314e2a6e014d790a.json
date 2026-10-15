@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                SELECT id as \"id: _\", hash as \"map_hash: _\", name as \"name!\",\n                    COALESCE(public_description, description) as \"description!\",\n                    CASE WHEN listing <> 'UNLISTED' THEN published_by END\n                        as \"published_by: _\",\n                    CASE WHEN listing <> 'UNLISTED' THEN published_at END as published_at,\n                    listing as \"visibility: _\"\n                FROM maps\n                WHERE id = ANY($1)\n            ",
+  "query": "\n                SELECT id as \"id: _\", hash as \"map_hash: _\", name as \"name!\",\n                    COALESCE(public_description, description) as \"description!\",\n                    CASE WHEN listed THEN published_by END as \"published_by: _\",\n                    CASE WHEN listed THEN published_at END as published_at,\n                    (CASE\n                        WHEN NOT listed THEN 'UNLISTED'\n                        WHEN official THEN 'OFFICIAL'\n                        ELSE 'PUBLIC'\n                    END)::map_visibility as \"visibility!: _\"\n                FROM maps\n                WHERE id = ANY($1)\n            ",
   "describe": {
     "columns": [
       {
@@ -56,7 +56,7 @@
       },
       {
         "ordinal": 6,
-        "name": "visibility: _",
+        "name": "visibility!: _",
         "type_info": {
           "Custom": {
             "name": "map_visibility",
@@ -69,12 +69,7 @@
             }
           }
         },
-        "origin": {
-          "Table": {
-            "table": "maps",
-            "name": "listing"
-          }
-        }
+        "origin": "Expression"
       }
     ],
     "parameters": {
@@ -89,8 +84,8 @@
       null,
       null,
       null,
-      false
+      null
     ]
   },
-  "hash": "9492fa6f3111a443d4df4acbe8ecc631f1c80e05e129b4d0559637689f4bb0b3"
+  "hash": "3c6a208f1dad6cbb297b25490898c8d7ad3fcecc5724602b314e2a6e014d790a"
 }

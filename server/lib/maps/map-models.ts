@@ -1,3 +1,4 @@
+import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
   MapExtension,
   MapForce,
@@ -22,7 +23,8 @@ type DbMapInfo = Dbify<{
   hash: Buffer
   name: string
   description: string
-  listing: MapVisibility
+  official: boolean
+  listed: boolean
   publishedBy: SbUserId | null
   publishedAt: Date | null
   extension: MapExtension
@@ -47,7 +49,8 @@ const MAP_INFO_COLUMNS = sql`
   m.hash,
   m.name,
   COALESCE(m.public_description, m.description) AS description,
-  m.listing,
+  m.official,
+  m.listed,
   m.published_by,
   m.published_at,
   m.extension,
@@ -72,6 +75,14 @@ interface MapUrlProps {
   image2048Url?: string
 }
 
+/** Returns which listing a map appears in, given how the database records it. */
+function toVisibility({ listed, official }: { listed: boolean; official: boolean }) {
+  if (!listed) {
+    return MapVisibility.Unlisted
+  }
+  return official ? MapVisibility.Official : MapVisibility.Public
+}
+
 function convertFromDb(props: DbMapInfo, urls: MapUrlProps): MapInfo {
   return {
     id: props.id,
@@ -79,11 +90,9 @@ function convertFromDb(props: DbMapInfo, urls: MapUrlProps): MapInfo {
     name: props.name,
     description: props.description,
     // A delisted map keeps its publishing record, but only a listed map has a publisher
-    publishedBy:
-      props.listing !== MapVisibility.Unlisted ? (props.published_by ?? undefined) : undefined,
-    publishedAt:
-      props.listing !== MapVisibility.Unlisted ? (props.published_at ?? undefined) : undefined,
-    visibility: props.listing,
+    publishedBy: props.listed ? (props.published_by ?? undefined) : undefined,
+    publishedAt: props.listed ? (props.published_at ?? undefined) : undefined,
+    visibility: toVisibility(props),
     mapData: {
       format: props.extension,
       tileset: props.tileset,
@@ -201,19 +210,19 @@ export async function addMap(
         DO UPDATE SET added_at = CURRENT_TIMESTAMP
       `)
     } else {
-      const widerListings =
-        visibility === MapVisibility.Official
-          ? [MapVisibility.Unlisted, MapVisibility.Public]
-          : [MapVisibility.Unlisted]
+      const official = visibility === MapVisibility.Official
+      // Publishing only ever widens a listing: publishing as public leaves an already listed map (and
+      // its publisher) alone, and publishing as official leaves an already official listed map alone
+      const widensListing = official ? sql`NOT (listed AND official)` : sql`NOT listed`
       await client.query(sql`
         UPDATE maps
         SET
-          listing = ${visibility},
+          official = ${official},
           published_by = ${uploadedBy},
           published_at = CURRENT_TIMESTAMP,
           delisted_by = NULL,
           delisted_at = NULL
-        WHERE hash = ${hashBuffer} AND listing = ANY(${widerListings})
+        WHERE hash = ${hashBuffer} AND ${widensListing}
       `)
     }
 
@@ -464,6 +473,19 @@ function getOrderByStatement(sort: MapSortType): SqlTemplate {
   return sqlRaw(`ORDER BY ${sortByArray.join(', ')}`)
 }
 
+function getListingCondition(listing: MapVisibility): SqlTemplate {
+  switch (listing) {
+    case MapVisibility.Official:
+      return sql`WHERE m.listed AND m.official`
+    case MapVisibility.Public:
+      return sql`WHERE m.listed AND NOT m.official`
+    case MapVisibility.Unlisted:
+      return sql`WHERE NOT m.listed`
+    default:
+      return assertUnreachable(listing)
+  }
+}
+
 /** Where a map listing gets its maps from: a listing, or a user's own maps. */
 export type MapListSource = { listing: MapVisibility } | { libraryOf: SbUserId }
 
@@ -494,7 +516,7 @@ export async function getMaps({
   } else {
     from = sql`maps AS m`
     sortDate = sql`m.published_at`
-    conditions = [sql`WHERE m.listing = ${source.listing}`]
+    conditions = [getListingCondition(source.listing)]
   }
 
   const whereCondition = getWhereCondition(conditions, numPlayers, tilesets, searchStr)
@@ -684,10 +706,9 @@ export async function delistMap(mapId: SbMapId, delistedBy: SbUserId): Promise<v
   const query = sql`
     UPDATE maps
     SET
-      listing = ${MapVisibility.Unlisted},
       delisted_by = ${delistedBy},
       delisted_at = CURRENT_TIMESTAMP
-    WHERE id = ${mapId} AND listing <> ${MapVisibility.Unlisted};
+    WHERE id = ${mapId} AND listed;
   `
 
   const { client, done } = await db()

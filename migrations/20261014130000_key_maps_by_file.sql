@@ -34,14 +34,16 @@ ALTER TABLE maps
   ADD COLUMN id uuid,
   ADD COLUMN public_name text,
   ADD COLUMN public_description text,
-  ADD COLUMN listing map_visibility NOT NULL DEFAULT 'UNLISTED',
+  ADD COLUMN official boolean NOT NULL DEFAULT false,
   ADD COLUMN published_by integer REFERENCES users (id),
   ADD COLUMN published_at timestamptz,
   ADD COLUMN delisted_by integer REFERENCES users (id),
   ADD COLUMN delisted_at timestamptz;
 
 -- `published_by`/`published_at` record the most recent publishing and are kept when a map is
--- delisted, so a delisted map still shows who published it and when it was taken down.
+-- delisted, so a delisted map still shows who published it and when it was taken down. `official`
+-- marks a map staff published; listed official maps make up the official listing, the rest of the
+-- listed maps the public one.
 
 UPDATE maps AS m
 SET id = c.id
@@ -55,55 +57,45 @@ ALTER TABLE maps
   ALTER COLUMN id SET DEFAULT sb_uuid(),
   ADD CONSTRAINT maps_id_key UNIQUE (id);
 
--- The name shown everywhere: the curated name of a listed map, otherwise the file's own title.
+-- The name shown everywhere: the curated name if the map has one, otherwise the file's own title.
 ALTER TABLE maps
-  ADD COLUMN name text GENERATED ALWAYS AS (COALESCE(public_name, title)) STORED;
+  ADD COLUMN name text GENERATED ALWAYS AS (COALESCE(public_name, title)) STORED,
+  ADD COLUMN listed boolean GENERATED ALWAYS AS (published_at IS NOT NULL AND delisted_at IS NULL)
+    STORED;
 
-CREATE INDEX maps_listing_index ON maps (listing);
+CREATE INDEX maps_listed_index ON maps (listed, official);
 
--- A file is listed at the highest visibility any of its live uploads had.
+-- Each file that had listed uploads takes its publishing record, curated name and description from
+-- one of them: a live one if there is any, official before public, then the earliest. Removed ones
+-- still count, so that games on maps that have since been removed from the listings keep the names
+-- they were played under. Names and descriptions are only stored when they differ from the file's.
 UPDATE maps AS m
 SET
-  listing = v.visibility,
-  published_by = v.uploaded_by,
-  published_at = v.upload_date
+  official = p.visibility = 'OFFICIAL',
+  published_by = p.uploaded_by,
+  published_at = p.upload_date,
+  public_name = NULLIF(p.name, m.title),
+  public_description = NULLIF(p.description, m.description)
 FROM (
-  SELECT DISTINCT ON (map_hash) map_hash, visibility, uploaded_by, upload_date
-  FROM uploaded_maps
-  WHERE removed_at IS NULL AND visibility IN ('OFFICIAL', 'PUBLIC')
-  ORDER BY map_hash, (visibility = 'OFFICIAL') DESC, upload_date
-) AS v
-WHERE v.map_hash = m.hash;
-
--- Files whose listed uploads were all removed were delisted: keep who published them, and when the
--- last of those uploads was removed (who removed it wasn't recorded).
-UPDATE maps AS m
-SET
-  published_by = v.uploaded_by,
-  published_at = v.upload_date,
-  delisted_at = v.removed_at
-FROM (
-  SELECT DISTINCT ON (map_hash) map_hash, uploaded_by, upload_date, removed_at
+  SELECT DISTINCT ON (map_hash) map_hash, visibility, uploaded_by, upload_date, name, description
   FROM uploaded_maps
   WHERE visibility IN ('OFFICIAL', 'PUBLIC')
-  ORDER BY map_hash, removed_at DESC, (visibility = 'OFFICIAL') DESC, upload_date DESC
-) AS v
-WHERE v.map_hash = m.hash AND m.listing = 'UNLISTED';
+  ORDER BY map_hash, (removed_at IS NULL) DESC, (visibility = 'OFFICIAL') DESC, upload_date, id
+) AS p
+WHERE p.map_hash = m.hash;
 
--- Curated names/descriptions come from the file's listed uploads, live ones first, so that games on
--- maps that have since been removed from the listings keep the names they were played under. They're
--- only stored when they differ from the file's own.
+-- Files whose listed uploads were all removed were delisted when the last of them was removed (who
+-- removed it wasn't recorded).
 UPDATE maps AS m
-SET
-  public_name = NULLIF(v.name, m.title),
-  public_description = NULLIF(v.description, m.description)
+SET delisted_at = d.removed_at
 FROM (
-  SELECT DISTINCT ON (map_hash) map_hash, name, description
+  SELECT map_hash, max(removed_at) AS removed_at
   FROM uploaded_maps
   WHERE visibility IN ('OFFICIAL', 'PUBLIC')
-  ORDER BY map_hash, (removed_at IS NULL) DESC, (visibility = 'OFFICIAL') DESC, upload_date DESC
-) AS v
-WHERE v.map_hash = m.hash;
+  GROUP BY map_hash
+  HAVING bool_and(removed_at IS NOT NULL)
+) AS d
+WHERE d.map_hash = m.hash;
 
 CREATE TABLE map_id_aliases (
   old_id uuid PRIMARY KEY,

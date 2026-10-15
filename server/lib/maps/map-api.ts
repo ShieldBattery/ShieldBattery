@@ -390,8 +390,9 @@ export class MapsApi {
 
     ;[map] = await reparseMapsAsNeeded([map])
 
-    // An unlisted map is shared by everyone who uploaded the same file, so it always uses the
-    // file's own name and description
+    // Curated names and descriptions are only set while a map is listed. A map that was never
+    // listed uses the file's own; a delisted one keeps the ones it was listed under, which games
+    // played on it were shown with
     if (map.visibility === MapVisibility.Unlisted) {
       throw new httpErrors.Forbidden("Unlisted maps can't be renamed")
     }
