@@ -802,7 +802,10 @@ describe('lobbies/lobby-service', () => {
       })
     })
 
-    /** Creates a 4v4 team melee lobby hosted by `host`. */
+    /**
+     * Creates a 4v4 team melee lobby. `host` is seated as a player in team 1's first slot and
+     * controls the rest of team 1's slots.
+     */
     async function createTeamMeleeLobby() {
       return await lobbyService.createLobby({
         name: 'Team lobby',
@@ -817,16 +820,19 @@ describe('lobbies/lobby-service', () => {
 
     test('a team melee joiner takes on the race of the slot they join', async () => {
       const { id } = await createTeamMeleeLobby()
-      // The empty team has the most room, so the first joiner gets it to themselves
+      // Team 2 is empty and so has the most room, which puts the first joiner there on their own
       await joinLobby(joiner, id)
       const hostTeam = lobbyService.lobbies.get(id)!.teams[0]
+      expect(hostTeam.slots[0]).toMatchObject({ type: 'human', userId: HOST_USER.id })
       lobbyService.setRace({ client: host.client, slotId: hostTeam.slots[1].id, race: 'z' })
       lobbyService.setRace({ client: host.client, slotId: hostTeam.slots[2].id, race: 'p' })
 
-      await joinLobby(otherHost, id)
+      // Both teams now have 3 open slots, and the tie goes to team 1
+      const secondJoiner = connectExtra(100)
+      await joinLobby(secondJoiner, id)
 
       const lobby = lobbyService.lobbies.get(id)!
-      expect(lobby.teams[0].slots[1]).toMatchObject({ userId: OTHER_HOST_USER.id, race: 'z' })
+      expect(lobby.teams[0].slots[1]).toMatchObject({ userId: makeSbUserId(100), race: 'z' })
       expect(lobby.teams[0].slots[2]).toMatchObject({ type: 'controlledOpen', race: 'p' })
     })
 
@@ -838,10 +844,13 @@ describe('lobbies/lobby-service', () => {
       lobbyService.setRace({ client: joiner.client, slotId: joinerTeam.slots[1].id, race: 't' })
       lobbyService.leaveLobby({ client: joiner.client })
 
-      await joinLobby(otherHost, id)
+      // The emptied team 2 has more room than the host's team, so the next joiner lands in its
+      // first slot
+      const nextJoiner = connectExtra(100)
+      await joinLobby(nextJoiner, id)
 
       const lobby = lobbyService.lobbies.get(id)!
-      expect(lobby.teams[1].slots[0]).toMatchObject({ userId: OTHER_HOST_USER.id, race: 'p' })
+      expect(lobby.teams[1].slots[0]).toMatchObject({ userId: makeSbUserId(100), race: 'p' })
       expect(lobby.teams[1].slots[1]).toMatchObject({ type: 'controlledOpen', race: 't' })
     })
 
