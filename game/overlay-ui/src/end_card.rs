@@ -14,7 +14,7 @@
 
 use std::sync::Arc;
 
-use egui::emath::TSTransform;
+use egui::emath::{GuiRounding, TSTransform};
 use egui::{
     Area, Color32, Context, Galley, Id, Key, Mesh, Order, Painter, Pos2, Rect, Sense, Shape,
     Stroke, Ui, UiBuilder, Vec2, pos2, vec2,
@@ -77,14 +77,6 @@ const RULE_GAP: f32 = 44.0;
 
 /// Half the width of the light that sweeps across a victory's word.
 const GLINT_HALF_WIDTH: f32 = 90.0;
-
-/// How many bands of color the word's vertical gradient is cut into. Neighboring bands differ by
-/// a shade or two, which reads as a smooth gradient at any size the word is set at.
-const WORD_GRADIENT_BANDS: usize = 12;
-
-/// How wide each slice of the sweeping light is. Narrow enough that the steps between slices read
-/// as one soft band of light.
-const GLINT_SLICE: f32 = 4.0;
 
 /// The gap between the banner's bottom edge and the clock under it, and between the clock and the
 /// summary.
@@ -332,9 +324,9 @@ impl Timeline {
                 Beat::new(0.1, 0.55),
             ),
             GameResult::Defeat => (
-                Beat::new(0.0, 0.65),
-                Beat::new(0.0, 0.7),
-                Beat::new(0.18, 0.85),
+                Beat::new(0.0, 0.5),
+                Beat::new(0.0, 0.55),
+                Beat::new(0.12, 0.62),
             ),
         };
         let landing = word.end();
@@ -443,7 +435,7 @@ impl Look {
                 word: [AMBER80, AMBER60, AMBER50],
                 glow: Some(theme::ACCENT),
                 rule: theme::ACCENT.gamma_multiply(0.6),
-                emblem: theme::ACCENT.gamma_multiply(0.06),
+                emblem: theme::ACCENT.gamma_multiply(0.08),
             },
             // A loss is reported, not celebrated: steel rather than gold, no bloom, and only the
             // faintest red in the rules.
@@ -462,7 +454,7 @@ impl Look {
                 rule: GREY_BLUE60
                     .lerp_to_gamma(theme::TEXT_NEGATIVE, 0.3)
                     .gamma_multiply(0.45),
-                emblem: GREY_BLUE70.gamma_multiply(0.05),
+                emblem: GREY_BLUE70.gamma_multiply(0.07),
             },
         }
     }
@@ -710,9 +702,6 @@ impl Word {
         }
         let mut painter = painter.clone();
         painter.set_opacity(self.alpha);
-        let screen = painter.ctx().viewport_rect();
-        let pixels_per_point = painter.ctx().pixels_per_point();
-        let snap = |y: f32| (y * pixels_per_point).round() / pixels_per_point;
         let add = |painter: &Painter, mut shape: Shape| {
             shape.transform(self.transform);
             painter.add(shape);
@@ -722,66 +711,114 @@ impl Word {
                 add(&painter, stamp);
             }
         }
-        // The gradient is cut into bands across the letters' height, each a copy of the word cut
-        // down to its band; the first and last reach on to the screen's edges, so no part of a
-        // letter that pokes past the measured ink goes undrawn.
         let [top, middle, bottom] = look.word;
-        for band in 0..WORD_GRADIENT_BANDS {
-            let along = (band as f32 + 0.5) / WORD_GRADIENT_BANDS as f32;
+        let ctx = painter.ctx().clone();
+        // Measured at rest, as the mesh is built at rest and moved by the word's transform.
+        let rest = self.transform.inverse() * self.ink;
+        let glint = timeline
+            .glint
+            .map(|glint| glint.progress(t))
+            .filter(|progress| *progress > 0.0 && *progress < 1.0)
+            .map(|progress| {
+                let left = rest.left() - GLINT_HALF_WIDTH;
+                let right = rest.right() + GLINT_HALF_WIDTH;
+                left + (right - left) * ease_in_out(progress)
+            });
+        let color_at = |pos: Pos2| {
+            let along = ((pos.y - rest.top()) / rest.height()).clamp(0.0, 1.0);
             let color = if along < 0.5 {
                 top.lerp_to_gamma(middle, along * 2.0)
             } else {
                 middle.lerp_to_gamma(bottom, along * 2.0 - 1.0)
             };
-            let edge = |band: usize| {
-                self.ink.top() + self.ink.height() * band as f32 / WORD_GRADIENT_BANDS as f32
-            };
-            let upper = if band == 0 {
-                screen.top()
-            } else {
-                snap(edge(band))
-            };
-            let lower = if band + 1 == WORD_GRADIENT_BANDS {
-                screen.bottom()
-            } else {
-                snap(edge(band + 1))
-            };
-            let clip = Rect::from_x_y_ranges(screen.x_range(), upper..=lower);
-            add(
-                &painter.with_clip_rect(clip),
-                Shape::galley(self.origin, self.galley.clone(), color),
+            match glint {
+                Some(center) if (pos.x - center).abs() < GLINT_HALF_WIDTH => {
+                    let distance = (pos.x - center).abs() / GLINT_HALF_WIDTH;
+                    let strength = (distance * std::f32::consts::FRAC_PI_2).cos().powi(2);
+                    color.lerp_to_gamma(AMBER99, 0.9 * strength)
+                }
+                _ => color,
+            }
+        };
+        let mesh = word_mesh(
+            &self.galley,
+            self.origin,
+            ctx.pixels_per_point(),
+            ctx.fonts(|fonts| fonts.font_image_size()),
+            color_at,
+        );
+        add(&painter, Shape::mesh(mesh));
+    }
+}
+
+/// How many cells across and down each letter of the word is cut into, so the colors given its
+/// corners can follow the gradient down the letters and the glint's soft band across them.
+const WORD_MESH_CELLS: usize = 12;
+
+/// The word as one mesh of its letters, each cut into a grid whose corners take their color from
+/// `color_at`: the colors change across the letters without the word being drawn more than once.
+/// A word drawn as several clipped copies shows the seams between them along every edge, wherever
+/// the renderer's clipping falls a pixel off the overlay's own.
+///
+/// Built the way egui lays a galley's glyphs out (each glyph a quad of the font atlas, the galley
+/// set on a whole pixel), at `origin`, with the atlas `atlas_size` texels across.
+fn word_mesh(
+    galley: &Galley,
+    origin: Pos2,
+    pixels_per_point: f32,
+    atlas_size: [usize; 2],
+    color_at: impl Fn(Pos2) -> Color32,
+) -> Mesh {
+    let origin = origin.round_to_pixels(pixels_per_point);
+    let texel = vec2(1.0 / atlas_size[0] as f32, 1.0 / atlas_size[1] as f32);
+    let mut mesh = Mesh::default();
+    for row in &galley.rows {
+        let row_origin = origin + row.pos.to_vec2();
+        let vertices = &row.visuals.mesh.vertices;
+        let glyphs = &vertices[row.visuals.glyph_vertex_range.clone()];
+        // A glyph is a quad laid out corner to corner: its first vertex the top left, its last the
+        // bottom right.
+        for quad in glyphs.as_chunks::<4>().0 {
+            let rect = Rect::from_min_max(quad[0].pos, quad[3].pos).translate(row_origin.to_vec2());
+            let uv = Rect::from_min_max(
+                (quad[0].uv.to_vec2() * texel).to_pos2(),
+                (quad[3].uv.to_vec2() * texel).to_pos2(),
             );
-        }
-        if let Some(glint) = timeline.glint {
-            self.paint_glint(&painter, glint.progress(t), screen);
+            add_letter_grid(&mut mesh, rect, uv, &color_at);
         }
     }
+    mesh
+}
 
-    /// The light that crosses the word once, left to right, as slices of a brighter copy of it.
-    fn paint_glint(&self, painter: &Painter, progress: f32, screen: Rect) {
-        if progress <= 0.0 || progress >= 1.0 {
-            return;
-        }
-        let pixels_per_point = painter.ctx().pixels_per_point();
-        let snap = |x: f32| (x * pixels_per_point).round() / pixels_per_point;
-        let travel = ease_in_out(progress);
-        let left = self.ink.left() - GLINT_HALF_WIDTH;
-        let right = self.ink.right() + GLINT_HALF_WIDTH;
-        let middle = left + (right - left) * travel;
-        let slices = (GLINT_HALF_WIDTH * 2.0 / GLINT_SLICE).ceil() as usize;
-        for slice in 0..slices {
-            let from = middle - GLINT_HALF_WIDTH + GLINT_SLICE * slice as f32;
-            let distance = ((from + GLINT_SLICE / 2.0 - middle) / GLINT_HALF_WIDTH).abs();
-            let strength = (distance * std::f32::consts::FRAC_PI_2).cos().powi(2);
-            let clip =
-                Rect::from_x_y_ranges(snap(from)..=snap(from + GLINT_SLICE), screen.y_range());
-            let mut shape = Shape::galley(
-                self.origin,
-                self.galley.clone(),
-                AMBER99.gamma_multiply(0.9 * strength),
+/// Adds one letter's quad to `mesh` as a grid of [`WORD_MESH_CELLS`] by [`WORD_MESH_CELLS`] cells.
+fn add_letter_grid(mesh: &mut Mesh, rect: Rect, uv: Rect, color_at: &impl Fn(Pos2) -> Color32) {
+    let base = mesh.vertices.len() as u32;
+    let side = WORD_MESH_CELLS as u32 + 1;
+    for down in 0..side {
+        for across in 0..side {
+            let at = vec2(
+                across as f32 / WORD_MESH_CELLS as f32,
+                down as f32 / WORD_MESH_CELLS as f32,
             );
-            shape.transform(self.transform);
-            painter.with_clip_rect(clip).add(shape);
+            let pos = rect.lerp_inside(at);
+            mesh.vertices.push(egui::epaint::Vertex {
+                pos,
+                uv: uv.lerp_inside(at),
+                color: color_at(pos),
+            });
+        }
+    }
+    for down in 0..WORD_MESH_CELLS as u32 {
+        for across in 0..WORD_MESH_CELLS as u32 {
+            let corner = base + down * side + across;
+            mesh.indices.extend_from_slice(&[
+                corner,
+                corner + 1,
+                corner + side,
+                corner + side,
+                corner + 1,
+                corner + side + 1,
+            ]);
         }
     }
 }
