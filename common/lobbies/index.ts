@@ -33,6 +33,11 @@ export interface LobbyReplay {
   readonly hash: string
 }
 
+/** One map or replay scheduled after the lobby's current game or replay. */
+export type LobbyQueuedSource =
+  | { readonly kind: 'map'; readonly map: MapInfo }
+  | { readonly kind: 'replay'; readonly replay: LobbyReplay }
+
 /**
  * States that a lobby can be in. These are the possible return values of `getLobbyState`.
  *
@@ -95,6 +100,8 @@ export interface Lobby {
    * its map.
    */
   readonly mapQueue: ReadonlyArray<MapInfo>
+  /** Maps and replays in their actual playback order. */
+  readonly sourceQueue?: ReadonlyArray<LobbyQueuedSource>
   readonly gameType: GameType
   readonly gameSubType: number
   /** All lobbies have at least one team (even Melee and FFA). */

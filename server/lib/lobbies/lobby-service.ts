@@ -27,6 +27,7 @@ import {
   isSlotUnoccupied,
   isUms,
   Lobby,
+  LobbyQueuedSource,
   LobbyState,
   LobbyVisibility,
   MAX_BENCH,
@@ -49,6 +50,7 @@ import {
   LobbyServiceErrorCode,
   LobbySlotCreateEvent,
   LobbySummaryJson,
+  UpdateLobbySettingsRequest,
 } from '../../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import * as Slots from '../../../common/lobbies/slot'
@@ -438,17 +440,60 @@ async function fetchMapQueue(mapIds: ReadonlyArray<SbMapId>): Promise<MapInfo[]>
   })
 }
 
-/**
- * Moves a lobby on to the first map in its queue that its current settings can be played on,
- * dropping that map and any unplayable ones before it from the queue. A map that would have to
- * change the game type to be played is skipped rather than having the lobby's settings bent to fit
- * it; a team sub-type is only carried over to the new map's slot count, the way picking a map by
- * hand carries it over. If no queued map fits, the lobby keeps its map and the queue is emptied.
- */
-function advanceMapQueue(lobby: Lobby): { lobby: Lobby; skippedMapIds: SbMapId[] } {
+/** Moves a lobby to the first playable map or replay in its queue. */
+function advanceSourceQueue(
+  lobby: Lobby,
+  replaySources: ReadonlyMap<string, ResolvedReplaySessionSource>,
+): {
+  lobby: Lobby
+  skippedMapIds: SbMapId[]
+  replaySource?: ResolvedReplaySessionSource
+} {
   const skippedMapIds: SbMapId[] = []
-  for (const [i, map] of lobby.mapQueue.entries()) {
+  const queue = queuedSources(lobby)
+  for (const [i, entry] of queue.entries()) {
     try {
+      const remaining = queue.slice(i + 1)
+      const mapQueue = remaining.flatMap(item => (item.kind === 'map' ? [item.map] : []))
+      if (entry.kind === 'replay') {
+        const replaySource = replaySources.get(entry.replay.hash)
+        if (!replaySource) throw new Error('queued replay source missing')
+        const template = Lobbies.createReplayLobby({
+          name: lobby.name,
+          replay: entry.replay,
+          hostUserId: lobby.host.userId!,
+          hostRegion: lobby.host.region,
+          visibility: lobby.visibility,
+        })
+        const updated = Lobbies.replaceLobbySource(lobby, template)
+        return {
+          lobby: { ...updated, sourceQueue: remaining, mapQueue },
+          skippedMapIds,
+          replaySource,
+        }
+      }
+
+      const map = entry.map
+      if (lobby.replay) {
+        const settings = validatedLobbySettings({
+          map,
+          gameType: GameType.Melee,
+          gameSubType: 0,
+          allowObservers: true,
+          useLegacyLimits: false,
+          starcraftCompatibleReplays: true,
+          lockedAlliances: false,
+        })
+        const template = Lobbies.createLobby({
+          name: lobby.name,
+          ...settings,
+          hostUserId: lobby.host.userId!,
+          hostRegion: lobby.host.region,
+          visibility: lobby.visibility,
+        })
+        const updated = Lobbies.replaceLobbySource(lobby, template)
+        return { lobby: { ...updated, sourceQueue: remaining, mapQueue }, skippedMapIds }
+      }
       const settings = validatedLobbySettings({
         map,
         gameType: lobby.gameType,
@@ -467,21 +512,41 @@ function advanceMapQueue(lobby: Lobby): { lobby: Lobby; skippedMapIds: SbMapId[]
       })
       const updated = Lobbies.applySettingsChange(lobby, settings)
       return {
-        lobby: { ...updated, mapQueue: lobby.mapQueue.slice(i + 1) },
+        lobby: { ...updated, sourceQueue: remaining, mapQueue },
         skippedMapIds,
       }
     } catch (err) {
-      logger.info({ err, lobbyId: lobby.id, mapId: map.id }, 'skipping unplayable queued map')
-      skippedMapIds.push(map.id)
+      logger.info({ err, lobbyId: lobby.id, queuedSource: entry.kind }, 'skipping queued source')
+      if (entry.kind === 'map') skippedMapIds.push(entry.map.id)
     }
   }
 
-  return { lobby: { ...lobby, mapQueue: [] }, skippedMapIds }
+  return { lobby: { ...lobby, mapQueue: [], sourceQueue: [] }, skippedMapIds }
 }
 
 /** Whether two lists of maps name the same maps in the same order. */
 function sameMaps(a: ReadonlyArray<MapInfo>, b: ReadonlyArray<MapInfo>): boolean {
   return a.length === b.length && a.every((map, i) => map.id === b[i].id)
+}
+
+function queuedSources(lobby: Lobby): ReadonlyArray<LobbyQueuedSource> {
+  return lobby.sourceQueue?.length
+    ? lobby.sourceQueue
+    : lobby.mapQueue.map(map => ({ kind: 'map', map }))
+}
+
+function sameQueuedSources(
+  a: ReadonlyArray<LobbyQueuedSource>,
+  b: ReadonlyArray<LobbyQueuedSource>,
+): boolean {
+  return (
+    a.length === b.length &&
+    a.every((entry, i) =>
+      entry.kind === 'map'
+        ? b[i].kind === 'map' && entry.map.id === b[i].map.id
+        : b[i].kind === 'replay' && entry.replay.hash === b[i].replay.hash,
+    )
+  )
 }
 
 class CountdownCanceledError extends Error {}
@@ -519,6 +584,10 @@ export class LobbyService {
    * Lives exactly as long as its lobby does.
    */
   private readonly lobbyReplays = new Map<SbLobbyId, ResolvedReplaySessionSource>()
+  private readonly queuedReplaySources = new Map<
+    SbLobbyId,
+    Map<string, ResolvedReplaySessionSource>
+  >()
   /** The replay lobbies whose members are loading the replay, keyed by lobby id. */
   private readonly replayLoads = new Map<SbLobbyId, ReplayLoad>()
   private readonly replaySpeeds = new Map<SbLobbyId, ReplaySessionSpeed>()
@@ -1437,6 +1506,7 @@ export class LobbyService {
     starcraftCompatibleReplays,
     lockedAlliances,
     mapQueue,
+    sourceQueue,
   }: {
     client: ClientSocketsGroup
     lobbyId?: SbLobbyId
@@ -1450,6 +1520,7 @@ export class LobbyService {
     starcraftCompatibleReplays?: boolean
     lockedAlliances?: boolean
     mapQueue?: SbMapId[]
+    sourceQueue?: UpdateLobbySettingsRequest['sourceQueue']
   }): Promise<void> {
     const lobby = this.getLobbyForClient(client, lobbyId)
     this.ensureNotReplayLobby(lobby)
@@ -1469,6 +1540,52 @@ export class LobbyService {
     if (mapQueue !== undefined) {
       fetchedQueue = await fetchMapQueue(mapQueue)
     }
+    const resolvedQueuedReplays = new Map<string, ResolvedReplaySessionSource>()
+    let fetchedSources: LobbyQueuedSource[] | undefined
+    if (sourceQueue !== undefined) {
+      const mapIds = sourceQueue.flatMap(entry => (entry.kind === 'map' ? [entry.mapId] : []))
+      const maps = await fetchMapQueue(mapIds)
+      let mapIndex = 0
+      fetchedSources = []
+      for (const entry of sourceQueue) {
+        if (entry.kind === 'map') {
+          fetchedSources.push({ kind: 'map', map: maps[mapIndex++] })
+        } else if ('source' in entry && entry.source) {
+          let resolved: Awaited<ReturnType<ReplaySessionSources['resolve']>>
+          try {
+            resolved = await this.replaySessionSources.resolve(entry.source, client.userId)
+          } catch (err) {
+            throw toLobbyReplayError(err)
+          }
+          fetchedSources.push({
+            kind: 'replay',
+            replay: { source: resolved.info, hash: resolved.source.hash },
+          })
+          resolvedQueuedReplays.set(resolved.source.hash, resolved.source)
+        } else if ('hash' in entry && entry.hash) {
+          // Existing queued uploads have no source ID in the lobby JSON. Their hash identifies the
+          // entry the host may reorder without exposing the owner's upload capability.
+          const existing = queuedSources(lobby).find(
+            source => source.kind === 'replay' && source.replay.hash === entry.hash,
+          )
+          if (!existing || existing.kind !== 'replay') {
+            throw new LobbyServiceError(
+              LobbyServiceErrorCode.ReplayNotFound,
+              'queued replay missing',
+            )
+          }
+          const privateSource = this.queuedReplaySources.get(lobby.id)?.get(entry.hash)
+          if (!privateSource) {
+            throw new LobbyServiceError(
+              LobbyServiceErrorCode.ReplayNotFound,
+              'queued replay missing',
+            )
+          }
+          fetchedSources.push(existing)
+          resolvedQueuedReplays.set(entry.hash, privateSource)
+        }
+      }
+    }
 
     // Fetching the map info gives other operations on this lobby a chance to run, so everything
     // below works from the lobby as it is now.
@@ -1476,6 +1593,22 @@ export class LobbyService {
     const [, , currentPlayer] = findSlotByUserId(current, client.userId)
     this.ensureIsLobbyHost(current, currentPlayer)
     this.ensureLobbyNotTransient(current)
+    if (sourceQueue !== undefined) {
+      // Resolving a replay can take long enough for the queue to change. A hash only grants reuse
+      // of a replay that is still queued, so check it against the current lobby and private source.
+      for (const [index, entry] of sourceQueue.entries()) {
+        if (entry.kind !== 'replay' || !('hash' in entry) || !entry.hash) continue
+        const existing = queuedSources(current).find(
+          source => source.kind === 'replay' && source.replay.hash === entry.hash,
+        )
+        const privateSource = this.queuedReplaySources.get(current.id)?.get(entry.hash)
+        if (!existing || existing.kind !== 'replay' || !privateSource) {
+          throw new LobbyServiceError(LobbyServiceErrorCode.ReplayNotFound, 'queued replay missing')
+        }
+        fetchedSources![index] = existing
+        resolvedQueuedReplays.set(entry.hash, privateSource)
+      }
+    }
 
     const nextName = name ?? current.name
     const nextVisibility = visibility ?? current.visibility
@@ -1489,7 +1622,15 @@ export class LobbyService {
     const nextStarcraftCompatibleReplays =
       starcraftCompatibleReplays ?? current.starcraftCompatibleReplays
     const nextLockedAlliances = lockedAlliances ?? current.lockedAlliances
-    const nextMapQueue = fetchedQueue ?? current.mapQueue
+    const nextSourceQueue =
+      fetchedSources ??
+      (fetchedQueue
+        ? fetchedQueue.map(map => ({ kind: 'map' as const, map }))
+        : queuedSources(current))
+    const nextMapQueue =
+      fetchedSources !== undefined
+        ? fetchedSources.flatMap(entry => (entry.kind === 'map' ? [entry.map] : []))
+        : (fetchedQueue ?? current.mapQueue)
 
     const nextSettings = validatedLobbySettings({
       map: mapInfo,
@@ -1513,7 +1654,12 @@ export class LobbyService {
       changedSettings.push('starcraftCompatibleReplays')
     }
     if (nextLockedAlliances !== current.lockedAlliances) changedSettings.push('lockedAlliances')
-    if (!sameMaps(nextMapQueue, current.mapQueue)) changedSettings.push('mapQueue')
+    if (sourceQueue === undefined && !sameMaps(nextMapQueue, current.mapQueue)) {
+      changedSettings.push('mapQueue')
+    }
+    if (sourceQueue !== undefined && !sameQueuedSources(nextSourceQueue, queuedSources(current))) {
+      changedSettings.push('sourceQueue')
+    }
     if (!changedSettings.length) {
       // Every requested value matches what the lobby already has, so there is nothing to apply or
       // to announce
@@ -1544,8 +1690,13 @@ export class LobbyService {
     if (nextVisibility !== current.visibility) {
       updated = { ...updated, visibility: nextVisibility }
     }
-    if (changedSettings.includes('mapQueue')) {
-      updated = { ...updated, mapQueue: nextMapQueue }
+    if (changedSettings.includes('mapQueue') || changedSettings.includes('sourceQueue')) {
+      updated = { ...updated, mapQueue: nextMapQueue, sourceQueue: nextSourceQueue }
+      if (sourceQueue !== undefined) {
+        this.queuedReplaySources.set(updated.id, resolvedQueuedReplays)
+      } else if (mapQueue !== undefined) {
+        this.queuedReplaySources.delete(updated.id)
+      }
     }
     if (needsReconciliation) {
       // Everyone was ready for a different game than the one they are now looking at, so the lobby
@@ -1560,7 +1711,7 @@ export class LobbyService {
       changedSettings,
       lobby: updated,
     })
-    if (changedSettings.every(setting => setting === 'mapQueue')) {
+    if (changedSettings.every(setting => setting === 'mapQueue' || setting === 'sourceQueue')) {
       // Neither the list nor a preview shows what the lobby will play after its current game
       return
     }
@@ -1657,12 +1808,13 @@ export class LobbyService {
         { cause: err },
       )
     }
-    this.lobbies.set(updated.id, updated)
     if (resolved) {
       this.lobbyReplays.set(updated.id, resolved.source)
     } else {
       this.lobbyReplays.delete(updated.id)
     }
+    updated = { ...updated, sourceQueue: queuedSources(current), mapQueue: current.mapQueue }
+    this.lobbies.set(updated.id, updated)
     this.readyUsers.delete(updated.id)
     this._publishTo(updated, {
       type: 'settingsChange',
@@ -2485,6 +2637,7 @@ export class LobbyService {
       this.lobbies.delete(lobby.id)
       this.lobbyBannedUsers.delete(lobby.id)
       this.lobbyReplays.delete(lobby.id)
+      this.queuedReplaySources.delete(lobby.id)
       this._clearReplayLoad(lobby.id)
       this._clearRunState(lobby.id)
       this.readyUsers.delete(lobby.id)
@@ -3034,6 +3187,11 @@ export class LobbyService {
         ids.add(source.sourceId)
       }
     }
+    for (const queued of this.queuedReplaySources.values()) {
+      for (const source of queued.values()) {
+        if (source.kind === 'upload') ids.add(source.sourceId)
+      }
+    }
     return [...ids]
   }
 
@@ -3218,6 +3376,10 @@ export class LobbyService {
 
     if (runState.isReplay) {
       // Watching a replay is no game: it has no result to wait for and no place in the series.
+      if (queuedSources(lobby).length) {
+        this._regroupIntoQueuedSource(lobby)
+        return
+      }
       const updated = this._seatBenchOverflow(lobby)
       this.lobbies.set(lobbyId, updated)
       this._publishTo(updated, { type: 'regroup' })
@@ -3243,18 +3405,8 @@ export class LobbyService {
       this.series.set(lobbyId, [game])
     }
 
-    if (lobby.mapQueue.length) {
-      const advanced = advanceMapQueue(lobby)
-      const updated = this._seatBenchOverflow(advanced.lobby)
-      this.lobbies.set(lobbyId, updated)
-      this._publishTo(updated, { type: 'regroup', game })
-      this._publishTo(updated, {
-        type: 'mapQueueAdvance',
-        skippedMapIds: advanced.skippedMapIds,
-        lobby: updated,
-      })
-      this._publishPreview(updated)
-      this._publishListChange('update', updated)
+    if (queuedSources(lobby).length) {
+      this._regroupIntoQueuedSource(lobby, game)
     } else {
       const updated = this._seatBenchOverflow(lobby)
       this.lobbies.set(lobbyId, updated)
@@ -3274,6 +3426,34 @@ export class LobbyService {
     this._resolveSeriesGame(lobbyId, game.gameId).catch(err => {
       logger.error({ err }, "error recording the result of a lobby's game")
     })
+  }
+
+  private _regroupIntoQueuedSource(lobby: Lobby, game?: LobbySeriesGameJson): void {
+    const advanced = advanceSourceQueue(lobby, this.queuedReplaySources.get(lobby.id) ?? new Map())
+    const updated = this._seatBenchOverflow(advanced.lobby)
+    this.lobbies.set(lobby.id, updated)
+    if (advanced.replaySource) {
+      this.lobbyReplays.set(lobby.id, advanced.replaySource)
+    } else if (!updated.replay) {
+      this.lobbyReplays.delete(lobby.id)
+    }
+    const retained = new Set(
+      queuedSources(updated).flatMap(entry => (entry.kind === 'replay' ? [entry.replay.hash] : [])),
+    )
+    const privateSources = this.queuedReplaySources.get(lobby.id)
+    if (privateSources) {
+      for (const hash of privateSources.keys()) {
+        if (!retained.has(hash)) privateSources.delete(hash)
+      }
+    }
+    this._publishTo(updated, { type: 'regroup', ...(game ? { game } : {}) })
+    this._publishTo(updated, {
+      type: 'mapQueueAdvance',
+      skippedMapIds: advanced.skippedMapIds,
+      lobby: updated,
+    })
+    this._publishPreview(updated)
+    this._publishListChange('update', updated)
   }
 
   /**

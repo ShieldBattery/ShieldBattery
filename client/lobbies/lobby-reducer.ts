@@ -339,14 +339,19 @@ const lobbyHandlers = {
     // Skipped maps are always the ones at the front of the queue, but they're matched up by id
     // rather than by position so a queue this client has a stale copy of can't misname them.
     const previousQueue = new Map(draft.info.mapQueue.map(map => [map.id, map.name]))
-    const advanced = draft.info.mapQueue.length > action.payload.skippedMapIds.length
+    const advanced =
+      (draft.info.sourceQueue?.length ?? draft.info.mapQueue.length) >
+      action.payload.skippedMapIds.length
 
     draft.info = castDraft(action.payload.lobby)
     pushChat(draft, {
       id: nanoid(),
       type: LobbyMessageType.LobbyMapQueueAdvance,
       time: Date.now(),
-      mapName: advanced ? draft.info.map?.name : undefined,
+      mapName: advanced
+        ? (draft.info.map?.name ?? draft.info.replay?.source.metadata.mapName)
+        : undefined,
+      isReplay: !!draft.info.replay,
       skippedMapNames: action.payload.skippedMapIds.flatMap(id => previousQueue.get(id) ?? []),
     })
     pushNewBenchJoins(draft, previousBenchIds)

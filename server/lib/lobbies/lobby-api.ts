@@ -154,7 +154,32 @@ const updateLobbySettingsBody = Joi.object<UpdateLobbySettingsRequest>({
   starcraftCompatibleReplays: Joi.boolean(),
   lockedAlliances: Joi.boolean(),
   mapQueue: Joi.array().items(Joi.string()).max(MAX_MAP_QUEUE),
+  sourceQueue: Joi.array()
+    .items(
+      Joi.alternatives().try(
+        Joi.object({ kind: Joi.string().valid('map').required(), mapId: Joi.string().required() }),
+        Joi.object({
+          kind: Joi.string().valid('replay').required(),
+          hash: Joi.string().hex().length(64),
+          source: Joi.object({
+            kind: Joi.string().valid('game', 'upload').required(),
+            gameId: Joi.when('kind', {
+              is: 'game',
+              then: Joi.string().required(),
+              otherwise: Joi.forbidden(),
+            }),
+            sourceId: Joi.when('kind', {
+              is: 'upload',
+              then: Joi.string().required(),
+              otherwise: Joi.forbidden(),
+            }),
+          }),
+        }).xor('hash', 'source'),
+      ),
+    )
+    .max(MAX_MAP_QUEUE),
 })
+  .oxor('mapQueue', 'sourceQueue')
   .or(
     'name',
     'visibility',
@@ -166,6 +191,7 @@ const updateLobbySettingsBody = Joi.object<UpdateLobbySettingsRequest>({
     'starcraftCompatibleReplays',
     'lockedAlliances',
     'mapQueue',
+    'sourceQueue',
   )
   .required()
 
@@ -472,6 +498,7 @@ export class LobbyApi {
       starcraftCompatibleReplays: body.starcraftCompatibleReplays,
       lockedAlliances: body.lockedAlliances,
       mapQueue: body.mapQueue,
+      sourceQueue: body.sourceQueue,
     })
   }
 

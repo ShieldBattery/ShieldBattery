@@ -2088,6 +2088,43 @@ describe('lobbies/lobby-service', () => {
       expect(previewPublishes(id).at(-1)!.payload.map.id).toBe(TWO_SLOT_MAP.id)
     })
 
+    test('a queued replay follows a game, then the next queued map follows the replay', async () => {
+      mockMaps(BIG_GAME_HUNTERS, TWO_SLOT_MAP)
+      const { id } = await createLobby(host, 'Replay queue', 'listed')
+      await joinLobby(joiner, id)
+      await lobbyService.updateSettings({
+        client: host.client,
+        lobbyId: id,
+        sourceQueue: [
+          { kind: 'replay', source: { kind: 'game', gameId: 'replay-game' } },
+          { kind: 'map', mapId: TWO_SLOT_MAP.id },
+        ],
+      })
+      expect(lobbyService.lobbies.get(id)!.sourceQueue?.map(entry => entry.kind)).toEqual([
+        'replay',
+        'map',
+      ])
+
+      await runCountdown(host)
+      endGame()
+      const replayLobby = lobbyService.lobbies.get(id)!
+      expect(replayLobby.replay?.hash).toBe(REPLAY_HASH)
+      expect(replayLobby.sourceQueue?.map(entry => entry.kind)).toEqual(['map'])
+      await expect(
+        lobbyService.getReplayDownload({ client: joiner.client, lobbyId: id }),
+      ).resolves.toMatchObject({ hash: REPLAY_HASH })
+
+      await runCountdown(host)
+      lobbyService.reportReplayLoaded({ client: host.client, lobbyId: id, hash: REPLAY_HASH })
+      lobbyService.reportReplayLoaded({ client: joiner.client, lobbyId: id, hash: REPLAY_HASH })
+      lobbyService.reportReplayEnded({ client: host.client, lobbyId: id })
+      lobbyService.reportReplayEnded({ client: joiner.client, lobbyId: id })
+      const nextLobby = lobbyService.lobbies.get(id)!
+      expect(nextLobby.replay).toBeUndefined()
+      expect(nextLobby.map?.id).toBe(TWO_SLOT_MAP.id)
+      expect(nextLobby.sourceQueue).toEqual([])
+    })
+
     test('a regrouping lobby with nothing queued keeps its map', async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       await joinLobby(joiner, id)

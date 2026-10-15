@@ -126,6 +126,18 @@ export function ReplayRoomBanner() {
   if (!replay) {
     return null
   }
+  const percent =
+    progress && progress.totalBytes > 0
+      ? Math.min(100, Math.round((progress.loadedBytes / progress.totalBytes) * 100))
+      : 0
+  let progressLabel = t('lobbies.replayLobby.downloading', 'Downloading replay: {{percent}}%', {
+    percent,
+  })
+  if (progress?.state === 'ready') {
+    progressLabel = t('lobbies.replayLobby.downloadReady', 'Replay ready to watch')
+  } else if (progress?.state === 'error') {
+    progressLabel = t('lobbies.replayLobby.downloadFailed', 'Replay download failed')
+  }
 
   return (
     <Banner>
@@ -149,24 +161,9 @@ export function ReplayRoomBanner() {
           durationFrames={replay.source.metadata.durationFrames}
           players={replay.source.metadata.players}
         />
-        {progress?.lobbyId === lobbyId ? (
-          <div
-            role='progressbar'
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={
-              progress.totalBytes > 0
-                ? Math.min(100, Math.round((progress.loadedBytes / progress.totalBytes) * 100))
-                : 0
-            }>
-            <ProgressLabel>
-              {t('lobbies.replayLobby.downloading', 'Downloading replay: {{percent}}%', {
-                percent:
-                  progress.totalBytes > 0
-                    ? Math.min(100, Math.round((progress.loadedBytes / progress.totalBytes) * 100))
-                    : 0,
-              })}
-            </ProgressLabel>
+        {progress?.lobbyId === lobbyId && progress.hash === replay.hash ? (
+          <div role='progressbar' aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
+            <ProgressLabel>{progressLabel}</ProgressLabel>
             <ProgressTrack>
               <ProgressFill
                 $fraction={

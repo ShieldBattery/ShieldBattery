@@ -50,6 +50,14 @@ interface ReplayLobbyGame {
 let current: ReplayLobbyGame | undefined
 let pendingLobbyId: SbLobbyId | undefined
 let loadGeneration = 0
+interface CachedLobbyReplay {
+  lobbyId: SbLobbyId
+  hash: string
+  controller: AbortController
+  promise: Promise<string>
+  failed: boolean
+}
+let cachedLobbyReplay: CachedLobbyReplay | undefined
 const initialSpeed: ReplaySessionSpeed = { paused: false, speed: 6, multiplier: 1 }
 
 function postLobbyReplayAction(
@@ -105,7 +113,6 @@ function selfIsHost(getState: Parameters<ThunkAction>[1]): boolean {
 }
 
 function failLoad(lobbyId: SbLobbyId) {
-  jotaiStore.set(replayDownloadProgressAtom, undefined)
   if (current?.lobbyId === lobbyId) {
     current = undefined
   }
@@ -115,47 +122,119 @@ function failLoad(lobbyId: SbLobbyId) {
   postLobbyReplayAction(lobbyId, 'replay-load-failed')
 }
 
+/** Downloads the selected replay while the lobby gathers, sharing the result with game launch. */
+function cacheLobbyReplay(lobbyId: SbLobbyId, hash: string): Promise<string> {
+  if (
+    cachedLobbyReplay?.lobbyId === lobbyId &&
+    cachedLobbyReplay.hash === hash &&
+    !cachedLobbyReplay.failed
+  ) {
+    return cachedLobbyReplay.promise
+  }
+
+  cachedLobbyReplay?.controller.abort()
+  const controller = new AbortController()
+  const entry: CachedLobbyReplay = {
+    lobbyId,
+    hash,
+    controller,
+    failed: false,
+    promise: Promise.resolve(''),
+  }
+  cachedLobbyReplay = entry
+  jotaiStore.set(replayDownloadProgressAtom, {
+    lobbyId,
+    hash,
+    state: 'downloading',
+    loadedBytes: 0,
+    totalBytes: 0,
+  })
+  entry.promise = fetchJson<GetReplaySessionSourceResponse>(
+    apiUrl`lobbies/${lobbyId}/replay-source` + `?${new URLSearchParams({ clientId })}`,
+    { signal: controller.signal },
+  )
+    .then(async source => {
+      if (source.hash !== hash) {
+        throw new Error('Lobby replay changed during download')
+      }
+      const path = await ensureReplayCached(
+        { id: hash, url: source.url, hash },
+        controller.signal,
+        {
+          totalBytes: source.size,
+          onProgress: (loadedBytes, totalBytes) => {
+            if (cachedLobbyReplay === entry) {
+              jotaiStore.set(replayDownloadProgressAtom, {
+                lobbyId,
+                hash,
+                state: 'downloading',
+                loadedBytes,
+                totalBytes,
+              })
+            }
+          },
+        },
+      )
+      if (!path) {
+        throw new Error('Could not cache the replay')
+      }
+      if (cachedLobbyReplay === entry) {
+        jotaiStore.set(replayDownloadProgressAtom, {
+          lobbyId,
+          hash,
+          state: 'ready',
+          loadedBytes: source.size,
+          totalBytes: source.size,
+        })
+      }
+      return path
+    })
+    .catch(err => {
+      entry.failed = true
+      if (cachedLobbyReplay === entry && !controller.signal.aborted) {
+        jotaiStore.set(replayDownloadProgressAtom, {
+          lobbyId,
+          hash,
+          state: 'error',
+          loadedBytes: 0,
+          totalBytes: 0,
+        })
+      }
+      throw err
+    })
+  return entry.promise
+}
+
+/** Starts caching a replay as soon as it is selected or this client joins its lobby. */
+export function preloadLobbyReplay(lobbyId: SbLobbyId, hash: string) {
+  if (!IS_ELECTRON) return
+  cacheLobbyReplay(lobbyId, hash).catch(err => {
+    if (!(err instanceof DOMException && err.name === 'AbortError')) {
+      logger.error(`Error caching replay for lobby ${lobbyId}: ${getErrorStack(err)}`)
+    }
+  })
+}
+
+export function clearLobbyReplayCache(lobbyId: SbLobbyId) {
+  if (cachedLobbyReplay?.lobbyId !== lobbyId) return
+  cachedLobbyReplay.controller.abort()
+  cachedLobbyReplay = undefined
+  jotaiStore.set(replayDownloadProgressAtom, undefined)
+}
+
 /**
- * Downloads a replay lobby's replay, checks it against the lobby's hash, and launches it held at
- * its start. The server starts playback for everyone once every viewer reports it loaded.
+ * Waits for the selected replay's cache entry, then launches it held at its start. The server starts
+ * playback for everyone once every viewer reports it loaded.
  */
 export function loadLobbyReplay(lobbyId: SbLobbyId, mapName: string): ThunkAction {
   return (dispatch, getState) => {
     const isHost = selfIsHost(getState)
+    const hash = getState().lobby.info.replay?.hash
+    if (!hash) return
     const generation = ++loadGeneration
     pendingLobbyId = lobbyId
-    jotaiStore.set(replayDownloadProgressAtom, undefined)
-    fetchJson<GetReplaySessionSourceResponse>(
-      apiUrl`lobbies/${lobbyId}/replay-source` + `?${new URLSearchParams({ clientId })}`,
-    )
-      .then(async source => {
-        // The cache only keeps a replay whose bytes hash to what the server says the lobby plays,
-        // so the hash also serves as the cache entry's id: a lobby replay's identity is its content.
-        const path = await ensureReplayCached(
-          {
-            id: source.hash,
-            url: source.url,
-            hash: source.hash,
-          },
-          undefined,
-          {
-            totalBytes: source.size,
-            onProgress: (loadedBytes, totalBytes) => {
-              if (generation === loadGeneration && pendingLobbyId === lobbyId) {
-                jotaiStore.set(replayDownloadProgressAtom, { lobbyId, loadedBytes, totalBytes })
-              }
-            },
-          },
-        )
-        if (generation === loadGeneration) {
-          jotaiStore.set(replayDownloadProgressAtom, undefined)
-        }
-        if (!path) {
-          throw new Error('Could not cache the replay')
-        }
-        return { path, hash: source.hash }
-      })
-      .then(({ path, hash }) => {
+    cacheLobbyReplay(lobbyId, hash)
+      .then(path => {
         if (generation !== loadGeneration || pendingLobbyId !== lobbyId) {
           return
         }
@@ -268,7 +347,6 @@ export function cancelLobbyReplay(lobbyId: SbLobbyId) {
   }
   loadGeneration += 1
   pendingLobbyId = undefined
-  jotaiStore.set(replayDownloadProgressAtom, undefined)
   if (current?.lobbyId === lobbyId) {
     if (current.gameId && !current.started) {
       ipcRenderer.invoke('activeGameClearConfig', current.gameId)?.catch(swallowNonBuiltins)
@@ -282,6 +360,7 @@ export function cancelLobbyReplay(lobbyId: SbLobbyId) {
  * stays open with its controls handed back to this viewer; one still loading is quit.
  */
 export function releaseLobbyReplay(lobbyId: SbLobbyId) {
+  clearLobbyReplayCache(lobbyId)
   if (current?.lobbyId !== lobbyId && pendingLobbyId !== lobbyId) {
     return
   }

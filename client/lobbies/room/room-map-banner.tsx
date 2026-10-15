@@ -733,6 +733,21 @@ function QueuedMapRow({ map, gameNumber }: { map: MapInfo; gameNumber: number })
   )
 }
 
+function QueuedReplayRow({ name }: { name: string }) {
+  const { t } = useTranslation()
+  return (
+    <SeriesRow>
+      <SeriesGameNumber>
+        <MaterialIcon icon='smart_display' size={16} />
+      </SeriesGameNumber>
+      <SeriesMain>
+        <SeriesMapName title={name}>{name}</SeriesMapName>
+        <SeriesFactRow>{t('lobbies.replayLobby.replay', 'Replay')}</SeriesFactRow>
+      </SeriesMain>
+    </SeriesRow>
+  )
+}
+
 /**
  * The timeline's trailing slot: the game the lobby is headed into. It counts down once the host has
  * started one, follows the load as the game launches, and stands in for the game while it runs,
@@ -871,13 +886,15 @@ export function RoomMapBanner({
     isUms(lobby.gameType) ? map.mapData.umsSlots : map.mapData.slots,
   ])
 
-  const mapQueue = lobby.mapQueue
+  const sourceQueue = lobby.sourceQueue?.length
+    ? lobby.sourceQueue
+    : lobby.mapQueue.map(map => ({ kind: 'map' as const, map }))
   const nextGameNumber = series.length + 1
 
   const [timelineRef, timelineSize] = useObservedDimensions<HTMLDivElement>()
   // Reserve room for readable winner names alongside the earlier-games chip, the next game, and the
   // maps queued after it.
-  const recentGameLimit = (timelineSize?.width ?? 0) >= (mapQueue.length ? 620 : 480) ? 2 : 1
+  const recentGameLimit = (timelineSize?.width ?? 0) >= (sourceQueue.length ? 620 : 480) ? 2 : 1
   const recentStartIndex = Math.max(0, series.length - recentGameLimit)
   const recentGames = series
     .slice(recentStartIndex)
@@ -963,7 +980,7 @@ export function RoomMapBanner({
             <TimelineLabelRow>
               <SectionLabel>{t('lobbies.room.series.gamesLabel', 'Games')}</SectionLabel>
               <TimelineSpacer />
-              {series.length > 0 || mapQueue.length > 0 ? (
+              {series.length > 0 || sourceQueue.length > 0 ? (
                 <AllGamesButton
                   ref={allGamesAnchorRef}
                   type='button'
@@ -996,21 +1013,30 @@ export function RoomMapBanner({
                 />
               ))}
               <NextGameSlot nextGameNumber={nextGameNumber} />
-              {mapQueue.length > 0 ? (
+              {sourceQueue.length > 0 ? (
                 <QueuedMapsTile
                   type='button'
                   aria-haspopup='dialog'
                   aria-expanded={allGamesOpen}
                   onClick={openAllGames}>
                   <QueuedMapsLabel>
-                    {mapQueue.length > 1
+                    {sourceQueue.length > 1
                       ? t('lobbies.room.series.queuedThenMore', {
                           defaultValue: 'Then · +{{count}} more',
-                          count: mapQueue.length - 1,
+                          count: sourceQueue.length - 1,
                         })
                       : t('lobbies.room.series.queuedThen', 'Then')}
                   </QueuedMapsLabel>
-                  <QueuedMapsName title={mapQueue[0].name}>{mapQueue[0].name}</QueuedMapsName>
+                  <QueuedMapsName
+                    title={
+                      sourceQueue[0].kind === 'map'
+                        ? sourceQueue[0].map.name
+                        : sourceQueue[0].replay.source.metadata.mapName
+                    }>
+                    {sourceQueue[0].kind === 'map'
+                      ? sourceQueue[0].map.name
+                      : sourceQueue[0].replay.source.metadata.mapName}
+                  </QueuedMapsName>
                 </QueuedMapsTile>
               ) : null}
             </TimelineStrip>
@@ -1048,19 +1074,26 @@ export function RoomMapBanner({
                     </SeriesSection>
                   </>
                 ) : null}
-                {mapQueue.length > 0 ? (
+                {sourceQueue.length > 0 ? (
                   <SeriesSection>
                     <PopoverSectionLabel>
                       {t('lobbies.room.series.upNext', 'Up next')}
                     </PopoverSectionLabel>
                     <SeriesRows>
-                      {mapQueue.map((map, index) => (
-                        <QueuedMapRow
-                          key={index}
-                          map={map}
-                          gameNumber={nextGameNumber + 1 + index}
-                        />
-                      ))}
+                      {sourceQueue.map((entry, index) =>
+                        entry.kind === 'map' ? (
+                          <QueuedMapRow
+                            key={index}
+                            map={entry.map}
+                            gameNumber={nextGameNumber + 1 + index}
+                          />
+                        ) : (
+                          <QueuedReplayRow
+                            key={index}
+                            name={entry.replay.source.metadata.mapName}
+                          />
+                        ),
+                      )}
                     </SeriesRows>
                   </SeriesSection>
                 ) : null}

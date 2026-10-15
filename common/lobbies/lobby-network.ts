@@ -754,6 +754,11 @@ export interface UpdateLobbySettingsRequest {
    * empty list clears the queue.
    */
   mapQueue?: SbMapId[]
+  sourceQueue?: Array<
+    | { kind: 'map'; mapId: SbMapId }
+    | { kind: 'replay'; hash: string }
+    | { kind: 'replay'; source: ReplaySessionSource }
+  >
 }
 
 /** The host's choice of what an existing gathering lobby will launch next. */
@@ -775,6 +780,7 @@ export type LobbyChangedSetting =
   | 'lockedAlliances'
   | 'allowObservers'
   | 'mapQueue'
+  | 'sourceQueue'
 
 /**
  * Settings that describe the lobby rather than the game it will play next. Changing only these
@@ -784,6 +790,7 @@ const LOBBY_ONLY_SETTINGS: ReadonlySet<LobbyChangedSetting> = new Set([
   'name',
   'visibility',
   'mapQueue',
+  'sourceQueue',
 ])
 
 /**

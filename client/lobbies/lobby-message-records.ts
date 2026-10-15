@@ -109,6 +109,7 @@ export interface LobbyRegroupMessage extends BaseMessage {
  */
 export interface LobbyMapQueueAdvanceMessage extends BaseMessage {
   readonly type: LobbyMessageType.LobbyMapQueueAdvance
+  readonly isReplay?: boolean
   /** The map the lobby moved on to, or `undefined` if none of the queued maps fit. */
   readonly mapName?: string
   /** Queued maps that were dropped without being played, since they didn't fit the settings. */

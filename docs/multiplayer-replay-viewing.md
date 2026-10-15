@@ -26,10 +26,16 @@ from the embedded map; this rendering needs the same `SB_SPRITE_DATA` assets as 
 
 The first release allows joining while the lobby gathers. The host can start without viewers
 marking ready. The countdown locks the viewing group.
-Each viewer downloads the same replay, verifies its SHA-256 hash, launches it locally, and holds at
-frame zero. The server starts playback when every viewer reports ready. A failed or timed-out load
-cancels the run. Closing a replay reports that viewer finished; the lobby regroups after all viewers
-have closed it.
+Each viewer starts downloading the selected replay while the lobby gathers, verifies its SHA-256
+hash, and sees download progress or a full ready bar. Starting playback uses the cached file,
+launches it locally, and holds at frame zero. The server starts playback when every viewer reports
+ready. A failed or timed-out load cancels the run. Closing a replay reports that viewer finished;
+the lobby regroups after all viewers have closed it.
+
+Game setup has an **Up next** queue with **Add map** and **Add replay**. The host can arrange maps
+and replays in one order. After a game or replay ends, the lobby advances to the next queued source
+while keeping its ID, visibility, invites, and members. Queued local replays are staged on save and
+remain accessible to lobby members when their turn comes.
 
 ## Replay sources and access
 
@@ -46,7 +52,8 @@ through an authenticated, size-limited upload. The server parses it, hashes it, 
 and returns an opaque expiring source ID. The lobby issues short-lived downloads to its members.
 Nonmembers cannot request the download or an embedded map thumbnail. Local paths and download URLs
 stay out of public lobby summaries. Retention cleanup preserves staged files still referenced by a
-lobby. The viewer sees byte progress while downloading; cached replays skip the download.
+lobby or its queue. The viewer sees byte progress from selection or joining; cached replays show a
+full ready bar.
 
 ## Playback protocol
 
@@ -94,3 +101,10 @@ downloaded independent copies with identical size and SHA-256 hash. A native scr
 sender's line in green; logs showed the other viewer received the same line without the self color
 flag. Neither lobby transcript contained the in-game line. The replay ended normally, returning
 both clients to the gathering room.
+
+On the mixed-queue branch, two Electron clients showed a ready download bar before **Start
+watching**. The host switched the same lobby from replay to map mode; Game setup displayed **Add
+map** and **Add replay** together. The host saved a replay followed by a map through the client
+action, reopened Game setup, added another local replay with **Add replay**, and saved all three
+entries. Both clients showed the updated queue. A service test exercised game → replay → game queue
+advancement and authenticated viewer download of the queued replay.

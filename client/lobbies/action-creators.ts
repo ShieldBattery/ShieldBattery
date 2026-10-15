@@ -124,6 +124,10 @@ export function createLobby(
 /** The replay a replay lobby is created to watch. */
 export type LobbyReplayChoice = { kind: 'game'; gameId: string } | { kind: 'local'; path: string }
 
+export type LobbyQueuedSourceChoice =
+  | { kind: 'map'; mapId: SbMapId }
+  | { kind: 'replay'; hash?: string; choice?: LobbyReplayChoice }
+
 export interface CreateReplayLobbyParams {
   name: string
   replay: LobbyReplayChoice
@@ -342,16 +346,35 @@ export function shuffleSlots(spec: RequestHandlingSpec<void>): ThunkAction {
 export function updateLobbySettings(
   settings: Partial<Omit<UpdateLobbySettingsRequest, 'clientId'>>,
   spec: RequestHandlingSpec<void>,
+  queuedChoices?: ReadonlyArray<LobbyQueuedSourceChoice>,
 ): ThunkAction {
-  return currentLobbyRequest(spec, lobbyId =>
-    fetchJson<void>(apiUrl`lobbies/${lobbyId}/settings`, {
+  return currentLobbyRequest(spec, async lobbyId => {
+    let sourceQueue: UpdateLobbySettingsRequest['sourceQueue']
+    if (queuedChoices) {
+      sourceQueue = []
+      for (const entry of queuedChoices) {
+        if (entry.kind === 'map') {
+          sourceQueue.push({ kind: 'map', mapId: entry.mapId })
+        } else if (entry.choice?.kind === 'local') {
+          const staged = await stageLocalReplay(entry.choice.path, spec.signal)
+          sourceQueue.push({
+            kind: 'replay',
+            source: { kind: 'upload', sourceId: staged.sourceId },
+          })
+        } else if (entry.choice?.kind === 'game') {
+          sourceQueue.push({ kind: 'replay', source: entry.choice })
+        } else if (entry.hash) {
+          sourceQueue.push({ kind: 'replay', hash: entry.hash })
+        }
+      }
+    }
+    await fetchJson<void>(apiUrl`lobbies/${lobbyId}/settings`, {
       method: 'POST',
-      // Sent as JSON rather than form params so that an emptied map queue arrives as an empty list
-      // instead of being left out.
-      body: JSON.stringify({ clientId, ...settings } satisfies UpdateLobbySettingsRequest),
+      // An empty queue must arrive as an empty array rather than being omitted by form params.
+      body: JSON.stringify({ clientId, ...settings, ...(sourceQueue ? { sourceQueue } : {}) }),
       signal: spec.signal,
-    }),
-  )
+    })
+  })
 }
 
 /** Changes the source of the current lobby, staging local replay bytes when needed. */

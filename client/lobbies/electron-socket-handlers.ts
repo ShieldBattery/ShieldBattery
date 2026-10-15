@@ -15,7 +15,9 @@ import {
   applyLobbyReplaySeek,
   applyLobbyReplaySpeed,
   cancelLobbyReplay,
+  clearLobbyReplayCache,
   loadLobbyReplay,
+  preloadLobbyReplay,
   registerReplayLobbyGameEvents,
   releaseLobbyReplay,
   restoreLobbyReplayPlayback,
@@ -124,7 +126,9 @@ function downloadLobbyMap(lobby: Lobby) {
 const eventToAction: EventToActionMap = {
   init: (lobbyId, event) => dispatch => {
     clearCountdownTimer()
-    // A replay lobby has no map to play: its replay is downloaded when it starts
+    if (event.lobby.replay) {
+      preloadLobbyReplay(lobbyId, event.lobby.replay.hash)
+    }
     if (event.lobby.map) {
       const { hash, mapData, mapUrl } = event.lobby.map
       ipcRenderer.invoke('mapStoreDownloadMap', hash, mapData.format, mapUrl!)?.catch(err => {
@@ -371,7 +375,12 @@ const eventToAction: EventToActionMap = {
   }),
 
   mapQueueAdvance: (lobbyId, event) => (dispatch, getState) => {
-    if (getState().lobby.info.map?.id !== event.lobby.map!.id) {
+    if (event.lobby.replay) {
+      preloadLobbyReplay(lobbyId, event.lobby.replay.hash)
+    } else {
+      clearLobbyReplayCache(lobbyId)
+    }
+    if (event.lobby.map && getState().lobby.info.map?.id !== event.lobby.map.id) {
       downloadLobbyMap(event.lobby)
     }
     dispatch({
@@ -393,6 +402,11 @@ const eventToAction: EventToActionMap = {
   settingsChange: (lobbyId, event) => {
     if (event.changedSettings.includes('map')) {
       downloadLobbyMap(event.lobby)
+    }
+    if (event.lobby.replay) {
+      preloadLobbyReplay(lobbyId, event.lobby.replay.hash)
+    } else {
+      clearLobbyReplayCache(lobbyId)
     }
 
     return {
