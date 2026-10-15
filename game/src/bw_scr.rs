@@ -8098,6 +8098,14 @@ impl BwScr {
         self.chat_manager.lock().set_blocked_players(blocked_users);
     }
 
+    /// A player's actions per minute over the game so far, or `None` before a whole second of it
+    /// has been counted.
+    pub fn average_apm(&self, player: u8) -> Option<u32> {
+        self.apm_state
+            .lock()
+            .and_then(|apm| apm.player_average_apm(player))
+    }
+
     pub fn block_request_failed(&self, failure: &BlockRequestFailed) {
         self.chat_manager.lock().block_request_failed(failure);
     }

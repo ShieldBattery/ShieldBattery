@@ -424,6 +424,7 @@ unsafe fn game_results() -> GameThreadResults {
                 victory_state,
                 race,
                 alliances,
+                apm: bw.average_apm(id.0).unwrap_or(0),
             }
         };
 

@@ -104,24 +104,7 @@ impl ApmStats {
 
     /// Counts `bytes` as an action of `player`'s, returning whether it is one.
     pub fn action(&mut self, player: u8, bytes: &[u8]) -> bool {
-        // TODO maybe make this to commands::is_game_action(bytes) ?
-        // But this currently doesn't ignore lobby commands (Assuming they don't get sent here?)
-        let process = bytes
-            .first()
-            .copied()
-            .filter(|&id| {
-                !matches!(
-                    id,
-                    commands::id::NOP
-                        | commands::id::SYNC
-                        | commands::id::SET_TURN_RATE
-                        | commands::id::SET_NETWORK_SPEED
-                        | commands::id::SET_LATENCY
-                        | commands::id::CHAT
-                )
-            })
-            .is_some();
-        if !process {
+        if !bytes.first().is_some_and(|&id| is_player_action(id)) {
             return false;
         }
         let player_apm = match self.per_player.get_mut(player as usize) {
@@ -177,9 +160,54 @@ impl ApmStats {
     }
 }
 
+/// Whether a command with this id is something a player does to play the game, which is what APM
+/// counts.
+///
+/// Left out: what the game and the network send on a player's behalf (keep-alives, sync, latency,
+/// turn rate and network speed), what a player says rather than does (chat and minimap pings), what
+/// changes the game around the match rather than playing it (alliances, shared vision, game speed,
+/// pausing, cheats, saving, loading, restarting, opening the game), leaving, and a replay's own
+/// controls.
+fn is_player_action(id: u8) -> bool {
+    !matches!(
+        id,
+        commands::id::NOP
+            | commands::id::SYNC
+            | commands::id::SET_TURN_RATE
+            | commands::id::SET_NETWORK_SPEED
+            | commands::id::SET_LATENCY
+            | commands::id::CHAT
+            | commands::id::MINIMAP_PING
+            | commands::id::ALLIANCE
+            | commands::id::VISION
+            | commands::id::GAME_SPEED
+            | commands::id::PAUSE
+            | commands::id::RESUME
+            | commands::id::CHEAT
+            | commands::id::SAVE_GAME
+            | commands::id::LOAD_GAME
+            | commands::id::RESTART_GAME
+            | commands::id::MAKE_GAME_PUBLIC
+            | commands::id::LEAVE_GAME
+            | commands::id::REPLAY_SPEED
+            | commands::id::REPLAY_SEEK
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Setting alliances and vision from the alliances screen is not playing the game, so a player
+    /// who does it a few times mid-fight keeps the rate their hands earned.
+    #[test]
+    fn alliance_and_vision_changes_are_not_actions() {
+        let mut apm = ApmStats::new();
+        assert!(!apm.action(1, &[commands::id::ALLIANCE, 0x44, 0, 0x40, 0]));
+        assert!(!apm.action(1, &[commands::id::VISION, 0x0a, 0]));
+        assert!(apm.action(1, MOVE));
+        assert_eq!(apm.per_player[1].total_actions, 1);
+    }
 
     const MOVE: &[u8] = &[0x14, 0, 0];
 

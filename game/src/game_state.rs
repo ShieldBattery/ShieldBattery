@@ -2230,8 +2230,7 @@ fn determine_game_results(
                         GamePlayerResult {
                             result: r.victory_state,
                             race: r.race,
-                            // TODO(tec27): implement APM calculation
-                            apm: 0,
+                            apm: r.apm,
                         },
                     )
                 })
@@ -2772,6 +2771,7 @@ mod tests {
                     (
                         BwPlayerId(1),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Victory,
                             race: AssignedRace::Zerg,
                             alliances: {
@@ -2784,6 +2784,7 @@ mod tests {
                     (
                         BwPlayerId(0),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Defeat,
                             race: AssignedRace::Protoss,
                             alliances: {
@@ -2862,6 +2863,7 @@ mod tests {
                     (
                         BwPlayerId(1),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Playing,
                             race: AssignedRace::Zerg,
                             alliances: {
@@ -2874,6 +2876,7 @@ mod tests {
                     (
                         BwPlayerId(0),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Playing,
                             race: AssignedRace::Protoss,
                             alliances: {
@@ -2950,6 +2953,7 @@ mod tests {
                     (
                         BwPlayerId(1),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Defeat,
                             race: AssignedRace::Zerg,
                             alliances: {
@@ -2962,6 +2966,7 @@ mod tests {
                     (
                         BwPlayerId(0),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Victory,
                             race: AssignedRace::Protoss,
                             alliances: {
@@ -3037,6 +3042,7 @@ mod tests {
                     (
                         BwPlayerId(1),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Victory,
                             race: AssignedRace::Zerg,
                             alliances: {
@@ -3049,6 +3055,7 @@ mod tests {
                     (
                         BwPlayerId(0),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Disconnected,
                             race: AssignedRace::Protoss,
                             alliances: {
@@ -3136,6 +3143,7 @@ mod tests {
                     (
                         BwPlayerId(0),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Victory,
                             race: AssignedRace::Zerg,
                             alliances: {
@@ -3149,6 +3157,7 @@ mod tests {
                     (
                         BwPlayerId(1),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Defeat,
                             race: AssignedRace::Protoss,
                             alliances: {
@@ -3162,6 +3171,7 @@ mod tests {
                     (
                         BwPlayerId(2),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Defeat,
                             race: AssignedRace::Protoss,
                             alliances: {
@@ -3175,6 +3185,7 @@ mod tests {
                     (
                         BwPlayerId(3),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Defeat,
                             race: AssignedRace::Terran,
                             alliances: {
@@ -3278,6 +3289,7 @@ mod tests {
                     (
                         BwPlayerId(0),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Playing,
                             race: AssignedRace::Zerg,
                             alliances: {
@@ -3291,6 +3303,7 @@ mod tests {
                     (
                         BwPlayerId(1),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Playing,
                             race: AssignedRace::Protoss,
                             alliances: {
@@ -3304,6 +3317,7 @@ mod tests {
                     (
                         BwPlayerId(2),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Playing,
                             race: AssignedRace::Protoss,
                             alliances: {
@@ -3317,6 +3331,7 @@ mod tests {
                     (
                         BwPlayerId(3),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Playing,
                             race: AssignedRace::Terran,
                             alliances: {
@@ -3416,6 +3431,7 @@ mod tests {
                     (
                         BwPlayerId(0),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Playing,
                             race: AssignedRace::Zerg,
                             alliances: {
@@ -3429,6 +3445,7 @@ mod tests {
                     (
                         BwPlayerId(1),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Defeat,
                             race: AssignedRace::Protoss,
                             alliances: {
@@ -3442,6 +3459,7 @@ mod tests {
                     (
                         BwPlayerId(2),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Playing,
                             race: AssignedRace::Protoss,
                             alliances: {
@@ -3455,6 +3473,7 @@ mod tests {
                     (
                         BwPlayerId(3),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Playing,
                             race: AssignedRace::Terran,
                             alliances: {
@@ -3558,6 +3577,7 @@ mod tests {
                     (
                         BwPlayerId(0),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Playing,
                             race: AssignedRace::Zerg,
                             alliances: {
@@ -3571,6 +3591,7 @@ mod tests {
                     (
                         BwPlayerId(1),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Playing,
                             race: AssignedRace::Protoss,
                             alliances: {
@@ -3583,6 +3604,7 @@ mod tests {
                     (
                         BwPlayerId(2),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Playing,
                             race: AssignedRace::Protoss,
                             alliances: {
@@ -3596,6 +3618,7 @@ mod tests {
                     (
                         BwPlayerId(3),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Playing,
                             race: AssignedRace::Terran,
                             alliances: {
@@ -3698,6 +3721,7 @@ mod tests {
                     (
                         BwPlayerId(0),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Victory,
                             race: AssignedRace::Zerg,
                             alliances: {
@@ -3711,6 +3735,7 @@ mod tests {
                     (
                         BwPlayerId(1),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Disconnected,
                             race: AssignedRace::Protoss,
                             alliances: {
@@ -3724,6 +3749,7 @@ mod tests {
                     (
                         BwPlayerId(2),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Disconnected,
                             race: AssignedRace::Protoss,
                             alliances: {
@@ -3737,6 +3763,7 @@ mod tests {
                     (
                         BwPlayerId(3),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Disconnected,
                             race: AssignedRace::Terran,
                             alliances: {
@@ -3851,6 +3878,7 @@ mod tests {
                     (
                         BwPlayerId(0),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Playing,
                             race: AssignedRace::Zerg,
                             alliances: {
@@ -3864,6 +3892,7 @@ mod tests {
                     (
                         BwPlayerId(1),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Disconnected,
                             race: AssignedRace::Protoss,
                             alliances: {
@@ -3877,6 +3906,7 @@ mod tests {
                     (
                         BwPlayerId(2),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Playing,
                             race: AssignedRace::Protoss,
                             alliances: {
@@ -3890,6 +3920,7 @@ mod tests {
                     (
                         BwPlayerId(3),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Playing,
                             race: AssignedRace::Terran,
                             alliances: {
@@ -3989,6 +4020,7 @@ mod tests {
                     (
                         BwPlayerId(0),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Playing,
                             race: AssignedRace::Zerg,
                             alliances: {
@@ -4001,6 +4033,7 @@ mod tests {
                     (
                         BwPlayerId(1),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Defeat,
                             race: AssignedRace::Protoss,
                             alliances: {
@@ -4014,6 +4047,7 @@ mod tests {
                     (
                         BwPlayerId(2),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Playing,
                             race: AssignedRace::Protoss,
                             alliances: {
@@ -4106,6 +4140,7 @@ mod tests {
                     (
                         BwPlayerId(0),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Defeat,
                             race: AssignedRace::Zerg,
                             alliances: {
@@ -4118,6 +4153,7 @@ mod tests {
                     (
                         BwPlayerId(1),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Defeat,
                             race: AssignedRace::Protoss,
                             alliances: {
@@ -4133,6 +4169,7 @@ mod tests {
                     (
                         BwPlayerId(2),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Defeat,
                             race: AssignedRace::Protoss,
                             alliances: {
@@ -4147,6 +4184,7 @@ mod tests {
                     (
                         BwPlayerId(3),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Defeat,
                             race: AssignedRace::Terran,
                             alliances: {
@@ -4161,6 +4199,7 @@ mod tests {
                     (
                         BwPlayerId(4),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Playing,
                             race: AssignedRace::Protoss,
                             alliances: {
@@ -4239,6 +4278,7 @@ mod tests {
                     (
                         BwPlayerId(0),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Playing,
                             race: AssignedRace::Zerg,
                             alliances: {
@@ -4251,6 +4291,7 @@ mod tests {
                     (
                         BwPlayerId(1),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Playing,
                             race: AssignedRace::Protoss,
                             alliances: {
@@ -4263,6 +4304,7 @@ mod tests {
                     (
                         BwPlayerId(2),
                         PlayerResult {
+                            apm: 0,
                             victory_state: VictoryState::Playing,
                             race: AssignedRace::Protoss,
                             alliances: {
