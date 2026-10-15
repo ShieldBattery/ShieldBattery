@@ -7309,6 +7309,11 @@ impl BwScr {
         unsafe { self.is_replay.resolve() != 0 || self.local_unique_player_id.resolve() >= 0x80 }
     }
 
+    /// Whether the local client is watching a live game from an observer slot.
+    fn is_live_observer(&self) -> bool {
+        unsafe { self.is_replay.resolve() == 0 && self.local_unique_player_id.resolve() >= 0x80 }
+    }
+
     /// Sets [game_results_sent] atomically, returning whether the results need to be sent by the
     /// caller.
     pub fn trigger_game_results_sent(&self) -> bool {

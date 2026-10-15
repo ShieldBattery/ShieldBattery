@@ -690,6 +690,9 @@ unsafe extern "C" fn minimap_event_handler(
             // associated globals) are initialized. Done after `orig` so it wins over any reset the
             // game's own init does.
             bw.restore_minimap_settings();
+            if bw.is_live_observer() {
+                hide_player_camera_outlines(Control::new(ctrl).dialog());
+            }
             // A watcher's minimap gets the overlay's own header in place of the two buttons SC:R
             // keeps above it, so those stay hidden for a watcher. The game shows and hides them on
             // timers of its own, so hiding them once is not enough: their handlers are hooked to
@@ -714,6 +717,67 @@ unsafe extern "C" fn minimap_event_handler(
             }
         }
         ret
+    }
+}
+
+/// The minimap image control's own draw function, which [`draw_minimap_without_camera_outlines`]
+/// calls through. Zero until a live observer's minimap is initialized.
+static MINIMAP_IMAGE_DRAW: AtomicUsize = AtomicUsize::new(0);
+
+type ControlDrawFn =
+    unsafe extern "C" fn(*mut bw::Control, i32, i32, *const bw::Rect, *const bw::Rect);
+
+/// Keeps a live observer's minimap from outlining the players' cameras.
+///
+/// SC:R outlines the camera of every player an observer has vision of, in that player's color,
+/// using viewport reports each human player sends the observers as Storm messages rather than in a
+/// game turn. Netcode v2 doesn't carry Storm messages, so no report ever arrives: each human
+/// player's outline is drawn from its zeroed initial viewport, a dot in the minimap's top-left
+/// corner. The minimap image control's draw function is wrapped to leave the outlines out.
+unsafe fn hide_player_camera_outlines(minimap: Dialog) {
+    unsafe {
+        // Control 1 is the minimap image, which sets its draw function in its own init event.
+        let Some(image) = minimap.child_by_id(1) else {
+            warn!("Minimap has no image control; observer camera outlines stay drawn");
+            return;
+        };
+        let image = *image;
+        let wrapper: ControlDrawFn = draw_minimap_without_camera_outlines;
+        match (*image).draw {
+            Some(draw) if draw as usize != wrapper as usize => {
+                MINIMAP_IMAGE_DRAW.store(draw as usize, Ordering::Relaxed);
+                (*image).draw = Some(wrapper);
+            }
+            Some(_) => (),
+            None => {
+                warn!("Minimap image has no draw function; observer camera outlines stay drawn")
+            }
+        }
+    }
+}
+
+/// Draws the minimap image with no player in `replay_visions`, the set of players SC:R outlines
+/// the cameras of. Nothing else the draw function does reads it: the units and fog it shows were
+/// rendered into the minimap's texture beforehand, and its pings and the local screen's outline
+/// don't depend on vision.
+unsafe extern "C" fn draw_minimap_without_camera_outlines(
+    ctrl: *mut bw::Control,
+    x: i32,
+    y: i32,
+    clip: *const bw::Rect,
+    area: *const bw::Rect,
+) {
+    unsafe {
+        let draw = MINIMAP_IMAGE_DRAW.load(Ordering::Relaxed);
+        if draw == 0 {
+            return;
+        }
+        let draw: ControlDrawFn = std::mem::transmute(draw);
+        let bw = get_bw();
+        let visions = bw.replay_visions.resolve();
+        bw.replay_visions.write(0);
+        draw(ctrl, x, y, clip, area);
+        bw.replay_visions.write(visions);
     }
 }
 
