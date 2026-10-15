@@ -90,17 +90,23 @@ pub struct UploadedMap {
     pub name: String,
     pub description: String,
     #[graphql(skip)]
-    pub uploaded_by: SbUserId,
-    pub upload_date: DateTime<Utc>,
+    pub published_by: Option<SbUserId>,
+    pub published_at: Option<DateTime<Utc>>,
     pub visibility: MapVisibility,
 }
 
 #[ComplexObject]
 impl UploadedMap {
-    async fn uploader(&self, ctx: &async_graphql::Context<'_>) -> async_graphql::Result<SbUser> {
+    /// The user who listed this map, if it has been published.
+    async fn publisher(
+        &self,
+        ctx: &async_graphql::Context<'_>,
+    ) -> async_graphql::Result<Option<SbUser>> {
+        let Some(published_by) = self.published_by else {
+            return Ok(None);
+        };
         let loader = ctx.data_unchecked::<DataLoader<UsersLoader>>();
-        let user = loader.load_one(self.uploaded_by).await?;
-        user.ok_or_else(|| graphql_error("NOT_FOUND", "User not found"))
+        loader.load_one(published_by).await
     }
 
     async fn map_file(&self, ctx: &async_graphql::Context<'_>) -> async_graphql::Result<MapFile> {
@@ -321,9 +327,13 @@ impl Loader<SbMapId> for MapsLoader {
         Ok(sqlx::query_as!(
             UploadedMap,
             r#"
-                SELECT id as "id: _", map_hash as "map_hash: _", name, description,
-                    uploaded_by as "uploaded_by: _", upload_date, visibility as "visibility: _"
-                FROM uploaded_maps
+                SELECT id as "id: _", hash as "map_hash: _", name as "name!",
+                    COALESCE(public_description, description) as "description!",
+                    CASE WHEN listing <> 'UNLISTED' THEN published_by END
+                        as "published_by: _",
+                    CASE WHEN listing <> 'UNLISTED' THEN published_at END as published_at,
+                    listing as "visibility: _"
+                FROM maps
                 WHERE id = ANY($1)
             "#,
             keys as _

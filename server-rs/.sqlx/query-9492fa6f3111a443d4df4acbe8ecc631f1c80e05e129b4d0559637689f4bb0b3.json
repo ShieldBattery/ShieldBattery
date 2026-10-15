@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                SELECT id as \"id: _\", map_hash as \"map_hash: _\", name, description,\n                    uploaded_by as \"uploaded_by: _\", upload_date, visibility as \"visibility: _\"\n                FROM uploaded_maps\n                WHERE id = ANY($1)\n            ",
+  "query": "\n                SELECT id as \"id: _\", hash as \"map_hash: _\", name as \"name!\",\n                    COALESCE(public_description, description) as \"description!\",\n                    CASE WHEN listing <> 'UNLISTED' THEN published_by END\n                        as \"published_by: _\",\n                    CASE WHEN listing <> 'UNLISTED' THEN published_at END as published_at,\n                    listing as \"visibility: _\"\n                FROM maps\n                WHERE id = ANY($1)\n            ",
   "describe": {
     "columns": [
       {
@@ -9,7 +9,7 @@
         "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "uploaded_maps",
+            "table": "maps",
             "name": "id"
           }
         }
@@ -20,54 +20,39 @@
         "type_info": "Bytea",
         "origin": {
           "Table": {
-            "table": "uploaded_maps",
-            "name": "map_hash"
+            "table": "maps",
+            "name": "hash"
           }
         }
       },
       {
         "ordinal": 2,
-        "name": "name",
+        "name": "name!",
         "type_info": "Text",
         "origin": {
           "Table": {
-            "table": "uploaded_maps",
+            "table": "maps",
             "name": "name"
           }
         }
       },
       {
         "ordinal": 3,
-        "name": "description",
+        "name": "description!",
         "type_info": "Text",
-        "origin": {
-          "Table": {
-            "table": "uploaded_maps",
-            "name": "description"
-          }
-        }
+        "origin": "Expression"
       },
       {
         "ordinal": 4,
-        "name": "uploaded_by: _",
+        "name": "published_by: _",
         "type_info": "Int4",
-        "origin": {
-          "Table": {
-            "table": "uploaded_maps",
-            "name": "uploaded_by"
-          }
-        }
+        "origin": "Expression"
       },
       {
         "ordinal": 5,
-        "name": "upload_date",
+        "name": "published_at",
         "type_info": "Timestamptz",
-        "origin": {
-          "Table": {
-            "table": "uploaded_maps",
-            "name": "upload_date"
-          }
-        }
+        "origin": "Expression"
       },
       {
         "ordinal": 6,
@@ -86,8 +71,8 @@
         },
         "origin": {
           "Table": {
-            "table": "uploaded_maps",
-            "name": "visibility"
+            "table": "maps",
+            "name": "listing"
           }
         }
       }
@@ -100,12 +85,12 @@
     "nullable": [
       false,
       false,
-      false,
-      false,
-      false,
-      false,
+      true,
+      null,
+      null,
+      null,
       false
     ]
   },
-  "hash": "dd8adf4bed0ebe5de2cafedeba46c9927e1762def2285e935af8b92d414da906"
+  "hash": "9492fa6f3111a443d4df4acbe8ecc631f1c80e05e129b4d0559637689f4bb0b3"
 }

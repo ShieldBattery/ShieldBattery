@@ -1181,9 +1181,12 @@ type UploadedMap {
 	id: SbMapId!
 	name: String!
 	description: String!
-	uploadDate: DateTime!
+	publishedAt: DateTime
 	visibility: MapVisibility!
-	uploader: SbUser!
+	"""
+	The user who listed this map, if it has been published.
+	"""
+	publisher: SbUser
 	mapFile: MapFile!
 }
 

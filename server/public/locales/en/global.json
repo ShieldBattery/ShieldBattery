@@ -2051,6 +2051,8 @@
     "server": {
       "allMaps": "All maps",
       "browseLocal": "Browse local maps",
+      "delisted": "Map delisted",
+      "delistError": "An error occurred while delisting the map",
       "error": "There was an error retrieving the maps.",
       "favoriteMaps": "Favorite maps",
       "favorites": {
@@ -2075,7 +2077,8 @@
       "noUploadedMapsWeb": "You haven't uploaded any maps.",
       "regenerated": "Images regenerated",
       "regenerateError": "An error occurred while regenerating images",
-      "removeError": "An error occurred while removing the map",
+      "removedFromMyMaps": "Removed from your maps",
+      "removeFromMyMapsError": "An error occurred while removing the map from your maps",
       "sortMaps": {
         "option": {
           "dateUploaded": "Date uploaded",
@@ -2101,12 +2104,14 @@
     },
     "thumbnail": {
       "addToFavorites": "Add to favorites",
+      "delistMap": "Delist",
       "downloadMap": "Download",
       "mapActions": "Map actions",
       "mapPoolChipTooltip": "In the current {{mode}} ladder map pool",
       "noMapPreview": "Map preview not available",
       "regenerateImage": "Regenerate image",
       "removeFromFavorites": "Remove from favorites",
+      "removeFromMyMaps": "Remove from my maps",
       "showMapPreview": "Show map preview",
       "viewMapDetails": "View map details"
     },
