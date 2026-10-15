@@ -54,21 +54,22 @@ const BUTTON_TRACKING: f32 = 1.8;
 /// How wide the rule under the headline is at its brightest, and how far it fades out either side.
 const FLOURISH_WIDTH: f32 = 220.0;
 
-/// The keys the card's buttons answer to, as their keycaps name them: SC:R's own for the popup the
-/// card stands in for. Its victory popup ends the mission on `E` (End Mission) and carries on with
-/// `C` (Continue Playing); its defeat popup leaves on `O` (OK) and carries on with `B` (Become
-/// Observer). See [`key_choice`] for every key that answers.
+/// The keys the card's buttons answer to, as their keycaps name them. Leaving shows `E` on both
+/// cards, SC:R's End Mission key and the one the overlay leaves with everywhere; carrying on shows
+/// SC:R's own key for each popup, `C` (Continue Playing) after a victory and `B` (Become Observer)
+/// after a defeat. See [`key_choice`] for every key that answers.
 pub const VICTORY_LEAVE_KEY: &str = "E";
 pub const VICTORY_KEEP_PLAYING_KEY: &str = "C";
-pub const DEFEAT_LEAVE_KEY: &str = "O";
+pub const DEFEAT_LEAVE_KEY: &str = "E";
 pub const DEFEAT_KEEP_PLAYING_KEY: &str = "B";
 
-/// What `key` chooses on either card. Each card answers to the other's keys as well, and leaving
-/// also to `V`, which SC:R's victory popup labels its ending button with outside a multiplayer
-/// game: a hand that knows one of the popups does not have to learn which one this is.
+/// What `key` chooses on either card. Leaving answers to every key SC:R leaves a game with: `E`
+/// (End Mission), `O` (its defeat popup's OK), `V` (its victory popup's ending button outside a
+/// multiplayer game), `Q` (Quit Mission) and `X` (Exit Program). Each card answers to the other's
+/// carry-on key as well: a hand that knows one of the popups does not have to learn which this is.
 pub fn key_choice(key: Key) -> Option<EndCardChoice> {
     match key {
-        Key::E | Key::V | Key::O => Some(EndCardChoice::Leave),
+        Key::E | Key::V | Key::O | Key::Q | Key::X => Some(EndCardChoice::Leave),
         Key::C | Key::B => Some(EndCardChoice::KeepPlaying),
         _ => None,
     }
