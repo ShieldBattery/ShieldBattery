@@ -9,12 +9,12 @@
 //! is kept in [`State`], the way the game would keep it: a toggle changes the next frame's view, and
 //! the knobs only decide what the game started out as.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use egui::vec2;
 use overlay_ui::alliances::{
     AlliancePlayerView, AllianceState, AlliancesAction, AlliancesMenu, AlliancesView,
-    ChatTargetChoice, ChatTargetOption, PlayerNote, RecipientName,
+    ChatTargetChoice, ChatTargetOption, PlayerNote, RecipientName, ReportState,
 };
 use overlay_ui::kit::theme;
 use overlay_ui::observer::RaceView;
@@ -39,6 +39,9 @@ const NAMES: [&str; 7] = [
 /// and the note after it.
 const LONG_NAME: &str = "an-extremely-long-player-name-that-keeps-going";
 
+/// What the computer rows are called, after the people.
+const COMPUTER_NAMES: [&str; 3] = ["Computer", "Computer", "Computer"];
+
 /// The ShieldBattery account the first row has; the rest follow it.
 const FIRST_USER_ID: u32 = 100;
 
@@ -51,8 +54,13 @@ const FIRST_PLAYER_ID: u8 = 1;
 pub struct Knobs {
     /// How many other people are in the game.
     pub players: u32,
-    /// Whether every other row is on the player's own team, which has nothing to set with them.
+    /// How many computers are in the game, listed after the people.
+    pub computers: u32,
+    /// Whether every other row is a teammate sharing the player's units, which has nothing to set
+    /// with them.
     pub team_game: bool,
+    /// Whether the first three rows show a report sending, sent and failed.
+    pub report_states: bool,
     /// Whether the game lets the player change alliances and vision at all.
     pub alliances_open: bool,
     /// Whether the last row is someone who has left the game.
@@ -80,6 +88,8 @@ pub enum OpenMenu {
     None,
     /// The first row's menu of what can be done about them.
     Player,
+    /// The first row's menu of why they are being reported.
+    Report,
     /// Where chat goes.
     ChatTarget,
 }
@@ -91,6 +101,9 @@ pub fn open_menu(k: &Knobs) -> Option<AlliancesMenu> {
         OpenMenu::Player => rows(k).first().map(|row| AlliancesMenu::Player {
             user_id: row.user_id,
         }),
+        OpenMenu::Report => rows(k).first().map(|row| AlliancesMenu::Report {
+            user_id: row.user_id,
+        }),
         OpenMenu::ChatTarget => Some(AlliancesMenu::ChatTarget),
     }
 }
@@ -99,7 +112,9 @@ impl Default for Knobs {
     fn default() -> Knobs {
         Knobs {
             players: 3,
+            computers: 0,
             team_game: false,
+            report_states: false,
             alliances_open: true,
             departed_player: false,
             defeated_player: false,
@@ -114,7 +129,7 @@ impl Default for Knobs {
 }
 
 /// A one-click preview state: a free-for-all, a game with teams, a game whose alliances are fixed,
-/// and a crowded game with every kind of row in it.
+/// a crowded game with every kind of row in it, and each of the screen's menus open.
 #[derive(Clone, Copy)]
 pub enum Preset {
     Ffa,
@@ -122,16 +137,18 @@ pub enum Preset {
     Locked,
     Crowded,
     PlayerMenu,
+    ReportMenu,
     ChatMenu,
 }
 
 impl Preset {
-    pub const ALL: [Preset; 6] = [
+    pub const ALL: [Preset; 7] = [
         Preset::Ffa,
         Preset::TeamGame,
         Preset::Locked,
         Preset::Crowded,
         Preset::PlayerMenu,
+        Preset::ReportMenu,
         Preset::ChatMenu,
     ];
 
@@ -142,6 +159,7 @@ impl Preset {
             Preset::Locked => "locked",
             Preset::Crowded => "crowded",
             Preset::PlayerMenu => "player-menu",
+            Preset::ReportMenu => "report-menu",
             Preset::ChatMenu => "chat-menu",
         }
     }
@@ -172,8 +190,10 @@ impl Preset {
                 ..Knobs::default()
             },
             Preset::Crowded => Knobs {
-                players: 7,
+                players: 5,
+                computers: 2,
                 team_game: true,
+                report_states: true,
                 departed_player: true,
                 defeated_player: true,
                 long_name: true,
@@ -186,6 +206,11 @@ impl Preset {
                 players: 4,
                 muted_rows: 1,
                 open_menu: OpenMenu::Player,
+                ..Knobs::default()
+            },
+            Preset::ReportMenu => Knobs {
+                players: 4,
+                open_menu: OpenMenu::Report,
                 ..Knobs::default()
             },
             Preset::ChatMenu => Knobs {
@@ -206,7 +231,7 @@ pub struct State {
     vision: HashMap<u8, bool>,
     muted: HashMap<u32, bool>,
     blocked: HashMap<u32, bool>,
-    reported: HashSet<u32>,
+    reports: HashMap<u32, ReportState>,
     allied_victory: bool,
     chat_target: Option<ChatTargetChoice>,
     /// The menu knob as the shell was last told it, so the knob opens the menu once rather than
@@ -245,11 +270,10 @@ impl State {
             AlliancesAction::SetBlocked { user_id, blocked } => {
                 self.blocked.insert(user_id, blocked);
             }
-            AlliancesAction::Report { user_id } => {
-                self.reported.insert(user_id);
+            // The emulated game has no server to file with, so a report is taken at once.
+            AlliancesAction::Report { user_id, .. } => {
+                self.reports.insert(user_id, ReportState::Sent);
             }
-            // The emulated host has no ShieldBattery window to bring up.
-            AlliancesAction::ViewProfile { .. } => {}
             AlliancesAction::SetChatTarget(choice) => self.chat_target = Some(choice),
         }
     }
@@ -293,8 +317,6 @@ pub fn build_view(k: &Knobs, state: &State) -> AlliancesView {
             let has_alliance = !row.teammate && !row.departed;
             let note = if row.departed {
                 Some(PlayerNote::Left)
-            } else if row.teammate {
-                Some(PlayerNote::Teammate)
             } else if k.defeated_player && row.index == 1 {
                 Some(PlayerNote::Defeated)
             } else {
@@ -310,8 +332,14 @@ pub fn build_view(k: &Knobs, state: &State) -> AlliancesView {
                 .get(&row.player_id)
                 .copied()
                 .unwrap_or(row.index < k.allied_rows as usize && row.index % 2 == 0);
+            let knob_report = match row.index {
+                0 if k.report_states => ReportState::Sending,
+                1 if k.report_states => ReportState::Sent,
+                2 if k.report_states => ReportState::Failed,
+                _ => ReportState::None,
+            };
             AlliancePlayerView {
-                user_id: row.user_id,
+                user_id: Some(row.user_id),
                 name: name.to_string(),
                 color: theme::player_color(row.index + 1),
                 race: RaceView::ALL[row.index % RaceView::ALL.len()],
@@ -331,9 +359,29 @@ pub fn build_view(k: &Knobs, state: &State) -> AlliancesView {
                     .get(&row.user_id)
                     .copied()
                     .unwrap_or(row.index >= count.saturating_sub(k.blocked_rows as usize)),
-                report_requested: state.reported.contains(&row.user_id),
+                report: state
+                    .reports
+                    .get(&row.user_id)
+                    .copied()
+                    .unwrap_or(knob_report),
             }
         })
+        .chain(
+            (0..(k.computers as usize).min(COMPUTER_NAMES.len())).map(|index| {
+                let slot = count + index;
+                AlliancePlayerView {
+                    user_id: None,
+                    name: COMPUTER_NAMES[index].to_string(),
+                    color: theme::player_color(slot + 1),
+                    race: RaceView::ALL[slot % RaceView::ALL.len()],
+                    alliance: None,
+                    note: None,
+                    muted: false,
+                    blocked: false,
+                    report: ReportState::None,
+                }
+            }),
+        )
         .collect::<Vec<_>>();
 
     let mut chat_targets = vec![ChatTargetOption {
@@ -402,6 +450,12 @@ pub fn knobs_ui(k: &mut Knobs, state: &mut State, ui: &mut egui::Ui) -> bool {
                 .changed();
             ui.end_row();
 
+            ui.label("Computers");
+            changed |= ui
+                .add(egui::DragValue::new(&mut k.computers).range(0..=COMPUTER_NAMES.len() as u32))
+                .changed();
+            ui.end_row();
+
             ui.label("Allied rows");
             changed |= ui
                 .add(egui::DragValue::new(&mut k.allied_rows).range(0..=NAMES.len() as u32))
@@ -427,6 +481,10 @@ pub fn knobs_ui(k: &mut Knobs, state: &mut State, ui: &mut egui::Ui) -> bool {
     changed |= ui
         .checkbox(&mut k.team_game, "team game")
         .on_hover_text("Every other row is a teammate, which has no alliance to set.")
+        .changed();
+    changed |= ui
+        .checkbox(&mut k.report_states, "report states")
+        .on_hover_text("The first three rows show a report sending, sent and failed.")
         .changed();
     changed |= ui
         .checkbox(&mut k.alliances_open, "alliances open")

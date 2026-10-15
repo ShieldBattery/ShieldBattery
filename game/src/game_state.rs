@@ -112,6 +112,7 @@ pub enum GameStateMessage {
     SetBlockedUsers(Vec<SbUserId>),
     /// The app couldn't save a block or unblock made with an in-game chat command.
     BlockRequestFailed(BlockRequestFailed),
+    ReportResult(crate::app_messages::ReportResult),
     SetServerConfig(ServerConfig),
     SetupGame(Box<GameSetupInfo>),
     /// The fully-known joined-player set, built directly from the session roster + slot layout.
@@ -881,6 +882,9 @@ impl GameState {
             BlockRequestFailed(failure) => {
                 get_bw().block_request_failed(&failure);
             }
+            ReportResult(result) => {
+                get_bw().report_result(&result);
+            }
             SetNetcodeV2Setup(setup) => {
                 // SECURITY: `setup` holds the per-session private key; never log its contents.
                 // `NetcodeV2Setup`'s `Debug` redacts the key, but don't `{:?}` it here regardless.
@@ -1160,7 +1164,7 @@ impl GameState {
         match message {
             WindowMove(..) => (),
             ReplaySaved(..) => (),
-            SetUserBlocked { .. } | ReportPlayer { .. } | ViewProfile { .. } => (),
+            SetUserBlocked { .. } | ReportPlayer(..) => (),
             MinimapSettings {
                 color_mode,
                 terrain_hidden,

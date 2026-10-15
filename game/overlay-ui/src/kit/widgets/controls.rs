@@ -16,6 +16,10 @@ use crate::kit::widgets::{active_halo, focus_ring, state_overlay};
 const SWITCH_HEIGHT: f32 = 24.0;
 const SWITCH_WIDTH: f32 = 44.0;
 
+/// The room a switch takes in a layout, its track and the hit height around it, for a caller that
+/// places one exactly.
+pub const SWITCH_SIZE: Vec2 = vec2(SWITCH_WIDTH, theme::HIT_PANEL);
+
 /// How long a knob takes to travel when a switch is flipped.
 const SWITCH_TRAVEL_SECS: f32 = 0.12;
 
@@ -231,8 +235,7 @@ fn stepper_end(ui: &mut Ui, id: egui::Id, rect: Rect, forward: bool) -> Response
 
 /// An on/off switch. The knob glows while it is on, so the state survives a glance over gameplay.
 pub fn switch(ui: &mut Ui, on: &mut bool) -> Response {
-    let (rect, mut response) =
-        ui.allocate_exact_size(vec2(SWITCH_WIDTH, theme::HIT_PANEL), Sense::click());
+    let (rect, mut response) = ui.allocate_exact_size(SWITCH_SIZE, Sense::click());
     if response.clicked() {
         *on = !*on;
         response.mark_changed();

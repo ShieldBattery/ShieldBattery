@@ -118,14 +118,8 @@ pub enum GameThreadMessage {
         user_id: SbUserId,
         blocked: bool,
     },
-    /// The local user asked to report a player once the game is over, when its reports open.
-    ReportPlayer {
-        user_id: SbUserId,
-    },
-    /// The local user asked to see a player's ShieldBattery profile.
-    ViewProfile {
-        user_id: SbUserId,
-    },
+    /// The local user reported a player from the in-game alliances screen; the app files it.
+    ReportPlayer(crate::app_messages::ReportPlayer),
     /// Current minimap color/terrain toggle values, read once when the game loop ends so they can
     /// be persisted to settings. Either field is `None` if its game global wasn't located.
     MinimapSettings {

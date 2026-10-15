@@ -1,9 +1,10 @@
 use std::ffi::CString;
+use std::time::{Duration, Instant};
 
-use hashbrown::HashSet;
+use hashbrown::{HashMap, HashSet};
 
 use crate::{
-    app_messages::{BlockFailureReason, BlockRequestFailed, SbUserId},
+    app_messages::{BlockFailureReason, BlockRequestFailed, ReportOutcome, ReportResult, SbUserId},
     bw::{get_bw, players::BwPlayerId},
     bw_scr::get_exe_build,
     game_state::JoinedPlayer,
@@ -21,6 +22,29 @@ pub struct ChatManager {
     /// Text to print in the game's chat area, queued by code running off the game thread (which
     /// can't print directly). Drained by [`Self::take_pending_notices`] on the game thread.
     pending_notices: Vec<CString>,
+    /// The reports the local user has made about players this game, by player.
+    reports: HashMap<SbUserId, Report>,
+}
+
+/// How long a report may go unanswered before it counts as failed: the app files it, and an app
+/// that never answers (closed, or cut off from the game) has not filed it.
+const REPORT_ANSWER_TIMEOUT: Duration = Duration::from_secs(15);
+
+/// A report the local user made about a player.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum Report {
+    /// Handed to the app at this time, with no answer yet.
+    Sending(Instant),
+    Sent,
+    Failed,
+}
+
+/// Where a report about a player stands, as the alliances screen shows it.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum ReportStatus {
+    Sending,
+    Sent,
+    Failed,
 }
 
 /// Another person in the game, as the local user's chat settings see them.
@@ -65,6 +89,7 @@ impl ChatManager {
             local_user_id: None,
             is_chat_restricted: false,
             pending_notices: Vec::new(),
+            reports: HashMap::new(),
         }
     }
 
@@ -195,6 +220,58 @@ impl ChatManager {
         true
     }
 
+    /// Records a report about one of this game's players as handed to the app, returning whether
+    /// it should be handed over: a report already on its way or already received isn't filed twice.
+    pub fn start_report(&mut self, user_id: SbUserId, now: Instant) -> bool {
+        if self.local_user_id == Some(user_id)
+            || !self.players.iter().any(|p| p.sb_user_id == user_id)
+        {
+            return false;
+        }
+        match self.report_status(user_id, now) {
+            Some(ReportStatus::Sending | ReportStatus::Sent) => false,
+            None | Some(ReportStatus::Failed) => {
+                self.reports.insert(user_id, Report::Sending(now));
+                true
+            }
+        }
+    }
+
+    /// Where the local user's report about this player stands, if they made one.
+    pub fn report_status(&self, user_id: SbUserId, now: Instant) -> Option<ReportStatus> {
+        Some(match *self.reports.get(&user_id)? {
+            Report::Sending(at) if now.saturating_duration_since(at) < REPORT_ANSWER_TIMEOUT => {
+                ReportStatus::Sending
+            }
+            Report::Sending(_) | Report::Failed => ReportStatus::Failed,
+            Report::Sent => ReportStatus::Sent,
+        })
+    }
+
+    /// Records the app's answer to a report, and queues a notice saying why one wasn't filed.
+    pub fn report_result(&mut self, result: &ReportResult) {
+        let report = match result.result {
+            ReportOutcome::Reported => Report::Sent,
+            _ => Report::Failed,
+        };
+        self.reports.insert(result.user_id, report);
+        let detail = match result.result {
+            ReportOutcome::Reported => return,
+            ReportOutcome::RateLimited => ": you've filed too many reports recently",
+            ReportOutcome::Restricted => ": you're restricted from reporting",
+            ReportOutcome::Error => "",
+        };
+        let name = self
+            .players
+            .iter()
+            .find(|p| p.sb_user_id == result.user_id)
+            .map(|p| p.name.as_str())
+            .unwrap_or("player");
+        let msg =
+            CString::new(format!("\x06Couldn't report \x07{name}\x06{detail}")).unwrap_or_default();
+        self.pending_notices.push(msg);
+    }
+
     pub fn add_muted_player(&mut self, player_id: SbUserId) {
         self.muted_players.insert(player_id);
     }
@@ -315,10 +392,10 @@ impl ChatManager {
                     get_bw().print_text(c"Enemy players muted");
                 }
                 MuteEnemiesOutcome::NoEnemies => {
-                    get_bw().print_centered_text(c"You have no enemies to mute");
+                    get_bw().print_centered_text(c"\x06You have no enemies to mute");
                 }
                 MuteEnemiesOutcome::NotPlaying => {
-                    get_bw().print_centered_text(c"Only players in the game have enemies");
+                    get_bw().print_centered_text(c"\x06Only players in the game have enemies");
                 }
             },
             "/unmuteall" | "/umall" => {

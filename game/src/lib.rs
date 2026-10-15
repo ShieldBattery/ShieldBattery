@@ -28,8 +28,8 @@ use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use crate::app_messages::ReplaySaved;
+use crate::app_messages::SetUserBlocked;
 use crate::app_messages::WindowMove;
-use crate::app_messages::{PlayerRequest, SetUserBlocked};
 use crate::forge::TRACK_WINDOW_POS;
 use lazy_static::lazy_static;
 use libc::c_void;
@@ -479,20 +479,8 @@ async fn handle_messages_from_game_thread(
                             let _ = ws_send.send(msg).await;
                         }
                     }
-                    GameThreadMessage::ReportPlayer { user_id } => {
-                        let msg = app_socket::encode_message(
-                            "/game/reportPlayer",
-                            PlayerRequest { user_id },
-                        );
-                        if let Some(msg) = msg {
-                            let _ = ws_send.send(msg).await;
-                        }
-                    }
-                    GameThreadMessage::ViewProfile { user_id } => {
-                        let msg = app_socket::encode_message(
-                            "/game/viewProfile",
-                            PlayerRequest { user_id },
-                        );
+                    GameThreadMessage::ReportPlayer(report) => {
+                        let msg = app_socket::encode_message("/game/reportPlayer", report);
                         if let Some(msg) = msg {
                             let _ = ws_send.send(msg).await;
                         }

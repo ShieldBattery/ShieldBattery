@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { GameLaunchConfig } from '../../common/games/game-launch-config'
 import { NetcodeV2ServerSetup } from '../../common/games/netcode-v2'
+import { InGameReportRequest } from '../../common/ipc'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
 import { ActiveGameManager } from './active-game-manager'
 
@@ -181,6 +182,26 @@ describe('ActiveGameManager block list updates', () => {
     manager.blockRequestFailed('game-1', failure)
     expect(commands.filter(([, command]) => command === 'blockRequestFailed')).toEqual([
       ['game-1', 'blockRequestFailed', failure],
+    ])
+  })
+
+  it('relays in-game report requests and their results for the active game only', () => {
+    const reportRequests: Array<[string, InGameReportRequest]> = []
+    manager.on('reportPlayer', (gameId, request) => {
+      reportRequests.push([gameId, request])
+    })
+    manager.setGameConfig(configFor('game-1'))
+
+    const request = { userId: makeSbUserId(6), reason: 'griefing' as const, gameSeconds: 754 }
+    manager.handleReportPlayer('game-0', request)
+    manager.handleReportPlayer('game-1', request)
+    expect(reportRequests).toEqual([['game-1', request]])
+
+    const result = { userId: makeSbUserId(6), result: 'rateLimited' as const }
+    manager.reportResult('game-0', result)
+    manager.reportResult('game-1', result)
+    expect(commands.filter(([, command]) => command === 'reportResult')).toEqual([
+      ['game-1', 'reportResult', result],
     ])
   })
 })

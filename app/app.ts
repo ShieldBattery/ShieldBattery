@@ -174,7 +174,7 @@ let twitchOauthFlowActive = false
 // Settles the in-flight Twitch OAuth flow early (set while one is running).
 let cancelActiveTwitchOauthFlow: (() => void) | undefined
 
-function showAndFocusMainWindow() {
+export function notifyNewInstance(data: NewInstanceNotification) {
   if (mainWindow) {
     if (!mainWindow.isVisible()) {
       mainWindow.show()
@@ -185,10 +185,6 @@ function showAndFocusMainWindow() {
       mainWindow.focus()
     }
   }
-}
-
-export function notifyNewInstance(data: NewInstanceNotification) {
-  showAndFocusMainWindow()
 
   if (data.args.length > 1) {
     handleLaunchArgs(data.args.slice(1))
@@ -839,12 +835,8 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
         blocked,
       )
     })
-    .on('reportPlayer', (gameId, userId) => {
-      TypedIpcSender.from(mainWindow?.webContents).send('activeGameReportPlayer', gameId, userId)
-    })
-    .on('viewProfile', (gameId, userId) => {
-      showAndFocusMainWindow()
-      TypedIpcSender.from(mainWindow?.webContents).send('activeGameViewProfile', gameId, userId)
+    .on('reportPlayer', (gameId, request) => {
+      TypedIpcSender.from(mainWindow?.webContents).send('activeGameReportPlayer', gameId, request)
     })
 
   app.on('will-quit', () => activeGameManager.quitWatchOnlyGamesOnAppExit())
@@ -871,6 +863,9 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
   )
   ipcMain.handle('activeGameBlockRequestFailed', (event, gameId, failure) =>
     activeGameManager.blockRequestFailed(gameId, failure),
+  )
+  ipcMain.handle('activeGameReportResult', (event, gameId, result) =>
+    activeGameManager.reportResult(gameId, result),
   )
   if (isDev) {
     // Dev-only handlers: a release game build doesn't implement the underlying commands anyway,

@@ -391,12 +391,45 @@ pub struct SetUserBlocked {
     pub blocked: bool,
 }
 
-/// Names the player an in-game request about a player (`/game/reportPlayer`,
-/// `/game/viewProfile`) is about.
+/// Asks the app to file a report the local user made in game about another player.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct PlayerRequest {
+pub struct ReportPlayer {
     pub user_id: SbUserId,
+    pub reason: ReportReason,
+    /// How far into the game the report was made, in seconds of game time.
+    pub game_seconds: u32,
+}
+
+/// Why a player is being reported, as the app names the reasons a report can be filed for in game.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ReportReason {
+    Cheating,
+    Abandoning,
+    Griefing,
+    AbusiveChat,
+}
+
+/// Sent by the app once it has filed (or failed to file) a [`ReportPlayer`] request.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReportResult {
+    pub user_id: SbUserId,
+    pub result: ReportOutcome,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ReportOutcome {
+    /// The report was filed, or one was already on file for this player and game.
+    Reported,
+    /// The user has filed too many reports recently.
+    RateLimited,
+    /// The user is restricted from reporting.
+    Restricted,
+    #[serde(other)]
+    Error,
 }
 
 /// Sent by the app when it couldn't save a [`SetUserBlocked`] request.

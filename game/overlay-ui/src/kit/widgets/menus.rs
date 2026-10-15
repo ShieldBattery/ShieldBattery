@@ -44,7 +44,7 @@ const ROW_BAR: Vec2 = vec2(3.0, 13.0);
 const ROW_NOTE_SIZE: f32 = 11.0;
 
 /// A square button carrying a glyph, the size the rows of a modal's table want.
-const ICON_BUTTON_SIZE: f32 = 34.0;
+pub const ICON_BUTTON_SIZE: f32 = 34.0;
 const ICON_BUTTON_GLYPH_SIZE: f32 = 16.0;
 
 /// A dropdown's trigger: its height, and the padding either side of its label.
@@ -412,8 +412,6 @@ pub enum Glyph {
     Block,
     /// A flag on a pole.
     Flag,
-    /// A head and shoulders.
-    Person,
     /// Three dots in a row, for a menu of further actions.
     More,
     /// A check mark.
@@ -482,21 +480,6 @@ pub fn paint_glyph(painter: &egui::Painter, rect: Rect, glyph: Glyph, color: Col
                     (10.0, 5.0),
                     (12.0, 8.0),
                     (4.0, 8.0),
-                ],
-                1.3,
-            ),
-        ],
-        Glyph::Person => vec![
-            Shape::circle_stroke(at(8.0, 5.0), 2.6 * scale, stroke(1.3)),
-            line(
-                &[
-                    (2.8, 13.5),
-                    (4.0, 11.0),
-                    (5.8, 9.7),
-                    (8.0, 9.3),
-                    (10.2, 9.7),
-                    (12.0, 11.0),
-                    (13.2, 13.5),
                 ],
                 1.3,
             ),

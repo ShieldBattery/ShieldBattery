@@ -8,12 +8,7 @@ import { TypedIpcRenderer } from '../../common/ipc'
 import { apiUrl } from '../../common/urls'
 import { UserRelationshipServiceErrorCode } from '../../common/users/relationships'
 import { dispatch, Dispatchable } from '../dispatch-registry'
-import {
-  addRecentReplayPathAtom,
-  gameLoadingStatusAtom,
-  lastGameAtom,
-  pendingReportRequestAtom,
-} from '../games/game-atoms'
+import { addRecentReplayPathAtom, gameLoadingStatusAtom, lastGameAtom } from '../games/game-atoms'
 import i18n from '../i18n/i18next'
 import { jotaiStore } from '../jotai-store'
 import logger from '../logging/logger'
@@ -21,7 +16,6 @@ import { fetchJson } from '../network/fetch'
 import { isFetchError } from '../network/fetch-errors'
 import { makeServerUrl } from '../network/server-url'
 import { blockUser, ensureRelationshipsLoaded, unblockUser } from '../social/action-creators'
-import { navigateToUserProfile, viewUserProfile } from '../users/action-creators'
 import { updateActiveGame } from './wait-for-active-game'
 
 type EventToActionMap = {
@@ -128,9 +122,6 @@ export default function ({
 
       if (status.state === 'playing') {
         jotaiStore.set(lastGameAtom, { id: status.id })
-        if (jotaiStore.get(pendingReportRequestAtom)?.gameId !== status.id) {
-          jotaiStore.set(pendingReportRequestAtom, undefined)
-        }
       }
 
       // A networked game's load completion reaches the server over the relay path, from the
@@ -227,35 +218,6 @@ export default function ({
     })
     .on('activeGameReplaySaved', (_, gameId, path) => {
       jotaiStore.set(addRecentReplayPathAtom, { gameId, path })
-    })
-    .on('activeGameReportPlayer', (_, gameId, userId) => {
-      jotaiStore.set(pendingReportRequestAtom, { gameId, userId })
-    })
-    .on('activeGameViewProfile', (_, __, userId) => {
-      dispatch((dispatch, getState) => {
-        const navigateIfKnown = () => {
-          const user = getState().users.byId.get(userId)
-          if (user) {
-            navigateToUserProfile(userId, user.name)
-          }
-          return !!user
-        }
-
-        if (navigateIfKnown()) {
-          return
-        }
-
-        dispatch(
-          viewUserProfile(userId, {
-            onSuccess: navigateIfKnown,
-            onError: err => {
-              logger.error(
-                `Error loading user ${userId} to view their profile: ${getErrorStack(err)}`,
-              )
-            },
-          }),
-        )
-      })
     })
     .on('activeGameSetUserBlocked', (_, gameId, userId, blocked) => {
       const request = blocked ? blockUser : unblockUser

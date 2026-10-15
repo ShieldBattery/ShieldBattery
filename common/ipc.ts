@@ -96,6 +96,28 @@ export interface GameBlockRequestFailure {
   reason: 'limitReached' | 'error'
 }
 
+/** The reasons a player can be reported for from in game. */
+export const IN_GAME_REPORT_REASONS = ['cheating', 'abandoning', 'griefing', 'abusiveChat'] as const
+export type InGameReportReason = (typeof IN_GAME_REPORT_REASONS)[number]
+
+/** A report of another player, filed from in game while the game is being played. */
+export interface InGameReportRequest {
+  userId: SbUserId
+  reason: InGameReportReason
+  /** How far into the game the report was made, in seconds of game time. */
+  gameSeconds: number
+}
+
+/** How filing an `InGameReportRequest` went. */
+export interface InGameReportResult {
+  userId: SbUserId
+  /**
+   * `reported` also covers a player the user had already reported in this game, since either way
+   * the report is on file.
+   */
+  result: 'reported' | 'rateLimited' | 'restricted' | 'error'
+}
+
 /** RPCs that can be invoked by the renderer process to run code in the main process. */
 interface IpcInvokeables {
   /**
@@ -103,6 +125,11 @@ interface IpcInvokeables {
    * for via `activeGameSetUserBlocked` couldn't be saved, so it can undo it and tell the user.
    */
   activeGameBlockRequestFailed: (gameId: string, failure: GameBlockRequestFailure) => void
+  /**
+   * Tells the active game (if `gameId` is still the active game) how a report it asked for via
+   * `activeGameReportPlayer` went.
+   */
+  activeGameReportResult: (gameId: string, result: InGameReportResult) => void
   /**
    * Clears the current game config (e.g. cancels a game launch) provided the current game is
    * `gameId`.
@@ -463,12 +490,10 @@ interface IpcMainSendables {
    */
   activeGameSetUserBlocked: (gameId: string, userId: SbUserId, blocked: boolean) => void
   /**
-   * The local user asked, from in-game, to report a player. Reports are only accepted once the game
-   * has a result, so the renderer holds the request until the game's results are shown.
+   * The local user reported a player from in game. The renderer files the report and answers with
+   * `activeGameReportResult`.
    */
-  activeGameReportPlayer: (gameId: string, userId: SbUserId) => void
-  /** The local user asked, from in-game, to see a player's profile. */
-  activeGameViewProfile: (gameId: string, userId: SbUserId) => void
+  activeGameReportPlayer: (gameId: string, request: InGameReportRequest) => void
   activeGameStatus: (status: ReportedGameStatus) => void
 
   /** Sent after each region latency sweep completes, with the full region -> latency table. */
@@ -761,7 +786,10 @@ export class TypedIpcRenderer {
    */
   removeListener<K extends keyof IpcMainSendables>(
     channel: K,
-    listener: IpcMainSendables[K],
+    listener: (
+      event: IpcRendererEvent,
+      ...args: Parameters<IpcMainSendables[K]>
+    ) => ReturnType<IpcMainSendables[K]>,
   ): this {
     ipcRenderer?.removeListener(channel, listener as any)
     return this

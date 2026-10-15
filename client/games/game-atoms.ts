@@ -1,7 +1,6 @@
 import { atom } from 'jotai'
 import { atomWithImmer } from 'jotai-immer'
 import { GameLoadingStatus } from '../../common/games/game-loader-network'
-import { SbUserId } from '../../common/users/sb-user-id'
 
 export interface LastGameState {
   /**
@@ -39,18 +38,6 @@ export const addRecentReplayPathAtom = atom(
     })
   },
 )
-
-export interface PendingReportRequest {
-  gameId: string
-  userId: SbUserId
-}
-
-/**
- * A report the user asked for during a game, held until that game's results are shown (the server
- * only accepts reports once a game has a result). Only the most recent request is kept, and it's
- * cleared once the report dialog has been opened for it or another game starts.
- */
-export const pendingReportRequestAtom = atom<PendingReportRequest | undefined>(undefined)
 
 /** An intermediate status the loading UI shows for a game still coming up. */
 export interface GameLoadingStatusState {

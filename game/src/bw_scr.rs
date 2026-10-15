@@ -8075,7 +8075,6 @@ impl BwScr {
                 // commands for them otherwise.
                 alliances_open: (*game_data).game_template.allies_enabled == 1,
                 allies_chat: bw::get_had_allies_enabled(),
-                team_forces: game_type.has_team_forces(),
                 shared_control: game_type.is_team_game(),
             }
         }
@@ -8101,6 +8100,10 @@ impl BwScr {
 
     pub fn block_request_failed(&self, failure: &BlockRequestFailed) {
         self.chat_manager.lock().block_request_failed(failure);
+    }
+
+    pub fn report_result(&self, result: &crate::app_messages::ReportResult) {
+        self.chat_manager.lock().report_result(result);
     }
 
     /// Prints the notices other threads queued on the chat manager. Must run on the game thread.

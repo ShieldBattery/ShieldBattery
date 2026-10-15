@@ -1,17 +1,18 @@
-//! The alliances and chat screen: who the player is allied with and shares vision with, whose chat
-//! they hear, and who their own chat goes to. It stands in for SC:R's alliance and message filter
-//! dialogs, which split those across two screens.
+//! The alliances and chat screen: everyone else in the game and their race, who the player is allied
+//! with and shares vision with, whose chat they hear, and who their own chat goes to. It stands in
+//! for SC:R's alliance and message filter dialogs, which split those across two screens.
 //!
-//! A table of the other people in the game reads across each person: who they are, then the two
-//! things the player sets with them through the game (alliance, vision), then the two that are the
-//! player's alone (mute, and a menu of what goes further than this game: blocking, reporting, their
-//! profile). The footer holds what is set once for the whole game rather than per person: where the
-//! player's chat goes, and whether allies share a victory. Like every screen here, it is a pure fn
-//! of [`AlliancesView`] plus an [`egui::Context`].
+//! A table of the other players reads across each of them: who they are, then the two things the
+//! player sets with them through the game (alliance, vision), then the two that are the player's
+//! alone (mute, and a menu of what goes beyond this game: blocking and reporting). A computer has
+//! only the first of those, and is listed so the table still answers "who am I playing against".
+//! The footer holds what is set once for the whole game rather than per player: where the player's
+//! chat goes, and whether allies share a victory. Like every screen here, it is a pure fn of
+//! [`AlliancesView`] plus an [`egui::Context`].
 
 use egui::{Align, Color32, Id, Layout, Rect, Sense, Ui, UiBuilder, Vec2, pos2, vec2};
 
-use crate::colors::{GREY_BLUE60, GREY_BLUE70, GREY_BLUE80};
+use crate::colors::{BLUE70, GREY_BLUE60, GREY_BLUE70, GREY_BLUE80};
 use crate::kit::text::{self, BodyWeight};
 use crate::kit::widgets::{
     self, ButtonVariant, Glyph, IconButtonState, MenuRow, MenuSide, MenuTone, TagStyle,
@@ -56,30 +57,28 @@ const CHAT_MENU_WIDTH: f32 = 230.0;
 /// footer under the pointer.
 const CHAT_TARGET_MIN_WIDTH: f32 = 140.0;
 
-/// The size of the notes under the footer.
-const FOOTNOTE_SIZE: f32 = 12.0;
-
 /// The key that closes the screen, as its keycap names it.
 pub const DONE_KEY: &str = "Esc";
 
-/// What the screen shows of one other person in the game.
+/// What the screen shows of one other player in the game.
 #[derive(Clone, PartialEq, Debug)]
 pub struct AlliancePlayerView {
-    /// Their ShieldBattery account, which is what mute, block and report are kept against.
-    pub user_id: u32,
+    /// Their ShieldBattery account, which mute, block and report are kept against. `None` for a
+    /// computer, which none of those apply to.
+    pub user_id: Option<u32>,
     pub name: String,
     /// Their color on the map.
     pub color: Color32,
+    /// The race they chose, which is Random for a player who left it to the game.
     pub race: RaceView,
     /// What the player has set with them through the game, where there is anything to set: a
-    /// teammate sharing the player's own units, or someone out of the game, has none.
+    /// teammate sharing the player's own units, a computer, or someone out of the game has none.
     pub alliance: Option<AllianceState>,
     /// What else the row says about them.
     pub note: Option<PlayerNote>,
     pub muted: bool,
     pub blocked: bool,
-    /// Whether the player has asked to report them once the game is over.
-    pub report_requested: bool,
+    pub report: ReportState,
 }
 
 /// The player's own alliance with someone, as the game holds it.
@@ -94,12 +93,50 @@ pub struct AllianceState {
 /// What a row says about someone besides their name.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum PlayerNote {
-    /// On the player's own team.
-    Teammate,
     /// Beaten, and still in the game.
     Defeated,
     /// Gone from the game.
     Left,
+}
+
+/// Where a report the player made about someone this game stands.
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
+pub enum ReportState {
+    #[default]
+    None,
+    /// Filed, and not yet answered.
+    Sending,
+    /// Received by ShieldBattery.
+    Sent,
+    /// Not received; the player can try again.
+    Failed,
+}
+
+/// Why the player is reporting someone.
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
+pub enum ReportReason {
+    Cheating,
+    Abandoning,
+    Griefing,
+    AbusiveChat,
+}
+
+impl ReportReason {
+    pub const ALL: [ReportReason; 4] = [
+        ReportReason::Cheating,
+        ReportReason::Abandoning,
+        ReportReason::Griefing,
+        ReportReason::AbusiveChat,
+    ];
+
+    fn label(self) -> String {
+        match self {
+            ReportReason::Cheating => tr!("alliances.reasonCheating", "Cheating or exploiting"),
+            ReportReason::Abandoning => tr!("alliances.reasonAbandoning", "Left the game"),
+            ReportReason::Griefing => tr!("alliances.reasonGriefing", "Griefing"),
+            ReportReason::AbusiveChat => tr!("alliances.reasonAbusiveChat", "Abusive chat"),
+        }
+    }
 }
 
 /// Where the player's chat goes.
@@ -150,7 +187,7 @@ impl ChatTargetOption {
 /// Everything the screen needs to draw itself.
 #[derive(Clone, PartialEq, Debug)]
 pub struct AlliancesView {
-    /// Everyone else in the game the player could hear, in the game's order.
+    /// Every other player in the game, computers included, in the game's order.
     pub players: Vec<AlliancePlayerView>,
     /// Whether this game lets the player change their alliances and shared vision at all.
     pub alliances_open: bool,
@@ -178,19 +215,15 @@ pub enum AlliancesAction {
         user_id: u32,
         muted: bool,
     },
-    /// Mutes, or unmutes, everyone the screen lists.
+    /// Mutes, or unmutes, every person the screen lists.
     SetAllMuted(bool),
     SetBlocked {
         user_id: u32,
         blocked: bool,
     },
-    /// Asks to report someone once the game is over, which is when a game's reports open.
     Report {
         user_id: u32,
-    },
-    /// Brings ShieldBattery up on someone's profile.
-    ViewProfile {
-        user_id: u32,
+        reason: ReportReason,
     },
     SetChatTarget(ChatTargetChoice),
 }
@@ -198,8 +231,10 @@ pub enum AlliancesAction {
 /// A menu open on the screen.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum AlliancesMenu {
-    /// What can be done about one person, beyond this game.
+    /// What can be done about one person beyond this game.
     Player { user_id: u32 },
+    /// Why the player is reporting one person, which the player menu leads to.
+    Report { user_id: u32 },
     /// Where the player's chat goes.
     ChatTarget,
 }
@@ -212,6 +247,9 @@ pub struct AlliancesOutcome {
     pub menu: Option<Option<AlliancesMenu>>,
     /// Whether the player asked for the screen to close.
     pub done: bool,
+    /// Where the open menu was drawn. A menu hangs off its control and can reach past the dialog's
+    /// edge, so the host has to know it takes the pointer there too.
+    pub menu_rect: Option<Rect>,
 }
 
 /// Renders the screen, with `menu` open over it.
@@ -230,14 +268,19 @@ pub fn render_alliances_view(
             let anchors = tiers::dialog_body(ui, |ui| draw_table(ui, view, menu, &mut outcome));
             let chat_anchor =
                 tiers::dialog_footer_ruled(ui, |ui| draw_footer(ui, view, menu, &mut outcome));
-            draw_footnotes(ui, view);
             match menu {
-                Some(AlliancesMenu::Player { user_id }) => {
-                    let player = view.players.iter().find(|player| player.user_id == user_id);
+                Some(AlliancesMenu::Player { user_id } | AlliancesMenu::Report { user_id }) => {
+                    let player = view
+                        .players
+                        .iter()
+                        .find(|player| player.user_id == Some(user_id));
                     let anchor = anchors.iter().find(|(id, _)| *id == user_id);
-                    match (player, anchor) {
-                        (Some(player), Some(&(_, anchor))) => {
-                            draw_player_menu(ui.ctx(), player, anchor, &mut outcome)
+                    match (player, anchor, menu) {
+                        (Some(player), Some(&(_, anchor)), Some(AlliancesMenu::Player { .. })) => {
+                            draw_player_menu(ui.ctx(), player, user_id, anchor, &mut outcome)
+                        }
+                        (Some(_), Some(&(_, anchor)), _) => {
+                            draw_report_menu(ui.ctx(), user_id, anchor, &mut outcome)
                         }
                         // The person it was open for is no longer listed.
                         _ => outcome.menu = Some(None),
@@ -260,10 +303,15 @@ fn draw_header(ui: &mut Ui, view: &AlliancesView, outcome: &mut AlliancesOutcome
         ui.set_width(width);
         tiers::dialog_title(ui, &tr!("alliances.title", "Alliances & chat"));
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            if view.players.is_empty() {
+            let mut people = view
+                .players
+                .iter()
+                .filter(|player| player.user_id.is_some())
+                .peekable();
+            if people.peek().is_none() {
                 return;
             }
-            let all_muted = view.players.iter().all(|player| player.muted);
+            let all_muted = people.all(|player| player.muted);
             let label = match all_muted {
                 true => tr!("alliances.unmuteAll", "Unmute all"),
                 false => tr!("alliances.muteAll", "Mute all"),
@@ -305,10 +353,7 @@ fn mute_all_button(ui: &mut Ui, label: &str, glyph: Glyph) -> egui::Response {
         corner_radius,
         egui::Stroke::new(
             theme::HAIRLINE,
-            theme::alpha(
-                crate::colors::BLUE70,
-                if response.hovered() { 0.8 } else { 0.45 },
-            ),
+            theme::alpha(BLUE70, if response.hovered() { 0.8 } else { 0.45 }),
         ),
         egui::StrokeKind::Inside,
     ));
@@ -332,8 +377,8 @@ fn mute_all_button(ui: &mut Ui, label: &str, glyph: Glyph) -> egui::Response {
     response
 }
 
-/// The table of everyone else in the game. Returns where each row's menu button is, which is what
-/// its menu hangs off.
+/// The table of everyone else in the game. Returns where each person's menu button is, which is
+/// what their menus hang off.
 fn draw_table(
     ui: &mut Ui,
     view: &AlliancesView,
@@ -356,16 +401,21 @@ fn draw_table(
     }
     let last = view.players.len() - 1;
     for (index, player) in view.players.iter().enumerate() {
-        let open = menu
-            == Some(AlliancesMenu::Player {
-                user_id: player.user_id,
-            });
+        let menu_open = player.user_id.is_some_and(|user_id| {
+            matches!(
+                menu,
+                Some(AlliancesMenu::Player { user_id: open } | AlliancesMenu::Report { user_id: open })
+                    if open == user_id
+            )
+        });
         let more = ui
-            .push_id(("sb_alliances_row", player.user_id), |ui| {
-                draw_row(ui, view, player, open, index != last, outcome)
+            .push_id(("sb_alliances_row", index), |ui| {
+                draw_row(ui, view, player, menu_open, index != last, outcome)
             })
             .inner;
-        anchors.push((player.user_id, more));
+        if let (Some(user_id), Some(more)) = (player.user_id, more) {
+            anchors.push((user_id, more));
+        }
     }
     anchors
 }
@@ -436,7 +486,7 @@ fn draw_column_labels(ui: &mut Ui) {
     ui.add_space(theme::SPACE_XS + 2.0);
 }
 
-/// Draws one person's row, and returns where its menu button is.
+/// Draws one player's row, and returns where its menu button is, for a person who has one.
 fn draw_row(
     ui: &mut Ui,
     view: &AlliancesView,
@@ -444,16 +494,22 @@ fn draw_row(
     menu_open: bool,
     ruled: bool,
     outcome: &mut AlliancesOutcome,
-) -> Rect {
+) -> Option<Rect> {
     let (row, _) = ui.allocate_exact_size(vec2(CONTENT_WIDTH, ROW_HEIGHT), Sense::hover());
     let columns = Columns::of(row);
     draw_player_cell(ui, columns.player, player);
     if let Some(alliance) = player.alliance {
         let mut allied = alliance.allied;
-        if centered(ui, columns.ally, !view.alliances_open, |ui| {
-            ui.push_id("ally", |ui| widgets::switch(ui, &mut allied))
-                .inner
-        })
+        if centered(
+            ui,
+            columns.ally,
+            widgets::SWITCH_SIZE,
+            !view.alliances_open,
+            |ui| {
+                ui.push_id("ally", |ui| widgets::switch(ui, &mut allied))
+                    .inner
+            },
+        )
         .changed()
         {
             outcome.actions.push(AlliancesAction::SetAllied {
@@ -462,10 +518,16 @@ fn draw_row(
             });
         }
         let mut vision = alliance.vision;
-        if centered(ui, columns.vision, !view.alliances_open, |ui| {
-            ui.push_id("vision", |ui| widgets::switch(ui, &mut vision))
-                .inner
-        })
+        if centered(
+            ui,
+            columns.vision,
+            widgets::SWITCH_SIZE,
+            !view.alliances_open,
+            |ui| {
+                ui.push_id("vision", |ui| widgets::switch(ui, &mut vision))
+                    .inner
+            },
+        )
         .changed()
         {
             outcome.actions.push(AlliancesAction::SetSharedVision {
@@ -474,64 +536,68 @@ fn draw_row(
             });
         }
     }
-    let (glyph, state) = match player.muted {
-        true => (Glyph::SpeakerMuted, IconButtonState::Raised),
-        false => (Glyph::Speaker, IconButtonState::Rest),
-    };
-    if centered(ui, columns.mute, false, |ui| {
-        widgets::icon_button(ui, glyph, state)
-    })
-    .clicked()
-    {
-        outcome.actions.push(AlliancesAction::SetMuted {
-            user_id: player.user_id,
-            muted: !player.muted,
+    let more = player.user_id.map(|user_id| {
+        let button_size = Vec2::splat(widgets::ICON_BUTTON_SIZE);
+        let (glyph, state) = match player.muted {
+            true => (Glyph::SpeakerMuted, IconButtonState::Raised),
+            false => (Glyph::Speaker, IconButtonState::Rest),
+        };
+        if centered(ui, columns.mute, button_size, false, |ui| {
+            widgets::icon_button(ui, glyph, state)
+        })
+        .clicked()
+        {
+            outcome.actions.push(AlliancesAction::SetMuted {
+                user_id,
+                muted: !player.muted,
+            });
+        }
+        let more_state = match menu_open {
+            true => IconButtonState::Open,
+            false => IconButtonState::Rest,
+        };
+        let more = centered(ui, columns.more, button_size, false, |ui| {
+            widgets::icon_button(ui, Glyph::More, more_state)
         });
-    }
-    let more_state = match menu_open {
-        true => IconButtonState::Open,
-        false => IconButtonState::Rest,
-    };
-    let more = centered(ui, columns.more, false, |ui| {
-        widgets::icon_button(ui, Glyph::More, more_state)
+        if more.clicked() {
+            outcome.menu = Some(match menu_open {
+                true => None,
+                false => Some(AlliancesMenu::Player { user_id }),
+            });
+        }
+        more.rect
     });
-    if more.clicked() {
-        outcome.menu = Some(match menu_open {
-            true => None,
-            false => Some(AlliancesMenu::Player {
-                user_id: player.user_id,
-            }),
-        });
-    }
     if ruled {
         let y = row.bottom() - theme::HAIRLINE * 0.5;
         ui.painter().line_segment(
             [pos2(row.left(), y), pos2(row.right(), y)],
-            egui::Stroke::new(theme::HAIRLINE, theme::alpha(crate::colors::BLUE70, 0.30)),
+            egui::Stroke::new(theme::HAIRLINE, theme::alpha(BLUE70, 0.30)),
         );
     }
-    more.rect
+    more
 }
 
-/// Lays `add` out centered in `rect`, disabled where `disabled` says.
-fn centered<R>(ui: &mut Ui, rect: Rect, disabled: bool, add: impl FnOnce(&mut Ui) -> R) -> R {
+/// Lays a control `size` big out in the middle of `rect`, disabled where `disabled` says. The
+/// control is placed rather than laid out, so it sits exactly under its column's label whatever the
+/// layout around it would have done with the spare room.
+fn centered<R>(
+    ui: &mut Ui,
+    rect: Rect,
+    size: Vec2,
+    disabled: bool,
+    add: impl FnOnce(&mut Ui) -> R,
+) -> R {
     ui.scope_builder(
-        UiBuilder::new()
-            .max_rect(rect)
-            .layout(Layout::centered_and_justified(egui::Direction::LeftToRight)),
+        UiBuilder::new().max_rect(Rect::from_center_size(rect.center(), size)),
         |ui| {
             widgets::set_disabled(ui, disabled);
-            ui.with_layout(
-                Layout::left_to_right(Align::Center).with_main_align(Align::Center),
-                add,
-            )
-            .inner
+            add(ui)
         },
     )
     .inner
 }
 
-/// The person themselves: the bar of their color, their race, their name, and what else is worth
+/// The player themselves: the bar of their color, their race, their name, and what else is worth
 /// saying about them.
 fn draw_player_cell(ui: &mut Ui, rect: Rect, player: &AlliancePlayerView) {
     let painter = ui.painter();
@@ -557,20 +623,32 @@ fn draw_player_cell(ui: &mut Ui, rect: Rect, player: &AlliancePlayerView) {
     // What follows the name is laid out first, from the right, so a long name gives way to it. The
     // cell keeps clear of the switches beside it, which a tag set against them would read as part of.
     let mut right = rect.right() - CELL_END_GAP;
+    let danger = TagStyle::Hue {
+        color: theme::TEXT_DANGER,
+        filled: false,
+    };
     let mut trailing = Vec::new();
-    if player.blocked {
-        trailing.push((
-            tr!("alliances.blockedTag", "Blocked"),
+    match player.report {
+        ReportState::None => {}
+        ReportState::Sending => trailing.push((
+            tr!("alliances.reportingTag", "Reporting"),
+            TagStyle::Neutral,
+        )),
+        ReportState::Sent => trailing.push((tr!("alliances.reportedTag", "Reported"), danger)),
+        ReportState::Failed => trailing.push((
+            tr!("alliances.reportFailedTag", "Report failed"),
             TagStyle::Hue {
                 color: theme::TEXT_DANGER,
-                filled: false,
+                filled: true,
             },
-        ));
+        )),
+    }
+    if player.blocked {
+        trailing.push((tr!("alliances.blockedTag", "Blocked"), danger));
     } else if player.muted {
         trailing.push((tr!("alliances.mutedTag", "Muted"), TagStyle::Amber));
     }
     let note = player.note.map(|note| match note {
-        PlayerNote::Teammate => tr!("alliances.teammate", "teammate"),
         PlayerNote::Defeated => tr!("alliances.defeated", "defeated"),
         PlayerNote::Left => tr!("alliances.left", "left the game"),
     });
@@ -630,7 +708,8 @@ fn draw_player_cell(ui: &mut Ui, rect: Rect, player: &AlliancePlayerView) {
 }
 
 /// The footer: where the player's chat goes and whether allies share a victory, which are set once
-/// for the whole game, and the way out. Returns where the chat target's dropdown is.
+/// for the whole game, held apart on one line, and the way out on the line under them. Returns
+/// where the chat target's dropdown is.
 fn draw_footer(
     ui: &mut Ui,
     view: &AlliancesView,
@@ -639,107 +718,77 @@ fn draw_footer(
 ) -> Rect {
     let width = ui.available_width();
     let label_spec = text::column_label().with_color(GREY_BLUE60);
-    ui.allocate_ui_with_layout(
-        vec2(width, theme::HIT_DIALOG),
-        Layout::left_to_right(Align::Center),
-        |ui| {
-            ui.set_width(width);
-            ui.spacing_mut().item_spacing.x = theme::SPACE_MD;
-            ui.label(label_spec.job(&tr!("alliances.sendChatTo", "Send chat to")));
-            let open = menu == Some(AlliancesMenu::ChatTarget);
-            let current = view
-                .chat_targets
-                .iter()
-                .find(|option| option.choice == view.chat_target)
-                .map_or_else(
-                    || tr!("alliances.chatAll", "All players"),
-                    ChatTargetOption::label,
-                );
-            let dropdown = widgets::dropdown_button(ui, &current, CHAT_TARGET_MIN_WIDTH, open);
-            if dropdown.clicked() {
-                outcome.menu = Some(match open {
-                    true => None,
-                    false => Some(AlliancesMenu::ChatTarget),
-                });
-            }
-            ui.add_space(theme::SPACE_MD);
-            ui.label(label_spec.job(&tr!("alliances.alliedVictory", "Allied victory")));
-            let mut allied_victory = view.allied_victory;
-            let switched = ui
-                .scope(|ui| {
-                    widgets::set_disabled(ui, !view.alliances_open);
-                    widgets::switch(ui, &mut allied_victory)
-                })
-                .inner;
-            if switched.changed() {
-                outcome
-                    .actions
-                    .push(AlliancesAction::SetAlliedVictory(allied_victory));
-            }
-            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                if widgets::button_with_kbd(
-                    ui,
-                    &tr!("common.done", "Done"),
-                    ButtonVariant::Tier2,
-                    DONE_KEY,
-                )
-                .clicked()
-                {
-                    outcome.done = true;
+    let dropdown = ui
+        .allocate_ui_with_layout(
+            vec2(width, theme::HIT_DIALOG),
+            Layout::left_to_right(Align::Center),
+            |ui| {
+                ui.set_width(width);
+                ui.spacing_mut().item_spacing.x = theme::SPACE_MD;
+                ui.label(label_spec.job(&tr!("alliances.sendChatTo", "Send chat to")));
+                let open = menu == Some(AlliancesMenu::ChatTarget);
+                let current = view
+                    .chat_targets
+                    .iter()
+                    .find(|option| option.choice == view.chat_target)
+                    .map_or_else(
+                        || tr!("alliances.chatAll", "All players"),
+                        ChatTargetOption::label,
+                    );
+                let dropdown = widgets::dropdown_button(ui, &current, CHAT_TARGET_MIN_WIDTH, open);
+                if dropdown.clicked() {
+                    outcome.menu = Some(match open {
+                        true => None,
+                        false => Some(AlliancesMenu::ChatTarget),
+                    });
                 }
-            });
-            dropdown.rect
-        },
-    )
-    .inner
-}
-
-/// What the screen's settings last for, under everything else.
-fn draw_footnotes(ui: &mut Ui, view: &AlliancesView) {
-    let spec = text::body(FOOTNOTE_SIZE, BodyWeight::Regular).with_color(GREY_BLUE60);
-    let width = ui.available_width();
-    egui::Frame::NONE
-        .inner_margin(egui::Margin {
-            left: 28,
-            right: 28,
-            top: 0,
-            bottom: 16,
-        })
-        .show(ui, |ui| {
-            ui.set_width(width - 56.0);
-            ui.spacing_mut().item_spacing.y = 3.0;
-            ui.label(spec.job_wrapped(
-                &tr!(
-                    "alliances.persistenceNote",
-                    "Mute lasts for this game. Blocks are saved to your account, and reports open \
-                     in ShieldBattery after the game."
-                ),
-                width - 56.0,
-            ));
-            let alliance_note = match view.alliances_open {
-                true => tr!(
-                    "alliances.changesNote",
-                    "Alliance changes take effect immediately. Backstabs are on you."
-                ),
-                false => tr!(
-                    "alliances.lockedNote",
-                    "Alliances and shared vision are fixed in this game."
-                ),
-            };
-            ui.label(spec.job_wrapped(&alliance_note, width - 56.0));
-        });
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    ui.spacing_mut().item_spacing.x = theme::SPACE_MD;
+                    let mut allied_victory = view.allied_victory;
+                    let switched = ui
+                        .scope(|ui| {
+                            widgets::set_disabled(ui, !view.alliances_open);
+                            widgets::switch(ui, &mut allied_victory)
+                        })
+                        .inner;
+                    if switched.changed() {
+                        outcome
+                            .actions
+                            .push(AlliancesAction::SetAlliedVictory(allied_victory));
+                    }
+                    ui.label(label_spec.job(&tr!("alliances.alliedVictory", "Allied victory")));
+                });
+                dropdown.rect
+            },
+        )
+        .inner;
+    ui.add_space(theme::SPACE_LG);
+    ui.vertical_centered(|ui| {
+        if widgets::button_with_kbd(
+            ui,
+            &tr!("common.done", "Done"),
+            ButtonVariant::Tier2,
+            DONE_KEY,
+        )
+        .clicked()
+        {
+            outcome.done = true;
+        }
+    });
+    dropdown
 }
 
 /// The menu of what can be done about one person beyond this game.
 fn draw_player_menu(
     ctx: &egui::Context,
     player: &AlliancePlayerView,
+    user_id: u32,
     anchor: Rect,
     outcome: &mut AlliancesOutcome,
 ) {
     let menu = widgets::popup_menu(
         ctx,
-        Id::new(("sb_alliances_player_menu", player.user_id)),
+        Id::new(("sb_alliances_player_menu", user_id)),
         anchor,
         MenuSide::Below,
         Align::Max,
@@ -754,43 +803,104 @@ fn draw_player_menu(
                 .show(ui)
                 .clicked()
             {
-                return Some(AlliancesAction::SetBlocked {
-                    user_id: player.user_id,
+                return Some(PlayerMenuChoice::Act(AlliancesAction::SetBlocked {
+                    user_id,
                     blocked: !player.blocked,
-                });
+                }));
             }
-            let (report_label, report_tone) = match player.report_requested {
-                true => (
-                    tr!("alliances.reportRequested", "Reporting after the game"),
+            // A report already on its way, or received, is not filed twice.
+            let (report_label, report_tone, can_report) = match player.report {
+                ReportState::Sending => (
+                    tr!("alliances.reportSending", "Sending report…"),
                     MenuTone::Dim,
+                    false,
                 ),
-                false => (tr!("alliances.report", "Report player"), MenuTone::Danger),
+                ReportState::Sent => (
+                    tr!("alliances.reportSent", "Reported"),
+                    MenuTone::Dim,
+                    false,
+                ),
+                ReportState::None | ReportState::Failed => (
+                    tr!("alliances.report", "Report player"),
+                    MenuTone::Danger,
+                    true,
+                ),
             };
-            if MenuRow::new(&report_label)
+            let clicked = MenuRow::new(&report_label)
                 .tone(report_tone)
                 .glyph(Glyph::Flag)
                 .show(ui)
-                .clicked()
-            {
-                return Some(AlliancesAction::Report {
-                    user_id: player.user_id,
-                });
-            }
-            widgets::menu_separator(ui);
-            if MenuRow::new(&tr!("alliances.viewProfile", "View ShieldBattery profile"))
-                .glyph(Glyph::Person)
-                .show(ui)
-                .clicked()
-            {
-                return Some(AlliancesAction::ViewProfile {
-                    user_id: player.user_id,
-                });
-            }
-            None
+                .clicked();
+            (clicked && can_report).then_some(PlayerMenuChoice::Report)
         },
     );
-    if let Some(action) = menu.inner {
-        outcome.actions.push(action);
+    outcome.menu_rect = Some(menu.rect);
+    match menu.inner {
+        Some(PlayerMenuChoice::Act(action)) => {
+            outcome.actions.push(action);
+            outcome.menu = Some(None);
+        }
+        Some(PlayerMenuChoice::Report) => {
+            outcome.menu = Some(Some(AlliancesMenu::Report { user_id }));
+        }
+        None if menu.clicked_outside && outcome.menu.is_none() => outcome.menu = Some(None),
+        None => {}
+    }
+}
+
+/// What the player chose from a person's menu.
+enum PlayerMenuChoice {
+    Act(AlliancesAction),
+    /// The report entry, which leads on to why.
+    Report,
+}
+
+/// The menu of why the player is reporting someone, which takes the place of their player menu.
+fn draw_report_menu(
+    ctx: &egui::Context,
+    user_id: u32,
+    anchor: Rect,
+    outcome: &mut AlliancesOutcome,
+) {
+    let menu = widgets::popup_menu(
+        ctx,
+        Id::new(("sb_alliances_report_menu", user_id)),
+        anchor,
+        MenuSide::Below,
+        Align::Max,
+        PLAYER_MENU_WIDTH,
+        |ui| {
+            ui.add_space(theme::SPACE_SM);
+            ui.horizontal(|ui| {
+                ui.add_space(12.0);
+                ui.label(
+                    text::column_label()
+                        .with_color(GREY_BLUE60)
+                        .job(&tr!("alliances.reportFor", "Report for")),
+                );
+            });
+            ui.add_space(theme::SPACE_XS);
+            let mut picked = None;
+            for reason in ReportReason::ALL {
+                let label = reason.label();
+                if ui
+                    .push_id(("sb_report_reason", reason), |ui| {
+                        MenuRow::new(&label).show(ui)
+                    })
+                    .inner
+                    .clicked()
+                {
+                    picked = Some(reason);
+                }
+            }
+            picked
+        },
+    );
+    outcome.menu_rect = Some(menu.rect);
+    if let Some(reason) = menu.inner {
+        outcome
+            .actions
+            .push(AlliancesAction::Report { user_id, reason });
         outcome.menu = Some(None);
     } else if menu.clicked_outside && outcome.menu.is_none() {
         outcome.menu = Some(None);
@@ -843,6 +953,7 @@ fn draw_chat_menu(
             picked
         },
     );
+    outcome.menu_rect = Some(menu.rect);
     if let Some(choice) = menu.inner {
         outcome.actions.push(AlliancesAction::SetChatTarget(choice));
         outcome.menu = Some(None);
@@ -863,7 +974,7 @@ mod tests {
 
     fn player(user_id: u32, name: &str) -> AlliancePlayerView {
         AlliancePlayerView {
-            user_id,
+            user_id: Some(user_id),
             name: name.to_string(),
             color: theme::player_color(user_id as usize),
             race: RaceView::Zerg,
@@ -875,7 +986,15 @@ mod tests {
             note: None,
             muted: false,
             blocked: false,
-            report_requested: false,
+            report: ReportState::None,
+        }
+    }
+
+    fn computer(name: &str) -> AlliancePlayerView {
+        AlliancePlayerView {
+            user_id: None,
+            alliance: None,
+            ..player(0, name)
         }
     }
 
@@ -894,18 +1013,24 @@ mod tests {
         }
     }
 
-    /// Renders one pass and returns the dialog's width.
-    fn render_width(ctx: &egui::Context, view: &AlliancesView, menu: Option<AlliancesMenu>) -> f32 {
+    /// Runs one pass of the screen and returns its outcome and on-screen width.
+    fn render(
+        ctx: &egui::Context,
+        view: &AlliancesView,
+        menu: Option<AlliancesMenu>,
+    ) -> (AlliancesOutcome, f32) {
         let raw = egui::RawInput {
             screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), vec2(1920.0, 1080.0))),
             ..Default::default()
         };
         ctx.begin_pass(raw);
-        let width = render_alliances_view(view, ctx, menu).response.rect.width();
+        let dialog = render_alliances_view(view, ctx, menu);
+        let width = dialog.response.rect.width();
         let mut out = ctx.end_pass();
         let _ = ctx.tessellate(out.shapes, ctx.pixels_per_point());
+        // Layout checks have no GPU texture store to update.
         out.textures_delta.clear();
-        width
+        (dialog.inner, width)
     }
 
     fn settled_width(
@@ -915,7 +1040,7 @@ mod tests {
     ) -> f32 {
         let mut width = 0.0;
         for _ in 0..4 {
-            width = render_width(ctx, view, menu);
+            width = render(ctx, view, menu).1;
         }
         width
     }
@@ -929,17 +1054,17 @@ mod tests {
         let mut long = player(2, &"an-extremely-long-player-name".repeat(4));
         long.muted = true;
         long.blocked = true;
+        long.report = ReportState::Failed;
         long.note = Some(PlayerNote::Left);
-        let busy = view(vec![player(1, "a"), long]);
+        let busy = view(vec![player(1, "a"), long, computer("Computer")]);
         assert_eq!(settled_width(&ctx, &busy, None), baseline);
-        assert_eq!(
-            settled_width(&ctx, &busy, Some(AlliancesMenu::Player { user_id: 2 })),
-            baseline
-        );
-        assert_eq!(
-            settled_width(&ctx, &busy, Some(AlliancesMenu::ChatTarget)),
-            baseline
-        );
+        for menu in [
+            AlliancesMenu::Player { user_id: 2 },
+            AlliancesMenu::Report { user_id: 2 },
+            AlliancesMenu::ChatTarget,
+        ] {
+            assert_eq!(settled_width(&ctx, &busy, Some(menu)), baseline);
+        }
     }
 
     /// A menu left open for someone the screen no longer lists closes rather than hanging off
@@ -947,20 +1072,12 @@ mod tests {
     #[test]
     fn a_menu_for_someone_no_longer_listed_closes() {
         let ctx = fresh_ctx();
-        let raw = egui::RawInput {
-            screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), vec2(1920.0, 1080.0))),
-            ..Default::default()
-        };
-        ctx.begin_pass(raw);
-        let outcome = render_alliances_view(
-            &view(vec![player(1, "a")]),
-            &ctx,
-            Some(AlliancesMenu::Player { user_id: 9 }),
-        )
-        .inner;
-        let mut out = ctx.end_pass();
-        let _ = ctx.tessellate(out.shapes, ctx.pixels_per_point());
-        out.textures_delta.clear();
-        assert_eq!(outcome.menu, Some(None));
+        for menu in [
+            AlliancesMenu::Player { user_id: 9 },
+            AlliancesMenu::Report { user_id: 9 },
+        ] {
+            let (outcome, _) = render(&ctx, &view(vec![player(1, "a")]), Some(menu));
+            assert_eq!(outcome.menu, Some(None));
+        }
     }
 }

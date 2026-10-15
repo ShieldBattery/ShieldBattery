@@ -22,16 +22,17 @@ pub use charts::{
     sparkline_to,
 };
 pub use controls::{
-    ScrubTrack, TrackMarker, scrub_track, scrub_track_marked, segmented, segmented_sized,
-    segmented_width, slider, slider_sized, stepper, switch, tab_strip, tab_strip_width,
+    SWITCH_SIZE, ScrubTrack, TrackMarker, scrub_track, scrub_track_marked, segmented,
+    segmented_sized, segmented_width, slider, slider_sized, stepper, switch, tab_strip,
+    tab_strip_width,
 };
 pub use icons::{
     IconSizes, ResourceGlyph, ResourceIcons, ResourceRace, paint_resource_glyph,
     paint_resource_icon, set_resource_icons,
 };
 pub use menus::{
-    Glyph, IconButtonState, MenuResponse, MenuRow, MenuSide, MenuTone, dropdown_button,
-    icon_button, menu_separator, paint_glyph, popup_menu,
+    Glyph, ICON_BUTTON_SIZE, IconButtonState, MenuResponse, MenuRow, MenuSide, MenuTone,
+    dropdown_button, icon_button, menu_separator, paint_glyph, popup_menu,
 };
 pub use panels::{
     PANEL_HEADER_HEIGHT, STATUS_DOT_DIAMETER, TagStyle, centered_paragraph, divider, panel_header,

@@ -3,6 +3,7 @@ import http from 'http'
 import { AddressInfo } from 'net'
 import { container } from 'tsyringe'
 import { WebSocket, WebSocketServer } from 'ws'
+import { IN_GAME_REPORT_REASONS } from '../../common/ipc'
 import { ALL_MINIMAP_COLOR_MODES, LocalSettings } from '../../common/settings/local-settings'
 import { makeSbUserId } from '../../common/users/sb-user-id'
 import log from '../logger'
@@ -127,21 +128,22 @@ export class GameServer {
         break
       case '/game/reportPlayer':
         {
-          const { userId } = payload
-          if (Number.isSafeInteger(userId) && userId > 0) {
-            this.activeGameManager.handleReportPlayer(gameId, makeSbUserId(userId))
+          const { userId, reason, gameSeconds } = payload
+          // Validate before acting: the report is filed with the server as the logged-in user.
+          if (
+            Number.isSafeInteger(userId) &&
+            userId > 0 &&
+            IN_GAME_REPORT_REASONS.includes(reason) &&
+            Number.isSafeInteger(gameSeconds) &&
+            gameSeconds >= 0
+          ) {
+            this.activeGameManager.handleReportPlayer(gameId, {
+              userId: makeSbUserId(userId),
+              reason,
+              gameSeconds,
+            })
           } else {
             log.error(`Invalid reportPlayer payload from game ${gameId}`)
-          }
-        }
-        break
-      case '/game/viewProfile':
-        {
-          const { userId } = payload
-          if (Number.isSafeInteger(userId) && userId > 0) {
-            this.activeGameManager.handleViewProfile(gameId, makeSbUserId(userId))
-          } else {
-            log.error(`Invalid viewProfile payload from game ${gameId}`)
           }
         }
         break

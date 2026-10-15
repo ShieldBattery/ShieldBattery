@@ -2286,6 +2286,9 @@ fn draw_modal(
             };
             let dialog = render_alliances_view(view, ctx, shell.alliances_menu);
             hit_rects.push(HitRect::new(dialog.response.rect));
+            if let Some(menu) = dialog.inner.menu_rect {
+                hit_rects.push(HitRect::new(menu));
+            }
             // A click outside the screen while one of its menus is open closes the menu alone.
             let scrim_dismisses = shell.alliances_menu.is_none() && dialog.scrim_clicked;
             ModalOutcome {
@@ -2635,6 +2638,58 @@ mod tests {
             shell.pending_intents(),
             [Intent::CloseNativeDialog(NativeDialog::GameMenu)]
         );
+    }
+
+    /// A menu on the alliances screen can hang past the dialog's edge, and a host only hands the
+    /// overlay the clicks inside the rects a frame reports: the menu has to be one of them, or its
+    /// rows past the edge light up under the pointer and never take a click.
+    #[test]
+    fn an_open_alliances_menu_takes_the_pointer_beyond_the_dialog() {
+        use crate::alliances::{AlliancesView, ChatTargetChoice, ChatTargetOption};
+
+        let mut shell = Shell::new();
+        let host = HostFrame {
+            mode: Mode::Playing,
+            game_started: true,
+            ..HostFrame::default()
+        };
+        shell.set_host(&host);
+        shell.open_modal(ModalId::Alliances);
+        let view = AlliancesView {
+            players: Vec::new(),
+            alliances_open: true,
+            allied_victory: false,
+            chat_target: ChatTargetChoice::All,
+            chat_targets: vec![ChatTargetOption {
+                choice: ChatTargetChoice::All,
+                recipient: None,
+                color: None,
+                muted: false,
+            }],
+        };
+        let ctx = egui::Context::default();
+        crate::install_fonts_and_style(&ctx, &crate::DynamicFonts::default());
+        let run = |shell: &mut Shell| {
+            let mut views = Views {
+                alliances: Some(&view),
+                ..Views::default()
+            };
+            let raw = egui::RawInput {
+                screen_rect: Some(Rect::from_min_size(
+                    egui::pos2(0.0, 0.0),
+                    egui::vec2(1920.0, 1080.0),
+                )),
+                ..Default::default()
+            };
+            ctx.begin_pass(raw);
+            let output = shell.frame(&ctx, &host, &mut views);
+            // A layout check has no GPU texture store to hand the atlas to.
+            ctx.end_pass().textures_delta.clear();
+            output.hit_rects.len()
+        };
+        assert_eq!(run(&mut shell), 1);
+        shell.set_alliances_menu(Some(AlliancesMenu::ChatTarget));
+        assert_eq!(run(&mut shell), 2);
     }
 
     /// A host that keeps handing over the same settings must not take back a change the player has

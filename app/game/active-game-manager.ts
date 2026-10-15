@@ -26,7 +26,7 @@ import {
 } from '../../common/games/game-status'
 import { NetcodeV2ServerSetup, NetcodeV2Setup } from '../../common/games/netcode-v2'
 import { GameClientPlayerResult } from '../../common/games/results'
-import { GameBlockRequestFailure } from '../../common/ipc'
+import { GameBlockRequestFailure, InGameReportRequest, InGameReportResult } from '../../common/ipc'
 import { SlotType } from '../../common/lobbies/slot'
 import { DEFAULT_LOCAL_SETTINGS } from '../../common/settings/default-settings'
 import { LocalSettings } from '../../common/settings/local-settings'
@@ -151,8 +151,7 @@ export type ActiveGameManagerEvents = {
   replaySaved: [gameId: string, path: string]
   resendReplay: [request: ResendReplayRequest]
   setUserBlocked: [gameId: string, userId: SbUserId, blocked: boolean]
-  reportPlayer: [gameId: string, userId: SbUserId]
-  viewProfile: [gameId: string, userId: SbUserId]
+  reportPlayer: [gameId: string, request: InGameReportRequest]
 }
 
 @singleton()
@@ -910,20 +909,20 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     this.emit('setUserBlocked', gameId, userId, blocked)
   }
 
-  handleReportPlayer(gameId: string, userId: SbUserId) {
+  handleReportPlayer(gameId: string, request: InGameReportRequest) {
     if (!this.gameFor(gameId)) {
       return
     }
 
-    this.emit('reportPlayer', gameId, userId)
+    this.emit('reportPlayer', gameId, request)
   }
 
-  handleViewProfile(gameId: string, userId: SbUserId) {
+  reportResult(gameId: string, result: InGameReportResult) {
     if (!this.gameFor(gameId)) {
       return
     }
 
-    this.emit('viewProfile', gameId, userId)
+    this.emit('gameCommand', gameId, 'reportResult', result)
   }
 
   blockRequestFailed(gameId: string, failure: GameBlockRequestFailure) {

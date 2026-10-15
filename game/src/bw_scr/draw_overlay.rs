@@ -695,8 +695,13 @@ impl OverlayState {
             .open_modals()
             .any(|modal| modal == ModalId::Alliances)
             .then(|| {
-                self.alliances
-                    .build_view(bw, bw.alliance_rules, chat_manager, Instant::now())
+                self.alliances.build_view(
+                    bw,
+                    bw.alliance_rules,
+                    setup_info,
+                    chat_manager,
+                    Instant::now(),
+                )
             });
         let end_card_result = self
             .shell
