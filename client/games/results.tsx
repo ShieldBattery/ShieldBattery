@@ -1,4 +1,5 @@
 import type { TFunction } from 'i18next'
+import { useAtomValue, useSetAtom } from 'jotai'
 import { Transition } from 'motion/react'
 import * as m from 'motion/react-m'
 import prettyBytes from 'pretty-bytes'
@@ -105,6 +106,7 @@ import {
 } from './action-creators'
 import { ChatTranscriptSection } from './chat-transcript-display'
 import { CommendIcon } from './commend-icon'
+import { pendingReportRequestAtom } from './game-atoms'
 import { CommendAvailability, GameFeedbackState, useGameFeedback } from './game-feedback'
 import { SaveReplayMenuContent } from './save-replay-menu'
 
@@ -489,6 +491,21 @@ export function ConnectedGameResultsPage({
       }),
     )
   }
+
+  const pendingReport = useAtomValue(pendingReportRequestAtom)
+  const setPendingReport = useSetAtom(pendingReportRequestAtom)
+  useEffect(() => {
+    // The report dialog can only be used once the feedback window is known to be open, which is
+    // when the game has a result and some player is still reportable.
+    if (pendingReport?.gameId !== gameId || !canReport) {
+      return
+    }
+
+    setPendingReport(undefined)
+    openReportDialog(
+      feedback.candidates.includes(pendingReport.userId) ? pendingReport.userId : undefined,
+    )
+  })
 
   let content: React.ReactNode
   switch (subPage) {

@@ -462,6 +462,13 @@ interface IpcMainSendables {
    * `activeGameBlockRequestFailed`.
    */
   activeGameSetUserBlocked: (gameId: string, userId: SbUserId, blocked: boolean) => void
+  /**
+   * The local user asked, from in-game, to report a player. Reports are only accepted once the game
+   * has a result, so the renderer holds the request until the game's results are shown.
+   */
+  activeGameReportPlayer: (gameId: string, userId: SbUserId) => void
+  /** The local user asked, from in-game, to see a player's profile. */
+  activeGameViewProfile: (gameId: string, userId: SbUserId) => void
   activeGameStatus: (status: ReportedGameStatus) => void
 
   /** Sent after each region latency sweep completes, with the full region -> latency table. */

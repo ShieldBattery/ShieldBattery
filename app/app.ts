@@ -174,7 +174,7 @@ let twitchOauthFlowActive = false
 // Settles the in-flight Twitch OAuth flow early (set while one is running).
 let cancelActiveTwitchOauthFlow: (() => void) | undefined
 
-export function notifyNewInstance(data: NewInstanceNotification) {
+function showAndFocusMainWindow() {
   if (mainWindow) {
     if (!mainWindow.isVisible()) {
       mainWindow.show()
@@ -185,6 +185,10 @@ export function notifyNewInstance(data: NewInstanceNotification) {
       mainWindow.focus()
     }
   }
+}
+
+export function notifyNewInstance(data: NewInstanceNotification) {
+  showAndFocusMainWindow()
 
   if (data.args.length > 1) {
     handleLaunchArgs(data.args.slice(1))
@@ -834,6 +838,13 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
         userId,
         blocked,
       )
+    })
+    .on('reportPlayer', (gameId, userId) => {
+      TypedIpcSender.from(mainWindow?.webContents).send('activeGameReportPlayer', gameId, userId)
+    })
+    .on('viewProfile', (gameId, userId) => {
+      showAndFocusMainWindow()
+      TypedIpcSender.from(mainWindow?.webContents).send('activeGameViewProfile', gameId, userId)
     })
 
   app.on('will-quit', () => activeGameManager.quitWatchOnlyGamesOnAppExit())

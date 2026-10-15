@@ -151,6 +151,8 @@ export type ActiveGameManagerEvents = {
   replaySaved: [gameId: string, path: string]
   resendReplay: [request: ResendReplayRequest]
   setUserBlocked: [gameId: string, userId: SbUserId, blocked: boolean]
+  reportPlayer: [gameId: string, userId: SbUserId]
+  viewProfile: [gameId: string, userId: SbUserId]
 }
 
 @singleton()
@@ -906,6 +908,22 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     }
 
     this.emit('setUserBlocked', gameId, userId, blocked)
+  }
+
+  handleReportPlayer(gameId: string, userId: SbUserId) {
+    if (!this.gameFor(gameId)) {
+      return
+    }
+
+    this.emit('reportPlayer', gameId, userId)
+  }
+
+  handleViewProfile(gameId: string, userId: SbUserId) {
+    if (!this.gameFor(gameId)) {
+      return
+    }
+
+    this.emit('viewProfile', gameId, userId)
   }
 
   blockRequestFailed(gameId: string, failure: GameBlockRequestFailure) {

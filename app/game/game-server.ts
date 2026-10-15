@@ -125,6 +125,26 @@ export class GameServer {
           }
         }
         break
+      case '/game/reportPlayer':
+        {
+          const { userId } = payload
+          if (Number.isSafeInteger(userId) && userId > 0) {
+            this.activeGameManager.handleReportPlayer(gameId, makeSbUserId(userId))
+          } else {
+            log.error(`Invalid reportPlayer payload from game ${gameId}`)
+          }
+        }
+        break
+      case '/game/viewProfile':
+        {
+          const { userId } = payload
+          if (Number.isSafeInteger(userId) && userId > 0) {
+            this.activeGameManager.handleViewProfile(gameId, makeSbUserId(userId))
+          } else {
+            log.error(`Invalid viewProfile payload from game ${gameId}`)
+          }
+        }
+        break
       case '/game/replayUploaded':
         this.activeGameManager.handleReplayUploaded(gameId)
         break
