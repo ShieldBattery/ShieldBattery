@@ -228,14 +228,10 @@ export default function MapDetails({ mapId, onCancel }: MapDetailsProps) {
     dispatch(batchGetMapInfo(mapId))
   }, [dispatch, mapId])
 
-  let canEdit = false
-  if (map) {
-    if (map.visibility === MapVisibility.Official || map.visibility === MapVisibility.Public) {
-      canEdit = auth.self?.permissions.manageMaps ?? false
-    } else if (map.visibility === MapVisibility.Unlisted) {
-      canEdit = map.uploadedBy === auth.self?.user.id
-    }
-  }
+  // Unlisted maps always show their file's own name and description, so only listed maps can be
+  // edited
+  const canEdit =
+    !!map && map.visibility !== MapVisibility.Unlisted && !!auth.self?.permissions.manageMaps
 
   function renderContents() {
     if (!map) {

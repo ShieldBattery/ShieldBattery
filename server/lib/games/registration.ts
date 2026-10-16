@@ -10,7 +10,7 @@ import { genResultCode } from './gen-result-code'
 /**
  * Registers a game in the database so that results can be collected for it.
  *
- * @param mapId the ID of the map being played on, as stored in the `uploaded_maps` table
+ * @param mapId the ID of the map being played on, as stored in the `maps` table
  * @param gameSource a string representing the source of the game, e.g. Matchmaking
  * @param gameSourceExtra extra information about the source of the game, such as the matchmaking
  *   type

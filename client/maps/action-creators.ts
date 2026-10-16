@@ -201,11 +201,32 @@ export function removeFromFavorites(mapId: SbMapId, spec: RequestHandlingSpec<vo
   })
 }
 
-export function removeMap(mapId: SbMapId, spec: RequestHandlingSpec<void>): ThunkAction {
+/** Removes a map from the current user's own maps. The map itself stays available to others. */
+export function removeFromMyMaps(mapId: SbMapId, spec: RequestHandlingSpec<void>): ThunkAction {
   return abortableThunk(spec, async dispatch => {
-    return fetchJson<void>(apiUrl`maps/${mapId}`, {
+    await fetchJson<void>(apiUrl`maps/${mapId}`, {
       method: 'DELETE',
       signal: spec.signal,
+    })
+
+    dispatch({
+      type: '@maps/removeFromMyMaps',
+      payload: mapId,
+    })
+  })
+}
+
+/** Takes a listed map out of the map listings. It stays reachable by its ID. */
+export function delistMap(mapId: SbMapId, spec: RequestHandlingSpec<void>): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    await fetchJson<void>(apiUrl`maps/${mapId}/delist`, {
+      method: 'POST',
+      signal: spec.signal,
+    })
+
+    dispatch({
+      type: '@maps/delistMap',
+      payload: mapId,
     })
   })
 }
