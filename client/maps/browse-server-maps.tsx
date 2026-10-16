@@ -57,6 +57,15 @@ const windowCache = createViewStateStore<ServerMapsWindow>('server-maps', {
   maxAgeMs: WINDOW_MAX_AGE_MS,
 })
 
+/**
+ * Drops every remembered browser window. Call when the user's maps change outside the browser
+ * (e.g. an upload from the lobby's map picker), since a window fetched before the change would be
+ * restored without it the next time the browser mounts in that history entry.
+ */
+export function forgetServerMapsWindows() {
+  windowCache.clear()
+}
+
 const Container = styled.div`
   display: flex;
   flex-direction: column;
