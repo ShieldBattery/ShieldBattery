@@ -774,8 +774,7 @@ mod tests {
         }
     }
 
-    /// What [`full_settings`] says, row by row.
-    /// Every change the screen can make, each to something other than its default.
+    /// Every change the screen can make but the monitor's, each to something other than its default.
     fn every_change() -> Vec<SettingChange> {
         vec![
             SettingChange::MouseSensitivityOn(true),
@@ -836,6 +835,21 @@ mod tests {
             SettingChange::RollbackTarget(4),
             SettingChange::TurnRate24DelayOn(true),
         ]
+    }
+
+    /// A setting added to the screen and left out of [`every_change`] would never be checked for
+    /// reading back. The monitor is the one the app saves by a display id only it knows.
+    #[test]
+    fn every_change_covers_every_setting() {
+        let covered: Vec<_> = every_change().iter().map(std::mem::discriminant).collect();
+        for change in SettingChange::one_per_setting() {
+            if !matches!(change, SettingChange::Monitor(_)) {
+                assert!(
+                    covered.contains(&std::mem::discriminant(&change)),
+                    "{change:?} is missing from every_change"
+                );
+            }
+        }
     }
 
     #[test]
