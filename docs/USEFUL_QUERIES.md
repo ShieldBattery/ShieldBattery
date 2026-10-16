@@ -328,7 +328,7 @@ FROM (
   SELECT unnest(map_selections) AS map_id, map_pool_id
   FROM matchmaking_preferences
 ) mp
-INNER JOIN uploaded_maps um ON um.id = mp.map_id
+INNER JOIN maps m ON m.id = mp.map_id
 INNER JOIN mmp ON mmp.current_map_pool = mp.map_pool_id
 GROUP BY name, matchmaking_type
 ORDER BY matchmaking_type, vetoes DESC;
@@ -421,7 +421,7 @@ stats AS (
     COUNT(g.id) FILTER (WHERE g.results @> '[[{"race":"z", "result":"win"}],[{"race":"t", "result":"loss"}]]') AS zvt_wins,
     COUNT(g.id) FILTER (WHERE g.results @> '[[{"race":"z", "result":"loss"}],[{"race":"t", "result":"win"}]]') AS zvt_losses
   FROM games g
-  INNER JOIN uploaded_maps m ON g.map_id = m.id
+  INNER JOIN maps m ON g.map_id = m.id
   INNER JOIN lg ON g.id = game_id
   GROUP BY m.name
 )

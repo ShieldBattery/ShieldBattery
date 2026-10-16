@@ -9,7 +9,7 @@ import {
 } from '../../../common/matchmaking'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpPost } from '../http/route-decorators'
-import { getMapInfos } from '../maps/map-models'
+import { getMapInfos, resolveMapIdSets } from '../maps/map-models'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import { validateRequest } from '../validation/joi-validator'
 import { filterMapSelections } from './map-selections'
@@ -62,7 +62,7 @@ export class MatchmakingPreferencesApi {
       race: body.race,
       mapPoolId: currentMapPool.id,
       mapSelections: body.mapSelections
-        ? filterMapSelections(currentMapPool, body.mapSelections)
+        ? filterMapSelections(currentMapPool, (await resolveMapIdSets([body.mapSelections]))[0])
         : undefined,
       data: body.data,
     })
