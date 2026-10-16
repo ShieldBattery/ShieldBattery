@@ -3,6 +3,7 @@ import { PlayerInfo } from '../games/game-launch-config'
 import { GameType, gameTypeAllowsAllianceChanges, isTeamType } from '../games/game-type'
 import { MapInfo } from '../maps'
 import { RaceChar } from '../races'
+import { ReplaySessionSourceInfo } from '../replay-sessions'
 import { SbUserId } from '../users/sb-user-id'
 import { LobbyVisibility } from './lobby-visibility'
 import { SbLobbyId } from './sb-lobby-id'
@@ -19,6 +20,23 @@ export const NUM_RECENT_MAPS = 5
 
 /** The most maps a lobby can have queued up for the games after its current one. */
 export const MAX_MAP_QUEUE = 10
+
+/** The most people who can watch a replay lobby's replay together. */
+export const MAX_REPLAY_VIEWERS = 8
+
+/**
+ * The replay a replay lobby watches together, in place of a map to play. Every viewer plays the
+ * same bytes locally, verified against `hash`.
+ */
+export interface LobbyReplay {
+  readonly source: ReplaySessionSourceInfo
+  readonly hash: string
+}
+
+/** One map or replay scheduled after the lobby's current game or replay. */
+export type LobbyQueuedSource =
+  | { readonly kind: 'map'; readonly map: MapInfo }
+  | { readonly kind: 'replay'; readonly replay: LobbyReplay }
 
 /**
  * States that a lobby can be in. These are the possible return values of `getLobbyState`.
@@ -69,13 +87,21 @@ export interface Team {
 export interface Lobby {
   readonly id: SbLobbyId
   readonly name: string
+  /** The map a game lobby plays. Absent in a replay lobby, which has a `replay` instead. */
   readonly map?: MapInfo
+  /**
+   * The replay a replay lobby watches. A replay lobby seats everyone as a viewer in a single team,
+   * and none of the game settings (game type, races, computers, observers) apply to it.
+   */
+  readonly replay?: LobbyReplay
   /**
    * Maps the host has lined up for the lobby's next games, in the order they'll be played. Each time
    * a game ends and the lobby regroups, the first of these that fits the lobby's settings becomes
    * its map.
    */
   readonly mapQueue: ReadonlyArray<MapInfo>
+  /** Maps and replays in their actual playback order. */
+  readonly sourceQueue?: ReadonlyArray<LobbyQueuedSource>
   readonly gameType: GameType
   readonly gameSubType: number
   /** All lobbies have at least one team (even Melee and FFA). */
@@ -98,6 +124,11 @@ export interface Lobby {
   readonly visibility: LobbyVisibility
   /** When the lobby was created (Unix millis). */
   readonly createdAt: number
+}
+
+/** Whether a lobby watches a replay together rather than playing a game. */
+export function isReplayLobby(lobby: Readonly<{ replay?: LobbyReplay }>): boolean {
+  return lobby.replay !== undefined
 }
 
 /**

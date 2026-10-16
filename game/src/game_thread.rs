@@ -113,6 +113,27 @@ pub enum GameThreadMessage {
     Results(GameThreadResults),
     NetworkStall(Duration),
     ReplaySaved(PathBuf),
+    /// A replay session replay is holding playback at its start, ready to play.
+    ReplaySessionReady,
+    /// The controller changed pause or speed using the native replay UI.
+    ReplaySessionSpeed {
+        paused: bool,
+        speed: u32,
+        multiplier: u32,
+    },
+    ReplaySessionSeek {
+        frame: u32,
+    },
+    ReplaySessionSeekReached {
+        epoch: u32,
+        frame: u32,
+    },
+    ReplaySessionFrame {
+        frame: u32,
+    },
+    ReplaySessionChat {
+        text: String,
+    },
     /// The local user blocked or unblocked a player with an in-game chat command; the app saves it.
     SetUserBlocked {
         user_id: SbUserId,

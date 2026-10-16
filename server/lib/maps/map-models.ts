@@ -378,6 +378,50 @@ export async function getMapInfos(mapIds: SbMapId[]): Promise<MapInfo[]> {
   }
 }
 
+/** Finds library maps that might contain the scenario embedded in a replay. */
+export async function getReplayMapCandidates({
+  name,
+  width,
+  height,
+  userId,
+}: {
+  name: string
+  width: number
+  height: number
+  userId: SbUserId
+}): Promise<Array<{ id: SbMapId; hash: string; extension: MapExtension }>> {
+  const words = name.trim().split(/\s+/)
+  const prefix = words.length > 1 ? words.slice(0, 2).join(' ') : name
+  const namePattern = `${prefix.replace(/[_%\\]/g, '\\$&')}%`
+  const query = sql`
+    WITH candidates AS (
+      SELECT DISTINCT ON (m.hash) um.id, m.hash, m.extension, m.title, um.upload_date
+      FROM maps AS m
+      INNER JOIN uploaded_maps AS um ON um.map_hash = m.hash
+      WHERE m.title ILIKE ${namePattern}
+        AND m.width = ${width}
+        AND m.height = ${height}
+        AND um.removed_at IS NULL
+        AND (um.visibility != ${MapVisibility.Unlisted} OR um.uploaded_by = ${userId})
+      ORDER BY m.hash, um.upload_date DESC
+    )
+    SELECT id, hash, extension FROM candidates
+    ORDER BY (title = ${name}) DESC, upload_date DESC
+    LIMIT 24
+  `
+  const { client, done } = await db()
+  try {
+    const result = await client.query<{ id: SbMapId; hash: Buffer; extension: MapExtension }>(query)
+    return result.rows.map(row => ({
+      id: row.id,
+      hash: row.hash.toString('hex'),
+      extension: row.extension,
+    }))
+  } finally {
+    done()
+  }
+}
+
 function getWhereCondition(
   conditions: SqlTemplate[],
   numPlayers: NumPlayers[],

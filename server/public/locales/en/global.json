@@ -1757,6 +1757,7 @@
       "defaultLobbyName": "{{name}}'s lobby",
       "defaultLobbyNameFallback": "My lobby",
       "defaultLobbyNameFromMap": "{{mapName}} {{gameType}}",
+      "defaultLobbyNameFromReplay": "{{mapName}} replay",
       "summaryObserversOff": "No observers",
       "summaryObserversOn": "Observers on",
       "summarySlots_one": "{{count}} slots",
@@ -1846,7 +1847,8 @@
     },
     "mapQueue": {
       "addMap": "Add map",
-      "empty": "Queue maps to play after this one. The lobby moves on to the next one whenever a game ends.",
+      "addReplay": "Add replay",
+      "empty": "Add maps or replays for after this one. The lobby moves on whenever a game or replay ends.",
       "header": "Up next",
       "moveDown": "Move down",
       "moveUp": "Move up",
@@ -1861,8 +1863,35 @@
       "settingsChangeMapQueue": "map queue",
       "settingsChangeName": "lobby name",
       "settingsChangeObservers": "observers",
+      "settingsChangeReplay": "replay",
+      "settingsChangeSourceQueue": "Up Next queue",
       "settingsChangeUnitLimit": "unit limit",
       "settingsChangeVisibility": "visibility"
+    },
+    "replayLobby": {
+      "changeFailed": "Could not choose replay",
+      "changeFailedBody": "The lobby could not switch to this replay.",
+      "changeMapFailedBody": "The lobby could not switch to this map.",
+      "changeReplay": "Change replay",
+      "chooseMap": "Choose Map",
+      "downloadFailed": "Replay download failed",
+      "downloading": "Downloading replay: {{percent}}%",
+      "downloadReady": "Replay ready to watch",
+      "duration": "{{duration}} replay",
+      "invalidReplayBody": "The selected file may be corrupt, or not be a StarCraft replay.",
+      "invalidReplayTitle": "Couldn't read that replay",
+      "loadFailed": "The lobby's replay couldn't be loaded.",
+      "loading": "Loading replay for everyone",
+      "replay": "Replay",
+      "replaySetup": "Replay setup",
+      "selectReplay": "Select replay",
+      "startWatching": "Start watching",
+      "summaryReplay": "Replay",
+      "versus": "vs",
+      "viewersCount_one": "Viewers · {{count}}",
+      "viewersCount_other": "Viewers · {{count}}",
+      "watching": "Watching replay",
+      "watchingTogetherHeader": "Watching together"
     },
     "room": {
       "banner": {
@@ -1895,6 +1924,7 @@
         "mapQueueSkippedUnfit_other": "Skipped {{maps}}, which don't fit the lobby's settings",
         "memberBack": "<0></0> is back in the lobby",
         "readyReset": "ready reset",
+        "replayQueueAdvanced": "Next replay from the queue: <2>{{map}}</2>",
         "seatedOn": "seated on {{seat}}",
         "selfJoinLobby": "You joined <2>{{lobby}}</2>. The host is <4></4>.",
         "settingsChanged": "<0></0> changed the {{settings}}",
@@ -2552,7 +2582,8 @@
       "unavailableBody": "Your replays couldn't be loaded right now. Restarting ShieldBattery usually fixes this.",
       "unreadableReplays": "Unreadable replays",
       "viewGamePage": "View game page",
-      "watchReplay": "Watch replay"
+      "watchReplay": "Watch replay",
+      "watchWithOthers": "Watch Together"
     },
     "loading": {
       "dialogTitle": "Loading replay…",

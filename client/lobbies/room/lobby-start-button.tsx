@@ -92,11 +92,13 @@ export function LobbyStartButton({
   disabled,
   onStartGame,
   onForceStart,
+  isReplay = false,
 }: {
   allReady: boolean
   disabled: boolean
   onStartGame: () => void
   onForceStart: () => void
+  isReplay?: boolean
 }) {
   const { t } = useTranslation()
   const hintId = useId()
@@ -108,13 +110,19 @@ export function LobbyStartButton({
     onForceStart,
   })
   const ready = allReady && !disabled
-  const label =
-    !disabled && !allReady && (isHolding || showHoldHint)
-      ? t('lobbies.room.rail.holdToStartAnyway', 'Hold to start anyway')
-      : t('lobbies.room.rail.startGame', 'Start game')
+  let label: string
+  if (isReplay) {
+    label = t('lobbies.replayLobby.startWatching', 'Start watching')
+  } else if (!disabled && !allReady && (isHolding || showHoldHint)) {
+    label = t('lobbies.room.rail.holdToStartAnyway', 'Hold to start anyway')
+  } else {
+    label = t('lobbies.room.rail.startGame', 'Start game')
+  }
 
   let hint: string
-  if (disabled) {
+  if (isReplay) {
+    hint = ''
+  } else if (disabled) {
     hint = t('lobbies.room.rail.needsOpposingSides', 'Needs at least two opposing players')
   } else if (ready) {
     hint = t('lobbies.room.rail.everyoneReady', 'Everyone is ready')
@@ -140,7 +148,7 @@ export function LobbyStartButton({
           type='button'
           disabled={disabled}
           $ready={ready}
-          aria-describedby={hintId}
+          aria-describedby={isReplay ? undefined : hintId}
           data-testid='start-game-button'
           animate={{ scale: isHolding && !reducedMotion ? 0.985 : 1 }}
           transition={{ duration: 0.15 }}>
@@ -168,18 +176,20 @@ export function LobbyStartButton({
           </AnimatePresence>
         </StartButton>
       </ButtonFrame>
-      <Hint
-        id={hintId}
-        aria-live='polite'
-        animate={{
-          color:
-            isHolding || showHoldHint
-              ? 'var(--theme-on-surface)'
-              : 'var(--theme-on-surface-variant)',
-        }}
-        transition={{ duration: 0.15 }}>
-        {hint}
-      </Hint>
+      {!isReplay && (
+        <Hint
+          id={hintId}
+          aria-live='polite'
+          animate={{
+            color:
+              isHolding || showHoldHint
+                ? 'var(--theme-on-surface)'
+                : 'var(--theme-on-surface-variant)',
+          }}
+          transition={{ duration: 0.15 }}>
+          {hint}
+        </Hint>
+      )}
     </Root>
   )
 }

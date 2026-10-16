@@ -5,10 +5,11 @@ import { GameType } from '../games/game-type'
 import { ReconciledResult } from '../games/results'
 import { MapImageInfo, MapInfoJson, SbMapId } from '../maps'
 import { RaceChar } from '../races'
+import { ReplaySessionSeek, ReplaySessionSource, ReplaySessionSpeed } from '../replay-sessions'
 import { RolledOutcome, RolledOutcomeRequest } from '../rolled-outcomes'
 import { SbUser } from '../users/sb-user'
 import { SbUserId } from '../users/sb-user-id'
-import { BenchedUser, Lobby, LobbyState, LobbyVisibility } from './index'
+import { BenchedUser, Lobby, LobbyReplay, LobbyState, LobbyVisibility } from './index'
 import { SbLobbyId } from './sb-lobby-id'
 import { SlotJson, SlotType } from './slot'
 
@@ -22,6 +23,7 @@ export enum LobbyJoinErrorCode {
   ObserversFull = 'observersFull',
   Banned = 'banned',
   AlreadyInActivity = 'alreadyInActivity',
+  ReplayNotAccessible = 'replayNotAccessible',
 }
 
 /**
@@ -65,6 +67,13 @@ export enum LobbyServiceErrorCode {
   NotSeated = 'NotSeated',
   NotSlotController = 'NotSlotController',
   ObserversFull = 'ObserversFull',
+  /** The operation only applies to lobbies that play a game, and this one watches a replay. */
+  ReplayLobby = 'ReplayLobby',
+  ReplayHashMismatch = 'ReplayHashMismatch',
+  ReplayNotAccessible = 'ReplayNotAccessible',
+  ReplayNotFound = 'ReplayNotFound',
+  ReplayNotLoading = 'ReplayNotLoading',
+  ReplaySeeking = 'ReplaySeeking',
   TargetNoActiveClient = 'TargetNoActiveClient',
   UserOffline = 'UserOffline',
 }
@@ -95,11 +104,18 @@ export interface LobbyNetworkParams {
   clientPubkey?: string
 }
 
-/** The body of a request to create a new lobby. */
+/**
+ * The body of a request to create a new lobby. A game lobby names a `map` and `gameType`; a replay
+ * lobby instead names the replay it watches, either a ShieldBattery game (`replayGameId`) or a
+ * replay its host staged (`replayUploadId`). Exactly one of `map`, `replayGameId`, and
+ * `replayUploadId` is given.
+ */
 export interface CreateLobbyRequest extends LobbyClientRequest, LobbyNetworkParams {
   name: string
-  map: SbMapId
-  gameType: GameType
+  map?: SbMapId
+  gameType?: GameType
+  replayGameId?: string
+  replayUploadId?: string
   gameSubType?: number
   allowObservers?: boolean
   useLegacyLimits?: boolean
@@ -144,6 +160,11 @@ export interface SendLobbyChatRequest extends LobbyClientRequest {
   emote?: boolean
 }
 
+/** A chat line sent from a replay game's native chat box. */
+export interface SendLobbyReplayChatRequest extends LobbyClientRequest {
+  text: string
+}
+
 /**
  * The body of a request to have the server settle an outcome (a roll, a coin flip, an 8-ball
  * answer) and announce it to the lobby's chat as an action line.
@@ -160,6 +181,27 @@ export interface SetLobbyReadyRequest extends LobbyClientRequest {
 }
 
 /** The body of a request by the host to start the lobby's game. */
+/**
+ * Reports that a replay lobby member has loaded its replay, holding it at the start. `hash` is the
+ * hash of the bytes they loaded, which must be the lobby's replay.
+ */
+export interface ReportLobbyReplayLoadedRequest extends LobbyClientRequest {
+  hash: string
+}
+
+export interface ReportLobbyReplaySpeedRequest extends LobbyClientRequest, ReplaySessionSpeed {}
+
+export interface ReportLobbyReplaySeekRequest extends LobbyClientRequest {
+  frame: number
+}
+
+export interface ReportLobbyReplaySeekReachedRequest
+  extends LobbyClientRequest, ReplaySessionSeek {}
+
+export interface ReportLobbyReplayFrameRequest extends LobbyClientRequest {
+  frame: number
+}
+
 export interface StartLobbyCountdownRequest extends LobbyClientRequest {
   /**
    * When set, the countdown begins even though some of the lobby's seated members have not marked
@@ -278,6 +320,7 @@ export type LobbyEvent =
   | LobbyCancelLoadingEvent
   | LobbyGameStartedEvent
   | LobbyChatEvent
+  | LobbyReplayChatEvent
   | LobbyStatusEvent
   | LobbySettingsChangeEvent
   | LobbyBenchAddEvent
@@ -287,6 +330,9 @@ export type LobbyEvent =
   | LobbyMapQueueAdvanceEvent
   | LobbySeriesGameUpdatedEvent
   | LobbyReadyChangeEvent
+  | LobbyReplayLoadEvent
+  | LobbyReplaySpeedEvent
+  | LobbyReplaySeekEvent
 
 /**
  * A slot as shown to a lobby's previewers: its occupancy and just enough about the occupant to
@@ -335,7 +381,9 @@ export interface LobbyObserverSlotCounts {
 export interface LobbySummaryJson {
   id: SbLobbyId
   name: string
-  map: MapInfoJson
+  /** The map a game lobby plays. Absent for a replay lobby, which has `replay` instead. */
+  map?: MapInfoJson
+  replay?: LobbyReplay
   gameType: GameType
   gameSubType: number
   host: { id: SbUserId }
@@ -422,7 +470,7 @@ export interface LobbySummaryResponse {
     | 'benchCount'
     | 'elapsedMs'
     | 'lockedAlliances'
-  > & { map: LobbySummaryMapJson }
+  > & { map?: LobbySummaryMapJson }
   host: SbUser
   /**
    * The lobby's join code, normalized (undashed, uppercase). Present whenever the lobby still has
@@ -492,6 +540,9 @@ export interface LobbyInitEvent {
   lobby: Lobby
   /** The running game, when the lobby is `inGame` (e.g. for someone joining the bench mid-game). */
   runState?: LobbyRunStateJson
+  /** The latest pause and speed state while a replay lobby is playing. */
+  replaySpeed?: ReplaySessionSpeed
+  replaySeek?: ReplaySessionSeek
   /** An array of infos for all users that were in the lobby at this point. */
   userInfos: SbUser[]
   /** The members who have marked themselves ready for the lobby's next game. */
@@ -555,6 +606,15 @@ export interface LobbyCancelCountdownEvent {
   type: 'cancelCountdown'
 }
 
+/**
+ * A replay lobby's countdown finished: every member should download the replay, check it against
+ * the lobby's hash, and load it, reporting back once it is held at the start. Playback begins for
+ * everyone with the {@link LobbyGameStartedEvent} that follows once every member has loaded.
+ */
+export interface LobbyReplayLoadEvent {
+  type: 'replayLoad'
+}
+
 export interface LobbyCancelLoadingEvent {
   type: 'cancelLoading'
   reason?: 'gameAnomaly'
@@ -564,6 +624,16 @@ export interface LobbyCancelLoadingEvent {
 export interface LobbyGameStartedEvent {
   type: 'gameStarted'
   runState: LobbyRunStateJson
+}
+
+export interface LobbyReplaySpeedEvent {
+  type: 'replaySpeed'
+  speed: ReplaySessionSpeed
+}
+
+export interface LobbyReplaySeekEvent {
+  type: 'replaySeek'
+  seek?: ReplaySessionSeek
 }
 
 /** A member's game ended and they are back in the lobby; the game itself may still be running. */
@@ -582,7 +652,8 @@ export interface LobbyMemberGameEndedEvent {
  */
 export interface LobbyRegroupEvent {
   type: 'regroup'
-  game: LobbySeriesGameJson
+  /** The finished game. Absent when a replay lobby finishes watching, which keeps no series. */
+  game?: LobbySeriesGameJson
 }
 
 /**
@@ -650,6 +721,13 @@ export interface LobbyChatEvent {
   channelMentions: BasicChannelInfo[]
 }
 
+/** Delivered to viewers' replay games without entering the lobby chat transcript. */
+export interface LobbyReplayChatEvent {
+  type: 'replayChat'
+  from: SbUserId
+  text: string
+}
+
 export interface LobbyStatusEvent {
   type: 'status'
 }
@@ -676,6 +754,17 @@ export interface UpdateLobbySettingsRequest {
    * empty list clears the queue.
    */
   mapQueue?: SbMapId[]
+  sourceQueue?: Array<
+    | { kind: 'map'; mapId: SbMapId }
+    | { kind: 'replay'; hash: string }
+    | { kind: 'replay'; source: ReplaySessionSource }
+  >
+}
+
+/** The host's choice of what an existing gathering lobby will launch next. */
+export interface ChangeLobbySourceRequest extends LobbyClientRequest {
+  replay?: ReplaySessionSource
+  map?: SbMapId
 }
 
 /** A lobby setting whose value changed, as reported in a `LobbySettingsChangeEvent`. */
@@ -683,6 +772,7 @@ export type LobbyChangedSetting =
   | 'name'
   | 'visibility'
   | 'map'
+  | 'replay'
   | 'gameType'
   | 'gameSubType'
   | 'useLegacyLimits'
@@ -690,6 +780,7 @@ export type LobbyChangedSetting =
   | 'lockedAlliances'
   | 'allowObservers'
   | 'mapQueue'
+  | 'sourceQueue'
 
 /**
  * Settings that describe the lobby rather than the game it will play next. Changing only these
@@ -699,6 +790,7 @@ const LOBBY_ONLY_SETTINGS: ReadonlySet<LobbyChangedSetting> = new Set([
   'name',
   'visibility',
   'mapQueue',
+  'sourceQueue',
 ])
 
 /**

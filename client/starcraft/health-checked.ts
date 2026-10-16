@@ -6,14 +6,19 @@ import { shieldBatteryHealthy, starcraftHealthy } from './health-state'
 
 /**
  * Returns a function that will call the provided callback if all the health checks pass,
- * and display the relevant dialog to correct problems if they don't.
+ * and display the relevant dialog to correct problems (then call `onUnhealthy`) if they don't.
  */
-export function healthChecked<T extends unknown[]>(cb: (...args: T) => void): (...args: T) => void {
+export function healthChecked<T extends unknown[]>(
+  cb: (...args: T) => void,
+  onUnhealthy?: () => void,
+): (...args: T) => void {
   return (...args: T) => {
     if (!jotaiStore.get(starcraftHealthy)) {
       dispatch(openDialog({ type: DialogType.StarcraftHealth }))
+      onUnhealthy?.()
     } else if (!jotaiStore.get(shieldBatteryHealthy)) {
       dispatch(openDialog({ type: DialogType.ShieldBatteryHealth }))
+      onUnhealthy?.()
     } else {
       cb(...args)
     }

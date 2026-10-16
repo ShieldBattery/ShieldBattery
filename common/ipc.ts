@@ -10,12 +10,13 @@ import { Promisable } from 'type-fest'
 import { GameDeepLink } from './deep-links'
 import { GameServerRegion, GameServerRegionLatencies } from './game-server-regions'
 import { GameDebugScreenshot, GameDebugState } from './games/game-debug'
-import { GameLaunchConfig } from './games/game-launch-config'
+import { GameLaunchConfig, ReplaySessionPlaybackControl } from './games/game-launch-config'
 import { ReportedGameStatus } from './games/game-status'
 import { NetcodeV2ServerSetup } from './games/netcode-v2'
 import { GameClientPlayerResult } from './games/results'
 import { SbLobbyId } from './lobbies/sb-lobby-id'
 import { MapExtension } from './maps'
+import { ReplaySessionSeek, ReplaySessionSpeed } from './replay-sessions'
 import { ReplayChat } from './replays'
 import {
   ReplayBackfillProgress,
@@ -200,6 +201,20 @@ interface IpcInvokeables {
    * in-game chat. Does nothing if there's no active game.
    */
   activeGameSetBlockedUsers: (blockedUsers: SbUserId[]) => void
+  /**
+   * Tells the active replay session game who controls playback and whether it is paused. Does
+   * nothing unless `gameId` is the active game.
+   */
+  activeGameSetReplaySessionPlayback: (
+    gameId: string,
+    playback: ReplaySessionPlaybackControl,
+  ) => void
+  activeGameShowReplaySessionChat: (
+    gameId: string,
+    from: string,
+    text: string,
+    isSelf: boolean,
+  ) => void
 
   bugReportCollectFiles: () => Promise<Uint8Array<ArrayBuffer>>
 
@@ -233,6 +248,8 @@ interface IpcInvokeables {
   /** Reveals `path` in the OS file manager (opens its containing folder and selects it). */
   pathsShowItemInFolder: (path: string) => Promise<void>
 
+  /** Opens a picker for a single replay file, starting in the user's default replay folder. */
+  replaysBrowseForReplay: () => Promise<{ canceled: boolean; filePaths: string[] }>
   replayParseMetadata: (replayPath: string) => Promise<{
     headerData: ReplayHeader
     players: Player[]
@@ -431,6 +448,13 @@ interface IpcRendererSendables {
 
 /** Events that can be sent from the main process to a renderer process. */
 interface IpcMainSendables {
+  /** A replay session game has loaded its replay and is holding playback paused at the start. */
+  activeGameReplaySessionReady: (gameId: string) => void
+  activeGameReplaySessionSpeed: (gameId: string, speed: ReplaySessionSpeed) => void
+  activeGameReplaySessionSeek: (gameId: string, frame: number) => void
+  activeGameReplaySessionSeekReached: (gameId: string, seek: ReplaySessionSeek) => void
+  activeGameReplaySessionFrame: (gameId: string, frame: number) => void
+  activeGameReplaySessionChat: (gameId: string, text: string) => void
   activeGameReplaySaved: (gameId: string, replayPath: string) => void
   activeGameResult: (data: {
     gameId: string

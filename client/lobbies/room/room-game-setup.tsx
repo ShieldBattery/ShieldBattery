@@ -2,6 +2,7 @@ import { nanoid } from 'nanoid'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ReadonlyDeep } from 'type-fest'
+import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { LOBBY_NAME_MAXLENGTH } from '../../../common/constants'
 import { hasObservers, LobbyVisibility } from '../../../common/lobbies'
 import {
@@ -16,7 +17,7 @@ import { FilledButton, TextButton } from '../../material/button'
 import { TextField } from '../../material/text-field'
 import { isFetchError } from '../../network/fetch-errors'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
-import { getLobbyPreferences, updateLobbySettings } from '../action-creators'
+import { changeLobbySource, getLobbyPreferences, updateLobbySettings } from '../action-creators'
 import {
   GameSetupForm,
   GameSetupFormHandle,
@@ -25,8 +26,9 @@ import {
   SectionHeader,
 } from '../create/game-setup-form'
 import { formatGameSetupSummary, GameSetupPage, MapBrowseState } from '../create/game-setup-page'
+import { SelectReplayButton, useBrowseForReplay } from '../create/replay-lobby-setup'
 import { VisibilityPicker } from '../create/visibility-picker'
-import { MapQueueSection, QueuedMapEntry } from './room-map-queue'
+import { MapQueueSection, QueuedSourceEntry } from './room-map-queue'
 
 /** Which map a pick from the map browser is for. */
 enum MapPickTarget {
@@ -46,6 +48,30 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
   const dispatch = useAppDispatch()
   const lobby = useAppSelector(s => s.lobby.info)
   const recentMaps = useAppSelector(s => s.lobbyPreferences.recentMaps)
+  const browseForReplay = useBrowseForReplay()
+
+  const pickReplay = () => {
+    browseForReplay()
+      .then(chosen => {
+        if (!chosen) return
+        dispatch(
+          changeLobbySource(chosen.choice, {
+            onSuccess: onClose,
+            onError: () =>
+              dispatch(
+                openSimpleDialog(
+                  t('lobbies.replayLobby.changeFailed', 'Could not choose replay'),
+                  t(
+                    'lobbies.replayLobby.changeFailedBody',
+                    'The lobby could not switch to this replay.',
+                  ),
+                ),
+              ),
+          }),
+        )
+      })
+      .catch(swallowNonBuiltins)
+  }
 
   useEffect(() => {
     dispatch(getLobbyPreferences())
@@ -68,9 +94,23 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
   const [initialVisibility] = useState(lobby.visibility)
   const [visibility, setVisibility] = useState<LobbyVisibility>(initialVisibility)
   const [setup, setSetup] = useState<ReadonlyDeep<GameSetupModel>>(initialModel)
-  const [initialQueue] = useState(() => lobby.mapQueue.map(map => map.id))
-  const [queue, setQueue] = useState<QueuedMapEntry[]>(() =>
-    initialQueue.map(mapId => ({ key: nanoid(), mapId })),
+  const [initialQueue] = useState(() =>
+    lobby.sourceQueue?.length
+      ? lobby.sourceQueue
+      : lobby.mapQueue.map(map => ({ kind: 'map' as const, map })),
+  )
+  const [queue, setQueue] = useState<QueuedSourceEntry[]>(() =>
+    initialQueue.map(entry =>
+      entry.kind === 'map'
+        ? { key: nanoid(), kind: 'map', mapId: entry.map.id }
+        : {
+            key: nanoid(),
+            kind: 'replay',
+            hash: entry.replay.hash,
+            mapName: entry.replay.source.metadata.mapName,
+            mapImage: entry.replay.source.metadata.mapImage,
+          },
+    ),
   )
 
   const selectedMapInfo = useAppSelector(s =>
@@ -88,7 +128,7 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
 
   const pick = (mapId: SbMapId) => {
     if (pickTarget === MapPickTarget.Queue) {
-      setQueue([...queue, { key: nanoid(), mapId }])
+      setQueue([...queue, { key: nanoid(), kind: 'map', mapId }])
     } else {
       formRef.current?.setMap(mapId)
     }
@@ -149,7 +189,27 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
             queue={queue}
             onChange={setQueue}
             onAddMap={() => browseFor(MapPickTarget.Queue)}
+            onAddReplay={() => {
+              browseForReplay()
+                .then(chosen => {
+                  if (chosen) {
+                    setQueue(previous => [
+                      ...previous,
+                      {
+                        key: nanoid(),
+                        kind: 'replay',
+                        choice: chosen.choice,
+                        mapName: chosen.mapName,
+                      },
+                    ])
+                  }
+                })
+                .catch(swallowNonBuiltins)
+            }}
           />
+        }
+        mapAlternativeSection={
+          IS_ELECTRON ? <SelectReplayButton onClick={pickReplay} /> : undefined
         }
         onChangeMap={() => browseFor(MapPickTarget.Current)}
         onValidatedChange={model => setSetup(model)}
@@ -183,12 +243,17 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
           if (model.allowObservers !== initialModel.allowObservers) {
             settings.allowObservers = model.allowObservers
           }
-          const queueIds = queue.map(entry => entry.mapId)
+          const initialQueueIds = initialQueue.map(entry =>
+            entry.kind === 'map' ? `map:${entry.map.id}` : `replay:${entry.replay.hash}`,
+          )
+          const queueIds = queue.map(entry =>
+            entry.kind === 'map' ? `map:${entry.mapId}` : `replay:${entry.hash ?? entry.key}`,
+          )
           if (
-            queueIds.length !== initialQueue.length ||
-            queueIds.some((id, i) => id !== initialQueue[i])
+            queueIds.length !== initialQueueIds.length ||
+            queueIds.some((id, i) => id !== initialQueueIds[i])
           ) {
-            settings.mapQueue = queueIds
+            settings.sourceQueue = []
           }
 
           // A rename, visibility change, or new map queue touches nothing about the game being set
@@ -197,44 +262,48 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
 
           if (Object.keys(settings).length > 0) {
             dispatch(
-              updateLobbySettings(settings, {
-                onSuccess: () => {
-                  onClose()
-                },
-                onError: err => {
-                  const code = isFetchError(err) ? err.code : undefined
-                  let message: string
-                  if (
-                    code === LobbyServiceErrorCode.CountingDown ||
-                    code === LobbyServiceErrorCode.GameInProgress
-                  ) {
-                    message = t(
-                      'lobbies.lobbySettings.errorTransient',
-                      'The lobby is starting or playing a game. Try again once it regroups.',
-                    )
-                  } else if (isLobbyOnly) {
-                    message = t(
-                      'lobbies.lobbySettings.errorLobbyOnly',
-                      'The lobby settings could not be updated. Please try again.',
-                    )
-                  } else {
-                    message = t(
-                      'lobbies.lobbySettings.errorGeneric',
-                      'The lobby settings could not be updated. The current members may not fit ' +
-                        'the new configuration.',
-                    )
-                  }
+              updateLobbySettings(
+                settings,
+                {
+                  onSuccess: () => {
+                    onClose()
+                  },
+                  onError: err => {
+                    const code = isFetchError(err) ? err.code : undefined
+                    let message: string
+                    if (
+                      code === LobbyServiceErrorCode.CountingDown ||
+                      code === LobbyServiceErrorCode.GameInProgress
+                    ) {
+                      message = t(
+                        'lobbies.lobbySettings.errorTransient',
+                        'The lobby is starting or playing a game. Try again once it regroups.',
+                      )
+                    } else if (isLobbyOnly) {
+                      message = t(
+                        'lobbies.lobbySettings.errorLobbyOnly',
+                        'The lobby settings could not be updated. Please try again.',
+                      )
+                    } else {
+                      message = t(
+                        'lobbies.lobbySettings.errorGeneric',
+                        'The lobby settings could not be updated. The current members may not fit ' +
+                          'the new configuration.',
+                      )
+                    }
 
-                  // The surface stays open with the submitted values, so the host can adjust and
-                  // retry.
-                  dispatch(
-                    openSimpleDialog(
-                      t('lobbies.lobbySettings.errorDialogTitle', 'Error updating settings'),
-                      message,
-                    ),
-                  )
+                    // The surface stays open with the submitted values, so the host can adjust and
+                    // retry.
+                    dispatch(
+                      openSimpleDialog(
+                        t('lobbies.lobbySettings.errorDialogTitle', 'Error updating settings'),
+                        message,
+                      ),
+                    )
+                  },
                 },
-              }),
+                settings.sourceQueue ? queue : undefined,
+              ),
             )
           } else {
             onClose()

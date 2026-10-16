@@ -6,6 +6,7 @@ import { GameType, isTeamType } from '../../../common/games/game-type'
 import {
   BenchedUser,
   findSlotById,
+  getHumanSlots,
   getLobbySlots,
   getLobbySlotsWithIndexes,
   getObserverTeam,
@@ -15,8 +16,10 @@ import {
   isSlotUnoccupied,
   isUms,
   Lobby,
+  LobbyReplay,
   LobbyVisibility,
   MAX_OBSERVERS,
+  MAX_REPLAY_VIEWERS,
   slotCount,
   SlotWithIndexes,
   takenSlotCount,
@@ -192,7 +195,8 @@ export function toSummaryJson(
   return {
     id: lobby.id,
     name: lobby.name,
-    map: toMapInfoJson(lobby.map!),
+    ...(lobby.map ? { map: toMapInfoJson(lobby.map) } : {}),
+    ...(lobby.replay ? { replay: lobby.replay } : {}),
     gameType: lobby.gameType,
     gameSubType: lobby.gameSubType,
     host: { id: lobby.host.userId! },
@@ -405,6 +409,7 @@ export function createLobby({
     name,
     map,
     mapQueue: [],
+    sourceQueue: [],
     gameType,
     gameSubType: +gameSubType,
     teams,
@@ -417,6 +422,91 @@ export function createLobby({
     createdAt: Date.now(),
   }
   return addPlayer(lobby, hostTeamIndex, hostSlotIndex, host)
+}
+
+/**
+ * Creates a new replay lobby with its host as the first viewer. Everyone in a replay lobby watches
+ * from a single team of viewer seats; it has no map, and its game type is never played.
+ */
+export function createReplayLobby({
+  name,
+  replay,
+  hostUserId,
+  hostRegion,
+  visibility = 'listed',
+}: {
+  name: string
+  replay: LobbyReplay
+  hostUserId: SbUserId
+  hostRegion?: GameServerRegionId
+  visibility?: LobbyVisibility
+}): Lobby {
+  const viewers: Team = {
+    name: 'Viewers',
+    teamId: 0,
+    isObserver: false,
+    slots: Array.from({ length: MAX_REPLAY_VIEWERS }, () => createOpen()),
+    hiddenSlots: [],
+  }
+  const host: Slot = { ...createHuman(hostUserId), region: hostRegion }
+
+  const lobby: Lobby = {
+    id: makeSbLobbyId(encodePrettyId(randomUUID())),
+    name,
+    replay,
+    mapQueue: [],
+    sourceQueue: [],
+    gameType: GameType.Melee,
+    gameSubType: 0,
+    teams: [viewers],
+    bench: [],
+    host,
+    useLegacyLimits: false,
+    starcraftCompatibleReplays: true,
+    lockedAlliances: false,
+    visibility,
+    createdAt: Date.now(),
+  }
+  return addPlayer(lobby, 0, 0, host)
+}
+
+/** Changes what an existing lobby hosts while preserving its identity and its members. */
+export function replaceLobbySource(current: Lobby, template: Lobby): Lobby {
+  const host = occupantOf(current.host)
+  const members = getHumanSlots(current)
+    .filter(slot => slot.userId !== current.host.userId)
+    .sort((a, b) => a.joinedAt - b.joinedAt)
+    .map(occupantOf)
+  members.push(...current.bench.map(occupantOfBenched))
+  if (template.replay && members.length + 1 > MAX_REPLAY_VIEWERS) {
+    throw new Error('too many lobby members for replay viewing')
+  }
+
+  const hostSlot = humanSlotFor(host, template.teams[0].slots[0], template.gameType)
+  let updated: Lobby = {
+    ...template,
+    id: current.id,
+    createdAt: current.createdAt,
+    host: hostSlot,
+    teams: template.teams.map((team, index) =>
+      index === 0 ? { ...team, slots: [hostSlot, ...team.slots.slice(1)] } : team,
+    ),
+  }
+  for (const member of members) {
+    const seat = findPlayerSeat(updated)
+    if (seat) {
+      const [teamIndex, slotIndex] = seat
+      updated = addPlayer(
+        updated,
+        teamIndex,
+        slotIndex,
+        humanSlotFor(member, updated.teams[teamIndex].slots[slotIndex], updated.gameType),
+      )
+    } else {
+      updated = addToBench(updated, benchedFromOccupant(member))
+    }
+  }
+  return updated
 }
 
 /**

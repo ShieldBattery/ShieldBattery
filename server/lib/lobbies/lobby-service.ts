@@ -1,5 +1,7 @@
+import { randomUUID } from 'node:crypto'
 import { singleton } from 'tsyringe'
 import { ReadonlyDeep } from 'type-fest'
+import { assertUnreachable } from '../../../common/assert-unreachable'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { GameServerRegion, GameServerRegionId } from '../../../common/game-server-regions'
@@ -21,9 +23,11 @@ import {
   hasObservers,
   hasOpposingSides,
   isLobbyEmpty,
+  isReplayLobby,
   isSlotUnoccupied,
   isUms,
   Lobby,
+  LobbyQueuedSource,
   LobbyState,
   LobbyVisibility,
   MAX_BENCH,
@@ -46,6 +50,7 @@ import {
   LobbyServiceErrorCode,
   LobbySlotCreateEvent,
   LobbySummaryJson,
+  UpdateLobbySettingsRequest,
 } from '../../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import * as Slots from '../../../common/lobbies/slot'
@@ -53,6 +58,12 @@ import { Slot, SlotType } from '../../../common/lobbies/slot'
 import { MapInfo, SbMapId } from '../../../common/maps'
 import { RaceChar } from '../../../common/races'
 import { multipleRandomItems } from '../../../common/random'
+import {
+  GetReplaySessionSourceResponse,
+  ReplaySessionSeek,
+  ReplaySessionSource,
+  ReplaySessionSpeed,
+} from '../../../common/replay-sessions'
 import { RolledOutcome, RolledOutcomeRequest } from '../../../common/rolled-outcomes'
 import { urlPath } from '../../../common/urls'
 import { FriendActivityStatus } from '../../../common/users/relationships'
@@ -75,6 +86,12 @@ import { outcomeField } from '../messaging/outcome-field'
 import { processMessageContents } from '../messaging/process-chat-message'
 import { rollOutcome } from '../messaging/roll-outcome'
 import { NetcodeV2Service } from '../netcode-v2/netcode-v2-service'
+import {
+  ReplaySessionSourceAccessError,
+  ReplaySessionSourceAccessErrorCode,
+  ReplaySessionSources,
+  ResolvedReplaySessionSource,
+} from '../replays/replay-session-sources'
 import { Clock, TimeoutId } from '../time/clock'
 import { IN_GAME_DISCONNECT_GRACE_MS } from '../users/activity-status-service'
 import { genShortRandomCode } from '../users/random-code'
@@ -173,8 +190,10 @@ interface LobbyRunState {
   startedAt: number
   /** Fires the stuck-game backstop, and is cancelled with the rest of this state. */
   deadlineTimer: TimeoutId
-  /** The map the game is being played on. */
-  mapId: SbMapId
+  /** The map the game is being played on. Absent when a replay lobby is watching its replay. */
+  mapId?: SbMapId
+  /** Whether this is a replay lobby watching its replay rather than a game being played. */
+  isReplay: boolean
   /**
    * Who is playing the game, captured as the lobby stood when it launched. The lobby keeps
    * rearranging itself while the game runs (and afterwards), so the roster has to be taken at the
@@ -196,6 +215,46 @@ interface LobbyRunState {
  * not a normal way for a game to finish.
  */
 const MAX_IN_GAME_MS = 8 * 60 * 60 * 1000
+
+/**
+ * How long a replay lobby's members have to download and load its replay before the lobby gives up
+ * on the stragglers and goes back to gathering.
+ */
+const REPLAY_LOAD_TIMEOUT_MS = 2 * 60 * 1000
+
+/** A replay lobby waiting for every member watching to load its replay. */
+interface ReplayLoad {
+  viewers: ReadonlySet<SbUserId>
+  loaded: Set<SbUserId>
+  timer: TimeoutId
+}
+
+/** A replay seek waiting for every viewer still in the run to reach the same frame. */
+interface ReplaySeekState {
+  seek: ReplaySessionSeek
+  waiting: Set<SbUserId>
+  resumeSpeed: ReplaySessionSpeed
+}
+
+interface ReplayFrameReport {
+  frame: number
+  at: number
+}
+
+/** Converts a replay that can't be resolved for a user into the matching lobby error. */
+function toLobbyReplayError(err: unknown): unknown {
+  if (!(err instanceof ReplaySessionSourceAccessError)) {
+    return err
+  }
+  switch (err.code) {
+    case ReplaySessionSourceAccessErrorCode.NotAccessible:
+      return new LobbyServiceError(LobbyServiceErrorCode.ReplayNotAccessible, err.message)
+    case ReplaySessionSourceAccessErrorCode.NotFound:
+      return new LobbyServiceError(LobbyServiceErrorCode.ReplayNotFound, err.message)
+    default:
+      return assertUnreachable(err.code)
+  }
+}
 
 /** Returns the user ids of everyone in a lobby, seated or waiting on the bench. */
 function getLobbyMemberIds(lobby: Lobby): SbUserId[] {
@@ -381,17 +440,60 @@ async function fetchMapQueue(mapIds: ReadonlyArray<SbMapId>): Promise<MapInfo[]>
   })
 }
 
-/**
- * Moves a lobby on to the first map in its queue that its current settings can be played on,
- * dropping that map and any unplayable ones before it from the queue. A map that would have to
- * change the game type to be played is skipped rather than having the lobby's settings bent to fit
- * it; a team sub-type is only carried over to the new map's slot count, the way picking a map by
- * hand carries it over. If no queued map fits, the lobby keeps its map and the queue is emptied.
- */
-function advanceMapQueue(lobby: Lobby): { lobby: Lobby; skippedMapIds: SbMapId[] } {
+/** Moves a lobby to the first playable map or replay in its queue. */
+function advanceSourceQueue(
+  lobby: Lobby,
+  replaySources: ReadonlyMap<string, ResolvedReplaySessionSource>,
+): {
+  lobby: Lobby
+  skippedMapIds: SbMapId[]
+  replaySource?: ResolvedReplaySessionSource
+} {
   const skippedMapIds: SbMapId[] = []
-  for (const [i, map] of lobby.mapQueue.entries()) {
+  const queue = queuedSources(lobby)
+  for (const [i, entry] of queue.entries()) {
     try {
+      const remaining = queue.slice(i + 1)
+      const mapQueue = remaining.flatMap(item => (item.kind === 'map' ? [item.map] : []))
+      if (entry.kind === 'replay') {
+        const replaySource = replaySources.get(entry.replay.hash)
+        if (!replaySource) throw new Error('queued replay source missing')
+        const template = Lobbies.createReplayLobby({
+          name: lobby.name,
+          replay: entry.replay,
+          hostUserId: lobby.host.userId!,
+          hostRegion: lobby.host.region,
+          visibility: lobby.visibility,
+        })
+        const updated = Lobbies.replaceLobbySource(lobby, template)
+        return {
+          lobby: { ...updated, sourceQueue: remaining, mapQueue },
+          skippedMapIds,
+          replaySource,
+        }
+      }
+
+      const map = entry.map
+      if (lobby.replay) {
+        const settings = validatedLobbySettings({
+          map,
+          gameType: GameType.Melee,
+          gameSubType: 0,
+          allowObservers: true,
+          useLegacyLimits: false,
+          starcraftCompatibleReplays: true,
+          lockedAlliances: false,
+        })
+        const template = Lobbies.createLobby({
+          name: lobby.name,
+          ...settings,
+          hostUserId: lobby.host.userId!,
+          hostRegion: lobby.host.region,
+          visibility: lobby.visibility,
+        })
+        const updated = Lobbies.replaceLobbySource(lobby, template)
+        return { lobby: { ...updated, sourceQueue: remaining, mapQueue }, skippedMapIds }
+      }
       const settings = validatedLobbySettings({
         map,
         gameType: lobby.gameType,
@@ -410,21 +512,41 @@ function advanceMapQueue(lobby: Lobby): { lobby: Lobby; skippedMapIds: SbMapId[]
       })
       const updated = Lobbies.applySettingsChange(lobby, settings)
       return {
-        lobby: { ...updated, mapQueue: lobby.mapQueue.slice(i + 1) },
+        lobby: { ...updated, sourceQueue: remaining, mapQueue },
         skippedMapIds,
       }
     } catch (err) {
-      logger.info({ err, lobbyId: lobby.id, mapId: map.id }, 'skipping unplayable queued map')
-      skippedMapIds.push(map.id)
+      logger.info({ err, lobbyId: lobby.id, queuedSource: entry.kind }, 'skipping queued source')
+      if (entry.kind === 'map') skippedMapIds.push(entry.map.id)
     }
   }
 
-  return { lobby: { ...lobby, mapQueue: [] }, skippedMapIds }
+  return { lobby: { ...lobby, mapQueue: [], sourceQueue: [] }, skippedMapIds }
 }
 
 /** Whether two lists of maps name the same maps in the same order. */
 function sameMaps(a: ReadonlyArray<MapInfo>, b: ReadonlyArray<MapInfo>): boolean {
   return a.length === b.length && a.every((map, i) => map.id === b[i].id)
+}
+
+function queuedSources(lobby: Lobby): ReadonlyArray<LobbyQueuedSource> {
+  return lobby.sourceQueue?.length
+    ? lobby.sourceQueue
+    : lobby.mapQueue.map(map => ({ kind: 'map', map }))
+}
+
+function sameQueuedSources(
+  a: ReadonlyArray<LobbyQueuedSource>,
+  b: ReadonlyArray<LobbyQueuedSource>,
+): boolean {
+  return (
+    a.length === b.length &&
+    a.every((entry, i) =>
+      entry.kind === 'map'
+        ? b[i].kind === 'map' && entry.map.id === b[i].map.id
+        : b[i].kind === 'replay' && entry.replay.hash === b[i].replay.hash,
+    )
+  )
 }
 
 class CountdownCanceledError extends Error {}
@@ -457,6 +579,21 @@ export class LobbyService {
    */
   readonly seriesGameLobbies = new Map<string, SbLobbyId>()
   readonly lobbyPlayerNetwork = new LobbyPlayerNetworkStore()
+  /**
+   * The replay each replay lobby watches, with the private details of where its bytes are stored.
+   * Lives exactly as long as its lobby does.
+   */
+  private readonly lobbyReplays = new Map<SbLobbyId, ResolvedReplaySessionSource>()
+  private readonly queuedReplaySources = new Map<
+    SbLobbyId,
+    Map<string, ResolvedReplaySessionSource>
+  >()
+  /** The replay lobbies whose members are loading the replay, keyed by lobby id. */
+  private readonly replayLoads = new Map<SbLobbyId, ReplayLoad>()
+  private readonly replaySpeeds = new Map<SbLobbyId, ReplaySessionSpeed>()
+  private readonly replaySeeks = new Map<SbLobbyId, ReplaySeekState>()
+  private readonly replaySeekEpochs = new Map<SbLobbyId, number>()
+  private readonly replayFrames = new Map<SbLobbyId, Map<SbUserId, ReplayFrameReport>>()
   /** A lobby's normalized join code, keyed by lobby id. Populated at create, gone once it closes. */
   private readonly lobbyJoinCodes = new Map<SbLobbyId, string>()
   /** The inverse of {@link lobbyJoinCodes}, for resolving a typed-in code back to its lobby. */
@@ -486,6 +623,7 @@ export class LobbyService {
     private gameLifecycleEvents: GameLifecycleEvents,
     private clientSockets: ClientSocketsManager,
     private clock: Clock,
+    private replaySessionSources: ReplaySessionSources,
   ) {
     // Registers this instance's registry as the source of truth for `lobby-summaries`'s seam, so
     // the unauthenticated HTTP summary endpoint and the lobby page-metadata resolver can read a
@@ -640,6 +778,7 @@ export class LobbyService {
     name,
     map,
     gameType,
+    replay,
     gameSubType,
     allowObservers,
     useLegacyLimits,
@@ -655,8 +794,11 @@ export class LobbyService {
     client,
   }: {
     name: string
-    map: SbMapId
-    gameType: GameType
+    /** The map a game lobby plays, along with `gameType`. Not given for a replay lobby. */
+    map?: SbMapId
+    gameType?: GameType
+    /** The replay a replay lobby watches together, given in place of a map. */
+    replay?: ReplaySessionSource
     gameSubType?: number
     allowObservers?: boolean
     useLegacyLimits?: boolean
@@ -678,7 +820,112 @@ export class LobbyService {
     client: ClientSocketsGroup
   }): Promise<{ id: SbLobbyId }> {
     const hostRegion = await this._resolveRegion(region)
+    const lobbyVisibility = visibility ?? 'listed'
 
+    let lobby: Lobby
+    let replaySource: ResolvedReplaySessionSource | undefined
+    if (replay) {
+      let resolved: Awaited<ReturnType<ReplaySessionSources['resolve']>>
+      try {
+        resolved = await this.replaySessionSources.resolve(replay, client.userId)
+      } catch (err) {
+        throw toLobbyReplayError(err)
+      }
+      replaySource = resolved.source
+      lobby = Lobbies.createReplayLobby({
+        name,
+        replay: { source: resolved.info, hash: resolved.source.hash },
+        hostUserId: client.userId,
+        hostRegion,
+        visibility: lobbyVisibility,
+      })
+    } else {
+      if (map === undefined) {
+        throw new LobbyServiceError(LobbyServiceErrorCode.InvalidMap, 'invalid map')
+      }
+      if (gameType === undefined) {
+        throw new LobbyServiceError(LobbyServiceErrorCode.InvalidGameType, 'invalid game type')
+      }
+      lobby = await this._createGameLobby({
+        name,
+        map,
+        gameType,
+        gameSubType,
+        allowObservers,
+        useLegacyLimits,
+        starcraftCompatibleReplays,
+        lockedAlliances,
+        visibility: lobbyVisibility,
+        hostUserId: client.userId,
+        hostRegion,
+      })
+    }
+
+    // Minted before any state mutation below: everything from the current-lobby leave onward must
+    // stay a single synchronous block, both so no await window lets a concurrent create interleave
+    // and so a (however unlikely) minting failure can't strand the client mid-mutation.
+    const joinCode = await this._mintJoinCode()
+
+    if (leaveCurrentLobby) {
+      this._leaveCurrentLobby(client)
+    }
+
+    if (
+      !this.activityRegistry.registerActiveClient(user.userId, client, FriendActivityStatus.InLobby)
+    ) {
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.AlreadyInActivity,
+        'user is already active in a gameplay activity',
+      )
+    }
+
+    this.lobbies.set(lobby.id, lobby)
+    if (replaySource) {
+      this.lobbyReplays.set(lobby.id, replaySource)
+    }
+    this.lobbyJoinCodes.set(lobby.id, joinCode)
+    this.joinCodeToLobby.set(joinCode, lobby.id)
+    this.lobbyClients.set(client, lobby.id)
+    if (rttMs !== undefined || regionManual !== undefined || clientPubkey !== undefined) {
+      this.lobbyPlayerNetwork.set(lobby.id, client.userId, {
+        rttMs,
+        regionManual,
+        netcodeV2Pubkey: clientPubkey,
+      })
+    }
+    this._subscribeClientToLobby(lobby, user, client)
+
+    this._publishListChange('add', lobby)
+
+    return { id: lobby.id }
+  }
+
+  /** Creates a lobby that plays `map`, checking that the map and game settings fit together. */
+  private async _createGameLobby({
+    name,
+    map,
+    gameType,
+    gameSubType,
+    allowObservers,
+    useLegacyLimits,
+    starcraftCompatibleReplays,
+    lockedAlliances,
+    visibility,
+    hostUserId,
+    hostRegion,
+  }: {
+    name: string
+    map: SbMapId
+    gameType: GameType
+    gameSubType?: number
+    allowObservers?: boolean
+    useLegacyLimits?: boolean
+    starcraftCompatibleReplays?: boolean
+    lockedAlliances?: boolean
+    visibility: LobbyVisibility
+    hostUserId: SbUserId
+    hostRegion?: GameServerRegionId
+  }): Promise<Lobby> {
     let mapInfo = (await getMapInfos([map]))[0]
     if (!mapInfo) {
       throw new LobbyServiceError(LobbyServiceErrorCode.InvalidMap, 'invalid map')
@@ -701,58 +948,21 @@ export class LobbyService {
         numSlots = mapInfo.mapData.slots
     }
 
-    const lobbyVisibility = visibility ?? 'listed'
-
-    const lobby = Lobbies.createLobby({
+    return Lobbies.createLobby({
       name,
       map: mapInfo,
       gameType,
       gameSubType: gameSubType ?? undefined,
       numSlots,
-      hostUserId: client.userId,
+      hostUserId,
       hostRace: undefined,
       hostRegion,
       allowObservers: allowObservers ?? false,
       useLegacyLimits,
       starcraftCompatibleReplays,
       lockedAlliances,
-      visibility: lobbyVisibility,
+      visibility,
     })
-
-    // Minted before any state mutation below: everything from the current-lobby leave onward must
-    // stay a single synchronous block, both so no await window lets a concurrent create interleave
-    // and so a (however unlikely) minting failure can't strand the client mid-mutation.
-    const joinCode = await this._mintJoinCode()
-
-    if (leaveCurrentLobby) {
-      this._leaveCurrentLobby(client)
-    }
-
-    if (
-      !this.activityRegistry.registerActiveClient(user.userId, client, FriendActivityStatus.InLobby)
-    ) {
-      throw new LobbyServiceError(
-        LobbyServiceErrorCode.AlreadyInActivity,
-        'user is already active in a gameplay activity',
-      )
-    }
-
-    this.lobbies.set(lobby.id, lobby)
-    this.lobbyJoinCodes.set(lobby.id, joinCode)
-    this.joinCodeToLobby.set(joinCode, lobby.id)
-    this.lobbyClients.set(client, lobby.id)
-    if (rttMs !== undefined || regionManual !== undefined || clientPubkey !== undefined) {
-      this.lobbyPlayerNetwork.set(lobby.id, client.userId, {
-        rttMs,
-        regionManual,
-        netcodeV2Pubkey: clientPubkey,
-      })
-    }
-    this._subscribeClientToLobby(lobby, user, client)
-
-    this._publishListChange('add', lobby)
-
-    return { id: lobby.id }
   }
 
   async joinLobby({
@@ -799,7 +1009,8 @@ export class LobbyService {
     // Fetched before the lobby snapshot below: everything from the snapshot to the write-back has
     // to stay synchronous, or a concurrent operation on the lobby (e.g. a settings change
     // replacing the whole layout) would be silently reverted by it.
-    const refreshedMap = (await getMapInfos([this.lobbies.get(id)!.map!.id]))[0]
+    const mapId = this.lobbies.get(id)?.map?.id
+    const refreshedMap = mapId ? (await getMapInfos([mapId]))[0] : undefined
 
     const lobby = this.lobbies.get(id)
     if (!lobby) {
@@ -875,7 +1086,7 @@ export class LobbyService {
       )
     }
 
-    if (refreshedMap && updated.map!.id === refreshedMap.id) {
+    if (refreshedMap && updated.map?.id === refreshedMap.id) {
       // A settings change during the fetch above can have swapped the map, in which case its own
       // freshly-fetched info stays and the stale refresh is discarded
       updated = { ...updated, map: refreshedMap }
@@ -975,6 +1186,8 @@ export class LobbyService {
             type: 'init',
             lobby,
             runState: this._runStateJson(lobbyId),
+            replaySpeed: this.replaySpeeds.get(lobbyId),
+            replaySeek: this.replaySeeks.get(lobbyId)?.seek,
             userInfos,
             readyUsers: this._readyUsersJson(lobbyId),
             series: this._seriesJson(lobbyId),
@@ -985,6 +1198,8 @@ export class LobbyService {
             type: 'init',
             lobby,
             runState: this._runStateJson(lobbyId),
+            replaySpeed: this.replaySpeeds.get(lobbyId),
+            replaySeek: this.replaySeeks.get(lobbyId)?.seek,
             // Generally this should be okay (the client can batch retrieve the user info later),
             // just higher latency
             userInfos: [],
@@ -1101,6 +1316,31 @@ export class LobbyService {
       channelMentions,
       emote,
     })
+  }
+
+  /** Sends native replay chat only to viewers who currently have the replay open. */
+  async sendReplayChat({
+    client,
+    lobbyId,
+    text,
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+    text: string
+  }): Promise<void> {
+    const lobby = await this.ensureCanSendChat(client, lobbyId)
+    const runState = this.runStates.get(lobby.id)
+    if (!runState?.isReplay || !runState.inGameUsers.has(client.userId)) {
+      throw new LobbyServiceError(LobbyServiceErrorCode.ReplayNotLoading, 'not watching a replay')
+    }
+    const message = {
+      type: 'replayChat',
+      from: client.userId,
+      text: filterChatMessage(text),
+    }
+    for (const userId of runState.inGameUsers) {
+      this._publishToUser(lobby, userId, message)
+    }
   }
 
   /**
@@ -1266,6 +1506,7 @@ export class LobbyService {
     starcraftCompatibleReplays,
     lockedAlliances,
     mapQueue,
+    sourceQueue,
   }: {
     client: ClientSocketsGroup
     lobbyId?: SbLobbyId
@@ -1279,8 +1520,10 @@ export class LobbyService {
     starcraftCompatibleReplays?: boolean
     lockedAlliances?: boolean
     mapQueue?: SbMapId[]
+    sourceQueue?: UpdateLobbySettingsRequest['sourceQueue']
   }): Promise<void> {
     const lobby = this.getLobbyForClient(client, lobbyId)
+    this.ensureNotReplayLobby(lobby)
     const [, , player] = findSlotByUserId(lobby, client.userId)
     this.ensureIsLobbyHost(lobby, player)
     this.ensureLobbyNotTransient(lobby)
@@ -1297,6 +1540,52 @@ export class LobbyService {
     if (mapQueue !== undefined) {
       fetchedQueue = await fetchMapQueue(mapQueue)
     }
+    const resolvedQueuedReplays = new Map<string, ResolvedReplaySessionSource>()
+    let fetchedSources: LobbyQueuedSource[] | undefined
+    if (sourceQueue !== undefined) {
+      const mapIds = sourceQueue.flatMap(entry => (entry.kind === 'map' ? [entry.mapId] : []))
+      const maps = await fetchMapQueue(mapIds)
+      let mapIndex = 0
+      fetchedSources = []
+      for (const entry of sourceQueue) {
+        if (entry.kind === 'map') {
+          fetchedSources.push({ kind: 'map', map: maps[mapIndex++] })
+        } else if ('source' in entry && entry.source) {
+          let resolved: Awaited<ReturnType<ReplaySessionSources['resolve']>>
+          try {
+            resolved = await this.replaySessionSources.resolve(entry.source, client.userId)
+          } catch (err) {
+            throw toLobbyReplayError(err)
+          }
+          fetchedSources.push({
+            kind: 'replay',
+            replay: { source: resolved.info, hash: resolved.source.hash },
+          })
+          resolvedQueuedReplays.set(resolved.source.hash, resolved.source)
+        } else if ('hash' in entry && entry.hash) {
+          // Existing queued uploads have no source ID in the lobby JSON. Their hash identifies the
+          // entry the host may reorder without exposing the owner's upload capability.
+          const existing = queuedSources(lobby).find(
+            source => source.kind === 'replay' && source.replay.hash === entry.hash,
+          )
+          if (!existing || existing.kind !== 'replay') {
+            throw new LobbyServiceError(
+              LobbyServiceErrorCode.ReplayNotFound,
+              'queued replay missing',
+            )
+          }
+          const privateSource = this.queuedReplaySources.get(lobby.id)?.get(entry.hash)
+          if (!privateSource) {
+            throw new LobbyServiceError(
+              LobbyServiceErrorCode.ReplayNotFound,
+              'queued replay missing',
+            )
+          }
+          fetchedSources.push(existing)
+          resolvedQueuedReplays.set(entry.hash, privateSource)
+        }
+      }
+    }
 
     // Fetching the map info gives other operations on this lobby a chance to run, so everything
     // below works from the lobby as it is now.
@@ -1304,6 +1593,22 @@ export class LobbyService {
     const [, , currentPlayer] = findSlotByUserId(current, client.userId)
     this.ensureIsLobbyHost(current, currentPlayer)
     this.ensureLobbyNotTransient(current)
+    if (sourceQueue !== undefined) {
+      // Resolving a replay can take long enough for the queue to change. A hash only grants reuse
+      // of a replay that is still queued, so check it against the current lobby and private source.
+      for (const [index, entry] of sourceQueue.entries()) {
+        if (entry.kind !== 'replay' || !('hash' in entry) || !entry.hash) continue
+        const existing = queuedSources(current).find(
+          source => source.kind === 'replay' && source.replay.hash === entry.hash,
+        )
+        const privateSource = this.queuedReplaySources.get(current.id)?.get(entry.hash)
+        if (!existing || existing.kind !== 'replay' || !privateSource) {
+          throw new LobbyServiceError(LobbyServiceErrorCode.ReplayNotFound, 'queued replay missing')
+        }
+        fetchedSources![index] = existing
+        resolvedQueuedReplays.set(entry.hash, privateSource)
+      }
+    }
 
     const nextName = name ?? current.name
     const nextVisibility = visibility ?? current.visibility
@@ -1317,7 +1622,15 @@ export class LobbyService {
     const nextStarcraftCompatibleReplays =
       starcraftCompatibleReplays ?? current.starcraftCompatibleReplays
     const nextLockedAlliances = lockedAlliances ?? current.lockedAlliances
-    const nextMapQueue = fetchedQueue ?? current.mapQueue
+    const nextSourceQueue =
+      fetchedSources ??
+      (fetchedQueue
+        ? fetchedQueue.map(map => ({ kind: 'map' as const, map }))
+        : queuedSources(current))
+    const nextMapQueue =
+      fetchedSources !== undefined
+        ? fetchedSources.flatMap(entry => (entry.kind === 'map' ? [entry.map] : []))
+        : (fetchedQueue ?? current.mapQueue)
 
     const nextSettings = validatedLobbySettings({
       map: mapInfo,
@@ -1341,7 +1654,12 @@ export class LobbyService {
       changedSettings.push('starcraftCompatibleReplays')
     }
     if (nextLockedAlliances !== current.lockedAlliances) changedSettings.push('lockedAlliances')
-    if (!sameMaps(nextMapQueue, current.mapQueue)) changedSettings.push('mapQueue')
+    if (sourceQueue === undefined && !sameMaps(nextMapQueue, current.mapQueue)) {
+      changedSettings.push('mapQueue')
+    }
+    if (sourceQueue !== undefined && !sameQueuedSources(nextSourceQueue, queuedSources(current))) {
+      changedSettings.push('sourceQueue')
+    }
     if (!changedSettings.length) {
       // Every requested value matches what the lobby already has, so there is nothing to apply or
       // to announce
@@ -1372,8 +1690,13 @@ export class LobbyService {
     if (nextVisibility !== current.visibility) {
       updated = { ...updated, visibility: nextVisibility }
     }
-    if (changedSettings.includes('mapQueue')) {
-      updated = { ...updated, mapQueue: nextMapQueue }
+    if (changedSettings.includes('mapQueue') || changedSettings.includes('sourceQueue')) {
+      updated = { ...updated, mapQueue: nextMapQueue, sourceQueue: nextSourceQueue }
+      if (sourceQueue !== undefined) {
+        this.queuedReplaySources.set(updated.id, resolvedQueuedReplays)
+      } else if (mapQueue !== undefined) {
+        this.queuedReplaySources.delete(updated.id)
+      }
     }
     if (needsReconciliation) {
       // Everyone was ready for a different game than the one they are now looking at, so the lobby
@@ -1388,7 +1711,7 @@ export class LobbyService {
       changedSettings,
       lobby: updated,
     })
-    if (changedSettings.every(setting => setting === 'mapQueue')) {
+    if (changedSettings.every(setting => setting === 'mapQueue' || setting === 'sourceQueue')) {
       // Neither the list nor a preview shows what the lobby will play after its current game
       return
     }
@@ -1403,6 +1726,104 @@ export class LobbyService {
       // Published as the lobby was while it was still listed, since the list only ever hears about
       // listed lobbies. Its id is all the public channel learns, and it already had that.
       this._publishListChange('delete', current)
+    }
+  }
+
+  /** Replaces a gathering lobby's map or replay without changing its id, invites, or members. */
+  async changeSource({
+    client,
+    lobbyId,
+    replay,
+    map,
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+    replay?: ReplaySessionSource
+    map?: SbMapId
+  }): Promise<void> {
+    const lobby = this.getLobbyForClient(client, lobbyId)
+    const [, , player] = findSlotByUserId(lobby, client.userId)
+    this.ensureIsLobbyHost(lobby, player)
+    this.ensureLobbyNotTransient(lobby)
+
+    let resolved: Awaited<ReturnType<ReplaySessionSources['resolve']>> | undefined
+    let mapInfo: MapInfo | undefined
+    if (replay) {
+      try {
+        resolved = await this.replaySessionSources.resolve(replay, client.userId)
+      } catch (err) {
+        throw toLobbyReplayError(err)
+      }
+    } else if (map) {
+      const found = (await getMapInfos([map]))[0]
+      if (!found) {
+        throw new LobbyServiceError(LobbyServiceErrorCode.InvalidMap, 'invalid map')
+      }
+      ;[mapInfo] = await reparseMapsAsNeeded([found])
+    } else {
+      throw new LobbyServiceError(LobbyServiceErrorCode.InvalidMap, 'no map or replay selected')
+    }
+
+    const current = this.getLobbyForClient(client, lobbyId)
+    const [, , currentPlayer] = findSlotByUserId(current, client.userId)
+    this.ensureIsLobbyHost(current, currentPlayer)
+    this.ensureLobbyNotTransient(current)
+
+    let template: Lobby
+    if (resolved) {
+      template = Lobbies.createReplayLobby({
+        name: current.name,
+        replay: { source: resolved.info, hash: resolved.source.hash },
+        hostUserId: client.userId,
+        hostRegion: current.host.region,
+        visibility: current.visibility,
+      })
+    } else {
+      const gameMap = mapInfo!
+      const settings = validatedLobbySettings({
+        map: gameMap,
+        gameType: GameType.Melee,
+        gameSubType: 0,
+        allowObservers: true,
+        useLegacyLimits: false,
+        starcraftCompatibleReplays: true,
+        lockedAlliances: false,
+      })
+      template = Lobbies.createLobby({
+        name: current.name,
+        ...settings,
+        hostUserId: client.userId,
+        hostRegion: current.host.region,
+        visibility: current.visibility,
+      })
+    }
+
+    let updated: Lobby
+    try {
+      updated = Lobbies.replaceLobbySource(current, template)
+    } catch (err) {
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.InvalidSlotOperation,
+        (err as Error).message,
+        { cause: err },
+      )
+    }
+    if (resolved) {
+      this.lobbyReplays.set(updated.id, resolved.source)
+    } else {
+      this.lobbyReplays.delete(updated.id)
+    }
+    updated = { ...updated, sourceQueue: queuedSources(current), mapQueue: current.mapQueue }
+    this.lobbies.set(updated.id, updated)
+    this.readyUsers.delete(updated.id)
+    this._publishTo(updated, {
+      type: 'settingsChange',
+      changedSettings: resolved ? ['replay'] : ['map'],
+      lobby: updated,
+    })
+    this._publishPreview(updated)
+    if (updated.visibility === 'listed') {
+      this._publishListChange('update', updated)
     }
   }
 
@@ -1641,6 +2062,7 @@ export class LobbyService {
     slotId: string
   }): void {
     const lobby = this.getLobbyForClient(client, lobbyId)
+    this.ensureNotReplayLobby(lobby)
     const [, , player] = findSlotByUserId(lobby, client.userId)
     this.ensureIsLobbyHost(lobby, player)
     this.ensureLobbyNotTransient(lobby)
@@ -1743,6 +2165,7 @@ export class LobbyService {
     race: RaceChar
   }): void {
     const lobby = this.getLobbyForClient(client, lobbyId)
+    this.ensureNotReplayLobby(lobby)
     // The countdown snapshots the races into the game's configuration, so a change from here on
     // would show in the lobby and never reach the game being played.
     this.ensureLobbyNotTransient(lobby)
@@ -2031,6 +2454,7 @@ export class LobbyService {
     slotId: string
   }): void {
     const lobby = this.getLobbyForClient(client, lobbyId)
+    this.ensureNotReplayLobby(lobby)
     const [, , player] = findSlotByUserId(lobby, client.userId)
     this.ensureIsLobbyHost(lobby, player)
     this.ensureLobbyNotTransient(lobby)
@@ -2212,6 +2636,9 @@ export class LobbyService {
       )
       this.lobbies.delete(lobby.id)
       this.lobbyBannedUsers.delete(lobby.id)
+      this.lobbyReplays.delete(lobby.id)
+      this.queuedReplaySources.delete(lobby.id)
+      this._clearReplayLoad(lobby.id)
       this._clearRunState(lobby.id)
       this.readyUsers.delete(lobby.id)
       this._forgetSeries(lobby.id)
@@ -2278,7 +2705,8 @@ export class LobbyService {
     force?: boolean
   }): void {
     const lobby = this.getLobbyForClient(client, expectedLobbyId)
-    if (!hasOpposingSides(lobby)) {
+    // Watching a replay needs nobody to play against
+    if (!isReplayLobby(lobby) && !hasOpposingSides(lobby)) {
       throw new LobbyServiceError(
         LobbyServiceErrorCode.NotEnoughSides,
         'must have at least 2 opposing sides',
@@ -2289,7 +2717,7 @@ export class LobbyService {
     this.ensureIsLobbyHost(lobby, player)
     this.ensureLobbyNotTransient(lobby)
 
-    if (!force) {
+    if (!force && !isReplayLobby(lobby)) {
       // Everyone else the game will contain gets a say in whether it starts. The host can start
       // the game without marking ready, while seated players and observers must still mark ready.
       const ready = this.readyUsers.get(lobby.id)
@@ -2305,9 +2733,6 @@ export class LobbyService {
       }
     }
 
-    // Warm the lobby's regions during the countdown, before its session is created.
-    this._warmLobbyRegions(lobby)
-
     const lobbyId = lobby.id
     const countdownTimer = createDeferred<void>()
     countdownTimer.catch(swallowNonBuiltins)
@@ -2316,6 +2741,14 @@ export class LobbyService {
 
     this._publishTo(lobby, { type: 'startCountdown' })
     this._publishListChange('delete', lobby)
+
+    if (isReplayLobby(lobby)) {
+      this._runCountdownAndLoadReplay(lobby, countdownTimer).catch(swallowNonBuiltins)
+      return
+    }
+
+    // Warm the lobby's regions during the countdown, before its session is created.
+    this._warmLobbyRegions(lobby)
 
     const gameConfig: GameConfig = {
       gameType: lobby.gameType,
@@ -2439,6 +2872,347 @@ export class LobbyService {
     }
   }
 
+  /**
+   * Runs a replay lobby's countdown and then has its seated members load the replay. Playback
+   * starts for everyone only once all of them have it loaded and held at its start (see
+   * `reportReplayLoaded`). Members who haven't loaded it in time are blamed for cancelling the
+   * load, which puts the lobby back to gathering.
+   */
+  private async _runCountdownAndLoadReplay(
+    lobby: Lobby,
+    countdownTimer: Deferred<void>,
+  ): Promise<void> {
+    const lobbyId = lobby.id
+    try {
+      await countdownTimer
+    } catch (err) {
+      if (!(err instanceof CountdownCanceledError)) {
+        logger.error({ err }, 'unexpected error during a replay lobby countdown')
+      }
+      return
+    }
+    this.lobbyCountdowns.delete(lobbyId)
+
+    const current = this.lobbies.get(lobbyId)
+    if (!current) {
+      return
+    }
+
+    this.loadingLobbies.set(lobbyId, new AbortController())
+    const replayLoad: ReplayLoad = {
+      viewers: new Set(getHumanSlots(current).map(s => s.userId!)),
+      loaded: new Set(),
+      timer: this.clock.setTimeout(() => {
+        const live = this.lobbies.get(lobbyId)
+        if (!live || this.replayLoads.get(lobbyId) !== replayLoad) {
+          return
+        }
+        const usersAtFault = [...replayLoad.viewers].filter(id => !replayLoad.loaded.has(id))
+        logger.info({ lobbyId, usersAtFault }, 'replay lobby members did not load the replay')
+        if (this._maybeCancelLoading(live, false, usersAtFault)) {
+          this._releaseLaunchBench(lobbyId)
+        }
+      }, REPLAY_LOAD_TIMEOUT_MS),
+    }
+    this.replayLoads.set(lobbyId, replayLoad)
+    this._publishTo(current, { type: 'replayLoad' })
+  }
+
+  /**
+   * Records that a replay lobby member has loaded the lobby's replay, starting playback for
+   * everyone once the last of them has. The hash they report is of the bytes they loaded, which
+   * must be the lobby's replay: anything else would play out of step with everyone else.
+   */
+  reportReplayLoaded({
+    client,
+    lobbyId,
+    hash,
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+    hash: string
+  }): void {
+    const lobby = this.getLobbyForClient(client, lobbyId)
+    const replayLoad = this.replayLoads.get(lobby.id)
+    if (!replayLoad || !replayLoad.viewers.has(client.userId)) {
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.ReplayNotLoading,
+        'this lobby is not loading a replay for you',
+      )
+    }
+    if (hash.toLowerCase() !== lobby.replay!.hash) {
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.ReplayHashMismatch,
+        "the loaded replay does not match this lobby's replay",
+      )
+    }
+
+    replayLoad.loaded.add(client.userId)
+    if (replayLoad.loaded.size < replayLoad.viewers.size) {
+      return
+    }
+
+    this._clearReplayLoad(lobby.id)
+    // A replay run has no game record; its id only tells this run's end signals from another's.
+    this._onGameStarted(lobby.id, randomUUID(), [...replayLoad.viewers])
+  }
+
+  /**
+   * Records that a replay lobby member couldn't download or launch the replay, which calls off the
+   * load for everyone rather than leaving them waiting out its deadline.
+   */
+  reportReplayLoadFailed({
+    client,
+    lobbyId,
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+  }): void {
+    const lobby = this.getLobbyForClient(client, lobbyId)
+    const replayLoad = this.replayLoads.get(lobby.id)
+    if (!replayLoad?.viewers.has(client.userId)) {
+      return
+    }
+
+    if (this._maybeCancelLoading(lobby, false, [client.userId])) {
+      this._releaseLaunchBench(lobby.id)
+    }
+  }
+
+  /** Records that a replay lobby member closed the replay and is back in the lobby. */
+  reportReplayEnded({
+    client,
+    lobbyId,
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+  }): void {
+    const lobby = this.getLobbyForClient(client, lobbyId)
+    const runState = this.runStates.get(lobby.id)
+    if (runState?.isReplay) {
+      this._onUserGameEnded(runState.gameId, client.userId)
+    }
+  }
+
+  /** Broadcasts a native replay speed change from the current room host. */
+  reportReplaySpeed({
+    client,
+    lobbyId,
+    speed,
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+    speed: ReplaySessionSpeed
+  }): void {
+    const lobby = this.getLobbyForClient(client, lobbyId)
+    const runState = this.runStates.get(lobby.id)
+    const [, , player] = findSlotByUserId(lobby, client.userId)
+    this.ensureIsLobbyHost(lobby, player)
+    if (!runState?.isReplay || !runState.inGameUsers.has(client.userId)) {
+      throw new LobbyServiceError(LobbyServiceErrorCode.ReplayNotLoading, 'not watching a replay')
+    }
+    if (this.replaySeeks.has(lobby.id)) {
+      throw new LobbyServiceError(LobbyServiceErrorCode.ReplaySeeking, 'replay is seeking')
+    }
+
+    this.replaySpeeds.set(lobby.id, speed)
+    this.replayFrames.delete(lobby.id)
+    this._publishTo(lobby, { type: 'replaySpeed', speed })
+  }
+
+  /** Pauses every viewer and asks them to seek to the host's requested frame. */
+  reportReplaySeek({
+    client,
+    lobbyId,
+    frame,
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+    frame: number
+  }): void {
+    const lobby = this.getLobbyForClient(client, lobbyId)
+    const [, , player] = findSlotByUserId(lobby, client.userId)
+    this.ensureIsLobbyHost(lobby, player)
+    const runState = this.runStates.get(lobby.id)
+    if (!runState?.isReplay || !runState.inGameUsers.has(client.userId)) {
+      throw new LobbyServiceError(LobbyServiceErrorCode.ReplayNotLoading, 'not watching a replay')
+    }
+    if (
+      !Number.isInteger(frame) ||
+      frame < 0 ||
+      frame >= lobby.replay!.source.metadata.durationFrames
+    ) {
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.InvalidSlotOperation,
+        'seek is past replay end',
+      )
+    }
+
+    this._beginReplaySeek(lobby, runState, frame)
+  }
+
+  /** Uses the host's recent frame as a correction target when a viewer has fallen behind or ahead. */
+  reportReplayFrame({
+    client,
+    lobbyId,
+    frame,
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+    frame: number
+  }): void {
+    const lobby = this.getLobbyForClient(client, lobbyId)
+    const runState = this.runStates.get(lobby.id)
+    if (!runState?.isReplay || !runState.inGameUsers.has(client.userId)) {
+      throw new LobbyServiceError(LobbyServiceErrorCode.ReplayNotLoading, 'not watching a replay')
+    }
+    if (this.replaySeeks.has(lobby.id) || !Number.isInteger(frame) || frame < 0) {
+      return
+    }
+
+    const reports = this.replayFrames.get(lobby.id) ?? new Map<SbUserId, ReplayFrameReport>()
+    this.replayFrames.set(lobby.id, reports)
+    reports.set(client.userId, { frame, at: this.clock.now() })
+    const hostId = lobby.host.userId
+    if (hostId === undefined) {
+      return
+    }
+    const host = reports.get(hostId)
+    if (!host || host.frame >= lobby.replay!.source.metadata.durationFrames) {
+      return
+    }
+    for (const [userId, report] of reports) {
+      if (userId === hostId || !runState.inGameUsers.has(userId)) {
+        continue
+      }
+      const elapsed = Math.abs(host.at - report.at)
+      if (elapsed > 1000) {
+        continue
+      }
+      const multiplier = this.replaySpeeds.get(lobby.id)?.multiplier ?? 1
+      const toleratedFrames = 48 + Math.ceil((elapsed * 24 * multiplier) / 1000)
+      if (Math.abs(host.frame - report.frame) > toleratedFrames) {
+        this._beginReplaySeek(lobby, runState, host.frame)
+        return
+      }
+    }
+  }
+
+  private _beginReplaySeek(lobby: Lobby, runState: LobbyRunState, frame: number): void {
+    this.replayFrames.delete(lobby.id)
+    const previous = this.replaySeeks.get(lobby.id)
+    const resumeSpeed = previous?.resumeSpeed ?? this.replaySpeeds.get(lobby.id)!
+    const epoch = (this.replaySeekEpochs.get(lobby.id) ?? 0) + 1
+    const seek = { epoch, frame }
+    this.replaySeekEpochs.set(lobby.id, epoch)
+    this.replaySeeks.set(lobby.id, {
+      seek,
+      waiting: new Set(runState.inGameUsers),
+      resumeSpeed,
+    })
+    const paused = { ...resumeSpeed, paused: true }
+    this.replaySpeeds.set(lobby.id, paused)
+    this._publishTo(lobby, { type: 'replaySpeed', speed: paused })
+    this._publishTo(lobby, { type: 'replaySeek', seek })
+  }
+
+  /** Records that one viewer reached the target of the current coordinated seek. */
+  reportReplaySeekReached({
+    client,
+    lobbyId,
+    seek,
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+    seek: ReplaySessionSeek
+  }): void {
+    const lobby = this.getLobbyForClient(client, lobbyId)
+    const state = this.replaySeeks.get(lobby.id)
+    if (!state || state.seek.epoch !== seek.epoch || state.seek.frame !== seek.frame) {
+      return
+    }
+    state.waiting.delete(client.userId)
+    this._finishReplaySeekIfReady(lobby, state)
+  }
+
+  private _finishReplaySeekIfReady(lobby: Lobby, state: ReplaySeekState): void {
+    if (state.waiting.size || this.replaySeeks.get(lobby.id) !== state) {
+      return
+    }
+    this.replaySeeks.delete(lobby.id)
+    this._publishTo(lobby, { type: 'replaySeek' })
+    this.replaySpeeds.set(lobby.id, state.resumeSpeed)
+    this._publishTo(lobby, { type: 'replaySpeed', speed: state.resumeSpeed })
+  }
+
+  /** Returns a short-lived download of a replay lobby's replay for one of its members. */
+  async getReplayDownload({
+    client,
+    lobbyId,
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+  }): Promise<GetReplaySessionSourceResponse> {
+    const lobby = this.getLobbyForClient(client, lobbyId)
+    const source = this.lobbyReplays.get(lobby.id)
+    if (!source) {
+      throw new LobbyServiceError(LobbyServiceErrorCode.ReplayNotFound, 'lobby has no replay')
+    }
+
+    try {
+      return await this.replaySessionSources.download(source)
+    } catch (err) {
+      throw toLobbyReplayError(err)
+    }
+  }
+
+  /** Returns an embedded map preview only to a current lobby member. */
+  async getReplayThumbnail({
+    client,
+    lobbyId,
+    hash,
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+    hash?: string
+  }): Promise<Buffer | undefined> {
+    const lobby = this.getLobbyForClient(client, lobbyId)
+    let source = this.lobbyReplays.get(lobby.id)
+    if (hash) {
+      source = queuedSources(lobby).some(
+        entry => entry.kind === 'replay' && entry.replay.hash === hash,
+      )
+        ? this.queuedReplaySources.get(lobby.id)?.get(hash)
+        : undefined
+    }
+    return source ? await this.replaySessionSources.thumbnail(source) : undefined
+  }
+
+  /** The uploaded replays that live replay lobbies are watching, which must be kept alive. */
+  getWatchedReplayUploadIds(): string[] {
+    const ids = new Set<string>()
+    for (const source of this.lobbyReplays.values()) {
+      if (source.kind === 'upload') {
+        ids.add(source.sourceId)
+      }
+    }
+    for (const queued of this.queuedReplaySources.values()) {
+      for (const source of queued.values()) {
+        if (source.kind === 'upload') ids.add(source.sourceId)
+      }
+    }
+    return [...ids]
+  }
+
+  /** Drops a replay lobby's pending load, cancelling its deadline. */
+  private _clearReplayLoad(lobbyId: SbLobbyId) {
+    const replayLoad = this.replayLoads.get(lobbyId)
+    if (replayLoad) {
+      this.clock.clearTimeout(replayLoad.timer)
+      this.replayLoads.delete(lobbyId)
+    }
+  }
+
   _maybeCancelLoading(
     lobby: Lobby,
     isLobbyEmpty = false,
@@ -2453,6 +3227,7 @@ export class LobbyService {
 
     this.loadingLobbies.get(lobby.id)!.abort()
     this.loadingLobbies.delete(lobby.id)
+    this._clearReplayLoad(lobby.id)
     this._publishTo(lobby, {
       type: 'cancelLoading',
       usersAtFault,
@@ -2502,13 +3277,19 @@ export class LobbyService {
         )
         this._endGameForEveryone(lobbyId, runState)
       }, MAX_IN_GAME_MS),
-      mapId: lobby.map!.id,
+      mapId: lobby.map?.id,
+      isReplay: isReplayLobby(lobby),
       teams: toSeriesTeams(lobby),
     }
     this.runStates.set(lobbyId, runState)
-    // The lobby is what remembers this game once it's over, so a result reconciled at any later
-    // point has to be able to find its way back here.
-    this.seriesGameLobbies.set(gameId, lobbyId)
+    if (runState.isReplay) {
+      this.replaySpeeds.set(lobbyId, { paused: false, speed: 6, multiplier: 1 })
+    }
+    if (!runState.isReplay) {
+      // The lobby is what remembers this game once it's over, so a result reconciled at any later
+      // point has to be able to find its way back here.
+      this.seriesGameLobbies.set(gameId, lobbyId)
+    }
 
     this._publishTo(lobby, { type: 'gameStarted', runState: this._runStateJson(lobbyId)! })
     // The lobby left the public list when its countdown began; it belongs back on it now, marked as
@@ -2540,6 +3321,15 @@ export class LobbyService {
     }
 
     runState.inGameUsers.delete(userId)
+    this.replayFrames.get(lobbyId)?.delete(userId)
+    const replaySeek = this.replaySeeks.get(lobbyId)
+    if (replaySeek) {
+      if (lobby.host.userId === userId) {
+        replaySeek.resumeSpeed = { ...replaySeek.resumeSpeed, paused: true }
+      }
+      replaySeek.waiting.delete(userId)
+      this._finishReplaySeekIfReady(lobby, replaySeek)
+    }
     this.activityRegistry.reapplyStatus(userId)
     this._publishTo(lobby, { type: 'memberGameEnded', userId })
     this._maybeRegroup(lobbyId)
@@ -2593,11 +3383,28 @@ export class LobbyService {
       return
     }
 
+    if (runState.isReplay) {
+      // Watching a replay is no game: it has no result to wait for and no place in the series.
+      if (queuedSources(lobby).length) {
+        this._regroupIntoQueuedSource(lobby)
+        return
+      }
+      const updated = this._seatBenchOverflow(lobby)
+      this.lobbies.set(lobbyId, updated)
+      this._publishTo(updated, { type: 'regroup' })
+      if (updated === lobby) {
+        this._publishListChange('update', updated)
+      } else {
+        this._publishLobbyDiff(lobby, updated)
+      }
+      return
+    }
+
     // The game joins the lobby's history with no outcome yet: results are reconciled some time
     // after a game ends, and a game that reports none never gets one at all.
     const game: LobbySeriesGameJson = {
       gameId: runState.gameId,
-      mapId: runState.mapId,
+      mapId: runState.mapId!,
       teams: runState.teams,
     }
     const series = this.series.get(lobbyId)
@@ -2607,18 +3414,8 @@ export class LobbyService {
       this.series.set(lobbyId, [game])
     }
 
-    if (lobby.mapQueue.length) {
-      const advanced = advanceMapQueue(lobby)
-      const updated = this._seatBenchOverflow(advanced.lobby)
-      this.lobbies.set(lobbyId, updated)
-      this._publishTo(updated, { type: 'regroup', game })
-      this._publishTo(updated, {
-        type: 'mapQueueAdvance',
-        skippedMapIds: advanced.skippedMapIds,
-        lobby: updated,
-      })
-      this._publishPreview(updated)
-      this._publishListChange('update', updated)
+    if (queuedSources(lobby).length) {
+      this._regroupIntoQueuedSource(lobby, game)
     } else {
       const updated = this._seatBenchOverflow(lobby)
       this.lobbies.set(lobbyId, updated)
@@ -2638,6 +3435,34 @@ export class LobbyService {
     this._resolveSeriesGame(lobbyId, game.gameId).catch(err => {
       logger.error({ err }, "error recording the result of a lobby's game")
     })
+  }
+
+  private _regroupIntoQueuedSource(lobby: Lobby, game?: LobbySeriesGameJson): void {
+    const advanced = advanceSourceQueue(lobby, this.queuedReplaySources.get(lobby.id) ?? new Map())
+    const updated = this._seatBenchOverflow(advanced.lobby)
+    this.lobbies.set(lobby.id, updated)
+    if (advanced.replaySource) {
+      this.lobbyReplays.set(lobby.id, advanced.replaySource)
+    } else if (!updated.replay) {
+      this.lobbyReplays.delete(lobby.id)
+    }
+    const retained = new Set(
+      queuedSources(updated).flatMap(entry => (entry.kind === 'replay' ? [entry.replay.hash] : [])),
+    )
+    const privateSources = this.queuedReplaySources.get(lobby.id)
+    if (privateSources) {
+      for (const hash of privateSources.keys()) {
+        if (!retained.has(hash)) privateSources.delete(hash)
+      }
+    }
+    this._publishTo(updated, { type: 'regroup', ...(game ? { game } : {}) })
+    this._publishTo(updated, {
+      type: 'mapQueueAdvance',
+      skippedMapIds: advanced.skippedMapIds,
+      lobby: updated,
+    })
+    this._publishPreview(updated)
+    this._publishListChange('update', updated)
   }
 
   /**
@@ -2728,6 +3553,10 @@ export class LobbyService {
 
     this.clock.clearTimeout(runState.deadlineTimer)
     this.runStates.delete(lobbyId)
+    this.replaySpeeds.delete(lobbyId)
+    this.replaySeeks.delete(lobbyId)
+    this.replaySeekEpochs.delete(lobbyId)
+    this.replayFrames.delete(lobbyId)
   }
 
   /**
@@ -2827,6 +3656,16 @@ export class LobbyService {
     }
     if (this.loadingLobbies.has(lobby.id)) {
       throw new LobbyServiceError(LobbyServiceErrorCode.AlreadyStarted, 'lobby has already started')
+    }
+  }
+
+  /** Throws for operations that only apply to lobbies playing a game. */
+  ensureNotReplayLobby(lobby: Lobby): void {
+    if (isReplayLobby(lobby)) {
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.ReplayLobby,
+        "that doesn't apply to a lobby watching a replay",
+      )
     }
   }
 
@@ -2947,8 +3786,19 @@ export class LobbyService {
       // Ready marks belong to the person who chose them. A former host can remain seated after a
       // host transfer and must mark ready explicitly before the next game can start.
       this.readyUsers.get(oldLobby.id)?.delete(oldLobby.host.userId!)
+      const replaySpeed = this.replaySpeeds.get(oldLobby.id)
+      if (replaySpeed) {
+        const paused = { ...replaySpeed, paused: true }
+        this.replaySpeeds.set(oldLobby.id, paused)
+        diffEvents.push({ type: 'replaySpeed', speed: paused })
+      }
+      const replaySeek = this.replaySeeks.get(oldLobby.id)
+      if (replaySeek) {
+        replaySeek.resumeSpeed = { ...replaySeek.resumeSpeed, paused: true }
+      }
     }
     if (newLobby.host.id !== oldLobby.host.id || hostUserChanged) {
+      this.replayFrames.delete(oldLobby.id)
       diffEvents.push({
         type: 'hostChange',
         host: newLobby.host,

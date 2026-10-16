@@ -41,6 +41,7 @@ import { ConnectedUserContextMenu } from '../users/user-context-menu'
 import { useUserOverlays } from '../users/user-overlays'
 import { ConnectedUserProfileOverlay } from '../users/user-profile-overlay'
 import { isInLobby } from './lobby-reducer'
+import { lobbyDisplayMapName } from './lobby-replay'
 import { LobbySummaryLoadState, useLobbySummary } from './lobby-summary'
 import { navigateToLobby } from './lobby-url'
 import { useJoinLobbyAction } from './use-join-lobby-action'
@@ -83,7 +84,12 @@ const SEAT_TILES_PER_ROW = 4
  */
 export interface LobbyInviteDisplayData {
   name: string
-  map: ReadonlyDeep<MapImageInfo & { id: SbMapId }>
+  /** The map a game lobby plays. Absent for a replay lobby. */
+  map?: ReadonlyDeep<MapImageInfo & { id: SbMapId }>
+  /** The name of the map shown for the lobby, which a replay lobby takes from its replay. */
+  mapName: string
+  /** Whether the lobby watches a replay rather than playing a game. */
+  isReplay: boolean
   gameType: GameType
   hostId: SbUserId
   /** How many player seats the lobby has, and how many are filled or open (the rest are closed). */
@@ -331,8 +337,15 @@ function LobbyInviteHeader({
       <BackdropCardTitle text={t('lobbies.inviteCard.title', 'Lobby')} />
       <BackdropCardMeta>
         {/* The map is hard to pick out from the blurred image behind the card. */}
-        <BackdropCardMetaKeyText text={display.map.name} />
-        <BackdropCardMetaText text={' · ' + gameTypeToLabel(display.gameType, t)} />
+        <BackdropCardMetaKeyText text={display.mapName} />
+        <BackdropCardMetaText
+          text={
+            ' · ' +
+            (display.isReplay
+              ? t('lobbies.replayLobby.replay', 'Replay')
+              : gameTypeToLabel(display.gameType, t))
+          }
+        />
       </BackdropCardMeta>
       {display.lifecycle === 'inGame' ? (
         <StatusChip $kind='inGame'>{t('lobbies.lobby.inGame', 'In game')}</StatusChip>
@@ -454,7 +467,7 @@ function LobbyInviteCardBody({
   const { t } = useTranslation()
   return (
     <InviteCard
-      imageUrl={display.map.image512Url ?? display.map.image256Url}
+      imageUrl={display.map?.image512Url ?? display.map?.image256Url}
       height={CARD_HEIGHT}
       onClick={onClick}
       actionLabel={
@@ -525,6 +538,8 @@ export function LobbyInviteCardContent({
       display={{
         name: lobby.name,
         map: lobby.map,
+        mapName: lobbyDisplayMapName(lobby),
+        isReplay: lobby.replay !== undefined,
         gameType: lobby.gameType,
         hostId: host.id,
         playerSlots: lobby.playerSlots,
@@ -630,7 +645,9 @@ function OwnLobbyInviteCard() {
     <LobbyInviteJoinedCard
       display={{
         name: info.name,
-        map: info.map!,
+        map: info.map,
+        mapName: lobbyDisplayMapName(info),
+        isReplay: info.replay !== undefined,
         gameType: info.gameType,
         hostId: info.host.userId!,
         playerSlots: {

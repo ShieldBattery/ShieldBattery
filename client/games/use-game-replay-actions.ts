@@ -2,7 +2,9 @@ import { useTranslation } from 'react-i18next'
 import { ReadonlyDeep } from 'type-fest'
 import { getErrorStack } from '../../common/errors'
 import { GameRecordJson, GameReplayInfo } from '../../common/games/games'
+import { MS_PER_GAME_FRAME } from '../../common/games/replay-timestamp'
 import { openSimpleDialog } from '../dialogs/action-creators'
+import { navigateToCreateReplayLobby } from '../lobbies/create/replay-lobby-setup'
 import logger from '../logging/logger'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { watchReplayFromUrl } from '../replays/action-creators'
@@ -12,6 +14,8 @@ export interface UseGameReplayActionsResult {
   replayInfo: GameReplayInfo | undefined
   /** Downloads (if needed) and starts watching this game's replay. No-op if there isn't one. */
   onWatchReplay: () => void
+  /** Opens the lobby form with this game replay selected. */
+  onWatchWithOthers: () => void
 }
 
 /**
@@ -27,6 +31,8 @@ export function useGameReplayActions(
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const replayInfo = useAppSelector(s => s.games.replayInfoById.get(game.id))
+  const mapName = useAppSelector(s => s.maps.byId.get(game.mapId)?.name)
+  const usersById = useAppSelector(s => s.users.byId)
 
   const onWatchReplay = () => {
     if (!replayInfo) return
@@ -51,5 +57,24 @@ export function useGameReplayActions(
     )
   }
 
-  return { replayInfo, onWatchReplay }
+  const onWatchWithOthers = () => {
+    if (!replayInfo || !IS_ELECTRON) return
+
+    navigateToCreateReplayLobby({
+      choice: { kind: 'game', gameId: game.id },
+      mapName: mapName ?? t('game.mapName.unknown', 'Unknown map'),
+      durationFrames: game.gameLength ? Math.round(game.gameLength / MS_PER_GAME_FRAME) : undefined,
+      players: game.config.teams.flatMap((team, teamIndex) =>
+        team.map(player => ({
+          name: player.isComputer
+            ? t('game.playerName.computer', 'Computer')
+            : (usersById.get(player.id)?.name ?? String(player.id)),
+          race: player.race,
+          team: teamIndex,
+        })),
+      ),
+    })
+  }
+
+  return { replayInfo, onWatchReplay, onWatchWithOthers }
 }

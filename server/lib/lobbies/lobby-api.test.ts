@@ -46,6 +46,15 @@ const EXPECTED_ERROR_MAPPING: Record<
   [LobbyServiceErrorCode.NotOwnSlot]: { status: 403 },
   [LobbyServiceErrorCode.NotSeated]: { status: 400 },
   [LobbyServiceErrorCode.NotSlotController]: { status: 403 },
+  [LobbyServiceErrorCode.ReplayHashMismatch]: { status: 400 },
+  [LobbyServiceErrorCode.ReplayLobby]: { status: 409 },
+  [LobbyServiceErrorCode.ReplaySeeking]: { status: 409 },
+  [LobbyServiceErrorCode.ReplayNotAccessible]: {
+    status: 403,
+    bodyCode: LobbyJoinErrorCode.ReplayNotAccessible,
+  },
+  [LobbyServiceErrorCode.ReplayNotFound]: { status: 404 },
+  [LobbyServiceErrorCode.ReplayNotLoading]: { status: 409 },
   [LobbyServiceErrorCode.ObserversFull]: {
     status: 409,
     bodyCode: LobbyJoinErrorCode.ObserversFull,

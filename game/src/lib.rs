@@ -68,6 +68,7 @@ mod recurse_checked_mutex;
 mod replay;
 mod replay_name;
 mod replay_seek;
+mod replay_session;
 mod rollback;
 #[cfg(debug_assertions)]
 mod rollback_bench;
@@ -466,6 +467,63 @@ async fn handle_messages_from_game_thread(
 
                         let msg =
                             app_socket::encode_message("/game/replaySaved", ReplaySaved { path });
+                        if let Some(msg) = msg {
+                            let _ = ws_send.send(msg).await;
+                        }
+                    }
+                    GameThreadMessage::ReplaySessionReady => {
+                        let msg = app_socket::encode_message("/game/replaySessionReady", ());
+                        if let Some(msg) = msg {
+                            let _ = ws_send.send(msg).await;
+                        }
+                    }
+                    GameThreadMessage::ReplaySessionSpeed {
+                        paused,
+                        speed,
+                        multiplier,
+                    } => {
+                        let payload = app_messages::ReplaySessionSpeed {
+                            paused,
+                            speed,
+                            multiplier,
+                        };
+                        let msg = app_socket::encode_message("/game/replaySessionSpeed", payload);
+                        if let Some(msg) = msg {
+                            let _ = ws_send.send(msg).await;
+                        }
+                    }
+                    GameThreadMessage::ReplaySessionSeek { frame } => {
+                        let msg = app_socket::encode_message(
+                            "/game/replaySessionSeek",
+                            app_messages::ReplaySessionSeekRequest { frame },
+                        );
+                        if let Some(msg) = msg {
+                            let _ = ws_send.send(msg).await;
+                        }
+                    }
+                    GameThreadMessage::ReplaySessionSeekReached { epoch, frame } => {
+                        let msg = app_socket::encode_message(
+                            "/game/replaySessionSeekReached",
+                            app_messages::ReplaySessionSeek { epoch, frame },
+                        );
+                        if let Some(msg) = msg {
+                            let _ = ws_send.send(msg).await;
+                        }
+                    }
+                    GameThreadMessage::ReplaySessionFrame { frame } => {
+                        let msg = app_socket::encode_message(
+                            "/game/replaySessionFrame",
+                            app_messages::ReplaySessionSeekRequest { frame },
+                        );
+                        if let Some(msg) = msg {
+                            let _ = ws_send.send(msg).await;
+                        }
+                    }
+                    GameThreadMessage::ReplaySessionChat { text } => {
+                        let msg = app_socket::encode_message(
+                            "/game/replaySessionChat",
+                            app_messages::ReplaySessionChatRequest { text: &text },
+                        );
                         if let Some(msg) = msg {
                             let _ = ws_send.send(msg).await;
                         }

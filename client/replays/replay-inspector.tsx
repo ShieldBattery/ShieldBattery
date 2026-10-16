@@ -14,11 +14,13 @@ import { getGameResultsUrl } from '../games/action-creators'
 import {
   GameSidePanel,
   GameSidePanelActions,
+  GameSidePanelActionStack,
   GameSidePanelChipsRow,
   GameSidePanelEmpty,
   GameSidePanelOverflow,
   GameSidePanelPrimaryAction,
   GameSidePanelRelativeTime,
+  GameSidePanelSecondaryAction,
   GameSidePanelSection,
   GameSidePanelTitle,
 } from '../games/game-side-panel'
@@ -311,6 +313,7 @@ export interface ReplayInspectorProps {
   canMoveUp: boolean
   canMoveDown: boolean
   onWatch: (entry: ReplayLibraryEntry) => void
+  onWatchWithOthers: (entry: ReplayLibraryEntry) => void
   onReveal: (entry: ReplayLibraryEntry) => void
   onToggleBookmark: (entry: ReplayLibraryEntry) => void
   onAddToPlaylist: (playlistId: number, playlistName: string, entry: ReplayLibraryEntry) => void
@@ -330,6 +333,7 @@ export function ReplayInspector({
   canMoveUp,
   canMoveDown,
   onWatch,
+  onWatchWithOthers,
   onReveal,
   onToggleBookmark,
   onAddToPlaylist,
@@ -449,56 +453,65 @@ export function ReplayInspector({
     entryPlaylists && entryPlaylists.forId === entry.id ? entryPlaylists.list : []
 
   const actions = (
-    <GameSidePanelActions>
-      <GameSidePanelPrimaryAction
-        label={t('replays.library.watchReplay', 'Watch replay')}
-        iconStart='play_arrow'
-        onClick={() => onWatch(entry)}
-      />
-      {/* Bookmarking keeps a button of its own rather than folding into the menu: it's a toggle
-          whose amber fill is its label, and the library's rows carry the identical control. */}
-      <BookmarkButton
-        $bookmarked={bookmarked}
-        icon={<MaterialIcon icon='bookmark' filled={bookmarked} />}
-        title={
-          bookmarked
-            ? t('replays.library.removeBookmark', 'Remove bookmark')
-            : t('replays.library.bookmark', 'Bookmark')
-        }
-        onClick={() => onToggleBookmark(entry)}
-      />
-      <GameSidePanelOverflow
-        renderItems={({ closeMenu, openSubmenu }) =>
-          getReplayActionMenuItems({
-            entry,
-            inPlaylistView,
-            closeMenu,
-            onOpenAddToPlaylist: openSubmenu,
-            onRemoveFromPlaylist,
-            onReveal,
-            onMoveToRecycleBin,
-            reorder:
-              inPlaylistView && canReorder
-                ? { canMoveUp, canMoveDown, onMoveUp, onMoveDown }
-                : undefined,
-            sbGameMissing,
-            t,
-          })
-        }
-        renderSubmenu={({ closeSubmenu }) => (
-          <MenuList dense={true}>
-            {getAddToPlaylistMenuItems({
-              playlists,
-              closeMenu: closeSubmenu,
-              onAddToPlaylist: (playlistId, playlistName) =>
-                onAddToPlaylist(playlistId, playlistName, entry),
+    <GameSidePanelActionStack>
+      <GameSidePanelActions>
+        <GameSidePanelPrimaryAction
+          label={t('replays.library.watchReplay', 'Watch replay')}
+          iconStart='play_arrow'
+          onClick={() => onWatch(entry)}
+        />
+        {/* Bookmarking keeps a button of its own rather than folding into the menu: it's a toggle
+            whose amber fill is its label, and the library's rows carry the identical control. */}
+        <BookmarkButton
+          $bookmarked={bookmarked}
+          icon={<MaterialIcon icon='bookmark' filled={bookmarked} />}
+          title={
+            bookmarked
+              ? t('replays.library.removeBookmark', 'Remove bookmark')
+              : t('replays.library.bookmark', 'Bookmark')
+          }
+          onClick={() => onToggleBookmark(entry)}
+        />
+        <GameSidePanelOverflow
+          renderItems={({ closeMenu, openSubmenu }) =>
+            getReplayActionMenuItems({
+              entry,
+              inPlaylistView,
+              closeMenu,
+              onOpenAddToPlaylist: openSubmenu,
+              onRemoveFromPlaylist,
+              onReveal,
+              onMoveToRecycleBin,
+              reorder:
+                inPlaylistView && canReorder
+                  ? { canMoveUp, canMoveDown, onMoveUp, onMoveDown }
+                  : undefined,
+              sbGameMissing,
               t,
-              dispatch,
-            })}
-          </MenuList>
-        )}
-      />
-    </GameSidePanelActions>
+            })
+          }
+          renderSubmenu={({ closeSubmenu }) => (
+            <MenuList dense={true}>
+              {getAddToPlaylistMenuItems({
+                playlists,
+                closeMenu: closeSubmenu,
+                onAddToPlaylist: (playlistId, playlistName) =>
+                  onAddToPlaylist(playlistId, playlistName, entry),
+                t,
+                dispatch,
+              })}
+            </MenuList>
+          )}
+        />
+      </GameSidePanelActions>
+      {!entry.parseError ? (
+        <GameSidePanelSecondaryAction
+          label={t('replays.library.watchWithOthers', 'Watch Together')}
+          iconStart='group'
+          onClick={() => onWatchWithOthers(entry)}
+        />
+      ) : null}
+    </GameSidePanelActionStack>
   )
 
   return (

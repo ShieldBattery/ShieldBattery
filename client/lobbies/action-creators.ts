@@ -4,6 +4,7 @@ import { GameType } from '../../common/games/game-type'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { LobbyVisibility } from '../../common/lobbies'
 import {
+  ChangeLobbySourceRequest,
   CreateLobbyRequest,
   CreateLobbyResponse,
   GetLobbyStateResponse,
@@ -24,6 +25,7 @@ import {
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { SbMapId } from '../../common/maps'
 import { RaceChar } from '../../common/races'
+import { StageReplaySessionSourceResponse } from '../../common/replay-sessions'
 import { RolledOutcomeRequest } from '../../common/rolled-outcomes'
 import { apiUrl } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
@@ -112,6 +114,73 @@ export function createLobby(
         allowObservers,
         visibility,
         leaveCurrentLobby,
+        ...network,
+      }),
+      signal: spec.signal,
+    })
+  })
+}
+
+/** The replay a replay lobby is created to watch. */
+export type LobbyReplayChoice = { kind: 'game'; gameId: string } | { kind: 'local'; path: string }
+
+export type LobbyQueuedSourceChoice =
+  | { kind: 'map'; mapId: SbMapId }
+  | { kind: 'replay'; hash?: string; choice?: LobbyReplayChoice }
+
+export interface CreateReplayLobbyParams {
+  name: string
+  replay: LobbyReplayChoice
+  visibility?: LobbyVisibility
+  /**
+   * When set, a client currently in a different lobby is removed from it in the same operation
+   * before hosting this one. Without it, being in any gameplay activity fails the create.
+   */
+  leaveCurrentLobby?: boolean
+}
+
+/** Stages a local replay on the server so a replay lobby can be created to watch it. */
+async function stageLocalReplay(
+  localPath: string,
+  signal?: AbortSignal,
+): Promise<StageReplaySessionSourceResponse> {
+  const data = await ipcRenderer.invoke('fsReadFile', localPath)
+  if (!data) {
+    throw new Error('Could not read the replay file')
+  }
+  const formData = new FormData()
+  formData.append('replay', new Blob([data], { type: 'application/octet-stream' }), 'replay.rep')
+
+  return await fetchJson<StageReplaySessionSourceResponse>(apiUrl`replay-sessions/sources`, {
+    method: 'POST',
+    body: formData,
+    signal,
+  })
+}
+
+/** Creates a lobby that watches a replay together, uploading a local replay first. */
+export function createReplayLobby(
+  { name, replay, visibility, leaveCurrentLobby }: CreateReplayLobbyParams,
+  spec: RequestHandlingSpec<CreateLobbyResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    const [network, replayParams] = await Promise.all([
+      resolveNetworkParams(),
+      replay.kind === 'game'
+        ? Promise.resolve({ replayGameId: replay.gameId })
+        : stageLocalReplay(replay.path, spec.signal).then(staged => ({
+            replayUploadId: staged.sourceId,
+          })),
+    ])
+
+    return await fetchJson<CreateLobbyResponse>(apiUrl`lobbies`, {
+      method: 'POST',
+      body: encodeBodyAsParams<CreateLobbyRequest>({
+        clientId,
+        name,
+        visibility,
+        leaveCurrentLobby,
+        ...replayParams,
         ...network,
       }),
       signal: spec.signal,
@@ -277,16 +346,64 @@ export function shuffleSlots(spec: RequestHandlingSpec<void>): ThunkAction {
 export function updateLobbySettings(
   settings: Partial<Omit<UpdateLobbySettingsRequest, 'clientId'>>,
   spec: RequestHandlingSpec<void>,
+  queuedChoices?: ReadonlyArray<LobbyQueuedSourceChoice>,
 ): ThunkAction {
-  return currentLobbyRequest(spec, lobbyId =>
-    fetchJson<void>(apiUrl`lobbies/${lobbyId}/settings`, {
+  return currentLobbyRequest(spec, async lobbyId => {
+    let sourceQueue: UpdateLobbySettingsRequest['sourceQueue']
+    if (queuedChoices) {
+      sourceQueue = []
+      for (const entry of queuedChoices) {
+        if (entry.kind === 'map') {
+          sourceQueue.push({ kind: 'map', mapId: entry.mapId })
+        } else if (entry.choice?.kind === 'local') {
+          const staged = await stageLocalReplay(entry.choice.path, spec.signal)
+          sourceQueue.push({
+            kind: 'replay',
+            source: { kind: 'upload', sourceId: staged.sourceId },
+          })
+        } else if (entry.choice?.kind === 'game') {
+          sourceQueue.push({ kind: 'replay', source: entry.choice })
+        } else if (entry.hash) {
+          sourceQueue.push({ kind: 'replay', hash: entry.hash })
+        }
+      }
+    }
+    await fetchJson<void>(apiUrl`lobbies/${lobbyId}/settings`, {
       method: 'POST',
-      // Sent as JSON rather than form params so that an emptied map queue arrives as an empty list
-      // instead of being left out.
-      body: JSON.stringify({ clientId, ...settings } satisfies UpdateLobbySettingsRequest),
+      // An empty queue must arrive as an empty array rather than being omitted by form params.
+      body: JSON.stringify({ clientId, ...settings, ...(sourceQueue ? { sourceQueue } : {}) }),
       signal: spec.signal,
-    }),
-  )
+    })
+  })
+}
+
+/** Changes the source of the current lobby, staging local replay bytes when needed. */
+export function changeLobbySource(
+  source: { kind: 'map'; mapId: SbMapId } | LobbyReplayChoice,
+  spec: RequestHandlingSpec<void>,
+): ThunkAction {
+  return abortableThunk(spec, async (_dispatch, getState) => {
+    const { lobby } = getState()
+    if (!isInLobby(lobby)) return
+    let sourceParams: Omit<ChangeLobbySourceRequest, 'clientId'>
+    if (source.kind === 'map') {
+      sourceParams = { map: source.mapId }
+    } else if (source.kind === 'game') {
+      sourceParams = { replay: { kind: 'game', gameId: source.gameId } }
+    } else {
+      sourceParams = {
+        replay: {
+          kind: 'upload',
+          sourceId: (await stageLocalReplay(source.path, spec.signal)).sourceId,
+        },
+      }
+    }
+    await fetchJson<void>(apiUrl`lobbies/${lobby.info.id}/source`, {
+      method: 'POST',
+      body: JSON.stringify({ clientId, ...sourceParams } satisfies ChangeLobbySourceRequest),
+      signal: spec.signal,
+    })
+  })
 }
 
 /** Moves the occupant of `fromSlotId` into `toSlotId`, swapping the two occupants if it's taken. */

@@ -1,10 +1,12 @@
 import { RouterContext } from '@koa/router'
 import Joi from 'joi'
+import { container } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { isValidLobbyName } from '../../../common/constants'
 import { ALL_GAME_TYPES } from '../../../common/games/game-type'
 import { ALL_LOBBY_VISIBILITIES, MAX_MAP_QUEUE } from '../../../common/lobbies'
 import {
+  ChangeLobbySourceRequest,
   CreateLobbyRequest,
   CreateLobbyResponse,
   GetLobbyStateResponse,
@@ -14,8 +16,14 @@ import {
   LobbyServiceErrorCode,
   LobbySlotRequest,
   MoveSlotRequest,
+  ReportLobbyReplayFrameRequest,
+  ReportLobbyReplayLoadedRequest,
+  ReportLobbyReplaySeekReachedRequest,
+  ReportLobbyReplaySeekRequest,
+  ReportLobbyReplaySpeedRequest,
   SendLobbyChatRequest,
   SendLobbyOutcomeRequest,
+  SendLobbyReplayChatRequest,
   SetLobbyRaceRequest,
   SetLobbyReadyRequest,
   StartLobbyCountdownRequest,
@@ -24,6 +32,10 @@ import {
 import { SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import { isPrettyId } from '../../../common/pretty-id'
 import { ALL_RACE_CHARS } from '../../../common/races'
+import {
+  GetReplaySessionSourceResponse,
+  ReplaySessionSource,
+} from '../../../common/replay-sessions'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { makeErrorConverterMiddleware } from '../errors/coded-error'
 import { asHttpError, HttpErrorWithPayload } from '../errors/error-with-payload'
@@ -40,6 +52,7 @@ import {
   UserSocketsGroup,
 } from '../websockets/socket-groups'
 import { LobbyService, LobbyServiceError } from './lobby-service'
+import { ReplayLobbySourceRetentionJob } from './replay-lobby-source-retention'
 
 // Creating, joining, and leaving are one-off transitions in and out of a lobby, so a
 // matchmaking-like rate is plenty. Leaving deliberately sits here rather than on the in-lobby
@@ -141,7 +154,32 @@ const updateLobbySettingsBody = Joi.object<UpdateLobbySettingsRequest>({
   starcraftCompatibleReplays: Joi.boolean(),
   lockedAlliances: Joi.boolean(),
   mapQueue: Joi.array().items(Joi.string()).max(MAX_MAP_QUEUE),
+  sourceQueue: Joi.array()
+    .items(
+      Joi.alternatives().try(
+        Joi.object({ kind: Joi.string().valid('map').required(), mapId: Joi.string().required() }),
+        Joi.object({
+          kind: Joi.string().valid('replay').required(),
+          hash: Joi.string().hex().length(64),
+          source: Joi.object({
+            kind: Joi.string().valid('game', 'upload').required(),
+            gameId: Joi.when('kind', {
+              is: 'game',
+              then: Joi.string().required(),
+              otherwise: Joi.forbidden(),
+            }),
+            sourceId: Joi.when('kind', {
+              is: 'upload',
+              then: Joi.string().required(),
+              otherwise: Joi.forbidden(),
+            }),
+          }),
+        }).xor('hash', 'source'),
+      ),
+    )
+    .max(MAX_MAP_QUEUE),
 })
+  .oxor('mapQueue', 'sourceQueue')
   .or(
     'name',
     'visibility',
@@ -153,8 +191,27 @@ const updateLobbySettingsBody = Joi.object<UpdateLobbySettingsRequest>({
     'starcraftCompatibleReplays',
     'lockedAlliances',
     'mapQueue',
+    'sourceQueue',
   )
   .required()
+
+const changeLobbySourceBody = Joi.object<ChangeLobbySourceRequest>({
+  clientId: clientIdSchema,
+  replay: Joi.object({
+    kind: Joi.string().valid('game', 'upload').required(),
+    gameId: Joi.when('kind', {
+      is: 'game',
+      then: Joi.string().required(),
+      otherwise: Joi.forbidden(),
+    }),
+    sourceId: Joi.when('kind', {
+      is: 'upload',
+      then: Joi.string().required(),
+      otherwise: Joi.forbidden(),
+    }),
+  }),
+  map: Joi.string(),
+}).xor('replay', 'map')
 
 /** The body of a request to move a slot's occupant somewhere else. */
 const moveSlotBody = Joi.object<MoveSlotRequest>({
@@ -192,6 +249,7 @@ export function convertLobbyServiceError(err: unknown): void {
     case LobbyServiceErrorCode.NotInLobby:
     case LobbyServiceErrorCode.NotObserverSlot:
     case LobbyServiceErrorCode.NotSeated:
+    case LobbyServiceErrorCode.ReplayHashMismatch:
     case LobbyServiceErrorCode.UserOffline:
       throw asHttpError(400, err)
 
@@ -202,6 +260,9 @@ export function convertLobbyServiceError(err: unknown): void {
     case LobbyServiceErrorCode.NotSlotController:
       throw asHttpError(403, err)
 
+    case LobbyServiceErrorCode.ReplayNotFound:
+      throw asHttpError(404, err)
+
     case LobbyServiceErrorCode.AlreadyInActivity:
     case LobbyServiceErrorCode.AlreadyInSlot:
     case LobbyServiceErrorCode.AlreadyStarted:
@@ -210,6 +271,9 @@ export function convertLobbyServiceError(err: unknown): void {
     case LobbyServiceErrorCode.InvalidTeamLayout:
     case LobbyServiceErrorCode.NotCountingDown:
     case LobbyServiceErrorCode.NotEveryoneReady:
+    case LobbyServiceErrorCode.ReplayLobby:
+    case LobbyServiceErrorCode.ReplayNotLoading:
+    case LobbyServiceErrorCode.ReplaySeeking:
     case LobbyServiceErrorCode.TargetNoActiveClient:
       throw asHttpError(409, err)
 
@@ -226,6 +290,10 @@ export function convertLobbyServiceError(err: unknown): void {
     case LobbyServiceErrorCode.JoinAlreadyInActivity:
       throw new HttpErrorWithPayload(409, err.message, {
         code: LobbyJoinErrorCode.AlreadyInActivity,
+      })
+    case LobbyServiceErrorCode.ReplayNotAccessible:
+      throw new HttpErrorWithPayload(403, err.message, {
+        code: LobbyJoinErrorCode.ReplayNotAccessible,
       })
 
     default:
@@ -249,7 +317,9 @@ export class LobbyApi {
   constructor(
     private lobbyService: LobbyService,
     private clientSocketsManager: ClientSocketsManager,
-  ) {}
+  ) {
+    container.resolve(ReplayLobbySourceRetentionJob)
+  }
 
   @httpPost('/')
   @httpBefore(...authed)
@@ -262,10 +332,12 @@ export class LobbyApi {
             isValidLobbyName(value) ? value : helpers.error('any.invalid'),
           )
           .required(),
-        map: Joi.string().required(),
+        map: Joi.string(),
         gameType: Joi.string()
           .valid(...ALL_GAME_TYPES)
-          .required(),
+          .when('map', { is: Joi.exist(), then: Joi.required() }),
+        replayGameId: Joi.string(),
+        replayUploadId: Joi.string().uuid(),
         gameSubType: Joi.number().min(1).max(7),
         allowObservers: Joi.boolean(),
         useLegacyLimits: Joi.boolean(),
@@ -277,15 +349,23 @@ export class LobbyApi {
         regionManual: regionManualSchema,
         clientPubkey: clientPubkeySchema,
         leaveCurrentLobby: Joi.boolean(),
-      }),
+      }).xor('map', 'replayGameId', 'replayUploadId'),
     })
 
     const { user, client } = this.getSockets(ctx, body.clientId)
+
+    let replay: ReplaySessionSource | undefined
+    if (body.replayGameId !== undefined) {
+      replay = { kind: 'game', gameId: body.replayGameId }
+    } else if (body.replayUploadId !== undefined) {
+      replay = { kind: 'upload', sourceId: body.replayUploadId }
+    }
 
     return await this.lobbyService.createLobby({
       name: body.name,
       map: body.map,
       gameType: body.gameType,
+      replay,
       gameSubType: body.gameSubType,
       allowObservers: body.allowObservers,
       useLegacyLimits: body.useLegacyLimits,
@@ -368,6 +448,21 @@ export class LobbyApi {
     })
   }
 
+  @httpPost('/:lobbyId/replay-chat')
+  @httpBefore(ensureLoggedIn, throttleMiddleware(lobbyChatThrottle, throttleByUser))
+  async sendReplayChat(ctx: RouterContext): Promise<void> {
+    const { params, body } = validateRequest(ctx, {
+      params: lobbyIdParams,
+      body: Joi.object<SendLobbyReplayChatRequest>({
+        clientId: clientIdSchema,
+        text: Joi.string().min(1).required(),
+      }),
+    })
+
+    const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
+    await this.lobbyService.sendReplayChat({ client, lobbyId: params.lobbyId, text: body.text })
+  }
+
   @httpPost('/:lobbyId/outcomes')
   @httpBefore(ensureLoggedIn, throttleMiddleware(lobbyChatThrottle, throttleByUser))
   async sendOutcome(ctx: RouterContext): Promise<void> {
@@ -403,6 +498,23 @@ export class LobbyApi {
       starcraftCompatibleReplays: body.starcraftCompatibleReplays,
       lockedAlliances: body.lockedAlliances,
       mapQueue: body.mapQueue,
+      sourceQueue: body.sourceQueue,
+    })
+  }
+
+  @httpPost('/:lobbyId/source')
+  @httpBefore(...authedAction)
+  async changeSource(ctx: RouterContext): Promise<void> {
+    const { params, body } = validateRequest(ctx, {
+      params: lobbyIdParams,
+      body: changeLobbySourceBody,
+    })
+    const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
+    await this.lobbyService.changeSource({
+      client,
+      lobbyId: params.lobbyId,
+      replay: body.replay,
+      map: body.map,
     })
   }
 
@@ -579,6 +691,142 @@ export class LobbyApi {
     const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
 
     this.lobbyService.cancelCountdown({ client, lobbyId: params.lobbyId })
+  }
+
+  @httpGet('/:lobbyId/replay-source')
+  @httpBefore(...authedAction)
+  async getReplaySource(ctx: RouterContext): Promise<GetReplaySessionSourceResponse> {
+    const { params, query } = validateRequest(ctx, {
+      params: lobbyIdParams,
+      query: lobbyClientBody,
+    })
+    const client = this.getClientSockets(ctx.session!.user.id, query.clientId)
+
+    return await this.lobbyService.getReplayDownload({ client, lobbyId: params.lobbyId })
+  }
+
+  @httpGet('/:lobbyId/replay-thumbnail')
+  @httpBefore(...authedAction)
+  async getReplayThumbnail(ctx: RouterContext): Promise<Buffer> {
+    const { params, query } = validateRequest(ctx, {
+      params: lobbyIdParams,
+      query: Joi.object<{ clientId: string; hash?: string }>({
+        clientId: clientIdSchema,
+        hash: Joi.string().hex().length(64),
+      }),
+    })
+    const client = this.getClientSockets(ctx.session!.user.id, query.clientId)
+    const image = await this.lobbyService.getReplayThumbnail({
+      client,
+      lobbyId: params.lobbyId,
+      hash: query.hash,
+    })
+    if (!image) throw new HttpErrorWithPayload(404, 'replay thumbnail unavailable', {})
+    ctx.type = 'image/jpeg'
+    ctx.set('Cache-Control', 'private, max-age=60')
+    return image
+  }
+
+  @httpPost('/:lobbyId/replay-loaded')
+  @httpBefore(...authedAction)
+  async reportReplayLoaded(ctx: RouterContext): Promise<void> {
+    const { params, body } = validateRequest(ctx, {
+      params: lobbyIdParams,
+      body: Joi.object<ReportLobbyReplayLoadedRequest>({
+        clientId: clientIdSchema,
+        hash: Joi.string().hex().length(64).required(),
+      }),
+    })
+    const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
+
+    this.lobbyService.reportReplayLoaded({ client, lobbyId: params.lobbyId, hash: body.hash })
+  }
+
+  @httpPost('/:lobbyId/replay-load-failed')
+  @httpBefore(...authedAction)
+  async reportReplayLoadFailed(ctx: RouterContext): Promise<void> {
+    const { params, body } = validateRequest(ctx, {
+      params: lobbyIdParams,
+      body: lobbyClientBody,
+    })
+    const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
+
+    this.lobbyService.reportReplayLoadFailed({ client, lobbyId: params.lobbyId })
+  }
+
+  @httpPost('/:lobbyId/replay-ended')
+  @httpBefore(...authedAction)
+  async reportReplayEnded(ctx: RouterContext): Promise<void> {
+    const { params, body } = validateRequest(ctx, {
+      params: lobbyIdParams,
+      body: lobbyClientBody,
+    })
+    const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
+
+    this.lobbyService.reportReplayEnded({ client, lobbyId: params.lobbyId })
+  }
+
+  @httpPost('/:lobbyId/replay-speed')
+  @httpBefore(...authedAction)
+  async reportReplaySpeed(ctx: RouterContext): Promise<void> {
+    const { params, body } = validateRequest(ctx, {
+      params: lobbyIdParams,
+      body: Joi.object<ReportLobbyReplaySpeedRequest>({
+        clientId: clientIdSchema,
+        paused: Joi.boolean().required(),
+        speed: Joi.number().integer().min(0).max(6).required(),
+        multiplier: Joi.number().integer().min(1).max(32).required(),
+      }),
+    })
+    const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
+    this.lobbyService.reportReplaySpeed({ client, lobbyId: params.lobbyId, speed: body })
+  }
+
+  @httpPost('/:lobbyId/replay-seek')
+  @httpBefore(...authedAction)
+  async reportReplaySeek(ctx: RouterContext): Promise<void> {
+    const { params, body } = validateRequest(ctx, {
+      params: lobbyIdParams,
+      body: Joi.object<ReportLobbyReplaySeekRequest>({
+        clientId: clientIdSchema,
+        frame: Joi.number().integer().min(0).max(0xffffffff).required(),
+      }),
+    })
+    const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
+    this.lobbyService.reportReplaySeek({ client, lobbyId: params.lobbyId, frame: body.frame })
+  }
+
+  @httpPost('/:lobbyId/replay-seek-reached')
+  @httpBefore(...authedAction)
+  async reportReplaySeekReached(ctx: RouterContext): Promise<void> {
+    const { params, body } = validateRequest(ctx, {
+      params: lobbyIdParams,
+      body: Joi.object<ReportLobbyReplaySeekReachedRequest>({
+        clientId: clientIdSchema,
+        epoch: Joi.number().integer().min(1).required(),
+        frame: Joi.number().integer().min(0).max(0xffffffff).required(),
+      }),
+    })
+    const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
+    this.lobbyService.reportReplaySeekReached({
+      client,
+      lobbyId: params.lobbyId,
+      seek: { epoch: body.epoch, frame: body.frame },
+    })
+  }
+
+  @httpPost('/:lobbyId/replay-frame')
+  @httpBefore(...authedAction)
+  async reportReplayFrame(ctx: RouterContext): Promise<void> {
+    const { params, body } = validateRequest(ctx, {
+      params: lobbyIdParams,
+      body: Joi.object<ReportLobbyReplayFrameRequest>({
+        clientId: clientIdSchema,
+        frame: Joi.number().integer().min(0).max(0xffffffff).required(),
+      }),
+    })
+    const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
+    this.lobbyService.reportReplayFrame({ client, lobbyId: params.lobbyId, frame: body.frame })
   }
 
   @httpGet('/:lobbyId/state')

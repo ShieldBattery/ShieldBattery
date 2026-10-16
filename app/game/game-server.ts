@@ -122,6 +122,24 @@ export class GameServer {
           }
         }
         break
+      case '/game/replaySessionReady':
+        this.activeGameManager.handleReplaySessionReady(gameId)
+        break
+      case '/game/replaySessionSpeed':
+        this.activeGameManager.handleReplaySessionSpeed(gameId, payload)
+        break
+      case '/game/replaySessionSeek':
+        this.activeGameManager.handleReplaySessionSeek(gameId, payload.frame)
+        break
+      case '/game/replaySessionSeekReached':
+        this.activeGameManager.handleReplaySessionSeekReached(gameId, payload)
+        break
+      case '/game/replaySessionFrame':
+        this.activeGameManager.handleReplaySessionFrame(gameId, payload.frame)
+        break
+      case '/game/replaySessionChat':
+        this.activeGameManager.handleReplaySessionChat(gameId, payload.text)
+        break
       case '/game/replayUploaded':
         this.activeGameManager.handleReplayUploaded(gameId)
         break

@@ -8,7 +8,7 @@ import { MapInfoJson } from '../../common/maps'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { MapNoImage } from '../maps/map-image'
 import { ReduxMapThumbnail } from '../maps/map-thumbnail'
-import { FilledButton, IconButton } from '../material/button'
+import { FilledButton, IconButton, OutlinedButton } from '../material/button'
 import { MenuList } from '../material/menu/menu'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { ContainerLevel, containerStyles } from '../styles/colors'
@@ -152,6 +152,16 @@ export const GameSidePanelActions = styled.div`
      a filled button and an icon button as the selection moves between entries. */
   min-height: 48px;
   gap: 8px;
+`
+
+export const GameSidePanelActionStack = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`
+
+export const GameSidePanelSecondaryAction = styled(OutlinedButton)`
+  width: 100%;
 `
 
 /**

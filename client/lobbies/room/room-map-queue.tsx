@@ -1,22 +1,31 @@
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MAX_MAP_QUEUE } from '../../../common/lobbies'
-import { SbMapId } from '../../../common/maps'
+import { MapImageInfo, SbMapId } from '../../../common/maps'
 import { MaterialIcon } from '../../icons/material/material-icon'
+import { MapInfoImage } from '../../maps/map-image'
 import { ReduxMapThumbnail } from '../../maps/map-thumbnail'
 import { IconButton, TextButton } from '../../material/button'
 import { useAppSelector } from '../../redux-hooks'
 import { bodyMedium, bodySmall, labelMedium, singleLine } from '../../styles/typography'
+import { LobbyReplayChoice } from '../action-creators'
 import { Section, SectionHeader } from '../create/game-setup-form'
+import { ExtractedReplayMapImage } from '../replay-map-image'
 
 /**
- * One map in a map queue being edited. The same map can be queued more than once, so each entry
+ * One source in a queue being edited. The same source can be queued more than once, so each entry
  * carries its own key to tell the copies apart.
  */
-export interface QueuedMapEntry {
-  key: string
-  mapId: SbMapId
-}
+export type QueuedSourceEntry =
+  | { key: string; kind: 'map'; mapId: SbMapId }
+  | {
+      key: string
+      kind: 'replay'
+      hash?: string
+      choice?: LobbyReplayChoice
+      mapName: string
+      mapImage?: MapImageInfo
+    }
 
 const QueueList = styled.ol`
   margin: 0;
@@ -48,6 +57,34 @@ const QueueThumbnail = styled.div`
   flex-shrink: 0;
 `
 
+const ReplayThumbnail = styled(QueueThumbnail)`
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: var(--theme-on-surface-variant);
+  background: var(--theme-container-low);
+  border-radius: 4px;
+`
+
+const ReplayPlayOverlay = styled.div`
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--theme-on-surface);
+  background: rgb(0 0 0 / 0.3);
+`
+
+const ReplayPlayCircle = styled.div`
+  width: 25px;
+  height: 25px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 0.7);
+`
+
 const QueueMapName = styled.div`
   ${bodyMedium};
   ${singleLine};
@@ -71,11 +108,13 @@ const EmptyText = styled.div`
   color: var(--theme-on-surface-variant);
 `
 
-const AddMapButton = styled(TextButton)`
-  align-self: flex-start;
+const AddActions = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 `
 
-function QueuedMapRow({
+function QueuedSourceRow({
   entry,
   index,
   isFirst,
@@ -83,7 +122,7 @@ function QueuedMapRow({
   onMove,
   onRemove,
 }: {
-  entry: QueuedMapEntry
+  entry: QueuedSourceEntry
   index: number
   isFirst: boolean
   isLast: boolean
@@ -91,24 +130,54 @@ function QueuedMapRow({
   onRemove: () => void
 }) {
   const { t } = useTranslation()
-  const mapName = useAppSelector(s => s.maps.byId.get(entry.mapId)?.name)
+  const lobbyId = useAppSelector(s => s.lobby.info.id)
+  const mapName = useAppSelector(s =>
+    entry.kind === 'map' ? s.maps.byId.get(entry.mapId)?.name : undefined,
+  )
+  const name = entry.kind === 'replay' ? entry.mapName : (mapName ?? '')
+  let replayArtwork = <MaterialIcon icon='map' size={28} />
+  if (entry.kind === 'replay') {
+    if (entry.mapImage?.image512Url) {
+      replayArtwork = <MapInfoImage map={entry.mapImage} size={64} forceAspectRatio={1} />
+    } else if (entry.hash) {
+      replayArtwork = (
+        <ExtractedReplayMapImage
+          lobbyId={lobbyId}
+          hash={entry.hash}
+          mapName={entry.mapName}
+          queued={true}
+        />
+      )
+    }
+  }
 
   return (
     <QueueRow>
       <QueueNumber>{index + 1}</QueueNumber>
-      <QueueThumbnail>
-        <ReduxMapThumbnail
-          mapId={entry.mapId}
-          size={64}
-          forceAspectRatio={1}
-          hasMapDetailsAction={false}
-          hasDownloadAction={false}
-          hasFavoriteAction={false}
-          hasMapPreviewAction={false}
-          hasRegenMapImageAction={false}
-        />
-      </QueueThumbnail>
-      <QueueMapName title={mapName}>{mapName ?? ''}</QueueMapName>
+      {entry.kind === 'map' ? (
+        <QueueThumbnail>
+          <ReduxMapThumbnail
+            mapId={entry.mapId}
+            size={64}
+            forceAspectRatio={1}
+            hasMapDetailsAction={false}
+            hasDownloadAction={false}
+            hasFavoriteAction={false}
+            hasMapPreviewAction={false}
+            hasRegenMapImageAction={false}
+          />
+        </QueueThumbnail>
+      ) : (
+        <ReplayThumbnail>
+          {replayArtwork}
+          <ReplayPlayOverlay>
+            <ReplayPlayCircle>
+              <MaterialIcon icon='play_arrow' size={20} filled={true} />
+            </ReplayPlayCircle>
+          </ReplayPlayOverlay>
+        </ReplayThumbnail>
+      )}
+      <QueueMapName title={name}>{name}</QueueMapName>
       <QueueActions>
         <QueueActionButton
           icon={<MaterialIcon icon='arrow_upward' size={20} />}
@@ -133,17 +202,19 @@ function QueuedMapRow({
 }
 
 /**
- * The section of the room's game setup where the host lines up maps for the games after the next
- * one. Each time a game ends, the lobby moves on to the first of them.
+ * The section of the room's game setup where the host lines up maps and replays. Each time a game
+ * or replay ends, the lobby moves on to the next source.
  */
 export function MapQueueSection({
   queue,
   onChange,
   onAddMap,
+  onAddReplay,
 }: {
-  queue: ReadonlyArray<QueuedMapEntry>
-  onChange: (queue: QueuedMapEntry[]) => void
+  queue: ReadonlyArray<QueuedSourceEntry>
+  onChange: (queue: QueuedSourceEntry[]) => void
   onAddMap: () => void
+  onAddReplay: () => void
 }) {
   const { t } = useTranslation()
 
@@ -160,7 +231,7 @@ export function MapQueueSection({
       {queue.length ? (
         <QueueList>
           {queue.map((entry, index) => (
-            <QueuedMapRow
+            <QueuedSourceRow
               key={entry.key}
               entry={entry}
               index={index}
@@ -175,17 +246,24 @@ export function MapQueueSection({
         <EmptyText>
           {t(
             'lobbies.mapQueue.empty',
-            'Queue maps to play after this one. The lobby moves on to the next one whenever a ' +
-              'game ends.',
+            'Add maps or replays for after this one. The lobby moves on whenever a game or replay ends.',
           )}
         </EmptyText>
       )}
-      <AddMapButton
-        label={t('lobbies.mapQueue.addMap', 'Add map')}
-        iconStart='add'
-        disabled={queue.length >= MAX_MAP_QUEUE}
-        onClick={onAddMap}
-      />
+      <AddActions>
+        <TextButton
+          label={t('lobbies.mapQueue.addMap', 'Add map')}
+          iconStart='add'
+          disabled={queue.length >= MAX_MAP_QUEUE}
+          onClick={onAddMap}
+        />
+        <TextButton
+          label={t('lobbies.mapQueue.addReplay', 'Add replay')}
+          iconStart='add'
+          disabled={queue.length >= MAX_MAP_QUEUE}
+          onClick={onAddReplay}
+        />
+      </AddActions>
     </Section>
   )
 }

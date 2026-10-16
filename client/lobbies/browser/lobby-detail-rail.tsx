@@ -26,6 +26,7 @@ import {
 } from '../../styles/typography'
 import { ConnectedUsername } from '../../users/connected-username'
 import { isInLobby } from '../lobby-reducer'
+import { ReplayCard } from '../lobby-replay'
 import { navigateToLobby } from '../lobby-url'
 import { HostCrown, RaceMark, RoomChip, SectionLabel } from '../room/room-parts'
 import { WarpFieldDescriptionInfo } from '../warp-field'
@@ -484,20 +485,29 @@ export function LobbyDetailRail({
           </HostLine>
         </Header>
 
-        <MapSection>
-          <MapFrame $aspectRatio={map.mapData.width / map.mapData.height}>
-            <ReduxMapThumbnail
-              mapId={map.id}
-              size={512}
-              showInfoLayer={true}
-              hasMapPoolChips={true}
-              onClick={() => dispatch(openMapPreviewDialog(map.id))}
-            />
-          </MapFrame>
-          <MapMeta>
-            {map.mapData.width}×{map.mapData.height} · {tilesetToName(map.mapData.tileset, t)}
-          </MapMeta>
-        </MapSection>
+        {map ? (
+          <MapSection>
+            <MapFrame $aspectRatio={map.mapData.width / map.mapData.height}>
+              <ReduxMapThumbnail
+                mapId={map.id}
+                size={512}
+                showInfoLayer={true}
+                hasMapPoolChips={true}
+                onClick={() => dispatch(openMapPreviewDialog(map.id))}
+              />
+            </MapFrame>
+            <MapMeta>
+              {map.mapData.width}×{map.mapData.height} · {tilesetToName(map.mapData.tileset, t)}
+            </MapMeta>
+          </MapSection>
+        ) : null}
+        {summary.replay ? (
+          <ReplayCard
+            mapName={summary.replay.source.metadata.mapName}
+            durationFrames={summary.replay.source.metadata.durationFrames}
+            players={summary.replay.source.metadata.players}
+          />
+        ) : null}
 
         <ChipRow>
           {isInGame ? <InGameChip elapsedMs={summary.elapsedMs} /> : null}

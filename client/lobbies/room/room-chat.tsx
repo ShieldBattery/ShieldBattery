@@ -379,6 +379,8 @@ function changedSettingLabel(setting: ListedChangedSetting, t: TFunction): strin
       return t('lobbies.messageLayout.settingsChangeVisibility', 'visibility')
     case 'map':
       return t('lobbies.messageLayout.settingsChangeMap', 'map')
+    case 'replay':
+      return t('lobbies.messageLayout.settingsChangeReplay', 'replay')
     case 'gameType':
       return t('lobbies.messageLayout.settingsChangeGameType', 'game type')
     case 'gameSubType':
@@ -391,6 +393,8 @@ function changedSettingLabel(setting: ListedChangedSetting, t: TFunction): strin
       return t('lobbies.messageLayout.settingsChangeObservers', 'observers')
     case 'mapQueue':
       return t('lobbies.messageLayout.settingsChangeMapQueue', 'map queue')
+    case 'sourceQueue':
+      return t('lobbies.messageLayout.settingsChangeSourceQueue', 'Up Next queue')
     default:
       return assertUnreachable(setting)
   }
@@ -469,24 +473,40 @@ function SettingsNoticeCard({
 function MapQueueAdvanceCard({
   mapName,
   skippedMapNames,
+  isReplay,
 }: {
   mapName?: string
   skippedMapNames: ReadonlyArray<string>
+  isReplay?: boolean
 }) {
   const { t } = useTranslation()
+  let announcement: React.ReactNode
+  if (mapName === undefined) {
+    announcement = t(
+      'lobbies.room.chat.mapQueueNoneFit',
+      "None of the queued maps fit the lobby's settings",
+    )
+  } else if (isReplay) {
+    announcement = (
+      <Trans t={t} i18nKey='lobbies.room.chat.replayQueueAdvanced'>
+        Next replay from the queue:{' '}
+        <SystemImportant>{{ map: mapName } as TransInterpolation}</SystemImportant>
+      </Trans>
+    )
+  } else {
+    announcement = (
+      <Trans t={t} i18nKey='lobbies.room.chat.mapQueueAdvanced'>
+        Next map from the queue:{' '}
+        <SystemImportant>{{ map: mapName } as TransInterpolation}</SystemImportant>
+      </Trans>
+    )
+  }
 
   return (
     <NoticeCard>
       <MaterialIcon icon='playlist_play' size={20} />
       <NoticeCardText>
-        {mapName !== undefined ? (
-          <Trans t={t} i18nKey='lobbies.room.chat.mapQueueAdvanced'>
-            Next map from the queue:{' '}
-            <SystemImportant>{{ map: mapName } as TransInterpolation}</SystemImportant>
-          </Trans>
-        ) : (
-          t('lobbies.room.chat.mapQueueNoneFit', "None of the queued maps fit the lobby's settings")
-        )}
+        {announcement}
         {skippedMapNames.length ? (
           <NoticeCardDetail>
             {mapName !== undefined
@@ -735,7 +755,11 @@ function RoomChatMessage({ message }: MessageComponentProps) {
     case LobbyMessageType.LobbyMapQueueAdvance:
       return (
         <SystemMessage time={msg.time}>
-          <MapQueueAdvanceCard mapName={msg.mapName} skippedMapNames={msg.skippedMapNames} />
+          <MapQueueAdvanceCard
+            mapName={msg.mapName}
+            skippedMapNames={msg.skippedMapNames}
+            isReplay={msg.isReplay}
+          />
         </SystemMessage>
       )
     case LobbyMessageType.SelfJoinLobby:

@@ -16,6 +16,7 @@ import {
   GameLaunchConfig,
   isReplayLaunchConfig,
   isReplayMapInfo,
+  ReplaySessionPlaybackControl,
 } from '../../common/games/game-launch-config'
 import {
   GameNetworkStatus,
@@ -27,6 +28,7 @@ import { NetcodeV2ServerSetup, NetcodeV2Setup } from '../../common/games/netcode
 import { GameClientPlayerResult } from '../../common/games/results'
 import { GameBlockRequestFailure } from '../../common/ipc'
 import { SlotType } from '../../common/lobbies/slot'
+import { ReplaySessionSeek, ReplaySessionSpeed } from '../../common/replay-sessions'
 import { DEFAULT_LOCAL_SETTINGS } from '../../common/settings/default-settings'
 import { LocalSettings } from '../../common/settings/local-settings'
 import {
@@ -148,6 +150,12 @@ export type ActiveGameManagerEvents = {
   ]
   gameStatus: [statusInfo: ReportedGameStatus]
   replaySaved: [gameId: string, path: string]
+  replaySessionReady: [gameId: string]
+  replaySessionSpeed: [gameId: string, speed: ReplaySessionSpeed]
+  replaySessionSeek: [gameId: string, frame: number]
+  replaySessionSeekReached: [gameId: string, seek: ReplaySessionSeek]
+  replaySessionFrame: [gameId: string, frame: number]
+  replaySessionChat: [gameId: string, text: string]
   resendReplay: [request: ResendReplayRequest]
   setUserBlocked: [gameId: string, userId: SbUserId, blocked: boolean]
 }
@@ -219,6 +227,11 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
   /** Returns the tracked game (participating or watch-only) with the specified ID, if any. */
   private gameFor(gameId: string): ActiveGameInfo | undefined {
     return this.activeGame?.id === gameId ? this.activeGame : this.watchOnlyGames.get(gameId)
+  }
+
+  private isReplaySessionGame(gameId: string): boolean {
+    const map = this.gameFor(gameId)?.config?.setup.map
+    return !!map && isReplayMapInfo(map) && !!map.session
   }
 
   private untrackGame(game: ActiveGameInfo) {
@@ -630,11 +643,66 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     this.emit('gameCommand', gameId, 'debugControl', { type: 'crash', kind })
   }
 
+  /** Forwards a replay session's playback state to its game. */
+  setReplaySessionPlayback(gameId: string, playback: ReplaySessionPlaybackControl): void {
+    if (!this.isReplaySessionGame(gameId)) {
+      log.verbose(`Got setReplaySessionPlayback for ${gameId}, but it is not a replay session game`)
+      return
+    }
+
+    this.emit('gameCommand', gameId, 'replaySessionPlayback', playback)
+  }
+
+  showReplaySessionChat(gameId: string, from: string, text: string, isSelf: boolean): void {
+    if (this.isReplaySessionGame(gameId)) {
+      this.emit('gameCommand', gameId, 'replaySessionChat', { from, text, isSelf })
+    }
+  }
+
+  /** Notes that a replay session game is holding its replay paused at the start. */
+  handleReplaySessionReady(gameId: string): void {
+    if (!this.isReplaySessionGame(gameId)) {
+      return
+    }
+
+    log.verbose(`Replay session game ${gameId} is ready`)
+    this.emit('replaySessionReady', gameId)
+  }
+
+  handleReplaySessionSpeed(gameId: string, speed: ReplaySessionSpeed): void {
+    if (!this.isReplaySessionGame(gameId)) {
+      return
+    }
+    this.emit('replaySessionSpeed', gameId, speed)
+  }
+
+  handleReplaySessionSeek(gameId: string, frame: number): void {
+    if (this.isReplaySessionGame(gameId)) {
+      this.emit('replaySessionSeek', gameId, frame)
+    }
+  }
+
+  handleReplaySessionSeekReached(gameId: string, seek: ReplaySessionSeek): void {
+    if (this.isReplaySessionGame(gameId)) {
+      this.emit('replaySessionSeekReached', gameId, seek)
+    }
+  }
+
+  handleReplaySessionFrame(gameId: string, frame: number): void {
+    if (this.isReplaySessionGame(gameId)) {
+      this.emit('replaySessionFrame', gameId, frame)
+    }
+  }
+
+  handleReplaySessionChat(gameId: string, text: string): void {
+    if (this.isReplaySessionGame(gameId)) {
+      this.emit('replaySessionChat', gameId, text)
+    }
+  }
+
   /**
-   * Tells the active game process to send an in-game chat message over its netcode v2 session, as
-   * this client (debug game builds only), through the same send path the in-game chat box's own
-   * Enter-key send uses. Fire-and-forget: there's no reply; verify via a peer's rendered chat, or
-   * this client's own via {@link debugQueryState}'s `turnState.chatLog`.
+   * Tells a tracked game process to send chat over its netcode v2 session (debug builds only).
+   * Verify via a peer's rendered chat or this client's {@link debugQueryState} chat log.
    */
   sendGameChat(gameId: string, text: string): void {
     if (!this.gameFor(gameId)) {

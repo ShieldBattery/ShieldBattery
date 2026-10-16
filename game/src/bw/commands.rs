@@ -180,6 +180,40 @@ pub fn strip_replay_seeks<'a>(input: &'a [u8], command_lengths: &[u32]) -> Cow<'
     Cow::Owned(buffer)
 }
 
+/// Removes replay speed and seek commands that the caller does not permit. Other commands in the
+/// same batch retain their order and bytes.
+pub fn filter_replay_timeline_commands<'a>(
+    input: &'a [u8],
+    command_lengths: &[u32],
+    mut allow: impl FnMut(&[u8]) -> bool,
+) -> Cow<'a, [u8]> {
+    let mut filtered: Option<Vec<u8>> = None;
+    let mut prefix_len = 0;
+    for command in iter_commands(input, command_lengths) {
+        if matches!(
+            command.first(),
+            Some(&id::REPLAY_SPEED) | Some(&id::REPLAY_SEEK)
+        ) && !allow(command)
+        {
+            if filtered.is_none() {
+                let mut buffer = Vec::with_capacity(input.len());
+                buffer.extend_from_slice(&input[..prefix_len]);
+                filtered = Some(buffer);
+            }
+        } else {
+            if let Some(buffer) = &mut filtered {
+                buffer.extend_from_slice(command);
+            } else {
+                prefix_len += command.len();
+            }
+        }
+    }
+    match filtered {
+        Some(buffer) => Cow::Owned(buffer),
+        None => Cow::Borrowed(input),
+    }
+}
+
 /// Removes the notice ShieldBattery records at the start of every replay (see
 /// [`REPLAY_NOTICE_SENDER`]), which is addressed to viewers outside ShieldBattery.
 ///
@@ -378,6 +412,34 @@ mod test {
         assert_eq!(replay_seek_target(no_seek, LENGTHS), None);
         assert!(matches!(
             strip_replay_seeks(no_seek, LENGTHS),
+            Cow::Borrowed(_)
+        ));
+    }
+
+    #[test]
+    fn replay_timeline_filter_keeps_other_commands() {
+        let data = [
+            id::REPLAY_SPEED,
+            0,
+            6,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            id::NOP,
+            id::REPLAY_SEEK,
+            12,
+            0,
+            0,
+            0,
+        ];
+        let filtered = filter_replay_timeline_commands(&data, LENGTHS, |_| false);
+        assert_eq!(&*filtered, &[id::NOP]);
+        assert!(matches!(
+            filter_replay_timeline_commands(&data, LENGTHS, |_| true),
             Cow::Borrowed(_)
         ));
     }

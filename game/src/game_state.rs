@@ -18,8 +18,9 @@ use tokio::sync::{mpsc, oneshot};
 use crate::app_messages::{
     BlockRequestFailed, GAME_STATUS_ERROR, GamePlayerResult, GameResults, GameResultsMessage,
     GameSetupInfo, GameType, MapForce, MapInfo, NetcodeV2Setup, NetworkStallInfo, NetworkStatus,
-    NetworkTransport, PlayerInfo, RawGameResultsReport, RawNetPlayer, RawPlayerResult, SbUser,
-    SbUserId, ServerConfig, Settings, SetupProgress, UmsLobbyRace,
+    NetworkTransport, PlayerInfo, RawGameResultsReport, RawNetPlayer, RawPlayerResult,
+    ReplaySessionPlaybackControl, SbUser, SbUserId, ServerConfig, Settings, SetupProgress,
+    UmsLobbyRace,
 };
 use crate::app_socket;
 use crate::bw::players::{AllianceState, BwPlayerId, PlayerLoseType, StormPlayerId, VictoryState};
@@ -110,6 +111,8 @@ pub enum GameStateMessage {
     /// The local user's full block list. Accepted at any point in the game's life, since blocks
     /// can change while it runs.
     SetBlockedUsers(Vec<SbUserId>),
+    SetReplaySessionPlayback(ReplaySessionPlaybackControl),
+    ShowReplaySessionChat(crate::app_messages::ReplaySessionChatLine),
     /// The app couldn't save a block or unblock made with an in-game chat command.
     BlockRequestFailed(BlockRequestFailed),
     SetServerConfig(ServerConfig),
@@ -878,6 +881,12 @@ impl GameState {
             SetBlockedUsers(users) => {
                 self.set_blocked_users(users);
             }
+            SetReplaySessionPlayback(control) => {
+                crate::replay_session::set_playback(control);
+            }
+            ShowReplaySessionChat(line) => {
+                crate::replay_session::queue_chat(line);
+            }
             BlockRequestFailed(failure) => {
                 get_bw().block_request_failed(&failure);
             }
@@ -998,21 +1007,27 @@ impl GameState {
                         // receive. No reply.
                     }
                     DebugControlCommand::SendChat { text, target } => {
-                        use crate::debug_control::DebugChatTarget;
-                        let target = match target {
-                            DebugChatTarget::All => netcode_v2::ChatTarget::All,
-                            DebugChatTarget::Allies => netcode_v2::ChatTarget::Allies,
-                            DebugChatTarget::Observers => netcode_v2::ChatTarget::Observers,
-                            DebugChatTarget::Player { slot } => {
-                                netcode_v2::ChatTarget::Players(netcode_v2::SlotMask::single(
-                                    rally_point_client::proto::ids::SlotId(slot),
-                                ))
-                            }
-                        };
-                        crate::netcode_v2::with_turn_state(|s| s.debug_queue_chat(target, text));
-                        // Fire-and-forget: sent + locally echoed on the game thread's next receive
-                        // (see `bw_scr::apply_debug_chat`), through the same path the in-game chat
-                        // box's own send tap uses. No reply.
+                        if crate::replay_session::is_active() {
+                            crate::replay_session::send_chat(&text);
+                        } else {
+                            use crate::debug_control::DebugChatTarget;
+                            let target = match target {
+                                DebugChatTarget::All => netcode_v2::ChatTarget::All,
+                                DebugChatTarget::Allies => netcode_v2::ChatTarget::Allies,
+                                DebugChatTarget::Observers => netcode_v2::ChatTarget::Observers,
+                                DebugChatTarget::Player { slot } => {
+                                    netcode_v2::ChatTarget::Players(netcode_v2::SlotMask::single(
+                                        rally_point_client::proto::ids::SlotId(slot),
+                                    ))
+                                }
+                            };
+                            crate::netcode_v2::with_turn_state(|s| {
+                                s.debug_queue_chat(target, text)
+                            });
+                            // Fire-and-forget: sent + locally echoed on the game thread's next receive
+                            // (see `bw_scr::apply_debug_chat`), through the same path the in-game chat
+                            // box's own send tap uses. No reply.
+                        }
                     }
                     DebugControlCommand::RequestDrop { slot } => {
                         crate::netcode_v2::with_turn_state(|s| {
@@ -1153,6 +1168,12 @@ impl GameState {
         match message {
             WindowMove(..) => (),
             ReplaySaved(..) => (),
+            ReplaySessionReady
+            | ReplaySessionSpeed { .. }
+            | ReplaySessionSeek { .. }
+            | ReplaySessionSeekReached { .. }
+            | ReplaySessionFrame { .. }
+            | ReplaySessionChat { .. } => (),
             SetUserBlocked { .. } => (),
             MinimapSettings {
                 color_mode,

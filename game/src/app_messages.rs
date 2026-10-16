@@ -525,6 +525,56 @@ pub struct ReplayMapInfo {
     pub path: String,
     /// The frame to seek the replay to as soon as it starts, if not its beginning.
     pub start_frame: Option<u32>,
+    /// Set when the replay is watched in a replay session, which holds playback at the start
+    /// until the session lets it go.
+    pub session: Option<ReplaySessionPlaybackControl>,
+}
+
+/// How a replay session governs local playback. Only the controller gets the replay's playback
+/// controls; every other viewer follows `paused`.
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
+pub struct ReplaySessionPlaybackControl {
+    pub controller: bool,
+    pub paused: bool,
+    pub speed: Option<u32>,
+    pub multiplier: Option<u32>,
+    pub seek: Option<ReplaySessionSeek>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReplaySessionSeek {
+    pub epoch: u32,
+    pub frame: u32,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReplaySessionSeekRequest {
+    pub frame: u32,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReplaySessionChatLine {
+    pub from: String,
+    pub text: String,
+    pub is_self: bool,
+}
+
+#[derive(Serialize)]
+pub struct ReplaySessionChatRequest<'a> {
+    pub text: &'a str,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReplaySessionSpeed {
+    pub paused: bool,
+    pub speed: u32,
+    pub multiplier: u32,
 }
 
 #[derive(Clone, Debug, Deserialize)]

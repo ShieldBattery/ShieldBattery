@@ -1055,7 +1055,6 @@
       "search": "搜索",
       "selectAll": "全选",
       "show": "展示",
-      "start": "开始",
       "stop": "停止",
       "submit": "提交",
       "test": "测试",
@@ -1732,6 +1731,7 @@
       "defaultLobbyName": "{{name}}的房间",
       "defaultLobbyNameFallback": "我的房间",
       "defaultLobbyNameFromMap": "{{mapName}} {{gameType}}",
+      "defaultLobbyNameFromReplay": "{{mapName}} 录像",
       "summaryObserversOff": "无观战者",
       "summaryObserversOn": "允许观战",
       "summarySlots_other": "{{count}}个槽位",
@@ -1818,7 +1818,8 @@
     },
     "mapQueue": {
       "addMap": "添加地图",
-      "empty": "将地图加入队列，在这张之后游玩。每局游戏结束后，房间会切换到下一张。",
+      "addReplay": "添加录像",
+      "empty": "将地图或录像加入队列，在当前内容结束后继续。每局游戏或录像结束后，房间会切换到下一项。",
       "header": "接下来",
       "moveDown": "下移",
       "moveUp": "上移",
@@ -1833,8 +1834,34 @@
       "settingsChangeMapQueue": "地图队列",
       "settingsChangeName": "房间名称",
       "settingsChangeObservers": "观战者",
+      "settingsChangeReplay": "录像",
+      "settingsChangeSourceQueue": "接下来队列",
       "settingsChangeUnitLimit": "单位限制",
       "settingsChangeVisibility": "可见性"
+    },
+    "replayLobby": {
+      "changeFailed": "无法选择录像",
+      "changeFailedBody": "无法将房间切换到这场录像。",
+      "changeMapFailedBody": "无法将房间切换到这张地图。",
+      "changeReplay": "更换录像",
+      "chooseMap": "选择地图",
+      "downloadFailed": "录像下载失败",
+      "downloading": "正在下载录像：{{percent}}%",
+      "downloadReady": "录像已准备好观看",
+      "duration": "录像 · {{duration}}",
+      "invalidReplayBody": "所选文件可能已损坏，或不是《星际争霸》的录像。",
+      "invalidReplayTitle": "无法读取该录像",
+      "loadFailed": "无法加载房间的录像。",
+      "loading": "正在为所有人加载录像",
+      "replay": "录像",
+      "replaySetup": "录像设置",
+      "selectReplay": "选择录像",
+      "startWatching": "开始观看",
+      "summaryReplay": "录像",
+      "versus": "vs",
+      "viewersCount_other": "观众 · {{count}}",
+      "watching": "正在观看录像",
+      "watchingTogetherHeader": "一起观看"
     },
     "room": {
       "banner": {
@@ -1866,6 +1893,7 @@
         "mapQueueSkippedUnfit_other": "已跳过 {{maps}}，不符合房间设置",
         "memberBack": "<0></0> 回到了房间",
         "readyReset": "准备状态已重置",
+        "replayQueueAdvanced": "队列中的下一场录像：<2>{{map}}</2>",
         "seatedOn": "入座 {{seat}}",
         "selfJoinLobby": "您加入了 <2>{{lobby}}</2>。房主是 <4></4>。",
         "settingsChanged": "<0></0> 更改了{{settings}}",
@@ -1885,11 +1913,9 @@
         "swap": "交换位置"
       },
       "header": {
-        "cancelReady": "取消准备",
         "copiedInviteLink": "已复制！",
         "copyInviteLink": "复制邀请链接",
         "leave": "离开",
-        "readyUp": "准备",
         "visibilityPublic": "公开",
         "visibilityUnlisted": "不公开"
       },
@@ -2510,7 +2536,8 @@
       "unavailableBody": "暂时无法加载您的录像。重启 ShieldBattery 通常可以解决此问题。",
       "unreadableReplays": "无法读取的录像",
       "viewGamePage": "查看游戏页面",
-      "watchReplay": "观看录像"
+      "watchReplay": "观看录像",
+      "watchWithOthers": "一起观看"
     },
     "loading": {
       "dialogTitle": "正在加载录像……",
@@ -3436,13 +3463,6 @@
     }
   },
   "whispers": {
-    "createWhisper": {
-      "error": "错误：{{errorMessage}}",
-      "title": "发送信息",
-      "username": "用户名",
-      "usernamePattern": "用户名包含无效字符",
-      "usernameRequired": "请输入用户名"
-    },
     "errors": {
       "cantWhisperYourself": "您不能与自己私聊。",
       "invalidAction": "必须与该用户正在私聊中才能查询历史信息记录",

@@ -1,5 +1,5 @@
 import { nanoid } from 'nanoid'
-import { PlayerInfo } from '../../common/games/game-launch-config'
+import { PlayerInfo, ReplaySessionPlaybackControl } from '../../common/games/game-launch-config'
 import { GameType } from '../../common/games/game-type'
 import { GameReplayInfo } from '../../common/games/games'
 import { ReplaySaveOrganize, TypedIpcRenderer } from '../../common/ipc'
@@ -21,7 +21,12 @@ import { healthChecked } from '../starcraft/health-checked'
 const ipcRenderer = new TypedIpcRenderer()
 
 async function setGameConfig(
-  replay: { name: string; path: string; startFrame?: number },
+  replay: {
+    name: string
+    path: string
+    startFrame?: number
+    session?: ReplaySessionPlaybackControl
+  },
   user?: SelfUserJson,
   blockedUsers: SbUserId[] = [],
 ) {
@@ -51,7 +56,12 @@ async function setGameConfig(
     setup: {
       gameId: nanoid(),
       name: replay.name,
-      map: { isReplay: true, path: replay.path, startFrame: replay.startFrame },
+      map: {
+        isReplay: true,
+        path: replay.path,
+        startFrame: replay.startFrame,
+        session: replay.session,
+      },
       gameType: GameType.Melee,
       gameSubType: 0,
       slots,
@@ -66,11 +76,20 @@ export function startReplay({
   path,
   name = 'Replay',
   startFrame,
+  session,
+  onLaunched,
+  onLaunchFailed,
 }: {
   path: string
   name?: string
   /** The frame to seek the replay to as soon as it starts, if not its beginning. */
   startFrame?: number
+  /** Set when the replay is watched in a replay session. */
+  session?: ReplaySessionPlaybackControl
+  /** Called with the launched game's id once the app has accepted its configuration. */
+  onLaunched?: (gameId: string) => void
+  /** Called if the replay can't be launched at all. */
+  onLaunchFailed?: () => void
 }): ThunkAction {
   return healthChecked((dispatch, getState) => {
     const { gameClient, settings } = getState()
@@ -104,14 +123,18 @@ export function startReplay({
         // TODO(2Pac): Use the game loader on the server to register watching a replay, so we can
         // show to other people (like their friends) when a user is watching a replay.
         const blockedUsers = Array.from(relationships.blocks.keys())
-        setGameConfig({ path, name, startFrame }, self?.user, blockedUsers).then(
+        setGameConfig({ path, name, startFrame, session }, self?.user, blockedUsers).then(
           gameId => {
             if (gameId) {
+              onLaunched?.(gameId)
               dispatch(openDialog({ type: DialogType.ReplayLoad, initData: { gameId } }))
+            } else {
+              onLaunchFailed?.()
             }
           },
           err => {
             logger.error(`Error starting replay file [${path}]: ${err?.stack ?? err}`)
+            onLaunchFailed?.()
             dispatch(
               openSimpleDialog(
                 i18n.t('replays.loading.initFailureTitle', 'Error loading replay'),
@@ -126,7 +149,7 @@ export function startReplay({
         )
       }),
     )
-  })
+  }, onLaunchFailed)
 }
 
 export function showReplayInfo(filePath: string) {
@@ -158,6 +181,7 @@ export function watchReplayFromUrl(
 export async function ensureReplayCached(
   replayInfo: Pick<GameReplayInfo, 'id' | 'url' | 'hash'>,
   signal?: AbortSignal,
+  progress?: { totalBytes: number; onProgress: (loadedBytes: number, totalBytes: number) => void },
 ): Promise<string | undefined> {
   const cachedPath = await ipcRenderer.invoke('replayStoreGetPath', replayInfo.id, replayInfo.hash)
   if (cachedPath) {
@@ -172,7 +196,31 @@ export async function ensureReplayCached(
   if (!response.ok) {
     throw new Error(`Failed to download replay: ${response.status} ${response.statusText}`)
   }
-  const data = await response.arrayBuffer()
+  let data: ArrayBuffer
+  if (progress && response.body) {
+    const reader = response.body.getReader()
+    const chunks: Uint8Array[] = []
+    let loadedBytes = 0
+    const contentLength = Number(response.headers.get('content-length'))
+    const totalBytes = contentLength > 0 ? contentLength : progress.totalBytes
+    progress.onProgress(0, totalBytes)
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      chunks.push(value)
+      loadedBytes += value.byteLength
+      progress.onProgress(loadedBytes, totalBytes)
+    }
+    const bytes = new Uint8Array(loadedBytes)
+    let offset = 0
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset)
+      offset += chunk.byteLength
+    }
+    data = bytes.buffer
+  } else {
+    data = await response.arrayBuffer()
+  }
 
   return await ipcRenderer.invoke('replayStoreStoreReplay', replayInfo.id, replayInfo.hash, data)
 }

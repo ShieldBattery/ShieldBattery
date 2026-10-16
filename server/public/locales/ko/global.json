@@ -1055,7 +1055,6 @@
       "search": "찾기",
       "selectAll": "모두 선택",
       "show": "보기",
-      "start": "시작해",
       "stop": "멈추기",
       "submit": "제출해",
       "test": "테스트",
@@ -1732,6 +1731,7 @@
       "defaultLobbyName": "{{name}}님의 로비",
       "defaultLobbyNameFallback": "내 로비",
       "defaultLobbyNameFromMap": "{{mapName}} {{gameType}}",
+      "defaultLobbyNameFromReplay": "{{mapName}} 리플레이",
       "summaryObserversOff": "관전자 없음",
       "summaryObserversOn": "관전자 허용",
       "summarySlots_other": "슬롯 {{count}}개",
@@ -1818,7 +1818,8 @@
     },
     "mapQueue": {
       "addMap": "맵 추가",
-      "empty": "이번 맵 다음에 플레이할 맵을 대기열에 추가하세요. 게임이 끝날 때마다 로비가 다음 맵으로 넘어갑니다.",
+      "addReplay": "리플레이 추가",
+      "empty": "이번 게임 다음에 플레이할 맵이나 시청할 리플레이를 대기열에 추가하세요. 게임이나 리플레이가 끝날 때마다 로비가 다음 항목으로 넘어갑니다.",
       "header": "다음 맵",
       "moveDown": "아래로 이동",
       "moveUp": "위로 이동",
@@ -1833,8 +1834,34 @@
       "settingsChangeMapQueue": "맵 대기열",
       "settingsChangeName": "로비 이름",
       "settingsChangeObservers": "관전자",
+      "settingsChangeReplay": "리플레이",
+      "settingsChangeSourceQueue": "다음 대기열",
       "settingsChangeUnitLimit": "유닛 제한",
       "settingsChangeVisibility": "공개 범위"
+    },
+    "replayLobby": {
+      "changeFailed": "리플레이를 선택할 수 없습니다",
+      "changeFailedBody": "로비를 이 리플레이로 전환할 수 없습니다.",
+      "changeMapFailedBody": "로비를 이 맵으로 전환할 수 없습니다.",
+      "changeReplay": "리플레이 변경",
+      "chooseMap": "맵 선택",
+      "downloadFailed": "리플레이 다운로드에 실패했습니다",
+      "downloading": "리플레이 다운로드 중: {{percent}}%",
+      "downloadReady": "리플레이 시청 준비 완료",
+      "duration": "{{duration}} 리플레이",
+      "invalidReplayBody": "선택한 파일이 손상되었거나 스타크래프트 리플레이가 아닐 수 있습니다.",
+      "invalidReplayTitle": "리플레이를 읽을 수 없습니다",
+      "loadFailed": "로비의 리플레이를 불러올 수 없습니다.",
+      "loading": "모든 관전자의 리플레이를 불러오는 중",
+      "replay": "리플레이",
+      "replaySetup": "리플레이 설정",
+      "selectReplay": "리플레이 선택",
+      "startWatching": "시청 시작",
+      "summaryReplay": "리플레이",
+      "versus": "vs",
+      "viewersCount_other": "관전자 · {{count}}",
+      "watching": "리플레이 시청 중",
+      "watchingTogetherHeader": "함께 시청"
     },
     "room": {
       "banner": {
@@ -1866,6 +1893,7 @@
         "mapQueueSkippedUnfit_other": "로비 설정에 맞지 않아 {{maps}} 건너뜀",
         "memberBack": "<0></0> 님이 로비로 돌아왔습니다",
         "readyReset": "준비 초기화",
+        "replayQueueAdvanced": "대기열의 다음 리플레이: <2>{{map}}</2>",
         "seatedOn": "{{seat}}에 앉았습니다",
         "selfJoinLobby": "<2>{{lobby}}</2>에 참가했습니다. 호스트는 <4></4> 님입니다.",
         "settingsChanged": "<0></0> 님이 설정을 변경했습니다: {{settings}}",
@@ -1885,11 +1913,9 @@
         "swap": "자리 바꾸기"
       },
       "header": {
-        "cancelReady": "준비 취소",
         "copiedInviteLink": "복사됨!",
         "copyInviteLink": "초대 링크 복사",
         "leave": "나가기",
-        "readyUp": "준비 완료",
         "visibilityPublic": "공개",
         "visibilityUnlisted": "일부 공개"
       },
@@ -2510,7 +2536,8 @@
       "unavailableBody": "지금은 리플레이를 불러올 수 없습니다. ShieldBattery를 다시 시작하면 대부분 해결됩니다.",
       "unreadableReplays": "읽을 수 없는 리플레이",
       "viewGamePage": "게임 페이지 보기",
-      "watchReplay": "리플레이 보기"
+      "watchReplay": "리플레이 보기",
+      "watchWithOthers": "함께 시청하기"
     },
     "loading": {
       "dialogTitle": "리플레이 불러오는 중…",
@@ -3436,13 +3463,6 @@
     }
   },
   "whispers": {
-    "createWhisper": {
-      "error": "오류: {{errorMessage}}",
-      "title": "메시지 보내기",
-      "username": "사용자 이름",
-      "usernamePattern": "사용자 이름에 잘못된 문자가 포함되어 있습니다",
-      "usernameRequired": "사용자 이름을 입력하세요"
-    },
     "errors": {
       "cantWhisperYourself": "자기 자신에게는 귓속말을 보낼 수 없습니다.",
       "invalidAction": "메시지 기록을 검색하려면 사용자와의 활성 귓속말 세션이 있어야 합니다",

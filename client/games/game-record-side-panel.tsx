@@ -11,11 +11,13 @@ import { GamePlayersDisplay } from './game-players-display'
 import {
   GameSidePanel,
   GameSidePanelActions,
+  GameSidePanelActionStack,
   GameSidePanelChipsRow,
   GameSidePanelEmpty,
   GameSidePanelOverflow,
   GameSidePanelPrimaryAction,
   GameSidePanelRelativeTime,
+  GameSidePanelSecondaryAction,
   GameSidePanelSection,
   GameSidePanelTitle,
 } from './game-side-panel'
@@ -97,7 +99,7 @@ function GameRecordSidePanelContent({
 }: GameRecordSidePanelContentProps) {
   const { t } = useTranslation()
   const map = useAppSelector(s => s.maps.byId.get(game.mapId))
-  const { replayInfo, onWatchReplay } = useGameReplayActions(game)
+  const { replayInfo, onWatchReplay, onWatchWithOthers } = useGameReplayActions(game)
 
   const mapName = map?.name ?? t('game.mapName.unknown', 'Unknown map')
 
@@ -110,10 +112,9 @@ function GameRecordSidePanelContent({
     </>
   )
 
-  // Watching is what people actually come to this panel for, so it takes the filled button
-  // wherever the client can do it and everything else moves into the overflow. Without a watchable
-  // replay the results page is the only thing left worth pressing, so it takes the primary slot,
-  // and a game with no replay at all gets no overflow button rather than an empty menu.
+  // Watching takes the filled button wherever the client can do it, with replay lobby creation
+  // directly below. Without a watchable replay the results page takes the primary slot, and a
+  // game with no replay gets no overflow button rather than an empty menu.
   const canWatchReplay = replayInfo !== undefined && IS_ELECTRON
   const viewResultsLabel = t('games.sidePanel.viewFullResults', 'View full results')
 
@@ -202,7 +203,16 @@ function GameRecordSidePanelContent({
         />
       </GameSidePanelSection>
 
-      <GameSidePanelActions>{actions}</GameSidePanelActions>
+      <GameSidePanelActionStack>
+        <GameSidePanelActions>{actions}</GameSidePanelActions>
+        {canWatchReplay ? (
+          <GameSidePanelSecondaryAction
+            label={t('replays.library.watchWithOthers', 'Watch Together')}
+            iconStart='group'
+            onClick={onWatchWithOthers}
+          />
+        ) : null}
+      </GameSidePanelActionStack>
     </GameSidePanel>
   )
 }

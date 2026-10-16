@@ -800,6 +800,17 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
 
   ipcMain.handle('settingsGetDefaultReplayFolder', async () => defaultReplayFolder())
 
+  ipcMain.handle('replaysBrowseForReplay', async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow!, {
+      title: 'Select replay',
+      defaultPath: defaultReplayFolder(),
+      filters: [{ name: 'StarCraft replays', extensions: ['rep'] }],
+      properties: ['openFile'],
+    })
+
+    return { canceled, filePaths }
+  })
+
   ipcMain.handle('settingsGetPrimaryResolution', async event => {
     const primaryDisplay = screen.getPrimaryDisplay()
     return primaryDisplay.size
@@ -822,6 +833,40 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     })
     .on('replaySaved', (gameId, replayPath) => {
       TypedIpcSender.from(mainWindow?.webContents).send('activeGameReplaySaved', gameId, replayPath)
+    })
+    .on('replaySessionReady', gameId => {
+      TypedIpcSender.from(mainWindow?.webContents).send('activeGameReplaySessionReady', gameId)
+    })
+    .on('replaySessionSpeed', (gameId, speed) => {
+      TypedIpcSender.from(mainWindow?.webContents).send(
+        'activeGameReplaySessionSpeed',
+        gameId,
+        speed,
+      )
+    })
+    .on('replaySessionSeek', (gameId, frame) => {
+      TypedIpcSender.from(mainWindow?.webContents).send(
+        'activeGameReplaySessionSeek',
+        gameId,
+        frame,
+      )
+    })
+    .on('replaySessionSeekReached', (gameId, seek) => {
+      TypedIpcSender.from(mainWindow?.webContents).send(
+        'activeGameReplaySessionSeekReached',
+        gameId,
+        seek,
+      )
+    })
+    .on('replaySessionFrame', (gameId, frame) => {
+      TypedIpcSender.from(mainWindow?.webContents).send(
+        'activeGameReplaySessionFrame',
+        gameId,
+        frame,
+      )
+    })
+    .on('replaySessionChat', (gameId, text) => {
+      TypedIpcSender.from(mainWindow?.webContents).send('activeGameReplaySessionChat', gameId, text)
     })
     .on('resendReplay', request => {
       // Pass to renderer process since its network stack is more reliable
@@ -860,6 +905,12 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
   )
   ipcMain.handle('activeGameBlockRequestFailed', (event, gameId, failure) =>
     activeGameManager.blockRequestFailed(gameId, failure),
+  )
+  ipcMain.handle('activeGameSetReplaySessionPlayback', (event, gameId, playback) =>
+    activeGameManager.setReplaySessionPlayback(gameId, playback),
+  )
+  ipcMain.handle('activeGameShowReplaySessionChat', (event, gameId, from, text, isSelf) =>
+    activeGameManager.showReplaySessionChat(gameId, from, text, isSelf),
   )
   if (isDev) {
     // Dev-only handlers: a release game build doesn't implement the underlying commands anyway,
@@ -1504,7 +1555,11 @@ app.on('ready', () => {
       const mapStore = new MapStore(mapDirPath)
       container.register(MapStore, { useValue: mapStore })
 
-      const replayDirPath = path.join(app.getPath('userData'), 'replays')
+      // Independent dev clients need independent caches to exercise replay downloads.
+      const replayDirPath = path.join(
+        app.getPath('userData'),
+        process.env.SB_SESSION ? `replays-${process.env.SB_SESSION}` : 'replays',
+      )
       const replayStore = new ReplayStore(replayDirPath)
       container.register(ReplayStore, { useValue: replayStore })
 

@@ -2787,6 +2787,20 @@ impl BwScr {
                         ),
                         false => slice,
                     };
+                    let slice: Cow<'_, [u8]> =
+                        if is_replay && are_recorded_replay_commands == 0
+                            && crate::replay_session::is_active()
+                        {
+                            match crate::replay_session::filter_local_commands(
+                                &slice,
+                                &self.game_command_lengths,
+                            ) {
+                                Cow::Owned(filtered) => Cow::Owned(filtered),
+                                Cow::Borrowed(_) => slice,
+                            }
+                        } else {
+                            slice
+                        };
                     // The replay UI's seeks go to keyframe seeking when it handles them.
                     let slice: Cow<'_, [u8]> = match is_replay && are_recorded_replay_commands == 0
                     {
@@ -2852,6 +2866,15 @@ impl BwScr {
                                         if (*game).frame_count > frame {
                                             self.is_replay_seeking.store(true, Ordering::Relaxed);
                                         }
+                                    }
+                                [commands::id::REPLAY_SPEED, paused, rest @ ..] if rest.len() == 8
+                                    && is_replay
+                                    && are_recorded_replay_commands == 0 => {
+                                        crate::replay_session::note_speed_command(
+                                            *paused != 0,
+                                            LittleEndian::read_u32(rest),
+                                            LittleEndian::read_u32(&rest[4..]),
+                                        );
                                     }
                                 [commands::id::SYNC, ..] | [commands::id::NOP, ..]
                                     if are_recorded_replay_commands == 0 => {
@@ -4012,6 +4035,9 @@ impl BwScr {
                     // Only on the primary pass; the SD/HD-fade second pass sees the same global.
                     if second_draw == 0 {
                         self.poll_team_color_mode();
+                        if game_thread::is_replay() {
+                            crate::replay_session::apply_playback(self);
+                        }
                     }
                     // It is expected that extra_funcs array has one (just one) function that
                     // draws the UI console. If console is hidden just call orig with 0 extra funcs
@@ -6053,6 +6079,28 @@ impl BwScr {
         }
     }
 
+    /// The replay progress dialog's children 7–9 are its pause and speed buttons. Its progress
+    /// slider, elapsed time, and speed label stay visible to every replay viewer.
+    pub(crate) fn set_replay_timeline_buttons_visible(&self, visible: bool) {
+        let Some(dialog) = bw::iter_dialogs(self.resolve_first_dialog())
+            .find(|dialog| dialog.as_control().string() == "StatBtn")
+        else {
+            return;
+        };
+        for control in dialog.children() {
+            if (7..=9).contains(&control.id()) {
+                unsafe { dialog_hook::wrap_replay_timeline_button_draw(control) };
+                if control.is_hidden() == visible {
+                    if visible {
+                        control.show();
+                    } else {
+                        control.hide();
+                    }
+                }
+            }
+        }
+    }
+
     unsafe fn center_screen(&self, pos: &bw::Point) {
         unsafe {
             let width = self.game_screen_width_bwpx.resolve();
@@ -7452,7 +7500,6 @@ impl BwScr {
     }
 
     /// Sends the replay UI's seek command, the way its seek bar does.
-    #[cfg(debug_assertions)]
     pub(crate) unsafe fn send_replay_seek(&self, frame: u32) {
         unsafe {
             let mut command = [commands::id::REPLAY_SEEK, 0, 0, 0, 0];
@@ -7465,6 +7512,12 @@ impl BwScr {
     /// does.
     #[cfg(debug_assertions)]
     pub(crate) unsafe fn send_replay_pause(&self, paused: bool) {
+        unsafe { self.send_replay_speed(paused, 6, 1) }
+    }
+
+    /// Sends the replay UI's speed command, which sets whether playback is paused along with its
+    /// speed and speed multiplier.
+    pub(crate) unsafe fn send_replay_speed(&self, paused: bool, speed: u32, multiplier: u32) {
         unsafe {
             let mut command = [
                 commands::id::REPLAY_SPEED,
@@ -7478,8 +7531,8 @@ impl BwScr {
                 0,
                 0,
             ];
-            LittleEndian::write_u32(&mut command[2..], 6);
-            LittleEndian::write_u32(&mut command[6..], 1);
+            LittleEndian::write_u32(&mut command[2..], speed);
+            LittleEndian::write_u32(&mut command[6..], multiplier);
             (self.send_command)(command.as_ptr(), command.len());
         }
     }
@@ -9893,6 +9946,7 @@ unsafe fn step_game_logic_hook(
             // Make replay buttons line up better with the pre-SC:R replay ui
             bw.offset_statbtn_dialog(3, -3);
             bw.seek_to_replay_start_frame();
+            crate::replay_session::hold_at_start(bw);
         } else {
             bw.record_replay_notice();
         }

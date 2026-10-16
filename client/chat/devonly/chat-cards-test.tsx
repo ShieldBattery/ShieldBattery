@@ -67,7 +67,7 @@ function withSummary(
 }
 
 const LOBBY_LOADED = withSummary(MOCK_LOBBY_SUMMARY, {
-  map: { ...MOCK_LOBBY_SUMMARY.summary.map, name: 'Eclipse 1.2', ...ECLIPSE_LOBBY_IMAGES },
+  map: { ...MOCK_LOBBY_SUMMARY.summary.map!, name: 'Eclipse 1.2', ...ECLIPSE_LOBBY_IMAGES },
 })
 const LOBBY_IN_GAME = withSummary(MOCK_LOBBY_SUMMARY_IN_GAME, {
   map: LOBBY_LOADED.summary.map,
@@ -84,14 +84,14 @@ const LOBBY_LONG_NAME = withSummary(
 )
 const LOBBY_LONG_MAP_NAME = withSummary(LOBBY_LOADED, {
   map: {
-    ...LOBBY_LOADED.summary.map,
+    ...LOBBY_LOADED.summary.map!,
     name: '| iCCup | Heartbreak Ridge 2.1 (Remastered Tournament Edition) by a very long author',
   },
   gameType: GameType.TopVsBottom,
 })
 const LOBBY_NEARLY_FULL = withSummary(LOBBY_LOADED, {
   name: 'BGH FFA',
-  map: { ...LOBBY_LOADED.summary.map, name: 'Big Game Hunters', ...BGH_LOBBY_IMAGES },
+  map: { ...LOBBY_LOADED.summary.map!, name: 'Big Game Hunters', ...BGH_LOBBY_IMAGES },
   gameType: GameType.FreeForAll,
   playerSlots: { taken: 7, total: 8, open: 1 },
 })
@@ -147,6 +147,8 @@ function withSeats(data: LobbySummaryResponse, seats: LobbyPlayerSeatJson[]): Lo
 const LOBBY_JOINED_DISPLAY: LobbyInviteDisplayData = {
   name: LOBBY_LOADED.summary.name,
   map: LOBBY_LOADED.summary.map,
+  mapName: LOBBY_LOADED.summary.map!.name,
+  isReplay: false,
   gameType: LOBBY_LOADED.summary.gameType,
   hostId: LOBBY_LOADED.host.id,
   playerSlots: { taken: 2, total: 4, open: 2 },

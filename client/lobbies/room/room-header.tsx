@@ -100,7 +100,11 @@ export function RoomHeader({
       <HeaderActions>
         {isHost ? (
           <OutlinedButton
-            label={t('lobbies.gameSetup.title', 'Game setup')}
+            label={
+              lobby.replay
+                ? t('lobbies.replayLobby.replaySetup', 'Replay setup')
+                : t('lobbies.gameSetup.title', 'Game setup')
+            }
             iconStart='tune'
             disabled={!isGathering}
             onClick={onOpenGameSetup}

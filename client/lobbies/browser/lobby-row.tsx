@@ -8,6 +8,7 @@ import { MapThumbnail } from '../../maps/map-thumbnail'
 import { buttonReset } from '../../material/button-reset'
 import { bodyMedium, labelLarge, singleLine, titleMedium } from '../../styles/typography'
 import { ConnectedUsername } from '../../users/connected-username'
+import { lobbyDisplayMapName, ReplayThumbnail } from '../lobby-replay'
 import { HostCrown, RoomChip } from '../room/room-parts'
 import { InGameChip } from './in-game-chip'
 import { LobbySummary } from './summary-utils'
@@ -302,12 +303,16 @@ export function LobbyRow({
       }}
       data-testid='lobby-list-entry'>
       <Thumbnail>
-        <MapThumbnail map={summary.map} size={256} forceAspectRatio={1} />
+        {summary.map ? (
+          <MapThumbnail map={summary.map} size={256} forceAspectRatio={1} />
+        ) : (
+          <ReplayThumbnail mapImage={summary.replay?.source.metadata.mapImage} />
+        )}
       </Thumbnail>
       <Main>
         <PrimaryColumn>
           <Name title={summary.name}>{summary.name}</Name>
-          <MapName>{summary.map.name}</MapName>
+          <MapName>{lobbyDisplayMapName(summary)}</MapName>
         </PrimaryColumn>
         <HostColumn>
           <HostNameRow>
@@ -316,7 +321,11 @@ export function LobbyRow({
               <ConnectedUsername userId={summary.host.id} interactive={false} />
             </HostName>
           </HostNameRow>
-          <GameTypeLabel>{gameTypeToLabel(summary.gameType, t)}</GameTypeLabel>
+          <GameTypeLabel>
+            {summary.replay
+              ? t('lobbies.replayLobby.replay', 'Replay')
+              : gameTypeToLabel(summary.gameType, t)}
+          </GameTypeLabel>
         </HostColumn>
       </Main>
 

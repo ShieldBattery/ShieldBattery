@@ -339,14 +339,19 @@ const lobbyHandlers = {
     // Skipped maps are always the ones at the front of the queue, but they're matched up by id
     // rather than by position so a queue this client has a stale copy of can't misname them.
     const previousQueue = new Map(draft.info.mapQueue.map(map => [map.id, map.name]))
-    const advanced = draft.info.mapQueue.length > action.payload.skippedMapIds.length
+    const advanced =
+      (draft.info.sourceQueue?.length ?? draft.info.mapQueue.length) >
+      action.payload.skippedMapIds.length
 
     draft.info = castDraft(action.payload.lobby)
     pushChat(draft, {
       id: nanoid(),
       type: LobbyMessageType.LobbyMapQueueAdvance,
       time: Date.now(),
-      mapName: advanced ? draft.info.map?.name : undefined,
+      mapName: advanced
+        ? (draft.info.map?.name ?? draft.info.replay?.source.metadata.mapName)
+        : undefined,
+      isReplay: !!draft.info.replay,
       skippedMapNames: action.payload.skippedMapIds.flatMap(id => previousQueue.get(id) ?? []),
     })
     pushNewBenchJoins(draft, previousBenchIds)
@@ -472,14 +477,19 @@ const lobbyHandlers = {
     }
 
     draft.runState = undefined
-    draft.series.push(castDraft(action.payload.game))
     // A lobby coming out of a game gathers for the next one with nobody ready yet.
     clearReady(draft)
+    const { game } = action.payload
+    if (!game) {
+      // A replay lobby finished watching: there's no game to add to the series
+      return
+    }
+    draft.series.push(castDraft(game))
     pushChat(draft, {
       id: nanoid(),
       type: LobbyMessageType.LobbyRegroup,
       time: Date.now(),
-      gameId: action.payload.game.gameId,
+      gameId: game.gameId,
     })
   },
 

@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { GameLaunchConfig } from '../../common/games/game-launch-config'
+import { GameLaunchConfig, isReplayMapInfo } from '../../common/games/game-launch-config'
 import { NetcodeV2ServerSetup } from '../../common/games/netcode-v2'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
 import { ActiveGameManager } from './active-game-manager'
@@ -216,6 +216,40 @@ describe('ActiveGameManager watch-only games', () => {
 
   describe('with replays kept alongside other games', () => {
     beforeEach(() => setKeepReplays(true))
+
+    it('routes replay session commands and events to a watch-only replay alongside a game', () => {
+      const replay = replayConfigFor('replay-1')
+      if (!isReplayMapInfo(replay.setup.map)) {
+        throw new Error('Expected replay map')
+      }
+      replay.setup.map.session = { controller: true, paused: true }
+      const ready = vi.fn()
+      const speedChanged = vi.fn()
+      const seekReached = vi.fn()
+      manager.on('replaySessionReady', ready)
+      manager.on('replaySessionSpeed', speedChanged)
+      manager.on('replaySessionSeekReached', seekReached)
+
+      manager.setGameConfig(replay)
+      manager.setGameConfig(configFor('game-1'))
+      manager.setReplaySessionPlayback('replay-1', { controller: true, paused: false })
+      manager.showReplaySessionChat('replay-1', 'Codex-2', 'Hello', false)
+      manager.handleReplaySessionReady('replay-1')
+      manager.handleReplaySessionSpeed('replay-1', { paused: false, speed: 2, multiplier: 1 })
+      manager.handleReplaySessionSeekReached('replay-1', { epoch: 1, frame: 2400 })
+
+      expect(commands).toEqual([
+        ['replay-1', 'replaySessionPlayback', { controller: true, paused: false }],
+        ['replay-1', 'replaySessionChat', { from: 'Codex-2', text: 'Hello', isSelf: false }],
+      ])
+      expect(ready).toHaveBeenCalledWith('replay-1')
+      expect(speedChanged).toHaveBeenCalledWith('replay-1', {
+        paused: false,
+        speed: 2,
+        multiplier: 1,
+      })
+      expect(seekReached).toHaveBeenCalledWith('replay-1', { epoch: 1, frame: 2400 })
+    })
 
     it('keeps a replay running when a networked game launches', () => {
       expect(manager.setGameConfig(replayConfigFor('replay-1'))).toBe('replay-1')
