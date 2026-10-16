@@ -442,11 +442,11 @@ function addPlayerAndControlledSlots(
       // If the human player is joining empty controlled team, check if the currentSlot is `closed`,
       // in which case create a `controlledClosed` type of slot in its place. This type of slot is
       // used in team melee/ffa game types where a closed slot still have its race set, which
-      // affects race composition in the game, but no one can join that slot.
+      // affects race composition in the game, but no one can join that slot. Each slot keeps the
+      // race it had, since the race belongs to the slot rather than to whoever controls it.
       return currentSlot.type === SlotType.Closed
-        ? // TODO(2Pac): Set the races of these slots to 'r' instead?
-          createControlledClosed(player.race, player.id)
-        : createControlledOpen(player.race, player.id)
+        ? createControlledClosed(currentSlot.race, player.id)
+        : createControlledOpen(currentSlot.race, player.id)
     }
   })
   return produce(lobby, draft => {
@@ -454,6 +454,11 @@ function addPlayerAndControlledSlots(
   })
 }
 
+/**
+ * Seats `player` in an unoccupied slot, building the rest of a team melee/ffa team around them if
+ * the team was empty. `player` is placed as given, so it should already carry whatever its slot
+ * decides about it, such as a UMS slot's map data or a team melee/ffa slot's race.
+ */
 export function addPlayer(lobby: Lobby, teamIndex: number, slotIndex: number, player: Slot): Lobby {
   const team = lobby.teams[teamIndex]
   // The observer team never holds controlled slots, so someone arriving in an observer slot of a
@@ -501,15 +506,15 @@ export function setRace(
 function removePlayerAndControlledSlots(lobby: Lobby, teamIndex: number, playerIndex: number) {
   const team = lobby.teams[teamIndex]
   const id = team.slots[playerIndex].id
-  if (
-    team.slots.filter(slot => slot.type === SlotType.Human).length === 1 ||
-    team.slots.some(slot => slot.type === SlotType.Computer)
-  ) {
+  const isComputerTeam = team.slots.some(slot => slot.type === SlotType.Computer)
+  if (team.slots.filter(slot => slot.type === SlotType.Human).length === 1 || isComputerTeam) {
     // The player that is leaving is alone in this team, so to remove them we replace the whole team
     // with either opened or closed slots. Same goes if we're removing a computer in team melee/ffa
-    // lobby.
+    // lobby. The slots keep their races for whoever fills the team next, except for a computer
+    // team's: those are the computers' race, not one anybody picked for the slots.
     const slots = team.slots.map(currentSlot => {
-      return currentSlot.type === SlotType.ControlledClosed ? createClosed() : createOpen()
+      const race = isComputerTeam ? undefined : currentSlot.race
+      return currentSlot.type === SlotType.ControlledClosed ? createClosed(race) : createOpen(race)
     })
     return produce(lobby, draft => {
       draft.teams[teamIndex].slots = slots
@@ -602,7 +607,10 @@ export function removePlayer(
  * Returns what an occupant looks like once they are in `destSlot` of `destTeam`, having come from
  * `sourceTeam`: in UMS lobbies a slot's `playerId` and forced race come from the map, so they take
  * on the destination's, and crossing the observer team's boundary retypes them, since the observer
- * team holds `observer` slots and every other team holds `human` ones.
+ * team holds `observer` slots and every other team holds `human` ones. In team melee/ffa every slot
+ * of a player team has a race of its own, which decides the starting units it adds to its team, so
+ * a person entering one takes on its race and leaves the team's races as they were. A computer
+ * keeps its own race, since it only ever moves as a whole team of computers.
  */
 function occupantInSlot(
   gameType: GameType,
@@ -617,6 +625,9 @@ function occupantInSlot(
     moved = destSlot.hasForcedRace
       ? { ...moved, race: destSlot.race, hasForcedRace: true }
       : { ...moved, hasForcedRace: false }
+  }
+  if (hasControlledOpens(gameType) && !destTeam.isObserver && holdsPerson(occupant)) {
+    moved = { ...moved, race: destSlot.race }
   }
   if (destTeam.isObserver) {
     moved = { ...moved, type: SlotType.Observer }
@@ -641,6 +652,8 @@ function occupantInSlot(
  *   so leaving a team can empty it or hand control of its slots to a remaining player, and entering
  *   an empty team fills the rest of it with slots the arriving player controls. The observer team
  *   never holds controlled slots, so a move into or out of it skips that handling on that side.
+ *   Every slot of a player team keeps its race through all of this: the person moving takes on the
+ *   destination slot's race, and the slot they leave keeps the race they had.
  */
 export function movePlayerToSlot(
   lobby: Lobby,
@@ -675,7 +688,7 @@ export function movePlayerToSlot(
 
   if (hasControlledOpens(lobby.gameType) && !sourceTeam.isObserver) {
     if (sourceTeamIndex === destTeamIndex) {
-      const controlledOpen = createControlledOpen('r', destSlot.controlledBy!)
+      const controlledOpen = createControlledOpen(originalSlot.race, destSlot.controlledBy!)
       updated = produce(updated, draft => {
         draft.teams[sourceTeamIndex].slots[sourceSlotIndex] = controlledOpen
       })
@@ -735,9 +748,9 @@ function reassignControlledSlots(lobby: Lobby, teamIndex: number): Lobby {
 /**
  * Exchanges the occupants of two slots, each of which must hold a `human`, `observer`, or
  * `computer`. Each occupant takes on the other slot's position with the same adjustments a move
- * into it would make: UMS slot data comes from the map, and crossing the observer team's boundary
- * retypes them. A computer has no in-game counterpart in an observer slot, so it cannot be swapped
- * into one.
+ * into it would make: UMS slot data comes from the map, a team melee/ffa slot keeps its race, and
+ * crossing the observer team's boundary retypes them. A computer has no in-game counterpart in an
+ * observer slot, so it cannot be swapped into one.
  *
  * Team melee/ffa lobbies build their player teams out of slots controlled by whoever occupies them,
  * so only people can be exchanged there — a computer only ever belongs to such a team as a whole
@@ -882,9 +895,11 @@ export function arrangeOccupants(lobby: Lobby, positions: ReadonlyArray<SlotPosi
 export function openSlot(lobby: Lobby, teamIndex: number, slotIndex: number): Lobby {
   const slotToOpen = lobby.teams[teamIndex].slots[slotIndex]
 
+  // A UMS slot's race comes from the map, and a team melee/ffa slot keeps its race for whoever fills
+  // its team next.
   const openSlot = isUms(lobby.gameType)
     ? createOpen(slotToOpen.race, slotToOpen.hasForcedRace, slotToOpen.playerId)
-    : createOpen()
+    : createOpen(hasControlledOpens(lobby.gameType) ? slotToOpen.race : undefined)
   if (slotToOpen.type === SlotType.Closed) {
     return produce(lobby, draft => {
       draft.teams[teamIndex].slots[slotIndex] = openSlot
@@ -907,9 +922,11 @@ export function openSlot(lobby: Lobby, teamIndex: number, slotIndex: number): Lo
 export function closeSlot(lobby: Lobby, teamIndex: number, slotIndex: number) {
   const slotToClose = lobby.teams[teamIndex].slots[slotIndex]
 
+  // A UMS slot's race comes from the map, and a team melee/ffa slot keeps its race for whoever fills
+  // its team next.
   const closedSlot = isUms(lobby.gameType)
     ? createClosed(slotToClose.race, slotToClose.hasForcedRace, slotToClose.playerId)
-    : createClosed()
+    : createClosed(hasControlledOpens(lobby.gameType) ? slotToClose.race : undefined)
   if (slotToClose.type === SlotType.Open) {
     return produce(lobby, draft => {
       draft.teams[teamIndex].slots[slotIndex] = closedSlot
@@ -1086,14 +1103,23 @@ function benchedFromOccupant(occupant: Occupant): BenchedUser {
 
 /**
  * Builds the `human` slot an occupant gets when they are seated in `destSlot`. A UMS map's slots
- * define their own race and player id, so those win over what the occupant brought with them.
+ * define their own race and player id, so those win over what the occupant brought with them. A
+ * team melee/ffa slot's race decides the starting units it adds to its team, so the occupant takes
+ * that on as well, unless `inNewLayout` says the slot belongs to a layout that was only just built:
+ * nobody has picked a race for it yet, so the occupant keeps their own.
  */
-function humanSlotFor(occupant: Occupant, destSlot: Slot, gameType: GameType): Slot {
+function humanSlotFor(
+  occupant: Occupant,
+  destSlot: Slot,
+  gameType: GameType,
+  inNewLayout = false,
+): Slot {
+  const takesSlotRace = hasControlledOpens(gameType) && !inNewLayout
   const base = destSlot.hasForcedRace
     ? createHuman(occupant.userId, destSlot.race, true, destSlot.playerId)
     : createHuman(
         occupant.userId,
-        occupant.race,
+        takesSlotRace ? destSlot.race : occupant.race,
         false,
         isUms(gameType) ? destSlot.playerId : undefined,
       )
@@ -1118,9 +1144,10 @@ function observerSlotFor(occupant: Occupant): Slot {
 }
 
 /**
- * Moves a member off the bench and into the given slot, keeping the race, region, and join time
- * they were waiting with. Their new slot is built the same way it would be for someone joining
- * directly into it, so UMS map data and the observer team still decide what it looks like.
+ * Moves a member off the bench and into the given slot, keeping the region and join time they were
+ * waiting with, and their race unless the slot decides it. Their new slot is built the same way it
+ * would be for someone joining directly into it, so UMS map data, a team melee/ffa slot's race, and
+ * the observer team still decide what it looks like.
  */
 export function seatBenchedUser(
   lobby: Lobby,
@@ -1231,7 +1258,9 @@ export interface LobbySettings {
  * no one could change anything in.
  *
  * Members keep the slot ids they had, so clients can tell that someone moved rather than that one
- * member left and another arrived.
+ * member left and another arrived. In team melee/ffa, whoever is seated in a slot the lobby already
+ * had takes on its race, the same as joining it would; a new layout's slots have no race anybody
+ * picked, so the members poured into one keep their own.
  */
 export function applySettingsChange(lobby: Lobby, next: LobbySettings): Lobby {
   // A non-UMS layout is fully described by the shapes of its teams plus whether the players in them
@@ -1320,7 +1349,7 @@ export function applySettingsChange(lobby: Lobby, next: LobbySettings): Lobby {
       updated,
       teamIndex,
       slotIndex,
-      humanSlotFor(occupant, destSlot, next.gameType),
+      humanSlotFor(occupant, destSlot, next.gameType, !keepsLayout),
     )
   }
 
@@ -1349,7 +1378,7 @@ export function applySettingsChange(lobby: Lobby, next: LobbySettings): Lobby {
       updated,
       teamIndex,
       slotIndex,
-      humanSlotFor(occupantOfBenched(benched), destSlot, next.gameType),
+      humanSlotFor(occupantOfBenched(benched), destSlot, next.gameType, !keepsLayout),
     )
   }
   updated = { ...updated, bench }
