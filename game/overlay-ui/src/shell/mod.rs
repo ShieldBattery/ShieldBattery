@@ -1999,35 +1999,20 @@ impl Shell {
         }
     }
 
-    /// Carries out the graphs key, which opens the panel, walks it through the measurements it can
-    /// plot, then closes it again. `Shift` walks the same line the other way.
+    /// Carries out the graphs key: on its own it toggles the panel like any other panel key, with
+    /// `Shift` it steps the panel to the next measurement, and with `Ctrl` to the previous one.
     ///
-    /// One key rather than two, because the panel plots one series at a time: the watcher's question
-    /// is "show me the next one", and a second key for the panel itself would leave them choosing
-    /// between two keys that both look like the way in. The walk ends at both edges rather than
-    /// wrapping, so the direction that opened the panel is the direction that closes it again.
+    /// A step shows a hidden panel as well, because a measurement the watcher cannot see has not
+    /// changed as far as they are concerned.
     fn apply_graphs_action(&mut self, modifiers: Modifiers) -> bool {
-        let backwards = modifiers.shift;
-        if !self.prefs.graphs {
+        if modifiers.ctrl {
+            self.prefs.graph_series = self.prefs.graph_series.previous();
             self.prefs.graphs = true;
-            // A backward walk starts at the far end of the line, which is what makes the two
-            // directions mirrors: each opens the panel on the series the other one closes it from.
-            self.prefs.graph_series = match backwards {
-                true => GraphSeries::ALL.last().copied().unwrap_or_default(),
-                false => GraphSeries::default(),
-            };
-            return true;
-        }
-        let stepped = match backwards {
-            true => self.prefs.graph_series.previous(),
-            false => self.prefs.graph_series.next(),
-        };
-        match stepped {
-            Some(series) => self.prefs.graph_series = series,
-            None => {
-                self.prefs.graphs = false;
-                self.prefs.graph_series = GraphSeries::default();
-            }
+        } else if modifiers.shift {
+            self.prefs.graph_series = self.prefs.graph_series.next();
+            self.prefs.graphs = true;
+        } else {
+            self.prefs.toggle(Panel::Graphs);
         }
         true
     }
@@ -2923,35 +2908,31 @@ mod tests {
     }
 
     #[test]
-    fn the_graphs_key_walks_the_series_and_then_closes_the_panel() {
+    fn the_graphs_key_toggles_the_panel_and_keeps_its_measurement() {
         let mut shell = spectating_shell();
         shell.set_panel_prefs(PanelPrefs {
             graphs: false,
-            graph_series: GraphSeries::Kills,
+            graph_series: GraphSeries::Supply,
             ..PanelPrefs::default()
         });
 
-        // Opening the panel starts the walk over rather than resuming where it was left: the key
-        // that opens it is the key that moves it, so a watcher pressing it twice expects the second
-        // measurement rather than the last one they happened to stop on.
         assert!(shell.key_pressed(Key::G, Modifiers::NONE));
         assert!(shell.panel_prefs().graphs);
-        assert_eq!(shell.panel_prefs().graph_series, GraphSeries::default());
-
-        for expected in GraphSeries::ALL.into_iter().skip(1) {
-            assert!(shell.key_pressed(Key::G, Modifiers::NONE));
-            assert_eq!(shell.panel_prefs().graph_series, expected);
-            assert!(shell.panel_prefs().graphs);
-        }
         assert!(shell.key_pressed(Key::G, Modifiers::NONE));
         assert!(!shell.panel_prefs().graphs);
+        assert_eq!(shell.panel_prefs().graph_series, GraphSeries::Supply);
     }
 
     #[test]
-    fn the_graphs_chord_walks_the_series_backwards_and_then_closes_the_panel() {
+    fn the_graphs_chords_step_the_measurement_both_ways() {
         let mut shell = spectating_shell();
         let shift = Modifiers {
             shift: true,
+            ..Modifiers::NONE
+        };
+        let ctrl = Modifiers {
+            ctrl: true,
+            command: true,
             ..Modifiers::NONE
         };
         shell.set_panel_prefs(PanelPrefs {
@@ -2960,22 +2941,18 @@ mod tests {
             ..PanelPrefs::default()
         });
 
-        // Backwards from a hidden panel opens it on the last measurement, which is where walking
-        // forwards would have closed it.
+        // A step from a hidden panel shows it on the measurement it stepped to.
         assert!(shell.key_pressed(Key::G, shift));
+        assert!(shell.panel_prefs().graphs);
+        assert_eq!(shell.panel_prefs().graph_series, GraphSeries::Income.next());
+
+        assert!(shell.key_pressed(Key::G, ctrl));
+        assert!(shell.key_pressed(Key::G, ctrl));
         assert!(shell.panel_prefs().graphs);
         assert_eq!(
             shell.panel_prefs().graph_series,
-            *GraphSeries::ALL.last().unwrap()
+            GraphSeries::Income.previous()
         );
-
-        for expected in GraphSeries::ALL.into_iter().rev().skip(1) {
-            assert!(shell.key_pressed(Key::G, shift));
-            assert_eq!(shell.panel_prefs().graph_series, expected);
-            assert!(shell.panel_prefs().graphs);
-        }
-        assert!(shell.key_pressed(Key::G, shift));
-        assert!(!shell.panel_prefs().graphs);
     }
 
     #[test]

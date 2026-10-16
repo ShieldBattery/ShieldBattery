@@ -40,7 +40,8 @@ pub enum Action {
     ToggleTransport,
     /// The military panel.
     ToggleMilitary,
-    /// The graphs panel; repeated presses walk its measurements, `Shift` walks them backwards.
+    /// The graphs panel; `Shift` steps it to the next measurement and its `Ctrl` chord to the
+    /// previous one.
     ToggleGraphs,
     /// The timeline feed.
     ToggleTimeline,
@@ -255,6 +256,7 @@ impl Hotkeys {
             (Action::ToggleDock, Chord::new(Backtick)),
             (Action::ToggleMilitary, Chord::new(M)),
             (Action::ToggleGraphs, Chord::new(G)),
+            (Action::ToggleGraphs, Chord::ctrl(G)),
             (Action::ToggleTimeline, Chord::new(T)),
             (Action::ToggleControlGroups, Chord::new(H)),
             (Action::ToggleMapControl, Chord::new(N)),
@@ -403,6 +405,16 @@ mod tests {
         );
         assert_eq!(
             hotkeys.action_for(Key::G, shift),
+            Some(Action::ToggleGraphs)
+        );
+        assert_eq!(
+            hotkeys.action_for(
+                Key::G,
+                Modifiers {
+                    shift: true,
+                    ..ctrl()
+                }
+            ),
             Some(Action::ToggleGraphs)
         );
     }

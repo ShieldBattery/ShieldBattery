@@ -77,21 +77,22 @@ impl GraphSeries {
         GraphSeries::Kills,
     ];
 
-    /// The next series in the walk, or `None` after the last one.
-    ///
-    /// `None` rather than wrapping, because the key that walks these is also the key that closes
-    /// the panel: a walk with no end would leave the watcher pressing it five more times to get
-    /// their screen back.
-    pub fn next(self) -> Option<GraphSeries> {
-        let index = GraphSeries::ALL.iter().position(|kind| *kind == self)?;
-        GraphSeries::ALL.get(index + 1).copied()
+    /// The series after this one, wrapping from the last back to the first.
+    pub fn next(self) -> GraphSeries {
+        self.stepped(1)
     }
 
-    /// The series before this one, or `None` at the first one. Ends rather than wrapping, for the
-    /// reason [`GraphSeries::next`] does.
-    pub fn previous(self) -> Option<GraphSeries> {
-        let index = GraphSeries::ALL.iter().position(|kind| *kind == self)?;
-        GraphSeries::ALL.get(index.checked_sub(1)?).copied()
+    /// The series before this one, wrapping from the first round to the last.
+    pub fn previous(self) -> GraphSeries {
+        self.stepped(GraphSeries::ALL.len() - 1)
+    }
+
+    fn stepped(self, by: usize) -> GraphSeries {
+        let index = GraphSeries::ALL
+            .iter()
+            .position(|kind| *kind == self)
+            .unwrap_or_default();
+        GraphSeries::ALL[(index + by) % GraphSeries::ALL.len()]
     }
 
     /// What this series is called, which is what its tab is labelled with.
@@ -359,25 +360,25 @@ mod tests {
     }
 
     #[test]
-    fn the_walk_ends_rather_than_wrapping() {
-        let mut series = GraphSeries::default();
+    fn stepping_forward_visits_every_series_and_wraps() {
+        let mut series = GraphSeries::ALL[0];
         let mut walked = vec![series];
-        while let Some(next) = series.next() {
-            series = next;
+        for _ in 1..GraphSeries::ALL.len() {
+            series = series.next();
             walked.push(series);
         }
         assert_eq!(walked, GraphSeries::ALL.to_vec());
+        assert_eq!(series.next(), GraphSeries::ALL[0]);
     }
 
     #[test]
-    fn walking_back_retraces_the_way_forward() {
-        let mut series = *GraphSeries::ALL.last().unwrap();
-        let mut walked = vec![series];
-        while let Some(previous) = series.previous() {
-            series = previous;
-            walked.push(series);
+    fn stepping_back_retraces_the_way_forward() {
+        for series in GraphSeries::ALL {
+            assert_eq!(series.next().previous(), series);
         }
-        walked.reverse();
-        assert_eq!(walked, GraphSeries::ALL.to_vec());
+        assert_eq!(
+            GraphSeries::ALL[0].previous(),
+            *GraphSeries::ALL.last().unwrap()
+        );
     }
 }

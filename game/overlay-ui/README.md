@@ -150,8 +150,8 @@ at absolute coordinates, so other aspect ratios keep them out of the middle. **E
 resource, worker count with how many are idle, and resources gathered per worker per minute; army
 value in each resource, and the unit and worker kill-and-loss pairs. **Graphs** (right, under
 military) plots one measurement of the whole game through the kit's `line_plot`, with a strip of
-tabs under its header naming the five it could plot: `G` walks that strip forward and `Shift+G`
-back, and a tab can be clicked instead. In a game with sides worth telling apart from the players on
+tabs under its header naming the five it could plot: `Shift+G` steps along that strip and `Ctrl+G`
+back, wrapping at both ends, and a tab can be clicked instead. In a game with sides worth telling apart from the players on
 them, two more chips at the right end of the same row switch between the sides and the players; it
 plots the sides by default, since the question a team game poses is which side is ahead. Both tables split their rows the same
 way, with a rule naming each side under the first, and a game with one player a side gets no rules
@@ -263,7 +263,7 @@ built leaves the game's own behavior alone.
 | ------------------------------------ | --------- | ------------------------- | ------- |
 | Pause / resume                       | `P`       | Transport plate           | `Y`     |
 | Speed up / down                      | `U` / `D` | Military                  | `M`     |
-| Seek back / forward (Shift: further) | `,` / `.` | Graphs (Shift: backwards) | `G`     |
+| Seek back / forward (Shift: further) | `,` / `.` | Graphs (Shift/Ctrl: step) | `G`     |
 | All panels                           | `A`       | Timeline                  | `T`     |
 | Economy                              | `E`       | Control groups            | `H`     |
 | Production                           | `F`       | Map control               | `N`     |
@@ -272,9 +272,9 @@ built leaves the game's own behavior alone.
 | Minimap                              | `Q`       | Edge dock (Shift: form)   | `` ` `` |
 
 Of these, `A`, `R`, `E`, `M`, `T`, `F`, `H`, `W`, `Q` and `Y` move panels, `` ` `` takes the dock on
-and off screen while `` Shift+` `` changes which of its two forms it comes back in, `G` walks the
-graphs panel through its measurements and then closes it and `Shift+G` walks the same line the other
-way, `N` moves the map-control bar but only while a host is reporting one, and `P`, `U`, `D`, `,`, `.` and `L` drive a replay. `V` is still a binding
+and off screen while `` Shift+` `` changes which of its two forms it comes back in, `G` toggles the
+graphs panel like any other panel key while `Shift+G` and `Ctrl+G` step it to the next and previous
+measurement, `N` moves the map-control bar but only while a host is reporting one, and `P`, `U`, `D`, `,`, `.` and `L` drive a replay. `V` is still a binding
 waiting for its surface. The transport keys are consumed only while a replay's view-model is being
 fed, and `L` only in a replay, so anywhere else they stay the game's.
 
