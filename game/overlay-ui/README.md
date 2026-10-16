@@ -146,8 +146,8 @@ still fading out still holds its place while it does.
 
 Under it hang four **stats wings**, tier-0 panels placed against the screen's own edges rather than
 at absolute coordinates, so other aspect ratios keep them out of the middle. **Economy** (left) and
-**military** (right) are tables of fixed-width columns, one row per player: income per minute in each
-resource, worker count with how many are idle, and resources gathered per worker per minute; army
+**military** (right) are tables of fixed-width columns, one row per player: worker count with how many
+are idle, income per minute in each resource, and how that income has moved over the last minute; army
 value in each resource, and the unit and worker kill-and-loss pairs. **Graphs** (right, under
 military) plots one measurement of the whole game through the kit's `line_plot`, with a strip of
 tabs under its header naming the five it could plot: `Shift+G` steps along that strip and `Ctrl+G`

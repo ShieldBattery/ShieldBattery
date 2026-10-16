@@ -3,14 +3,15 @@
 //! The left of the two upper stats wings, at the kit's ambient tier. One row per player, led by the
 //! bar of their own color and their name, then three columns:
 //!
-//! - **Income / min**, minerals and gas gathered per minute, which is the number a caster reads a build
-//!   against: a player two hundred minerals a minute behind is losing the game quietly.
 //! - **Workers**, with how many of them are standing still. Idle workers are the single most common
 //!   unforced error in the game, and a count nobody can see is one nobody calls.
+//! - **Income / min**, minerals and gas gathered per minute, which is the number a caster reads a build
+//!   against: a player two hundred minerals a minute behind is losing the game quietly.
 //! - **Trend**: how much the income column has moved over the last minute. It climbs as new workers
 //!   and new bases start mining and falls when a mineral line is harassed or workers are pulled, so
 //!   it says which way an economy is heading, where income alone only says where it is.
-//!   Growing is good play, so the number grows with it.
+//!   Growing is good play, so the number grows with it. It stands right after the income it is the
+//!   trend of, so it reads as that income's and not as the workers'.
 //!
 //! Every column is a fixed width. These numbers move every second, and a table that resized itself
 //! around them would be unreadable over a game.
@@ -69,9 +70,9 @@ const _: () = assert!(
         + BAR_GAP
         + NAME_WIDTH
         + COLUMN_GAP
-        + INCOME_WIDTH
-        + COLUMN_GAP
         + WORKERS_WIDTH
+        + COLUMN_GAP
+        + INCOME_WIDTH
         + COLUMN_GAP
         + TREND_WIDTH
         == CONTENT_WIDTH
@@ -86,6 +87,11 @@ const TREND_SIZE: f32 = 12.5;
 
 /// Gap between the worker count and the idle count.
 const IDLE_GAP: f32 = 6.0;
+
+/// The widest worker count the column keeps room for. Nobody fields a thousand workers, and the
+/// count's digits are tabular, so the idle count can stand right after three of them and still never
+/// move as the count changes.
+const WIDEST_WORKER_COUNT: &str = "000";
 
 /// Width the idle count is laid out in. Generous for the two English words it holds, because it is
 /// where a translation of them runs out of room first.
@@ -206,23 +212,23 @@ fn draw_headings(ui: &mut Ui) {
     cursor.skip(STAT_COLOR_BAR + BAR_GAP + NAME_WIDTH + COLUMN_GAP);
     draw_heading(
         ui,
-        cursor.take(INCOME_WIDTH),
-        "income",
-        &tr!("observer.columnIncomePerMinute", "Income / min"),
-        &tr!(
-            "observer.columnIncomeHint",
-            "Minerals and gas gathered per minute, over the last minute"
-        ),
-    );
-    cursor.skip(COLUMN_GAP);
-    draw_heading(
-        ui,
         cursor.take(WORKERS_WIDTH),
         "workers",
         &tr!("observer.columnWorkers", "Workers"),
         &tr!(
             "observer.columnWorkersHint",
             "Workers alive, and how many are standing idle"
+        ),
+    );
+    cursor.skip(COLUMN_GAP);
+    draw_heading(
+        ui,
+        cursor.take(INCOME_WIDTH),
+        "income",
+        &tr!("observer.columnIncomePerMinute", "Income / min"),
+        &tr!(
+            "observer.columnIncomeHint",
+            "Minerals and gas gathered per minute, over the last minute"
         ),
     );
     cursor.skip(COLUMN_GAP);
@@ -277,6 +283,9 @@ fn draw_row(ui: &mut Ui, player: &EconomyPlayerView) {
     );
 
     cursor.skip(COLUMN_GAP);
+    draw_workers(ui, cursor.take(WORKERS_WIDTH), player, alpha);
+
+    cursor.skip(COLUMN_GAP);
     paint_resource_value(
         ui,
         cursor.take(RATE_WIDTH),
@@ -298,9 +307,6 @@ fn draw_row(ui: &mut Ui, player: &EconomyPlayerView) {
     );
 
     cursor.skip(COLUMN_GAP);
-    draw_workers(ui, cursor.take(WORKERS_WIDTH), player, alpha);
-
-    cursor.skip(COLUMN_GAP);
     // The trend is the one column that is a direction rather than a count, so it is the one drawn
     // in a color: a watcher scanning the panel reads which way an economy is heading before they
     // read by how much.
@@ -308,7 +314,8 @@ fn draw_row(ui: &mut Ui, player: &EconomyPlayerView) {
         ui,
         cursor.take(TREND_WIDTH),
         &text::body(TREND_SIZE, text::BodyWeight::Medium)
-            .with_color(trend_color(player.income_trend).gamma_multiply(alpha)),
+            .with_color(trend_color(player.income_trend).gamma_multiply(alpha))
+            .tabular(),
         &trend_text(player.income_trend),
         Align::LEFT,
     );
@@ -320,10 +327,12 @@ fn draw_row(ui: &mut Ui, player: &EconomyPlayerView) {
 /// train the watcher to stop reading the column, which is the one thing it exists to be read for.
 fn draw_workers(ui: &Ui, rect: Rect, player: &EconomyPlayerView, alpha: f32) {
     let mut cursor = EdgeCursor::from_left(rect);
+    let spec = text::numeral(STAT_VALUE_SIZE).with_color(theme::TEXT_PRIMARY.gamma_multiply(alpha));
+    let count_width = spec.galley(ui, WIDEST_WORKER_COUNT).size().x;
     paint_text(
         ui,
-        cursor.take(rect.width() - IDLE_GAP - IDLE_WIDTH),
-        &text::numeral(STAT_VALUE_SIZE).with_color(theme::TEXT_PRIMARY.gamma_multiply(alpha)),
+        cursor.take(count_width.min(rect.width() - IDLE_GAP - IDLE_WIDTH)),
+        &spec,
         &player.workers.to_string(),
         Align::LEFT,
     );
