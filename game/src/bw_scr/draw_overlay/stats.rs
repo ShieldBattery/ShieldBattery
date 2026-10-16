@@ -33,11 +33,6 @@ use super::{
 /// would lose the shape of a fight, more would be line segments too short to see.
 const GRAPH_POINTS: usize = 180;
 
-/// How many timeline entries are handed over. Far more than the panel draws: the panel shows the
-/// newest that fit, and a replay's seek bar marks every one of them, which is what lets a watcher
-/// go back to anything they have seen happen.
-const TIMELINE_DEPTH: usize = 256;
-
 /// One player as every stats wing names them.
 #[derive(PartialEq)]
 struct StatsPlayer {
@@ -706,6 +701,10 @@ fn whole_points(fixed: i32) -> u32 {
 /// Builds the timeline's view, newest first, with its events' subjects indexed for their icons,
 /// which are left for [`TimelineIcons::refresh`] to fill in.
 ///
+/// Every event recorded up to the frame on screen: the panel scrolls back through all of them, and
+/// a replay's seek bar marks every one, which is what lets a watcher go back to anything they have
+/// seen happen.
+///
 /// Only the players the wings have rows for: an event from a slot the panels are not reporting on
 /// would be a line in a color nothing else on screen carries.
 fn build_timeline_view(
@@ -738,7 +737,6 @@ fn build_timeline_view(
             };
             Some((view, event.subject))
         })
-        .take(TIMELINE_DEPTH)
         .unzip();
     (
         TimelineView { events },

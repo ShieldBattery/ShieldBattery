@@ -53,9 +53,13 @@ const MAX_SAMPLES: usize = 2 * 60 * 60;
 /// a new patch does not move the number, and short enough that a base lost is visible at once.
 const INCOME_WINDOW_FRAMES: u32 = 60 * SAMPLE_INTERVAL_FRAMES;
 
-/// How many timeline entries are kept: enough for every building, upgrade and expansion of a long
-/// game, which a replay's seek bar marks, at a few bytes each.
-const MAX_EVENTS: usize = 512;
+/// How many timeline entries are kept, a replay's seek bar marking every one of them.
+///
+/// A long eight-player game finishes a few thousand buildings, upgrades and researches between its
+/// players, so no real game reaches this: it only stops a map that churns out buildings forever
+/// from growing without end, and such a map loses its oldest entries first. About twenty bytes
+/// each, so a third of a megabyte when full.
+const MAX_EVENTS: usize = 16 * 1024;
 
 /// How many samples' baselines are kept to compare a re-simulated sample against. A rollback
 /// reaches back a handful of frames, which is never more than a second or two of samples.
@@ -330,12 +334,9 @@ impl GameStats {
         if events_forgotten || !events.is_empty() {
             self.events_changed = self.generation;
         }
-        for event in events {
-            if self.events.len() == MAX_EVENTS {
-                self.events.remove(0);
-            }
-            self.events.push(event);
-        }
+        self.events.extend(events);
+        let excess = self.events.len().saturating_sub(MAX_EVENTS);
+        self.events.drain(..excess);
         if self.rows.len() >= MAX_SAMPLES {
             thin_older_half(&mut self.rows);
         }
@@ -1118,6 +1119,47 @@ mod tests {
         let taken = TimelineEventKind::ExpansionTaken;
         let subject = TimelineSubject::Unit(unit::COMMAND_CENTER);
         assert_eq!(events, [(taken, subject, 2), (taken, subject, 4)]);
+    }
+
+    /// The game [`snapshot`] describes, with player 0 finishing `per_second` barracks every second.
+    fn barracks_every_second(per_second: u32) -> impl Fn(u32) -> GameSnapshot {
+        move |frame| {
+            let mut snapshot = snapshot(frame);
+            snapshot.completed_units[unit::BARRACKS.0 as usize][0] = frame / SECOND * per_second;
+            snapshot
+        }
+    }
+
+    #[test]
+    fn a_long_games_first_events_are_kept() {
+        let mut stats = GameStats::new();
+        play(
+            &mut stats,
+            1..=100 * SECOND,
+            Resimulation::Identical,
+            barracks_every_second(10),
+        );
+        let frames = event_frames(&stats.as_of(u32::MAX));
+        // The first sample only takes stock, so the first barracks reported are the next second's.
+        assert_eq!(frames.len(), 990);
+        assert_eq!(frames.first(), Some(&(2 * SECOND)));
+    }
+
+    #[test]
+    fn past_the_bound_the_oldest_events_go_first() {
+        let mut stats = GameStats::new();
+        let per_second = 100;
+        let seconds = (MAX_EVENTS as u32).div_ceil(per_second) + 10;
+        play(
+            &mut stats,
+            1..=seconds * SECOND,
+            Resimulation::Identical,
+            barracks_every_second(per_second),
+        );
+        let frames = event_frames(&stats.as_of(u32::MAX));
+        assert_eq!(frames.len(), MAX_EVENTS);
+        assert_eq!(frames.last(), Some(&(seconds * SECOND)));
+        assert!(frames[0] > 2 * SECOND);
     }
 
     #[test]
