@@ -478,7 +478,11 @@ fn strip(
     ui.horizontal(|ui| {
         ui.label(text::column_label().job(caption));
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            ui.label(text::numeral(13.0).with_color(value_color).job(value));
+            ui.label(
+                text::numeral(13.0)
+                    .with_color(value_color)
+                    .galley(ui, value),
+            );
         });
     });
     ui.add_space(theme::SPACE_XS);

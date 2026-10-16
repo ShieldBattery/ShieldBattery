@@ -112,8 +112,10 @@ pub fn button_with_kbd(ui: &mut Ui, label: &str, variant: ButtonVariant, key: &s
 /// numerals where one carrying a word is set in the button style; only its color is the chip's own,
 /// so every chip lights the same way under the pointer.
 pub fn chip_button(ui: &mut Ui, spec: &text::TextSpec, label: &str, size: Vec2) -> Response {
-    let job = spec.job_truncated(label, (size.x - theme::SPACE_SM).max(0.0));
-    let galley = ui.ctx().fonts_mut(|fonts| fonts.layout_job(job));
+    let galley = spec.layout(
+        ui.ctx(),
+        spec.job_truncated(label, (size.x - theme::SPACE_SM).max(0.0)),
+    );
     let (rect, response) = ui.allocate_exact_size(size, Sense::click());
     if !ui.is_rect_visible(rect) {
         return response;
@@ -340,11 +342,11 @@ pub fn plate_button_aligned(
     paint_plate(ui, rect, plate, None);
     state_overlay(ui, &response, rect, corner_radius);
     focus_ring(ui, &response, rect, corner_radius);
-    let job = spec
-        .clone()
-        .with_color(plate.label)
-        .job_truncated(label, (size.x - inset * 2.0).max(0.0));
-    let galley = ui.ctx().fonts_mut(|fonts| fonts.layout_job(job));
+    let spec = spec.clone().with_color(plate.label);
+    let galley = spec.layout(
+        ui.ctx(),
+        spec.job_truncated(label, (size.x - inset * 2.0).max(0.0)),
+    );
     let x = match align {
         Align::LEFT => rect.left() + inset,
         Align::Center => rect.center().x - galley.size().x * 0.5,

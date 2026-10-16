@@ -640,7 +640,7 @@ fn draw_marker_card(ui: &Ui, pointer: Pos2, event: &TimelineEventView) {
                 ui.label(
                     text::numeral(13.0)
                         .with_color(theme::TEXT_DIM)
-                        .job(&clock_text(event.secs)),
+                        .galley(ui, &clock_text(event.secs)),
                 );
             });
         },

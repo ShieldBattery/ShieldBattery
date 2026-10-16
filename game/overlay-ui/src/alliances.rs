@@ -474,9 +474,7 @@ fn draw_column_labels(ui: &mut Ui) {
             Align::Center,
         ),
     ] {
-        let galley = ui
-            .ctx()
-            .fonts_mut(|fonts| fonts.layout_job(spec.job_truncated(&label, rect.width())));
+        let galley = spec.layout(ui.ctx(), spec.job_truncated(&label, rect.width()));
         let x = match align {
             Align::Min => rect.left(),
             _ => rect.center().x - galley.size().x * 0.5,

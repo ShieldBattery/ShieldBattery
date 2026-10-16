@@ -768,10 +768,9 @@ fn draw_supply(
     inner.skip(GLYPH_GAP);
     let value_rect = inner.take(cell.value_width);
     let cap_size = metrics.value_size * SUPPLY_CAP_RATIO;
+    let spec = text::numeral(metrics.value_size).with_color(color);
     let job = {
-        let mut job = text::numeral(metrics.value_size)
-            .with_color(color)
-            .job(&player.supply_used.to_string());
+        let mut job = spec.job(&player.supply_used.to_string());
         job.append(
             &format!("/{}", player.supply_max),
             0.0,
@@ -781,7 +780,7 @@ fn draw_supply(
         );
         job
     };
-    let galley = ui.ctx().fonts_mut(|fonts| fonts.layout_job(job));
+    let galley = spec.layout(ui.ctx(), job);
     ui.painter().galley(
         pos2(
             value_rect.left(),

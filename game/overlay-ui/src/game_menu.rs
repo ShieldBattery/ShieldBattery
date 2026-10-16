@@ -134,7 +134,7 @@ fn draw_clock(ui: &mut Ui, game_seconds: u64) {
         ui.spacing_mut().item_spacing = Vec2::ZERO;
         ui.label(label_spec.job(&label));
         ui.add_space(gap);
-        ui.label(clock_spec.job(&clock_text(game_seconds)));
+        ui.label(clock_galley);
     });
 }
 

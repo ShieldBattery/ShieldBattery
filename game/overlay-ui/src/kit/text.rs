@@ -8,8 +8,9 @@
 
 use std::sync::Arc;
 
-use egui::text::{LayoutJob, TextFormat, TextWrapping};
-use egui::{Align, Color32, FontFamily, FontId, Galley, Ui};
+use egui::epaint::text::{ByteIndex, FontsView};
+use egui::text::{LayoutJob, LayoutSection, TextFormat, TextWrapping};
+use egui::{Align, Color32, Context, FontFamily, FontId, Galley, Ui};
 
 use crate::fonts;
 use crate::kit::theme;
@@ -38,14 +39,19 @@ impl BodyWeight {
     }
 }
 
-/// One type style: the face and size, the color, the tracking, and whether the style speaks in
-/// capitals.
+/// One type style: the face and size, the color, the tracking, whether the style speaks in
+/// capitals, and whether its digits are tabular.
 #[derive(Clone)]
 pub struct TextSpec {
     pub font: FontId,
     pub color: Color32,
     pub letter_spacing: f32,
     pub uppercase: bool,
+    /// Whether every digit is set in a cell as wide as the widest one, so a number that ticks keeps
+    /// its width and whatever is aligned against it holds still. The faces' own digits are
+    /// proportional and egui has no way to ask a font for its tabular ones, so the cells are made
+    /// at layout (see [`TextSpec::layout`]).
+    pub tabular: bool,
 }
 
 impl TextSpec {
@@ -55,7 +61,15 @@ impl TextSpec {
             color,
             letter_spacing: 0.0,
             uppercase: false,
+            tabular: false,
         }
+    }
+
+    /// The same style with tabular digits, for a number that changes while it is on screen: a
+    /// clock, a countdown, a count running up.
+    pub fn tabular(mut self) -> TextSpec {
+        self.tabular = true;
+        self
     }
 
     /// The same style in another color, for the rows where a value carries its own meaning.
@@ -127,9 +141,42 @@ impl TextSpec {
     }
 
     /// Lays the text out now, for widgets that paint their own label and need its size first.
+    ///
+    /// A widget or a `ui.label` handed one of this style's jobs lays it out without the style, so
+    /// a tabular style has to be laid out here, or through [`layout`](Self::layout).
     pub fn galley(&self, ui: &Ui, text: &str) -> Arc<Galley> {
-        let job = self.job(text);
-        ui.ctx().fonts_mut(|fonts| fonts.layout_job(job))
+        self.layout(ui.ctx(), self.job(text))
+    }
+
+    /// Lays out `job`, one of this style's jobs, with the style's tabular digits when it has them.
+    /// Every widget that lays out a style's text goes through here, so a tabular style is tabular
+    /// wherever it is drawn.
+    pub fn layout(&self, ctx: &Context, job: LayoutJob) -> Arc<Galley> {
+        ctx.fonts_mut(|fonts| {
+            if !self.tabular {
+                return fonts.layout_job(job);
+            }
+            let widest = widest_digit(fonts, &self.font);
+            // The width the cells add up to: the text with every digit its widest. A section's
+            // leading space is all a job can put around a glyph, so the half cell after the last
+            // digit is owed here, and laying the extent out this way also keeps it clear of the
+            // glyphs' snapping to whole pixels, which would leave it moving a hair as digits change.
+            let mut widest_job = job.clone();
+            widest_job.text = job
+                .text
+                .chars()
+                .map(|c| if c.is_ascii_digit() { widest } else { c })
+                .collect();
+            let width = fonts.layout_job(widest_job).size().x;
+            let tabular = tabular_job(fonts, job);
+            let galley = fonts.layout_job(tabular);
+            if (galley.size().x - width).abs() < f32::EPSILON {
+                return galley;
+            }
+            let mut galley = (*galley).clone();
+            galley.rect.max.x = galley.rect.min.x + width;
+            Arc::new(galley)
+        })
     }
 
     /// How tall one line of this style is.
@@ -145,6 +192,74 @@ impl TextSpec {
             text.to_string()
         }
     }
+}
+
+/// The widest of `font`'s digits, whose width is every digit's cell.
+fn widest_digit(fonts: &mut FontsView<'_>, font: &FontId) -> char {
+    ('0'..='9')
+        .map(|digit| (digit, fonts.glyph_width(font, digit)))
+        .fold(('0', 0.0), |widest, digit| match digit.1 > widest.1 {
+            true => digit,
+            false => widest,
+        })
+        .0
+}
+
+/// `job` with each digit made its own section, centered in a cell as wide as its face's widest digit
+/// by the leading space of its section and of the one after it. The room owed after the last digit
+/// is the caller's to add.
+///
+/// A section starts without the style's tracking (it only goes between characters within one), so
+/// every section after the first leads with it too.
+fn tabular_job(fonts: &mut FontsView<'_>, job: LayoutJob) -> LayoutJob {
+    let mut sections = Vec::new();
+    let mut owed = 0.0;
+    for section in &job.sections {
+        let font = &section.format.font_id;
+        let widest = widest_digit(fonts, font);
+        let cell = fonts.glyph_width(font, widest);
+        let (start, end) = (section.byte_range.start.0, section.byte_range.end.0);
+        // Each run of the section split out of it, with the space that leads it.
+        let mut runs: Vec<(usize, usize, f32)> = Vec::new();
+        let mut text_from: Option<usize> = None;
+        for (offset, c) in job.text[start..end].char_indices() {
+            let at = start + offset;
+            if !c.is_ascii_digit() {
+                text_from.get_or_insert(at);
+                continue;
+            }
+            if let Some(from) = text_from.take() {
+                runs.push((from, at, owed));
+                owed = 0.0;
+            }
+            let pad = (cell - fonts.glyph_width(font, c)).max(0.0) / 2.0;
+            runs.push((at, at + c.len_utf8(), owed + pad));
+            owed = pad;
+        }
+        if let Some(from) = text_from {
+            runs.push((from, end, owed));
+            owed = 0.0;
+        }
+        for (index, (from, to, lead)) in runs.into_iter().enumerate() {
+            // The section's own leading space goes before its first run only, and the tracking
+            // before every run but the job's very first.
+            let own = if index == 0 {
+                section.leading_space
+            } else {
+                0.0
+            };
+            let tracking = match sections.is_empty() {
+                true => 0.0,
+                false => section.format.extra_letter_spacing,
+            };
+            sections.push(LayoutSection {
+                leading_space: own + lead + tracking,
+                byte_range: ByteIndex(from)..ByteIndex(to),
+                format: section.format.clone(),
+            });
+        }
+    }
+    LayoutJob { sections, ..job }
 }
 
 /// The title of a modal dialog.
@@ -171,9 +286,11 @@ pub fn hero_title() -> TextSpec {
     panel_title().with_color(theme::TIER1_HEADER)
 }
 
-/// Any number the player reads as a quantity: resources, timers, rates, percentages.
+/// Any number the player reads as a quantity: resources, timers, rates, percentages. Tabular,
+/// since nearly every number the overlay shows either changes while it is on screen or stands in a
+/// column with others.
 pub fn numeral(size: f32) -> TextSpec {
-    TextSpec::new(size, fonts::condensed(), theme::TEXT_PRIMARY)
+    TextSpec::new(size, fonts::condensed(), theme::TEXT_PRIMARY).tabular()
 }
 
 /// A player's name, which the design sets in the display face at a size that survives a glance.
@@ -322,6 +439,56 @@ fn is_cjk(c: char) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn widths(spec: &TextSpec, texts: &[&str]) -> Vec<f32> {
+        let ctx = Context::default();
+        crate::install_fonts_and_style(&ctx, &crate::DynamicFonts::default());
+        let mut widths = Vec::new();
+        let mut output = ctx.run_ui(egui::RawInput::default(), |_| {
+            widths = texts
+                .iter()
+                .map(|text| spec.layout(&ctx, spec.job(text)).size().x)
+                .collect();
+        });
+        output.textures_delta.clear();
+        widths
+    }
+
+    #[test]
+    fn tabular_digits_keep_a_number_one_width() {
+        for spec in [
+            numeral(30.0),
+            button_label(12.5).with_letter_spacing(1.4).tabular(),
+        ] {
+            let widths = widths(&spec, &["0:19", "0:11", "1:08", "4:44"]);
+            for width in &widths {
+                assert!((width - widths[0]).abs() < 0.01, "{widths:?}");
+            }
+        }
+        // The faces' own digits are not, which is the whole reason for the cells.
+        let proportional = widths(
+            &TextSpec {
+                tabular: false,
+                ..numeral(30.0)
+            },
+            &["1:11", "4:44"],
+        );
+        assert!(proportional[1] - proportional[0] > 1.0, "{proportional:?}");
+    }
+
+    #[test]
+    fn tabular_digits_keep_the_text_around_them() {
+        let spec = button_label(12.5).with_letter_spacing(1.4);
+        let [plain, tabular] =
+            [spec.clone(), spec.tabular()].map(|spec| widths(&spec, &["Drop in 0:26", "Drop in"]));
+        // Without digits, a tabular style lays out as the plain one does.
+        assert!(
+            (plain[1] - tabular[1]).abs() < 0.01,
+            "{plain:?} {tabular:?}"
+        );
+        // With them, the cells only ever widen it.
+        assert!(tabular[0] >= plain[0] - 0.01, "{plain:?} {tabular:?}");
+    }
 
     #[test]
     fn caps_leaves_caseless_scripts_alone() {

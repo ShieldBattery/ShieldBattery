@@ -182,8 +182,7 @@ pub(crate) fn paint_text(ui: &Ui, rect: Rect, spec: &TextSpec, text: &str, align
     if text.is_empty() || !ui.is_rect_visible(rect) {
         return;
     }
-    let job = spec.job_truncated(text, rect.width());
-    let galley = ui.ctx().fonts_mut(|fonts| fonts.layout_job(job));
+    let galley = spec.layout(ui.ctx(), spec.job_truncated(text, rect.width()));
     let x = match align {
         Align::RIGHT => rect.right() - galley.size().x,
         Align::Center => rect.center().x - galley.size().x * 0.5,

@@ -137,8 +137,7 @@ pub fn text_cell(
     if value.is_empty() || !ui.is_rect_visible(rect) {
         return response;
     }
-    let job = spec.job_truncated(value, size.x);
-    let galley = ui.ctx().fonts_mut(|fonts| fonts.layout_job(job));
+    let galley = spec.layout(ui.ctx(), spec.job_truncated(value, size.x));
     let x = match align {
         Align::RIGHT => rect.right() - galley.size().x,
         Align::Center => rect.center().x - galley.size().x * 0.5,
@@ -258,11 +257,11 @@ pub fn tag_exact(
     size: Vec2,
 ) -> Response {
     let (_, text_color) = style.colors();
-    let job = spec
-        .clone()
-        .with_color(text_color)
-        .job_truncated(label, (size.x - theme::SPACE_SM).max(0.0));
-    let galley = ui.ctx().fonts_mut(|fonts| fonts.layout_job(job));
+    let spec = spec.clone().with_color(text_color);
+    let galley = spec.layout(
+        ui.ctx(),
+        spec.job_truncated(label, (size.x - theme::SPACE_SM).max(0.0)),
+    );
     let (rect, response) = ui.allocate_exact_size(size, Sense::hover());
     if ui.is_rect_visible(rect) {
         paint_tag_chrome(ui, rect, style);
@@ -282,9 +281,7 @@ pub fn centered_paragraph(
     value: &str,
     wrap_width: f32,
 ) -> Response {
-    let galley = ui
-        .ctx()
-        .fonts_mut(|fonts| fonts.layout_job(spec.job_centered(value, wrap_width)));
+    let galley = spec.layout(ui.ctx(), spec.job_centered(value, wrap_width));
     let width = ui.available_width().max(wrap_width);
     let (rect, response) = ui.allocate_exact_size(vec2(width, galley.size().y), Sense::hover());
     if ui.is_rect_visible(rect) {

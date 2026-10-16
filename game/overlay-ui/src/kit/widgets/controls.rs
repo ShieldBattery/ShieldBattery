@@ -149,8 +149,7 @@ pub fn segmented_sized(ui: &mut Ui, selected: &mut usize, labels: &[&str], size:
         state_overlay(ui, &chip_response, chip, corner_radius);
         focus_ring(ui, &chip_response, chip, corner_radius);
         let color = if active { BLUE99 } else { GREY_BLUE70 };
-        let job = spec.job_truncated(label, fitted[index] + slack);
-        let galley = ui.ctx().fonts_mut(|fonts| fonts.layout_job(job));
+        let galley = spec.layout(ui.ctx(), spec.job_truncated(label, fitted[index] + slack));
         ui.painter()
             .galley(chip.center() - galley.size() * 0.5, galley, color);
     }
@@ -579,7 +578,7 @@ pub fn tab_strip(ui: &mut Ui, selected: usize, labels: &[&str], max_width: f32) 
             } else {
                 spec.job(label)
             };
-            ui.ctx().fonts_mut(|fonts| fonts.layout_job(job))
+            spec.layout(ui.ctx(), job)
         })
         .collect();
     // An elided galley can come back a hair over the width it was given, since the ellipsis is

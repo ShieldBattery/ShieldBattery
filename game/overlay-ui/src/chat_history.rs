@@ -257,7 +257,7 @@ fn draw_line(ui: &mut Ui, line: &ChatLineView, tag_height: f32) {
             ui.label(
                 text::numeral(TIME_SIZE)
                     .with_color(theme::TEXT_LABEL)
-                    .job(&mmss(line.game_seconds)),
+                    .galley(ui, &mmss(line.game_seconds)),
             );
         });
         ui.allocate_ui_with_layout(

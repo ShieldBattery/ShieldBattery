@@ -366,7 +366,8 @@ fn draw_header(ui: &mut Ui, team: &TeamCardView, number: u8, layout: CardLayout)
     let value = cursor.take(SUPPLY_WIDTH - STAT_GLYPH - STAT_GLYPH_GAP);
     // The cap is what the count is read against rather than a number of its own, so it is set
     // smaller and quieter, the way the matchup bar sets it.
-    let mut job = text::numeral(VALUE_SIZE).job(&used.to_string());
+    let spec = text::numeral(VALUE_SIZE);
+    let mut job = spec.job(&used.to_string());
     job.append(
         &format!("/{max}"),
         0.0,
@@ -374,7 +375,7 @@ fn draw_header(ui: &mut Ui, team: &TeamCardView, number: u8, layout: CardLayout)
             .with_color(theme::TEXT_DIM)
             .format(),
     );
-    let galley = ui.ctx().fonts_mut(|fonts| fonts.layout_job(job));
+    let galley = spec.layout(ui.ctx(), job);
     ui.painter().galley(
         pos2(
             value.right() - galley.size().x,
