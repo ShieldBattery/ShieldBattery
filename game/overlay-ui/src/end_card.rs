@@ -1,8 +1,7 @@
 //! The screen a player gets when their game is decided, standing in for SC:R's victory and defeat
 //! popups.
 //!
-//! It is the game's one hero moment for a player rather than a watcher, so it is staged as the end
-//! of a match rather than drawn as a dialog: the game recedes into the dark, the result lands as
+//! It is staged rather than drawn as a dialog: the game recedes into the dark, the result lands as
 //! one word across a banner the width of the screen, the record of the player's own game follows
 //! it, and the two things there are to do next come last. Everything here is a pure fn of plain
 //! data plus an [`egui::Context`], so the same code renders in the injected game DLL and in the host
@@ -1286,10 +1285,9 @@ const PLATE_FLICKER: [f32; 6] = [0.9, 0.15, 0.7, 0.3, 1.0, 0.75];
 const PLATE_FLICKER_END: f32 = 0.45;
 
 /// The mark on a number that led the game, which takes up `number`: brackets closing in on it as
-/// though it were being targeted, then once they lock, a plate under it
-/// reading `#1`, leaning forward and trailed by slashes. The plate goes under the number rather than
-/// over it, since it is there to say what the number means, and covering any of it would cost the
-/// number itself.
+/// though it were being targeted, then once they lock, a plate under it reading `#1`, leaning
+/// forward and trailed by slashes. The plate goes under the number rather than over it, so it never
+/// covers any of the number.
 ///
 /// `locking` is how far the brackets are through closing in, and `plate` how far the plate is
 /// through coming up.

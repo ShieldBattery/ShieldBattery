@@ -22,13 +22,11 @@ const EDGE_MARGIN: f32 = 8.0;
 
 /// Draws a card at `anchor` — the pointer — carrying whatever `add` puts in it.
 ///
-/// The card is drawn at the tier-1 gradient rather than the ambient fill every panel around it
-/// wears: it is read for the second the pointer rests somewhere and then gone, and over a moving
-/// game scene the quieter fill would be a second of squinting. It takes no input at all, so the
-/// thing being named keeps the hover that summoned the card, and it appears and vanishes at once
-/// rather than fading: a fade is read as a surface arriving, and this one is only ever the tail of
-/// a pointer that is already there — half-drawn text under a pointer moving from row to row says
-/// less than no text at all.
+/// The card is drawn at the tier-1 gradient rather than the ambient fill: it is read for the second
+/// the pointer rests somewhere, and over a moving game scene the quieter fill would be hard to read
+/// in that second. It takes no input, so the thing being named keeps the hover that summoned the
+/// card, and it appears and vanishes at once rather than fading: half-drawn text under a pointer
+/// moving from row to row says less than no text at all.
 ///
 /// The caller decides when there is anything to say; this draws a card every time it is called.
 pub fn tooltip(ctx: &Context, id: Id, anchor: Pos2, add: impl FnOnce(&mut Ui)) {

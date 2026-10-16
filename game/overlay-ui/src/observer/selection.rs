@@ -3,43 +3,25 @@
 //!
 //! An observer who hides the console loses the one thing on it they still use, which is the
 //! selection. This panel is that part of the console alone, at the kit's ambient tier and about the
-//! console's own footprint, with everything where the console puts it, so a watcher who has read
-//! SC:R's console for twenty years finds every number where their eye already goes: the unit on the
-//! left with what it has left under it, and whose it is to the right.
+//! console's own footprint, with every number where a watcher's eye already goes for it.
 //!
-//! A wireframe is a piece of the game's own art that no host here can draw yet, so the unit is drawn
-//! as its icon where the host has the game's atlas and its short code where it has not, and the tint
-//! the game puts on a wireframe goes on the tile's outline and on the bar under each small tile:
-//! green, yellow and red as the unit's health falls through two thirds and a third of what it
-//! started with.
+//! A unit is drawn as the game's own icon where the host has the atlas and as its short code where
+//! it has not. The tint the console puts on a wireframe goes on the tile's outline and on the bar
+//! under each small tile: green, yellow and red as the unit's health falls through two thirds and a
+//! third.
 //!
-//! The console reads a selection as one of a few things at a time, and so does this:
+//! The panel reads a selection as one [`SelectionCase`] at a time:
 //!
 //! - Nothing selected is nothing drawn. A box that only says it is empty is a box in the way.
-//! - Several units are the console's own grid: twelve slots in two rows of six, in the game's order,
-//!   each with a thin bar of how much of the unit is left.
-//! - One unit is read out the way the console reads out a unit selected alone: the unit drawn large,
-//!   and beside it its name, whose it is, a bar each for its hit points, shields and energy, and
-//!   under those the upgrades it fights with and what it has killed. An upgrade is a chip of the
-//!   game's own icon with the level its owner has taken it to in the corner, 0 included, since a
-//!   unit that has none of an upgrade it could have is as much a reading as one that has it; the
-//!   chip under the pointer names it and puts a number to it, the armor or the damage it comes to.
-//! - One building is read out the way the console reads one out: the building drawn smaller, its
-//!   hit points under it in the color of its health and its shields under those, and to the right
-//!   its name and whose it is, with the upgrades it fights with along the bottom where it has any:
-//!   a cannon's shields and guns, a sunken colony's tentacle. A building has no armor upgrade, so
-//!   most have no chips at all.
-//! - One thing making something shows what it is making in the console's queue: the slots of the
-//!   queue in a row, the first being worked on, and what that one is and how far along it is under
-//!   them. A building that is itself going up is named and drawn once, at the head of the panel,
-//!   and under that is only how far along it is. Anything working through one thing alone (an egg,
-//!   research, a building going up) leaves room under that for its upgrades, which is where an
-//!   egg's carapace goes; a queue does not.
-//! - One transport or bunker with units inside shows them in the console's cargo slots, two rows of
-//!   four.
+//! - Several units are the console's grid: two rows of six, in the game's order.
+//! - One unit is drawn large beside its name, owner, a bar per pool, its upgrades and its kills.
+//! - One building is drawn smaller with its readouts under it, and its upgrades where it has any.
+//! - One thing making something shows the console's queue, or a single slot for anything working
+//!   through one thing alone; a building going up shows only its progress.
+//! - One transport or bunker with units inside shows them in the console's cargo slots.
 //!
-//! The body is the same height whichever of those is drawn, so the panels stacked on it, where the
-//! bottom panels are one stack, stay where they are as the watcher clicks from one unit to the next.
+//! The body is the same height whichever of those is drawn, so the panels stacked on it stay where
+//! they are as the watcher clicks from one unit to the next.
 
 use egui::{
     Align, Align2, Area, Color32, Context, Id, Order, Pos2, Rect, Sense, Shape, Stroke, StrokeKind,
@@ -56,8 +38,7 @@ use crate::tr;
 
 /// One selected unit.
 pub struct SelectedUnitView {
-    /// The game's own icon for this kind of unit, which is what names it until the host can draw
-    /// the unit's wireframe.
+    /// The game's own icon for this kind of unit.
     pub icon: ProductionIcon,
     /// What the game calls this kind of unit, in the game's language, or `None` where the host has
     /// no name for it.
@@ -437,8 +418,6 @@ const _: () = assert!(
 /// How tall the panel is on screen, chrome included.
 pub(crate) const PANEL_HEIGHT: f32 = BODY_HEIGHT + tiers::PANEL_MARGIN_HEIGHT;
 
-/// Draws the selection panel in `slot`, fading and sliding it in and out. Returns nothing at all
-/// once it is gone, and nothing while nothing is selected or the slot has no room for it.
 /// What the selection panel did this frame.
 pub struct SelectionOutcome {
     /// Where the panel was drawn.
@@ -457,6 +436,8 @@ pub enum SelectedUnitClick {
     Follow(usize),
 }
 
+/// Draws the selection panel in `slot`, fading and sliding it in and out. Returns nothing at all
+/// once it is gone, and nothing while nothing is selected or the slot has no room for it.
 pub fn render_selection_view(
     view: &SelectionView,
     ctx: &Context,
@@ -531,7 +512,7 @@ fn unit_target(ui: &Ui, tile: Rect, index: usize) -> Option<SelectedUnitClick> {
 
 /// Draws the grid of small tiles, filling it in the game's order from the top left.
 ///
-/// Centred in the body: with no column of text beside it the grid is the whole of what the panel has
+/// Centered in the body: with no column of text beside it the grid is the whole of what the panel has
 /// to say.
 fn draw_grid(ui: &Ui, body: Rect, units: &[SelectedUnitView]) -> Option<SelectedUnitClick> {
     let mut clicked = None;

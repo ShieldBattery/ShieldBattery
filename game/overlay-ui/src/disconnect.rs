@@ -25,8 +25,7 @@ use crate::{colors, tr, tr_plural};
 /// A relay-confirmed disconnect must last at least this long before the overlay offers its manual
 /// drop; the Drop button's countdown label counts down toward it. Mirrors the turn-state constant of
 /// the same name that computes each row's [`drop_unlocked`](DisconnectRowView::drop_unlocked) flag,
-/// kept here so the presentation layer carries the one value its countdown label needs without
-/// depending on the netcode crate.
+/// so this crate need not depend on the netcode.
 pub const DROP_UNLOCK_UI: Duration = Duration::from_secs(45);
 
 /// How wide the roster dialog is, in overlay points. Everything inside is laid out against this and
@@ -54,7 +53,7 @@ const HEADER_CLOCK_SIZE: f32 = 30.0;
 const NOTICE_CLOCK_SIZE: f32 = 52.0;
 
 /// How wide the self notice lets its explanation run before wrapping. Narrower than the dialog: a
-/// centred paragraph that reaches both margins reads as a block rather than as a sentence.
+/// centered paragraph that reaches both margins reads as a block rather than as a sentence.
 const NOTICE_TEXT_WIDTH: f32 = 400.0;
 
 /// How tall one player row is.
@@ -172,8 +171,8 @@ pub struct DisconnectRowView {
     /// What the player's link is doing.
     pub state: PeerState,
     /// Whether the manual drop button is enabled: shown from the moment the row is
-    /// [`Reconnecting`](PeerState::LinkLost), outlined and inert with a countdown label until
-    /// this flips, then clickable.
+    /// [`LinkLost`](PeerState::LinkLost), outlined and inert with a countdown label until this
+    /// flips, then clickable.
     pub drop_unlocked: bool,
     /// Whether to briefly acknowledge a just-made drop request.
     pub drop_requested: bool,
@@ -199,11 +198,9 @@ impl DisconnectView {
     }
 
     /// Whether the view shows a button: the Leave button of a
-    /// [`terminal`](SelfState::is_terminal) notice, or any row's Drop button (enabled or still
-    /// counting down). Buttons are the only thing that makes the overlay interactable. A row's is
-    /// keyed on the state rather than `drop_unlocked`: the button itself is present (just inert)
-    /// before the unlock threshold, so the overlay's input rect must be registered from the moment
-    /// a row goes confirmed, not only once the button is clickable.
+    /// [`terminal`](SelfState::is_terminal) notice, or any row's Drop button. A row's is keyed on
+    /// its state rather than `drop_unlocked`, because the button is drawn, inert, from the moment
+    /// the row goes confirmed, and the overlay's input rect has to cover it from then.
     pub fn has_button(&self) -> bool {
         self.self_state.is_terminal()
             || self.rows.iter().any(|row| row.state == PeerState::LinkLost)
@@ -457,7 +454,7 @@ fn draw_roster(ui: &mut Ui, view: &DisconnectView) -> DisconnectOutcome {
     }
 }
 
-/// The line that says the attempt is still running: a breathing dot and the word, centred together
+/// The line that says the attempt is still running: a breathing dot and the word, centered together
 /// rather than each on its own, so the pair reads as one label.
 fn draw_reconnecting_label(ui: &mut Ui) {
     let spec = text::body(12.0, BodyWeight::Medium)
@@ -486,7 +483,7 @@ fn draw_reconnecting_label(ui: &mut Ui) {
 }
 
 /// A dialog header's contents: the title with its subtitle under it, and optionally a clock at the
-/// far end, centred against the two of them.
+/// far end, centered against the two of them.
 fn draw_title_block(ui: &mut Ui, title: &str, subtitle: &str, clock: Option<&str>) {
     let content_width = ui.available_width();
     let clock_column = if clock.is_some() {
@@ -642,9 +639,7 @@ fn color_bar(ui: &mut Ui, color: Color32) {
 }
 
 /// Draws the drop control for a row whose player is known to be gone: an outlined countdown while
-/// the relay would refuse the request, then a lit, clickable one. A [`Stalled`](PeerState::Stalled)
-/// row has no control and no room kept for one; when its link is confirmed down the control
-/// arrives with the change of state, which is a change the row is showing anyway.
+/// the relay would refuse the request, then a lit, clickable one.
 fn draw_drop_button(ui: &mut Ui, row: &DisconnectRowView, clicked: &mut Vec<u8>) {
     let spec = text::button_label(12.5).with_letter_spacing(1.4).tabular();
     if !row.drop_unlocked {

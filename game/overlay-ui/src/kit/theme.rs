@@ -94,7 +94,7 @@ pub fn player_color(slot: usize) -> Color32 {
 
 // What each resource is drawn in, wherever a panel names one. The hues are the game's own — light
 // blue minerals, green vespene — lifted to values that read on the overlay's dark surfaces, so a
-// number and the glyph beside it are recognised as the same resource the game's own counters show.
+// number and the glyph beside it are recognized as the same resource the game's own counters show.
 pub const RESOURCE_MINERALS: Color32 = Color32::from_rgb(0x6C, 0xC6, 0xFF);
 pub const RESOURCE_GAS: Color32 = Color32::from_rgb(0x5A, 0xD6, 0x8A);
 pub const RESOURCE_SUPPLY: Color32 = GREY_BLUE80;
@@ -104,7 +104,7 @@ pub const CHIP_STROKE: Color32 = alpha(BLUE80, 0.25);
 
 // A scrollbar, in the same greys the app's own scrollbars wear: a dark rail with a grey-blue handle
 // that steps one shade lighter under the pointer and one more while dragged. The steps are
-// palette neighbours rather than a jump to white, since the bar sits beside the text it scrolls
+// palette neighbors rather than a jump to white, since the bar sits beside the text it scrolls
 // and must never outshine it.
 pub const SCROLLBAR_RAIL: Color32 = alpha(GREY_BLUE10, 0.80);
 pub const SCROLLBAR_HANDLE: Color32 = GREY_BLUE40;

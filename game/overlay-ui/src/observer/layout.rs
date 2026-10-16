@@ -63,7 +63,7 @@ impl Span {
     /// there, pulled in from whichever end it would run past where it does not, and cut down to the
     /// run's own width where even that is not enough. Returned as the run the surface covers.
     ///
-    /// The middle line is the one the design centres its bottom stack on, so a screen with room to
+    /// The middle line is the one the design centers its bottom stack on, so a screen with room to
     /// spare draws the stack exactly where the design does.
     pub(crate) fn place(self, middle: f32, width: f32) -> Span {
         let width = width.min(self.width());

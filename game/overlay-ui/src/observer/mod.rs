@@ -77,9 +77,8 @@ use crate::tr;
 pub struct ObserverView {
     pub matchup: MatchupView,
     /// The corner cards a game too big for the matchup bar is read from, or `None` for one the bar
-    /// still has room for. Two cards at most, because the design gives them the screen's two top
-    /// corners and nothing else: a game of more sides than that is cut into two halves rather than
-    /// into more cards.
+    /// still has room for. Two cards at most: a game of more sides than that is cut into two halves
+    /// rather than into more cards.
     pub team_cards: Option<TeamCardsView>,
     pub economy: EconomyView,
     pub military: MilitaryView,
@@ -376,7 +375,7 @@ impl EdgeCursor {
         }
     }
 
-    /// Whether this cursor runs towards the screen's centre from the right, which is what mirrors
+    /// Whether this cursor runs towards the screen's center from the right, which is what mirrors
     /// the alignment inside each cell as well as the cells themselves.
     pub(crate) fn mirrored(&self) -> bool {
         self.step < 0.0
@@ -450,7 +449,7 @@ pub(crate) const WING_TOP_GAP: f32 = 14.0;
 /// Gap between a panel and whatever the next one down is placed under.
 pub(crate) const WING_GAP: f32 = 12.0;
 
-/// The narrowest run of the bottom edge the centred stack is given beside the replay plate. Any
+/// The narrowest run of the bottom edge the centered stack is given beside the replay plate. Any
 /// narrower and the plate is lifted out of the stack's way instead: the narrowest any of the stack's
 /// panels is drawn at.
 pub(crate) const MIN_STACK_WIDTH: f32 = {
@@ -685,7 +684,7 @@ pub fn team_name(team: u8) -> String {
 /// gone.
 ///
 /// The panel slides to `top` rather than being placed at it, because `top` is where the panels
-/// around this one leave it: a wing whose neighbour was just hidden moves up the neighbour's whole
+/// around this one leave it: a wing whose neighbor was just hidden moves up the neighbor's whole
 /// height, and a jump that far reads as a panel that was redrawn somewhere else.
 ///
 /// The wings are sized from the outside in, because the design places their outer edges on a grid;

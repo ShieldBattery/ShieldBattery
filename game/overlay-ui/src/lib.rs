@@ -1,4 +1,4 @@
-//! Host-renderable presentation layer for ShieldBattery's in-game disconnect overlay.
+//! Host-renderable presentation layer for ShieldBattery's in-game overlay.
 //!
 //! egui is renderer-agnostic: the injected game DLL feeds this widget code through forge/D3D11,
 //! while the `overlay-preview` binary in this crate feeds the exact same code through eframe's own

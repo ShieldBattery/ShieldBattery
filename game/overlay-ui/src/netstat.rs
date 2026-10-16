@@ -5,11 +5,10 @@
 //! adjustable knobs.
 //!
 //! This is a diagnostic surface shown during live play (toggled by the `/netstat` chat command), so
-//! it is drawn at the kit's ambient tier: quiet over gameplay, anchored top-right where it can't
-//! collide with the top-center disconnect overlay. It serves two readers at once: a player triaging
-//! lag live (calm when healthy, amber when not), and an operator reading a screenshot in a bug
-//! report hours later (the identity header and event ticker carry the ids and recent history an
-//! incident lookup needs).
+//! it is drawn at the kit's ambient tier: quiet over gameplay, anchored top-right. It serves two
+//! readers at once: a player triaging lag live (calm when healthy, amber when not), and an operator
+//! reading a screenshot in a bug report hours later (the identity header and event ticker carry the
+//! ids and recent history an incident lookup needs).
 
 use egui::{Align, Align2, Color32, Id, Layout, Ui, vec2};
 
@@ -74,11 +73,10 @@ pub struct NetStatRowView {
     /// The player's display name.
     pub name: String,
     /// This slot's home relay at session create, pre-formatted as `r<id>` or `r<id> <region>`, or
-    /// `None` when the setup carried none (rendered as an em dash). Peers' later re-homes are not
-    /// observable client-side, so this is always the create-time home — only the header's own relay
-    /// tracks re-homes live. The region part fills in mid-game: peers' regions are withheld until
-    /// the relay releases the session's label map (they place players geographically, and the
-    /// pre-game handoff must not carry them).
+    /// `None` when the setup carried none. Peers' later re-homes are not observable client-side, so
+    /// this is always the create-time home. The region fills in mid-game, once the relay releases
+    /// the session's label map: regions place players geographically, so the pre-game handoff
+    /// withholds them.
     pub home: Option<String>,
     /// Milliseconds since this slot's most recent turn arrived, or `None` if none has yet.
     pub last_turn_age_ms: Option<u64>,
@@ -95,7 +93,7 @@ pub struct NetStatRowView {
     pub episode_count: u32,
     /// How this player departed the session, or `None` while they are still in the game. A departed
     /// row renders inert — muted name, a `left`/`drop` tag in place of the home relay, and no
-    /// warning colours, since its numbers can only go stale from here.
+    /// warning colors, since its numbers can only go stale from here.
     pub departure: Option<RowDeparture>,
 }
 
@@ -195,9 +193,8 @@ pub struct NetStatsView {
 /// play while it's up.
 pub fn render_netstat_view(view: &NetStatsView, ctx: &egui::Context) {
     egui::Area::new(Id::new("sb_netstat_overlay"))
-        // Top-right, pushed down clear of SC:R's top-right resource counters (minerals/gas/supply),
-        // which occupy roughly the top ~44px — so the panel reads as a distinct floating surface
-        // below them rather than overlapping the HUD. Right margin keeps it off the screen edge.
+        // Pushed down clear of SC:R's top-right resource counters (minerals/gas/supply), which
+        // occupy roughly the top ~44px.
         .anchor(Align2::RIGHT_TOP, vec2(-12.0, 54.0))
         .order(egui::Order::Foreground)
         .interactable(false)

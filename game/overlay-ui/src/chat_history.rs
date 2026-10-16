@@ -7,12 +7,10 @@
 //! in a modal state by the time the dialog it replaces spawns, and a player reading back over a
 //! game's chat is not doing anything else.
 //!
-//! A line reads left to right the way it is asked about: who it went to, when, then who said it and
-//! what. The scope tag and the time stamp stand in fixed slots at the left edge, each set flush
-//! right against the words, so a log scans down two straight seams before the eye ever lands on a
-//! sentence; the words follow the sender's name directly, as chat does, so a line is read straight
-//! across without a jump over a column of empty space. System notices have no sender and no scope,
-//! so they take the whole width of the words and render dim.
+//! A line reads: who it went to, when, then who said it and what. The scope tag and the time stamp
+//! stand in fixed slots at the left edge, each flush right, so a log scans down two straight seams;
+//! the words follow the sender's name directly, as chat does. System notices have no sender and no
+//! scope, so they take the whole width of the words and render dim.
 
 use std::sync::Arc;
 
@@ -36,11 +34,8 @@ pub const DIALOG_WIDTH: f32 = 600.0;
 /// the dialog's chrome and its button are never pushed off the top or bottom.
 const LIST_MAX_HEIGHT: f32 = 432.0;
 
-/// Padding between the list's edge and its lines. The list is drawn as a sunken box inside the
-/// dialog so that a line cut off by scrolling is cut at the box's edge, which the eye reads as a
-/// window onto more text rather than as a layout that ran out of room. The padding scrolls with
-/// the lines for that reason: padding outside the scrolling region would put the cut a few points
-/// inside the box, where it reads as a mistake.
+/// Padding between the list's sunken box and its lines. It scrolls with the lines, so a line cut
+/// off by scrolling is cut at the box's edge rather than a few points inside it.
 const LIST_PAD: i8 = 8;
 
 /// Width of the slot holding a line's scope tag. The tag elides inside it, so a long recipient name
@@ -78,7 +73,7 @@ const TIME_SIZE: f32 = 12.0;
 const NAME_GAP: f32 = theme::SPACE_SM;
 
 /// Vertical gap between two lines. Wider than the rows inside a wrapped message, which is what
-/// keeps a wrapped message reading as one line and its neighbours as others.
+/// keeps a wrapped message reading as one line and its neighbors as others.
 const LINE_GAP: f32 = theme::SPACE_SM;
 
 /// The key the Close button answers to, as its keycap names it: SC:R's own message history closes
@@ -212,8 +207,8 @@ fn draw_empty(ui: &mut Ui) {
 /// Draws the scrolling list.
 ///
 /// The list stays pinned to its newest line only for as long as the reader leaves it there: once
-/// they have scrolled up, a message arriving must not pull the text out from under them, which is
-/// exactly what SC:R's own log does and the complaint this screen exists to answer.
+/// they have scrolled up, a message arriving must not pull the text out from under them, as SC:R's
+/// own log does.
 fn draw_lines(ui: &mut Ui, view: &ChatHistoryView) {
     egui::ScrollArea::vertical()
         .id_salt("sb_chat_history_lines")
@@ -240,7 +235,7 @@ fn draw_lines(ui: &mut Ui, view: &ChatHistoryView) {
 
 /// Draws one line: to whom, when, then who and what.
 ///
-/// The tag and the stamp are centred on the first row of the words, whichever of the three is
+/// The tag and the stamp are centered on the first row of the words, whichever of the three is
 /// tallest, so the three read as one line even though each is set in its own face and size.
 fn draw_line(ui: &mut Ui, line: &ChatLineView, tag_height: f32) {
     let words = words_galley(ui, line);
@@ -272,7 +267,7 @@ fn draw_line(ui: &mut Ui, line: &ChatLineView, tag_height: f32) {
     });
 }
 
-/// One fixed slot of a line, its contents flush right and centred on the line's first row.
+/// One fixed slot of a line, its contents flush right and centered on the line's first row.
 ///
 /// The width is the dialog's rather than one read back from the layout: a list this long sits in an
 /// auto-sized area, so sizing a slot from the space available would let one wide line widen the

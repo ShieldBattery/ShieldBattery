@@ -21,7 +21,7 @@ const X_AXIS_HEIGHT: f32 = 15.0;
 const LEGEND_HEIGHT: f32 = 16.0;
 /// Height kept above a plot with no legend, for the top of the value axis's highest label.
 const NO_LEGEND_HEIGHT: f32 = theme::SPACE_SM;
-/// Width of the colour swatch opening each of the legend's names.
+/// Width of the color swatch opening each of the legend's names.
 const LEGEND_SWATCH_WIDTH: f32 = 10.0;
 /// Thickness of a plotted line.
 const LINE_WIDTH: f32 = 1.5;
@@ -35,7 +35,7 @@ const CROSSHAIR: Color32 = theme::alpha(GREY_BLUE80, 0.32);
 /// Radius of the dot marking where a series sits at the crosshair, and of the nearest one.
 const SAMPLE_DOT: f32 = 2.5;
 const SAMPLE_DOT_NEAR: f32 = 3.5;
-/// Width of the colour swatch that opens a row of the hover card, matching the legend's.
+/// Width of the color swatch that opens a row of the hover card, matching the legend's.
 const SWATCH: Vec2 = vec2(12.0, 2.0);
 /// Gap between a hover row's label and its value, which is the least they may ever come to.
 const HOVER_VALUE_GAP: f32 = theme::SPACE_LG;
@@ -56,7 +56,7 @@ pub struct Series<'a> {
 
 /// A multi-series line chart with a value axis, a time axis and a legend.
 ///
-/// `span_secs` is the game time the samples cover; the time axis is labelled from it, because a
+/// `span_secs` is the game time the samples cover; the time axis is labeled from it, because a
 /// plot of the last nine minutes and a plot of a whole game look identical without it.
 ///
 /// While the pointer rests over the plot it is read rather than glanced at, so the plot drops a
@@ -440,9 +440,7 @@ fn nearest_sample(plot: Rect, pointer_x: f32, count: usize) -> usize {
     ((fraction * last as f32).round() as usize).min(last)
 }
 
-/// Which of `ys` the pointer is nearest, or `None` when nothing is plotted there.
-///
-/// The legend's names, laid out, with the colour of the line each names. `None` for a plot with no
+/// The legend's names, laid out, with the color of the line each names. `None` for a plot with no
 /// lines.
 fn legend_entries(ui: &Ui, series: &[Series<'_>]) -> Option<Vec<(Arc<Galley>, Color32)>> {
     (!series.is_empty()).then(|| {
@@ -462,6 +460,8 @@ fn legend_width(entries: &[(Arc<Galley>, Color32)]) -> f32 {
     names + theme::SPACE_MD * entries.len().saturating_sub(1) as f32
 }
 
+/// Which of `ys` the pointer is nearest, or `None` when nothing is plotted there.
+///
 /// A tie goes to the first, which is the series the legend names first: two lines crossing under
 /// the pointer are the one place the pick is arbitrary, and an arbitrary pick that at least never
 /// changes is one the watcher can move away from.
@@ -614,7 +614,7 @@ fn area_under(points: &[egui::Pos2], bottom: f32, color: Color32) -> Shape {
     Shape::mesh(mesh)
 }
 
-/// A round number at or above `value`, so an axis is labelled 600 rather than 587.
+/// A round number at or above `value`, so an axis is labeled 600 rather than 587.
 fn nice_ceiling(value: f32) -> f32 {
     if value <= 0.0 {
         return 1.0;

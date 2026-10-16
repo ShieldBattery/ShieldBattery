@@ -1,9 +1,8 @@
 //! The shell's own scenario: a frame with no screen of its own, for walking through the modal
 //! stack, the input capture and the native dialog replacements.
 //!
-//! The observer panel set does not exist yet, so the one ambient surface the shell can put on screen
-//! stands in for it: with the network-stats panel up and the mode set to observing, a frame here is
-//! an ambient panel under whatever modal the native dialogs raise.
+//! The ambient surface it puts on screen is the network-stats panel: with it up and the mode set to
+//! observing, a frame here is an ambient panel under whatever modal the native dialogs raise.
 
 use overlay_ui::end_card::{EndCardStats, EndCardView, GameResult, StatLeads};
 use overlay_ui::observer::RaceView;
@@ -105,8 +104,7 @@ impl Preset {
         knobs.host.chat_history_spawned = matches!(self, Preset::ChatHistory);
         knobs.host.victory_spawned = matches!(self, Preset::Victory);
         knobs.host.defeat_spawned = matches!(self, Preset::Defeat);
-        // The result popups are a player's; the rest of the shell's states are shown to a watcher,
-        // with the observer panels' ambient stand-in under them.
+        // The result popups are a player's; the rest of the shell's states are shown to a watcher.
         knobs.host.mode = match self {
             Preset::PlayerGameMenu | Preset::Victory | Preset::Defeat => {
                 overlay_ui::shell::Mode::Playing

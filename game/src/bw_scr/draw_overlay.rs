@@ -792,10 +792,8 @@ impl OverlayState {
         // Left at its default on a frame the shell doesn't draw, which is a frame that takes none
         // of the player's input and asks nothing of the game.
         let mut frame_output = FrameOutput::default();
-        // `run_ui` replaced `Context::run` in egui 0.34: it hands the callback a root `Ui` covering
-        // the whole screen (no margin/background) instead of the bare `&Context`. Floating Windows
-        // and Areas still attach to the context (`&ctx`); only the loading screen's `CentralPanel`
-        // needs the root `Ui`, so it alone is threaded `ui`.
+        // Floating windows and areas attach to the context (`&ctx`); only the loading screen's
+        // `CentralPanel` needs the root `Ui` that `run_ui` hands over.
         let mut output = ctx.run_ui(input, |ui| {
             if bw.game_started {
                 if self.was_loading {
@@ -1156,12 +1154,6 @@ impl OverlayState {
         self.update_replay_production(bw);
     }
 
-    /// Carries out one thing the shell asked of the game, or hands on the ones only the caller can
-    /// do.
-    ///
-    /// The transport's commands go into `replay_commands` rather than being sent here: submitting a
-    /// game command needs the `BwScr` this draw path was called from, which the overlay deliberately
-    /// knows nothing about.
     /// Hands the waiting look at a place to the game once the replay is at the frame its seek asked
     /// for, and gives it up once it has waited too long for that.
     fn let_out_look_at(&mut self, frame: u32) {
@@ -1187,6 +1179,12 @@ impl OverlayState {
         }
     }
 
+    /// Carries out one thing the shell asked of the game, or hands on the ones only the caller can
+    /// do.
+    ///
+    /// The transport's commands go into `replay_commands` rather than being sent here: submitting a
+    /// game command needs the `BwScr` this draw path was called from, which the overlay deliberately
+    /// knows nothing about.
     fn execute_intent(
         &mut self,
         bw: &BwVars,
@@ -1372,9 +1370,8 @@ impl OverlayState {
     }
 
     /// Makes an area the overlay drew interactable by the player, whether or not one of BW's own
-    /// menus is on top: the only caller left is the debug window, which is a developer's and not a
-    /// surface the game is allowed to take clicks from. Every other rect the frame owns comes from
-    /// the shell.
+    /// menus is on top. Only for the debug window; every other rect the frame owns comes from the
+    /// shell.
     fn force_add_ui_rect<T>(
         &mut self,
         response: &Option<egui::InnerResponse<T>>,
@@ -1390,7 +1387,7 @@ impl OverlayState {
 
     /// Returns cursor type if cursor is on the overlays.
     /// Specifically prevents the cursor from changing due to units being behind the overlay.
-    /// Only thing we do return for now is 0 for regular mouse pointer.
+    /// Only ever returns the plain arrow.
     pub fn decide_cursor_type(&self) -> Option<BwCursorType> {
         // While a modal of ours is taking the pointer the sim is usually frozen, and with it BW's
         // per-frame cursor selection, so the cursor would otherwise stay whatever shape it had when
@@ -1518,8 +1515,8 @@ impl OverlayState {
                     self.events.push(Event::MouseWheel {
                         unit: egui::MouseWheelUnit::Point,
                         delta: egui::vec2(0.0, amount),
-                        // egui 0.35 added a scroll phase for trackpads; a mouse wheel has no phase,
-                        // so use the "unknown" value egui documents for that case.
+                        // A mouse wheel has no scroll phase; `Move` is the value egui documents for
+                        // that case.
                         phase: egui::TouchPhase::Move,
                         modifiers,
                     });

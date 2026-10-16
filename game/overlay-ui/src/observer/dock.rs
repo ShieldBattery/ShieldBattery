@@ -7,12 +7,12 @@
 //! **Expanded** it is the control rail: the same list with its names spelled out, for someone who
 //! does not.
 //!
-//! The list is the shell's panel table rather than a list of its own, so a surface built later
-//! appears here the day its toggle does, and one that does not exist yet is not advertised.
+//! The list is the shell's panel table rather than a list of its own, so the dock offers exactly the
+//! surfaces the shell can toggle.
 //!
-//! It is centred on the screen's right edge rather than hung at a fixed height: the list grows with
-//! the panels that exist and with what is being watched, and a fixed top would sooner or later push
-//! its last rows into the console band the game's own interface owns. Where the surfaces above and
+//! It is centered on the screen's right edge rather than hung at a fixed height: the list grows
+//! with the panels that exist and with what is being watched, and a fixed top would sooner or later
+//! push its last rows into the console band the game's own interface owns. Where the surfaces above and
 //! below it on that edge leave less than the middle, it moves off the middle into the room they
 //! leave, and on a screen too short even for that its rows give up some of their height.
 //!
@@ -133,8 +133,8 @@ fn entries(mode: Mode, map_control_available: bool) -> Vec<Entry> {
         // The transport plate only exists in a replay, so offering it while observing a live game
         // would be offering a switch with nothing behind it.
         .filter(|panel| *panel != Panel::Transport || mode == Mode::Replay)
-        // The map-control bar reports a measurement the game does not keep, so a host with none
-        // gets no row: a switch that turns nothing on is worse than no switch.
+        // A host with no map-control reading gets no row for the bar: a switch that turns nothing
+        // on is worse than no switch.
         .filter(|panel| *panel != Panel::MapControl || map_control_available)
         .map(Entry::Panel)
         .collect();
@@ -498,8 +498,7 @@ fn draw_row(
     // Collapsed, the keycap is the whole row: there is no room for a name, and a watcher reading a
     // strip of keys is reading the same table the rail spells out.
     if !expanded {
-        // Square, and as wide as the dock lets it be: collapsed there is nothing else in the row,
-        // so the keycap is the row.
+        // Square, and as wide as the dock lets it be.
         paint_key_chip(
             ui,
             centred(rect, rect.width().min(rect.height())),

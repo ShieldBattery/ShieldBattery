@@ -95,7 +95,7 @@ impl GraphSeries {
         GraphSeries::ALL[(index + by) % GraphSeries::ALL.len()]
     }
 
-    /// What this series is called, which is what its tab is labelled with.
+    /// What this series is called, which is what its tab is labeled with.
     pub fn title(self) -> String {
         match self {
             GraphSeries::ArmyValue => tr!("observer.seriesArmyValue", "Army value"),
@@ -145,7 +145,7 @@ pub struct GraphsView {
     /// Which measurement these lines are of. The host is told which one the watcher asked for and
     /// samples that one, rather than sending every series every frame.
     pub series: GraphSeries,
-    /// How much game time the samples cover, in seconds, which is what the time axis is labelled
+    /// How much game time the samples cover, in seconds, which is what the time axis is labeled
     /// from: a plot of the first two minutes and a plot of an hour look identical without it.
     pub span_secs: u32,
     pub lines: Vec<GraphLineView>,

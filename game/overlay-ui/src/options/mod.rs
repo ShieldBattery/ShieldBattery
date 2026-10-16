@@ -71,7 +71,7 @@ const BODY_MIN_HEIGHT: f32 = 470.0;
 const BODY_MAX_HEIGHT: f32 = 700.0;
 
 /// What the dialog's own chrome takes above and below the body, which is what the body is sized
-/// against so the whole dialog fits the screen it is centred on.
+/// against so the whole dialog fits the screen it is centered on.
 const CHROME_HEIGHT: f32 = 160.0;
 
 /// How much of the screen the dialog leaves above and below itself. Below 1080 lines the overlay
@@ -336,7 +336,7 @@ fn draw_content(
     });
 }
 
-/// The footer: the one control that undoes everything, and the one that closes the screen.
+/// The footer: the Done button that closes the screen.
 fn draw_footer(ui: &mut Ui, outcome: &mut OptionsOutcome) {
     let width = ui.available_width();
     ui.allocate_ui_with_layout(

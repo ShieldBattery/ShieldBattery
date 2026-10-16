@@ -4,7 +4,7 @@
 //! over the middle, and under it each side's share as a percentage with a bar growing in from
 //! each edge and whatever neither side holds left in the middle. The label sits over the bar
 //! rather than beside it so the strip is symmetrical: a label at one end would put the share
-//! itself off the centre line the matchup bar above it is built on.
+//! itself off the center line the matchup bar above it is built on.
 //!
 //! The game measures no control of territory, so the share is each side's part of the map in sight,
 //! which is where its units and buildings stand. A host with no reading reports `None` and the bar
@@ -90,9 +90,9 @@ pub struct MapControlView {
 /// How wide the bar can be on a screen of `screen_width`, or `None` where the stats wings leave it
 /// no room worth having.
 ///
-/// Measured against the wings whether or not they are on screen, because the wings and this bar are
-/// shown by the same presets: a bar that grew every time a watcher hid a wing would move under them
-/// as a number they are reading, which is worse than being one size all game.
+/// Measured against the wings whether or not they are on screen: a bar that grew every time a
+/// watcher hid a wing would move while it is being read, which is worse than being one size all
+/// game.
 fn width_for(screen_width: f32) -> Option<f32> {
     let side = WING_MARGIN
         + super::economy::PANEL_WIDTH.max(DOCK_RESERVE + super::military::PANEL_WIDTH)

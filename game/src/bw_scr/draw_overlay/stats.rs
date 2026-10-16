@@ -72,17 +72,12 @@ fn stats_players(bw: &BwVars) -> Vec<StatsPlayer> {
 /// sampler's history were built from.
 ///
 /// The economy, military, graphs and timeline panels read only the history, which moves at a sample
-/// (once a second of game time at most, and never while a replay is paused) or when a seek moves
-/// the frame it is read up to, while the panels are drawn every frame: the timeline of a long game
-/// alone is thousands of names. Each of them is built again only once something it reads has moved,
-/// and only while it is wanted on screen. A hidden panel keeps the view it last had, which is drawn
-/// at most as it fades out; showing it again is a change of the watcher's preferences, which reach
-/// the next frame's build before the panel is drawn.
+/// or when a seek moves the frame it is read up to; the timeline of a long game alone is thousands
+/// of names. Each is built again only once something it reads has moved, and only while it is
+/// wanted on screen; a hidden panel keeps the view it last had for its fade-out.
 ///
-/// The rest are read off the game as it is now and built every frame: the matchup bar and the
-/// corner cards carry live numbers, and map control, production, selection and control groups are
-/// cheap. Icons are read against the game's atlases every frame too, since a change of graphics
-/// can swap them without a sample being taken.
+/// The rest are read off the game and built every frame, and so are the icons, since a change of
+/// graphics can swap them without a sample being taken.
 pub(super) struct ObserverViewCache {
     view: ObserverView,
     /// Who every sampled panel has rows for. A change of it is a change of every one of them.
@@ -460,10 +455,8 @@ fn sides(players: &[StatsPlayer]) -> Vec<(u8, Vec<&StatsPlayer>)> {
 
 /// Builds the corner team cards, for a game whose players the matchup bar has no halves for.
 ///
-/// Read off the bar's own players rather than off the game a second time: the cards carry exactly
-/// the numbers the bar's halves would have, and a second reading of them could only disagree. The
-/// bar's own cut decides what a card holds, so the two surfaces put the same players on the same
-/// side of the screen whether or not the game has sides to be cut along.
+/// Read off the bar's own players and cut along the bar's own halves, so the cards carry exactly the
+/// numbers and players the bar's halves would have.
 fn build_team_cards_view(
     matchup: &MatchupView,
     players: &[StatsPlayer],
@@ -701,12 +694,9 @@ fn whole_points(fixed: i32) -> u32 {
 /// Builds the timeline's view, newest first, with its events' subjects indexed for their icons,
 /// which are left for [`TimelineIcons::refresh`] to fill in.
 ///
-/// Every event recorded up to the frame on screen: the panel scrolls back through all of them, and
-/// a replay's seek bar marks every one, which is what lets a watcher go back to anything they have
-/// seen happen.
-///
-/// Only the players the wings have rows for: an event from a slot the panels are not reporting on
-/// would be a line in a color nothing else on screen carries.
+/// Every event recorded up to the frame on screen, for the players the wings have rows for: an
+/// event from a slot the panels are not reporting on would be a line in a color nothing else on
+/// screen carries.
 fn build_timeline_view(
     bw: &BwVars,
     players: &[StatsPlayer],
@@ -781,7 +771,6 @@ pub(super) fn player_color(bw: &BwVars, player_id: u8) -> Color32 {
     Color32::from_rgb(color[0], color[1], color[2])
 }
 
-/// What this player is called, falling back to their slot for a slot that carries no name.
 /// A player's race, as the game counts its supply and as a panel draws it.
 pub(super) fn player_race(bw: &BwVars, player_id: u8) -> (Race, RaceView) {
     // SAFETY: the player table is the game's, with a slot for every player id.
@@ -795,6 +784,7 @@ pub(super) fn player_race(bw: &BwVars, player_id: u8) -> (Race, RaceView) {
     }
 }
 
+/// What this player is called, falling back to their slot for a slot that carries no name.
 pub(super) fn player_name(bw: &BwVars, player_id: u8) -> String {
     let name = unsafe { bw::player_name(bw.players.add(player_id as usize)) };
     if name.is_empty() {

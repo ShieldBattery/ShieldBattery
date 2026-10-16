@@ -37,9 +37,8 @@ impl OverlayState {
         loading_connectivity: Option<&LoadingConnectivity>,
         ui: &mut egui::Ui,
     ) {
-        // egui 0.34 made `CentralPanel::show` take a `&mut Ui` (drawn into the pass's root Ui)
-        // rather than a `&Context`. The rest of this fn still wants the context for image loading and
-        // the floating countdown Area, so hold onto a clone.
+        // `CentralPanel::show` draws into `ui`, but image loading and the floating countdown Area
+        // want the context.
         let ctx = ui.ctx().clone();
         if !bw.has_init_bw
             && let Some(info) = setup_info

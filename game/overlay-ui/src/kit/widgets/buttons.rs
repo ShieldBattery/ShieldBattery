@@ -166,7 +166,7 @@ fn paint_button_body(ui: &Ui, rect: Rect, variant: ButtonVariant, hovered: bool)
                 [theme::TIER2_FILL_TOP, theme::TIER2_FILL_BOTTOM],
             ));
             // The outer stroke stays put and the inner one lights up on hover, so the pair reads as
-            // one control rather than as two rectangles that happen to share a centre.
+            // one control rather than as two rectangles that happen to share a center.
             painter.add(Shape::rect_stroke(
                 rect,
                 corner_radius,
@@ -450,9 +450,8 @@ impl Sweep {
 /// A destructive action that has to be held down to fire.
 ///
 /// A click cannot do it and neither can a slip: the sweep takes the full hold time to cross the
-/// button, and letting go before it arrives unwinds it. That is the only way the kit offers a
-/// destructive action, because an overlay drawn over a live game cannot afford a misclick that
-/// drops a player.
+/// button, and letting go before it arrives unwinds it. For an action drawn over a live game where a
+/// misclick would cost a player the game.
 pub fn hold_to_confirm(ui: &mut Ui, label: &str, size: Vec2) -> HoldState {
     hold_to_confirm_by_key(ui, label, size, false)
 }

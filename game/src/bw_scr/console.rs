@@ -8,10 +8,9 @@ use super::BwScr;
 
 /// The dialogs that make up BW's bottom console, including the minimap.
 ///
-/// Hiding is split three ways: [`BwScr::set_console_visible`] moves everything here except the
-/// minimap and the command panel, and those two have a visibility each of their own. The whole list
-/// still matters for event handling, since every one of these dialogs has to stop responding while
-/// it is hidden.
+/// Hiding is split three ways: the minimap and the command panel each have a visibility of their
+/// own beside the console's ([`BwScr::set_console_visible`]). The whole list still matters for event
+/// handling, since every one of these dialogs has to stop responding while it is hidden.
 pub const CONSOLE_DIALOGS: &[&str] = &["StatPort", "Minimap", "Stat_F10", "StatBtn", "StatData"];
 
 /// The minimap's dialog, which has a visibility of its own: observers routinely keep the minimap
@@ -20,8 +19,8 @@ pub const MINIMAP_DIALOG: &str = "Minimap";
 
 /// The command-button panel, which in a replay carries SC:R's own playback controls.
 ///
-/// A visibility of its own as well, for the other direction: the overlay's replay transport stands
-/// in for those controls, so this panel goes while the console stays. A player who hides our
+/// A visibility of its own as well: the overlay's replay transport stands in for those controls, so
+/// this panel goes while the console stays. A player who hides our
 /// transport gets SC:R's back rather than no controls at all.
 pub const COMMAND_PANEL_DIALOG: &str = "StatBtn";
 
@@ -38,8 +37,8 @@ impl BwScr {
         self.command_panel_hidden_state.load(Ordering::Relaxed)
     }
 
-    /// Whether a console dialog of this name should be drawing and responding right now, which is
-    /// what the hidden ones' event handler drops events on.
+    /// Whether a console dialog of this name is hidden right now, which is what its event handler
+    /// drops events on.
     pub fn console_dialog_hidden(&self, name: &str) -> bool {
         self.console_hidden() || (name == COMMAND_PANEL_DIALOG && self.command_panel_hidden())
     }
@@ -111,9 +110,10 @@ impl BwScr {
 
     /// Whether the game has given the console's band back to the console while it is hidden.
     ///
-    /// Every map load sets the game view's height ratio to the map's own, and a replay seek reloads
-    /// the map and makes the console dialogs anew, so a hidden console has to be hidden again after
-    /// either: otherwise the view stops where the console was, over a black band.
+    /// Every map load sets the game view's height ratio to the map's own, and a replay seek SC:R
+    /// handles itself reloads the map and makes the console dialogs anew, so a hidden console has to
+    /// be hidden again after either: otherwise the view stops where the console was, over a black
+    /// band.
     pub fn console_space_returned(&self) -> bool {
         self.console_hidden()
             && self

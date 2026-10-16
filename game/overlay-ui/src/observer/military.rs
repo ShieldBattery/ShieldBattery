@@ -246,7 +246,7 @@ fn draw_row(ui: &mut Ui, player: &MilitaryPlayerView) {
 
 /// Draws one kill-and-loss pair as a run starting at the column's left edge: what the player took,
 /// then what it cost them, with the loss count a fixed distance from the kill count rather than
-/// centred in whatever room the column happens to have.
+/// centered in whatever room the column happens to have.
 fn draw_trade(ui: &Ui, rect: Rect, kills: u32, losses: u32, alpha: f32) {
     let mut cursor = EdgeCursor::from_left(rect);
     paint_text(

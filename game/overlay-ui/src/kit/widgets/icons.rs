@@ -101,13 +101,13 @@ pub fn set_resource_icons(ctx: &Context, icons: Option<ResourceIcons>) {
     });
 }
 
-/// Paints `glyph` centred in `rect`, fitted to the smaller of its sides and tinted by `alpha`, for a
-/// number that is no one race's (see [`paint_resource_icon`]).
+/// Paints `glyph` centered in `rect`, fitted to the smaller of its sides and tinted by `alpha`, for
+/// a number that is no one race's (see [`paint_resource_icon`]).
 pub fn paint_resource_glyph(painter: &Painter, rect: Rect, glyph: ResourceGlyph, alpha: f32) {
     paint_resource_icon(painter, rect, glyph, None, alpha);
 }
 
-/// Paints `glyph` centred in `rect`, fitted to the smaller of its sides and tinted by `alpha`: the
+/// Paints `glyph` centered in `rect`, fitted to the smaller of its sides and tinted by `alpha`: the
 /// game's own icon, in `race`'s art where the resource differs by race, where the host has handed
 /// the icons over, and the drawn glyph otherwise.
 pub fn paint_resource_icon(
@@ -160,7 +160,7 @@ pub fn paint_resource_icon(
     paint_drawn_glyph(painter, rect, glyph, alpha, side);
 }
 
-/// Paints the drawn form of `glyph`, a square `side` across centred in `rect`.
+/// Paints the drawn form of `glyph`, a square `side` across centered in `rect`.
 ///
 /// Every shape is built from a unit square and scaled, so one glyph is one size-independent
 /// description rather than a set of hand-placed points per size it is used at.

@@ -114,7 +114,7 @@ impl TextSpec {
         job
     }
 
-    /// The text as a job that wraps at `wrap_width` with its lines centred on each other.
+    /// The text as a job that wraps at `wrap_width` with its lines centered on each other.
     ///
     /// The job's origin is then the middle of the block rather than its left edge, which is what a
     /// caller painting the galley has to place it by.

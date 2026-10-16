@@ -484,7 +484,8 @@ pub struct BwScr {
     render_state: RecurseCheckedMutex<RenderState>,
     apm_state: RecurseCheckedMutex<ApmStats>,
     /// The per-second history the observer panels' rates, graphs and timeline are built from.
-    /// Sampled from the simulation step so a replay seeking backwards rebuilds it exactly.
+    /// Sampled from the simulation step, so it sees every frame simulated, a replay seek's
+    /// fast-forward included.
     game_stats: RecurseCheckedMutex<GameStats>,
     /// Keeps track of what game_screen_height_ratio was originally.
     /// (It depends a bit on what console the player uses)
@@ -545,14 +546,14 @@ pub struct BwScr {
     /// SC:R's own settings registry, which the options screen writes its changes through. `None`
     /// when the analysis could not place it, which leaves SC:R's settings to take effect next game.
     game_settings: Option<game_settings::GameSettings>,
+    /// How many of the F5 key messages the options screen posted to switch graphics are still on
+    /// their way to the window: those are SC:R's, past whatever the overlay holds the keyboard for.
+    posted_graphics_keys: AtomicU8,
     /// Changes to SC:R's settings registry waiting for the start of the next frame. Some of the
     /// registry's listeners rebuild the renderer's render targets on the spot (real-time lighting
     /// does), which is only safe while no draw command refers to them: between frames, where SC:R's
     /// own options and hotkeys make their changes. The options screen runs mid-frame, so its
     /// changes wait here.
-    /// How many of the F5 key messages the options screen posted to switch graphics are still on
-    /// their way to the window: those are SC:R's, past whatever the overlay holds the keyboard for.
-    posted_graphics_keys: AtomicU8,
     pending_game_setting_writes:
         Mutex<Vec<(&'static str, &'static str, game_settings::SettingValue)>>,
     /// Where the game's names for units, upgrades and techs are read from. `None` when the analysis
@@ -3040,10 +3041,7 @@ impl BwScr {
                             {
                                 counted_actions |= apm.action(apm_player, command);
                             }
-                            // Live commands of a replay only. A game being played carries no
-                            // transport commands at all, and a replay's own recorded stream
-                            // carries none either — treating a re-fed one as news would report a
-                            // playback state nobody asked for.
+                            // Live commands of a replay only; see `ReplayTransport::note_command`.
                             if is_replay && are_recorded_replay_commands == 0 {
                                 self.note_replay_transport_command(command);
                             }
@@ -5793,8 +5791,9 @@ impl BwScr {
     }
 
     /// Seeks a replay to the frame its setup asked it to start at, through the same command the
-    /// replay UI's own seeking sends. Only the first start of playback seeks: a backward seek
-    /// restarts playback from the beginning, and must not be sent on to the start frame again.
+    /// replay UI's own seeking sends. Only the first start of playback seeks: a seek SC:R handles
+    /// itself restarts playback from the beginning, and must not be sent on to the start frame
+    /// again.
     unsafe fn seek_to_replay_start_frame(&self) {
         unsafe {
             if self.replay_start_seek_sent.swap(true, Ordering::Relaxed) {
@@ -9976,10 +9975,6 @@ struct SoftwareCursor {
     pop_mode_override: unsafe extern "C" fn(),
 }
 
-/// Whether a window message is part of an Alt+S (save game) or Alt+L (load game) keypress. Windows
-/// sends an Alt combination as `WM_SYSKEYDOWN`/`WM_SYSKEYUP` with the key's virtual key code, and
-/// `WM_SYSCHAR` with its character. An AltGr combination (Ctrl+Alt, which some layouts use to type
-/// characters) arrives as ordinary key messages instead, so text input is never caught here.
 /// Hands the observer panels the watcher has on screen to the app, which saves them for the next
 /// game they watch.
 fn save_observer_panels(panels: overlay_ui::shell::PanelPrefs) {
@@ -10003,6 +9998,10 @@ fn grab_pan_gain(sensitivity: f32) -> f32 {
     (sensitivity.clamp(0.0, 150.0) * 0.08 - 3.0).exp2()
 }
 
+/// Whether a window message is part of an Alt+S (save game) or Alt+L (load game) keypress. Windows
+/// sends an Alt combination as `WM_SYSKEYDOWN`/`WM_SYSKEYUP` with the key's virtual key code, and
+/// `WM_SYSCHAR` with its character. An AltGr combination (Ctrl+Alt, which some layouts use to type
+/// characters) arrives as ordinary key messages instead, so text input is never caught here.
 fn is_save_or_load_hotkey(msg: u32, wparam: usize) -> bool {
     use winapi::um::winuser::{WM_SYSCHAR, WM_SYSKEYDOWN, WM_SYSKEYUP};
     match msg {

@@ -126,7 +126,7 @@ impl TextureStore {
 ///
 /// `primitives` are in the game context's points; `pixels_per_point` scales them to `size_px`.
 /// egui's tessellator already feathers every edge, so no further anti-aliasing is applied: sampling
-/// pixel centres reproduces exactly what a GPU would draw. Colors are sRGBA, blended in that space
+/// pixel centers reproduces exactly what a GPU would draw. Colors are sRGBA, blended in that space
 /// rather than in linear light, as the game blends them; `blending` picks whose blending.
 pub fn rasterize(
     primitives: &[ClippedPrimitive],
@@ -189,8 +189,8 @@ pub fn rasterize(
             for y in y0..y1 {
                 for x in x0..x1 {
                     let point = Pos2::new(x as f32 + 0.5, y as f32 + 0.5);
-                    // Barycentric weights from the sub-triangle areas. A pixel centre on an edge two
-                    // triangles share belongs to one of them only, as on a GPU: egui centres every
+                    // Barycentric weights from the sub-triangle areas. A pixel center on an edge two
+                    // triangles share belongs to one of them only, as on a GPU: egui centers every
                     // hairline on such an edge, and drawn by both it would come out twice as strong.
                     let w0 = edge(points[1], points[2], point);
                     let w1 = edge(points[2], points[0], point);
@@ -243,7 +243,7 @@ fn edge(a: Pos2, b: Pos2, point: Pos2) -> f32 {
     (b.x - a.x) * (point.y - a.y) - (b.y - a.y) * (point.x - a.x)
 }
 
-/// Whether a pixel centre whose edge function for the edge `a` → `b` is `weight` is inside a
+/// Whether a pixel center whose edge function for the edge `a` → `b` is `weight` is inside a
 /// triangle wound clockwise on screen, by the GPU's top-left rule: one exactly on the edge is
 /// inside only when the edge is a top edge (level, running right) or a left edge (running up).
 fn owns(weight: f32, a: Pos2, b: Pos2) -> bool {
@@ -299,7 +299,7 @@ mod tests {
     use egui::epaint::{Mesh, Vertex};
     use egui::{Rect, pos2};
 
-    /// A 4x4 square of `color` split along the diagonal that runs through its pixels' centres, the
+    /// A 4x4 square of `color` split along the diagonal that runs through its pixels' centers, the
     /// second triangle wound the other way round from the first.
     fn split_square(color: Color32) -> ClippedPrimitive {
         let mut mesh = Mesh::default();

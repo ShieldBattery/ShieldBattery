@@ -18,8 +18,7 @@
 //! numbers here are whatever the last speed command said — ours or SC:R's own plate's.
 //!
 //! The standard form's track is ticked with the timeline's events, each one a way back to its
-//! moment. The spoiler-free form has no track and so no ticks: a tick stands at its fraction of the
-//! replay's length, which is the very thing that form withholds.
+//! moment.
 
 use std::collections::HashSet;
 
@@ -65,8 +64,7 @@ const CONTENT_HEIGHT: f32 = INFO_ROW + ROW_GAP + TRACK_ROW + ROW_GAP + CHIP_ROW;
 /// off the footprint both forms share. Checked where the heights are written.
 const _: () = assert!(CONTENT_HEIGHT + 20.0 == PANEL_HEIGHT);
 
-/// The play/pause control, which is the one filled thing on the plate and the only one a viewer
-/// reaches for without aiming.
+/// Size of the play/pause control.
 const PLAY_SIZE: Vec2 = Vec2::new(42.0, 30.0);
 /// Width of the elapsed clock's column. Wide enough for `1:05:30`, so an hour-long replay does not
 /// widen the row.
@@ -86,9 +84,9 @@ const SPEED_SIZE: f32 = 17.0;
 const PAUSED_TAG_WIDTH: f32 = 56.0;
 /// Width of the button that puts the length back on screen.
 const REVEAL_WIDTH: f32 = 62.0;
-/// Height of a status tag or of an inline button on the track row, which sit centred in their row
-/// rather than filling it: either the height of the controls beside them would read as another
-/// control.
+/// Height of a status tag or of an inline button on the track row, which sit centered in their row
+/// rather than filling it: at the full height of the controls beside them, either would read as
+/// another control.
 const TAG_HEIGHT: f32 = 20.0;
 /// Gap between two things sharing a row.
 const ITEM_GAP: f32 = 8.0;
@@ -112,7 +110,7 @@ const HIDDEN_LABEL_WIDTH: f32 = CONTENT_WIDTH - REVEAL_WIDTH - ITEM_GAP;
 
 /// Gap between two jump chips, and between the innermost of them and the play control.
 const CHIP_GAP: f32 = 5.0;
-/// Height of a jump chip, which sits centred in the taller row the play control sets.
+/// Height of a jump chip, which sits centered in the taller row the play control sets.
 const CHIP_HEIGHT: f32 = 28.0;
 
 /// How far each jump chip moves the playhead, in seconds, left to right.
@@ -790,8 +788,8 @@ fn play_pause_button(ui: &mut Ui, paused: bool) -> Response {
     let centre = rect.center();
     let glyph = theme::TEXT_PRIMARY;
     if paused {
-        // Optically centred rather than geometrically: a triangle's mass sits behind its point, so
-        // a centred bounding box reads as pushed to the right.
+        // Optically centered rather than geometrically: a triangle's mass sits behind its point, so
+        // a centered bounding box reads as pushed to the right.
         let half = 6.0;
         let left = centre.x - half * 0.7;
         ui.painter().add(Shape::convex_polygon(
@@ -880,7 +878,7 @@ mod tests {
     #[test]
     fn the_ladder_runs_from_a_quarter_speed_to_sixteen() {
         // The two rungs below normal come from the classic ladder's own delays (167 ms and 83 ms
-        // against the fastest 42 ms), so they land within a hundredth of the labelled rate rather
+        // against the fastest 42 ms), so they land within a hundredth of the labeled rate rather
         // than exactly on it.
         let expected = [0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0];
         for (step, expected) in SPEED_LADDER.iter().zip(expected) {

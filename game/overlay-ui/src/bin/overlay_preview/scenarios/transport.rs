@@ -1,11 +1,11 @@
 //! The replay transport scenario, with a fake replay behind it.
 //!
-//! The plate is the one overlay that acts on the game rather than reporting on it, so a preview
-//! that only drew it would prove nothing: a seek that goes nowhere cannot show whether the playhead
-//! follows the pointer, and a speed step that changes no clock cannot show whether the ladder is
-//! wired up. So this scenario keeps a clock of its own and answers the shell's intents with it —
-//! playback runs at the rate the last speed command asked for, a seek moves it, and a pause stops
-//! it, exactly as the game would.
+//! The plate acts on the game rather than reporting on it, so a preview that only drew it would
+//! prove nothing: a seek that goes nowhere cannot show whether the playhead follows the pointer,
+//! and a speed step that changes no clock cannot show whether the ladder is wired up. So this
+//! scenario keeps a clock of its own and answers the shell's intents with it — playback runs at the
+//! rate the last speed command asked for, a seek moves it, and a pause stops it, exactly as the
+//! game would.
 
 use egui::vec2;
 use overlay_ui::transport::{self, TransportView};

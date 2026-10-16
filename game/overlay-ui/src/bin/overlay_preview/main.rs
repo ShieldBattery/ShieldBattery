@@ -789,8 +789,6 @@ impl PreviewApp {
 }
 
 impl eframe::App for PreviewApp {
-    // eframe 0.35 replaced `App::update(ctx)` with `App::ui(ui)`, handing the app a root `Ui` rather
-    // than the bare context; panels nest into that `Ui`.
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         self.dirty = false;
         let ctx = ui.ctx().clone();
@@ -815,8 +813,6 @@ impl eframe::App for PreviewApp {
         }
     }
 
-    // eframe 0.35's `on_exit` no longer receives a glow context (the default build renders through
-    // wgpu, and the parameter was dropped from the trait).
     fn on_exit(&mut self) {
         knobs::save(&self.knobs);
     }

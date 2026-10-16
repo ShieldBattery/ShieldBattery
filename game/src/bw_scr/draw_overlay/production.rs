@@ -353,18 +353,13 @@ pub(super) fn selected_production(unit: Unit, bw: &BwVars) -> Option<ProductionP
 /// taken the upgrade improving it to.
 ///
 /// Which of those a unit has is the console's own rule, read off its units.dat entry alone: armor
-/// unless its armor upgrade is the slot that stands for none, shields for anything with shields,
-/// and each weapon, the air one only where it is not the ground one again. That makes an egg's
-/// carapace a chip as much as a zergling's, and a photon cannon its shields and its two cannons,
-/// while a barracks has nothing at all. An upgrade a map lets nobody take a level of keeps its
-/// chip, reading 0, as the console's icon does.
+/// unless its armor upgrade is [`NO_ARMOR_UPGRADE`], shields for anything with shields, and each
+/// weapon, the air one only where it is not the ground one again. A unit whose guns are on a turret
+/// (a goliath, a siege tank) has its weapons on the turret's entry, so the turret's are read too. A
+/// lurker has no weapon until it burrows.
 ///
-/// A unit whose guns are on a turret (a goliath, a siege tank) has its weapons on the turret's
-/// units.dat entry rather than its own, so the turret's are read too. A lurker's spines are not a
-/// weapon until it burrows, and the console lists none before then.
-///
-/// A hallucination has none: the console reads no upgrades out for one to anybody who could know
-/// it for a hallucination, its owner or anyone watching, which is everyone this panel is drawn for.
+/// A hallucination has none: the console shows no upgrades for one to its owner or to anyone
+/// watching, which is everyone this panel is drawn for.
 pub(super) fn selected_upgrades(unit: Unit, bw: &BwVars) -> Vec<UnitUpgradeView> {
     // The upgrade tables are indexed by player slot and assert on anything past the twelfth.
     const PLAYER_SLOTS: u8 = 0xc;
@@ -535,10 +530,8 @@ pub fn unit_icon_at_health(
     wireframe_icon(id, level, bw).unwrap_or_else(|| unit_icon(id, bw))
 }
 
-/// Which frame of the game's own command-icon atlas stands for something the timeline is about.
-///
-/// The timeline names a unit, an upgrade or a technology by the same icon the production panel draws
-/// for it, so the two surfaces never show the same thing two different ways.
+/// Which frame of the game's own command-icon atlas stands for something the timeline is about: the
+/// same icon the production panel draws for it.
 pub fn timeline_icon(subject: TimelineSubject, bw: &BwVars) -> ProductionIcon {
     let production = match subject {
         TimelineSubject::Unit(id) => Production::Unit(id),

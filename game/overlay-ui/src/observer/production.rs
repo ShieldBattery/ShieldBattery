@@ -10,10 +10,9 @@
 //! walks to the next one, which is how a caster follows a reinforcement wave back to the buildings
 //! producing it.
 //!
-//! Tiles are the one place these panels draw one of the game's own icons rather than a shape of
-//! their own: there is no vector stand-in for two hundred unit portraits. A host that cannot reach
-//! the game's icon atlas writes the unit's short code instead, which is enough to check a layout
-//! and honest about what it is.
+//! Tiles draw the game's own icons rather than a shape of their own: there is no vector stand-in
+//! for two hundred unit portraits. A host that cannot reach the game's icon atlas writes the unit's
+//! short code instead, which is enough to check a layout and honest about what it is.
 
 use std::cmp::Reverse;
 
@@ -564,7 +563,7 @@ fn draw_row(ui: &Ui, row: Rect, player: &ProductionPlayerView, tiles: usize) -> 
     clicked
 }
 
-// Draws one tile: what is being made, in its `owner`'s color, how many of it, and how far along
+/// Draws one tile: what is being made, in its `owner`'s color, how many of it, and how far along
 /// it is.
 fn draw_tile(ui: &Ui, rect: Rect, item: &ProductionItemView, owner: Color32, hovered: bool) {
     paint_tile_chrome(ui, rect, hovered);

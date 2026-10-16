@@ -361,8 +361,7 @@ pub unsafe fn spawn_dialog_hook(
         let dialog = Dialog::new(raw);
         let ctrl = dialog.as_control();
         let name = ctrl.string();
-        // A permanent, cheap record of every dialog BW spawns — the safety net for identifying a
-        // dialog by its real template name from a live run.
+        // Names every dialog BW spawns by its real template name in a live run's log.
         debug!("spawn_dialog: {name:?}");
         let event_handler = if name == "TextBox" {
             let inited = CHAT_BOX_EVENT_HANDLER.init(chat_box_event_handler);
@@ -468,12 +467,9 @@ unsafe extern "C" fn chat_box_event_handler(
                         // submit, no local echo injection) and fall through to the native `orig`
                         // call below, which closes the box exactly as it does after a real send.
                     } else {
-                        // A live netcode v2 session carries chat over its own relay channel — the
-                        // native battlenet-gateway send is dead under it, and this client's own
-                        // copy renders only via `send_chat_message`'s injected local echo (see its
-                        // doc comment). Clear the box the same way a handled slash command does so
-                        // the dead native send below (and its local ClientSdk loopback echo) never
-                        // fires and never doubles up our own already-injected echo.
+                        // A live netcode v2 session sends chat over the relay and injects this
+                        // client's own echo, so the box is cleared to keep the native send (and its
+                        // loopback echo) below from also firing.
                         let target = chat_target_scope();
                         if bw.send_chat_message(target, text) {
                             edit_box.set_string(b"");
@@ -552,10 +548,7 @@ fn chat_target_scope() -> netcode_v2::ChatTarget {
 ///
 /// Outside a team-shared-control game the field holds a BW player id and this is exactly the one
 /// rp2 slot that player maps to. In Team Melee/FFA or Top vs Bottom the field instead holds the
-/// 1-based team number of the dialog's "Team N" entry (the same numbering as `players[].team`),
-/// and SC:R delivers the message to every player on that team *and* every player on the sender's
-/// own team — teammates see a message addressed to either side. So there the result is the union
-/// of both teams' rp2 slots; see [`team_shared_chat_target`].
+/// 1-based team number of the dialog's "Team N" entry; see [`team_shared_chat_target`].
 fn specific_player_chat_target(bw: &BwScr) -> Option<netcode_v2::ChatTarget> {
     unsafe {
         let game = bw.game();
@@ -593,9 +586,9 @@ fn specific_player_chat_target(bw: &BwScr) -> Option<netcode_v2::ChatTarget> {
 
 /// The team-union chat target for a team-shared-control game (Team Melee/FFA, Top vs Bottom):
 /// every rp2 slot whose BW player is on `target_team` (the `MsgFltr` dialog's chosen team, 1-based
-/// as in `players[].team`), unioned with every rp2 slot whose BW player shares a team with the
-/// local player — the sender's own team sees the message too, alongside the addressed team.
-/// `players` is BW's live `players[]` array.
+/// as in `players[].team`), unioned with every rp2 slot on the local player's team, since SC:R
+/// delivers a team-addressed message to the sender's own team too. `players` is BW's live
+/// `players[]` array.
 ///
 /// `None` if `target_team` isn't a valid team number, if it has no members, or if the union maps
 /// to no live session slot at all (the caller degrades to [`netcode_v2::ChatTarget::All`]).

@@ -1,12 +1,9 @@
 //! The in-game menu, which stands in for SC:R's own.
 //!
-//! It is the one screen the player reaches for on purpose while playing, so it is the one screen
-//! that says where they are: the wordmark and the game's own clock over a short stack of the things
-//! that can be done from here. The stack keeps SC:R's order and its keys, which players' hands
-//! already know: Options (`O`) first, leaving (`E`, SC:R's End Mission) below it, and the way back to
-//! the game (`Esc`) last. Each button carries the keycap of its key (see [`OPTIONS_KEY`]). Everything
-//! here is a pure fn of plain data plus an [`egui::Context`], so the same code renders in the
-//! injected game DLL and in the host preview.
+//! The wordmark and the game's clock over a stack of the things that can be done from here, in
+//! SC:R's order and on its keys, which players' hands already know. Each button carries the keycap
+//! of its key (see [`OPTIONS_KEY`]). Everything here is a pure fn of plain data plus an
+//! [`egui::Context`], so the same code renders in the injected game DLL and in the host preview.
 
 use egui::{Align, Context, Id, Layout, Ui, Vec2, vec2};
 
@@ -37,11 +34,9 @@ const CLOCK_SIZE: f32 = 18.0;
 const WORDMARK: &str = "ShieldBattery";
 
 /// The keys the menu's buttons answer to, as their keycaps name them. SC:R's own where it has one:
-/// `O` for Options and `E` for End Mission, which works the leave button the way the pointer does:
-/// it asks first where leaving is asked about (see [`leave_asks_first`]), so `F10`, `E`, `Q` leaves
-/// a game as it does in SC:R, and leaves at once in a replay. SC:R puts alliances and
-/// chat behind a Social button on `C`; the button that stands in for it here takes `A` (and `C`, for
-/// that habit).
+/// `O` for Options and `E` for End Mission, which presses the leave button, so `F10`, `E`, `Q`
+/// leaves a game as it does in SC:R. SC:R puts alliances and chat behind a Social button on `C`;
+/// the button that stands in for it here takes `A`, and `C` as well for that habit.
 pub const OPTIONS_KEY: &str = "O";
 pub const ALLIANCES_KEY: &str = "A";
 pub const OBJECTIVES_KEY: &str = "M";
@@ -116,7 +111,7 @@ fn draw_header(ui: &mut Ui, game_seconds: u64) {
     });
 }
 
-/// How long the game has been running, as a label and a clock centred together rather than each on
+/// How long the game has been running, as a label and a clock centered together rather than each on
 /// its own.
 fn draw_clock(ui: &mut Ui, game_seconds: u64) {
     let label_spec = text::body(13.0, BodyWeight::Regular).with_color(theme::TEXT_DIM);

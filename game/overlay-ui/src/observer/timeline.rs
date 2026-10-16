@@ -5,10 +5,9 @@
 //! the beginning, and the feed is a fixed six rows tall whether or not it is full: a panel that grew
 //! a row every time something happened would push everything under it around all game.
 //!
-//! A row names the thing it is about with the game's own icon rather than with its name. There are
-//! several hundred units, upgrades and technologies, the game does not hand out their names in a
-//! form the overlay can read, and a caster recognises the icon faster than they read a word anyway.
-//! A host with no icon atlas draws the icon's number instead, which is enough to judge the layout.
+//! A row names the thing it is about with the game's own icon and, where the host has one, the
+//! game's own name for it. A host with no icon atlas draws the icon's number instead, which is
+//! enough to judge the layout.
 //!
 //! In a replay a row is also a way back to its moment: clicking one moves playback to just before
 //! it, so the watcher sees it happen rather than arriving after it has.
@@ -137,8 +136,8 @@ pub struct ClickedEvent {
 
 /// Everything the timeline draws from.
 pub struct TimelineView {
-    /// What happened, newest first. Only the first [`ROWS`] of them are ever drawn; a host is free
-    /// to keep more, since nothing but the panel's height decides how many fit.
+    /// What happened, newest first. At most [`ROWS`] of them are in view at once, and the rest are
+    /// scrolled back through.
     pub events: Vec<TimelineEventView>,
 }
 
@@ -182,8 +181,8 @@ pub struct TimelineOutcome {
 /// Before anything has happened it is still drawn, with a line saying so: a watcher turning the
 /// feed on early in a game would otherwise see nothing come of the key and take it for broken.
 ///
-/// The panel ends above `floor`, dropping its oldest rows to do so: it is the lowest thing hung on
-/// the left edge, and under it is the corner the game's minimap owns. A feed short a few rows is
+/// The panel ends above `floor`, showing fewer rows at once to do so: it is the lowest thing hung
+/// on the left edge, and under it is the corner the game's minimap owns. A feed short a few rows is
 /// still the feed; a feed drawn over the minimap is neither.
 ///
 /// `seekable` is whether the game being watched can be moved to a time, which only a replay can: a

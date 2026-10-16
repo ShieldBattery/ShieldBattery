@@ -23,13 +23,9 @@ pub(super) struct RosterPlayer {
 
 /// Builds the display view from the turn-state snapshot, the session's user list and the game's own
 /// roster: one row per other player, carrying what the game knows about them (their color, whose
-/// side they are on) and what the turn state knows (whether their turns are still arriving). The
-/// single place turn-state data and game data meet.
+/// side they are on) and what the turn state knows (whether their turns are still arriving).
 ///
-/// The surface itself is drawn by the shell, which decides from this view which of its two forms is
-/// up: the roster, naming everyone the simulation is waiting on among everyone still playing, or
-/// the prominent notice for this client's own link being down. Product UX, drawn in every build; an
-/// all-healthy status draws nothing at all.
+/// An all-healthy status builds an empty view, which the shell draws as nothing.
 pub(super) fn build_disconnect_view(
     status: &DisconnectStatus,
     users: &[SbUser],

@@ -49,8 +49,8 @@ const GRAPH_POINTS: usize = 120;
 /// How often the fake game puts something on the timeline, in seconds of game time.
 const EVENT_INTERVAL_SECS: u64 = 37;
 
-/// How many events the fake game hands over, which is as many as the game DLL does: more than the
-/// panel draws, and what the replay plate's track is ticked with.
+/// How many events the fake game hands over at most: more than the panel has rows for, so the
+/// feed scrolls, and what the replay plate's track is ticked with.
 const TIMELINE_DEPTH: usize = 24;
 
 /// What the fake game's timeline events are about, walked in turn: something is built, an upgrade
@@ -185,9 +185,9 @@ pub struct Knobs {
     /// is the reading of a building with upgrades to read out. Takes the selection over from the
     /// count.
     pub selection_defense: bool,
-    /// Whether the game reports how much of the map each side holds. The real game has no such
-    /// measurement yet, so this is the switch that proves the bar disappears without one rather
-    /// than drawing an empty share.
+    /// Whether the game reports how much of the map each side holds. The game reports none for a
+    /// game that is not two sides, so this is the switch that proves the bar disappears without one
+    /// rather than drawing an empty share.
     pub map_control: bool,
     /// Whether the list of players under the minimap's vision button starts open, which is a state
     /// an offline render has no click to reach.
@@ -693,9 +693,7 @@ fn production_player(knobs: &Knobs, index: usize, t: f64) -> ProductionPlayerVie
         .map(|slot| {
             let unit = units[(slot + index) % units.len()];
             ProductionItemView {
-                // Nothing here has the game's own icon atlas, so every tile draws its number: the
-                // panel is being judged on its layout, and a tile that pretended to an icon it does
-                // not have would be judging the wrong thing.
+                // Nothing here has the game's own icon atlas, so every tile draws its number.
                 icon: ProductionIcon {
                     texture: None,
                     index: unit,
@@ -773,7 +771,7 @@ fn control_groups_player(
 /// energy that move the way a fight moves them.
 ///
 /// Every reading the panel has is reachable from here, because each of them is a different layout:
-/// no units at all, an army the panel draws as wireframes alone, one unit read out as numbers, a
+/// no units at all, an army the panel draws as its grid alone, one unit read out as numbers, a
 /// building part way through something, an egg part way through its morph, a building with guns,
 /// and a transport with an army inside it.
 ///
@@ -1251,7 +1249,7 @@ pub enum Screen {
     /// the wings are drawn where the wings would have been, and the right-hand ones against the
     /// edge the dock has left.
     ReflowWings,
-    /// The analyst's screen with the lower half of the centred stack hidden, so the panels over it
+    /// The analyst's screen with the lower half of the centered stack hidden, so the panels over it
     /// are drawn against the screen's own bottom edge.
     ReflowStack,
 }
@@ -1454,7 +1452,7 @@ impl Preset {
         // rather than into two even ones.
         Preset::game(7, 4, Screen::Analyst),
         // A free-for-all and a game of four sides: both are read from cards the game names no side
-        // for, which is what the unlabelled card is drawn for.
+        // for, which is what the unlabeled card is drawn for.
         Preset::game(6, 1, Screen::Analyst),
         Preset::game(8, 2, Screen::Analyst),
         Preset::game(8, 4, Screen::Minimal),
@@ -1607,7 +1605,7 @@ pub fn knobs_ui(k: &mut Knobs, state: &State, ui: &mut egui::Ui) -> bool {
         .add(egui::Slider::new(&mut k.selection, 0..=SelectionView::MAX_UNITS).text("selection"))
         .on_hover_text(
             "How many units the watcher has selected. One is read out as numbers, several are the \
-             wireframe grid alone, and none leaves the panel on screen saying so.",
+             unit grid alone, and none leaves the panel on screen saying so.",
         )
         .changed();
     changed |= ui
@@ -1655,8 +1653,8 @@ pub fn knobs_ui(k: &mut Knobs, state: &State, ui: &mut egui::Ui) -> bool {
     changed |= ui
         .checkbox(&mut k.map_control, "reports map control")
         .on_hover_text(
-            "The real game has no map-control measurement yet. With this off the bar is not drawn \
-             and its dock row is not offered, which is what a game without one looks like.",
+            "With this off the bar is not drawn and its dock row is not offered, which is what a \
+             game whose map vision can't be read looks like.",
         )
         .changed();
 

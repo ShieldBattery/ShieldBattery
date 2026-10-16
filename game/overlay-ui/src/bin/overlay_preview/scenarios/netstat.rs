@@ -103,7 +103,7 @@ pub struct Knobs {
     /// How many remote-slot rows to synthesize.
     pub row_count: usize,
     /// The recent-stall milliseconds applied to every other synthesized row (the rest stay clean),
-    /// so the stall columns' colouring and formatting can be eyeballed.
+    /// so the stall columns' coloring and formatting can be eyeballed.
     pub stall_ms: u64,
     /// How many trailing synthesized rows render as departed (alternating left/drop tags), so the
     /// muted departed-row styling can be eyeballed.

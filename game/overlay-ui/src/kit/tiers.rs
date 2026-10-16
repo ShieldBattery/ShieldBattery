@@ -292,7 +292,7 @@ const RAISED_TOP: f32 = 0.1;
 const RAISED_SCRIM_REACH: f32 = 0.55;
 const RAISED_SCRIM_STRENGTH: f32 = 0.85;
 
-/// A modal dialog: the screen dimmed behind it, the dialog centred on top.
+/// A modal dialog: the screen dimmed behind it, the dialog centered on top.
 ///
 /// The dialog's `Ui` is the full width of the chrome with no padding of its own, because a dialog
 /// is a stack of bands and each band brings its own: see [`dialog_header`], [`dialog_body`] and
@@ -501,7 +501,7 @@ pub fn scrim(ui: &Ui) {
 /// A rounded rectangle filled with a vertical gradient.
 ///
 /// egui's own gradient shape is a plain quad, so a rounded one has to be built here: the rounded
-/// outline fanned out from its centre, with every vertex colored by where it sits between the top
+/// outline fanned out from its center, with every vertex colored by where it sits between the top
 /// and bottom edges.
 pub fn gradient_round_rect(
     rect: Rect,

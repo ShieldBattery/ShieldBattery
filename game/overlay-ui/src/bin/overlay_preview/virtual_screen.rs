@@ -195,7 +195,7 @@ impl Blit {
     }
 }
 
-/// The largest centred rect of the given aspect ratio that fits in `available`.
+/// The largest centered rect of the given aspect ratio that fits in `available`.
 ///
 /// The aspect alone decides where the emulated screen lands, which is what lets
 /// [`ScaleMode::MatchWindow`] derive its scale from a viewport it has not yet laid out.

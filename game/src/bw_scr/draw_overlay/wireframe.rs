@@ -1,6 +1,6 @@
 //! The status panel's unit wireframes, which stand in for the units the command-icon atlas has no
-//! icon of: a larva's egg, a lurker egg and a cocoon, whose atlas frames are a radiation symbol, a
-//! placeholder and a mutalisk's pod.
+//! icon of: a larva's egg and a lurker egg, whose atlas frames are a radiation symbol and a
+//! placeholder.
 //!
 //! The game draws a wireframe as layers of one white mask, each multiplied by a color of its own
 //! (see [`ProductionIcon::wireframe`](overlay_ui::observer::ProductionIcon::wireframe)). Which color

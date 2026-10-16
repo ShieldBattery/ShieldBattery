@@ -5,13 +5,11 @@
 //!
 //! - **Workers**, with how many of them are standing still. Idle workers are the single most common
 //!   unforced error in the game, and a count nobody can see is one nobody calls.
-//! - **Income / min**, minerals and gas gathered per minute, which is the number a caster reads a build
-//!   against: a player two hundred minerals a minute behind is losing the game quietly.
+//! - **Income / min**, minerals and gas gathered per minute, which is the number a caster reads a
+//!   build against: a player two hundred minerals a minute behind is losing the game quietly.
 //! - **Trend**: how much the income column has moved over the last minute. It climbs as new workers
 //!   and new bases start mining and falls when a mineral line is harassed or workers are pulled, so
 //!   it says which way an economy is heading, where income alone only says where it is.
-//!   Growing is good play, so the number grows with it. It stands right after the income it is the
-//!   trend of, so it reads as that income's and not as the workers'.
 //!
 //! Every column is a fixed width. These numbers move every second, and a table that resized itself
 //! around them would be unreadable over a game.
@@ -82,7 +80,7 @@ const _: () = assert!(
 const IDLE_SIZE: f32 = 12.0;
 
 /// Text size of the trend column, which carries a direction rather than a quantity and so is set in
-/// the body face the rest of the overlay's judgements are.
+/// the body face the rest of the overlay's judgments are.
 const TREND_SIZE: f32 = 12.5;
 
 /// Gap between the worker count and the idle count.

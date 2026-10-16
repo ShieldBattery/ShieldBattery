@@ -10,10 +10,10 @@ use crate::transport::{self, SpeedStep, TransportView};
 
 /// The shortest time between two seeks reaching the game.
 ///
-/// A dragged playhead asks for a new frame every frame it moves, and every backward one of those
-/// restarts the simulation from frame zero. Coalescing to the latest target keeps a drag to a few
-/// restarts instead of dozens, and costs nothing: the intermediate frames were never going to be
-/// watched.
+/// A dragged playhead asks for a new frame every frame it moves, and every seek simulates up to its
+/// target from the nearest keyframe or from where playback is. Coalescing to the latest target
+/// keeps a drag to a few seeks instead of dozens, and costs nothing: the intermediate frames were
+/// never going to be watched.
 const SEEK_INTERVAL_SECS: f64 = 0.25;
 
 /// The replay commands waiting to go out, and the playback they are decided against.

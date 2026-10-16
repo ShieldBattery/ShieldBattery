@@ -1,27 +1,22 @@
-//! The control groups panel: what every player has bound to their number keys.
+//! The control groups panel: what a player has bound to their number keys.
 //!
 //! One row, for one player: the owner of whatever the watcher has selected, or whoever it showed
-//! last while nothing is. A row per player was ten slots times eight in a big game, which is a wall
-//! of tiles nobody reads, and what a watcher wants to know about groups is what the player they are
-//! looking at has on their keys. The row is a bar of the player's color, then ten slots in the order
-//! a keyboard reads them; the bar alone says whose keys they are, since the panel is short enough
-//! that a name beside it would be most of the row. A slot carries the digit it answers to, what the
-//! group is, and how many units are in it — which is what a caster reads a push against: a group of twelve that has
-//! not been touched in four minutes is an army sitting at home.
+//! last while nothing is. A row for every player would be a wall of eighty tiles in a big game, and
+//! what a watcher wants is what the player they are looking at has on their keys. The row is a bar
+//! of the player's color (no name: it would be most of the row), then ten slots in the order a
+//! keyboard reads them. A slot carries the digit it answers to, what the group is, and how many
+//! units are in it, which is what a caster reads a push against: a group of twelve that has not
+//! been touched in four minutes is an army sitting at home.
 //!
-//! What the group *is* takes the middle of the slot, because it is the line a watcher reads first:
-//! the game's own icon where the host has the atlas to draw it, and the unit's short code where it
-//! has not. A group of two kinds names both, since an army of zealots with templar in it is a
-//! different army from either of them alone. The game lets a group hold twelve units or one
-//! building, so a building group has no count and is not given one.
+//! What the group *is* takes the middle of the slot: the game's own icon where the host has the
+//! atlas, and the unit's short code where it has not. A group of two kinds names both, since an army
+//! of zealots with templar in it is a different army from either alone. A building group has no
+//! count, since the game lets a group hold twelve units or one building.
 //!
-//! The ten slots are always drawn, filled or not. A row that only showed the groups a player
-//! happens to have would move its tiles every time one was made or lost, and the whole point of the
-//! panel is that the same key is always in the same place. An empty one keeps its space and fades
-//! nearly out of the row, so what the row is made of is the keys the player is using.
+//! The ten slots are always drawn, filled or not, so the same key is always in the same place. An
+//! empty one keeps its space and fades nearly out of the row.
 //!
-//! It sits at the kit's ambient tier along the screen's bottom edge, under the production panel, so
-//! the surfaces a watcher glances at during a fight are all in the same place.
+//! It sits at the kit's ambient tier along the screen's bottom edge, under the production panel.
 
 use egui::{
     Align, Align2, Area, Color32, Context, Id, Order, Rect, Response, Sense, Shape, Stroke,

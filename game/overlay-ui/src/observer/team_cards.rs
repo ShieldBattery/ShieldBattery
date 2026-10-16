@@ -314,10 +314,8 @@ fn draw_card(ui: &mut Ui, team: &TeamCardView, layout: CardLayout) {
         // layout, and egui's own item spacing would add to every one of them.
         ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
         ui.set_width(layout.content_width);
-        // A card standing for a half of the game rather than for a side of it is given neither a
-        // title nor totals: both speak for a side, and players who share a card only because the
-        // game had to be cut somewhere are not one. The rows take the room the title would have
-        // had rather than standing under a band of nothing.
+        // A half of the game rather than a side of it gets neither a title nor totals, since both
+        // speak for a side. The rows take the room the title would have had.
         if let Some(number) = team.team {
             draw_header(ui, team, number, layout);
         }
@@ -341,7 +339,7 @@ fn draw_header(ui: &mut Ui, team: &TeamCardView, number: u8, layout: CardLayout)
         ui.allocate_exact_size(vec2(layout.content_width, HEADER_HEIGHT), Sense::hover());
     let mut cursor = EdgeCursor::from_left(rect);
     // A side's own bar, which is what ties the card in the corner to the units on the map before
-    // its title has been read. The colour is the first player's: a side is named after where it
+    // its title has been read. The color is the first player's: a side is named after where it
     // sits, and where it sits is where its first slot is.
     if let Some(player) = team.players.first() {
         paint_player_bar(
@@ -461,7 +459,7 @@ fn draw_player(ui: &mut Ui, player: &TeamCardPlayerView, layout: CardLayout) {
     cursor.skip(COLUMN_GAP);
     value(&player.gas.to_string(), primary, cursor.take(GAS_WIDTH));
     cursor.skip(COLUMN_GAP);
-    // Supply past the cap is production time a player is losing, so it is the one number on the
+    // Supply at or past the cap is production time a player is losing, so it is the one number on the
     // card that changes color.
     let supply_color = if super::matchup::supply_blocked(player.supply_used, player.supply_max) {
         theme::TEXT_NEGATIVE.gamma_multiply(alpha)
@@ -479,7 +477,7 @@ fn draw_player(ui: &mut Ui, player: &TeamCardPlayerView, layout: CardLayout) {
     }
 }
 
-/// Draws the side's totals: two labelled rows, so each number keeps the word that says what it is.
+/// Draws the side's totals: two labeled rows, so each number keeps the word that says what it is.
 fn draw_totals(ui: &mut Ui, totals: &TeamCardTotalsView, layout: CardLayout) {
     let scale = layout.footer_scale();
     let (income, army, workers, trade) = (

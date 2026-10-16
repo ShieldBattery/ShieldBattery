@@ -10,9 +10,8 @@
 //!
 //! A frame has three layers, drawn in this order so each covers the one before it:
 //!
-//! 1. **Ambient** (tier 0/1) — panels that sit over live gameplay. The observer panel set belongs to
-//!    [`Mode::Observing`] and [`Mode::Replay`]; the diagnostic network-stats panel is deliberately
-//!    available in every mode, since nothing puts it on screen but an explicit chat command.
+//! 1. **Ambient** (tier 0/1) — panels that sit over live gameplay: the observer panel set in
+//!    [`Mode::Observing`] and [`Mode::Replay`], and the network panels in every mode.
 //! 2. **Hero** (tier 1) — the surfaces that carry the match's identity.
 //! 3. **Modal** (tier 2) — a stack, of which only the top is drawn. It dims everything behind it and
 //!    takes the keyboard and the pointer.

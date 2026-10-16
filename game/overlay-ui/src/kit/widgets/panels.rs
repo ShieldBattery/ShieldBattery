@@ -95,7 +95,7 @@ fn close_button(ui: &mut Ui) -> Response {
     response
 }
 
-/// One labelled value: the label in small capitals, the value in condensed numerals hard right.
+/// One labeled value: the label in small capitals, the value in condensed numerals hard right.
 pub fn stat_row(ui: &mut Ui, label: &str, value: &str) -> Response {
     let (rect, response) =
         ui.allocate_exact_size(vec2(ui.available_width(), STAT_ROW_HEIGHT), Sense::hover());
@@ -121,7 +121,7 @@ pub fn stat_row(ui: &mut Ui, label: &str, value: &str) -> Response {
     response
 }
 
-/// One cell of a table: text elided into a slot of exactly `size`, vertically centred in it.
+/// One cell of a table: text elided into a slot of exactly `size`, vertically centered in it.
 ///
 /// A table whose columns are sized by their contents shifts every time a value changes width, and
 /// over gameplay that reads as flicker. Columns are given their width by the panel instead, and
@@ -209,7 +209,7 @@ fn paint_tag_chrome(ui: &Ui, rect: egui::Rect, style: TagStyle) {
 /// Vertical padding a tag adds around its label.
 const TAG_PAD_Y: f32 = theme::SPACE_XS + 2.0;
 
-/// How tall a tag set in the label style is, for a row that centres other things on it.
+/// How tall a tag set in the label style is, for a row that centers other things on it.
 pub fn tag_height(ui: &Ui) -> f32 {
     text::column_label().row_height(ui) + TAG_PAD_Y
 }
@@ -271,10 +271,10 @@ pub fn tag_exact(
     response
 }
 
-/// A paragraph whose lines are centred on each other, for the notes under a dialog's contents.
+/// A paragraph whose lines are centered on each other, for the notes under a dialog's contents.
 ///
-/// A centred block of left-aligned lines reads as a block that has been nudged, so the centring is
-/// done inside the layout rather than by placing the widget.
+/// A centered block of left-aligned lines reads as a block that has been nudged, so the centering
+/// is done inside the layout rather than by placing the widget.
 pub fn centered_paragraph(
     ui: &mut Ui,
     spec: &text::TextSpec,

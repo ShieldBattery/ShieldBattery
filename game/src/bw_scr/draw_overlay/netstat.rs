@@ -7,15 +7,8 @@ use crate::netcode_v2::{DepartureKind, NetEvent, NetStatsStatus};
 use crate::rollback_live::{self, NetStatus};
 
 /// Builds the display view from the network-stats snapshot and the session's user list, resolving
-/// each row's user id to a name and formatting each event into a line. The single place net-stats
-/// data and game-setup data meet — the net-stats analogue of `disconnect::build_disconnect_view`.
-/// Durations are flattened to whole milliseconds/seconds here so the presentation layer carries only
-/// plain numbers.
-///
-/// The shell draws the resulting panel as an ambient surface, in whatever mode the client is in: the
-/// `/netstat` chat command is the only thing that puts it on screen, and a player triaging lag needs
-/// it mid-game. It is purely informational and registers no hit rect, so it never costs the game a
-/// click.
+/// each row's user id to a name and formatting each event into a line. Durations are flattened to
+/// whole milliseconds/seconds here so the presentation layer carries only plain numbers.
 pub(super) fn build_netstat_view(
     status: &NetStatsStatus,
     rollback: Option<&NetStatus>,

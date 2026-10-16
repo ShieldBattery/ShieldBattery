@@ -1,5 +1,5 @@
-//! The controls that carry a setting: a segmented choice, a strip of tabs, a switch and a
-//! slider.
+//! The controls that carry a setting: a segmented choice, a stepper, a strip of tabs, a switch, a
+//! scrub track and a slider.
 
 use std::ops::RangeInclusive;
 
@@ -561,8 +561,6 @@ pub fn tab_strip(ui: &mut Ui, selected: usize, labels: &[&str], max_width: f32) 
     let text_total: f32 = natural.iter().sum();
     let count = labels.len();
     let gaps = TAB_GAP * count.saturating_sub(1) as f32;
-    // The padding is what a crowded strip gives up first: a chip drawn tight is still a chip, and
-    // a label cut short is a name the watcher has to guess at.
     let pad_x =
         ((max_width - gaps - text_total) / (count as f32 * 2.0)).clamp(TAB_PAD_X_MIN, TAB_PAD_X);
     let room = (max_width - chrome_width(count, pad_x)).max(0.0);

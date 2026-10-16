@@ -2,15 +2,14 @@
 //!
 //! This is the one surface a watcher never turns off, so it is drawn at the kit's hero tier and
 //! hangs off the top edge of the screen, where nothing the game draws competes with it: SC:R's own
-//! resource counters sit in the top-right corner, and the bar is centred.
+//! resource counters sit in the top-right corner, and the bar is centered.
 //!
 //! Its two halves sit either side of a middle block holding the clock. Each player's color, race and
 //! name stand at the screen's edge, framing the bar from the outside, and their numbers stand against
-//! the clock; the numbers read in the same order in both halves, minerals to the rate, so a watcher
-//! reading across one half has already learned the other. Each carries one player, and a click on one is how a watcher takes that player's vision: the bar is the only
-//! place every player in the game is named, which makes it the natural place to ask to see through
-//! one of their eyes. A player whose vision is off is dimmed rather than dropped — they are still in
-//! the game, and their numbers are still the ones the other side's are read against.
+//! the clock in the same order in both halves, so a watcher reading across one half has already
+//! learned the other. A click on a player takes their vision: the bar is the only place every
+//! player in the game is named. A player whose vision is off is dimmed rather than dropped, since
+//! their numbers are still the ones the other side's are read against.
 //!
 //! Two players a half still fit across the top: the bar grows, and each half carries them stacked
 //! one over the other, leaving an empty slot where a half is short one. A game whose players are
@@ -181,9 +180,9 @@ struct RowMetrics {
     supply: StatCell,
     apm_value: f32,
     pad_inner: f32,
-    /// Whether the row carries the rate at its inner end. The first cell a narrow screen gives up,
-    /// and the last it gives up on: a player's bank and supply are the reading, their rate is
-    /// colour.
+    /// Whether the row carries the rate at its inner end. The last thing a narrow screen gives up
+    /// (see [`RowMetrics::fitted`]): a player's bank and supply are the reading, their rate is
+    /// color.
     apm: bool,
 }
 
@@ -285,7 +284,7 @@ impl RowMetrics {
 }
 
 /// The narrowest a name slot is squeezed to before the row gives up its rate instead: about the
-/// width of six letters, which is a name a watcher still recognises with its end elided.
+/// width of six letters, which is a name a watcher still recognizes with its end elided.
 const MIN_NAME_WIDTH: f32 = 64.0;
 
 /// The row of a bar carrying one player a side.
@@ -823,7 +822,7 @@ fn draw_stat(
     );
 }
 
-/// Draws the rate cell, which is labelled rather than given a glyph: it counts no resource, and the
+/// Draws the rate cell, which is labeled rather than given a glyph: it counts no resource, and the
 /// three letters are what every caster already calls it.
 fn draw_apm(ui: &Ui, cursor: &mut EdgeCursor, apm: u32, alpha: f32, metrics: RowMetrics) {
     let mut inner = EdgeCursor::from_left(cursor.take(APM_LABEL + GLYPH_GAP + metrics.apm_value));

@@ -813,10 +813,9 @@ fn draw_player_cell(ui: &mut Ui, rect: Rect, player: &AlliancePlayerView) {
     }
 }
 
-/// The footer: where the player's chat goes and whether allies share a victory, which are set once
-/// for the whole game, held apart on one line, and the way out on the line under them: one button
-/// with nothing `staged`, and a choice between dropping and applying the staged changes otherwise.
-/// Returns where the chat target's dropdown is.
+/// The footer: where the player's chat goes and whether allies share a victory on one line, and the
+/// way out under them: one button with nothing `staged`, and a choice between dropping and applying
+/// the staged changes otherwise. Returns where the chat target's dropdown is.
 fn draw_footer(
     ui: &mut Ui,
     view: &AlliancesView,
