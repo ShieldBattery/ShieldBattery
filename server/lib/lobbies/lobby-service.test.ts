@@ -103,8 +103,8 @@ const BIG_GAME_HUNTERS: MapInfo = {
   hash: 'deadbeef',
   name: 'Big Game Hunters',
   description: '',
-  uploadedBy: makeSbUserId(1),
-  uploadDate: new Date(0),
+  publishedBy: makeSbUserId(1),
+  publishedAt: new Date(0),
   visibility: MapVisibility.Official,
   mapData: {
     format: 'scm',
