@@ -5,7 +5,7 @@
 //! stands in for it: with the network-stats panel up and the mode set to observing, a frame here is
 //! an ambient panel under whatever modal the native dialogs raise.
 
-use overlay_ui::end_card::{EndCardStats, EndCardView, GameResult};
+use overlay_ui::end_card::{EndCardStats, EndCardView, GameResult, StatLeads};
 use overlay_ui::observer::RaceView;
 use overlay_ui::options::{
     DisplayMode, FramePacing, MonitorView, OptionsLists, OptionsSection, OptionsView,
@@ -122,7 +122,7 @@ impl Preset {
     /// resting frame shows none of them.
     pub fn timeline(self) -> &'static [f64] {
         match self {
-            Preset::Victory | Preset::Defeat => &[0.15, 0.3, 0.6, 1.0, 1.4, 1.8],
+            Preset::Victory | Preset::Defeat => &[0.15, 0.3, 0.6, 1.0, 1.4, 1.5, 1.6, 1.8, 2.2],
             _ => &[],
         }
     }
@@ -174,6 +174,8 @@ pub fn option_lists() -> OptionsLists {
 
 /// What the emulated game reports on the end-of-game card: a mid-length game with a busy army on
 /// both sides, so every cell of the summary carries a number of realistic width, played as `race`.
+/// The winner led most of the game's numbers and the loser only its APM, so both cards show their
+/// `#1` marks.
 pub fn end_card_view(result: GameResult, game_seconds: u64, race: RaceView) -> EndCardView {
     EndCardView {
         result,
@@ -203,9 +205,24 @@ pub fn end_card_view(result: GameResult, game_seconds: u64, race: RaceView) -> E
                     game_seconds,
                     race: None,
                     stats: None,
+                    leads: StatLeads::default(),
                 };
             }
         }),
+        leads: match result {
+            GameResult::Victory => StatLeads {
+                units_produced: true,
+                units_killed: true,
+                minerals_gathered: true,
+                gas_gathered: false,
+                average_apm: true,
+            },
+            GameResult::Defeat => StatLeads {
+                average_apm: true,
+                ..StatLeads::default()
+            },
+            GameResult::GameOver => StatLeads::default(),
+        },
     }
 }
 

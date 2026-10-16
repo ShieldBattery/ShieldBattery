@@ -26,7 +26,7 @@ use serde::{Deserialize, Serialize};
 use crate::alliances::{AlliancesAction, AlliancesMenu, AlliancesView, render_alliances_view};
 use crate::chat_history::{ChatHistoryView, render_chat_history_view};
 use crate::disconnect::{DisconnectView, SelfState, render_disconnect_view};
-use crate::end_card::{self, EndCardChoice, EndCardView, GameResult, render_end_card};
+use crate::end_card::{self, EndCardChoice, EndCardView, GameResult, StatLeads, render_end_card};
 pub use crate::game_menu::PauseControl;
 use crate::game_menu::{leave_is_held, render_game_menu, render_leave_confirm};
 use crate::net_quality::{NetQualityView, render_net_quality};
@@ -2287,6 +2287,7 @@ fn draw_modal(
                 result,
                 game_seconds: host.game_seconds,
                 stats: None,
+                leads: StatLeads::default(),
                 race: None,
             };
             let view = views

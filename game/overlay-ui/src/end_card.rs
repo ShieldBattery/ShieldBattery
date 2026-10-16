@@ -160,6 +160,43 @@ pub struct EndCardStats {
     pub average_apm: Option<u32>,
 }
 
+/// Which of the player's numbers were the best of anyone's in the game, each of which the card
+/// marks `#1`.
+///
+/// The card shows only the player's own numbers, and a number alone does not say whether it was a
+/// good one; a mark says so without putting anyone else's numbers beside it. Units lost has no
+/// mark: the fewest losses is as often a game without a fight as a well-played one, and `#1` beside
+/// a count of losses reads as the most of them.
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
+pub struct StatLeads {
+    pub units_produced: bool,
+    pub units_killed: bool,
+    pub minerals_gathered: bool,
+    pub gas_gathered: bool,
+    pub average_apm: bool,
+}
+
+impl StatLeads {
+    /// Which of `own` numbers no rival's beat. A tie for the top still leads, since nobody did
+    /// better; a zero never does, as being first at nothing is not a result; and a game with no
+    /// rivals has nobody to lead.
+    pub fn of(own: &EndCardStats, rivals: &[EndCardStats]) -> StatLeads {
+        let leads = |value: fn(&EndCardStats) -> Option<u32>| {
+            let Some(own) = value(own).filter(|&own| own > 0) else {
+                return false;
+            };
+            !rivals.is_empty() && rivals.iter().all(|rival| value(rival).unwrap_or(0) <= own)
+        };
+        StatLeads {
+            units_produced: leads(|stats| Some(stats.units_produced)),
+            units_killed: leads(|stats| Some(stats.units_killed)),
+            minerals_gathered: leads(|stats| Some(stats.minerals_gathered)),
+            gas_gathered: leads(|stats| Some(stats.gas_gathered)),
+            average_apm: leads(|stats| stats.average_apm),
+        }
+    }
+}
+
 /// What the card shows.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct EndCardView {
@@ -168,6 +205,8 @@ pub struct EndCardView {
     pub game_seconds: u64,
     /// The player's own numbers, for a host that could read them.
     pub stats: Option<EndCardStats>,
+    /// Which of those numbers led the game when it was decided.
+    pub leads: StatLeads,
     /// The race the player played, whose emblem stands behind the result. `None` for a host that
     /// could not tell, which leaves the banner without one rather than guessing.
     pub race: Option<RaceView>,
@@ -205,8 +244,9 @@ pub fn render_end_card(
     key_choice: Option<EndCardChoice>,
 ) -> EndCardResponse {
     let id = Id::new("sb_end_card");
-    let cells = stat_cells(view.stats.as_ref());
-    let timeline = Timeline::of(view.result, cells.len());
+    let cells = stat_cells(view.stats.as_ref(), view.leads);
+    let led = cells.iter().map(|cell| cell.led).collect::<Vec<_>>();
+    let timeline = Timeline::of(view.result, &led);
     let t = motion::arrival_secs(ctx, id.with("arrival"), timeline.rest());
     let look = Look::of(view.result);
     let screen = ctx.viewport_rect();
@@ -292,9 +332,10 @@ impl Beat {
 ///
 /// The darkness and the banner come up first, the word lands into the banner, and everything
 /// after is placed against that landing: the rules draw outward as it lands, the record follows it
-/// cell by cell, and the buttons come last. A defeat lands slower and heavier than a victory, and
-/// that is the only place the two tempos differ; the stages after the landing keep the same rhythm
-/// whichever way the game went.
+/// cell by cell, the buttons come next, and each number that led the game is locked onto and marked
+/// as it finishes counting. A defeat lands slower and heavier than a victory, and that is the
+/// only place the two tempos differ; the stages after the landing keep the same rhythm whichever
+/// way the game went.
 struct Timeline {
     backdrop: Beat,
     band: Beat,
@@ -305,6 +346,8 @@ struct Timeline {
     clock: Beat,
     /// How many cells the summary has.
     cells: usize,
+    /// When each cell's lead is locked onto, for a cell that has one.
+    locks: Vec<Option<Beat>>,
 }
 
 /// When the first of the summary's cells starts in after the word lands, how far apart the cells
@@ -320,8 +363,18 @@ const COUNT_SECS: f32 = 0.6;
 const BUTTONS_DELAY: f32 = 0.25;
 const BUTTONS_SECS: f32 = 0.3;
 
+/// How long the brackets take to close in on a number that led, and the least time between two
+/// of them locking: the cells finish counting a few hundredths of a second apart, and locks that
+/// close blur into one.
+const LOCK_SECS: f32 = 0.2;
+const LOCK_SPACING: f32 = 0.15;
+
+/// How long the `#1` plate takes to come up under a number once it is locked.
+const PLATE_SECS: f32 = 0.32;
+
 impl Timeline {
-    fn of(result: GameResult, cells: usize) -> Timeline {
+    /// `led` says, cell by cell, which of the summary's cells are marked as leading.
+    fn of(result: GameResult, led: &[bool]) -> Timeline {
         let (backdrop, band, word) = match result {
             GameResult::Victory | GameResult::GameOver => (
                 Beat::new(0.0, 0.4),
@@ -335,15 +388,39 @@ impl Timeline {
             ),
         };
         let landing = word.end();
-        Timeline {
+        let mut timeline = Timeline {
             backdrop,
             band,
             word,
             rules: Beat::new(landing - 0.12, 0.6),
             glint: (result == GameResult::Victory).then_some(Beat::new(landing + 0.2, 0.8)),
             clock: Beat::new(landing + 0.05, 0.35),
-            cells,
+            cells: led.len(),
+            locks: Vec::with_capacity(led.len()),
+        };
+        // Each lock closes the moment its number finishes counting, or a beat after the lock
+        // before it, whichever is later.
+        let mut last_lock = f32::NEG_INFINITY;
+        for (index, &led) in led.iter().enumerate() {
+            let lock = led.then(|| {
+                let locked = timeline.count(index).end().max(last_lock + LOCK_SPACING);
+                last_lock = locked;
+                Beat::new(locked - LOCK_SECS, LOCK_SECS)
+            });
+            timeline.locks.push(lock);
         }
+        timeline
+    }
+
+    /// The brackets closing in on a cell's number, for a cell that led.
+    fn lock(&self, index: usize) -> Option<Beat> {
+        self.locks.get(index).copied().flatten()
+    }
+
+    /// The `#1` plate coming up under a cell's number once it is locked.
+    fn plate(&self, index: usize) -> Option<Beat> {
+        self.lock(index)
+            .map(|lock| Beat::new(lock.end(), PLATE_SECS))
     }
 
     fn cell(&self, index: usize) -> Beat {
@@ -371,9 +448,14 @@ impl Timeline {
     fn rest(&self) -> f32 {
         let last_count = self.count(self.cells.saturating_sub(1)).end();
         let glint = self.glint.map_or(0.0, Beat::end);
+        let marks = (0..self.cells)
+            .filter_map(|index| self.plate(index))
+            .map(Beat::end)
+            .fold(0.0, f32::max);
         self.settled()
             .max(last_count)
             .max(glint)
+            .max(marks)
             .max(self.rules.end())
     }
 }
@@ -859,9 +941,11 @@ struct StatCell {
     label: String,
     value: u32,
     glyph: Option<ResourceGlyph>,
+    /// Whether this number led the game, which marks it.
+    led: bool,
 }
 
-fn stat_cells(stats: Option<&EndCardStats>) -> Vec<StatCell> {
+fn stat_cells(stats: Option<&EndCardStats>, leads: StatLeads) -> Vec<StatCell> {
     let Some(stats) = stats else {
         return Vec::new();
     };
@@ -870,26 +954,31 @@ fn stat_cells(stats: Option<&EndCardStats>) -> Vec<StatCell> {
             label: tr!("endCard.unitsProduced", "Units produced"),
             value: stats.units_produced,
             glyph: None,
+            led: leads.units_produced,
         },
         StatCell {
             label: tr!("endCard.unitsKilled", "Units killed"),
             value: stats.units_killed,
             glyph: None,
+            led: leads.units_killed,
         },
         StatCell {
             label: tr!("endCard.unitsLost", "Units lost"),
             value: stats.units_lost,
             glyph: None,
+            led: false,
         },
         StatCell {
             label: tr!("endCard.mineralsGathered", "Minerals gathered"),
             value: stats.minerals_gathered,
             glyph: Some(ResourceGlyph::Minerals),
+            led: leads.minerals_gathered,
         },
         StatCell {
             label: tr!("endCard.gasGathered", "Gas gathered"),
             value: stats.gas_gathered,
             glyph: Some(ResourceGlyph::Gas),
+            led: leads.gas_gathered,
         },
     ];
     if let Some(apm) = stats.average_apm {
@@ -897,6 +986,7 @@ fn stat_cells(stats: Option<&EndCardStats>) -> Vec<StatCell> {
             label: tr!("endCard.averageApm", "Average APM"),
             value: apm,
             glyph: None,
+            led: leads.average_apm,
         });
     }
     cells
@@ -959,12 +1049,17 @@ impl Record<'_> {
     }
 
     /// The player's numbers as one row, with hairlines between the cells, each cell rising in on
-    /// its own beat and counting its number up from nothing.
+    /// its own beat and counting its number up from nothing, and a mark on each number that led the
+    /// game.
     fn draw_stats(&mut self, cells: &[StatCell]) -> Rect {
         let width = STAT_CELL_WIDTH * cells.len() as f32;
+        let lane = match cells.iter().any(|cell| cell.led) {
+            true => MARK_LANE,
+            false => 0.0,
+        };
         let rect = Rect::from_min_size(
             pos2(self.center_x - width / 2.0, self.top),
-            vec2(width, STAT_CELL_HEIGHT),
+            vec2(width, STAT_CELL_HEIGHT + lane),
         );
         for (index, cell) in cells.iter().enumerate() {
             let shown = ease_out(self.timeline.cell(index).progress(self.t));
@@ -995,6 +1090,27 @@ impl Record<'_> {
                 cell,
                 value,
             );
+        }
+        // Over every cell rather than each over its own, since a mark's brackets close in from past
+        // its cell's edges and the cell beside it must not paint over them.
+        for (index, cell) in cells.iter().enumerate() {
+            let Some(lock) = self.timeline.lock(index) else {
+                continue;
+            };
+            let locking = lock.progress(self.t);
+            if locking <= 0.0 {
+                continue;
+            }
+            let cell_rect = Rect::from_min_size(
+                pos2(rect.left() + STAT_CELL_WIDTH * index as f32, rect.top()),
+                vec2(STAT_CELL_WIDTH, STAT_CELL_HEIGHT),
+            );
+            let plate = self
+                .timeline
+                .plate(index)
+                .map_or(0.0, |plate| plate.progress(self.t));
+            let number = stat_value_layout(self.ui, cell_rect, cell, cell.value).ink;
+            draw_lead_mark(self.ui.painter(), number, locking, plate);
         }
         self.top = rect.bottom();
         rect
@@ -1062,34 +1178,261 @@ impl Record<'_> {
     }
 }
 
+/// Where a cell's number goes, with its resource glyph beside it when it has one.
+struct StatValueLayout {
+    galley: Arc<Galley>,
+    color: Color32,
+    /// Where the number's galley is placed.
+    origin: Pos2,
+    glyph: Option<(ResourceGlyph, Rect)>,
+    /// The extent of the number's digits and its glyph, as tall as the digits.
+    ink: Rect,
+}
+
+/// Lays `value` out as `cell`'s number in `rect`: centered along with its glyph, at the cell's
+/// bottom.
+fn stat_value_layout(ui: &Ui, rect: Rect, cell: &StatCell, value: u32) -> StatValueLayout {
+    let color = cell.glyph.map_or(theme::TEXT_PRIMARY, ResourceGlyph::color);
+    let galley = text::numeral(STAT_SIZE)
+        .with_color(color)
+        .galley(ui, &value.to_string());
+    let glyph_room = cell.glyph.map_or(0.0, |_| GLYPH_SIZE + theme::SPACE_SM);
+    let left = rect.center().x - (glyph_room + galley.size().x) / 2.0;
+    let top = rect.bottom() - galley.size().y;
+    let glyph = cell.glyph.map(|glyph| {
+        let center = pos2(left + GLYPH_SIZE / 2.0, top + galley.size().y / 2.0);
+        (
+            glyph,
+            Rect::from_center_size(center, vec2(GLYPH_SIZE, GLYPH_SIZE)),
+        )
+    });
+    let origin = pos2(left + glyph_room, top);
+    let digits = ink_bounds(&galley).translate(origin.to_vec2());
+    let ink = match glyph {
+        Some((_, glyph_rect)) => {
+            Rect::from_x_y_ranges(glyph_rect.left()..=digits.right(), digits.y_range())
+        }
+        None => digits,
+    };
+    StatValueLayout {
+        ink,
+        galley,
+        color,
+        origin,
+        glyph,
+    }
+}
+
 /// One cell: its label in small capitals over its number in the condensed face, both centered.
 /// `value` is what the number has counted up to so far.
 fn draw_stat_cell(ui: &Ui, painter: &Painter, rect: Rect, cell: &StatCell, value: u32) {
     let label_job = text::column_label().job_truncated(&cell.label, rect.width() - theme::SPACE_LG);
     let label = ui.ctx().fonts_mut(|fonts| fonts.layout_job(label_job));
-    let value_color = cell.glyph.map_or(theme::TEXT_PRIMARY, ResourceGlyph::color);
-    let value = text::numeral(STAT_SIZE)
-        .with_color(value_color)
-        .galley(ui, &value.to_string());
     painter.galley(
         pos2(rect.center().x - label.size().x / 2.0, rect.top()),
         label,
         theme::TEXT_LABEL,
     );
-    let glyph_room = cell.glyph.map_or(0.0, |_| GLYPH_SIZE + theme::SPACE_SM);
-    let value_left = rect.center().x - (glyph_room + value.size().x) / 2.0;
-    let value_top = rect.bottom() - value.size().y;
-    if let Some(glyph) = cell.glyph {
-        let glyph_rect = Rect::from_center_size(
-            pos2(
-                value_left + GLYPH_SIZE / 2.0,
-                value_top + value.size().y / 2.0,
-            ),
-            vec2(GLYPH_SIZE, GLYPH_SIZE),
-        );
+    let layout = stat_value_layout(ui, rect, cell, value);
+    if let Some((glyph, glyph_rect)) = layout.glyph {
         widgets::paint_resource_glyph(painter, glyph_rect, glyph, 1.0);
     }
-    painter.galley(pos2(value_left + glyph_room, value_top), value, value_color);
+    painter.galley(layout.origin, layout.galley, layout.color);
+}
+
+/// Size of the `#1` on the plate under a number that led.
+const PLATE_TEXT_SIZE: f32 = 19.0;
+
+/// The room between the plate's `#1` and its edges, across and down.
+const PLATE_PADDING: Vec2 = vec2(10.0, 4.0);
+
+/// How far the plate and its `#1` lean forward: how far right their tops sit of their bottoms, as a
+/// fraction of their height.
+const PLATE_SHEAR: f32 = 0.3;
+
+/// The slashes trailing the plate: how many, how wide each is, and the gaps before and between
+/// them.
+const PLATE_SLASHES: usize = 2;
+const PLATE_SLASH_WIDTH: f32 = 3.5;
+const PLATE_SLASH_GAP: f32 = 3.0;
+
+/// How far apart the plate's scanlines are, and how much darker each is than the plate.
+const SCANLINE_PITCH: f32 = 2.0;
+const SCANLINE_DARKEN: f32 = 0.16;
+
+/// How much taller the summary grows to make room for the plates under its numbers, and how far
+/// under the digits a plate starts.
+const MARK_LANE: f32 = 32.0;
+const PLATE_GAP: f32 = 12.0;
+
+/// How far past the number's digits its locked brackets sit, how long each bracket's arms are, and
+/// how thick.
+const BRACKET_MARGIN: Vec2 = vec2(9.0, 6.0);
+const BRACKET_ARM: f32 = 7.0;
+const BRACKET_WIDTH: f32 = 1.75;
+
+/// How much further out the brackets start before they close in.
+const BRACKET_REACH: f32 = 20.0;
+
+/// How strong the brackets stay once the lock is done with them, so the numbers that led keep a
+/// frame without it outshining the plate.
+const BRACKET_REST: f32 = 0.55;
+
+/// The plate's opacity over the first part of its coming up, step by step: it flickers on the way
+/// a display does when it comes up, rather than fading in.
+const PLATE_FLICKER: [f32; 6] = [0.9, 0.15, 0.7, 0.3, 1.0, 0.75];
+
+/// How far through its coming up the plate stops flickering.
+const PLATE_FLICKER_END: f32 = 0.45;
+
+/// The mark on a number that led the game, which takes up `number`: brackets closing in on it as
+/// though it were being targeted, then once they lock, a plate under it
+/// reading `#1`, leaning forward and trailed by slashes. The plate goes under the number rather than
+/// over it, since it is there to say what the number means, and covering any of it would cost the
+/// number itself.
+///
+/// `locking` is how far the brackets are through closing in, and `plate` how far the plate is
+/// through coming up.
+fn draw_lead_mark(painter: &Painter, number: Rect, locking: f32, plate: f32) {
+    let flash = 1.0 - smoothstep(0.0, 0.5, plate);
+    draw_brackets(painter, number, locking, flash);
+    if plate > 0.0 {
+        draw_plate(painter, number, plate);
+    }
+}
+
+/// The four corner brackets around `number`. `locking` is how far they are through closing in, and
+/// `flash` how much of the light of the moment they locked is still on them.
+fn draw_brackets(painter: &Painter, number: Rect, locking: f32, flash: f32) {
+    let closed = ease_out(locking);
+    let rect = number.expand2(BRACKET_MARGIN + Vec2::splat(BRACKET_REACH * (1.0 - closed)));
+    let strength = smoothstep(0.0, 0.4, locking) * (BRACKET_REST + (1.0 - BRACKET_REST) * flash);
+    let color = theme::ACCENT
+        .lerp_to_gamma(AMBER99, 0.6 * flash)
+        .gamma_multiply(strength);
+    let stroke = Stroke::new(BRACKET_WIDTH, color);
+    for (corner, toward) in [
+        (rect.left_top(), vec2(1.0, 1.0)),
+        (rect.right_top(), vec2(-1.0, 1.0)),
+        (rect.right_bottom(), vec2(-1.0, -1.0)),
+        (rect.left_bottom(), vec2(1.0, -1.0)),
+    ] {
+        painter.add(Shape::line(
+            vec![
+                corner + vec2(toward.x * BRACKET_ARM, 0.0),
+                corner,
+                corner + vec2(0.0, toward.y * BRACKET_ARM),
+            ],
+            stroke,
+        ));
+    }
+}
+
+/// The `#1` plate under `number`, `shown` of the way through coming up: it wipes in from its left
+/// edge, flickering as it does.
+fn draw_plate(painter: &Painter, number: Rect, shown: f32) {
+    let ctx = painter.ctx();
+    let job = text::headline(PLATE_TEXT_SIZE)
+        .with_color(Color32::PLACEHOLDER)
+        .job(&tr!("endCard.topRank", "#1"));
+    let galley = ctx.fonts_mut(|fonts| fonts.layout_job(job));
+    let ink = ink_bounds(&galley);
+    let size = ink.size() + PLATE_PADDING * 2.0;
+    let lean = size.y * PLATE_SHEAR;
+    let tail = (PLATE_SLASH_GAP + PLATE_SLASH_WIDTH) * PLATE_SLASHES as f32;
+    // The plate and its slashes are centered under the number together, by the line through the
+    // middle of their height, which is where the lean leaves them balanced.
+    let width = size.x + tail;
+    let plate = Rect::from_min_size(
+        pos2(number.center().x - width / 2.0, number.bottom() + PLATE_GAP),
+        size,
+    )
+    .round_to_pixels(ctx.pixels_per_point());
+    let middle = plate.center().y;
+    let lean_at = |y: f32| (middle - y) * PLATE_SHEAR;
+    let leaned = |rect: Rect| {
+        vec![
+            rect.left_top() + vec2(lean_at(rect.top()), 0.0),
+            rect.right_top() + vec2(lean_at(rect.top()), 0.0),
+            rect.right_bottom() + vec2(lean_at(rect.bottom()), 0.0),
+            rect.left_bottom() + vec2(lean_at(rect.bottom()), 0.0),
+        ]
+    };
+
+    let flicker = match shown < PLATE_FLICKER_END {
+        true => {
+            let step = (shown / PLATE_FLICKER_END * PLATE_FLICKER.len() as f32) as usize;
+            PLATE_FLICKER[step.min(PLATE_FLICKER.len() - 1)]
+        }
+        false => 1.0,
+    };
+    // Wiped in from the left, the far edge of the wipe leaning with the plate.
+    let wipe = plate.left() - lean + (width + lean * 2.0) * ease_out(shown);
+    let clip = Rect::from_x_y_ranges(
+        plate.left() - lean..=wipe,
+        plate.top() - 1.0..=plate.bottom() + 1.0,
+    );
+    let mut painter = painter.with_clip_rect(clip.intersect(painter.clip_rect()));
+    painter.set_opacity(flicker);
+
+    painter.add(Shape::convex_polygon(
+        leaned(plate),
+        theme::ACCENT,
+        Stroke::NONE,
+    ));
+    painter.add(Shape::mesh(plate_light(plate, lean_at)));
+    for slash in 0..PLATE_SLASHES {
+        let left =
+            plate.right() + PLATE_SLASH_GAP + (PLATE_SLASH_GAP + PLATE_SLASH_WIDTH) * slash as f32;
+        let rect = Rect::from_x_y_ranges(left..=left + PLATE_SLASH_WIDTH, plate.y_range());
+        let fade = 0.75 / (slash + 1) as f32;
+        painter.add(Shape::convex_polygon(
+            leaned(rect),
+            theme::ACCENT.gamma_multiply(fade),
+            Stroke::NONE,
+        ));
+    }
+    let origin = plate.center() - ink.center().to_vec2();
+    let mut mesh = word_mesh(
+        &galley,
+        origin,
+        ctx.pixels_per_point(),
+        ctx.fonts(|fonts| fonts.font_image_size()),
+        |_| BLUE10,
+    );
+    for vertex in &mut mesh.vertices {
+        vertex.pos.x += lean_at(vertex.pos.y);
+    }
+    painter.add(Shape::mesh(mesh));
+}
+
+/// The light over the plate's face: brightest along its top and falling off down it, with a dark
+/// scanline every [`SCANLINE_PITCH`]. Laid over the plate's own fill, whose edges are smoothed where
+/// a mesh's are not, and faint enough at its own leaning ends that their steps never show.
+fn plate_light(plate: Rect, lean_at: impl Fn(f32) -> f32) -> Mesh {
+    let mut mesh = Mesh::default();
+    let rows = (plate.height() / (SCANLINE_PITCH / 2.0)).ceil() as usize;
+    for row in 0..rows {
+        let top = plate.top() + plate.height() * row as f32 / rows as f32;
+        let bottom = plate.top() + plate.height() * (row + 1) as f32 / rows as f32;
+        let along = (row as f32 + 0.5) / rows as f32;
+        let color = match row % 2 {
+            1 => with_alpha(Color32::BLACK, SCANLINE_DARKEN),
+            _ => with_alpha(AMBER99, 0.35 * (1.0 - along).powi(2)),
+        };
+        let base = mesh.vertices.len() as u32;
+        for (x, y) in [
+            (plate.left(), top),
+            (plate.right(), top),
+            (plate.right(), bottom),
+            (plate.left(), bottom),
+        ] {
+            mesh.colored_vertex(pos2(x + lean_at(y), y), color);
+        }
+        mesh.add_triangle(base, base + 1, base + 2);
+        mesh.add_triangle(base, base + 2, base + 3);
+    }
+    mesh
 }
 
 #[cfg(test)]
@@ -1114,6 +1457,11 @@ mod tests {
                 gas_gathered: 6_120,
                 average_apm: Some(214),
             }),
+            leads: StatLeads {
+                units_killed: true,
+                minerals_gathered: true,
+                ..StatLeads::default()
+            },
             race: Some(RaceView::Protoss),
         }
     }
@@ -1181,7 +1529,7 @@ mod tests {
             GameResult::Defeat,
             GameResult::GameOver,
         ] {
-            let timeline = Timeline::of(result, 6);
+            let timeline = Timeline::of(result, &[true, true, false, true, true, true]);
             assert!(timeline.settled() <= timeline.rest());
             assert!(f64::from(timeline.rest()) < LANDED);
         }
@@ -1221,5 +1569,49 @@ mod tests {
         });
         // SC:R's console takes the bottom quarter of the screen.
         assert!(rect.bottom() < 1080.0 * 0.75, "{rect:?}");
+    }
+
+    fn stats(units_killed: u32, minerals_gathered: u32, average_apm: Option<u32>) -> EndCardStats {
+        EndCardStats {
+            units_killed,
+            minerals_gathered,
+            average_apm,
+            ..EndCardStats::default()
+        }
+    }
+
+    #[test]
+    fn a_number_leads_when_nobody_beat_it() {
+        let own = stats(40, 9_000, Some(180));
+        let others = [stats(25, 12_000, Some(180)), stats(39, 3_000, Some(90))];
+        let leads = StatLeads::of(&own, &others);
+        assert!(leads.units_killed);
+        assert!(!leads.minerals_gathered);
+        // A tie for the top: nobody did better.
+        assert!(leads.average_apm);
+    }
+
+    #[test]
+    fn nothing_leads_at_zero_or_with_nobody_to_lead() {
+        let leads = StatLeads::of(&stats(0, 0, None), &[stats(0, 0, None)]);
+        assert_eq!(leads, StatLeads::default());
+        let alone = StatLeads::of(&stats(40, 9_000, Some(180)), &[]);
+        assert_eq!(alone, StatLeads::default());
+    }
+
+    #[test]
+    fn leads_lock_as_their_numbers_finish_and_never_on_top_of_each_other() {
+        let led = [true, true, false, true, false, true];
+        let timeline = Timeline::of(GameResult::Victory, &led);
+        let mut last = f32::NEG_INFINITY;
+        for (index, &led) in led.iter().enumerate() {
+            let Some(lock) = timeline.lock(index) else {
+                assert!(!led);
+                continue;
+            };
+            assert!(lock.end() >= timeline.count(index).end());
+            assert!(lock.end() - last >= LOCK_SPACING - f32::EPSILON);
+            last = lock.end();
+        }
     }
 }
