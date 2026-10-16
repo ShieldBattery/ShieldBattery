@@ -418,8 +418,18 @@ export function BrowseServerMaps({
   }, [entryKey, querySignature, mapIds, hasMoreMaps, favoritedMapIds, searchQuery])
 
   const onRemoveMap = (mapId: SbMapId) => {
-    setMapIds(mapIds?.filter(id => id !== mapId))
+    // The listings don't depend on the user's own maps, so only the "My maps" list loses the map
+    if (activeTab === MapTab.MyMaps) {
+      setMapIds(mapIds?.filter(id => id !== mapId))
+    }
     onMapRemove?.(mapId)
+  }
+
+  const onDelistMap = (mapId: SbMapId) => {
+    // A delisted map stays in users' own maps and favorites, but no longer belongs in a listing
+    if (activeTab !== MapTab.MyMaps) {
+      setMapIds(mapIds?.filter(id => id !== mapId))
+    }
   }
 
   const onAddToFavorites = (mapId: SbMapId) => {
@@ -494,6 +504,7 @@ export function BrowseServerMaps({
               thumbnailSize={thumbnailSize}
               onMapClick={onMapClick}
               onMapRemove={onRemoveMap}
+              onMapDelist={onDelistMap}
               onAddToFavorites={onAddToFavorites}
               onRemoveFromFavorites={onRemoveFromFavorites}
             />
@@ -514,6 +525,7 @@ export function BrowseServerMaps({
               }
               onMapClick={onMapClick}
               onMapRemove={onRemoveMap}
+              onMapDelist={onDelistMap}
               onAddToFavorites={onAddToFavorites}
               onRemoveFromFavorites={onRemoveFromFavorites}
             />
@@ -542,6 +554,7 @@ export function BrowseServerMaps({
                 }
                 onMapClick={onMapClick}
                 onMapRemove={onRemoveMap}
+                onMapDelist={onDelistMap}
                 onAddToFavorites={onAddToFavorites}
                 onRemoveFromFavorites={onRemoveFromFavorites}
               />
@@ -582,6 +595,7 @@ interface MapSectionProps {
   errorText?: string
   onMapClick?: (mapId: SbMapId) => void
   onMapRemove: (mapId: SbMapId) => void
+  onMapDelist: (mapId: SbMapId) => void
   onAddToFavorites: (mapId: SbMapId) => void
   onRemoveFromFavorites: (mapId: SbMapId) => void
 }
@@ -592,6 +606,7 @@ function MapSection({
   errorText,
   onMapClick,
   onMapRemove,
+  onMapDelist,
   onAddToFavorites,
   onRemoveFromFavorites,
 }: MapSectionProps) {
@@ -603,26 +618,21 @@ function MapSection({
       <SectionHeader>{mapsSectionToTitle(section, t)}</SectionHeader>
       {errorText ? <ErrorText>{errorText}</ErrorText> : null}
       <ImageList $columnCount={layout.columnCount} $padding={layout.padding}>
-        {mapIds.map(mapId => {
-          // We don't show the remove button in the favorited maps section since that section
-          // includes maps that are potentially removed by their original uploader/admin.
-          const canRemoveMap = section !== MapsSection.Favorited
-
-          return (
-            <ReduxMapThumbnail
-              key={mapId}
-              mapId={mapId}
-              forceAspectRatio={1}
-              size={layout.columnCount === 2 ? 512 : 256}
-              showInfoLayer={true}
-              hasMapPoolChips={true}
-              onClick={onMapClick ? () => onMapClick(mapId) : undefined}
-              onAddToFavorites={onAddToFavorites}
-              onRemoveFromFavorites={onRemoveFromFavorites}
-              onRemove={canRemoveMap ? () => onMapRemove(mapId) : undefined}
-            />
-          )
-        })}
+        {mapIds.map(mapId => (
+          <ReduxMapThumbnail
+            key={mapId}
+            mapId={mapId}
+            forceAspectRatio={1}
+            size={layout.columnCount === 2 ? 512 : 256}
+            showInfoLayer={true}
+            hasMapPoolChips={true}
+            onClick={onMapClick ? () => onMapClick(mapId) : undefined}
+            onAddToFavorites={onAddToFavorites}
+            onRemoveFromFavorites={onRemoveFromFavorites}
+            onRemove={onMapRemove}
+            onDelist={onMapDelist}
+          />
+        ))}
       </ImageList>
     </>
   )

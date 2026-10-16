@@ -198,8 +198,10 @@ export interface MapInfo {
   hash: string
   name: string
   description: string
-  uploadedBy: SbUserId
-  uploadDate: Date
+  /** The user who listed the map, if it's listed (`visibility` is not `Unlisted`). */
+  publishedBy?: SbUserId
+  publishedAt?: Date
+  /** Where the map is listed. Unlisted maps are only reachable by id or from users' own maps. */
   visibility: MapVisibility
   mapData: MapData
   mapUrl?: string
@@ -215,7 +217,7 @@ export type MapInfoJson = Jsonify<MapInfo>
 export function toMapInfoJson(mapInfo: MapInfo): MapInfoJson {
   return {
     ...mapInfo,
-    uploadDate: Number(mapInfo.uploadDate),
+    publishedAt: mapInfo.publishedAt ? Number(mapInfo.publishedAt) : undefined,
   }
 }
 
@@ -337,23 +339,31 @@ export type GetFavoritedMapsQueryParams = Omit<GetMapsQueryParams, 'visibility' 
 
 export interface UploadMapResponse {
   map: MapInfoJson
+  /** The returned maps that are in the requesting user's own maps. */
+  libraryMapIds: SbMapId[]
   users: SbUser[]
 }
 
 export interface GetMapsResponse {
   maps: MapInfoJson[]
   hasMoreMaps: boolean
+  /** The returned maps that are in the requesting user's own maps. */
+  libraryMapIds: SbMapId[]
   users: SbUser[]
 }
 
 export interface GetFavoritesResponse {
   favoritedMaps: MapInfoJson[]
+  /** The returned maps that are in the requesting user's own maps. */
+  libraryMapIds: SbMapId[]
   users: SbUser[]
 }
 
 export interface GetBatchMapInfoResponse {
   maps: MapInfoJson[]
   favoritedMapIds: SbMapId[]
+  /** The returned maps that are in the requesting user's own maps. */
+  libraryMapIds: SbMapId[]
   users: SbUser[]
 }
 

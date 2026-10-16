@@ -29,6 +29,7 @@ import { makeErrorConverterMiddleware } from '../errors/coded-error'
 import { asHttpError, HttpErrorWithPayload } from '../errors/error-with-payload'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpGet, httpPost } from '../http/route-decorators'
+import { resolveMapId, resolveMapIds } from '../maps/map-models'
 import { ROLLED_OUTCOME_REQUEST_KEYS } from '../messaging/rolled-outcome-request-schema'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
@@ -284,7 +285,7 @@ export class LobbyApi {
 
     return await this.lobbyService.createLobby({
       name: body.name,
-      map: body.map,
+      map: await resolveMapId(body.map),
       gameType: body.gameType,
       gameSubType: body.gameSubType,
       allowObservers: body.allowObservers,
@@ -395,14 +396,14 @@ export class LobbyApi {
       lobbyId: params.lobbyId,
       name: body.name,
       visibility: body.visibility,
-      map: body.map,
+      map: body.map !== undefined ? await resolveMapId(body.map) : undefined,
       gameType: body.gameType,
       gameSubType: body.gameSubType,
       allowObservers: body.allowObservers,
       useLegacyLimits: body.useLegacyLimits,
       starcraftCompatibleReplays: body.starcraftCompatibleReplays,
       lockedAlliances: body.lockedAlliances,
-      mapQueue: body.mapQueue,
+      mapQueue: body.mapQueue !== undefined ? await resolveMapIds(body.mapQueue) : undefined,
     })
   }
 
