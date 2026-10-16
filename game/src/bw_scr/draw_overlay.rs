@@ -736,6 +736,8 @@ impl OverlayState {
         // knows which of them the watcher has hidden.
         let observer_view = (bw.game_started && bw.is_replay_or_obs).then(|| {
             let players = stats::stats_players(bw);
+            let game_stats = game_stats.map(|stats| stats.as_of(bw.game.frame_count()));
+            let game_stats = game_stats.as_ref();
             let prefs = self.shell.panel_prefs();
             let series = prefs.graph_series;
             let matchup = self.build_matchup_view(bw, apm);

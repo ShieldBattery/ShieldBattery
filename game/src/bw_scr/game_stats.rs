@@ -3,26 +3,41 @@
 //! Everything the matchup bar shows is true of the frame it is drawn on, so it is read straight off
 //! BW. The stats wings are not: an income is a rate, a graph is a history, and a timeline is a list
 //! of the moments something changed. None of that exists anywhere in the game's memory, so it is
-//! built here, one sample per second of game time, from the counts and score tables BW does keep.
+//! built here, one sample per second of game time, from the counts and score tables BW does keep:
+//! [`snapshot`] copies a frame out of the game, and [`GameStats::apply`] turns the copies into
+//! history.
 //!
-//! This runs on BW's own thread, inside the step that advances the simulation, which is what makes
-//! it complete. A replay seeking backwards restarts the simulation from frame zero and re-runs every
-//! frame at full speed with nothing drawn; a sampler living in the draw path would come back to a
-//! game whose first forty minutes it never saw. Sampling from the simulation step instead means the
-//! history is rebuilt exactly as it was, so [`GameStats::clear`] on game init is all a seek costs.
+//! This runs on BW's own thread, inside the step that advances the simulation, so it sees every
+//! frame the simulation does, including the ones a replay seek fast-forwards through with nothing
+//! drawn. Samples are taken on a fixed grid of frames, so every pass over the same stretch of game
+//! samples the same frames, and the history is kept by frame and read as of the frame on screen.
+//! That is what lets a replay seek without the history going wrong: a seek restores a keyframe of
+//! a stretch already simulated, before or after the frame it left, and a replay simulates every
+//! frame the same way every time, so whatever is already recorded for that stretch stays true.
+//! Only a rollback re-simulates a frame that can come out differently, and it says so (see
+//! [`Resimulation`]).
 //!
-//! The memory is bounded and pre-decided: [`MAX_SAMPLES`] samples per player, which is two hours of
-//! game time, and [`MAX_EVENTS`] timeline entries. A game that runs longer loses its oldest samples
-//! rather than growing without limit.
+//! The memory is bounded: [`MAX_SAMPLES`] rows of samples, past which the older half of the game
+//! is kept at half the detail, and [`MAX_EVENTS`] timeline entries.
+
+mod snapshot;
+mod timeline;
+mod unit_value;
 
 use std::collections::VecDeque;
-use std::mem;
 
-use bw_dat::{Game, TechId, Unit, UnitArray, UnitId, UpgradeId, order, unit};
+use bw_dat::{TechId, UnitId, UpgradeId};
 use overlay_ui::observer::{GraphSeries, TimelineEventKind};
 
-use crate::bw;
-use crate::bw::unit::UnitIterator;
+pub(crate) use snapshot::{
+    GameSnapshot, SCORE_UNITS_KILLED, SCORE_UNITS_LOST, SCORE_UNITS_PRODUCED, control_group_units,
+    read_snapshot,
+};
+pub(crate) use unit_value::DatUnits;
+
+use snapshot::PlayerSnapshot;
+use timeline::Baseline;
+use unit_value::{HalfCost, UnitCatalog, counts_as_army, invested_cost};
 
 /// How many players the game keeps playable slots for, which is as many as anything here reports on.
 pub const MAX_PLAYERS: usize = 8;
@@ -31,58 +46,43 @@ pub const MAX_PLAYERS: usize = 8;
 /// competitive game and almost every replay runs at, which is what makes a sample a second.
 const SAMPLE_INTERVAL_FRAMES: u32 = 24;
 
-/// How many samples one player's history holds: two hours of game time.
-pub const MAX_SAMPLES: usize = 2 * 60 * 60;
+/// How many rows of samples are kept at full detail: two hours of game time.
+const MAX_SAMPLES: usize = 2 * 60 * 60;
 
-/// How far back a rate is measured, in samples. A minute is long enough that one worker walking to
+/// How far back a rate is measured, in frames. A minute is long enough that one worker walking to
 /// a new patch does not move the number, and short enough that a base lost is visible at once.
-const INCOME_WINDOW: usize = 60;
+const INCOME_WINDOW_FRAMES: u32 = 60 * SAMPLE_INTERVAL_FRAMES;
 
 /// How many timeline entries are kept: enough for every building, upgrade and expansion of a long
 /// game, which a replay's seek bar marks, at a few bytes each.
 const MAX_EVENTS: usize = 512;
 
+/// How many samples' baselines are kept to compare a re-simulated sample against. A rollback
+/// reaches back a handful of frames, which is never more than a second or two of samples.
+const BASELINES_KEPT: usize = 4;
+
 /// How many unit, upgrade and technology entries are walked. These are the counts the game's own
 /// fixed-size tables hold; a mod with more entries than this is simply not reported on past them.
 const UNIT_ID_COUNT: u32 = 0xe4;
-pub(crate) const UPGRADE_COUNT: u32 = 0x3d;
-pub(crate) const TECH_COUNT: u32 = 0x2c;
-
-/// Which of the game's score tables hold the units a player made, and the unit trade.
-pub(crate) const SCORE_UNITS_PRODUCED: u8 = 2;
-pub(crate) const SCORE_UNITS_LOST: u8 = 3;
-pub(crate) const SCORE_UNITS_KILLED: u8 = 4;
-
-/// How far from a player's own start location a finished resource depot has to be before it counts
-/// as an expansion rather than as another building in the main, in map pixels.
-///
-/// Generous, because the cost of calling a macro hatch an expansion is a wrong line on the timeline
-/// while the cost of missing one is nothing at all: a real expansion is most of a screen away.
-const EXPANSION_DISTANCE: i32 = 32 * 15;
-
-/// How close two resource depots have to be before they are taken for the same one, in map pixels.
-/// No two of them fit within this, so anything closer is the depot that was already there.
-const SAME_DEPOT_DISTANCE: i32 = 64;
-
-/// How many resource depots one player's positions are remembered for. Past this the oldest is
-/// forgotten, which can only cost a duplicate timeline entry for a base rebuilt where an ancient one
-/// stood.
-const MAX_KNOWN_DEPOTS: usize = 32;
-
-/// How many selection groups the game keeps per player.
-const HOTKEY_GROUPS: usize = 0x12;
-
-/// How many of those groups are the number keys.
-///
-/// The rest are the selection history SC:R keeps behind the same table; nothing recalls them with a
-/// key, so nothing here reports on them.
-const NUMBER_KEY_GROUPS: usize = 10;
+const UPGRADE_COUNT: u32 = 0x3d;
+const TECH_COUNT: u32 = 0x2c;
 
 /// How long a group has to go without being recalled before it is worth pointing out, in frames.
 ///
 /// A minute of game time. Long enough that a group a player is cycling through stays lit, short
 /// enough that an army parked at home while its owner macros is called out while it still matters.
 const STALE_FRAMES: u16 = 60 * SAMPLE_INTERVAL_FRAMES as u16;
+
+/// Whether a frame the simulation steps again comes out the way it did the first time.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum Resimulation {
+    /// It does: a replay plays the same commands every time, so a seek that goes back over frames
+    /// already sampled can only sample them again as they were.
+    Identical,
+    /// It may not: a rollback steps frames again because inputs they were first simulated without
+    /// have arrived, so what was sampled from them is out of date.
+    MayDiffer,
+}
 
 /// One second of one player's game.
 ///
@@ -91,8 +91,6 @@ const STALE_FRAMES: u16 = 60 * SAMPLE_INTERVAL_FRAMES as u16;
 /// changes.
 #[derive(Copy, Clone, Default)]
 pub struct Sample {
-    /// The frame it was taken on.
-    pub frame: u32,
     /// Everything this player has ever gathered, which only climbs.
     pub gathered_minerals: u32,
     pub gathered_gas: u32,
@@ -123,6 +121,13 @@ impl Sample {
     }
 }
 
+/// Every player's sample from one frame.
+#[derive(Copy, Clone)]
+struct SampleRow {
+    frame: u32,
+    players: [Sample; MAX_PLAYERS],
+}
+
 /// What a timeline entry is about, which is how the panel picks the icon it draws.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum TimelineSubject {
@@ -132,7 +137,7 @@ pub enum TimelineSubject {
 }
 
 /// One moment worth putting a clock on.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct TimelineEvent {
     /// The frame it happened on. Frames rather than seconds, because turning one into the other
     /// needs the speed the game was recorded at, which only the draw path knows.
@@ -143,24 +148,6 @@ pub struct TimelineEvent {
     /// Where on the map it happened, in map pixels: the building that finished or that the research
     /// runs in. `None` where the sampler could not tell which building it was.
     pub position: Option<(i16, i16)>,
-}
-
-/// A building standing on the map, as one sample found it.
-#[derive(Copy, Clone, PartialEq, Eq)]
-struct BuildingSite {
-    player: u8,
-    unit_id: UnitId,
-    x: i16,
-    y: i16,
-}
-
-/// Research one sample found running, and the building it runs in.
-#[derive(Copy, Clone)]
-struct ResearchSite {
-    player: u8,
-    subject: TimelineSubject,
-    x: i16,
-    y: i16,
 }
 
 /// One of a player's number-key selection groups, as the last sample found it.
@@ -181,84 +168,17 @@ pub struct ControlGroup {
     pub stale: bool,
 }
 
-/// One player's history.
-struct PlayerStats {
-    samples: VecDeque<Sample>,
-    /// Where this player's finished resource depots stand, so a depot that was already there is not
-    /// reported as a new one every second.
-    known_depots: Vec<(i16, i16)>,
-    /// What they have on their number keys, replaced whole every sample: a group is what it is
-    /// right now, and nothing here is read against what it was.
-    control_groups: Vec<ControlGroup>,
-}
-
-impl PlayerStats {
-    fn new() -> PlayerStats {
-        PlayerStats {
-            samples: VecDeque::new(),
-            known_depots: Vec::new(),
-            control_groups: Vec::new(),
-        }
-    }
-
-    fn clear(&mut self) {
-        self.samples.clear();
-        self.known_depots.clear();
-        self.control_groups.clear();
-    }
-
-    fn push(&mut self, sample: Sample) {
-        if self.samples.len() == MAX_SAMPLES {
-            self.samples.pop_front();
-        }
-        self.samples.push_back(sample);
-    }
-}
-
-/// The game as the last sample found it, which is what this one is compared against to find what
-/// changed. Boxed, because the building counts alone are several kilobytes and nothing here is read
-/// often enough to want them inline.
-struct PreviousState {
-    completed_units: Box<[[u32; MAX_PLAYERS]; UNIT_ID_COUNT as usize]>,
-    upgrade_level: [[u8; UPGRADE_COUNT as usize]; MAX_PLAYERS],
-    upgrade_in_progress: [[bool; UPGRADE_COUNT as usize]; MAX_PLAYERS],
-    tech_researched: [[bool; TECH_COUNT as usize]; MAX_PLAYERS],
-    tech_in_progress: [[bool; TECH_COUNT as usize]; MAX_PLAYERS],
-    /// Every finished building other than a depot, so a building count that went up can be put at
-    /// the building that was not standing before.
-    buildings: Vec<BuildingSite>,
-    /// Where each research seen running runs, so its finish can be put where its start was: by the
-    /// sample that sees it finish, the building has nothing in progress any more.
-    research_sites: Vec<ResearchSite>,
-}
-
-impl PreviousState {
-    fn new() -> PreviousState {
-        PreviousState {
-            completed_units: Box::new([[0; MAX_PLAYERS]; UNIT_ID_COUNT as usize]),
-            upgrade_level: [[0; UPGRADE_COUNT as usize]; MAX_PLAYERS],
-            upgrade_in_progress: [[false; UPGRADE_COUNT as usize]; MAX_PLAYERS],
-            tech_researched: [[false; TECH_COUNT as usize]; MAX_PLAYERS],
-            tech_in_progress: [[false; TECH_COUNT as usize]; MAX_PLAYERS],
-            buildings: Vec::new(),
-            research_sites: Vec::new(),
-        }
-    }
-}
-
 /// The sampler. See the module docs.
 pub struct GameStats {
-    players: [PlayerStats; MAX_PLAYERS],
-    events: VecDeque<TimelineEvent>,
-    previous: PreviousState,
-    /// The first frame a sample is due on.
-    next_sample_frame: u32,
-    /// Whether a sample has been taken this game.
-    ///
-    /// The first one only records where the game started; a map can begin with buildings, upgrades
-    /// and bases already placed, and reporting each of them as having just happened would open every
-    /// game with a timeline nobody can read.
-    seeded: bool,
+    /// Sorted by frame, one row per sample.
+    rows: Vec<SampleRow>,
+    /// Sorted by frame.
+    events: Vec<TimelineEvent>,
+    /// What the newest samples left behind to be compared against, oldest first.
+    baselines: VecDeque<Baseline>,
+    /// What each player has on their number keys, replaced whole every sample: a group is what it
+    /// is right now, and nothing here is read against what it was.
+    control_groups: [Vec<ControlGroup>; MAX_PLAYERS],
     /// How much of the map each player could see as of the last sample, or `None` before one.
     vision: Option<MapVision>,
 }
@@ -303,86 +223,148 @@ impl MapVision {
 impl GameStats {
     pub fn new() -> GameStats {
         GameStats {
-            players: std::array::from_fn(|_| PlayerStats::new()),
-            events: VecDeque::new(),
-            previous: PreviousState::new(),
-            next_sample_frame: 0,
-            seeded: false,
+            rows: Vec::new(),
+            events: Vec::new(),
+            baselines: VecDeque::new(),
+            control_groups: Default::default(),
             vision: None,
         }
     }
 
-    /// Forgets the game, for a game that is about to start or to be simulated again from frame zero.
+    /// Forgets the game, for a game that is about to start, or to be simulated again from frame
+    /// zero when a replay seek is left to the game itself.
     pub fn clear(&mut self) {
-        for player in &mut self.players {
-            player.clear();
+        *self = GameStats::new();
+    }
+
+    /// Takes a sample of the frame the simulation just stepped to, if one is due on it, through
+    /// `read`.
+    pub fn step(
+        &mut self,
+        frame: u32,
+        resimulation: Resimulation,
+        catalog: &impl UnitCatalog,
+        read: impl FnOnce() -> GameSnapshot,
+    ) {
+        if frame.is_multiple_of(SAMPLE_INTERVAL_FRAMES) {
+            self.apply(read(), resimulation, catalog);
         }
-        self.events.clear();
-        self.previous = PreviousState::new();
-        self.next_sample_frame = 0;
-        self.seeded = false;
-        self.vision = None;
     }
 
     /// The frame the newest sample was taken on.
-    fn latest_sample_frame(&self) -> Option<u32> {
-        self.players
-            .iter()
-            .filter_map(|player| player.samples.back())
-            .map(|sample| sample.frame)
-            .max()
+    fn sampled_through(&self) -> Option<u32> {
+        self.rows.last().map(|row| row.frame)
     }
 
-    /// Forgets everything recorded after `frame`, for a game that has gone back to it.
+    /// Records one sample, and everything that changed since the one before it.
     ///
-    /// A replay seeking backwards restores a snapshot of the game rather than playing it again from
-    /// the start, and a game that rolls back simulates frames again; either way the samples and
-    /// events after the frame describe a game that has not happened yet. What came before stays.
-    /// The next sample then takes stock of the game afresh, as the first one does, so the depots,
-    /// buildings and research the restored game already has are not reported as new.
-    fn rewind(&mut self, frame: u32) {
-        for player in &mut self.players {
-            while player
-                .samples
-                .back()
-                .is_some_and(|sample| sample.frame > frame)
-            {
-                player.samples.pop_back();
-            }
-            player.known_depots.clear();
+    /// A frame already sampled is only recorded again when re-simulating it may have changed it;
+    /// then everything from it on is forgotten first and worked out afresh. Either way, what the
+    /// game has on its number keys and in sight is taken from this sample, since those are read as
+    /// they are now rather than as history.
+    pub fn apply(
+        &mut self,
+        mut snapshot: GameSnapshot,
+        resimulation: Resimulation,
+        catalog: &impl UnitCatalog,
+    ) {
+        let frame = snapshot.frame;
+        if let Some(vision) = snapshot.vision.take() {
+            self.vision = Some(vision);
         }
-        self.events.retain(|event| event.frame <= frame);
-        self.previous = PreviousState::new();
-        self.next_sample_frame = frame;
-        self.seeded = false;
+        for (groups, player) in self.control_groups.iter_mut().zip(&snapshot.players) {
+            *groups = read_control_groups(player, frame, catalog);
+        }
+        if self
+            .sampled_through()
+            .is_some_and(|through| frame <= through)
+        {
+            match resimulation {
+                Resimulation::Identical => return,
+                Resimulation::MayDiffer => self.forget_from(frame),
+            }
+        }
+        let row = SampleRow {
+            frame,
+            players: player_samples(&snapshot, catalog),
+        };
+        // Events are only worked out against the sample one interval before this one. Anything
+        // else is a gap the samples skipped over, and whatever happened in it can't be put at a
+        // time.
+        let previous = self
+            .baselines
+            .back()
+            .filter(|baseline| baseline.frame.checked_add(SAMPLE_INTERVAL_FRAMES) == Some(frame));
+        let mut events = Vec::new();
+        let baseline = timeline::advance(previous, snapshot, catalog, &mut events);
+        for event in events {
+            if self.events.len() == MAX_EVENTS {
+                self.events.remove(0);
+            }
+            self.events.push(event);
+        }
+        if self.rows.len() >= MAX_SAMPLES {
+            thin_older_half(&mut self.rows);
+        }
+        self.rows.push(row);
+        if self.baselines.len() == BASELINES_KEPT {
+            self.baselines.pop_front();
+        }
+        self.baselines.push_back(baseline);
     }
 
+    /// Forgets every sample and event from `frame` on, for frames about to be simulated again
+    /// differently.
+    fn forget_from(&mut self, frame: u32) {
+        self.rows
+            .truncate(self.rows.partition_point(|row| row.frame < frame));
+        self.events
+            .truncate(self.events.partition_point(|event| event.frame < frame));
+        while self
+            .baselines
+            .back()
+            .is_some_and(|baseline| baseline.frame >= frame)
+        {
+            self.baselines.pop_back();
+        }
+    }
+
+    /// The history as it stood on `frame`, which is the frame on screen: a replay that seeked back
+    /// keeps what it recorded past it, and none of that has happened yet as far as the watcher is
+    /// concerned.
+    pub fn as_of(&self, frame: u32) -> StatsAsOf<'_> {
+        StatsAsOf {
+            rows: &self.rows[..self.rows.partition_point(|row| row.frame <= frame)],
+            events: &self.events[..self.events.partition_point(|event| event.frame <= frame)],
+            stats: self,
+        }
+    }
+}
+
+/// The sampler's history up to one frame. See [`GameStats::as_of`].
+pub struct StatsAsOf<'a> {
+    rows: &'a [SampleRow],
+    events: &'a [TimelineEvent],
+    stats: &'a GameStats,
+}
+
+impl<'a> StatsAsOf<'a> {
     /// How much of the map each player could see as of the last sample.
     pub fn vision(&self) -> Option<&MapVision> {
-        self.vision.as_ref()
+        self.stats.vision.as_ref()
+    }
+
+    /// What a player has on their number keys, as of the last sample.
+    pub fn control_groups(&self, player: u8) -> &[ControlGroup] {
+        match self.stats.control_groups.get(player as usize) {
+            Some(groups) => groups,
+            None => &[],
+        }
     }
 
     /// The most recent sample for a player, or `None` before the first one is taken.
     pub fn latest(&self, player: u8) -> Option<&Sample> {
-        self.players.get(player as usize)?.samples.back()
-    }
-
-    /// How much more a player gathered over the last minute of game time than over the minute
-    /// before it, minerals and gas together: negative where their income fell. `None` until there
-    /// are two whole minutes to compare.
-    pub fn income_trend(&self, player: u8) -> Option<i32> {
-        let samples = &self.players.get(player as usize)?.samples;
-        let len = samples.len();
-        if len < INCOME_WINDOW * 2 + 1 {
-            return None;
-        }
-        let gathered =
-            |sample: &Sample| i64::from(sample.gathered_minerals) + i64::from(sample.gathered_gas);
-        let now = gathered(&samples[len - 1]);
-        let minute_ago = gathered(&samples[len - 1 - INCOME_WINDOW]);
-        let two_minutes_ago = gathered(&samples[len - 1 - INCOME_WINDOW * 2]);
-        let trend = (now - minute_ago) - (minute_ago - two_minutes_ago);
-        Some(trend.clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32)
+        self.rows.last()?.players.get(player as usize)
     }
 
     /// What a player gathered of each resource over the last minute of game time.
@@ -391,416 +373,193 @@ impl GameStats {
     /// scaled up to the minute it is quoted as, so an opening reads as the rate it is running at
     /// rather than as a fraction of one.
     pub fn income_per_minute(&self, player: u8) -> (u32, u32) {
-        let Some(samples) = self.players.get(player as usize).map(|p| &p.samples) else {
-            return (0, 0);
-        };
-        let Some(latest) = samples.back() else {
-            return (0, 0);
-        };
-        let window = samples.len().min(INCOME_WINDOW + 1);
-        if window < 2 {
+        if player as usize >= MAX_PLAYERS {
             return (0, 0);
         }
-        let earliest = &samples[samples.len() - window];
-        let elapsed = (window - 1) as u32;
-        let scale = |now: u32, then: u32| {
-            now.saturating_sub(then)
-                .saturating_mul(INCOME_WINDOW as u32)
-                / elapsed
+        let Some(latest) = self.rows.len().checked_sub(1) else {
+            return (0, 0);
         };
+        let window = income_window(self.rows, latest);
+        let player = player as usize;
         (
-            scale(latest.gathered_minerals, earliest.gathered_minerals),
-            scale(latest.gathered_gas, earliest.gathered_gas),
+            income_over(window, player, |sample| sample.gathered_minerals),
+            income_over(window, player, |sample| sample.gathered_gas),
         )
     }
 
-    /// One player's history of `series`, thinned to at most `points` evenly spaced values.
+    /// How much more a player gathered over the last minute of game time than over the minute
+    /// before it, minerals and gas together, per minute: negative where their income fell. `None`
+    /// until there are two whole minutes to compare.
+    pub fn income_trend(&self, player: u8) -> Option<i32> {
+        if player as usize >= MAX_PLAYERS {
+            return None;
+        }
+        let player = player as usize;
+        let latest = self.rows.last()?;
+        let minute_ago =
+            row_at_or_before(self.rows, latest.frame.checked_sub(INCOME_WINDOW_FRAMES)?)?;
+        let two_minutes_ago = row_at_or_before(
+            self.rows,
+            latest.frame.checked_sub(INCOME_WINDOW_FRAMES * 2)?,
+        )?;
+        let gathered = |row: &SampleRow| row.players[player].gathered();
+        let recent = per_minute(
+            gathered(latest),
+            latest.frame,
+            gathered(minute_ago),
+            minute_ago.frame,
+        )?;
+        let before = per_minute(
+            gathered(minute_ago),
+            minute_ago.frame,
+            gathered(two_minutes_ago),
+            two_minutes_ago.frame,
+        )?;
+        let trend = i64::from(recent) - i64::from(before);
+        Some(trend.clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32)
+    }
+
+    /// One player's history of `series`, read at no more than `points` evenly spaced moments from
+    /// the first sample to the last.
     ///
     /// Thinned rather than handed over whole, because a graph is a few hundred points wide and an
     /// hour of game time is thousands of samples: everything past one value per point is line
-    /// segments shorter than a pixel.
+    /// segments shorter than a pixel. Spaced by frame rather than by sample, so a stretch the
+    /// samples are sparse over takes up the time it lasted.
     pub fn series(&self, player: u8, series: GraphSeries, points: usize) -> Vec<f32> {
-        let Some(samples) = self.players.get(player as usize).map(|p| &p.samples) else {
-            return Vec::new();
-        };
-        if samples.len() < 2 || points < 2 {
+        let rows = self.rows;
+        if player as usize >= MAX_PLAYERS || rows.len() < 2 || points < 2 {
             return Vec::new();
         }
-        let points = points.min(samples.len());
+        let player = player as usize;
+        let points = points.min(rows.len());
+        let first = u64::from(rows[0].frame);
+        let span = u64::from(rows[rows.len() - 1].frame) - first;
         (0..points)
             .map(|point| {
-                let index = (samples.len() - 1) * point / (points - 1);
-                self.value_at(samples, index, series)
+                let frame = first + span * point as u64 / (points - 1) as u64;
+                let index = rows
+                    .partition_point(|row| u64::from(row.frame) <= frame)
+                    .saturating_sub(1);
+                value_at(rows, index, player, series)
             })
             .collect()
     }
 
-    /// What one sample is worth on a plot of `series`.
-    fn value_at(&self, samples: &VecDeque<Sample>, index: usize, series: GraphSeries) -> f32 {
-        let sample = &samples[index];
-        match series {
-            GraphSeries::ArmyValue => sample.army_value() as f32,
-            // A rate rather than a level, so it is the difference across the window ending here.
-            GraphSeries::Income => {
-                let window = (index + 1).min(INCOME_WINDOW + 1);
-                if window < 2 {
-                    return 0.0;
-                }
-                let earliest = &samples[index + 1 - window];
-                let elapsed = (window - 1) as u32;
-                (sample.gathered().saturating_sub(earliest.gathered()) * INCOME_WINDOW as u32
-                    / elapsed) as f32
-            }
-            GraphSeries::Supply => sample.supply_used as f32,
-            GraphSeries::Workers => sample.workers as f32,
-            GraphSeries::Kills => sample.units_killed as f32,
-        }
-    }
-
     /// What has happened, newest first.
-    pub fn events(&self) -> impl Iterator<Item = &TimelineEvent> {
+    pub fn events(&self) -> impl Iterator<Item = &'a TimelineEvent> + use<'a> {
         self.events.iter().rev()
-    }
-
-    /// What a player has on their number keys, as of the last sample.
-    pub fn control_groups(&self, player: u8) -> &[ControlGroup] {
-        match self.players.get(player as usize) {
-            Some(player) => &player.control_groups,
-            None => &[],
-        }
-    }
-
-    /// Takes a sample if one is due, and records everything that changed since the last one.
-    ///
-    /// `active_units` is the game's own list, which is walked once: a second walk per measurement
-    /// would cost as much again for numbers that all come from the same units.
-    pub fn step(
-        &mut self,
-        game: Game,
-        active_units: UnitIterator,
-        units: &UnitArray,
-        hotkey_frames: Option<*const u16>,
-        tile_flags: Option<&[u32]>,
-    ) {
-        let frame = game.frame_count();
-        if self
-            .latest_sample_frame()
-            .is_some_and(|latest| frame < latest)
-        {
-            self.rewind(frame);
-        }
-        if frame < self.next_sample_frame {
-            return;
-        }
-        if let Some(tile_flags) = tile_flags {
-            self.vision = Some(MapVision::read(tile_flags));
-        }
-        // Counted from the frame actually sampled rather than from the one that was due, so a game
-        // whose frame count jumped ahead resumes on the next second instead of catching up through
-        // every second it skipped.
-        self.next_sample_frame = frame.saturating_add(SAMPLE_INTERVAL_FRAMES);
-
-        let mut idle_workers = [0u32; MAX_PLAYERS];
-        let mut depots: Vec<(u8, UnitId, i16, i16)> = Vec::new();
-        let mut buildings: Vec<BuildingSite> = Vec::new();
-        let mut research: Vec<ResearchSite> = Vec::new();
-        for unit in active_units {
-            let player = unit.player() as usize;
-            if player >= MAX_PLAYERS {
-                continue;
-            }
-            let id = unit.id();
-            if !unit.is_completed() {
-                continue;
-            }
-            if id.is_worker() && is_idle(unit) {
-                idle_workers[player] = idle_workers[player].saturating_add(1);
-            }
-            let position = unit.position();
-            if id.is_town_hall() {
-                depots.push((player as u8, id, position.x, position.y));
-            } else if id.is_building() {
-                buildings.push(BuildingSite {
-                    player: player as u8,
-                    unit_id: id,
-                    x: position.x,
-                    y: position.y,
-                });
-            }
-            if id.is_building() {
-                let subjects = [
-                    unit.tech_in_progress().map(TimelineSubject::Tech),
-                    unit.upgrade_in_progress().map(TimelineSubject::Upgrade),
-                ];
-                for subject in subjects.into_iter().flatten() {
-                    research.push(ResearchSite {
-                        player: player as u8,
-                        subject,
-                        x: position.x,
-                        y: position.y,
-                    });
-                }
-            }
-        }
-
-        let totals = unit_totals(game);
-        for player in 0..MAX_PLAYERS {
-            let totals = &totals[player];
-            let sample = Sample {
-                frame,
-                gathered_minerals: bw::gathered_minerals(game, player as u8),
-                gathered_gas: bw::gathered_gas(game, player as u8),
-                army_minerals: totals.army_minerals,
-                army_gas: totals.army_gas,
-                workers: totals.workers,
-                idle_workers: idle_workers[player].min(totals.workers),
-                supply_used: supply_used(game, player as u8),
-                units_killed: game.score(SCORE_UNITS_KILLED, player as u8),
-                units_lost: game.score(SCORE_UNITS_LOST, player as u8),
-                worker_kills: totals.worker_kills,
-                worker_losses: totals.worker_losses,
-            };
-            self.players[player].push(sample);
-        }
-
-        self.record_depots(game, frame, &depots);
-        self.record_buildings(game, frame, buildings);
-        self.record_research(game, frame, &research);
-        self.record_control_groups(game, frame, units, hotkey_frames);
-        self.seeded = true;
-    }
-
-    /// Replaces every player's number-key groups with what the game has on them right now.
-    fn record_control_groups(
-        &mut self,
-        game: Game,
-        frame: u32,
-        units: &UnitArray,
-        hotkey_frames: Option<*const u16>,
-    ) {
-        // Truncated to the width the game stores a group's stamp at, so the two are subtracted in
-        // the same arithmetic: a group untouched for longer than that width wraps and reads as
-        // freshly used, which costs a dimmed tile rather than a wrong number.
-        let now = frame as u16;
-        for player in 0..MAX_PLAYERS {
-            let groups = &mut self.players[player].control_groups;
-            groups.clear();
-            for group in 0..NUMBER_KEY_GROUPS {
-                let Some(contents) = read_control_group(game, units, player, group) else {
-                    continue;
-                };
-                let stale = hotkey_frames
-                    .and_then(|frames| unsafe { last_used_frame(frames, player, group) })
-                    .is_some_and(|used| now.wrapping_sub(used) > STALE_FRAMES);
-                groups.push(ControlGroup {
-                    // The game indexes a group by the digit it is bound with.
-                    key: group as u8,
-                    unit_id: contents.dominant,
-                    secondary_unit_id: contents.runner_up,
-                    count: contents.count,
-                    building: contents.dominant.is_building(),
-                    stale,
-                });
-            }
-        }
-    }
-
-    /// Notes a timeline entry, dropping the oldest once the feed is full.
-    ///
-    /// Silent until the game has been sampled once: a map may start with buildings, upgrades and
-    /// bases already in place, and every one of them would otherwise be reported as having just
-    /// happened on the first frame.
-    fn push_event(
-        &mut self,
-        frame: u32,
-        player: u8,
-        kind: TimelineEventKind,
-        subject: TimelineSubject,
-        position: Option<(i16, i16)>,
-    ) {
-        if !self.seeded {
-            return;
-        }
-        if self.events.len() == MAX_EVENTS {
-            self.events.pop_front();
-        }
-        self.events.push_back(TimelineEvent {
-            frame,
-            player,
-            kind,
-            subject,
-            position,
-        });
-    }
-
-    /// Reports resource depots that were not standing at the last sample, as expansions when they
-    /// are away from the player's own start location and as ordinary buildings when they are not.
-    ///
-    /// Driven from where the depots stand rather than from how many there are, because what makes a
-    /// depot an expansion is where it was put.
-    fn record_depots(&mut self, game: Game, frame: u32, depots: &[(u8, UnitId, i16, i16)]) {
-        for &(player, id, x, y) in depots {
-            let known = &mut self.players[player as usize].known_depots;
-            if known
-                .iter()
-                .any(|&(known_x, known_y)| within(known_x, known_y, x, y, SAME_DEPOT_DISTANCE))
-            {
-                continue;
-            }
-            if known.len() == MAX_KNOWN_DEPOTS {
-                known.remove(0);
-            }
-            known.push((x, y));
-            let start = start_position(game, player);
-            let kind = match within(start.0, start.1, x, y, EXPANSION_DISTANCE) {
-                true => TimelineEventKind::BuildingCompleted,
-                false => TimelineEventKind::ExpansionTaken,
-            };
-            self.push_event(frame, player, kind, TimelineSubject::Unit(id), Some((x, y)));
-        }
-    }
-
-    /// Reports every building that finished since the last sample.
-    ///
-    /// Resource depots are left out: they are reported from where they stand, which is the only way
-    /// to tell an expansion from another building in the main.
-    ///
-    /// Counted from the game's own tallies, and put on the map at the buildings of the kind that
-    /// were not standing at the last sample (`buildings` is every finished one now).
-    fn record_buildings(&mut self, game: Game, frame: u32, buildings: Vec<BuildingSite>) {
-        let previous_buildings = mem::take(&mut self.previous.buildings);
-        let mut fresh = buildings
-            .iter()
-            .filter(|site| !previous_buildings.contains(site))
-            .copied()
-            .collect::<Vec<_>>();
-        for id in 0..UNIT_ID_COUNT.min(UnitId::entry_amount()) {
-            let unit_id = UnitId(id as u16);
-            if !unit_id.is_building() || unit_id.is_town_hall() {
-                continue;
-            }
-            for player in 0..MAX_PLAYERS {
-                let count = game.completed_count(player as u8, unit_id);
-                let previous = &mut self.previous.completed_units[id as usize][player];
-                let built = count.saturating_sub(*previous);
-                *previous = count;
-                for _ in 0..built {
-                    let site = fresh
-                        .iter()
-                        .position(|site| site.player == player as u8 && site.unit_id == unit_id)
-                        .map(|index| fresh.swap_remove(index));
-                    self.push_event(
-                        frame,
-                        player as u8,
-                        TimelineEventKind::BuildingCompleted,
-                        TimelineSubject::Unit(unit_id),
-                        site.map(|site| (site.x, site.y)),
-                    );
-                }
-            }
-        }
-        self.previous.buildings = buildings;
-    }
-
-    /// Where `player`'s research `subject` was last seen running.
-    fn research_site(&self, player: u8, subject: TimelineSubject) -> Option<(i16, i16)> {
-        self.previous
-            .research_sites
-            .iter()
-            .find(|site| site.player == player && site.subject == subject)
-            .map(|site| (site.x, site.y))
-    }
-
-    /// Reports every upgrade and technology that was started or finished since the last sample.
-    ///
-    /// A start is the game's in-progress flag going up and a finish is the level or the researched
-    /// flag moving, so an upgrade cancelled halfway reports its start and nothing else, which is
-    /// exactly what happened. Both are put on the map at the building the research runs in, as found
-    /// in `running` (every research in progress now) by this sample or an earlier one.
-    fn record_research(&mut self, game: Game, frame: u32, running: &[ResearchSite]) {
-        for site in running {
-            let known = &mut self.previous.research_sites;
-            match known
-                .iter_mut()
-                .find(|known| known.player == site.player && known.subject == site.subject)
-            {
-                Some(known) => *known = *site,
-                None => known.push(*site),
-            }
-        }
-        for id in 0..UPGRADE_COUNT.min(UpgradeId::entry_amount()) {
-            let upgrade = UpgradeId(id as u16);
-            for player in 0..MAX_PLAYERS {
-                let level = game.upgrade_level(player as u8, upgrade);
-                let in_progress = game.upgrade_in_progress(player as u8, upgrade);
-                let was_level = &mut self.previous.upgrade_level[player][id as usize];
-                let finished = level > *was_level;
-                *was_level = level;
-                let was_running = &mut self.previous.upgrade_in_progress[player][id as usize];
-                let started = in_progress && !*was_running;
-                *was_running = in_progress;
-                if started {
-                    self.push_event(
-                        frame,
-                        player as u8,
-                        TimelineEventKind::UpgradeStarted,
-                        TimelineSubject::Upgrade(upgrade),
-                        self.research_site(player as u8, TimelineSubject::Upgrade(upgrade)),
-                    );
-                }
-                if finished {
-                    self.push_event(
-                        frame,
-                        player as u8,
-                        TimelineEventKind::UpgradeCompleted,
-                        TimelineSubject::Upgrade(upgrade),
-                        self.research_site(player as u8, TimelineSubject::Upgrade(upgrade)),
-                    );
-                }
-            }
-        }
-        for id in 0..TECH_COUNT.min(TechId::entry_amount()) {
-            let tech = TechId(id as u16);
-            for player in 0..MAX_PLAYERS {
-                let researched = game.tech_researched(player as u8, tech);
-                let in_progress = game.tech_in_progress(player as u8, tech);
-                let was_researched = &mut self.previous.tech_researched[player][id as usize];
-                let finished = researched && !*was_researched;
-                *was_researched = researched;
-                let was_running = &mut self.previous.tech_in_progress[player][id as usize];
-                let started = in_progress && !*was_running;
-                *was_running = in_progress;
-                if started {
-                    self.push_event(
-                        frame,
-                        player as u8,
-                        TimelineEventKind::TechStarted,
-                        TimelineSubject::Tech(tech),
-                        self.research_site(player as u8, TimelineSubject::Tech(tech)),
-                    );
-                }
-                if finished {
-                    self.push_event(
-                        frame,
-                        player as u8,
-                        TimelineEventKind::TechCompleted,
-                        TimelineSubject::Tech(tech),
-                        self.research_site(player as u8, TimelineSubject::Tech(tech)),
-                    );
-                }
-            }
-        }
     }
 }
 
-/// What one group is made of, as one reading of it found.
-struct GroupContents {
-    /// The kind the group is named by.
-    dominant: UnitId,
-    /// The kind it is also named by, for a group that is enough of a mix to be worth calling one.
-    runner_up: Option<UnitId>,
-    /// How many living units are in it.
-    count: u32,
+/// What one player's sample in `rows[index]` is worth on a plot of `series`.
+fn value_at(rows: &[SampleRow], index: usize, player: usize, series: GraphSeries) -> f32 {
+    let sample = &rows[index].players[player];
+    match series {
+        GraphSeries::ArmyValue => sample.army_value() as f32,
+        // A rate rather than a level, so it is measured over the window ending here.
+        GraphSeries::Income => {
+            income_over(income_window(rows, index), player, Sample::gathered) as f32
+        }
+        GraphSeries::Supply => sample.supply_used as f32,
+        GraphSeries::Workers => sample.workers as f32,
+        GraphSeries::Kills => sample.units_killed as f32,
+    }
+}
+
+/// The two samples the income at `rows[index]` is measured between: that one, and the newest at
+/// least a minute of game time older, or the first where there is less than a minute of history.
+///
+/// Rates are then taken over the frames actually between the two, so a stretch the samples skipped
+/// is averaged over rather than counted as one interval.
+fn income_window(rows: &[SampleRow], index: usize) -> (&SampleRow, &SampleRow) {
+    let latest = &rows[index];
+    let earliest = row_at_or_before(
+        &rows[..=index],
+        latest.frame.saturating_sub(INCOME_WINDOW_FRAMES),
+    )
+    .unwrap_or(&rows[0]);
+    (latest, earliest)
+}
+
+/// How much of what `read` picks out of `player`'s samples was gathered per minute between the two
+/// ends of a window.
+fn income_over(
+    (latest, earliest): (&SampleRow, &SampleRow),
+    player: usize,
+    read: impl Fn(&Sample) -> u32,
+) -> u32 {
+    per_minute(
+        read(&latest.players[player]),
+        latest.frame,
+        read(&earliest.players[player]),
+        earliest.frame,
+    )
+    .unwrap_or(0)
+}
+
+/// The newest row taken on or before `frame`.
+fn row_at_or_before(rows: &[SampleRow], frame: u32) -> Option<&SampleRow> {
+    rows[..rows.partition_point(|row| row.frame <= frame)].last()
+}
+
+/// How much a total that went from `then` at `then_frame` to `now` at `now_frame` grew per minute
+/// of game time, or `None` with no time between the two.
+fn per_minute(now: u32, now_frame: u32, then: u32, then_frame: u32) -> Option<u32> {
+    let elapsed = now_frame
+        .checked_sub(then_frame)
+        .filter(|&elapsed| elapsed > 0)?;
+    let grown = u64::from(now.saturating_sub(then)) * u64::from(INCOME_WINDOW_FRAMES);
+    Some((grown / u64::from(elapsed)).min(u64::from(u32::MAX)) as u32)
+}
+
+/// Halves the detail of the older half of `rows`, keeping its first sample: a graph of a long game
+/// is a few hundred points wide, so the start of it loses nothing at one sample every few seconds,
+/// and rates are measured by the frames between samples so they stay true.
+fn thin_older_half(rows: &mut Vec<SampleRow>) {
+    let older = rows.len() / 2;
+    let mut index = 0;
+    rows.retain(|_| {
+        let keep = index >= older || index.is_multiple_of(2);
+        index += 1;
+        keep
+    });
+}
+
+/// Every player's sample out of one snapshot.
+fn player_samples(snapshot: &GameSnapshot, catalog: &impl UnitCatalog) -> [Sample; MAX_PLAYERS] {
+    let mut workers = [0u32; MAX_PLAYERS];
+    let mut army = [HalfCost::default(); MAX_PLAYERS];
+    for (id, counts) in snapshot.completed_units.iter().enumerate() {
+        let unit_id = UnitId(id as u16);
+        if catalog.is_worker(unit_id) {
+            for (workers, &count) in workers.iter_mut().zip(counts) {
+                *workers = workers.saturating_add(count);
+            }
+        } else if counts_as_army(catalog, unit_id) {
+            let cost = invested_cost(catalog, unit_id);
+            for (army, &count) in army.iter_mut().zip(counts) {
+                *army = army.add(cost.times(count));
+            }
+        }
+    }
+    std::array::from_fn(|player| {
+        let read = &snapshot.players[player];
+        let (army_minerals, army_gas) = army[player].whole();
+        Sample {
+            gathered_minerals: read.gathered_minerals,
+            gathered_gas: read.gathered_gas,
+            army_minerals,
+            army_gas,
+            workers: workers[player],
+            idle_workers: read.idle_workers.min(workers[player]),
+            supply_used: read.supply_used,
+            units_killed: read.units_killed,
+            units_lost: read.units_lost,
+            worker_kills: read.worker_kills,
+            worker_losses: read.worker_losses,
+        }
+    })
 }
 
 /// How small a share of a group its second kind may hold and still be worth naming, as the divisor
@@ -811,77 +570,41 @@ struct GroupContents {
 /// mix, which is a different army and worth saying so.
 const COMBO_SHARE_DIVISOR: u32 = 4;
 
-/// The living units on one of a player's number keys, in the group's order: what recalling it would
-/// select.
-pub fn control_group_units(game: Game, units: &UnitArray, player: u8, group: u8) -> Vec<Unit> {
-    let Some(ids) = (unsafe {
-        (**game)
-            .selection_hotkeys
-            .get(player as usize)
-            .and_then(|groups| groups.get(group as usize))
-            .copied()
-    }) else {
-        return Vec::new();
-    };
-    // Zero is the game's own end of the group rather than a unit it failed to find.
-    let stored = ids.iter().take_while(|&&id| id != 0);
-    // The game's own recall: a group stored with more than one unit leaves out what can only be
-    // selected alone (an egg, a building), and what is out of sight inside something or no longer
-    // the player's. Counted as stored, so a group whose other units have died still leaves out
-    // its egg.
-    let alone = stored.clone().count() <= 1;
-    stored
-        .filter_map(|&id| units.get_by_unique_id(id))
-        .filter(|unit| {
-            !unit.is_hidden()
-                && unit.player() == player
-                && (alone || unsafe { super::can_be_group_selected(**unit) })
+/// One player's number-key groups as `player` read them on `frame`.
+fn read_control_groups(
+    player: &PlayerSnapshot,
+    frame: u32,
+    catalog: &impl UnitCatalog,
+) -> Vec<ControlGroup> {
+    // Truncated to the width the game stores a group's stamp at, so the two are subtracted in the
+    // same arithmetic: a group untouched for longer than that width wraps and reads as freshly
+    // used, which costs a dimmed tile rather than a wrong number.
+    let now = frame as u16;
+    player
+        .control_groups
+        .iter()
+        .enumerate()
+        .filter_map(|(key, reading)| {
+            let reading = reading.as_ref()?;
+            let tally: Vec<(UnitId, u32, u32)> = reading
+                .kinds
+                .iter()
+                .map(|&(id, held)| (id, held, invested_cost(catalog, id).total()))
+                .collect();
+            let (dominant, runner_up) = group_composition(&tally)?;
+            Some(ControlGroup {
+                // The game indexes a group by the digit it is bound with.
+                key: key as u8,
+                unit_id: dominant,
+                secondary_unit_id: runner_up,
+                count: reading.kinds.iter().map(|&(_, held)| held).sum(),
+                building: catalog.is_building(dominant),
+                stale: reading
+                    .last_used
+                    .is_some_and(|used| now.wrapping_sub(used) > STALE_FRAMES),
+            })
         })
         .collect()
-}
-
-/// Reads one of a player's selection groups: what it is made of and how many living units are in
-/// it, or `None` for a group with nothing on it.
-///
-/// The game stores unique unit ids rather than pointers, so an id that no longer resolves is a unit
-/// that has died and is simply not counted: the count is what recalling the group would select.
-fn read_control_group(
-    game: Game,
-    units: &UnitArray,
-    player: usize,
-    group: usize,
-) -> Option<GroupContents> {
-    let ids = unsafe { *(**game).selection_hotkeys.get(player)?.get(group)? };
-    let mut tally: Vec<(UnitId, u32, u32)> = Vec::new();
-    let mut count = 0;
-    for id in ids {
-        // Zero is the game's own end of the group rather than a unit it failed to find.
-        if id == 0 {
-            break;
-        }
-        let Some(unit) = units.get_by_unique_id(id) else {
-            continue;
-        };
-        count += 1;
-        let unit_id = unit.id();
-        match tally
-            .iter_mut()
-            .find(|(candidate, _, _)| *candidate == unit_id)
-        {
-            Some(entry) => entry.1 += 1,
-            None => tally.push((
-                unit_id,
-                1,
-                unit_id.mineral_cost().saturating_add(unit_id.gas_cost()),
-            )),
-        }
-    }
-    let (dominant, runner_up) = group_composition(&tally)?;
-    Some(GroupContents {
-        dominant,
-        runner_up,
-        count,
-    })
 }
 
 /// Picks the one or two kinds that name a group, out of its tally of `(kind, units, cost)`.
@@ -909,133 +632,109 @@ fn group_composition(tally: &[(UnitId, u32, u32)]) -> Option<(UnitId, Option<Uni
     Some((tally[leader].0, runner_up))
 }
 
-/// The frame a group was last written on, read out of the table the game keeps it in.
-///
-/// # Safety
-///
-/// `frames` must point at the game's own `u16[player][group]` stamp table, which is what the binary
-/// analysis resolves it as.
-unsafe fn last_used_frame(frames: *const u16, player: usize, group: usize) -> Option<u16> {
-    if frames.is_null() || player >= MAX_PLAYERS || group >= HOTKEY_GROUPS {
-        return None;
-    }
-    unsafe { Some(frames.add(player * HOTKEY_GROUPS + group).read_unaligned()) }
-}
-
-/// What one player owns, summed over the game's own per-unit counts.
-#[derive(Copy, Clone, Default)]
-struct UnitTotals {
-    workers: u32,
-    army_minerals: u32,
-    army_gas: u32,
-    worker_kills: u32,
-    worker_losses: u32,
-}
-
-/// Sums every player's units out of the game's count tables.
-///
-/// Counted from the tables rather than by walking the unit list, because the tables include what the
-/// list does not: a worker inside a refinery and a marine inside a dropship are both hidden from the
-/// active list, and an army that shrank every time it loaded into a transport would be worse than no
-/// army number at all.
-fn unit_totals(game: Game) -> [UnitTotals; MAX_PLAYERS] {
-    let mut totals = [UnitTotals::default(); MAX_PLAYERS];
-    for id in 0..UNIT_ID_COUNT.min(UnitId::entry_amount()) {
-        let unit_id = UnitId(id as u16);
-        let worker = unit_id.is_worker();
-        let army = counts_as_army(unit_id);
-        if !worker && !army {
-            continue;
-        }
-        let (minerals, gas) = (unit_id.mineral_cost(), unit_id.gas_cost());
-        for (player, totals) in totals.iter_mut().enumerate() {
-            let count = game.completed_count(player as u8, unit_id);
-            if worker {
-                totals.workers = totals.workers.saturating_add(count);
-                totals.worker_kills = totals
-                    .worker_kills
-                    .saturating_add(game.unit_kills(player as u8, unit_id));
-                totals.worker_losses = totals
-                    .worker_losses
-                    .saturating_add(game.unit_deaths(player as u8, unit_id));
-            } else {
-                totals.army_minerals = totals
-                    .army_minerals
-                    .saturating_add(count.saturating_mul(minerals));
-                totals.army_gas = totals.army_gas.saturating_add(count.saturating_mul(gas));
-            }
-        }
-    }
-    totals
-}
-
-/// Whether a unit is part of what a player would fight with.
-///
-/// Buildings are what an army is made in rather than part of it, workers have a panel of their own,
-/// subunits are the turret half of a unit already counted, and the things eggs and scarabs are do
-/// not survive being counted: an egg is a unit on the way, which the production panel is already
-/// showing. Overlords are a zerg's supply, as depots and pylons are the other races', whatever else
-/// they can be put to.
-fn counts_as_army(id: UnitId) -> bool {
-    if id.is_building() || id.is_worker() || id.is_subunit() || id.is_powerup() {
-        return false;
-    }
-    !matches!(
-        id,
-        unit::LARVA | unit::EGG | unit::LURKER_EGG | unit::COCOON | unit::SCARAB | unit::OVERLORD
-    )
-}
-
-/// Whether a worker has nothing to do.
-///
-/// These are the orders a unit sits in while it waits to be told something. A worker mining, moving,
-/// building or repairing is in an order of its own, so anything left here is a worker earning
-/// nothing.
-fn is_idle(unit: bw_dat::Unit) -> bool {
-    matches!(
-        unit.order(),
-        order::NOTHING | order::STOP | order::GUARD | order::PLAYER_GUARD
-    )
-}
-
-/// Supply in the units the game shows, summed over the three races' tables.
-///
-/// Summed rather than read off the player's own race, because a player can end up owning units of
-/// another race — a mind-controlled dropship, a map that hands them out — and the supply those cost
-/// is supply they are paying for.
-fn supply_used(game: Game, player: u8) -> u32 {
-    // Counted internally at twice what the game shows, because a zergling costs half of one, so what
-    // is used rounds up.
-    let total: u32 = [
-        bw_dat::Race::Zerg,
-        bw_dat::Race::Terran,
-        bw_dat::Race::Protoss,
-    ]
-    .into_iter()
-    .map(|race| game.supply_used(player, race))
-    .sum();
-    total.wrapping_add(1) / 2
-}
-
-/// Where a player's game began, in map pixels.
-fn start_position(game: Game, player: u8) -> (i16, i16) {
-    let position = unsafe { (**game).start_position.get(player as usize).copied() };
-    match position {
-        Some([x, y]) => (x as i16, y as i16),
-        None => (0, 0),
-    }
-}
-
-/// Whether two map positions are within `distance` pixels of each other.
-fn within(ax: i16, ay: i16, bx: i16, by: i16, distance: i32) -> bool {
-    let dx = i32::from(ax) - i32::from(bx);
-    let dy = i32::from(ay) - i32::from(by);
-    dx * dx + dy * dy <= distance * distance
-}
-
 #[cfg(test)]
 mod tests {
+    use bw_dat::unit;
+
+    use super::snapshot::{BuildingSite, DepotSite, ResearchLevels};
+    use super::unit_value::tests::FakeUnits;
     use super::*;
+
+    const SECOND: u32 = SAMPLE_INTERVAL_FRAMES;
+    const MINUTE: u32 = 60 * SECOND;
+
+    /// Player 0's main, and a base far enough from it to be an expansion.
+    const MAIN: (i16, i16) = (1000, 1000);
+    const NATURAL: (i16, i16) = (2000, 1000);
+
+    /// A game where nothing has happened yet on `frame`, but for player 0 having gathered ten of
+    /// each resource every second so far.
+    fn snapshot(frame: u32) -> GameSnapshot {
+        let mut players: [PlayerSnapshot; MAX_PLAYERS] = Default::default();
+        players[0].gathered_minerals = frame / SECOND * 10;
+        players[0].gathered_gas = frame / SECOND * 10;
+        players[0].start = MAIN;
+        GameSnapshot {
+            frame,
+            players,
+            completed_units: vec![[0; MAX_PLAYERS]; UNIT_ID_COUNT as usize].into_boxed_slice(),
+            research: ResearchLevels::new(),
+            depots: Vec::new(),
+            buildings: Vec::new(),
+            research_sites: Vec::new(),
+            vision: None,
+        }
+    }
+
+    /// Steps `stats` through every frame in `frames`, each with what `game` says the game held then.
+    fn play(
+        stats: &mut GameStats,
+        frames: std::ops::RangeInclusive<u32>,
+        resimulation: Resimulation,
+        game: impl Fn(u32) -> GameSnapshot,
+    ) {
+        let units = FakeUnits::standard();
+        for frame in frames {
+            stats.step(frame, resimulation, &units, || game(frame));
+        }
+    }
+
+    fn replay(stats: &mut GameStats, frames: std::ops::RangeInclusive<u32>) {
+        play(stats, frames, Resimulation::Identical, game_with_barracks);
+    }
+
+    /// The game [`snapshot`] describes, with player 0 finishing a barracks at ten minutes.
+    fn game_with_barracks(frame: u32) -> GameSnapshot {
+        let mut snapshot = snapshot(frame);
+        if frame >= 10 * MINUTE {
+            snapshot.completed_units[unit::BARRACKS.0 as usize][0] = 1;
+            snapshot.buildings.push(BuildingSite {
+                player: 0,
+                unit_id: unit::BARRACKS,
+                x: 1100,
+                y: 1000,
+            });
+        }
+        snapshot
+    }
+
+    /// The frames of the events visible in `stats`, oldest first.
+    fn event_frames(stats: &StatsAsOf<'_>) -> Vec<u32> {
+        let mut frames: Vec<u32> = stats.events().map(|event| event.frame).collect();
+        frames.reverse();
+        frames
+    }
+
+    fn depot(unique_id: u32, unit_id: UnitId, (x, y): (i16, i16)) -> DepotSite {
+        DepotSite {
+            player: 0,
+            unique_id,
+            unit_id,
+            x,
+            y,
+            completed: true,
+            landed: true,
+        }
+    }
+
+    /// Takes one sample a second of each set of depots in `samples`, and returns what was reported
+    /// as `(kind, subject, second)`, oldest first.
+    fn depot_events(samples: &[Vec<DepotSite>]) -> Vec<(TimelineEventKind, TimelineSubject, u32)> {
+        let mut stats = GameStats::new();
+        for (index, depots) in samples.iter().enumerate() {
+            let frame = (index as u32 + 1) * SECOND;
+            let mut snapshot = snapshot(frame);
+            snapshot.depots = depots.clone();
+            stats.apply(snapshot, Resimulation::Identical, &FakeUnits::standard());
+        }
+        let mut events: Vec<_> = stats
+            .as_of(u32::MAX)
+            .events()
+            .map(|event| (event.kind, event.subject, event.frame / SECOND))
+            .collect();
+        events.reverse();
+        events
+    }
 
     #[test]
     fn a_side_sees_every_tile_any_of_its_players_does() {
@@ -1048,98 +747,68 @@ mod tests {
         assert_eq!(MapVision::read(&[]).seen_by(0b1), 0.0);
     }
 
-    /// A history of `count` samples, each gathering `per_second` of each resource.
-    fn steady(count: usize, per_second: u32) -> VecDeque<Sample> {
-        (0..count as u32)
-            .map(|second| Sample {
-                gathered_minerals: second * per_second,
-                gathered_gas: second * per_second,
-                ..Sample::default()
-            })
-            .collect()
-    }
-
-    fn stats_with(samples: VecDeque<Sample>) -> GameStats {
-        let mut stats = GameStats::new();
-        stats.players[0].samples = samples;
-        stats
-    }
-
     #[test]
-    fn going_back_forgets_what_came_after_and_keeps_what_came_before() {
-        let samples = (0..10u32)
-            .map(|second| Sample {
-                frame: second * SAMPLE_INTERVAL_FRAMES,
-                ..Sample::default()
-            })
-            .collect();
-        let mut stats = stats_with(samples);
-        for frame in [48, 120, 200] {
-            stats.events.push_back(TimelineEvent {
-                frame,
-                player: 0,
-                kind: TimelineEventKind::BuildingCompleted,
-                subject: TimelineSubject::Unit(UnitId(0)),
-                position: None,
-            });
-        }
-        stats.seeded = true;
-        stats.rewind(130);
-        assert_eq!(stats.latest_sample_frame(), Some(120));
-        assert_eq!(
-            stats
-                .events
-                .iter()
-                .map(|event| event.frame)
-                .collect::<Vec<_>>(),
-            [48, 120]
-        );
-        assert!(!stats.seeded, "the next sample takes stock afresh");
+    fn samples_are_taken_once_a_second() {
+        let mut stats = GameStats::new();
+        replay(&mut stats, 1..=10 * SECOND + 5);
+        assert_eq!(stats.rows.len(), 10);
+        assert!(stats.rows.iter().all(|row| row.frame % SECOND == 0));
     }
 
     #[test]
     fn income_is_a_rate_over_the_last_minute() {
-        let stats = stats_with(steady(300, 10));
-        assert_eq!(stats.income_per_minute(0), (600, 600));
+        let mut stats = GameStats::new();
+        replay(&mut stats, 1..=5 * MINUTE);
+        assert_eq!(stats.as_of(5 * MINUTE).income_per_minute(0), (600, 600));
     }
 
     #[test]
     fn a_game_shorter_than_the_window_is_quoted_at_the_rate_it_is_running_at() {
         // Ten seconds in at ten a second is six hundred a minute, not the hundred gathered so far.
-        let stats = stats_with(steady(11, 10));
-        assert_eq!(stats.income_per_minute(0), (600, 600));
+        let mut stats = GameStats::new();
+        replay(&mut stats, 1..=11 * SECOND);
+        assert_eq!(stats.as_of(11 * SECOND).income_per_minute(0), (600, 600));
     }
 
     #[test]
     fn the_trend_is_this_minutes_income_against_the_last() {
-        // Ten a second of each resource for two minutes, then fifteen.
-        let mut samples = steady(121, 10);
-        let base = samples.back().unwrap().gathered_minerals;
-        for second in 1..=60u32 {
-            samples.push_back(Sample {
-                gathered_minerals: base + second * 15,
-                gathered_gas: base + second * 15,
-                ..Sample::default()
-            });
-        }
-        let stats = stats_with(samples);
+        // Ten a second of each resource for three minutes, then fifteen.
+        let mut stats = GameStats::new();
+        play(
+            &mut stats,
+            1..=4 * MINUTE,
+            Resimulation::Identical,
+            |frame| {
+                let mut snapshot = snapshot(frame);
+                let seconds = frame / SECOND;
+                let gathered = seconds * 10 + seconds.saturating_sub(180) * 5;
+                snapshot.players[0].gathered_minerals = gathered;
+                snapshot.players[0].gathered_gas = gathered;
+                snapshot
+            },
+        );
         // 1,800 a minute against 1,200 the minute before.
-        assert_eq!(stats.income_trend(0), Some(600));
+        assert_eq!(stats.as_of(4 * MINUTE).income_trend(0), Some(600));
     }
 
     #[test]
     fn a_steady_income_has_no_trend() {
-        assert_eq!(stats_with(steady(200, 10)).income_trend(0), Some(0));
+        let mut stats = GameStats::new();
+        replay(&mut stats, 1..=4 * MINUTE);
+        assert_eq!(stats.as_of(4 * MINUTE).income_trend(0), Some(0));
     }
 
     #[test]
     fn there_is_no_trend_before_two_minutes() {
-        assert_eq!(stats_with(steady(120, 10)).income_trend(0), None);
+        let mut stats = GameStats::new();
+        replay(&mut stats, 1..=2 * MINUTE);
+        assert_eq!(stats.as_of(2 * MINUTE).income_trend(0), None);
     }
 
     #[test]
     fn a_game_with_nothing_in_it_yet_has_no_rate() {
         let stats = GameStats::new();
+        let stats = stats.as_of(0);
         assert_eq!(stats.income_per_minute(0), (0, 0));
         assert!(stats.latest(0).is_none());
         assert!(stats.series(0, GraphSeries::Income, 64).is_empty());
@@ -1147,42 +816,272 @@ mod tests {
 
     #[test]
     fn a_series_is_thinned_to_the_points_asked_for_and_keeps_its_ends() {
-        let mut samples = VecDeque::new();
-        for workers in 0..500u32 {
-            samples.push_back(Sample {
-                workers,
-                ..Sample::default()
-            });
-        }
-        let stats = stats_with(samples);
-        let series = stats.series(0, GraphSeries::Workers, 100);
+        let mut stats = GameStats::new();
+        play(
+            &mut stats,
+            1..=500 * SECOND,
+            Resimulation::Identical,
+            |frame| {
+                let mut snapshot = snapshot(frame);
+                snapshot.completed_units[unit::SCV.0 as usize][0] = frame / SECOND;
+                snapshot
+            },
+        );
+        let series = stats
+            .as_of(500 * SECOND)
+            .series(0, GraphSeries::Workers, 100);
         assert_eq!(series.len(), 100);
-        assert_eq!(series.first(), Some(&0.0));
-        assert_eq!(series.last(), Some(&499.0));
+        assert_eq!(series.first(), Some(&1.0));
+        assert_eq!(series.last(), Some(&500.0));
     }
 
     #[test]
     fn a_series_shorter_than_the_points_asked_for_is_left_whole() {
-        let stats = stats_with(steady(7, 1));
-        assert_eq!(stats.series(0, GraphSeries::Supply, 100).len(), 7);
+        let mut stats = GameStats::new();
+        replay(&mut stats, 1..=7 * SECOND);
+        let series = stats.as_of(7 * SECOND).series(0, GraphSeries::Supply, 100);
+        assert_eq!(series.len(), 7);
     }
 
     #[test]
-    fn a_history_is_bounded_by_the_two_hours_it_keeps() {
-        let mut player = PlayerStats::new();
-        for workers in 0..(MAX_SAMPLES as u32 + 10) {
-            player.push(Sample {
-                workers,
-                ..Sample::default()
-            });
-        }
-        assert_eq!(player.samples.len(), MAX_SAMPLES);
-        // The oldest go rather than the newest: a graph of the last two hours is worth more than a
-        // graph frozen at the first two.
-        assert_eq!(
-            player.samples.back().map(|s| s.workers),
-            Some(MAX_SAMPLES as u32 + 9)
+    fn a_seek_back_shows_the_history_as_it_stood_then() {
+        let mut stats = GameStats::new();
+        replay(&mut stats, 1..=15 * MINUTE);
+        assert_eq!(event_frames(&stats.as_of(15 * MINUTE)), [10 * MINUTE]);
+        // A keyframe at five minutes is restored, and the replay fast-forwards to six.
+        replay(&mut stats, 5 * MINUTE + 1..=6 * MINUTE);
+        let then = stats.as_of(6 * MINUTE);
+        assert_eq!(then.rows.last().map(|row| row.frame), Some(6 * MINUTE));
+        assert!(event_frames(&then).is_empty());
+        assert_eq!(then.income_per_minute(0), (600, 600));
+    }
+
+    #[test]
+    fn a_seek_forward_onto_history_already_taken_keeps_it_as_it_was() {
+        let mut stats = GameStats::new();
+        replay(&mut stats, 1..=15 * MINUTE);
+        replay(&mut stats, 5 * MINUTE + 1..=6 * MINUTE);
+        // A keyframe at fourteen minutes is restored, past the barracks and eight minutes on from
+        // the frame the seek started at.
+        replay(&mut stats, 14 * MINUTE + 1..=14 * MINUTE + 30 * SECOND);
+        let now = stats.as_of(14 * MINUTE + 30 * SECOND);
+        assert_eq!(now.income_per_minute(0), (600, 600));
+        assert_eq!(now.income_trend(0), Some(0));
+        assert_eq!(event_frames(&now), [10 * MINUTE]);
+        assert_eq!(stats.rows.len(), (15 * MINUTE / SECOND) as usize);
+    }
+
+    #[test]
+    fn going_back_and_playing_on_records_nothing_twice() {
+        let mut stats = GameStats::new();
+        replay(&mut stats, 1..=12 * MINUTE);
+        replay(&mut stats, 9 * MINUTE + 1..=16 * MINUTE);
+        assert_eq!(stats.rows.len(), (16 * MINUTE / SECOND) as usize);
+        assert!(
+            stats
+                .rows
+                .windows(2)
+                .all(|pair| pair[0].frame < pair[1].frame)
         );
+        assert_eq!(event_frames(&stats.as_of(16 * MINUTE)), [10 * MINUTE]);
+    }
+
+    #[test]
+    fn rates_are_measured_over_the_time_actually_between_samples() {
+        let mut stats = GameStats::new();
+        replay(&mut stats, 1..=5 * MINUTE);
+        // Nothing is sampled between five and fifteen minutes, but the game went on gathering.
+        replay(&mut stats, 15 * MINUTE..=15 * MINUTE + 10 * SECOND);
+        let now = stats.as_of(15 * MINUTE + 10 * SECOND);
+        assert_eq!(now.income_per_minute(0), (600, 600));
+        // A minute ago and two minutes ago are both in the gap, so there are not two minutes to
+        // tell apart.
+        assert_eq!(now.income_trend(0), None);
+        let income = now.series(0, GraphSeries::Income, 1000);
+        assert!(income.iter().skip(1).all(|&value| value == 1200.0));
+        // The barracks finished somewhere in the gap, which is no time to put it at.
+        assert!(event_frames(&now).is_empty());
+    }
+
+    #[test]
+    fn a_graph_spaces_its_points_by_game_time() {
+        let workers = |count: u32| {
+            move |frame: u32| {
+                let mut snapshot = snapshot(frame);
+                snapshot.completed_units[unit::SCV.0 as usize][0] = count;
+                snapshot
+            }
+        };
+        let mut stats = GameStats::new();
+        play(
+            &mut stats,
+            1..=10 * SECOND,
+            Resimulation::Identical,
+            workers(4),
+        );
+        play(
+            &mut stats,
+            100 * SECOND..=101 * SECOND,
+            Resimulation::Identical,
+            workers(9),
+        );
+        // Twelve samples, but most of the time they span is the gap after the tenth, which holds
+        // the value it was left at.
+        let series = stats
+            .as_of(101 * SECOND)
+            .series(0, GraphSeries::Workers, 12);
+        assert_eq!(series.iter().filter(|&&value| value == 4.0).count(), 11);
+        assert_eq!(series.last(), Some(&9.0));
+    }
+
+    #[test]
+    fn a_long_game_keeps_its_start_at_less_detail() {
+        let mut stats = GameStats::new();
+        let seconds = MAX_SAMPLES as u32 + 100;
+        replay(&mut stats, 1..=seconds * SECOND);
+        assert!(stats.rows.len() <= MAX_SAMPLES);
+        assert_eq!(stats.rows.first().map(|row| row.frame), Some(SECOND));
+        assert_eq!(
+            stats.rows.last().map(|row| row.frame),
+            Some(seconds * SECOND)
+        );
+        let now = stats.as_of(seconds * SECOND);
+        assert_eq!(now.income_per_minute(0), (600, 600));
+        let income = now.series(0, GraphSeries::Income, 180);
+        assert!(income.iter().skip(1).all(|&value| value == 1200.0));
+    }
+
+    #[test]
+    fn a_rollback_replaces_what_it_simulates_again() {
+        let barracks = |frame: u32| {
+            let mut snapshot = snapshot(frame);
+            snapshot.completed_units[unit::BARRACKS.0 as usize][0] = 1;
+            snapshot
+        };
+        let mut stats = GameStats::new();
+        play(
+            &mut stats,
+            1..=10 * SECOND,
+            Resimulation::MayDiffer,
+            snapshot,
+        );
+        // First simulated with a barracks finishing at eleven seconds.
+        play(
+            &mut stats,
+            10 * SECOND + 1..=12 * SECOND,
+            Resimulation::MayDiffer,
+            barracks,
+        );
+        assert_eq!(event_frames(&stats.as_of(12 * SECOND)), [11 * SECOND]);
+        // Late input arrives, and the rollback goes back to a few frames past ten seconds and
+        // steps on: the barracks finishes a second later this time.
+        play(
+            &mut stats,
+            10 * SECOND + 3..=13 * SECOND,
+            Resimulation::MayDiffer,
+            |frame| match frame >= 12 * SECOND {
+                true => barracks(frame),
+                false => snapshot(frame),
+            },
+        );
+        assert_eq!(event_frames(&stats.as_of(13 * SECOND)), [12 * SECOND]);
+        assert_eq!(stats.rows.len(), 13);
+        assert!(
+            stats
+                .rows
+                .windows(2)
+                .all(|pair| pair[0].frame < pair[1].frame)
+        );
+    }
+
+    #[test]
+    fn a_hatchery_reaching_lair_and_hive_is_reported_each_time() {
+        let hatchery = depot(1, unit::HATCHERY, MAIN);
+        let to_lair = DepotSite {
+            completed: false,
+            ..hatchery
+        };
+        let lair = depot(1, unit::LAIR, MAIN);
+        let to_hive = DepotSite {
+            completed: false,
+            ..lair
+        };
+        let hive = depot(1, unit::HIVE, MAIN);
+        let events = depot_events(&[
+            vec![hatchery],
+            vec![hatchery],
+            vec![to_lair],
+            vec![to_lair],
+            vec![lair],
+            vec![to_hive],
+            vec![hive],
+            vec![hive],
+        ]);
+        let completed = TimelineEventKind::BuildingCompleted;
+        assert_eq!(
+            events,
+            [
+                (completed, TimelineSubject::Unit(unit::LAIR), 5),
+                (completed, TimelineSubject::Unit(unit::HIVE), 7),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_depot_in_the_air_is_not_a_base() {
+        let landed = depot(1, unit::COMMAND_CENTER, MAIN);
+        let flying = |x: i16| DepotSite {
+            landed: false,
+            x,
+            ..landed
+        };
+        let mut samples = vec![vec![landed]];
+        samples.extend((0..20).map(|step| vec![flying(MAIN.0 + step * 50)]));
+        // Set down at the natural, lifted again, and set back down where it was.
+        let at_natural = depot(1, unit::COMMAND_CENTER, NATURAL);
+        samples.push(vec![at_natural]);
+        samples.push(vec![DepotSite {
+            landed: false,
+            ..at_natural
+        }]);
+        samples.push(vec![at_natural]);
+        assert_eq!(
+            depot_events(&samples),
+            [(
+                TimelineEventKind::ExpansionTaken,
+                TimelineSubject::Unit(unit::COMMAND_CENTER),
+                22
+            )]
+        );
+    }
+
+    #[test]
+    fn a_base_rebuilt_where_one_was_destroyed_is_taken_again() {
+        let main = depot(1, unit::COMMAND_CENTER, MAIN);
+        let natural = depot(2, unit::COMMAND_CENTER, NATURAL);
+        let rebuilt = depot(3, unit::COMMAND_CENTER, NATURAL);
+        let events = depot_events(&[
+            vec![main],
+            vec![main, natural],
+            vec![main],
+            vec![main, rebuilt],
+        ]);
+        let taken = TimelineEventKind::ExpansionTaken;
+        let subject = TimelineSubject::Unit(unit::COMMAND_CENTER);
+        assert_eq!(events, [(taken, subject, 2), (taken, subject, 4)]);
+    }
+
+    #[test]
+    fn an_army_is_worth_what_was_spent_on_it() {
+        let mut snapshot = snapshot(SECOND);
+        snapshot.completed_units[unit::ZERGLING.0 as usize][0] = 2;
+        snapshot.completed_units[unit::SCOURGE.0 as usize][0] = 1;
+        snapshot.completed_units[unit::LURKER.0 as usize][0] = 1;
+        snapshot.completed_units[unit::DRONE.0 as usize][0] = 4;
+        let samples = player_samples(&snapshot, &FakeUnits::standard());
+        // 50 for the pair, 12.5/37.5 for one scourge, 125/125 for the lurker, rounded down once.
+        assert_eq!((samples[0].army_minerals, samples[0].army_gas), (187, 162));
+        assert_eq!(samples[0].workers, 4);
     }
 
     #[test]
@@ -1225,11 +1124,5 @@ mod tests {
             Some((unit::MUTALISK, None))
         );
         assert_eq!(group_composition(&[]), None);
-    }
-
-    #[test]
-    fn map_distance_is_measured_as_a_circle() {
-        assert!(within(0, 0, 30, 40, 50));
-        assert!(!within(0, 0, 30, 40, 49));
     }
 }

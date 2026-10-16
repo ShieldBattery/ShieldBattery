@@ -17,7 +17,7 @@ use overlay_ui::observer::{
 use overlay_ui::transport;
 
 use crate::bw;
-use crate::bw_scr::game_stats::{GameStats, Sample};
+use crate::bw_scr::game_stats::{Sample, StatsAsOf};
 
 use super::{
     BwVars, FASTEST_GAME_SPEED, has_player_vision, player_has_units, production,
@@ -76,7 +76,7 @@ pub fn stats_players(bw: &BwVars) -> Vec<StatsPlayer> {
 /// itself backs.
 pub fn build_map_control_view(
     matchup: &MatchupView,
-    stats: Option<&GameStats>,
+    stats: Option<&StatsAsOf<'_>>,
 ) -> Option<MapControlView> {
     let vision = stats?.vision()?;
     let halves = matchup.halves();
@@ -97,7 +97,7 @@ pub fn build_map_control_view(
     })
 }
 
-pub fn build_economy_view(players: &[StatsPlayer], stats: Option<&GameStats>) -> EconomyView {
+pub fn build_economy_view(players: &[StatsPlayer], stats: Option<&StatsAsOf<'_>>) -> EconomyView {
     EconomyView {
         players: players
             .iter()
@@ -124,7 +124,7 @@ pub fn build_economy_view(players: &[StatsPlayer], stats: Option<&GameStats>) ->
 }
 
 /// Builds the military panel's view.
-pub fn build_military_view(players: &[StatsPlayer], stats: Option<&GameStats>) -> MilitaryView {
+pub fn build_military_view(players: &[StatsPlayer], stats: Option<&StatsAsOf<'_>>) -> MilitaryView {
     MilitaryView {
         players: players
             .iter()
@@ -156,7 +156,7 @@ pub fn build_military_view(players: &[StatsPlayer], stats: Option<&GameStats>) -
 pub fn build_graphs_view(
     bw: &BwVars,
     players: &[StatsPlayer],
-    stats: Option<&GameStats>,
+    stats: Option<&StatsAsOf<'_>>,
     series: GraphSeries,
     grouping: Option<GraphGrouping>,
 ) -> GraphsView {
@@ -202,9 +202,9 @@ pub fn build_graphs_view(
 
 /// Adds one player's samples into a side's running total, keeping whichever of the two is shorter.
 ///
-/// Two players sampled over the same game have the same number of samples, so the trim only ever
-/// matters for a slot that joined late or was cleared by a seek — and a side's line is more honest
-/// stopping where its shortest member's history does than running on as a partial sum.
+/// Every player is sampled on the same frames, so their lines are the same length; the trim only
+/// guards against one that is not, since a side's line is more honest stopping where its shortest
+/// member's history does than running on as a partial sum.
 fn add_series(total: Vec<f32>, values: &[f32]) -> Vec<f32> {
     if total.is_empty() {
         return values.to_vec();
@@ -237,7 +237,7 @@ fn sides(players: &[StatsPlayer]) -> Vec<(u8, Vec<&StatsPlayer>)> {
 pub fn build_team_cards_view(
     matchup: &MatchupView,
     players: &[StatsPlayer],
-    stats: Option<&GameStats>,
+    stats: Option<&StatsAsOf<'_>>,
 ) -> TeamCardsView {
     TeamCardsView {
         teams: matchup
@@ -276,7 +276,7 @@ pub fn build_team_cards_view(
 
 /// What one side has between them, summed over the players on it.
 fn team_totals<'a>(
-    stats: Option<&GameStats>,
+    stats: Option<&StatsAsOf<'_>>,
     members: impl Iterator<Item = &'a StatsPlayer>,
 ) -> TeamCardTotalsView {
     let mut totals = TeamCardTotalsView::default();
@@ -300,7 +300,7 @@ fn team_totals<'a>(
 pub fn build_control_groups_view(
     bw: &BwVars,
     players: &[StatsPlayer],
-    stats: Option<&GameStats>,
+    stats: Option<&StatsAsOf<'_>>,
 ) -> ControlGroupsView {
     ControlGroupsView {
         players: players
@@ -475,14 +475,14 @@ fn whole_points(fixed: i32) -> u32 {
 pub fn build_timeline_view(
     bw: &BwVars,
     players: &[StatsPlayer],
-    stats: Option<&GameStats>,
+    stats: Option<&StatsAsOf<'_>>,
 ) -> TimelineView {
     let game_speed = bw
         .replay
         .map_or(FASTEST_GAME_SPEED, |replay| replay.game_speed);
     let events = stats
         .into_iter()
-        .flat_map(GameStats::events)
+        .flat_map(StatsAsOf::events)
         .filter_map(|event| {
             let player = players
                 .iter()
@@ -508,7 +508,7 @@ pub fn build_timeline_view(
 ///
 /// Zeroes rather than no row: a game's first second is one where every one of these numbers really
 /// is zero, and a panel that appeared a second late would read as a panel that failed to open.
-fn latest(stats: Option<&GameStats>, player_id: u8) -> Sample {
+fn latest(stats: Option<&StatsAsOf<'_>>, player_id: u8) -> Sample {
     stats
         .and_then(|stats| stats.latest(player_id))
         .copied()

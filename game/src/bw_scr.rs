@@ -7231,9 +7231,10 @@ impl BwScr {
     /// be moved to be called at init_game_data, init_unit_data, or other later initialization
     /// hooks too.
     ///
-    /// The only case where this may be called more than once is when the user
-    /// seeks replay backwards and it has to be simulated from start over again, so
-    /// we don't need to and shouldn't reset any network state.
+    /// The only case where this may be called more than once is a replay seek that SC:R
+    /// handles itself (one past the replay's end, or with the keyframe seeker unavailable),
+    /// which simulates the replay from the start over again, so we don't need to and
+    /// shouldn't reset any network state.
     fn reset_state_for_game_init(&self) {
         #[cfg(debug_assertions)]
         crate::rollback_harness::reset_for_game_init();
@@ -7242,16 +7243,16 @@ impl BwScr {
         crate::frame_timing::reset();
         crate::frame_pacing::reset();
         self.detection_status_copy.lock().clear();
-        // A replay seeking backwards re-simulates from frame 0, re-injecting every chat message it
-        // passes, so a history kept across the seek would hold each of them twice.
+        // A replay starting over for a seek SC:R makes itself simulates from frame 0 again, and
+        // records its chat from there.
         self.chat_history.lock().clear();
         self.first_game_logic_frame_done
             .store(false, Ordering::Relaxed);
         if let Some(mut apm) = self.apm_state.lock() {
             *apm = ApmStats::new();
         }
-        // A replay seeking backwards re-simulates from frame 0, so the history is rebuilt from
-        // there; one kept across the seek would hold every second of the game twice.
+        // A replay starting over simulates from frame 0 again, and the history is rebuilt from
+        // there.
         if let Some(mut stats) = self.game_stats.lock() {
             stats.clear();
         }
@@ -7278,14 +7279,27 @@ impl BwScr {
                 return;
             }
             let units = bw_dat::UnitArray::new((*vector).data as *mut bw::Unit, (*vector).length);
+            // Only a rollback steps a frame that can come out differently the second time; a
+            // replay seek that goes back over frames replays the same commands.
+            let resimulation = match crate::rollback::tick_running() {
+                true => game_stats::Resimulation::MayDiffer,
+                false => game_stats::Resimulation::Identical,
+            };
             if let Some(mut stats) = self.game_stats.lock() {
                 stats.step(
-                    game,
-                    active_units,
-                    &units,
-                    self.selection_hotkey_last_used_frames
-                        .map(|frames| frames.resolve() as *const u16),
-                    self.map_tile_flags_slice(game),
+                    game.frame_count(),
+                    resimulation,
+                    &game_stats::DatUnits,
+                    || {
+                        game_stats::read_snapshot(
+                            game,
+                            active_units,
+                            &units,
+                            self.selection_hotkey_last_used_frames
+                                .map(|frames| frames.resolve() as *const u16),
+                            self.map_tile_flags_slice(game),
+                        )
+                    },
                 );
             }
         }
