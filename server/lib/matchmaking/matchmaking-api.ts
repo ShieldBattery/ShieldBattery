@@ -27,6 +27,7 @@ import { asHttpError } from '../errors/error-with-payload'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
 import logger from '../logging/logger'
+import { resolveMapIdSets } from '../maps/map-models'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
@@ -162,7 +163,12 @@ export class MatchmakingApi {
           .required(),
       }),
     })
-    const { clientId, preferences, identifiers, region, rttMs, regionManual, clientPubkey } = body
+    const { clientId, identifiers, region, rttMs, regionManual, clientPubkey } = body
+    const resolvedSelections = await resolveMapIdSets(body.preferences.map(p => p.mapSelections))
+    const preferences = body.preferences.map((p, i) => ({
+      ...p,
+      mapSelections: resolvedSelections[i],
+    }))
 
     await this.userIdManager.upsert(ctx.session!.user.id, identifiers)
 

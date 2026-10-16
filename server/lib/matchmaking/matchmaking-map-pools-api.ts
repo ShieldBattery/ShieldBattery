@@ -13,7 +13,7 @@ import {
 } from '../../../common/matchmaking/matchmaking-map-pools'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
-import { getMapInfos } from '../maps/map-models'
+import { getMapInfos, resolveMapIdSets } from '../maps/map-models'
 import { reparseMapsAsNeeded } from '../maps/map-operations'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
@@ -108,7 +108,7 @@ export class MatchmakingMapPoolsApi {
 
     const mapPool = await addMapPool({
       matchmakingType,
-      maps,
+      maps: (await resolveMapIdSets([maps]))[0],
       maxVetoCount,
       startDate: new Date(startDate),
     })
