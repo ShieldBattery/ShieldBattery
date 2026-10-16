@@ -145,8 +145,8 @@ function DraftTestInner() {
                 pickOrder: [
                   [0, 0],
                   [1, 0],
-                  [0, 1],
                   [1, 1],
+                  [0, 1],
                 ],
                 isCompleted: false,
               })
@@ -205,6 +205,18 @@ function DraftTestInner() {
                   // Pick 2
                   ;[team, slot] = draftState!.pickOrder[2]
                   updateCurrentPicker({ team, slot })
+                  await timeout(17000)
+                  updateLockedPick({
+                    teamId: team,
+                    index: slot,
+                    race: 'p',
+                  })
+
+                  await timeout(2000)
+
+                  // Pick 3
+                  ;[team, slot] = draftState!.pickOrder[3]
+                  updateCurrentPicker({ team, slot })
                   await timeout(5000)
                   updateProvisionalPick({
                     teamId: team,
@@ -222,18 +234,6 @@ function DraftTestInner() {
                     teamId: team,
                     index: slot,
                     race: 'z',
-                  })
-
-                  await timeout(2000)
-
-                  // Pick 3
-                  ;[team, slot] = draftState!.pickOrder[3]
-                  updateCurrentPicker({ team, slot })
-                  await timeout(17000)
-                  updateLockedPick({
-                    teamId: team,
-                    index: slot,
-                    race: 'p',
                   })
 
                   completeDraft(store)
