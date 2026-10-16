@@ -22,6 +22,7 @@ import { LobbyViolationService } from './lib/games/lobby-violation-service'
 import logMiddleware from './lib/logging/log-middleware'
 import log from './lib/logging/logger'
 import { updateEmailTemplates } from './lib/mail/update-templates'
+import { MapStatsJob } from './lib/maps/map-stats-job'
 import { prometheusHttpMetrics, prometheusMiddleware } from './lib/monitoring/prometheus-middleware'
 import { redirectToCanonical } from './lib/network/redirect-to-canonical'
 import userIpsMiddleware from './lib/network/user-ips-middleware'
@@ -220,6 +221,9 @@ container.resolve(GameServerRegionsService)
 // cycle. Resolving it also schedules recovery of violations staged before a restart.
 container.register(LOBBY_VIOLATION_STAGER, { useToken: LobbyViolationService })
 container.resolve(LobbyViolationService)
+
+// Resolved (not stored) here only so its constructor schedules the periodic map stats refresh.
+container.resolve(MapStatsJob)
 
 // Wrapping this in IIFE so we can use top-level `await` (until we move to ESM and can use it
 // natively)
