@@ -356,13 +356,16 @@ pub struct GameStats {
     pub clock_stopped_us: u64,
     /// How many times the session clock has stopped, each counted as it starts. Kept for `/netstat`
     /// and not sent: the relays record every stop themselves.
+    #[serde(skip)]
     pub clock_stops: u32,
     /// Whether the clock was stopping as of the last tick, which tells a stop that starts from one
     /// that carries on.
+    #[serde(skip)]
     clock_stopping: bool,
     pub lead_reports: u32,
     /// The 90th percentile lateness the newest lead report carried. Kept for `/netstat` and not
     /// sent: the maximum and the sum carry the game.
+    #[serde(skip)]
     pub lead_p90_last_us: Option<i32>,
     /// The highest 90th percentile lateness a lead report carried, and the sum of them all.
     pub lead_p90_max_us: i32,
