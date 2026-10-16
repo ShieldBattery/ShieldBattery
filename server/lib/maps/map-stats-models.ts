@@ -155,7 +155,8 @@ async function refreshMatchups(client: DbClient, asOf: Date, full: boolean) {
         g.assigned_matchup AS matchup,
         split_part(g.assigned_matchup, '-', 1) AS left_races,
         split_part(g.assigned_matchup, '-', 2) AS right_races,
-        r.winner_races
+        r.winner_races,
+        g.game_length
       FROM games g
       INNER JOIN maps m ON m.id = g.map_id
       INNER JOIN seasons s
@@ -182,11 +183,12 @@ async function refreshMatchups(client: DbClient, asOf: Date, full: boolean) {
         AND g.start_time <= ${asOf}
     )
     INSERT INTO map_matchup_stats (
-      map_id, season_id, matchmaking_type, matchup, games, left_wins, right_wins
+      map_id, season_id, matchmaking_type, matchup, games, left_wins, right_wins, median_length
     )
     SELECT map_id, season_id, matchmaking_type, matchup, count(*),
       count(*) FILTER (WHERE left_races <> right_races AND winner_races = left_races),
-      count(*) FILTER (WHERE left_races <> right_races AND winner_races = right_races)
+      count(*) FILTER (WHERE left_races <> right_races AND winner_races = right_races),
+      round(percentile_cont(0.5) WITHIN GROUP (ORDER BY game_length))
     FROM decided
     WHERE winner_races IN (left_races, right_races)
     GROUP BY 1, 2, 3, 4

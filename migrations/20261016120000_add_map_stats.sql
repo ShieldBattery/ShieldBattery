@@ -46,6 +46,8 @@ CREATE TABLE map_matchup_stats (
   -- whose sides can't be told apart.
   left_wins integer NOT NULL,
   right_wins integer NOT NULL,
+  -- In milliseconds, over the decided games counted in `games`.
+  median_length integer NOT NULL,
   PRIMARY KEY (map_id, season_id, matchmaking_type, matchup)
 );
 
