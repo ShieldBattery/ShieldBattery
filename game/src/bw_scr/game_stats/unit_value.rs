@@ -107,6 +107,10 @@ fn consumed_units(id: UnitId) -> &'static [(UnitId, u32)] {
 /// A lurker egg and a cocoon are valued as the hydralisk and the mutalisk inside them. Valued as
 /// eggs, an army would drop by every unit that starts a morph and jump back when it finishes; the
 /// price of the morph itself is only counted once the morph is.
+///
+/// An archon is valued as its two templar from the frame they merge, which is also the frame the
+/// game counts it completed: the templar that becomes the archon is completed as one at once, and
+/// its partner leaves the counts on its own next order step, without being counted a loss.
 pub fn invested_cost(catalog: &impl UnitCatalog, id: UnitId) -> HalfCost {
     match id {
         unit::LURKER_EGG => return invested_cost(catalog, unit::HYDRALISK),
@@ -126,6 +130,22 @@ pub fn invested_cost(catalog: &impl UnitCatalog, id: UnitId) -> HalfCost {
         .fold(own, |total, &(source, count)| {
             total.add(invested_cost(catalog, source).times(count))
         })
+}
+
+/// Whether units of a kind are counted from the moment they exist rather than once the game
+/// completes them.
+///
+/// The shapes an army unit passes through on the way to a morph's end: the game never completes a
+/// lurker egg or a cocoon, and completes the lurker, guardian or devourer that comes out of one only
+/// once it has stepped out of it, while the hydralisk or mutalisk it started as left the completed
+/// counts as the morph began. Counted by completion alone, an army would drop by every unit morphing
+/// for as long as the morph takes. Everything a unit of these kinds is made of is already paid for,
+/// so there is nothing about one still to wait for.
+pub fn counted_from_creation(id: UnitId) -> bool {
+    matches!(
+        id,
+        unit::LURKER_EGG | unit::COCOON | unit::LURKER | unit::GUARDIAN | unit::DEVOURER
+    )
 }
 
 /// Whether a unit is part of what a player would fight with.

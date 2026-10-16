@@ -37,7 +37,7 @@ pub(crate) use unit_value::DatUnits;
 
 use snapshot::PlayerSnapshot;
 use timeline::Baseline;
-use unit_value::{HalfCost, UnitCatalog, counts_as_army, invested_cost};
+use unit_value::{HalfCost, UnitCatalog, counted_from_creation, counts_as_army, invested_cost};
 
 /// How many players the game keeps playable slots for, which is as many as anything here reports on.
 pub const MAX_PLAYERS: usize = 8;
@@ -587,6 +587,10 @@ fn player_samples(snapshot: &GameSnapshot, catalog: &impl UnitCatalog) -> [Sampl
                 *workers = workers.saturating_add(count);
             }
         } else if counts_as_army(catalog, unit_id) {
+            let counts = match counted_from_creation(unit_id) {
+                true => snapshot.existing_units.get(id).unwrap_or(counts),
+                false => counts,
+            };
             let cost = invested_cost(catalog, unit_id);
             for (army, &count) in army.iter_mut().zip(counts) {
                 *army = army.add(cost.times(count));
@@ -708,6 +712,7 @@ mod tests {
             frame,
             players,
             completed_units: vec![[0; MAX_PLAYERS]; UNIT_ID_COUNT as usize].into_boxed_slice(),
+            existing_units: vec![[0; MAX_PLAYERS]; UNIT_ID_COUNT as usize].into_boxed_slice(),
             research: ResearchLevels::new(),
             depots: Vec::new(),
             buildings: Vec::new(),
@@ -1244,11 +1249,48 @@ mod tests {
         snapshot.completed_units[unit::ZERGLING.0 as usize][0] = 2;
         snapshot.completed_units[unit::SCOURGE.0 as usize][0] = 1;
         snapshot.completed_units[unit::LURKER.0 as usize][0] = 1;
+        snapshot.existing_units[unit::LURKER.0 as usize][0] = 1;
         snapshot.completed_units[unit::DRONE.0 as usize][0] = 4;
         let samples = player_samples(&snapshot, &FakeUnits::standard());
         // 50 for the pair, 12.5/37.5 for one scourge, 125/125 for the lurker, rounded down once.
         assert_eq!((samples[0].army_minerals, samples[0].army_gas), (187, 162));
         assert_eq!(samples[0].workers, 4);
+    }
+
+    /// Player 0's army value in `snapshot`.
+    fn army_value(snapshot: &GameSnapshot) -> u32 {
+        player_samples(snapshot, &FakeUnits::standard())[0].army_value()
+    }
+
+    #[test]
+    fn an_army_keeps_its_value_through_a_morph() {
+        // The game counts a lurker egg, and a lurker stepping out of it, as existing but not
+        // completed, and takes the hydralisk out of its completed count as the morph starts.
+        let mut hydralisk = snapshot(SECOND);
+        hydralisk.completed_units[unit::HYDRALISK.0 as usize][0] = 1;
+        hydralisk.existing_units[unit::HYDRALISK.0 as usize][0] = 1;
+        let mut egg = snapshot(SECOND);
+        egg.existing_units[unit::LURKER_EGG.0 as usize][0] = 1;
+        let mut stepping_out = snapshot(SECOND);
+        stepping_out.existing_units[unit::LURKER.0 as usize][0] = 1;
+        let mut lurker = snapshot(SECOND);
+        lurker.completed_units[unit::LURKER.0 as usize][0] = 1;
+        lurker.existing_units[unit::LURKER.0 as usize][0] = 1;
+        assert_eq!(army_value(&hydralisk), 100);
+        assert_eq!(army_value(&egg), 100);
+        assert_eq!(army_value(&stepping_out), 250);
+        assert_eq!(army_value(&lurker), 250);
+    }
+
+    #[test]
+    fn a_unit_still_being_built_is_not_yet_in_the_army() {
+        let mut snapshot = snapshot(SECOND);
+        snapshot.completed_units[unit::MUTALISK.0 as usize][0] = 1;
+        snapshot.existing_units[unit::MUTALISK.0 as usize][0] = 3;
+        snapshot.existing_units[unit::COCOON.0 as usize][0] = 1;
+        // One mutalisk finished and one in a cocoon. The two still hatching from larva join the army
+        // once they are finished, like anything being built.
+        assert_eq!(army_value(&snapshot), 400);
     }
 
     #[test]

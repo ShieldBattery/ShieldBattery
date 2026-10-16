@@ -29,6 +29,8 @@ pub struct GameSnapshot {
     pub players: [PlayerSnapshot; MAX_PLAYERS],
     /// How many finished units of each kind every player owns, indexed by unit id.
     pub completed_units: Box<[[u32; MAX_PLAYERS]]>,
+    /// How many units of each kind every player owns, finished or not, indexed by unit id.
+    pub existing_units: Box<[[u32; MAX_PLAYERS]]>,
     pub research: ResearchLevels,
     /// Every town hall that is finished or turning into the next one up.
     pub depots: Vec<DepotSite>,
@@ -195,11 +197,17 @@ pub unsafe fn read_snapshot(
 
     let unit_count = UNIT_ID_COUNT.min(UnitId::entry_amount());
     let mut completed_units = vec![[0u32; MAX_PLAYERS]; unit_count as usize].into_boxed_slice();
-    for (id, counts) in completed_units.iter_mut().enumerate() {
+    let mut existing_units = completed_units.clone();
+    for (id, (completed, existing)) in completed_units
+        .iter_mut()
+        .zip(existing_units.iter_mut())
+        .enumerate()
+    {
         let unit_id = UnitId(id as u16);
         let worker = unit_id.is_worker();
-        for (player, count) in counts.iter_mut().enumerate() {
-            *count = game.completed_count(player as u8, unit_id);
+        for (player, (completed, existing)) in completed.iter_mut().zip(existing).enumerate() {
+            *completed = game.completed_count(player as u8, unit_id);
+            *existing = game.unit_count(player as u8, unit_id);
             if worker {
                 let snapshot = &mut players[player];
                 snapshot.worker_kills = snapshot
@@ -233,6 +241,7 @@ pub unsafe fn read_snapshot(
         frame: game.frame_count(),
         players,
         completed_units,
+        existing_units,
         research: read_research(game),
         depots,
         buildings,
