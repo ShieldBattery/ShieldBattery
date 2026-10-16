@@ -129,7 +129,7 @@ struct SampleRow {
 }
 
 /// What a timeline entry is about, which is how the panel picks the icon it draws.
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 pub enum TimelineSubject {
     Unit(UnitId),
     Upgrade(UpgradeId),
@@ -181,6 +181,23 @@ pub struct GameStats {
     control_groups: [Vec<ControlGroup>; MAX_PLAYERS],
     /// How much of the map each player could see as of the last sample, or `None` before one.
     vision: Option<MapVision>,
+    /// Counts every change to `rows` or `events`, and is never reset, so a [`HistoryStamp`] taken
+    /// before a [`clear`](Self::clear) never matches one taken after it.
+    generation: u64,
+    /// The `generation` that `rows` and `events` last changed in.
+    rows_changed: u64,
+    events_changed: u64,
+}
+
+/// Which of the sampler's history a reader is looking at: two readings with equal stamps read the
+/// same entries, so whatever was worked out from one holds for the other.
+///
+/// The history only changes at a sample, while it is read every frame, and the stretch of it read
+/// moves with a replay's seek without anything being sampled.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub struct HistoryStamp {
+    changed: u64,
+    shown: usize,
 }
 
 /// How much of the map is in sight, read off the game's own per-tile visibility.
@@ -228,13 +245,22 @@ impl GameStats {
             baselines: VecDeque::new(),
             control_groups: Default::default(),
             vision: None,
+            generation: 0,
+            rows_changed: 0,
+            events_changed: 0,
         }
     }
 
     /// Forgets the game, for a game that is about to start, or to be simulated again from frame
     /// zero when a replay seek is left to the game itself.
     pub fn clear(&mut self) {
-        *self = GameStats::new();
+        let generation = self.generation + 1;
+        *self = GameStats {
+            generation,
+            rows_changed: generation,
+            events_changed: generation,
+            ..GameStats::new()
+        };
     }
 
     /// Takes a sample of the frame the simulation just stepped to, if one is due on it, through
@@ -275,6 +301,7 @@ impl GameStats {
         for (groups, player) in self.control_groups.iter_mut().zip(&snapshot.players) {
             *groups = read_control_groups(player, frame, catalog);
         }
+        let events_before = self.events.len();
         if self
             .sampled_through()
             .is_some_and(|through| frame <= through)
@@ -284,6 +311,7 @@ impl GameStats {
                 Resimulation::MayDiffer => self.forget_from(frame),
             }
         }
+        let events_forgotten = self.events.len() != events_before;
         let row = SampleRow {
             frame,
             players: player_samples(&snapshot, catalog),
@@ -297,6 +325,11 @@ impl GameStats {
             .filter(|baseline| baseline.frame.checked_add(SAMPLE_INTERVAL_FRAMES) == Some(frame));
         let mut events = Vec::new();
         let baseline = timeline::advance(previous, snapshot, catalog, &mut events);
+        self.generation += 1;
+        self.rows_changed = self.generation;
+        if events_forgotten || !events.is_empty() {
+            self.events_changed = self.generation;
+        }
         for event in events {
             if self.events.len() == MAX_EVENTS {
                 self.events.remove(0);
@@ -349,6 +382,22 @@ pub struct StatsAsOf<'a> {
 }
 
 impl<'a> StatsAsOf<'a> {
+    /// Which samples this reads.
+    pub fn samples_stamp(&self) -> HistoryStamp {
+        HistoryStamp {
+            changed: self.stats.rows_changed,
+            shown: self.rows.len(),
+        }
+    }
+
+    /// Which timeline entries this reads.
+    pub fn events_stamp(&self) -> HistoryStamp {
+        HistoryStamp {
+            changed: self.stats.events_changed,
+            shown: self.events.len(),
+        }
+    }
+
     /// How much of the map each player could see as of the last sample.
     pub fn vision(&self) -> Option<&MapVision> {
         self.stats.vision.as_ref()
@@ -1069,6 +1118,82 @@ mod tests {
         let taken = TimelineEventKind::ExpansionTaken;
         let subject = TimelineSubject::Unit(unit::COMMAND_CENTER);
         assert_eq!(events, [(taken, subject, 2), (taken, subject, 4)]);
+    }
+
+    #[test]
+    fn a_sample_moves_the_samples_stamp_and_only_an_event_moves_the_events_stamp() {
+        let mut stats = GameStats::new();
+        replay(&mut stats, 1..=10 * MINUTE - SECOND);
+        let before = stats.as_of(u32::MAX);
+        let (samples, events) = (before.samples_stamp(), before.events_stamp());
+        replay(&mut stats, 10 * MINUTE - SECOND + 1..=10 * MINUTE - 1);
+        assert_eq!(stats.as_of(u32::MAX).samples_stamp(), samples);
+        replay(&mut stats, 10 * MINUTE..=10 * MINUTE);
+        let barracks = stats.as_of(u32::MAX);
+        assert_ne!(barracks.samples_stamp(), samples);
+        assert_ne!(barracks.events_stamp(), events);
+        let (samples, events) = (barracks.samples_stamp(), barracks.events_stamp());
+        replay(&mut stats, 10 * MINUTE + 1..=10 * MINUTE + SECOND);
+        let after = stats.as_of(u32::MAX);
+        assert_ne!(after.samples_stamp(), samples);
+        assert_eq!(after.events_stamp(), events);
+    }
+
+    #[test]
+    fn a_seek_back_moves_the_stamps_without_a_sample() {
+        let mut stats = GameStats::new();
+        replay(&mut stats, 1..=15 * MINUTE);
+        let now = stats.as_of(15 * MINUTE);
+        let then = stats.as_of(5 * MINUTE);
+        assert_ne!(then.samples_stamp(), now.samples_stamp());
+        assert_ne!(then.events_stamp(), now.events_stamp());
+        // Simulating frames already sampled again records nothing, so it changes nothing.
+        let (samples, events) = (then.samples_stamp(), then.events_stamp());
+        replay(&mut stats, 5 * MINUTE + 1..=6 * MINUTE);
+        assert_eq!(stats.as_of(5 * MINUTE).samples_stamp(), samples);
+        assert_eq!(stats.as_of(5 * MINUTE).events_stamp(), events);
+    }
+
+    #[test]
+    fn a_rollback_moves_the_events_stamp_even_where_it_ends_up_as_long() {
+        let barracks_at = |second: u32| {
+            move |frame: u32| {
+                let mut snapshot = snapshot(frame);
+                if frame >= second * SECOND {
+                    snapshot.completed_units[unit::BARRACKS.0 as usize][0] = 1;
+                }
+                snapshot
+            }
+        };
+        let mut stats = GameStats::new();
+        play(
+            &mut stats,
+            1..=12 * SECOND,
+            Resimulation::MayDiffer,
+            barracks_at(11),
+        );
+        let events = stats.as_of(u32::MAX).events_stamp();
+        play(
+            &mut stats,
+            10 * SECOND + 3..=12 * SECOND,
+            Resimulation::MayDiffer,
+            barracks_at(12),
+        );
+        assert_ne!(stats.as_of(u32::MAX).events_stamp(), events);
+    }
+
+    #[test]
+    fn a_game_forgotten_never_repeats_a_stamp_from_before() {
+        let mut stats = GameStats::new();
+        replay(&mut stats, 1..=3 * SECOND);
+        let before = stats.as_of(u32::MAX);
+        let (samples, events) = (before.samples_stamp(), before.events_stamp());
+        stats.clear();
+        let cleared = stats.as_of(u32::MAX);
+        assert_ne!(cleared.samples_stamp(), samples);
+        assert_ne!(cleared.events_stamp(), events);
+        replay(&mut stats, 1..=3 * SECOND);
+        assert_ne!(stats.as_of(u32::MAX).samples_stamp(), samples);
     }
 
     #[test]

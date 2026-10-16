@@ -10,9 +10,7 @@ use bw_dat::dialog::{Control, Dialog};
 use egui::{Color32, Event, Key, PointerButton, Pos2, Rect, Slider, pos2};
 use overlay_ui::end_card::EndCardView;
 use overlay_ui::net_quality::NetQualityView;
-use overlay_ui::observer::{
-    GraphGrouping, MatchupForm, MatchupPlayerView, MatchupView, ObserverView,
-};
+use overlay_ui::observer::{MatchupPlayerView, MatchupView};
 use overlay_ui::options::{OptionsLists, OptionsView, SettingChange};
 use overlay_ui::shell::{
     DisconnectSurface, FrameOutput, HostFrame, InputCapture, Intent, ModalId, Mode, NativeDialog,
@@ -38,6 +36,7 @@ pub use self::alliances::AllianceRules;
 use self::alliances::AlliancesState;
 use self::chat_history::ChatHistoryCache;
 use self::production::ProductionState;
+use self::stats::ObserverViewCache;
 
 // The overlay's fonts, colours, and disconnect presentation live in the host-compilable `overlay-ui`
 // crate; re-exported here so the DLL's other overlays keep referring to them by the same paths.
@@ -80,6 +79,8 @@ pub struct OverlayState {
     logged_minimap_area: Option<(i16, i16, i16, i16)>,
     /// The chat log the last frame handed the shell, kept only while its modal is on screen.
     chat_history: Option<ChatHistoryCache>,
+    /// The observer panels the last frame handed the shell, kept while the client is watching.
+    observer_view: Option<ObserverViewCache>,
     /// What the alliances screen keeps between frames.
     alliances: AlliancesState,
     /// The game's own resource icons, once read.
@@ -465,6 +466,7 @@ impl OverlayState {
             last_group_recall: None,
             shell_held_keys: Vec::new(),
             chat_history: None,
+            observer_view: None,
             alliances: AlliancesState::default(),
             resource_icons: None,
             bottom_band_share: 0.0,
@@ -731,39 +733,21 @@ impl OverlayState {
         if bw.game_started && bw.is_replay_or_obs {
             self.update_replay_state(bw);
         }
-        // Built for every frame the client is watching rather than playing, whether or not any
-        // panel is on screen: the keys that show them arrive between frames, and only the shell
-        // knows which of them the watcher has hidden.
+        // Handed over for every frame the client is watching rather than playing, though the panels
+        // that report the sampler's history are only built again once it has moved under them, and
+        // only while shown (see `ObserverViewCache`). Lives beside the shell for the frame rather
+        // than inside `self`, like the chat log.
         let observer_view = (bw.game_started && bw.is_replay_or_obs).then(|| {
-            let players = stats::stats_players(bw);
-            let game_stats = game_stats.map(|stats| stats.as_of(bw.game.frame_count()));
-            let game_stats = game_stats.as_ref();
-            let prefs = self.shell.panel_prefs();
-            let series = prefs.graph_series;
             let matchup = self.build_matchup_view(bw, apm);
-            // A game with one player per side plots the same lines either way, so it is told there
-            // is no grouping to name rather than titled with a distinction it does not have.
-            let grouping = matchup.has_teams().then_some(if prefs.graph_per_player {
-                GraphGrouping::Players
-            } else {
-                GraphGrouping::Teams
-            });
-            ObserverView {
-                // The corner cards are what a game the bar has no halves for is read from instead.
-                // They are cut from the game exactly where the bar would have cut it, so the same
-                // players end up on the same side of the screen either way.
-                team_cards: (matchup.form() == MatchupForm::ClockOnly)
-                    .then(|| stats::build_team_cards_view(&matchup, &players, game_stats)),
-                economy: stats::build_economy_view(&players, game_stats),
-                military: stats::build_military_view(&players, game_stats),
-                graphs: stats::build_graphs_view(bw, &players, game_stats, series, grouping),
-                timeline: stats::build_timeline_view(bw, &players, game_stats),
-                production: self.build_production_view(bw),
-                control_groups: stats::build_control_groups_view(bw, &players, game_stats),
-                selection: stats::build_selection_view(bw, &players),
-                map_control: stats::build_map_control_view(&matchup, game_stats),
+            let production = self.build_production_view(bw);
+            ObserverViewCache::build(
+                self.observer_view.take(),
+                bw,
+                game_stats,
+                self.shell.panel_prefs(),
                 matchup,
-            }
+                production,
+            )
         });
         // Built for every frame of a replay whether or not the plate is on screen: the transport
         // keys keep working with it hidden, and only the shell knows whether the player hid it.
@@ -801,7 +785,7 @@ impl OverlayState {
             alliances: alliances_view.as_ref(),
             end_card: end_card_view.as_ref(),
             transport: transport_view.as_ref(),
-            observer: observer_view.as_ref(),
+            observer: observer_view.as_ref().map(ObserverViewCache::view),
             options: Some(&options_view),
             option_lists: Some(&option_lists_view),
         };
@@ -843,6 +827,7 @@ impl OverlayState {
             }
         });
         self.chat_history = chat_history_view;
+        self.observer_view = observer_view;
         self.capture = frame_output.capture;
         let mut replay_commands = Vec::new();
         let mut setting_changes = Vec::new();

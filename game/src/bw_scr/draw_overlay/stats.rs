@@ -1,8 +1,10 @@
 //! The stats wings' views: what the sampler's history looks like once it is a panel.
 //!
 //! Every panel here reports on the same set of players in the same order, so the set is worked out
-//! once and the four builders share it. That is also what keeps a row in one wing lined up with the
-//! row for the same player in the other.
+//! once a frame and every builder shares it. That is also what keeps a row in one wing lined up
+//! with the row for the same player in the other.
+
+use std::collections::HashMap;
 
 use bw_dat::{Game, Race, Unit, UnitId};
 use egui::Color32;
@@ -10,14 +12,15 @@ use overlay_ui::kit::theme;
 use overlay_ui::observer::{
     ControlGroupView, ControlGroupsPlayerView, ControlGroupsView, EconomyPlayerView, EconomyView,
     GraphGrouping, GraphLineView, GraphSeries, GraphsView, MapControlSideView, MapControlView,
-    MatchupPlayerView, MatchupView, MilitaryPlayerView, MilitaryView, RaceView, SelectedUnitView,
-    SelectionView, TeamCardPlayerView, TeamCardTotalsView, TeamCardView, TeamCardsView,
-    TimelineEventView, TimelineView,
+    MatchupPlayerView, MatchupView, MilitaryPlayerView, MilitaryView, ObserverView, ProductionIcon,
+    ProductionView, RaceView, SelectedUnitView, SelectionView, TeamCardPlayerView,
+    TeamCardTotalsView, TeamCardView, TeamCardsView, TimelineEventView, TimelineView,
 };
+use overlay_ui::shell::PanelPrefs;
 use overlay_ui::transport;
 
 use crate::bw;
-use crate::bw_scr::game_stats::{Sample, StatsAsOf};
+use crate::bw_scr::game_stats::{GameStats, HistoryStamp, Sample, StatsAsOf, TimelineSubject};
 
 use super::{
     BwVars, FASTEST_GAME_SPEED, has_player_vision, player_has_units, production,
@@ -36,7 +39,8 @@ const GRAPH_POINTS: usize = 180;
 const TIMELINE_DEPTH: usize = 256;
 
 /// One player as every stats wing names them.
-pub struct StatsPlayer {
+#[derive(PartialEq)]
+struct StatsPlayer {
     pub player_id: u8,
     /// Which side of the game they are on, which is where the tables' dividers fall and which side
     /// of the game their numbers are summed into.
@@ -53,7 +57,7 @@ pub struct StatsPlayer {
 /// with no units is taken for an observer on a UMS map, a team game's slots are all kept since one
 /// of them owns the team's units, and a slot whose vision the watcher has taken is kept whatever it
 /// owns, so it is clear where the vision on screen is coming from.
-pub fn stats_players(bw: &BwVars) -> Vec<StatsPlayer> {
+fn stats_players(bw: &BwVars) -> Vec<StatsPlayer> {
     replay_players_by_team(bw)
         .filter(|&(_team, player_id)| {
             player_has_units(bw, player_id) || bw.is_team_game || has_player_vision(bw, player_id)
@@ -69,12 +73,242 @@ pub fn stats_players(bw: &BwVars) -> Vec<StatsPlayer> {
         .collect()
 }
 
-/// Builds the economy panel's view.
+/// The observer panels as the last frame handed them to the shell, and what the ones reporting the
+/// sampler's history were built from.
+///
+/// The economy, military, graphs and timeline panels read only the history, which moves at a sample
+/// (once a second of game time at most, and never while a replay is paused) or when a seek moves
+/// the frame it is read up to, while the panels are drawn every frame: the timeline of a long game
+/// alone is thousands of names. Each of them is built again only once something it reads has moved,
+/// and only while it is wanted on screen. A hidden panel keeps the view it last had, which is drawn
+/// at most as it fades out; showing it again is a change of the watcher's preferences, which reach
+/// the next frame's build before the panel is drawn.
+///
+/// The rest are read off the game as it is now and built every frame: the matchup bar and the
+/// corner cards carry live numbers, and map control, production, selection and control groups are
+/// cheap. Icons are read against the game's atlases every frame too, since a change of graphics
+/// can swap them without a sample being taken.
+pub(super) struct ObserverViewCache {
+    view: ObserverView,
+    /// Who every sampled panel has rows for. A change of it is a change of every one of them.
+    players: Vec<StatsPlayer>,
+    /// What each sampled view was built from, or `None` for one that has to be built before it is
+    /// shown.
+    economy: Option<Option<HistoryStamp>>,
+    military: Option<Option<HistoryStamp>>,
+    graphs: Option<GraphsKey>,
+    timeline: Option<TimelineKey>,
+    timeline_icons: TimelineIcons,
+}
+
+/// What a graphs view was built from.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+struct GraphsKey {
+    samples: Option<HistoryStamp>,
+    series: GraphSeries,
+    grouping: Option<GraphGrouping>,
+}
+
+/// What a timeline view was built from.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+struct TimelineKey {
+    events: Option<HistoryStamp>,
+    /// What a frame stamp is turned into seconds at.
+    game_speed: u8,
+    /// Whether the game's names could be read.
+    named: bool,
+}
+
+impl ObserverViewCache {
+    /// The view for this frame, reusing whatever of `previous` nothing has moved under.
+    ///
+    /// `matchup` and `production` are this frame's, built by the caller.
+    pub(super) fn build(
+        previous: Option<ObserverViewCache>,
+        bw: &BwVars,
+        game_stats: Option<&GameStats>,
+        prefs: &PanelPrefs,
+        matchup: MatchupView,
+        production: ProductionView,
+    ) -> ObserverViewCache {
+        let players = stats_players(bw);
+        let stats = game_stats.map(|stats| stats.as_of(bw.game.frame_count()));
+        let stats = stats.as_ref();
+        // A game with one player per side plots the same lines either way, so it is told there is
+        // no grouping to name rather than titled with a distinction it does not have.
+        let grouping = matchup.has_teams().then_some(if prefs.graph_per_player {
+            GraphGrouping::Players
+        } else {
+            GraphGrouping::Teams
+        });
+        // The corner cards are what a game the bar has no halves for is read from instead. They
+        // are cut from the game exactly where the bar would have cut it, so the same players end
+        // up on the same side of the screen either way.
+        let team_cards = (matchup.form() == overlay_ui::observer::MatchupForm::ClockOnly)
+            .then(|| build_team_cards_view(&matchup, &players, stats));
+        let control_groups = build_control_groups_view(bw, &players, stats);
+        let selection = build_selection_view(bw, &players);
+        let map_control = build_map_control_view(&matchup, stats);
+        let mut cache = match previous {
+            Some(mut cache) => {
+                cache.view.matchup = matchup;
+                cache.view.team_cards = team_cards;
+                cache.view.production = production;
+                cache.view.control_groups = control_groups;
+                cache.view.selection = selection;
+                cache.view.map_control = map_control;
+                if cache.players != players {
+                    cache.players = players;
+                    cache.economy = None;
+                    cache.military = None;
+                    cache.graphs = None;
+                    cache.timeline = None;
+                }
+                cache
+            }
+            None => ObserverViewCache {
+                view: ObserverView {
+                    matchup,
+                    team_cards,
+                    economy: EconomyView {
+                        players: Vec::new(),
+                    },
+                    military: MilitaryView {
+                        players: Vec::new(),
+                    },
+                    graphs: GraphsView {
+                        series: prefs.graph_series,
+                        span_secs: 0,
+                        lines: Vec::new(),
+                        grouping,
+                    },
+                    timeline: TimelineView { events: Vec::new() },
+                    production,
+                    control_groups,
+                    selection,
+                    map_control,
+                },
+                players,
+                economy: None,
+                military: None,
+                graphs: None,
+                timeline: None,
+                timeline_icons: TimelineIcons::default(),
+            },
+        };
+
+        let samples = stats.map(StatsAsOf::samples_stamp);
+        if stale(&cache.economy, &samples, prefs.economy) {
+            cache.view.economy = build_economy_view(&cache.players, stats);
+            cache.economy = Some(samples);
+        }
+        if stale(&cache.military, &samples, prefs.military) {
+            cache.view.military = build_military_view(&cache.players, stats);
+            cache.military = Some(samples);
+        }
+        let graphs = GraphsKey {
+            samples,
+            series: prefs.graph_series,
+            grouping,
+        };
+        if stale(&cache.graphs, &graphs, prefs.graphs) {
+            cache.view.graphs = build_graphs_view(&cache.players, stats, graphs.series, grouping);
+            cache.graphs = Some(graphs);
+        }
+        // The axis runs to the frame on screen rather than to the last sample.
+        cache.view.graphs.span_secs = elapsed_secs(bw) as u32;
+        let timeline = TimelineKey {
+            events: stats.map(StatsAsOf::events_stamp),
+            game_speed: game_speed(bw),
+            named: bw.stat_txt.is_some(),
+        };
+        // A replay's seek bar is ticked with the timeline's events, whether or not the panel is up.
+        let timeline_wanted = prefs.timeline || (bw.replay.is_some() && prefs.transport);
+        if stale(&cache.timeline, &timeline, timeline_wanted) {
+            let (view, icons) = build_timeline_view(bw, &cache.players, stats);
+            cache.view.timeline = view;
+            cache.timeline_icons = icons;
+            cache.timeline = Some(timeline);
+        }
+        cache
+            .timeline_icons
+            .refresh(&mut cache.view.timeline.events, |subject| {
+                production::timeline_icon(subject, bw)
+            });
+        cache
+    }
+
+    pub(super) fn view(&self) -> &ObserverView {
+        &self.view
+    }
+}
+
+/// Whether a view last built from `built_from` has to be built again to be what `key` says, which
+/// it only is while it is `wanted` on screen.
+fn stale<K: PartialEq>(built_from: &Option<K>, key: &K, wanted: bool) -> bool {
+    wanted && built_from.as_ref() != Some(key)
+}
+
+/// The icons of a timeline view's events, read once per subject rather than once per event: a game
+/// names a few dozen kinds of building and research a few thousand times between them.
+#[derive(Default)]
+struct TimelineIcons {
+    /// Every subject the view names, once each.
+    subjects: Vec<TimelineSubject>,
+    /// The icon written into the view's events for each of `subjects`.
+    icons: Vec<Option<ProductionIcon>>,
+    /// Which of `subjects` each of the view's events is about, in the view's order.
+    of_event: Vec<u32>,
+}
+
+impl TimelineIcons {
+    /// Indexes the subjects of `events`, in the order the view lists them.
+    fn index(events: impl Iterator<Item = TimelineSubject>) -> TimelineIcons {
+        let mut indices: HashMap<TimelineSubject, u32> = HashMap::new();
+        let mut subjects = Vec::new();
+        let of_event = events
+            .map(|subject| {
+                *indices.entry(subject).or_insert_with(|| {
+                    subjects.push(subject);
+                    subjects.len() as u32 - 1
+                })
+            })
+            .collect();
+        TimelineIcons {
+            icons: vec![None; subjects.len()],
+            subjects,
+            of_event,
+        }
+    }
+
+    /// Reads every subject's icon through `icon_of`, and writes the ones that changed into
+    /// `events`, the view this was indexed from.
+    fn refresh(
+        &mut self,
+        events: &mut [TimelineEventView],
+        icon_of: impl Fn(TimelineSubject) -> ProductionIcon,
+    ) {
+        let mut changed = false;
+        for (&subject, icon) in self.subjects.iter().zip(&mut self.icons) {
+            let now = Some(icon_of(subject));
+            if *icon != now {
+                *icon = now;
+                changed = true;
+            }
+        }
+        if changed {
+            for (event, &index) in events.iter_mut().zip(&self.of_event) {
+                event.icon = self.icons[index as usize];
+            }
+        }
+    }
+}
+
 /// Each side's share of the map in sight, for a game of exactly two sides. The game measures no
 /// control of territory, but it does keep what every player can see, and the part of the map a side
 /// has in sight is where its units and buildings are: the closest reading of map control the game
 /// itself backs.
-pub fn build_map_control_view(
+fn build_map_control_view(
     matchup: &MatchupView,
     stats: Option<&StatsAsOf<'_>>,
 ) -> Option<MapControlView> {
@@ -97,7 +331,8 @@ pub fn build_map_control_view(
     })
 }
 
-pub fn build_economy_view(players: &[StatsPlayer], stats: Option<&StatsAsOf<'_>>) -> EconomyView {
+/// Builds the economy panel's view.
+fn build_economy_view(players: &[StatsPlayer], stats: Option<&StatsAsOf<'_>>) -> EconomyView {
     EconomyView {
         players: players
             .iter()
@@ -124,7 +359,7 @@ pub fn build_economy_view(players: &[StatsPlayer], stats: Option<&StatsAsOf<'_>>
 }
 
 /// Builds the military panel's view.
-pub fn build_military_view(players: &[StatsPlayer], stats: Option<&StatsAsOf<'_>>) -> MilitaryView {
+fn build_military_view(players: &[StatsPlayer], stats: Option<&StatsAsOf<'_>>) -> MilitaryView {
     MilitaryView {
         players: players
             .iter()
@@ -152,9 +387,9 @@ pub fn build_military_view(players: &[StatsPlayer], stats: Option<&StatsAsOf<'_>
 /// the game's sides or players they asked for.
 ///
 /// Only that one series is thinned out of the history. The panel plots one at a time, and the other
-/// four would be four times the work for lines nobody is looking at.
-pub fn build_graphs_view(
-    bw: &BwVars,
+/// four would be four times the work for lines nobody is looking at. The time axis is left to the
+/// caller, since it runs to the frame on screen rather than to the samples.
+fn build_graphs_view(
     players: &[StatsPlayer],
     stats: Option<&StatsAsOf<'_>>,
     series: GraphSeries,
@@ -194,7 +429,7 @@ pub fn build_graphs_view(
     };
     GraphsView {
         series,
-        span_secs: elapsed_secs(bw) as u32,
+        span_secs: 0,
         lines,
         grouping,
     }
@@ -234,7 +469,7 @@ fn sides(players: &[StatsPlayer]) -> Vec<(u8, Vec<&StatsPlayer>)> {
 /// the numbers the bar's halves would have, and a second reading of them could only disagree. The
 /// bar's own cut decides what a card holds, so the two surfaces put the same players on the same
 /// side of the screen whether or not the game has sides to be cut along.
-pub fn build_team_cards_view(
+fn build_team_cards_view(
     matchup: &MatchupView,
     players: &[StatsPlayer],
     stats: Option<&StatsAsOf<'_>>,
@@ -297,7 +532,7 @@ fn team_totals<'a>(
 }
 
 /// Builds the control groups panel's view: what each player has on their number keys.
-pub fn build_control_groups_view(
+fn build_control_groups_view(
     bw: &BwVars,
     players: &[StatsPlayer],
     stats: Option<&StatsAsOf<'_>>,
@@ -333,7 +568,7 @@ pub fn build_control_groups_view(
 ///
 /// Read straight off the selection rather than off the sampler, so the panel changes in the same
 /// frame the click does.
-pub fn build_selection_view(bw: &BwVars, players: &[StatsPlayer]) -> SelectionView {
+fn build_selection_view(bw: &BwVars, players: &[StatsPlayer]) -> SelectionView {
     let selected: Vec<Unit> = bw
         .client_selection
         .iter()
@@ -468,39 +703,47 @@ fn whole_points(fixed: i32) -> u32 {
     (fixed.max(0) as u32).saturating_add(0xff) >> 8
 }
 
-/// Builds the timeline's view, newest first.
+/// Builds the timeline's view, newest first, with its events' subjects indexed for their icons,
+/// which are left for [`TimelineIcons::refresh`] to fill in.
 ///
 /// Only the players the wings have rows for: an event from a slot the panels are not reporting on
 /// would be a line in a color nothing else on screen carries.
-pub fn build_timeline_view(
+fn build_timeline_view(
     bw: &BwVars,
     players: &[StatsPlayer],
     stats: Option<&StatsAsOf<'_>>,
-) -> TimelineView {
-    let game_speed = bw
-        .replay
-        .map_or(FASTEST_GAME_SPEED, |replay| replay.game_speed);
-    let events = stats
+) -> (TimelineView, TimelineIcons) {
+    let game_speed = game_speed(bw);
+    let mut names: HashMap<TimelineSubject, Option<String>> = HashMap::new();
+    let (events, subjects): (Vec<TimelineEventView>, Vec<TimelineSubject>) = stats
         .into_iter()
         .flat_map(StatsAsOf::events)
         .filter_map(|event| {
             let player = players
                 .iter()
                 .find(|player| player.player_id == event.player)?;
-            Some(TimelineEventView {
+            let name = names
+                .entry(event.subject)
+                .or_insert_with(|| production::timeline_name(event.subject, bw))
+                .clone();
+            let view = TimelineEventView {
                 secs: transport::frames_to_seconds(event.frame, game_speed),
                 color: player.color,
                 kind: event.kind,
-                icon: Some(production::timeline_icon(event.subject, bw)),
-                name: production::timeline_name(event.subject, bw),
+                icon: None,
+                name,
                 position: event
                     .position
                     .map(|(x, y)| overlay_ui::observer::MapPoint { x, y }),
-            })
+            };
+            Some((view, event.subject))
         })
         .take(TIMELINE_DEPTH)
-        .collect();
-    TimelineView { events }
+        .unzip();
+    (
+        TimelineView { events },
+        TimelineIcons::index(subjects.into_iter()),
+    )
 }
 
 /// The last thing the sampler recorded about a player, or an empty second before it has recorded
@@ -517,11 +760,13 @@ fn latest(stats: Option<&StatsAsOf<'_>>, player_id: u8) -> Sample {
 
 /// How far into the game it is, in seconds.
 fn elapsed_secs(bw: &BwVars) -> u64 {
-    transport::frames_to_seconds(
-        bw.game.frame_count(),
-        bw.replay
-            .map_or(FASTEST_GAME_SPEED, |replay| replay.game_speed),
-    )
+    transport::frames_to_seconds(bw.game.frame_count(), game_speed(bw))
+}
+
+/// The speed the game's frames are turned into seconds at: the replay's recorded one, or Fastest.
+fn game_speed(bw: &BwVars) -> u8 {
+    bw.replay
+        .map_or(FASTEST_GAME_SPEED, |replay| replay.game_speed)
 }
 
 /// The color this player is on the map.
@@ -574,6 +819,82 @@ mod tests {
             vision: true,
             race: RaceView::Terran,
         }
+    }
+
+    fn icon(index: u16) -> ProductionIcon {
+        ProductionIcon {
+            texture: None,
+            index,
+            size: None,
+            margin: 0.0,
+            wireframe: None,
+        }
+    }
+
+    fn event() -> TimelineEventView {
+        TimelineEventView {
+            secs: 0,
+            color: Color32::WHITE,
+            kind: overlay_ui::observer::TimelineEventKind::BuildingCompleted,
+            icon: None,
+            name: None,
+            position: None,
+        }
+    }
+
+    #[test]
+    fn a_view_is_built_again_only_once_what_it_reads_has_moved() {
+        assert!(stale(&None, &1, true));
+        assert!(!stale(&Some(1), &1, true));
+        assert!(stale(&Some(1), &2, true));
+    }
+
+    #[test]
+    fn a_hidden_view_keeps_what_it_was_last_built_with() {
+        assert!(!stale(&Some(1), &2, false));
+        assert!(!stale(&None::<u32>, &2, false));
+    }
+
+    #[test]
+    fn every_event_takes_its_subjects_icon_as_it_is_now() {
+        use bw_dat::unit;
+        let subjects = [
+            TimelineSubject::Unit(unit::BARRACKS),
+            TimelineSubject::Unit(unit::FACTORY),
+            TimelineSubject::Unit(unit::BARRACKS),
+        ];
+        let mut events: Vec<_> = subjects.iter().map(|_| event()).collect();
+        let mut icons = TimelineIcons::index(subjects.into_iter());
+        assert_eq!(icons.subjects.len(), 2);
+        let icon_of = |offset: u16| {
+            move |subject: TimelineSubject| match subject {
+                TimelineSubject::Unit(id) => icon(id.0 + offset),
+                _ => icon(0),
+            }
+        };
+        icons.refresh(&mut events, icon_of(0));
+        let indices = |events: &[TimelineEventView]| -> Vec<Option<u16>> {
+            events
+                .iter()
+                .map(|event| event.icon.map(|icon| icon.index))
+                .collect()
+        };
+        let barracks = unit::BARRACKS.0;
+        let factory = unit::FACTORY.0;
+        assert_eq!(
+            indices(&events),
+            [Some(barracks), Some(factory), Some(barracks)]
+        );
+        // The atlas the icons are read from changed between frames.
+        icons.refresh(&mut events, icon_of(1000));
+        assert_eq!(
+            indices(&events),
+            [
+                Some(barracks + 1000),
+                Some(factory + 1000),
+                Some(barracks + 1000)
+            ]
+        );
     }
 
     #[test]
