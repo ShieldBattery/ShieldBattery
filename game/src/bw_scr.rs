@@ -8163,7 +8163,9 @@ impl BwScr {
             if paused {
                 return Some(PauseControl::Resume);
             }
-            let local = self.local_player_id.resolve() as usize;
+            // Pauses are counted per person rather than per side: in a shared-control game the
+            // players on one side each have their own.
+            let local = self.local_unique_player_id.resolve() as usize;
             let left = *(**game).pauses_remaining.get(local)?;
             (left > 0).then_some(PauseControl::Pause { left: Some(left) })
         }
