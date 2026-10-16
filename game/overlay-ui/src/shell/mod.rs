@@ -240,9 +240,10 @@ impl PanelSet {
 impl Default for PanelPrefs {
     fn default() -> PanelPrefs {
         // A first-time watcher starts on the least that still tells the game: who is playing and
-        // how they stand, the map, and what they click on (the selection panel shows only while
-        // something is selected). The dock lists every other panel with its key, and whatever the
-        // watcher turns on is remembered for their next game.
+        // how they stand, the map, what each player has grouped to fight with, and what the watcher
+        // clicks on (the selection panel shows only while something is selected). The dock lists
+        // every other panel with its key, and whatever the watcher turns on is remembered for their
+        // next game.
         PanelPrefs {
             matchup: true,
             map_control: false,
@@ -251,7 +252,7 @@ impl Default for PanelPrefs {
             graphs: false,
             timeline: false,
             production: false,
-            control_groups: false,
+            control_groups: true,
             selection: true,
             minimap: true,
             transport: true,
