@@ -27,10 +27,11 @@ type PlayerPalette = [Color32; PLAYER_COLOR_COUNT];
 ///
 /// The log is a copy of every line said this game, so rebuilding it every frame would mean up to a
 /// thousand string clones per frame for a screen that only changes when someone talks. The store's
-/// generation counter and the player colors are between them everything the view is derived from,
-/// so a frame where neither has moved reuses the last one.
+/// generation counter, how many of its lines are shown and the player colors are between them
+/// everything the view is derived from, so a frame where none has moved reuses the last one.
 pub(super) struct ChatHistoryCache {
     generation: u64,
+    shown: usize,
     palette: PlayerPalette,
     view: ChatHistoryView,
 }
@@ -45,14 +46,28 @@ impl ChatHistoryCache {
         let palette = player_palette(bw);
         let history = history.lock();
         let generation = history.generation();
+        // A replay shows only what was said up to the frame it is at, which a seek back moves
+        // behind lines already recorded.
+        let shown = match bw.is_replay {
+            true => history.len_through(bw.game.frame_count()),
+            false => history.lines().len(),
+        };
         match previous {
-            Some(cache) if cache.generation == generation && cache.palette == palette => cache,
+            Some(cache)
+                if cache.generation == generation
+                    && cache.shown == shown
+                    && cache.palette == palette =>
+            {
+                cache
+            }
             _ => ChatHistoryCache {
                 generation,
+                shown,
                 palette,
                 view: ChatHistoryView {
                     lines: history
                         .lines()
+                        .take(shown)
                         .map(|line| build_line(line, &palette))
                         .collect(),
                 },

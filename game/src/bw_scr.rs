@@ -3247,7 +3247,18 @@ impl BwScr {
                         self.unique_command_user.write(player.into());
                         ids
                     });
+                    // A replay's chat history records each frame once, and a frame's lines are
+                    // all printed by the end of its step: its commands run ahead of it, and BW may
+                    // advance the frame count partway through it.
+                    let replay = game_thread::is_replay();
+                    if replay {
+                        let frame = self.current_game_frame();
+                        self.chat_history.lock().begin_replay_step(frame);
+                    }
                     orig();
+                    if replay {
+                        self.chat_history.lock().finish_replay_step();
+                    }
                     #[cfg(debug_assertions)]
                     if let Some((local, command_user)) = local_ids {
                         self.local_unique_player_id.write(local);
@@ -5878,25 +5889,35 @@ impl BwScr {
     /// is that player's message, printed after their name, and anything else is a notice.
     unsafe fn record_replay_chat_history_line(&self, text: &str, player: u32) {
         unsafe {
+            let game_frame = self.current_game_frame();
             let player_index = match player {
-                0..=11 => player,
-                128..=131 => player - 128 + 12,
-                _ => return self.record_chat_history_system_line(text, player),
+                0..=11 => Some(player),
+                128..=131 => Some(player - 128 + 12),
+                _ => None,
             };
-            let sender_name = self.player_display_name(player_index as u8);
-            let line = chat_history::ChatLine {
-                game_frame: self.current_game_frame(),
-                kind: chat_history::ChatLineKind::Player {
-                    sender_game_id: player as u8,
-                    own: false,
-                    // The game's classic chat record carries no scope: a replay shows its watcher
-                    // every line as said to everyone.
-                    scope: chat_history::ChatScope::All,
-                    sender_name: sender_name.clone(),
+            let line = match player_index {
+                Some(player_index) => {
+                    let sender_name = self.player_display_name(player_index as u8);
+                    chat_history::ChatLine {
+                        game_frame,
+                        kind: chat_history::ChatLineKind::Player {
+                            sender_game_id: player as u8,
+                            own: false,
+                            // The game's classic chat record carries no scope: a replay shows its
+                            // watcher every line as said to everyone.
+                            scope: chat_history::ChatScope::All,
+                            sender_name: sender_name.clone(),
+                        },
+                        text: chat_history::strip_sender_prefix(text, &sender_name).to_string(),
+                    }
+                }
+                None => chat_history::ChatLine {
+                    game_frame,
+                    kind: chat_history::ChatLineKind::System,
+                    text: text.to_string(),
                 },
-                text: chat_history::strip_sender_prefix(text, &sender_name).to_string(),
             };
-            self.chat_history.lock().push(line);
+            self.chat_history.lock().push_replayed(line);
         }
     }
 
