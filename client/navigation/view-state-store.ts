@@ -25,6 +25,8 @@ export interface ViewStateStore<T> {
   set(key: string, value: T): void
   /** Removes a stored entry, if one exists. */
   delete(key: string): void
+  /** Removes every entry in this store's namespace, leaving other namespaces untouched. */
+  clear(): void
 }
 
 /**
@@ -73,6 +75,15 @@ export function createViewStateStore<T>(
 
     delete(key: string): void {
       entries.delete(fullKey(key))
+    },
+
+    clear(): void {
+      const prefix = fullKey('')
+      for (const key of entries.keys()) {
+        if (key.startsWith(prefix)) {
+          entries.delete(key)
+        }
+      }
     },
   }
 }
