@@ -61,13 +61,13 @@
     "leaveAction": "Leave game",
     "reconnecting": "Reconnecting",
     "stateConnected": "connected",
+    "stateDisconnectedFor": "disconnected {{time}}",
     "stateDropRequested": "drop requested",
     "stateNotResponding": "not responding",
-    "stateReconnectingFor": "reconnecting… {{time}}",
     "teammateTag": "teammate",
-    "waitingBody_one": "The game is paused until this player reconnects.",
-    "waitingBody_other": "The game is paused until these players reconnect.",
     "waitingCost": "You can wait as long as you like. Waiting costs you nothing but time.",
+    "waitingPausedBody_one": "The game is paused until this player is back or dropped.",
+    "waitingPausedBody_other": "The game is paused until these players are back or dropped.",
     "waitingTitle": "Waiting for players"
   },
   "endCard": {

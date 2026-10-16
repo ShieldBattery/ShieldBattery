@@ -61,14 +61,14 @@
     "leaveAction": "Salir de la partida",
     "reconnecting": "Reconectando",
     "stateConnected": "conectado",
+    "stateDisconnectedFor": "desconectado {{time}}",
     "stateDropRequested": "expulsión pedida",
     "stateNotResponding": "no responde",
-    "stateReconnectingFor": "reconectando… {{time}}",
     "teammateTag": "compañero",
-    "waitingBody_one": "La partida está en pausa hasta que este jugador se reconecte.",
-    "waitingBody_many": "La partida está en pausa hasta que estos jugadores se reconecten.",
-    "waitingBody_other": "La partida está en pausa hasta que estos jugadores se reconecten.",
     "waitingCost": "Puedes esperar todo lo que quieras. Esperar no cuesta más que tiempo.",
+    "waitingPausedBody_one": "La partida está en pausa hasta que este jugador vuelva o sea expulsado.",
+    "waitingPausedBody_many": "La partida está en pausa hasta que estos jugadores vuelvan o sean expulsados.",
+    "waitingPausedBody_other": "La partida está en pausa hasta que estos jugadores vuelvan o sean expulsados.",
     "waitingTitle": "Esperando a jugadores"
   },
   "endCard": {

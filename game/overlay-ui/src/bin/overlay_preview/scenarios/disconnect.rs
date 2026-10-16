@@ -52,7 +52,7 @@ impl RowState {
         match self {
             RowState::Connected => PeerState::Connected,
             RowState::Stalled => PeerState::Stalled,
-            RowState::Reconnecting => PeerState::Reconnecting,
+            RowState::Reconnecting => PeerState::LinkLost,
         }
     }
 }

@@ -61,12 +61,12 @@
     "leaveAction": "게임 나가기",
     "reconnecting": "재연결 중",
     "stateConnected": "연결됨",
+    "stateDisconnectedFor": "연결 끊김 {{time}}",
     "stateDropRequested": "강퇴 요청됨",
     "stateNotResponding": "응답 없음",
-    "stateReconnectingFor": "재연결 중… {{time}}",
     "teammateTag": "팀원",
-    "waitingBody_other": "해당 플레이어가 다시 연결될 때까지 게임이 일시 정지됩니다.",
     "waitingCost": "원하는 만큼 기다려도 됩니다. 기다리는 데 드는 것은 시간뿐입니다.",
+    "waitingPausedBody_other": "해당 플레이어가 돌아오거나 강퇴될 때까지 게임이 일시 정지됩니다.",
     "waitingTitle": "플레이어 대기 중"
   },
   "endCard": {

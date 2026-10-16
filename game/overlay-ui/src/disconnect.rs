@@ -113,9 +113,10 @@ pub enum PeerState {
     /// The sim is blocked on this player's turn, but no link death has been relay-confirmed.
     /// Informational only, since the relay would not honor a drop it has not observed.
     Stalled,
-    /// The relay confirmed this player's link is down. The drop-unlock clock runs from the
-    /// confirmation, and the manual drop becomes clickable once it passes [`DROP_UNLOCK_UI`].
-    Reconnecting,
+    /// The relay confirmed this player's link is down. Nothing says whether they are trying to get
+    /// back, only how long they have been gone. The drop-unlock clock runs from the confirmation,
+    /// and the manual drop becomes clickable once it passes [`DROP_UNLOCK_UI`].
+    LinkLost,
 }
 
 impl PeerState {
@@ -171,7 +172,7 @@ pub struct DisconnectRowView {
     /// What the player's link is doing.
     pub state: PeerState,
     /// Whether the manual drop button is enabled: shown from the moment the row is
-    /// [`Reconnecting`](PeerState::Reconnecting), outlined and inert with a countdown label until
+    /// [`Reconnecting`](PeerState::LinkLost), outlined and inert with a countdown label until
     /// this flips, then clickable.
     pub drop_unlocked: bool,
     /// Whether to briefly acknowledge a just-made drop request.
@@ -205,10 +206,7 @@ impl DisconnectView {
     /// a row goes confirmed, not only once the button is clickable.
     pub fn has_button(&self) -> bool {
         self.self_state.is_terminal()
-            || self
-                .rows
-                .iter()
-                .any(|row| row.state == PeerState::Reconnecting)
+            || self.rows.iter().any(|row| row.state == PeerState::LinkLost)
     }
 
     /// The longest-running relay-confirmed wait, which is what the dialog's clock reads. `None`
@@ -218,7 +216,7 @@ impl DisconnectView {
     fn confirmed_elapsed(&self) -> Option<u64> {
         self.rows
             .iter()
-            .filter(|row| row.state == PeerState::Reconnecting)
+            .filter(|row| row.state == PeerState::LinkLost)
             .map(|row| row.seconds)
             .max()
     }
@@ -256,18 +254,25 @@ pub fn render_disconnect_view(
         SelfState::Reconnecting | SelfState::Disconnected | SelfState::Desynced => NOTICE_WIDTH,
         SelfState::Healthy => ROSTER_WIDTH,
     };
-    let dialog = tiers::tier2_dialog(
-        ctx,
-        Id::new("sb_disconnect_overlay"),
-        width,
-        |ui| match view.self_state {
-            SelfState::Reconnecting => draw_self_notice(ui, view, abandon_key_held),
-            SelfState::Disconnected | SelfState::Desynced => {
-                draw_session_ended(ui, view.self_state)
+    // The roster stands clear of the chat: the players kept waiting are the ones talking to each
+    // other. This client's own notice keeps the middle of the screen, as nobody can be heard while
+    // its own link is down.
+    let stage = match view.self_state {
+        SelfState::Healthy => tiers::DialogStage::Raised,
+        SelfState::Reconnecting | SelfState::Disconnected | SelfState::Desynced => {
+            tiers::DialogStage::Centered
+        }
+    };
+    let dialog =
+        tiers::tier2_dialog_staged(ctx, Id::new("sb_disconnect_overlay"), width, stage, |ui| {
+            match view.self_state {
+                SelfState::Reconnecting => draw_self_notice(ui, view, abandon_key_held),
+                SelfState::Disconnected | SelfState::Desynced => {
+                    draw_session_ended(ui, view.self_state)
+                }
+                SelfState::Healthy => draw_roster(ui, view),
             }
-            SelfState::Healthy => draw_roster(ui, view),
-        },
-    );
+        });
     InnerResponse::new(dialog.inner, dialog.response)
 }
 
@@ -294,7 +299,7 @@ fn draw_self_notice(
         ui.vertical_centered(|ui| {
             draw_reconnecting_label(ui);
             ui.add_space(theme::SPACE_SM);
-            ui.label(text::numeral(NOTICE_CLOCK_SIZE).job(&mmss(view.self_seconds)));
+            ui.label(text::numeral(NOTICE_CLOCK_SIZE).galley(ui, &mmss(view.self_seconds)));
             ui.add_space(theme::SPACE_SM);
             widgets::centered_paragraph(
                 ui,
@@ -405,10 +410,10 @@ fn draw_session_ended(ui: &mut Ui, self_state: SelfState) -> DisconnectOutcome {
 fn draw_roster(ui: &mut Ui, view: &DisconnectView) -> DisconnectOutcome {
     tiers::dialog_header(ui, |ui| {
         let subtitle = tr_plural!(
-            "disconnect.waitingBody",
+            "disconnect.waitingPausedBody",
             view.waiting_count(),
-            one = "The game is paused until this player reconnects.",
-            other = "The game is paused until these players reconnect."
+            one = "The game is paused until this player is back or dropped.",
+            other = "The game is paused until these players are back or dropped."
         );
         draw_title_block(
             ui,
@@ -557,7 +562,7 @@ fn draw_row(ui: &mut Ui, row: &DisconnectRowView, clicked: &mut Vec<u8>) {
     // Only a player the game has given up waiting on has a drop control, so only their row keeps
     // room for one: a stalled row that held the room empty would have its state text standing a
     // button's width in from the edge every other row's sits against.
-    let has_drop = row.state == PeerState::Reconnecting;
+    let has_drop = row.state == PeerState::LinkLost;
     let button_column = if has_drop {
         BUTTON_MARGIN + BUTTON_SIZE.x
     } else {
@@ -641,7 +646,7 @@ fn color_bar(ui: &mut Ui, color: Color32) {
 /// row has no control and no room kept for one; when its link is confirmed down the control
 /// arrives with the change of state, which is a change the row is showing anyway.
 fn draw_drop_button(ui: &mut Ui, row: &DisconnectRowView, clicked: &mut Vec<u8>) {
-    let spec = text::button_label(12.5).with_letter_spacing(1.4);
+    let spec = text::button_label(12.5).with_letter_spacing(1.4).tabular();
     if !row.drop_unlocked {
         let remaining = DROP_UNLOCK_UI.as_secs().saturating_sub(row.seconds);
         let label = tr!(
@@ -672,9 +677,9 @@ fn state_text(row: &DisconnectRowView) -> String {
     match row.state {
         PeerState::Connected => tr!("disconnect.stateConnected", "connected"),
         PeerState::Stalled => tr!("disconnect.stateNotResponding", "not responding"),
-        PeerState::Reconnecting => tr!(
-            "disconnect.stateReconnectingFor",
-            "reconnecting… {{time}}",
+        PeerState::LinkLost => tr!(
+            "disconnect.stateDisconnectedFor",
+            "disconnected {{time}}",
             time = mmss(row.seconds)
         ),
     }
@@ -686,9 +691,11 @@ fn state_spec(row: &DisconnectRowView) -> TextSpec {
     let color = match row.state {
         PeerState::Connected => theme::TEXT_SECONDARY,
         PeerState::Stalled => theme::TEXT_DIM,
-        PeerState::Reconnecting => theme::TEXT_WARNING,
+        PeerState::LinkLost => theme::TEXT_WARNING,
     };
-    text::body(13.5, BodyWeight::Regular).with_color(color)
+    text::body(13.5, BodyWeight::Regular)
+        .with_color(color)
+        .tabular()
 }
 
 /// The dot at the head of a row: steady green while the player is in the game, breathing amber
@@ -696,7 +703,7 @@ fn state_spec(row: &DisconnectRowView) -> TextSpec {
 fn dot_color(state: PeerState) -> Color32 {
     match state {
         PeerState::Connected => theme::TEXT_POSITIVE,
-        PeerState::Stalled | PeerState::Reconnecting => theme::ACCENT,
+        PeerState::Stalled | PeerState::LinkLost => theme::ACCENT,
     }
 }
 
@@ -763,7 +770,7 @@ mod tests {
     }
 
     fn confirmed_row(name: &str, drop_requested: bool) -> DisconnectRowView {
-        row(name, PeerState::Reconnecting, drop_requested)
+        row(name, PeerState::LinkLost, drop_requested)
     }
 
     fn peers(rows: Vec<DisconnectRowView>) -> DisconnectView {

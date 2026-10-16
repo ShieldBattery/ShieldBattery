@@ -272,6 +272,26 @@ pub struct DialogResponse<R> {
     pub response: Response,
 }
 
+/// Where a modal dialog stands, and how much of the game it dims.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum DialogStage {
+    /// Centred, the whole screen dimmed behind it: the dialog is all there is to look at.
+    Centered,
+    /// Near the top of the screen, growing downward, with the dimming only around it and gone by
+    /// the screen's middle. For a dialog the player has to be able to see the game past: the chat
+    /// lines SC:R draws above its console, and the chat box under them, stay clear.
+    Raised,
+}
+
+/// How far down the screen a raised dialog's top edge sits, as a fraction of the screen's height:
+/// clear of SC:R's resource counters along the top.
+const RAISED_TOP: f32 = 0.1;
+
+/// How far down the screen a raised dialog's dimming reaches before it is gone, as a fraction of
+/// the screen's height, and how strong it is at its top, as a fraction of the scrim's own.
+const RAISED_SCRIM_REACH: f32 = 0.55;
+const RAISED_SCRIM_STRENGTH: f32 = 0.85;
+
 /// A modal dialog: the screen dimmed behind it, the dialog centred on top.
 ///
 /// The dialog's `Ui` is the full width of the chrome with no padding of its own, because a dialog
@@ -283,18 +303,38 @@ pub fn tier2_dialog<R>(
     width: f32,
     add: impl FnOnce(&mut Ui) -> R,
 ) -> DialogResponse<R> {
+    tier2_dialog_staged(ctx, id, width, DialogStage::Centered, add)
+}
+
+/// [`tier2_dialog`] standing where `stage` puts it.
+pub fn tier2_dialog_staged<R>(
+    ctx: &Context,
+    id: Id,
+    width: f32,
+    stage: DialogStage,
+    add: impl FnOnce(&mut Ui) -> R,
+) -> DialogResponse<R> {
     let screen = ctx.viewport_rect();
     let scrim_area = Area::new(id.with("scrim"))
         .order(Order::Middle)
         .fixed_pos(screen.min)
         .show(ctx, |ui| {
+            // The whole screen still takes the clicks, however little of it is dimmed: the dialog
+            // is modal either way.
             let (rect, response) = ui.allocate_exact_size(screen.size(), Sense::click());
-            ui.painter().rect_filled(rect, 0, theme::SCRIM);
+            match stage {
+                DialogStage::Centered => ui.painter().rect_filled(rect, 0, theme::SCRIM),
+                DialogStage::Raised => ui.painter().add(raised_scrim(rect)),
+            };
             response
         });
+    let anchor = match stage {
+        DialogStage::Centered => (Align2::CENTER_CENTER, Vec2::ZERO),
+        DialogStage::Raised => (Align2::CENTER_TOP, vec2(0.0, screen.height() * RAISED_TOP)),
+    };
     let dialog = Area::new(id)
         .order(Order::Foreground)
-        .anchor(Align2::CENTER_CENTER, Vec2::ZERO)
+        .anchor(anchor.0, anchor.1)
         .show(ctx, |ui| {
             let background = ui.painter().add(Shape::Noop);
             let inner = Frame::NONE.show(ui, |ui| {
@@ -311,6 +351,28 @@ pub fn tier2_dialog<R>(
         scrim_clicked: scrim_area.inner.clicked(),
         response: dialog.response,
     }
+}
+
+/// The dimming behind a raised dialog: the scrim at the top of the screen, falling smoothly to
+/// nothing by [`RAISED_SCRIM_REACH`] of the way down it.
+fn raised_scrim(screen: Rect) -> Shape {
+    const ROWS: usize = 12;
+    let reach = screen.top() + screen.height() * RAISED_SCRIM_REACH;
+    let mut mesh = Mesh::default();
+    for row in 0..=ROWS {
+        let along = row as f32 / ROWS as f32;
+        let y = screen.top() + (reach - screen.top()) * along;
+        let falloff = 1.0 - along * along * (3.0 - 2.0 * along);
+        let color = theme::SCRIM.gamma_multiply(RAISED_SCRIM_STRENGTH * falloff);
+        mesh.colored_vertex(pos2(screen.left(), y), color);
+        mesh.colored_vertex(pos2(screen.right(), y), color);
+    }
+    for row in 0..ROWS as u32 {
+        let top = row * 2;
+        mesh.add_triangle(top, top + 1, top + 2);
+        mesh.add_triangle(top + 1, top + 3, top + 2);
+    }
+    Shape::mesh(mesh)
 }
 
 /// A dialog's top band: what the dialog is about, ruled off from the rest of it.

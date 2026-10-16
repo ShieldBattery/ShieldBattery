@@ -61,12 +61,12 @@
     "leaveAction": "离开游戏",
     "reconnecting": "正在重连",
     "stateConnected": "已连接",
+    "stateDisconnectedFor": "已断开 {{time}}",
     "stateDropRequested": "已请求踢出",
     "stateNotResponding": "无响应",
-    "stateReconnectingFor": "正在重连… {{time}}",
     "teammateTag": "队友",
-    "waitingBody_other": "游戏已暂停，等待玩家重新连接。",
     "waitingCost": "您可以一直等下去。等待除了时间之外不会有任何代价。",
+    "waitingPausedBody_other": "游戏已暂停，直到玩家返回或被踢出。",
     "waitingTitle": "等待玩家"
   },
   "endCard": {

@@ -2497,7 +2497,7 @@ mod tests {
                 color: crate::kit::theme::player_color(0),
                 teammate: false,
                 seconds: 12,
-                state: PeerState::Reconnecting,
+                state: PeerState::LinkLost,
                 drop_unlocked: false,
                 drop_requested: false,
             }],

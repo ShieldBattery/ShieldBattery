@@ -79,7 +79,7 @@ pub(super) fn build_disconnect_view(
             state: match trouble.map(|row| row.tier) {
                 None => PeerState::Connected,
                 Some(DisconnectTier::Stall) => PeerState::Stalled,
-                Some(DisconnectTier::Confirmed) => PeerState::Reconnecting,
+                Some(DisconnectTier::Confirmed) => PeerState::LinkLost,
             },
             drop_unlocked: trouble.is_some_and(|row| row.drop_unlocked),
             drop_requested: trouble.is_some_and(|row| row.drop_requested),
@@ -97,7 +97,7 @@ pub(super) fn build_disconnect_view(
             seconds: row.seconds,
             state: match row.tier {
                 DisconnectTier::Stall => PeerState::Stalled,
-                DisconnectTier::Confirmed => PeerState::Reconnecting,
+                DisconnectTier::Confirmed => PeerState::LinkLost,
             },
             drop_unlocked: row.drop_unlocked,
             drop_requested: row.drop_requested,
