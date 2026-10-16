@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use std::sync::LazyLock;
 
 use crate::bw::commands;
 
@@ -11,30 +12,58 @@ const FRAME_MS: f64 = 42.0;
 /// How many game frames make a minute.
 const FRAMES_PER_MINUTE: f64 = 60_000.0 / FRAME_MS;
 
-/// The time constant of each of the current rate's two stages, in game frames. Together they weigh
-/// an action by how long ago it was made, its weight peaking this long after and averaging twice
-/// this: about 20 seconds, short enough that a fight shows as a rise a watcher can see, long enough
-/// that one burst of clicks doesn't throw the number around.
-const RECENT_TIME_CONSTANT_FRAMES: f64 = 10_000.0 / FRAME_MS;
+/// How many game frames the current rate counts actions in at a time: a quarter of a second, so the
+/// number answers a player's clicks while they are still making them.
+const BUCKET_FRAMES: u32 = 6;
+
+/// How many of the newest whole buckets the current rate counts in full (six seconds), and how many
+/// older ones it fades out over (eighteen). Weighed together they make fifteen seconds, about what
+/// BWChart's "Dynamic" window averages over: short enough that a player picking up the pace after
+/// standing idle shows it within seconds, long enough that one burst of clicks doesn't throw the
+/// number around.
+const FULL_BUCKETS: usize = 24;
+const FADING_BUCKETS: usize = 72;
+
+/// How many buckets the current rate reaches back over.
+const WINDOW_BUCKETS: usize = FULL_BUCKETS + FADING_BUCKETS;
+
+/// How much each bucket counts toward the current rate, newest first: fully for the newest
+/// [`FULL_BUCKETS`], then falling along half a cosine to nothing over [`FADING_BUCKETS`].
+static BUCKET_WEIGHTS: LazyLock<[f64; WINDOW_BUCKETS]> = LazyLock::new(|| {
+    std::array::from_fn(|age| match age.checked_sub(FULL_BUCKETS) {
+        None => 1.0,
+        Some(fading) => {
+            let along = (fading as f64 + 0.5) / FADING_BUCKETS as f64;
+            0.5 * (1.0 + (std::f64::consts::PI * along).cos())
+        }
+    })
+});
 
 /// How long the game has to have run before its average rate means anything: a second.
 const AVERAGE_MIN_FRAMES: u32 = 24;
 
 /// Counts each player's actions, for their average rate over the game and their current rate.
 ///
-/// The current rate is an exponentially weighted average of the player's actions over game time,
-/// run twice: once, every action would bump the number the moment it is made and the number would
-/// sag between actions, a sawtooth a watcher reads as noise; run twice, it rises and falls smoothly
-/// through the same average. A weighted average starting from nothing reads low until it has
-/// filled, so it is divided by the same filter's response to a steady one action per frame since
-/// the game began: what is left is a rate, fair from the game's first second.
+/// The current rate is a weighted average of the actions in the newest whole buckets of
+/// [`BUCKET_FRAMES`] frames, after BWChart's: BWChart averages a window centered on the moment it
+/// plots, which a live game can't, as half of that window hasn't happened yet, so this one trails
+/// instead and reads much the same curve some seconds later.
+///
+/// An action never counts for more than it did when it was made (see [`BUCKET_WEIGHTS`]), so the
+/// rate never rises once a player stops, as it does under a weighting that peaks some time after
+/// an action. Its oldest buckets fade out rather than leave all at once, so a burst eases out of the
+/// number instead of dropping off a ledge a window's length later. Counting whole buckets has the
+/// number move at most once a bucket, rather than with every frame. Until the window has filled,
+/// the rate is weighed over the buckets there are, so it is fair from the game's first second.
 #[derive(Clone)]
 pub struct ApmStats {
     per_player: [PlayerApm; 8],
     /// Game frames counted so far.
     total_frames: u32,
-    /// The filter's response to one action every frame since the game began, at both stages.
-    reference: Smoothed,
+    /// Frames counted into the bucket still filling.
+    bucket_frames: u32,
+    /// Whole buckets closed so far, which the window holds the newest [`WINDOW_BUCKETS`] of.
+    closed_buckets: u32,
     /// For each player, the steps whose actions were counted, in a game that simulates steps
     /// again when turns arrive late (see [`ApmStats::counts_turn`]), the newest
     /// [`COUNTED_STEPS_KEPT`].
@@ -45,27 +74,28 @@ pub struct ApmStats {
 /// again.
 const COUNTED_STEPS_KEPT: usize = 64;
 
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug)]
 struct PlayerApm {
     total_actions: u32,
-    recent: Smoothed,
+    /// Actions in the bucket still filling.
+    filling: u32,
+    /// Actions in each of the window's buckets, the slot after the newest holding the oldest.
+    window: [u32; WINDOW_BUCKETS],
 }
 
-/// A count of actions put through the two stages of the current rate's average.
-#[derive(Copy, Clone, Debug, Default)]
-struct Smoothed {
-    /// Actions, each weighted down by how long ago it was made.
-    first: f64,
-    /// The first stage, averaged over time the same way.
-    second: f64,
-}
+impl PlayerApm {
+    const fn new() -> PlayerApm {
+        PlayerApm {
+            total_actions: 0,
+            filling: 0,
+            window: [0; WINDOW_BUCKETS],
+        }
+    }
 
-impl Smoothed {
-    /// Moves on by one frame, whose actions have been added to [`first`](Self::first).
-    fn step(&mut self) {
-        let keep = (-1.0 / RECENT_TIME_CONSTANT_FRAMES).exp();
-        self.second = self.second * keep + self.first * (1.0 - keep);
-        self.first *= keep;
+    /// Closes the bucket that was filling into the window's slot `slot`, putting the oldest out.
+    fn close_bucket(&mut self, slot: usize) {
+        self.window[slot] = self.filling;
+        self.filling = 0;
     }
 }
 
@@ -80,18 +110,10 @@ impl ApmStats {
 
     pub const fn new() -> ApmStats {
         ApmStats {
-            per_player: [PlayerApm {
-                total_actions: 0,
-                recent: Smoothed {
-                    first: 0.0,
-                    second: 0.0,
-                },
-            }; 8],
+            per_player: [PlayerApm::new(); 8],
             total_frames: 0,
-            reference: Smoothed {
-                first: 0.0,
-                second: 0.0,
-            },
+            bucket_frames: 0,
+            closed_buckets: 0,
             counted_steps: [const { VecDeque::new() }; 8],
         }
     }
@@ -122,11 +144,16 @@ impl ApmStats {
     /// Moves on by one game frame, closing the frame whose actions have just been counted.
     pub fn new_frame(&mut self) {
         self.total_frames = self.total_frames.saturating_add(1);
-        self.reference.first += 1.0;
-        self.reference.step();
-        for player_apm in &mut self.per_player {
-            player_apm.recent.step();
+        self.bucket_frames += 1;
+        if self.bucket_frames < BUCKET_FRAMES {
+            return;
         }
+        let slot = self.closed_buckets as usize % WINDOW_BUCKETS;
+        for player_apm in &mut self.per_player {
+            player_apm.close_bucket(slot);
+        }
+        self.bucket_frames = 0;
+        self.closed_buckets = self.closed_buckets.saturating_add(1);
     }
 
     /// Counts `bytes` as an action of `player`'s, returning whether it is one.
@@ -140,7 +167,7 @@ impl ApmStats {
         };
 
         player_apm.total_actions = player_apm.total_actions.saturating_add(1);
-        player_apm.recent.first += 1.0;
+        player_apm.filling = player_apm.filling.saturating_add(1);
         true
     }
 
@@ -155,16 +182,25 @@ impl ApmStats {
         Some((f64::from(player_apm.total_actions) / minutes).round() as u32)
     }
 
-    /// A player's actions per minute lately, weighted toward the last few tens of seconds.
+    /// A player's actions per minute lately, over the last fifteen seconds or so of whole buckets,
+    /// or 0 before the first bucket has closed.
     pub fn player_recent_apm(&self, player: u8) -> u32 {
         let Some(player_apm) = self.per_player.get(player as usize) else {
             return 0;
         };
-        if self.reference.second <= 0.0 {
+        let buckets = (self.closed_buckets as usize).min(WINDOW_BUCKETS);
+        if buckets == 0 {
             return 0;
         }
-        let per_frame = player_apm.recent.second / self.reference.second;
-        (per_frame * FRAMES_PER_MINUTE).round() as u32
+        let newest = self.closed_buckets as usize - 1;
+        let (mut actions, mut weight) = (0.0, 0.0);
+        for (age, bucket_weight) in BUCKET_WEIGHTS.iter().take(buckets).enumerate() {
+            let slot = (newest - age) % WINDOW_BUCKETS;
+            actions += f64::from(player_apm.window[slot]) * bucket_weight;
+            weight += bucket_weight;
+        }
+        let frames = weight * f64::from(BUCKET_FRAMES);
+        (actions * FRAMES_PER_MINUTE / frames).round() as u32
     }
 }
 
@@ -310,33 +346,82 @@ mod tests {
         );
     }
 
-    /// Steady clicking reads as a steady number: the individual actions don't show through as a
-    /// sawtooth.
+    /// Steady clicking reads as a steady number: the individual actions don't show through, and the
+    /// number only moves as a bucket closes.
     #[test]
     fn steady_clicking_reads_steadily() {
         let mut apm = ApmStats::new();
         let rates = play(&mut apm, 3 * 60 * 24, 6);
-        let last_second = &rates[rates.len() - 24..];
+        let last_seconds = &rates[rates.len() - 5 * 24..];
         let (low, high) = (
-            last_second.iter().min().unwrap(),
-            last_second.iter().max().unwrap(),
+            last_seconds.iter().min().unwrap(),
+            last_seconds.iter().max().unwrap(),
         );
         assert!(high - low <= 2, "{low}..{high}");
+        let moves = last_seconds
+            .windows(2)
+            .filter(|pair| pair[0] != pair[1])
+            .count();
+        assert!(moves <= 6, "{moves} moves in five seconds");
     }
 
-    /// A fight's burst of actions eases out of the rate rather than dropping off a ledge, and is
-    /// mostly gone a minute later.
+    /// The rate never rises once a player stops, after a burst far above their usual pace as much
+    /// as after a steady one, and it falls away over the window's own length.
     #[test]
-    fn a_burst_fades_smoothly() {
+    fn stopping_never_raises_the_rate() {
         let mut apm = ApmStats::new();
-        play(&mut apm, 60 * 24, 6);
-        let peak = apm.player_recent_apm(0);
-        let fading = play(&mut apm, 60 * 24, 0);
+        play(&mut apm, 60 * 24, 12);
+        play(&mut apm, 10 * 24, 3);
+        let window_frames = (WINDOW_BUCKETS as u32 + 1) * BUCKET_FRAMES;
+        let fading = play(&mut apm, window_frames + 1, 0);
         for pair in fading.windows(2) {
             assert!(pair[1] <= pair[0], "rose while idle: {pair:?}");
-            assert!(pair[0] - pair[1] <= 2, "dropped off a ledge: {pair:?}");
         }
-        assert!(f64::from(*fading.last().unwrap()) < f64::from(peak) * 0.1);
+        assert_eq!(fading[window_frames as usize], 0);
+    }
+
+    /// A burst eases out of the rate as it ages, rather than dropping off a ledge all at once a
+    /// window's length after it.
+    #[test]
+    fn a_burst_eases_out() {
+        let mut apm = ApmStats::new();
+        play(&mut apm, 60 * 24, 12);
+        play(&mut apm, 10 * 24, 3);
+        let easing = play(&mut apm, 60 * 24, 12);
+        // The burst runs about 360 a minute over the pace around it. Leaving a fifteen-second
+        // window at full weight, it would take a fifteenth of that off the rate every second.
+        let per_second = easing
+            .windows(24)
+            .map(|second| second[0].saturating_sub(second[23]))
+            .max()
+            .unwrap();
+        assert!(
+            per_second < 20,
+            "dropped off a ledge: {per_second} in a second"
+        );
+    }
+
+    /// A player picking the pace back up after standing idle reads near it within fifteen seconds.
+    #[test]
+    fn the_pace_after_idling_shows_quickly() {
+        let mut apm = ApmStats::new();
+        play(&mut apm, 60 * 24, 0);
+        let rates = play(&mut apm, 15 * 24, 6);
+        let reached = f64::from(*rates.last().unwrap());
+        assert!(reached > STEADY_APM * 0.85, "{reached}");
+    }
+
+    /// A burst shows in the rate while it lasts, rather than some time after it.
+    #[test]
+    fn a_burst_shows_while_it_lasts() {
+        let mut apm = ApmStats::new();
+        play(&mut apm, 60 * 24, 12);
+        let before = apm.player_recent_apm(0);
+        let during = play(&mut apm, 10 * 24, 3);
+        let after = play(&mut apm, 10 * 24, 0);
+        let peak_during = *during.iter().max().unwrap();
+        assert!(peak_during > before + 50, "{before} -> {peak_during}");
+        assert!(after.iter().all(|&rate| rate <= peak_during));
     }
 
     #[test]
