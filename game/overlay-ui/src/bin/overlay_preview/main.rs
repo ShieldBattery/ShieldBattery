@@ -643,7 +643,8 @@ impl PreviewApp {
             },
             match status.capture.keyboard {
                 KeyboardCapture::Selective => "selective",
-                KeyboardCapture::All => "all",
+                KeyboardCapture::All { chat: true } => "all but chat",
+                KeyboardCapture::All { chat: false } => "all",
             },
             status.top_modal.map_or("none", ModalId::label),
         );

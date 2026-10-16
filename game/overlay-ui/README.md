@@ -225,12 +225,15 @@ plate's exit, so the two never overlap.
 every rect the frame reported is the game's — and the keyboard by whether an egui widget has focus or
 a hotkey is bound. A capturing modal takes both outright: unit selection, drag-select and
 move/attack commands all ride the same messages, so taking them all is what makes a modal behave like
-a pause. Two carve-outs survive a full capture. While BW's chat box is open the player is typing, so
-every key belongs to that box (backspace, the arrows, Escape to close it) and the keyboard passes
-straight through however modal the screen is. And typed _characters_ are never part of the capture at
-all: SC:R opens and submits its chat box from the Enter character rather than from a virtual key, so
-swallowing characters while the box is closed would swallow the keystroke that opens it and the box
-could never be reported open again. `Key::Enter` is let through for the same reason.
+a pause. A capturing modal also keeps the chat box shut, as the SC:R dialogs the modals stand in for
+do: SC:R opens its chat box from the Enter _character_ rather than from a virtual key, so the capture
+swallows typed characters along with `Key::Enter`. Letting them through would open a box behind the
+modal whose letters the modal's own keys then answer to. The one modal the player can still chat from
+is the wait for players (`ModalId::allows_chat`), where the people kept waiting are the ones with
+something to say to each other; there a box that is open keeps the keyboard, every key belonging to
+it (backspace, the arrows, Escape to close it). Under any other modal a box already open when it came
+up is frozen, as SC:R's own dialogs freeze it: the modal takes every key, and a half-typed message
+waits in the box until the modal is gone.
 
 **The disconnect surface** (`disconnect`) has two forms of one view-model. While this client's own
 link is fine it is the game's whole roster, one boxed row per other player: a dot and the player's

@@ -1608,9 +1608,12 @@ impl OverlayState {
                 }
                 WM_CHAR => {
                     if !self.ctx.egui_wants_keyboard_input() {
-                        // Characters are never swallowed by the shell's input capture; see
-                        // `InputCapture`'s doc comment for why the chat box depends on that.
-                        return None;
+                        // Kept from the game only under a modal the player may not chat from:
+                        // SC:R opens its chat box from the Enter character.
+                        return match self.capture.blocks_game_char() {
+                            true => Some(0),
+                            false => None,
+                        };
                     }
                     if wparam >= 0x80 {
                         // Too lazy to figure out how windows sends

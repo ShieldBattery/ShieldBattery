@@ -388,6 +388,27 @@ impl ModalId {
         }
     }
 
+    /// Whether the player can open BW's chat box while this modal takes their input.
+    ///
+    /// Only while the game waits on someone: the players kept waiting are the ones with something
+    /// to say to each other, and it is a moment SC:R lets them chat through too. Everything else
+    /// stands in for a dialog of SC:R's that takes every input while it is up, the chat box's
+    /// included, and does the same: a box left open under one waits until it is gone.
+    pub fn allows_chat(self) -> bool {
+        match self {
+            ModalId::WaitingForPlayers => true,
+            ModalId::ConnectionInterrupted
+            | ModalId::SessionEnded
+            | ModalId::GameMenu
+            | ModalId::ChatHistory
+            | ModalId::Options
+            | ModalId::Victory
+            | ModalId::Defeat
+            | ModalId::LeaveGame
+            | ModalId::Alliances => false,
+        }
+    }
+
     /// Whether this modal's buttons answer to keys (see [`Shell::key_pressed`]), which is when a host
     /// hands the shell every keypress first: the keys type nothing here, and a control holding the
     /// keyboard would otherwise take a key that is meant for one of the buttons.
@@ -565,17 +586,19 @@ pub enum PointerCapture {
 pub enum KeyboardCapture {
     /// Only what a focused egui widget or a bound hotkey claims; every other key reaches the game.
     Selective,
-    /// Every key is the overlay's, bar the carve-out in [`InputCapture::blocks_game_key`].
-    All,
+    /// Every key is the overlay's, bar the carve-outs in [`InputCapture::blocks_game_key`].
+    /// `chat` is whether the player can still open BW's chat box from under the modal.
+    All { chat: bool },
 }
 
 /// What the game is allowed to see of this frame's input.
 ///
-/// Typed characters are deliberately not part of this. The capture is about input aimed at the game
-/// — unit commands and hotkeys, which arrive as virtual keys — while SC:R opens and submits its chat
-/// box from the Enter *character*. Swallowing characters while the box is closed would swallow the
-/// very keystroke that opens it, so the box could never be reported open again and every following
-/// character would stay swallowed too.
+/// SC:R opens and submits its chat box from the Enter *character* rather than the key, so whether
+/// the player can chat under a modal is a matter of whether typed characters reach the game: a
+/// modal that keeps the player out of the chat box swallows them along with every key (see
+/// [`blocks_game_char`](Self::blocks_game_char)), whether or not the box was already open when it
+/// came up. That is how SC:R's own dialogs treat it: a message half typed when one comes up waits
+/// in the box, untouched, until the dialog is gone.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct InputCapture {
     pub pointer: PointerCapture,
@@ -597,13 +620,15 @@ impl InputCapture {
 
     /// The frame's policy.
     ///
-    /// A capturing modal takes everything, with two exceptions. BW's chat entry box: while it is
-    /// open the player is typing, and every key belongs to that box — backspace, the arrow keys and
-    /// Escape to close it included — so the keyboard passes straight through however modal the
-    /// screen is. And BW's own game menu: while the player has it open, every key and click is its,
-    /// so a player stuck behind a modal can always reach Quit rather than the task manager.
+    /// A capturing modal takes everything, the chat box included, unless `chat_allowed` says every
+    /// capturing modal up lets the player talk from under it. Under one that does, BW's chat entry
+    /// box keeps the keyboard while it is open: the player is typing, and every key belongs to that
+    /// box — backspace, the arrow keys and Escape to close it included. And whatever is up, BW's
+    /// own game menu gets every key and click while the player has it open, so a player stuck
+    /// behind a modal can always reach Quit rather than the task manager.
     pub fn resolve(
         modal_captures: bool,
+        chat_allowed: bool,
         native_textbox_open: bool,
         native_menu_open: bool,
     ) -> InputCapture {
@@ -614,8 +639,8 @@ impl InputCapture {
             } else {
                 PointerCapture::HitRects
             },
-            keyboard: if captures && !native_textbox_open {
-                KeyboardCapture::All
+            keyboard: if captures && !(chat_allowed && native_textbox_open) {
+                KeyboardCapture::All { chat: chat_allowed }
             } else {
                 KeyboardCapture::Selective
             },
@@ -630,11 +655,11 @@ impl InputCapture {
     /// Whether a key aimed at the game should be kept from it.
     ///
     /// `key` is the keypress in the shell's own terms, or `None` for a key the host could not name.
-    /// Two keys are let through even under a full capture. Return: SC:R opens its chat box from the
-    /// Enter character rather than from this virtual key, so the keypress carries no unit command
-    /// and swallowing it would only cost the player their way into the chat box. F10: it opens BW's
-    /// game menu, which then lifts the capture (see [`resolve`](Self::resolve)), so the player can
-    /// always leave a stuck game.
+    /// Two keys can get through a full capture. Return, under a modal the player may chat from:
+    /// SC:R opens its chat box from the Enter character rather than from this virtual key, so the
+    /// keypress carries no unit command and swallowing it would only cost the player their way into
+    /// the chat box. F10, always: it opens BW's game menu, which then lifts the capture (see
+    /// [`resolve`](Self::resolve)), so the player can always leave a stuck game.
     ///
     /// Escape stays blocked: it carries no unit command, but BW's top dialog during a stall is the
     /// hidden `TimeOut`, and Escape's effect on that is not worth finding out. Alt combinations (BW's
@@ -643,8 +668,18 @@ impl InputCapture {
     pub fn blocks_game_key(self, key: Option<Key>) -> bool {
         match self.keyboard {
             KeyboardCapture::Selective => false,
-            KeyboardCapture::All => !matches!(key, Some(Key::Enter | Key::F10)),
+            KeyboardCapture::All { chat } => match key {
+                Some(Key::F10) => false,
+                Some(Key::Enter) => !chat,
+                _ => true,
+            },
         }
+    }
+
+    /// Whether a typed character aimed at the game should be kept from it, which is what keeps the
+    /// chat box from opening under a modal the player may not chat from.
+    pub fn blocks_game_char(self) -> bool {
+        matches!(self.keyboard, KeyboardCapture::All { chat: false })
     }
 }
 
@@ -947,6 +982,7 @@ impl Shell {
     pub fn capture(&self) -> InputCapture {
         InputCapture::resolve(
             self.modal_captures(),
+            self.chat_allowed(),
             self.host.native_textbox_open,
             self.host.native_menu_open,
         )
@@ -1029,7 +1065,7 @@ impl Shell {
         // keycaps name (see each dialog's key constants), and the leave question to both of the
         // keys SC:R's own quit questions leave on: Alt+Q then Q, and F10 then E then Q, leave the
         // way they always have.
-        if modifiers.is_none() && self.dialog_key_pressed(key) {
+        if modifiers.is_none() && !self.chat_box_has_keyboard() && self.dialog_key_pressed(key) {
             return true;
         }
         if hotkeys::is_quit_chord(key, modifiers) && self.quit_keys_active() {
@@ -1050,7 +1086,8 @@ impl Shell {
         if hotkeys::is_save_chord(key, modifiers) && self.host.game_started {
             return true;
         }
-        if key == Key::Escape {
+        // Escape closes the chat box while it is open, ahead of anything of ours.
+        if key == Key::Escape && !self.chat_box_has_keyboard() {
             // A menu open on the screen closes ahead of the screen itself.
             if self.top_modal() == Some(ModalId::Alliances) && self.alliances_menu.is_some() {
                 self.alliances_menu = None;
@@ -1935,7 +1972,7 @@ impl Shell {
     /// close owns the screen: that one already says how this game ends.
     fn quit_keys_active(&self) -> bool {
         self.host.game_started
-            && !self.host.native_textbox_open
+            && !self.chat_box_has_keyboard()
             && self.top_modal().is_none_or(ModalId::is_dismissible)
     }
 
@@ -1954,6 +1991,22 @@ impl Shell {
 
     fn modal_captures(&self) -> bool {
         self.modals.iter().any(|modal| modal.captures_input)
+    }
+
+    /// Whether every modal taking the player's input lets them chat from under it (see
+    /// [`ModalId::allows_chat`]), which with none up they can.
+    fn chat_allowed(&self) -> bool {
+        self.modals
+            .iter()
+            .filter(|modal| modal.captures_input)
+            .all(|modal| modal.id.allows_chat())
+    }
+
+    /// Whether the keys pressed now are going into BW's chat box: it is open, and nothing of ours
+    /// that keeps it shut is up. A box left open under a modal that does is frozen, and the keys
+    /// are the modal's.
+    fn chat_box_has_keyboard(&self) -> bool {
+        self.host.native_textbox_open && self.chat_allowed()
     }
 
     fn apply_action(&mut self, action: Action, modifiers: Modifiers) -> bool {
@@ -2455,7 +2508,7 @@ mod tests {
 
     #[test]
     fn nothing_on_screen_leaves_every_input_to_the_game() {
-        let capture = InputCapture::resolve(false, false, false);
+        let capture = InputCapture::resolve(false, false, false, false);
         assert_eq!(capture, InputCapture::PASS_THROUGH);
         assert!(!capture.blocks_game_pointer());
         assert!(!capture.blocks_game_key(Some(Key::A)));
@@ -2463,32 +2516,55 @@ mod tests {
 
     #[test]
     fn a_capturing_modal_takes_the_pointer_and_the_keyboard() {
-        let capture = InputCapture::resolve(true, false, false);
+        let capture = InputCapture::resolve(true, false, false, false);
         assert!(capture.blocks_game_pointer());
         assert!(capture.blocks_game_key(Some(Key::A)));
         assert!(capture.blocks_game_key(None));
     }
 
     #[test]
-    fn return_and_f10_survive_a_full_capture() {
-        let capture = InputCapture::resolve(true, false, false);
-        assert!(!capture.blocks_game_key(Some(Key::Enter)));
+    fn f10_survives_a_full_capture() {
+        let capture = InputCapture::resolve(true, false, false, false);
         assert!(!capture.blocks_game_key(Some(Key::F10)));
         assert!(capture.blocks_game_key(Some(Key::Escape)));
     }
 
     #[test]
+    fn a_modal_that_keeps_chat_shut_takes_return_and_every_character() {
+        let capture = InputCapture::resolve(true, false, false, false);
+        assert!(capture.blocks_game_key(Some(Key::Enter)));
+        assert!(capture.blocks_game_char());
+    }
+
+    #[test]
+    fn a_modal_the_player_may_chat_from_leaves_return_and_characters_to_the_game() {
+        let capture = InputCapture::resolve(true, true, false, false);
+        assert!(!capture.blocks_game_key(Some(Key::Enter)));
+        assert!(!capture.blocks_game_char());
+        assert!(capture.blocks_game_key(Some(Key::A)));
+    }
+
+    #[test]
     fn an_open_game_menu_gets_every_input() {
-        let capture = InputCapture::resolve(true, false, true);
+        let capture = InputCapture::resolve(true, false, false, true);
         assert_eq!(capture, InputCapture::PASS_THROUGH);
     }
 
     #[test]
-    fn an_open_chat_box_keeps_the_keyboard_but_not_the_pointer() {
-        let capture = InputCapture::resolve(true, true, false);
+    fn an_open_chat_box_keeps_the_keyboard_under_a_modal_the_player_may_chat_from() {
+        let capture = InputCapture::resolve(true, true, true, false);
         assert!(capture.blocks_game_pointer());
         assert!(!capture.blocks_game_key(Some(Key::Backspace)));
         assert!(!capture.blocks_game_key(Some(Key::Escape)));
+        assert!(!capture.blocks_game_char());
+    }
+
+    #[test]
+    fn an_open_chat_box_is_frozen_under_a_modal_that_keeps_chat_shut() {
+        let capture = InputCapture::resolve(true, false, true, false);
+        assert!(capture.blocks_game_key(Some(Key::Backspace)));
+        assert!(capture.blocks_game_key(Some(Key::Enter)));
+        assert!(capture.blocks_game_char());
     }
 
     #[test]
@@ -2676,6 +2752,62 @@ mod tests {
             ..HostFrame::default()
         });
         shell
+    }
+
+    #[test]
+    fn the_end_card_keeps_the_chat_box_shut() {
+        let mut shell = playing_shell();
+        shell.open_modal(ModalId::Victory);
+        let capture = shell.capture();
+        assert!(capture.blocks_game_key(Some(Key::Enter)));
+        assert!(capture.blocks_game_char());
+    }
+
+    #[test]
+    fn players_kept_waiting_can_still_talk() {
+        let mut shell = playing_shell();
+        shell.modals.push(Modal {
+            id: ModalId::WaitingForPlayers,
+            captures_input: true,
+        });
+        let capture = shell.capture();
+        assert!(!capture.blocks_game_key(Some(Key::Enter)));
+        assert!(!capture.blocks_game_char());
+        // Anything else on the stack that keeps the box shut keeps it shut.
+        shell.open_modal(ModalId::GameMenu);
+        assert!(shell.capture().blocks_game_char());
+    }
+
+    #[test]
+    fn a_chat_box_left_open_under_a_card_leaves_the_card_its_keys() {
+        let mut shell = playing_shell();
+        shell.open_modal(ModalId::Victory);
+        shell.set_host(&HostFrame {
+            mode: Mode::Playing,
+            game_started: true,
+            native_textbox_open: true,
+            ..HostFrame::default()
+        });
+        assert!(shell.capture().blocks_game_char());
+        assert!(shell.key_pressed(Key::E, Modifiers::NONE));
+        assert_eq!(shell.end_card_key, Some(EndCardChoice::Leave));
+    }
+
+    #[test]
+    fn a_chat_box_open_while_players_wait_keeps_its_keys() {
+        let mut shell = playing_shell();
+        shell.modals.push(Modal {
+            id: ModalId::WaitingForPlayers,
+            captures_input: true,
+        });
+        shell.set_host(&HostFrame {
+            mode: Mode::Playing,
+            game_started: true,
+            native_textbox_open: true,
+            ..HostFrame::default()
+        });
+        assert!(!shell.key_pressed(Key::Escape, Modifiers::NONE));
+        assert!(!shell.capture().blocks_game_key(Some(Key::Backspace)));
     }
 
     /// SC:R quits on `Q` and `X` with either Ctrl or Alt, and every one of them asks the same
