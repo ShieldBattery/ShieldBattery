@@ -21,6 +21,8 @@
 //! moment. The spoiler-free form has no track and so no ticks: a tick stands at its fraction of the
 //! replay's length, which is the very thing that form withholds.
 
+use std::collections::HashSet;
+
 use egui::{
     Align, Align2, Area, Color32, Context, Id, Layout, Order, Pos2, Rect, Response, Sense, Shape,
     Stroke, StrokeKind, Ui, Vec2, pos2, vec2,
@@ -585,6 +587,10 @@ fn draw_track_row(
 /// marker stands at its fraction of the replay, so a marker ahead of the playhead says the game runs
 /// at least that long and every marker together says how far through it playback is. An event past
 /// the replay's end has no place on the track and is left off it.
+///
+/// Events of one color that land on the same point of the track share a marker, the first of them
+/// in `events`' order: they could neither be told apart nor picked one from another, and a long
+/// game's whole timeline would otherwise draw thousands of markers a frame.
 fn marked_events<'a>(
     view: &TransportView,
     events: &'a [TimelineEventView],
@@ -592,14 +598,20 @@ fn marked_events<'a>(
     if view.spoiler_free || view.end_frames == 0 {
         return Vec::new();
     }
+    let mut taken = HashSet::new();
     events
         .iter()
         .filter_map(|event| {
             let secs = i64::try_from(event.secs).ok()?;
             let frame = seconds_to_frames(secs, view.game_speed);
-            (frame <= i64::from(view.end_frames)).then(|| {
+            if frame > i64::from(view.end_frames) {
+                return None;
+            }
+            let fraction = frame as f32 / view.end_frames as f32;
+            let point = (fraction * TRACK_WIDTH).round() as i32;
+            taken.insert((point, event.color)).then(|| {
                 let marker = TrackMarker {
-                    fraction: frame as f32 / view.end_frames as f32,
+                    fraction,
                     color: event.color,
                 };
                 (event, marker)
@@ -1012,6 +1024,17 @@ mod tests {
         // Not even the ones behind the playhead: where they stand along the track would say how far
         // through the replay playback is.
         assert!(marked_events(&spoiler_free, &[event(300)]).is_empty());
+    }
+
+    #[test]
+    fn events_on_one_point_of_the_track_share_a_marker_per_color() {
+        let mut other_player = event(630);
+        other_player.color = Color32::RED;
+        let events = [event(630), event(630), other_player, event(1260)];
+        let marked = marked_events(&view(), &events);
+        assert_eq!(marked.len(), 3);
+        assert!(std::ptr::eq(marked[0].0, &events[0]));
+        assert!(std::ptr::eq(marked[1].0, &events[2]));
     }
 
     #[test]
