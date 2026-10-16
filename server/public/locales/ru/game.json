@@ -1,6 +1,7 @@
 {
   "alliances": {
     "alliedVictory": "Общая победа",
+    "applyChanges": "Применить",
     "block": "Заблокировать {{name}}",
     "blockedTag": "Заблокирован",
     "chatAll": "Всем игрокам",
@@ -11,6 +12,7 @@
     "columnPlayer": "Игрок",
     "columnVision": "Обзор",
     "defeated": "побеждён",
+    "discardChanges": "Отменить",
     "empty": "Больше в этой игре никого нет",
     "left": "покинул игру",
     "muteAll": "Заглушить всех",
@@ -91,10 +93,10 @@
   "gameMenu": {
     "alliancesAndChat": "Союзы и чат",
     "gameTime": "Время игры",
-    "holdToLeave": "Удерживайте: покинуть игру",
     "leaveGame": "Покинуть игру",
     "leaveGameTitle": "Покинуть игру?",
     "leaveReplayTitle": "Покинуть реплей?",
+    "missionObjectives": "Цели задания",
     "options": "Настройки",
     "pauseGame": "Пауза",
     "pauseGameLeft_one": "Пауза (осталась {{count}})",

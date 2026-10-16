@@ -79,6 +79,8 @@ pub struct Knobs {
     pub allies_chat_target: bool,
     /// Which of the screen's menus is open as the scenario comes up.
     pub open_menu: OpenMenu,
+    /// Whether the scenario comes up with an alliance change waiting to be applied.
+    pub staged_change: bool,
 }
 
 /// A menu of the screen's, as a knob opens it.
@@ -124,8 +126,23 @@ impl Default for Knobs {
             blocked_rows: 0,
             allies_chat_target: true,
             open_menu: OpenMenu::None,
+            staged_change: false,
         }
     }
+}
+
+/// The alliance change `k` asks to have waiting: allying with the first row that isn't allied yet.
+pub fn staged_change(k: &Knobs) -> Option<AlliancesAction> {
+    if !k.staged_change {
+        return None;
+    }
+    rows(k)
+        .into_iter()
+        .find(|row| row.index >= k.allied_rows as usize && !row.teammate && !row.departed)
+        .map(|row| AlliancesAction::SetAllied {
+            player_id: row.player_id,
+            allied: true,
+        })
 }
 
 /// A one-click preview state: a free-for-all, a game with teams, a game whose alliances are fixed,
@@ -139,10 +156,11 @@ pub enum Preset {
     PlayerMenu,
     ReportMenu,
     ChatMenu,
+    Staged,
 }
 
 impl Preset {
-    pub const ALL: [Preset; 7] = [
+    pub const ALL: [Preset; 8] = [
         Preset::Ffa,
         Preset::TeamGame,
         Preset::Locked,
@@ -150,6 +168,7 @@ impl Preset {
         Preset::PlayerMenu,
         Preset::ReportMenu,
         Preset::ChatMenu,
+        Preset::Staged,
     ];
 
     pub fn label(self) -> &'static str {
@@ -161,6 +180,7 @@ impl Preset {
             Preset::PlayerMenu => "player-menu",
             Preset::ReportMenu => "report-menu",
             Preset::ChatMenu => "chat-menu",
+            Preset::Staged => "staged",
         }
     }
 
@@ -219,6 +239,11 @@ impl Preset {
                 open_menu: OpenMenu::ChatTarget,
                 ..Knobs::default()
             },
+            Preset::Staged => Knobs {
+                players: 4,
+                staged_change: true,
+                ..Knobs::default()
+            },
         };
     }
 }
@@ -237,6 +262,8 @@ pub struct State {
     /// The menu knob as the shell was last told it, so the knob opens the menu once rather than
     /// holding it open against the player's clicks.
     pub menu_applied: Option<OpenMenu>,
+    /// The staged-change knob as the shell was last told it, for the same reason.
+    pub staged_applied: Option<bool>,
 }
 
 impl State {

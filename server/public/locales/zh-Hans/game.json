@@ -1,6 +1,7 @@
 {
   "alliances": {
     "alliedVictory": "同盟胜利",
+    "applyChanges": "应用",
     "block": "屏蔽{{name}}",
     "blockedTag": "已屏蔽",
     "chatAll": "所有玩家",
@@ -11,6 +12,7 @@
     "columnPlayer": "玩家",
     "columnVision": "视野",
     "defeated": "已战败",
+    "discardChanges": "取消",
     "empty": "这局游戏里没有其他人",
     "left": "已离开游戏",
     "muteAll": "全部静音",
@@ -88,10 +90,10 @@
   "gameMenu": {
     "alliancesAndChat": "同盟与聊天",
     "gameTime": "游戏时间",
-    "holdToLeave": "长按离开游戏",
     "leaveGame": "离开游戏",
     "leaveGameTitle": "离开游戏？",
     "leaveReplayTitle": "离开录像？",
+    "missionObjectives": "任务目标",
     "options": "设置",
     "pauseGame": "暂停游戏",
     "pauseGameLeft_other": "暂停游戏（剩余 {{count}} 次）",

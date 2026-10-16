@@ -1,6 +1,7 @@
 {
   "alliances": {
     "alliedVictory": "Victoria aliada",
+    "applyChanges": "Aplicar",
     "block": "Bloquear a {{name}}",
     "blockedTag": "Bloqueado",
     "chatAll": "Todos los jugadores",
@@ -11,6 +12,7 @@
     "columnPlayer": "Jugador",
     "columnVision": "Visión",
     "defeated": "derrotado",
+    "discardChanges": "Descartar",
     "empty": "No hay nadie más en esta partida",
     "left": "salió de la partida",
     "muteAll": "Silenciar a todos",
@@ -90,10 +92,10 @@
   "gameMenu": {
     "alliancesAndChat": "Alianzas y chat",
     "gameTime": "Tiempo de partida",
-    "holdToLeave": "Mantén pulsado para salir",
     "leaveGame": "Salir de la partida",
     "leaveGameTitle": "¿Salir de la partida?",
     "leaveReplayTitle": "¿Salir del replay?",
+    "missionObjectives": "Objetivos de la misión",
     "options": "Opciones",
     "pauseGame": "Pausar partida",
     "pauseGameLeft_one": "Pausar partida (queda {{count}})",

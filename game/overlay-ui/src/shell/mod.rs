@@ -23,12 +23,14 @@ pub mod native_dialogs;
 use egui::{Context, Key, Modifiers, Rect};
 use serde::{Deserialize, Serialize};
 
-use crate::alliances::{AlliancesAction, AlliancesMenu, AlliancesView, render_alliances_view};
+use crate::alliances::{
+    AlliancesAction, AlliancesDraft, AlliancesMenu, AlliancesView, render_alliances_view,
+};
 use crate::chat_history::{ChatHistoryView, render_chat_history_view};
 use crate::disconnect::{DisconnectView, SelfState, render_disconnect_view};
 use crate::end_card::{self, EndCardChoice, EndCardView, GameResult, StatLeads, render_end_card};
 pub use crate::game_menu::PauseControl;
-use crate::game_menu::{leave_is_held, render_game_menu, render_leave_confirm};
+use crate::game_menu::{leave_asks_first, render_game_menu, render_leave_confirm};
 use crate::net_quality::{NetQualityView, render_net_quality};
 use crate::netstat::{NetStatsView, render_netstat_view};
 use crate::observer::{self, GraphSeries, ObserverView, SelectedUnitClick};
@@ -544,6 +546,9 @@ pub enum Intent {
     /// Open the game's own menu, the way its own key for the menu does, so the overlay's
     /// replacement for it comes up exactly as it would from the keyboard.
     OpenGameMenu,
+    /// Show the map's mission objectives in the game's own dialog for them, which takes the place
+    /// of the game's menu and brings it back once closed.
+    OpenObjectives,
     /// Show or stop showing the game through this player's eyes. What that means for their allies
     /// is the host's to decide: vision is shared, and taking half of a shared pair would leave a
     /// watcher looking at a map neither player sees.
@@ -878,6 +883,8 @@ pub struct Shell {
     /// The menu open on the alliances screen. Held here rather than by the screen so `Esc` can close
     /// it ahead of the screen under it.
     alliances_menu: Option<AlliancesMenu>,
+    /// The alliance changes made on the alliances screen and not yet applied.
+    alliances_draft: AlliancesDraft,
     intents: Vec<Intent>,
 }
 
@@ -912,6 +919,7 @@ impl Shell {
             host_options: None,
             options_section: OptionsSection::default(),
             alliances_menu: None,
+            alliances_draft: AlliancesDraft::default(),
             intents: Vec::new(),
         }
     }
@@ -952,6 +960,14 @@ impl Shell {
     /// Opens or closes a menu on the alliances screen, for a host restoring what a player had open.
     pub fn set_alliances_menu(&mut self, menu: Option<AlliancesMenu>) {
         self.alliances_menu = menu;
+    }
+
+    /// Does what the player's own click on the alliances screen would, for a host restoring what a
+    /// player had set: an alliance change waits to be applied, and anything else is carried out.
+    pub fn alliances_action(&mut self, action: AlliancesAction) {
+        if let Some(action) = self.alliances_draft.stage(action) {
+            self.intents.push(Intent::Alliances(action));
+        }
     }
 
     /// Opens the options screen on `section`, for a host restoring where a player was.
@@ -1064,8 +1080,8 @@ impl Shell {
         }
         // A dialog's buttons answer to SC:R's keys for the buttons they stand in for, which their
         // keycaps name (see each dialog's key constants), and the leave question to both of the
-        // keys SC:R's own quit questions leave on: Alt+Q then Q, and F10 then E then Q, leave the
-        // way they always have.
+        // keys SC:R's own quit questions leave on: Alt+Q then Q, and F10 then E then Q, leave a
+        // game the way they always have.
         if modifiers.is_none() && !self.chat_box_has_keyboard() && self.dialog_key_pressed(key) {
             return true;
         }
@@ -1190,6 +1206,7 @@ impl Shell {
                         .is_some_and(|(held, _)| held == modal.id),
                     end_card_key,
                     alliances_menu: self.alliances_menu,
+                    alliances_draft: &self.alliances_draft,
                 },
                 &mut hit_rects,
             );
@@ -1202,6 +1219,9 @@ impl Shell {
             if outcome.quit {
                 self.intents.push(Intent::QuitGame);
             }
+            if outcome.ask_to_leave {
+                self.open_modal(ModalId::LeaveGame);
+            }
             if let Some(dialog) = outcome.end_mission {
                 // Off the stack as soon as it is answered, without asking the host to close the
                 // dialog: ending the mission closes it, and a card left up until then could be
@@ -1210,7 +1230,12 @@ impl Shell {
                 self.intents.push(Intent::EndMission(dialog));
             }
             for action in outcome.alliances_actions {
-                self.intents.push(Intent::Alliances(action));
+                if let Some(action) = self.alliances_draft.stage(action) {
+                    self.intents.push(Intent::Alliances(action));
+                }
+            }
+            if outcome.apply_alliances {
+                self.apply_alliances_draft();
             }
             if let Some(menu) = outcome.alliances_menu {
                 self.alliances_menu = menu;
@@ -1237,6 +1262,9 @@ impl Shell {
             }
             if outcome.open_alliances {
                 self.open_modal(ModalId::Alliances);
+            }
+            if outcome.open_objectives {
+                self.intents.push(Intent::OpenObjectives);
             }
             if let Some(paused) = outcome.set_paused {
                 self.intents.push(Intent::SetPaused(paused));
@@ -1941,14 +1969,21 @@ impl Shell {
         }
         match (top, key) {
             (Some(ModalId::GameMenu), Key::O) => self.open_modal(ModalId::Options),
-            // The key works the leave button as the pointer does: held where leaving is held, and
-            // the hold only starts on a press made with the menu up; a tap in a replay.
-            (Some(ModalId::GameMenu), Key::E) if leave_is_held(replay) => {
-                self.held_button_key = Some((ModalId::GameMenu, Key::E));
+            // The key works the leave button as the pointer does: it asks first where leaving is
+            // asked about, and the question takes SC:R's own next key.
+            (Some(ModalId::GameMenu), Key::E) if leave_asks_first(replay) => {
+                self.open_modal(ModalId::LeaveGame)
             }
             (Some(ModalId::GameMenu), Key::E) => self.intents.push(Intent::QuitGame),
             (Some(ModalId::GameMenu), Key::A | Key::C) if playing => {
                 self.open_modal(ModalId::Alliances)
+            }
+            (Some(ModalId::GameMenu), Key::M) if playing => {
+                self.intents.push(Intent::OpenObjectives)
+            }
+            (Some(ModalId::Alliances), Key::Enter) if !self.alliances_draft.is_empty() => {
+                self.apply_alliances_draft();
+                self.dismiss_top_modal();
             }
             (Some(ModalId::GameMenu), Key::P) if self.host.pause_control.is_some() => {
                 let pausing = matches!(self.host.pause_control, Some(PauseControl::Pause { .. }));
@@ -2086,6 +2121,13 @@ impl Shell {
         true
     }
 
+    /// Sends the alliance changes made on the alliances screen to the game.
+    fn apply_alliances_draft(&mut self) {
+        for action in self.alliances_draft.take_actions() {
+            self.intents.push(Intent::Alliances(action));
+        }
+    }
+
     fn dismiss_top_modal(&mut self) {
         let Some(modal) = self.modals.pop() else {
             return;
@@ -2097,6 +2139,7 @@ impl Shell {
     fn close_native_dialogs(&mut self, id: ModalId) {
         if id == ModalId::Alliances {
             self.alliances_menu = None;
+            self.alliances_draft = AlliancesDraft::default();
         }
         for &dialog in id.native_dialogs() {
             if self.live_native_dialogs[dialog.index()] {
@@ -2233,10 +2276,16 @@ struct ModalOutcome {
     leave: bool,
     /// Whether the player asked to quit a game that is still running.
     quit: bool,
+    /// Whether the player asked to leave by way of the leave question.
+    ask_to_leave: bool,
     /// The result dialog whose End Mission the player asked for.
     end_mission: Option<NativeDialog>,
     /// Whether the player asked for the alliances screen.
     open_alliances: bool,
+    /// Whether the player asked for the alliance changes they made to be applied.
+    apply_alliances: bool,
+    /// Whether the player asked for the mission objectives.
+    open_objectives: bool,
     /// Whether the player asked to pause the game (`true`) or resume it (`false`).
     set_paused: Option<bool>,
     /// What the player did on the alliances screen.
@@ -2264,6 +2313,8 @@ struct ModalContext<'a> {
     end_card_key: Option<EndCardChoice>,
     /// The menu open on the alliances screen.
     alliances_menu: Option<AlliancesMenu>,
+    /// The alliance changes made on the alliances screen and not yet applied.
+    alliances_draft: &'a AlliancesDraft,
 }
 
 fn draw_modal(
@@ -2297,17 +2348,18 @@ fn draw_modal(
                 ctx,
                 host.game_seconds,
                 host.mode == Mode::Playing,
-                host.mode == Mode::Replay,
                 host.pause_control,
-                shell.button_key_held,
             );
             hit_rects.push(HitRect::new(dialog.response.rect));
+            let asks_first = leave_asks_first(host.mode == Mode::Replay);
             ModalOutcome {
                 dismissed: dialog.inner.return_to_game || dialog.scrim_clicked,
                 open_options: dialog.inner.open_options,
                 open_alliances: dialog.inner.open_alliances,
+                open_objectives: dialog.inner.open_objectives,
                 set_paused: dialog.inner.set_paused,
-                quit: dialog.inner.leave,
+                quit: dialog.inner.leave && !asks_first,
+                ask_to_leave: dialog.inner.leave && asks_first,
                 ..ModalOutcome::default()
             }
         }
@@ -2364,17 +2416,22 @@ fn draw_modal(
                 // key close it, and nothing else is drawn rather than a table of nobody.
                 return ModalOutcome::default();
             };
-            let dialog = render_alliances_view(view, ctx, shell.alliances_menu);
+            let staged = !shell.alliances_draft.is_empty();
+            let shown = shell.alliances_draft.applied_to(view);
+            let dialog = render_alliances_view(&shown, ctx, shell.alliances_menu, staged);
             hit_rects.push(HitRect::new(dialog.response.rect));
             if let Some(menu) = dialog.inner.menu_rect {
                 hit_rects.push(HitRect::new(menu));
             }
-            // A click outside the screen while one of its menus is open closes the menu alone.
-            let scrim_dismisses = shell.alliances_menu.is_none() && dialog.scrim_clicked;
+            // A click outside the screen while one of its menus is open closes the menu alone, and
+            // one while changes wait to be applied does nothing: a stray click must not throw
+            // them away.
+            let scrim_dismisses = shell.alliances_menu.is_none() && !staged && dialog.scrim_clicked;
             ModalOutcome {
-                dismissed: dialog.inner.done || scrim_dismisses,
+                dismissed: dialog.inner.done || dialog.inner.apply || scrim_dismisses,
                 alliances_actions: dialog.inner.actions,
                 alliances_menu: dialog.inner.menu,
+                apply_alliances: dialog.inner.apply,
                 ..ModalOutcome::default()
             }
         }
@@ -3443,7 +3500,7 @@ mod tests {
     }
 
     #[test]
-    fn a_players_menu_key_holds_leave_rather_than_asking() {
+    fn a_players_menu_key_asks_before_leaving() {
         let mut shell = Shell::new();
         shell.set_host(&HostFrame {
             mode: Mode::Playing,
@@ -3457,14 +3514,51 @@ mod tests {
         });
         shell.open_modal(ModalId::GameMenu);
         assert!(shell.key_pressed(Key::E, Modifiers::NONE));
-        assert_eq!(shell.top_modal(), Some(ModalId::GameMenu));
-        assert_eq!(shell.held_button_key, Some((ModalId::GameMenu, Key::E)));
-        // Held for as long as the key is down, and not a frame longer.
-        shell.update_held_keys(|_| true);
-        assert_eq!(shell.held_button_key, Some((ModalId::GameMenu, Key::E)));
-        shell.update_held_keys(|_| false);
-        assert_eq!(shell.held_button_key, None);
+        assert_eq!(shell.top_modal(), Some(ModalId::LeaveGame));
         assert!(!shell.pending_intents().contains(&Intent::QuitGame));
+        // Backing out of the question goes back to the menu.
+        assert!(shell.key_pressed(Key::Escape, Modifiers::NONE));
+        assert_eq!(shell.top_modal(), Some(ModalId::GameMenu));
+        // F10, E, Q leaves, as it does in SC:R.
+        assert!(shell.key_pressed(Key::E, Modifiers::NONE));
+        assert!(shell.key_pressed(Key::Q, Modifiers::NONE));
+        assert!(shell.pending_intents().contains(&Intent::QuitGame));
+    }
+
+    #[test]
+    fn alliance_changes_wait_for_enter_and_escape_drops_them() {
+        let ally = AlliancesAction::SetAllied {
+            player_id: 1,
+            allied: true,
+        };
+        let mut shell = playing_shell();
+        shell.open_modal(ModalId::Alliances);
+        assert_eq!(shell.alliances_draft.stage(ally), None);
+        assert!(shell.key_pressed(Key::Escape, Modifiers::NONE));
+        assert_eq!(shell.top_modal(), None);
+        assert!(shell.alliances_draft.is_empty());
+        assert!(!shell.pending_intents().contains(&Intent::Alliances(ally)));
+
+        shell.open_modal(ModalId::Alliances);
+        // Enter has nothing to apply until something is staged.
+        assert!(!shell.key_pressed(Key::Enter, Modifiers::NONE));
+        shell.alliances_draft.stage(ally);
+        assert!(shell.key_pressed(Key::Enter, Modifiers::NONE));
+        assert_eq!(shell.top_modal(), None);
+        assert!(shell.pending_intents().contains(&Intent::Alliances(ally)));
+    }
+
+    #[test]
+    fn the_objectives_key_is_a_players_alone() {
+        let mut playing = playing_shell();
+        playing.native_dialog_spawned(NativeDialog::GameMenu);
+        assert!(playing.key_pressed(Key::M, Modifiers::NONE));
+        assert!(playing.pending_intents().contains(&Intent::OpenObjectives));
+
+        let mut watching = spectating_shell();
+        watching.native_dialog_spawned(NativeDialog::GameMenu);
+        assert!(!watching.key_pressed(Key::M, Modifiers::NONE));
+        assert!(!watching.pending_intents().contains(&Intent::OpenObjectives));
     }
 
     /// Puts one of the disconnect surface's modals on top, the way a frame's status sync does.

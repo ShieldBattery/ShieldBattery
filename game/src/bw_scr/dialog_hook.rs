@@ -163,6 +163,20 @@ pub fn activate_replaced_dialog_control(
     true
 }
 
+/// The game menu's Mission Objectives button.
+const GAME_MENU_OBJECTIVES_CONTROL_ID: i16 = 6;
+
+/// Shows the map's mission objectives through the game menu's own button for them. The game closes
+/// its menu and opens its objectives dialog in its place, which is not one the overlay replaces;
+/// closing that dialog opens the game menu again, and with it the overlay's.
+pub fn open_objectives(first_dialog: Option<Dialog>) {
+    activate_replaced_dialog_control(
+        first_dialog,
+        NativeDialog::GameMenu,
+        GAME_MENU_OBJECTIVES_CONTROL_ID,
+    );
+}
+
 /// The game menu's Pause and Resume buttons, which send the pause and resume commands.
 const GAME_MENU_PAUSE_CONTROL_ID: i16 = 8;
 const GAME_MENU_RESUME_CONTROL_ID: i16 = 9;

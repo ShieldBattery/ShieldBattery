@@ -8,10 +8,10 @@
 //! here is a pure fn of plain data plus an [`egui::Context`], so the same code renders in the
 //! injected game DLL and in the host preview.
 
-use egui::{Align, Context, Id, Layout, Rect, Ui, Vec2, vec2};
+use egui::{Align, Context, Id, Layout, Ui, Vec2, vec2};
 
 use crate::kit::text::{self, BodyWeight};
-use crate::kit::widgets::{self, ButtonPlate, HoldState};
+use crate::kit::widgets::{self, ButtonPlate};
 use crate::kit::{theme, tiers};
 use crate::{tr, tr_plural};
 
@@ -38,11 +38,13 @@ const WORDMARK: &str = "ShieldBattery";
 
 /// The keys the menu's buttons answer to, as their keycaps name them. SC:R's own where it has one:
 /// `O` for Options and `E` for End Mission, which works the leave button the way the pointer does:
-/// held where leaving is held (see [`leave_is_held`]), a tap in a replay. SC:R puts alliances and
+/// it asks first where leaving is asked about (see [`leave_asks_first`]), so `F10`, `E`, `Q` leaves
+/// a game as it does in SC:R, and leaves at once in a replay. SC:R puts alliances and
 /// chat behind a Social button on `C`; the button that stands in for it here takes `A` (and `C`, for
 /// that habit).
 pub const OPTIONS_KEY: &str = "O";
 pub const ALLIANCES_KEY: &str = "A";
+pub const OBJECTIVES_KEY: &str = "M";
 /// SC:R gives pausing no key of its own; `P` is the one a player reaches for.
 pub const PAUSE_KEY: &str = "P";
 pub const LEAVE_KEY: &str = "E";
@@ -75,32 +77,29 @@ pub struct GameMenuOutcome {
     pub open_options: bool,
     /// Whether the player asked for the alliances screen, which opens over this menu.
     pub open_alliances: bool,
+    /// Whether the player asked for the map's mission objectives, which the game shows in its own
+    /// dialog in place of this menu.
+    pub open_objectives: bool,
     /// Whether the player asked to pause the game (`true`) or resume it (`false`).
     pub set_paused: Option<bool>,
-    /// Whether the player asked to leave the game.
+    /// Whether the player asked to leave the game: at once in a replay, and by way of the leave
+    /// question otherwise (see [`leave_asks_first`]).
     pub leave: bool,
 }
 
 /// Draws the in-game menu over the game.
 ///
 /// `playing` is whether the client is a player in the game rather than watching it, which decides
-/// whether there are alliances to set. `replay` is whether this is a replay, which decides what
-/// leaving costs (see [`leave_is_held`]). `pause` is what the game offers for pausing, if anything.
-/// `leave_key_held` is whether the leave key ([`LEAVE_KEY`]) is held, which holds a held leave
-/// button as the pointer does.
+/// whether there are alliances to set. `pause` is what the game offers for pausing, if anything.
 pub fn render_game_menu(
     ctx: &Context,
     game_seconds: u64,
     playing: bool,
-    replay: bool,
     pause: Option<PauseControl>,
-    leave_key_held: bool,
 ) -> tiers::DialogResponse<GameMenuOutcome> {
     tiers::tier2_dialog(ctx, Id::new("sb_game_menu"), MENU_WIDTH, |ui| {
         tiers::dialog_header(ui, |ui| draw_header(ui, game_seconds));
-        tiers::dialog_body(ui, |ui| {
-            draw_actions(ui, playing, pause, leave_is_held(replay), leave_key_held)
-        })
+        tiers::dialog_body(ui, |ui| draw_actions(ui, playing, pause))
     })
 }
 
@@ -139,15 +138,9 @@ fn draw_clock(ui: &mut Ui, game_seconds: u64) {
 }
 
 /// The stack of things that can be done from here, in SC:R's order: Options first, then alliances
-/// and chat, then pausing, then leaving, with the way back to the game at the bottom where SC:R
-/// keeps it.
-fn draw_actions(
-    ui: &mut Ui,
-    playing: bool,
-    pause: Option<PauseControl>,
-    hold_to_leave: bool,
-    leave_key_held: bool,
-) -> GameMenuOutcome {
+/// and chat, the mission objectives, pausing, then leaving, with the way back to the game at the
+/// bottom where SC:R keeps it.
+fn draw_actions(ui: &mut Ui, playing: bool, pause: Option<PauseControl>) -> GameMenuOutcome {
     let width = ui.available_width();
     let spec = text::button_label(BUTTON_LABEL_SIZE).with_letter_spacing(BUTTON_TRACKING);
     let size = vec2(width, BUTTON_HEIGHT);
@@ -174,6 +167,17 @@ fn draw_actions(
         );
         widgets::paint_button_kbd(ui, alliances.rect, ALLIANCES_KEY);
         outcome.open_alliances = alliances.clicked();
+        // The game has objectives only for the people playing it: a watcher's would be empty.
+        ui.add_space(BUTTON_GAP);
+        let objectives = widgets::plate_button(
+            ui,
+            &spec,
+            &tr!("gameMenu.missionObjectives", "Mission objectives"),
+            size,
+            ButtonPlate::standard(),
+        );
+        widgets::paint_button_kbd(ui, objectives.rect, OBJECTIVES_KEY);
+        outcome.open_objectives = objectives.clicked();
     }
     if let Some(pause) = pause {
         ui.add_space(BUTTON_GAP);
@@ -197,45 +201,32 @@ fn draw_actions(
         }
     }
     ui.add_space(BUTTON_GAP);
-    outcome.leave = leave_button(ui, hold_to_leave, LEAVE_KEY, leave_key_held);
+    outcome.leave = leave_button(ui, LEAVE_KEY);
     ui.add_space(BUTTON_GAP);
     outcome.return_to_game = return_button(ui);
     outcome
 }
 
-/// Whether leaving takes a hold rather than a click: in a game with other people in it, which a
+/// Whether the menu's leave button asks before leaving: in a game with other people in it, which a
 /// slip of the hand would walk out on (and lose, for a player), but not in a replay, which is
 /// watched alone and costs nothing to leave.
-pub fn leave_is_held(replay: bool) -> bool {
+pub fn leave_asks_first(replay: bool) -> bool {
     !replay
 }
 
-/// The button that leaves the game, marked with `key`: held, by the pointer or while `key_held`,
-/// where `hold` says leaving takes a hold, and clicked otherwise.
-fn leave_button(ui: &mut Ui, hold: bool, key: &str, key_held: bool) -> bool {
-    let width = ui.available_width();
-    let size = vec2(width, BUTTON_HEIGHT);
-    let rect = Rect::from_min_size(ui.cursor().min, size);
-    let leave = if hold {
-        widgets::hold_to_confirm_by_key(
-            ui,
-            &tr!("gameMenu.holdToLeave", "Hold to leave game"),
-            size,
-            key_held,
-        ) == HoldState::Confirmed
-    } else {
-        let spec = text::button_label(BUTTON_LABEL_SIZE).with_letter_spacing(BUTTON_TRACKING);
-        widgets::plate_button(
-            ui,
-            &spec,
-            &tr!("gameMenu.leaveGame", "Leave game"),
-            size,
-            ButtonPlate::destructive(),
-        )
-        .clicked()
-    };
-    widgets::paint_button_kbd(ui, rect, key);
-    leave
+/// The button that leaves the game, marked with `key`.
+fn leave_button(ui: &mut Ui, key: &str) -> bool {
+    let spec = text::button_label(BUTTON_LABEL_SIZE).with_letter_spacing(BUTTON_TRACKING);
+    let size = vec2(ui.available_width(), BUTTON_HEIGHT);
+    let button = widgets::plate_button(
+        ui,
+        &spec,
+        &tr!("gameMenu.leaveGame", "Leave game"),
+        size,
+        ButtonPlate::destructive(),
+    );
+    widgets::paint_button_kbd(ui, button.rect, key);
+    button.clicked()
 }
 
 /// The button back to the game, which is what `Esc` does wherever the menu or its question is up.
@@ -265,12 +256,9 @@ pub struct LeaveConfirmOutcome {
 /// How wide the confirmation is: narrower than the menu, since it asks one question.
 const CONFIRM_WIDTH: f32 = 360.0;
 
-/// Asks whether to leave the game, for the keys SC:R quits with (`Alt+Q`, `Alt+X` and their `Ctrl`
-/// forms), which in ShieldBattery all come to the same thing: the game ends for this client.
-///
-/// The answer is a click or a tap rather than a hold wherever leaving is held from the menu: the
-/// question only comes up for SC:R's quit keys, which are already one deliberate press, and a tap is
-/// how SC:R's own question answers them.
+/// Asks whether to leave the game, for the menu's leave button where it asks first and for the keys
+/// SC:R quits with (`Alt+Q`, `Alt+X` and their `Ctrl` forms), which in ShieldBattery all come to the
+/// same thing: the game ends for this client.
 pub fn render_leave_confirm(
     ctx: &Context,
     replay: bool,
@@ -292,7 +280,7 @@ fn draw_leave_actions(ui: &mut Ui, replay: bool) -> LeaveConfirmOutcome {
         true => LEAVE_CONFIRM_KEYS[1],
         false => LEAVE_CONFIRM_KEYS[0],
     };
-    let leave = leave_button(ui, false, key, false);
+    let leave = leave_button(ui, key);
     ui.add_space(BUTTON_GAP);
     LeaveConfirmOutcome {
         leave,

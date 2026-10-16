@@ -182,14 +182,15 @@ impl Preset {
 /// translated strings, picked as the busiest state each one has, since that is where long text runs
 /// out of room first. The kitchen sink is left out — it is a specimen sheet of the kit, not a screen
 /// whose copy is translated.
-pub const PSEUDOLOCALE_PRESETS: [Preset; 9] = [
+pub const PSEUDOLOCALE_PRESETS: [Preset; 10] = [
     Preset::Disconnect(disconnect::Preset::Droppable),
     Preset::NetStat(netstat::Preset::Degraded),
     Preset::ChatHistory(chat_history::Preset::Busy),
     Preset::Alliances(alliances::Preset::Crowded),
+    Preset::Alliances(alliances::Preset::Staged),
     Preset::Transport(transport::Preset::SpoilerFree),
     Preset::Observer(observer::Preset::game(6, 3, observer::Screen::Analyst)),
-    Preset::Shell(shell::Preset::GameMenu),
+    Preset::Shell(shell::Preset::PlayerGameMenu),
     Preset::Shell(shell::Preset::Options(OptionsSection::Gameplay)),
     Preset::Shell(shell::Preset::Victory),
 ];
@@ -285,6 +286,14 @@ pub fn render(
     {
         state.alliances.menu_applied = Some(knobs.alliances.open_menu);
         shell.set_alliances_menu(alliances::open_menu(&knobs.alliances));
+    }
+    if knobs.scenario == ScenarioKind::Alliances
+        && state.alliances.staged_applied != Some(knobs.alliances.staged_change)
+    {
+        state.alliances.staged_applied = Some(knobs.alliances.staged_change);
+        if let Some(action) = alliances::staged_change(&knobs.alliances) {
+            shell.alliances_action(action);
+        }
     }
     // Built only while a result card is on the stack, the way the DLL builds it as the card comes
     // up.
@@ -388,6 +397,8 @@ pub fn render(
             // The game answers this by spawning its menu, which the overlay's own replaces; here the
             // switch standing in for that spawn is what moves.
             Intent::OpenGameMenu => outcome.open_game_menu = true,
+            // The emulated game has no map to have objectives for.
+            Intent::OpenObjectives => {}
             // The emulated game has no settings to write, so a change is only reported: the shell
             // is already showing it, which is what the screen is being looked at for.
             Intent::ChangeSetting(change) => outcome.setting_changes.push(change),

@@ -9,6 +9,13 @@
 //! The footer holds what is set once for the whole game rather than per player: where the player's
 //! chat goes, and whether allies share a victory. Like every screen here, it is a pure fn of
 //! [`AlliancesView`] plus an [`egui::Context`].
+//!
+//! What the game shares with the other players (alliances, vision, allied victory) waits in an
+//! [`AlliancesDraft`] until the player applies it, as the game's own alliance dialog waits for OK.
+//! What is the player's alone (mute, block, report, where their chat goes) takes effect at once.
+
+use std::borrow::Cow;
+use std::collections::BTreeMap;
 
 use egui::{Align, Color32, Id, Layout, Rect, Sense, Ui, UiBuilder, Vec2, pos2, vec2};
 
@@ -57,8 +64,10 @@ const CHAT_MENU_WIDTH: f32 = 230.0;
 /// footer under the pointer.
 const CHAT_TARGET_MIN_WIDTH: f32 = 140.0;
 
-/// The key that closes the screen, as its keycap names it.
+/// The key that closes the screen, dropping any staged changes, as its keycap names it.
 pub const DONE_KEY: &str = "Esc";
+/// The key that applies the staged changes and closes the screen.
+pub const APPLY_KEY: &str = "Enter";
 
 /// What the screen shows of one other player in the game.
 #[derive(Clone, PartialEq, Debug)]
@@ -228,6 +237,100 @@ pub enum AlliancesAction {
     SetChatTarget(ChatTargetChoice),
 }
 
+/// Changes to the player's alliances, shared vision and allied victory made on the screen and not
+/// yet sent to the game.
+#[derive(Clone, Default, PartialEq, Eq, Debug)]
+pub struct AlliancesDraft {
+    allied: BTreeMap<u8, bool>,
+    vision: BTreeMap<u8, bool>,
+    allied_victory: Option<bool>,
+}
+
+impl AlliancesDraft {
+    /// Holds `action` back if it is one the draft stages, and hands it back otherwise.
+    pub fn stage(&mut self, action: AlliancesAction) -> Option<AlliancesAction> {
+        match action {
+            AlliancesAction::SetAllied { player_id, allied } => {
+                self.allied.insert(player_id, allied);
+            }
+            AlliancesAction::SetSharedVision { player_id, shared } => {
+                self.vision.insert(player_id, shared);
+            }
+            AlliancesAction::SetAlliedVictory(shared) => self.allied_victory = Some(shared),
+            action => return Some(action),
+        }
+        None
+    }
+
+    /// Drops every change `view`, the game's own state, already holds, and every change to
+    /// something the player can no longer set.
+    pub fn settle(&mut self, view: &AlliancesView) {
+        if !view.alliances_open {
+            *self = AlliancesDraft::default();
+            return;
+        }
+        let held = |player_id: u8| {
+            view.players
+                .iter()
+                .filter_map(|player| player.alliance)
+                .find(|alliance| alliance.player_id == player_id)
+        };
+        self.allied
+            .retain(|&id, allied| held(id).is_some_and(|held| held.allied != *allied));
+        self.vision
+            .retain(|&id, shared| held(id).is_some_and(|held| held.vision != *shared));
+        self.allied_victory = self
+            .allied_victory
+            .filter(|&shared| shared != view.allied_victory);
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.allied.is_empty() && self.vision.is_empty() && self.allied_victory.is_none()
+    }
+
+    /// `view` as it will be once the draft is applied.
+    pub fn applied_to<'a>(&self, view: &'a AlliancesView) -> Cow<'a, AlliancesView> {
+        if self.is_empty() {
+            return Cow::Borrowed(view);
+        }
+        let mut view = view.clone();
+        for alliance in view
+            .players
+            .iter_mut()
+            .filter_map(|player| player.alliance.as_mut())
+        {
+            if let Some(&allied) = self.allied.get(&alliance.player_id) {
+                alliance.allied = allied;
+            }
+            if let Some(&shared) = self.vision.get(&alliance.player_id) {
+                alliance.vision = shared;
+            }
+        }
+        if let Some(shared) = self.allied_victory {
+            view.allied_victory = shared;
+        }
+        Cow::Owned(view)
+    }
+
+    /// Takes the staged changes as the actions that carry them out, leaving the draft empty.
+    ///
+    /// Alliances come ahead of allied victory: a new ally takes the level the player gives every
+    /// ally, so the victory setting has to land after them to reach them.
+    pub fn take_actions(&mut self) -> Vec<AlliancesAction> {
+        let draft = std::mem::take(self);
+        let allied = draft
+            .allied
+            .into_iter()
+            .map(|(player_id, allied)| AlliancesAction::SetAllied { player_id, allied });
+        let victory = draft.allied_victory.map(AlliancesAction::SetAlliedVictory);
+        let vision = draft
+            .vision
+            .into_iter()
+            .map(|(player_id, shared)| AlliancesAction::SetSharedVision { player_id, shared });
+        allied.chain(victory).chain(vision).collect()
+    }
+}
+
 /// A menu open on the screen.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum AlliancesMenu {
@@ -245,18 +348,22 @@ pub struct AlliancesOutcome {
     pub actions: Vec<AlliancesAction>,
     /// The menu the screen should have open from the next frame, where that changed this frame.
     pub menu: Option<Option<AlliancesMenu>>,
-    /// Whether the player asked for the screen to close.
+    /// Whether the player asked for the screen to close, dropping any staged changes.
     pub done: bool,
+    /// Whether the player asked for the staged changes to be applied and the screen closed.
+    pub apply: bool,
     /// Where the open menu was drawn. A menu hangs off its control and can reach past the dialog's
     /// edge, so the host has to know it takes the pointer there too.
     pub menu_rect: Option<Rect>,
 }
 
-/// Renders the screen, with `menu` open over it.
+/// Renders the screen, with `menu` open over it. `staged` is whether `view` shows changes that are
+/// waiting to be applied, which decides how the screen can be closed.
 pub fn render_alliances_view(
     view: &AlliancesView,
     ctx: &egui::Context,
     menu: Option<AlliancesMenu>,
+    staged: bool,
 ) -> tiers::DialogResponse<AlliancesOutcome> {
     tiers::tier2_dialog(
         ctx,
@@ -266,8 +373,9 @@ pub fn render_alliances_view(
             let mut outcome = AlliancesOutcome::default();
             tiers::dialog_header(ui, |ui| draw_header(ui, view, &mut outcome));
             let anchors = tiers::dialog_body(ui, |ui| draw_table(ui, view, menu, &mut outcome));
-            let chat_anchor =
-                tiers::dialog_footer_ruled(ui, |ui| draw_footer(ui, view, menu, &mut outcome));
+            let chat_anchor = tiers::dialog_footer_ruled(ui, |ui| {
+                draw_footer(ui, view, menu, staged, &mut outcome)
+            });
             match menu {
                 Some(AlliancesMenu::Player { user_id } | AlliancesMenu::Report { user_id }) => {
                     let player = view
@@ -706,12 +814,14 @@ fn draw_player_cell(ui: &mut Ui, rect: Rect, player: &AlliancePlayerView) {
 }
 
 /// The footer: where the player's chat goes and whether allies share a victory, which are set once
-/// for the whole game, held apart on one line, and the way out on the line under them. Returns
-/// where the chat target's dropdown is.
+/// for the whole game, held apart on one line, and the way out on the line under them: one button
+/// with nothing `staged`, and a choice between dropping and applying the staged changes otherwise.
+/// Returns where the chat target's dropdown is.
 fn draw_footer(
     ui: &mut Ui,
     view: &AlliancesView,
     menu: Option<AlliancesMenu>,
+    staged: bool,
     outcome: &mut AlliancesOutcome,
 ) -> Rect {
     let width = ui.available_width();
@@ -761,18 +871,51 @@ fn draw_footer(
         )
         .inner;
     ui.add_space(theme::SPACE_LG);
-    ui.vertical_centered(|ui| {
-        if widgets::button_with_kbd(
-            ui,
-            &tr!("common.done", "Done"),
-            ButtonVariant::Tier2,
-            DONE_KEY,
-        )
-        .clicked()
-        {
-            outcome.done = true;
-        }
-    });
+    if staged {
+        // The two buttons sit either side of the middle, where the one button stands otherwise.
+        let row = ui
+            .allocate_space(vec2(ui.available_width(), theme::HIT_DIALOG))
+            .1;
+        let half_gap = theme::SPACE_SM / 2.0;
+        let middle = row.center().x;
+        let left = Rect::from_min_max(row.min, pos2(middle - half_gap, row.max.y));
+        let right = Rect::from_min_max(pos2(middle + half_gap, row.min.y), row.max);
+        ui.scope_builder(
+            UiBuilder::new()
+                .max_rect(left)
+                .layout(Layout::right_to_left(Align::Center)),
+            |ui| {
+                let discard = tr!("alliances.discardChanges", "Discard");
+                outcome.done =
+                    widgets::button_with_kbd(ui, &discard, ButtonVariant::Tier2, DONE_KEY)
+                        .clicked();
+            },
+        );
+        ui.scope_builder(
+            UiBuilder::new()
+                .max_rect(right)
+                .layout(Layout::left_to_right(Align::Center)),
+            |ui| {
+                let apply = tr!("alliances.applyChanges", "Apply");
+                outcome.apply =
+                    widgets::button_with_kbd(ui, &apply, ButtonVariant::Tier2Primary, APPLY_KEY)
+                        .clicked();
+            },
+        );
+    } else {
+        ui.vertical_centered(|ui| {
+            if widgets::button_with_kbd(
+                ui,
+                &tr!("common.done", "Done"),
+                ButtonVariant::Tier2,
+                DONE_KEY,
+            )
+            .clicked()
+            {
+                outcome.done = true;
+            }
+        });
+    }
     dropdown
 }
 
@@ -1022,7 +1165,7 @@ mod tests {
             ..Default::default()
         };
         ctx.begin_pass(raw);
-        let dialog = render_alliances_view(view, ctx, menu);
+        let dialog = render_alliances_view(view, ctx, menu, false);
         let width = dialog.response.rect.width();
         let mut out = ctx.end_pass();
         let _ = ctx.tessellate(out.shapes, ctx.pixels_per_point());
@@ -1077,5 +1220,91 @@ mod tests {
             let (outcome, _) = render(&ctx, &view(vec![player(1, "a")]), Some(menu));
             assert_eq!(outcome.menu, Some(None));
         }
+    }
+
+    fn diplomacy_view() -> AlliancesView {
+        let player = |player_id: u8, allied: bool| AlliancePlayerView {
+            user_id: Some(u32::from(player_id)),
+            name: format!("player {player_id}"),
+            color: Color32::WHITE,
+            race: RaceView::Random,
+            alliance: Some(AllianceState {
+                player_id,
+                allied,
+                vision: false,
+            }),
+            note: None,
+            muted: false,
+            blocked: false,
+            report: ReportState::None,
+        };
+        AlliancesView {
+            players: vec![player(1, false), player(2, true)],
+            alliances_open: true,
+            allied_victory: false,
+            chat_target: ChatTargetChoice::All,
+            chat_targets: Vec::new(),
+        }
+    }
+
+    /// What the game shares with other players waits for the player to apply it; what is theirs
+    /// alone goes through at once.
+    #[test]
+    fn the_draft_holds_only_what_the_game_shares() {
+        let mut draft = AlliancesDraft::default();
+        let ally = AlliancesAction::SetAllied {
+            player_id: 1,
+            allied: true,
+        };
+        assert_eq!(draft.stage(ally), None);
+        assert_eq!(draft.stage(AlliancesAction::SetAlliedVictory(true)), None);
+        let mute = AlliancesAction::SetMuted {
+            user_id: 1,
+            muted: true,
+        };
+        assert_eq!(draft.stage(mute), Some(mute));
+        let view = diplomacy_view();
+        let shown = draft.applied_to(&view);
+        assert!(shown.players[0].alliance.unwrap().allied);
+        assert!(shown.allied_victory);
+        // Alliances go ahead of the victory setting, so a new ally shares it.
+        assert_eq!(
+            draft.take_actions(),
+            [ally, AlliancesAction::SetAlliedVictory(true)]
+        );
+        assert!(draft.is_empty());
+    }
+
+    /// A switch moved and moved back again is no change, and neither is one the game already holds.
+    #[test]
+    fn the_draft_drops_what_the_game_already_holds() {
+        let view = diplomacy_view();
+        let mut draft = AlliancesDraft::default();
+        draft.stage(AlliancesAction::SetAllied {
+            player_id: 2,
+            allied: false,
+        });
+        draft.stage(AlliancesAction::SetAllied {
+            player_id: 2,
+            allied: true,
+        });
+        draft.stage(AlliancesAction::SetSharedVision {
+            player_id: 7,
+            shared: true,
+        });
+        draft.settle(&view);
+        assert!(draft.is_empty());
+        assert!(matches!(draft.applied_to(&view), Cow::Borrowed(_)));
+    }
+
+    /// A game that closes its alliances leaves nothing to apply.
+    #[test]
+    fn closed_alliances_empty_the_draft() {
+        let mut view = diplomacy_view();
+        let mut draft = AlliancesDraft::default();
+        draft.stage(AlliancesAction::SetAlliedVictory(true));
+        view.alliances_open = false;
+        draft.settle(&view);
+        assert!(draft.is_empty());
     }
 }

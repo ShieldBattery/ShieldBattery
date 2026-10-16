@@ -1,6 +1,7 @@
 {
   "alliances": {
     "alliedVictory": "Allied victory",
+    "applyChanges": "Apply",
     "block": "Block {{name}}",
     "blockedTag": "Blocked",
     "chatAll": "All players",
@@ -11,6 +12,7 @@
     "columnPlayer": "Player",
     "columnVision": "Vision",
     "defeated": "defeated",
+    "discardChanges": "Discard",
     "empty": "Nobody else is in this game",
     "left": "left the game",
     "muteAll": "Mute all",
@@ -89,10 +91,10 @@
   "gameMenu": {
     "alliancesAndChat": "Alliances & chat",
     "gameTime": "Game time",
-    "holdToLeave": "Hold to leave game",
     "leaveGame": "Leave game",
     "leaveGameTitle": "Leave the game?",
     "leaveReplayTitle": "Leave the replay?",
+    "missionObjectives": "Mission objectives",
     "options": "Options",
     "pauseGame": "Pause game",
     "pauseGameLeft_one": "Pause game ({{count}} left)",

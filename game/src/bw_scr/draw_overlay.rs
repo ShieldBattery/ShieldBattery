@@ -861,7 +861,12 @@ impl OverlayState {
                         chat_manager,
                         Instant::now(),
                     );
-                    game_commands.extend(command);
+                    // An alliance or vision command carries the whole of the player's setting, so
+                    // of several made in one frame only the last is worth sending.
+                    if let Some(command) = command {
+                        game_commands.retain(|sent: &Vec<u8>| sent.first() != command.first());
+                        game_commands.push(command);
+                    }
                 }
                 intent => self.execute_intent(bw, intent, &mut replay_commands),
             }
@@ -1227,6 +1232,7 @@ impl OverlayState {
                 }
             }
             Intent::OpenGameMenu => dialog_hook::open_game_menu(bw.first_dialog),
+            Intent::OpenObjectives => dialog_hook::open_objectives(bw.first_dialog),
             Intent::Seek(frame) => {
                 self.last_requested_seek = Some(frame);
                 replay_commands.push(ReplayCommand::Seek { frame });

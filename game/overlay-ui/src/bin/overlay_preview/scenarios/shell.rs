@@ -55,6 +55,8 @@ pub enum Preset {
     Observer,
     /// The in-game menu's replacement, raised the way its native dialog spawning raises it.
     GameMenu,
+    /// The same menu as a player sees it, with what only a player can do from it.
+    PlayerGameMenu,
     /// The chat log's replacement, raised the same way.
     ChatHistory,
     /// The options screen over the menu that opens it, on one of its pages.
@@ -66,9 +68,10 @@ pub enum Preset {
 }
 
 impl Preset {
-    pub const ALL: [Preset; 10] = [
+    pub const ALL: [Preset; 11] = [
         Preset::Observer,
         Preset::GameMenu,
+        Preset::PlayerGameMenu,
         Preset::ChatHistory,
         Preset::Options(OptionsSection::Gameplay),
         Preset::Options(OptionsSection::Input),
@@ -83,6 +86,7 @@ impl Preset {
         match self {
             Preset::Observer => "observer".to_string(),
             Preset::GameMenu => "game-menu".to_string(),
+            Preset::PlayerGameMenu => "player-game-menu".to_string(),
             Preset::ChatHistory => "chat-history".to_string(),
             Preset::Options(section) => format!("options-{}", section.slug()),
             Preset::Victory => "victory".to_string(),
@@ -94,14 +98,19 @@ impl Preset {
     /// dialog spawning, which is host state rather than anything the scenario owns.
     pub fn apply(self, knobs: &mut AllKnobs) {
         // The options screen stacks over the menu it is opened from, so the menu comes up under it.
-        knobs.host.game_menu_spawned = matches!(self, Preset::GameMenu | Preset::Options(_));
+        knobs.host.game_menu_spawned = matches!(
+            self,
+            Preset::GameMenu | Preset::PlayerGameMenu | Preset::Options(_)
+        );
         knobs.host.chat_history_spawned = matches!(self, Preset::ChatHistory);
         knobs.host.victory_spawned = matches!(self, Preset::Victory);
         knobs.host.defeat_spawned = matches!(self, Preset::Defeat);
         // The result popups are a player's; the rest of the shell's states are shown to a watcher,
         // with the observer panels' ambient stand-in under them.
         knobs.host.mode = match self {
-            Preset::Victory | Preset::Defeat => overlay_ui::shell::Mode::Playing,
+            Preset::PlayerGameMenu | Preset::Victory | Preset::Defeat => {
+                overlay_ui::shell::Mode::Playing
+            }
             _ => overlay_ui::shell::Mode::Observing,
         };
         knobs.shell.ambient_panel = matches!(self, Preset::Observer);

@@ -1,6 +1,7 @@
 {
   "alliances": {
     "alliedVictory": "동맹 승리",
+    "applyChanges": "적용",
     "block": "{{name}}님 차단",
     "blockedTag": "차단됨",
     "chatAll": "모든 플레이어",
@@ -11,6 +12,7 @@
     "columnPlayer": "플레이어",
     "columnVision": "시야",
     "defeated": "패배",
+    "discardChanges": "취소",
     "empty": "이 게임에는 다른 사람이 없습니다",
     "left": "게임 나감",
     "muteAll": "전체 음소거",
@@ -88,10 +90,10 @@
   "gameMenu": {
     "alliancesAndChat": "동맹 및 채팅",
     "gameTime": "게임 시간",
-    "holdToLeave": "길게 눌러 게임 나가기",
     "leaveGame": "게임 나가기",
     "leaveGameTitle": "게임에서 나가시겠습니까?",
     "leaveReplayTitle": "리플레이에서 나가시겠습니까?",
+    "missionObjectives": "임무 목표",
     "options": "설정",
     "pauseGame": "게임 일시 정지",
     "pauseGameLeft_other": "게임 일시 정지 ({{count}}회 남음)",
