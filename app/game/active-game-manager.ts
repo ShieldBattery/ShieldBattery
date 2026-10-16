@@ -471,10 +471,15 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
         local.customTeamColors ?? cloneCustomTeamColors(DEFAULT_LOCAL_SETTINGS.customTeamColors),
       customFfaColors: local.customFfaColors ?? [...DEFAULT_LOCAL_SETTINGS.customFfaColors],
     }
-    const desiredMonitorBounds =
+    // Electron measures displays in DIPs, but the game works in physical pixels, which differ on
+    // any display that isn't at 100% scale.
+    const desiredDisplay =
       local.monitorId !== undefined
-        ? screen.getAllDisplays().find(d => d.id === local.monitorId)?.bounds
+        ? screen.getAllDisplays().find(d => d.id === local.monitorId)
         : undefined
+    const desiredMonitorBounds = desiredDisplay
+      ? screen.dipToScreenRect(null, desiredDisplay.bounds)
+      : undefined
     const monitorBounds = desiredMonitorBounds
       ? [
           desiredMonitorBounds.x,

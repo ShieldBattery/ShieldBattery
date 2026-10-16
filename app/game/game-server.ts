@@ -206,19 +206,12 @@ export class GameServer {
           const local = { ...change.local }
           if (change.monitor !== undefined) {
             const bounds = change.monitor
-            // The game names a display by where it sits; the app keeps the id Electron gives it.
+            // The game names a display by where it sits in physical pixels; the app keeps the id
+            // Electron gives it, and Electron places displays in DIPs.
             local.monitorId =
               bounds === null
                 ? undefined
-                : screen
-                    .getAllDisplays()
-                    .find(
-                      d =>
-                        d.bounds.x === bounds.x &&
-                        d.bounds.y === bounds.y &&
-                        d.bounds.width === bounds.width &&
-                        d.bounds.height === bounds.height,
-                    )?.id
+                : screen.getDisplayMatching(screen.screenToDipRect(null, bounds)).id
           }
           if (Object.keys(local).length > 0) {
             this.localSettings.merge(local).catch(err => {
