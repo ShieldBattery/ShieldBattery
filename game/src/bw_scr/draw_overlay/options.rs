@@ -623,6 +623,72 @@ fn whole(value: &Value) -> Option<u32> {
     value.as_f64().map(|number| number.round() as u32)
 }
 
+/// How many frames in a row the game has to draw in one of HD and SD before the options screen
+/// takes it as the mode the game is in. The mode is read off a frame's draw commands, and a single
+/// frame's reading is not enough to move a switch the player can see.
+const HD_SETTLE_FRAMES: u8 = 8;
+
+/// The settings the game changes on its own keys while it runs (`F5` for HD, `Tab` and
+/// `Shift+Tab` for the minimap), as read from the engine for one frame. `None` for one that could
+/// not be read.
+#[derive(Copy, Clone, Default)]
+pub struct EngineSettings {
+    pub hd_graphics_on: Option<bool>,
+    pub minimap_terrain: Option<MinimapTerrain>,
+    pub minimap_color_mode: Option<MinimapColorMode>,
+}
+
+/// Carries the changes the game makes to [`EngineSettings`] into the options screen's copy of them.
+///
+/// Only a change in what the engine reports is carried over, never the engine's value as such: a
+/// setting the player has just moved on the screen is still on its way to the engine, and the
+/// value the engine holds until then must not move it back. The first reading of each setting is
+/// taken as the one the screen already shows, since both came from the same launch settings.
+#[derive(Default)]
+pub struct EngineSettingsFollower {
+    hd_graphics_on: Option<bool>,
+    /// A reading of HD that differs from [`hd_graphics_on`](Self::hd_graphics_on), and for how
+    /// many frames in a row it has been read.
+    hd_candidate: Option<(bool, u8)>,
+    minimap_terrain: Option<MinimapTerrain>,
+    minimap_color_mode: Option<MinimapColorMode>,
+}
+
+impl EngineSettingsFollower {
+    /// Takes one frame's reading, writing any change the engine made into `view`.
+    pub fn follow(&mut self, read: EngineSettings, view: &mut OptionsView) {
+        if let Some(hd) = read.hd_graphics_on {
+            match (self.hd_graphics_on, self.hd_candidate) {
+                (None, _) => self.hd_graphics_on = Some(hd),
+                (Some(held), _) if held == hd => self.hd_candidate = None,
+                (Some(_), Some((candidate, frames))) if candidate == hd => {
+                    let frames = frames + 1;
+                    if frames >= HD_SETTLE_FRAMES {
+                        self.hd_graphics_on = Some(hd);
+                        self.hd_candidate = None;
+                        view.hd_graphics_on = hd;
+                    } else {
+                        self.hd_candidate = Some((hd, frames));
+                    }
+                }
+                (Some(_), _) => self.hd_candidate = Some((hd, 1)),
+            }
+        }
+        if let Some(terrain) = read.minimap_terrain {
+            if self.minimap_terrain.is_some_and(|held| held != terrain) {
+                view.minimap_terrain = terrain;
+            }
+            self.minimap_terrain = Some(terrain);
+        }
+        if let Some(mode) = read.minimap_color_mode {
+            if self.minimap_color_mode.is_some_and(|held| held != mode) {
+                view.minimap_color_mode = mode;
+            }
+            self.minimap_color_mode = Some(mode);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;
@@ -1067,5 +1133,66 @@ mod tests {
         let mut local = Map::new();
         local.insert(key.to_string(), value);
         options_view_from_settings(&Map::new(), &local, LAUNCHED_MONITOR)
+    }
+
+    fn hd_reading(on: bool) -> EngineSettings {
+        EngineSettings {
+            hd_graphics_on: Some(on),
+            ..EngineSettings::default()
+        }
+    }
+
+    /// `F5` switching the game to SD shows on the screen once the game has settled into it.
+    #[test]
+    fn the_game_switching_graphics_moves_the_switch_once_settled() {
+        let mut follower = EngineSettingsFollower::default();
+        let mut view = OptionsView {
+            hd_graphics_on: true,
+            ..OptionsView::default()
+        };
+        follower.follow(hd_reading(true), &mut view);
+        for _ in 1..HD_SETTLE_FRAMES {
+            follower.follow(hd_reading(false), &mut view);
+            assert!(view.hd_graphics_on);
+        }
+        follower.follow(hd_reading(false), &mut view);
+        assert!(!view.hd_graphics_on);
+    }
+
+    /// One frame read in the other mode is noise, not a switch.
+    #[test]
+    fn a_stray_graphics_reading_moves_nothing() {
+        let mut follower = EngineSettingsFollower::default();
+        let mut view = OptionsView {
+            hd_graphics_on: true,
+            ..OptionsView::default()
+        };
+        follower.follow(hd_reading(true), &mut view);
+        for _ in 0..HD_SETTLE_FRAMES * 2 {
+            follower.follow(hd_reading(false), &mut view);
+            follower.follow(hd_reading(true), &mut view);
+        }
+        assert!(view.hd_graphics_on);
+    }
+
+    /// A setting the player moved on the screen stays where they put it while the engine still
+    /// holds the old value, and the engine catching up moves nothing either.
+    #[test]
+    fn the_engine_lagging_the_screen_leaves_the_screen_alone() {
+        let mut follower = EngineSettingsFollower::default();
+        let mut view = OptionsView::default();
+        let terrain = |terrain| EngineSettings {
+            minimap_terrain: Some(terrain),
+            ..EngineSettings::default()
+        };
+        follower.follow(terrain(MinimapTerrain::Shown), &mut view);
+        view.minimap_terrain = MinimapTerrain::Hidden;
+        follower.follow(terrain(MinimapTerrain::Shown), &mut view);
+        assert_eq!(view.minimap_terrain, MinimapTerrain::Hidden);
+        follower.follow(terrain(MinimapTerrain::Hidden), &mut view);
+        assert_eq!(view.minimap_terrain, MinimapTerrain::Hidden);
+        // Tab in the game shows the terrain again.
+        follower.follow(terrain(MinimapTerrain::Shown), &mut view);
+        assert_eq!(view.minimap_terrain, MinimapTerrain::Shown);
     }
 }

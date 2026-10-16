@@ -533,6 +533,8 @@ pub struct BwScr {
     /// the player has since moved there. Held here rather than in the overlay because the settings
     /// arrive long before the first frame is drawn.
     options: Mutex<overlay_ui::options::OptionsView>,
+    /// Carries the settings the game changes on its own keys into [`options`](Self::options).
+    engine_settings: Mutex<draw_overlay::options::EngineSettingsFollower>,
     /// The options screen's lists that are read off this machine rather than out of a setting,
     /// which is the displays the game can be put on. Read once, when the settings arrive; shared
     /// rather than copied so a frame takes the list without cloning the names in it.
@@ -2870,6 +2872,7 @@ impl BwScr {
             chat_history: Mutex::new(chat_history::ChatHistory::new()),
             replay_transport: Mutex::new(replay_transport::ReplayTransport::new()),
             options: Mutex::new(overlay_ui::options::OptionsView::default()),
+            engine_settings: Mutex::new(Default::default()),
             option_lists: Mutex::new(Arc::new(overlay_ui::options::OptionsLists::default())),
             observer_panels: Mutex::new(None),
             game_settings: game_settings.map(|(groups, write_int, write_bool)| {
@@ -4343,6 +4346,7 @@ impl BwScr {
                     };
                     if second_draw == 0 {
                         self.last_overlay_hd_value.store(is_hd, Ordering::Relaxed);
+                        self.follow_engine_settings(is_hd);
                     }
                     // SC:R only enables carbot if both of these flags are set
                     let is_carbot = self.is_carbot.load(Ordering::Relaxed)
@@ -7502,6 +7506,33 @@ impl BwScr {
             }
             _ => (),
         }
+    }
+
+    /// Brings the options screen's copy of the settings the game changes on its own keys up to
+    /// date with what the game shows this frame, `is_hd` among them.
+    fn follow_engine_settings(&self, is_hd: bool) {
+        use overlay_ui::options as ui;
+        let minimap_color_mode = self
+            .team_color_virtual_mode()
+            .or_else(|| self.read_minimap_color_mode())
+            .map(|mode| match mode {
+                MinimapColorMode::Standard => ui::MinimapColorMode::Standard,
+                MinimapColorMode::PresetOnMinimapOnly => ui::MinimapColorMode::PresetOnMinimapOnly,
+                MinimapColorMode::Preset => ui::MinimapColorMode::Preset,
+            });
+        let read = draw_overlay::options::EngineSettings {
+            hd_graphics_on: Some(is_hd),
+            minimap_terrain: self
+                .read_minimap_terrain_hidden()
+                .map(|hidden| match hidden {
+                    true => ui::MinimapTerrain::Hidden,
+                    false => ui::MinimapTerrain::Shown,
+                }),
+            minimap_color_mode,
+        };
+        self.engine_settings
+            .lock()
+            .follow(read, &mut self.options.lock());
     }
 
     /// Reads the current Shift+Tab minimap player-color mode, or `None` if the global wasn't located
