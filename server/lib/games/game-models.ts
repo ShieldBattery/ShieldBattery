@@ -946,7 +946,7 @@ export async function getGames(
 
     if (needMapJoin) {
       query = query.append(sql`
-        INNER JOIN uploaded_maps m ON g.map_id = m.id
+        INNER JOIN maps m ON g.map_id = m.id
       `)
     }
 
@@ -1124,7 +1124,7 @@ export async function getGamesForUser(
 
     if (needMapJoin) {
       query = query.append(sql`
-        INNER JOIN uploaded_maps m ON g.map_id = m.id
+        INNER JOIN maps m ON g.map_id = m.id
       `)
     }
 
