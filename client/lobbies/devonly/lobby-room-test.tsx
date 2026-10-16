@@ -18,7 +18,7 @@ import {
   Slot,
   SlotType,
 } from '../../../common/lobbies/slot'
-import { MapInfo } from '../../../common/maps'
+import { MapInfo, MapInfoJson } from '../../../common/maps'
 import { RaceChar } from '../../../common/races'
 import { DEFAULT_PERMISSIONS } from '../../../common/users/permissions'
 import { SbUser, SelfUserJson } from '../../../common/users/sb-user'
@@ -59,11 +59,15 @@ const MOCK_USERS: SbUser[] = [
   { id: BLUESKY, name: 'blueSky', created: 0 },
 ]
 
-const MOCK_MAP: MapInfo = { ...BigGameHunters, uploadDate: new Date(BigGameHunters.uploadDate) }
-const MOCK_QUEUED_MAP: MapInfo = {
-  ...FightingSpirit,
-  uploadDate: new Date(FightingSpirit.uploadDate),
+function fromMapInfoJson(map: MapInfoJson): MapInfo {
+  return {
+    ...map,
+    publishedAt: map.publishedAt !== undefined ? new Date(map.publishedAt) : undefined,
+  }
 }
+
+const MOCK_MAP = fromMapInfoJson(BigGameHunters)
+const MOCK_QUEUED_MAP = fromMapInfoJson(FightingSpirit)
 
 type ScenarioId = 'gathering' | 'full' | 'settingsChanged' | 'countingDown' | 'inGame' | 'regroup'
 type ViewpointId = 'host' | 'member' | 'benched'

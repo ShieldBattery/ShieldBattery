@@ -218,8 +218,8 @@ function makeMapInfo(hash: string, name: string): MapInfoJson {
     hash,
     name,
     description: '',
-    uploadedBy: makeSbUserId(1),
-    uploadDate: Date.now(),
+    publishedBy: makeSbUserId(1),
+    publishedAt: Date.now(),
     visibility: MapVisibility.Public,
     mapData: {
       format: 'scx',

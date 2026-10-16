@@ -11,7 +11,7 @@ import {
 import { toMapInfoJson } from '../../../common/maps'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpGet, httpPost } from '../http/route-decorators'
-import { getMapInfos } from '../maps/map-models'
+import { getMapInfos, resolveMapId, resolveMapIds } from '../maps/map-models'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware, { throttleByUser } from '../throttle/middleware'
@@ -53,14 +53,17 @@ export class LobbyPreferencesApi {
       body: updateLobbyPreferencesSchema,
     })
 
-    const recentMaps = body.recentMaps.slice(0, NUM_RECENT_MAPS)
-    if (body.selectedMap && !recentMaps.includes(body.selectedMap)) {
+    const recentMaps = Array.from(
+      new Set(await resolveMapIds(body.recentMaps.slice(0, NUM_RECENT_MAPS))),
+    )
+    const requestedSelectedMap = body.selectedMap ? await resolveMapId(body.selectedMap) : undefined
+    if (requestedSelectedMap && !recentMaps.includes(requestedSelectedMap)) {
       throw new httpErrors.BadRequest('invalid selected map')
     }
 
     const preferences = await upsertLobbyPreferences(ctx.session!.user.id, {
       ...body,
-      selectedMap: body.selectedMap ?? undefined,
+      selectedMap: requestedSelectedMap,
       recentMaps,
     })
     const recentMapInfos = await getMapInfos(preferences.recentMaps ?? [])
