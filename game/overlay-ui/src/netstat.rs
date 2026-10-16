@@ -20,7 +20,7 @@ use crate::{tr, tr_plural};
 
 /// How wide the panel is, in overlay points. Everything inside is laid out against it, so no value
 /// or translation can make the panel breathe as its numbers change.
-const PANEL_WIDTH: f32 = 484.0;
+const PANEL_WIDTH: f32 = 536.0;
 
 /// Text size for the per-slot table.
 const ROW_SIZE: f32 = 13.0;
@@ -34,8 +34,9 @@ const COLUMN_GAP: f32 = theme::SPACE_XS;
 /// Width of the player-name column.
 const NAME_WIDTH: f32 = 96.0;
 
-/// Width of the column holding each slot's home relay, or its departure tag once it has left.
-const HOME_WIDTH: f32 = 72.0;
+/// Width of the column holding each slot's home relay, or its departure tag once it has left: room
+/// for a four-digit relay id and a region as long as `eu-central`.
+const HOME_WIDTH: f32 = 124.0;
 
 /// How many numeric columns the table carries, which is what the remaining width is split between.
 const NUMERIC_COLUMNS: usize = 6;
@@ -107,6 +108,41 @@ pub struct NetEventView {
     pub text: String,
 }
 
+/// What the panel says about a game that rolls back, in place of lockstep's buffer: the split
+/// between input delay and rollback the player is running with now, and what the engine has done.
+pub struct RollbackNetView {
+    /// The input delay and rollback the network quality readout shows, in frames.
+    pub delay_frames: u32,
+    pub rollback_frames: u32,
+    /// The player's Rollback balance, the rollback the delay is tuned to leave, and how far ahead
+    /// of known turns the game predicts before it stalls, in frames.
+    pub rollback_target: u32,
+    pub prediction_limit: u32,
+    /// What the engine has done since the game's lockstep start, or `None` before it has got past
+    /// it.
+    pub engine: Option<RollbackEngineView>,
+}
+
+/// What the rollback engine has done since the game's lockstep start.
+pub struct RollbackEngineView {
+    /// How late this client's turns reach its relay, at the 90th percentile of the newest report
+    /// (negative is early), or `None` before the first report.
+    pub relay_lateness_p90_us: Option<i32>,
+    /// How long the session clock has stood still in all, and how many times it has stopped.
+    pub clock_stopped_ms: u64,
+    pub clock_stops: u32,
+    /// Ticks that rolled back, and the most frames one of them simulated again.
+    pub rollbacks: u32,
+    pub deepest_rollback: u32,
+    /// Predicted turns that turned out to differ from the prediction, and ones that didn't.
+    pub mispredicted_turns: u32,
+    pub confirmed_predictions: u32,
+    /// The longest a tick that wasn't stalled took, and how many took over `slow_tick_ms`.
+    pub worst_tick_us: u64,
+    pub slow_ticks: u32,
+    pub slow_tick_ms: u32,
+}
+
 /// Everything the network-stats overlay needs to draw itself, resolved from the turn state's
 /// instrumentation and game setup. The render path takes only this (plus an egui context), so it
 /// renders identically in the game DLL and the host preview.
@@ -148,6 +184,8 @@ pub struct NetStatsView {
     /// Microseconds of send-phase delay the newest directive commanded — where
     /// the applied value is slewing to. Equal to the applied value at rest.
     pub phase_target_us: u32,
+    /// What a game that rolls back adds, or `None` for a lockstep game.
+    pub rollback: Option<RollbackNetView>,
     /// One row per remote slot.
     pub rows: Vec<NetStatRowView>,
 }
@@ -168,6 +206,10 @@ pub fn render_netstat_view(view: &NetStatsView, ctx: &egui::Context) {
                 ui.set_width(tiers::panel_content_width(PANEL_WIDTH));
                 widgets::panel_header(ui, &tr!("netstat.title", "Network stats"), None);
                 draw_session(ui, view);
+                if let Some(engine) = view.rollback.as_ref().and_then(|r| r.engine.as_ref()) {
+                    ui.add_space(theme::SPACE_MD);
+                    draw_engine(ui, engine);
+                }
                 ui.add_space(theme::SPACE_MD);
                 draw_table(ui, &view.rows);
                 ui.add_space(theme::SPACE_MD);
@@ -177,9 +219,9 @@ pub fn render_netstat_view(view: &NetStatsView, ctx: &egui::Context) {
         });
 }
 
-/// Draws what identifies and describes this session: the ids an incident lookup keys on, the buffer
-/// depth in force, this client's own link, and the send-phase offset once one has ever been
-/// directed.
+/// Draws what identifies and describes this session: the ids an incident lookup keys on, how the
+/// game is absorbing lateness (lockstep's buffer, or a rollback game's delay and rollback), and this
+/// client's own link.
 fn draw_session(ui: &mut Ui, view: &NetStatsView) {
     widgets::stat_row(
         ui,
@@ -192,6 +234,16 @@ fn draw_session(ui: &mut Ui, view: &NetStatsView) {
     };
     widgets::stat_row(ui, &tr!("netstat.relay", "Relay"), &relay);
 
+    match &view.rollback {
+        Some(rollback) => draw_rollback_split(ui, rollback),
+        None => draw_buffer(ui, view),
+    }
+    draw_link(ui, view);
+}
+
+/// The latency buffer and the send phase, which are how a lockstep game absorbs lateness. A game
+/// that rolls back only uses them for its lockstep start.
+fn draw_buffer(ui: &mut Ui, view: &NetStatsView) {
     widgets::stat_row(
         ui,
         &tr!("netstat.buffer", "Buffer"),
@@ -229,7 +281,120 @@ fn draw_session(ui: &mut Ui, view: &NetStatsView) {
         };
         widgets::stat_row(ui, &tr!("netstat.sendPhase", "Send phase"), &value);
     }
+}
 
+/// How a game that rolls back is splitting this client's lateness, and how late its turns reach its
+/// relay and how much the session clock has stood still, which are what that split answers to.
+fn draw_rollback_split(ui: &mut Ui, rollback: &RollbackNetView) {
+    widgets::stat_row(
+        ui,
+        &tr!("netstat.delayRollback", "Delay · rollback"),
+        &tr_plural!(
+            "netstat.delayRollbackFrames",
+            rollback.rollback_frames,
+            one = "{{delay}} · {{count}} frame",
+            other = "{{delay}} · {{count}} frames",
+            delay = rollback.delay_frames
+        ),
+    );
+    note(
+        ui,
+        &tr!(
+            "netstat.rollbackSettings",
+            "Rollback balance {{target}}, predicts up to {{limit}} frames",
+            target = rollback.rollback_target,
+            limit = rollback.prediction_limit
+        ),
+    );
+    let Some(engine) = &rollback.engine else {
+        return;
+    };
+    let lateness = match engine.relay_lateness_p90_us {
+        Some(us) if us > 0 => tr!(
+            "netstat.relayLate",
+            "{{ms}} ms late",
+            ms = format!("{:.1}", us as f64 / 1000.0)
+        ),
+        Some(us) => tr!(
+            "netstat.relayEarly",
+            "{{ms}} ms early",
+            ms = format!("{:.1}", -us as f64 / 1000.0)
+        ),
+        None => EM_DASH.to_string(),
+    };
+    widgets::stat_row(
+        ui,
+        &tr!("netstat.relayLateness", "Your turns at relay"),
+        &lateness,
+    );
+    widgets::stat_row(
+        ui,
+        &tr!("netstat.clockStops", "Clock stops"),
+        &fmt_ms(engine.clock_stopped_ms),
+    );
+    note(
+        ui,
+        &match engine.clock_stops {
+            0 => tr!(
+                "netstat.clockNeverStopped",
+                "The session clock hasn't stopped"
+            ),
+            stops => tr_plural!(
+                "netstat.clockStopCount",
+                stops,
+                one = "Stopped {{count}} time",
+                other = "Stopped {{count}} times"
+            ),
+        },
+    );
+}
+
+/// What the rollback engine has done since the lockstep start: how often it rolled back and how
+/// far, how often its predictions were wrong, and the slowest tick, which tells a hitch of this
+/// machine's from one of the network's.
+fn draw_engine(ui: &mut Ui, engine: &RollbackEngineView) {
+    widgets::stat_row(
+        ui,
+        &tr!("netstat.rollbacks", "Rollbacks"),
+        &tr!(
+            "netstat.rollbackCount",
+            "{{count}} · deepest {{deepest}}",
+            count = engine.rollbacks,
+            deepest = engine.deepest_rollback
+        ),
+    );
+    let predicted = engine.mispredicted_turns + engine.confirmed_predictions;
+    let mispredicted = match predicted {
+        0 => EM_DASH.to_string(),
+        predicted => format!(
+            "{:.1}%",
+            f64::from(engine.mispredicted_turns) * 100.0 / f64::from(predicted)
+        ),
+    };
+    widgets::stat_row(
+        ui,
+        &tr!("netstat.mispredicted", "Mispredicted"),
+        &mispredicted,
+    );
+    widgets::stat_row(
+        ui,
+        &tr!("netstat.slowestTick", "Slowest tick"),
+        &format!("{:.1} ms", engine.worst_tick_us as f64 / 1000.0),
+    );
+    note(
+        ui,
+        &tr_plural!(
+            "netstat.slowTicks",
+            engine.slow_ticks,
+            one = "{{count}} tick over {{ms}} ms",
+            other = "{{count}} ticks over {{ms}} ms",
+            ms = engine.slow_tick_ms
+        ),
+    );
+}
+
+/// This client's own relay link, and how often it has gone down.
+fn draw_link(ui: &mut Ui, view: &NetStatsView) {
     ui.horizontal(|ui| {
         ui.label(text::column_label().job(&tr!("netstat.link", "Link")));
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
@@ -642,7 +807,29 @@ mod tests {
             events,
             phase_applied_us: 0,
             phase_target_us: 0,
+            rollback: None,
             rows,
+        }
+    }
+
+    fn rollback_view() -> RollbackNetView {
+        RollbackNetView {
+            delay_frames: 1,
+            rollback_frames: 2,
+            rollback_target: 2,
+            prediction_limit: 8,
+            engine: Some(RollbackEngineView {
+                relay_lateness_p90_us: Some(-3_400),
+                clock_stopped_ms: 1_240,
+                clock_stops: 3,
+                rollbacks: 4_812,
+                deepest_rollback: 6,
+                mispredicted_turns: 212,
+                confirmed_predictions: 9_120,
+                worst_tick_us: 11_400,
+                slow_ticks: 4,
+                slow_tick_ms: 4,
+            }),
         }
     }
 
@@ -705,6 +892,13 @@ mod tests {
                 ),
             ),
             ("no history yet", view(vec![row("ab", None)], Vec::new(), 1)),
+            (
+                "a game that rolls back",
+                NetStatsView {
+                    rollback: Some(rollback_view()),
+                    ..view(vec![row("ab", None)], Vec::new(), 40)
+                },
+            ),
             ("no players at all", view(Vec::new(), Vec::new(), 40)),
         ];
         for (label, case) in cases {

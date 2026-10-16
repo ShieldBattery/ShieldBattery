@@ -354,7 +354,16 @@ pub struct GameStats {
     pub holds_undone: u32,
     /// How long the session clock has been stopped in all.
     pub clock_stopped_us: u64,
+    /// How many times the session clock has stopped, each counted as it starts. Kept for `/netstat`
+    /// and not sent: the relays record every stop themselves.
+    pub clock_stops: u32,
+    /// Whether the clock was stopping as of the last tick, which tells a stop that starts from one
+    /// that carries on.
+    clock_stopping: bool,
     pub lead_reports: u32,
+    /// The 90th percentile lateness the newest lead report carried. Kept for `/netstat` and not
+    /// sent: the maximum and the sum carry the game.
+    pub lead_p90_last_us: Option<i32>,
     /// The highest 90th percentile lateness a lead report carried, and the sum of them all.
     pub lead_p90_max_us: i32,
     pub lead_p90_sum_us: i64,
@@ -373,6 +382,43 @@ const GAME_STATS_VERSION: u32 = 2;
 
 /// What the current game has done since its lockstep start, if it rolls back.
 static GAME_STATS: Mutex<Option<GameStats>> = Mutex::new(None);
+
+/// What `/netstat` shows of a game that rolls back.
+pub struct NetStatus {
+    /// The input delay and rollback the network quality readout shows, in frames.
+    pub delay: u32,
+    pub rollback: u32,
+    /// The player's rollback target and the prediction limit, in frames.
+    pub rollback_target: u32,
+    pub prediction_limit: u32,
+    /// What the game has done since its lockstep start, once it has got that far.
+    pub stats: Option<GameStats>,
+}
+
+/// How long a tick has to take for the stats to count it as slow.
+pub const SLOW_TICK_MS: u32 = SLOW_TICK.as_millis() as u32;
+
+/// What `/netstat` shows of the current game, or `None` when it doesn't roll back. Takes the turn
+/// state's lock, so it is for a caller that holds none.
+pub fn net_status() -> Option<NetStatus> {
+    let delay = netcode_v2::with_turn_state(|s| {
+        // The pipe holds the turn every command waits for anyway, as the quality readout says.
+        s.predicts_inputs()
+            .then(|| s.pipe_depth().saturating_sub(1))
+    })
+    .flatten()?;
+    let (rollback_target, prediction_limit) = {
+        let settings = SETTINGS.lock();
+        (settings.rollback_target, settings.limit)
+    };
+    Some(NetStatus {
+        delay,
+        rollback: shown_rollback(),
+        rollback_target,
+        prediction_limit,
+        stats: game_stats(),
+    })
+}
 
 /// A copy of what the current game has done since its lockstep start, or `None` when it doesn't
 /// roll back or hasn't got that far.
@@ -870,9 +916,13 @@ pub unsafe fn run_game_logic_step(
                 stats.schedule_corrections += pacing.corrections;
                 stats.schedule_corrected_us += pacing.corrected_us;
                 stats.holds_undone += pacing.holds_undone;
+                let stopping = pause_us > stats.clock_stopped_us;
+                stats.clock_stops += u32::from(stopping && !stats.clock_stopping);
+                stats.clock_stopping = stopping;
                 stats.clock_stopped_us = pause_us;
             }
             if let Some(report) = &lead_report {
+                stats.lead_p90_last_us = Some(report.p90_us);
                 stats.lead_reports += 1;
                 stats.lead_p90_max_us = match stats.lead_reports {
                     1 => report.p90_us,

@@ -493,6 +493,7 @@ impl OverlayState {
         setup_info: Option<&GameSetupInfo>,
         disconnect_status: &DisconnectStatus,
         net_stats: Option<&NetStatsStatus>,
+        net_rollback: Option<&crate::rollback_live::NetStatus>,
         net_quality: Option<&NetQualityView>,
         loading_connectivity: Option<&LoadingConnectivity>,
         chat_history: &Mutex<crate::bw_scr::chat_history::ChatHistory>,
@@ -673,7 +674,8 @@ impl OverlayState {
             self_since.map_or(0, |since| now.saturating_duration_since(since).as_secs()),
             now,
         );
-        let net_stats_view = net_stats.map(|status| netstat::build_netstat_view(status, users));
+        let net_stats_view =
+            net_stats.map(|status| netstat::build_netstat_view(status, net_rollback, users));
         // The log is built only while its modal is up, and lives beside the shell for the frame
         // rather than inside `self`: the render closure below takes `self` mutably, so a view it
         // reads cannot be borrowed out of a field.

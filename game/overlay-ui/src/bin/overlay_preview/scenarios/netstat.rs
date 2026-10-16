@@ -1,7 +1,9 @@
 //! The network-stats diagnostic overlay scenario.
 
 use egui::vec2;
-use overlay_ui::netstat::{NetEventView, NetStatRowView, NetStatsView, RowDeparture};
+use overlay_ui::netstat::{
+    NetEventView, NetStatRowView, NetStatsView, RollbackEngineView, RollbackNetView, RowDeparture,
+};
 use serde::{Deserialize, Serialize};
 
 /// One of the buffer-directive series shapes the history strips can be emulated with, so their
@@ -115,6 +117,11 @@ pub struct Knobs {
     pub event_link: bool,
     /// Whether to include a re-home line in the event ticker.
     pub event_rehome: bool,
+    /// Whether the game rolls back, which trades the buffer rows for the rollback ones.
+    pub rollback: bool,
+    /// Whether a rollback game has got past its lockstep start, which is when the engine's own
+    /// numbers start.
+    pub rollback_started: bool,
 }
 
 impl Default for Knobs {
@@ -140,26 +147,30 @@ impl Default for Knobs {
             event_buffer: true,
             event_link: true,
             event_rehome: false,
+            rollback: false,
+            rollback_started: true,
         }
     }
 }
 
-/// A one-click preview state: a healthy session, a degraded one, one just after a re-home, and a
-/// cold start with no history yet.
+/// A one-click preview state: a healthy session, a degraded one, one just after a re-home, a cold
+/// start with no history yet, and a game that rolls back.
 #[derive(Clone, Copy)]
 pub enum Preset {
     Healthy,
     Degraded,
     PostRehome,
     ColdStart,
+    Rollback,
 }
 
 impl Preset {
-    pub const ALL: [Preset; 4] = [
+    pub const ALL: [Preset; 5] = [
         Preset::Healthy,
         Preset::Degraded,
         Preset::PostRehome,
         Preset::ColdStart,
+        Preset::Rollback,
     ];
 
     pub fn label(self) -> &'static str {
@@ -168,12 +179,15 @@ impl Preset {
             Preset::Degraded => "degraded",
             Preset::PostRehome => "post-rehome",
             Preset::ColdStart => "cold-start",
+            Preset::Rollback => "rollback",
         }
     }
 
     /// Presets the emulation knobs to this state, leaving the session id alone (its exact value
     /// doesn't change how anything renders).
     pub fn apply(self, n: &mut Knobs) {
+        n.rollback = matches!(self, Preset::Rollback);
+        n.rollback_started = true;
         match self {
             Preset::Healthy => {
                 n.relay_id = 1;
@@ -235,6 +249,15 @@ impl Preset {
                 n.event_link = true;
                 n.event_rehome = true;
             }
+            Preset::Rollback => {
+                Preset::Healthy.apply(n);
+                n.rollback = true;
+                n.relay_id = 452;
+                n.region = "us-west".to_string();
+                n.event_link = true;
+                n.link_down_count = 1;
+                n.link_last_change_secs = 95;
+            }
             Preset::ColdStart => {
                 n.relay_id = 1;
                 n.region = "local-a".to_string();
@@ -265,10 +288,11 @@ pub fn build_view(k: &Knobs) -> NetStatsView {
         .map(|i| {
             let stalled = i % 2 == 1;
             let recent = if stalled { k.stall_ms } else { 0 };
-            let home = k.homes_known.then(|| {
-                let relay = 1 + (i as u64 % 2);
-                let region = if relay == 1 { "local-a" } else { "local-b" };
-                format!("r{relay} {region}")
+            // Production's widest labels rather than the local relays' short ones, so the column is
+            // seen holding what it has to hold.
+            let home = k.homes_known.then(|| match i % 2 {
+                0 => "r452 us-west".to_string(),
+                _ => "r1187 eu-central".to_string(),
             });
             let departed = i >= k.row_count.saturating_sub(k.departed_count);
             let departure = departed.then_some(if i % 2 == 0 {
@@ -343,6 +367,24 @@ pub fn build_view(k: &Knobs) -> NetStatsView {
         events,
         phase_applied_us: 0,
         phase_target_us: 0,
+        rollback: k.rollback.then(|| RollbackNetView {
+            delay_frames: 1,
+            rollback_frames: 2,
+            rollback_target: 2,
+            prediction_limit: 8,
+            engine: k.rollback_started.then_some(RollbackEngineView {
+                relay_lateness_p90_us: Some(-3_400),
+                clock_stopped_ms: 1_240,
+                clock_stops: 3,
+                rollbacks: 4_812,
+                deepest_rollback: 6,
+                mispredicted_turns: 212,
+                confirmed_predictions: 9_120,
+                worst_tick_us: 11_400,
+                slow_ticks: 4,
+                slow_tick_ms: 4,
+            }),
+        }),
         rows,
     }
 }
@@ -468,6 +510,15 @@ pub fn knobs_ui(n: &mut Knobs, ui: &mut egui::Ui) -> bool {
     changed |= ui
         .checkbox(&mut n.homes_known, "per-player homes known")
         .changed();
+    ui.horizontal_wrapped(|ui| {
+        changed |= ui.checkbox(&mut n.rollback, "rolls back").changed();
+        changed |= ui
+            .add_enabled(
+                n.rollback,
+                egui::Checkbox::new(&mut n.rollback_started, "past the lockstep start"),
+            )
+            .changed();
+    });
     ui.horizontal_wrapped(|ui| {
         ui.label("Events:");
         changed |= ui.checkbox(&mut n.event_buffer, "buffer").changed();

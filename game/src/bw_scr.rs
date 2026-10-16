@@ -4372,6 +4372,12 @@ impl BwScr {
                         let net_stats =
                             netcode_v2::with_turn_state(|s| s.net_stats_status(Instant::now()))
                                 .flatten();
+                        // What the panel adds for a game that rolls back. Read only while it is
+                        // up, and outside the turn state's lock, which this takes itself.
+                        let net_rollback = net_stats
+                            .is_some()
+                            .then(crate::rollback_live::net_status)
+                            .flatten();
                         let net_quality = self.net_quality_view();
                         // Who has connected so far, for the loading screen. `None` before this
                         // client's own session is up, and not needed once the game has started.
@@ -4433,6 +4439,7 @@ impl BwScr {
                                 game_thread::setup_info(),
                                 &disconnect_status,
                                 net_stats.as_ref(),
+                                net_rollback.as_ref(),
                                 net_quality.as_ref(),
                                 loading_connectivity.as_ref(),
                                 &self.chat_history,

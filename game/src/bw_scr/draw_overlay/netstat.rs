@@ -1,7 +1,10 @@
-use overlay_ui::netstat::{NetEventView, NetStatRowView, NetStatsView, RowDeparture};
+use overlay_ui::netstat::{
+    NetEventView, NetStatRowView, NetStatsView, RollbackEngineView, RollbackNetView, RowDeparture,
+};
 
 use crate::app_messages::{SbUser, SbUserId};
 use crate::netcode_v2::{DepartureKind, NetEvent, NetStatsStatus};
+use crate::rollback_live::{self, NetStatus};
 
 /// Builds the display view from the network-stats snapshot and the session's user list, resolving
 /// each row's user id to a name and formatting each event into a line. The single place net-stats
@@ -13,7 +16,11 @@ use crate::netcode_v2::{DepartureKind, NetEvent, NetStatsStatus};
 /// `/netstat` chat command is the only thing that puts it on screen, and a player triaging lag needs
 /// it mid-game. It is purely informational and registers no hit rect, so it never costs the game a
 /// click.
-pub(super) fn build_netstat_view(status: &NetStatsStatus, users: &[SbUser]) -> NetStatsView {
+pub(super) fn build_netstat_view(
+    status: &NetStatsStatus,
+    rollback: Option<&NetStatus>,
+    users: &[SbUser],
+) -> NetStatsView {
     let resolve = |user_id: SbUserId| -> String {
         users
             .iter()
@@ -67,7 +74,31 @@ pub(super) fn build_netstat_view(status: &NetStatsStatus, users: &[SbUser]) -> N
         events,
         phase_applied_us: status.phase_applied_us,
         phase_target_us: status.phase_target_us,
+        rollback: rollback.map(build_rollback_view),
         rows,
+    }
+}
+
+/// What the panel says about a game that rolls back: the split it plays with now, and what the
+/// engine has done since the lockstep start.
+fn build_rollback_view(status: &NetStatus) -> RollbackNetView {
+    RollbackNetView {
+        delay_frames: status.delay,
+        rollback_frames: status.rollback,
+        rollback_target: status.rollback_target,
+        prediction_limit: status.prediction_limit,
+        engine: status.stats.as_ref().map(|stats| RollbackEngineView {
+            relay_lateness_p90_us: stats.lead_p90_last_us,
+            clock_stopped_ms: stats.clock_stopped_us / 1000,
+            clock_stops: stats.clock_stops,
+            rollbacks: stats.rollbacks,
+            deepest_rollback: stats.deepest_rollback,
+            mispredicted_turns: stats.mispredicted_turns,
+            confirmed_predictions: stats.confirmed_predictions,
+            worst_tick_us: stats.worst_tick_us,
+            slow_ticks: stats.slow_ticks,
+            slow_tick_ms: rollback_live::SLOW_TICK_MS,
+        }),
     }
 }
 
