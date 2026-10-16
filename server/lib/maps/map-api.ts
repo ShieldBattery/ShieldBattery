@@ -16,6 +16,7 @@ import {
   GetMapsResponse,
   MAP_LIST_LIMIT,
   MapExtension,
+  MapInfo,
   MapServiceErrorCode,
   MapSortType,
   MapVisibility,
@@ -32,12 +33,17 @@ import { httpApi } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPatch, httpPost } from '../http/route-decorators'
 import {
   addMapToFavorites,
+  delistMap,
   getFavoritedFromMapIds,
   getFavoritedMaps,
+  getLibraryFromMapIds,
   getMapInfos,
   getMaps,
-  removeMap,
+  MapListSource,
   removeMapFromFavorites,
+  removeMapFromLibrary,
+  resolveMapId,
+  resolveMapIds,
   updateMap,
   updateMapImages,
   veryDangerousDeleteAllMaps,
@@ -47,7 +53,7 @@ import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware, { throttleByUser, throttleByUserOrIp } from '../throttle/middleware'
-import { findUserById, findUsersById } from '../users/user-model'
+import { findUsersById } from '../users/user-model'
 import { validateRequest } from '../validation/joi-validator'
 import { processStoredMapFile, reparseMapsAsNeeded } from './map-operations'
 import { mapPath } from './paths'
@@ -100,7 +106,7 @@ const mapRemoveThrottle = createThrottle('mapremove', {
   window: 60000,
 })
 
-function getValidatedMapId(ctx: RouterContext) {
+async function getValidatedMapId(ctx: RouterContext): Promise<SbMapId> {
   const {
     params: { mapId },
   } = validateRequest(ctx, {
@@ -109,7 +115,23 @@ function getValidatedMapId(ctx: RouterContext) {
     }),
   })
 
-  return mapId
+  return await resolveMapId(mapId)
+}
+
+/** Returns the users who published `maps`, for including alongside them in a response. */
+function findPublishers(maps: ReadonlyArray<MapInfo>) {
+  return findUsersById(maps.flatMap(m => (m.publishedBy !== undefined ? [m.publishedBy] : [])))
+}
+
+/** Returns which of `maps` are in the requesting user's own maps. */
+function getLibraryMapIds(ctx: RouterContext, maps: ReadonlyArray<MapInfo>) {
+  const userId = ctx.session?.user.id
+  return userId
+    ? getLibraryFromMapIds(
+        userId,
+        maps.map(m => m.id),
+      )
+    : Promise.resolve([])
 }
 
 type ServerGetMapsQueryParams = SetRequired<
@@ -157,27 +179,32 @@ export class MapsApi {
       throw new httpErrors.BadRequest('Unlisted maps are only available to logged in users')
     }
 
-    const uploadedBy = visibility === MapVisibility.Unlisted ? ctx.session!.user.id : undefined
+    // Unlisted maps aren't in any listing, so their "listing" is the user's own maps instead
+    const source: MapListSource =
+      visibility === MapVisibility.Unlisted
+        ? { libraryOf: ctx.session!.user.id }
+        : { listing: visibility }
 
     const mapsResult = await getMaps({
-      visibility,
+      source,
       sort,
       numPlayers,
       tilesets,
-      uploadedBy,
       searchStr: searchQuery,
       limit: MAP_LIST_LIMIT,
       offset,
     })
 
-    const [maps, users] = await Promise.all([
+    const [maps, libraryMapIds, users] = await Promise.all([
       reparseMapsAsNeeded(mapsResult),
-      findUsersById(mapsResult.map(m => m.uploadedBy)),
+      getLibraryMapIds(ctx, mapsResult),
+      findPublishers(mapsResult),
     ])
 
     return {
       maps: maps.map(m => toMapInfoJson(m)),
       hasMoreMaps: maps.length >= MAP_LIST_LIMIT,
+      libraryMapIds,
       users,
     }
   }
@@ -213,13 +240,15 @@ export class MapsApi {
       favoritedBy,
     })
 
-    const [maps, users] = await Promise.all([
+    const [maps, libraryMapIds, users] = await Promise.all([
       reparseMapsAsNeeded(mapResult),
-      findUsersById(mapResult.map(m => m.uploadedBy)),
+      getLibraryMapIds(ctx, mapResult),
+      findPublishers(mapResult),
     ])
 
     return {
       favoritedMaps: maps.map(m => toMapInfoJson(m)),
+      libraryMapIds,
       users,
     }
   }
@@ -233,7 +262,7 @@ export class MapsApi {
       }),
     })
 
-    const mapIds = query.m
+    const mapIds = await resolveMapIds(query.m)
     const favoritedBy = ctx.session?.user.id
 
     const [mapsResult, favoritedMapIds] = await Promise.all([
@@ -241,14 +270,16 @@ export class MapsApi {
       favoritedBy ? getFavoritedFromMapIds(favoritedBy, mapIds) : Promise.resolve([]),
     ])
 
-    const [maps, users] = await Promise.all([
+    const [maps, libraryMapIds, users] = await Promise.all([
       reparseMapsAsNeeded(mapsResult),
-      findUsersById(mapsResult.map(m => m.uploadedBy)),
+      getLibraryMapIds(ctx, mapsResult),
+      findPublishers(mapsResult),
     ])
 
     return {
       maps: maps.map(m => toMapInfoJson(m)),
       favoritedMapIds,
+      libraryMapIds,
       users,
     }
   }
@@ -279,13 +310,20 @@ export class MapsApi {
       throw new httpErrors.BadRequest('Unsupported extension: ' + lowerCaseExtension)
     }
 
-    const [map, user] = await Promise.all([
-      storeMap(filepath, lowerCaseExtension, ctx.session!.user.id, MapVisibility.Official),
-      findUserById(ctx.session!.user.id),
+    const map = await storeMap(
+      filepath,
+      lowerCaseExtension,
+      ctx.session!.user.id,
+      MapVisibility.Official,
+    )
+    const [libraryMapIds, users] = await Promise.all([
+      getLibraryMapIds(ctx, [map]),
+      findPublishers([map]),
     ])
     return {
       map: toMapInfoJson(map),
-      users: user ? [user] : [],
+      libraryMapIds,
+      users,
     }
   }
 
@@ -315,20 +353,27 @@ export class MapsApi {
       throw new httpErrors.BadRequest('Unsupported extension: ' + lowerCaseExtension)
     }
 
-    const [map, user] = await Promise.all([
-      storeMap(filepath, lowerCaseExtension, ctx.session!.user.id, MapVisibility.Unlisted),
-      findUserById(ctx.session!.user.id),
+    const map = await storeMap(
+      filepath,
+      lowerCaseExtension,
+      ctx.session!.user.id,
+      MapVisibility.Unlisted,
+    )
+    const [libraryMapIds, users] = await Promise.all([
+      getLibraryMapIds(ctx, [map]),
+      findPublishers([map]),
     ])
     return {
       map: toMapInfoJson(map),
-      users: user ? [user] : [],
+      libraryMapIds,
+      users,
     }
   }
 
   @httpPatch('/:mapId')
   @httpBefore(ensureLoggedIn, throttleMiddleware(mapUpdateThrottle, throttleByUser))
   async update(ctx: RouterContext): Promise<UpdateMapResponse> {
-    const mapId = getValidatedMapId(ctx)
+    const mapId = await getValidatedMapId(ctx)
     const {
       body: { name, description },
     } = validateRequest(ctx, {
@@ -345,58 +390,71 @@ export class MapsApi {
 
     ;[map] = await reparseMapsAsNeeded([map])
 
-    // TODO(tec27): These checks are bad and should be changed before we allow anyone to make maps
-    // public
-    if (
-      [MapVisibility.Official, MapVisibility.Public].includes(map.visibility) &&
-      !ctx.session!.permissions!.manageMaps
-    ) {
-      throw new httpErrors.Forbidden('Not enough permissions')
+    // Curated names and descriptions are only set while a map is listed. A map that was never
+    // listed uses the file's own; a delisted one keeps the ones it was listed under, which games
+    // played on it were shown with
+    if (map.visibility === MapVisibility.Unlisted) {
+      throw new httpErrors.Forbidden("Unlisted maps can't be renamed")
     }
-    if (map.visibility === MapVisibility.Unlisted && map.uploadedBy !== ctx.session!.user.id) {
-      throw new httpErrors.Forbidden("Can't update maps of other users")
+    if (!ctx.session!.permissions!.manageMaps) {
+      throw new httpErrors.Forbidden('Not enough permissions')
     }
 
     if (name !== undefined || description !== undefined) {
       map = await updateMap(mapId, name, description)
     }
 
-    const user = await findUserById(map.uploadedBy)
+    const users = await findPublishers([map])
     return {
       map: toMapInfoJson(map),
-      users: user ? [user] : [],
+      users,
     }
   }
 
+  /** Removes a map from the requesting user's own maps. */
   @httpDelete('/:mapId')
   @httpBefore(ensureLoggedIn, throttleMiddleware(mapRemoveThrottle, throttleByUser))
   async remove(ctx: RouterContext): Promise<void> {
-    const mapId = getValidatedMapId(ctx)
+    const mapId = await getValidatedMapId(ctx)
+
+    if (await removeMapFromLibrary(mapId, ctx.session!.user.id)) {
+      ctx.status = 204
+      return
+    }
+
+    // TODO(2Pac): Remove once app versions from before `/delist` existed have aged out. Those
+    // remove listed maps through this endpoint.
+    if (ctx.session!.permissions!.manageMaps) {
+      const map = (await getMapInfos([mapId]))[0]
+      if (map && map.visibility !== MapVisibility.Unlisted) {
+        await delistMap(mapId, ctx.session!.user.id)
+        ctx.status = 204
+        return
+      }
+    }
+
+    throw new httpErrors.NotFound('Map not found in your maps')
+  }
+
+  /** Removes a map from the listings, leaving it reachable by ID. */
+  @httpPost('/:mapId/delist')
+  @httpBefore(ensureLoggedIn, checkAllPermissions('manageMaps'))
+  async delist(ctx: RouterContext): Promise<void> {
+    const mapId = await getValidatedMapId(ctx)
 
     const map = (await getMapInfos([mapId]))[0]
     if (!map) {
       throw new httpErrors.NotFound('Map not found')
     }
-    // TODO(tec27): These checks are bad and should be changed before we allow anyone to make maps
-    // public
-    if (
-      (map.visibility === MapVisibility.Official || map.visibility === MapVisibility.Public) &&
-      !ctx.session!.permissions!.manageMaps
-    ) {
-      throw new httpErrors.Forbidden('Not enough permissions')
-    }
-    if (map.visibility === MapVisibility.Unlisted && map.uploadedBy !== ctx.session!.user.id) {
-      throw new httpErrors.Forbidden("Can't remove maps of other users")
-    }
 
-    await removeMap(mapId)
+    await delistMap(mapId, ctx.session!.user.id)
     ctx.status = 204
   }
 
   @httpPost('/:mapId/favorite')
   @httpBefore(ensureLoggedIn, throttleMiddleware(mapFavoriteThrottle, throttleByUser))
   async addToFavorites(ctx: RouterContext): Promise<void> {
-    const mapId = getValidatedMapId(ctx)
+    const mapId = await getValidatedMapId(ctx)
 
     await addMapToFavorites(mapId, ctx.session!.user.id)
     ctx.status = 204
@@ -405,7 +463,7 @@ export class MapsApi {
   @httpDelete('/:mapId/favorite')
   @httpBefore(ensureLoggedIn, throttleMiddleware(mapFavoriteThrottle, throttleByUser))
   async removeFromFavorites(ctx: RouterContext): Promise<void> {
-    const mapId = getValidatedMapId(ctx)
+    const mapId = await getValidatedMapId(ctx)
 
     await removeMapFromFavorites(mapId, ctx.session!.user.id)
     ctx.status = 204
@@ -414,7 +472,7 @@ export class MapsApi {
   @httpPost('/:mapId/download-url')
   @httpBefore(throttleMiddleware(mapsListThrottle, throttleByUserOrIp))
   async getDownloadUrl(ctx: RouterContext): Promise<{ url: string }> {
-    const mapId = getValidatedMapId(ctx)
+    const mapId = await getValidatedMapId(ctx)
 
     const map = (await getMapInfos([mapId]))[0]
     if (!map) {
@@ -432,7 +490,7 @@ export class MapsApi {
   @httpPost('/:mapId/regenerate')
   @httpBefore(ensureLoggedIn, checkAllPermissions('manageMaps'))
   async regenMapImage(ctx: RouterContext): Promise<void> {
-    const mapId = getValidatedMapId(ctx)
+    const mapId = await getValidatedMapId(ctx)
 
     const map = (await getMapInfos([mapId]))[0]
     if (!map) {

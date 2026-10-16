@@ -23,10 +23,11 @@ import { labelMedium, singleLine, titleMedium } from '../styles/typography'
 import {
   addToFavorites,
   batchGetMapInfo,
+  delistMap,
   openMapPreviewDialog,
   regenMapImage,
   removeFromFavorites,
-  removeMap,
+  removeFromMyMaps,
 } from './action-creators'
 import { MapInfoImage } from './map-image'
 
@@ -253,7 +254,10 @@ export interface MapThumbnailProps {
   onAddToFavorites?: (mapId: SbMapId) => void
   onRemoveFromFavorites?: (mapId: SbMapId) => void
   onMapDetails?: (mapId: SbMapId) => void
+  /** Removes the map from the current user's own maps. */
   onRemove?: (mapId: SbMapId) => void
+  /** Takes the map out of the map listings. */
+  onDelist?: (mapId: SbMapId) => void
   onRegenMapImage?: (mapId: SbMapId) => void
 }
 
@@ -276,6 +280,7 @@ export function MapThumbnail({
   onRemoveFromFavorites,
   onMapDetails,
   onRemove,
+  onDelist,
   onRegenMapImage,
 }: MapThumbnailProps) {
   const { t } = useTranslation()
@@ -316,7 +321,13 @@ export function MapThumbnail({
     ])
   }
   if (onRemove) {
-    mapActions.push([t('common.actions.remove', 'Remove'), () => onRemove(map.id)])
+    mapActions.push([
+      t('maps.thumbnail.removeFromMyMaps', 'Remove from my maps'),
+      () => onRemove(map.id),
+    ])
+  }
+  if (onDelist) {
+    mapActions.push([t('maps.thumbnail.delistMap', 'Delist'), () => onDelist(map.id)])
   }
 
   const actions = mapActions.map(([text, handler], i) => (
@@ -440,6 +451,7 @@ export function ReduxMapThumbnail({
 
   const map = useAppSelector(s => s.maps.byId.get(mapId))
   const favoritedMapIds = useAppSelector(s => s.maps.favoritedMapIds)
+  const libraryMapIds = useAppSelector(s => s.maps.libraryMapIds)
   const mapPoolTypes = useCurrentMapPoolTypes(mapId)
 
   useEffect(() => {
@@ -459,15 +471,9 @@ export function ReduxMapThumbnail({
   const canFavorite = selfUser && hasFavoriteAction
   const canPreviewMap = hasMapPreviewAction
   const canManageMaps = !!selfPermissions?.manageMaps
-  let canRemoveMap = false
-  if (selfUser) {
-    if (canManageMaps) {
-      canRemoveMap = true
-    } else if (map.visibility === MapVisibility.Unlisted && map.uploadedBy === selfUser.id) {
-      canRemoveMap = true
-    }
-  }
-  canRemoveMap = !!props.onRemove && canRemoveMap
+  const canRemoveMap = !!selfUser && !!props.onRemove && libraryMapIds.has(map.id)
+  const canDelistMap =
+    canManageMaps && !!props.onDelist && map.visibility !== MapVisibility.Unlisted
   const canRegenMapImage = selfUser && canManageMaps && hasRegenMapImageAction
 
   return (
@@ -543,13 +549,38 @@ export function ReduxMapThumbnail({
         canRemoveMap
           ? mapId => {
               dispatch(
-                removeMap(mapId, {
+                removeFromMyMaps(mapId, {
                   onSuccess: () => {
                     props.onRemove?.(mapId)
+                    snackbarController.showSnackbar(
+                      t('maps.server.removedFromMyMaps', 'Removed from your maps'),
+                    )
                   },
                   onError: () => {
                     snackbarController.showSnackbar(
-                      t('maps.server.removeError', 'An error occurred while removing the map'),
+                      t(
+                        'maps.server.removeFromMyMapsError',
+                        'An error occurred while removing the map from your maps',
+                      ),
+                    )
+                  },
+                }),
+              )
+            }
+          : undefined
+      }
+      onDelist={
+        canDelistMap
+          ? mapId => {
+              dispatch(
+                delistMap(mapId, {
+                  onSuccess: () => {
+                    props.onDelist?.(mapId)
+                    snackbarController.showSnackbar(t('maps.server.delisted', 'Map delisted'))
+                  },
+                  onError: () => {
+                    snackbarController.showSnackbar(
+                      t('maps.server.delistError', 'An error occurred while delisting the map'),
                     )
                   },
                 }),
