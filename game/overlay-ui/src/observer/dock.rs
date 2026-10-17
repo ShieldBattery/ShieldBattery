@@ -74,6 +74,10 @@ const LAMP: f32 = 8.0;
 /// Gap between the lamp, the name and the keycap.
 const ROW_GUTTER: f32 = 8.0;
 
+/// How far past an expanded row's contents its wash and hover reach into the panel's padding, so
+/// the lamp and keycap at its ends sit inside the wash rather than on its edge.
+const ROW_WASH_BLEED: f32 = 6.0;
+
 /// One thing the dock can turn on and off.
 #[derive(Copy, Clone, PartialEq, Eq)]
 enum Entry {
@@ -486,14 +490,21 @@ fn draw_row(
     key: Option<&str>,
     state: RowState,
 ) -> Response {
-    let (rect, response) = ui.allocate_exact_size(size, Sense::click());
+    let (rect, allocated) = ui.allocate_exact_size(size, Sense::hover());
     let on = state == RowState::On;
-    let corner_radius = theme::radius(theme::RADIUS_TIGHT);
+    let (wash, corner_radius) = match expanded {
+        true => (
+            rect.expand2(vec2(ROW_WASH_BLEED, 0.0)),
+            theme::radius(theme::RADIUS_PANEL),
+        ),
+        false => (rect, theme::radius(theme::RADIUS_TIGHT)),
+    };
+    let response = ui.interact(wash, allocated.id.with("row"), Sense::click());
     if on && expanded {
         ui.painter()
-            .rect_filled(rect, corner_radius, theme::alpha(theme::ACCENT, 0.10));
+            .rect_filled(wash, corner_radius, theme::alpha(theme::ACCENT, 0.10));
     }
-    widgets::state_overlay(ui, &response, rect, corner_radius);
+    widgets::state_overlay(ui, &response, wash, corner_radius);
 
     // Collapsed, the keycap is the whole row: there is no room for a name, and a watcher reading a
     // strip of keys is reading the same table the rail spells out.
