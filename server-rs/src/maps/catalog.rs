@@ -179,10 +179,10 @@ impl Loader<SbMapId> for SbMapLoader {
         let rows = sqlx::query_as!(
             DbSbMap,
             r#"
-                SELECT m.id as "id: SbMapId", m.hash as "hash: MapHash", m.name as "name!",
+                SELECT m.id as "id!: SbMapId", m.hash as "hash!: MapHash", m.name as "name!",
                     COALESCE(m.public_description, m.description) as "description!",
                     m.kind::text as "kind!", m.player_count as "player_count!",
-                    m.listed as "listed!", m.official,
+                    m.listed as "listed!", m.official as "official!",
                     CASE WHEN m.listed THEN m.published_by END as "published_by: SbUserId",
                     CASE WHEN m.listed THEN m.published_at END as published_at,
                     s.map_id IS NOT NULL as "has_stats!",
