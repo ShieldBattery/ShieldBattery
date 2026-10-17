@@ -654,42 +654,69 @@ fn draw_marker_card(ui: &Ui, pointer: Pos2, events: &[&TimelineEventView]) {
 }
 
 /// One event's row on a marker's card: whose it was, what happened, and when.
+///
+/// Set on one baseline rather than centered in a row, since the name and the clock are in faces of
+/// different heights, and the dot at the middle of the letters rather than of the line.
 fn draw_marker_card_row(ui: &mut Ui, event: &TimelineEventView) {
-    ui.horizontal(|ui| {
-        let (dot, _) =
-            ui.allocate_exact_size(vec2(MARKER_CARD_DOT, MARKER_CARD_DOT), Sense::hover());
+    let body = |weight, color| text::body(MARKER_CARD_TEXT, weight).with_color(color);
+    let mut parts = Vec::new();
+    if let Some(name) = &event.name {
+        parts.push(body(BodyWeight::Medium, theme::TEXT_PRIMARY).galley(ui, name));
+    }
+    let label_color = match event.name {
+        Some(_) => theme::TEXT_SECONDARY,
+        None => theme::TEXT_PRIMARY,
+    };
+    parts.push(body(BodyWeight::Medium, label_color).galley(ui, &event.label()));
+    if let Some(detail) = event.kind.detail() {
+        parts.push(body(BodyWeight::Regular, theme::TEXT_SECONDARY).galley(ui, &detail));
+    }
+    parts.push(
+        text::numeral(MARKER_CARD_TEXT)
+            .with_color(theme::TEXT_DIM)
+            .galley(ui, &clock_text(event.secs)),
+    );
+    let gap = ui.spacing().item_spacing.x;
+    let ascent = parts
+        .iter()
+        .map(|galley| text::baseline(galley))
+        .fold(0.0, f32::max);
+    let descent = parts
+        .iter()
+        .map(|galley| galley.size().y - text::baseline(galley))
+        .fold(0.0, f32::max);
+    let width = MARKER_CARD_DOT
+        + parts
+            .iter()
+            .map(|galley| gap + galley.size().x)
+            .sum::<f32>();
+    let (rect, _) = ui.allocate_exact_size(vec2(width, ascent + descent), Sense::hover());
+    let baseline = rect.top() + ascent;
+    ui.painter().circle_filled(
+        pos2(
+            rect.left() + MARKER_CARD_DOT * 0.5,
+            baseline - MARKER_CARD_TEXT * LETTER_MIDDLE,
+        ),
+        MARKER_CARD_DOT * 0.5,
+        event.color,
+    );
+    let mut x = rect.left() + MARKER_CARD_DOT;
+    for galley in parts {
+        x += gap;
+        let top = baseline - text::baseline(&galley);
+        let advance = galley.size().x;
         ui.painter()
-            .circle_filled(dot.center(), MARKER_CARD_DOT * 0.5, event.color);
-        if let Some(name) = &event.name {
-            ui.label(
-                text::body(13.0, BodyWeight::Medium)
-                    .with_color(theme::TEXT_PRIMARY)
-                    .job(name),
-            );
-        }
-        ui.label(
-            text::body(13.0, BodyWeight::Medium)
-                .with_color(if event.name.is_some() {
-                    theme::TEXT_SECONDARY
-                } else {
-                    theme::TEXT_PRIMARY
-                })
-                .job(&event.label()),
-        );
-        if let Some(detail) = event.kind.detail() {
-            ui.label(
-                text::body(13.0, BodyWeight::Regular)
-                    .with_color(theme::TEXT_SECONDARY)
-                    .job(&detail),
-            );
-        }
-        ui.label(
-            text::numeral(13.0)
-                .with_color(theme::TEXT_DIM)
-                .galley(ui, &clock_text(event.secs)),
-        );
-    });
+            .galley(pos2(x, top), galley, theme::TEXT_PRIMARY);
+        x += advance;
+    }
 }
+
+/// Text size of a marker card's rows.
+const MARKER_CARD_TEXT: f32 = 13.0;
+
+/// How far above the baseline the middle of a line of mixed-case letters sits, as a share of the
+/// text size: between the tops of the lowercase letters and of the capitals.
+const LETTER_MIDDLE: f32 = 0.33;
 
 /// What stands in for the track in the spoiler-free form: the reason it is not there, and the one
 /// click that brings it back. A click and never a hover, because a pointer crossing the plate on

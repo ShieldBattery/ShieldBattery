@@ -303,6 +303,17 @@ pub fn body(size: f32, weight: BodyWeight) -> TextSpec {
     TextSpec::new(size, weight.family(), theme::TEXT_PRIMARY)
 }
 
+/// How far down a laid-out galley its first line's baseline sits, which is what text of different
+/// faces and sizes set side by side lines up on. The bottom of the galley for one with nothing in
+/// it.
+pub fn baseline(galley: &Galley) -> f32 {
+    galley
+        .rows
+        .first()
+        .and_then(|row| row.row.glyphs.first().map(|glyph| row.pos.y + glyph.pos.y))
+        .unwrap_or(galley.size().y)
+}
+
 /// The heading over a column of values.
 pub fn column_label() -> TextSpec {
     TextSpec {
