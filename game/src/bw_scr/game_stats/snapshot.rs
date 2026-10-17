@@ -465,3 +465,55 @@ fn start_position(game: Game, player: u8) -> (i16, i16) {
         None => (0, 0),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use bw_dat::unit;
+
+    use super::*;
+
+    /// A unit slot as the game leaves it: a living unit standing about, or anything else.
+    fn slot(
+        sprite: *mut bw::Sprite,
+        player: u8,
+        unit_id: UnitId,
+        order: bw_dat::OrderId,
+    ) -> bw::Unit {
+        let mut slot: bw::Unit = unsafe { std::mem::zeroed() };
+        slot.flingy.sprite = sprite;
+        slot.player = player;
+        slot.unit_id = unit_id.0;
+        slot.order = order.0;
+        slot.flags = 1;
+        slot.build_queue = [unit::NONE.0; 5];
+        slot
+    }
+
+    #[test]
+    fn a_unit_leaves_the_roster_in_the_frame_it_is_killed() {
+        let mut sprite: bw::Sprite = unsafe { std::mem::zeroed() };
+        let sprite = &raw mut sprite;
+        let mut killed = slot(sprite, 0, unit::MARINE, order::DIE);
+        // Given the order to die this frame, which has not run yet.
+        killed.order_state = 0;
+        let mut hallucination = slot(sprite, 1, unit::ZEALOT, order::STOP);
+        hallucination.flags |= 0x4000_0000;
+        let mut slots = [
+            slot(sprite, 0, unit::SCV, order::STOP),
+            killed,
+            hallucination,
+            slot(std::ptr::null_mut(), 0, unit::SCV, order::STOP),
+            slot(sprite, 11, unit::MINERAL_FIELD_1, order::STOP),
+            slot(sprite, 1, unit::ZEALOT, order::STOP),
+        ];
+        let units = unsafe { UnitArray::new(slots.as_mut_ptr(), slots.len()) };
+        let roster = read_roster(&units);
+        assert_eq!(
+            roster
+                .iter()
+                .map(|unit| (unit.unique_id, unit.unit_id))
+                .collect::<Vec<_>>(),
+            [(1, unit::SCV), (6, unit::ZEALOT)]
+        );
+    }
+}
