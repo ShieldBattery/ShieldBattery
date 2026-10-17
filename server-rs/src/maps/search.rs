@@ -492,6 +492,25 @@ impl MapCursor {
     }
 }
 
+/// The columns of [`DbSbMap`], read from `maps m` joined with [`DB_SB_MAP_JOINS`].
+const DB_SB_MAP_COLUMNS: &str = "m.id, m.hash, m.name, \
+    COALESCE(m.public_description, m.description) AS description, \
+    m.kind::text AS kind, m.player_count, m.listed, m.official, \
+    CASE WHEN m.listed THEN m.published_by END AS published_by, \
+    CASE WHEN m.listed THEN m.published_at END AS published_at, \
+    s.map_id IS NOT NULL AS has_stats, \
+    COALESCE(s.games_7d, 0) AS games_7d, \
+    COALESCE(s.games_28d, 0) AS games_28d, \
+    COALESCE(s.games_90d, 0) AS games_90d, \
+    COALESCE(s.games_total, 0) AS games_total, \
+    COALESCE(s.players_90d, 0) AS players_90d, \
+    s.median_length_90d, s.last_played_at, \
+    COALESCE(f.favorites, 0) AS favorites";
+
+/// The joins [`DB_SB_MAP_COLUMNS`] reads from, after `FROM maps m`.
+const DB_SB_MAP_JOINS: &str = " LEFT JOIN map_stats s ON s.map_id = m.id \
+    LEFT JOIN map_favorite_counts f ON f.map_id = m.id";
+
 /// A map row as listings and the map loader read it: the map's own columns plus its play stats
 /// and favorite count.
 #[derive(Debug, Clone, FromRow)]
@@ -677,21 +696,10 @@ fn push_candidates(qb: &mut QueryBuilder<Postgres>, scope: MapScope, filter: &No
         MapScope::Library(_) => "l.added_at",
         MapScope::Favorites(_) => "fm.favorited_date",
     };
+    qb.push("SELECT ");
+    qb.push(DB_SB_MAP_COLUMNS);
     qb.push(
-        "SELECT m.id, m.hash, m.name, \
-            COALESCE(m.public_description, m.description) AS description, \
-            m.kind::text AS kind, m.player_count, m.listed, m.official, \
-            CASE WHEN m.listed THEN m.published_by END AS published_by, \
-            CASE WHEN m.listed THEN m.published_at END AS published_at, \
-            s.map_id IS NOT NULL AS has_stats, \
-            COALESCE(s.games_7d, 0) AS games_7d, \
-            COALESCE(s.games_28d, 0) AS games_28d, \
-            COALESCE(s.games_90d, 0) AS games_90d, \
-            COALESCE(s.games_total, 0) AS games_total, \
-            COALESCE(s.players_90d, 0) AS players_90d, \
-            s.median_length_90d, s.last_played_at, \
-            COALESCE(s.trending_score, 0) AS trending_score, \
-            COALESCE(f.favorites, 0) AS favorites, \
+        ", COALESCE(s.trending_score, 0) AS trending_score, \
             COALESCE(m.sort_name, m.name, '') AS sort_name, ",
     );
     qb.push(format_args!(
@@ -716,10 +724,7 @@ fn push_candidates(qb: &mut QueryBuilder<Postgres>, scope: MapScope, filter: &No
             qb.push_bind(user_id.0);
         }
     }
-    qb.push(
-        " LEFT JOIN map_stats s ON s.map_id = m.id \
-          LEFT JOIN map_favorite_counts f ON f.map_id = m.id",
-    );
+    qb.push(DB_SB_MAP_JOINS);
 
     qb.push(" WHERE ");
     match scope {
@@ -853,6 +858,27 @@ impl MapSearchRepo {
 
     pub fn db(&self) -> &PgPool {
         &self.db
+    }
+
+    /// Loads the maps with the given canonical ids. Missing ids are left out.
+    pub async fn load_maps(&self, ids: &[SbMapId]) -> eyre::Result<Vec<DbSbMap>> {
+        // Built at runtime rather than checked by `query_as!`: sqlx infers the nullability of
+        // columns read through outer joins from the query plan, which differs between Postgres
+        // versions, so a checked query here produces different offline metadata on different
+        // databases.
+        let mut query = QueryBuilder::<Postgres>::new("SELECT ");
+        query
+            .push(DB_SB_MAP_COLUMNS)
+            .push(" FROM maps m")
+            .push(DB_SB_MAP_JOINS)
+            .push(" WHERE m.id = ANY(")
+            .push_bind(ids.iter().map(|id| id.0).collect::<Vec<_>>())
+            .push(")");
+        query
+            .build_query_as::<DbSbMap>()
+            .fetch_all(&self.db)
+            .await
+            .wrap_err("Failed to load maps")
     }
 
     pub async fn load_page(&self, request: &MapListingRequest) -> eyre::Result<MapListingPage> {

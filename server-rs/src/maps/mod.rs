@@ -48,7 +48,7 @@ impl SchemaBuilderModule for MapsModule {
                 tokio::spawn,
             ))
             .data(DataLoader::new(
-                SbMapLoader::new(self.db_pool.clone()),
+                SbMapLoader::new(MapSearchRepo::new(self.db_pool.clone())),
                 tokio::spawn,
             ))
             .data(DataLoader::new(

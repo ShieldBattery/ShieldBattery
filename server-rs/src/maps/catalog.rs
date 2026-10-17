@@ -162,12 +162,12 @@ impl From<DbSbMap> for SbMap {
 
 /// Loads maps by their canonical id. Old ids are not resolved here: see [`resolve_map_id`].
 pub struct SbMapLoader {
-    db: PgPool,
+    repo: MapSearchRepo,
 }
 
 impl SbMapLoader {
-    pub fn new(db: PgPool) -> Self {
-        Self { db }
+    pub fn new(repo: MapSearchRepo) -> Self {
+        Self { repo }
     }
 }
 
@@ -176,34 +176,7 @@ impl Loader<SbMapId> for SbMapLoader {
     type Error = async_graphql::Error;
 
     async fn load(&self, keys: &[SbMapId]) -> Result<HashMap<SbMapId, SbMap>, Self::Error> {
-        let rows = sqlx::query_as!(
-            DbSbMap,
-            r#"
-                SELECT m.id as "id!: SbMapId", m.hash as "hash!: MapHash", m.name as "name!",
-                    COALESCE(m.public_description, m.description) as "description!",
-                    m.kind::text as "kind!", m.player_count as "player_count!",
-                    m.listed as "listed!", m.official as "official!",
-                    CASE WHEN m.listed THEN m.published_by END as "published_by: SbUserId",
-                    CASE WHEN m.listed THEN m.published_at END as published_at,
-                    s.map_id IS NOT NULL as "has_stats!",
-                    COALESCE(s.games_7d, 0) as "games_7d!",
-                    COALESCE(s.games_28d, 0) as "games_28d!",
-                    COALESCE(s.games_90d, 0) as "games_90d!",
-                    COALESCE(s.games_total, 0) as "games_total!",
-                    COALESCE(s.players_90d, 0) as "players_90d!",
-                    s.median_length_90d as "median_length_90d?",
-                    s.last_played_at as "last_played_at?",
-                    COALESCE(f.favorites, 0) as "favorites!"
-                FROM maps m
-                LEFT JOIN map_stats s ON s.map_id = m.id
-                LEFT JOIN map_favorite_counts f ON f.map_id = m.id
-                WHERE m.id = ANY($1)
-            "#,
-            keys as _,
-        )
-        .fetch_all(&self.db)
-        .await?;
-
+        let rows = self.repo.load_maps(keys).await?;
         Ok(rows.into_iter().map(|row| (row.id, row.into())).collect())
     }
 }
