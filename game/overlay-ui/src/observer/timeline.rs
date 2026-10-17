@@ -413,7 +413,7 @@ fn draw_row(ui: &Ui, row: Rect, event: &TimelineEventView) {
     paint_text(
         ui,
         cursor.take(TIME_WIDTH),
-        &text::body(TIME_SIZE, BodyWeight::Medium).with_color(theme::TEXT_DIM),
+        &text::body(TIME_SIZE, BodyWeight::Medium).with_color(theme::TEXT_SECONDARY),
         &game_clock(event.secs),
         Align::RIGHT,
     );

@@ -62,7 +62,10 @@ pub const TEXT_SECONDARY: Color32 = GREY_BLUE80;
 pub const TEXT_DIM: Color32 = GREY_BLUE70;
 pub const TEXT_LABEL: Color32 = GREY_BLUE60;
 pub const TEXT_POSITIVE: Color32 = Color32::from_rgb(0x69, 0xF0, 0xAE);
-pub const TEXT_NEGATIVE: Color32 = Color32::from_rgb(0xE6, 0x60, 0x60);
+/// A number gone the wrong way. Bright enough to be told by its brightness as well as its hue: a
+/// stream's video keeps color at half the resolution of brightness, and a small red number as dark
+/// as [`TEXT_DIM`] is lost there.
+pub const TEXT_NEGATIVE: Color32 = Color32::from_rgb(0xF2, 0x76, 0x76);
 /// Text that says something is still going wrong. Lighter than [`ACCENT`], which is loud enough to
 /// carry a title but too saturated to read as a sentence.
 pub const TEXT_WARNING: Color32 = AMBER70;

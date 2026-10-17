@@ -308,7 +308,7 @@ pub fn column_label() -> TextSpec {
     TextSpec {
         letter_spacing: 0.8,
         uppercase: true,
-        ..TextSpec::new(11.0, fonts::body_medium(), theme::TEXT_LABEL)
+        ..TextSpec::new(11.0, fonts::body_medium(), theme::TEXT_DIM)
     }
 }
 

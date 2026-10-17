@@ -139,7 +139,7 @@ fn draw_line_plot(
         .flat_map(|line| line.values.iter().copied())
         .fold(0.0f32, f32::max);
     let top_value = nice_ceiling(peak);
-    let label_spec = text::numeral(11.0).with_color(theme::TEXT_LABEL);
+    let label_spec = text::numeral(11.0).with_color(theme::TEXT_DIM);
     for (fraction, value) in [(0.0f32, top_value), (0.5, top_value * 0.5), (1.0, 0.0)] {
         let y = plot.top() + plot.height() * fraction;
         if fraction > 0.0 && fraction < 1.0 {
@@ -155,7 +155,7 @@ fn draw_line_plot(
                 y - galley.size().y * 0.5,
             ),
             galley,
-            theme::TEXT_LABEL,
+            theme::TEXT_DIM,
         );
     }
 
@@ -195,7 +195,7 @@ fn draw_line_plot(
         ui.painter().galley(
             pos2(x, plot.bottom() + theme::SPACE_XS),
             galley,
-            theme::TEXT_LABEL,
+            theme::TEXT_DIM,
         );
     }
 

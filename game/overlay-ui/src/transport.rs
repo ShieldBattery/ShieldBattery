@@ -571,7 +571,7 @@ fn draw_track_row(
         view.game_speed,
         LENGTH_SIZE,
         LENGTH_WIDTH,
-        theme::TEXT_DIM,
+        theme::TEXT_SECONDARY,
     );
     ui.add_space(ITEM_GAP);
     if eye_button(ui).clicked() {

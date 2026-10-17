@@ -259,14 +259,14 @@ fn draw_trade(ui: &Ui, rect: Rect, kills: u32, losses: u32, alpha: f32) {
     paint_text(
         ui,
         cursor.take(SLASH_WIDTH),
-        &text::numeral(STAT_VALUE_SIZE).with_color(theme::TEXT_LABEL.gamma_multiply(alpha)),
+        &text::numeral(STAT_VALUE_SIZE).with_color(theme::TEXT_DIM.gamma_multiply(alpha)),
         "/",
         Align::Center,
     );
     paint_text(
         ui,
         cursor.take(rect.width() - KILLS_WIDTH - SLASH_WIDTH),
-        &text::numeral(STAT_VALUE_SIZE).with_color(theme::TEXT_DIM.gamma_multiply(alpha)),
+        &text::numeral(STAT_VALUE_SIZE).with_color(theme::TEXT_SECONDARY.gamma_multiply(alpha)),
         &losses.to_string(),
         Align::LEFT,
     );
