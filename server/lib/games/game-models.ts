@@ -20,6 +20,7 @@ import { escapeSearchString } from '../db/escape-search-string'
 import { sql, sqlConcat, sqlRaw, SqlTemplate } from '../db/sql'
 import transact from '../db/transaction'
 import { Dbify } from '../db/types'
+import { mapNameMatches } from '../maps/map-search'
 
 /**
  * A row shape for the `games` table. `manually_resolved` has no physical column behind it — it's
@@ -807,7 +808,7 @@ export async function getGames(
 
     if (mapName) {
       needMapJoin = true
-      whereClauses.push(sql`m.name ILIKE ${'%' + escapeSearchString(mapName) + '%'}`)
+      whereClauses.push(mapNameMatches(mapName))
     }
 
     if (playerName) {
@@ -984,7 +985,7 @@ export async function getGamesForUser(
 
     if (mapName) {
       needMapJoin = true
-      whereClauses.push(sql`m.name ILIKE ${'%' + escapeSearchString(mapName) + '%'}`)
+      whereClauses.push(mapNameMatches(mapName))
     }
 
     if (playerName) {
