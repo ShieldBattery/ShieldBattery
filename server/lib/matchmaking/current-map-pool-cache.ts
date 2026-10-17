@@ -6,7 +6,6 @@ import {
   toMatchmakingMapPoolJson,
 } from '../../../common/matchmaking/matchmaking-map-pools'
 import { getMapInfos } from '../maps/map-models'
-import { reparseMapsAsNeeded } from '../maps/map-operations'
 import { Clock } from '../time/clock'
 import { getCurrentMapPool, getNextMapPoolStartDate } from './matchmaking-map-pools-models'
 
@@ -91,9 +90,9 @@ export class CurrentMapPoolCache {
       return { response: undefined, nextStart }
     }
 
-    const mapInfos = await reparseMapsAsNeeded(
-      await getMapInfos(pool.maps, { mapUrlExpiresSec: MAP_POOL_MAP_URL_EXPIRES_SEC }),
-    )
+    const mapInfos = await getMapInfos(pool.maps, {
+      mapUrlExpiresSec: MAP_POOL_MAP_URL_EXPIRES_SEC,
+    })
     return {
       response: {
         pool: toMatchmakingMapPoolJson(pool),

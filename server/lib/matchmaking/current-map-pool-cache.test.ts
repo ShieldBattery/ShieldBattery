@@ -1,10 +1,9 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { MapInfo, SbMapId } from '../../../common/maps'
+import { SbMapId } from '../../../common/maps'
 import { MatchmakingType } from '../../../common/matchmaking'
 import { MatchmakingMapPool } from '../../../common/matchmaking/matchmaking-map-pools'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { getMapInfos } from '../maps/map-models'
-import { reparseMapsAsNeeded } from '../maps/map-operations'
 import { FakeClock } from '../time/testing/fake-clock'
 import {
   CURRENT_MAP_POOL_TTL_MS,
@@ -19,9 +18,6 @@ vi.mock('./matchmaking-map-pools-models', () => ({
 }))
 vi.mock('../maps/map-models', () => ({
   getMapInfos: vi.fn(),
-}))
-vi.mock('../maps/map-operations', () => ({
-  reparseMapsAsNeeded: vi.fn(),
 }))
 
 const START_TIME = 1_000_000
@@ -60,7 +56,6 @@ describe('server/matchmaking/current-map-pool-cache', () => {
     asMockedFunction(getNextMapPoolStartDate).mockResolvedValue(undefined)
     asMockedFunction(getCurrentMapPool).mockResolvedValue(makePool(1))
     asMockedFunction(getMapInfos).mockResolvedValue([])
-    asMockedFunction(reparseMapsAsNeeded).mockImplementation(async maps => maps as MapInfo[])
   })
 
   test('concurrent requests share a single load', async () => {

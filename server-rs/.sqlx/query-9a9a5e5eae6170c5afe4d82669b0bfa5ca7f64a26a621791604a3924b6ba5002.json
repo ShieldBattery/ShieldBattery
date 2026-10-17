@@ -1,0 +1,27 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                UPDATE maps\n                SET title = $2, description = $3, width = $4, height = $5, tileset = $6,\n                    players_melee = $7, players_ums = $8, lobby_init_data = $9, is_eud = $10,\n                    parser_version = $11, start_locations = $12, ums_content = $13,\n                    parse_failed_version = NULL, parse_error = NULL,\n                    public_name = CASE WHEN $14 THEN NULL ELSE public_name END\n                WHERE id = $1 AND parser_version < $11\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Jsonb",
+        "Bool",
+        "Int4",
+        "Jsonb",
+        "Bool",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9a9a5e5eae6170c5afe4d82669b0bfa5ca7f64a26a621791604a3924b6ba5002"
+}
