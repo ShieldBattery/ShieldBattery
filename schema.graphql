@@ -86,6 +86,16 @@ type CurrentUser {
 	permissions: SbPermissions!
 	canChangeDisplayName: Boolean!
 	nextDisplayNameChangeAllowedAt: DateTime
+	"""
+	The maps in this user's library (the maps they uploaded), listed or not. Takes the same
+	arguments as `maps`; `NEWEST` sorts by when each map was added.
+	"""
+	mapLibrary(filter: MapFilter, sort: MapSort, after: String, first: Int): MapLibraryConnection!
+	"""
+	The maps this user has favorited, listed or not. Takes the same arguments as `maps`;
+	`NEWEST` sorts by when each map was favorited.
+	"""
+	favoriteMaps(filter: MapFilter, sort: MapSort, after: String, first: Int): FavoriteMapConnection!
 }
 
 """
@@ -107,6 +117,57 @@ type DisplayNameAuditEntry {
 	usedToken: Boolean!
 	changedByUser: SbUser
 	ipAddress: String
+}
+
+"""
+How to treat maps that use EUD triggers.
+"""
+enum EudFilter {
+	"""
+	Include EUD maps.
+	"""
+	ANY
+	"""
+	Leave EUD maps out.
+	"""
+	EXCLUDE
+	"""
+	Only show EUD maps.
+	"""
+	ONLY
+}
+
+type FavoriteMapConnection {
+	"""
+	Information to aid in pagination.
+	"""
+	pageInfo: PageInfo!
+	"""
+	A list of edges.
+	"""
+	edges: [FavoriteMapEdge!]!
+	"""
+	A list of nodes.
+	"""
+	nodes: [SbMap!]!
+}
+
+"""
+An edge in a connection.
+"""
+type FavoriteMapEdge {
+	"""
+	The item at the end of the edge
+	"""
+	node: SbMap!
+	"""
+	When the map was favorited. Null for favorites from before this was recorded.
+	"""
+	addedAt: DateTime
+	"""
+	A cursor for use in pagination
+	"""
+	cursor: String!
 }
 
 type Game {
@@ -484,6 +545,36 @@ type MapFile {
 	image2048Url: String!
 }
 
+"""
+Filters for map listings. Every filter that is set must match.
+"""
+input MapFilter {
+	"""
+	Text to search for in map names (curated and original) and descriptions. Case,
+	punctuation and spacing are ignored, and longer queries tolerate small typos.
+	"""
+	search: String
+	lens: MapLens! = ALL
+	"""
+	Exact player counts to include.
+	"""
+	players: [Int!]
+	"""
+	Only maps with at least this many player slots.
+	"""
+	minPlayers: Int
+	sizes: [MapSizeClass!]
+	"""
+	Tileset ids to include.
+	"""
+	tilesets: [Int!]
+	eud: EudFilter! = ANY
+	"""
+	Only maps published at or after this time.
+	"""
+	publishedSince: DateTime
+}
+
 type MapForce {
 	name: String!
 	teamId: Int!
@@ -501,6 +592,158 @@ type MapForcePlayer {
 The race configuration for a player in a map force (either a preset race or 'any' for selectable).
 """
 scalar MapForcePlayerRace
+
+"""
+Whether a map is played as a regular melee map or with its own Use Map Settings rules.
+"""
+enum MapKind {
+	MELEE
+	UMS
+}
+
+"""
+Which kind of maps to show.
+"""
+enum MapLens {
+	"""
+	Every map.
+	"""
+	ALL
+	"""
+	Maps meant for regular melee games.
+	"""
+	MELEE
+	"""
+	Use Map Settings maps: custom games, scenarios and other non-melee maps.
+	"""
+	UMS
+}
+
+type MapLibraryConnection {
+	"""
+	Information to aid in pagination.
+	"""
+	pageInfo: PageInfo!
+	"""
+	A list of edges.
+	"""
+	edges: [MapLibraryEdge!]!
+	"""
+	A list of nodes.
+	"""
+	nodes: [SbMap!]!
+}
+
+"""
+An edge in a connection.
+"""
+type MapLibraryEdge {
+	"""
+	The item at the end of the edge
+	"""
+	node: SbMap!
+	"""
+	When the map was added to the library.
+	"""
+	addedAt: DateTime!
+	"""
+	A cursor for use in pagination
+	"""
+	cursor: String!
+}
+
+"""
+A size class, by the larger of a map's width and height (in tiles).
+"""
+enum MapSizeClass {
+	"""
+	Up to 64.
+	"""
+	TINY
+	"""
+	65 to 96.
+	"""
+	SMALL
+	"""
+	97 to 128.
+	"""
+	MEDIUM
+	"""
+	129 to 192.
+	"""
+	LARGE
+	"""
+	Larger than 192.
+	"""
+	HUGE
+}
+
+"""
+The order maps are listed in.
+"""
+enum MapSort {
+	"""
+	Best search matches first, then the most played in the last 28 days. Without a search, the
+	same as `POPULAR_28D`.
+	"""
+	RELEVANCE
+	"""
+	Maps whose lobby play is rising fastest first, then the most played in the last 28 days.
+	"""
+	TRENDING
+	"""
+	Most games in the last 7 days first.
+	"""
+	POPULAR_7D
+	"""
+	Most games in the last 28 days first.
+	"""
+	POPULAR_28D
+	"""
+	Most games in the last 90 days first.
+	"""
+	POPULAR_90D
+	"""
+	Most games ever first.
+	"""
+	POPULAR_ALL_TIME
+	"""
+	Most recently published (or, in a user's maps or favorites, most recently added) first.
+	"""
+	NEWEST
+	"""
+	Most favorited first.
+	"""
+	MOST_FAVORITED
+	"""
+	Alphabetical, ignoring leading player-count prefixes and bracketed tags.
+	"""
+	NAME
+	"""
+	Fewest player slots first.
+	"""
+	PLAYERS
+}
+
+"""
+How much a map has been played, across every kind of game.
+"""
+type MapStats {
+	games7d: Int!
+	games28d: Int!
+	games90d: Int!
+	gamesTotal: Int!
+	"""
+	Distinct users who played the map in the last 90 days.
+	"""
+	players90d: Int!
+	"""
+	The median game length over the last 90 days, in milliseconds.
+	"""
+	medianLength90d: Int
+	lastPlayedAt: DateTime!
+	id: String!
+}
 
 """
 Which map listings a map appears in. Visibility never restricts access: any map can be viewed, downloaded and played by anyone who has its id.
@@ -671,6 +914,16 @@ type Mutation {
 	exactly as if each had been resolved individually. Returns how many were resolved.
 	"""
 	resolveSiblingReports(id: UUID!, resolution: GameReportResolution!, notes: String): Int!
+	"""
+	Adds a map to the current user's favorites. Favoriting a map that is already a favorite
+	does nothing.
+	"""
+	mapAddFavorite(id: SbMapId!): SbMap!
+	"""
+	Removes a map from the current user's favorites. Removing a map that isn't a favorite does
+	nothing.
+	"""
+	mapRemoveFavorite(id: SbMapId!): SbMap!
 	newsCreatePost(post: NewsPostCreation!): NewsPost!
 	newsUpdatePost(id: UUID!, updates: NewsPostUpdates!): NewsPost!
 	newsDeletePost(id: UUID!): Boolean!
@@ -865,6 +1118,18 @@ type Query {
 	activeLeagues: [League!]!
 	futureLeagues: [League!]!
 	pastLeagues: [League!]!
+	"""
+	Looks up a map by id, listed or not. Old ids of a map resolve to it, so the returned map's
+	id can differ from the one requested.
+	"""
+	map(id: SbMapId!): SbMap
+	"""
+	Searches and pages through the listed maps. With a search, sorts by `RELEVANCE` unless
+	told otherwise; without one, by `POPULAR_28D`. Pages are 40 maps unless `first` says
+	otherwise (at most 100). A cursor only continues the listing it came from: using it with a
+	different filter or sort is an error.
+	"""
+	maps(filter: MapFilter, sort: MapSort, after: String, first: Int): SbMapConnection!
 	newsPosts(includeUnpublished: Boolean, after: String, before: String, first: Int, last: Int): NewsPostConnection!
 	"""
 	Retrieves a single news post by ID. Published posts are visible to everyone; unpublished or
@@ -1003,6 +1268,89 @@ enum RestrictedNameKind {
 enum RestrictedNameReason {
 	PROFANITY
 	RESERVED
+}
+
+"""
+A map: one map file, with its curated name and description and its place in the listings. Any
+map can be viewed, downloaded and played by anyone who has its id, listed or not.
+"""
+type SbMap {
+	id: SbMapId!
+	"""
+	The curated name if the map has one, otherwise the file's own title.
+	"""
+	name: String!
+	"""
+	The curated description if the map has one, otherwise the file's own description.
+	"""
+	description: String!
+	kind: MapKind!
+	"""
+	The number of player slots the map is played with, given its kind.
+	"""
+	playerCount: Int!
+	"""
+	Whether the map appears in the public map listings.
+	"""
+	listed: Boolean!
+	"""
+	Whether the map was listed by staff as an official map.
+	"""
+	official: Boolean!
+	"""
+	When the map was listed. Null unless it is listed.
+	"""
+	publishedAt: DateTime
+	"""
+	Play statistics, or null if the map has never been played.
+	"""
+	stats: MapStats
+	"""
+	How many users have favorited this map.
+	"""
+	favoriteCount: Int!
+	file: MapFile!
+	"""
+	The user who listed this map. Null unless it is listed.
+	"""
+	publisher: SbUser
+	"""
+	Whether the current user has favorited this map. False when logged out.
+	"""
+	isFavorited: Boolean!
+	"""
+	Whether this map is in the current user's library. False when logged out.
+	"""
+	inLibrary: Boolean!
+}
+
+type SbMapConnection {
+	"""
+	Information to aid in pagination.
+	"""
+	pageInfo: PageInfo!
+	"""
+	A list of edges.
+	"""
+	edges: [SbMapEdge!]!
+	"""
+	A list of nodes.
+	"""
+	nodes: [SbMap!]!
+}
+
+"""
+An edge in a connection.
+"""
+type SbMapEdge {
+	"""
+	The item at the end of the edge
+	"""
+	node: SbMap!
+	"""
+	A cursor for use in pagination
+	"""
+	cursor: String!
 }
 
 """

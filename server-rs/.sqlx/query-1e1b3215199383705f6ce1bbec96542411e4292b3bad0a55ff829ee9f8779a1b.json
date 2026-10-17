@@ -1,0 +1,194 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT m.id as \"id: SbMapId\", m.hash as \"hash: MapHash\", m.name as \"name!\",\n                    COALESCE(m.public_description, m.description) as \"description!\",\n                    m.kind::text as \"kind!\", m.player_count as \"player_count!\",\n                    m.listed as \"listed!\", m.official,\n                    CASE WHEN m.listed THEN m.published_by END as \"published_by: SbUserId\",\n                    CASE WHEN m.listed THEN m.published_at END as published_at,\n                    s.map_id IS NOT NULL as \"has_stats!\",\n                    COALESCE(s.games_7d, 0) as \"games_7d!\",\n                    COALESCE(s.games_28d, 0) as \"games_28d!\",\n                    COALESCE(s.games_90d, 0) as \"games_90d!\",\n                    COALESCE(s.games_total, 0) as \"games_total!\",\n                    COALESCE(s.players_90d, 0) as \"players_90d!\",\n                    s.median_length_90d as \"median_length_90d?\",\n                    s.last_played_at as \"last_played_at?\",\n                    COALESCE(f.favorites, 0) as \"favorites!\"\n                FROM maps m\n                LEFT JOIN map_stats s ON s.map_id = m.id\n                LEFT JOIN map_favorite_counts f ON f.map_id = m.id\n                WHERE m.id = ANY($1)\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id: SbMapId",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "hash: MapHash",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "hash"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "name!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "description!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "kind!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "player_count!",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "player_count"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "listed!",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "listed"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "official",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "official"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "published_by: SbUserId",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 9,
+        "name": "published_at",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 10,
+        "name": "has_stats!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 11,
+        "name": "games_7d!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 12,
+        "name": "games_28d!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 13,
+        "name": "games_90d!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 14,
+        "name": "games_total!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 15,
+        "name": "players_90d!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 16,
+        "name": "median_length_90d?",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "map_stats",
+            "name": "median_length_90d"
+          }
+        }
+      },
+      {
+        "ordinal": 17,
+        "name": "last_played_at?",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "map_stats",
+            "name": "last_played_at"
+          }
+        }
+      },
+      {
+        "ordinal": 18,
+        "name": "favorites!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      null,
+      false,
+      false,
+      true,
+      false,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      true,
+      true,
+      null
+    ]
+  },
+  "hash": "1e1b3215199383705f6ce1bbec96542411e4292b3bad0a55ff829ee9f8779a1b"
+}

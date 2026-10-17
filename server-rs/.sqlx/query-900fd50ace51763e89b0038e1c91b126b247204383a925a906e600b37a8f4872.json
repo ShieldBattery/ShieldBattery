@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT m.id as \"id: SbMapId\"\n            FROM maps m\n            WHERE m.id = COALESCE((SELECT a.map_id FROM map_id_aliases a WHERE a.old_id = $1), $1)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id: SbMapId",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "900fd50ace51763e89b0038e1c91b126b247204383a925a906e600b37a8f4872"
+}
