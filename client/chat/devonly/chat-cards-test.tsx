@@ -232,6 +232,7 @@ function makeMapInfo(hash: string, name: string): MapInfoJson {
       width: 128,
       height: 128,
       isEud: false,
+      startLocations: [],
       parserVersion: 1,
     },
     imageVersion: 1,

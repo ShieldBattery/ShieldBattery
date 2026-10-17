@@ -1,6 +1,8 @@
 use crate::configuration::Settings;
 use crate::email::MailgunClient;
 use crate::file_store::FileStore;
+use crate::maps::api::UploadThrottle;
+use crate::maps::ingest::MapIngester;
 use crate::redis::RedisPool;
 use crate::schema::SbSchema;
 use crate::twitch::TwitchClient;
@@ -24,4 +26,6 @@ pub struct AppState {
     pub name_checker: NameChecker,
     /// `None` when Twitch isn't configured.
     pub twitch_client: Option<Arc<TwitchClient>>,
+    pub map_ingester: Arc<MapIngester>,
+    pub map_upload_throttle: Arc<UploadThrottle>,
 }

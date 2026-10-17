@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM map_parse_rejections WHERE hash = $1 AND rejected_at < $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1f5c78f7af496acff2c283dbf6d2445ae0307ca19e5b178dc6ff3beaee5598ba"
+}
