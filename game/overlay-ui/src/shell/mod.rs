@@ -448,7 +448,13 @@ impl Shell {
     /// Records that a replaced native dialog is gone, so its replacement goes with it. Asks for no
     /// dismissal of its own: the dialog this would have closed has already closed.
     pub fn native_dialog_closed(&mut self, dialog: NativeDialog) {
+        let replaced = dialog
+            .replacement_modal()
+            .filter(|&id| self.modals.contains(id));
         self.modals.native_dialog_closed(dialog);
+        if let Some(id) = replaced {
+            self.forget_modal_state(id);
+        }
     }
 
     /// Offers a keypress to the shell before the game sees it, returning whether the shell acted on
@@ -527,6 +533,10 @@ impl Shell {
         self.sync_status_modals(views.disconnect.as_ref());
 
         self.replay.set_playback(views.transport.copied());
+        // A change switched back, or one the game has since made itself, is nothing to apply.
+        if let Some(view) = views.alliances {
+            self.alliances_draft.settle(view);
+        }
         // Adopted only when the host's own copy moves: one that kept handing over the same values
         // every frame would otherwise undo the control the player is holding.
         if let Some(options) = views.options.copied()
@@ -867,6 +877,15 @@ impl Shell {
         }
     }
 
+    /// Drops what the shell keeps for a modal that has left the stack, however it left, so the
+    /// modal opens afresh the next time.
+    fn forget_modal_state(&mut self, id: ModalId) {
+        if id == ModalId::Alliances {
+            self.alliances_menu = None;
+            self.alliances_draft = AlliancesDraft::default();
+        }
+    }
+
     fn dismiss_top_modal(&mut self) {
         let Some(id) = self.modals.pop() else {
             return;
@@ -876,10 +895,7 @@ impl Shell {
 
     /// Asks the host to dismiss whichever of the native dialogs behind `id` are still up.
     fn close_native_dialogs(&mut self, id: ModalId) {
-        if id == ModalId::Alliances {
-            self.alliances_menu = None;
-            self.alliances_draft = AlliancesDraft::default();
-        }
+        self.forget_modal_state(id);
         self.intents.extend(
             self.modals
                 .live_dialogs_behind(id)
@@ -1161,6 +1177,73 @@ mod tests {
         assert!(shell.key_pressed(Key::Enter, Modifiers::NONE));
         assert_eq!(shell.top_modal(), None);
         assert!(shell.pending_intents().contains(&Intent::Alliances(ally)));
+    }
+
+    /// One other player, not yet an ally, on a screen that lets alliances change.
+    fn one_enemy_view() -> AlliancesView {
+        AlliancesView {
+            players: vec![crate::alliances::AlliancePlayerView {
+                user_id: Some(1),
+                name: "pachi".to_string(),
+                color: egui::Color32::WHITE,
+                race: crate::observer::RaceView::Random,
+                alliance: Some(crate::alliances::AllianceState {
+                    player_id: 1,
+                    allied: false,
+                    vision: false,
+                }),
+                note: None,
+                muted: false,
+                blocked: false,
+                report: crate::alliances::ReportState::None,
+            }],
+            alliances_open: true,
+            allied_victory: false,
+            chat_target: crate::alliances::ChatTargetChoice::All,
+            chat_targets: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn an_alliance_switched_back_leaves_nothing_to_apply() {
+        let ctx = fresh_ctx();
+        let view = one_enemy_view();
+        let mut shell = playing_shell();
+        shell.open_modal(ModalId::Alliances);
+        for allied in [true, false] {
+            shell.alliances_action(AlliancesAction::SetAllied {
+                player_id: 1,
+                allied,
+            });
+        }
+        ctx.begin_pass(egui::RawInput {
+            screen_rect: Some(Rect::from_min_size(
+                egui::pos2(0.0, 0.0),
+                egui::vec2(1280.0, 720.0),
+            )),
+            ..Default::default()
+        });
+        let mut views = Views {
+            alliances: Some(&view),
+            ..Views::default()
+        };
+        shell.frame(&ctx, &HostFrame::default(), &mut views);
+        let mut out = ctx.end_pass();
+        let _ = ctx.tessellate(out.shapes, ctx.pixels_per_point());
+        out.textures_delta.clear();
+        assert!(shell.alliances_draft.is_empty());
+        assert!(!shell.key_pressed(Key::Enter, Modifiers::NONE));
+    }
+
+    #[test]
+    fn a_native_close_drops_the_alliance_draft() {
+        let mut shell = playing_shell();
+        shell.native_dialog_spawned(NativeDialog::AllianceFilter);
+        assert_eq!(shell.top_modal(), Some(ModalId::Alliances));
+        shell.alliances_action(AlliancesAction::SetAlliedVictory(true));
+        shell.native_dialog_closed(NativeDialog::AllianceFilter);
+        assert_eq!(shell.top_modal(), None);
+        assert!(shell.alliances_draft.is_empty());
     }
 
     #[test]
