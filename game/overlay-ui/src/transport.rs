@@ -620,7 +620,8 @@ fn marked_events<'a>(
 
 /// Names the event under the pointer, when it happened and what clicking it does.
 fn draw_marker_card(ui: &Ui, pointer: Pos2, event: &TimelineEventView) {
-    widgets::tooltip(
+    // Over the track rather than under it, where the plate's own buttons are.
+    widgets::tooltip_above(
         ui.ctx(),
         Id::new("sb_replay_transport").with("marker"),
         pointer,
