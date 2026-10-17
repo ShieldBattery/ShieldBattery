@@ -179,6 +179,16 @@ export interface MapForce {
   players: MapForcePlayer[]
 }
 
+/**
+ * A start location placed for a player slot. `x` and `y` are in map pixels, and `slot` is the player
+ * slot (0-7) the start location belongs to.
+ */
+export interface MapStartLocation {
+  slot: number
+  x: number
+  y: number
+}
+
 export interface MapData {
   format: MapExtension
   tileset: Tileset
@@ -190,6 +200,13 @@ export interface MapData {
   width: number
   height: number
   isEud: boolean
+  /** The map's start locations. Empty until the map file has been analyzed. */
+  startLocations: MapStartLocation[]
+  /**
+   * Whether the map has UMS content: trigger actions that melee games don't use, more than 8
+   * preplaced player-owned units, or EUDs. Undefined until the map file has been analyzed.
+   */
+  umsContent?: boolean
   parserVersion: number
 }
 
@@ -336,13 +353,6 @@ export interface GetMapsQueryParams {
 }
 
 export type GetFavoritedMapsQueryParams = Omit<GetMapsQueryParams, 'visibility' | 'offset'>
-
-export interface UploadMapResponse {
-  map: MapInfoJson
-  /** The returned maps that are in the requesting user's own maps. */
-  libraryMapIds: SbMapId[]
-  users: SbUser[]
-}
 
 export interface GetMapsResponse {
   maps: MapInfoJson[]

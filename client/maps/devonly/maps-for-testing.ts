@@ -39,6 +39,7 @@ export const FightingSpirit: MapInfoJson = {
     width: 128,
     height: 128,
     isEud: false,
+    startLocations: [],
     parserVersion: 1,
   },
   mapUrl: 'https://example.org/map.scx',

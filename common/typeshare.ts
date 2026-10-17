@@ -81,6 +81,10 @@ export interface SbPermissions {
   manageLiveStreams: boolean
 }
 
+export interface UploadMapResponse {
+  mapId: TypeshareTypes.SbMapId
+}
+
 export interface UrgentMessageTranslation {
   language: string
   title: string

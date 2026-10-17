@@ -32,7 +32,6 @@ services:
       - SB_REDIS_HOST=redis
       - SB_REDIS_PORT=6379
       - SB_FILE_STORE={"filesystem":{"path":"server/uploaded_files"}}
-      - SB_MAP_PARSER_MAX_CONCURRENT=1
       - SB_REPLAY_WORKER_CONCURRENCY=1
       - SB_SESSION_TTL=2592000
       - SB_DISABLE_THROTTLING=true
@@ -96,6 +95,7 @@ services:
       - SB_JWT_SECRET=SuperSecretJwtKey
       - SB_SESSION_TTL=2592000
       - SB_FILE_STORE={"filesystem":{"path":"server/uploaded_files"}}
+      - SB_MAP_PARSER_MAX_CONCURRENT=1
     # See the app-server note above: wait for migrations to complete so server-rs reads the real
     # matchmaking_config row at startup instead of falling back to built-in defaults.
     depends_on:

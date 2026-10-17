@@ -57,6 +57,7 @@ const FULL_MAP_INFO: MapInfoJson = {
     width: 128,
     height: 96,
     isEud: false,
+    startLocations: [],
     parserVersion: 1,
   },
   mapUrl: 'https://cdn.example.com/maps/fs.scm?signature=secret',
