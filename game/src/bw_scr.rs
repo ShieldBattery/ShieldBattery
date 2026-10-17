@@ -431,6 +431,9 @@ pub struct BwScr {
     /// The overlay draws straight to the backbuffer like the game's own final pass does, so the
     /// render hook reading the HD mode off that pass must step past these.
     overlay_draw_commands: (AtomicU32, AtomicU32),
+    /// The span of this frame's draw commands that are the software cursor's, which goes to the
+    /// backbuffer as well and must be stepped past the same way.
+    software_cursor_draw_commands: (AtomicU32, AtomicU32),
     starting_fog: AtomicStartingFog,
     /// Saved Shift+Tab minimap color mode to restore at the start of a game (from local settings).
     saved_minimap_color_mode: AtomicU8,
@@ -2825,6 +2828,7 @@ impl BwScr {
             last_overlay_hd_value: AtomicBool::new(false),
             hd_switching: AtomicBool::new(false),
             overlay_draw_commands: (AtomicU32::new(0), AtomicU32::new(0)),
+            software_cursor_draw_commands: (AtomicU32::new(0), AtomicU32::new(0)),
             starting_fog: AtomicStartingFog::new(StartingFog::Transparent),
             saved_minimap_color_mode: AtomicU8::new(0),
             saved_minimap_terrain_hidden: AtomicBool::new(false),
@@ -4233,9 +4237,18 @@ impl BwScr {
                 exe.hook_closure_address(
                     DrawSoftwareCursor,
                     move |orig| {
+                        let commands = self.draw_commands.resolve();
+                        let first = (*commands).draw_command_count;
                         push_mode_override(draw_overlay::SOFTWARE_CURSOR_DRAW_LAYER);
                         orig();
                         pop_mode_override();
+                        let end = (*commands).draw_command_count;
+                        self.software_cursor_draw_commands
+                            .0
+                            .store(u32::from(first), Ordering::Relaxed);
+                        self.software_cursor_draw_commands
+                            .1
+                            .store(u32::from(end), Ordering::Relaxed);
                     },
                     address,
                 );
@@ -4680,11 +4693,18 @@ impl BwScr {
                     // Update is_hd value based on what BW output to final render target draw
                     // (Can have two values when doing the transfer between SD/HD)
                     let mut n = 0;
-                    let overlay = self.overlay_draw_commands.0.swap(0, Ordering::Relaxed) as usize
-                        ..self.overlay_draw_commands.1.swap(0, Ordering::Relaxed) as usize;
+                    let take = |span: &(AtomicU32, AtomicU32)| {
+                        span.0.swap(0, Ordering::Relaxed) as usize
+                            ..span.1.swap(0, Ordering::Relaxed) as usize
+                    };
+                    let overlay = take(&self.overlay_draw_commands);
+                    let cursor = take(&self.software_cursor_draw_commands);
                     for i in 0..draw_command_count {
                         let cmd = &raw mut (*commands).commands[i];
-                        if (*cmd).render_target_id == 0 && !overlay.contains(&i) {
+                        if (*cmd).render_target_id == 0
+                            && !overlay.contains(&i)
+                            && !cursor.contains(&i)
+                        {
                             self.is_hd_mode[n].store((*cmd).is_hd != 0, Ordering::Relaxed);
                             n += 1;
                             if n == 2 {
