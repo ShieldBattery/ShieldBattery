@@ -27,7 +27,7 @@ use egui::{
 
 use crate::kit::text::{self, BodyWeight};
 use crate::kit::widgets;
-use crate::kit::{motion, theme, tiers};
+use crate::kit::{self, motion, theme, tiers};
 use crate::observer::{centred, paint_text};
 use crate::shell::{Action, Hotkeys, Mode, Panel, PanelPrefs};
 use crate::tr;
@@ -187,7 +187,7 @@ impl DockPlacement {
             row
         };
         let height = height(mode, map_control_available, row_height);
-        let centre = middle.clamp(top + height * 0.5, (bottom - height * 0.5).max(top));
+        let centre = kit::clamp_layout(middle, top + height * 0.5, bottom - height * 0.5);
         Some(DockPlacement {
             offset_y: centre - middle,
             row_height,

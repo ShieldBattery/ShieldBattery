@@ -191,7 +191,7 @@ fn draw_line_plot(
     for (fraction, secs) in [(0.0f32, 0), (0.5, span_secs / 2), (1.0, span_secs)] {
         let galley = label_spec.galley(ui, &mmss(secs));
         let x = plot.left() + plot.width() * fraction;
-        let x = x.clamp(plot.left(), plot.right() - galley.size().x);
+        let x = crate::kit::clamp_layout(x, plot.left(), plot.right() - galley.size().x);
         ui.painter().galley(
             pos2(x, plot.bottom() + theme::SPACE_XS),
             galley,

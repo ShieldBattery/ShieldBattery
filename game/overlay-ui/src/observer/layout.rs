@@ -67,7 +67,7 @@ impl Span {
     /// spare draws the stack exactly where the design does.
     pub(crate) fn place(self, middle: f32, width: f32) -> Span {
         let width = width.min(self.width());
-        let left = (middle - width * 0.5).clamp(self.left, self.right - width);
+        let left = crate::kit::clamp_layout(middle - width * 0.5, self.left, self.right - width);
         Span {
             left,
             right: left + width,
