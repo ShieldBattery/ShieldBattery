@@ -12,7 +12,7 @@
 //! worker or two lost along the way.
 
 use bw_dat::{UnitId, unit};
-use overlay_ui::observer::{Significance, TimelineEventKind};
+use overlay_ui::observer::{FightDegree, Significance, TimelineEventKind};
 
 use super::deaths::Death;
 use super::snapshot::RosterUnit;
@@ -43,8 +43,14 @@ const RAID_WORKERS: u16 = 6;
 const SMALL_RAID_WORKERS: u16 = 3;
 const SMALL_RAID_SHARE: f32 = 0.2;
 
-/// How close the two sides' losses can be, as a share of everything lost, for a fight to be even.
-const EVEN_SHARE: f32 = 0.15;
+/// How a fight is judged: by what each side has left of what it brought to it, rather than by what
+/// it lost outright. An army of a thousand lost whole is a fight lost, however much the army of five
+/// thousand it fought lost in taking it. The measure is how many times over the winner's share left
+/// is the loser's, which is how far the fight moved the balance between the two armies: these are
+/// where it is won narrowly, outright and decisively, and anything less is an even fight.
+const CLOSE_FIGHT_SWING: f32 = 1.12;
+const CLEAR_FIGHT_SWING: f32 = 1.3;
+const DECISIVE_FIGHT_SWING: f32 = 2.0;
 
 /// Units whose death is no loss to report: the larvae and eggs a hatchery keeps, and the
 /// ammunition, mines and missiles that are spent by being used.
@@ -121,6 +127,12 @@ struct Engagement {
     weight: f32,
     /// What each player lost in units and static defense, in resources.
     lost: [u32; MAX_PLAYERS],
+    /// What of `lost` was static defense, which no army value counts.
+    defense_lost: [u32; MAX_PLAYERS],
+    /// What each player brought to the engagement: the most their army has been worth, counting
+    /// what it had lost here already, at any sample they took part in. Reinforcements arriving
+    /// partway through are brought to it too.
+    brought: [u32; MAX_PLAYERS],
     /// What each kind of unit lost cost each player, for naming what the fight was fought with.
     lost_kinds: Vec<(u8, UnitId, u32)>,
     workers: [u16; MAX_PLAYERS],
@@ -162,6 +174,16 @@ pub fn advance(
         };
     };
     let mut open = previous.open.clone();
+    // What the engagements already going on had lost before this sample's deaths, which is what an
+    // army's value at the sample before still counted.
+    let units_lost_before: Vec<[u32; MAX_PLAYERS]> = open
+        .iter()
+        .map(|engagement| {
+            std::array::from_fn(|player| {
+                engagement.lost[player].saturating_sub(engagement.defense_lost[player])
+            })
+        })
+        .collect();
     // A unit in the middle of a morph is never complete, and killing one is a loss all the same.
     let counted = |death: &&Death| death.completed || counted_from_creation(death.unit_id);
     for death in deaths.iter().filter(counted) {
@@ -191,21 +213,30 @@ pub fn advance(
                 open.last_mut().expect("just pushed")
             }
         };
-        engagement.add(death, worker, value, before);
+        let defense = STATIC_DEFENSE.contains(&death.unit_id);
+        engagement.add(death, worker, defense, value, before);
     }
     // Every death is stamped with the sample that found it, so an engagement whose last death is
     // this sample's had deaths in it since the sample before.
-    for engagement in open
-        .iter_mut()
-        .filter(|engagement| engagement.last == frame)
-    {
+    for (index, engagement) in open.iter_mut().enumerate() {
+        if engagement.last != frame {
+            continue;
+        }
         let near = present_near(rosters, catalog, engagement.x, engagement.y);
-        for (player, kills) in engagement.kills.iter_mut().enumerate() {
+        let lost_before = units_lost_before
+            .get(index)
+            .copied()
+            .unwrap_or([0; MAX_PLAYERS]);
+        for (player, lost_before) in lost_before.into_iter().enumerate() {
+            let destroyed = now
+                .destroyed(player)
+                .saturating_sub(before.destroyed(player));
             if near & 1 << player != 0 {
-                *kills = kills.saturating_add(
-                    now.destroyed(player)
-                        .saturating_sub(before.destroyed(player)),
-                );
+                engagement.kills[player] = engagement.kills[player].saturating_add(destroyed);
+            }
+            if engagement.lost[player] > 0 || engagement.kills[player] > 0 {
+                let brought = before.army[player].saturating_add(lost_before);
+                engagement.brought[player] = engagement.brought[player].max(brought);
             }
         }
     }
@@ -274,6 +305,8 @@ impl Engagement {
             y: 0.0,
             weight: 0.0,
             lost: [0; MAX_PLAYERS],
+            defense_lost: [0; MAX_PLAYERS],
+            brought: [0; MAX_PLAYERS],
             lost_kinds: Vec::new(),
             workers: [0; MAX_PLAYERS],
             worker_kind: [None; MAX_PLAYERS],
@@ -284,7 +317,7 @@ impl Engagement {
         }
     }
 
-    fn add(&mut self, death: &Death, worker: bool, value: u32, before: &Standing) {
+    fn add(&mut self, death: &Death, worker: bool, defense: bool, value: u32, before: &Standing) {
         let player = death.player as usize;
         self.last = death.frame;
         // A worker's worth is counted where it died, so a fight over a mineral line is placed there,
@@ -306,6 +339,9 @@ impl Engagement {
             return;
         }
         self.lost[player] = self.lost[player].saturating_add(value);
+        if defense {
+            self.defense_lost[player] = self.defense_lost[player].saturating_add(value);
+        }
         match self
             .lost_kinds
             .iter_mut()
@@ -357,8 +393,8 @@ impl Engagement {
     }
 
     /// What the fighting in this engagement came to, if it was big enough to tell: who came out
-    /// ahead and by how much, named after what the loser lost most of. The frame, record and place
-    /// are the caller's to fill in.
+    /// ahead and how far, named after what the losers lost most of. The frame, record and place are
+    /// the caller's to fill in.
     fn fight(&self, now: &Standing, kills: impl Fn(usize) -> u32) -> Option<TimelineEvent> {
         let value: u32 = self.lost.iter().sum();
         let share = match self.pool {
@@ -377,39 +413,87 @@ impl Engagement {
             return None;
         };
         // Sides rather than players, so a team that traded well together won together.
-        let mut sides: Vec<(usize, u32)> = Vec::new();
+        let mut sides: Vec<Side> = Vec::new();
         for player in (0..MAX_PLAYERS).filter(|&player| self.lost[player] > 0 || kills(player) > 0)
         {
-            let side = side_of(now, player);
-            match sides.iter_mut().find(|(id, _)| *id == side) {
-                Some((_, lost)) => *lost = lost.saturating_add(self.lost[player]),
-                None => sides.push((side, self.lost[player])),
-            }
+            let id = side_of(now, player);
+            let index = match sides.iter().position(|side| side.id == id) {
+                Some(index) => index,
+                None => {
+                    sides.push(Side {
+                        id,
+                        lost: 0,
+                        brought: 0,
+                    });
+                    sides.len() - 1
+                }
+            };
+            let side = &mut sides[index];
+            side.lost = side.lost.saturating_add(self.lost[player]);
+            side.brought = side
+                .brought
+                .saturating_add(self.brought[player])
+                .saturating_add(self.defense_lost[player]);
         }
         // Losses that nobody near them can be credited with are no fight to tell, nor to judge.
         if sides.len() < 2 {
             return None;
         }
-        sides.sort_by_key(|&(_, lost)| lost);
-        let winner = sides.first().map(|&(side, lost)| {
-            let others = sides[1..].iter().map(|&(_, lost)| lost).max().unwrap_or(0);
-            (side, others.saturating_sub(lost))
-        });
-        let (player, kind, winning_side) = match winner {
-            Some((side, margin)) if margin as f32 >= value as f32 * EVEN_SHARE => {
+        sides.sort_by(|a, b| a.share().total_cmp(&b.share()));
+        let winner = sides[0];
+        let loser_left = sides[1..]
+            .iter()
+            .map(|side| 1.0 - side.share())
+            .fold(1.0f32, f32::min);
+        // A side with nothing left has been beaten as decisively as a fight can go.
+        let swing = match loser_left {
+            0.0 => f32::INFINITY,
+            left => (1.0 - winner.share()) / left,
+        };
+        let killed = |side: usize| -> u32 {
+            sides
+                .iter()
+                .filter(|other| other.id != side)
+                .map(|other| other.lost)
+                .sum()
+        };
+        let degree = if swing >= DECISIVE_FIGHT_SWING {
+            Some(FightDegree::Decisive)
+        } else if swing >= CLEAR_FIGHT_SWING {
+            Some(FightDegree::Clear)
+        } else if swing >= CLOSE_FIGHT_SWING {
+            Some(FightDegree::Close)
+        } else {
+            None
+        };
+        let (player, kind, winning_side) = match degree {
+            Some(degree) => {
                 let player = top_killer(
-                    (0..MAX_PLAYERS).filter(|&player| side_of(now, player) == side),
+                    (0..MAX_PLAYERS).filter(|&player| side_of(now, player) == winner.id),
                     &kills,
                 )
-                .unwrap_or(side);
-                let won = TimelineEventKind::FightWon { margin };
-                (player, won, Some(side))
+                .unwrap_or(winner.id);
+                let won = TimelineEventKind::FightWon {
+                    degree,
+                    lost: winner.lost,
+                    killed: killed(winner.id),
+                };
+                (player, won, Some(winner.id))
             }
-            _ => {
+            None => {
                 let player = top_killer(0..MAX_PLAYERS, &kills)
                     .or_else(|| (0..MAX_PLAYERS).max_by_key(|&player| self.lost[player]))
                     .unwrap_or(0);
-                (player, TimelineEventKind::FightEven, None)
+                let side = side_of(now, player);
+                let lost = sides
+                    .iter()
+                    .find(|other| other.id == side)
+                    .map_or(0, |side| side.lost);
+                let even = TimelineEventKind::FightEven {
+                    lost,
+                    killed: killed(side),
+                };
+                (player, even, None)
             }
         };
         // Named after the costliest kind the losing sides lost, or anyone lost in an even fight.
@@ -459,6 +543,27 @@ fn base_destroyed(
         significance: Significance::Key,
         subject: TimelineSubject::Unit(death.unit_id),
         position: Some((death.x, death.y)),
+    }
+}
+
+/// One side of a fight: what it lost, and what it brought to lose.
+#[derive(Copy, Clone)]
+struct Side {
+    /// The lowest player id on it.
+    id: usize,
+    lost: u32,
+    brought: u32,
+}
+
+impl Side {
+    /// How much of what it brought it lost: all of it for a side that brought nothing an army
+    /// value counts and lost something all the same.
+    fn share(&self) -> f32 {
+        match self.brought {
+            0 if self.lost > 0 => 1.0,
+            0 => 0.0,
+            brought => (self.lost as f32 / brought as f32).min(1.0),
+        }
     }
 }
 
@@ -590,7 +695,14 @@ mod tests {
         );
         assert_eq!(events.len(), 1);
         let fight = events[0];
-        assert_eq!(fight.kind, TimelineEventKind::FightWon { margin: 1500 });
+        assert_eq!(
+            fight.kind,
+            TimelineEventKind::FightWon {
+                degree: FightDegree::Clear,
+                lost: 500,
+                killed: 2000
+            }
+        );
         assert_eq!(fight.significance, Significance::Key);
         assert_eq!(fight.player, 1);
         assert_eq!(fight.frame, 10 * SECOND);
@@ -602,6 +714,33 @@ mod tests {
                 .position
                 .is_some_and(|(x, _)| (480..=520).contains(&x))
         );
+    }
+
+    /// An army thrown away whole loses the fight, however much more it cost the bigger army that
+    /// beat it.
+    #[test]
+    fn losing_a_whole_army_loses_the_fight() {
+        let mut before = Standing::default();
+        before.army[..2].copy_from_slice(&[1000, 5000]);
+        let mut now = before;
+        now.kills[..2].copy_from_slice(&[1500, 1000]);
+        let samples = vec![
+            (0..10)
+                .map(|_| death(10 * SECOND, 0, unit::HYDRALISK, 500))
+                .chain((0..15).map(|_| death(10 * SECOND, 1, unit::HYDRALISK, 520)))
+                .collect::<Vec<_>>(),
+        ];
+        let events = run(&samples, before, now);
+        assert_eq!(events.len(), 1);
+        assert_eq!(
+            events[0].kind,
+            TimelineEventKind::FightWon {
+                degree: FightDegree::Decisive,
+                lost: 1500,
+                killed: 1000,
+            }
+        );
+        assert_eq!(events[0].player, 1);
     }
 
     #[test]
@@ -632,7 +771,13 @@ mod tests {
             standing(2000, 20, [950, 1000]),
         );
         assert_eq!(events.len(), 1);
-        assert_eq!(events[0].kind, TimelineEventKind::FightEven);
+        assert_eq!(
+            events[0].kind,
+            TimelineEventKind::FightEven {
+                lost: 950,
+                killed: 1000
+            }
+        );
         assert_eq!(events[0].significance, Significance::Notable);
     }
 
@@ -789,7 +934,14 @@ mod tests {
         ];
         let events = run(&samples, before, now);
         assert_eq!(events.len(), 1);
-        assert_eq!(events[0].kind, TimelineEventKind::FightWon { margin: 3500 });
+        assert_eq!(
+            events[0].kind,
+            TimelineEventKind::FightWon {
+                degree: FightDegree::Decisive,
+                lost: 1500,
+                killed: 5000
+            }
+        );
         assert_eq!(events[0].player, 2);
     }
 
@@ -811,7 +963,14 @@ mod tests {
         alive.extend(roster(&[2], 4000));
         let events = run_among(&samples, before, now, &alive);
         assert_eq!(events.len(), 1);
-        assert_eq!(events[0].kind, TimelineEventKind::FightWon { margin: 1500 });
+        assert_eq!(
+            events[0].kind,
+            TimelineEventKind::FightWon {
+                degree: FightDegree::Decisive,
+                lost: 500,
+                killed: 2000
+            }
+        );
         assert_eq!(events[0].player, 1);
     }
 
@@ -869,7 +1028,14 @@ mod tests {
             );
         }
         assert_eq!(events.len(), 1);
-        assert_eq!(events[0].kind, TimelineEventKind::FightWon { margin: 1500 });
+        assert_eq!(
+            events[0].kind,
+            TimelineEventKind::FightWon {
+                degree: FightDegree::Decisive,
+                lost: 500,
+                killed: 2000
+            }
+        );
         assert_eq!(events[0].player, 1);
     }
 
@@ -935,6 +1101,13 @@ mod tests {
             standing(3000, 20, [0, 2500]),
         );
         assert_eq!(events.len(), 1);
-        assert_eq!(events[0].kind, TimelineEventKind::FightWon { margin: 2500 });
+        assert_eq!(
+            events[0].kind,
+            TimelineEventKind::FightWon {
+                degree: FightDegree::Decisive,
+                lost: 0,
+                killed: 2500
+            }
+        );
     }
 }

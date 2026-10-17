@@ -728,6 +728,10 @@ fn build_timeline_view(
                 significance: event.significance,
                 icon: None,
                 name,
+                team: players
+                    .iter()
+                    .any(|other| other.team == player.team && other.player_id != player.player_id)
+                    .then_some(player.team),
                 position: event
                     .position
                     .map(|(x, y)| overlay_ui::observer::MapPoint { x, y }),
@@ -834,6 +838,7 @@ mod tests {
             significance: overlay_ui::observer::Significance::Notable,
             icon: None,
             name: None,
+            team: None,
             position: None,
         }
     }

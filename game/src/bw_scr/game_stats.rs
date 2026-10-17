@@ -859,6 +859,7 @@ fn group_composition(tally: &[(UnitId, u32, u32)]) -> Option<(UnitId, Option<Uni
 #[cfg(test)]
 mod tests {
     use bw_dat::unit;
+    use overlay_ui::observer::FightDegree;
 
     use super::snapshot::{BuildingSite, DepotSite, ResearchLevels, RosterUnit};
     use super::unit_value::tests::FakeUnits;
@@ -1660,7 +1661,11 @@ mod tests {
         let game = hydralisks_dying_at(10 * SECOND + 5);
         let mut stats = GameStats::new();
         play(&mut stats, 1..=30 * SECOND, Resimulation::Identical, &game);
-        let won = TimelineEventKind::FightWon { margin: 3000 };
+        let won = TimelineEventKind::FightWon {
+            degree: FightDegree::Decisive,
+            lost: 0,
+            killed: 3000,
+        };
         assert_eq!(fights(&stats), [(11 * SECOND, won)]);
         play(
             &mut stats,
@@ -1700,7 +1705,14 @@ mod tests {
         );
         assert_eq!(
             fights(&stats),
-            [(11 * SECOND, TimelineEventKind::FightWon { margin: 3000 })]
+            [(
+                11 * SECOND,
+                TimelineEventKind::FightWon {
+                    degree: FightDegree::Decisive,
+                    lost: 0,
+                    killed: 3000
+                }
+            )]
         );
     }
 }

@@ -80,12 +80,19 @@ pub enum TimelineEventKind {
     UpgradeCompleted,
     TechStarted,
     TechCompleted,
-    /// A fight the player's side came out of ahead, by what the other side lost beyond its own.
+    /// A fight the player's side came out of ahead: it lost a smaller share of what it brought than
+    /// the other side did of its own. `lost` is what the side lost, and `killed` what the sides it
+    /// fought lost.
     FightWon {
-        margin: u32,
+        degree: FightDegree,
+        lost: u32,
+        killed: u32,
     },
-    /// A fight both sides lost about as much in.
-    FightEven,
+    /// A fight both sides lost about as much of their own in, told from the player's side.
+    FightEven {
+        lost: u32,
+        killed: u32,
+    },
     /// A run on another player's workers, by the player who made it.
     WorkersKilled {
         count: u16,
@@ -100,8 +107,17 @@ pub enum TimelineEventKind {
     BaseLost,
 }
 
+/// How far ahead a fight's winner came out of it.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum FightDegree {
+    Close,
+    Clear,
+    Decisive,
+}
+
 impl TimelineEventKind {
-    /// What the row says happened. The thing it happened to is named by the icon beside it.
+    /// What the row says happened, in a game where nobody shares a side. The thing it happened to
+    /// is named by the icon beside it.
     pub(crate) fn label(self) -> String {
         match self {
             TimelineEventKind::BuildingCompleted => tr!("observer.eventBuilt", "Built"),
@@ -111,14 +127,14 @@ impl TimelineEventKind {
             }
             TimelineEventKind::TechStarted => tr!("observer.eventTechStarted", "Research started"),
             TimelineEventKind::TechCompleted => tr!("observer.eventTechDone", "Research complete"),
-            TimelineEventKind::FightWon { margin } => {
-                tr!(
-                    "observer.eventFightWon",
-                    "Won a fight by {{value}}",
-                    value = margin
-                )
-            }
-            TimelineEventKind::FightEven => tr!("observer.eventFightEven", "Even fight"),
+            TimelineEventKind::FightWon { degree, .. } => match degree {
+                FightDegree::Close => tr!("observer.eventFightWonClose", "Narrowly won a fight"),
+                FightDegree::Clear => tr!("observer.eventFightWonClear", "Won a fight"),
+                FightDegree::Decisive => {
+                    tr!("observer.eventFightWonDecisive", "Won a fight decisively")
+                }
+            },
+            TimelineEventKind::FightEven { .. } => tr!("observer.eventFightEven", "Even fight"),
             TimelineEventKind::WorkersKilled { count } => tr_plural!(
                 "observer.eventWorkersKilled",
                 u64::from(count),
@@ -135,6 +151,49 @@ impl TimelineEventKind {
                 tr!("observer.eventBaseDestroyed", "Destroyed a base")
             }
             TimelineEventKind::BaseLost => tr!("observer.eventBaseLost", "Lost a base"),
+        }
+    }
+
+    /// What the row says happened, where the player shares a side with others as `team`: a fight is
+    /// won by a side, whichever of its players did the most killing in it.
+    fn team_label(self, team: u8) -> String {
+        let team = super::team_name(team);
+        match self {
+            TimelineEventKind::FightWon { degree, .. } => match degree {
+                FightDegree::Close => tr!(
+                    "observer.eventTeamFightWonClose",
+                    "{{team}} narrowly won a fight",
+                    team = team
+                ),
+                FightDegree::Clear => {
+                    tr!(
+                        "observer.eventTeamFightWonClear",
+                        "{{team}} won a fight",
+                        team = team
+                    )
+                }
+                FightDegree::Decisive => tr!(
+                    "observer.eventTeamFightWonDecisive",
+                    "{{team}} won a fight decisively",
+                    team = team
+                ),
+            },
+            other => other.label(),
+        }
+    }
+
+    /// What a fight came to, quieter beside the line saying how it went, so the judgment can be
+    /// checked against it. Nothing for the kinds that are not fights.
+    pub(crate) fn detail(self) -> Option<String> {
+        match self {
+            TimelineEventKind::FightWon { lost, killed, .. }
+            | TimelineEventKind::FightEven { lost, killed } => Some(tr!(
+                "observer.eventFightTrade",
+                "lost {{lost}}, killed {{killed}}",
+                lost = lost,
+                killed = killed
+            )),
+            _ => None,
         }
     }
 
@@ -178,8 +237,20 @@ pub struct TimelineEventView {
     /// What the game calls whatever the event is about, in the game's language, or `None` where the
     /// host has no name for it.
     pub name: Option<String>,
+    /// The side the player is on, where they share it with others: a fight is told as that side's.
+    pub team: Option<u8>,
     /// Where on the map it happened, or `None` where the host cannot say.
     pub position: Option<MapPoint>,
+}
+
+impl TimelineEventView {
+    /// What the row says happened.
+    pub(crate) fn label(&self) -> String {
+        match self.team {
+            Some(team) => self.kind.team_label(team),
+            None => self.kind.label(),
+        }
+    }
 }
 
 /// A place on the game's map, in map pixels.
@@ -353,28 +424,35 @@ fn draw_row(ui: &Ui, row: Rect, event: &TimelineEventView) {
     cursor.skip(ICON_GAP);
     let text_rect = cursor.take(TEXT_WIDTH);
     let label = text::body(TEXT_SIZE, BodyWeight::Regular).with_color(crate::colors::GREY_BLUE95);
-    match &event.name {
-        // The thing first and what happened to it after, quieter: a watcher scanning the feed is
-        // looking for a building or an upgrade, and "Built" six times over names none of them.
-        Some(name) => {
-            let name_spec =
-                text::body(TEXT_SIZE, BodyWeight::Medium).with_color(theme::TEXT_PRIMARY);
-            let name_width = name_spec
-                .galley(ui, name)
+    // The thing first and what happened to it after, quieter: a watcher scanning the feed is
+    // looking for a building or an upgrade, and "Built" six times over names none of them. A fight
+    // says how it went first and what it came to after.
+    let (lead, lead_spec, rest) = match (&event.name, event.kind.detail()) {
+        (Some(name), _) => (
+            name.clone(),
+            text::body(TEXT_SIZE, BodyWeight::Medium).with_color(theme::TEXT_PRIMARY),
+            Some(event.label()),
+        ),
+        (None, detail) => (event.label(), label.clone(), detail),
+    };
+    match rest {
+        Some(rest) => {
+            let lead_width = lead_spec
+                .galley(ui, &lead)
                 .size()
                 .x
                 .min(text_rect.width() * NAME_SHARE);
-            let (name_rect, rest) = text_rect.split_left_right_at_x(text_rect.left() + name_width);
-            paint_text(ui, name_rect, &name_spec, name, Align::LEFT);
+            let (lead_rect, after) = text_rect.split_left_right_at_x(text_rect.left() + lead_width);
+            paint_text(ui, lead_rect, &lead_spec, &lead, Align::LEFT);
             paint_text(
                 ui,
-                rest.with_min_x(rest.left() + theme::SPACE_SM),
+                after.with_min_x(after.left() + theme::SPACE_SM),
                 &label.with_color(theme::TEXT_DIM),
-                &event.kind.label(),
+                &rest,
                 Align::LEFT,
             );
         }
-        None => paint_text(ui, text_rect, &label, &event.kind.label(), Align::LEFT),
+        None => paint_text(ui, text_rect, &lead_spec, &lead, Align::LEFT),
     }
 }
 
@@ -420,6 +498,7 @@ mod tests {
                     significance: Significance::Notable,
                     icon: None,
                     name: None,
+                    team: None,
                     position: None,
                 })
                 .collect(),

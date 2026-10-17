@@ -650,7 +650,7 @@ fn draw_marker_card(ui: &Ui, pointer: Pos2, event: &TimelineEventView) {
                         } else {
                             theme::TEXT_PRIMARY
                         })
-                        .job(&event.kind.label()),
+                        .job(&event.label()),
                 );
                 ui.label(
                     text::numeral(13.0)
@@ -998,6 +998,7 @@ mod tests {
             significance: crate::observer::Significance::Key,
             icon: None,
             name: None,
+            team: None,
             position: None,
         }
     }

@@ -19,9 +19,9 @@
 use egui::{Color32, Rect, pos2, vec2};
 use overlay_ui::observer::{
     ControlGroupView, ControlGroupsPlayerView, ControlGroupsView, EconomyPlayerView, EconomyView,
-    GraphGrouping, GraphLineView, GraphSeries, GraphsView, MapControlSideView, MapControlView,
-    MatchupForm, MatchupPlayerView, MatchupView, MilitaryPlayerView, MilitaryView, ObserverView,
-    ProductionIcon, ProductionItemView, ProductionPlayerView, ProductionProgressView,
+    FightDegree, GraphGrouping, GraphLineView, GraphSeries, GraphsView, MapControlSideView,
+    MapControlView, MatchupForm, MatchupPlayerView, MatchupView, MilitaryPlayerView, MilitaryView,
+    ObserverView, ProductionIcon, ProductionItemView, ProductionPlayerView, ProductionProgressView,
     ProductionView, RaceView, SelectedUnitView, SelectionView, Significance, TeamCardPlayerView,
     TeamCardTotalsView, TeamCardView, TeamCardsView, TimelineEventKind, TimelineEventView,
     TimelineView, UnitUpgradeView, UpgradeEffect, WeaponDamageView, team_name,
@@ -54,23 +54,40 @@ const EVENT_INTERVAL_SECS: u64 = 37;
 const TIMELINE_DEPTH: usize = 24;
 
 /// What the fake game's timeline events are about, walked in turn: something is built, an upgrade
-/// finishes, an expansion goes up, a fight is won, a technology runs its course, workers are
-/// killed, a fight goes even, a base falls.
+/// finishes, an expansion goes up, a fight is won decisively, a technology is started, workers are
+/// killed, a fight goes even, a fight is narrowly won, a base falls.
 const EVENT_KINDS: [(TimelineEventKind, Significance); 9] = [
     (TimelineEventKind::BuildingCompleted, Significance::Notable),
     (TimelineEventKind::UpgradeCompleted, Significance::Notable),
     (TimelineEventKind::ExpansionTaken, Significance::Key),
     (
-        TimelineEventKind::FightWon { margin: 1250 },
+        TimelineEventKind::FightWon {
+            degree: FightDegree::Decisive,
+            lost: 650,
+            killed: 2475,
+        },
         Significance::Key,
     ),
     (TimelineEventKind::TechStarted, Significance::Notable),
-    (TimelineEventKind::TechCompleted, Significance::Key),
     (
         TimelineEventKind::WorkersKilled { count: 7 },
         Significance::Key,
     ),
-    (TimelineEventKind::FightEven, Significance::Notable),
+    (
+        TimelineEventKind::FightEven {
+            lost: 1300,
+            killed: 1175,
+        },
+        Significance::Notable,
+    ),
+    (
+        TimelineEventKind::FightWon {
+            degree: FightDegree::Close,
+            lost: 900,
+            killed: 1875,
+        },
+        Significance::Key,
+    ),
     (TimelineEventKind::BaseDestroyed, Significance::Key),
 ];
 
@@ -585,6 +602,7 @@ fn timeline_events(knobs: &Knobs, game_secs: u64) -> Vec<TimelineEventView> {
                     .names_its_subject()
                     .then(|| unit_name(units[index as usize % units.len()]))
                     .flatten(),
+                team: knobs.has_teams().then(|| knobs.team_of(player)),
                 position: None,
             }
         })

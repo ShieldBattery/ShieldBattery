@@ -52,8 +52,8 @@ pub use team_cards::{
     TeamCardPlayerView, TeamCardTotalsView, TeamCardView, TeamCardsView, render_team_cards_view,
 };
 pub use timeline::{
-    ClickedEvent, MapPoint, Significance, TimelineEventKind, TimelineEventView, TimelineOutcome,
-    TimelineView, render_timeline_view,
+    ClickedEvent, FightDegree, MapPoint, Significance, TimelineEventKind, TimelineEventView,
+    TimelineOutcome, TimelineView, render_timeline_view,
 };
 pub use unit_codes::unit_code;
 
