@@ -38,9 +38,7 @@ services:
       - SB_REDIS_HOST=redis
       - SB_REDIS_PORT=6379
       - SB_FILE_STORE
-      - SB_MAP_PARSER_MAX_CONCURRENT=${SB_MAP_PARSER_MAX_CONCURRENT:-1}
       - SB_REPLAY_WORKER_CONCURRENCY=${SB_REPLAY_WORKER_CONCURRENCY:-1}
-      - SB_SPRITE_DATA=server/bw_sprite_data
       - SB_SESSION_TTL
       - SB_MAILGUN_KEY
       - SB_MAILGUN_DOMAIN
@@ -64,10 +62,6 @@ services:
       - app_logs:/home/node/shieldbattery/server/logs:rw
       - ./google-credentials.json:/google-credentials.json:ro
       - uploaded_files:/home/node/shieldbattery/server/uploaded_files:rw
-      - type: bind
-        source: ./bw_sprite_data
-        target: /home/node/shieldbattery/server/bw_sprite_data
-        read_only: true
 
     # NOTE: `depends_on` only waits for the services listed below to start; it doesn't wait for them
     # to actually be "ready" (whatever "ready" means for a particular service). If you need to
@@ -119,9 +113,19 @@ services:
       - SB_TWITCH_EVENTSUB_SECRET
       - SB_RP2_COORDINATOR_URL
       - SB_REGION_BACKBONE_RTT_JSON
+      - SB_MAP_ASSETS=/server/map_assets
+      - SB_MAP_PARSER_MAX_CONCURRENT=${SB_MAP_PARSER_MAX_CONCURRENT:-1}
     networks:
       - frontend
       - backend
+    volumes:
+      # Only used when SB_FILE_STORE is a local filesystem store; shared with app_server, whose
+      # `node` user has the same uid as this image's user.
+      - uploaded_files:/server/uploaded_files:rw
+      - type: bind
+        source: ./map_assets
+        target: /server/map_assets
+        read_only: true
     depends_on:
       - db
       - nginx_proxy

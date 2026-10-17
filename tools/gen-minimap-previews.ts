@@ -1,8 +1,9 @@
 /**
  * Generates the minimap preview images shown in the team-color settings panels
  * (`client/settings/game/team-color-preview.tsx`) -- one WebP per preview tileset, rendered from a
- * real map file through the same bw-chk + BW sprite data pipeline the map upload system uses
- * (`server/lib/maps/parse-map.ts`, `server/lib/maps/map-parse-worker.ts`).
+ * real map file with bw-chk and the BW sprite data extracted from StarEdit's MPQs. This is
+ * separate from the map images server-rs renders for uploads (from SC:R's assets, see
+ * `SB_MAP_ASSETS`), and needs the older sprite data described below.
  *
  * Usage (run from repo root):
  *   pnpm run gen-minimap-previews -- <maps-folder> [--bw-data <path>] [--out <dir>]
@@ -12,10 +13,13 @@
  *                the tileset is read from each map's CHK data, not inferred from the file name.
  *                Extra/duplicate tilesets or a missing/empty folder are fine: anything not
  *                covered gets a flat placeholder instead (see below).
- * --bw-data      BW data directory (the unit/ + tileset/ folders extracted from stardat.mpq +
- *                broodat.mpq -- see docs/GETTING_STARTED.md, "Set up map system"). Defaults to
- *                SB_SPRITE_DATA from .env, the same variable the map upload pipeline reads
- *                (server/lib/maps/store.ts).
+ * --bw-data      BW data directory: the unit/ + tileset/ folders of `stardat.mpq` and
+ *                `broodat.mpq` from the final StarEdit release
+ *                (http://download.blizzard.com/pub/starcraft/StarEdit/StarEdit.zip), extracted
+ *                with an MPQ editor (e.g. http://www.zezula.net/en/mpq/download.html, with its
+ *                listfiles) in that order, so broodat.mpq overwrites conflicting files, keeping
+ *                the directory structure. Defaults to SB_SPRITE_DATA from .env, which only this
+ *                tool reads.
  * --out          Output directory for the generated WebPs. Defaults to app/assets/minimaps -- the
  *                team-color settings panel only renders in the Electron app (see
  *                `client/settings/settings.tsx`'s `IS_ELECTRON` gate), so these are shipped as an
@@ -35,18 +39,18 @@
 import Chk from 'bw-chk'
 import fs from 'node:fs'
 import path from 'node:path'
+import { Duplex } from 'node:stream'
+import createScmExtractor from 'scm-extractor'
 import sharp from 'sharp'
 import {
   ALL_MAP_EXTENSIONS,
   ALL_TILESET_IDS,
-  MapExtension,
   Tileset,
   TILESET_IDS,
   TILESET_PLACEHOLDER_COLORS,
   TilesetId,
 } from '../common/maps'
 import '../server/env'
-import { parseAndHashMap } from '../server/lib/maps/parse-map'
 
 const REPO_ROOT = path.resolve(__dirname, '..')
 const DEFAULT_OUT_DIR = path.join(REPO_ROOT, 'app', 'assets', 'minimaps')
@@ -110,13 +114,38 @@ function parseArgs(argv: string[]): ParsedArgs {
   }
 }
 
+// bw-chk's shipped types omit `createStream`, a static factory the package exports at runtime
+// (it pipes a CHK-containing stream into a parsed `Chk` instance, invoking the callback once
+// parsing finishes or fails).
+interface ChkStatic {
+  createStream(callback: (err: Error | null, chk?: Chk) => void): Duplex
+}
+
+/** Parses a .scm/.scx map file's CHK data. */
+function parseMapFile(filePath: string): Promise<Chk> {
+  return new Promise<Chk>((resolve, reject) => {
+    const stream = fs.createReadStream(filePath)
+    const scmExtractor = createScmExtractor()
+    stream.on('error', e => reject(e))
+    scmExtractor.on('error', e => reject(e))
+    stream.pipe(scmExtractor).pipe(
+      (Chk as unknown as ChkStatic).createStream((err, chk) => {
+        if (err) {
+          reject(err)
+        } else {
+          resolve(chk!)
+        }
+      }),
+    )
+  })
+}
+
 type RenderResult =
   | { tilesetId: TilesetId; webp: Buffer; width: number; height: number }
   | { skipReason: string }
 
 async function renderMapPreview(filePath: string, bwDataPath: string): Promise<RenderResult> {
-  const ext = path.extname(filePath).slice(1).toLowerCase() as MapExtension
-  const { map }: { map: InstanceType<typeof Chk> } = await parseAndHashMap(filePath, ext)
+  const map = await parseMapFile(filePath)
 
   const tilesetId = TILESET_IDS[map.tileset as Tileset]
   if (!tilesetId) {
@@ -194,7 +223,7 @@ async function main(): Promise<void> {
   if (!bwDataPath) {
     console.warn(
       'No BW data directory configured (pass --bw-data or set SB_SPRITE_DATA in .env) -- every ' +
-        'tileset will get a flat placeholder. See docs/GETTING_STARTED.md, "Set up map system".',
+        'tileset will get a flat placeholder. See the --bw-data docs at the top of this file.',
     )
   } else if (!bwDataUsable) {
     console.warn(
