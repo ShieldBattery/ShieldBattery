@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM favorited_maps WHERE map_id = $1 AND favorited_by = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fa8b49bd4eca28e6b28d8871f7b82f989ef8878f1bb543f1bd08384e8f3babc4"
+}
