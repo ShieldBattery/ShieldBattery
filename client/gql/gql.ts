@@ -49,6 +49,13 @@ type Documents = {
   '\n  fragment Leagues_LeagueBadgeFragment on League {\n    name\n    badgeUrl\n  }\n': typeof types.Leagues_LeagueBadgeFragmentFragmentDoc
   '\n  fragment Leagues_HomeFeedFragment on Query {\n    activeLeagues {\n      id\n      ...Leagues_HomeFeedEntryFragment\n    }\n\n    futureLeagues {\n      id\n      ...Leagues_HomeFeedEntryFragment\n    }\n  }\n': typeof types.Leagues_HomeFeedFragmentFragmentDoc
   '\n  fragment Leagues_HomeFeedEntryFragment on League {\n    id\n    name\n    matchmakingType\n    startAt\n    endAt\n    ...Leagues_LeagueBadgeFragment\n  }\n': typeof types.Leagues_HomeFeedEntryFragmentFragmentDoc
+  '\n  fragment MapSearchTest_Map on SbMap {\n    id\n    name\n    kind\n    playerCount\n    listed\n    official\n    publishedAt\n    favoriteCount\n    isFavorited\n    inLibrary\n    publisher {\n      id\n      name\n    }\n    stats {\n      id\n      games7d\n      games28d\n      games90d\n      gamesTotal\n      players90d\n      medianLength90d\n      lastPlayedAt\n    }\n    file {\n      id\n      tileset\n      width\n      height\n      isEud\n      image256Url\n    }\n  }\n': typeof types.MapSearchTest_MapFragmentDoc
+  '\n  query MapSearchTestMaps($filter: MapFilter, $sort: MapSort, $after: String, $first: Int) {\n    maps(filter: $filter, sort: $sort, after: $after, first: $first) {\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n      edges {\n        cursor\n        node {\n          ...MapSearchTest_Map\n        }\n      }\n    }\n  }\n': typeof types.MapSearchTestMapsDocument
+  '\n  query MapSearchTestLibrary($filter: MapFilter, $sort: MapSort, $after: String, $first: Int) {\n    currentUser {\n      id\n      mapLibrary(filter: $filter, sort: $sort, after: $after, first: $first) {\n        pageInfo {\n          hasNextPage\n          endCursor\n        }\n        edges {\n          cursor\n          addedAt\n          node {\n            ...MapSearchTest_Map\n          }\n        }\n      }\n    }\n  }\n': typeof types.MapSearchTestLibraryDocument
+  '\n  query MapSearchTestFavorites($filter: MapFilter, $sort: MapSort, $after: String, $first: Int) {\n    currentUser {\n      id\n      favoriteMaps(filter: $filter, sort: $sort, after: $after, first: $first) {\n        pageInfo {\n          hasNextPage\n          endCursor\n        }\n        edges {\n          cursor\n          addedAt\n          node {\n            ...MapSearchTest_Map\n          }\n        }\n      }\n    }\n  }\n': typeof types.MapSearchTestFavoritesDocument
+  '\n  query MapSearchTestMap($id: SbMapId!) {\n    map(id: $id) {\n      ...MapSearchTest_Map\n    }\n  }\n': typeof types.MapSearchTestMapDocument
+  '\n  mutation MapSearchTestAddFavorite($id: SbMapId!) {\n    mapAddFavorite(id: $id) {\n      ...MapSearchTest_Map\n    }\n  }\n': typeof types.MapSearchTestAddFavoriteDocument
+  '\n  mutation MapSearchTestRemoveFavorite($id: SbMapId!) {\n    mapRemoveFavorite(id: $id) {\n      ...MapSearchTest_Map\n    }\n  }\n': typeof types.MapSearchTestRemoveFavoriteDocument
   '\n  query NewsArchive($first: Int, $after: String) {\n    newsPosts(first: $first, after: $after) {\n      edges {\n        node {\n          id\n          title\n          summary\n          publishedAt\n        }\n      }\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n    }\n  }\n': typeof types.NewsArchiveDocument
   '\n  fragment News_HomeFeedFragment on Query {\n    newsPosts(first: 10) {\n      edges {\n        node {\n          id\n          title\n          summary\n          publishedAt\n          coverImageUrl\n          coverImageSmallUrl\n        }\n      }\n    }\n  }\n': typeof types.News_HomeFeedFragmentFragmentDoc
   '\n  mutation NewsUpdatePost($id: UUID!, $updates: NewsPostUpdates!) {\n    newsUpdatePost(id: $id, updates: $updates) {\n      id\n      title\n      summary\n      content\n      publishedAt\n      updatedAt\n      coverImagePath\n      coverImageUrl\n      coverImageSmallUrl\n    }\n  }\n': typeof types.NewsUpdatePostDocument
@@ -151,6 +158,20 @@ const documents: Documents = {
     types.Leagues_HomeFeedFragmentFragmentDoc,
   '\n  fragment Leagues_HomeFeedEntryFragment on League {\n    id\n    name\n    matchmakingType\n    startAt\n    endAt\n    ...Leagues_LeagueBadgeFragment\n  }\n':
     types.Leagues_HomeFeedEntryFragmentFragmentDoc,
+  '\n  fragment MapSearchTest_Map on SbMap {\n    id\n    name\n    kind\n    playerCount\n    listed\n    official\n    publishedAt\n    favoriteCount\n    isFavorited\n    inLibrary\n    publisher {\n      id\n      name\n    }\n    stats {\n      id\n      games7d\n      games28d\n      games90d\n      gamesTotal\n      players90d\n      medianLength90d\n      lastPlayedAt\n    }\n    file {\n      id\n      tileset\n      width\n      height\n      isEud\n      image256Url\n    }\n  }\n':
+    types.MapSearchTest_MapFragmentDoc,
+  '\n  query MapSearchTestMaps($filter: MapFilter, $sort: MapSort, $after: String, $first: Int) {\n    maps(filter: $filter, sort: $sort, after: $after, first: $first) {\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n      edges {\n        cursor\n        node {\n          ...MapSearchTest_Map\n        }\n      }\n    }\n  }\n':
+    types.MapSearchTestMapsDocument,
+  '\n  query MapSearchTestLibrary($filter: MapFilter, $sort: MapSort, $after: String, $first: Int) {\n    currentUser {\n      id\n      mapLibrary(filter: $filter, sort: $sort, after: $after, first: $first) {\n        pageInfo {\n          hasNextPage\n          endCursor\n        }\n        edges {\n          cursor\n          addedAt\n          node {\n            ...MapSearchTest_Map\n          }\n        }\n      }\n    }\n  }\n':
+    types.MapSearchTestLibraryDocument,
+  '\n  query MapSearchTestFavorites($filter: MapFilter, $sort: MapSort, $after: String, $first: Int) {\n    currentUser {\n      id\n      favoriteMaps(filter: $filter, sort: $sort, after: $after, first: $first) {\n        pageInfo {\n          hasNextPage\n          endCursor\n        }\n        edges {\n          cursor\n          addedAt\n          node {\n            ...MapSearchTest_Map\n          }\n        }\n      }\n    }\n  }\n':
+    types.MapSearchTestFavoritesDocument,
+  '\n  query MapSearchTestMap($id: SbMapId!) {\n    map(id: $id) {\n      ...MapSearchTest_Map\n    }\n  }\n':
+    types.MapSearchTestMapDocument,
+  '\n  mutation MapSearchTestAddFavorite($id: SbMapId!) {\n    mapAddFavorite(id: $id) {\n      ...MapSearchTest_Map\n    }\n  }\n':
+    types.MapSearchTestAddFavoriteDocument,
+  '\n  mutation MapSearchTestRemoveFavorite($id: SbMapId!) {\n    mapRemoveFavorite(id: $id) {\n      ...MapSearchTest_Map\n    }\n  }\n':
+    types.MapSearchTestRemoveFavoriteDocument,
   '\n  query NewsArchive($first: Int, $after: String) {\n    newsPosts(first: $first, after: $after) {\n      edges {\n        node {\n          id\n          title\n          summary\n          publishedAt\n        }\n      }\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n    }\n  }\n':
     types.NewsArchiveDocument,
   '\n  fragment News_HomeFeedFragment on Query {\n    newsPosts(first: 10) {\n      edges {\n        node {\n          id\n          title\n          summary\n          publishedAt\n          coverImageUrl\n          coverImageSmallUrl\n        }\n      }\n    }\n  }\n':
@@ -436,6 +457,48 @@ export function graphql(
 export function graphql(
   source: '\n  fragment Leagues_HomeFeedEntryFragment on League {\n    id\n    name\n    matchmakingType\n    startAt\n    endAt\n    ...Leagues_LeagueBadgeFragment\n  }\n',
 ): (typeof documents)['\n  fragment Leagues_HomeFeedEntryFragment on League {\n    id\n    name\n    matchmakingType\n    startAt\n    endAt\n    ...Leagues_LeagueBadgeFragment\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  fragment MapSearchTest_Map on SbMap {\n    id\n    name\n    kind\n    playerCount\n    listed\n    official\n    publishedAt\n    favoriteCount\n    isFavorited\n    inLibrary\n    publisher {\n      id\n      name\n    }\n    stats {\n      id\n      games7d\n      games28d\n      games90d\n      gamesTotal\n      players90d\n      medianLength90d\n      lastPlayedAt\n    }\n    file {\n      id\n      tileset\n      width\n      height\n      isEud\n      image256Url\n    }\n  }\n',
+): (typeof documents)['\n  fragment MapSearchTest_Map on SbMap {\n    id\n    name\n    kind\n    playerCount\n    listed\n    official\n    publishedAt\n    favoriteCount\n    isFavorited\n    inLibrary\n    publisher {\n      id\n      name\n    }\n    stats {\n      id\n      games7d\n      games28d\n      games90d\n      gamesTotal\n      players90d\n      medianLength90d\n      lastPlayedAt\n    }\n    file {\n      id\n      tileset\n      width\n      height\n      isEud\n      image256Url\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  query MapSearchTestMaps($filter: MapFilter, $sort: MapSort, $after: String, $first: Int) {\n    maps(filter: $filter, sort: $sort, after: $after, first: $first) {\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n      edges {\n        cursor\n        node {\n          ...MapSearchTest_Map\n        }\n      }\n    }\n  }\n',
+): (typeof documents)['\n  query MapSearchTestMaps($filter: MapFilter, $sort: MapSort, $after: String, $first: Int) {\n    maps(filter: $filter, sort: $sort, after: $after, first: $first) {\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n      edges {\n        cursor\n        node {\n          ...MapSearchTest_Map\n        }\n      }\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  query MapSearchTestLibrary($filter: MapFilter, $sort: MapSort, $after: String, $first: Int) {\n    currentUser {\n      id\n      mapLibrary(filter: $filter, sort: $sort, after: $after, first: $first) {\n        pageInfo {\n          hasNextPage\n          endCursor\n        }\n        edges {\n          cursor\n          addedAt\n          node {\n            ...MapSearchTest_Map\n          }\n        }\n      }\n    }\n  }\n',
+): (typeof documents)['\n  query MapSearchTestLibrary($filter: MapFilter, $sort: MapSort, $after: String, $first: Int) {\n    currentUser {\n      id\n      mapLibrary(filter: $filter, sort: $sort, after: $after, first: $first) {\n        pageInfo {\n          hasNextPage\n          endCursor\n        }\n        edges {\n          cursor\n          addedAt\n          node {\n            ...MapSearchTest_Map\n          }\n        }\n      }\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  query MapSearchTestFavorites($filter: MapFilter, $sort: MapSort, $after: String, $first: Int) {\n    currentUser {\n      id\n      favoriteMaps(filter: $filter, sort: $sort, after: $after, first: $first) {\n        pageInfo {\n          hasNextPage\n          endCursor\n        }\n        edges {\n          cursor\n          addedAt\n          node {\n            ...MapSearchTest_Map\n          }\n        }\n      }\n    }\n  }\n',
+): (typeof documents)['\n  query MapSearchTestFavorites($filter: MapFilter, $sort: MapSort, $after: String, $first: Int) {\n    currentUser {\n      id\n      favoriteMaps(filter: $filter, sort: $sort, after: $after, first: $first) {\n        pageInfo {\n          hasNextPage\n          endCursor\n        }\n        edges {\n          cursor\n          addedAt\n          node {\n            ...MapSearchTest_Map\n          }\n        }\n      }\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  query MapSearchTestMap($id: SbMapId!) {\n    map(id: $id) {\n      ...MapSearchTest_Map\n    }\n  }\n',
+): (typeof documents)['\n  query MapSearchTestMap($id: SbMapId!) {\n    map(id: $id) {\n      ...MapSearchTest_Map\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  mutation MapSearchTestAddFavorite($id: SbMapId!) {\n    mapAddFavorite(id: $id) {\n      ...MapSearchTest_Map\n    }\n  }\n',
+): (typeof documents)['\n  mutation MapSearchTestAddFavorite($id: SbMapId!) {\n    mapAddFavorite(id: $id) {\n      ...MapSearchTest_Map\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  mutation MapSearchTestRemoveFavorite($id: SbMapId!) {\n    mapRemoveFavorite(id: $id) {\n      ...MapSearchTest_Map\n    }\n  }\n',
+): (typeof documents)['\n  mutation MapSearchTestRemoveFavorite($id: SbMapId!) {\n    mapRemoveFavorite(id: $id) {\n      ...MapSearchTest_Map\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

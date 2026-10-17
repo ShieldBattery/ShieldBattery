@@ -9,6 +9,7 @@ import {
   ALL_MAP_SORT_TYPES,
   ALL_MAP_VISIBILITIES,
   ALL_TILESETS,
+  filterColorCodes,
   GetBatchMapInfoResponse,
   GetFavoritedMapsQueryParams,
   GetFavoritesResponse,
@@ -375,13 +376,20 @@ export class MapsApi {
   async update(ctx: RouterContext): Promise<UpdateMapResponse> {
     const mapId = await getValidatedMapId(ctx)
     const {
-      body: { name, description },
+      body: { name: rawName, description: rawDescription },
     } = validateRequest(ctx, {
       body: Joi.object<{ name?: string; description?: string }>({
         name: Joi.string(),
         description: Joi.string(),
       }),
     })
+
+    // BW color codes would show up as unprintable characters wherever the name is displayed
+    const name = rawName !== undefined ? filterColorCodes(rawName) : undefined
+    const description = rawDescription !== undefined ? filterColorCodes(rawDescription) : undefined
+    if (name === '' || description === '') {
+      throw new httpErrors.BadRequest('Name and description must contain printable characters')
+    }
 
     let map = (await getMapInfos([mapId]))[0]
     if (!map) {
