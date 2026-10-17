@@ -4345,6 +4345,7 @@ impl BwScr {
                     if second_draw == 0 {
                         self.last_overlay_hd_value.store(is_hd, Ordering::Relaxed);
                         self.follow_engine_settings(is_hd);
+                        self.refresh_stale_game_stats();
                     }
                     // SC:R only enables carbot if both of these flags are set
                     let is_carbot = self.is_carbot.load(Ordering::Relaxed)
@@ -7326,6 +7327,40 @@ impl BwScr {
                     },
                 );
             }
+        }
+    }
+
+    /// Reads again what the observer panels show of the game as it stands (number keys, vision)
+    /// when the frame on screen has moved away from where it was read without the simulation
+    /// sampling it, as a replay seek that lands paused leaves it.
+    fn refresh_stale_game_stats(&self) {
+        if !self.game_started.load(Ordering::Acquire) || !self.is_replay_or_obs() {
+            return;
+        }
+        unsafe {
+            let game = self.game();
+            if game.is_null() {
+                return;
+            }
+            let game = bw_dat::Game::from_ptr(game);
+            let Some(units) = self.unit_array() else {
+                return;
+            };
+            let Some(mut stats) = self.game_stats.lock() else {
+                return;
+            };
+            if !stats.current_state_stale(game.frame_count()) {
+                return;
+            }
+            let snapshot = game_stats::read_snapshot(
+                game,
+                self.active_units(),
+                &units,
+                self.selection_hotkey_last_used_frames
+                    .map(|frames| frames.resolve() as *const u16),
+                self.map_tile_flags_slice(game),
+            );
+            stats.refresh_current_state(snapshot, &game_stats::DatUnits);
         }
     }
 

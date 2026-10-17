@@ -185,6 +185,8 @@ pub struct GameStats {
     control_groups: [Vec<ControlGroup>; MAX_PLAYERS],
     /// How much of the map each player could see as of the last sample, or `None` before one.
     vision: Option<MapVision>,
+    /// The frame `control_groups` and `vision` were read on.
+    current_state_frame: Option<u32>,
     /// Counts every change to `rows` or `events`, and is never reset, so a [`HistoryStamp`] taken
     /// before a [`clear`](Self::clear) never matches one taken after it.
     generation: u64,
@@ -249,6 +251,7 @@ impl GameStats {
             baselines: VecDeque::new(),
             control_groups: Default::default(),
             vision: None,
+            current_state_frame: None,
             generation: 0,
             rows_changed: 0,
             events_changed: 0,
@@ -281,6 +284,32 @@ impl GameStats {
         }
     }
 
+    /// Whether what the game is like right now (number keys, vision) was read too far from `frame`
+    /// for the frame on screen to show it. Sampling keeps it within one interval while the
+    /// simulation plays on; only a replay seek moves the frame anywhere else, and a paused replay
+    /// then stays there with nothing stepped to read it again.
+    pub fn current_state_stale(&self, frame: u32) -> bool {
+        self.current_state_frame
+            .is_some_and(|read| frame < read || frame - read >= SAMPLE_INTERVAL_FRAMES)
+    }
+
+    /// Takes what the game is like right now out of `snapshot`, leaving its history alone.
+    pub fn refresh_current_state(
+        &mut self,
+        mut snapshot: GameSnapshot,
+        catalog: &impl UnitCatalog,
+    ) {
+        self.take_current_state(&mut snapshot, catalog);
+    }
+
+    fn take_current_state(&mut self, snapshot: &mut GameSnapshot, catalog: &impl UnitCatalog) {
+        self.vision = snapshot.vision.take();
+        for (groups, player) in self.control_groups.iter_mut().zip(&snapshot.players) {
+            *groups = read_control_groups(player, snapshot.frame, catalog);
+        }
+        self.current_state_frame = Some(snapshot.frame);
+    }
+
     /// The frame the newest sample was taken on.
     fn sampled_through(&self) -> Option<u32> {
         self.rows.last().map(|row| row.frame)
@@ -299,12 +328,7 @@ impl GameStats {
         catalog: &impl UnitCatalog,
     ) {
         let frame = snapshot.frame;
-        if let Some(vision) = snapshot.vision.take() {
-            self.vision = Some(vision);
-        }
-        for (groups, player) in self.control_groups.iter_mut().zip(&snapshot.players) {
-            *groups = read_control_groups(player, frame, catalog);
-        }
+        self.take_current_state(&mut snapshot, catalog);
         let events_before = self.events.len();
         if self
             .sampled_through()
@@ -1333,5 +1357,49 @@ mod tests {
             Some((unit::MUTALISK, None))
         );
         assert_eq!(group_composition(&[]), None);
+    }
+
+    /// A map of one tile that player 0 can see when `seen` and nobody can otherwise.
+    fn with_vision(mut snapshot: GameSnapshot, seen: bool) -> GameSnapshot {
+        let hidden_from = if seen { 0xfe } else { 0xff };
+        snapshot.vision = Some(MapVision::read(&[hidden_from]));
+        snapshot
+    }
+
+    #[test]
+    fn playing_on_keeps_the_current_state_fresh_enough() {
+        let mut stats = GameStats::new();
+        play(
+            &mut stats,
+            0..=10 * SECOND,
+            Resimulation::Identical,
+            snapshot,
+        );
+        for frame in 10 * SECOND..11 * SECOND {
+            assert!(!stats.current_state_stale(frame), "{frame}");
+        }
+    }
+
+    /// A seek that lands and stays paused has nothing stepped to read the game again, so what is
+    /// read as the game stands now must be read again for the frame it landed on.
+    #[test]
+    fn a_seek_leaves_the_current_state_to_be_read_again() {
+        let units = FakeUnits::standard();
+        let mut stats = GameStats::new();
+        play(
+            &mut stats,
+            0..=10 * SECOND,
+            Resimulation::Identical,
+            |frame| with_vision(snapshot(frame), true),
+        );
+        assert_eq!(stats.as_of(10 * SECOND).vision().unwrap().seen_by(1), 1.0);
+        // Back to a keyframe and on a little way, then paused.
+        let landed = 2 * SECOND + 5;
+        assert!(stats.current_state_stale(landed));
+        stats.refresh_current_state(with_vision(snapshot(landed), false), &units);
+        assert!(!stats.current_state_stale(landed));
+        assert_eq!(stats.as_of(landed).vision().unwrap().seen_by(1), 0.0);
+        // A forward jump past the sampling cadence is as stale.
+        assert!(stats.current_state_stale(landed + SECOND));
     }
 }
