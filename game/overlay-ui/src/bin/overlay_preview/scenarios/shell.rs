@@ -32,6 +32,8 @@ pub struct Knobs {
     /// A moment of the end-of-game screen's entrance to hold it at, in seconds after it appeared,
     /// or `None` to let it play. Holding it is how a stage of the entrance is looked at as a still.
     pub end_card_moment: Option<f32>,
+    /// Whether the scenario comes up with the notice of a setting the game changed on its own keys.
+    pub setting_toast: bool,
 }
 
 impl Default for Knobs {
@@ -43,6 +45,7 @@ impl Default for Knobs {
             options: OptionsView::default(),
             race: RaceView::Protoss,
             end_card_moment: None,
+            setting_toast: false,
         }
     }
 }
@@ -64,10 +67,12 @@ pub enum Preset {
     Victory,
     /// The end-of-game card of a player who has lost, raised by the defeat popup spawning.
     Defeat,
+    /// A player's game with the notice of a setting changed on the game's own keys.
+    SettingToast,
 }
 
 impl Preset {
-    pub const ALL: [Preset; 11] = [
+    pub const ALL: [Preset; 12] = [
         Preset::Observer,
         Preset::GameMenu,
         Preset::PlayerGameMenu,
@@ -79,6 +84,7 @@ impl Preset {
         Preset::Options(OptionsSection::Network),
         Preset::Victory,
         Preset::Defeat,
+        Preset::SettingToast,
     ];
 
     pub fn label(self) -> String {
@@ -90,6 +96,7 @@ impl Preset {
             Preset::Options(section) => format!("options-{}", section.slug()),
             Preset::Victory => "victory".to_string(),
             Preset::Defeat => "defeat".to_string(),
+            Preset::SettingToast => "setting-toast".to_string(),
         }
     }
 
@@ -106,12 +113,13 @@ impl Preset {
         knobs.host.defeat_spawned = matches!(self, Preset::Defeat);
         // The result popups are a player's; the rest of the shell's states are shown to a watcher.
         knobs.host.mode = match self {
-            Preset::PlayerGameMenu | Preset::Victory | Preset::Defeat => {
+            Preset::PlayerGameMenu | Preset::Victory | Preset::Defeat | Preset::SettingToast => {
                 overlay_ui::shell::Mode::Playing
             }
             _ => overlay_ui::shell::Mode::Observing,
         };
         knobs.shell.ambient_panel = matches!(self, Preset::Observer);
+        knobs.shell.setting_toast = matches!(self, Preset::SettingToast);
         knobs.shell.options_open = matches!(self, Preset::Options(_));
         if let Preset::Options(section) = self {
             knobs.shell.options_section = section;
@@ -254,6 +262,13 @@ pub fn knobs_ui(knobs: &mut Knobs, ui: &mut egui::Ui) -> bool {
     changed |= ui
         .checkbox(&mut knobs.ambient_panel, "ambient panel")
         .on_hover_text("Puts the network-stats panel on screen under the modal layer.")
+        .changed();
+    changed |= ui
+        .checkbox(&mut knobs.setting_toast, "setting notice")
+        .on_hover_text(
+            "Shows the notice of a setting the game changed on its own keys, as Shift+Tab turning \
+             the color overrides off would. Tick it again to show it again.",
+        )
         .changed();
     ui.add_space(8.0);
     changed |= ui

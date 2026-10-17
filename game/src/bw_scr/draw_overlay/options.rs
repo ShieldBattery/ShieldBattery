@@ -1357,4 +1357,28 @@ mod tests {
         follower.follow(music(false), &mut view);
         assert!(view.music_on);
     }
+
+    /// However the engine settles onto the settings the game was launched with, in whatever order
+    /// its values arrive, nothing is reported: only a change away from them is the player's.
+    #[test]
+    fn settling_onto_the_launch_settings_reports_nothing() {
+        let mut follower = EngineSettingsFollower::default();
+        let mut view = OptionsView {
+            hd_graphics_on: true,
+            music_on: true,
+            ..OptionsView::default()
+        };
+        let read = |hd, music| {
+            let mut read = hd_reading(hd);
+            read.registry[0] = Some(SettingValue::Bool(music));
+            read
+        };
+        for _ in 0..HD_SETTLE_FRAMES * 2 {
+            assert!(follower.follow(read(false, false), &mut view).is_empty());
+        }
+        for _ in 0..HD_SETTLE_FRAMES * 2 {
+            assert!(follower.follow(read(true, true), &mut view).is_empty());
+        }
+        assert!(view.hd_graphics_on && view.music_on);
+    }
 }

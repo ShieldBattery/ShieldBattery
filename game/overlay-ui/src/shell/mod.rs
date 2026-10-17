@@ -44,6 +44,7 @@ use crate::net_quality::{NetQualityView, render_net_quality};
 use crate::netstat::{NetStatsView, render_netstat_view};
 use crate::observer::{self, ObserverView};
 use crate::options::{OptionsLists, OptionsSection, OptionsView, SettingChange};
+use crate::setting_toast::SettingToast;
 use crate::transport::{TransportPlacement, TransportView, render_transport_view};
 
 pub use capture::{InputCapture, KeyboardCapture, PointerCapture};
@@ -298,6 +299,8 @@ pub struct Shell {
     alliances_menu: Option<AlliancesMenu>,
     /// The alliance changes made on the alliances screen and not yet applied.
     alliances_draft: AlliancesDraft,
+    /// The notice of a setting the game changed on its own keys, while one is on screen.
+    setting_toast: Option<SettingToast>,
     intents: Vec<Intent>,
 }
 
@@ -323,6 +326,7 @@ impl Shell {
             options_section: OptionsSection::default(),
             alliances_menu: None,
             alliances_draft: AlliancesDraft::default(),
+            setting_toast: None,
             intents: Vec::new(),
         }
     }
@@ -374,6 +378,17 @@ impl Shell {
     }
 
     /// Opens the options screen on `section`, for a host restoring where a player was.
+    /// Records a setting the game changed on one of its own keys, so the frame says so.
+    ///
+    /// A notice already on screen takes the new text and holds again from where it stands rather
+    /// than making its entrance again, so a key pressed a few times in a row reads as one notice
+    /// changing.
+    pub fn setting_changed_in_game(&mut self, change: SettingChange) {
+        if let Some(toast) = SettingToast::for_change(change) {
+            self.setting_toast = Some(toast);
+        }
+    }
+
     pub fn set_options_section(&mut self, section: OptionsSection) {
         self.options_section = section;
     }
@@ -614,6 +629,12 @@ impl Shell {
                 &mut hit_rects,
             );
             self.apply_modal_outcome(id, outcome);
+        }
+        // Over everything else, and taking nothing: it registers no hit rect.
+        if let Some(toast) = &mut self.setting_toast
+            && !toast.draw(ctx)
+        {
+            self.setting_toast = None;
         }
 
         FrameOutput {

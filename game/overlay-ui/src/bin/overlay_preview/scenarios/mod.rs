@@ -182,7 +182,7 @@ impl Preset {
 /// translated strings, picked as the busiest state each one has, since that is where long text runs
 /// out of room first. The kitchen sink is left out — it is a specimen sheet of the kit, not a screen
 /// whose copy is translated.
-pub const PSEUDOLOCALE_PRESETS: [Preset; 10] = [
+pub const PSEUDOLOCALE_PRESETS: [Preset; 11] = [
     Preset::Disconnect(disconnect::Preset::Droppable),
     Preset::NetStat(netstat::Preset::Degraded),
     Preset::ChatHistory(chat_history::Preset::Busy),
@@ -193,6 +193,7 @@ pub const PSEUDOLOCALE_PRESETS: [Preset; 10] = [
     Preset::Shell(shell::Preset::PlayerGameMenu),
     Preset::Shell(shell::Preset::Options(OptionsSection::Gameplay)),
     Preset::Shell(shell::Preset::Victory),
+    Preset::Shell(shell::Preset::SettingToast),
 ];
 
 /// Every scenario preset, in selector order.
@@ -229,6 +230,8 @@ pub struct UiState {
     pub observer: observer::State,
     /// What the fake game remembers of what the alliances screen asked of it.
     pub alliances: alliances::State,
+    /// The setting-notice knob as the shell was last told it, so the knob shows the notice once.
+    pub setting_toast_applied: bool,
 }
 
 impl UiState {
@@ -239,6 +242,7 @@ impl UiState {
             transport: transport::Clock::new(&knobs.transport),
             observer: observer::State::new(),
             alliances: alliances::State::new(),
+            setting_toast_applied: false,
         }
     }
 }
@@ -341,6 +345,12 @@ pub fn render(
     // The options screen is raised by the shell rather than by a native dialog, so the knob does
     // here what the in-game menu's Options button does in a game.
     shell::sync_options_modal(&knobs.shell, shell);
+    if knobs.shell.setting_toast && !state.setting_toast_applied {
+        shell.setting_changed_in_game(overlay_ui::options::SettingChange::MinimapColorMode(
+            overlay_ui::options::MinimapColorMode::Standard,
+        ));
+    }
+    state.setting_toast_applied = knobs.shell.setting_toast;
     let options_view = (knobs.scenario == ScenarioKind::Shell).then_some(knobs.shell.options);
     let option_lists = (knobs.scenario == ScenarioKind::Shell).then(shell::option_lists);
     let mut views = Views {

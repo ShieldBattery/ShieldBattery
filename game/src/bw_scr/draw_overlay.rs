@@ -475,6 +475,11 @@ impl OverlayState {
 
     /// Whether the game's resource icons have yet to be read. Read once, whether or not the game
     /// had them.
+    /// Tells the player about a setting the game changed on one of its own keys.
+    pub fn setting_changed_in_game(&mut self, change: SettingChange) {
+        self.shell.setting_changed_in_game(change);
+    }
+
     pub fn needs_resource_icons(&self) -> bool {
         self.resource_icons.is_none()
     }

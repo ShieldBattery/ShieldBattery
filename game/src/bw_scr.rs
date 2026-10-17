@@ -424,6 +424,9 @@ pub struct BwScr {
     /// just finished switching between SD/HD. Renderer_Render hook uses this to manually fix
     /// the values if it detects this.
     last_overlay_hd_value: AtomicBool,
+    /// Whether the last frame the renderer drew was partway through a switch between SD and HD,
+    /// which draws the final picture in both.
+    hd_switching: AtomicBool,
     /// The span of this frame's draw commands that are the overlay's, as `(first, end)` indices.
     /// The overlay draws straight to the backbuffer like the game's own final pass does, so the
     /// render hook reading the HD mode off that pass must step past these.
@@ -2829,6 +2832,7 @@ impl BwScr {
             show_skins: AtomicBool::new(false),
             is_hd_mode: [AtomicBool::new(true), AtomicBool::new(false)],
             last_overlay_hd_value: AtomicBool::new(false),
+            hd_switching: AtomicBool::new(false),
             overlay_draw_commands: (AtomicU32::new(0), AtomicU32::new(0)),
             starting_fog: AtomicStartingFog::new(StartingFog::Transparent),
             saved_minimap_color_mode: AtomicU8::new(0),
@@ -4342,9 +4346,14 @@ impl BwScr {
                         // otherwise.
                         self.is_hd_mode[1].load(Ordering::Relaxed)
                     };
+                    // Followed only once the game runs: what the loading screen draws in says
+                    // nothing about the player's settings.
+                    let mut engine_setting_changes = Vec::new();
                     if second_draw == 0 {
                         self.last_overlay_hd_value.store(is_hd, Ordering::Relaxed);
-                        self.follow_engine_settings(is_hd);
+                        if game_started {
+                            engine_setting_changes = self.follow_engine_settings();
+                        }
                         self.refresh_stale_game_stats();
                     }
                     // SC:R only enables carbot if both of these flags are set
@@ -4415,6 +4424,9 @@ impl BwScr {
                         let wireframe_remap = *self.wireframe_remap.get_or_init(|| {
                             draw_overlay::WireframeRemap::load(|path| self.read_game_file(path))
                         });
+                        for &change in &engine_setting_changes {
+                            render_state.overlay.setting_changed_in_game(change);
+                        }
                         for _ in 0..2 {
                             let overlay_out = render_state.overlay.step(
                                 &draw_overlay::BwVars {
@@ -4683,6 +4695,7 @@ impl BwScr {
                             }
                         }
                     }
+                    self.hd_switching.store(n == 2, Ordering::Relaxed);
                     if n == 1 {
                         // n == 1 should mean that no SD/HD transfers were active this frame.
 
@@ -7550,8 +7563,12 @@ impl BwScr {
     }
 
     /// Brings the options screen's copy of the settings the game changes on its own keys up to
-    /// date with what the game shows this frame, `is_hd` among them.
-    fn follow_engine_settings(&self, is_hd: bool) {
+    /// date with what the game shows this frame, and returns the changes the game made.
+    ///
+    /// Whether the game draws in HD is read off the final picture the renderer last drew, which is
+    /// what the game shows whatever any one draw command asked for, and not while a switch between
+    /// the two is still drawing both.
+    fn follow_engine_settings(&self) -> Vec<SettingChange> {
         use overlay_ui::options as ui;
         let minimap_color_mode = self
             .team_color_virtual_mode()
@@ -7568,7 +7585,8 @@ impl BwScr {
         });
         let read = draw_overlay::options::EngineSettings {
             registry,
-            hd_graphics_on: Some(is_hd),
+            hd_graphics_on: (!self.hd_switching.load(Ordering::Relaxed))
+                .then(|| self.is_hd_mode[0].load(Ordering::Relaxed)),
             minimap_terrain: self
                 .read_minimap_terrain_hidden()
                 .map(|hidden| match hidden {
@@ -7586,6 +7604,7 @@ impl BwScr {
         if !changes.is_empty() {
             self.save_setting_changes(&changes);
         }
+        changes
     }
 
     /// Reads the current Shift+Tab minimap player-color mode, or `None` if the global wasn't located

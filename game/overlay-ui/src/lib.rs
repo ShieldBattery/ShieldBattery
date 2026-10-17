@@ -32,6 +32,7 @@ pub mod net_quality;
 pub mod netstat;
 pub mod observer;
 pub mod options;
+pub mod setting_toast;
 pub mod shell;
 pub mod straight_alpha;
 mod style;
