@@ -8,10 +8,6 @@ use crate::bw_scr::chat_history::{ChatHistory, ChatLine, ChatLineKind, ChatScope
 
 use super::BwVars;
 
-/// How long one game frame lasts at Fastest, in milliseconds, which is the speed every
-/// ShieldBattery game is played at. Turns a line's frame stamp into the clock the player reads.
-const FASTEST_FRAME_MS: u64 = 42;
-
 /// How many game player ids have a color of their own. Past this are the observers (0x80-0x83),
 /// who hold no player slot and so no color.
 const PLAYER_COLOR_COUNT: usize = 12;
@@ -44,6 +40,9 @@ impl ChatHistoryCache {
         bw: &BwVars,
     ) -> ChatHistoryCache {
         let palette = player_palette(bw);
+        // A replay runs at the speed it was recorded at, which its clock is read in like every
+        // other clock on screen.
+        let game_speed = super::stats::game_speed(bw);
         let history = history.lock();
         let generation = history.generation();
         // A replay shows only what was said up to the frame it is at, which a seek back moves
@@ -68,7 +67,7 @@ impl ChatHistoryCache {
                     lines: history
                         .lines()
                         .take(shown)
-                        .map(|line| build_line(line, &palette))
+                        .map(|line| build_line(line, &palette, game_speed))
                         .collect(),
                 },
             },
@@ -95,9 +94,9 @@ fn player_palette(bw: &BwVars) -> PlayerPalette {
     })
 }
 
-fn build_line(line: &ChatLine, palette: &PlayerPalette) -> ChatLineView {
+fn build_line(line: &ChatLine, palette: &PlayerPalette, game_speed: u8) -> ChatLineView {
     ChatLineView {
-        game_seconds: line.game_frame as u64 * FASTEST_FRAME_MS / 1000,
+        game_seconds: overlay_ui::transport::frames_to_seconds(line.game_frame, game_speed),
         kind: match &line.kind {
             ChatLineKind::Player {
                 sender_game_id,

@@ -763,7 +763,7 @@ fn elapsed_secs(bw: &BwVars) -> u64 {
 }
 
 /// The speed the game's frames are turned into seconds at: the replay's recorded one, or Fastest.
-fn game_speed(bw: &BwVars) -> u8 {
+pub(super) fn game_speed(bw: &BwVars) -> u8 {
     bw.replay
         .map_or(FASTEST_GAME_SPEED, |replay| replay.game_speed)
 }
