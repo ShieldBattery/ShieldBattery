@@ -77,6 +77,17 @@ pub fn sbat_replay_data() -> Option<&'static replay::SbatReplayData> {
     SBAT_REPLAY_DATA.get()
 }
 
+/// The BW player id the local user played as in the replay being watched, where it is a replay of
+/// one of their own games: what the views that pick a player to start from start from.
+pub fn replay_seat_of_local_user() -> Option<u8> {
+    let local = local_user_id()?;
+    let seat = sbat_replay_data()?
+        .user_ids
+        .iter()
+        .position(|&user_id| user_id.0 != 0 && user_id == local)?;
+    Some(seat as u8)
+}
+
 // Async tasks request game thread to do some work
 pub struct GameThreadRequest {
     request_type: GameThreadRequestType,

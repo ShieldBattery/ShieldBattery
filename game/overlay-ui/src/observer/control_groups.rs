@@ -182,25 +182,37 @@ pub struct ControlGroupsPlayerView {
 /// Everything the control groups panel draws from.
 #[derive(Default)]
 pub struct ControlGroupsView {
-    /// Every player and what they have bound. A game where nobody has bound anything has no panel.
+    /// Every player and what they have bound.
     pub players: Vec<ControlGroupsPlayerView>,
+    /// The player whose row is shown before the watcher has picked one, where the host has a
+    /// reason to start from somebody: the watcher's own seat in a replay of their own game.
+    pub default_player: Option<u8>,
 }
 
 impl ControlGroupsView {
-    /// Whether there is anything at all to draw.
+    /// Whether there is no player to draw a row for. A game where nobody has bound anything yet
+    /// still has a panel: its slots are drawn empty, so the panel is already where it will be once
+    /// they fill.
     pub fn is_empty(&self) -> bool {
-        self.players.iter().all(|player| player.groups.is_empty())
+        self.players.is_empty()
     }
 
     /// The player whose row is drawn: `focus`, whatever they have bound, and before anyone has been
-    /// focused, the first player who has bound something.
+    /// focused, the [default player](Self::default_player), or failing one the player in the lowest
+    /// slot.
     ///
     /// A focused player with nothing bound still gets their row, empty: a watcher who clicked one
-    /// player's building and was shown somebody else's keys would read them as that player's.
+    /// player's building and was shown somebody else's keys would read them as that player's. The
+    /// row shown before then does not depend on who has bound what, so it does not change hands as
+    /// the players start binding.
     pub(crate) fn shown(&self, focus: Option<u8>) -> Option<&ControlGroupsPlayerView> {
+        let find = |id: u8| self.players.iter().find(|player| player.player_id == id);
         match focus {
-            Some(focus) => self.players.iter().find(|player| player.player_id == focus),
-            None => self.players.iter().find(|player| !player.groups.is_empty()),
+            Some(focus) => find(focus),
+            None => self
+                .default_player
+                .and_then(find)
+                .or_else(|| self.players.iter().min_by_key(|player| player.player_id)),
         }
     }
 }
@@ -214,8 +226,8 @@ pub struct ControlGroupsOutcome {
 }
 
 /// Draws the control groups panel in `slot`, fading and sliding it in and out, with the row of the
-/// player `focus` names. Returns nothing at all once it is gone, while nobody has a group, or where
-/// the slot has no room for it.
+/// player `focus` names. Returns nothing at all once it is gone, in a game with no players, or
+/// where the slot has no room for it.
 ///
 /// A slot narrower than the panel's design width narrows every key's slot alike rather than
 /// dropping any of them.
@@ -464,6 +476,57 @@ mod tests {
             crate::kit::tiers::panel_content_width(PANEL_WIDTH),
             CONTENT_WIDTH
         );
+    }
+
+    fn player(player_id: u8, groups: Vec<ControlGroupView>) -> ControlGroupsPlayerView {
+        ControlGroupsPlayerView {
+            player_id,
+            color: Color32::WHITE,
+            vision: true,
+            groups,
+        }
+    }
+
+    fn group(key: u8) -> ControlGroupView {
+        ControlGroupView {
+            key,
+            icon: ProductionIcon {
+                texture: None,
+                index: 0,
+                size: None,
+                margin: 0.0,
+                wireframe: None,
+            },
+            combo: None,
+            count: 1,
+            building: false,
+            stale: false,
+        }
+    }
+
+    #[test]
+    fn a_game_nobody_has_bound_anything_in_still_has_a_row() {
+        let view = ControlGroupsView {
+            players: vec![player(4, Vec::new()), player(2, Vec::new())],
+            default_player: None,
+        };
+        assert!(!view.is_empty());
+        assert_eq!(view.shown(None).map(|player| player.player_id), Some(2));
+    }
+
+    #[test]
+    fn the_row_before_a_focus_stays_put_as_players_bind() {
+        let mut view = ControlGroupsView {
+            players: vec![player(4, vec![group(1)]), player(2, Vec::new())],
+            default_player: None,
+        };
+        assert_eq!(view.shown(None).map(|player| player.player_id), Some(2));
+        view.default_player = Some(4);
+        assert_eq!(view.shown(None).map(|player| player.player_id), Some(4));
+        // A focus still wins, and a default the game has no row for falls back to the lowest slot.
+        assert_eq!(view.shown(Some(2)).map(|player| player.player_id), Some(2));
+        view.default_player = Some(7);
+        assert_eq!(view.shown(None).map(|player| player.player_id), Some(2));
     }
 
     #[test]

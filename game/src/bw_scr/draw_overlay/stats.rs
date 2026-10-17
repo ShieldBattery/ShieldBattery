@@ -21,6 +21,7 @@ use overlay_ui::transport;
 
 use crate::bw;
 use crate::bw_scr::game_stats::{GameStats, HistoryStamp, Sample, StatsAsOf, TimelineSubject};
+use crate::game_thread;
 
 use super::{
     BwVars, FASTEST_GAME_SPEED, has_player_vision, player_has_units, production,
@@ -549,6 +550,7 @@ fn build_control_groups_view(
                     .collect(),
             })
             .collect(),
+        default_player: game_thread::replay_seat_of_local_user(),
     }
 }
 

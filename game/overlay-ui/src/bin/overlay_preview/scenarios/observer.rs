@@ -375,6 +375,7 @@ pub fn build_view(
             players: (0..players)
                 .map(|index| control_groups_player(knobs, state, index, t))
                 .collect(),
+            default_player: None,
         },
         selection: selection(knobs, t),
         map_control: knobs.map_control.then(|| map_control(t)),
