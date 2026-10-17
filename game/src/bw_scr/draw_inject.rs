@@ -64,9 +64,8 @@ quick_error! {
 
 pub struct RenderTarget {
     pub id: u32,
-    /// 1.0 / scaled_render_target_width
-    /// Where scaled width / height are determined so that if height is above 1080, and
-    /// width is a value matching 1080 height so that the aspect ratio is kept.
+    /// 1.0 / the target's width and height in overlay points, at the scale the overlay is laid
+    /// out at (`overlay_ui::kit::pixels::pixels_per_point`).
     /// Used for egui <-> bw coordinate translations.
     pub w_recip: f32,
     pub h_recip: f32,
@@ -104,19 +103,12 @@ impl RenderTarget {
     fn with_size(id: u32, width: u32, height: u32) -> RenderTarget {
         let width = width.max(1) as f32;
         let height = height.max(1) as f32;
-        // TODO(neive): This is more or less duplicating logic in draw_overlay::OverlayState::step,
-        // (And assuming the render target sizes here are same as the values passed to step())
-        // would be more cleaner to have the egui-visible width/height be passed from there.
-        let (scale, h_recip) = if height > 1080.0 {
-            (height / 1080.0, 1.0 / 1080.0)
-        } else {
-            (1.0, 1.0 / height)
-        };
-        let w_recip = 1.0 / (width / scale);
+        // The same scale the overlay is laid out at, so a point lands where the layout put it.
+        let scale = overlay_ui::kit::pixels::pixels_per_point(width, height);
         RenderTarget {
             id,
-            w_recip,
-            h_recip,
+            w_recip: scale / width,
+            h_recip: scale / height,
             bw_w_recip: 1.0 / width,
             bw_h_recip: 1.0 / height,
         }
