@@ -20,7 +20,8 @@
 
 use egui::{Align, Align2, Area, Color32, Context, Id, Order, Rect, Sense, Ui, pos2, vec2};
 
-use crate::kit::text::{self, BodyWeight};
+use crate::kit::clamp_layout;
+use crate::kit::text::{self, BodyWeight, TextSpec};
 use crate::kit::widgets::{self, ResourceGlyph};
 use crate::kit::{motion, theme, tiers};
 use crate::observer::{
@@ -65,10 +66,15 @@ const CHIP: f32 = 18.0;
 /// Gap between the chip and the name.
 const CHIP_GAP: f32 = 6.0;
 
-/// Width the player's name is laid out in. Fixed, because a name is player-chosen, and it is what
-/// the value columns leave: a name has more to say than a number, and a bank past five digits is
-/// not a bank anybody keeps.
+/// Width the player's name is laid out in where the card has its design's width. Fixed rather than
+/// grown to the longest name, because a name is player-chosen, and it is what the value columns
+/// leave: a name has more to say than a number, and a bank past five digits is not a bank anybody
+/// keeps.
 const NAME_WIDTH: f32 = 142.0;
+
+/// The room a name keeps however narrow the card: about nine letters, which is still the player it
+/// names. Below it a row gives up a column rather than eliding the name further.
+const MIN_NAME_WIDTH: f32 = 80.0;
 
 /// Gap between two columns.
 const COLUMN_GAP: f32 = 6.0;
@@ -117,52 +123,310 @@ const _: () = assert!(
 const SLASH_WIDTH: f32 = 10.0;
 const TRADE_KILLS_WIDTH: f32 = 40.0;
 
-/// The narrowest a card's name column is squeezed to on a narrow screen before the card gives up
-/// its rate column instead.
-const MIN_NAME_WIDTH: f32 = 72.0;
+/// Room a column or a totals cell keeps beyond its widest text, so two of them at their tightest
+/// still read as two rather than one run of numbers.
+const CELL_CLEARANCE: f32 = 6.0;
+
+/// The fewest digits a count is given room for, so a column does not move each time a number in it
+/// gains a digit early in the game.
+const MIN_RESOURCE_DIGITS: usize = 4;
+const MIN_COUNT_DIGITS: usize = 3;
+
+/// A value column on a player's row, in the order the row reads them.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+enum Column {
+    Minerals,
+    Gas,
+    Supply,
+    Rate,
+}
+
+impl Column {
+    const ALL: [Column; 4] = [Column::Minerals, Column::Gas, Column::Supply, Column::Rate];
+
+    fn design_width(self) -> f32 {
+        match self {
+            Column::Minerals => MINERAL_WIDTH,
+            Column::Gas => GAS_WIDTH,
+            Column::Supply => SUPPLY_WIDTH,
+            Column::Rate => APM_WIDTH,
+        }
+    }
+
+    fn heading(self) -> String {
+        match self {
+            Column::Minerals => tr!("observer.columnMinerals", "Min"),
+            Column::Gas => tr!("observer.columnGas", "Gas"),
+            Column::Supply => tr!("observer.columnSupply", "Supply"),
+            Column::Rate => tr!("observer.apm", "APM"),
+        }
+    }
+}
+
+/// A cell of the side's totals, in the order the footer reads them.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+enum TotalsCell {
+    Income,
+    Army,
+    Workers,
+    Trade,
+}
+
+impl TotalsCell {
+    const ALL: [TotalsCell; 4] = [
+        TotalsCell::Income,
+        TotalsCell::Army,
+        TotalsCell::Workers,
+        TotalsCell::Trade,
+    ];
+
+    fn design_width(self) -> f32 {
+        match self {
+            TotalsCell::Income => FOOTER_INCOME,
+            TotalsCell::Army => FOOTER_ARMY,
+            TotalsCell::Workers => FOOTER_WORKERS,
+            TotalsCell::Trade => FOOTER_TRADE,
+        }
+    }
+
+    fn heading(self) -> String {
+        match self {
+            TotalsCell::Income => tr!("observer.columnIncome", "Income"),
+            TotalsCell::Army => tr!("observer.columnArmy", "Army"),
+            TotalsCell::Workers => tr!("observer.columnWorkers", "Workers"),
+            TotalsCell::Trade => tr!("observer.columnUnitsKillsLosses", "Units k/l"),
+        }
+    }
+}
+
+/// What a player's row gives up, least missed first, once its columns are as tight as their
+/// contents and the name still has less than [`MIN_NAME_WIDTH`]. The rate is the number least
+/// often looked for; the supply cap is mostly said already by the count turning red at it; the race
+/// chip is said by the units on the map; and gas goes before minerals, which every build spends
+/// first.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+enum RowShed {
+    Rate,
+    SupplyCap,
+    RaceChip,
+    Gas,
+}
+
+const ROW_SHEDDING: [RowShed; 4] = [
+    RowShed::Rate,
+    RowShed::SupplyCap,
+    RowShed::RaceChip,
+    RowShed::Gas,
+];
+
+/// The least room each part of a card needs to be drawn whole: a heading or the widest value under
+/// it, whichever is wider. Measured across both cards, which share one layout.
+#[derive(Copy, Clone, PartialEq, Debug)]
+struct CardNeeds {
+    /// The widest name on either card, up to [`MIN_NAME_WIDTH`]: a short name needs no more.
+    name: f32,
+    /// The widest name on either card, up to [`NAME_WIDTH`]: the room that shows every name whole.
+    whole_name: f32,
+    /// Each value column, in [`Column::ALL`]'s order.
+    columns: [f32; 4],
+    /// The supply column with its counts alone, for a row that has given up the cap.
+    supply_count: f32,
+    /// Each cell of the totals, in [`TotalsCell::ALL`]'s order.
+    totals: [f32; 4],
+}
+
+impl CardNeeds {
+    fn measure(ctx: &Context, view: &TeamCardsView) -> CardNeeds {
+        let width = |spec: &TextSpec, text: &str| spec.layout(ctx, spec.job(text)).size().x;
+        let heading = text::column_label();
+        let players = || view.teams.iter().flat_map(|team| &team.players);
+        let most = |value: fn(&TeamCardPlayerView) -> u32| players().map(value).max().unwrap_or(0);
+
+        let value = text::numeral(VALUE_SIZE);
+        let supply_used = digits(most(|player| player.supply_used), MIN_COUNT_DIGITS);
+        let supply_max = digits(most(|player| player.supply_max), MIN_COUNT_DIGITS);
+        let columns = Column::ALL.map(|column| {
+            let widest = match column {
+                Column::Minerals => digits(most(|player| player.minerals), MIN_RESOURCE_DIGITS),
+                Column::Gas => digits(most(|player| player.gas), MIN_RESOURCE_DIGITS),
+                Column::Supply => format!("{supply_used}/{supply_max}"),
+                Column::Rate => digits(most(|player| player.apm), MIN_COUNT_DIGITS),
+            };
+            width(&heading, &column.heading()).max(width(&value, &widest)) + CELL_CLEARANCE
+        });
+
+        let total = text::numeral(TOTAL_SIZE);
+        let sides = || view.teams.iter().filter_map(|team| team.totals.as_ref());
+        let most = |value: fn(&TeamCardTotalsView) -> u32| sides().map(value).max().unwrap_or(0);
+        // Both halves of a pair cell are as wide as the wider of its two numbers.
+        let pair = |widest: u32| {
+            (STAT_GLYPH + STAT_GLYPH_GAP + width(&total, &digits(widest, MIN_RESOURCE_DIGITS)))
+                * 2.0
+                + FOOTER_GAP
+        };
+        let totals = TotalsCell::ALL.map(|cell| {
+            let content = match cell {
+                TotalsCell::Income => pair(most(|side| {
+                    side.minerals_per_minute.max(side.gas_per_minute)
+                })),
+                TotalsCell::Army => pair(most(|side| side.army_minerals.max(side.army_gas))),
+                TotalsCell::Workers => {
+                    width(&total, &digits(most(|side| side.workers), MIN_COUNT_DIGITS))
+                }
+                TotalsCell::Trade => {
+                    TRADE_KILLS_WIDTH
+                        + SLASH_WIDTH
+                        + width(
+                            &total,
+                            &digits(most(|side| side.units_lost), MIN_COUNT_DIGITS),
+                        )
+                }
+            };
+            width(&heading, &cell.heading()).max(content) + CELL_CLEARANCE
+        });
+
+        let widest_name = players()
+            .map(|player| width(&text::player_name(NAME_SIZE), &player.name))
+            .fold(0.0, f32::max);
+        CardNeeds {
+            name: widest_name.min(MIN_NAME_WIDTH),
+            whole_name: widest_name.min(NAME_WIDTH),
+            columns,
+            supply_count: width(&heading, &Column::Supply.heading())
+                .max(width(&value, &supply_used))
+                + CELL_CLEARANCE,
+            totals,
+        }
+    }
+}
+
+/// As many zeros as `value` has digits, and at least `floor` of them: the room the value takes in
+/// tabular numerals, which are all one width.
+fn digits(value: u32, floor: usize) -> String {
+    let count = value.checked_ilog10().map_or(1, |log| log as usize + 1);
+    "0".repeat(count.max(floor))
+}
 
 /// How a card is laid out across the width a screen leaves it.
 ///
-/// The design's columns where the card has its design's width, and on a narrower screen the name
-/// column squeezed first, then the rate dropped: a side's bank and supply are what the card is read
-/// for, and a name elided a few letters early is still the player it names. The totals along the
-/// bottom are spread across whatever the card is, since they are four cells with room to spare.
+/// The design's columns where the card has its design's width. Narrower, the name column gives up
+/// the room no name on the cards uses and the value columns tighten toward what they hold, since
+/// both are giving up empty space, then the names narrow to [`MIN_NAME_WIDTH`], and past that a
+/// row gives up what it misses least (see [`RowShed`]) and hands the room to the name. The totals tighten the same way and then give up the trade, then the
+/// workers, rather than eliding a heading partway through a word.
 #[derive(Copy, Clone, PartialEq, Debug)]
 struct CardLayout {
     content_width: f32,
+    race_chip: bool,
     name_width: f32,
-    apm: bool,
+    /// Each value column's width in [`Column::ALL`]'s order, or `None` for one the row gave up.
+    columns: [Option<f32>; 4],
+    /// Whether the supply column shows the cap after the count.
+    supply_cap: bool,
+    /// Each totals cell's width in [`TotalsCell::ALL`]'s order, or `None` for one given up.
+    totals: [Option<f32>; 4],
 }
 
 impl CardLayout {
     /// The card a corner `width` points wide holds, at most the design's own.
-    fn fitted(width: f32) -> CardLayout {
+    fn fitted(width: f32, needs: &CardNeeds) -> CardLayout {
         let content_width = tiers::panel_content_width(width.min(CARD_WIDTH));
         let mut layout = CardLayout {
             content_width,
-            name_width: NAME_WIDTH,
-            apm: true,
+            race_chip: true,
+            name_width: 0.0,
+            columns: [None; 4],
+            supply_cap: true,
+            totals: fit_totals(content_width, &needs.totals),
         };
-        let excess = CONTENT_WIDTH - content_width;
-        if excess <= 0.0 {
-            return layout;
-        }
-        let squeeze = excess.min(NAME_WIDTH - MIN_NAME_WIDTH);
-        layout.name_width -= squeeze;
-        if excess > squeeze {
-            // The rate's column and the gap ahead of it go back to the name, which is what was
-            // squeezed to make room for them.
-            layout.apm = false;
-            layout.name_width =
-                (layout.name_width + APM_WIDTH + COLUMN_GAP - (excess - squeeze)).max(0.0);
+        let mut shown = [true; 4];
+        let steps = std::iter::once(None).chain(ROW_SHEDDING.map(Some));
+        for (step, shed) in steps.enumerate() {
+            if let Some(shed) = shed {
+                match shed {
+                    RowShed::Rate => shown[Column::Rate as usize] = false,
+                    RowShed::SupplyCap => layout.supply_cap = false,
+                    RowShed::RaceChip => layout.race_chip = false,
+                    RowShed::Gas => shown[Column::Gas as usize] = false,
+                }
+            }
+            let cells = Column::ALL.map(|column| {
+                shown[column as usize].then(|| {
+                    let need = if column == Column::Supply && !layout.supply_cap {
+                        needs.supply_count
+                    } else {
+                        needs.columns[column as usize]
+                    };
+                    (need, column.design_width())
+                })
+            });
+            let lead = COLOR_BAR + BAR_GAP + layout.chip_width();
+            let gaps = COLUMN_GAP * cells.iter().flatten().count() as f32;
+            let room = content_width - lead - gaps;
+            let columns_need: f32 = cells.iter().flatten().map(|&(need, _)| need).sum();
+            if room - columns_need < needs.name && step < ROW_SHEDDING.len() {
+                continue;
+            }
+            // Every name is shown whole before the columns grow past what they hold, and the name
+            // takes whatever the columns' designs leave over besides.
+            let name = clamp_layout(room - columns_need, 0.0, needs.whole_name);
+            let (columns, leftover) = spread(cells, room - name);
+            layout.columns = columns;
+            layout.name_width = name + leftover;
+            break;
         }
         layout
     }
 
-    /// How much of its design width each cell of the totals keeps.
-    fn footer_scale(&self) -> f32 {
-        (self.content_width - FOOTER_GAP * 3.0) / (CONTENT_WIDTH - FOOTER_GAP * 3.0)
+    fn column(&self, column: Column) -> Option<f32> {
+        self.columns[column as usize]
     }
+
+    /// The room the race chip takes ahead of the name, with the gap after it.
+    fn chip_width(&self) -> f32 {
+        if self.race_chip { CHIP + CHIP_GAP } else { 0.0 }
+    }
+}
+
+/// The totals' cells across `content_width`: all four where they fit whole, and otherwise without
+/// the trade, then without the workers too. Income and army are what the card's totals are for, so
+/// they stay however little room is left.
+fn fit_totals(content_width: f32, needs: &[f32; 4]) -> [Option<f32>; 4] {
+    let room = |count: usize| content_width - FOOTER_GAP * (count - 1) as f32;
+    let fits = |count: usize| needs[..count].iter().sum::<f32>() <= room(count);
+    let count = [4, 3].into_iter().find(|&count| fits(count)).unwrap_or(2);
+    let cells = TotalsCell::ALL
+        .map(|cell| ((cell as usize) < count).then(|| (needs[cell as usize], cell.design_width())));
+    let (widths, leftover) = spread(cells, room(count));
+    let share = leftover / count as f32;
+    widths.map(|width| width.map(|width| width + share))
+}
+
+/// Widens `cells`, each given as the room it needs and its design width, within `room`: each grows
+/// from its need toward its design by the same share of what it lacks, and one that needs more than
+/// its design keeps its need. Returns the widths and what of `room` is left once every cell has its
+/// design. Too little room for every need squeezes them all alike.
+fn spread(cells: [Option<(f32, f32)>; 4], room: f32) -> ([Option<f32>; 4], f32) {
+    let need: f32 = cells.iter().flatten().map(|&(need, _)| need).sum();
+    let short: f32 = cells
+        .iter()
+        .flatten()
+        .map(|&(need, design)| (design - need).max(0.0))
+        .sum();
+    let spare = room - need;
+    if spare < 0.0 {
+        let squeeze = room.max(0.0) / need;
+        return (cells.map(|cell| cell.map(|(need, _)| need * squeeze)), 0.0);
+    }
+    let share = if short > 0.0 {
+        (spare / short).min(1.0)
+    } else {
+        0.0
+    };
+    (
+        cells.map(|cell| cell.map(|(need, design)| need + (design - need).max(0.0) * share)),
+        (spare - short).max(0.0),
+    )
 }
 
 /// Text size of a player's name.
@@ -262,7 +526,7 @@ pub fn render_team_cards_view(
 ) -> TeamCardsOutcome {
     let screen = ctx.viewport_rect();
     let corner = (screen.width() - super::matchup::CLOCK_WIDTH) * 0.5 - WING_GAP - WING_MARGIN;
-    let layout = CardLayout::fitted(corner - right_inset);
+    let layout = CardLayout::fitted(corner - right_inset, &CardNeeds::measure(ctx, view));
     let mut outcome = TeamCardsOutcome {
         rects: Vec::new(),
         left_bottom: None,
@@ -398,19 +662,12 @@ fn draw_headings(ui: &mut Ui, layout: CardLayout) {
         Sense::hover(),
     );
     let mut cursor = EdgeCursor::from_left(row);
-    cursor.skip(COLOR_BAR + BAR_GAP + CHIP + CHIP_GAP + layout.name_width + COLUMN_GAP);
-    let columns = [
-        (MINERAL_WIDTH, tr!("observer.columnMinerals", "Min")),
-        (GAS_WIDTH, tr!("observer.columnGas", "Gas")),
-        (SUPPLY_WIDTH, tr!("observer.columnSupply", "Supply")),
-        (APM_WIDTH, tr!("observer.apm", "APM")),
-    ];
-    let shown = if layout.apm { 4 } else { 3 };
-    for (index, (width, label)) in columns.into_iter().take(shown).enumerate() {
-        if index > 0 {
+    cursor.skip(COLOR_BAR + BAR_GAP + layout.chip_width() + layout.name_width);
+    for column in Column::ALL {
+        if let Some(width) = layout.column(column) {
             cursor.skip(COLUMN_GAP);
+            paint_column_heading(ui, cursor.take(width), &column.heading(), Align::RIGHT);
         }
-        paint_column_heading(ui, cursor.take(width), &label, Align::RIGHT);
     }
 }
 
@@ -430,8 +687,10 @@ fn draw_player(ui: &mut Ui, player: &TeamCardPlayerView, layout: CardLayout) {
         if player.vision { 1.0 } else { 0.5 },
     );
     cursor.skip(BAR_GAP);
-    paint_race_chip(ui, centred(cursor.take(CHIP), CHIP), player.race, alpha);
-    cursor.skip(CHIP_GAP);
+    if layout.race_chip {
+        paint_race_chip(ui, centred(cursor.take(CHIP), CHIP), player.race, alpha);
+        cursor.skip(CHIP_GAP);
+    }
     paint_text(
         ui,
         cursor.take(layout.name_width),
@@ -440,25 +699,7 @@ fn draw_player(ui: &mut Ui, player: &TeamCardPlayerView, layout: CardLayout) {
         Align::LEFT,
     );
 
-    cursor.skip(COLUMN_GAP);
-    let value = |value: &str, color: Color32, rect: Rect| {
-        paint_text(
-            ui,
-            rect,
-            &text::numeral(VALUE_SIZE).with_color(color),
-            value,
-            Align::RIGHT,
-        );
-    };
     let primary = theme::TEXT_PRIMARY.gamma_multiply(alpha);
-    value(
-        &player.minerals.to_string(),
-        primary,
-        cursor.take(MINERAL_WIDTH),
-    );
-    cursor.skip(COLUMN_GAP);
-    value(&player.gas.to_string(), primary, cursor.take(GAS_WIDTH));
-    cursor.skip(COLUMN_GAP);
     // Supply at or past the cap is production time a player is losing, so it is the one number on the
     // card that changes color.
     let supply_color = if super::matchup::supply_blocked(player.supply_used, player.supply_max) {
@@ -466,72 +707,73 @@ fn draw_player(ui: &mut Ui, player: &TeamCardPlayerView, layout: CardLayout) {
     } else {
         primary
     };
-    value(
-        &format!("{}/{}", player.supply_used, player.supply_max),
-        supply_color,
-        cursor.take(SUPPLY_WIDTH),
-    );
-    if layout.apm {
+    for column in Column::ALL {
+        let Some(width) = layout.column(column) else {
+            continue;
+        };
         cursor.skip(COLUMN_GAP);
-        value(&player.apm.to_string(), primary, cursor.take(APM_WIDTH));
+        let (value, color) = match column {
+            Column::Minerals => (player.minerals.to_string(), primary),
+            Column::Gas => (player.gas.to_string(), primary),
+            Column::Supply if layout.supply_cap => (
+                format!("{}/{}", player.supply_used, player.supply_max),
+                supply_color,
+            ),
+            Column::Supply => (player.supply_used.to_string(), supply_color),
+            Column::Rate => (player.apm.to_string(), primary),
+        };
+        paint_text(
+            ui,
+            cursor.take(width),
+            &text::numeral(VALUE_SIZE).with_color(color),
+            &value,
+            Align::RIGHT,
+        );
     }
 }
 
 /// Draws the side's totals: two labeled rows, so each number keeps the word that says what it is.
 fn draw_totals(ui: &mut Ui, totals: &TeamCardTotalsView, layout: CardLayout) {
-    let scale = layout.footer_scale();
-    let (income, army, workers, trade) = (
-        FOOTER_INCOME * scale,
-        FOOTER_ARMY * scale,
-        FOOTER_WORKERS * scale,
-        FOOTER_TRADE * scale,
-    );
+    let cells = || {
+        TotalsCell::ALL
+            .into_iter()
+            .filter_map(|cell| layout.totals[cell as usize].map(|width| (cell, width)))
+    };
     let (headings, _) = ui.allocate_exact_size(
         vec2(layout.content_width, STAT_HEADING_HEIGHT),
         Sense::hover(),
     );
     let mut cursor = EdgeCursor::from_left(headings);
-    for (index, (width, label)) in [
-        (income, tr!("observer.columnIncome", "Income")),
-        (army, tr!("observer.columnArmy", "Army")),
-        (workers, tr!("observer.columnWorkers", "Workers")),
-        (trade, tr!("observer.columnUnitsKillsLosses", "Units k/l")),
-    ]
-    .into_iter()
-    .enumerate()
-    {
+    for (index, (cell, width)) in cells().enumerate() {
         if index > 0 {
             cursor.skip(FOOTER_GAP);
         }
-        paint_column_heading(ui, cursor.take(width), &label, Align::LEFT);
+        paint_column_heading(ui, cursor.take(width), &cell.heading(), Align::LEFT);
     }
 
     let (row, _) =
         ui.allocate_exact_size(vec2(layout.content_width, STAT_ROW_HEIGHT), Sense::hover());
     let mut cursor = EdgeCursor::from_left(row);
-    draw_pair(
-        ui,
-        cursor.take(income),
-        totals.minerals_per_minute,
-        totals.gas_per_minute,
-    );
-    cursor.skip(FOOTER_GAP);
-    draw_pair(ui, cursor.take(army), totals.army_minerals, totals.army_gas);
-    cursor.skip(FOOTER_GAP);
-    paint_text(
-        ui,
-        cursor.take(workers),
-        &text::numeral(TOTAL_SIZE),
-        &totals.workers.to_string(),
-        Align::LEFT,
-    );
-    cursor.skip(FOOTER_GAP);
-    draw_trade(
-        ui,
-        cursor.take(trade),
-        totals.units_killed,
-        totals.units_lost,
-    );
+    for (index, (cell, width)) in cells().enumerate() {
+        if index > 0 {
+            cursor.skip(FOOTER_GAP);
+        }
+        let rect = cursor.take(width);
+        match cell {
+            TotalsCell::Income => {
+                draw_pair(ui, rect, totals.minerals_per_minute, totals.gas_per_minute)
+            }
+            TotalsCell::Army => draw_pair(ui, rect, totals.army_minerals, totals.army_gas),
+            TotalsCell::Workers => paint_text(
+                ui,
+                rect,
+                &text::numeral(TOTAL_SIZE),
+                &totals.workers.to_string(),
+                Align::LEFT,
+            ),
+            TotalsCell::Trade => draw_trade(ui, rect, totals.units_killed, totals.units_lost),
+        }
+    }
 }
 
 /// Draws one footer cell carrying both resources.
@@ -605,38 +847,170 @@ mod tests {
         );
     }
 
-    #[test]
-    fn a_card_with_its_design_width_keeps_the_design_columns() {
-        let layout = CardLayout::fitted(CARD_WIDTH + 40.0);
-        assert_eq!(layout.content_width, CONTENT_WIDTH);
-        assert_eq!(layout.name_width, NAME_WIDTH);
-        assert!(layout.apm);
-        assert_eq!(layout.footer_scale(), 1.0);
+    /// What an English card of a late game measures, near enough.
+    fn needs() -> CardNeeds {
+        CardNeeds {
+            name: MIN_NAME_WIDTH,
+            whole_name: NAME_WIDTH,
+            columns: [44.0, 44.0, 66.0, 33.0],
+            supply_count: 40.0,
+            totals: [118.0, 118.0, 64.0, 82.0],
+        }
+    }
+
+    fn close(a: f32, b: f32) -> bool {
+        (a - b).abs() < 0.01
+    }
+
+    /// Everything a row lays out across the card, which is the card's content width wherever a
+    /// name has any room at all.
+    fn row_width(layout: &CardLayout) -> f32 {
+        COLOR_BAR
+            + BAR_GAP
+            + layout.chip_width()
+            + layout.name_width
+            + layout
+                .columns
+                .iter()
+                .flatten()
+                .map(|width| COLUMN_GAP + width)
+                .sum::<f32>()
+    }
+
+    fn totals_width(layout: &CardLayout) -> f32 {
+        let cells = layout.totals.iter().flatten();
+        cells.clone().sum::<f32>() + FOOTER_GAP * (cells.count() - 1) as f32
+    }
+
+    /// Which of [`ROW_SHEDDING`] a layout has given up, as a count from the front of it.
+    fn shed(layout: &CardLayout) -> usize {
+        let given_up = [
+            layout.column(Column::Rate).is_none(),
+            !layout.supply_cap,
+            !layout.race_chip,
+            layout.column(Column::Gas).is_none(),
+        ];
+        let count = given_up.iter().take_while(|&&given_up| given_up).count();
+        assert!(
+            given_up[count..].iter().all(|&given_up| !given_up),
+            "a row gave up {given_up:?}, out of order"
+        );
+        count
     }
 
     #[test]
-    fn a_narrow_card_squeezes_names_before_it_gives_up_the_rate() {
-        let layout = CardLayout::fitted(CARD_WIDTH - 48.0);
-        assert_eq!(layout.name_width, NAME_WIDTH - 48.0);
-        assert!(layout.apm);
+    fn a_card_with_its_design_width_keeps_the_design_columns() {
+        let layout = CardLayout::fitted(CARD_WIDTH + 40.0, &needs());
+        assert_eq!(layout.content_width, CONTENT_WIDTH);
+        assert!(close(layout.name_width, NAME_WIDTH));
+        assert!(layout.race_chip && layout.supply_cap);
+        for column in Column::ALL {
+            assert!(close(layout.column(column).unwrap(), column.design_width()));
+        }
+        for cell in TotalsCell::ALL {
+            assert!(close(
+                layout.totals[cell as usize].unwrap(),
+                cell.design_width()
+            ));
+        }
+    }
 
-        let layout = CardLayout::fitted(CARD_WIDTH - 100.0);
-        assert!(!layout.apm);
-        // What is left of the row still adds up to the card.
-        assert_eq!(
-            COLOR_BAR
-                + BAR_GAP
-                + CHIP
-                + CHIP_GAP
-                + layout.name_width
-                + COLUMN_GAP
-                + MINERAL_WIDTH
-                + COLUMN_GAP
-                + GAS_WIDTH
-                + COLUMN_GAP
-                + SUPPLY_WIDTH,
-            layout.content_width
+    #[test]
+    fn a_heading_longer_than_its_design_column_is_given_its_room_from_the_others() {
+        let mut needs = needs();
+        needs.columns[Column::Supply as usize] = SUPPLY_WIDTH + 12.0;
+        needs.totals[TotalsCell::Workers as usize] = FOOTER_WORKERS + 16.0;
+        let layout = CardLayout::fitted(CARD_WIDTH, &needs);
+        assert!(close(layout.name_width, NAME_WIDTH));
+        assert!(close(
+            layout.column(Column::Supply).unwrap(),
+            SUPPLY_WIDTH + 12.0
+        ));
+        assert!(layout.column(Column::Rate).is_some());
+        assert!(close(
+            layout.totals[TotalsCell::Workers as usize].unwrap(),
+            FOOTER_WORKERS + 16.0
+        ));
+        assert!(close(row_width(&layout), CONTENT_WIDTH));
+        assert!(close(totals_width(&layout), CONTENT_WIDTH));
+    }
+
+    #[test]
+    fn a_narrow_card_tightens_its_columns_before_it_narrows_names() {
+        let layout = CardLayout::fitted(CARD_WIDTH - 48.0, &needs());
+        assert!(close(layout.name_width, NAME_WIDTH));
+        assert_eq!(shed(&layout), 0);
+        for column in Column::ALL {
+            let width = layout.column(column).unwrap();
+            assert!(width >= needs().columns[column as usize] && width < column.design_width());
+        }
+    }
+
+    #[test]
+    fn a_narrowing_card_gives_up_what_its_rows_miss_least_first_and_keeps_names_readable() {
+        let needs = needs();
+        let mut last_shed = 0;
+        let mut width = CARD_WIDTH;
+        while width >= 200.0 {
+            let layout = CardLayout::fitted(width, &needs);
+            let shed = shed(&layout);
+            assert!(
+                shed >= last_shed,
+                "a narrower card took back what it gave up"
+            );
+            last_shed = shed;
+            if shed < ROW_SHEDDING.len() {
+                assert!(
+                    layout.name_width >= needs.name - 0.01,
+                    "at {width}: {layout:?}"
+                );
+            }
+            assert!(close(row_width(&layout), layout.content_width));
+            width -= 1.0;
+        }
+        assert_eq!(last_shed, ROW_SHEDDING.len());
+    }
+
+    #[test]
+    fn short_names_leave_their_room_to_the_columns() {
+        let short_names = CardNeeds {
+            name: 40.0,
+            whole_name: 40.0,
+            ..needs()
+        };
+        // The room no name uses is given up before any column tightens.
+        let layout = CardLayout::fitted(CARD_WIDTH - 48.0, &short_names);
+        assert!(close(layout.name_width, NAME_WIDTH - 48.0));
+        for column in Column::ALL {
+            assert!(close(layout.column(column).unwrap(), column.design_width()));
+        }
+        // And a row whose names are short keeps more of itself.
+        assert!(
+            shed(&CardLayout::fitted(300.0, &short_names))
+                < shed(&CardLayout::fitted(300.0, &needs()))
         );
+    }
+
+    #[test]
+    fn narrow_totals_give_up_the_trade_then_the_workers_and_never_the_resources() {
+        let needs = needs();
+        let shown = |width: f32| {
+            let layout = CardLayout::fitted(width, &needs);
+            assert!(close(totals_width(&layout), layout.content_width));
+            layout.totals.map(|cell| cell.is_some())
+        };
+        assert_eq!(shown(CARD_WIDTH - 48.0), [true; 4]);
+        assert_eq!(shown(380.0), [true, true, true, false]);
+        assert_eq!(shown(300.0), [true, true, false, false]);
+        assert_eq!(shown(200.0), [true, true, false, false]);
+    }
+
+    #[test]
+    fn a_count_is_given_room_for_its_digits_and_never_fewer_than_the_floor() {
+        assert_eq!(digits(0, 3), "000");
+        assert_eq!(digits(7, 1), "0");
+        assert_eq!(digits(1143, 3), "0000");
+        assert_eq!(digits(12345, 4), "00000");
     }
 
     #[test]
