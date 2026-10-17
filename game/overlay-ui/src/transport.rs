@@ -20,7 +20,8 @@
 //! The standard form's track is ticked with the timeline's events, each one a way back to its
 //! moment.
 
-use std::collections::HashSet;
+use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 
 use egui::{
     Align, Align2, Area, Color32, Context, Id, Layout, Order, Pos2, Rect, Response, Sense, Shape,
@@ -555,14 +556,15 @@ fn draw_track_row(
     if let Some(target) = track.target {
         outcome.seek_to = Some(view.seek_fraction(target));
     }
-    if let Some((event, _)) = track.clicked_marker.and_then(|index| marked.get(index)) {
+    if let Some((events, _)) = track.clicked_marker.and_then(|index| marked.get(index)) {
+        let event = events[0];
         outcome.seek_to = Some(view.event_seek_target(event.secs));
         outcome.look_at = event.position;
     }
-    if let Some((event, _)) = track.hovered_marker.and_then(|index| marked.get(index))
+    if let Some((events, _)) = track.hovered_marker.and_then(|index| marked.get(index))
         && let Some(pointer) = track.response.hover_pos()
     {
-        draw_marker_card(ui, pointer, event);
+        draw_marker_card(ui, pointer, events);
     }
     ui.add_space(ITEM_GAP);
     clock(
@@ -586,44 +588,57 @@ fn draw_track_row(
 /// at least that long and every marker together says how far through it playback is. An event past
 /// the replay's end has no place on the track and is left off it.
 ///
-/// Only the events that change the course of the game are marked ([`Significance::Key`]): the rest
-/// are listed on the timeline, and marked as well they would bury the ones that matter.
+/// Only the events that change the course of the game are marked ([`Significance::Key`]), and every
+/// fight the timeline lists: the rest are listed on the timeline, and marked as well they would bury
+/// the ones that matter. A fight is the game's story wherever it is told, and there are few enough
+/// of them to mark them all.
 ///
-/// Events of one color that land on the same point of the track share a marker, the first of them
-/// in `events`' order: they could neither be told apart nor picked one from another, and a long
-/// game's whole timeline would otherwise draw thousands of markers a frame.
+/// Events of one color that land on the same point of the track share a marker, which stands for
+/// all of them, the first in `events`' order leading: they could not be picked one from another on
+/// the track, and a long game's whole timeline would otherwise draw thousands of markers a frame.
 fn marked_events<'a>(
     view: &TransportView,
     events: &'a [TimelineEventView],
-) -> Vec<(&'a TimelineEventView, TrackMarker)> {
+) -> Vec<(Vec<&'a TimelineEventView>, TrackMarker)> {
     if view.spoiler_free || view.end_frames == 0 {
         return Vec::new();
     }
-    let mut taken = HashSet::new();
-    events
-        .iter()
-        .filter(|event| event.significance == Significance::Key)
-        .filter_map(|event| {
-            let secs = i64::try_from(event.secs).ok()?;
-            let frame = seconds_to_frames(secs, view.game_speed);
-            if frame > i64::from(view.end_frames) {
-                return None;
-            }
-            let fraction = frame as f32 / view.end_frames as f32;
-            let point = (fraction * TRACK_WIDTH).round() as i32;
-            taken.insert((point, event.color)).then(|| {
+    let mut marked: Vec<(Vec<&TimelineEventView>, TrackMarker)> = Vec::new();
+    let mut points: HashMap<(i32, Color32), usize> = HashMap::new();
+    for event in events {
+        if event.significance != Significance::Key && !event.kind.is_fight() {
+            continue;
+        }
+        let Ok(secs) = i64::try_from(event.secs) else {
+            continue;
+        };
+        let frame = seconds_to_frames(secs, view.game_speed);
+        if frame > i64::from(view.end_frames) {
+            continue;
+        }
+        let fraction = frame as f32 / view.end_frames as f32;
+        let point = (fraction * TRACK_WIDTH).round() as i32;
+        match points.entry((point, event.color)) {
+            Entry::Occupied(index) => marked[*index.get()].0.push(event),
+            Entry::Vacant(slot) => {
+                slot.insert(marked.len());
                 let marker = TrackMarker {
                     fraction,
                     color: event.color,
                 };
-                (event, marker)
-            })
-        })
-        .collect()
+                marked.push((vec![event], marker));
+            }
+        }
+    }
+    marked
 }
 
-/// Names the event under the pointer, when it happened and what clicking it does.
-fn draw_marker_card(ui: &Ui, pointer: Pos2, event: &TimelineEventView) {
+/// The most events one marker's card lists: the marker stands for more where a long stretch of the
+/// game lands on one point of the track, and the card is a glance rather than the timeline.
+const MARKER_CARD_EVENTS: usize = 4;
+
+/// Names the events under the pointer and when they happened.
+fn draw_marker_card(ui: &Ui, pointer: Pos2, events: &[&TimelineEventView]) {
     // Over the track rather than under it, where the plate's own buttons are.
     widgets::tooltip_above(
         ui.ctx(),
@@ -631,35 +646,49 @@ fn draw_marker_card(ui: &Ui, pointer: Pos2, event: &TimelineEventView) {
         pointer,
         |ui| {
             ui.spacing_mut().item_spacing = vec2(theme::SPACE_SM, theme::SPACE_XS);
-            ui.horizontal(|ui| {
-                let (dot, _) =
-                    ui.allocate_exact_size(vec2(MARKER_CARD_DOT, MARKER_CARD_DOT), Sense::hover());
-                ui.painter()
-                    .circle_filled(dot.center(), MARKER_CARD_DOT * 0.5, event.color);
-                if let Some(name) = &event.name {
-                    ui.label(
-                        text::body(13.0, BodyWeight::Medium)
-                            .with_color(theme::TEXT_PRIMARY)
-                            .job(name),
-                    );
-                }
-                ui.label(
-                    text::body(13.0, BodyWeight::Medium)
-                        .with_color(if event.name.is_some() {
-                            theme::TEXT_SECONDARY
-                        } else {
-                            theme::TEXT_PRIMARY
-                        })
-                        .job(&event.label()),
-                );
-                ui.label(
-                    text::numeral(13.0)
-                        .with_color(theme::TEXT_DIM)
-                        .galley(ui, &clock_text(event.secs)),
-                );
-            });
+            for event in events.iter().take(MARKER_CARD_EVENTS) {
+                draw_marker_card_row(ui, event);
+            }
         },
     );
+}
+
+/// One event's row on a marker's card: whose it was, what happened, and when.
+fn draw_marker_card_row(ui: &mut Ui, event: &TimelineEventView) {
+    ui.horizontal(|ui| {
+        let (dot, _) =
+            ui.allocate_exact_size(vec2(MARKER_CARD_DOT, MARKER_CARD_DOT), Sense::hover());
+        ui.painter()
+            .circle_filled(dot.center(), MARKER_CARD_DOT * 0.5, event.color);
+        if let Some(name) = &event.name {
+            ui.label(
+                text::body(13.0, BodyWeight::Medium)
+                    .with_color(theme::TEXT_PRIMARY)
+                    .job(name),
+            );
+        }
+        ui.label(
+            text::body(13.0, BodyWeight::Medium)
+                .with_color(if event.name.is_some() {
+                    theme::TEXT_SECONDARY
+                } else {
+                    theme::TEXT_PRIMARY
+                })
+                .job(&event.label()),
+        );
+        if let Some(detail) = event.kind.detail() {
+            ui.label(
+                text::body(13.0, BodyWeight::Regular)
+                    .with_color(theme::TEXT_SECONDARY)
+                    .job(&detail),
+            );
+        }
+        ui.label(
+            text::numeral(13.0)
+                .with_color(theme::TEXT_DIM)
+                .galley(ui, &clock_text(event.secs)),
+        );
+    });
 }
 
 /// What stands in for the track in the spoiler-free form: the reason it is not there, and the one
@@ -1013,7 +1042,7 @@ mod tests {
         assert!((fractions[0] - 0.5).abs() < 0.001, "{fractions:?}");
         assert!((fractions[1] - 0.25).abs() < 0.001, "{fractions:?}");
         assert_eq!(fractions[2], 0.0);
-        assert_eq!(marked[1].0.secs, 630);
+        assert_eq!(marked[1].0[0].secs, 630);
     }
 
     #[test]
@@ -1032,13 +1061,33 @@ mod tests {
     }
 
     #[test]
-    fn only_key_events_are_marked() {
+    fn key_events_and_every_fight_are_marked() {
         let mut listed_only = event(630);
         listed_only.significance = Significance::Notable;
-        let events = [event(1260), listed_only];
+        let mut small_fight = event(300);
+        small_fight.significance = Significance::Notable;
+        small_fight.kind = crate::observer::TimelineEventKind::FightEven {
+            lost: 400,
+            killed: 450,
+        };
+        let events = [event(1260), listed_only, small_fight];
+        let marked = marked_events(&view(), &events);
+        assert_eq!(marked.len(), 2);
+        assert_eq!(marked[0].0[0].secs, 1260);
+        assert_eq!(marked[1].0[0].secs, 300);
+    }
+
+    #[test]
+    fn a_shared_marker_names_every_event_under_it() {
+        let mut fight = event(630);
+        fight.kind = crate::observer::TimelineEventKind::FightEven {
+            lost: 900,
+            killed: 1000,
+        };
+        let events = [event(630), fight];
         let marked = marked_events(&view(), &events);
         assert_eq!(marked.len(), 1);
-        assert_eq!(marked[0].0.secs, 1260);
+        assert_eq!(marked[0].0.len(), 2);
     }
 
     #[test]
@@ -1048,8 +1097,8 @@ mod tests {
         let events = [event(630), event(630), other_player, event(1260)];
         let marked = marked_events(&view(), &events);
         assert_eq!(marked.len(), 3);
-        assert!(std::ptr::eq(marked[0].0, &events[0]));
-        assert!(std::ptr::eq(marked[1].0, &events[2]));
+        assert!(std::ptr::eq(marked[0].0[0], &events[0]));
+        assert!(std::ptr::eq(marked[1].0[0], &events[2]));
     }
 
     #[test]

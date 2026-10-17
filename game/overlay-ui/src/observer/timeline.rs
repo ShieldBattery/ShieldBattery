@@ -197,6 +197,14 @@ impl TimelineEventKind {
         }
     }
 
+    /// Whether this is a fight, won or even.
+    pub fn is_fight(self) -> bool {
+        matches!(
+            self,
+            TimelineEventKind::FightWon { .. } | TimelineEventKind::FightEven { .. }
+        )
+    }
+
     /// Whether a row of this kind names the thing it is about, as a building or a research does.
     /// The others say everything in their own line, and the thing beside them is only an icon:
     /// what a fight was fought with, whose workers were lost.
