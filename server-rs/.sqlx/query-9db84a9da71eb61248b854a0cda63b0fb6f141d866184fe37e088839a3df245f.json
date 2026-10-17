@@ -1,0 +1,45 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT k.user_id as \"user_id!: SbUserId\", k.map_id as \"map_id!: SbMapId\",\n                    EXISTS (\n                        SELECT 1 FROM favorited_maps f\n                        WHERE f.favorited_by = k.user_id AND f.map_id = k.map_id\n                    ) as \"favorited!\",\n                    EXISTS (\n                        SELECT 1 FROM map_library l\n                        WHERE l.user_id = k.user_id AND l.map_id = k.map_id\n                    ) as \"in_library!\"\n                FROM unnest($1::int[], $2::uuid[]) AS k(user_id, map_id)\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id!: SbUserId",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "map_id!: SbMapId",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "favorited!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "in_library!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4Array",
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "9db84a9da71eb61248b854a0cda63b0fb6f141d866184fe37e088839a3df245f"
+}
