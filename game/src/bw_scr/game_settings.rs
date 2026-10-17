@@ -43,6 +43,18 @@ pub struct GameSettings {
 unsafe impl Send for GameSettings {}
 unsafe impl Sync for GameSettings {}
 
+/// Where a setting's value starts in it. A setting begins with its value as a tagged variant: a
+/// `u32` naming the value's kind, then the value itself, aligned for the pointer-sized and 64-bit
+/// values the same slot can hold.
+#[cfg(target_arch = "x86_64")]
+const VALUE_OFFSET: usize = 8;
+#[cfg(target_arch = "x86")]
+const VALUE_OFFSET: usize = 4;
+
+/// The kinds of value a setting can hold that are read here.
+const KIND_BOOL: u32 = 1;
+const KIND_INT: u32 = 2;
+
 /// A value for one of SC:R's settings.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum SettingValue {
@@ -82,6 +94,26 @@ impl GameSettings {
                 }
             }
             true
+        }
+    }
+
+    /// Reads one setting's current value, or `None` for a setting that doesn't exist yet or holds
+    /// a kind of value other than a flag or a whole number. The kind is read with the value: SC:R
+    /// stores whatever kind a write hands it.
+    ///
+    /// # Safety
+    ///
+    /// Must be called on the game's main thread, with the registry initialized.
+    pub unsafe fn get(&self, group: &str, key: &str) -> Option<SettingValue> {
+        unsafe {
+            let settings = find(self.groups, group.as_bytes())?;
+            let setting = find(settings, key.as_bytes())? as *const u8;
+            let value = setting.add(VALUE_OFFSET);
+            match *(setting as *const u32) {
+                KIND_BOOL => Some(SettingValue::Bool(*value != 0)),
+                KIND_INT => Some(SettingValue::Int(*(value as *const i32))),
+                _ => None,
+            }
         }
     }
 }

@@ -7554,7 +7554,13 @@ impl BwScr {
                 MinimapColorMode::PresetOnMinimapOnly => ui::MinimapColorMode::PresetOnMinimapOnly,
                 MinimapColorMode::Preset => ui::MinimapColorMode::Preset,
             });
+        let registry = draw_overlay::options::KEYED_REGISTRY_SETTINGS.map(|setting| {
+            let settings = self.game_settings.as_ref()?;
+            // SAFETY: the overlay's frame runs on the game's main thread, once a game is running.
+            unsafe { settings.get(setting.group, setting.key) }
+        });
         let read = draw_overlay::options::EngineSettings {
+            registry,
             hd_graphics_on: Some(is_hd),
             minimap_terrain: self
                 .read_minimap_terrain_hidden()

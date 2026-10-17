@@ -629,13 +629,79 @@ fn whole(value: &Value) -> Option<u32> {
 const HD_SETTLE_FRAMES: u8 = 8;
 
 /// The settings the game changes on its own keys while it runs (`F5` for HD, `Tab` and
-/// `Shift+Tab` for the minimap), as read from the engine for one frame. `None` for one that could
-/// not be read.
+/// `Shift+Tab` for the minimap, and the registry settings in [`KEYED_REGISTRY_SETTINGS`]), as read
+/// from the engine for one frame. `None` for one that could not be read.
 #[derive(Copy, Clone, Default)]
 pub struct EngineSettings {
     pub hd_graphics_on: Option<bool>,
     pub minimap_terrain: Option<MinimapTerrain>,
     pub minimap_color_mode: Option<MinimapColorMode>,
+    /// Each of [`KEYED_REGISTRY_SETTINGS`], in its order.
+    pub registry: [Option<SettingValue>; KEYED_REGISTRY_SETTINGS.len()],
+}
+
+/// One registry setting that a key of SC:R's own changes during a game, and how its value reads
+/// as the change it stands for on the options screen.
+pub struct KeyedRegistrySetting {
+    pub group: &'static str,
+    pub key: &'static str,
+    decode: fn(SettingValue) -> Option<SettingChange>,
+}
+
+/// The registry settings SC:R's in-game keys write: `Ctrl+M` music, `Ctrl+S` sound, `Alt+Enter`
+/// window mode, `Alt+F1` mouse confinement, `Ctrl+Alt+F` the FPS readout, `Ctrl+Alt+T` the latency
+/// readout, and realtime lighting, which has a command but no default key. Each agrees with
+/// [`registry_setting`] on its group, key and encoding.
+pub const KEYED_REGISTRY_SETTINGS: [KeyedRegistrySetting; 7] = [
+    KeyedRegistrySetting {
+        group: "sound",
+        key: "music_enabled",
+        decode: |value| flag(value).map(SettingChange::MusicOn),
+    },
+    KeyedRegistrySetting {
+        group: "sound",
+        key: "sfx_enabled",
+        decode: |value| flag(value).map(SettingChange::SoundOn),
+    },
+    KeyedRegistrySetting {
+        group: "video",
+        key: "WindowMode",
+        decode: |value| match value {
+            SettingValue::Int(0) => Some(SettingChange::DisplayMode(DisplayMode::Windowed)),
+            SettingValue::Int(1) => {
+                Some(SettingChange::DisplayMode(DisplayMode::WindowedFullscreen))
+            }
+            SettingValue::Int(2) => Some(SettingChange::DisplayMode(DisplayMode::Fullscreen)),
+            _ => None,
+        },
+    },
+    KeyedRegistrySetting {
+        group: "speed",
+        key: "MouseConfine",
+        decode: |value| flag(value).map(SettingChange::MouseConfineOn),
+    },
+    KeyedRegistrySetting {
+        group: "game",
+        key: "ShowFPS",
+        decode: |value| flag(value).map(SettingChange::ShowFps),
+    },
+    KeyedRegistrySetting {
+        group: "game",
+        key: "ShowTurnRate",
+        decode: |value| flag(value).map(SettingChange::ShowLatency),
+    },
+    KeyedRegistrySetting {
+        group: "video",
+        key: "RealtimeLightingEnabled",
+        decode: |value| flag(value).map(SettingChange::RealTimeLightingOn),
+    },
+];
+
+fn flag(value: SettingValue) -> Option<bool> {
+    match value {
+        SettingValue::Bool(on) => Some(on),
+        _ => None,
+    }
 }
 
 /// Carries the changes the game makes to [`EngineSettings`] into the options screen's copy of them.
@@ -652,6 +718,7 @@ pub struct EngineSettingsFollower {
     hd_candidate: Option<(bool, u8)>,
     minimap_terrain: Option<MinimapTerrain>,
     minimap_color_mode: Option<MinimapColorMode>,
+    registry: [Option<SettingValue>; KEYED_REGISTRY_SETTINGS.len()],
 }
 
 impl EngineSettingsFollower {
@@ -685,6 +752,21 @@ impl EngineSettingsFollower {
                 view.minimap_color_mode = mode;
             }
             self.minimap_color_mode = Some(mode);
+        }
+        for ((setting, held), value) in KEYED_REGISTRY_SETTINGS
+            .iter()
+            .zip(&mut self.registry)
+            .zip(read.registry)
+        {
+            let Some(value) = value else {
+                continue;
+            };
+            if held.is_some_and(|held| held != value)
+                && let Some(change) = (setting.decode)(value)
+            {
+                view.apply(change);
+            }
+            *held = Some(value);
         }
     }
 }
@@ -1208,5 +1290,58 @@ mod tests {
         // Tab in the game shows the terrain again.
         follower.follow(terrain(MinimapTerrain::Shown), &mut view);
         assert_eq!(view.minimap_terrain, MinimapTerrain::Shown);
+    }
+
+    /// Every setting the follower reads back decodes from exactly what the screen writes for it,
+    /// so the two mappings can't drift apart.
+    #[test]
+    fn keyed_registry_settings_read_back_what_the_screen_writes() {
+        let changes = [
+            SettingChange::MusicOn(false),
+            SettingChange::MusicOn(true),
+            SettingChange::SoundOn(false),
+            SettingChange::SoundOn(true),
+            SettingChange::DisplayMode(DisplayMode::Windowed),
+            SettingChange::DisplayMode(DisplayMode::WindowedFullscreen),
+            SettingChange::DisplayMode(DisplayMode::Fullscreen),
+            SettingChange::MouseConfineOn(false),
+            SettingChange::MouseConfineOn(true),
+            SettingChange::ShowFps(false),
+            SettingChange::ShowFps(true),
+            SettingChange::ShowLatency(false),
+            SettingChange::ShowLatency(true),
+            SettingChange::RealTimeLightingOn(false),
+            SettingChange::RealTimeLightingOn(true),
+        ];
+        for change in changes {
+            let (group, key, value) = registry_setting(change).unwrap();
+            let setting = KEYED_REGISTRY_SETTINGS
+                .iter()
+                .find(|setting| setting.group == group && setting.key == key)
+                .unwrap_or_else(|| panic!("{group}.{key} is not followed"));
+            assert_eq!((setting.decode)(value), Some(change), "{group}.{key}");
+        }
+    }
+
+    /// `Ctrl+M` turning the music off shows on the screen, and the screen's own change waiting on
+    /// the engine is left alone.
+    #[test]
+    fn the_games_own_music_key_moves_the_switch() {
+        let music = |on| {
+            let mut read = EngineSettings::default();
+            read.registry[0] = Some(SettingValue::Bool(on));
+            read
+        };
+        let mut follower = EngineSettingsFollower::default();
+        let mut view = OptionsView {
+            music_on: true,
+            ..OptionsView::default()
+        };
+        follower.follow(music(true), &mut view);
+        follower.follow(music(false), &mut view);
+        assert!(!view.music_on);
+        view.music_on = true;
+        follower.follow(music(false), &mut view);
+        assert!(view.music_on);
     }
 }
