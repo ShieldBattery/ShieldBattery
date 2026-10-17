@@ -240,6 +240,10 @@ fn handle_app_message(text: String) -> Result<MessageResult, HandleMessageError>
                 failure,
             )))
         }
+        "userStats" => {
+            let result = serde_json::from_value(payload).context(("Invalid user stats", &*text))?;
+            Ok(MessageResult::Game(GameStateMessage::UserStats(result)))
+        }
         "serverConfig" => {
             let config = parse_payload(payload, "Invalid server config", err_input, sensitive)?;
             Ok(MessageResult::Game(GameStateMessage::SetServerConfig(

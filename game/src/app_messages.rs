@@ -391,6 +391,55 @@ pub enum BlockFailureReason {
     Error,
 }
 
+/// Asks the app for a user's stats, for the `/stats` in-game chat command. The app answers with a
+/// [`UserStatsResult`].
+#[derive(Serialize)]
+pub struct RequestUserStats {
+    /// The name the user typed, or `None` for the local user's own stats.
+    pub name: Option<String>,
+}
+
+/// The app's answer to a [`RequestUserStats`]. Labels arrive already localized by the app.
+#[derive(Debug, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase", tag = "kind")]
+pub enum UserStatsResult {
+    Found(UserStats),
+    /// No user has the requested name.
+    NotFound {
+        name: String,
+    },
+    /// The stats couldn't be loaded. `name` is the requested name, empty for the local user.
+    Error {
+        name: String,
+    },
+}
+
+#[derive(Debug, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UserStats {
+    pub name: String,
+    /// The user's main race over all their games, if they have one.
+    pub race: Option<String>,
+    pub wins: u32,
+    pub losses: u32,
+    /// The mode the user has their highest MMR in, if they're rated in any.
+    pub best_mode: Option<UserStatsMode>,
+    /// The user's standing in the mode of the game being played, if it's a matchmaking game.
+    pub current_mode: Option<UserStatsMode>,
+}
+
+/// A user's standing in one matchmaking mode. `division` and `rating` are `None` if the user isn't
+/// rated in the mode.
+#[derive(Debug, PartialEq, Eq, Deserialize)]
+pub struct UserStatsMode {
+    /// The mode's name, e.g. "1v1".
+    pub label: String,
+    /// The user's division in the mode, e.g. "Gold 2".
+    pub division: Option<String>,
+    /// The user's MMR in the mode.
+    pub rating: Option<u32>,
+}
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum GameType {

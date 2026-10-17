@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { GameLaunchConfig } from '../../common/games/game-launch-config'
 import { NetcodeV2ServerSetup } from '../../common/games/netcode-v2'
+import { MatchmakingType } from '../../common/matchmaking'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
 import { ActiveGameManager } from './active-game-manager'
 
@@ -182,6 +183,42 @@ describe('ActiveGameManager block list updates', () => {
     expect(commands.filter(([, command]) => command === 'blockRequestFailed')).toEqual([
       ['game-1', 'blockRequestFailed', failure],
     ])
+  })
+
+  it('relays in-game stats requests and their answers for the active game only', () => {
+    const statsRequests: Array<[string, string | undefined, MatchmakingType | undefined]> = []
+    manager.on('requestUserStats', (gameId, name, matchmakingType) => {
+      statsRequests.push([gameId, name, matchmakingType])
+    })
+    manager.setGameConfig(configFor('game-1'))
+
+    manager.handleRequestUserStats('game-0', 'tec27')
+    manager.handleRequestUserStats('game-1', 'tec27')
+    manager.handleRequestUserStats('game-1', undefined)
+    expect(statsRequests).toEqual([
+      ['game-1', 'tec27', undefined],
+      ['game-1', undefined, undefined],
+    ])
+
+    const result = { kind: 'notFound' as const, name: 'tec27' }
+    manager.userStatsResult('game-0', result)
+    manager.userStatsResult('game-1', result)
+    expect(commands.filter(([, command]) => command === 'userStats')).toEqual([
+      ['game-1', 'userStats', result],
+    ])
+  })
+
+  it("attaches a matchmaking game's mode to its stats requests", () => {
+    const modes: Array<MatchmakingType | undefined> = []
+    manager.on('requestUserStats', (_gameId, _name, matchmakingType) => {
+      modes.push(matchmakingType)
+    })
+    const config = configFor('game-1')
+    config.setup.matchmakingType = MatchmakingType.Match2v2
+    manager.setGameConfig(config)
+
+    manager.handleRequestUserStats('game-1', 'tec27')
+    expect(modes).toEqual([MatchmakingType.Match2v2])
   })
 })
 
