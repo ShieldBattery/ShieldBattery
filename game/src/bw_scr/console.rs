@@ -90,6 +90,18 @@ impl BwScr {
         }
     }
 
+    /// Hides a minimap dialog the game has just made, where the minimap is meant to be hidden. The
+    /// hidden state outlives the dialogs it was applied to: the minimap can be put away before the
+    /// game has made its dialog, and the game makes the console's dialogs again when it handles a
+    /// replay seek itself.
+    pub unsafe fn hide_new_minimap_if_hidden(&self, dialog: Dialog) {
+        unsafe {
+            if self.minimap_hidden() {
+                set_dialog_visible(dialog, false);
+            }
+        }
+    }
+
     /// Shows or hides SC:R's own replay controls, which live in the console's command panel.
     ///
     /// Part of the console band, so it can only be on screen while the console is: asking for it

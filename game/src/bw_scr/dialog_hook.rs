@@ -697,6 +697,7 @@ unsafe extern "C" fn minimap_event_handler(
             // associated globals) are initialized. Done after `orig` so it wins over any reset the
             // game's own init does.
             bw.restore_minimap_settings();
+            bw.hide_new_minimap_if_hidden(Control::new(ctrl).dialog());
             if bw.is_live_observer() {
                 hide_player_camera_outlines(Control::new(ctrl).dialog());
             }
