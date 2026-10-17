@@ -198,15 +198,18 @@ each of those.
 
 **NOTE**: File storage must be properly configured beforehand for the map system to correctly work.
 
-The server needs access to some of BW's data files in order to generate map images. Download an mpq
-editor, such as [this one](http://www.zezula.net/en/mpq/download.html) and make sure to download
-"listfiles" from that website as well, which you'll need to use in the mpq editor. Use the mpq
-editor to extract BW's data files from `stardat.mpq`, `broodat.mpq`, in that order, having
-`broodat.mpq` overwrite any conflicting files from `stardat.mpq`. You can obtain `stardat.mpq`
-and `broodat.mpq` directly from Blizzard by downloading the final release of
-[StarEdit](http://download.blizzard.com/pub/starcraft/StarEdit/StarEdit.zip).
-The necessary directories in .mpq files are `unit/` and `tileset/`. Extract those files to a directory (keeping the directory
-structure), and set `SB_SPRITE_DATA` in the `.env` file to that directory.
+Map uploads are handled by the Rust server (`server-rs`), which renders map images and analyzes maps
+using StarCraft: Remastered's SD assets, read from the directory named by `SB_MAP_ASSETS`. You don't
+need SC:R installed to get them: broodmap's CLI fetches them from Blizzard's CDN (about 100 MB,
+usually in under a minute):
+
+```
+cargo install --git https://github.com/ShieldBattery/broodmap broodmap-cli
+broodmap-cli fetch-assets --cdn --out <dir>
+```
+
+Then set `SB_MAP_ASSETS=<dir>` in the `.env` file. Without it, map uploads still work, but uploaded
+maps won't have any images.
 
 ## Set up relay servers
 

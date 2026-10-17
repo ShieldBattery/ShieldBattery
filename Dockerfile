@@ -87,7 +87,7 @@ RUN chmod +x ./server/deployment_files/wait.sh ./server/update_server.sh ./serve
 
 # Make the various volume locations as the right user (if we let Docker do it they end up owned by
 # root and not writeable)
-RUN mkdir ./server/logs && mkdir ./server/uploaded_files && mkdir ./server/bw_sprite_data
+RUN mkdir ./server/logs && mkdir ./server/uploaded_files
 
 RUN touch /var/lib/logrotate.status
 

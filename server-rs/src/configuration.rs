@@ -40,6 +40,12 @@ pub struct Settings {
     /// matchmaker's backbone table is then built from `SB_REGION_BACKBONE_RTT_JSON` alone, which is the
     /// correct dev-loopback posture. Empty/whitespace is treated as unset.
     pub rp2_coordinator_url: Option<String>,
+    /// A directory of StarCraft: Remastered SD assets, used to render map images and to analyze
+    /// map terrain and bases. `None` leaves uploaded maps without images or terrain analysis,
+    /// which is fine for development.
+    pub map_assets: Option<std::path::PathBuf>,
+    /// How many maps may be parsed and rendered at once.
+    pub map_parser_max_concurrent: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -299,5 +305,14 @@ pub fn get_configuration() -> eyre::Result<Settings> {
         twitch,
         gql_origin,
         rp2_coordinator_url,
+        map_assets: env_var_non_empty("SB_MAP_ASSETS").map(Into::into),
+        map_parser_max_concurrent: match env_var_non_empty("SB_MAP_PARSER_MAX_CONCURRENT") {
+            Some(value) => value
+                .parse::<usize>()
+                .ok()
+                .filter(|&n| n > 0)
+                .ok_or_else(|| eyre!("SB_MAP_PARSER_MAX_CONCURRENT must be a positive integer"))?,
+            None => 2,
+        },
     })
 }

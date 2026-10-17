@@ -13,7 +13,6 @@ import { GameLifecycleEvents } from '../games/game-lifecycle-events'
 import { GameLoader } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import { getMapInfos } from '../maps/map-models'
-import { reparseMapsAsNeeded } from '../maps/map-operations'
 import { NetcodeV2Service } from '../netcode-v2/netcode-v2-service'
 import { FakeClock } from '../time/testing/fake-clock'
 import { RestrictionService } from '../users/restriction-service'
@@ -51,6 +50,7 @@ const BIG_GAME_HUNTERS: MapInfo = {
     width: 256,
     height: 256,
     isEud: false,
+    startLocations: [],
     parserVersion: 1,
   },
   imageVersion: 1,
@@ -59,11 +59,6 @@ const BIG_GAME_HUNTERS: MapInfo = {
 vi.mock('../maps/map-models', async () => {
   const actual = await vi.importActual<typeof import('../maps/map-models')>('../maps/map-models')
   return { ...actual, getMapInfos: vi.fn() }
-})
-vi.mock('../maps/map-operations', async () => {
-  const actual =
-    await vi.importActual<typeof import('../maps/map-operations')>('../maps/map-operations')
-  return { ...actual, reparseMapsAsNeeded: vi.fn() }
 })
 vi.mock('../users/user-model', async () => {
   const actual = await vi.importActual<typeof import('../users/user-model')>('../users/user-model')
@@ -135,7 +130,6 @@ describe('lobbies/lobby-socket-api', () => {
     connector = new NydusConnector(nydus, sessionLookup)
 
     asMockedFunction(getMapInfos).mockResolvedValue([BIG_GAME_HUNTERS])
-    asMockedFunction(reparseMapsAsNeeded).mockResolvedValue([BIG_GAME_HUNTERS])
     asMockedFunction(findUsersById).mockResolvedValue([])
 
     connector.connectClient(HOST_USER, 'HOST_CLIENT')

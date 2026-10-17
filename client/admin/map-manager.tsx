@@ -2,6 +2,7 @@ import * as React from 'react'
 import { useState } from 'react'
 import styled from 'styled-components'
 import { getErrorStack } from '../../common/errors'
+import { urlPath } from '../../common/urls'
 import { useSelfPermissions } from '../auth/auth-utils'
 import { useForm, useFormCallbacks } from '../forms/form-hook'
 import { MaterialIcon } from '../icons/material/material-icon'
@@ -9,6 +10,7 @@ import { getExtension } from '../maps/upload'
 import { FilledButton, TextButton } from '../material/button'
 import { MultiFileInput } from '../material/file-input'
 import { fetchJson } from '../network/fetch'
+import { makeServerRsUrl } from '../network/server-url'
 import LoadingIndicator from '../progress/dots'
 import { useImmerState } from '../react/state-hooks'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
@@ -73,7 +75,7 @@ function UploadMaps() {
           body: formData,
         }
 
-        fetchJson('/api/1/maps/official', fetchParams)
+        fetchJson(makeServerRsUrl(urlPath`/maps/official`), fetchParams)
           .then(() => {
             setNameToUploadStatus(draft => {
               draft.set(map, UploadStatus.Success)

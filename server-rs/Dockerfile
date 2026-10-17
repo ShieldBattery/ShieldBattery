@@ -11,7 +11,9 @@ FROM chef AS builder
 RUN update-ca-certificates
 
 ENV USER=server
-ENV UID=10001
+# Matches the app server's `node` user, so both servers can write the `uploaded_files` volume they
+# share when SB_FILE_STORE is a local filesystem store.
+ENV UID=1000
 RUN adduser \
   --disabled-password \
   --gecos "" \
@@ -33,6 +35,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
 COPY . .
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     cargo build --release --locked --bin server
+RUN mkdir /uploaded_files
 
 FROM gcr.io/distroless/cc-debian12
 
@@ -42,6 +45,8 @@ COPY --from=builder /etc/group /etc/group
 
 WORKDIR /server
 COPY --from=builder /server/target/release/server ./
+# Created in the image so a new volume mounted here takes this user as its owner, rather than root
+COPY --from=builder --chown=server:server /uploaded_files ./uploaded_files
 
 USER server:server
 
