@@ -1,35 +1,60 @@
 use std::borrow::Cow;
 use std::mem;
+use std::path::Path;
 use std::ptr::NonNull;
-use std::time::Instant;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 
+use bw_dat::Unit;
 use bw_dat::dialog::{Control, Dialog};
-use bw_dat::{Race, Unit};
-use egui::epaint;
-use egui::load::SizedTexture;
-use egui::{
-    Align, Align2, Color32, Event, Id, Key, Label, Layout, PointerButton, Pos2, Rect, Response,
-    Sense, Slider, TextureId, UiBuilder, Vec2, Widget, WidgetText, pos2, vec2,
+use egui::{Color32, Event, Key, PointerButton, Pos2, Rect, Slider, pos2};
+use overlay_ui::end_card::EndCardView;
+use overlay_ui::net_quality::NetQualityView;
+use overlay_ui::observer::{MatchupPlayerView, MatchupView};
+use overlay_ui::options::{OptionsLists, OptionsView, SettingChange};
+use overlay_ui::shell::{
+    DisconnectSurface, FrameOutput, HostFrame, InputCapture, Intent, ModalId, Mode, NativeDialog,
+    PanelPrefs, PauseControl, Shell, Views, hotkeys,
 };
-use overlay_ui::net_quality::{NetQualityView, render_net_quality};
+use overlay_ui::transport::{self, TransportView};
+use parking_lot::Mutex;
+use rally_point_client::proto::ids::SlotId;
 use winapi::shared::windef::{HWND, POINT};
 
 use crate::app_messages::GameSetupInfo;
 use crate::bw;
 use crate::bw::apm_stats::ApmStats;
-use crate::bw_scr::BwCursorType;
-use crate::netcode_v2::{DisconnectStatus, LoadingConnectivity, NetStatsStatus};
+use crate::bw_scr::chat::ChatManager;
+use crate::bw_scr::game_stats::{self, GameStats};
+use crate::bw_scr::replay_transport::{ReplayCommand, TransportState};
+use crate::bw_scr::scr;
+use crate::bw_scr::stat_txt::StatTxt;
+use crate::bw_scr::{BwCursorType, console, dialog_hook};
+use crate::netcode_v2::{self, DisconnectStatus, LoadingConnectivity, NetStatsStatus};
 
+pub use self::alliances::AllianceRules;
+use self::alliances::AlliancesState;
+use self::chat_history::ChatHistoryCache;
 use self::production::ProductionState;
+use self::stats::ObserverViewCache;
 
 // The overlay's fonts, colours, and disconnect presentation live in the host-compilable `overlay-ui`
 // crate; re-exported here so the DLL's other overlays keep referring to them by the same paths.
 pub use overlay_ui::{colors, fonts};
 
+mod alliances;
+mod chat_history;
 mod disconnect;
+mod end_card;
 mod loading_screen;
 mod netstat;
+pub mod options;
 mod production;
+mod resource_icons;
+mod stats;
+mod wireframe;
+
+pub use self::wireframe::WireframeRemap;
 
 pub struct OverlayState {
     ctx: egui::Context,
@@ -40,7 +65,34 @@ pub struct OverlayState {
     ui_rects: Vec<UiRect>,
     events: Vec<Event>,
     production: ProductionState,
-    replay_panels: ReplayPanelState,
+    /// The host-agnostic policy layer: which surfaces are up, which of them is modal, and what the
+    /// game is allowed to see of the player's input.
+    shell: Shell,
+    /// What the last [`step`](Self::step) decided the game may see of the input arriving now.
+    /// [`window_proc`](Self::window_proc) runs between frames, so it reads this rather than deciding
+    /// for itself.
+    capture: InputCapture,
+    /// Which replaced native dialogs were live as of the last [`step`](Self::step), so the shell
+    /// hears about a spawn or a delete exactly once.
+    native_dialogs_live: [bool; NativeDialog::ALL.len()],
+    /// The minimap dialog's rect, in BW's dialog coordinates, as last logged.
+    logged_minimap_area: Option<(i16, i16, i16, i16)>,
+    /// The chat log the last frame handed the shell, kept only while its modal is on screen.
+    chat_history: Option<ChatHistoryCache>,
+    /// The observer panels the last frame handed the shell, kept while the client is watching.
+    observer_view: Option<ObserverViewCache>,
+    /// What the alliances screen keeps between frames.
+    alliances: AlliancesState,
+    /// The game's own resource icons, once read.
+    resource_icons: Option<resource_icons::LoadedResourceIcons>,
+    /// How much of the screen's height the band the minimap stands in takes, from the screen's
+    /// bottom edge to the minimap's top, as last seen. Kept while the minimap is hidden: the other
+    /// bottom panels still stand in that band.
+    bottom_band_share: f32,
+    /// What the end-of-game card reports, read once as the card comes up and kept while it is on
+    /// the stack: it is about the game as it was decided, and the numbers behind it keep moving for
+    /// as long as the player keeps playing.
+    end_card: Option<EndCardView>,
     out_state: OutState,
     window_size: (u32, u32),
     /// If (and only if) a mouse button down event was captured,
@@ -60,32 +112,54 @@ pub struct OverlayState {
     screen_size: (u32, u32),
     /// Winapi coords, egui coords
     last_mouse_pos: ((i16, i16), Pos2),
+    /// Whether SC:R's mouse scaling is on, which changes where a window position is in the game.
+    mouse_scaling: bool,
     replay_ui_values: ReplayUiValues,
     player_vision_was_auto_disabled: [bool; 8],
     replay_start_handled: bool,
     draw_layer: u16,
     dialog_debug_inspect_children: bool,
     was_loading: bool,
-    /// Whether BW's chat entry box is currently open for text input, refreshed each
-    /// [`step`](Self::step). [`window_proc`](Self::window_proc) reads this to keep chat usable while
-    /// [`disconnect_blocks_input`](Self::disconnect_blocks_input) is otherwise swallowing game input.
-    chat_textbox_open: bool,
-    /// Whether the disconnect overlay is showing a condition that pauses unit commands (our own link
-    /// down, a relay-confirmed peer drop, or a sustained sim stall — see
-    /// [`DisconnectStatus::is_blocking`]). Refreshed each [`step`](Self::step) from the same
-    /// [`DisconnectStatus`] the overlay renders; read by [`window_proc`](Self::window_proc) to gate
-    /// game-destined input.
-    disconnect_blocks_input: bool,
-    /// Whether a BW dialog the player operates (the F10 game menu, its sub-menus, the quit
-    /// confirmation, options) is at the top of BW's dialog stack, refreshed each
-    /// [`step`](Self::step). Derived by exclusion: the only dialogs that top the stack without the
-    /// player having opened one are the always-present in-game "Minimap" and the hidden
-    /// "TimeOut" that BW spawns during a stall. While a menu is open,
-    /// [`window_proc`](Self::window_proc) lets every key and click through regardless of
-    /// [`disconnect_blocks_input`](Self::disconnect_blocks_input), so the player can always reach
-    /// Quit — a blocked player with no way out has only the task manager left.
-    bw_menu_open: bool,
+    /// When this client's own relay link was first reported down, so the self-notice can say how
+    /// long it has been. The turn state reports only that the link is down, and a clock started
+    /// from the first frame that says so is the same clock either way.
+    self_link_lost_since: Option<Instant>,
+    /// The observer panels as last saved, so a change is saved once rather than every frame.
+    saved_observer_panels: Option<PanelPrefs>,
+    /// The frame the overlay last asked a replay to seek to, which a look at a place belongs to.
+    last_requested_seek: Option<u32>,
+    /// A place to center the view on once the replay reaches the frame a seek asked for.
+    pending_look_at: Option<PendingLookAt>,
+    /// The last number-key group recalled, and when, so a second press can center on it.
+    last_group_recall: Option<(u8, u8, Instant)>,
+    /// The scan codes of the keys held down whose press the shell took. The rest of each keystroke
+    /// (its character and its release) is kept from the game too: SC:R acts on some keys from their
+    /// character, so a number key recalls the game's own group on top of the one the shell
+    /// selected unless the character is swallowed with the press.
+    shell_held_keys: Vec<u16>,
 }
+
+/// Which physical key a key or character message is about, extended keys apart from the rest.
+fn message_scan_code(lparam: isize) -> u16 {
+    ((lparam >> 16) & 0x1ff) as u16
+}
+
+/// A look at a place that waits for a seek to land: centered before it, the view would be moved
+/// for a game the seek is about to replace.
+struct PendingLookAt {
+    frame: u32,
+    point: overlay_ui::observer::MapPoint,
+    asked: Instant,
+}
+
+/// How far past a seek's frame the replay may already be when the look waiting on it is let out:
+/// a seek lands on its frame and the game runs on, and the draw that sees it may come a few frames
+/// later.
+const LOOK_AT_WINDOW_FRAMES: u32 = 72;
+
+/// How long a look waits for its seek to land before it is given up, for a seek the game refused or
+/// one another seek replaced.
+const LOOK_AT_TIMEOUT: Duration = Duration::from_secs(5);
 
 struct UiRect {
     area: Rect,
@@ -93,23 +167,10 @@ struct UiRect {
     capture_mouse_scroll: bool,
 }
 
+/// Where the game's own replay controls plate is nudged to, which is the one piece of BW's
+/// interface the overlay places rather than replaces. Tuned from the debug window.
 struct ReplayUiValues {
-    name_width: f32,
-    resource_width: f32,
-    supply_width: f32,
-    workers_width: f32,
-    apm_width: f32,
-    production_pos: (f32, f32),
-    production_image_size: f32,
-    production_max: u32,
     statbtn_dialog_offset: (i32, i32),
-}
-
-struct ReplayPanelState {
-    hotkeys_active: bool,
-    show_statistics: bool,
-    show_production: bool,
-    show_console: bool,
 }
 
 /// State that will be in StepOutput; mutated through &mut self
@@ -120,9 +181,23 @@ struct OutState {
     // true => show, false => hide
     show_hide_control: Option<(Control, bool)>,
     show_hide_graphic_layer: Option<(u8, bool)>,
-    show_console: bool,
     leave_game: bool,
+    look_at: Option<bw::Point>,
+    select_group: Option<GroupSelection>,
+    follow_unit: Option<Unit>,
 }
+
+/// One of a player's number-key groups, selected for the watcher.
+pub struct GroupSelection {
+    /// The group's living units, in the group's order.
+    pub units: Vec<Unit>,
+    /// Whether the view is to be centered on them too: the key was pressed twice in a row, which is
+    /// what centers a group in the game.
+    pub center: bool,
+}
+
+/// How soon a second press of a number key must follow the first to center the view on its group.
+const GROUP_DOUBLE_PRESS: Duration = Duration::from_millis(500);
 
 pub struct StepOutput {
     pub textures_delta: egui::TexturesDelta,
@@ -134,11 +209,64 @@ pub struct StepOutput {
     pub show_hide_control: Option<(Control, bool)>,
     pub show_hide_graphic_layer: Option<(u8, bool)>,
     pub statbtn_dialog_offset: (i32, i32),
-    pub show_console: bool,
+    /// Whether BW's bottom console should be on screen, and whether its minimap should be. Two
+    /// states rather than one: an observer routinely keeps the minimap while hiding the console.
+    pub console_visible: bool,
+    pub minimap_visible: bool,
+    /// Whether BW's own replay controls should be on screen, which is exactly when the overlay's
+    /// transport plate is not: the two stand in the same corner and do the same job.
+    pub command_panel_visible: bool,
+    /// What the overlay wants done to replay playback this frame, in the order it asked.
+    pub replay_commands: Vec<ReplayCommand>,
+    /// Game commands the player issued from the overlay this frame, in the order they issued them,
+    /// for the game to send as though its own UI had.
+    pub game_commands: Vec<Vec<u8>>,
+    /// Settings the player moved on the options screen this frame, in the order they moved them,
+    /// for the game to apply and the app to save.
+    pub setting_changes: Vec<SettingChange>,
+    /// The observer panels, when the watcher has changed which are on screen since they were last
+    /// saved.
+    pub observer_panels_changed: Option<PanelPrefs>,
     // true to run second draw to avoid ugly flickering due to screen size changing.
     pub run_second_draw: bool,
     /// Whether the player asked to leave the game, the way the in-game menu's End Game does.
     pub leave_game: bool,
+    /// A place on the map to center the game's view on.
+    pub look_at: Option<bw::Point>,
+    /// A number-key group to select.
+    pub select_group: Option<GroupSelection>,
+    /// A unit for the game's view to follow from now on.
+    pub follow_unit: Option<Unit>,
+    /// How much of the view's height it may scroll past the map's bottom edge: the band the
+    /// overlay's bottom panels cover for a watcher, nothing for a player.
+    pub bottom_overpan_share: f32,
+}
+
+/// Where a window position is on the overlay's screen of `screen` points while SC:R's mouse scaling
+/// is on, for a window `window` client pixels in size.
+///
+/// With scaling on, the game keeps the OS cursor inside a box in the middle of the window, one
+/// window pixel to one game pixel (the game's 480 rows and its width in game pixels across them),
+/// and reads a position as how far into that box it is. The cursor it draws is that game pixel
+/// stretched over the whole shown area, which is where the pointer has to be for the overlay too.
+fn scaled_mouse_pos_to_egui(
+    (x, y): (i32, i32),
+    (window_w, window_h): (f32, f32),
+    (screen_w, screen_h): (f32, f32),
+) -> Pos2 {
+    const GAME_HEIGHT: f32 = 480.0;
+    let game_w = (GAME_HEIGHT * screen_w / screen_h.max(1.0))
+        .round()
+        .max(1.0);
+    // Halved the way the game halves it, in whole pixels rounded towards zero.
+    let origin_x = ((window_w - game_w) / 2.0).trunc();
+    let origin_y = ((window_h - GAME_HEIGHT) / 2.0).trunc();
+    let game_x = (x as f32 - origin_x).clamp(0.0, game_w - 1.0);
+    let game_y = (y as f32 - origin_y).clamp(0.0, GAME_HEIGHT - 1.0);
+    Pos2 {
+        x: game_x / game_w * screen_w,
+        y: game_y / GAME_HEIGHT * screen_h,
+    }
 }
 
 /// Bw globals used by OverlayState::step
@@ -153,19 +281,63 @@ pub struct BwVars {
     pub use_rgb_colors: u8,
     pub replay_visions: u8,
     pub active_units: bw::unit::UnitIterator,
+    /// Every unit slot the game has, which is the only thing a unique id can be resolved against:
+    /// the units inside a transport or a bunker are named by id rather than by pointer. `None`
+    /// before the game has allocated the array.
+    pub units: Option<bw_dat::UnitArray>,
+    /// What the local client has selected, in the game's own order: the first entry is the unit the
+    /// game treats as the selection's subject. Read fresh for every frame, since a selection changes
+    /// between frames and the panel that draws it must never be a frame behind the console.
+    pub client_selection: [Option<Unit>; 12],
     pub first_player_unit: *mut *mut bw::Unit,
     pub first_dialog: Option<Dialog>,
     pub graphic_layers: Option<NonNull<bw::GraphicLayer>>,
     pub is_hd: bool,
+    /// Whether the carbot skin set is the one being drawn, which picks the command-icon frames
+    /// the renderer shows along with `is_hd`.
+    pub is_carbot: bool,
+    /// The game's command-icon atlas, read for the pixel size of the frame an icon will be drawn
+    /// with. Valid for as long as the game is running.
+    pub cmdicons: *mut scr::DdsGrpSet,
+    /// The game's unit wireframes, read for the pixel size of the frame a wireframe will be drawn
+    /// with. Valid for as long as the game is running; null where the analysis could not find them,
+    /// which leaves every unit on its command icon.
+    pub wirefram: *mut scr::DdsGrpSet,
+    /// The remap the wireframes' layers are colored through. `None` where the game had none to
+    /// read, which leaves every unit on its command icon too.
+    pub wireframe_remap: Option<WireframeRemap>,
     pub has_init_bw: bool,
     pub countdown_start: Option<Instant>,
     pub game_started: bool,
+    /// The `players[]` index the local client is playing from, which is what decides whose side a
+    /// player is on and whose row the disconnect surface leaves out.
+    pub local_player_id: u8,
+    /// The replay's own header numbers, and how playback is running, for the transport plate.
+    /// `None` outside a replay, which is every mode the plate is not drawn in.
+    pub replay: Option<ReplayVars>,
+    /// Where the game's names for units, upgrades and techs are read from. `None` when the analysis
+    /// could not find it, which leaves the panels to go without names.
+    pub stat_txt: Option<StatTxt>,
+    /// What the game's rules allow of alliances and chat recipients.
+    pub alliance_rules: AllianceRules,
+    /// What the game offers the local player for pausing.
+    pub pause_control: Option<PauseControl>,
+}
+
+/// What the replay transport needs of the game: the replay's length and recorded speed, from its
+/// header, and the playback state the command-stream hook has tracked.
+#[derive(Copy, Clone)]
+pub struct ReplayVars {
+    pub end_frame: u32,
+    pub game_speed: u8,
+    pub transport: TransportState,
 }
 
 #[derive(Copy, Clone)]
 pub enum Texture {
     StatRes(u16),
     CmdIcon(u16),
+    Wireframe(u16),
 }
 
 // No real reason to start with 0x2000_0000, but since egui gives u64 range,
@@ -174,12 +346,15 @@ const TEXTURE_FIRST_STATRES: u64 = 0x2000_0000;
 const TEXTURE_LAST_STATRES: u64 = TEXTURE_FIRST_STATRES + 0xffff;
 const TEXTURE_FIRST_CMDICON: u64 = TEXTURE_LAST_STATRES + 1;
 const TEXTURE_LAST_CMDICON: u64 = TEXTURE_FIRST_CMDICON + 0xffff;
+const TEXTURE_FIRST_WIREFRAME: u64 = TEXTURE_LAST_CMDICON + 1;
+const TEXTURE_LAST_WIREFRAME: u64 = TEXTURE_FIRST_WIREFRAME + 0xffff;
 
 impl Texture {
     pub fn to_egui_id(self) -> u64 {
         match self {
             Texture::StatRes(frame) => TEXTURE_FIRST_STATRES + frame as u64,
             Texture::CmdIcon(frame) => TEXTURE_FIRST_CMDICON + frame as u64,
+            Texture::Wireframe(frame) => TEXTURE_FIRST_WIREFRAME + frame as u64,
         }
     }
 
@@ -191,60 +366,50 @@ impl Texture {
             TEXTURE_FIRST_CMDICON..=TEXTURE_LAST_CMDICON => {
                 Texture::CmdIcon((val - TEXTURE_FIRST_CMDICON) as u16)
             }
+            TEXTURE_FIRST_WIREFRAME..=TEXTURE_LAST_WIREFRAME => {
+                Texture::Wireframe((val - TEXTURE_FIRST_WIREFRAME) as u16)
+            }
             _ => return None,
         })
     }
 }
 
-trait UiExt {
-    fn add_fixed_width<W: Widget>(&mut self, widget: W, width: f32);
-    fn with_fixed_width<F: FnOnce(&mut Self)>(&mut self, width: f32, add_widgets: F);
+/// Reads the font files that ship beside this DLL rather than inside it.
+///
+/// The Korean and Simplified Chinese faces are megabytes each, so they are installed next to the
+/// DLL instead of embedded. Anything missing there is simply not loaded: the embedded faces still
+/// cover Latin, Cyrillic and common Hangul, and an overlay with a few missing glyphs beats no
+/// overlay at all.
+fn load_dynamic_fonts() -> overlay_ui::DynamicFonts {
+    let Some((module_path, _)) = crate::windows::module_from_address(load_dynamic_fonts as *mut _)
+    else {
+        return overlay_ui::DynamicFonts::default();
+    };
+    let Some(directory) = Path::new(&module_path).parent() else {
+        return overlay_ui::DynamicFonts::default();
+    };
+    overlay_ui::load_dynamic_fonts(&directory.join(overlay_ui::fonts::DYNAMIC_FONT_DIR))
 }
 
-impl UiExt for egui::Ui {
-    fn add_fixed_width<W: Widget>(&mut self, widget: W, width: f32) {
-        self.with_fixed_width(width, |ui| {
-            ui.add(widget);
-        })
-    }
+/// The draw layer the overlay is drawn at.
+///
+/// Above every layer SC:R draws, including the final pass that scales its UI render target onto the
+/// backbuffer (layers 0x6001 and 0x6002), so the overlay goes straight to the backbuffer and egui
+/// rasterizes its text at the window's own resolution rather than at the UI target's, which SD
+/// graphics fix at 1280x960 whatever the window. Being on top of all of it also covers what the
+/// game draws during loading (the FPS counter and the like).
+pub const OVERLAY_DRAW_LAYER: u16 = 0x6100;
 
-    fn with_fixed_width<F: FnOnce(&mut Self)>(&mut self, width: f32, add_widgets: F) {
-        // egui doesn't like infinite sizes for ui rects (has a debug assertion),
-        // so just replace infinite sides with very large end..
-        // Not really sure what this should use anyway.
-        let child_rect = self.cursor().intersect(Rect::from_center_size(
-            pos2(0.0, 0.0),
-            vec2(10000.0, 10000.0),
-        ));
-        let mut child_ui =
-            self.new_child(UiBuilder::new().max_rect(child_rect).layout(*self.layout()));
+/// The draw layer SC:R's software cursor is moved up to, so it is drawn over the overlay.
+///
+/// The game draws the cursor into its UI render target, at a layer the final pass then scales
+/// onto the backbuffer underneath the overlay. Drawn at a layer above the overlay instead, the
+/// cursor goes straight to the backbuffer over it. Below 0x8000, which the game's sort reads as
+/// negative.
+pub const SOFTWARE_CURSOR_DRAW_LAYER: u16 = OVERLAY_DRAW_LAYER + 0x100;
 
-        let mut clip_rect = child_ui.cursor();
-        clip_rect.set_width(width);
-        child_ui.set_clip_rect(clip_rect);
-
-        add_widgets(&mut child_ui);
-        let mut final_child_rect = child_ui.min_rect();
-        final_child_rect.set_width(width);
-        self.allocate_rect(final_child_rect, Sense::hover());
-    }
-}
-
-const fn get_normal_draw_layer() -> u16 {
-    // - 26 is the first layer that is drawn above minimap
-    // (Or maybe a tie with later draw taking prioriry)
-    // - 22 is first above F10 menu
-    // - 20 is first above the console UI
-    // Since egui doesn't really have a way (for now?) to tell some
-    // of the output to be drawn on different layer from others
-    // (Other than managing multiple `egui::Context`s and drawing output
-    // from different context on different layer),
-    // going to set the layer higher on debug builds so that the debug
-    // window is nicer to use.
-    // Layer 19 as default could be fine too, but probably better to
-    // go bit over BW console UI if our UI ever ends up being that big.
-    if cfg!(debug_assertions) { 26 } else { 21 }
-}
+/// The id of the control in BW's minimap dialog that the map itself is drawn in.
+const MINIMAP_MAP_CONTROL: i16 = 1;
 
 impl OverlayState {
     pub fn new() -> OverlayState {
@@ -254,7 +419,7 @@ impl OverlayState {
 
         // Fonts and base style come from the overlay-ui crate, so the host preview renders text
         // identically to the game.
-        overlay_ui::install_fonts_and_style(&ctx);
+        overlay_ui::install_fonts_and_style(&ctx, &load_dynamic_fonts());
 
         OverlayState {
             ctx,
@@ -263,19 +428,20 @@ impl OverlayState {
             ui_rects: Vec::new(),
             events: Vec::new(),
             production: ProductionState::new(),
-            replay_panels: ReplayPanelState {
-                hotkeys_active: false, // Will be set true if replay / obs at step()
-                show_statistics: true,
-                show_production: true,
-                show_console: true,
-            },
+            shell: Shell::new(),
+            capture: InputCapture::PASS_THROUGH,
+            native_dialogs_live: [false; NativeDialog::ALL.len()],
+            logged_minimap_area: None,
+            end_card: None,
             out_state: OutState {
                 replay_visions: 0,
                 select_unit: None,
                 show_hide_control: None,
                 show_hide_graphic_layer: None,
-                show_console: true,
                 leave_game: false,
+                look_at: None,
+                select_group: None,
+                follow_unit: None,
             },
             captured_mouse_down: [false; 2],
             bw_mouse_down: [false; 2],
@@ -283,39 +449,71 @@ impl OverlayState {
             window_size: (100, 100),
             screen_size: (100, 100),
             last_mouse_pos: ((0, 0), Pos2 { x: 0.0, y: 0.0 }),
+            mouse_scaling: false,
             replay_ui_values: ReplayUiValues {
-                name_width: 140.0,
-                resource_width: 80.0,
-                supply_width: 80.0,
-                workers_width: 40.0,
-                apm_width: 40.0,
-                production_pos: (10.0, 100.0),
-                production_image_size: 40.0,
-                production_max: 16,
                 statbtn_dialog_offset: (0, 0),
             },
             player_vision_was_auto_disabled: [false; 8],
             replay_start_handled: false,
-            draw_layer: get_normal_draw_layer(),
+            draw_layer: OVERLAY_DRAW_LAYER,
             dialog_debug_inspect_children: false,
             was_loading: false,
-            chat_textbox_open: false,
-            disconnect_blocks_input: false,
-            bw_menu_open: false,
+            self_link_lost_since: None,
+            // What the shell starts on: a watcher who never changes a panel has nothing to save.
+            saved_observer_panels: Some(PanelPrefs::default()),
+            last_requested_seek: None,
+            pending_look_at: None,
+            last_group_recall: None,
+            shell_held_keys: Vec::new(),
+            chat_history: None,
+            observer_view: None,
+            alliances: AlliancesState::default(),
+            resource_icons: None,
+            bottom_band_share: 0.0,
         }
+    }
+
+    /// Whether the game's resource icons have yet to be read. Read once, whether or not the game
+    /// had them.
+    /// Tells the player about a setting the game changed on one of its own keys.
+    pub fn setting_changed_in_game(&mut self, change: SettingChange) {
+        self.shell.setting_changed_in_game(change);
+    }
+
+    pub fn needs_resource_icons(&self) -> bool {
+        self.resource_icons.is_none()
+    }
+
+    /// Reads the game's resource icons through `read` and hands them to the panels.
+    pub fn load_resource_icons(&mut self, read: impl FnMut(&std::ffi::CString) -> Option<Vec<u8>>) {
+        let loaded = resource_icons::load(&self.ctx, read);
+        overlay_ui::kit::widgets::set_resource_icons(&self.ctx, Some(loaded.icons.clone()));
+        self.resource_icons = Some(loaded);
     }
 
     pub fn step(
         &mut self,
         bw: &BwVars,
         apm: Option<&ApmStats>,
+        game_stats: Option<&GameStats>,
         screen_size: (u32, u32),
         setup_info: Option<&GameSetupInfo>,
         disconnect_status: &DisconnectStatus,
         net_stats: Option<&NetStatsStatus>,
+        net_rollback: Option<&crate::rollback_live::NetStatus>,
         net_quality: Option<&NetQualityView>,
         loading_connectivity: Option<&LoadingConnectivity>,
+        chat_history: &Mutex<crate::bw_scr::chat_history::ChatHistory>,
+        chat_manager: &Mutex<ChatManager>,
+        options: &Mutex<OptionsView>,
+        option_lists: &Mutex<Arc<OptionsLists>>,
+        observer_panels: &Mutex<Option<PanelPrefs>>,
     ) -> StepOutput {
+        self.mouse_scaling = options.lock().mouse_scaling_on;
+        if let Some(panels) = observer_panels.lock().take() {
+            self.shell.set_panel_prefs(panels);
+            self.saved_observer_panels = Some(panels);
+        }
         // BW seems to use different render target sizes depending on SD/HD/4k
         // sprites; with 1280x960 for SD, 1920x1080 for lowres HD, and
         // 3840x2160 for 4k HD?
@@ -323,16 +521,10 @@ impl OverlayState {
         // render target and other times 1706x960 on HD with 1080p screen?
         // And 3412x1920 when forcing 4k assets..
         //
-        // Going to have egui resolution be at most 1080 points tall with increased
-        // pixel density for consistent look on HD, and have the UI on lower resolutions
-        // just take bit more space so that it gets 1.0 pixels:point ratio too.
-        //
-        // This'll also prevent division by 0 if screen_size is (0, 0) for some reason.
-        let pixels_per_point = if screen_size.1 > 1080 {
-            screen_size.1 as f32 / 1080.0
-        } else {
-            1.0
-        };
+        // The overlay is at most 1080 points tall, at a higher pixel density on a taller target,
+        // and scaled down further on a target narrower than 16:10 (see `pixels_per_point`).
+        let pixels_per_point =
+            overlay_ui::kit::pixels::pixels_per_point(screen_size.0 as f32, screen_size.1 as f32);
         self.ctx.set_pixels_per_point(pixels_per_point);
 
         // This exists for the weird 3412x1920 render target, since
@@ -357,6 +549,12 @@ impl OverlayState {
             (screen_size.1 as f32 / pixels_per_point).round() as u32,
         );
         let screen_size_changed = self.screen_size != screen_size;
+        if screen_size_changed {
+            debug!(
+                "Overlay screen is {}x{} points at {pixels_per_point} pixels per point",
+                screen_size.0, screen_size.1
+            );
+        }
         self.screen_size = screen_size;
         let screen_rect = Rect {
             min: Pos2 { x: 0.0, y: 0.0 },
@@ -409,69 +607,259 @@ impl OverlayState {
             select_unit: None,
             show_hide_control: None,
             show_hide_graphic_layer: None,
-            show_console: self.replay_panels.show_console,
             leave_game: false,
+            look_at: None,
+            select_group: None,
+            follow_unit: None,
         };
         let chat_textbox_open = bw::iter_dialogs(bw.first_dialog)
             .find(|x| x.as_control().string() == "TextBox")
             .and_then(|chat_dlg| chat_dlg.children().find(|x| x.id() == 7))
             .map(|entry_textbox_ctrl| !entry_textbox_ctrl.is_hidden())
             .unwrap_or(false);
-        self.chat_textbox_open = chat_textbox_open;
-        // Unit commands are swallowed whenever the disconnect panel shows a paused sim (a stall the
-        // panel is reporting, a confirmed peer drop, or our own link down): commands issued into a
-        // frozen sim all land in the same turn and burst out together when turns resume. The game
-        // menu is exempt (see `bw_menu_open`), so a player can still quit out of a stuck game.
-        self.disconnect_blocks_input = disconnect_status.is_blocking(Instant::now());
-        self.bw_menu_open = bw.first_dialog.is_some_and(|dialog| {
-            let control = dialog.as_control();
-            let name = control.string();
-            name != "Minimap" && name != "TimeOut"
+        let host_frame = HostFrame {
+            mode: if bw.is_replay {
+                Mode::Replay
+            } else if bw.is_replay_or_obs {
+                Mode::Observing
+            } else {
+                Mode::Playing
+            },
+            game_started: bw.game_started,
+            native_textbox_open: chat_textbox_open,
+            // `ui_active` is exactly "no BW menu is sitting on top of the game", which is when the
+            // keyboard is BW's rather than ours.
+            native_dialog_open: !self.ui_active,
+            // Menus spawn ahead of the always-present "Minimap", so any of them the player can see
+            // sits before it. A hidden one is not the player's to operate: the "TimeOut" BW spawns
+            // during a stall, or a menu the overlay has replaced with a surface of its own.
+            native_menu_open: bw::iter_dialogs(bw.first_dialog)
+                .take_while(|dialog| dialog.as_control().string() != "Minimap")
+                .any(|dialog| !dialog.as_control().is_hidden()),
+            game_seconds: transport::frames_to_seconds(
+                bw.game.frame_count(),
+                bw.replay
+                    .map_or(FASTEST_GAME_SPEED, |replay| replay.game_speed),
+            ),
+            pause_control: bw.pause_control,
+            minimap_rect: self.minimap_rect(bw),
+        };
+        if let Some(minimap) = host_frame.minimap_rect {
+            let screen = self.ctx.viewport_rect();
+            if screen.height() > 0.0 {
+                self.bottom_band_share = (screen.bottom() - minimap.top()) / screen.height();
+            }
+        }
+        // Keypresses arrive between frames and are decided against this, so it is refreshed even on
+        // the frames the shell draws nothing on.
+        self.shell.set_host(&host_frame);
+        dialog_hook::advance_quit(bw.first_dialog);
+        self.sync_native_dialogs(bw.first_dialog);
+        let users = setup_info.map(|info| info.users.as_slice()).unwrap_or(&[]);
+        let now = Instant::now();
+        let self_lost = disconnect_status.self_state(now) != netcode_v2::SelfState::Healthy;
+        let self_since = match (self_lost, self.self_link_lost_since) {
+            (true, Some(since)) => Some(since),
+            (true, None) => Some(now),
+            (false, _) => None,
+        };
+        self.self_link_lost_since = self_since;
+        let disconnect_view = disconnect::build_disconnect_view(
+            disconnect_status,
+            users,
+            &self.disconnect_roster(bw, disconnect_status, now),
+            self_since.map_or(0, |since| now.saturating_duration_since(since).as_secs()),
+            now,
+        );
+        let net_stats_view =
+            net_stats.map(|status| netstat::build_netstat_view(status, net_rollback, users));
+        // The log is built only while its modal is up, and lives beside the shell for the frame
+        // rather than inside `self`: the render closure below takes `self` mutably, so a view it
+        // reads cannot be borrowed out of a field.
+        let chat_history_view = if self
+            .shell
+            .open_modals()
+            .any(|modal| modal == ModalId::ChatHistory)
+        {
+            Some(ChatHistoryCache::build(
+                self.chat_history.take(),
+                chat_history,
+                bw,
+            ))
+        } else {
+            self.chat_history = None;
+            None
+        };
+        // Built only while its modal is up, like the log: it reads the chat settings under their
+        // lock, which nothing else in a frame needs.
+        let alliances_view = self
+            .shell
+            .open_modals()
+            .any(|modal| modal == ModalId::Alliances)
+            .then(|| {
+                self.alliances.build_view(
+                    bw,
+                    bw.alliance_rules,
+                    setup_info,
+                    chat_manager,
+                    Instant::now(),
+                )
+            });
+        let end_card_result = self
+            .shell
+            .open_modals()
+            .find_map(|modal| modal.end_card_result(host_frame.mode));
+        self.end_card = match (end_card_result, self.end_card) {
+            (Some(result), Some(view)) if view.result == result => Some(view),
+            (Some(result), _) => Some(end_card::build_end_card_view(
+                bw,
+                apm,
+                result,
+                host_frame.game_seconds,
+            )),
+            (None, _) => None,
+        };
+        // A copy for the frame: the render closure below takes `self` mutably, so a view it reads
+        // cannot be borrowed out of a field.
+        let end_card_view = self.end_card;
+        // Read before the views are built rather than while they are drawn: the panels report on
+        // the frame that is being drawn, and a production list sampled after it would be one frame
+        // behind everything beside it.
+        if bw.game_started && bw.is_replay_or_obs {
+            self.update_replay_state(bw);
+        }
+        // Handed over for every frame the client is watching rather than playing, though the panels
+        // that report the sampler's history are only built again once it has moved under them, and
+        // only while shown (see `ObserverViewCache`). Lives beside the shell for the frame rather
+        // than inside `self`, like the chat log.
+        let observer_view = (bw.game_started && bw.is_replay_or_obs).then(|| {
+            let matchup = self.build_matchup_view(bw, apm);
+            let production = self.build_production_view(bw);
+            ObserverViewCache::build(
+                self.observer_view.take(),
+                bw,
+                game_stats,
+                self.shell.panel_prefs(),
+                matchup,
+                production,
+            )
         });
-        self.replay_panels.hotkeys_active =
-            bw.game_started && bw.is_replay_or_obs && self.ui_active && !chat_textbox_open;
-        // `run_ui` replaced `Context::run` in egui 0.34: it hands the callback a root `Ui` covering
-        // the whole screen (no margin/background) instead of the bare `&Context`. Floating Windows
-        // and Areas still attach to the context (`&ctx`); only the loading screen's `CentralPanel`
-        // needs the root `Ui`, so it alone is threaded `ui`.
-        let output = ctx.run_ui(input, |ui| {
+        // Built for every frame of a replay whether or not the plate is on screen: the transport
+        // keys keep working with it hidden, and only the shell knows whether the player hid it.
+        let transport_view = bw.replay.map(|replay| TransportView {
+            elapsed_frames: bw.game.frame_count(),
+            end_frames: replay.end_frame,
+            game_speed: replay.game_speed,
+            paused: replay.transport.paused,
+            speed_index: replay.transport.speed_index,
+            multiplier: replay.transport.multiplier,
+            spoiler_free: self.shell.panel_prefs().spoiler_free,
+            seek_pending: replay.transport.seek_pending,
+        });
+        // A copy for the frame rather than a lock held across the draw: the intents the frame
+        // reports back take the lock again to record what the player moved.
+        let options_view = *options.lock();
+        // Shared rather than copied: the names in it are read every frame and written only when
+        // the app's settings arrive.
+        let mut option_lists_view = option_lists.lock().clone();
+        // Rollback balance only means anything in a game that rolls back, which the session decides
+        // after the lists were built, so the lists learn it here.
+        let rolls_back = crate::rollback_live::native_sync_off();
+        if option_lists_view.rollback_game != rolls_back {
+            Arc::make_mut(&mut option_lists_view).rollback_game = rolls_back;
+            *option_lists.lock() = option_lists_view.clone();
+        }
+        let mut views = Views {
+            disconnect: (!disconnect_view.is_empty()).then(|| DisconnectSurface {
+                view: &disconnect_view,
+                blocks_input: disconnect_status.is_blocking(Instant::now()),
+            }),
+            net_quality,
+            net_stats: net_stats_view.as_ref(),
+            chat_history: chat_history_view.as_ref().map(ChatHistoryCache::view),
+            alliances: alliances_view.as_ref(),
+            end_card: end_card_view.as_ref(),
+            transport: transport_view.as_ref(),
+            observer: observer_view.as_ref().map(ObserverViewCache::view),
+            options: Some(&options_view),
+            option_lists: Some(&option_lists_view),
+        };
+        // Left at its default on a frame the shell doesn't draw, which is a frame that takes none
+        // of the player's input and asks nothing of the game.
+        let mut frame_output = FrameOutput::default();
+        // Floating windows and areas attach to the context (`&ctx`); only the loading screen's
+        // `CentralPanel` needs the root `Ui` that `run_ui` hands over.
+        let mut output = ctx.run_ui(input, |ui| {
             if bw.game_started {
                 if self.was_loading {
-                    self.draw_layer = get_normal_draw_layer();
                     self.was_loading = false;
                     // Free up all the loading screen images since we'll never need them again
                     ctx.forget_all_images();
                 }
 
-                if bw.is_replay_or_obs {
-                    self.add_replay_ui(bw, apm, &ctx);
-                }
-                // Product UX, drawn in every build: a stall-aware notice naming the players the sim
-                // is waiting on, upgrading to relay-confirmed disconnects with a manual drop.
-                self.add_disconnect_overlay(disconnect_status, setup_info, &ctx);
-                // The `/netstat` diagnostic overlay, drawn only while toggled on (a `Some` snapshot).
-                self.add_netstat_overlay(net_stats, setup_info, &ctx);
-                if let Some(net_quality) = net_quality {
-                    render_net_quality(net_quality, &ctx);
+                // Every surface of ours is the shell's: the observer panels, the replay
+                // transport, the disconnect surface, the `/netstat` diagnostic panel and whatever
+                // modal owns the screen. Its rects are registered unconditionally: a BW dialog
+                // sitting on the stack (the hidden `TimeOut` among them) must never be able to
+                // steal a click from a modal of ours.
+                self.shell.update_held_keys(letter_key_is_down);
+                frame_output = self.shell.frame(&ctx, &host_frame, &mut views);
+                for hit in &frame_output.hit_rects {
+                    self.ui_rects.push(UiRect {
+                        area: hit.rect,
+                        capture_mouse_scroll: hit.captures_scroll,
+                    });
                 }
                 let debug = cfg!(debug_assertions);
                 if debug {
                     self.add_debug_ui(bw, &ctx);
                 }
             } else {
-                // Draw the loading UI higher so it hides everything BW may draw (FPS counter, etc.)
-                self.draw_layer = 26;
                 self.was_loading = true;
                 self.add_loading_screen_ui(bw, setup_info, loading_connectivity, ui);
             }
         });
-        let ui_primitives = self.ctx.tessellate(output.shapes, pixels_per_point);
-        let mut primitives = Vec::with_capacity(8);
-        if bw.is_replay && self.replay_panels.show_console {
-            let rect = self.make_button_panel_rect(bw, pixels_per_point);
-            primitives.push((21, rect));
+        self.chat_history = chat_history_view;
+        self.observer_view = observer_view;
+        self.capture = frame_output.capture;
+        let mut replay_commands = Vec::new();
+        let mut setting_changes = Vec::new();
+        let mut game_commands = Vec::new();
+        for intent in frame_output.intents {
+            match intent {
+                // The overlay holds what the player moved, so the screen keeps showing it for the
+                // rest of the game; making it real is the game's side, which owns the settings.
+                Intent::ChangeSetting(change) => {
+                    options.lock().apply(change);
+                    setting_changes.push(change);
+                }
+                Intent::Alliances(action) => {
+                    let command = self.alliances.apply(
+                        action,
+                        bw,
+                        bw.alliance_rules,
+                        chat_manager,
+                        Instant::now(),
+                    );
+                    // An alliance or vision command carries the whole of the player's setting, so
+                    // of several made in one frame only the last is worth sending.
+                    if let Some(command) = command {
+                        game_commands.retain(|sent: &Vec<u8>| sent.first() != command.first());
+                        game_commands.push(command);
+                    }
+                }
+                intent => self.execute_intent(bw, intent, &mut replay_commands),
+            }
         }
-        primitives.push((self.draw_layer, ui_primitives));
+        self.let_out_look_at(bw.game.frame_count());
+        let prefs = *self.shell.panel_prefs();
+        let observer_panels_changed = (self.saved_observer_panels != Some(prefs)).then(|| {
+            self.saved_observer_panels = Some(prefs);
+            prefs
+        });
+        overlay_ui::kit::pixels::crisp_hairlines(&mut output.shapes, pixels_per_point);
+        let ui_primitives = self.ctx.tessellate(output.shapes, pixels_per_point);
+        let primitives = vec![(self.draw_layer, ui_primitives)];
         StepOutput {
             textures_delta: output.textures_delta,
             primitives,
@@ -479,54 +867,111 @@ impl OverlayState {
             select_unit: self.out_state.select_unit,
             show_hide_control: self.out_state.show_hide_control,
             show_hide_graphic_layer: self.out_state.show_hide_graphic_layer,
-            show_console: self.out_state.show_console,
+            // A watcher keeps only the minimap of the console; a player always has all of it.
+            console_visible: !bw.is_replay_or_obs,
+            minimap_visible: !bw.is_replay_or_obs || prefs.minimap,
+            command_panel_visible: !frame_output.transport_shown,
+            replay_commands,
+            game_commands,
+            setting_changes,
+            observer_panels_changed,
             statbtn_dialog_offset: self.replay_ui_values.statbtn_dialog_offset,
             run_second_draw: screen_size_changed,
             leave_game: self.out_state.leave_game,
+            look_at: self.out_state.look_at,
+            select_group: self.out_state.select_group.take(),
+            follow_unit: self.out_state.follow_unit,
+            bottom_overpan_share: if bw.is_replay_or_obs {
+                self.bottom_band_share
+            } else {
+                0.0
+            },
         }
     }
 
-    /// Draws a black rectangle behind replay UI buttons as it doesn't have proper black
-    /// background otherwise.
-    fn make_button_panel_rect(
-        &mut self,
-        bw: &BwVars,
-        pixels_per_point: f32,
-    ) -> Vec<egui::ClippedPrimitive> {
-        let mut shapes = Vec::new();
-        let full_clip_rect = Rect::from_two_pos(
-            pos2(0.0, 0.0),
-            pos2(self.screen_size.0 as f32, self.screen_size.1 as f32),
-        );
-
-        let statbtn_dialog =
-            bw::iter_dialogs(bw.first_dialog).find(|x| x.as_control().string() == "StatBtn");
-        if let Some(dialog) = statbtn_dialog {
-            let ctrl = dialog.as_control();
-            if !ctrl.is_hidden() {
-                let area = ctrl.screen_coords();
-                let max_x = self.bw_dialog_coords_max_x() as i16;
-                let rect = epaint::RectShape::new(
-                    Rect::from_two_pos(
-                        // left - 1 just since otherwise there'd be a thin column of lighter
-                        // pixels left there.
-                        self.bw_dialog_point_to_egui(area.left - 1, area.top),
-                        // Dialog goes off the screen unless using minimap-on-center layout;
-                        // clamp to screen width so that border stays visible.
-                        self.bw_dialog_point_to_egui(area.right.min(max_x), 480),
-                    ),
-                    egui::CornerRadius::same(2),
-                    Color32::BLACK,
-                    egui::Stroke::new(2.0, Color32::DARK_GREEN),
-                    egui::StrokeKind::Inside,
-                );
-                shapes.push(epaint::ClippedShape {
-                    clip_rect: full_clip_rect,
-                    shape: rect.into(),
-                });
+    /// Tells the shell about every replaced native dialog that has spawned or been deleted since
+    /// the last frame. The spawn hook records the dialogs as they come and go; the transitions are
+    /// what the shell's modal stack is built from.
+    fn sync_native_dialogs(&mut self, first_dialog: Option<Dialog>) {
+        let live = dialog_hook::live_replaced_dialogs();
+        for dialog in NativeDialog::ALL {
+            let index = dialog.index();
+            if live[index] == self.native_dialogs_live[index] {
+                continue;
+            }
+            self.native_dialogs_live[index] = live[index];
+            if live[index] {
+                dialog_hook::log_replaced_dialog_controls(first_dialog, dialog);
+                self.shell.native_dialog_spawned(dialog);
+            } else {
+                self.shell.native_dialog_closed(dialog);
             }
         }
-        self.ctx.tessellate(shapes, pixels_per_point)
+    }
+
+    /// Where BW's minimap square is on screen, in overlay points, while its dialog is up.
+    ///
+    /// The square is the control the map is drawn in. Without that control, it is taken from the
+    /// dialog's own rect, which carries the strip of buttons above the map as well as the map: as
+    /// wide as the dialog, and as tall as it is wide, from its bottom.
+    /// The rect is logged whenever it moves, children and all, which is what to check the square
+    /// against when a layout of the game's puts the minimap somewhere new.
+    fn minimap_rect(&mut self, bw: &BwVars) -> Option<Rect> {
+        let dialog = bw::iter_dialogs(bw.first_dialog)
+            .find(|dialog| dialog.as_control().string() == console::MINIMAP_DIALOG)?;
+        let control = dialog.as_control();
+        if control.is_hidden() {
+            return None;
+        }
+        let area = control.screen_coords();
+        if self.logged_minimap_area != Some((area.left, area.top, area.right, area.bottom)) {
+            self.logged_minimap_area = Some((area.left, area.top, area.right, area.bottom));
+            let children = dialog
+                .children()
+                .map(|child| {
+                    let rect = child.dialog_coords();
+                    format!(
+                        "{} ({:#x}) {},{}-{},{}{}",
+                        child.id(),
+                        child.control_type(),
+                        rect.left,
+                        rect.top,
+                        rect.right,
+                        rect.bottom,
+                        if child.is_hidden() { " hidden" } else { "" },
+                    )
+                })
+                .collect::<Vec<_>>();
+            debug!(
+                "Minimap dialog at {},{}-{},{}; controls {}",
+                area.left,
+                area.top,
+                area.right,
+                area.bottom,
+                children.join(", ")
+            );
+        }
+        // The map is drawn in a control of its own, inset from the dialog's edges: with the console
+        // art hidden, the dialog's margin around it is see-through, so the square is the control's.
+        if let Some(map) = dialog.child_by_id(MINIMAP_MAP_CONTROL) {
+            let area = map.screen_coords();
+            let min = self.bw_dialog_point_to_egui(area.left, area.top);
+            let max = self.bw_dialog_point_to_egui(area.right, area.bottom);
+            if max.x > min.x && max.y > min.y {
+                return Some(Rect::from_min_max(min, max));
+            }
+        }
+        let min = self.bw_dialog_point_to_egui(area.left, area.top);
+        let max = self.bw_dialog_point_to_egui(area.right, area.bottom);
+        let width = max.x - min.x;
+        if width <= 0.0 || max.y <= min.y {
+            return None;
+        }
+        let side = width.min(max.y - min.y);
+        Some(Rect::from_min_max(
+            pos2(min.x, max.y - side),
+            pos2(max.x, max.y),
+        ))
     }
 
     fn bw_dialog_coords_max_x(&self) -> f32 {
@@ -567,25 +1012,10 @@ impl OverlayState {
         ui.collapsing("Replay UI", |ui| {
             let v = &mut self.replay_ui_values;
             for (var, text) in [
-                (&mut v.name_width, "Name"),
-                (&mut v.resource_width, "Resources"),
-                (&mut v.supply_width, "Supply"),
-                (&mut v.workers_width, "Workers"),
-                (&mut v.apm_width, "APM"),
-                (&mut v.production_pos.0, "Production X"),
-                (&mut v.production_pos.1, "Production Y"),
-                (&mut v.production_image_size, "Production size"),
-            ] {
-                ui.add(Slider::new(var, 0.0..=200.0).text(text));
-            }
-            for (var, text) in [
                 (&mut v.statbtn_dialog_offset.0, "Statbtn dialog X"),
                 (&mut v.statbtn_dialog_offset.1, "Statbtn dialog Y"),
             ] {
                 ui.add(Slider::new(var, -100i32..=100).text(text));
-            }
-            for (var, text) in [(&mut v.production_max, "Production max")] {
-                ui.add(Slider::new(var, 0u32..=50).text(text));
             }
         });
         ui.collapsing("BW Dialogs", |ui| {
@@ -612,7 +1042,7 @@ impl OverlayState {
                 }
             }
         });
-        ui.add(Slider::new(&mut self.draw_layer, 0u16..=0x1f).text("Draw layer"));
+        ui.add(Slider::new(&mut self.draw_layer, 0u16..=OVERLAY_DRAW_LAYER).text("Draw layer"));
         let msg = format!(
             "Windows mouse {}, {},\n    egui {}, {}",
             self.last_mouse_pos.0.0,
@@ -667,7 +1097,7 @@ impl OverlayState {
                                 "{} {}: '{}' {},{},{},{}",
                                 control_type_name(ctrl.control_type()),
                                 ctrl.id(),
-                                ctrl.string(),
+                                bw::control_text(&ctrl),
                                 rect.left,
                                 rect.top,
                                 rect.right,
@@ -684,7 +1114,9 @@ impl OverlayState {
         }
     }
 
-    fn add_replay_ui(&mut self, bw: &BwVars, apm: Option<&ApmStats>, ctx: &egui::Context) {
+    /// Keeps what the observer panels report in step with the game: whose vision the watcher has,
+    /// and what every player is making. The panels themselves are drawn by the shell.
+    fn update_replay_state(&mut self, bw: &BwVars) {
         let frame = bw.game.frame_count();
         if frame == 0 {
             // Explicit init at start of the game to handle replay restarts /
@@ -714,186 +1146,227 @@ impl OverlayState {
                 }
             }
         }
-        if self.replay_panels.show_statistics {
-            self.add_replay_statistics(bw, apm, ctx);
-        }
-        if self.replay_panels.show_production {
-            self.update_replay_production(bw);
-            self.add_production_ui(bw, ctx);
+        self.update_replay_production(bw);
+    }
+
+    /// Hands the waiting look at a place to the game once the replay is at the frame its seek asked
+    /// for, and gives it up once it has waited too long for that.
+    fn let_out_look_at(&mut self, frame: u32) {
+        let Some(pending) = &self.pending_look_at else {
+            return;
+        };
+        if (pending.frame..=pending.frame.saturating_add(LOOK_AT_WINDOW_FRAMES)).contains(&frame) {
+            debug!(
+                "Looking at {},{} after the seek to {} landed on {frame}",
+                pending.point.x, pending.point.y, pending.frame
+            );
+            self.out_state.look_at = Some(bw::Point {
+                x: pending.point.x,
+                y: pending.point.y,
+            });
+            self.pending_look_at = None;
+        } else if pending.asked.elapsed() > LOOK_AT_TIMEOUT {
+            debug!(
+                "Gave up looking at {},{}: the seek to {} never landed",
+                pending.point.x, pending.point.y, pending.frame
+            );
+            self.pending_look_at = None;
         }
     }
 
-    fn add_replay_statistics(&mut self, bw: &BwVars, apm: Option<&ApmStats>, ctx: &egui::Context) {
-        let res = egui::Window::new("Replay_Resources")
-            .anchor(Align2::RIGHT_TOP, Vec2 { x: -10.0, y: 10.0 })
-            .movable(false)
-            .resizable(false)
-            .title_bar(false)
-            .show(ctx, |ui| {
-                // Add separators between teams
-                // So before first player of team but not before first player of all.
-                let mut players_shown = 0;
-                let mut team_players_shown = 0;
-                let mut prev_team = 0;
-                #[allow(clippy::explicit_counter_loop)]
-                for (team, player_id) in replay_players_by_team(bw) {
-                    // Skip players with no units -- assuming they're UMS map observers.
-                    // UMS map with triggers can have players sometimes be
-                    // without units until triggers let them play, but probably this
-                    // won't be too relevant.
-                    // But show all players in team games even though units are owned by one
-                    // of them.
-                    if !player_has_units(bw, player_id) && !bw.is_team_game {
-                        // But if we have player's vision enabled (Can be done through
-                        // vision button above minimap / player having had units before),
-                        // show player's name so that the user (hopefully) realizes that
-                        // they provide vision.
-                        if !has_player_vision(bw, player_id) {
-                            continue;
-                        }
-                    }
-                    if team != prev_team {
-                        prev_team = team;
-                        team_players_shown = 0;
-                    }
-                    let info = unsafe {
-                        let player = bw.players.add(player_id as usize);
-                        player_resources_info(bw, player, player_id, apm)
-                    };
-                    if players_shown != 0 && team_players_shown == 0 {
-                        ui.scope(|ui| {
-                            // Separators seem hard to see with 1.0 default
-                            // stroke width.
-                            let stroke =
-                                &mut ui.style_mut().visuals.widgets.noninteractive.bg_stroke;
-                            stroke.width = 2.0;
-                            ui.separator();
+    /// Carries out one thing the shell asked of the game, or hands on the ones only the caller can
+    /// do.
+    ///
+    /// The transport's commands go into `replay_commands` rather than being sent here: submitting a
+    /// game command needs the `BwScr` this draw path was called from, which the overlay deliberately
+    /// knows nothing about.
+    fn execute_intent(
+        &mut self,
+        bw: &BwVars,
+        intent: Intent,
+        replay_commands: &mut Vec<ReplayCommand>,
+    ) {
+        match intent {
+            // Safe to reach the turn state here: the draw path holds no turn-state lock across
+            // `step`.
+            Intent::DropPlayer { slot } => {
+                netcode_v2::with_turn_state(|s| s.request_drop(SlotId(slot)));
+            }
+            Intent::CloseNativeDialog(dialog) => {
+                dialog_hook::close_replaced_dialog(bw.first_dialog, dialog);
+            }
+            // Both leave a game this client cannot play on any more, its session over or its link
+            // given up on, so no other player can be told through the game and the session's own
+            // leave handling speaks for it.
+            Intent::LeaveGame | Intent::AbandonGame => self.out_state.leave_game = true,
+            Intent::QuitGame => dialog_hook::begin_quit(bw.first_dialog),
+            Intent::SetPaused(paused) => {
+                dialog_hook::set_paused(bw.first_dialog, paused, bw.pause_control)
+            }
+            // The game's result is already reported by the time the card is up, so a result dialog
+            // that has no End Mission to press is left by ending the game loop instead, rather than
+            // keeping the player in a game they asked to leave.
+            Intent::EndMission(dialog) => {
+                if !dialog_hook::end_mission(bw.first_dialog, dialog) {
+                    self.out_state.leave_game = true;
+                }
+            }
+            Intent::OpenGameMenu => dialog_hook::open_game_menu(bw.first_dialog),
+            Intent::OpenObjectives => dialog_hook::open_objectives(bw.first_dialog),
+            Intent::Seek(frame) => {
+                self.last_requested_seek = Some(frame);
+                replay_commands.push(ReplayCommand::Seek { frame });
+            }
+            Intent::LookAt(point) => {
+                self.pending_look_at = self.last_requested_seek.map(|frame| PendingLookAt {
+                    frame,
+                    point,
+                    asked: Instant::now(),
+                });
+            }
+            Intent::SetSpeed {
+                speed_index,
+                multiplier,
+                paused,
+            } => replay_commands.push(ReplayCommand::Speed {
+                speed_index,
+                multiplier,
+                paused,
+            }),
+            Intent::ToggleVision { player_id } => self.toggle_player_vision(bw, player_id),
+            Intent::SelectProduction { player_id, item } => {
+                self.select_production(player_id, item as usize)
+            }
+            Intent::PickSelectedUnit(index) => {
+                let selected = bw.client_selection.iter().flatten();
+                let alone = selected.clone().count() == 1;
+                if let Some(&unit) = selected.clone().nth(index) {
+                    if alone {
+                        self.out_state.look_at = Some(unit.position());
+                    } else {
+                        self.out_state.select_group = Some(GroupSelection {
+                            units: vec![unit],
+                            center: false,
                         });
                     }
-                    let id = Id::new(("ReplayPlayerInfo", player_id));
-                    let response = self.add_player_info(ui, id, &info);
-                    if response.clicked() && player_id < 8 {
-                        let bit = 1u8 << player_id;
-                        let mask = unsafe { team_vision_mask(bw, player_id) };
-                        // This seems to be enough.
-                        // BW itself also writes non-replay player visions and exploration
-                        // but they seem to be ignored anyway / wouldn't work as
-                        // expected if they were read.
-                        if bw.replay_visions & bit != 0 {
-                            self.out_state.replay_visions &= !mask;
-                        } else {
-                            self.out_state.replay_visions |= mask;
-                        }
-                        if let Some(val) = self
-                            .player_vision_was_auto_disabled
-                            .get_mut(player_id as usize)
-                        {
-                            *val = false;
-                        }
-                    }
-                    players_shown += 1;
-                    team_players_shown += 1;
                 }
-            });
-        self.add_ui_rect(&res);
-    }
-
-    fn add_player_info(&self, ui: &mut egui::Ui, id: Id, info: &PlayerInfo) -> Response {
-        let size = Vec2 { x: 300.0, y: 24.0 };
-        ui.allocate_ui_with_layout(size, Layout::left_to_right(Align::Center), |ui| {
-            let ReplayUiValues {
-                name_width,
-                resource_width,
-                supply_width,
-                workers_width,
-                apm_width,
-                ..
-            } = self.replay_ui_values;
-
-            ui.with_fixed_width(name_width, |ui| {
-                if !info.vision {
-                    let x = egui::RichText::new("❌").color(Color32::RED);
-                    ui.add(Label::new(x));
+            }
+            Intent::FollowSelectedUnit(index) => {
+                self.out_state.follow_unit =
+                    bw.client_selection.iter().flatten().nth(index).copied();
+            }
+            Intent::SelectControlGroup { player_id, key } => {
+                let now = Instant::now();
+                let center = self.last_group_recall.is_some_and(|(player, group, at)| {
+                    player == player_id
+                        && group == key
+                        && now.duration_since(at) < GROUP_DOUBLE_PRESS
+                });
+                self.last_group_recall = Some((player_id, key, now));
+                let units = match &bw.units {
+                    Some(units) => game_stats::control_group_units(bw.game, units, player_id, key),
+                    None => Vec::new(),
+                };
+                if !units.is_empty() {
+                    self.out_state.select_group = Some(GroupSelection { units, center });
                 }
-                let text = egui::RichText::new(&*info.name).color(info.color);
-                ui.add(Label::new(text));
-            });
-
-            let mineral_icon = Texture::StatRes(0);
-            info.add_icon_text(ui, mineral_icon, &info.minerals.to_string(), resource_width);
-            let gas_icon = Texture::StatRes(1 + info.race.min(2u8) as u16);
-            info.add_icon_text(ui, gas_icon, &info.gas.to_string(), resource_width);
-
-            let worker_icon = Texture::CmdIcon(match info.race {
-                0 => bw_dat::unit::DRONE.0,
-                1 => bw_dat::unit::SCV.0,
-                _ => bw_dat::unit::PROBE.0,
-            });
-            info.add_colored_icon_text(
-                ui,
-                worker_icon,
-                &info.workers.to_string(),
-                workers_width,
-                Color32::YELLOW,
-            );
-
-            // TODO Could add other races if player has supply for them?
-            // But then each PlayerInfo render should agree on how many race supplies are drawn
-            // to keep things on a grid.
-            let (current, max) = info
-                .supplies
-                .get(info.race as usize)
-                .copied()
-                .unwrap_or((0, 0));
-            // Supply text is slightly more complex as part of it is colored red when
-            // supply blocked.
-            let part1 = format!("{current}");
-            let part2 = format!(" / {max}");
-            // Didn't see any nice function to apply all style font overrides,
-            // but as long as those don't exist this should match other text.
-            let font_id = egui::style::FontSelection::Default.resolve(ui.style());
-            let strong_color = ui.visuals().strong_text_color();
-            let color = if current > max {
-                Color32::RED
-            } else {
-                strong_color
-            };
-            let mut text = egui::text::LayoutJob::simple_singleline(part1, font_id.clone(), color);
-            text.append(
-                &part2,
-                0.0,
-                egui::TextFormat {
-                    font_id,
-                    color: strong_color,
-                    ..Default::default()
-                },
-            );
-            let supply_icon = Texture::StatRes(4 + info.race.min(2u8) as u16);
-            info.add_colored_icon_complex_text(
-                ui,
-                supply_icon,
-                text.into(),
-                supply_width,
-                Color32::WHITE,
-            );
-
-            let label = Label::new(egui::RichText::new("APM "));
-            ui.add(label);
-            let label = Label::new(egui::RichText::new(info.apm.to_string()).strong());
-            ui.add_fixed_width(label, apm_width);
-            ui.interact(ui.min_rect(), id, Sense::click())
-        })
-        .inner
-    }
-
-    /// Adds UI rect (Making the area interactable by user) if it was decided that
-    /// no higher-priority BW menus are active.
-    fn add_ui_rect<T>(&mut self, response: &Option<egui::InnerResponse<T>>) {
-        if self.ui_active {
-            self.force_add_ui_rect(response, false);
+            }
+            // Collected by `step` for the game to apply, since the game owns the settings.
+            Intent::ChangeSetting(_) => {}
+            // Carried out by `step`, which holds the chat settings they act on.
+            Intent::Alliances(_) => {}
         }
     }
 
+    /// The players of this game as the disconnect surface names them: everyone in a playing slot,
+    /// with the color they are on the map and whether they are on the local player's side.
+    ///
+    /// Built only for the frames the surface is actually up, because it reads eight slots out of
+    /// BW's own tables and clones a name for each of them.
+    fn disconnect_roster(
+        &self,
+        bw: &BwVars,
+        status: &DisconnectStatus,
+        now: Instant,
+    ) -> Vec<disconnect::RosterPlayer> {
+        if status.rows(now).is_empty() && status.self_state(now) == netcode_v2::SelfState::Healthy {
+            return Vec::new();
+        }
+        let teams = player_teams(bw);
+        let local = bw.local_player_id;
+        (0..8u8)
+            .filter(|&player_id| is_human_player(bw, player_id as usize))
+            .map(|player_id| disconnect::RosterPlayer {
+                name: stats::player_name(bw, player_id),
+                color: stats::player_color(bw, player_id),
+                // A side rather than a declared alliance: `player_teams` is the game's own team
+                // numbers where the game type has them and who has mutually allied whom where it
+                // does not, which is the only record a melee two-versus-two keeps of itself.
+                teammate: player_id != local
+                    && usize::from(local) < teams.len()
+                    && teams[usize::from(player_id)] == teams[usize::from(local)],
+                is_local: player_id == local,
+            })
+            .collect()
+    }
+
+    /// Shows or stops showing the game through a player's eyes.
+    ///
+    /// The whole group that shares vision with them moves together: half of a shared pair would be a
+    /// map neither player sees. Writing the replay visions is enough — BW keeps per-player vision
+    /// and exploration of its own, but a replay ignores both.
+    fn toggle_player_vision(&mut self, bw: &BwVars, player_id: u8) {
+        if player_id >= 8 {
+            return;
+        }
+        let bit = 1u8 << player_id;
+        let mask = unsafe { team_vision_mask(bw, player_id) };
+        if bw.replay_visions & bit != 0 {
+            self.out_state.replay_visions &= !mask;
+        } else {
+            self.out_state.replay_visions |= mask;
+        }
+        // Asking for a player's vision by hand outranks the guess made at the replay's start that
+        // they were an observer, so the guess is not made about them again.
+        if let Some(auto_disabled) = self
+            .player_vision_was_auto_disabled
+            .get_mut(player_id as usize)
+        {
+            *auto_disabled = false;
+        }
+    }
+
+    /// Builds the matchup bar's view: every player the replay is worth showing, in team order.
+    fn build_matchup_view(&self, bw: &BwVars, apm: Option<&ApmStats>) -> MatchupView {
+        let players = replay_players_by_team(bw)
+            .filter(|&(_team, player_id)| {
+                // Players with no units are taken for observers on a UMS map, which have no numbers
+                // worth a half of the bar. A team game's players are all shown, since one of them
+                // owns the team's units. And a player whose vision the watcher has taken is shown
+                // whatever they own, so it is clear where the vision on screen is coming from.
+                player_has_units(bw, player_id)
+                    || bw.is_team_game
+                    || has_player_vision(bw, player_id)
+            })
+            .map(|(team, player_id)| unsafe {
+                let player = bw.players.add(player_id as usize);
+                matchup_player_view(bw, player, player_id, team, apm)
+            })
+            .collect();
+        MatchupView {
+            players,
+            elapsed_secs: transport::frames_to_seconds(
+                bw.game.frame_count(),
+                bw.replay
+                    .map_or(FASTEST_GAME_SPEED, |replay| replay.game_speed),
+            ),
+            is_replay: bw.is_replay,
+        }
+    }
+
+    /// Makes an area the overlay drew interactable by the player, whether or not one of BW's own
+    /// menus is on top. Only for the debug window; every other rect the frame owns comes from the
+    /// shell.
     fn force_add_ui_rect<T>(
         &mut self,
         response: &Option<egui::InnerResponse<T>>,
@@ -909,13 +1382,13 @@ impl OverlayState {
 
     /// Returns cursor type if cursor is on the overlays.
     /// Specifically prevents the cursor from changing due to units being behind the overlay.
-    /// Only thing we do return for now is 0 for regular mouse pointer.
+    /// Only ever returns the plain arrow.
     pub fn decide_cursor_type(&self) -> Option<BwCursorType> {
-        // While the disconnect overlay is swallowing game input the sim is frozen, and with it BW's
+        // While a modal of ours is taking the pointer the sim is usually frozen, and with it BW's
         // per-frame cursor selection, so the cursor would otherwise stay whatever shape it had when
-        // the stall began (a hover or drag cursor over nothing). Pin the plain pointer instead,
-        // unless the player is operating a BW menu, whose own cursor handling still runs.
-        if self.disconnect_blocks_input && !self.bw_menu_open {
+        // the modal came up (a hover or drag cursor over nothing). Pin the plain pointer instead.
+        // A BW menu the player is operating lifts the capture, so its own cursor handling runs.
+        if self.capture.blocks_game_pointer() {
             return Some(BwCursorType::Arrow);
         }
         if self.mouse_down != [false, false] && self.captured_mouse_down == [false, false] {
@@ -983,12 +1456,12 @@ impl OverlayState {
                     };
                     self.mouse_down[button_idx] = pressed;
                     if !handle {
-                        // BW gets a press only while the disconnect block is off, and gets a
-                        // release exactly when it got the press: a swallowed release would leave
+                        // BW gets a press only while the overlay isn't taking the pointer, and gets
+                        // a release exactly when it got the press: a swallowed release would leave
                         // it mid-drag-select with no way to finish, and an orphan release (press
                         // swallowed, release delivered) is an input sequence BW never expects.
                         let deliver = if pressed {
-                            !self.should_block_game_pointer_input()
+                            !self.capture.blocks_game_pointer()
                         } else {
                             self.bw_mouse_down[button_idx]
                         };
@@ -1025,7 +1498,7 @@ impl OverlayState {
                         .iter()
                         .any(|x| x.capture_mouse_scroll && x.area.contains(pos));
                     if !handle {
-                        return if self.should_block_game_pointer_input() {
+                        return if self.capture.blocks_game_pointer() {
                             Some(0)
                         } else {
                             None
@@ -1037,8 +1510,8 @@ impl OverlayState {
                     self.events.push(Event::MouseWheel {
                         unit: egui::MouseWheelUnit::Point,
                         delta: egui::vec2(0.0, amount),
-                        // egui 0.35 added a scroll phase for trackpads; a mouse wheel has no phase,
-                        // so use the "unknown" value egui documents for that case.
+                        // A mouse wheel has no scroll phase; `Move` is the value egui documents for
+                        // that case.
                         phase: egui::TouchPhase::Move,
                         modifiers,
                     });
@@ -1048,9 +1521,46 @@ impl OverlayState {
                     let mut modifiers = current_egui_modifiers();
                     let is_syskey = matches!(msg, WM_SYSKEYDOWN | WM_SYSKEYUP);
                     let pressed = matches!(msg, WM_KEYDOWN | WM_SYSKEYDOWN);
-                    modifiers.alt |= is_syskey;
                     let vkey = wparam as i32;
-                    if let Some(key) = vkey_to_egui_key(vkey) {
+                    // Windows sends an Alt chord as a system key, and F10 too, Alt or not: it is the
+                    // key that opens a window's menu bar.
+                    modifiers.alt |= is_syskey && vkey != VK_F10;
+                    let key = vkey_to_egui_key(vkey);
+                    let scan_code = message_scan_code(lparam);
+                    if !pressed {
+                        if let Some(index) = self
+                            .shell_held_keys
+                            .iter()
+                            .position(|&held| held == scan_code)
+                        {
+                            self.shell_held_keys.swap_remove(index);
+                            return Some(0);
+                        }
+                    } else if self.shell_held_keys.contains(&scan_code) {
+                        // A held key repeating: the shell took the press, so the repeats are its
+                        // too, whatever it does with them.
+                        if let Some(key) = key {
+                            self.shell.key_pressed(key, modifiers);
+                        }
+                        return Some(0);
+                    }
+                    if let Some(key) = key {
+                        // SC:R's menu keys are the shell's whatever has the keyboard, and so is
+                        // every key while a modal whose buttons answer to keys is up: they type
+                        // nothing, and a focused control would otherwise take the key that is meant
+                        // for one of the buttons. The shell leaves what it has no use for, such as a
+                        // focused slider's arrow keys, to go on to the control.
+                        if pressed
+                            && (hotkeys::is_game_menu_key(key, modifiers)
+                                || self
+                                    .shell
+                                    .top_modal()
+                                    .is_some_and(ModalId::buttons_answer_to_keys))
+                            && self.shell.key_pressed(key, modifiers)
+                        {
+                            self.shell_held_keys.push(scan_code);
+                            return Some(0);
+                        }
                         if !is_syskey && self.ctx.egui_wants_keyboard_input() {
                             self.events.push(Event::Key {
                                 key,
@@ -1066,26 +1576,31 @@ impl OverlayState {
                             });
                             return Some(0);
                         }
-                        if pressed && self.check_replay_hotkey(&modifiers, key) {
+                        // Nothing focused wanted the key, so the shell gets its turn at it before
+                        // the game does. It takes only what it can act on.
+                        if pressed && self.shell.key_pressed(key, modifiers) {
+                            self.shell_held_keys.push(scan_code);
                             return Some(0);
                         }
                     }
-                    if self.should_block_game_keyboard_input(vkey) {
+                    if self.capture.blocks_game_key(key) {
                         return Some(0);
                     }
                     None
                 }
+                WM_CHAR | WM_SYSCHAR
+                    if self.shell_held_keys.contains(&message_scan_code(lparam)) =>
+                {
+                    Some(0)
+                }
                 WM_CHAR => {
                     if !self.ctx.egui_wants_keyboard_input() {
-                        // Never swallowed for the disconnect block: SC:R opens and submits the chat
-                        // box from the Enter *character* here (0x0D/0x0A), not from WM_KEYDOWN's
-                        // VK_RETURN — swallowing WM_CHAR while the box is closed would swallow the
-                        // very keypress that opens it, so `chat_textbox_open` could never flip true
-                        // and every following WM_CHAR would stay swallowed forever. A WM_CHAR never
-                        // carries a unit command or hotkey (those are WM_KEYDOWN virtual keys, and
-                        // still blocked by `should_block_game_keyboard_input` below), so passing all
-                        // of them through can't let a blocked player command units.
-                        return None;
+                        // Kept from the game only under a modal the player may not chat from:
+                        // SC:R opens its chat box from the Enter character.
+                        return match self.capture.blocks_game_char() {
+                            true => Some(0),
+                            false => None,
+                        };
                     }
                     if wparam >= 0x80 {
                         // Too lazy to figure out how windows sends
@@ -1104,74 +1619,14 @@ impl OverlayState {
         }
     }
 
-    /// Whether a mouse press aimed at the game world (it missed every registered ui rect) should be
-    /// swallowed instead of reaching BW, so the disconnect overlay behaves like a pause: unit
-    /// selection, drag-select, and move/attack commands all start from these presses (a release
-    /// follows its press to wherever the press went, see the caller). Gated on
-    /// [`disconnect_blocks_input`](Self::disconnect_blocks_input), and lifted while a BW menu is
-    /// open ([`bw_menu_open`](Self::bw_menu_open)) so its buttons stay clickable — a menu dialog
-    /// on top of the stack takes the clicks itself, so none of them can reach the game world.
-    /// Chat needs no mouse carve-out here: opening, typing, and sending are all keyboard-driven.
-    fn should_block_game_pointer_input(&self) -> bool {
-        self.disconnect_blocks_input && !self.bw_menu_open
-    }
-
-    /// Whether a keyboard event aimed at the game (a hotkey or unit command, since anything egui or
-    /// the replay-hotkey check wanted has already returned above) should be swallowed instead of
-    /// reaching BW. Mirrors [`should_block_game_pointer_input`](Self::should_block_game_pointer_input)'s
-    /// gate, with three carve-outs. The chat surface: with the chat textbox open every key passes
-    /// through (backspace, arrow keys, Escape to close — actual typed characters and
-    /// Enter-to-open/submit ride WM_CHAR, which this doesn't gate at all, see the WM_CHAR arm
-    /// above); the `VK_RETURN` carve-out is harmless but not what opens the chat box (SC:R opens
-    /// it from the Enter *character* on WM_CHAR, not this virtual-key WM_KEYDOWN) — kept so a bare
-    /// Return keydown doesn't get eaten as a stray hotkey while the box is closed. `VK_F10` always
-    /// passes so the game menu can be opened, and with a menu open every key passes so it can be
-    /// navigated and closed. Escape stays blocked while no menu is open: it carries no unit
-    /// command, but BW's stack-top dialog during a stall is the hidden "TimeOut", and Escape's
-    /// effect on it is not something the overlay wants to find out. Alt combinations (BW's menu
-    /// accelerators) stay blocked too: BW ignores them under that dialog anyway, and a lone Alt
-    /// reaching the window can leave it in Windows' menu-key mode, eating every key after it.
-    fn should_block_game_keyboard_input(&self, vkey: i32) -> bool {
-        use winapi::um::winuser::{VK_F10, VK_RETURN};
-        self.disconnect_blocks_input
-            && !self.chat_textbox_open
-            && !self.bw_menu_open
-            && vkey != VK_RETURN
-            && vkey != VK_F10
-    }
-
-    fn check_replay_hotkey(&mut self, _modifiers: &egui::Modifiers, key: Key) -> bool {
-        let panels = &mut self.replay_panels;
-        if panels.hotkeys_active {
-            match key {
-                Key::A => {
-                    // Show if any were hidden, else hide
-                    let show =
-                        !panels.show_statistics || !panels.show_production || !panels.show_console;
-                    panels.show_statistics = show;
-                    panels.show_production = show;
-                    panels.show_console = show;
-                    return true;
-                }
-                Key::F => {
-                    panels.show_production = !panels.show_production;
-                    return true;
-                }
-                Key::W => {
-                    panels.show_console = !panels.show_console;
-                    return true;
-                }
-                Key::E => {
-                    panels.show_statistics = !panels.show_statistics;
-                    return true;
-                }
-                _ => (),
-            }
-        }
-        false
-    }
-
     fn window_pos_to_egui(&self, x: i32, y: i32) -> Pos2 {
+        if self.mouse_scaling {
+            return scaled_mouse_pos_to_egui(
+                (x, y),
+                (self.window_size.0 as f32, self.window_size.1 as f32),
+                (self.screen_size.0 as f32, self.screen_size.1 as f32),
+            );
+        }
         // If the draw surface is 4:3, but window is 16:9, assumes
         // that the draw surface be centered on the window.
         // (In that case screen_window_ratio will be 0.75)
@@ -1210,26 +1665,111 @@ impl OverlayState {
     }
 }
 
-/// Yields active players `(team, player_id)`, ordered by team.
+/// Yields active players `(team, player_id)`, ordered by team and then by slot.
+///
+/// Every observer surface reads its players from here, which is what keeps a row in one panel
+/// lined up with the row for the same player in the next and lets the ones that group by side do
+/// it by walking a list rather than by grouping it again.
 fn replay_players_by_team(bw: &BwVars) -> impl Iterator<Item = (u8, u8)> + use<> {
-    // Teams are 1-based, but team 0 is used on games without teams.
-    let players = bw.players;
-    (0u8..5).flat_map(move |team| {
-        (0..8).filter_map(move |player_id| {
-            unsafe {
-                let player = players.add(player_id as usize);
-                if (*player).team != team {
-                    return None;
-                }
-                // Show only human / computer player types
-                let is_active = matches!((*player).player_type, 1 | 2);
-                if !is_active {
-                    return None;
-                }
-                Some((team, player_id))
+    let teams = player_teams(bw);
+    let mut ordered: Vec<(u8, u8)> = (0u8..8)
+        .filter(|&player_id| is_active_player(bw, player_id as usize))
+        .map(|player_id| (teams[player_id as usize], player_id))
+        .collect();
+    ordered.sort_unstable();
+    ordered.into_iter()
+}
+
+/// Whether this slot is one the game is being played from, as opposed to an empty one or an
+/// observer.
+fn is_active_player(bw: &BwVars, player_id: usize) -> bool {
+    unsafe { matches!((*bw.players.add(player_id)).player_type, 1 | 2) }
+}
+
+/// Whether this slot is a person rather than a computer or an empty one. The narrower of the two
+/// tests: a computer never loses a connection, so it is never one of the players a game is waiting
+/// on.
+fn is_human_player(bw: &BwVars, player_id: usize) -> bool {
+    unsafe { (*bw.players.add(player_id)).player_type == 2 }
+}
+
+/// Which side each of the game's eight slots is on.
+///
+/// The game's own team numbers when the game type has them. A melee map has none — every slot's
+/// team stays zero however the players lined up — so those games are grouped by who has allied
+/// whom instead, which is the only record of a two-versus-two played on a melee map that the
+/// simulation actually keeps.
+fn player_teams(bw: &BwVars) -> [u8; 8] {
+    let mut teams = [0u8; 8];
+    let mut any_team = false;
+    for (player_id, team) in teams.iter_mut().enumerate() {
+        if !is_active_player(bw, player_id) {
+            continue;
+        }
+        *team = unsafe { (*bw.players.add(player_id)).team };
+        any_team |= *team != 0;
+    }
+    if any_team {
+        return numbered_from_one(teams, |player_id| is_active_player(bw, player_id));
+    }
+    alliance_teams(bw)
+}
+
+/// Renumbers the active slots' sides 1, 2, 3 in the order of the game's own numbers, which is what
+/// every surface names them by: the game's numbers can start at zero or skip, and a watcher reads
+/// "Team 0" or a missing "Team 2" as a mistake.
+fn numbered_from_one(teams: [u8; 8], active: impl Fn(usize) -> bool) -> [u8; 8] {
+    let mut seen: Vec<u8> = (0..8)
+        .filter(|&player_id| active(player_id))
+        .map(|player_id| teams[player_id])
+        .collect();
+    seen.sort_unstable();
+    seen.dedup();
+    let mut numbered = [0u8; 8];
+    for (player_id, team) in numbered.iter_mut().enumerate() {
+        if active(player_id) {
+            let position = seen
+                .iter()
+                .position(|&raw| raw == teams[player_id])
+                .unwrap_or(0);
+            *team = position as u8 + 1;
+        }
+    }
+    numbered
+}
+
+/// Groups the active slots by who they are mutually allied with, numbering the groups in slot
+/// order so a side is called after where it sits rather than after an empty slot beside it.
+///
+/// A one-way alliance is not a side: a player who has allied someone who has not allied them back
+/// is fighting alone, whatever they have declared.
+fn alliance_teams(bw: &BwVars) -> [u8; 8] {
+    let mut teams = [0u8; 8];
+    let mut next = 1u8;
+    for player_id in 0..8 {
+        if teams[player_id] != 0 || !is_active_player(bw, player_id) {
+            continue;
+        }
+        let group = next;
+        next += 1;
+        for (other, team) in teams.iter_mut().enumerate().skip(player_id) {
+            if *team != 0 || !is_active_player(bw, other) {
+                continue;
             }
-        })
-    })
+            if other == player_id || mutually_allied(bw, player_id, other) {
+                *team = group;
+            }
+        }
+    }
+    teams
+}
+
+/// Whether two slots have each declared the other an ally.
+fn mutually_allied(bw: &BwVars, a: usize, b: usize) -> bool {
+    unsafe {
+        let alliances = &(**bw.game).alliances;
+        alliances[a][b] != 0 && alliances[b][a] != 0
+    }
 }
 
 fn player_has_units(bw: &BwVars, player_id: u8) -> bool {
@@ -1243,72 +1783,28 @@ fn has_player_vision(bw: &BwVars, player_id: u8) -> bool {
     }
 }
 
-struct PlayerInfo {
-    name: Cow<'static, str>,
-    color: Color32,
-    race: u8,
-    minerals: u32,
-    gas: u32,
-    supplies: [(u32, u32); 3],
-    workers: u32,
-    apm: u32,
-    vision: bool,
-}
+/// The game speed a live game is played at, which is what turns its frame count into the clock the
+/// matchup bar shows. A replay carries its own recorded speed instead.
+pub const FASTEST_GAME_SPEED: u8 = 6;
 
-impl PlayerInfo {
-    fn add_icon_text(&self, ui: &mut egui::Ui, icon: Texture, text: &str, width: f32) {
-        self.add_colored_icon_text(ui, icon, text, width, Color32::WHITE)
-    }
-
-    fn add_colored_icon_text(
-        &self,
-        ui: &mut egui::Ui,
-        icon: Texture,
-        text: &str,
-        width: f32,
-        color: Color32,
-    ) {
-        let text = egui::RichText::new(text).strong();
-        self.add_colored_icon_complex_text(ui, icon, text.into(), width, color)
-    }
-
-    fn add_colored_icon_complex_text(
-        &self,
-        ui: &mut egui::Ui,
-        icon: Texture,
-        text: WidgetText,
-        width: f32,
-        color: Color32,
-    ) {
-        let image = egui::Image::new(SizedTexture::new(
-            TextureId::User(icon.to_egui_id()),
-            (24.0, 24.0),
-        ))
-        .tint(color);
-        ui.add(image);
-        let label = Label::new(text);
-        ui.add_fixed_width(label, width);
-    }
-}
-
-unsafe fn player_resources_info(
+/// Reads one player's half of the matchup bar off the game.
+unsafe fn matchup_player_view(
     bw: &BwVars,
     player: *mut bw::Player,
     player_id: u8,
+    team: u8,
     apm: Option<&ApmStats>,
-) -> PlayerInfo {
+) -> MatchupPlayerView {
     unsafe {
         let game = bw.game;
-        let get_supplies = |race| {
-            let used = game.supply_used(player_id, race);
-            let available = game
-                .supply_provided(player_id, race)
-                .min(game.supply_max(player_id, race));
-            // Supply is internally twice the shown value (as zergling / scourge
-            // takes 0.5 supply per unit), used supply has to be rounded up
-            // when displayed.
-            (used.wrapping_add(1) / 2, available / 2)
-        };
+        let race = stats::player_race(bw, player_id);
+        // Supply is counted internally at twice what the game shows, because a zergling costs half
+        // of one, so what is used rounds up and what is available divides evenly.
+        let supply_used = game.supply_used(player_id, race.0).wrapping_add(1) / 2;
+        let supply_max = game
+            .supply_provided(player_id, race.0)
+            .min(game.supply_max(player_id, race.0))
+            / 2;
         let color = bw::player_color(
             game,
             bw.main_palette,
@@ -1316,34 +1812,24 @@ unsafe fn player_resources_info(
             bw.rgb_colors,
             player_id,
         );
-        let supplies = [
-            get_supplies(Race::Zerg),
-            get_supplies(Race::Terran),
-            get_supplies(Race::Protoss),
-        ];
-        let workers = [bw_dat::unit::SCV, bw_dat::unit::PROBE, bw_dat::unit::DRONE]
-            .iter()
-            .map(|&unit| game.completed_count(player_id, unit))
-            .sum::<u32>();
         let mut name = bw::player_name(player);
         if name.is_empty() {
             name = format!("Player {}", player_id + 1).into();
         }
-        let mut race = (*player).race;
-        if race > 2 {
-            race = 0;
-        }
-        let vision = has_player_vision(bw, player_id);
-        PlayerInfo {
-            name,
+        MatchupPlayerView {
+            player_id,
+            team,
+            name: name.into_owned(),
             color: Color32::from_rgb(color[0], color[1], color[2]),
-            race,
+            race: race.1,
+            vision: has_player_vision(bw, player_id),
             minerals: game.minerals(player_id),
             gas: game.gas(player_id),
-            supplies,
-            workers,
-            apm: apm.map(|x| x.player_recent_apm(player_id)).unwrap_or(0),
-            vision,
+            supply_used,
+            supply_max,
+            apm: apm
+                .map(|stats| stats.player_recent_apm(player_id))
+                .unwrap_or(0),
         }
     }
 }
@@ -1392,6 +1878,29 @@ fn control_type_name(ty: u16) -> Cow<'static, str> {
     .into()
 }
 
+/// Whether a letter key is down on the keyboard right now, with the game's own window in front: a
+/// key held after switching away is no longer held at the game. Read from the keyboard rather than
+/// from key messages, which a switch away can leave without their key-up. Keys other than letters
+/// are never reported down.
+fn letter_key_is_down(key: egui::Key) -> bool {
+    use winapi::um::processthreadsapi::GetCurrentProcessId;
+    use winapi::um::winuser::{GetAsyncKeyState, GetForegroundWindow, GetWindowThreadProcessId};
+
+    let name = key.name();
+    let [letter] = name.as_bytes() else {
+        return false;
+    };
+    if !letter.is_ascii_uppercase() {
+        return false;
+    }
+    unsafe {
+        let mut process = 0;
+        GetWindowThreadProcessId(GetForegroundWindow(), &mut process);
+        process == GetCurrentProcessId()
+            && GetAsyncKeyState(i32::from(*letter)) as u16 & 0x8000 != 0
+    }
+}
+
 fn current_egui_modifiers() -> egui::Modifiers {
     use winapi::um::winuser::*;
 
@@ -1429,8 +1938,20 @@ fn vkey_to_egui_key(key: i32) -> Option<Key> {
         VK_END => End,
         VK_PRIOR => PageUp,
         VK_NEXT => PageDown,
-        VK_SUBTRACT => Minus,
+        VK_SUBTRACT | VK_OEM_MINUS => Minus,
         VK_ADD => Plus,
+        // The punctuation keys as a US layout places them, which is where SC:R's own bindings for
+        // them sit.
+        VK_OEM_PLUS => Equals,
+        VK_OEM_COMMA => Comma,
+        VK_OEM_PERIOD => Period,
+        VK_OEM_1 => Semicolon,
+        VK_OEM_2 => Slash,
+        VK_OEM_3 => Backtick,
+        VK_OEM_4 => OpenBracket,
+        VK_OEM_5 => Backslash,
+        VK_OEM_6 => CloseBracket,
+        VK_OEM_7 => Quote,
         0x30 | VK_NUMPAD0 => Num0,
         0x31 | VK_NUMPAD1 => Num1,
         0x32 | VK_NUMPAD2 => Num2,
@@ -1489,4 +2010,47 @@ fn vkey_to_egui_key(key: i32) -> Option<Key> {
         VK_F20 => F20,
         _ => return None,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{numbered_from_one, scaled_mouse_pos_to_egui};
+
+    use egui::pos2;
+
+    #[test]
+    fn scaled_mouse_positions_are_read_from_the_box_in_the_middle_of_the_window() {
+        // A 16:9 window 1600x900, drawn 1600x900 points: the box is 853x480 game pixels.
+        let window = (1600.0, 900.0);
+        let screen = (1600.0, 900.0);
+        let origin = ((1600 - 853) / 2, (900 - 480) / 2);
+        assert_eq!(
+            scaled_mouse_pos_to_egui(origin, window, screen),
+            pos2(0.0, 0.0)
+        );
+        let middle = scaled_mouse_pos_to_egui((origin.0 + 426, origin.1 + 240), window, screen);
+        assert!(
+            (middle.x - 799.06).abs() < 0.01 && middle.y == 450.0,
+            "{middle:?}"
+        );
+        // Outside the box is the box's edge, as the game clamps it.
+        assert_eq!(
+            scaled_mouse_pos_to_egui((0, 0), window, screen),
+            pos2(0.0, 0.0)
+        );
+    }
+
+    #[test]
+    fn sides_are_numbered_from_one_in_the_games_own_order() {
+        let active = |player_id: usize| player_id < 4;
+        assert_eq!(
+            numbered_from_one([0, 0, 1, 1, 0, 0, 0, 0], active),
+            [1, 1, 2, 2, 0, 0, 0, 0]
+        );
+        // Numbers that skip are closed up, and empty slots keep no side.
+        assert_eq!(
+            numbered_from_one([3, 1, 3, 1, 7, 7, 7, 7], active),
+            [2, 1, 2, 1, 0, 0, 0, 0]
+        );
+    }
 }

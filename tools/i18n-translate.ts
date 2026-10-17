@@ -32,12 +32,21 @@
 import { execFileSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
-import { ALL_TRANSLATION_LANGUAGES, TranslationLanguage } from '../common/i18n'
+import {
+  ALL_TRANSLATION_LANGUAGES,
+  ALL_TRANSLATION_NAMESPACES,
+  TranslationLanguage,
+  TranslationNamespace,
+} from '../common/i18n'
 
 const SOURCE_LANG = TranslationLanguage.English
 const REPO_ROOT = path.resolve(__dirname, '..')
 const LOCALES_DIR = path.join(REPO_ROOT, 'server', 'public', 'locales')
-const NAMESPACE = 'global'
+/**
+ * The namespace (one JSON file per language) every command operates on. `global` is the app's;
+ * `game` is the in-game UI's. Selected with `--ns <name>` on the command line.
+ */
+let namespace: string = TranslationNamespace.Global
 
 /** Blizzard-matched terminology glossaries (CSV per language), used by the `terms` command. */
 const TERMS_DIR = path.join(REPO_ROOT, '.claude', 'skills', 'translate-i18n', 'terms')
@@ -53,11 +62,24 @@ type LocaleObject = { [key: string]: string | LocaleObject }
 // --- File IO -----------------------------------------------------------------
 
 function localePath(lang: string): string {
-  return path.join(LOCALES_DIR, lang, `${NAMESPACE}.json`)
+  return path.join(LOCALES_DIR, lang, `${namespace}.json`)
 }
 
 function readLocale(lang: string): LocaleObject {
-  return JSON.parse(fs.readFileSync(localePath(lang), 'utf8')) as LocaleObject
+  const file = localePath(lang)
+  // A target language's file for a namespace doesn't exist until the first `apply` creates it;
+  // the source language's file must exist, since everything is derived from it.
+  if (!fs.existsSync(file)) {
+    if (lang !== SOURCE_LANG) {
+      return {}
+    }
+    console.error(
+      `${path.relative(REPO_ROOT, file)} does not exist: the "${namespace}" namespace has no ` +
+        `extracted strings yet (run \`pnpm gen-translations\` after adding some).`,
+    )
+    process.exit(1)
+  }
+  return JSON.parse(fs.readFileSync(file, 'utf8')) as LocaleObject
 }
 
 /**
@@ -721,7 +743,7 @@ function readLocaleAtRef(lang: string, ref: string): LocaleObject | null {
   try {
     const content = execFileSync(
       'git',
-      ['show', `${ref}:${LOCALES_REL}/${lang}/${NAMESPACE}.json`],
+      ['show', `${ref}:${LOCALES_REL}/${lang}/${namespace}.json`],
       {
         cwd: REPO_ROOT,
         encoding: 'utf8',
@@ -901,8 +923,36 @@ function assertTargetLang(lang: string): void {
 
 // --- Entry point -------------------------------------------------------------
 
+/**
+ * Pulls a `--ns <name>` / `--ns=<name>` option out of the arguments (wherever it appears) and
+ * returns the remaining arguments.
+ */
+function takeNamespaceOption(args: string[]): string[] {
+  const rest: string[] = []
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i]
+    let value: string | undefined
+    if (arg === '--ns') {
+      value = args[++i]
+    } else if (arg.startsWith('--ns=')) {
+      value = arg.slice('--ns='.length)
+    } else {
+      rest.push(arg)
+      continue
+    }
+    if (!value || !(ALL_TRANSLATION_NAMESPACES as readonly string[]).includes(value)) {
+      console.error(
+        `--ns needs one of: ${ALL_TRANSLATION_NAMESPACES.join(', ')} (got ${JSON.stringify(value ?? '')})`,
+      )
+      process.exit(1)
+    }
+    namespace = value
+  }
+  return rest
+}
+
 function main(): void {
-  const [command, ...rest] = process.argv.slice(2)
+  const [command, ...rest] = takeNamespaceOption(process.argv.slice(2))
   switch (command) {
     case 'status':
       cmdStatus()
@@ -935,7 +985,8 @@ function main(): void {
       break
     default:
       console.error(
-        'usage: i18n <status|plan|apply|fix|terms|stale|prune|normalize|check> [args]\n' +
+        'usage: i18n [--ns <global|game>] <status|plan|apply|fix|terms|stale|prune|normalize|check> [args]\n' +
+          '  --ns <name>                  namespace file to work on (default: global; game = in-game UI)\n' +
           '  status                       overview of missing/orphan counts per language\n' +
           '  plan <lang> [outFile]        write the to-translate work list as JSON\n' +
           '  apply <lang> <resultFile>    validate + merge translations for MISSING keys\n' +

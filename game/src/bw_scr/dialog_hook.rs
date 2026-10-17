@@ -1,28 +1,355 @@
-use std::sync::atomic::{AtomicU8, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::time::{Duration, Instant};
+
+use parking_lot::Mutex;
 
 use bw_dat::dialog::{Control, Dialog, EventHandler};
+use overlay_ui::shell::PauseControl;
+use overlay_ui::shell::native_dialogs::{self, NativeDialog};
 
 use crate::bw::players::StormPlayerId;
 use crate::bw::{self, Bw, get_bw};
-use crate::game_thread::{self, send_game_results};
+use crate::game_thread::send_game_results;
 use crate::netcode_v2;
 
 use super::{BwScr, console};
 
 static CHAT_BOX_EVENT_HANDLER: EventHandler = EventHandler::new();
 static MSG_FILTER_EVENT_HANDLER: EventHandler = EventHandler::new();
-static TIMEOUT_EVENT_HANDLER: EventHandler = EventHandler::new();
-static GAME_MENU_EVENT_HANDLER: EventHandler = EventHandler::new();
 static MINIMAP_EVENT_HANDLER: EventHandler = EventHandler::new();
 static MINIMAP_BUTTON1_EVENT_HANDLER: EventHandler = EventHandler::new();
 static MINIMAP_BUTTON2_EVENT_HANDLER: EventHandler = EventHandler::new();
 static CONSOLE_DIALOG_EVENT_HANDLERS: [EventHandler; console::CONSOLE_DIALOGS.len()] =
     [NEW_EVENT_HANDLER; console::CONSOLE_DIALOGS.len()];
-static PREVENT_BUTTON_HIDE_COUNT: AtomicU8 = AtomicU8::new(0);
+static REPLACED_DIALOG_EVENT_HANDLERS: [EventHandler; NativeDialog::ALL.len()] =
+    [NEW_EVENT_HANDLER; NativeDialog::ALL.len()];
+
+/// Whether each replaced native dialog is currently spawned, indexed by [`NativeDialog::index`].
+/// Written by the spawn hook and by the swallowing event handler's delete event, read by the draw
+/// path, which turns the transitions into the shell's own record.
+static REPLACED_DIALOG_LIVE: [AtomicBool; NativeDialog::ALL.len()] =
+    [const { AtomicBool::new(false) }; NativeDialog::ALL.len()];
+
+/// Whether each replaced native dialog has been asked by us to act on one of its controls, indexed
+/// by [`NativeDialog::index`]. From then on its event handler stops swallowing: a button's
+/// activation reaches the game by way of events the button sends its dialog, and those are exactly
+/// what the swallowing handler exists to drop. Nothing of the player's reaches the dialog either way
+/// while its replacement is up, since the replacement's capture keeps the input from the game.
+/// Cleared at spawn.
+static REPLACED_DIALOG_DRIVEN: [AtomicBool; NativeDialog::ALL.len()] =
+    [const { AtomicBool::new(false) }; NativeDialog::ALL.len()];
+
+/// The dialog-system event that activates a control, which is what a click on a button sends it.
+const ACTIVATE_EXT_EVENT: u32 = 0x2;
 
 // Helper needed for initializing array of event handlers
 #[allow(clippy::declare_interior_mutable_const)]
 const NEW_EVENT_HANDLER: EventHandler = EventHandler::new();
+
+/// Which replacement a dialog spawning under this name gets, or `None` when BW's own dialog should
+/// run untouched.
+fn replacement_at_spawn(name: &str) -> Option<NativeDialog> {
+    let dialog = native_dialogs::replacement_for(name)?;
+    match dialog {
+        // BW's native waiting-for-players dialog is replaced only where the egui disconnect surface
+        // that stands in for it is actually driven. Outside a netcode v2 session nothing feeds that
+        // surface, so hiding the native dialog there would leave a stalled player with nothing.
+        NativeDialog::TimeOut => netcode_v2::with_turn_state(|_| ())
+            .is_some()
+            .then_some(dialog),
+        NativeDialog::ChatHistory | NativeDialog::GameMenu => Some(dialog),
+        // A player's result, and a live watcher's end of the game, which the card reads as the
+        // game being over. A replay ends on its own playback controls.
+        NativeDialog::Victory | NativeDialog::Defeat => {
+            (!crate::game_thread::is_replay()).then_some(dialog)
+        }
+        // A player's alliances and chat recipient are set on the overlay's alliances screen. A
+        // watcher's use of the two dialogs (a replay's vision, an observer's read-only lists) has
+        // nothing of ours standing in for it.
+        NativeDialog::AllianceFilter | NativeDialog::MessageFilter => {
+            (!get_bw().is_replay_or_obs()).then_some(dialog)
+        }
+    }
+}
+
+/// Which replaced native dialogs are spawned right now, indexed by [`NativeDialog::index`].
+pub fn live_replaced_dialogs() -> [bool; NativeDialog::ALL.len()] {
+    std::array::from_fn(|index| REPLACED_DIALOG_LIVE[index].load(Ordering::Relaxed))
+}
+
+/// Dismisses a replaced native dialog through its own return control.
+///
+/// SC:R's in-game menus put the game into a modal state — single-player pause, suspended cursor
+/// updates, a restricted hotkey context — before their dialog spawns, and leave it only when the
+/// dialog closes through its own path. Hiding the dialog never undoes that, so closing a replacement
+/// means driving the hidden dialog's return button the way a click on it would.
+pub fn close_replaced_dialog(first_dialog: Option<Dialog>, dialog: NativeDialog) {
+    activate_replaced_dialog_control(first_dialog, dialog, dialog.return_control_id());
+}
+
+/// Ends the game from a result popup through its own End Mission control, the way a click on it
+/// would. Returns whether the control was there to press.
+pub fn end_mission(first_dialog: Option<Dialog>, dialog: NativeDialog) -> bool {
+    let Some(control_id) = dialog.end_mission_control_id() else {
+        warn!("The {} dialog has no End Mission control", dialog.label());
+        return false;
+    };
+    activate_replaced_dialog_control(first_dialog, dialog, control_id)
+}
+
+/// Logs a replaced native dialog's controls, once its spawn has finished building them, so a log
+/// from a live game says which ids a dialog actually has.
+pub fn log_replaced_dialog_controls(first_dialog: Option<Dialog>, dialog: NativeDialog) {
+    let Some(live) = bw::iter_dialogs(first_dialog)
+        .find(|candidate| dialog.is_named(candidate.as_control().string()))
+    else {
+        return;
+    };
+    let controls = live
+        .children()
+        .map(|child| {
+            format!(
+                "{} ({:#x}, {:?})",
+                child.id(),
+                child.control_type(),
+                bw::control_text(&child)
+            )
+        })
+        .collect::<Vec<_>>();
+    debug!(
+        "The {} dialog's controls are {}",
+        dialog.label(),
+        controls.join(", ")
+    );
+}
+
+/// Activates one of a replaced native dialog's controls, the way a click on it would, returning
+/// whether the control was there to press.
+///
+/// This is how the overlay asks for anything a replaced dialog does: its buttons run the game's own
+/// code for leaving a game or opening a sub-menu, and pressing them keeps every side effect that
+/// code has without the overlay having to know what those are.
+pub fn activate_replaced_dialog_control(
+    first_dialog: Option<Dialog>,
+    dialog: NativeDialog,
+    control_id: i16,
+) -> bool {
+    let label = dialog.label();
+    let Some(live) = bw::iter_dialogs(first_dialog)
+        .find(|candidate| dialog.is_named(candidate.as_control().string()))
+    else {
+        debug!("The {label} dialog is already gone");
+        return false;
+    };
+    let Some(control) = live.child_by_id(control_id) else {
+        let controls = live
+            .children()
+            .map(|child| format!("{} ({:#x})", child.id(), child.control_type()))
+            .collect::<Vec<_>>();
+        warn!(
+            "The {label} dialog has no control {control_id}; its controls are {}",
+            controls.join(", ")
+        );
+        return false;
+    };
+    // The dialog's own mouse dispatch addresses a control in coordinates relative to the dialog,
+    // which is what a control's area is already in.
+    let area = control.dialog_coords();
+    let x = area.left + (area.right - area.left) / 2;
+    let y = area.top + (area.bottom - area.top) / 2;
+    debug!("Pressing control {control_id} of the {label} dialog");
+    REPLACED_DIALOG_DRIVEN[dialog.index()].store(true, Ordering::Relaxed);
+    control.send_ext_event_mouse(ACTIVATE_EXT_EVENT, x, y);
+    true
+}
+
+/// The game menu's Mission Objectives button.
+const GAME_MENU_OBJECTIVES_CONTROL_ID: i16 = 6;
+
+/// Shows the map's mission objectives through the game menu's own button for them. The game closes
+/// its menu and opens its objectives dialog in its place, which is not one the overlay replaces;
+/// closing that dialog opens the game menu again, and with it the overlay's.
+pub fn open_objectives(first_dialog: Option<Dialog>) {
+    activate_replaced_dialog_control(
+        first_dialog,
+        NativeDialog::GameMenu,
+        GAME_MENU_OBJECTIVES_CONTROL_ID,
+    );
+}
+
+/// The game menu's Pause and Resume buttons, which send the pause and resume commands.
+const GAME_MENU_PAUSE_CONTROL_ID: i16 = 8;
+const GAME_MENU_RESUME_CONTROL_ID: i16 = 9;
+
+/// Pauses the game, or resumes it, through the game menu's own button for it, which stays open
+/// afterwards. Pressing a button sends its command whatever the game's rules would say, so it is
+/// only pressed for what `offered`, the game's own rules for this frame, allows.
+pub fn set_paused(first_dialog: Option<Dialog>, paused: bool, offered: Option<PauseControl>) {
+    let offers_it = matches!(
+        (paused, offered),
+        (true, Some(PauseControl::Pause { .. })) | (false, Some(PauseControl::Resume))
+    );
+    if !offers_it {
+        debug!("Not pressing the game menu's pause button: the game offers {offered:?}");
+        return;
+    }
+    let control_id = match paused {
+        true => GAME_MENU_PAUSE_CONTROL_ID,
+        false => GAME_MENU_RESUME_CONTROL_ID,
+    };
+    activate_replaced_dialog_control(first_dialog, NativeDialog::GameMenu, control_id);
+}
+
+/// Opens the game's menu the way its own key does, by pressing the console's menu button: the menu
+/// that spawns is the one the overlay replaces, so this brings up the overlay's menu exactly as
+/// `F10` would. The button is hidden with the rest of a watcher's console, which keeps the pointer
+/// from it but not a press sent to it.
+///
+/// Where the button cannot be found, the key itself is posted to the game's window instead.
+pub fn open_game_menu(first_dialog: Option<Dialog>) {
+    let button = bw::iter_dialogs(first_dialog)
+        .find(|dialog| dialog.as_control().string() == MENU_BUTTON_DIALOG)
+        .and_then(|dialog| {
+            let button = dialog
+                .children()
+                .find(|child| matches!(child.control_type(), 0x1 | 0x2));
+            if button.is_none() {
+                let controls = dialog
+                    .children()
+                    .map(|child| format!("{} ({:#x})", child.id(), child.control_type()))
+                    .collect::<Vec<_>>();
+                warn!(
+                    "The {MENU_BUTTON_DIALOG} dialog has no button; its controls are {}",
+                    controls.join(", ")
+                );
+            }
+            button
+        });
+    match button {
+        Some(button) => {
+            let area = button.dialog_coords();
+            let x = area.left + (area.right - area.left) / 2;
+            let y = area.top + (area.bottom - area.top) / 2;
+            debug!("Pressing the menu button to open the game menu");
+            button.send_ext_event_mouse(ACTIVATE_EXT_EVENT, x, y);
+        }
+        None => post_menu_key(),
+    }
+}
+
+/// Posts the game's menu key to its window, a press and a release, as Windows delivers `F10`.
+fn post_menu_key() {
+    use winapi::um::winuser::{
+        MAPVK_VK_TO_VSC, MapVirtualKeyW, PostMessageW, VK_F10, WM_SYSKEYDOWN, WM_SYSKEYUP,
+    };
+    let Some(window) = crate::forge::game_window_handle() else {
+        warn!("No game window to post the menu key to");
+        return;
+    };
+    debug!("Posting the menu key to open the game menu");
+    unsafe {
+        let scan = MapVirtualKeyW(VK_F10 as u32, MAPVK_VK_TO_VSC) & 0xff;
+        let down = 1 | (scan << 16);
+        let up = down | (1 << 30) | (1 << 31);
+        PostMessageW(window, WM_SYSKEYDOWN, VK_F10 as usize, down as isize);
+        PostMessageW(window, WM_SYSKEYUP, VK_F10 as usize, up as isize);
+    }
+}
+
+/// The game menu's control that leads towards quitting the game.
+const GAME_MENU_QUIT_CONTROL_ID: i16 = 7;
+
+/// The dialogs SC:R walks a player through from the game menu to leaving, with the control in each
+/// that carries on towards the exit. The game menu itself is a step for a quit asked for without it
+/// open: it is opened for the quit, hidden like every other step, and pressed on through.
+const QUIT_CHAIN: [(&str, i16); 4] = [
+    ("GameMenu", GAME_MENU_QUIT_CONTROL_ID),
+    ("AbrtMenu", 2),
+    ("Quit2Mnu", -2),
+    ("QuitRepl", -2),
+];
+
+/// How long a quit the overlay started keeps confirming SC:R's quit dialogs on the player's behalf.
+/// Long enough for the chain to spawn one dialog after another, short enough that a quit dialog the
+/// player opens themselves later is theirs to answer.
+const QUIT_CHAIN_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// When the overlay asked SC:R to quit the game, while that request is still being carried through.
+static QUIT_REQUESTED_AT: Mutex<Option<Instant>> = Mutex::new(None);
+
+/// The quit dialog [`advance_quit`] last pressed on through. A dialog can outlive the press that
+/// dismisses it by a frame, and pressing it twice could carry the second press into whatever opens
+/// next.
+static QUIT_LAST_PRESSED: AtomicUsize = AtomicUsize::new(0);
+
+/// Quits the game through SC:R's own quit path, starting from its hidden game menu.
+///
+/// SC:R's quit does more than end the game loop: it sends the command that tells every other
+/// player this one has left, and settles this player's result the way any quit does. Pressing the
+/// hidden menu's own buttons keeps all of that, where ending the loop directly would not. The
+/// confirmation dialogs the menu opens next spawn hidden while the quit is under way, and
+/// [`advance_quit`] presses on through them.
+///
+/// From the overlay's leave question, which SC:R's quit keys open, the game menu is not open: it is
+/// opened for the quit instead, and spawns as the chain's first step.
+pub fn begin_quit(first_dialog: Option<Dialog>) {
+    *QUIT_REQUESTED_AT.lock() = Some(Instant::now());
+    let open_menu = bw::iter_dialogs(first_dialog)
+        .find(|dialog| NativeDialog::GameMenu.is_named(dialog.as_control().string()));
+    match open_menu {
+        Some(menu) => {
+            // Pressed here, so the chain does not press it a second time.
+            QUIT_LAST_PRESSED.store(*menu as usize, Ordering::Relaxed);
+            activate_replaced_dialog_control(
+                first_dialog,
+                NativeDialog::GameMenu,
+                GAME_MENU_QUIT_CONTROL_ID,
+            );
+        }
+        None => open_game_menu(first_dialog),
+    }
+}
+
+/// The quit chain's step a dialog of this name is, while a quit the overlay started is under way.
+fn quit_chain_step(name: &str) -> Option<i16> {
+    let requested_at = (*QUIT_REQUESTED_AT.lock())?;
+    if requested_at.elapsed() > QUIT_CHAIN_TIMEOUT {
+        return None;
+    }
+    QUIT_CHAIN
+        .iter()
+        .find(|(dialog, _)| dialog.eq_ignore_ascii_case(name))
+        .map(|&(_, control)| control)
+}
+
+/// Presses on through whichever of SC:R's quit dialogs is up, for a quit [`begin_quit`] started.
+/// Called once per frame: each dialog of the chain spawns only after the previous one is done with,
+/// and only exists to be pressed once it has finished initializing.
+pub fn advance_quit(first_dialog: Option<Dialog>) {
+    if QUIT_REQUESTED_AT.lock().is_none() {
+        return;
+    }
+    for dialog in bw::iter_dialogs(first_dialog) {
+        let ctrl = dialog.as_control();
+        let name = ctrl.string();
+        let Some(control_id) = quit_chain_step(name) else {
+            continue;
+        };
+        if QUIT_LAST_PRESSED.swap(*dialog as usize, Ordering::Relaxed) == *dialog as usize {
+            continue;
+        }
+        let Some(control) = dialog.child_by_id(control_id) else {
+            warn!("The {name} dialog has no control {control_id}, cannot carry the quit on");
+            continue;
+        };
+        let area = control.dialog_coords();
+        let x = area.left + (area.right - area.left) / 2;
+        let y = area.top + (area.bottom - area.top) / 2;
+        debug!("Quitting: pressing control {control_id} of {name}");
+        control.send_ext_event_mouse(ACTIVATE_EXT_EVENT, x, y);
+        return;
+    }
+}
 
 pub unsafe fn spawn_dialog_hook(
     raw: *mut bw::Dialog,
@@ -34,14 +361,13 @@ pub unsafe fn spawn_dialog_hook(
         let dialog = Dialog::new(raw);
         let ctrl = dialog.as_control();
         let name = ctrl.string();
-        // A permanent, cheap record of every dialog BW spawns — the safety net for identifying a
-        // dialog by its real template name from a live run.
+        // Names every dialog BW spawns by its real template name in a live run's log.
         debug!("spawn_dialog: {name:?}");
         let event_handler = if name == "TextBox" {
             let inited = CHAT_BOX_EVENT_HANDLER.init(chat_box_event_handler);
             inited.set_orig(event_handler);
             inited.func() as usize
-        } else if name == "MsgFltr" {
+        } else if name == "MsgFltr" && replacement_at_spawn(name).is_none() {
             let inited = MSG_FILTER_EVENT_HANDLER.init(msg_filter_event_handler);
             inited.set_orig(event_handler);
             inited.func() as usize
@@ -55,39 +381,59 @@ pub unsafe fn spawn_dialog_hook(
             let inited = CONSOLE_DIALOG_EVENT_HANDLERS[index].init(console_dialog_event_handler);
             inited.set_orig(event_handler);
             inited.func() as usize
-        } else if name == "WMission" {
+        } else if name == native_dialogs::VICTORY_DIALOG_NAME {
             send_game_results();
             // Victory decides the game for everyone, so the session can end and any further play is
             // local-only. Defeat is deliberately not handled the same way: a loss doesn't end the
             // game for the other players, so the defeated client stays a normal networked
             // participant until it exits, at which point its clean leave fires as the game loop ends.
             crate::netcode_v2::begin_local_only();
-            event_handler
-        } else if name == "LMission" {
+            match replacement_at_spawn(name) {
+                Some(replaced) => replace_at_spawn(raw, replaced, event_handler),
+                None => event_handler,
+            }
+        } else if name == native_dialogs::DEFEAT_DIALOG_NAME {
             send_game_results();
-            event_handler
-        } else if name == "GameMenu" && !game_thread::is_replay() {
-            let inited = GAME_MENU_EVENT_HANDLER.init(game_menu_event_handler);
-            inited.set_orig(event_handler);
-            inited.func() as usize
-        } else if name.eq_ignore_ascii_case("timeout")
-            && netcode_v2::with_turn_state(|_| ()).is_some()
-        {
-            // Under a netcode-v2 session the egui disconnect overlay is the sole disconnect surface;
-            // BW's native waiting-for-players dialog (empty name list, unwired Drop button, its own
-            // countdown) must never show. Hide it at spawn and swap in an event handler that swallows
-            // everything but its own init/delete, so it neither draws nor responds. The native spawn
-            // still runs below — only the dialog's visibility and interactivity are stripped, never
-            // its creation.
+            match replacement_at_spawn(name) {
+                Some(replaced) => replace_at_spawn(raw, replaced, event_handler),
+                None => event_handler,
+            }
+        } else if quit_chain_step(name).is_some() {
+            // A step of a quit the player already confirmed in the overlay: it is pressed through
+            // on the next frame, and showing it for that one frame would only flash a question the
+            // player has answered.
             (*(raw as *mut bw::scr::Control)).flags &= !0x2;
-            let inited = TIMEOUT_EVENT_HANDLER.init(timeout_event_handler);
-            inited.set_orig(event_handler);
-            inited.func() as usize
+            event_handler
+        } else if let Some(replaced) = replacement_at_spawn(name) {
+            replace_at_spawn(raw, replaced, event_handler)
         } else {
             event_handler
         };
         orig(raw, unk, event_handler)
     }
+}
+
+/// Hides a spawning dialog the overlay draws a replacement for, returning the event handler it must
+/// spawn with.
+///
+/// BW's own dialog must never show: it is hidden at spawn and given an event handler that swallows
+/// everything but its own init/delete, so it neither draws nor responds. The native spawn still
+/// runs — only the dialog's visibility and interactivity are stripped, never its creation, because
+/// dismissing the replacement has to close the real dialog through its own path.
+unsafe fn replace_at_spawn(
+    raw: *mut bw::Dialog,
+    replaced: NativeDialog,
+    event_handler: usize,
+) -> usize {
+    unsafe {
+        (*(raw as *mut bw::scr::Control)).flags &= !0x2;
+    }
+    REPLACED_DIALOG_LIVE[replaced.index()].store(true, Ordering::Relaxed);
+    REPLACED_DIALOG_DRIVEN[replaced.index()].store(false, Ordering::Relaxed);
+    let inited =
+        REPLACED_DIALOG_EVENT_HANDLERS[replaced.index()].init(replaced_dialog_event_handler);
+    inited.set_orig(event_handler);
+    inited.func() as usize
 }
 
 unsafe extern "C" fn chat_box_event_handler(
@@ -121,12 +467,9 @@ unsafe extern "C" fn chat_box_event_handler(
                         // submit, no local echo injection) and fall through to the native `orig`
                         // call below, which closes the box exactly as it does after a real send.
                     } else {
-                        // A live netcode v2 session carries chat over its own relay channel — the
-                        // native battlenet-gateway send is dead under it, and this client's own
-                        // copy renders only via `send_chat_message`'s injected local echo (see its
-                        // doc comment). Clear the box the same way a handled slash command does so
-                        // the dead native send below (and its local ClientSdk loopback echo) never
-                        // fires and never doubles up our own already-injected echo.
+                        // A live netcode v2 session sends chat over the relay and injects this
+                        // client's own echo, so the box is cleared to keep the native send (and its
+                        // loopback echo) below from also firing.
                         let target = chat_target_scope();
                         if bw.send_chat_message(target, text) {
                             edit_box.set_string(b"");
@@ -205,10 +548,7 @@ fn chat_target_scope() -> netcode_v2::ChatTarget {
 ///
 /// Outside a team-shared-control game the field holds a BW player id and this is exactly the one
 /// rp2 slot that player maps to. In Team Melee/FFA or Top vs Bottom the field instead holds the
-/// 1-based team number of the dialog's "Team N" entry (the same numbering as `players[].team`),
-/// and SC:R delivers the message to every player on that team *and* every player on the sender's
-/// own team — teammates see a message addressed to either side. So there the result is the union
-/// of both teams' rp2 slots; see [`team_shared_chat_target`].
+/// 1-based team number of the dialog's "Team N" entry; see [`team_shared_chat_target`].
 fn specific_player_chat_target(bw: &BwScr) -> Option<netcode_v2::ChatTarget> {
     unsafe {
         let game = bw.game();
@@ -246,9 +586,9 @@ fn specific_player_chat_target(bw: &BwScr) -> Option<netcode_v2::ChatTarget> {
 
 /// The team-union chat target for a team-shared-control game (Team Melee/FFA, Top vs Bottom):
 /// every rp2 slot whose BW player is on `target_team` (the `MsgFltr` dialog's chosen team, 1-based
-/// as in `players[].team`), unioned with every rp2 slot whose BW player shares a team with the
-/// local player — the sender's own team sees the message too, alongside the addressed team.
-/// `players` is BW's live `players[]` array.
+/// as in `players[].team`), unioned with every rp2 slot on the local player's team, since SC:R
+/// delivers a team-addressed message to the sender's own team too. `players` is BW's live
+/// `players[]` array.
 ///
 /// `None` if `target_team` isn't a valid team number, if it has no members, or if the union maps
 /// to no live session slot at all (the caller degrades to [`netcode_v2::ChatTarget::All`]).
@@ -347,7 +687,7 @@ unsafe extern "C" fn minimap_event_handler(
 ) -> u32 {
     unsafe {
         let bw = get_bw();
-        if bw.console_hidden() && !allow_event_on_hidden_console(event) {
+        if bw.minimap_hidden() && !allow_event_on_hidden_dialog(event) {
             return 0;
         }
         let ret = orig(ctrl, event);
@@ -357,12 +697,15 @@ unsafe extern "C" fn minimap_event_handler(
             // associated globals) are initialized. Done after `orig` so it wins over any reset the
             // game's own init does.
             bw.restore_minimap_settings();
-            // Replay / obs UI won't have the alliance / chat buttons show above
-            // minimap unless explicitly shown.
-            // But annoyingly they are not immediately hidden by the init event, but
-            // a timer is queued to hide them after a bit, so knowing when to show them
-            // again is kind of annoying.. Have to hook the relevant control's event handlers
-            // and have them ignore the hide event.
+            bw.hide_new_minimap_if_hidden(Control::new(ctrl).dialog());
+            if bw.is_live_observer() {
+                hide_player_camera_outlines(Control::new(ctrl).dialog());
+            }
+            // A watcher's minimap gets the overlay's own header in place of the two buttons SC:R
+            // keeps above it, so those stay hidden for a watcher. The game shows and hides them on
+            // timers of its own, so hiding them once is not enough: their handlers are hooked to
+            // refuse every show from here on. Everything else still reaches them, so the overlay
+            // can still press one through the game's own code.
             if bw.is_replay_or_obs() {
                 let ctrl = Control::new(ctrl);
                 for child in ctrl.dialog().children() {
@@ -372,12 +715,11 @@ unsafe extern "C" fn minimap_event_handler(
                             _ => &MINIMAP_BUTTON2_EVENT_HANDLER,
                         };
                         if let Some(handler) = (*(*child)).event_handler {
-                            let inited = handler_hook.init(prevent_button_hide);
+                            let inited = handler_hook.init(keep_button_hidden);
                             inited.set_orig(handler as usize);
                             child.set_event_handler(inited);
-                            PREVENT_BUTTON_HIDE_COUNT.fetch_add(1, Ordering::Relaxed);
                         }
-                        child.show();
+                        child.hide();
                     }
                 }
             }
@@ -386,13 +728,73 @@ unsafe extern "C" fn minimap_event_handler(
     }
 }
 
-unsafe fn allow_event_on_hidden_console(event: *mut bw::ControlEvent) -> bool {
+/// The minimap image control's own draw function, which [`draw_minimap_without_camera_outlines`]
+/// calls through. Zero until a live observer's minimap is initialized.
+static MINIMAP_IMAGE_DRAW: AtomicUsize = AtomicUsize::new(0);
+
+type ControlDrawFn =
+    unsafe extern "C" fn(*mut bw::Control, i32, i32, *const bw::Rect, *const bw::Rect);
+
+/// Keeps a live observer's minimap from outlining the players' cameras.
+///
+/// SC:R outlines the camera of every player an observer has vision of, in that player's color,
+/// using viewport reports each human player sends the observers as Storm messages rather than in a
+/// game turn. Netcode v2 doesn't carry Storm messages, so no report ever arrives: each human
+/// player's outline is drawn from its zeroed initial viewport, a dot in the minimap's top-left
+/// corner. The minimap image control's draw function is wrapped to leave the outlines out.
+unsafe fn hide_player_camera_outlines(minimap: Dialog) {
+    unsafe {
+        // Control 1 is the minimap image, which sets its draw function in its own init event.
+        let Some(image) = minimap.child_by_id(1) else {
+            warn!("Minimap has no image control; observer camera outlines stay drawn");
+            return;
+        };
+        let image = *image;
+        let wrapper: ControlDrawFn = draw_minimap_without_camera_outlines;
+        match (*image).draw {
+            Some(draw) if draw as usize != wrapper as usize => {
+                MINIMAP_IMAGE_DRAW.store(draw as usize, Ordering::Relaxed);
+                (*image).draw = Some(wrapper);
+            }
+            Some(_) => (),
+            None => {
+                warn!("Minimap image has no draw function; observer camera outlines stay drawn")
+            }
+        }
+    }
+}
+
+/// Draws the minimap image with no player in `replay_visions`, the set of players SC:R outlines
+/// the cameras of. Nothing else the draw function does reads it: the units and fog it shows were
+/// rendered into the minimap's texture beforehand, and its pings and the local screen's outline
+/// don't depend on vision.
+unsafe extern "C" fn draw_minimap_without_camera_outlines(
+    ctrl: *mut bw::Control,
+    x: i32,
+    y: i32,
+    clip: *const bw::Rect,
+    area: *const bw::Rect,
+) {
+    unsafe {
+        let draw = MINIMAP_IMAGE_DRAW.load(Ordering::Relaxed);
+        if draw == 0 {
+            return;
+        }
+        let draw: ControlDrawFn = std::mem::transmute(draw);
+        let bw = get_bw();
+        let visions = bw.replay_visions.resolve();
+        bw.replay_visions.write(0);
+        draw(ctrl, x, y, clip, area);
+        bw.replay_visions.write(visions);
+    }
+}
+
+/// Whether a hidden dialog must still see this event: the init and delete events, without which the
+/// dialog would explode on unfinished initialization or undone cleanup.
+unsafe fn allow_event_on_hidden_dialog(event: *mut bw::ControlEvent) -> bool {
     if (*event).ty == 0xe {
         match (*event).ext_type {
-            // 0xa and 0x0 are init events, 0x1 is delete event, so those have to
-            // be allowed in order for the dialog not exploding due to unfinished
-            // initialization / undone cleanup.
-            // (We probably don't have these dialogs ever be deleted though)
+            // 0xa and 0x0 are init events, 0x1 is the delete event.
             0xa | 0x0 | 0x1 => true,
             _ => false,
         }
@@ -401,130 +803,32 @@ unsafe fn allow_event_on_hidden_console(event: *mut bw::ControlEvent) -> bool {
     }
 }
 
-unsafe extern "C" fn timeout_event_handler(
-    ctrl: *mut bw::Control,
-    event: *mut bw::ControlEvent,
-    orig: unsafe extern "C" fn(*mut bw::Control, *mut bw::ControlEvent) -> u32,
-) -> u32 {
-    unsafe {
-        // Hiding the dialog stops it drawing but not responding, so swallow every event but the
-        // init/delete it needs to construct and tear down cleanly. This kills its own
-        // waiting-for-players countdown and its unwired Drop button along with the rest.
-        if !allow_event_on_hidden_console(event) {
-            return 0;
-        }
-        orig(ctrl, event)
-    }
-}
-
-/// The `GameMenu` control ids of its Save Game and Load Game buttons.
-const GAME_MENU_SAVE_GAME_ID: i16 = 1;
-const GAME_MENU_LOAD_GAME_ID: i16 = 2;
-
-static SAVE_BUTTON_EVENT_HANDLER: EventHandler = EventHandler::new();
-static LOAD_BUTTON_EVENT_HANDLER: EventHandler = EventHandler::new();
-/// The native draw function of the menu buttons [`disabled_button_draw`] wraps. Every push button
-/// shares one.
-static MENU_BUTTON_ORIG_DRAW: AtomicUsize = AtomicUsize::new(0);
-
-type ControlDrawFn =
-    unsafe extern "C" fn(*mut bw::scr::Control, i32, i32, *const bw::Rect, *const bw::Rect);
-
-/// Keeps the in-game menu's Save Game and Load Game buttons disabled: a saved game can't be loaded
-/// through ShieldBattery, and live games drop both commands anyway (see
-/// [`commands::filter_invalid_commands`](crate::bw::commands::filter_invalid_commands)).
+/// The event handler a replaced dialog runs under.
 ///
-/// BW re-enables Save Game on its own schedule while the menu is open, outside any of the menu's
-/// event handlers, so disabling it from events alone lets it draw enabled for a moment. Each button
-/// is therefore also wrapped at the two points that matter: its draw, which re-applies the disabled
-/// flag first, and its event handler, which swallows activation whatever the flag says.
-unsafe extern "C" fn game_menu_event_handler(
+/// Hiding a dialog stops it drawing but not responding, so this swallows every event but the
+/// init/delete it needs to construct and tear down cleanly. Everything the dialog would have done on
+/// its own goes with them: `TimeOut`'s countdown and its unwired Drop button, a menu's buttons.
+unsafe extern "C" fn replaced_dialog_event_handler(
     ctrl: *mut bw::Control,
     event: *mut bw::ControlEvent,
     orig: unsafe extern "C" fn(*mut bw::Control, *mut bw::ControlEvent) -> u32,
 ) -> u32 {
     unsafe {
-        let is_init = (*event).ty == 0xe && (*event).ext_type == 0x0;
-        let is_delete = (*event).ty == 0xe && (*event).ext_type == 0x1;
-        let ret = orig(ctrl, event);
-        // A deleted menu's controls are gone, so there's nothing to touch after that one.
-        if !is_delete {
-            let dialog = Control::new(ctrl).dialog();
-            for id in [GAME_MENU_SAVE_GAME_ID, GAME_MENU_LOAD_GAME_ID] {
-                if let Some(button) = dialog.child_by_id(id) {
-                    if is_init {
-                        wrap_disabled_button(button, id);
-                    }
-                    button.disable();
-                }
-            }
-        }
-        ret
-    }
-}
-
-unsafe fn wrap_disabled_button(button: Control, id: i16) {
-    unsafe {
-        let hook = match id {
-            GAME_MENU_SAVE_GAME_ID => &SAVE_BUTTON_EVENT_HANDLER,
-            _ => &LOAD_BUTTON_EVENT_HANDLER,
-        };
-        let inited = hook.init(disabled_button_event_handler);
-        if let Some(handler) = (*(*button)).event_handler
-            && handler as usize != inited.func() as usize
+        // Delete: the dialog is going away, so its replacement must not outlive it.
+        let replaced = native_dialogs::replacement_for(Control::new(ctrl).string());
+        if (*event).ty == 0xe
+            && (*event).ext_type == 0x1
+            && let Some(replaced) = replaced
         {
-            inited.set_orig(handler as usize);
-            button.set_event_handler(inited);
+            REPLACED_DIALOG_LIVE[replaced.index()].store(false, Ordering::Relaxed);
         }
-
-        let ctrl: *mut bw::scr::Control = *button;
-        if let Some(draw) = (*ctrl).draw
-            && draw as usize != disabled_button_draw as ControlDrawFn as usize
-        {
-            let stored = MENU_BUTTON_ORIG_DRAW.load(Ordering::Relaxed);
-            if stored == 0 || stored == draw as usize {
-                MENU_BUTTON_ORIG_DRAW.store(draw as usize, Ordering::Relaxed);
-                (*ctrl).draw = Some(disabled_button_draw);
-            } else {
-                warn!("Game menu button {id} has an unexpected draw function, not wrapping it");
-            }
-        }
-    }
-}
-
-unsafe extern "C" fn disabled_button_event_handler(
-    ctrl: *mut bw::Control,
-    event: *mut bw::ControlEvent,
-    orig: unsafe extern "C" fn(*mut bw::Control, *mut bw::ControlEvent) -> u32,
-) -> u32 {
-    unsafe {
-        // Activation (a click) and the button's own hotkey, which BW may still deliver in the
-        // moment between re-enabling the button and the next disable.
-        if (*event).ty == 0xe && matches!((*event).ext_type, 0x2 | 0x3) {
-            debug!(
-                "Ignored activation of disabled game menu button {}",
-                Control::new(ctrl).id()
-            );
+        let driven = replaced.is_some_and(|replaced| {
+            REPLACED_DIALOG_DRIVEN[replaced.index()].load(Ordering::Relaxed)
+        });
+        if !driven && !allow_event_on_hidden_dialog(event) {
             return 0;
         }
         orig(ctrl, event)
-    }
-}
-
-unsafe extern "C" fn disabled_button_draw(
-    ctrl: *mut bw::scr::Control,
-    x: i32,
-    y: i32,
-    area: *const bw::Rect,
-    clip: *const bw::Rect,
-) {
-    unsafe {
-        // The same flag `Control::disable` sets; set directly since a draw is no place to send the
-        // control an event.
-        (*ctrl).flags2 = ((*ctrl).flags2 & !0x4) | 0x1;
-        let orig: ControlDrawFn =
-            std::mem::transmute(MENU_BUTTON_ORIG_DRAW.load(Ordering::Relaxed));
-        orig(ctrl, x, y, area, clip)
     }
 }
 
@@ -535,27 +839,38 @@ unsafe extern "C" fn console_dialog_event_handler(
 ) -> u32 {
     unsafe {
         let bw = get_bw();
-        if bw.console_hidden() && !allow_event_on_hidden_console(event) {
+        let control = Control::new(ctrl);
+        let name = control.string();
+        if bw.console_dialog_hidden(name)
+            && !allow_event_on_hidden_dialog(event)
+            && !(name == MENU_BUTTON_DIALOG && !is_pointer_event(event))
+        {
             return 0;
         }
         orig(ctrl, event)
     }
 }
 
-unsafe extern "C" fn prevent_button_hide(
+/// The console's menu button, which also carries the keys that open the game menu (`F10`,
+/// `Alt+M`). Hidden with the rest of the console, it still has to answer them, or a watcher with the
+/// console hidden could not open the menu at all; only the pointer is kept from it.
+const MENU_BUTTON_DIALOG: &str = "Stat_F10";
+
+/// Whether a dialog event comes from the mouse: a move, a button, or the wheel.
+unsafe fn is_pointer_event(event: *mut bw::ControlEvent) -> bool {
+    unsafe { matches!((*event).ty, 0x3..=0xc | 0x11 | 0x12) }
+}
+
+/// The event handler of a button above a watcher's minimap, which refuses to be shown.
+unsafe extern "C" fn keep_button_hidden(
     ctrl: *mut bw::Control,
     event: *mut bw::ControlEvent,
     orig: unsafe extern "C" fn(*mut bw::Control, *mut bw::ControlEvent) -> u32,
 ) -> u32 {
     unsafe {
-        if (*event).ty == 0xe && (*event).ext_type == 0xe {
-            // Hide
-            let hide_skip_count = PREVENT_BUTTON_HIDE_COUNT.load(Ordering::Relaxed);
-            if hide_skip_count != 0 {
-                debug!("Skipping minimap button hide");
-                PREVENT_BUTTON_HIDE_COUNT.store(hide_skip_count - 1, Ordering::Relaxed);
-                return 0;
-            }
+        // 0xd is the dialog system's show event.
+        if (*event).ty == 0xe && (*event).ext_type == 0xd {
+            return 0;
         }
         orig(ctrl, event as _)
     }

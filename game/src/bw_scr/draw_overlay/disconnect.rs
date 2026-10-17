@@ -1,23 +1,54 @@
 use std::time::Instant;
 
+use egui::Color32;
 use overlay_ui::disconnect::{
-    DisconnectRowView, DisconnectTier as ViewTier, DisconnectView, SelfState as ViewSelfState,
-    render_disconnect_view,
+    DisconnectRowView, DisconnectView, PeerState, SelfState as ViewSelfState,
 };
-use rally_point_client::proto::ids::SlotId;
 
-use crate::app_messages::{GameSetupInfo, SbUser, SbUserId};
-use crate::bw_scr::draw_overlay::OverlayState;
-use crate::netcode_v2::{self, DisconnectStatus, DisconnectTier, SelfState};
+use crate::app_messages::{SbUser, SbUserId};
+use crate::netcode_v2::{DisconnectStatus, DisconnectTier, SelfState};
 
-/// Builds the display view from the turn-state snapshot and the session's user list, resolving each
-/// row's user id to a name and mapping the turn-state tier / self-state onto the presentation
-/// enums the render path takes. The single place turn-state data and game-setup data meet.
-fn build_disconnect_view(
+/// One player of this game as the game itself knows them, which is the only place their color and
+/// their side can be read from. The disconnect status names players by ShieldBattery user id, so a
+/// roster entry is matched to a status row through the name the two have in common.
+pub(super) struct RosterPlayer {
+    pub name: String,
+    pub color: Color32,
+    /// Whether they are on the local player's side.
+    pub teammate: bool,
+    /// Whether this is the local player, whose own row the dialog never draws: it is about the
+    /// people being waited for.
+    pub is_local: bool,
+}
+
+/// Builds the display view from the turn-state snapshot, the session's user list and the game's own
+/// roster: one row per other player, carrying what the game knows about them (their color, whose
+/// side they are on) and what the turn state knows (whether their turns are still arriving).
+///
+/// An all-healthy status builds an empty view, which the shell draws as nothing.
+pub(super) fn build_disconnect_view(
     status: &DisconnectStatus,
     users: &[SbUser],
+    roster: &[RosterPlayer],
+    self_seconds: u64,
     now: Instant,
 ) -> DisconnectView {
+    let self_state = match status.self_state(now) {
+        SelfState::Healthy => ViewSelfState::Healthy,
+        SelfState::Reconnecting => ViewSelfState::Reconnecting,
+        SelfState::Disconnected => ViewSelfState::Disconnected,
+        SelfState::Desynced => ViewSelfState::Desynced,
+    };
+    let troubled = status.rows(now);
+    // A game where everyone's turns are arriving is the normal state of a game, so it costs nothing
+    // beyond the check: no names are resolved and no roster is walked.
+    if troubled.is_empty() && self_state == ViewSelfState::Healthy {
+        return DisconnectView {
+            rows: Vec::new(),
+            self_state,
+            self_seconds,
+        };
+    }
     let resolve = |user_id: SbUserId| -> String {
         users
             .iter()
@@ -26,78 +57,51 @@ fn build_disconnect_view(
             // TODO(tec27): Translate this
             .unwrap_or_else(|| "Unknown player".to_string())
     };
-    let rows = status
-        .rows(now)
-        .into_iter()
-        .map(|row| DisconnectRowView {
+    let mut rows: Vec<DisconnectRowView> = Vec::new();
+    let mut named = Vec::new();
+    for player in roster.iter().filter(|player| !player.is_local) {
+        let trouble = troubled
+            .iter()
+            .find(|row| resolve(row.user_id) == player.name);
+        if let Some(row) = trouble {
+            named.push(row.slot);
+        }
+        rows.push(DisconnectRowView {
+            slot: trouble.map_or(0, |row| row.slot.0),
+            name: player.name.clone(),
+            color: player.color,
+            teammate: player.teammate,
+            seconds: trouble.map_or(0, |row| row.seconds),
+            state: match trouble.map(|row| row.tier) {
+                None => PeerState::Connected,
+                Some(DisconnectTier::Stall) => PeerState::Stalled,
+                Some(DisconnectTier::Confirmed) => PeerState::LinkLost,
+            },
+            drop_unlocked: trouble.is_some_and(|row| row.drop_unlocked),
+            drop_requested: trouble.is_some_and(|row| row.drop_requested),
+        });
+    }
+    // A player the game's own roster does not account for is still one the simulation is waiting
+    // on, and losing their row would leave the surface saying everyone is fine while the game sits
+    // stopped. They get a row of their own, in the color the overlay uses where it has none.
+    for row in troubled.iter().filter(|row| !named.contains(&row.slot)) {
+        rows.push(DisconnectRowView {
             slot: row.slot.0,
             name: resolve(row.user_id),
+            color: overlay_ui::kit::theme::TEXT_DIM,
+            teammate: false,
             seconds: row.seconds,
-            tier: match row.tier {
-                DisconnectTier::Stall => ViewTier::Stall,
-                DisconnectTier::Confirmed => ViewTier::Confirmed,
+            state: match row.tier {
+                DisconnectTier::Stall => PeerState::Stalled,
+                DisconnectTier::Confirmed => PeerState::LinkLost,
             },
             drop_unlocked: row.drop_unlocked,
             drop_requested: row.drop_requested,
-        })
-        .collect();
+        });
+    }
     DisconnectView {
         rows,
-        self_state: match status.self_state(now) {
-            SelfState::Healthy => ViewSelfState::Healthy,
-            SelfState::Reconnecting => ViewSelfState::Reconnecting,
-            SelfState::Disconnected => ViewSelfState::Disconnected,
-            SelfState::Desynced => ViewSelfState::Desynced,
-        },
-    }
-}
-
-impl OverlayState {
-    /// Draws the survivor disconnect notice: a small, translucent panel anchored top-center. While
-    /// this client's own link is relay-confirmed down, it is the single prominent self notice (never
-    /// on a mere stall, however wide, since an unconfirmed stall is exactly as likely to be a peer's
-    /// link as ours). Otherwise, whenever the local simulation is blocked on at least one remote
-    /// participant's turn (a mere stall) or the relay has confirmed a peer's link death, it is a
-    /// "Waiting for players" header over one column-aligned row per such player — name, elapsed
-    /// time, and, for a relay-confirmed row, a Drop button (greyed out with a countdown until the
-    /// unlock threshold, then clickable).
-    ///
-    /// Renders in every build — this is product UX, not debug output — and only while there is
-    /// something to report; an all-healthy status draws nothing. The panel captures mouse input only
-    /// while a Drop button is showing (registered via [`force_add_ui_rect`](OverlayState::force_add_ui_rect)
-    /// rather than the `ui_active`-gated [`add_ui_rect`](OverlayState::add_ui_rect): BW's native
-    /// "TimeOut" waiting-for-players dialog is suppressed but still spawned — see
-    /// `dialog_hook::spawn_dialog_hook` — and sitting at the top of BW's dialog stack, it drives
-    /// `ui_active` to `false` exactly while the Drop button needs to be clickable, so the Drop
-    /// button's rect must win regardless); otherwise clicks and keys pass straight through to the
-    /// game.
-    pub(super) fn add_disconnect_overlay(
-        &mut self,
-        status: &DisconnectStatus,
-        setup_info: Option<&GameSetupInfo>,
-        ctx: &egui::Context,
-    ) {
-        let users = setup_info.map(|info| info.users.as_slice()).unwrap_or(&[]);
-        let view = build_disconnect_view(status, users, Instant::now());
-        if view.is_empty() {
-            return;
-        }
-
-        let interactable = view.has_button();
-        let res = render_disconnect_view(&view, ctx);
-        // Each clicked Drop button submits the identical drop request the debug command uses. Safe
-        // to reach the turn state here: the draw path holds no turn-state lock across `step`.
-        for &slot in &res.inner.drops {
-            netcode_v2::with_turn_state(|s| s.request_drop(SlotId(slot)));
-        }
-        if res.inner.leave {
-            self.out_state.leave_game = true;
-        }
-        // Register the panel's rect only when it is interactable, so the game doesn't lose clicks to
-        // a passive notice. Unconditional on `ui_active` (see the doc comment above): a suppressed
-        // BW dialog sitting on the stack must never be able to steal the Drop button's clicks.
-        if interactable {
-            self.force_add_ui_rect(&Some(res), false);
-        }
+        self_state,
+        self_seconds,
     }
 }

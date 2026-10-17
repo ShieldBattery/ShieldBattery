@@ -1437,6 +1437,9 @@
   },
   "gameReport": {
     "action": "Пожаловаться",
+    "admin": {
+      "reportedAtGameTime": "Жалоба подана на {{gameTime}} игры"
+    },
     "alreadyCommended": "Вы уже похвалили этого игрока за эту игру, поэтому не можете на него пожаловаться.",
     "alreadyReported": "Вы уже пожаловались на этого игрока за эту игру.",
     "badRequest": "Не удалось отправить жалобу. Проверьте подробности и попробуйте снова.",
@@ -2796,7 +2799,7 @@
         "apmAlert": "Предупреждать, если APM падает ниже",
         "apmAlertHeader": "Оповещение APM",
         "apmColorText": "Цвет текста",
-        "apmDisplay": "АРМ-дисплей",
+        "apmDisplay": "Отображение APM",
         "apmSound": "Воспроизвести звук",
         "apmValue": "Значение APM",
         "apmValueValidation": "Введите значение от 1 до 999",
@@ -2893,7 +2896,7 @@
         "minimapPosition": {
           "bottomLeft": "Нижний левый угол",
           "standard": "Стандарт",
-          "title": "Положение на миникарте"
+          "title": "Положение миникарты"
         },
         "minimapTerrain": {
           "hidden": "Скрыт",

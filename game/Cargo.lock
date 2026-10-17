@@ -3538,6 +3538,7 @@ dependencies = [
  "eframe",
  "egui",
  "image",
+ "resvg",
  "serde",
  "serde_json",
 ]
@@ -4552,7 +4553,7 @@ checksum = "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
 [[package]]
 name = "samase_scarf"
 version = "0.1.0"
-source = "git+https://github.com/tec27/samase_scarf.git?rev=3b6859f9309a347af7926d10b3455ec307a16fee#3b6859f9309a347af7926d10b3455ec307a16fee"
+source = "git+https://github.com/tec27/samase_scarf.git?rev=1b29f94420b444ca3f4b251e6d915f7313a0d453#1b29f94420b444ca3f4b251e6d915f7313a0d453"
 dependencies = [
  "array-init",
  "arrayvec",

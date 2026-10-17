@@ -78,7 +78,9 @@ pub struct TeamColorConfig {
 pub struct GameStartInfo {
     /// BW player ids (`0..8`) of the active (non-observer) human/computer players, ascending.
     pub active_players: Vec<u8>,
-    /// The local player's BW id, or `None` for an observer or a replay watched without a seat.
+    /// The local player's BW id: their seat in a game they are playing, or the seat they played in
+    /// a replay of one of their own games, which then colors as they saw it while playing. `None`
+    /// for an observer, or a replay of a game the watcher was not in.
     pub local_player: Option<u8>,
     /// The outgoing alliance matrix at game start: `initial_allies[a][b]` is whether `a` is allied
     /// to `b`. The relation is not assumed symmetric.
@@ -97,10 +99,11 @@ pub struct TeamColorState {
 }
 
 enum StateKind {
-    /// Observer/replay: a static assignment derived from the starting alliances, never updated.
+    /// Observer, or a replay of a game the watcher was not in: a static assignment derived from
+    /// the starting alliances, never updated.
     Static,
-    /// The local player has a seat: colors track live alliance changes. Boxed to keep the two enum
-    /// variants close in size.
+    /// The local player has a seat, in the game or in the replay of it: colors track its alliance
+    /// changes as they happen. Boxed to keep the two enum variants close in size.
     Seated(Box<SeatedState>),
 }
 

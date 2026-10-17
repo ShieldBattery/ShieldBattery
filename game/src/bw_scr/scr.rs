@@ -817,8 +817,11 @@ pub struct V_UiConsole {
     pub delete: usize,
     pub unk1: usize,
     pub unk2: usize,
-    pub unk3: usize,
-    pub unk4: usize,
+    /// Advances the console's own animations. Draws nothing.
+    pub update: usize,
+    /// Queues the console's art (its frame, and in HD the pulse along it) and the game timer and
+    /// APM text drawn over it. Called every frame from the game's HUD update.
+    pub draw: Thiscall<unsafe extern "C" fn(*mut UiConsole) -> u32>,
     pub unk5: usize,
     pub hit_test: Thiscall<unsafe extern "C" fn(*mut UiConsole, u32, u32) -> u8>,
 }

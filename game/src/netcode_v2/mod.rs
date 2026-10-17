@@ -151,7 +151,17 @@ impl SlotMask {
     pub fn is_empty(self) -> bool {
         self.0 == 0
     }
+
+    /// The one slot this mask names, or `None` when it names none or several. What separates a
+    /// message sent to a single player from one sent to a whole team.
+    pub fn single_member(self) -> Option<SlotId> {
+        (self.0.count_ones() == 1).then(|| SlotId(self.0.trailing_zeros() as u8))
+    }
 }
+
+/// A chat message as a step injects it into the simulation: its sender, the scope it was sent to,
+/// and its text.
+pub type InjectedChat = (StormPlayerId, ChatTarget, String);
 
 /// The receiver scope a chat message names, decoded from (or encoded to) the wire's
 /// `(target_kind, target_slot)` pair the relay carries opaquely (see
@@ -838,7 +848,7 @@ pub struct TurnState {
     /// This client's own chat messages waiting for the next step to inject their local echo, in a
     /// game that rolls back: injected between steps, an echo would belong to no step, and a
     /// rollback past it would take it out of the replay without putting it back.
-    local_chat_echoes: Vec<String>,
+    local_chat_echoes: Vec<(ChatTarget, String)>,
     /// How many fewer of its own turns than the relay's latency buffer this client means to keep
     /// in flight, before the buffer bounds it (see [`lead`](Self::lead)). Starts at the rollback target and is
     /// moved by the rollback driver as it measures how late or early other players' turns reach
@@ -1509,19 +1519,25 @@ impl TurnState {
     /// Notes a chat message injected into the simulation by the step in progress, which injects it
     /// again whenever it is simulated again. `next_frame` is as [`receive_turns`](Self::receive_turns)
     /// takes it.
-    pub fn note_injected_chat(&mut self, next_frame: u32, storm: StormPlayerId, text: &str) {
+    pub fn note_injected_chat(
+        &mut self,
+        next_frame: u32,
+        storm: StormPlayerId,
+        target: ChatTarget,
+        text: &str,
+    ) {
         if let (Some(inputs), Some(step)) = (&mut self.inputs, input_step(next_frame)) {
-            inputs.record_chat(step, storm, text.to_string());
+            inputs.record_chat(step, storm, target, text.to_string());
         }
     }
 
     /// Queues this client's own chat message for the next step to inject its local echo.
-    pub fn queue_local_chat_echo(&mut self, text: String) {
-        self.local_chat_echoes.push(text);
+    pub fn queue_local_chat_echo(&mut self, target: ChatTarget, text: String) {
+        self.local_chat_echoes.push((target, text));
     }
 
     /// Takes this client's own chat messages waiting for their local echo.
-    pub fn take_local_chat_echoes(&mut self) -> Vec<String> {
+    pub fn take_local_chat_echoes(&mut self) -> Vec<(ChatTarget, String)> {
         std::mem::take(&mut self.local_chat_echoes)
     }
 
@@ -1529,7 +1545,7 @@ impl TurnState {
     /// ones [`dispatch_buffers`](Self::dispatch_buffers) returns (every turn known by now,
     /// predictions for the rest), and returns the chat the step injected when it first ran.
     /// `next_frame` is as [`receive_turns`](Self::receive_turns) takes it.
-    pub fn redispatch(&mut self, next_frame: u32) -> Vec<(StormPlayerId, String)> {
+    pub fn redispatch(&mut self, next_frame: u32) -> Vec<InjectedChat> {
         let required = self.required;
         let (Some(inputs), Some(step)) = (&mut self.inputs, input_step(next_frame)) else {
             return Vec::new();
@@ -4651,6 +4667,19 @@ mod tests {
         let empty = SlotMask(0);
         assert!(empty.is_empty());
         assert!(!empty.contains(SlotId(0)));
+    }
+
+    #[test]
+    fn only_a_one_slot_mask_names_a_single_member() {
+        assert_eq!(SlotMask::single(SlotId(0)).single_member(), Some(SlotId(0)));
+        assert_eq!(SlotMask::single(SlotId(5)).single_member(), Some(SlotId(5)));
+
+        // A whole team addressed at once names nobody in particular, and neither does an empty
+        // mask: both must be told apart from the lone recipient a whisper carries.
+        let mut team = SlotMask::single(SlotId(1));
+        team.insert(SlotId(4));
+        assert_eq!(team.single_member(), None);
+        assert_eq!(SlotMask(0).single_member(), None);
     }
 
     /// Minimal chat-only harness: builds a `TurnState` with live `chat_out`/`chat_in` channels and

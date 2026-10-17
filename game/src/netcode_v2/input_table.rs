@@ -16,6 +16,7 @@ use bytes::Bytes;
 
 use crate::bw;
 use crate::bw::players::StormPlayerId;
+use crate::netcode_v2::{ChatTarget, InjectedChat};
 
 /// The turn a step runs with for a slot whose turn has not arrived: an empty one, which is what an
 /// idle player's turn holds once native sync commands are stripped from it.
@@ -56,7 +57,7 @@ pub struct InputTable {
     leaves: Vec<ScheduledLeave>,
     /// The chat each step injected into the simulation, oldest step first, so that the step injects
     /// the same chat when it is simulated again.
-    chat: VecDeque<(u32, Vec<(StormPlayerId, String)>)>,
+    chat: VecDeque<(u32, Vec<InjectedChat>)>,
 }
 
 /// What the table saw over a stretch of steps, for logging.
@@ -364,15 +365,21 @@ impl InputTable {
 
     /// Records chat a step injected into the simulation, for the step to inject again when it is
     /// simulated again.
-    pub fn record_chat(&mut self, step: u32, storm: StormPlayerId, text: String) {
+    pub fn record_chat(
+        &mut self,
+        step: u32,
+        storm: StormPlayerId,
+        target: ChatTarget,
+        text: String,
+    ) {
         match self.chat.back_mut() {
-            Some((last, messages)) if *last == step => messages.push((storm, text)),
-            _ => self.chat.push_back((step, vec![(storm, text)])),
+            Some((last, messages)) if *last == step => messages.push((storm, target, text)),
+            _ => self.chat.push_back((step, vec![(storm, target, text)])),
         }
     }
 
     /// The chat `step` injected when it was first simulated.
-    pub fn chat_at(&self, step: u32) -> Vec<(StormPlayerId, String)> {
+    pub fn chat_at(&self, step: u32) -> Vec<InjectedChat> {
         self.chat
             .iter()
             .find(|(x, _)| *x == step)
@@ -734,14 +741,17 @@ mod tests {
             t.push(B, idle(), start());
             t.dispatch(step, &required());
         }
-        t.record_chat(1, A, "one".into());
-        t.record_chat(3, B, "three".into());
-        t.record_chat(3, A, "three again".into());
+        t.record_chat(1, A, ChatTarget::All, "one".into());
+        t.record_chat(3, B, ChatTarget::All, "three".into());
+        t.record_chat(3, A, ChatTarget::Allies, "three again".into());
         t.forget_before(3);
         assert!(t.chat_at(1).is_empty());
         assert_eq!(
             t.chat_at(3),
-            vec![(B, "three".into()), (A, "three again".into())]
+            vec![
+                (B, ChatTarget::All, "three".into()),
+                (A, ChatTarget::Allies, "three again".into())
+            ]
         );
         let (turns, predicted) = t.dispatch(3, &required());
         assert_eq!(predicted, 0);

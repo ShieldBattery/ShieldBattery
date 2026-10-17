@@ -162,3 +162,14 @@ export interface GameDebugScreenshot {
   width: number
   height: number
 }
+
+/**
+ * One step of a debug `input` sequence posted to the game window. Mouse coordinates are client-area
+ * pixels of the game window, as in a screenshot.
+ */
+export type GameDebugInputEvent =
+  | { type: 'key'; vkey: number; down: boolean }
+  | { type: 'char'; code: number }
+  | { type: 'mouseMove'; x: number; y: number }
+  | { type: 'mouseButton'; x: number; y: number; button: 'left' | 'right'; down: boolean }
+  | { type: 'wait'; ms: number }

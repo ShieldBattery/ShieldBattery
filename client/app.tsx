@@ -9,6 +9,7 @@ import styled, { StyleSheetManager } from 'styled-components'
 import { Provider as UrqlProvider } from 'urql'
 import { Route, Router, Switch } from 'wouter'
 import { ActiveGameBlockSync } from './active-game/active-game-block-sync'
+import { ActiveGameReportFiler } from './active-game/active-game-report-filer'
 import { AppRoutes } from './app-routes'
 import { revokeSession } from './auth/action-creators'
 import { useSelfUser } from './auth/auth-utils'
@@ -277,6 +278,7 @@ const AppContent = React.memo(() => {
       <GameplayActivityWidget />
       {IS_ELECTRON ? <AcceptMatchCountdownSounds /> : null}
       {IS_ELECTRON ? <ActiveGameBlockSync /> : null}
+      {IS_ELECTRON ? <ActiveGameReportFiler /> : null}
       {IS_ELECTRON ? <GameDefaultsFirstRunPrompt /> : null}
       <LazyConnectedSettings />
       <DraftScreenOverlay />

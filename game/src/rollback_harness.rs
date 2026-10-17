@@ -931,7 +931,8 @@ fn take_arrived_commands(present: u32) -> Option<u32> {
 
 /// Drops the snapshot and its range list, so the next logic step rebuilds both, and clears the
 /// display state that only makes sense for the frame just shown. Called when the
-/// game loop (re-)enters game init (which is how a backwards replay seek restarts playback).
+/// game loop (re-)enters game init, which is how a replay seek SC:R handles itself restarts
+/// playback.
 pub fn reset_for_game_init() {
     if SNAPSHOTS.lock().take().is_some() {
         debug!("Rollback harness snapshot dropped for game init");

@@ -1,17 +1,19 @@
 use overlay_ui::netstat::{
-    NetEventView, NetStatRowView, NetStatsView, RowDeparture, render_netstat_view,
+    NetEventView, NetStatRowView, NetStatsView, RollbackEngineView, RollbackNetView, RowDeparture,
 };
 
-use crate::app_messages::{GameSetupInfo, SbUser, SbUserId};
-use crate::bw_scr::draw_overlay::OverlayState;
+use crate::app_messages::{SbUser, SbUserId};
 use crate::netcode_v2::{DepartureKind, NetEvent, NetStatsStatus};
+use crate::rollback_live::{self, NetStatus};
 
 /// Builds the display view from the network-stats snapshot and the session's user list, resolving
-/// each row's user id to a name and formatting each event into a line. The single place net-stats
-/// data and game-setup data meet — the net-stats analogue of `disconnect::build_disconnect_view`.
-/// Durations are flattened to whole milliseconds/seconds here so the presentation layer carries only
-/// plain numbers.
-fn build_netstat_view(status: &NetStatsStatus, users: &[SbUser]) -> NetStatsView {
+/// each row's user id to a name and formatting each event into a line. Durations are flattened to
+/// whole milliseconds/seconds here so the presentation layer carries only plain numbers.
+pub(super) fn build_netstat_view(
+    status: &NetStatsStatus,
+    rollback: Option<&NetStatus>,
+    users: &[SbUser],
+) -> NetStatsView {
     let resolve = |user_id: SbUserId| -> String {
         users
             .iter()
@@ -65,7 +67,31 @@ fn build_netstat_view(status: &NetStatsStatus, users: &[SbUser]) -> NetStatsView
         events,
         phase_applied_us: status.phase_applied_us,
         phase_target_us: status.phase_target_us,
+        rollback: rollback.map(build_rollback_view),
         rows,
+    }
+}
+
+/// What the panel says about a game that rolls back: the split it plays with now, and what the
+/// engine has done since the lockstep start.
+fn build_rollback_view(status: &NetStatus) -> RollbackNetView {
+    RollbackNetView {
+        delay_frames: status.delay,
+        rollback_frames: status.rollback,
+        rollback_target: status.rollback_target,
+        prediction_limit: status.prediction_limit,
+        engine: status.stats.as_ref().map(|stats| RollbackEngineView {
+            relay_lateness_p90_us: stats.lead_p90_last_us,
+            clock_stopped_ms: stats.clock_stopped_us / 1000,
+            clock_stops: stats.clock_stops,
+            rollbacks: stats.rollbacks,
+            deepest_rollback: stats.deepest_rollback,
+            mispredicted_turns: stats.mispredicted_turns,
+            confirmed_predictions: stats.confirmed_predictions,
+            worst_tick_us: stats.worst_tick_us,
+            slow_ticks: stats.slow_ticks,
+            slow_tick_ms: rollback_live::SLOW_TICK_MS,
+        }),
     }
 }
 
@@ -87,28 +113,5 @@ fn format_event(event: &NetEvent) -> String {
             format!("link back ({:.1}s)", outage.as_secs_f64())
         }
         NetEvent::Rehomed { from, to } => format!("re-homed relay {from} → {to}"),
-    }
-}
-
-impl OverlayState {
-    /// Draws the `/netstat` network-stats overlay: a compact, translucent panel anchored top-right
-    /// (clear of the top-center disconnect overlay), shown only while the overlay is toggled on — a
-    /// `Some` snapshot. `None` (toggled off, or no session) draws nothing. Player names resolve the
-    /// same way the disconnect overlay resolves them, from the session's user list.
-    ///
-    /// Purely informational: it registers no ui rect, so it never captures input and never interferes
-    /// with play while it's up.
-    pub(super) fn add_netstat_overlay(
-        &mut self,
-        status: Option<&NetStatsStatus>,
-        setup_info: Option<&GameSetupInfo>,
-        ctx: &egui::Context,
-    ) {
-        let Some(status) = status else {
-            return;
-        };
-        let users = setup_info.map(|info| info.users.as_slice()).unwrap_or(&[]);
-        let view = build_netstat_view(status, users);
-        render_netstat_view(&view, ctx);
     }
 }

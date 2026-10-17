@@ -479,6 +479,12 @@ async fn handle_messages_from_game_thread(
                             let _ = ws_send.send(msg).await;
                         }
                     }
+                    GameThreadMessage::ReportPlayer(report) => {
+                        let msg = app_socket::encode_message("/game/reportPlayer", report);
+                        if let Some(msg) = msg {
+                            let _ = ws_send.send(msg).await;
+                        }
+                    }
                     other => {
                         let _ = game_send.send(GameStateMessage::GameThread(other)).await;
                     }

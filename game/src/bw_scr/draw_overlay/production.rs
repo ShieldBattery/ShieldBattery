@@ -1,14 +1,19 @@
 use std::ptr;
 
-use bw_dat::{TechId, Unit, UnitId, UpgradeId};
-use egui::{Align, Align2, Color32, Layout, Rect, Sense, TextureId, Vec2};
+use bw_dat::{TechId, Unit, UnitId, UpgradeId, WeaponId};
+use egui::{Color32, TextureId, Vec2};
 use hashbrown::HashMap;
+use overlay_ui::observer::{
+    ProductionIcon, ProductionItemView, ProductionPlayerView, ProductionProgressView,
+    ProductionView, UnitUpgradeView, UpgradeEffect, WIREFRAME_LAYERS, WeaponDamageView, Wireframe,
+};
 
 use crate::bw;
+use crate::bw_scr::draw_inject;
+use crate::bw_scr::game_stats::TimelineSubject;
 
-use super::{
-    BwVars, OverlayState, ReplayUiValues, Texture, player_has_units, replay_players_by_team,
-};
+use super::wireframe::{self, FULL_HEALTH};
+use super::{BwVars, OverlayState, Texture, player_has_units, replay_players_by_team};
 
 pub struct ProductionState {
     per_player: [PlayerProduction; 8],
@@ -31,23 +36,16 @@ enum Production {
     Tech(TechId),
 }
 
-impl Production {
-    fn icon(&self, is_hd: bool) -> Texture {
-        match *self {
-            Production::Unit(id) => {
-                // SD cmdicons have lair and hive icons swapped.
-                if !is_hd && id == bw_dat::unit::LAIR {
-                    Texture::CmdIcon(bw_dat::unit::HIVE.0)
-                } else if !is_hd && id == bw_dat::unit::HIVE {
-                    Texture::CmdIcon(bw_dat::unit::LAIR.0)
-                } else {
-                    Texture::CmdIcon(id.0)
-                }
-            }
-            Production::Upgrade(id) => Texture::CmdIcon(id.icon() as u16),
-            Production::Tech(id) => Texture::CmdIcon(id.icon() as u16),
-        }
-    }
+/// One run of the same thing in a player's production list: what is being made, how many of it are
+/// on the way, and how far along the nearest one is.
+///
+/// The list itself is per-producing-unit, because a click on a tile selects one of those units and a
+/// second click moves to the next. What the panel shows is one tile per run, so the grouping is done
+/// here once and read both by the view the panel is drawn from and by the click that comes back.
+struct ProductionGroup {
+    production: Production,
+    count: u32,
+    progress: f32,
 }
 
 /// Completion of a production; units are game ticks/frames.
@@ -115,6 +113,33 @@ impl PlayerProduction {
         self.list.push((production, unit, progress));
     }
 
+    /// The list as the panel shows it: one entry per run of the same thing.
+    fn groups(&self) -> Vec<ProductionGroup> {
+        let mut groups = Vec::new();
+        let mut start = 0;
+        while start < self.list.len() {
+            let &(production, _, ref progress) = &self.list[start];
+            let end = start
+                + self.list[start..]
+                    .iter()
+                    .take_while(|entry| entry.0 == production)
+                    .count();
+            // A dual-birth unit is two units per egg, so an egg's tile counts two of them: the
+            // panel is answering "how many are coming", not "how many eggs are there".
+            let multiplier = match production {
+                Production::Unit(unit) if unit.flags() & 0x400 != 0 => 2,
+                _ => 1,
+            };
+            groups.push(ProductionGroup {
+                production,
+                count: (end - start).saturating_mul(multiplier) as u32,
+                progress: progress.as_float(),
+            });
+            start = end;
+        }
+        groups
+    }
+
     fn finish_frame(&mut self) {
         self.list
             .sort_by_cached_key(|&(ref prod, unit, ref progress)| {
@@ -148,40 +173,66 @@ impl OverlayState {
         }
     }
 
-    pub fn add_production_ui(&mut self, bw: &BwVars, ctx: &egui::Context) {
-        egui::Window::new("Replay_Production")
-            .anchor(Align2::LEFT_TOP, self.replay_ui_values.production_pos)
-            .movable(false)
-            .resizable(false)
-            .title_bar(false)
-            .frame(egui::Frame::NONE)
-            .show(ctx, |ui| {
-                // Want this so that the lines are tightly packed without
-                // transparent gaps in between.
-                ui.style_mut().spacing.item_spacing.y = 0.0;
-                let is_team_game = crate::game_thread::is_team_game();
-                for (_team, player_id) in replay_players_by_team(bw) {
-                    if !player_has_units(bw, player_id) {
-                        continue;
-                    }
-                    if is_team_game
-                        && unsafe { !(**bw.game).team_game_main_player.contains(&player_id) }
-                    {
-                        continue;
-                    }
-                    egui::Frame::popup(ui.style())
-                        .inner_margin(egui::Margin::same(2))
-                        //.shadow(egui::epaint::Shadow::NONE)
-                        .show(ui, |ui| {
-                            let clicked = self.add_player_production(bw, ui, player_id);
-                            if let Some(clicked) = clicked {
-                                self.handle_click(player_id, clicked);
-                            }
-                        });
-                }
-            });
+    /// Builds the production panel's view: one row per player, in the order the replay lists their
+    /// players, with what they are making.
+    ///
+    /// Players with no units of their own are left out, as are a team game's players who are not the
+    /// one commanding the team: in a team game every unit belongs to the commanding player, so the
+    /// others would each carry a row of everything or a row of nothing.
+    pub fn build_production_view(&self, bw: &BwVars) -> ProductionView {
+        let is_team_game = crate::game_thread::is_team_game();
+        let players = replay_players_by_team(bw)
+            .filter(|&(_team, player_id)| player_has_units(bw, player_id))
+            .filter(|&(_team, player_id)| {
+                !is_team_game || unsafe { (**bw.game).team_game_main_player.contains(&player_id) }
+            })
+            .filter_map(|(team, player_id)| {
+                let production = self.production.per_player.get(player_id as usize)?;
+                let color = unsafe {
+                    bw::player_color(
+                        bw.game,
+                        bw.main_palette,
+                        bw.use_rgb_colors,
+                        bw.rgb_colors,
+                        player_id,
+                    )
+                };
+                Some(ProductionPlayerView {
+                    player_id,
+                    team,
+                    color: Color32::from_rgb(color[0], color[1], color[2]),
+                    items: production
+                        .groups()
+                        .into_iter()
+                        .map(|group| ProductionItemView {
+                            icon: production_icon(group.production, bw),
+                            count: group.count,
+                            progress: group.progress,
+                        })
+                        .collect(),
+                })
+            })
+            .collect();
+        ProductionView { players }
     }
 
+    /// Selects whatever is making the `item`th entry of a player's row, walking to the next one of
+    /// them when the same entry is asked for again.
+    pub fn select_production(&mut self, player_id: u8, item: usize) {
+        let Some(production) = self
+            .production
+            .per_player
+            .get(player_id as usize)
+            .and_then(|player| player.groups().into_iter().nth(item))
+            .map(|group| group.production)
+        else {
+            return;
+        };
+        self.handle_click(player_id, production);
+    }
+
+    /// Moves the game's selection onto one of the units making `clicked`, cycling through them on
+    /// repeated asks so a caster can walk a reinforcement wave back through the buildings making it.
     fn handle_click(&mut self, player_id: u8, clicked: Production) {
         let player_production = match self.production.per_player.get(player_id as usize) {
             Some(s) => s,
@@ -222,121 +273,6 @@ impl OverlayState {
         };
         self.production.last_clicked = Some(unit);
         self.out_state.select_unit = Some(unit);
-    }
-
-    /// Return production which was clicked on, if a click had happened
-    fn add_player_production(
-        &mut self,
-        bw: &BwVars,
-        ui: &mut egui::Ui,
-        player_id: u8,
-    ) -> Option<Production> {
-        let player_production = self.production.per_player.get(player_id as usize)?;
-        let size = Vec2 { x: 300.0, y: 24.0 };
-        let mut clicked = None;
-        let res = ui.allocate_ui_with_layout(size, Layout::left_to_right(Align::Min), |ui| {
-            let ReplayUiValues {
-                production_image_size,
-                production_max,
-                ..
-            } = self.replay_ui_values;
-            let margin = 2.0;
-
-            // Player colored rect
-            let color = unsafe {
-                bw::player_color(
-                    bw.game,
-                    bw.main_palette,
-                    bw.use_rgb_colors,
-                    bw.rgb_colors,
-                    player_id,
-                )
-            };
-            {
-                let color = Color32::from_rgb(color[0], color[1], color[2]);
-                let rect_size = (6.0, production_image_size + margin * 2.0);
-                let color_rect = Rect::from_min_size(ui.next_widget_position(), rect_size.into());
-                let painter = ui.painter();
-                let rounding = egui::CornerRadius::same(2);
-                painter.rect_filled(color_rect, rounding, color);
-                ui.allocate_rect(color_rect, Sense::hover());
-            }
-
-            let mut icons_added = 0;
-            let mut i = 0;
-            let font = egui::FontId {
-                size: 20.0,
-                family: egui::FontFamily::Proportional,
-            };
-            while i < player_production.list.len() && icons_added < production_max {
-                let start = i;
-                let &(production, _unit, ref progress) = &player_production.list[start];
-                let mut end = i + 1;
-                while end < player_production.list.len() {
-                    if player_production.list[end].0 != production {
-                        break;
-                    }
-                    end += 1;
-                }
-                let amount = end - start;
-                i = end;
-
-                let multiplier = match production {
-                    Production::Unit(unit) => match unit.flags() & 0x400 != 0 {
-                        // Dual birth units
-                        true => 2,
-                        false => 1,
-                    },
-                    _ => 1,
-                };
-                let amount = amount.saturating_mul(multiplier);
-
-                let icon = production.icon(bw.is_hd);
-                let size = (production_image_size, production_image_size);
-                let rect = Rect::from_min_size(ui.next_widget_position(), size.into())
-                    .translate((0.0, margin).into());
-                let response = ui.allocate_rect(rect, Sense::click());
-                if response.clicked() {
-                    clicked = Some(production);
-                }
-
-                // Icon
-                let painter = ui.painter();
-                let uv = Rect::from_min_max((0.0, 0.0).into(), (1.0, 1.0).into());
-                //let rounding = egui::Rounding::same(2.0);
-                //painter.rect_filled(rect, rounding, Color32::BLACK);
-                let icon_color = match response.hovered() {
-                    true => Color32::YELLOW,
-                    false => Color32::WHITE,
-                };
-                painter.image(TextureId::User(icon.to_egui_id()), rect, uv, icon_color);
-
-                // Amount text
-                // Show only number for units since for research it is always 1 anyway
-                if matches!(production, Production::Unit(..)) {
-                    let galley =
-                        painter.layout_no_wrap(format!("{amount}"), font.clone(), Color32::WHITE);
-                    let rounding = egui::CornerRadius::same(1);
-                    let text_pos = rect.left_bottom() - Vec2::from((0.0, galley.rect.height()));
-                    let text_rect = Rect::from_min_size(text_pos, galley.rect.size());
-                    let bg_color = ui.visuals().window_fill();
-                    painter.rect_filled(text_rect, rounding, bg_color);
-                    painter.galley(text_pos, galley, bg_color);
-                }
-                // Progress bar
-                let mut progress_rect = Rect::from_min_size(
-                    rect.left_bottom() - Vec2::from((0.0, 2.0)),
-                    (rect.width(), 4.0).into(),
-                );
-                let rounding = egui::CornerRadius::same(1);
-                painter.rect_filled(progress_rect, rounding, Color32::BLACK);
-                progress_rect.set_width(progress_rect.width() * progress.as_float());
-                painter.rect_filled(progress_rect, rounding, Color32::GREEN);
-                icons_added += 1;
-            }
-        });
-        self.add_ui_rect(&Some(res));
-        clicked
     }
 }
 
@@ -394,6 +330,138 @@ fn unit_production(unit: Unit) -> Option<(Production, Progress)> {
     None
 }
 
+/// What one unit is making, as the selection panel reads it: the same production the panel of
+/// everything on the way reads, plus the queue behind it where it has one.
+///
+/// `None` for a unit that is making nothing, which is most of them.
+pub(super) fn selected_production(unit: Unit, bw: &BwVars) -> Option<ProductionProgressView> {
+    let (production, progress) = unit_production(unit)?;
+    Some(ProductionProgressView {
+        icon: production_icon(production, bw),
+        name: production_name(production, bw),
+        progress: progress.as_float(),
+        queue: queued_units(unit, production)
+            .map(|queue| queue.map(|unit_id| unit_icon(unit_id, bw)).collect()),
+        // A building under construction is made as itself, and so is a drone turning into one: by
+        // then the unit already is the building it is becoming.
+        is_subject: production == Production::Unit(unit.id()),
+    })
+}
+
+/// What a unit fights with, as the game's console lists it beside the unit: its armor upgrade, its
+/// shields for a unit that has any, then each of its weapons, each at the level its owner has
+/// taken the upgrade improving it to.
+///
+/// Which of those a unit has is the console's own rule, read off its units.dat entry alone: armor
+/// unless its armor upgrade is [`NO_ARMOR_UPGRADE`], shields for anything with shields, and each
+/// weapon, the air one only where it is not the ground one again. A unit whose guns are on a turret
+/// (a goliath, a siege tank) has its weapons on the turret's entry, so the turret's are read too. A
+/// lurker has no weapon until it burrows.
+///
+/// A hallucination has none: the console shows no upgrades for one to its owner or to anyone
+/// watching, which is everyone this panel is drawn for.
+pub(super) fn selected_upgrades(unit: Unit, bw: &BwVars) -> Vec<UnitUpgradeView> {
+    // The upgrade tables are indexed by player slot and assert on anything past the twelfth.
+    const PLAYER_SLOTS: u8 = 0xc;
+    let player = unit.player();
+    if player >= PLAYER_SLOTS || unit.is_hallucination() {
+        return Vec::new();
+    }
+    let game = bw.game;
+    let id = unit.id();
+    let mut upgrades: Vec<(UpgradeId, UpgradeEffect)> = Vec::new();
+    if let Some(armor) = id
+        .armor_upgrade()
+        .filter(|&armor| armor != NO_ARMOR_UPGRADE)
+    {
+        let base = id.armor();
+        upgrades.push((
+            armor,
+            UpgradeEffect::Armor {
+                base,
+                bonus: unit.armor(game).saturating_sub(base),
+            },
+        ));
+    }
+    if id.has_shields() {
+        upgrades.push((bw_dat::upgrade::PLASMA_SHIELDS, UpgradeEffect::Shields));
+    }
+    let armed = id != bw_dat::unit::LURKER || unit.is_burrowed();
+    let mut weapons: Vec<WeaponId> = Vec::new();
+    for weapon in [Some(id), id.subunit()]
+        .into_iter()
+        .flatten()
+        .filter(|_| armed)
+        .flat_map(|id| [id.ground_weapon(), id.air_weapon()])
+        .flatten()
+    {
+        if !weapons.contains(&weapon) {
+            weapons.push(weapon);
+        }
+    }
+    let mut chips: Vec<UnitUpgradeView> = upgrades
+        .into_iter()
+        .map(|(upgrade, effect)| UnitUpgradeView {
+            icon: production_icon(Production::Upgrade(upgrade), bw),
+            level: game.upgrade_level(player, upgrade),
+            name: production_name(Production::Upgrade(upgrade), bw),
+            effect,
+        })
+        .collect();
+    // A weapon is shown by its own icon whether or not anything upgrades it, as the game's own
+    // status panel does: a worker's attack takes no upgrades but is still what the unit fights
+    // with, and reads level 0.
+    for weapon in weapons {
+        let level = weapon
+            .upgrade()
+            .map_or(0, |upgrade| game.upgrade_level(player, upgrade));
+        // The overlay is built in the game's draw, on its main thread.
+        let name = bw
+            .stat_txt
+            .and_then(|stat_txt| unsafe { stat_txt.weapon_name(weapon) });
+        chips.push(UnitUpgradeView {
+            icon: atlas_icon(weapon.get(WEAPON_ICON_FIELD) as u16, 0.0, bw),
+            level,
+            name: name.clone(),
+            effect: UpgradeEffect::Damage(vec![WeaponDamageView {
+                name,
+                base: weapon.damage(),
+                bonus: weapon.bonus().saturating_mul(u32::from(level)),
+                hits: weapon.factor(),
+            }]),
+        });
+    }
+    chips
+}
+
+/// The upgrade units.dat names as the armor upgrade of everything with no armor to upgrade: every
+/// building, a spider mine, a nuke, a scanner sweep. The console draws no armor icon for it, and
+/// it is not the slot past the table's end that the dat crate reads as no upgrade at all.
+const NO_ARMOR_UPGRADE: UpgradeId = UpgradeId(0x3c);
+
+/// The weapons.dat field holding the frame of the command-icon atlas a weapon is shown by.
+const WEAPON_ICON_FIELD: u32 = 23;
+
+/// The units waiting behind the one this unit is making, in the order they will be made, or
+/// `None` for production that has no queue.
+///
+/// Only a completed building training units has a queue: an upgrade or a technology is one item a
+/// building works through alone, and a building that is itself still being built (or an egg) holds
+/// what it is turning into in the same queue rather than a line of work behind it.
+///
+/// The queue is a ring of [`BUILD_QUEUE_LEN`] slots starting at the one being worked on and filled
+/// forward from it, so the walk goes forward and stops at the first empty slot rather than taking
+/// every non-empty slot in the ring.
+fn queued_units(unit: Unit, production: Production) -> Option<impl Iterator<Item = UnitId>> {
+    let is_training = matches!(production, Production::Unit(..))
+        && unit.id().is_building()
+        && unit.is_completed();
+    is_training.then(|| (1..BUILD_QUEUE_LEN).map_while(move |slot| unit.nth_queued_unit(slot)))
+}
+
+/// How many entries the game's build queue holds.
+const BUILD_QUEUE_LEN: u8 = 5;
+
 fn unit_completion(unit: Unit) -> Progress {
     // Effectively morph dest id or self id
     let id = unit.first_queued_unit().unwrap_or_else(|| unit.id());
@@ -438,4 +506,179 @@ fn research_completion(unit: Unit, time: u32) -> Progress {
         pos: time.saturating_sub(remaining),
         end: time,
     }
+}
+
+/// Which of the game's own icons stands for a kind of unit: a frame of the command-icon atlas, or
+/// for the units the atlas has no icon of, their wireframe as a unit at full health draws it.
+///
+/// Every panel that names a unit names it with this same icon, so no two surfaces show the same
+/// thing two different ways.
+pub fn unit_icon(id: UnitId, bw: &BwVars) -> ProductionIcon {
+    production_icon(Production::Unit(id), bw)
+}
+
+/// The icon of one unit in particular, at `hit_points` of `max_hit_points`: its kind's
+/// [`unit_icon`], except that a unit drawn as its wireframe has its layers colored for how hurt it
+/// is, as the game's status panel colors them.
+pub fn unit_icon_at_health(
+    id: UnitId,
+    hit_points: u32,
+    max_hit_points: u32,
+    bw: &BwVars,
+) -> ProductionIcon {
+    let level = wireframe::health_level(hit_points, max_hit_points);
+    wireframe_icon(id, level, bw).unwrap_or_else(|| unit_icon(id, bw))
+}
+
+/// Which frame of the game's own command-icon atlas stands for something the timeline is about: the
+/// same icon the production panel draws for it.
+pub fn timeline_icon(subject: TimelineSubject, bw: &BwVars) -> ProductionIcon {
+    let production = match subject {
+        TimelineSubject::Unit(id) => Production::Unit(id),
+        TimelineSubject::Upgrade(id) => Production::Upgrade(id),
+        TimelineSubject::Tech(id) => Production::Tech(id),
+    };
+    production_icon(production, bw)
+}
+
+/// What the game calls something the timeline is about, in the game's language.
+pub fn timeline_name(subject: TimelineSubject, bw: &BwVars) -> Option<String> {
+    let production = match subject {
+        TimelineSubject::Unit(id) => Production::Unit(id),
+        TimelineSubject::Upgrade(id) => Production::Upgrade(id),
+        TimelineSubject::Tech(id) => Production::Tech(id),
+    };
+    production_name(production, bw)
+}
+
+/// What the game calls what is being made, in the game's language.
+fn production_name(production: Production, bw: &BwVars) -> Option<String> {
+    let stat_txt = bw.stat_txt?;
+    // The overlay is built in the game's draw, on its main thread.
+    unsafe {
+        match production {
+            Production::Unit(id) => stat_txt.unit_name(id),
+            Production::Upgrade(id) => stat_txt.upgrade_name(id),
+            Production::Tech(id) => stat_txt.tech_name(id),
+        }
+    }
+}
+
+/// How much of each side of an HD unit's command-icon frame is empty padding around its render.
+///
+/// The renders are centered in their frames with about a tenth of a frame free on every side. The
+/// few that reach a little closer to an edge lose only the soft fringe of their outermost pixels to
+/// the crop. Upgrade and technology icons fill their frames, and the SD and carbot atlases are drawn
+/// edge to edge.
+const HD_UNIT_ICON_MARGIN: f32 = 0.09;
+
+/// The units whose frame in the command-icon atlas is a placeholder reading "BLANK", the same in
+/// every graphics mode: turrets, heroes, and units no button ever makes. A panel names these by
+/// their unit code instead.
+const BLANK_UNIT_ICONS: [u16; 47] = [
+    4, 6, 18, 24, 26, 27, 31, 87, 97, 98, 102, 105, 119, 153, 158, 161, 179, 180, 181, 182, 183,
+    184, 185, 186, 187, 191, 192, 193, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 213, 220,
+    221, 222, 223, 224, 225, 226, 227,
+];
+
+/// Which frame of the game's own command-icon atlas (or for the units it has no icon of, of their
+/// wireframes) stands for a production, and the texture id the renderer has that frame under, along
+/// with the frame's pixel size so a panel can draw it at its own proportions.
+fn production_icon(production: Production, bw: &BwVars) -> ProductionIcon {
+    // A kind of unit rather than one unit, so drawn as a unit at full health would be.
+    if let Production::Unit(id) = production
+        && let Some(icon) = wireframe_icon(id, FULL_HEALTH, bw)
+    {
+        return icon;
+    }
+    let is_hd = bw.is_hd;
+    let frame = match production {
+        // The atlas has no egg: a larva's egg's frame is a radiation symbol and a lurker egg's
+        // reads BLANK. Where the wireframes cannot be drawn either, the cocoon is the one pod the
+        // atlas draws, and what an egg hatches into is named beside it wherever it is shown.
+        Production::Unit(bw_dat::unit::EGG | bw_dat::unit::LURKER_EGG) => bw_dat::unit::COCOON.0,
+        Production::Unit(id) if BLANK_UNIT_ICONS.contains(&id.0) => {
+            return ProductionIcon {
+                texture: None,
+                index: id.0,
+                size: None,
+                margin: 0.0,
+                wireframe: None,
+            };
+        }
+        Production::Unit(id) => {
+            // SD cmdicons have lair and hive icons swapped.
+            if !is_hd && id == bw_dat::unit::LAIR {
+                bw_dat::unit::HIVE.0
+            } else if !is_hd && id == bw_dat::unit::HIVE {
+                bw_dat::unit::LAIR.0
+            } else {
+                id.0
+            }
+        }
+        Production::Upgrade(id) => id.icon() as u16,
+        Production::Tech(id) => id.icon() as u16,
+    };
+    let margin = match production {
+        Production::Unit(_) if is_hd && !bw.is_carbot => HD_UNIT_ICON_MARGIN,
+        _ => 0.0,
+    };
+    atlas_icon(frame, margin, bw)
+}
+
+/// One frame of the game's own command-icon atlas, under the texture id the renderer has it as,
+/// with the frame's pixel size and the share of each side of it that is empty padding.
+fn atlas_icon(frame: u16, margin: f32, bw: &BwVars) -> ProductionIcon {
+    // SAFETY: `cmdicons` is the game's own atlas, which outlives the frames drawn from it.
+    let size = unsafe {
+        (!bw.cmdicons.is_null())
+            .then(|| draw_inject::ddsgrp_texture(bw.cmdicons, bw.is_hd, bw.is_carbot, frame))
+            .flatten()
+            .filter(|texture| (**texture).width != 0 && (**texture).height != 0)
+            .map(|texture| Vec2::new((*texture).width as f32, (*texture).height as f32))
+    };
+    ProductionIcon {
+        texture: Some(TextureId::User(Texture::CmdIcon(frame).to_egui_id())),
+        index: frame,
+        size,
+        margin,
+        wireframe: None,
+    }
+}
+
+/// A unit drawn as its wireframe, its hit-point layers colored for the `level` of health
+/// [`wireframe::health_level`] reckons, or `None` for a kind of unit drawn by its command icon, and
+/// where the game's wireframes or the remap that colors them could not be read.
+///
+/// A frame too narrow to hold a square cell for every hit-point layer is `None` too, rather than a
+/// slice of art drawn as if it were a wireframe.
+fn wireframe_icon(id: UnitId, level: usize, bw: &BwVars) -> Option<ProductionIcon> {
+    if !wireframe::draws_as_wireframe(id) || bw.wirefram.is_null() {
+        return None;
+    }
+    let remap = bw.wireframe_remap?;
+    // SAFETY: `wirefram` is the game's own set, which outlives the frames drawn from it.
+    let (width, height) = unsafe {
+        let texture = draw_inject::ddsgrp_texture(bw.wirefram, bw.is_hd, bw.is_carbot, id.0)?;
+        ((*texture).width, (*texture).height)
+    };
+    if height == 0 || u32::from(width) < u32::from(height) * WIREFRAME_LAYERS as u32 {
+        return None;
+    }
+    // SAFETY: The main palette is the game's own 256 entries of four bytes, alive for as long as
+    // the game runs, and a remap entry is a byte.
+    let colors = remap.pod_layer_colors(level).map(|index| unsafe {
+        let color = bw.main_palette.add(4 * usize::from(index));
+        Color32::from_rgb(*color, *color.add(1), *color.add(2))
+    });
+    Some(ProductionIcon {
+        texture: Some(TextureId::User(Texture::Wireframe(id.0).to_egui_id())),
+        index: id.0,
+        size: Some(Vec2::splat(f32::from(height))),
+        margin: 0.0,
+        wireframe: Some(Wireframe {
+            layers: colors,
+            cell_width: f32::from(height) / f32::from(width),
+        }),
+    })
 }

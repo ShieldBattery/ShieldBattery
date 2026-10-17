@@ -1392,6 +1392,9 @@
   },
   "gameReport": {
     "action": "举报",
+    "admin": {
+      "reportedAtGameTime": "于游戏 {{gameTime}} 时举报"
+    },
     "alreadyCommended": "您已经就这场游戏赞扬过该玩家，因此无法举报。",
     "alreadyReported": "您已经就这场游戏举报过该玩家了。",
     "badRequest": "无法提交举报。请检查详情后重试。",

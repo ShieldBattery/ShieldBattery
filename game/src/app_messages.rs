@@ -30,6 +30,11 @@ pub struct Settings {
     /// `None` to use the default.
     #[serde(default)]
     pub replay_name_template: Option<String>,
+    /// The language the in-game UI speaks, as an i18next tag (`en`, `ko`, `zh-Hans`). `None` from a
+    /// client that doesn't send it, or a language the overlay has no catalog for, leaves the
+    /// overlay in English.
+    #[serde(default)]
+    pub language: Option<String>,
 }
 
 /// Fully-resolved custom team-color scheme, as sent by the app. Colors are `#RRGGBB` strings; the
@@ -245,6 +250,20 @@ pub struct MinimapSettings {
     pub terrain_hidden: Option<bool>,
 }
 
+/// Settings the player changed on the in-game options screen, keyed and encoded as the app's two
+/// settings objects keep them, for the app to save. The app checks every key and value itself.
+#[derive(Serialize, Debug, Default)]
+pub struct SettingsChanged {
+    pub local: serde_json::Map<String, serde_json::Value>,
+    pub scr: serde_json::Map<String, serde_json::Value>,
+    /// The display the player chose, when they chose one: `Some(None)` for the system's primary
+    /// display, otherwise its desktop rectangle as `(x, y, width, height)`, in the same terms as
+    /// the bounds the app sent at launch. The app names displays by ids of its own, which it looks
+    /// up by that rectangle.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub monitor: Option<Option<(i32, i32, u32, u32)>>,
+}
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Deserialize)]
 pub enum UmsLobbyRace {
     #[serde(rename = "z")]
@@ -370,6 +389,47 @@ pub struct ReplaySaved {
 pub struct SetUserBlocked {
     pub user_id: SbUserId,
     pub blocked: bool,
+}
+
+/// Asks the app to file a report the local user made in game about another player.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReportPlayer {
+    pub user_id: SbUserId,
+    pub reason: ReportReason,
+    /// How far into the game the report was made, in seconds of game time.
+    pub game_seconds: u32,
+}
+
+/// Why a player is being reported, as the app names the reasons a report can be filed for in game.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ReportReason {
+    Cheating,
+    Abandoning,
+    Griefing,
+    AbusiveChat,
+}
+
+/// Sent by the app once it has filed (or failed to file) a [`ReportPlayer`] request.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReportResult {
+    pub user_id: SbUserId,
+    pub result: ReportOutcome,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ReportOutcome {
+    /// The report was filed, or one was already on file for this player and game.
+    Reported,
+    /// The user has filed too many reports recently.
+    RateLimited,
+    /// The user is restricted from reporting.
+    Restricted,
+    #[serde(other)]
+    Error,
 }
 
 /// Sent by the app when it couldn't save a [`SetUserBlocked`] request.
