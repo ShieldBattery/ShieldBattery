@@ -12,6 +12,20 @@ name = "overlay_ui"
 # the game).
 egui = { workspace = true }
 
+# The translation catalogs are the app's i18next JSON, parsed at first use (see `i18n`). Not
+# optional: the game DLL renders translated strings too, and it already carries serde_json.
+serde_json = { version = "1.0" }
+
+# The shell's panel preferences are serializable so a host can persist them per profile (see
+# `shell::PanelPrefs`), and the preview persists its whole knob set. Not optional: the game DLL is one
+# of the hosts that persists prefs, and it already carries serde.
+serde = { version = "1.0", features = ["derive"] }
+
+# Rasterizes the race icons, which are the web client's SVGs (see `observer::race_icon`). Not
+# optional: the game DLL already carries this exact version through egui_extras' SVG loader, and its
+# default features (text, system fonts, raster images) are left off, since the icons are bare paths.
+resvg = { version = "0.45.1", default-features = false }
+
 # Preview-host-only dependencies. All optional and gated behind the `preview` feature, which only the
 # `overlay-preview` binary requires, so the game DLL — which depends on this crate for its lib alone —
 # never pulls eframe/winit/image into its build graph.
@@ -19,15 +33,13 @@ eframe = { version = "0.36", optional = true }
 image = { version = "0.25", default-features = false, features = [
   "png",
 ], optional = true }
-serde = { version = "1.0", features = ["derive"], optional = true }
-serde_json = { version = "1.0", optional = true }
 
 [features]
 # Enables the eframe preview host (the `overlay-preview` bin). Off by default, so the DLL build never
 # sees eframe.
-preview = ["dep:eframe", "dep:image", "dep:serde", "dep:serde_json"]
+preview = ["dep:eframe", "dep:image"]
 
 [[bin]]
 name = "overlay-preview"
-path = "src/bin/overlay_preview.rs"
+path = "src/bin/overlay_preview/main.rs"
 required-features = ["preview"]

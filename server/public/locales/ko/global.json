@@ -1392,6 +1392,9 @@
   },
   "gameReport": {
     "action": "신고하기",
+    "admin": {
+      "reportedAtGameTime": "게임 {{gameTime}} 시점에 신고됨"
+    },
     "alreadyCommended": "이 게임에서 해당 플레이어를 이미 칭찬했으므로 신고할 수 없습니다.",
     "alreadyReported": "이 게임에서 해당 플레이어를 이미 신고했습니다.",
     "badRequest": "신고를 제출할 수 없습니다. 세부 정보를 확인한 후 다시 시도해 주세요.",

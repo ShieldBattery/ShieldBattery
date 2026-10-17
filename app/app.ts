@@ -835,6 +835,9 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
         blocked,
       )
     })
+    .on('reportPlayer', (gameId, request) => {
+      TypedIpcSender.from(mainWindow?.webContents).send('activeGameReportPlayer', gameId, request)
+    })
 
   app.on('will-quit', () => activeGameManager.quitWatchOnlyGamesOnAppExit())
 
@@ -860,6 +863,9 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
   )
   ipcMain.handle('activeGameBlockRequestFailed', (event, gameId, failure) =>
     activeGameManager.blockRequestFailed(gameId, failure),
+  )
+  ipcMain.handle('activeGameReportResult', (event, gameId, result) =>
+    activeGameManager.reportResult(gameId, result),
   )
   if (isDev) {
     // Dev-only handlers: a release game build doesn't implement the underlying commands anyway,
@@ -887,6 +893,9 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     )
     ipcMain.handle('activeGameToggleNetStats', (event, gameId) =>
       activeGameManager.toggleGameNetStats(gameId),
+    )
+    ipcMain.handle('activeGameDebugInput', (event, gameId, events) =>
+      activeGameManager.debugInput(gameId, events),
     )
     ipcMain.handle('activeGameSetRollback', (event, gameId, depth, delays) =>
       activeGameManager.setGameRollback(gameId, depth, delays),
@@ -1511,7 +1520,7 @@ app.on('ready', () => {
       setupIpc(localSettings, scrSettings)
       setupCspProtocol(currentSession())
       setupRefererOverrides(currentSession())
-      gameServer = createGameServer(localSettings)
+      gameServer = createGameServer(localSettings, scrSettings)
       await createWindow()
 
       try {

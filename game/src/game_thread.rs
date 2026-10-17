@@ -77,6 +77,17 @@ pub fn sbat_replay_data() -> Option<&'static replay::SbatReplayData> {
     SBAT_REPLAY_DATA.get()
 }
 
+/// The BW player id the local user played as in the replay being watched, where it is a replay of
+/// one of their own games: what the views that pick a player to start from start from.
+pub fn replay_seat_of_local_user() -> Option<u8> {
+    let local = local_user_id()?;
+    let seat = sbat_replay_data()?
+        .user_ids
+        .iter()
+        .position(|&user_id| user_id.0 != 0 && user_id == local)?;
+    Some(seat as u8)
+}
+
 // Async tasks request game thread to do some work
 pub struct GameThreadRequest {
     request_type: GameThreadRequestType,
@@ -118,12 +129,16 @@ pub enum GameThreadMessage {
         user_id: SbUserId,
         blocked: bool,
     },
+    /// The local user reported a player from the in-game alliances screen; the app files it.
+    ReportPlayer(crate::app_messages::ReportPlayer),
     /// Current minimap color/terrain toggle values, read once when the game loop ends so they can
     /// be persisted to settings. Either field is `None` if its game global wasn't located.
     MinimapSettings {
         color_mode: Option<MinimapColorMode>,
         terrain_hidden: Option<bool>,
     },
+    /// Settings the player changed on the in-game options screen, for the app to save.
+    SettingsChanged(crate::app_messages::SettingsChanged),
 }
 
 /// Sends a message from game thread to the async system.
@@ -420,6 +435,7 @@ unsafe fn game_results() -> GameThreadResults {
                 victory_state,
                 race,
                 alliances,
+                apm: bw.average_apm(id.0).unwrap_or(0),
             }
         };
 

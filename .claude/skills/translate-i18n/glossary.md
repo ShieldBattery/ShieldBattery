@@ -176,6 +176,31 @@ consistent. (Seed — extend over time.)
   glossed once, placement games→**partidas de posicionamiento** (in-file), bonus pool→**bono
   acumulado**, catch-up bonus→**bono de recuperación**, grinding→**farmear**. The example players
   (Arbiter, Reaver, …) stay in English: they're names in an English image.
+- **In-game UI (`game.json`, observer/replay HUD + tier-2 dialogs):** observer (spectator)→observador,
+  replay→replay / the matchup-bar tag Replay vs live→**En vivo**, spoiler-free→Sin spoilers,
+  matchup→**Enfrentamiento**, expansion (a new base)→Expansión, workers→trabajadores,
+  idle workers→**{{count}} inac.** (the chip is 46 px; "inact." already elides),
+  kills→eliminaciones (e/p in the cramped k/l columns), drop (removing a stuck peer)→**expulsar**
+  (matches kick; the countdown is "Expulsar: {{time}}" so the name column keeps its width), an
+  unclean netstat departure→Caído vs a deliberate one→Salió, relay→relay, buffer→buffer, a network
+  turn→turno. Race chips: **T / Z / P / A** (Aleatoria). Dock preset names must differ in their
+  *first* letter — the collapsed dock shows only that letter (Mínimo / Estándar / Analista).
+- **Observer team cards / graphs:** minerals column→**Min.** (mirrors the in-file "Efic."
+  abbreviation), gas→Gas, supply→**Suministros** (~82 px in the 96 px column), control
+  groups→**Grupos de control**, the grouped graph titles are "{{series}} por equipo" /
+  "{{series}} por jugador", team name→**Equipo {{number}}** (matches `game.teamName.number`).
+
+- **Game menu / disconnect dialog (`game.json`):** the menu's buttons are Volver a la partida /
+  Opciones / Alianzas + Mensajes (two half-width plates on one row, each opening SC:R's own dialog) /
+  Salir de la partida (a player holds it: **"Mantén pulsado para salir"**), inside a 344 px plate in
+  tracked caps. Victory/defeat card: Victoria / Derrota, Unidades producidas / eliminadas /
+  perdidas, Minerales / Gas extraídos (SC:R's "extraer"), APM promedio, Seguir jugando.
+  Long app chip labels are shortened in game where the row can't hold them (color overrides: En
+  todas partes / Solo en el minimapa / Desactivado; TR24: Retraso de entrada TR24 Low). Abandoning from the disconnect notice is **abandonar**; its 300 px hold plate draws its
+  label uncropped, so the usual "Mantén pulsado para abandonar" overruns it and the button is
+  **"Mantén pulsado: abandonar"**. The roster's state column is 150 px and set lowercase like its
+  siblings: conectado / no responde / reconectando… {{time}} / expulsión pedida.
+  teammate→**compañero** (84 px tag).
 
 ### ru
 - Register: formal **Вы** (the existing file is consistently Вы; do not use ты here).
@@ -278,6 +303,31 @@ consistent. (Seed — extend over time.)
   ladder article explains both). placement games→**калибровочные матчи** (in-file), bonus
   pool→**бонусный пул**, catch-up bonus→**догоняющий бонус**, uncertainty→**неопределённость**.
   The example players (Arbiter, Reaver, …) stay in English: they're names in an English image.
+- **In-game UI (`game.json`, observer/replay HUD + tier-2 dialogs):** observer (spectator)→зритель,
+  replay→реплей / the matchup-bar tag Реплей vs live→**В эфире**, spoiler-free→Без спойлеров,
+  matchup→**Матчап**, expansion (a new base)→**Экспанд** (community term), idle workers→**спит/спят**
+  (46 px chip; «без дела» elides), drop (the manual removal of a stuck peer)→**кик** family
+  (Кикнуть / Кик через {{time}} / Кик запрошен), an unclean departure in the netstat
+  table→**Обрыв** vs a deliberate one→Вышел, link up/down→Есть / Нет, relay→релей, buffer→буфер,
+  a network turn→**ход**, stall→Ст60 / Всего. The disconnect row's peer state is
+  **Подключается** (the noun Переподключение is 25 % too wide for the column); our own status line
+  keeps Переподключение. The chat-scope chip is **Своим** (72 px; Союзники elides).
+- **Observer team cards / graphs:** minerals column→**Мин**, gas→**Газ** (what players say; the
+  export's «веспен» is the flavour name and the column is the generic one), supply→Припасы
+  (matches `seriesSupply`), control groups→**Группы юнитов** — «Контрольные группы» lays out at
+  ~135 px and the dock's label slot is 132 px, so it would elide. Grouped graph titles
+  "{{series}} по командам" / "{{series}} по игрокам"; team name→**Команда {{number}}**.
+
+- **Game menu / disconnect dialog (`game.json`):** the menu's buttons are Вернуться в игру /
+  Настройки (Options) / Союзы + Сообщения (two half-width plates, each opening SC:R's own dialog) /
+  Покинуть игру (a player holds it: «Удерживайте: покинуть игру»), inside a 344 px plate in tracked
+  caps. Victory/defeat card: Победа / Поражение, Создано / Убито / Потеряно юнитов, Добыто
+  минералов / газа, Средний APM, Продолжить игру. Long app chip labels are shortened in game
+  where the row can't hold them (color overrides: Выключено / Только на миникарте / Везде;
+  starting fog: Местность и ресурсы / Ресурсы; TR24: Добавить задержку TR24 Low). Abandoning from the disconnect notice is **бросить игру**, kept apart from the menu's
+  Покинуть игру; its 300 px hold plate draws its label uncropped, so it is «Удерживайте: бросить
+  игру». The roster's state column is 150 px and set lowercase like its siblings: на связи /
+  не отвечает / подключается… {{time}} / кик запрошен. teammate→**союзник** (84 px tag).
 
 ### ko
 - **Register: use formal-polite 합니다/습니다체 for sentences.** The existing `ko/global.json` is
@@ -378,6 +428,28 @@ consistent. (Seed — extend over time.)
   questions use plain 해라체 (…됐다. 왜?) so they don't break the 합니다체 rule. Bold must not end in
   punctuation right before a Korean letter (`**레이팅(MMR)**과` doesn't parse): bold the word, put
   the parenthetical after it. The example players (Arbiter, Reaver, …) stay in English.
+- **In-game UI (`game.json`, observer/replay HUD + tier-2 dialogs):** observer (spectator)→관전자,
+  replay→리플레이 / live→**라이브**, spoiler-free→스포일러 방지, matchup→종족전,
+  expansion (a new base)→**멀티** (the community word), workers→일꾼, idle→**유휴**,
+  army value→병력 가치, kills→처치 (킬 in the cramped k/l columns), map control→맵 장악,
+  drop (removing a stuck peer)→**강퇴**, an unclean netstat departure→접속 끊김 vs a deliberate
+  one→나감, relay→릴레이, a network turn→턴. Race chips are single syllables from the SC:R export:
+  **테 / 저 / 프 / 무**. Dock preset names must differ in their *first* syllable — the collapsed
+  dock shows only that character (최소 / 표준 / 분석).
+- **Observer team cards / graphs:** minerals→미네랄, gas→가스, supply→**보급품** (matches
+  `seriesSupply`; the community's 인구 was passed over to keep the file consistent), control
+  groups→**부대 지정** (Blizzard's Korean name for the feature). Grouped graph titles are
+  modifier-first: **팀별 {{series}} / 플레이어별 {{series}}** (player→플레이어, matching
+  `netstat.columnPlayer`). Team name→**{{number}} 팀** (matches `game.teamName.number`).
+
+- **Game menu / disconnect dialog (`game.json`):** the menu's buttons are 게임으로 돌아가기 /
+  설정 (Options) / 동맹 + 메시지 (two half-width plates, each opening SC:R's own dialog) / 게임
+  나가기 (a player holds it: 길게 눌러 게임 나가기). Victory/defeat card: 승리 / 패배, 생산한 유닛 /
+  처치한 유닛 / 잃은 유닛 / 채취한 미네랄 / 채취한 가스 / 평균 APM, 계속 플레이. desync→디싱크. Abandoning from the disconnect notice is
+  **게임 포기**, kept apart from the menu's 게임 나가기, and the hold plate follows the in-file
+  길게 눌러 … pattern: 길게 눌러 게임 포기. Roster state column: 연결됨 / 응답 없음 /
+  재연결 중… {{time}} / 강퇴 요청됨 — English set these lowercase, which Korean does not mirror.
+  teammate→**팀원**.
 
 ### zh-Hans
 - Register: use 您 for second person (the existing file is ~3:1 您 vs 你; it's the normal polite UI
@@ -463,3 +535,23 @@ consistent. (Seed — extend over time.)
   catch-up bonus→**追分奖励**, uncertainty→**不确定度**, a matchmade match→**对局**. Put full-width
   punctuation **outside** bold (`**…玩家**。`): `**…。**` only parses when a space follows, which
   shows as a gap. The example players (Arbiter, Reaver, …) stay in English.
+- **In-game UI (`game.json`, observer/replay HUD + tier-2 dialogs):** observer (spectator)→观战者
+  (the chat chip 观战), replay→录像 / live→**直播**, spoiler-free→无剧透, matchup→对阵,
+  expansion (a new base)→**分矿** (the community word), workers→**农民**, idle→空闲,
+  army→兵力 (the Military panel itself 军事), kills→消灭 (杀/损 in the cramped k/l columns),
+  production→**生产** (the SC:R export's 产量 is the score category, not a build queue),
+  drop (removing a stuck peer)→**踢出**, an unclean netstat departure→掉线 vs a deliberate
+  one→已离开, relay→中继, a network turn→回合. Race chips are one character from the SC:R
+  export: **人 / 虫 / 星 / 随**. Dock preset names must differ in their *first* character — the
+  collapsed dock shows only that one (精简 / 标准 / 分析).
+- **Observer team cards / graphs:** the resource columns are a parallel two-character set
+  **晶矿 / 瓦斯 / 补给** (补给 matches `seriesSupply`), control groups→**编队**, grouped graph
+  titles→**各队{{series}} / 各玩家{{series}}**, team name→**{{number}}队** (matches
+  `game.teamName.number`).
+- **Game menu / disconnect dialog (`game.json`):** the menu's buttons are 返回游戏 / 设置
+  (Options) / 同盟 + 发送消息 (two half-width plates, each opening SC:R's own dialog) / 离开游戏 (a
+  player holds it: 长按离开游戏). Victory/defeat card: 胜利 / 失败, 生产单位 / 消灭单位 / 损失单位 /
+  采集晶矿 / 采集瓦斯 / 平均 APM, 继续游戏. Vision→视野, frame pacing→帧节奏控制, desync→不同步. Abandoning from the disconnect notice is **放弃游戏**,
+  kept apart from the menu's 离开游戏, and the hold plate uses the in-file 长按: 长按放弃游戏.
+  Roster state column: 已连接 / 无响应 / 正在重连… {{time}} / 已请求踢出 — English set these
+  lowercase, which Chinese does not mirror. teammate→**队友**.

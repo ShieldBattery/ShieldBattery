@@ -1,10 +1,16 @@
 import { ResultOf } from '@graphql-typed-document-node/core'
+import type { TFunction } from 'i18next'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useMutation, useQuery } from 'urql'
 import { Route, Switch } from 'wouter'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
-import { NullifyGamePointsRequest, NullifyGamePointsResponse } from '../../common/games/games'
+import {
+  getGameDurationString,
+  NullifyGamePointsRequest,
+  NullifyGamePointsResponse,
+} from '../../common/games/games'
 import { apiUrl, urlPath } from '../../common/urls'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { openSimpleDialog } from '../dialogs/action-creators'
@@ -63,6 +69,7 @@ const AdminGameReportQuery = graphql(/* GraphQL */ `
       id
       reason
       details
+      gameTimeSeconds
       createdAt
       resolvedAt
       resolution
@@ -127,6 +134,7 @@ const AdminGameReportQuery = graphql(/* GraphQL */ `
         id
         reason
         details
+        gameTimeSeconds
         createdAt
         resolvedAt
         resolution
@@ -183,6 +191,13 @@ const REFUND_ERROR_MESSAGES: Record<string, string> = {
   notRefundable: 'None of the eligible players lost ranked points or bonus in this game.',
   invalidPlayers: 'The reported player did not participate in this game.',
   alreadyRefunded: "This game's points have already been refunded.",
+}
+
+/** Describes when, in game time, a report filed while its game was being played was made. */
+function reportedGameTimeLabel(gameTimeSeconds: number, t: TFunction): string {
+  return t('gameReport.admin.reportedAtGameTime', 'Reported at {{gameTime}} in game', {
+    gameTime: getGameDurationString(gameTimeSeconds * 1000),
+  })
 }
 
 function resolutionToLabel(resolution: GameReportResolution): string {
@@ -785,6 +800,7 @@ function GameReportDetails({
   resolvingSiblings: boolean
   onResolveSiblings: (resolution: GameReportResolution) => void
 }) {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const longTimestampFormat = useFormat(longTimestamp)
   const [notes, setNotes] = useState('')
@@ -892,6 +908,9 @@ function GameReportDetails({
               <SubmittedAt>
                 Submitted {longTimestampFormat.format(new Date(report.createdAt))}
               </SubmittedAt>
+              {report.gameTimeSeconds != null ? (
+                <SubmittedAt>{reportedGameTimeLabel(report.gameTimeSeconds, t)}</SubmittedAt>
+              ) : null}
             </div>
             <StatusChip $resolved={!!report.resolvedAt}>
               <MaterialIcon icon={report.resolvedAt ? 'check_circle' : 'schedule'} size={16} />
@@ -1085,6 +1104,9 @@ function GameReportDetails({
                   <SiblingReporter>
                     {s.reporter ? <ConnectedUsername userId={s.reporter.id} /> : 'unknown user'}
                   </SiblingReporter>
+                  {s.gameTimeSeconds != null ? (
+                    <SiblingReason>{reportedGameTimeLabel(s.gameTimeSeconds, t)}</SiblingReason>
+                  ) : null}
                   <SiblingReason>{reasonToLabel(s.reason)}</SiblingReason>
                   <SiblingStatus $tone={siblingStatusTone(s.resolvedAt, s.resolution)}>
                     {resolvedStatusLabel(s.resolvedAt, s.resolution)}

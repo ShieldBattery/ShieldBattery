@@ -6,8 +6,8 @@ use std::mem;
 use std::os::windows::ffi::OsStringExt;
 use std::path::{Path, PathBuf};
 use std::ptr::{self, NonNull, null, null_mut};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU8, AtomicU32, AtomicUsize, Ordering};
+use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 
 use bw_dat::UnitId;
@@ -15,6 +15,8 @@ use byteorder::{ByteOrder, LittleEndian};
 use hashbrown::HashMap;
 use libc::c_void;
 use overlay_ui::net_quality::NetQualityView;
+use overlay_ui::options::SettingChange;
+use overlay_ui::shell::PauseControl;
 use parking_lot::{Mutex, RwLock};
 use smallvec::SmallVec;
 use winapi::shared::minwindef::FILETIME;
@@ -32,7 +34,7 @@ pub use thiscall::Thiscall;
 use crate::GameThreadMessage;
 use crate::app_messages::{
     AtomicStartingFog, BlockRequestFailed, MapInfo, MinimapColorMode, SbUserId, Settings,
-    StartingFog,
+    SettingsChanged, StartingFog,
 };
 use crate::bw::apm_stats::ApmStats;
 use crate::bw::players::{BwPlayerId, StormPlayerId};
@@ -40,6 +42,7 @@ use crate::bw::unit::{Unit, UnitIterator};
 use crate::bw::{self, Bw, FowSpriteIterator, LobbyOptions, SnpFunctions};
 use crate::bw::{UserLatency, commands};
 use crate::bw_scr::draw_inject::warn_once;
+use crate::bw_scr::game_stats::GameStats;
 use crate::bw_scr::scr::SafeBwString;
 use crate::forge::window_client_center;
 use crate::game_state::JoinedPlayer;
@@ -57,16 +60,23 @@ pub mod scr;
 mod bw_hash_table;
 mod bw_vector;
 mod chat;
+mod chat_history;
 mod console;
 mod dialog_hook;
 mod draw_inject;
 mod draw_overlay;
 mod file_hook;
 mod game;
+mod game_files;
+mod game_settings;
+mod game_stats;
+mod monitors;
 mod pe_image;
 mod replay_save;
+mod replay_transport;
 mod sdf_cache;
 mod shader_replaces;
+mod stat_txt;
 pub(crate) mod thiscall;
 
 const NET_PLAYER_COUNT: usize = 12;
@@ -156,8 +166,20 @@ pub struct BwScr {
     /// Usually ~0.8 so that the ui console doesn't cover bottom of the map.
     game_screen_height_ratio: Option<Value<f32>>,
     zoom: Value<f32>,
+    /// What lets a watcher's view scroll past the map's bottom edge, out from under the overlay's
+    /// bottom panels. `None` where the analysis did not find it, which leaves the edge where the
+    /// game puts it.
+    bottom_overpan: Option<BottomOverpan>,
     cursor_scale_factor: Value<f32>,
     units: Value<*mut scr::BwVector>,
+    /// The global `u16[player][group]` table holding the frame each selection group was last
+    /// written on. `None` when the analysis could not place it, which costs the control-groups
+    /// panel its stale marking and nothing else.
+    selection_hotkey_last_used_frames: Option<Value<*mut u16>>,
+    /// The map's per-tile flags, `width * height` of them, which carry each player's vision of the
+    /// tile. `None` when the analysis could not place them, which costs the observer panels their
+    /// map-vision reading and nothing else.
+    map_tile_flags: Option<Value<*mut u32>>,
     vertex_buffer: Value<*mut scr::VertexBuffer>,
     renderer: Value<*mut scr::Renderer>,
     draw_commands: Value<*mut scr::DrawCommands>,
@@ -195,8 +217,17 @@ pub struct BwScr {
     /// 2 = everyone, 3 = allies, 4 = a specific player, 5 = observers. Read at chat-send time to
     /// scope the netcode v2 relay message. Non-fatal if unlocated (chat degrades to everyone).
     chat_box_mode: Option<Value<u8>>,
+    /// Whether the game is paused. Non-fatal if unlocated: the menu then offers no pausing.
+    is_paused: Option<Value<u8>>,
     statres_icons: Value<*mut scr::DdsGrpSet>,
     cmdicons: Value<*mut scr::DdsGrpSet>,
+    /// The status panel's unit wireframes, one frame per unit id. `None` (unlocated) leaves the
+    /// overlay drawing every unit with its command icon.
+    wirefram: Option<Value<*mut scr::DdsGrpSet>>,
+    /// The palette remap the wireframes' layers are colored through, read from the game's files on
+    /// the first draw. Its outer `None` is a remap not yet read; its inner one a remap the game had
+    /// no readable file for.
+    wireframe_remap: OnceLock<Option<draw_overlay::WireframeRemap>>,
     replay_bfix: Option<Value<*mut scr::ReplayBfix>>,
     replay_gcfg: Option<Value<*mut scr::ReplayGcfg>>,
     anti_troll: Option<Value<*mut scr::AntiTroll>>,
@@ -279,7 +310,9 @@ pub struct BwScr {
     init_consoles:
         Thiscall<unsafe extern "C" fn(*mut scr::BwHashTable<u32, *mut scr::UiConsole>, u32)>,
     get_ui_consoles: unsafe extern "C" fn() -> *mut scr::BwHashTable<u32, *mut scr::UiConsole>,
-    // select_units(amount, pointers, bool, bool)
+    // select_units(amount, pointers, play_selection_sound, send_selection_command). The command is
+    // only worth sending for a player's own selection: a watcher's is local, and the other clients
+    // drop a watcher's selection commands unrun.
     select_units: unsafe extern "C" fn(usize, *const *mut bw::Unit, u32, u32),
     update_game_screen_size: unsafe extern "C" fn(f32),
     move_unit: Thiscall<unsafe extern "C" fn(*mut bw::Unit, i32, i32)>,
@@ -326,6 +359,9 @@ pub struct BwScr {
     net_format_turn_rate: VirtualAddress,
     init_obs_ui: VirtualAddress,
     draw_graphic_layers: VirtualAddress,
+    /// What draws the software cursor, and moves it above the overlay; `None` where the analysis
+    /// cannot place it all, which leaves the cursor drawn under the overlay.
+    software_cursor: Option<SoftwareCursor>,
     decide_cursor_type: VirtualAddress,
     load_ddsgrp_cursor: VirtualAddress,
     lobby_create_callback_offset: usize,
@@ -390,6 +426,16 @@ pub struct BwScr {
     /// just finished switching between SD/HD. Renderer_Render hook uses this to manually fix
     /// the values if it detects this.
     last_overlay_hd_value: AtomicBool,
+    /// Whether the last frame the renderer drew was partway through a switch between SD and HD,
+    /// which draws the final picture in both.
+    hd_switching: AtomicBool,
+    /// The span of this frame's draw commands that are the overlay's, as `(first, end)` indices.
+    /// The overlay draws straight to the backbuffer like the game's own final pass does, so the
+    /// render hook reading the HD mode off that pass must step past these.
+    overlay_draw_commands: (AtomicU32, AtomicU32),
+    /// The span of this frame's draw commands that are the software cursor's, which goes to the
+    /// backbuffer as well and must be stepped past the same way.
+    software_cursor_draw_commands: (AtomicU32, AtomicU32),
     starting_fog: AtomicStartingFog,
     /// Saved Shift+Tab minimap color mode to restore at the start of a game (from local settings).
     saved_minimap_color_mode: AtomicU8,
@@ -445,11 +491,23 @@ pub struct BwScr {
     detection_status_copy: Mutex<Vec<u32>>,
     render_state: RecurseCheckedMutex<RenderState>,
     apm_state: RecurseCheckedMutex<ApmStats>,
+    /// The per-second history the observer panels' rates, graphs and timeline are built from.
+    /// Sampled from the simulation step, so it sees every frame simulated, a replay seek's
+    /// fast-forward included.
+    game_stats: RecurseCheckedMutex<GameStats>,
     /// Keeps track of what game_screen_height_ratio was originally.
     /// (It depends a bit on what console the player uses)
     original_game_screen_height_ratio: AtomicU32,
     /// If console was hidden in replay / obs ui
     console_hidden_state: AtomicBool,
+    /// The unit the game's view follows for a watcher who asked it to.
+    followed_unit: Mutex<Option<FollowedUnit>>,
+    /// If the minimap was hidden in replay / obs ui. Separate from the console's state: the minimap
+    /// is its own surface and observers keep it while hiding the rest of the console.
+    minimap_hidden_state: AtomicBool,
+    /// If the console's command panel was hidden because the overlay's replay transport is standing
+    /// in for the replay controls it carries.
+    command_panel_hidden_state: AtomicBool,
     /// Whether the game has been started (e.g. we're done loading in)
     game_started: AtomicBool,
     /// Whether game results have been sent to the GameState thread yet
@@ -471,8 +529,44 @@ pub struct BwScr {
     chat_injection: AtomicU8,
     /// Chat a game that predicts inputs showed while stalled, which goes into the replay once the
     /// stalled step runs (see [`netcode_v2_receive_predicted`](Self::netcode_v2_receive_predicted)).
-    chat_shown_while_stalled: Mutex<Vec<(StormPlayerId, String)>>,
+    chat_shown_while_stalled: Mutex<Vec<netcode_v2::InjectedChat>>,
     chat_manager: Mutex<chat::ChatManager>,
+    /// Every line the chat put on screen this game, which the overlay's chat log reads back.
+    /// Filled where the chat renders rather than where it arrives, so it holds exactly what the
+    /// player saw.
+    chat_history: Mutex<chat_history::ChatHistory>,
+    /// How replay playback is running, tracked off the command stream rather than read out of the
+    /// game's own globals.
+    replay_transport: Mutex<replay_transport::ReplayTransport>,
+    /// What the overlay's options screen shows: the settings the app sent at launch, plus whatever
+    /// the player has since moved there. Held here rather than in the overlay because the settings
+    /// arrive long before the first frame is drawn.
+    options: Mutex<overlay_ui::options::OptionsView>,
+    /// Carries the settings the game changes on its own keys into [`options`](Self::options).
+    engine_settings: Mutex<draw_overlay::options::EngineSettingsFollower>,
+    /// The options screen's lists that are read off this machine rather than out of a setting,
+    /// which is the displays the game can be put on. Read once, when the settings arrive; shared
+    /// rather than copied so a frame takes the list without cloning the names in it.
+    option_lists: Mutex<Arc<overlay_ui::options::OptionsLists>>,
+    /// The observer panels the player last left on screen, as the app saved them, until the overlay
+    /// takes them up.
+    observer_panels: Mutex<Option<overlay_ui::shell::PanelPrefs>>,
+    /// SC:R's own settings registry, which the options screen writes its changes through. `None`
+    /// when the analysis could not place it, which leaves SC:R's settings to take effect next game.
+    game_settings: Option<game_settings::GameSettings>,
+    /// How many of the F5 key messages the options screen posted to switch graphics are still on
+    /// their way to the window: those are SC:R's, past whatever the overlay holds the keyboard for.
+    posted_graphics_keys: AtomicU8,
+    /// Changes to SC:R's settings registry waiting for the start of the next frame. Some of the
+    /// registry's listeners rebuild the renderer's render targets on the spot (real-time lighting
+    /// does), which is only safe while no draw command refers to them: between frames, where SC:R's
+    /// own options and hotkeys make their changes. The options screen runs mid-frame, so its
+    /// changes wait here.
+    pending_game_setting_writes:
+        Mutex<Vec<(&'static str, &'static str, game_settings::SettingValue)>>,
+    /// Where the game's names for units, upgrades and techs are read from. `None` when the analysis
+    /// could not place stat_txt, which leaves the overlay's panels without names.
+    stat_txt: Option<stat_txt::StatTxt>,
     /// Ensures that things that qualify as "event processing" (e.g. process_events,
     /// maybe_receive_turns) don't execute from multiple threads at the same time (which may happen
     /// at certain points during game init).
@@ -764,15 +858,6 @@ fn next_minimap_mode(mode: MinimapColorMode) -> MinimapColorMode {
         MinimapColorMode::PresetOnMinimapOnly => MinimapColorMode::Preset,
         MinimapColorMode::Preset => MinimapColorMode::Standard,
     }
-}
-
-/// A per-game shuffle seed drawn from local entropy. The shuffle is a purely local aesthetic, so a
-/// wall-clock seed is fine; a replay re-rolling its own shuffle on each viewing is acceptable.
-fn shuffle_seed() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_nanos() as u64)
-        .unwrap_or(0)
 }
 
 /// Outcome of the OUT hook consulting the turn state, deciding whether the turn went to rally-point2 or
@@ -1150,9 +1235,10 @@ impl SelectedUnit {
 const SPRITE_HIDDEN: u8 = 0x20;
 
 /// Whether the game's selection UI puts `unit` in a selection of several units, as its own check
-/// decides: not a building, a powerup, a hallucination, a disabled unit, a spider mine, a beacon or
-/// flag, an egg or cocoon, or one of the few other kinds it singles out by id.
-unsafe fn can_be_group_selected(unit: *mut bw::Unit) -> bool {
+/// decides: not a building (beacons and flags among them), a powerup, a disabled unit, a spider
+/// mine, an egg, a critter, or one of the few other kinds it singles out by id. Larvae, cocoons,
+/// lurker eggs and hallucinations may all be selected with others.
+pub(super) unsafe fn can_be_group_selected(unit: *mut bw::Unit) -> bool {
     unsafe {
         let id = (*unit).unit_id;
         let type_flags = bw_dat::UnitId(id).flags();
@@ -2215,6 +2301,51 @@ impl BwScr {
         let graphic_layers = analysis.graphic_layers();
         let snet_local_player_list = analysis.snet_local_player_list();
         let units = analysis.units().ok_or("units")?;
+        // Non-fatal: the control-groups panel simply does not dim a group nobody has recalled.
+        let selection_hotkey_last_used_frames = analysis.selection_hotkey_last_used_frames();
+        let map_tile_flags = analysis.map_tile_flags();
+        // Non-fatal: without the registry the in-game options screen still saves what the player
+        // changes, and SC:R picks it up next game.
+        let game_settings = match (
+            // A global the analysis resolves to its address, like the other struct globals.
+            analysis
+                .game_setting_groups()
+                .and_then(|groups| groups.if_constant()),
+            analysis.update_game_setting_int(),
+            analysis.update_game_setting_bool(),
+        ) {
+            (Some(groups), Some(write_int), Some(write_bool)) => {
+                Some((groups, write_int, write_bool))
+            }
+            _ => {
+                warn!("Could not find SC:R's settings registry");
+                None
+            }
+        };
+        // Non-fatal: without stat_txt the overlay's panels only go without names. Both are globals
+        // the analysis resolves to their address; the map's renames are only needed to know when
+        // the stock name is the wrong one, so a build without them still names every unit.
+        let stat_txt = match analysis
+            .stat_txt_string_table()
+            .and_then(|table| table.if_constant())
+        {
+            Some(table) => {
+                let overrides = analysis
+                    .unit_map_name_overrides()
+                    .and_then(|overrides| overrides.if_constant());
+                if overrides.is_none() {
+                    warn!("Could not find unit_map_name_overrides");
+                }
+                Some(stat_txt::StatTxt::new(
+                    table as usize,
+                    overrides.map(|x| x as usize),
+                ))
+            }
+            None => {
+                warn!("Could not find stat_txt_string_table; the overlay will not name units");
+                None
+            }
+        };
         let vertex_buffer = analysis.vertex_buffer().ok_or("vertex_buffer")?;
         let renderer = analysis.renderer().ok_or("renderer")?;
         let draw_commands = analysis.draw_commands().ok_or("draw_commands")?;
@@ -2322,8 +2453,16 @@ impl BwScr {
         if chat_box_mode.is_none() {
             warn!("Could not find chat_box_mode global");
         }
+        let is_paused = analysis.is_paused();
+        if is_paused.is_none() {
+            warn!("Could not find is_paused global");
+        }
         let statres_icons = analysis.statres_icons().ok_or("statres_icons")?;
         let cmdicons = analysis.cmdicons().ok_or("cmdicons")?;
+        let wirefram = analysis.wirefram();
+        if wirefram.is_none() {
+            warn!("Could not find wirefram ddsgrp");
+        }
         let screen_x = analysis.screen_x().ok_or("screen_x")?;
         let screen_y = analysis.screen_y().ok_or("screen_y")?;
         let game_screen_width_bwpx = analysis
@@ -2334,6 +2473,20 @@ impl BwScr {
             .ok_or("game_screen_height_bwpx")?;
         let game_screen_height_ratio = analysis.game_screen_height_ratio();
         let zoom = analysis.zoom().ok_or("zoom")?;
+        let bottom_overpan = (|| {
+            Some(BottomOverpan {
+                padding_tiles: Value::new(ctx, analysis.screen_scroll_bottom_padding_tiles()?),
+                scroll_max_y: Value::new(ctx, analysis.screen_scroll_max_y()?),
+                update_scroll_bounds: unsafe {
+                    std::mem::transmute::<usize, unsafe extern "C" fn()>(
+                        analysis.update_screen_scroll_bounds()?.0 as usize,
+                    )
+                },
+            })
+        })();
+        if bottom_overpan.is_none() {
+            warn!("No screen scroll padding; the view stops at the map's bottom edge");
+        }
         let move_screen = analysis.move_screen().ok_or("move_screen")?;
         // Non-fatal: without these the middle-mouse grab pan keeps the game's built-in behavior
         // instead of failing game launch. Resolve each piece separately so a missing one names
@@ -2366,6 +2519,20 @@ impl BwScr {
         let draw_graphic_layers = analysis
             .draw_graphic_layers()
             .ok_or("draw_graphic_layers")?;
+        let software_cursor = match (
+            analysis.draw_software_cursor(),
+            analysis.push_renderer_mode_override(),
+            analysis.pop_renderer_mode_override(),
+        ) {
+            (Some(draw), Some(push_mode_override), Some(pop_mode_override)) => {
+                Some(SoftwareCursor {
+                    draw,
+                    push_mode_override: unsafe { mem::transmute(push_mode_override.0) },
+                    pop_mode_override: unsafe { mem::transmute(pop_mode_override.0) },
+                })
+            }
+            _ => None,
+        };
         let render_screen = analysis.render_screen().ok_or("render_screen")?;
         let skip_render = analysis.skip_render();
         let decide_cursor_type = analysis.decide_cursor_type().ok_or("decide_cursor_type")?;
@@ -2495,6 +2662,9 @@ impl BwScr {
             allocated_order_count: Value::new(ctx, allocated_order_count),
             order_limit: Value::new(ctx, order_limit),
             units: Value::new(ctx, units),
+            selection_hotkey_last_used_frames: selection_hotkey_last_used_frames
+                .map(|frames| Value::new(ctx, frames)),
+            map_tile_flags: map_tile_flags.map(|flags| Value::new(ctx, flags)),
             vertex_buffer: Value::new(ctx, vertex_buffer),
             renderer: Value::new(ctx, renderer),
             draw_commands: Value::new(ctx, draw_commands),
@@ -2514,8 +2684,11 @@ impl BwScr {
             palette_color_lookup,
             replay_autosave,
             chat_box_mode: chat_box_mode.map(|op| Value::new(ctx, op)),
+            is_paused: is_paused.map(|op| Value::new(ctx, op)),
             statres_icons: Value::new(ctx, statres_icons),
             cmdicons: Value::new(ctx, cmdicons),
+            wirefram: wirefram.map(|op| Value::new(ctx, op)),
+            wireframe_remap: OnceLock::new(),
             screen_x: Value::new(ctx, screen_x),
             screen_y: Value::new(ctx, screen_y),
             grab_pan: grab_pan.map(|(middle_down_handler, middle_up_handler, table)| GrabPan {
@@ -2530,6 +2703,7 @@ impl BwScr {
             game_screen_width_bwpx: Value::new(ctx, game_screen_width_bwpx),
             game_screen_height_bwpx: Value::new(ctx, game_screen_height_bwpx),
             zoom: Value::new(ctx, zoom),
+            bottom_overpan,
             cursor_scale_factor: Value::new(ctx, cursor_scale_factor),
             game_screen_height_ratio: game_screen_height_ratio.map(move |x| Value::new(ctx, x)),
             replay_bfix: replay_bfix.map(move |x| Value::new(ctx, x)),
@@ -2550,6 +2724,7 @@ impl BwScr {
             net_format_turn_rate,
             init_obs_ui,
             draw_graphic_layers,
+            software_cursor,
             decide_cursor_type,
             load_ddsgrp_cursor,
             update_game_screen_size: unsafe { mem::transmute(update_game_screen_size.0) },
@@ -2653,6 +2828,9 @@ impl BwScr {
             show_skins: AtomicBool::new(false),
             is_hd_mode: [AtomicBool::new(true), AtomicBool::new(false)],
             last_overlay_hd_value: AtomicBool::new(false),
+            hd_switching: AtomicBool::new(false),
+            overlay_draw_commands: (AtomicU32::new(0), AtomicU32::new(0)),
+            software_cursor_draw_commands: (AtomicU32::new(0), AtomicU32::new(0)),
             starting_fog: AtomicStartingFog::new(StartingFog::Transparent),
             saved_minimap_color_mode: AtomicU8::new(0),
             saved_minimap_terrain_hidden: AtomicBool::new(false),
@@ -2677,8 +2855,12 @@ impl BwScr {
                 debug_statbtn_dialog_offset: (0, 0),
             }),
             apm_state: RecurseCheckedMutex::new(ApmStats::new()),
+            game_stats: RecurseCheckedMutex::new(GameStats::new()),
             original_game_screen_height_ratio: AtomicU32::new(0),
             console_hidden_state: AtomicBool::new(false),
+            followed_unit: Mutex::new(None),
+            minimap_hidden_state: AtomicBool::new(false),
+            command_panel_hidden_state: AtomicBool::new(false),
             game_started: AtomicBool::new(false),
             game_results_sent: AtomicBool::new(false),
             first_game_logic_frame_done: AtomicBool::new(false),
@@ -2689,6 +2871,22 @@ impl BwScr {
             chat_injection: AtomicU8::new(ChatInjection::Live as u8),
             chat_shown_while_stalled: Mutex::new(Vec::new()),
             chat_manager: Mutex::new(chat::ChatManager::new()),
+            chat_history: Mutex::new(chat_history::ChatHistory::new()),
+            replay_transport: Mutex::new(replay_transport::ReplayTransport::new()),
+            options: Mutex::new(overlay_ui::options::OptionsView::default()),
+            engine_settings: Mutex::new(Default::default()),
+            option_lists: Mutex::new(Arc::new(overlay_ui::options::OptionsLists::default())),
+            observer_panels: Mutex::new(None),
+            game_settings: game_settings.map(|(groups, write_int, write_bool)| {
+                game_settings::GameSettings::new(
+                    groups as usize,
+                    write_int.0 as usize,
+                    write_bool.0 as usize,
+                )
+            }),
+            posted_graphics_keys: AtomicU8::new(0),
+            pending_game_setting_writes: Mutex::new(Vec::new()),
+            stat_txt,
             event_processing_lock: DumbSpinLock::new(),
         })
     }
@@ -2843,6 +3041,10 @@ impl BwScr {
                                 && count_apm
                             {
                                 counted_actions |= apm.action(apm_player, command);
+                            }
+                            // Live commands of a replay only; see `ReplayTransport::note_command`.
+                            if is_replay && are_recorded_replay_commands == 0 {
+                                self.note_replay_transport_command(command);
                             }
                             match command {
                                 [commands::id::REPLAY_SEEK, rest @ ..] if rest.len() == 4
@@ -3047,12 +3249,24 @@ impl BwScr {
                         self.unique_command_user.write(player.into());
                         ids
                     });
+                    // A replay's chat history records each frame once, and a frame's lines are
+                    // all printed by the end of its step: its commands run ahead of it, and BW may
+                    // advance the frame count partway through it.
+                    let replay = game_thread::is_replay();
+                    if replay {
+                        let frame = self.current_game_frame();
+                        self.chat_history.lock().begin_replay_step(frame);
+                    }
                     orig();
+                    if replay {
+                        self.chat_history.lock().finish_replay_step();
+                    }
                     #[cfg(debug_assertions)]
                     if let Some((local, command_user)) = local_ids {
                         self.local_unique_player_id.write(local);
                         self.unique_command_user.write(command_user);
                     }
+                    self.sample_game_stats();
                     game_thread::after_step_game();
                     self.update_team_colors_from_alliances();
                 },
@@ -3525,6 +3739,9 @@ impl BwScr {
             exe.hook_closure_address(
                 RenderScreen,
                 move |callback, draw_ui, orig| {
+                    // Nothing of this frame has been drawn yet, so a setting that rebuilds the
+                    // renderer's targets can't leave a queued draw pointing at the old ones.
+                    self.write_pending_game_settings();
                     let own = crate::frame_pacing::own_draw(!callback.is_null() && draw_ui == 1);
                     if let Some(skip_render) = self.skip_render
                         && own.as_ref().is_some_and(|own| own.skips())
@@ -3836,6 +4053,11 @@ impl BwScr {
                         if handled {
                             return;
                         }
+                        if game_thread::is_replay() {
+                            self.record_replay_chat_history_line(text, player);
+                        } else {
+                            self.record_chat_history_system_line(text, player);
+                        }
                     }
 
                     orig(text, player, unused);
@@ -3913,6 +4135,18 @@ impl BwScr {
                     move |console, x, y, orig| match self.console_hidden() {
                         true => 0,
                         false => orig(console, x, y),
+                    },
+                    relative,
+                );
+                // The console's art is queued by its own draw entry from the game's per-frame HUD
+                // update. That update also expires chat lines, cycles palettes and keeps the
+                // selection state current, so it always runs and only the art is held back.
+                let relative = (*vtable).draw.cast_usize() - base;
+                exe.hook_closure_address(
+                    Console_Draw,
+                    move |console, orig| match self.console_hidden() {
+                        true => 0,
+                        false => orig(console),
                     },
                     relative,
                 );
@@ -3996,6 +4230,32 @@ impl BwScr {
             let swap_buffers = (*renderer_vtable).swap_buffers;
             let create_shader = (*renderer_vtable).create_shader;
 
+            if let Some(cursor) = &self.software_cursor {
+                let address = cursor.draw.0 as usize - base;
+                let push_mode_override = cursor.push_mode_override;
+                let pop_mode_override = cursor.pop_mode_override;
+                // Everything the cursor queues takes the overridden layer, which also picks the
+                // render target it goes to: the backbuffer, over the overlay.
+                exe.hook_closure_address(
+                    DrawSoftwareCursor,
+                    move |orig| {
+                        let commands = self.draw_commands.resolve();
+                        let first = (*commands).draw_command_count;
+                        push_mode_override(draw_overlay::SOFTWARE_CURSOR_DRAW_LAYER);
+                        orig();
+                        pop_mode_override();
+                        let end = (*commands).draw_command_count;
+                        self.software_cursor_draw_commands
+                            .0
+                            .store(u32::from(first), Ordering::Relaxed);
+                        self.software_cursor_draw_commands
+                            .1
+                            .store(u32::from(end), Ordering::Relaxed);
+                    },
+                    address,
+                );
+            }
+
             let address = self.draw_graphic_layers.0 as usize - base;
             // draw_graphic_layers is the main BW draw command queuing function.
             // Usually called once per render to queue DrawCommands for all sprites of the game
@@ -4013,26 +4273,24 @@ impl BwScr {
                     if second_draw == 0 {
                         self.poll_team_color_mode();
                     }
-                    // It is expected that extra_funcs array has one (just one) function that
-                    // draws the UI console. If console is hidden just call orig with 0 extra funcs
-                    // and it should make the static parts of console hidden.
-                    // (Interactable parts of the console are dialogs which need to be hidden
-                    // separately.)
+                    // `extra_funcs` holds the game's per-frame HUD update, which must run whether
+                    // or not the console is shown: it expires chat lines and cycles palettes
+                    // among other things. A hidden console's art is held back by the hook on its
+                    // own draw entry instead (see `Console_Draw`), and its interactable parts are
+                    // dialogs, hidden separately.
                     let graphic_layers =
                         self.graphic_layers.and_then(|x| NonNull::new(x.resolve()));
-                    if self.console_hidden() {
-                        if let Some(layers) = graphic_layers {
-                            // Don't draw tooltip layer if it was active.
-                            // It can stay active when hiding console depending on where
-                            // the mouse was on when console was hidden, even if the control
-                            // becomes uninteractable.
-                            // (Pretty sure that none of the menus use tooltips)
-                            (*layers.as_ptr().add(1)).draw = 0;
-                        }
-                        orig(extra_funcs, 0, second_draw);
-                    } else {
-                        orig(extra_funcs, extra_func_len, second_draw);
+                    if self.console_hidden()
+                        && let Some(layers) = graphic_layers
+                    {
+                        // Don't draw tooltip layer if it was active.
+                        // It can stay active when hiding console depending on where
+                        // the mouse was on when console was hidden, even if the control
+                        // becomes uninteractable.
+                        // (Pretty sure that none of the menus use tooltips)
+                        (*layers.as_ptr().add(1)).draw = 0;
                     }
+                    orig(extra_funcs, extra_func_len, second_draw);
                     let renderer = self.renderer.resolve();
                     let commands = self.draw_commands.resolve();
                     let vertex_buffer = self.vertex_buffer.resolve();
@@ -4048,13 +4306,30 @@ impl BwScr {
                     let is_replay_or_obs = self.is_replay_or_obs();
                     let is_replay = self.is_replay.resolve() != 0;
                     let is_team_game = game_thread::is_team_game();
+                    let alliance_rules = self.alliance_rules();
+                    let pause_control = self.pause_control(game, is_replay);
                     let main_palette = self.main_palette.resolve();
                     let rgb_colors = self.rgb_colors.resolve();
                     let use_rgb_colors = self.use_rgb_colors.resolve();
                     let statres_icons = self.statres_icons.resolve();
                     let cmdicons = self.cmdicons.resolve();
+                    let wirefram = self.wirefram.map_or(null_mut(), |x| x.resolve());
                     let replay_visions = self.replay_visions.resolve();
+                    let local_player_id = self.local_unique_player_id.resolve() as u8;
+                    // The header is only a replay's, and it is only populated once one is running.
+                    let replay = is_replay
+                        .then(|| self.replay_header())
+                        .filter(|header| !header.is_null())
+                        .map(|header| draw_overlay::ReplayVars {
+                            end_frame: (*header).replay_end_frame,
+                            game_speed: (*header).game_info.game_speed,
+                            transport: self.replay_transport_state(),
+                        });
                     let active_units = self.active_units();
+                    // The whole unit array, which is what a unique id (as the loaded-unit slots of
+                    // a transport hold) has to be looked up in. Null until the game allocates it.
+                    let units = self.unit_array();
+                    let client_selection = self.client_selection();
                     let first_player_unit = self.first_player_unit.resolve();
                     let first_dialog = self.resolve_first_dialog();
                     // Assuming that the last added draw command (Added during orig() call)
@@ -4077,20 +4352,50 @@ impl BwScr {
                         // otherwise.
                         self.is_hd_mode[1].load(Ordering::Relaxed)
                     };
+                    // Followed only once the game runs: what the loading screen draws in says
+                    // nothing about the player's settings.
+                    let mut engine_setting_changes = Vec::new();
                     if second_draw == 0 {
                         self.last_overlay_hd_value.store(is_hd, Ordering::Relaxed);
+                        if game_started {
+                            engine_setting_changes = self.follow_engine_settings();
+                        }
+                        self.refresh_stale_game_stats();
+                        if game_started {
+                            // The simulation steps follow alliance changes as they happen, but a
+                            // replay seek that lands paused can move the game to other alliances
+                            // without a step.
+                            self.update_team_colors_from_alliances();
+                        }
                     }
                     // SC:R only enables carbot if both of these flags are set
                     let is_carbot = self.is_carbot.load(Ordering::Relaxed)
                         && self.show_skins.load(Ordering::Relaxed);
-                    // Render target 1 is for UI layers (0xb to 0x1d inclusive)
-                    let render_target =
-                        draw_inject::RenderTarget::new((self.get_render_target)(1), 1);
+                    // The overlay draws to the backbuffer (render target 0), at the window's own
+                    // resolution; its one surface among the game's UI layers goes to their target, 1.
+                    // A second pass of this hook is the other graphics mode's while SD and HD fade
+                    // into each other, and draws to its own UI target; the backbuffer is shared, so
+                    // the overlay is drawn by the first pass alone.
+                    if second_draw != 0 {
+                        return;
+                    }
+                    let ui_target = (self.get_render_target)(1);
+                    let render_target = draw_inject::RenderTarget::backbuffer(
+                        (self.get_render_target)(0),
+                        ui_target,
+                    );
+                    let ui_render_target =
+                        draw_inject::RenderTarget::sharing_points(ui_target, 1, &render_target);
                     if let Some(mut render_state) = self.render_state.lock() {
                         let countdown_start = *self.countdown_start.lock();
                         let apm_guard = self.apm_state.lock();
                         let apm = apm_guard.as_deref();
-                        let size = ((*render_target.bw).width, (*render_target.bw).height);
+                        // The simulation step that fills this has returned by the time a frame is
+                        // drawn, so the lock is never contended; `None` here is a re-entrant draw,
+                        // which reports the game as it was before its first second.
+                        let game_stats_guard = self.game_stats.lock();
+                        let game_stats = game_stats_guard.as_deref();
+                        let size = render_target.size();
                         // A snapshot of who has lost connection, for the survivor overlay. `None`
                         // (a replay, or a re-entrant lock) renders as an all-healthy status.
                         let disconnect_status =
@@ -4102,6 +4407,12 @@ impl BwScr {
                         let net_stats =
                             netcode_v2::with_turn_state(|s| s.net_stats_status(Instant::now()))
                                 .flatten();
+                        // What the panel adds for a game that rolls back. Read only while it is
+                        // up, and outside the turn state's lock, which this takes itself.
+                        let net_rollback = net_stats
+                            .is_some()
+                            .then(crate::rollback_live::net_status)
+                            .flatten();
                         let net_quality = self.net_quality_view();
                         // Who has connected so far, for the loading screen. `None` before this
                         // client's own session is up, and not needed once the game has started.
@@ -4115,6 +4426,19 @@ impl BwScr {
                         // to request a second pass to provide nicer look.
                         // This means we do 4 passes per frame while changing graphics quality,
                         // but the performance should not be that bad..
+                        // Read out of the game's storage here rather than at setup: the draw is on
+                        // the main thread, and by now the storage is open.
+                        if render_state.overlay.needs_resource_icons() {
+                            render_state
+                                .overlay
+                                .load_resource_icons(|path| self.read_game_file(path));
+                        }
+                        let wireframe_remap = *self.wireframe_remap.get_or_init(|| {
+                            draw_overlay::WireframeRemap::load(|path| self.read_game_file(path))
+                        });
+                        for &change in &engine_setting_changes {
+                            render_state.overlay.setting_changed_in_game(change);
+                        }
                         for _ in 0..2 {
                             let overlay_out = render_state.overlay.step(
                                 &draw_overlay::BwVars {
@@ -4128,21 +4452,39 @@ impl BwScr {
                                     use_rgb_colors,
                                     replay_visions,
                                     active_units,
+                                    units,
+                                    client_selection,
                                     first_player_unit,
                                     first_dialog,
                                     graphic_layers,
                                     is_hd,
+                                    is_carbot,
+                                    cmdicons,
+                                    wirefram,
+                                    wireframe_remap,
                                     has_init_bw,
                                     countdown_start,
                                     game_started,
+                                    local_player_id,
+                                    replay,
+                                    stat_txt: self.stat_txt,
+                                    alliance_rules,
+                                    pause_control,
                                 },
                                 apm,
+                                game_stats,
                                 size,
                                 game_thread::setup_info(),
                                 &disconnect_status,
                                 net_stats.as_ref(),
+                                net_rollback.as_ref(),
                                 net_quality.as_ref(),
                                 loading_connectivity.as_ref(),
+                                &self.chat_history,
+                                &self.chat_manager,
+                                &self.options,
+                                &self.option_lists,
+                                &self.observer_panels,
                             );
                             if cfg!(debug_assertions) {
                                 self.handle_debug_ui_actions(&overlay_out, &mut render_state);
@@ -4163,16 +4505,62 @@ impl BwScr {
                             }
                             if let Some(unit) = overlay_out.select_unit {
                                 let units = [*unit];
-                                (self.select_units)(units.len(), units.as_ptr(), 1, 1);
+                                (self.select_units)(units.len(), units.as_ptr(), 1, 0);
                                 self.center_screen(&unit.position());
                             }
-                            let console_shown = !self.console_hidden();
-                            if overlay_out.show_console != console_shown {
-                                if overlay_out.show_console {
-                                    self.show_console(first_dialog);
-                                } else {
-                                    self.hide_console(first_dialog);
+                            if let Some(point) = overlay_out.look_at {
+                                self.center_screen(&point);
+                            }
+                            // The game's own way of emptying a selection, the one it takes when
+                            // the last selected unit dies.
+                            if overlay_out.clear_selection {
+                                (self.select_units)(0, std::ptr::null(), 0, 0);
+                            }
+                            if let Some(group) = &overlay_out.select_group {
+                                let units =
+                                    group.units.iter().map(|unit| **unit).collect::<Vec<_>>();
+                                (self.select_units)(units.len(), units.as_ptr(), 1, 0);
+                                if group.center {
+                                    self.center_screen(&group.units[0].position());
                                 }
+                            }
+                            self.set_bottom_overpan(overlay_out.bottom_overpan_share);
+                            // After everything else that moves the view this frame, which ends
+                            // a follow rather than being undone by it.
+                            self.follow_unit(overlay_out.follow_unit);
+                            // Only once the game runs: before then there is no game view to
+                            // resize, and the map load ahead resets its height anyway.
+                            let console_shown = !self.console_hidden();
+                            if game_started
+                                && (overlay_out.console_visible != console_shown
+                                    || (!overlay_out.console_visible
+                                        && self.console_space_returned()))
+                            {
+                                self.set_console_visible(first_dialog, overlay_out.console_visible);
+                            }
+                            let minimap_shown = !self.minimap_hidden();
+                            if overlay_out.minimap_visible != minimap_shown {
+                                self.set_minimap_visible(first_dialog, overlay_out.minimap_visible);
+                            }
+                            // After the console, whose own visibility this one is bounded by.
+                            let command_panel_shown = !self.command_panel_hidden();
+                            if overlay_out.command_panel_visible != command_panel_shown {
+                                self.set_command_panel_visible(
+                                    first_dialog,
+                                    overlay_out.command_panel_visible,
+                                );
+                            }
+                            for command in &overlay_out.replay_commands {
+                                self.send_replay_command(*command);
+                            }
+                            for command in &overlay_out.game_commands {
+                                (self.send_command)(command.as_ptr(), command.len());
+                            }
+                            if !overlay_out.setting_changes.is_empty() {
+                                self.apply_setting_changes(&overlay_out.setting_changes);
+                            }
+                            if let Some(panels) = overlay_out.observer_panels_changed {
+                                save_observer_panels(panels);
                             }
                             let bw = &draw_inject::BwVars {
                                 renderer,
@@ -4182,6 +4570,7 @@ impl BwScr {
                                 is_carbot,
                                 statres_icons,
                                 cmdicons,
+                                wirefram,
                             };
                             if overlay_out.run_second_draw {
                                 draw_inject::update_textures_without_adding_overlays(
@@ -4190,12 +4579,21 @@ impl BwScr {
                                     overlay_out,
                                 );
                             } else {
+                                let first = (*commands).draw_command_count;
                                 draw_inject::add_overlays(
                                     &mut render_state.render,
                                     bw,
                                     overlay_out,
                                     &render_target,
+                                    &ui_render_target,
                                 );
+                                let end = (*commands).draw_command_count;
+                                self.overlay_draw_commands
+                                    .0
+                                    .store(u32::from(first), Ordering::Relaxed);
+                                self.overlay_draw_commands
+                                    .1
+                                    .store(u32::from(end), Ordering::Relaxed);
                                 break;
                             }
                         }
@@ -4302,9 +4700,18 @@ impl BwScr {
                     // Update is_hd value based on what BW output to final render target draw
                     // (Can have two values when doing the transfer between SD/HD)
                     let mut n = 0;
+                    let take = |span: &(AtomicU32, AtomicU32)| {
+                        span.0.swap(0, Ordering::Relaxed) as usize
+                            ..span.1.swap(0, Ordering::Relaxed) as usize
+                    };
+                    let overlay = take(&self.overlay_draw_commands);
+                    let cursor = take(&self.software_cursor_draw_commands);
                     for i in 0..draw_command_count {
                         let cmd = &raw mut (*commands).commands[i];
-                        if (*cmd).render_target_id == 0 {
+                        if (*cmd).render_target_id == 0
+                            && !overlay.contains(&i)
+                            && !cursor.contains(&i)
+                        {
                             self.is_hd_mode[n].store((*cmd).is_hd != 0, Ordering::Relaxed);
                             n += 1;
                             if n == 2 {
@@ -4312,6 +4719,7 @@ impl BwScr {
                             }
                         }
                     }
+                    self.hd_switching.store(n == 2, Ordering::Relaxed);
                     if n == 1 {
                         // n == 1 should mean that no SD/HD transfers were active this frame.
 
@@ -4746,8 +5154,8 @@ impl BwScr {
         unsafe {
             self.apply_due_leaves(nc, step);
             let chat = netcode_v2::with_turn_state(|s| s.redispatch(step)).unwrap_or_default();
-            for (storm, text) in &chat {
-                self.inject_chat_message(*storm, text);
+            for (storm, target, text) in &chat {
+                self.inject_chat_message(*storm, *target, text);
             }
             netcode_v2::with_turn_state(|s| {
                 Self::fill_turn_dispatch(
@@ -5263,7 +5671,7 @@ impl BwScr {
             let deferred = netcode_v2::with_turn_state(|s| {
                 let deferred = s.predicts_inputs();
                 if deferred {
-                    s.queue_local_chat_echo(text.to_string());
+                    s.queue_local_chat_echo(target, text.to_string());
                 }
                 deferred
             })
@@ -5272,7 +5680,7 @@ impl BwScr {
                 return true;
             }
             let local_storm = StormPlayerId(self.local_storm_id.resolve() as u8);
-            if !self.inject_chat_message(local_storm, text) {
+            if !self.inject_chat_message(local_storm, target, text) {
                 debug!("netcode v2: local chat echo dropped; local storm id unresolved");
             }
             true
@@ -5287,8 +5695,8 @@ impl BwScr {
                 return;
             };
             let local_storm = StormPlayerId(self.local_storm_id.resolve() as u8);
-            for text in texts {
-                if !self.inject_chat_message(local_storm, &text) {
+            for (target, text) in texts {
+                if !self.inject_chat_message(local_storm, target, &text) {
                     debug!("netcode v2: local chat echo dropped; local storm id unresolved");
                 }
             }
@@ -5303,12 +5711,12 @@ impl BwScr {
             let echoes = netcode_v2::with_turn_state(|s| s.take_local_chat_echoes())
                 .unwrap_or_default()
                 .into_iter()
-                .map(|text| (local_storm, text));
+                .map(|(target, text)| (local_storm, target, text));
             let inbound = self.visible_chat_inbound();
             let mut shown = self.chat_shown_while_stalled.lock();
-            for (storm, text) in echoes.chain(inbound) {
-                if self.inject_chat(storm, &text, ChatInjection::ShowWhileStalled) {
-                    shown.push((storm, text));
+            for (storm, target, text) in echoes.chain(inbound) {
+                if self.inject_chat(storm, target, &text, ChatInjection::ShowWhileStalled) {
+                    shown.push((storm, target, text));
                 }
             }
         }
@@ -5319,8 +5727,8 @@ impl BwScr {
     unsafe fn record_chat_shown_while_stalled(&self) {
         unsafe {
             let shown = std::mem::take(&mut *self.chat_shown_while_stalled.lock());
-            for (storm, text) in shown {
-                if !self.inject_chat(storm, &text, ChatInjection::RecordShown) {
+            for (storm, target, text) in shown {
+                if !self.inject_chat(storm, target, &text, ChatInjection::RecordShown) {
                     debug!("netcode v2: chat shown while stalled not recorded; its sender left");
                 }
             }
@@ -5333,17 +5741,27 @@ impl BwScr {
     /// own local echo (`send_chat_message`, with `storm_player` set to this client's own storm id)
     /// — one path renders both, so the two can never diverge in formatting or attribution.
     ///
+    /// `target` is the scope the message was sent with, which only the sender knows: it is carried
+    /// here so the line recorded in the chat history says who it was addressed to, the way the
+    /// scope tag over it reads.
+    ///
     /// Returns `false` (injecting nothing) when `storm_player` can't be resolved to a `players[]`
     /// slot right now — see [`unique_player_for_storm`](Self::unique_player_for_storm) — e.g. it
     /// already left.
-    unsafe fn inject_chat_message(&self, storm_player: StormPlayerId, text: &str) -> bool {
-        unsafe { self.inject_chat(storm_player, text, ChatInjection::Live) }
+    unsafe fn inject_chat_message(
+        &self,
+        storm_player: StormPlayerId,
+        target: netcode_v2::ChatTarget,
+        text: &str,
+    ) -> bool {
+        unsafe { self.inject_chat(storm_player, target, text, ChatInjection::Live) }
     }
 
     /// [`inject_chat_message`](Self::inject_chat_message), shown and recorded as `injection` says.
     unsafe fn inject_chat(
         &self,
         storm_player: StormPlayerId,
+        target: netcode_v2::ChatTarget,
         text: &str,
         injection: ChatInjection,
     ) -> bool {
@@ -5355,6 +5773,16 @@ impl BwScr {
             // native renderer's name/format path only recognizes observers by their id range
             // (0x80..0x84); an index in 12..16 falls through to its nameless bare-text path.
             let sender_id = game_player_id_for_slot(unique_player);
+            // Asked before the injection, because the injection is what prints the line and the
+            // print hook takes this same lock to decide whether to suppress it. The answer is what
+            // keeps a muted or blocked player's message out of the history as well as off screen.
+            let suppressed = self
+                .chat_manager
+                .lock()
+                .is_sender_filtered(sender_id as u32);
+            // The record's text field is fixed-size, so a long message reaches the screen (and the
+            // replay) truncated; the history holds that same truncation rather than the original.
+            let text = commands::truncate_utf8(text, commands::CHAT_TEXT_CAPACITY);
             let record = build_chat_record(sender_id, text);
             // `0`: a live command not yet on the replay's command log, so the native command
             // processor appends it (`add_to_replay_data`) the same as any other in-game command —
@@ -5374,27 +5802,36 @@ impl BwScr {
                 && let Some((_, false)) = rollback_step()
             {
                 let step = self.netcode_v2.game_frame_count.resolve();
-                netcode_v2::with_turn_state(|s| s.note_injected_chat(step, storm_player, text));
+                netcode_v2::with_turn_state(|s| {
+                    s.note_injected_chat(step, storm_player, target, text)
+                });
             }
+            // The player sees a line once: a step simulated again injects it again, and chat shown
+            // while stalled is injected a second time to record it, but neither shows anything new.
+            let first_shown =
+                injected && !rollback_resimulating() && injection != ChatInjection::RecordShown;
+            let own = storm_player.0 as u32 == self.local_storm_id.resolve();
             #[cfg(debug_assertions)]
-            if injected && !rollback_resimulating() && injection != ChatInjection::RecordShown {
-                let own = storm_player.0 as u32 == self.local_storm_id.resolve();
+            if first_shown {
                 netcode_v2::with_turn_state(|s| {
                     s.record_chat(crate::debug_control::DebugChatLogEntry {
                         sender_game_id: sender_id,
-                        text: commands::truncate_utf8(text, commands::CHAT_TEXT_CAPACITY)
-                            .to_string(),
+                        text: text.to_string(),
                         own,
                     })
                 });
+            }
+            if first_shown && !suppressed {
+                self.record_chat_history_line(sender_id, unique_player, own, target, text);
             }
             injected
         }
     }
 
     /// Seeks a replay to the frame its setup asked it to start at, through the same command the
-    /// replay UI's own seeking sends. Only the first start of playback seeks: a backward seek
-    /// restarts playback from the beginning, and must not be sent on to the start frame again.
+    /// replay UI's own seeking sends. Only the first start of playback seeks: a seek SC:R handles
+    /// itself restarts playback from the beginning, and must not be sent on to the start frame
+    /// again.
     unsafe fn seek_to_replay_start_frame(&self) {
         unsafe {
             if self.replay_start_seek_sent.swap(true, Ordering::Relaxed) {
@@ -5440,6 +5877,142 @@ impl BwScr {
             }
             self.chat_injection
                 .store(ChatInjection::Live as u8, Ordering::Relaxed);
+        }
+    }
+
+    /// Adds one player's message to the chat history, with the sender and the scope the screen
+    /// showed it under. Called only for a message that was both injected and not suppressed, so the
+    /// history and the screen can never disagree about what the game said.
+    unsafe fn record_chat_history_line(
+        &self,
+        sender_id: u8,
+        unique_player: u8,
+        own: bool,
+        target: netcode_v2::ChatTarget,
+        text: &str,
+    ) {
+        unsafe {
+            let line = chat_history::ChatLine {
+                game_frame: self.current_game_frame(),
+                kind: chat_history::ChatLineKind::Player {
+                    sender_game_id: sender_id,
+                    sender_name: self.player_display_name(unique_player),
+                    own,
+                    scope: self.chat_scope_for(target, own),
+                },
+                text: text.to_string(),
+            };
+            self.chat_history.lock().push(line);
+        }
+    }
+
+    /// Records a line the game printed that carries no chat sender — a player leaving, an alliance
+    /// changing — which is what SC:R's own log holds beside the chat. A player's own message is
+    /// recorded by [`inject_chat_message`](Self::inject_chat_message) instead, which knows who it
+    /// was addressed to; the id ranges skipped here are exactly the ones
+    /// [`chat::ChatManager`] treats as chat senders.
+    unsafe fn record_chat_history_system_line(&self, text: &str, player: u32) {
+        unsafe {
+            if matches!(player, 0..=11 | 128..=131) {
+                return;
+            }
+            let line = chat_history::ChatLine {
+                game_frame: self.current_game_frame(),
+                kind: chat_history::ChatLineKind::System,
+                text: text.to_string(),
+            };
+            self.chat_history.lock().push(line);
+        }
+    }
+
+    /// Records a line a replay printed. A replay's chat comes from its recorded commands rather than
+    /// from anything injected, so the printed line is the only record of it: one with a chat sender
+    /// is that player's message, printed after their name, and anything else is a notice.
+    unsafe fn record_replay_chat_history_line(&self, text: &str, player: u32) {
+        unsafe {
+            let game_frame = self.current_game_frame();
+            let player_index = match player {
+                0..=11 => Some(player),
+                128..=131 => Some(player - 128 + 12),
+                _ => None,
+            };
+            let line = match player_index {
+                Some(player_index) => {
+                    let sender_name = self.player_display_name(player_index as u8);
+                    chat_history::ChatLine {
+                        game_frame,
+                        kind: chat_history::ChatLineKind::Player {
+                            sender_game_id: player as u8,
+                            own: false,
+                            // The game's classic chat record carries no scope: a replay shows its
+                            // watcher every line as said to everyone.
+                            scope: chat_history::ChatScope::All,
+                            sender_name: sender_name.clone(),
+                        },
+                        text: chat_history::strip_sender_prefix(text, &sender_name).to_string(),
+                    }
+                }
+                None => chat_history::ChatLine {
+                    game_frame,
+                    kind: chat_history::ChatLineKind::System,
+                    text: text.to_string(),
+                },
+            };
+            self.chat_history.lock().push_replayed(line);
+        }
+    }
+
+    /// The scope a chat history line records for a message sent with `target`.
+    ///
+    /// A single-recipient message names its recipient only when the local player sent it: an
+    /// inbound one reached this client because this client was addressed, so the only name its mask
+    /// could yield is the reader's own.
+    unsafe fn chat_scope_for(
+        &self,
+        target: netcode_v2::ChatTarget,
+        own: bool,
+    ) -> chat_history::ChatScope {
+        unsafe {
+            match target {
+                netcode_v2::ChatTarget::All => chat_history::ChatScope::All,
+                netcode_v2::ChatTarget::Allies => chat_history::ChatScope::Allies,
+                netcode_v2::ChatTarget::Observers => chat_history::ChatScope::Observers,
+                netcode_v2::ChatTarget::Players(mask) => chat_history::ChatScope::Players {
+                    recipient: own
+                        .then(|| mask.single_member())
+                        .flatten()
+                        .and_then(|slot| {
+                            netcode_v2::with_turn_state(|s| s.storm_id_for_slot(slot)).flatten()
+                        })
+                        .and_then(|storm| self.unique_player_for_storm(storm))
+                        .map(|unique_player| self.player_display_name(unique_player)),
+                },
+            }
+        }
+    }
+
+    /// A `players[]` slot's name as the overlay should show it, with a placeholder for the slots
+    /// the game left nameless.
+    unsafe fn player_display_name(&self, unique_player: u8) -> String {
+        unsafe {
+            let name = bw::player_name(self.players().add(unique_player as usize));
+            if name.is_empty() {
+                format!("Player {}", unique_player + 1)
+            } else {
+                name.into_owned()
+            }
+        }
+    }
+
+    /// The frame the game is on, or 0 before there is a game to ask.
+    unsafe fn current_game_frame(&self) -> u32 {
+        unsafe {
+            let game = self.game();
+            if game.is_null() {
+                0
+            } else {
+                (*game).frame_count
+            }
         }
     }
 
@@ -5613,8 +6186,8 @@ impl BwScr {
     /// per receive on the game thread, alongside the debug forced-leave/desync application.
     unsafe fn apply_chat_inbound(&self) {
         unsafe {
-            for (sender_storm, text) in self.visible_chat_inbound() {
-                if !self.inject_chat_message(sender_storm, &text) {
+            for (sender_storm, target, text) in self.visible_chat_inbound() {
+                if !self.inject_chat_message(sender_storm, target, &text) {
                     debug!(
                         "netcode v2: chat from storm {sender_storm:?} could not be attributed to \
                          a players[] slot; dropping"
@@ -5625,8 +6198,8 @@ impl BwScr {
     }
 
     /// Drains the chat that has arrived from peers, keeping each message the local player should
-    /// see, with its sender's storm id.
-    unsafe fn visible_chat_inbound(&self) -> Vec<(StormPlayerId, String)> {
+    /// see, with its sender's storm id and the scope it was sent to.
+    unsafe fn visible_chat_inbound(&self) -> Vec<netcode_v2::InjectedChat> {
         unsafe {
             let Some(messages) = netcode_v2::with_turn_state(|s| s.drain_chat_inbound(true)) else {
                 return Vec::new(); // no live session
@@ -5641,7 +6214,7 @@ impl BwScr {
                 };
                 let target = netcode_v2::ChatTarget::from_wire(chat.target_kind, chat.target_slot);
                 if self.chat_target_visible(sender_storm, target) {
-                    visible.push((sender_storm, chat.text));
+                    visible.push((sender_storm, target, chat.text));
                 }
             }
             visible
@@ -6053,6 +6626,118 @@ impl BwScr {
         }
     }
 
+    /// The whole unit array, which is what a unique id has to be looked up in. `None` until the
+    /// game allocates it.
+    unsafe fn unit_array(&self) -> Option<bw_dat::UnitArray> {
+        unsafe {
+            match self.units.resolve() {
+                vector if vector.is_null() => None,
+                vector => Some(bw_dat::UnitArray::new(
+                    (*vector).data as *mut bw::Unit,
+                    (*vector).length,
+                )),
+            }
+        }
+    }
+
+    /// Keeps the game's view on the unit a watcher asked it to follow, starting on `start` when
+    /// they have just asked.
+    ///
+    /// Following ends once the unit is gone or out of sight inside something, and once the view is
+    /// anywhere but where following it left the view the frame before: the watcher (or something
+    /// they asked for) has moved it, and following on would pull it straight back.
+    unsafe fn follow_unit(&self, start: Option<Unit>) {
+        unsafe {
+            let mut followed = self.followed_unit.lock();
+            let Some(units) = self.unit_array() else {
+                *followed = None;
+                return;
+            };
+            if let Some(unit) = start {
+                *followed = Some(FollowedUnit {
+                    unique_id: units.to_unique_id(unit),
+                    left_screen_at: None,
+                });
+            }
+            let Some(follow) = followed.as_mut() else {
+                return;
+            };
+            let screen = (self.screen_x.resolve(), self.screen_y.resolve());
+            let unit = units
+                .get_by_unique_id(follow.unique_id)
+                .filter(|unit| !unit.is_hidden());
+            match unit {
+                Some(unit) if follow.left_screen_at.is_none_or(|left| left == screen) => {
+                    self.center_screen(&unit.position());
+                    follow.left_screen_at =
+                        Some((self.screen_x.resolve(), self.screen_y.resolve()));
+                }
+                _ => *followed = None,
+            }
+        }
+    }
+
+    /// The furthest down the view's top edge may scroll, in map pixels: the game's own bound where
+    /// it can be read, which counts the room past the map's bottom edge. `None` for a map shorter
+    /// than the view.
+    unsafe fn screen_max_y(&self) -> Option<u32> {
+        unsafe {
+            match &self.bottom_overpan {
+                Some(overpan) => Some(overpan.scroll_max_y.resolve()),
+                None => self
+                    .map_height_pixels
+                    .resolve()
+                    .checked_sub(self.game_screen_height_bwpx.resolve()),
+            }
+        }
+    }
+
+    /// Lets the view scroll past the map's bottom edge by `share` of the view's height, less a
+    /// sliver, so what is at the bottom of the map can be brought out from under the overlay's
+    /// bottom panels while the map's last pixels still reach under them rather than leaving a gap.
+    ///
+    /// The room is the game's own, kept in tiles at default zoom, which every clamp on the view's
+    /// position counts through the bound it feeds. Tiles are coarser than the panels' edge, so the
+    /// room is set to the tiles that cover the share and the bound itself to the exact pixel. Both
+    /// stay short of the view's own height less a tile, past which the game's fog pass would start
+    /// reading rows below the map's last. A share of nothing leaves the game's own bound alone.
+    unsafe fn set_bottom_overpan(&self, share: f32) {
+        unsafe {
+            let Some(overpan) = &self.bottom_overpan else {
+                return;
+            };
+            let zoom = self.zoom.resolve();
+            let view_height = self.game_screen_height_bwpx.resolve() as f32;
+            let room = (share.max(0.0) * view_height - OVERPAN_UNDERLAP)
+                .clamp(0.0, (view_height - TILE_PIXELS).max(0.0));
+            let tiles = (room * zoom / TILE_PIXELS).ceil() as u16;
+            let mut moved = false;
+            if overpan.padding_tiles.resolve() != tiles {
+                overpan.padding_tiles.write(tiles);
+                (overpan.update_scroll_bounds)();
+                moved = true;
+            }
+            let map_height = self.map_height_pixels.resolve() as f32;
+            if room > 0.0 && map_height + room >= view_height {
+                let max_y = (map_height + room - view_height).round() as u32;
+                if overpan.scroll_max_y.resolve() != max_y {
+                    overpan.scroll_max_y.write(max_y);
+                    debug!(
+                        "View may scroll {room} pixels ({tiles} tiles) past the map's bottom edge: \
+                         top edge at most {max_y} for a map {map_height} tall and a view \
+                         {view_height} tall",
+                    );
+                    moved = true;
+                }
+            }
+            if moved {
+                // Through the game's own move, which redraws the view for a position the new
+                // bound pulled in.
+                (self.move_screen)(self.screen_x.resolve(), self.screen_y.resolve());
+            }
+        }
+    }
+
     unsafe fn center_screen(&self, pos: &bw::Point) {
         unsafe {
             let width = self.game_screen_width_bwpx.resolve();
@@ -6061,7 +6746,7 @@ impl BwScr {
                 Some(s) => s,
                 None => return,
             };
-            let max_height = match self.map_height_pixels.resolve().checked_sub(height) {
+            let max_height = match self.screen_max_y() {
                 Some(s) => s,
                 None => return,
             };
@@ -6608,9 +7293,10 @@ impl BwScr {
     /// be moved to be called at init_game_data, init_unit_data, or other later initialization
     /// hooks too.
     ///
-    /// The only case where this may be called more than once is when the user
-    /// seeks replay backwards and it has to be simulated from start over again, so
-    /// we don't need to and shouldn't reset any network state.
+    /// The only case where this may be called more than once is a replay seek that SC:R
+    /// handles itself (one past the replay's end, or with the keyframe seeker unavailable),
+    /// which simulates the replay from the start over again, so we don't need to and
+    /// shouldn't reset any network state.
     fn reset_state_for_game_init(&self) {
         #[cfg(debug_assertions)]
         crate::rollback_harness::reset_for_game_init();
@@ -6619,10 +7305,122 @@ impl BwScr {
         crate::frame_timing::reset();
         crate::frame_pacing::reset();
         self.detection_status_copy.lock().clear();
+        // A replay starting over for a seek SC:R makes itself simulates from frame 0 again, and
+        // records its chat from there.
+        self.chat_history.lock().clear();
         self.first_game_logic_frame_done
             .store(false, Ordering::Relaxed);
         if let Some(mut apm) = self.apm_state.lock() {
             *apm = ApmStats::new();
+        }
+        // A replay starting over simulates from frame 0 again, and the history is rebuilt from
+        // there.
+        if let Some(mut stats) = self.game_stats.lock() {
+            stats.clear();
+        }
+    }
+
+    /// Advances the observer panels' history by whatever the simulation step just did.
+    ///
+    /// Sampled after the step rather than before it, so a sample is what the frame ended as. Only
+    /// while the local client is watching rather than playing: nothing else reads the history, and
+    /// a player's own game should not pay for it.
+    fn sample_game_stats(&self) {
+        if !self.game_started.load(Ordering::Acquire) || !self.is_replay_or_obs() {
+            return;
+        }
+        unsafe {
+            let game = self.game();
+            if game.is_null() {
+                return;
+            }
+            let game = bw_dat::Game::from_ptr(game);
+            let active_units = self.active_units();
+            let vector = self.units.resolve();
+            if vector.is_null() {
+                return;
+            }
+            let units = bw_dat::UnitArray::new((*vector).data as *mut bw::Unit, (*vector).length);
+            // Only a rollback steps a frame that can come out differently the second time; a
+            // replay seek that goes back over frames replays the same commands.
+            let resimulation = match crate::rollback::tick_running() {
+                true => game_stats::Resimulation::MayDiffer,
+                false => game_stats::Resimulation::Identical,
+            };
+            // The replay's own length says when the last sample is taken, which ends whatever fight
+            // is going on; a game being played only ends as its players leave.
+            let end_frame = (self.is_replay.resolve() != 0)
+                .then(|| self.replay_header())
+                .filter(|header| !header.is_null())
+                .map(|header| (*header).replay_end_frame);
+            if let Some(mut stats) = self.game_stats.lock() {
+                stats.set_end_frame(end_frame);
+                stats.step(
+                    game.frame_count(),
+                    resimulation,
+                    &game_stats::DatUnits,
+                    || {
+                        game_stats::read_snapshot(
+                            game,
+                            self.players(),
+                            active_units,
+                            &units,
+                            self.selection_hotkey_last_used_frames
+                                .map(|frames| frames.resolve() as *const u16),
+                            self.map_tile_flags_slice(game),
+                        )
+                    },
+                );
+                #[cfg(debug_assertions)]
+                dump_game_stats(&stats);
+            }
+        }
+    }
+
+    /// Reads again what the observer panels show of the game as it stands (number keys, vision)
+    /// when the frame on screen has moved away from where it was read without the simulation
+    /// sampling it, as a replay seek that lands paused leaves it.
+    fn refresh_stale_game_stats(&self) {
+        if !self.game_started.load(Ordering::Acquire) || !self.is_replay_or_obs() {
+            return;
+        }
+        unsafe {
+            let game = self.game();
+            if game.is_null() {
+                return;
+            }
+            let game = bw_dat::Game::from_ptr(game);
+            let Some(units) = self.unit_array() else {
+                return;
+            };
+            let Some(mut stats) = self.game_stats.lock() else {
+                return;
+            };
+            if !stats.current_state_stale(game.frame_count()) {
+                return;
+            }
+            let snapshot = game_stats::read_snapshot(
+                game,
+                self.players(),
+                self.active_units(),
+                &units,
+                self.selection_hotkey_last_used_frames
+                    .map(|frames| frames.resolve() as *const u16),
+                self.map_tile_flags_slice(game),
+            );
+            stats.refresh_current_state(snapshot, &game_stats::DatUnits);
+        }
+    }
+
+    /// The map's per-tile flags, one for every tile of the map being played.
+    unsafe fn map_tile_flags_slice(&self, game: bw_dat::Game) -> Option<&[u32]> {
+        unsafe {
+            let flags = self.map_tile_flags.as_ref()?.resolve();
+            if flags.is_null() {
+                return None;
+            }
+            let count = usize::from(game.map_width_tiles()) * usize::from(game.map_height_tiles());
+            Some(std::slice::from_raw_parts(flags, count))
         }
     }
 
@@ -6639,10 +7437,209 @@ impl BwScr {
         unsafe { self.is_replay.resolve() != 0 || self.local_unique_player_id.resolve() >= 0x80 }
     }
 
+    /// Whether the local client is watching a live game from an observer slot.
+    fn is_live_observer(&self) -> bool {
+        unsafe { self.is_replay.resolve() == 0 && self.local_unique_player_id.resolve() >= 0x80 }
+    }
+
     /// Sets [game_results_sent] atomically, returning whether the results need to be sent by the
     /// caller.
     pub fn trigger_game_results_sent(&self) -> bool {
         !self.game_results_sent.swap(true, Ordering::Relaxed)
+    }
+
+    /// Puts settings the player moved on the in-game options screen into effect, and hands them to
+    /// the app to save.
+    ///
+    /// SC:R's own settings go through its settings registry at the start of the next frame (see
+    /// `pending_game_setting_writes`), which applies most of them on the spot; ShieldBattery's go
+    /// to whatever in the DLL reads them. A setting only a launch reads (the screen marks those) is
+    /// saved and nothing more.
+    fn apply_setting_changes(&self, changes: &[SettingChange]) {
+        for &change in changes {
+            if let Some(write) = draw_overlay::options::registry_setting(change) {
+                self.pending_game_setting_writes.lock().push(write);
+            }
+            if let SettingChange::HdGraphicsOn(on) = change {
+                self.switch_graphics(on);
+            }
+            self.apply_local_setting_change(change);
+        }
+        self.save_setting_changes(changes);
+    }
+
+    /// Hands settings that changed during the game to the app to save.
+    fn save_setting_changes(&self, changes: &[SettingChange]) {
+        let mut saved = SettingsChanged::default();
+        for &change in changes {
+            match draw_overlay::options::app_setting(change) {
+                Some(setting) => {
+                    let object = if setting.local {
+                        &mut saved.local
+                    } else {
+                        &mut saved.scr
+                    };
+                    object.insert(setting.key.into(), setting.value);
+                }
+                None => {
+                    if let SettingChange::Monitor(choice) = change {
+                        let lists = self.option_lists.lock();
+                        saved.monitor = Some(choice.and_then(|index| {
+                            lists.monitors.get(index).map(|monitor| monitor.bounds)
+                        }));
+                    }
+                }
+            }
+        }
+        send_game_msg_to_async(GameThreadMessage::SettingsChanged(saved));
+    }
+
+    /// Switches between SD and HD graphics the way the game's own F5 key does, by pressing it: the
+    /// key switches whichever way the game is not drawing, so it is pressed only while that differs
+    /// from what the player asked for. The game refuses it while a switch is still fading in.
+    fn switch_graphics(&self, hd: bool) {
+        use winapi::um::winuser::{PostMessageW, VK_F5, WM_KEYDOWN, WM_KEYUP};
+        if self.disable_hd.load(Ordering::Acquire)
+            || self.is_hd_mode[0].load(Ordering::Relaxed) == hd
+        {
+            return;
+        }
+        let Some(window) = crate::forge::game_window_handle() else {
+            return;
+        };
+        // A repeat count of one for the press; a release also marks the key as having been down and
+        // as going up.
+        const PRESS: isize = 1;
+        const RELEASE: isize = 1 | (1 << 30) | (1 << 31);
+        self.posted_graphics_keys.store(2, Ordering::Release);
+        unsafe {
+            PostMessageW(window, WM_KEYDOWN, VK_F5 as usize, PRESS);
+            PostMessageW(window, WM_KEYUP, VK_F5 as usize, RELEASE);
+        }
+    }
+
+    /// Writes the options screen's queued changes into SC:R's settings registry. Must run on the
+    /// game's main thread between frames, as SC:R's own writes do.
+    fn write_pending_game_settings(&self) {
+        let writes = mem::take(&mut *self.pending_game_setting_writes.lock());
+        for (group, key, value) in writes {
+            match &self.game_settings {
+                Some(settings) => {
+                    if !unsafe { settings.set(group, key, value) } {
+                        debug!("SC:R has no {group}.{key} setting yet, saving it only");
+                    }
+                }
+                None => debug!("No settings registry, saving {group}.{key} only"),
+            }
+        }
+    }
+
+    /// Hands one of ShieldBattery's own settings to what reads it in the DLL, for the ones read
+    /// while a game runs.
+    fn apply_local_setting_change(&self, change: SettingChange) {
+        match change {
+            SettingChange::GrabPanOn(on) => {
+                self.grab_pan_sensitivity_on.store(on, Ordering::Release);
+            }
+            SettingChange::GrabPanSensitivity(value) => {
+                self.grab_pan_gain
+                    .store(grab_pan_gain(value as f32).to_bits(), Ordering::Release);
+            }
+            SettingChange::GrabPanInverted(on) => {
+                self.grab_pan_inverted.store(on, Ordering::Release);
+            }
+            SettingChange::MinimapTerrain(terrain) => {
+                let hidden = terrain == overlay_ui::options::MinimapTerrain::Hidden;
+                self.saved_minimap_terrain_hidden
+                    .store(hidden, Ordering::Release);
+                if let Some(value) = self.minimap_terrain_hidden.as_ref() {
+                    unsafe { value.write(u8::from(hidden)) };
+                }
+            }
+            SettingChange::MinimapColorMode(mode) => {
+                let mode = match mode {
+                    overlay_ui::options::MinimapColorMode::Standard => MinimapColorMode::Standard,
+                    overlay_ui::options::MinimapColorMode::PresetOnMinimapOnly => {
+                        MinimapColorMode::PresetOnMinimapOnly
+                    }
+                    overlay_ui::options::MinimapColorMode::Preset => MinimapColorMode::Preset,
+                };
+                self.saved_minimap_color_mode
+                    .store(mode as u8, Ordering::Release);
+                // With team colors on, the mode the player sees is the engine's own, and the
+                // game's global is pinned to whatever that mode needs.
+                let mut guard = self.team_color_runtime.lock();
+                if let Some(runtime) = guard.as_mut() {
+                    runtime.virtual_mode = mode;
+                    unsafe { self.apply_team_color_mode(runtime) };
+                } else if let Some(value) = self.minimap_color_mode.as_ref() {
+                    unsafe { value.write(mode as u8) };
+                }
+            }
+            SettingChange::FramePacing(pacing) => {
+                let options = *self.options.lock();
+                crate::frame_pacing::reconfigure(
+                    Some(draw_overlay::options::frame_pacing_id(pacing)),
+                    options.vsync_on,
+                );
+            }
+            SettingChange::VsyncOn(on) => {
+                let options = *self.options.lock();
+                crate::frame_pacing::reconfigure(
+                    Some(draw_overlay::options::frame_pacing_id(options.frame_pacing)),
+                    on,
+                );
+            }
+            SettingChange::RollbackTarget(target) => {
+                crate::rollback_live::set_player_rollback_target(target);
+            }
+            _ => (),
+        }
+    }
+
+    /// Brings the options screen's copy of the settings the game changes on its own keys up to
+    /// date with what the game shows this frame, and returns the changes the game made.
+    ///
+    /// Whether the game draws in HD is read off the final picture the renderer last drew, which is
+    /// what the game shows whatever any one draw command asked for, and not while a switch between
+    /// the two is still drawing both.
+    fn follow_engine_settings(&self) -> Vec<SettingChange> {
+        use overlay_ui::options as ui;
+        let minimap_color_mode = self
+            .team_color_virtual_mode()
+            .or_else(|| self.read_minimap_color_mode())
+            .map(|mode| match mode {
+                MinimapColorMode::Standard => ui::MinimapColorMode::Standard,
+                MinimapColorMode::PresetOnMinimapOnly => ui::MinimapColorMode::PresetOnMinimapOnly,
+                MinimapColorMode::Preset => ui::MinimapColorMode::Preset,
+            });
+        let registry = draw_overlay::options::KEYED_REGISTRY_SETTINGS.map(|setting| {
+            let settings = self.game_settings.as_ref()?;
+            // SAFETY: the overlay's frame runs on the game's main thread, once a game is running.
+            unsafe { settings.get(setting.group, setting.key) }
+        });
+        let read = draw_overlay::options::EngineSettings {
+            registry,
+            hd_graphics_on: (!self.hd_switching.load(Ordering::Relaxed))
+                .then(|| self.is_hd_mode[0].load(Ordering::Relaxed)),
+            minimap_terrain: self
+                .read_minimap_terrain_hidden()
+                .map(|hidden| match hidden {
+                    true => ui::MinimapTerrain::Hidden,
+                    false => ui::MinimapTerrain::Shown,
+                }),
+            minimap_color_mode,
+        };
+        let changes = self
+            .engine_settings
+            .lock()
+            .follow(read, &mut self.options.lock());
+        // Already in effect, since the game made them; the app still has to save them, or the
+        // value it last saved from the screen would be put back at the next launch.
+        if !changes.is_empty() {
+            self.save_setting_changes(&changes);
+        }
+        changes
     }
 
     /// Reads the current Shift+Tab minimap player-color mode, or `None` if the global wasn't located
@@ -6832,7 +7829,8 @@ impl BwScr {
                 }
             }
             let local_player = if self.is_replay_or_obs() {
-                None
+                game_thread::replay_seat_of_local_user()
+                    .filter(|seat| active_players.contains(seat))
             } else {
                 // A seated player's id is always a real player slot; anything else would index
                 // out of bounds in the assignment engine, so degrade to the seatless (static)
@@ -6857,7 +7855,9 @@ impl BwScr {
                 local_player,
                 initial_allies,
             };
-            let state = TeamColorState::new(config, &info, shuffle_seed());
+            // Shuffled from the game's own seed, which its replay records, so a replay of the
+            // watcher's own game shuffles the way the game did.
+            let state = TeamColorState::new(config, &info, u64::from(self.rng_seed()));
             let virtual_mode =
                 MinimapColorMode::try_from(self.saved_minimap_color_mode.load(Ordering::Acquire))
                     .unwrap_or_default();
@@ -6911,8 +7911,9 @@ impl BwScr {
 
     /// Reacts to a live change of the local player's outgoing alliance row (custom lobbies where
     /// players ally mid-game). Diffs the row, advances the engine, and rewrites `rgb_colors` when
-    /// the assignment changed and colors are currently shown. Called after each `step_game`; a
-    /// no-op when the feature is inactive or there is no local seat (observer/replay).
+    /// the assignment changed and colors are currently shown. Called after each `step_game` and on
+    /// each drawn frame; a no-op when the feature is inactive or there is no local seat (an
+    /// observer, or a replay of a game the watcher was not in).
     unsafe fn update_team_colors_from_alliances(&self) {
         unsafe {
             let mut guard = self.team_color_runtime.lock();
@@ -6923,6 +7924,9 @@ impl BwScr {
                 return;
             };
             let game = self.game();
+            if game.is_null() {
+                return;
+            }
             let mut row = [false; 8];
             for (i, cell) in row.iter_mut().enumerate() {
                 *cell = (*game).alliances[local as usize][i] != 0;
@@ -7260,6 +8264,45 @@ impl BwScr {
             .handle_send_chat(text, |player| unsafe { !self.is_allied_with(player.0) })
     }
 
+    /// What the game offers the local player for pausing: SC:R's own rules, which its menu shows
+    /// as one button or the other. A player with pauses left may pause a running game (three a
+    /// game), and anyone in the game may resume a paused one. Only a live multiplayer game pauses
+    /// this way: a replay has its own playback controls.
+    unsafe fn pause_control(&self, game: bw_dat::Game, is_replay: bool) -> Option<PauseControl> {
+        unsafe {
+            if is_replay || netcode_v2::with_turn_state(|_| ()).is_none() {
+                return None;
+            }
+            let paused = self.is_paused.as_ref()?.resolve() != 0;
+            if paused {
+                return Some(PauseControl::Resume);
+            }
+            // Pauses are counted per person rather than per side: in a shared-control game the
+            // players on one side each have their own.
+            let local = self.local_unique_player_id.resolve() as usize;
+            let left = *(**game).pauses_remaining.get(local)?;
+            (left > 0).then_some(PauseControl::Pause { left: Some(left) })
+        }
+    }
+
+    /// What this game's rules allow of alliances and chat recipients, for the alliances screen.
+    unsafe fn alliance_rules(&self) -> draw_overlay::AllianceRules {
+        unsafe {
+            let game_data = self.game_data();
+            if game_data.is_null() {
+                return draw_overlay::AllianceRules::default();
+            }
+            let game_type = (*game_data).game_type();
+            draw_overlay::AllianceRules {
+                // The game allows alliance changes only at exactly this value, and ignores the
+                // commands for them otherwise.
+                alliances_open: (*game_data).game_template.allies_enabled == 1,
+                allies_chat: bw::get_had_allies_enabled(),
+                shared_control: game_type.is_team_game(),
+            }
+        }
+    }
+
     pub fn init_chat_manager(
         &self,
         players: &[JoinedPlayer],
@@ -7278,8 +8321,20 @@ impl BwScr {
         self.chat_manager.lock().set_blocked_players(blocked_users);
     }
 
+    /// A player's actions per minute over the game so far, or `None` before a whole second of it
+    /// has been counted.
+    pub fn average_apm(&self, player: u8) -> Option<u32> {
+        self.apm_state
+            .lock()
+            .and_then(|apm| apm.player_average_apm(player))
+    }
+
     pub fn block_request_failed(&self, failure: &BlockRequestFailed) {
         self.chat_manager.lock().block_request_failed(failure);
+    }
+
+    pub fn report_result(&self, result: &crate::app_messages::ReportResult) {
+        self.chat_manager.lock().report_result(result);
     }
 
     /// Prints the notices other threads queued on the chat manager. Must run on the game thread.
@@ -8284,12 +9339,7 @@ impl bw::Bw for BwScr {
             .get("grabPanInverted")
             .and_then(|x| x.as_bool())
             .unwrap_or(false);
-        // The 0-150 slider value maps exponentially onto a camera-px-per-mouse-px gain of
-        // 0.125..=512 (2^-3..=2^9): the floor pans at an eighth of the cursor's speed for
-        // precise framing, 50 is 1:1, and each 12.5 slider units doubles the speed from there.
-        // The drag callback accumulates sub-pixel remainder so gains below 1 still move the
-        // camera on slow drags.
-        let grab_pan_gain = (grab_pan_sensitivity.clamp(0.0, 150.0) * 0.08 - 3.0).exp2();
+        let grab_pan_gain = grab_pan_gain(grab_pan_sensitivity);
 
         self.is_carbot.store(is_carbot, Ordering::Release);
         self.show_skins.store(show_skins, Ordering::Release);
@@ -8310,6 +9360,43 @@ impl bw::Bw for BwScr {
 
         *self.team_color_config.lock() =
             settings.team_colors.as_ref().and_then(|tc| tc.to_config());
+
+        // The overlay's options screen opens on what the app was playing on. Nothing writes back
+        // into these settings from here, so this is the only time the game's side of them is read.
+        // Which display the game is on is the one setting the screen shows that the app names in
+        // its own terms: a launch names it by the desktop rectangle it covers, and the list the
+        // screen picks from is this machine's rather than anything the app sent.
+        let (displays, launched_monitor) = monitors::displays(settings.monitor_bounds);
+        *self.options.lock() = draw_overlay::options::options_view_from_settings(
+            &settings.scr,
+            &settings.local,
+            launched_monitor,
+        );
+        *self.option_lists.lock() = Arc::new(overlay_ui::options::OptionsLists {
+            monitors: displays,
+            ..overlay_ui::options::OptionsLists::default()
+        });
+
+        // A watcher's panels are as they left them in the last game they watched. Saved by an older
+        // or newer client, unknown fields are ignored and missing ones take their defaults.
+        *self.observer_panels.lock() = settings
+            .local
+            .get("observerPanels")
+            .and_then(|panels| serde_json::from_value(panels.clone()).ok());
+
+        // The overlay reads its language from a process-wide locale, set here because settings
+        // arrive long before any overlay exists. A tag we ship no catalog for keeps English, which
+        // every string falls back to anyway.
+        let locale = settings
+            .language
+            .as_deref()
+            .and_then(overlay_ui::i18n::Locale::from_tag);
+        if let Some(language) = &settings.language
+            && locale.is_none()
+        {
+            warn!("No in-game UI translations for language '{language}', using English");
+        }
+        overlay_ui::i18n::set_locale(locale.unwrap_or(overlay_ui::i18n::Locale::En));
 
         self.visualize_network_stalls
             .store(visualize_network_stalls, Ordering::Release);
@@ -8932,6 +10019,20 @@ impl bw::Bw for BwScr {
             {
                 return Some(0);
             }
+            // The options screen's own F5 presses go straight to the game, whatever the overlay is
+            // holding the keyboard for: the screen is open while they arrive.
+            use winapi::um::winuser::{VK_F5, WM_KEYDOWN, WM_KEYUP};
+            if (msg == WM_KEYDOWN || msg == WM_KEYUP)
+                && wparam == VK_F5 as usize
+                && self
+                    .posted_graphics_keys
+                    .try_update(Ordering::AcqRel, Ordering::Acquire, |left| {
+                        left.checked_sub(1)
+                    })
+                    .is_ok()
+            {
+                return None;
+            }
             let mut render_state = match self.render_state.lock() {
                 Some(s) => s,
                 None => {
@@ -8953,6 +10054,102 @@ impl bw::Bw for BwScr {
     fn starting_fog(&self) -> StartingFog {
         self.starting_fog.load(Ordering::Acquire)
     }
+}
+
+/// The game's room for scrolling past the map's bottom edge.
+struct BottomOverpan {
+    /// The room, in tiles at default zoom.
+    padding_tiles: Value<u16>,
+    /// The bound every clamp on the view's top edge reads, which counts the room.
+    scroll_max_y: Value<u32>,
+    /// Recomputes the bounds after the room changes.
+    update_scroll_bounds: unsafe extern "C" fn(),
+}
+
+/// How many map pixels a tile is.
+const TILE_PIXELS: f32 = 32.0;
+
+/// How much of the map, in map pixels, still reaches under the overlay's bottom panels with the view
+/// scrolled as far past the map's bottom edge as it goes: a quarter of a tile, so the map meets the
+/// panels rather than leaving a strip of nothing between them, and nothing at the bottom of the
+/// map is hidden by more than a sliver.
+const OVERPAN_UNDERLAP: f32 = TILE_PIXELS / 4.0;
+
+/// A unit the game's view follows: its unique id, and where following it last left the view.
+struct FollowedUnit {
+    unique_id: u32,
+    left_screen_at: Option<(u32, u32)>,
+}
+
+/// SC:R's software cursor draw, and the stack of render modes that sets the layer and render target
+/// every draw command queued under it goes to.
+struct SoftwareCursor {
+    /// `fn()`; draws the cursor unless it is hidden or the hardware cursor is in use.
+    draw: VirtualAddress,
+    push_mode_override: unsafe extern "C" fn(u16),
+    pop_mode_override: unsafe extern "C" fn(),
+}
+
+/// Appends what the observer stats recorded since the last call to the file `SB_STATS_DUMP` names,
+/// for tuning what the timeline reports against real replays.
+#[cfg(debug_assertions)]
+fn dump_game_stats(stats: &GameStats) {
+    use std::io::Write;
+    static DUMP: Mutex<Option<(std::fs::File, u32)>> = Mutex::new(None);
+    let mut dump = DUMP.lock();
+    if dump.is_none() {
+        // A directory, holding one file per game: named after the soak run playing it where there
+        // is one, and after the process otherwise.
+        let Some(dir) = std::env::var_os("SB_STATS_DUMP") else {
+            return;
+        };
+        let run = std::env::var_os("SB_ROLLBACK_SOAK")
+            .and_then(|done| {
+                std::path::Path::new(&done)
+                    .file_name()
+                    .map(|name| name.to_string_lossy().replace(".done.json", ""))
+            })
+            .unwrap_or_else(|| std::process::id().to_string());
+        let path = std::path::Path::new(&dir).join(format!("stats-{run}.csv"));
+        match std::fs::File::create(&path) {
+            Ok(file) => *dump = Some((file, 0)),
+            Err(e) => {
+                warn!("Couldn't create the stats dump: {e}");
+                return;
+            }
+        }
+    }
+    let Some((file, through)) = dump.as_mut() else {
+        return;
+    };
+    let (lines, newest) = stats.debug_lines_after(*through);
+    *through = newest;
+    for line in lines {
+        let _ = writeln!(file, "{line}");
+    }
+}
+
+/// Hands the observer panels the watcher has on screen to the app, which saves them for the next
+/// game they watch.
+fn save_observer_panels(panels: overlay_ui::shell::PanelPrefs) {
+    match serde_json::to_value(panels) {
+        Ok(value) => {
+            let mut saved = SettingsChanged::default();
+            saved.local.insert("observerPanels".into(), value);
+            send_game_msg_to_async(GameThreadMessage::SettingsChanged(saved));
+        }
+        Err(e) => warn!("Couldn't save the observer panels: {e}"),
+    }
+}
+
+/// The camera-px-per-mouse-px gain the grab pan sensitivity setting stands for.
+///
+/// The 0-150 slider value maps exponentially onto a gain of 0.125..=512 (2^-3..=2^9): the floor
+/// pans at an eighth of the cursor's speed for precise framing, 50 is 1:1, and each 12.5 slider
+/// units doubles the speed from there. The drag callback accumulates sub-pixel remainder so gains
+/// below 1 still move the camera on slow drags.
+fn grab_pan_gain(sensitivity: f32) -> f32 {
+    (sensitivity.clamp(0.0, 150.0) * 0.08 - 3.0).exp2()
 }
 
 /// Whether a window message is part of an Alt+S (save game) or Alt+L (load game) keypress. Windows
@@ -9698,6 +10895,7 @@ mod hooks {
         !0 => DrawMinimapPlayerUnits(u32);
         !0 => DrawMinimapMainPlayerUnits(u32);
         !0 => DrawGraphicLayers(*mut c_void, usize, u32);
+        !0 => DrawSoftwareCursor();
         !0 => DecideCursorType() -> u32;
         !0 => PrintText(*const i8, u32, u32);
         !0 => NetPlayerCount() -> u32;
@@ -9799,6 +10997,7 @@ mod hooks {
             *mut c_void,
         ) -> usize;
         !0 => Console_HitTest(*mut scr::UiConsole, i32, i32) -> u8;
+        !0 => Console_Draw(*mut scr::UiConsole) -> u32;
         !0 => OrderFn(*mut bw::Unit);
     );
 

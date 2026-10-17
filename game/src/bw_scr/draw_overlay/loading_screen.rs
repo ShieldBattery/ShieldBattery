@@ -10,7 +10,7 @@ use crate::{
         SbSlotType, SbUser,
     },
     bw::{RACE_PROTOSS, RACE_TERRAN, RACE_ZERG},
-    bw_scr::draw_overlay::{BwVars, OverlayState, colors, fonts::display_family},
+    bw_scr::draw_overlay::{BwVars, OverlayState, colors, fonts::display},
     game_thread,
     netcode_v2::{LoadingConnectivity, LoadingPresence, loading_presence},
 };
@@ -37,9 +37,8 @@ impl OverlayState {
         loading_connectivity: Option<&LoadingConnectivity>,
         ui: &mut egui::Ui,
     ) {
-        // egui 0.34 made `CentralPanel::show` take a `&mut Ui` (drawn into the pass's root Ui)
-        // rather than a `&Context`. The rest of this fn still wants the context for image loading and
-        // the floating countdown Area, so hold onto a clone.
+        // `CentralPanel::show` draws into `ui`, but image loading and the floating countdown Area
+        // want the context.
         let ctx = ui.ctx().clone();
         if !bw.has_init_bw
             && let Some(info) = setup_info
@@ -207,7 +206,7 @@ impl OverlayState {
                                                             RichText::new(map_name.unwrap_or(""))
                                                                 .size(28.0)
                                                                 .color(colors::GREY99)
-                                                                .family(display_family()),
+                                                                .family(display()),
                                                         ),
                                                     );
                                                 });
@@ -269,7 +268,7 @@ impl OverlayState {
                                             RichText::new(text)
                                                 .size(56.0)
                                                 .color(colors::GREY99)
-                                                .family(display_family()),
+                                                .family(display()),
                                         ),
                                     );
                                 },
@@ -360,7 +359,7 @@ impl OverlayState {
                                         RichText::new(username)
                                             .size(28.0)
                                             .color(colors::GREY99)
-                                            .family(display_family()),
+                                            .family(display()),
                                     );
                                     if let Some(rank) = rank {
                                         add_rank(ui, rank);
@@ -447,7 +446,7 @@ fn add_observer_row(
                                         RichText::new(name)
                                             .size(18.0)
                                             .color(colors::GREY99)
-                                            .family(display_family()),
+                                            .family(display()),
                                     )
                                     .truncate(),
                                 );

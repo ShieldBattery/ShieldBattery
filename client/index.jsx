@@ -126,6 +126,20 @@ rootElemPromise
           new TypedIpcRenderer().invoke('activeGameSetRollback', gameId, depth, delays),
         forceQuit: gameId => new TypedIpcRenderer().invoke('activeGameForceQuit', gameId),
         screenshot: gameId => new TypedIpcRenderer().invoke('activeGameDebugScreenshot', gameId),
+        input: (gameId, events) =>
+          new TypedIpcRenderer().invoke('activeGameDebugInput', gameId, events),
+        pressKey: (gameId, vkey) =>
+          new TypedIpcRenderer().invoke('activeGameDebugInput', gameId, [
+            { type: 'key', vkey, down: true },
+            { type: 'wait', ms: 30 },
+            { type: 'key', vkey, down: false },
+          ]),
+        click: (gameId, x, y, button = 'left') =>
+          new TypedIpcRenderer().invoke('activeGameDebugInput', gameId, [
+            { type: 'mouseButton', x, y, button, down: true },
+            { type: 'wait', ms: 50 },
+            { type: 'mouseButton', x, y, button, down: false },
+          ]),
       }
     }
     registerDispatch(reduxStore.dispatch)

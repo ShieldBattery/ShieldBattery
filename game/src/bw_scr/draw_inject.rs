@@ -63,11 +63,9 @@ quick_error! {
 }
 
 pub struct RenderTarget {
-    pub bw: *mut scr::RenderTarget,
     pub id: u32,
-    /// 1.0 / scaled_render_target_width
-    /// Where scaled width / height are determined so that if height is above 1080, and
-    /// width is a value matching 1080 height so that the aspect ratio is kept.
+    /// 1.0 / the target's width and height in overlay points, at the scale the overlay is laid
+    /// out at (`overlay_ui::kit::pixels::pixels_per_point`).
     /// Used for egui <-> bw coordinate translations.
     pub w_recip: f32,
     pub h_recip: f32,
@@ -79,30 +77,84 @@ pub struct RenderTarget {
 }
 
 impl RenderTarget {
-    pub unsafe fn new(bw: *mut scr::RenderTarget, id: u32) -> RenderTarget {
+    /// The backbuffer, which reports the whole window as its size while its viewport is only the
+    /// part the game is shown in: with SD graphics or the pillarbox setting, the 4:3 middle of a
+    /// wider window. That part is exactly where the game's UI target is scaled to at the end of a
+    /// frame, so it has the UI target's shape at the backbuffer's height.
+    pub unsafe fn backbuffer(
+        bw: *mut scr::RenderTarget,
+        ui: *mut scr::RenderTarget,
+    ) -> RenderTarget {
         unsafe {
-            let width = (*bw).width as f32;
-            let height = (*bw).height as f32;
-            // TODO(neive): This is more or less duplicating logic in draw_overlay::OverlayState::step,
-            // (And assuming the render target sizes here are same as the values passed to step())
-            // would be more cleaner to have the egui-visible width/height be passed from there.
-            let (scale, h_recip) = if height > 1080.0 {
-                (height / 1080.0, 1.0 / 1080.0)
-            } else {
-                (1.0, 1.0 / height)
-            };
-            let w_recip = 1.0 / (width / scale);
+            let height = (*bw).height;
+            let width = shown_width((*bw).width, height, (*ui).width, (*ui).height);
+            RenderTarget::with_size(0, width, height)
+        }
+    }
+
+    /// The size of the part of the target that is drawn into, in pixels.
+    pub fn size(&self) -> (u32, u32) {
+        (
+            (1.0 / self.bw_w_recip).round() as u32,
+            (1.0 / self.bw_h_recip).round() as u32,
+        )
+    }
+
+    fn with_size(id: u32, width: u32, height: u32) -> RenderTarget {
+        let width = width.max(1) as f32;
+        let height = height.max(1) as f32;
+        // The same scale the overlay is laid out at, so a point lands where the layout put it.
+        let scale = overlay_ui::kit::pixels::pixels_per_point(width, height);
+        RenderTarget {
+            id,
+            w_recip: scale / width,
+            h_recip: scale / height,
+            bw_w_recip: 1.0 / width,
+            bw_h_recip: 1.0 / height,
+        }
+    }
+
+    /// A target covering the same part of the screen as `points_from`, addressed in the same overlay
+    /// points: positions are a fraction of the screen whichever target's pixels they land in.
+    pub unsafe fn sharing_points(
+        bw: *mut scr::RenderTarget,
+        id: u32,
+        points_from: &RenderTarget,
+    ) -> RenderTarget {
+        unsafe {
             RenderTarget {
-                bw,
                 id,
-                w_recip,
-                h_recip,
-                bw_w_recip: 1.0 / width,
-                bw_h_recip: 1.0 / height,
+                w_recip: points_from.w_recip,
+                h_recip: points_from.h_recip,
+                bw_w_recip: 1.0 / (*bw).width.max(1) as f32,
+                bw_h_recip: 1.0 / (*bw).height.max(1) as f32,
             }
         }
     }
 }
+
+/// How wide the part of a `backbuffer_width` x `height` backbuffer is that the game is shown in,
+/// given the size of the game's UI target.
+///
+/// The UI target has the shape of the shown part, but only to the nearest pixel below: a 16:9 UI
+/// target 960 tall is 1706 wide, not 1706.67. Scaled to the backbuffer, that shortfall would make
+/// the shown part a pixel narrower than a 16:9 window and center it half a pixel in, which leaves
+/// every edge the overlay draws straddling two pixel columns. A backbuffer no wider than the UI
+/// target could have meant is shown whole.
+fn shown_width(backbuffer_width: u32, height: u32, ui_width: u32, ui_height: u32) -> u32 {
+    let ui_height = ui_height.max(1) as f32;
+    let narrowest = height as f32 * ui_width as f32 / ui_height;
+    let widest = height as f32 * (ui_width + 1) as f32 / ui_height;
+    if backbuffer_width as f32 <= widest {
+        backbuffer_width
+    } else {
+        narrowest.round() as u32
+    }
+}
+
+/// The highest draw layer SC:R sends to its UI render target; anything above goes straight to the
+/// backbuffer. The game's own layer-to-target rule, which the overlay's layers follow too.
+const LAST_UI_TARGET_LAYER: u16 = 0x1e;
 
 #[repr(C)]
 #[derive(Copy, Clone, Pod, Zeroable)]
@@ -149,6 +201,7 @@ impl<T: Copy + bytemuck::NoUninit + bytemuck::AnyBitPattern> VertexBufferAlloc<T
 fn egui_vertex_to_colored_vertex(
     render_target: &RenderTarget,
     vertex: &epaint::Vertex,
+    color: [u8; 4],
 ) -> ColoredVertex {
     ColoredVertex {
         // egui vertex position is in 0.0 .. screen_points range with origin in top left,
@@ -158,8 +211,8 @@ fn egui_vertex_to_colored_vertex(
             1.0 - vertex.pos.y * render_target.h_recip,
         ],
         texture: [vertex.uv.x, vertex.uv.y],
-        // Straight alpha, like the textures (see `egui_image_data_to_rgba`).
-        color: u32::from_le_bytes(vertex.color.to_srgba_unmultiplied()),
+        // Straight alpha, like the textures (see `overlay_ui::straight_alpha`).
+        color: u32::from_le_bytes(color),
     }
 }
 
@@ -170,19 +223,29 @@ pub struct BwVars {
     pub vertex_buf: *mut scr::VertexBuffer,
     pub statres_icons: *mut scr::DdsGrpSet,
     pub cmdicons: *mut scr::DdsGrpSet,
+    /// Null where the analysis could not find the wireframes, in which case none are asked for.
+    pub wirefram: *mut scr::DdsGrpSet,
     pub is_hd: bool,
     pub is_carbot: bool,
 }
 
+/// Adds the overlay's draw commands, each layer to the target SC:R itself would draw that layer
+/// into: `screen` for the layers above the game's own UI, `ui` for the ones among them.
 pub unsafe fn add_overlays(
     state: &mut RenderState,
     bw: &BwVars,
     mut overlay_out: draw_overlay::StepOutput,
-    render_target: &RenderTarget,
+    screen: &RenderTarget,
+    ui: &RenderTarget,
 ) {
     unsafe {
         update_textures(bw.renderer, state, &mut overlay_out.textures_delta);
         for (layer, primitives) in overlay_out.primitives.into_iter() {
+            let render_target = if layer > LAST_UI_TARGET_LAYER {
+                screen
+            } else {
+                ui
+            };
             for primitive in primitives {
                 match primitive.primitive {
                     epaint::Primitive::Mesh(mesh) => {
@@ -218,7 +281,7 @@ pub unsafe fn update_textures_without_adding_overlays(
     queue_free_textures(state, &mut overlay_out.textures_delta);
 }
 
-trait IndexSize: Copy {
+trait IndexSize: Copy + Into<u32> {
     fn to_u16(self) -> u16;
 }
 
@@ -252,7 +315,44 @@ unsafe fn draw_overlay_texture_ptr(
         match Texture::from_egui_user_id(egui_user_id)? {
             Texture::StatRes(frame) => ddsgrp_frame(bw.statres_icons, bw, frame),
             Texture::CmdIcon(frame) => ddsgrp_frame(bw.cmdicons, bw, frame),
+            Texture::Wireframe(frame) if !bw.wirefram.is_null() => {
+                ddsgrp_frame(bw.wirefram, bw, frame)
+            }
+            Texture::Wireframe(_) => None,
         }
+    }
+}
+
+/// The frame of a graphics set that the renderer draws at this graphics quality, which is what
+/// both the draw path and anything measuring the frame must agree on.
+///
+/// # Safety
+///
+/// `grp` must point to a live `DdsGrpSet`.
+pub unsafe fn ddsgrp_texture(
+    grp: *mut scr::DdsGrpSet,
+    is_hd: bool,
+    is_carbot: bool,
+    frame: u16,
+) -> Option<*mut scr::Texture> {
+    unsafe {
+        let index = match (is_hd, is_carbot) {
+            (false, _) => 0,
+            (true, false) => 1,
+            (true, true) => 2,
+        };
+        // A set the carbot skins are not required to have frames of is drawn from its HD frames
+        // where they have none.
+        let index = if index == 2 && (*grp).dds_grps[2].frame_count == 0 {
+            1
+        } else {
+            index
+        };
+        let ddsgrp = addr_of_mut!((*grp).dds_grps[index]);
+        if frame >= (*ddsgrp).frame_count || (*ddsgrp).textures.is_null() {
+            return None;
+        }
+        Some((*ddsgrp).textures.add(frame as usize))
     }
 }
 
@@ -262,16 +362,7 @@ unsafe fn ddsgrp_frame(
     frame: u16,
 ) -> Option<*mut scr::RendererTexture> {
     unsafe {
-        let index = match (bw.is_hd, bw.is_carbot) {
-            (false, _) => 0,
-            (true, false) => 1,
-            (true, true) => 2,
-        };
-        let ddsgrp = addr_of_mut!((*grp).dds_grps[index]);
-        if frame >= (*ddsgrp).frame_count || (*ddsgrp).textures.is_null() {
-            return None;
-        }
-        let texture = (*ddsgrp).textures.add(frame as usize);
+        let texture = ddsgrp_texture(grp, bw.is_hd, bw.is_carbot, frame)?;
         let renderer_texture = (*texture).renderer_texture;
         if renderer_texture.is_null() {
             return None;
@@ -341,10 +432,12 @@ unsafe fn draw_egui_mesh_main<I: IndexSize>(
         let index_count = quad_count * 6;
         let vertex_alloc = allocate_vertices(bw.vertex_buf, 0x8, vertex_count);
         let index_alloc = allocate_indices(bw.vertex_buf, index_count);
+        let colors = overlay_ui::straight_alpha::vertex_colors(vertices, indices);
         vertex_alloc.set_map(vertices.len(), |i| {
             bytemuck::cast::<ColoredVertex, [f32; 5]>(egui_vertex_to_colored_vertex(
                 render_target,
                 &vertices[i],
+                colors[i],
             ))
         });
         index_alloc.set_map(indices.len(), |i| [indices[i].to_u16()]);
@@ -745,12 +838,8 @@ unsafe fn update_textures(
     }
 }
 
-/// The RGBA bytes to upload for an egui texture, with straight alpha.
-///
-/// egui's colors and textures are premultiplied by alpha, but no blend mode BW's renderers offer
-/// blends premultiplied colors: the one that blends at all multiplies the source by its alpha
-/// itself. Uploaded as is, everything translucent would have its alpha applied twice and draw much
-/// fainter than egui means it to, so textures and vertex colors are both handed over unmultiplied.
+/// The RGBA bytes to upload for an egui texture, with straight alpha (see
+/// `overlay_ui::straight_alpha`).
 fn egui_image_data_to_rgba(image: &epaint::ImageData) -> Vec<u8> {
     // As of egui 0.34 the font atlas is delivered as a color image too, so every delta is a
     // `Color32` buffer.
@@ -758,7 +847,7 @@ fn egui_image_data_to_rgba(image: &epaint::ImageData) -> Vec<u8> {
         epaint::ImageData::Color(image) => image
             .pixels
             .iter()
-            .flat_map(|pixel| pixel.to_srgba_unmultiplied())
+            .flat_map(|&pixel| overlay_ui::straight_alpha::texel(pixel))
             .collect(),
     }
 }
@@ -778,5 +867,23 @@ pub fn free_textures(state: &mut RenderState) {
         for texture in state.queued_texture_frees.drain(..) {
             texture.intentional_drop();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_wide_window_is_shown_whole_despite_the_ui_targets_rounding() {
+        // HD at 1600x900: the UI target is 16:9 rounded down to 1706x960.
+        assert_eq!(shown_width(1600, 900, 1706, 960), 1600);
+        assert_eq!(shown_width(1920, 1080, 1706, 960), 1920);
+        assert_eq!(shown_width(1600, 900, 1920, 1080), 1600);
+        // SD, or the pillarbox setting: the 4:3 middle of the window.
+        assert_eq!(shown_width(1600, 900, 1280, 960), 1200);
+        assert_eq!(shown_width(1920, 1080, 1280, 960), 1440);
+        // A window narrower than the UI target's shape is never asked for more than it has.
+        assert_eq!(shown_width(1200, 900, 1280, 960), 1200);
     }
 }

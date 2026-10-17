@@ -44,6 +44,9 @@ if not exist "%scriptroot%\dist\d3dcompiler_47.dll" (
 xcopy "%scriptroot%\..\tools\sb_init.dll" "%scriptroot%\dist" /y /f /c
 xcopy "%scriptroot%\..\tools\sb_init_64.dll" "%scriptroot%\dist" /y /f /c
 
+@rem fonts the game DLL loads from disk at runtime (large CJK fallbacks that are not embedded)
+xcopy "%scriptroot%\files\fonts\dynamic\*.ttf" "%scriptroot%\dist\fonts\" /y /f /c /i
+
 @rem build the DLL
 cd "%scriptroot%"
 cargo build %target% %cargoflags%

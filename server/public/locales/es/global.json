@@ -1422,6 +1422,9 @@
   },
   "gameReport": {
     "action": "Reportar",
+    "admin": {
+      "reportedAtGameTime": "Reportado en el minuto {{gameTime}} de la partida"
+    },
     "alreadyCommended": "Ya elogiaste a este jugador por esta partida, así que no puedes reportarlo.",
     "alreadyReported": "Ya reportaste a este jugador por esta partida.",
     "badRequest": "No se pudo enviar tu reporte. Revisa los detalles e inténtalo de nuevo.",
@@ -2868,7 +2871,7 @@
           "legacy": "Clásico",
           "showResources": "Mostrar recursos",
           "showTerrainAndResources": "Mostrar terreno y recursos",
-          "title": "Comienza la niebla de guerra"
+          "title": "Niebla de guerra inicial"
         },
         "teamColorPreset": {
           "colorblindSafe": "Apto para daltónicos",
@@ -2981,7 +2984,7 @@
           "umJeonKim": "Um, Jeon, Kim Trio"
         },
         "backgroundSounds": "El sonido se reproduce mientras está en segundo plano",
-        "buildingSounds": "Construyendo sonidos",
+        "buildingSounds": "Sonidos de edificios",
         "cinematicSubtitles": "Subtítulos cinematográficos",
         "gameSounds": "Sonidos del juego",
         "gameSubtitles": "Subtítulos del juego",

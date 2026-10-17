@@ -11,16 +11,22 @@
 use std::mem;
 use std::ptr::null_mut;
 use std::slice;
+use std::time::Duration;
 
 use base64::prelude::{BASE64_STANDARD, Engine as _};
 use image::ImageEncoder;
 use serde::{Deserialize, Serialize};
-use winapi::shared::windef::{HGDIOBJ, RECT};
+use winapi::shared::windef::{HGDIOBJ, HWND, RECT};
 use winapi::um::wingdi::{
     BI_RGB, BITMAPINFO, BITMAPINFOHEADER, BitBlt, CreateCompatibleDC, CreateDIBSection,
     DIB_RGB_COLORS, DeleteDC, DeleteObject, GdiFlush, RGBQUAD, SRCCOPY, SelectObject,
 };
-use winapi::um::winuser::{GetDC, GetWindowRect, PW_RENDERFULLCONTENT, PrintWindow, ReleaseDC};
+use winapi::um::winuser::{
+    GetDC, GetWindowRect, MAPVK_VK_TO_VSC, MK_LBUTTON, MK_RBUTTON, MapVirtualKeyW,
+    PW_RENDERFULLCONTENT, PostMessageW, PrintWindow, ReleaseDC, VK_F10, VK_MENU, WM_CHAR,
+    WM_KEYDOWN, WM_KEYUP, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEMOVE, WM_RBUTTONDOWN, WM_RBUTTONUP,
+    WM_SYSKEYDOWN, WM_SYSKEYUP,
+};
 
 use crate::app_messages::SbUserId;
 
@@ -86,6 +92,118 @@ pub enum DebugControlCommand {
         #[serde(default)]
         delays: Vec<DebugRollbackDelay>,
     },
+    /// Post a sequence of synthetic input messages to the game window from a worker thread (see
+    /// [`post_input`]), so tooling can press keys and click on the in-game overlay. Fire-and-forget:
+    /// no reply. Verify via a screenshot or `queryState`.
+    ///
+    /// The messages are posted, not injected into the OS input queue, so the game's
+    /// `GetKeyState`/`GetAsyncKeyState` reads never see them: posting `VK_SHIFT` (or any other
+    /// modifier) does not change key state, so shifted or ctrl/alt combinations can't be driven this
+    /// way. Mouse coordinates are client-area pixels of the game window, as in a screenshot.
+    Input { events: Vec<DebugInputEvent> },
+}
+
+/// One step of a [`DebugControlCommand::Input`] sequence.
+#[derive(Debug, Deserialize, Clone, Copy, Eq, PartialEq)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum DebugInputEvent {
+    /// A key press or release, posted as `WM_KEYDOWN`/`WM_KEYUP` (`WM_SYSKEYDOWN`/`WM_SYSKEYUP` for
+    /// F10 and Alt, which Windows delivers as system keys).
+    Key { vkey: u16, down: bool },
+    /// A character, posted as `WM_CHAR`.
+    Char { code: u32 },
+    /// Move the cursor to client-area pixel (`x`, `y`).
+    MouseMove { x: i32, y: i32 },
+    /// Move to (`x`, `y`), then press or release a mouse button there.
+    MouseButton {
+        x: i32,
+        y: i32,
+        button: DebugMouseButton,
+        down: bool,
+    },
+    /// Sleep before the next event, so a click can span frames (the game handles posted messages on
+    /// its own thread).
+    Wait { ms: u32 },
+}
+
+#[derive(Debug, Deserialize, Clone, Copy, Eq, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum DebugMouseButton {
+    Left,
+    Right,
+}
+
+/// Posts `events` to the game window in order, sleeping for `wait` events. Blocking: meant to run on
+/// a worker thread (`tokio::task::spawn_blocking`), never on the game thread. Stops early if the
+/// game window doesn't exist or a post fails.
+pub fn post_input(events: &[DebugInputEvent]) {
+    let Some(hwnd) = crate::forge::debug_window_handle() else {
+        warn!("debugControl: input dropped, game window not created yet");
+        return;
+    };
+    for event in events {
+        debug!("debugControl: input {event:?}");
+        if !post_input_event(hwnd, *event) {
+            warn!(
+                "debugControl: PostMessageW failed for {event:?}: {}",
+                last_error()
+            );
+            return;
+        }
+    }
+}
+
+fn post_input_event(hwnd: HWND, event: DebugInputEvent) -> bool {
+    match event {
+        DebugInputEvent::Key { vkey, down } => {
+            let sys = matches!(vkey as i32, VK_F10 | VK_MENU);
+            let message = match (sys, down) {
+                (false, true) => WM_KEYDOWN,
+                (false, false) => WM_KEYUP,
+                (true, true) => WM_SYSKEYDOWN,
+                (true, false) => WM_SYSKEYUP,
+            };
+            post(hwnd, message, vkey as usize, key_lparam(vkey, down))
+        }
+        DebugInputEvent::Char { code } => post(hwnd, WM_CHAR, code as usize, 1),
+        DebugInputEvent::MouseMove { x, y } => post(hwnd, WM_MOUSEMOVE, 0, mouse_lparam(x, y)),
+        DebugInputEvent::MouseButton { x, y, button, down } => {
+            if !post(hwnd, WM_MOUSEMOVE, 0, mouse_lparam(x, y)) {
+                return false;
+            }
+            let (message, wparam) = match (button, down) {
+                (DebugMouseButton::Left, true) => (WM_LBUTTONDOWN, MK_LBUTTON),
+                (DebugMouseButton::Left, false) => (WM_LBUTTONUP, 0),
+                (DebugMouseButton::Right, true) => (WM_RBUTTONDOWN, MK_RBUTTON),
+                (DebugMouseButton::Right, false) => (WM_RBUTTONUP, 0),
+            };
+            post(hwnd, message, wparam, mouse_lparam(x, y))
+        }
+        DebugInputEvent::Wait { ms } => {
+            std::thread::sleep(Duration::from_millis(ms as u64));
+            true
+        }
+    }
+}
+
+fn post(hwnd: HWND, message: u32, wparam: usize, lparam: isize) -> bool {
+    unsafe { PostMessageW(hwnd, message, wparam, lparam) != 0 }
+}
+
+/// The `lParam` of a key message: repeat count 1, the scan code, and for a release the
+/// previous-state (bit 30) and transition (bit 31) flags.
+fn key_lparam(vkey: u16, down: bool) -> isize {
+    let scan = unsafe { MapVirtualKeyW(vkey as u32, MAPVK_VK_TO_VSC) } & 0xFF;
+    let mut lparam = 1u32 | (scan << 16);
+    if !down {
+        lparam |= (1 << 30) | (1 << 31);
+    }
+    lparam as i32 as isize
+}
+
+/// `MAKELPARAM(x, y)`: the low 16 bits of each coordinate, x in the low word.
+fn mouse_lparam(x: i32, y: i32) -> isize {
+    ((x as u32 & 0xFFFF) | ((y as u32 & 0xFFFF) << 16)) as i32 as isize
 }
 
 /// One player's command delay for [`DebugControlCommand::SetRollback`].
@@ -584,6 +702,64 @@ mod tests {
     fn screenshot_command_parses_camel_case() {
         let cmd: DebugControlCommand = serde_json::from_str(r#"{"type":"screenshot"}"#).unwrap();
         assert_eq!(cmd, DebugControlCommand::Screenshot);
+    }
+
+    #[test]
+    fn input_command_parses_camel_case_events() {
+        let cmd: DebugControlCommand = serde_json::from_str(
+            r#"{"type":"input","events":[
+                {"type":"key","vkey":121,"down":true},
+                {"type":"char","code":97},
+                {"type":"mouseMove","x":10,"y":-2},
+                {"type":"mouseButton","x":640,"y":360,"button":"right","down":false},
+                {"type":"wait","ms":50}
+            ]}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            cmd,
+            DebugControlCommand::Input {
+                events: vec![
+                    DebugInputEvent::Key {
+                        vkey: 121,
+                        down: true
+                    },
+                    DebugInputEvent::Char { code: 97 },
+                    DebugInputEvent::MouseMove { x: 10, y: -2 },
+                    DebugInputEvent::MouseButton {
+                        x: 640,
+                        y: 360,
+                        button: DebugMouseButton::Right,
+                        down: false,
+                    },
+                    DebugInputEvent::Wait { ms: 50 },
+                ],
+            }
+        );
+    }
+
+    #[test]
+    fn input_command_rejects_unknown_button() {
+        let result = serde_json::from_str::<DebugControlCommand>(
+            r#"{"type":"input","events":[{"type":"mouseButton","x":0,"y":0,"button":"middle","down":true}]}"#,
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn mouse_lparam_packs_x_low_and_y_high() {
+        assert_eq!(mouse_lparam(640, 360), (360 << 16) | 640);
+        assert_eq!(mouse_lparam(-1, 0) as u32, 0xFFFF);
+    }
+
+    #[test]
+    fn key_lparam_sets_transition_bits_on_release() {
+        let down = key_lparam(0x41, true) as u32;
+        let up = key_lparam(0x41, false) as u32;
+        assert_eq!(down & 0xFFFF, 1);
+        assert_eq!(down >> 30, 0);
+        assert_eq!(up >> 30, 0b11);
+        assert_eq!(up & 0x3FFF_FFFF, down);
     }
 
     #[test]

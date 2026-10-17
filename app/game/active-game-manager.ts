@@ -8,6 +8,7 @@ import path from 'node:path'
 import { singleton } from 'tsyringe'
 import { getErrorStack } from '../../common/errors'
 import {
+  GameDebugInputEvent,
   GameDebugScreenshot,
   GameDebugScreenshotReply,
   GameDebugState,
@@ -25,7 +26,7 @@ import {
 } from '../../common/games/game-status'
 import { NetcodeV2ServerSetup, NetcodeV2Setup } from '../../common/games/netcode-v2'
 import { GameClientPlayerResult } from '../../common/games/results'
-import { GameBlockRequestFailure } from '../../common/ipc'
+import { GameBlockRequestFailure, InGameReportRequest, InGameReportResult } from '../../common/ipc'
 import { SlotType } from '../../common/lobbies/slot'
 import { DEFAULT_LOCAL_SETTINGS } from '../../common/settings/default-settings'
 import { LocalSettings } from '../../common/settings/local-settings'
@@ -150,6 +151,7 @@ export type ActiveGameManagerEvents = {
   replaySaved: [gameId: string, path: string]
   resendReplay: [request: ResendReplayRequest]
   setUserBlocked: [gameId: string, userId: SbUserId, blocked: boolean]
+  reportPlayer: [gameId: string, request: InGameReportRequest]
 }
 
 @singleton()
@@ -469,10 +471,15 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
         local.customTeamColors ?? cloneCustomTeamColors(DEFAULT_LOCAL_SETTINGS.customTeamColors),
       customFfaColors: local.customFfaColors ?? [...DEFAULT_LOCAL_SETTINGS.customFfaColors],
     }
-    const desiredMonitorBounds =
+    // Electron measures displays in DIPs, but the game works in physical pixels, which differ on
+    // any display that isn't at 100% scale.
+    const desiredDisplay =
       local.monitorId !== undefined
-        ? screen.getAllDisplays().find(d => d.id === local.monitorId)?.bounds
+        ? screen.getAllDisplays().find(d => d.id === local.monitorId)
         : undefined
+    const desiredMonitorBounds = desiredDisplay
+      ? screen.dipToScreenRect(null, desiredDisplay.bounds)
+      : undefined
     const monitorBounds = desiredMonitorBounds
       ? [
           desiredMonitorBounds.x,
@@ -500,6 +507,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       settingsFilePath: this.scrSettings.gameFilepath,
       monitorBounds,
       replayNameTemplate: config.replayNameTemplate,
+      language: config.language,
       // `local` only stores the active preset *names* plus the custom pools; the DLL has no
       // preset tables of its own, so the active preset is mapped to concrete colors here and the
       // DLL only ever receives resolved hex pools.
@@ -674,6 +682,21 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     }
 
     this.emit('gameCommand', gameId, 'debugControl', { type: 'toggleNetStats' })
+  }
+
+  /**
+   * Posts a sequence of synthetic key/char/mouse events to the active game process's window (debug
+   * game builds only). `wait` events sleep between the others so a click can span frames.
+   * Fire-and-forget: there's no reply; verify via a screenshot. Posted modifier keys don't change
+   * the game's key state, so shifted combinations can't be driven this way.
+   */
+  debugInput(gameId: string, events: GameDebugInputEvent[]): void {
+    if (!this.gameFor(gameId)) {
+      log.verbose(`Got debugInput for ${gameId}, but it is not an active game`)
+      return
+    }
+
+    this.emit('gameCommand', gameId, 'debugControl', { type: 'input', events })
   }
 
   /**
@@ -889,6 +912,22 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     }
 
     this.emit('setUserBlocked', gameId, userId, blocked)
+  }
+
+  handleReportPlayer(gameId: string, request: InGameReportRequest) {
+    if (!this.gameFor(gameId)) {
+      return
+    }
+
+    this.emit('reportPlayer', gameId, request)
+  }
+
+  reportResult(gameId: string, result: InGameReportResult) {
+    if (!this.gameFor(gameId)) {
+      return
+    }
+
+    this.emit('gameCommand', gameId, 'reportResult', result)
   }
 
   blockRequestFailed(gameId: string, failure: GameBlockRequestFailure) {

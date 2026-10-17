@@ -214,6 +214,11 @@ type GameReport {
 	id: UUID!
 	reason: GameReportReason!
 	details: String
+	"""
+	How far into the game, in seconds of game time, the report was filed. Null for reports filed
+	after the game.
+	"""
+	gameTimeSeconds: Int
 	createdAt: DateTime!
 	resolvedAt: DateTime
 	resolution: GameReportResolution
@@ -653,10 +658,11 @@ type Mutation {
 	"""
 	commendPlayer(gameId: UUID!, userId: SbUserId!): CommendPlayerPayload!
 	"""
-	Files a report against another player from a game both users participated in, until the
-	game's feedback window closes. Any logged-in user may call this (subject to the reporting
-	restriction and the per-hour cap), but not for a player they already commended in that game.
-	Filed reports never expire; only the chance to file one does.
+	Files a report against another player from a game both users participated in, either while
+	the game is being played or afterward until the game's feedback window closes. Any logged-in
+	user may call this (subject to the reporting restriction and the per-hour cap), but not for a
+	player they already commended in that game. Filed reports never expire; only the chance to
+	file one does.
 	"""
 	reportGame(input: ReportGameInput!): GameReport!
 	"""
@@ -993,6 +999,11 @@ input ReportGameInput {
 	reportedUserId: SbUserId!
 	reason: GameReportReason!
 	details: String
+	"""
+	How far into the game, in seconds of game time, the report is being filed. Only set for
+	reports filed while the game is being played.
+	"""
+	gameTimeSeconds: Int
 }
 
 enum RestrictedNameKind {

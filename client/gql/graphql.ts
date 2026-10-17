@@ -116,6 +116,11 @@ export type NewsPostUpdates = {
 export type ReportGameInput = {
   details?: string | null | undefined
   gameId: string
+  /**
+   * How far into the game, in seconds of game time, the report is being filed. Only set for
+   * reports filed while the game is being played.
+   */
+  gameTimeSeconds?: number | null | undefined
   reason: GameReportReason
   reportedUserId: Types.SbUserId
 }
@@ -510,6 +515,7 @@ export type AdminGameReportQuery = {
     id: string
     reason: GameReportReason
     details: string | null
+    gameTimeSeconds: number | null
     createdAt: string
     resolvedAt: string | null
     resolution: GameReportResolution | null
@@ -554,6 +560,7 @@ export type AdminGameReportQuery = {
       id: string
       reason: GameReportReason
       details: string | null
+      gameTimeSeconds: number | null
       createdAt: string
       resolvedAt: string | null
       resolution: GameReportResolution | null
@@ -3330,6 +3337,7 @@ export const AdminGameReportDocument = {
                 { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'reason' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'details' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'gameTimeSeconds' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'createdAt' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'resolvedAt' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'resolution' } },
@@ -3519,6 +3527,7 @@ export const AdminGameReportDocument = {
                       { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'reason' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'details' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'gameTimeSeconds' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'createdAt' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'resolvedAt' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'resolution' } },

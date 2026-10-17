@@ -1,12 +1,15 @@
+import { screen } from 'electron'
 import http from 'http'
 import { AddressInfo } from 'net'
 import { container } from 'tsyringe'
 import { WebSocket, WebSocketServer } from 'ws'
+import { IN_GAME_REPORT_REASONS } from '../../common/ipc'
 import { ALL_MINIMAP_COLOR_MODES, LocalSettings } from '../../common/settings/local-settings'
 import { makeSbUserId } from '../../common/users/sb-user-id'
 import log from '../logger'
-import { LocalSettingsManager } from '../settings'
+import { LocalSettingsManager, ScrSettingsManager } from '../settings'
 import { ActiveGameManager } from './active-game-manager'
+import { readInGameSettingsChange } from './in-game-settings'
 
 interface AuthorizeInfo {
   origin: string
@@ -37,6 +40,7 @@ export class GameServer {
   constructor(
     private server: WebSocketServer,
     private localSettings: LocalSettingsManager,
+    private scrSettings: ScrSettingsManager,
   ) {
     this.activeGameManager.on('gameCommand', (id, command, payload) => {
       log.verbose(`Sending game command to ${id}: ${command}`)
@@ -122,6 +126,27 @@ export class GameServer {
           }
         }
         break
+      case '/game/reportPlayer':
+        {
+          const { userId, reason, gameSeconds } = payload
+          // Validate before acting: the report is filed with the server as the logged-in user.
+          if (
+            Number.isSafeInteger(userId) &&
+            userId > 0 &&
+            IN_GAME_REPORT_REASONS.includes(reason) &&
+            Number.isSafeInteger(gameSeconds) &&
+            gameSeconds >= 0
+          ) {
+            this.activeGameManager.handleReportPlayer(gameId, {
+              userId: makeSbUserId(userId),
+              reason,
+              gameSeconds,
+            })
+          } else {
+            log.error(`Invalid reportPlayer payload from game ${gameId}`)
+          }
+        }
+        break
       case '/game/replayUploaded':
         this.activeGameManager.handleReplayUploaded(gameId)
         break
@@ -172,13 +197,44 @@ export class GameServer {
           }
         }
         break
+      case '/game/settingsChanged':
+        {
+          const { change, rejected } = readInGameSettingsChange(payload)
+          if (rejected.length) {
+            log.error(`Ignored invalid in-game settings from ${gameId}: ${rejected.join(', ')}`)
+          }
+          const local = { ...change.local }
+          if (change.monitor !== undefined) {
+            const bounds = change.monitor
+            // The game names a display by where it sits in physical pixels; the app keeps the id
+            // Electron gives it, and Electron places displays in DIPs.
+            local.monitorId =
+              bounds === null
+                ? undefined
+                : screen.getDisplayMatching(screen.screenToDipRect(null, bounds)).id
+          }
+          if (Object.keys(local).length > 0) {
+            this.localSettings.merge(local).catch(err => {
+              log.error(`Error saving in-game local settings: ${err.stack ?? err}`)
+            })
+          }
+          if (Object.keys(change.scr).length > 0) {
+            this.scrSettings.mergeFromGame(change.scr).catch(err => {
+              log.error(`Error saving in-game SC:R settings: ${err.stack ?? err}`)
+            })
+          }
+        }
+        break
       default:
         log.error(`Received an unknown command '${command}' from ${gameId}`)
     }
   }
 }
 
-export default function createGameServer(localSettings: LocalSettingsManager) {
+export default function createGameServer(
+  localSettings: LocalSettingsManager,
+  scrSettings: ScrSettingsManager,
+) {
   const httpServer = http
     .createServer((req, res) => {
       res.writeHead(418)
@@ -197,7 +253,7 @@ export default function createGameServer(localSettings: LocalSettingsManager) {
     container.resolve(ActiveGameManager).setServerPort(port)
   })
 
-  const gameServer = new GameServer(wsServer, localSettings)
+  const gameServer = new GameServer(wsServer, localSettings, scrSettings)
 
   return gameServer
 }

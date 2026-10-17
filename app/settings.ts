@@ -520,6 +520,12 @@ export class ScrSettingsManager extends SettingsManager<ScrSettings> {
   protected settings!: Partial<ScrSettings>
   private blizzardFilepath: string
   private blizzardSettings!: Record<string, any>
+  /**
+   * Settings a running game's own options screen changed. SC:R doesn't write its settings file when
+   * a game ends, so the file read back after the game holds what it launched with; these are
+   * applied over it so the player's in-game choices survive that read.
+   */
+  private changedInGame: Partial<ScrSettings> = {}
 
   /**
    * Creates a new ScrSettings.
@@ -713,6 +719,14 @@ export class ScrSettingsManager extends SettingsManager<ScrSettings> {
     if (newData.gamma !== undefined) {
       newData.gamma = normalizeGamma(newData.gamma)
     }
-    await this.merge(newData)
+    const changedInGame = this.changedInGame
+    this.changedInGame = {}
+    await this.merge({ ...newData, ...changedInGame })
+  }
+
+  /** Records settings a running game's options screen changed, and applies them right away. */
+  async mergeFromGame(settings: Readonly<Partial<ScrSettings>>) {
+    this.changedInGame = { ...this.changedInGame, ...settings }
+    await this.merge(settings)
   }
 }

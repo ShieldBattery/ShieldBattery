@@ -121,6 +121,8 @@ pub struct PlayerResult {
     pub victory_state: VictoryState,
     pub race: AssignedRace,
     pub alliances: [AllianceState; 8],
+    /// The player's actions per minute over the game, or 0 for a game too short to say.
+    pub apm: u32,
 }
 
 impl PlayerResult {

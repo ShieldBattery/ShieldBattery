@@ -351,6 +351,12 @@ export interface LocalSettings extends ShieldBatteryAppSettings {
    * runs logic steps on time regardless of when frames are drawn.
    */
   framePacing: FramePacing
+  /**
+   * Which of the in-game observer panels the user last left on screen, saved by the game as they
+   * change them and handed back at the next launch. Opaque to the app: the game owns the shape and
+   * fills in anything missing. Undefined until the user first changes one.
+   */
+  observerPanels?: Record<string, boolean | string>
 
   /**
    * Whether to launch the 32-bit game client instead of the (default) 64-bit one. Discouraged;

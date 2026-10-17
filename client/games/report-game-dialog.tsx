@@ -7,7 +7,6 @@ import { SbUserId } from '../../common/users/sb-user-id'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { useForm, useFormCallbacks } from '../forms/form-hook'
 import { required } from '../forms/validators'
-import { graphql } from '../gql'
 import { GameReportReason } from '../gql/graphql'
 import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
@@ -17,14 +16,7 @@ import { TextField } from '../material/text-field'
 import { useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { BodyLarge, bodyLarge } from '../styles/typography'
-
-const ReportGameMutation = graphql(/* GraphQL */ `
-  mutation ReportGame($input: ReportGameInput!) {
-    reportGame(input: $input) {
-      id
-    }
-  }
-`)
+import { ReportGameMutation } from './report-game-mutation'
 
 const StyledDialog = styled(Dialog)`
   max-width: 480px;

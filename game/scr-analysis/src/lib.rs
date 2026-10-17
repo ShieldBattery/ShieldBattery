@@ -741,6 +741,23 @@ impl<'e> Analysis<'e> {
         self.0.move_screen()
     }
 
+    /// Recomputes the furthest the view can scroll from the map's size, the view's size and the
+    /// bottom padding, and pulls the view back within it.
+    pub fn update_screen_scroll_bounds(&mut self) -> Option<VirtualAddress> {
+        self.0.update_screen_scroll_bounds()
+    }
+
+    /// How far past the map's bottom edge the view may scroll, in tiles at default zoom. Every
+    /// clamp on the view's position reads the bounds it feeds.
+    pub fn screen_scroll_bottom_padding_tiles(&mut self) -> Option<Operand<'e>> {
+        self.0.screen_scroll_bottom_padding_tiles()
+    }
+
+    /// The furthest down the view's top edge may scroll, in map pixels.
+    pub fn screen_scroll_max_y(&mut self) -> Option<Operand<'e>> {
+        self.0.screen_scroll_max_y()
+    }
+
     /// Base address (as an operand) of the UI input dispatch's function-pointer table, indexed by
     /// event type. Slot 3 holds the active drag callback (grab pan / selection box), or null when
     /// no drag is in progress.
@@ -820,6 +837,26 @@ impl<'e> Analysis<'e> {
         self.0.draw_graphic_layers()
     }
 
+    /// `fn()`; draws the software cursor (render mode 0x1d) on top of everything else. Returns
+    /// without drawing when the cursor is hidden or the hardware cursor is in use. Last call
+    /// of `draw_graphic_layers`.
+    pub fn draw_software_cursor(&mut self) -> Option<VirtualAddress> {
+        self.0.draw_software_cursor()
+    }
+
+    /// `fn(render_mode: u16)`, cdecl on 32-bit. Makes following draw commands use
+    /// `render_mode` as their sort layer and render target until the matching
+    /// [`pop_renderer_mode_override`](Self::pop_renderer_mode_override).
+    pub fn push_renderer_mode_override(&mut self) -> Option<VirtualAddress> {
+        self.0.push_renderer_mode_override()
+    }
+
+    /// `fn()`; undoes the latest
+    /// [`push_renderer_mode_override`](Self::push_renderer_mode_override).
+    pub fn pop_renderer_mode_override(&mut self) -> Option<VirtualAddress> {
+        self.0.pop_renderer_mode_override()
+    }
+
     pub fn render_screen(&mut self) -> Option<VirtualAddress> {
         self.0.render_screen()
     }
@@ -838,6 +875,10 @@ impl<'e> Analysis<'e> {
 
     pub fn cmdicons(&mut self) -> Option<Operand<'e>> {
         self.0.cmdicons_ddsgrp()
+    }
+
+    pub fn wirefram(&mut self) -> Option<Operand<'e>> {
+        self.0.wirefram_ddsgrp()
     }
 
     pub fn use_rgb_colors(&mut self) -> Option<Operand<'e>> {
@@ -1408,6 +1449,34 @@ impl<'e> Analysis<'e> {
 
     pub fn last_free_selection_circle(&mut self) -> Option<Operand<'e>> {
         self.0.last_free_selection_circle()
+    }
+
+    /// The settings registry: a map of group names to maps of setting keys, as the game's own
+    /// options popup reads and writes them.
+    pub fn game_setting_groups(&mut self) -> Option<Operand<'e>> {
+        self.0.game_setting_groups()
+    }
+
+    /// `(setting, &i32, defer_persist)`, thiscall: the registry's write of an integer setting.
+    pub fn update_game_setting_int(&mut self) -> Option<VirtualAddress> {
+        self.0.update_game_setting_int()
+    }
+
+    /// `(setting, &u8, defer_persist)`, thiscall: the registry's write of an on/off setting.
+    pub fn update_game_setting_bool(&mut self) -> Option<VirtualAddress> {
+        self.0.update_game_setting_bool()
+    }
+
+    /// The `StringTable` object holding stat_txt's strings (unit, upgrade and tech names among
+    /// them) in the game's language, loaded from `rez/stat_txt.json`.
+    pub fn stat_txt_string_table(&mut self) -> Option<Operand<'e>> {
+        self.0.stat_txt_string_table()
+    }
+
+    /// Base of the `u16[unit type]` array of map string ids a map gives its units as custom names,
+    /// 0 for a unit that keeps its stat_txt name.
+    pub fn unit_map_name_overrides(&mut self) -> Option<Operand<'e>> {
+        self.0.unit_map_name_overrides()
     }
 
     /// Base of the `u16[player][hotkey group]` array holding the frame each selection hotkey
