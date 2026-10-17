@@ -7,6 +7,7 @@ import { DevHome } from './home/devonly/dev-home'
 import { DevLadder } from './ladder/devonly/routes'
 import DevLists from './lists/devonly/routes'
 import DevLobbies from './lobbies/devonly/routes'
+import { DevMaps } from './maps/devonly/routes'
 import DevMatchmaking from './matchmaking/devonly/routes'
 import DevMaterial from './material/devonly/routes'
 import { DevPageMetadata } from './page-metadata/devonly/routes'
@@ -53,6 +54,7 @@ export default function Dev() {
             ['Link previews', 'page-metadata', DevPageMetadata],
             ['List components', 'lists', DevLists],
             ['Lobby components', 'lobbies', DevLobbies],
+            ['Map search', 'maps', DevMaps],
             ['Matchmaking components', 'matchmaking', DevMatchmaking],
             ['Material components', 'material', DevMaterial],
             ['Progress indicators', 'progress', DotsTest],

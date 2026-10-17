@@ -15,6 +15,7 @@ import { sql, sqlConcat, sqlRaw, SqlTemplate } from '../db/sql'
 import transact from '../db/transaction'
 import { Dbify } from '../db/types'
 import { getSignedUrl, getUrl } from '../files'
+import { mapNameMatches } from './map-search'
 import { MapParseData } from './parse-data'
 import { imagePath, mapPath } from './paths'
 
@@ -450,8 +451,7 @@ function getWhereCondition(
   conditions.push(sql`m.tileset = ANY(${tilesets})`)
 
   if (searchStr) {
-    const escapedStr = `%${searchStr.replace(/[_%\\]/g, '\\$&')}%`
-    conditions.push(sql`m.name ILIKE ${escapedStr}`)
+    conditions.push(mapNameMatches(searchStr))
   }
 
   return sqlConcat(' AND ', conditions)
@@ -722,7 +722,7 @@ export async function delistMap(mapId: SbMapId, delistedBy: SbUserId): Promise<v
 export async function addMapToFavorites(mapId: SbMapId, userId: SbUserId): Promise<void> {
   const query = sql`
     INSERT INTO favorited_maps (map_id, favorited_by, favorited_date)
-    VALUES (${mapId}, ${userId}, CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
+    VALUES (${mapId}, ${userId}, CURRENT_TIMESTAMP)
     ON CONFLICT (map_id, favorited_by)
     DO NOTHING;
   `
@@ -766,8 +766,8 @@ export async function veryDangerousDeleteAllMaps(deleteFromStoreFn: () => Promis
       BEGIN;
         UPDATE lobby_preferences SET recent_maps = NULL, selected_map = NULL;
         UPDATE matchmaking_preferences SET map_selections = '{}';
-        TRUNCATE matchmaking_map_pools, favorited_maps, map_library, map_id_aliases,
-          uploaded_maps_legacy, maps;
+        TRUNCATE matchmaking_map_pools, favorited_maps, map_favorite_counts, map_library,
+          map_id_aliases, map_stats, map_stats_daily, map_matchup_stats, uploaded_maps_legacy, maps;
       COMMIT;
     `
 

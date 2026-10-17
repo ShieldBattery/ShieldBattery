@@ -15,9 +15,19 @@ use typeshare::typeshare;
 use uuid::Uuid;
 
 use crate::file_store::FileStore;
+use crate::maps::catalog::{SbMapLoader, ViewerMapFlagsLoader};
+use crate::maps::search::MapSearchRepo;
 use crate::{
     graphql::{errors::graphql_error, schema_builder::SchemaBuilderModule},
     users::{SbUser, SbUserId, UsersLoader},
+};
+
+mod catalog;
+pub mod search;
+
+pub use catalog::{
+    FavoriteMapConnection, MapLibraryConnection, MapsMutation, MapsQuery, SbMap,
+    load_favorite_maps, load_map_library,
 };
 
 pub struct MapsModule {
@@ -32,10 +42,20 @@ impl MapsModule {
 
 impl SchemaBuilderModule for MapsModule {
     fn apply<Q, M, S>(&self, builder: SchemaBuilder<Q, M, S>) -> SchemaBuilder<Q, M, S> {
-        builder.data(DataLoader::new(
-            MapsLoader::new(self.db_pool.clone()),
-            tokio::spawn,
-        ))
+        builder
+            .data(DataLoader::new(
+                MapsLoader::new(self.db_pool.clone()),
+                tokio::spawn,
+            ))
+            .data(DataLoader::new(
+                SbMapLoader::new(MapSearchRepo::new(self.db_pool.clone())),
+                tokio::spawn,
+            ))
+            .data(DataLoader::new(
+                ViewerMapFlagsLoader::new(self.db_pool.clone()),
+                tokio::spawn,
+            ))
+            .data(MapSearchRepo::new(self.db_pool.clone()))
     }
 }
 
