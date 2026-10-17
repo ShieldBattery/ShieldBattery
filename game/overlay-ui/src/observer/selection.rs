@@ -28,7 +28,7 @@ use egui::{
     Ui, Vec2, pos2, vec2,
 };
 
-use crate::colors::{BLUE80, GREY_BLUE10, GREY_BLUE20, GREY_BLUE60, PURPLE70};
+use crate::colors::{BLUE60, BLUE80, GREY_BLUE10, GREY_BLUE20, GREY_BLUE60, PURPLE70};
 use crate::kit::text;
 use crate::kit::{motion, theme, tiers, widgets};
 use crate::observer::{
@@ -259,10 +259,11 @@ const GRID_GAP: f32 = 8.0;
 const HEALTH_BAR: f32 = 3.0;
 const HEALTH_GAP: f32 = 2.0;
 
-/// The bar under that one for a unit with shields, and its gap from it. Thinner, as the reading
-/// that only some units have.
-const SHIELD_BAR: f32 = 2.0;
-const SHIELD_GAP: f32 = 1.0;
+/// The bar under that one for a unit with shields, and its gap from it. As thick as the health bar
+/// and held apart from it by a clear gap: a stream's video keeps color at half the resolution of
+/// brightness, and two bars a pixel apart blur into one striped bar there.
+const SHIELD_BAR: f32 = 3.0;
+const SHIELD_GAP: f32 = 2.0;
 
 /// Gap between the two rows of a grid of small tiles.
 const GRID_ROW_GAP: f32 = 6.0;
@@ -1042,7 +1043,9 @@ fn paint_small_tile(ui: &Ui, tile: Rect, unit: &SelectedUnitView, code_size: f32
             pos2(tile.left(), bar.bottom() + SHIELD_GAP),
             vec2(tile.width(), SHIELD_BAR),
         );
-        paint_track(ui, shield_bar, fraction.clamp(0.0, 1.0), BLUE80);
+        // A deeper blue than the shields' number: the health bar's greens are as bright as that
+        // number's blue, and a stream that blurs color is left only brightness to tell them by.
+        paint_track(ui, shield_bar, fraction.clamp(0.0, 1.0), BLUE60);
     }
 }
 
