@@ -7825,9 +7825,12 @@ impl BwScr {
                     *cell = (*game).alliances[a][b] != 0;
                 }
             }
+            let perspective = game_thread::replay_seat_of_local_user()
+                .filter(|seat| local_player.is_none() && active_players.contains(seat));
             let info = GameStartInfo {
                 active_players,
                 local_player,
+                perspective,
                 initial_allies,
             };
             let state = TeamColorState::new(config, &info, shuffle_seed());
