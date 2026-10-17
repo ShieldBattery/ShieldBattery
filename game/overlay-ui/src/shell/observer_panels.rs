@@ -22,6 +22,14 @@ pub(super) struct ObserverPanels {
     focused_player: Option<u8>,
     /// Whether the list of players under the minimap's vision button is open.
     vision_picker_open: bool,
+    /// The run of the dock's column, top and bottom, the dock had to itself last frame with every
+    /// surface on the right edge against the edge, or `None` where it was too short for the dock at
+    /// its full height. While there is room, the surfaces on that side hug the edge and the dock
+    /// stands between them; where there is not, they stand in from its column.
+    ///
+    /// Worked out from last frame's surfaces because this frame's are placed by it. How tall they
+    /// are does not depend on how far in they stand, so it settles rather than flip-flopping.
+    dock_room: Option<(f32, f32)>,
     /// Whether the watcher had anything selected as of the last frame, which is whether Escape
     /// has a selection to let go of.
     has_selection: bool,
@@ -127,10 +135,14 @@ impl ObserverPanels {
         // carries, so where the wings start is measured off what the cards actually came out as
         // rather than guessed at from a player count.
         let mut tops = observer::WingTops::under_bar(view.matchup.form().height());
-        let right_inset = observer::dock_inset(ctx, prefs.dock);
+        let keep_clear = prefs.dock && self.dock_room.is_none();
+        let right_inset = observer::dock_inset(ctx, keep_clear);
         // A wing arriving takes its place beside the dock at once, the way the left wings simply
         // appear where they stand; one already on screen follows the dock as it comes and goes.
-        let settled_inset = observer::settled_dock_inset(prefs.dock);
+        let settled_inset = observer::settled_dock_inset(keep_clear);
+        // How far down the surfaces on the right edge reach, which is where the dock's column
+        // starts while they hug the edge.
+        let mut right_reach = screen.top();
         if let Some(cards) = &view.team_cards {
             let inset = self.drawn.team_cards.inset(right_inset, settled_inset);
             let outcome = observer::render_team_cards_view(cards, ctx, prefs.matchup, inset);
@@ -144,6 +156,7 @@ impl ObserverPanels {
             }
             if let Some(bottom) = outcome.right_bottom {
                 tops.right = tops.right.max(bottom + gap);
+                right_reach = right_reach.max(screen.top() + bottom);
             }
             if let Some(player_id) = outcome.toggled_vision {
                 intents.push(Intent::ToggleVision { player_id });
@@ -228,6 +241,12 @@ impl ObserverPanels {
         } else {
             layout::lowest_bottom_over(dock_column, &top_surfaces, screen.top()) + gap
         };
+        // Where the surfaces on the right edge are against it, the dock keeps to the room between
+        // them that it had last frame.
+        let dock_room = self
+            .dock_room
+            .filter(|_| !prefs.dock_expanded)
+            .map(|(top, bottom)| (top.max(dock_top), bottom));
         // How far the plate stands in to clear the dock's column, following the dock off the edge
         // and back the way the panels on that side do.
         let dock_clearance = right_inset / observer::dock::column_width(false) * dock_width;
@@ -265,7 +284,16 @@ impl ObserverPanels {
             // whole edge.
             let corner = transport.rect(screen);
             if prefs.dock {
-                dock = dock_fit(corner.top() - gap);
+                dock = match dock_room {
+                    Some((top, bottom)) => observer::DockPlacement::fit(
+                        host.mode,
+                        self.map_control_available,
+                        screen.center().y,
+                        top,
+                        bottom,
+                    ),
+                    None => dock_fit(corner.top() - gap),
+                };
                 if dock.is_none() {
                     transport.right_inset = dock_clearance;
                 }
@@ -288,6 +316,21 @@ impl ObserverPanels {
         } else {
             row_along(span)
         };
+        // What the dock's column ends on at the bottom, kept for working out its room below.
+        let plate_in_corner =
+            transport_shown && matches!(plate, PlateStand::Corner) && transport.right_inset == 0.0;
+        let selection_ends_row = row.is_some() && prefs.selection;
+        let dock = dock.or_else(|| {
+            dock_room.and_then(|(top, bottom)| {
+                observer::DockPlacement::fit(
+                    host.mode,
+                    self.map_control_available,
+                    screen.center().y,
+                    top,
+                    bottom,
+                )
+            })
+        });
         let dock = match dock {
             Some(dock) => dock,
             None => dock_fit(screen.bottom() - observer::WING_MARGIN).unwrap_or(
@@ -505,6 +548,7 @@ impl ObserverPanels {
         self.drawn.military.drawn(military.is_some());
         if let Some(rect) = military {
             hit_rects.push(HitRect::new(rect));
+            right_reach = right_reach.max(rect.bottom());
         }
         let graphs_top = observer::WingTops::below(
             ctx,
@@ -532,6 +576,7 @@ impl ObserverPanels {
         self.drawn.graphs.drawn(graphs.is_some());
         if let Some(outcome) = graphs {
             hit_rects.push(HitRect::new(outcome.rect));
+            right_reach = right_reach.max(outcome.rect.bottom());
             if let Some(series) = outcome.series {
                 prefs.graph_series = series;
             }
@@ -567,6 +612,31 @@ impl ObserverPanels {
                 replay.queue_seek(playback.event_seek_target(event.secs), event.position);
             }
         }
+
+        // The room the dock's column would leave it with the right edge's surfaces against the
+        // edge: from under the lowest of them, and anything else over the column, down to the
+        // plate where it keeps the corner, or to the selection panel standing at the end of the
+        // row along the bottom, or to the bottom edge.
+        let column_top = right_reach.max(layout::lowest_bottom_over(
+            dock_column,
+            &top_surfaces,
+            screen.top(),
+        )) + gap;
+        let column_bottom = if plate_in_corner {
+            Some(transport.rect(screen).top() - gap)
+        } else if transport_shown {
+            None
+        } else if selection_ends_row {
+            Some(screen.bottom() - observer::WING_MARGIN - observer::selection::PANEL_HEIGHT - gap)
+        } else {
+            Some(screen.bottom() - observer::WING_MARGIN)
+        };
+        self.dock_room = column_bottom
+            .filter(|&bottom| {
+                bottom - column_top
+                    >= observer::dock::full_height(host.mode, self.map_control_available)
+            })
+            .map(|bottom| (column_top, bottom));
 
         let dock = observer::render_obs_dock(
             prefs,

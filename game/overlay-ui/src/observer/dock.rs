@@ -149,6 +149,11 @@ fn entries(mode: Mode, map_control_available: bool) -> Vec<Entry> {
 }
 
 /// How tall the dock is with rows `row_height` tall, chrome included.
+/// How tall the dock is with its rows at their full height.
+pub(crate) fn full_height(mode: Mode, map_control_available: bool) -> f32 {
+    height(mode, map_control_available, ROW_HEIGHT)
+}
+
 fn height(mode: Mode, map_control_available: bool, row_height: f32) -> f32 {
     let rows = entries(mode, map_control_available).len() as f32;
     tiers::PANEL_MARGIN_HEIGHT + CHEVRON_HEIGHT + rows * (ROW_GAP + row_height)

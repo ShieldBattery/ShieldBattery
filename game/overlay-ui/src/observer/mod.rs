@@ -489,13 +489,13 @@ pub(crate) const MAP_CONTROL_GAP: f32 = 8.0;
 /// something the watcher has just opened and is reading rather than something in their way.
 pub(crate) const DOCK_RESERVE: f32 = dock::COLLAPSED_WIDTH + WING_MARGIN;
 
-/// How far the surfaces on the right edge stand in from it this frame: the dock's column while the
-/// dock is on screen, and nothing once it is not, eased between the two so they follow the dock
-/// off the edge and make way for it coming back rather than jumping either way.
-pub(crate) fn dock_inset(ctx: &Context, dock_shown: bool) -> f32 {
+/// How far the surfaces on the right edge stand in from it this frame: the dock's column while they
+/// have to keep `clear` of it, and nothing once they do not, eased between the two so they follow
+/// the dock off the edge and make way for it coming back rather than jumping either way.
+pub(crate) fn dock_inset(ctx: &Context, clear: bool) -> f32 {
     ctx.animate_value_with_time(
         Id::new("sb_dock_inset"),
-        settled_dock_inset(dock_shown),
+        settled_dock_inset(clear),
         theme::MOTION_PANEL_SECS,
     )
 }
@@ -503,8 +503,8 @@ pub(crate) fn dock_inset(ctx: &Context, dock_shown: bool) -> f32 {
 /// Where [`dock_inset`] is heading: what a surface arriving on the right edge stands in by, since
 /// it has no place of its own to ease from and arriving from the side would read as a second motion
 /// on top of its own entrance.
-pub(crate) fn settled_dock_inset(dock_shown: bool) -> f32 {
-    if dock_shown { DOCK_RESERVE } else { 0.0 }
+pub(crate) fn settled_dock_inset(clear: bool) -> f32 {
+    if clear { DOCK_RESERVE } else { 0.0 }
 }
 
 /// Height of one player's row in a stats wing.
