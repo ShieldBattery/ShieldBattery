@@ -112,7 +112,7 @@ pub fn log_replaced_dialog_controls(first_dialog: Option<Dialog>, dialog: Native
                 "{} ({:#x}, {:?})",
                 child.id(),
                 child.control_type(),
-                child.string()
+                bw::control_text(&child)
             )
         })
         .collect::<Vec<_>>();

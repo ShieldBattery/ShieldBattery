@@ -713,3 +713,18 @@ pub fn iter_dialogs(
         }
     })
 }
+
+/// A control's text, or nothing where it has none. A dialog is always named, but a control in one
+/// can be left without a string at all (the chat history's, before there is any chat), where
+/// `bw_dat`'s `Control::string` would read through the null pointer.
+pub fn control_text(control: &bw_dat::dialog::Control) -> &str {
+    unsafe {
+        let data = (***control).string.data;
+        if data.is_null() {
+            return "";
+        }
+        std::ffi::CStr::from_ptr(data as *const std::ffi::c_char)
+            .to_str()
+            .unwrap_or("")
+    }
+}

@@ -1097,7 +1097,7 @@ impl OverlayState {
                                 "{} {}: '{}' {},{},{},{}",
                                 control_type_name(ctrl.control_type()),
                                 ctrl.id(),
-                                ctrl.string(),
+                                bw::control_text(&ctrl),
                                 rect.left,
                                 rect.top,
                                 rect.right,
