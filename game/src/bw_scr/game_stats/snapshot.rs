@@ -49,8 +49,8 @@ pub struct GameSnapshot {
     pub roster: Vec<RosterUnit>,
 }
 
-/// A unit alive in the game, wherever it is: out on the map, inside a transport or a bunker, or in
-/// a refinery with a load of gas. A unit that is in one moment's roster and not in the next one's
+/// A real unit alive in the game, wherever it is: out on the map, inside a transport or a bunker,
+/// or in a refinery with a load of gas. A unit that is in one moment's roster and not in the next one's
 /// has died.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct RosterUnit {
@@ -295,18 +295,20 @@ pub unsafe fn read_snapshot(
 /// The whole unit array rather than the game's active list, which leaves out units that are only
 /// out of sight: loaded into a transport or a bunker, or inside a refinery. A slot is a living unit
 /// while it has a sprite and is not dying, which is how the game's own unique-id lookup tells.
+/// Hallucinations are left out: one killed is no loss, and one standing near a fight takes no part
+/// in it.
 fn read_roster(units: &UnitArray) -> Vec<RosterUnit> {
     let mut roster = (0..units.len() as u32)
         .filter_map(|index| units.get_by_index(index))
         .filter(|unit| unit.sprite().is_some() && !unit.is_dying())
-        .filter(|unit| (unit.player() as usize) < MAX_PLAYERS)
+        .filter(|unit| (unit.player() as usize) < MAX_PLAYERS && !unit.is_hallucination())
         .map(|unit| {
             let position = unit.position();
             RosterUnit {
                 unique_id: units.to_unique_id(unit),
                 player: unit.player(),
                 unit_id: unit.id(),
-                completed: unit.is_completed(),
+                completed: unit.is_completed() || unit.is_morphing_building(),
                 x: position.x,
                 y: position.y,
             }

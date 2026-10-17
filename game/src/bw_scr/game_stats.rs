@@ -404,6 +404,10 @@ impl GameStats {
             &engagements::Moment {
                 before: &before,
                 now: &now,
+                rosters: [
+                    previous.map_or(&[][..], |previous| &previous.roster),
+                    &snapshot.roster,
+                ],
                 frame,
                 last_sample: self
                     .end_frame
@@ -1611,10 +1615,19 @@ mod tests {
         assert_eq!(death_frames(&stats), [(12 * SECOND, unit::MARINE)]);
     }
 
-    /// A game where player 0's thirty hydralisks all die at `dies_at`, to player 1.
+    /// A game where player 0's thirty hydralisks all die at `dies_at`, to player 1's marine
+    /// standing among them.
     fn hydralisks_dying_at(dies_at: u32) -> impl Fn(u32) -> GameSnapshot {
         move |frame| {
             let mut snapshot = snapshot(frame);
+            snapshot.roster.push(RosterUnit {
+                unique_id: 1,
+                player: 1,
+                unit_id: unit::MARINE,
+                completed: true,
+                x: 520,
+                y: 500,
+            });
             let alive = frame < dies_at;
             if alive {
                 snapshot.roster.extend((0..30).map(|index| RosterUnit {

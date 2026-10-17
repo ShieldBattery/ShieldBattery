@@ -15,6 +15,7 @@ use bw_dat::{UnitId, unit};
 use overlay_ui::observer::{Significance, TimelineEventKind};
 
 use super::deaths::Death;
+use super::snapshot::RosterUnit;
 use super::unit_value::{UnitCatalog, counted_from_creation, invested_cost};
 use super::{MAX_PLAYERS, SAMPLE_INTERVAL_FRAMES, TimelineEvent, TimelineSubject};
 
@@ -46,14 +47,15 @@ const SMALL_RAID_SHARE: f32 = 0.2;
 const EVEN_SHARE: f32 = 0.15;
 
 /// Units whose death is no loss to report: the larvae and eggs a hatchery keeps, and the
-/// ammunition and mines that are spent by being used.
-const SPENT_UNITS: [UnitId; 6] = [
+/// ammunition, mines and missiles that are spent by being used.
+const SPENT_UNITS: [UnitId; 7] = [
     unit::LARVA,
     unit::EGG,
     unit::SCARAB,
     unit::INTERCEPTOR,
     unit::SPIDER_MINE,
     unit::BROODLING,
+    unit::NUCLEAR_MISSILE,
 ];
 
 /// The buildings that fight, whose losses count towards a fight as units do.
@@ -86,6 +88,8 @@ pub struct Standing {
 pub struct Moment<'a> {
     pub before: &'a Standing,
     pub now: &'a Standing,
+    /// Every unit alive at the sample before and at this one, which say who was where.
+    pub rosters: [&'a [RosterUnit]; 2],
     pub frame: u32,
     /// Whether the game will not be sampled again, which closes every engagement.
     pub last_sample: bool,
@@ -129,6 +133,10 @@ struct Engagement {
     /// What each player had destroyed as the engagement began, so who did the killing can be told
     /// at its end.
     destroyed_before: [u32; MAX_PLAYERS],
+    /// The players who had something that fights within reach of the engagement while it went
+    /// on, as a mask of player ids. The game's destroy scores say what a player killed but not
+    /// where, so only these players' kills are taken to be this engagement's.
+    present: u8,
 }
 
 /// Places `deaths`, which happened between the two samples of `moment`, into the engagements
@@ -145,6 +153,7 @@ pub fn advance(
     let Moment {
         before,
         now,
+        rosters,
         frame,
         last_sample,
     } = *moment;
@@ -163,7 +172,8 @@ pub fn advance(
             continue;
         }
         if catalog.is_town_hall(death.unit_id) {
-            events.push(base_destroyed(death, before, now, frame));
+            let near = present_near(rosters, catalog, f32::from(death.x), f32::from(death.y));
+            events.push(base_destroyed(death, before, now, near, frame));
             continue;
         }
         let worker = catalog.is_worker(death.unit_id);
@@ -185,6 +195,9 @@ pub fn advance(
         };
         engagement.add(death, worker, value, before);
     }
+    for engagement in &mut open {
+        engagement.present |= present_near(rosters, catalog, engagement.x, engagement.y);
+    }
     let someone_left = (0..MAX_PLAYERS).any(|player| now.out[player] && !previous.out[player]);
     let mut still_open = Vec::with_capacity(open.len());
     for engagement in open {
@@ -198,6 +211,31 @@ pub fn advance(
         open: still_open,
         out: now.out,
     }
+}
+
+/// Whether a unit of kind `id` can take part in a fight: anything but a building that does not
+/// fight, and the larvae and eggs a hatchery keeps.
+fn takes_part(catalog: &impl UnitCatalog, id: UnitId) -> bool {
+    (!catalog.is_building(id) || STATIC_DEFENSE.contains(&id))
+        && !matches!(id, unit::LARVA | unit::EGG)
+}
+
+/// The players with something in `rosters` that takes part in a fight within reach of `(x, y)`,
+/// as a mask of player ids.
+fn present_near(rosters: [&[RosterUnit]; 2], catalog: &impl UnitCatalog, x: f32, y: f32) -> u8 {
+    let mut present = 0u8;
+    for unit in rosters.into_iter().flatten() {
+        let bit = 1u8.checked_shl(u32::from(unit.player)).unwrap_or(0);
+        if present & bit != 0 || !takes_part(catalog, unit.unit_id) {
+            continue;
+        }
+        let dx = f32::from(unit.x) - x;
+        let dy = f32::from(unit.y) - y;
+        if dx * dx + dy * dy <= REACH * REACH {
+            present |= bit;
+        }
+    }
+    present
 }
 
 /// The engagement still going on that `death` is part of, if any: the nearest whose last death
@@ -232,6 +270,7 @@ impl Engagement {
             involved: 0,
             pool: 0,
             destroyed_before: std::array::from_fn(|player| before.destroyed(player)),
+            present: 0,
         }
     }
 
@@ -244,6 +283,7 @@ impl Engagement {
         self.x = (self.x * self.weight + f32::from(death.x) * weight) / (self.weight + weight);
         self.y = (self.y * self.weight + f32::from(death.y) * weight) / (self.weight + weight);
         self.weight += weight;
+        self.present |= 1 << player;
         if self.involved & 1 << player == 0 {
             self.involved |= 1 << player;
             self.pool = self.pool.saturating_add(before.army[player]);
@@ -270,9 +310,11 @@ impl Engagement {
     /// Puts what this engagement came to on `events`, if it came to anything worth telling.
     fn report(&self, now: &Standing, frame: u32, events: &mut Vec<TimelineEvent>) {
         let position = Some((self.x.round() as i16, self.y.round() as i16));
-        let kills = |player: usize| {
-            now.destroyed(player)
-                .saturating_sub(self.destroyed_before[player])
+        let kills = |player: usize| match self.present & 1 << player {
+            0 => 0,
+            _ => now
+                .destroyed(player)
+                .saturating_sub(self.destroyed_before[player]),
         };
         if let Some(fight) = self.fight(now, kills) {
             events.push(TimelineEvent {
@@ -340,15 +382,17 @@ impl Engagement {
                 None => sides.push((side, self.lost[player])),
             }
         }
+        // Losses that nobody near them can be credited with are no fight to tell, nor to judge.
+        if sides.len() < 2 {
+            return None;
+        }
         sides.sort_by_key(|&(_, lost)| lost);
         let winner = sides.first().map(|&(side, lost)| {
             let others = sides[1..].iter().map(|&(_, lost)| lost).max().unwrap_or(0);
             (side, others.saturating_sub(lost))
         });
         let (player, kind, winning_side) = match winner {
-            Some((side, margin))
-                if sides.len() > 1 && margin as f32 >= value as f32 * EVEN_SHARE =>
-            {
+            Some((side, margin)) if margin as f32 >= value as f32 * EVEN_SHARE => {
                 let player = top_killer(
                     (0..MAX_PLAYERS).filter(|&player| side_of(now, player) == side),
                     &kills,
@@ -385,12 +429,18 @@ impl Engagement {
     }
 }
 
-/// A resource depot that died: destroyed by whoever razed the most against its owner that sample,
-/// or lost by its owner where nobody can be told.
-fn base_destroyed(death: &Death, before: &Standing, now: &Standing, frame: u32) -> TimelineEvent {
+/// A resource depot that died: destroyed by whoever razed the most against its owner that sample
+/// of the players `near` it (a mask of player ids), or lost by its owner where nobody can be told.
+fn base_destroyed(
+    death: &Death,
+    before: &Standing,
+    now: &Standing,
+    near: u8,
+    frame: u32,
+) -> TimelineEvent {
     let victim = death.player as usize;
     let attacker = top_killer(
-        (0..MAX_PLAYERS).filter(|&other| !same_side(now, victim, other)),
+        (0..MAX_PLAYERS).filter(|&other| !same_side(now, victim, other) && near & 1 << other != 0),
         |player| now.razings[player].saturating_sub(before.razings[player]),
     );
     let (player, kind) = match attacker {
@@ -457,9 +507,36 @@ mod tests {
         standing
     }
 
+    /// A marine for each of `players`, standing at `x` on the line the test deaths are on.
+    fn roster(players: &[u8], x: i16) -> Vec<RosterUnit> {
+        players
+            .iter()
+            .enumerate()
+            .map(|(index, &player)| RosterUnit {
+                unique_id: index as u32,
+                player,
+                unit_id: unit::MARINE,
+                completed: true,
+                x,
+                y: 1000,
+            })
+            .collect()
+    }
+
     /// Feeds `samples` of deaths in turn, one sample a second from the first death, then quiet
-    /// seconds until everything open has closed, returning what was reported.
+    /// seconds until everything open has closed, returning what was reported. The first four
+    /// players all have units where the deaths are.
     fn run(samples: &[Vec<Death>], before: Standing, now: Standing) -> Vec<TimelineEvent> {
+        run_among(samples, before, now, &roster(&[0, 1, 2, 3], 500))
+    }
+
+    /// As [`run`], with `alive` the units every sample finds alive.
+    fn run_among(
+        samples: &[Vec<Death>],
+        before: Standing,
+        now: Standing,
+        alive: &[RosterUnit],
+    ) -> Vec<TimelineEvent> {
         let units = FakeUnits::standard();
         let mut events = Vec::new();
         let mut state = Engagements::default();
@@ -479,6 +556,7 @@ mod tests {
             let moment = Moment {
                 before: &before,
                 now: &now,
+                rosters: [alive, alive],
                 frame: first + index as u32 * SECOND,
                 last_sample: false,
             };
@@ -630,9 +708,11 @@ mod tests {
         let before = standing(1000, 20, [0, 0]);
         let mut now = before;
         now.razings[1] = 1200;
+        let alive = roster(&[1], 600);
         let moment = Moment {
             before: &before,
             now: &now,
+            rosters: [&alive, &alive],
             frame: 10 * SECOND,
             last_sample: false,
         };
@@ -657,9 +737,11 @@ mod tests {
         let fighting = (0..30)
             .map(|_| death(10 * SECOND, 0, unit::HYDRALISK, 500))
             .collect::<Vec<_>>();
+        let alive = roster(&[1], 500);
         let moment = Moment {
             before: &before,
             now: &before,
+            rosters: [&alive, &alive],
             frame: 10 * SECOND,
             last_sample: false,
         };
@@ -703,6 +785,76 @@ mod tests {
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].kind, TimelineEventKind::FightWon { margin: 3500 });
         assert_eq!(events[0].player, 2);
+    }
+
+    /// A player killing something across the map in the meantime had no part in the fight, and
+    /// does not win it for having lost nothing in it.
+    #[test]
+    fn a_kill_elsewhere_wins_no_fight() {
+        let mut before = Standing::default();
+        before.army[..3].copy_from_slice(&[3000, 3000, 3000]);
+        let mut now = before;
+        now.kills[..3].copy_from_slice(&[500, 2000, 50]);
+        let samples = vec![
+            (0..20)
+                .map(|_| death(10 * SECOND, 0, unit::HYDRALISK, 500))
+                .chain((0..10).map(|_| death(10 * SECOND, 1, unit::MARINE, 500)))
+                .collect::<Vec<_>>(),
+        ];
+        let mut alive = roster(&[0, 1], 500);
+        alive.extend(roster(&[2], 4000));
+        let events = run_among(&samples, before, now, &alive);
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].kind, TimelineEventKind::FightWon { margin: 1500 });
+        assert_eq!(events[0].player, 1);
+    }
+
+    /// Losses that no player nearby could have inflicted are not told as a fight anybody won.
+    #[test]
+    fn losses_with_nobody_near_them_are_no_fight() {
+        let samples = vec![
+            (0..30)
+                .map(|_| death(10 * SECOND, 0, unit::HYDRALISK, 500))
+                .collect::<Vec<_>>(),
+        ];
+        let events = run_among(
+            &samples,
+            standing(3000, 20, [0, 0]),
+            standing(3000, 20, [0, 3000]),
+            &roster(&[1], 4000),
+        );
+        assert!(events.is_empty());
+    }
+
+    /// A base is razed by whoever was there, not by whoever razed the most across the map.
+    #[test]
+    fn a_base_is_razed_by_a_player_at_it() {
+        let units = FakeUnits::standard();
+        let mut events = Vec::new();
+        let mut before = Standing::default();
+        before.army[..3].copy_from_slice(&[1000, 1000, 1000]);
+        let mut now = before;
+        now.razings[..3].copy_from_slice(&[0, 400, 1500]);
+        let mut alive = roster(&[1], 600);
+        alive.extend(roster(&[2], 4000));
+        let moment = Moment {
+            before: &before,
+            now: &now,
+            rosters: [&alive, &alive],
+            frame: 10 * SECOND,
+            last_sample: false,
+        };
+        let command_center = [death(10 * SECOND, 0, unit::COMMAND_CENTER, 500)];
+        advance(
+            Some(&Engagements::default()),
+            &command_center,
+            &moment,
+            &units,
+            &mut events,
+        );
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].kind, TimelineEventKind::BaseDestroyed);
+        assert_eq!(events[0].player, 1);
     }
 
     /// A hydralisk killed while it is a lurker egg was never complete, and is still a loss.
