@@ -171,9 +171,10 @@ pub struct HostFrame {
     /// What the game's own menu offers for pausing, while it is up behind the overlay's: `None`
     /// where it offers nothing, as in a replay.
     pub pause_control: Option<PauseControl>,
-    /// Where BW's minimap is on screen, in the overlay's points, for a host that can say. The frame
-    /// a watcher gets around the minimap is drawn from this, and `None` draws no frame; the panels
-    /// placed around the minimap keep clear of the corner the design reserves for it either way.
+    /// Where BW's minimap is on screen, in the overlay's points, for a host that can say. Its top
+    /// marks the console's, which dialogs and notices keep above; the frame a watcher gets around
+    /// the minimap is drawn from it, and `None` draws no frame. The panels placed around the
+    /// minimap keep clear of the corner the design reserves for it either way.
     pub minimap_rect: Option<Rect>,
 }
 
@@ -545,6 +546,7 @@ impl Shell {
     /// Draws the frame and reports what it wants of the host.
     pub fn frame(&mut self, ctx: &Context, host: &HostFrame, views: &mut Views<'_>) -> FrameOutput {
         self.set_host(host);
+        crate::kit::tiers::set_console_top(ctx, host.minimap_rect.map(|minimap| minimap.top()));
         self.sync_status_modals(views.disconnect.as_ref());
 
         self.replay.set_playback(views.transport.copied());

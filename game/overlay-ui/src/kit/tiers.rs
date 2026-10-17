@@ -292,7 +292,43 @@ const RAISED_TOP: f32 = 0.1;
 const RAISED_SCRIM_REACH: f32 = 0.55;
 const RAISED_SCRIM_STRENGTH: f32 = 0.85;
 
-/// A modal dialog: the screen dimmed behind it, the dialog centered on top.
+/// The least room kept between a centered dialog and the top or bottom of the screen, where the
+/// dialog is too tall to center over the game.
+const CENTERED_MIN_MARGIN: f32 = 16.0;
+
+fn console_top_id() -> Id {
+    Id::new("sb_console_top")
+}
+
+/// Records where the console's top edge is this frame, or that there is none to keep clear of.
+/// Centered dialogs center over the game above it rather than over the whole screen, which with
+/// the console along the bottom would sit them low over what the player is looking at.
+pub fn set_console_top(ctx: &Context, top: Option<f32>) {
+    ctx.data_mut(|data| data.insert_temp(console_top_id(), top));
+}
+
+/// Where the console's top edge is this frame, as [`set_console_top`] recorded it.
+pub fn console_top(ctx: &Context) -> Option<f32> {
+    ctx.data(|data| data.get_temp::<Option<f32>>(console_top_id()))
+        .flatten()
+}
+
+/// How far a centered dialog `height` tall moves from the screen's center: to the middle of the
+/// game above the console where one is recorded, and back down as far as it must to keep its top
+/// on screen.
+fn centered_offset(ctx: &Context, screen: Rect, height: Option<f32>) -> f32 {
+    let Some(console_top) = console_top(ctx) else {
+        return 0.0;
+    };
+    let mut center = (screen.top() + console_top.min(screen.bottom())) / 2.0;
+    if let Some(height) = height {
+        center = center.max(screen.top() + CENTERED_MIN_MARGIN + height / 2.0);
+    }
+    center.min(screen.center().y) - screen.center().y
+}
+
+/// A modal dialog: the screen dimmed behind it, the dialog centered over the game (see
+/// [`set_console_top`]).
 ///
 /// The dialog's `Ui` is the full width of the chrome with no padding of its own, because a dialog
 /// is a stack of bands and each band brings its own: see [`dialog_header`], [`dialog_body`] and
@@ -329,7 +365,15 @@ pub fn tier2_dialog_staged<R>(
             response
         });
     let anchor = match stage {
-        DialogStage::Centered => (Align2::CENTER_CENTER, Vec2::ZERO),
+        DialogStage::Centered => {
+            let height = ctx
+                .memory(|memory| memory.area_rect(id))
+                .map(|rect| rect.height());
+            (
+                Align2::CENTER_CENTER,
+                vec2(0.0, centered_offset(ctx, screen, height)),
+            )
+        }
         DialogStage::Raised => (Align2::CENTER_TOP, vec2(0.0, screen.height() * RAISED_TOP)),
     };
     let dialog = Area::new(id)

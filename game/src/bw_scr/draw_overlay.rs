@@ -648,11 +648,7 @@ impl OverlayState {
                     .map_or(FASTEST_GAME_SPEED, |replay| replay.game_speed),
             ),
             pause_control: bw.pause_control,
-            minimap_rect: if bw.is_replay_or_obs {
-                self.minimap_rect(bw)
-            } else {
-                None
-            },
+            minimap_rect: self.minimap_rect(bw),
         };
         if let Some(minimap) = host_frame.minimap_rect {
             let screen = self.ctx.viewport_rect();

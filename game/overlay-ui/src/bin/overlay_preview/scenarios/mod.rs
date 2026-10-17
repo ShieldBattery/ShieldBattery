@@ -369,15 +369,16 @@ pub fn render(
         option_lists: option_lists.as_ref(),
     };
 
-    // The game draws its own minimap under the overlay and tells the shell where it is; the preview
-    // has no minimap, so it paints a stand-in where SC:R puts one for a watcher and reports that.
+    // The game draws its own minimap under the overlay and tells the shell where it is, in every
+    // mode; the preview has no minimap, so it reports where SC:R puts one, and paints a stand-in
+    // there for a watcher, whose panels are framed around it.
     let mut host = knobs.host.host_frame();
+    let square = observer::minimap_square(ctx.viewport_rect());
+    host.minimap_rect = Some(square);
     if knobs.scenario == ScenarioKind::Observer {
-        let square = observer::minimap_square(ctx.viewport_rect());
         if shell.panel_prefs().minimap {
             observer::paint_minimap_stand_in(ctx, square);
         }
-        host.minimap_rect = Some(square);
         if knobs.observer.vision_picker && !state.observer.vision_picker_opened {
             state.observer.vision_picker_opened = true;
             shell.set_vision_picker_open(true);

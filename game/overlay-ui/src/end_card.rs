@@ -37,6 +37,10 @@ use crate::tr;
 /// banner, so this is also what keeps them clear of the console.
 const BANNER_CENTER: f32 = 0.39;
 
+/// The least room kept between the buttons and the console's top edge, where a tall console would
+/// otherwise have them over it; the whole composition rises by what it takes.
+const CONSOLE_CLEARANCE: f32 = 24.0;
+
 /// How tall the banner is, edge to soft edge.
 const BAND_HEIGHT: f32 = 196.0;
 
@@ -249,10 +253,16 @@ pub fn render_end_card(
     let t = motion::arrival_secs(ctx, id.with("arrival"), timeline.rest());
     let look = Look::of(view.result);
     let screen = ctx.viewport_rect();
-    let center = pos2(
-        screen.center().x,
-        screen.top() + screen.height() * BANNER_CENTER,
-    );
+    // How far the buttons reach below the banner's middle, as the last frame laid them out: the
+    // record's rows are a fixed height, so it holds from one frame to the next.
+    let reach_id = id.with("reach");
+    let reach = ctx.data(|data| data.get_temp::<f32>(reach_id));
+    let mut center_y = screen.top() + screen.height() * BANNER_CENTER;
+    if let (Some(console_top), Some(reach)) = (tiers::console_top(ctx), reach) {
+        let lowest = console_top - CONSOLE_CLEARANCE - reach;
+        center_y = center_y.min(lowest.max(screen.top() + BAND_HEIGHT / 2.0));
+    }
+    let center = pos2(screen.center().x, center_y);
     // Takes every click that misses the buttons and does nothing with it: dismissing the screen
     // means choosing to keep playing, which is a choice and not something a stray click should
     // make.
@@ -286,6 +296,8 @@ pub fn render_end_card(
             // A deeper pool of the darkness under the record, so its small type holds up over
             // whatever the game had on screen there; laid under it and the banner once its extent
             // is known.
+            ui.ctx()
+                .data_mut(|data| data.insert_temp(reach_id, actions_rect.bottom() - center.y));
             let below = record_rect.union(actions_rect);
             ui.painter().set(
                 shade,
