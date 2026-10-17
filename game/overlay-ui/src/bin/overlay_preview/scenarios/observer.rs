@@ -151,6 +151,49 @@ fn unit_name(id: u16) -> Option<String> {
     Some(name.to_string())
 }
 
+/// What each race researches, as the game names it, for the timeline's research rows: two upgrades
+/// and two technologies.
+fn race_research(race: RaceView) -> ([&'static str; 2], [&'static str; 2]) {
+    match race {
+        RaceView::Zerg => (
+            ["Metabolic Boost", "Zerg Missile Attacks"],
+            ["Lurker Aspect", "Burrowing"],
+        ),
+        RaceView::Terran => (
+            ["U-238 Shells", "Terran Infantry Weapons"],
+            ["Stim Packs", "Tank Siege Mode"],
+        ),
+        RaceView::Protoss | RaceView::Random => (
+            ["Singularity Charge", "Protoss Ground Weapons"],
+            ["Psionic Storm", "Recall"],
+        ),
+    }
+}
+
+/// What one of the fake timeline's events is about: its icon's number and the name its row gives
+/// it. A building for a building finished, the town hall for an expansion, the research for a
+/// research, and a unit for everything told in units: what a fight was fought with, whose workers.
+fn event_subject(kind: TimelineEventKind, race: RaceView, index: usize) -> (u16, Option<String>) {
+    let units = race_units(race);
+    let [production, town_hall] = race_buildings(race);
+    let (upgrades, tech) = race_research(race);
+    let unit = units[index % units.len()];
+    match kind {
+        TimelineEventKind::BuildingCompleted => (production, unit_name(production)),
+        TimelineEventKind::ExpansionTaken
+        | TimelineEventKind::BaseDestroyed
+        | TimelineEventKind::BaseLost => (town_hall, unit_name(town_hall)),
+        TimelineEventKind::UpgradeCompleted => (
+            production,
+            Some(upgrades[index % upgrades.len()].to_string()),
+        ),
+        TimelineEventKind::TechStarted | TimelineEventKind::TechCompleted => {
+            (production, Some(tech[index % tech.len()].to_string()))
+        }
+        _ => (unit, unit_name(unit)),
+    }
+}
+
 /// How many units the loaded transport is carrying, which is short of the eight one holds: a row
 /// drawn to its last slot would not say whether the panel draws the room or only what is in it.
 const CARGO_UNITS: usize = 4;
@@ -584,8 +627,8 @@ fn timeline_events(knobs: &Knobs, game_secs: u64) -> Vec<TimelineEventView> {
         .take(TIMELINE_DEPTH)
         .map(|index| {
             let player = (index % players) as usize;
-            let units = race_units(knobs.race(player));
             let (kind, significance) = EVENT_KINDS[(index / players) as usize % EVENT_KINDS.len()];
+            let (subject, name) = event_subject(kind, knobs.race(player), index as usize);
             TimelineEventView {
                 secs: (index + 1) * EVENT_INTERVAL_SECS,
                 color: overlay_ui::kit::theme::player_color(player),
@@ -593,15 +636,12 @@ fn timeline_events(knobs: &Knobs, game_secs: u64) -> Vec<TimelineEventView> {
                 significance,
                 icon: Some(ProductionIcon {
                     texture: None,
-                    index: units[index as usize % units.len()],
+                    index: subject,
                     size: None,
                     margin: 0.0,
                     wireframe: None,
                 }),
-                name: kind
-                    .names_its_subject()
-                    .then(|| unit_name(units[index as usize % units.len()]))
-                    .flatten(),
+                name: name.filter(|_| kind.names_its_subject()),
                 team: knobs.has_teams().then(|| knobs.team_of(player)),
                 position: None,
             }
