@@ -194,6 +194,7 @@ pub mod tests {
                 (unit::HYDRALISK, (0, 75, 25)),
                 (unit::LURKER, (0, 50, 100)),
                 (unit::MUTALISK, (0, 100, 100)),
+                (unit::OVERLORD, (0, 100, 0)),
                 (unit::GUARDIAN, (0, 50, 100)),
                 (unit::DEVOURER, (0, 150, 50)),
                 (unit::HIGH_TEMPLAR, (0, 50, 150)),

@@ -16,7 +16,7 @@ use overlay_ui::observer::{FightDegree, Significance, TimelineEventKind};
 
 use super::deaths::Death;
 use super::snapshot::RosterUnit;
-use super::unit_value::{UnitCatalog, counted_from_creation, invested_cost};
+use super::unit_value::{UnitCatalog, counted_from_creation, counts_as_army, invested_cost};
 use super::{MAX_PLAYERS, SAMPLE_INTERVAL_FRAMES, TimelineEvent, TimelineSubject};
 
 /// How long an engagement goes on without a death before it is over, in frames.
@@ -127,8 +127,9 @@ struct Engagement {
     weight: f32,
     /// What each player lost in units and static defense, in resources.
     lost: [u32; MAX_PLAYERS],
-    /// What of `lost` was static defense, which no army value counts.
-    defense_lost: [u32; MAX_PLAYERS],
+    /// What of `lost` no army value counts: static defense, and the overlords that are a zerg's
+    /// supply.
+    lost_outside_army: [u32; MAX_PLAYERS],
     /// What each player brought to the engagement: the most their army has been worth, counting
     /// what it had lost here already, at any sample they took part in. Reinforcements arriving
     /// partway through are brought to it too.
@@ -180,7 +181,7 @@ pub fn advance(
         .iter()
         .map(|engagement| {
             std::array::from_fn(|player| {
-                engagement.lost[player].saturating_sub(engagement.defense_lost[player])
+                engagement.lost[player].saturating_sub(engagement.lost_outside_army[player])
             })
         })
         .collect();
@@ -213,8 +214,10 @@ pub fn advance(
                 open.last_mut().expect("just pushed")
             }
         };
-        let defense = STATIC_DEFENSE.contains(&death.unit_id);
-        engagement.add(death, worker, defense, value, before);
+        // Static defense and the overlords no army value counts, so what a side brought has to
+        // count them as they are lost, or losing them would read as a share of something else.
+        let outside_army = !counts_as_army(catalog, death.unit_id);
+        engagement.add(death, worker, outside_army, value, before);
     }
     // Every death is stamped with the sample that found it, so an engagement whose last death is
     // this sample's had deaths in it since the sample before.
@@ -305,7 +308,7 @@ impl Engagement {
             y: 0.0,
             weight: 0.0,
             lost: [0; MAX_PLAYERS],
-            defense_lost: [0; MAX_PLAYERS],
+            lost_outside_army: [0; MAX_PLAYERS],
             brought: [0; MAX_PLAYERS],
             lost_kinds: Vec::new(),
             workers: [0; MAX_PLAYERS],
@@ -317,7 +320,14 @@ impl Engagement {
         }
     }
 
-    fn add(&mut self, death: &Death, worker: bool, defense: bool, value: u32, before: &Standing) {
+    fn add(
+        &mut self,
+        death: &Death,
+        worker: bool,
+        outside_army: bool,
+        value: u32,
+        before: &Standing,
+    ) {
         let player = death.player as usize;
         self.last = death.frame;
         // A worker's worth is counted where it died, so a fight over a mineral line is placed there,
@@ -339,8 +349,8 @@ impl Engagement {
             return;
         }
         self.lost[player] = self.lost[player].saturating_add(value);
-        if defense {
-            self.defense_lost[player] = self.defense_lost[player].saturating_add(value);
+        if outside_army {
+            self.lost_outside_army[player] = self.lost_outside_army[player].saturating_add(value);
         }
         match self
             .lost_kinds
@@ -433,7 +443,7 @@ impl Engagement {
             side.brought = side
                 .brought
                 .saturating_add(self.brought[player])
-                .saturating_add(self.defense_lost[player]);
+                .saturating_add(self.lost_outside_army[player]);
         }
         // Losses that nobody near them can be credited with are no fight to tell, nor to judge.
         if sides.len() < 2 {
@@ -445,10 +455,15 @@ impl Engagement {
             .iter()
             .map(|side| 1.0 - side.share())
             .fold(1.0f32, f32::min);
-        // A side with nothing left has been beaten as decisively as a fight can go.
-        let swing = match loser_left {
-            0.0 => f32::INFINITY,
-            left => (1.0 - winner.share()) / left,
+        let winner_left = 1.0 - winner.share();
+        // Two sides with nothing left traded everything for everything, and a side with nothing
+        // left against one that has something has been beaten as decisively as a fight can go.
+        let swing = if winner_left == 0.0 {
+            1.0
+        } else if loser_left == 0.0 {
+            f32::INFINITY
+        } else {
+            winner_left / loser_left
         };
         let killed = |side: usize| -> u32 {
             sides
@@ -741,6 +756,50 @@ mod tests {
             }
         );
         assert_eq!(events[0].player, 1);
+    }
+
+    /// Two armies that wipe each other out traded evenly, whoever has the lower player id.
+    #[test]
+    fn armies_lost_whole_on_both_sides_are_an_even_fight() {
+        let mut before = Standing::default();
+        before.army[..2].copy_from_slice(&[1000, 1000]);
+        let mut now = before;
+        now.kills[..2].copy_from_slice(&[1000, 1000]);
+        let samples = vec![
+            (0..10)
+                .map(|_| death(10 * SECOND, 0, unit::HYDRALISK, 500))
+                .chain((0..10).map(|_| death(10 * SECOND, 1, unit::HYDRALISK, 520)))
+                .collect::<Vec<_>>(),
+        ];
+        let events = run(&samples, before, now);
+        assert_eq!(events.len(), 1);
+        assert!(matches!(
+            events[0].kind,
+            TimelineEventKind::FightEven { .. }
+        ));
+    }
+
+    /// Overlords are no part of an army's value, so losing them is counted as brought as well as
+    /// lost rather than read as the army being gone.
+    #[test]
+    fn overlords_lost_are_no_army_wiped_out() {
+        let mut before = Standing::default();
+        before.army[..2].copy_from_slice(&[1000, 1000]);
+        let mut now = before;
+        now.kills[..2].copy_from_slice(&[500, 800]);
+        let samples = vec![
+            (0..8)
+                .map(|_| death(10 * SECOND, 0, unit::OVERLORD, 500))
+                .chain((0..5).map(|_| death(10 * SECOND, 1, unit::HYDRALISK, 520)))
+                .collect::<Vec<_>>(),
+        ];
+        let events = run(&samples, before, now);
+        assert_eq!(events.len(), 1);
+        // Player 0 lost 800 of 1,800 and player 1 lost 500 of 1,000.
+        assert!(matches!(
+            events[0].kind,
+            TimelineEventKind::FightEven { .. }
+        ));
     }
 
     #[test]
