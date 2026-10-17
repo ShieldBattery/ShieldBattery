@@ -634,7 +634,7 @@ impl Shell {
         }
         // Over everything else, and taking nothing: it registers no hit rect.
         if let Some(toast) = &mut self.setting_toast
-            && !toast.draw(ctx)
+            && !toast.draw(ctx, self.host.minimap_rect)
         {
             self.setting_toast = None;
         }
