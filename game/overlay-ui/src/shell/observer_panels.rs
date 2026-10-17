@@ -22,6 +22,8 @@ pub(super) struct ObserverPanels {
     focused_player: Option<u8>,
     /// Whether the list of players under the minimap's vision button is open.
     vision_picker_open: bool,
+    /// Where the map control strip hangs from, as last asked for while it was wanted on screen.
+    map_control_top: Option<f32>,
     /// The run of the dock's column, top and bottom, the dock had to itself last frame with every
     /// surface on the right edge against the edge, or `None` where it was too short for the dock at
     /// its full height. While there is room, the surfaces on that side hug the edge and the dock
@@ -170,14 +172,20 @@ impl ObserverPanels {
                 displaced.push(Panel::MapControl);
             }
             // Hung under the matchup bar while the bar is up, and from the screen's own top edge
-            // once it is put away, moving off as the bar starts to go rather than once it has.
+            // once it is put away, moving off as the bar starts to go rather than once it has. A
+            // strip put away along with the bar leaves from where it stands, as the panels put away
+            // with it do, rather than sliding up across the bar on its way out.
+            let wanted_top = if prefs.matchup {
+                view.matchup.form().height() + observer::MAP_CONTROL_GAP
+            } else {
+                observer::WING_MARGIN
+            };
+            if prefs.map_control || self.map_control_top.is_none() {
+                self.map_control_top = Some(wanted_top);
+            }
             let top = ctx.animate_value_with_time(
                 egui::Id::new("sb_map_control_top"),
-                if prefs.matchup {
-                    view.matchup.form().height() + observer::MAP_CONTROL_GAP
-                } else {
-                    observer::WING_MARGIN
-                },
+                self.map_control_top.unwrap_or(wanted_top),
                 if self.drawn.map_control {
                     crate::kit::theme::MOTION_PANEL_SECS
                 } else {
