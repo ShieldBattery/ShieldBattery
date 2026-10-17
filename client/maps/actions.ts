@@ -8,8 +8,8 @@ import {
   SbMapId,
   UpdateMapResponse,
   UpdateMapServerRequest,
-  UploadMapResponse,
 } from '../../common/maps'
+import { SbUser } from '../../common/users/sb-user'
 import { BaseFetchFailure } from '../network/fetch-errors'
 
 export type MapsActions =
@@ -25,12 +25,20 @@ export type MapsActions =
   | UpdateMapSuccess
   | LoadMapInfos
 
+/** A map that was just uploaded, along with the info needed to display it. */
+export interface UploadedMap {
+  map: MapInfoJson
+  /** Contains the map's ID if it's in the current user's own maps. */
+  libraryMapIds: SbMapId[]
+  users: SbUser[]
+}
+
 /**
- * The server has returned the map that was uploaded.
+ * A local map was uploaded to the current user's own maps.
  */
 export interface UploadLocalMap {
   type: '@maps/uploadLocalMap'
-  payload: UploadMapResponse
+  payload: UploadedMap
   meta: {
     path: string
   }

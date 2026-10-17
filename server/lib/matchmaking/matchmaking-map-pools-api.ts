@@ -14,7 +14,6 @@ import {
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
 import { getMapInfos, resolveMapIdSets } from '../maps/map-models'
-import { reparseMapsAsNeeded } from '../maps/map-operations'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import { validateRequest } from '../validation/joi-validator'
@@ -60,8 +59,7 @@ export class MatchmakingMapPoolsApi {
       offset,
     })
 
-    const mapInfosResult = await getMapInfos(mapPools.flatMap(p => p.maps))
-    const mapInfos = await reparseMapsAsNeeded(mapInfosResult)
+    const mapInfos = await getMapInfos(mapPools.flatMap(p => p.maps))
 
     return {
       pools: mapPools.map(p => toMatchmakingMapPoolJson(p)),
@@ -79,8 +77,7 @@ export class MatchmakingMapPoolsApi {
       throw new httpErrors.NotFound('no matchmaking map pool for this type')
     }
 
-    const mapInfosResult = await getMapInfos(pool.maps)
-    const mapInfos = await reparseMapsAsNeeded(mapInfosResult)
+    const mapInfos = await getMapInfos(pool.maps)
 
     return {
       pool: toMatchmakingMapPoolJson(pool),
@@ -112,8 +109,7 @@ export class MatchmakingMapPoolsApi {
       maxVetoCount,
       startDate: new Date(startDate),
     })
-    const mapInfosResult = await getMapInfos(mapPool.maps)
-    const mapInfos = await reparseMapsAsNeeded(mapInfosResult)
+    const mapInfos = await getMapInfos(mapPool.maps)
 
     return {
       pool: toMatchmakingMapPoolJson(mapPool),

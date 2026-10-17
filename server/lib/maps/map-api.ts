@@ -1,11 +1,8 @@
 import { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
-import Koa from 'koa'
-import { JsonObject, SetRequired } from 'type-fest'
-import { assertUnreachable } from '../../../common/assert-unreachable'
+import { SetRequired } from 'type-fest'
 import {
-  ALL_MAP_EXTENSIONS,
   ALL_MAP_SORT_TYPES,
   ALL_MAP_VISIBILITIES,
   ALL_TILESETS,
@@ -16,20 +13,14 @@ import {
   GetMapsQueryParams,
   GetMapsResponse,
   MAP_LIST_LIMIT,
-  MapExtension,
   MapInfo,
-  MapServiceErrorCode,
   MapSortType,
   MapVisibility,
-  MAX_MAP_FILE_SIZE_BYTES,
   SbMapId,
   toMapInfoJson,
   UpdateMapResponse,
-  UploadMapResponse,
 } from '../../../common/maps'
-import { asHttpError } from '../errors/error-with-payload'
 import { deleteFiles, getSignedUrl } from '../files'
-import { handleMultipartFiles } from '../files/handle-multipart-files'
 import { httpApi } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPatch, httpPost } from '../http/route-decorators'
 import {
@@ -46,49 +37,19 @@ import {
   resolveMapId,
   resolveMapIds,
   updateMap,
-  updateMapImages,
   veryDangerousDeleteAllMaps,
 } from '../maps/map-models'
-import { MapServiceError, storeMap, storeRegeneratedImages } from '../maps/store'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware, { throttleByUser, throttleByUserOrIp } from '../throttle/middleware'
 import { findUsersById } from '../users/user-model'
 import { validateRequest } from '../validation/joi-validator'
-import { processStoredMapFile, reparseMapsAsNeeded } from './map-operations'
 import { mapPath } from './paths'
-
-function convertMapServiceError(err: unknown) {
-  if (!(err instanceof MapServiceError)) {
-    throw err
-  }
-
-  switch (err.code) {
-    case MapServiceErrorCode.NoPlayerSlots:
-    case MapServiceErrorCode.InvalidMapFile:
-      throw asHttpError(400, err)
-    default:
-      assertUnreachable(err.code)
-  }
-}
-
-async function convertMapServiceErrors(ctx: RouterContext, next: Koa.Next) {
-  try {
-    await next()
-  } catch (err) {
-    convertMapServiceError(err)
-  }
-}
 
 const mapsListThrottle = createThrottle('mapslist', {
   rate: 30,
   burst: 300,
-  window: 60000,
-})
-const mapUploadThrottle = createThrottle('mapupload', {
-  rate: 10,
-  burst: 20,
   window: 60000,
 })
 const mapUpdateThrottle = createThrottle('mapupdate', {
@@ -186,7 +147,7 @@ export class MapsApi {
         ? { libraryOf: ctx.session!.user.id }
         : { listing: visibility }
 
-    const mapsResult = await getMaps({
+    const maps = await getMaps({
       source,
       sort,
       numPlayers,
@@ -196,10 +157,9 @@ export class MapsApi {
       offset,
     })
 
-    const [maps, libraryMapIds, users] = await Promise.all([
-      reparseMapsAsNeeded(mapsResult),
-      getLibraryMapIds(ctx, mapsResult),
-      findPublishers(mapsResult),
+    const [libraryMapIds, users] = await Promise.all([
+      getLibraryMapIds(ctx, maps),
+      findPublishers(maps),
     ])
 
     return {
@@ -233,7 +193,7 @@ export class MapsApi {
     })
 
     const favoritedBy = ctx.session!.user.id
-    const mapResult = await getFavoritedMaps({
+    const maps = await getFavoritedMaps({
       sort,
       numPlayers,
       tilesets,
@@ -241,10 +201,9 @@ export class MapsApi {
       favoritedBy,
     })
 
-    const [maps, libraryMapIds, users] = await Promise.all([
-      reparseMapsAsNeeded(mapResult),
-      getLibraryMapIds(ctx, mapResult),
-      findPublishers(mapResult),
+    const [libraryMapIds, users] = await Promise.all([
+      getLibraryMapIds(ctx, maps),
+      findPublishers(maps),
     ])
 
     return {
@@ -266,106 +225,19 @@ export class MapsApi {
     const mapIds = await resolveMapIds(query.m)
     const favoritedBy = ctx.session?.user.id
 
-    const [mapsResult, favoritedMapIds] = await Promise.all([
+    const [maps, favoritedMapIds] = await Promise.all([
       getMapInfos(mapIds),
       favoritedBy ? getFavoritedFromMapIds(favoritedBy, mapIds) : Promise.resolve([]),
     ])
 
-    const [maps, libraryMapIds, users] = await Promise.all([
-      reparseMapsAsNeeded(mapsResult),
-      getLibraryMapIds(ctx, mapsResult),
-      findPublishers(mapsResult),
+    const [libraryMapIds, users] = await Promise.all([
+      getLibraryMapIds(ctx, maps),
+      findPublishers(maps),
     ])
 
     return {
       maps: maps.map(m => toMapInfoJson(m)),
       favoritedMapIds,
-      libraryMapIds,
-      users,
-    }
-  }
-
-  @httpPost('/official')
-  @httpBefore(
-    convertMapServiceErrors,
-    ensureLoggedIn,
-    checkAllPermissions('manageMaps'),
-    handleMultipartFiles(MAX_MAP_FILE_SIZE_BYTES),
-  )
-  async uploadOfficial(ctx: RouterContext): Promise<UploadMapResponse> {
-    if (!ctx.request.files?.file || Array.isArray(ctx.request.files.file)) {
-      throw new httpErrors.BadRequest('A single map file must be provided')
-    }
-
-    const { filepath } = ctx.request.files!.file
-    const { extension } = (ctx.request.body ?? { extension: undefined }) as JsonObject
-
-    if (!filepath) {
-      throw new httpErrors.BadRequest('map file must be specified')
-    } else if (!extension || typeof extension !== 'string') {
-      throw new httpErrors.BadRequest('extension must be specified')
-    }
-
-    const lowerCaseExtension = extension.toLowerCase() as MapExtension
-    if (!ALL_MAP_EXTENSIONS.includes(lowerCaseExtension)) {
-      throw new httpErrors.BadRequest('Unsupported extension: ' + lowerCaseExtension)
-    }
-
-    const map = await storeMap(
-      filepath,
-      lowerCaseExtension,
-      ctx.session!.user.id,
-      MapVisibility.Official,
-    )
-    const [libraryMapIds, users] = await Promise.all([
-      getLibraryMapIds(ctx, [map]),
-      findPublishers([map]),
-    ])
-    return {
-      map: toMapInfoJson(map),
-      libraryMapIds,
-      users,
-    }
-  }
-
-  @httpPost('/')
-  @httpBefore(
-    convertMapServiceErrors,
-    ensureLoggedIn,
-    throttleMiddleware(mapUploadThrottle, throttleByUser),
-    handleMultipartFiles(MAX_MAP_FILE_SIZE_BYTES),
-  )
-  async upload(ctx: RouterContext): Promise<UploadMapResponse> {
-    if (!ctx.request.files?.file || Array.isArray(ctx.request.files.file)) {
-      throw new httpErrors.BadRequest('A single map file must be provided')
-    }
-
-    const { filepath } = ctx.request.files!.file
-    const { extension } = (ctx.request.body ?? { extension: undefined }) as JsonObject
-
-    if (!filepath) {
-      throw new httpErrors.BadRequest('map file must be specified')
-    } else if (!extension || typeof extension !== 'string') {
-      throw new httpErrors.BadRequest('extension must be specified')
-    }
-
-    const lowerCaseExtension = extension.toLowerCase() as MapExtension
-    if (!ALL_MAP_EXTENSIONS.includes(lowerCaseExtension)) {
-      throw new httpErrors.BadRequest('Unsupported extension: ' + lowerCaseExtension)
-    }
-
-    const map = await storeMap(
-      filepath,
-      lowerCaseExtension,
-      ctx.session!.user.id,
-      MapVisibility.Unlisted,
-    )
-    const [libraryMapIds, users] = await Promise.all([
-      getLibraryMapIds(ctx, [map]),
-      findPublishers([map]),
-    ])
-    return {
-      map: toMapInfoJson(map),
       libraryMapIds,
       users,
     }
@@ -395,8 +267,6 @@ export class MapsApi {
     if (!map) {
       throw new httpErrors.NotFound('Map not found')
     }
-
-    ;[map] = await reparseMapsAsNeeded([map])
 
     // Curated names and descriptions are only set while a map is listed. A map that was never
     // listed uses the file's own; a delisted one keeps the ones it was listed under, which games
@@ -495,32 +365,15 @@ export class MapsApi {
     return { url }
   }
 
-  @httpPost('/:mapId/regenerate')
-  @httpBefore(ensureLoggedIn, checkAllPermissions('manageMaps'))
-  async regenMapImage(ctx: RouterContext): Promise<void> {
-    const mapId = await getValidatedMapId(ctx)
-
-    const map = (await getMapInfos([mapId]))[0]
-    if (!map) {
-      throw new httpErrors.NotFound('Map not found')
-    }
-
-    await updateMapImages(map.hash, async () => {
-      await processStoredMapFile(
-        map,
-        async ({ path }) => await storeRegeneratedImages(path, map.mapData.format),
-      )
-    })
-
-    // TODO(tec27): Should probably return the updated map info here, since the URLs will change
-    ctx.status = 204
-  }
-
   @httpDelete('/')
   @httpBefore(ensureLoggedIn, checkAllPermissions('massDeleteMaps'))
   async deleteAllMaps(ctx: RouterContext): Promise<void> {
     await veryDangerousDeleteAllMaps(async () => {
-      await Promise.all([deleteFiles('maps/'), deleteFiles('map_images/')])
+      await Promise.all([
+        deleteFiles('maps/'),
+        deleteFiles('map_images/'),
+        deleteFiles('map_rejects/'),
+      ])
     })
     ctx.status = 204
   }
