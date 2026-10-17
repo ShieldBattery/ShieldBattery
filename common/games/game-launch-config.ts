@@ -1,6 +1,6 @@
 import { SlotType } from '../lobbies/slot'
 import { MapInfoJson } from '../maps'
-import { MatchmakingDivision } from '../matchmaking'
+import { MatchmakingDivision, MatchmakingType } from '../matchmaking'
 import { BwTurnRate, BwUserLatency } from '../network'
 import { RaceChar } from '../races'
 import { SbUser } from '../users/sb-user'
@@ -76,6 +76,8 @@ export interface GameSetup {
   users: SbUser[]
   /** For matchmaking, each player's standing in the match's mode going into the game. */
   ranks?: GamePlayerRank[]
+  /** The match's mode, for a matchmaking game. */
+  matchmakingType?: MatchmakingType
   /**
    * Whether changing allies during the game is disabled. Optional, defaults to false (i.e. use
    * the default for the game mode). */

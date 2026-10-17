@@ -3,7 +3,9 @@ use std::ffi::CString;
 use hashbrown::HashSet;
 
 use crate::{
-    app_messages::{BlockFailureReason, BlockRequestFailed, SbUserId},
+    app_messages::{
+        BlockFailureReason, BlockRequestFailed, SbUserId, UserStatsMode, UserStatsResult,
+    },
     bw::{get_bw, players::BwPlayerId},
     bw_scr::get_exe_build,
     game_state::JoinedPlayer,
@@ -36,6 +38,49 @@ enum BlockCommandOutcome {
     },
     IsLocalUser,
     PlayerNotFound,
+}
+
+/// The chat lines answering a `/stats` command.
+fn user_stats_lines(result: &UserStatsResult) -> Vec<String> {
+    let stats = match result {
+        UserStatsResult::Found(stats) => stats,
+        UserStatsResult::NotFound { name } => return vec![format!("\x06No user named \x07{name}")],
+        UserStatsResult::Error { name } if name.is_empty() => {
+            return vec!["\x06Couldn't load your stats".into()];
+        }
+        UserStatsResult::Error { name } => {
+            return vec![format!("\x06Couldn't load stats for \x07{name}")];
+        }
+    };
+
+    let race = match &stats.race {
+        Some(race) => format!(" \x04(Main: \x07{race}\x04)"),
+        None => String::new(),
+    };
+    let mut lines = vec![format!(
+        "\x07{}\x04: \x07{}\x04W \x07{}\x04L{race}",
+        stats.name, stats.wins, stats.losses
+    )];
+
+    lines.push(match &stats.best_mode {
+        Some(mode) => format!("\x04Best Mode: \x07{} {}", mode.label, mode_standing(mode)),
+        None => "\x04Best Mode: Unranked".to_string(),
+    });
+    if let Some(mode) = &stats.current_mode {
+        lines.push(format!("\x04{}: {}", mode.label, mode_standing(mode)));
+    }
+
+    lines
+}
+
+/// A mode's division and MMR (e.g. "Gold 2 (1820)"), or that the user isn't rated in it. Starts in
+/// the color the text before it is in.
+fn mode_standing(mode: &UserStatsMode) -> String {
+    match (&mode.division, mode.rating) {
+        (Some(division), Some(rating)) => format!("\x07{division} \x04(\x07{rating}\x04)"),
+        (Some(division), None) => format!("\x07{division}"),
+        (None, _) => "Unranked".to_string(),
+    }
 }
 
 /// What a `/muteenemy` command did.
@@ -146,6 +191,15 @@ impl ChatManager {
         let msg = CString::new(format!("\x06Couldn't {action} \x07{name}\x06{detail}"))
             .unwrap_or_default();
         self.pending_notices.push(msg);
+    }
+
+    /// Queues the lines answering a `/stats` command.
+    pub fn user_stats_received(&mut self, result: &UserStatsResult) {
+        self.pending_notices.extend(
+            user_stats_lines(result)
+                .into_iter()
+                .map(|line| CString::new(line).unwrap_or_default()),
+        );
     }
 
     pub fn take_pending_notices(&mut self) -> Vec<CString> {
@@ -264,13 +318,13 @@ impl ChatManager {
             }
             "/muteenemy" | "/menemy" => match self.mute_enemies(is_enemy) {
                 MuteEnemiesOutcome::Muted => {
-                    get_bw().print_text(c"Enemy players muted");
+                    get_bw().print_text(c"\x04Enemy players muted");
                 }
                 MuteEnemiesOutcome::NoEnemies => {
-                    get_bw().print_centered_text(c"You have no enemies to mute");
+                    get_bw().print_centered_text(c"\x06You have no enemies to mute");
                 }
                 MuteEnemiesOutcome::NotPlaying => {
-                    get_bw().print_centered_text(c"Only players in the game have enemies");
+                    get_bw().print_centered_text(c"\x06Only players in the game have enemies");
                 }
             },
             "/unmuteall" | "/umall" => {
@@ -338,6 +392,19 @@ impl ChatManager {
                     }
                 }
             }
+            // Same name and aliases as the app's chat command
+            "/stats" | "/astat" | "/profile" | "/p" | "/rank" | "/mmr" => {
+                let mut args = tokens.filter(|arg| !arg.is_empty());
+                let name = args.next();
+                if args.next().is_some() {
+                    let msg = CString::new(format!("\x03Usage: \x04{command} \x07[name]")).unwrap();
+                    get_bw().print_centered_text(&msg);
+                    return true;
+                }
+                send_game_msg_to_async(GameThreadMessage::RequestUserStats {
+                    name: name.map(String::from),
+                });
+            }
             "/unmute" | "/um" => {
                 let mut to_unmute = None;
                 if let Some(player) = tokens.next() {
@@ -373,6 +440,7 @@ impl ChatManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::app_messages::{UserStats, UserStatsMode};
     use crate::bw::players::{BwPlayerId, StormPlayerId};
 
     fn joined(name: &str, index: u8, user: u32) -> JoinedPlayer {
@@ -575,5 +643,140 @@ mod tests {
         assert!(notices[0].to_str().unwrap().contains("block \x07player-b"));
         assert!(notices[1].to_str().unwrap().contains("unblock \x07watcher"));
         assert!(manager.take_pending_notices().is_empty());
+    }
+
+    fn rated(label: &str, division: &str, rating: u32) -> UserStatsMode {
+        UserStatsMode {
+            label: label.into(),
+            division: Some(division.into()),
+            rating: Some(rating),
+        }
+    }
+
+    fn unrated(label: &str) -> UserStatsMode {
+        UserStatsMode {
+            label: label.into(),
+            division: None,
+            rating: None,
+        }
+    }
+
+    #[test]
+    fn user_stats_show_record_best_mode_and_current_mode() {
+        let lines = user_stats_lines(&UserStatsResult::Found(UserStats {
+            name: "tec27".into(),
+            race: Some("Protoss".into()),
+            wins: 120,
+            losses: 80,
+            best_mode: Some(rated("1v1", "Gold 2", 1820)),
+            current_mode: Some(rated("2v2", "Silver 1", 1550)),
+        }));
+        assert_eq!(
+            lines,
+            [
+                "\x07tec27\x04: \x07120\x04W \x0780\x04L \x04(Main: \x07Protoss\x04)",
+                "\x04Best Mode: \x071v1 \x07Gold 2 \x04(\x071820\x04)",
+                "\x042v2: \x07Silver 1 \x04(\x071550\x04)",
+            ],
+        );
+    }
+
+    #[test]
+    fn user_stats_outside_matchmaking_leave_out_the_current_mode() {
+        let lines = user_stats_lines(&UserStatsResult::Found(UserStats {
+            name: "tec27".into(),
+            race: Some("Zerg".into()),
+            wins: 3,
+            losses: 1,
+            best_mode: Some(rated("1v1", "Gold 2", 1820)),
+            current_mode: None,
+        }));
+        assert_eq!(
+            lines,
+            [
+                "\x07tec27\x04: \x073\x04W \x071\x04L \x04(Main: \x07Zerg\x04)",
+                "\x04Best Mode: \x071v1 \x07Gold 2 \x04(\x071820\x04)",
+            ],
+        );
+    }
+
+    #[test]
+    fn user_stats_without_games_or_ranks() {
+        let lines = user_stats_lines(&UserStatsResult::Found(UserStats {
+            name: "newbie".into(),
+            race: None,
+            wins: 0,
+            losses: 0,
+            best_mode: None,
+            current_mode: Some(unrated("1v1")),
+        }));
+        assert_eq!(
+            lines,
+            [
+                "\x07newbie\x04: \x070\x04W \x070\x04L",
+                "\x04Best Mode: Unranked",
+                "\x041v1: Unranked",
+            ],
+        );
+    }
+
+    #[test]
+    fn user_stats_failures_name_who_was_asked_for() {
+        assert_eq!(
+            user_stats_lines(&UserStatsResult::NotFound {
+                name: "nobody".into()
+            }),
+            ["\x06No user named \x07nobody"],
+        );
+        assert_eq!(
+            user_stats_lines(&UserStatsResult::Error {
+                name: "tec27".into()
+            }),
+            ["\x06Couldn't load stats for \x07tec27"],
+        );
+        assert_eq!(
+            user_stats_lines(&UserStatsResult::Error {
+                name: String::new()
+            }),
+            ["\x06Couldn't load your stats"],
+        );
+    }
+
+    #[test]
+    fn user_stats_results_are_queued_as_notices() {
+        let mut manager = manager_with_players();
+        manager.user_stats_received(&UserStatsResult::NotFound {
+            name: "nobody".into(),
+        });
+        assert_eq!(manager.take_pending_notices().len(), 1);
+    }
+
+    #[test]
+    fn user_stats_results_deserialize_from_the_app() {
+        let found: UserStatsResult = serde_json::from_str(
+            r#"{"kind":"found","name":"tec27","wins":1,"losses":2,
+                "bestMode":{"label":"1v1","division":"Gold 2","rating":1820},
+                "currentMode":{"label":"2v2"}}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            found,
+            UserStatsResult::Found(UserStats {
+                name: "tec27".into(),
+                race: None,
+                wins: 1,
+                losses: 2,
+                best_mode: Some(rated("1v1", "Gold 2", 1820)),
+                current_mode: Some(unrated("2v2")),
+            }),
+        );
+        let not_found: UserStatsResult =
+            serde_json::from_str(r#"{"kind":"notFound","name":"nobody"}"#).unwrap();
+        assert_eq!(
+            not_found,
+            UserStatsResult::NotFound {
+                name: "nobody".into()
+            },
+        );
     }
 }

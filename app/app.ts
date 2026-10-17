@@ -835,6 +835,14 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
         blocked,
       )
     })
+    .on('requestUserStats', (gameId, name, matchmakingType) => {
+      TypedIpcSender.from(mainWindow?.webContents).send(
+        'activeGameRequestUserStats',
+        gameId,
+        name,
+        matchmakingType,
+      )
+    })
 
   app.on('will-quit', () => activeGameManager.quitWatchOnlyGamesOnAppExit())
 
@@ -860,6 +868,9 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
   )
   ipcMain.handle('activeGameBlockRequestFailed', (event, gameId, failure) =>
     activeGameManager.blockRequestFailed(gameId, failure),
+  )
+  ipcMain.handle('activeGameUserStats', (event, gameId, result) =>
+    activeGameManager.userStatsResult(gameId, result),
   )
   if (isDev) {
     // Dev-only handlers: a release game build doesn't implement the underlying commands anyway,

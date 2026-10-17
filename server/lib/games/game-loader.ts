@@ -317,6 +317,7 @@ function getGeneralGameSetup({
       host: playerInfos[0],
       users,
       ranks,
+      matchmakingType: gameConfig.gameSourceExtra.type,
       // Matchmaking always locks alliances; fall back to that if a caller ever constructs a
       // matchmaking config without setting the field explicitly.
       disableAllianceChanges: gameConfig.lockedAlliances ?? true,

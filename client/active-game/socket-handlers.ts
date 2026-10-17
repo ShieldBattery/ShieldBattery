@@ -9,12 +9,14 @@ import { apiUrl } from '../../common/urls'
 import { UserRelationshipServiceErrorCode } from '../../common/users/relationships'
 import { dispatch, Dispatchable } from '../dispatch-registry'
 import { addRecentReplayPathAtom, gameLoadingStatusAtom, lastGameAtom } from '../games/game-atoms'
+import i18n from '../i18n/i18next'
 import { jotaiStore } from '../jotai-store'
 import logger from '../logging/logger'
 import { fetchJson } from '../network/fetch'
 import { isFetchError } from '../network/fetch-errors'
 import { makeServerUrl } from '../network/server-url'
 import { blockUser, ensureRelationshipsLoaded, unblockUser } from '../social/action-creators'
+import { lookUpGameUserStats } from './game-user-stats'
 import { updateActiveGame } from './wait-for-active-game'
 
 type EventToActionMap = {
@@ -235,6 +237,13 @@ export default function ({
               .invoke('activeGameBlockRequestFailed', gameId, { userId, blocked, reason })
               ?.catch(swallowNonBuiltins)
           },
+        }),
+      )
+    })
+    .on('activeGameRequestUserStats', (_, gameId, name, matchmakingType) => {
+      dispatch(
+        lookUpGameUserStats(name, matchmakingType, i18n.t, result => {
+          ipcRenderer.invoke('activeGameUserStats', gameId, result)?.catch(swallowNonBuiltins)
         }),
       )
     })
