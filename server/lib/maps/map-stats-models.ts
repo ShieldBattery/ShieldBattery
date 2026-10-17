@@ -67,7 +67,8 @@ async function refreshSnapshot(client: DbClient, asOf: Date) {
   await client.query(sql`
     WITH played AS (
       SELECT g.id, g.map_id, g.start_time, g.game_length,
-        g.start_time >= ${asOf}::timestamptz - interval '90 days' AS in_90d
+        g.start_time >= ${asOf}::timestamptz - interval '90 days' AS in_90d,
+        g.config->>'gameSource' = 'LOBBY' AS is_lobby
       FROM games g
       INNER JOIN maps m ON m.id = g.map_id
       WHERE ${PLAYED_GAME} AND g.start_time <= ${asOf}
@@ -78,10 +79,17 @@ async function refreshSnapshot(client: DbClient, asOf: Date) {
       INNER JOIN games_users gu ON gu.game_id = p.id
       WHERE p.in_90d
       GROUP BY p.map_id
+    ),
+    lobby_players AS (
+      SELECT p.map_id, count(DISTINCT gu.user_id) AS players
+      FROM played p
+      INNER JOIN games_users gu ON gu.game_id = p.id
+      WHERE p.is_lobby AND p.start_time >= ${asOf}::timestamptz - interval '7 days'
+      GROUP BY p.map_id
     )
     INSERT INTO map_stats (
       map_id, games_7d, games_28d, games_90d, players_90d, games_total, median_length_90d,
-      last_played_at, updated_at
+      last_played_at, updated_at, lobby_games_7d, lobby_games_28d, lobby_players_7d
     )
     SELECT p.map_id,
       count(*) FILTER (WHERE p.start_time >= ${asOf}::timestamptz - interval '7 days'),
@@ -92,10 +100,16 @@ async function refreshSnapshot(client: DbClient, asOf: Date) {
       round(percentile_cont(0.5) WITHIN GROUP (ORDER BY p.game_length)
         FILTER (WHERE p.in_90d AND p.game_length IS NOT NULL)),
       max(p.start_time),
-      ${asOf}
+      ${asOf},
+      count(*) FILTER (
+        WHERE p.is_lobby AND p.start_time >= ${asOf}::timestamptz - interval '7 days'),
+      count(*) FILTER (
+        WHERE p.is_lobby AND p.start_time >= ${asOf}::timestamptz - interval '28 days'),
+      COALESCE(lp.players, 0)
     FROM played p
     LEFT JOIN players pl ON pl.map_id = p.map_id
-    GROUP BY p.map_id, pl.players
+    LEFT JOIN lobby_players lp ON lp.map_id = p.map_id
+    GROUP BY p.map_id, pl.players, lp.players
   `)
 }
 

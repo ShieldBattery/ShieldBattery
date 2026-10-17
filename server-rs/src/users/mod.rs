@@ -36,6 +36,10 @@ use crate::email::{
 use crate::file_store::FileStore;
 use crate::graphql::errors::graphql_error;
 use crate::graphql::schema_builder::SchemaBuilderModule;
+use crate::maps::search::{MapFilter, MapSort};
+use crate::maps::{
+    FavoriteMapConnection, MapLibraryConnection, load_favorite_maps, load_map_library,
+};
 use crate::random_code::gen_random_code;
 use crate::redis::RedisPool;
 use crate::sessions::SbSession;
@@ -274,6 +278,32 @@ impl CurrentUser {
         Ok(self
             .last_name_change
             .map(|t| t + DISPLAY_NAME_CHANGE_COOLDOWN))
+    }
+
+    /// The maps in this user's library (the maps they uploaded), listed or not. Takes the same
+    /// arguments as `maps`; `NEWEST` sorts by when each map was added.
+    async fn map_library(
+        &self,
+        ctx: &Context<'_>,
+        filter: Option<MapFilter>,
+        sort: Option<MapSort>,
+        after: Option<String>,
+        first: Option<i32>,
+    ) -> Result<MapLibraryConnection> {
+        load_map_library(ctx, self.id, filter, sort, after, first).await
+    }
+
+    /// The maps this user has favorited, listed or not. Takes the same arguments as `maps`;
+    /// `NEWEST` sorts by when each map was favorited.
+    async fn favorite_maps(
+        &self,
+        ctx: &Context<'_>,
+        filter: Option<MapFilter>,
+        sort: Option<MapSort>,
+        after: Option<String>,
+        first: Option<i32>,
+    ) -> Result<FavoriteMapConnection> {
+        load_favorite_maps(ctx, self.id, filter, sort, after, first).await
     }
 }
 

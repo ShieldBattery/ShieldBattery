@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO favorited_maps (map_id, favorited_by, favorited_date)\n                VALUES ($1, $2, now())\n                ON CONFLICT (map_id, favorited_by) DO NOTHING\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "52dc87d4c2c23ea5342af39f041d385373cc540607def650b9a18229fbc1c963"
+}
