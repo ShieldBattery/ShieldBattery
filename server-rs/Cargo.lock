@@ -156,6 +156,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "03918c3dbd7701a85c6b9887732e2921175f26c350b4563841d0958c21d57e6d"
 
 [[package]]
+name = "arraydeque"
+version = "0.4.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f0ffd3d69bd89910509a5d31d1f1353f38ccffdd116dd0099bbd6627f7bd8ad8"
+
+[[package]]
 name = "ascii_utils"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -857,6 +863,7 @@ dependencies = [
  "matchit",
  "memchr",
  "mime",
+ "multer",
  "percent-encoding",
  "pin-project-lite",
  "serde_core",
@@ -1056,6 +1063,51 @@ dependencies = [
 ]
 
 [[package]]
+name = "broodmap"
+version = "0.1.0"
+source = "git+https://github.com/ShieldBattery/broodmap?rev=4bdbe7d4cfef3633f1f7b795d8415a6952047133#4bdbe7d4cfef3633f1f7b795d8415a6952047133"
+dependencies = [
+ "bitflags",
+ "bzip2",
+ "encoding_rs",
+ "explode",
+ "miniz_oxide",
+ "nom",
+ "smallvec",
+ "thiserror",
+]
+
+[[package]]
+name = "broodmap-analysis"
+version = "0.1.0"
+source = "git+https://github.com/ShieldBattery/broodmap?rev=4bdbe7d4cfef3633f1f7b795d8415a6952047133#4bdbe7d4cfef3633f1f7b795d8415a6952047133"
+dependencies = [
+ "broodmap",
+ "broodmap-formats",
+ "thiserror",
+]
+
+[[package]]
+name = "broodmap-formats"
+version = "0.1.0"
+source = "git+https://github.com/ShieldBattery/broodmap?rev=4bdbe7d4cfef3633f1f7b795d8415a6952047133#4bdbe7d4cfef3633f1f7b795d8415a6952047133"
+dependencies = [
+ "bitflags",
+ "thiserror",
+]
+
+[[package]]
+name = "broodmap-render"
+version = "0.1.0"
+source = "git+https://github.com/ShieldBattery/broodmap?rev=4bdbe7d4cfef3633f1f7b795d8415a6952047133#4bdbe7d4cfef3633f1f7b795d8415a6952047133"
+dependencies = [
+ "broodmap",
+ "broodmap-formats",
+ "miniz_oxide",
+ "thiserror",
+]
+
+[[package]]
 name = "brotli"
 version = "8.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1114,6 +1166,15 @@ checksum = "7dafe3a8757b027e2be6e4e5601ed563c55989fcf1546e933c66c8eb3a058d35"
 dependencies = [
  "bytes",
  "either",
+]
+
+[[package]]
+name = "bzip2"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3a53fac24f34a81bc9954b5d6cfce0c21e18ec6959f44f56e8e90e4bb7c346c"
+dependencies = [
+ "libbz2-rs-sys",
 ]
 
 [[package]]
@@ -1924,6 +1985,15 @@ dependencies = [
  "hashbag",
  "left-right",
  "smallvec",
+]
+
+[[package]]
+name = "explode"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "46695dd0a1b7a2a6c3e0800604bd9738c2699682b9fc325d4886b6c1a78025ac"
+dependencies = [
+ "arraydeque",
 ]
 
 [[package]]
@@ -2850,6 +2920,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "jpeg-encoder"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a0370574b86f7eca156b9f298392b5e69a23f8c86f3f865add60bbc2e79467a6"
+
+[[package]]
 name = "js-sys"
 version = "0.3.103"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2892,6 +2968,12 @@ dependencies = [
  "loom",
  "slab",
 ]
+
+[[package]]
+name = "libbz2-rs-sys"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "34b357333733e8260735ba5894eb928c02ecc69c78715f01a8019e7fa7f2db4c"
 
 [[package]]
 name = "libc"
@@ -3104,6 +3186,15 @@ dependencies = [
  "mime",
  "spin 0.9.9",
  "version_check",
+]
+
+[[package]]
+name = "nom"
+version = "8.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df9761775871bdef83bee530e60050f7e54b1105350d6884eb0fb4f46c2f9405"
+dependencies = [
+ "memchr",
 ]
 
 [[package]]
@@ -4193,6 +4284,10 @@ dependencies = [
  "axum-prometheus",
  "base64 0.23.0",
  "bcrypt",
+ "broodmap",
+ "broodmap-analysis",
+ "broodmap-formats",
+ "broodmap-render",
  "chrono",
  "clap",
  "color-eyre",
@@ -4200,11 +4295,13 @@ dependencies = [
  "data-encoding",
  "deadpool-redis",
  "dotenvy",
+ "encoding_rs",
  "enumset",
  "gethostname 1.1.0",
  "hmac 0.13.0",
  "ipnetwork",
  "itertools 0.15.0",
+ "jpeg-encoder",
  "jsonwebtoken",
  "metrics",
  "mockito",

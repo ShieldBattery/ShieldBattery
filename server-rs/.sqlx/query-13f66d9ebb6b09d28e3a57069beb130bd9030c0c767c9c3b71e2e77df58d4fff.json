@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT hash as \"hash: MapHash\", extension\n                FROM map_parse_rejections\n                WHERE rejected_at < $1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "hash: MapHash",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "map_parse_rejections",
+            "name": "hash"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "extension",
+        "type_info": "Bpchar",
+        "origin": {
+          "Table": {
+            "table": "map_parse_rejections",
+            "name": "extension"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "13f66d9ebb6b09d28e3a57069beb130bd9030c0c767c9c3b71e2e77df58d4fff"
+}

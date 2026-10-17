@@ -15,6 +15,15 @@ export function makeServerUrl(path: string) {
 }
 
 /**
+ * Returns an absolute URL for a path on server-rs, which serves the GraphQL API and some HTTP
+ * endpoints from the server config's `graphqlOrigin`. Construct `path` with `urlPath` so any
+ * variable parts are encoded.
+ */
+export function makeServerRsUrl(path: string) {
+  return new URL(path, getServerConfig().graphqlOrigin).toString()
+}
+
+/**
  * Returns the current server origin, using either the current environment (Electron) or the current
  * location (browser).
  */

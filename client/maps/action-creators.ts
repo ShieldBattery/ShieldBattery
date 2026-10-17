@@ -12,8 +12,8 @@ import {
   SbMapId,
   UpdateMapResponse,
   UpdateMapServerRequest,
-  UploadMapResponse,
 } from '../../common/maps'
+import { UploadMapResponse } from '../../common/typeshare'
 import { apiUrl, urlPath } from '../../common/urls'
 import { openDialog, openSimpleDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
@@ -24,20 +24,39 @@ import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { MicrotaskBatchRequester } from '../network/batch-requests'
 import { fetchJson } from '../network/fetch'
 import { isFetchError } from '../network/fetch-errors'
+import { makeServerRsUrl } from '../network/server-url'
+import { UploadedMap } from './actions'
 import { ClientSideUploadError, upload } from './upload'
 
-async function uploadMap(filePath: string) {
-  if (IS_ELECTRON) {
-    return upload<UploadMapResponse>(filePath, apiUrl`maps`, MAX_MAP_FILE_SIZE_BYTES)
-  } else {
-    throw new Error('cannot upload maps on non-electron clients')
-  }
+function fetchBatchMapInfo(mapIds: ReadonlyArray<SbMapId>) {
+  const params = mapIds.map(m => urlPath`m=${m}`).join('&')
+  return fetchJson<GetBatchMapInfoResponse>(apiUrl`maps/batch-info` + '?' + params)
 }
 
-export function uploadLocalMap(
-  path: string,
-  spec: RequestHandlingSpec<UploadMapResponse>,
-): ThunkAction {
+/**
+ * Uploads a map file to the current user's own maps, returning the uploaded map along with the
+ * info needed to display it.
+ */
+async function uploadMap(filePath: string): Promise<UploadedMap> {
+  if (!IS_ELECTRON) {
+    throw new Error('cannot upload maps on non-electron clients')
+  }
+
+  const { mapId } = await upload<UploadMapResponse>(
+    filePath,
+    makeServerRsUrl(urlPath`/maps`),
+    MAX_MAP_FILE_SIZE_BYTES,
+  )
+  const { maps, libraryMapIds, users } = await fetchBatchMapInfo([mapId])
+  const map = maps.find(m => m.id === mapId)
+  if (!map) {
+    throw new Error(`uploaded map ${mapId} could not be found`)
+  }
+
+  return { map, libraryMapIds, users }
+}
+
+export function uploadLocalMap(path: string, spec: RequestHandlingSpec<UploadedMap>): ThunkAction {
   return abortableThunk(spec, async dispatch => {
     try {
       const result = await uploadMap(path)
@@ -233,7 +252,7 @@ export function delistMap(mapId: SbMapId, spec: RequestHandlingSpec<void>): Thun
 
 export function regenMapImage(mapId: SbMapId, spec: RequestHandlingSpec<void>): ThunkAction {
   return abortableThunk(spec, async dispatch => {
-    return fetchJson<void>(apiUrl`maps/${mapId}/regenerate`, {
+    return fetchJson<void>(makeServerRsUrl(urlPath`/maps/${mapId}/regenerate`), {
       method: 'POST',
       signal: spec.signal,
     })
@@ -264,11 +283,10 @@ export function updateMap(
 
 const MAX_BATCH_MAP_REQUESTS = 50
 
-const mapsBatchRequester = new MicrotaskBatchRequester<string>(
+const mapsBatchRequester = new MicrotaskBatchRequester<SbMapId>(
   MAX_BATCH_MAP_REQUESTS,
   (dispatch, items) => {
-    const params = items.map(m => urlPath`m=${m}`).join('&')
-    const promise = fetchJson<GetBatchMapInfoResponse>(apiUrl`maps/batch-info` + '?' + params)
+    const promise = fetchBatchMapInfo(items)
     dispatch({
       type: '@maps/getBatchMapInfo',
       payload: promise,

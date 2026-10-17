@@ -36,7 +36,6 @@ import { GameLoader, GameLoadRequest } from '../games/game-loader'
 import { getGameRecord } from '../games/game-models'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import { getMapInfos } from '../maps/map-models'
-import { reparseMapsAsNeeded } from '../maps/map-operations'
 import { rollOutcome } from '../messaging/roll-outcome'
 import { NetcodeV2Service } from '../netcode-v2/netcode-v2-service'
 import { FakeClock, StopCriteria } from '../time/testing/fake-clock'
@@ -117,6 +116,7 @@ const BIG_GAME_HUNTERS: MapInfo = {
     width: 256,
     height: 256,
     isEud: false,
+    startLocations: [],
     parserVersion: 1,
   },
   imageVersion: 1,
@@ -173,11 +173,6 @@ vi.mock('../messaging/roll-outcome', () => ({ rollOutcome: vi.fn() }))
 vi.mock('../maps/map-models', async () => {
   const actual = await vi.importActual<typeof import('../maps/map-models')>('../maps/map-models')
   return { ...actual, getMapInfos: vi.fn() }
-})
-vi.mock('../maps/map-operations', async () => {
-  const actual =
-    await vi.importActual<typeof import('../maps/map-operations')>('../maps/map-operations')
-  return { ...actual, reparseMapsAsNeeded: vi.fn() }
 })
 vi.mock('../users/user-model', async () => {
   const actual = await vi.importActual<typeof import('../users/user-model')>('../users/user-model')
@@ -416,7 +411,6 @@ describe('lobbies/lobby-service', () => {
     )
 
     asMockedFunction(getMapInfos).mockResolvedValue([BIG_GAME_HUNTERS])
-    asMockedFunction(reparseMapsAsNeeded).mockResolvedValue([BIG_GAME_HUNTERS])
     asMockedFunction(findUsersById).mockResolvedValue([])
     asMockedFunction(findChannelsByName).mockResolvedValue([])
     // A game's results are settled some time after it ends, so nothing is reconciled by default
@@ -1734,7 +1728,6 @@ describe('lobbies/lobby-service', () => {
       await joinLobby(joiner, id)
       await joinLobby(otherHost, id)
       asMockedFunction(getMapInfos).mockResolvedValue([TWO_SLOT_MAP])
-      asMockedFunction(reparseMapsAsNeeded).mockResolvedValue([TWO_SLOT_MAP])
       fakeNydus.publish.mockClear()
 
       await lobbyService.updateSettings({ client: host.client, lobbyId: id, map: TWO_SLOT_MAP.id })
@@ -1754,7 +1747,6 @@ describe('lobbies/lobby-service', () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       await joinLobby(joiner, id)
       asMockedFunction(getMapInfos).mockResolvedValue([TWO_SLOT_MAP])
-      asMockedFunction(reparseMapsAsNeeded).mockResolvedValue([TWO_SLOT_MAP])
       fakeNydus.publish.mockClear()
 
       await lobbyService.updateSettings({ client: host.client, lobbyId: id, map: TWO_SLOT_MAP.id })
@@ -1799,7 +1791,6 @@ describe('lobbies/lobby-service', () => {
     test("a change to a sub-type beyond the new map's slots is rejected", async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       asMockedFunction(getMapInfos).mockResolvedValue([TWO_SLOT_MAP])
-      asMockedFunction(reparseMapsAsNeeded).mockResolvedValue([TWO_SLOT_MAP])
 
       // The sub-type is validated against the map's own slot count (not team melee's fixed 8
       // total), the same way creating this lobby would be
@@ -1907,7 +1898,6 @@ describe('lobbies/lobby-service', () => {
       asMockedFunction(getMapInfos).mockImplementation(async ids =>
         maps.filter(map => ids.includes(map.id)),
       )
-      asMockedFunction(reparseMapsAsNeeded).mockImplementation(async found => [...found])
     }
 
     /** Ends the lobby's game for everyone, regrouping it. */
@@ -3912,7 +3902,6 @@ describe('lobbies/lobby-service', () => {
 
       test("a UMS lobby deals across the map's forces and leaves its computers alone", async () => {
         asMockedFunction(getMapInfos).mockResolvedValue([UMS_MAP])
-        asMockedFunction(reparseMapsAsNeeded).mockResolvedValue([UMS_MAP])
         const { id } = await lobbyService.createLobby({
           name: 'UMS lobby',
           map: UMS_MAP.id,
