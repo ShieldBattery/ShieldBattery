@@ -132,6 +132,9 @@ impl ObserverPanels {
             if let Some(bottom) = outcome.right_bottom {
                 tops.right = tops.right.max(bottom + gap);
             }
+            if let Some(player_id) = outcome.toggled_vision {
+                intents.push(Intent::ToggleVision { player_id });
+            }
         }
         // The reporting panels take no clicks of their own, but every one of them is an opaque
         // surface: a click that landed on a number and went on to select whatever unit was behind

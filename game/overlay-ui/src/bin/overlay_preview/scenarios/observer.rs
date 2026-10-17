@@ -654,6 +654,7 @@ fn team_cards(knobs: &Knobs, matchup: &MatchupView, t: f64) -> TeamCardsView {
                 players: members
                     .iter()
                     .map(|player| TeamCardPlayerView {
+                        player_id: player.player_id,
                         name: player.name.clone(),
                         color: player.color,
                         race: player.race,

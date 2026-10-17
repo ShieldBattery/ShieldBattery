@@ -440,6 +440,9 @@ const TOTAL_SIZE: f32 = 17.0;
 
 /// One player's row on a card.
 pub struct TeamCardPlayerView {
+    /// The game's own slot for this player, which is what a click on their row toggles the vision
+    /// of.
+    pub player_id: u8,
     pub name: String,
     /// The color this player is on the map.
     pub color: Color32,
@@ -510,6 +513,8 @@ pub struct TeamCardsOutcome {
     /// The bottom edge of the card on each side, or `None` for a side with no card drawn.
     pub left_bottom: Option<f32>,
     pub right_bottom: Option<f32>,
+    /// The player whose row was clicked, whose vision the click toggles as it does on the bar.
+    pub toggled_vision: Option<u8>,
 }
 
 /// Draws the two team cards in the screen's top corners, fading and sliding them in and out.
@@ -531,6 +536,7 @@ pub fn render_team_cards_view(
         rects: Vec::new(),
         left_bottom: None,
         right_bottom: None,
+        toggled_vision: None,
     };
     let shown = shown && !view.is_empty();
     for (index, wing) in [Wing::Left, Wing::Right { inset: right_inset }]
@@ -553,14 +559,11 @@ pub fn render_team_cards_view(
             id.with("presence"),
             shown && team.is_some(),
             area,
-            |ui| {
-                if let Some(team) = team {
-                    draw_card(ui, team, layout);
-                }
-            },
+            |ui| team.and_then(|team| draw_card(ui, team, layout)),
         ) else {
             continue;
         };
+        outcome.toggled_vision = outcome.toggled_vision.or(inner.inner);
         let rect = inner.response.rect;
         outcome.rects.push(rect);
         let bottom = rect.bottom() - ctx.viewport_rect().top();
@@ -572,7 +575,8 @@ pub fn render_team_cards_view(
     outcome
 }
 
-fn draw_card(ui: &mut Ui, team: &TeamCardView, layout: CardLayout) {
+/// Draws one card and returns the player whose row was clicked.
+fn draw_card(ui: &mut Ui, team: &TeamCardView, layout: CardLayout) -> Option<u8> {
     tiers::tier1_panel(ui, theme::radius(CARD_RADIUS), |ui| {
         // The rows are stacked by the gaps written here and by nothing else: this is a fixed
         // layout, and egui's own item spacing would add to every one of them.
@@ -584,9 +588,12 @@ fn draw_card(ui: &mut Ui, team: &TeamCardView, layout: CardLayout) {
             draw_header(ui, team, number, layout);
         }
         draw_headings(ui, layout);
+        let mut clicked = None;
         for player in &team.players {
             ui.add_space(STAT_ROW_GAP);
-            draw_player(ui, player, layout);
+            if draw_player(ui, player, layout) {
+                clicked = Some(player.player_id);
+            }
         }
         if let Some(totals) = &team.totals {
             ui.add_space(theme::SPACE_SM);
@@ -594,7 +601,9 @@ fn draw_card(ui: &mut Ui, team: &TeamCardView, layout: CardLayout) {
             ui.add_space(theme::SPACE_SM);
             draw_totals(ui, totals, layout);
         }
-    });
+        clicked
+    })
+    .inner
 }
 
 /// Draws the card's title row: whose side it is, and what the side is sitting on between them.
@@ -672,9 +681,11 @@ fn draw_headings(ui: &mut Ui, layout: CardLayout) {
 }
 
 /// Draws one player's row.
-fn draw_player(ui: &mut Ui, player: &TeamCardPlayerView, layout: CardLayout) {
-    let (row, _) =
-        ui.allocate_exact_size(vec2(layout.content_width, STAT_ROW_HEIGHT), Sense::hover());
+/// Draws one player's row and returns whether it was clicked.
+fn draw_player(ui: &mut Ui, player: &TeamCardPlayerView, layout: CardLayout) -> bool {
+    let (row, response) =
+        ui.allocate_exact_size(vec2(layout.content_width, STAT_ROW_HEIGHT), Sense::click());
+    widgets::state_overlay(ui, &response, row, theme::radius(theme::RADIUS_TIGHT));
     let alpha = vision_alpha(player.vision);
     let mut cursor = EdgeCursor::from_left(row);
     let bar = cursor.take(COLOR_BAR);
@@ -730,6 +741,7 @@ fn draw_player(ui: &mut Ui, player: &TeamCardPlayerView, layout: CardLayout) {
             Align::RIGHT,
         );
     }
+    response.clicked()
 }
 
 /// Draws the side's totals: two labeled rows, so each number keeps the word that says what it is.
@@ -1016,6 +1028,7 @@ mod tests {
     #[test]
     fn a_sides_supply_is_what_its_players_have_between_them() {
         let player = |used, max| TeamCardPlayerView {
+            player_id: 0,
             name: String::new(),
             color: Color32::WHITE,
             race: RaceView::Random,
