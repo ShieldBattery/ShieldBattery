@@ -132,6 +132,8 @@ pub enum Intent {
     PickSelectedUnit(usize),
     /// Have the game's view follow the unit at this place in the selection.
     FollowSelectedUnit(usize),
+    /// Select nothing, which the game gives a watcher no way of their own to do.
+    ClearSelection,
     /// Move replay playback to this frame.
     Seek(u32),
     /// Center the game's view on this place once the seek asked for just before this lands. Sent
@@ -526,6 +528,14 @@ impl Shell {
             if self.observer.vision_picker_open() && self.top_modal().is_none() {
                 self.observer.set_vision_picker_open(false);
                 return true;
+            }
+            // With nothing else to close, a watcher's Escape lets go of what they have selected.
+            // It stays the game's while there is nothing selected.
+            if self.host.mode.is_spectating()
+                && self.host.game_started
+                && self.top_modal().is_none()
+            {
+                return self.observer.clear_selection(&mut self.intents);
             }
             return false;
         }

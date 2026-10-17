@@ -310,7 +310,9 @@ pub struct BwScr {
     init_consoles:
         Thiscall<unsafe extern "C" fn(*mut scr::BwHashTable<u32, *mut scr::UiConsole>, u32)>,
     get_ui_consoles: unsafe extern "C" fn() -> *mut scr::BwHashTable<u32, *mut scr::UiConsole>,
-    // select_units(amount, pointers, bool, bool)
+    // select_units(amount, pointers, play_selection_sound, send_selection_command). The command is
+    // only worth sending for a player's own selection: a watcher's is local, and the other clients
+    // drop a watcher's selection commands unrun.
     select_units: unsafe extern "C" fn(usize, *const *mut bw::Unit, u32, u32),
     update_game_screen_size: unsafe extern "C" fn(f32),
     move_unit: Thiscall<unsafe extern "C" fn(*mut bw::Unit, i32, i32)>,
@@ -4503,16 +4505,21 @@ impl BwScr {
                             }
                             if let Some(unit) = overlay_out.select_unit {
                                 let units = [*unit];
-                                (self.select_units)(units.len(), units.as_ptr(), 1, 1);
+                                (self.select_units)(units.len(), units.as_ptr(), 1, 0);
                                 self.center_screen(&unit.position());
                             }
                             if let Some(point) = overlay_out.look_at {
                                 self.center_screen(&point);
                             }
+                            // The game's own way of emptying a selection, the one it takes when
+                            // the last selected unit dies.
+                            if overlay_out.clear_selection {
+                                (self.select_units)(0, std::ptr::null(), 0, 0);
+                            }
                             if let Some(group) = &overlay_out.select_group {
                                 let units =
                                     group.units.iter().map(|unit| **unit).collect::<Vec<_>>();
-                                (self.select_units)(units.len(), units.as_ptr(), 1, 1);
+                                (self.select_units)(units.len(), units.as_ptr(), 1, 0);
                                 if group.center {
                                     self.center_screen(&group.units[0].position());
                                 }

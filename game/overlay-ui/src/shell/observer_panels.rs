@@ -22,6 +22,9 @@ pub(super) struct ObserverPanels {
     focused_player: Option<u8>,
     /// Whether the list of players under the minimap's vision button is open.
     vision_picker_open: bool,
+    /// Whether the watcher had anything selected as of the last frame, which is whether Escape
+    /// has a selection to let go of.
+    has_selection: bool,
     /// The player whose number keys a digit recalls, and which of their keys have a group on them
     /// (one bit per digit), as the control groups row last showed them.
     number_keys: Option<(u8, u16)>,
@@ -55,6 +58,16 @@ impl ObserverPanels {
 
     pub(super) fn set_vision_picker_open(&mut self, open: bool) {
         self.vision_picker_open = open;
+    }
+
+    /// Asks for the watcher's selection to be let go of, returning whether there was one.
+    pub(super) fn clear_selection(&mut self, intents: &mut Vec<Intent>) -> bool {
+        if !self.has_selection {
+            return false;
+        }
+        self.has_selection = false;
+        intents.push(Intent::ClearSelection);
+        true
     }
 
     /// Whether the last observer frame carried a map-control measurement.
@@ -357,6 +370,7 @@ impl ObserverPanels {
         if let Some(owner) = view.selection.units.first().and_then(|unit| unit.owner) {
             self.focused_player = Some(owner);
         }
+        self.has_selection = !view.selection.units.is_empty();
         self.number_keys = view
             .control_groups
             .shown(self.focused_player)
@@ -752,6 +766,17 @@ mod tests {
         assert!(!shell.vision_picker_open());
         assert!(shell.panel_prefs().minimap);
         // With the list closed the key is the game's again.
+        assert!(!shell.key_pressed(Key::Escape, Modifiers::NONE));
+    }
+
+    #[test]
+    fn escape_lets_go_of_a_watchers_selection_and_is_the_games_without_one() {
+        let mut shell = spectating_shell();
+        assert!(!shell.key_pressed(Key::Escape, Modifiers::NONE));
+        shell.observer.has_selection = true;
+        assert!(shell.key_pressed(Key::Escape, Modifiers::NONE));
+        assert!(shell.pending_intents().contains(&Intent::ClearSelection));
+        // Let go of once: a second press before the next frame has nothing left to clear.
         assert!(!shell.key_pressed(Key::Escape, Modifiers::NONE));
     }
 

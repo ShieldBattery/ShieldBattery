@@ -184,6 +184,7 @@ struct OutState {
     leave_game: bool,
     look_at: Option<bw::Point>,
     select_group: Option<GroupSelection>,
+    clear_selection: bool,
     follow_unit: Option<Unit>,
 }
 
@@ -235,6 +236,8 @@ pub struct StepOutput {
     pub look_at: Option<bw::Point>,
     /// A number-key group to select.
     pub select_group: Option<GroupSelection>,
+    /// Whether to select nothing at all.
+    pub clear_selection: bool,
     /// A unit for the game's view to follow from now on.
     pub follow_unit: Option<Unit>,
     /// How much of the view's height it may scroll past the map's bottom edge: the band the
@@ -441,6 +444,7 @@ impl OverlayState {
                 leave_game: false,
                 look_at: None,
                 select_group: None,
+                clear_selection: false,
                 follow_unit: None,
             },
             captured_mouse_down: [false; 2],
@@ -610,6 +614,7 @@ impl OverlayState {
             leave_game: false,
             look_at: None,
             select_group: None,
+            clear_selection: false,
             follow_unit: None,
         };
         let chat_textbox_open = bw::iter_dialogs(bw.first_dialog)
@@ -880,6 +885,7 @@ impl OverlayState {
             leave_game: self.out_state.leave_game,
             look_at: self.out_state.look_at,
             select_group: self.out_state.select_group.take(),
+            clear_selection: std::mem::take(&mut self.out_state.clear_selection),
             follow_unit: self.out_state.follow_unit,
             bottom_overpan_share: if bw.is_replay_or_obs {
                 self.bottom_band_share
@@ -1251,6 +1257,7 @@ impl OverlayState {
                     }
                 }
             }
+            Intent::ClearSelection => self.out_state.clear_selection = true,
             Intent::FollowSelectedUnit(index) => {
                 self.out_state.follow_unit =
                     bw.client_selection.iter().flatten().nth(index).copied();
