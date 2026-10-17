@@ -54,6 +54,7 @@ const BIG_GAME_HUNTERS: MapInfo = {
     parserVersion: 1,
   },
   imageVersion: 1,
+  imageSpawnsBaked: true,
 }
 
 vi.mock('../maps/map-models', async () => {

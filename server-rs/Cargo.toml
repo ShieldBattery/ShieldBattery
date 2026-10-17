@@ -62,8 +62,11 @@ jsonwebtoken = { version = "11.0", default-features = false, features = [
 ] }
 metrics = "0.24"
 rand = "0.10"
+# Without `asm`, which needs nasm to build
+ravif = { version = "0.13", default-features = false, features = ["threading"] }
 rayon = "1.12"
 regex = "1.13"
+rgb = "0.8"
 reqwest = { version = "0.13", default-features = false, features = [
   "brotli",
   "deflate",

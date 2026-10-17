@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM superseded_map_images WHERE hash = $1 AND image_version = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "370f6e11dfc97d44628a5f5636ce432d2d602397317bcfdda8d23e105644a313"
+}
