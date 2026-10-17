@@ -119,7 +119,8 @@ services:
       - frontend
       - backend
     volumes:
-      # Only used when SB_FILE_STORE is a local filesystem store; shared with app_server.
+      # Only used when SB_FILE_STORE is a local filesystem store; shared with app_server, whose
+      # `node` user has the same uid as this image's user.
       - uploaded_files:/server/uploaded_files:rw
       - type: bind
         source: ./map_assets
