@@ -6,11 +6,9 @@
 //! resolution and hands the host the logical size and the scale it needs to blit the result.
 
 use egui::{Align2, Color32, FontId, Painter, Pos2, Rect, Shape, Stroke, Vec2, pos2, vec2};
+use overlay_ui::kit::pixels::REFERENCE_HEIGHT;
 use overlay_ui::shell::HitRect;
 use serde::{Deserialize, Serialize};
-
-/// The baseline the scale ramp is anchored to: at this pixel height one point is one pixel.
-const REFERENCE_HEIGHT: f32 = 1080.0;
 
 /// How much the compact ramp shrinks everything relative to the comfort ramp.
 const COMPACT_RAMP_DIVISOR: f32 = 1.25;
@@ -151,9 +149,11 @@ impl VirtualScreen {
         } else {
             1.0
         };
-        // Below the baseline the game keeps a 1:1 point-to-pixel ratio rather than shrinking the UI
-        // into unreadability, so the overlay simply takes up more of a small screen.
-        let pixels_per_point = (physical_height / REFERENCE_HEIGHT / ramp).max(1.0);
+        // The game's own rule, with the compact ramp treating the screen as that much smaller.
+        let pixels_per_point = overlay_ui::kit::pixels::pixels_per_point(
+            physical_height * preset.aspect() / ramp,
+            physical_height / ramp,
+        );
         let points_height = physical_height / pixels_per_point;
         let points = vec2(points_height * preset.aspect(), points_height);
         VirtualScreen {

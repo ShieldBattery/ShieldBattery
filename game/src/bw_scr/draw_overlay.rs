@@ -521,16 +521,10 @@ impl OverlayState {
         // render target and other times 1706x960 on HD with 1080p screen?
         // And 3412x1920 when forcing 4k assets..
         //
-        // Going to have egui resolution be at most 1080 points tall with increased
-        // pixel density for consistent look on HD, and have the UI on lower resolutions
-        // just take bit more space so that it gets 1.0 pixels:point ratio too.
-        //
-        // This'll also prevent division by 0 if screen_size is (0, 0) for some reason.
-        let pixels_per_point = if screen_size.1 > 1080 {
-            screen_size.1 as f32 / 1080.0
-        } else {
-            1.0
-        };
+        // The overlay is at most 1080 points tall, at a higher pixel density on a taller target,
+        // and scaled down further on a target narrower than 16:10 (see `pixels_per_point`).
+        let pixels_per_point =
+            overlay_ui::kit::pixels::pixels_per_point(screen_size.0 as f32, screen_size.1 as f32);
         self.ctx.set_pixels_per_point(pixels_per_point);
 
         // This exists for the weird 3412x1920 render target, since
