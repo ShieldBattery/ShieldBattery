@@ -7408,7 +7408,6 @@ impl BwScr {
     /// to whatever in the DLL reads them. A setting only a launch reads (the screen marks those) is
     /// saved and nothing more.
     fn apply_setting_changes(&self, changes: &[SettingChange]) {
-        let mut saved = SettingsChanged::default();
         for &change in changes {
             if let Some(write) = draw_overlay::options::registry_setting(change) {
                 self.pending_game_setting_writes.lock().push(write);
@@ -7417,6 +7416,14 @@ impl BwScr {
                 self.switch_graphics(on);
             }
             self.apply_local_setting_change(change);
+        }
+        self.save_setting_changes(changes);
+    }
+
+    /// Hands settings that changed during the game to the app to save.
+    fn save_setting_changes(&self, changes: &[SettingChange]) {
+        let mut saved = SettingsChanged::default();
+        for &change in changes {
             match draw_overlay::options::app_setting(change) {
                 Some(setting) => {
                     let object = if setting.local {
@@ -7570,9 +7577,15 @@ impl BwScr {
                 }),
             minimap_color_mode,
         };
-        self.engine_settings
+        let changes = self
+            .engine_settings
             .lock()
             .follow(read, &mut self.options.lock());
+        // Already in effect, since the game made them; the app still has to save them, or the
+        // value it last saved from the screen would be put back at the next launch.
+        if !changes.is_empty() {
+            self.save_setting_changes(&changes);
+        }
     }
 
     /// Reads the current Shift+Tab minimap player-color mode, or `None` if the global wasn't located

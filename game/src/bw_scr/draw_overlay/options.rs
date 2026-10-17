@@ -722,8 +722,11 @@ pub struct EngineSettingsFollower {
 }
 
 impl EngineSettingsFollower {
-    /// Takes one frame's reading, writing any change the engine made into `view`.
-    pub fn follow(&mut self, read: EngineSettings, view: &mut OptionsView) {
+    /// Takes one frame's reading, writing any change the engine made into `view`, and returns
+    /// those changes: they are the player's as much as any made on the screen, and are saved the
+    /// same way.
+    pub fn follow(&mut self, read: EngineSettings, view: &mut OptionsView) -> Vec<SettingChange> {
+        let mut changes = Vec::new();
         if let Some(hd) = read.hd_graphics_on {
             match (self.hd_graphics_on, self.hd_candidate) {
                 (None, _) => self.hd_graphics_on = Some(hd),
@@ -733,7 +736,7 @@ impl EngineSettingsFollower {
                     if frames >= HD_SETTLE_FRAMES {
                         self.hd_graphics_on = Some(hd);
                         self.hd_candidate = None;
-                        view.hd_graphics_on = hd;
+                        changes.push(SettingChange::HdGraphicsOn(hd));
                     } else {
                         self.hd_candidate = Some((hd, frames));
                     }
@@ -743,13 +746,13 @@ impl EngineSettingsFollower {
         }
         if let Some(terrain) = read.minimap_terrain {
             if self.minimap_terrain.is_some_and(|held| held != terrain) {
-                view.minimap_terrain = terrain;
+                changes.push(SettingChange::MinimapTerrain(terrain));
             }
             self.minimap_terrain = Some(terrain);
         }
         if let Some(mode) = read.minimap_color_mode {
             if self.minimap_color_mode.is_some_and(|held| held != mode) {
-                view.minimap_color_mode = mode;
+                changes.push(SettingChange::MinimapColorMode(mode));
             }
             self.minimap_color_mode = Some(mode);
         }
@@ -764,10 +767,17 @@ impl EngineSettingsFollower {
             if held.is_some_and(|held| held != value)
                 && let Some(change) = (setting.decode)(value)
             {
-                view.apply(change);
+                changes.push(change);
             }
             *held = Some(value);
         }
+        // The engine catching up with a change made on the screen is no news to anyone.
+        changes.retain(|&change| {
+            let before = *view;
+            view.apply(change);
+            *view != before
+        });
+        changes
     }
 }
 
@@ -1338,7 +1348,10 @@ mod tests {
             ..OptionsView::default()
         };
         follower.follow(music(true), &mut view);
-        follower.follow(music(false), &mut view);
+        assert_eq!(
+            follower.follow(music(false), &mut view),
+            [SettingChange::MusicOn(false)]
+        );
         assert!(!view.music_on);
         view.music_on = true;
         follower.follow(music(false), &mut view);
