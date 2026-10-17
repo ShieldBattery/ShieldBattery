@@ -313,9 +313,25 @@ mod tests {
         assert!(BottomRow::along(bottom_run(1600.0, 900.0, false)).is_some());
     }
 
+    /// The size in points of a render target `width` x `height` pixels.
+    fn points(width: f32, height: f32) -> (f32, f32) {
+        let scale = crate::kit::pixels::pixels_per_point(width, height);
+        (width / scale, height / scale)
+    }
+
+    /// The render targets narrower than 16:10 a game is played on: 4:3 at SD's and HD's sizes and
+    /// at the smallest one, and 5:4.
+    const NARROW_TARGETS: [(f32, f32); 4] = [
+        (1024.0, 768.0),
+        (1280.0, 960.0),
+        (1440.0, 1080.0),
+        (1280.0, 1024.0),
+    ];
+
     #[test]
     fn a_narrow_screen_keeps_the_centered_stack() {
-        for (width, height) in [(1280.0, 960.0), (1280.0, 720.0), (1024.0, 768.0)] {
+        for (width, height) in NARROW_TARGETS.into_iter().chain([(1280.0, 720.0)]) {
+            let (width, height) = points(width, height);
             for plate in [true, false] {
                 assert_eq!(
                     BottomRow::along(bottom_run(width, height, plate)),
@@ -323,6 +339,33 @@ mod tests {
                     "{width}x{height}"
                 );
             }
+        }
+    }
+
+    /// A screen narrower than 16:10 is scaled down until the plate keeps the bottom-right corner
+    /// with the whole centered stack beside it, so the minimap, the selection panel and the plate
+    /// share the bottom edge and nothing is lifted over the game. That holds even with the dock's
+    /// rail open beside the plate, which stands it in by the rail's whole column.
+    #[test]
+    fn a_narrow_screen_keeps_the_plate_in_the_corner_beside_the_stack() {
+        use crate::observer::{MIN_STACK_WIDTH, dock, minimap};
+        use crate::transport::TransportPlacement;
+        for (pixel_width, pixel_height) in NARROW_TARGETS {
+            let (width, height) = points(pixel_width, pixel_height);
+            let screen = Rect::from_min_size(pos2(0.0, 0.0), vec2(width, height));
+            let frame = minimap::footprint(screen, minimap_square(screen, None));
+            let plate = TransportPlacement {
+                right_inset: dock::column_width(true),
+                lift: 0.0,
+            }
+            .rect(screen);
+            let beside = span(frame.right() + WING_GAP, plate.left() - WING_GAP);
+            assert!(
+                beside.width() >= MIN_STACK_WIDTH,
+                "{pixel_width}x{pixel_height} leaves {} beside the plate",
+                beside.width()
+            );
+            assert!(plate.bottom() <= height - WING_MARGIN);
         }
     }
 
