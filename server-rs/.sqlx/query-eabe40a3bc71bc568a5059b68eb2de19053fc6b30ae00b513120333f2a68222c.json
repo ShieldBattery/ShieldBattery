@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO map_analysis (map_id, format_version, string_encoding, trigger_count,\n                briefing_count, ums_action_kinds, placed_units, player_units, mineral_fields,\n                mineral_total, geysers, bases, author_suggestions, anomalies, protection_detected,\n                terrain_fingerprint, fingerprint_version)\n            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)\n            ON CONFLICT (map_id) DO UPDATE\n            SET format_version = $2, string_encoding = $3, trigger_count = $4, briefing_count = $5,\n                ums_action_kinds = $6, placed_units = $7, player_units = $8, mineral_fields = $9,\n                mineral_total = $10, geysers = $11, bases = $12, author_suggestions = $13,\n                anomalies = $14, protection_detected = $15, terrain_fingerprint = $16,\n                fingerprint_version = $17\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Text",
+        "Int4",
+        "Int4",
+        "TextArray",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int8",
+        "Int4",
+        "Jsonb",
+        "TextArray",
+        "TextArray",
+        "Bool",
+        "Bytea",
+        "Int2"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "eabe40a3bc71bc568a5059b68eb2de19053fc6b30ae00b513120333f2a68222c"
+}

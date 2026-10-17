@@ -45,6 +45,8 @@ use crate::games::GamesModule;
 use crate::graphql::errors::ErrorLoggerExtension;
 use crate::graphql::schema_builder::SchemaBuilderModuleExt;
 use crate::maps::MapsModule;
+use crate::maps::api::{UploadThrottle, create_maps_api};
+use crate::maps::ingest::MapIngester;
 use crate::matchmaking::api::create_matchmaking_api;
 use crate::matchmaking::config::load_matchmaker_config;
 use crate::news::NewsModule;
@@ -476,6 +478,13 @@ pub async fn create_app(
         ));
     }
 
+    let map_ingester = Arc::new(MapIngester::new(
+        db_pool.clone(),
+        file_store.clone(),
+        &settings,
+    ));
+    tokio::spawn(map_ingester.clone().maintenance_loop());
+
     crate::graphql::errors::describe_metrics();
     crate::redis::describe_metrics();
 
@@ -584,6 +593,8 @@ pub async fn create_app(
         )),
         graphql_schema: schema.clone(),
         twitch_client,
+        map_ingester,
+        map_upload_throttle: Arc::new(UploadThrottle::default()),
     };
 
     Ok(Router::new()
@@ -596,6 +607,13 @@ pub async fn create_app(
         .nest("/twitch", create_twitch_api())
         .nest("/users/names", names_router)
         .nest("/matchmaker", matchmaker_router)
+        .layer(TimeoutLayer::with_status_code(
+            StatusCode::REQUEST_TIMEOUT,
+            Duration::from_secs(15),
+        ))
+        // Map uploads need a longer timeout and a larger body limit, so they sit outside the
+        // default timeout and set their own.
+        .nest("/maps", create_maps_api())
         .layer(
             ServiceBuilder::new()
                 .layer(prometheus_layer)
@@ -622,10 +640,6 @@ pub async fn create_app(
                             },
                         ),
                 )
-                .layer(TimeoutLayer::with_status_code(
-                    StatusCode::REQUEST_TIMEOUT,
-                    Duration::from_secs(15),
-                ))
                 .layer(
                     CompressionLayer::new().no_br().compress_when(
                         SizeAbove::new(1024)

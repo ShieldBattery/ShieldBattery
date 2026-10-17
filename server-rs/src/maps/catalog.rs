@@ -243,7 +243,7 @@ impl Loader<(SbUserId, SbMapId)> for ViewerMapFlagsLoader {
 }
 
 /// Resolves a map id that may be an old (alias) id to the canonical id of an existing map.
-async fn resolve_map_id(db: &PgPool, id: SbMapId) -> eyre::Result<Option<SbMapId>> {
+pub(crate) async fn resolve_map_id(db: &PgPool, id: SbMapId) -> eyre::Result<Option<SbMapId>> {
     sqlx::query_scalar!(
         r#"
             SELECT m.id as "id: SbMapId"
