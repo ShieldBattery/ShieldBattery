@@ -17,6 +17,7 @@ import { NetcodeV2ServerSetup } from './games/netcode-v2'
 import { GameClientPlayerResult } from './games/results'
 import { SbLobbyId } from './lobbies/sb-lobby-id'
 import { MapDownloadOutcome, MapExtension } from './maps'
+import { MatchmakingType } from './matchmaking'
 import { ReplayChat } from './replays'
 import {
   ReplayBackfillProgress,
@@ -125,6 +126,37 @@ export interface InGameReportResult {
   result: 'reported' | 'rateLimited' | 'restricted' | 'error'
 }
 
+/**
+ * A user's standing in one matchmaking mode, for a {@link GameUserStatsResult}, with its labels
+ * already localized. `division` and `rating` are unset if the user isn't rated in the mode.
+ */
+export interface GameUserStatsMode {
+  label: string
+  division?: string
+  /** The user's MMR in the mode, rounded. */
+  rating?: number
+}
+
+/**
+ * The answer to a `/stats` command typed in game, with labels already localized (the game shows
+ * them as they are). `name` on a failure is the name that was asked for, empty for the local user.
+ */
+export type GameUserStatsResult =
+  | {
+      kind: 'found'
+      name: string
+      /** The user's main race over all their games, if they have one. */
+      race?: string
+      wins: number
+      losses: number
+      /** The mode the user has their highest MMR in, if they're rated in any. */
+      bestMode?: GameUserStatsMode
+      /** The user's standing in the mode of the game being played, if it's a matchmaking game. */
+      currentMode?: GameUserStatsMode
+    }
+  | { kind: 'notFound'; name: string }
+  | { kind: 'error'; name: string }
+
 /** RPCs that can be invoked by the renderer process to run code in the main process. */
 interface IpcInvokeables {
   /**
@@ -137,6 +169,11 @@ interface IpcInvokeables {
    * `activeGameReportPlayer` went.
    */
   activeGameReportResult: (gameId: string, result: InGameReportResult) => void
+  /**
+   * Answers a `/stats` command the active game (if `gameId` is still the active game) asked about
+   * via `activeGameRequestUserStats`.
+   */
+  activeGameUserStats: (gameId: string, result: GameUserStatsResult) => void
   /**
    * Clears the current game config (e.g. cancels a game launch) provided the current game is
    * `gameId`.
@@ -545,6 +582,16 @@ interface IpcMainSendables {
    * `activeGameReportResult`.
    */
   activeGameReportPlayer: (gameId: string, request: InGameReportRequest) => void
+  /**
+   * The local user typed `/stats` in game, naming `name` (or nobody, for their own stats).
+   * `matchmakingType` is the game's mode if it's a matchmaking game. The renderer looks the user up
+   * and answers with `activeGameUserStats`.
+   */
+  activeGameRequestUserStats: (
+    gameId: string,
+    name: string | undefined,
+    matchmakingType: MatchmakingType | undefined,
+  ) => void
   activeGameStatus: (status: ReportedGameStatus) => void
 
   /** Sent after each region latency sweep completes, with the full region -> latency table. */
