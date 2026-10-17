@@ -22,7 +22,7 @@
 
 use egui::{
     Align, Align2, Area, Context, Id, Order, Pos2, Rect, Response, Sense, Shape, Stroke,
-    StrokeKind, Ui, Vec2, pos2, vec2,
+    StrokeKind, Ui, pos2, vec2,
 };
 
 use crate::kit::text::{self, BodyWeight};
@@ -259,17 +259,28 @@ pub fn render_obs_dock(
     ctx: &Context,
 ) -> Option<DockOutcome> {
     let id = Id::new("sb_obs_dock");
+    // The dock opens like a drawer: its right edge stays against the screen's while its width eases
+    // between the two forms, and the spelled-out rows are uncovered from the right as it widens.
+    let width = ctx.animate_value_with_time(
+        id.with("width"),
+        if prefs.dock_expanded {
+            EXPANDED_WIDTH
+        } else {
+            COLLAPSED_WIDTH
+        },
+        theme::MOTION_PANEL_SECS,
+    );
+    // Placed by its left edge, worked out here from this frame's width, rather than anchored by
+    // its right: an anchored area is placed from the size it had the frame before, which for the
+    // frame the width changes puts the dock's contents out past its edge.
+    let screen = ctx.viewport_rect();
     let area = Area::new(id)
-        .anchor(
-            Align2::RIGHT_CENTER,
-            vec2(-EDGE_MARGIN, dock.placement.offset_y),
-        )
+        .pivot(Align2::LEFT_CENTER)
+        .fixed_pos(pos2(
+            screen.right() - EDGE_MARGIN - width,
+            screen.center().y + dock.placement.offset_y,
+        ))
         .order(Order::Foreground);
-    let width = if prefs.dock_expanded {
-        EXPANDED_WIDTH
-    } else {
-        COLLAPSED_WIDTH
-    };
     // The dock hangs off the screen's edge, so that is where it goes when hidden: it slides its
     // whole width out past the edge and comes back the same way, rather than fading where it
     // stands like a panel that belongs to the middle of the screen.
@@ -282,7 +293,7 @@ pub fn render_obs_dock(
         |ui| {
             tiers::tier0_panel(ui, |ui| {
                 ui.set_width(tiers::panel_content_width(width));
-                draw_dock(ui, prefs, dock)
+                draw_dock(ui, prefs, dock, width > COLLAPSED_WIDTH + 0.5)
             })
             .inner
         },
@@ -328,18 +339,50 @@ enum RowState {
     Displaced,
 }
 
-fn draw_dock(ui: &mut Ui, prefs: &PanelPrefs, dock: &DockContext<'_>) -> DockOutcome {
+/// Draws the dock's rows, `spelled` out as the rail while the dock is any wider than its strip of
+/// keys.
+///
+/// Spelled out, a row is always laid out at the rail's full width against the dock's right edge and
+/// clipped to the dock as it stands, so a dock partway through opening or closing shows the rail
+/// cut off at its left rather than squeezed into the room it has.
+fn draw_dock(
+    ui: &mut Ui,
+    prefs: &PanelPrefs,
+    dock: &DockContext<'_>,
+    spelled: bool,
+) -> DockOutcome {
     let hotkeys = dock.hotkeys;
     // The rows are stacked by the gaps written here and by nothing else: this is a fixed layout, and
     // egui's own spacing between items would add to every one of them.
     ui.spacing_mut().item_spacing = vec2(0.0, ROW_GAP);
     let mut outcome = DockOutcome::none();
     let content_width = ui.available_width();
+    let row_width = match spelled {
+        true => tiers::panel_content_width(EXPANDED_WIDTH),
+        false => content_width,
+    };
+    let content = ui.max_rect();
+    ui.set_clip_rect(
+        ui.clip_rect().intersect(
+            content
+                .with_min_x(content.left() - ROW_WASH_BLEED)
+                .with_max_x(content.right() + ROW_WASH_BLEED),
+        ),
+    );
+    // A row's own rect: its slot in the stack, widened out to the left to the rail's width.
+    let row = |ui: &mut Ui, height: f32| {
+        let (slot, _) = ui.allocate_exact_size(vec2(content_width, height), Sense::hover());
+        Rect::from_min_max(
+            pos2(slot.right() - row_width, slot.top()),
+            slot.right_bottom(),
+        )
+    };
 
     let dock_key = hotkeys
         .chord_for(Panel::Dock.action())
         .map(|chord| chord.key.symbol_or_name());
-    let header = draw_header(ui, content_width, prefs.dock_expanded, dock_key);
+    let header_rect = row(ui, CHEVRON_HEIGHT);
+    let header = draw_header(ui, header_rect, spelled, prefs.dock_expanded, dock_key);
     if header.clicked() {
         outcome.expanded = Some(!prefs.dock_expanded);
     }
@@ -362,14 +405,8 @@ fn draw_dock(ui: &mut Ui, prefs: &PanelPrefs, dock: &DockContext<'_>) -> DockOut
             _ if entry.is_on(prefs) => RowState::On,
             _ => RowState::Off,
         };
-        let response = draw_row(
-            ui,
-            vec2(content_width, dock.placement.row_height),
-            prefs.dock_expanded,
-            entry,
-            key,
-            state,
-        );
+        let rect = row(ui, dock.placement.row_height);
+        let response = draw_row(ui, rect, spelled, entry, key, state);
         // Collapsed a row is a keycap and nothing else, so the card is what names it; expanded the
         // rail has already said everything the card would, bar a panel with no room, which nothing
         // else on screen explains.
@@ -425,8 +462,14 @@ fn draw_hint(ui: &Ui, hint: &Hint) {
 /// Expanded there is room to name the dock and the key that takes it off screen, which is the one
 /// thing a watcher cannot work out from the dock once it is gone. Collapsed, the chevron is all that
 /// fits.
-fn draw_header(ui: &mut Ui, width: f32, expanded: bool, key: Option<&str>) -> Response {
-    let (rect, response) = ui.allocate_exact_size(vec2(width, CHEVRON_HEIGHT), Sense::click());
+fn draw_header(
+    ui: &mut Ui,
+    rect: Rect,
+    spelled: bool,
+    expanded: bool,
+    key: Option<&str>,
+) -> Response {
+    let response = ui.interact(rect, ui.id().with("sb_dock_header"), Sense::click());
     let corner_radius = theme::radius(theme::RADIUS_TIGHT);
     widgets::state_overlay(ui, &response, rect, corner_radius);
     let color = if response.hovered() {
@@ -436,7 +479,7 @@ fn draw_header(ui: &mut Ui, width: f32, expanded: bool, key: Option<&str>) -> Re
     };
     let arm = 4.0;
     let mut centre = rect.center();
-    if expanded {
+    if spelled {
         centre.x = rect.right() - arm - theme::HAIRLINE;
         let key_rect = Rect::from_min_size(
             pos2(
@@ -481,16 +524,15 @@ fn draw_header(ui: &mut Ui, width: f32, expanded: bool, key: Option<&str>) -> Re
     response
 }
 
-/// Draws one row, returning what the pointer did to it.
+/// Draws one row in `rect`, returning what the pointer did to it.
 fn draw_row(
     ui: &mut Ui,
-    size: Vec2,
+    rect: Rect,
     expanded: bool,
     entry: Entry,
     key: Option<&str>,
     state: RowState,
 ) -> Response {
-    let (rect, allocated) = ui.allocate_exact_size(size, Sense::hover());
     let on = state == RowState::On;
     let (wash, corner_radius) = match expanded {
         true => (
@@ -499,7 +541,11 @@ fn draw_row(
         ),
         false => (rect, theme::radius(theme::RADIUS_TIGHT)),
     };
-    let response = ui.interact(wash, allocated.id.with("row"), Sense::click());
+    let response = ui.interact(
+        wash,
+        ui.id().with(("sb_dock_row", entry.label())),
+        Sense::click(),
+    );
     if on && expanded {
         ui.painter()
             .rect_filled(wash, corner_radius, theme::alpha(theme::ACCENT, 0.10));
