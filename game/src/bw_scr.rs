@@ -4346,6 +4346,12 @@ impl BwScr {
                             engine_setting_changes = self.follow_engine_settings();
                         }
                         self.refresh_stale_game_stats();
+                        if game_started {
+                            // The simulation steps follow alliance changes as they happen, but a
+                            // replay seek that lands paused can move the game to other alliances
+                            // without a step.
+                            self.update_team_colors_from_alliances();
+                        }
                     }
                     // SC:R only enables carbot if both of these flags are set
                     let is_carbot = self.is_carbot.load(Ordering::Relaxed)
@@ -7878,8 +7884,9 @@ impl BwScr {
 
     /// Reacts to a live change of the local player's outgoing alliance row (custom lobbies where
     /// players ally mid-game). Diffs the row, advances the engine, and rewrites `rgb_colors` when
-    /// the assignment changed and colors are currently shown. Called after each `step_game`; a
-    /// no-op when the feature is inactive or there is no local seat (observer/replay).
+    /// the assignment changed and colors are currently shown. Called after each `step_game` and on
+    /// each drawn frame; a no-op when the feature is inactive or there is no local seat (an
+    /// observer, or a replay of a game the watcher was not in).
     unsafe fn update_team_colors_from_alliances(&self) {
         unsafe {
             let mut guard = self.team_color_runtime.lock();
@@ -7890,6 +7897,9 @@ impl BwScr {
                 return;
             };
             let game = self.game();
+            if game.is_null() {
+                return;
+            }
             let mut row = [false; 8];
             for (i, cell) in row.iter_mut().enumerate() {
                 *cell = (*game).alliances[local as usize][i] != 0;
