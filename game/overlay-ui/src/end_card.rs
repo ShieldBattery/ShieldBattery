@@ -130,13 +130,12 @@ pub const KEEP_PLAYING_KEY: &str = "C";
 /// What `key` chooses on either card. Leaving answers to every key SC:R leaves a game with: `E`
 /// (End Mission), `O` (its defeat popup's OK), `V` (its victory popup's ending button outside a
 /// multiplayer game), `Q` (Quit Mission) and `X` (Exit Program). Carrying on after a victory also
-/// answers to `B`, the key of the observer button SC:R's defeat popup keeps hidden.
+/// answers to `B`, the key of the observer button SC:R's defeat popup keeps hidden. A watcher's card
+/// has nothing to carry on with: the game they were watching is over.
 pub fn key_choice(key: Key, result: GameResult) -> Option<EndCardChoice> {
     match (key, result) {
         (Key::E | Key::V | Key::O | Key::Q | Key::X, _) => Some(EndCardChoice::Leave),
-        (Key::C | Key::B, GameResult::Victory | GameResult::GameOver) => {
-            Some(EndCardChoice::KeepPlaying)
-        }
+        (Key::C | Key::B, GameResult::Victory) => Some(EndCardChoice::KeepPlaying),
         _ => None,
     }
 }
@@ -1190,14 +1189,9 @@ impl Record<'_> {
             LEAVE_KEY,
             EndCardChoice::Leave,
         )];
-        let keep_going = match result {
-            GameResult::Victory => Some(tr!("endCard.keepPlaying", "Keep playing")),
-            GameResult::GameOver => Some(tr!("endCard.keepWatching", "Keep watching")),
-            GameResult::Defeat => None,
-        };
-        if let Some(label) = keep_going {
+        if result == GameResult::Victory {
             buttons.push((
-                label,
+                tr!("endCard.keepPlaying", "Keep playing"),
                 ButtonPlate::standard(),
                 KEEP_PLAYING_KEY,
                 EndCardChoice::KeepPlaying,

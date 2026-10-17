@@ -874,6 +874,14 @@ mod tests {
         shell.native_dialog_spawned(NativeDialog::Defeat);
         run_frame_at(&mut shell, &ctx, None, 0.0);
         run_frame_at(&mut shell, &ctx, None, 3.0);
-        assert!(shell.key_pressed(Key::C, Modifiers::NONE));
+        // The game being watched is over: there is no carrying on, only leaving.
+        assert_eq!(
+            crate::end_card::key_choice(Key::C, GameResult::GameOver),
+            None
+        );
+        assert_eq!(
+            crate::end_card::key_choice(Key::E, GameResult::GameOver),
+            Some(EndCardChoice::Leave)
+        );
     }
 }
