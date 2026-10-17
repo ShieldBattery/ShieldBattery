@@ -130,13 +130,11 @@ struct Engagement {
     /// The players who lost anything, and what their armies were worth as they joined.
     involved: u8,
     pool: u32,
-    /// What each player had destroyed as the engagement began, so who did the killing can be told
-    /// at its end.
-    destroyed_before: [u32; MAX_PLAYERS],
-    /// The players who had something that fights within reach of the engagement while it went
-    /// on, as a mask of player ids. The game's destroy scores say what a player killed but not
-    /// where, so only these players' kills are taken to be this engagement's.
-    present: u8,
+    /// What each player destroyed here, by the game's destroy scores. Those say what a player
+    /// killed but not where, so a player is credited with what they destroyed between two samples
+    /// only where the engagement had deaths between them and the player had something that fights
+    /// within reach of it.
+    kills: [u32; MAX_PLAYERS],
 }
 
 /// Places `deaths`, which happened between the two samples of `moment`, into the engagements
@@ -189,14 +187,27 @@ pub fn advance(
         let engagement = match nearest_open(&mut open, death) {
             Some(engagement) => engagement,
             None => {
-                open.push(Engagement::new(death.frame, before));
+                open.push(Engagement::new(death.frame));
                 open.last_mut().expect("just pushed")
             }
         };
         engagement.add(death, worker, value, before);
     }
-    for engagement in &mut open {
-        engagement.present |= present_near(rosters, catalog, engagement.x, engagement.y);
+    // Every death is stamped with the sample that found it, so an engagement whose last death is
+    // this sample's had deaths in it since the sample before.
+    for engagement in open
+        .iter_mut()
+        .filter(|engagement| engagement.last == frame)
+    {
+        let near = present_near(rosters, catalog, engagement.x, engagement.y);
+        for (player, kills) in engagement.kills.iter_mut().enumerate() {
+            if near & 1 << player != 0 {
+                *kills = kills.saturating_add(
+                    now.destroyed(player)
+                        .saturating_sub(before.destroyed(player)),
+                );
+            }
+        }
     }
     let someone_left = (0..MAX_PLAYERS).any(|player| now.out[player] && !previous.out[player]);
     let mut still_open = Vec::with_capacity(open.len());
@@ -255,7 +266,7 @@ fn nearest_open<'a>(open: &'a mut [Engagement], death: &Death) -> Option<&'a mut
 }
 
 impl Engagement {
-    fn new(frame: u32, before: &Standing) -> Engagement {
+    fn new(frame: u32) -> Engagement {
         Engagement {
             first: frame,
             last: frame,
@@ -269,8 +280,7 @@ impl Engagement {
             workers_before: [0; MAX_PLAYERS],
             involved: 0,
             pool: 0,
-            destroyed_before: std::array::from_fn(|player| before.destroyed(player)),
-            present: 0,
+            kills: [0; MAX_PLAYERS],
         }
     }
 
@@ -283,7 +293,6 @@ impl Engagement {
         self.x = (self.x * self.weight + f32::from(death.x) * weight) / (self.weight + weight);
         self.y = (self.y * self.weight + f32::from(death.y) * weight) / (self.weight + weight);
         self.weight += weight;
-        self.present |= 1 << player;
         if self.involved & 1 << player == 0 {
             self.involved |= 1 << player;
             self.pool = self.pool.saturating_add(before.army[player]);
@@ -310,12 +319,7 @@ impl Engagement {
     /// Puts what this engagement came to on `events`, if it came to anything worth telling.
     fn report(&self, now: &Standing, frame: u32, events: &mut Vec<TimelineEvent>) {
         let position = Some((self.x.round() as i16, self.y.round() as i16));
-        let kills = |player: usize| match self.present & 1 << player {
-            0 => 0,
-            _ => now
-                .destroyed(player)
-                .saturating_sub(self.destroyed_before[player]),
-        };
+        let kills = |player: usize| self.kills[player];
         if let Some(fight) = self.fight(now, kills) {
             events.push(TimelineEvent {
                 frame: self.first,
@@ -738,9 +742,10 @@ mod tests {
             .map(|_| death(10 * SECOND, 0, unit::HYDRALISK, 500))
             .collect::<Vec<_>>();
         let alive = roster(&[1], 500);
+        let killed = standing(2000, 20, [0, 3000]);
         let moment = Moment {
             before: &before,
-            now: &before,
+            now: &killed,
             rosters: [&alive, &alive],
             frame: 10 * SECOND,
             last_sample: false,
@@ -753,9 +758,10 @@ mod tests {
             &mut events,
         );
         assert!(events.is_empty());
-        let mut gone = standing(2000, 20, [0, 3000]);
+        let mut gone = killed;
         gone.out[0] = true;
         let moment = Moment {
+            before: &killed,
             now: &gone,
             frame: 11 * SECOND,
             ..moment
@@ -804,6 +810,64 @@ mod tests {
         let mut alive = roster(&[0, 1], 500);
         alive.extend(roster(&[2], 4000));
         let events = run_among(&samples, before, now, &alive);
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].kind, TimelineEventKind::FightWon { margin: 1500 });
+        assert_eq!(events[0].player, 1);
+    }
+
+    /// A player who turns up after the fighting is over, having killed something elsewhere in the
+    /// meantime, did not win it.
+    #[test]
+    fn a_late_arrival_wins_no_fight() {
+        let units = FakeUnits::standard();
+        let mut events = Vec::new();
+        let mut before = Standing::default();
+        before.army[..3].copy_from_slice(&[3000, 3000, 3000]);
+        let mut now = before;
+        now.kills[..2].copy_from_slice(&[500, 2000]);
+        let fighting = roster(&[0, 1], 500);
+        let deaths = (0..20)
+            .map(|_| death(10 * SECOND, 0, unit::HYDRALISK, 500))
+            .chain((0..10).map(|_| death(10 * SECOND, 1, unit::MARINE, 500)))
+            .collect::<Vec<_>>();
+        let mut state = advance(
+            Some(&Engagements::default()),
+            &deaths,
+            &Moment {
+                before: &before,
+                now: &now,
+                rosters: [&fighting, &fighting],
+                frame: 10 * SECOND,
+                last_sample: false,
+            },
+            &units,
+            &mut events,
+        );
+        // Player 2 kills something across the map, then walks up to where the fight was.
+        let mut later = now;
+        later.kills[2] = 50;
+        let mut arrived = fighting.clone();
+        arrived.extend(roster(&[2], 4000));
+        for second in 11..=(10 + GAP_FRAMES / SECOND + 2) {
+            if second == 19 {
+                arrived = fighting.clone();
+                arrived.extend(roster(&[2], 520));
+            }
+            let earlier = if second == 11 { now } else { later };
+            state = advance(
+                Some(&state),
+                &[],
+                &Moment {
+                    before: &earlier,
+                    now: &later,
+                    rosters: [&arrived, &arrived],
+                    frame: second * SECOND,
+                    last_sample: false,
+                },
+                &units,
+                &mut events,
+            );
+        }
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].kind, TimelineEventKind::FightWon { margin: 1500 });
         assert_eq!(events[0].player, 1);

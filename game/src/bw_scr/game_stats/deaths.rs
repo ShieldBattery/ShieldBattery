@@ -8,12 +8,17 @@
 //! A few units leave the game without dying, used up in making another: the second of two templar
 //! merging into an archon, and the drone that becomes an extractor. The game takes each away in
 //! the same frame as the other unit takes its new form, so both show in the same two rosters, and
-//! the one is matched off against the other.
+//! the one is matched off against the other where it was last seen close enough to have been the
+//! one used.
 
 use bw_dat::{UnitId, unit};
 
 use super::MAX_PLAYERS;
 use super::snapshot::RosterUnit;
+
+/// How far from what it went into a unit used up can have been last seen, in map pixels: about
+/// what a drone or a templar covers in the second between two samples, from the edge of a geyser.
+const USED_UP_REACH: i32 = 256;
 
 /// One unit that died.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -61,19 +66,22 @@ pub fn record(
             .binary_search_by_key(&made.unique_id, |unit| unit.unique_id)
             .ok()
             .map(|index| before[index].unit_id);
-        let Some(used_up) = used_up_making(was, made.unit_id) else {
+        let used_up = used_up_making(was, made.unit_id);
+        if used_up.is_empty() {
             continue;
-        };
+        }
         let nearest = gone
             .iter()
             .enumerate()
-            .filter(|(_, unit)| unit.player == made.player && unit.unit_id == used_up)
-            .min_by_key(|(_, unit)| {
+            .filter(|(_, unit)| unit.player == made.player && used_up.contains(&unit.unit_id))
+            .map(|(index, unit)| {
                 let dx = i32::from(unit.x) - i32::from(made.x);
                 let dy = i32::from(unit.y) - i32::from(made.y);
-                dx * dx + dy * dy
+                (dx * dx + dy * dy, index)
             })
-            .map(|(index, _)| index);
+            .filter(|&(distance, _)| distance <= USED_UP_REACH * USED_UP_REACH)
+            .min()
+            .map(|(_, index)| index);
         if let Some(index) = nearest {
             gone.swap_remove(index);
         }
@@ -89,15 +97,16 @@ pub fn record(
     }));
 }
 
-/// The kind of unit the game uses up, without its dying, in a unit that was `was` (`None` for one
-/// new to the roster) becoming `now`: an archon is two templar, one of whom carries on as the
-/// archon, and an extractor takes over a geyser that belonged to nobody, with a drone.
-fn used_up_making(was: Option<UnitId>, now: UnitId) -> Option<UnitId> {
+/// The kinds the unit the game uses up, without its dying, can have been last seen as, in a unit
+/// that was `was` (`None` for one new to the roster) becoming `now`: an archon is two templar, one
+/// of whom carries on as the archon, and an extractor takes over a geyser that belonged to nobody,
+/// with a drone, or with the egg that drone hatched from since the last sample.
+fn used_up_making(was: Option<UnitId>, now: UnitId) -> &'static [UnitId] {
     match (was, now) {
-        (Some(unit::HIGH_TEMPLAR), unit::ARCHON) => Some(unit::HIGH_TEMPLAR),
-        (Some(unit::DARK_TEMPLAR), unit::DARK_ARCHON) => Some(unit::DARK_TEMPLAR),
-        (None, unit::EXTRACTOR) => Some(unit::DRONE),
-        _ => None,
+        (Some(unit::HIGH_TEMPLAR), unit::ARCHON) => &[unit::HIGH_TEMPLAR],
+        (Some(unit::DARK_TEMPLAR), unit::DARK_ARCHON) => &[unit::DARK_TEMPLAR],
+        (None, unit::EXTRACTOR) => &[unit::DRONE, unit::EGG],
+        _ => &[],
     }
 }
 
@@ -183,6 +192,19 @@ mod tests {
         let mut deaths = Vec::new();
         record(&before, &after, [false; MAX_PLAYERS], 48, &mut deaths);
         assert!(deaths.is_empty());
+    }
+
+    #[test]
+    fn an_extractor_started_by_a_new_drone_leaves_a_death_elsewhere_alone() {
+        // The extractor's drone hatched since the last sample, out of an egg by the hatchery, while
+        // a drone across the map was killed.
+        let before = [at(alive(3, unit::DRONE), 3000), at(alive(5, unit::EGG), 60)];
+        let after = [at(alive(40, unit::EXTRACTOR), 0)];
+        let mut deaths = Vec::new();
+        record(&before, &after, [false; MAX_PLAYERS], 48, &mut deaths);
+        assert_eq!(deaths.len(), 1);
+        assert_eq!(deaths[0].unit_id, unit::DRONE);
+        assert_eq!(deaths[0].x, 3000);
     }
 
     #[test]
