@@ -143,15 +143,27 @@ impl ObserverPanels {
             if prefs.map_control && !observer::map_control::fits(screen.width()) {
                 displaced.push(Panel::MapControl);
             }
-            if let Some(rect) = observer::render_map_control_view(
-                map_control,
-                ctx,
-                prefs.map_control,
-                view.matchup.form().height() + observer::MAP_CONTROL_GAP,
-            ) {
+            // Hung under the matchup bar while the bar is up, and from the screen's own top edge
+            // once it is put away, moving off as the bar starts to go rather than once it has.
+            let top = ctx.animate_value_with_time(
+                egui::Id::new("sb_map_control_top"),
+                if prefs.matchup {
+                    view.matchup.form().height() + observer::MAP_CONTROL_GAP
+                } else {
+                    observer::WING_MARGIN
+                },
+                if self.drawn.map_control {
+                    crate::kit::theme::MOTION_PANEL_SECS
+                } else {
+                    0.0
+                },
+            );
+            let drawn = observer::render_map_control_view(map_control, ctx, prefs.map_control, top);
+            if let Some(rect) = drawn {
                 hit_rects.push(HitRect::new(rect));
                 top_surfaces.push(rect);
             }
+            self.drawn.map_control = drawn.is_some();
         }
 
         // The minimap's square is the game's wherever it is, and the frame around it is kept clear
@@ -636,6 +648,7 @@ struct DrawnLastFrame {
     team_cards: RightWing,
     military: RightWing,
     control_groups: bool,
+    map_control: bool,
     production: bool,
     plate: bool,
     graphs: RightWing,
