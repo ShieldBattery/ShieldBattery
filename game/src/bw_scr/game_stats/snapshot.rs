@@ -294,13 +294,16 @@ pub unsafe fn read_snapshot(
 ///
 /// The whole unit array rather than the game's active list, which leaves out units that are only
 /// out of sight: loaded into a transport or a bunker, or inside a refinery. A slot is a living unit
-/// while it has a sprite and is not dying, which is how the game's own unique-id lookup tells.
+/// while it has a sprite and has not been given the order to die. That order is given in the same
+/// frame as the game scores a kill, where the dying state the game's own unique-id lookup reads
+/// comes only once the order has run, which can be a frame later: a unit killed on a sampling frame
+/// would otherwise be one sample late to the kill its killer was already scored for.
 /// Hallucinations are left out: one killed is no loss, and one standing near a fight takes no part
 /// in it.
 fn read_roster(units: &UnitArray) -> Vec<RosterUnit> {
     let mut roster = (0..units.len() as u32)
         .filter_map(|index| units.get_by_index(index))
-        .filter(|unit| unit.sprite().is_some() && !unit.is_dying())
+        .filter(|unit| unit.sprite().is_some() && unit.order() != order::DIE)
         .filter(|unit| (unit.player() as usize) < MAX_PLAYERS && !unit.is_hallucination())
         .map(|unit| {
             let position = unit.position();
