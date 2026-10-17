@@ -22,7 +22,11 @@ use crate::{
     users::{SbUser, SbUserId, UsersLoader},
 };
 
+pub mod api;
 mod catalog;
+pub mod ingest;
+pub mod parse;
+pub mod render;
 pub mod search;
 
 pub use catalog::{
@@ -179,7 +183,7 @@ pub struct DbMapFile {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LobbyInitData {
-    forces: Vec<MapForce>,
+    pub forces: Vec<MapForce>,
 }
 
 #[derive(Debug, Clone, SimpleObject)]

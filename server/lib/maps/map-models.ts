@@ -4,6 +4,7 @@ import {
   MapForce,
   MapInfo,
   MapSortType,
+  MapStartLocation,
   MapVisibility,
   NumPlayers,
   SbMapId,
@@ -16,7 +17,6 @@ import transact from '../db/transaction'
 import { Dbify } from '../db/types'
 import { getSignedUrl, getUrl } from '../files'
 import { mapNameMatches } from './map-search'
-import { MapParseData } from './parse-data'
 import { imagePath, mapPath } from './paths'
 
 type DbMapInfo = Dbify<{
@@ -40,6 +40,8 @@ type DbMapInfo = Dbify<{
   }
   width: number
   height: number
+  startLocations: MapStartLocation[]
+  umsContent: boolean | null
   parserVersion: number
   imageVersion: number
 }>
@@ -63,6 +65,8 @@ const MAP_INFO_COLUMNS = sql`
   m.players_melee,
   m.players_ums,
   m.is_eud,
+  m.start_locations,
+  m.ums_content,
   m.parser_version,
   m.image_version,
   m.lobby_init_data
@@ -105,6 +109,8 @@ function convertFromDb(props: DbMapInfo, urls: MapUrlProps): MapInfo {
       width: props.width,
       height: props.height,
       isEud: props.is_eud,
+      startLocations: props.start_locations,
+      umsContent: props.ums_content ?? undefined,
       parserVersion: props.parser_version,
     },
     imageVersion: props.image_version,
@@ -140,211 +146,6 @@ async function createMapInfo(info: DbMapInfo): Promise<MapInfo> {
     image1024Url: addImageVersion(image1024Url, imageVersion),
     image2048Url: addImageVersion(image2048Url, imageVersion),
   })
-}
-
-export interface MapParams {
-  mapData: MapParseData
-  extension: MapExtension
-  uploadedBy: SbUserId
-  visibility: MapVisibility
-  parserVersion: number
-}
-
-/**
- * Adds a map to the database. An unlisted upload adds the map to the uploader's own maps; a listed
- * upload lists the map (if it isn't already listed at least that widely).
- *
- * @param mapParams Information about the map (should be parsed from the map file)
- * @param storeNewMapFn A function that should store the relevant map data/images if this is a
- *   new map. It is called before any rows are written, so that a `maps` row never refers to files
- *   that failed to store; if it rejects, nothing is written to the DB. It will not be called if
- *   this map already exists in the DB
- */
-export async function addMap(
-  mapParams: MapParams,
-  storeNewMapFn: () => Promise<void>,
-): Promise<MapInfo> {
-  const { mapData, extension, uploadedBy, visibility, parserVersion } = mapParams
-  const {
-    hash,
-    title,
-    description,
-    width,
-    height,
-    tileset,
-    meleePlayers,
-    umsPlayers,
-    isEud,
-    lobbyInitData,
-  } = mapData
-
-  const hashBuffer = Buffer.from(hash, 'hex')
-  // Stored files are keyed by the map hash, so storing them before the `maps` row exists is safe:
-  // the contents are identical for any given hash, and files with no row are inert (they're only
-  // ever reached through a row). Two concurrent uploads of the same new map both store the same
-  // bytes, and the loser of the `maps` insert fails its request, as it would have anyway.
-  const exists = await mapExists(hash)
-  if (!exists) {
-    await storeNewMapFn()
-  }
-
-  return transact(async client => {
-    if (!exists) {
-      await client.query(sql`
-        INSERT INTO maps (hash, extension, title, description,
-          width, height, tileset, players_melee, players_ums, lobby_init_data,
-          is_eud, parser_version, image_version)
-        VALUES (${hashBuffer}, ${extension}, ${title}, ${description},
-          ${width}, ${height}, ${tileset}, ${meleePlayers}, ${umsPlayers}, ${lobbyInitData},
-          ${isEud}, ${parserVersion}, 1);
-      `)
-    }
-
-    if (visibility === MapVisibility.Unlisted) {
-      // Re-uploading a map that's already in the user's maps moves it to the top of the date sort
-      await client.query(sql`
-        INSERT INTO map_library (user_id, map_id, added_at)
-        SELECT ${uploadedBy}, id, CURRENT_TIMESTAMP
-        FROM maps
-        WHERE hash = ${hashBuffer}
-        ON CONFLICT (user_id, map_id)
-        DO UPDATE SET added_at = CURRENT_TIMESTAMP
-      `)
-    } else {
-      const official = visibility === MapVisibility.Official
-      // Publishing only ever widens a listing: publishing as public leaves an already listed map (and
-      // its publisher) alone, and publishing as official leaves an already official listed map alone
-      const widensListing = official ? sql`NOT (listed AND official)` : sql`NOT listed`
-      await client.query(sql`
-        UPDATE maps
-        SET
-          official = ${official},
-          published_by = ${uploadedBy},
-          published_at = CURRENT_TIMESTAMP,
-          delisted_by = NULL,
-          delisted_at = NULL
-        WHERE hash = ${hashBuffer} AND ${widensListing}
-      `)
-    }
-
-    const result = await client.query<DbMapInfo>(sql`
-      SELECT ${MAP_INFO_COLUMNS}
-      FROM maps AS m
-      WHERE m.hash = ${hashBuffer}
-    `)
-    return createMapInfo(result.rows[0])
-  })
-}
-
-/**
- * Updates a maps' parsed data in the database, calling `parseFn` to retreieve the new data.
- *
- * @param oldMapInfos An array of maps to update (note that this will be their OLD info, before
- *   reparsing).
- * @param parseFn A function called once per map, returning a Promise with the parsed data. If the
- *   map couldn't be parsed (or doesn't need to be any more), returning an empty tuple will no-op
- *   the update.
- */
-export async function updateParseData(
-  oldMapInfos: MapInfo[],
-  parseFn: (mapInfo: MapInfo) => Promise<[data: MapParseData, parserVersion: number] | []>,
-): Promise<void> {
-  // The parses can be very slow (remote file retrieval + worker-thread parsing), so they all
-  // complete before a DB client is acquired — holding a pooled connection idle across a whole
-  // batch of parses can starve the pool under concurrent requests.
-  const results = await Promise.allSettled(
-    oldMapInfos.map(async mapInfo => {
-      const [newData, parserVersion] = await parseFn(mapInfo)
-      return { mapInfo, newData, parserVersion }
-    }),
-  )
-
-  const updates: Array<{ mapInfo: MapInfo; newData: MapParseData; parserVersion: number }> = []
-  for (const result of results) {
-    if (result.status === 'fulfilled') {
-      const { mapInfo, newData, parserVersion } = result.value
-      if (newData && parserVersion !== undefined) {
-        updates.push({ mapInfo, newData, parserVersion })
-      }
-    }
-  }
-  if (!updates.length) {
-    return
-  }
-
-  const { client, done } = await db()
-  try {
-    for (const { mapInfo, newData, parserVersion } of updates) {
-      const hashBuffer = Buffer.from(mapInfo.hash, 'hex')
-      try {
-        await client.query<never>(sql`
-          UPDATE maps
-          SET
-            title = ${newData.title},
-            description = ${newData.description},
-            width = ${newData.width},
-            height = ${newData.height},
-            tileset = ${newData.tileset},
-            players_melee = ${newData.meleePlayers},
-            players_ums = ${newData.umsPlayers},
-            lobby_init_data = ${newData.lobbyInitData},
-            is_eud = ${newData.isEud},
-            parser_version = ${parserVersion}
-          WHERE hash = ${hashBuffer}
-        `)
-      } catch {
-        // A failed update just leaves that map on its old parser version, where it will be
-        // retried the next time it's requested — same as a failed parse.
-      }
-    }
-  } finally {
-    done()
-  }
-}
-
-/**
- * Updates the map's generated images in the database, calling `storeImagesFn` to store them for
- * serving to clients.
- */
-export async function updateMapImages(
-  mapHash: string,
-  storeImagesFn: () => Promise<void>,
-): Promise<void> {
-  // `image_version` is the cache-buster clients append to image URLs, so it can only be bumped
-  // once the new images are actually in place. If storing them fails, clients keep using the
-  // images that are still there, and the update can be retried.
-  await storeImagesFn()
-
-  const hashBuffer = Buffer.from(mapHash, 'hex')
-  const { client, done } = await db()
-  try {
-    await client.query<never>(sql`
-      UPDATE maps
-      SET image_version = image_version + 1
-      WHERE hash = ${hashBuffer}
-    `)
-  } finally {
-    done()
-  }
-}
-
-/**
- * Returns whether or not a map matching the specified hash exists. This can generally be used as
- * an indicator that the map file has already been stored on our servers, but is not an indication
- * that the map is visible in any listing (it may be unlisted, or in no user's maps at all).
- */
-export async function mapExists(hash: string) {
-  const { client, done } = await db()
-  try {
-    const result = await client.query(sql`
-      SELECT 1
-      FROM maps
-      WHERE hash = ${Buffer.from(hash, 'hex')};
-    `)
-    return result.rows.length > 0
-  } finally {
-    done()
-  }
 }
 
 /**
@@ -767,7 +568,8 @@ export async function veryDangerousDeleteAllMaps(deleteFromStoreFn: () => Promis
         UPDATE lobby_preferences SET recent_maps = NULL, selected_map = NULL;
         UPDATE matchmaking_preferences SET map_selections = '{}';
         TRUNCATE matchmaking_map_pools, favorited_maps, map_favorite_counts, map_library,
-          map_id_aliases, map_stats, map_stats_daily, map_matchup_stats, uploaded_maps_legacy, maps;
+          map_id_aliases, map_stats, map_stats_daily, map_matchup_stats, map_analysis,
+          map_parse_rejections, uploaded_maps_legacy, maps;
       COMMIT;
     `
 

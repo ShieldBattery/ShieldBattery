@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO map_parse_rejections (hash, extension, error, uploaded_by, rejected_at)\n                VALUES ($1, $2, $3, $4, now())\n                ON CONFLICT (hash) DO UPDATE\n                SET error = $3, uploaded_by = $4, rejected_at = now()\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Bpchar",
+        "Text",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9ec90cb2f1e244cd22b7d7e2b4b0a42819ea9dec8a6cb0eee982016db82b9171"
+}

@@ -68,7 +68,6 @@ import { getGameRecord } from '../games/game-models'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import logger from '../logging/logger'
 import { getMapInfos } from '../maps/map-models'
-import { reparseMapsAsNeeded } from '../maps/map-operations'
 import { emoteField } from '../messaging/emote-field'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { outcomeField } from '../messaging/outcome-field'
@@ -370,7 +369,7 @@ async function fetchMapQueue(mapIds: ReadonlyArray<SbMapId>): Promise<MapInfo[]>
     return []
   }
 
-  const found = await reparseMapsAsNeeded(await getMapInfos([...new Set(mapIds)]))
+  const found = await getMapInfos([...new Set(mapIds)])
   const byId = new Map(found.map(map => [map.id, map]))
   return mapIds.map(id => {
     const map = byId.get(id)
@@ -679,11 +678,10 @@ export class LobbyService {
   }): Promise<{ id: SbLobbyId }> {
     const hostRegion = await this._resolveRegion(region)
 
-    let mapInfo = (await getMapInfos([map]))[0]
+    const mapInfo = (await getMapInfos([map]))[0]
     if (!mapInfo) {
       throw new LobbyServiceError(LobbyServiceErrorCode.InvalidMap, 'invalid map')
     }
-    ;[mapInfo] = await reparseMapsAsNeeded([mapInfo])
     checkSubTypeValidity(gameType, gameSubType, mapInfo.mapData.slots)
 
     let numSlots
@@ -1287,11 +1285,10 @@ export class LobbyService {
 
     let fetchedMap: MapInfo | undefined
     if (map !== undefined) {
-      const found = (await getMapInfos([map]))[0]
-      if (!found) {
+      fetchedMap = (await getMapInfos([map]))[0]
+      if (!fetchedMap) {
         throw new LobbyServiceError(LobbyServiceErrorCode.InvalidMap, 'invalid map')
       }
-      ;[fetchedMap] = await reparseMapsAsNeeded([found])
     }
     let fetchedQueue: MapInfo[] | undefined
     if (mapQueue !== undefined) {
