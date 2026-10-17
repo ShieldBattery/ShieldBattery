@@ -8,7 +8,7 @@ use super::{HitRect, HostFrame, Mode, Views};
 use crate::alliances::{AlliancesAction, AlliancesDraft, AlliancesMenu, render_alliances_view};
 use crate::chat_history::{ChatHistoryView, render_chat_history_view};
 use crate::disconnect::render_disconnect_view;
-use crate::end_card::{EndCardChoice, EndCardView, GameResult, StatLeads, render_end_card};
+use crate::end_card::{EndCardChoice, EndCardView, GameResult, StatRanks, render_end_card};
 use crate::game_menu::{leave_asks_first, render_game_menu, render_leave_confirm};
 use crate::options::{
     OptionsLists, OptionsOutcome, OptionsSection, OptionsView, SettingChange, render_options_view,
@@ -475,7 +475,7 @@ pub(super) fn draw_modal(
                 result,
                 game_seconds: host.game_seconds,
                 stats: None,
-                leads: StatLeads::default(),
+                ranks: StatRanks::default(),
                 race: None,
             };
             let view = views

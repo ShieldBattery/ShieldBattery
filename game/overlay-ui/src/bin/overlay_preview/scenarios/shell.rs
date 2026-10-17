@@ -4,7 +4,7 @@
 //! The ambient surface it puts on screen is the network-stats panel: with it up and the mode set to
 //! observing, a frame here is an ambient panel under whatever modal the native dialogs raise.
 
-use overlay_ui::end_card::{EndCardStats, EndCardView, GameResult, StatLeads};
+use overlay_ui::end_card::{EndCardStats, EndCardView, GameResult, Rank, StatRanks};
 use overlay_ui::observer::RaceView;
 use overlay_ui::options::{
     DisplayMode, FramePacing, MonitorView, OptionsLists, OptionsSection, OptionsView,
@@ -220,23 +220,24 @@ pub fn end_card_view(result: GameResult, game_seconds: u64, race: RaceView) -> E
                     game_seconds,
                     race: None,
                     stats: None,
-                    leads: StatLeads::default(),
+                    ranks: StatRanks::default(),
                 };
             }
         }),
-        leads: match result {
-            GameResult::Victory => StatLeads {
-                units_produced: true,
-                units_killed: true,
-                minerals_gathered: true,
-                gas_gathered: false,
-                average_apm: true,
+        // Every place a mark comes in, in a game big enough for all three.
+        ranks: match result {
+            GameResult::Victory => StatRanks {
+                units_produced: Some(Rank::First),
+                units_killed: Some(Rank::Second),
+                minerals_gathered: Some(Rank::First),
+                gas_gathered: Some(Rank::Third),
+                average_apm: Some(Rank::First),
             },
-            GameResult::Defeat => StatLeads {
-                average_apm: true,
-                ..StatLeads::default()
+            GameResult::Defeat => StatRanks {
+                average_apm: Some(Rank::Second),
+                ..StatRanks::default()
             },
-            GameResult::GameOver => StatLeads::default(),
+            GameResult::GameOver => StatRanks::default(),
         },
     }
 }

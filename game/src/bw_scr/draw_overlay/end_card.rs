@@ -1,6 +1,6 @@
 //! The end-of-game card's numbers, read off the game at the moment it was decided.
 
-use overlay_ui::end_card::{EndCardStats, EndCardView, GameResult, StatLeads};
+use overlay_ui::end_card::{EndCardStats, EndCardView, GameResult, StatRanks};
 use overlay_ui::observer::RaceView;
 
 use crate::bw;
@@ -37,7 +37,7 @@ pub fn build_end_card_view(
         .filter(|&other| other != player && played_in_game(bw, other))
         .map(stats_of)
         .collect::<Vec<_>>();
-    let leads = stats.map_or(StatLeads::default(), |own| StatLeads::of(&own, &others));
+    let ranks = stats.map_or(StatRanks::default(), |own| StatRanks::of(&own, &others));
     // A race the game itself does not know is left off the card rather than drawn as a guess.
     let race = (player < MAX_PLAYERS)
         .then(|| player_race(bw, player).1)
@@ -46,7 +46,7 @@ pub fn build_end_card_view(
         result,
         game_seconds,
         stats,
-        leads,
+        ranks,
         race,
     }
 }

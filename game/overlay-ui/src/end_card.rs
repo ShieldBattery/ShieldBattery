@@ -21,7 +21,8 @@ use egui::{
 
 use crate::colors::{
     AMBER50, AMBER60, AMBER80, AMBER99, BLUE10, BLUE60, BLUE70, BLUE95, BLUE99, CONTAINER,
-    GREY_BLUE20, GREY_BLUE60, GREY_BLUE70, GREY_BLUE80, GREY_BLUE95, GREY10,
+    GREY_BLUE20, GREY_BLUE60, GREY_BLUE70, GREY_BLUE80, GREY_BLUE90, GREY_BLUE95, GREY_BLUE99,
+    GREY10,
 };
 use crate::game_menu::clock_text;
 use crate::kit::text::{self, TextSpec};
@@ -163,39 +164,84 @@ pub struct EndCardStats {
     pub average_apm: Option<u32>,
 }
 
-/// Which of the player's numbers were the best of anyone's in the game, each of which the card
-/// marks `#1`.
+/// Where one of the player's numbers placed among everyone's in the game, for a place the card
+/// marks.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum Rank {
+    First,
+    Second,
+    Third,
+}
+
+impl Rank {
+    /// The place `rank` counts from 1, if it is one the card marks.
+    fn from_place(place: usize) -> Option<Rank> {
+        match place {
+            1 => Some(Rank::First),
+            2 => Some(Rank::Second),
+            3 => Some(Rank::Third),
+            _ => None,
+        }
+    }
+
+    fn label(self) -> String {
+        match self {
+            Rank::First => tr!("endCard.topRank", "#1"),
+            Rank::Second => tr!("endCard.secondRank", "#2"),
+            Rank::Third => tr!("endCard.thirdRank", "#3"),
+        }
+    }
+
+    /// The plate's fill and the light along its top: gold, silver and bronze.
+    fn tint(self) -> (Color32, Color32) {
+        match self {
+            Rank::First => (theme::ACCENT, AMBER99),
+            Rank::Second => (GREY_BLUE90, GREY_BLUE99),
+            Rank::Third => (BRONZE, BRONZE_LIGHT),
+        }
+    }
+}
+
+/// The third place's plate, and the light along its top.
+const BRONZE: Color32 = Color32::from_rgb(196, 128, 72);
+const BRONZE_LIGHT: Color32 = Color32::from_rgb(255, 214, 172);
+
+/// Where the player's numbers placed among everyone's in the game, for the ones the card marks.
 ///
 /// The card shows only the player's own numbers, and a number alone does not say whether it was a
 /// good one; a mark says so without putting anyone else's numbers beside it. Units lost has no
-/// mark: the fewest losses is as often a game without a fight as a well-played one, and `#1` beside
-/// a count of losses reads as the most of them.
+/// mark: the fewest losses is as often a game without a fight as a well-played one, and a place
+/// beside a count of losses reads as the most of them.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
-pub struct StatLeads {
-    pub units_produced: bool,
-    pub units_killed: bool,
-    pub minerals_gathered: bool,
-    pub gas_gathered: bool,
-    pub average_apm: bool,
+pub struct StatRanks {
+    pub units_produced: Option<Rank>,
+    pub units_killed: Option<Rank>,
+    pub minerals_gathered: Option<Rank>,
+    pub gas_gathered: Option<Rank>,
+    pub average_apm: Option<Rank>,
 }
 
-impl StatLeads {
-    /// Which of `own` numbers no rival's beat. A tie for the top still leads, since nobody did
-    /// better; a zero never does, as being first at nothing is not a result; and a game with no
-    /// rivals has nobody to lead.
-    pub fn of(own: &EndCardStats, rivals: &[EndCardStats]) -> StatLeads {
-        let leads = |value: fn(&EndCardStats) -> Option<u32>| {
-            let Some(own) = value(own).filter(|&own| own > 0) else {
-                return false;
-            };
-            !rivals.is_empty() && rivals.iter().all(|rival| value(rival).unwrap_or(0) <= own)
+impl StatRanks {
+    /// Where each of `own` numbers placed against the rivals'. A place is one more than how many
+    /// rivals did better, so a tie shares it; a zero never places, as being anywhere at nothing is
+    /// not a result. Only places above last are marked, and no more than three: a game of two marks
+    /// only the first, a game of three the first two.
+    pub fn of(own: &EndCardStats, rivals: &[EndCardStats]) -> StatRanks {
+        let marked = rivals.len().min(3);
+        let rank = |value: fn(&EndCardStats) -> Option<u32>| {
+            let own = value(own).filter(|&own| own > 0)?;
+            let place = 1 + rivals
+                .iter()
+                .filter(|rival| value(rival).unwrap_or(0) > own)
+                .count();
+            (place <= marked).then(|| Rank::from_place(place)).flatten()
         };
-        StatLeads {
-            units_produced: leads(|stats| Some(stats.units_produced)),
-            units_killed: leads(|stats| Some(stats.units_killed)),
-            minerals_gathered: leads(|stats| Some(stats.minerals_gathered)),
-            gas_gathered: leads(|stats| Some(stats.gas_gathered)),
-            average_apm: leads(|stats| stats.average_apm),
+        StatRanks {
+            units_produced: rank(|stats| Some(stats.units_produced)),
+            units_killed: rank(|stats| Some(stats.units_killed)),
+            minerals_gathered: rank(|stats| Some(stats.minerals_gathered)),
+            gas_gathered: rank(|stats| Some(stats.gas_gathered)),
+            average_apm: rank(|stats| stats.average_apm),
         }
     }
 }
@@ -208,8 +254,8 @@ pub struct EndCardView {
     pub game_seconds: u64,
     /// The player's own numbers, for a host that could read them.
     pub stats: Option<EndCardStats>,
-    /// Which of those numbers led the game when it was decided.
-    pub leads: StatLeads,
+    /// Where those numbers placed when the game was decided.
+    pub ranks: StatRanks,
     /// The race the player played, whose emblem stands behind the result. `None` for a host that
     /// could not tell, which leaves the banner without one rather than guessing.
     pub race: Option<RaceView>,
@@ -247,9 +293,12 @@ pub fn render_end_card(
     key_choice: Option<EndCardChoice>,
 ) -> EndCardResponse {
     let id = Id::new("sb_end_card");
-    let cells = stat_cells(view.stats.as_ref(), view.leads);
-    let led = cells.iter().map(|cell| cell.led).collect::<Vec<_>>();
-    let timeline = Timeline::of(view.result, &led);
+    let cells = stat_cells(view.stats.as_ref(), view.ranks);
+    let marked = cells
+        .iter()
+        .map(|cell| cell.rank.is_some())
+        .collect::<Vec<_>>();
+    let timeline = Timeline::of(view.result, &marked);
     let t = motion::arrival_secs(ctx, id.with("arrival"), timeline.rest());
     let look = Look::of(view.result);
     let screen = ctx.viewport_rect();
@@ -343,7 +392,7 @@ impl Beat {
 ///
 /// The darkness and the banner come up first, the word lands into the banner, and everything
 /// after is placed against that landing: the rules draw outward as it lands, the record follows it
-/// cell by cell, the buttons come next, and each number that led the game is locked onto and marked
+/// cell by cell, the buttons come next, and each number that placed is locked onto and marked
 /// as it finishes counting. A defeat lands slower and heavier than a victory, and that is the
 /// only place the two tempos differ; the stages after the landing keep the same rhythm whichever
 /// way the game went.
@@ -357,7 +406,7 @@ struct Timeline {
     clock: Beat,
     /// How many cells the summary has.
     cells: usize,
-    /// When each cell's lead is locked onto, for a cell that has one.
+    /// When each cell's number is locked onto, for a cell whose number placed.
     locks: Vec<Option<Beat>>,
 }
 
@@ -374,18 +423,18 @@ const COUNT_SECS: f32 = 0.6;
 const BUTTONS_DELAY: f32 = 0.25;
 const BUTTONS_SECS: f32 = 0.3;
 
-/// How long the brackets take to close in on a number that led, and the least time between two
+/// How long the brackets take to close in on a number that placed, and the least time between two
 /// of them locking: the cells finish counting a few hundredths of a second apart, and locks that
 /// close blur into one.
 const LOCK_SECS: f32 = 0.2;
 const LOCK_SPACING: f32 = 0.15;
 
-/// How long the `#1` plate takes to come up under a number once it is locked.
+/// How long the place's plate takes to come up under a number once it is locked.
 const PLATE_SECS: f32 = 0.32;
 
 impl Timeline {
-    /// `led` says, cell by cell, which of the summary's cells are marked as leading.
-    fn of(result: GameResult, led: &[bool]) -> Timeline {
+    /// `marked` says, cell by cell, which of the summary's numbers placed.
+    fn of(result: GameResult, marked: &[bool]) -> Timeline {
         let (backdrop, band, word) = match result {
             GameResult::Victory | GameResult::GameOver => (
                 Beat::new(0.0, 0.4),
@@ -406,14 +455,14 @@ impl Timeline {
             rules: Beat::new(landing - 0.12, 0.6),
             glint: (result == GameResult::Victory).then_some(Beat::new(landing + 0.2, 0.8)),
             clock: Beat::new(landing + 0.05, 0.35),
-            cells: led.len(),
-            locks: Vec::with_capacity(led.len()),
+            cells: marked.len(),
+            locks: Vec::with_capacity(marked.len()),
         };
         // Each lock closes the moment its number finishes counting, or a beat after the lock
         // before it, whichever is later.
         let mut last_lock = f32::NEG_INFINITY;
-        for (index, &led) in led.iter().enumerate() {
-            let lock = led.then(|| {
+        for (index, &marked) in marked.iter().enumerate() {
+            let lock = marked.then(|| {
                 let locked = timeline.count(index).end().max(last_lock + LOCK_SPACING);
                 last_lock = locked;
                 Beat::new(locked - LOCK_SECS, LOCK_SECS)
@@ -423,12 +472,12 @@ impl Timeline {
         timeline
     }
 
-    /// The brackets closing in on a cell's number, for a cell that led.
+    /// The brackets closing in on a cell's number, for a cell whose number placed.
     fn lock(&self, index: usize) -> Option<Beat> {
         self.locks.get(index).copied().flatten()
     }
 
-    /// The `#1` plate coming up under a cell's number once it is locked.
+    /// The place's plate coming up under a cell's number once it is locked.
     fn plate(&self, index: usize) -> Option<Beat> {
         self.lock(index)
             .map(|lock| Beat::new(lock.end(), PLATE_SECS))
@@ -952,11 +1001,11 @@ struct StatCell {
     label: String,
     value: u32,
     glyph: Option<ResourceGlyph>,
-    /// Whether this number led the game, which marks it.
-    led: bool,
+    /// Where this number placed, for a place that marks it.
+    rank: Option<Rank>,
 }
 
-fn stat_cells(stats: Option<&EndCardStats>, leads: StatLeads) -> Vec<StatCell> {
+fn stat_cells(stats: Option<&EndCardStats>, ranks: StatRanks) -> Vec<StatCell> {
     let Some(stats) = stats else {
         return Vec::new();
     };
@@ -965,31 +1014,31 @@ fn stat_cells(stats: Option<&EndCardStats>, leads: StatLeads) -> Vec<StatCell> {
             label: tr!("endCard.unitsProduced", "Units produced"),
             value: stats.units_produced,
             glyph: None,
-            led: leads.units_produced,
+            rank: ranks.units_produced,
         },
         StatCell {
             label: tr!("endCard.unitsKilled", "Units killed"),
             value: stats.units_killed,
             glyph: None,
-            led: leads.units_killed,
+            rank: ranks.units_killed,
         },
         StatCell {
             label: tr!("endCard.unitsLost", "Units lost"),
             value: stats.units_lost,
             glyph: None,
-            led: false,
+            rank: None,
         },
         StatCell {
             label: tr!("endCard.mineralsGathered", "Minerals gathered"),
             value: stats.minerals_gathered,
             glyph: Some(ResourceGlyph::Minerals),
-            led: leads.minerals_gathered,
+            rank: ranks.minerals_gathered,
         },
         StatCell {
             label: tr!("endCard.gasGathered", "Gas gathered"),
             value: stats.gas_gathered,
             glyph: Some(ResourceGlyph::Gas),
-            led: leads.gas_gathered,
+            rank: ranks.gas_gathered,
         },
     ];
     if let Some(apm) = stats.average_apm {
@@ -997,7 +1046,7 @@ fn stat_cells(stats: Option<&EndCardStats>, leads: StatLeads) -> Vec<StatCell> {
             label: tr!("endCard.averageApm", "Average APM"),
             value: apm,
             glyph: None,
-            led: leads.average_apm,
+            rank: ranks.average_apm,
         });
     }
     cells
@@ -1060,11 +1109,10 @@ impl Record<'_> {
     }
 
     /// The player's numbers as one row, with hairlines between the cells, each cell rising in on
-    /// its own beat and counting its number up from nothing, and a mark on each number that led the
-    /// game.
+    /// its own beat and counting its number up from nothing, and a mark on each number that placed.
     fn draw_stats(&mut self, cells: &[StatCell]) -> Rect {
         let width = STAT_CELL_WIDTH * cells.len() as f32;
-        let lane = match cells.iter().any(|cell| cell.led) {
+        let lane = match cells.iter().any(|cell| cell.rank.is_some()) {
             true => MARK_LANE,
             false => 0.0,
         };
@@ -1121,7 +1169,9 @@ impl Record<'_> {
                 .plate(index)
                 .map_or(0.0, |plate| plate.progress(self.t));
             let number = stat_value_layout(self.ui, cell_rect, cell, cell.value).ink;
-            draw_lead_mark(self.ui.painter(), number, locking, plate);
+            if let Some(rank) = cell.rank {
+                draw_rank_mark(self.ui.painter(), number, rank, locking, plate);
+            }
         }
         self.top = rect.bottom();
         rect
@@ -1251,10 +1301,10 @@ fn draw_stat_cell(ui: &Ui, painter: &Painter, rect: Rect, cell: &StatCell, value
     painter.galley(layout.origin, layout.galley, layout.color);
 }
 
-/// Size of the `#1` on the plate under a number that led.
+/// Size of the place on the plate under a number that placed.
 const PLATE_TEXT_SIZE: f32 = 19.0;
 
-/// The room between the plate's `#1` and its edges, across and down.
+/// The room between the plate's place and its edges, across and down.
 const PLATE_PADDING: Vec2 = vec2(10.0, 4.0);
 
 /// How far the plate and its `#1` lean forward: how far right their tops sit of their bottoms, as a
@@ -1285,7 +1335,7 @@ const BRACKET_WIDTH: f32 = 1.75;
 /// How much further out the brackets start before they close in.
 const BRACKET_REACH: f32 = 20.0;
 
-/// How strong the brackets stay once the lock is done with them, so the numbers that led keep a
+/// How strong the brackets stay once the lock is done with them, so the numbers that placed keep a
 /// frame without it outshining the plate.
 const BRACKET_REST: f32 = 0.55;
 
@@ -1296,29 +1346,30 @@ const PLATE_FLICKER: [f32; 6] = [0.9, 0.15, 0.7, 0.3, 1.0, 0.75];
 /// How far through its coming up the plate stops flickering.
 const PLATE_FLICKER_END: f32 = 0.45;
 
-/// The mark on a number that led the game, which takes up `number`: brackets closing in on it as
-/// though it were being targeted, then once they lock, a plate under it reading `#1`, leaning
-/// forward and trailed by slashes. The plate goes under the number rather than over it, so it never
-/// covers any of the number.
+/// The mark on a number that placed, which takes up `number`: brackets closing in on it as though
+/// it were being targeted, then once they lock, a plate under it reading its place, leaning forward
+/// and trailed by slashes, in the place's metal. The plate goes under the number rather than over
+/// it, so it never covers any of the number.
 ///
 /// `locking` is how far the brackets are through closing in, and `plate` how far the plate is
 /// through coming up.
-fn draw_lead_mark(painter: &Painter, number: Rect, locking: f32, plate: f32) {
+fn draw_rank_mark(painter: &Painter, number: Rect, rank: Rank, locking: f32, plate: f32) {
     let flash = 1.0 - smoothstep(0.0, 0.5, plate);
-    draw_brackets(painter, number, locking, flash);
+    draw_brackets(painter, number, rank, locking, flash);
     if plate > 0.0 {
-        draw_plate(painter, number, plate);
+        draw_plate(painter, number, rank, plate);
     }
 }
 
 /// The four corner brackets around `number`. `locking` is how far they are through closing in, and
 /// `flash` how much of the light of the moment they locked is still on them.
-fn draw_brackets(painter: &Painter, number: Rect, locking: f32, flash: f32) {
+fn draw_brackets(painter: &Painter, number: Rect, rank: Rank, locking: f32, flash: f32) {
     let closed = ease_out(locking);
     let rect = number.expand2(BRACKET_MARGIN + Vec2::splat(BRACKET_REACH * (1.0 - closed)));
     let strength = smoothstep(0.0, 0.4, locking) * (BRACKET_REST + (1.0 - BRACKET_REST) * flash);
-    let color = theme::ACCENT
-        .lerp_to_gamma(AMBER99, 0.6 * flash)
+    let (fill, light) = rank.tint();
+    let color = fill
+        .lerp_to_gamma(light, 0.6 * flash)
         .gamma_multiply(strength);
     let stroke = Stroke::new(BRACKET_WIDTH, color);
     for (corner, toward) in [
@@ -1338,13 +1389,14 @@ fn draw_brackets(painter: &Painter, number: Rect, locking: f32, flash: f32) {
     }
 }
 
-/// The `#1` plate under `number`, `shown` of the way through coming up: it wipes in from its left
-/// edge, flickering as it does.
-fn draw_plate(painter: &Painter, number: Rect, shown: f32) {
+/// The plate naming `rank` under `number`, `shown` of the way through coming up: it wipes in from
+/// its left edge, flickering as it does.
+fn draw_plate(painter: &Painter, number: Rect, rank: Rank, shown: f32) {
     let ctx = painter.ctx();
+    let (fill, light) = rank.tint();
     let job = text::headline(PLATE_TEXT_SIZE)
         .with_color(Color32::PLACEHOLDER)
-        .job(&tr!("endCard.topRank", "#1"));
+        .job(&rank.label());
     let galley = ctx.fonts_mut(|fonts| fonts.layout_job(job));
     let ink = ink_bounds(&galley);
     let size = ink.size() + PLATE_PADDING * 2.0;
@@ -1385,12 +1437,8 @@ fn draw_plate(painter: &Painter, number: Rect, shown: f32) {
     let mut painter = painter.with_clip_rect(clip.intersect(painter.clip_rect()));
     painter.set_opacity(flicker);
 
-    painter.add(Shape::convex_polygon(
-        leaned(plate),
-        theme::ACCENT,
-        Stroke::NONE,
-    ));
-    painter.add(Shape::mesh(plate_light(plate, lean_at)));
+    painter.add(Shape::convex_polygon(leaned(plate), fill, Stroke::NONE));
+    painter.add(Shape::mesh(plate_light(plate, light, lean_at)));
     for slash in 0..PLATE_SLASHES {
         let left =
             plate.right() + PLATE_SLASH_GAP + (PLATE_SLASH_GAP + PLATE_SLASH_WIDTH) * slash as f32;
@@ -1398,7 +1446,7 @@ fn draw_plate(painter: &Painter, number: Rect, shown: f32) {
         let fade = 0.75 / (slash + 1) as f32;
         painter.add(Shape::convex_polygon(
             leaned(rect),
-            theme::ACCENT.gamma_multiply(fade),
+            fill.gamma_multiply(fade),
             Stroke::NONE,
         ));
     }
@@ -1419,7 +1467,7 @@ fn draw_plate(painter: &Painter, number: Rect, shown: f32) {
 /// The light over the plate's face: brightest along its top and falling off down it, with a dark
 /// scanline every [`SCANLINE_PITCH`]. Laid over the plate's own fill, whose edges are smoothed where
 /// a mesh's are not, and faint enough at its own leaning ends that their steps never show.
-fn plate_light(plate: Rect, lean_at: impl Fn(f32) -> f32) -> Mesh {
+fn plate_light(plate: Rect, light: Color32, lean_at: impl Fn(f32) -> f32) -> Mesh {
     let mut mesh = Mesh::default();
     let rows = (plate.height() / (SCANLINE_PITCH / 2.0)).ceil() as usize;
     for row in 0..rows {
@@ -1428,7 +1476,7 @@ fn plate_light(plate: Rect, lean_at: impl Fn(f32) -> f32) -> Mesh {
         let along = (row as f32 + 0.5) / rows as f32;
         let color = match row % 2 {
             1 => with_alpha(Color32::BLACK, SCANLINE_DARKEN),
-            _ => with_alpha(AMBER99, 0.35 * (1.0 - along).powi(2)),
+            _ => with_alpha(light, 0.35 * (1.0 - along).powi(2)),
         };
         let base = mesh.vertices.len() as u32;
         for (x, y) in [
@@ -1467,10 +1515,10 @@ mod tests {
                 gas_gathered: 6_120,
                 average_apm: Some(214),
             }),
-            leads: StatLeads {
-                units_killed: true,
-                minerals_gathered: true,
-                ..StatLeads::default()
+            ranks: StatRanks {
+                units_killed: Some(Rank::First),
+                minerals_gathered: Some(Rank::Second),
+                ..StatRanks::default()
             },
             race: Some(RaceView::Protoss),
         }
@@ -1591,32 +1639,51 @@ mod tests {
     }
 
     #[test]
-    fn a_number_leads_when_nobody_beat_it() {
+    fn a_number_places_by_how_many_did_better() {
         let own = stats(40, 9_000, Some(180));
         let others = [stats(25, 12_000, Some(180)), stats(39, 3_000, Some(90))];
-        let leads = StatLeads::of(&own, &others);
-        assert!(leads.units_killed);
-        assert!(!leads.minerals_gathered);
+        let ranks = StatRanks::of(&own, &others);
+        assert_eq!(ranks.units_killed, Some(Rank::First));
+        assert_eq!(ranks.minerals_gathered, Some(Rank::Second));
         // A tie for the top: nobody did better.
-        assert!(leads.average_apm);
+        assert_eq!(ranks.average_apm, Some(Rank::First));
+    }
+
+    /// Only places above last are marked, and no more than three of them.
+    #[test]
+    fn the_places_marked_grow_with_the_game_up_to_third() {
+        let own = stats(10, 0, None);
+        let better = |count: usize| vec![stats(20, 0, None); count];
+        let worse = |count: usize| vec![stats(5, 0, None); count];
+        let place = |rivals: Vec<EndCardStats>| StatRanks::of(&own, &rivals).units_killed;
+        // Two players: first, and nothing for last.
+        assert_eq!(place(worse(1)), Some(Rank::First));
+        assert_eq!(place(better(1)), None);
+        // Three players: second is marked, last is not.
+        assert_eq!(place([better(1), worse(1)].concat()), Some(Rank::Second));
+        assert_eq!(place(better(2)), None);
+        // Four or more: third is the last place marked.
+        assert_eq!(place([better(2), worse(1)].concat()), Some(Rank::Third));
+        assert_eq!(place([better(2), worse(3)].concat()), Some(Rank::Third));
+        assert_eq!(place([better(3), worse(1)].concat()), None);
     }
 
     #[test]
-    fn nothing_leads_at_zero_or_with_nobody_to_lead() {
-        let leads = StatLeads::of(&stats(0, 0, None), &[stats(0, 0, None)]);
-        assert_eq!(leads, StatLeads::default());
-        let alone = StatLeads::of(&stats(40, 9_000, Some(180)), &[]);
-        assert_eq!(alone, StatLeads::default());
+    fn nothing_places_at_zero_or_with_nobody_to_place_against() {
+        let ranks = StatRanks::of(&stats(0, 0, None), &[stats(0, 0, None)]);
+        assert_eq!(ranks, StatRanks::default());
+        let alone = StatRanks::of(&stats(40, 9_000, Some(180)), &[]);
+        assert_eq!(alone, StatRanks::default());
     }
 
     #[test]
-    fn leads_lock_as_their_numbers_finish_and_never_on_top_of_each_other() {
-        let led = [true, true, false, true, false, true];
-        let timeline = Timeline::of(GameResult::Victory, &led);
+    fn marks_lock_as_their_numbers_finish_and_never_on_top_of_each_other() {
+        let marked = [true, true, false, true, false, true];
+        let timeline = Timeline::of(GameResult::Victory, &marked);
         let mut last = f32::NEG_INFINITY;
-        for (index, &led) in led.iter().enumerate() {
+        for (index, &marked) in marked.iter().enumerate() {
             let Some(lock) = timeline.lock(index) else {
-                assert!(!led);
+                assert!(!marked);
                 continue;
             };
             assert!(lock.end() >= timeline.count(index).end());
