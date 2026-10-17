@@ -78,12 +78,10 @@ pub struct TeamColorConfig {
 pub struct GameStartInfo {
     /// BW player ids (`0..8`) of the active (non-observer) human/computer players, ascending.
     pub active_players: Vec<u8>,
-    /// The local player's BW id, or `None` for an observer or a replay watched without a seat.
+    /// The local player's BW id: their seat in a game they are playing, or the seat they played in
+    /// a replay of one of their own games, which then colors as they saw it while playing. `None`
+    /// for an observer, or a replay of a game the watcher was not in.
     pub local_player: Option<u8>,
-    /// For a game the local user has no seat in, the player whose team is drawn as the friendly
-    /// one, and who takes the self color: the local user's own seat in a replay of their own game.
-    /// `None` makes it the team with the lowest slot, led by that slot.
-    pub perspective: Option<u8>,
     /// The outgoing alliance matrix at game start: `initial_allies[a][b]` is whether `a` is allied
     /// to `b`. The relation is not assumed symmetric.
     pub initial_allies: [[bool; 8]; 8],
@@ -101,10 +99,11 @@ pub struct TeamColorState {
 }
 
 enum StateKind {
-    /// Observer/replay: a static assignment derived from the starting alliances, never updated.
+    /// Observer, or a replay of a game the watcher was not in: a static assignment derived from
+    /// the starting alliances, never updated.
     Static,
-    /// The local player has a seat: colors track live alliance changes. Boxed to keep the two enum
-    /// variants close in size.
+    /// The local player has a seat, in the game or in the replay of it: colors track its alliance
+    /// changes as they happen. Boxed to keep the two enum variants close in size.
     Seated(Box<SeatedState>),
 }
 
@@ -375,23 +374,14 @@ impl TeamColorState {
     }
 
     /// Observer/replay: a static assignment. Two clean alliance teams split into a friendly pool
-    /// (self color prepended to the allies pool, given to the perspective player's team, led by
-    /// them, or failing one to the team with the lowest slot) and the enemies pool; any other shape
-    /// falls back to FFA identity colors.
+    /// (self color prepended to the allies pool, given to the team with the lowest slot) and the
+    /// enemies pool; any other shape falls back to FFA identity colors.
     fn new_observer(config: &TeamColorConfig, info: &GameStartInfo) -> TeamColorState {
         let two_player = info.active_players.len() == 2;
         let usage_ok = config.usage != TeamColorUsage::Never
             && !(config.usage == TeamColorUsage::ExceptIn1v1 && two_player);
         let mut colors = [None; 8];
-        if usage_ok && let Some([mut friendly, mut enemy]) = two_team_partition(info) {
-            if let Some(perspective) = info.perspective {
-                if enemy.contains(&perspective) {
-                    std::mem::swap(&mut friendly, &mut enemy);
-                }
-                if let Some(lead) = friendly.iter().position(|&p| p == perspective) {
-                    friendly[..=lead].rotate_right(1);
-                }
-            }
+        if usage_ok && let Some([friendly, enemy]) = two_team_partition(info) {
             let mut friendly_pool = Vec::with_capacity(1 + config.allies.len());
             friendly_pool.push(config.self_color);
             friendly_pool.extend_from_slice(&config.allies);
@@ -586,7 +576,6 @@ mod tests {
         GameStartInfo {
             active_players: active.to_vec(),
             local_player: local,
-            perspective: None,
             initial_allies,
         }
     }
@@ -871,32 +860,6 @@ mod tests {
         // The other team draws the enemies pool.
         assert_eq!(at(&c, 1), col(20));
         assert_eq!(at(&c, 3), col(21));
-    }
-
-    #[test]
-    fn replay_of_own_game_puts_own_team_on_the_friendly_side() {
-        let cfg = config(ConfigArgs {
-            usage: TeamColorUsage::Always,
-            shuffle: false,
-            self_color: 1,
-            team_self_override: None,
-            allies: &[10, 11],
-            enemies: &[20, 21],
-            ffa: &[30],
-            ffa_self: None,
-        });
-        // Teams {0,2,4} and {1,3}; the watcher played slot 3.
-        let mut pairs = team_pairs(&[0, 2, 4]);
-        pairs.extend(team_pairs(&[1, 3]));
-        let mut gi = info(&[0, 1, 2, 3, 4], None, &pairs);
-        gi.perspective = Some(3);
-        let c = TeamColorState::new(cfg, &gi, 0).colors();
-        // Their own seat takes the self color, their teammate the allies pool.
-        assert_eq!(at(&c, 3), col(1));
-        assert_eq!(at(&c, 1), col(10));
-        assert_eq!(at(&c, 0), col(20));
-        assert_eq!(at(&c, 2), col(21));
-        assert_eq!(at(&c, 4), col(20));
     }
 
     #[test]

@@ -855,15 +855,6 @@ fn next_minimap_mode(mode: MinimapColorMode) -> MinimapColorMode {
     }
 }
 
-/// A per-game shuffle seed drawn from local entropy. The shuffle is a purely local aesthetic, so a
-/// wall-clock seed is fine; a replay re-rolling its own shuffle on each viewing is acceptable.
-fn shuffle_seed() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_nanos() as u64)
-        .unwrap_or(0)
-}
-
 /// Outcome of the OUT hook consulting the turn state, deciding whether the turn went to rally-point2 or
 /// should fall through to native Storm.
 enum TurnSendOutcome {
@@ -7805,7 +7796,8 @@ impl BwScr {
                 }
             }
             let local_player = if self.is_replay_or_obs() {
-                None
+                game_thread::replay_seat_of_local_user()
+                    .filter(|seat| active_players.contains(seat))
             } else {
                 // A seated player's id is always a real player slot; anything else would index
                 // out of bounds in the assignment engine, so degrade to the seatless (static)
@@ -7825,15 +7817,14 @@ impl BwScr {
                     *cell = (*game).alliances[a][b] != 0;
                 }
             }
-            let perspective = game_thread::replay_seat_of_local_user()
-                .filter(|seat| local_player.is_none() && active_players.contains(seat));
             let info = GameStartInfo {
                 active_players,
                 local_player,
-                perspective,
                 initial_allies,
             };
-            let state = TeamColorState::new(config, &info, shuffle_seed());
+            // Shuffled from the game's own seed, which its replay records, so a replay of the
+            // watcher's own game shuffles the way the game did.
+            let state = TeamColorState::new(config, &info, u64::from(self.rng_seed()));
             let virtual_mode =
                 MinimapColorMode::try_from(self.saved_minimap_color_mode.load(Ordering::Acquire))
                     .unwrap_or_default();
