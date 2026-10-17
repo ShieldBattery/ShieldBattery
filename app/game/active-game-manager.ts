@@ -27,8 +27,14 @@ import {
 } from '../../common/games/game-status'
 import { NetcodeV2ServerSetup, NetcodeV2Setup } from '../../common/games/netcode-v2'
 import { GameClientPlayerResult } from '../../common/games/results'
-import { GameBlockRequestFailure, InGameReportRequest, InGameReportResult } from '../../common/ipc'
+import {
+  GameBlockRequestFailure,
+  GameUserStatsResult,
+  InGameReportRequest,
+  InGameReportResult,
+} from '../../common/ipc'
 import { SlotType } from '../../common/lobbies/slot'
+import { MatchmakingType } from '../../common/matchmaking'
 import { DEFAULT_LOCAL_SETTINGS } from '../../common/settings/default-settings'
 import { LocalSettings } from '../../common/settings/local-settings'
 import {
@@ -211,6 +217,11 @@ export type ActiveGameManagerEvents = {
   replayDiagnosticsRequested: [request: ReplayDiagnosticsRequest]
   setUserBlocked: [gameId: string, userId: SbUserId, blocked: boolean]
   reportPlayer: [gameId: string, request: InGameReportRequest]
+  requestUserStats: [
+    gameId: string,
+    name: string | undefined,
+    matchmakingType: MatchmakingType | undefined,
+  ]
 }
 
 @singleton()
@@ -1061,6 +1072,22 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     }
 
     this.emit('gameCommand', gameId, 'blockRequestFailed', failure)
+  }
+
+  handleRequestUserStats(gameId: string, name: string | undefined) {
+    if (!this.activeGame || this.activeGame.id !== gameId) {
+      return
+    }
+
+    this.emit('requestUserStats', gameId, name, this.activeGame.config?.setup.matchmakingType)
+  }
+
+  userStatsResult(gameId: string, result: GameUserStatsResult) {
+    if (!this.activeGame || this.activeGame.id !== gameId) {
+      return
+    }
+
+    this.emit('gameCommand', gameId, 'userStats', result)
   }
 
   handleReplaySaved(gameId: string, path: string) {
