@@ -449,7 +449,7 @@ fn supply_used(game: Game, player: u8) -> u32 {
 
 /// Whether a player has left the game, which the game marks by their slot's type, or been beaten,
 /// which it marks by their victory state.
-unsafe fn is_out(game: Game, bw_players: *const bw::Player, player: u8) -> bool {
+pub(super) unsafe fn is_out(game: Game, bw_players: *const bw::Player, player: u8) -> bool {
     unsafe {
         let left = matches!((*bw_players.add(player as usize)).player_type, 10 | 11);
         let beaten = matches!((**game).victory_state[player as usize], 1 | 2);

@@ -856,6 +856,15 @@ fn group_composition(tally: &[(UnitId, u32, u32)]) -> Option<(UnitId, Option<Uni
     Some((tally[leader].0, runner_up))
 }
 
+/// Whether a player has left the game or been beaten. `bw_players` is the game's players array.
+pub unsafe fn player_out(
+    game: bw_dat::Game,
+    bw_players: *const crate::bw::Player,
+    player: u8,
+) -> bool {
+    unsafe { snapshot::is_out(game, bw_players, player) }
+}
+
 #[cfg(test)]
 mod tests {
     use bw_dat::unit;

@@ -528,8 +528,12 @@ fn build_control_groups_view(
     stats: Option<&StatsAsOf<'_>>,
 ) -> ControlGroupsView {
     ControlGroupsView {
+        // A player who has left has nothing on their keys any more: what they had went to nobody.
         players: players
             .iter()
+            .filter(|player| unsafe {
+                !crate::bw_scr::game_stats::player_out(bw.game, bw.players, player.player_id)
+            })
             .map(|player| ControlGroupsPlayerView {
                 player_id: player.player_id,
                 color: player.color,

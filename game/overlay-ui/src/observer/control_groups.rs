@@ -198,8 +198,8 @@ impl ControlGroupsView {
     }
 
     /// The player whose row is drawn: `focus`, whatever they have bound, and before anyone has been
-    /// focused, the [default player](Self::default_player), or failing one the player in the lowest
-    /// slot.
+    /// focused, or once the focused player has left the game, the
+    /// [default player](Self::default_player), or failing one the player in the lowest slot.
     ///
     /// A focused player with nothing bound still gets their row, empty: a watcher who clicked one
     /// player's building and was shown somebody else's keys would read them as that player's. The
@@ -207,13 +207,10 @@ impl ControlGroupsView {
     /// the players start binding.
     pub(crate) fn shown(&self, focus: Option<u8>) -> Option<&ControlGroupsPlayerView> {
         let find = |id: u8| self.players.iter().find(|player| player.player_id == id);
-        match focus {
-            Some(focus) => find(focus),
-            None => self
-                .default_player
-                .and_then(find)
-                .or_else(|| self.players.iter().min_by_key(|player| player.player_id)),
-        }
+        focus
+            .and_then(find)
+            .or_else(|| self.default_player.and_then(find))
+            .or_else(|| self.players.iter().min_by_key(|player| player.player_id))
     }
 }
 
@@ -527,6 +524,16 @@ mod tests {
         assert_eq!(view.shown(Some(2)).map(|player| player.player_id), Some(2));
         view.default_player = Some(7);
         assert_eq!(view.shown(None).map(|player| player.player_id), Some(2));
+    }
+
+    #[test]
+    fn a_focused_player_who_left_hands_the_row_on() {
+        let view = ControlGroupsView {
+            players: vec![player(4, vec![group(1)]), player(2, Vec::new())],
+            default_player: None,
+        };
+        // Player 6 has left the game, and with it the panel's rows.
+        assert_eq!(view.shown(Some(6)).map(|player| player.player_id), Some(2));
     }
 
     #[test]
