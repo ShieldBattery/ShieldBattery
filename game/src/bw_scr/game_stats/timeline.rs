@@ -2,12 +2,18 @@
 //! research started and finished. The game keeps none of these as events, only the counts and
 //! flags they change, so each is found by comparing a sample with the one before it.
 
-use bw_dat::{TechId, UnitId, UpgradeId};
-use overlay_ui::observer::TimelineEventKind;
+use bw_dat::{TechId, UnitId, UpgradeId, unit};
+use overlay_ui::observer::{Significance, TimelineEventKind};
 
-use super::snapshot::{BuildingSite, DepotSite, GameSnapshot, ResearchLevels, ResearchSite};
+use super::engagements::Engagements;
+use super::snapshot::{
+    BuildingSite, DepotSite, GameSnapshot, ResearchLevels, ResearchSite, RosterUnit,
+};
 use super::unit_value::UnitCatalog;
-use super::{MAX_PLAYERS, TECH_COUNT, TimelineEvent, TimelineSubject, UPGRADE_COUNT};
+use super::{
+    MAX_PLAYERS, SAMPLE_INTERVAL_FRAMES, TECH_COUNT, TimelineEvent, TimelineSubject, UNIT_ID_COUNT,
+    UPGRADE_COUNT,
+};
 
 /// How far from a player's own start location a finished resource depot has to be before it counts
 /// as an expansion rather than as another building in the main, in map pixels.
@@ -15,6 +21,21 @@ use super::{MAX_PLAYERS, TECH_COUNT, TimelineEvent, TimelineSubject, UPGRADE_COU
 /// Generous, because the cost of calling a macro hatch an expansion is a wrong line on the timeline
 /// while the cost of missing one is nothing at all: a real expansion is most of a screen away.
 const EXPANSION_DISTANCE: i32 = 32 * 15;
+
+/// How long a game's opening lasts, in frames: about five minutes, by when a player's build is
+/// set and the second and third of a production building say which one it was. Past it, another
+/// gateway is one of many.
+const OPENING_FRAMES: u32 = 5 * 60 * SAMPLE_INTERVAL_FRAMES;
+
+/// The buildings that make units, which the opening is told by how many of are built.
+const PRODUCTION_BUILDINGS: [UnitId; 6] = [
+    unit::BARRACKS,
+    unit::FACTORY,
+    unit::STARPORT,
+    unit::GATEWAY,
+    unit::STARGATE,
+    unit::ROBOTICS_FACILITY,
+];
 
 /// How far a lifted resource depot has to land from where it stood before it has moved base rather
 /// than set back down where it was, in map pixels.
@@ -34,6 +55,14 @@ pub struct Baseline {
     research_sites: Vec<ResearchSite>,
     /// Every resource depot standing, so one that was already there is not reported again.
     depots: Vec<KnownDepot>,
+    /// Every unit alive, sorted by unique id, so the next sample can tell which have died.
+    pub roster: Vec<RosterUnit>,
+    /// How many of each building every player has finished while there was a sample to report it
+    /// against, indexed by unit id: a building is judged by how many came before it, whether or
+    /// not those still stand.
+    pub built: Box<[[u16; MAX_PLAYERS]]>,
+    /// The fights going on as of this sample.
+    pub engagements: Engagements,
 }
 
 /// A resource depot standing, as of where it last stood on the ground.
@@ -52,9 +81,11 @@ struct KnownDepot {
 ///
 /// Without `previous` this only takes stock: a map may start with buildings, upgrades and bases in
 /// place, and a game picked up partway through already has them, and reporting each as having just
-/// happened would bury the timeline under things that did not.
+/// happened would bury the timeline under things that did not. `built` is what the newest baseline
+/// counted as built, however long ago it was taken.
 pub fn advance(
     previous: Option<&Baseline>,
+    built: Option<Box<[[u16; MAX_PLAYERS]]>>,
     snapshot: GameSnapshot,
     catalog: &impl UnitCatalog,
     events: &mut Vec<TimelineEvent>,
@@ -63,6 +94,8 @@ pub fn advance(
         frame: snapshot.frame,
         reporting: previous.is_some(),
         events,
+        built: built
+            .unwrap_or_else(|| vec![[0; MAX_PLAYERS]; UNIT_ID_COUNT as usize].into_boxed_slice()),
     };
     let starts = snapshot.players.each_ref().map(|player| player.start);
     let depots = timeline.depots(
@@ -87,6 +120,9 @@ pub fn advance(
         buildings: snapshot.buildings,
         research_sites,
         depots,
+        roster: snapshot.roster,
+        built: timeline.built,
+        engagements: Engagements::default(),
     }
 }
 
@@ -96,6 +132,7 @@ struct Timeline<'a> {
     /// Whether there is anything to report against, rather than only stock to take.
     reporting: bool,
     events: &'a mut Vec<TimelineEvent>,
+    built: Box<[[u16; MAX_PLAYERS]]>,
 }
 
 impl Timeline<'_> {
@@ -103,17 +140,48 @@ impl Timeline<'_> {
         &mut self,
         player: u8,
         kind: TimelineEventKind,
+        significance: Significance,
         subject: TimelineSubject,
         position: Option<(i16, i16)>,
     ) {
         if self.reporting {
             self.events.push(TimelineEvent {
                 frame: self.frame,
+                recorded: self.frame,
                 player,
                 kind,
+                significance,
                 subject,
                 position,
             });
+        }
+    }
+
+    /// Reports a building of `unit_id` that `player` finished, if it is one worth listing: the
+    /// first of its kind, and in the opening the second and third of a production building, which
+    /// is how an opening is told apart. Past those, another of the same is one of many.
+    fn building(&mut self, player: u8, unit_id: UnitId, position: Option<(i16, i16)>) {
+        if !self.reporting {
+            return;
+        }
+        let Some(count) = self
+            .built
+            .get_mut(unit_id.0 as usize)
+            .and_then(|counts| counts.get_mut(player as usize))
+        else {
+            return;
+        };
+        *count = count.saturating_add(1);
+        let opening_production =
+            PRODUCTION_BUILDINGS.contains(&unit_id) && self.frame < OPENING_FRAMES && *count <= 3;
+        if *count == 1 || opening_production {
+            self.report(
+                player,
+                TimelineEventKind::BuildingCompleted,
+                Significance::Notable,
+                TimelineSubject::Unit(unit_id),
+                position,
+            );
         }
     }
 
@@ -155,6 +223,7 @@ impl Timeline<'_> {
                         self.report(
                             site.player,
                             TimelineEventKind::BuildingCompleted,
+                            Significance::Key,
                             TimelineSubject::Unit(site.unit_id),
                             Some(position),
                         );
@@ -166,6 +235,7 @@ impl Timeline<'_> {
                         self.report(
                             site.player,
                             TimelineEventKind::ExpansionTaken,
+                            Significance::Key,
                             TimelineSubject::Unit(site.unit_id),
                             Some(position),
                         );
@@ -186,17 +256,19 @@ impl Timeline<'_> {
         known
     }
 
+    /// Reports a depot that was not standing before: an expansion away from its owner's start
+    /// location, and in the main another building, listed as the first of its kind is.
     fn new_depot(&mut self, site: &DepotSite, starts: &[(i16, i16); MAX_PLAYERS]) {
-        let kind = match near_start(site, starts) {
-            true => TimelineEventKind::BuildingCompleted,
-            false => TimelineEventKind::ExpansionTaken,
-        };
-        self.report(
-            site.player,
-            kind,
-            TimelineSubject::Unit(site.unit_id),
-            Some((site.x, site.y)),
-        );
+        match near_start(site, starts) {
+            true => self.building(site.player, site.unit_id, Some((site.x, site.y))),
+            false => self.report(
+                site.player,
+                TimelineEventKind::ExpansionTaken,
+                Significance::Key,
+                TimelineSubject::Unit(site.unit_id),
+                Some((site.x, site.y)),
+            ),
+        }
     }
 
     /// Reports every building that finished since the last sample.
@@ -233,23 +305,19 @@ impl Timeline<'_> {
                         .iter()
                         .position(|site| site.player == player as u8 && site.unit_id == unit_id)
                         .map(|index| fresh.swap_remove(index));
-                    self.report(
-                        player as u8,
-                        TimelineEventKind::BuildingCompleted,
-                        TimelineSubject::Unit(unit_id),
-                        site.map(|site| (site.x, site.y)),
-                    );
+                    self.building(player as u8, unit_id, site.map(|site| (site.x, site.y)));
                 }
             }
         }
     }
 
-    /// Reports every upgrade and technology that was started or finished since the last sample.
+    /// Reports every technology that was started or finished since the last sample, and every
+    /// upgrade that finished.
     ///
     /// A start is the game's in-progress flag going up and a finish is the level or the researched
-    /// flag moving, so an upgrade canceled halfway reports its start and nothing else, which is
-    /// exactly what happened. Both are put on the map at the building the research runs in, as
-    /// found in `sites`.
+    /// flag moving, so a technology canceled halfway reports its start and nothing else, which is
+    /// exactly what happened. An upgrade's start is left out: a level is only worth knowing once it
+    /// is had. Both are put on the map at the building the research runs in, as found in `sites`.
     fn research(&mut self, before: &ResearchLevels, now: &ResearchLevels, sites: &[ResearchSite]) {
         let site_of = |player: usize, subject: TimelineSubject| {
             sites
@@ -284,21 +352,21 @@ impl Timeline<'_> {
         finished: bool,
         site: Option<(i16, i16)>,
     ) {
-        let (start_kind, finish_kind) = match subject {
+        let (start, finish) = match subject {
             TimelineSubject::Tech(_) => (
-                TimelineEventKind::TechStarted,
-                TimelineEventKind::TechCompleted,
+                Some((TimelineEventKind::TechStarted, Significance::Notable)),
+                (TimelineEventKind::TechCompleted, Significance::Key),
             ),
             _ => (
-                TimelineEventKind::UpgradeStarted,
-                TimelineEventKind::UpgradeCompleted,
+                None,
+                (TimelineEventKind::UpgradeCompleted, Significance::Notable),
             ),
         };
-        if started {
-            self.report(player as u8, start_kind, subject, site);
+        if started && let Some((kind, significance)) = start {
+            self.report(player as u8, kind, significance, subject, site);
         }
         if finished {
-            self.report(player as u8, finish_kind, subject, site);
+            self.report(player as u8, finish.0, finish.1, subject, site);
         }
     }
 }

@@ -711,14 +711,18 @@ fn build_timeline_view(
             let player = players
                 .iter()
                 .find(|player| player.player_id == event.player)?;
-            let name = names
-                .entry(event.subject)
-                .or_insert_with(|| production::timeline_name(event.subject, bw))
-                .clone();
+            let name = match event.kind.names_its_subject() {
+                true => names
+                    .entry(event.subject)
+                    .or_insert_with(|| production::timeline_name(event.subject, bw))
+                    .clone(),
+                false => None,
+            };
             let view = TimelineEventView {
                 secs: transport::frames_to_seconds(event.frame, game_speed),
                 color: player.color,
                 kind: event.kind,
+                significance: event.significance,
                 icon: None,
                 name,
                 position: event
@@ -824,6 +828,7 @@ mod tests {
             secs: 0,
             color: Color32::WHITE,
             kind: overlay_ui::observer::TimelineEventKind::BuildingCompleted,
+            significance: overlay_ui::observer::Significance::Notable,
             icon: None,
             name: None,
             position: None,

@@ -7323,7 +7323,14 @@ impl BwScr {
                 true => game_stats::Resimulation::MayDiffer,
                 false => game_stats::Resimulation::Identical,
             };
+            // The replay's own length says when the last sample is taken, which ends whatever fight
+            // is going on; a game being played only ends as its players leave.
+            let end_frame = (self.is_replay.resolve() != 0)
+                .then(|| self.replay_header())
+                .filter(|header| !header.is_null())
+                .map(|header| (*header).replay_end_frame);
             if let Some(mut stats) = self.game_stats.lock() {
+                stats.set_end_frame(end_frame);
                 stats.step(
                     game.frame_count(),
                     resimulation,
@@ -7331,6 +7338,7 @@ impl BwScr {
                     || {
                         game_stats::read_snapshot(
                             game,
+                            self.players(),
                             active_units,
                             &units,
                             self.selection_hotkey_last_used_frames
@@ -7339,6 +7347,8 @@ impl BwScr {
                         )
                     },
                 );
+                #[cfg(debug_assertions)]
+                dump_game_stats(&stats);
             }
         }
     }
@@ -7367,6 +7377,7 @@ impl BwScr {
             }
             let snapshot = game_stats::read_snapshot(
                 game,
+                self.players(),
                 self.active_units(),
                 &units,
                 self.selection_hotkey_last_used_frames
@@ -10046,6 +10057,45 @@ struct SoftwareCursor {
     draw: VirtualAddress,
     push_mode_override: unsafe extern "C" fn(u16),
     pop_mode_override: unsafe extern "C" fn(),
+}
+
+/// Appends what the observer stats recorded since the last call to the file `SB_STATS_DUMP` names,
+/// for tuning what the timeline reports against real replays.
+#[cfg(debug_assertions)]
+fn dump_game_stats(stats: &GameStats) {
+    use std::io::Write;
+    static DUMP: Mutex<Option<(std::fs::File, u32)>> = Mutex::new(None);
+    let mut dump = DUMP.lock();
+    if dump.is_none() {
+        // A directory, holding one file per game: named after the soak run playing it where there
+        // is one, and after the process otherwise.
+        let Some(dir) = std::env::var_os("SB_STATS_DUMP") else {
+            return;
+        };
+        let run = std::env::var_os("SB_ROLLBACK_SOAK")
+            .and_then(|done| {
+                std::path::Path::new(&done)
+                    .file_name()
+                    .map(|name| name.to_string_lossy().replace(".done.json", ""))
+            })
+            .unwrap_or_else(|| std::process::id().to_string());
+        let path = std::path::Path::new(&dir).join(format!("stats-{run}.csv"));
+        match std::fs::File::create(&path) {
+            Ok(file) => *dump = Some((file, 0)),
+            Err(e) => {
+                warn!("Couldn't create the stats dump: {e}");
+                return;
+            }
+        }
+    }
+    let Some((file, through)) = dump.as_mut() else {
+        return;
+    };
+    let (lines, newest) = stats.debug_lines_after(*through);
+    *through = newest;
+    for line in lines {
+        let _ = writeln!(file, "{line}");
+    }
 }
 
 /// Hands the observer panels the watcher has on screen to the app, which saves them for the next

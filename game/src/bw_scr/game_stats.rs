@@ -20,6 +20,8 @@
 //! The memory is bounded: [`MAX_SAMPLES`] rows of samples, past which the older half of the game
 //! is kept at half the detail, and [`MAX_EVENTS`] timeline entries.
 
+mod deaths;
+mod engagements;
 mod snapshot;
 mod timeline;
 mod unit_value;
@@ -27,8 +29,9 @@ mod unit_value;
 use std::collections::VecDeque;
 
 use bw_dat::{TechId, UnitId, UpgradeId};
-use overlay_ui::observer::{GraphSeries, TimelineEventKind};
+use overlay_ui::observer::{GraphSeries, Significance, TimelineEventKind};
 
+pub(crate) use deaths::Death;
 pub(crate) use snapshot::{
     GameSnapshot, SCORE_UNITS_KILLED, SCORE_UNITS_LOST, SCORE_UNITS_PRODUCED, control_group_units,
     read_snapshot,
@@ -60,6 +63,10 @@ const INCOME_WINDOW_FRAMES: u32 = 60 * SAMPLE_INTERVAL_FRAMES;
 /// from growing without end, and such a map loses its oldest entries first. About twenty bytes
 /// each, so a third of a megabyte when full.
 const MAX_EVENTS: usize = 16 * 1024;
+
+/// How many deaths are kept: a long game with big armies on both sides loses a few thousand units,
+/// at a few bytes each.
+const MAX_DEATHS: usize = 1 << 16;
 
 /// How many samples' baselines are kept to compare a re-simulated sample against. A rollback
 /// reaches back a handful of frames, which is never more than a second or two of samples.
@@ -108,6 +115,10 @@ pub struct Sample {
     pub supply_used: u32,
     pub units_killed: u32,
     pub units_lost: u32,
+    /// What everything they have killed was worth, by the game's own destroy scores.
+    pub kills_score: u32,
+    /// What every building they have destroyed was worth, the same way.
+    pub razings_score: u32,
     pub worker_kills: u32,
     pub worker_losses: u32,
 }
@@ -146,8 +157,12 @@ pub struct TimelineEvent {
     /// The frame it happened on. Frames rather than seconds, because turning one into the other
     /// needs the speed the game was recorded at, which only the draw path knows.
     pub frame: u32,
+    /// The frame of the sample that recorded it: the same, but for something only judged once it
+    /// was over, such as a fight, which is put at the moment it began.
+    pub recorded: u32,
     pub player: u8,
     pub kind: TimelineEventKind,
+    pub significance: Significance,
     pub subject: TimelineSubject,
     /// Where on the map it happened, in map pixels: the building that finished or that the research
     /// runs in. `None` where the sampler could not tell which building it was.
@@ -178,6 +193,8 @@ pub struct GameStats {
     rows: Vec<SampleRow>,
     /// Sorted by frame.
     events: Vec<TimelineEvent>,
+    /// Every unit seen to die, sorted by frame.
+    deaths: Vec<Death>,
     /// What the newest samples left behind to be compared against, oldest first.
     baselines: VecDeque<Baseline>,
     /// What each player has on their number keys, replaced whole every sample: a group is what it
@@ -187,6 +204,8 @@ pub struct GameStats {
     vision: Option<MapVision>,
     /// The frame `control_groups` and `vision` were read on.
     current_state_frame: Option<u32>,
+    /// The last frame of the replay being watched, after which nothing more is sampled.
+    end_frame: Option<u32>,
     /// Counts every change to `rows` or `events`, and is never reset, so a [`HistoryStamp`] taken
     /// before a [`clear`](Self::clear) never matches one taken after it.
     generation: u64,
@@ -248,10 +267,12 @@ impl GameStats {
         GameStats {
             rows: Vec::new(),
             events: Vec::new(),
+            deaths: Vec::new(),
             baselines: VecDeque::new(),
             control_groups: Default::default(),
             vision: None,
             current_state_frame: None,
+            end_frame: None,
             generation: 0,
             rows_changed: 0,
             events_changed: 0,
@@ -268,6 +289,12 @@ impl GameStats {
             events_changed: generation,
             ..GameStats::new()
         };
+    }
+
+    /// Records the last frame of the replay being watched, `None` for a game still being played,
+    /// whose end is only known as its players leave it.
+    pub fn set_end_frame(&mut self, end_frame: Option<u32>) {
+        self.end_frame = end_frame;
     }
 
     /// Takes a sample of the frame the simulation just stepped to, if one is due on it, through
@@ -351,16 +378,51 @@ impl GameStats {
             .baselines
             .back()
             .filter(|baseline| baseline.frame.checked_add(SAMPLE_INTERVAL_FRAMES) == Some(frame));
+        let mut fresh_deaths = Vec::new();
+        if let Some(previous) = previous {
+            let out = snapshot.players.each_ref().map(|player| player.out);
+            deaths::record(
+                &previous.roster,
+                &snapshot.roster,
+                out,
+                frame,
+                &mut fresh_deaths,
+            );
+            self.deaths.extend_from_slice(&fresh_deaths);
+            let excess = self.deaths.len().saturating_sub(MAX_DEATHS);
+            self.deaths.drain(..excess);
+        }
+        let now = standing(&row, &snapshot);
+        let before = previous
+            .and(self.rows.last())
+            .map(|row| standing(row, &snapshot))
+            .unwrap_or_default();
         let mut events = Vec::new();
-        let baseline = timeline::advance(previous, snapshot, catalog, &mut events);
+        let engagements = engagements::advance(
+            previous.map(|previous| &previous.engagements),
+            &fresh_deaths,
+            &engagements::Moment {
+                before: &before,
+                now: &now,
+                frame,
+                last_sample: self
+                    .end_frame
+                    .is_some_and(|end| frame + SAMPLE_INTERVAL_FRAMES > end),
+            },
+            catalog,
+            &mut events,
+        );
+        // What each player has ever built carries on from the newest baseline even across a gap
+        // the samples skipped, so a building after one is still judged by how many came before it.
+        let built = self.baselines.back().map(|newest| newest.built.clone());
+        let mut baseline = timeline::advance(previous, built, snapshot, catalog, &mut events);
+        baseline.engagements = engagements;
         self.generation += 1;
         self.rows_changed = self.generation;
         if events_forgotten || !events.is_empty() {
             self.events_changed = self.generation;
         }
-        self.events.extend(events);
-        let excess = self.events.len().saturating_sub(MAX_EVENTS);
-        self.events.drain(..excess);
+        self.keep_events(events);
         if self.rows.len() >= MAX_SAMPLES {
             thin_older_half(&mut self.rows);
         }
@@ -371,13 +433,30 @@ impl GameStats {
         self.baselines.push_back(baseline);
     }
 
+    /// Adds a sample's events to the timeline in the order they happened, which for one judged
+    /// after it was over is earlier than the sample, dropping its oldest past [`MAX_EVENTS`].
+    fn keep_events(&mut self, events: Vec<TimelineEvent>) {
+        for event in events {
+            let at = self
+                .events
+                .partition_point(|kept| kept.frame <= event.frame);
+            self.events.insert(at, event);
+        }
+        let excess = self.events.len().saturating_sub(MAX_EVENTS);
+        self.events.drain(..excess);
+    }
+
     /// Forgets every sample and event from `frame` on, for frames about to be simulated again
     /// differently.
     fn forget_from(&mut self, frame: u32) {
         self.rows
             .truncate(self.rows.partition_point(|row| row.frame < frame));
+        // An event judged after it was over can have happened before `frame` and been recorded
+        // after it, by a sample that is being taken again.
         self.events
-            .truncate(self.events.partition_point(|event| event.frame < frame));
+            .retain(|event| event.frame < frame && event.recorded < frame);
+        self.deaths
+            .truncate(self.deaths.partition_point(|death| death.frame < frame));
         while self
             .baselines
             .back()
@@ -396,6 +475,55 @@ impl GameStats {
             events: &self.events[..self.events.partition_point(|event| event.frame <= frame)],
             stats: self,
         }
+    }
+}
+
+/// A record of what the sampler took and worked out, for tuning what it reports against real games.
+#[cfg(debug_assertions)]
+impl GameStats {
+    /// Every death, timeline event and sample recorded after `frame`, as lines of comma-separated
+    /// values, with the frame the newest of them is from.
+    pub fn debug_lines_after(&self, frame: u32) -> (Vec<String>, u32) {
+        let mut lines = Vec::new();
+        let mut newest = frame;
+        for row in self.rows.iter().filter(|row| row.frame > frame) {
+            let players = row
+                .players
+                .iter()
+                .map(|sample| {
+                    format!(
+                        "{},{},{},{},{},{}",
+                        sample.army_value(),
+                        sample.workers,
+                        sample.supply_used,
+                        sample.units_killed,
+                        sample.units_lost,
+                        sample.kills_score,
+                    )
+                })
+                .collect::<Vec<_>>();
+            lines.push(format!("sample,{},{}", row.frame, players.join(",")));
+            newest = newest.max(row.frame);
+        }
+        for death in self.deaths.iter().filter(|death| death.frame > frame) {
+            lines.push(format!(
+                "death,{},{},{},{},{},{}",
+                death.frame,
+                death.player,
+                death.unit_id.0,
+                u8::from(death.completed),
+                death.x,
+                death.y,
+            ));
+        }
+        for event in self.events.iter().filter(|event| event.recorded > frame) {
+            let (x, y) = event.position.unwrap_or((-1, -1));
+            lines.push(format!(
+                "event,{},{},{:?},{:?},{x},{y},{:?}",
+                event.frame, event.player, event.kind, event.subject, event.significance,
+            ));
+        }
+        (lines, newest)
     }
 }
 
@@ -600,6 +728,18 @@ fn thin_older_half(rows: &mut Vec<SampleRow>) {
     });
 }
 
+/// Each player's standing as `row` has it, with the alliances and departures `snapshot` read.
+fn standing(row: &SampleRow, snapshot: &GameSnapshot) -> engagements::Standing {
+    engagements::Standing {
+        army: row.players.each_ref().map(Sample::army_value),
+        workers: row.players.each_ref().map(|sample| sample.workers),
+        kills: row.players.each_ref().map(|sample| sample.kills_score),
+        razings: row.players.each_ref().map(|sample| sample.razings_score),
+        allies: snapshot.players.each_ref().map(|player| player.allies),
+        out: snapshot.players.each_ref().map(|player| player.out),
+    }
+}
+
 /// Every player's sample out of one snapshot.
 fn player_samples(snapshot: &GameSnapshot, catalog: &impl UnitCatalog) -> [Sample; MAX_PLAYERS] {
     let mut workers = [0u32; MAX_PLAYERS];
@@ -634,6 +774,8 @@ fn player_samples(snapshot: &GameSnapshot, catalog: &impl UnitCatalog) -> [Sampl
             supply_used: read.supply_used,
             units_killed: read.units_killed,
             units_lost: read.units_lost,
+            kills_score: read.kills_score,
+            razings_score: read.razings_score,
             worker_kills: read.worker_kills,
             worker_losses: read.worker_losses,
         }
@@ -714,7 +856,7 @@ fn group_composition(tally: &[(UnitId, u32, u32)]) -> Option<(UnitId, Option<Uni
 mod tests {
     use bw_dat::unit;
 
-    use super::snapshot::{BuildingSite, DepotSite, ResearchLevels};
+    use super::snapshot::{BuildingSite, DepotSite, ResearchLevels, RosterUnit};
     use super::unit_value::tests::FakeUnits;
     use super::*;
 
@@ -742,6 +884,7 @@ mod tests {
             buildings: Vec::new(),
             research_sites: Vec::new(),
             vision: None,
+            roster: Vec::new(),
         }
     }
 
@@ -1150,45 +1293,41 @@ mod tests {
         assert_eq!(events, [(taken, subject, 2), (taken, subject, 4)]);
     }
 
-    /// The game [`snapshot`] describes, with player 0 finishing `per_second` barracks every second.
-    fn barracks_every_second(per_second: u32) -> impl Fn(u32) -> GameSnapshot {
-        move |frame| {
-            let mut snapshot = snapshot(frame);
-            snapshot.completed_units[unit::BARRACKS.0 as usize][0] = frame / SECOND * per_second;
-            snapshot
+    /// `count` events a second for `seconds` seconds, as samples would hand them over.
+    fn keep_events_for(stats: &mut GameStats, seconds: u32, count: usize) {
+        for second in 1..=seconds {
+            let event = TimelineEvent {
+                frame: second * SECOND,
+                recorded: second * SECOND,
+                player: 0,
+                kind: TimelineEventKind::BuildingCompleted,
+                significance: Significance::Notable,
+                subject: TimelineSubject::Unit(unit::BARRACKS),
+                position: None,
+            };
+            stats.keep_events(vec![event; count]);
         }
     }
 
     #[test]
     fn a_long_games_first_events_are_kept() {
         let mut stats = GameStats::new();
-        play(
-            &mut stats,
-            1..=100 * SECOND,
-            Resimulation::Identical,
-            barracks_every_second(10),
-        );
+        keep_events_for(&mut stats, 100, 10);
         let frames = event_frames(&stats.as_of(u32::MAX));
-        // The first sample only takes stock, so the first barracks reported are the next second's.
-        assert_eq!(frames.len(), 990);
-        assert_eq!(frames.first(), Some(&(2 * SECOND)));
+        assert_eq!(frames.len(), 1000);
+        assert_eq!(frames.first(), Some(&SECOND));
     }
 
     #[test]
     fn past_the_bound_the_oldest_events_go_first() {
         let mut stats = GameStats::new();
         let per_second = 100;
-        let seconds = (MAX_EVENTS as u32).div_ceil(per_second) + 10;
-        play(
-            &mut stats,
-            1..=seconds * SECOND,
-            Resimulation::Identical,
-            barracks_every_second(per_second),
-        );
+        let seconds = (MAX_EVENTS as u32).div_ceil(per_second as u32) + 10;
+        keep_events_for(&mut stats, seconds, per_second);
         let frames = event_frames(&stats.as_of(u32::MAX));
         assert_eq!(frames.len(), MAX_EVENTS);
         assert_eq!(frames.last(), Some(&(seconds * SECOND)));
-        assert!(frames[0] > 2 * SECOND);
+        assert!(frames[0] > SECOND);
     }
 
     #[test]
@@ -1401,5 +1540,154 @@ mod tests {
         assert_eq!(stats.as_of(landed).vision().unwrap().seen_by(1), 0.0);
         // A forward jump past the sampling cadence is as stale.
         assert!(stats.current_state_stale(landed + SECOND));
+    }
+
+    /// A game with one marine alive until `dies_at`, and a probe that never dies.
+    fn marine_dying_at(dies_at: u32) -> impl Fn(u32) -> GameSnapshot {
+        move |frame| {
+            let mut snapshot = snapshot(frame);
+            let unit = |unique_id, unit_id| RosterUnit {
+                unique_id,
+                player: 0,
+                unit_id,
+                completed: true,
+                x: 100,
+                y: 200,
+            };
+            if frame < dies_at {
+                snapshot.roster.push(unit(4, unit::MARINE));
+            }
+            snapshot.roster.push(unit(9, unit::PROBE));
+            snapshot
+        }
+    }
+
+    fn death_frames(stats: &GameStats) -> Vec<(u32, UnitId)> {
+        stats
+            .deaths
+            .iter()
+            .map(|death| (death.frame, death.unit_id))
+            .collect()
+    }
+
+    #[test]
+    fn a_death_is_found_once_by_the_sample_that_sees_it_gone() {
+        let mut stats = GameStats::new();
+        play(
+            &mut stats,
+            1..=20 * SECOND,
+            Resimulation::Identical,
+            marine_dying_at(10 * SECOND + 5),
+        );
+        assert_eq!(death_frames(&stats), [(11 * SECOND, unit::MARINE)]);
+        // A replay seeking back over it and playing on finds nothing new.
+        play(
+            &mut stats,
+            5 * SECOND..=20 * SECOND,
+            Resimulation::Identical,
+            marine_dying_at(10 * SECOND + 5),
+        );
+        assert_eq!(death_frames(&stats), [(11 * SECOND, unit::MARINE)]);
+    }
+
+    /// A rollback that simulates a death again at another moment moves it rather than adding one.
+    #[test]
+    fn a_rollback_moves_a_death_it_simulates_again() {
+        let mut stats = GameStats::new();
+        play(
+            &mut stats,
+            1..=12 * SECOND,
+            Resimulation::MayDiffer,
+            marine_dying_at(10 * SECOND + 5),
+        );
+        assert_eq!(death_frames(&stats), [(11 * SECOND, unit::MARINE)]);
+        // Inputs arrive that keep the marine alive a second longer.
+        play(
+            &mut stats,
+            10 * SECOND + 10..=14 * SECOND,
+            Resimulation::MayDiffer,
+            marine_dying_at(11 * SECOND + 5),
+        );
+        assert_eq!(death_frames(&stats), [(12 * SECOND, unit::MARINE)]);
+    }
+
+    /// A game where player 0's thirty hydralisks all die at `dies_at`, to player 1.
+    fn hydralisks_dying_at(dies_at: u32) -> impl Fn(u32) -> GameSnapshot {
+        move |frame| {
+            let mut snapshot = snapshot(frame);
+            let alive = frame < dies_at;
+            if alive {
+                snapshot.roster.extend((0..30).map(|index| RosterUnit {
+                    unique_id: 100 + index,
+                    player: 0,
+                    unit_id: unit::HYDRALISK,
+                    completed: true,
+                    x: 500,
+                    y: 500,
+                }));
+                snapshot.completed_units[unit::HYDRALISK.0 as usize][0] = 30;
+            } else {
+                snapshot.players[1].kills_score = 3000;
+            }
+            snapshot
+        }
+    }
+
+    fn fights(stats: &GameStats) -> Vec<(u32, TimelineEventKind)> {
+        stats
+            .events
+            .iter()
+            .filter(|event| !event.kind.names_its_subject())
+            .map(|event| (event.frame, event.kind))
+            .collect()
+    }
+
+    #[test]
+    fn a_fight_is_put_at_its_start_once_and_seeking_back_finds_it_again_only_once() {
+        let game = hydralisks_dying_at(10 * SECOND + 5);
+        let mut stats = GameStats::new();
+        play(&mut stats, 1..=30 * SECOND, Resimulation::Identical, &game);
+        let won = TimelineEventKind::FightWon { margin: 3000 };
+        assert_eq!(fights(&stats), [(11 * SECOND, won)]);
+        play(
+            &mut stats,
+            5 * SECOND..=30 * SECOND,
+            Resimulation::Identical,
+            &game,
+        );
+        assert_eq!(fights(&stats), [(11 * SECOND, won)]);
+    }
+
+    /// A rollback that takes the sample that judged a fight again judges it again, rather than
+    /// keeping the first verdict alongside the second.
+    #[test]
+    fn a_rollback_over_the_sample_that_judged_a_fight_judges_it_once() {
+        let game = hydralisks_dying_at(10 * SECOND + 5);
+        let mut first_pass = GameStats::new();
+        play(
+            &mut first_pass,
+            1..=30 * SECOND,
+            Resimulation::MayDiffer,
+            &game,
+        );
+        let judged = first_pass
+            .events
+            .last()
+            .map(|event| event.recorded)
+            .unwrap();
+        assert!(judged > 11 * SECOND);
+        // A rollback reaches back a few frames, from just past the sample that judged the fight.
+        let mut stats = GameStats::new();
+        play(&mut stats, 1..=judged + 5, Resimulation::MayDiffer, &game);
+        play(
+            &mut stats,
+            judged - SECOND / 2..=30 * SECOND,
+            Resimulation::MayDiffer,
+            &game,
+        );
+        assert_eq!(
+            fights(&stats),
+            [(11 * SECOND, TimelineEventKind::FightWon { margin: 3000 })]
+        );
     }
 }

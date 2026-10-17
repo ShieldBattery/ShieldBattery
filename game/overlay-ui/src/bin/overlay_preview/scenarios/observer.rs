@@ -22,7 +22,7 @@ use overlay_ui::observer::{
     GraphGrouping, GraphLineView, GraphSeries, GraphsView, MapControlSideView, MapControlView,
     MatchupForm, MatchupPlayerView, MatchupView, MilitaryPlayerView, MilitaryView, ObserverView,
     ProductionIcon, ProductionItemView, ProductionPlayerView, ProductionProgressView,
-    ProductionView, RaceView, SelectedUnitView, SelectionView, TeamCardPlayerView,
+    ProductionView, RaceView, SelectedUnitView, SelectionView, Significance, TeamCardPlayerView,
     TeamCardTotalsView, TeamCardView, TeamCardsView, TimelineEventKind, TimelineEventView,
     TimelineView, UnitUpgradeView, UpgradeEffect, WeaponDamageView, team_name,
 };
@@ -54,14 +54,24 @@ const EVENT_INTERVAL_SECS: u64 = 37;
 const TIMELINE_DEPTH: usize = 24;
 
 /// What the fake game's timeline events are about, walked in turn: something is built, an upgrade
-/// runs its course, an expansion goes up, a technology runs its course.
-const EVENT_KINDS: [TimelineEventKind; 6] = [
-    TimelineEventKind::BuildingCompleted,
-    TimelineEventKind::UpgradeStarted,
-    TimelineEventKind::UpgradeCompleted,
-    TimelineEventKind::ExpansionTaken,
-    TimelineEventKind::TechStarted,
-    TimelineEventKind::TechCompleted,
+/// finishes, an expansion goes up, a fight is won, a technology runs its course, workers are
+/// killed, a fight goes even, a base falls.
+const EVENT_KINDS: [(TimelineEventKind, Significance); 9] = [
+    (TimelineEventKind::BuildingCompleted, Significance::Notable),
+    (TimelineEventKind::UpgradeCompleted, Significance::Notable),
+    (TimelineEventKind::ExpansionTaken, Significance::Key),
+    (
+        TimelineEventKind::FightWon { margin: 1250 },
+        Significance::Key,
+    ),
+    (TimelineEventKind::TechStarted, Significance::Notable),
+    (TimelineEventKind::TechCompleted, Significance::Key),
+    (
+        TimelineEventKind::WorkersKilled { count: 7 },
+        Significance::Key,
+    ),
+    (TimelineEventKind::FightEven, Significance::Notable),
+    (TimelineEventKind::BaseDestroyed, Significance::Key),
 ];
 
 /// What each race's production row is filled from: the units a player of that race is most often
@@ -557,10 +567,12 @@ fn timeline_events(knobs: &Knobs, game_secs: u64) -> Vec<TimelineEventView> {
         .map(|index| {
             let player = (index % players) as usize;
             let units = race_units(knobs.race(player));
+            let (kind, significance) = EVENT_KINDS[(index / players) as usize % EVENT_KINDS.len()];
             TimelineEventView {
                 secs: (index + 1) * EVENT_INTERVAL_SECS,
                 color: overlay_ui::kit::theme::player_color(player),
-                kind: EVENT_KINDS[(index / players) as usize % EVENT_KINDS.len()],
+                kind,
+                significance,
                 icon: Some(ProductionIcon {
                     texture: None,
                     index: units[index as usize % units.len()],
@@ -568,7 +580,10 @@ fn timeline_events(knobs: &Knobs, game_secs: u64) -> Vec<TimelineEventView> {
                     margin: 0.0,
                     wireframe: None,
                 }),
-                name: unit_name(units[index as usize % units.len()]),
+                name: kind
+                    .names_its_subject()
+                    .then(|| unit_name(units[index as usize % units.len()]))
+                    .flatten(),
                 position: None,
             }
         })

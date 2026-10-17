@@ -22,7 +22,7 @@ use crate::observer::{
     paint_player_dot, paint_text, paint_tile_chrome, wing_panel,
 };
 use crate::shell::Panel;
-use crate::tr;
+use crate::{tr, tr_plural};
 
 /// How wide the panel is, in overlay points.
 pub const PANEL_WIDTH: f32 = 474.0;
@@ -77,10 +77,27 @@ pub enum TimelineEventKind {
     /// A resource depot finished away from the player's own start location, which is the one
     /// building completion that changes the shape of the game rather than the shape of a base.
     ExpansionTaken,
-    UpgradeStarted,
     UpgradeCompleted,
     TechStarted,
     TechCompleted,
+    /// A fight the player's side came out of ahead, by what the other side lost beyond its own.
+    FightWon {
+        margin: u32,
+    },
+    /// A fight both sides lost about as much in.
+    FightEven,
+    /// A run on another player's workers, by the player who made it.
+    WorkersKilled {
+        count: u16,
+    },
+    /// Workers the player lost all at once, where who killed them can't be told.
+    WorkersLost {
+        count: u16,
+    },
+    /// Another player's resource depot, destroyed by the player.
+    BaseDestroyed,
+    /// The player's own resource depot, destroyed where who did it can't be told.
+    BaseLost,
 }
 
 impl TimelineEventKind {
@@ -89,16 +106,62 @@ impl TimelineEventKind {
         match self {
             TimelineEventKind::BuildingCompleted => tr!("observer.eventBuilt", "Built"),
             TimelineEventKind::ExpansionTaken => tr!("observer.eventExpansion", "Expansion"),
-            TimelineEventKind::UpgradeStarted => {
-                tr!("observer.eventUpgradeStarted", "Upgrade started")
-            }
             TimelineEventKind::UpgradeCompleted => {
                 tr!("observer.eventUpgradeDone", "Upgrade complete")
             }
             TimelineEventKind::TechStarted => tr!("observer.eventTechStarted", "Research started"),
             TimelineEventKind::TechCompleted => tr!("observer.eventTechDone", "Research complete"),
+            TimelineEventKind::FightWon { margin } => {
+                tr!(
+                    "observer.eventFightWon",
+                    "Won a fight by {{value}}",
+                    value = margin
+                )
+            }
+            TimelineEventKind::FightEven => tr!("observer.eventFightEven", "Even fight"),
+            TimelineEventKind::WorkersKilled { count } => tr_plural!(
+                "observer.eventWorkersKilled",
+                u64::from(count),
+                one = "Killed {{count}} worker",
+                other = "Killed {{count}} workers"
+            ),
+            TimelineEventKind::WorkersLost { count } => tr_plural!(
+                "observer.eventWorkersLost",
+                u64::from(count),
+                one = "Lost {{count}} worker",
+                other = "Lost {{count}} workers"
+            ),
+            TimelineEventKind::BaseDestroyed => {
+                tr!("observer.eventBaseDestroyed", "Destroyed a base")
+            }
+            TimelineEventKind::BaseLost => tr!("observer.eventBaseLost", "Lost a base"),
         }
     }
+
+    /// Whether a row of this kind names the thing it is about, as a building or a research does.
+    /// The others say everything in their own line, and the thing beside them is only an icon:
+    /// what a fight was fought with, whose workers were lost.
+    pub fn names_its_subject(self) -> bool {
+        matches!(
+            self,
+            TimelineEventKind::BuildingCompleted
+                | TimelineEventKind::ExpansionTaken
+                | TimelineEventKind::UpgradeCompleted
+                | TimelineEventKind::TechStarted
+                | TimelineEventKind::TechCompleted
+        )
+    }
+}
+
+/// How much an event matters to someone following the game.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum Significance {
+    /// Something that changes the course of the game: a base taken or lost, a tier or a research
+    /// reached, a fight. Marked on the replay's seek bar as well as listed.
+    Key,
+    /// Part of how a player's game is going, worth listing but not marking: the buildings of an
+    /// opening, an upgrade.
+    Notable,
 }
 
 /// One thing that happened.
@@ -108,6 +171,7 @@ pub struct TimelineEventView {
     /// The color of the player it happened to.
     pub color: Color32,
     pub kind: TimelineEventKind,
+    pub significance: Significance,
     /// The game's own icon for whatever the event is about, or `None` for an event that names no
     /// particular thing.
     pub icon: Option<ProductionIcon>,
@@ -353,6 +417,7 @@ mod tests {
                     secs: 600 - index as u64 * 30,
                     color: Color32::WHITE,
                     kind: TimelineEventKind::BuildingCompleted,
+                    significance: Significance::Notable,
                     icon: None,
                     name: None,
                     position: None,

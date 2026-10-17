@@ -13,6 +13,11 @@ use crate::bw::unit::UnitIterator;
 pub(crate) const SCORE_UNITS_PRODUCED: u8 = 2;
 pub(crate) const SCORE_UNITS_LOST: u8 = 3;
 pub(crate) const SCORE_UNITS_KILLED: u8 = 4;
+/// The score the game gives a player for what they have killed, each kill worth its victim's own
+/// destroy score: the trade weighed by what was traded rather than counted. Units only: a building
+/// destroyed goes to the razings score instead.
+const SCORE_KILLS: u8 = 6;
+const SCORE_RAZINGS: u8 = 13;
 
 /// How many selection groups the game keeps per player.
 const HOTKEY_GROUPS: usize = 0x12;
@@ -40,6 +45,23 @@ pub struct GameSnapshot {
     pub research_sites: Vec<ResearchSite>,
     /// How much of the map each player can see, where the map's flags could be read.
     pub vision: Option<MapVision>,
+    /// Every unit alive, sorted by unique id.
+    pub roster: Vec<RosterUnit>,
+}
+
+/// A unit alive in the game, wherever it is: out on the map, inside a transport or a bunker, or in
+/// a refinery with a load of gas. A unit that is in one moment's roster and not in the next one's
+/// has died.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub struct RosterUnit {
+    /// The game's own handle for this one unit, which it keeps through a morph and never gives a
+    /// unit that stood before it.
+    pub unique_id: u32,
+    pub player: u8,
+    pub unit_id: UnitId,
+    pub completed: bool,
+    pub x: i16,
+    pub y: i16,
 }
 
 /// The numbers the game keeps for one player.
@@ -52,12 +74,21 @@ pub struct PlayerSnapshot {
     pub supply_used: u32,
     pub units_killed: u32,
     pub units_lost: u32,
+    /// What everything they have killed was worth, by the game's own destroy scores.
+    pub kills_score: u32,
+    /// What every building they have destroyed was worth, the same way.
+    pub razings_score: u32,
     pub worker_kills: u32,
     pub worker_losses: u32,
     /// Finished workers with nothing to do.
     pub idle_workers: u32,
     /// Where their game began, in map pixels.
     pub start: (i16, i16),
+    /// Whether they have left the game or been beaten. The game takes away what such a player had
+    /// all at once, which is no fight.
+    pub out: bool,
+    /// Their allies, as a mask of player ids, counting only alliances held both ways.
+    pub allies: u8,
     /// Their number-key groups, by digit.
     pub control_groups: [Option<GroupReading>; NUMBER_KEY_GROUPS],
 }
@@ -132,10 +163,12 @@ pub struct ResearchSite {
 ///
 /// # Safety
 ///
-/// Must run on BW's thread with a game loaded. `hotkey_frames`, where given, must point at the
-/// game's own `u16[player][group]` stamp table, which is what the binary analysis resolves it as.
+/// Must run on BW's thread with a game loaded. `bw_players` must point at the game's player table,
+/// with a slot for every player. `hotkey_frames`, where given, must point at the game's own
+/// `u16[player][group]` stamp table, which is what the binary analysis resolves it as.
 pub unsafe fn read_snapshot(
     game: Game,
+    bw_players: *const bw::Player,
     active_units: UnitIterator,
     units: &UnitArray,
     hotkey_frames: Option<*const u16>,
@@ -227,7 +260,13 @@ pub unsafe fn read_snapshot(
         snapshot.supply_used = supply_used(game, id);
         snapshot.units_killed = game.score(SCORE_UNITS_KILLED, id);
         snapshot.units_lost = game.score(SCORE_UNITS_LOST, id);
+        snapshot.kills_score = game.score(SCORE_KILLS, id);
+        snapshot.razings_score = game.score(SCORE_RAZINGS, id);
         snapshot.start = start_position(game, id);
+        snapshot.out = unsafe { is_out(game, bw_players, id) };
+        snapshot.allies = (0..MAX_PLAYERS as u8)
+            .filter(|&other| other != id && game.allied(id, other) && game.allied(other, id))
+            .fold(0, |mask, other| mask | 1 << other);
         for (group, reading) in snapshot.control_groups.iter_mut().enumerate() {
             *reading = read_control_group(game, units, player, group).map(|kinds| GroupReading {
                 kinds,
@@ -247,7 +286,34 @@ pub unsafe fn read_snapshot(
         buildings,
         research_sites,
         vision: tile_flags.map(MapVision::read),
+        roster: read_roster(units),
     }
+}
+
+/// Every unit alive, sorted by unique id.
+///
+/// The whole unit array rather than the game's active list, which leaves out units that are only
+/// out of sight: loaded into a transport or a bunker, or inside a refinery. A slot is a living unit
+/// while it has a sprite and is not dying, which is how the game's own unique-id lookup tells.
+fn read_roster(units: &UnitArray) -> Vec<RosterUnit> {
+    let mut roster = (0..units.len() as u32)
+        .filter_map(|index| units.get_by_index(index))
+        .filter(|unit| unit.sprite().is_some() && !unit.is_dying())
+        .filter(|unit| (unit.player() as usize) < MAX_PLAYERS)
+        .map(|unit| {
+            let position = unit.position();
+            RosterUnit {
+                unique_id: units.to_unique_id(unit),
+                player: unit.player(),
+                unit_id: unit.id(),
+                completed: unit.is_completed(),
+                x: position.x,
+                y: position.y,
+            }
+        })
+        .collect::<Vec<_>>();
+    roster.sort_unstable_by_key(|unit| unit.unique_id);
+    roster
 }
 
 /// Every player's upgrade levels and researched technologies, and which of each are underway.
@@ -374,6 +440,16 @@ fn supply_used(game: Game, player: u8) -> u32 {
     .map(|race| game.supply_used(player, race))
     .sum();
     total.wrapping_add(1) / 2
+}
+
+/// Whether a player has left the game, which the game marks by their slot's type, or been beaten,
+/// which it marks by their victory state.
+unsafe fn is_out(game: Game, bw_players: *const bw::Player, player: u8) -> bool {
+    unsafe {
+        let left = matches!((*bw_players.add(player as usize)).player_type, 10 | 11);
+        let beaten = matches!((**game).victory_state[player as usize], 1 | 2);
+        left || beaten
+    }
 }
 
 /// Where a player's game began, in map pixels.

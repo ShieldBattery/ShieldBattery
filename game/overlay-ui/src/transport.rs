@@ -31,7 +31,7 @@ use crate::colors::{BLUE60, BLUE80};
 use crate::kit::text::{self, BodyWeight};
 use crate::kit::widgets::{self, TagStyle, TrackMarker};
 use crate::kit::{motion, theme, tiers};
-use crate::observer::{MapPoint, TimelineEventView};
+use crate::observer::{MapPoint, Significance, TimelineEventView};
 use crate::tr;
 
 /// How wide the plate is, in overlay points.
@@ -586,6 +586,9 @@ fn draw_track_row(
 /// at least that long and every marker together says how far through it playback is. An event past
 /// the replay's end has no place on the track and is left off it.
 ///
+/// Only the events that change the course of the game are marked ([`Significance::Key`]): the rest
+/// are listed on the timeline, and marked as well they would bury the ones that matter.
+///
 /// Events of one color that land on the same point of the track share a marker, the first of them
 /// in `events`' order: they could neither be told apart nor picked one from another, and a long
 /// game's whole timeline would otherwise draw thousands of markers a frame.
@@ -599,6 +602,7 @@ fn marked_events<'a>(
     let mut taken = HashSet::new();
     events
         .iter()
+        .filter(|event| event.significance == Significance::Key)
         .filter_map(|event| {
             let secs = i64::try_from(event.secs).ok()?;
             let frame = seconds_to_frames(secs, view.game_speed);
@@ -991,6 +995,7 @@ mod tests {
             secs,
             color: Color32::WHITE,
             kind: crate::observer::TimelineEventKind::ExpansionTaken,
+            significance: crate::observer::Significance::Key,
             icon: None,
             name: None,
             position: None,
@@ -1023,6 +1028,16 @@ mod tests {
         // Not even the ones behind the playhead: where they stand along the track would say how far
         // through the replay playback is.
         assert!(marked_events(&spoiler_free, &[event(300)]).is_empty());
+    }
+
+    #[test]
+    fn only_key_events_are_marked() {
+        let mut listed_only = event(630);
+        listed_only.significance = Significance::Notable;
+        let events = [event(1260), listed_only];
+        let marked = marked_events(&view(), &events);
+        assert_eq!(marked.len(), 1);
+        assert_eq!(marked[0].0.secs, 1260);
     }
 
     #[test]
