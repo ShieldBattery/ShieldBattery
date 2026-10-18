@@ -32,6 +32,11 @@ use crate::app_messages::{NetcodeV2Relay, SbUserId};
 /// a genuinely hung server degrades to `Unavailable` rather than wedging failover.
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(12);
 
+/// The `code` the server's 409 carries when this client's departure from the game is already on
+/// record (or it already reported a result): the game is over for it, so re-homing never will be
+/// allowed.
+const ALREADY_REPORTED_CODE: &str = "AlreadyReported";
+
 /// Minimum spacing between failure warnings, so a server/coordinator that keeps failing (re-asked
 /// on the driver's escalation cadence) doesn't spam the log.
 const WARN_INTERVAL: Duration = Duration::from_secs(30);
@@ -76,6 +81,9 @@ struct RehomeResponse {
 enum RehomeDecision {
     Stay,
     Unavailable,
+    /// This client is done with the game as far as the server knows: a survivor's drop of it was
+    /// recorded while it was unreachable.
+    Departed,
     /// Move to the replacement relay this descriptor names.
     NewTarget(NetcodeV2Relay),
 }
@@ -92,6 +100,20 @@ fn decision_from_response(resp: RehomeResponse) -> RehomeDecision {
         },
         // "unavailable", or anything the server/coordinator adds later that this client doesn't know.
         _ => RehomeDecision::Unavailable,
+    }
+}
+
+/// Maps a refused request to a decision, or `None` when the refusal says nothing beyond "not
+/// now". Only the server's word that this client is done with the game ends reconnecting; every
+/// other refusal (a game still loading, a busy server, an unknown session) is retried.
+fn decision_from_refusal(error: &crate::http::Error) -> Option<RehomeDecision> {
+    match error {
+        crate::http::Error::Status(status, Some(code))
+            if *status == hyper::StatusCode::CONFLICT && code == ALREADY_REPORTED_CODE =>
+        {
+            Some(RehomeDecision::Departed)
+        }
+        _ => None,
     }
 }
 
@@ -122,16 +144,18 @@ impl ServerRehome {
             result_code: &self.result_code,
             dead_relay_id,
         };
-        let body: RehomeResponse =
-            match crate::http::post_json(&self.url, &request, REQUEST_TIMEOUT).await {
-                Ok(body) => body,
-                Err(err) => {
+        let decision = match crate::http::post_json(&self.url, &request, REQUEST_TIMEOUT).await {
+            Ok(body) => decision_from_response(body),
+            Err(err) => match decision_from_refusal(&err) {
+                Some(decision) => decision,
+                None => {
                     self.warn_rate_limited(&format!("re-home request failed: {err}"));
                     return RehomeOutcome::Unavailable;
                 }
-            };
+            },
+        };
 
-        match decision_from_response(body) {
+        match decision {
             RehomeDecision::Stay => {
                 info!("netcode v2 re-home: server says relay {dead_relay_id} is still live");
                 RehomeOutcome::Stay
@@ -139,6 +163,10 @@ impl ServerRehome {
             RehomeDecision::Unavailable => {
                 info!("netcode v2 re-home: no relay can take the session over yet");
                 RehomeOutcome::Unavailable
+            }
+            RehomeDecision::Departed => {
+                info!("netcode v2 re-home: the server has this client's departure on record");
+                RehomeOutcome::Departed
             }
             RehomeDecision::NewTarget(relay) => {
                 let relay_id = relay.relay_id;
@@ -301,6 +329,22 @@ mod tests {
             decision_from_response(response(r#"{"decision":"newTarget"}"#)),
             RehomeDecision::Unavailable
         ));
+    }
+
+    #[test]
+    fn an_already_reported_conflict_maps_to_departed() {
+        let refusal = |status, code: Option<&str>| {
+            decision_from_refusal(&crate::http::Error::Status(status, code.map(str::to_owned)))
+        };
+        assert!(matches!(
+            refusal(hyper::StatusCode::CONFLICT, Some("AlreadyReported")),
+            Some(RehomeDecision::Departed)
+        ));
+        // A game still loading is a 409 too, and is retried.
+        assert!(refusal(hyper::StatusCode::CONFLICT, Some("NotLoaded")).is_none());
+        assert!(refusal(hyper::StatusCode::CONFLICT, None).is_none());
+        assert!(refusal(hyper::StatusCode::NOT_FOUND, Some("AlreadyReported")).is_none());
+        assert!(decision_from_refusal(&crate::http::Error::Timeout).is_none());
     }
 
     #[test]

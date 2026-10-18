@@ -216,8 +216,11 @@ pub async fn establish_session(
         info!("Holding back this client's own turns by {delay:?} from frame {from_frame}");
         channels.outbound = hold_back_own_turns(channels.outbound.clone(), delay, from_frame);
     }
-    // Re-dial from the same endpoint (its UDP socket stays open for the session's life via
-    // `SessionLink::Relay` below) so a re-dial after a drop reuses the already-bound local port.
+    // Re-dial from the same endpoint (it stays open for the session's life via
+    // `SessionLink::Relay` below). The first re-dial after a drop reuses the session's local port;
+    // each one after a failed re-dial moves the endpoint to a fresh port, which gets a new NAT
+    // mapping where the old one went stale (a public IP change can leave it forwarding the
+    // client's datagrams while dropping every reply).
     // Re-dials start at the address that just connected and rotate through the relay's others,
     // so a client whose path to one family dies mid-game (IPv6 dropping while IPv4 still works)
     // resumes over the other instead of re-dialing the dead address until it is dropped.
@@ -239,6 +242,9 @@ pub async fn establish_session(
         // failed same-relay dials otherwise; re-ask ~every 15s while unavailable).
         escalate_after: None,
         escalate_retry: None,
+        // A pinned port is there so port-filtering tools see this client's traffic; a fresh port
+        // would slip out of the filter.
+        fresh_port_redials: crate::rally_point_port_override().is_none(),
     };
     // Service the link on the DLL's async runtime. `run_reconnecting` re-dials internally on a
     // link failure, keeping every turn channel alive across the outage (see the self-connectivity

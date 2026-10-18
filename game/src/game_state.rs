@@ -1385,7 +1385,7 @@ async fn send_rollback_stats(
             }
             // Anything but a busy server (429) or a game it hasn't finished loading (409) won't
             // take them on a second try either.
-            Err(crate::http::Error::Status(status))
+            Err(crate::http::Error::Status(status, _))
                 if status.is_client_error()
                     && status != hyper::StatusCode::TOO_MANY_REQUESTS
                     && status != hyper::StatusCode::CONFLICT =>

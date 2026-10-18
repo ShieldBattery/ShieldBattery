@@ -58,8 +58,10 @@ quick_error! {
         Body(err: Box<dyn std::error::Error + Send + Sync>) {
             display("couldn't read response: {}", err)
         }
-        Status(status: StatusCode) {
-            display("server returned HTTP {}", status)
+        /// A non-success response. `code` is the `code` field of its JSON body, which is how the
+        /// server names which of an endpoint's refusals this is.
+        Status(status: StatusCode, code: Option<String>) {
+            display("server returned HTTP {}{}", status, code.as_ref().map(|c| format!(" ({c})")).unwrap_or_default())
         }
         Json(err: serde_json::Error) {
             display("couldn't parse response: {}", err)
@@ -168,10 +170,25 @@ async fn send(request: Request<Full<Bytes>>, timeout: Duration) -> Result<Bytes,
 
     // Check the status only after draining the body, so the connection can go back to the pool.
     if !status.is_success() {
-        return Err(Error::Status(status));
+        // The refusal is the error either way; a body that won't decode only loses its code.
+        let body = if gzipped {
+            decode_gzip(body).unwrap_or_default()
+        } else {
+            body
+        };
+        return Err(Error::Status(status, error_code(&body)));
     }
 
     if gzipped { decode_gzip(body) } else { Ok(body) }
+}
+
+/// The `code` an error response's JSON body carries, if it is JSON and carries one.
+fn error_code(body: &[u8]) -> Option<String> {
+    #[derive(serde::Deserialize)]
+    struct ErrorBody {
+        code: Option<String>,
+    }
+    serde_json::from_slice::<ErrorBody>(body).ok()?.code
 }
 
 fn decode_gzip(body: Bytes) -> Result<Bytes, Error> {
@@ -362,5 +379,21 @@ mod multipart {
                 .count();
             assert_eq!(occurrences, 2);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn an_error_body_yields_its_code() {
+        assert_eq!(
+            error_code(br#"{"code":"AlreadyReported"}"#).as_deref(),
+            Some("AlreadyReported")
+        );
+        assert_eq!(error_code(br#"{"message":"nope"}"#), None);
+        assert_eq!(error_code(b"Not Found"), None);
+        assert_eq!(error_code(b""), None);
     }
 }
