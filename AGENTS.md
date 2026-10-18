@@ -60,6 +60,7 @@ pnpm run gen-typeshare         # Generate Rust->TypeScript types
 pnpm run gen-translations      # Generate translation files
 
 # Database
+pnpm run migrate:create <name> # Create a migration (real timestamp; never hand-name one)
 pnpm run migrate:run           # Run migrations
 pnpm run sqlx-prepare          # Update SQLx query metadata for Rust
 
@@ -279,6 +280,12 @@ one-line wrapper method in `scr-analysis/src/lib.rs`, not new analysis work.
 
 - PostgreSQL 17, always `TIMESTAMPTZ` over `TIMESTAMP`
 - Prefer `kind` over `type` for column names
+- Create migrations with `pnpm run migrate:create <name>`, never by writing the file by hand. The
+  version is the creation time to the second, which keeps parallel branches from colliding; a
+  hand-picked round time like `YYYYMMDD120000` collides with any other branch that did the same.
+  sqlx applies migrations it hasn't seen regardless of order, so an older version merging after
+  newer ones is fine. The exception is a fresh DB, which applies in version order: if a branch
+  migration depends on a newer one from master, re-create it with a newer version when rebasing.
 
 ## Important Notes
 
