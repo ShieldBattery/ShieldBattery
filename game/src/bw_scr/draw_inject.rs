@@ -74,6 +74,12 @@ pub struct RenderTarget {
     /// (may be unused depending on shader, but BW sets it always so we may as well too do that)
     pub bw_w_recip: f32,
     pub bw_h_recip: f32,
+    /// Where the shown part starts across the whole target, and how much of the target's width it
+    /// covers, both as fractions of that width. Vertices land through the viewport, which is only
+    /// the shown part, but a scissor rect is placed against the whole target, so a clip rect has
+    /// to be carried across to it.
+    scissor_left: f32,
+    scissor_width: f32,
 }
 
 impl RenderTarget {
@@ -87,8 +93,13 @@ impl RenderTarget {
     ) -> RenderTarget {
         unsafe {
             let height = (*bw).height;
-            let width = shown_width((*bw).width, height, (*ui).width, (*ui).height);
-            RenderTarget::with_size(0, width, height)
+            let full_width = (*bw).width.max(1);
+            let width = shown_width(full_width, height, (*ui).width, (*ui).height);
+            let mut target = RenderTarget::with_size(0, width, height);
+            // The shown part is centered in the window.
+            target.scissor_left = full_width.saturating_sub(width) as f32 * 0.5 / full_width as f32;
+            target.scissor_width = width.max(1) as f32 / full_width as f32;
+            target
         }
     }
 
@@ -111,6 +122,8 @@ impl RenderTarget {
             h_recip: scale / height,
             bw_w_recip: 1.0 / width,
             bw_h_recip: 1.0 / height,
+            scissor_left: 0.0,
+            scissor_width: 1.0,
         }
     }
 
@@ -128,8 +141,41 @@ impl RenderTarget {
                 h_recip: points_from.h_recip,
                 bw_w_recip: 1.0 / (*bw).width.max(1) as f32,
                 bw_h_recip: 1.0 / (*bw).height.max(1) as f32,
+                scissor_left: 0.0,
+                scissor_width: 1.0,
             }
         }
+    }
+
+    /// BW's scissor rect for an egui `clip_rect`: x/y/w/h as fractions of the whole target, with
+    /// the origin in the bottom left. `None` for a clip rect covering all of the shown part, which
+    /// needs no scissor.
+    fn scissor_rect(&self, clip_rect: &egui::Rect) -> Option<[f32; 4]> {
+        // egui rect unit is points and l/t/r/b; this is the same rect as fractions of the shown
+        // part.
+        let shown = [
+            clip_rect.left() * self.w_recip,
+            1.0 - clip_rect.bottom() * self.h_recip,
+            clip_rect.width() * self.w_recip,
+            clip_rect.height() * self.h_recip,
+        ];
+        // The overlay's screen is a whole number of points, so it can miss the shown part's
+        // edges by a sliver of a pixel.
+        let half_x = self.bw_w_recip * 0.5;
+        let half_y = self.bw_h_recip * 0.5;
+        if shown[0] <= half_x
+            && shown[1] <= half_y
+            && shown[0] + shown[2] >= 1.0 - half_x
+            && shown[1] + shown[3] >= 1.0 - half_y
+        {
+            return None;
+        }
+        Some([
+            self.scissor_left + shown[0] * self.scissor_width,
+            shown[1],
+            shown[2] * self.scissor_width,
+            shown[3],
+        ])
     }
 }
 
@@ -472,15 +518,7 @@ unsafe fn draw_egui_mesh_main<I: IndexSize>(
         (*draw_command).shader_constants[0x2] = 1.0;
         (*draw_command).shader_constants[0x3] = 1.0;
         set_render_target_wh_recip(draw_command, render_target);
-        // egui rect unit is points (Render target w/h) and l/t/r/b,
-        // BW scissor rect is in 0.0 .. 1.0 range and x/y/w/h with origin in bottom left.
-        let bw_clip_rect = [
-            clip_rect.left() * render_target.w_recip,
-            1.0 - clip_rect.bottom() * render_target.h_recip,
-            clip_rect.width() * render_target.w_recip,
-            clip_rect.height() * render_target.h_recip,
-        ];
-        if bw_clip_rect != [0.0f32, 0.0, 1.0, 1.0] {
+        if let Some(bw_clip_rect) = render_target.scissor_rect(clip_rect) {
             let result = (|| {
                 add_draw_subcommand(
                     bw.commands,
@@ -885,5 +923,22 @@ mod tests {
         assert_eq!(shown_width(1920, 1080, 1280, 960), 1440);
         // A window narrower than the UI target's shape is never asked for more than it has.
         assert_eq!(shown_width(1200, 900, 1280, 960), 1200);
+    }
+
+    #[test]
+    fn a_clip_rect_in_a_pillarboxed_window_is_scissored_where_it_is_shown() {
+        // SD in a 1920x1080 window: the game is the 1440 wide middle, 240 in from each side.
+        let mut target = RenderTarget::with_size(0, 1440, 1080);
+        target.scissor_left = 240.0 / 1920.0;
+        target.scissor_width = 1440.0 / 1920.0;
+        // 1440x1080 is laid out at 0.9 pixels per point.
+        let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1600.0, 1200.0));
+        assert_eq!(target.scissor_rect(&screen), None);
+
+        let right_half = screen.with_min_x(screen.center().x);
+        let [x, y, w, h] = target.scissor_rect(&right_half).unwrap();
+        assert!((x * 1920.0 - 960.0).abs() < 0.01);
+        assert!((w * 1920.0 - 720.0).abs() < 0.01);
+        assert!(y.abs() < 1e-6 && (h - 1.0).abs() < 1e-6);
     }
 }
