@@ -50,13 +50,13 @@ jobs:
           curl -fsSL https://claude.ai/install.sh | bash -s 2.1.280
           ~/.local/bin/claude --version
 
-      # CLAUDE_CODE_SUBPROCESS_ENV_SCRUB isolates Claude's subprocesses with bubblewrap. Ubuntu
-      # 24.04's AppArmor blocks the unprivileged user namespaces bwrap needs, so lift that
-      # restriction on this throwaway runner.
-      - name: Install bubblewrap
+      # CLAUDE_CODE_SUBPROCESS_ENV_SCRUB runs Claude's subprocesses in its sandbox, which needs
+      # bubblewrap and socat. Ubuntu 24.04's AppArmor blocks the unprivileged user namespaces
+      # bwrap needs, so lift that restriction on this throwaway runner.
+      - name: Install sandbox dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y bubblewrap
+          sudo apt-get install -y bubblewrap socat
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           bwrap --ro-bind / / --unshare-user --unshare-pid true
 
