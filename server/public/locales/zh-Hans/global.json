@@ -1055,7 +1055,6 @@
       "search": "搜索",
       "selectAll": "全选",
       "show": "展示",
-      "start": "开始",
       "stop": "停止",
       "submit": "提交",
       "test": "测试",
@@ -1525,6 +1524,7 @@
     "bottomLinks": {
       "acceptableUsePolicy": "可接受的使用政策",
       "faq": "常见问题",
+      "licenses": "许可证",
       "privacyPolicy": "隐私政策",
       "termsOfService": "服务条款"
     },
@@ -1628,6 +1628,23 @@
       "start": "<1>{{leagueName}}</1> 联赛已开始。",
       "unban": "您参加 <1>{{leagueName}}</1> 联赛的封禁已解除。"
     }
+  },
+  "licenses": {
+    "assetAuthor": "作者：{{author}}",
+    "assetModifications": "修改：{{modifications}}",
+    "assetsHeader": "字体、音效和图标",
+    "electronDescription": "客户端基于 Electron 构建，其中包含 Chromium 及其他开源软件。它们的许可证位于 ShieldBattery 安装文件夹中的 LICENSE.electron.txt 和 LICENSES.chromium.html。",
+    "electronHeader": "Electron 和 Chromium",
+    "gameDescription": "ShieldBattery 在星际争霸中运行的部分所包含的开源软件和字体。",
+    "gameHeader": "游戏内",
+    "gameUnavailable": "缺少游戏内的许可证声明。这些声明仅在正式版构建时生成。",
+    "intro": "ShieldBattery 是基于 MIT 许可证的开源项目，您可以在 <2>GitHub</2> 上找到它的源代码。它的开发离不开许多其他开源项目，下面列出了这些项目及其许可证。",
+    "noLicenseFile": "此软件包未附带许可证文件，其许可证为 {{license}}。",
+    "packagesDescriptionApp": "此版本 ShieldBattery 客户端中包含的开源软件包。",
+    "packagesDescriptionWeb": "此版本 ShieldBattery 网站中包含的开源软件包。",
+    "packagesHeader": "软件包",
+    "packagesUnavailable": "无法加载软件包列表。该列表仅在正式版构建时生成。",
+    "title": "开源许可证"
   },
   "lobbies": {
     "actionErrors": {
@@ -1796,7 +1813,8 @@
       "dialogTitle": "离开当前房间？",
       "hostAloneNotice": "创建此房间后，“{{current}}”将会关闭，因为房间里没有其他人。",
       "hostNotice": "您是“{{current}}”的房主。创建新房间后，房主将移交给其他玩家。",
-      "memberNotice": "创建此房间后，您将离开“{{current}}”。"
+      "memberNotice": "创建此房间后，您将离开“{{current}}”。",
+      "runningGameNotice": "您仍在“{{current}}”的游戏中。新房间开始游戏时，该游戏将会关闭。"
     },
     "leaveAndJoin": {
       "confirmAction": "离开并加入",
@@ -1804,7 +1822,8 @@
       "genericLobbyName": "新房间",
       "hostAloneBody": "加入“{{target}}”后，“{{current}}”将会关闭，因为房间里没有其他人。",
       "hostBody": "您是“{{current}}”的房主。加入“{{target}}”后，房主将移交给其他玩家。",
-      "memberBody": "加入“{{target}}”后，您将离开“{{current}}”。"
+      "memberBody": "加入“{{target}}”后，您将离开“{{current}}”。",
+      "runningGameNotice": "您仍在“{{current}}”的游戏中。“{{target}}”开始游戏时，该游戏将会关闭。"
     },
     "lobby": {
       "gameSubType": "队伍",
@@ -1888,11 +1907,9 @@
         "swap": "交换位置"
       },
       "header": {
-        "cancelReady": "取消准备",
         "copiedInviteLink": "已复制！",
         "copyInviteLink": "复制邀请链接",
         "leave": "离开",
-        "readyUp": "准备",
         "visibilityPublic": "公开",
         "visibilityUnlisted": "不公开"
       },
@@ -1902,11 +1919,13 @@
       "rail": {
         "benchHeading": "替补席 · {{benchCount}}",
         "benchTooltip": "在座位满时加入。有空位时由排在最前的人入座。",
+        "cancelReady": "取消准备",
         "everyoneReady": "所有人已准备",
         "holdToBypassReadiness": "长按 {{seconds}} 秒可不等待直接开始",
         "holdToStartAnyway": "长按强制开始",
         "needsOpposingSides": "至少需要两名互为对手的玩家",
         "readyCount": "{{readyCount}}/{{readyTotal}} 已准备",
+        "readyUp": "准备",
         "startGame": "开始游戏",
         "startingGame": "正在开始游戏",
         "waitingForHost": "等待房主开始"
@@ -2075,6 +2094,7 @@
       "addToFavorites": "添加到收藏夹",
       "downloadMap": "下载",
       "mapActions": "地图动作",
+      "mapPoolChipTooltip": "在当前 {{mode}} 天梯地图池中",
       "noMapPreview": "地图预览不可用",
       "regenerateImage": "重新生成图像",
       "removeFromFavorites": "从收藏夹中删除",
@@ -2518,6 +2538,8 @@
     "loading": {
       "dialogTitle": "正在加载录像……",
       "errorGeneric": "加载录像时遇到问题。",
+      "inGameBody": "游戏进行中无法播放录像。如需在其他游戏运行时观看录像，请在“设置 › 星际争霸”中开启“允许录像与其他游戏同时运行”。",
+      "inGameTitle": "无法播放录像",
       "initFailureBody": "无法加载您选择的录像。录像可能已损坏，或者是游戏版本太新，当前尚不支持。",
       "initFailureTitle": "加载录像时出错"
     },
@@ -2925,6 +2947,10 @@
           "advanced": "如果自动检测失败，您可以手动设置路径。请点击下方按钮，选择包含《星际争霸：重制版》安装文件的目录。",
           "description": "ShieldBattery 需要一个有效且为最新版本的《星际争霸：重制版》安装。请点击下方按钮以自动检测安装目录。"
         },
+        "keepReplaysAlongsideGames": {
+          "description": "开始对局或另一个录像时，录像会保持打开，因此可以同时运行多个。每个录像都是一个单独的星际争霸进程，会占用更多电脑资源。",
+          "label": "允许录像与其他游戏同时运行"
+        },
         "launch32Bit": "启动 32 位游戏客户端（不推荐）",
         "pathInvalid": "此路径不是有效的《星际争霸：重制版》安装目录。请确保您的安装是最新的，或尝试选择其他路径。",
         "pathValid": "该游戏路径似乎是一个有效的安装目录。",
@@ -3218,6 +3244,9 @@
       "title": "检测到安装问题"
     }
   },
+  "systemBar": {
+    "support": "赞助"
+  },
   "twitch": {
     "live": {
       "avatarTooltip": "正在 Twitch 上直播",
@@ -3439,13 +3468,6 @@
     }
   },
   "whispers": {
-    "createWhisper": {
-      "error": "错误：{{errorMessage}}",
-      "title": "发送信息",
-      "username": "用户名",
-      "usernamePattern": "用户名包含无效字符",
-      "usernameRequired": "请输入用户名"
-    },
     "errors": {
       "cantWhisperYourself": "您不能与自己私聊。",
       "invalidAction": "必须与该用户正在私聊中才能查询历史信息记录",
@@ -3459,11 +3481,30 @@
       "userChatRestricted": "你目前被限制发送聊天消息",
       "userNotFound": "未找到用户"
     },
+    "header": {
+      "moreActions": "更多操作"
+    },
+    "intro": {
+      "start": "这是您与 {{username}} 私聊的开始。"
+    },
     "messageMenu": {
       "copyMessageLink": "复制消息链接"
     },
     "navEntry": {
       "closeWhisper": "关闭私聊"
+    },
+    "newWhisper": {
+      "emptyText": "在上方输入玩家名称即可与其私聊。在线的好友会显示在这里。",
+      "emptyTitle": "开始对话",
+      "error": "开始私聊时出错：{{errorMessage}}",
+      "onlineFriends": "在线好友",
+      "recent": "最近",
+      "recipient": "发送给"
+    },
+    "page": {
+      "filterConversations": "筛选对话",
+      "loadConversationsError": "加载对话时出错",
+      "newWhisper": "新私聊"
     }
   },
   "windowControls": {

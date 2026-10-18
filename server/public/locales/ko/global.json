@@ -1055,7 +1055,6 @@
       "search": "찾기",
       "selectAll": "모두 선택",
       "show": "보기",
-      "start": "시작해",
       "stop": "멈추기",
       "submit": "제출해",
       "test": "테스트",
@@ -1525,6 +1524,7 @@
     "bottomLinks": {
       "acceptableUsePolicy": "허용된 사용 정책",
       "faq": "FAQ",
+      "licenses": "라이선스",
       "privacyPolicy": "개인정보 처리방침",
       "termsOfService": "이용 약관"
     },
@@ -1628,6 +1628,23 @@
       "start": "<1>{{leagueName}}</1> 리그가 시작되었습니다.",
       "unban": "<1>{{leagueName}}</1> 리그 차단이 해제되었습니다."
     }
+  },
+  "licenses": {
+    "assetAuthor": "제작: {{author}}",
+    "assetModifications": "변경 사항: {{modifications}}",
+    "assetsHeader": "글꼴, 사운드, 아이콘",
+    "electronDescription": "앱은 Chromium 및 기타 오픈 소스 소프트웨어가 포함된 Electron으로 만들어졌습니다. 해당 라이선스는 ShieldBattery 설치 폴더의 LICENSE.electron.txt와 LICENSES.chromium.html에서 확인할 수 있습니다.",
+    "electronHeader": "Electron과 Chromium",
+    "gameDescription": "ShieldBattery 중 스타크래프트 안에서 실행되는 부분에 포함된 오픈 소스 소프트웨어와 글꼴입니다.",
+    "gameHeader": "게임 내",
+    "gameUnavailable": "게임 내 라이선스 고지가 없습니다. 이 고지는 릴리스 빌드에서만 생성됩니다.",
+    "intro": "ShieldBattery는 MIT 라이선스를 따르는 오픈 소스 프로젝트이며, 소스 코드는 <2>GitHub</2>에서 볼 수 있습니다. 여러 오픈 소스 프로젝트의 도움을 받아 만들어졌으며, 해당 프로젝트와 라이선스를 여기에 정리했습니다.",
+    "noLicenseFile": "이 패키지에는 라이선스 파일이 없습니다. {{license}} 라이선스를 따릅니다.",
+    "packagesDescriptionApp": "이 버전의 ShieldBattery 앱에 포함된 오픈 소스 패키지입니다.",
+    "packagesDescriptionWeb": "이 버전의 ShieldBattery 웹사이트에 포함된 오픈 소스 패키지입니다.",
+    "packagesHeader": "소프트웨어 패키지",
+    "packagesUnavailable": "소프트웨어 패키지 목록을 불러오지 못했습니다. 이 목록은 릴리스 빌드에서만 생성됩니다.",
+    "title": "오픈 소스 라이선스"
   },
   "lobbies": {
     "actionErrors": {
@@ -1796,7 +1813,8 @@
       "dialogTitle": "현재 로비에서 나가시겠습니까?",
       "hostAloneNotice": "이 로비를 만들면 {{current}}에 다른 참가자가 없으므로 해당 로비가 닫힙니다.",
       "hostNotice": "현재 {{current}}의 호스트입니다. 새 로비를 만들면 다른 플레이어에게 호스트가 넘어갑니다.",
-      "memberNotice": "이 로비를 만들면 {{current}}에서 나가게 됩니다."
+      "memberNotice": "이 로비를 만들면 {{current}}에서 나가게 됩니다.",
+      "runningGameNotice": "아직 {{current}}의 게임이 실행 중입니다. 새 로비에서 게임이 시작되면 이 게임은 종료됩니다."
     },
     "leaveAndJoin": {
       "confirmAction": "나가고 참여하기",
@@ -1804,7 +1822,8 @@
       "genericLobbyName": "새 로비",
       "hostAloneBody": "{{target}}에 참여하면 {{current}}에 다른 참가자가 없으므로 로비가 닫힙니다.",
       "hostBody": "현재 {{current}}의 호스트입니다. {{target}}에 참여하면 다른 플레이어에게 호스트가 넘어갑니다.",
-      "memberBody": "{{target}}에 참여하면 {{current}}에서 나가게 됩니다."
+      "memberBody": "{{target}}에 참여하면 {{current}}에서 나가게 됩니다.",
+      "runningGameNotice": "아직 {{current}}의 게임이 실행 중입니다. {{target}}에서 게임이 시작되면 이 게임은 종료됩니다."
     },
     "lobby": {
       "gameSubType": "팀 구성",
@@ -1888,11 +1907,9 @@
         "swap": "자리 바꾸기"
       },
       "header": {
-        "cancelReady": "준비 취소",
         "copiedInviteLink": "복사됨!",
         "copyInviteLink": "초대 링크 복사",
         "leave": "나가기",
-        "readyUp": "준비 완료",
         "visibilityPublic": "공개",
         "visibilityUnlisted": "일부 공개"
       },
@@ -1902,11 +1919,13 @@
       "rail": {
         "benchHeading": "벤치 · {{benchCount}}",
         "benchTooltip": "자리가 다 찼을 때 참가한 사람들입니다 — 자리가 나면 맨 앞 사람부터 앉습니다",
+        "cancelReady": "준비 취소",
         "everyoneReady": "전원 준비 완료",
         "holdToBypassReadiness": "{{seconds}}초 동안 누르면 기다리지 않고 시작합니다",
         "holdToStartAnyway": "길게 눌러 바로 시작",
         "needsOpposingSides": "서로 다른 편에 플레이어가 최소 2명 필요합니다",
         "readyCount": "{{readyTotal}}명 중 {{readyCount}}명 준비",
+        "readyUp": "준비 완료",
         "startGame": "게임 시작",
         "startingGame": "게임 시작 중",
         "waitingForHost": "호스트가 시작하기를 기다리는 중"
@@ -2075,6 +2094,7 @@
       "addToFavorites": "즐겨찾기에 추가",
       "downloadMap": "다운로드",
       "mapActions": "맵 작업",
+      "mapPoolChipTooltip": "현재 {{mode}} 래더 맵 풀에 포함됨",
       "noMapPreview": "맵 미리보기를 사용할 수 없음",
       "regenerateImage": "이미지 재생성",
       "removeFromFavorites": "즐겨찾기에서 제거하기",
@@ -2518,6 +2538,8 @@
     "loading": {
       "dialogTitle": "리플레이 불러오는 중…",
       "errorGeneric": "리플레이를 불러오는 중 문제가 발생했습니다.",
+      "inGameBody": "게임 중에는 리플레이를 시작할 수 없습니다. 다른 게임이 실행 중일 때 리플레이를 보려면 StarCraft 설정에서 '다른 게임과 동시에 리플레이 실행 허용'을 켜세요.",
+      "inGameTitle": "리플레이를 시작할 수 없음",
       "initFailureBody": "선택한 리플레이를 불러올 수 없습니다. 파일이 손상되었거나 현재 지원되지 않는 최신 버전의 스타크래프트에서 생성되었을 수 있습니다.",
       "initFailureTitle": "리플레이 불러오기 오류"
     },
@@ -2925,6 +2947,10 @@
           "advanced": "자동 감지에 실패한 경우 수동으로 경로를 설정할 수 있습니다. 아래 버튼을 클릭하고 StarCraft: Remastered가 설치된 디렉터리를 선택하세요.",
           "description": "ShieldBattery를 사용하려면 최신 버전의 StarCraft: Remastered가 올바르게 설치되어 있어야 합니다. 아래 버튼을 클릭하면 설치 폴더를 자동으로 감지합니다."
         },
+        "keepReplaysAlongsideGames": {
+          "description": "매치나 다른 리플레이가 시작되어도 리플레이가 열린 채로 유지되어 여러 개를 동시에 실행할 수 있습니다. 각각 별도의 스타크래프트로 실행되므로 컴퓨터 자원을 더 많이 사용합니다.",
+          "label": "다른 게임과 동시에 리플레이 실행 허용"
+        },
         "launch32Bit": "32비트 게임 클라이언트로 실행(권장하지 않음)",
         "pathInvalid": "이 경로에는 올바른 StarCraft: Remastered 설치 파일이 없습니다. 설치가 최신 버전인지 확인하거나 다른 경로를 시도해 주세요.",
         "pathValid": "이 게임 경로는 올바른 설치로 보입니다.",
@@ -3218,6 +3244,9 @@
       "title": "StarCraft 설치 문제 감지됨"
     }
   },
+  "systemBar": {
+    "support": "후원하기"
+  },
   "twitch": {
     "live": {
       "avatarTooltip": "Twitch에서 라이브 중",
@@ -3439,13 +3468,6 @@
     }
   },
   "whispers": {
-    "createWhisper": {
-      "error": "오류: {{errorMessage}}",
-      "title": "메시지 보내기",
-      "username": "사용자 이름",
-      "usernamePattern": "사용자 이름에 잘못된 문자가 포함되어 있습니다",
-      "usernameRequired": "사용자 이름을 입력하세요"
-    },
     "errors": {
       "cantWhisperYourself": "자기 자신에게는 귓속말을 보낼 수 없습니다.",
       "invalidAction": "메시지 기록을 검색하려면 사용자와의 활성 귓속말 세션이 있어야 합니다",
@@ -3459,11 +3481,30 @@
       "userChatRestricted": "현재 채팅 메시지 전송이 제한되어 있습니다",
       "userNotFound": "사용자를 찾을 수 없습니다"
     },
+    "header": {
+      "moreActions": "추가 작업"
+    },
+    "intro": {
+      "start": "{{username}}님과의 귓속말이 여기서 시작됩니다."
+    },
     "messageMenu": {
       "copyMessageLink": "메시지 링크 복사"
     },
     "navEntry": {
       "closeWhisper": "귓속말 닫기"
+    },
+    "newWhisper": {
+      "emptyText": "위에 플레이어 이름을 입력해 귓속말을 보내세요. 온라인 상태인 친구가 여기에 표시됩니다.",
+      "emptyTitle": "대화 시작하기",
+      "error": "귓속말 시작 오류: {{errorMessage}}",
+      "onlineFriends": "온라인 친구",
+      "recent": "최근",
+      "recipient": "받는 사람"
+    },
+    "page": {
+      "filterConversations": "대화 필터",
+      "loadConversationsError": "대화 목록 불러오기 오류",
+      "newWhisper": "새 귓속말"
     }
   },
   "windowControls": {

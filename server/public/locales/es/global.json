@@ -1081,7 +1081,6 @@
       "search": "Buscar",
       "selectAll": "Seleccionar todo",
       "show": "Mostrar",
-      "start": "Comenzar",
       "stop": "Detener",
       "submit": "Enviar",
       "test": "Probar",
@@ -1557,6 +1556,7 @@
     "bottomLinks": {
       "acceptableUsePolicy": "Política de Uso Aceptable",
       "faq": "Preguntas Frecuentes",
+      "licenses": "Licencias",
       "privacyPolicy": "Política de Privacidad",
       "termsOfService": "Términos de Servicio"
     },
@@ -1660,6 +1660,23 @@
       "start": "La liga <1>{{leagueName}}</1> ha comenzado.",
       "unban": "Se ha levantado tu baneo de la liga <1>{{leagueName}}</1>."
     }
+  },
+  "licenses": {
+    "assetAuthor": "Por {{author}}",
+    "assetModifications": "Cambios: {{modifications}}",
+    "assetsHeader": "Fuentes, sonidos e iconos",
+    "electronDescription": "La app está hecha con Electron, que incluye Chromium y otro software de código abierto. Sus licencias están en LICENSE.electron.txt y LICENSES.chromium.html, en la carpeta donde instalaste ShieldBattery.",
+    "electronHeader": "Electron y Chromium",
+    "gameDescription": "Software y fuentes de código abierto incluidos en la parte de ShieldBattery que se ejecuta dentro de StarCraft.",
+    "gameHeader": "En el juego",
+    "gameUnavailable": "Faltan los avisos de licencia del juego. Solo se generan en las compilaciones de lanzamiento.",
+    "intro": "ShieldBattery es de código abierto bajo la licencia MIT, y puedes encontrar su código fuente en <2>GitHub</2>. Está hecho con la ayuda de muchos otros proyectos de código abierto, que aparecen aquí junto con sus licencias.",
+    "noLicenseFile": "Este paquete no incluye un archivo de licencia. Su licencia es {{license}}.",
+    "packagesDescriptionApp": "Paquetes de código abierto incluidos en esta versión de la app de ShieldBattery.",
+    "packagesDescriptionWeb": "Paquetes de código abierto incluidos en esta versión del sitio web de ShieldBattery.",
+    "packagesHeader": "Paquetes de software",
+    "packagesUnavailable": "No se pudo cargar la lista de paquetes de software. Solo se genera en las compilaciones de lanzamiento.",
+    "title": "Licencias de código abierto"
   },
   "lobbies": {
     "actionErrors": {
@@ -1850,7 +1867,8 @@
       "dialogTitle": "¿Salir de tu lobby actual?",
       "hostAloneNotice": "Crear este lobby cerrará {{current}}, ya que no hay nadie más dentro.",
       "hostNotice": "Eres el anfitrión de {{current}}. Crear un nuevo lobby le pasará el rol de anfitrión a otro jugador.",
-      "memberNotice": "Crear este lobby te sacará de {{current}}."
+      "memberNotice": "Crear este lobby te sacará de {{current}}.",
+      "runningGameNotice": "Sigues en la partida de {{current}}. Se cerrará cuando tu nuevo lobby inicie su partida."
     },
     "leaveAndJoin": {
       "confirmAction": "Salir y unirse",
@@ -1858,7 +1876,8 @@
       "genericLobbyName": "otro lobby",
       "hostAloneBody": "Unirte a {{target}} cerrará {{current}}, ya que no hay nadie más dentro.",
       "hostBody": "Eres el anfitrión de {{current}}. Unirte a {{target}} le pasará el rol de anfitrión a otro jugador.",
-      "memberBody": "Unirte a {{target}} te sacará de {{current}}."
+      "memberBody": "Unirte a {{target}} te sacará de {{current}}.",
+      "runningGameNotice": "Sigues en la partida de {{current}}. Se cerrará cuando {{target}} inicie su partida."
     },
     "lobby": {
       "gameSubType": "Equipos",
@@ -1944,11 +1963,9 @@
         "swap": "Intercambiar sitios"
       },
       "header": {
-        "cancelReady": "No estoy listo",
         "copiedInviteLink": "¡Copiado!",
         "copyInviteLink": "Copiar enlace de invitación",
         "leave": "Salir",
-        "readyUp": "Listo",
         "visibilityPublic": "Público",
         "visibilityUnlisted": "No listado"
       },
@@ -1958,11 +1975,13 @@
       "rail": {
         "benchHeading": "Banquillo · {{benchCount}}",
         "benchTooltip": "Se unieron con todo lleno. El primero de la fila ocupa el próximo asiento libre",
+        "cancelReady": "No estoy listo",
         "everyoneReady": "Todos están listos",
         "holdToBypassReadiness": "Mantén pulsado {{seconds}} segundos para empezar sin esperar",
         "holdToStartAnyway": "Mantén pulsado para empezar",
         "needsOpposingSides": "Hacen falta al menos dos jugadores rivales",
         "readyCount": "{{readyCount}} de {{readyTotal}} listos",
+        "readyUp": "Listo",
         "startGame": "Iniciar partida",
         "startingGame": "Iniciando partida",
         "waitingForHost": "Esperando a que el anfitrión inicie"
@@ -2135,6 +2154,7 @@
       "addToFavorites": "Añadir a favoritos",
       "downloadMap": "Descargar",
       "mapActions": "Acciones de mapa",
+      "mapPoolChipTooltip": "En el grupo de mapas actual de {{mode}}",
       "noMapPreview": "Vista previa del mapa no disponible",
       "regenerateImage": "Regenerar imagen",
       "removeFromFavorites": "Quitar de favoritos",
@@ -2598,6 +2618,8 @@
     "loading": {
       "dialogTitle": "Cargando replay…",
       "errorGeneric": "Algo salió mal al cargar el replay.",
+      "inGameBody": "No puedes iniciar replays mientras estás en una partida. Para ver replays mientras se juegan otras partidas, activa \"Permitir replays junto a otras partidas\" en los ajustes de StarCraft.",
+      "inGameTitle": "No se puede iniciar el replay",
       "initFailureBody": "No se pudo cargar el replay seleccionada. Es posible que esté corrupto o que haya sido creado por una versión de StarCraft más nueva que la admitida actualmente.",
       "initFailureTitle": "Error al cargar el replay"
     },
@@ -3007,6 +3029,10 @@
           "advanced": "Si la detección falla, puede configurar la ruta manualmente. Haz clic en el botón a continuación y selecciona el directorio que contiene tu instalación de StarCraft: Remastered.",
           "description": "ShieldBattery requiere una instalación válida y actualizada de StarCraft: Remastered. Haga clic en el botón a continuación para detectar automáticamente la carpeta de instalación."
         },
+        "keepReplaysAlongsideGames": {
+          "description": "Los replays siguen abiertos cuando empieza una partida u otro replay, así que puedes tener varios a la vez. Cada uno es una copia aparte de StarCraft, lo que consume más recursos de tu computadora.",
+          "label": "Permitir replays junto a otras partidas"
+        },
         "launch32Bit": "Iniciar el cliente del juego de 32 bits (no recomendado)",
         "pathInvalid": "Esta ruta no apunta a una instalación válida de StarCraft: Remastered. Asegúrese de que su instalación esté actualizada o pruebe con una ruta diferente.",
         "pathValid": "Esta ruta del juego parece ser una instalación válida.",
@@ -3304,6 +3330,9 @@
       "title": "Problemas de instalación detectados"
     }
   },
+  "systemBar": {
+    "support": "Apoyar"
+  },
   "twitch": {
     "live": {
       "avatarTooltip": "En vivo en Twitch",
@@ -3537,13 +3566,6 @@
     }
   },
   "whispers": {
-    "createWhisper": {
-      "error": "Error: {{errorMessage}}",
-      "title": "Enviar un mensaje",
-      "username": "Nombre de usuario",
-      "usernamePattern": "Nombre de usuario contiene caracteres inválidos",
-      "usernameRequired": "Introduzca un nombre de usuario"
-    },
     "errors": {
       "cantWhisperYourself": "No puedes susurrarte a ti mismo.",
       "invalidAction": "Debe tener una sesión de susurro activa con un usuario para recuperar el historial de mensajes",
@@ -3557,11 +3579,30 @@
       "userChatRestricted": "Actualmente tienes restringido el envío de mensajes de chat",
       "userNotFound": "Usuario no encontrado"
     },
+    "header": {
+      "moreActions": "Más acciones"
+    },
+    "intro": {
+      "start": "Este es el inicio de tus susurros con {{username}}."
+    },
     "messageMenu": {
       "copyMessageLink": "Copiar enlace al mensaje"
     },
     "navEntry": {
       "closeWhisper": "Cerrar susurro"
+    },
+    "newWhisper": {
+      "emptyText": "Escribe arriba el nombre de un jugador para susurrarle. Tus amigos aparecen aquí mientras están conectados.",
+      "emptyTitle": "Inicia una conversación",
+      "error": "Error al iniciar el susurro: {{errorMessage}}",
+      "onlineFriends": "Amigos conectados",
+      "recent": "Recientes",
+      "recipient": "Para"
+    },
+    "page": {
+      "filterConversations": "Filtrar conversaciones",
+      "loadConversationsError": "Error al cargar las conversaciones",
+      "newWhisper": "Nuevo susurro"
     }
   },
   "windowControls": {

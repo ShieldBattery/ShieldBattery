@@ -202,6 +202,8 @@ consistent. (Seed — extend over time.)
   siblings: conectado / no responde / reconectando… {{time}} / expulsión pedida.
   teammate→**compañero** (84 px tag).
 
+- **Licenses page:** open source→**código abierto**, license notices→avisos de licencia, release build→**compilación de lanzamiento**. The lobby ready toggle (rail) keeps the header's **Listo / No estoy listo**; the heart Support button→**Apoyar** (donations, not help).
+
 ### ru
 - Register: formal **Вы** (the existing file is consistently Вы; do not use ты here).
 - **Plurals need all four CLDR forms — one/few/many/other.** The file historically had only
@@ -329,6 +331,8 @@ consistent. (Seed — extend over time.)
   игру». The roster's state column is 150 px and set lowercase like its siblings: на связи /
   не отвечает / подключается… {{time}} / кик запрошен. teammate→**союзник** (84 px tag).
 
+- **Licenses page:** open source→**открытое ПО / с открытым исходным кодом**, license notices→уведомления о лицензиях, release build→**релизная сборка**. The lobby ready toggle (rail) keeps the header's **Готов / Отменить готовность**.
+
 ### ko
 - **Register: use formal-polite 합니다/습니다체 for sentences.** The existing `ko/global.json` is
   overwhelmingly 합니다체 (~191 vs 3), which is the conventional, non-stiff register for Korean
@@ -451,6 +455,8 @@ consistent. (Seed — extend over time.)
   재연결 중… {{time}} / 강퇴 요청됨 — English set these lowercase, which Korean does not mirror.
   teammate→**팀원**.
 
+- **Licenses page:** open source→**오픈 소스**, license→라이선스, license notices→라이선스 고지, release build→**릴리스 빌드**, fonts→글꼴. The lobby ready toggle (rail) keeps **준비 완료 / 준비 취소**; the heart Support button→**후원하기** (donations, not help).
+
 ### zh-Hans
 - Register: use 您 for second person (the existing file is ~3:1 您 vs 你; it's the normal polite UI
   register, not stiff).
@@ -555,3 +561,4 @@ consistent. (Seed — extend over time.)
   kept apart from the menu's 离开游戏, and the hold plate uses the in-file 长按: 长按放弃游戏.
   Roster state column: 已连接 / 无响应 / 正在重连… {{time}} / 已请求踢出 — English set these
   lowercase, which Chinese does not mirror. teammate→**队友**.
+- **Licenses page:** open source→**开源**, license→**许可证**, license notices→许可证声明, release build→**正式版构建**, software package→软件包. Support (heart button, donations)→**赞助**. Browsers report `zh-CN`, which the language detector doesn't map to zh-Hans yet; test with a `zh-Hans` locale.
