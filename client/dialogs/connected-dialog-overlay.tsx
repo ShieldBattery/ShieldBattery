@@ -79,6 +79,9 @@ const ResolveGameResultsDialog = React.lazy(async () => ({
 const LeagueExplainerDialog = React.lazy(async () => ({
   default: (await import('../leagues/league-explainer')).LeagueExplainerDialog,
 }))
+const LeaveLeagueDialog = React.lazy(async () => ({
+  default: (await import('../leagues/leave-league-dialog')).LeaveLeagueDialog,
+}))
 const JoinCodeDialog = React.lazy(async () => ({
   default: (await import('../lobbies/join-code-dialog')).JoinCodeDialog,
 }))
@@ -256,6 +259,8 @@ function getDialog(dialogType: DialogType): {
       return { component: LaunchingGameDialog, modal: true }
     case DialogType.LeagueExplainer:
       return { component: LeagueExplainerDialog }
+    case DialogType.LeaveLeague:
+      return { component: LeaveLeagueDialog }
     case DialogType.LobbyLeaveAndCreate:
       return { component: LobbyLeaveAndCreateDialog }
     case DialogType.LobbyLeaveAndJoin:

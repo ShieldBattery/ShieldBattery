@@ -1,26 +1,44 @@
 import { LeagueId } from '../../../common/leagues/leagues'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
+import { DbClient } from '../db'
+import transact from '../db/transaction'
 import { Redis } from '../redis/redis'
-import { LeagueUser } from './league-models'
+import { getLeagueLeaderboardEntriesWithLock, LeagueUser } from './league-models'
 
 function leaderboardKey(leagueId: LeagueId) {
   return `leaderboard:${leagueId}`
 }
 
 /** Updates all the leaderboards for the given updated `LeagueUser`s. */
-export async function updateLeaderboards(redis: Redis, changes: ReadonlyArray<LeagueUser>) {
+export async function updateLeaderboards(
+  redis: Redis,
+  changes: ReadonlyArray<Pick<LeagueUser, 'leagueId' | 'userId'>>,
+  withClient?: DbClient,
+) {
   if (!changes.length) {
     return
   }
 
-  const pipeline = redis.client.multi()
-
-  for (const change of changes) {
-    const key = leaderboardKey(change.leagueId)
-    pipeline.zAdd(key, { score: change.points, value: String(change.userId) })
+  const update = async (client: DbClient) => {
+    // Result/refund callbacks can arrive after a player leaves or rejoins. Read current scores
+    // under the membership locks and hold them through the cache write to serialize removal.
+    const entries = await getLeagueLeaderboardEntriesWithLock(changes, client)
+    const pipeline = redis.client.multi()
+    for (const entry of entries) {
+      const key = leaderboardKey(entry.leagueId)
+      if (entry.leftAt || !entry.lastPlayedDate) {
+        pipeline.zRem(key, String(entry.userId))
+      } else {
+        pipeline.zAdd(key, { score: entry.points, value: String(entry.userId) })
+      }
+    }
+    await pipeline.execAsPipeline()
   }
-
-  await pipeline.execAsPipeline()
+  if (withClient) {
+    await update(withClient)
+  } else {
+    await transact(update)
+  }
 }
 
 /**

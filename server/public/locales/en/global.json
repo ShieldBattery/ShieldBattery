@@ -1622,6 +1622,12 @@
       "noMatchingGames": "No matching games.",
       "retrievingError": "There was an error retrieving the games."
     },
+    "leave": {
+      "action": "Leave league",
+      "confirm": "You will be removed from the leaderboard and forfeit all your league points and stats. You can rejoin before the league ends, starting from zero. Any league ban will still apply.",
+      "error": "Could not remove league membership. Please try again.",
+      "success": "League left"
+    },
     "list": {
       "acceptingSignups": "Accepting signups",
       "banned": "Banned",
@@ -1643,6 +1649,11 @@
       "ban": "You have been banned from the <1>{{leagueName}}</1> league.",
       "start": "The <1>{{leagueName}}</1> league has started.",
       "unban": "Your ban from the <1>{{leagueName}}</1> league has been lifted."
+    },
+    "remove": {
+      "action": "Remove from league",
+      "confirm": "This player will be removed from the leaderboard and forfeit all league points and stats. They can rejoin before the league ends, starting from zero. Any league ban will still apply.",
+      "success": "Player removed from league"
     }
   },
   "licenses": {

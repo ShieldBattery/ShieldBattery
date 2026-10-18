@@ -188,6 +188,7 @@ export class GamePointsRefundService {
           userId: c.userId,
           leagueId: c.leagueId,
           pointsRefund: -c.pointsChange,
+          gameId,
         })
         if (updated) {
           updatedLeagueUsers.push(updated)

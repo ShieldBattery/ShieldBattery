@@ -310,7 +310,7 @@ export async function getLeagueUser(
   try {
     const result = await client.query<DbLeagueUser>(sql`
       SELECT * FROM league_users
-      WHERE league_id = ${leagueId} AND user_id = ${userId}
+      WHERE league_id = ${leagueId} AND user_id = ${userId} AND left_at IS NULL
     `)
 
     return result.rows.length ? convertLeagueUserFromDb(result.rows[0]) : undefined
@@ -328,7 +328,7 @@ export async function getManyLeagueUsers(
   try {
     const result = await client.query<DbLeagueUser>(sql`
       SELECT * FROM league_users
-      WHERE league_id = ${leagueId} AND user_id = ANY(${userIds})
+      WHERE league_id = ${leagueId} AND user_id = ANY(${userIds}) AND left_at IS NULL
     `)
 
     return result.rows.map(convertLeagueUserFromDb)
@@ -345,7 +345,7 @@ export async function getAllLeaguesForUser(
   try {
     const result = await client.query<DbLeagueUser>(sql`
       SELECT * FROM league_users
-      WHERE user_id = ${userId}
+      WHERE user_id = ${userId} AND left_at IS NULL
     `)
 
     return result.rows.map(convertLeagueUserFromDb)
@@ -364,6 +364,10 @@ export async function joinLeagueForUser(
     const result = await client.query(sql`
       INSERT INTO league_users (league_id, user_id)
       VALUES (${leagueId}, ${userId})
+      ON CONFLICT (league_id, user_id) DO UPDATE SET
+        joined_at = CASE WHEN league_users.left_at IS NOT NULL THEN clock_timestamp()
+          ELSE league_users.joined_at END,
+        left_at = NULL
       RETURNING *
     `)
 
@@ -400,6 +404,53 @@ export async function updateLeagueUser(leagueUser: LeagueUser, client: DbClient)
   `)
 }
 
+/** Forfeits a membership's points and statistics while retaining its ban and game history. */
+export async function leaveLeagueForUser(
+  leagueId: LeagueId,
+  userId: SbUserId,
+  client: DbClient,
+): Promise<void> {
+  await client.query(sql`
+    UPDATE league_users SET
+      left_at = clock_timestamp(), last_played_date = NULL,
+      points = 0, points_converged = FALSE, wins = 0, losses = 0,
+      p_wins = 0, p_losses = 0, t_wins = 0, t_losses = 0, z_wins = 0, z_losses = 0,
+      r_wins = 0, r_losses = 0, r_p_wins = 0, r_p_losses = 0,
+      r_t_wins = 0, r_t_losses = 0, r_z_wins = 0, r_z_losses = 0
+    WHERE league_id = ${leagueId} AND user_id = ${userId} AND left_at IS NULL
+  `)
+}
+
+/** Locks memberships in the same order as result reconciliation, including departed members. */
+export async function getLeagueLeaderboardEntriesWithLock(
+  memberships: ReadonlyArray<Pick<LeagueUser, 'leagueId' | 'userId'>>,
+  client: DbClient,
+) {
+  const result = await client.query<{
+    league_id: LeagueId
+    user_id: SbUserId
+    points: number
+    left_at: Date | null
+    last_played_date: Date | null
+  }>(sql`
+    SELECT league_id, user_id, points, left_at, last_played_date
+    FROM league_users
+    WHERE (league_id, user_id) IN (${sqlConcat(
+      ', ',
+      memberships.map(m => sql`(${m.leagueId}, ${m.userId})`),
+    )})
+    ORDER BY league_id, user_id
+    FOR UPDATE
+  `)
+  return result.rows.map(row => ({
+    leagueId: row.league_id,
+    userId: row.user_id,
+    points: row.points,
+    leftAt: row.left_at,
+    lastPlayedDate: row.last_played_date,
+  }))
+}
+
 /**
  * Restores league points to a user for a nullified game (adds `pointsRefund` back). Returns the
  * updated league user (so callers can refresh the leaderboard), or `undefined` if no matching row
@@ -411,12 +462,15 @@ export async function refundLeaguePoints(
     userId,
     leagueId,
     pointsRefund,
-  }: { userId: SbUserId; leagueId: LeagueId; pointsRefund: number },
+    gameId,
+  }: { userId: SbUserId; leagueId: LeagueId; pointsRefund: number; gameId: string },
 ): Promise<LeagueUser | undefined> {
   const result = await client.query<DbLeagueUser>(sql`
     UPDATE league_users
     SET points = points + ${pointsRefund}
     WHERE league_id = ${leagueId} AND user_id = ${userId}
+      AND left_at IS NULL
+      AND joined_at <= (SELECT start_time AT TIME ZONE 'UTC' FROM games WHERE id = ${gameId})
     RETURNING *;
   `)
   return result.rows.length ? convertLeagueUserFromDb(result.rows[0]) : undefined
@@ -471,6 +525,8 @@ export async function getActiveLeaguesForUsersWithLock(
     FROM league_users lu
     JOIN leagues l ON l.id = lu.league_id
     WHERE lu.user_id = ANY(${userIds})
+      AND lu.left_at IS NULL
+      AND lu.joined_at <= ${atDate}
       AND l.end_at > ${atDate}
       AND l.start_at <= ${atDate}
       AND l.matchmaking_type = ${matchmakingType}
@@ -617,7 +673,7 @@ export async function getUnbannedLeagueUserIds(
     const result = await client.query<{ user_id: SbUserId }>(sql`
       SELECT user_id
       FROM league_users
-      WHERE league_id = ${leagueId} AND NOT is_banned
+      WHERE league_id = ${leagueId} AND NOT is_banned AND left_at IS NULL
     `)
     return result.rows.map(row => row.user_id)
   } finally {

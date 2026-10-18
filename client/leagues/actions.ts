@@ -4,12 +4,14 @@ import {
   GetLeagueLeaderboardResponse,
   GetLeaguesListResponse,
   JoinLeagueResponse,
+  LeagueId,
 } from '../../common/leagues/leagues'
 
 export type LeaguesActions =
   | GetLeaguesList
   | GetLeague
   | JoinLeague
+  | LeaveLeague
   | GetLeagueLeaderboard
   | GetLeagueGames
 
@@ -28,6 +30,12 @@ export interface GetLeague {
 export interface JoinLeague {
   type: '@leagues/join'
   payload: JoinLeagueResponse
+  error?: false
+}
+
+export interface LeaveLeague {
+  type: '@leagues/leave'
+  payload: { leagueId: LeagueId }
   error?: false
 }
 
