@@ -78,6 +78,7 @@ mod sdf_cache;
 mod shader_replaces;
 mod stat_txt;
 pub(crate) mod thiscall;
+mod tick_gates;
 
 const NET_PLAYER_COUNT: usize = 12;
 const SHADER_ID_MASK: u32 = 0x1c;
@@ -363,6 +364,7 @@ pub struct BwScr {
     /// cannot place it all, which leaves the cursor drawn under the overlay.
     software_cursor: Option<SoftwareCursor>,
     decide_cursor_type: VirtualAddress,
+    tick_gated_work: tick_gates::TickGatedWork,
     load_ddsgrp_cursor: VirtualAddress,
     lobby_create_callback_offset: usize,
     starcraft_tls_index: SendPtr<*mut u32>,
@@ -2536,6 +2538,37 @@ impl BwScr {
         let render_screen = analysis.render_screen().ok_or("render_screen")?;
         let skip_render = analysis.skip_render();
         let decide_cursor_type = analysis.decide_cursor_type().ok_or("decide_cursor_type")?;
+        let tick_gated_work = tick_gates::TickGatedWork {
+            screen_scrolling: analysis.update_screen_scrolling().zip(
+                analysis
+                    .screen_scroll_last_tick_negated()
+                    .map(|x| Value::new(ctx, x)),
+            ),
+            palette_cycling: analysis.update_palette_cycles().zip(
+                analysis
+                    .palette_cycle_last_tick()
+                    .map(|x| Value::new(ctx, x)),
+            ),
+            cursor_animation: (|| {
+                Some(tick_gates::CursorAnimation {
+                    update_game_cursor: analysis.update_game_cursor()?,
+                    step_menu_cursor_animation: analysis.step_menu_cursor_animation()?,
+                    next_frame_tick: Value::new(ctx, analysis.cursor_animation_next_tick()?),
+                })
+            })(),
+        };
+        if tick_gated_work.screen_scrolling.is_none()
+            || tick_gated_work.palette_cycling.is_none()
+            || tick_gated_work.cursor_animation.is_none()
+        {
+            warn!(
+                "Could not find all tick-gated work; what's missing runs faster than on \
+                 Battle.net. screen_scrolling={}, palette_cycling={}, cursor_animation={}",
+                tick_gated_work.screen_scrolling.is_some(),
+                tick_gated_work.palette_cycling.is_some(),
+                tick_gated_work.cursor_animation.is_some(),
+            );
+        }
         let load_ddsgrp_cursor = analysis.load_ddsgrp_cursor().ok_or("load_ddsgrp_cursor")?;
         let cursor_scale_factor = analysis
             .cursor_scale_factor()
@@ -2726,6 +2759,7 @@ impl BwScr {
             draw_graphic_layers,
             software_cursor,
             decide_cursor_type,
+            tick_gated_work,
             load_ddsgrp_cursor,
             update_game_screen_size: unsafe { mem::transmute(update_game_screen_size.0) },
             init_network_player_info: unsafe { mem::transmute(init_network_player_info.0) },
@@ -4153,6 +4187,7 @@ impl BwScr {
             }
 
             sdf_cache::apply_sdf_cache_hooks(self, &mut exe, base);
+            tick_gates::apply_tick_gate_hooks(&self.tick_gated_work, &mut exe, base);
 
             let create_file_hook_closure =
                 move |a, b, c, d, e, f, g, o| create_file_hook(self, a, b, c, d, e, f, g, o);
@@ -10897,6 +10932,11 @@ mod hooks {
         !0 => DrawGraphicLayers(*mut c_void, usize, u32);
         !0 => DrawSoftwareCursor();
         !0 => DecideCursorType() -> u32;
+        // BW's tick-gated client-side work; see `tick_gates`.
+        !0 => UpdateScreenScrolling();
+        !0 => UpdatePaletteCycles();
+        !0 => UpdateGameCursor();
+        !0 => StepMenuCursorAnimation();
         !0 => PrintText(*const i8, u32, u32);
         !0 => NetPlayerCount() -> u32;
         // Picks the palette index closest to an RGB color; the first argument is the

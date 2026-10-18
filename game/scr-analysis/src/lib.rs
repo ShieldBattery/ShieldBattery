@@ -844,6 +844,46 @@ impl<'e> Analysis<'e> {
         self.0.draw_software_cursor()
     }
 
+    /// `fn()`; scrolls the screen for held scroll keys and edge panning. `step_game_loop` calls
+    /// it once `(u32)(screen_scroll_last_tick_negated + GetTickCount()) > 10`, just after storing
+    /// the negated tick.
+    pub fn update_screen_scrolling(&mut self) -> Option<VirtualAddress> {
+        self.0.update_screen_scrolling()
+    }
+
+    /// u32; the tick screen scrolling last ran at, negated.
+    pub fn screen_scroll_last_tick_negated(&mut self) -> Option<Operand<'e>> {
+        self.0.screen_scroll_last_tick_negated()
+    }
+
+    /// `fn()`; advances palette color cycling one step. Called once
+    /// `(u32)(GetTickCount() - palette_cycle_last_tick) >= 10`, just after storing the tick.
+    pub fn update_palette_cycles(&mut self) -> Option<VirtualAddress> {
+        self.0.update_palette_cycles()
+    }
+
+    /// u32; the tick palette cycling last ran at.
+    pub fn palette_cycle_last_tick(&mut self) -> Option<Operand<'e>> {
+        self.0.palette_cycle_last_tick()
+    }
+
+    /// `fn()`; updates the in-game cursor once per game loop iteration, moving an animated
+    /// software cursor to its next frame once `(i32)(GetTickCount() - cursor_animation_next_tick)
+    /// >= 0`, then setting `cursor_animation_next_tick` 100 ms later.
+    pub fn update_game_cursor(&mut self) -> Option<VirtualAddress> {
+        self.0.update_game_cursor()
+    }
+
+    /// `fn()`; the menus' copy of `update_game_cursor`'s animation step, on the same globals.
+    pub fn step_menu_cursor_animation(&mut self) -> Option<VirtualAddress> {
+        self.0.step_menu_cursor_animation()
+    }
+
+    /// u32; the tick the software cursor moves to its next animation frame at.
+    pub fn cursor_animation_next_tick(&mut self) -> Option<Operand<'e>> {
+        self.0.cursor_animation_next_tick()
+    }
+
     /// `fn(render_mode: u16)`, cdecl on 32-bit. Makes following draw commands use
     /// `render_mode` as their sort layer and render target until the matching
     /// [`pop_renderer_mode_override`](Self::pop_renderer_mode_override).

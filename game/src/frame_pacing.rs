@@ -49,6 +49,7 @@ use std::cell::Cell;
 use std::collections::VecDeque;
 use std::ptr::null_mut;
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{Duration, Instant};
 
 use parking_lot::Mutex;
@@ -110,9 +111,8 @@ const STATS_INTERVAL: Duration = Duration::from_secs(10);
 /// `CREATE_WAITABLE_TIMER_HIGH_RESOLUTION`, which winapi doesn't define (Windows 10 1803+).
 const CREATE_WAITABLE_TIMER_HIGH_RESOLUTION: u32 = 0x2;
 
-/// BW's screen scrolling runs in an iteration when more than this many ticks have passed since it
-/// last ran.
-const SCROLL_GATE_TICKS: i32 = 10;
+/// Times BW's screen scrolling has run since the last statistics were logged.
+static SCROLL_RUNS: AtomicU32 = AtomicU32::new(0);
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Mode {
@@ -215,6 +215,12 @@ pub fn reconfigure(setting: Option<&str>, vsync: bool) {
 /// by the real tick count at that point. Other APIs' timestamps (notably `GetMessageTime`) are
 /// expected to be in the same range; without the offset SC:R discards some otherwise valid events,
 /// so that things like keypresses take multiple presses to register.
+///
+/// The real tick count only advances once per system timer interrupt (every ~15.6 ms), so it trails
+/// the time by anywhere within one of those steps. The clock starts half a step behind the real
+/// tick's advance, putting it in the middle of that range: comparisons of the two (SC:R re-arms the
+/// hardware cursor's animation timer by `WM_TIMER`'s real-clock time minus `GetTickCount`) are then
+/// right on average, rather than off by a different amount each launch.
 struct TickClock {
     start: Instant,
     base: u32,
@@ -223,15 +229,39 @@ struct TickClock {
 static TICK_CLOCK: OnceLock<TickClock> = OnceLock::new();
 
 fn tick_clock() -> &'static TickClock {
-    TICK_CLOCK.get_or_init(|| TickClock {
-        start: Instant::now(),
-        base: unsafe { winapi::um::sysinfoapi::GetTickCount() },
+    TICK_CLOCK.get_or_init(|| {
+        let real_tick = || unsafe { winapi::um::sysinfoapi::GetTickCount() };
+        let give_up = Instant::now() + Duration::from_millis(100);
+        let next_advance = |from: u32| {
+            let mut tick = real_tick();
+            while tick == from && Instant::now() < give_up {
+                std::hint::spin_loop();
+                tick = real_tick();
+            }
+            tick
+        };
+        let first = next_advance(real_tick());
+        let second = next_advance(first);
+        TickClock {
+            start: Instant::now(),
+            base: second.wrapping_sub(second.wrapping_sub(first) / 2),
+        }
     })
 }
 
 /// Starts the clock [`tick_count`] reads. Called when the `GetTickCount` hook is installed.
 pub fn start_tick_clock() {
     tick_clock();
+}
+
+/// How far [`tick_count`] has advanced, with more precision than its milliseconds.
+pub fn tick_clock_elapsed() -> Duration {
+    tick_clock().start.elapsed()
+}
+
+/// Counts a run of BW's screen scrolling for the statistics.
+pub fn note_scroll_run() {
+    SCROLL_RUNS.fetch_add(1, Ordering::Relaxed);
 }
 
 /// The tick count BW sees.
@@ -360,9 +390,6 @@ struct Stats {
     oversleep_us_max: u32,
     timer_late_us_max: u32,
     waited_us_total: u64,
-    /// Iterations in which BW's screen scrolling ran, simulated from its gate on the tick count.
-    scroll_runs: u32,
-    last_scroll_tick: Option<u32>,
     skipped_sleeps: u32,
     skipped_sleep_ms: u32,
     /// Presents held back to keep them a refresh apart, and how long in all.
@@ -404,8 +431,6 @@ impl Stats {
             oversleep_us_max: 0,
             timer_late_us_max: 0,
             waited_us_total: 0,
-            scroll_runs: 0,
-            last_scroll_tick: None,
             skipped_sleeps: 0,
             skipped_sleep_ms: 0,
             held_presents: 0,
@@ -628,23 +653,13 @@ unsafe fn pace(bw: &BwScr, can_skip_draw: bool) {
     let stats = &mut state.stats;
     let started = *stats.started.get_or_insert(now);
     stats.iterations += 1;
-    let tick = tick_count();
-    let scrolls = stats
-        .last_scroll_tick
-        .is_none_or(|last| tick.wrapping_sub(last) as i32 > SCROLL_GATE_TICKS);
-    if scrolls {
-        stats.scroll_runs += 1;
-        stats.last_scroll_tick = Some(tick);
-    }
     if now - started >= STATS_INTERVAL {
         let state = &mut *state;
         let paced = state.plan.as_ref().and_then(|plan| plan.as_ref());
         log_stats(&mut state.stats, paced, now - started);
         let stats = &mut state.stats;
-        let last_scroll_tick = stats.last_scroll_tick;
         *stats = Stats::new();
         stats.started = Some(now);
-        stats.last_scroll_tick = last_scroll_tick;
     }
 }
 
@@ -1303,7 +1318,7 @@ fn log_stats(stats: &mut Stats, plan: Option<&Plan>, elapsed: Duration) {
         "Frame pacing: {:.1} iterations/s, {steps}, scrolling {:.1}/s, input sampled to \
          presented p50 {:.2} ms p90 {:.2} ms, {pacing}",
         per_sec(stats.iterations),
-        per_sec(stats.scroll_runs),
+        per_sec(SCROLL_RUNS.swap(0, Ordering::Relaxed)),
         quantile(&stats.sampled_to_present_us, 0.5),
         quantile(&stats.sampled_to_present_us, 0.9),
     );
