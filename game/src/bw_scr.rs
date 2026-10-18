@@ -661,8 +661,10 @@ struct TeamColorRuntime {
     /// pinned to a fixed value per mode (so BW's own diplomacy recolor never fires), leaving this
     /// the source of truth for what the user selected.
     virtual_mode: MinimapColorMode,
-    /// The local player id and the outgoing alliance row currently reflected in the assignment,
-    /// or `None` for an observer/replay (no live tracking). Diffed each frame to detect changes.
+    /// The local player id (in a shared-control team game, its team's main player, whose row the
+    /// team's alliance commands change) and the outgoing alliance row currently reflected in the
+    /// assignment, or `None` for an observer/replay (no live tracking). Diffed each frame to detect
+    /// changes.
     local_alliance_row: Option<(u8, [bool; 8])>,
 }
 
@@ -788,6 +790,9 @@ struct SkinTable {
 
 /// Slot count of [`SkinTable`]: the 12 storm player slots plus the 4-slot observer block.
 const SKIN_TABLE_SLOTS: usize = 16;
+
+/// The player color preference that asks BW's color randomizer for a random color.
+const PLAYER_COLOR_RANDOM: u8 = 0x16;
 
 /// Byte offset within the `skins` local source at which the local player's own raw skin blob is
 /// stored inline. The native create path copies this region into `player_skins[local]`; a
@@ -7729,8 +7734,11 @@ impl BwScr {
     }
 
     /// Runs BW's native player-color randomizer, then switches `use_rgb_colors` on so its colors
-    /// render. Every playing slot defaults to the "random" color sentinel, so this assigns each a
-    /// synced-random color drawn on the shared game seed (all clients agree with no network relay).
+    /// render. The randomizer gives every player slot whose color preference is the "random"
+    /// sentinel a distinct synced-random color drawn on the shared game seed (all clients agree
+    /// with no network relay), whether or not anyone plays in that slot. Melee slots default to
+    /// the sentinel; team game init fills in a specific color for each slot instead, so in team
+    /// games every slot is reset to the sentinel first and colors are drawn the way melee's are.
     /// BW's own game-start path skips this randomize call for SB sessions, leaving deterministic
     /// slot-order colors, so it's invoked here once game init has run and the RNG seed is set. A
     /// no-op (leaving BW's colors as-is) when the randomizer wasn't located during analysis. Runs
@@ -7756,10 +7764,71 @@ impl BwScr {
                 let base = self.rng_seed.resolve_as_ptr();
                 let saved_state = base.read_unaligned();
                 let saved_draws = base.add(2).read_unaligned();
+                if game_thread::is_team_game() {
+                    let game = self.game();
+                    for i in 0..8 {
+                        (*game).scr_player_color_preference[i] = PLAYER_COLOR_RANDOM;
+                    }
+                }
                 randomize();
                 base.write_unaligned(saved_state);
                 base.add(2).write_unaligned(saved_draws);
                 self.use_rgb_colors.write(1);
+            }
+        }
+    }
+
+    /// Gives each shared-control team (Team Melee, Team FFA) a single color across all of its
+    /// members' player slots. The team's units are drawn in its main player's color while
+    /// per-player UI (chat, the overlay) uses each member's own, so every member's slot takes the
+    /// team's color in each color form BW keeps: `rgb_colors`, the color preference, the minimap
+    /// palette index and the unit remap palette.
+    ///
+    /// In a live game team `t` takes the color BW drew for player slot `t - 1`, the one a melee
+    /// player seated there would get, so a team's color never depends on which of its slots are
+    /// filled or which of them BW made the main player. A replay already holds the colors its game
+    /// showed, so there each team takes its main player's recorded color, which also gives replays
+    /// of games whose teammates had their own colors one color per team.
+    ///
+    /// Only slots with a human or computer in them are written: the teams of empty slots aren't
+    /// the same on every client. A no-op outside team games and when the `rgb_colors` pointer is
+    /// null.
+    pub fn share_team_colors(&self) {
+        if !game_thread::is_team_game() {
+            return;
+        }
+        unsafe {
+            let rgb_ptr = self.rgb_colors.resolve();
+            if rgb_ptr.is_null() {
+                return;
+            }
+            let game = self.game();
+            let players = self.players();
+            let main_players = (*game).team_game_main_player;
+            let from_main_player = game_thread::is_replay();
+            let rgb = *rgb_ptr;
+            let preference = (*game).scr_player_color_preference;
+            let minimap = (*game).player_minimap_color;
+            let palette = (*game).player_color_palette;
+            for i in 0..8 {
+                let player = *players.add(i);
+                if !matches!(player.player_type, 1 | 2) {
+                    continue;
+                }
+                let team = player.team as usize;
+                let Some(main) = team
+                    .checked_sub(1)
+                    .and_then(|index| main_players.get(index))
+                    .map(|&main| main as usize)
+                    .filter(|&main| main < 8)
+                else {
+                    continue;
+                };
+                let source = if from_main_player { main } else { team - 1 };
+                (*rgb_ptr)[i] = rgb[source];
+                (*game).scr_player_color_preference[i] = preference[source];
+                (*game).player_minimap_color[i] = minimap[source];
+                (*game).player_color_palette[i] = palette[source];
             }
         }
     }
@@ -7889,6 +7958,19 @@ impl BwScr {
                 active_players,
                 local_player,
                 initial_allies,
+                plays_as: [None; 8],
+            };
+            // A shared-control team is one player in the game, the one that owns its units, so it
+            // gets one color, the alliances between its members count for nothing, and the local
+            // team's alliances are read from its main player's row.
+            let info = if game_thread::is_team_game() {
+                let mut player_teams = [0u8; 8];
+                for (i, team) in player_teams.iter_mut().enumerate() {
+                    *team = (*players.add(i)).team;
+                }
+                info.with_shared_control_teams(player_teams, (*game).team_game_main_player)
+            } else {
+                info
             };
             // Shuffled from the game's own seed, which its replay records, so a replay of the
             // watcher's own game shuffles the way the game did.
@@ -7896,8 +7978,9 @@ impl BwScr {
             let virtual_mode =
                 MinimapColorMode::try_from(self.saved_minimap_color_mode.load(Ordering::Acquire))
                     .unwrap_or_default();
-            let local_alliance_row =
-                local_player.map(|local| (local, initial_allies[local as usize]));
+            let local_alliance_row = info
+                .local_player
+                .map(|local| (local, initial_allies[local as usize]));
             let runtime = TeamColorRuntime {
                 state,
                 original_rgb_colors,

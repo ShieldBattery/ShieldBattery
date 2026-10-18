@@ -76,7 +76,9 @@ pub struct TeamColorConfig {
 /// The game setup this engine assigns colors for, captured once at game init.
 #[derive(Clone, Debug)]
 pub struct GameStartInfo {
-    /// BW player ids (`0..8`) of the active (non-observer) human/computer players, ascending.
+    /// BW player ids (`0..8`) of the active (non-observer) human/computer players, ascending. In a
+    /// shared-control team game these are only the players that own each team's units; see
+    /// [`GameStartInfo::with_shared_control_teams`].
     pub active_players: Vec<u8>,
     /// The local player's BW id: their seat in a game they are playing, or the seat they played in
     /// a replay of one of their own games, which then colors as they saw it while playing. `None`
@@ -85,6 +87,48 @@ pub struct GameStartInfo {
     /// The outgoing alliance matrix at game start: `initial_allies[a][b]` is whether `a` is allied
     /// to `b`. The relation is not assumed symmetric.
     pub initial_allies: [[bool; 8]; 8],
+    /// Per BW player slot, the active player this slot plays as and so shares a color with: a
+    /// shared-control teammate's team main player. `None` for a slot that is its own player.
+    pub plays_as: [Option<u8>; 8],
+}
+
+impl GameStartInfo {
+    /// Treats each shared-control team (Team Melee, Team FFA) as the one player that owns its
+    /// units, `main_players[team - 1]`, so the engine assigns colors per team: only main players
+    /// stay active, alliances between teammates drop out with them, and a teammate seat (local or
+    /// in `active_players`) is replaced by its main player. `player_teams[p]` is slot `p`'s team,
+    /// 1-based. A player whose team has no main player slot in `0..8` stays its own player.
+    pub fn with_shared_control_teams(
+        self,
+        player_teams: [u8; 8],
+        main_players: [u8; 4],
+    ) -> GameStartInfo {
+        let mut plays_as = [None; 8];
+        let mut active_players = Vec::with_capacity(self.active_players.len());
+        for &p in &self.active_players {
+            let main = (player_teams[p as usize] as usize)
+                .checked_sub(1)
+                .and_then(|team| main_players.get(team))
+                .copied()
+                .filter(|&main| main < 8)
+                .unwrap_or(p);
+            if main != p {
+                plays_as[p as usize] = Some(main);
+            }
+            active_players.push(main);
+        }
+        active_players.sort_unstable();
+        active_players.dedup();
+        let local_player = self
+            .local_player
+            .map(|local| plays_as[local as usize].unwrap_or(local));
+        GameStartInfo {
+            active_players,
+            local_player,
+            initial_allies: self.initial_allies,
+            plays_as,
+        }
+    }
 }
 
 /// The live color assignment for a single game.
@@ -93,8 +137,10 @@ pub struct GameStartInfo {
 /// as the local player's alliances change. [`TeamColorState::colors`] reports the current per-slot
 /// colors to write into `rgb_colors`.
 pub struct TeamColorState {
-    /// Current color per BW player slot; `None` means "leave BW's original color untouched".
+    /// Current color per active player slot; `None` means "leave BW's original color untouched".
+    /// A slot that plays as another player is `None` here and reported with that player's color.
     colors: [Option<Color>; 8],
+    plays_as: [Option<u8>; 8],
     kind: StateKind,
 }
 
@@ -220,16 +266,23 @@ impl TeamColorState {
         }
     }
 
-    /// Current color for each BW player slot; `None` = leave BW's original color untouched.
+    /// Current color for each BW player slot; `None` = leave BW's original color untouched. A slot
+    /// that plays as another player reports that player's color.
     pub fn colors(&self) -> [Option<Color>; 8] {
-        self.colors
+        let mut colors = self.colors;
+        for (slot, plays_as) in self.plays_as.iter().enumerate() {
+            if let Some(main) = *plays_as {
+                colors[slot] = self.colors[main as usize];
+            }
+        }
+        colors
     }
 
     /// Applies the local player's current outgoing alliance row. Only players whose allied bit
     /// changed since the last applied state move; everyone else keeps their color. Returns whether
     /// any color changed. A no-op for observers and for a FFA context with usage `Never`.
     pub fn update_local_alliances(&mut self, allied: &[bool; 8]) -> bool {
-        let Self { colors, kind } = self;
+        let Self { colors, kind, .. } = self;
         let StateKind::Seated(state) = kind else {
             return false;
         };
@@ -290,6 +343,7 @@ impl TeamColorState {
         }
         TeamColorState {
             colors,
+            plays_as: info.plays_as,
             kind: StateKind::Seated(Box::new(SeatedState {
                 local,
                 // A team context is only chosen when usage != Never, so it always tracks changes.
@@ -362,6 +416,7 @@ impl TeamColorState {
 
         TeamColorState {
             colors,
+            plays_as: info.plays_as,
             kind: StateKind::Seated(Box::new(SeatedState {
                 local,
                 overlay_enabled,
@@ -393,6 +448,7 @@ impl TeamColorState {
             }
             return TeamColorState {
                 colors,
+                plays_as: info.plays_as,
                 kind: StateKind::Static,
             };
         }
@@ -401,6 +457,7 @@ impl TeamColorState {
         }
         TeamColorState {
             colors,
+            plays_as: info.plays_as,
             kind: StateKind::Static,
         }
     }
@@ -577,7 +634,32 @@ mod tests {
             active_players: active.to_vec(),
             local_player: local,
             initial_allies,
+            plays_as: [None; 8],
         }
+    }
+
+    /// A shared-control team game: `teams` lists each team's members by BW id, in team order, and
+    /// `mains` each team's main player. Every pair of teammates starts allied (as BW sets up team
+    /// games), with `cross_allies` added on top.
+    fn team_game_info(
+        teams: &[&[u8]],
+        mains: &[u8],
+        local: Option<u8>,
+        cross_allies: &[(u8, u8)],
+    ) -> GameStartInfo {
+        let mut active: Vec<u8> = teams.iter().flat_map(|team| team.iter().copied()).collect();
+        active.sort_unstable();
+        let mut pairs: Vec<(u8, u8)> = teams.iter().flat_map(|team| team_pairs(team)).collect();
+        pairs.extend_from_slice(cross_allies);
+        let mut player_teams = [0u8; 8];
+        for (i, team) in teams.iter().enumerate() {
+            for &p in *team {
+                player_teams[p as usize] = i as u8 + 1;
+            }
+        }
+        let mut main_players = [0xff; 4];
+        main_players[..mains.len()].copy_from_slice(mains);
+        info(&active, local, &pairs).with_shared_control_teams(player_teams, main_players)
     }
 
     /// Alliance pairs that make `members` a mutually-allied team (both directions, all pairs).
@@ -1138,5 +1220,173 @@ mod tests {
         assert_eq!(at(&c, 3), allies[2]);
         // The override never entered the allies pool (no combined shuffle, no consume).
         assert!(!allies.iter().any(|a| colors_eq(a, &col(99))));
+    }
+
+    #[test]
+    fn team_game_local_teammate_colors_whole_team_as_self() {
+        let cfg = config(ConfigArgs {
+            usage: TeamColorUsage::Always,
+            shuffle: false,
+            self_color: 1,
+            team_self_override: None,
+            allies: &[10, 11],
+            enemies: &[20, 21],
+            ffa: &[30, 31],
+            ffa_self: None,
+        });
+        // Team 1 is {1, 4} owned by 4, team 2 is {0, 6} owned by 0; the local user sits in 1.
+        let gi = team_game_info(&[&[1, 4], &[0, 6]], &[4, 0], Some(1), &[]);
+        assert_eq!(gi.active_players, vec![0, 4]);
+        assert_eq!(gi.local_player, Some(4));
+        let mut state = TeamColorState::new(cfg, &gi, 0);
+        let c = state.colors();
+        // Two teams are a 2-player team context: self for the local team, one enemy color for the
+        // other, and every teammate shows its team's color. No ally color is spent on a teammate.
+        assert_eq!(at(&c, 4), col(1));
+        assert_eq!(at(&c, 1), col(1));
+        assert_eq!(at(&c, 0), col(20));
+        assert_eq!(at(&c, 6), col(20));
+
+        // The main player's row includes its teammate; that alliance never recolors anyone.
+        let mut row = [false; 8];
+        row[1] = true;
+        assert!(!state.update_local_alliances(&row));
+        assert_eq!(state.colors(), c);
+    }
+
+    #[test]
+    fn team_game_each_teammate_sees_team_in_own_self_color() {
+        let make = |self_color| {
+            config(ConfigArgs {
+                usage: TeamColorUsage::Always,
+                shuffle: false,
+                self_color,
+                team_self_override: None,
+                allies: &[10],
+                enemies: &[20],
+                ffa: &[30],
+                ffa_self: None,
+            })
+        };
+        // Both users share team 1 ({2, 3}, owned by 3), each with their own preset.
+        for (local, self_color) in [(2, 1), (3, 2)] {
+            let gi = team_game_info(&[&[2, 3], &[0, 5]], &[3, 0], Some(local), &[]);
+            let c = TeamColorState::new(make(self_color), &gi, 0).colors();
+            assert_eq!(at(&c, 2), col(self_color));
+            assert_eq!(at(&c, 3), col(self_color));
+            assert_eq!(at(&c, 0), col(20));
+            assert_eq!(at(&c, 5), col(20));
+        }
+    }
+
+    #[test]
+    fn two_team_game_is_one_v_one_under_except_in_1v1() {
+        let cfg = config(ConfigArgs {
+            usage: TeamColorUsage::ExceptIn1v1,
+            shuffle: false,
+            self_color: 1,
+            team_self_override: None,
+            allies: &[10],
+            enemies: &[20],
+            ffa: &[30, 31],
+            ffa_self: None,
+        });
+        let gi = team_game_info(&[&[1, 4, 5], &[0, 6]], &[4, 0], Some(5), &[]);
+        let c = TeamColorState::new(cfg, &gi, 0).colors();
+        // Two teams draw FFA identity colors in main-player order, as two players would.
+        assert_eq!(at(&c, 0), col(30));
+        assert_eq!(at(&c, 6), col(30));
+        assert_eq!(at(&c, 4), col(31));
+        assert_eq!(at(&c, 1), col(31));
+        assert_eq!(at(&c, 5), col(31));
+    }
+
+    #[test]
+    fn three_team_game_mid_game_alliance_recolors_whole_team() {
+        let cfg = config(ConfigArgs {
+            usage: TeamColorUsage::Always,
+            shuffle: false,
+            self_color: 1,
+            team_self_override: None,
+            allies: &[10],
+            enemies: &[20],
+            ffa: &[30, 31, 32],
+            ffa_self: None,
+        });
+        // Teams {0, 3} (owned by 3), {1, 5} (owned by 1) and {2, 7} (owned by 2), un-allied to each
+        // other; the local user sits in 0.
+        let gi = team_game_info(&[&[0, 3], &[1, 5], &[2, 7]], &[3, 1, 2], Some(0), &[]);
+        let mut state = TeamColorState::new(cfg, &gi, 0);
+        let c = state.colors();
+        // Three un-allied teams are a FFA between three players.
+        assert_eq!(at(&c, 1), col(30));
+        assert_eq!(at(&c, 5), col(30));
+        assert_eq!(at(&c, 2), col(31));
+        assert_eq!(at(&c, 7), col(31));
+        assert_eq!(at(&c, 3), col(32));
+        assert_eq!(at(&c, 0), col(32));
+
+        // The local team allies team {1, 5}: its main player's row gains 1 (beside teammate 0).
+        let mut row = [false; 8];
+        row[0] = true;
+        row[1] = true;
+        assert!(state.update_local_alliances(&row));
+        let c = state.colors();
+        assert_eq!(at(&c, 1), col(10));
+        assert_eq!(at(&c, 5), col(10));
+        assert_eq!(at(&c, 2), col(31));
+        assert_eq!(at(&c, 7), col(31));
+
+        // Un-allying returns the whole team to its identity color.
+        row[1] = false;
+        assert!(state.update_local_alliances(&row));
+        let c = state.colors();
+        assert_eq!(at(&c, 1), col(30));
+        assert_eq!(at(&c, 5), col(30));
+    }
+
+    #[test]
+    fn observer_two_team_game_colors_each_team_once() {
+        let make = |usage| {
+            config(ConfigArgs {
+                usage,
+                shuffle: false,
+                self_color: 1,
+                team_self_override: None,
+                allies: &[10, 11],
+                enemies: &[20, 21],
+                ffa: &[30, 31],
+                ffa_self: None,
+            })
+        };
+        let gi = team_game_info(&[&[2, 5, 6], &[0, 7]], &[5, 0], None, &[]);
+
+        // The team owned by the lowest slot takes the friendly lead color, the other team the first
+        // enemy color, and teammates never draw further pool entries.
+        let c = TeamColorState::new(make(TeamColorUsage::Always), &gi, 0).colors();
+        assert_eq!(at(&c, 0), col(1));
+        assert_eq!(at(&c, 7), col(1));
+        assert_eq!(at(&c, 5), col(20));
+        assert_eq!(at(&c, 2), col(20));
+        assert_eq!(at(&c, 6), col(20));
+
+        // Under ExceptIn1v1 the two teams are a 1v1 and take FFA identity colors.
+        let c = TeamColorState::new(make(TeamColorUsage::ExceptIn1v1), &gi, 0).colors();
+        assert_eq!(at(&c, 0), col(30));
+        assert_eq!(at(&c, 7), col(30));
+        assert_eq!(at(&c, 5), col(31));
+        assert_eq!(at(&c, 2), col(31));
+        assert_eq!(at(&c, 6), col(31));
+    }
+
+    #[test]
+    fn shared_control_teams_keep_players_without_a_main_player() {
+        // Team 2's main player slot is unset, so its members stay separate players.
+        let gi = team_game_info(&[&[0, 1], &[2, 3]], &[1, 0xff], Some(3), &[]);
+        assert_eq!(gi.active_players, vec![1, 2, 3]);
+        assert_eq!(gi.local_player, Some(3));
+        assert_eq!(gi.plays_as[0], Some(1));
+        assert_eq!(gi.plays_as[2], None);
+        assert_eq!(gi.plays_as[3], None);
     }
 }

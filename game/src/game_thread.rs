@@ -611,15 +611,19 @@ pub unsafe fn after_init_game_data() {
         }
 
         // Randomize base player colors for melee/non-UMS live games: BW's own game-start path skips
-        // its randomize call for SB sessions, so slots stay deterministic slot-order colors. The
-        // lobby setup already marked every playing slot "random"; run the randomizer now (game init
-        // has set the synced RNG seed) so it fills rgb_colors, and switch use_rgb_colors on so those
-        // colors render. UMS keeps its map-defined colors and replays play back recorded colors, so
-        // both are left untouched. Runs before init_team_colors so the custom-color engine snapshots
-        // this randomized baseline, not slot-order colors.
+        // its randomize call for SB sessions, so slots stay deterministic slot-order colors. Every
+        // slot is marked "random" (by the melee lobby setup, or by the randomize helper in team
+        // games); run the randomizer now (game init has set the synced RNG seed) so it fills
+        // rgb_colors, and switch use_rgb_colors on so those colors render. UMS keeps its map-defined
+        // colors and replays play back recorded colors, so both are left untouched. Runs before
+        // init_team_colors so the custom-color engine snapshots this randomized baseline, not
+        // slot-order colors.
         if !is_ums() && !is_replay() {
             bw.randomize_base_player_colors();
         }
+        // A shared-control team plays as one player, so all of its members' slots show one color.
+        // Also before init_team_colors, whose snapshot is the baseline its non-preset modes restore.
+        bw.share_team_colors();
 
         // Now that alliances are finalized, build the custom team-color assignment (a no-op unless
         // the feature is active). Must run before the minimap dialog inits so colors are correct
