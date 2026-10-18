@@ -1,6 +1,6 @@
 import { ChannelPermissions, SbChannelId } from '../../common/chat'
 import { GameRecordJson } from '../../common/games/games'
-import { ClientLeagueUserChangeJson, LeagueJson } from '../../common/leagues/leagues'
+import { ClientLeagueUserChangeJson, LeagueId, LeagueJson } from '../../common/leagues/leagues'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { SbMapId } from '../../common/maps'
 import {
@@ -45,6 +45,7 @@ export enum DialogType {
   JoinCode = 'joinCode',
   LaunchingGame = 'launchingGame',
   LeagueExplainer = 'leagueExplainer',
+  LeaveLeague = 'leaveLeague',
   LobbyLeaveAndCreate = 'lobbyLeaveAndCreate',
   LobbyLeaveAndJoin = 'lobbyLeaveAndJoin',
   MapDetails = 'mapDetails',
@@ -274,6 +275,15 @@ type GameDefaultsFirstRunDialogPayload = BaseDialogPayload<typeof DialogType.Gam
 type JoinCodeDialogPayload = BaseDialogPayload<typeof DialogType.JoinCode>
 type LaunchingGameDialogPayload = BaseDialogPayload<typeof DialogType.LaunchingGame>
 type LeagueExplainerDialogPayload = BaseDialogPayload<typeof DialogType.LeagueExplainer>
+
+type LeaveLeagueDialogPayload = BaseDialogPayload<
+  typeof DialogType.LeaveLeague,
+  {
+    leagueId: LeagueId
+    userId?: SbUserId
+    onRemoved: () => void
+  }
+>
 type LobbyLeaveAndCreateDialogPayload = BaseDialogPayload<
   typeof DialogType.LobbyLeaveAndCreate,
   {
@@ -474,6 +484,7 @@ export type DialogPayload =
   | JoinCodeDialogPayload
   | LaunchingGameDialogPayload
   | LeagueExplainerDialogPayload
+  | LeaveLeagueDialogPayload
   | LobbyLeaveAndCreateDialogPayload
   | LobbyLeaveAndJoinDialogPayload
   | MapDetailsDialogPayload

@@ -116,6 +116,29 @@ export function getLeagueLeaderboard(
   })
 }
 
+export function leaveLeague(id: LeagueId, spec: RequestHandlingSpec<void>): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    await fetchJson(apiUrl`leagues/${id}/membership`, { method: 'DELETE', signal: spec.signal })
+    dispatch({ type: '@leagues/leave', payload: { leagueId: id } })
+  })
+}
+
+export function adminRemoveLeagueUser(
+  leagueId: LeagueId,
+  userId: SbUserId,
+  spec: RequestHandlingSpec<void>,
+): ThunkAction {
+  return abortableThunk(spec, async (dispatch, getState) => {
+    await fetchJson(apiUrl`admin/leagues/${leagueId}/users/${userId}`, {
+      method: 'DELETE',
+      signal: spec.signal,
+    })
+    if (getState().auth.self?.user.id === userId) {
+      dispatch({ type: '@leagues/leave', payload: { leagueId } })
+    }
+  })
+}
+
 export function getLeagueGames(
   id: LeagueId,
   params: GetGamesQueryParams,

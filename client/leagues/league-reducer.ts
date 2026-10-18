@@ -58,6 +58,10 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     state.byId.set(league.id, league)
   },
 
+  ['@leagues/leave'](state, { payload: { leagueId } }) {
+    state.selfLeagues.delete(leagueId)
+  },
+
   ['@auth/loadCurrentSession']() {
     return DEFAULT_STATE
   },

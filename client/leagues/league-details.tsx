@@ -20,12 +20,14 @@ import { SbUserId } from '../../common/users/sb-user-id'
 import { useTrackPageView } from '../analytics/analytics'
 import { redirectToLogin, useIsLoggedIn, useSelfPermissions } from '../auth/auth-utils'
 import { ConnectedAvatar } from '../avatars/avatar'
+import { openDialog } from '../dialogs/action-creators'
+import { DialogType } from '../dialogs/dialog-type'
 import { longTimestamp, monthDay, narrowDuration } from '../i18n/date-formats'
 import { useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import logger from '../logging/logger'
 import { Markdown } from '../markdown/markdown'
-import { FilledButton, IconButton } from '../material/button'
+import { FilledButton, IconButton, TextButton } from '../material/button'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
@@ -259,6 +261,14 @@ export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
   const curTime = useNow(60_000)
 
   const [isJoining, setIsJoining] = useState(false)
+  const [membershipRevision, setMembershipRevision] = useState(0)
+  const onLeaveClick = () =>
+    dispatch(
+      openDialog({
+        type: DialogType.LeaveLeague,
+        initData: { leagueId: id, onRemoved: () => setMembershipRevision(r => r + 1) },
+      }),
+    )
   const onJoinClick = useStableCallback(() => {
     if (!isLoggedIn) {
       redirectToLogin()
@@ -372,7 +382,9 @@ export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
       content = <LeagueDetailsInfo league={league} />
       break
     case DetailsSubPage.Leaderboard:
-      content = <Leaderboard league={league} container={container} />
+      content = (
+        <Leaderboard key={`${id}:${membershipRevision}`} league={league} container={container} />
+      )
       break
     case DetailsSubPage.Games:
       content = <LeagueGames key={id} leagueId={id} scrollParent={container} />
@@ -406,6 +418,9 @@ export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
               <></>
             )}
           </Tabs>
+          {selfLeagueUser && league.endAt > curTime ? (
+            <TextButton label={t('leagues.leave.action', 'Leave league')} onClick={onLeaveClick} />
+          ) : null}
           {(isJoinable || selfLeagueUser) && (!isFetching || selfLeagueUser) ? (
             <FilledButton
               label={joinButtonLabel}
@@ -776,6 +791,24 @@ function Leaderboard({
     )
   }
 
+  const onRemoveUserClick = (userId: SbUserId) => {
+    dispatch(
+      openDialog({
+        type: DialogType.LeaveLeague,
+        initData: {
+          leagueId: id,
+          userId,
+          onRemoved() {
+            setLeaderboard(current => current?.filter(id => id !== userId))
+            setLeaderboardUsers(draft => {
+              draft.delete(userId)
+            })
+          },
+        },
+      }),
+    )
+  }
+
   const leaderboardEntries = useMemo(() => {
     const result: LeaderboardEntry[] = []
     if (!leaderboard || !leaderboardUsers) {
@@ -804,6 +837,7 @@ function Leaderboard({
       curTime={curTime}
       onBanUserClick={onBanUserClick}
       onUnbanUserClick={onUnbanUserClick}
+      onRemoveUserClick={onRemoveUserClick}
     />
   ))
 
@@ -881,11 +915,13 @@ const LeaderboardRow = React.memo(
     curTime,
     onBanUserClick,
     onUnbanUserClick,
+    onRemoveUserClick,
   }: {
     entry: LeaderboardEntry
     curTime: number
     onBanUserClick: (userId: SbUserId) => void
     onUnbanUserClick: (userId: SbUserId) => void
+    onRemoveUserClick: (userId: SbUserId) => void
   }) => {
     const { t } = useTranslation()
     const longTimestampFormat = useFormat(longTimestamp)
@@ -947,6 +983,14 @@ const LeaderboardRow = React.memo(
                 originX='right'
                 originY='top'>
                 <MenuList>
+                  <MenuItem
+                    key='remove'
+                    text={t('leagues.remove.action', 'Remove from league')}
+                    onClick={() => {
+                      closeOverlay()
+                      onRemoveUserClick(leagueUser.userId)
+                    }}
+                  />
                   {leagueUser.isBanned ? (
                     <MenuItem
                       key='unban'

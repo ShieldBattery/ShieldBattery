@@ -32,7 +32,7 @@ import { ALL_MATCHMAKING_TYPES } from '../../../common/matchmaking'
 import { NotificationType } from '../../../common/notifications'
 import { Patch } from '../../../common/patch'
 import { SbUserId } from '../../../common/users/sb-user-id'
-import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
+import transact from '../db/transaction'
 import { CodedError, makeErrorConverterMiddleware } from '../errors/coded-error'
 import { asHttpError } from '../errors/error-with-payload'
 import { writeFile } from '../files'
@@ -41,7 +41,7 @@ import { createImagePath, resizeImage } from '../files/images'
 import { GET_GAMES_QUERY_SCHEMA, getGameListSideData } from '../games/game-list-data'
 import { getGames } from '../games/game-models'
 import { httpApi, httpBeforeAll } from '../http/http-api'
-import { httpBefore, httpGet, httpPatch, httpPost } from '../http/route-decorators'
+import { httpBefore, httpDelete, httpGet, httpPatch, httpPost } from '../http/route-decorators'
 import NotificationService from '../notifications/notification-service'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import { Redis } from '../redis/redis'
@@ -52,7 +52,7 @@ import throttleMiddleware, { throttleByUserOrIp } from '../throttle/middleware'
 import { findUsersById } from '../users/user-model'
 import { validateRequest } from '../validation/joi-validator'
 import { json } from '../validation/json-validator'
-import { getLeaderboard } from './leaderboard'
+import { getLeaderboard, updateLeaderboards } from './leaderboard'
 import {
   adminGetAllLeagues,
   adminGetLeague,
@@ -67,6 +67,7 @@ import {
   getPastLeagues,
   joinLeagueForUser,
   LeagueUser,
+  leaveLeagueForUser,
   unbanLeagueUser,
   updateLeague,
 } from './league-models'
@@ -109,6 +110,13 @@ const leagueGamesListThrottle = createThrottle('leaguegames', {
   burst: 40,
   window: 60000,
 })
+
+async function removeLeagueUser(redis: Redis, leagueId: LeagueId, userId: SbUserId) {
+  await transact(async client => {
+    await leaveLeagueForUser(leagueId, userId, client)
+    await updateLeaderboards(redis, [{ leagueId, userId }], client)
+  })
+}
 
 @httpApi('/leagues/')
 @httpBeforeAll(convertLeagueApiErrors)
@@ -242,10 +250,11 @@ export class LeagueApi {
       leaderboard.length > 0 ? findUsersById(leaderboard) : [],
       leaderboard.length > 0 ? getManyLeagueUsers(leagueId, leaderboard) : [],
     ])
+    const activeUserIds = new Set(leagueUsers.map(lu => lu.userId))
 
     return {
       league: toLeagueJson(league),
-      leaderboard,
+      leaderboard: leaderboard.filter(id => activeUserIds.has(id)),
       leagueUsers: leagueUsers.map(lu => toClientLeagueUserJson(lu)),
       users,
     }
@@ -264,24 +273,26 @@ export class LeagueApi {
       throw new LeagueApiError(LeagueErrorCode.AlreadyEnded, 'league already ended')
     }
 
-    let selfLeagueUser: LeagueUser | undefined
-    try {
-      selfLeagueUser = await joinLeagueForUser(leagueId, ctx.session!.user.id)
-    } catch (err: any) {
-      if (err.code === UNIQUE_VIOLATION) {
-        selfLeagueUser = await getLeagueUser(leagueId, ctx.session!.user.id)
-      }
-    }
-
-    if (!selfLeagueUser) {
-      // This should never really happen, so we don't use an error code for it
-      throw new Error('League was joined but no LeagueUser was returned')
-    }
+    const selfLeagueUser = await joinLeagueForUser(leagueId, ctx.session!.user.id)
 
     return {
       league: toLeagueJson(league),
       selfLeagueUser: toClientLeagueUserJson(selfLeagueUser),
     }
+  }
+
+  @httpDelete('/:leagueId/membership')
+  @httpBefore(ensureLoggedIn)
+  async leaveLeague(ctx: RouterContext): Promise<void> {
+    const leagueId = leagueIdFromUrl(ctx)
+    const now = new Date()
+    const league = await getLeague(leagueId, now)
+    if (!league) {
+      throw new LeagueApiError(LeagueErrorCode.NotFound, 'league not found')
+    } else if (league.endAt <= now) {
+      throw new LeagueApiError(LeagueErrorCode.AlreadyEnded, 'league already ended')
+    }
+    await removeLeagueUser(this.redis, leagueId, ctx.session!.user.id)
   }
 }
 
@@ -291,6 +302,7 @@ export class LeagueAdminApi {
   constructor(
     private notificationService: NotificationService,
     private leagueStartNotifier: LeagueStartNotifier,
+    private redis: Redis,
   ) {}
 
   @httpGet('/')
@@ -559,6 +571,22 @@ export class LeagueAdminApi {
         leagueName: league.name,
       },
     })
+  }
+
+  @httpDelete('/:leagueId/users/:userId')
+  async removeUserFromLeague(ctx: RouterContext): Promise<void> {
+    const {
+      params: { leagueId, userId },
+    } = validateRequest(ctx, {
+      params: Joi.object<{ leagueId: LeagueId; userId: SbUserId }>({
+        leagueId: Joi.string().uuid().required(),
+        userId: Joi.number().integer().min(1).required(),
+      }),
+    })
+    if (!(await adminGetLeague(leagueId))) {
+      throw new LeagueApiError(LeagueErrorCode.NotFound, 'league not found')
+    }
+    await removeLeagueUser(this.redis, leagueId, userId)
   }
 
   @httpPatch('/:leagueId/:userId/unban')
