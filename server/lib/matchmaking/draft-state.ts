@@ -31,6 +31,28 @@ function getShuffledAnonymizedNames(numPlayers: number): AnonymizedNameIndex[] {
   return names.slice(0, numPlayers)
 }
 
+/**
+ * Creates a snake pick order (A0 B0 B1 A1 A2 B2 ...) for two teams of `teamSize` players. Races
+ * aren't exclusive, so the only advantage a later pick has is seeing more of the opposing team's
+ * races; the lower-rated team is given the final pick as a handicap. With an even team size the
+ * team that picks first also picks last, so which team leads depends on the team size.
+ */
+export function createSnakePickOrder(
+  teamSize: number,
+  lowerRatedTeam: number,
+): Array<{ team: number; slot: number }> {
+  const higherRatedTeam = lowerRatedTeam === 0 ? 1 : 0
+  const firstTeam = teamSize % 2 === 0 ? lowerRatedTeam : higherRatedTeam
+  const secondTeam = firstTeam === 0 ? 1 : 0
+
+  const pickOrder: Array<{ team: number; slot: number }> = []
+  for (let slot = 0; slot < teamSize; slot++) {
+    const [leading, trailing] = slot % 2 === 0 ? [firstTeam, secondTeam] : [secondTeam, firstTeam]
+    pickOrder.push({ team: leading, slot }, { team: trailing, slot })
+  }
+  return pickOrder
+}
+
 export class DraftState {
   private teams: DraftTeam[]
   private pickOrder: Array<{ team: number; slot: number }>
@@ -66,19 +88,9 @@ export class DraftState {
       getShuffledAnonymizedNames(this.teams[1].players.length),
     ]
 
-    // Determine pick order: team with lowest effective rating goes last
-    const teamEffectiveRatings = matchTeams.map((team, index) => ({
-      index,
-      effectiveRating: calcEffectiveRating(team),
-    }))
-    const sortedTeams = teamEffectiveRatings.sort((a, b) => b.effectiveRating - a.effectiveRating)
-
-    // Create pick order alternating between teams: A0 B0 A1 B1 ...
-    this.pickOrder = []
-    for (let i = 0; i < this.teams[0].players.length; i++) {
-      this.pickOrder.push({ team: sortedTeams[0].index, slot: i })
-      this.pickOrder.push({ team: sortedTeams[1].index, slot: i })
-    }
+    const lowerRatedTeam =
+      calcEffectiveRating(matchTeams[0]) < calcEffectiveRating(matchTeams[1]) ? 0 : 1
+    this.pickOrder = createSnakePickOrder(this.teams[0].players.length, lowerRatedTeam)
 
     this.cleanupSubscriptions = this.setupSubscriptions(activeClients)
 
