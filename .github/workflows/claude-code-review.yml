@@ -39,6 +39,9 @@ jobs:
           # master. Check out the PR's merge ref instead — the same ref automatic
           # pull_request runs check out — so Claude reads the PR's actual files.
           ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/pull/{0}/merge', inputs.pr_number) || '' }}
+          # Claude can read .git/config, and the review only needs local git commands, so don't
+          # leave the job token in it.
+          persist-credentials: false
 
       # The action's bundled Claude Code (2.1.278) predates Opus 5.5, which needs 2.1.280+.
       # Drop this step and `path_to_claude_code_executable` once the action ships a newer CLI.
@@ -54,6 +57,9 @@ jobs:
           # A headless run ends when Claude's turn does, killing any subagent still running in
           # the background before its findings come back, so subagents run in the foreground.
           CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: '1'
+          # Strips credentials other than GitHub tokens (e.g. the Claude OAuth token) from the
+          # environments of the Bash commands, hooks, and MCP servers Claude starts.
+          CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: '1'
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           path_to_claude_code_executable: /home/runner/.local/bin/claude
@@ -63,8 +69,8 @@ jobs:
             PR NUMBER: ${{ github.event.pull_request.number || github.event.inputs.pr_number }}
 
             Review this pull request. The PR branch is already checked out. Project conventions
-            live in CLAUDE.md / AGENTS.md (loaded automatically); a clear violation of them is
-            reportable.
+            live in AGENTS.md (and game/AGENTS.md for changes under game/); read them before
+            reviewing. A clear violation of them is reportable.
 
             ## Status reaction
 
@@ -166,7 +172,12 @@ jobs:
               comment a single short line confirming you reviewed the new commits and
               noting what's still open
 
+          # The checked-out tree is the PR author's (for fork PRs via workflow_dispatch, an
+          # untrusted one), so its project and local settings must not load: they can define
+          # hooks that run shell commands with this job's credentials. This also skips CLAUDE.md
+          # and AGENTS.md auto-loading, which is why the prompt has Claude read AGENTS.md itself.
           claude_args: |
+            --setting-sources user
             --allowedTools "Read,Glob,Grep,WebFetch,mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh issue view:*),Bash(gh api:*),Bash(git log:*),Bash(git diff:*),Bash(git blame:*)"
             --model "claude-opus-5-5"
             --effort high
