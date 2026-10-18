@@ -11,6 +11,7 @@ use serde::Deserialize;
 use serde_repr::Deserialize_repr;
 use winapi::shared::minwindef::{ATOM, FALSE, HINSTANCE};
 use winapi::shared::windef::{HDC, HMENU, HMONITOR, HWND, POINT, RECT};
+use winapi::um::winbase::{INFINITE, WAIT_FAILED};
 use winapi::um::wingdi::DEVMODEW;
 use winapi::um::winuser::*;
 
@@ -452,6 +453,9 @@ static FORGE_INITED: AtomicBool = AtomicBool::new(false);
 static STOP_MESSAGE_PUMP: AtomicBool = AtomicBool::new(false);
 static USING_PROCESS_EVENTS_DISPATCH: AtomicBool = AtomicBool::new(false);
 static IN_SIZE_MOVE_MENU_LOOP: AtomicBool = AtomicBool::new(false);
+/// Set once SC:R's game loop takes over pumping messages, at the same time the loading screen's
+/// draw timer stops; see [`peek_message_w`].
+static GAME_LOOP_PUMPING: AtomicBool = AtomicBool::new(false);
 
 fn with_forge<F: FnOnce(&mut Forge) -> R, R>(func: F) -> R {
     let thread_id = unsafe { winapi::um::processthreadsapi::GetCurrentThreadId() as usize };
@@ -611,6 +615,12 @@ fn non_activating_show_command(show: i32) -> Option<i32> {
 /// any are queued can't be asked cheaply: Windows only sorts input into the queue status bits
 /// when a `PeekMessage` scans that far.
 ///
+/// The limit only applies once SC:R's game loop pumps messages, since it pumps again every frame.
+/// Before that, the loading screen redraws on [`DRAW_TIMER_ID`], and Windows returns `WM_TIMER`
+/// only after every other queued message, so an ended drain leaves the redraw queued behind the
+/// mouse move. Wine signals an expired timer only once until it's removed, so the loading pump
+/// would then sleep through every later redraw.
+///
 /// Also records each mouse message it removes for [`wnd_proc_scr`] to report the message's own
 /// cursor position while SC:R handles it.
 fn peek_message_w(
@@ -624,7 +634,8 @@ fn peek_message_w(
     let removing = remove & PM_REMOVE != 0;
     let can_return_mouse_move =
         (filter_min == 0 && filter_max == 0) || (filter_min..=filter_max).contains(&WM_MOUSEMOVE);
-    let limit_drain = removing && can_return_mouse_move;
+    let limit_drain =
+        removing && can_return_mouse_move && GAME_LOOP_PUMPING.load(Ordering::Relaxed);
     if limit_drain && MOUSE_MOVE_DRAINED.get() && DRAIN_PEEKING.get() >= MAX_MOUSE_MOVE_DRAIN {
         MOUSE_MOVE_DRAINED.set(false);
         DRAIN_PEEKING.set(Duration::ZERO);
@@ -1075,8 +1086,16 @@ pub unsafe fn run_wnd_proc() {
         // Wait for there to be messages in the queue, then tell SC:R to process events so it will
         // dispatch them. We do this because we need to call `process_events` anyway (for things
         // like sound playback), and it calls through to `PeekMessageW` anyway.
-        'outer: while MsgWaitForMultipleObjects(0, null_mut(), FALSE, u32::MAX, QS_ALLINPUT)
-            != u32::MAX
+        //
+        // MWMO_INPUTAVAILABLE also wakes for messages a previous drain left queued; without it, the
+        // wait only returns for messages that arrived since the queue was last checked.
+        'outer: while MsgWaitForMultipleObjectsEx(
+            0,
+            null_mut(),
+            INFINITE,
+            QS_ALLINPUT,
+            MWMO_INPUTAVAILABLE,
+        ) != WAIT_FAILED
         {
             let mut msg: MSG = mem::zeroed();
             let mut done = PeekMessageW(
@@ -1183,6 +1202,7 @@ pub fn start_process_events_dispatch() {
 }
 
 pub fn game_started() {
+    GAME_LOOP_PUMPING.store(true, Ordering::Relaxed);
     let handle = with_forge(|forge| forge.window.as_ref().map(|s| s.handle));
     if let Some(handle) = handle {
         unsafe {
