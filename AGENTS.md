@@ -229,40 +229,8 @@ The game DLL is the primary actor for in-game operations (result reporting, repl
 
 ## Game DLL (Rust)
 
-Two code paths:
-
-- **Async** (Tokio): `async_thread` entry, networking/server communication
-- **Sync** (BW hooks): `patch_game` entry, executes in StarCraft's code
-
-Build: 64-bit default, 32-bit via `game\build.bat x86`
-
-**Game code must work on both architectures (i686 and x86_64).** Both are shipped/built targets, so
-a change is not done until it builds and behaves on both. Watch for arch-specific assumptions:
-struct field offsets and sizes (pointers are 4 vs 8 bytes — gate them with `#[cfg(target_arch)]`
-and a `size_of` assertion per arch, as `StormSessionPlayer` in `bw_scr/scr.rs` does), any hardcoded
-absolute address or memory-layout offset, and pointer-width casts. Prefer arch-agnostic sources
-(samase_scarf resolves globals/functions/some offsets per-arch) over hardcoding; when an offset must
-be hardcoded, it needs a verified value for _each_ arch, not one guessed from the other. Don't add a
-`cfg!(target_arch = "x86_64")` bail-out to dodge the work — verify the 64-bit values instead.
-
-**Always rebuild via `game\build.bat`, never a bare `cargo build`.** The app injects
-`game/dist/shieldbattery_64.dll` (or `shieldbattery.dll` with the `launch32Bit` setting; see
-`app/game/active-game-manager.ts`), and only `build.bat` copies
-the freshly compiled DLL from `target/` into `dist/`. A bare `cargo build` updates `target/` but
-leaves `dist/` stale, so a launched game silently runs the _old_ DLL — a change appears to have no
-effect (or to "fail" in a way that doesn't match the source). If a game-launch test contradicts
-your code, suspect a stale `dist/` DLL first.
-
-Lint: `cargo clippy --all-targets --workspace -- -D warnings` (code should be warning-free) AND
-`cargo fmt --all -- --check` — CI runs fmt as a separate job, so clippy passing doesn't cover it.
-Don't silence clippy with `#[allow]`; restructure so the lint doesn't fire (an allow needs a
-genuinely exceptional justification, commented in the code's own terms).
-
-**`game/scr-analysis` is a thin wrapper, not the analysis itself.** It exists to keep compile
-times fast (samase_scarf's macro-heavy code compiles once, optimized, in its own crate) and only
-wraps the `Analysis` methods the game crate actually uses. Before deciding a binary analysis is
-"missing," check the pinned samase_scarf rev's `Analysis` API — if it's there, the fix is a
-one-line wrapper method in `scr-analysis/src/lib.rs`, not new analysis work.
+Read `game/AGENTS.md` before working in `game/`. It holds the DLL's build, architecture, and lint
+rules.
 
 ## Electron App
 

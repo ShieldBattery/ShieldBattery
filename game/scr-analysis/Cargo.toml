@@ -2,6 +2,8 @@
 name = "scr-analysis"
 version = "0.1.0"
 edition = "2024"
+license = "MIT"
+repository = "https://github.com/ShieldBattery/ShieldBattery"
 
 [dependencies.samase_scarf]
 git = "https://github.com/tec27/samase_scarf.git"

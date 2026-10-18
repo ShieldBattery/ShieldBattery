@@ -66,3 +66,8 @@ The following files contain BW-side code:
 - `storm.rs` Helper code for calling the few Storm functions we use.
 - `windows.rs` Miscellaneous helper functions for calling Windows APIs. Though usually it is not
   worth it to wrap every one-off Winapi function in a nicer interface.
+
+## License
+
+MIT, see `LICENSE`. The copyright and permission notice must be kept in all copies or substantial
+portions of this code, including compiled builds of the DLL.
