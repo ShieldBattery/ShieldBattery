@@ -418,7 +418,7 @@ export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
               <></>
             )}
           </Tabs>
-          {selfLeagueUser ? (
+          {selfLeagueUser && league.endAt > curTime ? (
             <TextButton label={t('leagues.leave.action', 'Leave league')} onClick={onLeaveClick} />
           ) : null}
           {(isJoinable || selfLeagueUser) && (!isFetching || selfLeagueUser) ? (

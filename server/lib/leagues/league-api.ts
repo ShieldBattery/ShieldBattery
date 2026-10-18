@@ -285,8 +285,12 @@ export class LeagueApi {
   @httpBefore(ensureLoggedIn)
   async leaveLeague(ctx: RouterContext): Promise<void> {
     const leagueId = leagueIdFromUrl(ctx)
-    if (!(await getLeague(leagueId, new Date()))) {
+    const now = new Date()
+    const league = await getLeague(leagueId, now)
+    if (!league) {
       throw new LeagueApiError(LeagueErrorCode.NotFound, 'league not found')
+    } else if (league.endAt <= now) {
+      throw new LeagueApiError(LeagueErrorCode.AlreadyEnded, 'league already ended')
     }
     await removeLeagueUser(this.redis, leagueId, ctx.session!.user.id)
   }

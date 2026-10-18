@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LeagueId } from '../../common/leagues/leagues'
+import { LeagueErrorCode, LeagueId } from '../../common/leagues/leagues'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { closeDialog } from '../dialogs/action-creators'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
@@ -8,6 +8,7 @@ import { DialogType } from '../dialogs/dialog-type'
 import logger from '../logging/logger'
 import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
+import { isFetchError } from '../network/fetch-errors'
 import { useAppDispatch } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { BodyLarge } from '../styles/typography'
@@ -43,7 +44,12 @@ export function LeaveLeagueDialog({
       onError(err: Error) {
         setIsRemoving(false)
         snackbar.showSnackbar(
-          t('leagues.leave.error', 'Could not remove league membership. Please try again.'),
+          isFetchError(err) && err.code === LeagueErrorCode.AlreadyEnded
+            ? t(
+                'leagues.leave.alreadyEnded',
+                'You can no longer leave this league because it has ended.',
+              )
+            : t('leagues.leave.error', 'Could not remove league membership. Please try again.'),
         )
         logger.error(`Error removing league membership: ${String(err.stack ?? err)}`)
       },

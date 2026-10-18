@@ -1624,6 +1624,7 @@
     },
     "leave": {
       "action": "Leave league",
+      "alreadyEnded": "You can no longer leave this league because it has ended.",
       "confirm": "You will be removed from the leaderboard and forfeit all your league points and stats. You can rejoin before the league ends, starting from zero. Any league ban will still apply.",
       "error": "Could not remove league membership. Please try again.",
       "success": "League left"
