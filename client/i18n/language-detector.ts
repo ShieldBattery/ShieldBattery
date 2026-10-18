@@ -11,15 +11,21 @@ import { ALL_TRANSLATION_LANGUAGES, TranslationLanguage } from '../../common/i18
  *    script is inferred from CLDR's likely subtags: `zh-CN` is written in Simplified characters,
  *    while `zh-TW` and `zh-HK` are written in Traditional ones and don't match `zh-Hans`.
  *  - a supported language that is just the given language without its region (`es-MX` -> `es`).
+ *
+ * A bare language (`zh`) takes its script from an earlier entry for the same language, if there is
+ * one. Browsers append the bare form after a regional preference (`zh-TW, zh, en-US, en`), and
+ * there it means the same Traditional Chinese, not CLDR's default of Simplified.
  */
 export function getBestLanguage(
   languages = navigator.languages,
   supportedLanguages: string[] = ALL_TRANSLATION_LANGUAGES as string[],
 ) {
   const lowerCaseSupportedLanguages = supportedLanguages.map(l => l.toLowerCase())
+  /** The script of the first entry seen for each language, keyed by lowercase language. */
+  const scriptByLanguage = new Map<string, string>()
 
   for (const lng of languages) {
-    for (const candidate of candidatesFor(lng)) {
+    for (const candidate of candidatesFor(lng, scriptByLanguage)) {
       const lngIndex = lowerCaseSupportedLanguages.indexOf(candidate)
       if (lngIndex > -1) {
         return supportedLanguages[lngIndex]
@@ -30,14 +36,26 @@ export function getBestLanguage(
   return TranslationLanguage.English
 }
 
-/** The lowercase tags a given language could match, most specific first. */
-function candidatesFor(lng: string): string[] {
+/**
+ * The lowercase tags a given language could match, most specific first. Records the language's
+ * script in `scriptByLanguage` for later bare entries of the same language.
+ */
+function candidatesFor(lng: string, scriptByLanguage: Map<string, string>): string[] {
   const lowerCaseLanguage = lng.toLowerCase()
+  let locale: Intl.Locale
   try {
-    const { language, script } = new Intl.Locale(lng).maximize()
-    return [lowerCaseLanguage, `${language}-${script}`.toLowerCase(), language.toLowerCase()]
+    locale = new Intl.Locale(lng)
   } catch {
     // Not a valid BCP 47 tag, so there's no script to infer
     return [lowerCaseLanguage, lowerCaseLanguage.split('-', 1)[0]]
   }
+
+  const language = locale.language.toLowerCase()
+  const isBare = !locale.script && !locale.region
+  const script = (isBare && scriptByLanguage.get(language)) || (locale.maximize().script ?? '')
+  if (!scriptByLanguage.has(language)) {
+    scriptByLanguage.set(language, script)
+  }
+
+  return [lowerCaseLanguage, `${language}-${script}`.toLowerCase(), language]
 }

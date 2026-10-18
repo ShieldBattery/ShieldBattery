@@ -48,6 +48,25 @@ describe('client/i18n/language-detector', () => {
     )
   })
 
+  test('a bare Chinese entry keeps the script of an earlier regional one', () => {
+    // How Chrome reports a Taiwanese user's languages: the bare form follows the regional one
+    expect(getBestLanguage(['zh-TW', 'zh', 'en-US', 'en'], SUPPORTED_LANGUAGES)).toBe(
+      TranslationLanguage.English,
+    )
+    expect(getBestLanguage(['zh-HK', 'zh', 'ko'], SUPPORTED_LANGUAGES)).toBe(
+      TranslationLanguage.Korean,
+    )
+    expect(getBestLanguage(['zh-CN', 'zh', 'en'], SUPPORTED_LANGUAGES)).toBe(
+      TranslationLanguage.ChineseSimplified,
+    )
+  })
+
+  test('a bare Chinese entry listed first means Simplified Chinese', () => {
+    expect(getBestLanguage(['zh', 'zh-TW'], SUPPORTED_LANGUAGES)).toBe(
+      TranslationLanguage.ChineseSimplified,
+    )
+  })
+
   test('matches tags regardless of case', () => {
     expect(getBestLanguage(['ZH-hans-cn'], SUPPORTED_LANGUAGES)).toBe(
       TranslationLanguage.ChineseSimplified,
