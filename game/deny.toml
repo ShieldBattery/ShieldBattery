@@ -1,0 +1,31 @@
+# cargo-deny config, used by CI to keep the game DLL's dependencies on licenses we can ship. Keep the
+# allowlist in sync with `accepted` in about.toml, which generates the DLL's license notices.
+[graph]
+targets = ["i686-pc-windows-msvc", "x86_64-pc-windows-msvc"]
+exclude-dev = true
+
+[licenses]
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "ISC",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "Zlib",
+    "0BSD",
+    "Unlicense",
+    "Unicode-3.0",
+    "MPL-2.0",
+    "CDLA-Permissive-2.0",
+    "OFL-1.1",
+    "Ubuntu-font-1.0",
+]
+private = { ignore = true }
+
+# bw_dat lives in a subdirectory of the aise repo, whose license is only at the repo root.
+[[licenses.clarify]]
+crate = "bw_dat"
+expression = "Apache-2.0"
+license-files = [
+    { path = "../LICENSE", hash = 0x3e961b13 },
+]

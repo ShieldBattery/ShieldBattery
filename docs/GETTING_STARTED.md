@@ -61,6 +61,13 @@ cargo install sqlx-cli
 cargo install typeshare-cli
 ```
 
+Release builds of the game DLL (`build.bat release`, which `pnpm run build-game` uses) also generate
+the license notices that ship alongside it, which needs `cargo-about`:
+
+```sh
+cargo install --locked cargo-about --features cli
+```
+
 ### Recommended VSCode Plugins
 
 If you're using VSCode, the following plugins will likely be useful for development. They're also

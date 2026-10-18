@@ -50,7 +50,7 @@ xcopy "%scriptroot%\files\fonts\dynamic\*.ttf" "%scriptroot%\dist\fonts\" /y /f 
 @rem build the DLL
 cd "%scriptroot%"
 cargo build %target% %cargoflags%
-if not errorlevel 0 goto exit
+if errorlevel 1 goto exit
 
 @rem this did xcopy before, but xcopy isn't good for renaming the 64-bit dll,
 @rem so mimicking xcopy with echo + copy
@@ -72,7 +72,38 @@ if [%is64%]==[1] (
 echo %copysrc% -^> %copytgt%
 copy "%copysrc%" "%copytgt%" /y
 
+@rem the license notices for everything the DLL includes ship next to it. Only release builds
+@rem generate them, so debug builds don't need cargo-about installed
+if [%cargoflags%]==[--release] call :notices
+
 :exit
 set OLDERROR=%ERRORLEVEL%
 cd "%startdir%"
 exit /b %OLDERROR%
+
+:notices
+setlocal enabledelayedexpansion
+cargo about --version >nul 2>&1
+if errorlevel 1 (
+  echo Error: release builds need cargo-about to generate license notices. Install it with:
+  echo   cargo install --locked cargo-about --features cli
+  exit /b 1
+)
+@rem --fail makes a dependency whose license can't be determined an error rather than silently
+@rem leaving it out of the notices
+cargo about generate --locked --fail -o "%scriptroot%\target\crate-notices.txt" "%scriptroot%\about.hbs"
+if errorlevel 1 exit /b 1
+(
+  type "%scriptroot%\target\crate-notices.txt"
+  for %%f in ("%scriptroot%\files\fonts\*-LICENSE.txt" "%scriptroot%\files\fonts\dynamic\*-LICENSE.txt") do (
+    set fontname=%%~nf
+    echo.
+    echo ================================================================================
+    echo Font: !fontname:-LICENSE=!
+    echo --------------------------------------------------------------------------------
+    echo.
+    type "%%f"
+  )
+) > "%scriptroot%\dist\THIRD_PARTY_NOTICES.txt"
+echo Wrote %scriptroot%\dist\THIRD_PARTY_NOTICES.txt
+exit /b 0

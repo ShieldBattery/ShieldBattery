@@ -1,0 +1,29 @@
+# cargo-about config for THIRD_PARTY_NOTICES.txt, which build.bat generates into dist/ for release
+# builds. Keep `accepted` in sync with the allowlist in deny.toml. Order matters: for dual-licensed
+# crates the first accepted license wins, so the simplest permissive licenses come first.
+accepted = [
+    "MIT",
+    "Apache-2.0",
+    "ISC",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "Zlib",
+    "0BSD",
+    "Unlicense",
+    "Unicode-3.0",
+    "MPL-2.0",
+    "CDLA-Permissive-2.0",
+    "OFL-1.1",
+    "Ubuntu-font-1.0",
+]
+targets = ["i686-pc-windows-msvc", "x86_64-pc-windows-msvc"]
+ignore-build-dependencies = true
+ignore-dev-dependencies = true
+private = { ignore = true }
+
+# bw_dat lives in a subdirectory of the aise repo, whose license is only at the repo root.
+[bw_dat.clarify]
+license = "Apache-2.0"
+[[bw_dat.clarify.files]]
+path = "../LICENSE"
+checksum = "c95bae1d1ce0235ecccd3560b772ec1efb97f348a79f0fbe0a634f0c2ccefe2c"

@@ -74,3 +74,11 @@ genuinely exceptional justification, commented in the code's own terms).
 `Analysis` methods the game crate actually uses. Before deciding a binary analysis is "missing,"
 check the pinned samase_scarf rev's `Analysis` API — if it's there, the fix is a one-line wrapper
 method in `scr-analysis/src/lib.rs`, not new analysis work.
+
+**Dependency licenses are checked.** CI runs `cargo deny check licenses` against the allowlist in
+`deny.toml`, and release builds generate `dist/THIRD_PARTY_NOTICES.txt` with cargo-about
+(`about.toml` + `about.hbs`). A new dependency must be under an allowed license; if its manifest
+lacks a `license` field or its package lacks the license file, add a clarification to both configs
+rather than widening the allowlist. New embedded or shipped fonts need their license file next to
+the font in `files/fonts/` or `files/fonts/dynamic/` (named `<Font>-LICENSE.txt`) so the notices
+pick it up.
