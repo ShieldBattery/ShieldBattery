@@ -1,6 +1,7 @@
 import browserslist from 'browserslist'
 import { resolve } from 'node:path'
 import { defineConfig, type UserConfig } from 'vite'
+import { thirdPartyLicenses } from './build-plugins/third-party-licenses'
 import {
   ASSET_NAMING,
   NONCE_TOKEN,
@@ -23,6 +24,11 @@ const ASSET_OUT = 'server/public/scripts'
  * file and patches it per request, which is incompatible with immutable caching.
  */
 const SHELL_OUT = 'server/client-shell/index.html'
+/**
+ * Where the licenses of the bundle's third-party packages land. Next to the shell, and for the same
+ * reason: it keeps one name across builds, so it can't live in the immutably cached {@link ASSET_OUT}.
+ */
+const LICENSES_OUT = 'server/client-shell/third-party-licenses.json'
 /**
  * Prefix for asset URLs written into the shell. The server rewrites this to the configured public
  * assets URL (which may be a CDN origin) when it serves the shell.
@@ -119,6 +125,7 @@ export default defineConfig(({ command, mode }): UserConfig => {
     plugins: [
       ...sharedPlugins(),
       shellPlugin({ emittedAt: 'index.html', destination: resolve(ROOT, SHELL_OUT) }),
+      thirdPartyLicenses({ build: 'web', destination: resolve(ROOT, LICENSES_OUT) }),
     ],
 
     build: {

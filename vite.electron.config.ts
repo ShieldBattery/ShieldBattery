@@ -1,6 +1,7 @@
 import { resolve } from 'node:path'
 import { defineConfig, type UserConfig } from 'vite'
 import { readEnvFile } from './build-plugins/env-file'
+import { thirdPartyLicenses } from './build-plugins/third-party-licenses'
 import {
   ASSET_NAMING,
   NONCE_TOKEN,
@@ -82,6 +83,10 @@ export default defineConfig(({ command, mode }): UserConfig => {
     plugins: [
       ...sharedPlugins(),
       shellPlugin({ emittedAt: SHELL_ENTRY, destination: resolve(ROOT, OUT_DIR, 'index.html') }),
+      thirdPartyLicenses({
+        build: 'app-renderer',
+        destination: resolve(ROOT, OUT_DIR, 'third-party-licenses', 'app-renderer.json'),
+      }),
     ],
 
     server: {

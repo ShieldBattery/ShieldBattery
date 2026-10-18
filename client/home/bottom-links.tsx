@@ -31,25 +31,25 @@ const BottomLinksList = styled.ul`
   ${titleSmall};
 
   width: 100%;
-  height: 40px;
   margin: 0;
   padding: 0;
 
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   align-items: center;
   position: relative;
   pointer-events: all;
   list-style: none;
-  gap: 32px;
+  column-gap: 32px;
 
   @media screen and (max-width: 720px) {
-    gap: 16px;
+    column-gap: 16px;
   }
 
   & > li {
     min-width: 40px;
-    height: 100%;
+    height: 40px;
     display: flex;
     align-items: stretch;
     justify-content: center;
@@ -60,6 +60,7 @@ const BottomLink = styled(Link)`
   min-width: 40px;
   height: 100%;
   padding-inline: 4px;
+  white-space: nowrap;
 
   display: flex;
   align-items: center;
@@ -152,6 +153,9 @@ export function BottomLinks() {
           <BottomLink href='/acceptable-use'>
             {t('landing.bottomLinks.acceptableUsePolicy', 'Acceptable Use Policy')}
           </BottomLink>
+        </li>
+        <li>
+          <BottomLink href='/licenses'>{t('landing.bottomLinks.licenses', 'Licenses')}</BottomLink>
         </li>
       </BottomLinksList>
     </Root>

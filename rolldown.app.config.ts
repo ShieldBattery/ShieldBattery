@@ -4,6 +4,7 @@ import { readEnvFile } from './build-plugins/env-file'
 import { nativeAddons } from './build-plugins/native-addons'
 import { securityImpl } from './build-plugins/security-impl'
 import { sidecarAssets } from './build-plugins/sidecar-assets'
+import { thirdPartyLicenses } from './build-plugins/third-party-licenses'
 
 const ROOT = import.meta.dirname
 /**
@@ -80,6 +81,10 @@ export default defineConfig([
     plugins: [
       nativeAddons(),
       securityImpl(securityImplPath),
+      thirdPartyLicenses({
+        build: 'app-main',
+        destination: path.join(OUT_DIR, 'third-party-licenses', 'app-main.json'),
+      }),
       sidecarAssets([
         // The replay parser is compiled to WebAssembly, which its Node entry loads by reading the
         // file next to itself.
@@ -92,6 +97,11 @@ export default defineConfig([
     input: { preload: path.join(ROOT, 'app/preload.js') },
     // Deliberately its own build rather than a third entry above: a sandboxed preload has no
     // `require` for sibling files, so it cannot be allowed to share a chunk with anything.
-    plugins: [],
+    plugins: [
+      thirdPartyLicenses({
+        build: 'app-preload',
+        destination: path.join(OUT_DIR, 'third-party-licenses', 'app-preload.json'),
+      }),
+    ],
   },
 ])

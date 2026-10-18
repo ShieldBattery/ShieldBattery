@@ -260,6 +260,12 @@ interface IpcInvokeables {
    */
   gameServerRegionsEnsureSweep: () => void
 
+  /**
+   * The third-party license notices that ship next to the game DLL, or undefined if this install
+   * has none (e.g. a development build that never ran a release build of the DLL).
+   */
+  licensesGetGameNotices: () => string | undefined
+
   logMessage: (level: string, message: string) => void
 
   mapStoreDownloadMap: (hash: string, format: MapExtension, mapUrl: string) => Promise<boolean>

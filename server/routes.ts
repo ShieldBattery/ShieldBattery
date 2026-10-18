@@ -4,6 +4,7 @@ import yaml from 'js-yaml'
 import Koa from 'koa'
 import koaConvert from 'koa-convert'
 import koaStatic from 'koa-static'
+import { readFile as readLocalFile } from 'node:fs/promises'
 import path from 'path'
 import { container } from 'tsyringe'
 import { ServerConfig } from '../common/server-config'
@@ -120,6 +121,20 @@ export default function applyRoutes(app: Koa, graphqlOrigin: string) {
     const { handleMissingTranslationKeys } = require(devOnlyI18nPath)
     router.post('/locales/add/:lng/:ns', handleMissingTranslationKeys)
   }
+
+  // Written next to the shell by the web client build (see vite.config.ts), for the client's
+  // licenses page. Development servers that haven't run that build have none.
+  const thirdPartyLicensesPath = path.join(__dirname, 'client-shell', 'third-party-licenses.json')
+  router.get('/third-party-licenses.json', async ctx => {
+    try {
+      ctx.body = await readLocalFile(thirdPartyLicensesPath)
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') send404()
+      throw err
+    }
+    ctx.type = 'json'
+    ctx.set('Cache-Control', 'public, max-age=3600')
+  })
 
   const packageJson = require('../package.json')
   // catch-all for the remainder, first tries static files, then if not found, renders the index and

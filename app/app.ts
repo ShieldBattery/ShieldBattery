@@ -751,6 +751,18 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     return app.getPath('documents')
   })
 
+  ipcMain.handle('licensesGetGameNotices', async () => {
+    try {
+      return await readFile(
+        path.resolve(app.getAppPath(), '../game/dist/THIRD_PARTY_NOTICES.txt'),
+        'utf8',
+      )
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return undefined
+      throw err
+    }
+  })
+
   ipcMain.handle('pathsShowItemInFolder', async (event, path) => {
     shell.showItemInFolder(path)
   })

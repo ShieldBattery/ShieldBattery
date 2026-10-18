@@ -51,7 +51,7 @@ const PageHeader = styled.div`
   margin-bottom: 16px;
 `
 
-function PolicyPage(props: { title: string; children: React.ReactNode }) {
+export function PolicyPage(props: { title: string; children: React.ReactNode }) {
   return (
     <PageRoot>
       <PageContentRoot>

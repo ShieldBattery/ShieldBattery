@@ -59,6 +59,9 @@ const MapsRoot = React.lazy(async () => ({
 const NewsArchivePage = React.lazy(async () => ({
   default: (await import('./news/news-archive-page')).NewsArchivePage,
 }))
+const LicensesPage = React.lazy(async () => ({
+  default: (await import('./licenses/licenses-page')).LicensesPage,
+}))
 const LadderGuidePage = React.lazy(async () => ({
   default: (await import('./guides/ladder-guide')).LadderGuidePage,
 }))
@@ -94,6 +97,7 @@ export function AppRoutes({
       <Route path='/download' component={DownloadPage} />
       <Route path='/acceptable-use' component={AcceptableUsePage} />
       <Route path='/privacy' component={PrivacyPolicyPage} />
+      <Route path='/licenses' component={LicensesPage} />
       <Route path='/terms-of-service' component={TermsOfServicePage} />
 
       <Route path='/forgot-password' component={ForgotPassword} />
