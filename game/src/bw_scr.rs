@@ -10590,6 +10590,12 @@ fn copy_file_hook(
         if !is_copying_lastreplay {
             return orig(src_name, dest_name, fail_if_exist);
         }
+        if replay_save::last_save_skipped() {
+            // SC:R treats a failed copy as a missing autosave and carries on.
+            warn!("Not copying LastReplay.rep to the autosave folder: it holds an earlier game");
+            SetLastError(winapi::shared::winerror::ERROR_FILE_NOT_FOUND);
+            return 0;
+        }
 
         // Rename the copy after the user's replay name template, keeping SC:R's folder.
         let dest_name_len = (0..).find(|&i| *dest_name.add(i) == 0).unwrap();

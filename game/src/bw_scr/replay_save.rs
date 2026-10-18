@@ -12,6 +12,7 @@ use std::fs;
 use std::io;
 use std::os::windows::fs::MetadataExt;
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use winapi::um::fileapi::SetFileAttributesW;
 use winapi::um::winnt::FILE_ATTRIBUTE_READONLY;
@@ -27,6 +28,18 @@ const REPLAY_PATH_BUFFER_SIZE: usize = 0x104;
 
 /// The value SC:R's own "couldn't replace the existing replay" branch returns.
 const REPLACE_FAILED: i32 = -1;
+
+/// Set while the replay file on disk is not the one from the most recent `save_replay_by_name`
+/// call, because the hook skipped that save.
+static LAST_SAVE_SKIPPED: AtomicBool = AtomicBool::new(false);
+
+/// Whether the most recent replay autosave was skipped, leaving `LastReplay.rep` holding an
+/// earlier game. SC:R copies `LastReplay.rep` into its autosave folder after saving whatever the
+/// save returned, so that copy must not be made while this is set: it would file the previous
+/// game's replay under the current game's name.
+pub fn last_save_skipped() -> bool {
+    LAST_SAVE_SKIPPED.load(Ordering::Relaxed)
+}
 
 /// SC:R's replay autosave entry point and the path builder it uses, resolved together
 /// (all-or-nothing): replacing the file safely needs the path the save is going to write to.
@@ -95,6 +108,7 @@ pub unsafe fn save_replay_by_name_hook(
     orig: unsafe extern "C" fn(*const i8, u8) -> i32,
 ) -> i32 {
     unsafe {
+        LAST_SAVE_SKIPPED.store(false, Ordering::Relaxed);
         if replace_existing == 0 {
             return orig(name, replace_existing);
         }
@@ -125,6 +139,7 @@ pub unsafe fn save_replay_by_name_hook(
                 warn!(
                     "Could not replace replay file {path}: {error}; skipping SC:R's replay autosave"
                 );
+                LAST_SAVE_SKIPPED.store(true, Ordering::Relaxed);
                 return REPLACE_FAILED;
             }
         }
