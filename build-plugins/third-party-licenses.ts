@@ -177,7 +177,9 @@ function declaredLicense(manifest: {
 }
 
 /** A browsable URL for the manifest's `repository`, which may be a shorthand like `user/repo`. */
-export function repositoryUrl(repository: string | { url?: string } | undefined): string | undefined {
+export function repositoryUrl(
+  repository: string | { url?: string } | undefined,
+): string | undefined {
   const raw = typeof repository === 'string' ? repository : repository?.url
   if (!raw) return undefined
 
