@@ -4,7 +4,8 @@ version = "0.1.0"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/ShieldBattery/ShieldBattery"
+publish = false
 
 [dependencies.samase_scarf]
 git = "https://github.com/tec27/samase_scarf.git"
-rev = "75d09ddf572fb975aa320f23892916ec97993e5a"
+rev = "03ec24b14e9f73838ac26cab17de4af3f388a0ac"
