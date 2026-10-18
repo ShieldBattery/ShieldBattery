@@ -1,7 +1,7 @@
 import { BugReport } from '../../../common/bugs'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import db, { DbClient } from '../db'
-import { sql } from '../db/sql'
+import { sql, sqlConcat } from '../db/sql'
 import { Dbify } from '../db/types'
 
 type DbBugReport = Dbify<BugReport>
@@ -61,6 +61,46 @@ export async function listBugReports(
   const { client, done } = await db(withClient)
   try {
     const result = await client.query<DbBugReport>(query)
+    return result.rows.map(row => convertFromDb(row))
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Returns up to `limit` bug reports, newest first, ordered by `(created_at, id)` so the order is
+ * total. If `before` is given, only reports that sort after that report are returned; the
+ * comparison reads the stored row in SQL so paging stays exact at the column's full timestamp
+ * precision. Returns `undefined` if the `before` report does not exist.
+ */
+export async function listBugReportsPage(
+  { includeResolved, before, limit }: { includeResolved: boolean; before?: string; limit: number },
+  withClient?: DbClient,
+): Promise<BugReport[] | undefined> {
+  const { client, done } = await db(withClient)
+  try {
+    const conditions = includeResolved ? [] : [sql`resolved_at IS NULL`]
+    if (before) {
+      const cursor = await client.query(sql`
+        SELECT 1
+        FROM bug_reports
+        WHERE id = ${before}
+      `)
+      if (!cursor.rowCount) {
+        return undefined
+      }
+      conditions.push(sql`
+        (created_at, id) < (SELECT created_at, id FROM bug_reports WHERE id = ${before})
+      `)
+    }
+
+    const result = await client.query<DbBugReport>(sql`
+      SELECT *
+      FROM bug_reports
+      ${conditions.length ? sql`WHERE ${sqlConcat(' AND ', conditions)}` : sql``}
+      ORDER BY created_at DESC, id DESC
+      LIMIT ${limit}
+    `)
     return result.rows.map(row => convertFromDb(row))
   } finally {
     done()

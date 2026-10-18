@@ -3,13 +3,14 @@ import httpErrors from 'http-errors'
 import Joi from 'joi'
 import { Readable } from 'stream'
 import { BugReport, BugReportJson, toBugReportJson } from '../../../common/bugs'
+import { urlPath } from '../../../common/urls'
 import { readFileStream } from '../files'
 import { setAttachmentHeaders } from '../http/attachment-headers'
 import { httpBeforeAll, internalApi } from '../http/http-api'
 import { internalResponseHeaders } from '../http/internal-response-headers'
 import { httpGet } from '../http/route-decorators'
 import { validateRequest } from '../validation/joi-validator'
-import { getBugReport } from './bugs-model'
+import { getBugReport, listBugReportsPage } from './bugs-model'
 
 /**
  * Response shape for `GET /internal/bug-reports/:reportId`. Unlike the staff-facing
@@ -20,6 +21,24 @@ import { getBugReport } from './bugs-model'
 export interface InternalBugReportResponseJson {
   report: BugReportJson
 }
+
+/**
+ * Response shape for `GET /internal/bug-reports`. Reports are newest first; `nextPath` is present
+ * when more reports remain and fetches the following page with the same filters.
+ */
+export interface InternalListBugReportsResponseJson {
+  reports: BugReportJson[]
+  nextPath?: string
+}
+
+const DEFAULT_LIST_LIMIT = 50
+const MAX_LIST_LIMIT = 100
+
+const LIST_QUERY = Joi.object<{ includeResolved: boolean; before?: string; limit: number }>({
+  includeResolved: Joi.boolean().default(false),
+  before: Joi.string().uuid(),
+  limit: Joi.number().integer().min(1).max(MAX_LIST_LIMIT).default(DEFAULT_LIST_LIMIT),
+})
 
 const REPORT_ID_PARAMS = Joi.object<{ reportId: string }>({
   reportId: Joi.string().uuid().required(),
@@ -41,6 +60,30 @@ async function getReportOr404(reportId: string): Promise<BugReport> {
 @internalApi('/bug-reports')
 @httpBeforeAll(internalResponseHeaders)
 export class InternalBugReportApi {
+  @httpGet('/')
+  async listReports(ctx: RouterContext): Promise<InternalListBugReportsResponseJson> {
+    const {
+      query: { includeResolved, before, limit },
+    } = validateRequest(ctx, { query: LIST_QUERY })
+    // One extra row tells us whether another page exists without a separate count query.
+    const reports = await listBugReportsPage({ includeResolved, before, limit: limit + 1 })
+    if (!reports) {
+      throw new httpErrors.NotFound('Bug report passed as before not found')
+    }
+
+    const page = reports.slice(0, limit)
+    let nextPath: string | undefined
+    if (reports.length > limit) {
+      const nextQuery = new URLSearchParams({ before: page.at(-1)!.id, limit: String(limit) })
+      if (includeResolved) {
+        nextQuery.set('includeResolved', 'true')
+      }
+      nextPath = urlPath`/internal/bug-reports?${nextQuery}`
+    }
+
+    return { reports: page.map(r => toBugReportJson(r)), nextPath }
+  }
+
   @httpGet('/:reportId')
   async getReport(ctx: RouterContext): Promise<InternalBugReportResponseJson> {
     const {
