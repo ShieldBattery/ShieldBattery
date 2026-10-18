@@ -706,6 +706,18 @@ const evaluateControlledSlot = (slot: Slot, type: string, race: RaceChar, contro
   expect(slot.controlledBy).toBe(controlledBy)
 }
 
+/** Sets the races of a team's slots in order, the way its controller would one at a time. */
+function withTeamRaces(lobby: Lobby, teamIndex: number, races: ReadonlyArray<RaceChar>): Lobby {
+  return races.reduce(
+    (updated, race, slotIndex) => setRace(updated, teamIndex, slotIndex, race),
+    lobby,
+  )
+}
+
+function teamRaces(lobby: Lobby, teamIndex: number): RaceChar[] {
+  return lobby.teams[teamIndex].slots.map(slot => slot.race)
+}
+
 describe('Lobbies - Team melee', () => {
   test('should create the lobby correctly', () => {
     const l2 = TEAM_MELEE_2
@@ -784,7 +796,8 @@ describe('Lobbies - Team melee', () => {
     expect(humanSlotCount(l)).toBe(2)
     expect(hasOpposingSides(l)).toBe(true)
     expect(l.teams[1].slots[0]).toEqual(babo)
-    evaluateControlledSlot(l.teams[1].slots[1], 'controlledOpen', babo.race, babo.id)
+    // The slots around them keep the race they had rather than taking on the player's
+    evaluateControlledSlot(l.teams[1].slots[1], 'controlledOpen', 'r', babo.id)
   })
 
   test('should allow players to join slots that were previously controlled opens', () => {
@@ -852,7 +865,7 @@ describe('Lobbies - Team melee', () => {
   test('should remove the controlled open slots when the last player on a team leaves', () => {
     const babo = createHuman(makeSbUserId(1), 'z')
     let l = addPlayer(TEAM_MELEE_4, 1, 0, babo)
-    evaluateControlledSlot(l.teams[1].slots[1], 'controlledOpen', babo.race, babo.id)
+    evaluateControlledSlot(l.teams[1].slots[1], 'controlledOpen', 'r', babo.id)
     l = removePlayer(l, 1, 0, babo)!
 
     expect(humanSlotCount(l)).toBe(1)
@@ -875,6 +888,8 @@ describe('Lobbies - Team melee', () => {
     expect(hasOpposingSides(l)).toBe(false)
     expect(l.teams[1].slots[0].type).toBe('open')
     expect(l.teams[1].slots[1].type).toBe('open')
+    // A computer team's race was the computers', not one anybody picked for its slots
+    expect(teamRaces(l, 1)).toEqual(['r', 'r'])
 
     expect(l.host.userId).toBe(HOST_USER_ID)
   })
@@ -897,15 +912,128 @@ describe('Lobbies - Team melee', () => {
   })
 
   test('should support moving players between slots in the same team', () => {
-    const babo = createHuman(makeSbUserId(1), 'z')
-    let l = addPlayer(TEAM_MELEE_2, 0, 1, babo)
+    let l = withTeamRaces(TEAM_MELEE_2, 0, ['z', 'p', 't', 'r'])
+    l = addPlayer(l, 0, 1, humanAt(1, 'p', 1000))
     l = movePlayerToSlot(l, 0, 1, 0, 2)
 
     expect(humanSlotCount(l)).toBe(2)
     expect(hasOpposingSides(l)).toBe(false)
 
-    evaluateControlledSlot(l.teams[0].slots[1], 'controlledOpen', 'r', l.host.id)
-    evaluateControlledSlot(l.teams[0].slots[3], 'controlledOpen', l.host.race, l.host.id)
+    // The mover takes on the race of the slot they land in, and the slot they left keeps theirs
+    expect(l.teams[0].slots[2]).toMatchObject({ type: 'human', userId: makeSbUserId(1), race: 't' })
+    evaluateControlledSlot(l.teams[0].slots[1], 'controlledOpen', 'p', l.host.id)
+    evaluateControlledSlot(l.teams[0].slots[3], 'controlledOpen', 'r', l.host.id)
+    expect(teamRaces(l, 0)).toEqual(['z', 'p', 't', 'r'])
+  })
+
+  test('should keep every slot race when a player moves to a team that has players', () => {
+    let l = withTeamRaces(TEAM_MELEE_2, 0, ['z', 'p', 't', 'r'])
+    l = addPlayer(l, 0, 1, humanAt(1, 'p', 1000))
+    l = addPlayer(l, 1, 0, humanAt(2, 'r', 2000))
+    l = withTeamRaces(l, 1, ['t', 'z', 'p', 'p'])
+
+    l = movePlayerToSlot(l, 0, 1, 1, 1)
+
+    expect(l.teams[1].slots[1]).toMatchObject({ type: 'human', userId: makeSbUserId(1), race: 'z' })
+    // The host stays behind, so the slot left over is handed to them with its race intact
+    evaluateControlledSlot(l.teams[0].slots[1], 'controlledOpen', 'p', l.host.id)
+    expect(teamRaces(l, 0)).toEqual(['z', 'p', 't', 'r'])
+    expect(teamRaces(l, 1)).toEqual(['t', 'z', 'p', 'p'])
+  })
+
+  test('should keep the slot races of a team its last player moves away from', () => {
+    let l = addPlayer(TEAM_MELEE_2, 1, 0, humanAt(1, 'r', 1000))
+    l = withTeamRaces(l, 1, ['t', 'z', 'p', 'z'])
+    l = closeSlot(l, 1, 3)
+
+    l = movePlayerToSlot(l, 1, 0, 0, 1)
+
+    expect(l.teams[1].slots.map(slot => slot.type)).toEqual(['open', 'open', 'open', 'closed'])
+    expect(teamRaces(l, 1)).toEqual(['t', 'z', 'p', 'z'])
+  })
+
+  test('should seat a player moving into an empty team in the races it kept', () => {
+    let l = addPlayer(TEAM_MELEE_2, 1, 0, humanAt(1, 'r', 1000))
+    l = withTeamRaces(l, 1, ['t', 'z', 'p', 'z'])
+    l = closeSlot(l, 1, 3)
+    l = movePlayerToSlot(l, 1, 0, 0, 1)
+
+    l = movePlayerToSlot(l, 0, 1, 1, 2)
+
+    const mover = l.teams[1].slots[2]
+    expect(mover).toMatchObject({ type: 'human', userId: makeSbUserId(1), race: 'p' })
+    evaluateControlledSlot(l.teams[1].slots[0], 'controlledOpen', 't', mover.id)
+    evaluateControlledSlot(l.teams[1].slots[1], 'controlledOpen', 'z', mover.id)
+    evaluateControlledSlot(l.teams[1].slots[3], 'controlledClosed', 'z', mover.id)
+  })
+
+  test('should keep the slot races of a team its last player leaves', () => {
+    let l = addPlayer(TEAM_MELEE_2, 1, 0, humanAt(1, 'r', 1000))
+    l = withTeamRaces(l, 1, ['t', 'z', 'p', 'z'])
+
+    l = removePlayer(l, 1, 0, l.teams[1].slots[0])!
+
+    expect(l.teams[1].slots.every(slot => slot.type === 'open')).toBe(true)
+    expect(teamRaces(l, 1)).toEqual(['t', 'z', 'p', 'z'])
+  })
+
+  test('should keep the slot races of an empty team through closing and opening its slots', () => {
+    let l = addPlayer(TEAM_MELEE_2, 1, 0, humanAt(1, 'r', 1000))
+    l = withTeamRaces(l, 1, ['t', 'z', 'p', 'z'])
+    l = removePlayer(l, 1, 0, l.teams[1].slots[0])!
+
+    l = closeSlot(l, 1, 1)
+    expect(l.teams[1].slots[1]).toMatchObject({ type: 'closed', race: 'z' })
+    l = openSlot(l, 1, 1)
+
+    expect(l.teams[1].slots[1]).toMatchObject({ type: 'open', race: 'z' })
+    expect(teamRaces(l, 1)).toEqual(['t', 'z', 'p', 'z'])
+  })
+
+  test('should keep every slot race when swapping players in the same team', () => {
+    let l = withTeamRaces(TEAM_MELEE_2, 0, ['z', 'p', 't', 'r'])
+    l = addPlayer(l, 0, 1, humanAt(1, 'p', 1000))
+
+    l = swapSlots(l, 0, 0, 0, 1)
+
+    expect(l.teams[0].slots[0]).toMatchObject({ userId: makeSbUserId(1), race: 'z' })
+    expect(l.teams[0].slots[1]).toMatchObject({ userId: HOST_USER_ID, race: 'p' })
+    expect(teamRaces(l, 0)).toEqual(['z', 'p', 't', 'r'])
+  })
+
+  test('should keep every slot race when swapping players across teams', () => {
+    let l = withTeamRaces(TEAM_MELEE_2, 0, ['z', 'p', 't', 'r'])
+    l = addPlayer(l, 1, 0, humanAt(1, 'r', 1000))
+    l = withTeamRaces(l, 1, ['t', 'z', 'p', 'p'])
+
+    l = swapSlots(l, 0, 0, 1, 0)
+
+    expect(l.teams[0].slots[0]).toMatchObject({ userId: makeSbUserId(1), race: 'z' })
+    expect(l.teams[1].slots[0]).toMatchObject({ userId: HOST_USER_ID, race: 't' })
+    expect(teamRaces(l, 0)).toEqual(['z', 'p', 't', 'r'])
+    expect(teamRaces(l, 1)).toEqual(['t', 'z', 'p', 'p'])
+  })
+
+  test('should seat a benched player in a team with players in the race of their slot', () => {
+    let l = withTeamRaces(TEAM_MELEE_2, 0, ['z', 'p', 't', 'r'])
+    l = addToBench(l, { userId: makeSbUserId(1), race: 'z', joinedAt: 1000 })
+
+    l = seatBenchedUser(l, makeSbUserId(1), 0, 2)
+
+    expect(l.teams[0].slots[2]).toMatchObject({ type: 'human', userId: makeSbUserId(1), race: 't' })
+    expect(teamRaces(l, 0)).toEqual(['z', 'p', 't', 'r'])
+  })
+
+  test('should seat a benched player in an empty team in the races it kept', () => {
+    let l = addPlayer(TEAM_MELEE_2, 1, 0, humanAt(1, 'r', 1000))
+    l = withTeamRaces(l, 1, ['t', 'z', 'p', 'z'])
+    l = removePlayer(l, 1, 0, l.teams[1].slots[0])!
+    l = addToBench(l, { userId: makeSbUserId(2), race: 'r', joinedAt: 2000 })
+
+    l = seatBenchedUser(l, makeSbUserId(2), 1, 1)
+
+    expect(l.teams[1].slots[1]).toMatchObject({ type: 'human', userId: makeSbUserId(2), race: 'z' })
+    expect(teamRaces(l, 1)).toEqual(['t', 'z', 'p', 'z'])
   })
 
   test('should support closing an open slot', () => {
@@ -2118,6 +2246,28 @@ describe('Lobbies - settings changes', () => {
     expect(updated.teams.flatMap(team => team.slots).some(slot => slot.controlledBy)).toBe(false)
   })
 
+  test('should drop the races picked for empty slots when controlled teams give way', () => {
+    let lobby = withTeamRaces(TEAM_MELEE_2, 0, ['p', 'z', 't', 'z'])
+    lobby = addPlayer(lobby, 1, 0, humanAt(1, 't', 1000))
+
+    const updated = applySettingsChange(
+      lobby,
+      settingsFor(lobby, { gameType: GameType.TopVsBottom, gameSubType: 4 }),
+    )
+
+    // The players keep the races they had. The races picked for the slots around them go with
+    // the controlled slots: a top vs bottom slot nobody sits in adds nothing to the game.
+    expect(updated.teams[0].slots[0]).toMatchObject({ userId: HOST_USER_ID, race: 'p' })
+    expect(updated.teams[1].slots[0]).toMatchObject({ userId: makeSbUserId(1), race: 't' })
+    for (const team of updated.teams) {
+      expect(team.slots.slice(1).map(slot => [slot.type, slot.race])).toEqual([
+        ['open', 'r'],
+        ['open', 'r'],
+        ['open', 'r'],
+      ])
+    }
+  })
+
   test('should send the players a shrink leaves over to the observer team, closed slots first', () => {
     let lobby = createLobby({
       name: 'Shrinking',
@@ -2338,6 +2488,47 @@ describe('Lobbies - settings changes', () => {
       expect(team.slots.slice(1).every(slot => slot.type === 'controlledOpen')).toBe(true)
     }
     expect(updated.teams[2].slots.every(slot => slot.type === 'computer')).toBe(true)
+  })
+
+  test('should let people keep their races when a change builds a new team melee layout', () => {
+    let lobby = createLobby({
+      name: 'Going team melee',
+      map: BigGameHunters,
+      gameType: GameType.Melee,
+      gameSubType: 0,
+      numSlots: 8,
+      hostUserId: HOST_USER_ID,
+      hostRace: 'p',
+      allowObservers: false,
+    })
+    lobby = addHumans(lobby, 1)
+
+    const updated = applySettingsChange(
+      lobby,
+      settingsFor(lobby, { gameType: GameType.TeamMelee, gameSubType: 2, numSlots: 8 }),
+    )
+
+    // Nobody has picked races for the new layout's slots, so the people poured into it keep their
+    // own, and the rest of each team starts out Random like any new team's slots
+    expect(updated.teams[0].slots[0]).toMatchObject({ userId: HOST_USER_ID, race: 'p' })
+    expect(updated.teams[1].slots[0]).toMatchObject({ userId: makeSbUserId(1), race: 'z' })
+    expect(teamRaces(updated, 0)).toEqual(['p', 'r', 'r', 'r'])
+    expect(teamRaces(updated, 1)).toEqual(['z', 'r', 'r', 'r'])
+  })
+
+  test('should seat observers in the race of their team melee slot when turning observers off', () => {
+    let lobby = addPlayer(TEAM_MELEE_WITH_OBSERVERS, 1, 1, humanAt(1, 'r', 1000))
+    lobby = withTeamRaces(lobby, 1, ['t', 'z', 'p', 'z'])
+    lobby = makeObserver(lobby, 1, 1)
+
+    const updated = applySettingsChange(lobby, settingsFor(lobby, { allowObservers: false }))
+
+    expect(updated.teams[1].slots[0]).toMatchObject({
+      type: 'human',
+      userId: makeSbUserId(1),
+      race: 't',
+    })
+    expect(teamRaces(updated, 1)).toEqual(['t', 'z', 'p', 'z'])
   })
 
   test('should bench an observing host that turning observers off has no seat for', () => {
@@ -2635,8 +2826,9 @@ describe('Lobbies - swapping slots', () => {
 
     const updated = swapSlots(lobby, 0, 0, 1, 0)
 
-    expect(updated.teams[0].slots[0]).toBe(other)
-    expect(updated.teams[1].slots[0]).toBe(host)
+    // Each takes on the race of the slot they land in, which is all that changes about them
+    expect(updated.teams[0].slots[0]).toEqual({ ...other, race: host.race })
+    expect(updated.teams[1].slots[0]).toEqual({ ...host, race: other.race })
     // The slots each team's departing player controlled follow along to whoever replaced them
     expect(updated.teams[0].slots.slice(1).every(s => s.controlledBy === other.id)).toBe(true)
     expect(updated.teams[1].slots.slice(1).every(s => s.controlledBy === host.id)).toBe(true)
