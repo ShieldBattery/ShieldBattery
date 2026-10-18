@@ -7734,11 +7734,14 @@ impl BwScr {
     }
 
     /// Runs BW's native player-color randomizer, then switches `use_rgb_colors` on so its colors
-    /// render. The randomizer gives every player slot whose color preference is the "random"
-    /// sentinel a distinct synced-random color drawn on the shared game seed (all clients agree
-    /// with no network relay), whether or not anyone plays in that slot. Melee slots default to
-    /// the sentinel; team game init fills in a specific color for each slot instead, so in team
-    /// games every slot is reset to the sentinel first and colors are drawn the way melee's are.
+    /// render. The randomizer writes each player slot's color preference into `rgb_colors`,
+    /// drawing a distinct synced-random color on the shared game seed for every slot whose
+    /// preference is the "random" sentinel (all clients agree with no network relay). Game init
+    /// presets a color for each slot it counts as taken, slot 0 always red, and leaves the rest
+    /// on the sentinel. A team game counts every slot as taken, so there all of them are reset to
+    /// the sentinel first, and each team takes a fresh draw (see
+    /// [`share_team_colors`](Self::share_team_colors)) rather than a preset that is the same every
+    /// game.
     /// BW's own game-start path skips this randomize call for SB sessions, leaving deterministic
     /// slot-order colors, so it's invoked here once game init has run and the RNG seed is set. A
     /// no-op (leaving BW's colors as-is) when the randomizer wasn't located during analysis. Runs
@@ -7778,13 +7781,18 @@ impl BwScr {
         }
     }
 
-    /// Gives each shared-control team (Team Melee, Team FFA) its main player's color across all of
-    /// its members' player slots. The team plays as its main player, which owns its units, so the
-    /// team's color is that player's own color, as for any player in a melee game. Per-player UI
-    /// (chat, the overlay) uses each member's own slot, so every member takes that color in each
-    /// color form BW keeps: `rgb_colors`, the color preference, the minimap palette index and the
-    /// unit remap palette. A replay restores the colors its game recorded first, so this also
-    /// gives replays of games whose teammates had their own colors one color per team.
+    /// Gives each shared-control team (Team Melee, Team FFA) a single color across all of its
+    /// members' player slots. The team's units are drawn in its main player's color while
+    /// per-player UI (chat, the overlay) uses each member's own, so every member's slot takes the
+    /// team's color in each color form BW keeps: `rgb_colors`, the color preference, the minimap
+    /// palette index and the unit remap palette.
+    ///
+    /// In a live game team `t` takes the color drawn for slot `t - 1`, so teams are colored by
+    /// their team index the way melee players are by their player index, and a team's color never
+    /// depends on which of its slots are filled or which of them BW made the main player. A replay
+    /// already holds the colors its game showed, so there each team takes its main player's
+    /// recorded color, which also gives replays of games whose teammates had their own colors one
+    /// color per team.
     ///
     /// Only slots with a human or computer in them are written: the teams of empty slots aren't
     /// the same on every client. A no-op outside team games and when the `rgb_colors` pointer is
@@ -7801,6 +7809,7 @@ impl BwScr {
             let game = self.game();
             let players = self.players();
             let main_players = (*game).team_game_main_player;
+            let from_main_player = game_thread::is_replay();
             let rgb = *rgb_ptr;
             let preference = (*game).scr_player_color_preference;
             let minimap = (*game).player_minimap_color;
@@ -7810,7 +7819,8 @@ impl BwScr {
                 if !matches!(player.player_type, 1 | 2) {
                     continue;
                 }
-                let Some(main) = (player.team as usize)
+                let team = player.team as usize;
+                let Some(main) = team
                     .checked_sub(1)
                     .and_then(|index| main_players.get(index))
                     .map(|&main| main as usize)
@@ -7818,10 +7828,11 @@ impl BwScr {
                 else {
                     continue;
                 };
-                (*rgb_ptr)[i] = rgb[main];
-                (*game).scr_player_color_preference[i] = preference[main];
-                (*game).player_minimap_color[i] = minimap[main];
-                (*game).player_color_palette[i] = palette[main];
+                let source = if from_main_player { main } else { team - 1 };
+                (*rgb_ptr)[i] = rgb[source];
+                (*game).scr_player_color_preference[i] = preference[source];
+                (*game).player_minimap_color[i] = minimap[source];
+                (*game).player_color_palette[i] = palette[source];
             }
         }
     }
