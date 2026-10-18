@@ -155,9 +155,9 @@
       "createAccountLinkText": "¿No tienes una cuenta? <1>Crea una cuenta</1>",
       "forgotPassword": "Restablecer contraseña",
       "forgotUsername": "Recuperar nombre de usuario",
-      "logIn": "Iniciar sesión",
+      "logIn": "Entrar",
       "password": "Contraseña",
-      "rememberMe": "Recuerdame",
+      "rememberMe": "Recuérdame",
       "title": "Inicia sesión en ShieldBattery",
       "username": "Nombre de usuario"
     },

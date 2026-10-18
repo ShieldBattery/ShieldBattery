@@ -202,6 +202,8 @@ consistent. (Seed — extend over time.)
   siblings: conectado / no responde / reconectando… {{time}} / expulsión pedida.
   teammate→**compañero** (84 px tag).
 
+- **Log in (`auth.login.logIn`) → Entrar**: it labels the app-bar button, where "Iniciar sesión"
+  overflowed at phone widths; titles keep the full "Inicia sesión en ShieldBattery".
 - **Licenses page:** open source→**código abierto**, license notices→avisos de licencia, release build→**compilación de lanzamiento**. The lobby ready toggle (rail) keeps the header's **Listo / No estoy listo**; the heart Support button→**Apoyar** (donations, not help).
 
 ### ru
