@@ -1442,6 +1442,12 @@ impl<'e> Analysis<'e> {
         self.0.local_selection()
     }
 
+    /// Base of the 4 hotkey button presses waiting to activate, each a
+    /// `{ deadline: u32, control: *mut Control }` (null control = free entry).
+    pub fn delayed_control_activations(&mut self) -> Option<Operand<'e>> {
+        self.0.delayed_control_activations()
+    }
+
     /// Base of the static pool of 0x40 images that building placement shows over the units a
     /// building is placed on (a refinery's geysers), outside the main image pool.
     pub fn placement_images(&mut self) -> Option<Operand<'e>> {

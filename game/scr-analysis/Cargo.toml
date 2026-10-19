@@ -8,4 +8,4 @@ publish = false
 
 [dependencies.samase_scarf]
 git = "https://github.com/tec27/samase_scarf.git"
-rev = "03ec24b14e9f73838ac26cab17de4af3f388a0ac"
+rev = "ef62f32f274fe875dde1583d8ca03b89a44d4596"

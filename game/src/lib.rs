@@ -58,6 +58,8 @@ mod frame_pacing;
 mod frame_timing;
 mod game_state;
 mod game_thread;
+#[cfg(debug_assertions)]
+mod hotkey_order_probe;
 mod http;
 mod http_proxy;
 #[cfg(debug_assertions)]
@@ -302,6 +304,8 @@ pub extern "C" fn OnInject() {
     frame_timing::init_from_env();
     #[cfg(debug_assertions)]
     input_latency_probe::init_from_env();
+    #[cfg(debug_assertions)]
+    hotkey_order_probe::init_from_env();
     unsafe {
         let init_helper = load_init_helper().expect("Unable to load sb_init.dll");
         init_helper(scr_init, crash_dump::cdecl_crash_dump);

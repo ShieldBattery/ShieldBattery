@@ -70,6 +70,7 @@ mod game;
 mod game_files;
 mod game_settings;
 mod game_stats;
+mod hotkey_presses;
 mod monitors;
 mod pe_image;
 mod replay_save;
@@ -369,6 +370,9 @@ pub struct BwScr {
     software_cursor: Option<SoftwareCursor>,
     decide_cursor_type: VirtualAddress,
     tick_gated_work: tick_gates::TickGatedWork,
+    /// SC:R's hotkey presses waiting to activate their buttons; `None` where the analysis can't
+    /// place them, which leaves later input able to overtake a press.
+    delayed_control_activations: Option<hotkey_presses::DelayedControlActivations>,
     load_ddsgrp_cursor: VirtualAddress,
     lobby_create_callback_offset: usize,
     starcraft_tls_index: SendPtr<*mut u32>,
@@ -2623,6 +2627,12 @@ impl BwScr {
         let selection_visual_pools = SelectionVisualPools::analyze(&mut analysis, ctx);
         let click_feedback = ClickFeedback::analyze(&mut analysis);
         let placement_overlays = PlacementOverlayPools::analyze(&mut analysis, ctx);
+        let delayed_control_activations = analysis
+            .delayed_control_activations()
+            .map(|x| hotkey_presses::DelayedControlActivations::new(ctx, x));
+        if delayed_control_activations.is_none() {
+            warn!("Analysis could not find the delayed control activations");
+        }
         let pylon_auras = PylonAuras::analyze(&mut analysis, ctx);
         let mission_dialog_openers = analysis
             .open_defeat_mission_dialog()
@@ -2793,6 +2803,7 @@ impl BwScr {
             software_cursor,
             decide_cursor_type,
             tick_gated_work,
+            delayed_control_activations,
             load_ddsgrp_cursor,
             update_game_screen_size: unsafe { mem::transmute(update_game_screen_size.0) },
             init_network_player_info: unsafe { mem::transmute(init_network_player_info.0) },
@@ -3009,17 +3020,19 @@ impl BwScr {
             let address = self.load_snp_list.0 as usize - base;
             exe.hook_closure_address(LoadSnpList, load_snp_list_hook, address);
             #[cfg(debug_assertions)]
-            if crate::input_latency_probe::enabled() {
+            if crate::input_latency_probe::enabled() || crate::hotkey_order_probe::enabled() {
                 let address = self.send_command as usize - base;
                 exe.hook_closure_address(
                     SendCommand,
                     move |data, len, orig| {
                         let game = self.game();
                         if !game.is_null() && !data.is_null() {
+                            let command = std::slice::from_raw_parts(data, len);
                             crate::input_latency_probe::on_send_command(
-                                std::slice::from_raw_parts(data, len),
+                                command,
                                 (*game).frame_count,
                             );
+                            crate::hotkey_order_probe::on_send_command(command);
                         }
                         orig(data, len)
                     },
@@ -10245,6 +10258,24 @@ impl bw::Bw for BwScr {
                 let game = self.game();
                 if !game.is_null() {
                     crate::input_latency_probe::on_window_message(msg, wparam, (*game).frame_count);
+                    crate::hotkey_order_probe::on_window_message(
+                        msg,
+                        wparam,
+                        self.delayed_control_activations
+                            .as_ref()
+                            .and_then(|x| x.first_deadline()),
+                    );
+                }
+            }
+            if hotkey_presses::activates_waiting_presses(msg)
+                && let Some(presses) = &self.delayed_control_activations
+            {
+                #[cfg(debug_assertions)]
+                let make_due = !crate::hotkey_order_probe::keeps_presses_waiting();
+                #[cfg(not(debug_assertions))]
+                let make_due = true;
+                if make_due {
+                    presses.make_due();
                 }
             }
             if is_save_or_load_hotkey(msg, wparam)
@@ -11407,6 +11438,9 @@ unsafe fn step_game_logic_hook(
         let game = bw.game();
         if !game.is_null() {
             crate::input_latency_probe::on_step((*game).frame_count, || {
+                bw.input_probe_select_worker()
+            });
+            crate::hotkey_order_probe::on_step((*game).frame_count, || {
                 bw.input_probe_select_worker()
             });
         }
