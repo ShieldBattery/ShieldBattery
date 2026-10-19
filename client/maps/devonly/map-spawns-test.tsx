@@ -8,7 +8,7 @@ import { LoadingDotsArea } from '../../progress/dots'
 import { bodySmall, titleLarge } from '../../styles/typography'
 import { UploadedMapImage } from '../map-image'
 
-export const MapsQuery = graphql(/* GraphQL */ `
+const MapsQuery = graphql(/* GraphQL */ `
   query MapSpawnsTestMaps {
     maps(first: 100) {
       edges {
@@ -38,7 +38,7 @@ export const MapsQuery = graphql(/* GraphQL */ `
   }
 `)
 
-export const MapByIdQuery = graphql(/* GraphQL */ `
+const MapByIdQuery = graphql(/* GraphQL */ `
   query MapSpawnsTestMap($id: SbMapId!) {
     map(id: $id) {
       id
