@@ -1,13 +1,17 @@
 use std::time::Instant;
 
-use egui::{Color32, CornerRadius, Frame, Label, Layout, Margin, RichText, Shadow, Vec2};
+use egui::load::TexturePoll;
+use egui::{
+    Color32, CornerRadius, Frame, Label, Layout, Margin, Painter, Pos2, Rect, RichText, Shadow,
+    Stroke, Vec2,
+};
 use egui_extras::StripBuilder;
 use egui_flex::{Flex, FlexAlign, FlexInstance};
 
 use crate::{
     app_messages::{
-        GamePlayerRank, GameSetupInfo, GameType, MapInfo, MatchmakingDivision, PlayerInfo,
-        SbSlotType, SbUser,
+        GamePlayerRank, GameSetupInfo, GameType, MapData, MapInfo, MapStartLocation,
+        MatchmakingDivision, PlayerInfo, SbSlotType, SbUser,
     },
     bw::{RACE_PROTOSS, RACE_TERRAN, RACE_ZERG},
     bw_scr::draw_overlay::{BwVars, OverlayState, colors, fonts::display},
@@ -25,6 +29,12 @@ const OBSERVER_NAME_MAX_WIDTH: f32 = 200.0;
 const UNCONNECTED_OPACITY: f32 = 0.45;
 /// How long a participant takes to fade between the connected and unconnected looks.
 const PRESENCE_FADE_SECS: f32 = 0.3;
+
+/// Spawn markers are a fixed size rather than a start location's footprint, so they stay small
+/// dots that mark a position without covering the terrain around it.
+const SPAWN_MARKER_RADIUS: f32 = 5.0;
+const SPAWN_MARKER_HALO_WIDTH: f32 = 1.5;
+const SPAWN_MARKER_HALO_COLOR: Color32 = Color32::from_rgba_premultiplied(0, 0, 0, 140);
 
 // TODO(tec27): This is probably retrievable from egui?
 const BACKGROUND_SIZE: Vec2 = Vec2::new(1920.0, 1152.0);
@@ -63,9 +73,17 @@ impl OverlayState {
         }
 
         let setup_info = setup_info.unwrap();
-        let (map_name, map_image_url) = match &setup_info.map {
-            MapInfo::Game(info) => (Some(info.name.as_str()), info.loading_screen_image_url()),
-            MapInfo::Replay(_) => (None, None),
+        let (map_name, map_image_url, spawn_map) = match &setup_info.map {
+            MapInfo::Game(info) => (
+                Some(info.name.as_str()),
+                info.loading_screen_image_url(),
+                // Images with start locations drawn in already show them. UMS maps often stack
+                // start locations in one spot or park them outside the playable area, since their
+                // triggers move players elsewhere, so markers there wouldn't show where anyone plays.
+                (info.needs_spawn_markers() && setup_info.game_type != GameType::Ums)
+                    .then_some(&info.map_data),
+            ),
+            MapInfo::Replay(_) => (None, None, None),
         };
 
         // TODO(tec27): Translate these
@@ -188,13 +206,8 @@ impl OverlayState {
                                                         ),
                                                         |ui| {
                                                             if let Some(url) = map_image_url {
-                                                                ui.add(
-                                                                    egui::Image::from_uri(url)
-                                                                        .show_loading_spinner(false)
-                                                                        .fit_to_exact_size(map_size)
-                                                                        .corner_radius(
-                                                                            CornerRadius::same(8),
-                                                                        ),
+                                                                add_map_image(
+                                                                    ui, url, map_size, spawn_map,
                                                                 );
                                                             }
                                                         },
@@ -386,6 +399,58 @@ impl OverlayState {
             },
         );
     }
+}
+
+/// Adds the map's image, fit within `map_size`, with each of `spawn_map`'s start locations marked
+/// over it. Every start location looks the same: BW only decides which player starts where as the
+/// game starts, after the loading screen is gone.
+fn add_map_image(ui: &mut egui::Ui, url: &str, map_size: Vec2, spawn_map: Option<&MapData>) {
+    let image = egui::Image::from_uri(url)
+        .show_loading_spinner(false)
+        .fit_to_exact_size(map_size)
+        .corner_radius(CornerRadius::same(8));
+    // Until the image loads it's laid out at a placeholder size rather than the map's aspect ratio,
+    // so markers placed in its rect would land in the wrong spots.
+    let loaded = matches!(
+        image.load_for_size(ui.ctx(), map_size),
+        Ok(TexturePoll::Ready { .. })
+    );
+    let image_rect = ui.add(image).rect;
+    if let Some(map) = spawn_map.filter(|_| loaded) {
+        paint_spawn_markers(ui.painter(), map, image_rect);
+    }
+}
+
+fn paint_spawn_markers(painter: &Painter, map: &MapData, image_rect: Rect) {
+    let halo = Stroke::new(SPAWN_MARKER_HALO_WIDTH, SPAWN_MARKER_HALO_COLOR);
+    for location in &map.start_locations {
+        if let Some(center) = spawn_marker_center(location, map.width, map.height, image_rect) {
+            painter.circle(center, SPAWN_MARKER_RADIUS, Color32::WHITE, halo);
+        }
+    }
+}
+
+/// Where to center the marker for `location` when a map of the given size in tiles is drawn into
+/// `image_rect`. Map images cover exactly the map's area, so positions map proportionally into the
+/// rect. `None` for a map with no area.
+fn spawn_marker_center(
+    location: &MapStartLocation,
+    map_width_tiles: u16,
+    map_height_tiles: u16,
+    image_rect: Rect,
+) -> Option<Pos2> {
+    if map_width_tiles == 0 || map_height_tiles == 0 {
+        return None;
+    }
+    let map_width = f32::from(map_width_tiles) * 32.0;
+    let map_height = f32::from(map_height_tiles) * 32.0;
+    Some(
+        image_rect.min
+            + egui::vec2(
+                f32::from(location.x) / map_width * image_rect.width(),
+                f32::from(location.y) / map_height * image_rect.height(),
+            ),
+    )
 }
 
 /// Adds a centered row listing the game's observers, each as a compact name (with their avatar if
@@ -624,5 +689,47 @@ fn get_player_halves(setup_info: &GameSetupInfo) -> (Vec<&PlayerInfo>, Vec<&Play
                     .collect(),
             )
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    fn rect(x: f32, y: f32, width: f32, height: f32) -> Rect {
+        Rect::from_min_size(egui::pos2(x, y), egui::vec2(width, height))
+    }
+
+    fn location(x: u16, y: u16) -> MapStartLocation {
+        MapStartLocation { x, y }
+    }
+
+    #[test]
+    fn spawn_marker_maps_position_proportionally_into_rect() {
+        // A 128x96 map is 4096x3072 pixels; drawn at 640x480 that's 0.15625 rect px per map px.
+        let center = spawn_marker_center(
+            &location(1024, 2048),
+            128,
+            96,
+            rect(100.0, 50.0, 640.0, 480.0),
+        )
+        .unwrap();
+        assert_eq!(center, egui::pos2(100.0 + 160.0, 50.0 + 320.0));
+    }
+
+    #[test]
+    fn spawn_marker_corners_map_to_rect_corners() {
+        let image_rect = rect(0.0, 0.0, 480.0, 240.0);
+        let top_left = spawn_marker_center(&location(0, 0), 128, 64, image_rect).unwrap();
+        let bottom_right = spawn_marker_center(&location(4096, 2048), 128, 64, image_rect).unwrap();
+        assert_eq!(top_left, image_rect.min);
+        assert_eq!(bottom_right, image_rect.max);
+    }
+
+    #[test]
+    fn spawn_marker_skips_maps_without_area() {
+        let image_rect = rect(0.0, 0.0, 640.0, 640.0);
+        assert!(spawn_marker_center(&location(100, 100), 0, 128, image_rect).is_none());
+        assert!(spawn_marker_center(&location(100, 100), 128, 0, image_rect).is_none());
     }
 }
