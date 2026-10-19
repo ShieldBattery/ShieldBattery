@@ -681,18 +681,6 @@ The race configuration for a player in a map force (either a preset race or 'any
 scalar MapForcePlayerRace
 
 """
-The number of lobby games played on a map with one game type.
-"""
-type MapGameTypeCount {
-	"""
-	The map, period and game type, unique across all of these.
-	"""
-	id: String!
-	gameType: GameType!
-	games: Int!
-}
-
-"""
 Whether a map is played as a regular melee map or with its own Use Map Settings rules.
 """
 enum MapKind {
@@ -1521,11 +1509,6 @@ type SbMap {
 	progress. Weeks without games are included.
 	"""
 	weeklyActivity(weeks: Int! = 26): [MapWeeklyActivity!]!
-	"""
-	The number of lobby games played on this map with each game type over the last 90 days,
-	most played first. Matchmaking games are not included.
-	"""
-	gameTypes90d: [MapGameTypeCount!]!
 	"""
 	Whether the current user has favorited this map. False when logged out.
 	"""

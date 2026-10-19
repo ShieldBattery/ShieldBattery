@@ -15,8 +15,7 @@ use crate::maps::search::{
     MapSearchRepo, MapSort,
 };
 use crate::maps::stats::{
-    self, DEFAULT_ACTIVITY_WEEKS, MapGameTypeCount, MapMatchupSeason, MapMatchupStats,
-    MapWeeklyActivity,
+    self, DEFAULT_ACTIVITY_WEEKS, MapMatchupSeason, MapMatchupStats, MapWeeklyActivity,
 };
 use crate::maps::{MapFile, MapHash, MapsLoader, SbMapId};
 use crate::matchmaking::MatchmakingType;
@@ -117,16 +116,6 @@ impl SbMap {
         let weeks = stats::clamp_activity_weeks(weeks);
         let today = Utc::now().date_naive();
         Ok(stats::load_weekly_activity(db, self.id, weeks, today).await?)
-    }
-
-    /// The number of lobby games played on this map with each game type over the last 90 days,
-    /// most played first. Matchmaking games are not included.
-    #[graphql(name = "gameTypes90d")]
-    async fn game_types_90d(&self, ctx: &Context<'_>) -> Result<Vec<MapGameTypeCount>> {
-        // Only the map page selects this, one map at a time, so it isn't batched
-        let db = ctx.data::<MapSearchRepo>()?.db();
-        let today = Utc::now().date_naive();
-        Ok(stats::load_game_types_90d(db, self.id, today).await?)
     }
 
     /// Whether the current user has favorited this map. False when logged out.

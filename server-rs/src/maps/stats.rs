@@ -5,7 +5,6 @@ use chrono::{DateTime, Days, NaiveDate, Utc, Weekday};
 use color_eyre::eyre::{self, WrapErr};
 use sqlx::PgPool;
 
-use crate::games::GameType;
 use crate::maps::SbMapId;
 use crate::matchmaking::MatchmakingType;
 
@@ -13,8 +12,6 @@ use crate::matchmaking::MatchmakingType;
 pub const DEFAULT_ACTIVITY_WEEKS: i32 = 26;
 /// The most weeks `weeklyActivity` returns.
 const MAX_ACTIVITY_WEEKS: i32 = 104;
-/// The number of days, including today, that `gameTypes90d` counts.
-const GAME_TYPE_DAYS: u64 = 90;
 
 /// Matchmaking results for one matchup on a map.
 #[derive(SimpleObject, Clone, Debug, PartialEq, Eq)]
@@ -55,15 +52,6 @@ pub struct MapWeeklyActivity {
     pub week_start: DateTime<Utc>,
     pub lobby_games: i32,
     pub matchmaking_games: i32,
-}
-
-/// The number of lobby games played on a map with one game type.
-#[derive(SimpleObject, Clone, Debug)]
-pub struct MapGameTypeCount {
-    /// The map, period and game type, unique across all of these.
-    pub id: String,
-    pub game_type: GameType,
-    pub games: i32,
 }
 
 /// One season's results for a matchup, as stored.
@@ -302,49 +290,6 @@ pub async fn load_weekly_activity(
         })
         .collect::<HashMap<_, _>>();
     Ok(fill_weeks(map_id, &starts, &games))
-}
-
-/// Loads the number of lobby games played on a map with each game type over the 90 days up to
-/// and including `today`, most played first.
-pub async fn load_game_types_90d(
-    db: &PgPool,
-    map_id: SbMapId,
-    today: NaiveDate,
-) -> eyre::Result<Vec<MapGameTypeCount>> {
-    let since = today
-        .checked_sub_days(Days::new(GAME_TYPE_DAYS - 1))
-        .unwrap_or(NaiveDate::MIN);
-    let rows = sqlx::query!(
-        r#"
-            SELECT game_type, sum(games)::bigint as "games!"
-            FROM map_stats_daily
-            WHERE map_id = $1 AND game_source = 'LOBBY' AND day >= $2
-            GROUP BY game_type
-            ORDER BY 2 DESC, game_type
-        "#,
-        map_id as _,
-        since,
-    )
-    .fetch_all(db)
-    .await
-    .wrap_err("Failed to load map game types")?;
-
-    Ok(rows
-        .into_iter()
-        .filter_map(|row| {
-            let Ok(game_type) = serde_json::from_value::<GameType>(serde_json::Value::String(
-                row.game_type.clone(),
-            )) else {
-                tracing::warn!("Unknown game type in map_stats_daily: {}", row.game_type);
-                return None;
-            };
-            Some(MapGameTypeCount {
-                id: format!("{map_id}:90d:{}", row.game_type),
-                game_type,
-                games: saturate_i32(row.games),
-            })
-        })
-        .collect())
 }
 
 #[cfg(test)]
