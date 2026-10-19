@@ -8,7 +8,6 @@ use async_graphql::{
 };
 use chrono::{DateTime, Utc};
 use data_encoding::BASE64;
-use data_encoding::HEXLOWER;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use typeshare::typeshare;
@@ -16,6 +15,8 @@ use uuid::Uuid;
 
 use crate::file_store::FileStore;
 use crate::maps::catalog::{SbMapLoader, ViewerMapFlagsLoader};
+use crate::maps::ingest::map_image_path;
+use crate::maps::render::{MAP_JPEG_SIZE, MapImageFormat};
 use crate::maps::search::MapSearchRepo;
 use crate::{
     graphql::{errors::graphql_error, schema_builder::SchemaBuilderModule},
@@ -178,6 +179,7 @@ pub struct DbMapFile {
     pub is_eud: bool,
     pub parser_version: i32,
     pub image_version: i32,
+    pub render_version: i32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -203,6 +205,7 @@ pub struct MapFile {
     pub is_eud: bool,
     pub parser_version: i32,
     pub image_version: i32,
+    pub render_version: i32,
 }
 
 #[ComplexObject]
@@ -212,62 +215,69 @@ impl MapFile {
     }
 
     #[graphql(skip)]
-    fn image_path(&self, size: usize) -> String {
-        let hash = HEXLOWER.encode(&self.hash.0);
-        format!(
-            "map_images/{}/{}/{}-{size}.jpg",
-            &hash[0..2],
-            &hash[2..4],
-            hash
-        )
+    fn image_url(
+        &self,
+        ctx: &async_graphql::Context<'_>,
+        size: u32,
+        format: MapImageFormat,
+    ) -> async_graphql::Result<String> {
+        let file_store = ctx.data::<FileStore>()?;
+        let path = map_image_path(
+            &self.hash,
+            self.image_version,
+            self.render_version,
+            size,
+            format,
+        );
+        let url = file_store.url(&path)?;
+        // Images from before render versions are overwritten in place when re-rendered
+        Ok(if self.render_version == 0 {
+            format!("{url}?v={}", self.image_version)
+        } else {
+            url
+        })
     }
 
     async fn image_256_url(
         &self,
         ctx: &async_graphql::Context<'_>,
     ) -> async_graphql::Result<String> {
-        let file_store = ctx.data::<FileStore>()?;
-        Ok(format!(
-            "{}?v={}",
-            file_store.url(&self.image_path(256))?,
-            self.image_version
-        ))
+        self.image_url(ctx, 256, MapImageFormat::Avif)
     }
 
     async fn image_512_url(
         &self,
         ctx: &async_graphql::Context<'_>,
     ) -> async_graphql::Result<String> {
-        let file_store = ctx.data::<FileStore>()?;
-        Ok(format!(
-            "{}?v={}",
-            file_store.url(&self.image_path(512))?,
-            self.image_version
-        ))
+        self.image_url(ctx, 512, MapImageFormat::Avif)
     }
 
     async fn image_1024_url(
         &self,
         ctx: &async_graphql::Context<'_>,
     ) -> async_graphql::Result<String> {
-        let file_store = ctx.data::<FileStore>()?;
-        Ok(format!(
-            "{}?v={}",
-            file_store.url(&self.image_path(1024))?,
-            self.image_version
-        ))
+        self.image_url(ctx, 1024, MapImageFormat::Avif)
     }
 
     async fn image_2048_url(
         &self,
         ctx: &async_graphql::Context<'_>,
     ) -> async_graphql::Result<String> {
-        let file_store = ctx.data::<FileStore>()?;
-        Ok(format!(
-            "{}?v={}",
-            file_store.url(&self.image_path(2048))?,
-            self.image_version
-        ))
+        self.image_url(ctx, 2048, MapImageFormat::Avif)
+    }
+
+    /// A 1024px JPEG of the map, for consumers that can't decode the other images' format.
+    async fn jpeg_image_url(
+        &self,
+        ctx: &async_graphql::Context<'_>,
+    ) -> async_graphql::Result<String> {
+        self.image_url(ctx, MAP_JPEG_SIZE, MapImageFormat::Jpeg)
+    }
+
+    /// Whether the map's images have its start locations drawn in. Images without them are meant
+    /// to have start locations drawn on top.
+    async fn image_spawns_baked(&self) -> bool {
+        self.render_version == 0
     }
 }
 
@@ -287,6 +297,7 @@ impl From<DbMapFile> for MapFile {
             is_eud: db_map_file.is_eud,
             parser_version: db_map_file.parser_version,
             image_version: db_map_file.image_version,
+            render_version: db_map_file.render_version,
         }
     }
 }
@@ -385,7 +396,8 @@ impl Loader<MapHash> for MapsLoader {
             r#"
                 SELECT hash as "hash: _", extension, title, description,
                     width, height, tileset, players_melee, players_ums,
-                    lobby_init_data as "lobby_init_data: _", is_eud, parser_version, image_version
+                    lobby_init_data as "lobby_init_data: _", is_eud, parser_version, image_version,
+                    render_version
                 FROM maps
                 WHERE hash = ANY($1)
             "#,

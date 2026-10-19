@@ -2,7 +2,7 @@ import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
-import { MapImageInfo } from '../../common/maps'
+import { MapImageInfo, mapImageSrcSet } from '../../common/maps'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
 import { BodyLarge } from '../styles/typography'
@@ -181,12 +181,14 @@ function MapImage({
   forceAspectRatio?: number
   className?: string
 }) {
-  const srcSet = `
-    ${image256Url} 256w,
-    ${image512Url} 512w,
-    ${image1024Url} 1024w,
-    ${image2048Url} 2048w
-  `
+  const srcSet = mapImageSrcSet({
+    name,
+    image256Url,
+    image512Url,
+    image1024Url,
+    image2048Url,
+    mapData: { width, height },
+  })
 
   const aspectRatio = width / height
   const imgWidth = size || width

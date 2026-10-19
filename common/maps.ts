@@ -1,6 +1,6 @@
 import { TFunction } from 'i18next'
 import { Immutable } from 'immer'
-import { Tagged } from 'type-fest'
+import { ReadonlyDeep, Tagged } from 'type-fest'
 import { assertUnreachable } from './assert-unreachable'
 import { GameType } from './games/game-type'
 import { Jsonify } from './json'
@@ -226,7 +226,14 @@ export interface MapInfo {
   image512Url?: string
   image1024Url?: string
   image2048Url?: string
+  /** A 1024px JPEG of the map, for consumers that can't decode the other images' format. */
+  jpegImageUrl?: string
   imageVersion: number
+  /**
+   * Whether the map's images have its start locations drawn in. Images without them are meant to
+   * have start locations drawn on top.
+   */
+  imageSpawnsBaked: boolean
 }
 
 export type MapInfoJson = Jsonify<MapInfo>
@@ -250,6 +257,33 @@ export interface MapImageInfo {
   image1024Url?: string
   image2048Url?: string
   mapData: { width: number; height: number }
+}
+
+/**
+ * Returns a `srcset` for a map's images. Images are rendered at a whole number of pixels per tile
+ * (at most 32) that fits each size along the map's longest side, so they can be narrower than
+ * their nominal size.
+ */
+export function mapImageSrcSet(map: ReadonlyDeep<MapImageInfo>): string {
+  const { width, height } = map.mapData
+  const longestSide = Math.max(width, height, 1)
+  const sizes = [
+    [256, map.image256Url],
+    [512, map.image512Url],
+    [1024, map.image1024Url],
+    [2048, map.image2048Url],
+  ] as const
+  // Small maps reach the pixels-per-tile cap below the largest sizes, and a srcset can't repeat a
+  // width
+  const candidates = new Map<number, string>()
+  for (const [size, url] of sizes) {
+    const pixelsPerTile = Math.min(Math.max(Math.floor(size / longestSide), 1), 32)
+    const imageWidth = width * pixelsPerTile
+    if (url && !candidates.has(imageWidth)) {
+      candidates.set(imageWidth, url)
+    }
+  }
+  return Array.from(candidates, ([imageWidth, url]) => `${url} ${imageWidth}w`).join(', ')
 }
 
 /** Returns the number of teams for a map/game type. */

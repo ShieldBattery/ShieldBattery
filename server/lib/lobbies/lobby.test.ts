@@ -65,6 +65,7 @@ const BigGameHunters: MapInfo = {
     parserVersion: 1,
   },
   imageVersion: 1,
+  imageSpawnsBaked: true,
 }
 
 const BOXER_LOBBY = createLobby({
@@ -1170,6 +1171,7 @@ const UMS_MAP_1: MapInfo = {
     parserVersion: 1,
   },
   imageVersion: 1,
+  imageSpawnsBaked: true,
 }
 const UMS_MAP_2: MapInfo = {
   id: makeSbMapId('tappavat'),
@@ -1217,6 +1219,7 @@ const UMS_MAP_2: MapInfo = {
     parserVersion: 1,
   },
   imageVersion: 1,
+  imageSpawnsBaked: true,
 }
 const UMS_MAP_3: MapInfo = {
   id: makeSbMapId('accipiter'),
@@ -1258,6 +1261,7 @@ const UMS_MAP_3: MapInfo = {
     parserVersion: 1,
   },
   imageVersion: 1,
+  imageSpawnsBaked: true,
 }
 const UMS_MAP_4: MapInfo = {
   id: makeSbMapId('team-micro'),
@@ -1311,6 +1315,7 @@ const UMS_MAP_4: MapInfo = {
     parserVersion: 1,
   },
   imageVersion: 1,
+  imageSpawnsBaked: true,
 }
 const UMS_LOBBY_1 = createLobby({
   name: 'Sunken Defence',

@@ -543,11 +543,21 @@ type MapFile {
 	isEud: Boolean!
 	parserVersion: Int!
 	imageVersion: Int!
+	renderVersion: Int!
 	id: String!
 	image256Url: String!
 	image512Url: String!
 	image1024Url: String!
 	image2048Url: String!
+	"""
+	A 1024px JPEG of the map, for consumers that can't decode the other images' format.
+	"""
+	jpegImageUrl: String!
+	"""
+	Whether the map's images have its start locations drawn in. Images without them are meant
+	to have start locations drawn on top.
+	"""
+	imageSpawnsBaked: Boolean!
 }
 
 """

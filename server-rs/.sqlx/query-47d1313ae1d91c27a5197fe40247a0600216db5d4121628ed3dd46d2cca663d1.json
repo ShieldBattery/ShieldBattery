@@ -1,0 +1,77 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    WITH current_pools AS (\n                        SELECT DISTINCT ON (matchmaking_type) maps\n                        FROM matchmaking_map_pools\n                        WHERE start_date <= now()\n                        ORDER BY matchmaking_type, start_date DESC\n                    ), pool_maps AS (\n                        SELECT DISTINCT unnest(maps) AS map_id FROM current_pools\n                    )\n                    SELECT m.id as \"id: SbMapId\", m.hash as \"hash: MapHash\", m.extension,\n                        m.image_version, m.render_version\n                    FROM maps m\n                    WHERE (m.render_version < $1 OR m.render_fallback)\n                        AND m.render_failed_version IS DISTINCT FROM $1\n                    ORDER BY\n                        m.id IN (SELECT map_id FROM pool_maps) DESC,\n                        (SELECT s.games_90d FROM map_stats s WHERE s.map_id = m.id)\n                            DESC NULLS LAST,\n                        m.listed DESC,\n                        m.hash\n                    LIMIT $2\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id: SbMapId",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "hash: MapHash",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "hash"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "extension",
+        "type_info": "Bpchar",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "extension"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "image_version",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "image_version"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "render_version",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "render_version"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "47d1313ae1d91c27a5197fe40247a0600216db5d4121628ed3dd46d2cca663d1"
+}

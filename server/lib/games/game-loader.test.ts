@@ -105,6 +105,7 @@ function makeMapInfo(): MapInfo {
     visibility: MapVisibility.Public,
     mapData: {} as any,
     imageVersion: 1,
+    imageSpawnsBaked: true,
   }
 }
 

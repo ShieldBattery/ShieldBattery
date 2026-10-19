@@ -33,9 +33,10 @@ const HOST: SbUser = { id: HOST_ID, name: 'HostUser', created: 0 }
 const FIGHTING_SPIRIT: MapInfoJson = {
   id: makeSbMapId('map-1'),
   name: 'Fighting Spirit',
-  image1024Url: 'https://cdn.example.com/maps/fs-1024.jpg',
-  image512Url: 'https://cdn.example.com/maps/fs-512.jpg',
-  image256Url: 'https://cdn.example.com/maps/fs-256.jpg',
+  image1024Url: 'https://cdn.example.com/maps/fs-1024.avif',
+  image512Url: 'https://cdn.example.com/maps/fs-512.avif',
+  image256Url: 'https://cdn.example.com/maps/fs-256.avif',
+  jpegImageUrl: 'https://cdn.example.com/maps/fs-1024.jpg',
 } as MapInfoJson
 
 const BASE_SUMMARY: LobbySummaryJson = {
@@ -173,6 +174,7 @@ describe('lobbies/lobby-page-meta', () => {
           image1024Url: undefined,
           image512Url: undefined,
           image256Url: undefined,
+          jpegImageUrl: undefined,
         },
       })
       findUsersByIdMock.mockResolvedValueOnce([HOST])
