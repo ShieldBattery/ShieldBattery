@@ -7,6 +7,8 @@ import { JotaiStore } from '../jotai-store'
 import { updateOnConnect } from '../network/network-atoms'
 
 export const draftStateAtom = atomWithImmer<ClientDraftState | undefined>(undefined)
+/** Identifies a draft across state updates, invalidating requests when that draft is reset. */
+export const draftGenerationAtom = atom(0)
 export const draftPickTimeStartAtom = atom<number | undefined>(undefined)
 export const draftChatMessagesAtom = atomWithImmer<DraftChatMessage[]>([])
 /** The matchmaking type of the current draft, set alongside `draftStateAtom`. */
@@ -21,6 +23,7 @@ updateOnConnect((_get, set) => {
 export function resetDraftState(storeOrSetter: JotaiStore | Setter) {
   const setter = 'set' in storeOrSetter ? storeOrSetter.set.bind(storeOrSetter) : storeOrSetter
 
+  setter(draftGenerationAtom, generation => generation + 1)
   setter(draftStateAtom, nothing as any)
   setter(draftPickTimeStartAtom, undefined)
   setter(draftChatMessagesAtom, [])

@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { MatchmakingType } from '../../common/matchmaking'
 import { DEFAULT_ACCOUNT_SETTINGS } from '../../common/settings/account-settings'
 import { asMockedFunction } from '../../common/testing/mocks'
+import { ReduxAction } from '../action-types'
+import dialogReducer from '../dialogs/dialog-reducer'
 import { DialogType } from '../dialogs/dialog-type'
 import { DispatchFunction } from '../dispatch-registry'
 import { jotaiStore } from '../jotai-store'
@@ -53,8 +55,15 @@ vi.mock('../i18n/i18next', () => ({
 }))
 
 vi.mock('./action-creators', () => ({
-  closeAcceptMatchDialog: vi.fn(() => ({ type: '@dialogs/close' })),
-  openAcceptMatchDialog: vi.fn(() => ({ type: '@dialogs/open' })),
+  closeAcceptMatchDialog: vi.fn(() => ({
+    type: '@dialogs/close',
+    payload: { dialogType: DialogType.AcceptMatch },
+  })),
+  openAcceptMatchDialog: vi.fn(() => ({
+    type: '@dialogs/open',
+    payload: { type: DialogType.AcceptMatch, keepOnTop: true },
+    meta: { id: 'accept' },
+  })),
   getCurrentMapPool: vi.fn(() => ({ type: '@matchmaking/getCurrentMapPool' })),
 }))
 
@@ -162,6 +171,25 @@ describe('client/matchmaking/socket-handlers/matchFound', () => {
 
     expect(ipcSend).not.toHaveBeenCalled()
     expect(jotaiStore.get(foundMatchAtom)).toBeDefined()
+  })
+
+  test('removes stale failure notices through accepting and drafting the next match', () => {
+    let dialogs: ReturnType<typeof dialogReducer> = {
+      history: [
+        { id: 'other', type: DialogType.Simple },
+        { id: 'canceled', type: DialogType.MatchCanceled },
+        { id: 'failed', type: DialogType.FailedToAcceptMatch },
+      ],
+    }
+    for (const action of runMatchFound()) {
+      dialogs = dialogReducer(dialogs, action as ReduxAction)
+    }
+    expect(dialogs.history.map(d => d.type)).toEqual([DialogType.Simple, DialogType.AcceptMatch])
+
+    for (const action of runDraftStarted(dialogs.history)) {
+      dialogs = dialogReducer(dialogs, action as ReduxAction)
+    }
+    expect(dialogs.history).toEqual([{ id: 'other', type: DialogType.Simple }])
   })
 
   test("closes the previous match's failure notices", () => {
