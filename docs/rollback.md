@@ -137,6 +137,11 @@ relay's lead reports:
   counts as already in effect, so the next window doesn't make it again. The pipe (`buffer - lead`)
   is capped at 14 turns, lockstep's deepest buffer, so rollback never costs more delay than
   lockstep could.
+- **The opening.** For the first 360 steps (15 s), the target is the prediction limit less 3 (5),
+  unless a team shares control or the map is Use Map Settings: nobody sees anyone else's units yet,
+  so corrections go unseen and the client takes as little input delay as it can. After that the
+  target comes down a frame per lead window to the player's own, so the delay comes back a repeated
+  frame at a time.
 
 Send-phase alignment and the lockstep buffer law are off in rollback sessions after the start: the
 lead report sets each client's send timing outright, and the buffer only matters for the lockstep

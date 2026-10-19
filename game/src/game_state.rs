@@ -361,6 +361,13 @@ impl GameState {
                 // leaves, so the lone human plays on versus the computers locally (see
                 // `TurnState::should_self_close`).
                 let has_computers = info.slots.iter().any(|s| s.is_computer());
+                // Whether the game's opening rolls back as much as it can (see
+                // `rollback_live::arm_for_session`): not where a team shares control, nor on a map
+                // of its own settings.
+                let opening_rollback = !matches!(
+                    info.game_type,
+                    GameType::Ums | GameType::TeamMelee | GameType::TeamFfa
+                );
                 // Context the re-home provider authenticates its SB-server failover requests with
                 // (the same gameId + userId + resultCode the results submission uses).
                 let rehome_context = netcode_v2::RehomeContext {
@@ -370,7 +377,12 @@ impl GameState {
                     result_code: info.result_code.clone(),
                 };
                 let mut session_start =
-                    netcode_v2::establish_session(&setup, has_computers, rehome_context)
+                    netcode_v2::establish_session(
+                        &setup,
+                        has_computers,
+                        opening_rollback,
+                        rehome_context,
+                    )
                         .await
                         // The full root cause matters here: this string is the error the app
                         // reports to the server as this client's load failure, and the deep

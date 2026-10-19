@@ -173,6 +173,7 @@ fn rollback_supported() -> bool {
 pub async fn establish_session(
     setup: &NetcodeV2Setup,
     has_computers: bool,
+    opening_rollback: bool,
     rehome_context: RehomeContext,
 ) -> Result<mpsc::Receiver<Option<u32>>, SessionError> {
     if setup.rollback && !rollback_supported() {
@@ -297,7 +298,7 @@ pub async fn establish_session(
     turn_state.populate_identity_slots();
     // Before any in-game turn exists, since the input table places each turn at its step by
     // counting its slot's turns.
-    if let Some(inputs) = crate::rollback_live::arm_for_session(setup.rollback) {
+    if let Some(inputs) = crate::rollback_live::arm_for_session(setup.rollback, opening_rollback) {
         turn_state.predict_inputs(inputs);
     }
     // Seed the `/netstat` operator header and per-player home column from the launch handoff. The

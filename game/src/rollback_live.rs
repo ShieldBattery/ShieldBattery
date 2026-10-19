@@ -139,6 +139,39 @@ static SETTINGS: Mutex<Settings> = Mutex::new(Settings {
 /// Whether the current game rolls back.
 static ARMED: AtomicBool = AtomicBool::new(false);
 
+/// Whether the current game runs its opening at a higher rollback target (see
+/// [`rollback_target_at`]).
+static OPENING: AtomicBool = AtomicBool::new(false);
+
+/// How many frames of the prediction limit a game's opening leaves past its rollback target. Nobody
+/// sees another player's units in the opening of a melee game, so corrections there go unseen and
+/// the opening takes as much lateness as it can by rolling back, for the least input delay, but
+/// still predicts through a peer's hitch of about an eighth of a second rather than stalling.
+const OPENING_HEADROOM: u32 = 3;
+
+/// How many steps a game's opening runs at its rollback target: fifteen seconds.
+const OPENING_STEPS: u32 = 360;
+
+/// The rollback target at `step`, for a player who chose `chosen` in a game whose prediction limit
+/// is `limit`: in a game with an opening, [`OPENING_HEADROOM`] short of the limit through the
+/// opening, then a frame lower each lead window until it is back at `chosen`, so the lead gives
+/// each frame of rollback back as input delay one at a time (each is a frame the player sees
+/// repeat) rather than in the bigger drops lateness can make.
+fn rollback_target_at(step: u32, chosen: u32, limit: u32, opening: bool) -> u32 {
+    if !opening {
+        return chosen;
+    }
+    let opening_target = limit.saturating_sub(OPENING_HEADROOM);
+    let target = match step.checked_sub(OPENING_STEPS) {
+        None => opening_target,
+        Some(after) => {
+            let given_back = after / LEAD_WINDOW_TICKS as u32 + 1;
+            opening_target.saturating_sub(given_back)
+        }
+    };
+    target.max(chosen)
+}
+
 /// Frames between snapshots.
 static SPACING: AtomicU32 = AtomicU32::new(tick::DEFAULT_SNAPSHOT_SPACING);
 
@@ -591,14 +624,22 @@ pub fn supported() -> bool {
 /// Sets whether the game about to start rolls back, as its session says, and returns the input
 /// table its turn state keeps its turns in when it does. The server tells every client in the
 /// session the same, which matters because a game that rolls back turns native sync off.
-pub fn arm_for_session(rollback: bool) -> Option<InputTable> {
+///
+/// `opening` says whether the game's opening runs at a higher rollback target: not where
+/// several players control the same units (their commands to units everyone on the team sees
+/// would be corrected in plain view), nor on a map of its own settings (which can start players in
+/// sight of each other). Each client decides its own lead, so this needs no agreement either.
+pub fn arm_for_session(rollback: bool, opening: bool) -> Option<InputTable> {
     ARMED.store(rollback, Ordering::Release);
+    OPENING.store(opening, Ordering::Release);
     if !rollback {
         return None;
     }
     let settings = SETTINGS.lock();
+    let target = rollback_target_at(0, settings.rollback_target, settings.limit, opening);
     info!(
-        "This game rolls back, with native sync off: prediction limit {}, rollback target {}",
+        "This game rolls back, with native sync off: prediction limit {}, rollback target {} \
+         (from {target} through the opening)",
         settings.limit, settings.rollback_target,
     );
     #[cfg(debug_assertions)]
@@ -614,12 +655,7 @@ pub fn arm_for_session(rollback: bool) -> Option<InputTable> {
         settings.monkey_interval,
         settings.withhold_hashes_from,
     );
-    let mut table = InputTable::new(
-        settings.limit,
-        settings.rollback_target,
-        LOCKSTEP_START_STEPS,
-        settings.held,
-    );
+    let mut table = InputTable::new(settings.limit, target, LOCKSTEP_START_STEPS, settings.held);
     table.set_min_buffer_turns(settings.min_buffer_turns);
     Some(table)
 }
@@ -650,11 +686,12 @@ pub unsafe fn run_game_logic_step(
         if !ARMED.load(Ordering::Relaxed) || game_thread::is_replay() || !bw.has_game_started() {
             return None;
         }
-        let (shadow_depth, rollback_target, withhold_hashes_from) = {
+        let (shadow_depth, chosen_target, limit, withhold_hashes_from) = {
             let settings = SETTINGS.lock();
             (
                 settings.shadow_depth,
                 settings.rollback_target,
+                settings.limit,
                 settings.withhold_hashes_from,
             )
         };
@@ -664,6 +701,12 @@ pub unsafe fn run_game_logic_step(
         // advancing frames; see `rollback::count_turns`.
         crate::rollback::count_turns(true);
         let current = crate::rollback::position(bw)?;
+        let rollback_target = rollback_target_at(
+            current,
+            chosen_target,
+            limit,
+            OPENING.load(Ordering::Relaxed),
+        );
         // What the turn state's receive will be given for the step from `current`: BW's turn
         // counter, which reads one past the turns dispatched while a step takes its turns.
         let next_frame = current + 1;
@@ -895,7 +938,7 @@ pub unsafe fn run_game_logic_step(
             let mut stats = GAME_STATS.lock();
             let stats = stats.get_or_insert_with(|| GameStats {
                 version: GAME_STATS_VERSION,
-                rollback_target,
+                rollback_target: chosen_target,
                 prediction_limit: SETTINGS.lock().limit,
                 min_pipe_turns: netcode_v2::min_pipe_turns(),
                 ..GameStats::default()
@@ -1111,6 +1154,33 @@ fn next_random() -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_opening_target_holds_then_gives_a_frame_back_each_lead_window() {
+        let window = LEAD_WINDOW_TICKS as u32;
+        let at = |step, chosen| rollback_target_at(step, chosen, 8, true);
+        assert_eq!(
+            rollback_target_at(0, 2, 8, false),
+            2,
+            "a game without an opening"
+        );
+        assert_eq!(at(0, 2), 5);
+        assert_eq!(at(OPENING_STEPS - 1, 2), 5);
+        assert_eq!(at(OPENING_STEPS, 2), 4);
+        assert_eq!(at(OPENING_STEPS + window - 1, 2), 4);
+        assert_eq!(at(OPENING_STEPS + window, 2), 3);
+        assert_eq!(at(OPENING_STEPS + 50 * window, 2), 2);
+        assert_eq!(
+            at(OPENING_STEPS + window, 4),
+            4,
+            "never below the player's own target"
+        );
+        assert_eq!(
+            rollback_target_at(0, 2, 3, true),
+            2,
+            "a limit with no room for the headroom leaves the player's own target"
+        );
+    }
 
     /// Feeds a fresh window a whole window of ticks running the given rollbacks in turn, and
     /// returns the lead move it ends with.
