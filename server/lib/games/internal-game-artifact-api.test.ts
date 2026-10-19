@@ -66,6 +66,7 @@ const MAP: MapInfo = {
   mapData: { format: 'scx' } as any,
   mapUrl: 'https://store.example/signed-map-url?sig=secret',
   imageVersion: 1,
+  imageSpawnsBaked: true,
 }
 
 const REPLAY = {
