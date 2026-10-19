@@ -16,6 +16,7 @@ use uuid::Uuid;
 use crate::file_store::FileStore;
 use crate::maps::catalog::{SbMapLoader, ViewerMapFlagsLoader};
 use crate::maps::ingest::map_image_path;
+use crate::maps::parse::MapStartLocation;
 use crate::maps::render::{MAP_JPEG_SIZE, MapImageFormat};
 use crate::maps::search::MapSearchRepo;
 use crate::{
@@ -180,6 +181,8 @@ pub struct DbMapFile {
     pub parser_version: i32,
     pub image_version: i32,
     pub render_version: i32,
+    pub start_locations: sqlx::types::Json<Vec<MapStartLocation>>,
+    pub ums_content: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -206,6 +209,11 @@ pub struct MapFile {
     pub parser_version: i32,
     pub image_version: i32,
     pub render_version: i32,
+    #[graphql(skip)]
+    pub start_locations: Vec<MapStartLocation>,
+    /// Whether the map has UMS content: trigger actions that melee games don't use, more than 8
+    /// preplaced player-owned units, or EUDs. Null until the map file has been analyzed.
+    pub ums_content: Option<bool>,
 }
 
 #[ComplexObject]
@@ -274,6 +282,21 @@ impl MapFile {
         self.image_url(ctx, MAP_JPEG_SIZE, MapImageFormat::Jpeg)
     }
 
+    /// The start location placed for each player slot, at most one per slot. Empty until the map
+    /// file has been analyzed.
+    async fn start_locations(&self) -> Vec<MapFileStartLocation> {
+        let hash = BASE64.encode(&self.hash.0);
+        self.start_locations
+            .iter()
+            .map(|s| MapFileStartLocation {
+                id: format!("{hash}:{}", s.slot),
+                slot: s.slot.into(),
+                x: s.x.into(),
+                y: s.y.into(),
+            })
+            .collect()
+    }
+
     /// Whether the map's images have its start locations drawn in. Images without them are meant
     /// to have start locations drawn on top.
     async fn image_spawns_baked(&self) -> bool {
@@ -298,8 +321,22 @@ impl From<DbMapFile> for MapFile {
             parser_version: db_map_file.parser_version,
             image_version: db_map_file.image_version,
             render_version: db_map_file.render_version,
+            start_locations: db_map_file.start_locations.0,
+            ums_content: db_map_file.ums_content,
         }
     }
+}
+
+/// A start location placed for a player slot.
+#[derive(Debug, Clone, SimpleObject)]
+pub struct MapFileStartLocation {
+    /// The map file's hash and the slot, unique across all map files.
+    pub id: String,
+    /// The player slot (0-7) the start location belongs to.
+    pub slot: i32,
+    /// The center of the start location, in map pixels (32 per tile).
+    pub x: i32,
+    pub y: i32,
 }
 
 #[derive(Debug, Clone, SimpleObject, Deserialize, Serialize)]
@@ -397,7 +434,7 @@ impl Loader<MapHash> for MapsLoader {
                 SELECT hash as "hash: _", extension, title, description,
                     width, height, tileset, players_melee, players_ums,
                     lobby_init_data as "lobby_init_data: _", is_eud, parser_version, image_version,
-                    render_version
+                    render_version, start_locations as "start_locations: _", ums_content
                 FROM maps
                 WHERE hash = ANY($1)
             "#,

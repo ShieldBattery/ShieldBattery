@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
-import { mapImageSrcSet } from './maps'
+import { GameType } from './games/game-type'
+import { mapImageSrcSet, visibleSpawns } from './maps'
 
 function imageInfo(width: number, height: number) {
   return {
@@ -38,6 +39,60 @@ describe('common/maps/mapImageSrcSet', () => {
   test('missing images are left out', () => {
     expect(mapImageSrcSet({ ...imageInfo(128, 128), image2048Url: undefined })).toBe(
       'a-256 256w, a-512 512w, a-1024 1024w',
+    )
+  })
+})
+
+describe('common/maps/visibleSpawns', () => {
+  const startLocations = [
+    { slot: 0, x: 256, y: 256 },
+    { slot: 1, x: 3840, y: 3840 },
+  ]
+  function spawnInfo({
+    umsContent = false,
+    imageSpawnsBaked = false,
+    locations = startLocations,
+  }: {
+    umsContent?: boolean
+    imageSpawnsBaked?: boolean
+    locations?: Array<{ slot: number; x: number; y: number }>
+  } = {}) {
+    return {
+      name: 'Map',
+      imageSpawnsBaked,
+      mapData: { width: 128, height: 128, startLocations: locations, umsContent },
+    }
+  }
+
+  test('melee maps show their start locations', () => {
+    expect(visibleSpawns(spawnInfo())).toEqual(startLocations)
+  })
+
+  test('maps with UMS content show none outside a game', () => {
+    expect(visibleSpawns(spawnInfo({ umsContent: true }))).toEqual([])
+  })
+
+  test('melee game types show them even on maps with UMS content', () => {
+    expect(visibleSpawns(spawnInfo({ umsContent: true }), GameType.Melee)).toEqual(startLocations)
+    expect(visibleSpawns(spawnInfo({ umsContent: true }), GameType.TopVsBottom)).toEqual(
+      startLocations,
+    )
+  })
+
+  test('UMS games show none', () => {
+    expect(visibleSpawns(spawnInfo(), GameType.UseMapSettings)).toEqual([])
+  })
+
+  test('images with spawns drawn in, or unknown images, show none', () => {
+    expect(visibleSpawns(spawnInfo({ imageSpawnsBaked: true }))).toEqual([])
+    const { imageSpawnsBaked: _, ...unknown } = spawnInfo()
+    expect(visibleSpawns(unknown)).toEqual([])
+  })
+
+  test('start locations off the map are dropped', () => {
+    const offMap = { slot: 2, x: 5000, y: 100 }
+    expect(visibleSpawns(spawnInfo({ locations: [...startLocations, offMap] }))).toEqual(
+      startLocations,
     )
   })
 })
