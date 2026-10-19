@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useQuery } from 'urql'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
-import { GameType, gameTypeToLabel } from '../../common/games/game-type'
 import { getGameDurationString } from '../../common/games/games'
 import {
   compositionWinRates,
@@ -35,7 +34,7 @@ import { LoadingDotsArea } from '../progress/dots'
 import { useAppSelector } from '../redux-hooks'
 import { getRaceColor } from '../styles/colors'
 import { bodyMedium, bodySmall, labelLarge, labelMedium, titleLarge } from '../styles/typography'
-import { groupMatchupSeasons, usualGameType, weeklyBarHeights } from './map-page-summaries'
+import { groupMatchupSeasons, weeklyBarHeights } from './map-page-summaries'
 
 /** How many weeks of activity the stats card draws. */
 const ACTIVITY_WEEKS = 26
@@ -61,11 +60,6 @@ export const MapPageStats_MapFragment = graphql(/* GraphQL */ `
       weekStart
       lobbyGames
       matchmakingGames
-    }
-    gameTypes90d {
-      id
-      gameType
-      games
     }
   }
 `)
@@ -154,7 +148,6 @@ export function MapStatsCard({
 }) {
   const { t } = useTranslation()
   const map = useFragment(MapPageStats_MapFragment, mapRef)
-  const percent = useFormat(percentFormat)
   const count = useFormat(countFormat)
   const week = useFormat(weekFormat)
 
@@ -170,7 +163,6 @@ export function MapStatsCard({
   const weeklyTotals = map.weeklyActivity.map(w => w.lobbyGames + w.matchmakingGames)
   const barHeights = weeklyBarHeights(weeklyTotals)
   const isUms = map.kind === MapKind.Ums
-  const usual = usualGameType(map.gameTypes90d, isUms ? GameType.UseMapSettings : GameType.Melee)
 
   return (
     <StatsCard>
@@ -222,15 +214,6 @@ export function MapStatsCard({
           </NumberLabel>
         </Sparkline>
       </Numbers>
-      {usual ? (
-        <StatsLine>
-          {t('maps.page.usuallyPlayedAs', {
-            defaultValue: 'Usually played as {{gameType}} ({{share}} of lobby games)',
-            gameType: gameTypeToLabel(usual.gameType, t),
-            share: percent.format(usual.share),
-          })}
-        </StatsLine>
-      ) : null}
       {stats.games28d === 0 ? (
         <StatsLine>
           {t('maps.page.lastPlayed', 'Last played')}{' '}

@@ -1,4 +1,3 @@
-import { GameType } from '../../common/games/game-type'
 import { ALL_MATCHMAKING_TYPES, MatchmakingType } from '../../common/matchmaking'
 
 /** How a UMS map's forces split its human players, plus how many computer slots it has. */
@@ -33,47 +32,6 @@ export function umsForceLayout(
 
   return teams.length > 1 || (teams.length === 1 && computers > 0)
     ? { teams, computers }
-    : undefined
-}
-
-/**
- * The fewest lobby games a map needs before the game type it's usually played as is called out.
- * Below this, a split says more about who happened to host than about how the map is played.
- */
-export const MIN_LOBBY_GAMES_FOR_USUAL_GAME_TYPE = 10
-
-export interface UsualGameType {
-  gameType: GameType
-  /** The share of the map's lobby games played with `gameType`, from 0 to 1. */
-  share: number
-}
-
-/**
- * Returns the game type a map's lobby games are usually played with, when that's worth pointing
- * out: some games use another type, or the usual one isn't the default for the map's kind (e.g. a
- * melee map mostly played as Top vs Bottom). Undefined when every game uses the default type or
- * there are too few games to say.
- */
-export function usualGameType(
-  counts: ReadonlyArray<{ gameType: GameType; games: number }>,
-  defaultGameType: GameType,
-  minGames = MIN_LOBBY_GAMES_FOR_USUAL_GAME_TYPE,
-): UsualGameType | undefined {
-  let total = 0
-  let top: { gameType: GameType; games: number } | undefined
-  for (const count of counts) {
-    total += count.games
-    if (!top || count.games > top.games) {
-      top = count
-    }
-  }
-
-  if (!top || total < minGames) {
-    return undefined
-  }
-  const share = top.games / total
-  return share < 1 || top.gameType !== defaultGameType
-    ? { gameType: top.gameType, share }
     : undefined
 }
 

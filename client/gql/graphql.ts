@@ -1090,7 +1090,6 @@ export type MapPageStats_MapFragmentFragment = {
     lobbyGames: number
     matchmakingGames: number
   }>
-  gameTypes90d: Array<{ id: string; gameType: Types.GameType; games: number }>
 } & { ' $fragmentName'?: 'MapPageStats_MapFragmentFragment' }
 
 export type MapPageMatchups_MapFragmentFragment = {
@@ -2482,18 +2481,6 @@ export const MapPageStats_MapFragmentFragmentDoc = {
                 { kind: 'Field', name: { kind: 'Name', value: 'weekStart' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'lobbyGames' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'matchmakingGames' } },
-              ],
-            },
-          },
-          {
-            kind: 'Field',
-            name: { kind: 'Name', value: 'gameTypes90d' },
-            selectionSet: {
-              kind: 'SelectionSet',
-              selections: [
-                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'gameType' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'games' } },
               ],
             },
           },
@@ -7163,18 +7150,6 @@ export const MapPageDocument = {
                 { kind: 'Field', name: { kind: 'Name', value: 'weekStart' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'lobbyGames' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'matchmakingGames' } },
-              ],
-            },
-          },
-          {
-            kind: 'Field',
-            name: { kind: 'Name', value: 'gameTypes90d' },
-            selectionSet: {
-              kind: 'SelectionSet',
-              selections: [
-                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'gameType' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'games' } },
               ],
             },
           },

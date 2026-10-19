@@ -2105,7 +2105,6 @@
       "updateError": "An error occurred while updating the map",
       "useInLobbyError": "Couldn't change your lobby's map. It may not fit the lobby's current setup.",
       "useInMyLobby": "Use in my lobby",
-      "usuallyPlayedAs": "Usually played as {{gameType}} ({{share}} of lobby games)",
       "weekGames_one": "Week of {{week}}: {{count}} game",
       "weekGames_other": "Week of {{week}}: {{count}} games",
       "weeklyGamesCaption_one": "games per week, last {{count}} weeks",

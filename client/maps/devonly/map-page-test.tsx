@@ -11,7 +11,6 @@ import {
   Provider as UrqlProvider,
 } from 'urql'
 import { filter, map, pipe } from 'wonka'
-import { GameType } from '../../../common/games/game-type'
 import { mapSlug } from '../../../common/map-url'
 import { makeSbMapId, SbMapId, Tileset } from '../../../common/maps'
 import { MatchmakingType } from '../../../common/matchmaking'
@@ -133,7 +132,6 @@ function makeMap({
   originalDescription = description,
   stats = true,
   activity = (week: number) => [Math.round(8 + week * 1.5), Math.round(20 + 30 * Math.sin(week))],
-  gameTypes = [{ gameType: GameType.Melee, games: 40 }],
   matchupSeasons = [],
   umsForces = [
     {
@@ -161,7 +159,6 @@ function makeMap({
   originalDescription?: string
   stats?: boolean
   activity?: (week: number) => [number, number]
-  gameTypes?: Array<{ gameType: GameType; games: number }>
   matchupSeasons?: Array<{ seasonId: number; matchmakingType: MatchmakingType; games: number }>
   umsForces?: Array<{
     name: string
@@ -199,7 +196,6 @@ function makeMap({
         }
       : null,
     weeklyActivity: weeklyActivity(id, stats ? activity : () => [0, 0]),
-    gameTypes90d: gameTypes.map(g => ({ id: `${id}:90d:${g.gameType}`, ...g })),
     matchupSeasons: matchupSeasons.map(s => ({
       id: `${id}:${s.seasonId}:${s.matchmakingType}`,
       ...s,
@@ -248,10 +244,6 @@ const SCENARIO_DATA: Record<ScenarioId, () => Scenario> = {
       description: 'The classic 4 player map, as played in the ladder.',
       originalName: '\u0003Fighting \u0004Spirit',
       originalDescription: 'Made by the Korean ladder map makers.',
-      gameTypes: [
-        { gameType: GameType.Melee, games: 62 },
-        { gameType: GameType.TopVsBottom, games: 38 },
-      ],
       matchupSeasons: [
         { seasonId: 7, matchmakingType: MatchmakingType.Match1v1, games: 1300 },
         { seasonId: 6, matchmakingType: MatchmakingType.Match1v1, games: 1150 },
@@ -315,7 +307,6 @@ const SCENARIO_DATA: Record<ScenarioId, () => Scenario> = {
       originalDescription:
         'Pick a hero at the start.\nHold the zones in the middle of the map to earn points.\n' +
         'First team to 100 points wins. The computer sends waves every 2 minutes.',
-      gameTypes: [{ gameType: GameType.UseMapSettings, games: 80 }],
       umsForces: [
         { name: 'Defender', teamId: 1, players: [{ playerId: 0, isComputer: false }] },
         {
@@ -336,10 +327,6 @@ const SCENARIO_DATA: Record<ScenarioId, () => Scenario> = {
       listed: false,
       description: 'Testing some cliffs',
       activity: week => [week > 20 ? 2 : 0, 0],
-      gameTypes: [
-        { gameType: GameType.Melee, games: 6 },
-        { gameType: GameType.FreeForAll, games: 5 },
-      ],
     }),
     matchups: {},
   }),
@@ -359,7 +346,6 @@ const SCENARIO_DATA: Record<ScenarioId, () => Scenario> = {
       id: makeSbMapId('00000000-0000-4000-8000-00000000f006'),
       name: 'Brand New Map',
       stats: false,
-      gameTypes: [],
       description: 'Uploaded yesterday, nobody has played it yet.',
     }),
     matchups: {},
@@ -371,7 +357,6 @@ const SCENARIO_DATA: Record<ScenarioId, () => Scenario> = {
       hasImage: false,
       baseCount: null,
       stats: false,
-      gameTypes: [],
     }),
     matchups: {},
   }),

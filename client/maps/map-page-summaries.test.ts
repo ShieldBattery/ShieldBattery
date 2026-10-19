@@ -1,12 +1,6 @@
 import { describe, expect, test } from 'vitest'
-import { GameType } from '../../common/games/game-type'
 import { MatchmakingType } from '../../common/matchmaking'
-import {
-  groupMatchupSeasons,
-  umsForceLayout,
-  usualGameType,
-  weeklyBarHeights,
-} from './map-page-summaries'
+import { groupMatchupSeasons, umsForceLayout, weeklyBarHeights } from './map-page-summaries'
 
 const human = { isComputer: false }
 const computer = { isComputer: true }
@@ -37,43 +31,6 @@ describe('maps/map-page-summaries/umsForceLayout', () => {
   test('says nothing for a map without human players', () => {
     expect(umsForceLayout([{ players: [computer] }])).toBeUndefined()
     expect(umsForceLayout([])).toBeUndefined()
-  })
-})
-
-describe('maps/map-page-summaries/usualGameType', () => {
-  test('returns the top type when other types are played too', () => {
-    expect(
-      usualGameType(
-        [
-          { gameType: GameType.TopVsBottom, games: 62 },
-          { gameType: GameType.Melee, games: 38 },
-        ],
-        GameType.Melee,
-      ),
-    ).toEqual({ gameType: GameType.TopVsBottom, share: 0.62 })
-  })
-
-  test('returns the top type when it is the only one but not the default', () => {
-    expect(
-      usualGameType([{ gameType: GameType.UseMapSettings, games: 40 }], GameType.Melee),
-    ).toEqual({ gameType: GameType.UseMapSettings, share: 1 })
-  })
-
-  test('returns nothing when every game uses the default type', () => {
-    expect(usualGameType([{ gameType: GameType.Melee, games: 40 }], GameType.Melee)).toBeUndefined()
-  })
-
-  test('returns nothing below the minimum number of games', () => {
-    expect(
-      usualGameType(
-        [
-          { gameType: GameType.TopVsBottom, games: 5 },
-          { gameType: GameType.Melee, games: 4 },
-        ],
-        GameType.Melee,
-      ),
-    ).toBeUndefined()
-    expect(usualGameType([], GameType.Melee)).toBeUndefined()
   })
 })
 
