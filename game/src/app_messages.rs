@@ -629,7 +629,18 @@ pub struct GameMapInfo {
     pub image512_url: Option<String>,
     pub image1024_url: Option<String>,
     pub image2048_url: Option<String>,
+    /// A 1024px JPEG of the map. The other images may be in a format the game can't decode.
+    pub jpeg_image_url: Option<String>,
     pub image_version: u32,
+}
+
+impl GameMapInfo {
+    /// The URL of the map's image to show while the game loads, in a format the game can decode.
+    pub fn loading_screen_image_url(&self) -> Option<&str> {
+        self.jpeg_image_url
+            .as_deref()
+            .or(self.image1024_url.as_deref())
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]

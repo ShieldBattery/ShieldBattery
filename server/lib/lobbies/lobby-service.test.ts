@@ -120,6 +120,7 @@ const BIG_GAME_HUNTERS: MapInfo = {
     parserVersion: 1,
   },
   imageVersion: 1,
+  imageSpawnsBaked: true,
 }
 
 /** A map small enough that changing to it leaves an 8-slot lobby with players to reconcile. */
