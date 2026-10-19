@@ -1074,7 +1074,14 @@ function SummaryPage({
         </ResultsFeedbackContext.Provider>
       </PlayerListContainer>
       <MapContainer>
-        {map ? <StyledMapThumbnail mapId={map.id} size={MAP_SIZE} showInfoLayer /> : null}
+        {map ? (
+          <StyledMapThumbnail
+            mapId={map.id}
+            size={MAP_SIZE}
+            gameType={game.config.gameType}
+            showInfoLayer
+          />
+        ) : null}
       </MapContainer>
 
       {/*
