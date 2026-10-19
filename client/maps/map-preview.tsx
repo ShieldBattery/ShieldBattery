@@ -15,6 +15,7 @@ import { useValueAsRef } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { batchGetMapInfo } from './action-creators'
+import { MapSpawnMarkers } from './map-image'
 
 const ZOOM_MIN = 1
 const ZOOM_MAX = 4
@@ -78,16 +79,13 @@ const ZoomableMapImageContainer = styled.div`
   border-radius: 4px;
 `
 
-// Not using the `MapInfoImage` here as we have specific requirements with zooming that makes the
-// regular use of that component more annoying.
-const MapImage = styled(AutoSizeImage)`
+/** Zooms the image and its spawn markers together. */
+const ZoomLayer = styled.div`
   ${fastOutSlowInShort};
 
-  display: block;
+  position: relative;
   width: 100%;
   height: 100%;
-  aspect-ratio: var(--aspect-ratio, 1);
-  object-fit: cover;
 
   transform: scale(var(--zoom));
   transform-origin: var(--x-origin) var(--y-origin);
@@ -97,6 +95,16 @@ const MapImage = styled(AutoSizeImage)`
   &:active {
     cursor: var(--active-cursor);
   }
+`
+
+// Not using the `MapInfoImage` here as we have specific requirements with zooming that makes the
+// regular use of that component more annoying.
+const MapImage = styled(AutoSizeImage)`
+  display: block;
+  width: 100%;
+  height: 100%;
+  aspect-ratio: var(--aspect-ratio, 1);
+  object-fit: cover;
 `
 
 const ControlsContainer = styled.div`
@@ -221,13 +229,7 @@ const ZoomableMapImage = ({ map }: { map: ReadonlyDeep<MapInfoJson> }) => {
 
   return (
     <ZoomableMapImageContainer ref={containerRef}>
-      <MapImage
-        srcSet={srcSet}
-        scale={zoom}
-        alt={map.name}
-        draggable={false}
-        decoding='sync'
-        loading='lazy'
+      <ZoomLayer
         style={
           {
             '--aspect-ratio': map.mapData.width / map.mapData.height,
@@ -238,8 +240,17 @@ const ZoomableMapImage = ({ map }: { map: ReadonlyDeep<MapInfoJson> }) => {
             '--active-cursor': zoom > 1 ? 'grabbing' : 'default',
           } as React.CSSProperties
         }
-        onMouseDown={onMouseDown}
-      />
+        onMouseDown={onMouseDown}>
+        <MapImage
+          srcSet={srcSet}
+          scale={zoom}
+          alt={map.name}
+          draggable={false}
+          decoding='sync'
+          loading='lazy'
+        />
+        <MapSpawnMarkers map={map} cover={true} />
+      </ZoomLayer>
 
       <ControlsContainer>
         <StyledIconButton
