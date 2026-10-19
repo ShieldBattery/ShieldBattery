@@ -3,6 +3,7 @@ import { useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep, Simplify } from 'type-fest'
+import { GameType } from '../../common/games/game-type'
 import { MapImageInfo, MapVisibility, SbMapId } from '../../common/maps'
 import { matchmakingTypeToLabel } from '../../common/matchmaking'
 import { useSelfPermissions, useSelfUser } from '../auth/auth-utils'
@@ -238,6 +239,10 @@ export interface MapThumbnailProps {
   style?: React.CSSProperties
   forceAspectRatio?: number
   size?: number
+  /** Whether to mark the map's spawns (and letterbox it rather than crop it). Defaults to true. */
+  showSpawns?: boolean
+  /** The type of the lobby or game the map is shown for, if any. See `visibleSpawns`. */
+  gameType?: GameType
   showInfoLayer?: boolean
   isFavorited?: boolean
   isSelected?: boolean
@@ -267,6 +272,8 @@ export function MapThumbnail({
   style,
   forceAspectRatio,
   size,
+  showSpawns = true,
+  gameType,
   showInfoLayer,
   isFavorited,
   isSelected,
@@ -339,6 +346,8 @@ export function MapThumbnail({
       <MapInfoImage
         map={map}
         size={size}
+        showSpawns={showSpawns}
+        gameType={gameType}
         noImageElem={<NoImage />}
         forceAspectRatio={forceAspectRatio}
       />

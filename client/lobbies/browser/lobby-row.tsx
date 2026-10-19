@@ -302,7 +302,12 @@ export function LobbyRow({
       }}
       data-testid='lobby-list-entry'>
       <Thumbnail>
-        <MapThumbnail map={summary.map} size={256} forceAspectRatio={1} />
+        <MapThumbnail
+          map={summary.map}
+          size={256}
+          forceAspectRatio={1}
+          gameType={summary.gameType}
+        />
       </Thumbnail>
       <Main>
         <PrimaryColumn>
