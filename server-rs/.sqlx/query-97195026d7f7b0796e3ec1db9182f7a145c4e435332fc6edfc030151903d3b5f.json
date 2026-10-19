@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                INSERT INTO superseded_map_images (hash, image_version, render_version,\n                    superseded_at)\n                VALUES ($1, $2, $3, now())\n                ON CONFLICT (hash, image_version) DO NOTHING\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "97195026d7f7b0796e3ec1db9182f7a145c4e435332fc6edfc030151903d3b5f"
+}

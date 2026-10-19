@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                                UPDATE maps SET render_failed_version = $2, render_error = $3\n                                WHERE id = $1\n                            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c91c4168d71fc15ca00664cc32d9f1b23fda67e9eddf926f6e14e3a9e709956e"
+}

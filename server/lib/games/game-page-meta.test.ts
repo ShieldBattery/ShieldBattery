@@ -48,9 +48,10 @@ const BOB: SbUser = { id: BOB_ID, name: 'Bob', created: 0 }
 const FIGHTING_SPIRIT: MapInfo = {
   id: MAP_ID,
   name: 'Fighting Spirit',
-  image1024Url: 'https://cdn.example.com/maps/fs-1024.jpg',
-  image512Url: 'https://cdn.example.com/maps/fs-512.jpg',
-  image256Url: 'https://cdn.example.com/maps/fs-256.jpg',
+  image1024Url: 'https://cdn.example.com/maps/fs-1024.avif',
+  image512Url: 'https://cdn.example.com/maps/fs-512.avif',
+  image256Url: 'https://cdn.example.com/maps/fs-256.avif',
+  jpegImageUrl: 'https://cdn.example.com/maps/fs-1024.jpg',
 } as MapInfo
 
 const BASE_GAME: GameRecord = {

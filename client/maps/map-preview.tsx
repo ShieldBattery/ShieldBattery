@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
-import { MapInfoJson, SbMapId } from '../../common/maps'
+import { mapImageSrcSet, MapInfoJson, SbMapId } from '../../common/maps'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { AutoSizeImage } from '../dom/auto-size-image'
 import { MaterialIcon } from '../icons/material/material-icon'
@@ -217,12 +217,7 @@ const ZoomableMapImage = ({ map }: { map: ReadonlyDeep<MapInfoJson> }) => {
     }
   }, [zoomRef])
 
-  const srcSet = `
-    ${map.image256Url} 256w,
-    ${map.image512Url} 512w,
-    ${map.image1024Url} 1024w,
-    ${map.image2048Url} 2048w
-  `
+  const srcSet = mapImageSrcSet(map)
 
   return (
     <ZoomableMapImageContainer ref={containerRef}>
