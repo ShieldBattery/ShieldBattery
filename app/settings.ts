@@ -14,11 +14,16 @@ import {
   ScrSettings,
   StartingFog,
 } from '../common/settings/local-settings'
-import { cloneCustomTeamColors, DEFAULT_FFA_COLORS } from '../common/settings/team-colors'
+import {
+  cloneCustomTeamColors,
+  DEFAULT_FFA_COLORS,
+  neutralColorForCustomFfaColors,
+  neutralColorForCustomTeamColors,
+} from '../common/settings/team-colors'
 import { findInstallPath } from './find-install-path'
 import log from './logger'
 
-const VERSION = 28
+const VERSION = 29
 const SCR_VERSION = 6
 
 /**
@@ -416,6 +421,24 @@ export class LocalSettingsManager extends SettingsManager<LocalSettings> {
     if (!settings.version || settings.version < 28) {
       log.verbose('Found settings version 27, migrating to version 28')
       newSettings.framePacing = DEFAULT_LOCAL_SETTINGS.framePacing
+    }
+
+    if (!settings.version || settings.version < 29) {
+      log.verbose('Found settings version 28, migrating to version 29')
+      // Custom schemes gained a neutral-unit color. A scheme still identical to the built-in preset
+      // it was copied from takes that preset's neutral; anything else gets the usual default.
+      const { customTeamColors, customFfaColors } = newSettings
+      if (customTeamColors && customTeamColors.neutral === undefined) {
+        newSettings.customTeamColors = {
+          ...customTeamColors,
+          neutral: neutralColorForCustomTeamColors(customTeamColors),
+        }
+      }
+      if (newSettings.customFfaNeutralColor === undefined) {
+        newSettings.customFfaNeutralColor = neutralColorForCustomFfaColors(
+          customFfaColors ?? DEFAULT_LOCAL_SETTINGS.customFfaColors,
+        )
+      }
     }
 
     newSettings.version = VERSION

@@ -56,6 +56,13 @@ const FFA_DOT_POSITIONS: ReadonlyArray<readonly [number, number]> = [
   [14, 84],
   [11, 50],
 ]
+// Percentage (x, y) positions for the neutral-unit dots, mid-map in both layouts, clear of every
+// player's dot.
+const NEUTRAL_DOT_POSITIONS: ReadonlyArray<readonly [number, number]> = [
+  [42, 40],
+  [56, 54],
+  [46, 60],
+]
 
 const Header = styled.div`
   display: flex;
@@ -233,6 +240,8 @@ export interface TeamColorPreviewProps {
   variant: 'team' | 'ffa'
   /** Exactly 8 rows, in minimap-dot order; the first 4 render in the left roster column. */
   rows: ReadonlyArray<PreviewRow>
+  /** The color of units no player owns, shown as a few minimap dots with no roster entry. */
+  neutralColor: string
   tileset: TilesetId
   onTilesetChange: (id: TilesetId) => void
   className?: string
@@ -245,6 +254,7 @@ export interface TeamColorPreviewProps {
 export function TeamColorPreview({
   variant,
   rows,
+  neutralColor,
   tileset,
   onTilesetChange,
   className,
@@ -279,6 +289,9 @@ export function TeamColorPreview({
           const [x, y] = dotPositions[index]
           return <Dot key={index} $color={row.color} $x={x} $y={y} />
         })}
+        {NEUTRAL_DOT_POSITIONS.map(([x, y], index) => (
+          <Dot key={`neutral-${index}`} $color={neutralColor} $x={x} $y={y} />
+        ))}
       </Minimap>
       <Roster>
         <RosterColumn>

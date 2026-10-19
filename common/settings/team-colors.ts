@@ -52,6 +52,20 @@ export const SC_COLORS: ReadonlyArray<{ hex: string; name: string }> = [
 // Nothing goes near the cyan at all; greens are pushed to slot 5 or later, where the usable color
 // range is spent and some ambiguity has to be accepted anyway. (Observers and replay viewers see
 // true player colors for everyone, so this only binds for people actually playing.)
+//
+// Each scheme also names a neutral color, for units no player in the game owns (critters, eggs,
+// and other map-placed neutral units). It's held to the same distance from the reserved minimap
+// colors, and should be as far as possible from every pool color, so a neutral unit never reads as
+// a player's.
+
+/**
+ * The neutral-unit color most schemes use: a pale, barely warm off-white. Its low chroma keeps it
+ * from reading as either side of a cool-vs-warm scheme, and being lighter than nearly every pool
+ * color keeps it apart from them even under red-green color-deficient vision, where many pool
+ * colors fade toward grey. It's also softer than pure white, while staying clearly visible
+ * against fogged minimap terrain.
+ */
+const NEUTRAL_BONE = '#F0EAD6'
 
 /**
  * The "cool" 7-color pool backing the CoolVsWarm/WarmVsCool team-color presets (as the enemies
@@ -100,16 +114,21 @@ export const TEAM_COLOR_PRESETS: ReadonlyDeep<
     self: '#2CB494',
     allies: ['#FCFC38'],
     enemies: ['#F40404'],
+    // BW's diplomacy colors treat neutral units as allies, since every player starts allied to
+    // the neutral player.
+    neutral: '#FCFC38',
   },
   [TeamColorPreset.CoolVsWarm]: {
     self: COOL[0].hex,
     allies: COOL.slice(1, 7).map(c => c.hex),
     enemies: WARM.map(c => c.hex),
+    neutral: NEUTRAL_BONE,
   },
   [TeamColorPreset.WarmVsCool]: {
     self: WARM[0].hex,
     allies: WARM.slice(1, 7).map(c => c.hex),
     enemies: COOL.map(c => c.hex),
+    neutral: NEUTRAL_BONE,
   },
   [TeamColorPreset.ColorblindSafe]: {
     // Okabe-Ito based. Chosen independently of COOL/WARM above, so don't assume its colors are a
@@ -117,6 +136,7 @@ export const TEAM_COLOR_PRESETS: ReadonlyDeep<
     self: '#0072B2',
     allies: ['#56B4E9', '#009E73', '#88CCEE', '#332288', '#44AA99', '#7290B8'],
     enemies: ['#E69F00', '#D55E00', '#F0E442', '#CC79A7', '#882255', '#EE8866', '#FFAABB'],
+    neutral: NEUTRAL_BONE,
   },
 }
 
@@ -136,6 +156,9 @@ export const DEFAULT_FFA_COLORS: ReadonlyArray<string> = [
   '#CCE0D0',
   '#FCFC38',
 ]
+
+/** The neutral-unit color `customFfaNeutralColor` is seeded with, alongside {@link DEFAULT_FFA_COLORS}. */
+export const DEFAULT_FFA_NEUTRAL_COLOR = NEUTRAL_BONE
 
 /** The built-in FFA-axis color presets (every {@link FfaColorPreset} except `Custom`). */
 export const FFA_COLOR_PRESETS: ReadonlyDeep<
@@ -208,6 +231,18 @@ export const FFA_COLOR_PRESETS: ReadonlyDeep<
     '#F9AFC5', // Pink
     '#96943C', // Olive
   ],
+}
+
+/** The neutral-unit color that goes with each built-in FFA-axis preset. */
+export const FFA_COLOR_PRESET_NEUTRALS: Readonly<
+  Record<Exclude<FfaColorPreset, FfaColorPreset.Custom>, string>
+> = {
+  [FfaColorPreset.Jewel]: NEUTRAL_BONE,
+  [FfaColorPreset.Arcade]: NEUTRAL_BONE,
+  [FfaColorPreset.Resurrect]: NEUTRAL_BONE,
+  [FfaColorPreset.Pear]: NEUTRAL_BONE,
+  [FfaColorPreset.Neon]: NEUTRAL_BONE,
+  [FfaColorPreset.ColorblindSafe]: NEUTRAL_BONE,
 }
 
 /**
@@ -291,8 +326,14 @@ export function cloneCustomTeamColors(colors: {
   self: string
   allies: readonly string[]
   enemies: readonly string[]
+  neutral: string
 }): CustomTeamColors {
-  return { self: colors.self, allies: [...colors.allies], enemies: [...colors.enemies] }
+  return {
+    self: colors.self,
+    allies: [...colors.allies],
+    enemies: [...colors.enemies],
+    neutral: colors.neutral,
+  }
 }
 
 /**
@@ -325,7 +366,7 @@ export function resolveSeatlessTeamColors(
 ): CustomTeamColors {
   const colors = resolveTeamColors(settings)
   return settings.teamColorPreset === TeamColorPreset.LegacyDiplomacy
-    ? { self: colors.self, allies: [colors.self], enemies: colors.enemies }
+    ? { ...colors, allies: [colors.self] }
     : colors
 }
 
@@ -385,8 +426,51 @@ export function resolveFfaColors(
 }
 
 /**
- * Localized display name for one of the built-in colors in {@link SC_COLORS}, {@link COOL}, or
- * {@link WARM}, looked up by hex value (case-insensitively). Returns `undefined` for a hex that
+ * Resolves the neutral-unit color for FFA contexts: the selected built-in preset's, or
+ * `customFfaNeutralColor` if the preset is `Custom`.
+ */
+export function resolveFfaNeutralColor(
+  settings: Pick<LocalSettings, 'ffaColorPreset' | 'customFfaNeutralColor'>,
+): string {
+  return settings.ffaColorPreset === FfaColorPreset.Custom
+    ? settings.customFfaNeutralColor
+    : FFA_COLOR_PRESET_NEUTRALS[settings.ffaColorPreset]
+}
+
+function sameColors(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((c, i) => c.toLowerCase() === b[i].toLowerCase())
+}
+
+/**
+ * Picks a neutral-unit color for a custom team scheme that has none: the neutral of the built-in
+ * preset the scheme is an unedited copy of, or the usual neutral bone if it matches none.
+ */
+export function neutralColorForCustomTeamColors(
+  colors: Pick<CustomTeamColors, 'self' | 'allies' | 'enemies'>,
+): string {
+  const source = Object.values(TEAM_COLOR_PRESETS).find(
+    preset =>
+      preset.self.toLowerCase() === colors.self.toLowerCase() &&
+      sameColors(preset.allies, colors.allies) &&
+      sameColors(preset.enemies, colors.enemies),
+  )
+  return source?.neutral ?? NEUTRAL_BONE
+}
+
+/**
+ * Picks a neutral-unit color for a custom FFA pool that has none: the neutral of the built-in
+ * preset the pool is an unedited copy of, or {@link DEFAULT_FFA_NEUTRAL_COLOR} if it matches none.
+ */
+export function neutralColorForCustomFfaColors(colors: readonly string[]): string {
+  const source = (
+    Object.keys(FFA_COLOR_PRESETS) as Array<Exclude<FfaColorPreset, FfaColorPreset.Custom>>
+  ).find(preset => sameColors(FFA_COLOR_PRESETS[preset], colors))
+  return source ? FFA_COLOR_PRESET_NEUTRALS[source] : DEFAULT_FFA_NEUTRAL_COLOR
+}
+
+/**
+ * Localized display name for one of the built-in colors in {@link SC_COLORS}, {@link COOL},
+ * {@link WARM}, or the neutral bone, looked up by hex value (case-insensitively). Returns `undefined` for a hex that
  * isn't one of those built-ins, so callers can fall back to the hex string itself.
  *
  * A few names repeat across tables for different hexes (e.g. "Azure" in both `SC_COLORS` and
@@ -411,6 +495,8 @@ export function getNamedColorLabel(hex: string, t: TFunction): string | undefine
       return t('settings.game.gameplay.colorNames.brown', 'Brown')
     case '#cce0d0':
       return t('settings.game.gameplay.colorNames.white', 'White')
+    case '#f0ead6':
+      return t('settings.game.gameplay.colorNames.bone', 'Bone')
     case '#fcfc38':
       return t('settings.game.gameplay.colorNames.yellow', 'Yellow')
     case '#088008':

@@ -949,6 +949,13 @@ impl<'e> Analysis<'e> {
         self.0.rgb_colors()
     }
 
+    /// `RgbaColor *get_player_color(RgbaColor *out, u8 player)`, the `[f32; 4]` color a player's
+    /// units are tinted with. Main players (`0..8`) come from `rgb_colors` when RGB colors are on;
+    /// higher ids always come from the palette. Writes the color to `out` and returns `out`.
+    pub fn get_player_color(&mut self) -> Option<VirtualAddress> {
+        self.0.get_player_color()
+    }
+
     /// Assigns each player a color: fixed palette colors stay, and every player whose chosen-color
     /// index is the "random" sentinel (0x16) draws a distinct color from the remaining pool via the
     /// synced RNG, writing it into `rgb_colors`. Takes no arguments; operates on the color globals.

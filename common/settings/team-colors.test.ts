@@ -3,8 +3,14 @@ import { FfaColorPreset, TeamColorPreset } from './local-settings'
 import {
   cloneCustomTeamColors,
   consumeMatchingColor,
+  DEFAULT_FFA_COLORS,
+  DEFAULT_FFA_NEUTRAL_COLOR,
+  FFA_COLOR_PRESET_NEUTRALS,
   FFA_COLOR_PRESETS,
+  neutralColorForCustomFfaColors,
+  neutralColorForCustomTeamColors,
   resolveFfaColors,
+  resolveFfaNeutralColor,
   resolveSeatlessTeamColors,
   resolveTeamColors,
   resolveTeamSelfOverride,
@@ -69,13 +75,18 @@ describe('common/settings/team-colors', () => {
       expect(
         resolveTeamColors({
           teamColorPreset: TeamColorPreset.CoolVsWarm,
-          customTeamColors: { self: '#000000', allies: [], enemies: [] },
+          customTeamColors: { self: '#000000', allies: [], enemies: [], neutral: '#000000' },
         }),
       ).toEqual(TEAM_COLOR_PRESETS[TeamColorPreset.CoolVsWarm])
     })
 
     test('resolves Custom to the custom colors', () => {
-      const customTeamColors = { self: '#111111', allies: ['#222222'], enemies: ['#333333'] }
+      const customTeamColors = {
+        self: '#111111',
+        allies: ['#222222'],
+        enemies: ['#333333'],
+        neutral: '#444444',
+      }
       expect(
         resolveTeamColors({ teamColorPreset: TeamColorPreset.Custom, customTeamColors }),
       ).toEqual(customTeamColors)
@@ -84,7 +95,7 @@ describe('common/settings/team-colors', () => {
     test('returns a fresh, mutable copy that does not alias the source', () => {
       const resolved = resolveTeamColors({
         teamColorPreset: TeamColorPreset.CoolVsWarm,
-        customTeamColors: { self: '#000000', allies: [], enemies: [] },
+        customTeamColors: { self: '#000000', allies: [], enemies: [], neutral: '#000000' },
       })
       resolved.allies.push('#ffffff')
       resolved.self = '#ffffff'
@@ -166,31 +177,94 @@ describe('common/settings/team-colors', () => {
     })
   })
 
+  describe('resolveFfaNeutralColor', () => {
+    test('resolves a built-in preset to its neutral', () => {
+      expect(
+        resolveFfaNeutralColor({
+          ffaColorPreset: FfaColorPreset.Neon,
+          customFfaNeutralColor: '#123456',
+        }),
+      ).toBe(FFA_COLOR_PRESET_NEUTRALS[FfaColorPreset.Neon])
+    })
+
+    test('resolves Custom to the custom neutral', () => {
+      expect(
+        resolveFfaNeutralColor({
+          ffaColorPreset: FfaColorPreset.Custom,
+          customFfaNeutralColor: '#123456',
+        }),
+      ).toBe('#123456')
+    })
+  })
+
+  describe('neutralColorForCustomTeamColors', () => {
+    test('an unedited copy of a preset takes that preset neutral', () => {
+      const legacy = TEAM_COLOR_PRESETS[TeamColorPreset.LegacyDiplomacy]
+      expect(
+        neutralColorForCustomTeamColors({
+          self: legacy.self.toLowerCase(),
+          allies: [...legacy.allies],
+          enemies: [...legacy.enemies],
+        }),
+      ).toBe(legacy.neutral)
+    })
+
+    test('an edited scheme takes the default neutral', () => {
+      const legacy = TEAM_COLOR_PRESETS[TeamColorPreset.LegacyDiplomacy]
+      expect(
+        neutralColorForCustomTeamColors({
+          self: legacy.self,
+          allies: [...legacy.allies, '#123456'],
+          enemies: [...legacy.enemies],
+        }),
+      ).toBe(TEAM_COLOR_PRESETS[TeamColorPreset.CoolVsWarm].neutral)
+    })
+  })
+
+  describe('neutralColorForCustomFfaColors', () => {
+    test('an unedited copy of a preset takes that preset neutral', () => {
+      expect(neutralColorForCustomFfaColors([...FFA_COLOR_PRESETS[FfaColorPreset.Pear]])).toBe(
+        FFA_COLOR_PRESET_NEUTRALS[FfaColorPreset.Pear],
+      )
+    })
+
+    test('the default pool or an edited one takes the default neutral', () => {
+      expect(neutralColorForCustomFfaColors(DEFAULT_FFA_COLORS)).toBe(DEFAULT_FFA_NEUTRAL_COLOR)
+      expect(neutralColorForCustomFfaColors(['#111111', '#222222'])).toBe(DEFAULT_FFA_NEUTRAL_COLOR)
+    })
+  })
+
   describe('resolveSeatlessTeamColors', () => {
     test('LegacyDiplomacy degrades to whole-team colors: allies pool becomes the self color', () => {
       const scheme = TEAM_COLOR_PRESETS[TeamColorPreset.LegacyDiplomacy]
       expect(
         resolveSeatlessTeamColors({
           teamColorPreset: TeamColorPreset.LegacyDiplomacy,
-          customTeamColors: { self: '#000000', allies: [], enemies: [] },
+          customTeamColors: { self: '#000000', allies: [], enemies: [], neutral: '#000000' },
         }),
       ).toEqual({
         self: scheme.self,
         allies: [scheme.self],
         enemies: [...scheme.enemies],
+        neutral: scheme.neutral,
       })
     })
 
     test('non-relational presets resolve the same as the seated resolution', () => {
       const settings = {
         teamColorPreset: TeamColorPreset.CoolVsWarm,
-        customTeamColors: { self: '#000000', allies: [], enemies: [] },
+        customTeamColors: { self: '#000000', allies: [], enemies: [], neutral: '#000000' },
       }
       expect(resolveSeatlessTeamColors(settings)).toEqual(resolveTeamColors(settings))
     })
 
     test('Custom resolves the same as the seated resolution', () => {
-      const customTeamColors = { self: '#111111', allies: ['#222222'], enemies: ['#333333'] }
+      const customTeamColors = {
+        self: '#111111',
+        allies: ['#222222'],
+        enemies: ['#333333'],
+        neutral: '#444444',
+      }
       const settings = { teamColorPreset: TeamColorPreset.Custom, customTeamColors }
       expect(resolveSeatlessTeamColors(settings)).toEqual(resolveTeamColors(settings))
     })
@@ -198,7 +272,12 @@ describe('common/settings/team-colors', () => {
 
   describe('cloneCustomTeamColors', () => {
     test('copies the values into fresh arrays that do not alias the source', () => {
-      const source = { self: '#111111', allies: ['#222222'], enemies: ['#333333'] }
+      const source = {
+        self: '#111111',
+        allies: ['#222222'],
+        enemies: ['#333333'],
+        neutral: '#444444',
+      }
       const clone = cloneCustomTeamColors(source)
       expect(clone).toEqual(source)
       expect(clone.allies).not.toBe(source.allies)

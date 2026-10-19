@@ -58,6 +58,7 @@ interface GameplaySettingsModel {
   shuffleColors: boolean
   customTeamColors: CustomTeamColors
   customFfaColors: string[]
+  customFfaNeutralColor: string
   teamSelfColor?: string
   ffaSelfColor?: string
   showBonusSkins: boolean
@@ -101,6 +102,7 @@ export function GameplaySettings() {
         shuffleColors: localSettings.shuffleColors,
         customTeamColors: cloneCustomTeamColors(localSettings.customTeamColors),
         customFfaColors: [...localSettings.customFfaColors],
+        customFfaNeutralColor: localSettings.customFfaNeutralColor,
         teamSelfColor: localSettings.teamSelfColor,
         ffaSelfColor: localSettings.ffaSelfColor,
       },
@@ -144,6 +146,7 @@ export function GameplaySettings() {
             shuffleColors: model.shuffleColors,
             customTeamColors: cloneCustomTeamColors(model.customTeamColors),
             customFfaColors: [...model.customFfaColors],
+            customFfaNeutralColor: model.customFfaNeutralColor,
             teamSelfColor: model.teamSelfColor,
             ffaSelfColor: model.ffaSelfColor,
           },
@@ -279,6 +282,8 @@ export function GameplaySettings() {
             onCustomTeamColorsChange={value => setInputValue('customTeamColors', value)}
             customFfaColors={getInputValue('customFfaColors')}
             onCustomFfaColorsChange={value => setInputValue('customFfaColors', value)}
+            customFfaNeutralColor={getInputValue('customFfaNeutralColor')}
+            onCustomFfaNeutralColorChange={value => setInputValue('customFfaNeutralColor', value)}
             teamSelfColor={getInputValue('teamSelfColor')}
             onTeamSelfColorChange={value => setInputValue('teamSelfColor', value)}
             ffaSelfColor={getInputValue('ffaSelfColor')}

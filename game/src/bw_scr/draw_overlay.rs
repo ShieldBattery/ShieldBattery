@@ -280,7 +280,7 @@ pub struct BwVars {
     pub game: bw_dat::Game,
     pub players: *mut bw::Player,
     pub main_palette: *mut u8,
-    pub rgb_colors: *mut [[f32; 4]; 8],
+    pub rgb_colors: *mut bw::RgbColors,
     pub use_rgb_colors: u8,
     pub replay_visions: u8,
     pub active_units: bw::unit::UnitIterator,

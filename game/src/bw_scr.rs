@@ -186,7 +186,7 @@ pub struct BwScr {
     draw_commands: Value<*mut scr::DrawCommands>,
     /// [[u8; 4]; 256], mostly unused in SC:R, but still gets used for player colors at least.
     main_palette: Value<*mut u8>,
-    rgb_colors: Value<*mut [[f32; 0x4]; 0x8]>,
+    rgb_colors: Value<*mut bw::RgbColors>,
     use_rgb_colors: Value<u8>,
     /// The per-player applied-skin table unit rendering reads, resolved together with its stride
     /// (all-or-nothing). `None` (either missing) turns the peer-skin relay off rather than failing
@@ -211,6 +211,10 @@ pub struct BwScr {
     /// (all-or-nothing): guarding the lookup needs both the function to hook and the pointer to
     /// test. `None` (either missing) leaves the lookup unguarded.
     palette_color_lookup: Option<PaletteColorLookup>,
+    /// SC:R's `get_player_color`, hooked so the team-color feature can tint units owned by the high
+    /// player ids (`8..12`), which never read `rgb_colors` on the game view. `None` leaves those
+    /// units in their native color in every mode.
+    get_player_color: Option<VirtualAddress>,
     /// SC:R's replay autosave and the path builder it uses. `None` (either missing) leaves the
     /// autosave as SC:R implements it.
     replay_autosave: Option<replay_save::ReplayAutosave>,
@@ -655,7 +659,7 @@ struct TeamColorRuntime {
     state: TeamColorState,
     /// BW's original `rgb_colors` captured at game init: the per-slot fallback for any slot the
     /// engine leaves unassigned, and the full palette restored in the Standard / minimap-only modes.
-    original_rgb_colors: [[f32; 4]; 8],
+    original_rgb_colors: bw::RgbColors,
     /// BW's original `use_rgb_colors` switch captured at game init. Restored verbatim in the
     /// Standard / minimap-only modes so units reproduce the game's native appearance (palette-index
     /// or RGB, whichever it ran), and forced on for the spans where custom colors apply.
@@ -669,6 +673,22 @@ struct TeamColorRuntime {
     /// assignment, or `None` for an observer/replay (no live tracking). Diffed each frame to detect
     /// changes.
     local_alliance_row: Option<(u8, [bool; 8])>,
+}
+
+impl TeamColorRuntime {
+    /// The full `rgb_colors` contents for the current assignment: each main player slot the engine
+    /// assigned takes its color (the rest keep BW's original from the init snapshot), and every
+    /// high player id (`8..12`) takes the scheme's neutral color.
+    fn assigned_rgb_colors(&self) -> bw::RgbColors {
+        let mut out = self.original_rgb_colors;
+        for (slot, color) in self.state.colors().iter().enumerate() {
+            if let Some(color) = color {
+                out[slot] = *color;
+            }
+        }
+        out[8..].fill(self.state.neutral());
+        out
+    }
 }
 
 /// The three structurally-identical minimap dot-draw functions the minimap-only team-color mode
@@ -845,8 +865,8 @@ struct MinimapDrawHooks {
 /// Used by the minimap-only team-color mode (see [`BwScr::begin_minimap_team_colors`]) and by
 /// replay saving (see [`BwScr::begin_replay_save_colors`]).
 struct RgbColorSwap {
-    rgb_ptr: *mut [[f32; 4]; 8],
-    saved_rgb: [[f32; 4]; 8],
+    rgb_ptr: *mut bw::RgbColors,
+    saved_rgb: bw::RgbColors,
     use_rgb_colors: Value<u8>,
     saved_use_rgb: u8,
 }
@@ -2417,6 +2437,10 @@ impl BwScr {
                 None
             }
         };
+        let get_player_color = analysis.get_player_color();
+        if get_player_color.is_none() {
+            warn!("Could not find get_player_color; neutral units will keep their native color");
+        }
         // Non-fatal, all-or-nothing: the nearest-palette-color guard needs the function to hook and
         // the cycling table pointer whose null state it checks for.
         let palette_color_lookup = match (
@@ -2723,6 +2747,7 @@ impl BwScr {
             skins: skins.map(|op| Value::new(ctx, op)),
             minimap_draw_hooks,
             palette_color_lookup,
+            get_player_color,
             replay_autosave,
             chat_box_mode: chat_box_mode.map(|op| Value::new(ctx, op)),
             is_paused: is_paused.map(|op| Value::new(ctx, op)),
@@ -4690,6 +4715,23 @@ impl BwScr {
                     move |player, orig| {
                         let _swap = self.begin_minimap_team_colors();
                         orig(player);
+                    },
+                    address,
+                );
+            }
+            // Units owned by a high player id (the neutral player and the unused ids next to it) are
+            // tinted from the palette rather than `rgb_colors`, so the scheme's neutral color has
+            // to be handed out here for the game view to show it.
+            if let Some(get_player_color) = self.get_player_color {
+                let address = get_player_color.0 as usize - base;
+                exe.hook_closure_address(
+                    GetPlayerColor,
+                    move |out, player, orig| match self.neutral_unit_color_override(player as u8) {
+                        Some(color) => {
+                            *out = color;
+                            out
+                        }
+                        None => orig(out, player),
                     },
                     address,
                 );
@@ -7873,6 +7915,41 @@ impl BwScr {
         }
     }
 
+    /// Gives each high player id (`8..12`, the neutral player and the unused ids next to it) whose
+    /// `rgb_colors` entry BW left unassigned the color it draws in on the palette path.
+    ///
+    /// BW never assigns those entries (its color setup, randomizer and lobby sync all stop at 8),
+    /// leaving them fully transparent, yet the minimap reads them for every high player's units
+    /// whenever `use_rgb_colors` is on. Only the palette path, which colors those units from
+    /// `player_minimap_color` and forces them opaque, draws them at all, so a game that renders in
+    /// RGB colors would otherwise show no minimap dot for neutral units (critters, eggs, map-placed
+    /// buildings). An entry that already holds a color (one restored from a replay that recorded
+    /// it) is left as it is.
+    pub fn fill_neutral_player_colors(&self) {
+        unsafe {
+            let rgb_ptr = self.rgb_colors.resolve();
+            let main_palette = self.main_palette.resolve();
+            if rgb_ptr.is_null() || main_palette.is_null() {
+                return;
+            }
+            let game = self.game();
+            for player in 8..12 {
+                let entry = &mut (*rgb_ptr)[player];
+                if entry[3] != 0.0 {
+                    continue;
+                }
+                let index = (*game).player_minimap_color[player] as usize;
+                let rgb = main_palette.add(4 * index);
+                *entry = [
+                    f32::from(*rgb) / 255.0,
+                    f32::from(*rgb.add(1)) / 255.0,
+                    f32::from(*rgb.add(2)) / 255.0,
+                    1.0,
+                ];
+            }
+        }
+    }
+
     /// Copies the local player's slot out of the applied-skin table, for relaying to peers. The
     /// slot index is the local *storm* id — the table is indexed by the lobby-stable storm
     /// identity, not the randomized `players[]` id (native code fills it from lobby-time
@@ -8036,6 +8113,18 @@ impl BwScr {
         }
     }
 
+    /// The scheme's neutral color for units owned by `player`, when that is a high player id
+    /// (`8..12`) and the team-color feature is showing its colors on the game view (the
+    /// [`Preset`](MinimapColorMode::Preset) mode). `None` otherwise, leaving BW's own color.
+    fn neutral_unit_color_override(&self, player: u8) -> Option<[f32; 4]> {
+        if !(8..12).contains(&player) {
+            return None;
+        }
+        let guard = self.team_color_runtime.lock();
+        let runtime = guard.as_ref()?;
+        (runtime.virtual_mode == MinimapColorMode::Preset).then(|| runtime.state.neutral())
+    }
+
     /// The active team-color virtual minimap mode, or `None` when the feature is inactive (the
     /// caller then reads BW's real global as before). Used at game exit to persist the mode the
     /// user actually sees rather than the pinned real-global value.
@@ -8142,13 +8231,7 @@ impl BwScr {
             if runtime.virtual_mode != MinimapColorMode::PresetOnMinimapOnly {
                 return None;
             }
-            let mut out = runtime.original_rgb_colors;
-            for (slot, color) in runtime.state.colors().iter().enumerate() {
-                if let Some(color) = color {
-                    out[slot] = *color;
-                }
-            }
-            out
+            runtime.assigned_rgb_colors()
         };
         self.swap_rgb_colors(assignment, 1)
     }
@@ -8175,7 +8258,7 @@ impl BwScr {
     /// restores exactly the state that was current when it was created. Returns `None` without
     /// writing anything when the `rgb_colors` pointer is null. No heap allocation: the saved copy
     /// lives in the returned guard on the caller's stack.
-    fn swap_rgb_colors(&self, colors: [[f32; 4]; 8], use_rgb: u8) -> Option<RgbColorSwap> {
+    fn swap_rgb_colors(&self, colors: bw::RgbColors, use_rgb: u8) -> Option<RgbColorSwap> {
         unsafe {
             let rgb_ptr = self.rgb_colors.resolve();
             if rgb_ptr.is_null() {
@@ -8223,22 +8306,15 @@ impl BwScr {
         }
     }
 
-    /// Writes the engine's current assignment into `rgb_colors`, a full 8-slot write each time.
-    /// Slots the engine leaves unassigned keep BW's original color from the init snapshot.
+    /// Writes the engine's current assignment into `rgb_colors`, a full write of every slot each
+    /// time (see [`TeamColorRuntime::assigned_rgb_colors`]).
     unsafe fn write_team_color_rgb(&self, runtime: &TeamColorRuntime) {
         unsafe {
             let rgb_ptr = self.rgb_colors.resolve();
             if rgb_ptr.is_null() {
                 return;
             }
-            let colors = runtime.state.colors();
-            let mut out = runtime.original_rgb_colors;
-            for (slot, color) in colors.iter().enumerate() {
-                if let Some(color) = color {
-                    out[slot] = *color;
-                }
-            }
-            *rgb_ptr = out;
+            *rgb_ptr = runtime.assigned_rgb_colors();
         }
     }
 
@@ -11084,6 +11160,10 @@ mod hooks {
         // `[[u8; 4]; 256]` palette. Hooked to keep it from reading the tileset color-cycling table
         // while no terrain is loaded.
         !0 => FindNearestPaletteColor(*const u8, u32) -> u32;
+        // `get_player_color(out, player)`: writes the player's `[f32; 4]` unit tint to `out` and
+        // returns `out`. `player` is a single byte, so only the low byte of the argument is
+        // meaningful.
+        !0 => GetPlayerColor(*mut [f32; 4], u32) -> *mut [f32; 4];
         // `save_replay_by_name(name, replace_existing)`. `replace_existing` is a C bool, so it is a
         // single byte in the register/stack slot rather than a full word.
         !0 => SaveReplayByName(*const i8, u8) -> i32;

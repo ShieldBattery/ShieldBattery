@@ -624,6 +624,8 @@ pub unsafe fn after_init_game_data() {
         // A shared-control team plays as one player, so all of its members' slots show one color.
         // Also before init_team_colors, whose snapshot is the baseline its non-preset modes restore.
         bw.share_team_colors();
+        // Before init_team_colors too, so its snapshot carries visible neutral-unit colors.
+        bw.fill_neutral_player_colors();
 
         // Now that alliances are finalized, build the custom team-color assignment (a no-op unless
         // the feature is active). Must run before the minimap dialog inits so colors are correct

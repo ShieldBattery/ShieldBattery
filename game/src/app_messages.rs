@@ -53,7 +53,15 @@ pub struct TeamColorsSettings {
     pub ffa: Vec<String>,
     /// Optional fixed local-player color in FFA contexts.
     pub ffa_self: Option<String>,
+    /// The color for units no player owns in FFA contexts. Absent or invalid falls back to
+    /// [`DEFAULT_NEUTRAL_COLOR`].
+    #[serde(default)]
+    pub ffa_neutral: Option<String>,
 }
+
+/// The neutral-unit color used where the app sends none (or an unparseable one): `#F0EAD6`, the
+/// app's own default for most schemes.
+const DEFAULT_NEUTRAL_COLOR: Color = [240.0 / 255.0, 234.0 / 255.0, 214.0 / 255.0, 1.0];
 
 /// The team-scheme half of [`TeamColorsSettings`]: the local player's color plus the ally/enemy
 /// pools used when team semantics apply.
@@ -64,6 +72,10 @@ pub struct TeamSchemeColors {
     pub self_color: String,
     pub allies: Vec<String>,
     pub enemies: Vec<String>,
+    /// The color for units no player owns in team contexts. Absent or invalid falls back to
+    /// [`DEFAULT_NEUTRAL_COLOR`].
+    #[serde(default)]
+    pub neutral: Option<String>,
 }
 
 impl TeamColorsSettings {
@@ -99,6 +111,8 @@ impl TeamColorsSettings {
             }
             parsed
         });
+        let team_neutral = parse_neutral_color(self.team.neutral.as_deref(), "team");
+        let ffa_neutral = parse_neutral_color(self.ffa_neutral.as_deref(), "ffa");
         if allies.is_empty() || enemies.is_empty() || ffa.is_empty() {
             warn!(
                 "Custom team colors disabled: a color pool resolved empty \
@@ -118,8 +132,22 @@ impl TeamColorsSettings {
             enemies,
             ffa,
             ffa_self,
+            team_neutral,
+            ffa_neutral,
         })
     }
+}
+
+/// Hex-parses a scheme's neutral-unit color, falling back to [`DEFAULT_NEUTRAL_COLOR`] when it is
+/// absent or unparseable: a bad neutral costs only that one color, never the whole feature.
+fn parse_neutral_color(hex: Option<&str>, label: &str) -> Color {
+    let Some(hex) = hex else {
+        return DEFAULT_NEUTRAL_COLOR;
+    };
+    parse_hex_color(hex).unwrap_or_else(|| {
+        warn!("Ignoring invalid {label} neutral color '{hex}'");
+        DEFAULT_NEUTRAL_COLOR
+    })
 }
 
 /// Hex-parses a pool of `#RRGGBB` strings, logging and dropping any entry that doesn't parse.
@@ -880,10 +908,12 @@ mod tests {
                 "self": "#2CB494",
                 "allies": ["#FCFC38"],
                 "enemies": ["#F40404"],
+                "neutral": "#FCFC38",
             },
             "teamSelf": "#123456",
             "ffa": ["#F40404", "#0C48CC"],
             "ffaSelf": "#00E4FC",
+            "ffaNeutral": "#ABCDEF",
         }))
         .unwrap();
         // The wire `self` key maps onto `self_color`.
@@ -904,6 +934,8 @@ mod tests {
         assert_eq!(config.enemies, vec![parse_hex_color("#F40404").unwrap()]);
         assert_eq!(config.ffa.len(), 2);
         assert_eq!(config.ffa_self, Some(parse_hex_color("#00E4FC").unwrap()));
+        assert_eq!(config.team_neutral, parse_hex_color("#FCFC38").unwrap());
+        assert_eq!(config.ffa_neutral, parse_hex_color("#ABCDEF").unwrap());
     }
 
     #[test]
@@ -919,6 +951,9 @@ mod tests {
         let config = settings.to_config().unwrap();
         assert_eq!(config.team_self_override, None);
         assert_eq!(config.ffa_self, None);
+        // Absent neutrals fall back to the default rather than disabling the feature.
+        assert_eq!(config.team_neutral, DEFAULT_NEUTRAL_COLOR);
+        assert_eq!(config.ffa_neutral, DEFAULT_NEUTRAL_COLOR);
     }
 
     #[test]

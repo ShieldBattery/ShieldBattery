@@ -18,6 +18,7 @@ import {
 import {
   cloneCustomTeamColors,
   consumeMatchingColor,
+  FFA_COLOR_PRESET_NEUTRALS,
   FFA_COLOR_PRESETS,
   getFfaColorPresetAttribution,
   getFfaColorPresetLabel,
@@ -27,6 +28,7 @@ import {
   MAX_TEAM_POOL_COLORS,
   MIN_FFA_COLORS,
   resolveFfaColors,
+  resolveFfaNeutralColor,
   resolveTeamColors,
   resolveTeamSelfOverride,
   SC_COLORS,
@@ -322,6 +324,12 @@ const Hint = styled.div`
   margin-top: 6px;
 `
 
+// Pool editor rows reserve room under their swatches for the hanging entry badge whether or not
+// one is shown, so a lone swatch reserves the same to keep its hint the same distance below it.
+const NeutralSwatchRow = styled.div`
+  padding-bottom: 10px;
+`
+
 const Preview = styled(TeamColorPreview)`
   width: 288px;
   flex-shrink: 0;
@@ -458,6 +466,8 @@ export interface TeamColorSettingsProps {
   onCustomTeamColorsChange: (value: CustomTeamColors) => void
   customFfaColors: string[]
   onCustomFfaColorsChange: (value: string[]) => void
+  customFfaNeutralColor: string
+  onCustomFfaNeutralColorChange: (value: string) => void
   teamSelfColor: string | undefined
   onTeamSelfColorChange: (value: string | undefined) => void
   ffaSelfColor: string | undefined
@@ -485,6 +495,8 @@ export function TeamColorSettings({
   onCustomTeamColorsChange,
   customFfaColors,
   onCustomFfaColorsChange,
+  customFfaNeutralColor,
+  onCustomFfaNeutralColorChange,
   teamSelfColor,
   onTeamSelfColorChange,
   ffaSelfColor,
@@ -515,6 +527,7 @@ export function TeamColorSettings({
 
   const activeTeamColors = resolveTeamColors({ teamColorPreset, customTeamColors })
   const activeFfaColors = resolveFfaColors({ ffaColorPreset, customFfaColors })
+  const activeFfaNeutralColor = resolveFfaNeutralColor({ ffaColorPreset, customFfaNeutralColor })
 
   // The local player's explicit self color, or `undefined` when they haven't set one. Only
   // Legacy diplomacy pins a self color here (its fixed teal); every other preset -- Custom
@@ -682,6 +695,7 @@ export function TeamColorSettings({
   }
   function handleCopyFfaPreset(preset: Exclude<FfaColorPreset, FfaColorPreset.Custom>) {
     onCustomFfaColorsChange([...FFA_COLOR_PRESETS[preset]])
+    onCustomFfaNeutralColorChange(FFA_COLOR_PRESET_NEUTRALS[preset])
   }
 
   const addColorLabel = t('settings.game.gameplay.teamColors.addColor', 'Add a color')
@@ -754,6 +768,12 @@ export function TeamColorSettings({
   // Legacy shows just its actual (fixed, read-only) allies pool; every other preset -- Custom
   // included -- shows the unified `teamFriendlyPool` (see above), editable only when Custom.
   const teamPoolColors = isLegacyDiplomacy ? activeTeamColors.allies : teamFriendlyPool
+
+  const neutralLabel = t('settings.game.gameplay.teamColors.neutralGroup', 'Neutral units')
+  const neutralHint = t(
+    'settings.game.gameplay.teamColors.neutralHint',
+    'Critters, eggs, and other units no player owns.',
+  )
 
   return (
     <>
@@ -908,10 +928,34 @@ export function TeamColorSettings({
                     onAdd={handleEnemyAdd}
                   />
                 </div>
+                <div>
+                  <GroupLabel>{neutralLabel}</GroupLabel>
+                  <NeutralSwatchRow>
+                    <EditableColorSwatch
+                      value={activeTeamColors.neutral}
+                      defaultValue={activeTeamColors.neutral}
+                      onChange={hex => {
+                        if (hex !== undefined) {
+                          onCustomTeamColorsChange({ ...customTeamColors, neutral: hex })
+                        }
+                      }}
+                      editable={teamEditable}
+                      swatches={scSwatches}
+                      pickerSubtitle={t(
+                        'settings.game.gameplay.teamColors.pickerTargetNeutral',
+                        'Team scheme · neutral units',
+                      )}
+                      label={getColorLabel(activeTeamColors.neutral, t)}
+                      addLabel=''
+                    />
+                  </NeutralSwatchRow>
+                  <Hint>{neutralHint}</Hint>
+                </div>
               </SchemeColumn>
               <Preview
                 variant='team'
                 rows={teamRows}
+                neutralColor={activeTeamColors.neutral}
                 tileset={tileset}
                 onTilesetChange={setTileset}
               />
@@ -1032,8 +1076,37 @@ export function TeamColorSettings({
                   onAdd={handleFfaAdd}
                 />
               </div>
+              <div>
+                <GroupLabel>{neutralLabel}</GroupLabel>
+                <NeutralSwatchRow>
+                  <EditableColorSwatch
+                    value={activeFfaNeutralColor}
+                    defaultValue={activeFfaNeutralColor}
+                    onChange={hex => {
+                      if (hex !== undefined) {
+                        onCustomFfaNeutralColorChange(hex)
+                      }
+                    }}
+                    editable={ffaEditable}
+                    swatches={scSwatches}
+                    pickerSubtitle={t(
+                      'settings.game.gameplay.ffaColors.pickerTargetNeutral',
+                      'Individual colors · neutral units',
+                    )}
+                    label={getColorLabel(activeFfaNeutralColor, t)}
+                    addLabel=''
+                  />
+                </NeutralSwatchRow>
+                <Hint>{neutralHint}</Hint>
+              </div>
             </SchemeColumn>
-            <Preview variant='ffa' rows={ffaRows} tileset={tileset} onTilesetChange={setTileset} />
+            <Preview
+              variant='ffa'
+              rows={ffaRows}
+              neutralColor={activeFfaNeutralColor}
+              tileset={tileset}
+              onTilesetChange={setTileset}
+            />
           </SchemeContentRow>
           {isFfaCustom ? (
             <CopyFromPresetButton presets={ffaPresetCopyOptions} onSelect={handleCopyFfaPreset} />

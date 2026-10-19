@@ -673,11 +673,17 @@ pub unsafe fn player_name(player: *mut Player) -> Cow<'static, str> {
     }
 }
 
+/// BW's `rgb_colors` array: one `[r, g, b, a]` color (each `0.0..=1.0`) per player id. It has an
+/// entry for every player id up to the neutral player, 12 in all, though BW itself only ever
+/// assigns colors to the first 8; the other 4 stay fully transparent unless filled in (see
+/// `BwScr::fill_neutral_player_colors`).
+pub type RgbColors = [[f32; 4]; 12];
+
 pub unsafe fn player_color(
     game: bw_dat::Game,
     main_palette: *mut u8,
     use_rgb_colors: u8,
-    rgb_colors: *mut [[f32; 4]; 8],
+    rgb_colors: *mut RgbColors,
     player_id: u8,
 ) -> [u8; 3] {
     unsafe {

@@ -33,6 +33,7 @@ import { LocalSettings } from '../../common/settings/local-settings'
 import {
   cloneCustomTeamColors,
   resolveFfaColors,
+  resolveFfaNeutralColor,
   resolveSeatlessTeamColors,
   resolveTeamColors,
   resolveTeamSelfOverride,
@@ -470,6 +471,8 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       customTeamColors:
         local.customTeamColors ?? cloneCustomTeamColors(DEFAULT_LOCAL_SETTINGS.customTeamColors),
       customFfaColors: local.customFfaColors ?? [...DEFAULT_LOCAL_SETTINGS.customFfaColors],
+      customFfaNeutralColor:
+        local.customFfaNeutralColor ?? DEFAULT_LOCAL_SETTINGS.customFfaNeutralColor,
     }
     // Electron measures displays in DIPs, but the game works in physical pixels, which differ on
     // any display that isn't at 100% scale.
@@ -518,6 +521,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
         teamSelf: resolveTeamSelfOverride(resolvedLocal, resolvedTeamColors) ?? null,
         ffa: resolveFfaColors(resolvedLocal),
         ffaSelf: resolvedLocal.ffaSelfColor ?? null,
+        ffaNeutral: resolveFfaNeutralColor(resolvedLocal),
       },
     })
 

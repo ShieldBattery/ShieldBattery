@@ -12,7 +12,12 @@ import {
   TeamColorPreset,
   TeamColorUsage,
 } from './local-settings'
-import { cloneCustomTeamColors, DEFAULT_FFA_COLORS, TEAM_COLOR_PRESETS } from './team-colors'
+import {
+  cloneCustomTeamColors,
+  DEFAULT_FFA_COLORS,
+  DEFAULT_FFA_NEUTRAL_COLOR,
+  TEAM_COLOR_PRESETS,
+} from './team-colors'
 
 export const DEFAULT_LOCAL_SETTINGS: ReadonlyDeep<
   Omit<LocalSettings, keyof ShieldBatteryAppSettings>
@@ -40,6 +45,7 @@ export const DEFAULT_LOCAL_SETTINGS: ReadonlyDeep<
   // aliased/mutated through the preset it was seeded from.
   customTeamColors: cloneCustomTeamColors(TEAM_COLOR_PRESETS[TeamColorPreset.LegacyDiplomacy]),
   customFfaColors: [...DEFAULT_FFA_COLORS],
+  customFfaNeutralColor: DEFAULT_FFA_NEUTRAL_COLOR,
   teamSelfColor: undefined,
   ffaSelfColor: undefined,
   legacyCursorSizing: false,

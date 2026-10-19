@@ -7,7 +7,8 @@
 //!
 //! It performs no BW access and contains no `unsafe`, so it is unit-tested directly on the host.
 //! The surrounding DLL glue snapshots BW's originals, feeds this engine the game setup, and writes
-//! [`TeamColorState::colors`] into `rgb_colors`.
+//! [`TeamColorState::colors`] into `rgb_colors`, and draws units no player owns in
+//! [`TeamColorState::neutral`].
 
 use serde::Deserialize;
 
@@ -71,6 +72,11 @@ pub struct TeamColorConfig {
     /// The local player's fixed color in FFA contexts, if set. When present and it appears in the
     /// FFA pool, that pool entry is consumed so no other player draws it.
     pub ffa_self: Option<Color>,
+    /// The color for units no player in the game owns (the high player ids `8..12`) in team
+    /// contexts.
+    pub team_neutral: Color,
+    /// The color for units no player in the game owns in FFA contexts.
+    pub ffa_neutral: Color,
 }
 
 /// The game setup this engine assigns colors for, captured once at game init.
@@ -141,6 +147,8 @@ pub struct TeamColorState {
     /// A slot that plays as another player is `None` here and reported with that player's color.
     colors: [Option<Color>; 8],
     plays_as: [Option<u8>; 8],
+    /// The color for every high player id (`8..12`), the scheme's neutral for the game's context.
+    neutral: Color,
     kind: StateKind,
 }
 
@@ -278,6 +286,12 @@ impl TeamColorState {
         colors
     }
 
+    /// The color for units owned by a high player id (`8..12`): the neutral player and the unused
+    /// ids next to it, none of which ever take part in the assignment.
+    pub fn neutral(&self) -> Color {
+        self.neutral
+    }
+
     /// Applies the local player's current outgoing alliance row. Only players whose allied bit
     /// changed since the last applied state move; everyone else keeps their color. Returns whether
     /// any color changed. A no-op for observers and for a FFA context with usage `Never`.
@@ -344,6 +358,7 @@ impl TeamColorState {
         TeamColorState {
             colors,
             plays_as: info.plays_as,
+            neutral: config.team_neutral,
             kind: StateKind::Seated(Box::new(SeatedState {
                 local,
                 // A team context is only chosen when usage != Never, so it always tracks changes.
@@ -417,6 +432,7 @@ impl TeamColorState {
         TeamColorState {
             colors,
             plays_as: info.plays_as,
+            neutral: config.ffa_neutral,
             kind: StateKind::Seated(Box::new(SeatedState {
                 local,
                 overlay_enabled,
@@ -449,6 +465,7 @@ impl TeamColorState {
             return TeamColorState {
                 colors,
                 plays_as: info.plays_as,
+                neutral: config.team_neutral,
                 kind: StateKind::Static,
             };
         }
@@ -458,6 +475,7 @@ impl TeamColorState {
         TeamColorState {
             colors,
             plays_as: info.plays_as,
+            neutral: config.ffa_neutral,
             kind: StateKind::Static,
         }
     }
@@ -622,8 +640,13 @@ mod tests {
             enemies: cols(args.enemies),
             ffa: cols(args.ffa),
             ffa_self: args.ffa_self.map(col),
+            team_neutral: col(TEAM_NEUTRAL),
+            ffa_neutral: col(FFA_NEUTRAL),
         }
     }
+
+    const TEAM_NEUTRAL: u8 = 90;
+    const FFA_NEUTRAL: u8 = 91;
 
     fn info(active: &[u8], local: Option<u8>, allied_pairs: &[(u8, u8)]) -> GameStartInfo {
         let mut initial_allies = [[false; 8]; 8];
@@ -755,6 +778,50 @@ mod tests {
         let never = TeamColorState::new(make(TeamColorUsage::Never), &gi, 0).colors();
         assert_eq!(at(&never, 0), col(30));
         assert_eq!(at(&never, 1), col(31));
+    }
+
+    #[test]
+    fn neutral_follows_the_game_context() {
+        let make = |usage| {
+            config(ConfigArgs {
+                usage,
+                shuffle: false,
+                self_color: 1,
+                team_self_override: None,
+                allies: &[10],
+                enemies: &[20],
+                ffa: &[30, 31, 32, 33],
+                ffa_self: None,
+            })
+        };
+        let neutral = |usage, gi: &GameStartInfo| TeamColorState::new(make(usage), gi, 0).neutral();
+
+        let one_v_one = info(&[0, 1], Some(0), &[]);
+        assert_eq!(
+            neutral(TeamColorUsage::Always, &one_v_one),
+            col(TEAM_NEUTRAL)
+        );
+        assert_eq!(
+            neutral(TeamColorUsage::ExceptIn1v1, &one_v_one),
+            col(FFA_NEUTRAL)
+        );
+        assert_eq!(neutral(TeamColorUsage::Never, &one_v_one), col(FFA_NEUTRAL));
+
+        let ffa = info(&[0, 1, 2], Some(0), &[]);
+        assert_eq!(neutral(TeamColorUsage::Always, &ffa), col(FFA_NEUTRAL));
+
+        let mut pairs = team_pairs(&[0, 2]);
+        pairs.extend(team_pairs(&[1, 3]));
+        let observed_teams = info(&[0, 1, 2, 3], None, &pairs);
+        assert_eq!(
+            neutral(TeamColorUsage::Always, &observed_teams),
+            col(TEAM_NEUTRAL)
+        );
+        let observed_ffa = info(&[0, 1, 2, 3], None, &[]);
+        assert_eq!(
+            neutral(TeamColorUsage::Always, &observed_ffa),
+            col(FFA_NEUTRAL)
+        );
     }
 
     #[test]

@@ -229,6 +229,11 @@ export interface CustomTeamColors {
   allies: string[]
   /** Ordered pool of colors for enemy players, length 1-8. '#RRGGBB' each. */
   enemies: string[]
+  /**
+   * The color for units no player in the game owns (critters, eggs, and other map-placed neutral
+   * units). '#RRGGBB'.
+   */
+  neutral: string
 }
 
 /** The highest rollback target a player can choose (see `LocalSettings.rollbackTarget`). */
@@ -274,6 +279,11 @@ export interface LocalSettings extends ShieldBatteryAppSettings {
   customTeamColors: CustomTeamColors
   /** The user's custom FFA-color pool (length 8-16), used when `ffaColorPreset` is `Custom`. */
   customFfaColors: string[]
+  /**
+   * The neutral-unit color that goes with `customFfaColors`, used when `ffaColorPreset` is
+   * `Custom`. '#RRGGBB'.
+   */
+  customFfaNeutralColor: string
   /**
    * A fixed self color for team contexts, overriding the active team-color preset's self color
    * (any preset, not just `Custom`), or undefined to use the preset's self color as normal. With
