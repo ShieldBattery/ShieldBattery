@@ -544,6 +544,11 @@ type MapFile {
 	parserVersion: Int!
 	imageVersion: Int!
 	renderVersion: Int!
+	"""
+	Whether the map has UMS content: trigger actions that melee games don't use, more than 8
+	preplaced player-owned units, or EUDs. Null until the map file has been analyzed.
+	"""
+	umsContent: Boolean
 	id: String!
 	image256Url: String!
 	image512Url: String!
@@ -554,10 +559,34 @@ type MapFile {
 	"""
 	jpegImageUrl: String!
 	"""
+	The start location placed for each player slot, at most one per slot. Empty until the map
+	file has been analyzed.
+	"""
+	startLocations: [MapFileStartLocation!]!
+	"""
 	Whether the map's images have its start locations drawn in. Images without them are meant
 	to have start locations drawn on top.
 	"""
 	imageSpawnsBaked: Boolean!
+}
+
+"""
+A start location placed for a player slot.
+"""
+type MapFileStartLocation {
+	"""
+	The map file's hash and the slot, unique across all map files.
+	"""
+	id: String!
+	"""
+	The player slot (0-7) the start location belongs to.
+	"""
+	slot: Int!
+	"""
+	The center of the start location, in map pixels (32 per tile).
+	"""
+	x: Int!
+	y: Int!
 }
 
 """

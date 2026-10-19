@@ -308,8 +308,16 @@ const LiveGames_FeedEntryMapAndTypeFragment = graphql(/* GraphQL */ `
         image512Url
         image1024Url
         image2048Url
+        imageSpawnsBaked
         width
         height
+        startLocations {
+          id
+          slot
+          x
+          y
+        }
+        umsContent
       }
     }
     config {
@@ -394,7 +402,7 @@ function MapAndTypeDisplay({
 
   return (
     <MapAndTypeRoot>
-      <StyledMapImage map={game.map} size={mapSize} />
+      <StyledMapImage map={game.map} size={mapSize} showSpawns={true} />
       <GameType>{matchmakingTypeToLabel(game.config.gameSourceExtra.matchmakingType, t)}</GameType>
       <MapName>{game.map.name}</MapName>
     </MapAndTypeRoot>
