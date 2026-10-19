@@ -186,7 +186,7 @@ describe('client/matchmaking/socket-handlers/matchFound', () => {
     }
     expect(dialogs.history.map(d => d.type)).toEqual([DialogType.Simple, DialogType.AcceptMatch])
 
-    for (const action of runDraftStarted(dialogs.history)) {
+    for (const action of runDraftStarted(dialogs.history.slice())) {
       dialogs = dialogReducer(dialogs, action as ReduxAction)
     }
     expect(dialogs.history).toEqual([{ id: 'other', type: DialogType.Simple }])
