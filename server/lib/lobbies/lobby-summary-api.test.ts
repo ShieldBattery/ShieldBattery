@@ -66,6 +66,7 @@ const FULL_MAP_INFO: MapInfoJson = {
   image1024Url: 'https://cdn.example.com/maps/fs-1024.jpg',
   image2048Url: 'https://cdn.example.com/maps/fs-2048.jpg',
   imageVersion: 1,
+  imageSpawnsBaked: true,
 }
 
 const BASE_SUMMARY: LobbySummaryJson = {

@@ -44,6 +44,7 @@ type DbMapInfo = Dbify<{
   umsContent: boolean | null
   parserVersion: number
   imageVersion: number
+  renderVersion: number
 }>
 
 /** The columns of `maps` (aliased as `m`) that make up a `DbMapInfo`. */
@@ -69,6 +70,7 @@ const MAP_INFO_COLUMNS = sql`
   m.ums_content,
   m.parser_version,
   m.image_version,
+  m.render_version,
   m.lobby_init_data
 `
 
@@ -78,6 +80,7 @@ interface MapUrlProps {
   image512Url?: string
   image1024Url?: string
   image2048Url?: string
+  jpegImageUrl?: string
 }
 
 /** Returns which listing a map appears in, given how the database records it. */
@@ -114,37 +117,31 @@ function convertFromDb(props: DbMapInfo, urls: MapUrlProps): MapInfo {
       parserVersion: props.parser_version,
     },
     imageVersion: props.image_version,
+    imageSpawnsBaked: props.render_version === 0,
     ...urls,
   }
 }
 
-function addImageVersion(url: string | undefined, imageVersion: number): string | undefined {
-  if (!url) {
-    return url
-  } else if (url.includes('?')) {
-    return `${url}&v=${imageVersion}`
-  } else {
-    return `${url}?v=${imageVersion}`
-  }
-}
-
 async function createMapInfo(info: DbMapInfo): Promise<MapInfo> {
-  const hashString = info.hash.toString('hex')
-
-  const mapUrl = await getSignedUrl(mapPath(hashString, info.extension))
-  const image256Url = getUrl(imagePath(hashString, 256))
-  const image512Url = getUrl(imagePath(hashString, 512))
-  const image1024Url = getUrl(imagePath(hashString, 1024))
-  const image2048Url = getUrl(imagePath(hashString, 2048))
-
+  const hash = info.hash.toString('hex')
   const imageVersion = info.image_version
+  const renderVersion = info.render_version
+  const getImageUrl = (size: 256 | 512 | 1024 | 2048, format: 'avif' | 'jpg') => {
+    const url = getUrl(imagePath({ hash, imageVersion, renderVersion, size, format }))
+    // Images from before render versions are overwritten in place when re-rendered
+    if (!url || renderVersion !== 0) {
+      return url
+    }
+    return `${url}${url.includes('?') ? '&' : '?'}v=${imageVersion}`
+  }
 
   return convertFromDb(info, {
-    mapUrl,
-    image256Url: addImageVersion(image256Url, imageVersion),
-    image512Url: addImageVersion(image512Url, imageVersion),
-    image1024Url: addImageVersion(image1024Url, imageVersion),
-    image2048Url: addImageVersion(image2048Url, imageVersion),
+    mapUrl: await getSignedUrl(mapPath(hash, info.extension)),
+    image256Url: getImageUrl(256, 'avif'),
+    image512Url: getImageUrl(512, 'avif'),
+    image1024Url: getImageUrl(1024, 'avif'),
+    image2048Url: getImageUrl(2048, 'avif'),
+    jpegImageUrl: getImageUrl(1024, 'jpg'),
   })
 }
 
@@ -569,7 +566,7 @@ export async function veryDangerousDeleteAllMaps(deleteFromStoreFn: () => Promis
         UPDATE matchmaking_preferences SET map_selections = '{}';
         TRUNCATE matchmaking_map_pools, favorited_maps, map_favorite_counts, map_library,
           map_id_aliases, map_stats, map_stats_daily, map_matchup_stats, map_analysis,
-          map_parse_rejections, uploaded_maps_legacy, maps;
+          map_parse_rejections, superseded_map_images, uploaded_maps_legacy, maps;
       COMMIT;
     `
 
