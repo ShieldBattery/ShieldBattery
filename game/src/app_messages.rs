@@ -632,6 +632,10 @@ pub struct GameMapInfo {
     /// A 1024px JPEG of the map. The other images may be in a format the game can't decode.
     pub jpeg_image_url: Option<String>,
     pub image_version: u32,
+    /// Whether the map's images have its start locations drawn in. Absent is treated as drawn in,
+    /// so markers are never drawn over an image that may already show them.
+    #[serde(default)]
+    pub image_spawns_baked: Option<bool>,
 }
 
 impl GameMapInfo {
@@ -640,6 +644,11 @@ impl GameMapInfo {
         self.jpeg_image_url
             .as_deref()
             .or(self.image1024_url.as_deref())
+    }
+
+    /// Whether the map's images are known to lack start locations, so they need to be drawn on top.
+    pub fn needs_spawn_markers(&self) -> bool {
+        self.image_spawns_baked == Some(false)
     }
 }
 
@@ -654,6 +663,16 @@ pub struct MapData {
     pub tileset: u16,
     pub ums_forces: Vec<MapForce>,
     pub is_eud: bool,
+    /// Where the map's start locations are, in map pixels.
+    #[serde(default)]
+    pub start_locations: Vec<MapStartLocation>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MapStartLocation {
+    pub x: u16,
+    pub y: u16,
 }
 
 #[derive(Clone, Debug, Deserialize)]
