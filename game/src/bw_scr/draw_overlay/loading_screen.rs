@@ -36,8 +36,20 @@ const PRESENCE_FADE_SECS: f32 = 0.3;
 /// outer and light inner bezel, and a soft drop shadow. They're never narrower than this, so they
 /// stay readable on large maps.
 const SPAWN_MARKER_MIN_WIDTH: f32 = 16.0;
-/// Every start location is drawn in the same neutral color, since none belongs to a player yet.
-const SPAWN_MARKER_COLOR: Color32 = Color32::from_rgb(0xD8, 0xD8, 0xD8);
+/// Each start location is drawn in its slot's default player color, as broodmap and the map tiles
+/// color them.
+const SPAWN_MARKER_SLOT_COLORS: [Color32; 8] = [
+    Color32::from_rgb(0xF4, 0x04, 0x04),
+    Color32::from_rgb(0x0C, 0x48, 0xCC),
+    Color32::from_rgb(0x2C, 0xB4, 0x94),
+    Color32::from_rgb(0x88, 0x40, 0x9C),
+    Color32::from_rgb(0xF8, 0x8C, 0x14),
+    Color32::from_rgb(0x70, 0x30, 0x14),
+    Color32::from_rgb(0xCC, 0xE0, 0xD0),
+    Color32::from_rgb(0xFC, 0xFC, 0x38),
+];
+/// For a start location whose slot is out of range.
+const SPAWN_MARKER_FALLBACK_COLOR: Color32 = Color32::from_rgb(0xD8, 0xD8, 0xD8);
 /// The fill's top row is brightened by this fraction of its color, and its bottom row darkened.
 const SPAWN_MARKER_GRADIENT: f32 = 0.12;
 const SPAWN_MARKER_OUTER_STROKE: Color32 = Color32::from_rgba_premultiplied(0, 0, 0, 191);
@@ -416,8 +428,8 @@ impl OverlayState {
 }
 
 /// Adds the map's image, fit within `map_size`, with each of `spawn_map`'s start locations marked
-/// over it. Every start location looks the same: BW only decides which player starts where as the
-/// game starts, after the loading screen is gone.
+/// over it in its slot's color. The colors only tell start locations apart: BW decides which player
+/// starts where as the game starts, after the loading screen is gone.
 fn add_map_image(ui: &mut egui::Ui, url: &str, map_size: Vec2, spawn_map: Option<&MapData>) {
     let image = egui::Image::from_uri(url)
         .show_loading_spinner(false)
@@ -441,7 +453,10 @@ fn paint_spawn_markers(painter: &Painter, map: &MapData, image_rect: Rect) {
             paint_spawn_marker(
                 painter,
                 spawn_marker_rect(center, map.width, image_rect),
-                SPAWN_MARKER_COLOR,
+                SPAWN_MARKER_SLOT_COLORS
+                    .get(usize::from(location.slot))
+                    .copied()
+                    .unwrap_or(SPAWN_MARKER_FALLBACK_COLOR),
             );
         }
     }
@@ -768,7 +783,7 @@ mod test {
     }
 
     fn location(x: u16, y: u16) -> MapStartLocation {
-        MapStartLocation { x, y }
+        MapStartLocation { x, y, slot: 0 }
     }
 
     #[test]
