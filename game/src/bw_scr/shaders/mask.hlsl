@@ -19,40 +19,186 @@ cbuffer constants
     float useNewMask;
     // if 1, the network is currently stalled and the game should be shaded accordingly
     float showNetworkStalled;
+    // Mask value of never-explored terrain: 1.0 for players, 218/255 for observers and replays
+    // (BW's fog curve caps their darkness lower).
+    float unexploredMask;
+    float _unused;
+    // Map pixel at texCoord (0, 0), and how many map pixels the texture spans: the game screen
+    // for the main view, the whole map for the minimap. Anchors the grain to the map and, through
+    // its screen-space derivative, tells how large a map pixel is on screen.
+    float2 mapOrigin;
+    float2 mapSpan;
+    // How never-explored terrain is drawn (`FogStyle` in fog_style.rs), with the values of
+    // whichever view this draw is, the game view or the minimap.
+    float unexploredAlpha;
+    // 0 for no grain.
+    float grainStrength;
+    // Multiplier on grain size.
+    float grainScale;
+    float boundaryAlpha;
+    // In screen pixels.
+    float boundaryWidth;
+    // 0 = black line, 1 = BOUNDARY_COLOR, brighter above.
+    float boundaryBrightness;
+    // Radius, in map pixels, of the extra smoothing the boundary line is traced on.
+    float boundarySmoothing;
 };
 
-#define MAX_FOG_MASK 0.84
-#define MIN_FOG_MASK 0.67
+// Mask value BW gives explored terrain that isn't currently visible (visible terrain is 0).
+#define EXPLORED_MASK (170.0 / 255.0)
+
+#define BOUNDARY_COLOR float3(0.62, 0.68, 0.80)
+// Grain: two octaves of value noise, a coarse "cluster" one and a fine "dye cloud" one, cell sizes
+// in map pixels before grainScale.
+#define GRAIN_CLUSTER_CELL 3.0
+#define GRAIN_FINE_CELL 1.2
+// Standard deviation of valueNoise (measured), to normalize each octave to unit variance.
+#define VALUE_NOISE_STD 0.2147
+// Standard deviation of the fog's density per unit of grainStrength.
+#define GRAIN_DENSITY_PER_STRENGTH 0.06
+
+// 1 inside a line of `width` screen pixels, given the distance from its center, with an
+// antialiased edge `feather` pixels wide.
+float lineCoverage(float distPx, float width, float feather)
+{
+    return 1.0 - smoothstep(width * 0.5 - feather * 0.5, width * 0.5 + feather * 0.5, distPx);
+}
+
+// Pseudo-random 0..1 per integer cell.
+float cellRandom(float2 cell)
+{
+    uint2 p = asuint(int2(cell));
+    uint h = p.x * 374761393u + p.y * 668265263u;
+    h = (h ^ (h >> 13)) * 1274126177u;
+    h = h ^ (h >> 16);
+    return (h & 0xffff) / 65535.0;
+}
+
+// Smoothly interpolated value noise, one random value per cell corner.
+float valueNoise(float2 pos)
+{
+    float2 cell = floor(pos);
+    float2 f = pos - cell;
+    f = f * f * (3.0 - 2.0 * f);
+    float top = lerp(cellRandom(cell), cellRandom(cell + float2(1.0, 0.0)), f.x);
+    float bottom = lerp(cellRandom(cell + float2(0.0, 1.0)), cellRandom(cell + float2(1.0, 1.0)), f.x);
+    return lerp(top, bottom, f.y);
+}
+
+// One octave of grain: zero-mean, unit-variance value noise, on a grid rotated by `angle` so the
+// octaves don't share axis-aligned seams. Fades to 0 once its cells are smaller than a couple of
+// screen pixels, the way minified film grain averages out, rather than shimmering.
+float grainOctave(float2 mapPos, float cell, float angle, float2 offset, float screenPxPerMapPx)
+{
+    float s = sin(angle);
+    float c = cos(angle);
+    float2 pos = mul(float2x2(c, -s, s, c), mapPos / cell) + offset;
+    float g = (valueNoise(pos) - 0.5) / VALUE_NOISE_STD;
+    return g * smoothstep(1.0, 2.0, cell * screenPxPerMapPx);
+}
+
+// Film-style grain: a zero-mean, unit-variance fluctuation, cluster and dye cloud octaves mixed
+// in power ((a + b) / sqrt(2)) so the mix keeps unit variance.
+float grain(float2 mapPos, float screenPxPerMapPx)
+{
+    float cluster = grainOctave(
+        mapPos, GRAIN_CLUSTER_CELL * grainScale, 0.6, float2(0.0, 0.0), screenPxPerMapPx);
+    float fine = grainOctave(
+        mapPos, GRAIN_FINE_CELL * grainScale, 1.7, float2(17.3, 29.4), screenPxPerMapPx);
+    return (cluster + fine) * 0.70710678;
+}
+
+// Straight-alpha `top` composited over straight-alpha `bottom`.
+float4 over(float4 top, float4 bottom)
+{
+    float a = top.a + bottom.a * (1.0 - top.a);
+    float3 premul = top.rgb * top.a + bottom.rgb * bottom.a * (1.0 - top.a);
+    return float4(premul / max(a, 1e-5), a);
+}
+
+// Screen pixels from `uv` to where the mask crosses `level`, traced on a smoothed copy of the
+// mask. BW builds the mask from one 8-bit value per tile, so its own contours wobble with the
+// tile staircase and the quantization steps; averaging two rings of samples rounds those off,
+// and the same samples give a least-squares slope that is continuous from pixel to pixel (fwidth
+// steps per 2x2 pixel quad, which makes a line traced with it jagged).
+float distanceToLevel(float2 uv, float2 uvPerPx, float maskValue, float level)
+{
+    float2 texSize;
+    mask.GetDimensions(texSize.x, texSize.y);
+    // Never under a texel, so the slope estimate always spans real texture differences.
+    float2 radius = max(boundarySmoothing / max(mapSpan, 1.0), 1.0 / texSize);
+
+    float sum = maskValue;
+    float2 slopeSum = 0.0;
+    float2 offsetSqSum = 0.0;
+    [unroll]
+    for (int i = 0; i < 8; i++)
+    {
+        float angle = i * 0.78539816;
+        float2 dir = float2(cos(angle), sin(angle));
+        [unroll]
+        for (int ring = 1; ring <= 2; ring++)
+        {
+            float2 offset = dir * radius * (ring * 0.5);
+            float value = mask.SampleLevel(maskSampler, uv + offset, 0.0).x;
+            sum += value;
+            slopeSum += value * offset;
+            offsetSqSum += offset * offset;
+        }
+    }
+    float smoothed = sum / 17.0;
+    // Slope per uv unit; the rings are symmetric, so each axis solves independently.
+    float2 slopePerUv = slopeSum / offsetSqSum;
+    float slopePerPx = length(slopePerUv * uvPerPx);
+    return abs(smoothed - level) / max(slopePerPx, 1e-5);
+}
 
 PS_OUTPUT main(VS_OUTPUT v)
 {
     PS_OUTPUT o;
     float maskValue = mask.Sample(maskSampler, v.texCoord).x;
+    float3 stallColor = showNetworkStalled * float3(0.16, 0.08, 0.16);
     if (useNewMask == 0.0)
     {
-        o.frag_color = float4(
-          showNetworkStalled * 0.16,
-          showNetworkStalled * 0.08,
-          showNetworkStalled * 0.16,
-          maskValue);
+        o.frag_color = float4(stallColor, maskValue);
+        return o;
     }
-    else
+
+    float2 mapPos = mapOrigin + v.texCoord * mapSpan;
+    float screenPxPerMapPx = 1.0 / max(fwidth(mapPos.x), 1e-4);
+
+    // How unexplored this pixel is, 0 on explored terrain to 1 on never-explored terrain. The
+    // mask is blurred, so this ramps smoothly across the boundary.
+    float unexplored = smoothstep(EXPLORED_MASK + 0.02, unexploredMask - 0.02, maskValue);
+
+    // Grain is a fluctuation in the fog's density, darker and lighter around its base. It only
+    // runs on unexplored terrain, which keeps the visible and explored parts of the screen about
+    // as cheap as BW's own one-sample mask.
+    float unexploredDensity = unexploredAlpha;
+    if (unexplored > 0.0 && grainStrength > 0.0)
     {
-        // We calculate the fog mask as a piecewise function:
-        //  - For the low parts (below MIN_FOG_MASK) we leave the linear function intact
-        float lowMaskValue = min(maskValue, MIN_FOG_MASK);
-        //  - For high parts (above MIN_FOG_MASK), we compress the range into
-        //    (MIN_FOG_MASK, MAX_FOG_MASK) and increase the contrast in the transition (to better
-        //    separate unexplored from explored fog areas)
-        float highMaskValue = tanh(max(maskValue - MIN_FOG_MASK, 0.0) / (1.0 - MIN_FOG_MASK) * 4) *
-            (MAX_FOG_MASK - MIN_FOG_MASK);
-        maskValue = lowMaskValue + highMaskValue;
-        o.frag_color = float4(
-            showNetworkStalled * 0.16,
-            showNetworkStalled * 0.08,
-            showNetworkStalled * 0.16,
-            maskValue);
+        float sigma = grainStrength * GRAIN_DENSITY_PER_STRENGTH;
+        unexploredDensity = saturate(unexploredAlpha + grain(mapPos, screenPxPerMapPx) * sigma);
     }
+
+    // Visible and explored terrain keep BW's own mask values.
+    float4 color = float4(stallColor, lerp(min(maskValue, EXPLORED_MASK), unexploredDensity, unexplored));
+
+    float boundaryLevel = (EXPLORED_MASK + unexploredMask) * 0.5;
+    // The mask quads are axis-aligned, so each axis' uv per screen pixel is independent.
+    float2 uvPerPx = abs(float2(ddx(v.texCoord.x), ddy(v.texCoord.y)));
+    // Cheap first guess at the distance to the line (from fwidth, so coarse); the smoothed trace's
+    // 16 extra samples only run where the line could be. Flat mask (fwidth 0) is never near it.
+    float roughDistPx = abs(maskValue - boundaryLevel) / max(fwidth(maskValue), 1e-5);
+    float smoothingPx = boundarySmoothing * screenPxPerMapPx;
+    float reachPx = 2.0 * (boundaryWidth + smoothingPx) + 8.0;
+    if (boundaryAlpha > 0.0 && roughDistPx < reachPx)
+    {
+        float distPx = distanceToLevel(v.texCoord, uvPerPx, maskValue, boundaryLevel);
+        float boundary = lineCoverage(distPx, boundaryWidth, 1.5) * boundaryAlpha;
+        color = over(float4(saturate(BOUNDARY_COLOR * boundaryBrightness), boundary), color);
+    }
+
+    o.frag_color = color;
     return o;
 }
-

@@ -199,8 +199,14 @@ replacement (add entries to `PATCHED_SHADERS` + HLSL files), but:
 
 - **Mask (0x1c) replacement** — `game/src/bw_scr/shader_replaces.rs` +
   `shaders/mask.hlsl`. Transparent-fog rendering and the network-stall tint; constants
-  `[0]`/`[1]` written per frame in the `Renderer::draw` hook. Debug builds hot-reload the
-  HLSL on save.
+  `[0..=2]` (mode, stall, unexplored mask level), `[4..=7]` (the mask texture's map-pixel
+  origin and span) and `[8..=14]` (the unexplored style for that draw's view,
+  `game/src/bw_scr/fog_style.rs`) written per frame in the `Renderer::draw` hook. The stock
+  mask reads no constants, so every slot is ours. Mask values: visible 0, explored 170/255,
+  unexplored 255 (218 for observers/replays). The game view's and the minimap's mask commands
+  both draw to render target 1; their quads (`x, y, u, v` vertices in 0..1 window coordinates)
+  tell them apart: the game view's spans the window width above the console, the minimap's a
+  small corner. Debug builds hot-reload the HLSL on save.
 - **egui overlay** — `game/src/bw_scr/draw_inject.rs` builds `DrawCommand`s with
   shader id 4 (`VertexColored`), textures created through the renderer vtable's
   `create_texture`.

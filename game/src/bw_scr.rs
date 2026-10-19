@@ -66,6 +66,7 @@ mod dialog_hook;
 mod draw_inject;
 mod draw_overlay;
 mod file_hook;
+mod fog_style;
 mod game;
 mod game_files;
 mod game_settings;
@@ -83,6 +84,22 @@ mod tick_gates;
 
 const NET_PLAYER_COUNT: usize = 12;
 const SHADER_ID_MASK: u32 = 0x1c;
+
+/// Whether a fog mask draw is the minimap's rather than the game view's. Both draw to the UI
+/// render target; the game view's quad spans the whole window width (everything above the
+/// console), the minimap's a small corner of it. Mask quads are 4 vertices of
+/// `x, y, u, v`, with positions in 0.0 ..= 1.0 window coordinates.
+unsafe fn is_minimap_mask_draw(cmd: &scr::DrawCommand, vertex_buf: *mut scr::VertexBuffer) -> bool {
+    unsafe {
+        let verts = ((*vertex_buf).buffer.data as *const u8).add(cmd.vertex_buffer_offset_bytes)
+            as *const [f32; 4];
+        let verts = std::slice::from_raw_parts(verts, 4);
+        let (min_x, max_x) = verts.iter().fold((f32::MAX, f32::MIN), |(min, max), v| {
+            (min.min(v[0]), max.max(v[0]))
+        });
+        max_x - min_x < 0.5
+    }
+}
 
 pub struct BwScr {
     game: Value<*mut bw::Game>,
@@ -4897,11 +4914,44 @@ impl BwScr {
                     } else {
                         1.0
                     };
+                    // BW's fog curve caps unexplored darkness at 218/255 for observers/replays.
+                    let unexplored_mask = if self.is_replay_or_obs() {
+                        218.0 / 255.0
+                    } else {
+                        1.0
+                    };
+                    // Where each mask texture sits on the map, in map pixels: the minimap's
+                    // covers the whole map, the main view's the game screen.
+                    let screen_origin = [
+                        self.screen_x.resolve() as f32,
+                        self.screen_y.resolve() as f32,
+                    ];
+                    let screen_span = [
+                        self.game_screen_width_bwpx.resolve() as f32,
+                        self.game_screen_height_bwpx.resolve() as f32,
+                    ];
+                    let map_span = [
+                        self.map_width_pixels.resolve() as f32,
+                        self.map_height_pixels.resolve() as f32,
+                    ];
+                    let fog_style = fog_style::fog_style();
+                    let vertex_buffer = self.vertex_buffer.resolve();
                     for i in 0..draw_command_count {
                         let cmd = &raw mut (*commands).commands[i];
                         if (*cmd).shader_id == SHADER_ID_MASK {
-                            (*cmd).shader_constants[0] = use_new_mask;
-                            (*cmd).shader_constants[1] = show_network_stalled;
+                            let is_minimap = is_minimap_mask_draw(&*cmd, vertex_buffer);
+                            let (origin, span) = if is_minimap {
+                                ([0.0, 0.0], map_span)
+                            } else {
+                                (screen_origin, screen_span)
+                            };
+                            let c = &mut (*cmd).shader_constants;
+                            c[0] = use_new_mask;
+                            c[1] = show_network_stalled;
+                            c[2] = unexplored_mask;
+                            c[4..6].copy_from_slice(&origin);
+                            c[6..8].copy_from_slice(&span);
+                            fog_style.write_shader_constants(c, is_minimap);
                         }
                     }
                     let ret = {

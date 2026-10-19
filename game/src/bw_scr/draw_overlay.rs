@@ -1027,6 +1027,7 @@ impl OverlayState {
         ui.collapsing("BW Dialogs", |ui| {
             self.dialog_debug_ui(bw, ui);
         });
+        ui.collapsing("Fog of war", fog_style_debug_ui);
         ui.collapsing("Pre-SC:R graphic layers", |ui| {
             ui.label("Click to show / hide");
             if let Some(layers) = bw.graphic_layers {
@@ -1670,6 +1671,44 @@ impl OverlayState {
             }
         }
     }
+}
+
+/// Live controls for how the transparent starting fog draws never-explored terrain.
+fn fog_style_debug_ui(ui: &mut egui::Ui) {
+    use super::fog_style::{self, FogStyle, ViewFogStyle};
+
+    fn view_ui(ui: &mut egui::Ui, view: &mut ViewFogStyle) {
+        for (value, text) in [
+            (&mut view.unexplored_alpha, "Unexplored darkness"),
+            (&mut view.boundary_alpha, "Boundary line"),
+        ] {
+            ui.add(Slider::new(value, 0.0..=1.0).text(text));
+        }
+        ui.add(Slider::new(&mut view.boundary_width, 0.5..=6.0).text("Boundary width (px)"));
+        ui.add(Slider::new(&mut view.boundary_brightness, 0.0..=1.5).text("Boundary brightness"));
+    }
+
+    let mut style = fog_style::fog_style();
+    ui.label("Game view");
+    view_ui(ui, &mut style.game);
+    ui.add(Slider::new(&mut style.grain_strength, 0.0..=1.0).text("Grain strength"));
+    ui.add(Slider::new(&mut style.grain_scale, 0.25..=4.0).text("Grain scale"));
+    ui.separator();
+    ui.label("Minimap");
+    view_ui(ui, &mut style.minimap);
+    ui.separator();
+    ui.add(
+        Slider::new(&mut style.boundary_smoothing, 0.0..=32.0)
+            .text("Boundary smoothing (map px, both)"),
+    );
+    ui.label("Explored fog is 0.67 darkness.");
+    if ui.button("Reset").clicked() {
+        style = FogStyle::DEFAULT;
+    }
+    if ui.button("Log values").clicked() {
+        info!("Fog style: {style:?}");
+    }
+    fog_style::set_fog_style(style);
 }
 
 /// Yields active players `(team, player_id)`, ordered by team and then by slot.
