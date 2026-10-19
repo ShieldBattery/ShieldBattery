@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT hash as \"hash: MapHash\", image_version, render_version\n                FROM superseded_map_images\n                WHERE superseded_at < $1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "hash: MapHash",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "superseded_map_images",
+            "name": "hash"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "image_version",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "superseded_map_images",
+            "name": "image_version"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "render_version",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "superseded_map_images",
+            "name": "render_version"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "1e66574f47d539d9d3a919bdc7f599ef2e3bcc70d744ae257f4142e33560f83f"
+}

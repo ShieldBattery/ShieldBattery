@@ -1,5 +1,5 @@
-//! Map ingestion: storing uploaded map files with their parsed data and images, re-rendering
-//! images, and keeping every map's parsed data at the current parser version.
+//! Map ingestion: storing uploaded map files with their parsed data and images, and keeping every
+//! map's parsed data and images at the current parser and render versions.
 
 use std::collections::HashSet;
 use std::panic::{AssertUnwindSafe, catch_unwind};
@@ -7,7 +7,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_graphql::futures_util::{StreamExt, stream};
-use broodmap::Chk;
 use color_eyre::eyre::{self, WrapErr, eyre};
 use data_encoding::HEXLOWER;
 use sqlx::types::Json;
@@ -23,18 +22,28 @@ use crate::maps::parse::{
     AnalysisTables, FINGERPRINT_VERSION, MAP_PARSER_VERSION, MapAnalysis, MapExtension,
     MapParseError, ParsedMap, ParsedMapFile, is_mojibake_of, map_file_hash, parse_map,
 };
-use crate::maps::render::{MapImage, MapRenderAssets, render_map_images};
+use crate::maps::render::{
+    MAP_IMAGE_SIZES, MAP_JPEG_SIZE, MAP_RENDER_VERSION, MapImageFormat, MapImages, MapRenderAssets,
+    render_map_images,
+};
 use crate::maps::{MapHash, SbMapId};
 use crate::users::SbUserId;
 
 /// How long rejected uploads (and their files) are kept for reproducing parser bugs.
 const REJECTION_RETENTION: Duration = Duration::from_secs(30 * 24 * 60 * 60);
-/// Delay before the first reparse run after startup, so it doesn't compete with startup work.
-const REPARSE_STARTUP_DELAY: Duration = Duration::from_secs(2 * 60);
-const REPARSE_INTERVAL: Duration = Duration::from_secs(60 * 60);
-const REPARSE_BATCH_SIZE: i64 = 20;
-/// Session-level advisory lock held while reparsing, so only one server reparses at a time.
-const REPARSE_LOCK_KEY: i64 = 0x5342_4d41_5052_5345; // "SBMAPRSE"
+/// How long the files of superseded map images are kept, so clients that loaded their URLs before
+/// the newer render can still show them.
+const SUPERSEDED_IMAGE_RETENTION: Duration = Duration::from_secs(30 * 24 * 60 * 60);
+/// Delay before the first maintenance run after startup, so it doesn't compete with startup work.
+const MAINTENANCE_STARTUP_DELAY: Duration = Duration::from_secs(2 * 60);
+const MAINTENANCE_INTERVAL: Duration = Duration::from_secs(60 * 60);
+const MAINTENANCE_BATCH_SIZE: i64 = 20;
+/// Session-level advisory lock held while reparsing and re-rendering, so only one server does it
+/// at a time.
+const MAINTENANCE_LOCK_KEY: i64 = 0x5342_4d41_5052_5345; // "SBMAPRSE"
+/// Map images are never overwritten (every render is a new generation), so they can be cached
+/// forever.
+const IMAGE_CACHE_CONTROL: &str = "public, max-age=31536000, immutable";
 
 #[derive(Debug, thiserror::Error)]
 pub enum MapIngestError {
@@ -44,8 +53,6 @@ pub enum MapIngestError {
     NoPlayerSlots,
     #[error("map not found")]
     NotFound,
-    #[error("map images can't be rendered on this server")]
-    RenderingUnavailable,
     #[error(transparent)]
     Internal(#[from] eyre::Report),
 }
@@ -56,14 +63,53 @@ pub fn map_file_path(hash: &MapHash, extension: &str) -> String {
     format!("maps/{}/{}/{hash}.{extension}", &hash[0..2], &hash[2..4])
 }
 
-/// The file store path of one size of a map's image.
-pub fn map_image_path(hash: &MapHash, size: u32) -> String {
+/// The file store path of one of a map's images, for the generation `image_version` rendered by
+/// `render_version`. Render version 0 images are all JPEGs, at legacy paths that every generation
+/// shares.
+pub fn map_image_path(
+    hash: &MapHash,
+    image_version: i32,
+    render_version: i32,
+    size: u32,
+    format: MapImageFormat,
+) -> String {
     let hash = HEXLOWER.encode(&hash.0);
-    format!(
-        "map_images/{}/{}/{hash}-{size}.jpg",
-        &hash[0..2],
-        &hash[2..4]
-    )
+    let dir = format!("map_images/{}/{}", &hash[0..2], &hash[2..4]);
+    if render_version == 0 {
+        format!("{dir}/{hash}-{size}.jpg")
+    } else {
+        format!("{dir}/{hash}/{image_version}-{size}.{}", format.extension())
+    }
+}
+
+/// The file store paths of every image in one generation of a map's images.
+fn map_image_generation_paths(
+    hash: &MapHash,
+    image_version: i32,
+    render_version: i32,
+) -> Vec<String> {
+    let mut paths: Vec<_> = MAP_IMAGE_SIZES
+        .iter()
+        .map(|&size| {
+            map_image_path(
+                hash,
+                image_version,
+                render_version,
+                size,
+                MapImageFormat::Avif,
+            )
+        })
+        .collect();
+    if render_version != 0 {
+        paths.push(map_image_path(
+            hash,
+            image_version,
+            render_version,
+            MAP_JPEG_SIZE,
+            MapImageFormat::Jpeg,
+        ));
+    }
+    paths
 }
 
 fn map_reject_path(hash: &MapHash, extension: &str) -> String {
@@ -82,7 +128,17 @@ pub struct MapIngester {
 
 struct Processed {
     parsed: ParsedMap,
-    images: Option<Vec<MapImage>>,
+    /// The rendered images, if rendering was requested, or why rendering failed.
+    images: Option<Result<MapImages, String>>,
+}
+
+/// A stored map whose images are being rendered again.
+struct RenderTarget {
+    id: SbMapId,
+    hash: MapHash,
+    extension: String,
+    image_version: i32,
+    render_version: i32,
 }
 
 impl MapIngester {
@@ -100,7 +156,10 @@ impl MapIngester {
                 (tables, assets)
             }
             None => {
-                warn!("SB_MAP_ASSETS isn't set: uploaded maps get no images or terrain analysis");
+                warn!(
+                    "SB_MAP_ASSETS isn't set: uploaded maps get minimap images and no terrain \
+                    analysis"
+                );
                 (None, None)
             }
         };
@@ -114,8 +173,8 @@ impl MapIngester {
         }
     }
 
-    /// Parses a map file (and renders its images, if `render` is set and rendering is configured)
-    /// on the Rayon pool. A render failure leaves the map without images rather than failing.
+    /// Parses a map file, and renders its images if `render` is set, on the Rayon pool. Without
+    /// render assets the images are zero-asset minimaps.
     async fn process(&self, bytes: Arc<Vec<u8>>, render: bool) -> Result<Processed, MapParseError> {
         let _permit = self
             .parse_permits
@@ -123,15 +182,17 @@ impl MapIngester {
             .await
             .expect("parse semaphore is never closed");
         let tables = self.analysis_tables.clone();
-        let assets = if render {
-            self.render_assets.clone()
-        } else {
-            None
-        };
+        let assets = self.render_assets.clone();
         spawn_rayon(move || {
             catch_unwind(AssertUnwindSafe(|| {
                 let ParsedMapFile { parsed, chk } = parse_map(&bytes, tables.as_deref())?;
-                let images = assets.and_then(|assets| render_images(&chk, &assets));
+                let images = render.then(|| {
+                    catch_unwind(AssertUnwindSafe(|| {
+                        render_map_images(&chk, parsed.ums_content, assets.as_deref())
+                            .map_err(|e| format!("{e:#}"))
+                    }))
+                    .unwrap_or_else(|_| Err("the renderer panicked".into()))
+                });
                 Ok(Processed { parsed, images })
             }))
             .unwrap_or_else(|_| Err(MapParseError::InvalidFile("the parser panicked".into())))
@@ -232,9 +293,21 @@ impl MapIngester {
         }
 
         // Files go first, so a map row never points at missing files.
-        if let Some(images) = images {
-            self.write_images(&hash, images).await?;
-        }
+        let (render_version, render_fallback, render_error) =
+            match images.expect("images were requested") {
+                Ok(images) => {
+                    let fallback = images.fallback;
+                    self.write_images(&hash, 1, images).await?;
+                    (MAP_RENDER_VERSION, fallback, None)
+                }
+                Err(reason) => {
+                    error!(
+                        hash = HEXLOWER.encode(&hash.0),
+                        "Rendering map images failed: {reason}"
+                    );
+                    (0, false, Some(reason))
+                }
+            };
         let bytes = Arc::try_unwrap(bytes).unwrap_or_else(|bytes| (*bytes).clone());
         self.file_store
             .write(
@@ -254,8 +327,10 @@ impl MapIngester {
             r#"
                 INSERT INTO maps (hash, extension, title, description, width, height, tileset,
                     players_melee, players_ums, lobby_init_data, is_eud, parser_version,
-                    image_version, start_locations, ums_content)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 1, $13, $14)
+                    image_version, start_locations, ums_content, render_version, render_fallback,
+                    render_failed_version, render_error)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 1, $13, $14, $15, $16,
+                    $17, $18)
                 ON CONFLICT (hash) DO NOTHING
                 RETURNING id as "id: SbMapId"
             "#,
@@ -273,6 +348,10 @@ impl MapIngester {
             MAP_PARSER_VERSION,
             Json(&parsed.start_locations) as _,
             parsed.ums_content,
+            render_version,
+            render_fallback,
+            render_error.as_ref().map(|_| MAP_RENDER_VERSION),
+            render_error,
         )
         .fetch_optional(&mut *tx)
         .await
@@ -296,17 +375,44 @@ impl MapIngester {
         Ok(map_id)
     }
 
-    async fn write_images(&self, hash: &MapHash, images: Vec<MapImage>) -> eyre::Result<()> {
-        let options = WriteOptions {
-            content_type: Some("image/jpeg".into()),
-            public: true,
-            cache_control: None,
-        };
-        for image in images {
+    async fn write_images(
+        &self,
+        hash: &MapHash,
+        image_version: i32,
+        images: MapImages,
+    ) -> eyre::Result<()> {
+        for image in images.images {
+            let options = WriteOptions {
+                content_type: Some(image.format.content_type().into()),
+                public: true,
+                cache_control: Some(IMAGE_CACHE_CONTROL.into()),
+            };
+            let path = map_image_path(
+                hash,
+                image_version,
+                MAP_RENDER_VERSION,
+                image.size,
+                image.format,
+            );
             self.file_store
-                .write(&map_image_path(hash, image.size), image.jpeg, &options)
+                .write(&path, image.data, &options)
                 .await
                 .wrap_err("Failed to store map image")?;
+        }
+        Ok(())
+    }
+
+    async fn delete_images(
+        &self,
+        hash: &MapHash,
+        image_version: i32,
+        render_version: i32,
+    ) -> eyre::Result<()> {
+        for path in map_image_generation_paths(hash, image_version, render_version) {
+            self.file_store
+                .delete(&path)
+                .await
+                .wrap_err("Failed to delete map image")?;
         }
         Ok(())
     }
@@ -345,58 +451,112 @@ impl MapIngester {
 
     /// Renders a map's images again from its stored file, replacing the current ones.
     pub async fn regenerate_images(&self, map_id: SbMapId) -> Result<(), MapIngestError> {
-        if self.render_assets.is_none() {
-            return Err(MapIngestError::RenderingUnavailable);
-        }
         let map_id = resolve_map_id(&self.db, map_id)
             .await?
             .ok_or(MapIngestError::NotFound)?;
-        let map = sqlx::query!(
-            r#"SELECT hash as "hash: MapHash", extension FROM maps WHERE id = $1"#,
+        let target = sqlx::query_as!(
+            RenderTarget,
+            r#"
+                SELECT id as "id: SbMapId", hash as "hash: MapHash", extension, image_version,
+                    render_version
+                FROM maps
+                WHERE id = $1
+            "#,
             map_id as _,
         )
         .fetch_one(&self.db)
         .await
         .wrap_err("Failed to load map")?;
-        let bytes = self
-            .file_store
-            .read(&map_file_path(&map.hash, map.extension.trim()))
-            .await
-            .wrap_err("Failed to read map file")?;
-
-        let images = match self.process(Arc::new(bytes), true).await {
-            Ok(Processed {
-                images: Some(images),
-                ..
-            }) => images,
-            Ok(Processed { images: None, .. }) => {
-                return Err(eyre!("Rendering the map's images failed").into());
-            }
-            Err(MapParseError::InvalidFile(reason)) => {
-                return Err(eyre!("Stored map file couldn't be parsed: {reason}").into());
-            }
-        };
-        self.write_images(&map.hash, images).await?;
-        sqlx::query!(
-            "UPDATE maps SET image_version = image_version + 1 WHERE id = $1",
-            map_id as _,
-        )
-        .execute(&self.db)
-        .await
-        .wrap_err("Failed to update image version")?;
-        Ok(())
+        self.render_map(&target)
+            .await?
+            .map_err(|reason| eyre!("Rendering the map's images failed: {reason}").into())
     }
 
-    /// Reparses stored maps below the current parser version, then deletes expired rejected
+    /// Renders a stored map's images as a new generation and makes it the current one. Returns
+    /// why rendering failed, if it did; failures to read or write are returned as errors.
+    async fn render_map(&self, target: &RenderTarget) -> eyre::Result<Result<(), String>> {
+        let bytes = match self
+            .file_store
+            .read(&map_file_path(&target.hash, target.extension.trim()))
+            .await
+        {
+            Ok(bytes) => bytes,
+            Err(e) => return Ok(Err(format!("map file unavailable: {e:#}"))),
+        };
+        let images = match self.process(Arc::new(bytes), true).await {
+            Ok(processed) => match processed.images.expect("images were requested") {
+                Ok(images) => images,
+                Err(reason) => return Ok(Err(reason)),
+            },
+            Err(MapParseError::InvalidFile(reason)) => {
+                return Ok(Err(format!("stored map file couldn't be parsed: {reason}")));
+            }
+        };
+
+        let fallback = images.fallback;
+        let image_version = target.image_version + 1;
+        self.write_images(&target.hash, image_version, images)
+            .await?;
+
+        let mut tx = self
+            .db
+            .begin()
+            .await
+            .wrap_err("Failed to start transaction")?;
+        // Only one render per generation takes effect. A concurrent render that started from the
+        // same generation wrote the same paths (with the same images, since renders are
+        // deterministic), so the losing one has nothing to clean up.
+        let updated = sqlx::query!(
+            r#"
+                UPDATE maps
+                SET image_version = $3, render_version = $4, render_fallback = $5,
+                    render_failed_version = NULL, render_error = NULL
+                WHERE id = $1 AND image_version = $2
+            "#,
+            target.id as _,
+            target.image_version,
+            image_version,
+            MAP_RENDER_VERSION,
+            fallback,
+        )
+        .execute(&mut *tx)
+        .await
+        .wrap_err("Failed to update map images")?
+        .rows_affected();
+        if updated == 0 {
+            return Ok(Ok(()));
+        }
+        sqlx::query!(
+            r#"
+                INSERT INTO superseded_map_images (hash, image_version, render_version,
+                    superseded_at)
+                VALUES ($1, $2, $3, now())
+                ON CONFLICT (hash, image_version) DO NOTHING
+            "#,
+            target.hash as _,
+            target.image_version,
+            target.render_version,
+        )
+        .execute(&mut *tx)
+        .await
+        .wrap_err("Failed to record superseded map images")?;
+        tx.commit().await.wrap_err("Failed to commit map images")?;
+        Ok(Ok(()))
+    }
+
+    /// Reparses and re-renders outdated maps, then deletes expired superseded images and rejected
     /// uploads; once soon after startup, then every hour.
     pub async fn maintenance_loop(self: Arc<Self>) {
-        tokio::time::sleep(REPARSE_STARTUP_DELAY).await;
-        let mut interval = tokio::time::interval(REPARSE_INTERVAL);
+        tokio::time::sleep(MAINTENANCE_STARTUP_DELAY).await;
+        let mut interval = tokio::time::interval(MAINTENANCE_INTERVAL);
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         loop {
             interval.tick().await;
-            if let Err(e) = self.reparse_outdated_maps().await {
-                error!("Reparsing maps failed: {e:?}");
+            if let Err(e) = self.update_outdated_maps().await {
+                error!("Updating outdated maps failed: {e:?}");
+            }
+            if let Err(e) = self.delete_expired_superseded_images().await {
+                error!("Deleting superseded map images failed: {e:?}");
             }
             if let Err(e) = self.delete_expired_rejections().await {
                 error!("Deleting expired map rejections failed: {e:?}");
@@ -404,12 +564,13 @@ impl MapIngester {
         }
     }
 
-    /// Brings every stored map to the current parser version, most-played maps first. A map that
-    /// fails to parse keeps its old values and isn't retried until the parser version changes.
-    pub async fn reparse_outdated_maps(&self) -> eyre::Result<()> {
+    /// Brings every stored map to the current parser version, then (when render assets are
+    /// available) its images to the current render version, the most visible maps first. A map
+    /// that fails keeps its old values and isn't retried until the version changes.
+    pub async fn update_outdated_maps(&self) -> eyre::Result<()> {
         // The lock is held by this connection's session, so it's released if the process dies.
         let mut lock_conn = self.db.acquire().await?;
-        let locked = sqlx::query_scalar!("SELECT pg_try_advisory_lock($1)", REPARSE_LOCK_KEY)
+        let locked = sqlx::query_scalar!("SELECT pg_try_advisory_lock($1)", MAINTENANCE_LOCK_KEY)
             .fetch_one(&mut *lock_conn)
             .await?
             .unwrap_or(false);
@@ -417,9 +578,14 @@ impl MapIngester {
             return Ok(());
         }
 
-        let result = self.reparse_batches().await;
+        let mut result = self.reparse_batches().await;
+        // Zero-asset minimaps are only for maps that would otherwise have no images, so outdated
+        // images are only replaced by real renders.
+        if result.is_ok() && self.render_assets.is_some() {
+            result = self.render_batches().await;
+        }
 
-        sqlx::query_scalar!("SELECT pg_advisory_unlock($1)", REPARSE_LOCK_KEY)
+        sqlx::query_scalar!("SELECT pg_advisory_unlock($1)", MAINTENANCE_LOCK_KEY)
             .fetch_one(&mut *lock_conn)
             .await?;
         result
@@ -444,7 +610,7 @@ impl MapIngester {
                     LIMIT $2
                 "#,
                 MAP_PARSER_VERSION,
-                REPARSE_BATCH_SIZE,
+                MAINTENANCE_BATCH_SIZE,
             )
             .fetch_all(&self.db)
             .await
@@ -485,6 +651,94 @@ impl MapIngester {
                 failed,
                 parser_version = MAP_PARSER_VERSION,
                 "Reparsed maps"
+            );
+        }
+        Ok(())
+    }
+
+    async fn render_batches(&self) -> eyre::Result<()> {
+        let mut attempted = HashSet::new();
+        let mut updated = 0;
+        let mut failed = 0;
+        loop {
+            // Maps in the current matchmaking pools go first, then the most played, then listed
+            // ones, so the most visible images are replaced soonest.
+            let batch = sqlx::query_as!(
+                RenderTarget,
+                r#"
+                    WITH current_pools AS (
+                        SELECT DISTINCT ON (matchmaking_type) maps
+                        FROM matchmaking_map_pools
+                        WHERE start_date <= now()
+                        ORDER BY matchmaking_type, start_date DESC
+                    ), pool_maps AS (
+                        SELECT DISTINCT unnest(maps) AS map_id FROM current_pools
+                    )
+                    SELECT m.id as "id: SbMapId", m.hash as "hash: MapHash", m.extension,
+                        m.image_version, m.render_version
+                    FROM maps m
+                    WHERE (m.render_version < $1 OR m.render_fallback)
+                        AND m.render_failed_version IS DISTINCT FROM $1
+                    ORDER BY
+                        m.id IN (SELECT map_id FROM pool_maps) DESC,
+                        (SELECT s.games_90d FROM map_stats s WHERE s.map_id = m.id)
+                            DESC NULLS LAST,
+                        m.listed DESC,
+                        m.hash
+                    LIMIT $2
+                "#,
+                MAP_RENDER_VERSION,
+                MAINTENANCE_BATCH_SIZE,
+            )
+            .fetch_all(&self.db)
+            .await
+            .wrap_err("Failed to load maps to render")?;
+            // Every map in a batch either reaches the current version or is marked failed, so a
+            // map coming back means its result couldn't be written.
+            if batch.is_empty() || batch.iter().all(|m| attempted.contains(&m.id)) {
+                break;
+            }
+
+            let results: Vec<_> = stream::iter(batch)
+                .map(|target| async move {
+                    let outcome = self.render_map(&target).await;
+                    (target, outcome)
+                })
+                .buffer_unordered(self.parse_concurrency)
+                .collect()
+                .await;
+            for (target, outcome) in results {
+                attempted.insert(target.id);
+                match outcome? {
+                    Ok(()) => updated += 1,
+                    Err(reason) => {
+                        failed += 1;
+                        warn!(
+                            hash = HEXLOWER.encode(&target.hash.0),
+                            "Rendering map images failed: {reason}"
+                        );
+                        sqlx::query!(
+                            r#"
+                                UPDATE maps SET render_failed_version = $2, render_error = $3
+                                WHERE id = $1
+                            "#,
+                            target.id as _,
+                            MAP_RENDER_VERSION,
+                            reason,
+                        )
+                        .execute(&self.db)
+                        .await
+                        .wrap_err("Failed to record map render failure")?;
+                    }
+                }
+            }
+        }
+        if updated > 0 || failed > 0 {
+            info!(
+                updated,
+                failed,
+                render_version = MAP_RENDER_VERSION,
+                "Rendered map images"
             );
         }
         Ok(())
@@ -577,6 +831,38 @@ impl MapIngester {
         Ok(true)
     }
 
+    async fn delete_expired_superseded_images(&self) -> eyre::Result<()> {
+        let cutoff = chrono::Utc::now()
+            - chrono::Duration::from_std(SUPERSEDED_IMAGE_RETENTION)
+                .expect("retention fits a Duration");
+        let expired = sqlx::query!(
+            r#"
+                SELECT hash as "hash: MapHash", image_version, render_version
+                FROM superseded_map_images
+                WHERE superseded_at < $1
+            "#,
+            cutoff,
+        )
+        .fetch_all(&self.db)
+        .await?;
+        for superseded in expired {
+            self.delete_images(
+                &superseded.hash,
+                superseded.image_version,
+                superseded.render_version,
+            )
+            .await?;
+            sqlx::query!(
+                "DELETE FROM superseded_map_images WHERE hash = $1 AND image_version = $2",
+                superseded.hash as _,
+                superseded.image_version,
+            )
+            .execute(&self.db)
+            .await?;
+        }
+        Ok(())
+    }
+
     async fn delete_expired_rejections(&self) -> eyre::Result<()> {
         let cutoff = chrono::Utc::now()
             - chrono::Duration::from_std(REJECTION_RETENTION).expect("retention fits a Duration");
@@ -607,12 +893,6 @@ impl MapIngester {
         }
         Ok(())
     }
-}
-
-fn render_images(chk: &Chk, assets: &MapRenderAssets) -> Option<Vec<MapImage>> {
-    render_map_images(chk, assets)
-        .inspect_err(|e| error!("Rendering map images failed: {e:?}"))
-        .ok()
 }
 
 async fn write_analysis(
@@ -674,8 +954,16 @@ mod tests {
         let hex = HEXLOWER.encode(&bytes);
         assert_eq!(map_file_path(&hash, "scx"), format!("maps/ab/cd/{hex}.scx"));
         assert_eq!(
-            map_image_path(&hash, 512),
+            map_image_path(&hash, 3, 0, 512, MapImageFormat::Avif),
             format!("map_images/ab/cd/{hex}-512.jpg")
+        );
+        assert_eq!(
+            map_image_path(&hash, 3, 1, 512, MapImageFormat::Avif),
+            format!("map_images/ab/cd/{hex}/3-512.avif")
+        );
+        assert_eq!(
+            map_image_path(&hash, 3, 1, 1024, MapImageFormat::Jpeg),
+            format!("map_images/ab/cd/{hex}/3-1024.jpg")
         );
         assert_eq!(
             map_reject_path(&hash, "scm"),
