@@ -10626,6 +10626,18 @@ fn create_file_hook(
                 } else if check_filename(filename, b"Agent.dat") {
                     // Should happen earlier, but just in case
                     stop_precise_system_time_hook();
+                    // Agent.dat holds the port of the Battle.net Agent, which ClientSdk talks to
+                    // over HTTP. Nothing we use needs it, and when the Agent answers 401 ClientSdk
+                    // retries forever (~45/s), nesting each retry's callback in the last one's
+                    // until destroying the chain overflows the main thread's stack. Failing the
+                    // open keeps ClientSdk from ever finding (or launching) the Agent; it then
+                    // just retries this open every few seconds.
+                    static LOGGED_AGENT_BLOCK: AtomicBool = AtomicBool::new(false);
+                    if !LOGGED_AGENT_BLOCK.swap(true, Ordering::Relaxed) {
+                        debug!("Blocking ClientSdk's Agent.dat lookup");
+                    }
+                    SetLastError(winapi::shared::winerror::ERROR_FILE_NOT_FOUND);
+                    return -1isize as *mut c_void;
                 }
             }
         }
