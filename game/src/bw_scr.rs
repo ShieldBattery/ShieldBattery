@@ -512,6 +512,9 @@ pub struct BwScr {
     command_panel_hidden_state: AtomicBool,
     /// Whether the game has been started (e.g. we're done loading in)
     game_started: AtomicBool,
+    /// Whether game init is drawing frames to get its textures onto the GPU (see
+    /// `settle_init_uploads`), during which the overlay keeps showing the loading screen.
+    init_uploads_settling: AtomicBool,
     /// Whether game results have been sent to the GameState thread yet
     game_results_sent: AtomicBool,
     /// Used to have step_game_logic_hook do things once at start of the game, after initial
@@ -2901,6 +2904,7 @@ impl BwScr {
             minimap_hidden_state: AtomicBool::new(false),
             command_panel_hidden_state: AtomicBool::new(false),
             game_started: AtomicBool::new(false),
+            init_uploads_settling: AtomicBool::new(false),
             game_results_sent: AtomicBool::new(false),
             first_game_logic_frame_done: AtomicBool::new(false),
             sound_id_cache: Mutex::new(HashMap::new()),
@@ -3541,6 +3545,11 @@ impl BwScr {
                     }
                     self.restore_observer_id_mappings();
                     game_thread::after_init_game_data();
+                    // Not in replays: they show no loading screen to hold up, and a replay seek
+                    // re-runs init mid-replay. Their first steps wait on no other player either.
+                    if !game_thread::is_replay() {
+                        log_time("settle_init_uploads", || self.settle_init_uploads());
+                    }
                     1
                 },
                 address,
@@ -4342,7 +4351,8 @@ impl BwScr {
                     }
                     let game = bw_dat::Game::from_ptr(game);
                     let has_init_bw = game_thread::HAS_INIT_BW.load(Ordering::Acquire);
-                    let game_started = self.game_started.load(Ordering::Acquire);
+                    let game_started = self.game_started.load(Ordering::Acquire)
+                        && !self.init_uploads_settling.load(Ordering::Acquire);
                     let is_replay_or_obs = self.is_replay_or_obs();
                     let is_replay = self.is_replay.resolve() != 0;
                     let is_team_game = game_thread::is_team_game();
@@ -6551,6 +6561,32 @@ impl BwScr {
         unsafe {
             (self.render_screen)(std::ptr::null_mut(), 0);
         }
+    }
+
+    /// Gets the textures game init just created onto the GPU before the game loop starts, drawing
+    /// loading screen frames to do it.
+    ///
+    /// Game init creates around 2,000 textures (consoles, tileset, UI) with no contents; each
+    /// records its copy into the renderer's current frame, and the frame's present submits them
+    /// all. Left to the game loop, that's one frame spending 60-110 ms in the copies and a later
+    /// present blocking as long again while the GPU works through them, all during the first
+    /// steps, when every player still waits on every other's turns.
+    ///
+    /// The first frame here submits the copies, and drawing it creates a few more textures whose
+    /// copies go with the second. The renderer keeps three frames in flight: before a present
+    /// returns, it waits for the GPU to finish the frame presented two before it, whose resources
+    /// the next frame reuses. So once the fourth present returns, the GPU has finished both
+    /// frames' copies.
+    ///
+    /// Done before the game loop's own init, which is where the logic step timer starts, so the
+    /// time spent here holds the game's start back rather than its first steps.
+    unsafe fn settle_init_uploads(&self) {
+        const SETTLE_FRAMES: u32 = 4;
+        self.init_uploads_settling.store(true, Ordering::Release);
+        for _ in 0..SETTLE_FRAMES {
+            unsafe { self.force_redraw_during_init() };
+        }
+        self.init_uploads_settling.store(false, Ordering::Release);
     }
 
     pub fn set_countdown_start(&self, time: Instant) {
