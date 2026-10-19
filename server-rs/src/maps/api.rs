@@ -62,7 +62,6 @@ enum MapApiError {
     Forbidden,
     NotFound,
     TooManyUploads,
-    RenderingUnavailable,
     Internal,
 }
 
@@ -98,11 +97,6 @@ impl IntoResponse for MapApiError {
                 "tooManyRequests",
                 "Too many map uploads, try again later",
             ),
-            Self::RenderingUnavailable => (
-                StatusCode::SERVICE_UNAVAILABLE,
-                "renderingUnavailable",
-                "Map images can't be rendered on this server",
-            ),
             Self::Internal => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "internalServerError",
@@ -119,7 +113,6 @@ impl From<MapIngestError> for MapApiError {
             MapIngestError::InvalidMapFile => Self::InvalidMapFile,
             MapIngestError::NoPlayerSlots => Self::NoPlayerSlots,
             MapIngestError::NotFound => Self::NotFound,
-            MapIngestError::RenderingUnavailable => Self::RenderingUnavailable,
             MapIngestError::Internal(e) => {
                 error!("Map request failed: {e:?}");
                 Self::Internal

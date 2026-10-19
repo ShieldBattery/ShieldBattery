@@ -209,7 +209,7 @@ broodmap-cli fetch-assets --cdn --out <dir>
 ```
 
 Then set `SB_MAP_ASSETS=<dir>` in the `.env` file. Without it, map uploads still work, but uploaded
-maps won't have any images.
+maps get low-detail minimap images instead (replaced with real renders once `SB_MAP_ASSETS` is set).
 
 ## Set up relay servers
 
