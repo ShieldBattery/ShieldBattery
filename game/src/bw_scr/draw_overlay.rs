@@ -31,8 +31,6 @@ mod loading_screen;
 mod netstat;
 mod production;
 
-pub use self::loading_screen::{SpawnMarker, SpawnMarkers};
-
 pub struct OverlayState {
     ctx: egui::Context,
     start_time: Instant,
@@ -162,9 +160,6 @@ pub struct BwVars {
     pub has_init_bw: bool,
     pub countdown_start: Option<Instant>,
     pub game_started: bool,
-    /// Each player's start location, for the loading screen. `None` until game init has assigned
-    /// them, once the game has started, and in replays.
-    pub spawn_markers: Option<SpawnMarkers>,
 }
 
 #[derive(Copy, Clone)]

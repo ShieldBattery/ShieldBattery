@@ -570,20 +570,6 @@ struct TeamColorRuntime {
     local_alliance_row: Option<(u8, [bool; 8])>,
 }
 
-impl TeamColorRuntime {
-    /// The engine's current assignment as a full `rgb_colors` array. Slots the engine leaves
-    /// unassigned keep BW's original color from the init snapshot.
-    fn assigned_rgb_colors(&self) -> [[f32; 4]; 8] {
-        let mut out = self.original_rgb_colors;
-        for (slot, color) in self.state.colors().iter().enumerate() {
-            if let Some(color) = color {
-                out[slot] = *color;
-            }
-        }
-        out
-    }
-}
-
 /// The three structurally-identical minimap dot-draw functions the minimap-only team-color mode
 /// overrides, resolved together (all-or-nothing). Hooking all three lets that mode feed the dots a
 /// swapped `rgb_colors` palette for the span of the draw without touching unit colors; a subset
@@ -4124,12 +4110,6 @@ impl BwScr {
                         } else {
                             netcode_v2::with_turn_state(|s| s.loading_connectivity())
                         };
-                        // Replays show no map image on the loading screen.
-                        let spawn_markers = if game_started || is_replay {
-                            None
-                        } else {
-                            self.spawn_markers()
-                        };
                         // If we're switching between SD/HD, egui flexboxes will break due
                         // to render target size constantly changing, so we allow the overlay
                         // to request a second pass to provide nicer look.
@@ -4155,7 +4135,6 @@ impl BwScr {
                                     has_init_bw,
                                     countdown_start,
                                     game_started,
-                                    spawn_markers,
                                 },
                                 apm,
                                 size,
@@ -7001,78 +6980,15 @@ impl BwScr {
             if runtime.virtual_mode != MinimapColorMode::PresetOnMinimapOnly {
                 return None;
             }
-            runtime.assigned_rgb_colors()
+            let mut out = runtime.original_rgb_colors;
+            for (slot, color) in runtime.state.colors().iter().enumerate() {
+                if let Some(color) = color {
+                    out[slot] = *color;
+                }
+            }
+            out
         };
         self.swap_rgb_colors(assignment, 1)
-    }
-
-    /// The custom team-color assignment the minimap currently draws players with, or `None` when
-    /// it draws BW's own player colors (the feature is inactive or in the Standard mode).
-    fn minimap_team_colors(&self) -> Option<[[f32; 4]; 8]> {
-        let guard = self.team_color_runtime.lock();
-        let runtime = guard.as_ref()?;
-        match runtime.virtual_mode {
-            MinimapColorMode::Standard => None,
-            MinimapColorMode::Preset | MinimapColorMode::PresetOnMinimapOnly => {
-                Some(runtime.assigned_rgb_colors())
-            }
-        }
-    }
-
-    /// Each in-game player's start location, colored as the minimap shows that player, for the
-    /// loading screen to draw over the map image. `None` until game init has assigned start
-    /// locations and player colors.
-    unsafe fn spawn_markers(&self) -> Option<draw_overlay::SpawnMarkers> {
-        if !game_thread::HAS_INIT_GAME_DATA.load(Ordering::Acquire) {
-            return None;
-        }
-        unsafe {
-            let game = self.game();
-            let players = self.players();
-            if game.is_null() || players.is_null() {
-                return None;
-            }
-            let team_colors = self.minimap_team_colors();
-            let main_palette = self.main_palette.resolve();
-            let use_rgb_colors = self.use_rgb_colors.resolve();
-            let rgb_colors = self.rgb_colors.resolve();
-            let local_player = if self.is_replay_or_obs() {
-                None
-            } else {
-                Some(self.local_player_id.resolve())
-            };
-            let start_locations = bw::player_start_locations(game, players);
-            let mut markers = [None; 8];
-            for (id, (marker, position)) in markers.iter_mut().zip(start_locations).enumerate() {
-                let Some(position) = position else {
-                    continue;
-                };
-                let [r, g, b] = match team_colors {
-                    Some(colors) => {
-                        let [r, g, b, _] = colors[id].map(|c| (c * 255.0) as u8);
-                        [r, g, b]
-                    }
-                    None if rgb_colors.is_null() && use_rgb_colors != 0 => [0xff, 0xff, 0xff],
-                    None => bw::player_color(
-                        bw_dat::Game::from_ptr(game),
-                        main_palette,
-                        use_rgb_colors,
-                        rgb_colors,
-                        id as u8,
-                    ),
-                };
-                *marker = Some(draw_overlay::SpawnMarker {
-                    position,
-                    color: egui::Color32::from_rgb(r, g, b),
-                    is_local: local_player == Some(id as u32),
-                });
-            }
-            Some(draw_overlay::SpawnMarkers {
-                map_width_tiles: (*game).map_width_tiles,
-                map_height_tiles: (*game).map_height_tiles,
-                markers,
-            })
-        }
     }
 
     /// Installs BW's original player colors and `use_rgb_colors` switch (the init snapshot) for the
@@ -7153,7 +7069,14 @@ impl BwScr {
             if rgb_ptr.is_null() {
                 return;
             }
-            *rgb_ptr = runtime.assigned_rgb_colors();
+            let colors = runtime.state.colors();
+            let mut out = runtime.original_rgb_colors;
+            for (slot, color) in colors.iter().enumerate() {
+                if let Some(color) = color {
+                    out[slot] = *color;
+                }
+            }
+            *rgb_ptr = out;
         }
     }
 

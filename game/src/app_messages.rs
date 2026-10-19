@@ -575,6 +575,16 @@ pub struct MapData {
     pub tileset: u16,
     pub ums_forces: Vec<MapForce>,
     pub is_eud: bool,
+    /// Where the map's start locations are, in map pixels.
+    #[serde(default)]
+    pub start_locations: Vec<MapStartLocation>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MapStartLocation {
+    pub x: u16,
+    pub y: u16,
 }
 
 #[derive(Clone, Debug, Deserialize)]

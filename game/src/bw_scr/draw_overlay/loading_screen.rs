@@ -10,10 +10,10 @@ use egui_flex::{Flex, FlexAlign, FlexInstance};
 
 use crate::{
     app_messages::{
-        GamePlayerRank, GameSetupInfo, GameType, MapInfo, MatchmakingDivision, PlayerInfo,
-        SbSlotType, SbUser,
+        GamePlayerRank, GameSetupInfo, GameType, MapData, MapInfo, MapStartLocation,
+        MatchmakingDivision, PlayerInfo, SbSlotType, SbUser,
     },
-    bw::{self, RACE_PROTOSS, RACE_TERRAN, RACE_ZERG},
+    bw::{RACE_PROTOSS, RACE_TERRAN, RACE_ZERG},
     bw_scr::draw_overlay::{BwVars, OverlayState, colors, fonts::display_family},
     game_thread,
     netcode_v2::{LoadingConnectivity, LoadingPresence, loading_presence},
@@ -30,35 +30,14 @@ const UNCONNECTED_OPACITY: f32 = 0.45;
 /// How long a participant takes to fade between the connected and unconnected looks.
 const PRESENCE_FADE_SECS: f32 = 0.3;
 
-/// How many tiles across a spawn marker is, about the footprint of a start location's main
-/// building.
-const SPAWN_MARKER_TILES: f32 = 4.0;
-/// The smallest a spawn marker's diameter gets, so markers stay visible on very large maps.
-const MIN_SPAWN_MARKER_DIAMETER: f32 = 6.0;
-/// The gap between the local player's spawn marker and the extra ring drawn around it.
-const LOCAL_SPAWN_RING_GAP: f32 = 4.0;
-const SPAWN_MARKER_STROKE_WIDTH: f32 = 2.0;
+/// Spawn markers are a fixed size rather than a start location's footprint, so they stay small
+/// dots that mark a position without covering the terrain around it.
+const SPAWN_MARKER_RADIUS: f32 = 5.0;
+const SPAWN_MARKER_HALO_WIDTH: f32 = 1.5;
+const SPAWN_MARKER_HALO_COLOR: Color32 = Color32::from_rgba_premultiplied(0, 0, 0, 140);
 
 // TODO(tec27): This is probably retrievable from egui?
 const BACKGROUND_SIZE: Vec2 = Vec2::new(1920.0, 1152.0);
-
-/// A player's start location, as drawn over the loading screen's map image.
-#[derive(Copy, Clone, Debug)]
-pub struct SpawnMarker {
-    pub position: bw::MapPoint,
-    pub color: Color32,
-    /// Whether this is the local player's start location, which gets an extra ring.
-    pub is_local: bool,
-}
-
-/// Every in-game player's start location on the map being loaded.
-#[derive(Copy, Clone, Debug)]
-pub struct SpawnMarkers {
-    pub map_width_tiles: u16,
-    pub map_height_tiles: u16,
-    /// Indexed by BW player id; `None` for slots without a player in the game.
-    pub markers: [Option<SpawnMarker>; 8],
-}
 
 impl OverlayState {
     pub fn add_loading_screen_ui(
@@ -95,16 +74,15 @@ impl OverlayState {
         }
 
         let setup_info = setup_info.unwrap();
-        let (map_name, map_image_url, spawn_markers) = match &setup_info.map {
+        let (map_name, map_image_url, spawn_map) = match &setup_info.map {
             MapInfo::Game(info) => (
                 Some(info.name.as_str()),
                 info.loading_screen_image_url(),
                 // Images with start locations drawn in already show them. UMS maps often stack
                 // start locations in one spot or park them outside the playable area, since their
                 // triggers move players elsewhere, so markers there wouldn't show where anyone plays.
-                bw.spawn_markers.filter(|_| {
-                    info.needs_spawn_markers() && setup_info.game_type != GameType::Ums
-                }),
+                (info.needs_spawn_markers() && setup_info.game_type != GameType::Ums)
+                    .then_some(&info.map_data),
             ),
             MapInfo::Replay(_) => (None, None, None),
         };
@@ -230,10 +208,7 @@ impl OverlayState {
                                                         |ui| {
                                                             if let Some(url) = map_image_url {
                                                                 add_map_image(
-                                                                    ui,
-                                                                    url,
-                                                                    map_size,
-                                                                    spawn_markers.as_ref(),
+                                                                    ui, url, map_size, spawn_map,
                                                                 );
                                                             }
                                                         },
@@ -427,8 +402,10 @@ impl OverlayState {
     }
 }
 
-/// Adds the map's image, fit within `map_size`, with each player's start location drawn over it.
-fn add_map_image(ui: &mut egui::Ui, url: &str, map_size: Vec2, spawns: Option<&SpawnMarkers>) {
+/// Adds the map's image, fit within `map_size`, with each of `spawn_map`'s start locations marked
+/// over it. Every start location looks the same: BW only decides which player starts where as the
+/// game starts, after the loading screen is gone.
+fn add_map_image(ui: &mut egui::Ui, url: &str, map_size: Vec2, spawn_map: Option<&MapData>) {
     let image = egui::Image::from_uri(url)
         .show_loading_spinner(false)
         .fit_to_exact_size(map_size)
@@ -440,51 +417,41 @@ fn add_map_image(ui: &mut egui::Ui, url: &str, map_size: Vec2, spawns: Option<&S
         Ok(TexturePoll::Ready { .. })
     );
     let image_rect = ui.add(image).rect;
-    if let Some(spawns) = spawns.filter(|_| loaded) {
-        paint_spawn_markers(ui.painter(), spawns, image_rect);
+    if let Some(map) = spawn_map.filter(|_| loaded) {
+        paint_spawn_markers(ui.painter(), map, image_rect);
     }
 }
 
-fn paint_spawn_markers(painter: &Painter, spawns: &SpawnMarkers, image_rect: Rect) {
-    let stroke = Stroke::new(SPAWN_MARKER_STROKE_WIDTH, Color32::WHITE);
-    for marker in spawns.markers.iter().flatten() {
-        let Some((center, radius)) = spawn_marker_geometry(
-            marker.position,
-            spawns.map_width_tiles,
-            spawns.map_height_tiles,
-            image_rect,
-        ) else {
-            continue;
-        };
-        painter.circle(center, radius, marker.color, stroke);
-        if marker.is_local {
-            painter.circle_stroke(center, radius + LOCAL_SPAWN_RING_GAP, stroke);
+fn paint_spawn_markers(painter: &Painter, map: &MapData, image_rect: Rect) {
+    let halo = Stroke::new(SPAWN_MARKER_HALO_WIDTH, SPAWN_MARKER_HALO_COLOR);
+    for location in &map.start_locations {
+        if let Some(center) = spawn_marker_center(location, map.width, map.height, image_rect) {
+            painter.circle(center, SPAWN_MARKER_RADIUS, Color32::WHITE, halo);
         }
     }
 }
 
-/// Where to center the marker for a start location at `position` (in map pixels) and its radius,
-/// when a map of the given size in tiles is drawn into `image_rect`. Map images cover exactly the
-/// map's area, so positions map proportionally into the rect. `None` for a map with no area.
-fn spawn_marker_geometry(
-    position: bw::MapPoint,
+/// Where to center the marker for `location` when a map of the given size in tiles is drawn into
+/// `image_rect`. Map images cover exactly the map's area, so positions map proportionally into the
+/// rect. `None` for a map with no area.
+fn spawn_marker_center(
+    location: &MapStartLocation,
     map_width_tiles: u16,
     map_height_tiles: u16,
     image_rect: Rect,
-) -> Option<(Pos2, f32)> {
+) -> Option<Pos2> {
     if map_width_tiles == 0 || map_height_tiles == 0 {
         return None;
     }
     let map_width = f32::from(map_width_tiles) * 32.0;
     let map_height = f32::from(map_height_tiles) * 32.0;
-    let center = image_rect.min
-        + egui::vec2(
-            f32::from(position.x) / map_width * image_rect.width(),
-            f32::from(position.y) / map_height * image_rect.height(),
-        );
-    let diameter = (SPAWN_MARKER_TILES / f32::from(map_width_tiles) * image_rect.width())
-        .max(MIN_SPAWN_MARKER_DIAMETER);
-    Some((center, diameter / 2.0))
+    Some(
+        image_rect.min
+            + egui::vec2(
+                f32::from(location.x) / map_width * image_rect.width(),
+                f32::from(location.y) / map_height * image_rect.height(),
+            ),
+    )
 }
 
 /// Adds a centered row listing the game's observers, each as a compact name (with their avatar if
@@ -734,50 +701,36 @@ mod test {
         Rect::from_min_size(egui::pos2(x, y), egui::vec2(width, height))
     }
 
+    fn location(x: u16, y: u16) -> MapStartLocation {
+        MapStartLocation { x, y }
+    }
+
     #[test]
     fn spawn_marker_maps_position_proportionally_into_rect() {
         // A 128x96 map is 4096x3072 pixels; drawn at 640x480 that's 0.15625 rect px per map px.
-        let (center, radius) = spawn_marker_geometry(
-            bw::MapPoint { x: 1024, y: 2048 },
+        let center = spawn_marker_center(
+            &location(1024, 2048),
             128,
             96,
             rect(100.0, 50.0, 640.0, 480.0),
         )
         .unwrap();
         assert_eq!(center, egui::pos2(100.0 + 160.0, 50.0 + 320.0));
-        // 4 tiles of a 128 tile wide map across 640px is 20px across.
-        assert_eq!(radius, 10.0);
     }
 
     #[test]
     fn spawn_marker_corners_map_to_rect_corners() {
         let image_rect = rect(0.0, 0.0, 480.0, 240.0);
-        let (top_left, _) =
-            spawn_marker_geometry(bw::MapPoint { x: 0, y: 0 }, 128, 64, image_rect).unwrap();
-        let (bottom_right, _) =
-            spawn_marker_geometry(bw::MapPoint { x: 4096, y: 2048 }, 128, 64, image_rect).unwrap();
+        let top_left = spawn_marker_center(&location(0, 0), 128, 64, image_rect).unwrap();
+        let bottom_right = spawn_marker_center(&location(4096, 2048), 128, 64, image_rect).unwrap();
         assert_eq!(top_left, image_rect.min);
         assert_eq!(bottom_right, image_rect.max);
     }
 
     #[test]
-    fn spawn_marker_has_a_minimum_size() {
-        // 4 tiles of a 256 tile wide map across 256px would only be 4px across.
-        let (_, radius) = spawn_marker_geometry(
-            bw::MapPoint { x: 100, y: 100 },
-            256,
-            256,
-            rect(0.0, 0.0, 256.0, 256.0),
-        )
-        .unwrap();
-        assert_eq!(radius, MIN_SPAWN_MARKER_DIAMETER / 2.0);
-    }
-
-    #[test]
     fn spawn_marker_skips_maps_without_area() {
         let image_rect = rect(0.0, 0.0, 640.0, 640.0);
-        let position = bw::MapPoint { x: 100, y: 100 };
-        assert!(spawn_marker_geometry(position, 0, 128, image_rect).is_none());
-        assert!(spawn_marker_geometry(position, 128, 0, image_rect).is_none());
+        assert!(spawn_marker_center(&location(100, 100), 0, 128, image_rect).is_none());
+        assert!(spawn_marker_center(&location(100, 100), 128, 0, image_rect).is_none());
     }
 }
