@@ -4,6 +4,7 @@ import styled, { css } from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { GameType } from '../../common/games/game-type'
 import { MapImageInfo, mapImageSrcSet, MapStartLocation, visibleSpawns } from '../../common/maps'
+import { SC_COLORS } from '../../common/settings/team-colors'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
 import { BodyLarge } from '../styles/typography'
@@ -72,17 +73,28 @@ const SpawnMapBox = styled.div<{ $cover?: boolean }>`
   }
 `
 
-/** A start location's 4-tile footprint, never smaller than a readable dot. */
+/**
+ * A start location's 4x3-tile placement box as a "player token" in `--sb-spawn-color`, matching
+ * the token broodmap paints for start locations: rounded corners, a subtle top-to-bottom gradient,
+ * a dark outer and light inner bezel, and a soft drop shadow. Never smaller than readable.
+ */
 const SpawnMarker = styled.div`
   position: absolute;
-  width: max(12px, calc(4 / var(--sb-map-tile-width) * 100%));
-  aspect-ratio: 1;
+  width: max(16px, calc(4 / var(--sb-map-tile-width) * 100%));
+  aspect-ratio: 4 / 3;
   transform: translate(-50%, -50%);
 
-  border: 2px solid rgb(255 255 255 / 0.9);
-  border-radius: 50%;
-  background-color: rgb(0 0 0 / 0.45);
-  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.5);
+  /* A corner radius of 20% of the shorter (vertical) side, on both axes. */
+  border-radius: 15% / 20%;
+  border: 1px solid rgb(0 0 0 / 0.75);
+  background-color: var(--sb-spawn-color);
+  background-image: linear-gradient(
+    rgb(from var(--sb-spawn-color) calc(r * 1.12) calc(g * 1.12) calc(b * 1.12)),
+    rgb(from var(--sb-spawn-color) calc(r * 0.88) calc(g * 0.88) calc(b * 0.88))
+  );
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.7),
+    0 1px 2px rgb(0 0 0 / 0.35);
 `
 
 const NoImageContainer = styled.div`
@@ -142,10 +154,14 @@ export function MapSpawnMarkers({
         {spawns.map(s => (
           <SpawnMarker
             key={s.slot}
-            style={{
-              left: `${(s.x / (width * 32)) * 100}%`,
-              top: `${(s.y / (height * 32)) * 100}%`,
-            }}
+            style={
+              {
+                left: `${(s.x / (width * 32)) * 100}%`,
+                top: `${(s.y / (height * 32)) * 100}%`,
+                // The slot's default player color, as broodmap colors it.
+                '--sb-spawn-color': SC_COLORS[s.slot].hex,
+              } as React.CSSProperties
+            }
           />
         ))}
       </SpawnMapBox>
