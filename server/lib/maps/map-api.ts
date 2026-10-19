@@ -2,6 +2,8 @@ import { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
 import { SetRequired } from 'type-fest'
+import { decodeMatchup } from '../../../common/games/game-filters'
+import { GET_GAMES_LIMIT, GetGamesResponse, toGameRecordJson } from '../../../common/games/games'
 import {
   ALL_MAP_SORT_TYPES,
   ALL_MAP_VISIBILITIES,
@@ -21,6 +23,8 @@ import {
   UpdateMapResponse,
 } from '../../../common/maps'
 import { deleteFiles, getSignedUrl } from '../files'
+import { GET_GAMES_QUERY_SCHEMA, getGameListSideData } from '../games/game-list-data'
+import { getGames } from '../games/game-models'
 import { httpApi } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPatch, httpPost } from '../http/route-decorators'
 import {
@@ -40,6 +44,7 @@ import {
   veryDangerousDeleteAllMaps,
 } from '../maps/map-models'
 import { checkAllPermissions } from '../permissions/check-permissions'
+import { ReplayService } from '../replays/replay-service'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware, { throttleByUser, throttleByUserOrIp } from '../throttle/middleware'
@@ -60,6 +65,11 @@ const mapUpdateThrottle = createThrottle('mapupdate', {
 const mapFavoriteThrottle = createThrottle('mapfavorite', {
   rate: 30,
   burst: 70,
+  window: 60000,
+})
+const mapGamesListThrottle = createThrottle('mapgames', {
+  rate: 20,
+  burst: 40,
   window: 60000,
 })
 const mapRemoveThrottle = createThrottle('mapremove', {
@@ -108,6 +118,8 @@ type ServerGetFavoritedMapsQueryParams = SetRequired<
 
 @httpApi('/maps')
 export class MapsApi {
+  constructor(private replayService: ReplayService) {}
+
   @httpGet('/')
   @httpBefore(throttleMiddleware(mapsListThrottle, throttleByUserOrIp))
   async list(ctx: RouterContext): Promise<GetMapsResponse> {
@@ -345,6 +357,66 @@ export class MapsApi {
 
     await removeMapFromFavorites(mapId, ctx.session!.user.id)
     ctx.status = 204
+  }
+
+  @httpGet('/:mapId/games')
+  @httpBefore(throttleMiddleware(mapGamesListThrottle, throttleByUserOrIp))
+  async getMapGames(ctx: RouterContext): Promise<GetGamesResponse> {
+    const {
+      params: { mapId: requestedMapId },
+      query: {
+        source,
+        duration,
+        mapName,
+        playerName,
+        format,
+        matchup,
+        sort,
+        offset,
+        startDate,
+        endDate,
+        includeShort,
+      },
+    } = validateRequest(ctx, {
+      params: Joi.object<{ mapId: SbMapId }>({
+        mapId: Joi.string().uuid().required(),
+      }),
+      query: GET_GAMES_QUERY_SCHEMA,
+    })
+
+    const mapId = await resolveMapId(requestedMapId)
+    const decodedMatchup = matchup && format ? decodeMatchup(format, matchup) : undefined
+
+    const games = await getGames({
+      mapId,
+      limit: GET_GAMES_LIMIT,
+      offset: offset ?? 0,
+      source,
+      duration,
+      mapName,
+      playerName,
+      format,
+      matchup: decodedMatchup,
+      sort,
+      startDate,
+      endDate,
+      includeShort,
+    })
+
+    const { users, maps, replays } = await getGameListSideData({
+      games,
+      currentUserId: ctx.session?.user?.id,
+      replayService: this.replayService,
+      logger: ctx.log,
+    })
+
+    return {
+      games: games.map(g => toGameRecordJson(g)),
+      maps: maps.map(m => toMapInfoJson(m)),
+      users,
+      hasMoreGames: games.length >= GET_GAMES_LIMIT,
+      replays,
+    }
   }
 
   @httpPost('/:mapId/download-url')

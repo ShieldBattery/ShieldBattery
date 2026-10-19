@@ -14,7 +14,13 @@ use crate::maps::search::{
     DbSbMap, MapCursor, MapFilter, MapListingError, MapListingPage, MapListingRequest, MapScope,
     MapSearchRepo, MapSort,
 };
+use crate::maps::stats::{
+    self, DEFAULT_ACTIVITY_WEEKS, MapGameTypeCount, MapMatchupSeason, MapMatchupStats,
+    MapWeeklyActivity,
+};
 use crate::maps::{MapFile, MapHash, MapsLoader, SbMapId};
+use crate::matchmaking::MatchmakingType;
+use crate::users::permissions::RequiredPermission;
 use crate::users::{CurrentUser, SbUser, SbUserId, UsersLoader};
 
 /// Whether a map is played as a regular melee map or with its own Use Map Settings rules.
@@ -47,6 +53,8 @@ pub struct SbMap {
     pub published_at: Option<DateTime<Utc>>,
     #[graphql(skip)]
     pub published_by: Option<SbUserId>,
+    #[graphql(skip)]
+    pub moderation_record: MapModeration,
     /// Play statistics, or null if the map has never been played.
     pub stats: Option<MapStats>,
     /// How many users have favorited this map.
@@ -65,12 +73,60 @@ impl SbMap {
 
     /// The user who listed this map. Null unless it is listed.
     async fn publisher(&self, ctx: &Context<'_>) -> Result<Option<SbUser>> {
-        let Some(published_by) = self.published_by else {
-            return Ok(None);
-        };
-        ctx.data::<DataLoader<UsersLoader>>()?
-            .load_one(published_by)
-            .await
+        load_user(ctx, self.published_by).await
+    }
+
+    /// Who listed and delisted this map and when, whether or not it is listed now. Only available
+    /// to users who can manage maps.
+    #[graphql(guard = RequiredPermission::ManageMaps)]
+    async fn moderation(&self) -> Option<MapModeration> {
+        Some(self.moderation_record.clone())
+    }
+
+    /// Matchmaking results on this map for each matchup in a matchmaking type, most played first.
+    /// Covers one season, or every season summed when `seasonId` is null. Counts are raw: no
+    /// minimum number of games is applied.
+    async fn matchups(
+        &self,
+        ctx: &Context<'_>,
+        matchmaking_type: MatchmakingType,
+        season_id: Option<i32>,
+    ) -> Result<Vec<MapMatchupStats>> {
+        // Only the map page selects this, one map at a time, so it isn't batched
+        let db = ctx.data::<MapSearchRepo>()?.db();
+        Ok(stats::load_matchups(db, self.id, matchmaking_type, season_id).await?)
+    }
+
+    /// The matchmaking seasons and types this map has matchup results in, newest season first.
+    async fn matchup_seasons(&self, ctx: &Context<'_>) -> Result<Vec<MapMatchupSeason>> {
+        // Only the map page selects this, one map at a time, so it isn't batched
+        let db = ctx.data::<MapSearchRepo>()?.db();
+        Ok(stats::load_matchup_seasons(db, self.id).await?)
+    }
+
+    /// The games played on this map in each of the last `weeks` weeks (at most 104), oldest
+    /// first. Weeks start on Monday (UTC) and end with the current week, which is still in
+    /// progress. Weeks without games are included.
+    async fn weekly_activity(
+        &self,
+        ctx: &Context<'_>,
+        #[graphql(default_with = "DEFAULT_ACTIVITY_WEEKS")] weeks: i32,
+    ) -> Result<Vec<MapWeeklyActivity>> {
+        // Only the map page selects this, one map at a time, so it isn't batched
+        let db = ctx.data::<MapSearchRepo>()?.db();
+        let weeks = stats::clamp_activity_weeks(weeks);
+        let today = Utc::now().date_naive();
+        Ok(stats::load_weekly_activity(db, self.id, weeks, today).await?)
+    }
+
+    /// The number of lobby games played on this map with each game type over the last 90 days,
+    /// most played first. Matchmaking games are not included.
+    #[graphql(name = "gameTypes90d")]
+    async fn game_types_90d(&self, ctx: &Context<'_>) -> Result<Vec<MapGameTypeCount>> {
+        // Only the map page selects this, one map at a time, so it isn't batched
+        let db = ctx.data::<MapSearchRepo>()?.db();
+        let today = Utc::now().date_naive();
+        Ok(stats::load_game_types_90d(db, self.id, today).await?)
     }
 
     /// Whether the current user has favorited this map. False when logged out.
@@ -93,6 +149,46 @@ async fn viewer_flags(ctx: &Context<'_>, map_id: SbMapId) -> Result<ViewerMapFla
         .load_one((user.id, map_id))
         .await?
         .unwrap_or_default())
+}
+
+/// Who listed and delisted a map and when.
+#[derive(SimpleObject, Clone, Debug)]
+#[graphql(complex)]
+pub struct MapModeration {
+    #[graphql(skip)]
+    pub map_id: SbMapId,
+    /// When the map was most recently listed. Kept after it is delisted.
+    pub published_at: Option<DateTime<Utc>>,
+    #[graphql(skip)]
+    pub published_by_id: Option<SbUserId>,
+    /// When the map was taken out of the listings. Null while it is listed.
+    pub delisted_at: Option<DateTime<Utc>>,
+    #[graphql(skip)]
+    pub delisted_by_id: Option<SbUserId>,
+}
+
+#[ComplexObject]
+impl MapModeration {
+    async fn id(&self) -> String {
+        format!("map-moderation:{}", self.map_id)
+    }
+
+    /// The user who most recently listed the map. Kept after it is delisted.
+    async fn published_by(&self, ctx: &Context<'_>) -> Result<Option<SbUser>> {
+        load_user(ctx, self.published_by_id).await
+    }
+
+    /// The user who took the map out of the listings, if known. Null while it is listed.
+    async fn delisted_by(&self, ctx: &Context<'_>) -> Result<Option<SbUser>> {
+        load_user(ctx, self.delisted_by_id).await
+    }
+}
+
+async fn load_user(ctx: &Context<'_>, id: Option<SbUserId>) -> Result<Option<SbUser>> {
+    let Some(id) = id else {
+        return Ok(None);
+    };
+    ctx.data::<DataLoader<UsersLoader>>()?.load_one(id).await
 }
 
 /// How much a map has been played, across every kind of game.
@@ -152,8 +248,16 @@ impl From<DbSbMap> for SbMap {
             player_count: row.player_count,
             listed: row.listed,
             official: row.official,
-            published_at: row.published_at,
-            published_by: row.published_by,
+            // Who listed a map is only public while it's listed
+            published_at: row.published_at.filter(|_| row.listed),
+            published_by: row.published_by.filter(|_| row.listed),
+            moderation_record: MapModeration {
+                map_id: row.id,
+                published_at: row.published_at,
+                published_by_id: row.published_by,
+                delisted_at: row.delisted_at,
+                delisted_by_id: row.delisted_by,
+            },
             stats,
             favorite_count: row.favorites,
         }
@@ -493,4 +597,128 @@ async fn load_map(ctx: &Context<'_>, id: SbMapId) -> Result<SbMap> {
         .load_one(id)
         .await?
         .ok_or_else(|| graphql_error("NOT_FOUND", "Map not found"))
+}
+
+#[cfg(test)]
+mod tests {
+    use async_graphql::{EmptyMutation, EmptySubscription, Schema, Value};
+    use chrono::TimeZone;
+    use uuid::Uuid;
+
+    use super::*;
+    use crate::users::permissions::SbPermissions;
+
+    struct TestQuery;
+
+    #[Object]
+    impl TestQuery {
+        async fn map(&self) -> SbMap {
+            let published_at = Utc.with_ymd_and_hms(2026, 1, 2, 3, 4, 5).unwrap();
+            let delisted_at = Utc.with_ymd_and_hms(2026, 2, 3, 4, 5, 6).unwrap();
+            SbMap::from(DbSbMap {
+                id: SbMapId(Uuid::nil()),
+                hash: MapHash([0; 32]),
+                name: "Map".into(),
+                description: String::new(),
+                kind: "melee".into(),
+                player_count: 2,
+                listed: false,
+                official: false,
+                published_by: None,
+                published_at: Some(published_at),
+                delisted_by: None,
+                delisted_at: Some(delisted_at),
+                has_stats: false,
+                games_7d: 0,
+                games_28d: 0,
+                games_90d: 0,
+                games_total: 0,
+                players_90d: 0,
+                median_length_90d: None,
+                last_played_at: None,
+                favorites: 0,
+            })
+        }
+    }
+
+    fn user(manage_maps: bool) -> CurrentUser {
+        let id = SbUserId(1);
+        CurrentUser {
+            id,
+            name: "user".into(),
+            login_name: "user".into(),
+            email: "user@example.com".into(),
+            email_verified: true,
+            accepted_privacy_version: 0,
+            accepted_terms_version: 0,
+            accepted_use_policy_version: 0,
+            locale: None,
+            last_login_name_change: None,
+            last_name_change: None,
+            name_change_tokens: 0,
+            avatar_url: None,
+            permissions: SbPermissions {
+                id,
+                edit_permissions: false,
+                debug: false,
+                ban_users: false,
+                manage_leagues: false,
+                manage_maps,
+                manage_map_pools: false,
+                manage_matchmaking: false,
+                manage_matchmaking_seasons: false,
+                manage_matchmaking_times: false,
+                mass_delete_maps: false,
+                moderate_chat_channels: false,
+                manage_news: false,
+                manage_bug_reports: false,
+                manage_game_reports: false,
+                manage_restricted_names: false,
+                manage_signup_codes: false,
+                manage_live_streams: false,
+            },
+        }
+    }
+
+    async fn query_map(user: Option<CurrentUser>) -> async_graphql::Response {
+        let schema = Schema::build(TestQuery, EmptyMutation, EmptySubscription)
+            .data(user)
+            .finish();
+        schema
+            .execute("{ map { publishedAt moderation { id publishedAt delistedAt } } }")
+            .await
+    }
+
+    #[tokio::test]
+    async fn moderation_is_forbidden_without_manage_maps() {
+        for user in [None, Some(user(false))] {
+            let response = query_map(user).await;
+            assert_eq!(response.errors.len(), 1);
+            assert_eq!(response.errors[0].message, "Forbidden");
+            // The rest of the map still resolves; only `moderation` is left out
+            let data = response.data.into_json().unwrap();
+            assert_eq!(data["map"]["publishedAt"], serde_json::Value::Null);
+            assert_eq!(data["map"]["moderation"], serde_json::Value::Null);
+        }
+    }
+
+    #[tokio::test]
+    async fn moderation_is_unmasked_with_manage_maps() {
+        let response = query_map(Some(user(true))).await;
+        assert!(response.errors.is_empty(), "{:?}", response.errors);
+        assert_ne!(response.data, Value::Null);
+        assert_eq!(
+            response.data.into_json().unwrap(),
+            serde_json::json!({
+                "map": {
+                    "publishedAt": null,
+                    "moderation": {
+                        "id": "map-moderation:00000000-0000-0000-0000-000000000000",
+                        "publishedAt": "2026-01-02T03:04:05+00:00",
+                        "delistedAt": "2026-02-03T04:05:06+00:00",
+                    },
+                },
+            })
+        );
+    }
 }

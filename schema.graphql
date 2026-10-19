@@ -525,6 +525,49 @@ type LoginNameAuditEntry {
 	ipAddress: String
 }
 
+"""
+What analyzing a map file found about how it plays.
+"""
+type MapAnalysis {
+	"""
+	The map file's hash, the same as the map file's id.
+	"""
+	id: String!
+	"""
+	The number of resource bases. Null if the bases couldn't be found.
+	"""
+	baseCount: Int
+	"""
+	The resource bases. Null if they couldn't be found.
+	"""
+	bases: [MapBase!]
+}
+
+"""
+A resource base: a town hall position with minerals or geysers around it.
+"""
+type MapBase {
+	"""
+	The map file's hash and the base's index, unique across all map files.
+	"""
+	id: String!
+	"""
+	The center of the town hall position, in map pixels (32 per tile).
+	"""
+	x: Int!
+	y: Int!
+	mineralFields: Int!
+	"""
+	The minerals in all of the base's mineral fields.
+	"""
+	minerals: Int!
+	geysers: Int!
+	"""
+	The player slots (0-7) whose start location is at this base.
+	"""
+	startSlots: [Int!]!
+}
+
 type MapFile {
 	format: String!
 	tileset: Int!
@@ -558,6 +601,11 @@ type MapFile {
 	file has been analyzed.
 	"""
 	startLocations: [MapFileStartLocation!]!
+	"""
+	What analyzing the map file found about how it plays. Null until the map file has been
+	analyzed.
+	"""
+	analysis: MapAnalysis
 	"""
 	Whether the map's images have its start locations drawn in. Images without them are meant
 	to have start locations drawn on top.
@@ -633,6 +681,18 @@ The race configuration for a player in a map force (either a preset race or 'any
 scalar MapForcePlayerRace
 
 """
+The number of lobby games played on a map with one game type.
+"""
+type MapGameTypeCount {
+	"""
+	The map, period and game type, unique across all of these.
+	"""
+	id: String!
+	gameType: GameType!
+	games: Int!
+}
+
+"""
 Whether a map is played as a regular melee map or with its own Use Map Settings rules.
 """
 enum MapKind {
@@ -689,6 +749,77 @@ type MapLibraryEdge {
 	A cursor for use in pagination
 	"""
 	cursor: String!
+}
+
+"""
+A matchmaking season and type with matchup results on a map.
+"""
+type MapMatchupSeason {
+	"""
+	The map, season and matchmaking type, unique across all of these.
+	"""
+	id: String!
+	seasonId: Int!
+	matchmakingType: MatchmakingType!
+	"""
+	The number of decided games played in this season and type, across all matchups.
+	"""
+	games: Int!
+}
+
+"""
+Matchmaking results for one matchup on a map.
+"""
+type MapMatchupStats {
+	"""
+	The map, season (or `all`), matchmaking type and matchup, unique across all matchups.
+	"""
+	id: String!
+	"""
+	The races on each side, as a canonical matchup string: each side's races sorted, the
+	sides sorted, joined with `-` (e.g. `p-z`, `pt-tz`).
+	"""
+	matchup: String!
+	"""
+	The number of decided games played in this matchup.
+	"""
+	games: Int!
+	"""
+	Games won by the races on the left of `matchup`. Always 0 for mirror matchups.
+	"""
+	leftWins: Int!
+	"""
+	Games won by the races on the right of `matchup`. Always 0 for mirror matchups.
+	"""
+	rightWins: Int!
+	"""
+	The median game length in milliseconds for a single season. When summing seasons, the
+	typical length (games-weighted mean of season medians), since medians can't be summed.
+	"""
+	medianLength: Int
+}
+
+"""
+Who listed and delisted a map and when.
+"""
+type MapModeration {
+	"""
+	When the map was most recently listed. Kept after it is delisted.
+	"""
+	publishedAt: DateTime
+	"""
+	When the map was taken out of the listings. Null while it is listed.
+	"""
+	delistedAt: DateTime
+	id: String!
+	"""
+	The user who most recently listed the map. Kept after it is delisted.
+	"""
+	publishedBy: SbUser
+	"""
+	The user who took the map out of the listings, if known. Null while it is listed.
+	"""
+	delistedBy: SbUser
 }
 
 """
@@ -788,6 +919,22 @@ type MapStats {
 Which map listings a map appears in. Visibility never restricts access: any map can be viewed, downloaded and played by anyone who has its id.
 """
 scalar MapVisibility
+
+"""
+The games played on a map in one week (starting Monday, UTC).
+"""
+type MapWeeklyActivity {
+	"""
+	The map and week, unique across all weeks of all maps.
+	"""
+	id: String!
+	"""
+	The start of the week: midnight UTC on its Monday.
+	"""
+	weekStart: DateTime!
+	lobbyGames: Int!
+	matchmakingGames: Int!
+}
 
 """
 The built-in default knob values, returned alongside the stored overrides so the admin UI can
@@ -1353,6 +1500,32 @@ type SbMap {
 	The user who listed this map. Null unless it is listed.
 	"""
 	publisher: SbUser
+	"""
+	Who listed and delisted this map and when, whether or not it is listed now. Only available
+	to users who can manage maps.
+	"""
+	moderation: MapModeration
+	"""
+	Matchmaking results on this map for each matchup in a matchmaking type, most played first.
+	Covers one season, or every season summed when `seasonId` is null. Counts are raw: no
+	minimum number of games is applied.
+	"""
+	matchups(matchmakingType: MatchmakingType!, seasonId: Int): [MapMatchupStats!]!
+	"""
+	The matchmaking seasons and types this map has matchup results in, newest season first.
+	"""
+	matchupSeasons: [MapMatchupSeason!]!
+	"""
+	The games played on this map in each of the last `weeks` weeks (at most 104), oldest
+	first. Weeks start on Monday (UTC) and end with the current week, which is still in
+	progress. Weeks without games are included.
+	"""
+	weeklyActivity(weeks: Int! = 26): [MapWeeklyActivity!]!
+	"""
+	The number of lobby games played on this map with each game type over the last 90 days,
+	most played first. Matchmaking games are not included.
+	"""
+	gameTypes90d: [MapGameTypeCount!]!
 	"""
 	Whether the current user has favorited this map. False when logged out.
 	"""

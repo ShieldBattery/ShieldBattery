@@ -1,0 +1,36 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT game_type, sum(games)::bigint as \"games!\"\n            FROM map_stats_daily\n            WHERE map_id = $1 AND game_source = 'LOBBY' AND day >= $2\n            GROUP BY game_type\n            ORDER BY 2 DESC, game_type\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "game_type",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "map_stats_daily",
+            "name": "game_type"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "games!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date"
+      ]
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "5fe3c1c8c2950d6bef08b884f710526bdd3850cf09a143bb3de663760506db7f"
+}
