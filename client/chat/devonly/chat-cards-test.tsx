@@ -236,6 +236,7 @@ function makeMapInfo(hash: string, name: string): MapInfoJson {
       parserVersion: 1,
     },
     imageVersion: 1,
+    imageSpawnsBaked: true,
     ...devMapImages(hash),
   }
 }

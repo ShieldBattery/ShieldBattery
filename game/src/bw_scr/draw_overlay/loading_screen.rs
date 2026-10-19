@@ -48,7 +48,7 @@ impl OverlayState {
             // starting here leaves them ready by the time the loading screen first shows.
             let _ = background_image().load_for_size(&ctx, BACKGROUND_SIZE);
             match &info.map {
-                MapInfo::Game(info) => info.image1024_url.as_deref().inspect(|url| {
+                MapInfo::Game(info) => info.loading_screen_image_url().inspect(|url| {
                     let _ = ctx.try_load_image(url, egui::SizeHint::Scale(1.0.into()));
                 }),
                 MapInfo::Replay(_) => None,
@@ -80,7 +80,7 @@ impl OverlayState {
 
         let setup_info = setup_info.unwrap();
         let (map_name, map_image_url) = match &setup_info.map {
-            MapInfo::Game(info) => (Some(info.name.as_str()), info.image1024_url.as_deref()),
+            MapInfo::Game(info) => (Some(info.name.as_str()), info.loading_screen_image_url()),
             MapInfo::Replay(_) => (None, None),
         };
 
