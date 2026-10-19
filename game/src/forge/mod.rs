@@ -1143,6 +1143,7 @@ pub unsafe fn run_wnd_proc() {
         }
         // Going to close everything since the window got closed / error happened.
         // TODO Ask async thread exit instead
+        crate::mouse_speed::restore();
         std::process::exit(0);
     }
 }
