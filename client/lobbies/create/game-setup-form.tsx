@@ -571,6 +571,7 @@ export function GameSetupForm({
                   mapId={mapId}
                   forceAspectRatio={1}
                   size={512}
+                  gameType={gameType}
                   showInfoLayer={true}
                   hasMapPoolChips={true}
                   onClick={disabled ? undefined : onChangeMap}

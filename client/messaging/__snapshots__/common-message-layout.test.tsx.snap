@@ -5,62 +5,62 @@ exports[`client/messaging/common-message-layout/TextMessage > cozy layouts > con
   data-testid="message-container"
 >
   <div
-    class="sc-btlcnm imdyjW sc-aimud bVpkwH"
+    class="sc-hUhqly jpLNVt sc-hBeAsp hnFEQy"
     data-message-id="MESSAGE_ID"
     role="document"
   >
     <div
-      class="sc-fnWakf fLWUMy sc-bwcYpM bgpBVm sc-eSoVms joyWpr"
+      class="sc-fnWakf fLWUMy sc-hWZmnY BYNgD sc-dPzLI bNFKPt"
       tabindex="0"
     >
       <span
-        class="sc-ekA-dab ePDczo"
+        class="sc-kLwqYn dGGXHT"
       >
         <i
           aria-hidden="true"
-          class="sc-enrZcB jqkZAG"
+          class="sc-kOonaN bffRzS"
         >
           [
         </i>
         12:00 AM
         <i
           aria-hidden="true"
-          class="sc-enrZcB jqkZAG"
+          class="sc-kOonaN bffRzS"
         >
           ] 
         </i>
       </span>
     </div>
     <span
-      class="sc-iKUTxF sc-jNjyOX bvnnkH iSmIiA"
+      class="sc-kkmFdg sc-eYKdon jUHuCC jiMnhS"
     >
       <div
-        class="sc-fnWakf fLWUMy sc-jhDKLz kDMVVf"
+        class="sc-fnWakf fLWUMy sc-btlcnm deEuXS"
         tabindex="-1"
       >
         <span
-          class="sc-bKoKeS fWIbg"
+          class="sc-ekA-dab htgVXG"
         >
           🔥
         </span>
       </div>
       <div
-        class="sc-fnWakf fLWUMy sc-jhDKLz kDMVVf"
+        class="sc-fnWakf fLWUMy sc-btlcnm deEuXS"
         tabindex="-1"
       >
         <span
-          class="sc-bKoKeS fWIbg"
+          class="sc-ekA-dab htgVXG"
         >
           🔥
         </span>
       </div>
        
       <div
-        class="sc-fnWakf fLWUMy sc-jhDKLz kDMVVf"
+        class="sc-fnWakf fLWUMy sc-btlcnm deEuXS"
         tabindex="-1"
       >
         <span
-          class="sc-bKoKeS fWIbg"
+          class="sc-ekA-dab htgVXG"
         >
           🎉
         </span>
@@ -75,34 +75,34 @@ exports[`client/messaging/common-message-layout/TextMessage > cozy layouts > con
   data-testid="message-container"
 >
   <div
-    class="sc-btlcnm imdyjW sc-aimud bVpkwH"
+    class="sc-hUhqly jpLNVt sc-hBeAsp hnFEQy"
     data-message-id="MESSAGE_ID"
     role="document"
   >
     <div
-      class="sc-fnWakf fLWUMy sc-bwcYpM bgpBVm sc-eSoVms joyWpr"
+      class="sc-fnWakf fLWUMy sc-hWZmnY BYNgD sc-dPzLI bNFKPt"
       tabindex="0"
     >
       <span
-        class="sc-ekA-dab ePDczo"
+        class="sc-kLwqYn dGGXHT"
       >
         <i
           aria-hidden="true"
-          class="sc-enrZcB jqkZAG"
+          class="sc-kOonaN bffRzS"
         >
           [
         </i>
         12:00 AM
         <i
           aria-hidden="true"
-          class="sc-enrZcB jqkZAG"
+          class="sc-kOonaN bffRzS"
         >
           ] 
         </i>
       </span>
     </div>
     <span
-      class="sc-iKUTxF sc-jNjyOX bvnnkH iSmIiA"
+      class="sc-kkmFdg sc-eYKdon jUHuCC jiMnhS"
     >
       This is test message
     </span>
@@ -115,16 +115,16 @@ exports[`client/messaging/common-message-layout/TextMessage > cozy layouts > hea
   data-testid="message-container"
 >
   <div
-    class="sc-btlcnm irFtRh sc-ezHhoV joocKP"
+    class="sc-hUhqly cDgYkW sc-cpUyiq lgHrVd"
     data-message-id="MESSAGE_ID"
     role="document"
   >
     <div
       aria-hidden="true"
-      class="sc-fvNjCw dbxaqi"
+      class="sc-jNjyOX cuXTAq"
     >
       <div
-        class="sc-ljsjQy fyCdCx sc-ihRHdn jzzwcc"
+        class="sc-ljsjQy fyCdCx sc-eSoVms kXRIpE"
       >
         <div
           class="sc-gsWeWL joWoQv sc-jlZHyJ krLBwu"
@@ -133,7 +133,7 @@ exports[`client/messaging/common-message-layout/TextMessage > cozy layouts > hea
     </div>
     <div>
       <span
-        class="sc-amkJc fyBnpy sc-bnFSQY gkVJDg"
+        class="sc-amkJc fyBnpy sc-jogCPF geUxQe"
         tabindex="0"
       >
         <span
@@ -144,22 +144,22 @@ exports[`client/messaging/common-message-layout/TextMessage > cozy layouts > hea
         </span>
       </span>
       <div
-        class="sc-fnWakf fLWUMy sc-cpUyiq iQJUtb"
+        class="sc-fnWakf fLWUMy sc-iQQMgC eYKHbw"
         tabindex="0"
       >
         <span
-          class="sc-jdXJqO hGODzs"
+          class="sc-aimud IAlhe"
         >
           <i
             aria-hidden="true"
-            class="sc-enrZcB jqkZAG"
+            class="sc-kOonaN bffRzS"
           >
              [
           </i>
           12:00 AM
           <i
             aria-hidden="true"
-            class="sc-enrZcB jqkZAG"
+            class="sc-kOonaN bffRzS"
           >
             ]
           </i>
@@ -167,12 +167,12 @@ exports[`client/messaging/common-message-layout/TextMessage > cozy layouts > hea
       </div>
     </div>
     <span
-      class="sc-iKUTxF sc-jNjyOX bvnnkH iSmIiA"
+      class="sc-kkmFdg sc-eYKdon jUHuCC jiMnhS"
     >
       Hey
        
       <span
-        class="sc-amkJc fyBnpy sc-gLMfLD gkFmnw"
+        class="sc-amkJc fyBnpy sc-bXmKkT igOJv"
         tabindex="0"
       >
         @
@@ -193,16 +193,16 @@ exports[`client/messaging/common-message-layout/TextMessage > cozy layouts > hea
   data-testid="message-container"
 >
   <div
-    class="sc-btlcnm imdyjW sc-ezHhoV joocKP"
+    class="sc-hUhqly jpLNVt sc-cpUyiq lgHrVd"
     data-message-id="MESSAGE_ID"
     role="document"
   >
     <div
       aria-hidden="true"
-      class="sc-fvNjCw dbxaqi"
+      class="sc-jNjyOX cuXTAq"
     >
       <div
-        class="sc-ljsjQy fyCdCx sc-ihRHdn jzzwcc"
+        class="sc-ljsjQy fyCdCx sc-eSoVms kXRIpE"
       >
         <div
           class="sc-gsWeWL joWoQv sc-jlZHyJ krLBwu"
@@ -211,7 +211,7 @@ exports[`client/messaging/common-message-layout/TextMessage > cozy layouts > hea
     </div>
     <div>
       <span
-        class="sc-amkJc fyBnpy sc-bnFSQY gkVJDg"
+        class="sc-amkJc fyBnpy sc-jogCPF geUxQe"
         tabindex="0"
       >
         <span
@@ -222,22 +222,22 @@ exports[`client/messaging/common-message-layout/TextMessage > cozy layouts > hea
         </span>
       </span>
       <div
-        class="sc-fnWakf fLWUMy sc-cpUyiq iQJUtb"
+        class="sc-fnWakf fLWUMy sc-iQQMgC eYKHbw"
         tabindex="0"
       >
         <span
-          class="sc-jdXJqO hGODzs"
+          class="sc-aimud IAlhe"
         >
           <i
             aria-hidden="true"
-            class="sc-enrZcB jqkZAG"
+            class="sc-kOonaN bffRzS"
           >
              [
           </i>
           12:00 AM
           <i
             aria-hidden="true"
-            class="sc-enrZcB jqkZAG"
+            class="sc-kOonaN bffRzS"
           >
             ]
           </i>
@@ -245,34 +245,34 @@ exports[`client/messaging/common-message-layout/TextMessage > cozy layouts > hea
       </div>
     </div>
     <span
-      class="sc-iKUTxF sc-jNjyOX bvnnkH iSmIiA"
+      class="sc-kkmFdg sc-eYKdon jUHuCC jiMnhS"
     >
       see this: 
       <a
-        class="sc-leeeVK zyUhu"
+        class="sc-gpEJva dUixA-d"
         href="https://shieldbattery.net/chat/1/some-channel?m=9b2e8d0e-5f3a-4a2b-8c1d-6f5e4d3c2b1a"
         rel="nofollow noreferrer noopener"
         target="_blank"
       >
         <span
           aria-hidden="true"
-          class="sc-hiKgKF dseapH sc-hlXwdv cvNokx"
+          class="sc-hiKgKF dseapH sc-cxyaCL fuuTEI"
         >
           chat
         </span>
         <span
           aria-label="Channel name loading…"
-          class="sc-jCPPNx fTZBbQ"
+          class="sc-bwcYpM jXDVuJ"
         >
                      
         </span>
         <span
-          class="sc-cApWFl fSPfAX"
+          class="sc-iKUTxF eNsKod"
         >
           ›
         </span>
         <span
-          class="sc-gpEJva dWPfPL"
+          class="sc-gLMfLD bHXBIw"
         >
           message
         </span>
@@ -287,16 +287,16 @@ exports[`client/messaging/common-message-layout/TextMessage > cozy layouts > hea
   data-testid="message-container"
 >
   <div
-    class="sc-btlcnm imdyjW sc-ezHhoV joocKP"
+    class="sc-hUhqly jpLNVt sc-cpUyiq lgHrVd"
     data-message-id="MESSAGE_ID"
     role="document"
   >
     <div
       aria-hidden="true"
-      class="sc-fvNjCw dbxaqi"
+      class="sc-jNjyOX cuXTAq"
     >
       <div
-        class="sc-ljsjQy fyCdCx sc-ihRHdn jzzwcc"
+        class="sc-ljsjQy fyCdCx sc-eSoVms kXRIpE"
       >
         <div
           class="sc-gsWeWL joWoQv sc-jlZHyJ krLBwu"
@@ -305,7 +305,7 @@ exports[`client/messaging/common-message-layout/TextMessage > cozy layouts > hea
     </div>
     <div>
       <span
-        class="sc-amkJc fyBnpy sc-bnFSQY gkVJDg"
+        class="sc-amkJc fyBnpy sc-jogCPF geUxQe"
         tabindex="0"
       >
         <span
@@ -316,22 +316,22 @@ exports[`client/messaging/common-message-layout/TextMessage > cozy layouts > hea
         </span>
       </span>
       <div
-        class="sc-fnWakf fLWUMy sc-cpUyiq iQJUtb"
+        class="sc-fnWakf fLWUMy sc-iQQMgC eYKHbw"
         tabindex="0"
       >
         <span
-          class="sc-jdXJqO hGODzs"
+          class="sc-aimud IAlhe"
         >
           <i
             aria-hidden="true"
-            class="sc-enrZcB jqkZAG"
+            class="sc-kOonaN bffRzS"
           >
              [
           </i>
           12:00 AM
           <i
             aria-hidden="true"
-            class="sc-enrZcB jqkZAG"
+            class="sc-kOonaN bffRzS"
           >
             ]
           </i>
@@ -339,7 +339,7 @@ exports[`client/messaging/common-message-layout/TextMessage > cozy layouts > hea
       </div>
     </div>
     <span
-      class="sc-iKUTxF sc-jNjyOX bvnnkH iSmIiA"
+      class="sc-kkmFdg sc-eYKdon jUHuCC jiMnhS"
     >
       This is test message
     </span>
@@ -352,34 +352,34 @@ exports[`client/messaging/common-message-layout/TextMessage > message as a norma
   data-testid="message-container"
 >
   <div
-    class="sc-btlcnm imdyjW"
+    class="sc-hUhqly jpLNVt"
     data-message-id="MESSAGE_ID"
     role="document"
   >
     <div
-      class="sc-fnWakf fLWUMy sc-bwcYpM bgpBVm"
+      class="sc-fnWakf fLWUMy sc-hWZmnY BYNgD"
       tabindex="0"
     >
       <span
-        class="sc-ekA-dab ePDczo"
+        class="sc-kLwqYn dGGXHT"
       >
         <i
           aria-hidden="true"
-          class="sc-enrZcB jqkZAG"
+          class="sc-kOonaN bffRzS"
         >
           [
         </i>
         12:00 AM
         <i
           aria-hidden="true"
-          class="sc-enrZcB jqkZAG"
+          class="sc-kOonaN bffRzS"
         >
           ] 
         </i>
       </span>
     </div>
     <span
-      class="sc-amkJc fyBnpy sc-bnFSQY gkVJDg"
+      class="sc-amkJc fyBnpy sc-jogCPF geUxQe"
       tabindex="0"
     >
       <span
@@ -391,12 +391,12 @@ exports[`client/messaging/common-message-layout/TextMessage > message as a norma
     </span>
     <i
       aria-hidden="true"
-      class="sc-enrZcB jqkZAG"
+      class="sc-kOonaN bffRzS"
     >
       : 
     </i>
     <span
-      class="sc-iKUTxF bvnnkH"
+      class="sc-kkmFdg jUHuCC"
     >
       This is test message
     </span>
@@ -409,34 +409,34 @@ exports[`client/messaging/common-message-layout/TextMessage > message mixing emo
   data-testid="message-container"
 >
   <div
-    class="sc-btlcnm imdyjW"
+    class="sc-hUhqly jpLNVt"
     data-message-id="MESSAGE_ID"
     role="document"
   >
     <div
-      class="sc-fnWakf fLWUMy sc-bwcYpM bgpBVm"
+      class="sc-fnWakf fLWUMy sc-hWZmnY BYNgD"
       tabindex="0"
     >
       <span
-        class="sc-ekA-dab ePDczo"
+        class="sc-kLwqYn dGGXHT"
       >
         <i
           aria-hidden="true"
-          class="sc-enrZcB jqkZAG"
+          class="sc-kOonaN bffRzS"
         >
           [
         </i>
         12:00 AM
         <i
           aria-hidden="true"
-          class="sc-enrZcB jqkZAG"
+          class="sc-kOonaN bffRzS"
         >
           ] 
         </i>
       </span>
     </div>
     <span
-      class="sc-amkJc fyBnpy sc-bnFSQY gkVJDg"
+      class="sc-amkJc fyBnpy sc-jogCPF geUxQe"
       tabindex="0"
     >
       <span
@@ -448,20 +448,20 @@ exports[`client/messaging/common-message-layout/TextMessage > message mixing emo
     </span>
     <i
       aria-hidden="true"
-      class="sc-enrZcB jqkZAG"
+      class="sc-kOonaN bffRzS"
     >
       : 
     </i>
     <span
-      class="sc-iKUTxF bvnnkH"
+      class="sc-kkmFdg jUHuCC"
     >
       nice game 
       <div
-        class="sc-fnWakf fLWUMy sc-jhDKLz kDMVVf"
+        class="sc-fnWakf fLWUMy sc-btlcnm deEuXS"
         tabindex="-1"
       >
         <span
-          class="sc-bKoKeS bueGwz"
+          class="sc-ekA-dab jpsybB"
         >
           🔥
         </span>
@@ -476,39 +476,39 @@ exports[`client/messaging/common-message-layout/TextMessage > message sent as an
   data-testid="message-container"
 >
   <div
-    class="sc-btlcnm imdyjW"
+    class="sc-hUhqly jpLNVt"
     data-message-id="MESSAGE_ID"
     role="document"
   >
     <div
-      class="sc-fnWakf fLWUMy sc-bwcYpM bgpBVm"
+      class="sc-fnWakf fLWUMy sc-hWZmnY BYNgD"
       tabindex="0"
     >
       <span
-        class="sc-ekA-dab ePDczo"
+        class="sc-kLwqYn dGGXHT"
       >
         <i
           aria-hidden="true"
-          class="sc-enrZcB jqkZAG"
+          class="sc-kOonaN bffRzS"
         >
           [
         </i>
         12:00 AM
         <i
           aria-hidden="true"
-          class="sc-enrZcB jqkZAG"
+          class="sc-kOonaN bffRzS"
         >
           ] 
         </i>
       </span>
     </div>
     <span
-      class="sc-jogCPF fEjnka"
+      class="sc-ezHhoV godgij"
     >
       * 
     </span>
     <span
-      class="sc-amkJc fyBnpy sc-bnFSQY sc-kkmFdg gkVJDg bsdFHz"
+      class="sc-amkJc fyBnpy sc-jogCPF sc-fvNjCw geUxQe hhKUGv"
       tabindex="0"
     >
       <span
@@ -520,7 +520,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message sent as an
     </span>
      
     <span
-      class="sc-iKUTxF sc-bXmKkT bvnnkH gQcUuK"
+      class="sc-kkmFdg sc-ihRHdn jUHuCC hbMWRk"
     >
       waves at everyone
     </span>
@@ -533,34 +533,34 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a lin
   data-testid="message-container"
 >
   <div
-    class="sc-btlcnm imdyjW"
+    class="sc-hUhqly jpLNVt"
     data-message-id="MESSAGE_ID"
     role="document"
   >
     <div
-      class="sc-fnWakf fLWUMy sc-bwcYpM bgpBVm"
+      class="sc-fnWakf fLWUMy sc-hWZmnY BYNgD"
       tabindex="0"
     >
       <span
-        class="sc-ekA-dab ePDczo"
+        class="sc-kLwqYn dGGXHT"
       >
         <i
           aria-hidden="true"
-          class="sc-enrZcB jqkZAG"
+          class="sc-kOonaN bffRzS"
         >
           [
         </i>
         12:00 AM
         <i
           aria-hidden="true"
-          class="sc-enrZcB jqkZAG"
+          class="sc-kOonaN bffRzS"
         >
           ] 
         </i>
       </span>
     </div>
     <span
-      class="sc-amkJc fyBnpy sc-bnFSQY gkVJDg"
+      class="sc-amkJc fyBnpy sc-jogCPF geUxQe"
       tabindex="0"
     >
       <span
@@ -572,12 +572,12 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a lin
     </span>
     <i
       aria-hidden="true"
-      class="sc-enrZcB jqkZAG"
+      class="sc-kOonaN bffRzS"
     >
       : 
     </i>
     <span
-      class="sc-iKUTxF bvnnkH"
+      class="sc-kkmFdg jUHuCC"
     >
       here is a link 
       <a
@@ -597,34 +597,34 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a lin
   data-testid="message-container"
 >
   <div
-    class="sc-btlcnm imdyjW"
+    class="sc-hUhqly jpLNVt"
     data-message-id="MESSAGE_ID"
     role="document"
   >
     <div
-      class="sc-fnWakf fLWUMy sc-bwcYpM bgpBVm"
+      class="sc-fnWakf fLWUMy sc-hWZmnY BYNgD"
       tabindex="0"
     >
       <span
-        class="sc-ekA-dab ePDczo"
+        class="sc-kLwqYn dGGXHT"
       >
         <i
           aria-hidden="true"
-          class="sc-enrZcB jqkZAG"
+          class="sc-kOonaN bffRzS"
         >
           [
         </i>
         12:00 AM
         <i
           aria-hidden="true"
-          class="sc-enrZcB jqkZAG"
+          class="sc-kOonaN bffRzS"
         >
           ] 
         </i>
       </span>
     </div>
     <span
-      class="sc-amkJc fyBnpy sc-bnFSQY gkVJDg"
+      class="sc-amkJc fyBnpy sc-jogCPF geUxQe"
       tabindex="0"
     >
       <span
@@ -636,12 +636,12 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a lin
     </span>
     <i
       aria-hidden="true"
-      class="sc-enrZcB jqkZAG"
+      class="sc-kOonaN bffRzS"
     >
       : 
     </i>
     <span
-      class="sc-iKUTxF bvnnkH"
+      class="sc-kkmFdg jUHuCC"
     >
       <a
         href="http://www.example.com"
@@ -653,7 +653,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a lin
        go here
        
       <span
-        class="sc-amkJc fyBnpy sc-gLMfLD gkFmnw"
+        class="sc-amkJc fyBnpy sc-bXmKkT igOJv"
         tabindex="0"
       >
         @
@@ -674,34 +674,34 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a lin
   data-testid="message-container"
 >
   <div
-    class="sc-btlcnm imdyjW"
+    class="sc-hUhqly jpLNVt"
     data-message-id="MESSAGE_ID"
     role="document"
   >
     <div
-      class="sc-fnWakf fLWUMy sc-bwcYpM bgpBVm"
+      class="sc-fnWakf fLWUMy sc-hWZmnY BYNgD"
       tabindex="0"
     >
       <span
-        class="sc-ekA-dab ePDczo"
+        class="sc-kLwqYn dGGXHT"
       >
         <i
           aria-hidden="true"
-          class="sc-enrZcB jqkZAG"
+          class="sc-kOonaN bffRzS"
         >
           [
         </i>
         12:00 AM
         <i
           aria-hidden="true"
-          class="sc-enrZcB jqkZAG"
+          class="sc-kOonaN bffRzS"
         >
           ] 
         </i>
       </span>
     </div>
     <span
-      class="sc-amkJc fyBnpy sc-bnFSQY gkVJDg"
+      class="sc-amkJc fyBnpy sc-jogCPF geUxQe"
       tabindex="0"
     >
       <span
@@ -713,17 +713,17 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a lin
     </span>
     <i
       aria-hidden="true"
-      class="sc-enrZcB jqkZAG"
+      class="sc-kOonaN bffRzS"
     >
       : 
     </i>
     <span
-      class="sc-iKUTxF bvnnkH"
+      class="sc-kkmFdg jUHuCC"
     >
       hey
        
       <span
-        class="sc-amkJc fyBnpy sc-gLMfLD gkFmnw"
+        class="sc-amkJc fyBnpy sc-bXmKkT igOJv"
         tabindex="0"
       >
         @
@@ -745,7 +745,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a lin
        go here
        
       <span
-        class="sc-amkJc fyBnpy sc-gLMfLD gkFmnw"
+        class="sc-amkJc fyBnpy sc-bXmKkT igOJv"
         tabindex="0"
       >
         @
@@ -766,34 +766,34 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
   data-testid="message-container"
 >
   <div
-    class="sc-btlcnm imdyjW"
+    class="sc-hUhqly jpLNVt"
     data-message-id="MESSAGE_ID"
     role="document"
   >
     <div
-      class="sc-fnWakf fLWUMy sc-bwcYpM bgpBVm"
+      class="sc-fnWakf fLWUMy sc-hWZmnY BYNgD"
       tabindex="0"
     >
       <span
-        class="sc-ekA-dab ePDczo"
+        class="sc-kLwqYn dGGXHT"
       >
         <i
           aria-hidden="true"
-          class="sc-enrZcB jqkZAG"
+          class="sc-kOonaN bffRzS"
         >
           [
         </i>
         12:00 AM
         <i
           aria-hidden="true"
-          class="sc-enrZcB jqkZAG"
+          class="sc-kOonaN bffRzS"
         >
           ] 
         </i>
       </span>
     </div>
     <span
-      class="sc-amkJc fyBnpy sc-bnFSQY gkVJDg"
+      class="sc-amkJc fyBnpy sc-jogCPF geUxQe"
       tabindex="0"
     >
       <span
@@ -805,17 +805,17 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
     </span>
     <i
       aria-hidden="true"
-      class="sc-enrZcB jqkZAG"
+      class="sc-kOonaN bffRzS"
     >
       : 
     </i>
     <span
-      class="sc-iKUTxF bvnnkH"
+      class="sc-kkmFdg jUHuCC"
     >
       hey
        
       <span
-        class="sc-amkJc fyBnpy sc-gLMfLD gkFmnw"
+        class="sc-amkJc fyBnpy sc-bXmKkT igOJv"
         tabindex="0"
       >
         @
@@ -836,34 +836,34 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
   data-testid="message-container"
 >
   <div
-    class="sc-btlcnm imdyjW"
+    class="sc-hUhqly jpLNVt"
     data-message-id="MESSAGE_ID"
     role="document"
   >
     <div
-      class="sc-fnWakf fLWUMy sc-bwcYpM bgpBVm"
+      class="sc-fnWakf fLWUMy sc-hWZmnY BYNgD"
       tabindex="0"
     >
       <span
-        class="sc-ekA-dab ePDczo"
+        class="sc-kLwqYn dGGXHT"
       >
         <i
           aria-hidden="true"
-          class="sc-enrZcB jqkZAG"
+          class="sc-kOonaN bffRzS"
         >
           [
         </i>
         12:00 AM
         <i
           aria-hidden="true"
-          class="sc-enrZcB jqkZAG"
+          class="sc-kOonaN bffRzS"
         >
           ] 
         </i>
       </span>
     </div>
     <span
-      class="sc-amkJc fyBnpy sc-bnFSQY gkVJDg"
+      class="sc-amkJc fyBnpy sc-jogCPF geUxQe"
       tabindex="0"
     >
       <span
@@ -875,15 +875,15 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
     </span>
     <i
       aria-hidden="true"
-      class="sc-enrZcB jqkZAG"
+      class="sc-kOonaN bffRzS"
     >
       : 
     </i>
     <span
-      class="sc-iKUTxF bvnnkH"
+      class="sc-kkmFdg jUHuCC"
     >
       <span
-        class="sc-amkJc fyBnpy sc-gLMfLD gkFmnw"
+        class="sc-amkJc fyBnpy sc-bXmKkT igOJv"
         tabindex="0"
       >
         @
@@ -912,34 +912,34 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
   data-testid="message-container"
 >
   <div
-    class="sc-btlcnm imdyjW"
+    class="sc-hUhqly jpLNVt"
     data-message-id="MESSAGE_ID"
     role="document"
   >
     <div
-      class="sc-fnWakf fLWUMy sc-bwcYpM bgpBVm"
+      class="sc-fnWakf fLWUMy sc-hWZmnY BYNgD"
       tabindex="0"
     >
       <span
-        class="sc-ekA-dab ePDczo"
+        class="sc-kLwqYn dGGXHT"
       >
         <i
           aria-hidden="true"
-          class="sc-enrZcB jqkZAG"
+          class="sc-kOonaN bffRzS"
         >
           [
         </i>
         12:00 AM
         <i
           aria-hidden="true"
-          class="sc-enrZcB jqkZAG"
+          class="sc-kOonaN bffRzS"
         >
           ] 
         </i>
       </span>
     </div>
     <span
-      class="sc-amkJc fyBnpy sc-bnFSQY gkVJDg"
+      class="sc-amkJc fyBnpy sc-jogCPF geUxQe"
       tabindex="0"
     >
       <span
@@ -951,12 +951,12 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
     </span>
     <i
       aria-hidden="true"
-      class="sc-enrZcB jqkZAG"
+      class="sc-kOonaN bffRzS"
     >
       : 
     </i>
     <span
-      class="sc-iKUTxF bvnnkH"
+      class="sc-kkmFdg jUHuCC"
     >
       <a
         href="http://www.example.com"
@@ -968,7 +968,7 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
        go here
        
       <span
-        class="sc-amkJc fyBnpy sc-gLMfLD gkFmnw"
+        class="sc-amkJc fyBnpy sc-bXmKkT igOJv"
         tabindex="0"
       >
         @
@@ -997,34 +997,34 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
   data-testid="message-container"
 >
   <div
-    class="sc-btlcnm irFtRh"
+    class="sc-hUhqly cDgYkW"
     data-message-id="MESSAGE_ID"
     role="document"
   >
     <div
-      class="sc-fnWakf fLWUMy sc-bwcYpM bgpBVm"
+      class="sc-fnWakf fLWUMy sc-hWZmnY BYNgD"
       tabindex="0"
     >
       <span
-        class="sc-ekA-dab ePDczo"
+        class="sc-kLwqYn dGGXHT"
       >
         <i
           aria-hidden="true"
-          class="sc-enrZcB jqkZAG"
+          class="sc-kOonaN bffRzS"
         >
           [
         </i>
         12:00 AM
         <i
           aria-hidden="true"
-          class="sc-enrZcB jqkZAG"
+          class="sc-kOonaN bffRzS"
         >
           ] 
         </i>
       </span>
     </div>
     <span
-      class="sc-amkJc fyBnpy sc-bnFSQY gkVJDg"
+      class="sc-amkJc fyBnpy sc-jogCPF geUxQe"
       tabindex="0"
     >
       <span
@@ -1036,17 +1036,17 @@ exports[`client/messaging/common-message-layout/TextMessage > message with a men
     </span>
     <i
       aria-hidden="true"
-      class="sc-enrZcB jqkZAG"
+      class="sc-kOonaN bffRzS"
     >
       : 
     </i>
     <span
-      class="sc-iKUTxF bvnnkH"
+      class="sc-kkmFdg jUHuCC"
     >
       Hey
        
       <span
-        class="sc-amkJc fyBnpy sc-gLMfLD gkFmnw"
+        class="sc-amkJc fyBnpy sc-bXmKkT igOJv"
         tabindex="0"
       >
         @
@@ -1067,34 +1067,34 @@ exports[`client/messaging/common-message-layout/TextMessage > message with only 
   data-testid="message-container"
 >
   <div
-    class="sc-btlcnm imdyjW"
+    class="sc-hUhqly jpLNVt"
     data-message-id="MESSAGE_ID"
     role="document"
   >
     <div
-      class="sc-fnWakf fLWUMy sc-bwcYpM bgpBVm"
+      class="sc-fnWakf fLWUMy sc-hWZmnY BYNgD"
       tabindex="0"
     >
       <span
-        class="sc-ekA-dab ePDczo"
+        class="sc-kLwqYn dGGXHT"
       >
         <i
           aria-hidden="true"
-          class="sc-enrZcB jqkZAG"
+          class="sc-kOonaN bffRzS"
         >
           [
         </i>
         12:00 AM
         <i
           aria-hidden="true"
-          class="sc-enrZcB jqkZAG"
+          class="sc-kOonaN bffRzS"
         >
           ] 
         </i>
       </span>
     </div>
     <span
-      class="sc-amkJc fyBnpy sc-bnFSQY gkVJDg"
+      class="sc-amkJc fyBnpy sc-jogCPF geUxQe"
       tabindex="0"
     >
       <span
@@ -1106,40 +1106,40 @@ exports[`client/messaging/common-message-layout/TextMessage > message with only 
     </span>
     <i
       aria-hidden="true"
-      class="sc-enrZcB jqkZAG"
+      class="sc-kOonaN bffRzS"
     >
       : 
     </i>
     <span
-      class="sc-iKUTxF bvnnkH"
+      class="sc-kkmFdg jUHuCC"
     >
       <div
-        class="sc-fnWakf fLWUMy sc-jhDKLz kDMVVf"
+        class="sc-fnWakf fLWUMy sc-btlcnm deEuXS"
         tabindex="-1"
       >
         <span
-          class="sc-bKoKeS fWIbg"
+          class="sc-ekA-dab htgVXG"
         >
           🔥
         </span>
       </div>
       <div
-        class="sc-fnWakf fLWUMy sc-jhDKLz kDMVVf"
+        class="sc-fnWakf fLWUMy sc-btlcnm deEuXS"
         tabindex="-1"
       >
         <span
-          class="sc-bKoKeS fWIbg"
+          class="sc-ekA-dab htgVXG"
         >
           🔥
         </span>
       </div>
        
       <div
-        class="sc-fnWakf fLWUMy sc-jhDKLz kDMVVf"
+        class="sc-fnWakf fLWUMy sc-btlcnm deEuXS"
         tabindex="-1"
       >
         <span
-          class="sc-bKoKeS fWIbg"
+          class="sc-ekA-dab htgVXG"
         >
           🎉
         </span>
@@ -1154,34 +1154,34 @@ exports[`client/messaging/common-message-layout/TextMessage > message with too m
   data-testid="message-container"
 >
   <div
-    class="sc-btlcnm imdyjW"
+    class="sc-hUhqly jpLNVt"
     data-message-id="MESSAGE_ID"
     role="document"
   >
     <div
-      class="sc-fnWakf fLWUMy sc-bwcYpM bgpBVm"
+      class="sc-fnWakf fLWUMy sc-hWZmnY BYNgD"
       tabindex="0"
     >
       <span
-        class="sc-ekA-dab ePDczo"
+        class="sc-kLwqYn dGGXHT"
       >
         <i
           aria-hidden="true"
-          class="sc-enrZcB jqkZAG"
+          class="sc-kOonaN bffRzS"
         >
           [
         </i>
         12:00 AM
         <i
           aria-hidden="true"
-          class="sc-enrZcB jqkZAG"
+          class="sc-kOonaN bffRzS"
         >
           ] 
         </i>
       </span>
     </div>
     <span
-      class="sc-amkJc fyBnpy sc-bnFSQY gkVJDg"
+      class="sc-amkJc fyBnpy sc-jogCPF geUxQe"
       tabindex="0"
     >
       <span
@@ -1193,119 +1193,119 @@ exports[`client/messaging/common-message-layout/TextMessage > message with too m
     </span>
     <i
       aria-hidden="true"
-      class="sc-enrZcB jqkZAG"
+      class="sc-kOonaN bffRzS"
     >
       : 
     </i>
     <span
-      class="sc-iKUTxF bvnnkH"
+      class="sc-kkmFdg jUHuCC"
     >
       <div
-        class="sc-fnWakf fLWUMy sc-jhDKLz kDMVVf"
+        class="sc-fnWakf fLWUMy sc-btlcnm deEuXS"
         tabindex="-1"
       >
         <span
-          class="sc-bKoKeS bueGwz"
+          class="sc-ekA-dab jpsybB"
         >
           😀
         </span>
       </div>
       <div
-        class="sc-fnWakf fLWUMy sc-jhDKLz kDMVVf"
+        class="sc-fnWakf fLWUMy sc-btlcnm deEuXS"
         tabindex="-1"
       >
         <span
-          class="sc-bKoKeS bueGwz"
+          class="sc-ekA-dab jpsybB"
         >
           😀
         </span>
       </div>
       <div
-        class="sc-fnWakf fLWUMy sc-jhDKLz kDMVVf"
+        class="sc-fnWakf fLWUMy sc-btlcnm deEuXS"
         tabindex="-1"
       >
         <span
-          class="sc-bKoKeS bueGwz"
+          class="sc-ekA-dab jpsybB"
         >
           😀
         </span>
       </div>
       <div
-        class="sc-fnWakf fLWUMy sc-jhDKLz kDMVVf"
+        class="sc-fnWakf fLWUMy sc-btlcnm deEuXS"
         tabindex="-1"
       >
         <span
-          class="sc-bKoKeS bueGwz"
+          class="sc-ekA-dab jpsybB"
         >
           😀
         </span>
       </div>
       <div
-        class="sc-fnWakf fLWUMy sc-jhDKLz kDMVVf"
+        class="sc-fnWakf fLWUMy sc-btlcnm deEuXS"
         tabindex="-1"
       >
         <span
-          class="sc-bKoKeS bueGwz"
+          class="sc-ekA-dab jpsybB"
         >
           😀
         </span>
       </div>
       <div
-        class="sc-fnWakf fLWUMy sc-jhDKLz kDMVVf"
+        class="sc-fnWakf fLWUMy sc-btlcnm deEuXS"
         tabindex="-1"
       >
         <span
-          class="sc-bKoKeS bueGwz"
+          class="sc-ekA-dab jpsybB"
         >
           😀
         </span>
       </div>
       <div
-        class="sc-fnWakf fLWUMy sc-jhDKLz kDMVVf"
+        class="sc-fnWakf fLWUMy sc-btlcnm deEuXS"
         tabindex="-1"
       >
         <span
-          class="sc-bKoKeS bueGwz"
+          class="sc-ekA-dab jpsybB"
         >
           😀
         </span>
       </div>
       <div
-        class="sc-fnWakf fLWUMy sc-jhDKLz kDMVVf"
+        class="sc-fnWakf fLWUMy sc-btlcnm deEuXS"
         tabindex="-1"
       >
         <span
-          class="sc-bKoKeS bueGwz"
+          class="sc-ekA-dab jpsybB"
         >
           😀
         </span>
       </div>
       <div
-        class="sc-fnWakf fLWUMy sc-jhDKLz kDMVVf"
+        class="sc-fnWakf fLWUMy sc-btlcnm deEuXS"
         tabindex="-1"
       >
         <span
-          class="sc-bKoKeS bueGwz"
+          class="sc-ekA-dab jpsybB"
         >
           😀
         </span>
       </div>
       <div
-        class="sc-fnWakf fLWUMy sc-jhDKLz kDMVVf"
+        class="sc-fnWakf fLWUMy sc-btlcnm deEuXS"
         tabindex="-1"
       >
         <span
-          class="sc-bKoKeS bueGwz"
+          class="sc-ekA-dab jpsybB"
         >
           😀
         </span>
       </div>
       <div
-        class="sc-fnWakf fLWUMy sc-jhDKLz kDMVVf"
+        class="sc-fnWakf fLWUMy sc-btlcnm deEuXS"
         tabindex="-1"
       >
         <span
-          class="sc-bKoKeS bueGwz"
+          class="sc-ekA-dab jpsybB"
         >
           😀
         </span>
