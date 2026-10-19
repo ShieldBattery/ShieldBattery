@@ -520,6 +520,9 @@ fn save_replay_for_upload(bw: &BwScr) -> Option<PathBuf> {
 }
 
 pub static HAS_INIT_BW: AtomicBool = AtomicBool::new(false);
+/// Set once game init has loaded the map and randomized players, so per-player game state (start
+/// locations, final player colors) can be read.
+pub static HAS_INIT_GAME_DATA: AtomicBool = AtomicBool::new(false);
 
 /// The storm ids `setup_slots` seated into the observer slots (`players[12 + n]`), `u32::MAX`
 /// where the slot is empty. Observers hold ordinary storm ids (their rp2 slots), but BW's
@@ -623,6 +626,8 @@ pub unsafe fn after_init_game_data() {
                 }
             }
         }
+
+        HAS_INIT_GAME_DATA.store(true, Ordering::Release);
     }
 }
 

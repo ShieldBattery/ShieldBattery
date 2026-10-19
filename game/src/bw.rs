@@ -313,6 +313,8 @@ impl LobbyCreateError {
 }
 
 pub const PLAYER_TYPE_NONE: u8 = 0x0;
+/// An in-game computer player (the lobby uses `PLAYER_TYPE_LOBBY_COMPUTER` until the game starts).
+pub const PLAYER_TYPE_COMPUTER: u8 = 0x1;
 pub const PLAYER_TYPE_HUMAN: u8 = 0x2;
 pub const PLAYER_TYPE_LOBBY_COMPUTER: u8 = 0x5;
 pub const PLAYER_TYPE_OPEN: u8 = 0x6;
@@ -661,6 +663,46 @@ pub unsafe fn player_color(
         };
         color.unwrap_or([0xff, 0xff, 0xff])
     }
+}
+
+/// A position on the map, in map pixels (32 per tile).
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct MapPoint {
+    pub x: u16,
+    pub y: u16,
+}
+
+// `Game` holds only fixed-width integer fields, so its layout is identical on both architectures.
+// `start_position` is the 1.16.1 `startPositions` array (0x58d720, with `Game` at 0x57f0f0).
+const _: () = assert!(std::mem::offset_of!(Game, start_position) == 0xe630);
+
+/// Reads each in-game player's start location, indexed by BW player id. Only players that are
+/// actually in the game (humans and computers, not empty slots) get one. BW assigns start
+/// locations during game init, after slot randomization has moved every player into their final
+/// slot, so this reads the real assignment once game data has been initialized; before then (or for
+/// a player BW gave no start location) the entry is `None`.
+pub unsafe fn player_start_locations(
+    game: *const Game,
+    players: *const Player,
+) -> [Option<MapPoint>; 8] {
+    let mut result = [None; 8];
+    if game.is_null() || players.is_null() {
+        return result;
+    }
+    unsafe {
+        for (i, out) in result.iter_mut().enumerate() {
+            let player_type = (*players.add(i)).player_type;
+            if !matches!(player_type, PLAYER_TYPE_COMPUTER | PLAYER_TYPE_HUMAN) {
+                continue;
+            }
+            let [x, y] = (*game).start_position[i];
+            // BW leaves unassigned entries zeroed, and no real start location sits at the origin.
+            if x != 0 || y != 0 {
+                *out = Some(MapPoint { x, y });
+            }
+        }
+    }
+    result
 }
 
 pub fn iter_dialogs(
