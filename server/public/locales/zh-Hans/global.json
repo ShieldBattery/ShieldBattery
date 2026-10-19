@@ -1606,6 +1606,13 @@
       "noMatchingGames": "没有符合条件的对局。",
       "retrievingError": "获取游戏时出错。"
     },
+    "leave": {
+      "action": "退出联赛",
+      "alreadyEnded": "该联赛已结束，无法再退出。",
+      "confirm": "您将从排行榜中移除，并失去所有联赛积分和战绩。联赛结束前可以重新加入，但需从零开始。联赛封禁仍然有效。",
+      "error": "无法退出联赛，请重试。",
+      "success": "已退出联赛"
+    },
     "list": {
       "acceptingSignups": "接受报名",
       "banned": "已封禁",
@@ -1627,6 +1634,11 @@
       "ban": "您已被禁止参加 <1>{{leagueName}}</1> 联赛。",
       "start": "<1>{{leagueName}}</1> 联赛已开始。",
       "unban": "您参加 <1>{{leagueName}}</1> 联赛的封禁已解除。"
+    },
+    "remove": {
+      "action": "移出联赛",
+      "confirm": "该玩家将从排行榜中移除，并失去所有联赛积分和战绩。联赛结束前可以重新加入，但需从零开始。联赛封禁仍然有效。",
+      "success": "已将玩家移出联赛"
     }
   },
   "licenses": {
@@ -2708,6 +2720,7 @@
           "black": "黑色",
           "blue": "蓝色",
           "blueishGrey": "蓝灰",
+          "bone": "骨白",
           "brown": "棕色",
           "cyan": "青色",
           "deepTeal": "深蓝绿",
@@ -2768,6 +2781,7 @@
           "attributionBy": "{{palette}}，作者：{{author}}",
           "attributionInspiredBy": "灵感来自 {{palette}}",
           "clear": "清空",
+          "pickerTargetNeutral": "个人颜色 · 中立单位",
           "pickerTargetPool": "个人颜色 · #{{n}}",
           "pickerTargetSelf": "您的个人颜色",
           "poolGroup": "颜色池",
@@ -2838,10 +2852,13 @@
             "standard": "关闭",
             "standardDesc": "星际争霸的普通颜色。"
           },
+          "neutralGroup": "中立单位",
+          "neutralHint": "野外生物、虫卵以及其他不属于任何玩家的单位。",
           "offNote": "已关闭。所有游戏均使用下方的个人颜色。",
           "overridesOffNote": "替换已关闭，但下方的配色方案会保留。游戏内随时按 Shift+Tab 即可开启。",
           "pickerTargetAlly": "队伍配色 · 盟友 · #{{n}}",
           "pickerTargetEnemy": "队伍配色 · 敌人 · #{{n}}",
+          "pickerTargetNeutral": "队伍配色 · 中立单位",
           "pickerTargetSelf": "队伍配色 · 您的颜色",
           "poolOrderedHint": "颜色从左到右按顺序使用。",
           "poolShuffledHint": "这些颜色在每场游戏中随机排序使用。",

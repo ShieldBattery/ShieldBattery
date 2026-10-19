@@ -1606,6 +1606,13 @@
       "noMatchingGames": "일치하는 게임이 없습니다.",
       "retrievingError": "게임을 불러오는 중 오류가 발생했습니다."
     },
+    "leave": {
+      "action": "리그 탈퇴",
+      "alreadyEnded": "이미 종료된 리그라 더 이상 탈퇴할 수 없습니다.",
+      "confirm": "순위표에서 제외되고 모든 리그 점수와 전적을 잃게 됩니다. 리그가 끝나기 전에는 다시 참가할 수 있지만 0점부터 시작합니다. 리그 차단은 그대로 유지됩니다.",
+      "error": "리그에서 탈퇴하지 못했습니다. 다시 시도해 주세요.",
+      "success": "리그에서 탈퇴했습니다"
+    },
     "list": {
       "acceptingSignups": "참가 신청 접수 중",
       "banned": "차단됨",
@@ -1627,6 +1634,11 @@
       "ban": "<1>{{leagueName}}</1> 리그에서 차단되었습니다.",
       "start": "<1>{{leagueName}}</1> 리그가 시작되었습니다.",
       "unban": "<1>{{leagueName}}</1> 리그 차단이 해제되었습니다."
+    },
+    "remove": {
+      "action": "리그에서 제외",
+      "confirm": "이 플레이어는 순위표에서 제외되고 모든 리그 점수와 전적을 잃게 됩니다. 리그가 끝나기 전에는 다시 참가할 수 있지만 0점부터 시작합니다. 리그 차단은 그대로 유지됩니다.",
+      "success": "플레이어를 리그에서 제외했습니다"
     }
   },
   "licenses": {
@@ -2708,6 +2720,7 @@
           "black": "검정",
           "blue": "파랑",
           "blueishGrey": "청회색",
+          "bone": "아이보리",
           "brown": "갈색",
           "cyan": "시안",
           "deepTeal": "진청록",
@@ -2768,6 +2781,7 @@
           "attributionBy": "{{author}}의 {{palette}}",
           "attributionInspiredBy": "{{palette}}에서 영감을 받음",
           "clear": "비우기",
+          "pickerTargetNeutral": "개인 색상 · 중립 유닛",
           "pickerTargetPool": "개인 색상 · #{{n}}",
           "pickerTargetSelf": "내 개인 색상",
           "poolGroup": "색상 풀",
@@ -2838,10 +2852,13 @@
             "standard": "사용 안 함",
             "standardDesc": "스타크래프트 기본 색상입니다."
           },
+          "neutralGroup": "중립 유닛",
+          "neutralHint": "중립 동물, 알 등 어떤 플레이어도 소유하지 않은 유닛입니다.",
           "offNote": "꺼짐. 모든 게임에서 아래의 개인 색상이 사용됩니다.",
           "overridesOffNote": "대체가 꺼져 있지만 아래 색상 구성은 그대로 유지됩니다. 게임 중 언제든지 Shift+Tab을 눌러 켤 수 있습니다.",
           "pickerTargetAlly": "팀 배색 · 아군 · #{{n}}",
           "pickerTargetEnemy": "팀 배색 · 적군 · #{{n}}",
+          "pickerTargetNeutral": "팀 배색 · 중립 유닛",
           "pickerTargetSelf": "팀 배색 · 내 색상",
           "poolOrderedHint": "색상은 왼쪽부터 순서대로 사용됩니다.",
           "poolShuffledHint": "이 색상들은 게임마다 무작위 순서로 사용됩니다.",

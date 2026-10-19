@@ -1638,6 +1638,13 @@
       "noMatchingGames": "No hay partidas que coincidan.",
       "retrievingError": "Hubo un error al obtener las partidas."
     },
+    "leave": {
+      "action": "Abandonar liga",
+      "alreadyEnded": "Ya no puedes abandonar esta liga porque ha terminado.",
+      "confirm": "Saldrás de la tabla de clasificación y perderás todos tus puntos y estadísticas de la liga. Puedes volver a unirte antes de que termine la liga, empezando desde cero. Cualquier baneo de la liga seguirá vigente.",
+      "error": "No se pudo abandonar la liga. Inténtalo de nuevo.",
+      "success": "Has abandonado la liga"
+    },
     "list": {
       "acceptingSignups": "Aceptar registros",
       "banned": "Baneado",
@@ -1659,6 +1666,11 @@
       "ban": "Has sido baneado de la liga <1>{{leagueName}}</1>.",
       "start": "La liga <1>{{leagueName}}</1> ha comenzado.",
       "unban": "Se ha levantado tu baneo de la liga <1>{{leagueName}}</1>."
+    },
+    "remove": {
+      "action": "Quitar de la liga",
+      "confirm": "Este jugador saldrá de la tabla de clasificación y perderá todos sus puntos y estadísticas de la liga. Puede volver a unirse antes de que termine la liga, empezando desde cero. Cualquier baneo de la liga seguirá vigente.",
+      "success": "Jugador quitado de la liga"
     }
   },
   "licenses": {
@@ -2790,6 +2802,7 @@
           "black": "Negro",
           "blue": "Azul",
           "blueishGrey": "Gris azulado",
+          "bone": "Hueso",
           "brown": "Marrón",
           "cyan": "Cian",
           "deepTeal": "Turquesa oscuro",
@@ -2850,6 +2863,7 @@
           "attributionBy": "{{palette}} de {{author}}",
           "attributionInspiredBy": "Inspirado en {{palette}}",
           "clear": "Limpiar",
+          "pickerTargetNeutral": "Colores individuales · unidades neutrales",
           "pickerTargetPool": "Colores individuales · #{{n}}",
           "pickerTargetSelf": "Tu color individual",
           "poolGroup": "Grupo de colores",
@@ -2920,10 +2934,13 @@
             "standard": "Desactivado",
             "standardDesc": "Los colores normales de StarCraft."
           },
+          "neutralGroup": "Unidades neutrales",
+          "neutralHint": "Criaturas, huevos y otras unidades que no pertenecen a ningún jugador.",
           "offNote": "Desactivado. Se usan los colores individuales de abajo en todas las partidas.",
           "overridesOffNote": "El reemplazo está desactivado, pero tu esquema de colores se mantiene. Pulsa Mayús+Tab dentro del juego para activarlo en cualquier momento.",
           "pickerTargetAlly": "Esquema de equipo · aliados · #{{n}}",
           "pickerTargetEnemy": "Esquema de equipo · enemigos · #{{n}}",
+          "pickerTargetNeutral": "Esquema de equipo · unidades neutrales",
           "pickerTargetSelf": "Esquema de equipo · tu color",
           "poolOrderedHint": "Los colores se usan en orden, desde la izquierda.",
           "poolShuffledHint": "Estos colores se usan en orden aleatorio en cada partida.",
