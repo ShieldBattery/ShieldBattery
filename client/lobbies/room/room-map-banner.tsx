@@ -928,6 +928,7 @@ export function RoomMapBanner({
           <ReduxMapThumbnail
             mapId={map.id}
             size={512}
+            gameType={lobby.gameType}
             showInfoLayer={true}
             hasMapPoolChips={true}
           />
