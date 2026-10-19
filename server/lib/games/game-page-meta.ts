@@ -75,6 +75,7 @@ export const gamePageMetadata: PageMetadataResolver = async (params, context) =>
     type: 'website',
     title: gameTitle(game.config, users),
     description,
-    image: map?.image1024Url ?? map?.image512Url ?? map?.image256Url ?? defaultPageImage(context),
+    // Crawlers don't all decode AVIF
+    image: map?.jpegImageUrl ?? defaultPageImage(context),
   }
 }
