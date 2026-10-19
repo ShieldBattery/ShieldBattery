@@ -784,9 +784,10 @@ pub struct NetcodeV2Relay {
     /// relay, so a re-home ask against it harmlessly answers `unavailable`.
     #[serde(default)]
     pub relay_id: u64,
-    pub address4: Option<String>,
-    pub address6: Option<String>,
-    pub port: u16,
+    /// Every address the relay can be dialed at, as `ip:port` (IPv6 bracketed), in the relay's
+    /// preference order: both families on its preferred port, then on any extra port (e.g. UDP/443
+    /// for networks that filter the primary one).
+    pub addrs: Vec<String>,
     /// TLS server name checked against the certificate the relay presents.
     pub server_name: String,
     /// base64 (standard, padded) of the relay's leaf certificate in DER form, pinned into the

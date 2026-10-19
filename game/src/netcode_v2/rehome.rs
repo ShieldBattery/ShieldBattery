@@ -65,7 +65,7 @@ struct RehomeRequest<'a> {
 
 /// The `POST /api/1/games/:gameId/netcode-rehome` response body (JSON, camelCase). The server
 /// hands back the replacement relay as the very same [`NetcodeV2Relay`] descriptor shape the launch
-/// handoff carried for the home relay (`relayId`/`address4`/`address6`/`port`/`serverName`/`cert`),
+/// handoff carried for the home relay (`relayId`/`addrs`/`serverName`/`cert`),
 /// so a move reuses the home-relay credential path verbatim.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -123,10 +123,10 @@ pub(crate) struct ServerRehome {
     url: String,
     user_id: u32,
     result_code: String,
-    /// Whether the home-relay dial connected over IPv6. When a replacement descriptor advertises
-    /// both families, the driver dials the one this client's connectivity demonstrably reaches
-    /// first (see [`order_dial_addrs`]).
-    home_connected_ipv6: bool,
+    /// The address the home-relay dial connected over. A replacement's candidates are dialed
+    /// starting from the same family and port, the path this client's network demonstrably lets
+    /// through (see [`order_dial_addrs`]).
+    home_connected: SocketAddr,
     /// When the last failure warning was emitted, for rate limiting (see [`WARN_INTERVAL`]).
     last_warn: Mutex<Option<Instant>>,
 }
@@ -186,7 +186,7 @@ impl ServerRehome {
                 // client's connectivity demonstrably reaches — and keep the rest behind it: a
                 // family that has died since costs one dial timeout, not the re-home.
                 let Some((relay_addr, fallback_addrs)) =
-                    order_dial_addrs(&target.addrs, self.home_connected_ipv6)
+                    order_dial_addrs(&target.addrs, self.home_connected)
                 else {
                     self.warn_rate_limited(&format!(
                         "re-home replacement relay {relay_id} had no dial address"
@@ -230,16 +230,19 @@ impl RehomeProvider for ServerRehome {
 }
 
 /// Splits a re-home target's candidates into the address the driver dials first and the fallbacks
-/// behind it, in descriptor order: the first address of the family the home dial connected over
-/// leads, or — when the replacement advertises nothing in that family — the descriptor's
-/// most-preferred address. `None` only for an empty candidate list.
+/// behind it, in descriptor order. The lead is the first address matching both the family and the
+/// port the home dial connected over (a network that only let one port through will likely do the
+/// same to the replacement), else the first of that family, else the descriptor's most-preferred
+/// address. `None` only for an empty candidate list.
 fn order_dial_addrs(
     addrs: &[SocketAddr],
-    prefer_ipv6: bool,
+    home_connected: SocketAddr,
 ) -> Option<(SocketAddr, Vec<SocketAddr>)> {
+    let same_family = |addr: &SocketAddr| addr.is_ipv6() == home_connected.is_ipv6();
     let lead = addrs
         .iter()
-        .position(|addr| addr.is_ipv6() == prefer_ipv6)
+        .position(|addr| same_family(addr) && addr.port() == home_connected.port())
+        .or_else(|| addrs.iter().position(same_family))
         .or((!addrs.is_empty()).then_some(0))?;
     let fallbacks = addrs
         .iter()
@@ -253,11 +256,11 @@ fn order_dial_addrs(
 /// Builds the re-home provider from the launch context, or `None` when re-home is disabled — no
 /// `resultCode` to authenticate the SB-server request with (a game the server assigned none to).
 /// The driver supplies the dead relay id at call time (it owns the current-relay identity), so this
-/// no longer needs the home relay id. `home_connected_ipv6` is whether the home-relay dial
-/// connected over IPv6; a replacement pick prefers that same family.
+/// no longer needs the home relay id. `home_connected` is the address the home-relay dial
+/// connected over; a replacement pick prefers its family and port.
 pub(crate) fn build_provider(
     context: &RehomeContext,
-    home_connected_ipv6: bool,
+    home_connected: SocketAddr,
 ) -> Option<Arc<dyn RehomeProvider>> {
     let result_code = context.result_code.clone()?;
     let url = format!(
@@ -268,7 +271,7 @@ pub(crate) fn build_provider(
         url,
         user_id: context.user_id.0,
         result_code,
-        home_connected_ipv6,
+        home_connected,
         last_warn: Mutex::new(None),
     }))
 }
@@ -309,13 +312,12 @@ mod tests {
     fn new_target_carries_the_relay_descriptor() {
         // The relay descriptor is the standard NetcodeV2RelayInfo shape (camelCase).
         let decision = decision_from_response(response(
-            r#"{"decision":"newTarget","relay":{"relayId":9,"address4":"203.0.113.7","port":14900,"serverName":"relay.example","cert":"AAAA"}}"#,
+            r#"{"decision":"newTarget","relay":{"relayId":9,"addrs":["203.0.113.7:14900"],"serverName":"relay.example","cert":"AAAA"}}"#,
         ));
         match decision {
             RehomeDecision::NewTarget(relay) => {
                 assert_eq!(relay.relay_id, 9);
-                assert_eq!(relay.address4.as_deref(), Some("203.0.113.7"));
-                assert_eq!(relay.port, 14900);
+                assert_eq!(relay.addrs, vec!["203.0.113.7:14900"]);
                 assert_eq!(relay.server_name, "relay.example");
                 assert_eq!(relay.cert, "AAAA");
             }
@@ -347,23 +349,58 @@ mod tests {
         assert!(decision_from_refusal(&crate::http::Error::Timeout).is_none());
     }
 
+    /// Where the home dial connected: the home relay's own addresses, which share nothing with a
+    /// replacement's but their family and port.
+    const HOME_V6: &str = "[2001:db8::99]:14900";
+    const HOME_V4: &str = "198.51.100.9:14900";
+    const HOME_V4_443: &str = "198.51.100.9:443";
+
+    fn addr(s: &str) -> SocketAddr {
+        s.parse().unwrap()
+    }
+
     #[test]
     fn ordering_leads_with_the_home_dial_family_and_keeps_the_rest_behind_it() {
-        let v6: SocketAddr = "[2001:db8::1]:14900".parse().unwrap();
-        let v4: SocketAddr = "203.0.113.7:14900".parse().unwrap();
+        let v6 = addr("[2001:db8::1]:14900");
+        let v4 = addr("203.0.113.7:14900");
         // The candidate list is v6-first either way; the lead follows the connectivity evidence,
         // not the list order, and the other family stays dialable behind it.
-        assert_eq!(order_dial_addrs(&[v6, v4], true), Some((v6, vec![v4])));
-        assert_eq!(order_dial_addrs(&[v6, v4], false), Some((v4, vec![v6])));
+        assert_eq!(
+            order_dial_addrs(&[v6, v4], addr(HOME_V6)),
+            Some((v6, vec![v4]))
+        );
+        assert_eq!(
+            order_dial_addrs(&[v6, v4], addr(HOME_V4)),
+            Some((v4, vec![v6]))
+        );
+    }
+
+    #[test]
+    fn ordering_leads_with_the_home_dial_port_too() {
+        let v6 = addr("[2001:db8::1]:14900");
+        let v4 = addr("203.0.113.7:14900");
+        let v6_443 = addr("[2001:db8::1]:443");
+        let v4_443 = addr("203.0.113.7:443");
+        // A client that only got through on 443 starts the replacement there; everything else
+        // stays behind it in descriptor order.
+        assert_eq!(
+            order_dial_addrs(&[v6, v4, v6_443, v4_443], addr(HOME_V4_443)),
+            Some((v4_443, vec![v6, v4, v6_443]))
+        );
+        // A replacement that doesn't serve that port still leads with the family.
+        assert_eq!(
+            order_dial_addrs(&[v6, v4], addr(HOME_V4_443)),
+            Some((v4, vec![v6]))
+        );
     }
 
     #[test]
     fn ordering_leads_with_the_most_preferred_address_when_the_family_is_absent() {
-        let v6: SocketAddr = "[2001:db8::1]:14900".parse().unwrap();
-        let v4: SocketAddr = "203.0.113.7:14900".parse().unwrap();
-        assert_eq!(order_dial_addrs(&[v6], false), Some((v6, vec![])));
-        assert_eq!(order_dial_addrs(&[v4], true), Some((v4, vec![])));
-        assert_eq!(order_dial_addrs(&[], true), None);
+        let v6 = addr("[2001:db8::1]:14900");
+        let v4 = addr("203.0.113.7:14900");
+        assert_eq!(order_dial_addrs(&[v6], addr(HOME_V4)), Some((v6, vec![])));
+        assert_eq!(order_dial_addrs(&[v4], addr(HOME_V6)), Some((v4, vec![])));
+        assert_eq!(order_dial_addrs(&[], addr(HOME_V6)), None);
     }
 
     #[test]

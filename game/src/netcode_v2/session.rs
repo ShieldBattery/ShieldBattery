@@ -196,19 +196,30 @@ pub async fn establish_session(
     // Sessionless games and replays never call this function.
     let wifi_low_latency = WifiLowLatencyLease::acquire();
 
-    // Dial the home relay, racing its candidate addresses (preference order, v6 first, each next
+    // Dial the home relay, racing its candidate addresses (the relay's preference order, each next
     // candidate staggered in behind the last).
     let (link, relay_addr) = connect_relay(&endpoint, &home, &identity).await?;
+    // Which candidate won is the evidence for how the candidate order should go: a client on a
+    // network that filters one family or port shows up winning on another.
+    info!(
+        "netcode v2 connected to relay {} at {relay_addr} (candidate {} of {})",
+        setup.home_relay.relay_id,
+        home.addrs
+            .iter()
+            .position(|&addr| addr == relay_addr)
+            .map_or(0, |i| i + 1),
+        home.addrs.len(),
+    );
 
     // The SB-server-mediated failover hook: when the home relay's process dies (fresh cert ⇒ pinned
     // trust refuses it), the driver escalates to this to move the whole group to a replacement
     // relay. `None` (no result code to authenticate the server request) keeps the pre-failover
     // same-relay-only behavior. The driver owns the current-relay identity and hands it to the
     // provider at escalation time, so the provider no longer needs seeding here. The winning
-    // address's family seeds the provider's replacement-relay pick: it's the family this client's
-    // connectivity demonstrably reaches.
+    // address seeds the provider's replacement-relay pick: its family and port are the path this
+    // client's network demonstrably lets through.
     let has_result_code = rehome_context.result_code.is_some();
-    let rehome = rehome::build_provider(&rehome_context, relay_addr.is_ipv6());
+    let rehome = rehome::build_provider(&rehome_context, relay_addr);
 
     let (driver, mut channels) = LinkDriver::new(link);
     if setup.rollback
@@ -491,6 +502,18 @@ fn dial_worth_retrying(error: &DialError) -> bool {
     )
 }
 
+/// Whether a failed dial says only that nothing answered in time. Two errors mean that: the dial's
+/// own deadline, and QUIC's idle timeout, which expires at the same 10s and so wins that race about
+/// half the time. Neither says anything about how the relay behaved, so the race reports either
+/// only when no candidate got a real answer.
+fn dial_timed_out(error: &DialError) -> bool {
+    matches!(
+        error,
+        DialError::TimedOut { .. }
+            | DialError::Connection(rally_point_client::transport::noq::ConnectionError::TimedOut)
+    )
+}
+
 /// Formats `error` followed by the root of its `source()` chain when the display text doesn't
 /// already show it — nested error displays often stop short (noq's "connection lost" hides the
 /// peer's close code and reason a level deeper), and for a failed relay dial that hidden detail
@@ -592,9 +615,10 @@ async fn connect_relay_with_timing(
                     {
                         in_flight.push(dial(addr, retry_backoff));
                     }
-                    match e {
-                        DialError::TimedOut { .. } => last_timeout = Some(e),
-                        _ => last_answered = Some(e),
+                    if dial_timed_out(&e) {
+                        last_timeout = Some(e);
+                    } else {
+                        last_answered = Some(e);
                     }
                     if in_flight.is_empty() {
                         // This failure emptied the race — nothing left worth retrying, or the
@@ -1056,6 +1080,22 @@ mod tests {
             elapsed < Duration::from_secs(5),
             "the race must conclude promptly once the window closes (elapsed {elapsed:?})",
         );
+    }
+
+    #[test]
+    fn both_deadline_shapes_count_as_silence_and_nothing_else_does() {
+        // QUIC's idle timeout and the dial deadline both expire at 10s, so a dial into a
+        // black-holed path surfaces as either; the race must file both as "nothing answered".
+        assert!(dial_timed_out(&DialError::TimedOut {
+            timeout: Duration::from_secs(10)
+        }));
+        assert!(dial_timed_out(&DialError::Connection(
+            noq::ConnectionError::TimedOut
+        )));
+        assert!(!dial_timed_out(&DialError::Connection(
+            noq::ConnectionError::Reset
+        )));
+        assert!(!dial_timed_out(&DialError::UnexpectedAck));
     }
 
     /// A two-level error whose display hides its source, exercising the root-cause

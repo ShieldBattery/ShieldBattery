@@ -408,13 +408,10 @@ function parseCoordinatorRelayAddr(addr: string): ParsedRelayAddr {
 /**
  * Converts a coordinator relay endpoint into the relay endpoint shape clients dial. The candidate
  * address set is `relay_addrs` when the coordinator sent one, else the single back-compat
- * `relay_addr`. The wire shape carries one `port` for both families, so the most-preferred
- * candidate (the first in the relay's own order) pins it: the first v4 and first v6 candidate seen
- * are kept as `address4`/`address6` only when their own port matches that pinned port, and any
- * further same-family candidate is ignored (preference order keeps the first). A chosen candidate
- * whose port disagrees with the pinned one is dropped and logged rather than failing the whole
- * session — a dual-stack relay is expected to listen on a single port across both families, so a
- * mismatch means a malformed advertise set, and the most-preferred address still works.
+ * `relay_addr`, passed through whole and in order: the coordinator's order is the dial preference
+ * (both families on the preferred port, then any extra port), and every candidate is one more way
+ * through a network that filters the others. Each is parsed and re-rendered, so a malformed address
+ * fails loudly here instead of inside every game client.
  *
  * Exported for direct unit testing, alongside `clientSigningKeyFromSeedHex` and
  * `signCoordinatorRequest`.
@@ -425,30 +422,10 @@ export function relayEndpointToInfo(
 ): NetcodeV2RelayInfo {
   const rawAddrs =
     peer.relay_addrs && peer.relay_addrs.length > 0 ? peer.relay_addrs : [peer.relay_addr]
-  const candidates = rawAddrs.map(parseCoordinatorRelayAddr)
-
-  const port = candidates[0].port
-  let address4: string | undefined
-  let address6: string | undefined
-  for (const candidate of candidates) {
-    const chosenFamilyHost = candidate.family === 4 ? address4 : address6
-    if (chosenFamilyHost !== undefined) {
-      continue // Preference order: the first candidate of this family already won.
-    }
-    if (candidate.port !== port) {
-      log.warn(
-        { relayId: peer.relay_id, family: candidate.family, port, candidatePort: candidate.port },
-        'netcode v2 relay advertised a family whose port disagrees with its most-preferred ' +
-          'address; dropping it',
-      )
-      continue
-    }
-    if (candidate.family === 4) {
-      address4 = candidate.host
-    } else {
-      address6 = candidate.host
-    }
-  }
+  const addrs = rawAddrs.map(raw => {
+    const { host, port, family } = parseCoordinatorRelayAddr(raw)
+    return family === 6 ? `[${host}]:${port}` : `${host}:${port}`
+  })
 
   // Parsing through X509Certificate validates the cert here, rather than letting a corrupt one
   // surface later as TLS pin failures inside every game client
@@ -465,9 +442,7 @@ export function relayEndpointToInfo(
 
   return {
     relayId: peer.relay_id,
-    address4,
-    address6,
-    port,
+    addrs,
     serverName: config.relayServerName,
     cert: certDer.toString('base64'),
   }

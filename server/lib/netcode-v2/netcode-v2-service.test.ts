@@ -6,7 +6,6 @@ import { asMockedFunction } from '../../../common/testing/mocks'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import type { GameServerRegionsService } from '../game-server-regions/game-server-regions-service'
 import { addNetcodeV2RelayEvents, setNetcodeV2RequestedRegions } from '../games/game-models'
-import log from '../logging/logger'
 import {
   checkSessionsAlive,
   clientSigningKeyFromSeedHex,
@@ -256,50 +255,41 @@ describe('netcode-v2/relayEndpointToInfo', () => {
     }
   }
 
-  test('fills both address families from a dual-stack relay_addrs list, sharing the primary port', () => {
+  test('passes every relay_addrs candidate through in order, across families and ports', () => {
     const relay = coordinatorRelay({
       relayId: 1,
       addr: '[2001:db8::1]:14900',
-      addrs: ['[2001:db8::1]:14900', '10.0.0.1:14900'],
+      addrs: ['[2001:db8::1]:14900', '10.0.0.1:14900', '[2001:db8::1]:443', '10.0.0.1:443'],
     })
 
     const info = relayEndpointToInfo(relay, FAKE_CONFIG)
 
-    expect(info.address6).toBe('2001:db8::1')
-    expect(info.address4).toBe('10.0.0.1')
-    expect(info.port).toBe(14900)
+    expect(info.addrs).toEqual([
+      '[2001:db8::1]:14900',
+      '10.0.0.1:14900',
+      '[2001:db8::1]:443',
+      '10.0.0.1:443',
+    ])
     expect(info.relayId).toBe(1)
     expect(info.serverName).toBe('relay.example')
   })
 
-  test('falls back to relay_addr exactly as before when relay_addrs is absent', () => {
+  test('falls back to relay_addr when relay_addrs is absent', () => {
     const relay = coordinatorRelay({ relayId: 1, addr: '10.0.0.1:14900' })
 
-    const info = relayEndpointToInfo(relay, FAKE_CONFIG)
-
-    expect(info.address4).toBe('10.0.0.1')
-    expect(info.address6).toBeUndefined()
-    expect(info.port).toBe(14900)
+    expect(relayEndpointToInfo(relay, FAKE_CONFIG).addrs).toEqual(['10.0.0.1:14900'])
   })
 
-  test('falls back to relay_addr as before when relay_addrs is an empty list', () => {
+  test('falls back to relay_addr when relay_addrs is an empty list', () => {
     const relay = coordinatorRelay({ relayId: 1, addr: '10.0.0.1:14900', addrs: [] })
 
-    const info = relayEndpointToInfo(relay, FAKE_CONFIG)
-
-    expect(info.address4).toBe('10.0.0.1')
-    expect(info.address6).toBeUndefined()
-    expect(info.port).toBe(14900)
+    expect(relayEndpointToInfo(relay, FAKE_CONFIG).addrs).toEqual(['10.0.0.1:14900'])
   })
 
-  test('parses a bracketed v6 relay_addr with no relay_addrs list', () => {
+  test('keeps a v6 relay_addr bracketed', () => {
     const relay = coordinatorRelay({ relayId: 1, addr: '[2001:db8::1]:14900' })
 
-    const info = relayEndpointToInfo(relay, FAKE_CONFIG)
-
-    expect(info.address6).toBe('2001:db8::1')
-    expect(info.address4).toBeUndefined()
-    expect(info.port).toBe(14900)
+    expect(relayEndpointToInfo(relay, FAKE_CONFIG).addrs).toEqual(['[2001:db8::1]:14900'])
   })
 
   test('throws the same NetcodeV2ServiceError shape when relay_addr itself is malformed', () => {
@@ -321,58 +311,6 @@ describe('netcode-v2/relayEndpointToInfo', () => {
     expect(() => relayEndpointToInfo(relay, FAKE_CONFIG)).toThrow(
       'coordinator returned an unparseable relay address: not-an-address',
     )
-  })
-
-  test('drops a port-mismatched secondary family and keeps the primary, logging a warning', () => {
-    const warnSpy = vi.spyOn(log, 'warn').mockImplementation((() => {}) as any)
-    const relay = coordinatorRelay({
-      relayId: 1,
-      addr: '[2001:db8::1]:14900',
-      addrs: ['[2001:db8::1]:14900', '10.0.0.1:9999'],
-    })
-
-    const info = relayEndpointToInfo(relay, FAKE_CONFIG)
-
-    expect(info.address6).toBe('2001:db8::1')
-    expect(info.address4).toBeUndefined()
-    expect(info.port).toBe(14900)
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ relayId: 1, family: 4, port: 14900, candidatePort: 9999 }),
-      expect.stringContaining('disagrees'),
-    )
-  })
-
-  test('drops a port-mismatched secondary v6 address when the primary is v4', () => {
-    const warnSpy = vi.spyOn(log, 'warn').mockImplementation((() => {}) as any)
-    const relay = coordinatorRelay({
-      relayId: 5,
-      addr: '10.0.0.1:14900',
-      addrs: ['10.0.0.1:14900', '[2001:db8::1]:9999'],
-    })
-
-    const info = relayEndpointToInfo(relay, FAKE_CONFIG)
-
-    expect(info.address4).toBe('10.0.0.1')
-    expect(info.address6).toBeUndefined()
-    expect(info.port).toBe(14900)
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ relayId: 5, family: 6, port: 14900, candidatePort: 9999 }),
-      expect.any(String),
-    )
-  })
-
-  test('keeps the first candidate when relay_addrs lists two same-family entries', () => {
-    const relay = coordinatorRelay({
-      relayId: 1,
-      addr: '10.0.0.1:14900',
-      addrs: ['10.0.0.1:14900', '10.0.0.2:14900'],
-    })
-
-    const info = relayEndpointToInfo(relay, FAKE_CONFIG)
-
-    expect(info.address4).toBe('10.0.0.1')
-    expect(info.address6).toBeUndefined()
-    expect(info.port).toBe(14900)
   })
 
   test('throws for an unparseable cert regardless of address parsing', () => {

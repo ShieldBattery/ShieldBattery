@@ -14,9 +14,13 @@ export interface NetcodeV2RelayInfo {
    * relay it believes dead when it asks the coordinator to re-home a session off it.
    */
   relayId: number
-  address4?: string
-  address6?: string
-  port: number
+  /**
+   * Every address the relay can be dialed at, as `ip:port` (IPv6 bracketed), in the relay's
+   * preference order: both families on its preferred port, then on any extra port (e.g. UDP/443 for
+   * networks that filter the primary one). Never empty. The game races them with a stagger that
+   * favors earlier entries.
+   */
+  addrs: string[]
   /** TLS server name checked against the certificate the relay presents. */
   serverName: string
   /** base64 (standard, padded) of the relay's leaf certificate in DER form. */
