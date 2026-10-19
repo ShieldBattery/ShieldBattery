@@ -103,8 +103,13 @@ early, which only turns their cost into delay.
 
 ### Pacing (`game/src/rollback/pacing.rs`)
 
-The first 24 steps run in lockstep with the relay's buffer, which lines the clients' game loops up.
-From then on the client paces against the session clock through its home relay's lead reports:
+The first 24 steps (the start) run with no lead, so the pipe holds the relay's whole buffer and
+turns leave as a lockstep game's would, and the relays anchor the session clock where the start
+ends. Only the steps through the first turn every peer sends from its running game loop (step
+`max(buffer, 2)`) wait for every turn, which lines the clients' game loops up; the rest of the start
+predicts like the rest of the game, so a hitch there is rolled back over rather than stopping
+everyone. From the end of the start the client paces against the session clock through its home
+relay's lead reports:
 
 - It keeps the time it means turn 0 to have left by; turn n leaves n steps later, and frame k is
   stepped when turn `k + pipe` is sent.

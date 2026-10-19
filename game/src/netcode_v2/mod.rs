@@ -857,8 +857,8 @@ pub struct TurnState {
     /// The lead the pipe follows, at most [`lead`](Self::lead): it drops to a lower lead at once,
     /// but rises a frame at a time ([`follow_lead`](Self::follow_lead)), since each frame of lead
     /// gained takes a turn out of the pipe, which the game makes up by stepping an extra frame,
-    /// during which none of its turns leave. All at once, as when the game's lockstep start ends
-    /// and the lead first takes effect, that is a visible sprint.
+    /// during which none of its turns leave. All at once, as when the game's start ends and the
+    /// lead first takes effect, that is a visible sprint.
     lead_in_effect: i32,
     /// The fewest of its own turns this client keeps in flight, however little delay its link
     /// needs: 1, or more when the player asked for a minimum input delay.
@@ -1382,8 +1382,9 @@ impl TurnState {
         let ready = match &self.inputs {
             Some(inputs) => {
                 let ready = self.local_only
-                    || input_step(next_frame)
-                        .is_none_or(|step| inputs.can_run(step, &self.required));
+                    || input_step(next_frame).is_none_or(|step| {
+                        inputs.can_run(step, &self.required, self.predict_from())
+                    });
                 if !ready {
                     for storm in inputs.holding_back(&self.required) {
                         if Some(storm) != local_storm {
@@ -1458,6 +1459,16 @@ impl TurnState {
         self.inputs = Some(inputs);
     }
 
+    /// The first step a game that predicts inputs may run on predictions: the one after the step
+    /// that dispatches the first turn every peer sends from its running game loop. Every client
+    /// sends the turns of the steps before it ahead of its loop, its pipe's worth at the start (the
+    /// relay's buffer, or [`TURN_RATE_24_PIPE_TURNS`] for a player who keeps that delay), so a step
+    /// that waits for every turn through it is the last one that has to wait for a slow-starting
+    /// peer, and lines the clients' simulations up to within their links.
+    fn predict_from(&self) -> u32 {
+        self.buffer_turns().max(TURN_RATE_24_PIPE_TURNS) + 1
+    }
+
     /// Whether this game runs steps ahead of turns it has not received yet.
     pub fn predicts_inputs(&self) -> bool {
         self.inputs.is_some()
@@ -1484,8 +1495,9 @@ impl TurnState {
         match &self.inputs {
             Some(inputs) => {
                 self.local_only
-                    || input_step(next_frame)
-                        .is_none_or(|step| inputs.can_run(step, &self.required))
+                    || input_step(next_frame).is_none_or(|step| {
+                        inputs.can_run(step, &self.required, self.predict_from())
+                    })
             }
             None => true,
         }
@@ -2275,12 +2287,12 @@ impl TurnState {
     /// is a frame less input delay and a frame more of other players' turns arriving after it has
     /// simulated past them. At least one turn always stays in
     /// the pipe (more when the player asked for a minimum input delay), and at most
-    /// [`MAX_PIPE_TURNS`]. 0 while the game's start runs in lockstep, which
-    /// needs the whole buffer. A rise in the lead takes effect a frame at a time (see
-    /// [`follow_lead`](Self::follow_lead)).
+    /// [`MAX_PIPE_TURNS`]. 0 through the game's start, whose turns leave as a lockstep game's
+    /// would, with the whole buffer in the pipe. A rise in the lead takes effect a frame at a time
+    /// (see [`follow_lead`](Self::follow_lead)).
     pub fn lead(&self) -> i32 {
         match &self.inputs {
-            Some(inputs) if !inputs.in_lockstep_start() => {
+            Some(inputs) if !inputs.in_start() => {
                 let (min, max) = self.lead_bounds();
                 self.lead_in_effect.min(self.lead).clamp(min, max)
             }
@@ -2289,11 +2301,10 @@ impl TurnState {
     }
 
     /// How many frames of the lead this client means to run with are not in effect yet, which
-    /// [`follow_lead`](Self::follow_lead) has still to add. 0 while the game's start runs in
-    /// lockstep.
+    /// [`follow_lead`](Self::follow_lead) has still to add. 0 through the game's start.
     pub fn lead_to_follow(&self) -> i32 {
         match &self.inputs {
-            Some(inputs) if !inputs.in_lockstep_start() => {
+            Some(inputs) if !inputs.in_start() => {
                 let (min, max) = self.lead_bounds();
                 self.lead.clamp(min, max) - self.lead()
             }

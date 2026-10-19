@@ -147,8 +147,9 @@ static SPACING: AtomicU32 = AtomicU32::new(tick::DEFAULT_SNAPSHOT_SPACING);
 static MONKEY_RANDOM: AtomicU32 = AtomicU32::new(0);
 
 /// When the simulation steps each frame, against the relays' session clock (see [`Pacing`]). Set
-/// by the tick that runs the first step after the game's lockstep start, which kept every client's
-/// simulation in step with the others' until then.
+/// by the tick that runs the first step after the game's lockstep start, through which every
+/// client stepped on the game loop's own timing, lined up with the others by the start's first
+/// steps waiting for every turn.
 static PACING: Mutex<Option<Pacing>> = Mutex::new(None);
 
 /// The rollback this client runs, for the network quality readout.

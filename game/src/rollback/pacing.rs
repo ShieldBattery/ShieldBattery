@@ -143,8 +143,8 @@ fn micros(duration: Duration) -> i64 {
 impl Pacing {
     /// Starts pacing at the end of the lockstep start, where the tick that started at `tick_start`
     /// stepped from frame `frame` with `buffer` turns of latency buffer: until the first report
-    /// moves it, the schedule is the one the lockstep start was keeping, every client stepping in
-    /// time with the turns it waited for.
+    /// moves it, the schedule is the one the lockstep start was keeping, every client stepping on
+    /// the game loop's own timing from where waiting for every turn lined them up.
     pub fn new(frame: u32, buffer: u32, tick_start: Instant) -> Self {
         // Measured from half a step before the tick: the game loop starts its ticks at slightly
         // varying times after each frame's due time, and the half step keeps any variation under

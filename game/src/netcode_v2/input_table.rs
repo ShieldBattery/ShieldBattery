@@ -36,10 +36,13 @@ pub struct InputTable {
     /// How many frames of lateness this client means to absorb by rolling back rather than with
     /// input delay, when nothing is going wrong. At most `limit`.
     rollback_target: u32,
-    /// How many steps at the start of the game wait for every turn, as lockstep does. Clients start
-    /// their game loops at different moments, and running the first steps in lockstep lines their
-    /// simulations up before each keeps its own schedule.
-    lockstep_steps: u32,
+    /// How many steps at the start of the game run with no lead, keeping the whole of the relay's
+    /// buffer in the pipe: the turns for these steps leave as a lockstep game's would, and the
+    /// relays anchor the session clock where they end. The ones before the step [`can_run`]
+    /// is told predictions may start at also wait for every turn, as lockstep does.
+    ///
+    /// [`can_run`]: Self::can_run
+    start_steps: u32,
     /// The latency buffer this client acts as if the relay asked for at least, for testing a
     /// deeper buffer than the one the relay chose.
     min_buffer_turns: u32,
@@ -99,13 +102,13 @@ impl InputTable {
     pub fn new(
         limit: u32,
         rollback_target: u32,
-        lockstep_steps: u32,
+        start_steps: u32,
         held: [Duration; bw::MAX_STORM_PLAYERS],
     ) -> Self {
         Self {
             limit,
             rollback_target: rollback_target.min(limit),
-            lockstep_steps,
+            start_steps,
             min_buffer_turns: 0,
             slots: std::array::from_fn(|_| SlotTurns::default()),
             held,
@@ -201,10 +204,17 @@ impl InputTable {
         }
     }
 
-    /// Whether a step that has never run may run now, predicting whatever turns it lacks. The
-    /// game's first `lockstep_steps` steps wait for every turn.
-    pub fn can_run(&self, step: u32, required: &[bool; bw::MAX_STORM_PLAYERS]) -> bool {
-        let limit = match step < self.lockstep_steps {
+    /// Whether a step that has never run may run now, predicting whatever turns it lacks. Steps
+    /// before `predict_from` wait for every turn, as lockstep does: clients start their game loops
+    /// at different moments, and waiting for the first turn each peer sends from a running loop
+    /// lines their simulations up. Steps from the end of the start on always predict.
+    pub fn can_run(
+        &self,
+        step: u32,
+        required: &[bool; bw::MAX_STORM_PLAYERS],
+        predict_from: u32,
+    ) -> bool {
+        let limit = match step < predict_from.min(self.start_steps) {
             true => 0,
             false => self.limit,
         };
@@ -217,9 +227,9 @@ impl InputTable {
         self.rollback_target
     }
 
-    /// Whether the game is still in the steps at its start that wait for every turn.
-    pub fn in_lockstep_start(&self) -> bool {
-        self.frontier < self.lockstep_steps
+    /// Whether the game is still in the steps at its start that run with no lead.
+    pub fn in_start(&self) -> bool {
+        self.frontier < self.start_steps
     }
 
     /// Makes this client act as if the relay asked for a latency buffer of at least `turns`.
@@ -458,8 +468,8 @@ mod tests {
         let mut t = table(0);
         t.push(A, command(1), start());
         t.push(B, command(2), start());
-        assert!(t.can_run(0, &required()));
-        assert!(!t.can_run(1, &required()));
+        assert!(t.can_run(0, &required(), 1));
+        assert!(!t.can_run(1, &required(), 1));
         let (turns, predicted) = t.dispatch(0, &required());
         assert_eq!(predicted, 0);
         assert_eq!(turns[0].as_deref(), Some(&[0x20, 1][..]));
@@ -474,14 +484,14 @@ mod tests {
             t.push(A, idle(), start());
         }
         assert!(
-            !t.can_run(0, &required()),
+            !t.can_run(0, &required(), 1),
             "the first step waits for every turn"
         );
         t.push(B, idle(), start());
         t.dispatch(0, &required());
-        assert!(t.can_run(1, &required()));
-        assert!(t.can_run(2, &required()));
-        assert!(!t.can_run(3, &required()));
+        assert!(t.can_run(1, &required(), 1));
+        assert!(t.can_run(2, &required(), 1));
+        assert!(!t.can_run(3, &required(), 1));
         let (turns, predicted) = t.dispatch(1, &required());
         assert_eq!(predicted, 1);
         assert_eq!(turns[1].as_deref(), Some(PREDICTED_TURN));
@@ -504,7 +514,7 @@ mod tests {
         for step in 0..3 {
             t.dispatch(step, &required);
         }
-        assert!(!t.can_run(3, &required), "stalled at the limit");
+        assert!(!t.can_run(3, &required, 1), "stalled at the limit");
         assert_eq!(
             t.holding_back(&required).collect::<Vec<_>>(),
             vec![C],
@@ -515,6 +525,39 @@ mod tests {
         // leave are in.
         t.schedule_leave(C, 0, 1);
         assert_eq!(t.holding_back(&required).collect::<Vec<_>>(), vec![B]);
+    }
+
+    #[test]
+    fn the_start_waits_for_every_turn_until_predictions_may_start() {
+        let mut t = InputTable::new(8, 0, 24, [Duration::ZERO; bw::MAX_STORM_PLAYERS]);
+        for _ in 0..4 {
+            t.push(A, idle(), start());
+        }
+        t.push(B, idle(), start());
+        t.push(B, idle(), start());
+        assert!(
+            t.can_run(1, &required(), 3),
+            "every turn of the step is known"
+        );
+        assert!(
+            !t.can_run(2, &required(), 3),
+            "before the step predictions start at"
+        );
+        assert!(
+            t.can_run(3, &required(), 3),
+            "predicts from the step they start at"
+        );
+        assert!(
+            !t.can_run(2, &required(), 30),
+            "a step past the start's end still waits while predictions haven't started"
+        );
+        let mut t = InputTable::new(8, 0, 4, [Duration::ZERO; bw::MAX_STORM_PLAYERS]);
+        t.push(A, idle(), start());
+        t.push(B, idle(), start());
+        assert!(
+            t.can_run(4, &required(), 30),
+            "never waits past the start's end, whatever it is told"
+        );
     }
 
     #[test]
