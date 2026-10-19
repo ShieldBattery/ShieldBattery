@@ -1,9 +1,10 @@
 use std::time::Instant;
 
+use egui::epaint::{Mesh, RectShape, Tessellator};
 use egui::load::TexturePoll;
 use egui::{
     Color32, CornerRadius, Frame, Label, Layout, Margin, Painter, Pos2, Rect, RichText, Shadow,
-    Stroke, Vec2,
+    Shape, Stroke, StrokeKind, Vec2,
 };
 use egui_extras::StripBuilder;
 use egui_flex::{Flex, FlexAlign, FlexInstance};
@@ -30,11 +31,23 @@ const UNCONNECTED_OPACITY: f32 = 0.45;
 /// How long a participant takes to fade between the connected and unconnected looks.
 const PRESENCE_FADE_SECS: f32 = 0.3;
 
-/// Spawn markers are a fixed size rather than a start location's footprint, so they stay small
-/// dots that mark a position without covering the terrain around it.
-const SPAWN_MARKER_RADIUS: f32 = 5.0;
-const SPAWN_MARKER_HALO_WIDTH: f32 = 1.5;
-const SPAWN_MARKER_HALO_COLOR: Color32 = Color32::from_rgba_premultiplied(0, 0, 0, 140);
+/// Spawn markers are "player tokens" matching the ones broodmap paints for start locations: a
+/// rounded block of a start location's 4x3-tile footprint with a top-to-bottom gradient, a dark
+/// outer and light inner bezel, and a soft drop shadow. They're never narrower than this, so they
+/// stay readable on large maps.
+const SPAWN_MARKER_MIN_WIDTH: f32 = 16.0;
+/// Every start location is drawn in the same neutral color, since none belongs to a player yet.
+const SPAWN_MARKER_COLOR: Color32 = Color32::from_rgb(0xD8, 0xD8, 0xD8);
+/// The fill's top row is brightened by this fraction of its color, and its bottom row darkened.
+const SPAWN_MARKER_GRADIENT: f32 = 0.12;
+const SPAWN_MARKER_OUTER_STROKE: Color32 = Color32::from_rgba_premultiplied(0, 0, 0, 191);
+const SPAWN_MARKER_INNER_STROKE: Color32 = Color32::from_rgba_premultiplied(179, 179, 179, 179);
+const SPAWN_MARKER_SHADOW: Shadow = Shadow {
+    offset: [0, 1],
+    blur: 2,
+    spread: 0,
+    color: Color32::from_rgba_premultiplied(0, 0, 0, 89),
+};
 
 // TODO(tec27): This is probably retrievable from egui?
 const BACKGROUND_SIZE: Vec2 = Vec2::new(1920.0, 1152.0);
@@ -423,12 +436,65 @@ fn add_map_image(ui: &mut egui::Ui, url: &str, map_size: Vec2, spawn_map: Option
 }
 
 fn paint_spawn_markers(painter: &Painter, map: &MapData, image_rect: Rect) {
-    let halo = Stroke::new(SPAWN_MARKER_HALO_WIDTH, SPAWN_MARKER_HALO_COLOR);
     for location in &map.start_locations {
         if let Some(center) = spawn_marker_center(location, map.width, map.height, image_rect) {
-            painter.circle(center, SPAWN_MARKER_RADIUS, Color32::WHITE, halo);
+            paint_spawn_marker(
+                painter,
+                spawn_marker_rect(center, map.width, image_rect),
+                SPAWN_MARKER_COLOR,
+            );
         }
     }
+}
+
+fn paint_spawn_marker(painter: &Painter, rect: Rect, color: Color32) {
+    let radius = rect.height() * 0.2;
+    painter.add(SPAWN_MARKER_SHADOW.as_shape(rect, radius));
+
+    // egui fills shapes with a single color, so the gradient is applied to the vertices of the
+    // tessellated fill instead.
+    let mut tessellator = Tessellator::new(
+        painter.pixels_per_point(),
+        painter.ctx().tessellation_options(|o| *o),
+        painter.ctx().fonts(|f| f.font_image_size()),
+        Vec::new(),
+    );
+    let mut fill = Mesh::default();
+    tessellator.tessellate_rect(&RectShape::filled(rect, radius, color), &mut fill);
+    for vertex in &mut fill.vertices {
+        let t = ((vertex.pos.y - rect.top()) / rect.height()).clamp(0.0, 1.0);
+        let scale = 1.0 + SPAWN_MARKER_GRADIENT - 2.0 * SPAWN_MARKER_GRADIENT * t;
+        vertex.color = scale_premultiplied(vertex.color, scale);
+    }
+    painter.add(Shape::mesh(fill));
+
+    painter.rect_stroke(
+        rect,
+        radius,
+        Stroke::new(1.0, SPAWN_MARKER_OUTER_STROKE),
+        StrokeKind::Inside,
+    );
+    painter.rect_stroke(
+        rect.shrink(1.0),
+        (radius - 1.0).max(0.0),
+        Stroke::new(1.0, SPAWN_MARKER_INNER_STROKE),
+        StrokeKind::Inside,
+    );
+}
+
+/// Scales `color`'s RGB by `scale`, keeping it a valid premultiplied color (no channel above alpha).
+fn scale_premultiplied(color: Color32, scale: f32) -> Color32 {
+    let [r, g, b, a] = color.to_array();
+    let channel = |c: u8| (f32::from(c) * scale).round().clamp(0.0, f32::from(a)) as u8;
+    Color32::from_rgba_premultiplied(channel(r), channel(g), channel(b), a)
+}
+
+/// The marker for a start location centered at `center`: its 4x3-tile footprint at the scale the
+/// map is drawn into `image_rect`, widened to at least [`SPAWN_MARKER_MIN_WIDTH`].
+fn spawn_marker_rect(center: Pos2, map_width_tiles: u16, image_rect: Rect) -> Rect {
+    let footprint_width = 4.0 / f32::from(map_width_tiles.max(1)) * image_rect.width();
+    let width = footprint_width.max(SPAWN_MARKER_MIN_WIDTH);
+    Rect::from_center_size(center, egui::vec2(width, width * 0.75))
 }
 
 /// Where to center the marker for `location` when a map of the given size in tiles is drawn into
@@ -725,6 +791,34 @@ mod test {
         let bottom_right = spawn_marker_center(&location(4096, 2048), 128, 64, image_rect).unwrap();
         assert_eq!(top_left, image_rect.min);
         assert_eq!(bottom_right, image_rect.max);
+    }
+
+    #[test]
+    fn spawn_marker_rect_is_the_start_location_footprint() {
+        let image_rect = rect(0.0, 0.0, 640.0, 640.0);
+        let marker = spawn_marker_rect(Pos2::new(100.0, 100.0), 64, image_rect);
+        assert_eq!(marker.center(), Pos2::new(100.0, 100.0));
+        assert_eq!(marker.size(), egui::vec2(40.0, 30.0));
+    }
+
+    #[test]
+    fn spawn_marker_rect_has_a_minimum_width() {
+        let image_rect = rect(0.0, 0.0, 480.0, 480.0);
+        let marker = spawn_marker_rect(Pos2::new(100.0, 100.0), 256, image_rect);
+        assert_eq!(marker.size(), egui::vec2(16.0, 12.0));
+    }
+
+    #[test]
+    fn scale_premultiplied_never_exceeds_alpha() {
+        let half_white = Color32::from_rgba_premultiplied(120, 120, 120, 128);
+        assert_eq!(
+            scale_premultiplied(half_white, 1.12),
+            Color32::from_rgba_premultiplied(128, 128, 128, 128)
+        );
+        assert_eq!(
+            scale_premultiplied(half_white, 0.5),
+            Color32::from_rgba_premultiplied(60, 60, 60, 128)
+        );
     }
 
     #[test]
