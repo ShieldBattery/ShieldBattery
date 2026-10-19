@@ -253,6 +253,8 @@ export interface GameFilterBarProps {
   setSort: (v: GameSortOption) => void
   mapName: string
   setMapName: (v: string) => void
+  /** When false, hides the map name search (for views that only show games on one map). */
+  showMapName?: boolean
   playerName: string
   setPlayerName: (v: string) => void
   format?: GameFormat
@@ -304,6 +306,7 @@ export function GameFilterBar({
   setSort,
   mapName,
   setMapName,
+  showMapName = true,
   playerName,
   setPlayerName,
   format,
@@ -501,6 +504,7 @@ export function GameFilterBar({
           motionExit='exiting'>
           <AdvancedFiltersPanel
             mapName={mapName}
+            showMapName={showMapName}
             playerName={playerName}
             format={format}
             matchup={matchup}
@@ -588,6 +592,7 @@ const PanelActions = styled.div`
 
 interface AdvancedFiltersPanelProps {
   mapName: string
+  showMapName: boolean
   playerName: string
   format?: GameFormat
   matchup?: EncodedMatchupString
@@ -605,6 +610,7 @@ interface AdvancedFiltersPanelProps {
 
 function AdvancedFiltersPanel({
   mapName,
+  showMapName,
   playerName,
   format,
   matchup,
@@ -643,13 +649,15 @@ function AdvancedFiltersPanel({
       <PanelContent>
         <PanelSection>
           <SectionLabel>{t('common.actions.search', 'Search')}</SectionLabel>
-          <TextField
-            label={t('game.filters.mapName', 'Map name')}
-            value={draftMapName}
-            onChange={e => setDraftMapName(e.target.value)}
-            dense={true}
-            allowErrors={false}
-          />
+          {showMapName ? (
+            <TextField
+              label={t('game.filters.mapName', 'Map name')}
+              value={draftMapName}
+              onChange={e => setDraftMapName(e.target.value)}
+              dense={true}
+              allowErrors={false}
+            />
+          ) : null}
           <TextField
             label={t('game.filters.playerName', 'Player name')}
             value={draftPlayerName}

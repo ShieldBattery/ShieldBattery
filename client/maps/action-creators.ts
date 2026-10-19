@@ -1,6 +1,7 @@
 import prettyBytes from 'pretty-bytes'
 import { getErrorStack } from '../../common/errors'
 import { FilesErrorCode } from '../../common/files'
+import { GetGamesQueryParams, GetGamesResponse } from '../../common/games/games'
 import {
   GetBatchMapInfoResponse,
   GetFavoritedMapsQueryParams,
@@ -18,6 +19,7 @@ import { apiUrl, urlPath } from '../../common/urls'
 import { openDialog, openSimpleDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { ThunkAction } from '../dispatch-registry'
+import { buildGameListSearchParams } from '../games/game-filter-url'
 import i18n from '../i18n/i18next'
 import logger from '../logging/logger'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
@@ -335,5 +337,27 @@ export function getMapDownloadUrl(mapId: SbMapId, spec: RequestHandlingSpec<stri
     })
 
     return result.url
+  })
+}
+
+/** Gets a page of the games played on a map, newest first unless `params` sorts them otherwise. */
+export function getMapGames(
+  mapId: SbMapId,
+  params: GetGamesQueryParams,
+  spec: RequestHandlingSpec<GetGamesResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const queryParams = buildGameListSearchParams(params)
+
+    const result = await fetchJson<GetGamesResponse>(apiUrl`maps/${mapId}/games?${queryParams}`, {
+      signal: spec.signal,
+    })
+
+    dispatch({
+      type: '@maps/getMapGames',
+      payload: result,
+    })
+
+    return result
   })
 }
