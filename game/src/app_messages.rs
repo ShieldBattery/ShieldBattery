@@ -585,6 +585,8 @@ pub struct MapData {
 pub struct MapStartLocation {
     pub x: u16,
     pub y: u16,
+    /// The player slot (0-7) the start location was placed for.
+    pub slot: u8,
 }
 
 #[derive(Clone, Debug, Deserialize)]
