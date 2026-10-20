@@ -7,6 +7,7 @@ use overlay_ui::disconnect::{
 
 use crate::app_messages::{SbUser, SbUserId};
 use crate::netcode_v2::{DisconnectStatus, DisconnectTier, SelfState};
+use crate::user_aliases;
 
 /// One player of this game as the game itself knows them, which is the only place their color and
 /// their side can be read from. The disconnect status names players by ShieldBattery user id, so a
@@ -53,7 +54,7 @@ pub(super) fn build_disconnect_view(
         users
             .iter()
             .find(|u| u.id == user_id)
-            .map(|u| u.name.clone())
+            .map(|u| user_aliases::display_name(u.id, &u.name).into_owned())
             // TODO(tec27): Translate this
             .unwrap_or_else(|| "Unknown player".to_string())
     };

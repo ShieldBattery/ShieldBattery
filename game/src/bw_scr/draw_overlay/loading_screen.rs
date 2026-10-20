@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::time::Instant;
 
 use egui::{Color32, CornerRadius, Frame, Label, Layout, Margin, RichText, Shadow, Vec2};
@@ -13,6 +14,7 @@ use crate::{
     bw_scr::draw_overlay::{BwVars, OverlayState, colors, fonts::display},
     game_thread,
     netcode_v2::{LoadingConnectivity, LoadingPresence, loading_presence},
+    user_aliases,
 };
 
 const MAP_IMAGE_SIZE: Vec2 = Vec2::new(640.0, 640.0);
@@ -293,9 +295,10 @@ impl OverlayState {
             users.iter().find(|u| Some(u.id) == player.user_id)
         };
         let username = if player.player_type == SbSlotType::Computer {
-            "Computer"
+            Cow::Borrowed("Computer")
         } else {
-            user.map(|u| u.name.as_str()).unwrap_or("Unknown Player")
+            user.map(|u| user_aliases::display_name(u.id, &u.name))
+                .unwrap_or(Cow::Borrowed("Unknown Player"))
         };
         let avatar_url = user.and_then(|u| u.avatar_url.as_deref());
         let rank = ranks.iter().find(|r| Some(r.user_id) == player.user_id);
@@ -356,7 +359,7 @@ impl OverlayState {
                                 ui.vertical(|ui| {
                                     ui.spacing_mut().item_spacing.y = 4.0;
                                     ui.label(
-                                        RichText::new(username)
+                                        RichText::new(&*username)
                                             .size(28.0)
                                             .color(colors::GREY99)
                                             .family(display()),
@@ -412,7 +415,9 @@ fn add_observer_row(
 
             for observer in observers {
                 let user = users.iter().find(|u| Some(u.id) == observer.user_id);
-                let name = user.map(|u| u.name.as_str()).unwrap_or("Unknown Player");
+                let name = user
+                    .map(|u| user_aliases::display_name(u.id, &u.name))
+                    .unwrap_or(Cow::Borrowed("Unknown Player"));
                 let avatar_url = user.and_then(|u| u.avatar_url.as_deref());
                 let presence = presence(observer);
                 let opacity = presence_opacity(&ctx, observer, presence);
@@ -443,7 +448,7 @@ fn add_observer_row(
                                 ui.set_max_width(OBSERVER_NAME_MAX_WIDTH);
                                 ui.add(
                                     Label::new(
-                                        RichText::new(name)
+                                        RichText::new(&*name)
                                             .size(18.0)
                                             .color(colors::GREY99)
                                             .family(display()),

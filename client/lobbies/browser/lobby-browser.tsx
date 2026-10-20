@@ -22,6 +22,7 @@ import { useRelationshipsLoader } from '../../social/friends-list'
 import { healthChecked } from '../../starcraft/health-checked'
 import { FlexSpacer } from '../../styles/flex-spacer'
 import { bodyLarge, bodyMedium, titleLarge } from '../../styles/typography'
+import { userAliasesAtom } from '../../users/user-aliases'
 import { subscribeToLobbyPreview, unsubscribeFromLobbyPreview } from '../action-creators'
 import { isInLobby } from '../lobby-reducer'
 import { navigateToLobby } from '../lobby-url'
@@ -184,6 +185,7 @@ export function LobbyBrowser({ onNavigateToCreate }: LobbyBrowserProps) {
   const friends = useAppSelector(s => s.relationships.friends)
   // Host names are only needed to answer a search, so this stays out of the way otherwise.
   const usersById = useAppSelector(s => (searchQuery ? s.users.byId : NO_USERS))
+  const aliases = useAtomValue(userAliasesAtom)
 
   const summaries: LobbySummary[] = []
   for (const id of lobbyList) {
@@ -212,7 +214,12 @@ export function LobbyBrowser({ onNavigateToCreate }: LobbyBrowserProps) {
       if (friendsOnly && !friendIdsByLobby.get(summary.id)?.length) {
         return false
       }
-      return lobbyMatchesSearch(summary, searchQuery, usersById.get(summary.host.id)?.name)
+      // The host is searched for by the name they're shown with, which may be an alias.
+      return lobbyMatchesSearch(
+        summary,
+        searchQuery,
+        aliases.get(summary.host.id) ?? usersById.get(summary.host.id)?.name,
+      )
     })
     .sort((a, b) => compareSummaries(a, b, sort))
 

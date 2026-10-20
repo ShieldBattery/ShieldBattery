@@ -11,6 +11,7 @@ import { Dialog } from '../material/dialog'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { BodyLarge } from '../styles/typography'
+import { useDisplayName } from '../users/user-aliases'
 import { transferChannelOwnership } from './action-creators'
 
 export interface ChannelTransferOwnershipDialogProps extends CommonDialogProps {
@@ -36,7 +37,6 @@ export function ChannelTransferOwnershipDialog({
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
-  const user = useAppSelector(s => s.users.byId.get(userId))
   const selfUser = useSelfUser()
   const ownerId = useAppSelector(s => s.chat.idToJoinedInfo.get(channelId)?.ownerId)
   // Server moderators can transfer the ownership of channels they don't own, so the "you will no
@@ -44,7 +44,7 @@ export function ChannelTransferOwnershipDialog({
   const isSelfOwner = ownerId !== undefined && ownerId === selfUser?.id
   const [isTransferring, setIsTransferring] = useState(false)
 
-  const userName = user?.name ?? ''
+  const userName = useDisplayName(userId) ?? ''
 
   const onConfirmClick = () => {
     setIsTransferring(true)

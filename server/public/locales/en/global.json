@@ -404,6 +404,7 @@
       },
       "errors": {
         "ambiguousMember": "More than one member matches <1>{{name}}</1>.",
+        "ambiguousUserName": "<0>{{name}}</0> could mean {{candidates}}. Use the name of the one you mean.",
         "commandFailed": "Something went wrong while running <2>{{command}}</2>.",
         "invalidArgument": "Invalid <1>{{arg}}</1>: {{value}}. Usage: <7>{{usage}}</7>",
         "missingArgument": "Missing <1>{{arg}}</1>. Usage: <4>{{usage}}</4>",
@@ -3395,6 +3396,23 @@
         "title": "Punishments"
       }
     },
+    "alias": {
+      "aliasOf": "Your alias for {{name}}",
+      "createAction": "Create alias",
+      "createTitle": "Create alias",
+      "editAction": "Edit alias",
+      "editTitle": "Edit alias",
+      "errors": {
+        "ownName": "That's already their name.",
+        "pattern": "Alias contains characters a name can’t",
+        "required": "Enter an alias"
+      },
+      "explanation": "Everywhere you see {{name}} on ShieldBattery, including in games, you’ll see this alias instead. Only you can see it. Give the same alias to all of a player’s accounts to see them as one player.",
+      "label": "Alias",
+      "removeAction": "Remove alias",
+      "removed": "Removed your alias for {{name}}",
+      "saved": "{{name}} will be shown as {{alias}}"
+    },
     "availability": {
       "away": "Away",
       "doNotDisturb": "Do not disturb",
@@ -3560,6 +3578,7 @@
       "closeWhisper": "Close whisper"
     },
     "newWhisper": {
+      "ambiguousName": "{{name}} could mean {{candidates}}. Enter the name of the one you mean.",
       "emptyText": "Type a player's name above to whisper them. Friends show up here while they're online.",
       "emptyTitle": "Start a conversation",
       "error": "Error starting the whisper: {{errorMessage}}",

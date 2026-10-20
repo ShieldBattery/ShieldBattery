@@ -5,6 +5,7 @@ import { SbUserId } from '../../../../common/users/sb-user-id'
 import { openDialog } from '../../../dialogs/action-creators'
 import { DialogType } from '../../../dialogs/dialog-type'
 import { TransInterpolation } from '../../../i18n/i18next'
+import { findUsersByAlias } from '../../../users/user-aliases'
 import { ChannelCommandContext } from '../command-context'
 import { defineCommand } from '../command-schema'
 import { LocalStrong } from '../local-strong'
@@ -21,11 +22,15 @@ type MemberLookup =
 /**
  * Resolves a typed name to a member of the channel. Names are matched exactly (ignoring case)
  * rather than by prefix: a moderation action lands on whoever is named, so a near miss has to
- * fail rather than reach the wrong person.
+ * fail rather than reach the wrong person. A member's alias counts as one of their names, so an
+ * alias that's also another member's actual name is ambiguous.
  */
 function findMember(context: ChannelCommandContext, typedName: string): MemberLookup {
   const lowered = typedName.toLowerCase()
-  const matches = context.members.filter(member => member.name.toLowerCase() === lowered)
+  const aliased = new Set(findUsersByAlias(typedName))
+  const matches = context.members.filter(
+    member => member.name.toLowerCase() === lowered || aliased.has(member.id),
+  )
 
   if (matches.length === 0) {
     return { kind: 'none' }

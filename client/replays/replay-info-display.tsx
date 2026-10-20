@@ -1,4 +1,5 @@
 import type { Player, ReplayHeader, ShieldBatteryData } from '@shieldbattery/broodrep'
+import { useAtomValue } from 'jotai'
 import { useEffect, useMemo, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
@@ -22,6 +23,7 @@ import { Tooltip } from '../material/tooltip'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { bodyLarge, labelMedium, singleLine, titleLarge } from '../styles/typography'
+import { userAliasesAtom } from '../users/user-aliases'
 import { startReplay } from './action-creators'
 import { getGameRecordUserIds } from './replay-library-helpers'
 
@@ -163,6 +165,7 @@ export function ReplayInfoDisplay({ filePath, className }: ReplayInfoDisplayProp
     gameInfo?.mapId ? s.maps.byId.get(gameInfo.mapId) : undefined,
   )
   const usersById = useAppSelector(s => s.users.byId)
+  const aliases = useAtomValue(userAliasesAtom)
 
   const [mapNameRef, isMapNameOverflowing] = useOverflowingElement()
   const [gameTypeRef, isGameTypeOverflowing] = useOverflowingElement()
@@ -225,7 +228,7 @@ export function ReplayInfoDisplay({ filePath, className }: ReplayInfoDisplayProp
         replayUserId !== undefined && gameUserIds.has(replayUserId)
           ? usersById.get(replayUserId)
           : undefined
-      const player = sbUser ? { ...p, name: sbUser.name } : p
+      const player = sbUser ? { ...p, name: aliases.get(sbUser.id) ?? sbUser.name } : p
       if (team) {
         team.push(player)
       } else {
@@ -264,6 +267,7 @@ export function ReplayInfoDisplay({ filePath, className }: ReplayInfoDisplayProp
 
     return [durationStr, gameTypeLabel, mapName, playerListItems]
   }, [
+    aliases,
     gameInfo,
     mapInfo?.name,
     replayMetadata?.headerData,

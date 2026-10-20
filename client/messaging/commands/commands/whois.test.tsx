@@ -7,7 +7,7 @@ import { makeSbChannelId } from '../../../../common/chat'
 import { asMockedFunction } from '../../../../common/testing/mocks'
 import { FriendActivityStatus } from '../../../../common/users/relationships'
 import { makeSbUserId, SbUserId } from '../../../../common/users/sb-user-id'
-import { findUserByName } from '../../../users/action-creators'
+import { findUserByTypedName } from '../../../users/action-creators'
 import { ChannelCommandContext } from '../command-context'
 import { LocalLineContent } from '../local-output'
 import { runChatCommandWith } from '../run-chat-command'
@@ -21,7 +21,7 @@ vi.mock('../../../logging/logger', () => ({
 // command registry these run against pulls in every command's action creators.
 vi.mock('../../../users/action-creators', async importOriginal => ({
   ...(await importOriginal<typeof import('../../../users/action-creators')>()),
-  findUserByName: vi.fn(() => ({ type: 'TEST/findUserByName' })),
+  findUserByTypedName: vi.fn(() => ({ type: 'TEST/findUserByTypedName' })),
 }))
 
 // `ConnectedUsername` and `ConnectedChannelName` need a Redux Provider to render for real, so they
@@ -139,8 +139,8 @@ function runInput(input: string, state: unknown) {
 function runForTarget(state: unknown, name = 'tec27') {
   const run = runInput(`/whois ${name}`, state)
 
-  expect(findUserByName).toHaveBeenCalledWith(name, expect.anything())
-  asMockedFunction(findUserByName).mock.calls[0][1].onSuccess({
+  expect(findUserByTypedName).toHaveBeenCalledWith(name, expect.anything())
+  asMockedFunction(findUserByTypedName).mock.calls[0][1].onSuccess({
     id: TARGET_ID,
     name,
     created: 0,
@@ -166,7 +166,7 @@ describe('messaging/commands/commands/whois', () => {
     )
 
     expect(result).toEqual({ kind: 'command' })
-    expect(findUserByName).not.toHaveBeenCalled()
+    expect(findUserByTypedName).not.toHaveBeenCalled()
     expect(emit.mock.calls[0][0].kind).toBe('info')
     expect(renderLine(emit.mock.calls[0][0].content)).toBe(
       'You are Marko. Channels: #foo (online).',

@@ -9,6 +9,7 @@ import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { bodyLarge, titleLarge } from '../styles/typography'
 import { getUserRankingHistory } from './action-creators'
+import { useDisplayName } from './user-aliases'
 import { UserRankDisplay } from './user-rank-display'
 
 const Container = styled.div`
@@ -33,6 +34,7 @@ const ErrorText = styled.div`
 
 export function UserProfileSeasons({ user }: { user: SbUser }) {
   const { t } = useTranslation()
+  const displayName = useDisplayName(user.id) ?? user.name
   const dispatch = useAppDispatch()
 
   const [ranks, setRanks] = useState<LadderPlayer[]>()
@@ -82,7 +84,7 @@ export function UserProfileSeasons({ user }: { user: SbUser }) {
         <NoResults>
           {t('user.seasons.noMatchingGames', {
             defaultValue: '{{user}} has played no games in previous seasons.',
-            user: user.name,
+            user: displayName,
           })}
         </NoResults>
       </Container>

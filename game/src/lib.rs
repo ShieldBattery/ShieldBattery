@@ -85,6 +85,7 @@ mod scr_stdout;
 mod snp;
 mod sync;
 mod team_colors;
+mod user_aliases;
 mod windows;
 
 const WAIT_DEBUGGER: bool = false;

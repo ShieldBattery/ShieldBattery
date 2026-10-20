@@ -3,17 +3,21 @@ import * as React from 'react'
 import { Trans } from 'react-i18next'
 import { FriendActivityStatus } from '../../../../common/users/relationships'
 import { SbUserId } from '../../../../common/users/sb-user-id'
+import { UserErrorCode } from '../../../../common/users/user-network'
 import { WhisperServiceErrorCode } from '../../../../common/whispers'
 import { ReduxAction } from '../../../action-types'
 import { DispatchFunction } from '../../../dispatch-registry'
 import { TransInterpolation } from '../../../i18n/i18next'
 import { isFetchError } from '../../../network/fetch-errors'
+import { AmbiguousUserNameError } from '../../../users/action-creators'
+import { getUserAlias } from '../../../users/user-aliases'
 import {
   navigateToWhisper,
   sendMessage as sendWhisperMessage,
   startWhisperSessionByName,
 } from '../../../whispers/action-creators'
 import { CommandContext } from '../command-context'
+import { ambiguousUserNameLine } from '../command-lines'
 import {
   ALL_COMMAND_SURFACES,
   ArgSuggestDeps,
@@ -26,7 +30,9 @@ import { LocalStrong } from '../local-strong'
 function startFailedLine(target: string, err: Error, t: TFunction): React.ReactNode {
   const code = isFetchError(err) ? err.code : undefined
 
-  if (code === WhisperServiceErrorCode.UserNotFound) {
+  if (err instanceof AmbiguousUserNameError) {
+    return ambiguousUserNameLine(err, t)
+  } else if (code === WhisperServiceErrorCode.UserNotFound || code === UserErrorCode.NotFound) {
     return (
       <Trans t={t} i18nKey='chat.commands.whisper.userNotFound'>
         No user named <LocalStrong>{{ target } as TransInterpolation}</LocalStrong>.
@@ -165,9 +171,9 @@ export const whisperCommand = defineCommand({
 
     dispatch(
       startWhisperSessionByName(target, {
-        onSuccess: ({ userId }) => {
+        onSuccess: ({ userId, name }) => {
           if (message === undefined) {
-            navigateToWhisper(userId, target)
+            navigateToWhisper(userId, name)
             return
           }
 
@@ -175,7 +181,7 @@ export const whisperCommand = defineCommand({
           // sendWhisperInPlace shows it went out, and a send that fails puts the error next to
           // the input they typed it in.
           sendWhisperInPlace(
-            { id: userId, name: target },
+            { id: userId, name: getUserAlias(userId) ?? name },
             message,
             { context, dispatch, t, emit },
             err => sendFailedLine(target, err, t),

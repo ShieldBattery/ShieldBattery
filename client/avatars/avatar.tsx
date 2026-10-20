@@ -7,6 +7,7 @@ import { labelSmall } from '../styles/typography'
 import { LiveUsersContext } from '../twitch/live-state'
 import { getBatchUserInfo } from '../users/action-creators'
 import { AvailabilityDot } from '../users/availability'
+import { useDisplayName } from '../users/user-aliases'
 import PlaceholderIcon from './avatar-placeholder.svg?react'
 import { randomColorForString } from './colors'
 
@@ -178,7 +179,7 @@ export function ConnectedAvatar({
 }: ConnectedAvatarProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
-  const username = useAppSelector(s => s.users.byId.get(userId)?.name)
+  const username = useDisplayName(userId)
   const avatarUrl = useAppSelector(s => s.users.byId.get(userId)?.avatarUrl)
   const liveUsers = useContext(LiveUsersContext)
   const isLive = showLiveIndicator && liveUsers.has(userId)

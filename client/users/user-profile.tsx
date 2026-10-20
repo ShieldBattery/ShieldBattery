@@ -14,12 +14,16 @@ import { SbUser } from '../../common/users/sb-user'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { UserProfileJson } from '../../common/users/user-network'
 import { useHasAnyPermission } from '../admin/admin-permissions'
+import { useSelfUser } from '../auth/auth-utils'
 import { ConnectedAvatar } from '../avatars/avatar'
+import { openDialog } from '../dialogs/action-creators'
+import { DialogType } from '../dialogs/dialog-type'
 import { CommendIcon } from '../games/commend-icon'
 import { graphql } from '../gql'
 import TwitchIcon from '../icons/brands/twitch.svg?react'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { RaceIcon } from '../lobbies/race-icon'
-import { FilledButton } from '../material/button'
+import { FilledButton, TextButton } from '../material/button'
 import { TabItem, Tabs } from '../material/tabs'
 import { Tooltip } from '../material/tooltip'
 import { CopyLinkButton } from '../navigation/copy-link-button'
@@ -31,6 +35,7 @@ import { CenteredContentContainer } from '../styles/centered-container'
 import { selectableTextContainer } from '../styles/text-selection'
 import {
   bodyLarge,
+  bodyMedium,
   bodySmall,
   headlineLarge,
   labelLarge,
@@ -60,6 +65,7 @@ import { AvailabilityDot } from './availability'
 import { ExpandableRankDisplays } from './expandable-rank-displays'
 import { ConnectedMatchHistory } from './match-history'
 import { MiniMatchHistory } from './mini-match-history'
+import { useUserAlias } from './user-aliases'
 import { UserProfileSeasons } from './user-profile-seasons'
 import { UserProfileSubPage } from './user-profile-sub-page'
 import { UserRankDisplay } from './user-rank-display'
@@ -332,6 +338,17 @@ const Username = styled.div`
   color: var(--theme-amber);
 `
 
+const AliasOf = styled.div`
+  ${bodyMedium};
+  ${singleLine};
+  color: var(--theme-on-surface-variant);
+`
+
+const AliasButton = styled(TextButton)`
+  flex-shrink: 0;
+  align-self: flex-start;
+`
+
 const TabArea = styled.div`
   width: 100%;
   max-width: 720px;
@@ -365,6 +382,9 @@ export function UserProfilePage({
   const { t } = useTranslation()
   // TODO(tec27): Build the title feature :)
   const title = t('users.titles.novice', 'Novice')
+  const dispatch = useAppDispatch()
+  const selfUser = useSelfUser()
+  const alias = useUserAlias(user.id)
 
   const [scrollerElem, setScrollerElem] = useState<HTMLDivElement | null>(null)
   // The match history list remembers and restores this container's scroll position itself.
@@ -440,12 +460,20 @@ export function UserProfilePage({
         </AvatarCircle>
         <UsernameAndTitle>
           <UsernameRow>
-            <Username>{user.name}</Username>
+            <Username>{alias ?? user.name}</Username>
             <CopyLinkButton
               tooltipPosition='right'
               startingText={t('users.profile.copyLink', 'Copy link to profile')}
             />
           </UsernameRow>
+          {alias !== undefined ? (
+            <AliasOf>
+              {t('users.alias.aliasOf', {
+                defaultValue: 'Your alias for {{name}}',
+                name: user.name,
+              })}
+            </AliasOf>
+          ) : null}
           <TitleMedium>{title}</TitleMedium>
           <ProfileMetaRow>
             {commendCount !== undefined ? (
@@ -467,6 +495,19 @@ export function UserProfilePage({
             ) : null}
           </ProfileMetaRow>
         </UsernameAndTitle>
+        {selfUser && selfUser.id !== user.id ? (
+          <AliasButton
+            label={
+              alias !== undefined
+                ? t('users.alias.editAction', 'Edit alias')
+                : t('users.alias.createAction', 'Create alias')
+            }
+            iconStart={<MaterialIcon icon='badge' />}
+            onClick={() =>
+              dispatch(openDialog({ type: DialogType.UserAlias, initData: { userId: user.id } }))
+            }
+          />
+        ) : null}
       </TopSection>
 
       {liveStream ? (

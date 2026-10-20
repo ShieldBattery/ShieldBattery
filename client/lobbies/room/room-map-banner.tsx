@@ -40,6 +40,7 @@ import {
   titleMedium,
 } from '../../styles/typography'
 import { getBatchUserInfo } from '../../users/action-creators'
+import { useDisplayName } from '../../users/user-aliases'
 import { WarpFieldDescriptionInfo } from '../warp-field'
 import { LobbyScoreboard } from './lobby-scoreboard'
 import {
@@ -539,9 +540,7 @@ function useWinnerLabel(winner: LobbySeriesWinner | undefined): string | undefin
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const winnerUserId = winner?.kind === 'player' ? winner.userId : undefined
-  const winnerName = useAppSelector(s =>
-    winnerUserId !== undefined ? s.users.byId.get(winnerUserId)?.name : undefined,
-  )
+  const winnerName = useDisplayName(winnerUserId)
 
   useEffect(() => {
     if (winnerUserId !== undefined) {

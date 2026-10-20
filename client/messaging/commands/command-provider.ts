@@ -1,5 +1,7 @@
 import { TFunction } from 'i18next'
+import { jotaiStore } from '../../jotai-store'
 import { RootState } from '../../root-reducer'
+import { userAliasesAtom } from '../../users/user-aliases'
 import {
   MAX_TYPEAHEAD_ROWS,
   TypeaheadMatch,
@@ -138,7 +140,18 @@ export function createCommandArgProvider(deps: CommandProviderDeps): TypeaheadPr
         return undefined
       }
 
-      const base = getArgSuggestions(activeArg, { context: deps.context, getState: deps.getState })
+      // A user row is found by the alias it's shown with as well as by the user's actual name, but
+      // always types in the actual name, which can't be mistaken for some other account's.
+      const aliases = jotaiStore.get(userAliasesAtom)
+      const base = getArgSuggestions(activeArg, {
+        context: deps.context,
+        getState: deps.getState,
+      }).map(suggestion => {
+        const alias = suggestion.user ? aliases.get(suggestion.user.id) : undefined
+        return alias !== undefined
+          ? { ...suggestion, aliases: [...(suggestion.aliases ?? []), alias] }
+          : suggestion
+      })
       if (base.length === 0) {
         // An argument with nothing to complete leaves the caret to the mention and emote
         // providers, which is what makes `@name` and `:emote` work inside a `rest` argument.
@@ -156,15 +169,20 @@ export function createCommandArgProvider(deps: CommandProviderDeps): TypeaheadPr
 
       const suggestions = filterArgSuggestions(base, query)
         .slice(0, MAX_TYPEAHEAD_ROWS)
-        .map((suggestion): TypeaheadSuggestion => ({
-          key: `argument:${suggestion.value}`,
-          text: suggestion.value,
-          visual: suggestion.user
-            ? { kind: 'user', userId: suggestion.user.id, online: suggestion.user.online }
-            : { kind: 'plain' },
-          insertText: `${prefix}${suggestion.value} `,
-          exact: spellsArgSuggestion(suggestion, query),
-        }))
+        .map((suggestion): TypeaheadSuggestion => {
+          const alias = suggestion.user ? aliases.get(suggestion.user.id) : undefined
+          return {
+            key: `argument:${suggestion.value}`,
+            text: alias ?? suggestion.value,
+            // Accounts can share an alias, so an aliased row says which account it is.
+            secondaryText: alias !== undefined ? suggestion.value : undefined,
+            visual: suggestion.user
+              ? { kind: 'user', userId: suggestion.user.id, online: suggestion.user.online }
+              : { kind: 'plain' },
+            insertText: `${prefix}${suggestion.value} `,
+            exact: spellsArgSuggestion(suggestion, query),
+          }
+        })
 
       return {
         start: caret.argStart + token.start,

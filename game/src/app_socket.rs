@@ -233,6 +233,13 @@ fn handle_app_message(text: String) -> Result<MessageResult, HandleMessageError>
                 blocked_users,
             )))
         }
+        "userAliases" => {
+            let aliases =
+                serde_json::from_value(payload).context(("Invalid user aliases", &*text))?;
+            Ok(MessageResult::Game(GameStateMessage::SetUserAliases(
+                aliases,
+            )))
+        }
         "blockRequestFailed" => {
             let failure =
                 serde_json::from_value(payload).context(("Invalid block failure", &*text))?;

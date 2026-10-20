@@ -9,7 +9,7 @@ import { UserRelationshipServiceErrorCode } from '../../../../common/users/relat
 import { makeSbUserId, SbUserId } from '../../../../common/users/sb-user-id'
 import { FetchError } from '../../../network/fetch-errors'
 import { blockUser, unblockUser } from '../../../social/action-creators'
-import { findUserByName } from '../../../users/action-creators'
+import { findUserByTypedName } from '../../../users/action-creators'
 import { ChannelCommandContext } from '../command-context'
 import { LocalLineContent } from '../local-output'
 import { runChatCommandWith } from '../run-chat-command'
@@ -41,7 +41,7 @@ vi.mock('../../../redux-hooks', () => ({
 // the command registry these run against pulls in every command's action creators.
 vi.mock('../../../users/action-creators', async importOriginal => ({
   ...(await importOriginal<typeof import('../../../users/action-creators')>()),
-  findUserByName: vi.fn(() => ({ type: 'TEST/findUserByName' })),
+  findUserByTypedName: vi.fn(() => ({ type: 'TEST/findUserByTypedName' })),
 }))
 
 vi.mock('../../../social/action-creators', async importOriginal => ({
@@ -124,8 +124,8 @@ function runInput(input: string, state: unknown = makeState()) {
 function runForTarget(input: string, state?: unknown, userId: SbUserId = TARGET_ID) {
   const run = runInput(input, state)
 
-  expect(findUserByName).toHaveBeenCalledTimes(1)
-  const [name, spec] = asMockedFunction(findUserByName).mock.calls[0]
+  expect(findUserByTypedName).toHaveBeenCalledTimes(1)
+  const [name, spec] = asMockedFunction(findUserByTypedName).mock.calls[0]
   spec.onSuccess({ id: userId, name, created: 0 })
 
   return run

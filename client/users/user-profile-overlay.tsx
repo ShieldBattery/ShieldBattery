@@ -48,6 +48,7 @@ import {
 import { AvailabilityDot } from './availability'
 import { ExpandableRankDisplays } from './expandable-rank-displays'
 import { StaffBadge } from './staff-badge'
+import { useUserAlias } from './user-aliases'
 
 const joinDateFormat = dateTimeFormat({
   month: 'long',
@@ -219,6 +220,12 @@ const CommendsIcon = styled(CommendIcon).attrs({ size: 18 })`
   color: var(--theme-amber);
 `
 
+const AliasOf = styled.div`
+  ${bodyMedium};
+  ${singleLine};
+  color: var(--theme-on-surface-variant);
+`
+
 const SectionHeader = styled.div`
   ${labelMedium};
   ${singleLine};
@@ -270,6 +277,7 @@ export function UserProfileOverlayContents({
   const commendCount = liveData?.user?.commendCount ?? 0
 
   const username = user?.name
+  const alias = useUserAlias(userId)
 
   useEffect(() => {
     cancelLoadRef.current.abort()
@@ -324,10 +332,18 @@ export function UserProfileOverlayContents({
         </AvatarContainer>
         <UsernameAndTitle>
           {user ? (
-            <Username>{user.name}</Username>
+            <Username>{alias ?? user.name}</Username>
           ) : (
             <LoadingUsername aria-label={t('common.loading.username', 'Username loading…')} />
           )}
+          {user && alias !== undefined ? (
+            <AliasOf>
+              {t('users.alias.aliasOf', {
+                defaultValue: 'Your alias for {{name}}',
+                name: user.name,
+              })}
+            </AliasOf>
+          ) : null}
           <Title>{t('users.titles.novice', 'Novice')}</Title>
         </UsernameAndTitle>
       </IdentityArea>

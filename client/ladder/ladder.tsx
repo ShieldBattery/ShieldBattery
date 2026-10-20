@@ -82,6 +82,7 @@ import {
 import { LiveUsersContext } from '../twitch/live-state'
 import { navigateToUserProfile } from '../users/action-creators'
 import { RaceSelectionTooltip } from '../users/race-selection-tooltip'
+import { useDisplayNameGetter } from '../users/user-aliases'
 import {
   getCurrentSeasonRankings,
   getPreviousSeasonRankings,
@@ -1284,9 +1285,19 @@ export function LadderTable(props: LadderTableProps) {
 
   const bonusPool = season ? getTotalBonusPoolForSeason(new Date(curTime), season) : 0
 
-  const onRowSelected = useCallback((userId: SbUserId, username: string) => {
-    navigateToUserProfile(userId, username)
-  }, [])
+  const getDisplayName = useDisplayNameGetter()
+  // Rows show the name each player is displayed with, which may be an alias, so the profile URL
+  // takes the player's actual name rather than the one the row was given.
+  const onRowSelected = useCallback(
+    (userId: SbUserId) => {
+      navigateToUserProfile(userId, usersById.get(userId)?.name ?? '')
+    },
+    [usersById],
+  )
+  const nameFor = (userId: SbUserId) => {
+    const user = usersById.get(userId)
+    return user ? getDisplayName(user) : ''
+  }
 
   const renderRow = (index: number, player: LadderPlayer) => {
     const user = usersById.get(player.userId)
@@ -1297,7 +1308,7 @@ export function LadderTable(props: LadderTableProps) {
         isEven={index % 2 === 0}
         isSelf={player.userId === selfUserId}
         player={player}
-        username={user?.name ?? ''}
+        username={user ? getDisplayName(user) : ''}
         avatarUrl={user?.avatarUrl}
         curTime={curTime}
         bonusPool={bonusPool}
@@ -1411,7 +1422,7 @@ export function LadderTable(props: LadderTableProps) {
           <Podium>
             <SpotlightPlayer
               player={players[0]}
-              username={usersById.get(players[0].userId)?.name ?? ''}
+              username={nameFor(players[0].userId)}
               bonusPool={bonusPool}
               onSelected={onRowSelected}
             />
@@ -1419,14 +1430,14 @@ export function LadderTable(props: LadderTableProps) {
               <RunnerUpPlayer
                 place={2}
                 player={players[1]}
-                username={usersById.get(players[1].userId)?.name ?? ''}
+                username={nameFor(players[1].userId)}
                 bonusPool={bonusPool}
                 onSelected={onRowSelected}
               />
               <RunnerUpPlayer
                 place={3}
                 player={players[2]}
-                username={usersById.get(players[2].userId)?.name ?? ''}
+                username={nameFor(players[2].userId)}
                 bonusPool={bonusPool}
                 onSelected={onRowSelected}
               />

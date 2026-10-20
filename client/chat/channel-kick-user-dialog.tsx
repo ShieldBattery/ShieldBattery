@@ -7,9 +7,10 @@ import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { DialogType } from '../dialogs/dialog-type'
 import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { useAppDispatch } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { BodyLarge } from '../styles/typography'
+import { useDisplayName } from '../users/user-aliases'
 import { moderateUser } from './action-creators'
 
 export interface ChannelKickUserConfirmationProps extends CommonDialogProps {
@@ -28,7 +29,7 @@ export function ChannelKickUserConfirmation({
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
-  const user = useAppSelector(s => s.users.byId.get(userId))!
+  const userDisplayName = useDisplayName(userId) ?? ''
   const [isKicking, setIsKicking] = useState(false)
 
   const onConfirmClick = () => {
@@ -40,7 +41,7 @@ export function ChannelKickUserConfirmation({
           snackbarController.showSnackbar(
             t('chat.kickUser.successMessage', {
               defaultValue: '{{user}} was kicked',
-              user: user.name,
+              user: userDisplayName,
             }),
           )
           dispatch(closeDialog(DialogType.ChannelKickUserConfirmation))
@@ -51,7 +52,7 @@ export function ChannelKickUserConfirmation({
           snackbarController.showSnackbar(
             t('chat.kickUser.errorMessage', {
               defaultValue: 'Something went wrong while kicking {{user}}',
-              user: user.name,
+              user: userDisplayName,
             }),
           )
         },
@@ -67,7 +68,10 @@ export function ChannelKickUserConfirmation({
       disabled={isKicking}
     />,
     <TextButton
-      label={t('chat.kickUser.confirmAction', { defaultValue: 'Kick {{user}}', user: user.name })}
+      label={t('chat.kickUser.confirmAction', {
+        defaultValue: 'Kick {{user}}',
+        user: userDisplayName,
+      })}
       key='kick'
       onClick={onConfirmClick}
       disabled={isKicking}
@@ -76,14 +80,17 @@ export function ChannelKickUserConfirmation({
 
   return (
     <Dialog
-      title={t('chat.kickUser.dialogTitle', { defaultValue: 'Kick {{user}}?', user: user.name })}
+      title={t('chat.kickUser.dialogTitle', {
+        defaultValue: 'Kick {{user}}?',
+        user: userDisplayName,
+      })}
       buttons={buttons}
       onCancel={onCancel}>
       <BodyLarge>
         {t('chat.kickUser.body', {
           defaultValue:
             '{{user}} will be removed from the channel and lose their channel permissions. They can rejoin at any time.',
-          user: user.name,
+          user: userDisplayName,
         })}
       </BodyLarge>
     </Dialog>

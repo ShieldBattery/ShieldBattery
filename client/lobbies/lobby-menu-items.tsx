@@ -7,6 +7,7 @@ import { DestructiveMenuItem } from '../material/menu/item'
 import { RequestHandlingSpec } from '../network/abortable-thunk'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
+import { useDisplayName } from '../users/user-aliases'
 import { MenuItemCategory, UserMenuProps } from '../users/user-context-menu'
 import { banPlayer, kickPlayer } from './action-creators'
 import { lobbyActionErrorMessage } from './lobby-action-errors'
@@ -18,6 +19,7 @@ export function LobbyUserMenu({ userId, items, onMenuClose, MenuComponent }: Use
   const snackbarController = useSnackbarController()
   const selfUserId = useAppSelector(s => s.auth.self!.user.id)
   const user = useAppSelector(s => s.users.byId.get(userId))
+  const userDisplayName = useDisplayName(userId) ?? ''
   const inLobby = useAppSelector(s => isInLobby(s.lobby))
   const lobby = useAppSelector(s => s.lobby.info)
   const [, , slot] = findSlotByUserId(lobby, userId)
@@ -42,7 +44,7 @@ export function LobbyUserMenu({ userId, items, onMenuClose, MenuComponent }: Use
         key='kick'
         text={t('lobbies.slots.kickPlayer', {
           defaultValue: 'Kick {{user}}',
-          user: user.name,
+          user: userDisplayName,
         })}
         onClick={() => {
           dispatch(kickPlayer(slot.id, actionSpec))
@@ -57,7 +59,7 @@ export function LobbyUserMenu({ userId, items, onMenuClose, MenuComponent }: Use
         key='ban'
         text={t('lobbies.slots.banPlayer', {
           defaultValue: 'Ban {{user}}',
-          user: user.name,
+          user: userDisplayName,
         })}
         onClick={() => {
           dispatch(banPlayer(slot.id, actionSpec))

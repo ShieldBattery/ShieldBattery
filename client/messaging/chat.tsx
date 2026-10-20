@@ -39,6 +39,7 @@ import {
 } from '../messaging/message-records'
 import { useAppDispatch } from '../redux-hooks'
 import { labelMedium } from '../styles/typography'
+import { getDisplayName } from '../users/user-aliases'
 import {
   BaseUserMenuItemsProvider,
   MenuItemCategory,
@@ -1066,7 +1067,7 @@ export function Chat({
       const { users } = getState()
       const user = users.byId.get(userId)
       if (user) {
-        messageInputRef.current?.startReply({ id: user.id, name: user.name })
+        messageInputRef.current?.startReply({ id: user.id, name: getDisplayName(user) })
       }
     })
   }

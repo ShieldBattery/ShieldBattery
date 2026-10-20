@@ -7,11 +7,12 @@ import { MaterialIcon } from '../icons/material/material-icon'
 import { TextButton } from '../material/button'
 import { markNotificationsRead } from '../notifications/action-creators'
 import { ActionableNotification, ActionlessNotification } from '../notifications/notifications'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { useAppDispatch } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
 import { titleSmall } from '../styles/typography'
 import { getBatchUserInfo } from '../users/action-creators'
+import { useDisplayName } from '../users/user-aliases'
 import { acceptFriendRequest, declineFriendRequest } from './action-creators'
 
 const ColoredAddIcon = styledWithAttrs(MaterialIcon, { icon: 'group_add', size: 36 })`
@@ -41,7 +42,7 @@ export const FriendRequestNotificationUi = memo(function FriendRequestNotificati
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
-  const username = useAppSelector(s => s.users.byId.get(from)?.name)
+  const username = useDisplayName(from)
 
   useEffect(() => {
     dispatch(getBatchUserInfo(from))
@@ -124,7 +125,7 @@ export const FriendStartNotificationUi = memo(function FriendStartNotificationUi
 }: FriendStartNotificationUiProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
-  const username = useAppSelector(s => s.users.byId.get(otherUser)?.name)
+  const username = useDisplayName(otherUser)
 
   useEffect(() => {
     dispatch(getBatchUserInfo(otherUser))

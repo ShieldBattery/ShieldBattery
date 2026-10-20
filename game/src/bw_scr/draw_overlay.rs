@@ -24,6 +24,7 @@ use winapi::shared::windef::{HWND, POINT};
 use crate::app_messages::GameSetupInfo;
 use crate::bw;
 use crate::bw::apm_stats::ApmStats;
+use crate::bw::players::BwPlayerId;
 use crate::bw_scr::chat::ChatManager;
 use crate::bw_scr::game_stats::{self, GameStats};
 use crate::bw_scr::replay_transport::{ReplayCommand, TransportState};
@@ -31,6 +32,7 @@ use crate::bw_scr::scr;
 use crate::bw_scr::stat_txt::StatTxt;
 use crate::bw_scr::{BwCursorType, console, dialog_hook};
 use crate::netcode_v2::{self, DisconnectStatus, LoadingConnectivity, NetStatsStatus};
+use crate::user_aliases;
 
 pub use self::alliances::AllianceRules;
 use self::alliances::AlliancesState;
@@ -1858,7 +1860,8 @@ unsafe fn matchup_player_view(
             bw.rgb_colors,
             player_id,
         );
-        let mut name = bw::player_name(player);
+        let mut name =
+            user_aliases::player_display_name(BwPlayerId(player_id), bw::player_name(player));
         if name.is_empty() {
             name = format!("Player {}", player_id + 1).into();
         }

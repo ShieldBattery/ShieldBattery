@@ -1,11 +1,14 @@
+import { useAtomValue } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { FragmentType, graphql, useFragment } from '../gql'
 import { useFormatLocale } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { EllipsizedText } from '../material/ellipsized-text'
 import { bodyMedium, bodySmall, labelSmall, singleLine, titleSmall } from '../styles/typography'
+import { userAliasesAtom } from '../users/user-aliases'
 import {
   formatViewerCount,
   LiveDot,
@@ -57,8 +60,10 @@ function useLiveStream(query: FragmentType<typeof LiveStreams_FeedEntryFragment>
  * The ShieldBattery identity leads every entry: the SB username. The Twitch handle is only worth
  * showing when it differs from the SB name.
  */
-function getIdentity(stream: LiveStreamFragment) {
-  const sbName = stream.user?.name ?? stream.twitchDisplayName
+function getIdentity(stream: LiveStreamFragment, aliases: ReadonlyMap<SbUserId, string>) {
+  const sbName =
+    (stream.user ? (aliases.get(stream.user.id) ?? stream.user.name) : undefined) ??
+    stream.twitchDisplayName
   const handle =
     stream.user && stream.twitchDisplayName.toLowerCase() !== stream.user.name.toLowerCase()
       ? stream.twitchDisplayName
@@ -187,7 +192,7 @@ export function FeaturedLiveStreamEntry({
   query: FragmentType<typeof LiveStreams_FeedEntryFragment>
 }) {
   const stream = useLiveStream(query)
-  const { sbName, handle } = getIdentity(stream)
+  const { sbName, handle } = getIdentity(stream, useAtomValue(userAliasesAtom))
 
   const entry = (
     <FeaturedRoot href={streamUrl(stream.twitchLogin)} target='_blank' rel='noopener'>
@@ -303,7 +308,7 @@ export function LiveStreamEntry({
   query: FragmentType<typeof LiveStreams_FeedEntryFragment>
 }) {
   const stream = useLiveStream(query)
-  const { sbName, handle } = getIdentity(stream)
+  const { sbName, handle } = getIdentity(stream, useAtomValue(userAliasesAtom))
   const uptime = useStreamUptime(stream.startedAt)
 
   const entry = (
@@ -456,7 +461,7 @@ export function MiniLiveStreamEntry({
   const { t } = useTranslation()
   const locale = useFormatLocale()
   const stream = useLiveStream(query)
-  const { sbName } = getIdentity(stream)
+  const { sbName } = getIdentity(stream, useAtomValue(userAliasesAtom))
   const uptime = useStreamUptime(stream.startedAt)
 
   const entry = (

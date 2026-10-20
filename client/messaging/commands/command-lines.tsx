@@ -7,6 +7,7 @@ import { UserErrorCode } from '../../../common/users/user-network'
 import { TransInterpolation } from '../../i18n/i18next'
 import { listFormat } from '../../i18n/locale-formats'
 import { isFetchError } from '../../network/fetch-errors'
+import { AmbiguousUserNameError } from '../../users/action-creators'
 import { CommandSurface } from './command-context'
 import { ParseArgsFailure } from './command-parser'
 import { ALL_COMMAND_SURFACES, ChatCommand } from './command-schema'
@@ -113,9 +114,29 @@ export function transformTooLongLine(length: number, t: TFunction): React.ReactN
   )
 }
 
+/** Joins the users a typed name could mean into a list of alternatives, e.g. `A, B, or C`. */
+const candidateListFormat = listFormat({ type: 'disjunction' })
+
+/**
+ * The line a typed name that could mean more than one user (by way of the local user's aliases)
+ * answers with. It names each of them by their actual name, which always picks out just one.
+ */
+export function ambiguousUserNameLine(err: AmbiguousUserNameError, t: TFunction): React.ReactNode {
+  const name = err.typedName
+  const candidates = candidateListFormat.current().format(err.candidates.map(u => u.name))
+  return (
+    <Trans t={t} i18nKey='chat.commands.errors.ambiguousUserName'>
+      <LocalStrong>{{ name } as TransInterpolation}</LocalStrong> could mean{' '}
+      {{ candidates } as TransInterpolation}. Use the name of the one you mean.
+    </Trans>
+  )
+}
+
 /** The line a command that had to look a user up by name answers with when the lookup failed. */
 export function userLookupFailedLine(name: string, err: Error, t: TFunction): React.ReactNode {
-  if (isFetchError(err) && err.code === UserErrorCode.NotFound) {
+  if (err instanceof AmbiguousUserNameError) {
+    return ambiguousUserNameLine(err, t)
+  } else if (isFetchError(err) && err.code === UserErrorCode.NotFound) {
     return (
       <Trans t={t} i18nKey='chat.commands.errors.noSuchUser'>
         No user named <LocalStrong>{{ name } as TransInterpolation}</LocalStrong>.

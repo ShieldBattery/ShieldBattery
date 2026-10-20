@@ -28,15 +28,20 @@ import {
   GetUserProfileResponse,
   GetUserRankingHistoryResponse,
   SearchUsersResponse,
+  UserErrorCode,
 } from '../../common/users/user-network'
-import { ThunkAction } from '../dispatch-registry'
+import { ReduxAction } from '../action-types'
+import { DispatchFunction, ThunkAction } from '../dispatch-registry'
 import { buildGameListSearchParams } from '../games/game-filter-url'
 import logger from '../logging/logger'
 import { push, replace } from '../navigation/routing'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { MicrotaskBatchRequester } from '../network/batch-requests'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
+import { isFetchError } from '../network/fetch-errors'
 import { RequestCoalescer } from '../network/request-coalescer'
+import { RootState } from '../root-reducer'
+import { findUsersByAlias } from './user-aliases'
 import { UserProfileSubPage } from './user-profile-sub-page'
 
 /**
@@ -171,22 +176,129 @@ export function getBatchUserInfo(userId: SbUserId): ThunkAction {
  * `UserErrorCode.NotFound` when no user has the name.
  */
 export function findUserByName(name: string, spec: RequestHandlingSpec<SbUser>): ThunkAction {
-  return abortableThunk(spec, async (dispatch, getState) => {
-    // The server resolves names without regard to case, so this scan has to as well: matching
-    // exactly here would send a differently-cased name to the server and come back with the very
-    // user that was already in hand.
-    const lowered = name.toLowerCase()
-    for (const user of getState().users.byId.values()) {
-      if (user.name.toLowerCase() === lowered) {
-        return user
-      }
+  return abortableThunk(spec, (dispatch, getState) =>
+    lookUpUserByName(name, dispatch, getState, spec.signal),
+  )
+}
+
+async function lookUpUserByName(
+  name: string,
+  dispatch: DispatchFunction<ReduxAction>,
+  getState: () => RootState,
+  signal?: AbortSignal,
+): Promise<SbUser> {
+  // The server resolves names without regard to case, so this scan has to as well: matching
+  // exactly here would send a differently-cased name to the server and come back with the very
+  // user that was already in hand.
+  const lowered = name.toLowerCase()
+  for (const user of getState().users.byId.values()) {
+    if (user.name.toLowerCase() === lowered) {
+      return user
     }
+  }
 
-    const { user } = await fetchJson<GetUserByNameResponse>(apiUrl`users/by-name/${name}`, {
-      signal: spec.signal,
-    })
-    dispatch({ type: '@users/loadUsers', payload: [user] })
+  const { user } = await fetchJson<GetUserByNameResponse>(apiUrl`users/by-name/${name}`, {
+    signal,
+  })
+  dispatch({ type: '@users/loadUsers', payload: [user] })
 
+  return user
+}
+
+/**
+ * The error a typed name fails to resolve with when it's both the local user's alias for one player
+ * and the actual name of a different one, leaving no way to tell which of them was meant.
+ */
+export class AmbiguousUserNameError extends Error {
+  override name = 'AmbiguousUserNameError'
+
+  constructor(
+    readonly typedName: string,
+    /**
+     * Every user `typedName` could mean: the account actually named that, if there is one, first,
+     * then each account the local user gave it to as an alias.
+     */
+    readonly candidates: ReadonlyArray<Readonly<SbUser>>,
+  ) {
+    super(`"${typedName}" could mean any of ${candidates.length} users`)
+  }
+}
+
+/**
+ * Resolves a name the local user typed to the user they mean, like {@link findUserByName}, except
+ * that the local user's aliases count too: names on screen are shown as aliases, so an alias is
+ * what someone reading them will type. An alias may be shared by several accounts (e.g. to link
+ * one player's accounts together) and may also be some other account's actual name, so a name can
+ * mean more than one user. When it does there's no telling who was meant, and this fails with an
+ * {@link AmbiguousUserNameError} naming them all rather than guess.
+ */
+export function findUserByTypedName(name: string, spec: RequestHandlingSpec<SbUser>): ThunkAction {
+  return abortableThunk(spec, (dispatch, getState) =>
+    resolveTypedUserName(name, dispatch, getState, spec.signal),
+  )
+}
+
+/** The work of {@link findUserByTypedName}, for thunks that resolve a typed name along the way. */
+export async function resolveTypedUserName(
+  name: string,
+  dispatch: DispatchFunction<ReduxAction>,
+  getState: () => RootState,
+  signal?: AbortSignal,
+): Promise<SbUser> {
+  const aliasedUserIds = findUsersByAlias(name)
+  if (!aliasedUserIds.length) {
+    return await lookUpUserByName(name, dispatch, getState, signal)
+  }
+
+  let namedUser: SbUser | undefined
+  try {
+    namedUser = await lookUpUserByName(name, dispatch, getState, signal)
+  } catch (err) {
+    if (!isFetchError(err) || err.code !== UserErrorCode.NotFound) {
+      throw err
+    }
+  }
+
+  const aliasedUsers = await getUsersById(
+    aliasedUserIds.filter(id => id !== namedUser?.id),
+    dispatch,
+    getState,
+    signal,
+  )
+  const candidates = namedUser ? [namedUser, ...aliasedUsers] : aliasedUsers
+  if (candidates.length > 1) {
+    throw new AmbiguousUserNameError(name, candidates)
+  }
+
+  return candidates[0]
+}
+
+/** Returns the users with `userIds`, requesting any the client doesn't know in one batch. */
+async function getUsersById(
+  userIds: ReadonlyArray<SbUserId>,
+  dispatch: DispatchFunction<ReduxAction>,
+  getState: () => RootState,
+  signal?: AbortSignal,
+): Promise<SbUser[]> {
+  const { byId } = getState().users
+  const unknownIds = userIds.filter(id => !byId.has(id))
+  const fetched = new Map<SbUserId, SbUser>()
+  if (unknownIds.length) {
+    const { userInfos } = await fetchJson<GetBatchUserInfoResponse>(
+      apiUrl`users/batch-info` + '?' + unknownIds.map(id => urlPath`u=${id}`).join('&'),
+      { signal },
+    )
+    dispatch({ type: '@users/loadUsers', payload: userInfos })
+    for (const user of userInfos) {
+      fetched.set(user.id, user)
+    }
+  }
+
+  return userIds.map(id => {
+    const user = byId.get(id) ?? fetched.get(id)
+    if (!user) {
+      throw new Error(`user ${id} not found`)
+    }
     return user
   })
 }

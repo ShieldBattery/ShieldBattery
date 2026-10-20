@@ -17,9 +17,9 @@ use tokio::sync::{mpsc, oneshot};
 
 use crate::app_messages::{
     BlockRequestFailed, GAME_STATUS_ERROR, GamePlayerResult, GameResults, GameResultsMessage,
-    GameSetupInfo, GameType, MapForce, MapInfo, NetcodeV2Setup, NetworkStallInfo, NetworkStatus,
-    NetworkTransport, PlayerInfo, RawGameResultsReport, RawNetPlayer, RawPlayerResult, SbUser,
-    SbUserId, ServerConfig, Settings, SetupProgress, UmsLobbyRace,
+    GameSetupInfo, GameType, GameUserAlias, MapForce, MapInfo, NetcodeV2Setup, NetworkStallInfo,
+    NetworkStatus, NetworkTransport, PlayerInfo, RawGameResultsReport, RawNetPlayer,
+    RawPlayerResult, SbUser, SbUserId, ServerConfig, Settings, SetupProgress, UmsLobbyRace,
 };
 use crate::app_socket;
 use crate::bw::players::{AllianceState, BwPlayerId, PlayerLoseType, StormPlayerId, VictoryState};
@@ -31,6 +31,7 @@ use crate::game_thread::{
 };
 use crate::netcode_v2;
 use crate::replay;
+use crate::user_aliases;
 
 pub type SendMessages = mpsc::Sender<GameStateMessage>;
 
@@ -110,6 +111,8 @@ pub enum GameStateMessage {
     /// The local user's full block list. Accepted at any point in the game's life, since blocks
     /// can change while it runs.
     SetBlockedUsers(Vec<SbUserId>),
+    /// The names the local user has given players, to show in place of theirs.
+    SetUserAliases(Vec<GameUserAlias>),
     /// The app couldn't save a block or unblock made with an in-game chat command.
     BlockRequestFailed(BlockRequestFailed),
     ReportResult(crate::app_messages::ReportResult),
@@ -890,6 +893,9 @@ impl GameState {
             }
             SetBlockedUsers(users) => {
                 self.set_blocked_users(users);
+            }
+            SetUserAliases(aliases) => {
+                user_aliases::set_aliases(aliases);
             }
             BlockRequestFailed(failure) => {
                 get_bw().block_request_failed(&failure);

@@ -20,8 +20,10 @@ use overlay_ui::shell::PanelPrefs;
 use overlay_ui::transport;
 
 use crate::bw;
+use crate::bw::players::BwPlayerId;
 use crate::bw_scr::game_stats::{GameStats, HistoryStamp, Sample, StatsAsOf, TimelineSubject};
 use crate::game_thread;
+use crate::user_aliases;
 
 use super::{
     BwVars, FASTEST_GAME_SPEED, has_player_vision, player_has_units, production,
@@ -799,9 +801,12 @@ pub(super) fn player_race(bw: &BwVars, player_id: u8) -> (Race, RaceView) {
     }
 }
 
-/// What this player is called, falling back to their slot for a slot that carries no name.
+/// What this player is called (or the alias the local user gave them), falling back to their slot
+/// for a slot that carries no name.
 pub(super) fn player_name(bw: &BwVars, player_id: u8) -> String {
-    let name = unsafe { bw::player_name(bw.players.add(player_id as usize)) };
+    let name = user_aliases::player_display_name(BwPlayerId(player_id), unsafe {
+        bw::player_name(bw.players.add(player_id as usize))
+    });
     if name.is_empty() {
         format!("Player {}", player_id + 1)
     } else {

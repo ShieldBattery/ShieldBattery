@@ -8,7 +8,7 @@ import { asMockedFunction } from '../../../../common/testing/mocks'
 import { makeSbUserId, SbUserId } from '../../../../common/users/sb-user-id'
 import { unbanUser } from '../../../chat/action-creators'
 import { FetchError } from '../../../network/fetch-errors'
-import { findUserByName } from '../../../users/action-creators'
+import { findUserByTypedName } from '../../../users/action-creators'
 import { ChannelCommandContext, CommandContext, WhisperCommandContext } from '../command-context'
 import { LocalLineContent } from '../local-output'
 import { runChatCommandWith } from '../run-chat-command'
@@ -22,7 +22,7 @@ vi.mock('../../../logging/logger', () => ({
 // the command registry these run against pulls in every command's action creators.
 vi.mock('../../../users/action-creators', async importOriginal => ({
   ...(await importOriginal<typeof import('../../../users/action-creators')>()),
-  findUserByName: vi.fn(() => ({ type: 'TEST/findUserByName' })),
+  findUserByTypedName: vi.fn(() => ({ type: 'TEST/findUserByTypedName' })),
 }))
 
 vi.mock('../../../chat/action-creators', async importOriginal => ({
@@ -98,8 +98,8 @@ function runInput(input: string, context: CommandContext = channelContext(true))
 function runForTarget(input: string, context: CommandContext = channelContext(true)) {
   const run = runInput(input, context)
 
-  expect(findUserByName).toHaveBeenCalledTimes(1)
-  const [name, spec] = asMockedFunction(findUserByName).mock.calls[0]
+  expect(findUserByTypedName).toHaveBeenCalledTimes(1)
+  const [name, spec] = asMockedFunction(findUserByTypedName).mock.calls[0]
   spec.onSuccess({ id: TARGET_ID, name, created: 0 })
 
   return run
@@ -148,7 +148,7 @@ describe('messaging/commands/commands/unban', () => {
   test('without permission to ban, the command says why it cannot run', () => {
     const { emit } = runInput('/unban tec27', channelContext(false))
 
-    expect(findUserByName).not.toHaveBeenCalled()
+    expect(findUserByTypedName).not.toHaveBeenCalled()
     expect(unbanUser).not.toHaveBeenCalled()
     expect(emit.mock.calls[0][0].kind).toBe('error')
     expect(emit.mock.calls[0][0].content).toBe(
