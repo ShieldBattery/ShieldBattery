@@ -104,6 +104,12 @@ pub struct OverlayState {
     /// finish — and must never see a release without its press, which can shift BW's dialog focus
     /// (off an open chat box, for one). Indexed like [`mouse_down`](Self::mouse_down).
     bw_mouse_down: [bool; 2],
+    /// Per virtual key, whether its last press was delivered to BW, so its release is delivered too
+    /// whatever has the keyboard by then. BW keeps its own record of which keys are down, which
+    /// only a release (or the window losing focus) clears: a modifier whose release it never saw
+    /// stays held for it, and an Alt it thinks is down turns every minimap click into a ping and
+    /// takes every letter key, a Ctrl selects every unit of a kind with one click.
+    bw_keys_down: [bool; 256],
     /// Keep track if mouse button is down even when it wasn't started on
     /// top of overlay rects.
     mouse_down: [bool; 2],
@@ -449,6 +455,7 @@ impl OverlayState {
             },
             captured_mouse_down: [false; 2],
             bw_mouse_down: [false; 2],
+            bw_keys_down: [false; 256],
             mouse_down: [false; 2],
             window_size: (100, 100),
             screen_size: (100, 100),
@@ -1535,6 +1542,15 @@ impl OverlayState {
                     modifiers.alt |= is_syskey && vkey != VK_F10;
                     let key = vkey_to_egui_key(vkey);
                     let scan_code = message_scan_code(lparam);
+                    let bw_key_down = self.bw_keys_down.get_mut(wparam & 0xff);
+                    if !pressed && bw_key_down.is_some_and(std::mem::take) {
+                        // A press BW saw gets its release, even when a modal opened since takes
+                        // every other key: BW would otherwise keep the key held.
+                        if self.capture.blocks_game_key(key) {
+                            debug!("Releasing key {vkey:#x} to the game, which saw it pressed");
+                        }
+                        return None;
+                    }
                     if !pressed {
                         if let Some(index) = self
                             .shell_held_keys
@@ -1594,6 +1610,15 @@ impl OverlayState {
                     if self.capture.blocks_game_key(key) {
                         return Some(0);
                     }
+                    if pressed && let Some(down) = self.bw_keys_down.get_mut(wparam & 0xff) {
+                        *down = true;
+                    }
+                    None
+                }
+                // BW forgets every held key when its window loses focus, so a release that comes
+                // after is one it no longer expects.
+                WM_KILLFOCUS => {
+                    self.bw_keys_down = [false; 256];
                     None
                 }
                 WM_CHAR | WM_SYSCHAR
