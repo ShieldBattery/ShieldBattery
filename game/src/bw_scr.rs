@@ -3098,6 +3098,10 @@ impl BwScr {
                         true => match commands::replay_seek_target(&slice, &self.game_command_lengths)
                         {
                             Some(target) if crate::replay_seek::take_seek_request(self, target) => {
+                                // The transport reads the commands below, after this strip, so
+                                // without this it would hold back every later seek until its
+                                // timeout.
+                                self.note_replay_seek_taken();
                                 Cow::Owned(
                                     commands::strip_replay_seeks(&slice, &self.game_command_lengths)
                                         .into_owned(),

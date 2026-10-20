@@ -3,7 +3,9 @@
 
 use std::ops::RangeInclusive;
 
-use egui::{Color32, Pos2, Rect, Response, Sense, Shape, Stroke, StrokeKind, Ui, Vec2, pos2, vec2};
+use egui::{
+    Color32, Id, Pos2, Rect, Response, Sense, Shape, Stroke, StrokeKind, Ui, Vec2, pos2, vec2,
+};
 
 use crate::colors::{
     BLUE60, BLUE70, BLUE80, BLUE95, BLUE99, GREY_BLUE40, GREY_BLUE60, GREY_BLUE70,
@@ -291,8 +293,10 @@ pub fn switch(ui: &mut Ui, on: &mut bool) -> Response {
 /// What a scrub track reported back.
 pub struct ScrubTrack {
     pub response: Response,
-    /// Where the pointer is asking to move to, from 0 to 1, while it is pressing the track.
-    /// `None` on every frame the player is not moving it.
+    /// Where the pointer is asking to move to, from 0 to 1: on the frame a press lands on the
+    /// track, and on each later frame of that press that has it somewhere new. `None` on every
+    /// other frame, including the ones a press holds still and the one that lets go where it
+    /// already was.
     pub target: Option<f32>,
     /// Which of the track's markers the pointer is resting on, as an index into the ones it was
     /// given.
@@ -356,13 +360,14 @@ pub fn scrub_track_marked(
         .or(response.interact_pointer_pos());
     let pressed_marker = pressed_at.and_then(marker_at);
     let clicked_marker = response.clicked().then_some(pressed_marker).flatten();
-    let target = match pressed_marker {
+    let pointer = match pressed_marker {
         Some(_) => None,
         None => response.interact_pointer_pos().map(|pointer| {
             ((pointer.x - bar.left()) / bar.width().max(f32::MIN_POSITIVE)).clamp(0.0, 1.0)
         }),
     };
-    let drawn = target.unwrap_or(fraction).clamp(0.0, 1.0);
+    let target = new_scrub_target(ui, response.id, pointer);
+    let drawn = pointer.unwrap_or(fraction).clamp(0.0, 1.0);
     if !ui.is_rect_visible(rect) {
         return ScrubTrack {
             response,
@@ -416,6 +421,25 @@ pub fn scrub_track_marked(
         hovered_marker,
         clicked_marker,
     }
+}
+
+/// What a press with the head at `pointer` asks for that it hasn't already: each position once.
+///
+/// egui reports where a press is on every frame of it and on the frame that lets go, so a plain
+/// click would otherwise ask for the same move two or more times, and a press held still would
+/// keep asking. A new press asks again, even for the spot the last one left the head at.
+fn new_scrub_target(ui: &Ui, id: Id, pointer: Option<f32>) -> Option<f32> {
+    let id = id.with("asked");
+    let new_press = ui.input(|input| input.pointer.any_pressed());
+    ui.data_mut(|data| {
+        let Some(at) = pointer else {
+            data.remove::<f32>(id);
+            return None;
+        };
+        let asked = data.get_temp::<f32>(id).filter(|_| !new_press);
+        data.insert_temp(id, at);
+        (asked != Some(at)).then_some(at)
+    })
 }
 
 /// Which of the markers drawn at `xs` the pointer at `x` is on: the nearest one no further than
@@ -685,5 +709,62 @@ mod tests {
     #[test]
     fn two_markers_drawn_on_one_spot_answer_as_the_one_drawn_on_top() {
         assert_eq!(nearest_marker(&[50.0, 50.0], 50.0, MARKER_REACH), Some(1));
+    }
+
+    /// One frame of a scrub track in the top left corner, with the pointer at `pos` and the primary
+    /// button going down (`true`) or up (`false`) there in the order `buttons` gives. Returns the
+    /// track's target.
+    fn scrub_frame(ctx: &egui::Context, time: f64, pos: Pos2, buttons: &[bool]) -> Option<f32> {
+        let mut events = vec![egui::Event::PointerMoved(pos)];
+        events.extend(buttons.iter().map(|&pressed| egui::Event::PointerButton {
+            pos,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: egui::Modifiers::NONE,
+        }));
+        let raw = egui::RawInput {
+            screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), vec2(400.0, 100.0))),
+            time: Some(time),
+            events,
+            ..Default::default()
+        };
+        let mut target = None;
+        let mut output = ctx.run_ui(raw, |ui| {
+            target = scrub_track(ui, 0.0, vec2(200.0, 20.0)).target;
+        });
+        output.textures_delta.clear();
+        target
+    }
+
+    #[test]
+    fn a_click_on_a_scrub_track_asks_to_move_once() {
+        let ctx = egui::Context::default();
+        let at = pos2(100.0, 10.0);
+        assert_eq!(scrub_frame(&ctx, 0.0, at, &[]), None);
+        let asked = scrub_frame(&ctx, 0.1, at, &[true]);
+        assert!(asked.is_some());
+        // Held still, then let go where it was.
+        assert_eq!(scrub_frame(&ctx, 0.2, at, &[]), None);
+        assert_eq!(scrub_frame(&ctx, 0.3, at, &[false]), None);
+        assert_eq!(scrub_frame(&ctx, 0.4, at, &[]), None);
+        // Clicking the same spot again is a new ask.
+        assert_eq!(scrub_frame(&ctx, 0.5, at, &[true]), asked);
+        assert_eq!(scrub_frame(&ctx, 0.6, at, &[false]), None);
+        // And so is a click that starts and ends within one frame.
+        assert_eq!(scrub_frame(&ctx, 0.7, at, &[true, false]), asked);
+        assert_eq!(scrub_frame(&ctx, 0.8, at, &[]), None);
+    }
+
+    #[test]
+    fn a_drag_along_a_scrub_track_asks_for_each_new_position_and_not_again_on_letting_go() {
+        let ctx = egui::Context::default();
+        let start = pos2(60.0, 10.0);
+        let end = pos2(140.0, 10.0);
+        scrub_frame(&ctx, 0.0, start, &[]);
+        let first = scrub_frame(&ctx, 0.1, start, &[true]).expect("the press asks");
+        let moved = scrub_frame(&ctx, 0.2, end, &[]).expect("the move asks");
+        assert!(moved > first);
+        assert_eq!(scrub_frame(&ctx, 0.3, end, &[]), None);
+        assert_eq!(scrub_frame(&ctx, 0.4, end, &[false]), None);
     }
 }

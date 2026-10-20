@@ -93,10 +93,15 @@ impl ReplayTransport {
             // The seek has reached the game, so the next one may go out. Any seek clears this, not
             // only ours: a seek from the game's own plate ends the wait just as well.
             [commands::id::REPLAY_SEEK, rest @ ..] if rest.len() == SEEK_COMMAND_LEN - 1 => {
-                self.pending_seek = None;
+                self.seek_arrived();
             }
             _ => (),
         }
+    }
+
+    /// The seek in flight has reached the game, so the next one may go out.
+    fn seek_arrived(&mut self) {
+        self.pending_seek = None;
     }
 
     /// What the overlay should show, now.
@@ -142,6 +147,13 @@ impl BwScr {
     /// Reads a live game command for whatever it says about replay playback.
     pub fn note_replay_transport_command(&self, command: &[u8]) {
         self.replay_transport.lock().note_command(command);
+    }
+
+    /// Tells the transport a live seek has reached the game without ever passing through
+    /// [`Self::note_replay_transport_command`]: keyframe seeking carries it out itself, and strips
+    /// it from the commands BW is given.
+    pub fn note_replay_seek_taken(&self) {
+        self.replay_transport.lock().seek_arrived();
     }
 
     /// Carries out one thing the overlay asked of playback.
@@ -227,6 +239,15 @@ mod tests {
         data[0] = commands::id::REPLAY_SEEK;
         LittleEndian::write_u32(&mut data[1..], 1000);
         transport.note_command(&data);
+        assert!(!transport.state().seek_pending);
+        assert!(transport.claim_seek(2000));
+    }
+
+    #[test]
+    fn a_seek_keyframe_seeking_took_stops_blocking_the_next_one() {
+        let mut transport = ReplayTransport::new();
+        assert!(transport.claim_seek(1000));
+        transport.seek_arrived();
         assert!(!transport.state().seek_pending);
         assert!(transport.claim_seek(2000));
     }
