@@ -3016,6 +3016,8 @@
       },
       "title": "Game",
       "video": {
+        "alwaysStartSd": "Always start games in SD graphics",
+        "alwaysStartSdNote": "Games start in SD graphics even if HD graphics is on. You can still switch to HD in game.",
         "brightness": "Brightness",
         "brightnessFullscreenOnly": "Only available in Fullscreen",
         "customFpsLimit": "Custom FPS limit",

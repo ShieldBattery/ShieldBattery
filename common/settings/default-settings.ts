@@ -57,6 +57,7 @@ export const DEFAULT_LOCAL_SETTINGS: ReadonlyDeep<
   gameServerRegion: undefined,
   rollbackTarget: 2,
   emulateTurnRate24Delay: false,
+  alwaysStartSd: false,
   framePacing: FramePacing.Off,
   launch32Bit: false,
   keepReplaysAlongsideGames: false,

@@ -22,8 +22,9 @@ import {
 } from '../common/settings/team-colors'
 import { findInstallPath } from './find-install-path'
 import log from './logger'
+import { applyLaunchOverrides, dropLaunchOverriddenSettings } from './scr-launch-overrides'
 
-const VERSION = 29
+const VERSION = 30
 const SCR_VERSION = 6
 
 /**
@@ -441,6 +442,11 @@ export class LocalSettingsManager extends SettingsManager<LocalSettings> {
       }
     }
 
+    if (!settings.version || settings.version < 30) {
+      log.verbose('Found settings version 29, migrating to version 30')
+      newSettings.alwaysStartSd = DEFAULT_LOCAL_SETTINGS.alwaysStartSd
+    }
+
     newSettings.version = VERSION
     return newSettings
   }
@@ -549,6 +555,8 @@ export class ScrSettingsManager extends SettingsManager<ScrSettings> {
    * applied over it so the player's in-game choices survive that read.
    */
   private changedInGame: Partial<ScrSettings> = {}
+  /** Whether the game settings file was last written with HD graphics forced off. */
+  private hdGraphicsForcedOff = false
 
   /**
    * Creates a new ScrSettings.
@@ -714,22 +722,29 @@ export class ScrSettingsManager extends SettingsManager<ScrSettings> {
    * Writes out the current SC:R settings to our replacement file, which the game will redirect
    * reads/writes of CSettings.json to. Once the game completes, `syncWithGameSettingsFile` should
    * be called to update our settings with what was changed ingame.
+   *
+   * @param alwaysStartSd whether the game should start in SD graphics regardless of the saved HD
+   *   graphics setting. The saved setting is left alone.
    */
-  async writeGameSettingsFile() {
+  async writeGameSettingsFile(alwaysStartSd = false) {
     log.debug('Writing ScrSettings to game settings file')
     await this.initialized
-    const merged = {
-      ...this.blizzardSettings,
-      ...fromSbToBlizzard(this.settings),
-      /**
-       * NOTE(tec27): Blizzard uses this to signal they should force Carbot on immediately after
-       * purchasing. In cases where our settings file is corrupted in some way, the existence of
-       * this setting can make the game launch with Carbot even though it's turned off in SB
-       * settings. We add this back explicitly just in case (Carbot can still be enabled
-       * directly, it just won't pick it regardless of setting).
-       */
-      forcedCarbot: true,
-    }
+    this.hdGraphicsForcedOff = alwaysStartSd
+    const merged = applyLaunchOverrides(
+      {
+        ...this.blizzardSettings,
+        ...fromSbToBlizzard(this.settings),
+        /**
+         * NOTE(tec27): Blizzard uses this to signal they should force Carbot on immediately after
+         * purchasing. In cases where our settings file is corrupted in some way, the existence of
+         * this setting can make the game launch with Carbot even though it's turned off in SB
+         * settings. We add this back explicitly just in case (Carbot can still be enabled
+         * directly, it just won't pick it regardless of setting).
+         */
+        forcedCarbot: true,
+      },
+      { alwaysStartSd },
+    )
     const contents = jsonify(merged)
     await fsPromises.writeFile(this.gameFilepath, contents, { encoding: 'utf8' })
   }
@@ -739,6 +754,11 @@ export class ScrSettingsManager extends SettingsManager<ScrSettings> {
     await this.initialized
     const contents = await fsPromises.readFile(this.gameFilepath, { encoding: 'utf8' })
     const newData = fromBlizzardToSb(JSON.parse(contents))
+    if (this.hdGraphicsForcedOff) {
+      // The file holds the forced value, not the player's preference. Their in-game changes arrive
+      // through `changedInGame`.
+      dropLaunchOverriddenSettings(newData)
+    }
     if (newData.gamma !== undefined) {
       newData.gamma = normalizeGamma(newData.gamma)
     }

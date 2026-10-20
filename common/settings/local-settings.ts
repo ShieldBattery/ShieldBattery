@@ -357,6 +357,12 @@ export interface LocalSettings extends ShieldBatteryAppSettings {
   emulateTurnRate24Delay: boolean
 
   /**
+   * Whether every game starts in SD graphics regardless of the saved HD graphics setting. The saved
+   * setting is untouched, so toggling HD in game still works and still persists.
+   */
+  alwaysStartSd: boolean
+
+  /**
    * How the game paces the frames it draws in game. Pacing replaces SC:R's own frame limit, and
    * runs logic steps on time regardless of when frames are drawn.
    */

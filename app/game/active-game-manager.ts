@@ -41,6 +41,7 @@ import {
 import { SbUserId } from '../../common/users/sb-user-id'
 import { gameLogBaseName } from '../log-paths'
 import log from '../logger'
+import { applyLaunchOverridesToSettings, startsInSd } from '../scr-launch-overrides'
 import { LocalSettingsManager, ScrSettingsManager } from '../settings'
 import { checkStarcraftPath } from './check-starcraft-path'
 import { isCrashExitCode } from './crash-exit-code'
@@ -506,7 +507,9 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     this.emit('gameCommand', id, 'serverConfig', config.serverConfig)
     this.emit('gameCommand', id, 'settings', {
       local,
-      scr: await this.scrSettings.get(),
+      scr: applyLaunchOverridesToSettings(await this.scrSettings.get(), {
+        alwaysStartSd: startsInSd(resolvedLocal),
+      }),
       settingsFilePath: this.scrSettings.gameFilepath,
       monitorBounds,
       replayNameTemplate: config.replayNameTemplate,
@@ -1095,7 +1098,7 @@ async function doLaunch(
   }
 
   // Ensure that our local settings file is up-to-date with the current settings
-  await scrSettings.writeGameSettingsFile()
+  await scrSettings.writeGameSettingsFile(startsInSd(settings))
 
   const userDataPath = app.getPath('userData')
   let appPath = settings.launch32Bit

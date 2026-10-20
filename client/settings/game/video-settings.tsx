@@ -97,6 +97,7 @@ interface GameVideoSettingsModel {
   fpsLimit: number
   vsyncOn: number
   hdGraphicsOn: boolean
+  alwaysStartSd: boolean
   environmentEffectsOn: boolean
   realTimeLightingOn: boolean
   smoothUnitTurningOn: boolean
@@ -133,6 +134,7 @@ export function GameVideoSettings() {
     fpsLimit: scrSettings.fpsLimit,
     vsyncOn: scrSettings.vsyncOn,
     hdGraphicsOn: scrSettings.hdGraphicsOn,
+    alwaysStartSd: localSettings.alwaysStartSd,
     environmentEffectsOn: scrSettings.environmentEffectsOn,
     realTimeLightingOn: scrSettings.realTimeLightingOn,
     smoothUnitTurningOn: scrSettings.smoothUnitTurningOn,
@@ -179,6 +181,7 @@ export function GameVideoSettings() {
             gameWinPlacement: model.windowPlacement,
             gameWinSetSize: model.windowSize,
             framePacing: model.framePacing,
+            alwaysStartSd: model.alwaysStartSd,
           },
           {
             onSuccess: () => {},
@@ -455,6 +458,18 @@ export function GameVideoSettings() {
               )}
             </SettingsStackedRow>
             {onOffRow('hdGraphicsOn', t('settings.game.video.hdGraphics', 'HD graphics'))}
+            {onOffRow(
+              'alwaysStartSd',
+              t('settings.game.video.alwaysStartSd', 'Always start games in SD graphics'),
+            )}
+            {getInputValue('alwaysStartSd') ? (
+              <SettingsRowNote icon='info'>
+                {t(
+                  'settings.game.video.alwaysStartSdNote',
+                  'Games start in SD graphics even if HD graphics is on. You can still switch to HD in game.',
+                )}
+              </SettingsRowNote>
+            ) : null}
             {onOffRow(
               'environmentEffectsOn',
               t('settings.game.video.environmentEffects', 'Environment effects'),
