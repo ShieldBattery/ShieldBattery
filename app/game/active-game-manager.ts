@@ -1129,10 +1129,13 @@ async function doLaunch(
   if (rallyPointPortArg) {
     log.debug(`Pinning the game's netcode UDP port to ${RALLY_POINT_PORT} (SB_RALLY_POINT_PORT)`)
   }
+  // Dev builds can hand SC:R extra arguments, e.g. `--renderer=legacy` to test the legacy DX9
+  // renderer on a machine that wouldn't pick it on its own.
+  const devScrArgs = (isDev && process.env.SB_SCR_EXTRA_ARGS) || ''
   // NOTE(tec27): SC:R uses -launch as an argument to skip bnet launcher.
   const args =
     `"${appPath}" ${gameId} ${serverPort} "${userDataPath}" ` +
-    `-launch ${legacyCursorSizingArg} ${logNameArg} ${rallyPointPortArg}`
+    `-launch ${legacyCursorSizingArg} ${logNameArg} ${rallyPointPortArg} ${devScrArgs}`
 
   // NOTE(tec27): We dynamically import this so that it doesn't crash the process on startup if
   // an antivirus decides to delete the native module
