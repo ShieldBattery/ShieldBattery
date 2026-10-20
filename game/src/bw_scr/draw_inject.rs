@@ -103,6 +103,11 @@ impl RenderTarget {
         }
     }
 
+    /// All of a render target, at its own size.
+    pub unsafe fn whole(bw: *mut scr::RenderTarget, id: u32) -> RenderTarget {
+        unsafe { RenderTarget::with_size(id, (*bw).width, (*bw).height) }
+    }
+
     /// The size of the part of the target that is drawn into, in pixels.
     pub fn size(&self) -> (u32, u32) {
         (
@@ -202,6 +207,12 @@ fn shown_width(backbuffer_width: u32, height: u32, ui_width: u32, ui_height: u32
 /// backbuffer. The game's own layer-to-target rule, which the overlay's layers follow too.
 const LAST_UI_TARGET_LAYER: u16 = 0x1e;
 
+/// The layer the overlay's screen layers are drawn at when they go to the UI render target instead
+/// of the backbuffer: above every layer the game draws into that target, and just below the final
+/// pass (layers 0x6001 and 0x6002) that scales it onto the backbuffer, so the pass carries them
+/// along.
+const UI_TARGET_SCREEN_LAYER: u16 = 0x6000;
+
 #[repr(C)]
 #[derive(Copy, Clone, Pod, Zeroable)]
 struct ColoredVertex {
@@ -277,20 +288,23 @@ pub struct BwVars {
 
 /// Adds the overlay's draw commands, each layer to the target SC:R itself would draw that layer
 /// into: `screen` for the layers above the game's own UI, `ui` for the ones among them.
+///
+/// Without a `screen`, the layers above the game's UI go to `ui` too, at the top of what the game
+/// draws there, for a renderer whose backbuffer the overlay's draws can't reach.
 pub unsafe fn add_overlays(
     state: &mut RenderState,
     bw: &BwVars,
     mut overlay_out: draw_overlay::StepOutput,
-    screen: &RenderTarget,
+    screen: Option<&RenderTarget>,
     ui: &RenderTarget,
 ) {
     unsafe {
         update_textures(bw.renderer, state, &mut overlay_out.textures_delta);
         for (layer, primitives) in overlay_out.primitives.into_iter() {
-            let render_target = if layer > LAST_UI_TARGET_LAYER {
-                screen
-            } else {
-                ui
+            let (layer, render_target) = match screen {
+                _ if layer <= LAST_UI_TARGET_LAYER => (layer, ui),
+                Some(screen) => (layer, screen),
+                None => (UI_TARGET_SCREEN_LAYER, ui),
             };
             for primitive in primitives {
                 match primitive.primitive {

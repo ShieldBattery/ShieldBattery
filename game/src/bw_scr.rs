@@ -4485,10 +4485,22 @@ impl BwScr {
                         return;
                     }
                     let ui_target = (self.get_render_target)(1);
-                    let render_target = draw_inject::RenderTarget::backbuffer(
-                        (self.get_render_target)(0),
-                        ui_target,
-                    );
+                    let backbuffer = (self.get_render_target)(0);
+                    // SC:R's DX9 renderer gives the backbuffer no backend target: only draws that
+                    // take the renderer's default outputs reach it, and the overlay's shader names
+                    // its outputs, which needs the backend target. There the overlay draws to the
+                    // UI target at that target's resolution, and the game's final pass scales it
+                    // onto the backbuffer.
+                    let backbuffer_drawable = !(*backbuffer).backend_target.is_null();
+                    let render_target = if backbuffer_drawable {
+                        draw_inject::RenderTarget::backbuffer(backbuffer, ui_target)
+                    } else {
+                        warn_once!(
+                            "The backbuffer has no backend target (SC:R's DX9 renderer), so the \
+                             overlay draws to the UI target"
+                        );
+                        draw_inject::RenderTarget::whole(ui_target, 1)
+                    };
                     let ui_render_target =
                         draw_inject::RenderTarget::sharing_points(ui_target, 1, &render_target);
                     if let Some(mut render_state) = self.render_state.lock() {
@@ -4689,7 +4701,7 @@ impl BwScr {
                                     &mut render_state.render,
                                     bw,
                                     overlay_out,
-                                    &render_target,
+                                    backbuffer_drawable.then_some(&render_target),
                                     &ui_render_target,
                                 );
                                 let end = (*commands).draw_command_count;
