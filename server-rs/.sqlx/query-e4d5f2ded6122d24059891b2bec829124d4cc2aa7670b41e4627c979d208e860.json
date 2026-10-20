@@ -1,0 +1,95 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT matchup, games, left_wins, right_wins, median_length\n            FROM map_matchup_stats\n            WHERE map_id = $1 AND matchmaking_type = $2\n                AND ($3::integer IS NULL OR season_id = $3)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "matchup",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "map_matchup_stats",
+            "name": "matchup"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "games",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "map_matchup_stats",
+            "name": "games"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "left_wins",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "map_matchup_stats",
+            "name": "left_wins"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "right_wins",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "map_matchup_stats",
+            "name": "right_wins"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "median_length",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "map_matchup_stats",
+            "name": "median_length"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        {
+          "Custom": {
+            "name": "matchmaking_type",
+            "kind": {
+              "Enum": [
+                "1v1",
+                "2v2",
+                "1v1fastest",
+                "2v2bgh",
+                "2v2hunters",
+                "2v2fastest",
+                "3v3bgh",
+                "3v3hunters",
+                "3v3fastest"
+              ]
+            }
+          }
+        },
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "e4d5f2ded6122d24059891b2bec829124d4cc2aa7670b41e4627c979d208e860"
+}
