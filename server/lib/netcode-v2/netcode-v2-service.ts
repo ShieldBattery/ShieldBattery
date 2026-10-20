@@ -352,8 +352,22 @@ export interface NetcodeV2SessionLoadState {
   startedAtMs?: number
   /** The slots whose home relay activated their link. */
   connectedSlots: number[]
-  /** The slots whose game loop began running. */
+  /**
+   * The slots whose game loop began running. Each is the slot's own client reporting its start, as
+   * recorded by its relay, so it can't say whether that slot's game ever reached its peers.
+   */
   startedSlots: number[]
+  /**
+   * The slots whose home relay forwarded at least one of their game turns, which a client sends only
+   * once its own loading has finished: observed by the relay, not reported by the client.
+   */
+  forwardedSlots: number[]
+  /**
+   * Whether every relay serving the session tracks forwarded turns and answered after this request
+   * reached the coordinator, so a slot's absence from `forwardedSlots` means its turns were never
+   * forwarded. False for a coordinator or relay that doesn't track them.
+   */
+  turnsKnown: boolean
 }
 
 /** The wire shape of the coordinator's `POST /session/load-state` response. */
@@ -364,6 +378,8 @@ interface CoordinatorSessionLoadStateResponse {
   startedAtMs?: number
   connectedSlots?: number[]
   startedSlots?: number[]
+  forwardedSlots?: number[]
+  turnsKnown?: boolean
 }
 
 /** The session id and per-player handoffs a successful `createSessionForGame` produces. */
@@ -880,6 +896,8 @@ export class NetcodeV2Service {
       startedAtMs: response.startedAtMs,
       connectedSlots: response.connectedSlots ?? [],
       startedSlots: response.startedSlots ?? [],
+      forwardedSlots: response.forwardedSlots ?? [],
+      turnsKnown: response.turnsKnown === true,
     }
   }
 

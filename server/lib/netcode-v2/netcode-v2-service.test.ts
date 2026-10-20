@@ -1317,6 +1317,8 @@ describe('netcode-v2/NetcodeV2Service#fetchSessionLoadState', () => {
       startedAtMs: 1700000000000,
       connectedSlots: [0, 1],
       startedSlots: [0],
+      forwardedSlots: [],
+      turnsKnown: false,
     })
   })
 
@@ -1335,6 +1337,8 @@ describe('netcode-v2/NetcodeV2Service#fetchSessionLoadState', () => {
       startedAtMs: undefined,
       connectedSlots: [],
       startedSlots: [],
+      forwardedSlots: [],
+      turnsKnown: false,
     })
   })
 
@@ -1359,7 +1363,36 @@ describe('netcode-v2/NetcodeV2Service#fetchSessionLoadState', () => {
       startedAtMs: 1700000000000,
       connectedSlots: [0, 1],
       startedSlots: [1],
+      forwardedSlots: [],
+      turnsKnown: false,
     })
+  })
+
+  test('returns the forwarded slots a coordinator reports and whether it vouches for them', async () => {
+    configureNetcodeV2()
+    const json = vi.fn().mockResolvedValueOnce({
+      known: true,
+      startedSlots: [0, 1],
+      forwardedSlots: [1],
+      turnsKnown: true,
+    })
+    asMockedFunction(got.post).mockReturnValue({ json } as any)
+    const service = makeService()
+
+    const state = await service.fetchSessionLoadState(42)
+    expect(state.forwardedSlots).toEqual([1])
+    expect(state.turnsKnown).toBe(true)
+  })
+
+  test("reads turn evidence as unvouched when the coordinator doesn't report it", async () => {
+    configureNetcodeV2()
+    const json = vi.fn().mockResolvedValueOnce({ known: true, startedSlots: [0] })
+    asMockedFunction(got.post).mockReturnValue({ json } as any)
+    const service = makeService()
+
+    const state = await service.fetchSessionLoadState(42)
+    expect(state.forwardedSlots).toEqual([])
+    expect(state.turnsKnown).toBe(false)
   })
 
   test('propagates a request failure', async () => {

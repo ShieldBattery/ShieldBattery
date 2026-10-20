@@ -149,6 +149,8 @@ describe('games/game-loader/GameLoader', () => {
         startedAtMs?: number
         connectedSlots: number[]
         startedSlots: number[]
+        forwardedSlots?: number[]
+        turnsKnown?: boolean
       }>
     >
   }
@@ -182,7 +184,16 @@ describe('games/game-loader/GameLoader', () => {
       publisher as any,
       activityRegistry as any,
       restrictionService as any,
-      netcodeV2Service as any,
+      {
+        ...netcodeV2Service,
+        // A pull that says nothing about forwarded turns reads like a coordinator that doesn't
+        // track them, so only a test that cares has to mention them.
+        fetchSessionLoadState: async (session: number, options?: { timeoutMs?: number }) => ({
+          forwardedSlots: [],
+          turnsKnown: false,
+          ...(await netcodeV2Service.fetchSessionLoadState(session, options)),
+        }),
+      } as any,
       activityStatusService as any,
     )
   })
@@ -667,6 +678,134 @@ describe('games/game-loader/GameLoader', () => {
         77,
         expect.objectContaining({ timeoutMs: expect.any(Number) }),
       )
+      expect(error.data.unloaded).toEqual([p2])
+    })
+
+    test("blames nobody when a reported start isn't backed by any forwarded turn", async () => {
+      netcodeV2Service.fetchSessionLoadState.mockResolvedValue({
+        known: true,
+        setupFinal: true,
+        startedAtMs: 1700000000000,
+        connectedSlots: [0, 1],
+        startedSlots: [0],
+        forwardedSlots: [],
+        turnsKnown: true,
+      })
+      const { load } = await startNetworkedLoad('game-start-unforwarded')
+
+      const error = await expectTimeout(load)
+
+      expect(error.data.unloaded).toEqual([])
+    })
+
+    test('a start reported over the webhook still needs forwarded turns to blame anyone', async () => {
+      netcodeV2Service.fetchSessionLoadState.mockResolvedValue({
+        known: true,
+        setupFinal: true,
+        startedAtMs: 1700000000000,
+        connectedSlots: [0, 1],
+        startedSlots: [],
+        forwardedSlots: [],
+        turnsKnown: true,
+      })
+      const { load } = await startNetworkedLoad('game-webhook-start-unforwarded')
+      gameLoader.registerGameAsLoaded('game-webhook-start-unforwarded', p1)
+
+      const error = await expectTimeout(load)
+
+      expect(error.data.unloaded).toEqual([])
+    })
+
+    test('blames the player who never loaded once a reported start is backed by forwarded turns', async () => {
+      netcodeV2Service.fetchSessionLoadState.mockResolvedValue({
+        known: true,
+        setupFinal: true,
+        startedAtMs: 1700000000000,
+        connectedSlots: [0, 1],
+        startedSlots: [0],
+        forwardedSlots: [0],
+        turnsKnown: true,
+      })
+      const { load } = await startNetworkedLoad('game-start-forwarded')
+
+      const error = await expectTimeout(load)
+
+      expect(error.data.unloaded).toEqual([p2])
+    })
+
+    test("doesn't blame a player whose turns were forwarded though its start report never came", async () => {
+      netcodeV2Service.fetchSessionLoadState.mockResolvedValue({
+        known: true,
+        setupFinal: true,
+        startedAtMs: 1700000000000,
+        connectedSlots: [0, 1],
+        startedSlots: [0],
+        forwardedSlots: [0, 1],
+        turnsKnown: true,
+      })
+      const { load } = await startNetworkedLoad('game-forwarded-unreported')
+
+      const error = await expectTimeout(load)
+
+      expect(error.data.unloaded).toEqual([])
+    })
+
+    test('keeps turns forwarded on an earlier pull the coordinator could not vouch for', async () => {
+      netcodeV2Service.fetchSessionLoadState
+        .mockResolvedValueOnce({
+          known: false,
+          startedAtMs: 1700000000000,
+          connectedSlots: [0, 1],
+          startedSlots: [0],
+          forwardedSlots: [0],
+          turnsKnown: false,
+        })
+        .mockResolvedValue({
+          known: true,
+          setupFinal: true,
+          startedAtMs: 1700000000000,
+          connectedSlots: [0, 1],
+          startedSlots: [0],
+          forwardedSlots: [],
+          turnsKnown: true,
+        })
+      const { load } = await startNetworkedLoad('game-forwarded-earlier')
+
+      const error = await expectTimeout(load)
+
+      expect(error.data.unloaded).toEqual([p2])
+    })
+
+    test('blames on reported starts alone when the coordinator cannot vouch for forwarded turns', async () => {
+      netcodeV2Service.fetchSessionLoadState.mockResolvedValue({
+        known: true,
+        setupFinal: true,
+        startedAtMs: 1700000000000,
+        connectedSlots: [0, 1],
+        startedSlots: [0],
+        forwardedSlots: [],
+        turnsKnown: false,
+      })
+      const { load } = await startNetworkedLoad('game-start-turns-unknown')
+
+      const error = await expectTimeout(load)
+
+      expect(error.data.unloaded).toEqual([p2])
+    })
+
+    test("turn evidence doesn't change blame for a player who never connected", async () => {
+      netcodeV2Service.fetchSessionLoadState.mockResolvedValue({
+        known: true,
+        setupFinal: true,
+        connectedSlots: [0],
+        startedSlots: [],
+        forwardedSlots: [],
+        turnsKnown: true,
+      })
+      const { load } = await startNetworkedLoad('game-unconnected-with-turn-evidence')
+
+      const error = await expectTimeout(load)
+
       expect(error.data.unloaded).toEqual([p2])
     })
 

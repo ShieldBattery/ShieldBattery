@@ -152,10 +152,24 @@ const createLoadingData = Record({
   gameSource: GameSource.Lobby,
   players: [] as ReadonlyArray<GameLoadPlayer>,
   /**
-   * The players whose game loop is known to be running. This is what completes a load: once every
-   * player is in here, the game is loaded.
+   * The players whose game loop is reported running. This is what completes a load: once every
+   * player is in here, the game is loaded. For a networked game each entry is the player's own
+   * client reporting its start, as recorded by its relay, so it says nothing about whether that
+   * player's game ever reached anyone else (see `forwardedPlayers`).
    */
   finishedPlayers: ISet<SbUserId>(),
+  /**
+   * The players whose relay forwarded at least one of their game turns, which a client sends only
+   * once its own loading has finished. Unlike `finishedPlayers`, this is observed by the relay rather
+   * than reported by the client.
+   */
+  forwardedPlayers: ISet<SbUserId>(),
+  /**
+   * Whether a coordinator pull vouched for `forwardedPlayers` being complete, so a player's absence
+   * from it means none of their turns were ever forwarded. Never true with a coordinator or relay
+   * that doesn't track forwarded turns.
+   */
+  turnsKnown: false,
   /**
    * Whether this game has no network session at all — a lone human playing against the map or
    * computers. Such a game is the only kind that reports its own load completion, since there's no
@@ -188,6 +202,10 @@ const createLoadingData = Record({
 type LoadingData = ReturnType<typeof createLoadingData>
 
 const LoadingDatas = {
+  /**
+   * Whether every player reported its game loop running. Reported starts are enough to let a load
+   * succeed, since that penalizes nobody; deciding who failed one takes more (see `playersAtFault`).
+   */
   isAllFinished(loadingData: LoadingData) {
     return loadingData.players.every(p => loadingData.finishedPlayers.has(p.userId))
   },
@@ -203,12 +221,29 @@ const LoadingDatas = {
    * waiting for everyone. Empty when nothing distinguishes the players from each other — nobody
    * connected at all, or everybody did and the session ran but no game loop ever started.
    *
+   * A client's report of its own start never by itself blames someone else. A player whose loop
+   * runs but whose link to the relay is cut can start, report that start once it reconnects, and
+   * still never deliver its game init or a single turn to its peers, who then wait and never start
+   * through no fault of their own. So when the coordinator vouches for forwarded turns
+   * (`turnsKnown`), the missing game loops are only held against anyone once a relay has forwarded
+   * turns from at least one player who reported starting; with no start so backed, nobody is
+   * blamed. Without that evidence, the reported starts are the only evidence and are used as is.
+   *
    * Only meaningful against a record known to be complete, since every answer here is drawn from a
    * player's absence from one of the sets.
    */
   playersAtFault(loadingData: LoadingData): SbUserId[] {
-    if (!loadingData.finishedPlayers.isEmpty()) {
-      return LoadingDatas.playersMissingFrom(loadingData, loadingData.finishedPlayers)
+    const { finishedPlayers, forwardedPlayers, turnsKnown } = loadingData
+    if (!finishedPlayers.isEmpty()) {
+      if (!turnsKnown) {
+        return LoadingDatas.playersMissingFrom(loadingData, finishedPlayers)
+      }
+      if (finishedPlayers.intersect(forwardedPlayers).isEmpty()) {
+        return []
+      }
+      // A player whose turns the relay forwarded finished loading whether or not its start report
+      // arrived.
+      return LoadingDatas.playersMissingFrom(loadingData, finishedPlayers.union(forwardedPlayers))
     } else if (!loadingData.sessionStarted && !loadingData.connectedPlayers.isEmpty()) {
       return LoadingDatas.playersMissingFrom(loadingData, loadingData.connectedPlayers)
     } else {
@@ -797,6 +832,11 @@ export class GameLoader {
           'finishedPlayers',
           loadingData.finishedPlayers.union(usersForSlots(loadState.startedSlots)),
         )
+        .set(
+          'forwardedPlayers',
+          loadingData.forwardedPlayers.union(usersForSlots(loadState.forwardedSlots)),
+        )
+        .set('turnsKnown', loadingData.turnsKnown || loadState.turnsKnown)
         .set('sessionStarted', loadingData.sessionStarted || loadState.startedAtMs !== undefined),
     )
     return loadState
