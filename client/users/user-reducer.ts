@@ -155,7 +155,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     updateUsers(state, action.payload.users)
   },
 
-  ['@maps/uploadLocalMap'](state, action) {
+  ['@maps/uploadMap'](state, action) {
     updateUsers(state, action.payload.users)
   },
 

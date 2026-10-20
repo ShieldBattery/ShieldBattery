@@ -29,10 +29,29 @@ export async function upload<T>(
   apiPath: string,
   maxFileSize: number = DEFAULT_MAX_FILE_SIZE_BYTES,
 ): Promise<T> {
-  const extension = getExtension(filePath)
   const file = await ipcRenderer.invoke('fsReadFile', filePath)!
+  return uploadBlob(new Blob([file]), getExtension(filePath), apiPath, maxFileSize)
+}
 
-  if (file.byteLength > maxFileSize) {
+/**
+ * Uploads a file the user picked or dropped (rather than one read from disk by path), so it works
+ * outside the app too.
+ */
+export async function uploadFile<T>(
+  file: File,
+  apiPath: string,
+  maxFileSize: number = DEFAULT_MAX_FILE_SIZE_BYTES,
+): Promise<T> {
+  return uploadBlob(file, getExtension(file.name), apiPath, maxFileSize)
+}
+
+async function uploadBlob<T>(
+  blob: Blob,
+  extension: string,
+  apiPath: string,
+  maxFileSize: number,
+): Promise<T> {
+  if (blob.size > maxFileSize) {
     throw new ClientSideUploadError(
       FilesErrorCode.MaxFileSizeExceeded,
       'The file size exceeds the maximum allowed size.',
@@ -41,7 +60,7 @@ export async function upload<T>(
 
   const formData = new FormData()
   formData.append('extension', extension)
-  formData.append('file', new Blob([file]))
+  formData.append('file', blob)
 
   const fetchParams = {
     method: 'post',
