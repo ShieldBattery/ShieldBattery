@@ -4,6 +4,7 @@ import { GameSource } from '../../../common/games/configuration'
 import { GameSourceFilter, MIN_GAME_LENGTH_MS } from '../../../common/games/game-filters'
 import { NetcodeV2RelayEvent, NetcodeV2RequestedRegion } from '../../../common/games/netcode-v2'
 import { LeagueId } from '../../../common/leagues/leagues'
+import { makeSbMapId } from '../../../common/maps'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import db from '../db'
@@ -233,6 +234,28 @@ describe('games/game-models/getGames', () => {
     const template = query.mock.calls[0][0]
     expect(template.text).toContain('COALESCE(g.game_length,')
     expect(template.values).toContain(MIN_GAME_LENGTH_MS)
+  })
+
+  test('restricts to one map when mapId is given', async () => {
+    const query = mockDbClient([])
+    const mapId = makeSbMapId('5eed0000-0000-0000-0000-00000000aaaa')
+
+    await getGames({ limit: 10, offset: 0, mapId })
+
+    expect(query).toHaveBeenCalledTimes(1)
+    const template = query.mock.calls[0][0]
+    expect(template.text).toMatch(/g\.map_id = \$\d+/)
+    expect(template.values).toContain(mapId)
+  })
+
+  test('omits the map filter when mapId is not given', async () => {
+    const query = mockDbClient([])
+
+    await getGames({ limit: 10, offset: 0 })
+
+    expect(query).toHaveBeenCalledTimes(1)
+    const template = query.mock.calls[0][0]
+    expect(template.text).not.toContain('g.map_id =')
   })
 
   test('omits the minimum-game-length floor with includeShort', async () => {

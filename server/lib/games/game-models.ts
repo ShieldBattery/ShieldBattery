@@ -14,6 +14,7 @@ import { NetcodeV2RelayEvent, NetcodeV2RequestedRegion } from '../../../common/g
 import { ReconciledPlayerResult, ReconciledResults } from '../../../common/games/results'
 import { LeagueId } from '../../../common/leagues/leagues'
 import { LobbyVisibility } from '../../../common/lobbies/lobby-visibility'
+import { SbMapId } from '../../../common/maps'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import db, { DbClient } from '../db'
 import { escapeSearchString } from '../db/escape-search-string'
@@ -662,13 +663,16 @@ function getGameSourceWhereClause(source: GameSourceFilter | undefined): SqlTemp
  * has no computer players.
  *
  * If `leagueId` is given, the list is restricted to games played in that league (that is, games
- * that produced a `league_user_changes` row), which is what backs a league's Games tab.
+ * that produced a `league_user_changes` row), which is what backs a league's Games tab. If `mapId`
+ * is given, the list is restricted to games played on that map (a canonical map ID, see
+ * `resolveMapIds`), which backs a map page's games.
  */
 export async function getGames(
   params: {
     limit: number
     offset: number
     leagueId?: LeagueId
+    mapId?: SbMapId
     source?: GameSourceFilter
     duration?: GameDurationFilter
     mapName?: string
@@ -687,6 +691,7 @@ export async function getGames(
     limit,
     offset,
     leagueId,
+    mapId,
     source,
     duration,
     mapName,
@@ -716,6 +721,10 @@ export async function getGames(
         SELECT 1 FROM league_user_changes luc
         WHERE luc.league_id = ${leagueId} AND luc.game_id = g.id
       )`)
+    }
+
+    if (mapId) {
+      whereClauses.push(sql`g.map_id = ${mapId}`)
     }
 
     if (duration && duration !== GameDurationFilter.All) {

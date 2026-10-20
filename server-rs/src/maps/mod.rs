@@ -14,6 +14,7 @@ use typeshare::typeshare;
 use uuid::Uuid;
 
 use crate::file_store::FileStore;
+use crate::maps::analysis::{MapAnalysisLoader, MapFileAnalysis};
 use crate::maps::catalog::{SbMapLoader, ViewerMapFlagsLoader};
 use crate::maps::ingest::map_image_path;
 use crate::maps::parse::MapStartLocation;
@@ -24,12 +25,14 @@ use crate::{
     users::{SbUser, SbUserId, UsersLoader},
 };
 
+mod analysis;
 pub mod api;
 mod catalog;
 pub mod ingest;
 pub mod parse;
 pub mod render;
 pub mod search;
+mod stats;
 
 pub use catalog::{
     FavoriteMapConnection, MapLibraryConnection, MapsMutation, MapsQuery, SbMap,
@@ -59,6 +62,10 @@ impl SchemaBuilderModule for MapsModule {
             ))
             .data(DataLoader::new(
                 ViewerMapFlagsLoader::new(self.db_pool.clone()),
+                tokio::spawn,
+            ))
+            .data(DataLoader::new(
+                MapAnalysisLoader::new(self.db_pool.clone()),
                 tokio::spawn,
             ))
             .data(MapSearchRepo::new(self.db_pool.clone()))
@@ -295,6 +302,17 @@ impl MapFile {
                 y: s.y.into(),
             })
             .collect()
+    }
+
+    /// What analyzing the map file found about how it plays. Null until the map file has been
+    /// analyzed.
+    async fn analysis(
+        &self,
+        ctx: &async_graphql::Context<'_>,
+    ) -> async_graphql::Result<Option<MapFileAnalysis>> {
+        ctx.data::<DataLoader<MapAnalysisLoader>>()?
+            .load_one(self.hash)
+            .await
     }
 
     /// Whether the map's images have its start locations drawn in. Images without them are meant
