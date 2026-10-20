@@ -29,28 +29,41 @@ use crate::observer::{self, RaceView};
 use crate::tr;
 
 /// How wide the dialog's contents are, in overlay points.
-const CONTENT_WIDTH: f32 = 704.0;
+const CONTENT_WIDTH: f32 = 852.0;
 
 /// The table's fixed columns, and the gap between two columns. The player's column takes the rest.
-const ALLY_WIDTH: f32 = 96.0;
-const VISION_WIDTH: f32 = 96.0;
+/// The two switch columns are only as wide as their labels need, which every language keeps to a
+/// short word.
+const RACE_WIDTH: f32 = 128.0;
+const ALLY_WIDTH: f32 = 72.0;
+const VISION_WIDTH: f32 = 72.0;
 const MUTE_WIDTH: f32 = 72.0;
-const MORE_WIDTH: f32 = 56.0;
+const MORE_WIDTH: f32 = 48.0;
 const COLUMN_GAP: f32 = 8.0;
-const PLAYER_WIDTH: f32 =
-    CONTENT_WIDTH - ALLY_WIDTH - VISION_WIDTH - MUTE_WIDTH - MORE_WIDTH - COLUMN_GAP * 4.0;
-const _: () = assert!(PLAYER_WIDTH > 200.0);
+const PLAYER_WIDTH: f32 = CONTENT_WIDTH
+    - RACE_WIDTH
+    - ALLY_WIDTH
+    - VISION_WIDTH
+    - MUTE_WIDTH
+    - MORE_WIDTH
+    - COLUMN_GAP * 5.0;
+const _: () = assert!(PLAYER_WIDTH > 400.0);
 
-/// A row of the table: its controls, and the room above and below them.
-const ROW_HEIGHT: f32 = 58.0;
+/// A row of the table: its controls, and the room above and below them. Seven of them (everyone
+/// else in an eight player game) have to fit a 720-line screen along with the rest of the dialog.
+const ROW_HEIGHT: f32 = 60.0;
 
 /// The pieces of a player's cell, left to right.
-const BAR_SIZE: Vec2 = vec2(4.0, 17.0);
-const RACE_CHIP_SIZE: f32 = 24.0;
-const NAME_SIZE: f32 = 17.0;
-const CELL_GAP: f32 = 10.0;
-const NOTE_SIZE: f32 = 12.5;
+const SWATCH_SIZE: f32 = 20.0;
+const NAME_SIZE: f32 = 22.0;
+const CELL_GAP: f32 = 12.0;
+const NOTE_SIZE: f32 = 14.0;
 const CELL_END_GAP: f32 = 16.0;
+
+/// The pieces of a race's cell, left to right.
+const RACE_CHIP_SIZE: f32 = 28.0;
+const RACE_GAP: f32 = 8.0;
+const RACE_NAME_SIZE: f32 = 16.0;
 
 /// The header's mute-everyone button.
 const MUTE_ALL_HEIGHT: f32 = 32.0;
@@ -531,6 +544,7 @@ fn draw_table(
 /// Where each of a row's columns is.
 struct Columns {
     player: Rect,
+    race: Rect,
     ally: Rect,
     vision: Rect,
     mute: Rect,
@@ -547,6 +561,7 @@ impl Columns {
         };
         Columns {
             player: next(PLAYER_WIDTH),
+            race: next(RACE_WIDTH),
             ally: next(ALLY_WIDTH),
             vision: next(VISION_WIDTH),
             mute: next(MUTE_WIDTH),
@@ -564,6 +579,11 @@ fn draw_column_labels(ui: &mut Ui) {
         (
             columns.player,
             tr!("alliances.columnPlayer", "Player"),
+            Align::Min,
+        ),
+        (
+            columns.race,
+            tr!("alliances.columnRace", "Race"),
             Align::Min,
         ),
         (
@@ -604,6 +624,7 @@ fn draw_row(
     let (row, _) = ui.allocate_exact_size(vec2(CONTENT_WIDTH, ROW_HEIGHT), Sense::hover());
     let columns = Columns::of(row);
     draw_player_cell(ui, columns.player, player);
+    draw_race_cell(ui, columns.race, player.race);
     if let Some(alliance) = player.alliance {
         let mut allied = alliance.allied;
         if centered(
@@ -703,28 +724,20 @@ fn centered<R>(
     .inner
 }
 
-/// The player themselves: the bar of their color, their race, their name, and what else is worth
-/// saying about them.
+/// The player themselves: a swatch of their color, their name, and what else is worth saying about
+/// them.
 fn draw_player_cell(ui: &mut Ui, rect: Rect, player: &AlliancePlayerView) {
     let painter = ui.painter();
     let mut left = rect.left();
-    observer::paint_player_bar(
-        ui,
-        Rect::from_min_size(pos2(left, rect.center().y - BAR_SIZE.y * 0.5), BAR_SIZE),
-        player.color,
-        1.0,
-    );
-    left += BAR_SIZE.x + CELL_GAP;
-    observer::paint_race_chip(
+    paint_color_swatch(
         ui,
         Rect::from_min_size(
-            pos2(left, rect.center().y - RACE_CHIP_SIZE * 0.5),
-            Vec2::splat(RACE_CHIP_SIZE),
+            pos2(left, rect.center().y - SWATCH_SIZE * 0.5),
+            Vec2::splat(SWATCH_SIZE),
         ),
-        player.race,
-        1.0,
+        player.color,
     );
-    left += RACE_CHIP_SIZE + CELL_GAP;
+    left += SWATCH_SIZE + CELL_GAP;
 
     // What follows the name is laid out first, from the right, so a long name gives way to it. The
     // cell keeps clear of the switches beside it, which a tag set against them would read as part of.
@@ -810,6 +823,50 @@ fn draw_player_cell(ui: &mut Ui, rect: Rect, player: &AlliancePlayerView) {
         ui.scope_builder(UiBuilder::new().max_rect(tag), |ui| {
             widgets::tag_sized(ui, label, style, tag.width());
         });
+    }
+}
+
+/// Paints a square of a player's color, edged faintly in light so the dark colors (blue, navy)
+/// still read as a square against the dialog rather than sinking into it.
+fn paint_color_swatch(ui: &Ui, rect: Rect, color: Color32) {
+    let corner_radius = theme::radius(theme::RADIUS_CHIP);
+    ui.painter().rect_filled(rect, corner_radius, color);
+    ui.painter().rect_stroke(
+        rect,
+        corner_radius,
+        egui::Stroke::new(theme::HAIRLINE, theme::alpha(theme::TEXT_PRIMARY, 0.25)),
+        egui::StrokeKind::Inside,
+    );
+}
+
+/// A player's race: its chip, and its name beside it, since the icons alone are hard to tell apart
+/// at a glance.
+fn draw_race_cell(ui: &Ui, rect: Rect, race: RaceView) {
+    observer::paint_race_chip(
+        ui,
+        Rect::from_min_size(
+            pos2(rect.left(), rect.center().y - RACE_CHIP_SIZE * 0.5),
+            Vec2::splat(RACE_CHIP_SIZE),
+        ),
+        race,
+        1.0,
+    );
+    let name_left = rect.left() + RACE_CHIP_SIZE + RACE_GAP;
+    observer::paint_text(
+        ui,
+        Rect::from_min_max(pos2(name_left, rect.top()), rect.max),
+        &text::body(RACE_NAME_SIZE, BodyWeight::Medium).with_color(theme::TEXT_SECONDARY),
+        &race_name(race),
+        Align::LEFT,
+    );
+}
+
+fn race_name(race: RaceView) -> String {
+    match race {
+        RaceView::Zerg => tr!("alliances.raceZerg", "Zerg"),
+        RaceView::Terran => tr!("alliances.raceTerran", "Terran"),
+        RaceView::Protoss => tr!("alliances.raceProtoss", "Protoss"),
+        RaceView::Random => tr!("alliances.raceRandom", "Random"),
     }
 }
 
@@ -1205,6 +1262,26 @@ mod tests {
         ] {
             assert_eq!(settled_width(&ctx, &busy, Some(menu)), baseline);
         }
+    }
+
+    /// The overlay is never drawn smaller than one point per pixel, so a 720-line screen is 720
+    /// points tall, and everyone else in an eight player game has to fit on it with the dialog
+    /// clear of the screen's edges.
+    #[test]
+    fn an_eight_player_game_fits_a_720_line_screen() {
+        let ctx = fresh_ctx();
+        let others = view((1..=7).map(|id| player(id, "player")).collect());
+        for _ in 0..4 {
+            render(&ctx, &others, None);
+        }
+        let height = ctx
+            .memory(|memory| memory.area_rect(Id::new("sb_alliances")))
+            .expect("the dialog was drawn")
+            .height();
+        assert!(
+            height <= 720.0 - tiers::CENTERED_MIN_MARGIN * 2.0,
+            "the dialog is {height} points tall"
+        );
     }
 
     /// A menu left open for someone the screen no longer lists closes rather than hanging off

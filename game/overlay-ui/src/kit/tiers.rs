@@ -294,7 +294,7 @@ const RAISED_SCRIM_STRENGTH: f32 = 0.85;
 
 /// The least room kept between a centered dialog and the top or bottom of the screen, where the
 /// dialog is too tall to center over the game.
-const CENTERED_MIN_MARGIN: f32 = 16.0;
+pub(crate) const CENTERED_MIN_MARGIN: f32 = 16.0;
 
 fn console_top_id() -> Id {
     Id::new("sb_console_top")
