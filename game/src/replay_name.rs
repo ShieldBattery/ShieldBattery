@@ -68,6 +68,8 @@ const TOKENS: &[&str] = &[
     "time",
     "map",
     "name",
+    "teamA",
+    "teamB",
     "opponents",
     "race",
     "opponentRaces",
@@ -165,6 +167,18 @@ fn token_value(token: &str, context: &NameContext) -> String {
         "time" => context.time.clone(),
         "map" => context.map.clone(),
         "name" => context.local_name.clone().unwrap_or_default(),
+        "teamA" | "teamB" => {
+            let index = usize::from(token == "teamB");
+            teams
+                .get(index)
+                .map(|team| {
+                    team.iter()
+                        .map(|p| p.name.as_str())
+                        .collect::<Vec<_>>()
+                        .join("+")
+                })
+                .unwrap_or_default()
+        }
         "opponents" => opponent_teams
             .iter()
             .flatten()
@@ -323,6 +337,33 @@ mod test {
             render("{name} {race}{opponents} {matchup}", &ctx),
             "Obs A+B TvZ"
         );
+        assert_eq!(render("{teamA} vs {teamB}", &ctx), "A vs B");
+    }
+
+    #[test]
+    fn team_names_put_the_local_team_first() {
+        assert_eq!(render("{teamA} vs {teamB}", &one_v_one()), "Me vs Opp");
+        assert_eq!(render("{teamA} vs {teamB}", &two_v_two()), "Me+Ally vs A+B");
+    }
+
+    #[test]
+    fn observer_team_names_follow_slot_order() {
+        let mut ctx = two_v_two();
+        for player in &mut ctx.players {
+            player.is_local = false;
+            // Team order follows the first participant's slot, rather than the team's number.
+            player.team = 3 - player.team;
+        }
+        ctx.local_name = Some("Obs".into());
+        assert_eq!(render("{teamA} vs {teamB}", &ctx), "A+B vs Me+Ally");
+        assert_eq!(render("{matchup}", &ctx), "PTvPZ");
+    }
+
+    #[test]
+    fn missing_teams_have_empty_names() {
+        let ctx = context(vec![player("Solo", AssignedRace::Zerg, 0, true)]);
+        assert_eq!(render("A={teamA};B={teamB}", &ctx), "A=Solo;B=");
+        assert_eq!(render("A={teamA};B={teamB}", &context(Vec::new())), "A=;B=");
     }
 
     #[test]

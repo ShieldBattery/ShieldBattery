@@ -48,6 +48,10 @@ function getTokenLabel(token: ReplayNameToken, t: TFunction): string {
       return t('settings.app.replays.name.token.map', 'Map')
     case 'name':
       return t('settings.app.replays.name.token.name', 'Your name')
+    case 'teamA':
+      return t('settings.app.replays.name.token.teamA', 'Team A')
+    case 'teamB':
+      return t('settings.app.replays.name.token.teamB', 'Team B')
     case 'opponents':
       return t('settings.app.replays.name.token.opponents', 'Opponents')
     case 'race':
@@ -76,6 +80,8 @@ function makePreviewValues(now: Date, selfName: string) {
   return {
     oneVOne: {
       ...common,
+      teamA: selfName,
+      teamB: 'Opponent',
       opponents: 'Opponent',
       opponentRaces: 'T',
       format: '1v1',
@@ -83,10 +89,32 @@ function makePreviewValues(now: Date, selfName: string) {
     },
     twoVTwo: {
       ...common,
+      teamA: `${selfName}+Ally`,
+      teamB: 'Opponent1+Opponent2',
       opponents: 'Opponent1+Opponent2',
       opponentRaces: 'PT',
       format: '2v2',
       matchup: 'PZvPT',
+    },
+    observer: {
+      ...common,
+      teamA: 'PlayerA',
+      teamB: 'PlayerB',
+      opponents: 'PlayerA+PlayerB',
+      race: '',
+      opponentRaces: 'TZ',
+      format: '1v1',
+      matchup: 'TvZ',
+    },
+    observerTwoVTwo: {
+      ...common,
+      teamA: 'Player1+Player2',
+      teamB: 'Player3+Player4',
+      opponents: 'Player1+Player2+Player3+Player4',
+      race: '',
+      opponentRaces: 'PTPZ',
+      format: '2v2',
+      matchup: 'PTvPZ',
     },
   } satisfies Record<string, Record<ReplayNameToken, string>>
 }
@@ -505,6 +533,14 @@ export function ReplayNameTemplateEditor() {
         </PaletteChip>
       </Palette>
 
+      <SettingsSectionDescription>
+        {t(
+          'settings.app.replays.name.teamNamesDescription',
+          'Team A is your team when playing, or the first team in lobby slot order when observing. ' +
+            'Team B is the next team. Names within each team are joined with +.',
+        )}
+      </SettingsSectionDescription>
+
       <Preview>
         <PreviewLabel>{t('settings.app.replays.name.preview1v1', '1v1')}</PreviewLabel>
         <PreviewName>
@@ -513,6 +549,18 @@ export function ReplayNameTemplateEditor() {
         <PreviewLabel>{t('settings.app.replays.name.preview2v2', '2v2')}</PreviewLabel>
         <PreviewName>
           {renderReplayNameTemplate(serializeEditorParts(parts), previewValues.twoVTwo)}.rep
+        </PreviewName>
+        <PreviewLabel>
+          {t('settings.app.replays.name.previewObserver', 'Observing 1v1')}
+        </PreviewLabel>
+        <PreviewName>
+          {renderReplayNameTemplate(serializeEditorParts(parts), previewValues.observer)}.rep
+        </PreviewName>
+        <PreviewLabel>
+          {t('settings.app.replays.name.previewObserver2v2', 'Observing 2v2')}
+        </PreviewLabel>
+        <PreviewName>
+          {renderReplayNameTemplate(serializeEditorParts(parts), previewValues.observerTwoVTwo)}.rep
         </PreviewName>
       </Preview>
 
