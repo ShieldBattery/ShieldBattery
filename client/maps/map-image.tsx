@@ -5,6 +5,7 @@ import { ReadonlyDeep } from 'type-fest'
 import { GameType } from '../../common/games/game-type'
 import { MapImageInfo, mapImageSrcSet, MapStartLocation, visibleSpawns } from '../../common/maps'
 import { SC_COLORS } from '../../common/settings/team-colors'
+import { FragmentType, graphql, useFragment } from '../gql'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
 import { BodyLarge } from '../styles/typography'
@@ -212,6 +213,58 @@ export function MapInfoImage({
       noImageElem={noImageElem}
       forceAspectRatio={forceAspectRatio}
       className={className}
+    />
+  )
+}
+
+export const MapFileImage_FileFragment = graphql(/* GraphQL */ `
+  fragment MapFileImage_FileFragment on MapFile {
+    id
+    image256Url
+    image512Url
+    image1024Url
+    image2048Url
+    imageSpawnsBaked
+    width
+    height
+    startLocations {
+      id
+      slot
+      x
+      y
+    }
+    umsContent
+  }
+`)
+
+/** Displays the map image for a GraphQL `MapFile`. */
+export function MapFileImage({
+  file: fileRef,
+  name,
+  ...props
+}: Omit<MapInfoImageProps, 'map'> & {
+  file: FragmentType<typeof MapFileImage_FileFragment>
+  /** The map's name, used as the image's alt text unless `altText` is given. */
+  name: string
+}) {
+  const file = useFragment(MapFileImage_FileFragment, fileRef)
+  return (
+    <MapImage
+      {...props}
+      map={{
+        name,
+        image256Url: file.image256Url,
+        image512Url: file.image512Url,
+        image1024Url: file.image1024Url,
+        image2048Url: file.image2048Url,
+        imageSpawnsBaked: file.imageSpawnsBaked,
+        mapData: {
+          width: file.width,
+          height: file.height,
+          startLocations: file.startLocations,
+          umsContent: file.umsContent ?? undefined,
+        },
+      }}
     />
   )
 }
