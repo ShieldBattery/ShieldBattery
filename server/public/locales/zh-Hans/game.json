@@ -47,6 +47,9 @@
     "close": "关闭",
     "done": "完成"
   },
+  "console": {
+    "stacked": "堆叠 ({{count}})"
+  },
   "disconnect": {
     "abandonAction": "长按放弃游戏",
     "abandonNote": "提前松开则取消。放弃通常记为失败，除非队伍在您缺席时获胜。",
@@ -205,6 +208,7 @@
     "replayTag": "录像",
     "researchLevel": "{{level}} 级",
     "selectionKills": "消灭",
+    "selectionStacked": "堆叠",
     "seriesArmyValue": "兵力价值",
     "seriesIncome": "收入",
     "seriesKills": "消灭",

@@ -47,6 +47,9 @@
     "close": "닫기",
     "done": "완료"
   },
+  "console": {
+    "stacked": "겹침 ({{count}})"
+  },
   "disconnect": {
     "abandonAction": "길게 눌러 게임 포기",
     "abandonNote": "중간에 떼면 취소됩니다. 게임을 포기하면 보통 패배로 기록되지만, 팀이 대신 승리하면 예외입니다.",
@@ -205,6 +208,7 @@
     "replayTag": "리플레이",
     "researchLevel": "레벨 {{level}}",
     "selectionKills": "처치",
+    "selectionStacked": "겹침",
     "seriesArmyValue": "병력 가치",
     "seriesIncome": "수입",
     "seriesKills": "처치",

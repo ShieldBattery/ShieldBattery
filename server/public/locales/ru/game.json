@@ -47,6 +47,9 @@
     "close": "Закрыть",
     "done": "Готово"
   },
+  "console": {
+    "stacked": "Стопка ({{count}})"
+  },
   "disconnect": {
     "abandonAction": "Удерживайте: бросить игру",
     "abandonNote": "Если отпустить раньше, действие отменится. Уход обычно засчитывается как поражение, если только Ваша команда не победит без Вас.",
@@ -238,6 +241,7 @@
     "replayTag": "Реплей",
     "researchLevel": "Уровень {{level}}",
     "selectionKills": "Убийства",
+    "selectionStacked": "Стопка",
     "seriesArmyValue": "Стоимость армии",
     "seriesIncome": "Доход",
     "seriesKills": "Убийства",

@@ -45,8 +45,9 @@ pub use production::{
     WIREFRAME_LAYERS, Wireframe, render_production_view,
 };
 pub use selection::{
-    ProductionProgressView, SelectedUnitClick, SelectedUnitView, SelectionCase, SelectionOutcome,
-    SelectionView, UnitUpgradeView, UpgradeEffect, WeaponDamageView, render_selection_view,
+    ProductionProgressView, ResourcesLeftView, SelectedUnitClick, SelectedUnitView, SelectionCase,
+    SelectionOutcome, SelectionView, UnitUpgradeView, UpgradeEffect, WeaponDamageView,
+    render_selection_view,
 };
 pub use team_cards::{
     TeamCardPlayerView, TeamCardTotalsView, TeamCardView, TeamCardsView, render_team_cards_view,

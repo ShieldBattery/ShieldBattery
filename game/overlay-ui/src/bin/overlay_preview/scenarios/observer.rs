@@ -22,9 +22,9 @@ use overlay_ui::observer::{
     FightDegree, GraphGrouping, GraphLineView, GraphSeries, GraphsView, MapControlSideView,
     MapControlView, MatchupForm, MatchupPlayerView, MatchupView, MilitaryPlayerView, MilitaryView,
     ObserverView, ProductionIcon, ProductionItemView, ProductionPlayerView, ProductionProgressView,
-    ProductionView, RaceView, SelectedUnitView, SelectionView, Significance, TeamCardPlayerView,
-    TeamCardTotalsView, TeamCardView, TeamCardsView, TimelineEventKind, TimelineEventView,
-    TimelineView, UnitUpgradeView, UpgradeEffect, WeaponDamageView, team_name,
+    ProductionView, RaceView, ResourcesLeftView, SelectedUnitView, SelectionView, Significance,
+    TeamCardPlayerView, TeamCardTotalsView, TeamCardView, TeamCardsView, TimelineEventKind,
+    TimelineEventView, TimelineView, UnitUpgradeView, UpgradeEffect, WeaponDamageView, team_name,
 };
 use overlay_ui::shell::PanelPrefs;
 use serde::{Deserialize, Serialize};
@@ -117,6 +117,9 @@ const PROTOSS_DEFENSE: u16 = 0xa2;
 /// being another.
 const ZERG_EGG: u16 = 0x24;
 
+/// A mineral field, for the selection that is a resource.
+const MINERAL_FIELD: u16 = 0xb0;
+
 /// The names the game's English stat_txt gives the units and buildings above, by the same id.
 fn unit_name(id: u16) -> Option<String> {
     let name = match id {
@@ -146,6 +149,7 @@ fn unit_name(id: u16) -> Option<String> {
         ZERG_DEFENSE => "Zerg Sunken Colony",
         TERRAN_DEFENSE => "Terran Missile Turret",
         PROTOSS_DEFENSE => "Protoss Photon Cannon",
+        MINERAL_FIELD => "Mineral Field (Type 1)",
         _ => return None,
     };
     Some(name.to_string())
@@ -255,6 +259,10 @@ pub struct Knobs {
     /// is the reading of a building with upgrades to read out. Takes the selection over from the
     /// count.
     pub selection_defense: bool,
+    /// Whether what is selected is a mineral field with others stacked on it, which is the reading
+    /// of what is left to mine in something with no hit points. Takes the selection over from the
+    /// count.
+    pub selection_resource: bool,
     /// Whether the game reports how much of the map each side holds. The game reports none for a
     /// game that is not two sides, so this is the switch that proves the bar disappears without one
     /// rather than drawing an empty share.
@@ -292,6 +300,7 @@ impl Default for Knobs {
             selection_constructing: false,
             selection_morphing: false,
             selection_defense: false,
+            selection_resource: false,
             map_control: true,
             vision_picker: false,
         }
@@ -879,6 +888,11 @@ fn selection(knobs: &Knobs, t: f64) -> SelectionView {
             units: vec![defense_building(knobs, owner, t)],
         };
     }
+    if knobs.selection_resource {
+        return SelectionView {
+            units: vec![stacked_minerals(t)],
+        };
+    }
     let units = race_units(knobs.race(owner));
     let buildings = race_buildings(knobs.race(owner));
     let count = knobs.selection.min(SelectionView::MAX_UNITS);
@@ -904,16 +918,18 @@ fn selection(knobs: &Knobs, t: f64) -> SelectionView {
                     owner_color: overlay_ui::kit::theme::player_color(owner),
                     owner_name: player_name(knobs, owner),
                     owner: Some(owner as u8),
-                    hit_points: (
+                    hit_points: Some((
                         wave(index as f64 * 1.3, t, 0.05, full_health as f64).max(1),
                         full_health,
-                    ),
+                    )),
                     shields: (!building && index % 3 == 0)
                         .then(|| (wave(index as f64 * 2.2 + 1.0, t, 0.04, 80.0), 80)),
                     energy: (!building && index % 2 == 0)
                         .then(|| (wave(index as f64 * 1.7 + 2.0, t, 0.03, 200.0), 200)),
                     kills: (t / 31.0) as u32 + index as u32 * 2,
                     building,
+                    resources: None,
+                    stacked: None,
                     production: None,
                     cargo: Vec::new(),
                     // Index 0 is dealt shields, so a lone unit carries the shields chip as well.
@@ -1042,11 +1058,13 @@ fn producing_building(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
         owner_color: overlay_ui::kit::theme::player_color(owner),
         owner_name: player_name(knobs, owner),
         owner: Some(owner as u8),
-        hit_points: (full_health - wave(0.0, t, 0.05, 300.0), full_health),
+        hit_points: Some((full_health - wave(0.0, t, 0.05, 300.0), full_health)),
         shields: has_shields(race).then(|| (wave(1.0, t, 0.04, 450.0), 450)),
         energy: None,
         kills: 0,
         building: true,
+        resources: None,
+        stacked: None,
         production: Some(ProductionProgressView {
             icon: unit_icon(race_units(race)[0]),
             name: unit_name(race_units(race)[0]),
@@ -1079,14 +1097,16 @@ fn building_going_up(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
         owner_color: overlay_ui::kit::theme::player_color(owner),
         owner_name: player_name(knobs, owner),
         owner: Some(owner as u8),
-        hit_points: (
+        hit_points: Some((
             (full_health as f32 * (0.1 + 0.9 * progress)) as u32,
             full_health,
-        ),
+        )),
         shields: has_shields(race).then_some(((500.0 * progress) as u32, 500)),
         energy: None,
         kills: 0,
         building: true,
+        resources: None,
+        stacked: None,
         production: Some(ProductionProgressView {
             icon: unit_icon(building),
             name: unit_name(building),
@@ -1112,11 +1132,13 @@ fn morphing_egg(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
         owner_color: overlay_ui::kit::theme::player_color(owner),
         owner_name: player_name(knobs, owner),
         owner: Some(owner as u8),
-        hit_points: (200, 200),
+        hit_points: Some((200, 200)),
         shields: None,
         energy: None,
         kills: 0,
         building: false,
+        resources: None,
+        stacked: None,
         production: Some(ProductionProgressView {
             icon: unit_icon(target),
             name: unit_name(target),
@@ -1156,17 +1178,44 @@ fn defense_building(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
         owner_color: overlay_ui::kit::theme::player_color(owner),
         owner_name: player_name(knobs, owner),
         owner: Some(owner as u8),
-        hit_points: (
+        hit_points: Some((
             full_health - wave(0.0, t, 0.05, full_health as f64 * 0.4),
             full_health,
-        ),
+        )),
         shields: has_shields(race).then(|| (wave(1.0, t, 0.04, 100.0), 100)),
         energy: None,
         kills: 0,
         building: true,
+        resources: None,
+        stacked: None,
         production: None,
         cargo: Vec::new(),
         upgrades: building_upgrades(race, weapons),
+    }
+}
+
+/// A mineral field being mined out, with two more stacked on it the way a fastest map stacks them.
+fn stacked_minerals(t: f64) -> SelectedUnitView {
+    SelectedUnitView {
+        icon: unit_icon(MINERAL_FIELD),
+        name: unit_name(MINERAL_FIELD),
+        owner_color: overlay_ui::kit::theme::TEXT_DIM,
+        owner_name: String::new(),
+        owner: None,
+        hit_points: None,
+        shields: None,
+        energy: None,
+        kills: 0,
+        building: true,
+        resources: Some(ResourcesLeftView {
+            glyph: overlay_ui::kit::widgets::ResourceGlyph::Minerals,
+            race: None,
+            amount: 1500 - wave(0.0, t, 0.05, 1500.0).min(1500),
+        }),
+        stacked: Some(3),
+        production: None,
+        cargo: Vec::new(),
+        upgrades: Vec::new(),
     }
 }
 
@@ -1187,11 +1236,13 @@ fn loaded_transport(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
         owner_color: overlay_ui::kit::theme::player_color(owner),
         owner_name: player_name(knobs, owner),
         owner: Some(owner as u8),
-        hit_points: (full_health - wave(0.0, t, 0.06, 60.0), full_health),
+        hit_points: Some((full_health - wave(0.0, t, 0.06, 60.0), full_health)),
         shields: has_shields(race).then(|| (wave(2.0, t, 0.05, 80.0), 80)),
         energy: None,
         kills: 0,
         building: false,
+        resources: None,
+        stacked: None,
         production: None,
         cargo: CARGO_HEALTH
             .iter()
@@ -1204,11 +1255,13 @@ fn loaded_transport(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
                     owner_color: overlay_ui::kit::theme::player_color(owner),
                     owner_name: player_name(knobs, owner),
                     owner: Some(owner as u8),
-                    hit_points: ((full_health as f32 * left) as u32, full_health),
+                    hit_points: Some(((full_health as f32 * left) as u32, full_health)),
                     shields: None,
                     energy: None,
                     kills: 0,
                     building: false,
+                    resources: None,
+                    stacked: None,
                     production: None,
                     cargo: Vec::new(),
                     upgrades: Vec::new(),
@@ -1395,6 +1448,8 @@ pub enum Showcase {
     Morphing,
     /// A building with guns of its own, with nothing on the way.
     Defense,
+    /// A mineral field with others stacked on it.
+    Resource,
     /// The single unit the knobs default to, with the list of players under the minimap's vision
     /// button open.
     VisionPicker,
@@ -1505,7 +1560,7 @@ impl Preset {
         }
     }
 
-    pub const ALL: [Preset; 30] = [
+    pub const ALL: [Preset; 31] = [
         Preset::game(2, 1, Screen::Minimal),
         Preset::game(2, 1, Screen::Standard),
         Preset::game(2, 1, Screen::Analyst),
@@ -1538,6 +1593,7 @@ impl Preset {
         Preset::selection_showcase(Showcase::Constructing),
         Preset::selection_showcase(Showcase::Morphing),
         Preset::selection_showcase(Showcase::Defense),
+        Preset::selection_showcase(Showcase::Resource),
         // The vision list is shown over a team game, which is the one with a list worth reading.
         Preset {
             players: 4,
@@ -1561,6 +1617,7 @@ impl Preset {
             Showcase::Constructing => return "1v1-selection-constructing".to_string(),
             Showcase::Morphing => return "1v1-selection-morphing".to_string(),
             Showcase::Defense => return "1v1-selection-defense".to_string(),
+            Showcase::Resource => return "1v1-selection-resource".to_string(),
             Showcase::VisionPicker => return format!("{}-vision-picker", self.shape()),
             Showcase::Knobs => {}
         }
@@ -1608,6 +1665,7 @@ impl Preset {
             selection_constructing: self.showcase == Showcase::Constructing,
             selection_morphing: self.showcase == Showcase::Morphing,
             selection_defense: self.showcase == Showcase::Defense,
+            selection_resource: self.showcase == Showcase::Resource,
             vision_picker: self.showcase == Showcase::VisionPicker,
             ..Knobs::default()
         };
@@ -1716,6 +1774,13 @@ pub fn knobs_ui(k: &mut Knobs, state: &State, ui: &mut egui::Ui) -> bool {
         .on_hover_text(
             "Selects the first player's static defense with nothing on the way, which reads out \
              its shields and its guns.",
+        )
+        .changed();
+    changed |= ui
+        .checkbox(&mut k.selection_resource, "selection is a resource")
+        .on_hover_text(
+            "Selects a mineral field with two more stacked on it, which reads out what is left \
+             to mine in it and how many are stacked, and has no hit points.",
         )
         .changed();
     changed |= ui

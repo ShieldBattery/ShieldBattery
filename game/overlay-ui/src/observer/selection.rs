@@ -16,6 +16,8 @@
 //! - Several units are the console's grid: two rows of six, in the game's order.
 //! - One unit is drawn large beside its name, owner, a bar per pool, its upgrades and its kills.
 //! - One building is drawn smaller with its readouts under it, and its upgrades where it has any.
+//!   A mineral field, a geyser, or a geyser built on reads out what is left to mine in it, and a
+//!   building with others of its kind stacked on it says how many there are.
 //! - One thing making something shows the console's queue, or a single slot for anything working
 //!   through one thing alone; a building going up shows only its progress.
 //! - One transport or bunker with units inside shows them in the console's cargo slots.
@@ -30,6 +32,7 @@ use egui::{
 
 use crate::colors::{BLUE60, BLUE80, GREY_BLUE10, GREY_BLUE20, GREY_BLUE60, PURPLE70};
 use crate::kit::text;
+use crate::kit::widgets::{ResourceGlyph, ResourceRace};
 use crate::kit::{motion, theme, tiers, widgets};
 use crate::observer::{
     ProductionIcon, StackSlot, centred, paint_player_bar, paint_text, unit_codes,
@@ -48,8 +51,9 @@ pub struct SelectedUnitView {
     pub owner_name: String,
     /// The game's own slot of the player who owns it, or `None` for a unit nobody owns.
     pub owner: Option<u8>,
-    /// Hit points, current and full.
-    pub hit_points: (u32, u32),
+    /// Hit points, current and full, or `None` for something the console gives no hit points:
+    /// anything invincible, which every mineral field and geyser is.
+    pub hit_points: Option<(u32, u32)>,
     /// Shields, current and full, for a unit that has any.
     pub shields: Option<(u32, u32)>,
     /// Energy, current and full, for a unit that has any.
@@ -58,6 +62,12 @@ pub struct SelectedUnitView {
     pub kills: u32,
     /// Whether it is a building rather than a unit.
     pub building: bool,
+    /// What is left to mine in it, for a mineral field, a geyser, or the building on a geyser.
+    pub resources: Option<ResourcesLeftView>,
+    /// How many buildings of its kind stand on its spot, itself among them, for a building with
+    /// others stacked on it. `None` for one standing alone. Only read out for a building selected
+    /// alone, so a host may leave it `None` for any other.
+    pub stacked: Option<u32>,
     /// What it is making, for a building training a unit, researching, or upgrading, and for a
     /// morphing egg or cocoon. `None` while it is idle or is not the kind of thing that makes
     /// anything.
@@ -70,6 +80,16 @@ pub struct SelectedUnitView {
     /// alone, and not under a queue or cargo, which leave no room for them, so a host may leave it
     /// empty for any other.
     pub upgrades: Vec<UnitUpgradeView>,
+}
+
+/// What is left to mine in a resource.
+pub struct ResourcesLeftView {
+    /// Which resource it holds.
+    pub glyph: ResourceGlyph,
+    /// Whose art the resource's icon is drawn in, for a geyser a race has built on; `None` for the
+    /// bare resource.
+    pub race: Option<ResourceRace>,
+    pub amount: u32,
 }
 
 /// One upgrade a unit fights with, at the level its owner has taken it to.
@@ -136,7 +156,9 @@ impl SelectedUnitView {
     /// A unit the game keeps no health for reads as whole rather than as dead, since a fraction of
     /// nothing is a unit with no health to report rather than one about to die.
     pub fn health_fraction(&self) -> f32 {
-        let (mut current, mut full) = (self.hit_points.0 as f32, self.hit_points.1 as f32);
+        let (mut current, mut full) = self
+            .hit_points
+            .map_or((0.0, 0.0), |(current, full)| (current as f32, full as f32));
         if let Some((shields, shields_full)) = self.shields {
             current += shields as f32;
             full += shields_full as f32;
@@ -145,6 +167,13 @@ impl SelectedUnitView {
             return 1.0;
         }
         (current / full).clamp(0.0, 1.0)
+    }
+
+    /// The tint its tile's edge says how much of it is left in, or `None` for something with
+    /// nothing that can be worn down, whose edge would only be saying it is whole.
+    fn health_edge(&self) -> Option<Color32> {
+        (self.hit_points.is_some() || self.shields.is_some())
+            .then(|| health_tint(self.health_fraction()))
     }
 }
 
@@ -168,7 +197,9 @@ impl SelectionView {
             [] => SelectionCase::Empty,
             [subject] if subject.production.is_some() => SelectionCase::Producing,
             [subject] if !subject.cargo.is_empty() => SelectionCase::Loaded,
-            [subject] if subject.building => SelectionCase::Building,
+            // A resource has nothing of a unit's to read out, and what it does have, the panel
+            // reads out where a building's go.
+            [subject] if subject.building || subject.resources.is_some() => SelectionCase::Building,
             [_] => SelectionCase::Unit,
             _ => SelectionCase::Many,
         }
@@ -236,16 +267,24 @@ const OWNER_BAR: f32 = 4.0;
 const OWNER_GAP: f32 = 8.0;
 const OWNER_ROW: f32 = 18.0;
 
-/// Gap under the owner's line, and the height of the line of kills under it.
+/// Gap under the owner's line.
 const OWNER_LEAD: f32 = 6.0;
-const KILLS_ROW: f32 = 16.0;
 
 /// How much of the text column the name and the owner's line take, above whatever the reading
 /// draws under them.
 const HEADER_HEIGHT: f32 = NAME_ROW + OWNER_ROW + OWNER_LEAD;
 
-/// Gap between the label at the head of the kills line and the count after it.
-const KILLS_LABEL_GAP: f32 = theme::SPACE_SM;
+/// Height of a tally at the end of the row of upgrades (a unit's kills, a building's stack), and
+/// the gap between its label and its count.
+const TALLY_ROW: f32 = 16.0;
+const TALLY_LABEL_GAP: f32 = theme::SPACE_SM;
+
+/// Height of the line saying what is left to mine in a resource, the side of its glyph, and the
+/// gap between the two. The amount is the whole of what a resource is selected for, so it is
+/// written at the size of the name above it rather than of a readout.
+const RESOURCES_ROW: f32 = 22.0;
+const RESOURCES_GLYPH: f32 = 18.0;
+const RESOURCES_GAP: f32 = theme::SPACE_SM;
 
 /// The shape of the grid, which is the console's own: two rows of six.
 const GRID_COLUMNS: usize = 6;
@@ -341,12 +380,12 @@ const SUBJECT_CODE_SIZE: f32 = 16.0;
 const SLOT_CODE_SIZE: f32 = 12.0;
 const QUEUE_CODE_SIZE: f32 = 11.0;
 
-/// Text size of the subject's name, of the readouts under the subject, of the owner's name, of the
-/// kills count, and of the name and the percentage on a progress line.
+/// Text size of the subject's name, of the readouts under the subject, of the owner's name, of a
+/// tally's count, and of the name and the percentage on a progress line.
 const NAME_SIZE: f32 = 17.0;
 const READOUT_SIZE: f32 = 14.0;
 const OWNER_NAME_SIZE: f32 = 15.0;
-const KILLS_SIZE: f32 = 15.0;
+const TALLY_SIZE: f32 = 15.0;
 const PROGRESS_NAME_SIZE: f32 = 13.0;
 const PERCENT_SIZE: f32 = 14.0;
 
@@ -406,14 +445,16 @@ const _: () = assert!(
 const _: () = assert!(POOL_VALUE_WIDTH + POOL_VALUE_GAP < UNIT_TEXT_WIDTH * 0.5);
 
 /// Under a building's header the row of upgrades sits clear of a lone slot and of the progress
-/// line beside it, and of the progress line a building going up has in their place; and the row
-/// fits the narrower text column a building is read out with.
+/// line beside it, of the progress line a building going up has in their place, and of what is left
+/// in a resource; and the row leaves half of the narrower text column a building is read out with
+/// to its stack.
 const _: () = assert!(
-    HEADER_HEIGHT + max(QUEUE_SLOT, PROGRESS_HEIGHT) + theme::SPACE_SM
+    HEADER_HEIGHT + max(max(QUEUE_SLOT, PROGRESS_HEIGHT), RESOURCES_ROW) + theme::SPACE_SM
         <= BODY_HEIGHT - UPGRADE_CHIP
 );
 const _: () = assert!(
-    UPGRADE_CHIP * MAX_UPGRADES as f32 + UPGRADE_GAP * (MAX_UPGRADES as f32 - 1.0) <= TEXT_WIDTH
+    UPGRADE_CHIP * MAX_UPGRADES as f32 + UPGRADE_GAP * (MAX_UPGRADES as f32 - 1.0)
+        <= TEXT_WIDTH * 0.5
 );
 
 /// How tall the panel is on screen, chrome included.
@@ -544,7 +585,8 @@ fn draw_grid(ui: &Ui, body: Rect, units: &[SelectedUnitView]) -> Option<Selected
 ///
 /// What a building is worth to a watcher is how much of it is left and what it is making, so it is
 /// given no tally of kills: that is a unit's own reading. The upgrades it fights with run along the
-/// bottom of the text column, as a unit's do, wherever the reading leaves that row free.
+/// bottom of the text column, as a unit's do, wherever the reading leaves that row free, with how
+/// many of it are stacked at that row's other end.
 fn draw_subject(
     ui: &Ui,
     body: Rect,
@@ -557,7 +599,7 @@ fn draw_subject(
         vec2(SUBJECT_TILE, SUBJECT_TILE),
     );
     let tint = health_tint(unit.health_fraction());
-    paint_tile(ui, tile, Some(tint), 1.0);
+    paint_tile(ui, tile, unit.health_edge(), 1.0);
     paint_icon(ui, tile, unit.icon, SUBJECT_CODE_SIZE);
     let clicked = unit_target(ui, tile, 0);
     draw_readouts(ui, column, tile.bottom() + READOUT_LEAD, unit, tint);
@@ -570,16 +612,44 @@ fn draw_subject(
     match (case, &unit.production) {
         (SelectionCase::Producing, Some(production)) => draw_production(ui, below, production),
         (SelectionCase::Loaded, _) => draw_cargo(ui, below, &unit.cargo),
+        (SelectionCase::Building, _) => {
+            if let Some(resources) = &unit.resources {
+                draw_resources_left(ui, below, resources);
+            }
+        }
         _ => {}
     }
     if has_upgrade_row(unit, case) {
-        draw_upgrades(
-            ui,
-            Rect::from_min_max(pos2(text.left(), text.bottom() - UPGRADE_CHIP), text.max),
-            &unit.upgrades,
-        );
+        let row = Rect::from_min_max(pos2(text.left(), text.bottom() - UPGRADE_CHIP), text.max);
+        draw_upgrades(ui, row, &unit.upgrades);
+        if let Some(stacked) = unit.stacked {
+            draw_tally(
+                ui,
+                row,
+                &tr!("observer.selectionStacked", "Stacked"),
+                stacked,
+            );
+        }
     }
     clicked
+}
+
+/// Draws what is left to mine in a resource along the top of `rect`: its glyph, then the amount in
+/// the resource's own color.
+fn draw_resources_left(ui: &Ui, rect: Rect, resources: &ResourcesLeftView) {
+    let line = Rect::from_min_size(rect.left_top(), vec2(rect.width(), RESOURCES_ROW));
+    let glyph = Rect::from_center_size(
+        pos2(line.left() + RESOURCES_GLYPH * 0.5, line.center().y),
+        Vec2::splat(RESOURCES_GLYPH),
+    );
+    widgets::paint_resource_icon(ui.painter(), glyph, resources.glyph, resources.race, 1.0);
+    paint_text(
+        ui,
+        Rect::from_min_max(pos2(glyph.right() + RESOURCES_GAP, line.top()), line.max),
+        &text::numeral(NAME_SIZE).with_color(resources.glyph.color()),
+        &resources.amount.to_string(),
+        Align::LEFT,
+    );
 }
 
 /// Whether the reading of a building, or of anything making or carrying something, leaves the
@@ -615,7 +685,7 @@ fn draw_unit(ui: &Ui, body: Rect, unit: &SelectedUnitView) -> Option<SelectedUni
         pos2(body.left() + UNIT_TILE * 0.5, body.center().y),
         vec2(UNIT_TILE, UNIT_TILE),
     );
-    paint_tile(ui, tile, Some(health_tint(unit.health_fraction())), 1.0);
+    paint_tile(ui, tile, unit.health_edge(), 1.0);
     paint_icon(ui, tile, unit.icon, UNIT_CODE_SIZE);
     let clicked = unit_target(ui, tile, 0);
 
@@ -659,7 +729,12 @@ fn draw_unit(ui: &Ui, body: Rect, unit: &SelectedUnitView) -> Option<SelectedUni
 
     let row = Rect::from_min_max(pos2(text.left(), text.bottom() - UPGRADE_CHIP), text.max);
     draw_upgrades(ui, row, &unit.upgrades);
-    draw_kills(ui, row, unit.kills);
+    draw_tally(
+        ui,
+        row,
+        &tr!("observer.selectionKills", "Kills"),
+        unit.kills,
+    );
     clicked
 }
 
@@ -667,6 +742,7 @@ fn draw_unit(ui: &Ui, body: Rect, unit: &SelectedUnitView) -> Option<SelectedUni
 /// under them.
 ///
 /// A unit the host has no name for leaves no gap for one: the owner's line heads the column instead.
+/// Nor does a unit nobody owns, a mineral field or a critter, whose line would be an empty bar.
 fn draw_header(ui: &Ui, text: Rect, unit: &SelectedUnitView) -> Rect {
     let mut top = text.top();
     if let Some(name) = &unit.name {
@@ -679,22 +755,28 @@ fn draw_header(ui: &Ui, text: Rect, unit: &SelectedUnitView) -> Rect {
         );
         top += NAME_ROW;
     }
-    draw_owner(
-        ui,
-        Rect::from_min_size(pos2(text.left(), top), vec2(text.width(), OWNER_ROW)),
-        unit,
-    );
-    Rect::from_min_max(pos2(text.left(), top + OWNER_ROW + OWNER_LEAD), text.max)
+    if unit.owner.is_some() {
+        draw_owner(
+            ui,
+            Rect::from_min_size(pos2(text.left(), top), vec2(text.width(), OWNER_ROW)),
+            unit,
+        );
+        top += OWNER_ROW;
+    }
+    Rect::from_min_max(pos2(text.left(), top + OWNER_LEAD), text.max)
 }
 
 /// The subject's pools as the console lists them: shields for a unit that has them, then hit points
-/// in `hit_point_color`, then energy for a unit that has it, each in the game's color for that pool.
+/// in `hit_point_color` for a unit that has them, then energy for a unit that has it, each in the
+/// game's color for that pool.
 fn pools(unit: &SelectedUnitView, hit_point_color: Color32) -> Vec<((u32, u32), Color32)> {
     let mut pools = Vec::with_capacity(READOUTS);
     if let Some(shields) = unit.shields {
         pools.push((shields, BLUE80));
     }
-    pools.push((unit.hit_points, hit_point_color));
+    if let Some(hit_points) = unit.hit_points {
+        pools.push((hit_points, hit_point_color));
+    }
     if let Some(energy) = unit.energy {
         pools.push((energy, PURPLE70));
     }
@@ -704,7 +786,9 @@ fn pools(unit: &SelectedUnitView, hit_point_color: Color32) -> Vec<((u32, u32), 
 /// How much of its hit points a unit has left, from 0 to 1, shields aside: the hit point bar's own
 /// reading, where the tile's tint is of everything keeping the unit alive.
 fn hit_point_fraction(unit: &SelectedUnitView) -> f32 {
-    let (current, full) = unit.hit_points;
+    let Some((current, full)) = unit.hit_points else {
+        return 1.0;
+    };
     if full == 0 {
         return 1.0;
     }
@@ -748,22 +832,23 @@ fn draw_owner(ui: &Ui, rect: Rect, unit: &SelectedUnitView) {
     );
 }
 
-/// Draws what the subject has killed against the right end of `row`, level with its middle.
-fn draw_kills(ui: &Ui, row: Rect, kills: u32) {
-    let line = centred(row, KILLS_ROW);
+/// Draws a count of the subject's, under `label`, against the right end of `row`, level with its
+/// middle.
+fn draw_tally(ui: &Ui, row: Rect, label: &str, count: u32) {
+    let line = centred(row, TALLY_ROW);
     // The label is set against its number at the number's own width rather than in a column of its
     // own: a column wide enough for any count would leave a short one stranded from its label.
-    let count = kills.to_string();
-    let count_width = text::numeral(KILLS_SIZE).galley(ui, &count).size().x;
-    paint_text(ui, line, &text::numeral(KILLS_SIZE), &count, Align::RIGHT);
+    let count = count.to_string();
+    let count_width = text::numeral(TALLY_SIZE).galley(ui, &count).size().x;
+    paint_text(ui, line, &text::numeral(TALLY_SIZE), &count, Align::RIGHT);
     paint_text(
         ui,
         Rect::from_min_max(
             line.min,
-            pos2(line.right() - count_width - KILLS_LABEL_GAP, line.bottom()),
+            pos2(line.right() - count_width - TALLY_LABEL_GAP, line.bottom()),
         ),
         &text::column_label(),
-        &tr!("observer.selectionKills", "Kills"),
+        label,
         Align::RIGHT,
     );
 }
@@ -1043,6 +1128,9 @@ fn paint_small_tile(ui: &Ui, tile: Rect, unit: &SelectedUnitView, code_size: f32
         paint_track(ui, shield_bar, fraction.clamp(0.0, 1.0), BLUE60);
         top = shield_bar.bottom();
     }
+    if unit.hit_points.is_none() {
+        return;
+    }
     // Hit points alone where the shields have a bar of their own above it.
     let health = hit_point_fraction(unit);
     let bar = Rect::from_min_size(
@@ -1140,11 +1228,13 @@ mod tests {
             owner_color: Color32::WHITE,
             owner_name: String::new(),
             owner: None,
-            hit_points,
+            hit_points: Some(hit_points),
             shields,
             energy: None,
             kills: 0,
             building: false,
+            resources: None,
+            stacked: None,
             production: None,
             cargo: Vec::new(),
             upgrades: Vec::new(),
@@ -1286,6 +1376,27 @@ mod tests {
         let stripped = unit((100, 100), Some((0, 100)), 0x42);
         assert_eq!(hit_point_fraction(&stripped), 1.0);
         assert_eq!(hit_point_fraction(&unit((0, 0), None, 0x42)), 1.0);
+    }
+
+    #[test]
+    fn a_resource_reads_as_what_is_left_in_it_rather_than_its_health() {
+        let mut minerals = unit((0, 0), None, 0xB0);
+        minerals.hit_points = None;
+        minerals.resources = Some(ResourcesLeftView {
+            glyph: ResourceGlyph::Minerals,
+            race: None,
+            amount: 1500,
+        });
+        assert!(pools(&minerals, theme::TEXT_POSITIVE).is_empty());
+        assert_eq!(minerals.health_edge(), None);
+        // Read out like a building whether or not the host calls it one.
+        assert_eq!(selection(vec![minerals]).case(), SelectionCase::Building);
+
+        // An assimilator on a geyser is worn down like any other building.
+        let mut assimilator = unit((225, 450), Some((450, 450)), 0x9D);
+        assimilator.building = true;
+        assert_eq!(assimilator.health_edge(), Some(theme::TEXT_POSITIVE));
+        assert_eq!(pools(&assimilator, theme::TEXT_POSITIVE).len(), 2);
     }
 
     #[test]

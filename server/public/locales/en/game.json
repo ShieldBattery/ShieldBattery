@@ -47,6 +47,9 @@
     "close": "Close",
     "done": "Done"
   },
+  "console": {
+    "stacked": "Stacked ({{count}})"
+  },
   "disconnect": {
     "abandonAction": "Hold to abandon",
     "abandonNote": "Releasing early cancels. Abandoning usually counts as a loss, unless your team wins without you.",
@@ -216,6 +219,7 @@
     "replayTag": "Replay",
     "researchLevel": "Level {{level}}",
     "selectionKills": "Kills",
+    "selectionStacked": "Stacked",
     "seriesArmyValue": "Army value",
     "seriesIncome": "Income",
     "seriesKills": "Kills",

@@ -9,12 +9,14 @@ use std::collections::HashMap;
 use bw_dat::{Game, Race, Unit, UnitId};
 use egui::Color32;
 use overlay_ui::kit::theme;
+use overlay_ui::kit::widgets::{ResourceGlyph, ResourceRace};
 use overlay_ui::observer::{
     ControlGroupView, ControlGroupsPlayerView, ControlGroupsView, EconomyPlayerView, EconomyView,
     GraphGrouping, GraphLineView, GraphSeries, GraphsView, MapControlSideView, MapControlView,
     MatchupPlayerView, MatchupView, MilitaryPlayerView, MilitaryView, ObserverView, ProductionIcon,
-    ProductionView, RaceView, SelectedUnitView, SelectionView, TeamCardPlayerView,
-    TeamCardTotalsView, TeamCardView, TeamCardsView, TimelineEventView, TimelineView,
+    ProductionView, RaceView, ResourcesLeftView, SelectedUnitView, SelectionView,
+    TeamCardPlayerView, TeamCardTotalsView, TeamCardView, TeamCardsView, TimelineEventView,
+    TimelineView,
 };
 use overlay_ui::shell::PanelPrefs;
 use overlay_ui::transport;
@@ -581,8 +583,9 @@ fn build_selection_view(bw: &BwVars, players: &[StatsPlayer]) -> SelectionView {
 }
 
 /// One selected unit, named and measured the way the game's own console measures it, with what it
-/// is making and what it is carrying, and the upgrades it fights with where it is selected `alone`:
-/// those are only read out for a unit selected alone, so they are only read for one.
+/// is making and what it is carrying, and the upgrades it fights with and how many of it are
+/// stacked where it is selected `alone`: those are only read out for a unit selected alone, so they
+/// are only read for one.
 fn selected_unit_view(
     bw: &BwVars,
     players: &[StatsPlayer],
@@ -594,6 +597,7 @@ fn selected_unit_view(
     view.cargo = cargo_views(bw, players, unit);
     if alone {
         view.upgrades = production::selected_upgrades(unit, bw);
+        view.stacked = game_thread::stacked_building_count(unit, bw.active_units);
     }
     view
 }
@@ -647,7 +651,9 @@ fn carried_unit_view(bw: &BwVars, players: &[StatsPlayer], unit: Unit) -> Select
         owner_color: owner.map_or(theme::TEXT_DIM, |player| player.color),
         owner_name: owner.map(|player| player.name.clone()).unwrap_or_default(),
         owner: owner.map(|player| player.player_id),
-        hit_points: (hit_points, max_hit_points),
+        // The console writes no hit points for anything that cannot lose them, which every mineral
+        // field and geyser is.
+        hit_points: (!unit.is_invincible()).then_some((hit_points, max_hit_points)),
         shields: unit_id.has_shields().then(|| {
             (
                 whole_points(unit.shields()),
@@ -662,10 +668,36 @@ fn carried_unit_view(bw: &BwVars, players: &[StatsPlayer], unit: Unit) -> Select
         }),
         kills: unit.kills(),
         building: unit_id.is_building(),
+        resources: resources_left(unit),
+        stacked: None,
         production: None,
         cargo: Vec::new(),
         upgrades: Vec::new(),
     }
+}
+
+/// What is left to mine in this unit, for a mineral field, a geyser, or the building on a geyser.
+fn resources_left(unit: Unit) -> Option<ResourcesLeftView> {
+    use bw_dat::unit;
+
+    let unit_id = unit.id();
+    if !unit_id.is_resource_container() {
+        return None;
+    }
+    let (glyph, race) = match unit_id {
+        unit::MINERAL_FIELD_1 | unit::MINERAL_FIELD_2 | unit::MINERAL_FIELD_3 => {
+            (ResourceGlyph::Minerals, None)
+        }
+        unit::REFINERY => (ResourceGlyph::Gas, Some(ResourceRace::Terran)),
+        unit::EXTRACTOR => (ResourceGlyph::Gas, Some(ResourceRace::Zerg)),
+        unit::ASSIMILATOR => (ResourceGlyph::Gas, Some(ResourceRace::Protoss)),
+        _ => (ResourceGlyph::Gas, None),
+    };
+    Some(ResourcesLeftView {
+        glyph,
+        race,
+        amount: u32::from(unit.resource_amount()),
+    })
 }
 
 /// Whether units.dat marks this kind of unit a spellcaster, which is what the game draws energy

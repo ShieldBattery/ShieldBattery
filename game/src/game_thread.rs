@@ -983,57 +983,62 @@ pub unsafe fn before_init_unit_data(bw: &BwScr) {
     }
 }
 
+/// How many buildings of `unit`'s kind stand on its spot, itself among them, out of
+/// `active_units`. `None` for anything that is not a landed building, and for one standing alone.
+///
+/// A building counts toward the stack if it covers this one's center, so a stack need not be
+/// perfectly aligned. Every mineral field counts as the same kind, which matters on fastest maps.
+pub fn stacked_building_count(unit: Unit, active_units: impl Iterator<Item = Unit>) -> Option<u32> {
+    fn normalize_id(id: UnitId) -> UnitId {
+        use bw_dat::unit;
+        match id {
+            unit::MINERAL_FIELD_2 | unit::MINERAL_FIELD_3 => unit::MINERAL_FIELD_1,
+            x => x,
+        }
+    }
+
+    if !unit.is_landed_building() {
+        return None;
+    }
+    let pos = unit.position();
+    let id = normalize_id(unit.id());
+    // Doing a loop like this through every active unit is definitely worse
+    // than using some position searching structure, but building that structure
+    // would still require looping through the units once.
+    // If we have such structure in future for some other code it should be used
+    // here too though.
+    let count = active_units
+        .filter(|other| {
+            normalize_id(other.id()) == id && other.collision_rect().contains_point(&pos)
+        })
+        .count() as u32;
+    (count > 1).then_some(count)
+}
+
+/// The text last written in place of a status screen's rank, so the next update can tell its own
+/// text from the game's.
+static STACKED_STATUS_TEXT: Mutex<String> = Mutex::new(String::new());
+
 pub unsafe fn after_status_screen_update(bw: &BwScr, status_screen: Dialog, unit: Unit) {
     unsafe {
-        // Show "Stacked (n)" text for stacked buildings
-        if unit.is_landed_building() {
-            fn normalize_id(id: UnitId) -> UnitId {
-                use bw_dat::unit;
-                // For mineral fields, consider any mineral field unit as equivalent.
-                // May be useful in some fastest maps.
-                match id {
-                    unit::MINERAL_FIELD_2 | unit::MINERAL_FIELD_3 => unit::MINERAL_FIELD_1,
-                    x => x,
-                }
-            }
-
-            // Find units that have same unit id and collide with this unit's center
-            // (So they don't necessarily have to be perfectly stacked)
-            let mut count = 0;
-            let pos = unit.position();
-            let id = normalize_id(unit.id());
-            // Doing a loop like this through every active unit is definitely worse
-            // than using some position searching structure, but building that structure
-            // would still require looping through the units once.
-            // If we have such structure in future for some other code it should be used
-            // here too though.
-            for other in bw.active_units() {
-                if normalize_id(other.id()) == id && other.collision_rect().contains_point(&pos) {
-                    count += 1;
-                }
-            }
-            if count > 1 {
-                // Show the text at where unit rank/status is usually, as long as it hasn't
-                // been used.
-                if let Some(rank_status) = status_screen.child_by_id(-20) {
-                    let existing_text = rank_status.string();
-                    if rank_status.is_hidden()
-                        || existing_text.starts_with("Stacked")
-                        || existing_text.is_empty()
-                    {
-                        use std::io::Write;
-
-                        let mut buffer = [0; 32];
-                        let buf_len = buffer.len();
-                        let mut out = &mut buffer[..];
-                        // TODO: Could use translations in other SC:R languages :)
-                        let _ = write!(&mut out, "Stacked ({count})");
-                        let len = buf_len - out.len();
-                        rank_status.set_string(&buffer[..len]);
-                        rank_status.show();
-                    }
-                }
-            }
+        let Some(count) = stacked_building_count(unit, bw.active_units()) else {
+            return;
+        };
+        // Show the text at where unit rank/status is usually, as long as it hasn't
+        // been used.
+        let Some(rank_status) = status_screen.child_by_id(-20) else {
+            return;
+        };
+        let mut last_written = STACKED_STATUS_TEXT.lock().unwrap();
+        let existing_text = rank_status.string();
+        if rank_status.is_hidden()
+            || existing_text.is_empty()
+            || (!last_written.is_empty() && existing_text == *last_written)
+        {
+            let text = overlay_ui::tr!("console.stacked", "Stacked ({{count}})", count = count);
+            rank_status.set_string(text.as_bytes());
+            rank_status.show();
+            *last_written = text;
         }
     }
 }

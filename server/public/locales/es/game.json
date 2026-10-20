@@ -47,6 +47,9 @@
     "close": "Cerrar",
     "done": "Listo"
   },
+  "console": {
+    "stacked": "Apilados ({{count}})"
+  },
   "disconnect": {
     "abandonAction": "Mantén pulsado: abandonar",
     "abandonNote": "Si sueltas antes, se cancela. Abandonar suele contar como derrota, salvo que tu equipo gane sin ti.",
@@ -227,6 +230,7 @@
     "replayTag": "Replay",
     "researchLevel": "Nivel {{level}}",
     "selectionKills": "Elim.",
+    "selectionStacked": "Apilados",
     "seriesArmyValue": "Valor del ejército",
     "seriesIncome": "Ingresos",
     "seriesKills": "Eliminaciones",
