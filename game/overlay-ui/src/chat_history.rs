@@ -150,13 +150,14 @@ pub fn render_chat_history_view(
             tiers::dialog_body(ui, |ui| draw_list(ui, view));
             tiers::dialog_footer(ui, |ui| {
                 ui.vertical_centered(|ui| {
-                    widgets::button_with_kbd(
+                    let close = widgets::button_with_kbd(
                         ui,
                         &tr!("common.close", "Close"),
                         ButtonVariant::Tier2,
                         CLOSE_KEY,
-                    )
-                    .clicked()
+                    );
+                    widgets::default_focus(&close);
+                    close.clicked()
                 })
                 .inner
             })

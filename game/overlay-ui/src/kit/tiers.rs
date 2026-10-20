@@ -313,6 +313,27 @@ pub fn console_top(ctx: &Context) -> Option<f32> {
         .flatten()
 }
 
+fn dialog_takes_keyboard_id() -> Id {
+    Id::new("sb_dialog_takes_keyboard")
+}
+
+/// Records whether the modal dialog drawn this frame owns the keyboard, as a modal standing in for
+/// one of SC:R's dialogs does: its controls are then the only ones keys and focus can reach, and
+/// the pointer moves focus to the control it is over, so the lit control is the one `Space` and
+/// `Enter` work. A notice that leaves the player the game's keys (the chat box, a watcher's panel
+/// keys) must say it doesn't, or a pointer passing over it would take the keyboard from them.
+/// Unrecorded, a dialog owns the keyboard.
+pub fn set_dialog_takes_keyboard(ctx: &Context, takes: bool) {
+    ctx.data_mut(|data| data.insert_temp(dialog_takes_keyboard_id(), takes));
+}
+
+/// Whether the modal dialog drawn this frame owns the keyboard, as [`set_dialog_takes_keyboard`]
+/// recorded it.
+pub fn dialog_takes_keyboard(ctx: &Context) -> bool {
+    ctx.data(|data| data.get_temp::<bool>(dialog_takes_keyboard_id()))
+        .unwrap_or(true)
+}
+
 /// How far a centered dialog `height` tall moves from the screen's center: to the middle of the
 /// game above the console where one is recorded, and back down as far as it must to keep its top
 /// on screen.
@@ -351,18 +372,17 @@ pub fn tier2_dialog_staged<R>(
     add: impl FnOnce(&mut Ui) -> R,
 ) -> DialogResponse<R> {
     let screen = ctx.viewport_rect();
-    let scrim_area = Area::new(id.with("scrim"))
+    Area::new(id.with("scrim"))
         .order(Order::Middle)
         .fixed_pos(screen.min)
         .show(ctx, |ui| {
             // The whole screen still takes the clicks, however little of it is dimmed: the dialog
-            // is modal either way.
-            let (rect, response) = ui.allocate_exact_size(screen.size(), Sense::click());
+            // is modal either way. Never focusable: there is nothing on it for a key to work.
+            let (rect, _) = ui.allocate_exact_size(screen.size(), Sense::CLICK);
             match stage {
                 DialogStage::Centered => ui.painter().rect_filled(rect, 0, theme::SCRIM),
                 DialogStage::Raised => ui.painter().add(raised_scrim(rect)),
             };
-            response
         });
     let anchor = match stage {
         DialogStage::Centered => {
@@ -390,9 +410,33 @@ pub fn tier2_dialog_staged<R>(
                 .set(background, tier2_chrome(inner.response.rect));
             inner.inner
         });
+    let layer = dialog.response.layer_id;
+    if dialog_takes_keyboard(ctx) {
+        // Over every other surface of its order, the observer panels drawn before it included, and
+        // the floor of what keys and the pointer can reach: focus moves among its controls alone.
+        ctx.move_to_top(layer);
+        ctx.memory_mut(|memory| memory.set_modal_layer(layer));
+    }
+    // Read off the pointer rather than off the scrim, which a dialog that owns the keyboard leaves
+    // below the reach of the pointer along with everything else under it. A menu the dialog hangs
+    // past its own edge stands above it, and a click there is the menu's.
+    let click = ctx
+        .input(|input| {
+            input
+                .pointer
+                .primary_clicked()
+                .then(|| input.pointer.interact_pos())
+        })
+        .flatten();
+    let scrim_clicked = click.is_some_and(|pos| {
+        !dialog.response.rect.contains(pos)
+            && ctx
+                .layer_id_at(pos)
+                .is_none_or(|top| top.order <= layer.order)
+    });
     DialogResponse {
         inner: dialog.inner,
-        scrim_clicked: scrim_area.inner.clicked(),
+        scrim_clicked,
         response: dialog.response,
     }
 }

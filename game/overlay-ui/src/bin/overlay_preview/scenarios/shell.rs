@@ -61,7 +61,7 @@ pub enum Preset {
     PlayerGameMenu,
     /// The chat log's replacement, raised the same way.
     ChatHistory,
-    /// The options screen over the menu that opens it, on one of its pages.
+    /// The options screen, which takes the place of the menu that opens it, on one of its pages.
     Options(OptionsSection),
     /// The end-of-game card of a player who has won, raised by the victory popup spawning.
     Victory,
@@ -103,11 +103,8 @@ impl Preset {
     /// Selects this preset's host state as well as its own knobs: a modal here is raised by a native
     /// dialog spawning, which is host state rather than anything the scenario owns.
     pub fn apply(self, knobs: &mut AllKnobs) {
-        // The options screen stacks over the menu it is opened from, so the menu comes up under it.
-        knobs.host.game_menu_spawned = matches!(
-            self,
-            Preset::GameMenu | Preset::PlayerGameMenu | Preset::Options(_)
-        );
+        // The options screen takes the place of the menu it is opened from, so it comes up alone.
+        knobs.host.game_menu_spawned = matches!(self, Preset::GameMenu | Preset::PlayerGameMenu);
         knobs.host.chat_history_spawned = matches!(self, Preset::ChatHistory);
         knobs.host.victory_spawned = matches!(self, Preset::Victory);
         knobs.host.defeat_spawned = matches!(self, Preset::Defeat);

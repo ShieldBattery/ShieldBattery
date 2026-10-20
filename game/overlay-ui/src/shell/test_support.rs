@@ -1,6 +1,6 @@
 //! Shells and frames for the shell's tests, set up the way a host sets them up.
 
-use egui::{Context, Rect};
+use egui::{Context, Key, Modifiers, Rect};
 
 use super::{FrameOutput, HostFrame, Intent, ModalId, Mode, Shell, Views};
 use crate::disconnect::{DisconnectView, SelfState};
@@ -49,6 +49,36 @@ pub(super) fn run_frame_at(
     transport: Option<&TransportView>,
     time: f64,
 ) -> FrameOutput {
+    run_frame_with_events(shell, ctx, transport, time, Vec::new())
+}
+
+/// Runs one shell frame after `keys` were pressed, each offered to the shell first and handed to
+/// the overlay's controls where the shell leaves it, the way the game's host routes them.
+pub(super) fn run_frame_with_keys(shell: &mut Shell, ctx: &Context, keys: &[Key]) -> FrameOutput {
+    let events = keys
+        .iter()
+        .filter(|&&key| !shell.key_pressed(key, Modifiers::NONE))
+        .flat_map(|&key| {
+            [true, false].map(|pressed| egui::Event::Key {
+                key,
+                physical_key: None,
+                pressed,
+                repeat: false,
+                modifiers: Modifiers::NONE,
+            })
+        })
+        .collect();
+    let time = ctx.input(|input| input.time) + 1.0;
+    run_frame_with_events(shell, ctx, None, time, events)
+}
+
+fn run_frame_with_events(
+    shell: &mut Shell,
+    ctx: &Context,
+    transport: Option<&TransportView>,
+    time: f64,
+    events: Vec<egui::Event>,
+) -> FrameOutput {
     let host = HostFrame {
         mode: shell.host.mode,
         game_started: true,
@@ -65,6 +95,7 @@ pub(super) fn run_frame_at(
             egui::vec2(1280.0, 720.0),
         )),
         time: Some(time),
+        events,
         ..Default::default()
     };
     ctx.begin_pass(raw);

@@ -639,6 +639,7 @@ impl Shell {
             // draw as empty rather than the screen having to know whether it has any.
             let no_lists = OptionsLists::default();
             let option_lists = views.option_lists.unwrap_or(&no_lists);
+            crate::kit::tiers::set_dialog_takes_keyboard(ctx, self.dialog_takes_keyboard());
             let outcome = draw_modal(
                 ctx,
                 id,
@@ -722,10 +723,10 @@ impl Shell {
             self.dismiss_top_modal();
         }
         if outcome.open_options {
-            self.open_modal(ModalId::Options);
+            self.open_from_menu(ModalId::Options);
         }
         if outcome.open_alliances {
-            self.open_modal(ModalId::Alliances);
+            self.open_from_menu(ModalId::Alliances);
         }
         if outcome.open_objectives {
             self.intents.push(Intent::OpenObjectives);
@@ -804,7 +805,7 @@ impl Shell {
             return true;
         }
         match (top, key) {
-            (Some(ModalId::GameMenu), Key::O) => self.open_modal(ModalId::Options),
+            (Some(ModalId::GameMenu), Key::O) => self.open_from_menu(ModalId::Options),
             // The key works the leave button as the pointer does: it asks first where leaving is
             // asked about, and the question takes SC:R's own next key.
             (Some(ModalId::GameMenu), Key::E) if leave_asks_first(replay) => {
@@ -812,7 +813,7 @@ impl Shell {
             }
             (Some(ModalId::GameMenu), Key::E) => self.quit_from(ModalId::GameMenu),
             (Some(ModalId::GameMenu), Key::A | Key::C) if playing => {
-                self.open_modal(ModalId::Alliances)
+                self.open_from_menu(ModalId::Alliances)
             }
             (Some(ModalId::GameMenu), Key::M) if playing => {
                 self.intents.push(Intent::OpenObjectives)
@@ -837,6 +838,15 @@ impl Shell {
             _ => return false,
         }
         true
+    }
+
+    /// Opens `id` in place of the game menu on top, as SC:R's menu gives way to the screens it
+    /// opens: putting one away goes back to the game rather than back to the menu.
+    fn open_from_menu(&mut self, id: ModalId) {
+        if self.top_modal() == Some(ModalId::GameMenu) {
+            self.dismiss_top_modal();
+        }
+        self.open_modal(id);
     }
 
     /// Quits the game as the modal `id` was answered. The modal goes off the stack with the answer,
@@ -867,6 +877,13 @@ impl Shell {
             && !self.host.native_textbox_open
             && !self.host.native_dialog_open
             && !self.modals.captures_input()
+    }
+
+    /// Whether the modal on screen owns the keyboard (see
+    /// [`set_dialog_takes_keyboard`](crate::kit::tiers::set_dialog_takes_keyboard)): it takes every
+    /// input, and the player cannot chat from under it.
+    fn dialog_takes_keyboard(&self) -> bool {
+        self.modals.captures_input() && !self.modals.chat_allowed()
     }
 
     /// Whether the keys pressed now are going into BW's chat box: it is open, and nothing of ours
@@ -1219,7 +1236,8 @@ mod tests {
         assert!(shell.key_pressed(Key::O, Modifiers::NONE));
         assert_eq!(shell.top_modal(), Some(ModalId::Options));
         assert!(shell.key_pressed(Key::Escape, Modifiers::NONE));
-        assert_eq!(shell.top_modal(), Some(ModalId::GameMenu));
+        assert_eq!(shell.top_modal(), None);
+        shell.open_modal(ModalId::GameMenu);
         // A watcher has no alliances to set, so the key is not the menu's.
         assert!(!shell.key_pressed(Key::A, Modifiers::NONE));
         // A replay is left with a tap, watched alone as it is.
@@ -1424,6 +1442,75 @@ mod tests {
         let left = run_frame_at(&mut lost, &ctx, None, 7.05).intents;
         assert!(left.contains(&Intent::EndMission(NativeDialog::Defeat)));
         assert_eq!(lost.top_modal(), None);
+    }
+
+    /// SC:R's menu opens with its way back to the game lit, and `Enter` or `Space` presses what is
+    /// lit.
+    #[test]
+    fn the_menu_opens_with_its_way_back_lit() {
+        for key in [Key::Enter, Key::Space] {
+            let ctx = fresh_ctx();
+            let mut shell = spectating_shell();
+            shell.native_dialog_spawned(NativeDialog::GameMenu);
+            run_frame_with_keys(&mut shell, &ctx, &[]);
+            let output = run_frame_with_keys(&mut shell, &ctx, &[key]);
+            assert_eq!(shell.top_modal(), None, "{key:?}");
+            assert_eq!(
+                output.intents,
+                [Intent::CloseNativeDialog(NativeDialog::GameMenu)]
+            );
+        }
+    }
+
+    /// The arrows move what is lit between the menu's buttons, as they do in SC:R's.
+    #[test]
+    fn the_arrows_move_between_the_menus_buttons() {
+        let ctx = fresh_ctx();
+        let mut shell = playing_shell();
+        shell.native_dialog_spawned(NativeDialog::GameMenu);
+        run_frame_with_keys(&mut shell, &ctx, &[]);
+        // Up from the way back is the leave button, which asks first in a game with players in it.
+        run_frame_with_keys(&mut shell, &ctx, &[Key::ArrowUp]);
+        run_frame_with_keys(&mut shell, &ctx, &[Key::Enter]);
+        assert_eq!(shell.top_modal(), Some(ModalId::LeaveGame));
+        // The question opens with its own way back lit, and down from leaving is that.
+        run_frame_with_keys(&mut shell, &ctx, &[]);
+        run_frame_with_keys(&mut shell, &ctx, &[Key::ArrowUp]);
+        run_frame_with_keys(&mut shell, &ctx, &[Key::ArrowDown]);
+        run_frame_with_keys(&mut shell, &ctx, &[Key::Space]);
+        assert_eq!(shell.top_modal(), Some(ModalId::GameMenu));
+    }
+
+    /// A screen the menu opens comes up with its own button lit, the menu's having gone with it.
+    #[test]
+    fn a_screen_from_the_menu_opens_with_its_own_button_lit() {
+        let ctx = fresh_ctx();
+        let mut shell = spectating_shell();
+        shell.native_dialog_spawned(NativeDialog::GameMenu);
+        run_frame_with_keys(&mut shell, &ctx, &[]);
+        // Up from the way back, past leaving, to Options.
+        run_frame_with_keys(&mut shell, &ctx, &[Key::ArrowUp]);
+        run_frame_with_keys(&mut shell, &ctx, &[Key::ArrowUp]);
+        run_frame_with_keys(&mut shell, &ctx, &[Key::Enter]);
+        assert_eq!(shell.open_modals().collect::<Vec<_>>(), [ModalId::Options]);
+        // The frame the menu's lit button stops being drawn lets go of it, and the next one lights
+        // the screen's Done.
+        run_frame_with_keys(&mut shell, &ctx, &[]);
+        run_frame_with_keys(&mut shell, &ctx, &[]);
+        run_frame_with_keys(&mut shell, &ctx, &[Key::Enter]);
+        assert_eq!(shell.top_modal(), None);
+    }
+
+    /// The keyboard is the game's again once the modal holding it is gone.
+    #[test]
+    fn a_closed_modal_leaves_nothing_focused() {
+        let ctx = fresh_ctx();
+        let mut shell = spectating_shell();
+        shell.native_dialog_spawned(NativeDialog::GameMenu);
+        run_frame_with_keys(&mut shell, &ctx, &[]);
+        assert!(ctx.egui_wants_keyboard_input());
+        run_frame_with_keys(&mut shell, &ctx, &[Key::Escape]);
+        assert!(!ctx.egui_wants_keyboard_input());
     }
 
     #[test]

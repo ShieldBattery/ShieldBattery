@@ -68,9 +68,9 @@ pub enum PauseControl {
 pub struct GameMenuOutcome {
     /// Whether the player asked to go back to the game, which is the same thing `Esc` asks for.
     pub return_to_game: bool,
-    /// Whether the player asked for the options screen, which opens over this menu.
+    /// Whether the player asked for the options screen, which opens in place of this menu.
     pub open_options: bool,
-    /// Whether the player asked for the alliances screen, which opens over this menu.
+    /// Whether the player asked for the alliances screen, which opens in place of this menu.
     pub open_alliances: bool,
     /// Whether the player asked for the map's mission objectives, which the game shows in its own
     /// dialog in place of this menu.
@@ -224,7 +224,8 @@ fn leave_button(ui: &mut Ui, key: &str) -> bool {
     button.clicked()
 }
 
-/// The button back to the game, which is what `Esc` does wherever the menu or its question is up.
+/// The button back to the game, which is what `Esc` does wherever the menu or its question is up,
+/// and the one lit as either opens, as SC:R's menu opens with its own lit.
 fn return_button(ui: &mut Ui) -> bool {
     let spec = text::button_label(BUTTON_LABEL_SIZE).with_letter_spacing(BUTTON_TRACKING);
     let size = vec2(ui.available_width(), BUTTON_HEIGHT);
@@ -235,6 +236,7 @@ fn return_button(ui: &mut Ui) -> bool {
         size,
         ButtonPlate::primary(),
     );
+    widgets::default_focus(&button);
     widgets::paint_button_kbd(ui, button.rect, RETURN_KEY);
     button.clicked()
 }

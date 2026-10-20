@@ -940,23 +940,22 @@ fn draw_footer(
                 .layout(Layout::left_to_right(Align::Center)),
             |ui| {
                 let apply = tr!("alliances.applyChanges", "Apply");
-                outcome.apply =
-                    widgets::button_with_kbd(ui, &apply, ButtonVariant::Tier2Primary, APPLY_KEY)
-                        .clicked();
+                let apply =
+                    widgets::button_with_kbd(ui, &apply, ButtonVariant::Tier2Primary, APPLY_KEY);
+                widgets::default_focus(&apply);
+                outcome.apply = apply.clicked();
             },
         );
     } else {
         ui.vertical_centered(|ui| {
-            if widgets::button_with_kbd(
+            let done = widgets::button_with_kbd(
                 ui,
                 &tr!("common.done", "Done"),
                 ButtonVariant::Tier2,
                 DONE_KEY,
-            )
-            .clicked()
-            {
-                outcome.done = true;
-            }
+            );
+            widgets::default_focus(&done);
+            outcome.done = done.clicked();
         });
     }
     dropdown

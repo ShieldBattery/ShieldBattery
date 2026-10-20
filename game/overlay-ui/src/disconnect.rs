@@ -390,6 +390,7 @@ fn draw_session_ended(ui: &mut Ui, self_state: SelfState) -> DisconnectOutcome {
                 EXIT_SIZE,
                 ButtonPlate::primary(),
             );
+            widgets::default_focus(&button);
             widgets::paint_button_kbd(ui, button.rect, SESSION_ENDED_LEAVE_KEY);
             button.clicked()
         })

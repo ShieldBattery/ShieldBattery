@@ -365,7 +365,9 @@ fn render_all(
                         pixels_per_point: screen.pixels_per_point,
                         time,
                         events: pinned_pointer_event(&knobs).into_iter().collect(),
-                        focused: false,
+                        // The game's window has focus while the overlay is drawn over it, and a
+                        // dialog's lit control only shows in a window that has.
+                        focused: true,
                         predicted_dt: 1.0 / 60.0,
                     },
                     |ctx| {

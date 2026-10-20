@@ -41,7 +41,7 @@ pub use panels::{
 };
 pub use tooltip::{tooltip, tooltip_above};
 
-use egui::{Color32, CornerRadius, Rect, Response, Shape, Stroke, StrokeKind, Ui};
+use egui::{Color32, CornerRadius, Rect, Response, Shape, Stroke, StrokeKind, Ui, Vec2};
 
 use crate::kit::theme;
 
@@ -71,8 +71,29 @@ pub(crate) fn state_overlay(ui: &Ui, response: &Response, rect: Rect, corner_rad
     ui.painter().rect_filled(rect, corner_radius, overlay);
 }
 
-/// Rings a control while it holds keyboard focus.
+/// Makes `response`'s control the one a dialog's keys work while nothing else on it holds focus: on
+/// the frame the dialog opens, and again after a click elsewhere lets go of it. SC:R's dialogs open
+/// with one of their buttons lit, usually the one that puts the dialog away, and `Space` or `Enter`
+/// presses whichever is lit.
+pub fn default_focus(response: &Response) {
+    if response.ctx.memory(|memory| memory.focused().is_none()) {
+        response.request_focus();
+    }
+}
+
+/// Rings a control while it holds keyboard focus. In a modal dialog that owns the keyboard, focus
+/// follows a moving pointer onto the control first, so one control is lit at a time and the keys
+/// press the one the player is looking at; a pointer resting where a dialog opens takes nothing
+/// from the control lit by default.
 pub(crate) fn focus_ring(ui: &Ui, response: &Response, rect: Rect, corner_radius: CornerRadius) {
+    let in_modal = ui.ctx().memory(|memory| memory.top_modal_layer().is_some());
+    if in_modal
+        && response.hovered()
+        && !response.has_focus()
+        && ui.input(|input| input.pointer.delta() != Vec2::ZERO)
+    {
+        response.request_focus();
+    }
     if !response.has_focus() {
         return;
     }

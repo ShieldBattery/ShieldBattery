@@ -344,16 +344,14 @@ fn draw_footer(ui: &mut Ui, outcome: &mut OptionsOutcome) {
         Layout::right_to_left(Align::Center),
         |ui| {
             ui.set_width(width);
-            if widgets::button_with_kbd(
+            let done = widgets::button_with_kbd(
                 ui,
                 &tr!("common.done", "Done"),
                 widgets::ButtonVariant::Tier2,
                 DONE_KEY,
-            )
-            .clicked()
-            {
-                outcome.done = true;
-            }
+            );
+            widgets::default_focus(&done);
+            outcome.done = done.clicked();
         },
     );
 }

@@ -734,25 +734,23 @@ mod tests {
         assert_eq!(shell.top_modal(), None);
     }
 
-    /// The options screen stacks over the menu that opens it, so closing it leaves the player back
-    /// in that menu rather than back in the game.
+    /// The screens the menu opens take its place, as SC:R's do, so putting one away goes back to the
+    /// game rather than back to the menu.
     #[test]
-    fn closing_the_options_screen_returns_to_the_menu_it_opened_from() {
-        let mut shell = spectating_shell();
-        shell.native_dialog_spawned(NativeDialog::GameMenu);
-        shell.open_modal(ModalId::Options);
-        assert_eq!(shell.top_modal(), Some(ModalId::Options));
-        assert!(shell.key_pressed(Key::Escape, Modifiers::NONE));
-        assert_eq!(shell.top_modal(), Some(ModalId::GameMenu));
-        // Nothing of the game's stands behind the options screen, so closing it asks the host for
-        // nothing; the menu it returned to still has its own dialog hidden behind it.
-        assert!(shell.pending_intents().is_empty());
-        assert!(shell.key_pressed(Key::Escape, Modifiers::NONE));
-        assert_eq!(shell.top_modal(), None);
-        assert_eq!(
-            shell.pending_intents(),
-            [Intent::CloseNativeDialog(NativeDialog::GameMenu)]
-        );
+    fn a_screen_opened_from_the_menu_takes_its_place() {
+        for (key, screen) in [(Key::O, ModalId::Options), (Key::A, ModalId::Alliances)] {
+            let mut shell = playing_shell();
+            shell.native_dialog_spawned(NativeDialog::GameMenu);
+            assert!(shell.key_pressed(key, Modifiers::NONE));
+            assert_eq!(shell.open_modals().collect::<Vec<_>>(), vec![screen]);
+            // The game's own menu goes with ours, or it would still be up behind the screen.
+            assert_eq!(
+                shell.pending_intents(),
+                [Intent::CloseNativeDialog(NativeDialog::GameMenu)]
+            );
+            assert!(shell.key_pressed(Key::Escape, Modifiers::NONE));
+            assert_eq!(shell.top_modal(), None);
+        }
     }
 
     #[test]
