@@ -34,7 +34,12 @@ import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { isFetchError } from '../network/fetch-errors'
 import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
 import { DURATION_LONG } from '../snackbars/snackbar-durations'
-import { draftStateAtom, updateLockedPickAtom, updateProvisionalPickAtom } from './draft-atoms'
+import {
+  draftGenerationAtom,
+  draftStateAtom,
+  updateLockedPickAtom,
+  updateProvisionalPickAtom,
+} from './draft-atoms'
 import { clearMatchmakingState, findMatchSelectionAtom, hasAcceptedAtom } from './matchmaking-atoms'
 
 const ipcRenderer = new TypedIpcRenderer()
@@ -330,6 +335,7 @@ export function changeDraftRace(
   spec: RequestHandlingSpec<void>,
 ): ThunkAction {
   return abortableThunk(spec, async (_dispatch, getState) => {
+    const generation = jotaiStore.get(draftGenerationAtom)
     await fetchJson<void>(apiUrl`matchmaking/draft/provisional-pick`, {
       method: 'POST',
       body: encodeBodyAsParams<DraftProvisionalPickRequest>({
@@ -340,7 +346,7 @@ export function changeDraftRace(
     // The server should immediately send an update as well, but just so there is no delay (to
     // avoid weirdness with optimistic updates), we immediately set it here as well
     const draftState = jotaiStore.get(draftStateAtom)
-    if (!draftState) {
+    if (!draftState || jotaiStore.get(draftGenerationAtom) !== generation) {
       return
     }
 
@@ -362,6 +368,7 @@ export function lockInDraftRace(
   spec: RequestHandlingSpec<void>,
 ): ThunkAction {
   return abortableThunk(spec, async (_dispatch, getState) => {
+    const generation = jotaiStore.get(draftGenerationAtom)
     await fetchJson<void>(apiUrl`matchmaking/draft/lock-pick`, {
       method: 'POST',
       body: encodeBodyAsParams<DraftLockPickRequest>({
@@ -372,7 +379,7 @@ export function lockInDraftRace(
     // The server should immediately send an update as well, but just so there is no delay (to
     // avoid weirdness with optimistic updates), we immediately set it here as well
     const draftState = jotaiStore.get(draftStateAtom)
-    if (!draftState) {
+    if (!draftState || jotaiStore.get(draftGenerationAtom) !== generation) {
       return
     }
 
