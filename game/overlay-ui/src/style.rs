@@ -71,45 +71,61 @@ pub fn install_fonts_and_style(ctx: &egui::Context, dynamic: &DynamicFonts) {
     // a second weight would be a second copy in memory for text that is rarely the focus of a
     // screen. Their `wght` axis defaults to 100, which is far too light to read over a game, so the
     // coordinate has to be set explicitly.
-    let mut cjk = vec![fonts::DO_HYEON.to_string()];
+    //
+    // Korean text takes one of two faces depending on what it is set in. Do Hyeon is a display face,
+    // dense and blocky like Sofia Sans, which suits titles, names and buttons but turns small body
+    // text and labels into dark smudges; Noto Sans KR is the plain face for those. Do Hyeon is
+    // embedded and Noto Sans KR is not, so each chain ends in the other, and Korean renders in
+    // something however much of the install is missing.
+    let korean_display = [fonts::DO_HYEON, fonts::NOTO_KR];
+    let korean_body = [fonts::NOTO_KR, fonts::DO_HYEON];
     if let Some(korean) = &dynamic.korean {
         insert(&mut fonts, fonts::NOTO_KR, loaded(korean.clone(), 400.0));
-        cjk.push(fonts::NOTO_KR.to_string());
     }
     if let Some(chinese) = &dynamic.simplified_chinese {
         insert(&mut fonts, fonts::NOTO_SC, loaded(chinese.clone(), 400.0));
-        cjk.push(fonts::NOTO_SC.to_string());
     }
 
-    let chain = |faces: &[&str]| -> Vec<String> {
+    let registered = fonts.font_data.keys().cloned().collect::<Vec<_>>();
+    let chain = |faces: &[&str], korean: &[&str]| -> Vec<String> {
         faces
             .iter()
+            .chain(korean)
+            .chain(&[fonts::NOTO_SC])
+            .filter(|face| registered.iter().any(|name| name == **face))
             .map(|face| face.to_string())
-            .chain(cjk.iter().cloned())
             .chain(default_tail.iter().cloned())
             .collect()
     };
-    fonts
-        .families
-        .insert(FontFamily::Proportional, chain(&[fonts::INTER_400]));
-    fonts
-        .families
-        .insert(fonts::body_medium(), chain(&[fonts::INTER_500]));
-    fonts
-        .families
-        .insert(fonts::body_strong(), chain(&[fonts::INTER_550]));
-    fonts
-        .families
-        .insert(fonts::body_semibold(), chain(&[fonts::INTER_600]));
-    fonts
-        .families
-        .insert(fonts::display(), chain(&[fonts::SOFIA_600]));
-    // Condensed carries numerals only; anything else typed in it borrows Inter's shapes rather than
-    // falling all the way back to egui's default face.
-    fonts.families.insert(
-        fonts::condensed(),
-        chain(&[fonts::CONDENSED_400, fonts::INTER_400]),
-    );
+    let families = [
+        (
+            FontFamily::Proportional,
+            chain(&[fonts::INTER_400], &korean_body),
+        ),
+        (
+            fonts::body_medium(),
+            chain(&[fonts::INTER_500], &korean_body),
+        ),
+        (
+            fonts::body_strong(),
+            chain(&[fonts::INTER_550], &korean_body),
+        ),
+        (
+            fonts::body_semibold(),
+            chain(&[fonts::INTER_600], &korean_body),
+        ),
+        (
+            fonts::display(),
+            chain(&[fonts::SOFIA_600], &korean_display),
+        ),
+        // Condensed carries numerals only; anything else typed in it borrows Inter's shapes rather
+        // than falling all the way back to egui's default face.
+        (
+            fonts::condensed(),
+            chain(&[fonts::CONDENSED_400, fonts::INTER_400], &korean_body),
+        ),
+    ];
+    fonts.families.extend(families);
     ctx.set_fonts(fonts);
 
     let mut style_arc = ctx.global_style();

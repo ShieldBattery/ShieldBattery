@@ -26,8 +26,11 @@ the extra registrations borrow the same bytes):
 | `display`                             | Sofia Sans 600 — titles, player names, button labels                       |
 | `condensed`                           | Sofia Sans Condensed 400 — every numeral, then Inter 400 for anything else |
 
-Every family then falls back to Do Hyeon (Korean), the dynamic Korean and Simplified Chinese faces,
-and finally egui's own faces, so a string of mixed scripts resolves rather than showing boxes. Ask
+Every family then falls back to the Korean faces, the dynamic Simplified Chinese face, and finally
+egui's own faces, so a string of mixed scripts resolves rather than showing boxes. Korean takes Do
+Hyeon (embedded, a display face that sits beside Sofia Sans) first in `display`, and the dynamic Noto
+Sans KR first everywhere else, since Do Hyeon's dense strokes smudge at body and label sizes. Each
+chain ends in the other face, so Korean still renders when the dynamic face is missing. Ask
 for a family through `fonts::body()`, `body_medium()`, `body_strong()`, `body_semibold()`,
 `display()` and `condensed()` rather than naming one, and prefer a `kit::text` style over building a
 `FontId` by hand.
