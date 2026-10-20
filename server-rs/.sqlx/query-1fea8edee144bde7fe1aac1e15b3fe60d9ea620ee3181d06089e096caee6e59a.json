@@ -1,0 +1,64 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT season_id, matchmaking_type as \"matchmaking_type: MatchmakingType\",\n                sum(games)::bigint as \"games!\"\n            FROM map_matchup_stats\n            WHERE map_id = $1\n            GROUP BY season_id, matchmaking_type\n            ORDER BY season_id DESC, matchmaking_type\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "season_id",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "map_matchup_stats",
+            "name": "season_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "matchmaking_type: MatchmakingType",
+        "type_info": {
+          "Custom": {
+            "name": "matchmaking_type",
+            "kind": {
+              "Enum": [
+                "1v1",
+                "2v2",
+                "1v1fastest",
+                "2v2bgh",
+                "2v2hunters",
+                "2v2fastest",
+                "3v3bgh",
+                "3v3hunters",
+                "3v3fastest"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "map_matchup_stats",
+            "name": "matchmaking_type"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "games!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "1fea8edee144bde7fe1aac1e15b3fe60d9ea620ee3181d06089e096caee6e59a"
+}
