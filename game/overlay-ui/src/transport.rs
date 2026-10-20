@@ -359,6 +359,18 @@ impl TransportView {
         self.frame_at_secs(secs.saturating_sub(SEEK_LEAD_IN_SECS))
     }
 
+    /// Whether playback has run out of replay. The game carries on simulating past the last frame
+    /// with nobody giving orders, which is nothing to watch. A replay whose header carries no end
+    /// frame never runs out.
+    pub fn finished(&self) -> bool {
+        self.end_frames != 0 && self.elapsed_frames >= self.end_frames
+    }
+
+    /// Whether there is playback running to watch: neither stopped nor run out.
+    pub fn playing(&self) -> bool {
+        !self.paused && !self.finished()
+    }
+
     /// The rung playback is standing on.
     pub fn step(&self) -> SpeedStep {
         SPEED_LADDER[current_step(self.speed_index, self.multiplier)]
@@ -754,8 +766,8 @@ fn draw_jump_row(ui: &mut Ui, view: &TransportView, outcome: &mut TransportOutco
             ui.add_space(CHIP_GAP);
         }
         if index == half {
-            if play_pause_button(ui, view.paused).clicked() {
-                outcome.paused = Some(!view.paused);
+            if play_pause_button(ui, !view.playing()).clicked() {
+                outcome.paused = Some(view.playing());
             }
             ui.add_space(CHIP_GAP);
         }
@@ -825,10 +837,10 @@ fn stepper_button(ui: &mut Ui, sign: &str) -> Response {
 }
 
 /// The control that stops and starts playback, drawn rather than typed so no font has to carry the
-/// glyphs. It shows what a click would do: a triangle while playback is stopped, two bars while it
-/// is running. Filled rather than outlined, because it is the one control on the plate a viewer
-/// reaches for without looking.
-fn play_pause_button(ui: &mut Ui, paused: bool) -> Response {
+/// glyphs. It shows what a click would do: a triangle while there is nothing playing, stopped or
+/// run out, and two bars while it is running. Filled rather than outlined, because it is the one
+/// control on the plate a viewer reaches for without looking.
+fn play_pause_button(ui: &mut Ui, show_play: bool) -> Response {
     let (rect, response) = ui.allocate_exact_size(PLAY_SIZE, Sense::click());
     if !ui.is_rect_visible(rect) {
         return response;
@@ -848,7 +860,7 @@ fn play_pause_button(ui: &mut Ui, paused: bool) -> Response {
     widgets::focus_ring(ui, &response, rect, corner_radius);
     let centre = rect.center();
     let glyph = theme::TEXT_PRIMARY;
-    if paused {
+    if show_play {
         // Optically centered rather than geometrically: a triangle's mass sits behind its point, so
         // a centered bounding box reads as pushed to the right.
         let half = 6.0;
@@ -1017,6 +1029,26 @@ mod tests {
         };
         assert_eq!(view.progress(), 0.0);
         assert_eq!(view.seek_fraction(0.8), 0);
+        assert!(!view.finished());
+    }
+
+    #[test]
+    fn playback_run_past_the_last_frame_is_not_playing_whether_or_not_it_is_stopped() {
+        let view = view();
+        assert!(view.playing());
+        let ended = TransportView {
+            elapsed_frames: view.end_frames + 50,
+            ..view
+        };
+        assert!(ended.finished());
+        assert!(!ended.playing());
+        assert!(
+            TransportView {
+                elapsed_frames: view.end_frames - 1,
+                ..view
+            }
+            .playing()
+        );
     }
 
     #[test]

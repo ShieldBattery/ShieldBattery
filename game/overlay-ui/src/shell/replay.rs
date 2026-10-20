@@ -87,8 +87,12 @@ impl ReplayCommands {
 
     /// Asks for a change to how playback runs, filling in whichever half of it the player did not
     /// touch from where playback is now.
+    ///
+    /// Asking to play a replay that has run out starts it over from the beginning, as the game's
+    /// own replay controls do, at whatever speed it was running at. Nothing else would ever play
+    /// again: past the last frame there is only an idle game left to simulate.
     pub(super) fn request_speed(
-        &self,
+        &mut self,
         speed: Option<SpeedStep>,
         paused: Option<bool>,
         intents: &mut Vec<Intent>,
@@ -102,6 +106,15 @@ impl ReplayCommands {
             multiplier: step.multiplier,
             paused: paused.unwrap_or(view.paused),
         });
+        // A seek already asked for, queued or on its way, is somewhere the player wants to be
+        // instead, and playing goes on from there.
+        if paused == Some(false)
+            && view.finished()
+            && self.pending_seek.is_none()
+            && !view.seek_pending
+        {
+            self.queue_seek(0, None);
+        }
     }
 
     /// Carries out a transport key, or reports that there was no replay for it to act on.
@@ -115,7 +128,7 @@ impl ReplayCommands {
             return false;
         };
         match action {
-            Action::PauseResume => self.request_speed(None, Some(!view.paused), intents),
+            Action::PauseResume => self.request_speed(None, Some(view.playing()), intents),
             Action::SpeedUp => self.request_speed(
                 Some(transport::step_speed(view.speed_index, view.multiplier, 1)),
                 None,
@@ -171,6 +184,105 @@ mod tests {
                 speed_index: view.speed_index,
                 multiplier: view.multiplier,
                 paused: true,
+            }]
+        );
+    }
+
+    #[test]
+    fn play_on_a_replay_that_has_run_out_starts_it_over_at_the_same_speed() {
+        let ctx = fresh_ctx();
+        let mut shell = spectating_shell();
+        // Played to its end and still simulating, which is what the game leaves running there.
+        let ended = TransportView {
+            elapsed_frames: 60_010,
+            multiplier: 4,
+            ..replay()
+        };
+        run_frame(&mut shell, &ctx, Some(&ended));
+        assert!(shell.key_pressed(Key::P, Modifiers::NONE));
+        assert_eq!(
+            run_frame(&mut shell, &ctx, Some(&ended)),
+            [
+                Intent::SetSpeed {
+                    speed_index: ended.speed_index,
+                    multiplier: 4,
+                    paused: false,
+                },
+                Intent::Seek(0),
+            ]
+        );
+    }
+
+    #[test]
+    fn play_on_a_replay_stopped_at_its_end_starts_it_over() {
+        let mut commands = ReplayCommands::default();
+        commands.set_playback(Some(TransportView {
+            elapsed_frames: 60_000,
+            paused: true,
+            ..replay()
+        }));
+        let mut intents = Vec::new();
+        // What the plate's play button asks for.
+        commands.request_speed(None, Some(false), &mut intents);
+        assert_eq!(commands.pending_seek, Some((0, None)));
+        assert!(matches!(
+            intents[..],
+            [Intent::SetSpeed { paused: false, .. }]
+        ));
+    }
+
+    #[test]
+    fn only_asking_to_play_starts_a_replay_that_has_run_out_over() {
+        let mut commands = ReplayCommands::default();
+        commands.set_playback(Some(TransportView {
+            elapsed_frames: 60_000,
+            ..replay()
+        }));
+        let mut intents = Vec::new();
+        commands.request_speed(Some(crate::transport::NORMAL_SPEED), None, &mut intents);
+        commands.request_speed(None, Some(true), &mut intents);
+        assert_eq!(commands.pending_seek, None);
+    }
+
+    #[test]
+    fn a_seek_already_asked_for_wins_over_starting_a_finished_replay_over() {
+        let mut commands = ReplayCommands::default();
+        let ended = TransportView {
+            elapsed_frames: 60_000,
+            ..replay()
+        };
+        commands.set_playback(Some(ended));
+        commands.queue_seek(50_000, None);
+        let mut intents = Vec::new();
+        commands.request_speed(None, Some(false), &mut intents);
+        assert_eq!(commands.pending_seek, Some((50_000, None)));
+
+        // And one already on its way to the game, including the restart itself.
+        commands.pending_seek = None;
+        commands.set_playback(Some(TransportView {
+            seek_pending: true,
+            ..ended
+        }));
+        commands.request_speed(None, Some(false), &mut intents);
+        assert_eq!(commands.pending_seek, None);
+    }
+
+    #[test]
+    fn the_pause_key_mid_replay_only_toggles_playback() {
+        let ctx = fresh_ctx();
+        let mut shell = spectating_shell();
+        let view = TransportView {
+            paused: true,
+            ..replay()
+        };
+        run_frame(&mut shell, &ctx, Some(&view));
+        assert!(shell.key_pressed(Key::P, Modifiers::NONE));
+        assert_eq!(
+            run_frame(&mut shell, &ctx, Some(&view)),
+            [Intent::SetSpeed {
+                speed_index: view.speed_index,
+                multiplier: view.multiplier,
+                paused: false,
             }]
         );
     }
