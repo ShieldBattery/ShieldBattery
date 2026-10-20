@@ -1,11 +1,12 @@
-import { lazy, useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Route, Switch } from 'wouter'
+import { urlForMap } from '../../common/map-url'
 import { SbMapId } from '../../common/maps'
 import { useTrackPageView } from '../analytics/analytics'
-import { openDialog } from '../dialogs/action-creators'
-import { DialogType } from '../dialogs/dialog-type'
-import { useStableCallback } from '../react/state-hooks'
-import { useAppDispatch } from '../redux-hooks'
+import { push } from '../navigation/routing'
+import { LoadingDotsArea } from '../progress/dots'
+import { useAppSelector } from '../redux-hooks'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { BrowseServerMaps } from './browse-server-maps'
 
@@ -13,29 +14,48 @@ const LoadableLocalMaps = lazy(async () => ({
   default: (await import('./browse-local-maps')).BrowseLocalMaps,
 }))
 
+const LoadableMapPage = lazy(async () => ({
+  default: (await import('./map-page')).MapPageRoute,
+}))
+
 export function MapsRoot() {
+  return (
+    <Switch>
+      <Route path='/maps/:id/:slug?/:subPage?'>
+        <Suspense fallback={<LoadingDotsArea />}>
+          <LoadableMapPage />
+        </Suspense>
+      </Route>
+      <Route>
+        <MapsBrowser />
+      </Route>
+    </Switch>
+  )
+}
+
+function MapsBrowser() {
   useTrackPageView('/maps')
   const { t } = useTranslation()
-  const dispatch = useAppDispatch()
+  const mapsById = useAppSelector(s => s.maps.byId)
 
   const [browsingLocalMaps, setBrowsingLocalMaps] = useState(false)
   const [uploadedMapId, setUploadedMapId] = useState<SbMapId>()
 
-  const onBrowseLocalMaps = useStableCallback(() => {
+  const onBrowseLocalMaps = () => {
     setBrowsingLocalMaps(true)
     setUploadedMapId(undefined)
-  })
+  }
 
-  const onMapUpload = useStableCallback((mapId: SbMapId) => {
+  const onMapUpload = (mapId: SbMapId) => {
     setBrowsingLocalMaps(false)
     setUploadedMapId(mapId)
-  })
+  }
 
-  const onMapRemove = useStableCallback((mapId: SbMapId) => {
+  const onMapRemove = (mapId: SbMapId) => {
     if (uploadedMapId === mapId) {
       setUploadedMapId(undefined)
     }
-  })
+  }
 
   return (
     <CenteredContentContainer>
@@ -48,7 +68,7 @@ export function MapsRoot() {
           uploadedMapId={uploadedMapId}
           onBrowseLocalMaps={IS_ELECTRON ? onBrowseLocalMaps : undefined}
           onMapClick={(mapId: SbMapId) => {
-            dispatch(openDialog({ type: DialogType.MapDetails, initData: { mapId } }))
+            push(urlForMap(mapId, mapsById.get(mapId)?.name))
           }}
           onMapRemove={onMapRemove}
         />

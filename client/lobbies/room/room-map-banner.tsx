@@ -3,6 +3,7 @@ import * as React from 'react'
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css, keyframes } from 'styled-components'
+import { Link } from 'wouter'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { GameType, gameTypeToLabel, isTeamType } from '../../../common/games/game-type'
 import { getGameDurationString } from '../../../common/games/games'
@@ -17,6 +18,7 @@ import {
 import { LobbySeriesGameJson } from '../../../common/lobbies/lobby-network'
 import { findSeriesGameWinner, LobbySeriesWinner } from '../../../common/lobbies/lobby-series'
 import { SlotType } from '../../../common/lobbies/slot'
+import { urlForMap } from '../../../common/map-url'
 import { MapInfo, tilesetToName } from '../../../common/maps'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { useObservedDimensions } from '../../dom/dimension-hooks'
@@ -493,6 +495,19 @@ const SeriesMapName = styled.div`
   ${singleLine};
 `
 
+const SeriesMapLink = styled(Link)`
+  ${bodyMedium};
+  ${singleLine};
+
+  display: block;
+  color: inherit;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+`
+
 const SeriesFactRow = styled.div`
   ${labelSmall};
   display: flex;
@@ -585,9 +600,11 @@ function SeriesGameRow({
         {t('lobbies.room.series.gameNumberShort', 'G{{number}}', { number: gameNumber })}
       </SeriesGameNumber>
       <SeriesMain>
-        <SeriesMapName title={mapName}>
-          {mapName ?? t('lobbies.room.series.unknownMap', 'unknown map')}
-        </SeriesMapName>
+        {mapName ? (
+          <SeriesMapLink href={urlForMap(game.mapId, mapName)}>{mapName}</SeriesMapLink>
+        ) : (
+          <SeriesMapName>{t('lobbies.room.series.unknownMap', 'unknown map')}</SeriesMapName>
+        )}
         <SeriesFactRow>
           {winnerLabel !== undefined ? (
             <>
@@ -721,7 +738,7 @@ function QueuedMapRow({ map, gameNumber }: { map: MapInfo; gameNumber: number })
         {t('lobbies.room.series.gameNumberShort', 'G{{number}}', { number: gameNumber })}
       </SeriesGameNumber>
       <SeriesMain>
-        <SeriesMapName title={map.name}>{map.name}</SeriesMapName>
+        <SeriesMapLink href={urlForMap(map.id, map.name)}>{map.name}</SeriesMapLink>
         <SeriesFactRow>
           {[
             tilesetToName(map.mapData.tileset, t),
