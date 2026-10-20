@@ -39,6 +39,23 @@ static REPLACED_DIALOG_LIVE: [AtomicBool; NativeDialog::ALL.len()] =
 static REPLACED_DIALOG_DRIVEN: [AtomicBool; NativeDialog::ALL.len()] =
     [const { AtomicBool::new(false) }; NativeDialog::ALL.len()];
 
+/// The spawned instance of each replaced native dialog that a control closing it has been pressed
+/// on, indexed by [`NativeDialog::index`], or 0. A dialog outlives that press by a frame or more,
+/// and SC:R's in-game menus share one selection handler that a press replaces and clears: a second
+/// press on a closing menu runs whichever handler is current by then, which can be none at all.
+/// Cleared at spawn, as a new instance can be given the same address.
+static REPLACED_DIALOG_CLOSING: [AtomicUsize; NativeDialog::ALL.len()] =
+    [const { AtomicUsize::new(0) }; NativeDialog::ALL.len()];
+
+/// What pressing a replaced native dialog's control does to the dialog.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum PressEffect {
+    /// The dialog closes, or gives way to the next one, and must not be pressed again.
+    Closes,
+    /// The dialog stays up for more.
+    KeepsOpen,
+}
+
 /// The dialog-system event that activates a control, which is what a click on a button sends it.
 const ACTIVATE_EXT_EVENT: u32 = 0x2;
 
@@ -84,17 +101,22 @@ pub fn live_replaced_dialogs() -> [bool; NativeDialog::ALL.len()] {
 /// dialog closes through its own path. Hiding the dialog never undoes that, so closing a replacement
 /// means driving the hidden dialog's return button the way a click on it would.
 pub fn close_replaced_dialog(first_dialog: Option<Dialog>, dialog: NativeDialog) {
-    activate_replaced_dialog_control(first_dialog, dialog, dialog.return_control_id());
+    activate_replaced_dialog_control(
+        first_dialog,
+        dialog,
+        dialog.return_control_id(),
+        PressEffect::Closes,
+    );
 }
 
 /// Ends the game from a result popup through its own End Mission control, the way a click on it
-/// would. Returns whether the control was there to press.
+/// would. Returns whether the control was there to press, or already pressed.
 pub fn end_mission(first_dialog: Option<Dialog>, dialog: NativeDialog) -> bool {
     let Some(control_id) = dialog.end_mission_control_id() else {
         warn!("The {} dialog has no End Mission control", dialog.label());
         return false;
     };
-    activate_replaced_dialog_control(first_dialog, dialog, control_id)
+    activate_replaced_dialog_control(first_dialog, dialog, control_id, PressEffect::Closes)
 }
 
 /// Logs a replaced native dialog's controls, once its spawn has finished building them, so a log
@@ -124,15 +146,17 @@ pub fn log_replaced_dialog_controls(first_dialog: Option<Dialog>, dialog: Native
 }
 
 /// Activates one of a replaced native dialog's controls, the way a click on it would, returning
-/// whether the control was there to press.
+/// whether the control was there to press. A dialog already closing from an earlier press counts as
+/// pressed, and is left alone: what that press asked for is under way.
 ///
 /// This is how the overlay asks for anything a replaced dialog does: its buttons run the game's own
 /// code for leaving a game or opening a sub-menu, and pressing them keeps every side effect that
 /// code has without the overlay having to know what those are.
-pub fn activate_replaced_dialog_control(
+fn activate_replaced_dialog_control(
     first_dialog: Option<Dialog>,
     dialog: NativeDialog,
     control_id: i16,
+    effect: PressEffect,
 ) -> bool {
     let label = dialog.label();
     let Some(live) = bw::iter_dialogs(first_dialog)
@@ -141,6 +165,11 @@ pub fn activate_replaced_dialog_control(
         debug!("The {label} dialog is already gone");
         return false;
     };
+    let closing = &REPLACED_DIALOG_CLOSING[dialog.index()];
+    if closing.load(Ordering::Relaxed) == *live as usize {
+        debug!("Not pressing control {control_id} of the {label} dialog: it is already closing");
+        return true;
+    }
     let Some(control) = live.child_by_id(control_id) else {
         let controls = live
             .children()
@@ -159,6 +188,9 @@ pub fn activate_replaced_dialog_control(
     let y = area.top + (area.bottom - area.top) / 2;
     debug!("Pressing control {control_id} of the {label} dialog");
     REPLACED_DIALOG_DRIVEN[dialog.index()].store(true, Ordering::Relaxed);
+    if effect == PressEffect::Closes {
+        closing.store(*live as usize, Ordering::Relaxed);
+    }
     control.send_ext_event_mouse(ACTIVATE_EXT_EVENT, x, y);
     true
 }
@@ -174,6 +206,7 @@ pub fn open_objectives(first_dialog: Option<Dialog>) {
         first_dialog,
         NativeDialog::GameMenu,
         GAME_MENU_OBJECTIVES_CONTROL_ID,
+        PressEffect::Closes,
     );
 }
 
@@ -181,9 +214,20 @@ pub fn open_objectives(first_dialog: Option<Dialog>) {
 const GAME_MENU_PAUSE_CONTROL_ID: i16 = 8;
 const GAME_MENU_RESUME_CONTROL_ID: i16 = 9;
 
+/// How long a pause or resume this client sent waits to show in what the game offers before
+/// another press for the same thing is let through.
+const PAUSE_PRESS_SETTLE: Duration = Duration::from_secs(3);
+
+/// The last pause (`true`) or resume (`false`) pressed, and when.
+static LAST_PAUSE_PRESS: Mutex<Option<(bool, Instant)>> = Mutex::new(None);
+
 /// Pauses the game, or resumes it, through the game menu's own button for it, which stays open
 /// afterwards. Pressing a button sends its command whatever the game's rules would say, so it is
 /// only pressed for what `offered`, the game's own rules for this frame, allows.
+///
+/// The command takes a round trip of turns to run, and until it has, the game still offers what it
+/// offered before. A second press for the same thing in that time would send a second command, and
+/// spend another of the player's pauses, so it is left out.
 pub fn set_paused(first_dialog: Option<Dialog>, paused: bool, offered: Option<PauseControl>) {
     let offers_it = matches!(
         (paused, offered),
@@ -193,11 +237,26 @@ pub fn set_paused(first_dialog: Option<Dialog>, paused: bool, offered: Option<Pa
         debug!("Not pressing the game menu's pause button: the game offers {offered:?}");
         return;
     }
+    let mut last_press = LAST_PAUSE_PRESS.lock();
+    if let Some((last_paused, at)) = *last_press
+        && last_paused == paused
+        && at.elapsed() < PAUSE_PRESS_SETTLE
+    {
+        debug!("Not pressing the game menu's pause button: the last press has yet to land");
+        return;
+    }
     let control_id = match paused {
         true => GAME_MENU_PAUSE_CONTROL_ID,
         false => GAME_MENU_RESUME_CONTROL_ID,
     };
-    activate_replaced_dialog_control(first_dialog, NativeDialog::GameMenu, control_id);
+    if activate_replaced_dialog_control(
+        first_dialog,
+        NativeDialog::GameMenu,
+        control_id,
+        PressEffect::KeepsOpen,
+    ) {
+        *last_press = Some((paused, Instant::now()));
+    }
 }
 
 /// Opens the game's menu the way its own key does, by pressing the console's menu button: the menu
@@ -292,8 +351,18 @@ static QUIT_LAST_PRESSED: AtomicUsize = AtomicUsize::new(0);
 ///
 /// From the overlay's leave question, which SC:R's quit keys open, the game menu is not open: it is
 /// opened for the quit instead, and spawns as the chain's first step.
+///
+/// A quit already under way is left to finish: starting another would press its dialogs a second
+/// time as they close.
 pub fn begin_quit(first_dialog: Option<Dialog>) {
-    *QUIT_REQUESTED_AT.lock() = Some(Instant::now());
+    {
+        let mut requested_at = QUIT_REQUESTED_AT.lock();
+        if requested_at.is_some_and(|at| at.elapsed() <= QUIT_CHAIN_TIMEOUT) {
+            debug!("Not starting a quit: one is already under way");
+            return;
+        }
+        *requested_at = Some(Instant::now());
+    }
     let open_menu = bw::iter_dialogs(first_dialog)
         .find(|dialog| NativeDialog::GameMenu.is_named(dialog.as_control().string()));
     match open_menu {
@@ -304,6 +373,7 @@ pub fn begin_quit(first_dialog: Option<Dialog>) {
                 first_dialog,
                 NativeDialog::GameMenu,
                 GAME_MENU_QUIT_CONTROL_ID,
+                PressEffect::Closes,
             );
         }
         None => open_game_menu(first_dialog),
@@ -430,6 +500,7 @@ unsafe fn replace_at_spawn(
     }
     REPLACED_DIALOG_LIVE[replaced.index()].store(true, Ordering::Relaxed);
     REPLACED_DIALOG_DRIVEN[replaced.index()].store(false, Ordering::Relaxed);
+    REPLACED_DIALOG_CLOSING[replaced.index()].store(0, Ordering::Relaxed);
     let inited =
         REPLACED_DIALOG_EVENT_HANDLERS[replaced.index()].init(replaced_dialog_event_handler);
     inited.set_orig(event_handler);

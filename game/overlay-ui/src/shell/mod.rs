@@ -666,7 +666,7 @@ impl Shell {
             self.intents.push(Intent::LeaveGame);
         }
         if outcome.quit {
-            self.intents.push(Intent::QuitGame);
+            self.quit_from(id);
         }
         if outcome.ask_to_leave {
             self.open_modal(ModalId::LeaveGame);
@@ -795,7 +795,7 @@ impl Shell {
             (Some(ModalId::GameMenu), Key::E) if leave_asks_first(replay) => {
                 self.open_modal(ModalId::LeaveGame)
             }
-            (Some(ModalId::GameMenu), Key::E) => self.intents.push(Intent::QuitGame),
+            (Some(ModalId::GameMenu), Key::E) => self.quit_from(ModalId::GameMenu),
             (Some(ModalId::GameMenu), Key::A | Key::C) if playing => {
                 self.open_modal(ModalId::Alliances)
             }
@@ -810,7 +810,7 @@ impl Shell {
                 let pausing = matches!(self.host.pause_control, Some(PauseControl::Pause { .. }));
                 self.intents.push(Intent::SetPaused(pausing));
             }
-            (Some(ModalId::LeaveGame), Key::Q | Key::E) => self.intents.push(Intent::QuitGame),
+            (Some(ModalId::LeaveGame), Key::Q | Key::E) => self.quit_from(ModalId::LeaveGame),
             // The key SC:R opens its message history with closes it again, and so does its OK
             // button's.
             (Some(ModalId::ChatHistory), Key::Equals | Key::O) => self.dismiss_top_modal(),
@@ -822,6 +822,14 @@ impl Shell {
             _ => return false,
         }
         true
+    }
+
+    /// Quits the game as the modal `id` was answered. The modal goes off the stack with the answer,
+    /// without asking the host to close a dialog: the quit closes SC:R's own, and a modal left up
+    /// while it does could be answered again, quitting a second time into dialogs already closing.
+    fn quit_from(&mut self, id: ModalId) {
+        self.modals.remove(id);
+        self.intents.push(Intent::QuitGame);
     }
 
     /// Whether SC:R's quit keys open the leave question. They do in every mode once the game runs,
@@ -1146,6 +1154,26 @@ mod tests {
         assert_eq!(shell.top_modal(), Some(ModalId::LeaveGame));
         assert!(shell.key_pressed(Key::Q, Modifiers::NONE));
         assert!(shell.pending_intents().contains(&Intent::QuitGame));
+    }
+
+    #[test]
+    fn a_quick_second_q_does_not_quit_again() {
+        let mut shell = spectating_shell();
+        let alt = Modifiers {
+            alt: true,
+            ..Modifiers::NONE
+        };
+        assert!(shell.key_pressed(Key::Q, alt));
+        assert!(shell.key_pressed(Key::Q, Modifiers::NONE));
+        // The question is answered and gone, so the next Q is nobody's.
+        assert_ne!(shell.top_modal(), Some(ModalId::LeaveGame));
+        shell.key_pressed(Key::Q, Modifiers::NONE);
+        let quits = shell
+            .pending_intents()
+            .iter()
+            .filter(|&intent| *intent == Intent::QuitGame)
+            .count();
+        assert_eq!(quits, 1);
     }
 
     #[test]
