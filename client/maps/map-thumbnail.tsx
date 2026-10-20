@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep, Simplify } from 'type-fest'
 import { GameType } from '../../common/games/game-type'
+import { urlForMap } from '../../common/map-url'
 import { MapImageInfo, MapVisibility, SbMapId } from '../../common/maps'
 import { matchmakingTypeToLabel } from '../../common/matchmaking'
 import { useSelfPermissions, useSelfUser } from '../auth/auth-utils'
@@ -16,6 +17,7 @@ import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { Tooltip } from '../material/tooltip'
+import { push } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
@@ -435,6 +437,7 @@ export function ReduxMapThumbnail({
   hasMapPreviewAction = true,
   hasRegenMapImageAction = true,
   hasMapPoolChips = false,
+  mapDetailsInDialog = false,
   ...props
 }: Simplify<
   Omit<
@@ -449,6 +452,11 @@ export function ReduxMapThumbnail({
     hasRegenMapImageAction?: boolean
     /** Whether to show a chip for each matchmaking mode whose current map pool has this map. */
     hasMapPoolChips?: boolean
+    /**
+     * Whether "View map details" opens a dialog instead of navigating to the map's page. For
+     * surfaces where leaving the page would discard in-progress work.
+     */
+    mapDetailsInDialog?: boolean
   }
 >) {
   const { t } = useTranslation()
@@ -495,7 +503,10 @@ export function ReduxMapThumbnail({
       }
       onMapDetails={
         canOpenMapDetails
-          ? () => dispatch(openDialog({ type: DialogType.MapDetails, initData: { mapId: map.id } }))
+          ? () =>
+              mapDetailsInDialog
+                ? dispatch(openDialog({ type: DialogType.MapDetails, initData: { mapId: map.id } }))
+                : push(urlForMap(map.id, map.name))
           : undefined
       }
       onDownload={
