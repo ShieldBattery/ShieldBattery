@@ -30,9 +30,9 @@ import { makeServerRsUrl } from '../network/server-url'
 import { UploadedMap } from './actions'
 import { ClientSideUploadError, upload } from './upload'
 
-function fetchBatchMapInfo(mapIds: ReadonlyArray<SbMapId>) {
+function fetchBatchMapInfo(mapIds: ReadonlyArray<SbMapId>, signal?: AbortSignal) {
   const params = mapIds.map(m => urlPath`m=${m}`).join('&')
-  return fetchJson<GetBatchMapInfoResponse>(apiUrl`maps/batch-info` + '?' + params)
+  return fetchJson<GetBatchMapInfoResponse>(apiUrl`maps/batch-info` + '?' + params, { signal })
 }
 
 /**
@@ -319,6 +319,19 @@ export function batchGetMapInfo(mapId: SbMapId, maxCacheAgeMillis = 60000): Thun
       mapsBatchRequester.request(dispatch, mapId)
     }
   }
+}
+
+/**
+ * Requests a single map's info from the server, succeeding once the response has been stored. A map
+ * the server doesn't know succeeds without being stored.
+ */
+export function getMapInfo(mapId: SbMapId, spec: RequestHandlingSpec<void>): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    dispatch({
+      type: '@maps/getBatchMapInfo',
+      payload: await fetchBatchMapInfo([mapId], spec.signal),
+    })
+  })
 }
 
 export function openMapPreviewDialog(mapId: SbMapId) {

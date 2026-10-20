@@ -13,7 +13,7 @@ import { useTrackPageView } from '../../analytics/analytics'
 import { useSelfUser } from '../../auth/auth-utils'
 import { openDialog, openSimpleDialog } from '../../dialogs/action-creators'
 import { DialogType } from '../../dialogs/dialog-type'
-import { batchGetMapInfo } from '../../maps/action-creators'
+import { getMapInfo } from '../../maps/action-creators'
 import { FilledButton } from '../../material/button'
 import { TextField } from '../../material/text-field'
 import { useLocationSearchParam } from '../../navigation/router-hooks'
@@ -65,9 +65,6 @@ function updateRecentMaps(selectedId: SbMapId, recentMaps: ReadonlyArray<SbMapId
 /** The search param that preselects a map in the form. */
 const PRESELECTED_MAP_PARAM = 'map'
 
-/** How long to wait for a preselected map's info before showing the form without it. */
-const PRESELECTED_MAP_LOAD_TIMEOUT_MILLIS = 3000
-
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export interface HostGameProps {
@@ -105,31 +102,36 @@ export function HostGame(props: HostGameProps) {
   const preselectedMapLoaded = useAppSelector(s =>
     preselectedMapId ? s.maps.byId.has(preselectedMapId) : true,
   )
-  const [preselectedMapTimedOut, setPreselectedMapTimedOut] = useState(false)
+  // The preselected map whose request has finished, whether or not the map was found
+  const [settledMapId, setSettledMapId] = useState<SbMapId>()
 
   useEffect(() => {
     dispatch(getLobbyPreferences())
   }, [dispatch])
 
   // The form reads the selected map's info from the store when it mounts (for slot counts), so a
-  // preselected map is requested up front. The wait is bounded because a nonexistent map never
-  // arrives.
+  // preselected map is requested up front and the form waits for the server's answer.
   useEffect(() => {
     if (!preselectedMapId) {
       return undefined
     }
-    dispatch(batchGetMapInfo(preselectedMapId))
-    const timeout = setTimeout(
-      () => setPreselectedMapTimedOut(true),
-      PRESELECTED_MAP_LOAD_TIMEOUT_MILLIS,
+
+    const abortController = new AbortController()
+    const onSettled = () => setSettledMapId(preselectedMapId)
+    dispatch(
+      getMapInfo(preselectedMapId, {
+        signal: abortController.signal,
+        onSuccess: onSettled,
+        onError: onSettled,
+      }),
     )
-    return () => clearTimeout(timeout)
+    return () => abortController.abort()
   }, [dispatch, preselectedMapId])
 
   if (
     isRequesting ||
     !hasLoaded ||
-    (preselectedMapId && !preselectedMapLoaded && !preselectedMapTimedOut)
+    (preselectedMapId && !preselectedMapLoaded && settledMapId !== preselectedMapId)
   ) {
     return (
       <LoadingContainer>
