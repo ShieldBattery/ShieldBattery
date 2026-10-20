@@ -214,7 +214,7 @@ const SUBJECT_COLUMN: f32 = 92.0;
 const READOUT_ROW: f32 = 15.0;
 const READOUT_LEAD: f32 = 4.0;
 
-/// The most readouts there are: hit points, shields and energy.
+/// The most readouts there are: shields, hit points and energy.
 const READOUTS: usize = 3;
 
 /// How tall the subject's column is at its tallest, with every readout under the tile.
@@ -259,9 +259,9 @@ const GRID_GAP: f32 = 8.0;
 const HEALTH_BAR: f32 = 3.0;
 const HEALTH_GAP: f32 = 2.0;
 
-/// The bar under that one for a unit with shields, and its gap from it. As thick as the health bar
-/// and held apart from it by a clear gap: a stream's video keeps color at half the resolution of
-/// brightness, and two bars a pixel apart blur into one striped bar there.
+/// The bar above the health bar for a unit with shields, and its gap from the tile. As thick as the
+/// health bar and held apart from it by a clear gap: a stream's video keeps color at half the
+/// resolution of brightness, and two bars a pixel apart blur into one striped bar there.
 const SHIELD_BAR: f32 = 3.0;
 const SHIELD_GAP: f32 = 2.0;
 
@@ -687,13 +687,14 @@ fn draw_header(ui: &Ui, text: Rect, unit: &SelectedUnitView) -> Rect {
     Rect::from_min_max(pos2(text.left(), top + OWNER_ROW + OWNER_LEAD), text.max)
 }
 
-/// The subject's pools as the console lists them: hit points in `hit_point_color`, then shields and
-/// energy for a unit that has them, each in the color the game gives that pool.
+/// The subject's pools as the console lists them: shields for a unit that has them, then hit points
+/// in `hit_point_color`, then energy for a unit that has it, each in the game's color for that pool.
 fn pools(unit: &SelectedUnitView, hit_point_color: Color32) -> Vec<((u32, u32), Color32)> {
-    let mut pools = vec![(unit.hit_points, hit_point_color)];
+    let mut pools = Vec::with_capacity(READOUTS);
     if let Some(shields) = unit.shields {
         pools.push((shields, BLUE80));
     }
+    pools.push((unit.hit_points, hit_point_color));
     if let Some(energy) = unit.energy {
         pools.push((energy, PURPLE70));
     }
@@ -711,8 +712,8 @@ fn hit_point_fraction(unit: &SelectedUnitView) -> f32 {
 }
 
 /// Draws what the subject has left, one line each, the way the console writes them under its
-/// wireframe: hit points in the color of its health, then shields and energy for a unit that has
-/// them, each in the color the game gives that pool.
+/// wireframe: shields for a unit that has them, then hit points in the color of its health, then
+/// energy for a unit that has it, each in the color the game gives that pool.
 fn draw_readouts(ui: &Ui, column: Rect, top: f32, unit: &SelectedUnitView, tint: Color32) {
     for (index, ((current, full), color)) in pools(unit, tint).into_iter().enumerate() {
         let rect = Rect::from_min_size(
@@ -1026,13 +1027,7 @@ fn draw_cargo(ui: &Ui, rect: Rect, cargo: &[SelectedUnitView]) {
 fn paint_small_tile(ui: &Ui, tile: Rect, unit: &SelectedUnitView, code_size: f32) {
     paint_tile(ui, tile, None, 1.0);
     paint_icon(ui, tile, unit.icon, code_size);
-    // Hit points alone where the shields have a bar of their own under it.
-    let health = hit_point_fraction(unit);
-    let bar = Rect::from_min_size(
-        pos2(tile.left(), tile.bottom() + HEALTH_GAP),
-        vec2(tile.width(), HEALTH_BAR),
-    );
-    paint_track(ui, bar, health, health_tint(health));
+    let mut top = tile.bottom();
     if let Some((shields, full)) = unit.shields {
         let fraction = if full == 0 {
             1.0
@@ -1040,13 +1035,21 @@ fn paint_small_tile(ui: &Ui, tile: Rect, unit: &SelectedUnitView, code_size: f32
             shields as f32 / full as f32
         };
         let shield_bar = Rect::from_min_size(
-            pos2(tile.left(), bar.bottom() + SHIELD_GAP),
+            pos2(tile.left(), top + SHIELD_GAP),
             vec2(tile.width(), SHIELD_BAR),
         );
         // A deeper blue than the shields' number: the health bar's greens are as bright as that
         // number's blue, and a stream that blurs color is left only brightness to tell them by.
         paint_track(ui, shield_bar, fraction.clamp(0.0, 1.0), BLUE60);
+        top = shield_bar.bottom();
     }
+    // Hit points alone where the shields have a bar of their own above it.
+    let health = hit_point_fraction(unit);
+    let bar = Rect::from_min_size(
+        pos2(tile.left(), top + HEALTH_GAP),
+        vec2(tile.width(), HEALTH_BAR),
+    );
+    paint_track(ui, bar, health, health_tint(health));
 }
 
 /// Paints a tile's chrome, outlined in `edge` where the tile has something to say through its edge
