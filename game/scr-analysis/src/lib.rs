@@ -345,6 +345,12 @@ impl<'e> Analysis<'e> {
             .map(|x| x[0])
     }
 
+    /// The vtables of SC:R's legacy DX9 renderer, which is only the renderer in use when the game
+    /// is started with it.
+    pub fn dx9_renderer_vtables(&mut self) -> Vec<VirtualAddress> {
+        self.0.vtables_for_class(b".?AVDX9Renderer@@")
+    }
+
     pub fn first_active_unit(&mut self) -> Option<Operand<'e>> {
         self.0.first_active_unit()
     }

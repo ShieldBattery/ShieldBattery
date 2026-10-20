@@ -258,8 +258,13 @@ impl<T: Copy + bytemuck::NoUninit + bytemuck::AnyBitPattern> VertexBufferAlloc<T
 fn egui_vertex_to_colored_vertex(
     render_target: &RenderTarget,
     vertex: &epaint::Vertex,
-    color: [u8; 4],
+    [r, g, b, a]: [u8; 4],
+    bgra: bool,
 ) -> ColoredVertex {
+    let color = match bgra {
+        true => [b, g, r, a],
+        false => [r, g, b, a],
+    };
     ColoredVertex {
         // egui vertex position is in 0.0 .. screen_points range with origin in top left,
         // while BW wants the vertex in 0.0 .. 1.0 range with origin in bottom left
@@ -284,6 +289,10 @@ pub struct BwVars {
     pub wirefram: *mut scr::DdsGrpSet,
     pub is_hd: bool,
     pub is_carbot: bool,
+    /// Whether the renderer reads a vertex's color as a `D3DCOLOR`, blue first in memory, rather
+    /// than red first. SC:R's DX9 renderer does; drawn red first there, every color the overlay
+    /// gives its vertices comes out with red and blue swapped.
+    pub vertex_colors_bgra: bool,
 }
 
 /// Adds the overlay's draw commands, each layer to the target SC:R itself would draw that layer
@@ -498,6 +507,7 @@ unsafe fn draw_egui_mesh_main<I: IndexSize>(
                 render_target,
                 &vertices[i],
                 colors[i],
+                bw.vertex_colors_bgra,
             ))
         });
         index_alloc.set_map(indices.len(), |i| [indices[i].to_u16()]);

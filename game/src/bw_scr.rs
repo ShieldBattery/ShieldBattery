@@ -368,6 +368,7 @@ pub struct BwScr {
     game_command_lengths: Vec<u32>,
     prism_pixel_shaders: Vec<VirtualAddress>,
     prism_renderer_vtable: VirtualAddress,
+    dx9_renderer_vtables: Vec<VirtualAddress>,
     console_vtables: Vec<VirtualAddress>,
     replay_minimap_patch: Option<scr_analysis::Patch>,
     cursor_dimension_patch: Option<scr_analysis::Patch>,
@@ -2258,6 +2259,7 @@ impl BwScr {
             .prism_pixel_shaders()
             .ok_or("Prism pixel shaders")?;
         let prism_renderer_vtable = analysis.prism_renderer_vtable().ok_or("Prism renderer")?;
+        let dx9_renderer_vtables = analysis.dx9_renderer_vtables();
         let console_vtables = analysis.console_vtables();
 
         let first_active_unit = analysis.first_active_unit().ok_or("first_active_unit")?;
@@ -2883,6 +2885,7 @@ impl BwScr {
             game_command_lengths,
             prism_pixel_shaders,
             prism_renderer_vtable,
+            dx9_renderer_vtables,
             console_vtables,
             replay_minimap_patch,
             cursor_dimension_patch,
@@ -4688,6 +4691,11 @@ impl BwScr {
                                 statres_icons,
                                 cmdicons,
                                 wirefram,
+                                vertex_colors_bgra: self.dx9_renderer_vtables.iter().any(
+                                    |vtable| {
+                                        vtable.0 as *const scr::V_Renderer == (*renderer).vtable
+                                    },
+                                ),
                             };
                             if overlay_out.run_second_draw {
                                 draw_inject::update_textures_without_adding_overlays(
