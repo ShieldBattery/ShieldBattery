@@ -35,7 +35,7 @@ use crate::kit::text;
 use crate::kit::widgets::{ResourceGlyph, ResourceRace};
 use crate::kit::{motion, theme, tiers, widgets};
 use crate::observer::{
-    ProductionIcon, StackSlot, centred, paint_player_bar, paint_text, unit_codes,
+    ProductionIcon, StackSlot, centred, paint_player_swatch, paint_text, unit_codes,
 };
 use crate::tr;
 
@@ -261,9 +261,9 @@ const TEXT_WIDTH: f32 = CONTENT_WIDTH - TEXT_LEFT;
 /// Height of the line the subject's name heads the text column with.
 const NAME_ROW: f32 = 22.0;
 
-/// Width of the bar of the owner's color, the gap between it and their name, and the height of the
-/// line the two of them share.
-const OWNER_BAR: f32 = 4.0;
+/// Size of the square of the owner's color, the gap between it and their name, and the height of
+/// the line the two of them share.
+const OWNER_SWATCH: f32 = 14.0;
 const OWNER_GAP: f32 = 8.0;
 const OWNER_ROW: f32 = 18.0;
 
@@ -814,18 +814,18 @@ fn draw_readouts(ui: &Ui, column: Rect, top: f32, unit: &SelectedUnitView, tint:
     }
 }
 
-/// Draws whose the selection is: the bar of their color, then their name.
+/// Draws whose the selection is: a square of their color, then their name.
 fn draw_owner(ui: &Ui, rect: Rect, unit: &SelectedUnitView) {
-    let bar = centred(
-        Rect::from_min_size(rect.left_top(), vec2(OWNER_BAR, rect.height())),
-        rect.height() - theme::SPACE_XS,
+    let swatch = Rect::from_min_size(
+        pos2(rect.left(), rect.center().y - OWNER_SWATCH * 0.5),
+        Vec2::splat(OWNER_SWATCH),
     );
-    // The bar is what says whose the selection is, and it is read against the colors on the map
-    // rather than against the panel, so it is never drawn at less than its own color.
-    paint_player_bar(ui, bar, unit.owner_color, 1.0);
+    // The swatch is what says whose the selection is, and it is read against the colors on the
+    // map rather than against the panel, so it is never drawn at less than its own color.
+    paint_player_swatch(ui, swatch, unit.owner_color);
     paint_text(
         ui,
-        Rect::from_min_max(pos2(bar.right() + OWNER_GAP, rect.top()), rect.max),
+        Rect::from_min_max(pos2(swatch.right() + OWNER_GAP, rect.top()), rect.max),
         &text::player_name(OWNER_NAME_SIZE).with_color(theme::TEXT_SECONDARY),
         &unit.owner_name,
         Align::LEFT,

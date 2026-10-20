@@ -353,6 +353,20 @@ pub(crate) fn paint_player_bar(ui: &Ui, rect: Rect, color: Color32, alpha: f32) 
     );
 }
 
+/// Paints a square of a player's color, where a row names one player and the bar's sliver of color
+/// would be too little to tell their color by. A faint light edge keeps the dark colors (blue, navy)
+/// reading as a square against the panel rather than sinking into it.
+pub(crate) fn paint_player_swatch(ui: &Ui, rect: Rect, color: Color32) {
+    let corner_radius = theme::radius(theme::RADIUS_CHIP);
+    ui.painter().rect_filled(rect, corner_radius, color);
+    ui.painter().rect_stroke(
+        rect,
+        corner_radius,
+        Stroke::new(theme::HAIRLINE, theme::alpha(theme::TEXT_PRIMARY, 0.25)),
+        StrokeKind::Inside,
+    );
+}
+
 /// Outlines a tile the pointer is over, for the tiles that act when they are clicked.
 pub(crate) fn paint_tile_chrome(ui: &Ui, rect: Rect, hovered: bool) {
     let corner_radius = theme::radius(theme::RADIUS_CHIP);

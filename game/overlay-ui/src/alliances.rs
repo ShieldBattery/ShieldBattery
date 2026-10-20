@@ -729,7 +729,7 @@ fn centered<R>(
 fn draw_player_cell(ui: &mut Ui, rect: Rect, player: &AlliancePlayerView) {
     let painter = ui.painter();
     let mut left = rect.left();
-    paint_color_swatch(
+    observer::paint_player_swatch(
         ui,
         Rect::from_min_size(
             pos2(left, rect.center().y - SWATCH_SIZE * 0.5),
@@ -824,19 +824,6 @@ fn draw_player_cell(ui: &mut Ui, rect: Rect, player: &AlliancePlayerView) {
             widgets::tag_sized(ui, label, style, tag.width());
         });
     }
-}
-
-/// Paints a square of a player's color, edged faintly in light so the dark colors (blue, navy)
-/// still read as a square against the dialog rather than sinking into it.
-fn paint_color_swatch(ui: &Ui, rect: Rect, color: Color32) {
-    let corner_radius = theme::radius(theme::RADIUS_CHIP);
-    ui.painter().rect_filled(rect, corner_radius, color);
-    ui.painter().rect_stroke(
-        rect,
-        corner_radius,
-        egui::Stroke::new(theme::HAIRLINE, theme::alpha(theme::TEXT_PRIMARY, 0.25)),
-        egui::StrokeKind::Inside,
-    );
 }
 
 /// A player's race: its chip, and its name beside it, since the icons alone are hard to tell apart
