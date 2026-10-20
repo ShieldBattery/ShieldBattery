@@ -60,7 +60,6 @@ import { AvailabilityDot } from './availability'
 import { ExpandableRankDisplays } from './expandable-rank-displays'
 import { ConnectedMatchHistory } from './match-history'
 import { MiniMatchHistory } from './mini-match-history'
-import { RaceSelectionTooltip } from './race-selection-tooltip'
 import { UserProfileSeasons } from './user-profile-seasons'
 import { UserProfileSubPage } from './user-profile-sub-page'
 import { UserRankDisplay } from './user-rank-display'
@@ -692,7 +691,7 @@ const RankedSection = styled(ExpandableRankDisplays)`
   margin-bottom: 48px;
 `
 
-const TotalGamesSection = styled(RaceSelectionTooltip)`
+const TotalGamesSection = styled.div`
   padding: 0 24px;
   margin-bottom: 48px;
 
@@ -772,7 +771,7 @@ function SummaryPage({
       )}
 
       <SectionOverline>{t('users.profile.totalGames', 'Total games')}</SectionOverline>
-      <TotalGamesSection stats={stats}>
+      <TotalGamesSection>
         {sortedStats.map((s, i) => (
           <React.Fragment key={s.race}>
             {i > 0 ? <TotalGamesSpacer /> : null}
