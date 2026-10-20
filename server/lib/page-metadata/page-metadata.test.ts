@@ -211,6 +211,14 @@ describe('page-metadata/page-metadata', () => {
     expect(result?.title).toContain('ShieldBattery Maps')
   })
 
+  test('resolves the all maps tab to its static metadata without the map resolver', async () => {
+    const result = await resolvePageMetadata('/maps/all', CONTEXT)
+
+    expect(mapPageMetadataMock).not.toHaveBeenCalled()
+    expect(result?.url).toBe('https://shieldbattery.net/maps/all')
+    expect(result?.title).toContain('ShieldBattery Maps')
+  })
+
   test('resolves a static route to its fixed title/description/canonical url', async () => {
     const result = await resolvePageMetadata('/download', CONTEXT)
 
