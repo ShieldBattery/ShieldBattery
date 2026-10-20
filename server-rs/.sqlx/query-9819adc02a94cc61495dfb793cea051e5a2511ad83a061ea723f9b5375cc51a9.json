@@ -1,0 +1,38 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT date_trunc('week', day::timestamp)::date as \"week_start!\",\n                COALESCE(sum(games) FILTER (WHERE game_source = 'LOBBY'), 0)::bigint\n                    as \"lobby_games!\",\n                COALESCE(sum(games) FILTER (WHERE game_source = 'MATCHMAKING'), 0)::bigint\n                    as \"matchmaking_games!\"\n            FROM map_stats_daily\n            WHERE map_id = $1 AND day >= $2\n            GROUP BY 1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "week_start!",
+        "type_info": "Date",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "lobby_games!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "matchmaking_games!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "9819adc02a94cc61495dfb793cea051e5a2511ad83a061ea723f9b5375cc51a9"
+}
