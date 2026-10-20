@@ -8,13 +8,15 @@ import { LOBBY_NAME_MAXLENGTH } from '../../../common/constants'
 import { GameType, gameTypeToLabel, isTeamType } from '../../../common/games/game-type'
 import { LobbyVisibility, NUM_RECENT_MAPS } from '../../../common/lobbies'
 import { UpdateLobbyPreferencesRequest } from '../../../common/lobbies/lobby-network'
-import { SbMapId } from '../../../common/maps'
+import { makeSbMapId, SbMapId } from '../../../common/maps'
 import { useTrackPageView } from '../../analytics/analytics'
 import { useSelfUser } from '../../auth/auth-utils'
 import { openDialog, openSimpleDialog } from '../../dialogs/action-creators'
 import { DialogType } from '../../dialogs/dialog-type'
+import { getMapInfo } from '../../maps/action-creators'
 import { FilledButton } from '../../material/button'
 import { TextField } from '../../material/text-field'
+import { useLocationSearchParam } from '../../navigation/router-hooks'
 import DotsIndicator, { LoadingDotsArea } from '../../progress/dots'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import {
@@ -60,6 +62,11 @@ function updateRecentMaps(selectedId: SbMapId, recentMaps: ReadonlyArray<SbMapId
   return [selectedId, ...recentMaps.filter(m => m !== selectedId).slice(0, NUM_RECENT_MAPS - 1)]
 }
 
+/** The search param that preselects a map in the form. */
+const PRESELECTED_MAP_PARAM = 'map'
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 export interface HostGameProps {
   onNavigateToList?: () => void
   /**
@@ -78,7 +85,8 @@ export interface HostGameProps {
 
 /**
  * The "Host a game" surface: a form built on the shared `GameSetupForm` core, prefilled from the
- * user's saved lobby preferences.
+ * user's saved lobby preferences. A valid map ID in the `map` search param takes precedence over
+ * the saved map selection.
  */
 export function HostGame(props: HostGameProps) {
   useTrackPageView('/lobbies/create')
@@ -87,11 +95,44 @@ export function HostGame(props: HostGameProps) {
   const hasLoaded = useAppSelector(s => s.lobbyPreferences.hasLoaded)
   const isRequesting = useAppSelector(s => s.lobbyPreferences.isRequesting)
 
+  const [mapParam] = useLocationSearchParam(PRESELECTED_MAP_PARAM)
+  const preselectedMapId = UUID_PATTERN.test(mapParam)
+    ? makeSbMapId(mapParam.toLowerCase())
+    : undefined
+  const preselectedMapLoaded = useAppSelector(s =>
+    preselectedMapId ? s.maps.byId.has(preselectedMapId) : true,
+  )
+  // The preselected map whose request has finished, whether or not the map was found
+  const [settledMapId, setSettledMapId] = useState<SbMapId>()
+
   useEffect(() => {
     dispatch(getLobbyPreferences())
   }, [dispatch])
 
-  if (isRequesting || !hasLoaded) {
+  // The form reads the selected map's info from the store when it mounts (for slot counts), so a
+  // preselected map is requested up front and the form waits for the server's answer.
+  useEffect(() => {
+    if (!preselectedMapId) {
+      return undefined
+    }
+
+    const abortController = new AbortController()
+    const onSettled = () => setSettledMapId(preselectedMapId)
+    dispatch(
+      getMapInfo(preselectedMapId, {
+        signal: abortController.signal,
+        onSuccess: onSettled,
+        onError: onSettled,
+      }),
+    )
+    return () => abortController.abort()
+  }, [dispatch, preselectedMapId])
+
+  if (
+    isRequesting ||
+    !hasLoaded ||
+    (preselectedMapId && !preselectedMapLoaded && settledMapId !== preselectedMapId)
+  ) {
     return (
       <LoadingContainer>
         <LoadingDotsArea />
@@ -99,14 +140,20 @@ export function HostGame(props: HostGameProps) {
     )
   }
 
-  return <HostGameContent {...props} />
+  return (
+    <HostGameContent
+      {...props}
+      preselectedMapId={preselectedMapLoaded ? preselectedMapId : undefined}
+    />
+  )
 }
 
 function HostGameContent({
+  preselectedMapId,
   onNavigateToList,
   createLobbyOverride,
   savePreferencesOverride,
-}: HostGameProps) {
+}: HostGameProps & { preselectedMapId?: SbMapId }) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const selfUser = useSelfUser()
@@ -142,8 +189,12 @@ function HostGameContent({
     lockedAlliances: prefsLockedAlliances ?? false,
     visibility: prefsVisibility ?? ('listed' as LobbyVisibility),
     allowObservers: prefsAllowObservers ?? true,
-    selectedMap: prefsSelectedMap ?? undefined,
-    recentMaps: prefsRecentMaps,
+    selectedMap: preselectedMapId ?? prefsSelectedMap ?? undefined,
+    // A preselected map is promoted into the recents like a picked one, which also keeps the
+    // invariant that any selected map is among the saved recent maps.
+    recentMaps: preselectedMapId
+      ? updateRecentMaps(preselectedMapId, prefsRecentMaps)
+      : prefsRecentMaps,
   }))
 
   const [isCreating, setIsCreating] = useState(false)
