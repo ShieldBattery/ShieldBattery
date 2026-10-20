@@ -24,6 +24,7 @@ export const DEFAULT_LOCAL_SETTINGS: ReadonlyDeep<
 > = {
   runAppAtSystemStart: false,
   runAppAtSystemStartMinimized: false,
+  quitOnClose: false,
   starcraftPath: '',
   masterVolume: 50,
   gameWinX: undefined,

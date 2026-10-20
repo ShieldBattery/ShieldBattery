@@ -132,6 +132,7 @@ function getRegionOptionLabel(
 interface AppSystemSettingsModel {
   runAppAtSystemStart: boolean
   runAppAtSystemStartMinimized: boolean
+  quitOnClose: boolean
 
   gameServerRegion: string
   rollbackTarget: number
@@ -159,6 +160,7 @@ export function AppSystemSettings() {
       {
         runAppAtSystemStart: localSettings.runAppAtSystemStart,
         runAppAtSystemStartMinimized: localSettings.runAppAtSystemStartMinimized,
+        quitOnClose: localSettings.quitOnClose,
         gameServerRegion:
           localSettings.gameServerRegion !== undefined &&
           regions.some(r => r.id === localSettings.gameServerRegion)
@@ -179,6 +181,7 @@ export function AppSystemSettings() {
           {
             runAppAtSystemStart: model.runAppAtSystemStart,
             runAppAtSystemStartMinimized: model.runAppAtSystemStartMinimized,
+            quitOnClose: model.quitOnClose,
             gameServerRegion:
               model.gameServerRegion === AUTO_REGION_VALUE
                 ? undefined
@@ -212,6 +215,19 @@ export function AppSystemSettings() {
             label={t('settings.app.system.startMinimized', 'Start minimized')}
             inputProps={{ tabIndex: 0 }}
             disabled={!getInputValue('runAppAtSystemStart')}
+          />
+        </SectionContainer>
+        <SectionContainer>
+          <SettingsSectionHeader>
+            {t('settings.app.system.closingOverline', 'Closing')}
+          </SettingsSectionHeader>
+          <CheckBox
+            {...bindCheckable('quitOnClose')}
+            label={t(
+              'settings.app.system.quitOnClose',
+              'Quit ShieldBattery when closing the window',
+            )}
+            inputProps={{ tabIndex: 0 }}
           />
         </SectionContainer>
         {regions.length > 0 ? (
