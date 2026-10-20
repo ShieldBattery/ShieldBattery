@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT m.hash as \"hash: MapHash\", a.bases as \"bases: Json<Vec<MapBase>>\"\n                FROM map_analysis a\n                JOIN maps m ON m.id = a.map_id\n                WHERE m.hash = ANY($1)\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "hash: MapHash",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "hash"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "bases: Json<Vec<MapBase>>",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "map_analysis",
+            "name": "bases"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "ByteaArray"
+      ]
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "4050142cfe008f131e91e1d0e8bfda1be40ee0f0204ff130ecb31f125b1c30c5"
+}
