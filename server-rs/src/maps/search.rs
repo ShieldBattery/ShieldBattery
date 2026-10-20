@@ -496,8 +496,7 @@ impl MapCursor {
 const DB_SB_MAP_COLUMNS: &str = "m.id, m.hash, m.name, \
     COALESCE(m.public_description, m.description) AS description, \
     m.kind::text AS kind, m.player_count, m.listed, m.official, \
-    CASE WHEN m.listed THEN m.published_by END AS published_by, \
-    CASE WHEN m.listed THEN m.published_at END AS published_at, \
+    m.published_by, m.published_at, m.delisted_by, m.delisted_at, \
     s.map_id IS NOT NULL AS has_stats, \
     COALESCE(s.games_7d, 0) AS games_7d, \
     COALESCE(s.games_28d, 0) AS games_28d, \
@@ -523,8 +522,12 @@ pub struct DbSbMap {
     pub player_count: i32,
     pub listed: bool,
     pub official: bool,
+    /// Who most recently listed the map, kept after it is delisted.
     pub published_by: Option<SbUserId>,
+    /// When the map was most recently listed, kept after it is delisted.
     pub published_at: Option<DateTime<Utc>>,
+    pub delisted_by: Option<SbUserId>,
+    pub delisted_at: Option<DateTime<Utc>>,
     pub has_stats: bool,
     pub games_7d: i32,
     pub games_28d: i32,
