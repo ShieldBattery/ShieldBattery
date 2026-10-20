@@ -27,8 +27,8 @@ use crate::kit::text::{self, BodyWeight};
 use crate::kit::widgets::{self, ResourceGlyph, TagStyle};
 use crate::kit::{motion, theme, tiers};
 use crate::observer::{
-    EdgeCursor, RaceView, WING_MARGIN, centred, game_clock, paint_player_bar, paint_race_chip,
-    paint_text, vision_alpha,
+    EdgeCursor, RaceView, WING_MARGIN, centred, game_clock, paint_count, paint_player_bar,
+    paint_race_chip, paint_text, vision_alpha,
 };
 use crate::tr;
 
@@ -698,7 +698,7 @@ fn draw_half(ui: &Ui, rect: Rect, player: &MatchupPlayerView, mirrored: bool, me
         &mut cursor,
         metrics.minerals,
         player.race,
-        &player.minerals.to_string(),
+        player.minerals,
         alpha,
         metrics.value_size,
     );
@@ -708,7 +708,7 @@ fn draw_half(ui: &Ui, rect: Rect, player: &MatchupPlayerView, mirrored: bool, me
         &mut cursor,
         metrics.gas,
         player.race,
-        &player.gas.to_string(),
+        player.gas,
         alpha,
         metrics.value_size,
     );
@@ -796,7 +796,7 @@ fn draw_stat(
     cursor: &mut EdgeCursor,
     cell: StatCell,
     race: RaceView,
-    value: &str,
+    value: u32,
     alpha: f32,
     value_size: f32,
 ) {
@@ -813,7 +813,7 @@ fn draw_stat(
     );
     inner.skip(GLYPH_GAP);
     let value_rect = inner.take(cell.value_width);
-    paint_text(
+    paint_count(
         ui,
         value_rect,
         &text::numeral(value_size).with_color(color),

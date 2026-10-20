@@ -289,7 +289,7 @@ fn draw_row(ui: &mut Ui, player: &EconomyPlayerView) {
         cursor.take(RATE_WIDTH),
         ResourceGlyph::Minerals,
         player.race,
-        &player.minerals_per_minute.to_string(),
+        player.minerals_per_minute,
         Align::LEFT,
         alpha,
     );
@@ -299,7 +299,7 @@ fn draw_row(ui: &mut Ui, player: &EconomyPlayerView) {
         cursor.take(RATE_WIDTH),
         ResourceGlyph::Gas,
         player.race,
-        &player.gas_per_minute.to_string(),
+        player.gas_per_minute,
         Align::LEFT,
         alpha,
     );

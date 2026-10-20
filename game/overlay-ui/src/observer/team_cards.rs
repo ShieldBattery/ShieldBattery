@@ -26,8 +26,8 @@ use crate::kit::widgets::{self, ResourceGlyph};
 use crate::kit::{motion, theme, tiers};
 use crate::observer::{
     EdgeCursor, RaceView, STAT_GLYPH, STAT_GLYPH_GAP, STAT_HEADING_HEIGHT, STAT_ROW_GAP,
-    STAT_ROW_HEIGHT, WING_GAP, WING_MARGIN, Wing, centred, paint_column_heading, paint_player_bar,
-    paint_race_chip, paint_text, team_name, vision_alpha,
+    STAT_ROW_HEIGHT, WING_GAP, WING_MARGIN, Wing, centred, paint_column_heading, paint_count,
+    paint_player_bar, paint_race_chip, paint_text, team_name, vision_alpha,
 };
 use crate::tr;
 
@@ -723,23 +723,45 @@ fn draw_player(ui: &mut Ui, player: &TeamCardPlayerView, layout: CardLayout) -> 
             continue;
         };
         cursor.skip(COLUMN_GAP);
-        let (value, color) = match column {
-            Column::Minerals => (player.minerals.to_string(), primary),
-            Column::Gas => (player.gas.to_string(), primary),
-            Column::Supply if layout.supply_cap => (
-                format!("{}/{}", player.supply_used, player.supply_max),
-                supply_color,
+        let rect = cursor.take(width);
+        let spec = text::numeral(VALUE_SIZE);
+        match column {
+            Column::Minerals => paint_count(
+                ui,
+                rect,
+                &spec.with_color(primary),
+                player.minerals,
+                Align::RIGHT,
             ),
-            Column::Supply => (player.supply_used.to_string(), supply_color),
-            Column::Rate => (player.apm.to_string(), primary),
-        };
-        paint_text(
-            ui,
-            cursor.take(width),
-            &text::numeral(VALUE_SIZE).with_color(color),
-            &value,
-            Align::RIGHT,
-        );
+            Column::Gas => paint_count(
+                ui,
+                rect,
+                &spec.with_color(primary),
+                player.gas,
+                Align::RIGHT,
+            ),
+            Column::Supply if layout.supply_cap => paint_text(
+                ui,
+                rect,
+                &spec.with_color(supply_color),
+                &format!("{}/{}", player.supply_used, player.supply_max),
+                Align::RIGHT,
+            ),
+            Column::Supply => paint_text(
+                ui,
+                rect,
+                &spec.with_color(supply_color),
+                &player.supply_used.to_string(),
+                Align::RIGHT,
+            ),
+            Column::Rate => paint_text(
+                ui,
+                rect,
+                &spec.with_color(primary),
+                &player.apm.to_string(),
+                Align::RIGHT,
+            ),
+        }
     }
     response.clicked()
 }
@@ -811,11 +833,11 @@ fn draw_pair(ui: &Ui, rect: Rect, minerals: u32, gas: u32) {
             1.0,
         );
         inner.skip(STAT_GLYPH_GAP);
-        paint_text(
+        paint_count(
             ui,
             inner.take(half - STAT_GLYPH - STAT_GLYPH_GAP),
             &text::numeral(TOTAL_SIZE),
-            &value.to_string(),
+            value,
             Align::LEFT,
         );
     }
@@ -824,11 +846,11 @@ fn draw_pair(ui: &Ui, rect: Rect, minerals: u32, gas: u32) {
 /// Draws the side's kill-and-loss pair: what they took, then what it cost them.
 fn draw_trade(ui: &Ui, rect: Rect, kills: u32, losses: u32) {
     let mut cursor = EdgeCursor::from_left(rect);
-    paint_text(
+    paint_count(
         ui,
         cursor.take(TRADE_KILLS_WIDTH),
         &text::numeral(TOTAL_SIZE),
-        &kills.to_string(),
+        kills,
         Align::LEFT,
     );
     paint_text(
@@ -838,11 +860,11 @@ fn draw_trade(ui: &Ui, rect: Rect, kills: u32, losses: u32) {
         "/",
         Align::Center,
     );
-    paint_text(
+    paint_count(
         ui,
         cursor.take(rect.width() - TRADE_KILLS_WIDTH - SLASH_WIDTH),
         &text::numeral(TOTAL_SIZE).with_color(theme::TEXT_DIM),
-        &losses.to_string(),
+        losses,
         Align::LEFT,
     );
 }

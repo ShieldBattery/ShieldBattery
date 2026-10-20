@@ -19,9 +19,9 @@ use crate::kit::theme;
 use crate::kit::widgets::{self, ResourceGlyph};
 use crate::observer::{
     EdgeCursor, RaceView, STAT_COLOR_BAR, STAT_HEADING_HEIGHT, STAT_ROW_GAP, STAT_ROW_HEIGHT,
-    STAT_VALUE_SIZE, Wing, paint_column_heading, paint_resource_value, paint_stat_identity,
-    paint_team_divider, paint_text, stat_table_height, teams_worth_dividing, vision_alpha,
-    wing_panel,
+    STAT_VALUE_SIZE, Wing, paint_column_heading, paint_count, paint_resource_value,
+    paint_stat_identity, paint_team_divider, paint_text, stat_table_height, teams_worth_dividing,
+    vision_alpha, wing_panel,
 };
 use crate::shell::Panel;
 use crate::tr;
@@ -211,7 +211,7 @@ fn draw_row(ui: &mut Ui, player: &MilitaryPlayerView) {
         cursor.take(VALUE_WIDTH),
         ResourceGlyph::Minerals,
         player.race,
-        &player.army_minerals.to_string(),
+        player.army_minerals,
         Align::LEFT,
         alpha,
     );
@@ -221,7 +221,7 @@ fn draw_row(ui: &mut Ui, player: &MilitaryPlayerView) {
         cursor.take(VALUE_WIDTH),
         ResourceGlyph::Gas,
         player.race,
-        &player.army_gas.to_string(),
+        player.army_gas,
         Align::LEFT,
         alpha,
     );
@@ -249,11 +249,11 @@ fn draw_row(ui: &mut Ui, player: &MilitaryPlayerView) {
 /// centered in whatever room the column happens to have.
 fn draw_trade(ui: &Ui, rect: Rect, kills: u32, losses: u32, alpha: f32) {
     let mut cursor = EdgeCursor::from_left(rect);
-    paint_text(
+    paint_count(
         ui,
         cursor.take(KILLS_WIDTH),
         &text::numeral(STAT_VALUE_SIZE).with_color(theme::TEXT_PRIMARY.gamma_multiply(alpha)),
-        &kills.to_string(),
+        kills,
         Align::LEFT,
     );
     paint_text(
@@ -263,11 +263,11 @@ fn draw_trade(ui: &Ui, rect: Rect, kills: u32, losses: u32, alpha: f32) {
         "/",
         Align::Center,
     );
-    paint_text(
+    paint_count(
         ui,
         cursor.take(rect.width() - KILLS_WIDTH - SLASH_WIDTH),
         &text::numeral(STAT_VALUE_SIZE).with_color(theme::TEXT_SECONDARY.gamma_multiply(alpha)),
-        &losses.to_string(),
+        losses,
         Align::LEFT,
     );
 }

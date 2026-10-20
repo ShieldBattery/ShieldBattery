@@ -194,6 +194,51 @@ pub(crate) fn paint_text(ui: &Ui, rect: Rect, spec: &TextSpec, text: &str, align
     );
 }
 
+/// The ways a count can be written, longest first: the whole number, then thousands (or millions)
+/// to one decimal, then to none. Each form is no longer than the one before it, and the last is
+/// the shortest a count can be written without losing its magnitude.
+///
+/// Counts are truncated rather than rounded, so a form never claims more than the count holds:
+/// 99,999 is `99.9k`, not `100.0k`.
+fn count_forms(value: u32) -> Vec<String> {
+    let mut forms = vec![value.to_string()];
+    let (unit, suffix) = if value >= 1_000_000 {
+        (1_000_000, 'M')
+    } else if value >= 1_000 {
+        (1_000, 'k')
+    } else {
+        return forms;
+    };
+    let tenths = value / (unit / 10);
+    if tenths < 1000 {
+        forms.push(format!("{}.{}{suffix}", tenths / 10, tenths % 10));
+    }
+    forms.push(format!("{}{suffix}", value / unit));
+    forms
+}
+
+/// The longest form of `value` that fits `width` when set in `spec`, or the shortest form when none
+/// does.
+///
+/// A fixed cell is sized for the counts a game normally holds, and a bank or an army value passes
+/// that late in a long game. Measuring the text as it will be painted, rather than counting digits,
+/// keeps the choice right for every cell and every type size.
+pub(crate) fn fit_count(ctx: &Context, spec: &TextSpec, value: u32, width: f32) -> String {
+    let mut forms = count_forms(value);
+    let fits = forms
+        .iter()
+        .position(|form| spec.layout(ctx, spec.job(form)).size().x <= width)
+        .unwrap_or(forms.len() - 1);
+    forms.swap_remove(fits)
+}
+
+/// Paints a count into a rect the caller has already placed, as [`paint_text`] does, written in the
+/// longest form that fits the rect (see [`fit_count`]).
+pub(crate) fn paint_count(ui: &Ui, rect: Rect, spec: &TextSpec, value: u32, align: Align) {
+    let text = fit_count(ui.ctx(), spec, value, rect.width());
+    paint_text(ui, rect, spec, &text, align);
+}
+
 /// Paints a player's race chip: the race's icon in the race's color, over a faint disc of it.
 ///
 /// The icon carries the color because it is what the rest of ShieldBattery shows a race as, and
@@ -731,7 +776,7 @@ pub(crate) fn paint_resource_value(
     rect: Rect,
     glyph: ResourceGlyph,
     race: RaceView,
-    value: &str,
+    value: u32,
     align: Align,
     alpha: f32,
 ) {
@@ -747,7 +792,7 @@ pub(crate) fn paint_resource_value(
         pos2(glyph_rect.right() + STAT_GLYPH_GAP, rect.top()),
         rect.right_bottom(),
     );
-    paint_text(
+    paint_count(
         ui,
         value_rect,
         &text::numeral(STAT_VALUE_SIZE).with_color(theme::TEXT_PRIMARY.gamma_multiply(alpha)),
@@ -843,6 +888,50 @@ mod tests {
 
         assert_eq!(fit_icon(tile, None), tile);
         assert_eq!(fit_icon(tile, Some(vec2(0.0, 30.0))), tile);
+    }
+
+    #[test]
+    fn counts_have_a_whole_form_and_shorter_truncated_ones() {
+        assert_eq!(count_forms(0), ["0"]);
+        assert_eq!(count_forms(999), ["999"]);
+        assert_eq!(count_forms(1_000), ["1000", "1.0k", "1k"]);
+        assert_eq!(count_forms(9_999), ["9999", "9.9k", "9k"]);
+        assert_eq!(count_forms(12_345), ["12345", "12.3k", "12k"]);
+        assert_eq!(count_forms(99_999), ["99999", "99.9k", "99k"]);
+        assert_eq!(count_forms(123_456), ["123456", "123k"]);
+        assert_eq!(count_forms(1_234_567), ["1234567", "1.2M", "1M"]);
+        assert_eq!(count_forms(123_456_789), ["123456789", "123M"]);
+        assert_eq!(count_forms(u32::MAX), ["4294967295", "4294M"]);
+    }
+
+    /// Runs `check` inside a pass of a context with the overlay's fonts.
+    fn with_ctx(check: impl FnOnce(&Context)) {
+        let ctx = Context::default();
+        crate::install_fonts_and_style(&ctx, &crate::DynamicFonts::default());
+        ctx.begin_pass(egui::RawInput::default());
+        check(&ctx);
+        // A layout check has no GPU texture store to hand the atlas to.
+        ctx.end_pass().textures_delta.clear();
+    }
+
+    #[test]
+    fn a_count_is_written_whole_when_it_fits_and_compact_when_it_does_not() {
+        with_ctx(|ctx| {
+            let spec = text::numeral(STAT_VALUE_SIZE);
+            let width_of = |text: &str| spec.layout(ctx, spec.job(text)).size().x;
+            // The army cells' room for a number: 57 px less the glyph and its gap.
+            let room = 57.0 - STAT_GLYPH - STAT_GLYPH_GAP;
+
+            assert_eq!(fit_count(ctx, &spec, 4_321, room), "4321");
+            let big = fit_count(ctx, &spec, 12_345, room);
+            assert_eq!(big, "12.3k");
+            assert!(width_of(&big) <= room);
+
+            // Room for the whole number keeps it whole, and room for nothing falls back to the
+            // shortest form rather than to the elided one.
+            assert_eq!(fit_count(ctx, &spec, 12_345, width_of("12345")), "12345");
+            assert_eq!(fit_count(ctx, &spec, 12_345, 1.0), "12k");
+        });
     }
 
     #[test]
