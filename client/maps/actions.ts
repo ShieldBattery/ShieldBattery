@@ -1,3 +1,4 @@
+import { GetGamesResponse } from '../../common/games/games'
 import {
   GetBatchMapInfoResponse,
   GetFavoritedMapsQueryParams,
@@ -24,6 +25,7 @@ export type MapsActions =
   | DelistMap
   | UpdateMapSuccess
   | LoadMapInfos
+  | GetMapGames
 
 /** A map that was just uploaded, along with the info needed to display it. */
 export interface UploadedMap {
@@ -111,4 +113,11 @@ export interface UpdateMapSuccess {
 export interface LoadMapInfos {
   type: '@maps/loadMapInfos'
   payload: MapInfoJson[]
+}
+
+/** The server has returned a page of the games played on a map. */
+export interface GetMapGames {
+  type: '@maps/getMapGames'
+  payload: GetGamesResponse
+  error?: false
 }
