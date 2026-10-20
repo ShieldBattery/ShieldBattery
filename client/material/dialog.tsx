@@ -268,9 +268,11 @@ export function Dialog({
     <Container role='dialog' data-testid={testName}>
       {/*
         While the document is hidden (window minimized/fully occluded), animation frames never
-        fire, so an enter/exit animation would never progress: an entering dialog would stay
-        invisible, and an exiting one would block AnimatePresence from ever unmounting it. Render
-        without those animations while hidden so mounts/unmounts complete immediately.
+        fire, so an entrance animation would never progress and the dialog would stay invisible.
+        Mount without it while hidden. The exit stays constant: motion only runs an exit for an
+        element that had one before it was removed, so an exit that appeared mid-removal would
+        never run and leave the dialog stuck exiting. (Dialogs closed while the document is hidden
+        are dropped without an exit by the dialog overlay instead.)
       */}
       <Surface
         className={className}
@@ -278,7 +280,7 @@ export function Dialog({
         variants={dialogVariants}
         initial={isDocVisible ? 'initial' : false}
         animate='animate'
-        exit={isDocVisible ? 'exit' : undefined}
+        exit='exit'
         transition={dialogTransition}
         $isTopDialog={dialogContext.isTopDialog}>
         <TitleBar $fullBleed={fullBleed} $showDivider={!isAtTop && !tabs}>
