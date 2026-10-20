@@ -199,6 +199,11 @@ interface BrowseServerMapsProps {
   uploadedMapId?: SbMapId
   onMapRemove?: (mapId: SbMapId) => void
   onMapClick?: (mapId: SbMapId) => void
+  /**
+   * Whether a map's "View map details" action opens a dialog instead of navigating to the map's
+   * page. For hosts where leaving the page would discard in-progress work.
+   */
+  mapDetailsInDialog?: boolean
   onBrowseLocalMaps?: () => void
 }
 
@@ -207,6 +212,7 @@ export function BrowseServerMaps({
   uploadedMapId,
   onMapRemove,
   onMapClick,
+  mapDetailsInDialog,
   onBrowseLocalMaps,
 }: BrowseServerMapsProps) {
   const { t } = useTranslation()
@@ -512,6 +518,7 @@ export function BrowseServerMaps({
               mapIds={[uploadedMapId]}
               thumbnailSize={thumbnailSize}
               onMapClick={onMapClick}
+              mapDetailsInDialog={mapDetailsInDialog}
               onMapRemove={onRemoveMap}
               onMapDelist={onDelistMap}
               onAddToFavorites={onAddToFavorites}
@@ -533,6 +540,7 @@ export function BrowseServerMaps({
                   : undefined
               }
               onMapClick={onMapClick}
+              mapDetailsInDialog={mapDetailsInDialog}
               onMapRemove={onRemoveMap}
               onMapDelist={onDelistMap}
               onAddToFavorites={onAddToFavorites}
@@ -562,6 +570,7 @@ export function BrowseServerMaps({
                     : undefined
                 }
                 onMapClick={onMapClick}
+                mapDetailsInDialog={mapDetailsInDialog}
                 onMapRemove={onRemoveMap}
                 onMapDelist={onDelistMap}
                 onAddToFavorites={onAddToFavorites}
@@ -603,6 +612,7 @@ interface MapSectionProps {
   thumbnailSize: MapThumbnailSize
   errorText?: string
   onMapClick?: (mapId: SbMapId) => void
+  mapDetailsInDialog?: boolean
   onMapRemove: (mapId: SbMapId) => void
   onMapDelist: (mapId: SbMapId) => void
   onAddToFavorites: (mapId: SbMapId) => void
@@ -614,6 +624,7 @@ function MapSection({
   thumbnailSize,
   errorText,
   onMapClick,
+  mapDetailsInDialog,
   onMapRemove,
   onMapDelist,
   onAddToFavorites,
@@ -635,6 +646,7 @@ function MapSection({
             size={layout.columnCount === 2 ? 512 : 256}
             showInfoLayer={true}
             hasMapPoolChips={true}
+            mapDetailsInDialog={mapDetailsInDialog}
             onClick={onMapClick ? () => onMapClick(mapId) : undefined}
             onAddToFavorites={onAddToFavorites}
             onRemoveFromFavorites={onRemoveFromFavorites}

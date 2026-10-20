@@ -136,6 +136,11 @@ export interface GameListViewProps {
   /** Shows each human player's own reconciled result as a compact chip beside their name. */
   showResult?: boolean
   /**
+   * Shows the map name search and reads its URL param. Off for surfaces that only list games on
+   * one map.
+   */
+  showMapNameFilter?: boolean
+  /**
    * Whose perspective rows and the side panel roster are ordered from: this user's team (or the
    * user) is listed first (match history only).
    */
@@ -175,6 +180,7 @@ export function GameListView({
   showRankedCustom = false,
   showSourceFilter = false,
   showResult = false,
+  showMapNameFilter = true,
   forUserId,
   noResultsText,
   errorText,
@@ -267,7 +273,9 @@ export function GameListView({
         source: source === GameSourceFilter.All ? undefined : source,
         duration: duration === GameDurationFilter.All ? undefined : duration,
         sort: sort === GameSortOption.LatestFirst ? undefined : sort,
-        mapName: mapName || undefined,
+        // A surface without the map name search neither reads nor sends it, so a hand-edited
+        // `?mapName=` can't silently narrow its list.
+        mapName: (showMapNameFilter && mapName) || undefined,
         playerName: playerName || undefined,
         format,
         matchup,
@@ -432,7 +440,8 @@ export function GameListView({
         saveFilterPrefs()
         reset()
       }}
-      mapName={mapName}
+      mapName={showMapNameFilter ? mapName : ''}
+      showMapName={showMapNameFilter}
       setMapName={v => {
         setMapNameParam(v)
         reset()

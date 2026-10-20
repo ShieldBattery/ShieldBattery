@@ -97,7 +97,7 @@ interface NameFormProps {
   onCancel: () => void
 }
 
-function NameForm({ initialName, onSubmit, onCancel }: NameFormProps) {
+export function NameForm({ initialName, onSubmit, onCancel }: NameFormProps) {
   const { t } = useTranslation()
   const autoFocusRef = useAutoFocusRef<HTMLInputElement>()
   const { bindInput, submit, form } = useForm<{ name: string }>(
@@ -156,7 +156,7 @@ interface DescriptionFormProps {
   onCancel: () => void
 }
 
-function DescriptionForm({ initialDescription, onSubmit, onCancel }: DescriptionFormProps) {
+export function DescriptionForm({ initialDescription, onSubmit, onCancel }: DescriptionFormProps) {
   const { t } = useTranslation()
   const autoFocusRef = useAutoFocusRef<HTMLInputElement>()
   const { bindInput, submit, form } = useForm<{ description: string }>(

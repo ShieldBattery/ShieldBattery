@@ -172,6 +172,7 @@ export function GameSetupPage({
             {browseState === MapBrowseState.Server ? (
               <BrowseServerMaps
                 onMapClick={onMapPicked}
+                mapDetailsInDialog={true}
                 onBrowseLocalMaps={() => onBrowseStateChange(MapBrowseState.Local)}
               />
             ) : (
