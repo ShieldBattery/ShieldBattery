@@ -60,6 +60,15 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
   },
 
+  ['@maps/getMapGames'](state, { payload: { games, replays } }) {
+    for (const game of games) {
+      state.byId.set(game.id, game)
+    }
+    for (const replay of replays) {
+      state.replayInfoById.set(replay.gameId, replay)
+    }
+  },
+
   ['@games/getGameRecord'](
     state,
     { payload: { game, mmrChanges, replay, debugInfo, canRequestReview } },
