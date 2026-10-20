@@ -463,6 +463,21 @@ impl Shell {
         self.close_native_dialogs(id);
     }
 
+    /// Answers a request to close the game's window (its close button, or Alt+F4) by asking whether
+    /// to leave, as SC:R's quit keys do, returning whether the shell took the request. Once the
+    /// game runs, every close is the shell's: a modal the player cannot close already says how the
+    /// game ends and offers the way out, so the request is taken with nothing more to show. Before
+    /// the game runs there is nothing to leave, and the request is left to the host.
+    pub fn window_close_requested(&mut self) -> bool {
+        if !self.host.game_started {
+            return false;
+        }
+        if self.top_modal().is_none_or(|id| id.policy().dismissible) {
+            self.open_modal(ModalId::LeaveGame);
+        }
+        true
+    }
+
     /// Records that a replaced native dialog is gone, so its replacement goes with it. Asks for no
     /// dismissal of its own: the dialog this would have closed has already closed.
     pub fn native_dialog_closed(&mut self, dialog: NativeDialog) {
@@ -1154,6 +1169,27 @@ mod tests {
         assert_eq!(shell.top_modal(), Some(ModalId::LeaveGame));
         assert!(shell.key_pressed(Key::Q, Modifiers::NONE));
         assert!(shell.pending_intents().contains(&Intent::QuitGame));
+    }
+
+    #[test]
+    fn closing_the_window_asks_to_leave_once_the_game_runs() {
+        let mut loading = Shell::new();
+        assert!(!loading.window_close_requested());
+        assert_eq!(loading.top_modal(), None);
+
+        let mut shell = spectating_shell();
+        assert!(shell.window_close_requested());
+        assert_eq!(shell.top_modal(), Some(ModalId::LeaveGame));
+        // Asked again, the same question stays up.
+        assert!(shell.window_close_requested());
+        assert_eq!(shell.top_modal(), Some(ModalId::LeaveGame));
+        assert!(shell.pending_intents().is_empty());
+
+        // A modal that already says how the game ends is left showing.
+        let mut ended = spectating_shell();
+        raise_status_modal(&mut ended, ModalId::SessionEnded);
+        assert!(ended.window_close_requested());
+        assert_eq!(ended.top_modal(), Some(ModalId::SessionEnded));
     }
 
     #[test]

@@ -1434,6 +1434,15 @@ impl OverlayState {
         unsafe {
             use winapi::um::winuser::*;
             match msg {
+                // The window's close button and Alt+F4 ask to close the window, which SC:R answers
+                // with its own exit question. The shell asks with its own instead, once the game
+                // runs. Either can arrive as the system command or as the close it turns into.
+                WM_SYSCOMMAND
+                    if wparam & 0xfff0 == SC_CLOSE && self.shell.window_close_requested() =>
+                {
+                    Some(0)
+                }
+                WM_CLOSE if self.shell.window_close_requested() => Some(0),
                 WM_SIZE => {
                     let w = lparam as i16;
                     let h = (lparam >> 16) as i16;
