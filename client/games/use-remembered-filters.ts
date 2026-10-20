@@ -11,7 +11,7 @@ import { useUserLocalStorageValue } from '../react/state-hooks'
  * Search-like filters (map/player name, format, matchup, date range) are deliberately never
  * remembered: silently re-applying a search on a later visit produces a mysteriously empty list.
  */
-export type FilterMemorySurface = 'games' | 'matchHistory' | 'league' | 'replays'
+export type FilterMemorySurface = 'games' | 'matchHistory' | 'league' | 'map' | 'replays'
 
 /**
  * Raw URL-param values for a surface's remembered filters, keyed by param name. Values are exactly

@@ -243,6 +243,18 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
   },
 
+  ['@maps/getMapGames'](state, action) {
+    const {
+      payload: { maps },
+      system: { monotonicTime },
+    } = action
+
+    for (const map of maps) {
+      state.byId.set(map.id, map)
+      state.lastRetrieved.set(map.id, monotonicTime)
+    }
+  },
+
   ['@lobbies/getPreferences'](state, action) {
     if (action.error) {
       return
