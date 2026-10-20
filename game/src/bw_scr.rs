@@ -4489,18 +4489,26 @@ impl BwScr {
                     }
                     let ui_target = (self.get_render_target)(1);
                     let backbuffer = (self.get_render_target)(0);
-                    // SC:R's DX9 renderer gives the backbuffer no backend target: only draws that
-                    // take the renderer's default outputs reach it, and the overlay's shader names
-                    // its outputs, which needs the backend target. There the overlay draws to the
-                    // UI target at that target's resolution, and the game's final pass scales it
-                    // onto the backbuffer.
-                    let backbuffer_drawable = !(*backbuffer).backend_target.is_null();
+                    let is_dx9_renderer = self
+                        .dx9_renderer_vtables
+                        .iter()
+                        .any(|vtable| vtable.0 as *const scr::V_Renderer == (*renderer).vtable);
+                    // SC:R's DX9 renderer only lets draws that take its default outputs reach the
+                    // backbuffer, and the overlay's shader names its outputs. There the overlay
+                    // draws to the UI target at that target's resolution, and the game's final
+                    // pass scales it onto the backbuffer. The backbuffer's backend target can't
+                    // tell the renderers apart, being null under DX11 as well, but where the
+                    // analysis found no DX9 renderer to compare against it is what's left, and
+                    // only ever moves DX11 off the backbuffer rather than crashing DX9 on it.
+                    let backbuffer_drawable = match self.dx9_renderer_vtables.is_empty() {
+                        true => !(*backbuffer).backend_target.is_null(),
+                        false => !is_dx9_renderer,
+                    };
                     let render_target = if backbuffer_drawable {
                         draw_inject::RenderTarget::backbuffer(backbuffer, ui_target)
                     } else {
                         warn_once!(
-                            "The backbuffer has no backend target (SC:R's DX9 renderer), so the \
-                             overlay draws to the UI target"
+                            "The overlay draws to the UI target (DX9 renderer: {is_dx9_renderer})"
                         );
                         draw_inject::RenderTarget::whole(ui_target, 1)
                     };
@@ -4691,11 +4699,7 @@ impl BwScr {
                                 statres_icons,
                                 cmdicons,
                                 wirefram,
-                                vertex_colors_bgra: self.dx9_renderer_vtables.iter().any(
-                                    |vtable| {
-                                        vtable.0 as *const scr::V_Renderer == (*renderer).vtable
-                                    },
-                                ),
+                                vertex_colors_bgra: is_dx9_renderer,
                             };
                             if overlay_out.run_second_draw {
                                 draw_inject::update_textures_without_adding_overlays(
