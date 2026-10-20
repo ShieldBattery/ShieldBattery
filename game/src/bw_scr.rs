@@ -9833,11 +9833,12 @@ impl bw::Bw for BwScr {
             // 8). The ProcessLobbyCommands hook trips lobby_game_init_command_seen on every client,
             // so try_finish_lobby_game_init drives lobby_state → 9.
             //
-            // This is a single send with no retry: once the seam accepts the bytes, the reliable
-            // control stream plus the relay's per-session replay log guarantee delivery, so the only
-            // loss window is a local submit failure with an effectively-dead driver — and a peer
-            // stuck waiting for the record is bounded by the server's game-load timeout, which
-            // cancels the whole load.
+            // This is a single send: the driver keeps every lobby command this client authored and
+            // sends them all again on each new link to its relay, which delivers each to every peer
+            // once, so a send that went into a link that later turned out dead still arrives after
+            // the reconnect. The only loss window is a local submit failure with an effectively-dead
+            // driver, and a peer stuck waiting for the record is bounded by the server's game-load
+            // timeout, which cancels the whole load.
             let local_storm_id = self.local_storm_id.resolve();
             if local_storm_id == 0 {
                 debug!(

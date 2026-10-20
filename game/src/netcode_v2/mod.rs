@@ -716,6 +716,10 @@ pub struct TurnState {
     /// info, so any other peer lobby command could only alter this client's game setup behind the
     /// server's back — [`drain_lobby_inbound`](Self::drain_lobby_inbound) drops it.
     lobby_seam: Option<[u8; 13]>,
+    /// Whether the host's game-init record has been accepted. The record is taken once: the driver
+    /// re-sends its lobby commands after a reconnect, so the same record can arrive again, and BW
+    /// must not initialize the game twice.
+    lobby_game_init_received: bool,
     /// Which storm slots have already had a dropped lobby command logged as a warning. A peer sending
     /// one is sending them deliberately and can send any number, so each slot warns once and the rest
     /// are logged at debug.
@@ -905,6 +909,7 @@ impl TurnState {
             required: [false; bw::MAX_STORM_PLAYERS],
             state_hash_reports: VecDeque::new(),
             lobby_seam: None,
+            lobby_game_init_received: false,
             lobby_drop_warned: [false; bw::MAX_STORM_PLAYERS],
             lobby_echo: VecDeque::new(),
             lobby_flush_threads: Vec::new(),
@@ -1675,6 +1680,10 @@ impl TurnState {
                     buffer.len(),
                     buffer.first(),
                 );
+                continue;
+            }
+            if std::mem::replace(&mut self.lobby_game_init_received, true) {
+                debug!("dropping a repeat of the host's game-init record");
                 continue;
             }
             if let Some(queue) = self.lobby_inbound.get_mut(storm.0 as usize) {
@@ -4529,6 +4538,31 @@ mod tests {
             ],
             "the host's record dispatches instead of a synthesized keep-alive"
         );
+    }
+
+    #[test]
+    fn a_repeat_of_the_hosts_game_init_record_is_dispatched_once() {
+        let (mut state, _in_tx, _out_rx, _leave_tx, _leave_intent_rx, _lobby_out_rx, lobby_in_tx) =
+            turn_state_as_joiner();
+        state.map_slot(HOST_SLOT, PEER_STORM);
+        state.map_slot(PEER_SLOT, LOCAL_STORM);
+        state.enable_lobby_seam(TEST_SEED);
+
+        let record = bw::lobby_game_init_record(TEST_SEED);
+        lobby_in_tx.try_send((HOST_SLOT, record.to_vec())).unwrap();
+        lobby_in_tx.try_send((HOST_SLOT, record.to_vec())).unwrap();
+        let mut host_turns = Vec::new();
+        for _ in 0..2 {
+            assert!(state.submit_local_lobby_turn(&[LOBBY_KEEP_ALIVE]));
+            assert!(state.lobby_receive_turns());
+            host_turns.extend(
+                lobby_dispatched(&state)
+                    .into_iter()
+                    .filter(|(storm, _)| *storm == PEER_STORM)
+                    .map(|(_, buffer)| buffer),
+            );
+        }
+        assert_eq!(host_turns, vec![record.to_vec(), vec![LOBBY_KEEP_ALIVE]]);
     }
 
     #[test]
