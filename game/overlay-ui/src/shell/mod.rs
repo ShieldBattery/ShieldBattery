@@ -1216,6 +1216,7 @@ mod tests {
     fn one_enemy_view() -> AlliancesView {
         AlliancesView {
             players: vec![crate::alliances::AlliancePlayerView {
+                team: 0,
                 user_id: Some(1),
                 name: "pachi".to_string(),
                 color: egui::Color32::WHITE,

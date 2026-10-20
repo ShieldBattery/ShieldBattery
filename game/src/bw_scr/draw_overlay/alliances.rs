@@ -99,8 +99,6 @@ impl AlliancesState {
         let row = |player_id: u8, person: Option<(&OtherPlayer, Option<ReportStatus>)>| {
             player_view(bw, rules, setup, player_id, person, &alliances, vision)
         };
-        // Everyone in the game's order: the people, by the slot each plays from, and the computers
-        // in theirs.
         let mut rows = others
             .iter()
             .zip(&reports)
@@ -115,7 +113,14 @@ impl AlliancesState {
                     .map(|player_id| (player_id, row(player_id, None))),
             )
             .collect::<Vec<_>>();
-        rows.sort_by_key(|(player_id, _)| *player_id);
+        let teams = super::player_teams_for(bw, |player_id| {
+            super::is_active_player(bw, player_id)
+                || rows.iter().any(|(id, _)| usize::from(*id) == player_id)
+        });
+        for (player_id, player) in &mut rows {
+            player.team = teams[usize::from(*player_id)];
+        }
+        rows.sort_by_key(|(player_id, player)| (player.team, *player_id));
 
         let mut chat_targets = vec![ChatTargetOption {
             choice: ChatTargetChoice::All,
@@ -350,6 +355,7 @@ fn player_view(
         && !shares_units
         && usize::from(local) < PLAYER_SLOTS;
     AlliancePlayerView {
+        team: player.team,
         user_id: person.map(|(other, _)| other.user_id.0),
         name: match person {
             Some((other, _)) => other.name.clone(),

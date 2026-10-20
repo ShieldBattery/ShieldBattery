@@ -22,7 +22,7 @@ use egui::{
 
 use crate::kit::text::{self, BodyWeight};
 use crate::kit::{motion, theme, tiers, widgets};
-use crate::observer::{MatchupPlayerView, paint_player_bar, paint_text};
+use crate::observer::{MatchupPlayerView, paint_player_bar, paint_text, teams_worth_dividing};
 use crate::tr;
 
 /// How far the frame's band reaches out around the minimap's square.
@@ -253,7 +253,15 @@ fn draw_picker(
                 Align::LEFT,
             );
             ui.add_space(theme::SPACE_XS);
+            let divided = teams_worth_dividing(players.iter().map(|player| player.team));
+            let mut team = players.first().map(|player| player.team);
             for player in players {
+                if divided && team != Some(player.team) {
+                    ui.add_space(theme::SPACE_SM);
+                    widgets::divider(ui);
+                    ui.add_space(theme::SPACE_SM);
+                }
+                team = Some(player.team);
                 if let Some(player_id) = draw_picker_row(ui, width, player) {
                     outcome.toggled_vision = Some(player_id);
                 }
