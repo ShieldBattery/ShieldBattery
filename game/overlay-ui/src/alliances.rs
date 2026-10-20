@@ -72,7 +72,7 @@ pub const APPLY_KEY: &str = "Enter";
 /// What the screen shows of one other player in the game.
 #[derive(Clone, PartialEq, Debug)]
 pub struct AlliancePlayerView {
-    /// Which side of the game they belong to, using the observer panels' team numbers.
+    /// The game's fixed team number. Zero means the game has no assigned teams.
     pub team: u8,
     /// Their ShieldBattery account, which mute, block and report are kept against. `None` for a
     /// computer, which none of those apply to.

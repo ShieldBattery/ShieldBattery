@@ -113,13 +113,7 @@ impl AlliancesState {
                     .map(|player_id| (player_id, row(player_id, None))),
             )
             .collect::<Vec<_>>();
-        let teams = super::player_teams_for(bw, |player_id| {
-            super::is_active_player(bw, player_id)
-                || rows.iter().any(|(id, _)| usize::from(*id) == player_id)
-        });
-        for (player_id, player) in &mut rows {
-            player.team = teams[usize::from(*player_id)];
-        }
+        // Changing alliances must not move rows under the pointer. Use the game's fixed teams.
         rows.sort_by_key(|(player_id, player)| (player.team, *player_id));
 
         let mut chat_targets = vec![ChatTargetOption {

@@ -1746,24 +1746,19 @@ fn is_human_player(bw: &BwVars, player_id: usize) -> bool {
 /// whom instead, which is the only record of a two-versus-two played on a melee map that the
 /// simulation actually keeps.
 fn player_teams(bw: &BwVars) -> [u8; 8] {
-    player_teams_for(bw, |player_id| is_active_player(bw, player_id))
-}
-
-/// Groups the slots included by a surface, including departed players when it still lists them.
-fn player_teams_for(bw: &BwVars, included: impl Fn(usize) -> bool) -> [u8; 8] {
     let mut teams = [0u8; 8];
     let mut any_team = false;
     for (player_id, team) in teams.iter_mut().enumerate() {
-        if !included(player_id) {
+        if !is_active_player(bw, player_id) {
             continue;
         }
         *team = unsafe { (*bw.players.add(player_id)).team };
         any_team |= *team != 0;
     }
     if any_team {
-        return numbered_from_one(teams, included);
+        return numbered_from_one(teams, |player_id| is_active_player(bw, player_id));
     }
-    alliance_teams(bw, included)
+    alliance_teams(bw)
 }
 
 /// Renumbers the active slots' sides 1, 2, 3 in the order of the game's own numbers, which is what
@@ -1794,17 +1789,17 @@ fn numbered_from_one(teams: [u8; 8], active: impl Fn(usize) -> bool) -> [u8; 8] 
 ///
 /// A one-way alliance is not a side: a player who has allied someone who has not allied them back
 /// is fighting alone, whatever they have declared.
-fn alliance_teams(bw: &BwVars, included: impl Fn(usize) -> bool) -> [u8; 8] {
+fn alliance_teams(bw: &BwVars) -> [u8; 8] {
     let mut teams = [0u8; 8];
     let mut next = 1u8;
     for player_id in 0..8 {
-        if teams[player_id] != 0 || !included(player_id) {
+        if teams[player_id] != 0 || !is_active_player(bw, player_id) {
             continue;
         }
         let group = next;
         next += 1;
         for (other, team) in teams.iter_mut().enumerate().skip(player_id) {
-            if *team != 0 || !included(other) {
+            if *team != 0 || !is_active_player(bw, other) {
                 continue;
             }
             if other == player_id || mutually_allied(bw, player_id, other) {
