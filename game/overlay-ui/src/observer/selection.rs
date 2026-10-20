@@ -511,7 +511,7 @@ fn unit_target(ui: &Ui, tile: Rect, index: usize) -> Option<SelectedUnitClick> {
     }
 }
 
-/// Draws the grid of small tiles, filling it in the game's order from the top left.
+/// Draws the grid of small tiles, filling each column from top to bottom in the game's order.
 ///
 /// Centered in the body: with no column of text beside it the grid is the whole of what the panel has
 /// to say.
@@ -523,8 +523,8 @@ fn draw_grid(ui: &Ui, body: Rect, units: &[SelectedUnitView]) -> Option<Selected
     );
     let grid = Rect::from_center_size(body.center(), size);
     for (index, unit) in units.iter().take(SelectionView::MAX_UNITS).enumerate() {
-        let column = (index % GRID_COLUMNS) as f32;
-        let row = (index / GRID_COLUMNS) as f32;
+        let column = (index / GRID_ROWS) as f32;
+        let row = (index % GRID_ROWS) as f32;
         let tile = Rect::from_min_size(
             pos2(
                 grid.left() + column * (GRID_SLOT + GRID_GAP),
