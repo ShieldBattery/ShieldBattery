@@ -403,7 +403,11 @@ pub(super) fn selected_upgrades(unit: Unit, bw: &BwVars) -> Vec<UnitUpgradeView>
         .into_iter()
         .map(|(upgrade, effect)| UnitUpgradeView {
             icon: production_icon(Production::Upgrade(upgrade), bw),
-            level: game.upgrade_level(player, upgrade),
+            level: match &effect {
+                // Armor includes unit-specific bonuses such as Chitinous Plating.
+                UpgradeEffect::Armor { bonus, .. } => u8::try_from(*bonus).unwrap_or(u8::MAX),
+                _ => game.upgrade_level(player, upgrade),
+            },
             name: production_name(Production::Upgrade(upgrade), bw),
             effect,
         })
