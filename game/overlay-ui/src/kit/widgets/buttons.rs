@@ -19,7 +19,8 @@ pub enum ButtonVariant {
     Tier1,
     /// The button of a modal: two strokes with a gap between them.
     Tier2,
-    /// The one action a modal wants the player to take, filled amber.
+    /// The one action a modal wants the player to take, on the lit plate of
+    /// [`ButtonPlate::primary`] so a dialog's footer and the game menu's stack mark it alike.
     Tier2Primary,
     /// Chrome-less, for the actions that must not pull the eye.
     Ghost,
@@ -76,7 +77,7 @@ pub fn button_sized(ui: &mut Ui, label: &str, variant: ButtonVariant, min_width:
     let corner_radius = variant.corner_radius();
     let hovered = response.hovered();
     let label_color = match variant {
-        ButtonVariant::Tier2Primary => BLUE10,
+        ButtonVariant::Tier2Primary => ButtonPlate::primary().label,
         ButtonVariant::Ghost if !hovered => theme::TEXT_DIM,
         _ => theme::TEXT_PRIMARY,
     };
@@ -181,25 +182,7 @@ fn paint_button_body(ui: &Ui, rect: Rect, variant: ButtonVariant, hovered: bool)
                 StrokeKind::Inside,
             ));
         }
-        ButtonVariant::Tier2Primary => {
-            painter.rect_filled(rect, corner_radius, theme::ACCENT);
-            painter.add(Shape::rect_stroke(
-                rect.shrink(theme::TIER2_STROKE_GAP),
-                corner_radius,
-                Stroke::new(theme::HAIRLINE, AMBER95.gamma_multiply(0.55)),
-                StrokeKind::Inside,
-            ));
-            if hovered {
-                for (step, alpha) in [(1.0f32, 0.35f32), (2.0, 0.18), (3.0, 0.08)] {
-                    painter.add(Shape::rect_stroke(
-                        rect.expand(step),
-                        corner_radius,
-                        Stroke::new(theme::HAIRLINE, theme::ACCENT.gamma_multiply(alpha)),
-                        StrokeKind::Outside,
-                    ));
-                }
-            }
-        }
+        ButtonVariant::Tier2Primary => paint_plate(ui, rect, ButtonPlate::primary(), None),
     }
 }
 
