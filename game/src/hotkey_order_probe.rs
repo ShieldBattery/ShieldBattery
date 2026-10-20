@@ -7,8 +7,8 @@
 //! the worker's card. A trial whose S issues no Stop command had S handled while the build card
 //! was still up.
 //!
-//! SC:R activates a hotkey's button a while after handling the key, unless ShieldBattery makes the
-//! press due first (see [`crate::bw_scr::hotkey_presses`]). With
+//! SC:R activates a hotkey's button a while after handling the key, unless ShieldBattery activates
+//! the press first (see [`crate::bw_scr::hotkey_presses`]). With
 //! `SB_HOTKEY_ORDER_PROBE_KEEP_WAITING=1` set, presses keep SC:R's own timing, and each trial
 //! checks its outcome against the deadline Escape's press was waiting for when S arrived.
 

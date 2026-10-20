@@ -29,7 +29,7 @@ use crate::bw_scr::game_stats::{self, GameStats};
 use crate::bw_scr::replay_transport::{ReplayCommand, TransportState};
 use crate::bw_scr::scr;
 use crate::bw_scr::stat_txt::StatTxt;
-use crate::bw_scr::{BwCursorType, console, dialog_hook};
+use crate::bw_scr::{BwCursorType, console, dialog_hook, hotkey_presses};
 use crate::netcode_v2::{self, DisconnectStatus, LoadingConnectivity, NetStatsStatus};
 
 pub use self::alliances::AllianceRules;
@@ -903,15 +903,17 @@ impl OverlayState {
     }
 
     /// Tells the shell about every replaced native dialog that has spawned or been deleted since
-    /// the last frame. The spawn hook records the dialogs as they come and go; the transitions are
-    /// what the shell's modal stack is built from.
-    fn sync_native_dialogs(&mut self, first_dialog: Option<Dialog>) {
+    /// it was last told, returning whether any had. The spawn hook records the dialogs as they come
+    /// and go; the transitions are what the shell's modal stack is built from.
+    fn sync_native_dialogs(&mut self, first_dialog: Option<Dialog>) -> bool {
         let live = dialog_hook::live_replaced_dialogs();
+        let mut changed = false;
         for dialog in NativeDialog::ALL {
             let index = dialog.index();
             if live[index] == self.native_dialogs_live[index] {
                 continue;
             }
+            changed = true;
             self.native_dialogs_live[index] = live[index];
             if live[index] {
                 dialog_hook::log_replaced_dialog_controls(first_dialog, dialog);
@@ -920,6 +922,7 @@ impl OverlayState {
                 self.shell.native_dialog_closed(dialog);
             }
         }
+        changed
     }
 
     /// Where BW's minimap square is on screen, in overlay points, while its dialog is up.
@@ -1423,16 +1426,27 @@ impl OverlayState {
         None
     }
 
-    /// If this returns Some(), the message won't be passed to BW
+    /// Decides what of a window message the overlay takes, `first_dialog` being SC:R's dialogs as
+    /// the message arrives. If this returns Some(), the message won't be passed to BW.
     pub unsafe fn window_proc(
         &mut self,
         window: HWND,
         msg: u32,
         wparam: usize,
         lparam: isize,
+        first_dialog: Option<Dialog>,
     ) -> Option<isize> {
         unsafe {
             use winapi::um::winuser::*;
+            // Any hotkey press SC:R was holding activated as this input arrived, and a menu one of
+            // them opened is already up. The shell has to know before deciding where the input
+            // goes, or a key pressed right after the menu's own goes to SC:R's hidden menu instead
+            // of the overlay's.
+            if hotkey_presses::activates_waiting_presses(msg)
+                && self.sync_native_dialogs(first_dialog)
+            {
+                self.capture = self.shell.capture();
+            }
             match msg {
                 // The window's close button and Alt+F4 ask to close the window, which SC:R answers
                 // with its own exit question. The shell asks with its own instead, once the game

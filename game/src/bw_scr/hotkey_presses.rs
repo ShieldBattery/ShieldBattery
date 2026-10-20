@@ -10,10 +10,12 @@
 //! table also holds only one press per dialog, so another hotkey on the same card is dropped
 //! outright while the first one waits.
 //!
-//! [`DelayedControlActivations::make_due`] marks every waiting press as due right before SC:R's
-//! window procedure gets a key or mouse button message, so the press activates as SC:R starts
-//! handling that input, ahead of it. A press nothing follows still waits out its deadline, showing
-//! pressed for as long as it does on Battle.net.
+//! [`DelayedControlActivations::activate_waiting`] activates every waiting press right as a key or
+//! mouse button message arrives, before the overlay or SC:R's window procedure sees it, so whatever
+//! the press does is in place before anything handles that input. A dialog a press opens is up by
+//! then: the game menu's `F10` opens SC:R's own menu, which the overlay replaces, so the next key
+//! finds the overlay's menu up and goes to its buttons. A press nothing follows still waits out
+//! its deadline, showing pressed for as long as it does on Battle.net.
 
 use std::ffi::c_void;
 use std::mem::size_of;
@@ -43,27 +45,40 @@ const _: () = assert!(size_of::<DelayedControlActivation>() == 2 * size_of::<usi
 /// SC:R's table of hotkey presses waiting to activate their buttons.
 pub struct DelayedControlActivations {
     entries: Value<*mut DelayedControlActivation>,
+    /// SC:R's own activation of the presses whose deadline has passed.
+    process: unsafe extern "C" fn(),
 }
 
 impl DelayedControlActivations {
-    pub fn new(ctx: scarf::OperandCtx<'static>, entries: scarf::Operand<'_>) -> Self {
+    pub fn new(
+        ctx: scarf::OperandCtx<'static>,
+        entries: scarf::Operand<'_>,
+        process: unsafe extern "C" fn(),
+    ) -> Self {
         DelayedControlActivations {
             entries: Value::new(ctx, entries),
+            process,
         }
     }
 
-    /// Makes every waiting press due, so SC:R activates it at the start of the next event it
-    /// dispatches.
-    pub unsafe fn make_due(&self) {
+    /// Activates every waiting press now, through SC:R's own activation, which it would otherwise
+    /// run when it next dispatches an event to its dialogs. Called on the window's thread, where
+    /// SC:R dispatches them.
+    pub unsafe fn activate_waiting(&self) {
         unsafe {
             let entries = self.entries.resolve();
             // SC:R reads the same clock when it checks, no earlier than now.
             let due = frame_pacing::tick_count().wrapping_sub(1);
+            let mut any_waiting = false;
             for i in 0..ENTRY_COUNT {
                 let entry = entries.add(i);
                 if !(*entry).control.is_null() {
                     (*entry).deadline = due;
+                    any_waiting = true;
                 }
+            }
+            if any_waiting {
+                (self.process)();
             }
         }
     }

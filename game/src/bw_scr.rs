@@ -2646,9 +2646,15 @@ impl BwScr {
         let selection_visual_pools = SelectionVisualPools::analyze(&mut analysis, ctx);
         let click_feedback = ClickFeedback::analyze(&mut analysis);
         let placement_overlays = PlacementOverlayPools::analyze(&mut analysis, ctx);
-        let delayed_control_activations = analysis
-            .delayed_control_activations()
-            .map(|x| hotkey_presses::DelayedControlActivations::new(ctx, x));
+        let delayed_control_activations = (|| {
+            let entries = analysis.delayed_control_activations()?;
+            let process = analysis.process_delayed_control_activations()?;
+            Some(hotkey_presses::DelayedControlActivations::new(
+                ctx,
+                entries,
+                unsafe { std::mem::transmute::<usize, unsafe extern "C" fn()>(process.0 as usize) },
+            ))
+        })();
         if delayed_control_activations.is_none() {
             warn!("Analysis could not find the delayed control activations");
         }
@@ -10346,11 +10352,11 @@ impl bw::Bw for BwScr {
                 && let Some(presses) = &self.delayed_control_activations
             {
                 #[cfg(debug_assertions)]
-                let make_due = !crate::hotkey_order_probe::keeps_presses_waiting();
+                let activate = !crate::hotkey_order_probe::keeps_presses_waiting();
                 #[cfg(not(debug_assertions))]
-                let make_due = true;
-                if make_due {
-                    presses.make_due();
+                let activate = true;
+                if activate {
+                    presses.activate_waiting();
                 }
             }
             if is_save_or_load_hotkey(msg, wparam)
@@ -10385,9 +10391,10 @@ impl bw::Bw for BwScr {
                     return None;
                 }
             };
+            let first_dialog = self.resolve_first_dialog();
             render_state
                 .overlay
-                .window_proc(window, msg, wparam, lparam)
+                .window_proc(window, msg, wparam, lparam, first_dialog)
         }
     }
 

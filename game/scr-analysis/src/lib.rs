@@ -1454,6 +1454,13 @@ impl<'e> Analysis<'e> {
         self.0.delayed_control_activations()
     }
 
+    /// `() -> ()`: activates the presses in
+    /// [`delayed_control_activations`](Self::delayed_control_activations) whose deadline has
+    /// passed. SC:R calls it before and after dispatching each event to its dialogs.
+    pub fn process_delayed_control_activations(&mut self) -> Option<VirtualAddress> {
+        self.0.process_delayed_control_activations()
+    }
+
     /// Base of the static pool of 0x40 images that building placement shows over the units a
     /// building is placed on (a refinery's geysers), outside the main image pool.
     pub fn placement_images(&mut self) -> Option<Operand<'e>> {
