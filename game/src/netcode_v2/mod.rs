@@ -794,6 +794,10 @@ pub struct TurnState {
     /// render it on yet), a (re)connect clears the slot, and an applied leave clears it via
     /// [`mark_slot_left`](Self::mark_slot_left). Best-effort and render-facing only.
     disconnected: Vec<(SlotId, Instant)>,
+    /// Peers whose synced leave has been applied. Their link is no longer this game's business, and
+    /// the relay can report it down after the leave as well as before it (a desync eviction sends
+    /// both at once), so a drop frame for one of them records no disconnect.
+    departed: Vec<SlotId>,
     /// Peers the relay's connectivity stream currently reports as connected, in observation order:
     /// a `true` frame adds the slot and a `false` frame removes it, before and after the game
     /// starts alike. The relay restates every member already connected when this client's link
@@ -920,6 +924,7 @@ impl TurnState {
             #[cfg(debug_assertions)]
             chat_log: VecDeque::new(),
             disconnected: Vec::new(),
+            departed: Vec::new(),
             connected_peers: Vec::new(),
             session_started: false,
             created_at: Instant::now(),
@@ -1763,6 +1768,9 @@ impl TurnState {
         if let Some(slot) = self.slot_for_storm(storm_id) {
             self.disconnected.retain(|&(s, _)| s != slot);
             self.drop_requests.retain(|&(s, _)| s != slot);
+            if !self.departed.contains(&slot) {
+                self.departed.push(slot);
+            }
         }
     }
 
@@ -1793,7 +1801,8 @@ impl TurnState {
     ///
     /// - A peer frame (`false`) observed once the game has started records that slot as
     ///   disconnected (keeping the first-seen instant on a repeat); a peer `true` clears it. A
-    ///   pre-start drop records no disconnect (there is no in-game overlay to show it on yet).
+    ///   pre-start drop records no disconnect (there is no in-game overlay to show it on yet), and
+    ///   neither does one for a peer whose leave has already applied.
     /// - Every peer frame, before or after the start, updates
     ///   [`connected_peers`](Self::connected_peers) for the loading screen.
     /// - Our own slot's frame drives [`self_link_lost`](Self::self_link_lost) directly: `false`
@@ -1825,7 +1834,10 @@ impl TurnState {
                 }
                 Ok((slot, false)) => {
                     self.connected_peers.retain(|&s| s != slot);
-                    if game_started && !self.disconnected.iter().any(|&(s, _)| s == slot) {
+                    if game_started
+                        && !self.departed.contains(&slot)
+                        && !self.disconnected.iter().any(|&(s, _)| s == slot)
+                    {
                         self.disconnected.push((slot, now));
                     }
                 }
@@ -5194,6 +5206,21 @@ mod tests {
         let peer_storm = state.storm_id_for_slot(PEER_SLOT).unwrap();
         state.mark_slot_left(peer_storm);
         assert!(state.disconnect_status().peers.is_empty());
+    }
+
+    #[test]
+    fn a_drop_reported_after_the_leave_shows_no_notice() {
+        let (mut state, connectivity_tx, _request_drop_rx) = turn_state_with_connectivity();
+        let peer_storm = state.storm_id_for_slot(PEER_SLOT).unwrap();
+        state.mark_slot_left(peer_storm);
+
+        // A desync eviction sends the slot's drop alongside its leave, and the drop can be read
+        // after the leave applied.
+        connectivity_tx.try_send((PEER_SLOT, false)).unwrap();
+        state.pump_connectivity(true, Instant::now());
+        let status = state.disconnect_status();
+        assert!(status.peers.is_empty());
+        assert!(!status.is_blocking(Instant::now()));
     }
 
     #[test]
