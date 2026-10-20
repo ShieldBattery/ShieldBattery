@@ -76,8 +76,8 @@ pub struct SelectedUnitView {
 pub struct UnitUpgradeView {
     /// The game's own icon for the upgrade.
     pub icon: ProductionIcon,
-    /// The level its owner has taken it to, which is what the unit fights at: 0 until the first
-    /// level of it finishes.
+    /// The effective upgrade level, including unit-specific armor bonuses such as Chitinous
+    /// Plating. Excludes the unit's base armor.
     pub level: u8,
     /// What the game calls it, for the card that names it under the pointer; `None` where the host
     /// cannot say.
