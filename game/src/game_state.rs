@@ -527,6 +527,9 @@ impl GameState {
                     bw.apply_game_type_template(game_type).map_err(|()| {
                         GameInitError::NetcodeV2SessionInit("game type template lookup failed".into())
                     })?;
+                    if computers_play_without_humans(&info) {
+                        disallow_alliances();
+                    }
                     // Fill net_player_info directly for every human and observer. Native
                     // init_net_player only populates the entry a player Storm's own provider-gated
                     // name lookup resolves — the local player, but not a roster-seeded remote — so a
@@ -781,6 +784,9 @@ impl GameState {
                     bw.apply_game_type_template(game_type).map_err(|()| {
                         GameInitError::NetcodeV2SessionInit("game type template lookup failed".into())
                     })?;
+                    if computers_play_without_humans(&info) {
+                        disallow_alliances();
+                    }
                     // Fill net_player_info for the participant directly (native init_net_player only
                     // populates a provider-resolved name, which this path bypasses). Staged too, so
                     // the game thread's post-lobby-init re-apply restores it if native lobby
@@ -1671,6 +1677,26 @@ fn sanitized_name_cstring(raw: &str) -> Option<CString> {
     CString::new(raw.replace('\0', ""))
         .ok()
         .filter(|s| !s.as_bytes().is_empty())
+}
+
+/// Whether a game's only players are computers, everyone else watching. BW's game init allies
+/// every computer with every other computer whenever the game allows alliances, banding them
+/// together against the humans; with no human playing, that one alliance takes in every player, so
+/// melee victory finds no opponent left for anyone and ends the game moments after it starts. A
+/// Use Map Settings game is left to the alliances and victory conditions its map defines.
+fn computers_play_without_humans(info: &GameSetupInfo) -> bool {
+    info.game_type != GameType::Ums
+        && info.slots.iter().any(|s| s.is_computer())
+        && !info.slots.iter().any(|s| s.is_human())
+}
+
+/// Turns alliances off in the game data, so game init leaves every computer an opponent of every
+/// other. Has to run before game init. The setting is part of the game data the replay header
+/// captures, so the game's replay initializes its alliances the same way.
+unsafe fn disallow_alliances() {
+    unsafe {
+        (*get_bw().game_data()).game_template.allies_enabled = 0;
+    }
 }
 
 /// How many ShieldBattery users take part in a game, playing or observing. Computers and empty
@@ -2731,6 +2757,23 @@ mod tests {
             participant_count(&observer_vs_computers_setup_info().slots),
             1
         );
+    }
+
+    #[test]
+    fn computers_play_without_humans_only_when_no_human_plays() {
+        assert!(computers_play_without_humans(
+            &observer_vs_computers_setup_info()
+        ));
+        // Humans and no computers.
+        assert!(!computers_play_without_humans(&v2_setup_info()));
+        // A human playing the computers keeps BW's computer alliance against them.
+        let mut versus_human = observer_vs_computers_setup_info();
+        versus_human.slots[2].player_type = crate::app_messages::SbSlotType::Human;
+        assert!(!computers_play_without_humans(&versus_human));
+        // A map's own forces decide a Use Map Settings game's alliances.
+        let mut ums = observer_vs_computers_setup_info();
+        ums.game_type = GameType::Ums;
+        assert!(!computers_play_without_humans(&ums));
     }
 
     #[test]

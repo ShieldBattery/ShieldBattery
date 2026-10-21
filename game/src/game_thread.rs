@@ -407,8 +407,7 @@ unsafe fn game_results() -> GameThreadResults {
         let (victory_states, all_alliances, player_was_dropped) = reported_outcome(game);
 
         let read_player_result = |id: BwPlayerId| {
-            let victory_state = victory_states[id.0 as usize]
-                .try_into()
+            let victory_state = VictoryState::from_game(victory_states[id.0 as usize])
                 .unwrap_or_else(|e| {
                     warn!("Failed to convert victory state for player {id:?}: {e:?}");
                     VictoryState::Playing

@@ -80,6 +80,23 @@ pub enum VictoryState {
     Victory = 3,
 }
 
+impl VictoryState {
+    /// The value BW stores for a draw: a map's Draw trigger ran for the player, or every player
+    /// still in the game won at once (the remaining players are all allies sharing a victory), which
+    /// BW turns into a draw for each of them. BW shows a drawn player the victory dialog.
+    const BW_DRAW: u8 = 5;
+
+    /// Reads a player's victory state as BW stores it. ShieldBattery results have no draw, and a
+    /// draw decided no winner, so a drawn player reads as still playing; result reporting then
+    /// settles them the way it settles anyone the game ended without a decision for.
+    pub fn from_game(value: u8) -> Result<Self, String> {
+        match value {
+            Self::BW_DRAW => Ok(VictoryState::Playing),
+            _ => value.try_into(),
+        }
+    }
+}
+
 impl TryFrom<u8> for VictoryState {
     type Error = String;
 
@@ -137,4 +154,16 @@ pub struct FinalNetworkStatus {
     pub was_dropped: bool,
     /// True if the player left the game voluntarily
     pub has_quit: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn victory_state_reads_a_draw_as_undecided() {
+        assert_eq!(VictoryState::from_game(5), Ok(VictoryState::Playing));
+        assert_eq!(VictoryState::from_game(3), Ok(VictoryState::Victory));
+        assert!(VictoryState::from_game(4).is_err());
+    }
 }
