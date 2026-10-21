@@ -77,6 +77,8 @@ export type MapFilter = {
   lens?: MapLens
   /** Only maps with at least this many player slots. */
   minPlayers?: number | null | undefined
+  /** Only official maps (`true`) or only maps that aren't official (`false`). */
+  official?: boolean | null | undefined
   /** Exact player counts to include. */
   players?: Array<number> | null | undefined
   /** Only maps published at or after this time. */
