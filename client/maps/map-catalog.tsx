@@ -17,13 +17,7 @@ import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
 import { LoadErrorRow } from '../lists/load-error-row'
-import {
-  FilledButton,
-  FilledTonalButton,
-  IconButton,
-  OutlinedButton,
-  TextButton,
-} from '../material/button'
+import { FilledButton, IconButton, OutlinedButton, TextButton } from '../material/button'
 import { FilterChip } from '../material/filter-chip'
 import { SelectableMenuItem } from '../material/menu/selectable-item'
 import { SegmentedButtonGroup } from '../material/segmented-button'
@@ -494,7 +488,7 @@ function UploadBanner({
           onClick={onBrowseLocalMaps}
         />
       ) : null}
-      <FilledTonalButton
+      <FilledButton
         label={t('maps.catalog.uploadMaps', 'Upload maps')}
         iconStart='upload'
         onClick={onUpload}
