@@ -234,6 +234,26 @@
       "targets": [
         { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "rp2_beacon_backoff{environment=~\"$environment\"}", "legendFormat": "{{region}}" }
       ]
+    },
+    {
+      "id": 15,
+      "type": "stat",
+      "title": "Seconds since last provisioning tick",
+      "description": "time() - rp2_provision_last_tick_seconds. The reconcile loop ticks every 5 s; a climbing value means it has stalled, so no region will launch, drain, or retire relays (session creates still work, and only cold regions show it, as 75 s provisioning holds).",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 56 },
+      "fieldConfig": { "defaults": { "unit": "s", "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 30 }, { "color": "red", "value": 120 }] } }, "overrides": [] },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "time() - rp2_provision_last_tick_seconds{environment=~\"$environment\"}", "legendFormat": "{{environment}}" }
+      ]
     }
   ]
 }

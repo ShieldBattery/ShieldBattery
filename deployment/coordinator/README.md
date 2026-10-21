@@ -94,7 +94,10 @@ exposes fleet state (relays by region and state, launch/enroll/drain/reap
 rates, cold-start timings), session activity (active sessions and creates by
 tenant, webhook notice queue depth and delivery outcomes), flight-recording
 outcomes (stored/refused/lost, pinned count), and the measured backbone RTTs
-between regions.
+between regions. `rp2_provision_last_tick_seconds` is the provisioning loop's
+heartbeat: if it falls behind the clock, relays stop launching and draining
+everywhere while session creates keep working, so a stall shows up only as
+long provisioning holds in regions with no relay.
 
 It's plaintext with no authentication, which is sound because of how it's
 reachable at all: compose never publishes the port (see the `node_exporter`
