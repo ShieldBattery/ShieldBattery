@@ -1118,6 +1118,11 @@ type Mutation {
 	"""
 	mapAddFavorite(id: SbMapId!): SbMap!
 	"""
+	Adds a map to the current user's library, for maps they hold a copy of without having
+	uploaded it. Adding a map that's already in the library moves it to the front of `NEWEST`.
+	"""
+	mapAddToLibrary(id: SbMapId!): SbMap!
+	"""
 	Removes a map from the current user's favorites. Removing a map that isn't a favorite does
 	nothing.
 	"""
@@ -1321,6 +1326,14 @@ type Query {
 	id can differ from the one requested.
 	"""
 	map(id: SbMapId!): SbMap
+	"""
+	Looks up maps by the hashes of their files, listed or not. A file's hash is the
+	hex-encoded SHA-256 of its lowercase extension followed by its contents (the same as
+	`MapFile.id`), so the app can tell which of a user's local map files are already known
+	without uploading them. Hashes that match no map are left out, and the maps come back in
+	no particular order. Takes at most 500 hashes.
+	"""
+	mapsByHash(hashes: [String!]!): [SbMap!]!
 	"""
 	Searches and pages through the listed maps. With a search, sorts by `RELEVANCE` unless
 	told otherwise; without one, by `POPULAR_28D`. Pages are 40 maps unless `first` says
