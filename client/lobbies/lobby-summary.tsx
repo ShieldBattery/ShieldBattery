@@ -288,7 +288,7 @@ export function LobbySummaryDetails({ summary }: { summary: LobbySummaryResponse
       <LobbyName>{lobby.name}</LobbyName>
       <InfoLayout>
         <MapThumbnailContainer>
-          <MapThumbnail map={lobby.map} size={MAP_THUMBNAIL_SIZE} gameType={lobby.gameType} />
+          <MapThumbnail map={lobby.map} size={MAP_THUMBNAIL_SIZE} />
         </MapThumbnailContainer>
         <DetailsList>
           <DetailRow>
