@@ -374,12 +374,12 @@ pub async fn wait_for_driver_shutdown(timeout: Duration) {
     }
 }
 
-/// Stands up a sessionless [`TurnState`] for a solo game (one human, the rest AI) and stores it for
-/// the hooks, exactly where [`establish_session`] would store a relay-backed one — so the three BW
-/// hooks reach it via [`with_turn_state`] uniformly. There is no relay to dial and no driver to
-/// spawn: the turn channels are fabricated here and their far ends parked alive in the session (see
-/// [`ParkedChannels`]), so every driver-bound send in the turn state succeeds into a void. Replaces
-/// any previous session.
+/// Stands up a sessionless [`TurnState`] for a solo game (one user, playing or observing, the rest
+/// AI) and stores it for the hooks, exactly where [`establish_session`] would store a relay-backed
+/// one — so the three BW hooks reach it via [`with_turn_state`] uniformly. There is no relay to
+/// dial and no driver to spawn: the turn channels are fabricated here and their far ends parked
+/// alive in the session (see [`ParkedChannels`]), so every driver-bound send in the turn state
+/// succeeds into a void. Replaces any previous session.
 ///
 /// `has_computers` drives nothing here (a solo game is local-only from birth, so it never
 /// self-closes), but is threaded through for symmetry with [`establish_session`].

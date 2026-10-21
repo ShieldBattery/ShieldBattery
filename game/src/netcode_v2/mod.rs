@@ -948,13 +948,13 @@ impl TurnState {
         }
     }
 
-    /// Builds turn state for a sessionless solo game (a single human, the rest AI) with no relay
-    /// link behind it. The roster is the lone local participant at [`SlotId(0)`], the slot→storm
-    /// identity map is seeded up front (so storm id 0 maps to slot 0), the latency floor is the
-    /// built-in 1, and the state is [`local_only`](Self::local_only) from birth: every driver-bound
-    /// send echoes locally or lands in a parked void rather than reaching a relay. Unlike
-    /// [`begin_local_only`](Self::begin_local_only) there is no fabricated-leave dance — there are no
-    /// remote slots to leave.
+    /// Builds turn state for a sessionless solo game (a single user, playing or observing, the rest
+    /// AI) with no relay link behind it. The roster is the lone local participant at
+    /// [`SlotId(0)`], the slot→storm identity map is seeded up front (so storm id 0 maps to slot
+    /// 0), the latency floor is the built-in 1, and the state is [`local_only`](Self::local_only)
+    /// from birth: every driver-bound send echoes locally or lands in a parked void rather than
+    /// reaching a relay. Unlike [`begin_local_only`](Self::begin_local_only) there is no
+    /// fabricated-leave dance — there are no remote slots to leave.
     ///
     /// `channels` are the fabricated turn channels whose far ends the caller parks alive (see
     /// [`session::establish_sessionless`]). `has_computers` is whether the game contains AI players.

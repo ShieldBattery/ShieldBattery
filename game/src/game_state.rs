@@ -287,8 +287,8 @@ impl GameState {
         let ws_send = self.ws_send.clone();
 
         // Present for a relay game, whose per-session credentials + relay endpoints the app sent as
-        // `netcodeV2Setup`; absent for a solo (single-human) game or a replay. Drives the transport
-        // policy the async block below branches on.
+        // `netcodeV2Setup`; absent for a solo (single-participant) game or a replay. Drives the
+        // transport policy the async block below branches on.
         let netcode_v2_setup = self.netcode_v2_setup.take();
 
         self.init_main_thread
@@ -349,8 +349,9 @@ impl GameState {
             // - `netcodeV2Setup` present → a relay game (host or peer): stand up the QUIC turn
             //   transport and run the native lobby over the rp2 seam.
             // - absent, a replay → play back locally from the recorded command stream (no session).
-            // - absent, exactly one human → a solo game: a sessionless, local-only turn state.
-            // - absent, more than one human → a server misconfiguration: fail the load loudly.
+            // - absent, exactly one participant (a playing human or an observer) → a solo game: a
+            //   sessionless, local-only turn state.
+            // - absent, more than one participant → a server misconfiguration: fail the load loudly.
             if let Some(setup) = netcode_v2_setup {
                 // Stand up the rally-point2 turn transport before the native lobby is created. A game
                 // launched for netcode v2 must run on it; if the relay can't be reached the load
@@ -730,13 +731,15 @@ impl GameState {
                 // wait on, so init proceeds directly. Lobby init completes later on the game thread
                 // in the StartGame handler (which synthesizes the 0x48 and steps to completion).
             } else {
-                // No netcode v2 setup and not a replay: a solo game, the local human versus AI. More
-                // than one human here is a server misconfiguration — multiplayer must run on netcode
-                // v2 — so fail the load loudly rather than trying to play it on native networking.
-                let human_count = info.slots.iter().filter(|s| s.is_human()).count();
-                if human_count != 1 {
+                // No netcode v2 setup and not a replay: a solo game, the local user versus AI or
+                // watching computers play each other from an observer slot. Any other user in the
+                // game is a server misconfiguration — multiplayer must run on netcode v2 — so fail
+                // the load loudly rather than trying to play it on native networking.
+                let participants = participant_count(&info.slots);
+                if participants != 1 {
                     return Err(GameInitError::NetcodeV2SessionInit(format!(
-                        "multiplayer game ({human_count} humans) launched without netcode v2 setup"
+                        "multiplayer game ({participants} participants) launched without netcode \
+                        v2 setup"
                     )));
                 }
                 let MapInfo::Game(ref game_map) = info.map else {
@@ -762,8 +765,10 @@ impl GameState {
                 .await;
 
                 let bw = get_bw();
-                // The lone human occupies rp2 slot 0 (storm id ≡ rp2 slot), the same identity the
-                // sessionless turn state seeds.
+                // The lone participant occupies rp2 slot 0 (storm id ≡ rp2 slot), the same identity
+                // the sessionless turn state seeds. An observer keeps that storm id while
+                // `setup_slots` seats it in the observer slots, as an observer host does in a
+                // networked game.
                 let storm_id_map: HashMap<SbUserId, u8> =
                     std::iter::once((local_user.id, 0u8)).collect();
                 let ums_forces = &game_map.map_data.ums_forces[..];
@@ -776,7 +781,7 @@ impl GameState {
                     bw.apply_game_type_template(game_type).map_err(|()| {
                         GameInitError::NetcodeV2SessionInit("game type template lookup failed".into())
                     })?;
-                    // Fill net_player_info for the single human directly (native init_net_player only
+                    // Fill net_player_info for the participant directly (native init_net_player only
                     // populates a provider-resolved name, which this path bypasses). Staged too, so
                     // the game thread's post-lobby-init re-apply restores it if native lobby
                     // machinery wipes the table in between.
@@ -1666,6 +1671,16 @@ fn sanitized_name_cstring(raw: &str) -> Option<CString> {
     CString::new(raw.replace('\0', ""))
         .ok()
         .filter(|s| !s.as_bytes().is_empty())
+}
+
+/// How many ShieldBattery users take part in a game, playing or observing. Computers and empty
+/// slots don't count: a game with one participant has no one to network with, whether that user
+/// plays against the computers or watches them play each other.
+fn participant_count(slots: &[PlayerInfo]) -> usize {
+    slots
+        .iter()
+        .filter(|s| s.is_human() || s.is_observer())
+        .count()
 }
 
 /// Builds the joined-player set for a netcode v2 game directly from the session roster + slot
@@ -2670,6 +2685,66 @@ mod tests {
         assert_eq!(joined[2].storm_id, StormPlayerId(8));
         assert_eq!(joined[2].player_id, Some(BwPlayerId(12)));
         assert!(joined[2].player_id.unwrap().is_observer());
+    }
+
+    /// A melee game whose only user (10) watches from an observer slot while two computers play.
+    fn observer_vs_computers_setup_info() -> GameSetupInfo {
+        serde_json::from_value(serde_json::json!({
+            "name": "obs vs computers",
+            "map": {
+                "id": "map-id",
+                "hash": "hash",
+                "name": "Fighting Spirit",
+                "description": "",
+                "mapData": {
+                    "height": 128,
+                    "width": 112,
+                    "umsSlots": 4,
+                    "slots": 4,
+                    "tileset": 3,
+                    "umsForces": [],
+                    "isEud": false
+                },
+                "imageVersion": 0
+            },
+            "mapPath": "z:\\maps\\fs.scm",
+            "gameType": "melee",
+            "slots": [
+                { "id": "s0", "type": "computer", "typeId": 5, "teamId": 0, "race": "z", "playerId": 0 },
+                { "id": "s1", "type": "computer", "typeId": 5, "teamId": 0, "race": "p", "playerId": 1 },
+                { "id": "s2", "type": "observer", "typeId": 6, "teamId": 0, "userId": 10, "race": "r", "playerId": 2 }
+            ],
+            "host": { "id": "s2", "type": "observer", "typeId": 6, "teamId": 0, "userId": 10, "race": "r", "playerId": 2 },
+            "users": [
+                { "id": 10, "name": "watcher" }
+            ],
+            "seed": 305419896,
+            "gameId": "game-id"
+        }))
+        .expect("valid GameSetupInfo fixture")
+    }
+
+    #[test]
+    fn participant_count_counts_players_and_observers_but_not_computers() {
+        assert_eq!(participant_count(&v2_setup_info().slots), 2);
+        assert_eq!(
+            participant_count(&observer_vs_computers_setup_info().slots),
+            1
+        );
+    }
+
+    #[test]
+    fn build_v2_joined_players_seats_a_lone_observer_at_storm_zero() {
+        let info = observer_vs_computers_setup_info();
+        // A solo game seeds the lone participant at rp2 slot 0, observer or not.
+        let storm_ids = HashMap::from([(SbUserId(10), 0u8)]);
+        let joined = build_v2_joined_players(&info, &storm_ids);
+
+        assert_eq!(joined.len(), 1);
+        assert_eq!(joined[0].name, "watcher");
+        assert_eq!(joined[0].storm_id, StormPlayerId(0));
+        assert_eq!(joined[0].player_id, Some(BwPlayerId(12)));
+        assert!(joined[0].player_id.unwrap().is_observer());
     }
 
     #[test]
