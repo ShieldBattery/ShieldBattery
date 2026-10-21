@@ -314,14 +314,13 @@ Poll both instances in the same loop for a two-client game. If the session does 
     ~10s after the call), a 1v1 **voids** (no-majority), team games discard the caller as the
     diverged minority. Use it to exercise desync policy / desync-flagged paths (e.g. the
     flight-recorder pin).
-  - **`forceUnsyncedLeave(gameId, slot)` does NOT reliably desync.** It injects a local,
-    non-consensus leave of `slot` on the calling client. `slot` is **required** (the DLL rejects
-    the command with `missing field 'slot'` if omitted); pass the caller's own storm slot (the
-    host is `0`) to end the caller. Targeting the caller's **own** slot
-    just ends the caller: it stops emitting checksums before any diverged
-    one crosses the wire, so the opponent sees an ordinary drop and the game **scores normally**
-    (win/loss, no void — verified live). Its legit use is ending a game unattended via the
-    allied-victory path (see verify-pr T4), not triggering desyncs.
+  - **`forceUnsyncedLeave(gameId, slot)` ends a game unattended but usually desyncs it.** It
+    injects a local, non-consensus leave of `slot` on the calling client. `slot` is **required**
+    (the DLL rejects the command with `missing field 'slot'` if omitted); pass the caller's own
+    storm slot (`localSlot` in `queryGameState`) to end the caller. Even on the caller's own
+    slot the forked sim's checksum typically reaches the relay, so a 1v1 is **voided**
+    (`no-majority`) and the clients report contradictory results — no win/loss, no MMR. Use it
+    to get a game to *end* (see verify-pr T4), never for a scored result.
   - **`forceQuit(gameId)`** is the reliable teardown between checks — a hard process-level end
     that works even mid-game or at the native victory dialog. The opponent sees a drop.
   None of the three produces a clean MMR-scored finish on its own; a human leaving via the

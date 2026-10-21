@@ -118,7 +118,9 @@ skill's lobby flow; the DLL-rebuild and finish/outcome steps below apply to both
 **Drive a match**:
 1. Arm a ready-up auto-clicker on **each** client *before* queuing — the "Ready up" window is short
    and polling-then-clicking is too slow (a missed ready-up cancels the match AND bans you, below):
-   `playwright-cli -s=cN run-code "async page => { await page.getByRole('button', { name: 'Ready up' }).click({ timeout: 150000 }); }"`
+   `playwright-cli -s=cN run-code "async page => { await page.getByRole('dialog').getByRole('button', { name: 'Ready up' }).click({ timeout: 150000 }); }"`
+   (scope it to the dialog: the page behind it has its own "Ready up" button, and an unscoped
+   locator fails strict mode the instant the match is found, leaving that client unreadied)
    (run in background, one per client).
 2. Queue both: navigate each to `/play/` (lands on `/play/matchmaking`), then
    `playwright-cli -s=cN click "getByRole('button', { name: 'Find match', exact: true })"`. Two
@@ -151,11 +153,10 @@ skill's lobby flow; the DLL-rebuild and finish/outcome steps below apply to both
      desync behavior is NOT guaranteed either, in either direction: the unsynced injection forks
      the calling client's simulation, but whether the relay's checksum comparator ever *sees* the
      divergence depends on a diverged checksum crossing the wire before the caller's link ends.
-     Targeting the caller's **own** slot ends the caller immediately — verified live: the
-     opponent saw an ordinary drop and the game **scored a normal win/loss, no desync, no
-     void**. Under other slot/timing combinations diverged checksums do cross and the desync
-     policy fires (a 1v1 divergence is no-majority by construction → void; a team game discards
-     the diverged minority). **If the test needs a desync, use `forceDesync(gameId)` instead**
+     Even targeting the caller's **own** slot usually desyncs: in a 1v1 matchmaking game the
+     diverged checksum crosses, the relay logs `voided by relay desync policy (no-majority)`,
+     and the two clients report contradictory results — so expect a **void, no MMR**. (A team
+     game discards the diverged minority instead.) **If the test needs a desync, use `forceDesync(gameId)` instead**
      (see verify-app) — it diverges the sim while both clients keep playing, so the comparator
      reliably fires within seconds. Further caveats on `forceUnsyncedLeave`: it's a
      **per-client trigger, not consensus** (a 3+ player game needs the slot injected on *every*
@@ -442,7 +443,7 @@ path before treating one as real; delete it once resolved.
   `games`/`games_users`, `selected_matchup`, `matchmaking_completions` — happen regardless of finish.)
   On a **debug DLL build**, `window.__sbDebugGame.forceQuit(gameId)` dismisses/tears down the hung
   survivor cleaner than a raw `Stop-Process` (routes through the app), and `forceUnsyncedLeave` can
-  end the game unattended — but neither escapes the no-MMR outcome (T4 "Decisive finish"). Whether
-  `forceUnsyncedLeave` also trips the desync policy depends on slot/timing (own-slot = ordinary
-  drop, no desync — verified live; see T4); `forceDesync(gameId)` is the deliberate,
-  reliable desync trigger when a test wants the void path (see verify-app).
+  end the game unattended — but neither escapes the no-MMR outcome (T4 "Decisive finish");
+  `forceUnsyncedLeave` usually trips the desync policy too (a 1v1 voids, see T4).
+  `forceDesync(gameId)` is the deliberate, reliable desync trigger when a test wants the void
+  path (see verify-app).
