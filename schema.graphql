@@ -150,6 +150,10 @@ type FavoriteMapConnection {
 	A list of nodes.
 	"""
 	nodes: [SbMap!]!
+	"""
+	How many maps the listing holds across every page.
+	"""
+	totalCount: Int!
 }
 
 """
@@ -673,6 +677,10 @@ input MapFilter {
 	Only maps published at or after this time.
 	"""
 	publishedSince: DateTime
+	"""
+	Only official maps (`true`) or only maps that aren't official (`false`).
+	"""
+	official: Boolean
 }
 
 type MapForce {
@@ -732,6 +740,10 @@ type MapLibraryConnection {
 	A list of nodes.
 	"""
 	nodes: [SbMap!]!
+	"""
+	How many maps the listing holds across every page.
+	"""
+	totalCount: Int!
 }
 
 """
@@ -913,6 +925,12 @@ type MapStats {
 	"""
 	medianLength90d: Int
 	lastPlayedAt: DateTime!
+	"""
+	How far lobby play in the last 7 days exceeds what the 3 weeks before it predict, in
+	hundredths of a standard deviation. 0 for maps that aren't rising or that fewer than 5
+	people played in lobbies this week. Updated hourly.
+	"""
+	trendingScore: Int!
 	id: String!
 }
 
@@ -1590,6 +1608,10 @@ type SbMapConnection {
 	A list of nodes.
 	"""
 	nodes: [SbMap!]!
+	"""
+	How many maps the listing holds across every page.
+	"""
+	totalCount: Int!
 }
 
 """
