@@ -149,7 +149,7 @@ const TILES: ReadonlyArray<{
 
 const Grid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
   gap: 24px 16px;
   padding: 16px;
 `

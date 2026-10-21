@@ -1,3 +1,4 @@
+import { TFunction } from 'i18next'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
@@ -12,6 +13,7 @@ import { MaterialIcon } from '../icons/material/material-icon'
 import { RoomChip } from '../lobbies/room/room-parts'
 import { useCurrentMapPoolTypes } from '../matchmaking/map-pool-membership'
 import { IconButton } from '../material/button'
+import { EllipsizedText } from '../material/ellipsized-text'
 import { LinkButton } from '../material/link-button'
 import { DestructiveMenuItem, MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
@@ -181,15 +183,13 @@ const Text = styled.div`
   gap: 2px;
 `
 
-const Name = styled.div`
+const Name = styled(EllipsizedText)`
   ${titleSmall};
-  ${singleLine};
   color: var(--theme-on-surface);
 `
 
-const Meta = styled.div`
+const Meta = styled(EllipsizedText)`
   ${bodySmall};
-  ${singleLine};
   color: var(--color-grey-blue80);
 `
 
@@ -199,9 +199,8 @@ enum SignalTone {
   Fresh,
 }
 
-const Signal = styled.div<{ $tone?: SignalTone }>`
+const Signal = styled(EllipsizedText)<{ $tone?: SignalTone }>`
   ${labelSmall};
-  ${singleLine};
   color: ${props => {
     switch (props.$tone) {
       case SignalTone.Rising:
@@ -306,10 +305,8 @@ export function MapTile({
           ) : null}
         </ImageBox>
         <Text>
-          <Name title={name}>{name}</Name>
-          <Meta>
-            <MapTileMeta map={map} />
-          </Meta>
+          <Name text={name} />
+          <Meta text={mapTileMeta(map, t)} />
           <MapTileSignalLine map={map} signal={signal} addedAt={addedAt} />
         </Text>
       </TileLink>
@@ -335,8 +332,7 @@ export function MapTile({
 
 type TileMap = MapTile_SbMapFragmentFragment
 
-function MapTileMeta({ map }: { map: TileMap }) {
-  const { t } = useTranslation()
+function mapTileMeta(map: TileMap, t: TFunction): string {
   const players = t('maps.catalog.players', {
     defaultValue: '{{count}} players',
     defaultValue_one: '{{count}} player',
@@ -364,18 +360,14 @@ function MapTileMeta({ map }: { map: TileMap }) {
     if (map.file.isEud) {
       parts.push(t('maps.page.eud', 'EUD'))
     }
-    return <>{parts.join(' · ')}</>
+    return parts.join(' · ')
   }
 
-  return (
-    <>
-      {[
-        players,
-        `${map.file.width}×${map.file.height}`,
-        tilesetToName(map.file.tileset as Tileset, t),
-      ].join(' · ')}
-    </>
-  )
+  return [
+    players,
+    `${map.file.width}×${map.file.height}`,
+    tilesetToName(map.file.tileset as Tileset, t),
+  ].join(' · ')
 }
 
 function MapTileSignalLine({
@@ -396,38 +388,40 @@ function MapTileSignalLine({
     case MapTileSignal.Added:
       if (addedAt) {
         return (
-          <Signal>
-            {t('maps.catalog.addedAgo', {
+          <Signal
+            text={t('maps.catalog.addedAgo', {
               defaultValue: 'Added {{time}}',
               time: durations.format(new Date(addedAt)),
             })}
-          </Signal>
+          />
         )
       }
       break
     case MapTileSignal.Published:
       if (map.publishedAt) {
         return (
-          <Signal $tone={SignalTone.Fresh}>
-            {t('maps.catalog.publishedAgo', {
+          <Signal
+            $tone={SignalTone.Fresh}
+            text={t('maps.catalog.publishedAgo', {
               defaultValue: 'Published {{time}}',
               time: durations.format(new Date(map.publishedAt)),
             })}
-          </Signal>
+          />
         )
       }
       break
     case MapTileSignal.Trending:
       if (stats && stats.trendingScore >= RISING_TRENDING_SCORE) {
         return (
-          <Signal $tone={SignalTone.Rising}>
-            {t('maps.catalog.gamesThisWeek', {
+          <Signal
+            $tone={SignalTone.Rising}
+            text={t('maps.catalog.gamesThisWeek', {
               defaultValue: '{{formattedCount}} games this week',
               defaultValue_one: '{{formattedCount}} game this week',
               count: stats.games7d,
               formattedCount: numbers.format(stats.games7d),
             })}
-          </Signal>
+          />
         )
       }
       return <MonthSignal games={stats?.games28d} />
@@ -438,16 +432,18 @@ function MapTileSignalLine({
   }
 
   return (
-    <Signal>
-      {stats
-        ? t('maps.catalog.totalGames', {
-            defaultValue: '{{formattedCount}} games',
-            defaultValue_one: '{{formattedCount}} game',
-            count: stats.gamesTotal,
-            formattedCount: numbers.format(stats.gamesTotal),
-          })
-        : t('maps.catalog.notPlayed', 'Not played yet')}
-    </Signal>
+    <Signal
+      text={
+        stats
+          ? t('maps.catalog.totalGames', {
+              defaultValue: '{{formattedCount}} games',
+              defaultValue_one: '{{formattedCount}} game',
+              count: stats.gamesTotal,
+              formattedCount: numbers.format(stats.gamesTotal),
+            })
+          : t('maps.catalog.notPlayed', 'Not played yet')
+      }
+    />
   )
 }
 
@@ -455,16 +451,18 @@ function MonthSignal({ games }: { games: number | undefined }) {
   const { t } = useTranslation()
   const numbers = useFormat(compactNumber)
   return (
-    <Signal>
-      {games === undefined
-        ? t('maps.catalog.notPlayed', 'Not played yet')
-        : t('maps.catalog.gamesThisMonth', {
-            defaultValue: '{{formattedCount}} games this month',
-            defaultValue_one: '{{formattedCount}} game this month',
-            count: games,
-            formattedCount: numbers.format(games),
-          })}
-    </Signal>
+    <Signal
+      text={
+        games === undefined
+          ? t('maps.catalog.notPlayed', 'Not played yet')
+          : t('maps.catalog.gamesThisMonth', {
+              defaultValue: '{{formattedCount}} games this month',
+              defaultValue_one: '{{formattedCount}} game this month',
+              count: games,
+              formattedCount: numbers.format(games),
+            })
+      }
+    />
   )
 }
 
@@ -577,12 +575,14 @@ export function PendingMapTile({
         )}
       </PendingImage>
       <Text>
-        <Name title={fileName}>{fileName}</Name>
-        <Meta>
-          {error
-            ? t('maps.catalog.uploadFailed', 'Upload failed')
-            : t('maps.catalog.privateUpload', 'Private upload')}
-        </Meta>
+        <Name text={fileName} />
+        <Meta
+          text={
+            error
+              ? t('maps.catalog.uploadFailed', 'Upload failed')
+              : t('maps.catalog.privateUpload', 'Private upload')
+          }
+        />
       </Text>
       <LibraryFooter>
         {error ? (
