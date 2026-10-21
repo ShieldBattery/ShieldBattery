@@ -49,6 +49,7 @@ import {
   LOCAL_SORTS,
   toLocalMapQuery,
 } from './map-catalog-params'
+import { mapFileIdToHash } from './map-file-hash'
 import { LocalMapTile, MapTile, MapTileSignal } from './map-tile'
 
 /** How many files each page of the listing reads from the index. */
@@ -406,7 +407,8 @@ function LocalMapPage({
   const uploads = useLocalMapUploads()
   const uploadFile = useUploadLocalMapFile()
 
-  const known = new Map((data?.mapsByHash ?? []).map(map => [map.file.id, map]))
+  // `MapFile.id` is the hash base64-encoded; the index has it hex-encoded
+  const known = new Map((data?.mapsByHash ?? []).map(map => [mapFileIdToHash(map.file.id), map]))
   const checking = !selfUser || fetching || (!data && hashes.length > 0)
 
   const chooseUnknown = (file: LocalMapFile) => {
