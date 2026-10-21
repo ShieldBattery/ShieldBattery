@@ -282,13 +282,7 @@ export function MapTile({
     <Root>
       <TileLink href={urlForMap(map.id, map.name)}>
         <ImageBox>
-          <MapFileImage
-            file={map.file}
-            name={name}
-            size={imageSize}
-            forceAspectRatio={1}
-            showSpawns={true}
-          />
+          <MapFileImage file={map.file} name={name} size={imageSize} forceAspectRatio={1} />
           {badge ? <Badge>{badge}</Badge> : null}
           {poolTypes.length ? (
             <PoolChips>
