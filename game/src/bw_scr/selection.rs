@@ -334,6 +334,9 @@ const SPRITE_SELECTION_CIRCLE: u8 = 0x1;
 /// Sprite flags: how many teammates have the sprite selected, as a two-bit count; a sprite with
 /// any shows one circle from images `TEAM_SELECTION_CIRCLE_IMAGES`.
 const SPRITE_TEAM_SELECTION_COUNT: u8 = 0x6;
+/// Every sprite flag saying the sprite shows a selection visual.
+pub(super) const SPRITE_SELECTION_VISUALS: u8 =
+    SPRITE_SELECTED | SPRITE_SELECTION_CIRCLE | SPRITE_TEAM_SELECTION_COUNT;
 const SELECTION_CIRCLE_IMAGES: std::ops::RangeInclusive<u16> = 0x231..=0x23a;
 const TEAM_SELECTION_CIRCLE_IMAGES: std::ops::RangeInclusive<u16> = 0x23b..=0x244;
 /// The draw function of a health bar image.
@@ -419,8 +422,6 @@ impl SelectionVisualPools {
             let first_sprite = (*vector).data as usize;
             let sprite_count = (*vector).length;
             let sprite_size = mem::size_of::<bw::Sprite>();
-            let visual_flags =
-                SPRITE_SELECTED | SPRITE_SELECTION_CIRCLE | SPRITE_TEAM_SELECTION_COUNT;
             let mut sprites: SmallVec<[*mut bw::Sprite; 32]> = SmallVec::new();
             // Visiting a sprite without the flags does nothing, so only flagged ones are kept.
             // The free lists aren't walked to tell the pool images in use from the free ones,
@@ -430,7 +431,7 @@ impl SelectionVisualPools {
                 let offset = (sprite as usize).wrapping_sub(first_sprite);
                 if offset < sprite_count * sprite_size
                     && offset.is_multiple_of(sprite_size)
-                    && (*sprite).flags & visual_flags != 0
+                    && (*sprite).flags & SPRITE_SELECTION_VISUALS != 0
                 {
                     sprites.push(sprite);
                 }
@@ -519,13 +520,12 @@ impl SelectionVisualPools {
         {
             return;
         }
-        let visual_flags = SPRITE_SELECTED | SPRITE_SELECTION_CIRCLE | SPRITE_TEAM_SELECTION_COUNT;
         unsafe {
             let sprites = first_sprite as *const bw::Sprite;
             for i in 0..sprite_count {
                 let flags = (*sprites.add(i)).flags;
                 debug_assert!(
-                    flags & visual_flags == 0,
+                    flags & SPRITE_SELECTION_VISUALS == 0,
                     "Sprite {i} still carries selection visual flags {flags:x}",
                 );
             }
@@ -851,6 +851,23 @@ impl BwScr {
                 (*first).prev = image;
                 (*lists).first_image = image;
             }
+        }
+    }
+
+    /// Whether `image` is one the UI links onto a sprite from a pool of its own (a selection
+    /// circle, health bar or building placement overlay), rather than one of the sprite's.
+    pub(super) unsafe fn is_ui_image(&self, image: *mut bw::Image) -> bool {
+        unsafe {
+            let id = (*image).image_id;
+            SELECTION_CIRCLE_IMAGES.contains(&id)
+                || TEAM_SELECTION_CIRCLE_IMAGES.contains(&id)
+                || (*image).drawfunc == HP_BAR_DRAWFUNC
+                || self.placement_overlays.as_ref().is_some_and(|pools| {
+                    pools
+                        .pools()
+                        .iter()
+                        .any(|&(pool, ..)| image >= pool && image < pool.add(PLACEMENT_POOL_LEN))
+                })
         }
     }
 
