@@ -4499,22 +4499,21 @@ impl BwScr {
                         .dx9_renderer_vtables
                         .iter()
                         .any(|vtable| vtable.0 as *const scr::V_Renderer == (*renderer).vtable);
-                    // SC:R's DX9 renderer only lets draws that take its default outputs reach the
-                    // backbuffer, and the overlay's shader names its outputs. There the overlay
+                    // Only SC:R's Prism renderer lets the overlay's draws reach the backbuffer.
+                    // The legacy renderers (DX9, and OpenGL, which SC:R falls back to when Prism
+                    // finds no GPU, as under Wine) only let draws that take their default outputs
+                    // reach it, and the overlay's shader names its outputs. There the overlay
                     // draws to the UI target at that target's resolution, and the game's final
                     // pass scales it onto the backbuffer. The backbuffer's backend target can't
-                    // tell the renderers apart, being null under DX11 as well, but where the
-                    // analysis found no DX9 renderer to compare against it is what's left, and
-                    // only ever moves DX11 off the backbuffer rather than crashing DX9 on it.
-                    let backbuffer_drawable = match self.dx9_renderer_vtables.is_empty() {
-                        true => !(*backbuffer).backend_target.is_null(),
-                        false => !is_dx9_renderer,
-                    };
+                    // tell the renderers apart, being null under Prism's DX11 as well.
+                    let backbuffer_drawable = (*renderer).vtable
+                        == self.prism_renderer_vtable.0 as *const scr::V_Renderer;
                     let render_target = if backbuffer_drawable {
                         draw_inject::RenderTarget::backbuffer(backbuffer, ui_target)
                     } else {
                         warn_once!(
-                            "The overlay draws to the UI target (DX9 renderer: {is_dx9_renderer})"
+                            "The overlay draws to the UI target, as the renderer isn't Prism \
+                             (DX9 renderer: {is_dx9_renderer})"
                         );
                         draw_inject::RenderTarget::whole(ui_target, 1)
                     };

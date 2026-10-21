@@ -499,7 +499,7 @@ unsafe fn draw_egui_mesh_main<I: IndexSize>(
         let quad_count = (init_vertex_count / 4).max(init_index_count / 6);
         let vertex_count = quad_count * 4;
         let index_count = quad_count * 6;
-        let vertex_alloc = allocate_vertices(bw.vertex_buf, 0x8, vertex_count);
+        let vertex_alloc = allocate_vertices(bw.vertex_buf, 5, vertex_count);
         let index_alloc = allocate_indices(bw.vertex_buf, index_count);
         let colors = overlay_ui::straight_alpha::vertex_colors(vertices, indices);
         vertex_alloc.set_map(vertices.len(), |i| {
@@ -653,15 +653,13 @@ unsafe fn allocate_vertices(
 ) -> VertexBufferAlloc<f32> {
     unsafe {
         let float_count = (vertex_count * floats_per_vertex) as usize;
-        // BW makes alignment multiple of vertex byte size (floats_per_vertex * 4),
-        // but it seems to be pointless? What would alignment of 0x14 help?
-        // Going to just check that alignment is at 4 and not even trying to fix it
-        // if not.
-        let start_offset = (*vertex_buf).allocated_size_bytes;
-        assert!(
-            start_offset & 3 == 0,
-            "Bad vertex alignment {start_offset:x}"
-        );
+        // The vertices start at a multiple of their own size, as BW's own allocations do: SC:R's
+        // OpenGL renderer reads a draw's vertices from the index its byte offset divides down to,
+        // so a start between vertices shifts every vertex's fields onto its neighbor's.
+        let vertex_size = floats_per_vertex as usize * 4;
+        let allocated = (*vertex_buf).allocated_size_bytes;
+        assert!(allocated & 3 == 0, "Bad vertex alignment {allocated:x}");
+        let start_offset = allocated.next_multiple_of(vertex_size);
         let end_offset = start_offset + float_count * 4;
         while end_offset > vertex_buf_capacity_bytes(vertex_buf) {
             vertex_buf_grow(vertex_buf);
