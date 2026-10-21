@@ -202,6 +202,7 @@ export function bootstrapSession(session?: ClientSessionInfo): ThunkAction {
 
 export function revokeSession(): ThunkAction {
   return dispatch => {
+    loadUserAliases(undefined)
     dispatch({ type: '@auth/sessionUnauthorized' })
     CREDENTIAL_STORAGE.store(undefined)
     clearSessionRefresh()

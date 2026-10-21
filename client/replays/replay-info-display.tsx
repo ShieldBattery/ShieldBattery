@@ -23,7 +23,7 @@ import { Tooltip } from '../material/tooltip'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { bodyLarge, labelMedium, singleLine, titleLarge } from '../styles/typography'
-import { userAliasesAtom } from '../users/user-aliases'
+import { formatUserAlias, userAliasesAtom } from '../users/user-aliases'
 import { startReplay } from './action-creators'
 import { getGameRecordUserIds } from './replay-library-helpers'
 
@@ -228,7 +228,9 @@ export function ReplayInfoDisplay({ filePath, className }: ReplayInfoDisplayProp
         replayUserId !== undefined && gameUserIds.has(replayUserId)
           ? usersById.get(replayUserId)
           : undefined
-      const player = sbUser ? { ...p, name: aliases.get(sbUser.id) ?? sbUser.name } : p
+      const player = sbUser
+        ? { ...p, name: formatUserAlias(sbUser.name, aliases.get(sbUser.id)) }
+        : p
       if (team) {
         team.push(player)
       } else {

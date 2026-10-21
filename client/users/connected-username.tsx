@@ -7,7 +7,7 @@ import { useOverflowingElement } from '../dom/overflowing-element'
 import { Tooltip, TooltipPosition } from '../material/tooltip'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { getBatchUserInfo } from './action-creators'
-import { useUserAlias } from './user-aliases'
+import { formatUserAlias, useUserAlias } from './user-aliases'
 import { ConnectedUserContextMenu, UserMenuComponent } from './user-context-menu'
 import { useUserOverlays } from './user-overlays'
 import { ConnectedUserProfileOverlay } from './user-profile-overlay'
@@ -105,7 +105,7 @@ export function ConnectedUsername({
     }
   }
 
-  const username = alias ?? user?.name ?? (
+  const username = (user ? formatUserAlias(user.name, alias) : alias) ?? (
     <LoadingName aria-label={t('common.loading.username', 'Username loading…')}>
       &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
     </LoadingName>
@@ -132,7 +132,7 @@ export function ConnectedUsername({
       {interactive && <ConnectedUserContextMenu {...contextMenuProps} />}
       {showTooltipForOverflow ? (
         <Tooltip
-          text={alias ?? user?.name}
+          text={user ? formatUserAlias(user.name, alias) : alias}
           position={showTooltipForOverflow}
           disabled={!user || !isNameOverflowing}>
           {nameElem}

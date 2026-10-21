@@ -8,7 +8,7 @@ import { TransInterpolation } from '../../../i18n/i18next'
 import { jotaiStore } from '../../../jotai-store'
 import { isFetchError } from '../../../network/fetch-errors'
 import { RootState } from '../../../root-reducer'
-import { getUserAlias } from '../../../users/user-aliases'
+import { formatUserAlias, getUserAlias } from '../../../users/user-aliases'
 import { lastWhisperSenderAtom } from '../../../whispers/whisper-atoms'
 import { CommandContext } from '../command-context'
 import {
@@ -54,7 +54,7 @@ export function resolveReplyTarget(state: RootState): ReplyTarget | undefined {
   }
 
   const name = state.users.byId.get(id)?.name
-  return name !== undefined ? { id, name: getUserAlias(id) ?? name } : undefined
+  return name !== undefined ? { id, name: formatUserAlias(name, getUserAlias(id)) } : undefined
 }
 
 /** The line answering a reply typed before anyone has whispered this user. */

@@ -5,6 +5,7 @@ import { SbUser } from '../../common/users/sb-user'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
 import { jotaiStore } from '../jotai-store'
 import logger from '../logging/logger'
+import { getUserLocalStorageValue, setUserLocalStorageValue } from '../react/state-hooks'
 import { useAppSelector } from '../redux-hooks'
 
 /**
@@ -22,14 +23,13 @@ function storageKey(ownerId: SbUserId) {
   return `${String(ownerId)}|userAliases`
 }
 
-function parseStoredAliases(json: string | null): Map<SbUserId, string> {
+function parseStoredAliases(parsed: unknown): Map<SbUserId, string> {
   const aliases = new Map<SbUserId, string>()
-  if (json === null) {
+  if (parsed === undefined || parsed === null) {
     return aliases
   }
 
   try {
-    const parsed: unknown = JSON.parse(json)
     if (parsed && typeof parsed === 'object') {
       for (const [id, alias] of Object.entries(parsed)) {
         const userId = Number(id)
@@ -60,7 +60,7 @@ export function loadUserAliases(ownerId: SbUserId | undefined) {
   jotaiStore.set(
     userAliasesAtom,
     ownerId !== undefined
-      ? parseStoredAliases(localStorage.getItem(storageKey(ownerId)))
+      ? parseStoredAliases(getUserLocalStorageValue(ownerId, 'userAliases'))
       : new Map(),
   )
 }
@@ -79,12 +79,11 @@ export function setUserAlias(userId: SbUserId, alias: string | undefined) {
     aliases.set(userId, alias)
   }
 
-  const key = storageKey(aliasOwner)
-  if (aliases.size) {
-    localStorage.setItem(key, JSON.stringify(Object.fromEntries(aliases)))
-  } else {
-    localStorage.removeItem(key)
-  }
+  setUserLocalStorageValue(
+    aliasOwner,
+    'userAliases',
+    aliases.size ? Object.fromEntries(aliases) : undefined,
+  )
   jotaiStore.set(userAliasesAtom, aliases)
 }
 
@@ -95,7 +94,10 @@ window.addEventListener('storage', event => {
     event.storageArea === localStorage &&
     event.key === storageKey(aliasOwner)
   ) {
-    jotaiStore.set(userAliasesAtom, parseStoredAliases(event.newValue))
+    jotaiStore.set(
+      userAliasesAtom,
+      parseStoredAliases(getUserLocalStorageValue(aliasOwner, 'userAliases')),
+    )
   }
 })
 
@@ -104,9 +106,9 @@ export function getUserAlias(userId: SbUserId): string | undefined {
   return jotaiStore.get(userAliasesAtom).get(userId)
 }
 
-/** Returns the name `user` should be shown with: their alias if they have one, else their name. */
+/** Returns the user's alias alongside their original name, or just their original name. */
 export function getDisplayName(user: Pick<SbUser, 'id' | 'name'>): string {
-  return getUserAlias(user.id) ?? user.name
+  return formatUserAlias(user.name, getUserAlias(user.id))
 }
 
 /** Returns the users whose alias matches `name` (ignoring case, like usernames). */
@@ -149,14 +151,14 @@ export function useUserAlias(userId: SbUserId | undefined): string | undefined {
 
 /**
  * Hook that returns the name `userId` should be shown with: the logged in user's alias for them if
- * there is one, otherwise their actual name (or `undefined` if that hasn't been loaded).
+ * there is one, alongside their original name (or `undefined` if that hasn't been loaded).
  */
 export function useDisplayName(userId: SbUserId | undefined): string | undefined {
   const alias = useUserAlias(userId)
   const name = useAppSelector(s =>
     userId !== undefined ? s.users.byId.get(userId)?.name : undefined,
   )
-  return alias ?? name
+  return name !== undefined ? formatUserAlias(name, alias) : alias
 }
 
 /**
@@ -165,5 +167,10 @@ export function useDisplayName(userId: SbUserId | undefined): string | undefined
  */
 export function useDisplayNameGetter(): (user: Pick<SbUser, 'id' | 'name'>) => string {
   const aliases = useAtomValue(userAliasesAtom)
-  return user => aliases.get(user.id) ?? user.name
+  return user => formatUserAlias(user.name, aliases.get(user.id))
+}
+
+/** A local alias always keeps the account's original name visible. */
+export function formatUserAlias(name: string, alias: string | undefined): string {
+  return alias !== undefined ? `${alias} (${name})` : name
 }

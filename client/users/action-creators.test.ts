@@ -132,17 +132,12 @@ describe('client/users/action-creators/findUserByTypedName', () => {
     await vi.waitFor(() => expect(onSuccess).toHaveBeenCalledWith(aliasedUser))
   })
 
-  test('refuses an alias that is also another player’s actual name, naming both', async () => {
+  test('prefers an exact original name over another account’s alias', async () => {
     const realBoxer: SbUser = { id: makeSbUserId(4), name: 'Boxer', created: 0 }
     fetchJsonMock.mockResolvedValue({ user: realBoxer })
-
     const { onSuccess, onError } = runFindUserByTypedName('Boxer')
-
-    await vi.waitFor(() => expect(onError).toHaveBeenCalled())
-    const error = onError.mock.calls[0][0]
-    expect(error).toBeInstanceOf(AmbiguousUserNameError)
-    expect(error.candidates).toEqual([realBoxer, aliasedUser])
-    expect(onSuccess).not.toHaveBeenCalled()
+    await vi.waitFor(() => expect(onSuccess).toHaveBeenCalledWith(realBoxer))
+    expect(onError).not.toHaveBeenCalled()
   })
 
   test('refuses an alias shared by several accounts, naming each of them', async () => {

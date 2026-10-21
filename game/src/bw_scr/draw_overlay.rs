@@ -1308,6 +1308,7 @@ impl OverlayState {
             .filter(|&player_id| is_human_player(bw, player_id as usize))
             .map(|player_id| disconnect::RosterPlayer {
                 name: stats::player_name(bw, player_id),
+                user_id: crate::game_thread::sb_user_id_for_player(BwPlayerId(player_id)),
                 color: stats::player_color(bw, player_id),
                 // A side rather than a declared alliance: `player_teams` is the game's own team
                 // numbers where the game type has them and who has mutually allied whom where it

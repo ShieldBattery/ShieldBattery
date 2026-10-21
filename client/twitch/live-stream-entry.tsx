@@ -8,7 +8,7 @@ import { useFormatLocale } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { EllipsizedText } from '../material/ellipsized-text'
 import { bodyMedium, bodySmall, labelSmall, singleLine, titleSmall } from '../styles/typography'
-import { userAliasesAtom } from '../users/user-aliases'
+import { formatUserAlias, userAliasesAtom } from '../users/user-aliases'
 import {
   formatViewerCount,
   LiveDot,
@@ -62,7 +62,7 @@ function useLiveStream(query: FragmentType<typeof LiveStreams_FeedEntryFragment>
  */
 function getIdentity(stream: LiveStreamFragment, aliases: ReadonlyMap<SbUserId, string>) {
   const sbName =
-    (stream.user ? (aliases.get(stream.user.id) ?? stream.user.name) : undefined) ??
+    (stream.user ? formatUserAlias(stream.user.name, aliases.get(stream.user.id)) : undefined) ??
     stream.twitchDisplayName
   const handle =
     stream.user && stream.twitchDisplayName.toLowerCase() !== stream.user.name.toLowerCase()

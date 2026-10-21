@@ -48,7 +48,7 @@ import {
 import { AvailabilityDot } from './availability'
 import { ExpandableRankDisplays } from './expandable-rank-displays'
 import { StaffBadge } from './staff-badge'
-import { useUserAlias } from './user-aliases'
+import { formatUserAlias, useUserAlias } from './user-aliases'
 
 const joinDateFormat = dateTimeFormat({
   month: 'long',
@@ -332,7 +332,7 @@ export function UserProfileOverlayContents({
         </AvatarContainer>
         <UsernameAndTitle>
           {user ? (
-            <Username>{alias ?? user.name}</Username>
+            <Username>{formatUserAlias(user.name, alias)}</Username>
           ) : (
             <LoadingUsername aria-label={t('common.loading.username', 'Username loading…')} />
           )}

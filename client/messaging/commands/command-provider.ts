@@ -1,7 +1,7 @@
 import { TFunction } from 'i18next'
 import { jotaiStore } from '../../jotai-store'
 import { RootState } from '../../root-reducer'
-import { userAliasesAtom } from '../../users/user-aliases'
+import { formatUserAlias, userAliasesAtom } from '../../users/user-aliases'
 import {
   MAX_TYPEAHEAD_ROWS,
   TypeaheadMatch,
@@ -173,9 +173,8 @@ export function createCommandArgProvider(deps: CommandProviderDeps): TypeaheadPr
           const alias = suggestion.user ? aliases.get(suggestion.user.id) : undefined
           return {
             key: `argument:${suggestion.value}`,
-            text: alias ?? suggestion.value,
+            text: formatUserAlias(suggestion.value, alias),
             // Accounts can share an alias, so an aliased row says which account it is.
-            secondaryText: alias !== undefined ? suggestion.value : undefined,
             visual: suggestion.user
               ? { kind: 'user', userId: suggestion.user.id, online: suggestion.user.online }
               : { kind: 'plain' },

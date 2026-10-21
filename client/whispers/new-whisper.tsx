@@ -24,7 +24,7 @@ import { describeFetchError, isFetchError } from '../network/fetch-errors'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { titleLarge } from '../styles/typography'
 import { AmbiguousUserNameError, searchUsers } from '../users/action-creators'
-import { userAliasesAtom } from '../users/user-aliases'
+import { formatUserAlias, userAliasesAtom } from '../users/user-aliases'
 import { navigateToWhisper, startWhisperSessionByName } from './action-creators'
 import { SuggestedPeople } from './suggested-people'
 
@@ -205,7 +205,7 @@ function useSuggestions(query: string): Array<{ user: SbUser; online: boolean | 
       known.push(user)
     }
   }
-  const shownName = (user: SbUser) => aliases.get(user.id) ?? user.name
+  const shownName = (user: SbUser) => formatUserAlias(user.name, aliases.get(user.id))
   known.sort((a, b) => shownName(a).localeCompare(shownName(b)))
 
   const trimmed = query.trim()
@@ -375,9 +375,7 @@ export function NewWhisper() {
             {suggestions.map(({ user, online }) => (
               <SuggestionItem
                 key={user.id}
-                text={aliases.get(user.id) ?? user.name}
-                // Accounts can share an alias, so an aliased row says which account it is.
-                secondaryText={aliases.has(user.id) ? user.name : undefined}
+                text={formatUserAlias(user.name, aliases.get(user.id))}
                 $faded={online === false}
                 icon={
                   <SuggestionAvatar

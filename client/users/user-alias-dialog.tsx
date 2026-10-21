@@ -115,9 +115,8 @@ export function UserAliasDialog({ onCancel, close, userId }: UserAliasDialogProp
       <Explanation>
         {t('users.alias.explanation', {
           defaultValue:
-            'Everywhere you see {{name}} on ShieldBattery, including in games, you’ll see this ' +
-            'alias instead. Only you can see it. Give the same alias to all of a player’s ' +
-            'accounts to see them as one player.',
+            'Show this alias alongside {{name}} on ShieldBattery, including in games. ' +
+            'Only you can see it. You can give the same alias to several accounts.',
           name: user?.name ?? '',
         })}
       </Explanation>

@@ -403,7 +403,7 @@
         "description": "Asks the magic 8-ball a question, answered by the server."
       },
       "errors": {
-        "ambiguousMember": "More than one member matches <1>{{name}}</1>.",
+        "ambiguousMember": "<0>{{name}}</0> could mean {{candidates}}. Use an original name.",
         "ambiguousUserName": "<0>{{name}}</0> could mean {{candidates}}. Use the name of the one you mean.",
         "commandFailed": "Something went wrong while running <2>{{command}}</2>.",
         "invalidArgument": "Invalid <1>{{arg}}</1>: {{value}}. Usage: <7>{{usage}}</7>",
@@ -3407,7 +3407,7 @@
         "pattern": "Alias contains characters a name can’t",
         "required": "Enter an alias"
       },
-      "explanation": "Everywhere you see {{name}} on ShieldBattery, including in games, you’ll see this alias instead. Only you can see it. Give the same alias to all of a player’s accounts to see them as one player.",
+      "explanation": "Show this alias alongside {{name}} on ShieldBattery, including in games. Only you can see it. You can give the same alias to several accounts.",
       "label": "Alias",
       "removeAction": "Remove alias",
       "removed": "Removed your alias for {{name}}",

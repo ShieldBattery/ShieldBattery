@@ -1,7 +1,7 @@
 import { matchUserMentions } from '../../common/text/user-mentions'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { jotaiStore } from '../jotai-store'
-import { getUserAlias, userAliasesAtom } from '../users/user-aliases'
+import { formatUserAlias, getUserAlias, userAliasesAtom } from '../users/user-aliases'
 import { rankByQuery } from './rank-by-query'
 import {
   MAX_TYPEAHEAD_ROWS,
@@ -90,9 +90,8 @@ function toSuggestion(user: MentionableUser): TypeaheadSuggestion {
   const alias = getUserAlias(user.id)
   return {
     key: String(user.id),
-    text: alias ?? user.name,
+    text: formatUserAlias(user.name, alias),
     // Accounts can share an alias, so an aliased row says which account it is.
-    secondaryText: alias !== undefined ? user.name : undefined,
     visual: { kind: 'user', userId: user.id, online: user.online },
     insertText: `@${user.name} `,
     exact: false,

@@ -4159,10 +4159,16 @@ impl BwScr {
                         // A line from or about a player the local user gave an alias shows the
                         // alias in place of their name.
                         let aliased = chat_manager
-                            .alias_chat_line(text)
+                            .alias_chat_line(text, player)
                             .and_then(|line| CString::new(line).ok());
                         drop(chat_manager);
                         if let Some(aliased) = aliased {
+                            let shown = aliased.to_str().unwrap_or(text);
+                            if game_thread::is_replay() {
+                                self.record_replay_chat_history_line(shown, player);
+                            } else {
+                                self.record_chat_history_system_line(shown, player);
+                            }
                             orig(aliased.as_ptr(), player, unused);
                             return;
                         }

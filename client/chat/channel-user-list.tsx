@@ -28,7 +28,7 @@ import { LiveLabel } from '../twitch/live-indicators'
 import { useLiveUserIds } from '../twitch/live-state'
 import { MiniLiveStreamEntry } from '../twitch/live-stream-entry'
 import { StaffBadgedAvatar } from '../users/staff-badge'
-import { userAliasesAtom, useUserAlias } from '../users/user-aliases'
+import { formatUserAlias, userAliasesAtom, useUserAlias } from '../users/user-aliases'
 import { ConnectedUserContextMenu } from '../users/user-context-menu'
 import { useUserOverlays } from '../users/user-overlays'
 import { ConnectedUserProfileOverlay } from '../users/user-profile-overlay'
@@ -259,7 +259,7 @@ const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
         {user ? (
           <NameBlock>
             <RosterNameLine>
-              <RosterName>{alias ?? user.name}</RosterName>
+              <RosterName>{formatUserAlias(user.name, alias)}</RosterName>
               <RosterRoleBadge userId={props.userId} />
             </RosterNameLine>
             <FriendActivityStatusLine userId={props.userId} />

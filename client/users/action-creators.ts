@@ -206,8 +206,7 @@ async function lookUpUserByName(
 }
 
 /**
- * The error a typed name fails to resolve with when it's both the local user's alias for one player
- * and the actual name of a different one, leaving no way to tell which of them was meant.
+ * A typed alias shared by several accounts, when no account has that exact original name.
  */
 export class AmbiguousUserNameError extends Error {
   override name = 'AmbiguousUserNameError'
@@ -215,8 +214,7 @@ export class AmbiguousUserNameError extends Error {
   constructor(
     readonly typedName: string,
     /**
-     * Every user `typedName` could mean: the account actually named that, if there is one, first,
-     * then each account the local user gave it to as an alias.
+     * Every account the local user gave `typedName` to as an alias.
      */
     readonly candidates: ReadonlyArray<Readonly<SbUser>>,
   ) {
@@ -229,7 +227,7 @@ export class AmbiguousUserNameError extends Error {
  * that the local user's aliases count too: names on screen are shown as aliases, so an alias is
  * what someone reading them will type. An alias may be shared by several accounts (e.g. to link
  * one player's accounts together) and may also be some other account's actual name, so a name can
- * mean more than one user. When it does there's no telling who was meant, and this fails with an
+ * mean more than one user. Exact original names take priority. A shared alias fails with an
  * {@link AmbiguousUserNameError} naming them all rather than guess.
  */
 export function findUserByTypedName(name: string, spec: RequestHandlingSpec<SbUser>): ThunkAction {
@@ -259,13 +257,11 @@ export async function resolveTypedUserName(
     }
   }
 
-  const aliasedUsers = await getUsersById(
-    aliasedUserIds.filter(id => id !== namedUser?.id),
-    dispatch,
-    getState,
-    signal,
-  )
-  const candidates = namedUser ? [namedUser, ...aliasedUsers] : aliasedUsers
+  if (namedUser) {
+    return namedUser
+  }
+
+  const candidates = await getUsersById(aliasedUserIds, dispatch, getState, signal)
   if (candidates.length > 1) {
     throw new AmbiguousUserNameError(name, candidates)
   }

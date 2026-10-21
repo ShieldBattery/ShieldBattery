@@ -27,7 +27,7 @@ import { styledWithAttrs } from '../styles/styled-with-attrs'
 import { bodyLarge, labelMedium, singleLine, titleLarge, titleSmall } from '../styles/typography'
 import { LiveLabel } from '../twitch/live-indicators'
 import { useLiveUserIds } from '../twitch/live-state'
-import { useUserAlias } from '../users/user-aliases'
+import { formatUserAlias, useUserAlias } from '../users/user-aliases'
 import { ConnectedUserContextMenu } from '../users/user-context-menu'
 import { areUserEntriesEqual, useUserEntriesSelector } from '../users/user-entries'
 import { useUserOverlays } from '../users/user-overlays'
@@ -698,7 +698,7 @@ function FriendEntry({
         </AvatarContainer>
         {user ? (
           <NameBlock>
-            <NameLine>{alias ?? user.name}</NameLine>
+            <NameLine>{formatUserAlias(user.name, alias)}</NameLine>
             <FriendActivityStatusLine userId={userId} />
           </NameBlock>
         ) : (

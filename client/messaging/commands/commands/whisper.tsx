@@ -10,7 +10,7 @@ import { DispatchFunction } from '../../../dispatch-registry'
 import { TransInterpolation } from '../../../i18n/i18next'
 import { isFetchError } from '../../../network/fetch-errors'
 import { AmbiguousUserNameError } from '../../../users/action-creators'
-import { getUserAlias } from '../../../users/user-aliases'
+import { formatUserAlias, getUserAlias } from '../../../users/user-aliases'
 import {
   navigateToWhisper,
   sendMessage as sendWhisperMessage,
@@ -181,7 +181,7 @@ export const whisperCommand = defineCommand({
           // sendWhisperInPlace shows it went out, and a send that fails puts the error next to
           // the input they typed it in.
           sendWhisperInPlace(
-            { id: userId, name: getUserAlias(userId) ?? name },
+            { id: userId, name: formatUserAlias(name, getUserAlias(userId)) },
             message,
             { context, dispatch, t, emit },
             err => sendFailedLine(target, err, t),

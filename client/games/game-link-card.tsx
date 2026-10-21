@@ -57,7 +57,7 @@ import { isFetchError } from '../network/fetch-errors'
 import { useAppSelector } from '../redux-hooks'
 import { bodySmall, labelMedium, singleLine, titleMedium, titleSmall } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
-import { userAliasesAtom } from '../users/user-aliases'
+import { formatUserAlias, userAliasesAtom } from '../users/user-aliases'
 import { navigateToGameResults } from './action-creators'
 import { PlayerResultMarker } from './result-chip'
 
@@ -633,7 +633,12 @@ function GameMatchup({
     shallowEqual,
   )
   const aliases = useAtomValue(userAliasesAtom)
-  const nameById = new Map(players.map((p, i) => [p.id, aliases.get(p.id) ?? names[i]]))
+  const nameById = new Map(
+    players.map((p, i) => [
+      p.id,
+      names[i] !== undefined ? formatUserAlias(names[i]!, aliases.get(p.id)) : aliases.get(p.id),
+    ]),
+  )
   const getName = (player: ReadonlyDeep<GameConfigPlayer>) =>
     player.isComputer
       ? t('game.playerName.computer', 'Computer')

@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { makeSbUserId } from '../../common/users/sb-user-id'
+import { revokeSession } from '../auth/action-creators'
 import { jotaiStore } from '../jotai-store'
 import {
   findUsersByAlias,
+  getDisplayName,
   getGameUserAliases,
   getUserAlias,
   loadUserAliases,
@@ -26,6 +28,7 @@ describe('client/users/user-aliases', () => {
   })
 
   afterEach(() => {
+    vi.restoreAllMocks()
     loadUserAliases(undefined)
     localStorage.clear()
   })
@@ -92,5 +95,26 @@ describe('client/users/user-aliases', () => {
     expect(getGameUserAliases(id => (id === PLAYER ? 'SlayerS_BoxeR' : undefined))).toEqual([
       { userId: PLAYER, name: 'SlayerS_BoxeR', alias: 'Boxer' },
     ])
+  })
+
+  test('revoking the session clears aliases and prevents writes for that account', () => {
+    loadUserAliases(OWNER)
+    setUserAlias(PLAYER, 'Boxer')
+    revokeSession()(vi.fn(), vi.fn())
+    expect(getUserAlias(PLAYER)).toBeUndefined()
+    setUserAlias(PLAYER, 'Other')
+    expect(getUserAlias(PLAYER)).toBeUndefined()
+  })
+
+  test('a storage quota error does not prevent the local display from updating', () => {
+    localStorage.clear()
+    loadUserAliases(OWNER)
+    const storage = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('Full', 'QuotaExceededError')
+    })
+    expect(() => setUserAlias(PLAYER, 'Boxer')).not.toThrow()
+    expect(getDisplayName({ id: PLAYER, name: 'Original' })).toBe('Boxer (Original)')
+    storage.mockRestore()
+    loadUserAliases(undefined)
   })
 })

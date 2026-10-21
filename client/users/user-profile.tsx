@@ -65,7 +65,7 @@ import { AvailabilityDot } from './availability'
 import { ExpandableRankDisplays } from './expandable-rank-displays'
 import { ConnectedMatchHistory } from './match-history'
 import { MiniMatchHistory } from './mini-match-history'
-import { useUserAlias } from './user-aliases'
+import { formatUserAlias, useUserAlias } from './user-aliases'
 import { UserProfileSeasons } from './user-profile-seasons'
 import { UserProfileSubPage } from './user-profile-sub-page'
 import { UserRankDisplay } from './user-rank-display'
@@ -460,7 +460,7 @@ export function UserProfilePage({
         </AvatarCircle>
         <UsernameAndTitle>
           <UsernameRow>
-            <Username>{alias ?? user.name}</Username>
+            <Username>{formatUserAlias(user.name, alias)}</Username>
             <CopyLinkButton
               tooltipPosition='right'
               startingText={t('users.profile.copyLink', 'Copy link to profile')}
