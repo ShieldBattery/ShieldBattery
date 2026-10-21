@@ -131,6 +131,8 @@ pub struct MapFilter {
     pub eud: EudFilter,
     /// Only maps published at or after this time.
     pub published_since: Option<DateTime<Utc>>,
+    /// Only official maps (`true`) or only maps that aren't official (`false`).
+    pub official: Option<bool>,
 }
 
 /// Which set of maps a listing pages through.
@@ -271,6 +273,7 @@ pub struct NormalizedFilter {
     tilesets: Vec<i32>,
     eud: EudFilter,
     published_since: Option<DateTime<Utc>>,
+    official: Option<bool>,
 }
 
 fn serialize_search<S: serde::Serializer>(
@@ -318,6 +321,7 @@ impl NormalizedFilter {
             tilesets: sorted_dedup(filter.tilesets),
             eud: filter.eud,
             published_since: filter.published_since,
+            official: filter.official,
         })
     }
 
@@ -504,6 +508,7 @@ const DB_SB_MAP_COLUMNS: &str = "m.id, m.hash, m.name, \
     COALESCE(s.games_total, 0) AS games_total, \
     COALESCE(s.players_90d, 0) AS players_90d, \
     s.median_length_90d, s.last_played_at, \
+    COALESCE(s.trending_score, 0) AS trending_score, \
     COALESCE(f.favorites, 0) AS favorites";
 
 /// The joins [`DB_SB_MAP_COLUMNS`] reads from, after `FROM maps m`.
@@ -536,6 +541,7 @@ pub struct DbSbMap {
     pub players_90d: i32,
     pub median_length_90d: Option<i32>,
     pub last_played_at: Option<DateTime<Utc>>,
+    pub trending_score: i32,
     pub favorites: i32,
 }
 
@@ -621,6 +627,17 @@ impl MapListingRequest {
         qb
     }
 
+    /// Counts every row of the listing, ignoring the cursor and page size.
+    fn build_count_query(&self) -> QueryBuilder<Postgres> {
+        let mut qb = QueryBuilder::new("SELECT count(*) FROM (");
+        push_candidates(&mut qb, self.scope, &self.filter);
+        qb.push(") c");
+        if self.filter.search.is_some() {
+            qb.push(" WHERE c.rank > 0");
+        }
+        qb
+    }
+
     fn cursor_for(&self, row: &PgRow) -> Result<MapCursor, sqlx::Error> {
         let keys = sort_keys(self.sort)
             .iter()
@@ -692,7 +709,7 @@ fn push_sort_keys(qb: &mut QueryBuilder<Postgres>, keys: &[SortKey], after: Opti
 }
 
 /// Emits the candidate rows: every map in `scope` that passes `filter`, with the columns of
-/// [`DbSbMap`] plus `sort_name`, `trending_score`, `rank` and `added_at` for sorting.
+/// [`DbSbMap`] plus `sort_name`, `rank` and `added_at` for sorting.
 fn push_candidates(qb: &mut QueryBuilder<Postgres>, scope: MapScope, filter: &NormalizedFilter) {
     let added_at = match scope {
         MapScope::Listed => "m.published_at",
@@ -701,10 +718,7 @@ fn push_candidates(qb: &mut QueryBuilder<Postgres>, scope: MapScope, filter: &No
     };
     qb.push("SELECT ");
     qb.push(DB_SB_MAP_COLUMNS);
-    qb.push(
-        ", COALESCE(s.trending_score, 0) AS trending_score, \
-            COALESCE(m.sort_name, m.name, '') AS sort_name, ",
-    );
+    qb.push(", COALESCE(m.sort_name, m.name, '') AS sort_name, ");
     qb.push(format_args!(
         "CASE WHEN isfinite({added_at}) THEN {added_at} END AS added_at, "
     ));
@@ -846,6 +860,15 @@ fn push_filters(qb: &mut QueryBuilder<Postgres>, filter: &NormalizedFilter) {
         qb.push(" AND m.published_at >= ");
         qb.push_bind(published_since);
     }
+    match filter.official {
+        None => {}
+        Some(true) => {
+            qb.push(" AND m.official");
+        }
+        Some(false) => {
+            qb.push(" AND NOT m.official");
+        }
+    }
 }
 
 /// Loads pages of map listings.
@@ -910,6 +933,16 @@ impl MapSearchRepo {
             rows,
             has_next_page,
         })
+    }
+
+    /// Counts the maps in the listing `request` pages through.
+    pub async fn count(&self, request: &MapListingRequest) -> eyre::Result<i64> {
+        let mut query = request.build_count_query();
+        query
+            .build_query_scalar::<i64>()
+            .fetch_one(&self.db)
+            .await
+            .wrap_err("Failed to count map listing")
     }
 }
 
@@ -1278,6 +1311,7 @@ mod tests {
                 tilesets: Some(vec![1, 2]),
                 eud: EudFilter::Exclude,
                 published_since: Some(Utc::now()),
+                official: Some(true),
             },
         ] {
             let request =
@@ -1332,6 +1366,66 @@ mod tests {
                 })
                 .count();
             assert_eq!(matching, 1, "{dimension}");
+        }
+    }
+
+    #[test]
+    fn official_filter_matches_either_way() {
+        for (official, expected) in [
+            (None, ""),
+            (Some(true), " AND m.official"),
+            (Some(false), " AND NOT m.official"),
+        ] {
+            let filter = NormalizedFilter::new(MapFilter {
+                official,
+                ..Default::default()
+            })
+            .unwrap();
+            let mut qb = QueryBuilder::<Postgres>::new("");
+            push_filters(&mut qb, &filter);
+            assert_eq!(qb.sql().as_str(), expected);
+        }
+    }
+
+    #[test]
+    fn official_filter_changes_the_listing_hash() {
+        let any = NormalizedFilter::new(MapFilter::default()).unwrap();
+        let official = NormalizedFilter::new(MapFilter {
+            official: Some(true),
+            ..Default::default()
+        })
+        .unwrap();
+        assert_ne!(
+            any.listing_hash(MapScope::Listed),
+            official.listing_hash(MapScope::Listed)
+        );
+    }
+
+    #[test]
+    fn count_covers_the_same_rows_as_the_listing() {
+        let filter = MapFilter {
+            search: Some("bound".into()),
+            lens: MapLens::Ums,
+            official: Some(false),
+            ..Default::default()
+        };
+        for scope in [
+            MapScope::Listed,
+            MapScope::Library(SbUserId(1)),
+            MapScope::Favorites(SbUserId(1)),
+        ] {
+            let request =
+                MapListingRequest::new(scope, Some(filter.clone()), None, None, None).unwrap();
+            let listing = request.build_query().sql().as_str().to_string();
+            let count = request.build_count_query().sql().as_str().to_string();
+
+            let mut candidates = QueryBuilder::<Postgres>::new("");
+            push_candidates(&mut candidates, scope, &request.filter);
+            let candidates = candidates.sql().as_str().to_string();
+            assert!(listing.contains(&candidates), "{listing}");
+            assert!(count.contains(&candidates), "{count}");
+            assert!(count.ends_with(") c WHERE c.rank > 0"), "{count}");
+            assert!(!count.contains("LIMIT"), "{count}");
         }
     }
 
