@@ -2,6 +2,7 @@ import { DevSection } from '../../debug/dev-section'
 import { MapPageTest } from './map-page-test'
 import { MapSearchTest } from './map-search-test'
 import { MapSpawnsTest } from './map-spawns-test'
+import { MapTilesTest } from './map-tiles-test'
 
 export function DevMaps() {
   return (
@@ -11,6 +12,7 @@ export function DevMaps() {
         ['Map page', 'page', MapPageTest],
         ['Map search', 'search', MapSearchTest],
         ['Map spawns', 'spawns', MapSpawnsTest],
+        ['Map tiles', 'tiles', MapTilesTest],
       ]}
     />
   )

@@ -20,7 +20,7 @@ import { createViewStateStore } from '../navigation/view-state-store'
 import { useRefreshToken } from '../network/refresh-token'
 import { useUserLocalStorageValue } from '../react/state-hooks'
 import { useAppDispatch } from '../redux-hooks'
-import { bodyLarge, BodyLarge, labelLarge, TitleLarge } from '../styles/typography'
+import { bodyLarge, BodyLarge, labelLarge } from '../styles/typography'
 import { getFavorites as getFavoritedMaps, getMaps } from './action-creators'
 import { BrowserFooter as Footer } from './browser-footer'
 import { ReduxMapThumbnail } from './map-thumbnail'
@@ -70,13 +70,6 @@ const Container = styled.div`
   display: flex;
   flex-direction: column;
   height: 100%;
-`
-
-const TitleBar = styled.div`
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  margin: 16px 24px;
 `
 
 const Contents = styled.div`
@@ -172,15 +165,12 @@ function thumbnailSizeToLayout(thumbnailSize: MapThumbnailSize): {
 }
 
 enum MapsSection {
-  Uploaded = 'Uploaded',
   Favorited = 'Favorited',
   All = 'All',
 }
 
 function mapsSectionToTitle(section: MapsSection, t: TFunction): string {
   switch (section) {
-    case MapsSection.Uploaded:
-      return t('maps.server.uploadedMap', 'Uploaded map')
     case MapsSection.Favorited:
       return t('maps.server.favoriteMaps', 'Favorite maps')
     case MapsSection.All:
@@ -191,13 +181,6 @@ function mapsSectionToTitle(section: MapsSection, t: TFunction): string {
 }
 
 interface BrowseServerMapsProps {
-  /**
-   * Shown as a page title above the tabs. Omit to render without a title bar (e.g. when this is
-   * already hosted inside a dialog/other surface that provides its own title).
-   */
-  title?: string
-  uploadedMapId?: SbMapId
-  onMapRemove?: (mapId: SbMapId) => void
   onMapClick?: (mapId: SbMapId) => void
   /**
    * Whether a map's "View map details" action opens a dialog instead of navigating to the map's
@@ -208,9 +191,6 @@ interface BrowseServerMapsProps {
 }
 
 export function BrowseServerMaps({
-  title,
-  uploadedMapId,
-  onMapRemove,
   onMapClick,
   mapDetailsInDialog,
   onBrowseLocalMaps,
@@ -269,11 +249,7 @@ export function BrowseServerMaps({
   // Read once per mount: the store contract allows a lazy initializer since it runs at most once
   // and so never re-reads on a re-render.
   const [restoredWindow] = useState(() => {
-    // An `uploadedMapId` arrives with a remount (the maps page keys this component on it) meant to
-    // pick the new map up, followed by a switch to the tab it was uploaded into that leaves the
-    // list alone. Restoring the contents from before the upload would defeat the refetch and list
-    // the previous tab's maps under the new one.
-    if (entryKey === undefined || uploadedMapId !== undefined) {
+    if (entryKey === undefined) {
       return undefined
     }
 
@@ -331,12 +307,6 @@ export function BrowseServerMaps({
       reset({ query })
     }, 100),
   )
-
-  useEffect(() => {
-    if (uploadedMapId) {
-      setActiveTab(MapTab.MyMaps)
-    }
-  }, [setActiveTab, uploadedMapId])
 
   useEffect(() => {
     if (!selfUser) {
@@ -437,7 +407,6 @@ export function BrowseServerMaps({
     if (activeTab === MapTab.MyMaps) {
       setMapIds(mapIds?.filter(id => id !== mapId))
     }
-    onMapRemove?.(mapId)
   }
 
   const onDelistMap = (mapId: SbMapId) => {
@@ -487,11 +456,6 @@ export function BrowseServerMaps({
   // TODO(tec27): Add back button if needed
   return (
     <Container>
-      {title ? (
-        <TitleBar>
-          <TitleLarge>{title}</TitleLarge>
-        </TitleBar>
-      ) : null}
       <TabArea>
         <Tabs
           activeTab={activeTab}
@@ -512,20 +476,6 @@ export function BrowseServerMaps({
       <ScrollDivider $position='top' />
       <Contents ref={contentsRef}>
         <ContentsBody>
-          {uploadedMapId && activeTab === MapTab.MyMaps ? (
-            <MapSection
-              section={MapsSection.Uploaded}
-              mapIds={[uploadedMapId]}
-              thumbnailSize={thumbnailSize}
-              onMapClick={onMapClick}
-              mapDetailsInDialog={mapDetailsInDialog}
-              onMapRemove={onRemoveMap}
-              onMapDelist={onDelistMap}
-              onAddToFavorites={onAddToFavorites}
-              onRemoveFromFavorites={onRemoveFromFavorites}
-            />
-          ) : null}
-
           {favoritedMapIds.length > 0 ? (
             <MapSection
               section={MapsSection.Favorited}

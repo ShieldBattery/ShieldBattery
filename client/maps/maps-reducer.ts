@@ -134,7 +134,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     state.lastRetrieved.set(map.id, monotonicTime)
   },
 
-  ['@maps/uploadLocalMap'](state, action) {
+  ['@maps/uploadMap'](state, action) {
     const {
       payload: { map, libraryMapIds },
       system: { monotonicTime },
