@@ -9,6 +9,7 @@ use async_graphql::{
 };
 use chrono::{DateTime, Utc};
 use color_eyre::eyre::{self, WrapErr};
+use data_encoding::HEXLOWER_PERMISSIVE;
 use sqlx::PgPool;
 
 use crate::graphql::errors::graphql_error;
@@ -518,6 +519,22 @@ pub async fn load_favorite_maps(
     Ok(connection)
 }
 
+/// The most hashes one `mapsByHash` lookup may carry.
+const MAX_HASH_LOOKUPS: usize = 500;
+
+/// Decodes hex-encoded map file hashes, or returns `None` if any of them isn't one.
+fn decode_map_hashes(hashes: &[String]) -> Option<Vec<Vec<u8>>> {
+    hashes
+        .iter()
+        .map(|hash| {
+            HEXLOWER_PERMISSIVE
+                .decode(hash.as_bytes())
+                .ok()
+                .filter(|bytes| bytes.len() == 32)
+        })
+        .collect()
+}
+
 #[derive(Default)]
 pub struct MapsQuery;
 
@@ -531,6 +548,37 @@ impl MapsQuery {
             return Ok(None);
         };
         ctx.data::<DataLoader<SbMapLoader>>()?.load_one(id).await
+    }
+
+    /// Looks up maps by the hashes of their files, listed or not. A file's hash is the
+    /// hex-encoded SHA-256 of its lowercase extension followed by its contents (the same as
+    /// `MapFile.id`), so the app can tell which of a user's local map files are already known
+    /// without uploading them. Hashes that match no map are left out, and the maps come back in
+    /// no particular order. Takes at most 500 hashes.
+    async fn maps_by_hash(&self, ctx: &Context<'_>, hashes: Vec<String>) -> Result<Vec<SbMap>> {
+        require_current_user(ctx)?;
+        if hashes.len() > MAX_HASH_LOOKUPS {
+            return Err(graphql_error(
+                "BAD_REQUEST",
+                format!("at most {MAX_HASH_LOOKUPS} hashes can be looked up at once"),
+            ));
+        }
+        let hashes = decode_map_hashes(&hashes)
+            .ok_or_else(|| graphql_error("BAD_REQUEST", "invalid map hash"))?;
+
+        let repo = ctx.data::<MapSearchRepo>()?;
+        let ids = sqlx::query_scalar!(
+            r#"SELECT id as "id: SbMapId" FROM maps WHERE hash = ANY($1::bytea[])"#,
+            &hashes,
+        )
+        .fetch_all(repo.db())
+        .await
+        .wrap_err("Failed to look up maps by hash")?;
+        let maps = ctx
+            .data::<DataLoader<SbMapLoader>>()?
+            .load_many(ids)
+            .await?;
+        Ok(maps.into_values().collect())
     }
 
     /// Searches and pages through the listed maps. With a search, sorts by `RELEVANCE` unless
@@ -583,6 +631,29 @@ impl MapsMutation {
         .execute(repo.db())
         .await
         .wrap_err("Failed to add favorite map")?;
+
+        load_map(ctx, id).await
+    }
+
+    /// Adds a map to the current user's library, for maps they hold a copy of without having
+    /// uploaded it. Adding a map that's already in the library moves it to the front of `NEWEST`.
+    async fn map_add_to_library(&self, ctx: &Context<'_>, id: SbMapId) -> Result<SbMap> {
+        let user = require_current_user(ctx)?;
+        let repo = ctx.data::<MapSearchRepo>()?;
+        let id = resolve_existing_map_id(repo.db(), id).await?;
+
+        sqlx::query!(
+            r#"
+                INSERT INTO map_library (user_id, map_id, added_at)
+                VALUES ($1, $2, now())
+                ON CONFLICT (user_id, map_id) DO UPDATE SET added_at = now()
+            "#,
+            user.id as _,
+            id as _,
+        )
+        .execute(repo.db())
+        .await
+        .wrap_err("Failed to add map to library")?;
 
         load_map(ctx, id).await
     }
@@ -748,5 +819,18 @@ mod tests {
                 },
             })
         );
+    }
+
+    #[test]
+    fn map_hashes_decode_from_64_hex_characters() {
+        let hex = "ab".repeat(32);
+        assert_eq!(
+            decode_map_hashes(&[hex.clone(), hex.to_uppercase()]),
+            Some(vec![vec![0xab; 32], vec![0xab; 32]])
+        );
+        assert_eq!(decode_map_hashes(&["ab".repeat(31)]), None);
+        assert_eq!(decode_map_hashes(&["zz".repeat(32)]), None);
+        assert_eq!(decode_map_hashes(&[hex, "".to_string()]), None);
+        assert_eq!(decode_map_hashes(&[]), Some(vec![]));
     }
 }
