@@ -10181,7 +10181,26 @@ impl bw::Bw for BwScr {
             self.command_user.write(game_player as u32);
             self.unique_command_user.write(unique_player as u32);
             self.enable_rng.write(1);
+            let game = self.game();
+            let frame = if game.is_null() {
+                0
+            } else {
+                (*game).frame_count
+            };
+            // SC:R keeps a per-player history of recent multi-unit selections in hotkey groups
+            // 10-17, which an Alt+click recalls. Each selection overwrites the entry stamped with
+            // the oldest network turn count. A live game only runs commands on turn frames, so its
+            // stamps order exactly like the commands' frames. Playback's turn count follows its own
+            // timer instead: slower than a turn rate 24 game's, rescaled by the replay speed, and
+            // stopped while seeking, which files selections into other groups than the live game
+            // did. The commands run with a count that goes up once per frame, which orders like
+            // the live game's for any turn rate and is the count a turn rate 24 game had.
+            let turns = self.netcode_v2.game_frame_count.resolve();
+            self.netcode_v2
+                .game_frame_count
+                .write(frame.wrapping_add(1));
             (self.process_game_commands)(commands.as_ptr(), commands.len(), 1);
+            self.netcode_v2.game_frame_count.write(turns);
             if commands.first() == Some(&commands::id::LEAVE_GAME) {
                 // A live game applies a player's departure through the pending-leave drain, which
                 // besides removing the player also forces the trigger step to run on the next
@@ -10193,12 +10212,6 @@ impl bw::Bw for BwScr {
                 // run the command handling before the trigger step, so the pass fires on the same
                 // frame either way).
                 self.trigger_execution_timer.write(1);
-                let game = self.game();
-                let frame = if game.is_null() {
-                    0
-                } else {
-                    (*game).frame_count
-                };
                 debug!(
                     "Replay: storm player {} left at frame {}; forcing the next trigger pass",
                     storm_player.0, frame,
