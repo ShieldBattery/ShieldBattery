@@ -50,6 +50,7 @@ use crate::game_thread::{self, send_game_msg_to_async};
 use crate::netcode_v2;
 use crate::offline_cookie;
 use crate::recurse_checked_mutex::Mutex as RecurseCheckedMutex;
+use crate::remembered_buildings::{RememberedLook, TileArea};
 use crate::snp;
 use crate::sync::DumbSpinLock;
 use crate::team_colors::{GameStartInfo, TeamColorConfig, TeamColorState};
@@ -358,6 +359,7 @@ pub struct BwScr {
     init_game_data: VirtualAddress,
     init_unit_data: VirtualAddress,
     step_game: VirtualAddress,
+    update_unit_visibility: Option<VirtualAddress>,
     step_network_addr: VirtualAddress,
     step_replay_commands: VirtualAddress,
     order_harvest_gas: VirtualAddress,
@@ -1454,6 +1456,8 @@ const SELECTION_CIRCLE_IMAGES: std::ops::RangeInclusive<u16> = 0x231..=0x23a;
 const TEAM_SELECTION_CIRCLE_IMAGES: std::ops::RangeInclusive<u16> = 0x23b..=0x244;
 /// The draw function of a health bar image.
 const HP_BAR_DRAWFUNC: u8 = 0xb;
+/// images.dat's field for an image's draw function.
+const IMAGES_DAT_DRAWFUNC: u32 = 5;
 
 /// The static pools selection circles and health bars come from, with their free lists, and the
 /// sprite pool whose sprites they get linked onto.
@@ -2303,6 +2307,7 @@ impl BwScr {
             .sprites_by_y_tile_end()
             .ok_or("sprites_by_y_tile_end")?;
         let step_game = analysis.step_game().ok_or("step_game")?;
+        let update_unit_visibility = analysis.update_unit_visibility();
         let free_sprites = LinkedList {
             start: Value::new(
                 ctx,
@@ -2921,6 +2926,7 @@ impl BwScr {
             check_unit_resources_and_supply,
             unit_cost_cache,
             step_game,
+            update_unit_visibility,
             step_io,
             init_game_data,
             init_unit_data,
@@ -3407,7 +3413,9 @@ impl BwScr {
                         let frame = self.current_game_frame();
                         self.chat_history.lock().begin_replay_step(frame);
                     }
+                    crate::remembered_buildings::begin_step(self);
                     orig();
+                    crate::remembered_buildings::after_step(self);
                     if replay {
                         self.chat_history.lock().finish_replay_step();
                     }
@@ -3422,6 +3430,24 @@ impl BwScr {
                 },
                 address,
             );
+            match self.update_unit_visibility {
+                Some(address) => {
+                    exe.hook_closure_address(
+                        UpdateUnitVisibility,
+                        move |unit, orig| {
+                            let before =
+                                crate::remembered_buildings::visibility_before_update(unit);
+                            orig(unit);
+                            crate::remembered_buildings::after_visibility_update(
+                                self, unit, before,
+                            );
+                        },
+                        address.0 as usize - base,
+                    );
+                    crate::remembered_buildings::set_hooked();
+                }
+                None => info!("Remembered buildings aren't kept: update_unit_visibility not found"),
+            }
             let address = self.step_network_addr.0 as usize - base;
             exe.hook_closure_address(
                 StepNetwork,
@@ -4682,6 +4708,7 @@ impl BwScr {
                             if replay_visions != overlay_out.replay_visions {
                                 self.replay_visions.write(overlay_out.replay_visions);
                                 self.local_visions.write(overlay_out.replay_visions);
+                                crate::remembered_buildings::rebuild(self);
                                 // Has to be called here or otherwise there's minimap flicker
                                 // with the resources disappearing until the game logic moves
                                 // forward a step.
@@ -7298,6 +7325,96 @@ impl BwScr {
     }
 
     unsafe fn create_fow_sprite_main(&self, unit: Unit) -> Option<()> {
+        unsafe { self.create_fow_sprite_from(&self.copy_unit_sprite(unit, false)) }
+    }
+
+    /// A frozen copy of `unit`'s sprite and images, as SC:R's own fog sprite of it holds them.
+    ///
+    /// SC:R draws the copy at elevation 4, with each image's draw function back to its images.dat
+    /// default (a cloaked building is remembered uncloaked) and its iscript cleared. The images the
+    /// UI links onto sprites from pools of its own (selection circles, health bars and building
+    /// placement overlays) are left out, along with the sprite flags saying it shows them: nothing
+    /// selects a fog sprite.
+    pub(crate) unsafe fn remembered_look(&self, unit: Unit) -> RememberedLook {
+        unsafe { self.copy_unit_sprite(unit, true) }
+    }
+
+    /// A copy of `unit`'s sprite and images, either exactly as they are or, `like_fog_sprite`, as
+    /// [`Self::remembered_look`] describes.
+    unsafe fn copy_unit_sprite(&self, unit: Unit, like_fog_sprite: bool) -> RememberedLook {
+        unsafe {
+            let in_sprite = (**unit).flingy.sprite as *mut scr::Sprite;
+            let mut sprite = scr::Sprite {
+                prev: null_mut(),
+                next: null_mut(),
+                main_image: null_mut(),
+                first_image: null_mut(),
+                last_image: null_mut(),
+                ..std::ptr::read(in_sprite)
+            };
+            if like_fog_sprite {
+                sprite.elevation_level = 4;
+                sprite.flags &=
+                    !(SPRITE_SELECTED | SPRITE_SELECTION_CIRCLE | SPRITE_TEAM_SELECTION_COUNT);
+            }
+            let mut images = SmallVec::new();
+            let mut main_image = None;
+            let mut in_image = (*in_sprite).first_image;
+            while !in_image.is_null() {
+                if !like_fog_sprite || !self.is_ui_image(in_image) {
+                    if in_image == (*in_sprite).main_image {
+                        main_image = Some(images.len());
+                    }
+                    let mut image = bw::Image {
+                        prev: null_mut(),
+                        next: null_mut(),
+                        parent: null_mut(),
+                        ..std::ptr::read(in_image)
+                    };
+                    if like_fog_sprite {
+                        image.drawfunc =
+                            bw_dat::ImageId(image.image_id).get(IMAGES_DAT_DRAWFUNC) as u8;
+                        image.iscript = bw::Iscript {
+                            header: 0,
+                            pos: 0,
+                            return_pos: 0,
+                            animation: 0,
+                            wait: 0,
+                        };
+                    }
+                    images.push(image);
+                }
+                in_image = (*in_image).next;
+            }
+            RememberedLook {
+                unit_id: (**unit).unit_id,
+                sprite,
+                images,
+                main_image,
+            }
+        }
+    }
+
+    /// Whether `image` is one the UI links onto a sprite from a pool of its own, rather than one
+    /// of the sprite's.
+    unsafe fn is_ui_image(&self, image: *mut bw::Image) -> bool {
+        unsafe {
+            let id = (*image).image_id;
+            SELECTION_CIRCLE_IMAGES.contains(&id)
+                || TEAM_SELECTION_CIRCLE_IMAGES.contains(&id)
+                || (*image).drawfunc == HP_BAR_DRAWFUNC
+                || self.placement_overlays.as_ref().is_some_and(|pools| {
+                    pools
+                        .pools()
+                        .iter()
+                        .any(|&(pool, ..)| image >= pool && image < pool.add(PLACEMENT_POOL_LEN))
+                })
+        }
+    }
+
+    /// Adds a fog sprite showing `look` to the map. None when one of SC:R's pools is out of
+    /// objects, which leaves everything as it was.
+    pub(crate) unsafe fn create_fow_sprite_from(&self, look: &RememberedLook) -> Option<()> {
         unsafe {
             // Going to be pessimistic and guess that the existing function for creating fog
             // sprites is likely to be inlined in some future build.
@@ -7316,82 +7433,31 @@ impl BwScr {
             let fow = free_fow_sprites.alloc()?;
             let sprite = free_sprites.alloc()?;
             let mut images: SmallVec<[bw::list::Allocation<bw::Image>; 8]> = SmallVec::new();
-            let in_sprite = (**unit).flingy.sprite as *mut scr::Sprite;
             *sprite.value() = scr::Sprite {
-                prev: null_mut(),
-                next: null_mut(),
-                sprite_id: (*in_sprite).sprite_id,
-                player: (*in_sprite).player,
-                selection_index: (*in_sprite).selection_index,
                 visibility_mask: 0xff,
-                elevation_level: (*in_sprite).elevation_level,
-                flags: (*in_sprite).flags,
-                selection_flash_timer: (*in_sprite).selection_flash_timer,
-                index: (*in_sprite).index,
-                width: (*in_sprite).width,
-                height: (*in_sprite).height,
-                pos_x: (*in_sprite).pos_x,
-                pos_y: (*in_sprite).pos_y,
-                main_image: null_mut(),
-                first_image: null_mut(),
-                last_image: null_mut(),
+                ..std::ptr::read(&look.sprite)
             };
-            let mut in_image = (*in_sprite).first_image;
-            while !in_image.is_null() {
+            for (i, in_image) in look.images.iter().enumerate() {
                 let image = free_images.alloc()?;
                 *image.value() = bw::Image {
-                    prev: null_mut(),
-                    next: null_mut(),
-                    image_id: (*in_image).image_id,
-                    drawfunc: (*in_image).drawfunc,
-                    direction: (*in_image).direction,
-                    flags: (*in_image).flags,
-                    x_offset: (*in_image).x_offset,
-                    y_offset: (*in_image).y_offset,
-                    iscript: bw::Iscript {
-                        header: (*in_image).iscript.header,
-                        pos: (*in_image).iscript.pos,
-                        return_pos: (*in_image).iscript.return_pos,
-                        animation: (*in_image).iscript.animation,
-                        wait: (*in_image).iscript.wait,
-                    },
-                    frameset: (*in_image).frameset,
-                    frame: (*in_image).frame,
-                    map_position: (*in_image).map_position,
-                    screen_position: (*in_image).screen_position,
-                    grp_bounds: (*in_image).grp_bounds,
-                    grp: (*in_image).grp,
-                    drawfunc_param: (*in_image).drawfunc_param,
-                    draw: (*in_image).draw,
-                    step_frame: (*in_image).step_frame,
                     parent: sprite.value() as *mut bw::Sprite,
+                    ..std::ptr::read(in_image)
                 };
-                if in_image == (*in_sprite).main_image {
+                if look.main_image == Some(i) {
                     (*sprite.value()).main_image = image.value();
                 }
                 images.push(image);
-                in_image = (*in_image).next;
             }
             *fow.value() = bw::FowSprite {
                 prev: null_mut(),
                 next: null_mut(),
-                unit_id: (**unit).unit_id,
+                unit_id: look.unit_id,
                 sprite: sprite.value() as *mut c_void,
             };
 
             // Now the allocations can be moved to active lists
             let fow_list = self.active_fow_sprites.resolve();
-            let sprite_lists_start = self.sprites_by_y_tile.resolve();
-            let sprite_lists_end = self.sprites_by_y_tile_end.resolve();
-            let y_tile = self.sprite_y(in_sprite) / 32;
-            if y_tile >= 0x100 {
-                error!("Sprite y tile was invalid: 0x{y_tile:x}");
-                return None;
-            }
-            let sprite_list = bw::list::LinkedList {
-                start: sprite_lists_start.add(y_tile as usize),
-                end: sprite_lists_end.add(y_tile as usize),
-            };
+            let sprite_list = self.sprite_list_of(sprite.value())?;
             let sprite_images = bw::list::LinkedList {
                 start: &mut (*sprite.value()).first_image,
                 end: &mut (*sprite.value()).last_image,
@@ -7402,6 +7468,87 @@ impl BwScr {
             sprite.move_to(&sprite_list);
             fow.move_to(&fow_list);
             Some(())
+        }
+    }
+
+    /// The by-y-tile list SC:R keeps `sprite` in for drawing.
+    unsafe fn sprite_list_of(
+        &self,
+        sprite: *mut scr::Sprite,
+    ) -> Option<bw::list::LinkedList<scr::Sprite>> {
+        unsafe {
+            let y_tile = self.sprite_y(sprite) / 32;
+            if !(0..0x100).contains(&y_tile) {
+                error!("Sprite y tile was invalid: 0x{y_tile:x}");
+                return None;
+            }
+            Some(bw::list::LinkedList {
+                start: self.sprites_by_y_tile.resolve().add(y_tile as usize),
+                end: self.sprites_by_y_tile_end.resolve().add(y_tile as usize),
+            })
+        }
+    }
+
+    /// Takes every fog sprite of a player's building (players 0 to 7) off the map, returning it,
+    /// its sprite and its images to SC:R's free lists. Neutral fog sprites stay.
+    pub(crate) unsafe fn remove_player_fow_sprites(&self) {
+        unsafe {
+            let fow_list = self.active_fow_sprites.resolve();
+            let free_fow_sprites = self.free_fow_sprites.resolve();
+            let free_sprites = self.free_sprites.resolve();
+            let free_images = self.free_images.resolve();
+            let mut fow = *fow_list.start;
+            while !fow.is_null() {
+                let next = (*fow).next;
+                let sprite = (*fow).sprite as *mut scr::Sprite;
+                if (*sprite).player < 8
+                    && let Some(sprite_list) = self.sprite_list_of(sprite)
+                {
+                    let mut image = (*sprite).first_image;
+                    while !image.is_null() {
+                        let next_image = (*image).next;
+                        free_images.add(image);
+                        image = next_image;
+                    }
+                    (*sprite).main_image = null_mut();
+                    (*sprite).first_image = null_mut();
+                    (*sprite).last_image = null_mut();
+                    sprite_list.remove(sprite);
+                    free_sprites.add(sprite);
+                    fow_list.remove(fow);
+                    free_fow_sprites.add(fow);
+                }
+                fow = next;
+            }
+        }
+    }
+
+    /// Which players (a bit each) can see any of the map tiles in `area`: tiles `left` to
+    /// `left + width` across and `top` to `top + height` down, parts off the map left out.
+    pub(crate) unsafe fn players_seeing_tiles(&self, area: TileArea) -> u8 {
+        unsafe {
+            let game = bw_dat::Game::from_ptr(self.game());
+            let Some(flags) = self.map_tile_flags_slice(game) else {
+                return 0;
+            };
+            let map_width = i32::from(game.map_width_tiles());
+            let map_height = i32::from(game.map_height_tiles());
+            let mut seeing = 0;
+            for y in area.top.max(0)..(area.top + area.height).min(map_height) {
+                for x in area.left.max(0)..(area.left + area.width).min(map_width) {
+                    // The low byte holds a bit for each player that can't see the tile.
+                    seeing |= !(flags[(y * map_width + x) as usize] as u8);
+                }
+            }
+            seeing
+        }
+    }
+
+    /// The position SC:R draws `sprite` at.
+    pub(crate) unsafe fn sprite_pixel_position(&self, sprite: *const scr::Sprite) -> (i16, i16) {
+        unsafe {
+            let sprite = sprite as *mut scr::Sprite;
+            (self.sprite_x(sprite), self.sprite_y(sprite))
         }
     }
 
@@ -7570,6 +7717,7 @@ impl BwScr {
         #[cfg(debug_assertions)]
         crate::rollback_harness::reset_for_game_init();
         crate::replay_seek::reset_for_game_init();
+        crate::remembered_buildings::reset_for_game_init();
         crate::rollback_live::reset_for_game_init();
         crate::frame_timing::reset();
         crate::frame_pacing::reset();
@@ -8843,6 +8991,7 @@ impl BwScr {
         unsafe {
             self.replay_visions.write(players);
             self.local_visions.write(players);
+            crate::remembered_buildings::rebuild(self);
             game_thread::add_fow_sprites_for_replay_vision_change(self);
         }
     }
@@ -10632,13 +10781,15 @@ fn init_bw_dat(analysis: &mut scr_analysis::Analysis<'_>) -> Result<(), &'static
         .dat_table(DatType::TechData)
         .ok_or("techdata.dat")?;
     let orders = analysis.dat_table(DatType::Orders).ok_or("orders.dat")?;
-    let mut out = Vec::with_capacity(0x36 + 0x18 + 0xc + 0xb + 0x13);
+    let images = analysis.dat_table(DatType::Images).ok_or("images.dat")?;
+    let mut out = Vec::with_capacity(0x36 + 0x18 + 0xc + 0xb + 0x13 + 0xe);
     unsafe {
         copy_dat_table(&units, &mut out, 0x36);
         copy_dat_table(&weapons, &mut out, 0x18);
         copy_dat_table(&upgrades, &mut out, 0xc);
         copy_dat_table(&techdata, &mut out, 0xb);
         copy_dat_table(&orders, &mut out, 0x13);
+        copy_dat_table(&images, &mut out, 0xe);
         let mut table = out.leak().as_ptr();
         bw_dat::init_units(table, 0x36);
         table = table.add(0x36);
@@ -10649,6 +10800,8 @@ fn init_bw_dat(analysis: &mut scr_analysis::Analysis<'_>) -> Result<(), &'static
         bw_dat::init_techdata(table, 0xb);
         table = table.add(0xb);
         bw_dat::init_orders(table, 0x13);
+        table = table.add(0x13);
+        bw_dat::init_images(table, 0xe);
         bw_dat::set_is_scr(true);
         bw_dat::set_bw_malloc(bw_malloc, bw_free);
     }
@@ -11408,6 +11561,12 @@ mod hooks {
     // take the unit concerned. The trailing flag of the first is whether to track a unit that is
     // already complete, and of the last whether the research or upgrade completed rather than
     // being canceled; both are C bools passed in a full argument slot.
+    // Works out which players see a unit, and gives a building the local visions lose sight of
+    // its fog sprite. The unit in ecx on 32-bit.
+    thiscall_hooks!(
+        !0 => UpdateUnitVisibility(*mut bw::Unit);
+    );
+
     thiscall_hooks!(
         !0 => ObserverUiTrackBuildingUnit(*mut c_void, *mut bw::Unit, u32);
         !0 => ObserverUiTrackResearchOrUpgrade(*mut c_void, *mut bw::Unit);

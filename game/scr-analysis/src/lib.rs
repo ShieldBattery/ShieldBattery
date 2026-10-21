@@ -540,6 +540,10 @@ impl<'e> Analysis<'e> {
         self.0.step_game_logic()
     }
 
+    pub fn update_unit_visibility(&mut self) -> Option<VirtualAddress> {
+        self.0.update_unit_visibility()
+    }
+
     pub fn step_game_loop(&mut self) -> Option<VirtualAddress> {
         self.0.step_game_loop()
     }
