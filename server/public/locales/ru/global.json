@@ -1315,6 +1315,7 @@
         "address": "Адрес",
         "at": "Время",
         "event": "Событие",
+        "fallbackSuffix": "(резервный)",
         "flightRecordings": {
           "desync": "Рассинхрон",
           "download": "Скачать запись",
@@ -1341,6 +1342,7 @@
         "selection": "Выбор",
         "selectionAuto": "Авто",
         "selectionManual": "Вручную",
+        "servedBy": "Назначенный релей",
         "session": "Сессия: {{session}}",
         "slot": "Слот",
         "title": "Сеть"

@@ -1270,6 +1270,7 @@
         "address": "주소",
         "at": "시각",
         "event": "이벤트",
+        "fallbackSuffix": "(대체)",
         "flightRecordings": {
           "desync": "디싱크",
           "download": "기록 다운로드",
@@ -1296,6 +1297,7 @@
         "selection": "선택",
         "selectionAuto": "자동",
         "selectionManual": "수동",
+        "servedBy": "배정 릴레이",
         "session": "세션: {{session}}",
         "slot": "슬롯",
         "title": "네트워크"

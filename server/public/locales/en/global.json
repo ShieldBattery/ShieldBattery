@@ -1285,6 +1285,7 @@
         "address": "Address",
         "at": "At",
         "event": "Event",
+        "fallbackSuffix": "(fallback)",
         "flightRecordings": {
           "desync": "Desync",
           "download": "Download recording",
@@ -1311,6 +1312,7 @@
         "selection": "Selection",
         "selectionAuto": "Auto",
         "selectionManual": "Manual",
+        "servedBy": "Served by",
         "session": "Session: {{session}}",
         "slot": "Slot",
         "title": "Network"

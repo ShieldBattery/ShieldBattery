@@ -1270,6 +1270,7 @@
         "address": "地址",
         "at": "时间",
         "event": "事件",
+        "fallbackSuffix": "（备用）",
         "flightRecordings": {
           "desync": "不同步",
           "download": "下载记录",
@@ -1296,6 +1297,7 @@
         "selection": "选择",
         "selectionAuto": "自动",
         "selectionManual": "手动",
+        "servedBy": "分配的中继",
         "session": "会话：{{session}}",
         "slot": "槽位",
         "title": "网络"

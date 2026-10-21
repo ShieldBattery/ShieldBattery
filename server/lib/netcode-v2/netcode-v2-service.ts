@@ -737,30 +737,40 @@ export class NetcodeV2Service {
 
     // Records the session's serving relay(s) at create — the home relay, plus any slot-home
     // override relays (a cross-region session homes slots on different relays) — for the admin
-    // debug view's relay-serving history. Deduped by relay id since several slots' overrides can
-    // name the same relay. Non-fatal for the same reason as the session id write above.
+    // debug view's relay-serving history. One event per distinct relay, naming the slots homed on
+    // it, so the debug view can show which relay each slot was served from (a slot whose requested
+    // region had no live relay lands on a fallback elsewhere). Non-fatal for the same reason as the
+    // session id write above.
     try {
-      const homeEvents = new Map<number, NetcodeV2RelayEvent>()
       const at = Date.now()
-      homeEvents.set(session.home_relay.relay_id, {
-        kind: 'home',
-        relayId: session.home_relay.relay_id,
-        relayAddr: session.home_relay.relay_addr,
-        ...regionField(findRelayRegion(session.relay_regions, session.home_relay.relay_id)),
-        at,
-      })
-      for (const { relay } of session.slot_homes ?? []) {
-        if (!homeEvents.has(relay.relay_id)) {
-          homeEvents.set(relay.relay_id, {
-            kind: 'home',
-            relayId: relay.relay_id,
-            relayAddr: relay.relay_addr,
-            ...regionField(findRelayRegion(session.relay_regions, relay.relay_id)),
-            at,
-          })
+      // The primary home is always recorded, even when every slot's override moved off it.
+      const homes = new Map<number, { relay: CoordinatorRelayEndpoint; slots: number[] }>([
+        [session.home_relay.relay_id, { relay: session.home_relay, slots: [] }],
+      ])
+      const slotHomeRelays = new Map(
+        (session.slot_homes ?? []).map(({ slot, relay }) => [slot, relay]),
+      )
+      for (const { slot } of slots) {
+        const relay = slotHomeRelays.get(slot) ?? session.home_relay
+        const home = homes.get(relay.relay_id)
+        if (home) {
+          home.slots.push(slot)
+        } else {
+          homes.set(relay.relay_id, { relay, slots: [slot] })
         }
       }
-      await addNetcodeV2RelayEvents(gameId, Array.from(homeEvents.values()))
+      const homeEvents = Array.from(
+        homes.values(),
+        ({ relay, slots: homedSlots }): NetcodeV2RelayEvent => ({
+          kind: 'home',
+          relayId: relay.relay_id,
+          relayAddr: relay.relay_addr,
+          ...regionField(findRelayRegion(session.relay_regions, relay.relay_id)),
+          slots: homedSlots,
+          at,
+        }),
+      )
+      await addNetcodeV2RelayEvents(gameId, homeEvents)
     } catch (err) {
       log.warn({ err, gameId }, `failed to persist netcode v2 relay history for game ${gameId}`)
     }

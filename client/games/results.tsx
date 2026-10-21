@@ -24,6 +24,8 @@ import {
 import {
   NetcodeV2FlightBlobInfo,
   NetcodeV2FlightBlobsResponse,
+  NetcodeV2HomeRelayEvent,
+  NetcodeV2RelayEvent,
   NetcodeV2RequestedRegion,
 } from '../../common/games/netcode-v2'
 import {
@@ -1635,6 +1637,10 @@ const HasReportCell = styled.td<{ $hasReport: boolean }>`
   color: ${props => (props.$hasReport ? 'var(--theme-positive)' : 'var(--theme-negative)')};
 `
 
+const ServedByCell = styled.td<{ $fallback: boolean }>`
+  color: ${props => (props.$fallback ? 'var(--theme-amber)' : 'var(--theme-on-surface)')};
+`
+
 function getClientResultLabel(result: GameClientResult, t: TFunction): string {
   switch (result) {
     case GameClientResult.Playing:
@@ -1654,6 +1660,28 @@ function getClientResultLabel(result: GameClientResult, t: TFunction): string {
  * bare relay id when the coordinator recorded no region for it. */
 function formatRelay(relayId: number, region: string | undefined): string {
   return region ? `${region} (${relayId})` : String(relayId)
+}
+
+/**
+ * Maps each slot to the relay it was homed on at session create, from the relay history's home
+ * events. Events that don't name their slots (recorded before they did) are still attributable when
+ * there was a single home relay, since every slot was on it; otherwise their slots map to nothing.
+ */
+function homeRelaysBySlot(
+  relays: ReadonlyDeep<NetcodeV2RelayEvent[]>,
+  slots: ReadonlyArray<number>,
+): Map<number, ReadonlyDeep<NetcodeV2HomeRelayEvent>> {
+  const homes = relays.filter(
+    (event): event is ReadonlyDeep<NetcodeV2HomeRelayEvent> => event.kind === 'home',
+  )
+  const bySlot = new Map<number, ReadonlyDeep<NetcodeV2HomeRelayEvent>>()
+  for (const home of homes) {
+    const homedSlots = home.slots ?? (homes.length === 1 ? slots : [])
+    for (const slot of homedSlots) {
+      bySlot.set(slot, home)
+    }
+  }
+  return bySlot
 }
 
 /**
@@ -1716,6 +1744,11 @@ function DebugInfoDisplay({
     }
     return map
   }, [debugInfo.replays])
+
+  const homeRelayBySlot = homeRelaysBySlot(
+    debugInfo.netcodeV2.relays,
+    debugInfo.netcodeV2.requestedRegions.map(entry => entry.slot),
+  )
 
   const sortedReports = debugInfo.reportedResults.slice().sort((a, b) => {
     // Sort by reported time - earliest first, undefined/null last
@@ -1895,29 +1928,45 @@ function DebugInfoDisplay({
                           <th>{t('gameDetails.debugInfo.network.region', 'Region')}</th>
                           <th>{t('gameDetails.debugInfo.network.rtt', 'RTT')}</th>
                           <th>{t('gameDetails.debugInfo.network.selection', 'Selection')}</th>
+                          <th>{t('gameDetails.debugInfo.network.servedBy', 'Served by')}</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {debugInfo.netcodeV2.requestedRegions.map(entry => (
-                          <tr key={entry.slot}>
-                            <td>{entry.slot}</td>
-                            <td>
-                              <ConnectedUsername userId={entry.userId} />
-                              {entry.observer
-                                ? ` ${t('gameDetails.debugInfo.network.observerSuffix', '(obs)')}`
-                                : ''}
-                            </td>
-                            <td>{entry.region ?? '—'}</td>
-                            <td>
-                              {entry.rttMs !== undefined
-                                ? t('gameDetails.debugInfo.network.rttValue', '{{rttMs}} ms', {
-                                    rttMs: entry.rttMs,
-                                  })
-                                : ''}
-                            </td>
-                            <td>{formatRegionSource(entry, t)}</td>
-                          </tr>
-                        ))}
+                        {debugInfo.netcodeV2.requestedRegions.map(entry => {
+                          const servedBy = homeRelayBySlot.get(entry.slot)
+                          // A slot is on a fallback when it asked for a region and was homed on a
+                          // relay known to be elsewhere (its region had no live relay at create).
+                          const fallback =
+                            entry.region !== undefined &&
+                            servedBy?.region !== undefined &&
+                            servedBy.region !== entry.region
+                          return (
+                            <tr key={entry.slot}>
+                              <td>{entry.slot}</td>
+                              <td>
+                                <ConnectedUsername userId={entry.userId} />
+                                {entry.observer
+                                  ? ` ${t('gameDetails.debugInfo.network.observerSuffix', '(obs)')}`
+                                  : ''}
+                              </td>
+                              <td>{entry.region ?? '—'}</td>
+                              <td>
+                                {entry.rttMs !== undefined
+                                  ? t('gameDetails.debugInfo.network.rttValue', '{{rttMs}} ms', {
+                                      rttMs: Math.round(entry.rttMs),
+                                    })
+                                  : ''}
+                              </td>
+                              <td>{formatRegionSource(entry, t)}</td>
+                              <ServedByCell $fallback={fallback}>
+                                {servedBy ? formatRelay(servedBy.relayId, servedBy.region) : ''}
+                                {fallback
+                                  ? ` ${t('gameDetails.debugInfo.network.fallbackSuffix', '(fallback)')}`
+                                  : ''}
+                              </ServedByCell>
+                            </tr>
+                          )
+                        })}
                       </tbody>
                     </DebugTable>
                   </DebugTableContainer>

@@ -169,6 +169,13 @@ export interface NetcodeV2HomeRelayEvent {
    * field existed.
    */
   region?: string
+  /**
+   * The session slots homed on this relay at create. Lets the debug view show where each slot was
+   * actually served from, which differs from its requested region when that region had no live
+   * relay. Empty for a primary home every slot's override moved off of. Absent on events recorded
+   * before this field existed; for those, a game with a single home event had every slot on it.
+   */
+  slots?: number[]
   /** Unix ms when this event was recorded. */
   at: number
 }

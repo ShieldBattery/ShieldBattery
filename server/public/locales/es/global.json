@@ -1300,6 +1300,7 @@
         "address": "Dirección",
         "at": "Fecha",
         "event": "Evento",
+        "fallbackSuffix": "(respaldo)",
         "flightRecordings": {
           "desync": "Desync",
           "download": "Descargar grabación",
@@ -1326,6 +1327,7 @@
         "selection": "Selección",
         "selectionAuto": "Automática",
         "selectionManual": "Manual",
+        "servedBy": "Relay asignado",
         "session": "Sesión: {{session}}",
         "slot": "Espacio",
         "title": "Red"

@@ -927,8 +927,49 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     expect(addNetcodeV2RelayEvents).toHaveBeenCalledTimes(1)
     const [, events] = asMockedFunction(addNetcodeV2RelayEvents).mock.calls[0]
     expect(events).toEqual([
-      expect.objectContaining({ kind: 'home', relayId: 1, relayAddr: '10.0.0.1:14900' }),
-      expect.objectContaining({ kind: 'home', relayId: 2, relayAddr: '10.0.0.2:14900' }),
+      expect.objectContaining({
+        kind: 'home',
+        relayId: 1,
+        relayAddr: '10.0.0.1:14900',
+        slots: [0],
+      }),
+      expect.objectContaining({
+        kind: 'home',
+        relayId: 2,
+        relayAddr: '10.0.0.2:14900',
+        slots: [1, 2],
+      }),
+    ])
+  })
+
+  test('keeps the primary home event with no slots when every slot homes elsewhere', async () => {
+    configureNetcodeV2()
+    // eslint-disable-next-line eslint-core/camelcase
+    const secondaryRelay = { relay_id: 2, relay_addr: '10.0.0.2:14900', cert_der: RELAY_CERT_DER }
+    mockSessionResponse({
+      ...sessionResponse([0, 1]),
+      // eslint-disable-next-line eslint-core/camelcase
+      slot_homes: [
+        { slot: 0, relay: secondaryRelay },
+        { slot: 1, relay: secondaryRelay },
+      ],
+    })
+    const service = makeService()
+
+    await service.createSessionForGame({
+      seed: 0x89abcdef,
+      gameId: 'game-1',
+      slots: [
+        { slot: 0, userId: makeSbUserId(1), observer: false, pubkey: PUBKEY },
+        { slot: 1, userId: makeSbUserId(2), observer: false, pubkey: PUBKEY },
+      ],
+      signal: new AbortController().signal,
+    })
+
+    const [, events] = asMockedFunction(addNetcodeV2RelayEvents).mock.calls[0]
+    expect(events).toEqual([
+      expect.objectContaining({ kind: 'home', relayId: 1, slots: [] }),
+      expect.objectContaining({ kind: 'home', relayId: 2, slots: [0, 1] }),
     ])
   })
 
