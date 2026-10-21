@@ -626,15 +626,24 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
 
   ipcMain
     .on('windowClose', (_, shouldDisplayCloseHint) => {
-      if (!mainWindow) {
-        return
-      }
-      if (systemTray) {
-        mainWindow.hide()
-        if (shouldDisplayCloseHint) systemTray.displayHowToCloseHint()
-      } else {
-        mainWindow.close()
-      }
+      localSettings
+        .get()
+        .then(({ quitOnClose }) => {
+          if (!mainWindow) {
+            return
+          }
+          if (quitOnClose) {
+            app.quit()
+          } else if (systemTray) {
+            mainWindow.hide()
+            if (shouldDisplayCloseHint) systemTray.displayHowToCloseHint()
+          } else {
+            mainWindow.close()
+          }
+        })
+        .catch(err => {
+          logger.error(`Error closing window: ${getErrorStack(err)}`)
+        })
     })
     .on('windowMaximize', () => {
       if (!mainWindow) {

@@ -242,6 +242,7 @@ export const MAX_ROLLBACK_TARGET = 4
 export interface LocalSettings extends ShieldBatteryAppSettings {
   runAppAtSystemStart: boolean
   runAppAtSystemStartMinimized: boolean
+  quitOnClose: boolean
   starcraftPath: string
   masterVolume: number
   gameWinX?: number
