@@ -15,6 +15,7 @@ pub mod id {
     pub const PAUSE: u8 = 0x10;
     pub const RESUME: u8 = 0x11;
     pub const CHEAT: u8 = 0x12;
+    pub const HOTKEY: u8 = 0x13;
     pub const SYNC: u8 = 0x37;
     pub const SET_LATENCY: u8 = 0x55;
     pub const REPLAY_SPEED: u8 = 0x56;
@@ -26,6 +27,11 @@ pub mod id {
     pub const SET_TURN_RATE: u8 = 0x5f;
     pub const SET_NETWORK_SPEED: u8 = 0x66;
 }
+
+/// Selection hotkey groups each player has: 0-9 for the number keys and 10-17 for SC:R's history
+/// of recent selections, which an Alt+click recalls. SC:R's hotkey handler also accepts group 18,
+/// whose slot is the next player's group 0.
+const SELECTION_HOTKEY_GROUPS: u8 = 18;
 
 /// Bytes available for text in the classic `[0x5c][sender id][text]` chat command record: the
 /// record is a fixed 0x52 bytes total (a 2-byte header followed by a 0x50-byte text field), and
@@ -223,6 +229,9 @@ pub fn filter_invalid_commands<'a>(
             // without going through the menu. Replays keep theirs, so older replays play back
             // exactly as they always have.
             [id::SAVE_GAME | id::LOAD_GAME, ..] => from_replay,
+            // No client sends a group past the last one, and one that did would overwrite another
+            // player's control group. Replays keep theirs, so they play back as recorded.
+            [id::HOTKEY, _, group, ..] => from_replay || *group < SELECTION_HOTKEY_GROUPS,
             [id::REPLAY_SEEK, ..] => !from_replay,
             [id::REPLAY_SPEED, rest @ ..] => {
                 if from_replay || rest.len() != 9 {
@@ -549,6 +558,19 @@ mod test {
             &*filter_invalid_commands(data, false, true, LENGTHS),
             filtered
         );
+    }
+
+    #[test]
+    fn filter_hotkeys_past_the_last_group_in_live_games() {
+        // Keep-alives around hotkeys: recall 1, recall the history group 17, assign 18, add 255.
+        let data = &[
+            0x05, 0x13, 0x01, 0x01, 0x13, 0x01, 0x11, 0x13, 0x00, 0x12, 0x13, 0x02, 0xff, 0x05,
+        ];
+        assert_eq!(
+            &*filter_invalid_commands(data, false, false, LENGTHS),
+            &[0x05, 0x13, 0x01, 0x01, 0x13, 0x01, 0x11, 0x05]
+        );
+        assert_eq!(&*filter_invalid_commands(data, true, false, LENGTHS), data);
     }
 
     #[test]
