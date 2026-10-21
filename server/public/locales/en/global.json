@@ -2633,9 +2633,10 @@
           "preview2v2": "2v2",
           "previewObserver": "Observing 1v1",
           "previewObserver2v2": "Observing 2v2",
+          "previewObserverFourTeams": "Observing 4 teams",
           "remove": "Remove",
           "reset": "Reset to default",
-          "teamNamesDescription": "Team A is your team when playing, or the first team in lobby slot order when observing. Team B is the next team. Names within each team are joined with +.",
+          "teamNamesDescription": "Includes every team, with vs between teams and + between teammates. Your team comes first when playing; observers see teams in lobby slot order.",
           "textLabel": "Text",
           "textPlaceholder": "Text",
           "title": "Replay names",
@@ -2648,8 +2649,7 @@
             "opponentRaces": "Opponent races",
             "opponents": "Opponents",
             "race": "Your race",
-            "teamA": "Team A",
-            "teamB": "Team B",
+            "teams": "Team vs team",
             "text": "Text",
             "time": "Time"
           }

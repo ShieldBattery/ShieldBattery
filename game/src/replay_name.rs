@@ -68,8 +68,7 @@ const TOKENS: &[&str] = &[
     "time",
     "map",
     "name",
-    "teamA",
-    "teamB",
+    "teams",
     "opponents",
     "race",
     "opponentRaces",
@@ -167,18 +166,16 @@ fn token_value(token: &str, context: &NameContext) -> String {
         "time" => context.time.clone(),
         "map" => context.map.clone(),
         "name" => context.local_name.clone().unwrap_or_default(),
-        "teamA" | "teamB" => {
-            let index = usize::from(token == "teamB");
-            teams
-                .get(index)
-                .map(|team| {
-                    team.iter()
-                        .map(|p| p.name.as_str())
-                        .collect::<Vec<_>>()
-                        .join("+")
-                })
-                .unwrap_or_default()
-        }
+        "teams" => teams
+            .iter()
+            .map(|team| {
+                team.iter()
+                    .map(|p| p.name.as_str())
+                    .collect::<Vec<_>>()
+                    .join("+")
+            })
+            .collect::<Vec<_>>()
+            .join(" vs "),
         "opponents" => opponent_teams
             .iter()
             .flatten()
@@ -317,6 +314,7 @@ mod test {
             player("B", AssignedRace::Protoss, 0, false),
         ]);
         assert_eq!(render("{format} {matchup}", &ctx), "FFA ZvTvP");
+        assert_eq!(render("{teams}", &ctx), "Me vs A vs B");
     }
 
     #[test]
@@ -337,13 +335,13 @@ mod test {
             render("{name} {race}{opponents} {matchup}", &ctx),
             "Obs A+B TvZ"
         );
-        assert_eq!(render("{teamA} vs {teamB}", &ctx), "A vs B");
+        assert_eq!(render("{teams}", &ctx), "A vs B");
     }
 
     #[test]
     fn team_names_put_the_local_team_first() {
-        assert_eq!(render("{teamA} vs {teamB}", &one_v_one()), "Me vs Opp");
-        assert_eq!(render("{teamA} vs {teamB}", &two_v_two()), "Me+Ally vs A+B");
+        assert_eq!(render("{teams}", &one_v_one()), "Me vs Opp");
+        assert_eq!(render("{teams}", &two_v_two()), "Me+Ally vs A+B");
     }
 
     #[test]
@@ -355,15 +353,55 @@ mod test {
             player.team = 3 - player.team;
         }
         ctx.local_name = Some("Obs".into());
-        assert_eq!(render("{teamA} vs {teamB}", &ctx), "A+B vs Me+Ally");
+        assert_eq!(render("{teams}", &ctx), "A+B vs Me+Ally");
         assert_eq!(render("{matchup}", &ctx), "PTvPZ");
     }
 
     #[test]
-    fn missing_teams_have_empty_names() {
+    fn team_names_include_two_three_and_four_teams() {
+        for (team_count, observed, playing) in [
+            (2, "A1+A2 vs B1+B2", "B1+B2 vs A1+A2"),
+            (3, "A1+A2 vs B1+B2 vs C1+C2", "C1+C2 vs A1+A2 vs B1+B2"),
+            (
+                4,
+                "A1+A2 vs B1+B2 vs C1+C2 vs D1+D2",
+                "D1+D2 vs A1+A2 vs B1+B2 vs C1+C2",
+            ),
+        ] {
+            let mut ctx = context(vec![
+                player("A1", AssignedRace::Terran, 4, false),
+                player("B1", AssignedRace::Zerg, 3, false),
+                player("C1", AssignedRace::Protoss, 2, false),
+                player("D1", AssignedRace::Terran, 1, false),
+                player("A2", AssignedRace::Protoss, 4, false),
+                player("B2", AssignedRace::Terran, 3, false),
+                player("C2", AssignedRace::Zerg, 2, false),
+                player("D2", AssignedRace::Protoss, 1, false),
+            ]);
+            ctx.players.retain(|p| p.team >= 5 - team_count);
+            ctx.local_name = Some("Obs".into());
+            assert_eq!(
+                render("{teams}", &ctx),
+                observed,
+                "{team_count} teams observed"
+            );
+
+            let local = ctx.players.last_mut().unwrap();
+            local.is_local = true;
+            ctx.local_name = Some(local.name.clone());
+            assert_eq!(
+                render("{teams}", &ctx),
+                playing,
+                "{team_count} teams playing"
+            );
+        }
+    }
+
+    #[test]
+    fn team_names_handle_single_or_no_teams() {
         let ctx = context(vec![player("Solo", AssignedRace::Zerg, 0, true)]);
-        assert_eq!(render("A={teamA};B={teamB}", &ctx), "A=Solo;B=");
-        assert_eq!(render("A={teamA};B={teamB}", &context(Vec::new())), "A=;B=");
+        assert_eq!(render("Teams={teams}", &ctx), "Teams=Solo");
+        assert_eq!(render("Teams={teams}", &context(Vec::new())), "Teams=");
     }
 
     #[test]
