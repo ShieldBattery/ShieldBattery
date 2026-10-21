@@ -273,21 +273,15 @@ export interface MapImageInfo {
  * Returns the start locations of `map` that are spawns where its image is shown, i.e. the ones to
  * draw markers for.
  *
- * With a `gameType` (a lobby or game), BW spawns players on the start locations in every game type
- * except UMS, even on maps with UMS content. Without one, a map's start locations only count as
- * spawns if it has no UMS content: UMS maps often stack them in one spot or park them in an
- * off-play area, since their triggers move the players.
+ * A map's start locations only count as spawns if it has no UMS content: UMS maps often stack them
+ * in one spot or park them in an off-play area, since their triggers move the players.
  */
-export function visibleSpawns(
-  map: ReadonlyDeep<MapImageInfo>,
-  gameType?: GameType,
-): ReadonlyArray<MapStartLocation> {
+export function visibleSpawns(map: ReadonlyDeep<MapImageInfo>): ReadonlyArray<MapStartLocation> {
   const { width, height, startLocations, umsContent } = map.mapData
   if (map.imageSpawnsBaked !== false || !startLocations?.length) {
     return []
   }
-  const areSpawns = gameType ? gameType !== GameType.UseMapSettings : umsContent === false
-  if (!areSpawns) {
+  if (umsContent !== false) {
     return []
   }
   return startLocations.filter(l => l.x >= 0 && l.x <= width * 32 && l.y >= 0 && l.y <= height * 32)
