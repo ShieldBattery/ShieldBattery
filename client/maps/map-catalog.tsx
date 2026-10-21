@@ -37,7 +37,7 @@ import { LoadingDotsArea } from '../progress/dots'
 import { useUserLocalStorageValue } from '../react/state-hooks'
 import { SearchInput, SearchInputHandle } from '../search/search-input'
 import { CenteredContentContainer } from '../styles/centered-container'
-import { bodyLarge, bodyMedium, titleMedium } from '../styles/typography'
+import { bodyLarge, bodyMedium, singleLine, titleMedium } from '../styles/typography'
 import {
   ALL_CATALOG_PLAYERS,
   ALL_MAP_SIZE_CLASSES,
@@ -110,7 +110,7 @@ const Root = styled.div`
 const HeaderBar = styled.div`
   flex-shrink: 0;
   min-height: 64px;
-  padding: 8px 24px;
+  padding: 20px 24px 12px;
   /* Reserves the same gutters as the list below so the two line up */
   overflow: hidden;
   scrollbar-gutter: stable both-edges;
@@ -118,7 +118,7 @@ const HeaderBar = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px 16px;
+  gap: 8px 12px;
 
   border-bottom: 1px solid var(--theme-outline-variant);
 `
@@ -144,11 +144,17 @@ const Title = styled.h1`
   font-size: 20px;
 `
 
+/** Gives up its width first when the bar tightens, so the rest of the bar keeps its line. */
 const StyledSearchInput = styled(SearchInput)`
-  flex: 1 1 280px;
-  min-width: 168px;
+  flex: 1 1 0;
+  min-width: 140px;
   max-width: 400px;
   margin-left: auto;
+
+  & label {
+    right: 12px;
+    ${singleLine};
+  }
 `
 
 const DropZone = styled(FileDropZone)`
