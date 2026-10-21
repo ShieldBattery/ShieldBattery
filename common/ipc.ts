@@ -15,6 +15,13 @@ import { ReportedGameStatus } from './games/game-status'
 import { NetcodeV2ServerSetup } from './games/netcode-v2'
 import { GameClientPlayerResult } from './games/results'
 import { SbLobbyId } from './lobbies/sb-lobby-id'
+import {
+  LocalMapFolder,
+  LocalMapIndexProgress,
+  LocalMapLibraryStatus,
+  LocalMapQuery,
+  LocalMapQueryResult,
+} from './map-library'
 import { MapExtension } from './maps'
 import { ReplayChat } from './replays'
 import {
@@ -296,6 +303,16 @@ interface IpcInvokeables {
   ) => Promise<{ entries: ReplayLibraryEntry[]; total: number }>
   /** Current status of the replay index (total indexed, backfill progress, watched folder). */
   replayLibraryStatus: () => Promise<ReplayLibraryStatus>
+
+  /** Returns the page of indexed local map files matching `query`, plus the total match count. */
+  localMapsQuery: (query: LocalMapQuery) => Promise<LocalMapQueryResult>
+  /**
+   * Returns the folders directly beneath `parent` that hold map files (at any depth), or the
+   * indexed roots when `parent` is unset.
+   */
+  localMapsFolders: (parent?: string) => Promise<LocalMapFolder[]>
+  /** Current status of the local map index (total indexed, progress, indexed folders). */
+  localMapsStatus: () => Promise<LocalMapLibraryStatus>
   /**
    * Bookmarks or unbookmarks replays in a single transaction. Resolves to the ids whose state
    * actually changed (replays already in the requested state are left out).
@@ -525,6 +542,14 @@ interface IpcMainSendables {
    * status fetch.
    */
   replayLibraryBackfillProgress: (progress: ReplayBackfillProgress | undefined) => void
+
+  /** Sent whenever the local map index changes (files added, removed or updated). */
+  localMapsChanged: () => void
+  /**
+   * Sent as the local map index scans and indexes files. `undefined` means it finished (or had no
+   * work).
+   */
+  localMapsIndexProgress: (progress: LocalMapIndexProgress | undefined) => void
 
   replaysOpen: (replayPaths: string[]) => void
 
