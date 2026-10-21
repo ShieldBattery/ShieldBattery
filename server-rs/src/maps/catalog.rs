@@ -4,7 +4,9 @@ use async_graphql::connection::{
     Connection, ConnectionNameType, Edge, EdgeNameType, EmptyFields, OpaqueCursor,
 };
 use async_graphql::dataloader::{DataLoader, Loader};
-use async_graphql::{ComplexObject, Context, Enum, Object, OutputType, Result, SimpleObject};
+use async_graphql::{
+    ComplexObject, Context, Enum, Object, ObjectType, OutputType, Result, SimpleObject,
+};
 use chrono::{DateTime, Utc};
 use color_eyre::eyre::{self, WrapErr};
 use sqlx::PgPool;
@@ -200,6 +202,10 @@ pub struct MapStats {
     #[graphql(name = "medianLength90d")]
     pub median_length_90d: Option<i32>,
     pub last_played_at: DateTime<Utc>,
+    /// How far lobby play in the last 7 days exceeds what the 3 weeks before it predict, in
+    /// hundredths of a standard deviation. 0 for maps that aren't rising or that fewer than 5
+    /// people played in lobbies this week. Updated hourly.
+    pub trending_score: i32,
 }
 
 #[ComplexObject]
@@ -221,6 +227,7 @@ impl From<DbSbMap> for SbMap {
                 players_90d: row.players_90d,
                 median_length_90d: row.median_length_90d,
                 last_played_at,
+                trending_score: row.trending_score,
             }),
             _ => None,
         };
@@ -395,11 +402,25 @@ impl EdgeNameType for FavoriteMapEdgeName {
     }
 }
 
-pub type SbMapConnection = Connection<OpaqueCursor<MapCursor>, SbMap>;
+/// Facts about a whole map listing, rather than one page of it.
+pub struct MapListingInfo {
+    request: MapListingRequest,
+}
+
+#[Object]
+impl MapListingInfo {
+    /// How many maps the listing holds across every page.
+    async fn total_count(&self, ctx: &Context<'_>) -> Result<i32> {
+        let count = ctx.data::<MapSearchRepo>()?.count(&self.request).await?;
+        Ok(i32::try_from(count).unwrap_or(i32::MAX))
+    }
+}
+
+pub type SbMapConnection = Connection<OpaqueCursor<MapCursor>, SbMap, MapListingInfo, EmptyFields>;
 pub type MapLibraryConnection = Connection<
     OpaqueCursor<MapCursor>,
     SbMap,
-    EmptyFields,
+    MapListingInfo,
     MapLibraryEntry,
     MapLibraryConnectionName,
     MapLibraryEdgeName,
@@ -407,7 +428,7 @@ pub type MapLibraryConnection = Connection<
 pub type FavoriteMapConnection = Connection<
     OpaqueCursor<MapCursor>,
     SbMap,
-    EmptyFields,
+    MapListingInfo,
     FavoriteMapEntry,
     FavoriteMapConnectionName,
     FavoriteMapEdgeName,
@@ -424,11 +445,28 @@ async fn load_listing(
     sort: Option<MapSort>,
     after: Option<String>,
     first: Option<i32>,
-) -> Result<(bool, MapListingPage)> {
+) -> Result<(MapListingRequest, MapListingPage)> {
     let request = MapListingRequest::new(scope, filter, sort, after.as_deref(), first)
         .map_err(listing_error)?;
     let page = ctx.data::<MapSearchRepo>()?.load_page(&request).await?;
-    Ok((request.has_cursor(), page))
+    Ok((request, page))
+}
+
+/// Starts a connection for a page of `request`'s listing.
+fn new_listing_connection<EdgeFields, Name, EdgeName>(
+    request: MapListingRequest,
+    page: &MapListingPage,
+) -> Connection<OpaqueCursor<MapCursor>, SbMap, MapListingInfo, EdgeFields, Name, EdgeName>
+where
+    EdgeFields: ObjectType,
+    Name: ConnectionNameType,
+    EdgeName: EdgeNameType,
+{
+    Connection::with_additional_fields(
+        request.has_cursor(),
+        page.has_next_page,
+        MapListingInfo { request },
+    )
 }
 
 /// Pages through the maps in `user_id`'s library.
@@ -441,8 +479,8 @@ pub async fn load_map_library(
     first: Option<i32>,
 ) -> Result<MapLibraryConnection> {
     let scope = MapScope::Library(user_id);
-    let (has_previous_page, page) = load_listing(ctx, scope, filter, sort, after, first).await?;
-    let mut connection = Connection::new(has_previous_page, page.has_next_page);
+    let (request, page) = load_listing(ctx, scope, filter, sort, after, first).await?;
+    let mut connection = new_listing_connection(request, &page);
     for row in page.rows {
         // Library rows always have an `added_at` (the column is NOT NULL); the fallback only
         // guards against a non-finite stored value.
@@ -466,8 +504,8 @@ pub async fn load_favorite_maps(
     first: Option<i32>,
 ) -> Result<FavoriteMapConnection> {
     let scope = MapScope::Favorites(user_id);
-    let (has_previous_page, page) = load_listing(ctx, scope, filter, sort, after, first).await?;
-    let mut connection = Connection::new(has_previous_page, page.has_next_page);
+    let (request, page) = load_listing(ctx, scope, filter, sort, after, first).await?;
+    let mut connection = new_listing_connection(request, &page);
     for row in page.rows {
         connection.edges.push(Edge::with_additional_fields(
             OpaqueCursor(row.cursor),
@@ -509,9 +547,9 @@ impl MapsQuery {
     ) -> Result<SbMapConnection> {
         // TODO(tec27): This is readable without a session, so it likely wants rate limiting once
         // server-rs has a way to do that.
-        let (has_previous_page, page) =
+        let (request, page) =
             load_listing(ctx, MapScope::Listed, filter, sort, after, first).await?;
-        let mut connection = Connection::new(has_previous_page, page.has_next_page);
+        let mut connection = new_listing_connection(request, &page);
         connection.edges.extend(
             page.rows
                 .into_iter()
@@ -625,6 +663,7 @@ mod tests {
                 players_90d: 0,
                 median_length_90d: None,
                 last_played_at: None,
+                trending_score: 0,
                 favorites: 0,
             })
         }
