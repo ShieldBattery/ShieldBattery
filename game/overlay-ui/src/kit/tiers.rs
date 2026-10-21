@@ -412,14 +412,31 @@ pub fn tier2_dialog_staged<R>(
         });
     let layer = dialog.response.layer_id;
     if dialog_takes_keyboard(ctx) {
+        // The scrim is drawn at an order below the observer panels', and egui's modal layer keeps
+        // focus from what is under the dialog but not the pointer. Left to reach the panels, a
+        // click on one of their buttons would be the button's as well as a click outside the
+        // dialog: the minimap's menu button, pressed to put the game menu away, would also open it
+        // again. A shield over everything of the dialog's order takes the pointer instead,
+        // painting nothing, so the panels still show as they were. The dialog is its sublayer,
+        // which keeps the dialog directly over it however the two first came on screen.
+        let shield = Area::new(id.with("shield"))
+            .order(layer.order)
+            .fixed_pos(screen.min)
+            .show(ctx, |ui| {
+                ui.allocate_exact_size(screen.size(), Sense::CLICK);
+            })
+            .response
+            .layer_id;
+        ctx.move_to_top(shield);
+        ctx.set_sublayer(shield, layer);
         // Over every other surface of its order, the observer panels drawn before it included, and
-        // the floor of what keys and the pointer can reach: focus moves among its controls alone.
+        // the floor of what keys can reach: focus moves among its controls alone.
         ctx.move_to_top(layer);
         ctx.memory_mut(|memory| memory.set_modal_layer(layer));
     }
-    // Read off the pointer rather than off the scrim, which a dialog that owns the keyboard leaves
-    // below the reach of the pointer along with everything else under it. A menu the dialog hangs
-    // past its own edge stands above it, and a click there is the menu's.
+    // Read off the pointer rather than off the scrim, which the shield of a dialog that owns the
+    // keyboard covers along with everything else under it. A menu the dialog hangs past its own
+    // edge stands above it, and a click there is the menu's.
     let click = ctx
         .input(|input| {
             input
@@ -630,4 +647,107 @@ fn lerp_premultiplied(from: Color32, to: Color32, t: f32) -> Color32 {
         channel(from.b(), to.b()),
         channel(from.a(), to.a()),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use egui::{Event, Modifiers, PointerButton, Pos2, RawInput, pos2, vec2};
+
+    use super::*;
+
+    /// A button on a surface of the dialog's own order drawn ahead of it, the way the observer
+    /// panels are, near the screen's bottom-left corner and well clear of a centered dialog.
+    const PANEL_BUTTON: Rect = Rect {
+        min: pos2(20.0, 640.0),
+        max: pos2(120.0, 670.0),
+    };
+
+    /// What one frame's pointer reached.
+    #[derive(Default)]
+    struct Clicks {
+        panel: bool,
+        dialog_button: bool,
+        /// `None` with no dialog drawn.
+        scrim: Option<bool>,
+        dialog_button_rect: Option<Rect>,
+    }
+
+    fn fresh_ctx() -> Context {
+        let ctx = Context::default();
+        crate::install_fonts_and_style(&ctx, &crate::DynamicFonts::default());
+        ctx
+    }
+
+    /// Runs one frame with the panel drawn and, where `dialog` says, a dialog over it that owns
+    /// the keyboard or not.
+    fn frame(ctx: &Context, events: Vec<Event>, dialog: Option<bool>) -> Clicks {
+        let time = ctx.input(|input| input.time) + 0.1;
+        ctx.begin_pass(RawInput {
+            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, vec2(1280.0, 720.0))),
+            time: Some(time),
+            events,
+            ..Default::default()
+        });
+        let mut clicks = Clicks::default();
+        Area::new(Id::new("panel"))
+            .order(Order::Foreground)
+            .fixed_pos(PANEL_BUTTON.min)
+            .show(ctx, |ui| {
+                clicks.panel = ui.allocate_rect(PANEL_BUTTON, Sense::click()).clicked();
+            });
+        if let Some(takes_keyboard) = dialog {
+            set_dialog_takes_keyboard(ctx, takes_keyboard);
+            let response = tier2_dialog(ctx, Id::new("dialog"), 300.0, |ui| {
+                ui.add_sized(vec2(300.0, 60.0), egui::Button::new("Return"))
+            });
+            clicks.dialog_button = response.inner.clicked();
+            clicks.dialog_button_rect = Some(response.inner.rect);
+            clicks.scrim = Some(response.scrim_clicked);
+        }
+        ctx.end_pass().textures_delta.clear();
+        clicks
+    }
+
+    /// Clicks at `pos` over three frames, the pointer arriving, going down and coming back up,
+    /// returning what the release reached.
+    fn click(ctx: &Context, pos: Pos2, dialog: Option<bool>) -> Clicks {
+        let button = |pressed| Event::PointerButton {
+            pos,
+            button: PointerButton::Primary,
+            pressed,
+            modifiers: Modifiers::NONE,
+        };
+        frame(ctx, vec![Event::PointerMoved(pos)], dialog);
+        frame(ctx, vec![button(true)], dialog);
+        frame(ctx, vec![button(false)], dialog)
+    }
+
+    #[test]
+    fn a_panel_with_no_dialog_over_it_takes_its_clicks() {
+        let ctx = fresh_ctx();
+        frame(&ctx, Vec::new(), None);
+        assert!(click(&ctx, PANEL_BUTTON.center(), None).panel);
+    }
+
+    #[test]
+    fn a_click_on_a_panel_under_a_dialog_is_only_a_click_outside_the_dialog() {
+        let ctx = fresh_ctx();
+        frame(&ctx, Vec::new(), Some(true));
+        let clicks = click(&ctx, PANEL_BUTTON.center(), Some(true));
+        assert!(!clicks.panel);
+        assert_eq!(clicks.scrim, Some(true));
+    }
+
+    #[test]
+    fn the_dialogs_own_controls_stay_over_the_shield() {
+        let ctx = fresh_ctx();
+        // Up without the keyboard first, so the dialog is on screen before its shield ever is.
+        frame(&ctx, Vec::new(), Some(false));
+        frame(&ctx, Vec::new(), Some(false));
+        let settled = frame(&ctx, Vec::new(), Some(true));
+        let button = settled.dialog_button_rect.expect("the dialog was drawn");
+        let clicks = click(&ctx, button.center(), Some(true));
+        assert!(clicks.dialog_button);
+        assert_eq!(clicks.scrim, Some(false));
+    }
 }

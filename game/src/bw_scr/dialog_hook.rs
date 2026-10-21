@@ -1,4 +1,4 @@
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
 use parking_lot::Mutex;
@@ -24,26 +24,37 @@ static CONSOLE_DIALOG_EVENT_HANDLERS: [EventHandler; console::CONSOLE_DIALOGS.le
 static REPLACED_DIALOG_EVENT_HANDLERS: [EventHandler; NativeDialog::ALL.len()] =
     [NEW_EVENT_HANDLER; NativeDialog::ALL.len()];
 
-/// Whether each replaced native dialog is currently spawned, indexed by [`NativeDialog::index`].
-/// Written by the spawn hook and by the swallowing event handler's delete event, read by the draw
-/// path, which turns the transitions into the shell's own record.
-static REPLACED_DIALOG_LIVE: [AtomicBool; NativeDialog::ALL.len()] =
-    [const { AtomicBool::new(false) }; NativeDialog::ALL.len()];
+/// The spawned instance of each replaced native dialog, indexed by [`NativeDialog::index`], or 0
+/// while none is. Written by the spawn hook and by the swallowing event handler's delete event, read
+/// by the draw path, which turns the changes into the shell's own record.
+///
+/// Opening one of SC:R's in-game menus closes whichever is up first, so an instance can be deleted
+/// after the next of its kind has spawned; only the delete of the instance recorded here clears it.
+static REPLACED_DIALOG_LIVE: [AtomicUsize; NativeDialog::ALL.len()] =
+    [const { AtomicUsize::new(0) }; NativeDialog::ALL.len()];
 
-/// Whether each replaced native dialog has been asked by us to act on one of its controls, indexed
-/// by [`NativeDialog::index`]. From then on its event handler stops swallowing: a button's
-/// activation reaches the game by way of events the button sends its dialog, and those are exactly
-/// what the swallowing handler exists to drop. Nothing of the player's reaches the dialog either way
-/// while its replacement is up, since the replacement's capture keeps the input from the game.
-/// Cleared at spawn.
-static REPLACED_DIALOG_DRIVEN: [AtomicBool; NativeDialog::ALL.len()] =
-    [const { AtomicBool::new(false) }; NativeDialog::ALL.len()];
+/// How many times each replaced native dialog has spawned, indexed by [`NativeDialog::index`]. The
+/// draw path reads the spawned instances once a frame, and between two reads one instance can close
+/// and another take its place: the count is what tells that apart from the first one staying up.
+static REPLACED_DIALOG_SPAWNS: [AtomicU32; NativeDialog::ALL.len()] =
+    [const { AtomicU32::new(0) }; NativeDialog::ALL.len()];
+
+/// The spawned instance of each replaced native dialog that we have asked to act on one of its
+/// controls, indexed by [`NativeDialog::index`], or 0. From then on that instance's event handler
+/// stops swallowing: a button's activation reaches the game by way of events the button sends its
+/// dialog, and those are exactly what the swallowing handler exists to drop. Nothing of the
+/// player's reaches the dialog either way while its replacement is up, since the replacement's
+/// capture keeps the input from the game. Any other instance of the same dialog keeps swallowing:
+/// a driven dialog answers input the way SC:R's own does, taking every click and key before the
+/// dialogs under it see them.
+static REPLACED_DIALOG_DRIVEN: [AtomicUsize; NativeDialog::ALL.len()] =
+    [const { AtomicUsize::new(0) }; NativeDialog::ALL.len()];
 
 /// The spawned instance of each replaced native dialog that a control closing it has been pressed
 /// on, indexed by [`NativeDialog::index`], or 0. A dialog outlives that press by a frame or more,
 /// and SC:R's in-game menus share one selection handler that a press replaces and clears: a second
 /// press on a closing menu runs whichever handler is current by then, which can be none at all.
-/// Cleared at spawn, as a new instance can be given the same address.
+/// Forgotten when a new instance spawns at the same address.
 static REPLACED_DIALOG_CLOSING: [AtomicUsize; NativeDialog::ALL.len()] =
     [const { AtomicUsize::new(0) }; NativeDialog::ALL.len()];
 
@@ -89,9 +100,43 @@ fn replacement_at_spawn(name: &str) -> Option<NativeDialog> {
     }
 }
 
-/// Which replaced native dialogs are spawned right now, indexed by [`NativeDialog::index`].
-pub fn live_replaced_dialogs() -> [bool; NativeDialog::ALL.len()] {
-    std::array::from_fn(|index| REPLACED_DIALOG_LIVE[index].load(Ordering::Relaxed))
+/// Where one replaced native dialog stands, as of one read.
+#[derive(Copy, Clone, Default, PartialEq, Eq, Debug)]
+pub struct ReplacedDialogState {
+    /// Whether an instance of the dialog is spawned.
+    pub live: bool,
+    /// How many instances of the dialog have spawned so far.
+    pub spawns: u32,
+}
+
+/// What changed for one replaced native dialog between two reads of its state.
+#[derive(Copy, Clone, Default, PartialEq, Eq, Debug)]
+pub struct ReplacedDialogChange {
+    /// The instance up at the first read is gone.
+    pub closed: bool,
+    /// An instance that was not up at the first read is up now.
+    pub spawned: bool,
+}
+
+impl ReplacedDialogState {
+    /// What changed between `self` and the later read `now`. An instance that closed and was
+    /// replaced by another between the two is both: what stands for the dialog has to go with the
+    /// first and come back for the second, which is a new dialog with nothing of the first's state.
+    pub fn change_to(self, now: ReplacedDialogState) -> ReplacedDialogChange {
+        let respawned = now.spawns != self.spawns;
+        ReplacedDialogChange {
+            closed: self.live && (!now.live || respawned),
+            spawned: now.live && (!self.live || respawned),
+        }
+    }
+}
+
+/// Where each replaced native dialog stands right now, indexed by [`NativeDialog::index`].
+pub fn replaced_dialog_states() -> [ReplacedDialogState; NativeDialog::ALL.len()] {
+    std::array::from_fn(|index| ReplacedDialogState {
+        live: REPLACED_DIALOG_LIVE[index].load(Ordering::Relaxed) != 0,
+        spawns: REPLACED_DIALOG_SPAWNS[index].load(Ordering::Relaxed),
+    })
 }
 
 /// Dismisses a replaced native dialog through its own return control.
@@ -187,7 +232,7 @@ fn activate_replaced_dialog_control(
     let x = area.left + (area.right - area.left) / 2;
     let y = area.top + (area.bottom - area.top) / 2;
     debug!("Pressing control {control_id} of the {label} dialog");
-    REPLACED_DIALOG_DRIVEN[dialog.index()].store(true, Ordering::Relaxed);
+    REPLACED_DIALOG_DRIVEN[dialog.index()].store(*live as usize, Ordering::Relaxed);
     if effect == PressEffect::Closes {
         closing.store(*live as usize, Ordering::Relaxed);
     }
@@ -265,7 +310,17 @@ pub fn set_paused(first_dialog: Option<Dialog>, paused: bool, offered: Option<Pa
 /// from it but not a press sent to it.
 ///
 /// Where the button cannot be found, the key itself is posted to the game's window instead.
+///
+/// A menu already up, and not on its way out, is left as it is. SC:R's button does not check for
+/// one: it closes the menu up and opens another in its place, taking the game out of its menu
+/// state and straight back in, and leaving the overlay's menu to be put away and raised again.
 pub fn open_game_menu(first_dialog: Option<Dialog>) {
+    let index = NativeDialog::GameMenu.index();
+    let live = REPLACED_DIALOG_LIVE[index].load(Ordering::Relaxed);
+    if live != 0 && REPLACED_DIALOG_CLOSING[index].load(Ordering::Relaxed) != live {
+        debug!("Not pressing the menu button: the game menu is already open");
+        return;
+    }
     let button = bw::iter_dialogs(first_dialog)
         .find(|dialog| dialog.as_control().string() == MENU_BUTTON_DIALOG)
         .and_then(|dialog| {
@@ -498,9 +553,22 @@ unsafe fn replace_at_spawn(
     unsafe {
         (*(raw as *mut bw::scr::Control)).flags &= !0x2;
     }
-    REPLACED_DIALOG_LIVE[replaced.index()].store(true, Ordering::Relaxed);
-    REPLACED_DIALOG_DRIVEN[replaced.index()].store(false, Ordering::Relaxed);
-    REPLACED_DIALOG_CLOSING[replaced.index()].store(0, Ordering::Relaxed);
+    let index = replaced.index();
+    REPLACED_DIALOG_LIVE[index].store(raw as usize, Ordering::Relaxed);
+    REPLACED_DIALOG_SPAWNS[index].fetch_add(1, Ordering::Relaxed);
+    // A dialog gone before this one spawned can have left its address behind.
+    let _ = REPLACED_DIALOG_DRIVEN[index].compare_exchange(
+        raw as usize,
+        0,
+        Ordering::Relaxed,
+        Ordering::Relaxed,
+    );
+    let _ = REPLACED_DIALOG_CLOSING[index].compare_exchange(
+        raw as usize,
+        0,
+        Ordering::Relaxed,
+        Ordering::Relaxed,
+    );
     let inited =
         REPLACED_DIALOG_EVENT_HANDLERS[replaced.index()].init(replaced_dialog_event_handler);
     inited.set_orig(event_handler);
@@ -885,16 +953,22 @@ unsafe extern "C" fn replaced_dialog_event_handler(
     orig: unsafe extern "C" fn(*mut bw::Control, *mut bw::ControlEvent) -> u32,
 ) -> u32 {
     unsafe {
-        // Delete: the dialog is going away, so its replacement must not outlive it.
+        // Delete: the dialog is going away, so its replacement must not outlive it. Another
+        // instance spawned since stays live.
         let replaced = native_dialogs::replacement_for(Control::new(ctrl).string());
         if (*event).ty == 0xe
             && (*event).ext_type == 0x1
             && let Some(replaced) = replaced
         {
-            REPLACED_DIALOG_LIVE[replaced.index()].store(false, Ordering::Relaxed);
+            let _ = REPLACED_DIALOG_LIVE[replaced.index()].compare_exchange(
+                ctrl as usize,
+                0,
+                Ordering::Relaxed,
+                Ordering::Relaxed,
+            );
         }
         let driven = replaced.is_some_and(|replaced| {
-            REPLACED_DIALOG_DRIVEN[replaced.index()].load(Ordering::Relaxed)
+            REPLACED_DIALOG_DRIVEN[replaced.index()].load(Ordering::Relaxed) == ctrl as usize
         });
         if !driven && !allow_event_on_hidden_dialog(event) {
             return 0;
@@ -944,5 +1018,73 @@ unsafe extern "C" fn keep_button_hidden(
             return 0;
         }
         orig(ctrl, event as _)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn state(live: bool, spawns: u32) -> ReplacedDialogState {
+        ReplacedDialogState { live, spawns }
+    }
+
+    fn change(closed: bool, spawned: bool) -> ReplacedDialogChange {
+        ReplacedDialogChange { closed, spawned }
+    }
+
+    #[test]
+    fn nothing_moving_is_no_change() {
+        assert_eq!(
+            state(false, 3).change_to(state(false, 3)),
+            change(false, false)
+        );
+        assert_eq!(
+            state(true, 3).change_to(state(true, 3)),
+            change(false, false)
+        );
+    }
+
+    #[test]
+    fn a_spawn_and_a_close_are_told_apart() {
+        assert_eq!(
+            state(false, 3).change_to(state(true, 4)),
+            change(false, true)
+        );
+        assert_eq!(
+            state(true, 4).change_to(state(false, 4)),
+            change(true, false)
+        );
+    }
+
+    #[test]
+    fn a_dialog_replaced_between_reads_closes_and_spawns() {
+        // SC:R closes its menu up when the menu is opened again, and the new one spawns before
+        // the next read: the dialog stays live, but it is a different one.
+        assert_eq!(state(true, 4).change_to(state(true, 5)), change(true, true));
+    }
+
+    #[test]
+    fn a_dialog_that_came_and_went_between_reads_is_no_spawn() {
+        assert_eq!(
+            state(false, 4).change_to(state(false, 5)),
+            change(false, false)
+        );
+    }
+
+    #[test]
+    fn a_replacement_already_gone_still_closes_the_first() {
+        assert_eq!(
+            state(true, 4).change_to(state(false, 6)),
+            change(true, false)
+        );
+    }
+
+    #[test]
+    fn several_spawns_since_the_last_read_are_one_spawn() {
+        assert_eq!(
+            state(false, 4).change_to(state(true, 6)),
+            change(false, true)
+        );
     }
 }

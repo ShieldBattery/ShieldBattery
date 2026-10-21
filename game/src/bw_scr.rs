@@ -1054,6 +1054,28 @@ struct Value<T> {
     phantom: PhantomData<T>,
 }
 
+/// SC:R's list of spawned dialogs, its first dialog read from the game every time it is asked for.
+///
+/// Pressing a dialog's button can close dialogs and spawn others, which moves the list's head: a
+/// first dialog read before such a press can be one already closed and deleted, whose own link still
+/// leads into the list. Walking from it reaches the dead dialog first, and a press sent to that one
+/// runs its closing code a second time.
+#[derive(Copy, Clone)]
+pub struct DialogList {
+    head: Option<Value<*mut bw::Dialog>>,
+}
+
+impl DialogList {
+    pub fn first(self) -> Option<bw_dat::dialog::Dialog> {
+        unsafe {
+            self.head
+                .map(|x| x.resolve())
+                .filter(|x| !x.is_null())
+                .map(|x| bw_dat::dialog::Dialog::new(x))
+        }
+    }
+}
+
 impl<T> Value<T> {
     fn new(ctx: scarf::OperandCtx<'static>, op: scarf::Operand<'_>) -> Value<T> {
         Value {
@@ -4457,7 +4479,6 @@ impl BwScr {
                     let units = self.unit_array();
                     let client_selection = self.client_selection();
                     let first_player_unit = self.first_player_unit.resolve();
-                    let first_dialog = self.resolve_first_dialog();
                     // Assuming that the last added draw command (Added during orig() call)
                     // will have the is_hd value that is currently being used.
                     // Could also probably examine the render target from get_render_target,
@@ -4600,7 +4621,7 @@ impl BwScr {
                                     units,
                                     client_selection,
                                     first_player_unit,
-                                    first_dialog,
+                                    dialogs: self.dialogs(),
                                     graphic_layers,
                                     is_hd,
                                     is_carbot,
@@ -4675,6 +4696,8 @@ impl BwScr {
                             self.follow_unit(overlay_out.follow_unit);
                             // Only once the game runs: before then there is no game view to
                             // resize, and the map load ahead resets its height anyway.
+                            // Read after the step, which can have closed and spawned dialogs.
+                            let first_dialog = self.resolve_first_dialog();
                             let console_shown = !self.console_hidden();
                             if game_started
                                 && (overlay_out.console_visible != console_shown
@@ -7647,11 +7670,12 @@ impl BwScr {
     }
 
     fn resolve_first_dialog(&self) -> Option<bw_dat::dialog::Dialog> {
-        unsafe {
-            self.first_dialog
-                .map(|x| x.resolve())
-                .filter(|x| !x.is_null())
-                .map(|x| bw_dat::dialog::Dialog::new(x))
+        self.dialogs().first()
+    }
+
+    fn dialogs(&self) -> DialogList {
+        DialogList {
+            head: self.first_dialog,
         }
     }
 

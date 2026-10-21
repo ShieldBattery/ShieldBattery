@@ -25,11 +25,12 @@ use crate::app_messages::GameSetupInfo;
 use crate::bw;
 use crate::bw::apm_stats::ApmStats;
 use crate::bw_scr::chat::ChatManager;
+use crate::bw_scr::dialog_hook::ReplacedDialogState;
 use crate::bw_scr::game_stats::{self, GameStats};
 use crate::bw_scr::replay_transport::{ReplayCommand, TransportState};
 use crate::bw_scr::scr;
 use crate::bw_scr::stat_txt::StatTxt;
-use crate::bw_scr::{BwCursorType, console, dialog_hook, hotkey_presses};
+use crate::bw_scr::{BwCursorType, DialogList, console, dialog_hook, hotkey_presses};
 use crate::netcode_v2::{self, DisconnectStatus, LoadingConnectivity, NetStatsStatus};
 
 pub use self::alliances::AllianceRules;
@@ -72,9 +73,9 @@ pub struct OverlayState {
     /// [`window_proc`](Self::window_proc) runs between frames, so it reads this rather than deciding
     /// for itself.
     capture: InputCapture,
-    /// Which replaced native dialogs were live as of the last [`step`](Self::step), so the shell
-    /// hears about a spawn or a delete exactly once.
-    native_dialogs_live: [bool; NativeDialog::ALL.len()],
+    /// Where the replaced native dialogs stood when the shell was last told, so it hears about a
+    /// spawn or a delete exactly once.
+    native_dialogs_seen: [ReplacedDialogState; NativeDialog::ALL.len()],
     /// The minimap dialog's rect, in BW's dialog coordinates, as last logged.
     logged_minimap_area: Option<(i16, i16, i16, i16)>,
     /// The chat log the last frame handed the shell, kept only while its modal is on screen.
@@ -299,7 +300,9 @@ pub struct BwVars {
     /// between frames and the panel that draws it must never be a frame behind the console.
     pub client_selection: [Option<Unit>; 12],
     pub first_player_unit: *mut *mut bw::Unit,
-    pub first_dialog: Option<Dialog>,
+    /// SC:R's dialogs, read afresh on every use: what the overlay asks of the game this frame can
+    /// close dialogs and spawn others.
+    pub dialogs: DialogList,
     pub graphic_layers: Option<NonNull<bw::GraphicLayer>>,
     pub is_hd: bool,
     /// Whether the carbot skin set is the one being drawn, which picks the command-icon frames
@@ -439,7 +442,7 @@ impl OverlayState {
             production: ProductionState::new(),
             shell: Shell::new(),
             capture: InputCapture::PASS_THROUGH,
-            native_dialogs_live: [false; NativeDialog::ALL.len()],
+            native_dialogs_seen: [ReplacedDialogState::default(); NativeDialog::ALL.len()],
             logged_minimap_area: None,
             end_card: None,
             out_state: OutState {
@@ -592,7 +595,7 @@ impl OverlayState {
             ..Default::default()
         };
         self.ui_rects.clear();
-        self.ui_active = if let Some(dialog) = bw.first_dialog {
+        self.ui_active = if let Some(dialog) = bw.dialogs.first() {
             // Checking if "Minimap" is the first dialog *should* be a good way
             // to figure out if there are any BW menus open, as they *should*
             // be placed as the first dialog, before minimap.
@@ -624,7 +627,7 @@ impl OverlayState {
             clear_selection: false,
             follow_unit: None,
         };
-        let chat_textbox_open = bw::iter_dialogs(bw.first_dialog)
+        let chat_textbox_open = bw::iter_dialogs(bw.dialogs.first())
             .find(|x| x.as_control().string() == "TextBox")
             .and_then(|chat_dlg| chat_dlg.children().find(|x| x.id() == 7))
             .map(|entry_textbox_ctrl| !entry_textbox_ctrl.is_hidden())
@@ -645,7 +648,7 @@ impl OverlayState {
             // Menus spawn ahead of the always-present "Minimap", so any of them the player can see
             // sits before it. A hidden one is not the player's to operate: the "TimeOut" BW spawns
             // during a stall, or a menu the overlay has replaced with a surface of its own.
-            native_menu_open: bw::iter_dialogs(bw.first_dialog)
+            native_menu_open: bw::iter_dialogs(bw.dialogs.first())
                 .take_while(|dialog| dialog.as_control().string() != "Minimap")
                 .any(|dialog| !dialog.as_control().is_hidden()),
             game_seconds: transport::frames_to_seconds(
@@ -665,8 +668,8 @@ impl OverlayState {
         // Keypresses arrive between frames and are decided against this, so it is refreshed even on
         // the frames the shell draws nothing on.
         self.shell.set_host(&host_frame);
-        dialog_hook::advance_quit(bw.first_dialog);
-        self.sync_native_dialogs(bw.first_dialog);
+        dialog_hook::advance_quit(bw.dialogs.first());
+        self.sync_native_dialogs(bw.dialogs.first());
         let users = setup_info.map(|info| info.users.as_slice()).unwrap_or(&[]);
         let now = Instant::now();
         let self_lost = disconnect_status.self_state(now) != netcode_v2::SelfState::Healthy;
@@ -906,20 +909,20 @@ impl OverlayState {
     /// it was last told, returning whether any had. The spawn hook records the dialogs as they come
     /// and go; the transitions are what the shell's modal stack is built from.
     fn sync_native_dialogs(&mut self, first_dialog: Option<Dialog>) -> bool {
-        let live = dialog_hook::live_replaced_dialogs();
+        let states = dialog_hook::replaced_dialog_states();
         let mut changed = false;
         for dialog in NativeDialog::ALL {
             let index = dialog.index();
-            if live[index] == self.native_dialogs_live[index] {
-                continue;
+            let change = self.native_dialogs_seen[index].change_to(states[index]);
+            self.native_dialogs_seen[index] = states[index];
+            if change.closed {
+                changed = true;
+                self.shell.native_dialog_closed(dialog);
             }
-            changed = true;
-            self.native_dialogs_live[index] = live[index];
-            if live[index] {
+            if change.spawned {
+                changed = true;
                 dialog_hook::log_replaced_dialog_controls(first_dialog, dialog);
                 self.shell.native_dialog_spawned(dialog);
-            } else {
-                self.shell.native_dialog_closed(dialog);
             }
         }
         changed
@@ -933,7 +936,7 @@ impl OverlayState {
     /// The rect is logged whenever it moves, children and all, which is what to check the square
     /// against when a layout of the game's puts the minimap somewhere new.
     fn minimap_rect(&mut self, bw: &BwVars) -> Option<Rect> {
-        let dialog = bw::iter_dialogs(bw.first_dialog)
+        let dialog = bw::iter_dialogs(bw.dialogs.first())
             .find(|dialog| dialog.as_control().string() == console::MINIMAP_DIALOG)?;
         let control = dialog.as_control();
         if control.is_hidden() {
@@ -1086,7 +1089,7 @@ impl OverlayState {
             ui.label("Click to show / hide (Hidden dialogs stay interactable)");
         }
         ui.checkbox(&mut self.dialog_debug_inspect_children, "Inspect children");
-        for dialog in bw::iter_dialogs(bw.first_dialog) {
+        for dialog in bw::iter_dialogs(bw.dialogs.first()) {
             let ctrl = dialog.as_control();
             let name = ctrl.string();
             // (Coordinates are based on 4:3 => 640x480)
@@ -1210,26 +1213,26 @@ impl OverlayState {
                 netcode_v2::with_turn_state(|s| s.request_drop(SlotId(slot)));
             }
             Intent::CloseNativeDialog(dialog) => {
-                dialog_hook::close_replaced_dialog(bw.first_dialog, dialog);
+                dialog_hook::close_replaced_dialog(bw.dialogs.first(), dialog);
             }
             // Both leave a game this client cannot play on any more, its session over or its link
             // given up on, so no other player can be told through the game and the session's own
             // leave handling speaks for it.
             Intent::LeaveGame | Intent::AbandonGame => self.out_state.leave_game = true,
-            Intent::QuitGame => dialog_hook::begin_quit(bw.first_dialog),
+            Intent::QuitGame => dialog_hook::begin_quit(bw.dialogs.first()),
             Intent::SetPaused(paused) => {
-                dialog_hook::set_paused(bw.first_dialog, paused, bw.pause_control)
+                dialog_hook::set_paused(bw.dialogs.first(), paused, bw.pause_control)
             }
             // The game's result is already reported by the time the card is up, so a result dialog
             // that has no End Mission to press is left by ending the game loop instead, rather than
             // keeping the player in a game they asked to leave.
             Intent::EndMission(dialog) => {
-                if !dialog_hook::end_mission(bw.first_dialog, dialog) {
+                if !dialog_hook::end_mission(bw.dialogs.first(), dialog) {
                     self.out_state.leave_game = true;
                 }
             }
-            Intent::OpenGameMenu => dialog_hook::open_game_menu(bw.first_dialog),
-            Intent::OpenObjectives => dialog_hook::open_objectives(bw.first_dialog),
+            Intent::OpenGameMenu => dialog_hook::open_game_menu(bw.dialogs.first()),
+            Intent::OpenObjectives => dialog_hook::open_objectives(bw.dialogs.first()),
             Intent::Seek(frame) => {
                 self.last_requested_seek = Some(frame);
                 replay_commands.push(ReplayCommand::Seek { frame });
