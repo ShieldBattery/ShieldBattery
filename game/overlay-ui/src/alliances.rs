@@ -85,6 +85,8 @@ pub const APPLY_KEY: &str = "Enter";
 /// What the screen shows of one other player in the game.
 #[derive(Clone, PartialEq, Debug)]
 pub struct AlliancePlayerView {
+    /// The game's fixed team number. Zero means the game has no assigned teams.
+    pub team: u8,
     /// Their ShieldBattery account, which mute, block and report are kept against. `None` for a
     /// computer, which none of those apply to.
     pub user_id: Option<u32>,
@@ -209,7 +211,7 @@ impl ChatTargetOption {
 /// Everything the screen needs to draw itself.
 #[derive(Clone, PartialEq, Debug)]
 pub struct AlliancesView {
-    /// Every other player in the game, computers included, in the game's order.
+    /// Every other player in the game, computers included, in team then player-slot order.
     pub players: Vec<AlliancePlayerView>,
     /// Whether this game lets the player change their alliances and shared vision at all.
     pub alliances_open: bool,
@@ -521,7 +523,16 @@ fn draw_table(
         return anchors;
     }
     let last = view.players.len() - 1;
+    let divided = observer::teams_worth_dividing(view.players.iter().map(|player| player.team));
+    let mut team = view.players[0].team;
     for (index, player) in view.players.iter().enumerate() {
+        if divided && team != player.team {
+            ui.add_space(theme::SPACE_SM);
+            widgets::divider(ui);
+            ui.add_space(theme::SPACE_SM);
+        }
+        team = player.team;
+        let ruled = index != last && (!divided || view.players[index + 1].team == team);
         let menu_open = player.user_id.is_some_and(|user_id| {
             matches!(
                 menu,
@@ -531,7 +542,7 @@ fn draw_table(
         });
         let more = ui
             .push_id(("sb_alliances_row", index), |ui| {
-                draw_row(ui, view, player, menu_open, index != last, outcome)
+                draw_row(ui, view, player, menu_open, ruled, outcome)
             })
             .inner;
         if let (Some(user_id), Some(more)) = (player.user_id, more) {
@@ -1157,6 +1168,7 @@ mod tests {
 
     fn player(user_id: u32, name: &str) -> AlliancePlayerView {
         AlliancePlayerView {
+            team: 0,
             user_id: Some(user_id),
             name: name.to_string(),
             color: theme::player_color(user_id as usize),
@@ -1286,6 +1298,7 @@ mod tests {
 
     fn diplomacy_view() -> AlliancesView {
         let player = |player_id: u8, allied: bool| AlliancePlayerView {
+            team: 0,
             user_id: Some(u32::from(player_id)),
             name: format!("player {player_id}"),
             color: Color32::WHITE,

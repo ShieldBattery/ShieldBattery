@@ -333,7 +333,7 @@ fn rows(k: &Knobs) -> Vec<Row> {
 pub fn build_view(k: &Knobs, state: &State) -> AlliancesView {
     let count = (k.players as usize).min(NAMES.len());
     let rows = rows(k);
-    let players = rows
+    let mut players = rows
         .iter()
         .map(|row| {
             let name = if k.long_name && row.index == 1 {
@@ -366,6 +366,11 @@ pub fn build_view(k: &Knobs, state: &State) -> AlliancesView {
                 _ => ReportState::None,
             };
             AlliancePlayerView {
+                team: if k.team_game {
+                    if row.teammate { 1 } else { 2 }
+                } else {
+                    0
+                },
                 user_id: Some(row.user_id),
                 name: name.to_string(),
                 color: theme::player_color(row.index + 1),
@@ -397,6 +402,7 @@ pub fn build_view(k: &Knobs, state: &State) -> AlliancesView {
             (0..(k.computers as usize).min(COMPUTER_NAMES.len())).map(|index| {
                 let slot = count + index;
                 AlliancePlayerView {
+                    team: if k.team_game { 2 } else { 0 },
                     user_id: None,
                     name: COMPUTER_NAMES[index].to_string(),
                     color: theme::player_color(slot + 1),
@@ -410,6 +416,7 @@ pub fn build_view(k: &Knobs, state: &State) -> AlliancesView {
             }),
         )
         .collect::<Vec<_>>();
+    players.sort_by_key(|player| player.team);
 
     let mut chat_targets = vec![ChatTargetOption {
         choice: ChatTargetChoice::All,
