@@ -2,9 +2,8 @@ import * as React from 'react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { useMutation, useQuery } from 'urql'
+import { useQuery } from 'urql'
 import { useRoute } from 'wouter'
-import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { GameType, gameTypeToLabel } from '../../common/games/game-type'
 import {
   ALL_MAP_PAGE_SUB_PAGES,
@@ -66,6 +65,7 @@ import {
   updateMap,
 } from './action-creators'
 import { DescriptionForm, NameForm } from './map-details'
+import { useToggleMapFavorite } from './map-favorites'
 import { MapFileImage } from './map-image'
 import { MapLiveGames, MapOpenLobbies, MapRecentGames } from './map-page-activity'
 import { MapGamesPage } from './map-page-games'
@@ -735,26 +735,6 @@ const MapPage_ActionsFragment = graphql(/* GraphQL */ `
   }
 `)
 
-const MapAddFavoriteMutation = graphql(/* GraphQL */ `
-  mutation MapPageAddFavorite($id: SbMapId!) {
-    mapAddFavorite(id: $id) {
-      id
-      isFavorited
-      favoriteCount
-    }
-  }
-`)
-
-const MapRemoveFavoriteMutation = graphql(/* GraphQL */ `
-  mutation MapPageRemoveFavorite($id: SbMapId!) {
-    mapRemoveFavorite(id: $id) {
-      id
-      isFavorited
-      favoriteCount
-    }
-  }
-`)
-
 const ActionRow = styled.div`
   display: flex;
   flex-wrap: wrap;
@@ -809,9 +789,7 @@ function MapActions({
   const lobbyMapId = useAppSelector(s => s.lobby.info.map?.id)
   const isLobbyHost = IS_ELECTRON && inLobby && !!selfUser && lobbyHostId === selfUser.id
 
-  const [, addFavorite] = useMutation(MapAddFavoriteMutation)
-  const [, removeFavorite] = useMutation(MapRemoveFavoriteMutation)
-  const [favoritePending, setFavoritePending] = useState(false)
+  const [toggleFavorite, favoritePending] = useToggleMapFavorite()
 
   const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'top')
   const [menuOpen, openMenu, closeMenu] = usePopoverController({ refreshAnchorPos })
@@ -848,50 +826,6 @@ function MapActions({
         },
       ),
     )
-  }
-
-  const onToggleFavorite = () => {
-    if (!selfUser) {
-      redirectToLogin(push)
-      return
-    }
-    if (favoritePending) {
-      return
-    }
-
-    const wasFavorited = map.isFavorited
-    setFavoritePending(true)
-    const request = wasFavorited ? removeFavorite({ id: map.id }) : addFavorite({ id: map.id })
-    request
-      .then(result => {
-        if (result.error) {
-          showError(
-            wasFavorited
-              ? t(
-                  'maps.server.favorites.removedError',
-                  'An error occurred while removing from favorites',
-                )
-              : t(
-                  'maps.server.favorites.addedError',
-                  'An error occurred while adding to favorites',
-                ),
-          )
-          return
-        }
-        // Keeps the map thumbnails elsewhere in the app, which read favorites from Redux, in sync.
-        if (wasFavorited) {
-          dispatch({ type: '@maps/removeFromFavorites', payload: map.id })
-        } else {
-          dispatch({ type: '@maps/addToFavorites', payload: map.id })
-        }
-        snackbarController.showSnackbar(
-          wasFavorited
-            ? t('maps.server.favorites.removed', 'Removed from favorites')
-            : t('maps.server.favorites.added', 'Added to favorites'),
-        )
-      })
-      .finally(() => setFavoritePending(false))
-      .catch(swallowNonBuiltins)
   }
 
   const onCopyLink = () => {
@@ -993,7 +927,7 @@ function MapActions({
           icon={<MaterialIcon icon='star' filled={map.isFavorited} />}
           ariaLabel={favoriteLabel}
           disabled={favoritePending}
-          onClick={onToggleFavorite}
+          onClick={() => toggleFavorite(map)}
         />
       </Tooltip>
       <Tooltip text={t('maps.thumbnail.downloadMap', 'Download')} position='bottom' tabIndex={-1}>
