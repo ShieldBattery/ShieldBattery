@@ -3398,20 +3398,13 @@
     },
     "alias": {
       "aliasOf": "Your alias for {{name}}",
-      "createAction": "Create alias",
-      "createTitle": "Create alias",
       "editAction": "Edit alias",
-      "editTitle": "Edit alias",
       "errors": {
-        "ownName": "That's already their name.",
-        "pattern": "Alias contains characters a name can’t",
-        "required": "Enter an alias"
+        "pattern": "Alias contains characters a name can’t"
       },
-      "explanation": "Show this alias alongside {{name}} on ShieldBattery, including in games. Only you can see it. You can give the same alias to several accounts.",
-      "label": "Alias",
-      "removeAction": "Remove alias",
-      "removed": "Removed your alias for {{name}}",
-      "saved": "{{name}} will be shown as {{alias}}"
+      "inlineHint": "Only you see this alias. Clear it to show the original name.",
+      "inputLabel": "Local alias",
+      "saveAction": "Save alias"
     },
     "availability": {
       "away": "Away",

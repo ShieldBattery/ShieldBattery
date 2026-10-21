@@ -171,9 +171,6 @@ const ShieldBatteryHealthDialog = React.lazy(async () => ({
 const StarcraftHealthCheckupDialog = React.lazy(async () => ({
   default: (await import('../starcraft/starcraft-health')).StarcraftHealthCheckupDialog,
 }))
-const UserAliasDialog = React.lazy(async () => ({
-  default: (await import('../users/user-alias-dialog')).UserAliasDialog,
-}))
 const RemoveUserAvatarDialog = React.lazy(async () => ({
   default: (await import('../users/remove-user-avatar-dialog')).RemoveUserAvatarDialog,
 }))
@@ -310,8 +307,6 @@ function getDialog(dialogType: DialogType): {
       return { component: TermsOfServiceDialog }
     case DialogType.TwitchRemoveLiveStreamConfirmation:
       return { component: TwitchRemoveLiveStreamConfirmation }
-    case DialogType.UserAlias:
-      return { component: UserAliasDialog }
     default:
       return dialogType satisfies never
   }

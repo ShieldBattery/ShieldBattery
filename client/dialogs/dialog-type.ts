@@ -69,7 +69,6 @@ export enum DialogType {
   StarcraftHealth = 'starcraftHealth',
   TermsOfService = 'termsOfService',
   TwitchRemoveLiveStreamConfirmation = 'twitchRemoveLiveStreamConfirmation',
-  UserAlias = 'userAlias',
 }
 
 type BaseDialogPayload<D, DataType = undefined> = DataType extends undefined
@@ -398,12 +397,6 @@ type RemoveUserAvatarDialogPayload = BaseDialogPayload<
     userId: SbUserId
   }
 >
-type UserAliasDialogPayload = BaseDialogPayload<
-  typeof DialogType.UserAlias,
-  {
-    userId: SbUserId
-  }
->
 type RenamePlaylistDialogPayload = BaseDialogPayload<
   typeof DialogType.RenamePlaylist,
   {
@@ -506,7 +499,6 @@ export type DialogPayload =
   | PrivacyPolicyDialogPayload
   | RemoveUserAvatarDialogPayload
   | RenamePlaylistDialogPayload
-  | UserAliasDialogPayload
   | ReplayInfoDialogPayload
   | ReplayLoadDialogPayload
   | ReportGameDialogPayload
