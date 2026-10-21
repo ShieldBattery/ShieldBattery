@@ -33,6 +33,7 @@ import { FilterChip } from '../material/filter-chip'
 import { SelectableMenuItem } from '../material/menu/selectable-item'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { TextField } from '../material/text-field'
+import { useCurrentMinuteMs } from '../react/date-hooks'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { labelLarge, labelMedium } from '../styles/typography'
 import { resolveDateRangeMs } from './day-header'
@@ -764,7 +765,7 @@ function DateFiltersPanel({ startDate, endDate, onApply }: DateFiltersPanelProps
     },
   })
 
-  const today = new Date()
+  const today = new Date(useCurrentMinuteMs())
 
   return (
     <FilterPanelContainer>

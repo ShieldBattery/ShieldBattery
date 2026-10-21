@@ -27,6 +27,7 @@ import { Popover, PopoverProps } from '../material/popover'
 import { Tooltip } from '../material/tooltip'
 import { useIsNavigationAvailable } from '../navigation/navigation-available'
 import { LoadingDotsArea } from '../progress/dots'
+import { useCurrentMinuteMs } from '../react/date-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { FriendActivityStatusLine } from '../social/friend-activity-status'
 import {
@@ -464,7 +465,8 @@ function RankDisplay({
   season: ReadonlyDeep<MatchmakingSeasonJson>
 }) {
   const { t } = useTranslation()
-  const bonusPool = getTotalBonusPoolForSeason(new Date(), season)
+  const currentMinuteMs = useCurrentMinuteMs()
+  const bonusPool = getTotalBonusPoolForSeason(new Date(currentMinuteMs), season)
   const division = ladderPlayerToMatchmakingDivision(ladderPlayer, bonusPool)
   const divisionLabel = matchmakingDivisionToLabel(division, t)
 

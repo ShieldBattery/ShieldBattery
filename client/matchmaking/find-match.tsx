@@ -35,7 +35,7 @@ import { Ripple } from '../material/ripple'
 import { Tooltip } from '../material/tooltip'
 import { zIndexSettings } from '../material/zindex'
 import { push } from '../navigation/routing'
-import { useNow } from '../react/date-hooks'
+import { useCurrentMinuteMs, useNow } from '../react/date-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { healthChecked } from '../starcraft/health-checked'
 import {
@@ -1330,7 +1330,8 @@ export function FindMatch() {
 
   // ─── Derived data ────────────────────────────────────────────────────────────
 
-  const bonusPoolSize = season ? getTotalBonusPoolForSeason(new Date(), season) : 0
+  const currentMinuteMs = useCurrentMinuteMs()
+  const bonusPoolSize = season ? getTotalBonusPoolForSeason(new Date(currentMinuteMs), season) : 0
 
   const isTypeEnabled = (type: MatchmakingType): boolean =>
     matchmakingStatus.get(type)?.enabled ?? false

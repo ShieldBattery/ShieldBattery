@@ -16,6 +16,7 @@ import { elevationPlus1 } from '../material/shadows'
 import { TextField } from '../material/text-field'
 import { useRefreshToken } from '../network/refresh-token'
 import { LoadingDotsArea } from '../progress/dots'
+import { useCurrentMinuteMs } from '../react/date-hooks'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import {
@@ -185,13 +186,14 @@ function SignupCodesList() {
     variables: { includeExhausted },
     requestPolicy: 'cache-and-network',
   })
+  const nowMs = useCurrentMinuteMs()
 
   if (error) {
     return <ErrorText>Error loading signup codes: {error.message}</ErrorText>
   }
 
   const codes = data?.signupCodes ?? []
-  const now = new Date()
+  const now = new Date(nowMs)
 
   return (
     <SignupCodesListRoot>

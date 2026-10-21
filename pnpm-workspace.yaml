@@ -7,33 +7,16 @@ minimumReleaseAgeExclude:
   - '@shieldbattery/broodrep'
   - 'nydus'
   - 'nydus-client'
-  # what nydus/nydus-client 5.4.0 require; single versions cleared by hand after reviewing their
-  # diffs (a server heartbeat fix, a client refactor merging its Socket classes)
-  - 'engine.io@6.6.11'
-  - 'engine.io-client@6.6.7'
   # security fast-track: 44.9.1 adds the SPKI blocklist for the compromised eMudhra/emSign
   # intermediates to both Chromium's verifier and the main process's Node TLS; 44.9.3 adds a
   # batch of Chromium/V8 security backports
   - 'electron@44.9.3'
-  # dev-only translation extractor, exact-pinned; its releases are frequent and never reach
-  # production
-  - 'i18next-cli'
-  # build-time only (React Compiler for the client builds); a single version cleared by hand
-  - 'oxc-transform-react@0.151.0'
-  # its native bindings, which it pins to its own exact version
-  - '@oxc-transform-react/*'
-  # oxc's linter and formatter, exact-pinned; dev-only, and each pins its native bindings to its
-  # own version
-  - 'oxlint@1.85.0'
-  - '@oxlint/*'
-  - 'oxfmt@0.70.0'
-  - '@oxfmt/*'
 
 peerDependencyRules:
   allowedVersions:
-    # plugin-react's caret range on a 0.x version admits only 0.145.x, but it calls nothing that
-    # changed since; 0.145.0 and 0.151.0 compile our client identically
-    '@vitejs/plugin-react>oxc-transform-react': 0.151.0
+    # plugin-react's caret range on a 0.x version admits only 0.152.x, but it calls nothing that
+    # changed since; 0.151.0 and 0.154.0 compile our client identically
+    '@vitejs/plugin-react>oxc-transform-react': 0.154.0
 
 overrides:
   '@types/node': 24.13.3

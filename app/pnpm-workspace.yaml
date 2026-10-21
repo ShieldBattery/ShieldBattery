@@ -6,9 +6,6 @@ minimumReleaseAge: 10080
 # first-party packages we publish ourselves don't need the quarantine
 minimumReleaseAgeExclude:
   - '@shieldbattery/broodrep'
-  # manually-vetted exception; the exact version pin in package.json keeps resolution from
-  # drifting to a fresh release without a deliberate edit
-  - better-sqlite3
 
 overrides:
   '@types/node': 24.13.3

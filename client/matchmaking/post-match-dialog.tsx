@@ -260,8 +260,9 @@ function RatedUserContent({
 }) {
   const { t } = useTranslation()
   const pageInView = usePageInView()
+  const [shownAt] = useState(() => new Date())
   const divisionTransitions = useMemo(() => {
-    const bonusPool = getTotalBonusPoolForSeason(new Date(), season)
+    const bonusPool = getTotalBonusPoolForSeason(shownAt, season)
     const startingPoints = mmrChange.points - mmrChange.pointsChange
     const divisions = getDivisionsForPointsChange(
       isSoloType(mmrChange.matchmakingType),
@@ -290,7 +291,7 @@ function RatedUserContent({
 
       return { divisionWithBounds, from, to }
     })
-  }, [mmrChange, season])
+  }, [mmrChange, season, shownAt])
   const [divisionIndex, setDivisionIndex] = useState(0)
 
   const deltaValues = useMemo(

@@ -12,6 +12,7 @@ import {
   NUM_PLACEMENT_MATCHES,
 } from '../../common/matchmaking'
 import { LadderPlayerIcon } from '../matchmaking/rank-icon'
+import { useCurrentMinuteMs } from '../react/date-hooks'
 import { bodyLarge, labelMedium, singleLine, titleLarge, titleMedium } from '../styles/typography'
 
 const RankDisplayRoot = styled.div`
@@ -97,7 +98,8 @@ export function UserRankDisplay({
   season: ReadonlyDeep<MatchmakingSeasonJson>
 }) {
   const { t } = useTranslation()
-  const bonusPool = getTotalBonusPoolForSeason(new Date(), season)
+  const currentMinuteMs = useCurrentMinuteMs()
+  const bonusPool = getTotalBonusPoolForSeason(new Date(currentMinuteMs), season)
   const division = ladderPlayerToMatchmakingDivision(ladderPlayer, bonusPool)
 
   if (division === MatchmakingDivision.Unrated) {

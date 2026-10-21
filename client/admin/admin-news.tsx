@@ -1066,9 +1066,10 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
   // scheduled. Both the scheduled and published cases prefill scheduledAt from the current publish
   // time, so switching to the schedule mode starts from where the post already is.
   const [initialStatus] = useState(() => getPostStatus(post?.publishedAt, Date.now()))
+  const [mountedAt] = useState(() => new Date())
 
   let publishMode: PublishMode = PUBLISH_MODE_DRAFT
-  let scheduledAt = toDateTimeLocalString(new Date())
+  let scheduledAt = toDateTimeLocalString(mountedAt)
   if (initialStatus.kind === 'scheduled') {
     publishMode = PUBLISH_MODE_SCHEDULE
     scheduledAt = toDateTimeLocalString(initialStatus.date)
