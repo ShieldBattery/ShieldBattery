@@ -1,5 +1,13 @@
 import { describe, expect, test } from 'vitest'
-import { mapIdFromRouteSegment, MapPageSubPage, mapSlug, urlForMap } from './map-url'
+import {
+  ALL_MAP_CATALOG_TABS,
+  MapCatalogTab,
+  mapIdFromRouteSegment,
+  MapPageSubPage,
+  mapSlug,
+  urlForMap,
+  urlForMapCatalog,
+} from './map-url'
 import { makeSbMapId } from './maps'
 import { encodePrettyId } from './pretty-id'
 
@@ -45,5 +53,18 @@ describe('common/map-url', () => {
     expect(mapIdFromRouteSegment('polypoid')).toBeUndefined()
     expect(mapIdFromRouteSegment('')).toBeUndefined()
     expect(mapIdFromRouteSegment('5eed0000-0000-0000-0000')).toBeUndefined()
+  })
+
+  test('never reads a catalog tab as a map id', () => {
+    for (const tab of ALL_MAP_CATALOG_TABS) {
+      expect(mapIdFromRouteSegment(tab)).toBeUndefined()
+    }
+  })
+
+  test('builds catalog URLs', () => {
+    expect(urlForMapCatalog(MapCatalogTab.All)).toBe('/maps/all')
+    expect(urlForMapCatalog(MapCatalogTab.Yours, 'lens=ums&q=bound')).toBe(
+      '/maps/yours?lens=ums&q=bound',
+    )
   })
 })
