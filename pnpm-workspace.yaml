@@ -11,6 +11,10 @@ minimumReleaseAgeExclude:
   # diffs (a server heartbeat fix, a client refactor merging its Socket classes)
   - 'engine.io@6.6.11'
   - 'engine.io-client@6.6.7'
+  # security fast-track: 44.9.1 adds the SPKI blocklist for the compromised eMudhra/emSign
+  # intermediates to both Chromium's verifier and the main process's Node TLS; 44.9.3 adds a
+  # batch of Chromium/V8 security backports
+  - 'electron@44.9.3'
   # dev-only translation extractor, exact-pinned; its releases are frequent and never reach
   # production
   - 'i18next-cli'
