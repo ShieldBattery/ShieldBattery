@@ -44,9 +44,8 @@ use crate::games::GamesModule;
 use crate::graphql::errors::ErrorLoggerExtension;
 use crate::graphql::schema_builder::SchemaBuilderModuleExt;
 use crate::maps::MapsModule;
-use crate::maps::api::{UserThrottle, create_maps_api};
+use crate::maps::api::{UploadThrottle, create_maps_api};
 use crate::maps::ingest::MapIngester;
-use crate::maps::local_files::LocalMapFilesRepo;
 use crate::matchmaking::api::create_matchmaking_api;
 use crate::matchmaking::config::load_matchmaker_config;
 use crate::news::NewsModule;
@@ -396,8 +395,6 @@ pub async fn create_app(
         &settings,
     ));
     tokio::spawn(map_ingester.clone().maintenance_loop());
-    let local_map_files = LocalMapFilesRepo::new(db_pool.clone());
-    tokio::spawn(local_map_files.clone().maintenance_loop());
 
     crate::graphql::errors::describe_metrics();
     crate::redis::describe_metrics();
@@ -504,9 +501,7 @@ pub async fn create_app(
         graphql_schema: schema.clone(),
         twitch_client,
         map_ingester,
-        map_upload_throttle: Arc::new(UserThrottle::for_uploads()),
-        local_map_files,
-        map_local_files_throttle: Arc::new(UserThrottle::for_local_files()),
+        map_upload_throttle: Arc::new(UploadThrottle::default()),
     };
 
     Ok(Router::new()

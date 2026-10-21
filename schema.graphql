@@ -87,12 +87,10 @@ type CurrentUser {
 	canChangeDisplayName: Boolean!
 	nextDisplayNameChangeAllowedAt: DateTime
 	"""
-	The maps in this user's library (the maps they uploaded or added), listed or not. With
-	`local`, also (or, with `local.only`, only) the known maps on one of their app installs, as
-	last synced from it. Takes the same arguments as `maps`; `NEWEST` sorts by when each map
-	was added, with maps that are only on the install last.
+	The maps in this user's library (the maps they uploaded), listed or not. Takes the same
+	arguments as `maps`; `NEWEST` sorts by when each map was added.
 	"""
-	mapLibrary(local: LocalMapsInput, filter: MapFilter, sort: MapSort, after: String, first: Int): MapLibraryConnection!
+	mapLibrary(filter: MapFilter, sort: MapSort, after: String, first: Int): MapLibraryConnection!
 	"""
 	The maps this user has favorited, listed or not. Takes the same arguments as `maps`;
 	`NEWEST` sorts by when each map was favorited.
@@ -518,35 +516,6 @@ type LobbyExtra {
 	starcraftCompatibleReplays: Boolean
 }
 
-"""
-Limits a listing of an install's maps to one folder.
-"""
-input LocalFolderInput {
-	"""
-	The folder, relative to one of the app's map roots and prefixed with that root's key.
-	"""
-	path: String!
-	"""
-	Whether maps in the folder's subfolders (at any depth) are included.
-	"""
-	recursive: Boolean!
-}
-
-"""
-Includes the known maps on one of the current user's installs in a library listing.
-"""
-input LocalMapsInput {
-	installId: String!
-	"""
-	List only the maps on the install, leaving out library maps that aren't on it.
-	"""
-	only: Boolean! = false
-	"""
-	Only the maps in this folder (requires `only`).
-	"""
-	folder: LocalFolderInput
-}
-
 type LoginNameAuditEntry {
 	id: UUID!
 	userId: SbUserId!
@@ -773,10 +742,9 @@ type MapLibraryEdge {
 	"""
 	node: SbMap!
 	"""
-	When the map was added to the library. Null for a map that's only on the install the
-	listing includes.
+	When the map was added to the library.
 	"""
-	addedAt: DateTime
+	addedAt: DateTime!
 	"""
 	A cursor for use in pagination
 	"""
@@ -1352,6 +1320,14 @@ type Query {
 	id can differ from the one requested.
 	"""
 	map(id: SbMapId!): SbMap
+	"""
+	Looks up maps by the hashes of their files, listed or not. A file's hash is the
+	hex-encoded SHA-256 of its lowercase extension followed by its contents (the same as
+	`MapFile.id`), so the app can tell which of a user's local map files are already known
+	without uploading them. Hashes that match no map are left out, and the maps come back in
+	no particular order. Takes at most 500 hashes.
+	"""
+	mapsByHash(hashes: [String!]!): [SbMap!]!
 	"""
 	Searches and pages through the listed maps. With a search, sorts by `RELEVANCE` unless
 	told otherwise; without one, by `POPULAR_28D`. Pages are 40 maps unless `first` says

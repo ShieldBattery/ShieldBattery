@@ -9,13 +9,13 @@ use async_graphql::{
 };
 use chrono::{DateTime, Utc};
 use color_eyre::eyre::{self, WrapErr};
+use data_encoding::HEXLOWER_PERMISSIVE;
 use sqlx::PgPool;
 
 use crate::graphql::errors::graphql_error;
-use crate::maps::local_files::LocalMapsInput;
 use crate::maps::search::{
-    DbSbMap, LibrarySource, MapCursor, MapFilter, MapListingError, MapListingPage,
-    MapListingRequest, MapScope, MapSearchRepo, MapSort,
+    DbSbMap, MapCursor, MapFilter, MapListingError, MapListingPage, MapListingRequest, MapScope,
+    MapSearchRepo, MapSort,
 };
 use crate::maps::stats::{
     self, DEFAULT_ACTIVITY_WEEKS, MapMatchupSeason, MapMatchupStats, MapWeeklyActivity,
@@ -361,9 +361,8 @@ pub(crate) async fn resolve_map_id(db: &PgPool, id: SbMapId) -> eyre::Result<Opt
 /// Edge fields for a user's map collections.
 #[derive(SimpleObject, Clone, Debug)]
 pub struct MapLibraryEntry {
-    /// When the map was added to the library. Null for a map that's only on the install the
-    /// listing includes.
-    pub added_at: Option<DateTime<Utc>>,
+    /// When the map was added to the library.
+    pub added_at: DateTime<Utc>,
 }
 
 #[derive(SimpleObject, Clone, Debug)]
@@ -471,32 +470,26 @@ where
     )
 }
 
-/// Pages through the maps in `user_id`'s library and/or the known maps on one of their installs.
+/// Pages through the maps in `user_id`'s library.
 pub async fn load_map_library(
     ctx: &Context<'_>,
     user_id: SbUserId,
-    local: Option<LocalMapsInput>,
     filter: Option<MapFilter>,
     sort: Option<MapSort>,
     after: Option<String>,
     first: Option<i32>,
 ) -> Result<MapLibraryConnection> {
-    let source = match local {
-        Some(local) => local
-            .into_source()
-            .map_err(|e| graphql_error("BAD_REQUEST", e.to_string()))?,
-        None => LibrarySource::Uploaded,
-    };
-    let scope = MapScope::Library(user_id, source);
+    let scope = MapScope::Library(user_id);
     let (request, page) = load_listing(ctx, scope, filter, sort, after, first).await?;
     let mut connection = new_listing_connection(request, &page);
     for row in page.rows {
+        // Library rows always have an `added_at` (the column is NOT NULL); the fallback only
+        // guards against a non-finite stored value.
+        let added_at = row.added_at.unwrap_or(DateTime::<Utc>::UNIX_EPOCH);
         connection.edges.push(Edge::with_additional_fields(
             OpaqueCursor(row.cursor),
             row.map.into(),
-            MapLibraryEntry {
-                added_at: row.added_at,
-            },
+            MapLibraryEntry { added_at },
         ));
     }
     Ok(connection)
@@ -526,6 +519,22 @@ pub async fn load_favorite_maps(
     Ok(connection)
 }
 
+/// The most hashes one `mapsByHash` lookup may carry.
+const MAX_HASH_LOOKUPS: usize = 500;
+
+/// Decodes hex-encoded map file hashes, or returns `None` if any of them isn't one.
+fn decode_map_hashes(hashes: &[String]) -> Option<Vec<Vec<u8>>> {
+    hashes
+        .iter()
+        .map(|hash| {
+            HEXLOWER_PERMISSIVE
+                .decode(hash.as_bytes())
+                .ok()
+                .filter(|bytes| bytes.len() == 32)
+        })
+        .collect()
+}
+
 #[derive(Default)]
 pub struct MapsQuery;
 
@@ -539,6 +548,37 @@ impl MapsQuery {
             return Ok(None);
         };
         ctx.data::<DataLoader<SbMapLoader>>()?.load_one(id).await
+    }
+
+    /// Looks up maps by the hashes of their files, listed or not. A file's hash is the
+    /// hex-encoded SHA-256 of its lowercase extension followed by its contents (the same as
+    /// `MapFile.id`), so the app can tell which of a user's local map files are already known
+    /// without uploading them. Hashes that match no map are left out, and the maps come back in
+    /// no particular order. Takes at most 500 hashes.
+    async fn maps_by_hash(&self, ctx: &Context<'_>, hashes: Vec<String>) -> Result<Vec<SbMap>> {
+        require_current_user(ctx)?;
+        if hashes.len() > MAX_HASH_LOOKUPS {
+            return Err(graphql_error(
+                "BAD_REQUEST",
+                format!("at most {MAX_HASH_LOOKUPS} hashes can be looked up at once"),
+            ));
+        }
+        let hashes = decode_map_hashes(&hashes)
+            .ok_or_else(|| graphql_error("BAD_REQUEST", "invalid map hash"))?;
+
+        let repo = ctx.data::<MapSearchRepo>()?;
+        let ids = sqlx::query_scalar!(
+            r#"SELECT id as "id: SbMapId" FROM maps WHERE hash = ANY($1::bytea[])"#,
+            &hashes,
+        )
+        .fetch_all(repo.db())
+        .await
+        .wrap_err("Failed to look up maps by hash")?;
+        let maps = ctx
+            .data::<DataLoader<SbMapLoader>>()?
+            .load_many(ids)
+            .await?;
+        Ok(maps.into_values().collect())
     }
 
     /// Searches and pages through the listed maps. With a search, sorts by `RELEVANCE` unless
@@ -779,5 +819,18 @@ mod tests {
                 },
             })
         );
+    }
+
+    #[test]
+    fn map_hashes_decode_from_64_hex_characters() {
+        let hex = "ab".repeat(32);
+        assert_eq!(
+            decode_map_hashes(&[hex.clone(), hex.to_uppercase()]),
+            Some(vec![vec![0xab; 32], vec![0xab; 32]])
+        );
+        assert_eq!(decode_map_hashes(&["ab".repeat(31)]), None);
+        assert_eq!(decode_map_hashes(&["zz".repeat(32)]), None);
+        assert_eq!(decode_map_hashes(&[hex, "".to_string()]), None);
+        assert_eq!(decode_map_hashes(&[]), Some(vec![]));
     }
 }

@@ -12,34 +12,6 @@ export interface CheckAllowedNameResponse {
   reason?: RestrictedNameReason
 }
 
-export interface CheckLocalMapFilesRequest {
-  hashes: string[]
-}
-
-export interface KnownMapFile {
-  hash: string
-  mapId: TypeshareTypes.SbMapId
-}
-
-export interface CheckLocalMapFilesResponse {
-  /** The requested hashes that match a map, in no particular order. */
-  known: KnownMapFile[]
-}
-
-/** One file in an install's map folders. */
-export interface LocalMapFileEntry {
-  /**
-   * The hex-encoded SHA-256 of the file's lowercase extension followed by its contents (the
-   * same as `MapFile.id`).
-   */
-  hash: string
-  /**
-   * The file's folder, relative to one of the app's map roots and prefixed with that root's key
-   * (e.g. `documents/Download/UMS`).
-   */
-  folder: string
-}
-
 /**
  * All of the matchmaking types that we support. These values match the enum values used in the
  * database.
@@ -106,30 +78,6 @@ export interface SbPermissions {
   manageRestrictedNames: boolean
   manageSignupCodes: boolean
   manageLiveStreams: boolean
-}
-
-/** Brings the server's copy of an install's map folders up to date. */
-export interface SyncLocalMapFilesRequest {
-  installId: string
-  /**
-   * Deletes every file the server holds for the install before applying `removes` and `adds`.
-   * The first request of a full resync sets it.
-   */
-  reset?: boolean
-  removes?: LocalMapFileEntry[]
-  adds?: LocalMapFileEntry[]
-}
-
-export interface SyncLocalMapFilesResponse {
-  /** The hashes in `adds` that match no map. They aren't stored. */
-  unknownHashes: string[]
-  /**
-   * The digest of every file the server now holds for the install: the hex-encoded SHA-256 of
-   * one `{hash}\t{folder}\n` line per file, sorted by their UTF-8 bytes. The app compares it
-   * with its own and resyncs in full if they differ.
-   */
-  digest: string
-  fileCount: number
 }
 
 export interface UploadMapResponse {

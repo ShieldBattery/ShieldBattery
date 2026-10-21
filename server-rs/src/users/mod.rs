@@ -36,7 +36,6 @@ use crate::email::{
 use crate::file_store::FileStore;
 use crate::graphql::errors::graphql_error;
 use crate::graphql::schema_builder::SchemaBuilderModule;
-use crate::maps::local_files::LocalMapsInput;
 use crate::maps::search::{MapFilter, MapSort};
 use crate::maps::{
     FavoriteMapConnection, MapLibraryConnection, load_favorite_maps, load_map_library,
@@ -281,20 +280,17 @@ impl CurrentUser {
             .map(|t| t + DISPLAY_NAME_CHANGE_COOLDOWN))
     }
 
-    /// The maps in this user's library (the maps they uploaded or added), listed or not. With
-    /// `local`, also (or, with `local.only`, only) the known maps on one of their app installs, as
-    /// last synced from it. Takes the same arguments as `maps`; `NEWEST` sorts by when each map
-    /// was added, with maps that are only on the install last.
+    /// The maps in this user's library (the maps they uploaded), listed or not. Takes the same
+    /// arguments as `maps`; `NEWEST` sorts by when each map was added.
     async fn map_library(
         &self,
         ctx: &Context<'_>,
-        local: Option<LocalMapsInput>,
         filter: Option<MapFilter>,
         sort: Option<MapSort>,
         after: Option<String>,
         first: Option<i32>,
     ) -> Result<MapLibraryConnection> {
-        load_map_library(ctx, self.id, local, filter, sort, after, first).await
+        load_map_library(ctx, self.id, filter, sort, after, first).await
     }
 
     /// The maps this user has favorited, listed or not. Takes the same arguments as `maps`;

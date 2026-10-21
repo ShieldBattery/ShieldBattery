@@ -15,7 +15,6 @@ use sqlx::postgres::PgRow;
 use sqlx::{FromRow, PgPool, Postgres, QueryBuilder, Row};
 use uuid::Uuid;
 
-use crate::maps::local_files::{InstallId, LocalFolderFilter};
 use crate::maps::{MapHash, SbMapId};
 use crate::users::SbUserId;
 
@@ -137,36 +136,21 @@ pub struct MapFilter {
 }
 
 /// Which set of maps a listing pages through.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum MapScope {
     /// Every listed map.
     Listed,
-    /// A user's library and/or the known maps on one of their installs, listed or not.
-    Library(SbUserId, LibrarySource),
+    /// A user's library, listed or not.
+    Library(SbUserId),
     /// A user's favorites, listed or not.
     Favorites(SbUserId),
 }
 
-/// Which of a user's maps a library listing holds.
-#[derive(Debug, Clone, Eq, PartialEq, Serialize)]
-pub enum LibrarySource {
-    /// The maps in the library.
-    Uploaded,
-    /// The maps in the library plus the known maps on an install.
-    WithLocal(InstallId),
-    /// Only the known maps on an install, optionally only those in one folder.
-    Local(InstallId, Option<LocalFolderFilter>),
-}
-
 impl MapScope {
-    fn cursor_tag(&self) -> String {
+    fn cursor_tag(self) -> String {
         match self {
             MapScope::Listed => "listed".to_string(),
-            MapScope::Library(user_id, LibrarySource::Uploaded) => format!("library:{user_id}"),
-            MapScope::Library(user_id, source) => format!(
-                "library:{user_id}:{}",
-                serde_json::to_string(source).expect("library sources are always serializable")
-            ),
+            MapScope::Library(user_id) => format!("library:{user_id}"),
             MapScope::Favorites(user_id) => format!("favorites:{user_id}"),
         }
     }
@@ -352,7 +336,7 @@ impl NormalizedFilter {
 
     /// A hash of everything that determines which rows a listing contains, so a cursor can only
     /// continue the listing it came from.
-    fn listing_hash(&self, scope: &MapScope) -> String {
+    fn listing_hash(&self, scope: MapScope) -> String {
         let json = serde_json::to_vec(&(scope.cursor_tag(), self))
             .expect("normalized filters are always serializable");
         let digest = Sha256::digest(&json);
@@ -600,7 +584,7 @@ impl MapListingRequest {
 
         let filter = NormalizedFilter::new(filter.unwrap_or_default())?;
         let sort = sort.unwrap_or_else(|| filter.default_sort());
-        let listing_hash = filter.listing_hash(&scope);
+        let listing_hash = filter.listing_hash(scope);
         let after = after
             .map(|after| {
                 OpaqueCursor::<MapCursor>::decode_cursor(after)
@@ -631,7 +615,7 @@ impl MapListingRequest {
         let keys = sort_keys(self.sort);
         push_key_columns(&mut qb, keys);
         qb.push(" FROM (");
-        push_candidates(&mut qb, &self.scope, &self.filter);
+        push_candidates(&mut qb, self.scope, &self.filter);
         qb.push(") c");
         if self.filter.search.is_some() {
             qb.push(" WHERE c.rank > 0");
@@ -646,7 +630,7 @@ impl MapListingRequest {
     /// Counts every row of the listing, ignoring the cursor and page size.
     fn build_count_query(&self) -> QueryBuilder<Postgres> {
         let mut qb = QueryBuilder::new("SELECT count(*) FROM (");
-        push_candidates(&mut qb, &self.scope, &self.filter);
+        push_candidates(&mut qb, self.scope, &self.filter);
         qb.push(") c");
         if self.filter.search.is_some() {
             qb.push(" WHERE c.rank > 0");
@@ -726,10 +710,10 @@ fn push_sort_keys(qb: &mut QueryBuilder<Postgres>, keys: &[SortKey], after: Opti
 
 /// Emits the candidate rows: every map in `scope` that passes `filter`, with the columns of
 /// [`DbSbMap`] plus `sort_name`, `rank` and `added_at` for sorting.
-fn push_candidates(qb: &mut QueryBuilder<Postgres>, scope: &MapScope, filter: &NormalizedFilter) {
+fn push_candidates(qb: &mut QueryBuilder<Postgres>, scope: MapScope, filter: &NormalizedFilter) {
     let added_at = match scope {
         MapScope::Listed => "m.published_at",
-        MapScope::Library(..) => "l.added_at",
+        MapScope::Library(_) => "l.added_at",
         MapScope::Favorites(_) => "fm.favorited_date",
     };
     qb.push("SELECT ");
@@ -748,15 +732,9 @@ fn push_candidates(qb: &mut QueryBuilder<Postgres>, scope: &MapScope, filter: &N
 
     match scope {
         MapScope::Listed => {}
-        MapScope::Library(user_id, LibrarySource::Uploaded) => {
+        MapScope::Library(user_id) => {
             qb.push(" JOIN map_library l ON l.map_id = m.id AND l.user_id = ");
             qb.push_bind(user_id.0);
-        }
-        MapScope::Library(user_id, LibrarySource::WithLocal(install_id)) => {
-            push_library_with_local(qb, *user_id, install_id, None, false);
-        }
-        MapScope::Library(user_id, LibrarySource::Local(install_id, folder)) => {
-            push_library_with_local(qb, *user_id, install_id, folder.as_ref(), true);
         }
         MapScope::Favorites(user_id) => {
             qb.push(" JOIN favorited_maps fm ON fm.map_id = m.id AND fm.favorited_by = ");
@@ -770,43 +748,9 @@ fn push_candidates(qb: &mut QueryBuilder<Postgres>, scope: &MapScope, filter: &N
         // Listings of every map only ever show listed maps; a user's own library and favorites
         // include the unlisted maps they hold.
         MapScope::Listed => qb.push("m.listed"),
-        MapScope::Library(..) | MapScope::Favorites(_) => qb.push("TRUE"),
+        MapScope::Library(_) | MapScope::Favorites(_) => qb.push("TRUE"),
     };
     push_filters(qb, filter);
-}
-
-/// Joins (as `l`, with `map_id` and `added_at`) one row per map in `user_id`'s library or among
-/// the known files of an install (in `folder`, if given). With `local_only`, only maps among the
-/// install's files are kept. A map that's only on the install has no `added_at`.
-fn push_library_with_local(
-    qb: &mut QueryBuilder<Postgres>,
-    user_id: SbUserId,
-    install_id: &InstallId,
-    folder: Option<&LocalFolderFilter>,
-    local_only: bool,
-) {
-    qb.push(
-        " JOIN (SELECT u.map_id, max(u.added_at) AS added_at FROM (\
-            SELECT ml.map_id, ml.added_at, false AS local FROM map_library ml \
-            WHERE ml.user_id = ",
-    );
-    qb.push_bind(user_id.0);
-    qb.push(
-        " UNION ALL SELECT lf.map_id, NULL::timestamptz, true FROM map_local_files lf \
-            WHERE lf.user_id = ",
-    );
-    qb.push_bind(user_id.0);
-    qb.push(" AND lf.install_id = ");
-    qb.push_bind(install_id.as_str().to_string());
-    if let Some(folder) = folder {
-        qb.push(" AND ");
-        folder.push_condition(qb, "lf");
-    }
-    qb.push(") u GROUP BY u.map_id");
-    if local_only {
-        qb.push(" HAVING bool_or(u.local)");
-    }
-    qb.push(") l ON l.map_id = m.id");
 }
 
 /// Emits the search rank of `m` for `search`, which is 0 when it doesn't match. Ranks are
@@ -1007,7 +951,6 @@ mod tests {
     use async_graphql::connection::{CursorType, OpaqueCursor};
 
     use super::*;
-    use crate::maps::local_files::LocalFolderInput;
 
     const ALL_SORTS: [MapSort; 10] = [
         MapSort::Relevance,
@@ -1127,16 +1070,16 @@ mod tests {
         })
         .unwrap();
         assert_eq!(
-            a.listing_hash(&MapScope::Listed),
-            b.listing_hash(&MapScope::Listed)
+            a.listing_hash(MapScope::Listed),
+            b.listing_hash(MapScope::Listed)
         );
         assert_ne!(
-            a.listing_hash(&MapScope::Listed),
-            a.listing_hash(&MapScope::Favorites(SbUserId(1)))
+            a.listing_hash(MapScope::Listed),
+            a.listing_hash(MapScope::Favorites(SbUserId(1)))
         );
         assert_ne!(
-            a.listing_hash(&MapScope::Library(SbUserId(1), LibrarySource::Uploaded)),
-            a.listing_hash(&MapScope::Library(SbUserId(2), LibrarySource::Uploaded))
+            a.listing_hash(MapScope::Library(SbUserId(1))),
+            a.listing_hash(MapScope::Library(SbUserId(2)))
         );
     }
 
@@ -1153,7 +1096,7 @@ mod tests {
             v: CURSOR_VERSION,
             sort,
             keys,
-            q: filter.listing_hash(&scope),
+            q: filter.listing_hash(scope),
         }
     }
 
@@ -1239,7 +1182,7 @@ mod tests {
     #[test]
     fn cursor_rejects_malformed_keys() {
         let filter = NormalizedFilter::new(MapFilter::default()).unwrap();
-        let hash = filter.listing_hash(&MapScope::Listed);
+        let hash = filter.listing_hash(MapScope::Listed);
         let base = sample_cursor(MapSort::Name, &filter, MapScope::Listed);
 
         let mut short = base.clone();
@@ -1330,7 +1273,7 @@ mod tests {
             let filter = NormalizedFilter::new(MapFilter::default()).unwrap();
             let cursor = sample_cursor(sort, &filter, MapScope::Listed);
             let bound = cursor
-                .validate(sort, &filter.listing_hash(&MapScope::Listed))
+                .validate(sort, &filter.listing_hash(MapScope::Listed))
                 .unwrap();
             let mut qb = QueryBuilder::<Postgres>::new("");
             push_sort_keys(&mut qb, keys, Some(&bound));
@@ -1377,14 +1320,8 @@ mod tests {
             assert!(sql.as_str().contains(" WHERE m.listed"), "{}", sql.as_str());
         }
 
-        let request = MapListingRequest::new(
-            MapScope::Library(SbUserId(1), LibrarySource::Uploaded),
-            None,
-            None,
-            None,
-            None,
-        )
-        .unwrap();
+        let request =
+            MapListingRequest::new(MapScope::Library(SbUserId(1)), None, None, None, None).unwrap();
         let sql = request.build_query().sql();
         assert!(
             !sql.as_str().contains(" WHERE m.listed"),
@@ -1459,8 +1396,8 @@ mod tests {
         })
         .unwrap();
         assert_ne!(
-            any.listing_hash(&MapScope::Listed),
-            official.listing_hash(&MapScope::Listed)
+            any.listing_hash(MapScope::Listed),
+            official.listing_hash(MapScope::Listed)
         );
     }
 
@@ -1474,95 +1411,22 @@ mod tests {
         };
         for scope in [
             MapScope::Listed,
-            MapScope::Library(SbUserId(1), LibrarySource::Uploaded),
-            MapScope::Library(SbUserId(1), LibrarySource::WithLocal(install("a"))),
-            MapScope::Library(
-                SbUserId(1),
-                LibrarySource::Local(install("a"), Some(folder("documents/UMS", true))),
-            ),
+            MapScope::Library(SbUserId(1)),
             MapScope::Favorites(SbUserId(1)),
         ] {
             let request =
-                MapListingRequest::new(scope.clone(), Some(filter.clone()), None, None, None)
-                    .unwrap();
+                MapListingRequest::new(scope, Some(filter.clone()), None, None, None).unwrap();
             let listing = request.build_query().sql().as_str().to_string();
             let count = request.build_count_query().sql().as_str().to_string();
 
             let mut candidates = QueryBuilder::<Postgres>::new("");
-            push_candidates(&mut candidates, &scope, &request.filter);
+            push_candidates(&mut candidates, scope, &request.filter);
             let candidates = candidates.sql().as_str().to_string();
             assert!(listing.contains(&candidates), "{listing}");
             assert!(count.contains(&candidates), "{count}");
             assert!(count.ends_with(") c WHERE c.rank > 0"), "{count}");
             assert!(!count.contains("LIMIT"), "{count}");
         }
-    }
-
-    fn install(id: &str) -> InstallId {
-        InstallId::parse(id).unwrap()
-    }
-
-    fn folder(path: &str, recursive: bool) -> LocalFolderFilter {
-        LocalFolderFilter::new(LocalFolderInput {
-            path: path.to_string(),
-            recursive,
-        })
-        .unwrap()
-    }
-
-    #[test]
-    fn library_sources_change_the_listing_hash() {
-        let filter = NormalizedFilter::new(MapFilter::default()).unwrap();
-        let scopes = [
-            LibrarySource::Uploaded,
-            LibrarySource::WithLocal(install("a")),
-            LibrarySource::WithLocal(install("b")),
-            LibrarySource::Local(install("a"), None),
-            LibrarySource::Local(install("a"), Some(folder("documents/UMS", false))),
-            LibrarySource::Local(install("a"), Some(folder("documents/UMS", true))),
-            LibrarySource::Local(install("a"), Some(folder("documents/Melee", true))),
-        ]
-        .map(|source| filter.listing_hash(&MapScope::Library(SbUserId(1), source)));
-        for (i, a) in scopes.iter().enumerate() {
-            for b in &scopes[i + 1..] {
-                assert_ne!(a, b);
-            }
-        }
-    }
-
-    fn candidates_sql(source: LibrarySource) -> String {
-        let filter = NormalizedFilter::new(MapFilter::default()).unwrap();
-        let mut qb = QueryBuilder::<Postgres>::new("");
-        push_candidates(&mut qb, &MapScope::Library(SbUserId(1), source), &filter);
-        qb.sql().as_str().to_string()
-    }
-
-    #[test]
-    fn library_with_local_unions_the_install_files() {
-        let sql = candidates_sql(LibrarySource::WithLocal(install("a")));
-        assert!(sql.contains("FROM map_library ml"), "{sql}");
-        assert!(sql.contains("UNION ALL"), "{sql}");
-        assert!(sql.contains("FROM map_local_files lf"), "{sql}");
-        assert!(
-            sql.contains("GROUP BY u.map_id) l ON l.map_id = m.id"),
-            "{sql}"
-        );
-        assert!(!sql.contains("HAVING"), "{sql}");
-        assert!(!sql.contains("lf.folder"), "{sql}");
-    }
-
-    #[test]
-    fn local_only_keeps_maps_on_the_install() {
-        let sql = candidates_sql(LibrarySource::Local(install("a"), None));
-        assert!(sql.contains("HAVING bool_or(u.local)"), "{sql}");
-        assert!(!sql.contains("lf.folder"), "{sql}");
-
-        let sql = candidates_sql(LibrarySource::Local(
-            install("a"),
-            Some(folder("documents/UMS", true)),
-        ));
-        assert!(sql.contains("HAVING bool_or(u.local)"), "{sql}");
-        assert!(sql.contains("lower(lf.folder) LIKE"), "{sql}");
     }
 
     #[test]

@@ -29,7 +29,6 @@ mod analysis;
 pub mod api;
 mod catalog;
 pub mod ingest;
-pub mod local_files;
 pub mod parse;
 pub mod render;
 pub mod search;

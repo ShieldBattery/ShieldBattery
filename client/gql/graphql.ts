@@ -947,7 +947,7 @@ export type MapSearchTestLibraryQuery = {
       pageInfo: { hasNextPage: boolean; endCursor: string | null }
       edges: Array<{
         cursor: string
-        addedAt: string | null
+        addedAt: string
         node: { ' $fragmentRefs'?: { MapSearchTest_MapFragment: MapSearchTest_MapFragment } }
       }>
     }
@@ -1084,7 +1084,7 @@ export type MapCatalogLibraryQuery = {
       pageInfo: { hasNextPage: boolean; endCursor: string | null }
       edges: Array<{
         cursor: string
-        addedAt: string | null
+        addedAt: string
         node: { id: Types.SbMapId } & {
           ' $fragmentRefs'?: { MapTile_SbMapFragmentFragment: MapTile_SbMapFragmentFragment }
         }
