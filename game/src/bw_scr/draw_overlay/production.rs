@@ -431,11 +431,24 @@ pub(super) fn selected_upgrades(unit: Unit, bw: &BwVars) -> Vec<UnitUpgradeView>
                 name,
                 base: weapon.damage(),
                 bonus: weapon.bonus().saturating_mul(u32::from(level)),
-                hits: weapon.factor(),
+                hits: weapon_hits(id, weapon),
             }]),
         });
     }
     chips
+}
+
+/// How many times a unit's weapon deals its damage per attack, as the game's own damage tooltip
+/// counts it: weapons.dat's factor, except that the tooltip names its own count for a few units.
+/// Firebats and zealots, and their heroes, hit twice, which their weapons' factor doesn't say, and a
+/// valkyrie's volley counts as a single hit.
+fn weapon_hits(unit: UnitId, weapon: WeaponId) -> u32 {
+    use bw_dat::unit::{FENIX_ZEALOT, FIREBAT, GUI_MONTAG, VALKYRIE, ZEALOT};
+    match unit {
+        FIREBAT | GUI_MONTAG | ZEALOT | FENIX_ZEALOT => 2,
+        VALKYRIE => 1,
+        _ => weapon.factor(),
+    }
 }
 
 /// The upgrade units.dat names as the armor upgrade of everything with no armor to upgrade: every
