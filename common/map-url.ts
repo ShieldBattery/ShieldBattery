@@ -13,6 +13,25 @@ export enum MapPageSubPage {
 export const ALL_MAP_PAGE_SUB_PAGES: ReadonlyArray<MapPageSubPage> = Object.values(MapPageSubPage)
 
 /**
+ * Tabs of the map catalog, as the path segment after `/maps`. None of these can be read as a map
+ * id (see {@link mapIdFromRouteSegment}), so they share the `/maps/:segment` namespace with map
+ * pages.
+ */
+export enum MapCatalogTab {
+  All = 'all',
+  Yours = 'yours',
+  Favorites = 'favorites',
+}
+
+export const ALL_MAP_CATALOG_TABS: ReadonlyArray<MapCatalogTab> = Object.values(MapCatalogTab)
+
+/** Returns the URL of a map catalog tab, with an optional query string (without the `?`). */
+export function urlForMapCatalog(tab: MapCatalogTab, search?: string): string {
+  const base = urlPath`/maps/${tab}`
+  return search ? `${base}?${search}` : base
+}
+
+/**
  * Returns the URL slug for a map's name. The slug is decorative: map pages look maps up by the id
  * segment only, then replace a slug that doesn't match this one. The server's page metadata and the
  * client must agree on it, or a map page would keep redirecting to itself.

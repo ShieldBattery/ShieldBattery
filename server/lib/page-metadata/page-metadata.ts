@@ -47,6 +47,12 @@ const ROUTES: ReadonlyArray<RouteDefinition> = [
   { pattern: '/users/:id/*?', resolver: userPageMetadata },
   { pattern: '/games/:id/*?', resolver: gamePageMetadata },
   { pattern: '/lobbies/:id/*?', resolver: lobbyPageMetadata },
+  // Before the map page pattern, which would otherwise read the tab as a map id
+  staticRoute(
+    '/maps/all',
+    'ShieldBattery Maps',
+    'Browse StarCraft: Brood War maps on ShieldBattery, with stats from every game played on them.',
+  ),
   { pattern: '/maps/:id/*?', resolver: mapPageMetadata },
   { pattern: '/chat/invite/:token', resolver: channelInvitePageMetadata },
 
