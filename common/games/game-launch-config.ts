@@ -118,6 +118,20 @@ export interface GameSetup {
   isChatRestricted?: boolean
 }
 
+/**
+ * A name the local user has given another player, which the game shows in place of theirs. Aliases
+ * exist only on the local user's client; they're never sent to the server or to other players.
+ */
+export interface GameUserAlias {
+  userId: SbUserId
+  /**
+   * The player's actual name. The game only applies the alias to a player carrying this name, since
+   * the user IDs a replay records come from the replay file and can't be trusted to identify anyone.
+   */
+  name: string
+  alias: string
+}
+
 /** Configuration info for launching a local game client to play a specific game. */
 export interface GameLaunchConfig {
   /** The user currently logged into the application and playing the game. */
@@ -127,6 +141,8 @@ export interface GameLaunchConfig {
    * app's behavior in chat/whispers).
    */
   blockedUsers: SbUserId[]
+  /** The names the local user has given the game's players, to be shown in place of theirs. */
+  userAliases?: GameUserAlias[]
   /**
    * The filename template for this game's auto-saved replay (see
    * `common/replay-name-template.ts`). Unset for replay playback, which saves no replay; the game

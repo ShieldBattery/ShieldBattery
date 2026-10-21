@@ -22,7 +22,6 @@ import { RaceIcon } from '../lobbies/race-icon'
 import { FilledButton } from '../material/button'
 import { TabItem, Tabs } from '../material/tabs'
 import { Tooltip } from '../material/tooltip'
-import { CopyLinkButton } from '../navigation/copy-link-button'
 import { useScrollMemory } from '../navigation/router-hooks'
 import { replace } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
@@ -32,7 +31,6 @@ import { selectableTextContainer } from '../styles/text-selection'
 import {
   bodyLarge,
   bodySmall,
-  headlineLarge,
   labelLarge,
   labelMedium,
   labelSmall,
@@ -60,6 +58,7 @@ import { AvailabilityDot } from './availability'
 import { ExpandableRankDisplays } from './expandable-rank-displays'
 import { ConnectedMatchHistory } from './match-history'
 import { MiniMatchHistory } from './mini-match-history'
+import { ProfileName } from './profile-name'
 import { UserProfileSeasons } from './user-profile-seasons'
 import { UserProfileSubPage } from './user-profile-sub-page'
 import { UserRankDisplay } from './user-rank-display'
@@ -167,7 +166,7 @@ export function ConnectedUserProfilePage({
 }
 
 const TopSection = styled.div`
-  height: 100px;
+  min-height: 100px;
   width: 100%;
   margin-top: 24px;
   margin-bottom: 32px;
@@ -317,21 +316,6 @@ const UsernameAndTitle = styled.div`
   margin-left: 24px;
 `
 
-const UsernameRow = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 4px;
-`
-
-const Username = styled.div`
-  ${headlineLarge};
-  ${singleLine};
-  /* Allows the username to shrink (truncating with an ellipsis) so the copy-link button next to
-     it stays visible even for very long names. */
-  min-width: 0;
-  color: var(--theme-amber);
-`
-
 const TabArea = styled.div`
   width: 100%;
   max-width: 720px;
@@ -439,13 +423,7 @@ export function UserProfilePage({
           {isLive ? <LiveBadge>{t('users.profile.twitch.liveBadge', 'Live')}</LiveBadge> : null}
         </AvatarCircle>
         <UsernameAndTitle>
-          <UsernameRow>
-            <Username>{user.name}</Username>
-            <CopyLinkButton
-              tooltipPosition='right'
-              startingText={t('users.profile.copyLink', 'Copy link to profile')}
-            />
-          </UsernameRow>
+          <ProfileName key={user.id} user={user} />
           <TitleMedium>{title}</TitleMedium>
           <ProfileMetaRow>
             {commendCount !== undefined ? (

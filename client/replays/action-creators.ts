@@ -1,5 +1,5 @@
 import { nanoid } from 'nanoid'
-import { PlayerInfo } from '../../common/games/game-launch-config'
+import { GameUserAlias, PlayerInfo } from '../../common/games/game-launch-config'
 import { GameType } from '../../common/games/game-type'
 import { GameReplayInfo } from '../../common/games/games'
 import { ReplaySaveOrganize, TypedIpcRenderer } from '../../common/ipc'
@@ -17,6 +17,7 @@ import { fetchRaw } from '../network/fetch'
 import { makeServerUrl } from '../network/server-url'
 import { ensureRelationshipsLoaded } from '../social/action-creators'
 import { healthChecked } from '../starcraft/health-checked'
+import { getGameUserAliases } from '../users/user-aliases'
 
 const ipcRenderer = new TypedIpcRenderer()
 
@@ -24,6 +25,7 @@ async function setGameConfig(
   replay: { name: string; path: string; startFrame?: number },
   user?: SelfUserJson,
   blockedUsers: SbUserId[] = [],
+  userAliases: GameUserAlias[] = [],
 ) {
   const player: PlayerInfo = {
     type: SlotType.Human,
@@ -45,6 +47,7 @@ async function setGameConfig(
   return ipcRenderer.invoke('activeGameSetConfig', {
     localUser,
     blockedUsers,
+    userAliases,
     serverConfig: {
       serverUrl: makeServerUrl(''),
     },
@@ -100,12 +103,16 @@ export function startReplay({
         const {
           auth: { self },
           relationships,
+          users,
         } = getState()
 
         // TODO(2Pac): Use the game loader on the server to register watching a replay, so we can
         // show to other people (like their friends) when a user is watching a replay.
         const blockedUsers = Array.from(relationships.blocks.keys())
-        setGameConfig({ path, name, startFrame }, self?.user, blockedUsers).then(
+        // Which players a replay holds isn't known until the game reads it, so every alias whose
+        // player's name is known goes along (the game matches them to players by name).
+        const userAliases = getGameUserAliases(id => users.byId.get(id)?.name)
+        setGameConfig({ path, name, startFrame }, self?.user, blockedUsers, userAliases).then(
           gameId => {
             if (gameId) {
               dispatch(openDialog({ type: DialogType.ReplayLoad, initData: { gameId } }))

@@ -89,6 +89,7 @@ import {
 } from '../styles/typography'
 import { navigateToUserProfile } from '../users/action-creators'
 import { ConnectedUsername } from '../users/connected-username'
+import { useDisplayName } from '../users/user-aliases'
 import {
   ConnectedUserContextMenu,
   MenuItemCategory,
@@ -1330,13 +1331,14 @@ export function PlayerResult({
   // Reserved on every row while any player can still be commended or reported, so columns align
   const showFeedbackColumn = feedback.candidates.length > 0
   const user = useAppSelector(s => (config.isComputer ? undefined : s.users.byId.get(config.id)))
+  const displayName = useDisplayName(user?.id)
   const [buttonProps, rippleRef] = useButtonState({
     onClick: () => user && navigateToUserProfile(user.id, user.name),
   })
   const { onContextMenu, contextMenuPopoverProps } = useContextMenu()
 
   const isCandidate = !config.isComputer && feedback.candidates.includes(config.id)
-  const name = user?.name ?? ''
+  const name = displayName ?? ''
   const commendAvailability = isCandidate ? feedback.commendAvailability(config.id) : undefined
   const commendBlocked = commendAvailability
     ? commendBlockedText(commendAvailability, name, t, shortTimestampFormat)
@@ -1364,10 +1366,10 @@ export function PlayerResult({
         {config.isComputer ? (
           <StyledComputerAvatar />
         ) : (
-          <PlayerAvatar user={user?.name ?? ''} image={user?.avatarUrl} />
+          <PlayerAvatar user={name} image={user?.avatarUrl} />
         )}
         <PlayerName>
-          {config.isComputer ? t('game.playerName.computer', 'Computer') : (user?.name ?? '')}
+          {config.isComputer ? t('game.playerName.computer', 'Computer') : name}
         </PlayerName>
         {mmrChange ? (
           <MmrChangeColumn>

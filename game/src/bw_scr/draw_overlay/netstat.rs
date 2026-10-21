@@ -5,6 +5,7 @@ use overlay_ui::netstat::{
 use crate::app_messages::{SbUser, SbUserId};
 use crate::netcode_v2::{DepartureKind, NetEvent, NetStatsStatus};
 use crate::rollback_live::{self, NetStatus};
+use crate::user_aliases;
 
 /// Builds the display view from the network-stats snapshot and the session's user list, resolving
 /// each row's user id to a name and formatting each event into a line. Durations are flattened to
@@ -18,7 +19,7 @@ pub(super) fn build_netstat_view(
         users
             .iter()
             .find(|u| u.id == user_id)
-            .map(|u| u.name.clone())
+            .map(|u| user_aliases::display_name(u.id, &u.name).into_owned())
             // TODO(tec27): Translate this
             .unwrap_or_else(|| "Unknown player".to_string())
     };

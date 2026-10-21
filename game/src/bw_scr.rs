@@ -4161,8 +4161,24 @@ impl BwScr {
                     if self.print_text_hooks_disabled.load(Ordering::Acquire) <= 0
                         && let Ok(text) = CStr::from_ptr(text).to_str()
                     {
-                        let handled = self.chat_manager.lock().handle_message(text, player);
-                        if handled {
+                        let mut chat_manager = self.chat_manager.lock();
+                        if chat_manager.handle_message(text, player) {
+                            return;
+                        }
+                        // A line from or about a player the local user gave an alias shows the
+                        // alias in place of their name.
+                        let aliased = chat_manager
+                            .alias_chat_line(text, player)
+                            .and_then(|line| CString::new(line).ok());
+                        drop(chat_manager);
+                        if let Some(aliased) = aliased {
+                            let shown = aliased.to_str().unwrap_or(text);
+                            if game_thread::is_replay() {
+                                self.record_replay_chat_history_line(shown, player);
+                            } else {
+                                self.record_chat_history_system_line(shown, player);
+                            }
+                            orig(aliased.as_ptr(), player, unused);
                             return;
                         }
                         if game_thread::is_replay() {
@@ -6176,11 +6192,14 @@ impl BwScr {
         }
     }
 
-    /// A `players[]` slot's name as the overlay should show it, with a placeholder for the slots
-    /// the game left nameless.
+    /// A `players[]` slot's name as the overlay should show it (the alias the local user gave the
+    /// player, if any), with a placeholder for the slots the game left nameless.
     unsafe fn player_display_name(&self, unique_player: u8) -> String {
         unsafe {
-            let name = bw::player_name(self.players().add(unique_player as usize));
+            let name = crate::user_aliases::player_display_name(
+                BwPlayerId(unique_player),
+                bw::player_name(self.players().add(unique_player as usize)),
+            );
             if name.is_empty() {
                 format!("Player {}", unique_player + 1)
             } else {
@@ -8639,6 +8658,9 @@ impl BwScr {
     ) {
         let mut chat_manager = self.chat_manager.lock();
         chat_manager.set_players(players);
+        chat_manager.set_player_aliases(players.iter().filter_map(|p| {
+            crate::user_aliases::alias_for(p.sb_user_id, &p.name).map(|alias| (p.sb_user_id, alias))
+        }));
         // Must be set before the blocked players so the local user can't end up blocked.
         chat_manager.set_local_player_info(local_user_id, is_chat_restricted);
         chat_manager.set_blocked_players(blocked_users);

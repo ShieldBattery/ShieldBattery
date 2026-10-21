@@ -460,6 +460,18 @@ pub enum ReportOutcome {
     Error,
 }
 
+/// A name the local user has given another player on ShieldBattery, shown in place of that
+/// player's name by everything this DLL displays. Aliases exist only on the local user's client.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GameUserAlias {
+    pub user_id: SbUserId,
+    /// The player's actual name. An alias only applies to a player in the game with this name,
+    /// since the user ids a replay records come from the file and can't be trusted.
+    pub name: String,
+    pub alias: String,
+}
+
 /// Sent by the app when it couldn't save a [`SetUserBlocked`] request.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

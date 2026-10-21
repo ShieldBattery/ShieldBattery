@@ -7,9 +7,10 @@ import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { DialogType } from '../dialogs/dialog-type'
 import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { useAppDispatch } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { BodyLarge } from '../styles/typography'
+import { useDisplayName } from '../users/user-aliases'
 import { unbanUser } from './action-creators'
 
 export interface ChannelUnbanUserConfirmationProps extends CommonDialogProps {
@@ -30,7 +31,7 @@ export function ChannelUnbanUserConfirmation({
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
-  const user = useAppSelector(s => s.users.byId.get(userId))!
+  const userDisplayName = useDisplayName(userId) ?? ''
   const [isWorking, setIsWorking] = useState(false)
 
   const onConfirmClick = () => {
@@ -42,7 +43,7 @@ export function ChannelUnbanUserConfirmation({
           snackbarController.showSnackbar(
             t('chat.unbanUser.successMessage', {
               defaultValue: '{{user}} was unbanned',
-              user: user.name,
+              user: userDisplayName,
             }),
           )
           dispatch(closeDialog(DialogType.ChannelUnbanUser))
@@ -53,7 +54,7 @@ export function ChannelUnbanUserConfirmation({
           snackbarController.showSnackbar(
             t('chat.unbanUser.errorMessage', {
               defaultValue: 'Something went wrong while unbanning {{user}}',
-              user: user.name,
+              user: userDisplayName,
             }),
           )
         },
@@ -80,8 +81,8 @@ export function ChannelUnbanUserConfirmation({
     <Dialog title={t('chat.unbanUser.title', 'Unban user?')} buttons={buttons} onCancel={onCancel}>
       <BodyLarge>
         <Trans t={t} i18nKey='chat.unbanUser.body'>
-          Are you sure you want to unban {{ user: user.name }} from #{{ channelName }}? They will be
-          able to join the channel again.
+          Are you sure you want to unban {{ user: userDisplayName }} from #{{ channelName }}? They
+          will be able to join the channel again.
         </Trans>
       </BodyLarge>
     </Dialog>

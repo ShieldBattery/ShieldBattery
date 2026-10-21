@@ -31,6 +31,7 @@ import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { bodyMedium, bodySmall, labelMedium, labelSmall, singleLine } from '../../styles/typography'
 import { getBatchUserInfo } from '../../users/action-creators'
 import { ConnectedUsername } from '../../users/connected-username'
+import { useDisplayName } from '../../users/user-aliases'
 import { areUserEntriesEqual, useUserEntriesSelector } from '../../users/user-entries'
 import { LobbyUserMenu } from '../lobby-menu-items'
 import { JoinLobbyMessage, LobbyMessageType } from '../lobby-message-records'
@@ -579,9 +580,7 @@ function GameSummaryCard({ gameId }: { gameId: string }) {
   const winnerUserId = winner?.kind === 'player' ? winner.userId : undefined
   // A game won by a single player can name someone who has since left the lobby, whom nothing else
   // in the room has any reason to have loaded.
-  const winnerName = useAppSelector(s =>
-    winnerUserId !== undefined ? s.users.byId.get(winnerUserId)?.name : undefined,
-  )
+  const winnerName = useDisplayName(winnerUserId)
   React.useEffect(() => {
     if (winnerUserId !== undefined) {
       dispatch(getBatchUserInfo(winnerUserId))

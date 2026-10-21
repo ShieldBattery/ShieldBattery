@@ -1,5 +1,5 @@
 import { SbUserId } from '../../../../common/users/sb-user-id'
-import { findUserByName } from '../../../users/action-creators'
+import { findUserByTypedName } from '../../../users/action-creators'
 import { UserCard } from '../../../users/user-card'
 import { userLookupFailedLine } from '../command-lines'
 import {
@@ -14,8 +14,8 @@ type ResolveDeps = Pick<CommandInvocation, 'context' | 'dispatch' | 't' | 'emit'
 
 /**
  * Hands `onResolved` the user a command's optional user argument names: whoever ran the command when
- * no name was typed, otherwise the user carrying the typed name, looked up on the server if the
- * client hasn't seen them. A lookup that finds nobody (or fails) answers with a line of its own and
+ * no name was typed, otherwise the user carrying the typed name (or given it as an alias), looked up
+ * on the server if the client hasn't seen them. A lookup that finds nobody (or fails) answers with a line of its own and
  * never calls back.
  */
 export function resolveTarget(
@@ -34,7 +34,7 @@ export function resolveTarget(
   }
 
   dispatch(
-    findUserByName(typedName, {
+    findUserByTypedName(typedName, {
       onSuccess: user => onResolved(user),
       onError: err => emit({ kind: 'error', content: userLookupFailedLine(typedName, err, t) }),
     }),

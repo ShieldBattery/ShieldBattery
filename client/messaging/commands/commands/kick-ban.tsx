@@ -5,6 +5,7 @@ import { SbUserId } from '../../../../common/users/sb-user-id'
 import { openDialog } from '../../../dialogs/action-creators'
 import { DialogType } from '../../../dialogs/dialog-type'
 import { TransInterpolation } from '../../../i18n/i18next'
+import { findUsersByAlias } from '../../../users/user-aliases'
 import { ChannelCommandContext } from '../command-context'
 import { defineCommand } from '../command-schema'
 import { LocalStrong } from '../local-strong'
@@ -14,23 +15,26 @@ type MemberLookup =
   /** Nobody in the channel goes by that name. */
   | { kind: 'none' }
   /** Several members go by that name, so there's nothing to pick between them on. */
-  | { kind: 'ambiguous' }
+  | { kind: 'ambiguous'; names: string[] }
   /** The name belongs to the user who typed the command. */
   | { kind: 'self' }
 
 /**
  * Resolves a typed name to a member of the channel. Names are matched exactly (ignoring case)
  * rather than by prefix: a moderation action lands on whoever is named, so a near miss has to
- * fail rather than reach the wrong person.
+ * fail rather than reach the wrong person. Aliases count too, but exact original names take
+ * priority over aliases.
  */
 function findMember(context: ChannelCommandContext, typedName: string): MemberLookup {
   const lowered = typedName.toLowerCase()
-  const matches = context.members.filter(member => member.name.toLowerCase() === lowered)
+  const aliased = new Set(findUsersByAlias(typedName))
+  const original = context.members.find(member => member.name.toLowerCase() === lowered)
+  const matches = original ? [original] : context.members.filter(member => aliased.has(member.id))
 
   if (matches.length === 0) {
     return { kind: 'none' }
   } else if (matches.length > 1) {
-    return { kind: 'ambiguous' }
+    return { kind: 'ambiguous', names: matches.map(member => member.name) }
   } else if (matches[0].id === context.selfUserId) {
     return { kind: 'self' }
   }
@@ -46,10 +50,12 @@ function noSuchMemberLine(name: string, t: TFunction): React.ReactNode {
   )
 }
 
-function ambiguousMemberLine(name: string, t: TFunction): React.ReactNode {
+function ambiguousMemberLine(name: string, names: string[], t: TFunction): React.ReactNode {
+  const candidates = names.join(', ')
   return (
     <Trans t={t} i18nKey='chat.commands.errors.ambiguousMember'>
-      More than one member matches <LocalStrong>{{ name } as TransInterpolation}</LocalStrong>.
+      <LocalStrong>{{ name } as TransInterpolation}</LocalStrong> could mean{' '}
+      {{ candidates } as TransInterpolation}. Use an original name.
     </Trans>
   )
 }
@@ -86,7 +92,7 @@ export const kickCommand = defineCommand({
         emit({ kind: 'error', content: noSuchMemberLine(args.user, t) })
         return
       case 'ambiguous':
-        emit({ kind: 'error', content: ambiguousMemberLine(args.user, t) })
+        emit({ kind: 'error', content: ambiguousMemberLine(args.user, found.names, t) })
         return
       case 'self':
         emit({
@@ -137,7 +143,7 @@ export const banCommand = defineCommand({
         emit({ kind: 'error', content: noSuchMemberLine(args.user, t) })
         return
       case 'ambiguous':
-        emit({ kind: 'error', content: ambiguousMemberLine(args.user, t) })
+        emit({ kind: 'error', content: ambiguousMemberLine(args.user, found.names, t) })
         return
       case 'self':
         emit({

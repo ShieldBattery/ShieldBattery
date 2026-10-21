@@ -331,6 +331,24 @@ pub fn player_id_mapping() -> &'static [PlayerIdMapping] {
     })
 }
 
+/// The ShieldBattery user playing as `player_id`, if known: from the player id mapping in a live
+/// game, or from the user ids a replay recorded (which come from the file, so nothing more than a
+/// claim). Safe to call at any point, including before the mapping is set.
+pub fn sb_user_id_for_player(player_id: BwPlayerId) -> Option<SbUserId> {
+    if let Some(replay_data) = sbat_replay_data() {
+        return replay_data
+            .user_ids
+            .get(player_id.0 as usize)
+            .copied()
+            .filter(|id| id.0 != 0);
+    }
+    PLAYER_ID_MAPPING
+        .get()?
+        .iter()
+        .find(|m| m.game_id == Some(player_id))
+        .map(|m| m.sb_user_id)
+}
+
 /// Reads the current minimap color/terrain toggle values and forwards them to the async thread so
 /// they can be persisted to settings. Should only be called from the game thread, after the game
 /// loop has ended (while the globals are still valid).

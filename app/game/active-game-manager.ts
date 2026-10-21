@@ -504,6 +504,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
 
     this.emit('gameCommand', id, 'localUser', config.localUser)
     this.emit('gameCommand', id, 'blockedUsers', config.blockedUsers)
+    this.emit('gameCommand', id, 'userAliases', config.userAliases ?? [])
     this.emit('gameCommand', id, 'serverConfig', config.serverConfig)
     this.emit('gameCommand', id, 'settings', {
       local,

@@ -8,7 +8,7 @@ import { asMockedFunction } from '../../../../common/testing/mocks'
 import { makeSbUserId } from '../../../../common/users/sb-user-id'
 import { UserErrorCode } from '../../../../common/users/user-network'
 import { FetchError } from '../../../network/fetch-errors'
-import { findUserByName } from '../../../users/action-creators'
+import { findUserByTypedName } from '../../../users/action-creators'
 import { UserCard } from '../../../users/user-card'
 import { ChannelCommandContext } from '../command-context'
 import { matchesCommandName } from '../command-schema'
@@ -24,7 +24,7 @@ vi.mock('../../../logging/logger', () => ({
 // command registry these run against pulls in every command's action creators.
 vi.mock('../../../users/action-creators', async importOriginal => ({
   ...(await importOriginal<typeof import('../../../users/action-creators')>()),
-  findUserByName: vi.fn(() => ({ type: 'TEST/findUserByName' })),
+  findUserByTypedName: vi.fn(() => ({ type: 'TEST/findUserByTypedName' })),
 }))
 
 // The command layer builds its lines with `Trans`, which needs an i18next instance to render
@@ -96,7 +96,7 @@ describe('messaging/commands/commands/user-card', () => {
     const { result, emit } = runInput('/stats')
 
     expect(result).toEqual({ kind: 'command' })
-    expect(findUserByName).not.toHaveBeenCalled()
+    expect(findUserByTypedName).not.toHaveBeenCalled()
     expect(emit).toHaveBeenCalledTimes(1)
 
     const line = emit.mock.calls[0][0]
@@ -109,9 +109,9 @@ describe('messaging/commands/commands/user-card', () => {
     const { emit } = runInput('/stats tec27')
 
     expect(emit).not.toHaveBeenCalled()
-    expect(findUserByName).toHaveBeenCalledWith('tec27', expect.anything())
+    expect(findUserByTypedName).toHaveBeenCalledWith('tec27', expect.anything())
 
-    const spec = asMockedFunction(findUserByName).mock.calls[0][1]
+    const spec = asMockedFunction(findUserByTypedName).mock.calls[0][1]
     spec.onSuccess({ id: TARGET_ID, name: 'tec27', created: 0 })
 
     const line = emit.mock.calls[0][0]
@@ -122,7 +122,7 @@ describe('messaging/commands/commands/user-card', () => {
   test('a name nobody goes by answers with an error line', () => {
     const { emit } = runInput('/stats nobody')
 
-    const spec = asMockedFunction(findUserByName).mock.calls[0][1]
+    const spec = asMockedFunction(findUserByTypedName).mock.calls[0][1]
     spec.onError(fetchErrorWithCode(UserErrorCode.NotFound))
 
     expect(emit.mock.calls[0][0].kind).toBe('error')
@@ -132,7 +132,7 @@ describe('messaging/commands/commands/user-card', () => {
   test('a lookup that failed some other way answers with the error it carried', () => {
     const { emit } = runInput('/stats tec27')
 
-    const spec = asMockedFunction(findUserByName).mock.calls[0][1]
+    const spec = asMockedFunction(findUserByTypedName).mock.calls[0][1]
     spec.onError(new Error('the server is on fire'))
 
     expect(renderLine(emit.mock.calls[0][0].content)).toContain(
@@ -143,7 +143,7 @@ describe('messaging/commands/commands/user-card', () => {
   test('/stats takes nothing past the user', () => {
     const { emit } = runInput('/stats tec27 extra')
 
-    expect(findUserByName).not.toHaveBeenCalled()
+    expect(findUserByTypedName).not.toHaveBeenCalled()
     expect(emit.mock.calls[0][0].kind).toBe('error')
 
     const text = renderLine(emit.mock.calls[0][0].content)

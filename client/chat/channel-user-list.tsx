@@ -1,4 +1,5 @@
 import { TFunction } from 'i18next'
+import { useAtomValue } from 'jotai'
 import * as React from 'react'
 import { useContext, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -27,6 +28,7 @@ import { LiveLabel } from '../twitch/live-indicators'
 import { useLiveUserIds } from '../twitch/live-state'
 import { MiniLiveStreamEntry } from '../twitch/live-stream-entry'
 import { StaffBadgedAvatar } from '../users/staff-badge'
+import { formatUserAlias, userAliasesAtom, useUserAlias } from '../users/user-aliases'
 import { ConnectedUserContextMenu } from '../users/user-context-menu'
 import { useUserOverlays } from '../users/user-overlays'
 import { ConnectedUserProfileOverlay } from '../users/user-profile-overlay'
@@ -188,6 +190,7 @@ interface UserListEntryProps {
 const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
   const { t } = useTranslation()
   const user = useAppSelector(s => s.users.byId.get(props.userId))
+  const alias = useUserAlias(props.userId)
   const filterClick = useMentionFilterClick()
   const { UserMenu } = useContext(ChatContext)
 
@@ -256,7 +259,7 @@ const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
         {user ? (
           <NameBlock>
             <RosterNameLine>
-              <RosterName>{user.name}</RosterName>
+              <RosterName>{formatUserAlias(user.name, alias)}</RosterName>
               <RosterRoleBadge userId={props.userId} />
             </RosterNameLine>
             <FriendActivityStatusLine userId={props.userId} />
@@ -515,15 +518,26 @@ export const UserList = React.memo((props: UserListProps) => {
   // Only read while filtering: the map changes whenever any user becomes known, and rebuilding a
   // roster that can run to thousands of rows for each of those changes would be wasted work.
   const usersById = useAppSelector(s => (filtering ? s.users.byId : undefined))
+  const aliases = useAtomValue(userAliasesAtom)
+  // A user is found by whichever name they're shown with as well as by their actual name.
+  const userMatches = (id: SbUserId) =>
+    matches(usersById?.get(id)?.name) || matches(aliases.get(id))
 
   const shownStreams = filtering
-    ? streams.filter(s => matches(s.user?.name) || matches(s.twitchLogin))
+    ? streams.filter(
+        s =>
+          matches(s.user?.name) ||
+          (s.user ? matches(aliases.get(s.user.id)) : false) ||
+          matches(s.twitchLogin),
+      )
     : streams
   const shownGames = filtering
-    ? games.filter(g => g.teams.some(team => team.some(p => matches(p.name))))
+    ? games.filter(g =>
+        g.teams.some(team => team.some(p => matches(p.name) || matches(aliases.get(p.userId)))),
+      )
     : games
-  const shownActive = filtering ? active.filter(id => matches(usersById?.get(id)?.name)) : active
-  const shownOffline = filtering ? offline.filter(id => matches(usersById?.get(id)?.name)) : offline
+  const shownActive = filtering ? active.filter(userMatches) : active
+  const shownOffline = filtering ? offline.filter(userMatches) : offline
 
   // While filtering, every match shows: a collapsed section or folded entry would hide the very
   // thing being looked for.

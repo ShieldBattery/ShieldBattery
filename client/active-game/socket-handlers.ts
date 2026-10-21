@@ -16,6 +16,7 @@ import { fetchJson } from '../network/fetch'
 import { isFetchError } from '../network/fetch-errors'
 import { makeServerUrl } from '../network/server-url'
 import { blockUser, ensureRelationshipsLoaded, unblockUser } from '../social/action-creators'
+import { getGameUserAliases } from '../users/user-aliases'
 import { updateActiveGame } from './wait-for-active-game'
 
 type EventToActionMap = {
@@ -64,6 +65,7 @@ export default function ({
               created: self!.user.created,
             },
             blockedUsers: Array.from(getState().relationships.blocks.keys()),
+            userAliases: getGameUserAliases(id => setup.users.find(u => u.id === id)?.name),
             replayNameTemplate: getState().settings.account.replayNameTemplate,
             serverConfig: {
               serverUrl: makeServerUrl(''),

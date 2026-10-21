@@ -19,6 +19,8 @@ import { reportLastRead } from '../messaging/last-read'
 import { push, replace } from '../navigation/routing'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
+import { resolveTypedUserName } from '../users/action-creators'
+import { findUsersByAlias } from '../users/user-aliases'
 import {
   ActivateWhisperSession,
   DeactivateWhisperSession,
@@ -157,15 +159,31 @@ function reportWhisperLastRead(targetId: SbUserId, lastReadTime: number): void {
   )
 }
 
+/**
+ * Starts a whisper session with whoever `target` names, which may be one of the local user's
+ * aliases (see `resolveTypedUserName`, including how a name that's ambiguous between an alias and an
+ * actual name fails). Resolves with the user's ID and actual name.
+ */
 export function startWhisperSessionByName(
   target: string,
-  spec: RequestHandlingSpec<{ userId: SbUserId }>,
+  spec: RequestHandlingSpec<{ userId: SbUserId; name: string }>,
 ): ThunkAction {
-  return abortableThunk(spec, async () => {
-    return fetchJson<{ userId: SbUserId }>(apiUrl`whispers/by-name/${target}`, {
+  return abortableThunk(spec, async (dispatch, getState) => {
+    if (!findUsersByAlias(target).length) {
+      const { userId } = await fetchJson<{ userId: SbUserId }>(apiUrl`whispers/by-name/${target}`, {
+        method: 'POST',
+        signal: spec.signal,
+      })
+      return { userId, name: getState().users.byId.get(userId)?.name ?? target }
+    }
+
+    // Aliases exist only on this client, so the session is started for the user they resolve to.
+    const user = await resolveTypedUserName(target, dispatch, getState, spec.signal)
+    await fetchJson<void>(apiUrl`whispers/${user.id}`, {
       method: 'POST',
       signal: spec.signal,
     })
+    return { userId: user.id, name: user.name }
   })
 }
 

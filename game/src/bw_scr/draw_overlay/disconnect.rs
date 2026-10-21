@@ -7,12 +7,14 @@ use overlay_ui::disconnect::{
 
 use crate::app_messages::{SbUser, SbUserId};
 use crate::netcode_v2::{DisconnectStatus, DisconnectTier, SelfState};
+use crate::user_aliases;
 
 /// One player of this game as the game itself knows them, which is the only place their color and
 /// their side can be read from. The disconnect status names players by ShieldBattery user id, so a
-/// roster entry is matched to a status row through the name the two have in common.
+/// roster entry is matched by user id, independently of its displayed alias.
 pub(super) struct RosterPlayer {
     pub name: String,
+    pub user_id: Option<SbUserId>,
     pub color: Color32,
     /// Whether they are on the local player's side.
     pub teammate: bool,
@@ -53,7 +55,7 @@ pub(super) fn build_disconnect_view(
         users
             .iter()
             .find(|u| u.id == user_id)
-            .map(|u| u.name.clone())
+            .map(|u| user_aliases::display_name(u.id, &u.name).into_owned())
             // TODO(tec27): Translate this
             .unwrap_or_else(|| "Unknown player".to_string())
     };
@@ -62,7 +64,7 @@ pub(super) fn build_disconnect_view(
     for player in roster.iter().filter(|player| !player.is_local) {
         let trouble = troubled
             .iter()
-            .find(|row| resolve(row.user_id) == player.name);
+            .find(|row| Some(row.user_id) == player.user_id);
         if let Some(row) = trouble {
             named.push(row.slot);
         }
@@ -103,5 +105,57 @@ pub(super) fn build_disconnect_view(
         rows,
         self_state,
         self_seconds,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::netcode_v2::DisconnectedPeer;
+    use rally_point_client::proto::ids::SlotId;
+    use std::time::Duration;
+
+    #[test]
+    fn shared_aliases_do_not_change_drop_targets() {
+        let now = Instant::now();
+        let users = [
+            SbUser {
+                id: SbUserId(1),
+                name: "First".into(),
+                avatar_url: None,
+            },
+            SbUser {
+                id: SbUserId(2),
+                name: "Second".into(),
+                avatar_url: None,
+            },
+        ];
+        let roster = [SbUserId(1), SbUserId(2)].map(|user_id| RosterPlayer {
+            name: "bob".into(),
+            user_id: Some(user_id),
+            color: Color32::WHITE,
+            teammate: false,
+            is_local: false,
+        });
+        let mut status = DisconnectStatus::healthy();
+        status.peers.push(DisconnectedPeer {
+            slot: SlotId(7),
+            user_id: SbUserId(2),
+            since: now - Duration::from_secs(60),
+        });
+        let view = build_disconnect_view(&status, &users, &roster, 0, now);
+        assert_eq!(view.rows.len(), 2);
+        assert!(matches!(view.rows[0].state, PeerState::Connected));
+        assert_eq!(view.rows[1].slot, 7);
+        assert!(view.rows[1].drop_unlocked);
+        status.peers.push(DisconnectedPeer {
+            slot: SlotId(3),
+            user_id: SbUserId(1),
+            since: now - Duration::from_secs(60),
+        });
+        let view = build_disconnect_view(&status, &users, &roster, 0, now);
+        assert_eq!(view.rows.len(), 2);
+        assert_eq!(view.rows[0].slot, 3);
+        assert_eq!(view.rows[1].slot, 7);
     }
 }

@@ -1,5 +1,7 @@
 import { matchUserMentions } from '../../common/text/user-mentions'
 import { SbUserId } from '../../common/users/sb-user-id'
+import { jotaiStore } from '../jotai-store'
+import { formatUserAlias, getUserAlias, userAliasesAtom } from '../users/user-aliases'
 import { rankByQuery } from './rank-by-query'
 import {
   MAX_TYPEAHEAD_ROWS,
@@ -61,7 +63,15 @@ export function createMentionProvider(
         return undefined
       }
 
-      const matched = rankByQuery(mentionableUsers, u => [u.name], mention.groups.username)
+      const aliases = jotaiStore.get(userAliasesAtom)
+      const matched = rankByQuery(
+        mentionableUsers,
+        u => {
+          const alias = aliases.get(u.id)
+          return alias !== undefined ? [alias, u.name] : [u.name]
+        },
+        mention.groups.username,
+      )
 
       return {
         start,
@@ -72,10 +82,16 @@ export function createMentionProvider(
   }
 }
 
+/**
+ * A suggestion shows the user by the name they're displayed with, but always inserts their actual
+ * name: mentions are resolved by the server, which knows nothing of the local user's aliases.
+ */
 function toSuggestion(user: MentionableUser): TypeaheadSuggestion {
+  const alias = getUserAlias(user.id)
   return {
     key: String(user.id),
-    text: user.name,
+    text: formatUserAlias(user.name, alias),
+    // Accounts can share an alias, so an aliased row says which account it is.
     visual: { kind: 'user', userId: user.id, online: user.online },
     insertText: `@${user.name} `,
     exact: false,

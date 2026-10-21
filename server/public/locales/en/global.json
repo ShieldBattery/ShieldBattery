@@ -403,7 +403,8 @@
         "description": "Asks the magic 8-ball a question, answered by the server."
       },
       "errors": {
-        "ambiguousMember": "More than one member matches <1>{{name}}</1>.",
+        "ambiguousMember": "<0>{{name}}</0> could mean {{candidates}}. Use an original name.",
+        "ambiguousUserName": "<0>{{name}}</0> could mean {{candidates}}. Use the name of the one you mean.",
         "commandFailed": "Something went wrong while running <2>{{command}}</2>.",
         "invalidArgument": "Invalid <1>{{arg}}</1>: {{value}}. Usage: <7>{{usage}}</7>",
         "missingArgument": "Missing <1>{{arg}}</1>. Usage: <4>{{usage}}</4>",
@@ -3397,6 +3398,16 @@
         "title": "Punishments"
       }
     },
+    "alias": {
+      "aliasOf": "Your alias for {{name}}",
+      "editAction": "Edit alias",
+      "errors": {
+        "pattern": "Alias contains characters a name can’t"
+      },
+      "inlineHint": "Only you see this alias. Clear it to show the original name.",
+      "inputLabel": "Local alias",
+      "saveAction": "Save alias"
+    },
     "availability": {
       "away": "Away",
       "doNotDisturb": "Do not disturb",
@@ -3562,6 +3573,7 @@
       "closeWhisper": "Close whisper"
     },
     "newWhisper": {
+      "ambiguousName": "{{name}} could mean {{candidates}}. Enter the name of the one you mean.",
       "emptyText": "Type a player's name above to whisper them. Friends show up here while they're online.",
       "emptyTitle": "Start a conversation",
       "error": "Error starting the whisper: {{errorMessage}}",

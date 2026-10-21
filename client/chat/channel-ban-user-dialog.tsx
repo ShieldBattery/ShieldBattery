@@ -14,6 +14,7 @@ import { FetchError, isFetchError } from '../network/fetch-errors'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { bodyLarge } from '../styles/typography'
+import { useDisplayName } from '../users/user-aliases'
 import { moderateUser } from './action-creators'
 
 const ErrorsContainer = styled.div`
@@ -119,6 +120,7 @@ export function ChannelBanUserDialog({
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
   const user = useAppSelector(s => s.users.byId.get(userId))!
+  const userDisplayName = useDisplayName(userId) ?? ''
   const [banUserError, setBanUserError] = useState<Error>()
 
   const {
@@ -144,7 +146,7 @@ export function ChannelBanUserDialog({
               snackbarController.showSnackbar(
                 t('chat.banUser.successMessage', {
                   defaultValue: '{{user}} was banned',
-                  user: user.name,
+                  user: userDisplayName,
                 }),
               )
               dispatch(closeDialog(DialogType.ChannelBanUser))
@@ -163,7 +165,7 @@ export function ChannelBanUserDialog({
   const buttons = [
     <TextButton label={t('common.actions.cancel', 'Cancel')} key='cancel' onClick={onCancel} />,
     <TextButton
-      label={t('chat.banUser.banAction', { defaultValue: 'Ban {{user}}', user: user.name })}
+      label={t('chat.banUser.banAction', { defaultValue: 'Ban {{user}}', user: userDisplayName })}
       key='ban'
       onClick={onBanClick}
     />,
@@ -171,11 +173,14 @@ export function ChannelBanUserDialog({
 
   return (
     <Dialog
-      title={t('chat.banUser.dialogTitle', { defaultValue: 'Ban {{user}}?', user: user.name })}
+      title={t('chat.banUser.dialogTitle', {
+        defaultValue: 'Ban {{user}}?',
+        user: userDisplayName,
+      })}
       buttons={buttons}
       onCancel={onCancel}>
       <form noValidate={true} onSubmit={handleSubmit}>
-        {banUserError ? <BanUserErrorDisplay user={user.name} error={banUserError} /> : null}
+        {banUserError ? <BanUserErrorDisplay user={userDisplayName} error={banUserError} /> : null}
         <TextField
           {...bindInput('banReason')}
           label={t('chat.banUser.banReason', 'Ban reason (optional)')}

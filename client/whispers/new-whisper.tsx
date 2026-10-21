@@ -1,3 +1,4 @@
+import { useAtomValue } from 'jotai'
 import { debounce } from 'lodash-es'
 import { useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -9,6 +10,7 @@ import { SbUserId } from '../../common/users/sb-user-id'
 import { whisperServiceErrorToString } from '../../common/whispers'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { ChatHeaderRoot } from '../chat/channel-header'
+import { listFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import logger from '../logging/logger'
 import { useAutoFocusRef } from '../material/auto-focus'
@@ -21,7 +23,8 @@ import { MAX_TYPEAHEAD_ROWS } from '../messaging/typeahead'
 import { describeFetchError, isFetchError } from '../network/fetch-errors'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { titleLarge } from '../styles/typography'
-import { searchUsers } from '../users/action-creators'
+import { AmbiguousUserNameError, searchUsers } from '../users/action-creators'
+import { formatUserAlias, userAliasesAtom } from '../users/user-aliases'
 import { navigateToWhisper, startWhisperSessionByName } from './action-creators'
 import { SuggestedPeople } from './suggested-people'
 
@@ -166,10 +169,13 @@ function useNameSearch(query: string): SbUser[] {
   return results.users.filter(u => u.name.toLowerCase().startsWith(lowered))
 }
 
+/** Joins the users a typed name could mean into a list of alternatives, e.g. `A, B, or C`. */
+const candidateListFormat = listFormat({ type: 'disjunction' })
+
 /**
- * The people suggested for `query`: the known people (friends and open whispers) that match it,
- * followed by the server's matches. Nothing is suggested before anything is typed; the page lists
- * who's worth whispering for that.
+ * The people suggested for `query`: the known people (friends, open whispers, and anyone given an
+ * alias) that match it by name or alias, followed by the server's matches. Nothing is suggested
+ * before anything is typed; the page lists who's worth whispering for that.
  */
 function useSuggestions(query: string): Array<{ user: SbUser; online: boolean | undefined }> {
   const selfId = useAppSelector(s => s.auth.self?.user.id)
@@ -178,6 +184,7 @@ function useSuggestions(query: string): Array<{ user: SbUser; online: boolean | 
   const friendActivityStatus = useAppSelector(s => s.relationships.friendActivityStatus)
   const blocks = useAppSelector(s => s.relationships.blocks)
   const sessions = useAppSelector(s => s.whispers.sessions)
+  const aliases = useAtomValue(userAliasesAtom)
   const searched = useNameSearch(query)
 
   const isOnline = (id: SbUserId) => {
@@ -192,20 +199,28 @@ function useSuggestions(query: string): Array<{ user: SbUser; online: boolean | 
   const canSuggest = (id: SbUserId) => id !== selfId && !blocks.has(id)
 
   const known: SbUser[] = []
-  for (const id of new Set([...friends.keys(), ...sessions])) {
+  for (const id of new Set([...friends.keys(), ...sessions, ...aliases.keys()])) {
     const user = usersById.get(id)
     if (user && canSuggest(id)) {
       known.push(user)
     }
   }
-  known.sort((a, b) => a.name.localeCompare(b.name))
+  const shownName = (user: SbUser) => formatUserAlias(user.name, aliases.get(user.id))
+  known.sort((a, b) => shownName(a).localeCompare(shownName(b)))
 
   const trimmed = query.trim()
   if (trimmed.length === 0) {
     return []
   }
 
-  const suggested = rankByQuery(known, u => [u.name], trimmed)
+  const suggested = rankByQuery(
+    known,
+    u => {
+      const alias = aliases.get(u.id)
+      return alias !== undefined ? [alias, u.name] : [u.name]
+    },
+    trimmed,
+  )
   const included = new Set(suggested.map(u => u.id))
   for (const user of searched) {
     if (!included.has(user.id) && canSuggest(user.id)) {
@@ -236,6 +251,7 @@ export function NewWhisper() {
   })
 
   const suggestions = useSuggestions(query)
+  const aliases = useAtomValue(userAliasesAtom)
   const clampedActiveIndex = Math.min(activeIndex, Math.max(suggestions.length - 1, 0))
   const paletteShowing = paletteOpen && suggestions.length > 0
 
@@ -256,7 +272,7 @@ export function NewWhisper() {
     setError(undefined)
     dispatch(
       startWhisperSessionByName(name, {
-        onSuccess: ({ userId }) => navigateToWhisper(userId, name),
+        onSuccess: ({ userId, name: actualName }) => navigateToWhisper(userId, actualName),
         onError: err => {
           setIsStarting(false)
           setError(err)
@@ -266,7 +282,13 @@ export function NewWhisper() {
   }
 
   let errorText: string | undefined
-  if (error) {
+  if (error instanceof AmbiguousUserNameError) {
+    errorText = t('whispers.newWhisper.ambiguousName', {
+      defaultValue: '{{name}} could mean {{candidates}}. Enter the name of the one you mean.',
+      name: error.typedName,
+      candidates: candidateListFormat.current().format(error.candidates.map(u => u.name)),
+    })
+  } else if (error) {
     errorText = isFetchError(error)
       ? whisperServiceErrorToString(error.code, t)
       : t('whispers.newWhisper.error', {
@@ -353,7 +375,7 @@ export function NewWhisper() {
             {suggestions.map(({ user, online }) => (
               <SuggestionItem
                 key={user.id}
-                text={user.name}
+                text={formatUserAlias(user.name, aliases.get(user.id))}
                 $faded={online === false}
                 icon={
                   <SuggestionAvatar

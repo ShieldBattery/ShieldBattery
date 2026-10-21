@@ -23,6 +23,7 @@ import {
   fetchJson,
 } from '../network/fetch'
 import { loadCachedAccountSettings } from '../settings/action-creators'
+import { loadUserAliases } from '../users/user-aliases'
 import { lastWhisperSenderAtom } from '../whispers/whisper-atoms'
 
 const typedIpc = new TypedIpcRenderer()
@@ -83,6 +84,7 @@ function initSession(
       payload: session,
     })
     dispatch(loadCachedAccountSettings(session.user.id))
+    loadUserAliases(session.user.id)
 
     dispatch(maybeChangeLanguageLocally(session.user.locale))
     scheduleSessionRefresh()
@@ -137,6 +139,7 @@ export function logOut(spec: RequestHandlingSpec): ThunkAction {
     // logs in next.
     jotaiStore.set(lastWhisperSenderAtom, undefined)
     jotaiStore.set(lastChatSurfaceAtom, undefined)
+    loadUserAliases(undefined)
     CREDENTIAL_STORAGE.store(undefined)
     clearSessionRefresh()
   })
@@ -199,6 +202,7 @@ export function bootstrapSession(session?: ClientSessionInfo): ThunkAction {
 
 export function revokeSession(): ThunkAction {
   return dispatch => {
+    loadUserAliases(undefined)
     dispatch({ type: '@auth/sessionUnauthorized' })
     CREDENTIAL_STORAGE.store(undefined)
     clearSessionRefresh()

@@ -58,6 +58,7 @@ import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { dialogScrimOpacity } from '../styles/colors'
 import { labelMedium, singleLine, titleSmall } from '../styles/typography'
 import { getBatchUserInfo } from '../users/action-creators'
+import { useDisplayName } from '../users/user-aliases'
 import { ConnectedUserContextMenu } from '../users/user-context-menu'
 import { useUserOverlays } from '../users/user-overlays'
 import { closeWhisperSession, getWhisperSessions } from '../whispers/action-creators'
@@ -697,6 +698,7 @@ function WhisperEntry({ userId }: { userId: SbUserId }) {
   const snackbarController = useSnackbarController()
   const dispatch = useAppDispatch()
   const username = useAppSelector(s => s.users.byId.get(userId)?.name)
+  const displayName = useDisplayName(userId)
   const hasUnread = useAppSelector(s => s.whispers.byId.get(userId)?.hasUnread ?? false)
   const isBlocked = useAppSelector(s => s.relationships.blocks.has(userId))
   const { onNavigation } = useNavigationTracker()
@@ -734,7 +736,7 @@ function WhisperEntry({ userId }: { userId: SbUserId }) {
     />
   )
 
-  const usernameElem = username ?? (
+  const usernameElem = displayName ?? (
     <LoadingName aria-label={t('common.loading.username', 'Username loading…')}>
       &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;
     </LoadingName>

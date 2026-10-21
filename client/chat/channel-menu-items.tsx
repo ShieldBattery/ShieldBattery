@@ -14,6 +14,7 @@ import {
 } from '../messaging/message-context-menu'
 import { getServerOrigin } from '../network/server-url'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { useDisplayName } from '../users/user-aliases'
 import { MenuItemCategory, UserMenuProps } from '../users/user-context-menu'
 import { getChatUserProfile } from './action-creators'
 import { ChannelContext } from './channel-context'
@@ -25,6 +26,7 @@ export function ChannelUserMenu({ userId, items, onMenuClose, MenuComponent }: U
   const dispatch = useAppDispatch()
   const selfUserId = useAppSelector(s => s.auth.self!.user.id)
   const user = useAppSelector(s => s.users.byId.get(userId))
+  const userDisplayName = useDisplayName(userId) ?? ''
   const { channelId } = useContext(ChannelContext)
   const isServerModerator = useHasAnyPermission('moderateChatChannels')
   const joinedChannelInfo = useAppSelector(s => s.chat.idToJoinedInfo.get(channelId))
@@ -78,7 +80,7 @@ export function ChannelUserMenu({ userId, items, onMenuClose, MenuComponent }: U
             key='kick'
             text={t('chat.channelMenu.kickAction', {
               defaultValue: 'Kick {{user}}',
-              user: user.name,
+              user: userDisplayName,
             })}
             disabled={kickDisabled}
             onClick={() => {
@@ -103,7 +105,7 @@ export function ChannelUserMenu({ userId, items, onMenuClose, MenuComponent }: U
             key='ban'
             text={t('chat.channelMenu.banAction', {
               defaultValue: 'Ban {{user}}',
-              user: user.name,
+              user: userDisplayName,
             })}
             disabled={banDisabled}
             onClick={() => {

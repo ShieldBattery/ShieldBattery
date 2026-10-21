@@ -8,6 +8,7 @@ import { ConnectedChannelName } from '../../../chat/connected-channel-name'
 import { TransInterpolation } from '../../../i18n/i18next'
 import { collator } from '../../../i18n/locale-formats'
 import { ConnectedUsername } from '../../../users/connected-username'
+import { formatUserAlias, getUserAlias } from '../../../users/user-aliases'
 import {
   ALL_COMMAND_SURFACES,
   ArgSuggestDeps,
@@ -166,8 +167,9 @@ export const whoCommand = defineCommand({
               idSets
                 .flatMap(ids => Array.from(ids ?? []))
                 .flatMap(id => {
-                  const name = state.users.byId.get(id)?.name
-                  return name !== undefined ? [{ id, name }] : []
+                  // Sorted by the name each user is shown with, which may be an alias.
+                  const user = state.users.byId.get(id)
+                  return user ? [{ id, name: formatUserAlias(user.name, getUserAlias(id)) }] : []
                 })
 
             // Only the first MAX_NAMED_ONLINE by name are named and the rest are counted, so a large

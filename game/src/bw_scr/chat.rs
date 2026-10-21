@@ -9,10 +9,13 @@ use crate::{
     bw_scr::get_exe_build,
     game_state::JoinedPlayer,
     game_thread::{GameThreadMessage, send_game_msg_to_async},
+    user_aliases,
 };
 
 pub struct ChatManager {
     players: Vec<JoinedPlayer>,
+    /// The aliases the local user has given this game's players, shown in place of their names.
+    aliases: HashMap<SbUserId, String>,
     /// Players that are blocked on ShieldBattery.
     blocked_players: HashSet<SbUserId>,
     /// Players that are temporarily muted for this game only.
@@ -56,6 +59,17 @@ pub struct OtherPlayer {
     pub blocked: bool,
 }
 
+/// Which of the game's players a name typed into a chat command means.
+#[derive(Debug)]
+enum PlayerLookup<'a> {
+    Found(&'a JoinedPlayer),
+    NotFound,
+    /// More than one player goes by the name, counting aliases. Aliases are allowed to overlap
+    /// (several of one player's accounts can share one, and it can be another account's actual
+    /// name), so this is an expected outcome rather than a corner case.
+    Ambiguous,
+}
+
 /// What a `/block` or `/unblock` command did to the block list.
 #[derive(Debug, PartialEq, Eq)]
 enum BlockCommandOutcome {
@@ -69,6 +83,20 @@ enum BlockCommandOutcome {
     },
     IsLocalUser,
     PlayerNotFound,
+    AmbiguousName,
+}
+
+/// Answers a chat command naming a player that `lookup` didn't find exactly one of.
+fn print_lookup_failure(lookup: &PlayerLookup<'_>, name: &str) {
+    let msg = match lookup {
+        PlayerLookup::Found(_) => return,
+        PlayerLookup::NotFound => c"\x06Player not found".to_owned(),
+        PlayerLookup::Ambiguous => CString::new(format!(
+            "\x06More than one player goes by \x07{name}\x06, use their actual name"
+        ))
+        .unwrap_or_default(),
+    };
+    get_bw().print_centered_text(&msg);
 }
 
 /// What a `/muteenemy` command did.
@@ -84,6 +112,7 @@ impl ChatManager {
     pub fn new() -> Self {
         Self {
             players: Vec::new(),
+            aliases: HashMap::new(),
             blocked_players: HashSet::new(),
             muted_players: HashSet::new(),
             local_user_id: None,
@@ -93,10 +122,76 @@ impl ChatManager {
         }
     }
 
-    fn player_by_name(&self, name: &str) -> Option<&JoinedPlayer> {
-        self.players
+    /// Finds the player a typed name means, matching their alias as well as their actual name:
+    /// the alias is what the local user sees, so it's what they'll type.
+    fn player_by_name(&self, name: &str) -> PlayerLookup<'_> {
+        if let Some(player) = self
+            .players
             .iter()
             .find(|p| p.name.eq_ignore_ascii_case(name))
+        {
+            return PlayerLookup::Found(player);
+        }
+        let mut matches = self.players.iter().filter(|p| {
+            self.aliases
+                .get(&p.sb_user_id)
+                .is_some_and(|alias| alias.eq_ignore_ascii_case(name))
+        });
+        match (matches.next(), matches.next()) {
+            (Some(player), None) => PlayerLookup::Found(player),
+            (None, _) => PlayerLookup::NotFound,
+            (Some(_), Some(_)) => PlayerLookup::Ambiguous,
+        }
+    }
+
+    /// The name to show for `player`: the alias the local user gave them, if any.
+    fn shown_name(&self, player: &JoinedPlayer) -> String {
+        self.aliases
+            .get(&player.sb_user_id)
+            .map(|alias| format!("{alias} ({})", player.name))
+            .unwrap_or_else(|| player.name.clone())
+    }
+
+    /// Replaces the aliases to show for the game's players. Should be called after
+    /// [`Self::set_players`]; an alias for anyone not in the game is dropped.
+    pub fn set_player_aliases(&mut self, aliases: impl IntoIterator<Item = (SbUserId, String)>) {
+        self.aliases.clear();
+        let players = &self.players;
+        self.aliases.extend(
+            aliases
+                .into_iter()
+                .filter(|(id, _)| players.iter().any(|p| p.sb_user_id == *id)),
+        );
+    }
+
+    /// Rewrites a line BW is about to print to show aliases in place of the names of the players
+    /// it's from or about (see [`user_aliases::replace_names_in_chat_line`]). Returns `None` if
+    /// there's nothing to change.
+    pub fn alias_chat_line(&self, line: &str, sender_id: u32) -> Option<String> {
+        if self.aliases.is_empty() {
+            return None;
+        }
+        let replacements = self
+            .players
+            .iter()
+            .filter(|p| {
+                let index = match sender_id {
+                    0..=11 => Some(sender_id),
+                    128..=131 => Some(sender_id - 128 + 12),
+                    _ => None,
+                };
+                index.is_none() || p.player_id.is_some_and(|id| Some(u32::from(id.0)) == index)
+            })
+            .filter_map(|p| {
+                let alias = self.aliases.get(&p.sb_user_id)?;
+                Some((p.name.as_str(), alias.as_str()))
+            })
+            .collect::<Vec<_>>();
+        user_aliases::replace_names_in_chat_line(
+            line,
+            &replacements,
+            matches!(sender_id, 0..=11 | 128..=131),
+        )
     }
 
     pub fn set_local_player_info(&mut self, id: SbUserId, is_chat_restricted: bool) {
@@ -137,11 +232,13 @@ impl ChatManager {
     /// Blocks or unblocks the player named `name` (one of this game's players) locally, leaving
     /// it to the caller to have the change saved.
     fn set_player_blocked(&mut self, name: &str, blocked: bool) -> BlockCommandOutcome {
-        let Some(player) = self.player_by_name(name) else {
-            return BlockCommandOutcome::PlayerNotFound;
+        let player = match self.player_by_name(name) {
+            PlayerLookup::Found(player) => player,
+            PlayerLookup::NotFound => return BlockCommandOutcome::PlayerNotFound,
+            PlayerLookup::Ambiguous => return BlockCommandOutcome::AmbiguousName,
         };
         let user_id = player.sb_user_id;
-        let name = player.name.clone();
+        let name = self.shown_name(player).to_string();
         if self.local_user_id == Some(user_id) {
             return BlockCommandOutcome::IsLocalUser;
         }
@@ -170,8 +267,8 @@ impl ChatManager {
             .players
             .iter()
             .find(|p| p.sb_user_id == failure.user_id)
-            .map(|p| p.name.as_str())
-            .unwrap_or("player");
+            .map(|p| self.shown_name(p))
+            .unwrap_or_else(|| "player".to_string());
         let action = if failure.blocked { "block" } else { "unblock" };
         let detail = match failure.reason {
             BlockFailureReason::LimitReached => ": you've reached the limit of blocked users",
@@ -193,7 +290,7 @@ impl ChatManager {
             .iter()
             .filter(|player| Some(player.sb_user_id) != self.local_user_id)
             .map(|player| OtherPlayer {
-                name: player.name.clone(),
+                name: self.shown_name(player),
                 user_id: player.sb_user_id,
                 player_id: player.player_id,
                 muted: self.muted_players.contains(&player.sb_user_id),
@@ -265,8 +362,8 @@ impl ChatManager {
             .players
             .iter()
             .find(|p| p.sb_user_id == result.user_id)
-            .map(|p| p.name.as_str())
-            .unwrap_or("player");
+            .map(|p| self.shown_name(p))
+            .unwrap_or_else(|| "player".to_string());
         let msg =
             CString::new(format!("\x06Couldn't report \x07{name}\x06{detail}")).unwrap_or_default();
         self.pending_notices.push(msg);
@@ -406,15 +503,18 @@ impl ChatManager {
             "/mute" | "/m" => {
                 let mut to_mute = None;
                 if let Some(player) = tokens.next() {
-                    if let Some(player) = self.player_by_name(player) {
-                        to_mute = Some(player.sb_user_id);
-                        // TODO(tec27): Use team color for player name
-                        let msg =
-                            CString::new(format!("\x04Muted player: \x07{}", player.name)).unwrap();
-                        get_bw().print_text(&msg);
-                    } else {
-                        let msg = CString::new("\x06Player not found").unwrap();
-                        get_bw().print_centered_text(&msg);
+                    match self.player_by_name(player) {
+                        PlayerLookup::Found(player) => {
+                            to_mute = Some(player.sb_user_id);
+                            // TODO(tec27): Use team color for player name
+                            let msg = CString::new(format!(
+                                "\x04Muted player: \x07{}",
+                                self.shown_name(player)
+                            ))
+                            .unwrap_or_default();
+                            get_bw().print_text(&msg);
+                        }
+                        lookup => print_lookup_failure(&lookup, player),
                     }
                 } else {
                     let msg = CString::new("\x03Usage: \x04/mute \x07<name>").unwrap();
@@ -458,23 +558,28 @@ impl ChatManager {
                         get_bw().print_centered_text(&msg);
                     }
                     BlockCommandOutcome::PlayerNotFound => {
-                        let msg = CString::new("\x06Player not found").unwrap();
-                        get_bw().print_centered_text(&msg);
+                        print_lookup_failure(&PlayerLookup::NotFound, name);
+                    }
+                    BlockCommandOutcome::AmbiguousName => {
+                        print_lookup_failure(&PlayerLookup::Ambiguous, name);
                     }
                 }
             }
             "/unmute" | "/um" => {
                 let mut to_unmute = None;
                 if let Some(player) = tokens.next() {
-                    if let Some(player) = self.player_by_name(player) {
-                        to_unmute = Some(player.sb_user_id);
-                        // TODO(tec27): Use team color for player name
-                        let msg = CString::new(format!("\x04Unmuted player: \x07{}", player.name))
-                            .unwrap();
-                        get_bw().print_text(&msg);
-                    } else {
-                        let msg = CString::new("\x06Player not found").unwrap();
-                        get_bw().print_centered_text(&msg);
+                    match self.player_by_name(player) {
+                        PlayerLookup::Found(player) => {
+                            to_unmute = Some(player.sb_user_id);
+                            // TODO(tec27): Use team color for player name
+                            let msg = CString::new(format!(
+                                "\x04Unmuted player: \x07{}",
+                                self.shown_name(player)
+                            ))
+                            .unwrap_or_default();
+                            get_bw().print_text(&msg);
+                        }
+                        lookup => print_lookup_failure(&lookup, player),
                     }
                 } else {
                     let msg = CString::new("\x03Usage: \x04/unmute \x07<name>").unwrap();
@@ -519,6 +624,113 @@ mod tests {
             joined("watcher-2", 15, 4),
         ]);
         manager
+    }
+
+    fn found_user(lookup: PlayerLookup<'_>) -> Option<SbUserId> {
+        match lookup {
+            PlayerLookup::Found(player) => Some(player.sb_user_id),
+            _ => None,
+        }
+    }
+
+    #[test]
+    fn players_can_be_named_by_alias() {
+        let mut manager = manager_with_players();
+        manager.set_player_aliases([(SbUserId(2), "bob".to_string())]);
+        assert_eq!(
+            found_user(manager.player_by_name("BOB")),
+            Some(manager.players[1].sb_user_id)
+        );
+        assert_eq!(
+            found_user(manager.player_by_name("player-b")),
+            Some(manager.players[1].sb_user_id)
+        );
+        assert!(matches!(
+            manager.player_by_name("player-c"),
+            PlayerLookup::NotFound
+        ));
+    }
+
+    #[test]
+    fn original_names_take_priority_over_aliases() {
+        let mut manager = manager_with_players();
+        manager.set_player_aliases([(SbUserId(2), "watcher".to_string())]);
+        assert_eq!(
+            found_user(manager.player_by_name("watcher")),
+            Some(SbUserId(3))
+        );
+        // The aliased player's actual name still picks them out.
+        assert_eq!(
+            found_user(manager.player_by_name("player-b")),
+            Some(manager.players[1].sb_user_id)
+        );
+        assert_eq!(
+            manager.set_player_blocked("watcher", true),
+            BlockCommandOutcome::Changed {
+                user_id: SbUserId(3),
+                name: "watcher".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn an_alias_shared_by_several_players_is_ambiguous() {
+        let mut manager = manager_with_players();
+        manager.set_player_aliases([
+            (SbUserId(2), "bob".to_string()),
+            (SbUserId(3), "bob".to_string()),
+        ]);
+        assert!(matches!(
+            manager.player_by_name("bob"),
+            PlayerLookup::Ambiguous
+        ));
+        assert_eq!(
+            found_user(manager.player_by_name("watcher")),
+            Some(SbUserId(3))
+        );
+    }
+
+    #[test]
+    fn aliases_for_players_not_in_the_game_are_dropped() {
+        let mut manager = manager_with_players();
+        manager.set_player_aliases([(SbUserId(99), "bob".to_string())]);
+        assert!(matches!(
+            manager.player_by_name("bob"),
+            PlayerLookup::NotFound
+        ));
+        assert_eq!(manager.alias_chat_line("player-a: hi", 0), None);
+    }
+
+    #[test]
+    fn chat_lines_show_aliases_for_their_senders() {
+        let mut manager = manager_with_players();
+        assert_eq!(manager.alias_chat_line("player-b: hi", 3), None);
+        manager.set_player_aliases([(SbUserId(2), "bob".to_string())]);
+        assert_eq!(
+            manager
+                .alias_chat_line("\x03player-b: \x02hi player-b", 3)
+                .as_deref(),
+            Some("\x03bob (player-b): \x02hi player-b")
+        );
+        assert_eq!(manager.alias_chat_line("player-b: map objective", 0), None);
+        let rewritten = manager.alias_chat_line("player-b: hello", 3).unwrap();
+        assert_eq!(
+            crate::bw_scr::chat_history::strip_sender_prefix(&rewritten, "bob (player-b)"),
+            "hello"
+        );
+    }
+
+    #[test]
+    fn blocking_by_alias_reports_the_alias() {
+        let mut manager = manager_with_players();
+        manager.set_player_aliases([(SbUserId(2), "bob".to_string())]);
+        assert_eq!(
+            manager.set_player_blocked("bob", true),
+            BlockCommandOutcome::Changed {
+                user_id: SbUserId(2),
+                name: "bob (player-b)".to_string(),
+            }
+        );
     }
 
     #[test]

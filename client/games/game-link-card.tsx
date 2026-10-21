@@ -1,4 +1,5 @@
 import { TFunction } from 'i18next'
+import { useAtomValue } from 'jotai'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { shallowEqual } from 'react-redux'
@@ -56,6 +57,7 @@ import { isFetchError } from '../network/fetch-errors'
 import { useAppSelector } from '../redux-hooks'
 import { bodySmall, labelMedium, singleLine, titleMedium, titleSmall } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
+import { formatUserAlias, userAliasesAtom } from '../users/user-aliases'
 import { navigateToGameResults } from './action-creators'
 import { PlayerResultMarker } from './result-chip'
 
@@ -630,7 +632,13 @@ function GameMatchup({
     s => players.map(p => (p.isComputer ? undefined : s.users.byId.get(p.id)?.name)),
     shallowEqual,
   )
-  const nameById = new Map(players.map((p, i) => [p.id, names[i]]))
+  const aliases = useAtomValue(userAliasesAtom)
+  const nameById = new Map(
+    players.map((p, i) => [
+      p.id,
+      names[i] !== undefined ? formatUserAlias(names[i]!, aliases.get(p.id)) : aliases.get(p.id),
+    ]),
+  )
   const getName = (player: ReadonlyDeep<GameConfigPlayer>) =>
     player.isComputer
       ? t('game.playerName.computer', 'Computer')

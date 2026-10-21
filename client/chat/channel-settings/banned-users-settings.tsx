@@ -16,9 +16,10 @@ import { useFormat } from '../../i18n/locale-formats'
 import InfiniteScrollList from '../../lists/infinite-scroll-list'
 import { TextButton } from '../../material/button'
 import { Tooltip } from '../../material/tooltip'
-import { useAppDispatch, useAppSelector } from '../../redux-hooks'
+import { useAppDispatch } from '../../redux-hooks'
 import { ErrorText } from '../../settings/settings-content'
 import { labelMedium } from '../../styles/typography'
+import { useDisplayName } from '../../users/user-aliases'
 import { listChannelBans } from '../action-creators'
 import {
   UserListCardActions,
@@ -176,9 +177,7 @@ function BannedUserRow({
   const userListDateFormatter = useFormat(userListDateFormat)
   // The ban list response includes the banning moderators in its user data, so this resolves for
   // any manually placed ban; automated bans have no moderator to show.
-  const bannedByName = useAppSelector(s =>
-    ban.bannedBy !== undefined ? s.users.byId.get(ban.bannedBy)?.name : undefined,
-  )
+  const bannedByName = useDisplayName(ban.bannedBy)
 
   return (
     <UserListCardRow>
