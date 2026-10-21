@@ -3850,17 +3850,29 @@ impl BwScr {
             let address = self.render_screen as usize - base;
             exe.hook_closure_address(
                 RenderScreen,
-                move |callback, draw_ui, orig| {
+                move |callbacks, callback_count, orig| {
                     // Nothing of this frame has been drawn yet, so a setting that rebuilds the
                     // renderer's targets can't leave a queued draw pointing at the old ones.
                     self.write_pending_game_settings();
-                    let own = crate::frame_pacing::own_draw(!callback.is_null() && draw_ui == 1);
+                    let own =
+                        crate::frame_pacing::own_draw(!callbacks.is_null() && callback_count == 1);
                     if let Some(skip_render) = self.skip_render
                         && own.as_ref().is_some_and(|own| own.skips())
                     {
+                        // The in-game loop's callback is the game's per-frame HUD update, which
+                        // brings the UI in line with what the logic step changed: it hides the
+                        // status portrait once the selection empties, for one. UI timers firing
+                        // before the next draw rely on it having run since the step (the status
+                        // portrait's animation timer reads the primary selected unit without a
+                        // null check), so it runs on an undrawn iteration too. Ending the
+                        // renderer's frame discards whatever it queued to draw.
+                        let callbacks = callbacks as *const unsafe extern "C" fn();
+                        for i in 0..callback_count {
+                            (*callbacks.add(i))();
+                        }
                         skip_render();
                     } else {
-                        orig(callback, draw_ui);
+                        orig(callbacks, callback_count);
                     }
                 },
                 address,
@@ -11235,7 +11247,8 @@ mod hooks {
         !0 => InitUnitData();
         !0 => StepGame();
         !0 => StepGameLoop();
-        // The callback draws extra layers; the main loop's call passes 1 for the second argument.
+        // Takes an array of callbacks to run before drawing the layers, and its length; the
+        // in-game loop passes its per-frame HUD update alone.
         !0 => RenderScreen(*mut c_void, usize);
         !0 => StepReplayCommands();
         // Takes the full replay file path; returns nonzero on success.
