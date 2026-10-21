@@ -27,7 +27,7 @@ export function catalogSortToMapSort(sort: CatalogSort): MapSort {
     case CatalogSort.Trending:
       return MapSort.Trending
     case CatalogSort.MostPlayed:
-      return MapSort.Popular_28D
+      return MapSort.PopularAllTime
     case CatalogSort.Newest:
       return MapSort.Newest
     case CatalogSort.Name:

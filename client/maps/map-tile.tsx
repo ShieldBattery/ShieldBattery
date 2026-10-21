@@ -75,8 +75,6 @@ const RISING_TRENDING_SCORE = 200
 export enum MapTileSignal {
   /** Games this week for maps that are rising, otherwise games this month. */
   Trending,
-  /** Games this month. */
-  Month,
   /** When the map was published. */
   Published,
   /** When the map was added to the viewer's maps (`addedAt`). */
@@ -158,10 +156,14 @@ const PoolChip = styled(Tooltip)`
   color: var(--theme-on-surface);
 `
 
-const FavoriteButton = styled(IconButton)<{ $favorited: boolean }>`
+/** Positioned itself (not the button), since the tooltip anchors to this wrapper. */
+const FavoriteTooltip = styled(Tooltip)`
   position: absolute;
   top: 6px;
   right: 6px;
+`
+
+const FavoriteButton = styled(IconButton)<{ $favorited: boolean }>`
   width: 28px;
   height: 28px;
   min-height: 28px;
@@ -188,7 +190,7 @@ const Name = styled.div`
 const Meta = styled.div`
   ${bodySmall};
   ${singleLine};
-  color: var(--theme-on-surface-variant);
+  color: var(--color-grey-blue80);
 `
 
 enum SignalTone {
@@ -207,7 +209,7 @@ const Signal = styled.div<{ $tone?: SignalTone }>`
       case SignalTone.Fresh:
         return 'var(--color-amber70)'
       default:
-        return 'var(--theme-on-surface-variant)'
+        return 'var(--color-grey-blue70)'
     }
   }};
 `
@@ -323,7 +325,7 @@ export function MapTile({
           <LibraryMapMenu mapId={map.id} mapName={map.name} onRemoved={onRemovedFromLibrary} />
         </LibraryFooter>
       ) : (
-        <Tooltip text={favoriteLabel} position='bottom' tabIndex={-1}>
+        <FavoriteTooltip text={favoriteLabel} position='bottom' tabIndex={-1}>
           <FavoriteButton
             $favorited={map.isFavorited}
             icon={<MaterialIcon icon='star' size={18} filled={map.isFavorited} />}
@@ -331,7 +333,7 @@ export function MapTile({
             disabled={favoritePending}
             onClick={() => toggleFavorite(map)}
           />
-        </Tooltip>
+        </FavoriteTooltip>
       )}
     </Root>
   )
@@ -435,8 +437,6 @@ function MapTileSignalLine({
         )
       }
       return <MonthSignal games={stats?.games28d} />
-    case MapTileSignal.Month:
-      return <MonthSignal games={stats?.games28d} />
     case MapTileSignal.Total:
       break
     default:
@@ -446,9 +446,9 @@ function MapTileSignalLine({
   return (
     <Signal>
       {stats
-        ? t('maps.catalog.plays', {
-            defaultValue: '{{formattedCount}} plays',
-            defaultValue_one: '{{formattedCount}} play',
+        ? t('maps.catalog.totalGames', {
+            defaultValue: '{{formattedCount}} games',
+            defaultValue_one: '{{formattedCount}} game',
             count: stats.gamesTotal,
             formattedCount: numbers.format(stats.gamesTotal),
           })

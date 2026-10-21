@@ -379,6 +379,7 @@ function MapCatalog({ tab }: { tab: MapCatalogTab }) {
       <>
         {tab === MapCatalogTab.Yours ? (
           <UploadBanner
+            onUpload={() => fileInputRef.current?.click()}
             onBrowseLocalMaps={IS_ELECTRON ? () => setBrowsingLocalMaps(true) : undefined}
           />
         ) : null}
@@ -418,23 +419,6 @@ function MapCatalog({ tab }: { tab: MapCatalogTab }) {
           onSearchChange={onSearchChange}
           label={t('maps.catalog.searchMaps', 'Search maps')}
         />
-        <SegmentedButtonGroup
-          ariaLabel={t('maps.catalog.lens', 'Map type')}
-          value={params.lens}
-          onChange={lens => onFiltersChange({ lens })}
-          segments={[
-            { value: MapLens.All, label: t('maps.catalog.lensAll', 'All'), neutral: true },
-            { value: MapLens.Melee, label: t('maps.catalog.lensMelee', 'Melee') },
-            { value: MapLens.Ums, label: t('maps.catalog.lensUms', 'UMS') },
-          ]}
-        />
-        {selfUser ? (
-          <FilledTonalButton
-            label={t('maps.catalog.upload', 'Upload')}
-            iconStart='upload'
-            onClick={() => fileInputRef.current?.click()}
-          />
-        ) : null}
       </HeaderBar>
       <Scroller ref={setScroller} $fullWidth={true}>
         <Content>{body}</Content>
@@ -487,7 +471,13 @@ const BannerText = styled.div`
   }
 `
 
-function UploadBanner({ onBrowseLocalMaps }: { onBrowseLocalMaps?: () => void }) {
+function UploadBanner({
+  onUpload,
+  onBrowseLocalMaps,
+}: {
+  onUpload: () => void
+  onBrowseLocalMaps?: () => void
+}) {
   const { t } = useTranslation()
   return (
     <Banner>
@@ -504,6 +494,11 @@ function UploadBanner({ onBrowseLocalMaps }: { onBrowseLocalMaps?: () => void })
           onClick={onBrowseLocalMaps}
         />
       ) : null}
+      <FilledTonalButton
+        label={t('maps.catalog.uploadMaps', 'Upload maps')}
+        iconStart='upload'
+        onClick={onUpload}
+      />
     </Banner>
   )
 }
@@ -515,12 +510,17 @@ const FilterRow = styled.div`
   gap: 8px;
 `
 
+/** Set apart from the filter chips after it, since it picks which maps the others narrow down. */
+const LensControl = styled(SegmentedButtonGroup)`
+  margin-right: 8px;
+` as typeof SegmentedButtonGroup
+
 const CountLabel = styled.div`
   ${bodyMedium};
-  min-width: 72px;
   margin-right: 8px;
   color: var(--theme-on-surface-variant);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 `
 
 /**
@@ -670,15 +670,16 @@ function CatalogFilterRow({
 
   return (
     <FilterRow>
-      <CountLabel>
-        {totalCount !== undefined
-          ? t('maps.catalog.mapCount', {
-              defaultValue: '{{count}} maps',
-              defaultValue_one: '{{count}} map',
-              count: totalCount,
-            })
-          : null}
-      </CountLabel>
+      <LensControl
+        ariaLabel={t('maps.catalog.lens', 'Map type')}
+        value={params.lens}
+        onChange={lens => onFiltersChange({ lens })}
+        segments={[
+          { value: MapLens.All, label: t('maps.catalog.lensAll', 'All'), neutral: true },
+          { value: MapLens.Melee, label: t('maps.catalog.lensMelee', 'Melee') },
+          { value: MapLens.Ums, label: t('maps.catalog.lensUms', 'UMS') },
+        ]}
+      />
       <FilterChip label={playersLabel(params.players, t)} selected={params.players !== undefined}>
         <SelectableMenuItem
           text={t('maps.catalog.playersAny', 'Any number of players')}
@@ -758,6 +759,15 @@ function CatalogFilterRow({
         />
       ) : null}
       <ViewControls>
+        <CountLabel>
+          {totalCount !== undefined
+            ? t('maps.catalog.mapCount', {
+                defaultValue: '{{count}} maps',
+                defaultValue_one: '{{count}} map',
+                count: totalCount,
+              })
+            : null}
+        </CountLabel>
         <FilterChip label={sortLabel(sort, t)} icon={<MaterialIcon icon='sort' size={18} />}>
           {sorts.map(s => (
             <SelectableMenuItem
@@ -950,8 +960,6 @@ function signalFor(tab: MapCatalogTab, sort: CatalogSort): MapTileSignal {
   switch (sort) {
     case CatalogSort.Trending:
       return MapTileSignal.Trending
-    case CatalogSort.MostPlayed:
-      return MapTileSignal.Month
     case CatalogSort.Newest:
       return tab === MapCatalogTab.All ? MapTileSignal.Published : MapTileSignal.Total
     default:

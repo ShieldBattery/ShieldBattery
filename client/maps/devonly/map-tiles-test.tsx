@@ -105,8 +105,8 @@ const TILES: ReadonlyArray<{
     }),
   },
   {
-    label: 'Most played (month)',
-    signal: MapTileSignal.Month,
+    label: 'Most played (total)',
+    signal: MapTileSignal.Total,
     map: tileMap({
       id: '00000000-0000-4000-8000-000000009004',
       name: 'Big Game Hunters',
