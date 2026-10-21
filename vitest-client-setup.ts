@@ -35,6 +35,15 @@ import { afterEach, vi } from 'vitest'
     document.documentElement.lang = 'en-US'
   }
 
+  // The Web Animations spec marks the `finished` promise as handled when `cancel()` rejects it, so
+  // browsers never report that rejection. happy-dom rejects it unhandled, which turns every
+  // animation motion interrupts (e.g. on unmount) into an unhandled rejection that fails the run.
+  const originalCancel = window.Animation.prototype.cancel
+  window.Animation.prototype.cancel = function (this: Animation) {
+    this.finished.catch(() => {})
+    originalCancel.call(this)
+  }
+
   afterEach(() => {
     cleanup()
   })
