@@ -65,6 +65,9 @@ const FIXED_ARCH = opt('--arch', 'x64')
 // cross-architecture comparison reports divergences rollback has nothing to do with. Random
 // configs pick one architecture per game for its plain run and all its harness runs.
 const PLAIN_ARCH_OPT = opt('--plain-arch', null)
+// Keeps every plain run's probe CSV in <data dir>/plain/ instead of deleting it when the game
+// passes, for using plain playback's per-frame fingerprints outside the soak.
+const KEEP_PLAIN = args.includes('--keep-plain')
 
 const RESULTS = RESULTS_FILE ? path.resolve(RESULTS_FILE) : path.join(SOAK, 'results.jsonl')
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a)
@@ -691,7 +694,15 @@ async function soakGame(worker, game) {
       fs.renameSync(plain.done.probe_csv, path.join(dir, path.basename(plain.done.probe_csv)))
     }
   } else {
-    if (!BASELINE) removeCsvs(plain)
+    if (!BASELINE && KEEP_PLAIN) {
+      const dir = path.join(SOAK, 'plain')
+      fs.mkdirSync(dir, { recursive: true })
+      const kept = path.join(dir, `${game.id}-${PLAIN_ARCH}-${path.basename(plain.done.probe_csv)}`)
+      fs.renameSync(plain.done.probe_csv, kept)
+      log(`w${worker} ${game.id} plain CSV kept at ${kept}`)
+    } else if (!BASELINE) {
+      removeCsvs(plain)
+    }
     fs.rmSync(replay.path, { force: true })
   }
   appendResult({ kind: 'game', game: game.id, outcome: failures ? 'failed' : 'pass', failures })
