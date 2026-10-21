@@ -28,7 +28,7 @@ import { fetchJson } from '../network/fetch'
 import { isFetchError } from '../network/fetch-errors'
 import { makeServerRsUrl } from '../network/server-url'
 import { UploadedMap } from './actions'
-import { ClientSideUploadError, upload } from './upload'
+import { ClientSideUploadError, upload, uploadFile } from './upload'
 
 function fetchBatchMapInfo(mapIds: ReadonlyArray<SbMapId>, signal?: AbortSignal) {
   const params = mapIds.map(m => urlPath`m=${m}`).join('&')
@@ -37,18 +37,20 @@ function fetchBatchMapInfo(mapIds: ReadonlyArray<SbMapId>, signal?: AbortSignal)
 
 /**
  * Uploads a map file to the current user's own maps, returning the uploaded map along with the
- * info needed to display it.
+ * info needed to display it. `file` is either a path on disk (app only) or a file the user picked.
  */
-async function uploadMap(filePath: string): Promise<UploadedMap> {
-  if (!IS_ELECTRON) {
-    throw new Error('cannot upload maps on non-electron clients')
+async function uploadMap(file: string | File): Promise<UploadedMap> {
+  const url = makeServerRsUrl(urlPath`/maps`)
+  let mapId: SbMapId
+  if (typeof file === 'string') {
+    if (!IS_ELECTRON) {
+      throw new Error('cannot upload maps by path on non-electron clients')
+    }
+    mapId = (await upload<UploadMapResponse>(file, url, MAX_MAP_FILE_SIZE_BYTES)).mapId
+  } else {
+    mapId = (await uploadFile<UploadMapResponse>(file, url, MAX_MAP_FILE_SIZE_BYTES)).mapId
   }
 
-  const { mapId } = await upload<UploadMapResponse>(
-    filePath,
-    makeServerRsUrl(urlPath`/maps`),
-    MAX_MAP_FILE_SIZE_BYTES,
-  )
   const { maps, libraryMapIds, users } = await fetchBatchMapInfo([mapId])
   const map = maps.find(m => m.id === mapId)
   if (!map) {
@@ -58,55 +60,65 @@ async function uploadMap(filePath: string): Promise<UploadedMap> {
   return { map, libraryMapIds, users }
 }
 
+/** Returns a message explaining why uploading a map failed with `err`, for showing the user. */
+export function mapUploadErrorMessage(err: unknown): string {
+  if (err instanceof ClientSideUploadError || (isFetchError(err) && err.code)) {
+    if (err.code === FilesErrorCode.MaxFileSizeExceeded) {
+      return i18n.t('maps.local.mapFileSizeErrorMessage', {
+        defaultValue: "The map's file size exceeds the maximum allowed size of {{fileSize}}.",
+        fileSize: prettyBytes(MAX_MAP_FILE_SIZE_BYTES),
+      })
+    } else if (err.code === MapServiceErrorCode.NoPlayerSlots) {
+      return i18n.t(
+        'maps.local.uploadMapNoPlayerSlotsError',
+        'This map has no start locations or usable player slots, so it can never be ' +
+          'played. Add start locations to the map and try again.',
+      )
+    } else if (err.code === MapServiceErrorCode.InvalidMapFile) {
+      return i18n.t(
+        'maps.local.uploadMapInvalidFileError',
+        "This file couldn't be read as a StarCraft map. It may be corrupted or protected in a " +
+          'way we cannot read.',
+      )
+    }
+  }
+
+  return i18n.t(
+    'maps.local.uploadMapError',
+    'An unknown error occurred while uploading the map. Please try again later.',
+  )
+}
+
+/** Uploads a map file from disk to the user's own maps, showing a dialog if it fails. */
 export function uploadLocalMap(path: string, spec: RequestHandlingSpec<UploadedMap>): ThunkAction {
   return abortableThunk(spec, async dispatch => {
     try {
       const result = await uploadMap(path)
-
-      dispatch({
-        type: '@maps/uploadLocalMap',
-        payload: result,
-        meta: { path },
-      })
-
+      dispatch({ type: '@maps/uploadMap', payload: result })
       return result
     } catch (err) {
-      let message = i18n.t(
-        'maps.local.uploadMapError',
-        'An unknown error occurred while uploading the map. Please try again later.',
-      )
-
-      if (err instanceof ClientSideUploadError || (isFetchError(err) && err.code)) {
-        if (err.code === FilesErrorCode.MaxFileSizeExceeded) {
-          message = i18n.t('maps.local.mapFileSizeErrorMessage', {
-            defaultValue: "The map's file size exceeds the maximum allowed size of {{fileSize}}.",
-            fileSize: prettyBytes(MAX_MAP_FILE_SIZE_BYTES),
-          })
-        } else if (err.code === MapServiceErrorCode.NoPlayerSlots) {
-          message = i18n.t(
-            'maps.local.uploadMapNoPlayerSlotsError',
-            'This map has no start locations or usable player slots, so it can never be ' +
-              'played. Add start locations to the map and try again.',
-          )
-        } else if (err.code === MapServiceErrorCode.InvalidMapFile) {
-          message = i18n.t(
-            'maps.local.uploadMapInvalidFileError',
-            "This file couldn't be read as a StarCraft map. It may be corrupted or protected in a " +
-              'way we cannot read.',
-          )
-        }
-      }
-
       dispatch(
         openSimpleDialog(
           i18n.t('maps.local.uploadMapErrorTitle', 'Error uploading the map'),
-          message,
+          mapUploadErrorMessage(err),
           true,
         ),
       )
 
       throw err
     }
+  })
+}
+
+/**
+ * Uploads a map file the user picked or dropped to their own maps. Callers show failures
+ * themselves, with {@link mapUploadErrorMessage}.
+ */
+export function uploadMapFile(file: File, spec: RequestHandlingSpec<UploadedMap>): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const result = await uploadMap(file)
+    dispatch({ type: '@maps/uploadMap', payload: result })
+    return result
   })
 }
 
