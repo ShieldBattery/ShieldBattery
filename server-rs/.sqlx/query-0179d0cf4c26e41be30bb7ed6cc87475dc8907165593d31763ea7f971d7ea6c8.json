@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id as \"id: SbMapId\" FROM maps WHERE hash = ANY($1::bytea[])",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id: SbMapId",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "ByteaArray"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "0179d0cf4c26e41be30bb7ed6cc87475dc8907165593d31763ea7f971d7ea6c8"
+}
