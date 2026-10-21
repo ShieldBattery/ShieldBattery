@@ -212,6 +212,12 @@ opt-level = 3
 [profile.dev.package."*"]
 opt-level = 3
 
+# scarf's `rva_32` truncates addresses to u32 and subtracts them, which only comes out right
+# wrapping: an image that ASLR places across a 4 GiB boundary underflows it, and with overflow
+# checks on that panics during analysis on every launch until the base moves.
+[profile.dev.package.scarf]
+overflow-checks = false
+
 # Have build dependencies (most importantly serde) be built with opt-level 3.
 # In debug this should reduce time it takes to expand derive macros -- it's
 # done every time the compiler is ran. I don't have pc that can get super reliable
