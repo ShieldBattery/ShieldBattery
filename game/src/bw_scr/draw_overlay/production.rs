@@ -352,11 +352,12 @@ pub(super) fn selected_production(unit: Unit, bw: &BwVars) -> Option<ProductionP
 /// shields for a unit that has any, then each of its weapons, each at the level its owner has
 /// taken the upgrade improving it to.
 ///
-/// Which of those a unit has is the console's own rule, read off its units.dat entry alone: armor
+/// Which of those a unit has is the console's own rule, read off units.dat: armor
 /// unless its armor upgrade is [`NO_ARMOR_UPGRADE`], shields for anything with shields, and each
 /// weapon, the air one only where it is not the ground one again. A unit whose guns are on a turret
-/// (a goliath, a siege tank) has its weapons on the turret's entry, so the turret's are read too. A
-/// lurker has no weapon until it burrows.
+/// (a goliath, a siege tank) has its weapons on the turret's entry, so the turret's are read too.
+/// Reavers and carriers use their scarabs' and interceptors' weapons. A lurker has no weapon until
+/// it burrows.
 ///
 /// A hallucination has none: the console shows no upgrades for one to its owner or to anyone
 /// watching, which is everyone this panel is drawn for.
@@ -388,7 +389,7 @@ pub(super) fn selected_upgrades(unit: Unit, bw: &BwVars) -> Vec<UnitUpgradeView>
     }
     let armed = id != bw_dat::unit::LURKER || unit.is_burrowed();
     let mut weapons: Vec<WeaponId> = Vec::new();
-    for weapon in [Some(id), id.subunit()]
+    for weapon in [Some(id), id.subunit(), id.fighter_id()]
         .into_iter()
         .flatten()
         .filter(|_| armed)
