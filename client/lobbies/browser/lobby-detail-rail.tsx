@@ -546,7 +546,6 @@ export function LobbyDetailRail({
             <ReduxMapThumbnail
               mapId={map.id}
               size={512}
-              gameType={summary.gameType}
               showInfoLayer={true}
               hasMapPoolChips={true}
               onClick={() => dispatch(openMapPreviewDialog(map.id))}

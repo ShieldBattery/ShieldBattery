@@ -2,7 +2,6 @@ import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
-import { GameType } from '../../common/games/game-type'
 import { MapImageInfo, mapImageSrcSet, MapStartLocation, visibleSpawns } from '../../common/maps'
 import { SC_COLORS } from '../../common/settings/team-colors'
 import { FragmentType, graphql, useFragment } from '../gql'
@@ -130,16 +129,13 @@ export function MapNoImage() {
  */
 export function MapSpawnMarkers({
   map,
-  gameType,
   cover = false,
 }: {
   map: ReadonlyDeep<MapImageInfo>
-  /** The type of the lobby or game the map is shown for, if any. See `visibleSpawns`. */
-  gameType?: GameType
   /** Whether the image is drawn with `object-fit: cover` instead of `contain`. */
   cover?: boolean
 }) {
-  const spawns = visibleSpawns(map, gameType)
+  const spawns = visibleSpawns(map)
   if (!spawns.length) {
     return null
   }
@@ -177,8 +173,6 @@ export interface MapInfoImageProps {
    * of cropped, so no spawn falls outside the box.
    */
   showSpawns?: boolean
-  /** The type of the lobby or game the map is shown for, if any. See `visibleSpawns`. */
-  gameType?: GameType
   size?: number
   altText?: string
   decoding?: 'async' | 'sync' | 'auto'
@@ -192,7 +186,6 @@ export interface MapInfoImageProps {
 export function MapInfoImage({
   map,
   showSpawns,
-  gameType,
   size,
   altText,
   decoding,
@@ -205,7 +198,6 @@ export function MapInfoImage({
     <MapImage
       map={map}
       showSpawns={showSpawns}
-      gameType={gameType}
       size={size}
       altText={altText}
       decoding={decoding}
@@ -287,7 +279,6 @@ export function UploadedMapImage({
     name,
   },
   showSpawns,
-  gameType,
   size,
   altText,
   decoding,
@@ -311,7 +302,6 @@ export function UploadedMapImage({
     name: string
   }
   showSpawns?: boolean
-  gameType?: GameType
   size?: number
   altText?: string
   decoding?: 'async' | 'sync' | 'auto'
@@ -332,7 +322,6 @@ export function UploadedMapImage({
         mapData: { width, height, startLocations, umsContent: umsContent ?? undefined },
       }}
       showSpawns={showSpawns}
-      gameType={gameType}
       size={size}
       altText={altText}
       decoding={decoding}
@@ -347,7 +336,6 @@ export function UploadedMapImage({
 function MapImage({
   map,
   showSpawns = false,
-  gameType,
   size = 256,
   altText,
   decoding = 'async',
@@ -358,7 +346,6 @@ function MapImage({
 }: {
   map: ReadonlyDeep<MapImageInfo>
   showSpawns?: boolean
-  gameType?: GameType
   size?: number
   altText?: string
   decoding?: 'async' | 'sync' | 'auto'
@@ -410,7 +397,7 @@ function MapImage({
             decoding={decoding}
             loading={loading}
           />
-          {showSpawns ? <MapSpawnMarkers map={map} gameType={gameType} /> : null}
+          {showSpawns ? <MapSpawnMarkers map={map} /> : null}
         </ImgContainer>
       ) : (
         noImageElem

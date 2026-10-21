@@ -1,5 +1,4 @@
 import { describe, expect, test } from 'vitest'
-import { GameType } from './games/game-type'
 import { mapImageSrcSet, visibleSpawns } from './maps'
 
 function imageInfo(width: number, height: number) {
@@ -68,19 +67,8 @@ describe('common/maps/visibleSpawns', () => {
     expect(visibleSpawns(spawnInfo())).toEqual(startLocations)
   })
 
-  test('maps with UMS content show none outside a game', () => {
+  test('maps with UMS content show none', () => {
     expect(visibleSpawns(spawnInfo({ umsContent: true }))).toEqual([])
-  })
-
-  test('melee game types show them even on maps with UMS content', () => {
-    expect(visibleSpawns(spawnInfo({ umsContent: true }), GameType.Melee)).toEqual(startLocations)
-    expect(visibleSpawns(spawnInfo({ umsContent: true }), GameType.TopVsBottom)).toEqual(
-      startLocations,
-    )
-  })
-
-  test('UMS games show none', () => {
-    expect(visibleSpawns(spawnInfo(), GameType.UseMapSettings)).toEqual([])
   })
 
   test('images with spawns drawn in, or unknown images, show none', () => {
