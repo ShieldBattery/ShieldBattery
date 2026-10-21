@@ -1,8 +1,6 @@
 import { GetGamesResponse } from '../../common/games/games'
 import {
   GetBatchMapInfoResponse,
-  GetFavoritedMapsQueryParams,
-  GetFavoritesResponse,
   GetMapsQueryParams,
   GetMapsResponse,
   MapInfoJson,
@@ -16,7 +14,6 @@ import { BaseFetchFailure } from '../network/fetch-errors'
 export type MapsActions =
   | UploadMap
   | GetMaps
-  | GetFavorites
   | GetBatchMapInfoSuccess
   | GetBatchMapInfoFailure
   | AddToFavorites
@@ -50,15 +47,6 @@ export interface GetMaps {
   type: '@maps/getMaps'
   payload: GetMapsResponse
   meta: GetMapsQueryParams
-}
-
-/**
- * The server has returned the list of favorited maps for the current user.
- */
-export interface GetFavorites {
-  type: '@maps/getFavoritedMaps'
-  payload: GetFavoritesResponse
-  meta: GetFavoritedMapsQueryParams
 }
 
 /**

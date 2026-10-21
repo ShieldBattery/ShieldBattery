@@ -132,19 +132,6 @@ export const ALL_MAP_SORT_TYPES: Readonly<MapSortType[]> = [
   MapSortType.Date,
 ]
 
-export function mapSortTypeToLabel(sortType: MapSortType, t: TFunction) {
-  switch (sortType) {
-    case MapSortType.Name:
-      return t('maps.server.sortMaps.option.name', 'Name')
-    case MapSortType.NumberOfPlayers:
-      return t('maps.server.sortMaps.option.numberOfPlayers', 'Number of players')
-    case MapSortType.Date:
-      return t('maps.server.sortMaps.option.dateUploaded', 'Date uploaded')
-    default:
-      return sortType satisfies never
-  }
-}
-
 export { MapVisibility }
 export const ALL_MAP_VISIBILITIES: Readonly<MapVisibility[]> = Object.values(MapVisibility)
 
@@ -414,18 +401,9 @@ export interface GetMapsQueryParams {
   offset?: number
 }
 
-export type GetFavoritedMapsQueryParams = Omit<GetMapsQueryParams, 'visibility' | 'offset'>
-
 export interface GetMapsResponse {
   maps: MapInfoJson[]
   hasMoreMaps: boolean
-  /** The returned maps that are in the requesting user's own maps. */
-  libraryMapIds: SbMapId[]
-  users: SbUser[]
-}
-
-export interface GetFavoritesResponse {
-  favoritedMaps: MapInfoJson[]
   /** The returned maps that are in the requesting user's own maps. */
   libraryMapIds: SbMapId[]
   users: SbUser[]

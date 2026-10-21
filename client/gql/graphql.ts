@@ -1320,6 +1320,20 @@ export type MapTile_SbMapFragmentFragment = {
   }
 } & { ' $fragmentName'?: 'MapTile_SbMapFragmentFragment' }
 
+export type MapUploadKnownMapQueryVariables = Exact<{
+  hashes: Array<string> | string
+}>
+
+export type MapUploadKnownMapQuery = { mapsByHash: Array<{ id: Types.SbMapId }> }
+
+export type MapUploadAddToLibraryMutationVariables = Exact<{
+  id: Types.SbMapId
+}>
+
+export type MapUploadAddToLibraryMutation = {
+  mapAddToLibrary: { id: Types.SbMapId; inLibrary: boolean }
+}
+
 export type NewsArchiveQueryVariables = Exact<{
   first?: number | null | undefined
   after?: string | null | undefined
@@ -8114,6 +8128,95 @@ export const MapPageDocument = {
     },
   ],
 } as unknown as DocumentNode<MapPageQuery, MapPageQueryVariables>
+export const MapUploadKnownMapDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'MapUploadKnownMap' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'hashes' } },
+          type: {
+            kind: 'NonNullType',
+            type: {
+              kind: 'ListType',
+              type: {
+                kind: 'NonNullType',
+                type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+              },
+            },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'mapsByHash' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'hashes' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'hashes' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<MapUploadKnownMapQuery, MapUploadKnownMapQueryVariables>
+export const MapUploadAddToLibraryDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'MapUploadAddToLibrary' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'SbMapId' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'mapAddToLibrary' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'id' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'inLibrary' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<MapUploadAddToLibraryMutation, MapUploadAddToLibraryMutationVariables>
 export const NewsArchiveDocument = {
   kind: 'Document',
   definitions: [

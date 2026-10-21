@@ -74,6 +74,8 @@ type Documents = {
   '\n  fragment MapPage_ActionsFragment on SbMap {\n    id\n    name\n    listed\n    isFavorited\n    inLibrary\n  }\n': typeof types.MapPage_ActionsFragmentFragmentDoc
   '\n  fragment MapPage_HowToPlayFragment on SbMap {\n    id\n    kind\n    file {\n      id\n      originalDescription\n    }\n  }\n': typeof types.MapPage_HowToPlayFragmentFragmentDoc
   '\n  fragment MapTile_SbMapFragment on SbMap {\n    id\n    name\n    kind\n    playerCount\n    official\n    listed\n    publishedAt\n    isFavorited\n    stats {\n      id\n      games7d\n      games28d\n      gamesTotal\n      trendingScore\n    }\n    file {\n      id\n      ...MapFileImage_FileFragment\n      width\n      height\n      tileset\n      isEud\n      umsForces {\n        name\n        teamId\n        players {\n          playerId\n          isComputer\n        }\n      }\n    }\n  }\n': typeof types.MapTile_SbMapFragmentFragmentDoc
+  '\n  query MapUploadKnownMap($hashes: [String!]!) {\n    mapsByHash(hashes: $hashes) {\n      id\n    }\n  }\n': typeof types.MapUploadKnownMapDocument
+  '\n  mutation MapUploadAddToLibrary($id: SbMapId!) {\n    mapAddToLibrary(id: $id) {\n      id\n      inLibrary\n    }\n  }\n': typeof types.MapUploadAddToLibraryDocument
   '\n  query NewsArchive($first: Int, $after: String) {\n    newsPosts(first: $first, after: $after) {\n      edges {\n        node {\n          id\n          title\n          summary\n          publishedAt\n        }\n      }\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n    }\n  }\n': typeof types.NewsArchiveDocument
   '\n  fragment News_HomeFeedFragment on Query {\n    newsPosts(first: 10) {\n      edges {\n        node {\n          id\n          title\n          summary\n          publishedAt\n          coverImageUrl\n          coverImageSmallUrl\n        }\n      }\n    }\n  }\n': typeof types.News_HomeFeedFragmentFragmentDoc
   '\n  mutation NewsUpdatePost($id: UUID!, $updates: NewsPostUpdates!) {\n    newsUpdatePost(id: $id, updates: $updates) {\n      id\n      title\n      summary\n      content\n      publishedAt\n      updatedAt\n      coverImagePath\n      coverImageUrl\n      coverImageSmallUrl\n    }\n  }\n': typeof types.NewsUpdatePostDocument
@@ -226,6 +228,10 @@ const documents: Documents = {
     types.MapPage_HowToPlayFragmentFragmentDoc,
   '\n  fragment MapTile_SbMapFragment on SbMap {\n    id\n    name\n    kind\n    playerCount\n    official\n    listed\n    publishedAt\n    isFavorited\n    stats {\n      id\n      games7d\n      games28d\n      gamesTotal\n      trendingScore\n    }\n    file {\n      id\n      ...MapFileImage_FileFragment\n      width\n      height\n      tileset\n      isEud\n      umsForces {\n        name\n        teamId\n        players {\n          playerId\n          isComputer\n        }\n      }\n    }\n  }\n':
     types.MapTile_SbMapFragmentFragmentDoc,
+  '\n  query MapUploadKnownMap($hashes: [String!]!) {\n    mapsByHash(hashes: $hashes) {\n      id\n    }\n  }\n':
+    types.MapUploadKnownMapDocument,
+  '\n  mutation MapUploadAddToLibrary($id: SbMapId!) {\n    mapAddToLibrary(id: $id) {\n      id\n      inLibrary\n    }\n  }\n':
+    types.MapUploadAddToLibraryDocument,
   '\n  query NewsArchive($first: Int, $after: String) {\n    newsPosts(first: $first, after: $after) {\n      edges {\n        node {\n          id\n          title\n          summary\n          publishedAt\n        }\n      }\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n    }\n  }\n':
     types.NewsArchiveDocument,
   '\n  fragment News_HomeFeedFragment on Query {\n    newsPosts(first: 10) {\n      edges {\n        node {\n          id\n          title\n          summary\n          publishedAt\n          coverImageUrl\n          coverImageSmallUrl\n        }\n      }\n    }\n  }\n':
@@ -661,6 +667,18 @@ export function graphql(
 export function graphql(
   source: '\n  fragment MapTile_SbMapFragment on SbMap {\n    id\n    name\n    kind\n    playerCount\n    official\n    listed\n    publishedAt\n    isFavorited\n    stats {\n      id\n      games7d\n      games28d\n      gamesTotal\n      trendingScore\n    }\n    file {\n      id\n      ...MapFileImage_FileFragment\n      width\n      height\n      tileset\n      isEud\n      umsForces {\n        name\n        teamId\n        players {\n          playerId\n          isComputer\n        }\n      }\n    }\n  }\n',
 ): (typeof documents)['\n  fragment MapTile_SbMapFragment on SbMap {\n    id\n    name\n    kind\n    playerCount\n    official\n    listed\n    publishedAt\n    isFavorited\n    stats {\n      id\n      games7d\n      games28d\n      gamesTotal\n      trendingScore\n    }\n    file {\n      id\n      ...MapFileImage_FileFragment\n      width\n      height\n      tileset\n      isEud\n      umsForces {\n        name\n        teamId\n        players {\n          playerId\n          isComputer\n        }\n      }\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  query MapUploadKnownMap($hashes: [String!]!) {\n    mapsByHash(hashes: $hashes) {\n      id\n    }\n  }\n',
+): (typeof documents)['\n  query MapUploadKnownMap($hashes: [String!]!) {\n    mapsByHash(hashes: $hashes) {\n      id\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  mutation MapUploadAddToLibrary($id: SbMapId!) {\n    mapAddToLibrary(id: $id) {\n      id\n      inLibrary\n    }\n  }\n',
+): (typeof documents)['\n  mutation MapUploadAddToLibrary($id: SbMapId!) {\n    mapAddToLibrary(id: $id) {\n      id\n      inLibrary\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

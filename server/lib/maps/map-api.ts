@@ -10,8 +10,6 @@ import {
   ALL_TILESETS,
   filterColorCodes,
   GetBatchMapInfoResponse,
-  GetFavoritedMapsQueryParams,
-  GetFavoritesResponse,
   GetMapsQueryParams,
   GetMapsResponse,
   MAP_LIST_LIMIT,
@@ -31,7 +29,6 @@ import {
   addMapToFavorites,
   delistMap,
   getFavoritedFromMapIds,
-  getFavoritedMaps,
   getLibraryFromMapIds,
   getMapInfos,
   getMaps,
@@ -111,11 +108,6 @@ type ServerGetMapsQueryParams = SetRequired<
   'visibility' | 'sort' | 'numPlayers' | 'tilesets'
 >
 
-type ServerGetFavoritedMapsQueryParams = SetRequired<
-  GetFavoritedMapsQueryParams,
-  'sort' | 'numPlayers' | 'tilesets'
->
-
 @httpApi('/maps')
 export class MapsApi {
   constructor(private replayService: ReplayService) {}
@@ -177,49 +169,6 @@ export class MapsApi {
     return {
       maps: maps.map(m => toMapInfoJson(m)),
       hasMoreMaps: maps.length >= MAP_LIST_LIMIT,
-      libraryMapIds,
-      users,
-    }
-  }
-
-  @httpGet('/favorites')
-  @httpBefore(ensureLoggedIn, throttleMiddleware(mapsListThrottle, throttleByUser))
-  async listFavorites(ctx: RouterContext): Promise<GetFavoritesResponse> {
-    const {
-      query: { sort, numPlayers, tilesets, q: searchQuery },
-    } = validateRequest(ctx, {
-      query: Joi.object<ServerGetFavoritedMapsQueryParams>({
-        sort: Joi.number()
-          .valid(...ALL_MAP_SORT_TYPES)
-          .default(MapSortType.Name),
-        numPlayers: Joi.array()
-          .items(Joi.number().min(2).max(8))
-          .single()
-          .default([2, 3, 4, 5, 6, 7, 8]),
-        tilesets: Joi.array()
-          .items(Joi.number().valid(...ALL_TILESETS))
-          .single()
-          .default(ALL_TILESETS),
-        q: Joi.string().allow(''),
-      }),
-    })
-
-    const favoritedBy = ctx.session!.user.id
-    const maps = await getFavoritedMaps({
-      sort,
-      numPlayers,
-      tilesets,
-      searchStr: searchQuery,
-      favoritedBy,
-    })
-
-    const [libraryMapIds, users] = await Promise.all([
-      getLibraryMapIds(ctx, maps),
-      findPublishers(maps),
-    ])
-
-    return {
-      favoritedMaps: maps.map(m => toMapInfoJson(m)),
       libraryMapIds,
       users,
     }
