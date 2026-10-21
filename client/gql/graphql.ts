@@ -802,11 +802,8 @@ export type LiveGames_FeedEntryMapAndTypeFragmentFragment = {
       image512Url: string
       image1024Url: string
       image2048Url: string
-      imageSpawnsBaked: boolean
       width: number
       height: number
-      umsContent: boolean | null
-      startLocations: Array<{ id: string; slot: number; x: number; y: number }>
     }
   }
   config:
@@ -1758,23 +1755,8 @@ export const LiveGames_FeedEntryMapAndTypeFragmentFragmentDoc = {
                       { kind: 'Field', name: { kind: 'Name', value: 'image512Url' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'image1024Url' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'image2048Url' } },
-                      { kind: 'Field', name: { kind: 'Name', value: 'imageSpawnsBaked' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'width' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'height' } },
-                      {
-                        kind: 'Field',
-                        name: { kind: 'Name', value: 'startLocations' },
-                        selectionSet: {
-                          kind: 'SelectionSet',
-                          selections: [
-                            { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                            { kind: 'Field', name: { kind: 'Name', value: 'slot' } },
-                            { kind: 'Field', name: { kind: 'Name', value: 'x' } },
-                            { kind: 'Field', name: { kind: 'Name', value: 'y' } },
-                          ],
-                        },
-                      },
-                      { kind: 'Field', name: { kind: 'Name', value: 'umsContent' } },
                     ],
                   },
                 },
@@ -1983,23 +1965,8 @@ export const LiveGames_FeedEntryFragmentFragmentDoc = {
                       { kind: 'Field', name: { kind: 'Name', value: 'image512Url' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'image1024Url' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'image2048Url' } },
-                      { kind: 'Field', name: { kind: 'Name', value: 'imageSpawnsBaked' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'width' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'height' } },
-                      {
-                        kind: 'Field',
-                        name: { kind: 'Name', value: 'startLocations' },
-                        selectionSet: {
-                          kind: 'SelectionSet',
-                          selections: [
-                            { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                            { kind: 'Field', name: { kind: 'Name', value: 'slot' } },
-                            { kind: 'Field', name: { kind: 'Name', value: 'x' } },
-                            { kind: 'Field', name: { kind: 'Name', value: 'y' } },
-                          ],
-                        },
-                      },
-                      { kind: 'Field', name: { kind: 'Name', value: 'umsContent' } },
                     ],
                   },
                 },
@@ -2119,23 +2086,8 @@ export const LiveGames_FeedFragmentFragmentDoc = {
                       { kind: 'Field', name: { kind: 'Name', value: 'image512Url' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'image1024Url' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'image2048Url' } },
-                      { kind: 'Field', name: { kind: 'Name', value: 'imageSpawnsBaked' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'width' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'height' } },
-                      {
-                        kind: 'Field',
-                        name: { kind: 'Name', value: 'startLocations' },
-                        selectionSet: {
-                          kind: 'SelectionSet',
-                          selections: [
-                            { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                            { kind: 'Field', name: { kind: 'Name', value: 'slot' } },
-                            { kind: 'Field', name: { kind: 'Name', value: 'x' } },
-                            { kind: 'Field', name: { kind: 'Name', value: 'y' } },
-                          ],
-                        },
-                      },
-                      { kind: 'Field', name: { kind: 'Name', value: 'umsContent' } },
                     ],
                   },
                 },
@@ -4977,23 +4929,8 @@ export const GamesPageContentDocument = {
                       { kind: 'Field', name: { kind: 'Name', value: 'image512Url' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'image1024Url' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'image2048Url' } },
-                      { kind: 'Field', name: { kind: 'Name', value: 'imageSpawnsBaked' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'width' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'height' } },
-                      {
-                        kind: 'Field',
-                        name: { kind: 'Name', value: 'startLocations' },
-                        selectionSet: {
-                          kind: 'SelectionSet',
-                          selections: [
-                            { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                            { kind: 'Field', name: { kind: 'Name', value: 'slot' } },
-                            { kind: 'Field', name: { kind: 'Name', value: 'x' } },
-                            { kind: 'Field', name: { kind: 'Name', value: 'y' } },
-                          ],
-                        },
-                      },
-                      { kind: 'Field', name: { kind: 'Name', value: 'umsContent' } },
                     ],
                   },
                 },
@@ -5449,23 +5386,8 @@ export const HomePageLiveContentDocument = {
                       { kind: 'Field', name: { kind: 'Name', value: 'image512Url' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'image1024Url' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'image2048Url' } },
-                      { kind: 'Field', name: { kind: 'Name', value: 'imageSpawnsBaked' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'width' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'height' } },
-                      {
-                        kind: 'Field',
-                        name: { kind: 'Name', value: 'startLocations' },
-                        selectionSet: {
-                          kind: 'SelectionSet',
-                          selections: [
-                            { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                            { kind: 'Field', name: { kind: 'Name', value: 'slot' } },
-                            { kind: 'Field', name: { kind: 'Name', value: 'x' } },
-                            { kind: 'Field', name: { kind: 'Name', value: 'y' } },
-                          ],
-                        },
-                      },
-                      { kind: 'Field', name: { kind: 'Name', value: 'umsContent' } },
                     ],
                   },
                 },
@@ -7591,23 +7513,8 @@ export const MapLiveGamesDocument = {
                       { kind: 'Field', name: { kind: 'Name', value: 'image512Url' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'image1024Url' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'image2048Url' } },
-                      { kind: 'Field', name: { kind: 'Name', value: 'imageSpawnsBaked' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'width' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'height' } },
-                      {
-                        kind: 'Field',
-                        name: { kind: 'Name', value: 'startLocations' },
-                        selectionSet: {
-                          kind: 'SelectionSet',
-                          selections: [
-                            { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                            { kind: 'Field', name: { kind: 'Name', value: 'slot' } },
-                            { kind: 'Field', name: { kind: 'Name', value: 'x' } },
-                            { kind: 'Field', name: { kind: 'Name', value: 'y' } },
-                          ],
-                        },
-                      },
-                      { kind: 'Field', name: { kind: 'Name', value: 'umsContent' } },
                     ],
                   },
                 },
