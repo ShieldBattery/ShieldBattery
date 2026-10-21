@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    DELETE FROM map_local_files lf\n                    USING maps m, unnest($3::bytea[], $4::text[]) AS r(hash, folder)\n                    WHERE lf.user_id = $1 AND lf.install_id = $2\n                        AND m.hash = r.hash AND lf.map_id = m.id AND lf.folder = r.folder\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Text",
+        "ByteaArray",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "bf4fcded357b3a077bc23afa944d76312671622ac9bb02e8e520d107933db69d"
+}

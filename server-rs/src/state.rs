@@ -1,8 +1,9 @@
 use crate::configuration::Settings;
 use crate::email::MailgunClient;
 use crate::file_store::FileStore;
-use crate::maps::api::UploadThrottle;
+use crate::maps::api::UserThrottle;
 use crate::maps::ingest::MapIngester;
+use crate::maps::local_files::LocalMapFilesRepo;
 use crate::redis::RedisPool;
 use crate::schema::SbSchema;
 use crate::twitch::TwitchClient;
@@ -27,5 +28,9 @@ pub struct AppState {
     /// `None` when Twitch isn't configured.
     pub twitch_client: Option<Arc<TwitchClient>>,
     pub map_ingester: Arc<MapIngester>,
-    pub map_upload_throttle: Arc<UploadThrottle>,
+    pub map_upload_throttle: Arc<UserThrottle>,
+    pub local_map_files: LocalMapFilesRepo,
+    // Shares its type with `map_upload_throttle`, so it can't also be extracted by type.
+    #[from_ref(skip)]
+    pub map_local_files_throttle: Arc<UserThrottle>,
 }

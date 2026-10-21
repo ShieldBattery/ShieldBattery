@@ -1,0 +1,41 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT m.hash as \"hash: MapHash\", lf.folder\n                FROM map_local_files lf\n                JOIN maps m ON m.id = lf.map_id\n                WHERE lf.user_id = $1 AND lf.install_id = $2\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "hash: MapHash",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "hash"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "folder",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "map_local_files",
+            "name": "folder"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "a29a8df18d4797322afb9ed6951df01fa7296d9931b363fe4814e8cbedbd86ab"
+}

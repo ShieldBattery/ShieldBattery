@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    INSERT INTO map_local_files (user_id, install_id, map_id, folder)\n                    SELECT $1, $2, m.id, a.folder\n                    FROM unnest($3::bytea[], $4::text[]) AS a(hash, folder)\n                    JOIN maps m ON m.hash = a.hash\n                    ON CONFLICT DO NOTHING\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Text",
+        "ByteaArray",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2dfd02064bf24596ecf2be7122ccace1c990cfcce0416f8da3ed98e5755c62d7"
+}

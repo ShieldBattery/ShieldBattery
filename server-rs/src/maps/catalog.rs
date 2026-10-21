@@ -12,9 +12,10 @@ use color_eyre::eyre::{self, WrapErr};
 use sqlx::PgPool;
 
 use crate::graphql::errors::graphql_error;
+use crate::maps::local_files::LocalMapsInput;
 use crate::maps::search::{
-    DbSbMap, MapCursor, MapFilter, MapListingError, MapListingPage, MapListingRequest, MapScope,
-    MapSearchRepo, MapSort,
+    DbSbMap, LibrarySource, MapCursor, MapFilter, MapListingError, MapListingPage,
+    MapListingRequest, MapScope, MapSearchRepo, MapSort,
 };
 use crate::maps::stats::{
     self, DEFAULT_ACTIVITY_WEEKS, MapMatchupSeason, MapMatchupStats, MapWeeklyActivity,
@@ -360,8 +361,9 @@ pub(crate) async fn resolve_map_id(db: &PgPool, id: SbMapId) -> eyre::Result<Opt
 /// Edge fields for a user's map collections.
 #[derive(SimpleObject, Clone, Debug)]
 pub struct MapLibraryEntry {
-    /// When the map was added to the library.
-    pub added_at: DateTime<Utc>,
+    /// When the map was added to the library. Null for a map that's only on the install the
+    /// listing includes.
+    pub added_at: Option<DateTime<Utc>>,
 }
 
 #[derive(SimpleObject, Clone, Debug)]
@@ -469,26 +471,32 @@ where
     )
 }
 
-/// Pages through the maps in `user_id`'s library.
+/// Pages through the maps in `user_id`'s library and/or the known maps on one of their installs.
 pub async fn load_map_library(
     ctx: &Context<'_>,
     user_id: SbUserId,
+    local: Option<LocalMapsInput>,
     filter: Option<MapFilter>,
     sort: Option<MapSort>,
     after: Option<String>,
     first: Option<i32>,
 ) -> Result<MapLibraryConnection> {
-    let scope = MapScope::Library(user_id);
+    let source = match local {
+        Some(local) => local
+            .into_source()
+            .map_err(|e| graphql_error("BAD_REQUEST", e.to_string()))?,
+        None => LibrarySource::Uploaded,
+    };
+    let scope = MapScope::Library(user_id, source);
     let (request, page) = load_listing(ctx, scope, filter, sort, after, first).await?;
     let mut connection = new_listing_connection(request, &page);
     for row in page.rows {
-        // Library rows always have an `added_at` (the column is NOT NULL); the fallback only
-        // guards against a non-finite stored value.
-        let added_at = row.added_at.unwrap_or(DateTime::<Utc>::UNIX_EPOCH);
         connection.edges.push(Edge::with_additional_fields(
             OpaqueCursor(row.cursor),
             row.map.into(),
-            MapLibraryEntry { added_at },
+            MapLibraryEntry {
+                added_at: row.added_at,
+            },
         ));
     }
     Ok(connection)
@@ -583,6 +591,29 @@ impl MapsMutation {
         .execute(repo.db())
         .await
         .wrap_err("Failed to add favorite map")?;
+
+        load_map(ctx, id).await
+    }
+
+    /// Adds a map to the current user's library, for maps they hold a copy of without having
+    /// uploaded it. Adding a map that's already in the library moves it to the front of `NEWEST`.
+    async fn map_add_to_library(&self, ctx: &Context<'_>, id: SbMapId) -> Result<SbMap> {
+        let user = require_current_user(ctx)?;
+        let repo = ctx.data::<MapSearchRepo>()?;
+        let id = resolve_existing_map_id(repo.db(), id).await?;
+
+        sqlx::query!(
+            r#"
+                INSERT INTO map_library (user_id, map_id, added_at)
+                VALUES ($1, $2, now())
+                ON CONFLICT (user_id, map_id) DO UPDATE SET added_at = now()
+            "#,
+            user.id as _,
+            id as _,
+        )
+        .execute(repo.db())
+        .await
+        .wrap_err("Failed to add map to library")?;
 
         load_map(ctx, id).await
     }

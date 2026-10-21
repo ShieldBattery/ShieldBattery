@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                DELETE FROM map_local_installs\n                WHERE user_id = $1 AND install_id IN (\n                    SELECT install_id FROM map_local_installs\n                    WHERE user_id = $1\n                    ORDER BY synced_at DESC, install_id\n                    OFFSET $2\n                )\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "68241b78c07e286347bf819bbf46e032a8dff16c232000fdc45fcb3e86053287"
+}
