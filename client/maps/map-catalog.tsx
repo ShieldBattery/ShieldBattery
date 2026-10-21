@@ -75,7 +75,7 @@ enum CatalogDensity {
 const DENSITY_LAYOUT: Readonly<
   Record<CatalogDensity, { minTileWidth: number; imageSize: number }>
 > = {
-  [CatalogDensity.Cozy]: { minTileWidth: 200, imageSize: 280 },
+  [CatalogDensity.Cozy]: { minTileWidth: 232, imageSize: 280 },
   [CatalogDensity.Compact]: { minTileWidth: 150, imageSize: 200 },
 }
 
