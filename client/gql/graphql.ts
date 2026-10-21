@@ -1297,6 +1297,7 @@ export type MapTile_SbMapFragmentFragment = {
   kind: MapKind
   playerCount: number
   official: boolean
+  listed: boolean
   publishedAt: string | null
   isFavorited: boolean
   stats: {
@@ -2830,6 +2831,7 @@ export const MapTile_SbMapFragmentFragmentDoc = {
           { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
           { kind: 'Field', name: { kind: 'Name', value: 'playerCount' } },
           { kind: 'Field', name: { kind: 'Name', value: 'official' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
           { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'isFavorited' } },
           {
@@ -6855,6 +6857,7 @@ export const MapCatalogAllDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
           { kind: 'Field', name: { kind: 'Name', value: 'playerCount' } },
           { kind: 'Field', name: { kind: 'Name', value: 'official' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
           { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'isFavorited' } },
           {
@@ -7100,6 +7103,7 @@ export const MapCatalogLibraryDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
           { kind: 'Field', name: { kind: 'Name', value: 'playerCount' } },
           { kind: 'Field', name: { kind: 'Name', value: 'official' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
           { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'isFavorited' } },
           {
@@ -7344,6 +7348,7 @@ export const MapCatalogFavoritesDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
           { kind: 'Field', name: { kind: 'Name', value: 'playerCount' } },
           { kind: 'Field', name: { kind: 'Name', value: 'official' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
           { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'isFavorited' } },
           {

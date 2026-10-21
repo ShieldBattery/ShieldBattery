@@ -9,17 +9,18 @@ import { MapKind, MapTile_SbMapFragmentFragment } from '../gql/graphql'
 import { narrowDuration } from '../i18n/date-formats'
 import { numberFormat, useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
+import { RoomChip } from '../lobbies/room/room-parts'
 import { useCurrentMapPoolTypes } from '../matchmaking/map-pool-membership'
 import { IconButton } from '../material/button'
 import { LinkButton } from '../material/link-button'
-import { MenuItem } from '../material/menu/item'
+import { DestructiveMenuItem, MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { Tooltip } from '../material/tooltip'
 import { push } from '../navigation/routing'
 import { useAppDispatch } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
-import { bodySmall, labelMedium, singleLine, titleSmall } from '../styles/typography'
+import { bodySmall, labelMedium, labelSmall, singleLine, titleSmall } from '../styles/typography'
 import { openMapDownloadDialog, removeFromMyMaps } from './action-creators'
 import { useToggleMapFavorite } from './map-favorites'
 import { MapFileImage } from './map-image'
@@ -32,6 +33,7 @@ export const MapTile_SbMapFragment = graphql(/* GraphQL */ `
     kind
     playerCount
     official
+    listed
     publishedAt
     isFavorited
     stats {
@@ -105,6 +107,7 @@ const ImageBox = styled.div`
   width: 100%;
   overflow: hidden;
 
+  border: 1px solid rgb(from var(--color-blue80) r g b / 0.12);
   border-radius: 6px;
   background-color: var(--theme-container-low);
   container-type: inline-size;
@@ -115,11 +118,13 @@ const ImageBox = styled.div`
 `
 
 const Badge = styled.div`
-  ${labelMedium};
+  ${labelSmall};
   position: absolute;
   top: 8px;
   left: 8px;
   padding: 2px 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 
   border-radius: 999px;
   background-color: var(--theme-amber-container);
@@ -153,17 +158,21 @@ const PoolChip = styled(Tooltip)`
   color: var(--theme-on-surface);
 `
 
-const FavoriteButton = styled(IconButton)`
+const FavoriteButton = styled(IconButton)<{ $favorited: boolean }>`
   position: absolute;
-  top: 4px;
-  right: 4px;
+  top: 6px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+  min-height: 28px;
 
-  background-color: rgb(from var(--color-blue10) r g b / 0.5);
+  background-color: rgb(from var(--color-blue10) r g b / 0.6);
+  color: ${props => (props.$favorited ? 'var(--theme-amber)' : 'var(--theme-on-surface)')};
 `
 
-const Text = styled.div<{ $hasMenu: boolean }>`
+const Text = styled.div`
   min-width: 0;
-  padding-inline: 2px ${props => (props.$hasMenu ? '40px' : '2px')};
+  padding-inline: 2px;
 
   display: flex;
   flex-direction: column;
@@ -182,16 +191,46 @@ const Meta = styled.div`
   color: var(--theme-on-surface-variant);
 `
 
-const Signal = styled.div<{ $rising?: boolean }>`
-  ${bodySmall};
+enum SignalTone {
+  Default,
+  Rising,
+  Fresh,
+}
+
+const Signal = styled.div<{ $tone?: SignalTone }>`
+  ${labelSmall};
   ${singleLine};
-  color: ${props => (props.$rising ? 'var(--theme-positive)' : 'var(--theme-on-surface-variant)')};
+  color: ${props => {
+    switch (props.$tone) {
+      case SignalTone.Rising:
+        return 'var(--theme-positive)'
+      case SignalTone.Fresh:
+        return 'var(--color-amber70)'
+      default:
+        return 'var(--theme-on-surface-variant)'
+    }
+  }};
 `
 
-const MenuButton = styled(IconButton)`
-  position: absolute;
-  right: -4px;
-  bottom: 4px;
+/** The row under one of the viewer's own maps: its visibility and the actions for it. */
+const LibraryFooter = styled.div`
+  min-height: 32px;
+  padding-left: 2px;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`
+
+const UnlistedChip = styled(RoomChip)`
+  padding-block: 2px;
+`
+
+const FooterMenuButton = styled(IconButton)`
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  margin-left: auto;
 `
 
 export interface MapTileProps {
@@ -270,7 +309,7 @@ export function MapTile({
             </PoolChips>
           ) : null}
         </ImageBox>
-        <Text $hasMenu={!!onRemovedFromLibrary}>
+        <Text>
           <Name title={name}>{name}</Name>
           <Meta>
             <MapTileMeta map={map} />
@@ -278,17 +317,22 @@ export function MapTile({
           <MapTileSignalLine map={map} signal={signal} addedAt={addedAt} />
         </Text>
       </TileLink>
-      <Tooltip text={favoriteLabel} position='bottom' tabIndex={-1}>
-        <FavoriteButton
-          icon={<MaterialIcon icon='star' filled={map.isFavorited} />}
-          ariaLabel={favoriteLabel}
-          disabled={favoritePending}
-          onClick={() => toggleFavorite(map)}
-        />
-      </Tooltip>
       {onRemovedFromLibrary ? (
-        <LibraryMapMenu mapId={map.id} mapName={map.name} onRemoved={onRemovedFromLibrary} />
-      ) : null}
+        <LibraryFooter>
+          {map.listed ? null : <UnlistedChip>{t('maps.page.unlisted', 'Unlisted')}</UnlistedChip>}
+          <LibraryMapMenu mapId={map.id} mapName={map.name} onRemoved={onRemovedFromLibrary} />
+        </LibraryFooter>
+      ) : (
+        <Tooltip text={favoriteLabel} position='bottom' tabIndex={-1}>
+          <FavoriteButton
+            $favorited={map.isFavorited}
+            icon={<MaterialIcon icon='star' size={18} filled={map.isFavorited} />}
+            ariaLabel={favoriteLabel}
+            disabled={favoritePending}
+            onClick={() => toggleFavorite(map)}
+          />
+        </Tooltip>
+      )}
     </Root>
   )
 }
@@ -368,7 +412,7 @@ function MapTileSignalLine({
     case MapTileSignal.Published:
       if (map.publishedAt) {
         return (
-          <Signal>
+          <Signal $tone={SignalTone.Fresh}>
             {t('maps.catalog.publishedAgo', {
               defaultValue: 'Published {{time}}',
               time: durations.format(new Date(map.publishedAt)),
@@ -380,7 +424,7 @@ function MapTileSignalLine({
     case MapTileSignal.Trending:
       if (stats && stats.trendingScore >= RISING_TRENDING_SCORE) {
         return (
-          <Signal $rising={true}>
+          <Signal $tone={SignalTone.Rising}>
             {t('maps.catalog.gamesThisWeek', {
               defaultValue: '{{formattedCount}} games this week',
               defaultValue_one: '{{formattedCount}} game this week',
@@ -442,40 +486,34 @@ function LibraryMapMenu({
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
-  const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'top')
+  const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'bottom')
   const [open, openMenu, closeMenu] = usePopoverController({ refreshAnchorPos })
 
-  const items: Array<[text: string, handler: () => void]> = [
-    [t('maps.catalog.viewMap', 'View map'), () => push(urlForMap(mapId, mapName))],
-    [t('maps.thumbnail.downloadMap', 'Download'), () => dispatch(openMapDownloadDialog(mapId))],
-    [
-      t('maps.thumbnail.removeFromMyMaps', 'Remove from my maps'),
-      () =>
-        dispatch(
-          removeFromMyMaps(mapId, {
-            onSuccess: () => {
-              snackbarController.showSnackbar(
-                t('maps.server.removedFromMyMaps', 'Removed from your maps'),
-              )
-              onRemoved(mapId)
-            },
-            onError: () =>
-              snackbarController.showSnackbar(
-                t(
-                  'maps.server.removeFromMyMapsError',
-                  'An error occurred while removing the map from your maps',
-                ),
-              ),
-          }),
-        ),
-    ],
-  ]
+  const onRemove = () => {
+    dispatch(
+      removeFromMyMaps(mapId, {
+        onSuccess: () => {
+          snackbarController.showSnackbar(
+            t('maps.server.removedFromMyMaps', 'Removed from your maps'),
+          )
+          onRemoved(mapId)
+        },
+        onError: () =>
+          snackbarController.showSnackbar(
+            t(
+              'maps.server.removeFromMyMapsError',
+              'An error occurred while removing the map from your maps',
+            ),
+          ),
+      }),
+    )
+  }
 
   return (
     <>
-      <MenuButton
+      <FooterMenuButton
         ref={anchorRef}
-        icon={<MaterialIcon icon='more_vert' />}
+        icon={<MaterialIcon icon='more_vert' size={20} />}
         ariaLabel={t('maps.catalog.mapActions', 'Map actions')}
         onClick={openMenu}
       />
@@ -487,16 +525,30 @@ function LibraryMapMenu({
         originX='right'
         originY='top'>
         <MenuList dense={true}>
-          {items.map(([text, handler]) => (
-            <MenuItem
-              key={text}
-              text={text}
-              onClick={() => {
-                closeMenu()
-                handler()
-              }}
-            />
-          ))}
+          <MenuItem
+            text={t('maps.catalog.viewMap', 'View map')}
+            icon={<MaterialIcon icon='info' />}
+            onClick={() => {
+              closeMenu()
+              push(urlForMap(mapId, mapName))
+            }}
+          />
+          <MenuItem
+            text={t('maps.thumbnail.downloadMap', 'Download')}
+            icon={<MaterialIcon icon='download' />}
+            onClick={() => {
+              closeMenu()
+              dispatch(openMapDownloadDialog(mapId))
+            }}
+          />
+          <DestructiveMenuItem
+            text={t('maps.thumbnail.removeFromMyMaps', 'Remove from my maps')}
+            icon={<MaterialIcon icon='delete' />}
+            onClick={() => {
+              closeMenu()
+              onRemove()
+            }}
+          />
         </MenuList>
       </Popover>
     </>
@@ -530,7 +582,7 @@ export function PendingMapTile({
           </>
         )}
       </PendingImage>
-      <Text $hasMenu={!!error}>
+      <Text>
         <Name title={fileName}>{fileName}</Name>
         <Meta>
           {error
@@ -538,13 +590,15 @@ export function PendingMapTile({
             : t('maps.catalog.privateUpload', 'Private upload')}
         </Meta>
       </Text>
-      {error ? (
-        <MenuButton
-          icon={<MaterialIcon icon='close' />}
-          ariaLabel={t('maps.catalog.dismissUpload', 'Dismiss')}
-          onClick={onDismiss}
-        />
-      ) : null}
+      <LibraryFooter>
+        {error ? (
+          <FooterMenuButton
+            icon={<MaterialIcon icon='close' size={20} />}
+            ariaLabel={t('maps.catalog.dismissUpload', 'Dismiss')}
+            onClick={onDismiss}
+          />
+        ) : null}
+      </LibraryFooter>
     </Root>
   )
 }

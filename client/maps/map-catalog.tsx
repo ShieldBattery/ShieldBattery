@@ -2,7 +2,7 @@ import { TFunction } from 'i18next'
 import { useAtomValue, useSetAtom } from 'jotai'
 import * as React from 'react'
 import { lazy, Suspense, useEffect, useEffectEvent, useRef, useState } from 'react'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useQuery } from 'urql'
 import { useLocationProperty } from 'wouter/use-browser-location'
@@ -14,22 +14,30 @@ import { FileDropZone } from '../file-browser/file-drop-zone'
 import { graphql } from '../gql'
 import { EudFilter, MapFilter, MapLens, MapSizeClass } from '../gql/graphql'
 import { MaterialIcon } from '../icons/material/material-icon'
+import { useKeyListener } from '../keyboard/key-listener'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
 import { LoadErrorRow } from '../lists/load-error-row'
-import { FilledButton, OutlinedButton, TextButton } from '../material/button'
+import {
+  FilledButton,
+  FilledTonalButton,
+  IconButton,
+  OutlinedButton,
+  TextButton,
+} from '../material/button'
 import { FilterChip } from '../material/filter-chip'
 import { SelectableMenuItem } from '../material/menu/selectable-item'
 import { SegmentedButtonGroup } from '../material/segmented-button'
 import { elevationPlus1 } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
+import { Tooltip } from '../material/tooltip'
 import { useHistoryEntryKey, useScrollMemory } from '../navigation/router-hooks'
 import { push, replace } from '../navigation/routing'
 import { createViewStateStore } from '../navigation/view-state-store'
 import { LoadingDotsArea } from '../progress/dots'
 import { useUserLocalStorageValue } from '../react/state-hooks'
-import { SearchInput } from '../search/search-input'
+import { SearchInput, SearchInputHandle } from '../search/search-input'
 import { CenteredContentContainer } from '../styles/centered-container'
-import { bodyLarge, bodyMedium, displaySmall, labelLarge } from '../styles/typography'
+import { bodyLarge, bodyMedium, titleMedium } from '../styles/typography'
 import {
   ALL_CATALOG_PLAYERS,
   ALL_MAP_SIZE_CLASSES,
@@ -93,6 +101,32 @@ const Root = styled.div`
   position: relative;
   width: 100%;
   height: 100%;
+
+  display: flex;
+  flex-direction: column;
+`
+
+/** The catalog's controls, kept in view above the scrolling list. */
+const HeaderBar = styled.div`
+  flex-shrink: 0;
+  min-height: 64px;
+  padding: 8px 24px;
+  /* Reserves the same gutters as the list below so the two line up */
+  overflow: hidden;
+  scrollbar-gutter: stable both-edges;
+
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+
+  border-bottom: 1px solid var(--theme-outline-variant);
+`
+
+const Scroller = styled(CenteredContentContainer)`
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
 `
 
 const Content = styled.div`
@@ -104,31 +138,17 @@ const Content = styled.div`
   gap: 16px;
 `
 
-const Header = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 16px 24px;
-`
-
 const Title = styled.h1`
-  ${displaySmall};
+  ${titleMedium};
   margin: 0;
-`
-
-const HeaderControls = styled.div`
-  flex: 1 1 auto;
-
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 12px;
+  font-size: 20px;
 `
 
 const StyledSearchInput = styled(SearchInput)`
-  width: 280px;
-  max-width: 100%;
+  flex: 1 1 280px;
+  min-width: 168px;
+  max-width: 400px;
+  margin-left: auto;
 `
 
 const DropZone = styled(FileDropZone)`
@@ -294,6 +314,27 @@ function MapCatalog({ tab }: { tab: MapCatalogTab }) {
   const [scroller, setScroller] = useState<HTMLDivElement | null>(null)
   useScrollMemory(scroller)
 
+  const searchInputRef = useRef<SearchInputHandle>(null)
+  useKeyListener({
+    onKeyDown: event => {
+      if (event.key !== '/' || event.ctrlKey || event.altKey || event.metaKey) {
+        return false
+      }
+      const target = event.target
+      if (
+        target instanceof HTMLElement &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return false
+      }
+      searchInputRef.current?.focus()
+      return true
+    },
+  })
+
   const needsLogin = !selfUser && tab !== MapCatalogTab.All
   const libraryVersion = useAtomValue(mapLibraryVersionAtom)
   const filter = toMapFilter(params)
@@ -332,7 +373,6 @@ function MapCatalog({ tab }: { tab: MapCatalogTab }) {
       <>
         {tab === MapCatalogTab.Yours ? (
           <UploadBanner
-            onUpload={() => fileInputRef.current?.click()}
             onBrowseLocalMaps={IS_ELECTRON ? () => setBrowsingLocalMaps(true) : undefined}
           />
         ) : null}
@@ -353,52 +393,46 @@ function MapCatalog({ tab }: { tab: MapCatalogTab }) {
   }
 
   return (
-    <Root>
-      <CenteredContentContainer ref={setScroller}>
-        <Content>
-          <Header>
-            <Title>{t('maps.activity.title', 'Maps')}</Title>
-            {selfUser ? (
-              <Tabs activeTab={tab} onChange={onTabChange}>
-                <TabItem text={t('maps.catalog.allMaps', 'All maps')} value={MapCatalogTab.All} />
-                <TabItem
-                  text={t('maps.catalog.yourMaps', 'Your maps')}
-                  value={MapCatalogTab.Yours}
-                />
-                <TabItem
-                  text={t('maps.catalog.favorites', 'Favorites')}
-                  value={MapCatalogTab.Favorites}
-                />
-              </Tabs>
-            ) : null}
-            <HeaderControls>
-              <StyledSearchInput
-                searchQuery={params.search}
-                onSearchChange={onSearchChange}
-                label={t('maps.catalog.searchMaps', 'Search maps')}
-              />
-              <SegmentedButtonGroup
-                ariaLabel={t('maps.catalog.lens', 'Map type')}
-                value={params.lens}
-                onChange={lens => onFiltersChange({ lens })}
-                segments={[
-                  { value: MapLens.All, label: t('maps.catalog.lensAll', 'All'), neutral: true },
-                  { value: MapLens.Melee, label: t('maps.catalog.lensMelee', 'Melee') },
-                  { value: MapLens.Ums, label: t('maps.catalog.lensUms', 'UMS') },
-                ]}
-              />
-              {selfUser ? (
-                <FilledButton
-                  label={t('maps.catalog.upload', 'Upload')}
-                  iconStart='upload'
-                  onClick={() => fileInputRef.current?.click()}
-                />
-              ) : null}
-            </HeaderControls>
-          </Header>
-          {body}
-        </Content>
-      </CenteredContentContainer>
+    <Root data-content-fullbleed=''>
+      <HeaderBar>
+        <Title>{t('maps.activity.title', 'Maps')}</Title>
+        {selfUser ? (
+          <Tabs activeTab={tab} onChange={onTabChange}>
+            <TabItem text={t('maps.catalog.allMaps', 'All maps')} value={MapCatalogTab.All} />
+            <TabItem text={t('maps.catalog.yourMaps', 'Your maps')} value={MapCatalogTab.Yours} />
+            <TabItem
+              text={t('maps.catalog.favorites', 'Favorites')}
+              value={MapCatalogTab.Favorites}
+            />
+          </Tabs>
+        ) : null}
+        <StyledSearchInput
+          ref={searchInputRef}
+          searchQuery={params.search}
+          onSearchChange={onSearchChange}
+          label={t('maps.catalog.searchMaps', 'Search maps')}
+        />
+        <SegmentedButtonGroup
+          ariaLabel={t('maps.catalog.lens', 'Map type')}
+          value={params.lens}
+          onChange={lens => onFiltersChange({ lens })}
+          segments={[
+            { value: MapLens.All, label: t('maps.catalog.lensAll', 'All'), neutral: true },
+            { value: MapLens.Melee, label: t('maps.catalog.lensMelee', 'Melee') },
+            { value: MapLens.Ums, label: t('maps.catalog.lensUms', 'UMS') },
+          ]}
+        />
+        {selfUser ? (
+          <FilledTonalButton
+            label={t('maps.catalog.upload', 'Upload')}
+            iconStart='upload'
+            onClick={() => fileInputRef.current?.click()}
+          />
+        ) : null}
+      </HeaderBar>
+      <Scroller ref={setScroller} $fullWidth={true}>
+        <Content>{body}</Content>
+      </Scroller>
       {selfUser ? (
         <>
           <HiddenFileInput
@@ -425,38 +459,38 @@ function MapCatalog({ tab }: { tab: MapCatalogTab }) {
 
 const Banner = styled.div`
   ${bodyMedium};
-  padding: 16px;
+  min-height: 72px;
+  padding: 12px 20px;
 
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 12px 16px;
 
-  border: 2px dashed var(--theme-outline-variant);
+  border: 1px dashed var(--theme-outline);
   border-radius: 8px;
   color: var(--theme-on-surface-variant);
 `
 
 const BannerText = styled.div`
   flex: 1 1 280px;
+
+  & > strong {
+    font-weight: 600;
+    color: var(--theme-on-surface);
+  }
 `
 
-function UploadBanner({
-  onUpload,
-  onBrowseLocalMaps,
-}: {
-  onUpload: () => void
-  onBrowseLocalMaps?: () => void
-}) {
+function UploadBanner({ onBrowseLocalMaps }: { onBrowseLocalMaps?: () => void }) {
   const { t } = useTranslation()
   return (
     <Banner>
-      <MaterialIcon icon='upload_file' size={32} />
+      <MaterialIcon icon='upload' />
       <BannerText>
-        {t(
-          'maps.catalog.uploadBanner',
-          'Drop a .scm or .scx file anywhere here to upload it. It lands here as a private map.',
-        )}
+        <Trans t={t} i18nKey='maps.catalog.uploadBannerText'>
+          Drop a <strong>.scm</strong> or <strong>.scx</strong> file anywhere to upload it. It lands
+          here as a private map.
+        </Trans>
       </BannerText>
       {onBrowseLocalMaps ? (
         <OutlinedButton
@@ -464,7 +498,6 @@ function UploadBanner({
           onClick={onBrowseLocalMaps}
         />
       ) : null}
-      <OutlinedButton label={t('maps.catalog.chooseFiles', 'Choose files')} onClick={onUpload} />
     </Banner>
   )
 }
@@ -473,35 +506,27 @@ const FilterRow = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px 16px;
-`
-
-const ChipGroup = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
   gap: 8px;
 `
 
-const GroupLabel = styled.div`
-  ${labelLarge};
-  color: var(--theme-on-surface-variant);
-`
-
 const CountLabel = styled.div`
-  ${labelLarge};
-  min-width: 64px;
-  color: var(--theme-on-surface);
+  ${bodyMedium};
+  min-width: 72px;
+  margin-right: 8px;
+  color: var(--theme-on-surface-variant);
   font-variant-numeric: tabular-nums;
 `
 
+/**
+ * Right-aligned via margin rather than a spacer so that when the row wraps, the view controls
+ * keep their alignment on the new line.
+ */
 const ViewControls = styled.div`
   margin-left: auto;
 
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 8px 16px;
+  gap: 8px;
 `
 
 const Grid = styled.div<{ $minTileWidth: number }>`
@@ -566,6 +591,21 @@ function sizeClassLabel(size: MapSizeClass, t: TFunction): string {
   }
 }
 
+function playersLabel(players: CatalogPlayers | undefined, t: TFunction): string {
+  switch (players) {
+    case undefined:
+      return t('maps.catalog.playersLabel', 'Players')
+    case CatalogPlayers.FivePlus:
+      return t('maps.catalog.playersFivePlus', '5+ players')
+    default:
+      return t('maps.catalog.players', {
+        defaultValue: '{{count}} players',
+        defaultValue_one: '{{count}} player',
+        count: Number(players),
+      })
+  }
+}
+
 function sortLabel(sort: CatalogSort, t: TFunction): string {
   switch (sort) {
     case CatalogSort.Trending:
@@ -610,6 +650,11 @@ function CatalogFilterRow({
   const searching = !!params.search.trim()
   const sorts = searching ? [CatalogSort.BestMatch, ...BROWSE_SORTS] : BROWSE_SORTS
 
+  const densityToggleLabel =
+    density === CatalogDensity.Cozy
+      ? t('maps.catalog.showCompact', 'Show smaller tiles')
+      : t('maps.catalog.showCozy', 'Show larger tiles')
+
   let eudLabel = t('maps.catalog.eud', 'EUD')
   if (params.eud === EudFilter.Exclude) {
     eudLabel = t('maps.catalog.eudHidden', 'No EUD')
@@ -628,114 +673,108 @@ function CatalogFilterRow({
             })
           : null}
       </CountLabel>
-      <ChipGroup role='group' aria-label={t('maps.catalog.playersLabel', 'Players')}>
-        <GroupLabel>{t('maps.catalog.playersLabel', 'Players')}</GroupLabel>
-        <FilterChip
-          label={t('maps.catalog.playersAny', 'Any')}
+      <FilterChip label={playersLabel(params.players, t)} selected={params.players !== undefined}>
+        <SelectableMenuItem
+          text={t('maps.catalog.playersAny', 'Any number of players')}
           selected={params.players === undefined}
-          checkmark={false}
           onClick={() => onFiltersChange({ players: undefined })}
         />
         {ALL_CATALOG_PLAYERS.map(players => (
-          <FilterChip
+          <SelectableMenuItem
             key={players}
-            label={players}
+            text={playersLabel(players, t)}
             selected={params.players === players}
-            checkmark={false}
+            onClick={() => onFiltersChange({ players })}
+          />
+        ))}
+      </FilterChip>
+      <FilterChip label={tilesetLabel(params.tilesets, t)} selected={params.tilesets.length > 0}>
+        <SelectableMenuItem
+          text={t('maps.catalog.tilesetAny', 'Any tileset')}
+          selected={params.tilesets.length === 0}
+          onClick={() => onFiltersChange({ tilesets: [] })}
+        />
+        {ALL_TILESETS.map(tileset => (
+          <SelectableMenuItem
+            key={tileset}
+            text={tilesetToName(tileset, t)}
+            selected={params.tilesets.includes(tileset)}
+            onClick={() => onFiltersChange({ tilesets: toggled(params.tilesets, tileset) })}
+          />
+        ))}
+      </FilterChip>
+      <FilterChip label={sizesLabel(params.sizes, t)} selected={params.sizes.length > 0}>
+        <SelectableMenuItem
+          text={t('maps.catalog.sizeAny', 'Any size')}
+          selected={params.sizes.length === 0}
+          onClick={() => onFiltersChange({ sizes: [] })}
+        />
+        {ALL_MAP_SIZE_CLASSES.map(size => (
+          <SelectableMenuItem
+            key={size}
+            text={sizeClassLabel(size, t)}
+            selected={params.sizes.includes(size)}
             onClick={() =>
               onFiltersChange({
-                players: params.players === players ? undefined : (players as CatalogPlayers),
+                sizes: ALL_MAP_SIZE_CLASSES.filter(s => toggled(params.sizes, size).includes(s)),
               })
             }
           />
         ))}
-      </ChipGroup>
-      <ChipGroup>
-        <FilterChip label={tilesetLabel(params.tilesets, t)} selected={params.tilesets.length > 0}>
-          <SelectableMenuItem
-            text={t('maps.catalog.tilesetAny', 'Any tileset')}
-            selected={params.tilesets.length === 0}
-            onClick={() => onFiltersChange({ tilesets: [] })}
-          />
-          {ALL_TILESETS.map(tileset => (
-            <SelectableMenuItem
-              key={tileset}
-              text={tilesetToName(tileset, t)}
-              selected={params.tilesets.includes(tileset)}
-              onClick={() => onFiltersChange({ tilesets: toggled(params.tilesets, tileset) })}
-            />
-          ))}
-        </FilterChip>
-        <FilterChip label={sizesLabel(params.sizes, t)} selected={params.sizes.length > 0}>
-          <SelectableMenuItem
-            text={t('maps.catalog.sizeAny', 'Any size')}
-            selected={params.sizes.length === 0}
-            onClick={() => onFiltersChange({ sizes: [] })}
-          />
-          {ALL_MAP_SIZE_CLASSES.map(size => (
-            <SelectableMenuItem
-              key={size}
-              text={sizeClassLabel(size, t)}
-              selected={params.sizes.includes(size)}
-              onClick={() =>
-                onFiltersChange({
-                  sizes: ALL_MAP_SIZE_CLASSES.filter(s => toggled(params.sizes, size).includes(s)),
-                })
-              }
-            />
-          ))}
-        </FilterChip>
-        <FilterChip label={eudLabel} selected={params.eud !== EudFilter.Any}>
-          <SelectableMenuItem
-            text={t('maps.catalog.eudShow', 'Show EUD maps')}
-            selected={params.eud === EudFilter.Any}
-            onClick={() => onFiltersChange({ eud: EudFilter.Any })}
-          />
-          <SelectableMenuItem
-            text={t('maps.catalog.eudHide', 'Hide EUD maps')}
-            selected={params.eud === EudFilter.Exclude}
-            onClick={() => onFiltersChange({ eud: EudFilter.Exclude })}
-          />
-          <SelectableMenuItem
-            text={t('maps.catalog.eudOnlyOption', 'Only EUD maps')}
-            selected={params.eud === EudFilter.Only}
-            onClick={() => onFiltersChange({ eud: EudFilter.Only })}
-          />
-        </FilterChip>
-        <FilterChip
-          label={t('maps.page.official', 'Official')}
-          selected={params.official}
-          onClick={() => onFiltersChange({ official: !params.official })}
+      </FilterChip>
+      <FilterChip label={eudLabel} selected={params.eud !== EudFilter.Any}>
+        <SelectableMenuItem
+          text={t('maps.catalog.eudShow', 'Show EUD maps')}
+          selected={params.eud === EudFilter.Any}
+          onClick={() => onFiltersChange({ eud: EudFilter.Any })}
         />
-        {hasNonDefaultFilters(params) ? (
-          <TextButton
-            label={t('maps.catalog.clearFilters', 'Clear filters')}
-            onClick={onClearFilters}
-          />
-        ) : null}
-      </ChipGroup>
+        <SelectableMenuItem
+          text={t('maps.catalog.eudHide', 'Hide EUD maps')}
+          selected={params.eud === EudFilter.Exclude}
+          onClick={() => onFiltersChange({ eud: EudFilter.Exclude })}
+        />
+        <SelectableMenuItem
+          text={t('maps.catalog.eudOnlyOption', 'Only EUD maps')}
+          selected={params.eud === EudFilter.Only}
+          onClick={() => onFiltersChange({ eud: EudFilter.Only })}
+        />
+      </FilterChip>
+      <FilterChip
+        label={t('maps.page.official', 'Official')}
+        selected={params.official}
+        onClick={() => onFiltersChange({ official: !params.official })}
+      />
+      {hasNonDefaultFilters(params) ? (
+        <TextButton
+          label={t('common.actions.clear', 'Clear')}
+          iconStart='close'
+          onClick={onClearFilters}
+        />
+      ) : null}
       <ViewControls>
-        <ChipGroup role='group' aria-label={t('maps.catalog.sort', 'Sort')}>
-          <GroupLabel>{t('maps.catalog.sortLabel', 'Sort')}</GroupLabel>
+        <FilterChip label={sortLabel(sort, t)} icon={<MaterialIcon icon='sort' size={18} />}>
           {sorts.map(s => (
-            <FilterChip
+            <SelectableMenuItem
               key={s}
-              label={sortLabel(s, t)}
+              text={sortLabel(s, t)}
               selected={sort === s}
-              checkmark={false}
               onClick={() => onSortChange(s)}
             />
           ))}
-        </ChipGroup>
-        <SegmentedButtonGroup
-          ariaLabel={t('maps.catalog.density', 'Density')}
-          value={density}
-          onChange={onDensityChange}
-          segments={[
-            { value: CatalogDensity.Cozy, label: t('maps.catalog.densityCozy', 'Cozy') },
-            { value: CatalogDensity.Compact, label: t('maps.catalog.densityCompact', 'Compact') },
-          ]}
-        />
+        </FilterChip>
+        <Tooltip text={densityToggleLabel} position='bottom' tabIndex={-1}>
+          <IconButton
+            icon={
+              <MaterialIcon icon={density === CatalogDensity.Cozy ? 'view_comfy' : 'grid_view'} />
+            }
+            ariaLabel={densityToggleLabel}
+            onClick={() =>
+              onDensityChange(
+                density === CatalogDensity.Cozy ? CatalogDensity.Compact : CatalogDensity.Cozy,
+              )
+            }
+          />
+        </Tooltip>
       </ViewControls>
     </FilterRow>
   )
