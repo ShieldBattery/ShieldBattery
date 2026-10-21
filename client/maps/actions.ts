@@ -14,7 +14,7 @@ import { SbUser } from '../../common/users/sb-user'
 import { BaseFetchFailure } from '../network/fetch-errors'
 
 export type MapsActions =
-  | UploadLocalMap
+  | UploadMap
   | GetMaps
   | GetFavorites
   | GetBatchMapInfoSuccess
@@ -36,14 +36,11 @@ export interface UploadedMap {
 }
 
 /**
- * A local map was uploaded to the current user's own maps.
+ * A map file was uploaded to the current user's own maps.
  */
-export interface UploadLocalMap {
-  type: '@maps/uploadLocalMap'
+export interface UploadMap {
+  type: '@maps/uploadMap'
   payload: UploadedMap
-  meta: {
-    path: string
-  }
 }
 
 /**
