@@ -60,6 +60,30 @@ function isOneOf(values: Readonly<unknown[]>): Validator {
   return value => values.includes(value)
 }
 
+function isObserverWindowLayout(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return false
+  }
+  const window = value as Record<string, unknown>
+  return (
+    typeof window.collapsed === 'boolean' &&
+    (window.position === null ||
+      (Array.isArray(window.position) &&
+        window.position.length === 2 &&
+        window.position.every(isIntegerIn(-2147483648, 2147483647))))
+  )
+}
+
+function isObserverWindows(value: unknown): boolean {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Object.keys(value).length <= 16 &&
+    Object.values(value).every(isObserverWindowLayout)
+  )
+}
+
 const ALL_FRAME_PACINGS: Readonly<FramePacing[]> = Object.values(FramePacing)
 
 /**
@@ -84,8 +108,10 @@ const LOCAL_SETTING_VALIDATORS: Partial<Record<keyof LocalSettings, Validator>> 
     value !== null &&
     !Array.isArray(value) &&
     Object.keys(value).length <= 64 &&
-    Object.values(value).every(
-      v => typeof v === 'boolean' || (typeof v === 'string' && v.length <= 64),
+    Object.entries(value).every(([key, v]) =>
+      key === 'windows'
+        ? isObserverWindows(v)
+        : typeof v === 'boolean' || (typeof v === 'string' && v.length <= 64),
     ),
 }
 

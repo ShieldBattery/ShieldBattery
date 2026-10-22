@@ -14,14 +14,15 @@
 
 use egui::{Align, Color32, Context, Id, Rect, Sense, Ui, vec2};
 
+use super::window::{Window, WindowOutcome, WingPlacement};
 use crate::kit::text;
 use crate::kit::theme;
-use crate::kit::widgets::{self, ResourceGlyph};
+use crate::kit::widgets::ResourceGlyph;
 use crate::observer::{
     EdgeCursor, RaceView, STAT_COLOR_BAR, STAT_HEADING_HEIGHT, STAT_ROW_GAP, STAT_ROW_HEIGHT,
     STAT_VALUE_SIZE, Wing, paint_column_heading, paint_count, paint_resource_value,
     paint_stat_identity, paint_team_divider, paint_text, stat_table_height, teams_worth_dividing,
-    vision_alpha, wing_panel,
+    vision_alpha,
 };
 use crate::shell::Panel;
 use crate::tr;
@@ -124,29 +125,31 @@ pub(crate) fn panel_height(view: &MilitaryView) -> f32 {
 pub fn render_military_view(
     view: &MilitaryView,
     ctx: &Context,
-    shown: bool,
+    window: Window<'_>,
     top: f32,
     right_inset: f32,
-) -> Option<Rect> {
+) -> Option<WindowOutcome<()>> {
     let id = Id::new("sb_military_panel");
-    let inner = wing_panel(
+    let window = Window {
+        shown: window.shown && (!view.is_empty()),
+        prefs: window.prefs,
+    };
+    let inner = window.show(
         ctx,
         id,
-        Wing::Right { inset: right_inset },
-        top,
-        PANEL_WIDTH,
-        shown && !view.is_empty(),
+        WingPlacement {
+            wing: Wing::Right { inset: right_inset },
+            top,
+            width: PANEL_WIDTH,
+        },
+        Panel::Military,
+        &tr!("observer.panelMilitary", "Military"),
         |ui| draw_panel(ui, view),
     )?;
-    Some(inner.response.rect)
+    Some(inner)
 }
 
 fn draw_panel(ui: &mut Ui, view: &MilitaryView) {
-    widgets::panel_header(
-        ui,
-        &tr!("observer.panelMilitary", "Military"),
-        Panel::Military.key_label().as_deref(),
-    );
     draw_headings(ui);
     let divided = teams_worth_dividing(view.players.iter().map(|player| player.team));
     let mut side = view.players.first().map(|player| player.team);

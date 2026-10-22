@@ -651,6 +651,7 @@ const MARKER_CARD_EVENTS: usize = 4;
 
 /// Names the events under the pointer and when they happened.
 fn draw_marker_card(ui: &Ui, pointer: Pos2, events: &[&TimelineEventView]) {
+    let pointer = crate::kit::surfaces::global(ui.ctx(), ui.layer_id(), pointer);
     // Over the track rather than under it, where the plate's own buttons are.
     widgets::tooltip_above(
         ui.ctx(),

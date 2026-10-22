@@ -357,6 +357,12 @@ pub fn scrub_track_marked(
     // says, but a click is a press that never moved, so where it is now is where it began.
     let pressed_at = ui
         .input(|input| input.pointer.press_origin())
+        .map(|pos| {
+            ui.ctx()
+                .layer_transform_from_global(ui.layer_id())
+                .unwrap_or_default()
+                * pos
+        })
         .or(response.interact_pointer_pos());
     let pressed_marker = pressed_at.and_then(marker_at);
     let clicked_marker = response.clicked().then_some(pressed_marker).flatten();

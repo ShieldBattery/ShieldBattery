@@ -1452,6 +1452,10 @@ pub enum Screen {
     /// The analyst's screen with the lower half of the centered stack hidden, so the panels over it
     /// are drawn against the screen's own bottom edge.
     ReflowStack,
+    /// Title bars retained after folding every stats window and the minimap.
+    FoldedWindows,
+    /// Stats windows placed independently of their automatic stacks.
+    FloatingWindows,
 }
 
 impl Screen {
@@ -1461,6 +1465,8 @@ impl Screen {
         // Everything a minimal screen gives up, and the part of it a standard one keeps.
         let analysis = self != Screen::Minimal;
         let deep = analysis && self != Screen::Standard;
+        prefs.windows = Default::default();
+        prefs.minimap_collapsed = false;
         prefs.matchup = true;
         prefs.minimap = true;
         prefs.transport = true;
@@ -1484,6 +1490,19 @@ impl Screen {
                 prefs.production = false;
                 prefs.selection = false;
             }
+            Screen::FoldedWindows => {
+                prefs.windows.economy.collapsed = true;
+                prefs.windows.military.collapsed = true;
+                prefs.windows.graphs.collapsed = true;
+                prefs.windows.timeline.collapsed = true;
+                prefs.minimap_collapsed = true;
+            }
+            Screen::FloatingWindows => {
+                prefs.windows.economy.position = Some([500, 160]);
+                prefs.windows.graphs.position = Some([620, 430]);
+                prefs.military = false;
+                prefs.timeline = false;
+            }
             _ => {}
         }
     }
@@ -1498,6 +1517,8 @@ impl Screen {
             // than each named after the panels it happens to hide.
             Screen::ReflowWings => "reflow-a",
             Screen::ReflowStack => "reflow-b",
+            Screen::FoldedWindows => "folded-windows",
+            Screen::FloatingWindows => "floating-windows",
         }
     }
 }
@@ -1561,6 +1582,8 @@ pub enum Hover {
     /// Over the weapon upgrade of the unit the selection panel reads out, which names it, its
     /// level and the damage it comes to.
     UpgradeChip,
+    /// The close affordance replacing the moved economy window's keycap.
+    WindowClose,
 }
 
 impl Hover {
@@ -1573,6 +1596,7 @@ impl Hover {
             Hover::TimelineRow => Some((250.0, 336.0)),
             Hover::TrackMarker => Some((TRACK_MARKER_X, 996.0)),
             Hover::UpgradeChip => Some((UPGRADE_CHIP_X, UPGRADE_CHIP_Y)),
+            Hover::WindowClose => Some((952.0, 180.0)),
         }
     }
 
@@ -1585,6 +1609,7 @@ impl Hover {
             Hover::TimelineRow => "timeline-hover",
             Hover::TrackMarker => "marker-hover",
             Hover::UpgradeChip => "upgrade-hover",
+            Hover::WindowClose => "window-close",
         }
     }
 }
@@ -1637,7 +1662,13 @@ impl Preset {
         }
     }
 
-    pub const ALL: [Preset; 33] = [
+    pub const ALL: [Preset; 36] = [
+        Preset::game(2, 1, Screen::FoldedWindows),
+        Preset::game(2, 1, Screen::FloatingWindows),
+        Preset {
+            hover: Hover::WindowClose,
+            ..Preset::game(2, 1, Screen::FloatingWindows)
+        },
         Preset::game(2, 1, Screen::Minimal),
         Preset::game(2, 1, Screen::Standard),
         Preset::game(2, 1, Screen::Analyst),

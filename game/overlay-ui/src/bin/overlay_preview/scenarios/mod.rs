@@ -376,15 +376,18 @@ pub fn render(
     let square = observer::minimap_square(ctx.viewport_rect());
     host.minimap_rect = Some(square);
     if knobs.scenario == ScenarioKind::Observer {
-        if shell.panel_prefs().minimap {
-            observer::paint_minimap_stand_in(ctx, square);
-        }
         if knobs.observer.vision_picker && !state.observer.vision_picker_opened {
             state.observer.vision_picker_opened = true;
             shell.set_vision_picker_open(true);
         }
     }
     let output = shell.frame(ctx, &host, &mut views);
+    if knobs.scenario == ScenarioKind::Observer
+        && shell.panel_prefs().minimap
+        && !shell.panel_prefs().minimap_collapsed
+    {
+        observer::paint_minimap_stand_in(ctx, output.minimap_rect.unwrap_or(square));
+    }
     if knobs.scenario == ScenarioKind::NetQuality {
         net_quality::paint_stand_ins(&knobs.net_quality, ctx);
     }

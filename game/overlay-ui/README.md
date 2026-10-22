@@ -13,6 +13,23 @@ input. It has no BW, samase or Windows dependency, which is what makes it host-c
 here may depend on the preview host, and the host's own dependencies (eframe, image) are optional
 and gated behind the `preview` feature, so the DLL never pulls them in.
 
+## Observer window controls
+
+Economy, Military, Graphs and Timeline have interactive title bars. Hover a shortcut badge to
+reveal its close button; the dock or shortcut opens the window again. Click a title to fold the
+window down to its header.
+
+Every observer surface, including headerless panels, the replay transport, dock and minimap, can
+be moved with **Alt + left-drag** anywhere on it. Nearby edges snap flush together, and panels snap
+to the screen edges. Dragging the top window carries its connected stack; dragging a lower window detaches that portion of the stack.
+**Alt + right-click** restores that surface's automatic placement. Positions and folded states are
+saved per profile, and moved surfaces stay reachable when the screen size changes. Timeline history
+remains accessible with the mouse wheel even though its scrollbars are hidden.
+
+The minimap header has a fold button between Vision and Menu, and a shortcut badge that closes it.
+Folding hides the native minimap while keeping its header available to expand it again. Its native
+image and camera-click region follow the frame's placement; ordinary map clicks still go to BW.
+
 ## Fonts
 
 Four faces are embedded in the binary, and three of them are variable fonts registered once per

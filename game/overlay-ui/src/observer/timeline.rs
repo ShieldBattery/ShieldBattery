@@ -14,12 +14,13 @@
 
 use egui::{Align, Color32, Context, Id, Rect, Sense, Ui, vec2};
 
+use super::window::{Window, WingPlacement};
 use crate::kit::text::{self, BodyWeight};
 use crate::kit::theme;
 use crate::kit::{tiers, widgets};
 use crate::observer::{
     EdgeCursor, ProductionIcon, STAT_COLOR_BAR, STAT_ROW_GAP, Wing, centred, game_clock,
-    paint_player_dot, paint_text, paint_tile_chrome, wing_panel,
+    paint_player_dot, paint_text, paint_tile_chrome,
 };
 use crate::shell::Panel;
 use crate::{tr, tr_plural};
@@ -314,6 +315,7 @@ pub(crate) fn fits(top: f32, floor: f32) -> bool {
 pub struct TimelineOutcome {
     /// Where the panel is on screen, for the host's hit testing.
     pub rect: Rect,
+    pub closed: bool,
     /// The event whose row was clicked.
     pub clicked: Option<ClickedEvent>,
 }
@@ -333,24 +335,38 @@ pub struct TimelineOutcome {
 pub fn render_timeline_view(
     view: &TimelineView,
     ctx: &Context,
-    shown: bool,
+    window: Window<'_>,
     top: f32,
     floor: f32,
     seekable: bool,
 ) -> Option<TimelineOutcome> {
     let id = Id::new("sb_timeline_panel");
+    let (top, floor) = if window.prefs.floating() {
+        let screen = ctx.viewport_rect();
+        (screen.top(), screen.bottom())
+    } else {
+        (top, floor)
+    };
     let rows = rows_that_fit(top, floor);
-    let inner = wing_panel(
+    let window = Window {
+        shown: window.shown && (window.prefs.collapsed || rows > 0),
+        prefs: window.prefs,
+    };
+    let inner = window.show(
         ctx,
         id,
-        Wing::Left,
-        top,
-        PANEL_WIDTH,
-        shown && rows > 0,
+        WingPlacement {
+            wing: Wing::Left,
+            top,
+            width: PANEL_WIDTH,
+        },
+        Panel::Timeline,
+        &tr!("observer.panelTimeline", "Timeline"),
         |ui| draw_panel(ui, view, rows, seekable),
     )?;
     Some(TimelineOutcome {
-        rect: inner.response.rect,
+        rect: inner.rect,
+        closed: inner.closed,
         clicked: inner.inner,
     })
 }
@@ -362,11 +378,6 @@ fn draw_panel(
     rows: usize,
     seekable: bool,
 ) -> Option<ClickedEvent> {
-    widgets::panel_header(
-        ui,
-        &tr!("observer.panelTimeline", "Timeline"),
-        Panel::Timeline.key_label().as_deref(),
-    );
     if view.is_empty() {
         let (row, _) = ui.allocate_exact_size(vec2(CONTENT_WIDTH, ROW_HEIGHT), Sense::hover());
         paint_text(
@@ -384,6 +395,7 @@ fn draw_panel(
     let height = rows as f32 * ROW_HEIGHT + rows.saturating_sub(1) as f32 * STAT_ROW_GAP;
     egui::ScrollArea::vertical()
         .id_salt("sb_timeline_rows")
+        .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysHidden)
         .max_height(height)
         .min_scrolled_height(height)
         .auto_shrink([false, false])
@@ -524,8 +536,18 @@ mod tests {
                 ..Default::default()
             };
             ctx.begin_pass(raw);
-            height = render_timeline_view(view, &ctx, true, top, floor, false)
-                .map(|outcome| outcome.rect.height());
+            height = render_timeline_view(
+                view,
+                &ctx,
+                Window {
+                    shown: true,
+                    prefs: &mut Default::default(),
+                },
+                top,
+                floor,
+                false,
+            )
+            .map(|outcome| outcome.rect.height());
             let mut out = ctx.end_pass();
             let _ = ctx.tessellate(out.shapes, ctx.pixels_per_point());
             out.textures_delta.clear();

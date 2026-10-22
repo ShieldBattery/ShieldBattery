@@ -3,6 +3,12 @@ import { assertUnreachable } from '../assert-unreachable'
 import { GameServerRegionId } from '../game-server-regions'
 import { Announcer, ConsoleSkin, DisplayMode, IngameSkin } from './blizz-settings'
 
+/** The game overlay owns window placement; coordinates are overlay points. */
+export interface ObserverWindowPrefs {
+  collapsed: boolean
+  position: readonly [number, number] | null
+}
+
 /**
  * Settings related to the ShieldBattery Electron app (that will not be exposed to users in the
  * settings dialog).
@@ -373,7 +379,7 @@ export interface LocalSettings extends ShieldBatteryAppSettings {
    * change them and handed back at the next launch. Opaque to the app: the game owns the shape and
    * fills in anything missing. Undefined until the user first changes one.
    */
-  observerPanels?: Record<string, boolean | string>
+  observerPanels?: Record<string, boolean | string | Record<string, ObserverWindowPrefs>>
 
   /**
    * Whether to launch the 32-bit game client instead of the (default) 64-bit one. Discouraged;

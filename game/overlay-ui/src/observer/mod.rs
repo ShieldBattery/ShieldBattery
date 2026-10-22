@@ -24,6 +24,8 @@ pub(crate) mod selection;
 pub(crate) mod team_cards;
 pub(crate) mod timeline;
 mod unit_codes;
+pub(crate) mod window;
+pub use window::{Window, WindowLayouts, WindowOutcome, WindowPrefs};
 
 pub use control_groups::{
     ControlGroupView, ControlGroupsPlayerView, ControlGroupsView, render_control_groups_view,
@@ -58,16 +60,13 @@ pub use timeline::{
 };
 pub use unit_codes::unit_code;
 
-use egui::{
-    Align, Align2, Area, Color32, Context, Id, InnerResponse, Order, Rect, Stroke, StrokeKind, Ui,
-    Vec2, pos2, vec2,
-};
+use egui::{Align, Color32, Context, Id, Rect, Stroke, StrokeKind, Ui, Vec2, pos2, vec2};
 use serde::{Deserialize, Serialize};
 
 use crate::colors::{PROTOSS, RANDOM, TERRAN, ZERG};
 use crate::kit::text::TextSpec;
 use crate::kit::widgets::{self, ResourceGlyph};
-use crate::kit::{motion, text, theme, tiers};
+use crate::kit::{text, theme, tiers};
 use crate::tr;
 
 /// Everything the observer panels draw from this frame.
@@ -739,45 +738,6 @@ pub fn team_name(team: u8) -> String {
     tr!("observer.teamName", "Team {{number}}", number = team)
 }
 
-/// Draws one of the stats wings: an ambient panel of a fixed width, hung off one edge of the screen
-/// with its top edge at `top`, fading and sliding in and out. Returns nothing at all once it is
-/// gone.
-///
-/// The panel slides to `top` rather than being placed at it, because `top` is where the panels
-/// around this one leave it: a wing whose neighbor was just hidden moves up the neighbor's whole
-/// height, and a jump that far reads as a panel that was redrawn somewhere else.
-///
-/// The wings are sized from the outside in, because the design places their outer edges on a grid;
-/// egui sizes a panel from its contents out, so the width given here is the panel's and the width
-/// its contents get is what is left of it inside the chrome.
-pub(crate) fn wing_panel<R>(
-    ctx: &Context,
-    id: Id,
-    wing: Wing,
-    top: f32,
-    width: f32,
-    shown: bool,
-    add: impl FnOnce(&mut Ui) -> R,
-) -> Option<InnerResponse<R>> {
-    let (align, offset_x) = match wing {
-        Wing::Left => (Align2::LEFT_TOP, WING_MARGIN),
-        Wing::Right { inset } => (Align2::RIGHT_TOP, -(WING_MARGIN + inset)),
-    };
-    let area = Area::new(id)
-        .anchor(align, vec2(offset_x, top))
-        .order(Order::Foreground);
-    motion::presence_area(ctx, id.with("presence"), shown, area, |ui| {
-        tiers::tier0_panel(ui, |ui| {
-            // The rows are stacked by the gaps each panel writes and by nothing else: these are
-            // fixed layouts, and egui's own item spacing would add to every one of them.
-            ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
-            ui.set_width(tiers::panel_content_width(width));
-            add(ui)
-        })
-        .inner
-    })
-}
-
 /// Paints one heading over a column of values, aligned the way the column's values are.
 pub(crate) fn paint_column_heading(ui: &Ui, rect: Rect, label: &str, align: Align) {
     paint_text(ui, rect, &text::column_label(), label, align);
@@ -996,3 +956,5 @@ mod tests {
         assert_eq!(right.outer_align(), Align::RIGHT);
     }
 }
+
+pub(crate) mod manipulation;

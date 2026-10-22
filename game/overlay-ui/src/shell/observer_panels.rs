@@ -211,8 +211,8 @@ impl ObserverPanels {
         self.frame_minimap(
             ctx,
             view,
-            host.minimap_rect,
-            prefs.minimap,
+            host.minimap_rect.or(self.last_minimap_rect),
+            prefs,
             intents,
             hit_rects,
         );
@@ -527,21 +527,37 @@ impl ObserverPanels {
         // economy, over the right one, which reports what it bought.
         let right_room = right_span.left >= left_span.right + gap;
 
-        let economy_fits = tops.left + observer::economy::panel_height(&view.economy) <= left_floor;
+        let economy_window = prefs.windows.economy;
+        let economy_fits = economy_window.floating()
+            || tops.left + economy_window.height(observer::economy::panel_height(&view.economy))
+                <= left_floor;
         if prefs.economy && !view.economy.is_empty() && !economy_fits {
             displaced.push(Panel::Economy);
         }
         let economy = observer::render_economy_view(
             &view.economy,
             ctx,
-            prefs.economy && economy_fits,
+            observer::Window {
+                shown: prefs.economy && economy_fits,
+                prefs: &mut prefs.windows.economy,
+            },
             tops.left,
         );
-        if let Some(rect) = economy {
-            hit_rects.push(HitRect::new(rect));
+        if let Some(outcome) = &economy {
+            hit_rects.push(HitRect::new(outcome.rect));
+            if outcome.closed {
+                prefs.set(Panel::Economy, false);
+            }
         }
-        let military_fits = right_room
-            && tops.right + observer::military::panel_height(&view.military) <= right_floor;
+        let economy = economy
+            .filter(|_| !economy_window.floating())
+            .map(|outcome| outcome.rect);
+        let military_window = prefs.windows.military;
+        let military_fits = military_window.floating()
+            || (right_room
+                && tops.right
+                    + military_window.height(observer::military::panel_height(&view.military))
+                    <= right_floor);
         if prefs.military && !view.military.is_empty() && !military_fits {
             displaced.push(Panel::Military);
         }
@@ -549,15 +565,26 @@ impl ObserverPanels {
         let military = observer::render_military_view(
             &view.military,
             ctx,
-            prefs.military && military_fits,
+            observer::Window {
+                shown: prefs.military && military_fits,
+                prefs: &mut prefs.windows.military,
+            },
             tops.right,
             military_inset,
         );
         self.drawn.military.drawn(military.is_some());
-        if let Some(rect) = military {
-            hit_rects.push(HitRect::new(rect));
-            right_reach = right_reach.max(rect.bottom());
+        if let Some(outcome) = &military {
+            hit_rects.push(HitRect::new(outcome.rect));
+            if !military_window.floating() {
+                right_reach = right_reach.max(outcome.rect.bottom());
+            }
+            if outcome.closed {
+                prefs.set(Panel::Military, false);
+            }
         }
+        let military = military
+            .filter(|_| !military_window.floating())
+            .map(|outcome| outcome.rect);
         let graphs_top = observer::WingTops::below(
             ctx,
             egui::Id::new("sb_stack_military"),
@@ -565,7 +592,14 @@ impl ObserverPanels {
             military,
             self.drawn.graphs.on_screen,
         );
-        let graphs_fit = right_room && observer::graphs::fits(graphs_top, right_floor);
+        let graphs_window = prefs.windows.graphs;
+        let graphs_fit = graphs_window.floating()
+            || (right_room
+                && if graphs_window.collapsed {
+                    graphs_top + observer::window::collapsed_height() <= right_floor
+                } else {
+                    observer::graphs::fits(graphs_top, right_floor)
+                });
         if prefs.graphs && !view.graphs.is_empty() && !graphs_fit {
             displaced.push(Panel::Graphs);
         }
@@ -575,7 +609,10 @@ impl ObserverPanels {
         let graphs = observer::render_graphs_view(
             &view.graphs,
             ctx,
-            prefs.graphs && right_room,
+            observer::Window {
+                shown: prefs.graphs && graphs_fit,
+                prefs: &mut prefs.windows.graphs,
+            },
             graphs_top,
             right_floor,
             self.drawn.graphs.inset(right_inset, settled_inset),
@@ -584,7 +621,12 @@ impl ObserverPanels {
         self.drawn.graphs.drawn(graphs.is_some());
         if let Some(outcome) = graphs {
             hit_rects.push(HitRect::new(outcome.rect));
-            right_reach = right_reach.max(outcome.rect.bottom());
+            if !graphs_window.floating() {
+                right_reach = right_reach.max(outcome.rect.bottom());
+            }
+            if outcome.closed {
+                prefs.set(Panel::Graphs, false);
+            }
             if let Some(series) = outcome.series {
                 prefs.graph_series = series;
             }
@@ -602,20 +644,37 @@ impl ObserverPanels {
             economy,
             self.drawn.timeline,
         );
-        if prefs.timeline && !observer::timeline::fits(timeline_top, left_floor) {
+        let timeline_window = prefs.windows.timeline;
+        let timeline_fits = timeline_window.floating()
+            || if timeline_window.collapsed {
+                timeline_top + observer::window::collapsed_height() <= left_floor
+            } else {
+                observer::timeline::fits(timeline_top, left_floor)
+            };
+        if prefs.timeline && !timeline_fits {
             displaced.push(Panel::Timeline);
         }
         let timeline = observer::render_timeline_view(
             &view.timeline,
             ctx,
-            prefs.timeline,
+            observer::Window {
+                shown: prefs.timeline && timeline_fits,
+                prefs: &mut prefs.windows.timeline,
+            },
             timeline_top,
             left_floor,
             seekable.is_some(),
         );
         self.drawn.timeline = timeline.is_some();
         if let Some(outcome) = timeline {
-            hit_rects.push(HitRect::scrolling(outcome.rect));
+            hit_rects.push(if prefs.windows.timeline.collapsed {
+                HitRect::new(outcome.rect)
+            } else {
+                HitRect::scrolling(outcome.rect)
+            });
+            if outcome.closed {
+                prefs.set(Panel::Timeline, false);
+            }
             if let (Some(playback), Some(event)) = (seekable, outcome.clicked) {
                 replay.queue_seek(playback.event_seek_target(event.secs), event.position);
             }
@@ -675,18 +734,17 @@ impl ObserverPanels {
     /// Draws the frame around the game's minimap, where the host can say where the minimap is, and
     /// turns what the watcher did with its header into intents.
     ///
-    /// `square` is where the host says the minimap is, and `wanted` whether the watcher has the
-    /// minimap's panel on.
+    /// `square` is the last native minimap square, retained while its body is collapsed.
     fn frame_minimap(
         &mut self,
         ctx: &Context,
         view: &ObserverView,
         square: Option<Rect>,
-        wanted: bool,
+        prefs: &mut PanelPrefs,
         intents: &mut Vec<Intent>,
         hit_rects: &mut Vec<HitRect>,
     ) {
-        let shown = wanted && square.is_some();
+        let shown = prefs.minimap && square.is_some();
         if !shown {
             self.vision_picker_open = false;
         }
@@ -697,6 +755,7 @@ impl ObserverPanels {
             ctx,
             square,
             shown,
+            prefs.minimap_collapsed,
             &view.matchup.players,
             self.vision_picker_open,
         ) else {
@@ -704,6 +763,12 @@ impl ObserverPanels {
         };
         for rect in outcome.rects {
             hit_rects.push(HitRect::new(rect));
+        }
+        if outcome.closed {
+            prefs.set(Panel::Minimap, false);
+        }
+        if outcome.toggle_collapsed {
+            prefs.minimap_collapsed = !prefs.minimap_collapsed;
         }
         self.vision_picker_open = shown && outcome.picker_open;
         if let Some(player_id) = outcome.toggled_vision {

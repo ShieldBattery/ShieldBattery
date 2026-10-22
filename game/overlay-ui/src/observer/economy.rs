@@ -16,6 +16,7 @@
 
 use egui::{Align, Color32, Context, Id, Rect, Sense, Ui, pos2, vec2};
 
+use super::window::{Window, WindowOutcome, WingPlacement};
 use crate::kit::text;
 use crate::kit::theme;
 use crate::kit::widgets::{self, ResourceGlyph};
@@ -23,7 +24,6 @@ use crate::observer::{
     EdgeCursor, RaceView, STAT_COLOR_BAR, STAT_HEADING_HEIGHT, STAT_ROW_GAP, STAT_ROW_HEIGHT,
     STAT_VALUE_SIZE, Wing, paint_column_heading, paint_resource_value, paint_stat_identity,
     paint_team_divider, paint_text, stat_table_height, teams_worth_dividing, vision_alpha,
-    wing_panel,
 };
 use crate::shell::Panel;
 use crate::{tr, tr_plural};
@@ -164,28 +164,30 @@ pub(crate) fn panel_height(view: &EconomyView) -> f32 {
 pub fn render_economy_view(
     view: &EconomyView,
     ctx: &Context,
-    shown: bool,
+    window: Window<'_>,
     top: f32,
-) -> Option<Rect> {
+) -> Option<WindowOutcome<()>> {
     let id = Id::new("sb_economy_panel");
-    let inner = wing_panel(
+    let window = Window {
+        shown: window.shown && (!view.is_empty()),
+        prefs: window.prefs,
+    };
+    let inner = window.show(
         ctx,
         id,
-        Wing::Left,
-        top,
-        PANEL_WIDTH,
-        shown && !view.is_empty(),
+        WingPlacement {
+            wing: Wing::Left,
+            top,
+            width: PANEL_WIDTH,
+        },
+        Panel::Economy,
+        &tr!("observer.panelEconomy", "Economy"),
         |ui| draw_panel(ui, view),
     )?;
-    Some(inner.response.rect)
+    Some(inner)
 }
 
 fn draw_panel(ui: &mut Ui, view: &EconomyView) {
-    widgets::panel_header(
-        ui,
-        &tr!("observer.panelEconomy", "Economy"),
-        Panel::Economy.key_label().as_deref(),
-    );
     draw_headings(ui);
     let divided = teams_worth_dividing(view.players.iter().map(|player| player.team));
     let mut side = view.players.first().map(|player| player.team);
@@ -255,13 +257,18 @@ fn draw_heading(ui: &Ui, rect: Rect, key: &str, label: &str, hint: &str) {
     let id = Id::new(("sb_economy_heading", key));
     let response = ui.interact(target, id, Sense::hover());
     if let Some(pointer) = response.hover_pos() {
-        widgets::tooltip(ui.ctx(), id.with("hint"), pointer, |ui| {
-            ui.label(
-                text::body(12.0, text::BodyWeight::Regular)
-                    .with_color(theme::TEXT_SECONDARY)
-                    .job(hint),
-            );
-        });
+        widgets::tooltip(
+            ui.ctx(),
+            id.with("hint"),
+            crate::kit::surfaces::global(ui.ctx(), ui.layer_id(), pointer),
+            |ui| {
+                ui.label(
+                    text::body(12.0, text::BodyWeight::Regular)
+                        .with_color(theme::TEXT_SECONDARY)
+                        .job(hint),
+                );
+            },
+        );
     }
 }
 
@@ -378,7 +385,16 @@ mod tests {
                 players: teams.iter().map(|team| player(*team)).collect(),
             };
             let rect = crate::observer::test_support::settled_rect(|ctx| {
-                render_economy_view(&view, ctx, true, 100.0)
+                render_economy_view(
+                    &view,
+                    ctx,
+                    Window {
+                        shown: true,
+                        prefs: &mut Default::default(),
+                    },
+                    100.0,
+                )
+                .map(|outcome| outcome.rect)
             })
             .expect("the panel is drawn");
             assert_eq!(rect.height(), panel_height(&view), "{teams:?}");
