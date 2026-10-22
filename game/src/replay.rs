@@ -6,8 +6,8 @@ use byteorder::{LE, ReadBytesExt, WriteBytesExt};
 use libc::c_void;
 
 use crate::app_messages::{GameSetupInfo, SbUserId};
-use crate::bw::Bw;
 use crate::bw::players::BwPlayerId;
+use crate::bw::{self, Bw};
 use crate::bw_scr::BwScr;
 use crate::game_thread;
 use crate::windows;
@@ -121,6 +121,10 @@ pub struct SbatReplayData {
     /// [`LogicFix::disable_bit`]s of the fixes the game was played without. Replays from before
     /// this was recorded played with every fix their version had.
     pub disabled_logic_fixes: u32,
+    /// The players who left their race to chance in the lobby, one bit per BW player id
+    /// (`1 << player_id`; see [`game_thread::lobby_random_picks`]). Replays from before this was
+    /// recorded have none.
+    pub random_picks: u8,
 }
 
 /// Checks if the start of file matches what SC:R currently writes to every replay
@@ -179,11 +183,13 @@ pub unsafe fn add_shieldbattery_data(
     // 0x56     u16 game_logic_version (GAME_LOGIC_VERSION)
     // --- Format version 2 ---
     // 0x58     u32 disabled_logic_fixes (LogicFix::disable_bit mask)
+    // --- Format version 3 ---
+    // 0x5c     u8 random_picks (one bit per BW player id that picked Random in the lobby)
     let game = unsafe { bw.game() };
     let mut buffer = Vec::with_capacity(128);
     buffer.write_u32::<LE>(SECTION_ID)?;
     buffer.write_u32::<LE>(0)?;
-    buffer.write_u16::<LE>(2)?;
+    buffer.write_u16::<LE>(3)?;
     buffer.write_u32::<LE>(exe_build)?;
     let version = env!("SHIELDBATTERY_VERSION").as_bytes();
     let mut version_buf = [0u8; 16];
@@ -207,6 +213,12 @@ pub unsafe fn add_shieldbattery_data(
     }
     buffer.write_u16::<LE>(GAME_LOGIC_VERSION)?;
     buffer.write_u32::<LE>(game_thread::disabled_logic_fixes())?;
+    let players = unsafe { bw.players() };
+    // SAFETY: the player table is the game's, with a slot for each of the eight player ids.
+    let is_computer = |player_id: u8| unsafe {
+        (*players.add(usize::from(player_id))).player_type == bw::PLAYER_TYPE_COMPUTER
+    };
+    buffer.write_u8(game_thread::lobby_random_picks(setup_info, is_computer))?;
 
     let length = buffer.len() as u32 - 8;
     (&mut buffer[4..]).write_u32::<LE>(length)?;
@@ -324,6 +336,21 @@ fn test_parse_disabled_logic_fixes() {
 }
 
 #[test]
+fn test_parse_random_picks() {
+    let mut data = vec![0u8; 0x5d];
+    (&mut data[0x0..]).write_u16::<LE>(3).unwrap(); // format_version
+    data[0x5c] = 0b0000_0101;
+
+    let parsed = parse_shieldbattery_data(&data).unwrap();
+    assert_eq!(parsed.random_picks, 0b0000_0101);
+    // A format 3 section too short to hold the picks is malformed, not "nobody picked Random".
+    assert!(parse_shieldbattery_data(&data[..0x5c]).is_none());
+    // Older formats record no picks.
+    (&mut data[0x0..]).write_u16::<LE>(2).unwrap();
+    assert_eq!(parse_shieldbattery_data(&data).unwrap().random_picks, 0);
+}
+
+#[test]
 fn game_logic_version_is_newest_fix() {
     let newest = LogicFix::ALL.iter().map(|fix| fix.introduced_in()).max();
     assert_eq!(newest, Some(GAME_LOGIC_VERSION));
@@ -343,7 +370,7 @@ fn logic_fix_disable_bits_are_distinct() {
 
 pub fn parse_shieldbattery_data(data: &[u8]) -> Option<SbatReplayData> {
     let format = (&data[0..]).read_u16::<LE>().ok()?;
-    if format > 2 {
+    if format > 3 {
         return None;
     }
     let team_game_main_players = data.get(0x16..)?.get(..4)?;
@@ -363,11 +390,13 @@ pub fn parse_shieldbattery_data(data: &[u8]) -> Option<SbatReplayData> {
     } else {
         0
     };
+    let random_picks = if format >= 3 { *data.get(0x5c)? } else { 0 };
     Some(SbatReplayData {
         team_game_main_players: team_game_main_players.try_into().ok()?,
         starting_races: starting_races.try_into().ok()?,
         user_ids,
         game_logic_version,
         disabled_logic_fixes,
+        random_picks,
     })
 }

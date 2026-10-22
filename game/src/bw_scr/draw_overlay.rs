@@ -1364,6 +1364,7 @@ impl OverlayState {
         apm: Option<&ApmStats>,
         setup: Option<&GameSetupInfo>,
     ) -> MatchupView {
+        let random_picks = stats::random_picks(bw, setup);
         let players = replay_players_by_team(bw)
             .filter(|&(_team, player_id)| {
                 // Players with no units are taken for observers on a UMS map, which have no numbers
@@ -1376,7 +1377,7 @@ impl OverlayState {
             })
             .map(|(team, player_id)| unsafe {
                 let player = bw.players.add(player_id as usize);
-                let random = stats::picked_random(bw, setup, player_id);
+                let random = stats::has_pick(random_picks, player_id);
                 matchup_player_view(bw, player, player_id, team, random, apm)
             })
             .collect();

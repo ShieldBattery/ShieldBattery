@@ -20,7 +20,9 @@ use lazy_static::lazy_static;
 use libc::c_void;
 use tokio::sync::mpsc::UnboundedSender;
 
-use crate::app_messages::{GameSetupInfo, MapInfo, MinimapColorMode, SbUserId, StartingFog};
+use crate::app_messages::{
+    GameSetupInfo, MapInfo, MinimapColorMode, SbSlotType, SbUserId, StartingFog,
+};
 use crate::bw::players::{
     AllianceState, AssignedRace, BwPlayerId, FinalNetworkStatus, PlayerLoseType, PlayerResult,
     StormPlayerId, VictoryState,
@@ -75,6 +77,39 @@ pub fn set_sbat_replay_data(data: replay::SbatReplayData) {
 
 pub fn sbat_replay_data() -> Option<&'static replay::SbatReplayData> {
     SBAT_REPLAY_DATA.get()
+}
+
+/// The players who left their race to chance in the lobby the game was set up from, one bit per
+/// game player id (`1 << player_id`), with `is_computer` saying which player ids are computers'.
+///
+/// A person's pick is read from their own slot, found by the account the game seated them under.
+/// Computers have no account to find their slot by, and the game shuffles slots as it starts, so
+/// computers count as random picks only when every computer in the lobby was one.
+pub fn lobby_random_picks(setup: &GameSetupInfo, is_computer: impl Fn(u8) -> bool) -> u8 {
+    let mut computers = setup
+        .slots
+        .iter()
+        .filter(|slot| slot.player_type == SbSlotType::Computer)
+        .peekable();
+    let computers_random =
+        computers.peek().is_some() && computers.all(|slot| slot.bw_race() == bw::RACE_RANDOM);
+    let mapping = player_id_mapping();
+    (0..8u8)
+        .filter(|&player_id| {
+            let user_id = mapping
+                .iter()
+                .find(|mapping| mapping.game_id == Some(BwPlayerId(player_id)))
+                .map(|mapping| mapping.sb_user_id);
+            match user_id {
+                Some(user_id) => setup
+                    .slots
+                    .iter()
+                    .find(|slot| slot.user_id == Some(user_id))
+                    .is_some_and(|slot| slot.bw_race() == bw::RACE_RANDOM),
+                None => computers_random && is_computer(player_id),
+            }
+        })
+        .fold(0, |picks, player_id| picks | (1 << player_id))
 }
 
 /// The BW player id the local user played as in the replay being watched, where it is a replay of
