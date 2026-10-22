@@ -60,6 +60,15 @@ pub struct SelectedUnitView {
     pub energy: Option<(u32, u32)>,
     /// How many units it has killed.
     pub kills: u32,
+    /// The one line the console writes under a unit selected alone. `None` for nothing to say, and
+    /// only read out for a unit selected alone, so a host may leave it `None` for any other.
+    pub status: Option<UnitStatusView>,
+    /// Whether it is a hallucination, which its tile is drawn faded for wherever it is shown.
+    pub hallucination: bool,
+    /// Whether a parasite is on it, which shows its caster everything it sees, and whether an
+    /// optical flare has blinded it for good. Each marks the corner of its tile wherever it is shown.
+    pub parasited: bool,
+    pub blind: bool,
     /// Whether it is a building rather than a unit.
     pub building: bool,
     /// What is left to mine in it, for a mineral field, a geyser, or the building on a geyser.
@@ -80,6 +89,26 @@ pub struct SelectedUnitView {
     /// alone, and not under a queue or cargo, which leave no room for them, so a host may leave it
     /// empty for any other.
     pub upgrades: Vec<UnitUpgradeView>,
+}
+
+/// The line the console writes under a unit selected alone, in the game's language: what has been
+/// done to it, such as a parasite on it or its being a hallucination, or failing that what it is, a
+/// detector or a Terran's rank.
+pub struct UnitStatusView {
+    pub text: String,
+    /// The color the console writes it in.
+    pub color: StatusColor,
+}
+
+/// The colors the console writes its status lines in, each drawn in this overlay's own shade of it.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum StatusColor {
+    /// The console's text color, for a line that only says what the unit is.
+    Default,
+    Green,
+    Red,
+    Yellow,
+    White,
 }
 
 /// What is left to mine in a resource.
@@ -269,6 +298,34 @@ const OWNER_ROW: f32 = 18.0;
 
 /// Gap under the owner's line.
 const OWNER_LEAD: f32 = 6.0;
+
+/// Text size of the subject's status, which shares the owner's line.
+const STATUS_SIZE: f32 = 13.0;
+
+/// How much of itself a hallucination's icon is drawn at, and how strongly the dashes around its tile
+/// are.
+const HALLUCINATION_ALPHA: f32 = 0.4;
+const HALLUCINATION_EDGE_ALPHA: f32 = 0.6;
+const HALLUCINATION_DASH: f32 = 4.0;
+const HALLUCINATION_DASH_GAP: f32 = 3.0;
+
+/// The mark a lasting spell leaves on a tile's corner: a disc this share of the tile across, kept
+/// between a size the spell's glyph can still be made out at and one that would crowd the unit, set
+/// in from the corner far enough to keep clear of the tile's edge, and a gap from the next mark
+/// along where a unit has two.
+const SPELL_MARK_SHARE: f32 = 0.36;
+const SPELL_MARK_MIN: f32 = 13.0;
+const SPELL_MARK_MAX: f32 = 24.0;
+const SPELL_MARK_INSET: f32 = theme::SPACE_XS;
+const SPELL_MARK_GAP: f32 = 2.0;
+/// How much of the disc the spell's glyph spans.
+const SPELL_GLYPH_SHARE: f32 = 0.68;
+/// The color a spell's mark is drawn in: the green the console names a parasite or blindness in.
+const SPELL_MARK_COLOR: Color32 = theme::TEXT_POSITIVE;
+
+/// The most of the owner's line the subject's status may take. The game's own lines fit in it, so a
+/// long owner's name gives way to one of those, and a longer status is cut short here instead.
+const STATUS_SHARE: f32 = 0.5;
 
 /// How much of the text column the name and the owner's line take, above whatever the reading
 /// draws under them.
@@ -599,8 +656,7 @@ fn draw_subject(
         vec2(SUBJECT_TILE, SUBJECT_TILE),
     );
     let tint = health_tint(unit.health_fraction());
-    paint_tile(ui, tile, unit.health_edge(), 1.0);
-    paint_icon(ui, tile, unit.icon, SUBJECT_CODE_SIZE);
+    paint_unit_tile(ui, tile, unit, unit.health_edge(), SUBJECT_CODE_SIZE);
     let clicked = unit_target(ui, tile, 0);
     draw_readouts(ui, column, tile.bottom() + READOUT_LEAD, unit, tint);
 
@@ -685,8 +741,7 @@ fn draw_unit(ui: &Ui, body: Rect, unit: &SelectedUnitView) -> Option<SelectedUni
         pos2(body.left() + UNIT_TILE * 0.5, body.center().y),
         vec2(UNIT_TILE, UNIT_TILE),
     );
-    paint_tile(ui, tile, unit.health_edge(), 1.0);
-    paint_icon(ui, tile, unit.icon, UNIT_CODE_SIZE);
+    paint_unit_tile(ui, tile, unit, unit.health_edge(), UNIT_CODE_SIZE);
     let clicked = unit_target(ui, tile, 0);
 
     let text = Rect::from_min_size(
@@ -738,11 +793,12 @@ fn draw_unit(ui: &Ui, body: Rect, unit: &SelectedUnitView) -> Option<SelectedUni
     clicked
 }
 
-/// Draws the head of the text column: the subject's name, then whose it is. Returns the room left
-/// under them.
+/// Draws the head of the text column: the subject's name, then whose it is, with its status at
+/// that line's right end. Returns the room left under them.
 ///
 /// A unit the host has no name for leaves no gap for one: the owner's line heads the column instead.
-/// Nor does a unit nobody owns, a mineral field or a critter, whose line would be an empty bar.
+/// Nor does a unit nobody owns, a mineral field or a critter, whose line would be an empty bar,
+/// unless it has a status to say.
 fn draw_header(ui: &Ui, text: Rect, unit: &SelectedUnitView) -> Rect {
     let mut top = text.top();
     if let Some(name) = &unit.name {
@@ -755,15 +811,42 @@ fn draw_header(ui: &Ui, text: Rect, unit: &SelectedUnitView) -> Rect {
         );
         top += NAME_ROW;
     }
-    if unit.owner.is_some() {
-        draw_owner(
-            ui,
-            Rect::from_min_size(pos2(text.left(), top), vec2(text.width(), OWNER_ROW)),
-            unit,
-        );
+    if unit.owner.is_some() || unit.status.is_some() {
+        let mut line = Rect::from_min_size(pos2(text.left(), top), vec2(text.width(), OWNER_ROW));
+        if let Some(status) = &unit.status {
+            // The owner is what the line is for, so a status long enough to crowd it out is the
+            // one cut short, past the share of the line it may take.
+            let room = if unit.owner.is_some() {
+                line.width() * STATUS_SHARE
+            } else {
+                line.width()
+            };
+            let status_line = Rect::from_min_max(pos2(line.right() - room, line.top()), line.max);
+            let status_width = draw_status(ui, status_line, status);
+            line.max.x -= status_width + OWNER_GAP;
+        }
+        if unit.owner.is_some() {
+            draw_owner(ui, line, unit);
+        }
         top += OWNER_ROW;
     }
     Rect::from_min_max(pos2(text.left(), top + OWNER_LEAD), text.max)
+}
+
+/// Draws the subject's status against the right end of `line`. Returns how wide it is, which the
+/// owner's name gives up.
+fn draw_status(ui: &Ui, line: Rect, status: &UnitStatusView) -> f32 {
+    let color = match status.color {
+        StatusColor::Default => theme::TEXT_DIM,
+        StatusColor::Green => theme::TEXT_POSITIVE,
+        StatusColor::Red => theme::TEXT_NEGATIVE,
+        StatusColor::Yellow => theme::TEXT_WARNING,
+        StatusColor::White => theme::TEXT_PRIMARY,
+    };
+    let spec = text::body(STATUS_SIZE, text::BodyWeight::Semibold).with_color(color);
+    let width = spec.galley(ui, &status.text).size().x.min(line.width());
+    paint_text(ui, line, &spec, &status.text, Align::RIGHT);
+    width
 }
 
 /// The subject's pools as the console lists them: shields for a unit that has them, then hit points
@@ -1024,7 +1107,7 @@ fn draw_production(ui: &Ui, rect: Rect, production: &ProductionProgressView) {
     }
     let first = Rect::from_min_size(rect.left_top(), vec2(QUEUE_SLOT, QUEUE_SLOT));
     paint_tile(ui, first, Some(theme::ACCENT), 1.0);
-    paint_icon(ui, first, production.icon, QUEUE_CODE_SIZE);
+    paint_icon(ui, first, production.icon, QUEUE_CODE_SIZE, 1.0);
     let block = match &production.queue {
         Some(queue) => {
             for index in 1..QUEUE_SLOTS {
@@ -1032,7 +1115,7 @@ fn draw_production(ui: &Ui, rect: Rect, production: &ProductionProgressView) {
                 match queue.get(index - 1) {
                     Some(icon) => {
                         paint_tile(ui, slot, None, 1.0);
-                        paint_icon(ui, slot, *icon, QUEUE_CODE_SIZE);
+                        paint_icon(ui, slot, *icon, QUEUE_CODE_SIZE, 1.0);
                     }
                     None => paint_tile(ui, slot, None, EMPTY_ALPHA),
                 }
@@ -1110,8 +1193,7 @@ fn draw_cargo(ui: &Ui, rect: Rect, cargo: &[SelectedUnitView]) {
 /// Paints one unit as a small tile with the bar of its health under it, which is how the console
 /// draws every unit that is one of several.
 fn paint_small_tile(ui: &Ui, tile: Rect, unit: &SelectedUnitView, code_size: f32) {
-    paint_tile(ui, tile, None, 1.0);
-    paint_icon(ui, tile, unit.icon, code_size);
+    paint_unit_tile(ui, tile, unit, None, code_size);
     let mut top = tile.bottom();
     if let Some((shields, full)) = unit.shields {
         let fraction = if full == 0 {
@@ -1161,22 +1243,152 @@ fn paint_tile(ui: &Ui, rect: Rect, edge: Option<Color32>, alpha: f32) {
     ));
 }
 
-/// Paints what a tile carries: the game's own icon where the host has the atlas for it, and the
-/// short code of what it is where it has not.
-fn paint_icon(ui: &Ui, rect: Rect, icon: ProductionIcon, code_size: f32) {
+/// Paints a unit's tile: its chrome, outlined in `edge` where the tile has something to say through
+/// its edge, and its icon, with the mark of a lasting spell on it in the top right corner.
+///
+/// A hallucination's icon is faded and its edge dashed, which is what says the unit is not real
+/// before anything else is read about it.
+fn paint_unit_tile(
+    ui: &Ui,
+    tile: Rect,
+    unit: &SelectedUnitView,
+    edge: Option<Color32>,
+    code_size: f32,
+) {
+    if unit.hallucination {
+        // The dashes stand in for the edge, which would otherwise join them up.
+        paint_tile(ui, tile, Some(Color32::TRANSPARENT), 1.0);
+        paint_dashed_edge(ui, tile);
+        paint_icon(ui, tile, unit.icon, code_size, HALLUCINATION_ALPHA);
+    } else {
+        paint_tile(ui, tile, edge, 1.0);
+        paint_icon(ui, tile, unit.icon, code_size, 1.0);
+    }
+    paint_spell_marks(ui, tile, unit);
+}
+
+/// Edges `tile` in dashes, which is how a hallucination's tile is set apart from a real unit's.
+fn paint_dashed_edge(ui: &Ui, tile: Rect) {
+    let edge = tile.shrink(theme::HAIRLINE * 0.5);
+    ui.painter().extend(Shape::dashed_line(
+        &[
+            edge.left_top(),
+            edge.right_top(),
+            edge.right_bottom(),
+            edge.left_bottom(),
+            edge.left_top(),
+        ],
+        Stroke::new(
+            theme::HAIRLINE,
+            theme::TEXT_PRIMARY.gamma_multiply(HALLUCINATION_EDGE_ALPHA),
+        ),
+        HALLUCINATION_DASH,
+        HALLUCINATION_DASH_GAP,
+    ));
+}
+
+/// Paints the marks of the lasting spells on `unit` along the top of `tile`, from its right corner:
+/// a parasite as a dark eye on a solid disc, then blindness as the eye struck through, in the disc's
+/// color on a dark disc ringed in it. Both in the green the console names the two in.
+///
+/// The parasite's mark is the loud one, being what hands a player sight they would not have. The two
+/// differ in what is light and what is dark as well as in the stroke through the eye, which is what
+/// tells them apart at a glance where the glyphs are only a few pixels across.
+///
+/// The spells' command icons are thin lines on a dark square, which do not read at the size a tile's
+/// corner leaves room for, so each spell is drawn as a glyph of what it does to the unit.
+fn paint_spell_marks(ui: &Ui, tile: Rect, unit: &SelectedUnitView) {
+    let size = (tile.width() * SPELL_MARK_SHARE).clamp(SPELL_MARK_MIN, SPELL_MARK_MAX);
+    let painter = ui.painter();
+    let mut right = tile.right() - SPELL_MARK_INSET;
+    let center_y = tile.top() + SPELL_MARK_INSET + size * 0.5;
+    if unit.parasited {
+        let center = pos2(right - size * 0.5, center_y);
+        painter.circle_filled(center, size * 0.5, SPELL_MARK_COLOR);
+        paint_eye(
+            painter,
+            center,
+            size * SPELL_GLYPH_SHARE,
+            GREY_BLUE10,
+            SPELL_MARK_COLOR,
+            false,
+        );
+        right -= size + SPELL_MARK_GAP;
+    }
+    if unit.blind {
+        let center = pos2(right - size * 0.5, center_y);
+        let ground = theme::alpha(GREY_BLUE10, 0.92);
+        painter.circle_filled(center, size * 0.5, ground);
+        painter.circle_stroke(
+            center,
+            size * 0.5 - theme::HAIRLINE * 0.5,
+            Stroke::new(theme::HAIRLINE, SPELL_MARK_COLOR),
+        );
+        paint_eye(
+            painter,
+            center,
+            size * SPELL_GLYPH_SHARE,
+            SPELL_MARK_COLOR,
+            ground,
+            true,
+        );
+    }
+}
+
+/// Paints an eye `width` across centered on `center` in `color`, struck through where `struck`, the
+/// stroke parted from the eye by a band of `ground`, the color it is painted on.
+fn paint_eye(
+    painter: &egui::Painter,
+    center: Pos2,
+    width: f32,
+    color: Color32,
+    ground: Color32,
+    struck: bool,
+) {
+    // An almond of two parabolas meeting at the corners of the eye.
+    const STEPS: usize = 12;
+    let half_width = width * 0.5;
+    let half_height = width * 0.3;
+    let stroke = Stroke::new((width * 0.12).max(1.0), color);
+    let lid = |step: usize, sign: f32| {
+        let x = -half_width + width * step as f32 / STEPS as f32;
+        let along = x / half_width;
+        pos2(
+            center.x + x,
+            center.y + sign * half_height * (1.0 - along * along),
+        )
+    };
+    let mut outline: Vec<Pos2> = (0..=STEPS).map(|step| lid(step, -1.0)).collect();
+    outline.extend((1..STEPS).rev().map(|step| lid(step, 1.0)));
+    painter.add(Shape::closed_line(outline, stroke));
+    painter.circle_filled(center, half_height * 0.62, color);
+    if struck {
+        let reach = Vec2::splat(half_width * 0.85);
+        painter.line_segment(
+            [center - reach, center + reach],
+            Stroke::new(stroke.width * 3.0, ground),
+        );
+        painter.line_segment([center - reach, center + reach], stroke);
+    }
+}
+
+/// Paints what a tile carries at `alpha` of itself: the game's own icon where the host has the
+/// atlas for it, and the short code of what it is where it has not.
+fn paint_icon(ui: &Ui, rect: Rect, icon: ProductionIcon, code_size: f32, alpha: f32) {
     match icon.texture {
         Some(texture) => {
             icon.paint(
                 ui.painter(),
                 texture,
                 rect.shrink(theme::SPACE_XS),
-                Color32::WHITE,
+                Color32::WHITE.gamma_multiply(alpha),
             );
         }
         None => paint_text(
             ui,
             rect,
-            &text::body(code_size, text::BodyWeight::Semibold).with_color(theme::TEXT_SECONDARY),
+            &text::body(code_size, text::BodyWeight::Semibold)
+                .with_color(theme::TEXT_SECONDARY.gamma_multiply(alpha)),
             &unit_codes::code_or_index(icon.index),
             Align::Center,
         ),
@@ -1232,6 +1444,10 @@ mod tests {
             shields,
             energy: None,
             kills: 0,
+            status: None,
+            hallucination: false,
+            parasited: false,
+            blind: false,
             building: false,
             resources: None,
             stacked: None,

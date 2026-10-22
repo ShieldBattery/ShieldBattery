@@ -13,7 +13,7 @@
 
 use std::ffi::c_void;
 
-use bw_dat::{TechId, UnitId, UpgradeId, WeaponId};
+use bw_dat::{Race, TechId, UnitId, UpgradeId, WeaponId};
 
 /// The start of SC:R's string table object, as far as the string buffer.
 ///
@@ -75,14 +75,25 @@ impl StatTxt {
     /// Must be called on the game's main thread.
     pub unsafe fn unit_name(&self, unit_id: UnitId) -> Option<String> {
         unsafe {
-            if let Some(overrides) = self.unit_map_name_overrides
-                && unit_id.0 < UNIT_TYPE_COUNT
-                && overrides.add(unit_id.0 as usize).read_unaligned() != 0
-            {
+            if self.is_renamed_by_map(unit_id) {
                 return None;
             }
             // Unit names are the first strings of stat_txt, in unit id order.
             self.string(u32::from(unit_id.0) + 1)
+        }
+    }
+
+    /// Whether the map gives this unit type a name of its own.
+    ///
+    /// # Safety
+    ///
+    /// Must be called on the game's main thread.
+    pub unsafe fn is_renamed_by_map(&self, unit_id: UnitId) -> bool {
+        unsafe {
+            self.unit_map_name_overrides.is_some_and(|overrides| {
+                unit_id.0 < UNIT_TYPE_COUNT
+                    && overrides.add(unit_id.0 as usize).read_unaligned() != 0
+            })
         }
     }
 
@@ -113,6 +124,41 @@ impl StatTxt {
         unsafe { self.string(weapon_id.label()) }
     }
 
+    /// The console's line for `status`, or `None` before stat_txt is loaded.
+    ///
+    /// # Safety
+    ///
+    /// Must be called on the game's main thread.
+    pub unsafe fn unit_status(&self, status: UnitStatus) -> Option<String> {
+        // Where the console's status lines sit in stat_txt. The disabled lines are one per race,
+        // in race id order: the same word for Zerg and Terran, and "Unpowered" for Protoss. The
+        // ranks run up from the lowest, "Recruit".
+        const ADMIRAL: u32 = 0x23b;
+        const TASSADAR: u32 = 0x23c;
+        const PARASITE: u32 = 0x33b;
+        const DISABLED: u32 = 0x33c;
+        const DETECTOR: u32 = 0x33f;
+        const HALLUCINATION: u32 = 0x340;
+        const BLIND: u32 = 0x513;
+        const ACID_SPORES: u32 = 0x514;
+        const RANKS: u32 = 0x516;
+        unsafe {
+            match status {
+                UnitStatus::Hallucination => self.string(HALLUCINATION),
+                UnitStatus::Disabled(race) => self.string(DISABLED + u32::from(race.id())),
+                UnitStatus::AcidSpores(count) => self
+                    .string(ACID_SPORES)
+                    .map(|name| format!("{name} ({count})")),
+                UnitStatus::Blind => self.string(BLIND),
+                UnitStatus::Parasite => self.string(PARASITE),
+                UnitStatus::Detector => self.string(DETECTOR),
+                UnitStatus::Rank(rank) => self.string(RANKS + u32::from(rank)),
+                UnitStatus::Tassadar => self.string(TASSADAR),
+                UnitStatus::Admiral => self.string(ADMIRAL),
+            }
+        }
+    }
+
     /// The string with stat_txt id `id`, which counts from 1 as the dat files' labels do.
     unsafe fn string(&self, id: u32) -> Option<String> {
         unsafe {
@@ -130,6 +176,26 @@ impl StatTxt {
             entry(buffer, offsets, index).map(display_text)
         }
     }
+}
+
+/// One of the lines the console writes under a unit selected alone: what has been done to it, or
+/// failing that what it is.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum UnitStatus {
+    Hallucination,
+    /// A building that cannot work, in the console's word for its race.
+    Disabled(Race),
+    /// How many acid spores are on it.
+    AcidSpores(u8),
+    Blind,
+    Parasite,
+    Detector,
+    /// A Terran unit's rank, counting up from the lowest.
+    Rank(u8),
+    /// The rank the console gives Gantrithor, which is its captain's name.
+    Tassadar,
+    /// The rank the console gives a hero battlecruiser the map has renamed.
+    Admiral,
 }
 
 /// Which of the string table's two buffer layouts a buffer is in.
