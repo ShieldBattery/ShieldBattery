@@ -441,8 +441,10 @@ pub(super) fn selected_upgrades(unit: Unit, bw: &BwVars) -> Vec<UnitUpgradeView>
         chips.push(UnitUpgradeView {
             icon: atlas_icon(mine.0, 0.0, bw),
             level: count,
-            name: production_name(Production::Unit(mine), bw),
-            effect: UpgradeEffect::Count,
+            name: production_name(Production::Tech(bw_dat::tech::SPIDER_MINES), bw),
+            effect: UpgradeEffect::Count {
+                damage: mine.ground_weapon().map_or(0, |weapon| weapon.damage()),
+            },
         });
     }
     chips

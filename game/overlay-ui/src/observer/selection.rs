@@ -137,8 +137,8 @@ pub struct UnitUpgradeView {
 
 /// What a stat-row icon reports on the unit it is read for.
 pub enum UpgradeEffect {
-    /// An inventory count, such as a vulture's remaining spider mines, rather than an upgrade level.
-    Count,
+    /// An inventory count on the chip, with its weapon's damage in the tooltip.
+    Count { damage: u32 },
     /// The unit's armor: what it has of its own, and what its upgrades add to that.
     Armor { base: u32, bonus: u32 },
     /// The unit's shields, which the panel already puts a number to.
@@ -1025,21 +1025,29 @@ fn draw_upgrade_hint(ui: &Ui, pointer: Pos2, upgrade: &UnitUpgradeView) {
     };
     widgets::tooltip(ui.ctx(), Id::new("sb_upgrade_chip_hint"), pointer, |ui| {
         ui.spacing_mut().item_spacing = vec2(0.0, theme::SPACE_XS);
+        if let UpgradeEffect::Count { damage } = &upgrade.effect {
+            let damage = tr!(
+                "observer.inventoryDamage",
+                "Damage: {{value}}",
+                value = damage
+            );
+            let name = upgrade.name.as_deref().unwrap_or_default();
+            ui.label(
+                text::body(13.0, text::BodyWeight::Medium).job(&format!("{name}    {damage}")),
+            );
+            return;
+        }
         if let Some(name) = &upgrade.name {
             ui.label(text::body(13.0, text::BodyWeight::Medium).job(name));
         }
-        if matches!(upgrade.effect, UpgradeEffect::Count) {
-            detail(ui, &upgrade.level.to_string());
-        } else {
-            detail(
-                ui,
-                &tr!(
-                    "observer.researchLevel",
-                    "Level {{level}}",
-                    level = upgrade.level
-                ),
-            );
-        }
+        detail(
+            ui,
+            &tr!(
+                "observer.researchLevel",
+                "Level {{level}}",
+                level = upgrade.level
+            ),
+        );
         match &upgrade.effect {
             UpgradeEffect::Armor { base, bonus } => detail(
                 ui,
@@ -1049,7 +1057,7 @@ fn draw_upgrade_hint(ui: &Ui, pointer: Pos2, upgrade: &UnitUpgradeView) {
                     value = upgraded_value(*base, *bonus, 1)
                 ),
             ),
-            UpgradeEffect::Count | UpgradeEffect::Shields => {}
+            UpgradeEffect::Count { .. } | UpgradeEffect::Shields => {}
             UpgradeEffect::Damage(weapons) => {
                 for weapon in weapons {
                     if weapons.len() > 1
@@ -1593,7 +1601,7 @@ mod tests {
     }
 
     #[test]
-    fn inventory_chips_and_their_hints_show_counts_including_zero() {
+    fn mine_chips_show_inventory_and_their_hints_name_the_technology_and_damage() {
         fn texts(shape: &Shape, out: &mut Vec<String>) {
             match shape {
                 Shape::Text(text) => out.push(text.galley.text().to_string()),
@@ -1608,8 +1616,8 @@ mod tests {
             let mine = UnitUpgradeView {
                 icon: unit((80, 80), None, 0x0d).icon,
                 level: count,
-                name: Some("Spider Mine".into()),
-                effect: UpgradeEffect::Count,
+                name: Some("Spider Mines".into()),
+                effect: UpgradeEffect::Count { damage: 125 },
             };
             let mut drawn = Vec::new();
             for _ in 0..2 {
@@ -1624,10 +1632,14 @@ mod tests {
                 }
                 output.textures_delta.clear();
             }
-            // The chip and its tooltip each report the inventory, without an upgrade-level label.
+            // Inventory stays on the chip even at zero; the tooltip names the technology and damage.
             let expected = count.to_string();
-            assert_eq!(drawn.iter().filter(|text| *text == &expected).count(), 2);
-            assert!(drawn.iter().any(|text| text == "Spider Mine"));
+            assert_eq!(drawn.iter().filter(|text| *text == &expected).count(), 1);
+            assert!(
+                drawn
+                    .iter()
+                    .any(|text| text == "Spider Mines    Damage: 125")
+            );
             assert!(!drawn.iter().any(|text| text.contains("Level")));
         }
     }

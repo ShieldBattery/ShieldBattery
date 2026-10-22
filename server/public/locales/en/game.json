@@ -204,6 +204,7 @@
     "graphTeams": "Teams",
     "idleWorkers_one": "{{count}} idle",
     "idleWorkers_other": "{{count}} idle",
+    "inventoryDamage": "Damage: {{value}}",
     "liveTag": "Live",
     "mapControl": "Map control",
     "mapControlHint": "Share of the map each side has in sight",
