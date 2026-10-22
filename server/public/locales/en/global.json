@@ -1799,6 +1799,7 @@
       "kickedTitle": "Kicked from lobby"
     },
     "gameSetup": {
+      "dropToUpload": "Drop a map here to upload it and use it.",
       "title": "Game setup"
     },
     "hostGame": {
@@ -2140,6 +2141,7 @@
       "uploaded": "Uploaded {{name}}",
       "uploadFailed": "Upload failed",
       "uploading": "Uploading…",
+      "uploadingPercent": "Uploading… {{percent}}%",
       "uploadMaps": "Upload maps",
       "viewMap": "View map",
       "yourMaps": "Your maps"
@@ -2150,11 +2152,7 @@
       "mapDescription": "Map description",
       "mapDescriptionRequired": "Enter a map description",
       "mapName": "Map name",
-      "mapNameRequired": "Enter a map name",
-      "players": "Players: {{playerSize}}",
-      "size": "Size: {{width}}x{{height}}",
-      "tileset": "Tileset: {{tilesetName}}",
-      "title": "Map details"
+      "mapNameRequired": "Enter a map name"
     },
     "local": {
       "documentsFolder": "Documents folder",
@@ -2231,61 +2229,30 @@
       "weeklyGamesCaption_one": "games per week, last {{count}} weeks",
       "weeklyGamesCaption_other": "games per week, last {{count}} weeks"
     },
+    "picker": {
+      "addToQueue": "Add maps to the queue",
+      "inQueue": "{{positions}} in queue",
+      "pickFailed": "Couldn't load this map. Select it to try again.",
+      "queuedCount_one": "{{count}} map in the queue",
+      "queuedCount_other": "{{count}} maps in the queue",
+      "queueFull": "The queue is full"
+    },
     "preview": {
       "zoom": "Zoom"
     },
     "server": {
-      "allMaps": "All maps",
-      "browseLocal": "Browse local maps",
       "delisted": "Map delisted",
       "delistError": "An error occurred while delisting the map",
-      "error": "There was an error retrieving the maps.",
-      "favoriteMaps": "Favorite maps",
       "favorites": {
         "added": "Added to favorites",
         "addedError": "An error occurred while adding to favorites",
-        "error": "There was an error retrieving your favorite maps.",
         "removed": "Removed from favorites",
         "removedError": "An error occurred while removing from favorites"
       },
-      "filterOptions": {
-        "numberOfPlayers": "{{numPlayers}} players",
-        "section": {
-          "numberOfPlayers": "Number of players",
-          "tileset": "Tileset"
-        },
-        "title": "Filter options"
-      },
-      "noCommunityMaps": "No maps by the community have been made public yet.",
-      "noOfficialMaps": "No official maps have been uploaded yet.",
-      "noResults": "No results.",
-      "noUploadedMaps": "You haven't uploaded any maps. You can upload a map by clicking on the browse button below.",
-      "noUploadedMapsWeb": "You haven't uploaded any maps.",
       "regenerated": "Images regenerated",
       "regenerateError": "An error occurred while regenerating images",
       "removedFromMyMaps": "Removed from your maps",
-      "removeFromMyMapsError": "An error occurred while removing the map from your maps",
-      "sortMaps": {
-        "option": {
-          "dateUploaded": "Date uploaded",
-          "name": "Name",
-          "numberOfPlayers": "Number of players"
-        },
-        "title": "Sort maps"
-      },
-      "tab": {
-        "community": "Community",
-        "myMaps": "My maps",
-        "official": "Official"
-      },
-      "thumbnailSize": {
-        "option": {
-          "large": "Large",
-          "medium": "Medium",
-          "small": "Small"
-        },
-        "title": "Thumbnail size"
-      }
+      "removeFromMyMapsError": "An error occurred while removing the map from your maps"
     },
     "thumbnail": {
       "addToFavorites": "Add to favorites",

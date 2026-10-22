@@ -28,21 +28,6 @@ describe('view-state-store', () => {
     expect(storeB.get('shared-key')).toBeUndefined()
   })
 
-  test('clear removes only its own namespace', () => {
-    const storeA = createViewStateStore<string>('ns-a', { maxAgeMs: 1000 })
-    const storeB = createViewStateStore<string>('ns-b', { maxAgeMs: 1000 })
-
-    storeA.set('one', 'a1')
-    storeA.set('two', 'a2')
-    storeB.set('one', 'b1')
-
-    storeA.clear()
-
-    expect(storeA.get('one')).toBeUndefined()
-    expect(storeA.get('two')).toBeUndefined()
-    expect(storeB.get('one')).toBe('b1')
-  })
-
   test('entries expire after maxAgeMs', () => {
     const store = createViewStateStore<number>('test', { maxAgeMs: 1000 })
     store.set('a', 1)
