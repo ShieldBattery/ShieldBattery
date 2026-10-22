@@ -11,6 +11,12 @@ import { ReaderRequest, ReaderResponse } from './messages'
  * huge map doesn't keep the memory it took for the rest of the indexing pass.
  */
 const RESTART_AFTER_FILE_BYTES = 16 * 1024 * 1024
+/**
+ * How long reading one map's facts may take before the reader is ended and the file is taken for
+ * unreadable. The largest real maps take a few seconds; a file that makes broodmap loop forever
+ * would otherwise hold its slot, and with it the indexing pass, for good.
+ */
+const SUMMARIZE_TIMEOUT_MS = 60 * 1000
 
 /**
  * A `MapFileReader` backed by a `map-reader` worker. The worker starts on first use and is replaced
@@ -40,7 +46,8 @@ export class WorkerMapFileReader implements MapFileReader {
   }
 
   summarize(): Promise<LocalMapInfo> {
-    return this.request({ type: 'summarize', id: this.nextId++ }).then(response => {
+    const request = this.request({ type: 'summarize', id: this.nextId++ }, SUMMARIZE_TIMEOUT_MS)
+    return request.then(response => {
       if ('map' in response) {
         if (this.lastFileSize > RESTART_AFTER_FILE_BYTES) {
           this.close().catch(() => {})
@@ -62,12 +69,25 @@ export class WorkerMapFileReader implements MapFileReader {
     }
   }
 
-  private request(request: ReaderRequest): Promise<ReaderResponse> {
+  private request(request: ReaderRequest, timeoutMs?: number): Promise<ReaderResponse> {
     const worker = this.ensureWorker()
     const deferred = createDeferred<ReaderResponse>()
     this.pending.set(request.id, { deferred, worker })
     worker.postMessage(request)
-    return deferred
+    if (timeoutMs === undefined) {
+      return deferred
+    }
+
+    const timer = setTimeout(() => {
+      if (this.pending.get(request.id)?.deferred === deferred) {
+        this.pending.delete(request.id)
+        deferred.reject(new Error(`map reader didn't respond within ${timeoutMs}ms`))
+        if (this.worker === worker) {
+          this.close().catch(() => {})
+        }
+      }
+    }, timeoutMs)
+    return deferred.finally(() => clearTimeout(timer))
   }
 
   private ensureWorker(): Worker {

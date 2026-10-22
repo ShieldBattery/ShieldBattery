@@ -1,10 +1,10 @@
-import { FSWatcher, watch } from 'node:fs'
 import { readdir, stat } from 'node:fs/promises'
 import path from 'node:path'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { getErrorStack } from '../../common/errors'
 import { LocalMapIndexProgress, LocalMapInfo } from '../../common/map-library'
 import { MAX_MAP_FILE_SIZE_BYTES } from '../../common/maps'
+import { FolderWatchers } from '../folder-watchers'
 import { isIndexedPathVanished } from '../replay-library/replay-watcher-paths'
 import { MapDb } from './map-db'
 import { folderForFile, isMapFilename, isSkippedTopLevelFolder, MapRootFolder } from './map-folders'
@@ -62,7 +62,7 @@ export interface MapFileReader {
  * under another path (a copy, or a moved file) reuses those facts instead of being read again.
  */
 export class MapWatcher {
-  private watchers: FSWatcher[] = []
+  private readonly folderWatchers: FolderWatchers
   private reconciling = false
   private reconcileQueued = false
   private debounceTimer: ReturnType<typeof setTimeout> | undefined
@@ -81,7 +81,9 @@ export class MapWatcher {
     private readonly logger: MapLibraryLogger,
     private readonly callbacks: MapWatcherCallbacks,
     private readonly createReader: () => MapFileReader,
-  ) {}
+  ) {
+    this.folderWatchers = new FolderWatchers(() => this.onWatchEvent(), logger)
+  }
 
   getProgress(): LocalMapIndexProgress | undefined {
     return this.progress
@@ -97,23 +99,12 @@ export class MapWatcher {
   }
 
   start(): void {
+    this.folderWatchers.setFolders(this.roots.map(r => r.path))
     this.reconcile().catch(swallowNonBuiltins)
-
-    for (const root of this.roots) {
-      try {
-        this.watchers.push(watch(root.path, { recursive: true }, () => this.onWatchEvent()))
-      } catch (err) {
-        // The folder may not exist (yet); the index just stays as last reconciled.
-        this.logger.warning(`Could not watch map folder '${root.path}': ${getErrorStack(err)}`)
-      }
-    }
   }
 
   stop(): void {
-    for (const watcher of this.watchers) {
-      watcher.close()
-    }
-    this.watchers = []
+    this.folderWatchers.close()
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer)
       this.debounceTimer = undefined
@@ -203,6 +194,8 @@ export class MapWatcher {
       this.initialScanStarted = true
       this.emitProgress({ phase: 'scanning' })
     }
+    // Picks back up a watch that failed; this reconcile's scan covers whatever it missed
+    this.folderWatchers.refresh({ notify: false })
 
     const { files, scannedRoots, unreadableDirs } = await this.scanMapFiles()
     // With folders configured but none readable (e.g. a missing install), the index is left as it
@@ -223,9 +216,6 @@ export class MapWatcher {
         toDelete.push(existingPath)
       }
     }
-    if (toDelete.length > 0) {
-      this.db.deleteByPaths(toDelete)
-    }
 
     const toIndex: string[] = []
     for (const [filePath, meta] of files) {
@@ -237,6 +227,7 @@ export class MapWatcher {
     if (toIndex.length === 0) {
       this.emitProgress(undefined)
       if (toDelete.length > 0) {
+        this.db.deleteByPaths(toDelete)
         this.callbacks.onChange()
       }
       return 0
@@ -280,6 +271,10 @@ export class MapWatcher {
     await Promise.all(
       Array.from({ length: Math.min(INDEX_CONCURRENCY, toIndex.length) }, () => worker()),
     )
+    // Only now, so a file that moved finds the facts of its old path by hash while it's indexed
+    if (toDelete.length > 0) {
+      this.db.deleteByPaths(toDelete)
+    }
 
     this.emitProgress(undefined)
     this.callbacks.onChange()
