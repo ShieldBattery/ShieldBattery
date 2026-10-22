@@ -69,6 +69,8 @@ const shared: RolldownOptions = {
   output,
 }
 
+const mainAddons = nativeAddons()
+
 export default defineConfig([
   {
     ...shared,
@@ -79,11 +81,12 @@ export default defineConfig([
       'db-worker': path.join(ROOT, 'app/replay-library/worker/db-worker.ts'),
     },
     plugins: [
-      nativeAddons(),
+      mainAddons,
       securityImpl(securityImplPath),
       thirdPartyLicenses({
         build: 'app-main',
         destination: path.join(OUT_DIR, 'third-party-licenses', 'app-main.json'),
+        unpackagedAddons: () => mainAddons.unpackagedAddons(),
       }),
       sidecarAssets([
         // The replay parser is compiled to WebAssembly, which its Node entry loads by reading the

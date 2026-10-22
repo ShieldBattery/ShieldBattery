@@ -1,5 +1,14 @@
-import { describe, expect, test } from 'vitest'
-import { isAllowed, packageDirOf, repositoryUrl } from './third-party-licenses'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+import { afterEach, beforeEach, describe, expect, test } from 'vitest'
+import {
+  ADDON_LICENSES_FILE,
+  isAllowed,
+  packageDirOf,
+  readAddonLicenses,
+  repositoryUrl,
+} from './third-party-licenses'
 
 describe('isAllowed', () => {
   test('accepts a single allowed license', () => {
@@ -85,5 +94,46 @@ describe('repositoryUrl', () => {
 
   test('is undefined without a repository', () => {
     expect(repositoryUrl(undefined)).toBeUndefined()
+  })
+})
+
+describe('readAddonLicenses', () => {
+  let dir: string
+
+  beforeEach(async () => {
+    dir = await mkdtemp(path.join(tmpdir(), 'addon-licenses-'))
+  })
+
+  afterEach(async () => {
+    await rm(dir, { recursive: true, force: true })
+  })
+
+  test('reads the packages listed beside an addon', async () => {
+    const packages = [
+      {
+        name: 'some-crate',
+        version: '1.2.3',
+        license: 'MIT OR Apache-2.0',
+        licenseFiles: [{ fileName: 'MIT', text: 'MIT License' }],
+      },
+    ]
+    await writeFile(
+      path.join(dir, ADDON_LICENSES_FILE),
+      JSON.stringify({ build: 'addon', packages }),
+    )
+
+    const result = await readAddonLicenses(path.join(dir, 'index.node'))
+    expect(result.packages).toEqual(packages)
+  })
+
+  test('fails for an addon that ships no licenses file', async () => {
+    await expect(readAddonLicenses(path.join(dir, 'index.node'))).rejects.toThrow()
+  })
+
+  test('fails for a licenses file without a packages list', async () => {
+    await writeFile(path.join(dir, ADDON_LICENSES_FILE), JSON.stringify({ build: 'addon' }))
+    await expect(readAddonLicenses(path.join(dir, 'index.node'))).rejects.toThrow(
+      'no packages list',
+    )
   })
 })

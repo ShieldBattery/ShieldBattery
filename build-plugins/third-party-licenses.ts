@@ -17,6 +17,7 @@ const ALLOWED_LICENSES = new Set([
   'ISC',
   'MIT',
   'MPL-2.0',
+  'Unicode-3.0',
   'Unlicense',
   'WTFPL',
   'Zlib',
@@ -40,6 +41,12 @@ const LICENSE_FILE = /^(licen[cs]e|copying|notice|unlicense)([.\-_].*)?$/i
 const VENDOR_DIRS = new Map<string, string>([['victory-vendor', 'lib-vendor']])
 
 /**
+ * The file a native addon that isn't part of an installed package ships beside itself: a
+ * {@link ThirdPartyLicensesFile} listing what was compiled into it.
+ */
+export const ADDON_LICENSES_FILE = 'third-party-licenses.json'
+
+/**
  * Records every third-party package that ends up in the bundle, along with its license and notice
  * files, and writes that out as a {@link ThirdPartyLicensesFile} for the client's licenses page.
  * Packages are found from the modules in the final chunks, so this lists what actually ships rather
@@ -51,11 +58,18 @@ const VENDOR_DIRS = new Map<string, string>([['victory-vendor', 'lib-vendor']])
 export function thirdPartyLicenses({
   build,
   destination,
+  unpackagedAddons,
 }: {
   /** Name for the build this describes, recorded in the output. */
   build: string
   /** Absolute path of the JSON file to write. */
   destination: string
+  /**
+   * The native addons this build ships from outside any installed package (see
+   * `NativeAddonsPlugin.unpackagedAddons`). Each must have an {@link ADDON_LICENSES_FILE} beside
+   * it, whose packages are recorded along with the bundle's.
+   */
+  unpackagedAddons?: () => string[]
 }): Plugin {
   let output: ThirdPartyLicensesFile | undefined
 
@@ -75,6 +89,21 @@ export function thirdPartyLicenses({
       const byNameVersion = new Map<string, ThirdPartyPackage>()
       for (const pkg of await Promise.all(Array.from(packageDirs, readPackage))) {
         byNameVersion.set(`${pkg.name}@${pkg.version}`, pkg)
+      }
+      for (const addon of unpackagedAddons?.() ?? []) {
+        let licenses: ThirdPartyLicensesFile
+        try {
+          licenses = await readAddonLicenses(addon)
+        } catch (err) {
+          this.error(
+            `Native addon ${addon} isn't part of an installed package, so it must ship ` +
+              `${ADDON_LICENSES_FILE} beside it listing what was compiled into it: ` +
+              (err instanceof Error ? err.message : String(err)),
+          )
+        }
+        for (const pkg of licenses.packages) {
+          byNameVersion.set(`${pkg.name}@${pkg.version}`, pkg)
+        }
       }
       const packages = Array.from(byNameVersion.values()).sort(
         (a, b) => a.name.localeCompare(b.name) || a.version.localeCompare(b.version),
@@ -155,6 +184,17 @@ async function readPackage(dir: string): Promise<ThirdPartyPackage> {
       })),
     ),
   }
+}
+
+/** Reads the {@link ADDON_LICENSES_FILE} beside the native addon at `addonPath`. */
+export async function readAddonLicenses(addonPath: string): Promise<ThirdPartyLicensesFile> {
+  const file: ThirdPartyLicensesFile = JSON.parse(
+    await readFile(path.join(path.dirname(addonPath), ADDON_LICENSES_FILE), 'utf8'),
+  )
+  if (!Array.isArray(file.packages)) {
+    throw new Error(`${ADDON_LICENSES_FILE} has no packages list`)
+  }
+  return file
 }
 
 async function licenseFilesIn(dir: string): Promise<string[]> {

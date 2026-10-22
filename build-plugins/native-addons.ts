@@ -2,6 +2,16 @@ import { createHash } from 'node:crypto'
 import { copyFile, mkdir, readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
 import type { Plugin } from 'rolldown'
+import { packageDirOf } from './third-party-licenses'
+
+export interface NativeAddonsPlugin extends Plugin {
+  /**
+   * Source paths of the addons this build ships that don't belong to an installed package, so no
+   * package manifest says what they are licensed under or what was compiled into them. Complete
+   * once the build's modules are resolved.
+   */
+  unpackagedAddons(): string[]
+}
 
 /**
  * Ships the native addons (`.node`) that bundled dependencies require, since the packaged app
@@ -13,12 +23,16 @@ import type { Plugin } from 'rolldown'
  * is the point: an addon is a binary the bundler has nothing useful to do with, and Node (and
  * Electron, which extracts it from the asar on demand) can load it directly.
  */
-export function nativeAddons(): Plugin {
+export function nativeAddons(): NativeAddonsPlugin {
   /** Addon copies this build needs, keyed by output-relative name. */
   const wanted = new Map<string, string>()
 
   return {
     name: 'sb:native-addons',
+
+    unpackagedAddons() {
+      return Array.from(new Set(wanted.values())).filter(source => !packageDirOf(source))
+    },
 
     resolveId: {
       filter: { id: /\.node$/ },
