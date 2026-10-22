@@ -251,7 +251,13 @@ export function hasAttentionWorthyWhisper(
   whisperState: Immutable<WhisperState>,
   blocks: ReadonlyMap<SbUserId, unknown>,
 ): boolean {
-  return whisperState.byId.entries().some(([userId, w]) => w.hasUnread && !blocks.has(userId))
+  // Not using iterator helpers (`entries().some(...)`), they're missing from Safari before 18.4
+  for (const [userId, w] of whisperState.byId) {
+    if (w.hasUnread && !blocks.has(userId)) {
+      return true
+    }
+  }
+  return false
 }
 
 /**
