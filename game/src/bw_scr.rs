@@ -69,6 +69,7 @@ mod file_hook;
 mod fog_style;
 mod game;
 mod game_files;
+mod game_locale;
 mod game_settings;
 mod game_stats;
 mod hotkey_presses;
@@ -598,6 +599,12 @@ pub struct BwScr {
     /// Where the game's names for units, upgrades and techs are read from. `None` when the analysis
     /// could not place stat_txt, which leaves the overlay's panels without names.
     stat_txt: Option<stat_txt::StatTxt>,
+    /// The language the game is running in, which the overlay follows where it has a translation
+    /// for it. `None` when the analysis could not find the game's locale state.
+    game_locale: Option<game_locale::GameLocale>,
+    /// The overlay language the user's settings ask for, which the overlay falls back to where the
+    /// game's language has no translation.
+    settings_locale: Mutex<overlay_ui::i18n::Locale>,
     /// Ensures that things that qualify as "event processing" (e.g. process_events,
     /// maybe_receive_turns) don't execute from multiple threads at the same time (which may happen
     /// at certain points during game init).
@@ -2397,6 +2404,13 @@ impl BwScr {
                 None
             }
         };
+        // Non-fatal: without it the overlay keeps to the language the settings ask for.
+        let game_locale = analysis
+            .get_locales()
+            .map(|get_locales| game_locale::GameLocale::new(get_locales.0 as usize));
+        if game_locale.is_none() {
+            warn!("Could not find get_locales; the overlay will not follow the game's language");
+        }
         // Non-fatal: without stat_txt the overlay's panels only go without names. Both are globals
         // the analysis resolves to their address; the map's renames are only needed to know when
         // the stock name is the wrong one, so a build without them still names every unit.
@@ -3014,6 +3028,8 @@ impl BwScr {
             posted_graphics_keys: AtomicU8::new(0),
             pending_game_setting_writes: Mutex::new(Vec::new()),
             stat_txt,
+            game_locale,
+            settings_locale: Mutex::new(overlay_ui::i18n::Locale::En),
             event_processing_lock: DumbSpinLock::new(),
         })
     }
@@ -4609,6 +4625,9 @@ impl BwScr {
                         for &change in &engine_setting_changes {
                             render_state.overlay.setting_changed_in_game(change);
                         }
+                        // Every frame rather than once: the game can switch languages from its
+                        // options while running.
+                        overlay_ui::i18n::set_locale(self.overlay_locale());
                         for _ in 0..2 {
                             let overlay_out = render_state.overlay.step(
                                 &draw_overlay::BwVars {
@@ -9633,6 +9652,20 @@ impl BwScr {
             })
         }
     }
+
+    /// The language the overlay draws in: the game's own where the overlay has a translation for
+    /// it, so the overlay's text reads in the same language as the game's text beside it, and the
+    /// one the settings ask for otherwise.
+    ///
+    /// # Safety
+    ///
+    /// Must be called on the game's main thread.
+    unsafe fn overlay_locale(&self) -> overlay_ui::i18n::Locale {
+        self.game_locale
+            .as_ref()
+            .and_then(|game_locale| unsafe { game_locale.overlay_locale() })
+            .unwrap_or_else(|| *self.settings_locale.lock())
+    }
 }
 
 impl bw::Bw for BwScr {
@@ -9751,8 +9784,9 @@ impl bw::Bw for BwScr {
             .and_then(|panels| serde_json::from_value(panels.clone()).ok());
 
         // The overlay reads its language from a process-wide locale, set here because settings
-        // arrive long before any overlay exists. A tag we ship no catalog for keeps English, which
-        // every string falls back to anyway.
+        // arrive long before any overlay exists, and kept as what the overlay falls back to where
+        // the game runs in a language it has no translation for (see `overlay_locale`). A tag we
+        // ship no catalog for keeps English, which every string falls back to anyway.
         let locale = settings
             .language
             .as_deref()
@@ -9762,7 +9796,9 @@ impl bw::Bw for BwScr {
         {
             warn!("No in-game UI translations for language '{language}', using English");
         }
-        overlay_ui::i18n::set_locale(locale.unwrap_or(overlay_ui::i18n::Locale::En));
+        let locale = locale.unwrap_or(overlay_ui::i18n::Locale::En);
+        *self.settings_locale.lock() = locale;
+        overlay_ui::i18n::set_locale(locale);
 
         self.visualize_network_stalls
             .store(visualize_network_stalls, Ordering::Release);

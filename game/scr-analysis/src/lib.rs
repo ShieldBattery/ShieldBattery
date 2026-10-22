@@ -831,6 +831,11 @@ impl<'e> Analysis<'e> {
         self.0.get_ui_consoles()
     }
 
+    /// `Locales *get_locales()`, the game's locale state, which holds the language it is running in.
+    pub fn get_locales(&mut self) -> Option<VirtualAddress> {
+        self.0.get_locales()
+    }
+
     pub fn load_consoles(&mut self) -> Option<VirtualAddress> {
         self.0.load_consoles()
     }
