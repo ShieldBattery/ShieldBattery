@@ -14,6 +14,7 @@ import { useSelfUser } from '../../auth/auth-utils'
 import { openDialog, openSimpleDialog } from '../../dialogs/action-creators'
 import { DialogType } from '../../dialogs/dialog-type'
 import { getMapInfo } from '../../maps/action-creators'
+import { MapPickerMode } from '../../maps/map-picker'
 import { FilledButton } from '../../material/button'
 import { TextField } from '../../material/text-field'
 import { useLocationSearchParam } from '../../navigation/router-hooks'
@@ -34,7 +35,7 @@ import {
   Section,
   SectionHeader,
 } from './game-setup-form'
-import { formatGameSetupSummary, GameSetupPage, MapBrowseState } from './game-setup-page'
+import { formatGameSetupSummary, GameSetupPage, useMapPickerState } from './game-setup-page'
 import { VisibilityPicker } from './visibility-picker'
 
 const LoadingContainer = styled.div`
@@ -264,12 +265,12 @@ function HostGameContent({
   }, [])
 
   const formRef = useRef<GameSetupFormHandle>(null)
-  const [browseState, setBrowseState] = useState(MapBrowseState.None)
+  const picker = useMapPickerState()
 
   const pick = (mapId: SbMapId) => {
     setRecentMaps(maps => updateRecentMaps(mapId, maps))
     formRef.current?.setMap(mapId)
-    setBrowseState(MapBrowseState.None)
+    picker.close()
   }
 
   const showErrorDialog = () => {
@@ -335,9 +336,10 @@ function HostGameContent({
     <GameSetupPage
       title={t('lobbies.createLobby.title', 'Create lobby')}
       onBack={onNavigateToList}
-      browseState={browseState}
-      onBrowseStateChange={setBrowseState}
+      picker={picker}
       onMapPicked={pick}
+      gameType={setup.gameType}
+      selectedMapId={setup.mapId}
       summary={summary}
       footerActions={
         <FilledButton
@@ -388,7 +390,7 @@ function HostGameContent({
             />
           </Section>
         }
-        onChangeMap={() => setBrowseState(MapBrowseState.Server)}
+        onChangeMap={() => picker.open(MapPickerMode.Map, setup.gameType)}
         onValidatedChange={model => {
           setSetup(model)
           debouncedSaveRef.current?.()

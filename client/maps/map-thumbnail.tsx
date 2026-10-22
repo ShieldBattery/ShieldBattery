@@ -428,7 +428,6 @@ export function ReduxMapThumbnail({
   hasMapPreviewAction = true,
   hasRegenMapImageAction = true,
   hasMapPoolChips = false,
-  mapDetailsInDialog = false,
   ...props
 }: Simplify<
   Omit<
@@ -443,11 +442,6 @@ export function ReduxMapThumbnail({
     hasRegenMapImageAction?: boolean
     /** Whether to show a chip for each matchmaking mode whose current map pool has this map. */
     hasMapPoolChips?: boolean
-    /**
-     * Whether "View map details" opens a dialog instead of navigating to the map's page. For
-     * surfaces where leaving the page would discard in-progress work.
-     */
-    mapDetailsInDialog?: boolean
   }
 >) {
   const { t } = useTranslation()
@@ -492,14 +486,7 @@ export function ReduxMapThumbnail({
       mapPoolLabels={
         hasMapPoolChips ? mapPoolTypes.map(type => matchmakingTypeToLabel(type, t)) : undefined
       }
-      onMapDetails={
-        canOpenMapDetails
-          ? () =>
-              mapDetailsInDialog
-                ? dispatch(openDialog({ type: DialogType.MapDetails, initData: { mapId: map.id } }))
-                : push(urlForMap(map.id, map.name))
-          : undefined
-      }
+      onMapDetails={canOpenMapDetails ? () => push(urlForMap(map.id, map.name)) : undefined}
       onDownload={
         hasDownloadAction
           ? mapId => {
