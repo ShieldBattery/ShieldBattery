@@ -29,7 +29,7 @@ import { useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import logger from '../logging/logger'
 import { Markdown } from '../markdown/markdown'
-import { FilledButton, IconButton, OutlinedButton } from '../material/button'
+import { FilledButton, IconButton } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
@@ -445,7 +445,14 @@ export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
   return (
     <DetailsRoot>
       <NarrowContent>
-        <LeagueDetailsHeader league={league} />
+        <LeagueDetailsHeader
+          league={league}
+          actions={
+            selfLeagueUser && league.endAt > curTime ? (
+              <LeagueActionsMenu onLeave={onLeaveClick} />
+            ) : undefined
+          }
+        />
         <TabsAndJoin>
           <Tabs activeTab={activeTab} onChange={onTabChange}>
             <TabItem value={DetailsSubPage.Info} text={t('leagues.leagueDetails.info', 'Info')} />
@@ -467,13 +474,6 @@ export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
             )}
           </Tabs>
           <MembershipActions>
-            {selfLeagueUser && league.endAt > curTime ? (
-              <OutlinedButton
-                label={t('leagues.leave.action', 'Leave league')}
-                iconStart={<MaterialIcon icon='logout' size={20} />}
-                onClick={onLeaveClick}
-              />
-            ) : null}
             {(isJoinable || selfLeagueUser) && (!isFetching || selfLeagueUser) ? (
               <FilledButton
                 label={joinButtonLabel}
@@ -490,12 +490,52 @@ export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
   )
 }
 
+function LeagueActionsMenu({ onLeave }: { onLeave: () => void }) {
+  const { t } = useTranslation()
+  const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'top')
+  const [open, openMenu, closeMenu] = usePopoverController({ refreshAnchorPos })
+
+  return (
+    <>
+      <IconButton
+        ref={anchorRef}
+        icon={<MaterialIcon icon='more_vert' />}
+        title={t('leagues.leagueDetails.actions', 'League actions')}
+        onClick={openMenu}
+      />
+      <Popover
+        open={open}
+        onDismiss={closeMenu}
+        anchorX={anchorX ?? 0}
+        anchorY={anchorY ?? 0}
+        originX='right'
+        originY='top'>
+        <MenuList>
+          <MenuItem
+            text={t('leagues.leave.action', 'Leave league')}
+            icon={<MaterialIcon icon='logout' size={20} />}
+            onClick={() => {
+              closeMenu()
+              onLeave()
+            }}
+          />
+        </MenuList>
+      </Popover>
+    </>
+  )
+}
+
 export interface LeagueDetailsHeaderProps {
   league: ReadonlyDeep<LeagueJson>
   previewBadgeUrl?: string
+  actions?: React.ReactNode
 }
 
-export function LeagueDetailsHeader({ league, previewBadgeUrl }: LeagueDetailsHeaderProps) {
+export function LeagueDetailsHeader({
+  league,
+  previewBadgeUrl,
+  actions,
+}: LeagueDetailsHeaderProps) {
   const { t } = useTranslation()
   const monthDayFormat = useFormat(monthDay)
   const longTimestampFormat = useFormat(longTimestamp)
@@ -521,6 +561,8 @@ export function LeagueDetailsHeader({ league, previewBadgeUrl }: LeagueDetailsHe
             tooltipPosition='right'
             startingText={t('leagues.leagueDetails.copyLink', 'Copy link to league')}
           />
+          <FlexSpacer />
+          {actions}
         </TitleRow>
         <SummaryRow>
           <FormatAndDate>

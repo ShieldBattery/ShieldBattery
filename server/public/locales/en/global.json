@@ -1589,6 +1589,7 @@
     },
     "leagueDetails": {
       "about": "About",
+      "actions": "League actions",
       "adminActions": "Admin actions",
       "banned": "Banned",
       "banUser": "Ban {{name}}",
