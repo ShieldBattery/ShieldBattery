@@ -267,6 +267,9 @@ pub struct Knobs {
     /// Whether a lone selected unit or the transport has a status line, which is the reading that
     /// shares the owner's line with it.
     pub selection_status: bool,
+    /// Whether the selection's units are under lasting spells, and some are hallucinations, which
+    /// marks and fades their tiles.
+    pub selection_spells: bool,
     /// Whether the game reports how much of the map each side holds. The game reports none for a
     /// game that is not two sides, so this is the switch that proves the bar disappears without one
     /// rather than drawing an empty share.
@@ -306,6 +309,7 @@ impl Default for Knobs {
             selection_defense: false,
             selection_resource: false,
             selection_status: false,
+            selection_spells: false,
             map_control: true,
             vision_picker: false,
         }
@@ -463,6 +467,28 @@ fn status_line(knobs: &Knobs) -> Option<UnitStatusView> {
         text: "Parasite Detected".to_string(),
         color: StatusColor::Green,
     })
+}
+
+/// What the knobs put on the unit at `index` of the selection where they ask for spells.
+#[derive(Default)]
+struct Spells {
+    hallucination: bool,
+    parasited: bool,
+    blind: bool,
+}
+
+/// The spells on the unit at `index` of the selection, where the knobs ask for them: a few of a full
+/// selection's units under each, scattered over both rows, one under both lasting spells, and the
+/// first under a spell so a lone unit is marked too.
+fn spells(knobs: &Knobs, index: usize) -> Spells {
+    if !knobs.selection_spells {
+        return Spells::default();
+    }
+    Spells {
+        hallucination: matches!(index, 3 | 6 | 10),
+        parasited: matches!(index, 0 | 9),
+        blind: matches!(index, 5 | 9),
+    }
 }
 
 /// The name a panel other than the matchup bar puts on a player.
@@ -942,6 +968,9 @@ fn selection(knobs: &Knobs, t: f64) -> SelectionView {
                         .then(|| (wave(index as f64 * 1.7 + 2.0, t, 0.03, 200.0), 200)),
                     kills: (t / 31.0) as u32 + index as u32 * 2,
                     status: status_line(knobs).filter(|_| count == 1),
+                    hallucination: spells(knobs, index).hallucination,
+                    parasited: spells(knobs, index).parasited,
+                    blind: spells(knobs, index).blind,
                     building,
                     resources: None,
                     stacked: None,
@@ -1078,6 +1107,9 @@ fn producing_building(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
         energy: None,
         kills: 0,
         status: None,
+        hallucination: false,
+        parasited: false,
+        blind: false,
         building: true,
         resources: None,
         stacked: None,
@@ -1121,6 +1153,9 @@ fn building_going_up(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
         energy: None,
         kills: 0,
         status: None,
+        hallucination: false,
+        parasited: false,
+        blind: false,
         building: true,
         resources: None,
         stacked: None,
@@ -1154,6 +1189,9 @@ fn morphing_egg(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
         energy: None,
         kills: 0,
         status: None,
+        hallucination: false,
+        parasited: false,
+        blind: false,
         building: false,
         resources: None,
         stacked: None,
@@ -1204,6 +1242,9 @@ fn defense_building(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
         energy: None,
         kills: 0,
         status: None,
+        hallucination: false,
+        parasited: false,
+        blind: false,
         building: true,
         resources: None,
         stacked: None,
@@ -1226,6 +1267,9 @@ fn stacked_minerals(t: f64) -> SelectedUnitView {
         energy: None,
         kills: 0,
         status: None,
+        hallucination: false,
+        parasited: false,
+        blind: false,
         building: true,
         resources: Some(ResourcesLeftView {
             glyph: overlay_ui::kit::widgets::ResourceGlyph::Minerals,
@@ -1261,6 +1305,9 @@ fn loaded_transport(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
         energy: None,
         kills: 0,
         status: status_line(knobs),
+        hallucination: false,
+        parasited: false,
+        blind: false,
         building: false,
         resources: None,
         stacked: None,
@@ -1281,6 +1328,9 @@ fn loaded_transport(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
                     energy: None,
                     kills: 0,
                     status: None,
+                    hallucination: spells(knobs, slot).hallucination,
+                    parasited: spells(knobs, slot).parasited,
+                    blind: spells(knobs, slot).blind,
                     building: false,
                     resources: None,
                     stacked: None,
@@ -1475,6 +1525,8 @@ pub enum Showcase {
     /// The single unit the knobs default to with a status line, owned by a player with the longest
     /// name the game allows, which is what proves the name gives way to the status.
     Status,
+    /// A full selection with lasting spells on some of its units and hallucinations among them.
+    Spells,
     /// The single unit the knobs default to, with the list of players under the minimap's vision
     /// button open.
     VisionPicker,
@@ -1585,7 +1637,7 @@ impl Preset {
         }
     }
 
-    pub const ALL: [Preset; 32] = [
+    pub const ALL: [Preset; 33] = [
         Preset::game(2, 1, Screen::Minimal),
         Preset::game(2, 1, Screen::Standard),
         Preset::game(2, 1, Screen::Analyst),
@@ -1620,6 +1672,7 @@ impl Preset {
         Preset::selection_showcase(Showcase::Defense),
         Preset::selection_showcase(Showcase::Resource),
         Preset::selection_showcase(Showcase::Status),
+        Preset::selection_showcase(Showcase::Spells),
         // The vision list is shown over a team game, which is the one with a list worth reading.
         Preset {
             players: 4,
@@ -1645,6 +1698,7 @@ impl Preset {
             Showcase::Defense => return "1v1-selection-defense".to_string(),
             Showcase::Resource => return "1v1-selection-resource".to_string(),
             Showcase::Status => return "1v1-selection-status".to_string(),
+            Showcase::Spells => return "1v1-selection-spells".to_string(),
             Showcase::VisionPicker => return format!("{}-vision-picker", self.shape()),
             Showcase::Knobs => {}
         }
@@ -1695,6 +1749,12 @@ impl Preset {
             selection_resource: self.showcase == Showcase::Resource,
             selection_status: self.showcase == Showcase::Status,
             long_names: self.showcase == Showcase::Status,
+            selection_spells: self.showcase == Showcase::Spells,
+            selection: if self.showcase == Showcase::Spells {
+                SelectionView::MAX_UNITS
+            } else {
+                1
+            },
             vision_picker: self.showcase == Showcase::VisionPicker,
             ..Knobs::default()
         };
@@ -1817,6 +1877,12 @@ pub fn knobs_ui(k: &mut Knobs, state: &State, ui: &mut egui::Ui) -> bool {
         .on_hover_text(
             "Puts a parasite on a lone selected unit or the transport, which writes the game's \
              status line for it at the end of the owner's line.",
+        )
+        .changed();
+    changed |= ui
+        .checkbox(&mut k.selection_spells, "selection under spells")
+        .on_hover_text(
+            "Puts a parasite, a hallucination and an optical flare on the selection's units in              turn, which marks or fades their tiles.",
         )
         .changed();
     changed |= ui

@@ -756,6 +756,10 @@ fn carried_unit_view(bw: &BwVars, players: &[StatsPlayer], unit: Unit) -> Select
         }),
         kills: unit.kills(),
         status: None,
+        hallucination: unit.is_hallucination(),
+        // Read only off a finished unit, as the console reads them.
+        parasited: unit.is_completed() && unit.is_parasited(),
+        blind: unit.is_completed() && unit.is_blind(),
         building: unit_id.is_building(),
         resources: resources_left(unit),
         stacked: None,
