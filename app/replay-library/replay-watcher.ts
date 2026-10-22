@@ -1,9 +1,9 @@
-import { FSWatcher, watch } from 'node:fs'
 import { readdir, stat } from 'node:fs/promises'
 import path from 'node:path'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { getErrorStack } from '../../common/errors'
 import { ReplayBackfillProgress } from '../../common/replays-library'
+import { FolderWatchers } from '../folder-watchers'
 import { matchRenamedReplays, NewFileIdentity, VanishedReplay } from './rename-matcher'
 import { ExistingReplayInfo, ReplayDb } from './replay-db'
 import {
@@ -72,7 +72,7 @@ export interface ReplayLibraryLogger {
  * identity instead of re-parsing them, and prunes entries for files that no longer exist.
  */
 export class ReplayWatcher {
-  private watchers: FSWatcher[] = []
+  private readonly folderWatchers: FolderWatchers
   private watchedFolders: ReadonlyArray<string>
   private reconciling = false
   private reconcileQueued = false
@@ -94,6 +94,7 @@ export class ReplayWatcher {
     private readonly callbacks: ReplayWatcherCallbacks,
   ) {
     this.watchedFolders = watchedFolders
+    this.folderWatchers = new FolderWatchers(() => this.onWatchEvent(), logger)
   }
 
   /** Current backfill progress, or undefined when no reconcile with pending work is running. */
@@ -113,24 +114,12 @@ export class ReplayWatcher {
   }
 
   start(): void {
+    this.folderWatchers.setFolders(this.watchedFolders)
     this.reconcile().catch(swallowNonBuiltins)
-
-    for (const folder of this.watchedFolders) {
-      try {
-        this.watchers.push(watch(folder, { recursive: true }, () => this.onWatchEvent()))
-      } catch (err) {
-        // Folder may not exist yet, or recursive watching may be unavailable; the index just stays
-        // as last reconciled.
-        this.logger.warning(`Could not watch replay folder '${folder}': ${getErrorStack(err)}`)
-      }
-    }
   }
 
   stop(): void {
-    for (const watcher of this.watchers) {
-      watcher.close()
-    }
-    this.watchers = []
+    this.folderWatchers.close()
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer)
       this.debounceTimer = undefined
@@ -229,6 +218,8 @@ export class ReplayWatcher {
     if (isInitial) {
       this.emitProgress({ phase: 'scanning' })
     }
+    // Picks back up a watch that failed; this reconcile's scan covers whatever it missed
+    this.folderWatchers.refresh({ notify: false })
 
     const { files, scannedRoots, unreadableDirs } = await this.scanReplayFiles()
 
