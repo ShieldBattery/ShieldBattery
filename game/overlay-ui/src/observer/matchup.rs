@@ -74,7 +74,7 @@ const CHIP_GAP: f32 = 8.0;
 
 /// Width the player's name is laid out against. Fixed, because a name is player-chosen: one longer
 /// than its slot would otherwise push every number beside it out of the design's grid.
-const NAME_WIDTH: f32 = 117.0;
+const NAME_WIDTH: f32 = 113.0;
 
 /// Gap between the name and the first number.
 const NAME_GAP: f32 = 12.0;
@@ -89,11 +89,12 @@ const GLYPH: f32 = 14.0;
 const GLYPH_GAP: f32 = 6.0;
 
 // How much room each number is laid out in. Every one of them is fixed for the same reason the name
-// is: the bar must not breathe as a bank passes a thousand or a supply count gains a digit.
+// is: the bar must not breathe as a bank passes a thousand or a supply count gains a digit. The
+// rate gets the banks' room for four digits, which fast hands pass in a busy fight.
 const MINERAL_VALUE: f32 = 46.0;
 const GAS_VALUE: f32 = 46.0;
 const SUPPLY_VALUE: f32 = 76.0;
-const APM_VALUE: f32 = 42.0;
+const APM_VALUE: f32 = 46.0;
 
 /// Width of the caps label standing in for a glyph on the rate, which counts no resource.
 const APM_LABEL: f32 = 26.0;
@@ -1024,6 +1025,33 @@ mod tests {
         assert!(!squeezed.apm);
         assert_eq!(squeezed.name_width, MIN_NAME_WIDTH);
         assert!(squeezed.width() <= side(DUEL_ROW) - 80.0);
+    }
+
+    /// How wide `text` is when set as a number on a row laid out at `metrics`.
+    fn value_width(metrics: RowMetrics, text: &str) -> f32 {
+        let ctx = Context::default();
+        crate::install_fonts_and_style(&ctx, &crate::DynamicFonts::default());
+        let spec = text::numeral(metrics.value_size);
+        let mut width = 0.0;
+        let mut output = ctx.run_ui(egui::RawInput::default(), |_| {
+            width = spec.layout(&ctx, spec.job(text)).size().x;
+        });
+        output.textures_delta.clear();
+        width
+    }
+
+    #[test]
+    fn the_rate_holds_four_digits_whole_at_every_width() {
+        // Fast players and bots alike pass a thousand, and an elided rate reads as nothing at all.
+        // Tabular digits all take one width, so any four of them are as wide as these.
+        for row in [DUEL_ROW, STACKED_ROW, DUEL_ROW.fitted(SIDE_WIDTH - 40.0)] {
+            assert!(
+                value_width(row, "8888") <= row.apm_value,
+                "{} > {}",
+                value_width(row, "8888"),
+                row.apm_value
+            );
+        }
     }
 
     #[test]

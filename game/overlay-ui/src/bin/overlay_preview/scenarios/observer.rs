@@ -758,8 +758,15 @@ fn matchup_player(knobs: &Knobs, state: &State, index: usize, t: f64) -> Matchup
         gas: wave(index as f64 * 1.3 + 2.0, t, 0.023, 780.0),
         supply_used,
         supply_max,
-        apm: 90 + wave(index as f64 * 0.7, t, 0.09, 160.0),
+        apm: apm(index, t),
     }
+}
+
+/// A player's rate, the first player's with the busy fights' spikes past a thousand that a fixed
+/// cell has to hold.
+fn apm(index: usize, t: f64) -> u32 {
+    let scale = if index == 0 { 1200.0 } else { 160.0 };
+    90 + wave(index as f64 * 0.7, t, 0.09, scale)
 }
 
 /// The two corner cards, built from the same players the bar would have carried, cut where the bar
