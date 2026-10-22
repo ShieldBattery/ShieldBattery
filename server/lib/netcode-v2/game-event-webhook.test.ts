@@ -4,6 +4,41 @@ import { GAME_EVENT_BODY_SCHEMA } from './game-event-webhook'
 const GAME_ID = '11111111-2222-4333-8444-555555555555'
 
 describe('netcode-v2/GAME_EVENT_BODY_SCHEMA', () => {
+  test('accepts opaque connection evidence and rejects unverified bodies', () => {
+    const event = {
+      event: 'slotConnected',
+      tenant: 'sb-dev',
+      session: 1,
+      externalId: GAME_ID,
+      slot: 0,
+      externalRef: '42',
+      resumed: true,
+      connectedAtMs: Date.now(),
+      evidence: {
+        connectionId: Buffer.alloc(32, 1).toString('base64'),
+        sequence: 5,
+        assignmentRevision: 3,
+        verdict: 'valid',
+        keyId: 42,
+        body: 'AP+A',
+      },
+    }
+    expect(GAME_EVENT_BODY_SCHEMA.validate(event).error).toBeUndefined()
+    for (const overrides of [
+      { verdict: 'invalid' },
+      { sequence: Number.MAX_SAFE_INTEGER + 1 },
+      { body: Buffer.alloc(4029).toString('base64') },
+      { connectionId: '' },
+    ]) {
+      expect(
+        GAME_EVENT_BODY_SCHEMA.validate({
+          ...event,
+          evidence: { ...event.evidence, ...overrides },
+        }).error,
+      ).toBeDefined()
+    }
+  })
+
   test('accepts a departure event', () => {
     const { error, value } = GAME_EVENT_BODY_SCHEMA.validate({
       event: 'departure',

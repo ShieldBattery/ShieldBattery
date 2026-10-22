@@ -460,6 +460,27 @@ export async function setNetcodeV2Session(gameId: string, session: number): Prom
   }
 }
 
+/** Atomically binds a session and its roster, refusing to replace a different persisted session. */
+export async function setNetcodeV2SessionMapping(
+  gameId: string,
+  session: number,
+  requested: NetcodeV2RequestedRegion[],
+): Promise<boolean> {
+  const { client, done } = await db()
+  try {
+    const result = await client.query(sql`
+      UPDATE games
+      SET netcode_v2_session = ${session},
+        netcode_v2_requested_regions = ${JSON.stringify(requested)}::jsonb
+      WHERE id = ${gameId}
+        AND (netcode_v2_session IS NULL OR netcode_v2_session = ${session})
+    `)
+    return !!result.rowCount
+  } finally {
+    done()
+  }
+}
+
 /**
  * Returns the rally-point2 coordinator session id persisted for a game, or `null` if the game has
  * none on record (not a netcode-v2 game, or the session id never persisted). Used by the in-game
@@ -477,6 +498,39 @@ export async function getNetcodeV2Session(gameId: string): Promise<number | null
     const raw = result.rows[0]?.netcode_v2_session
     // netcode_v2_session is a BIGINT, so pg returns it as a string; normalize to a number.
     return raw === null || raw === undefined ? null : Number(raw)
+  } finally {
+    done()
+  }
+}
+
+/** Pages recent persisted sessions for bounded background observation recovery. */
+export async function findNetcodeV2EvidenceRecoveryCandidates({
+  since,
+  after,
+  limit,
+}: {
+  since: Date
+  after?: { gameId: string }
+  limit: number
+}): Promise<Array<{ gameId: string; session: number }>> {
+  const { client, done } = await db()
+  try {
+    const result = await client.query<{
+      id: string
+      netcode_v2_session: string
+    }>(sql`
+      SELECT id, netcode_v2_session FROM games
+      WHERE start_time >= ${since}
+        AND netcode_v2_session IS NOT NULL
+        AND jsonb_array_length(netcode_v2_requested_regions) > 0
+        ${after ? sql`AND id > ${after.gameId}::uuid` : sql``}
+      ORDER BY id
+      LIMIT ${Math.min(100, Math.max(1, Math.trunc(limit)))}
+    `)
+    return result.rows.map(row => ({
+      gameId: row.id,
+      session: Number(row.netcode_v2_session),
+    }))
   } finally {
     done()
   }

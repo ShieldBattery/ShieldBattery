@@ -34,7 +34,9 @@ import GameResultService, {
 import { LobbyViolationService } from '../games/lobby-violation-service'
 import log from '../logging/logger'
 import { recordDesyncEvent } from '../models/game-desync-events'
+import { EvidenceStoreResult } from '../models/game-session-evidence'
 import { recordUserDeparture } from '../models/games-users'
+import { storeRecoveredEvidence } from './evidence-service'
 import { loadConfigFromEnv } from './netcode-v2-service'
 import { TenantPubkeyCache } from './tenant-pubkey-cache'
 
@@ -568,6 +570,24 @@ export function recordSlotConnectedNotification(
   }
 
   recordPlayerConnected(gameId, userId)
+}
+
+/**
+ * Persists a connection observation independently of load-progress delivery. The stored roster
+ * resolves the user, so a coordinator's externalRef cannot attribute evidence to another player.
+ */
+export async function recordSlotConnectedEvidenceNotification(
+  notification: NetcodeV2SlotConnectedNotification,
+  storeEvidence: typeof storeRecoveredEvidence = storeRecoveredEvidence,
+): Promise<EvidenceStoreResult> {
+  if (!notification.evidence || notification.tenant !== loadConfigFromEnv()?.tenant) {
+    return 'ignored'
+  }
+  const gameId = parseGameId(notification.externalId, 'slotConnected')
+  if (!gameId) return 'ignored'
+  return storeEvidence({ gameId, tenant: notification.tenant, session: notification.session }, [
+    { slot: notification.slot, observation: notification.evidence },
+  ])
 }
 
 /**

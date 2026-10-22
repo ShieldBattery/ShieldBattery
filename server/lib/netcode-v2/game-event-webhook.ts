@@ -16,6 +16,7 @@ import {
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware, { throttleByIp } from '../throttle/middleware'
 import { validateRequest } from '../validation/joi-validator'
+import { EVIDENCE_OBSERVATION_SCHEMA } from './evidence-schema'
 import {
   checkGameEventWebhookAuth,
   recordDepartureNotification,
@@ -24,6 +25,7 @@ import {
   recordResultNotification,
   recordSessionClosedNotification,
   recordSessionStartedNotification,
+  recordSlotConnectedEvidenceNotification,
   recordSlotConnectedNotification,
   recordSlotStartedNotification,
 } from './netcode-v2-game-event-service'
@@ -150,6 +152,7 @@ const SLOT_CONNECTED_EVENT_SCHEMA = Joi.object<NetcodeV2SlotConnectedNotificatio
   externalRef: Joi.string(),
   resumed: Joi.boolean().required(),
   connectedAtMs: Joi.number().integer().min(0).max(MAX_EPOCH_MS).required(),
+  evidence: EVIDENCE_OBSERVATION_SCHEMA,
 })
   // See DEPARTURE_EVENT_SCHEMA's comment: same no-`deny_unknown_fields` interop reasoning.
   .unknown(true)
@@ -257,6 +260,10 @@ export function registerGameEventWebhookRoutes(router: KoaRouter) {
           break
         case 'slotConnected':
           recordSlotConnectedNotification(body)
+          if ((await recordSlotConnectedEvidenceNotification(body)) === 'pending') {
+            ctx.status = 503
+            return
+          }
           break
         case 'sessionStarted':
           recordSessionStartedNotification(body)

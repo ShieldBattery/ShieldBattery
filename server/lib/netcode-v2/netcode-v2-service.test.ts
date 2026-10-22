@@ -10,6 +10,7 @@ import {
   setNetcodeV2RequestedRegions,
   setNetcodeV2Session,
 } from '../games/game-models'
+import { EvidenceSessionMappingService } from './evidence-session-mapping-service'
 import {
   checkSessionsAlive,
   clientSigningKeyFromSeedHex,
@@ -67,6 +68,7 @@ function configureNetcodeV2() {
   vi.stubEnv('SB_RP2_COORDINATOR_URL', 'http://coordinator.example')
   vi.stubEnv('SB_RP2_TENANT', 'sb-dev')
   vi.stubEnv('SB_RP2_CLIENT_KEY', TEST_CLIENT_SEED_HEX)
+  vi.stubEnv('SB_RP2_EVIDENCE_KEYS', undefined)
 }
 
 /**
@@ -98,8 +100,11 @@ function fakeGameServerRegionsService(
 }
 
 /** Builds a `NetcodeV2Service` with a served backbone RTT table double, for tests that don't care. */
+const persistMapping = vi.fn().mockResolvedValue(undefined)
 function makeService(servedRtts?: ReadonlyMap<string, number>): NetcodeV2Service {
-  return new NetcodeV2Service(fakeGameServerRegionsService(servedRtts))
+  return new NetcodeV2Service(fakeGameServerRegionsService(servedRtts), {
+    persist: persistMapping,
+  } as unknown as EvidenceSessionMappingService)
 }
 
 describe('netcode-v2/checkSessionsAlive', () => {
@@ -531,6 +536,56 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
   function mockSessionResponse(response: unknown) {
     asMockedFunction(got.post).mockResolvedValue(createOk(response) as any)
   }
+
+  test.each([undefined, '[]'])(
+    'omits evidence fields without verification keys: %s',
+    async keys => {
+      configureNetcodeV2()
+      vi.stubEnv('SB_RP2_EVIDENCE_KEYS', keys)
+      mockSessionResponse(sessionResponse([0]))
+      await makeService().createSessionForGame({
+        seed: 1,
+        gameId: 'game-1',
+        slots: [{ slot: 0, userId: makeSbUserId(1), observer: false, pubkey: PUBKEY }],
+        signal: new AbortController().signal,
+      })
+      const body = JSON.parse((asMockedFunction(got.post).mock.calls[0][1] as any).body)
+      expect(body).not.toHaveProperty('evidence_keys')
+      expect(body.players[0]).not.toHaveProperty('require_evidence')
+    },
+  )
+
+  test('sends verification keys without enforcement and preserves them through retries', async () => {
+    vi.useFakeTimers()
+    configureNetcodeV2()
+    vi.stubEnv('SB_RP2_EVIDENCE_KEYS', JSON.stringify([{ keyId: 17, publicKey: 'ab'.repeat(32) }]))
+    asMockedFunction(got.post)
+      .mockRejectedValueOnce(fakeHttpError(503, '1'))
+      .mockResolvedValueOnce(createOk(sessionResponse([0, 1])) as any)
+    const result = makeService().createSessionForGame({
+      seed: 1,
+      gameId: 'game-1',
+      slots: [
+        { slot: 0, userId: makeSbUserId(1), observer: false, pubkey: PUBKEY },
+        { slot: 1, userId: makeSbUserId(2), observer: true, pubkey: PUBKEY },
+      ],
+      signal: new AbortController().signal,
+    })
+    await vi.advanceTimersByTimeAsync(1000)
+    await result
+    const bodies = asMockedFunction(got.post).mock.calls.map(call => (call[1] as any).body)
+    expect(bodies).toHaveLength(2)
+    expect(bodies[1]).toBe(bodies[0])
+    const body = JSON.parse(bodies[0])
+    // eslint-disable-next-line eslint-core/camelcase
+    expect(body.evidence_keys).toEqual([{ key_id: 17, public_key: Array(32).fill(0xab) }])
+    for (const player of body.players) expect(player.require_evidence).toBe(false)
+    expect(setNetcodeV2Session).not.toHaveBeenCalled()
+    expect(persistMapping).toHaveBeenCalledExactlyOnceWith('game-1', 100, [
+      expect.objectContaining({ slot: 0, userId: makeSbUserId(1), observer: false }),
+      expect.objectContaining({ slot: 1, userId: makeSbUserId(2), observer: true }),
+    ])
+  })
 
   test('forwards each slot region (snake_case) and omits it when absent', async () => {
     configureNetcodeV2()
@@ -1624,6 +1679,7 @@ describe('netcode-v2/NetcodeV2Service#fetchSessionLoadState', () => {
       }),
     )
     expect(result).toEqual({
+      evidence: [],
       known: true,
       setupFinal: true,
       lobbyViolationSlots: [1],
@@ -1644,6 +1700,7 @@ describe('netcode-v2/NetcodeV2Service#fetchSessionLoadState', () => {
     const result = await service.fetchSessionLoadState(42)
 
     expect(result).toEqual({
+      evidence: [],
       known: false,
       setupFinal: false,
       lobbyViolationSlots: [],
@@ -1670,6 +1727,7 @@ describe('netcode-v2/NetcodeV2Service#fetchSessionLoadState', () => {
 
     // What the coordinator did see happened, whether or not it can promise it saw everything.
     expect(result).toEqual({
+      evidence: [],
       known: false,
       setupFinal: false,
       lobbyViolationSlots: [],
@@ -1707,6 +1765,50 @@ describe('netcode-v2/NetcodeV2Service#fetchSessionLoadState', () => {
     expect(state.forwardedSlots).toEqual([])
     expect(state.turnsKnown).toBe(false)
   })
+
+  test('keeps authenticated observations even when load-state is incomplete', async () => {
+    configureNetcodeV2()
+    const evidence = [
+      {
+        slot: 0,
+        observation: {
+          connectionId: Buffer.alloc(32, 1).toString('base64'),
+          sequence: 1,
+          assignmentRevision: 1,
+          verdict: 'valid',
+          keyId: 17,
+          body: Buffer.from('opaque').toString('base64'),
+        },
+      },
+    ]
+    const json = vi.fn().mockResolvedValue({ known: false, connectedSlots: [0], evidence })
+    asMockedFunction(got.post).mockReturnValue({ json } as any)
+    expect(await makeService().fetchSessionLoadState(42)).toMatchObject({
+      known: false,
+      connectedSlots: [0],
+      evidence,
+    })
+  })
+
+  test.each([null, {}, [{ slot: 0, observation: {} }], Array(17).fill({})])(
+    'drops malformed observations without affecting load-state: %j',
+    async evidence => {
+      configureNetcodeV2()
+      const json = vi.fn().mockResolvedValue({
+        known: true,
+        connectedSlots: [0],
+        lobbyViolationSlots: [1],
+        evidence,
+      })
+      asMockedFunction(got.post).mockReturnValue({ json } as any)
+      expect(await makeService().fetchSessionLoadState(42)).toMatchObject({
+        known: true,
+        connectedSlots: [0],
+        lobbyViolationSlots: [1],
+        evidence: [],
+      })
+    },
+  )
 
   test('propagates a request failure', async () => {
     configureNetcodeV2()
@@ -1923,4 +2025,74 @@ describe('netcode-v2/NetcodeV2Service#fetchFlightBlob', () => {
       'coordinator flight blob fetch failed',
     )
   })
+})
+
+describe('netcode-v2/NetcodeV2Service#fetchSessionEvidence', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.clearAllMocks()
+  })
+
+  test('uses the signed cached endpoint without load-state or settlement', async () => {
+    configureNetcodeV2()
+    const evidence = [
+      {
+        slot: 0,
+        observation: {
+          connectionId: Buffer.alloc(32, 1).toString('base64'),
+          sequence: 1,
+          assignmentRevision: 1,
+          verdict: 'valid',
+          keyId: 17,
+          body: Buffer.from('opaque').toString('base64'),
+        },
+      },
+    ]
+    asMockedFunction(got.post).mockReturnValue({
+      json: vi.fn().mockResolvedValue({ evidence }),
+    } as any)
+    expect(await makeService().fetchSessionEvidence(42)).toEqual(evidence)
+    expect(got.post).toHaveBeenCalledExactlyOnceWith(
+      'http://coordinator.example/session/evidence',
+      expect.objectContaining({
+        body: JSON.stringify({ tenant: 'sb-dev', session: 42 }),
+        timeout: { request: 6000 },
+        retry: { limit: 0 },
+        headers: expect.objectContaining({
+          'x-rp2-signature': expect.stringMatching(/^[0-9a-f]{128}$/),
+        }),
+      }),
+    )
+  })
+
+  test('reports an older coordinator without retrying or falling back', async () => {
+    configureNetcodeV2()
+    asMockedFunction(got.post).mockReturnValue({
+      json: vi.fn().mockRejectedValue(fakeHttpError(404)),
+    } as any)
+    expect(await makeService().fetchSessionEvidence(42)).toBeUndefined()
+    expect(got.post).toHaveBeenCalledTimes(1)
+  })
+
+  test.each([429, 503])('propagates a %s failure', async status => {
+    configureNetcodeV2()
+    asMockedFunction(got.post).mockReturnValue({
+      json: vi.fn().mockRejectedValue(fakeHttpError(status)),
+    } as any)
+    await expect(makeService().fetchSessionEvidence(42)).rejects.toThrow(
+      'coordinator session evidence fetch failed',
+    )
+    expect(got.post).toHaveBeenCalledTimes(1)
+  })
+
+  test.each([undefined, [], null, [{}]])(
+    'normalizes absent or malformed observations: %j',
+    async evidence => {
+      configureNetcodeV2()
+      asMockedFunction(got.post).mockReturnValue({
+        json: vi.fn().mockResolvedValue({ evidence }),
+      } as any)
+      expect(await makeService().fetchSessionEvidence(42)).toEqual([])
+    },
+  )
 })

@@ -364,11 +364,27 @@ export interface NetcodeV2SessionClosedNotification {
   externalId?: string
 }
 
+export interface NetcodeV2EvidenceObservation {
+  /** Standard padded base64 of the connection's 32-byte identifier. */
+  connectionId: string
+  sequence: number
+  assignmentRevision: number
+  verdict: 'missing' | 'unknown_key' | 'invalid' | 'valid'
+  keyId?: number
+  /** Opaque standard padded base64; empty unless the verdict is valid. */
+  body: string
+}
+
+export interface NetcodeV2SlotEvidence {
+  slot: number
+  observation: NetcodeV2EvidenceObservation
+}
+
 /**
  * A slot-connected webhook body, POSTed by the rally-point2 coordinator to the app server (as one
- * variant of `NetcodeV2GameEvent`) the first time a home relay activates that slot's link. The
- * coordinator collapses a slot's later reconnects into this one first-sight notice (flagged with
- * `resumed`), so a slot produces a single event however many times its link is re-established.
+ * variant of `NetcodeV2GameEvent`) when a home relay activates that slot's link. The
+ * first connection is always reported; later reconnects also report retained observations when
+ * available, with `resumed` identifying a re-established link.
  *
  * This is the app server's evidence that a player's client got as far as reaching the relay, which
  * is what lets a load that never finishes name the slots that never did.
@@ -390,6 +406,7 @@ export interface NetcodeV2SlotConnectedNotification {
   resumed: boolean
   /** Unix ms when the relay activated this slot's link. */
   connectedAtMs: number
+  evidence?: NetcodeV2EvidenceObservation
 }
 
 /**

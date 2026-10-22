@@ -11,6 +11,7 @@ import {
   addNetcodeV2RelayEvents,
   findFullyReportedUnreconciledGames,
   findKnownCompleteUnreconciledGames,
+  findNetcodeV2EvidenceRecoveryCandidates,
   findUnreconciledGames,
   findUnreconciledV2GamesForProbe,
   getGames,
@@ -19,6 +20,7 @@ import {
   getRecentGamesForUser,
   setNetcodeV2RequestedRegions,
   setNetcodeV2Session,
+  setNetcodeV2SessionMapping,
   wasUserInGame,
 } from './game-models'
 
@@ -33,6 +35,55 @@ function mockDbClient(rows: Array<Record<string, unknown>>) {
   asMockedFunction(db).mockResolvedValue({ client: { query } as any, done })
   return query
 }
+
+describe('games/game-models/findNetcodeV2EvidenceRecoveryCandidates', () => {
+  test('uses the same id ordering for the cursor and the next page', async () => {
+    const query = mockDbClient([
+      // eslint-disable-next-line eslint-core/camelcase
+      { id: '11111111-2222-4333-8444-555555555555', netcode_v2_session: '100' },
+    ])
+    const since = new Date('2026-10-22T00:00:00Z')
+    const after = { gameId: '11111111-2222-4333-8444-555555555554' }
+    expect(await findNetcodeV2EvidenceRecoveryCandidates({ since, after, limit: 100 })).toEqual([
+      { gameId: '11111111-2222-4333-8444-555555555555', session: 100 },
+    ])
+    expect(query).toHaveBeenCalledTimes(1)
+    const template = query.mock.calls[0][0]
+    expect(template.text).toMatch(/AND id > \$\d+::uuid\s+ORDER BY id/)
+    expect(template.text).toContain('netcode_v2_session IS NOT NULL')
+    expect(template.text).toContain('jsonb_array_length(netcode_v2_requested_regions) > 0')
+    expect(template.values).toEqual([since, after.gameId, 100])
+  })
+
+  test('starts without a cursor and caps the query batch at 100', async () => {
+    const query = mockDbClient([])
+    const since = new Date('2026-10-22T00:00:00Z')
+    expect(await findNetcodeV2EvidenceRecoveryCandidates({ since, limit: 1000 })).toEqual([])
+    const template = query.mock.calls[0][0]
+    expect(template.text).not.toContain('AND id >')
+    expect(template.values).toEqual([since, 100])
+  })
+})
+
+describe('games/game-models/setNetcodeV2SessionMapping', () => {
+  test('writes both mapping fields together and refuses an existing different session', async () => {
+    const query = mockDbClient([{}])
+    const roster = [{ slot: 0, userId: makeSbUserId(42), observer: false }]
+    expect(await setNetcodeV2SessionMapping('game-1', 100, roster)).toBe(true)
+    expect(query).toHaveBeenCalledTimes(1)
+    const template = query.mock.calls[0][0]
+    expect(template.text).toMatch(
+      /SET netcode_v2_session = \$\d+,\s+netcode_v2_requested_regions =/,
+    )
+    expect(template.text).toMatch(/netcode_v2_session IS NULL OR netcode_v2_session = \$\d+/)
+    expect(template.values).toEqual([100, JSON.stringify(roster), 'game-1', 100])
+  })
+
+  test('returns false when the game is missing or already bound to another session', async () => {
+    mockDbClient([])
+    expect(await setNetcodeV2SessionMapping('game-1', 100, [])).toBe(false)
+  })
+})
 
 describe('games/game-models/findKnownCompleteUnreconciledGames', () => {
   test('returns the game ids from the query result', async () => {

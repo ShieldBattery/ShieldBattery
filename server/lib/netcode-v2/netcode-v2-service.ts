@@ -12,6 +12,7 @@ import {
   NetcodeV2RelayInfo,
   NetcodeV2RosterEntry,
   NetcodeV2ServerSetup,
+  NetcodeV2SlotEvidence,
 } from '../../../common/games/netcode-v2'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { GameServerRegionsService } from '../game-server-regions/game-server-regions-service'
@@ -22,6 +23,8 @@ import {
 } from '../games/game-models'
 import log from '../logging/logger'
 import { monotonicNow } from '../time/monotonic-now'
+import { SLOT_EVIDENCE_LIST_SCHEMA } from './evidence-schema'
+import { EvidenceSessionMappingService } from './evidence-session-mapping-service'
 import { worstPairwiseLatencyMs } from './latency-estimate'
 import { ED25519_SEED_HEX_PATTERN, loadConfigFromEnv, NetcodeV2Config } from './netcode-v2-config'
 
@@ -159,6 +162,7 @@ function coordinatorRequestPath(url: string): string {
  */
 interface CoordinatorSessionRequest {
   tenant: string
+  evidence_keys?: Array<{ key_id: number; public_key: number[] }>
   lobby_policy: { allowed: Array<{ slot: number; payload: number[] }> }
   /** The ShieldBattery `gameId`, echoed back on the coordinator's notification webhooks. */
   external_id: string
@@ -168,6 +172,7 @@ interface CoordinatorSessionRequest {
     external_ref: string
     /** Excludes this slot from the relay's desync sync-checksum comparator (serde-default false). */
     observer: boolean
+    require_evidence?: false
     /**
      * The opaque id of the game-server region this slot asked to home in. Omitted when the player
      * reported none; the coordinator then places the slot region-blind (global lowest-id relay).
@@ -368,6 +373,7 @@ export interface NetcodeV2SessionLoadState {
    * forwarded. False for a coordinator or relay that doesn't track them.
    */
   turnsKnown: boolean
+  evidence: NetcodeV2SlotEvidence[]
 }
 
 /** The wire shape of the coordinator's `POST /session/load-state` response. */
@@ -380,6 +386,18 @@ interface CoordinatorSessionLoadStateResponse {
   startedSlots?: number[]
   forwardedSlots?: number[]
   turnsKnown?: boolean
+  evidence?: unknown
+}
+
+/** Malformed observations cannot affect independent load-attribution facts. */
+function parseEvidence(evidence: unknown): NetcodeV2SlotEvidence[] {
+  if (evidence === undefined) return []
+  const parsed = SLOT_EVIDENCE_LIST_SCHEMA.validate(evidence)
+  if (parsed.error) {
+    log.warn('Ignoring malformed coordinator evidence')
+    return []
+  }
+  return parsed.value
 }
 
 /** The session id and per-player handoffs a successful `createSessionForGame` produces. */
@@ -503,7 +521,10 @@ export class NetcodeV2Service {
    */
   private warmRegionLastSent = new Map<GameServerRegionId, number>()
 
-  constructor(private gameServerRegionsService: GameServerRegionsService) {}
+  constructor(
+    private gameServerRegionsService: GameServerRegionsService,
+    private mappingService: EvidenceSessionMappingService,
+  ) {}
 
   isEnabled(): boolean {
     return !!this.config
@@ -650,6 +671,17 @@ export class NetcodeV2Service {
 
     const request: CoordinatorSessionRequest = {
       tenant: config.tenant,
+      ...(config.evidenceKeys?.length
+        ? {
+            // eslint-disable-next-line eslint-core/camelcase
+            evidence_keys: config.evidenceKeys.map(({ keyId, publicKey }) => ({
+              // eslint-disable-next-line eslint-core/camelcase
+              key_id: keyId,
+              // eslint-disable-next-line eslint-core/camelcase
+              public_key: Array.from(Buffer.from(publicKey, 'hex')),
+            })),
+          }
+        : {}),
       // SC:R initializes the server-selected seed and eight slots with this lobby record.
       // eslint-disable-next-line eslint-core/camelcase
       lobby_policy: {
@@ -685,6 +717,8 @@ export class NetcodeV2Service {
           // eslint-disable-next-line eslint-core/camelcase
           external_ref: String(userId),
           observer,
+          // eslint-disable-next-line eslint-core/camelcase
+          ...(config.evidenceKeys?.length ? { require_evidence: false as const } : {}),
           ...(region !== undefined ? { region } : {}),
         }
       }),
@@ -692,22 +726,20 @@ export class NetcodeV2Service {
       ...(config.rollback && canRollBack ? { rollback: true } : {}),
     }
 
-    // Records what every slot asked for, before the coordinator is asked for anything: a create that
-    // fails, hangs, or is abandoned mid-provisioning is exactly when knowing what was requested
-    // matters, and after the call there'd be nothing to write it from. Non-fatal — a game whose
-    // requested regions fail to persist just loses that line of the debug view.
+    const requestedRegions = slots.map(
+      ({ slot, userId, observer, region, rttMs, regionManual }) => ({
+        slot,
+        userId,
+        observer,
+        region,
+        rttMs,
+        manual: regionManual,
+      }),
+    )
+    // Record requests even when creation fails. A successful evidence-enabled create writes this
+    // roster atomically with its session mapping and repairs a failed write in the background.
     try {
-      await setNetcodeV2RequestedRegions(
-        gameId,
-        slots.map(({ slot, userId, observer, region, rttMs, regionManual }) => ({
-          slot,
-          userId,
-          observer,
-          region,
-          rttMs,
-          manual: regionManual,
-        })),
-      )
+      await setNetcodeV2RequestedRegions(gameId, requestedRegions)
     } catch (err) {
       log.warn({ err, gameId }, `failed to persist netcode v2 requested regions for game ${gameId}`)
     }
@@ -730,7 +762,11 @@ export class NetcodeV2Service {
     // is still alive instead of blind-forcing on a timeout. Non-fatal: a game whose session id
     // fails to persist just falls back to the legacy timeout-based sweep for its backstop.
     try {
-      await setNetcodeV2Session(gameId, session.session)
+      if (config.evidenceKeys?.length) {
+        await this.mappingService.persist(gameId, session.session, requestedRegions)
+      } else {
+        await setNetcodeV2Session(gameId, session.session)
+      }
     } catch (err) {
       log.warn({ err, gameId }, `failed to persist netcode v2 session id for game ${gameId}`)
     }
@@ -844,8 +880,7 @@ export class NetcodeV2Service {
    *
    * The connect/start webhooks are the fast path for this, but they're at-least-once with a finite
    * retry budget, so a delivery can be lost outright. This pull is the authoritative account at the
-   * moment it matters — deciding whether a load that ran out of time has anyone to blame — which is
-   * why it's worth a synchronous round trip there and nowhere else. Answering it, the coordinator
+   * moment a load needs to decide whether anyone is at fault. Answering it, the coordinator
    * has every relay serving the session snapshot its state afresh, and vouches for completeness
    * (`known`) only when all of them did; a caller reading absence as fault must have that, and may
    * pull again when it doesn't.
@@ -887,10 +922,8 @@ export class NetcodeV2Service {
             'content-type': 'application/json',
             ...signCoordinatorRequest('POST', coordinatorRequestPath(url), bodyStr),
           },
-          // Tighter than the other control-plane calls: the only caller is already past its
-          // deadline and holding a decision open, and it cuts each pull to what remains of its own
-          // budget. The default leaves room for the coordinator's own wait on the serving relays
-          // plus the round trip and no more.
+          // The default leaves room for the coordinator's wait on the serving relays plus the
+          // round trip. Load-resolution callers can shorten it to their remaining budget.
           timeout: { request: timeoutMs },
           signal,
         })
@@ -900,6 +933,7 @@ export class NetcodeV2Service {
     }
 
     return {
+      evidence: parseEvidence(response.evidence),
       known: response.known,
       setupFinal: response.setupFinal === true,
       lobbyViolationSlots: response.lobbyViolationSlots ?? [],
@@ -908,6 +942,38 @@ export class NetcodeV2Service {
       startedSlots: response.startedSlots ?? [],
       forwardedSlots: response.forwardedSlots ?? [],
       turnsKnown: response.turnsKnown === true,
+    }
+  }
+
+  /**
+   * Reads retained observations without asking relays to fence clients or spending the
+   * load-attribution budget. Only the latest retained observation per slot is available; this
+   * is not an archival log. An older coordinator without this endpoint returns undefined.
+   */
+  async fetchSessionEvidence(
+    session: number,
+    { timeoutMs = 6000 }: { timeoutMs?: number } = {},
+  ): Promise<NetcodeV2SlotEvidence[] | undefined> {
+    const config = this.config
+    if (!config) throw new NetcodeV2ServiceError('netcode v2 is not configured')
+    const url = `${config.coordinatorUrl}/session/evidence`
+    const bodyStr = JSON.stringify({ tenant: config.tenant, session })
+    try {
+      const response = await got
+        .post(url, {
+          body: bodyStr,
+          headers: {
+            'content-type': 'application/json',
+            ...signCoordinatorRequest('POST', coordinatorRequestPath(url), bodyStr),
+          },
+          timeout: { request: timeoutMs },
+          retry: { limit: 0 },
+        })
+        .json<{ evidence?: unknown }>()
+      return parseEvidence(response.evidence)
+    } catch (err) {
+      if (err instanceof HTTPError && err.response.statusCode === 404) return undefined
+      throw new NetcodeV2ServiceError('coordinator session evidence fetch failed', { cause: err })
     }
   }
 

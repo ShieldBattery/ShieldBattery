@@ -34,6 +34,7 @@ import {
   recordResultNotification,
   recordSessionClosedNotification,
   recordSessionStartedNotification,
+  recordSlotConnectedEvidenceNotification,
   recordSlotConnectedNotification,
   recordSlotStartedNotification,
 } from './netcode-v2-game-event-service'
@@ -922,6 +923,74 @@ describe('netcode-v2/recordSlotConnectedNotification', () => {
     expect(() =>
       recordSlotConnectedNotification(makeSlotConnectedNotification(), recordPlayerConnected),
     ).not.toThrow()
+  })
+})
+
+describe('netcode-v2/recordSlotConnectedEvidenceNotification', () => {
+  beforeEach(() => {
+    vi.stubEnv('SB_RP2_COORDINATOR_URL', 'http://coordinator.example')
+    vi.stubEnv('SB_RP2_TENANT', 'sb-dev')
+    vi.stubEnv('SB_RP2_CLIENT_KEY', '11'.repeat(32))
+  })
+  afterEach(() => vi.unstubAllEnvs())
+
+  const evidence = {
+    connectionId: Buffer.alloc(32, 1).toString('base64'),
+    sequence: 1,
+    assignmentRevision: 0,
+    verdict: 'valid' as const,
+    keyId: 42,
+    body: 'AP+A',
+  }
+
+  test('passes the session and slot to authoritative storage without using externalRef', async () => {
+    const store = vi.fn().mockResolvedValue('stored')
+    await recordSlotConnectedEvidenceNotification(
+      makeSlotConnectedNotification({ evidence, externalRef: '999999' }),
+      store,
+    )
+    expect(store).toHaveBeenCalledExactlyOnceWith(
+      { gameId: GAME_ID, tenant: 'sb-dev', session: 1 },
+      [{ slot: 0, observation: evidence }],
+    )
+  })
+
+  test('ignores another tenant, missing observations, and invalid game ids', async () => {
+    const store = vi.fn()
+    for (const overrides of [
+      { evidence, tenant: 'another-tenant' },
+      { evidence: undefined },
+      { evidence, externalId: 'invalid' },
+    ]) {
+      expect(
+        await recordSlotConnectedEvidenceNotification(
+          makeSlotConnectedNotification(overrides),
+          store,
+        ),
+      ).toBe('ignored')
+    }
+    expect(store).not.toHaveBeenCalled()
+  })
+
+  test('preserves a pending mapping so the webhook requests redelivery', async () => {
+    const store = vi.fn().mockResolvedValue('pending')
+    expect(
+      await recordSlotConnectedEvidenceNotification(
+        makeSlotConnectedNotification({ evidence }),
+        store,
+      ),
+    ).toBe('pending')
+  })
+
+  test('a persistence failure cannot delay the synchronous load-progress callback', async () => {
+    const store = vi.fn().mockRejectedValue(new Error('database unavailable'))
+    const connected = vi.fn().mockReturnValue(true)
+    const notification = makeSlotConnectedNotification({ evidence })
+    recordSlotConnectedNotification(notification, connected)
+    expect(connected).toHaveBeenCalledExactlyOnceWith(GAME_ID, makeSbUserId(42))
+    await expect(recordSlotConnectedEvidenceNotification(notification, store)).rejects.toThrow(
+      'database unavailable',
+    )
   })
 })
 

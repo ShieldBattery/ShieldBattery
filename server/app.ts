@@ -23,6 +23,7 @@ import logMiddleware from './lib/logging/log-middleware'
 import log from './lib/logging/logger'
 import { updateEmailTemplates } from './lib/mail/update-templates'
 import { prometheusHttpMetrics, prometheusMiddleware } from './lib/monitoring/prometheus-middleware'
+import { EvidenceRecoveryService } from './lib/netcode-v2/evidence-recovery-service'
 import { redirectToCanonical } from './lib/network/redirect-to-canonical'
 import userIpsMiddleware from './lib/network/user-ips-middleware'
 import { Redis, RedisSubscriber } from './lib/redis/redis'
@@ -220,6 +221,7 @@ container.resolve(GameServerRegionsService)
 // cycle. Resolving it also schedules recovery of violations staged before a restart.
 container.register(LOBBY_VIOLATION_STAGER, { useToken: LobbyViolationService })
 container.resolve(LobbyViolationService)
+container.resolve(EvidenceRecoveryService)
 
 // Wrapping this in IIFE so we can use top-level `await` (until we move to ESM and can use it
 // natively)
