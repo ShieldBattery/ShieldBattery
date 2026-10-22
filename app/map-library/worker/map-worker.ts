@@ -74,6 +74,7 @@ const calls: MapIndexCalls = {
     progress: watcher.getProgress(),
     roots: watcher.getRoots(),
   }),
+  findPathByHash: hash => db.findPathByHash(hash),
   setRoots: nextRoots => watcher.setRoots(nextRoots),
 }
 

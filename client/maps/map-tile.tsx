@@ -2,7 +2,12 @@ import { TFunction } from 'i18next'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { LocalMapFile, LocalMapInfo, LocalMapKind } from '../../common/map-library'
+import {
+  LocalMapFile,
+  localMapImageUrl,
+  LocalMapInfo,
+  LocalMapKind,
+} from '../../common/map-library'
 import { urlForMap } from '../../common/map-url'
 import { filterColorCodes, SbMapId, Tileset, tilesetToName } from '../../common/maps'
 import { matchmakingTypeToLabel } from '../../common/matchmaking'
@@ -704,7 +709,9 @@ export function localMapName(file: LocalMapFile): string {
 
 /**
  * A map file on this PC that the server doesn't have (yet), read from the file itself. Choosing it
- * uploads it. Until the server has been asked about the file (`checking`), it shows no status.
+ * uploads it. Until the server has been asked about the file (`checking`), it shows no status, and
+ * no image: the app renders one from the StarCraft install only for files the server doesn't have,
+ * since the rest are shown with the server's images.
  */
 export function LocalMapTile({
   file,
@@ -724,6 +731,9 @@ export function LocalMapTile({
   const { t } = useTranslation()
   const uploading = !!upload && !upload.error
   const readable = !!file.map
+  // The hash whose image failed to load, so the tile falls back to its icon for that file only
+  const [failedImageHash, setFailedImageHash] = useState<string>()
+  const imageHash = !checking && readable && file.hash !== failedImageHash ? file.hash : undefined
 
   let signal: React.ReactNode = null
   if (upload?.error) {
@@ -762,8 +772,18 @@ export function LocalMapTile({
         onClick={onActivate}>
         <LocalImage>
           <MaterialIcon icon={readable ? 'map' : 'block'} size={40} />
+          {imageHash ? (
+            <LocalMapImg
+              src={localMapImageUrl(imageHash)}
+              alt=''
+              draggable={false}
+              decoding='async'
+              loading='lazy'
+              onError={() => setFailedImageHash(imageHash)}
+            />
+          ) : null}
           {uploading && upload.progress !== undefined ? (
-            <ProgressTrack>
+            <ProgressTrack $overImage={!!imageHash}>
               <ProgressFill style={{ width: `${upload.progress * 100}%` }} />
             </ProgressTrack>
           ) : null}
@@ -786,9 +806,11 @@ export function LocalMapTile({
 }
 
 const LocalImage = styled.div`
+  position: relative;
   aspect-ratio: 1;
   width: 100%;
   padding: 16px;
+  overflow: hidden;
 
   display: flex;
   flex-direction: column;
@@ -804,6 +826,15 @@ const LocalImage = styled.div`
   ${TilePickButton}:hover:not(:disabled) & {
     outline: 2px solid var(--theme-outline-variant);
   }
+`
+
+/** Covers the tile's icon once the app's render of the file has loaded. */
+const LocalMapImg = styled.img`
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 `
 
 /** A tile-shaped placeholder for a map file that's being uploaded, or that failed to upload. */
@@ -894,10 +925,14 @@ const PendingStatus = styled.div`
   ${bodySmall};
 `
 
-const ProgressTrack = styled.div`
+const ProgressTrack = styled.div<{ $overImage?: boolean }>`
   width: 80%;
   height: 4px;
   overflow: hidden;
+  ${props =>
+    props.$overImage
+      ? 'position: absolute; left: 10%; bottom: 12px; box-shadow: 0 0 0 1px rgb(0 0 0 / 0.4);'
+      : ''}
 
   border-radius: 2px;
   background-color: var(--theme-container-highest);
