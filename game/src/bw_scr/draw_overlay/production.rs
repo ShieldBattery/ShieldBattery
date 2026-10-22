@@ -1,6 +1,6 @@
 use std::ptr;
 
-use bw_dat::{TechId, Unit, UnitId, UpgradeId, WeaponId};
+use bw_dat::{Game, TechId, Unit, UnitId, UpgradeId, WeaponId};
 use egui::{Color32, TextureId, Vec2};
 use hashbrown::HashMap;
 use overlay_ui::observer::{
@@ -357,7 +357,7 @@ pub(super) fn selected_production(unit: Unit, bw: &BwVars) -> Option<ProductionP
 /// weapon, the air one only where it is not the ground one again. A unit whose guns are on a turret
 /// (a goliath, a siege tank) has its weapons on the turret's entry, so the turret's are read too.
 /// Reavers and carriers use their scarabs' and interceptors' weapons. A lurker has no weapon until
-/// it burrows.
+/// it burrows. A vulture with spider mines also shows how many it has left, including zero.
 ///
 /// A hallucination has none: the console shows no upgrades for one to its owner or to anyone
 /// watching, which is everyone this panel is drawn for.
@@ -436,7 +436,33 @@ pub(super) fn selected_upgrades(unit: Unit, bw: &BwVars) -> Vec<UnitUpgradeView>
             }]),
         });
     }
+    if let Some(count) = selected_mines(unit, game) {
+        let mine = bw_dat::unit::SPIDER_MINE;
+        chips.push(UnitUpgradeView {
+            icon: atlas_icon(mine.0, 0.0, bw),
+            level: count,
+            name: production_name(Production::Unit(mine), bw),
+            effect: UpgradeEffect::Count,
+        });
+    }
     chips
+}
+
+/// The console keeps a vulture's mine counter visible after its last mine is spent, but hides it
+/// until spider mines are researched. Raynor's vulture has the technology without research.
+fn selected_mines(unit: Unit, game: Game) -> Option<u8> {
+    use bw_dat::unit::{JIM_RAYNOR_VULTURE, VULTURE};
+
+    if unit.player() >= 0xc || unit.is_hallucination() {
+        return None;
+    }
+    let available = match unit.id() {
+        JIM_RAYNOR_VULTURE => true,
+        VULTURE => game.tech_researched(unit.player(), bw_dat::tech::SPIDER_MINES),
+        _ => false,
+    };
+    // Only vultures use this member of the unit-specific union.
+    available.then(|| unsafe { (**unit).unit_specific.vulture.mines })
 }
 
 /// How many times a unit's weapon deals its damage per attack, as the game's own damage tooltip
@@ -699,4 +725,51 @@ fn wireframe_icon(id: UnitId, level: usize, bw: &BwVars) -> Option<ProductionIco
             cell_width: f32::from(height) / f32::from(width),
         }),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bw_dat::{tech, unit};
+
+    #[test]
+    fn mine_inventory_requires_research_and_keeps_showing_when_empty() {
+        let mut game: Box<bw::Game> = unsafe { Box::new(std::mem::zeroed()) };
+        let game = unsafe { Game::from_ptr(&raw mut *game) };
+        let mut raw: bw::Unit = unsafe { std::mem::zeroed() };
+        raw.unit_id = unit::VULTURE.0;
+        raw.player = 2;
+        raw.unit_specific.vulture.mines = 3;
+        let vulture = unsafe { Unit::from_ptr(&raw mut raw).unwrap() };
+        assert_eq!(selected_mines(vulture, game), None);
+
+        // Another player's research must not unlock this vulture's counter.
+        game.set_tech_level(1, tech::SPIDER_MINES, 1);
+        assert_eq!(selected_mines(vulture, game), None);
+        game.set_tech_level(2, tech::SPIDER_MINES, 1);
+        for count in (0..=3).rev() {
+            unsafe { (**vulture).unit_specific.vulture.mines = count };
+            assert_eq!(selected_mines(vulture, game), Some(count));
+        }
+        game.set_tech_level(2, tech::SPIDER_MINES, 0);
+        assert_eq!(selected_mines(vulture, game), None);
+
+        unsafe {
+            (**vulture).unit_id = unit::JIM_RAYNOR_VULTURE.0;
+            (**vulture).unit_specific.vulture.mines = 3;
+        }
+        assert_eq!(selected_mines(vulture, game), Some(3));
+        unsafe { (**vulture).flags = 0x4000_0000 };
+        assert_eq!(selected_mines(vulture, game), None);
+        unsafe {
+            (**vulture).flags = 0;
+            (**vulture).unit_id = unit::MARINE.0;
+        }
+        assert_eq!(selected_mines(vulture, game), None);
+        unsafe {
+            (**vulture).unit_id = unit::VULTURE.0;
+            (**vulture).player = 0x80;
+        }
+        assert_eq!(selected_mines(vulture, game), None);
+    }
 }

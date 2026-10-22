@@ -85,9 +85,9 @@ pub struct SelectedUnitView {
     /// transport that is empty.
     pub cargo: Vec<SelectedUnitView>,
     /// The upgrades it fights with, in the order the console lists them: its armor, its shields for
-    /// a unit that has any, then whatever improves its weapons. Only read out for a unit selected
-    /// alone, and not under a queue or cargo, which leave no room for them, so a host may leave it
-    /// empty for any other.
+    /// a unit that has any, then whatever improves its weapons and its inventory counts. Only read
+    /// out for a unit selected alone, and not under a queue or cargo, which leave no room for them,
+    /// so a host may leave it empty for any other.
     pub upgrades: Vec<UnitUpgradeView>,
 }
 
@@ -121,12 +121,12 @@ pub struct ResourcesLeftView {
     pub amount: u32,
 }
 
-/// One upgrade a unit fights with, at the level its owner has taken it to.
+/// One icon in the console's stat row: an upgrade or weapon level, or an inventory count.
 pub struct UnitUpgradeView {
     /// The game's own icon for the upgrade.
     pub icon: ProductionIcon,
     /// The effective upgrade level, including unit-specific armor bonuses such as Chitinous
-    /// Plating. Excludes the unit's base armor.
+    /// Plating. Excludes the unit's base armor. For [`UpgradeEffect::Count`], the remaining count.
     pub level: u8,
     /// What the game calls it, for the card that names it under the pointer; `None` where the host
     /// cannot say.
@@ -135,8 +135,10 @@ pub struct UnitUpgradeView {
     pub effect: UpgradeEffect,
 }
 
-/// What an upgrade improves on the unit it is read for.
+/// What a stat-row icon reports on the unit it is read for.
 pub enum UpgradeEffect {
+    /// An inventory count, such as a vulture's remaining spider mines, rather than an upgrade level.
+    Count,
     /// The unit's armor: what it has of its own, and what its upgrades add to that.
     Armor { base: u32, bonus: u32 },
     /// The unit's shields, which the panel already puts a number to.
@@ -1026,14 +1028,18 @@ fn draw_upgrade_hint(ui: &Ui, pointer: Pos2, upgrade: &UnitUpgradeView) {
         if let Some(name) = &upgrade.name {
             ui.label(text::body(13.0, text::BodyWeight::Medium).job(name));
         }
-        detail(
-            ui,
-            &tr!(
-                "observer.researchLevel",
-                "Level {{level}}",
-                level = upgrade.level
-            ),
-        );
+        if matches!(upgrade.effect, UpgradeEffect::Count) {
+            detail(ui, &upgrade.level.to_string());
+        } else {
+            detail(
+                ui,
+                &tr!(
+                    "observer.researchLevel",
+                    "Level {{level}}",
+                    level = upgrade.level
+                ),
+            );
+        }
         match &upgrade.effect {
             UpgradeEffect::Armor { base, bonus } => detail(
                 ui,
@@ -1043,7 +1049,7 @@ fn draw_upgrade_hint(ui: &Ui, pointer: Pos2, upgrade: &UnitUpgradeView) {
                     value = upgraded_value(*base, *bonus, 1)
                 ),
             ),
-            UpgradeEffect::Shields => {}
+            UpgradeEffect::Count | UpgradeEffect::Shields => {}
             UpgradeEffect::Damage(weapons) => {
                 for weapon in weapons {
                     if weapons.len() > 1
@@ -1584,6 +1590,46 @@ mod tests {
         assert_eq!(upgraded_value(6, 2, 1), "6+2");
         // A zealot's blades hit twice an attack.
         assert_eq!(upgraded_value(8, 1, 2), "8+1 \u{d7}2");
+    }
+
+    #[test]
+    fn inventory_chips_and_their_hints_show_counts_including_zero() {
+        fn texts(shape: &Shape, out: &mut Vec<String>) {
+            match shape {
+                Shape::Text(text) => out.push(text.galley.text().to_string()),
+                Shape::Vec(shapes) => shapes.iter().for_each(|shape| texts(shape, out)),
+                _ => {}
+            }
+        }
+
+        for count in 0..=3 {
+            let ctx = Context::default();
+            crate::install_fonts_and_style(&ctx, &crate::DynamicFonts::default());
+            let mine = UnitUpgradeView {
+                icon: unit((80, 80), None, 0x0d).icon,
+                level: count,
+                name: Some("Spider Mine".into()),
+                effect: UpgradeEffect::Count,
+            };
+            let mut drawn = Vec::new();
+            for _ in 0..2 {
+                let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
+                    let chip = Rect::from_min_size(pos2(10.0, 10.0), Vec2::splat(UPGRADE_CHIP));
+                    draw_upgrade_chip(ui, chip, &mine, true);
+                    draw_upgrade_hint(ui, chip.center(), &mine);
+                });
+                drawn.clear();
+                for shape in &output.shapes {
+                    texts(&shape.shape, &mut drawn);
+                }
+                output.textures_delta.clear();
+            }
+            // The chip and its tooltip each report the inventory, without an upgrade-level label.
+            let expected = count.to_string();
+            assert_eq!(drawn.iter().filter(|text| *text == &expected).count(), 2);
+            assert!(drawn.iter().any(|text| text == "Spider Mine"));
+            assert!(!drawn.iter().any(|text| text.contains("Level")));
+        }
     }
 
     #[test]
