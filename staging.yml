@@ -12,6 +12,14 @@ files:
   - '!node_modules/**/*'
   - '!build/**/*'
   - '!**/*.map'
+# Keep these identical to prod.yml; this is where a fuse that breaks the app gets caught.
+electronFuses:
+  runAsNode: false
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  grantFileProtocolExtraPrivileges: false
+  onlyLoadAppFromAsar: true
+  enableEmbeddedAsarIntegrityValidation: true
 nsis:
   artifactName: '${productName}-setup-${version}.${ext}'
   # We disable oneClick for this config so that the install directory differs for this version

@@ -12,6 +12,14 @@ files:
   - '!node_modules/**/*'
   - '!build/**/*'
   - '!**/*.map'
+# Keep these identical to staging.yml, which is where a fuse that breaks the app gets caught.
+electronFuses:
+  runAsNode: false
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  grantFileProtocolExtraPrivileges: false
+  onlyLoadAppFromAsar: true
+  enableEmbeddedAsarIntegrityValidation: true
 nsis:
   artifactName: '${productName}-setup-${version}.${ext}'
   # Registers/cleans up this channel's URL protocol; the top-level `protocols` option is ignored
