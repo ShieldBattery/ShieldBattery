@@ -1,6 +1,7 @@
 import path from 'node:path'
 import { Worker } from 'node:worker_threads'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
+import { getErrorStack } from '../../../common/errors'
 import { LocalMapInfo } from '../../../common/map-library'
 import { MapFileReader } from '../map-watcher'
 import { ReaderRequest, ReaderResponse } from './messages'
@@ -96,21 +97,32 @@ export class WorkerMapFileReader implements MapFileReader {
     }
     // Its own entry in the same build output as the index worker that loads this module.
     const worker = new Worker(path.join(__dirname, 'map-reader.js'), { name: 'map-reader' })
+    let fatalError: unknown
     worker
       .on('message', (response: ReaderResponse) => {
         const request = this.pending.get(response.id)
         this.pending.delete(response.id)
         request?.deferred.resolve(response)
       })
+      .on('error', err => {
+        // An unhandled `error` event would throw in this thread and take the index worker down
+        // with the reader (e.g. on an out-of-memory read). `exit` fires after this and fails the
+        // reader's pending requests, so the file is taken for unreadable instead.
+        fatalError = err
+      })
       .on('exit', () => {
         if (this.worker === worker) {
           this.worker = undefined
         }
+        const error = new Error(
+          'map reader exited before responding' +
+            (fatalError ? `: ${getErrorStack(fatalError) ?? String(fatalError)}` : ''),
+        )
         // Only this worker's requests: a replacement may already be serving newer ones
         for (const [id, request] of this.pending) {
           if (request.worker === worker) {
             this.pending.delete(id)
-            request.deferred.reject(new Error('map reader exited before responding'))
+            request.deferred.reject(error)
           }
         }
       })
