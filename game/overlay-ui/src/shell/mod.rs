@@ -496,6 +496,17 @@ impl Shell {
     /// Only a keypress the shell can actually carry out is consumed. A binding whose surface has not
     /// been built yet leaves the key to the game rather than swallowing it into a no-op.
     pub fn key_pressed(&mut self, key: Key, modifiers: Modifiers) -> bool {
+        self.key_input(key, modifiers, false)
+    }
+
+    /// Offers a held key's repeat to the shell, which takes it as it would the press, except that a
+    /// repeat never answers the leave question: the key that opened the question, held a moment
+    /// too long, must not leave the game as well.
+    pub fn key_repeated(&mut self, key: Key, modifiers: Modifiers) -> bool {
+        self.key_input(key, modifiers, true)
+    }
+
+    fn key_input(&mut self, key: Key, modifiers: Modifiers, repeat: bool) -> bool {
         // The keys that open the game's menu close ours, as a toggle: the menu is something the
         // player reaches for and puts away with the same hand.
         if hotkeys::is_menu_chord(key, modifiers) && self.top_modal() == Some(ModalId::GameMenu) {
@@ -505,8 +516,12 @@ impl Shell {
         // A dialog's buttons answer to SC:R's keys for the buttons they stand in for, which their
         // keycaps name (see each dialog's key constants), and the leave question to both of the
         // keys SC:R's own quit questions leave on: Alt+Q then Q, and F10 then E then Q, leave a
-        // game the way they always have.
-        if modifiers.is_none() && !self.chat_box_has_keyboard() && self.dialog_key_pressed(key) {
+        // game the way they always have. SC:R's dialogs take their keys with Alt down too, so the
+        // leave question does as well: Alt+Q, Q leaves without letting go of Alt.
+        let dialog_modifiers = modifiers.is_none()
+            || (modifiers == Modifiers::ALT && self.top_modal() == Some(ModalId::LeaveGame));
+        if dialog_modifiers && !self.chat_box_has_keyboard() && self.dialog_key_pressed(key, repeat)
+        {
             return true;
         }
         if hotkeys::is_quit_chord(key, modifiers) && self.quit_keys_active() {
@@ -785,8 +800,9 @@ impl Shell {
     }
 
     /// Carries out what `key` does to the buttons of the modal on top, the keys their keycaps name
-    /// and the others each dialog's doc lists, and returns whether it did anything.
-    fn dialog_key_pressed(&mut self, key: Key) -> bool {
+    /// and the others each dialog's doc lists, and returns whether it did anything. A `repeat` of
+    /// the leave question's keys is taken and does nothing.
+    fn dialog_key_pressed(&mut self, key: Key, repeat: bool) -> bool {
         let playing = self.host.mode == Mode::Playing;
         let replay = self.host.mode == Mode::Replay;
         let top = self.top_modal();
@@ -826,7 +842,10 @@ impl Shell {
                 let pausing = matches!(self.host.pause_control, Some(PauseControl::Pause { .. }));
                 self.intents.push(Intent::SetPaused(pausing));
             }
-            (Some(ModalId::LeaveGame), Key::Q | Key::E) => self.quit_from(ModalId::LeaveGame),
+            (Some(ModalId::LeaveGame), Key::Q | Key::E) if !repeat => {
+                self.quit_from(ModalId::LeaveGame)
+            }
+            (Some(ModalId::LeaveGame), Key::Q | Key::E) => {}
             // The key SC:R opens its message history with closes it again, and so does its OK
             // button's.
             (Some(ModalId::ChatHistory), Key::Equals | Key::O) => self.dismiss_top_modal(),
@@ -1186,6 +1205,44 @@ mod tests {
         assert_eq!(shell.top_modal(), Some(ModalId::LeaveGame));
         assert!(shell.key_pressed(Key::Q, Modifiers::NONE));
         assert!(shell.pending_intents().contains(&Intent::QuitGame));
+    }
+
+    #[test]
+    fn q_answers_the_leave_question_with_alt_still_down() {
+        let mut observing = Shell::new();
+        observing.set_host(&HostFrame {
+            mode: Mode::Observing,
+            game_started: true,
+            ..HostFrame::default()
+        });
+        for mut shell in [playing_shell(), observing, spectating_shell()] {
+            assert!(shell.key_pressed(Key::Q, Modifiers::ALT));
+            assert_eq!(shell.top_modal(), Some(ModalId::LeaveGame));
+            assert!(shell.key_pressed(Key::Q, Modifiers::ALT));
+            assert!(shell.pending_intents().contains(&Intent::QuitGame));
+            assert_ne!(shell.top_modal(), Some(ModalId::LeaveGame));
+        }
+    }
+
+    #[test]
+    fn a_held_key_does_not_answer_the_leave_question() {
+        let mut shell = playing_shell();
+        assert!(shell.key_pressed(Key::Q, Modifiers::ALT));
+        // The Alt+Q that opened the question repeating, and then with Alt let go of first.
+        assert!(shell.key_repeated(Key::Q, Modifiers::ALT));
+        assert!(shell.key_repeated(Key::Q, Modifiers::NONE));
+        assert_eq!(shell.top_modal(), Some(ModalId::LeaveGame));
+        assert!(!shell.pending_intents().contains(&Intent::QuitGame));
+        assert!(shell.key_pressed(Key::Q, Modifiers::ALT));
+        assert!(shell.pending_intents().contains(&Intent::QuitGame));
+
+        // F10, E opens the question too, and holding the E must not answer it either.
+        let mut shell = playing_shell();
+        shell.open_modal(ModalId::GameMenu);
+        assert!(shell.key_pressed(Key::E, Modifiers::NONE));
+        assert!(shell.key_repeated(Key::E, Modifiers::NONE));
+        assert_eq!(shell.top_modal(), Some(ModalId::LeaveGame));
+        assert!(!shell.pending_intents().contains(&Intent::QuitGame));
     }
 
     #[test]

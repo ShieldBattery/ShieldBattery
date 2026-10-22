@@ -1590,7 +1590,7 @@ impl OverlayState {
                         // A held key repeating: the shell took the press, so the repeats are its
                         // too, whatever it does with them.
                         if let Some(key) = key {
-                            self.shell.key_pressed(key, modifiers);
+                            self.shell.key_repeated(key, modifiers);
                         }
                         return Some(0);
                     }
