@@ -60,11 +60,9 @@ pub struct SelectedUnitView {
     pub energy: Option<(u32, u32)>,
     /// How many units it has killed.
     pub kills: u32,
-    /// The one line the console writes under a unit selected alone, in the game's language: what
-    /// has been done to it, such as a parasite on it or its being a hallucination, or failing that
-    /// what it is, a detector or a Terran's rank. `None` for nothing to say, and only read out for
-    /// a unit selected alone, so a host may leave it `None` for any other.
-    pub status: Option<String>,
+    /// The one line the console writes under a unit selected alone. `None` for nothing to say, and
+    /// only read out for a unit selected alone, so a host may leave it `None` for any other.
+    pub status: Option<UnitStatusView>,
     /// Whether it is a building rather than a unit.
     pub building: bool,
     /// What is left to mine in it, for a mineral field, a geyser, or the building on a geyser.
@@ -85,6 +83,26 @@ pub struct SelectedUnitView {
     /// alone, and not under a queue or cargo, which leave no room for them, so a host may leave it
     /// empty for any other.
     pub upgrades: Vec<UnitUpgradeView>,
+}
+
+/// The line the console writes under a unit selected alone, in the game's language: what has been
+/// done to it, such as a parasite on it or its being a hallucination, or failing that what it is, a
+/// detector or a Terran's rank.
+pub struct UnitStatusView {
+    pub text: String,
+    /// The color the console writes it in.
+    pub color: StatusColor,
+}
+
+/// The colors the console writes its status lines in, each drawn in this overlay's own shade of it.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum StatusColor {
+    /// The console's text color, for a line that only says what the unit is.
+    Default,
+    Green,
+    Red,
+    Yellow,
+    White,
 }
 
 /// What is left to mine in a resource.
@@ -277,6 +295,10 @@ const OWNER_LEAD: f32 = 6.0;
 
 /// Text size of the subject's status, which shares the owner's line.
 const STATUS_SIZE: f32 = 13.0;
+
+/// The most of the owner's line the subject's status may take. The game's own lines fit in it, so a
+/// long owner's name gives way to one of those, and a longer status is cut short here instead.
+const STATUS_SHARE: f32 = 0.5;
 
 /// How much of the text column the name and the owner's line take, above whatever the reading
 /// draws under them.
@@ -767,7 +789,15 @@ fn draw_header(ui: &Ui, text: Rect, unit: &SelectedUnitView) -> Rect {
     if unit.owner.is_some() || unit.status.is_some() {
         let mut line = Rect::from_min_size(pos2(text.left(), top), vec2(text.width(), OWNER_ROW));
         if let Some(status) = &unit.status {
-            let status_width = draw_status(ui, line, status);
+            // The owner is what the line is for, so a status long enough to crowd it out is the
+            // one cut short, past the share of the line it may take.
+            let room = if unit.owner.is_some() {
+                line.width() * STATUS_SHARE
+            } else {
+                line.width()
+            };
+            let status_line = Rect::from_min_max(pos2(line.right() - room, line.top()), line.max);
+            let status_width = draw_status(ui, status_line, status);
             line.max.x -= status_width + OWNER_GAP;
         }
         if unit.owner.is_some() {
@@ -778,12 +808,19 @@ fn draw_header(ui: &Ui, text: Rect, unit: &SelectedUnitView) -> Rect {
     Rect::from_min_max(pos2(text.left(), top + OWNER_LEAD), text.max)
 }
 
-/// Draws the subject's status against the right end of `line`, in the green the console writes it
-/// in. Returns how wide it is, which the owner's name gives up.
-fn draw_status(ui: &Ui, line: Rect, status: &str) -> f32 {
-    let spec = text::body(STATUS_SIZE, text::BodyWeight::Semibold).with_color(theme::TEXT_POSITIVE);
-    let width = spec.galley(ui, status).size().x.min(line.width());
-    paint_text(ui, line, &spec, status, Align::RIGHT);
+/// Draws the subject's status against the right end of `line`. Returns how wide it is, which the
+/// owner's name gives up.
+fn draw_status(ui: &Ui, line: Rect, status: &UnitStatusView) -> f32 {
+    let color = match status.color {
+        StatusColor::Default => theme::TEXT_DIM,
+        StatusColor::Green => theme::TEXT_POSITIVE,
+        StatusColor::Red => theme::TEXT_NEGATIVE,
+        StatusColor::Yellow => theme::TEXT_WARNING,
+        StatusColor::White => theme::TEXT_PRIMARY,
+    };
+    let spec = text::body(STATUS_SIZE, text::BodyWeight::Semibold).with_color(color);
+    let width = spec.galley(ui, &status.text).size().x.min(line.width());
+    paint_text(ui, line, &spec, &status.text, Align::RIGHT);
     width
 }
 

@@ -14,9 +14,9 @@ use overlay_ui::observer::{
     ControlGroupView, ControlGroupsPlayerView, ControlGroupsView, EconomyPlayerView, EconomyView,
     GraphGrouping, GraphLineView, GraphSeries, GraphsView, MapControlSideView, MapControlView,
     MatchupPlayerView, MatchupView, MilitaryPlayerView, MilitaryView, ObserverView, ProductionIcon,
-    ProductionView, RaceView, ResourcesLeftView, SelectedUnitView, SelectionView,
+    ProductionView, RaceView, ResourcesLeftView, SelectedUnitView, SelectionView, StatusColor,
     TeamCardPlayerView, TeamCardTotalsView, TeamCardView, TeamCardsView, TimelineEventView,
-    TimelineView,
+    TimelineView, UnitStatusView,
 };
 use overlay_ui::shell::PanelPrefs;
 use overlay_ui::transport;
@@ -600,7 +600,11 @@ fn selected_unit_view(
         let producing = view.production.is_some();
         // The overlay is built in the game's draw, on its main thread.
         view.status = bw.stat_txt.and_then(|stat_txt| unsafe {
-            unit_status(&stat_txt, unit, producing).and_then(|status| stat_txt.unit_status(status))
+            let status = unit_status(&stat_txt, unit, producing)?;
+            Some(UnitStatusView {
+                text: stat_txt.unit_status(status)?,
+                color: status_color(status),
+            })
         });
         view.upgrades = production::selected_upgrades(unit, bw);
         view.stacked = game_thread::stacked_building_count(unit, bw.active_units);
@@ -612,9 +616,8 @@ fn selected_unit_view(
 /// failing that what it is, picked as the console picks one where several apply. `producing` is
 /// whether it is making anything, which keeps a disabled building's line off the console.
 ///
-/// The console names a hallucination only to its owner and in a replay. Everyone this panel is
-/// shown to is watching rather than playing, none of whom the hallucination is cast to fool, so it
-/// is named to all of them.
+/// The console names a hallucination to its owner, in a replay and to an observer, which covers
+/// everyone this panel is drawn for, so it is named here without asking who is watching.
 ///
 /// # Safety
 ///
@@ -622,7 +625,8 @@ fn selected_unit_view(
 unsafe fn unit_status(stat_txt: &StatTxt, unit: Unit, producing: bool) -> Option<UnitStatus> {
     let unit_id = unit.id();
     let completed = unit.is_completed();
-    // The disabled lines are one per race, so a building of no race has none.
+    // The disabled lines are one per race, so a building of no race has none. The console instead
+    // reads past the race lines into the hallucination's, so it calls such a building one.
     let disabled_race = (unit_id.is_building() && completed && unit.is_disabled() && !producing)
         .then(|| unit_id.primary_race())
         .flatten();
@@ -642,6 +646,18 @@ unsafe fn unit_status(stat_txt: &StatTxt, unit: Unit, producing: bool) -> Option
         None
     } else {
         unsafe { rank(stat_txt, unit) }
+    }
+}
+
+/// The color the console writes `status` in: the color code its stat_txt string opens with, or the
+/// console's own text color for a string with none.
+fn status_color(status: UnitStatus) -> StatusColor {
+    match status {
+        UnitStatus::AcidSpores(_) | UnitStatus::Blind | UnitStatus::Parasite => StatusColor::Green,
+        UnitStatus::Disabled(_) => StatusColor::Red,
+        UnitStatus::Detector => StatusColor::Yellow,
+        UnitStatus::Hallucination => StatusColor::White,
+        UnitStatus::Rank(_) | UnitStatus::Tassadar | UnitStatus::Admiral => StatusColor::Default,
     }
 }
 

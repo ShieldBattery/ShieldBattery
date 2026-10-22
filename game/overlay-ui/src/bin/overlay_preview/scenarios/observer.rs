@@ -23,8 +23,9 @@ use overlay_ui::observer::{
     MapControlView, MatchupForm, MatchupPlayerView, MatchupView, MilitaryPlayerView, MilitaryView,
     ObserverView, ProductionIcon, ProductionItemView, ProductionPlayerView, ProductionProgressView,
     ProductionView, RaceView, ResourcesLeftView, SelectedUnitView, SelectionView, Significance,
-    TeamCardPlayerView, TeamCardTotalsView, TeamCardView, TeamCardsView, TimelineEventKind,
-    TimelineEventView, TimelineView, UnitUpgradeView, UpgradeEffect, WeaponDamageView, team_name,
+    StatusColor, TeamCardPlayerView, TeamCardTotalsView, TeamCardView, TeamCardsView,
+    TimelineEventKind, TimelineEventView, TimelineView, UnitStatusView, UnitUpgradeView,
+    UpgradeEffect, WeaponDamageView, team_name,
 };
 use overlay_ui::shell::PanelPrefs;
 use serde::{Deserialize, Serialize};
@@ -457,10 +458,11 @@ pub fn build_view(
 
 /// The status line the game DLL reads out of the English stat_txt for a unit with a parasite on it,
 /// where the knobs ask for one.
-fn status_line(knobs: &Knobs) -> Option<String> {
-    knobs
-        .selection_status
-        .then(|| "Parasite Detected".to_string())
+fn status_line(knobs: &Knobs) -> Option<UnitStatusView> {
+    knobs.selection_status.then(|| UnitStatusView {
+        text: "Parasite Detected".to_string(),
+        color: StatusColor::Green,
+    })
 }
 
 /// The name a panel other than the matchup bar puts on a player.
