@@ -38,9 +38,10 @@ function closestExistingAncestor(folder: string): string | undefined {
  * watching the closest folder above it that does, which notices it (or a folder on the way to it)
  * being created.
  *
- * Deleting a recursively watched folder on Windows doesn't end its watch: from then on the watch
- * reports the folder itself, by its absolute path, as renamed, tens of thousands of times a second,
- * until it's closed. Such an event closes the watch and goes back to waiting for the folder.
+ * Deleting a recursively watched folder doesn't end its watch. On Windows the watch then reports
+ * the folder itself, by its absolute path, as renamed, tens of thousands of times a second, until
+ * it's closed; on Linux it reports the folder once, with no file name, and then goes quiet. Either
+ * event closes the watch and goes back to waiting for the folder.
  */
 export class FolderWatchers {
   private folders: ReadonlyArray<string> = []
@@ -109,8 +110,8 @@ export class FolderWatchers {
         if (this.entries.get(folder)?.watcher !== watcher) {
           return
         }
-        if (fileName && path.win32.isAbsolute(fileName)) {
-          // The folder itself was deleted or replaced, so this watch is dead
+        if (!fileName || path.win32.isAbsolute(fileName)) {
+          // An event about the folder itself: it was deleted or replaced, so this watch is dead
           this.closeEntry(folder)
           this.refresh({ notify: false })
         }
