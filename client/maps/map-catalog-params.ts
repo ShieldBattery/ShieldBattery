@@ -39,9 +39,18 @@ export function catalogSortToMapSort(sort: CatalogSort): MapSort {
   }
 }
 
-/** The sort a tab uses when neither the URL nor the viewer's saved default picks one. */
+/** The sort a catalog tab uses when neither the URL nor the viewer's saved default picks one. */
 export function defaultSortForTab(tab: MapCatalogTab): CatalogSort {
   return tab === MapCatalogTab.All ? CatalogSort.Trending : CatalogSort.Newest
+}
+
+/**
+ * The sort a tab of the lobby map picker uses when the viewer hasn't picked one. Someone picking a
+ * map for a lobby is usually looking for one they already have in mind, so every map is ordered
+ * by how much it's played rather than by what's rising.
+ */
+export function defaultPickerSortForTab(tab: MapCatalogTab): CatalogSort {
+  return tab === MapCatalogTab.All ? CatalogSort.MostPlayed : CatalogSort.Newest
 }
 
 /** The player-count choices, as offered to the viewer. */
@@ -236,13 +245,13 @@ export function filtersOf(params: CatalogFilters): CatalogFilters {
 }
 
 /**
- * The sort the listing uses: the URL's, else Best match while searching, else the viewer's saved
- * sort for the tab, else the tab's default. Best match only applies while searching.
+ * The sort the listing uses: the one picked in `params`, else Best match while searching, else the
+ * viewer's saved sort for the tab, else `defaultSort`. Best match only applies while searching.
  */
 export function effectiveSort(
   params: Pick<CatalogParams, 'search' | 'sort'>,
   savedSort: CatalogSort | undefined,
-  tab: MapCatalogTab,
+  defaultSort: CatalogSort,
 ): CatalogSort {
   const searching = !!params.search.trim()
   if (params.sort && (searching || params.sort !== CatalogSort.BestMatch)) {
@@ -251,7 +260,23 @@ export function effectiveSort(
   if (searching) {
     return CatalogSort.BestMatch
   }
-  return savedSort && savedSort !== CatalogSort.BestMatch ? savedSort : defaultSortForTab(tab)
+  return savedSort && savedSort !== CatalogSort.BestMatch ? savedSort : defaultSort
+}
+
+/**
+ * The params after the search text changes to `search`. Starting a search switches to Best match;
+ * ending one leaves Best match for the saved sort.
+ */
+export function withSearch(params: CatalogParams, search: string): CatalogParams {
+  const wasSearching = !!params.search.trim()
+  const searching = !!search.trim()
+  let sort = params.sort
+  if (searching && !wasSearching) {
+    sort = undefined
+  } else if (!searching && sort === CatalogSort.BestMatch) {
+    sort = undefined
+  }
+  return { ...params, search, sort }
 }
 
 /** The GraphQL filter for the params. */

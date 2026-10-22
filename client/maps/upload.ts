@@ -1,6 +1,7 @@
 import { DEFAULT_MAX_FILE_SIZE_BYTES, FilesErrorCode } from '../../common/files'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { fetchJson } from '../network/fetch'
+import { postFormWithProgress } from '../network/upload-with-progress'
 
 const ipcRenderer = new TypedIpcRenderer()
 
@@ -35,14 +36,15 @@ export async function upload<T>(
 
 /**
  * Uploads a file the user picked or dropped (rather than one read from disk by path), so it works
- * outside the app too.
+ * outside the app too. `onProgress` is called with the fraction of the file sent so far.
  */
 export async function uploadFile<T>(
   file: File,
   apiPath: string,
   maxFileSize: number = DEFAULT_MAX_FILE_SIZE_BYTES,
+  onProgress?: (fraction: number) => void,
 ): Promise<T> {
-  return uploadBlob(file, getExtension(file.name), apiPath, maxFileSize)
+  return uploadBlob(file, getExtension(file.name), apiPath, maxFileSize, onProgress)
 }
 
 async function uploadBlob<T>(
@@ -50,6 +52,7 @@ async function uploadBlob<T>(
   extension: string,
   apiPath: string,
   maxFileSize: number,
+  onProgress?: (fraction: number) => void,
 ): Promise<T> {
   if (blob.size > maxFileSize) {
     throw new ClientSideUploadError(
@@ -62,6 +65,9 @@ async function uploadBlob<T>(
   formData.append('extension', extension)
   formData.append('file', blob)
 
+  if (onProgress) {
+    return postFormWithProgress<T>(apiPath, formData, onProgress)
+  }
   const fetchParams = {
     method: 'post',
     body: formData,

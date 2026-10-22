@@ -344,51 +344,6 @@ export async function getMaps({
 }
 
 /**
- * Retrieves the list of favorited maps for a user. Favorites are kept regardless of whether the map
- * is listed or in the user's own maps.
- */
-export async function getFavoritedMaps({
-  favoritedBy,
-  sort,
-  numPlayers,
-  tilesets,
-  searchStr,
-}: {
-  favoritedBy: SbUserId
-  sort: MapSortType
-  numPlayers: NumPlayers[]
-  tilesets: Tileset[]
-  searchStr?: string
-}): Promise<MapInfo[]> {
-  const conditions = [sql`WHERE fm.favorited_by = ${favoritedBy}`]
-
-  const whereCondition = getWhereCondition(conditions, numPlayers, tilesets, searchStr)
-  const orderByStatement = getOrderByStatement(sort)
-
-  const query = sql`
-    WITH favorited AS (
-      SELECT ${MAP_INFO_COLUMNS}, fm.favorited_date AS sort_date
-      FROM favorited_maps AS fm
-      INNER JOIN maps AS m
-      ON fm.map_id = m.id
-      ${whereCondition}
-    )
-    SELECT *
-    FROM favorited
-    ${orderByStatement}
-  `
-
-  const { client, done } = await db()
-  try {
-    const result = await client.query<DbMapInfo>(query)
-    // NOTE(tec27): no need to await this because it doesn't utilize the client
-    return Promise.all(result.rows.map(info => createMapInfo(info)))
-  } finally {
-    done()
-  }
-}
-
-/**
  * Takes in a list of map IDs and returns only those that are favorited by a particular user.
  */
 export async function getFavoritedFromMapIds(
