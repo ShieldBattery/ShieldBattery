@@ -1882,7 +1882,8 @@ pub fn knobs_ui(k: &mut Knobs, state: &State, ui: &mut egui::Ui) -> bool {
     changed |= ui
         .checkbox(&mut k.selection_spells, "selection under spells")
         .on_hover_text(
-            "Puts a parasite, a hallucination and an optical flare on the selection's units in              turn, which marks or fades their tiles.",
+            "Puts a parasite, a hallucination and an optical flare on the selection's units in \
+             turn, which marks or fades their tiles.",
         )
         .changed();
     changed |= ui
