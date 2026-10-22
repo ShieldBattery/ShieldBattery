@@ -131,16 +131,21 @@ fn draw_bar(ui: &mut Ui, view: &MapControlView, width: f32) {
     // What the share measures, for the watcher wondering what "control" is counted in: it is the
     // map in sight rather than anything held, and saying so keeps the number honest.
     if let Some(pointer) = response.hover_pos() {
-        widgets::tooltip(ui.ctx(), Id::new("sb_map_control_hint"), pointer, |ui| {
-            ui.label(
-                text::body(12.0, text::BodyWeight::Regular)
-                    .with_color(theme::TEXT_SECONDARY)
-                    .job(&tr!(
-                        "observer.mapControlHint",
-                        "Share of the map each side has in sight"
-                    )),
-            );
-        });
+        widgets::tooltip(
+            ui.ctx(),
+            Id::new("sb_map_control_hint"),
+            crate::kit::surfaces::global(ui.ctx(), ui.layer_id(), pointer),
+            |ui| {
+                ui.label(
+                    text::body(12.0, text::BodyWeight::Regular)
+                        .with_color(theme::TEXT_SECONDARY)
+                        .job(&tr!(
+                            "observer.mapControlHint",
+                            "Share of the map each side has in sight"
+                        )),
+                );
+            },
+        );
     }
     let corner_radius = theme::radius(theme::RADIUS_PANEL);
     ui.painter()

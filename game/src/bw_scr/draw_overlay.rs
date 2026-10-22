@@ -76,8 +76,8 @@ pub struct OverlayState {
     /// Where the replaced native dialogs stood when the shell was last told, so it hears about a
     /// spawn or a delete exactly once.
     native_dialogs_seen: [ReplacedDialogState; NativeDialog::ALL.len()],
-    /// The minimap dialog's rect, in BW's dialog coordinates, as last logged.
-    logged_minimap_area: Option<(i16, i16, i16, i16)>,
+    /// Natural native geometry, retained while an observer moves or scales the minimap.
+    minimap_layout: console::ObserverMinimapLayout,
     /// The chat log the last frame handed the shell, kept only while its modal is on screen.
     chat_history: Option<ChatHistoryCache>,
     /// The observer panels the last frame handed the shell, kept while the client is watching.
@@ -172,6 +172,18 @@ struct UiRect {
     area: Rect,
     /// Currently and probably forever only true for the debug window.
     capture_mouse_scroll: bool,
+    layout_only: bool,
+}
+
+impl UiRect {
+    fn contains_pointer(&self, pos: Pos2) -> bool {
+        overlay_ui::shell::HitRect {
+            rect: self.area,
+            captures_scroll: self.capture_mouse_scroll,
+            layout_only: self.layout_only,
+        }
+        .contains_pointer(pos, current_egui_modifiers())
+    }
 }
 
 /// Where the game's own replay controls plate is nudged to, which is the one piece of BW's
@@ -420,9 +432,6 @@ pub const OVERLAY_DRAW_LAYER: u16 = 0x6100;
 /// negative.
 pub const SOFTWARE_CURSOR_DRAW_LAYER: u16 = OVERLAY_DRAW_LAYER + 0x100;
 
-/// The id of the control in BW's minimap dialog that the map itself is drawn in.
-const MINIMAP_MAP_CONTROL: i16 = 1;
-
 impl OverlayState {
     pub fn new() -> OverlayState {
         let ctx = egui::Context::default();
@@ -443,7 +452,7 @@ impl OverlayState {
             shell: Shell::new(),
             capture: InputCapture::PASS_THROUGH,
             native_dialogs_seen: [ReplacedDialogState::default(); NativeDialog::ALL.len()],
-            logged_minimap_area: None,
+            minimap_layout: console::ObserverMinimapLayout::default(),
             end_card: None,
             out_state: OutState {
                 replay_visions: 0,
@@ -823,6 +832,7 @@ impl OverlayState {
                     self.ui_rects.push(UiRect {
                         area: hit.rect,
                         capture_mouse_scroll: hit.captures_scroll,
+                        layout_only: hit.layout_only,
                     });
                 }
                 let debug = cfg!(debug_assertions);
@@ -867,8 +877,12 @@ impl OverlayState {
             }
         }
         self.let_out_look_at(bw.game.frame_count());
+        self.apply_minimap_layout(bw, frame_output.minimap_rect);
         let prefs = *self.shell.panel_prefs();
-        let observer_panels_changed = (self.saved_observer_panels != Some(prefs)).then(|| {
+        // Dragging updates placement every frame; persist only after the pointer is released.
+        let observer_panels_changed = (self.saved_observer_panels != Some(prefs)
+            && !self.ctx.input(|input| input.pointer.any_down()))
+        .then(|| {
             self.saved_observer_panels = Some(prefs);
             prefs
         });
@@ -884,7 +898,7 @@ impl OverlayState {
             show_hide_graphic_layer: self.out_state.show_hide_graphic_layer,
             // A watcher keeps only the minimap of the console; a player always has all of it.
             console_visible: !bw.is_replay_or_obs,
-            minimap_visible: !bw.is_replay_or_obs || prefs.minimap,
+            minimap_visible: !bw.is_replay_or_obs || (prefs.minimap && !prefs.minimap_collapsed),
             command_panel_visible: !frame_output.transport_shown,
             replay_commands,
             game_commands,
@@ -928,69 +942,34 @@ impl OverlayState {
         changed
     }
 
-    /// Where BW's minimap square is on screen, in overlay points, while its dialog is up.
-    ///
-    /// The square is the control the map is drawn in. Without that control, it is taken from the
-    /// dialog's own rect, which carries the strip of buttons above the map as well as the map: as
-    /// wide as the dialog, and as tall as it is wide, from its bottom.
-    /// The rect is logged whenever it moves, children and all, which is what to check the square
-    /// against when a layout of the game's puts the minimap somewhere new.
+    /// The native minimap's natural square, independent of the observer's saved placement.
     fn minimap_rect(&mut self, bw: &BwVars) -> Option<Rect> {
-        let dialog = bw::iter_dialogs(bw.dialogs.first())
-            .find(|dialog| dialog.as_control().string() == console::MINIMAP_DIALOG)?;
-        let control = dialog.as_control();
-        if control.is_hidden() {
-            return None;
-        }
-        let area = control.screen_coords();
-        if self.logged_minimap_area != Some((area.left, area.top, area.right, area.bottom)) {
-            self.logged_minimap_area = Some((area.left, area.top, area.right, area.bottom));
-            let children = dialog
-                .children()
-                .map(|child| {
-                    let rect = child.dialog_coords();
-                    format!(
-                        "{} ({:#x}) {},{}-{},{}{}",
-                        child.id(),
-                        child.control_type(),
-                        rect.left,
-                        rect.top,
-                        rect.right,
-                        rect.bottom,
-                        if child.is_hidden() { " hidden" } else { "" },
-                    )
-                })
-                .collect::<Vec<_>>();
-            debug!(
-                "Minimap dialog at {},{}-{},{}; controls {}",
-                area.left,
-                area.top,
-                area.right,
-                area.bottom,
-                children.join(", ")
-            );
-        }
-        // The map is drawn in a control of its own, inset from the dialog's edges: with the console
-        // art hidden, the dialog's margin around it is see-through, so the square is the control's.
-        if let Some(map) = dialog.child_by_id(MINIMAP_MAP_CONTROL) {
-            let area = map.screen_coords();
-            let min = self.bw_dialog_point_to_egui(area.left, area.top);
-            let max = self.bw_dialog_point_to_egui(area.right, area.bottom);
-            if max.x > min.x && max.y > min.y {
-                return Some(Rect::from_min_max(min, max));
-            }
-        }
+        let area = unsafe { self.minimap_layout.natural_square(bw.dialogs.first()) }?;
         let min = self.bw_dialog_point_to_egui(area.left, area.top);
         let max = self.bw_dialog_point_to_egui(area.right, area.bottom);
-        let width = max.x - min.x;
-        if width <= 0.0 || max.y <= min.y {
-            return None;
+        (max.x > min.x && max.y > min.y).then(|| Rect::from_min_max(min, max))
+    }
+
+    fn apply_minimap_layout(&mut self, bw: &BwVars, target: Option<Rect>) {
+        let prefs = self.shell.panel_prefs().windows.minimap;
+        let desired = target
+            .filter(|_| bw.is_replay_or_obs && prefs.position.is_some())
+            .and_then(|rect| {
+                let units = 480.0 / self.screen_size.1 as f32;
+                let left = (rect.left() * units).round() as i32;
+                let top = (rect.top() * units).round() as i32;
+                let width = (rect.width() * units).round() as i32;
+                let height = (rect.height() * units).round() as i32;
+                Some(bw::Rect {
+                    left: i16::try_from(left).ok()?,
+                    top: i16::try_from(top).ok()?,
+                    right: i16::try_from(left.checked_add(width)?).ok()?,
+                    bottom: i16::try_from(top.checked_add(height)?).ok()?,
+                })
+            });
+        unsafe {
+            self.minimap_layout.apply(bw.dialogs.first(), desired);
         }
-        let side = width.min(max.y - min.y);
-        Some(Rect::from_min_max(
-            pos2(min.x, max.y - side),
-            pos2(max.x, max.y),
-        ))
     }
 
     fn bw_dialog_coords_max_x(&self) -> f32 {
@@ -1397,6 +1376,7 @@ impl OverlayState {
             self.ui_rects.push(UiRect {
                 area: res.response.rect,
                 capture_mouse_scroll,
+                layout_only: false,
             });
         }
     }
@@ -1422,7 +1402,7 @@ impl OverlayState {
         let mouse_on_ui = self
             .ui_rects
             .iter()
-            .any(|rect| rect.area.contains(self.last_mouse_pos.1));
+            .any(|rect| rect.contains_pointer(self.last_mouse_pos.1));
         if mouse_on_ui {
             return Some(BwCursorType::Arrow);
         }
@@ -1491,7 +1471,7 @@ impl OverlayState {
                     let y = (lparam >> 16) as i16;
                     let pos = self.window_pos_to_egui(x as i32, y as i32);
                     let handle = if pressed {
-                        self.ui_rects.iter().any(|x| x.area.contains(pos))
+                        self.ui_rects.iter().any(|x| x.contains_pointer(pos))
                     } else {
                         self.captured_mouse_down[button_idx]
                     };
@@ -1515,13 +1495,7 @@ impl OverlayState {
                         pos,
                         button,
                         pressed,
-                        modifiers: egui::Modifiers {
-                            alt: GetKeyState(VK_MENU) & 1 != 0,
-                            ctrl: wparam & MK_CONTROL != 0,
-                            shift: wparam & MK_SHIFT != 0,
-                            mac_cmd: false,
-                            command: wparam & MK_CONTROL != 0,
-                        },
+                        modifiers: current_egui_modifiers(),
                     });
                     Some(0)
                 }

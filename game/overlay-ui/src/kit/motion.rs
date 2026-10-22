@@ -3,7 +3,6 @@
 //! Everything animated here is driven from egui's own clock, so a host that steps time forward
 //! (an offline render, a test) sees the same motion a live frame does.
 
-use egui::emath::TSTransform;
 use egui::{Area, Context, Id, InnerResponse, Ui, Vec2, vec2};
 
 use crate::kit::theme;
@@ -79,13 +78,20 @@ pub fn presence_area_along<R>(
     add: impl FnOnce(&mut Ui) -> R,
 ) -> Option<InnerResponse<R>> {
     let presence = enter_exit(ctx, id, shown)?;
+    let area = match super::surfaces::config(ctx, area.layer().id) {
+        Some(config) => area.movable(false).enabled(!config.blocked),
+        None => area,
+    };
     let inner = area.show(ctx, |ui| {
         presence.apply_fade(ui);
         add(ui)
     });
-    ctx.set_transform_layer(
+    super::surfaces::transform(
+        ctx,
         inner.response.layer_id,
-        TSTransform::from_translation(presence.offset(slide)),
+        inner.response.rect,
+        presence.offset(slide),
+        shown,
     );
     Some(inner)
 }

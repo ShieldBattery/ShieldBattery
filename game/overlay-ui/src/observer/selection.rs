@@ -1021,52 +1021,57 @@ fn draw_upgrade_hint(ui: &Ui, pointer: Pos2, upgrade: &UnitUpgradeView) {
                 .job(line),
         );
     };
-    widgets::tooltip(ui.ctx(), Id::new("sb_upgrade_chip_hint"), pointer, |ui| {
-        ui.spacing_mut().item_spacing = vec2(0.0, theme::SPACE_XS);
-        if let Some(name) = &upgrade.name {
-            ui.label(text::body(13.0, text::BodyWeight::Medium).job(name));
-        }
-        detail(
-            ui,
-            &tr!(
-                "observer.researchLevel",
-                "Level {{level}}",
-                level = upgrade.level
-            ),
-        );
-        match &upgrade.effect {
-            UpgradeEffect::Armor { base, bonus } => detail(
+    widgets::tooltip(
+        ui.ctx(),
+        Id::new("sb_upgrade_chip_hint"),
+        crate::kit::surfaces::global(ui.ctx(), ui.layer_id(), pointer),
+        |ui| {
+            ui.spacing_mut().item_spacing = vec2(0.0, theme::SPACE_XS);
+            if let Some(name) = &upgrade.name {
+                ui.label(text::body(13.0, text::BodyWeight::Medium).job(name));
+            }
+            detail(
                 ui,
                 &tr!(
-                    "observer.upgradeArmor",
-                    "Armor {{value}}",
-                    value = upgraded_value(*base, *bonus, 1)
+                    "observer.researchLevel",
+                    "Level {{level}}",
+                    level = upgrade.level
                 ),
-            ),
-            UpgradeEffect::Shields => {}
-            UpgradeEffect::Damage(weapons) => {
-                for weapon in weapons {
-                    if weapons.len() > 1
-                        && let Some(name) = &weapon.name
-                    {
-                        ui.label(
-                            text::body(12.0, text::BodyWeight::Medium)
-                                .with_color(theme::TEXT_DIM)
-                                .job(name),
+            );
+            match &upgrade.effect {
+                UpgradeEffect::Armor { base, bonus } => detail(
+                    ui,
+                    &tr!(
+                        "observer.upgradeArmor",
+                        "Armor {{value}}",
+                        value = upgraded_value(*base, *bonus, 1)
+                    ),
+                ),
+                UpgradeEffect::Shields => {}
+                UpgradeEffect::Damage(weapons) => {
+                    for weapon in weapons {
+                        if weapons.len() > 1
+                            && let Some(name) = &weapon.name
+                        {
+                            ui.label(
+                                text::body(12.0, text::BodyWeight::Medium)
+                                    .with_color(theme::TEXT_DIM)
+                                    .job(name),
+                            );
+                        }
+                        detail(
+                            ui,
+                            &tr!(
+                                "observer.upgradeDamage",
+                                "Damage {{value}}",
+                                value = upgraded_value(weapon.base, weapon.bonus, weapon.hits)
+                            ),
                         );
                     }
-                    detail(
-                        ui,
-                        &tr!(
-                            "observer.upgradeDamage",
-                            "Damage {{value}}",
-                            value = upgraded_value(weapon.base, weapon.bonus, weapon.hits)
-                        ),
-                    );
                 }
             }
-        }
-    });
+        },
+    );
 }
 
 /// Writes a figure the way the game's own tooltips write one: what the unit has of its own, then

@@ -163,6 +163,7 @@
   },
   "observer": {
     "apm": "APM",
+    "closeWindow": "Close window",
     "columnArmy": "Army",
     "columnArmyValue": "Army value",
     "columnGas": "Gas",
@@ -207,6 +208,7 @@
     "liveTag": "Live",
     "mapControl": "Map control",
     "mapControlHint": "Share of the map each side has in sight",
+    "minimapCollapseHint": "Collapse or expand minimap",
     "minimapMenu": "Menu",
     "minimapVision": "Vision",
     "minimapVisionTitle": "Vision",
@@ -235,7 +237,8 @@
     "timelineEmpty": "Nothing has happened yet",
     "underConstruction": "Under construction",
     "upgradeArmor": "Armor {{value}}",
-    "upgradeDamage": "Damage {{value}}"
+    "upgradeDamage": "Damage {{value}}",
+    "windowHint": "Click to collapse or expand. Alt-drag to move. Alt-right-click to reset position."
   },
   "options": {
     "announcer": "Announcer",

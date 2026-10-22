@@ -61,6 +61,95 @@ fn header(ui: &mut Ui, title: &str, hotkey: Option<&str>, closable: bool) -> (Re
     (row.response, row.inner)
 }
 
+/// The title's click/drag target and the independent close button.
+pub struct WindowHeader {
+    pub title: Response,
+    pub closed: bool,
+}
+
+/// An interactive title row. The shortcut badge becomes a close icon under the pointer.
+pub fn window_header(
+    ui: &mut Ui,
+    title: &str,
+    hotkey: Option<&str>,
+    collapsed: bool,
+) -> WindowHeader {
+    let size = hotkey.map_or(vec2(20.0, 20.0), |key| super::kbd_size(ui, key));
+    let (row, _) = ui.allocate_exact_size(
+        vec2(ui.available_width(), size.y.max(HEADER_HEIGHT)),
+        Sense::hover(),
+    );
+    let close_rect =
+        egui::Rect::from_center_size(pos2(row.right() - size.x * 0.5, row.center().y), size);
+    let close = window_close_button(ui, close_rect, hotkey);
+    let title_rect = egui::Rect::from_min_max(
+        row.min,
+        pos2(close_rect.left() - theme::SPACE_SM, row.bottom()),
+    );
+    let response = ui.interact(title_rect, ui.id().with("window_title"), Sense::click());
+    let center = pos2(title_rect.left() + 5.0, title_rect.center().y);
+    let points = if collapsed {
+        vec![
+            center + vec2(-2.0, -4.0),
+            center + vec2(2.0, 0.0),
+            center + vec2(-2.0, 4.0),
+        ]
+    } else {
+        vec![
+            center + vec2(-4.0, -2.0),
+            center + vec2(0.0, 2.0),
+            center + vec2(4.0, -2.0),
+        ]
+    };
+    ui.painter().add(Shape::line(
+        points,
+        Stroke::new(theme::HAIRLINE + 0.4, theme::TEXT_DIM),
+    ));
+    let galley = text::panel_title().galley(ui, title);
+    ui.painter().galley(
+        pos2(
+            title_rect.left() + 16.0,
+            row.center().y - galley.size().y * 0.5,
+        ),
+        galley,
+        theme::TEXT_LABEL,
+    );
+    state_overlay(
+        ui,
+        &response,
+        title_rect,
+        theme::radius(theme::RADIUS_TIGHT),
+    );
+    response.clone().on_hover_text(crate::tr!(
+        "observer.windowHint",
+        "Click to collapse or expand. Alt-drag to move. Alt-right-click to reset position."
+    ));
+    ui.add_space(theme::SPACE_XS);
+    divider(ui);
+    ui.add_space(theme::SPACE_SM);
+    WindowHeader {
+        title: response,
+        closed: close.clicked(),
+    }
+}
+
+/// A shortcut badge that becomes a close button on hover, without changing its hit target.
+pub fn window_close_button(ui: &mut Ui, rect: egui::Rect, hotkey: Option<&str>) -> Response {
+    let close = ui.interact(rect, ui.id().with("window_close"), Sense::click());
+    if close.hovered() || close.is_pointer_button_down_on() || hotkey.is_none() {
+        let arm = rect.shrink(6.0);
+        let stroke = Stroke::new(theme::HAIRLINE + 0.4, theme::TEXT_PRIMARY);
+        ui.painter()
+            .line_segment([arm.left_top(), arm.right_bottom()], stroke);
+        ui.painter()
+            .line_segment([arm.right_top(), arm.left_bottom()], stroke);
+        state_overlay(ui, &close, rect, theme::radius(theme::RADIUS_TIGHT));
+    } else if let Some(key) = hotkey {
+        super::paint_kbd(ui, rect, key);
+    }
+    close.on_hover_text(crate::tr!("observer.closeWindow", "Close window"))
+}
+
 /// A hairline across the panel, for separating groups of rows.
 pub fn divider(ui: &mut Ui) {
     let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), 1.0), Sense::hover());

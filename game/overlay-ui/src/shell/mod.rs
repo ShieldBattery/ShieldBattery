@@ -23,6 +23,7 @@
 
 mod capture;
 pub mod hotkeys;
+mod layout_controls;
 mod modals;
 pub mod native_dialogs;
 mod observer_panels;
@@ -235,6 +236,8 @@ pub struct HitRect {
     /// to do with it. A scrolling list whose host keeps the wheel can be moved only by dragging its
     /// scrollbar.
     pub captures_scroll: bool,
+    /// Captures only Alt gestures, leaving ordinary map clicks to the game.
+    pub layout_only: bool,
 }
 
 impl HitRect {
@@ -243,7 +246,23 @@ impl HitRect {
         HitRect {
             rect,
             captures_scroll: false,
+            layout_only: false,
         }
+    }
+
+    pub fn move_only(rect: Rect) -> HitRect {
+        HitRect {
+            rect,
+            captures_scroll: false,
+            layout_only: true,
+        }
+    }
+
+    pub fn contains_pointer(self, pos: egui::Pos2, modifiers: Modifiers) -> bool {
+        if !self.layout_only {
+            return self.rect.contains(pos);
+        }
+        modifiers.alt && self.rect.contains(pos)
     }
 
     /// A rect that takes the wheel too, because something inside it scrolls.
@@ -251,6 +270,7 @@ impl HitRect {
         HitRect {
             rect,
             captures_scroll: true,
+            layout_only: false,
         }
     }
 }
@@ -267,6 +287,8 @@ pub struct FrameOutput {
     /// Whether the overlay's replay transport is on screen, which is exactly when the game's own
     /// replay plate must not be. Stays true through the plate's exit, so the two never overlap.
     pub transport_shown: bool,
+    /// Target for the native minimap image and its camera click region.
+    pub minimap_rect: Option<Rect>,
 }
 
 /// The overlay's per-frame state machine. See the module docs.
@@ -281,6 +303,7 @@ pub struct Shell {
     replay: ReplayCommands,
     /// Where the observer panels stood and what the watcher had open on them.
     observer: ObserverPanels,
+    layout_controls: layout_controls::LayoutControls,
     /// The key holding a hold-to-confirm button, and the modal the button is on, from a press made
     /// while that modal was on top until the key comes up (see [`Shell::update_held_keys`]).
     held_button_key: Option<(ModalId, Key)>,
@@ -322,6 +345,7 @@ impl Shell {
             host: HostFrame::default(),
             replay: ReplayCommands::default(),
             observer: ObserverPanels::default(),
+            layout_controls: layout_controls::LayoutControls::default(),
             held_button_key: None,
             end_card_key: None,
             options: OptionsView::default(),
@@ -588,6 +612,13 @@ impl Shell {
             self.host_options = Some(options);
         }
 
+        let layout_enabled = self.host.mode.is_spectating()
+            && self.host.game_started
+            && !self.host.native_textbox_open
+            && !self.host.native_menu_open
+            && self.top_modal().is_none();
+        self.layout_controls
+            .begin(ctx, &mut self.prefs.windows, layout_enabled);
         let mut hit_rects = Vec::new();
         // The ambient layer is drawn before the modal layer so the scrim covers it. The diagnostic
         // network-stats panel is not gated on the mode: nothing puts it on screen but the chat
@@ -631,6 +662,10 @@ impl Shell {
             None => false,
         };
 
+        let minimap_rect = self
+            .layout_controls
+            .finish(ctx, &mut hit_rects, self.host.minimap_rect);
+
         // Taken whether or not a card is drawn to take it: a choice made for a card that has since
         // gone is not one to carry over to the next.
         let end_card_key = self.end_card_key.take();
@@ -670,6 +705,7 @@ impl Shell {
             hit_rects,
             capture: self.capture(),
             transport_shown,
+            minimap_rect,
         }
     }
 

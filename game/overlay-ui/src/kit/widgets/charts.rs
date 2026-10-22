@@ -353,77 +353,85 @@ fn hover_card(
     rows.sort_by(|left, right| right.1.total_cmp(&left.1));
     let time = mmss(hover.seconds(span_secs));
 
-    tooltip(ui.ctx(), id, hover.pointer, |ui| {
-        let header = text::numeral(11.0)
-            .with_color(theme::TEXT_DIM)
-            .galley(ui, &time);
-        let laid: Vec<_> = rows
-            .iter()
-            .map(|(line, value, nearest)| {
-                // Only the line the pointer is nearest is spelled out at full strength: five rows
-                // of primary text would be five things shouting, and the one being asked about
-                // would be none of them.
-                let color = match nearest {
-                    true => theme::TEXT_PRIMARY,
-                    false => theme::TEXT_SECONDARY,
-                };
-                (
-                    line.color,
-                    text::body(12.0, BodyWeight::Medium)
-                        .with_color(color)
-                        .galley(ui, line.label),
-                    text::numeral(12.0)
-                        .with_color(color)
-                        .galley(ui, &short_number(*value)),
-                )
-            })
-            .collect();
-        let labels = laid
-            .iter()
-            .map(|(_, label, _)| label.size().x)
-            .fold(0.0, f32::max);
-        let values = laid
-            .iter()
-            .map(|(_, _, value)| value.size().x)
-            .fold(0.0, f32::max);
-        let width =
-            (SWATCH.x + theme::SPACE_SM + labels + HOVER_VALUE_GAP + values).max(header.size().x);
+    tooltip(
+        ui.ctx(),
+        id,
+        crate::kit::surfaces::global(ui.ctx(), ui.layer_id(), hover.pointer),
+        |ui| {
+            let header = text::numeral(11.0)
+                .with_color(theme::TEXT_DIM)
+                .galley(ui, &time);
+            let laid: Vec<_> = rows
+                .iter()
+                .map(|(line, value, nearest)| {
+                    // Only the line the pointer is nearest is spelled out at full strength: five rows
+                    // of primary text would be five things shouting, and the one being asked about
+                    // would be none of them.
+                    let color = match nearest {
+                        true => theme::TEXT_PRIMARY,
+                        false => theme::TEXT_SECONDARY,
+                    };
+                    (
+                        line.color,
+                        text::body(12.0, BodyWeight::Medium)
+                            .with_color(color)
+                            .galley(ui, line.label),
+                        text::numeral(12.0)
+                            .with_color(color)
+                            .galley(ui, &short_number(*value)),
+                    )
+                })
+                .collect();
+            let labels = laid
+                .iter()
+                .map(|(_, label, _)| label.size().x)
+                .fold(0.0, f32::max);
+            let values = laid
+                .iter()
+                .map(|(_, _, value)| value.size().x)
+                .fold(0.0, f32::max);
+            let width = (SWATCH.x + theme::SPACE_SM + labels + HOVER_VALUE_GAP + values)
+                .max(header.size().x);
 
-        ui.spacing_mut().item_spacing = vec2(0.0, theme::SPACE_XS);
-        let (rect, _) = ui.allocate_exact_size(vec2(width, header.size().y), Sense::hover());
-        let color = theme::TEXT_DIM;
-        ui.painter().galley(rect.left_top(), header, color);
-        for (swatch, label, value) in laid {
-            let height = label.size().y.max(value.size().y);
-            let (rect, _) = ui.allocate_exact_size(vec2(width, height), Sense::hover());
-            let painter = ui.painter();
-            painter.rect_filled(
-                Rect::from_center_size(pos2(rect.left() + SWATCH.x * 0.5, rect.center().y), SWATCH),
-                0,
-                swatch,
-            );
-            let left = rect.left() + SWATCH.x + theme::SPACE_SM;
-            let middle = rect.center().y;
-            painter.galley(
-                pos2(left, middle - label.size().y * 0.5),
-                label,
-                theme::TEXT_SECONDARY,
-            );
-            painter.galley(
-                pos2(rect.right() - value.size().x, middle - value.size().y * 0.5),
-                value,
-                theme::TEXT_SECONDARY,
-            );
-        }
-        if let Some(hint) = click_hint {
-            ui.add_space(theme::SPACE_XS);
-            ui.label(
-                text::body(12.0, BodyWeight::Regular)
-                    .with_color(theme::TEXT_DIM)
-                    .job(hint),
-            );
-        }
-    });
+            ui.spacing_mut().item_spacing = vec2(0.0, theme::SPACE_XS);
+            let (rect, _) = ui.allocate_exact_size(vec2(width, header.size().y), Sense::hover());
+            let color = theme::TEXT_DIM;
+            ui.painter().galley(rect.left_top(), header, color);
+            for (swatch, label, value) in laid {
+                let height = label.size().y.max(value.size().y);
+                let (rect, _) = ui.allocate_exact_size(vec2(width, height), Sense::hover());
+                let painter = ui.painter();
+                painter.rect_filled(
+                    Rect::from_center_size(
+                        pos2(rect.left() + SWATCH.x * 0.5, rect.center().y),
+                        SWATCH,
+                    ),
+                    0,
+                    swatch,
+                );
+                let left = rect.left() + SWATCH.x + theme::SPACE_SM;
+                let middle = rect.center().y;
+                painter.galley(
+                    pos2(left, middle - label.size().y * 0.5),
+                    label,
+                    theme::TEXT_SECONDARY,
+                );
+                painter.galley(
+                    pos2(rect.right() - value.size().x, middle - value.size().y * 0.5),
+                    value,
+                    theme::TEXT_SECONDARY,
+                );
+            }
+            if let Some(hint) = click_hint {
+                ui.add_space(theme::SPACE_XS);
+                ui.label(
+                    text::body(12.0, BodyWeight::Regular)
+                        .with_color(theme::TEXT_DIM)
+                        .job(hint),
+                );
+            }
+        },
+    );
 }
 
 /// Which of `count` samples spread evenly across `plot` sits nearest `pointer_x`.

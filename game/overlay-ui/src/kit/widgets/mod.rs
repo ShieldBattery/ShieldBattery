@@ -35,9 +35,9 @@ pub use menus::{
     dropdown_button, icon_button, menu_separator, paint_glyph, popup_menu,
 };
 pub use panels::{
-    PANEL_HEADER_HEIGHT, STATUS_DOT_DIAMETER, TagStyle, centered_paragraph, divider, panel_header,
-    panel_header_with_close, pulsing_dots, stat_row, status_dot, tag, tag_exact, tag_height,
-    tag_sized, text_cell,
+    PANEL_HEADER_HEIGHT, STATUS_DOT_DIAMETER, TagStyle, WindowHeader, centered_paragraph, divider,
+    panel_header, panel_header_with_close, pulsing_dots, stat_row, status_dot, tag, tag_exact,
+    tag_height, tag_sized, text_cell, window_close_button, window_header,
 };
 pub use tooltip::{tooltip, tooltip_above};
 

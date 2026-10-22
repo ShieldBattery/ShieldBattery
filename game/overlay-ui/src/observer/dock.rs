@@ -327,7 +327,11 @@ impl Hint {
     /// The hint `response` asks for, or nothing while the pointer is elsewhere.
     fn hovered(response: &Response, title: String, key: Option<&str>) -> Option<Hint> {
         Some(Hint {
-            anchor: response.hover_pos()?,
+            anchor: crate::kit::surfaces::global(
+                &response.ctx,
+                response.layer_id,
+                response.hover_pos()?,
+            ),
             title,
             key: key.map(str::to_string),
             displaced: false,

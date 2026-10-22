@@ -6,6 +6,7 @@
 
 pub mod motion;
 pub mod pixels;
+pub(crate) mod surfaces;
 pub mod text;
 pub mod theme;
 pub mod tiers;

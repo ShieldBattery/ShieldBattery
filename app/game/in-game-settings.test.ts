@@ -79,6 +79,38 @@ describe('app/game/in-game-settings', () => {
     ).toEqual(['observerPanels'])
   })
 
+  test('saves observer window layouts and rejects malformed values', () => {
+    const windows = {
+      economy: { collapsed: false, position: [120, 240] },
+      graphs: { collapsed: true, position: null },
+      timeline: { collapsed: false, position: [24, 48] },
+    }
+    const panels = { economy: true, windows }
+    expect(readInGameSettingsChange({ local: { observerPanels: panels } }).change.local).toEqual({
+      observerPanels: panels,
+    })
+    for (const position of [
+      [1],
+      [1, 2, 3],
+      [NaN, 0],
+      [Infinity, 0],
+      [1.5, 0],
+      ['1', 0],
+      [2 ** 32, 0],
+    ]) {
+      const observerPanels = { windows: { economy: { collapsed: false, position } } }
+      expect(readInGameSettingsChange({ local: { observerPanels } }).rejected).toEqual([
+        'observerPanels',
+      ])
+    }
+    for (const layout of [null, [], { collapsed: 'true', position: null }]) {
+      expect(
+        readInGameSettingsChange({ local: { observerPanels: { windows: { economy: layout } } } })
+          .rejected,
+      ).toEqual(['observerPanels'])
+    }
+  })
+
   test('tolerates a payload missing either half', () => {
     expect(readInGameSettingsChange(undefined).change).toEqual({ local: {}, scr: {} })
     expect(readInGameSettingsChange({ scr: 'nope' }).change).toEqual({ local: {}, scr: {} })

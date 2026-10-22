@@ -80,6 +80,8 @@ pub struct MinimapFrameOutcome {
     pub open_menu: bool,
     /// Whether the list of players is to be open next frame.
     pub picker_open: bool,
+    pub toggle_collapsed: bool,
+    pub closed: bool,
 }
 
 /// Draws the frame around a minimap at `square`, fading it in and out with the minimap, with the
@@ -89,32 +91,51 @@ pub fn render_minimap_frame(
     ctx: &Context,
     square: Rect,
     shown: bool,
+    collapsed: bool,
     players: &[MatchupPlayerView],
     picker_open: bool,
 ) -> Option<MinimapFrameOutcome> {
     let screen = ctx.viewport_rect();
-    let outer = footprint(screen, square);
+    let mut outer = footprint(screen, square);
     let header = Rect::from_min_max(
         outer.left_top(),
         pos2(outer.right(), outer.top() + HEADER_HEIGHT),
     );
+    if collapsed {
+        outer.max.y = header.bottom();
+    }
     let id = Id::new("sb_minimap_frame");
     let area = Area::new(id)
         .fixed_pos(outer.left_top())
         .order(Order::Foreground);
     let inner = motion::presence_area(ctx, id.with("presence"), shown, area, |ui| {
-        paint_frame(ui, outer, square, header);
-        draw_header(ui, header, picker_open)
+        ui.set_min_size(outer.size());
+        paint_frame(ui, outer, square, header, collapsed);
+        draw_header(ui, header, picker_open, collapsed)
     })?;
-    let (vision, menu) = inner.inner;
+    let MinimapHeader {
+        vision,
+        menu,
+        collapse,
+        close,
+    } = inner.inner;
+    let transform = ctx
+        .layer_transform_to_global(inner.response.layer_id)
+        .unwrap_or_default();
     let mut outcome = MinimapFrameOutcome {
-        rects: vec![header],
+        rects: vec![transform * header],
         toggled_vision: None,
         open_menu: menu.clicked(),
         picker_open: picker_open != vision.clicked(),
+        toggle_collapsed: collapse.clicked(),
+        closed: close.clicked(),
     };
     if picker_open && shown {
-        let picker = draw_picker(ctx, vision.rect, players, &mut outcome);
+        let button = ctx
+            .layer_transform_to_global(vision.layer_id)
+            .unwrap_or_default()
+            * vision.rect;
+        let picker = draw_picker(ctx, button, players, &mut outcome);
         // A press anywhere but on the list and the button that opened it closes the list, the way
         // any popover closes: the watcher has moved on to something else.
         let pressed_elsewhere = ctx.input(|input| {
@@ -122,7 +143,7 @@ pub fn render_minimap_frame(
                 && input
                     .pointer
                     .interact_pos()
-                    .is_some_and(|pos| !picker.contains(pos) && !vision.rect.contains(pos))
+                    .is_some_and(|pos| !picker.contains(pos) && !button.contains(pos))
         });
         if pressed_elsewhere {
             outcome.picker_open = false;
@@ -134,14 +155,16 @@ pub fn render_minimap_frame(
 
 /// Paints the frame's chrome: the band around the square, the header strip, and the edge around
 /// both, leaving the square itself clear for the game's own map.
-fn paint_frame(ui: &Ui, outer: Rect, square: Rect, header: Rect) {
+fn paint_frame(ui: &Ui, outer: Rect, square: Rect, header: Rect, collapsed: bool) {
     let painter = ui.painter();
-    painter.add(Shape::rect_stroke(
-        square,
-        0,
-        Stroke::new(FRAME_PAD, theme::TIER0_FILL),
-        StrokeKind::Outside,
-    ));
+    if !collapsed {
+        painter.add(Shape::rect_stroke(
+            square,
+            0,
+            Stroke::new(FRAME_PAD, theme::TIER0_FILL),
+            StrokeKind::Outside,
+        ));
+    }
     let corner_radius = theme::radius(theme::RADIUS_PANEL);
     painter.rect_filled(
         header,
@@ -170,7 +193,14 @@ fn paint_frame(ui: &Ui, outer: Rect, square: Rect, header: Rect) {
 
 /// Draws the header's two buttons, returning what the pointer did to each: vision at the left end,
 /// where the list it opens hangs from, and the menu at the right.
-fn draw_header(ui: &mut Ui, header: Rect, picker_open: bool) -> (egui::Response, egui::Response) {
+struct MinimapHeader {
+    vision: egui::Response,
+    menu: egui::Response,
+    collapse: egui::Response,
+    close: egui::Response,
+}
+
+fn draw_header(ui: &mut Ui, header: Rect, picker_open: bool, collapsed: bool) -> MinimapHeader {
     let inner = header.shrink2(vec2(theme::SPACE_XS + FRAME_PAD, 0.0));
     let vision_label = tr!("observer.minimapVision", "Vision");
     let menu_label = tr!("observer.minimapMenu", "Menu");
@@ -182,14 +212,65 @@ fn draw_header(ui: &mut Ui, header: Rect, picker_open: bool) -> (egui::Response,
     );
     let menu_rect = Rect::from_min_size(
         pos2(
-            inner.right() - menu_width,
+            inner.right() - menu_width - BUTTON_HEIGHT - theme::SPACE_XS,
             inner.center().y - BUTTON_HEIGHT * 0.5,
         ),
         vec2(menu_width, BUTTON_HEIGHT),
     );
     let vision = header_button(ui, vision_rect, &vision_label, picker_open);
     let menu = header_button(ui, menu_rect, &menu_label, false);
-    (vision, menu)
+    let collapse_rect = Rect::from_min_max(
+        pos2(vision_rect.right(), header.top()),
+        pos2(menu_rect.left(), header.bottom()),
+    );
+    let collapse = ui.interact(
+        collapse_rect,
+        ui.id().with("minimap_collapse"),
+        Sense::click(),
+    );
+    let center = collapse_rect.center();
+    let points = if collapsed {
+        vec![
+            center + vec2(-2.0, -4.0),
+            center + vec2(2.0, 0.0),
+            center + vec2(-2.0, 4.0),
+        ]
+    } else {
+        vec![
+            center + vec2(-4.0, -2.0),
+            center + vec2(0.0, 2.0),
+            center + vec2(4.0, -2.0),
+        ]
+    };
+    ui.painter().add(Shape::line(
+        points,
+        Stroke::new(theme::HAIRLINE + 0.4, theme::TEXT_SECONDARY),
+    ));
+    widgets::state_overlay(
+        ui,
+        &collapse,
+        collapse_rect,
+        theme::radius(theme::RADIUS_TIGHT),
+    );
+    let collapse = collapse.on_hover_text(tr!(
+        "observer.minimapCollapseHint",
+        "Collapse or expand minimap"
+    ));
+    let close_rect = Rect::from_center_size(
+        pos2(inner.right() - BUTTON_HEIGHT * 0.5, inner.center().y),
+        vec2(BUTTON_HEIGHT, BUTTON_HEIGHT),
+    );
+    let close = widgets::window_close_button(
+        ui,
+        close_rect,
+        crate::shell::Panel::Minimap.key_label().as_deref(),
+    );
+    MinimapHeader {
+        vision,
+        menu,
+        collapse,
+        close,
+    }
 }
 
 /// How wide a header button carrying `label` is.
@@ -319,6 +400,76 @@ fn draw_picker_row(ui: &mut Ui, width: f32, player: &MatchupPlayerView) -> Optio
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn frame(ctx: &Context, collapsed: bool, events: Vec<egui::Event>) -> MinimapFrameOutcome {
+        let time = ctx.input(|input| input.time) + 0.25;
+        ctx.begin_pass(egui::RawInput {
+            screen_rect: Some(Rect::from_min_size(egui::Pos2::ZERO, vec2(1280.0, 720.0))),
+            time: Some(time),
+            events,
+            ..Default::default()
+        });
+        let square = Rect::from_min_size(pos2(0.0, 488.0), vec2(232.0, 232.0));
+        let outcome = render_minimap_frame(ctx, square, true, collapsed, &[], false).unwrap();
+        ctx.end_pass().textures_delta.clear();
+        outcome
+    }
+
+    #[test]
+    fn the_collapsed_minimap_keeps_a_header_and_leaves_the_map_square_to_the_game() {
+        let ctx = Context::default();
+        crate::install_fonts_and_style(&ctx, &crate::DynamicFonts::default());
+        for _ in 0..6 {
+            frame(&ctx, true, Vec::new());
+        }
+        let outcome = frame(&ctx, true, Vec::new());
+        assert_eq!(outcome.rects.len(), 1);
+        let header = outcome.rects[0];
+        assert_eq!(header.height(), HEADER_HEIGHT);
+        assert!(!header.contains(pos2(100.0, 600.0)));
+        assert!(!outcome.picker_open);
+        let center = header.center() - vec2(12.0, 0.0);
+        let button = |pressed| egui::Event::PointerButton {
+            pos: center,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: egui::Modifiers::NONE,
+        };
+        frame(
+            &ctx,
+            true,
+            vec![egui::Event::PointerMoved(center), button(true)],
+        );
+        let expanded = frame(&ctx, true, vec![button(false)]);
+        assert!(expanded.toggle_collapsed);
+        assert!(!expanded.open_menu);
+        assert!(!expanded.closed);
+    }
+
+    #[test]
+    fn folding_the_map_keeps_the_vision_control_available() {
+        let ctx = Context::default();
+        crate::install_fonts_and_style(&ctx, &crate::DynamicFonts::default());
+        for _ in 0..6 {
+            frame(&ctx, true, Vec::new());
+        }
+        let header = frame(&ctx, true, Vec::new()).rects[0];
+        let pos = pos2(header.left() + 30.0, header.center().y);
+        let button = |pressed| egui::Event::PointerButton {
+            pos,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: egui::Modifiers::NONE,
+        };
+        frame(
+            &ctx,
+            true,
+            vec![egui::Event::PointerMoved(pos), button(true)],
+        );
+        let outcome = frame(&ctx, true, vec![button(false)]);
+        assert!(outcome.picker_open);
+        assert!(!outcome.toggle_collapsed);
+    }
 
     #[test]
     fn the_footprint_is_the_band_and_the_header_kept_on_the_screen() {

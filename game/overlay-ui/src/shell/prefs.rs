@@ -114,6 +114,10 @@ impl Panel {
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct PanelPrefs {
+    /// Where each titled window was placed, and whether it was folded away.
+    pub windows: crate::observer::WindowLayouts,
+    /// Keep the minimap header available while its native map is folded away.
+    pub minimap_collapsed: bool,
     pub matchup: bool,
     pub map_control: bool,
     pub economy: bool,
@@ -182,6 +186,8 @@ impl Default for PanelPrefs {
         // every other panel with its key, and whatever the watcher turns on is remembered for their
         // next game.
         PanelPrefs {
+            windows: crate::observer::WindowLayouts::default(),
+            minimap_collapsed: false,
             matchup: true,
             map_control: false,
             economy: false,
