@@ -71,6 +71,7 @@ if [%is64%]==[1] (
 )
 echo %copysrc% -^> %copytgt%
 copy "%copysrc%" "%copytgt%" /y
+if errorlevel 1 goto exit
 
 @rem the license notices for everything the DLL includes ship next to it. Only release builds
 @rem generate them, so debug builds don't need cargo-about installed

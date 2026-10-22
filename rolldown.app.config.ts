@@ -31,8 +31,7 @@ const isProd = process.env.NODE_ENV !== 'development'
 const buildEnv = readEnvFile(path.join(ROOT, '.env-build'))
 
 const analyticsId = process.env.SB_ANALYTICS_ID ?? buildEnv.SB_ANALYTICS_ID ?? ''
-const securityImplPath =
-  process.env.SB_BUILD_SECURITY_CLIENTS_IMPL ?? buildEnv.SB_BUILD_SECURITY_CLIENTS_IMPL
+const securityImplPath = process.env.SB_PREBUILD ?? buildEnv.SB_PREBUILD
 
 const output: OutputOptions = {
   dir: OUT_DIR,

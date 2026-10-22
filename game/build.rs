@@ -13,6 +13,7 @@ use compile_shaders::{ShaderModel, ShaderType};
 static SOURCES: &[(&str, &str, &[(&str, &str)])] = &[("mask", "mask.hlsl", &[])];
 
 fn main() {
+    configure_companion();
     let out_path = std::env::var("OUT_DIR").unwrap();
     let out_path = Path::new(&out_path);
     assert!(out_path.exists());
@@ -49,6 +50,29 @@ fn main() {
     println!(
         "cargo:rustc-env=SHIELDBATTERY_VERSION={}",
         package_json_version("../package.json")
+    );
+}
+
+fn configure_companion() {
+    println!("cargo:rustc-check-cfg=cfg(sb_companion)");
+    println!("cargo:rerun-if-env-changed=SB_GAME_COMPANION");
+
+    let directory = match std::env::var("SB_GAME_COMPANION") {
+        Ok(value) if value.is_empty() => return,
+        Ok(value) => value,
+        Err(std::env::VarError::NotPresent) => return,
+        Err(std::env::VarError::NotUnicode(_)) => panic!("Invalid companion configuration"),
+    };
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    let entry = root.join(directory).join("lib.rs");
+    assert!(entry.is_file(), "Invalid companion configuration");
+    let entry = entry
+        .canonicalize()
+        .expect("Invalid companion configuration");
+    println!("cargo:rustc-cfg=sb_companion");
+    println!(
+        "cargo:rustc-env=SB_GAME_COMPANION_ENTRY={}",
+        entry.display()
     );
 }
 

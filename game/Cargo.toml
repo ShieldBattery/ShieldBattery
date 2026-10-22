@@ -98,6 +98,7 @@ tokio-debouncer = "0.3"
 tokio-stream = "0.1"
 tokio-tungstenite = "0.30"
 tower-service = "0.3"
+zeroize = "1.9"
 zstd = "0.14"
 
 [dependencies.winapi]
@@ -159,7 +160,7 @@ features = ["scr-only"]
 # types so the game DLL shares the transport's dependency versions.
 [dependencies.rally-point-client]
 git = "https://github.com/ShieldBattery/rally-point2.git"
-rev = "64aba510a8b05bb1dc6770e6dec45dafa723f9ca"
+rev = "5e5af86a7ce9492b3ebaf5c6e4a627a740c3e967"
 
 [build-dependencies]
 anyhow = "1.0"

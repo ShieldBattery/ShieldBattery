@@ -24,7 +24,8 @@ use std::net::{AddrParseError, SocketAddr};
 
 use base64::prelude::{BASE64_STANDARD, Engine as _};
 use quick_error::quick_error;
-use rally_point_client::proto::token::SignedToken;
+use rally_point_client::proto::handshake::Evidence;
+use rally_point_client::proto::token::{Signature, SignedToken};
 use rally_point_client::transport::rustls::RootCertStore;
 use rally_point_client::transport::rustls::pki_types::CertificateDer;
 use rally_point_client::{ClientEndpoint, EndpointError, Identity};
@@ -101,7 +102,17 @@ impl SessionCredentials {
         let token = SignedToken::decode(&token_bytes).map_err(|_| CredentialError::Token)?;
 
         let key_bytes = decode_base64(setup.client_private_key.expose(), "clientPrivateKey")?;
-        let identity = Identity::from_pkcs8(token, &key_bytes).map_err(|_| CredentialError::Key)?;
+        let identity = Identity::from_pkcs8(token, &key_bytes)
+            .map_err(|_| CredentialError::Key)?
+            .with_evidence_provider(|request| {
+                crate::companion::collect(|key_id, body| request.signed_message(key_id, body)).map(
+                    |response| Evidence {
+                        key_id: response.key_id,
+                        body: response.body,
+                        signature: Signature(response.signature),
+                    },
+                )
+            });
 
         // Pin the home relay into the trust store. Building it from the relay we were told to
         // trust — and only that — is the whole point; see the module docs.

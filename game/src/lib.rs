@@ -50,6 +50,7 @@ mod app_socket;
 mod bw;
 mod bw_scr;
 mod cancel_token;
+mod companion;
 mod crash_dump;
 #[cfg(debug_assertions)]
 mod debug_control;
@@ -87,6 +88,7 @@ mod sync;
 mod team_colors;
 mod windows;
 
+#[cfg(debug_assertions)]
 const WAIT_DEBUGGER: bool = false;
 
 fn remove_lines(file: &mut File, limit: usize, truncate_to: usize) -> io::Result<()> {
@@ -290,25 +292,25 @@ pub extern "C" fn OnInject() {
     // This runs on the game's main thread, which executes most of our hooks.
     crash_dump::reserve_exception_handler_stack();
     crash_dump::start_dump_thread();
+    companion::initialize();
     #[cfg(debug_assertions)]
-    rollback_probe::init_from_env();
-    #[cfg(debug_assertions)]
-    rollback_harness::init_from_env();
-    #[cfg(debug_assertions)]
-    rollback_bench::init_from_env();
-    #[cfg(debug_assertions)]
-    rollback_soak::init_from_env();
-    #[cfg(debug_assertions)]
-    replay_seek::init_from_env();
-    #[cfg(debug_assertions)]
-    rollback_live::init_from_env();
+    {
+        rollback_probe::init_from_env();
+        rollback_harness::init_from_env();
+        rollback_bench::init_from_env();
+        rollback_soak::init_from_env();
+        replay_seek::init_from_env();
+        rollback_live::init_from_env();
+    }
+
     frame_pacing::init_from_env();
+
     #[cfg(debug_assertions)]
-    frame_timing::init_from_env();
-    #[cfg(debug_assertions)]
-    input_latency_probe::init_from_env();
-    #[cfg(debug_assertions)]
-    hotkey_order_probe::init_from_env();
+    {
+        frame_timing::init_from_env();
+        input_latency_probe::init_from_env();
+        hotkey_order_probe::init_from_env();
+    }
     unsafe {
         let init_helper = load_init_helper().expect("Unable to load sb_init.dll");
         init_helper(scr_init, crash_dump::cdecl_crash_dump);
@@ -316,6 +318,7 @@ pub extern "C" fn OnInject() {
 }
 
 unsafe extern "C" fn scr_init(image: *mut u8) {
+    #[cfg(debug_assertions)]
     if WAIT_DEBUGGER {
         debug!("Waiting for debugger");
         let start = std::time::Instant::now();
@@ -329,6 +332,7 @@ unsafe extern "C" fn scr_init(image: *mut u8) {
         }
         debug!("Debugger ok");
     }
+
     debug!("SCR init");
     let bw = match bw_scr::BwScr::new() {
         Ok(o) => Box::leak(Box::new(o)),

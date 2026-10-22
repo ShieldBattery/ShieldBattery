@@ -21,6 +21,8 @@ following files contain rest of the async side:
   but we do it in `GameState::init_game` as the older C++/JS code worked the same, and during
   game initialization the BW thread is set to run windows message loop via forge.
   It is a bit sketchy and hard to follow anyway.
+- `game_state/results.rs` Builds game results from the game thread's captured state.
+- `game_state/reporting.rs` Reports completed games and uploads their replay files and statistics.
 - `netcode_v2/` The relay-based networking implementation, superseding the old direct-route netcode.
 
 `async_thread` has another comment describing relations of these parts.
@@ -53,6 +55,15 @@ async side from those hooks. Hooks are initialized in `patch_game` in `lib.rs`.
 The following files contain BW-side code:
 
 - `bw.rs` Function/hook/global/structure definitions for BW 1.16.1
+- `bw_scr.rs` SC:R's game adapter and shared runtime state. Its submodules separate executable
+  analysis, hook installation, and feature-specific state:
+  - `bw_scr/init.rs` Resolves executable symbols and constructs the adapter. Required symbols fail
+    initialization; optional feature analysis retains its own fallback behavior.
+  - `bw_scr/patching.rs` Installs gameplay and Windows hooks in their required order.
+  - `bw_scr/rendering.rs` Installs renderer, shader, and overlay hooks.
+  - `bw_scr/network.rs` Resolves and dispatches native turn and lobby operations for the relay transport.
+  - `bw_scr/selection.rs` Owns selection state and the transient visuals restored around rollback.
+  - `bw_scr/sound.rs` Owns sound-table access, resolved entry points, and cached sound-name lookups.
 - `chat.rs` Chat handling, async side can also set the settings for this
 - `game_thread.rs` Code for running functions in BW thread based on requests from async side.
   Entry point is `run_event_loop`, though the `StartGame` request will prevent any further
@@ -60,6 +71,8 @@ The following files contain BW-side code:
   Even there we're blocked on forge window loop a lot.
 - `forge/` D3D11 based renderer and WIN32/DirectDraw hooks.
   Mostly meant to have minimal dependencies on the parent code.
+- `forge/window_placement.rs` Reads window placement settings and applies monitor, size, and position
+  rules without owning the window's lifecycle.
 - `lib.rs` Early initialization before async thread/misc common code.
 - `observing.rs` Hooks that make observing work.
 - `snp.rs` Storm Network Provider, practically non-async network code.
