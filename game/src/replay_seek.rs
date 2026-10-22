@@ -517,7 +517,7 @@ fn batch_end(frame: u32, target: u32, spacing: u32) -> u32 {
 }
 
 /// Whether the replay has played to its end.
-unsafe fn replay_ended(bw: &BwScr) -> bool {
+pub unsafe fn replay_ended(bw: &BwScr) -> bool {
     unsafe {
         let header = bw.replay_header();
         !header.is_null()

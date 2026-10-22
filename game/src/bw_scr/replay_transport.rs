@@ -5,6 +5,10 @@
 //! sending exactly what SC:R's own replay plate sends. Reading the state back the same way — from
 //! the stream every command passes through, whoever sent it — is what keeps our plate and the
 //! game's own from ever disagreeing, and needs no per-architecture address for either global.
+//!
+//! The one change no command carries is SC:R stopping playback when the replay reaches its end.
+//! Starting the replay over for a seek keeps it stopped, so a seek made after the end is followed
+//! by a speed command that puts back the playback this transport last saw.
 
 use std::time::{Duration, Instant};
 
@@ -35,6 +39,9 @@ pub struct ReplayTransport {
     multiplier: u32,
     /// The frame a seek we sent is heading for, and when it went out.
     pending_seek: Option<(u32, Instant)>,
+    /// Whether the replay is starting over for a seek made after it played to its end, and still
+    /// has to be told how to play once it has.
+    restore_after_restart: bool,
 }
 
 /// What the overlay needs to know about playback this frame.
@@ -74,6 +81,7 @@ impl ReplayTransport {
             speed_index: overlay_ui::transport::NORMAL_SPEED.speed_index,
             multiplier: overlay_ui::transport::NORMAL_SPEED.multiplier,
             pending_seek: None,
+            restore_after_restart: false,
         }
     }
 
@@ -102,6 +110,23 @@ impl ReplayTransport {
     /// The seek in flight has reached the game, so the next one may go out.
     fn seek_arrived(&mut self) {
         self.pending_seek = None;
+    }
+
+    /// A seek is starting the replay over, from past its end if `ended`.
+    fn note_restart(&mut self, ended: bool) {
+        if ended {
+            self.restore_after_restart = true;
+        }
+    }
+
+    /// The speed command a replay that started over from past its end still needs: the playback
+    /// this transport last saw, which is what the plate shows.
+    fn take_restore(&mut self) -> Option<ReplayCommand> {
+        std::mem::take(&mut self.restore_after_restart).then_some(ReplayCommand::Speed {
+            speed_index: self.speed_index,
+            multiplier: self.multiplier,
+            paused: self.paused,
+        })
     }
 
     /// What the overlay should show, now.
@@ -154,6 +179,22 @@ impl BwScr {
     /// it from the commands BW is given.
     pub fn note_replay_seek_taken(&self) {
         self.replay_transport.lock().seek_arrived();
+    }
+
+    /// Tells the transport a live seek is starting the replay over, which SC:R does for every seek
+    /// back that keyframe seeking leaves to it.
+    pub unsafe fn note_replay_restart(&self) {
+        let ended = unsafe { crate::replay_seek::replay_ended(self) };
+        self.replay_transport.lock().note_restart(ended);
+    }
+
+    /// Sends the speed command a replay that started over from past its end needs to play from
+    /// wherever the seek lands. Call once the restarted game steps, when commands reach it again.
+    pub unsafe fn restore_replay_playback(&self) {
+        let command = self.replay_transport.lock().take_restore();
+        if let Some(command) = command {
+            unsafe { self.send_replay_command(command) };
+        }
     }
 
     /// Carries out one thing the overlay asked of playback.
@@ -259,5 +300,33 @@ mod tests {
         transport.pending_seek = Some((1000, Instant::now() - SEEK_TIMEOUT));
         assert!(!transport.state().seek_pending);
         assert!(transport.claim_seek(2000));
+    }
+
+    #[test]
+    fn a_restart_from_past_the_end_puts_back_the_playback_last_seen_once() {
+        let mut transport = ReplayTransport::new();
+        let mut data = [0u8; SPEED_COMMAND_LEN];
+        data[0] = commands::id::REPLAY_SPEED;
+        data[1] = 1;
+        LittleEndian::write_u32(&mut data[2..6], 6);
+        LittleEndian::write_u32(&mut data[6..], 4);
+        transport.note_command(&data);
+        transport.note_restart(true);
+        assert_eq!(
+            transport.take_restore(),
+            Some(ReplayCommand::Speed {
+                speed_index: 6,
+                multiplier: 4,
+                paused: true,
+            })
+        );
+        assert_eq!(transport.take_restore(), None);
+    }
+
+    #[test]
+    fn a_restart_before_the_end_leaves_playback_alone() {
+        let mut transport = ReplayTransport::new();
+        transport.note_restart(false);
+        assert_eq!(transport.take_restore(), None);
     }
 }
