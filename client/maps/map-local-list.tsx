@@ -3,7 +3,7 @@ import * as React from 'react'
 import { Suspense, use, useDeferredValue, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { useMutation, useQuery } from 'urql'
+import { useMutation } from 'urql'
 import {
   LocalMapFile,
   LocalMapIndexProgress,
@@ -12,7 +12,6 @@ import {
   LocalMapSort,
 } from '../../common/map-library'
 import { urlForMap } from '../../common/map-url'
-import { SbMapId } from '../../common/maps'
 import { redirectToLogin, useSelfUser } from '../auth/auth-utils'
 import { graphql } from '../gql'
 import { MaterialIcon } from '../icons/material/material-icon'
@@ -27,10 +26,10 @@ import {
   readLocalMapFolders,
   readLocalMaps,
   readLocalMapsStatus,
+  useChooseLocalMapFile,
   useLocalMapsProgress,
   useLocalMapsVersion,
   useLocalMapUploads,
-  useUploadLocalMapFile,
 } from './local-maps'
 import {
   CatalogDensity,
@@ -49,8 +48,7 @@ import {
   LOCAL_SORTS,
   toLocalMapQuery,
 } from './map-catalog-params'
-import { mapFileIdToHash } from './map-file-hash'
-import { LocalMapTile, MapTile, MapTileSignal } from './map-tile'
+import { LocalMapTile } from './map-tile'
 
 /** How many files each page of the listing reads from the index. */
 const PAGE_SIZE = 40
@@ -69,18 +67,6 @@ export function validateLocalMapView(value: unknown): LocalMapView | undefined {
     : undefined
 }
 
-const LocalKnownMapsQuery = graphql(/* GraphQL */ `
-  query LocalKnownMaps($hashes: [String!]!) {
-    mapsByHash(hashes: $hashes) {
-      id
-      file {
-        id
-      }
-      ...MapTile_SbMapFragment
-    }
-  }
-`)
-
 const LocalAddToLibraryMutation = graphql(/* GraphQL */ `
   mutation LocalAddToLibrary($id: SbMapId!) {
     mapAddToLibrary(id: $id) {
@@ -89,9 +75,6 @@ const LocalAddToLibraryMutation = graphql(/* GraphQL */ `
     }
   }
 `)
-
-/** Requests results without suspending: tiles fill in once the server answers. */
-const NO_SUSPENSE_CONTEXT = { suspense: false }
 
 const StatusLine = styled.div`
   ${bodyMedium};
@@ -368,7 +351,6 @@ function LocalMapGrid({
             <LocalMapPage
               query={{ ...query, offset: i * PAGE_SIZE, limit: PAGE_SIZE }}
               version={version}
-              imageSize={layout.imageSize}
               spansFolders={spansFolders}
               pick={pick}
             />
@@ -382,53 +364,37 @@ function LocalMapGrid({
 function LocalMapPage({
   query,
   version,
-  imageSize,
   spansFolders,
   pick,
 }: {
   query: LocalMapQuery
   version: number
-  imageSize: number
   spansFolders: boolean
   pick?: MapPickOptions
 }) {
   const { t } = useTranslation()
   const selfUser = useSelfUser()
   const page = use(readLocalMaps(query, version))
-  const files = page.ok ? page.value.files : []
-  const hashes = files.flatMap(f => (f.hash ? [f.hash] : []))
-  const [{ data, fetching }] = useQuery({
-    query: LocalKnownMapsQuery,
-    variables: { hashes },
-    pause: !selfUser || !hashes.length,
-    context: NO_SUSPENSE_CONTEXT,
-  })
   const [, addToLibrary] = useMutation(LocalAddToLibraryMutation)
   const uploads = useLocalMapUploads()
-  const uploadFile = useUploadLocalMapFile()
+  const chooseFile = useChooseLocalMapFile()
 
-  // `MapFile.id` is the hash base64-encoded; the index has it hex-encoded
-  const known = new Map((data?.mapsByHash ?? []).map(map => [mapFileIdToHash(map.file.id), map]))
-  const checking = !selfUser || fetching || (!data && hashes.length > 0)
-
-  const chooseUnknown = (file: LocalMapFile) => {
+  const choose = (file: LocalMapFile) => {
     if (!selfUser) {
       redirectToLogin(push)
       return
     }
-    uploadFile(file, map => {
-      if (pick) {
-        pick.onPick(map.id)
-      } else {
+    chooseFile(file, map => {
+      if (!pick) {
         push(urlForMap(map.id, map.name))
+        return true
       }
+      if (!map.uploaded) {
+        // Picking a map from this PC also puts it in the viewer's maps, as uploading it would have
+        addToLibrary({ id: map.id }).catch(() => {})
+      }
+      return pick.onPick(map.id)
     })
-  }
-
-  const pickKnown = (mapId: SbMapId) => {
-    // Picking a map from this PC also puts it in the viewer's maps, as uploading it would have
-    addToLibrary({ id: mapId }).catch(() => {})
-    pick!.onPick(mapId)
   }
 
   if (!page.ok) {
@@ -436,43 +402,16 @@ function LocalMapPage({
   }
   return (
     <>
-      {files.map(file => {
-        const map = file.hash ? known.get(file.hash) : undefined
-        if (map) {
-          const mapId = map.id as SbMapId
-          return (
-            <MapTile
-              key={file.id}
-              map={map}
-              signal={MapTileSignal.Total}
-              imageSize={imageSize}
-              pick={
-                pick
-                  ? {
-                      onPick: () => pickKnown(mapId),
-                      selected: pick.selectedMapId === mapId,
-                      queuePositions: pick.queuePositions?.get(mapId),
-                      pending: pick.pendingMapId === mapId,
-                      failed: pick.failedMapId === mapId,
-                      disabled:
-                        !!pick.disabled || (!!pick.pendingMapId && pick.pendingMapId !== mapId),
-                    }
-                  : undefined
-              }
-            />
-          )
-        }
-        return (
-          <LocalMapTile
-            key={file.id}
-            file={file}
-            checking={checking}
-            upload={uploads.get(file.path)}
-            folderLabel={spansFolders ? fileFolderLabel(file.folder, t) : undefined}
-            onActivate={() => chooseUnknown(file)}
-          />
-        )
-      })}
+      {page.value.files.map(file => (
+        <LocalMapTile
+          key={file.id}
+          file={file}
+          upload={uploads.get(file.path)}
+          disabled={!!pick?.disabled}
+          folderLabel={spansFolders ? fileFolderLabel(file.folder, t) : undefined}
+          onActivate={() => choose(file)}
+        />
+      ))}
     </>
   )
 }

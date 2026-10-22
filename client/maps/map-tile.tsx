@@ -31,6 +31,7 @@ import { useAppDispatch } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { bodySmall, labelMedium, labelSmall, singleLine, titleSmall } from '../styles/typography'
 import { openMapDownloadDialog, openMapPreviewDialog, removeFromMyMaps } from './action-creators'
+import { LocalMapUpload } from './local-maps'
 import { useToggleMapFavorite } from './map-favorites'
 import { MapFileImage } from './map-image'
 import { umsForceLayout } from './map-page-summaries'
@@ -708,35 +709,42 @@ export function localMapName(file: LocalMapFile): string {
 }
 
 /**
- * A map file on this PC that the server doesn't have (yet), read from the file itself. Choosing it
- * uploads it. Until the server has been asked about the file (`checking`), it shows no status, and
- * no image: the app renders one from the StarCraft install only for files the server doesn't have,
- * since the rest are shown with the server's images.
+ * A map file on this PC, read from the file itself, with an image the app renders from the
+ * StarCraft install. Choosing it uses the server's copy of the map, uploading the file first if the
+ * server doesn't have one.
  */
 export function LocalMapTile({
   file,
-  checking,
   upload,
+  disabled = false,
   folderLabel,
   onActivate,
 }: {
   file: LocalMapFile
-  checking: boolean
-  /** The file's upload, while it's being uploaded or after it failed. */
-  upload?: { progress?: number; error?: string }
+  /** What's happening with the file since it was chosen, until that's done or if it failed. */
+  upload?: LocalMapUpload
+  disabled?: boolean
   /** Where the file is, for listings that span folders. */
   folderLabel?: string
   onActivate: () => void
 }) {
   const { t } = useTranslation()
-  const uploading = !!upload && !upload.error
+  const busy = !!upload && !upload.error && !upload.pickFailed
+  const uploading = busy && !upload.checking
   const readable = !!file.map
   // The hash whose image failed to load, so the tile falls back to its icon for that file only
   const [failedImageHash, setFailedImageHash] = useState<string>()
-  const imageHash = !checking && readable && file.hash !== failedImageHash ? file.hash : undefined
+  const imageHash = readable && file.hash !== failedImageHash ? file.hash : undefined
 
   let signal: React.ReactNode = null
-  if (upload?.error) {
+  if (upload?.pickFailed) {
+    signal = (
+      <Signal
+        $tone={SignalTone.Error}
+        text={t('maps.picker.pickFailed', "Couldn't load this map. Select it to try again.")}
+      />
+    )
+  } else if (upload?.error) {
     signal = (
       <Signal
         $tone={SignalTone.Error}
@@ -759,15 +767,13 @@ export function LocalMapTile({
         }
       />
     )
-  } else if (!checking && readable) {
-    signal = <Signal text={t('maps.local.notUploaded', 'Not uploaded yet')} />
   }
 
   return (
     <Root>
       <TilePickButton
         type='button'
-        disabled={!readable || uploading}
+        disabled={!readable || busy || disabled}
         title={file.path}
         onClick={onActivate}>
         <LocalImage>
@@ -786,6 +792,11 @@ export function LocalMapTile({
             <ProgressTrack $overImage={!!imageHash}>
               <ProgressFill style={{ width: `${upload.progress * 100}%` }} />
             </ProgressTrack>
+          ) : null}
+          {upload?.checking ? (
+            <PendingOverlay>
+              <LoadingDotsArea />
+            </PendingOverlay>
           ) : null}
         </LocalImage>
         <Text>
