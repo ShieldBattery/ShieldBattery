@@ -120,8 +120,9 @@ struct IconCache {
 }
 
 /// How many textures the cache keeps before it is emptied: every race at the three chip sizes the
-/// panels use, with room to spare.
-const CACHE_LIMIT: usize = 16;
+/// panels use, and the die at the sizes of the badges marking a random pick on them, with room to
+/// spare.
+const CACHE_LIMIT: usize = 24;
 
 fn texture(ctx: &Context, race: RaceView, pixels: u32) -> TextureHandle {
     let id = Id::new("observer::race_icons");

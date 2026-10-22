@@ -21,7 +21,9 @@ use overlay_ui::observer::{
 use overlay_ui::shell::PanelPrefs;
 use overlay_ui::transport;
 
+use crate::app_messages::{GameSetupInfo, SbSlotType};
 use crate::bw;
+use crate::bw::players::BwPlayerId;
 use crate::bw_scr::game_stats::{GameStats, HistoryStamp, Sample, StatsAsOf, TimelineSubject};
 use crate::game_thread;
 
@@ -482,6 +484,7 @@ fn build_team_cards_view(
                         name: player.name.clone(),
                         color: player.color,
                         race: player.race,
+                        random: player.random,
                         vision: player.vision,
                         minerals: player.minerals,
                         gas: player.gas,
@@ -829,6 +832,45 @@ pub(super) fn player_race(bw: &BwVars, player_id: u8) -> (Race, RaceView) {
         // slot whose race the game itself does not know.
         _ => (Race::Zerg, RaceView::Random),
     }
+}
+
+/// Whether a player left their race to chance in the lobby the game was set up from.
+///
+/// Only a live game's lobby can say: a replay records the race each pick resolved to and nothing of
+/// how it was picked. A person's pick is read from their own slot, found by the account the game
+/// seated them under. Computers have no account to find their slot by, and the game shuffles slots
+/// as it starts, so a computer counts as a random pick only when every computer in the lobby was.
+pub(super) fn picked_random(bw: &BwVars, setup: Option<&GameSetupInfo>, player_id: u8) -> bool {
+    let Some(setup) = setup.filter(|setup| !setup.is_replay()) else {
+        return false;
+    };
+    let user_id = game_thread::player_id_mapping()
+        .iter()
+        .find(|mapping| mapping.game_id == Some(BwPlayerId(player_id)))
+        .map(|mapping| mapping.sb_user_id);
+    match user_id {
+        Some(user_id) => setup
+            .slots
+            .iter()
+            .find(|slot| slot.user_id == Some(user_id))
+            .is_some_and(|slot| slot.bw_race() == bw::RACE_RANDOM),
+        None if is_computer(bw, player_id) => {
+            let mut computers = setup
+                .slots
+                .iter()
+                .filter(|slot| slot.player_type == SbSlotType::Computer)
+                .peekable();
+            computers.peek().is_some() && computers.all(|slot| slot.bw_race() == bw::RACE_RANDOM)
+        }
+        None => false,
+    }
+}
+
+/// Whether this game player id's slot is a computer's, as the game marks one once it is running.
+fn is_computer(bw: &BwVars, player_id: u8) -> bool {
+    const COMPUTER_PLAYER_TYPE: u8 = 1;
+    // SAFETY: the player table is the game's, with a slot for every player id.
+    unsafe { (*bw.players.add(usize::from(player_id))).player_type == COMPUTER_PLAYER_TYPE }
 }
 
 /// What this player is called, falling back to their slot for a slot that carries no name.

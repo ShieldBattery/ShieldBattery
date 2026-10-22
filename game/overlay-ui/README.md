@@ -114,7 +114,8 @@ ambient tier's own chrome, since the plate sits in the corner of a live game rat
 and a host builds all of them into one `ObserverView` for every frame it is observing or watching a
 replay — again whether or not any of them is on screen. The **matchup bar** is the tier-1 surface
 hanging off the top edge: two mirrored halves about a middle block holding the clock and a
-`REPLAY`/`LIVE` tag, each half carrying a player's race chip, name, bank, supply and APM. A click on
+`REPLAY`/`LIVE` tag, each half carrying a player's race chip (with a die badge on the race a random
+pick resolved to), name, bank, supply and APM. A click on
 a half is `Intent::ToggleVision`, which is how a watcher takes a player's vision; a player whose
 vision is off is dimmed rather than dropped.
 
@@ -417,7 +418,8 @@ function of game time, so an offline render of the same second is the same image
 replay it shares the transport's clock, since a bar and a plate that disagreed about how far into
 the game it is would be reporting on two different games. Its knobs are where the clock starts, how
 many players the game has (split down the middle into two sides, which is what walks the matchup bar
-through its three forms), each player's race, whether the left player is over their supply cap,
+through its three forms), each player's race and whether they picked it at random, whether the left
+player is over their supply cap,
 whether they all carry the longest names the game allows, how many entries each production row
 holds, how many of the ten number keys each player has a group on, how many units the watcher has
 selected and whether that selection is instead a building part way through a unit, a transport
