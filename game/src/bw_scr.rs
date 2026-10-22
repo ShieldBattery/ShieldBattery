@@ -4433,7 +4433,9 @@ impl BwScr {
             })
         }
     }
+}
 
+impl BwScr {
     /// The language the overlay draws in: the game's own where the overlay has a translation for
     /// it, so the overlay's text reads in the same language as the game's text beside it, and the
     /// one the settings ask for otherwise.
