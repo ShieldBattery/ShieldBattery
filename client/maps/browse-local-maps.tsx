@@ -14,7 +14,6 @@ import { MaterialIcon } from '../icons/material/material-icon'
 import LoadingIndicator from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { uploadLocalMap } from './action-creators'
-import { forgetServerMapsWindows } from './browse-server-maps'
 
 const LoadingArea = styled.div`
   display: flex;
@@ -82,7 +81,6 @@ export function BrowseLocalMaps({ onMapUpload }: { onMapUpload: (mapId: SbMapId)
             uploadLocalMap(map.path, {
               onSuccess: ({ map }) => {
                 setIsUploading(false)
-                forgetServerMapsWindows()
                 onMapUpload(map.id)
               },
               onError: () => {

@@ -147,10 +147,6 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     updateUsers(state, action.payload.users)
   },
 
-  ['@maps/getFavoritedMaps'](state, action) {
-    updateUsers(state, action.payload.users)
-  },
-
   ['@maps/updateMap'](state, action) {
     updateUsers(state, action.payload.users)
   },

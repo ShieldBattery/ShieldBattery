@@ -6,6 +6,8 @@ import {
   CatalogPlayers,
   CatalogSort,
   DEFAULT_CATALOG_FILTERS,
+  defaultPickerSortForTab,
+  defaultSortForTab,
   effectiveSort,
   hasCatalogParams,
   hasNonDefaultFilters,
@@ -14,6 +16,7 @@ import {
   toMapFilter,
   validateSavedFilters,
   validateSavedSort,
+  withSearch,
 } from './map-catalog-params'
 
 const parse = (search: string) => parseCatalogParams(new URLSearchParams(search))
@@ -68,8 +71,8 @@ describe('client/maps/map-catalog-params', () => {
   })
 
   test('picks the sort from the URL, then searching, then saved, then the tab default', () => {
-    const all = MapCatalogTab.All
-    const yours = MapCatalogTab.Yours
+    const all = defaultSortForTab(MapCatalogTab.All)
+    const yours = defaultSortForTab(MapCatalogTab.Yours)
     expect(effectiveSort({ search: '', sort: undefined }, undefined, all)).toBe(
       CatalogSort.Trending,
     )
@@ -88,6 +91,25 @@ describe('client/maps/map-catalog-params', () => {
     expect(effectiveSort({ search: '  ', sort: CatalogSort.BestMatch }, undefined, all)).toBe(
       CatalogSort.Trending,
     )
+  })
+
+  test('defaults the picker to the most played maps', () => {
+    expect(defaultPickerSortForTab(MapCatalogTab.All)).toBe(CatalogSort.MostPlayed)
+    expect(defaultPickerSortForTab(MapCatalogTab.Yours)).toBe(CatalogSort.Newest)
+    expect(defaultPickerSortForTab(MapCatalogTab.Favorites)).toBe(CatalogSort.Newest)
+  })
+
+  test('switches to and from Best match as a search starts and ends', () => {
+    const base = parse('sort=name')
+    const searching = withSearch(base, 'bound')
+    expect(searching.search).toBe('bound')
+    expect(searching.sort).toBeUndefined()
+    expect(withSearch({ ...searching, sort: CatalogSort.Newest }, 'bounds').sort).toBe(
+      CatalogSort.Newest,
+    )
+    expect(withSearch({ ...searching, sort: CatalogSort.BestMatch }, '').sort).toBeUndefined()
+    expect(withSearch({ ...searching, sort: CatalogSort.Newest }, '').sort).toBe(CatalogSort.Newest)
+    expect(withSearch(base, '').sort).toBe(CatalogSort.Name)
   })
 
   test('builds the GraphQL filter', () => {

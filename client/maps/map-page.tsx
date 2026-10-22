@@ -64,7 +64,7 @@ import {
   removeFromMyMaps,
   updateMap,
 } from './action-creators'
-import { DescriptionForm, NameForm } from './map-details'
+import { DescriptionForm, NameForm } from './map-edit-forms'
 import { useToggleMapFavorite } from './map-favorites'
 import { MapFileImage } from './map-image'
 import { MapLiveGames, MapOpenLobbies, MapRecentGames } from './map-page-activity'

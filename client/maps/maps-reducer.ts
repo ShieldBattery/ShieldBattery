@@ -61,20 +61,6 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     updateLibraryMapIds(state, maps, libraryMapIds)
   },
 
-  ['@maps/getFavoritedMaps'](state, action) {
-    const {
-      payload: { favoritedMaps, libraryMapIds },
-      system: { monotonicTime },
-    } = action
-
-    for (const map of favoritedMaps) {
-      state.byId.set(map.id, map)
-      state.favoritedMapIds.add(map.id)
-      state.lastRetrieved.set(map.id, monotonicTime)
-    }
-    updateLibraryMapIds(state, favoritedMaps, libraryMapIds)
-  },
-
   ['@maps/getBatchMapInfo'](state, action) {
     if (action.error) {
       return

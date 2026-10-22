@@ -4,8 +4,6 @@ import { FilesErrorCode } from '../../common/files'
 import { GetGamesQueryParams, GetGamesResponse } from '../../common/games/games'
 import {
   GetBatchMapInfoResponse,
-  GetFavoritedMapsQueryParams,
-  GetFavoritesResponse,
   GetMapsQueryParams,
   GetMapsResponse,
   MapServiceErrorCode,
@@ -37,9 +35,13 @@ function fetchBatchMapInfo(mapIds: ReadonlyArray<SbMapId>, signal?: AbortSignal)
 
 /**
  * Uploads a map file to the current user's own maps, returning the uploaded map along with the
- * info needed to display it. `file` is either a path on disk (app only) or a file the user picked.
+ * info needed to display it. `file` is either a path on disk (app only) or a file the user picked,
+ * whose upload progress is reported to `onProgress`.
  */
-async function uploadMap(file: string | File): Promise<UploadedMap> {
+async function uploadMap(
+  file: string | File,
+  onProgress?: (fraction: number) => void,
+): Promise<UploadedMap> {
   const url = makeServerRsUrl(urlPath`/maps`)
   let mapId: SbMapId
   if (typeof file === 'string') {
@@ -48,9 +50,14 @@ async function uploadMap(file: string | File): Promise<UploadedMap> {
     }
     mapId = (await upload<UploadMapResponse>(file, url, MAX_MAP_FILE_SIZE_BYTES)).mapId
   } else {
-    mapId = (await uploadFile<UploadMapResponse>(file, url, MAX_MAP_FILE_SIZE_BYTES)).mapId
+    mapId = (await uploadFile<UploadMapResponse>(file, url, MAX_MAP_FILE_SIZE_BYTES, onProgress))
+      .mapId
   }
 
+  return loadUploadedMap(mapId)
+}
+
+async function loadUploadedMap(mapId: SbMapId): Promise<UploadedMap> {
   const { maps, libraryMapIds, users } = await fetchBatchMapInfo([mapId])
   const map = maps.find(m => m.id === mapId)
   if (!map) {
@@ -111,12 +118,32 @@ export function uploadLocalMap(path: string, spec: RequestHandlingSpec<UploadedM
 }
 
 /**
- * Uploads a map file the user picked or dropped to their own maps. Callers show failures
- * themselves, with {@link mapUploadErrorMessage}.
+ * Uploads a map file the user picked or dropped to their own maps, reporting the fraction of it
+ * sent so far to `onProgress`. Callers show failures themselves, with
+ * {@link mapUploadErrorMessage}.
  */
-export function uploadMapFile(file: File, spec: RequestHandlingSpec<UploadedMap>): ThunkAction {
+export function uploadMapFile(
+  file: File,
+  spec: RequestHandlingSpec<UploadedMap>,
+  onProgress?: (fraction: number) => void,
+): ThunkAction {
   return abortableThunk(spec, async dispatch => {
-    const result = await uploadMap(file)
+    const result = await uploadMap(file, onProgress)
+    dispatch({ type: '@maps/uploadMap', payload: result })
+    return result
+  })
+}
+
+/**
+ * Stores a map that was just added to the current user's own maps without uploading its file (the
+ * server already had it), the same way an upload of it would.
+ */
+export function loadMapAddedToLibrary(
+  mapId: SbMapId,
+  spec: RequestHandlingSpec<UploadedMap>,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const result = await loadUploadedMap(mapId)
     dispatch({ type: '@maps/uploadMap', payload: result })
     return result
   })
@@ -159,45 +186,6 @@ export function getMaps(
 
     dispatch({
       type: '@maps/getMaps',
-      payload: result,
-      meta: params,
-    })
-
-    return result
-  })
-}
-
-export function getFavorites(
-  params: GetFavoritedMapsQueryParams,
-  spec: RequestHandlingSpec<GetFavoritesResponse>,
-): ThunkAction {
-  return abortableThunk(spec, async dispatch => {
-    const { sort, numPlayers, tilesets, q } = params
-
-    const queryParams = new URLSearchParams()
-    if (sort !== undefined) {
-      queryParams.set('sort', sort.toString())
-    }
-    if (numPlayers) {
-      for (const playerCount of numPlayers) {
-        queryParams.append('numPlayers', playerCount.toString())
-      }
-    }
-    if (tilesets) {
-      for (const tileset of tilesets) {
-        queryParams.append('tilesets', tileset.toString())
-      }
-    }
-    if (q) {
-      queryParams.set('q', q)
-    }
-
-    const result = await fetchJson<GetFavoritesResponse>(apiUrl`maps/favorites?${queryParams}`, {
-      signal: spec.signal,
-    })
-
-    dispatch({
-      type: '@maps/getFavoritedMaps',
       payload: result,
       meta: params,
     })
