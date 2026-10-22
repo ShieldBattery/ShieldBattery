@@ -54,12 +54,6 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     state.selfLeagues.set(league.id, selfLeagueUser)
   },
 
-  ['@users/getUserProfile'](state, { payload: { leagues } }) {
-    for (const league of leagues) {
-      state.byId.set(league.id, league)
-    }
-  },
-
   ['@leagues/getLeaderboard'](state, { payload: { league } }) {
     state.byId.set(league.id, league)
   },

@@ -92,19 +92,6 @@ export function toClientLeagueUserJson(user: ClientLeagueUser): ClientLeagueUser
   }
 }
 
-/** A user's standing in a running league they're a member of. */
-export interface UserLeagueStanding {
-  leagueId: LeagueId
-  /**
-   * The user's place on the league's leaderboard, where players with equal points share a place.
-   * Unset if they aren't on it yet (they haven't played a game in the league).
-   */
-  rank?: number
-  points: number
-  wins: number
-  losses: number
-}
-
 export interface ClientLeagueUserChange {
   userId: SbUserId
   leagueId: LeagueId

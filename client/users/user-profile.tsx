@@ -18,7 +18,6 @@ import { ConnectedAvatar } from '../avatars/avatar'
 import { CommendIcon } from '../games/commend-icon'
 import { graphql } from '../gql'
 import TwitchIcon from '../icons/brands/twitch.svg?react'
-import { UserLeagueStandings } from '../leagues/user-league-standings'
 import { RaceIcon } from '../lobbies/race-icon'
 import { FilledButton } from '../material/button'
 import { TabItem, Tabs } from '../material/tabs'
@@ -692,11 +691,6 @@ const RankedSection = styled(ExpandableRankDisplays)`
   margin-bottom: 48px;
 `
 
-const LeagueStandingsSection = styled(UserLeagueStandings)`
-  padding: 0 24px;
-  margin-bottom: 48px;
-`
-
 const TotalGamesSection = styled.div`
   padding: 0 24px;
   margin-bottom: 48px;
@@ -736,8 +730,6 @@ function SummaryPage({
 }) {
   const { t } = useTranslation()
 
-  const leagueStandings = useAppSelector(s => s.users.idToLeagueStandings.get(user.id))
-
   const stats = profile.userStats
   const pStats: RaceStats = {
     race: 'p',
@@ -763,13 +755,6 @@ function SummaryPage({
 
   return (
     <>
-      {leagueStandings?.length ? (
-        <>
-          <SectionOverline>{t('users.profile.leagues.title', 'Leagues')}</SectionOverline>
-          <LeagueStandingsSection standings={leagueStandings} />
-        </>
-      ) : null}
-
       {hasAnyRanks && (
         <RankedSection
           ladder={profile.ladder}

@@ -3481,14 +3481,6 @@
       "commendCount_other": "{{count}} commends",
       "copyLink": "Copy link to profile",
       "latestGames": "Latest games",
-      "leagues": {
-        "points": "Points",
-        "rank": "Rank",
-        "rankValue": "#{{rank}}",
-        "record": "Record",
-        "title": "Leagues",
-        "unranked": "Unranked"
-      },
       "points": "Points",
       "rank": "Rank",
       "rating": "Rating",

@@ -8,7 +8,6 @@ import { GameRecordJson, GameReplayInfo } from '../games/games'
 import { TranslationLanguage } from '../i18n'
 import { Jsonify } from '../json'
 import { LadderPlayer } from '../ladder/ladder'
-import { LeagueJson, UserLeagueStanding } from '../leagues/leagues'
 import { MapInfoJson } from '../maps'
 import { MatchmakingSeasonJson, MatchmakingType, SeasonId } from '../matchmaking'
 import { SbPolicyType } from '../policies/policy-type'
@@ -78,9 +77,6 @@ export interface GetUserProfileResponse {
     replays: GameReplayInfo[]
   }
   seasons: MatchmakingSeasonJson[]
-  /** The running leagues the user is a member of. */
-  leagues: LeagueJson[]
-  leagueStandings: UserLeagueStanding[]
 }
 
 export const GET_MATCH_HISTORY_LIMIT = 40

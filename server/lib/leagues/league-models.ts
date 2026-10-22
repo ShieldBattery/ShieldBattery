@@ -210,49 +210,6 @@ export async function getCurrentLeagues(date: Date, withClient?: DbClient): Prom
 }
 
 /**
- * Returns the leagues running at `date` that a user is a member of, along with their membership in
- * each.
- */
-export async function getCurrentLeaguesForUser(
-  userId: SbUserId,
-  date: Date,
-  withClient?: DbClient,
-): Promise<Array<{ league: League; leagueUser: LeagueUser }>> {
-  const { client, done } = await db(withClient)
-  try {
-    const leagueUsersResult = await client.query<DbLeagueUser>(sql`
-      SELECT lu.*
-      FROM league_users lu
-      JOIN leagues l ON l.id = lu.league_id
-      WHERE lu.user_id = ${userId}
-        AND lu.left_at IS NULL
-        AND l.start_at <= ${date} AND l.end_at > ${date}
-    `)
-    if (!leagueUsersResult.rows.length) {
-      return []
-    }
-    const leagueUsers = new Map(
-      leagueUsersResult.rows.map(row => {
-        const leagueUser = convertLeagueUserFromDb(row)
-        return [leagueUser.leagueId, leagueUser]
-      }),
-    )
-
-    const leaguesResult = await client.query<DbLeague>(sql`
-      SELECT * FROM leagues
-      WHERE id = ANY(${Array.from(leagueUsers.keys())})
-      ORDER BY start_at DESC
-    `)
-    return leaguesResult.rows.map(row => {
-      const league = convertLeagueFromDb(row)
-      return { league, leagueUser: leagueUsers.get(league.id)! }
-    })
-  } finally {
-    done()
-  }
-}
-
-/**
  * Returns the leagues that are accepting signups but not currently running.
  */
 export async function getFutureLeagues(date: Date, withClient?: DbClient): Promise<League[]> {

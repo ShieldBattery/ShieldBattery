@@ -56,24 +56,3 @@ export async function getLeaderboard(
   })
   return entries.map(entry => makeSbUserId(Number(entry)))
 }
-
-/**
- * Returns a user's place on a league's leaderboard, or `undefined` if they aren't on it. Players
- * with equal points share a place, and the next lower score takes the place after it.
- */
-export async function getLeaderboardRank(
-  redis: Redis,
-  leagueId: LeagueId,
-  userId: SbUserId,
-): Promise<number | undefined> {
-  const key = leaderboardKey(leagueId)
-  const score = await redis.client.zScore(key, String(userId))
-  if (score === null) {
-    return undefined
-  }
-  const higher = await redis.client.zRangeWithScores(key, '+inf', `(${score}`, {
-    BY: 'SCORE',
-    REV: true,
-  })
-  return new Set(higher.map(entry => entry.score)).size + 1
-}
