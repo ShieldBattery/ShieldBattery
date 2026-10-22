@@ -5,7 +5,7 @@ import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { DbClient } from '../db'
 import transact from '../db/transaction'
 import { Redis } from '../redis/redis'
-import { updateLeaderboards } from './leaderboard'
+import { getLeaderboardRank, updateLeaderboards } from './leaderboard'
 import { getLeagueLeaderboardEntriesWithLock } from './league-models'
 
 vi.mock('../db/transaction', () => ({ default: vi.fn() }))
@@ -65,5 +65,34 @@ describe('league leaderboard membership changes', () => {
     await updateLeaderboards(redis, [])
     expect(transact).not.toHaveBeenCalled()
     expect(getLeagueLeaderboardEntriesWithLock).not.toHaveBeenCalled()
+  })
+})
+
+describe('league profile ranks', () => {
+  test('returns unranked for a member without a leaderboard entry', async () => {
+    const zScore = vi.fn().mockResolvedValue(null)
+    const zRangeWithScores = vi.fn()
+    const cache = { client: { zScore, zRangeWithScores } } as unknown as Redis
+
+    expect(await getLeaderboardRank(cache, leagueId, userId)).toBeUndefined()
+    expect(zRangeWithScores).not.toHaveBeenCalled()
+  })
+
+  test.each([
+    { higher: [], rank: 1 },
+    { higher: [900], rank: 2 },
+    { higher: [900, 800, 800], rank: 3 },
+  ])('keeps the leaderboard dense rank with higher scores $higher', async ({ higher, rank }) => {
+    const zScore = vi.fn().mockResolvedValue(700)
+    const zRangeWithScores = vi
+      .fn()
+      .mockResolvedValue(higher.map((score, i) => ({ value: String(i + 2), score })))
+    const cache = { client: { zScore, zRangeWithScores } } as unknown as Redis
+
+    expect(await getLeaderboardRank(cache, leagueId, userId)).toBe(rank)
+    expect(zRangeWithScores).toHaveBeenCalledWith(`leaderboard:${leagueId}`, '+inf', '(700', {
+      BY: 'SCORE',
+      REV: true,
+    })
   })
 })

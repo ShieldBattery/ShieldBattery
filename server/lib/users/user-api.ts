@@ -23,6 +23,7 @@ import { MAX_GAMES_OFFSET, toGameRecordJson } from '../../../common/games/games'
 import { ALL_TRANSLATION_LANGUAGES } from '../../../common/i18n'
 import { MAX_IMAGE_SIZE_BYTES, USER_AVATAR_SIZE } from '../../../common/images'
 import { LadderPlayer } from '../../../common/ladder/ladder'
+import { toLeagueJson, UserLeagueStanding } from '../../../common/leagues/leagues'
 import { toMapInfoJson } from '../../../common/maps'
 import {
   MatchmakingType,
@@ -100,6 +101,8 @@ import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorat
 import { joiLocale } from '../i18n/locale-validator'
 import { ImageService } from '../images/image-service'
 import { getRankingsForUser } from '../ladder/rankings'
+import { getLeaderboardRank } from '../leagues/leaderboard'
+import { getCurrentLeaguesForUser } from '../leagues/league-models'
 import { sendMailTemplate } from '../mail/mailer'
 import { MatchmakingSeasonsService } from '../matchmaking/matchmaking-seasons'
 import {
@@ -667,12 +670,34 @@ export class UserApi {
       }
     })()
 
-    const [userStats, matchHistory, ratings, rankings] = await Promise.all([
-      userStatsPromise,
-      matchHistoryPromise,
-      ratingsPromise,
-      rankingsPromise,
-    ])
+    const leaguesPromise = (async () => {
+      const currentLeagues = await getCurrentLeaguesForUser(user.id, new Date(this.clock.now()))
+      const ranks = await Promise.all(
+        currentLeagues.map(({ league }) => getLeaderboardRank(this.redis, league.id, user.id)),
+      )
+
+      const leagueStandings: UserLeagueStanding[] = currentLeagues.map(
+        ({ league, leagueUser }, i) => ({
+          leagueId: league.id,
+          rank: ranks[i],
+          points: leagueUser.points,
+          wins: leagueUser.wins,
+          losses: leagueUser.losses,
+        }),
+      )
+      // Ranked leagues come first, keeping their most recently started order within each group
+      leagueStandings.sort((a, b) => Number(a.rank === undefined) - Number(b.rank === undefined))
+      return { leagues: currentLeagues.map(({ league }) => toLeagueJson(league)), leagueStandings }
+    })()
+
+    const [userStats, matchHistory, ratings, rankings, { leagues, leagueStandings }] =
+      await Promise.all([
+        userStatsPromise,
+        matchHistoryPromise,
+        ratingsPromise,
+        rankingsPromise,
+        leaguesPromise,
+      ])
 
     const ladder: Partial<Record<MatchmakingType, LadderPlayer>> = {}
     for (const r of ratings) {
@@ -715,6 +740,8 @@ export class UserApi {
       },
       matchHistory,
       seasons: [toMatchmakingSeasonJson(currentSeason)],
+      leagues,
+      leagueStandings,
     }
   }
 

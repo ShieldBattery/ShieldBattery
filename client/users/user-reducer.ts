@@ -1,5 +1,6 @@
 import { Immutable } from 'immer'
 import { GameRecordJson } from '../../common/games/games'
+import { UserLeagueStanding } from '../../common/leagues/leagues'
 import { SbUser } from '../../common/users/sb-user'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { UserProfileJson } from '../../common/users/user-network'
@@ -18,12 +19,15 @@ export interface UserState {
   idToMatchHistory: Map<SbUserId, GameRecordJson[]>
   /** A map of user ID -> user profile information. */
   idToProfile: Map<SbUserId, UserProfileJson>
+  /** A map of user ID -> their standings in the running leagues they're a member of. */
+  idToLeagueStandings: Map<SbUserId, UserLeagueStanding[]>
 }
 
 const DEFAULT_STATE: Immutable<UserState> = {
   byId: new Map(),
   idToMatchHistory: new Map(),
   idToProfile: new Map(),
+  idToLeagueStandings: new Map(),
 }
 
 function updateUsers(state: UserState, users: SbUser[]) {
@@ -192,11 +196,12 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     updateUsers(state, action.payload.users)
   },
 
-  ['@users/getUserProfile'](state, { payload: { user, profile, matchHistory } }) {
+  ['@users/getUserProfile'](state, { payload: { user, profile, matchHistory, leagueStandings } }) {
     updateUsers(state, [user])
     updateUsers(state, matchHistory.users)
     state.idToProfile.set(profile.userId, profile)
     state.idToMatchHistory.set(user.id, matchHistory.games)
+    state.idToLeagueStandings.set(user.id, leagueStandings)
   },
 
   ['@users/getMatchHistory'](state, { payload: { users } }) {
