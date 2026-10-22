@@ -29,6 +29,7 @@ import swallowNonBuiltins from '../common/async/swallow-non-builtins'
 import { DEEP_LINK_SCHEMES } from '../common/deep-links'
 import { getErrorStack } from '../common/errors'
 import { FsDirent, TwitchOauthFlowResult, TypedIpcMain, TypedIpcSender } from '../common/ipc'
+import { LocalMapRoot } from '../common/map-library'
 import { LocalSettings } from '../common/settings/local-settings'
 import { setAppId } from './app-id'
 import { APP_ROOT } from './app-paths'
@@ -51,6 +52,8 @@ import { ReplayStore } from './game/replay-store'
 import { classifyLaunchArgs, DeepLink } from './launch-args'
 import { appLogBaseName, gameLogBaseName } from './log-paths'
 import logger from './logger'
+import { LocalMapLibraryService, setupLocalMapLibrary } from './map-library'
+import { MapRootFolder } from './map-library/map-folders'
 import { ReplayLibraryService, setupReplayLibrary } from './replay-library'
 import { parseReplayChat, parseReplayMetadata } from './replay-library/replay-parser'
 import { LocalSettingsManager, ScrSettingsManager } from './settings'
@@ -197,9 +200,11 @@ let systemTray: SystemTray
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 let gameServer: GameServer
 let replayLibrary: ReplayLibraryService | undefined
+let localMapLibrary: LocalMapLibraryService | undefined
 // The replay folders last handed to the library service, so a settings change is only forwarded
 // when the resolved list actually differs. Seeded when the service is created.
 let lastReplayFolders: string[] | undefined
+let lastMapRoots: MapRootFolder[] | undefined
 // Whether the renderer has reported itself fully bootstrapped (see `rendererReady` in
 // common/ipc.ts). Until then, `replaysOpen` sends are queued rather than sent: on a cold start the
 // launch args are handled before the renderer's IPC listeners exist, and messages sent with no
@@ -292,6 +297,22 @@ function resolveReplayFolders(settings: Readonly<Partial<LocalSettings>>): strin
     return [defaultReplayFolder()]
   }
   return configured.map(folder => path.normalize(folder)).filter(folder => folder.length > 0)
+}
+
+/**
+ * The map folders the local map index covers for the given settings: the StarCraft install's
+ * `Maps` folder (when the install path is set) and `Documents\StarCraft\maps`.
+ */
+function resolveMapRoots(settings: Readonly<Partial<LocalSettings>>): MapRootFolder[] {
+  const roots: MapRootFolder[] = []
+  if (settings.starcraftPath) {
+    roots.push({ root: LocalMapRoot.Install, path: path.join(settings.starcraftPath, 'Maps') })
+  }
+  roots.push({
+    root: LocalMapRoot.Documents,
+    path: path.join(app.getPath('documents'), 'Starcraft', 'maps'),
+  })
+  return roots
 }
 
 let cachedIds: [number, string][] = []
@@ -646,6 +667,18 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
       })
       lastRunAppAtSystemStart = settings.runAppAtSystemStart
       lastRunAppAtSystemStartMinimized = settings.runAppAtSystemStartMinimized
+    }
+
+    if (localMapLibrary) {
+      const roots = resolveMapRoots(settings)
+      if (
+        !lastMapRoots ||
+        roots.length !== lastMapRoots.length ||
+        roots.some((root, i) => root.path !== lastMapRoots![i].path)
+      ) {
+        lastMapRoots = roots
+        localMapLibrary.setRoots(roots)
+      }
     }
 
     if (replayLibrary) {
@@ -1670,6 +1703,23 @@ app.on('ready', () => {
       } catch (err) {
         // A failure to set up the replay index shouldn't take down the whole app.
         logger.error(`Error setting up the replay library: ${getErrorStack(err)}`)
+      }
+
+      try {
+        const roots = resolveMapRoots(await localSettings.get())
+        lastMapRoots = roots
+        // Namespaced by SB_SESSION like the replay index, so dev instances don't share one file
+        const sbSessionName = process.env.SB_SESSION
+        const dbFileName = sbSessionName
+          ? `map-library-${sbSessionName}.sqlite`
+          : 'map-library.sqlite'
+        localMapLibrary = setupLocalMapLibrary({
+          dbPath: path.join(app.getPath('userData'), dbFileName),
+          roots,
+          getSender: () => TypedIpcSender.from(mainWindow?.webContents),
+        })
+      } catch (err) {
+        logger.error(`Error setting up the local map library: ${getErrorStack(err)}`)
       }
 
       systemTray = new SystemTray(mainWindow, () => quitApp('tray menu'))
