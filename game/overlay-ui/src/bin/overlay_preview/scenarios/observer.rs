@@ -263,6 +263,9 @@ pub struct Knobs {
     /// of what is left to mine in something with no hit points. Takes the selection over from the
     /// count.
     pub selection_resource: bool,
+    /// Whether a lone selected unit or the transport has a status line, which is the reading that
+    /// shares the owner's line with it.
+    pub selection_status: bool,
     /// Whether the game reports how much of the map each side holds. The game reports none for a
     /// game that is not two sides, so this is the switch that proves the bar disappears without one
     /// rather than drawing an empty share.
@@ -301,6 +304,7 @@ impl Default for Knobs {
             selection_morphing: false,
             selection_defense: false,
             selection_resource: false,
+            selection_status: false,
             map_control: true,
             vision_picker: false,
         }
@@ -449,6 +453,14 @@ pub fn build_view(
         selection: selection(knobs, t),
         map_control: knobs.map_control.then(|| map_control(t)),
     }
+}
+
+/// The status line the game DLL reads out of the English stat_txt for a unit with a parasite on it,
+/// where the knobs ask for one.
+fn status_line(knobs: &Knobs) -> Option<String> {
+    knobs
+        .selection_status
+        .then(|| "Parasite Detected".to_string())
 }
 
 /// The name a panel other than the matchup bar puts on a player.
@@ -927,6 +939,7 @@ fn selection(knobs: &Knobs, t: f64) -> SelectionView {
                     energy: (!building && index % 2 == 0)
                         .then(|| (wave(index as f64 * 1.7 + 2.0, t, 0.03, 200.0), 200)),
                     kills: (t / 31.0) as u32 + index as u32 * 2,
+                    status: status_line(knobs).filter(|_| count == 1),
                     building,
                     resources: None,
                     stacked: None,
@@ -1062,6 +1075,7 @@ fn producing_building(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
         shields: has_shields(race).then(|| (wave(1.0, t, 0.04, 450.0), 450)),
         energy: None,
         kills: 0,
+        status: None,
         building: true,
         resources: None,
         stacked: None,
@@ -1104,6 +1118,7 @@ fn building_going_up(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
         shields: has_shields(race).then_some(((500.0 * progress) as u32, 500)),
         energy: None,
         kills: 0,
+        status: None,
         building: true,
         resources: None,
         stacked: None,
@@ -1136,6 +1151,7 @@ fn morphing_egg(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
         shields: None,
         energy: None,
         kills: 0,
+        status: None,
         building: false,
         resources: None,
         stacked: None,
@@ -1185,6 +1201,7 @@ fn defense_building(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
         shields: has_shields(race).then(|| (wave(1.0, t, 0.04, 100.0), 100)),
         energy: None,
         kills: 0,
+        status: None,
         building: true,
         resources: None,
         stacked: None,
@@ -1206,6 +1223,7 @@ fn stacked_minerals(t: f64) -> SelectedUnitView {
         shields: None,
         energy: None,
         kills: 0,
+        status: None,
         building: true,
         resources: Some(ResourcesLeftView {
             glyph: overlay_ui::kit::widgets::ResourceGlyph::Minerals,
@@ -1240,6 +1258,7 @@ fn loaded_transport(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
         shields: has_shields(race).then(|| (wave(2.0, t, 0.05, 80.0), 80)),
         energy: None,
         kills: 0,
+        status: status_line(knobs),
         building: false,
         resources: None,
         stacked: None,
@@ -1259,6 +1278,7 @@ fn loaded_transport(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
                     shields: None,
                     energy: None,
                     kills: 0,
+                    status: None,
                     building: false,
                     resources: None,
                     stacked: None,
@@ -1450,6 +1470,9 @@ pub enum Showcase {
     Defense,
     /// A mineral field with others stacked on it.
     Resource,
+    /// The single unit the knobs default to with a status line, owned by a player with the longest
+    /// name the game allows, which is what proves the name gives way to the status.
+    Status,
     /// The single unit the knobs default to, with the list of players under the minimap's vision
     /// button open.
     VisionPicker,
@@ -1560,7 +1583,7 @@ impl Preset {
         }
     }
 
-    pub const ALL: [Preset; 31] = [
+    pub const ALL: [Preset; 32] = [
         Preset::game(2, 1, Screen::Minimal),
         Preset::game(2, 1, Screen::Standard),
         Preset::game(2, 1, Screen::Analyst),
@@ -1594,6 +1617,7 @@ impl Preset {
         Preset::selection_showcase(Showcase::Morphing),
         Preset::selection_showcase(Showcase::Defense),
         Preset::selection_showcase(Showcase::Resource),
+        Preset::selection_showcase(Showcase::Status),
         // The vision list is shown over a team game, which is the one with a list worth reading.
         Preset {
             players: 4,
@@ -1618,6 +1642,7 @@ impl Preset {
             Showcase::Morphing => return "1v1-selection-morphing".to_string(),
             Showcase::Defense => return "1v1-selection-defense".to_string(),
             Showcase::Resource => return "1v1-selection-resource".to_string(),
+            Showcase::Status => return "1v1-selection-status".to_string(),
             Showcase::VisionPicker => return format!("{}-vision-picker", self.shape()),
             Showcase::Knobs => {}
         }
@@ -1666,6 +1691,8 @@ impl Preset {
             selection_morphing: self.showcase == Showcase::Morphing,
             selection_defense: self.showcase == Showcase::Defense,
             selection_resource: self.showcase == Showcase::Resource,
+            selection_status: self.showcase == Showcase::Status,
+            long_names: self.showcase == Showcase::Status,
             vision_picker: self.showcase == Showcase::VisionPicker,
             ..Knobs::default()
         };
@@ -1781,6 +1808,13 @@ pub fn knobs_ui(k: &mut Knobs, state: &State, ui: &mut egui::Ui) -> bool {
         .on_hover_text(
             "Selects a mineral field with two more stacked on it, which reads out what is left \
              to mine in it and how many are stacked, and has no hit points.",
+        )
+        .changed();
+    changed |= ui
+        .checkbox(&mut k.selection_status, "selection has a status")
+        .on_hover_text(
+            "Puts a parasite on a lone selected unit or the transport, which writes the game's \
+             status line for it at the end of the owner's line.",
         )
         .changed();
     changed |= ui

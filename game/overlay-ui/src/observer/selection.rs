@@ -60,6 +60,11 @@ pub struct SelectedUnitView {
     pub energy: Option<(u32, u32)>,
     /// How many units it has killed.
     pub kills: u32,
+    /// The one line the console writes under a unit selected alone, in the game's language: what
+    /// has been done to it, such as a parasite on it or its being a hallucination, or failing that
+    /// what it is, a detector or a Terran's rank. `None` for nothing to say, and only read out for
+    /// a unit selected alone, so a host may leave it `None` for any other.
+    pub status: Option<String>,
     /// Whether it is a building rather than a unit.
     pub building: bool,
     /// What is left to mine in it, for a mineral field, a geyser, or the building on a geyser.
@@ -269,6 +274,9 @@ const OWNER_ROW: f32 = 18.0;
 
 /// Gap under the owner's line.
 const OWNER_LEAD: f32 = 6.0;
+
+/// Text size of the subject's status, which shares the owner's line.
+const STATUS_SIZE: f32 = 13.0;
 
 /// How much of the text column the name and the owner's line take, above whatever the reading
 /// draws under them.
@@ -738,11 +746,12 @@ fn draw_unit(ui: &Ui, body: Rect, unit: &SelectedUnitView) -> Option<SelectedUni
     clicked
 }
 
-/// Draws the head of the text column: the subject's name, then whose it is. Returns the room left
-/// under them.
+/// Draws the head of the text column: the subject's name, then whose it is, with its status at
+/// that line's right end. Returns the room left under them.
 ///
 /// A unit the host has no name for leaves no gap for one: the owner's line heads the column instead.
-/// Nor does a unit nobody owns, a mineral field or a critter, whose line would be an empty bar.
+/// Nor does a unit nobody owns, a mineral field or a critter, whose line would be an empty bar,
+/// unless it has a status to say.
 fn draw_header(ui: &Ui, text: Rect, unit: &SelectedUnitView) -> Rect {
     let mut top = text.top();
     if let Some(name) = &unit.name {
@@ -755,15 +764,27 @@ fn draw_header(ui: &Ui, text: Rect, unit: &SelectedUnitView) -> Rect {
         );
         top += NAME_ROW;
     }
-    if unit.owner.is_some() {
-        draw_owner(
-            ui,
-            Rect::from_min_size(pos2(text.left(), top), vec2(text.width(), OWNER_ROW)),
-            unit,
-        );
+    if unit.owner.is_some() || unit.status.is_some() {
+        let mut line = Rect::from_min_size(pos2(text.left(), top), vec2(text.width(), OWNER_ROW));
+        if let Some(status) = &unit.status {
+            let status_width = draw_status(ui, line, status);
+            line.max.x -= status_width + OWNER_GAP;
+        }
+        if unit.owner.is_some() {
+            draw_owner(ui, line, unit);
+        }
         top += OWNER_ROW;
     }
     Rect::from_min_max(pos2(text.left(), top + OWNER_LEAD), text.max)
+}
+
+/// Draws the subject's status against the right end of `line`, in the green the console writes it
+/// in. Returns how wide it is, which the owner's name gives up.
+fn draw_status(ui: &Ui, line: Rect, status: &str) -> f32 {
+    let spec = text::body(STATUS_SIZE, text::BodyWeight::Semibold).with_color(theme::TEXT_POSITIVE);
+    let width = spec.galley(ui, status).size().x.min(line.width());
+    paint_text(ui, line, &spec, status, Align::RIGHT);
+    width
 }
 
 /// The subject's pools as the console lists them: shields for a unit that has them, then hit points
@@ -1232,6 +1253,7 @@ mod tests {
             shields,
             energy: None,
             kills: 0,
+            status: None,
             building: false,
             resources: None,
             stacked: None,

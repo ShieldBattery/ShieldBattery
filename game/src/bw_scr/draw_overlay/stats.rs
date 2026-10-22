@@ -23,6 +23,7 @@ use overlay_ui::transport;
 
 use crate::bw;
 use crate::bw_scr::game_stats::{GameStats, HistoryStamp, Sample, StatsAsOf, TimelineSubject};
+use crate::bw_scr::stat_txt::{StatTxt, UnitStatus};
 use crate::game_thread;
 
 use super::{
@@ -583,9 +584,9 @@ fn build_selection_view(bw: &BwVars, players: &[StatsPlayer]) -> SelectionView {
 }
 
 /// One selected unit, named and measured the way the game's own console measures it, with what it
-/// is making and what it is carrying, and the upgrades it fights with and how many of it are
-/// stacked where it is selected `alone`: those are only read out for a unit selected alone, so they
-/// are only read for one.
+/// is making and what it is carrying, and its status, the upgrades it fights with and how many of
+/// it are stacked where it is selected `alone`: those are only read out for a unit selected alone,
+/// so they are only read for one.
 fn selected_unit_view(
     bw: &BwVars,
     players: &[StatsPlayer],
@@ -596,10 +597,81 @@ fn selected_unit_view(
     view.production = production::selected_production(unit, bw);
     view.cargo = cargo_views(bw, players, unit);
     if alone {
+        let producing = view.production.is_some();
+        // The overlay is built in the game's draw, on its main thread.
+        view.status = bw.stat_txt.and_then(|stat_txt| unsafe {
+            unit_status(&stat_txt, unit, producing).and_then(|status| stat_txt.unit_status(status))
+        });
         view.upgrades = production::selected_upgrades(unit, bw);
         view.stacked = game_thread::stacked_building_count(unit, bw.active_units);
     }
     view
+}
+
+/// The line the console writes under this unit, selected alone: what has been done to it, or
+/// failing that what it is, picked as the console picks one where several apply. `producing` is
+/// whether it is making anything, which keeps a disabled building's line off the console.
+///
+/// The console names a hallucination only to its owner and in a replay. Everyone this panel is
+/// shown to is watching rather than playing, none of whom the hallucination is cast to fool, so it
+/// is named to all of them.
+///
+/// # Safety
+///
+/// Must be called on the game's main thread.
+unsafe fn unit_status(stat_txt: &StatTxt, unit: Unit, producing: bool) -> Option<UnitStatus> {
+    let unit_id = unit.id();
+    let completed = unit.is_completed();
+    // The disabled lines are one per race, so a building of no race has none.
+    let disabled_race = (unit_id.is_building() && completed && unit.is_disabled() && !producing)
+        .then(|| unit_id.primary_race())
+        .flatten();
+    if unit.is_hallucination() {
+        Some(UnitStatus::Hallucination)
+    } else if let Some(race) = disabled_race {
+        Some(UnitStatus::Disabled(race))
+    } else if completed && unit.acid_spore_count() != 0 {
+        Some(UnitStatus::AcidSpores(unit.acid_spore_count()))
+    } else if completed && unit.is_blind() {
+        Some(UnitStatus::Blind)
+    } else if completed && unit.is_parasited() {
+        Some(UnitStatus::Parasite)
+    } else if unit.can_detect() {
+        Some(UnitStatus::Detector)
+    } else if unit_id.is_building() {
+        None
+    } else {
+        unsafe { rank(stat_txt, unit) }
+    }
+}
+
+/// The rank the console gives a unit that is not a building, which is every Terran's but a
+/// civilian's or a spider mine's, and two heroes' of the other races that are named for one.
+///
+/// # Safety
+///
+/// Must be called on the game's main thread.
+unsafe fn rank(stat_txt: &StatTxt, unit: Unit) -> Option<UnitStatus> {
+    use bw_dat::unit;
+
+    let unit_id = unit.id();
+    let renamed = unsafe { stat_txt.is_renamed_by_map(unit_id) };
+    if unit_id.is_powerup() || unit_id == unit::CIVILIAN || unit_id == unit::SPIDER_MINE {
+        None
+    } else if unit_id == unit::GANTRITHOR {
+        (!renamed).then_some(UnitStatus::Tassadar)
+    } else if matches!(
+        unit_id,
+        unit::BATTLECRUISER | unit::NORAD_II | unit::HYPERION
+    ) && unit_id.is_hero()
+        && renamed
+    {
+        Some(UnitStatus::Admiral)
+    } else if unit_id.primary_race() == Some(Race::Terran) {
+        Some(UnitStatus::Rank(unit.rank()))
+    } else {
+        None
+    }
 }
 
 /// The units inside a transport or a bunker, in the order the game holds them, and nothing at all
@@ -667,6 +739,7 @@ fn carried_unit_view(bw: &BwVars, players: &[StatsPlayer], unit: Unit) -> Select
             )
         }),
         kills: unit.kills(),
+        status: None,
         building: unit_id.is_building(),
         resources: resources_left(unit),
         stacked: None,
