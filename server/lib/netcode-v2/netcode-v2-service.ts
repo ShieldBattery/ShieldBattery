@@ -21,6 +21,7 @@ import {
   setNetcodeV2Session,
 } from '../games/game-models'
 import log from '../logging/logger'
+import { monotonicNow } from '../time/monotonic-now'
 import { worstPairwiseLatencyMs } from './latency-estimate'
 import { ED25519_SEED_HEX_PATTERN, loadConfigFromEnv, NetcodeV2Config } from './netcode-v2-config'
 
@@ -43,11 +44,10 @@ const SESSIONS_ALIVE_CHUNK_SIZE = 512
 const WARM_SIGNAL_DEBOUNCE_MS = 30_000
 
 /**
- * The hard ceiling on total time spent polling `POST /session/create` through `202 provisioning`
- * replies before giving up. The coordinator caps its own provisioning hold well under this, so
- * reaching this bound means a real outage rather than a slow provision.
+ * The total budget for session creation, including provisioning polls and retries while the
+ * coordinator waits for relays to install descriptors or for persistence to recover.
  */
-const PROVISIONING_POLL_CEILING_MS = 120_000
+const CREATE_RETRY_CEILING_MS = 120_000
 
 export class NetcodeV2ServiceError extends Error {}
 
@@ -912,12 +912,9 @@ export class NetcodeV2Service {
   }
 
   /**
-   * Posts the session-create request and returns the coordinator's session response, polling through
-   * any `202 provisioning` replies until a `200` arrives. Every attempt re-serializes and re-signs
-   * the same request object (fresh timestamps) and sends byte-identical body bytes, which the
-   * coordinator's idempotency depends on. Aborts promptly on `signal`, and gives up with a create
-   * failure past `PROVISIONING_POLL_CEILING_MS` (unreachable outside a real outage, since the
-   * coordinator caps its own hold well under that).
+   * Polls through provisioning replies and retries 503 only with an external id and an integer-second
+   * Retry-After hint from the coordinator. Each attempt signs identical bytes with a fresh timestamp.
+   * Requests and delays share a bounded budget and abort promptly on `signal`.
    */
   private async createCoordinatorSession(
     config: NetcodeV2Config,
@@ -930,44 +927,71 @@ export class NetcodeV2Service {
     // object) so the signature covers precisely what goes on the wire — the coordinator verifies
     // over the raw body — and so every poll attempt sends identical bytes.
     const bodyStr = JSON.stringify(request)
-    const pollDeadline = Date.now() + PROVISIONING_POLL_CEILING_MS
+    const pollDeadline = monotonicNow() + CREATE_RETRY_CEILING_MS
     let announcedProvisioning = false
+    let retryBackoffMs = 1000
 
     for (;;) {
-      let response: { statusCode: number; body: string }
+      const remainingMs = pollDeadline - monotonicNow()
+      if (remainingMs <= 0) {
+        throw new NetcodeV2ServiceError(
+          'coordinator session create failed: retry deadline exceeded',
+        )
+      }
+      let response: { statusCode: number; body: string } | undefined
+      let retryMs = retryBackoffMs
       try {
+        signal.throwIfAborted()
         response = await got.post(url, {
           body: bodyStr,
           headers: {
             'content-type': 'application/json',
             ...signCoordinatorRequest('POST', coordinatorRequestPath(url), bodyStr),
           },
-          timeout: { request: 10000 },
+          timeout: { request: Math.min(10_000, remainingMs) },
+          retry: { limit: 0 },
           signal,
         })
       } catch (err) {
-        throw new NetcodeV2ServiceError('coordinator session create failed', { cause: err })
+        const retryAfter =
+          err instanceof HTTPError ? err.response.headers['retry-after'] : undefined
+        const retryAfterMs =
+          typeof retryAfter === 'string' && /^\d+$/.test(retryAfter)
+            ? Number(retryAfter) * 1000
+            : NaN
+        if (
+          !(err instanceof HTTPError && err.response.statusCode === 503 && request.external_id) ||
+          !Number.isFinite(retryAfterMs)
+        ) {
+          throw new NetcodeV2ServiceError('coordinator session create failed', { cause: err })
+        }
+        // Unmarked 503s shed load. For marked failures, respect the coordinator's minimum delay
+        // and spread repeated retries with capped exponential backoff and additive jitter.
+        retryMs = Math.max(retryAfterMs, retryBackoffMs) + Math.random() * 250
+        retryBackoffMs = Math.min(retryBackoffMs * 2, 10_000)
       }
 
-      if (response.statusCode !== 202) {
+      if (response && response.statusCode !== 202) {
         return JSON.parse(response.body) as CoordinatorSessionResponse
       }
 
-      const provisioning = JSON.parse(response.body) as CoordinatorProvisioningResponse
-      if (!announcedProvisioning) {
-        announcedProvisioning = true
-        onProvisioning?.(provisioning.regions ?? [])
+      if (response) {
+        const provisioning = JSON.parse(response.body) as CoordinatorProvisioningResponse
+        if (!announcedProvisioning) {
+          announcedProvisioning = true
+          onProvisioning?.(provisioning.regions ?? [])
+        }
+        retryMs = Math.min(Math.max(provisioning.retryAfterMs ?? 2000, 500), 10_000)
       }
 
-      if (Date.now() >= pollDeadline) {
+      const remainingDelayMs = pollDeadline - monotonicNow()
+      if (remainingDelayMs <= 0) {
         throw new NetcodeV2ServiceError(
-          'coordinator session create failed: still provisioning past the poll ceiling',
+          'coordinator session create failed: retry deadline exceeded',
         )
       }
-
-      const retryMs = Math.min(Math.max(provisioning.retryAfterMs ?? 2000, 500), 10_000)
       try {
-        await abortableDelay(retryMs, signal)
+        await abortableDelay(Math.min(retryMs, remainingDelayMs), signal)
       } catch (err) {
         // An aborted wait ends the create the same way an aborted request does.
         throw new NetcodeV2ServiceError('coordinator session create failed', { cause: err })

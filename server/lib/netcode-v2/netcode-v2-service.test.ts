@@ -1,11 +1,15 @@
 import got, { HTTPError } from 'got'
 import { createPublicKey, sign } from 'node:crypto'
-import { afterEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { makeGameServerRegionId } from '../../../common/game-server-regions'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import type { GameServerRegionsService } from '../game-server-regions/game-server-regions-service'
-import { addNetcodeV2RelayEvents, setNetcodeV2RequestedRegions } from '../games/game-models'
+import {
+  addNetcodeV2RelayEvents,
+  setNetcodeV2RequestedRegions,
+  setNetcodeV2Session,
+} from '../games/game-models'
 import {
   checkSessionsAlive,
   clientSigningKeyFromSeedHex,
@@ -15,7 +19,7 @@ import {
 } from './netcode-v2-service'
 
 // `HTTPError` is kept as the real class (spread from the original module) rather than mocked away,
-// since `fetchFlightBlob` branches on `err instanceof HTTPError` to detect a coordinator 404.
+// since coordinator requests classify failures with `err instanceof HTTPError`.
 vi.mock('got', async importOriginal => ({
   ...(await importOriginal<typeof import('got')>()),
   default: {
@@ -67,12 +71,17 @@ function configureNetcodeV2() {
 
 /**
  * Builds a real `HTTPError` instance (so `instanceof HTTPError` checks pass) carrying just the
- * `response.statusCode` `fetchFlightBlob` reads, without constructing got's full internal request/
+ * `response.statusCode` the service reads, without constructing got's full internal request/
  * response machinery.
  */
-function fakeHttpError(statusCode: number): HTTPError {
+function fakeHttpError(statusCode: number, retryAfter?: string): HTTPError {
   const err = Object.create(HTTPError.prototype) as HTTPError
-  Object.assign(err, { response: { statusCode } })
+  Object.assign(err, {
+    response: {
+      statusCode,
+      headers: retryAfter === undefined ? {} : { 'retry-after': retryAfter },
+    },
+  })
   return err
 }
 
@@ -479,9 +488,14 @@ describe('netcode-v2/NetcodeV2Service#rehomeSession', () => {
 })
 
 describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
+  beforeEach(() => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+  })
+
   afterEach(() => {
     vi.unstubAllEnvs()
     vi.clearAllMocks()
+    vi.restoreAllMocks()
     vi.useRealTimers()
   })
 
@@ -1154,6 +1168,264 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     expect(onProvisioning).toHaveBeenCalledTimes(1)
     expect(onProvisioning).toHaveBeenCalledWith(['us-east'])
     expect(result.setups.get(u1)).toBeDefined()
+  })
+
+  function createSinglePlayerSession(
+    service: NetcodeV2Service,
+    signal = new AbortController().signal,
+    onProvisioning?: (regions: string[]) => void,
+    gameId = 'game-1',
+  ) {
+    return service.createSessionForGame({
+      seed: 0x89abcdef,
+      gameId,
+      slots: [{ slot: 0, userId: makeSbUserId(1), observer: false, pubkey: PUBKEY }],
+      signal,
+      onProvisioning,
+    })
+  }
+
+  test('retries a 503 with identical body bytes and a fresh signature, then persists once', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(1_700_000_000_000)
+    configureNetcodeV2()
+    asMockedFunction(got.post)
+      .mockRejectedValueOnce(fakeHttpError(503, '0'))
+      .mockResolvedValueOnce(createOk(sessionResponse([0])) as any)
+    const onProvisioning = vi.fn()
+    const resultPromise = createSinglePlayerSession(makeService(), undefined, onProvisioning)
+
+    await vi.advanceTimersByTimeAsync(999)
+    expect(got.post).toHaveBeenCalledTimes(1)
+    expect(setNetcodeV2Session).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(1)
+    expect((await resultPromise).session).toBe(100)
+
+    const attempts = asMockedFunction(got.post).mock.calls.map(([, options]) => options as any)
+    expect(attempts).toHaveLength(2)
+    expect(attempts[1].body).toBe(attempts[0].body)
+    expect(JSON.parse(attempts[0].body).external_id).toBe('game-1')
+    expect(attempts[1].headers['x-rp2-timestamp']).toBe('1700000001')
+    expect(attempts[1].headers['x-rp2-signature']).not.toBe(attempts[0].headers['x-rp2-signature'])
+    for (const attempt of attempts) {
+      expect(attempt.retry).toEqual({ limit: 0 })
+      const message =
+        `rp2-request-v1:${attempt.headers['x-rp2-timestamp']}:POST:/session/create:` + attempt.body
+      expect(attempt.headers['x-rp2-signature']).toBe(
+        sign(
+          null,
+          Buffer.from(message),
+          clientSigningKeyFromSeedHex(TEST_CLIENT_SEED_HEX),
+        ).toString('hex'),
+      )
+    }
+    expect(onProvisioning).not.toHaveBeenCalled()
+    expect(setNetcodeV2Session).toHaveBeenCalledExactlyOnceWith('game-1', 100)
+    expect(addNetcodeV2RelayEvents).toHaveBeenCalledTimes(1)
+    expect(setNetcodeV2RequestedRegions).toHaveBeenCalledTimes(1)
+  })
+
+  test.each([
+    { retryAfter: '0', delayMs: 1125 },
+    { retryAfter: '3', delayMs: 3125 },
+  ])(
+    'adds jitter after the Retry-After/backoff floor ($retryAfter seconds)',
+    async ({ retryAfter, delayMs }) => {
+      vi.useFakeTimers()
+      configureNetcodeV2()
+      vi.mocked(Math.random).mockReturnValue(0.5)
+      asMockedFunction(got.post)
+        .mockRejectedValueOnce(fakeHttpError(503, retryAfter))
+        .mockResolvedValueOnce(createOk(sessionResponse([0])) as any)
+      const resultPromise = createSinglePlayerSession(makeService())
+
+      await vi.advanceTimersByTimeAsync(delayMs - 1)
+      expect(got.post).toHaveBeenCalledTimes(1)
+      await vi.advanceTimersByTimeAsync(1)
+      await resultPromise
+      expect(got.post).toHaveBeenCalledTimes(2)
+    },
+  )
+
+  test('backs off repeated marked 503 replies up to ten seconds', async () => {
+    vi.useFakeTimers()
+    configureNetcodeV2()
+    asMockedFunction(got.post)
+      .mockRejectedValueOnce(fakeHttpError(503, '0'))
+      .mockRejectedValueOnce(fakeHttpError(503, '0'))
+      .mockRejectedValueOnce(fakeHttpError(503, '0'))
+      .mockRejectedValueOnce(fakeHttpError(503, '0'))
+      .mockRejectedValueOnce(fakeHttpError(503, '0'))
+      .mockRejectedValueOnce(fakeHttpError(503, '0'))
+      .mockResolvedValueOnce(createOk(sessionResponse([0])) as any)
+    const resultPromise = createSinglePlayerSession(makeService())
+
+    let attempts = 1
+    for (const delayMs of [1000, 2000, 4000, 8000, 10_000, 10_000]) {
+      await vi.advanceTimersByTimeAsync(delayMs - 1)
+      expect(got.post).toHaveBeenCalledTimes(attempts)
+      await vi.advanceTimersByTimeAsync(1)
+      ++attempts
+      expect(got.post).toHaveBeenCalledTimes(attempts)
+    }
+    await resultPromise
+  })
+
+  test('expires without retrying early when Retry-After exceeds the whole budget', async () => {
+    vi.useFakeTimers()
+    configureNetcodeV2()
+    asMockedFunction(got.post).mockRejectedValue(fakeHttpError(503, '180'))
+    const resultPromise = createSinglePlayerSession(makeService())
+    const rejected = (async () => {
+      await expect(resultPromise).rejects.toThrow('coordinator session create failed')
+    })()
+
+    await vi.advanceTimersByTimeAsync(119_999)
+    expect(got.post).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1)
+    await rejected
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(got.post).toHaveBeenCalledTimes(1)
+    expect(setNetcodeV2Session).not.toHaveBeenCalled()
+  })
+
+  test('handles mixed provisioning and 503 replies without duplicating the provisioning notice', async () => {
+    vi.useFakeTimers()
+    configureNetcodeV2()
+    asMockedFunction(got.post)
+      .mockRejectedValueOnce(fakeHttpError(503, '0'))
+      .mockResolvedValueOnce(createProvisioning(['us-east'], 2000) as any)
+      .mockRejectedValueOnce(fakeHttpError(503, '0'))
+      .mockResolvedValueOnce(createProvisioning(['us-east'], 1000) as any)
+      .mockResolvedValueOnce(createOk(sessionResponse([0])) as any)
+    const onProvisioning = vi.fn()
+    const resultPromise = createSinglePlayerSession(makeService(), undefined, onProvisioning)
+
+    await vi.advanceTimersByTimeAsync(6000)
+    await resultPromise
+
+    const bodies = asMockedFunction(got.post).mock.calls.map(([, options]) => (options as any).body)
+    expect(bodies).toHaveLength(5)
+    expect(new Set(bodies).size).toBe(1)
+    expect(onProvisioning).toHaveBeenCalledExactlyOnceWith(['us-east'])
+    expect(setNetcodeV2Session).toHaveBeenCalledTimes(1)
+  })
+
+  test.each([0, -3_600_000, 3_600_000])(
+    'bounds 503 retries by elapsed time despite a wall-clock adjustment of %i ms',
+    async clockChangeMs => {
+      vi.useFakeTimers()
+      configureNetcodeV2()
+      asMockedFunction(got.post).mockRejectedValue(fakeHttpError(503, '0'))
+      const resultPromise = createSinglePlayerSession(makeService())
+      const rejected = (async () => {
+        await expect(resultPromise).rejects.toThrow('coordinator session create failed')
+      })()
+
+      await vi.advanceTimersByTimeAsync(10_000)
+      vi.setSystemTime(Date.now() + clockChangeMs)
+      await vi.advanceTimersByTimeAsync(109_999)
+      expect(got.post).toHaveBeenCalledTimes(15)
+      const attempts = asMockedFunction(got.post).mock.calls.map(([, options]) => options as any)
+      expect(attempts[0].timeout).toEqual({ request: 10_000 })
+      expect(attempts.at(-1).timeout).toEqual({ request: 5000 })
+      await vi.advanceTimersByTimeAsync(1)
+      await rejected
+      await vi.advanceTimersByTimeAsync(10_000)
+      expect(got.post).toHaveBeenCalledTimes(15)
+      expect(setNetcodeV2Session).not.toHaveBeenCalled()
+    },
+  )
+
+  test('a 503 does not reset the provisioning deadline or sleep beyond it', async () => {
+    vi.useFakeTimers()
+    configureNetcodeV2()
+    asMockedFunction(got.post)
+      .mockResolvedValueOnce(createProvisioning(['us-east'], 9500) as any)
+      .mockRejectedValue(fakeHttpError(503, '0'))
+    const resultPromise = createSinglePlayerSession(makeService())
+    const rejected = (async () => {
+      await expect(resultPromise).rejects.toThrow('coordinator session create failed')
+    })()
+
+    await vi.advanceTimersByTimeAsync(119_999)
+    expect(got.post).toHaveBeenCalledTimes(15)
+    const lastAttempt = asMockedFunction(got.post).mock.calls.at(-1)![1] as any
+    expect(lastAttempt.timeout).toEqual({ request: 5500 })
+    await vi.advanceTimersByTimeAsync(1)
+    await rejected
+    expect(got.post).toHaveBeenCalledTimes(15)
+  })
+
+  test('aborts during a 503 retry delay without sending another POST', async () => {
+    vi.useFakeTimers()
+    configureNetcodeV2()
+    asMockedFunction(got.post).mockRejectedValue(fakeHttpError(503, '0'))
+    const controller = new AbortController()
+    const resultPromise = createSinglePlayerSession(makeService(), controller.signal)
+    const rejected = (async () => {
+      await expect(resultPromise).rejects.toThrow('coordinator session create failed')
+    })()
+
+    await vi.advanceTimersByTimeAsync(500)
+    expect(got.post).toHaveBeenCalledTimes(1)
+    controller.abort()
+    await rejected
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(got.post).toHaveBeenCalledTimes(1)
+    expect(setNetcodeV2Session).not.toHaveBeenCalled()
+  })
+
+  test.each([400, 401, 409, 500, 502, 504, 'network'])(
+    'does not retry a non-503 error (%s)',
+    async failure => {
+      vi.useFakeTimers()
+      configureNetcodeV2()
+      const error =
+        typeof failure === 'string' ? new Error('connection reset') : fakeHttpError(failure, '0')
+      asMockedFunction(got.post).mockRejectedValue(error)
+
+      await expect(createSinglePlayerSession(makeService())).rejects.toMatchObject({ cause: error })
+      await vi.advanceTimersByTimeAsync(10_000)
+      expect(got.post).toHaveBeenCalledTimes(1)
+      expect(setNetcodeV2Session).not.toHaveBeenCalled()
+    },
+  )
+
+  test.each([
+    undefined,
+    '',
+    '-1',
+    '1.5',
+    'NaN',
+    'Infinity',
+    '1e3',
+    '1junk',
+    'Wed, 21 Oct 2026 12:00:00 GMT',
+    '9'.repeat(400),
+  ])('does not retry 503 without a valid Retry-After delay (%s)', async retryAfter => {
+    vi.useFakeTimers()
+    configureNetcodeV2()
+    const error = fakeHttpError(503, retryAfter)
+    asMockedFunction(got.post).mockRejectedValue(error)
+
+    await expect(createSinglePlayerSession(makeService())).rejects.toMatchObject({ cause: error })
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(got.post).toHaveBeenCalledTimes(1)
+    expect(setNetcodeV2Session).not.toHaveBeenCalled()
+  })
+
+  test('does not retry a marked 503 without a usable external id', async () => {
+    vi.useFakeTimers()
+    configureNetcodeV2()
+    const error = fakeHttpError(503, '0')
+    asMockedFunction(got.post).mockRejectedValue(error)
+
+    await expect(
+      createSinglePlayerSession(makeService(), undefined, undefined, ''),
+    ).rejects.toMatchObject({ cause: error })
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(got.post).toHaveBeenCalledTimes(1)
   })
 
   test('announces provisioning only once across repeated 202 replies', async () => {
