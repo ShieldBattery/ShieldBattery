@@ -20,10 +20,11 @@ import { MenuList } from '../material/menu/menu'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { Tooltip } from '../material/tooltip'
 import { push } from '../navigation/routing'
+import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { bodySmall, labelMedium, labelSmall, singleLine, titleSmall } from '../styles/typography'
-import { openMapDownloadDialog, removeFromMyMaps } from './action-creators'
+import { openMapDownloadDialog, openMapPreviewDialog, removeFromMyMaps } from './action-creators'
 import { useToggleMapFavorite } from './map-favorites'
 import { MapFileImage } from './map-image'
 import { umsForceLayout } from './map-page-summaries'
@@ -101,7 +102,33 @@ const TileLink = styled(LinkButton)`
   outline-offset: 2px;
 `
 
-const ImageBox = styled.div`
+const TilePickButton = styled.button`
+  width: 100%;
+  margin: 0;
+  padding: 0;
+
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  border: none;
+  border-radius: 8px;
+  outline-offset: 2px;
+  background: none;
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+
+  &:disabled {
+    cursor: default;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--theme-primary);
+  }
+`
+
+const ImageBox = styled.div<{ $selected?: boolean }>`
   position: relative;
   aspect-ratio: 1;
   width: 100%;
@@ -112,9 +139,35 @@ const ImageBox = styled.div`
   background-color: var(--theme-container-low);
   container-type: inline-size;
 
-  ${TileLink}:hover & {
+  ${TileLink}:hover &, ${TilePickButton}:hover:not(:disabled) & {
     outline: 2px solid var(--theme-outline-variant);
   }
+
+  && {
+    ${props => (props.$selected ? 'outline: 2px solid var(--theme-amber);' : '')}
+  }
+`
+
+/** Covers the image while a pick of the map is being completed. */
+const PendingOverlay = styled.div`
+  position: absolute;
+  inset: 0;
+  background-color: rgb(from var(--color-blue10) r g b / 0.6);
+`
+
+const QueueChip = styled.div`
+  ${labelMedium};
+  ${singleLine};
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  max-width: calc(100% - 12px);
+  padding: 2px 8px;
+
+  border-radius: 999px;
+  background-color: var(--theme-amber-container);
+  color: var(--theme-on-amber-container);
+  pointer-events: none;
 `
 
 const Badge = styled.div`
@@ -158,14 +211,17 @@ const PoolChip = styled(Tooltip)`
   color: var(--theme-on-surface);
 `
 
-/** Positioned itself (not the button), since the tooltip anchors to this wrapper. */
-const FavoriteTooltip = styled(Tooltip)`
+/** The buttons over the top right corner of the image. */
+const CornerActions = styled.div`
   position: absolute;
   top: 6px;
   right: 6px;
+
+  display: flex;
+  gap: 4px;
 `
 
-const FavoriteButton = styled(IconButton)<{ $favorited: boolean }>`
+const CornerButton = styled(IconButton)<{ $favorited?: boolean }>`
   width: 28px;
   height: 28px;
   min-height: 28px;
@@ -197,6 +253,7 @@ enum SignalTone {
   Default,
   Rising,
   Fresh,
+  Error,
 }
 
 const Signal = styled(EllipsizedText)<{ $tone?: SignalTone }>`
@@ -207,6 +264,8 @@ const Signal = styled(EllipsizedText)<{ $tone?: SignalTone }>`
         return 'var(--theme-positive)'
       case SignalTone.Fresh:
         return 'var(--color-amber70)'
+      case SignalTone.Error:
+        return 'var(--theme-error)'
       default:
         return 'var(--color-grey-blue70)'
     }
@@ -246,17 +305,38 @@ export interface MapTileProps {
   onRemovedFromLibrary?: (id: SbMapId) => void
   /** The width the tile's image is expected to be drawn at, in CSS pixels. */
   imageSize: number
+  /** When set, the tile picks the map (for a lobby) rather than linking to its page. */
+  pick?: MapTilePick
 }
 
-/** A map in the catalog: its image and the facts to judge it by, linking to its page. */
+/** How a tile behaves when picking maps for a lobby. */
+export interface MapTilePick {
+  onPick: () => void
+  /** Whether this is the map currently chosen. */
+  selected: boolean
+  /** Where the map sits in the lobby's map queue (1-based), if it's queued. */
+  queuePositions?: ReadonlyArray<number>
+  /** Whether a pick of this map is being completed. */
+  pending: boolean
+  /** Whether the last pick of this map failed. */
+  failed: boolean
+  disabled: boolean
+}
+
+/**
+ * A map in the catalog: its image and the facts to judge it by, linking to its page (or, when
+ * picking a map for a lobby, picking it).
+ */
 export function MapTile({
   map: mapRef,
   signal,
   addedAt,
   onRemovedFromLibrary,
   imageSize,
+  pick,
 }: MapTileProps) {
   const { t } = useTranslation()
+  const dispatch = useAppDispatch()
   const map = useFragment(MapTile_SbMapFragment, mapRef)
   const poolTypes = useCurrentMapPoolTypes(map.id)
   const [toggleFavorite, favoritePending] = useToggleMapFavorite()
@@ -277,54 +357,101 @@ export function MapTile({
     ? t('maps.thumbnail.removeFromFavorites', 'Remove from favorites')
     : t('maps.thumbnail.addToFavorites', 'Add to favorites')
 
+  const previewLabel = t('maps.thumbnail.showMapPreview', 'Show map preview')
+
+  const contents = (
+    <>
+      <ImageBox $selected={pick?.selected}>
+        <MapFileImage file={map.file} name={name} size={imageSize} forceAspectRatio={1} />
+        {badge ? <Badge>{badge}</Badge> : null}
+        {poolTypes.length ? (
+          <PoolChips>
+            {poolTypes.map(type => {
+              const label = matchmakingTypeToLabel(type, t)
+              return (
+                <PoolChip
+                  key={type}
+                  text={t(
+                    'maps.thumbnail.mapPoolChipTooltip',
+                    'In the current {{mode}} ladder map pool',
+                    { mode: label },
+                  )}
+                  position='top'
+                  tabIndex={-1}>
+                  {label}
+                </PoolChip>
+              )
+            })}
+          </PoolChips>
+        ) : null}
+        {pick?.queuePositions?.length ? (
+          <QueueChip>
+            {t('maps.picker.inQueue', {
+              defaultValue: '{{positions}} in queue',
+              positions: pick.queuePositions.map(p => `#${p}`).join(', '),
+            })}
+          </QueueChip>
+        ) : null}
+        {pick?.pending ? (
+          <PendingOverlay>
+            <LoadingDotsArea />
+          </PendingOverlay>
+        ) : null}
+      </ImageBox>
+      <Text>
+        <Name text={name} />
+        <Meta text={mapTileMeta(map, t)} />
+        {pick?.failed ? (
+          <Signal
+            $tone={SignalTone.Error}
+            text={t('maps.picker.pickFailed', "Couldn't load this map. Select it to try again.")}
+          />
+        ) : (
+          <MapTileSignalLine map={map} signal={signal} addedAt={addedAt} />
+        )}
+      </Text>
+    </>
+  )
+
   return (
     <Root>
-      <TileLink href={urlForMap(map.id, map.name)}>
-        <ImageBox>
-          <MapFileImage file={map.file} name={name} size={imageSize} forceAspectRatio={1} />
-          {badge ? <Badge>{badge}</Badge> : null}
-          {poolTypes.length ? (
-            <PoolChips>
-              {poolTypes.map(type => {
-                const label = matchmakingTypeToLabel(type, t)
-                return (
-                  <PoolChip
-                    key={type}
-                    text={t(
-                      'maps.thumbnail.mapPoolChipTooltip',
-                      'In the current {{mode}} ladder map pool',
-                      { mode: label },
-                    )}
-                    position='top'
-                    tabIndex={-1}>
-                    {label}
-                  </PoolChip>
-                )
-              })}
-            </PoolChips>
-          ) : null}
-        </ImageBox>
-        <Text>
-          <Name text={name} />
-          <Meta text={mapTileMeta(map, t)} />
-          <MapTileSignalLine map={map} signal={signal} addedAt={addedAt} />
-        </Text>
-      </TileLink>
+      {pick ? (
+        <TilePickButton
+          type='button'
+          aria-pressed={pick.selected}
+          disabled={pick.disabled || pick.pending}
+          onClick={pick.onPick}>
+          {contents}
+        </TilePickButton>
+      ) : (
+        <TileLink href={urlForMap(map.id, map.name)}>{contents}</TileLink>
+      )}
       {onRemovedFromLibrary ? (
         <LibraryFooter>
           {map.listed ? null : <UnlistedChip>{t('maps.page.unlisted', 'Unlisted')}</UnlistedChip>}
           <LibraryMapMenu mapId={map.id} mapName={map.name} onRemoved={onRemovedFromLibrary} />
         </LibraryFooter>
       ) : (
-        <FavoriteTooltip text={favoriteLabel} position='bottom' tabIndex={-1}>
-          <FavoriteButton
-            $favorited={map.isFavorited}
-            icon={<MaterialIcon icon='star' size={18} filled={map.isFavorited} />}
-            ariaLabel={favoriteLabel}
-            disabled={favoritePending}
-            onClick={() => toggleFavorite(map)}
-          />
-        </FavoriteTooltip>
+        <CornerActions>
+          {pick ? (
+            <Tooltip text={previewLabel} position='bottom' tabIndex={-1}>
+              <CornerButton
+                icon={<MaterialIcon icon='zoom_in' size={18} />}
+                ariaLabel={previewLabel}
+                onClick={() => dispatch(openMapPreviewDialog(map.id))}
+              />
+            </Tooltip>
+          ) : null}
+          <Tooltip text={favoriteLabel} position='bottom' tabIndex={-1}>
+            <CornerButton
+              $favorited={map.isFavorited}
+              icon={<MaterialIcon icon='star' size={18} filled={map.isFavorited} />}
+              ariaLabel={favoriteLabel}
+              disabled={favoritePending}
+              onClick={() => toggleFavorite(map)}
+            />
+          </Tooltip>
+        </CornerActions>
       )}
     </Root>
   )
@@ -550,10 +677,13 @@ function LibraryMapMenu({
 /** A tile-shaped placeholder for a map file that's being uploaded, or that failed to upload. */
 export function PendingMapTile({
   fileName,
+  progress,
   error,
   onDismiss,
 }: {
   fileName: string
+  /** The fraction of the file sent so far, once sending it has started. */
+  progress?: number
   /** Why the upload failed. Unset while it's still uploading. */
   error?: string
   onDismiss: () => void
@@ -570,7 +700,19 @@ export function PendingMapTile({
         ) : (
           <>
             <MaterialIcon icon='upload' size={32} />
-            <PendingStatus>{t('maps.catalog.uploading', 'Uploading…')}</PendingStatus>
+            <PendingStatus>
+              {progress === undefined
+                ? t('maps.catalog.uploading', 'Uploading…')
+                : t('maps.catalog.uploadingPercent', {
+                    defaultValue: 'Uploading… {{percent}}%',
+                    percent: Math.floor(progress * 100),
+                  })}
+            </PendingStatus>
+            {progress !== undefined ? (
+              <ProgressTrack>
+                <ProgressFill style={{ width: `${progress * 100}%` }} />
+              </ProgressTrack>
+            ) : null}
           </>
         )}
       </PendingImage>
@@ -618,6 +760,21 @@ const PendingImage = styled.div<{ $error: boolean }>`
 
 const PendingStatus = styled.div`
   ${bodySmall};
+`
+
+const ProgressTrack = styled.div`
+  width: 80%;
+  height: 4px;
+  overflow: hidden;
+
+  border-radius: 2px;
+  background-color: var(--theme-container-highest);
+`
+
+const ProgressFill = styled.div`
+  height: 100%;
+  background-color: var(--theme-primary);
+  transition: width 150ms linear;
 `
 
 const PendingError = styled.div`
