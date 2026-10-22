@@ -27,8 +27,9 @@ const MENTION_START_REGEX = /(?<=^|\s)@\S*$/
 /**
  * Completes `@name` mentions. A bare `@` offers `baseMentionableUsers` (whoever is most worth
  * suggesting before anything has been typed, e.g. the channel's recent chatters); anything typed
- * after it narrows `mentionableUsers`, best match first (see `rankByQuery`), keeping the order given
- * among equally good matches.
+ * after it narrows `mentionableUsers`: an exact name match first, then names containing the query,
+ * then fuzzy matches. Within the latter two, online users come before offline ones, each group best
+ * match first (see `rankByQuery`), keeping the order given among equally good matches.
  */
 export function createMentionProvider(
   mentionableUsers: ReadonlyArray<MentionableUser>,
@@ -61,7 +62,20 @@ export function createMentionProvider(
         return undefined
       }
 
-      const matched = rankByQuery(mentionableUsers, u => [u.name], mention.groups.username)
+      const query = mention.groups.username.toLowerCase()
+      const ranked = rankByQuery(mentionableUsers, u => [u.name], query)
+      const exact = ranked.filter(u => u.name.toLowerCase() === query)
+      const contained = ranked.filter(u => {
+        const name = u.name.toLowerCase()
+        return name !== query && name.includes(query)
+      })
+      const fuzzy = ranked.filter(u => !u.name.toLowerCase().includes(query))
+      const matched = exact.concat(
+        contained.filter(u => u.online),
+        contained.filter(u => !u.online),
+        fuzzy.filter(u => u.online),
+        fuzzy.filter(u => !u.online),
+      )
 
       return {
         start,
