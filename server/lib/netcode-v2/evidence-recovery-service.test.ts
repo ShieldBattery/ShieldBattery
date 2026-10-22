@@ -4,10 +4,14 @@ import { findNetcodeV2EvidenceRecoveryCandidates } from '../games/game-models'
 import { JobScheduler } from '../jobs/job-scheduler'
 import { EvidenceRecoveryService } from './evidence-recovery-service'
 import { storeRecoveredEvidence } from './evidence-service'
-import { NetcodeV2Service } from './netcode-v2-service'
+import { checkSessionsAlive, NetcodeV2Service } from './netcode-v2-service'
 
 vi.mock('../games/game-models', () => ({ findNetcodeV2EvidenceRecoveryCandidates: vi.fn() }))
 vi.mock('./evidence-service', () => ({ storeRecoveredEvidence: vi.fn() }))
+vi.mock('./netcode-v2-service', async importOriginal => ({
+  ...(await importOriginal<typeof import('./netcode-v2-service')>()),
+  checkSessionsAlive: vi.fn(),
+}))
 
 const OBSERVATIONS = [
   {
@@ -48,6 +52,7 @@ describe('EvidenceRecoveryService', () => {
     vi.stubEnv('SB_RP2_EVIDENCE_KEYS', JSON.stringify([{ keyId: 17, publicKey: 'ab'.repeat(32) }]))
     asMockedFunction(findNetcodeV2EvidenceRecoveryCandidates).mockResolvedValue([])
     asMockedFunction(storeRecoveredEvidence).mockResolvedValue('stored')
+    asMockedFunction(checkSessionsAlive).mockImplementation(async sessions => new Set(sessions))
   })
   afterEach(() => {
     vi.unstubAllEnvs()
@@ -61,6 +66,7 @@ describe('EvidenceRecoveryService', () => {
     expect(scheduleImmediateJob).not.toHaveBeenCalled()
     expect(findNetcodeV2EvidenceRecoveryCandidates).not.toHaveBeenCalled()
     expect(fetchSessionEvidence).not.toHaveBeenCalled()
+    expect(checkSessionsAlive).not.toHaveBeenCalled()
   })
 
   test('schedules recovery and stores positive observations without settling the lobby', async () => {
@@ -127,6 +133,62 @@ describe('EvidenceRecoveryService', () => {
     await Promise.all([first, overlapping])
     expect(fetchSessionEvidence).toHaveBeenCalledTimes(7)
     expect(maxActive).toBe(4)
+  })
+
+  test('probes a page once and fetches observations only for live sessions', async () => {
+    const page = candidates(100)
+    asMockedFunction(findNetcodeV2EvidenceRecoveryCandidates).mockResolvedValue(page)
+    asMockedFunction(checkSessionsAlive).mockResolvedValue(new Set([42, 99]))
+    const { service, fetchSessionEvidence } = setup()
+    await service.recover()
+    expect(checkSessionsAlive).toHaveBeenCalledExactlyOnceWith(page.map(c => c.session))
+    expect(fetchSessionEvidence.mock.calls.map(c => c[0])).toEqual([42, 99])
+    expect(storeRecoveredEvidence).toHaveBeenCalledTimes(2)
+  })
+
+  test('advances past a page of finished games without fetching evidence', async () => {
+    const finished = candidates(100)
+    asMockedFunction(findNetcodeV2EvidenceRecoveryCandidates)
+      .mockResolvedValueOnce(finished)
+      .mockResolvedValueOnce(candidates(1, 100))
+      .mockResolvedValueOnce([])
+    asMockedFunction(checkSessionsAlive)
+      .mockResolvedValueOnce(new Set())
+      .mockResolvedValueOnce(new Set([100]))
+    const { service, fetchSessionEvidence } = setup()
+    await service.recover()
+    expect(fetchSessionEvidence).not.toHaveBeenCalled()
+    await service.recover()
+    expect(fetchSessionEvidence).toHaveBeenCalledExactlyOnceWith(100, { timeoutMs: 6000 })
+    expect(
+      asMockedFunction(findNetcodeV2EvidenceRecoveryCandidates).mock.calls[1][0].after,
+    ).toEqual({
+      gameId: finished[99].gameId,
+    })
+    await service.recover()
+    expect(checkSessionsAlive).toHaveBeenCalledTimes(2)
+  })
+
+  test('a failed liveness probe preserves the page for retry and makes no individual reads', async () => {
+    const page = candidates(100)
+    asMockedFunction(findNetcodeV2EvidenceRecoveryCandidates).mockResolvedValue(page)
+    asMockedFunction(checkSessionsAlive).mockRejectedValueOnce(new Error('unreachable'))
+    const { service, fetchSessionEvidence } = setup()
+    await expect(service.recover()).rejects.toThrow('unreachable')
+    expect(fetchSessionEvidence).not.toHaveBeenCalled()
+    await service.recover()
+    expect(fetchSessionEvidence).toHaveBeenCalledTimes(100)
+    const queries = asMockedFunction(findNetcodeV2EvidenceRecoveryCandidates).mock.calls
+    expect(queries[1][0].after).toEqual(queries[0][0].after)
+  })
+
+  test('a session closing after the probe returns no observation to store', async () => {
+    asMockedFunction(findNetcodeV2EvidenceRecoveryCandidates).mockResolvedValue(candidates(1))
+    const { service, fetchSessionEvidence } = setup()
+    fetchSessionEvidence.mockResolvedValue([])
+    await service.recover()
+    expect(fetchSessionEvidence).toHaveBeenCalledExactlyOnceWith(0, { timeoutMs: 6000 })
+    expect(storeRecoveredEvidence).not.toHaveBeenCalled()
   })
 
   test('isolates session and storage failures so other records still recover', async () => {

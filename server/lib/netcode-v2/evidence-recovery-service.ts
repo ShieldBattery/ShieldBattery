@@ -4,14 +4,14 @@ import { JobScheduler } from '../jobs/job-scheduler'
 import logger from '../logging/logger'
 import { storeRecoveredEvidence } from './evidence-service'
 import { loadConfigFromEnv } from './netcode-v2-config'
-import { NetcodeV2Service } from './netcode-v2-service'
+import { checkSessionsAlive, NetcodeV2Service } from './netcode-v2-service'
 
 const RECOVERY_INTERVAL_MS = 30_000
 const RECOVERY_WINDOW_MS = 6 * 60 * 60 * 1000
 const PAGE_SIZE = 100
 const CONCURRENCY = 4
 
-/** Recovers observations whose webhook delivery was missed, without affecting game setup. */
+/** Recovers missed observations while their coordinator sessions are still live. */
 @singleton()
 export class EvidenceRecoveryService {
   private readonly config = loadConfigFromEnv()
@@ -51,12 +51,20 @@ export class EvidenceRecoveryService {
       after: this.after,
       limit: PAGE_SIZE,
     })
+    if (!candidates.length) {
+      this.after = undefined
+      return
+    }
+    // Closed sessions retain no observations. One batch probe avoids individual empty reads
+    // without using game age or result reconciliation as a proxy for coordinator liveness.
+    const alive = await checkSessionsAlive(candidates.map(candidate => candidate.session))
+    const liveCandidates = candidates.filter(candidate => alive.has(candidate.session))
     let next = 0
     let unsupported = false
     await Promise.all(
       Array.from({ length: CONCURRENCY }, async () => {
-        while (!unsupported && next < candidates.length) {
-          const candidate = candidates[next++]
+        while (!unsupported && next < liveCandidates.length) {
+          const candidate = liveCandidates[next++]
           try {
             const evidence = await this.netcodeService.fetchSessionEvidence(candidate.session, {
               timeoutMs: 6000,
