@@ -840,6 +840,10 @@ pub(super) fn player_race(bw: &BwVars, player_id: u8) -> (Race, RaceView) {
 /// how it was picked. A person's pick is read from their own slot, found by the account the game
 /// seated them under. Computers have no account to find their slot by, and the game shuffles slots
 /// as it starts, so a computer counts as a random pick only when every computer in the lobby was.
+///
+/// What a screen shows for a random pick depends on who it is shown to. A player in the game sees
+/// only that the pick was Random, since keeping the race it resolved to unknown until it is scouted
+/// is what a player picks Random for. The observer panels show the race it resolved to.
 pub(super) fn picked_random(bw: &BwVars, setup: Option<&GameSetupInfo>, player_id: u8) -> bool {
     let Some(setup) = setup.filter(|setup| !setup.is_replay()) else {
         return false;
@@ -866,9 +870,11 @@ pub(super) fn picked_random(bw: &BwVars, setup: Option<&GameSetupInfo>, player_i
     }
 }
 
-/// Whether this game player id's slot is a computer's, as the game marks one once it is running.
-fn is_computer(bw: &BwVars, player_id: u8) -> bool {
-    const COMPUTER_PLAYER_TYPE: u8 = 1;
+/// The player type the game gives a computer's slot once it is running.
+const COMPUTER_PLAYER_TYPE: u8 = 1;
+
+/// Whether this game player id's slot is a computer's.
+pub(super) fn is_computer(bw: &BwVars, player_id: u8) -> bool {
     // SAFETY: the player table is the game's, with a slot for every player id.
     unsafe { (*bw.players.add(usize::from(player_id))).player_type == COMPUTER_PLAYER_TYPE }
 }

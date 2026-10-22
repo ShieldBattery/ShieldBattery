@@ -12,8 +12,7 @@ use overlay_ui::alliances::{
 use overlay_ui::observer::RaceView;
 use parking_lot::Mutex;
 
-use crate::app_messages::{self, GameSetupInfo, SbSlotType, SbUserId};
-use crate::bw;
+use crate::app_messages::{self, GameSetupInfo, SbUserId};
 use crate::bw::commands;
 use crate::bw_scr::chat::{ChatManager, OtherPlayer, ReportStatus};
 use crate::game_thread::{GameThreadMessage, send_game_msg_to_async};
@@ -41,9 +40,6 @@ const RECIPIENT_ALLIES: u8 = 9;
 const ENEMY: u8 = 0;
 const ALLIED: u8 = 1;
 const ALLIED_VICTORY: u8 = 2;
-
-/// The player type the game gives a computer's slot.
-const COMPUTER_PLAYER_TYPE: u8 = 1;
 
 /// How long one game frame lasts at Fastest, in milliseconds, which is the speed every
 /// ShieldBattery game is played at. Turns the frame count into the game time a report is stamped
@@ -109,7 +105,7 @@ impl AlliancesState {
             })
             .chain(
                 (0..PLAYER_SLOTS as u8)
-                    .filter(|&player_id| player_id != local && is_computer(bw, player_id))
+                    .filter(|&player_id| player_id != local && stats::is_computer(bw, player_id))
                     .map(|player_id| (player_id, row(player_id, None))),
             )
             .collect::<Vec<_>>();
@@ -356,7 +352,7 @@ fn player_view(
             None => stats::player_name(bw, player_id),
         },
         color: stats::player_color(bw, player_id),
-        race: chosen_race(bw, setup, player_id, person.map(|(other, _)| other.user_id)),
+        race: chosen_race(bw, setup, player_id),
         alliance: has_alliance.then(|| AllianceState {
             player_id,
             allied: alliances[usize::from(player_id)] != ENEMY,
@@ -377,41 +373,11 @@ fn player_view(
 /// The race a player chose in the lobby, which is Random for one who left it to the game: the
 /// screen is where players check what they are up against, and the race a Random pick resolved to
 /// is not theirs to know from here.
-///
-/// The game has resolved every Random pick by the time it runs, so the pick is read from the lobby:
-/// a person's from their own slot. Computers have no account to find their slot by, and the game
-/// shuffles slots as it starts, so a computer reads as Random when every computer in the lobby was.
-fn chosen_race(
-    bw: &BwVars,
-    setup: Option<&GameSetupInfo>,
-    player_id: u8,
-    user_id: Option<SbUserId>,
-) -> RaceView {
-    let picked_random = setup.is_some_and(|setup| match user_id {
-        Some(user_id) => setup
-            .slots
-            .iter()
-            .find(|slot| slot.user_id == Some(user_id))
-            .is_some_and(|slot| slot.bw_race() == bw::RACE_RANDOM),
-        None => {
-            let mut computers = setup
-                .slots
-                .iter()
-                .filter(|slot| slot.player_type == SbSlotType::Computer)
-                .peekable();
-            computers.peek().is_some() && computers.all(|slot| slot.bw_race() == bw::RACE_RANDOM)
-        }
-    });
-    match picked_random {
+fn chosen_race(bw: &BwVars, setup: Option<&GameSetupInfo>, player_id: u8) -> RaceView {
+    match stats::picked_random(bw, setup, player_id) {
         true => RaceView::Random,
         false => stats::player_race(bw, player_id).1,
     }
-}
-
-/// Whether this game player id's slot is a computer's.
-fn is_computer(bw: &BwVars, player_id: u8) -> bool {
-    // SAFETY: the player table is the game's, with a slot for every player id.
-    unsafe { (*bw.players.add(usize::from(player_id))).player_type == COMPUTER_PLAYER_TYPE }
 }
 
 /// The reason a report is filed for, as the app names it.
