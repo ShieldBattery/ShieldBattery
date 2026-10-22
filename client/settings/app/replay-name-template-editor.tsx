@@ -48,6 +48,8 @@ function getTokenLabel(token: ReplayNameToken, t: TFunction): string {
       return t('settings.app.replays.name.token.map', 'Map')
     case 'name':
       return t('settings.app.replays.name.token.name', 'Your name')
+    case 'teams':
+      return t('settings.app.replays.name.token.teams', 'Team vs team')
     case 'opponents':
       return t('settings.app.replays.name.token.opponents', 'Opponents')
     case 'race':
@@ -76,6 +78,7 @@ function makePreviewValues(now: Date, selfName: string) {
   return {
     oneVOne: {
       ...common,
+      teams: `${selfName} vs Opponent`,
       opponents: 'Opponent',
       opponentRaces: 'T',
       format: '1v1',
@@ -83,10 +86,38 @@ function makePreviewValues(now: Date, selfName: string) {
     },
     twoVTwo: {
       ...common,
+      teams: `${selfName}+Ally vs Opponent1+Opponent2`,
       opponents: 'Opponent1+Opponent2',
       opponentRaces: 'PT',
       format: '2v2',
       matchup: 'PZvPT',
+    },
+    observer: {
+      ...common,
+      teams: 'PlayerA vs PlayerB',
+      opponents: 'PlayerA+PlayerB',
+      race: '',
+      opponentRaces: 'TZ',
+      format: '1v1',
+      matchup: 'TvZ',
+    },
+    observerTwoVTwo: {
+      ...common,
+      teams: 'Player1+Player2 vs Player3+Player4',
+      opponents: 'Player1+Player2+Player3+Player4',
+      race: '',
+      opponentRaces: 'PTPZ',
+      format: '2v2',
+      matchup: 'PTvPZ',
+    },
+    observerFourTeams: {
+      ...common,
+      teams: 'Player1+Player2 vs Player3+Player4 vs Player5+Player6 vs Player7+Player8',
+      opponents: 'Player1+Player2+Player3+Player4+Player5+Player6+Player7+Player8',
+      race: '',
+      opponentRaces: 'PTPZTZPP',
+      format: '2v2v2v2',
+      matchup: 'PTvPZvTZvPP',
     },
   } satisfies Record<string, Record<ReplayNameToken, string>>
 }
@@ -505,6 +536,14 @@ export function ReplayNameTemplateEditor() {
         </PaletteChip>
       </Palette>
 
+      <SettingsSectionDescription>
+        {t(
+          'settings.app.replays.name.teamNamesDescription',
+          'Includes every team, with vs between teams and + between teammates. ' +
+            'Your team comes first when playing; observers see teams in lobby slot order.',
+        )}
+      </SettingsSectionDescription>
+
       <Preview>
         <PreviewLabel>{t('settings.app.replays.name.preview1v1', '1v1')}</PreviewLabel>
         <PreviewName>
@@ -513,6 +552,25 @@ export function ReplayNameTemplateEditor() {
         <PreviewLabel>{t('settings.app.replays.name.preview2v2', '2v2')}</PreviewLabel>
         <PreviewName>
           {renderReplayNameTemplate(serializeEditorParts(parts), previewValues.twoVTwo)}.rep
+        </PreviewName>
+        <PreviewLabel>
+          {t('settings.app.replays.name.previewObserver', 'Observing 1v1')}
+        </PreviewLabel>
+        <PreviewName>
+          {renderReplayNameTemplate(serializeEditorParts(parts), previewValues.observer)}.rep
+        </PreviewName>
+        <PreviewLabel>
+          {t('settings.app.replays.name.previewObserver2v2', 'Observing 2v2')}
+        </PreviewLabel>
+        <PreviewName>
+          {renderReplayNameTemplate(serializeEditorParts(parts), previewValues.observerTwoVTwo)}.rep
+        </PreviewName>
+        <PreviewLabel>
+          {t('settings.app.replays.name.previewObserverFourTeams', 'Observing 4 teams')}
+        </PreviewLabel>
+        <PreviewName>
+          {renderReplayNameTemplate(serializeEditorParts(parts), previewValues.observerFourTeams)}
+          .rep
         </PreviewName>
       </Preview>
 

@@ -10,6 +10,7 @@ export const ALL_REPLAY_NAME_TOKENS = [
   'time',
   'map',
   'name',
+  'teams',
   'opponents',
   'race',
   'opponentRaces',

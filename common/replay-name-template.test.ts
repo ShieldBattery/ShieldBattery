@@ -12,6 +12,7 @@ const VALUES: Record<ReplayNameToken, string> = {
   time: '204105',
   map: 'Fighting Spirit',
   name: 'Me',
+  teams: 'Me+Ally vs Foo+Bar',
   opponents: 'Foo+Bar',
   race: 'Z',
   opponentRaces: 'TP',
@@ -47,6 +48,17 @@ describe('common/replay-name-template/renderReplayNameTemplate', () => {
     expect(renderReplayNameTemplate(DEFAULT_REPLAY_NAME_TEMPLATE, VALUES)).toBe(
       '[SB]204105-Fighting Spirit',
     )
+  })
+
+  test('renders all team names as one piece', () => {
+    const template = '{teams} - {map}'
+    expect(parseReplayNameTemplate(template)).toEqual([
+      { kind: 'token', token: 'teams' },
+      { kind: 'text', text: ' - ' },
+      { kind: 'token', token: 'map' },
+    ])
+    expect(serializeReplayNameTemplate(parseReplayNameTemplate(template))).toBe(template)
+    expect(renderReplayNameTemplate(template, VALUES)).toBe('Me+Ally vs Foo+Bar - Fighting Spirit')
   })
 
   test('strips characters Windows rejects, from text and values alike', () => {

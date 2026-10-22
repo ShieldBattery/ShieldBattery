@@ -2633,8 +2633,12 @@
           "empty": "Add pieces below. An empty name uses the default.",
           "preview1v1": "1v1",
           "preview2v2": "2v2",
+          "previewObserver": "Observing 1v1",
+          "previewObserver2v2": "Observing 2v2",
+          "previewObserverFourTeams": "Observing 4 teams",
           "remove": "Remove",
           "reset": "Reset to default",
+          "teamNamesDescription": "Includes every team, with vs between teams and + between teammates. Your team comes first when playing; observers see teams in lobby slot order.",
           "textLabel": "Text",
           "textPlaceholder": "Text",
           "title": "Replay names",
@@ -2647,6 +2651,7 @@
             "opponentRaces": "Opponent races",
             "opponents": "Opponents",
             "race": "Your race",
+            "teams": "Team vs team",
             "text": "Text",
             "time": "Time"
           }
