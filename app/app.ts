@@ -14,7 +14,7 @@ import {
 } from 'electron'
 import isDev from 'electron-is-dev'
 import localShortcut from 'electron-localshortcut'
-import { autoUpdater } from 'electron-updater'
+import { autoUpdater, NsisUpdater } from 'electron-updater'
 import { readFile } from 'fs/promises'
 import { createReadStream } from 'node:fs'
 import fsPromises, { copyFile, mkdtemp } from 'node:fs/promises'
@@ -55,6 +55,7 @@ import type { NewInstanceNotification } from './single-instance'
 import SystemTray from './system-tray'
 import { getUserDataPath } from './user-data-path'
 import { DEFAULT_IDLE_THRESHOLD_MS, UserIdleWatcher } from './user-idle-watcher'
+import { isRunningUnderWine } from './wine'
 
 const collectPromise = import('./security/client').then(m => m.collect)
 /** Resolves to `undefined` unless the build configured an implementation to prefer. */
@@ -123,6 +124,18 @@ autoUpdater.logger = logger
 // sometimes has
 autoUpdater.autoDownload = false
 autoUpdater.disableWebInstaller = true
+// The default check that an update was signed by us shells out to PowerShell, which Wine can't
+// run, so every update failed there. Under Wine the downloaded installer is still checked against
+// the SHA-512 the update feed lists.
+const nsisUpdater = autoUpdater as NsisUpdater
+const verifyUpdatePublisher = nsisUpdater.verifyUpdateCodeSignature
+nsisUpdater.verifyUpdateCodeSignature = async (publisherNames, updateFile) => {
+  if (await isRunningUnderWine()) {
+    logger.warn('Skipping the update publisher check under Wine')
+    return null
+  }
+  return verifyUpdatePublisher(publisherNames, updateFile)
+}
 let downloadingUpdate = false
 
 logger.info('Setting auto-updater url to: ' + updateUrl)
