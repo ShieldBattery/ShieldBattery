@@ -62,6 +62,23 @@ describe('messaging/mention-provider', () => {
     expect(suggestedNames(users, '@tt1')).toEqual(['JIRATT1', 'BSL-TT1', 'IMTT1'])
   })
 
+  test('online users come before offline ones that match better, except an exact match', () => {
+    const users = makeUsers(['iRk-IMJIRAIYA'], ['JIRAIGON', 'JIRAIYA', 'jirai'])
+
+    expect(suggestedNames(users, '@jirai')).toEqual([
+      'jirai',
+      'iRk-IMJIRAIYA',
+      'JIRAIGON',
+      'JIRAIYA',
+    ])
+  })
+
+  test('offline users containing the query come before online fuzzy matches', () => {
+    const users = makeUsers(['Artatack1301'], ['IMTT1'])
+
+    expect(suggestedNames(users, '@tt1')).toEqual(['IMTT1', 'Artatack1301'])
+  })
+
   test('a bare @ offers the base users unchanged', () => {
     const base = makeUsers(['zzz', 'IMTT1'], [])
 
