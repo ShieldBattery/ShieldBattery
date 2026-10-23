@@ -4,7 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { DiscordActivity } from '../../common/discord-presence'
 import { GameStatusString } from '../../common/games/game-status'
 import { TypedIpcRenderer } from '../../common/ipc'
-import { getPlayerSlots, openSlotCount } from '../../common/lobbies'
+import { findSlotByUserId, getPlayerSlots, openSlotCount } from '../../common/lobbies'
+import { SlotType } from '../../common/lobbies/slot'
 import { isInParticipatingGame } from '../active-game/game-client-reducer'
 import { useSelfUser } from '../auth/auth-utils'
 import { participatingGameAtom } from '../games/game-atoms'
@@ -37,6 +38,7 @@ export function DiscordActivitySync() {
   let lobby: ActivityLobby | undefined
   if (isInLobby(lobbyState)) {
     const { info } = lobbyState
+    const [, , ownSlot] = selfUser ? findSlotByUserId(info, selfUser.id) : []
     lobby = {
       id: info.id,
       name: info.name,
@@ -44,6 +46,9 @@ export function DiscordActivitySync() {
       playerCount: getPlayerSlots(info).length,
       openSlots: openSlotCount(info),
       inGame: !!lobbyState.runState || inParticipatingGame,
+      mapName: info.map?.name,
+      mapImageUrl: info.map?.image1024Url ?? info.map?.image512Url,
+      ownRace: ownSlot && ownSlot.type !== SlotType.Observer ? ownSlot.race : undefined,
     }
   }
   const playedGame =

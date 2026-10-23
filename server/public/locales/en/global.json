@@ -1099,7 +1099,9 @@
   },
   "discord": {
     "activity": {
-      "inLobby": "In a lobby",
+      "matchupImage": "{{own}} vs {{opponent}}",
+      "modeWithMatchup": "{{mode}} · {{matchup}}",
+      "modeWithRace": "{{mode}} · {{race}}",
       "observing": "Observing {{mode}}",
       "rankedMode": "Ranked {{mode}}"
     },
@@ -1108,8 +1110,8 @@
       "enable": "Show my activity",
       "footnote": "Nothing shows while you’re not in a lobby or a game. You can change this later in Settings › Connections.",
       "intro": "ShieldBattery can show what you’re doing on the Discord account signed in to the Discord app on this computer:",
-      "sharedGame": "The game mode, with the matchup or the map name, and how long the game has been going",
-      "sharedLobby": "The name of the lobby you’re in, with a Join button for listed lobbies",
+      "sharedGame": "The game mode, the matchup or your race, the map, and how long the game has been going",
+      "sharedLobby": "The name and map of the lobby you’re in, with a Join button for listed lobbies",
       "title": "Show your activity on Discord?"
     }
   },

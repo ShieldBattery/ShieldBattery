@@ -18,6 +18,7 @@ const t = ((_key: string, defaultValue: string, options?: Record<string, string>
 const SELF = makeSbUserId(1)
 const OPPONENT = makeSbUserId(2)
 const LOBBY_ID = makeSbLobbyId('Ek0xQmQzSXu9vMSq1Ya2Ww')
+const MAP_IMAGE_URL = 'https://cdn.shieldbattery.net/map_images/e4/e3/e4e3-1024.jpg?v=1'
 
 const LISTED_LOBBY: ActivityLobby = {
   id: LOBBY_ID,
@@ -26,12 +27,16 @@ const LISTED_LOBBY: ActivityLobby = {
   playerCount: 4,
   openSlots: 2,
   inGame: false,
+  mapName: 'Fastest',
+  mapImageUrl: MAP_IMAGE_URL,
+  ownRace: 'z',
 }
 
 const ONE_VS_ONE: ParticipatingGameInfo = {
   gameId: 'game-1',
   gameType: GameType.Melee,
   mapName: 'Polypoid',
+  mapImageUrl: MAP_IMAGE_URL,
   slots: [
     { userId: OPPONENT, race: 'z', type: SlotType.Human },
     { userId: SELF, race: 'p', type: SlotType.Human },
@@ -44,112 +49,156 @@ function stateWith(overrides: Partial<DiscordActivityState>): DiscordActivitySta
 }
 
 describe('client/discord/discord-activity', () => {
-  test('a listed lobby shows its name and can be joined', () => {
-    expect(getDiscordActivity(stateWith({ lobby: LISTED_LOBBY }), t)).toEqual({
-      details: 'Fastest 3v3',
-      state: 'In a lobby',
-      party: {
-        id: LOBBY_ID,
-        currentSize: 4,
-        maxSize: 6,
-        joinSecret: `lobby:${LOBBY_ID}`,
-      },
+  describe('lobbies', () => {
+    test('a listed lobby shows its name, its map and the own race, and can be joined', () => {
+      expect(getDiscordActivity(stateWith({ lobby: LISTED_LOBBY }), t)).toEqual({
+        details: 'Fastest 3v3',
+        state: 'Fastest',
+        largeImage: { image: MAP_IMAGE_URL, text: 'Fastest' },
+        smallImage: { image: 'race_z', text: 'Zerg' },
+        party: {
+          id: LOBBY_ID,
+          currentSize: 4,
+          maxSize: 6,
+          joinSecret: `lobby:${LOBBY_ID}`,
+        },
+      })
+    })
+
+    test('an unlisted lobby has no party or join secret', () => {
+      const activity = getDiscordActivity(
+        stateWith({ lobby: { ...LISTED_LOBBY, visibility: 'unlisted' } }),
+        t,
+      )
+      expect(activity?.details).toBe('Fastest 3v3')
+      expect(activity?.party).toBeUndefined()
+    })
+
+    test("a lobby whose game is loading or running can't be joined", () => {
+      const activity = getDiscordActivity(
+        stateWith({ lobby: { ...LISTED_LOBBY, inGame: true } }),
+        t,
+      )
+      expect(activity?.party).toBeUndefined()
+    })
+
+    test("a one-character lobby name is quoted, since Discord won't show it alone", () => {
+      const activity = getDiscordActivity(stateWith({ lobby: { ...LISTED_LOBBY, name: 'x' } }), t)
+      expect(activity?.details).toBe('“x”')
+    })
+
+    test('an observer gets no race icon', () => {
+      const activity = getDiscordActivity(
+        stateWith({ lobby: { ...LISTED_LOBBY, ownRace: undefined } }),
+        t,
+      )
+      expect(activity?.smallImage).toBeUndefined()
+    })
+
+    test("a map image Discord can't fetch (a dev server's local file store) is left out", () => {
+      const activity = getDiscordActivity(
+        stateWith({
+          lobby: { ...LISTED_LOBBY, mapImageUrl: 'http://localhost:5555/files/map.jpg' },
+        }),
+        t,
+      )
+      expect(activity?.largeImage).toBeUndefined()
+      expect(activity?.state).toBe('Fastest')
+    })
+
+    test('a map image URL too long for Discord is left out', () => {
+      const activity = getDiscordActivity(
+        stateWith({
+          lobby: { ...LISTED_LOBBY, mapImageUrl: `https://cdn.example/${'x'.repeat(300)}.jpg` },
+        }),
+        t,
+      )
+      expect(activity?.largeImage).toBeUndefined()
     })
   })
 
-  test('an unlisted lobby shows its name but has no party or join secret', () => {
-    const activity = getDiscordActivity(
-      stateWith({ lobby: { ...LISTED_LOBBY, visibility: 'unlisted' } }),
-      t,
-    )
-    expect(activity?.details).toBe('Fastest 3v3')
-    expect(activity?.party).toBeUndefined()
-  })
-
-  test("a lobby whose game is loading or running can't be joined", () => {
-    const activity = getDiscordActivity(stateWith({ lobby: { ...LISTED_LOBBY, inGame: true } }), t)
-    expect(activity?.party).toBeUndefined()
-  })
-
-  test("a one-character lobby name is quoted, since Discord won't show it alone", () => {
-    const activity = getDiscordActivity(stateWith({ lobby: { ...LISTED_LOBBY, name: 'x' } }), t)
-    expect(activity?.details).toBe('“x”')
-  })
-
-  test('a 1v1 shows the mode, the matchup from the own side, and when play started', () => {
-    expect(getDiscordActivity(stateWith({ game: ONE_VS_ONE }), t)).toEqual({
-      details: 'Melee',
-      state: 'PvZ',
-      startTimestamp: 1_000_000,
+  describe('games', () => {
+    test('a 1v1 shows the mode and the matchup from the own side, the map, and its image', () => {
+      expect(getDiscordActivity(stateWith({ game: ONE_VS_ONE }), t)).toEqual({
+        details: 'Melee · PvZ',
+        state: 'Polypoid',
+        startTimestamp: 1_000_000,
+        largeImage: { image: 'matchup_pvz', text: 'Protoss vs Zerg' },
+        smallImage: { image: 'race_p', text: 'Protoss' },
+      })
     })
-  })
 
-  test('a random player shows as R, not the race the game rolled', () => {
-    const game: ParticipatingGameInfo = {
-      ...ONE_VS_ONE,
-      matchmakingType: MatchmakingType.Match1v1,
-      slots: [
-        { userId: SELF, race: 'r', type: SlotType.Human },
-        { userId: OPPONENT, race: 't', type: SlotType.Human },
-      ],
-    }
-    const activity = getDiscordActivity(stateWith({ game }), t)
-    expect(activity?.details).toBe('Ranked 1v1')
-    expect(activity?.state).toBe('RvT')
-  })
+    test('a 1v1 with a random pick shows R and the map image', () => {
+      const game: ParticipatingGameInfo = {
+        ...ONE_VS_ONE,
+        matchmakingType: MatchmakingType.Match1v1,
+        slots: [
+          { userId: SELF, race: 'r', type: SlotType.Human },
+          { userId: OPPONENT, race: 't', type: SlotType.Human },
+        ],
+      }
+      const activity = getDiscordActivity(stateWith({ game }), t)
+      expect(activity?.details).toBe('Ranked 1v1 · RvT')
+      expect(activity?.largeImage).toEqual({ image: MAP_IMAGE_URL, text: 'Polypoid' })
+      expect(activity?.smallImage).toEqual({ image: 'race_r', text: 'Random' })
+    })
 
-  test('a game takes precedence over the lobby it started from', () => {
-    const activity = getDiscordActivity(stateWith({ lobby: LISTED_LOBBY, game: ONE_VS_ONE }), t)
-    expect(activity?.details).toBe('Melee')
-    expect(activity?.party).toBeUndefined()
-  })
+    test('a game takes precedence over the lobby it started from', () => {
+      const activity = getDiscordActivity(stateWith({ lobby: LISTED_LOBBY, game: ONE_VS_ONE }), t)
+      expect(activity?.details).toBe('Melee · PvZ')
+      expect(activity?.party).toBeUndefined()
+    })
 
-  test('an observer sees the matchup in slot order', () => {
-    const game: ParticipatingGameInfo = {
-      ...ONE_VS_ONE,
-      slots: [
-        ...ONE_VS_ONE.slots.filter(slot => slot.userId !== SELF),
-        { userId: SELF, type: SlotType.Observer },
-        { userId: makeSbUserId(3), race: 'p', type: SlotType.Human },
-      ],
-    }
-    const activity = getDiscordActivity(stateWith({ game }), t)
-    expect(activity?.details).toBe('Observing Melee')
-    expect(activity?.state).toBe('ZvP')
-  })
+    test('an observer sees the matchup in slot order, without a race icon', () => {
+      const game: ParticipatingGameInfo = {
+        ...ONE_VS_ONE,
+        slots: [
+          { userId: OPPONENT, race: 'z', type: SlotType.Human },
+          { userId: SELF, type: SlotType.Observer },
+          { userId: makeSbUserId(3), race: 'p', type: SlotType.Human },
+        ],
+      }
+      const activity = getDiscordActivity(stateWith({ game }), t)
+      expect(activity?.details).toBe('Observing Melee · ZvP')
+      expect(activity?.largeImage?.image).toBe('matchup_zvp')
+      expect(activity?.smallImage).toBeUndefined()
+    })
 
-  test('a game with more than two players shows no matchup', () => {
-    const game: ParticipatingGameInfo = {
-      ...ONE_VS_ONE,
-      slots: [
-        ...ONE_VS_ONE.slots,
-        { userId: makeSbUserId(3), race: 't', type: SlotType.Human },
-        { race: 'z', type: SlotType.Computer },
-      ],
-    }
-    expect(getDiscordActivity(stateWith({ game }), t)?.state).toBeUndefined()
-  })
+    test('a team game shows the mode, the own race, and the map image', () => {
+      const game: ParticipatingGameInfo = {
+        ...ONE_VS_ONE,
+        matchmakingType: MatchmakingType.Match2v2,
+        slots: [
+          ...ONE_VS_ONE.slots,
+          { userId: makeSbUserId(3), race: 't', type: SlotType.Human },
+          { userId: makeSbUserId(4), race: 'z', type: SlotType.Human },
+        ],
+      }
+      const activity = getDiscordActivity(stateWith({ game }), t)
+      expect(activity?.details).toBe('Ranked 2v2 · Protoss')
+      expect(activity?.state).toBe('Polypoid')
+      expect(activity?.largeImage).toEqual({ image: MAP_IMAGE_URL, text: 'Polypoid' })
+      expect(activity?.smallImage).toEqual({ image: 'race_p', text: 'Protoss' })
+    })
 
-  test('a Use Map Settings game shows the map name instead of a matchup', () => {
-    const game: ParticipatingGameInfo = {
-      ...ONE_VS_ONE,
-      gameType: GameType.UseMapSettings,
-      mapName: 'Big Game Hunters',
-    }
-    const activity = getDiscordActivity(stateWith({ game }), t)
-    expect(activity?.details).toBe('Use map settings')
-    expect(activity?.state).toBe('Big Game Hunters')
-  })
+    test('a Use Map Settings game shows the own race and the map, even with two players', () => {
+      const game: ParticipatingGameInfo = {
+        ...ONE_VS_ONE,
+        gameType: GameType.UseMapSettings,
+        mapName: 'Big Game Hunters',
+      }
+      const activity = getDiscordActivity(stateWith({ game }), t)
+      expect(activity?.details).toBe('Use map settings · Protoss')
+      expect(activity?.state).toBe('Big Game Hunters')
+      expect(activity?.largeImage).toEqual({ image: MAP_IMAGE_URL, text: 'Big Game Hunters' })
+    })
 
-  test('a map name too long for Discord is shortened', () => {
-    const game: ParticipatingGameInfo = {
-      ...ONE_VS_ONE,
-      gameType: GameType.UseMapSettings,
-      mapName: 'x'.repeat(200),
-    }
-    const state = getDiscordActivity(stateWith({ game }), t)?.state
-    expect(Array.from(state!)).toHaveLength(128)
-    expect(state!.endsWith('…')).toBe(true)
+    test('a map name too long for Discord is shortened', () => {
+      const game: ParticipatingGameInfo = { ...ONE_VS_ONE, mapName: 'x'.repeat(200) }
+      const state = getDiscordActivity(stateWith({ game }), t)?.state
+      expect(Array.from(state!)).toHaveLength(128)
+      expect(state!.endsWith('…')).toBe(true)
+    })
   })
 
   test.each(['off', 'notAsked'] as const)('nothing shows while sharing is %s', sharing => {
