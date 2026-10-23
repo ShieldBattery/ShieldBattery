@@ -1031,10 +1031,10 @@ fn draw_upgrade_hint(ui: &Ui, pointer: Pos2, upgrade: &UnitUpgradeView) {
                 "Damage: {{value}}",
                 value = damage
             );
-            let name = upgrade.name.as_deref().unwrap_or_default();
-            ui.label(
-                text::body(13.0, text::BodyWeight::Medium).job(&format!("{name}    {damage}")),
-            );
+            if let Some(name) = &upgrade.name {
+                ui.label(text::body(13.0, text::BodyWeight::Medium).job(name));
+            }
+            detail(ui, &damage);
             return;
         }
         if let Some(name) = &upgrade.name {
@@ -1602,9 +1602,9 @@ mod tests {
 
     #[test]
     fn mine_chips_show_inventory_and_their_hints_name_the_technology_and_damage() {
-        fn texts(shape: &Shape, out: &mut Vec<String>) {
+        fn texts(shape: &Shape, out: &mut Vec<(String, f32)>) {
             match shape {
-                Shape::Text(text) => out.push(text.galley.text().to_string()),
+                Shape::Text(text) => out.push((text.galley.text().to_string(), text.pos.y)),
                 Shape::Vec(shapes) => shapes.iter().for_each(|shape| texts(shape, out)),
                 _ => {}
             }
@@ -1634,13 +1634,22 @@ mod tests {
             }
             // Inventory stays on the chip even at zero; the tooltip names the technology and damage.
             let expected = count.to_string();
-            assert_eq!(drawn.iter().filter(|text| *text == &expected).count(), 1);
-            assert!(
-                drawn
-                    .iter()
-                    .any(|text| text == "Spider Mines    Damage: 125")
+            assert_eq!(
+                drawn.iter().filter(|(text, _)| text == &expected).count(),
+                1
             );
-            assert!(!drawn.iter().any(|text| text.contains("Level")));
+            let title_y = drawn
+                .iter()
+                .find(|(text, _)| text == "Spider Mines")
+                .unwrap()
+                .1;
+            let damage_y = drawn
+                .iter()
+                .find(|(text, _)| text == "Damage: 125")
+                .unwrap()
+                .1;
+            assert!(damage_y > title_y);
+            assert!(!drawn.iter().any(|(text, _)| text.contains("Level")));
         }
     }
 
