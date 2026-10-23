@@ -43,36 +43,6 @@ const ipcRenderer =
 const ipcMain = IS_ELECTRON && !IS_RENDERER ? require('electron').ipcMain : null
 
 /**
- * Equivalent to a node.js fs.Dirent object, but with relevant functions converted to be raw values,
- * so that it can be passed across IPC.
- */
-export interface FsDirent {
-  isFile: boolean
-  isDirectory: boolean
-  name: string
-}
-
-/**
- * Equivalent to a node.js fs.Stats object, but with relevant functions converted to be raw values,
- * so that it can be passed across IPC.
- */
-export interface FsStats {
-  isFile: boolean
-  isDirectory: boolean
-  size: number
-  blksize: number
-  blocks: number
-  atimeMs: number
-  mtimeMs: number
-  ctimeMs: number
-  birthtimeMs: number
-  atime: Date
-  mtime: Date
-  ctime: Date
-  birthtime: Date
-}
-
-/**
  * The result of running the Twitch OAuth flow in the desktop app, which opens the authorize URL in
  * the user's real browser and captures the redirect via a loopback server (see `runTwitchOauthFlow`).
  */
@@ -247,12 +217,8 @@ interface IpcInvokeables {
   /** Zips up the logs for a bug report, along with a replay file when one is given. */
   bugReportCollectFiles: (options?: { replayPath?: string }) => Promise<Uint8Array<ArrayBuffer>>
 
-  // TODO(tec27): Support the non-filetypes version if we need it, overloads don't seem to work
-  // well with the current approach for typing these invokes =/
-  fsReadDir: (dirPath: string, options: { withFileTypes: true }) => Promise<FsDirent[]>
   // TODO(tec27): Add types for options + returning a string if encoding is specified?
   fsReadFile: (filePath: string) => Promise<ArrayBuffer>
-  fsStat: (filePath: string) => Promise<FsStats>
   fsUnlink: (filePath: string) => Promise<void>
 
   /**

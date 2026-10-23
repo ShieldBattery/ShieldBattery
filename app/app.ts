@@ -28,7 +28,7 @@ import { URL } from 'url'
 import swallowNonBuiltins from '../common/async/swallow-non-builtins'
 import { DEEP_LINK_SCHEMES } from '../common/deep-links'
 import { getErrorStack } from '../common/errors'
-import { FsDirent, TwitchOauthFlowResult, TypedIpcMain, TypedIpcSender } from '../common/ipc'
+import { TwitchOauthFlowResult, TypedIpcMain, TypedIpcSender } from '../common/ipc'
 import { LocalMapRoot } from '../common/map-library'
 import { LocalSettings } from '../common/settings/local-settings'
 import { setAppId } from './app-id'
@@ -1130,32 +1130,6 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     // NOTE(tec27): We can guarantee this is an ArrayBuffer and not a SharedArrayBuffer, and if it
     // were, it wouldn't be transferable anyway (thus it'd cause an error)
     return (await fsPromises.readFile(filePath)).buffer as ArrayBuffer
-  })
-  ipcMain.handle('fsReadDir', async (_, dirPath, options) => {
-    const result = await fsPromises.readdir(dirPath, options)
-    return result.map<FsDirent>(d => ({
-      isFile: d.isFile(),
-      isDirectory: d.isDirectory(),
-      name: d.name,
-    }))
-  })
-  ipcMain.handle('fsStat', async (_, filePath) => {
-    const result = await fsPromises.stat(filePath)
-    return {
-      isFile: result.isFile(),
-      isDirectory: result.isDirectory(),
-      size: result.size,
-      blksize: result.blksize,
-      blocks: result.blocks,
-      atimeMs: result.atimeMs,
-      mtimeMs: result.mtimeMs,
-      ctimeMs: result.ctimeMs,
-      birthtimeMs: result.birthtimeMs,
-      atime: result.atime,
-      mtime: result.mtime,
-      ctime: result.ctime,
-      birthtime: result.birthtime,
-    }
   })
   ipcMain.handle('fsUnlink', async (_, filePath) => {
     await fsPromises.unlink(filePath)

@@ -1,9 +1,6 @@
 import { DEFAULT_MAX_FILE_SIZE_BYTES, FilesErrorCode } from '../../common/files'
-import { TypedIpcRenderer } from '../../common/ipc'
 import { fetchJson } from '../network/fetch'
 import { postFormWithProgress } from '../network/upload-with-progress'
-
-const ipcRenderer = new TypedIpcRenderer()
 
 export function getExtension(filePath: string) {
   const index = filePath.lastIndexOf('.')
@@ -22,16 +19,6 @@ export class ClientSideUploadError extends Error {
     this.name = 'ClientSideUploadError'
     this.code = code
   }
-}
-
-// TODO(2Pac): Move this outside the "maps" folder. I'm pretty this is already completely generic?
-export async function upload<T>(
-  filePath: string,
-  apiPath: string,
-  maxFileSize: number = DEFAULT_MAX_FILE_SIZE_BYTES,
-): Promise<T> {
-  const file = await ipcRenderer.invoke('fsReadFile', filePath)!
-  return uploadBlob(new Blob([file]), getExtension(filePath), apiPath, maxFileSize)
 }
 
 /**
