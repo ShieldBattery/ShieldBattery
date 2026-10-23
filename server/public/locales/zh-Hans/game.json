@@ -224,7 +224,7 @@
     "timelineEmpty": "暂无事件",
     "underConstruction": "正在建造",
     "upgradeArmor": "护甲 {{value}}",
-    "upgradeDamage": "伤害 {{value}}"
+    "upgradeDamage": "伤害：{{value}}"
   },
   "options": {
     "announcer": "播报员",

@@ -224,7 +224,7 @@
     "timelineEmpty": "아직 아무 일도 일어나지 않았습니다",
     "underConstruction": "건설 중",
     "upgradeArmor": "장갑 {{value}}",
-    "upgradeDamage": "공격력 {{value}}"
+    "upgradeDamage": "공격력: {{value}}"
   },
   "options": {
     "announcer": "아나운서",

@@ -246,7 +246,7 @@
     "timelineEmpty": "Todavía no ha pasado nada",
     "underConstruction": "En construcción",
     "upgradeArmor": "Armadura {{value}}",
-    "upgradeDamage": "Daño {{value}}"
+    "upgradeDamage": "Daño: {{value}}"
   },
   "options": {
     "announcer": "Locutor",

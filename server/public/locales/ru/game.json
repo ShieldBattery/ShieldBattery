@@ -257,7 +257,7 @@
     "timelineEmpty": "Пока ничего не произошло",
     "underConstruction": "Строится",
     "upgradeArmor": "Броня {{value}}",
-    "upgradeDamage": "Урон {{value}}"
+    "upgradeDamage": "Урон: {{value}}"
   },
   "options": {
     "announcer": "Диктор",

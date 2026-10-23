@@ -1027,7 +1027,7 @@ fn draw_upgrade_hint(ui: &Ui, pointer: Pos2, upgrade: &UnitUpgradeView) {
         ui.spacing_mut().item_spacing = vec2(0.0, theme::SPACE_XS);
         if let UpgradeEffect::Count { damage } = &upgrade.effect {
             let damage = tr!(
-                "observer.inventoryDamage",
+                "observer.upgradeDamage",
                 "Damage: {{value}}",
                 value = damage
             );
@@ -1073,7 +1073,7 @@ fn draw_upgrade_hint(ui: &Ui, pointer: Pos2, upgrade: &UnitUpgradeView) {
                         ui,
                         &tr!(
                             "observer.upgradeDamage",
-                            "Damage {{value}}",
+                            "Damage: {{value}}",
                             value = upgraded_value(weapon.base, weapon.bonus, weapon.hits)
                         ),
                     );
