@@ -18,6 +18,7 @@ import {
   NetcodeV2ServiceError,
   relayEndpointToInfo,
 } from './netcode-v2-service'
+import { SessionReleaseCatalog, SessionReleaseKey } from './session-release-catalog'
 
 // `HTTPError` is kept as the real class (spread from the original module) rather than mocked away,
 // since coordinator requests classify failures with `err instanceof HTTPError`.
@@ -101,10 +102,15 @@ function fakeGameServerRegionsService(
 
 /** Builds a `NetcodeV2Service` with a served backbone RTT table double, for tests that don't care. */
 const persistMapping = vi.fn().mockResolvedValue(undefined)
-function makeService(servedRtts?: ReadonlyMap<string, number>): NetcodeV2Service {
-  return new NetcodeV2Service(fakeGameServerRegionsService(servedRtts), {
-    persist: persistMapping,
-  } as unknown as EvidenceSessionMappingService)
+function makeService(
+  servedRtts?: ReadonlyMap<string, number>,
+  getKeys: () => readonly SessionReleaseKey[] = () => [],
+): NetcodeV2Service {
+  return new NetcodeV2Service(
+    fakeGameServerRegionsService(servedRtts),
+    { persist: persistMapping } as unknown as EvidenceSessionMappingService,
+    { getKeys } as SessionReleaseCatalog,
+  )
 }
 
 describe('netcode-v2/checkSessionsAlive', () => {
@@ -244,6 +250,7 @@ describe('netcode-v2/relayEndpointToInfo', () => {
     tenant: 'sb-dev',
     relayServerName: 'relay.example',
     rollback: false,
+    periodicEvidence: false,
   }
 
   /**
@@ -537,55 +544,81 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     asMockedFunction(got.post).mockResolvedValue(createOk(response) as any)
   }
 
-  test.each([undefined, '[]'])(
-    'omits evidence fields without verification keys: %s',
-    async keys => {
-      configureNetcodeV2()
-      vi.stubEnv('SB_RP2_EVIDENCE_KEYS', keys)
-      mockSessionResponse(sessionResponse([0]))
-      await makeService().createSessionForGame({
+  test('omits evidence fields without verification keys', async () => {
+    configureNetcodeV2()
+    mockSessionResponse(sessionResponse([0]))
+    await makeService().createSessionForGame({
+      seed: 1,
+      gameId: 'game-1',
+      slots: [{ slot: 0, userId: makeSbUserId(1), observer: false, pubkey: PUBKEY }],
+      signal: new AbortController().signal,
+    })
+    const body = JSON.parse((asMockedFunction(got.post).mock.calls[0][1] as any).body)
+    expect(body).not.toHaveProperty('evidence_keys')
+    expect(body.players[0]).not.toHaveProperty('require_evidence')
+  })
+
+  test('does not create a session before the catalog is ready', async () => {
+    configureNetcodeV2()
+    vi.stubEnv('SB_RP2_RELEASE_CATALOG', 'releases/catalog.json')
+    vi.stubEnv('SB_RP2_RELEASE_ENVIRONMENT', 'dev')
+    const catalog = new SessionReleaseCatalog()
+    await expect(
+      makeService(undefined, () => catalog.getKeys()).createSessionForGame({
         seed: 1,
         gameId: 'game-1',
         slots: [{ slot: 0, userId: makeSbUserId(1), observer: false, pubkey: PUBKEY }],
         signal: new AbortController().signal,
+      }),
+    ).rejects.toThrow('not been initialized')
+    expect(got.post).not.toHaveBeenCalled()
+  })
+
+  test.each([false, true])(
+    'preserves keys and periodic policy (%s) through retries',
+    async periodic => {
+      vi.useFakeTimers()
+      configureNetcodeV2()
+      if (periodic) {
+        vi.stubEnv('SB_RP2_RELEASE_CATALOG', 'releases/catalog.json')
+        vi.stubEnv('SB_RP2_PERIODIC_EVIDENCE', 'true')
+      }
+      const getKeys = vi
+        .fn()
+        .mockReturnValueOnce([{ keyId: 17, publicKey: 'ab'.repeat(32) }])
+        .mockImplementation(() => {
+          throw new Error('catalog read twice')
+        })
+      asMockedFunction(got.post)
+        .mockRejectedValueOnce(fakeHttpError(503, '1'))
+        .mockResolvedValueOnce(createOk(sessionResponse([0, 1])) as any)
+      const result = makeService(undefined, getKeys).createSessionForGame({
+        seed: 1,
+        gameId: 'game-1',
+        slots: [
+          { slot: 0, userId: makeSbUserId(1), observer: false, pubkey: PUBKEY },
+          { slot: 1, userId: makeSbUserId(2), observer: true, pubkey: PUBKEY },
+        ],
+        signal: new AbortController().signal,
       })
-      const body = JSON.parse((asMockedFunction(got.post).mock.calls[0][1] as any).body)
-      expect(body).not.toHaveProperty('evidence_keys')
-      expect(body.players[0]).not.toHaveProperty('require_evidence')
+      await vi.advanceTimersByTimeAsync(1000)
+      await result
+      const bodies = asMockedFunction(got.post).mock.calls.map(call => (call[1] as any).body)
+      expect(getKeys).toHaveBeenCalledTimes(1)
+      expect(bodies).toHaveLength(2)
+      expect(bodies[1]).toBe(bodies[0])
+      const body = JSON.parse(bodies[0])
+      // eslint-disable-next-line eslint-core/camelcase
+      expect(body.evidence_keys).toEqual([{ key_id: 17, public_key: Array(32).fill(0xab) }])
+      expect(body.periodic_evidence).toBe(periodic || undefined)
+      for (const player of body.players) expect(player.require_evidence).toBe(false)
+      expect(setNetcodeV2Session).not.toHaveBeenCalled()
+      expect(persistMapping).toHaveBeenCalledExactlyOnceWith('game-1', 100, [
+        expect.objectContaining({ slot: 0, userId: makeSbUserId(1), observer: false }),
+        expect.objectContaining({ slot: 1, userId: makeSbUserId(2), observer: true }),
+      ])
     },
   )
-
-  test('sends verification keys without enforcement and preserves them through retries', async () => {
-    vi.useFakeTimers()
-    configureNetcodeV2()
-    vi.stubEnv('SB_RP2_EVIDENCE_KEYS', JSON.stringify([{ keyId: 17, publicKey: 'ab'.repeat(32) }]))
-    asMockedFunction(got.post)
-      .mockRejectedValueOnce(fakeHttpError(503, '1'))
-      .mockResolvedValueOnce(createOk(sessionResponse([0, 1])) as any)
-    const result = makeService().createSessionForGame({
-      seed: 1,
-      gameId: 'game-1',
-      slots: [
-        { slot: 0, userId: makeSbUserId(1), observer: false, pubkey: PUBKEY },
-        { slot: 1, userId: makeSbUserId(2), observer: true, pubkey: PUBKEY },
-      ],
-      signal: new AbortController().signal,
-    })
-    await vi.advanceTimersByTimeAsync(1000)
-    await result
-    const bodies = asMockedFunction(got.post).mock.calls.map(call => (call[1] as any).body)
-    expect(bodies).toHaveLength(2)
-    expect(bodies[1]).toBe(bodies[0])
-    const body = JSON.parse(bodies[0])
-    // eslint-disable-next-line eslint-core/camelcase
-    expect(body.evidence_keys).toEqual([{ key_id: 17, public_key: Array(32).fill(0xab) }])
-    for (const player of body.players) expect(player.require_evidence).toBe(false)
-    expect(setNetcodeV2Session).not.toHaveBeenCalled()
-    expect(persistMapping).toHaveBeenCalledExactlyOnceWith('game-1', 100, [
-      expect.objectContaining({ slot: 0, userId: makeSbUserId(1), observer: false }),
-      expect.objectContaining({ slot: 1, userId: makeSbUserId(2), observer: true }),
-    ])
-  })
 
   test('forwards each slot region (snake_case) and omits it when absent', async () => {
     configureNetcodeV2()
@@ -2063,6 +2096,33 @@ describe('netcode-v2/NetcodeV2Service#fetchSessionEvidence', () => {
         }),
       }),
     )
+  })
+
+  test('retains known samples when one recovery entry uses a future interruption', async () => {
+    configureNetcodeV2()
+    const known = {
+      slot: 0,
+      observedAtMs: 123,
+      historical: true,
+      failureCount: 4,
+      observation: {
+        connectionId: Buffer.alloc(32, 1).toString('base64'),
+        sampleId: 2,
+        sequence: 3,
+        assignmentRevision: 1,
+        verdict: 'missing',
+        body: '',
+        interruption: 'timeout',
+      },
+    }
+    const future = {
+      ...known,
+      observation: { ...known.observation, interruption: 'future_reason' },
+    }
+    asMockedFunction(got.post).mockReturnValue({
+      json: vi.fn().mockResolvedValue({ evidence: [{}, future, known] }),
+    } as any)
+    expect(await makeService().fetchSessionEvidence(42)).toEqual([known])
   })
 
   test('reports an older coordinator without retrying or falling back', async () => {

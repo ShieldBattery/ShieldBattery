@@ -1,27 +1,8 @@
-import Joi from 'joi'
-
 /** A raw 32-byte Ed25519 seed as 64 hex characters — the `SB_RP2_CLIENT_KEY` format. */
 export const ED25519_SEED_HEX_PATTERN = /^[0-9a-f]{64}$/i
 
-interface EvidenceKey {
-  keyId: number
-  publicKey: string
-}
-
-const EVIDENCE_KEYS_SCHEMA = Joi.array<EvidenceKey[]>()
-  .items(
-    Joi.object({
-      keyId: Joi.number().integer().min(0).max(0xffffffff).required(),
-      publicKey: Joi.string().pattern(ED25519_SEED_HEX_PATTERN).required(),
-    }),
-  )
-  .max(16)
-  .unique('keyId')
-  .required()
-  .strict()
-
 export interface NetcodeV2Config {
-  evidenceKeys?: EvidenceKey[]
+  periodicEvidence: boolean
   coordinatorUrl: string
   tenant: string
   /** TLS server name clients validate the relay certificate against. */
@@ -44,19 +25,6 @@ export interface NetcodeV2Config {
  * list for its backbone RTT table, and that pair of imports would otherwise cycle.
  */
 export function loadConfigFromEnv(): NetcodeV2Config | undefined {
-  let evidenceKeys: EvidenceKey[] | undefined
-  if (process.env.SB_RP2_EVIDENCE_KEYS !== undefined) {
-    try {
-      const result = EVIDENCE_KEYS_SCHEMA.validate(JSON.parse(process.env.SB_RP2_EVIDENCE_KEYS))
-      if (result.error) throw result.error
-      evidenceKeys = result.value
-    } catch {
-      throw new Error(
-        'SB_RP2_EVIDENCE_KEYS must contain at most 16 unique u32 key IDs and 32-byte hex public keys',
-      )
-    }
-  }
-
   const coordinatorUrl = process.env.SB_RP2_COORDINATOR_URL
   if (!coordinatorUrl) {
     return undefined
@@ -80,8 +48,13 @@ export function loadConfigFromEnv(): NetcodeV2Config | undefined {
     throw new Error('SB_RP2_CLIENT_KEY must be 64 hex characters (a 32-byte Ed25519 seed)')
   }
 
+  const periodicEvidence = process.env.SB_RP2_PERIODIC_EVIDENCE === 'true'
+  if (periodicEvidence && !process.env.SB_RP2_RELEASE_CATALOG) {
+    throw new Error('SB_RP2_PERIODIC_EVIDENCE requires SB_RP2_RELEASE_CATALOG')
+  }
+
   return {
-    ...(evidenceKeys?.length ? { evidenceKeys } : {}),
+    periodicEvidence,
     coordinatorUrl,
     tenant,
     relayServerName: process.env.SB_RP2_RELAY_SERVER_NAME ?? 'localhost',

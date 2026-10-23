@@ -364,19 +364,57 @@ export interface NetcodeV2SessionClosedNotification {
   externalId?: string
 }
 
+export type NetcodeV2EvidenceInterruption =
+  | 'no_answer'
+  | 'timeout'
+  | 'connection_closed'
+  | 'connection_replaced'
+  | 'slot_departed'
+  | 'revoked'
+  | 'session_retired'
+  | 'silent_slot'
+  | 'desync_evicted'
+  | 'lagging_slot'
+  | 'lobby_violation'
+  | 'stream_closed'
+
 export interface NetcodeV2EvidenceObservation {
+  /** Zero or absent for admission; otherwise the periodic challenge ID within this connection. */
+  sampleId?: number
   /** Standard padded base64 of the connection's 32-byte identifier. */
   connectionId: string
   sequence: number
   assignmentRevision: number
   verdict: 'missing' | 'unknown_key' | 'invalid' | 'valid'
+  /** Why a periodic observation is missing; absent for admission and older relays. */
+  interruption?: NetcodeV2EvidenceInterruption
   keyId?: number
   /** Opaque standard padded base64; empty unless the verdict is valid. */
   body: string
 }
 
+/** An observation received during gameplay; it does not report a connection or load transition. */
+export interface NetcodeV2SlotEvidenceNotification {
+  event: 'slotEvidence'
+  tenant: string
+  session: number
+  externalId?: string
+  slot: number
+  externalRef?: string
+  observedAtMs: number
+  historical?: boolean
+  /** Cumulative failures for the slot; shared by its retained first and latest failures. */
+  failureCount?: number
+  evidence: NetcodeV2EvidenceObservation
+}
+
 export interface NetcodeV2SlotEvidence {
   slot: number
+  /** Relay observation time; absent when an older coordinator did not retain it. */
+  observedAtMs?: number
+  historical?: boolean
+  /** Cumulative failures for the slot; take the maximum across entries, never their sum. */
+  failureCount?: number
   observation: NetcodeV2EvidenceObservation
 }
 
@@ -477,6 +515,7 @@ export interface NetcodeV2LobbyViolationNotification {
  * `event`. POSTed to `POST /webhooks/netcode-v2/game-events`.
  */
 export type NetcodeV2GameEvent =
+  | NetcodeV2SlotEvidenceNotification
   | NetcodeV2LobbyViolationNotification
   | NetcodeV2SlotConnectedNotification
   | NetcodeV2SessionStartedNotification

@@ -36,6 +36,7 @@ import {
   recordSessionStartedNotification,
   recordSlotConnectedEvidenceNotification,
   recordSlotConnectedNotification,
+  recordSlotEvidenceNotification,
   recordSlotStartedNotification,
 } from './netcode-v2-game-event-service'
 import { TenantPubkeyCache } from './tenant-pubkey-cache'
@@ -1199,5 +1200,93 @@ describe('delayed lobby violation evidence', () => {
     await expect(
       recordLobbyViolationNotification(notice, vi.fn().mockResolvedValue(false), vi.fn()),
     ).rejects.toThrow('database unavailable')
+  })
+})
+
+describe('netcode-v2/recordSlotEvidenceNotification', () => {
+  beforeEach(() => {
+    vi.stubEnv('SB_RP2_COORDINATOR_URL', 'http://coordinator.example')
+    vi.stubEnv('SB_RP2_TENANT', 'sb-dev')
+    vi.stubEnv('SB_RP2_CLIENT_KEY', '11'.repeat(32))
+  })
+  afterEach(() => vi.unstubAllEnvs())
+
+  const evidence = {
+    connectionId: Buffer.alloc(32, 1).toString('base64'),
+    sampleId: 3,
+    sequence: 9,
+    assignmentRevision: 1,
+    verdict: 'valid' as const,
+    keyId: 42,
+    body: 'AP+A',
+  }
+  const notification = {
+    event: 'slotEvidence' as const,
+    tenant: 'sb-dev',
+    session: 1,
+    externalId: GAME_ID,
+    externalRef: '999999',
+    slot: 0,
+    observedAtMs: 123,
+    evidence,
+  }
+
+  test('uses the stored roster instead of the supplied user reference', async () => {
+    const store = vi.fn().mockResolvedValue('stored')
+    expect(await recordSlotEvidenceNotification(notification, store)).toBe('stored')
+    expect(store).toHaveBeenCalledExactlyOnceWith(
+      { gameId: GAME_ID, tenant: 'sb-dev', session: 1 },
+      [{ slot: 0, observedAtMs: 123, observation: evidence }],
+    )
+  })
+
+  test('preserves interruption and cumulative history metadata when mapping to storage', async () => {
+    const store = vi.fn().mockResolvedValue('stored')
+    const sample = {
+      ...evidence,
+      verdict: 'missing' as const,
+      body: '',
+      interruption: 'timeout' as const,
+    }
+    expect(
+      await recordSlotEvidenceNotification(
+        {
+          ...notification,
+          historical: true,
+          failureCount: 7,
+          evidence: sample,
+        },
+        store,
+      ),
+    ).toBe('stored')
+    expect(store).toHaveBeenCalledExactlyOnceWith(
+      { gameId: GAME_ID, tenant: 'sb-dev', session: 1 },
+      [{ slot: 0, observedAtMs: 123, historical: true, failureCount: 7, observation: sample }],
+    )
+  })
+
+  test('ignores another tenant, invalid correlation, and admission samples', async () => {
+    const store = vi.fn()
+    for (const overrides of [
+      { tenant: 'other' },
+      { externalId: 'invalid' },
+      ...[undefined, 0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1].map(sampleId => ({
+        evidence: { ...evidence, sampleId },
+      })),
+    ]) {
+      expect(await recordSlotEvidenceNotification({ ...notification, ...overrides }, store)).toBe(
+        'ignored',
+      )
+    }
+    expect(store).not.toHaveBeenCalled()
+  })
+
+  test('preserves pending mapping and persistence failures for redelivery', async () => {
+    const store = vi
+      .fn()
+      .mockResolvedValueOnce('pending')
+      .mockRejectedValueOnce(new Error('offline'))
+    expect(await recordSlotEvidenceNotification(notification, store)).toBe('pending')
+    await expect(recordSlotEvidenceNotification(notification, store)).rejects.toThrow('offline')
   })
 })

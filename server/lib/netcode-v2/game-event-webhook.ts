@@ -11,12 +11,18 @@ import {
   NetcodeV2SessionClosedNotification,
   NetcodeV2SessionStartedNotification,
   NetcodeV2SlotConnectedNotification,
+  NetcodeV2SlotEvidenceNotification,
   NetcodeV2SlotStartedNotification,
 } from '../../../common/games/netcode-v2'
+import log from '../logging/logger'
 import createThrottle from '../throttle/create-throttle'
-import throttleMiddleware, { throttleByIp } from '../throttle/middleware'
+import throttleMiddleware, { throttleByIp, throttleMiddlewareFunc } from '../throttle/middleware'
 import { validateRequest } from '../validation/joi-validator'
-import { EVIDENCE_OBSERVATION_SCHEMA } from './evidence-schema'
+import {
+  EVIDENCE_OBSERVATION_SCHEMA,
+  EVIDENCE_TIMESTAMP_SCHEMA,
+  parseSlotEvidenceList,
+} from './evidence-schema'
 import {
   checkGameEventWebhookAuth,
   recordDepartureNotification,
@@ -27,13 +33,29 @@ import {
   recordSessionStartedNotification,
   recordSlotConnectedEvidenceNotification,
   recordSlotConnectedNotification,
+  recordSlotEvidenceNotification,
   recordSlotStartedNotification,
 } from './netcode-v2-game-event-service'
+
+// Bound parsing and signature-verification work before reading the body. This per-IP budget
+// accommodates both authenticated budgets (100 samples/s and 60 lifecycle events/minute), with
+// headroom for retries and their combined bursts. The caller cannot select it through body fields.
+const requestThrottle = createThrottle('netcodeV2GameEventRequests', {
+  rate: 120,
+  burst: 600,
+  window: 1000,
+})
 
 const gameEventsThrottle = createThrottle('netcodeV2GameEvents', {
   rate: 60,
   burst: 300,
   window: 60000,
+})
+
+const periodicEvidenceThrottle = createThrottle('netcodeV2PeriodicEvidence', {
+  rate: 100,
+  burst: 300,
+  window: 1000,
 })
 
 // A small JSON-only body parser, deliberately separate from the app-wide `koaBody()` in app.ts
@@ -143,7 +165,11 @@ const SESSION_CLOSED_EVENT_SCHEMA = Joi.object<NetcodeV2SessionClosedNotificatio
   // See DEPARTURE_EVENT_SCHEMA's comment: same no-`deny_unknown_fields` interop reasoning.
   .unknown(true)
 
-const SLOT_CONNECTED_EVENT_SCHEMA = Joi.object<NetcodeV2SlotConnectedNotification>({
+type SlotConnectedEnvelope = Omit<NetcodeV2SlotConnectedNotification, 'evidence'> & {
+  evidence?: unknown
+}
+
+const SLOT_CONNECTED_EVENT_SCHEMA = Joi.object<SlotConnectedEnvelope>({
   event: Joi.string().valid('slotConnected').required(),
   tenant: Joi.string().required(),
   session: Joi.number().integer().min(0).required(),
@@ -152,10 +178,26 @@ const SLOT_CONNECTED_EVENT_SCHEMA = Joi.object<NetcodeV2SlotConnectedNotificatio
   externalRef: Joi.string(),
   resumed: Joi.boolean().required(),
   connectedAtMs: Joi.number().integer().min(0).max(MAX_EPOCH_MS).required(),
-  evidence: EVIDENCE_OBSERVATION_SCHEMA,
+  // Observation validation is independent so unsupported evidence cannot suppress a connection.
+  evidence: Joi.any(),
 })
   // See DEPARTURE_EVENT_SCHEMA's comment: same no-`deny_unknown_fields` interop reasoning.
   .unknown(true)
+
+const SLOT_EVIDENCE_ENVELOPE_SCHEMA = Joi.object<NetcodeV2SlotEvidenceNotification>({
+  event: Joi.string().valid('slotEvidence').required(),
+  tenant: Joi.string().required(),
+  session: Joi.number().integer().min(0).max(MAX_SAFE_BIGINT).strict().required(),
+  externalId: Joi.string(),
+  slot: Joi.number().integer().min(0).max(MAX_SLOT).strict().required(),
+  externalRef: Joi.string(),
+  observedAtMs: EVIDENCE_TIMESTAMP_SCHEMA.required(),
+  evidence: Joi.any().required(),
+}).unknown(true)
+
+const CONNECTION_EVIDENCE_SCHEMA = EVIDENCE_OBSERVATION_SCHEMA.keys({
+  sampleId: Joi.number().valid(0).strict(),
+})
 
 const SESSION_STARTED_EVENT_SCHEMA = Joi.object<NetcodeV2SessionStartedNotification>({
   event: Joi.string().valid('sessionStarted').required(),
@@ -192,12 +234,19 @@ const SLOT_STARTED_EVENT_SCHEMA = Joi.object<NetcodeV2SlotStartedNotification>({
   // See DEPARTURE_EVENT_SCHEMA's comment: same no-`deny_unknown_fields` interop reasoning.
   .unknown(true)
 
+type LifecycleEvent =
+  | Exclude<
+      NetcodeV2GameEvent,
+      NetcodeV2SlotEvidenceNotification | NetcodeV2SlotConnectedNotification
+    >
+  | SlotConnectedEnvelope
+
 /**
- * Validates a `POST /netcode-v2/game-events` body as one of the `NetcodeV2GameEvent` variants,
- * discriminated by `event`. Joi tries each alternative in order and reports the combined errors if
+ * Validates a lifecycle notification body. Periodic observations use a separate envelope.
+ * Joi tries each alternative in order and reports the combined errors if
  * neither matches, so an unrecognized `event` value (or a body missing it) is rejected.
  */
-export const GAME_EVENT_BODY_SCHEMA = Joi.alternatives<NetcodeV2GameEvent>(
+export const GAME_EVENT_BODY_SCHEMA = Joi.alternatives<LifecycleEvent>(
   DEPARTURE_EVENT_SCHEMA,
   DESYNC_EVENT_SCHEMA,
   RESULT_EVENT_SCHEMA,
@@ -221,9 +270,9 @@ export const GAME_EVENT_BODY_SCHEMA = Joi.alternatives<NetcodeV2GameEvent>(
 export function registerGameEventWebhookRoutes(router: KoaRouter) {
   router.post(
     '/netcode-v2/game-events',
-    throttleMiddleware(gameEventsThrottle, throttleByIp),
+    throttleMiddleware(requestThrottle, throttleByIp),
     gameEventBody,
-    async ctx => {
+    async (ctx, next) => {
       // Auth/feature-gate before schema validation: netcode v2 not being configured must 404, and a
       // bad signature must not get a validation-error oracle into the expected body shape. This
       // needs the raw body bytes (not the parsed JSON), which `gameEventBody` above already
@@ -238,6 +287,51 @@ export function registerGameEventWebhookRoutes(router: KoaRouter) {
       )
       if (authStatus !== null) {
         ctx.status = authStatus
+        return
+      }
+
+      await next()
+    },
+    (ctx, next) => {
+      // Only authenticated callers can spend these independent delivery budgets. Periodic
+      // observations must not consume the tokens reserved for lifecycle notifications.
+      const body = ctx.request.body
+      const throttle =
+        body && typeof body === 'object' && 'event' in body && body.event === 'slotEvidence'
+          ? periodicEvidenceThrottle
+          : gameEventsThrottle
+      return throttleMiddlewareFunc(throttle, throttleByIp, ctx, next)
+    },
+    async ctx => {
+      const input = ctx.request.body
+      if (
+        input &&
+        typeof input === 'object' &&
+        'event' in input &&
+        input.event === 'slotEvidence'
+      ) {
+        const { body } = validateRequest(ctx, { body: SLOT_EVIDENCE_ENVELOPE_SCHEMA })
+        const samples = parseSlotEvidenceList([
+          {
+            slot: body.slot,
+            observedAtMs: body.observedAtMs,
+            historical: body.historical,
+            failureCount: body.failureCount,
+            observation: body.evidence,
+          },
+        ])
+        const sample = samples?.[0]
+        // A newer coordinator may emit observation kinds this server cannot yet interpret.
+        // Acknowledge those samples without routing them into storage or lifecycle handlers.
+        if (!sample?.observation.sampleId) {
+          ctx.status = 204
+          return
+        }
+        const result = await recordSlotEvidenceNotification({
+          ...body,
+          evidence: sample.observation,
+        })
+        ctx.status = result === 'pending' ? 503 : 204
         return
       }
 
@@ -258,13 +352,25 @@ export function registerGameEventWebhookRoutes(router: KoaRouter) {
         case 'sessionClosed':
           await recordSessionClosedNotification(body)
           break
-        case 'slotConnected':
-          recordSlotConnectedNotification(body)
-          if ((await recordSlotConnectedEvidenceNotification(body)) === 'pending') {
-            ctx.status = 503
-            return
+        case 'slotConnected': {
+          const { evidence, ...notification } = body
+          recordSlotConnectedNotification(notification)
+          if (evidence !== undefined) {
+            const parsed = CONNECTION_EVIDENCE_SCHEMA.validate(evidence)
+            if (parsed.error) {
+              log.warn('Ignoring unsupported or malformed connection observation')
+            } else if (
+              (await recordSlotConnectedEvidenceNotification({
+                ...notification,
+                evidence: parsed.value,
+              })) === 'pending'
+            ) {
+              ctx.status = 503
+              return
+            }
           }
           break
+        }
         case 'sessionStarted':
           recordSessionStartedNotification(body)
           break

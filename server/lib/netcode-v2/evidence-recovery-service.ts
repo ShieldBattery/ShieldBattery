@@ -22,7 +22,7 @@ export class EvidenceRecoveryService {
     jobScheduler: JobScheduler,
     private netcodeService: NetcodeV2Service,
   ) {
-    if (this.config?.evidenceKeys?.length) {
+    if (this.config) {
       jobScheduler.scheduleImmediateJob(
         'lib/netcode-v2#recoverEvidence',
         RECOVERY_INTERVAL_MS,
@@ -33,7 +33,7 @@ export class EvidenceRecoveryService {
 
   /** One bounded page; overlapping scheduler ticks join the same sweep. */
   async recover(): Promise<void> {
-    if (!this.config?.evidenceKeys?.length) return
+    if (!this.config) return
     if (this.recovery) return await this.recovery
 
     const recovery = this.recoverPage(this.config.tenant)

@@ -23,10 +23,11 @@ import {
 } from '../games/game-models'
 import log from '../logging/logger'
 import { monotonicNow } from '../time/monotonic-now'
-import { SLOT_EVIDENCE_LIST_SCHEMA } from './evidence-schema'
+import { parseSlotEvidenceList } from './evidence-schema'
 import { EvidenceSessionMappingService } from './evidence-session-mapping-service'
 import { worstPairwiseLatencyMs } from './latency-estimate'
 import { ED25519_SEED_HEX_PATTERN, loadConfigFromEnv, NetcodeV2Config } from './netcode-v2-config'
+import { SessionReleaseCatalog } from './session-release-catalog'
 
 export { loadConfigFromEnv }
 export type { NetcodeV2Config }
@@ -161,6 +162,7 @@ function coordinatorRequestPath(url: string): string {
  * as JSON arrays of numbers.
  */
 interface CoordinatorSessionRequest {
+  periodic_evidence?: boolean
   tenant: string
   evidence_keys?: Array<{ key_id: number; public_key: number[] }>
   lobby_policy: { allowed: Array<{ slot: number; payload: number[] }> }
@@ -392,12 +394,7 @@ interface CoordinatorSessionLoadStateResponse {
 /** Malformed observations cannot affect independent load-attribution facts. */
 function parseEvidence(evidence: unknown): NetcodeV2SlotEvidence[] {
   if (evidence === undefined) return []
-  const parsed = SLOT_EVIDENCE_LIST_SCHEMA.validate(evidence)
-  if (parsed.error) {
-    log.warn('Ignoring malformed coordinator evidence')
-    return []
-  }
-  return parsed.value
+  return parseSlotEvidenceList(evidence) ?? []
 }
 
 /** The session id and per-player handoffs a successful `createSessionForGame` produces. */
@@ -524,6 +521,7 @@ export class NetcodeV2Service {
   constructor(
     private gameServerRegionsService: GameServerRegionsService,
     private mappingService: EvidenceSessionMappingService,
+    private releaseCatalog: SessionReleaseCatalog,
   ) {}
 
   isEnabled(): boolean {
@@ -653,6 +651,8 @@ export class NetcodeV2Service {
       throw new NetcodeV2ServiceError('netcode v2 is not configured')
     }
 
+    const evidenceKeys = this.releaseCatalog.getKeys()
+
     // A fallback for the relay's own initial buffer computation, covering conditions the
     // pre-start window can't observe itself (e.g. a multi-relay session, where pre-start traffic
     // never crosses the mesh). Rounded up so the estimate never under-covers a fractional ms.
@@ -671,10 +671,12 @@ export class NetcodeV2Service {
 
     const request: CoordinatorSessionRequest = {
       tenant: config.tenant,
-      ...(config.evidenceKeys?.length
+      // eslint-disable-next-line eslint-core/camelcase
+      ...(config.periodicEvidence ? { periodic_evidence: true } : {}),
+      ...(evidenceKeys.length
         ? {
             // eslint-disable-next-line eslint-core/camelcase
-            evidence_keys: config.evidenceKeys.map(({ keyId, publicKey }) => ({
+            evidence_keys: evidenceKeys.map(({ keyId, publicKey }) => ({
               // eslint-disable-next-line eslint-core/camelcase
               key_id: keyId,
               // eslint-disable-next-line eslint-core/camelcase
@@ -718,7 +720,7 @@ export class NetcodeV2Service {
           external_ref: String(userId),
           observer,
           // eslint-disable-next-line eslint-core/camelcase
-          ...(config.evidenceKeys?.length ? { require_evidence: false as const } : {}),
+          ...(evidenceKeys.length ? { require_evidence: false as const } : {}),
           ...(region !== undefined ? { region } : {}),
         }
       }),
@@ -762,7 +764,7 @@ export class NetcodeV2Service {
     // is still alive instead of blind-forcing on a timeout. Non-fatal: a game whose session id
     // fails to persist just falls back to the legacy timeout-based sweep for its backstop.
     try {
-      if (config.evidenceKeys?.length) {
+      if (evidenceKeys.length) {
         await this.mappingService.persist(gameId, session.session, requestedRegions)
       } else {
         await setNetcodeV2Session(gameId, session.session)
@@ -947,7 +949,7 @@ export class NetcodeV2Service {
 
   /**
    * Reads retained observations without asking relays to fence clients or spending the
-   * load-attribution budget. Only the latest retained observation per slot is available; this
+   * load-attribution budget. Only the latest admission and periodic observations per slot are available; this
    * is not an archival log. An older coordinator without this endpoint returns undefined.
    */
   async fetchSessionEvidence(

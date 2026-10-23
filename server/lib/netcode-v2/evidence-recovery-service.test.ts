@@ -49,7 +49,7 @@ describe('EvidenceRecoveryService', () => {
     vi.stubEnv('SB_RP2_COORDINATOR_URL', 'http://coordinator.example')
     vi.stubEnv('SB_RP2_TENANT', 'sb-dev')
     vi.stubEnv('SB_RP2_CLIENT_KEY', '11'.repeat(32))
-    vi.stubEnv('SB_RP2_EVIDENCE_KEYS', JSON.stringify([{ keyId: 17, publicKey: 'ab'.repeat(32) }]))
+    vi.stubEnv('SB_RP2_RELEASE_CATALOG', undefined)
     asMockedFunction(findNetcodeV2EvidenceRecoveryCandidates).mockResolvedValue([])
     asMockedFunction(storeRecoveredEvidence).mockResolvedValue('stored')
     asMockedFunction(checkSessionsAlive).mockImplementation(async sessions => new Set(sessions))
@@ -59,8 +59,8 @@ describe('EvidenceRecoveryService', () => {
     vi.resetAllMocks()
   })
 
-  test.each([undefined, '[]'])('does not schedule or fetch without keys: %s', async keys => {
-    vi.stubEnv('SB_RP2_EVIDENCE_KEYS', keys)
+  test('does not schedule or fetch without coordinator access', async () => {
+    vi.stubEnv('SB_RP2_COORDINATOR_URL', undefined)
     const { service, scheduleImmediateJob, fetchSessionEvidence } = setup()
     await service.recover()
     expect(scheduleImmediateJob).not.toHaveBeenCalled()
@@ -69,7 +69,7 @@ describe('EvidenceRecoveryService', () => {
     expect(checkSessionsAlive).not.toHaveBeenCalled()
   })
 
-  test('schedules recovery and stores positive observations without settling the lobby', async () => {
+  test('recovers existing sessions even without a current release catalog', async () => {
     const [candidate] = candidates(1)
     asMockedFunction(findNetcodeV2EvidenceRecoveryCandidates).mockResolvedValue([candidate])
     const { scheduleImmediateJob, fetchSessionEvidence } = setup()

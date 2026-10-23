@@ -761,6 +761,7 @@ describe('games/game-result-service/GameResultService periodic sweep — netcode
     tenant: 'sb-dev',
     relayServerName: 'localhost',
     rollback: false,
+    periodicEvidence: false,
   }
 
   let clock: FakeClock

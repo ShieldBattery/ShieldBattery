@@ -12,6 +12,7 @@ import {
   NetcodeV2SessionClosedNotification,
   NetcodeV2SessionStartedNotification,
   NetcodeV2SlotConnectedNotification,
+  NetcodeV2SlotEvidenceNotification,
   NetcodeV2SlotStartedNotification,
 } from '../../../common/games/netcode-v2'
 import {
@@ -572,6 +573,34 @@ export function recordSlotConnectedNotification(
   recordPlayerConnected(gameId, userId)
 }
 
+/** Stores a periodic observation without changing connection or load-progress state. */
+export async function recordSlotEvidenceNotification(
+  notification: NetcodeV2SlotEvidenceNotification,
+  storeEvidence: typeof storeRecoveredEvidence = storeRecoveredEvidence,
+): Promise<EvidenceStoreResult> {
+  const sampleId = notification.evidence?.sampleId
+  if (
+    notification.tenant !== loadConfigFromEnv()?.tenant ||
+    sampleId === undefined ||
+    !Number.isSafeInteger(sampleId) ||
+    sampleId <= 0
+  )
+    return 'ignored'
+  const gameId = parseGameId(notification.externalId, 'slotEvidence')
+  if (!gameId) return 'ignored'
+  return storeEvidence({ gameId, tenant: notification.tenant, session: notification.session }, [
+    {
+      slot: notification.slot,
+      observation: notification.evidence,
+      observedAtMs: notification.observedAtMs,
+      ...(notification.historical === undefined ? {} : { historical: notification.historical }),
+      ...(notification.failureCount === undefined
+        ? {}
+        : { failureCount: notification.failureCount }),
+    },
+  ])
+}
+
 /**
  * Persists a connection observation independently of load-progress delivery. The stored roster
  * resolves the user, so a coordinator's externalRef cannot attribute evidence to another player.
@@ -580,7 +609,11 @@ export async function recordSlotConnectedEvidenceNotification(
   notification: NetcodeV2SlotConnectedNotification,
   storeEvidence: typeof storeRecoveredEvidence = storeRecoveredEvidence,
 ): Promise<EvidenceStoreResult> {
-  if (!notification.evidence || notification.tenant !== loadConfigFromEnv()?.tenant) {
+  if (
+    !notification.evidence ||
+    notification.evidence.sampleId ||
+    notification.tenant !== loadConfigFromEnv()?.tenant
+  ) {
     return 'ignored'
   }
   const gameId = parseGameId(notification.externalId, 'slotConnected')
