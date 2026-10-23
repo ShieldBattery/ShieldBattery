@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest'
+import { LocalMapKind, LocalMapSize, LocalMapSort } from '../../common/map-library'
 import { MapCatalogTab } from '../../common/map-url'
 import { Tileset } from '../../common/maps'
 import { EudFilter, MapLens, MapSizeClass } from '../gql/graphql'
@@ -11,8 +12,10 @@ import {
   effectiveSort,
   hasCatalogParams,
   hasNonDefaultFilters,
+  LOCAL_SORTS,
   parseCatalogParams,
   serializeCatalogParams,
+  toLocalMapQuery,
   toMapFilter,
   validateSavedFilters,
   validateSavedSort,
@@ -110,6 +113,58 @@ describe('client/maps/map-catalog-params', () => {
     expect(withSearch({ ...searching, sort: CatalogSort.BestMatch }, '').sort).toBeUndefined()
     expect(withSearch({ ...searching, sort: CatalogSort.Newest }, '').sort).toBe(CatalogSort.Newest)
     expect(withSearch(base, '').sort).toBe(CatalogSort.Name)
+  })
+
+  test('only uses sorts the tab offers', () => {
+    const local = defaultSortForTab(MapCatalogTab.Local)
+    expect(local).toBe(CatalogSort.Name)
+    expect(
+      effectiveSort({ search: '', sort: CatalogSort.Trending }, undefined, local, LOCAL_SORTS),
+    ).toBe(CatalogSort.Name)
+    expect(
+      effectiveSort({ search: '', sort: undefined }, CatalogSort.MostPlayed, local, LOCAL_SORTS),
+    ).toBe(CatalogSort.Name)
+    expect(
+      effectiveSort({ search: '', sort: undefined }, CatalogSort.Players, local, LOCAL_SORTS),
+    ).toBe(CatalogSort.Players)
+    // No Best match among the maps on this PC, so searching keeps the chosen sort
+    expect(
+      effectiveSort({ search: 'x', sort: undefined }, CatalogSort.Newest, local, LOCAL_SORTS),
+    ).toBe(CatalogSort.Newest)
+  })
+
+  test('builds the local map index query', () => {
+    expect(
+      toLocalMapQuery(
+        parse('q=+Bound+&lens=ums&players=5%2B&size=tiny,huge&tileset=jungle&eud=hide&official=1'),
+        CatalogSort.Players,
+        { path: 'documents/UMS', recursive: true },
+      ),
+    ).toEqual({
+      search: 'Bound',
+      kind: LocalMapKind.Ums,
+      players: [5, 6, 7, 8],
+      sizes: [LocalMapSize.Tiny, LocalMapSize.Huge],
+      tilesets: [Tileset.Jungle],
+      eud: false,
+      folder: { path: 'documents/UMS', recursive: true },
+      sort: LocalMapSort.Players,
+    })
+    expect(toLocalMapQuery(parse(''), CatalogSort.Newest)).toEqual({
+      search: undefined,
+      kind: undefined,
+      players: undefined,
+      sizes: undefined,
+      tilesets: undefined,
+      eud: undefined,
+      folder: undefined,
+      sort: LocalMapSort.Newest,
+    })
+    expect(toLocalMapQuery(parse('eud=only&lens=melee'), CatalogSort.Name)).toMatchObject({
+      kind: LocalMapKind.Melee,
+      eud: true,
+      sort: LocalMapSort.Name,
+    })
   })
 
   test('builds the GraphQL filter', () => {

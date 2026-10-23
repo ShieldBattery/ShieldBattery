@@ -21,6 +21,8 @@ export enum MapCatalogTab {
   All = 'all',
   Yours = 'yours',
   Favorites = 'favorites',
+  /** The map files in the user's StarCraft map folders (desktop app only). */
+  Local = 'local',
 }
 
 export const ALL_MAP_CATALOG_TABS: ReadonlyArray<MapCatalogTab> = Object.values(MapCatalogTab)
