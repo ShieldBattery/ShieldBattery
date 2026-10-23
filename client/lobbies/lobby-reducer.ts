@@ -320,7 +320,7 @@ const lobbyHandlers = {
     // The server consumes random selection when loading begins; revealing its draw is not a host
     // disabling random selection.
     const isRandomMapReveal =
-      draft.loadingState.isCountingDown &&
+      (draft.loadingState.isCountingDown || draft.loadingState.isLoading) &&
       action.payload.changedSettings.includes('map') &&
       action.payload.changedSettings.includes('randomMap')
     const changedSettings = isRandomMapReveal

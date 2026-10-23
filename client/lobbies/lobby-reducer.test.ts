@@ -539,21 +539,27 @@ describe('client/lobbies/lobby-reducer', () => {
     ])
   })
 
-  test('revealing a random draw does not announce that the host disabled it', () => {
-    let state = lobbyReducer(undefined, initAction())
-    state = lobbyReducer(state, { type: '@lobbies/updateCountdownStart', payload: 5 })
-    state = lobbyReducer(state, {
-      type: '@lobbies/updateSettingsChange',
-      payload: {
-        type: 'settingsChange',
-        changedSettings: ['map', 'randomMap'],
-        lobby: { ...LOBBY, randomMap: false },
-      },
-    })
-    const message = state.chat.at(-1) as SettingsChangeMessage
-    expect(message.changedSettings).toEqual(['map'])
-    expect(message.randomMap).toBeUndefined()
-  })
+  test.each([false, true])(
+    'a random draw does not announce a host toggle after local loading: %s',
+    localLoading => {
+      let state = lobbyReducer(undefined, initAction())
+      state = lobbyReducer(state, { type: '@lobbies/updateCountdownStart', payload: 5 })
+      if (localLoading) {
+        state = lobbyReducer(state, { type: '@lobbies/updateLoadingStart' })
+      }
+      state = lobbyReducer(state, {
+        type: '@lobbies/updateSettingsChange',
+        payload: {
+          type: 'settingsChange',
+          changedSettings: ['map', 'randomMap'],
+          lobby: { ...LOBBY, randomMap: false },
+        },
+      })
+      const message = state.chat.at(-1) as SettingsChangeMessage
+      expect(message.changedSettings).toEqual(['map'])
+      expect(message.randomMap).toBeUndefined()
+    },
+  )
 
   test('settingsChange replaces state.info with the reconciled lobby and logs a chat message', () => {
     let state = lobbyReducer(undefined, initAction())
