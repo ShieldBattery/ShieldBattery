@@ -1,11 +1,16 @@
 import { TFunction } from 'i18next'
-import { DiscordActivity, makeLobbyJoinSecret } from '../../common/discord-presence'
+import {
+  DiscordActivity,
+  DiscordActivityImage,
+  makeLobbyJoinSecret,
+} from '../../common/discord-presence'
 import { gameTypeToLabel } from '../../common/games/game-type'
 import { isUms } from '../../common/lobbies'
 import { LobbyVisibility } from '../../common/lobbies/lobby-visibility'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { SlotType } from '../../common/lobbies/slot'
 import { matchmakingTypeToLabel } from '../../common/matchmaking'
+import { RaceChar, raceCharToLabel } from '../../common/races'
 import { DiscordActivitySharing } from '../../common/settings/account-settings'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { ParticipatingGameInfo } from '../games/game-atoms'
@@ -21,6 +26,10 @@ export interface ActivityLobby {
   openSlots: number
   /** Whether the lobby's game is loading or running, which makes the lobby unjoinable. */
   inGame: boolean
+  mapName?: string
+  mapImageUrl?: string
+  /** The race picked in the user's slot, or `undefined` while they observe. */
+  ownRace?: RaceChar
 }
 
 export interface DiscordActivityState {
@@ -35,6 +44,7 @@ export interface DiscordActivityState {
 
 const MIN_DISCORD_TEXT_LENGTH = 2
 const MAX_DISCORD_TEXT_LENGTH = 128
+const MAX_DISCORD_IMAGE_URL_LENGTH = 300
 
 /**
  * Fits text to the 2 to 128 characters Discord accepts for an activity's lines (it rejects the
@@ -50,6 +60,26 @@ function fitDiscordText(text: string): string | undefined {
     : chars.join('')
 }
 
+/**
+ * Returns a map's image for the activity, or `undefined` if Discord couldn't show it: it fetches
+ * images itself, so only public https URLs work, which leaves out the local file store dev servers
+ * use.
+ */
+function getMapImage(
+  imageUrl: string | undefined,
+  mapName: string | undefined,
+): DiscordActivityImage | undefined {
+  if (!imageUrl?.startsWith('https://') || imageUrl.length > MAX_DISCORD_IMAGE_URL_LENGTH) {
+    return undefined
+  }
+  return { image: imageUrl, text: mapName !== undefined ? fitDiscordText(mapName) : undefined }
+}
+
+/** Returns the icon of the race the user picked. Keys are listed in docs/DISCORD_SDK.md. */
+function getRaceIcon(race: RaceChar | undefined, t: TFunction): DiscordActivityImage | undefined {
+  return race ? { image: `race_${race}`, text: raceCharToLabel(race, t) } : undefined
+}
+
 const PLAYER_SLOT_TYPES: ReadonlySet<SlotType> = new Set([
   SlotType.Human,
   SlotType.Computer,
@@ -57,14 +87,13 @@ const PLAYER_SLOT_TYPES: ReadonlySet<SlotType> = new Set([
 ])
 
 /**
- * Returns the matchup of a game with two players (e.g. "PvZ"), from `ownSlot`'s side if it's one of
- * them, or `undefined` for any other number of players. Uses the races as picked, so a random
- * player is R.
+ * Returns the races of a game with two players, from `ownSlot`'s side if it's one of them, or
+ * `undefined` for any other number of players. Uses the races as picked, so a random player is R.
  */
-function getMatchup(
+function getMatchupRaces(
   slots: ParticipatingGameInfo['slots'],
   ownSlot: ParticipatingGameInfo['slots'][number] | undefined,
-): string | undefined {
+): [own: RaceChar, opponent: RaceChar] | undefined {
   const players = slots.filter(slot => PLAYER_SLOT_TYPES.has(slot.type))
   if (players.length !== 2) {
     return undefined
@@ -72,7 +101,7 @@ function getMatchup(
   if (ownSlot && players[1] === ownSlot) {
     players.reverse()
   }
-  return players.map(slot => (slot.race ?? 'r').toUpperCase()).join('v')
+  return [players[0].race ?? 'r', players[1].race ?? 'r']
 }
 
 function getGameActivity(
@@ -80,7 +109,7 @@ function getGameActivity(
   userId: SbUserId,
   t: TFunction,
 ): DiscordActivity {
-  const mode =
+  const gameMode =
     game.matchmakingType !== undefined
       ? t('discord.activity.rankedMode', 'Ranked {{mode}}', {
           mode: matchmakingTypeToLabel(game.matchmakingType, t),
@@ -88,16 +117,45 @@ function getGameActivity(
       : gameTypeToLabel(game.gameType, t)
   const ownSlot = game.slots.find(slot => slot.userId === userId)
   const observing = ownSlot?.type === SlotType.Observer
+  const ownRace = observing ? undefined : ownSlot?.race
+  const mode = observing
+    ? t('discord.activity.observing', 'Observing {{mode}}', { mode: gameMode })
+    : gameMode
+  const matchupRaces = isUms(game.gameType)
+    ? undefined
+    : getMatchupRaces(game.slots, observing ? undefined : ownSlot)
 
-  const details = observing ? t('discord.activity.observing', 'Observing {{mode}}', { mode }) : mode
-  const state = isUms(game.gameType)
-    ? game.mapName
-    : getMatchup(game.slots, observing ? undefined : ownSlot)
+  let details = mode
+  let largeImage = getMapImage(game.mapImageUrl, game.mapName)
+  if (matchupRaces) {
+    const [own, opponent] = matchupRaces
+    details = t('discord.activity.modeWithMatchup', '{{mode}} · {{matchup}}', {
+      mode,
+      matchup: `${own.toUpperCase()}v${opponent.toUpperCase()}`,
+    })
+    // Every matchup of the three races has its own image; one with a random pick shows the map.
+    if (own !== 'r' && opponent !== 'r') {
+      largeImage = {
+        image: `matchup_${own}v${opponent}`,
+        text: t('discord.activity.matchupImage', '{{own}} vs {{opponent}}', {
+          own: raceCharToLabel(own, t),
+          opponent: raceCharToLabel(opponent, t),
+        }),
+      }
+    }
+  } else if (ownRace) {
+    details = t('discord.activity.modeWithRace', '{{mode}} · {{race}}', {
+      mode,
+      race: raceCharToLabel(ownRace, t),
+    })
+  }
 
   return {
     details: fitDiscordText(details),
-    state: state !== undefined ? fitDiscordText(state) : undefined,
+    state: fitDiscordText(game.mapName),
     startTimestamp: game.playingSince,
+    largeImage,
+    smallImage: getRaceIcon(ownRace, t),
   }
 }
 
@@ -108,9 +166,11 @@ function getLobbyActivity(lobby: ActivityLobby, t: TFunction): DiscordActivity {
 
   return {
     details,
-    state: t('discord.activity.inLobby', 'In a lobby'),
-    // Discord shows the size after the state, e.g. "In a lobby (2 of 4)", and offers to join while
-    // there's room.
+    state: lobby.mapName !== undefined ? fitDiscordText(lobby.mapName) : undefined,
+    largeImage: getMapImage(lobby.mapImageUrl, lobby.mapName),
+    smallImage: getRaceIcon(lobby.ownRace, t),
+    // Discord shows the size after the state, e.g. "Fighting Spirit (2 of 4)", and offers to join
+    // while there's room.
     party: joinable
       ? {
           id: lobby.id,

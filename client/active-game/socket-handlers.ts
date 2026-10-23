@@ -49,6 +49,9 @@ export default function ({
           gameId: setup.gameId,
           gameType: setup.gameType,
           mapName: isReplayMapInfo(setup.map) ? '' : setup.map.name,
+          mapImageUrl: isReplayMapInfo(setup.map)
+            ? undefined
+            : (setup.map.image1024Url ?? setup.map.image512Url),
           // A match's `matchReady` arrives before its game's setup, so a type set here belongs to
           // this game's match.
           matchmakingType: jotaiStore.get(launchingMatchmakingTypeAtom),

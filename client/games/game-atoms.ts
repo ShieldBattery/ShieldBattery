@@ -23,6 +23,8 @@ export interface ParticipatingGameInfo {
   gameId: string
   gameType: GameType
   mapName: string
+  /** The URL of the map's image, if it has one. */
+  mapImageUrl?: string
   /** The match's matchmaking type, or `undefined` for a lobby game. */
   matchmakingType?: MatchmakingType
   slots: ReadonlyArray<Pick<PlayerInfo, 'userId' | 'race' | 'type'>>

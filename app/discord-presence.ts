@@ -213,12 +213,21 @@ export class DiscordPresence {
 }
 
 function toSdkActivity(activity: DiscordActivity): Activity {
-  const { details, state, startTimestamp, party } = activity
+  const { details, state, startTimestamp, largeImage, smallImage, party } = activity
   return {
     type: 'playing',
     details,
     state,
     timestamps: startTimestamp !== undefined ? { start: startTimestamp } : undefined,
+    assets:
+      largeImage || smallImage
+        ? {
+            largeImage: largeImage?.image,
+            largeText: largeImage?.text,
+            smallImage: smallImage?.image,
+            smallText: smallImage?.text,
+          }
+        : undefined,
     ...(party
       ? {
           party: {

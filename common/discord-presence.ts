@@ -19,14 +19,28 @@ export const DISCORD_APPLICATION_IDS = {
  * which the SDK enforces by rejecting the whole activity.
  */
 export interface DiscordActivity {
-  /** What the user is doing, e.g. the game mode. */
+  /** What the user is doing, e.g. the game mode and matchup. */
   details?: string
-  /** The line below `details`, e.g. the matchup. */
+  /** The line below `details`, e.g. the map. */
   state?: string
   /** When the activity started, in milliseconds since the Unix epoch. Discord counts up from it. */
   startTimestamp?: number
+  /** The square image beside the text. */
+  largeImage?: DiscordActivityImage
+  /** The circle Discord draws over the large image's corner. */
+  smallImage?: DiscordActivityImage
   /** Makes the activity joinable from Discord, as long as the party has room. */
   party?: DiscordActivityParty
+}
+
+export interface DiscordActivityImage {
+  /**
+   * The key of an art asset uploaded to the Discord application (see docs/DISCORD_SDK.md), or an
+   * https URL of up to 300 characters.
+   */
+  image: string
+  /** The tooltip on hover, 2 to 128 characters. */
+  text?: string
 }
 
 export interface DiscordActivityParty {
