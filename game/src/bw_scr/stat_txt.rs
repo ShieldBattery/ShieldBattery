@@ -124,6 +124,21 @@ impl StatTxt {
         unsafe { self.string(weapon_id.label()) }
     }
 
+    /// The console's plural name for a weapon inventory.
+    ///
+    /// # Safety
+    ///
+    /// Must be called on the game's main thread.
+    pub unsafe fn inventory_name(&self, unit: UnitId) -> Option<String> {
+        let label = match unit {
+            bw_dat::unit::INTERCEPTOR => 791,
+            bw_dat::unit::SCARAB => 792,
+            bw_dat::unit::SPIDER_MINE => 794,
+            _ => return None,
+        };
+        unsafe { self.string(label) }
+    }
+
     /// The console's line for `status`, or `None` before stat_txt is loaded.
     ///
     /// # Safety
@@ -272,6 +287,43 @@ mod test {
             out.push(0);
         }
         out
+    }
+
+    #[test]
+    fn reads_the_legacy_inventory_tooltip_names() {
+        let mut strings: Vec<&[u8]> = vec![b""; 794];
+        strings[790] = b"Interceptors";
+        strings[791] = b"Scarabs";
+        strings[793] = b"Spider Mines";
+        for width in [OffsetWidth::Narrow, OffsetWidth::Wide] {
+            let data = buffer(width, &strings);
+            let table = StringTableHead {
+                vtable: std::ptr::null(),
+                data: data.as_ptr(),
+                byte_length: data.len(),
+                wide_offsets: u8::from(matches!(width, OffsetWidth::Wide)),
+            };
+            let stat_txt = StatTxt::new(&raw const table as usize, None);
+            unsafe {
+                assert_eq!(
+                    stat_txt
+                        .inventory_name(bw_dat::unit::INTERCEPTOR)
+                        .as_deref(),
+                    Some("Interceptors")
+                );
+                assert_eq!(
+                    stat_txt.inventory_name(bw_dat::unit::SCARAB).as_deref(),
+                    Some("Scarabs")
+                );
+                assert_eq!(
+                    stat_txt
+                        .inventory_name(bw_dat::unit::SPIDER_MINE)
+                        .as_deref(),
+                    Some("Spider Mines")
+                );
+                assert_eq!(stat_txt.inventory_name(bw_dat::unit::MARINE), None);
+            }
+        }
     }
 
     #[test]
