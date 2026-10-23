@@ -244,7 +244,6 @@
     "panelSelection": "Выделение",
     "panelTimeline": "Хронология",
     "replayTag": "Реплей",
-    "researchLevel": "Уровень {{level}}",
     "selectionKills": "Убийства",
     "selectionStacked": "Стопка",
     "seriesArmyValue": "Стоимость армии",
@@ -256,8 +255,9 @@
     "teamName": "Команда {{number}}",
     "timelineEmpty": "Пока ничего не произошло",
     "underConstruction": "Строится",
-    "upgradeArmor": "Броня {{value}}",
-    "upgradeDamage": "Урон: {{value}}"
+    "upgradeArmor": "Броня: {{value}}",
+    "upgradeDamage": "Урон: {{value}}",
+    "upgradeShields": "Щиты: {{value}}"
   },
   "options": {
     "announcer": "Диктор",

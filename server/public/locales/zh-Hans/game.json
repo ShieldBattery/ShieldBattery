@@ -211,7 +211,6 @@
     "panelSelection": "选择",
     "panelTimeline": "时间线",
     "replayTag": "录像",
-    "researchLevel": "{{level}} 级",
     "selectionKills": "消灭",
     "selectionStacked": "堆叠",
     "seriesArmyValue": "兵力价值",
@@ -223,8 +222,9 @@
     "teamName": "{{number}}队",
     "timelineEmpty": "暂无事件",
     "underConstruction": "正在建造",
-    "upgradeArmor": "护甲 {{value}}",
-    "upgradeDamage": "伤害：{{value}}"
+    "upgradeArmor": "护甲：{{value}}",
+    "upgradeDamage": "伤害：{{value}}",
+    "upgradeShields": "护盾：{{value}}"
   },
   "options": {
     "announcer": "播报员",
