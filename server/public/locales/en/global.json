@@ -1102,6 +1102,7 @@
       "modeWithMatchup": "{{mode}} · {{matchup}}",
       "modeWithRace": "{{mode}} · {{race}}",
       "observing": "Observing {{mode}}",
+      "privateLobby": "Private lobby",
       "rankedMode": "Ranked {{mode}}"
     },
     "activityPrompt": {
