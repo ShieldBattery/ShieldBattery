@@ -64,6 +64,8 @@ type Documents = {
   '\n  mutation MapAddFavorite($id: SbMapId!) {\n    mapAddFavorite(id: $id) {\n      id\n      isFavorited\n      favoriteCount\n    }\n  }\n': typeof types.MapAddFavoriteDocument
   '\n  mutation MapRemoveFavorite($id: SbMapId!) {\n    mapRemoveFavorite(id: $id) {\n      id\n      isFavorited\n      favoriteCount\n    }\n  }\n': typeof types.MapRemoveFavoriteDocument
   '\n  fragment MapFileImage_FileFragment on MapFile {\n    id\n    image256Url\n    image512Url\n    image1024Url\n    image2048Url\n    imageSpawnsBaked\n    width\n    height\n    startLocations {\n      id\n      slot\n      x\n      y\n    }\n    umsContent\n  }\n': typeof types.MapFileImage_FileFragmentFragmentDoc
+  '\n  query LocalKnownMaps($hashes: [String!]!) {\n    mapsByHash(hashes: $hashes) {\n      id\n      file {\n        id\n      }\n      ...MapTile_SbMapFragment\n    }\n  }\n': typeof types.LocalKnownMapsDocument
+  '\n  mutation LocalAddToLibrary($id: SbMapId!) {\n    mapAddToLibrary(id: $id) {\n      id\n      inLibrary\n    }\n  }\n': typeof types.LocalAddToLibraryDocument
   '\n  query MapLiveGames {\n    liveGames {\n      id\n      map {\n        id\n      }\n      ...LiveGames_FeedEntryFragment\n    }\n  }\n': typeof types.MapLiveGamesDocument
   '\n  fragment MapPageStats_MapFragment on SbMap {\n    id\n    kind\n    stats {\n      id\n      gamesTotal\n      games28d\n      players90d\n      medianLength90d\n      lastPlayedAt\n    }\n    weeklyActivity(weeks: 26) {\n      id\n      weekStart\n      lobbyGames\n      matchmakingGames\n    }\n  }\n': typeof types.MapPageStats_MapFragmentFragmentDoc
   '\n  fragment MapPageMatchups_MapFragment on SbMap {\n    id\n    kind\n    matchupSeasons {\n      id\n      seasonId\n      matchmakingType\n      games\n    }\n  }\n': typeof types.MapPageMatchups_MapFragmentFragmentDoc
@@ -208,6 +210,10 @@ const documents: Documents = {
     types.MapRemoveFavoriteDocument,
   '\n  fragment MapFileImage_FileFragment on MapFile {\n    id\n    image256Url\n    image512Url\n    image1024Url\n    image2048Url\n    imageSpawnsBaked\n    width\n    height\n    startLocations {\n      id\n      slot\n      x\n      y\n    }\n    umsContent\n  }\n':
     types.MapFileImage_FileFragmentFragmentDoc,
+  '\n  query LocalKnownMaps($hashes: [String!]!) {\n    mapsByHash(hashes: $hashes) {\n      id\n      file {\n        id\n      }\n      ...MapTile_SbMapFragment\n    }\n  }\n':
+    types.LocalKnownMapsDocument,
+  '\n  mutation LocalAddToLibrary($id: SbMapId!) {\n    mapAddToLibrary(id: $id) {\n      id\n      inLibrary\n    }\n  }\n':
+    types.LocalAddToLibraryDocument,
   '\n  query MapLiveGames {\n    liveGames {\n      id\n      map {\n        id\n      }\n      ...LiveGames_FeedEntryFragment\n    }\n  }\n':
     types.MapLiveGamesDocument,
   '\n  fragment MapPageStats_MapFragment on SbMap {\n    id\n    kind\n    stats {\n      id\n      gamesTotal\n      games28d\n      players90d\n      medianLength90d\n      lastPlayedAt\n    }\n    weeklyActivity(weeks: 26) {\n      id\n      weekStart\n      lobbyGames\n      matchmakingGames\n    }\n  }\n':
@@ -607,6 +613,18 @@ export function graphql(
 export function graphql(
   source: '\n  fragment MapFileImage_FileFragment on MapFile {\n    id\n    image256Url\n    image512Url\n    image1024Url\n    image2048Url\n    imageSpawnsBaked\n    width\n    height\n    startLocations {\n      id\n      slot\n      x\n      y\n    }\n    umsContent\n  }\n',
 ): (typeof documents)['\n  fragment MapFileImage_FileFragment on MapFile {\n    id\n    image256Url\n    image512Url\n    image1024Url\n    image2048Url\n    imageSpawnsBaked\n    width\n    height\n    startLocations {\n      id\n      slot\n      x\n      y\n    }\n    umsContent\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  query LocalKnownMaps($hashes: [String!]!) {\n    mapsByHash(hashes: $hashes) {\n      id\n      file {\n        id\n      }\n      ...MapTile_SbMapFragment\n    }\n  }\n',
+): (typeof documents)['\n  query LocalKnownMaps($hashes: [String!]!) {\n    mapsByHash(hashes: $hashes) {\n      id\n      file {\n        id\n      }\n      ...MapTile_SbMapFragment\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  mutation LocalAddToLibrary($id: SbMapId!) {\n    mapAddToLibrary(id: $id) {\n      id\n      inLibrary\n    }\n  }\n',
+): (typeof documents)['\n  mutation LocalAddToLibrary($id: SbMapId!) {\n    mapAddToLibrary(id: $id) {\n      id\n      inLibrary\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
