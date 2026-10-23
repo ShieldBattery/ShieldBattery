@@ -185,6 +185,10 @@ pub unsafe fn add_shieldbattery_data(
     // 0x58     u32 disabled_logic_fixes (LogicFix::disable_bit mask)
     // --- Format version 3 ---
     // 0x5c     u8 random_picks (one bit per BW player id that picked Random in the lobby)
+    //
+    // A new format version only ever appends fields, so a build that knows an older version
+    // still reads every field it knows from a newer one (see `parse_shieldbattery_data`). A change
+    // that can't be made by appending needs a new section id instead, which older builds skip.
     let game = unsafe { bw.game() };
     let mut buffer = Vec::with_capacity(128);
     buffer.write_u32::<LE>(SECTION_ID)?;
@@ -351,6 +355,30 @@ fn test_parse_random_picks() {
 }
 
 #[test]
+fn test_parse_newer_format() {
+    let mut data = vec![0u8; 0x80];
+    (&mut data[0x0..]).write_u16::<LE>(u16::MAX).unwrap(); // format_version
+    data[0x16..0x1a].copy_from_slice(&[1, 2, 3, 4]); // team_game_main_players
+    (&mut data[0x56..])
+        .write_u16::<LE>(GAME_LOGIC_VERSION)
+        .unwrap();
+    (&mut data[0x58..])
+        .write_u32::<LE>(LogicFix::starcraft_compatible_mask())
+        .unwrap();
+    data[0x5c] = 0b0000_0101; // random_picks
+    data[0x5d..].fill(0xff); // fields this build doesn't know
+
+    let parsed = parse_shieldbattery_data(&data).unwrap();
+    assert_eq!(parsed.team_game_main_players, [1, 2, 3, 4]);
+    assert_eq!(parsed.game_logic_version, GAME_LOGIC_VERSION);
+    assert_eq!(
+        parsed.disabled_logic_fixes,
+        LogicFix::starcraft_compatible_mask()
+    );
+    assert_eq!(parsed.random_picks, 0b0000_0101);
+}
+
+#[test]
 fn game_logic_version_is_newest_fix() {
     let newest = LogicFix::ALL.iter().map(|fix| fix.introduced_in()).max();
     assert_eq!(newest, Some(GAME_LOGIC_VERSION));
@@ -368,11 +396,11 @@ fn logic_fix_disable_bits_are_distinct() {
     }
 }
 
+/// Reads the ShieldBattery section of a replay. A section in a newer format than this build writes
+/// is read for the fields this build knows: formats only append, and dropping the whole section
+/// would play the replay without its team game setup or the logic fixes it was played with.
 pub fn parse_shieldbattery_data(data: &[u8]) -> Option<SbatReplayData> {
     let format = (&data[0..]).read_u16::<LE>().ok()?;
-    if format > 3 {
-        return None;
-    }
     let team_game_main_players = data.get(0x16..)?.get(..4)?;
     let starting_races = data.get(0x1a..)?.get(..0xc)?;
     let mut user_id_bytes = data.get(0x36..)?.get(..0x20)?;
