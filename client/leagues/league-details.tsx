@@ -1,7 +1,8 @@
 import * as React from 'react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Trans, useTranslation } from 'react-i18next'
-import { TableVirtuoso } from 'react-virtuoso'
+import { TableVirtuoso, TableVirtuosoHandle } from 'react-virtuoso'
 import slug from 'slug'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
@@ -18,44 +19,50 @@ import { RaceChar, raceCharToLabel } from '../../common/races'
 import { urlPath } from '../../common/urls'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useTrackPageView } from '../analytics/analytics'
-import { redirectToLogin, useIsLoggedIn, useSelfPermissions } from '../auth/auth-utils'
+import { redirectToLogin, useIsLoggedIn, useSelfPermissions, useSelfUser } from '../auth/auth-utils'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
+import { useTargetVisibleInScrollParent } from '../dom/visibility-hooks'
 import { longTimestamp, monthDay, narrowDuration } from '../i18n/date-formats'
 import { useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import logger from '../logging/logger'
 import { Markdown } from '../markdown/markdown'
-import { FilledButton, IconButton, TextButton } from '../material/button'
+import { FilledButton, IconButton } from '../material/button'
+import { buttonReset } from '../material/button-reset'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { useScrollIndicatorState } from '../material/scroll-indicator'
-import { elevationPlus2 } from '../material/shadows'
+import { elevationPlus2, elevationPlus3 } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
 import { Tooltip } from '../material/tooltip'
 import { CopyLinkButton } from '../navigation/copy-link-button'
 import { ExternalLink } from '../navigation/external-link'
-import { useScrollMemory } from '../navigation/router-hooks'
+import { useLocationSearchParam, useScrollMemory } from '../navigation/router-hooks'
 import { replace } from '../navigation/routing'
 import { isFetchError } from '../network/fetch-errors'
 import { LoadingDotsArea } from '../progress/dots'
 import { useNow } from '../react/date-hooks'
 import { useImmerState, useStableCallback } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { SearchInput } from '../search/search-input'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { getRaceColor } from '../styles/colors'
 import { FlexSpacer } from '../styles/flex-spacer'
 import {
   bodyLarge,
   headlineLarge,
+  labelLarge,
   labelMedium,
+  labelSmall,
   singleLine,
   titleLarge,
   titleMedium,
 } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
+import { RaceSelectionTooltip } from '../users/race-selection-tooltip'
 import {
   adminBanUser,
   adminUnbanUser,
@@ -69,7 +76,34 @@ import { ALL_DETAILS_SUB_PAGES, DetailsSubPage } from './details-sub-page'
 import { LeagueBadge } from './league-badge'
 import { LeagueGames } from './league-games'
 import { LeagueImage, LeaguePlaceholderImage } from './league-image'
+import { LeaguePodium } from './league-podium'
 import { fromRouteLeagueId, makeRouteLeagueId } from './route-league-id'
+
+const PageFrame = styled.div`
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+`
+
+const JumpButton = styled.button`
+  ${buttonReset};
+  ${labelLarge};
+  ${elevationPlus3};
+  position: absolute;
+  right: 24px;
+  bottom: 22px;
+  z-index: 5;
+  height: 44px;
+  padding: 0 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 22px;
+  background-color: var(--theme-amber);
+  color: var(--theme-on-amber);
+  font-weight: 600;
+`
 
 const PageRoot = styled.div`
   position: relative;
@@ -116,9 +150,11 @@ export function LeagueDetailsPage() {
   }
 
   return (
-    <PageRoot ref={setContainerElem}>
-      <LeagueDetails id={id!} subPage={subPage} container={containerElem} />
-    </PageRoot>
+    <PageFrame>
+      <PageRoot ref={setContainerElem}>
+        <LeagueDetails id={id!} subPage={subPage} container={containerElem} />
+      </PageRoot>
+    </PageFrame>
   )
 }
 
@@ -139,7 +175,9 @@ const DetailsRoot = styled.div`
  */
 const NarrowContent = styled.div`
   width: 100%;
-  max-width: 752px;
+  max-width: 1040px;
+  container-type: inline-size;
+  container-name: ladder-content;
   padding: 0 24px;
 
   display: flex;
@@ -209,7 +247,17 @@ const LeagueLink = styled(ExternalLink)`
 
 const TabsAndJoin = styled.div`
   display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
   justify-content: space-between;
+`
+
+const MembershipActions = styled.div`
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 `
 
 const InfoSection = styled.div`
@@ -397,7 +445,14 @@ export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
   return (
     <DetailsRoot>
       <NarrowContent>
-        <LeagueDetailsHeader league={league} />
+        <LeagueDetailsHeader
+          league={league}
+          actions={
+            selfLeagueUser && league.endAt > curTime ? (
+              <LeagueActionsMenu onLeave={onLeaveClick} />
+            ) : undefined
+          }
+        />
         <TabsAndJoin>
           <Tabs activeTab={activeTab} onChange={onTabChange}>
             <TabItem value={DetailsSubPage.Info} text={t('leagues.leagueDetails.info', 'Info')} />
@@ -418,16 +473,15 @@ export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
               <></>
             )}
           </Tabs>
-          {selfLeagueUser && league.endAt > curTime ? (
-            <TextButton label={t('leagues.leave.action', 'Leave league')} onClick={onLeaveClick} />
-          ) : null}
-          {(isJoinable || selfLeagueUser) && (!isFetching || selfLeagueUser) ? (
-            <FilledButton
-              label={joinButtonLabel}
-              disabled={!!selfLeagueUser || isJoining}
-              onClick={onJoinClick}
-            />
-          ) : undefined}
+          <MembershipActions>
+            {(isJoinable || selfLeagueUser) && (!isFetching || selfLeagueUser) ? (
+              <FilledButton
+                label={joinButtonLabel}
+                disabled={!!selfLeagueUser || isJoining}
+                onClick={onJoinClick}
+              />
+            ) : undefined}
+          </MembershipActions>
         </TabsAndJoin>
         {!isGamesTab ? content : null}
       </NarrowContent>
@@ -436,12 +490,52 @@ export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
   )
 }
 
+function LeagueActionsMenu({ onLeave }: { onLeave: () => void }) {
+  const { t } = useTranslation()
+  const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'top')
+  const [open, openMenu, closeMenu] = usePopoverController({ refreshAnchorPos })
+
+  return (
+    <>
+      <IconButton
+        ref={anchorRef}
+        icon={<MaterialIcon icon='more_vert' />}
+        title={t('leagues.leagueDetails.actions', 'League actions')}
+        onClick={openMenu}
+      />
+      <Popover
+        open={open}
+        onDismiss={closeMenu}
+        anchorX={anchorX ?? 0}
+        anchorY={anchorY ?? 0}
+        originX='right'
+        originY='top'>
+        <MenuList>
+          <MenuItem
+            text={t('leagues.leave.action', 'Leave league')}
+            icon={<MaterialIcon icon='logout' size={20} />}
+            onClick={() => {
+              closeMenu()
+              onLeave()
+            }}
+          />
+        </MenuList>
+      </Popover>
+    </>
+  )
+}
+
 export interface LeagueDetailsHeaderProps {
   league: ReadonlyDeep<LeagueJson>
   previewBadgeUrl?: string
+  actions?: React.ReactNode
 }
 
-export function LeagueDetailsHeader({ league, previewBadgeUrl }: LeagueDetailsHeaderProps) {
+export function LeagueDetailsHeader({
+  league,
+  previewBadgeUrl,
+  actions,
+}: LeagueDetailsHeaderProps) {
   const { t } = useTranslation()
   const monthDayFormat = useFormat(monthDay)
   const longTimestampFormat = useFormat(longTimestamp)
@@ -467,6 +561,8 @@ export function LeagueDetailsHeader({ league, previewBadgeUrl }: LeagueDetailsHe
             tooltipPosition='right'
             startingText={t('leagues.leagueDetails.copyLink', 'Copy link to league')}
           />
+          <FlexSpacer />
+          {actions}
         </TitleRow>
         <SummaryRow>
           <FormatAndDate>
@@ -564,7 +660,7 @@ function LeaderboardHeaderRow(props: { context?: unknown }) {
   return <LeaderboardHeaderRowElem {...rest} />
 }
 
-const LeaderboardRowRoot = styled.div<{ $isBanned: boolean }>`
+const LeaderboardRowRoot = styled.div<{ $isBanned: boolean; $isSelf: boolean }>`
   ${bodyLarge};
   position: relative;
   width: 100%;
@@ -578,6 +674,12 @@ const LeaderboardRowRoot = styled.div<{ $isBanned: boolean }>`
     if (props.$isBanned) {
       return `
         background-color: rgb(from var(--theme-error) r g b / 0.1);
+      `
+    }
+    if (props.$isSelf) {
+      return `
+        background-color: rgb(from var(--theme-amber) r g b / 0.1);
+        box-shadow: inset 3px 0 0 var(--theme-amber);
       `
     }
     return ''
@@ -602,6 +704,7 @@ const LeaderboardRowRoot = styled.div<{ $isBanned: boolean }>`
 
 const BaseCell = styled.div`
   height: var(--sb-leaderboard-row-height);
+  flex-shrink: 0;
   display: flex;
   align-items: center;
 `
@@ -623,6 +726,7 @@ const RankCell = styled(NumericCell)`
 
 const PlayerCell = styled(TextCell)`
   width: 176px;
+  min-width: 0;
   padding: 0 16px;
 
   flex-grow: 1;
@@ -633,19 +737,38 @@ const PointsCell = styled(NumericCell)`
 `
 
 const WinLossCell = styled(NumericCell)`
+  @container ladder-content (width < 440px) {
+    display: none;
+  }
   width: 112px;
 `
 
 const LastPlayedCell = styled(NumericCell)`
-  width: 156px;
+  @container ladder-content (width < 680px) {
+    display: none;
+  }
+  width: 140px;
   padding: 0 16px 0 32px;
   color: var(--theme-on-surface-variant);
 `
 
 const AdminActionsCell = styled(BaseCell)`
-  width: 96px;
+  width: 56px;
   padding: 0 16px 0 32px;
   color: var(--theme-on-surface-variant);
+`
+
+const LeaderboardControls = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+`
+
+const LeaderboardSearchInput = styled(SearchInput)`
+  width: 220px;
+  max-width: 100%;
 `
 
 const LeaderboardError = styled(ErrorText)`
@@ -695,6 +818,7 @@ function LeaderboardHeader() {
 interface LeaderboardEntry {
   rank: number
   leagueUser: ReadonlyDeep<ClientLeagueUserJson>
+  isSelf: boolean
 }
 
 function Leaderboard({
@@ -708,6 +832,7 @@ function Leaderboard({
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
 
+  const tableRef = useRef<TableVirtuosoHandle>(null)
   const [leaderboard, setLeaderboard] = useState<ReadonlyArray<SbUserId>>()
   const [leaderboardUsers, setLeaderboardUsers] = useImmerState(
     () => new Map<SbUserId, ClientLeagueUserJson>(),
@@ -715,6 +840,9 @@ function Leaderboard({
 
   const [error, setError] = useState<Error | undefined>(undefined)
   const [curTime, setCurTime] = useState(() => Date.now())
+  const [searchQuery, setSearchQuery] = useLocationSearchParam('q')
+  const selfUserId = useSelfUser()?.id
+  const usersById = useAppSelector(s => s.users.byId)
 
   const id = league.id
   useEffect(() => {
@@ -821,11 +949,22 @@ function Leaderboard({
       const leagueUser = leaderboardUsers.get(userId)!
       const rank =
         result.length && result.at(-1)!.leagueUser.points > leagueUser.points ? ++curRank : curRank
-      result.push({ rank, leagueUser })
+      result.push({ rank, leagueUser, isSelf: userId === selfUserId })
     }
 
     return result
-  }, [leaderboard, leaderboardUsers])
+  }, [leaderboard, leaderboardUsers, selfUserId])
+
+  // Ranks are assigned over the whole leaderboard first, so matching players keep their real rank
+  const normalizedQuery = searchQuery.trim().toLowerCase()
+  const filteredEntries = normalizedQuery
+    ? leaderboardEntries.filter(entry =>
+        usersById.get(entry.leagueUser.userId)?.name.toLowerCase().includes(normalizedQuery),
+      )
+    : leaderboardEntries
+
+  const selfIndex = filteredEntries.findIndex(e => e.isSelf)
+  const isSelfRowVisible = useTargetVisibleInScrollParent(container, '[data-self-row]')
 
   const [isHeaderUnstuck, , topHeaderNode, bottomHeaderNode] = useScrollIndicatorState({
     refreshToken: leaderboard,
@@ -851,11 +990,22 @@ function Leaderboard({
           </Trans>
         </LeaderboardError>
       ) : undefined}
+      <LeaderboardControls>
+        <LeaderboardSearchInput
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          label={t('leagues.leagueDetails.searchPlayers', 'Search players')}
+        />
+      </LeaderboardControls>
+      {!normalizedQuery && leaderboardEntries.length ? (
+        <LeaguePodium entries={leaderboardEntries} />
+      ) : null}
       {topHeaderNode}
       {leaderboard ? (
         <>
-          {container && leaderboardEntries.length ? (
+          {container && filteredEntries.length ? (
             <TableVirtuoso
+              ref={tableRef}
               className={isHeaderUnstuck ? '' : HEADER_STUCK_CLASS}
               customScrollParent={container}
               fixedHeaderContent={LeaderboardHeader}
@@ -869,7 +1019,7 @@ function Leaderboard({
                 TableRow,
                 FillerRow,
               }}
-              data={leaderboardEntries}
+              data={filteredEntries}
               itemContent={renderRow}
             />
           ) : (
@@ -882,6 +1032,20 @@ function Leaderboard({
         </LeaderboardRoot>
       )}
       {bottomHeaderNode}
+      {container?.parentElement && selfIndex >= 0 && !isSelfRowVisible
+        ? createPortal(
+            <JumpButton
+              onClick={() =>
+                tableRef.current?.scrollToIndex({ index: selfIndex, align: 'center' })
+              }>
+              <MaterialIcon icon='my_location' size={20} />
+              {t('ladder.jumpToMyRank', 'Jump to my rank · #{{rank}}', {
+                rank: filteredEntries[selfIndex].rank,
+              })}
+            </JumpButton>,
+            container.parentElement,
+          )
+        : null}
     </>
   )
 }
@@ -897,11 +1061,30 @@ const PlayerNameAndRace = styled.div`
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  min-width: 0;
+`
+
+const PlayerNameRow = styled.div`
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 `
 
 const PlayerName = styled(ConnectedUsername)`
   ${titleMedium};
   ${singleLine};
+`
+
+const SelfMarker = styled.div`
+  ${labelSmall};
+  flex-shrink: 0;
+  padding: 0 6px;
+  border-radius: 4px;
+
+  background-color: var(--theme-amber);
+  color: var(--theme-on-amber);
 `
 
 const PlayerRace = styled.div<{ $race: RaceChar }>`
@@ -911,7 +1094,7 @@ const PlayerRace = styled.div<{ $race: RaceChar }>`
 
 const LeaderboardRow = React.memo(
   ({
-    entry: { rank, leagueUser },
+    entry: { rank, leagueUser, isSelf },
     curTime,
     onBanUserClick,
     onUnbanUserClick,
@@ -947,13 +1130,24 @@ const LeaderboardRow = React.memo(
         text={t('leagues.leagueDetails.userBanned', 'This user has been banned from the league')}
         position='bottom'
         disabled={!leagueUser.isBanned}>
-        <LeaderboardRowRoot key={leagueUser.userId} $isBanned={leagueUser.isBanned}>
+        <LeaderboardRowRoot
+          key={leagueUser.userId}
+          $isBanned={leagueUser.isBanned}
+          $isSelf={isSelf}
+          data-self-row={isSelf || undefined}>
           <RankCell>{rank}</RankCell>
           <PlayerCell>
             <StyledAvatar userId={leagueUser.userId} />
             <PlayerNameAndRace>
-              <PlayerName userId={leagueUser.userId} />
-              <PlayerRace $race={mostPlayedRace}>{raceCharToLabel(mostPlayedRace, t)}</PlayerRace>
+              <PlayerNameRow>
+                <PlayerName userId={leagueUser.userId} />
+                {isSelf ? (
+                  <SelfMarker>{t('leagues.leagueDetails.selfMarker', 'You')}</SelfMarker>
+                ) : null}
+              </PlayerNameRow>
+              <RaceSelectionTooltip stats={leagueUser}>
+                <PlayerRace $race={mostPlayedRace}>{raceCharToLabel(mostPlayedRace, t)}</PlayerRace>
+              </RaceSelectionTooltip>
             </PlayerNameAndRace>
           </PlayerCell>
           <PointsCell>{Math.round(leagueUser.points)}</PointsCell>
