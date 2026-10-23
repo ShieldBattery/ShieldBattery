@@ -211,7 +211,6 @@
     "panelSelection": "선택",
     "panelTimeline": "타임라인",
     "replayTag": "리플레이",
-    "researchLevel": "레벨 {{level}}",
     "selectionKills": "처치",
     "selectionStacked": "겹침",
     "seriesArmyValue": "병력 가치",
@@ -223,8 +222,9 @@
     "teamName": "{{number}} 팀",
     "timelineEmpty": "아직 아무 일도 일어나지 않았습니다",
     "underConstruction": "건설 중",
-    "upgradeArmor": "장갑 {{value}}",
-    "upgradeDamage": "공격력 {{value}}"
+    "upgradeArmor": "장갑: {{value}}",
+    "upgradeDamage": "공격력: {{value}}",
+    "upgradeShields": "보호막: {{value}}"
   },
   "options": {
     "announcer": "아나운서",

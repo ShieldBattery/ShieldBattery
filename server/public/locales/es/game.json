@@ -233,7 +233,6 @@
     "panelSelection": "Selección",
     "panelTimeline": "Cronología",
     "replayTag": "Replay",
-    "researchLevel": "Nivel {{level}}",
     "selectionKills": "Elim.",
     "selectionStacked": "Apilados",
     "seriesArmyValue": "Valor del ejército",
@@ -245,8 +244,9 @@
     "teamName": "Equipo {{number}}",
     "timelineEmpty": "Todavía no ha pasado nada",
     "underConstruction": "En construcción",
-    "upgradeArmor": "Armadura {{value}}",
-    "upgradeDamage": "Daño {{value}}"
+    "upgradeArmor": "Armadura: {{value}}",
+    "upgradeDamage": "Daño: {{value}}",
+    "upgradeShields": "Escudos: {{value}}"
   },
   "options": {
     "announcer": "Locutor",

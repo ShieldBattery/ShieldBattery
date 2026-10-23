@@ -85,9 +85,9 @@ pub struct SelectedUnitView {
     /// transport that is empty.
     pub cargo: Vec<SelectedUnitView>,
     /// The upgrades it fights with, in the order the console lists them: its armor, its shields for
-    /// a unit that has any, then whatever improves its weapons. Only read out for a unit selected
-    /// alone, and not under a queue or cargo, which leave no room for them, so a host may leave it
-    /// empty for any other.
+    /// a unit that has any, then whatever improves its weapons and its inventory counts. Only read
+    /// out for a unit selected alone, and not under a queue or cargo, which leave no room for them,
+    /// so a host may leave it empty for any other.
     pub upgrades: Vec<UnitUpgradeView>,
 }
 
@@ -121,12 +121,12 @@ pub struct ResourcesLeftView {
     pub amount: u32,
 }
 
-/// One upgrade a unit fights with, at the level its owner has taken it to.
+/// One icon in the console's stat row: an upgrade or weapon level, or an inventory count.
 pub struct UnitUpgradeView {
     /// The game's own icon for the upgrade.
     pub icon: ProductionIcon,
     /// The effective upgrade level, including unit-specific armor bonuses such as Chitinous
-    /// Plating. Excludes the unit's base armor.
+    /// Plating. Excludes the unit's base armor. For [`UpgradeEffect::Count`], the remaining count.
     pub level: u8,
     /// What the game calls it, for the card that names it under the pointer; `None` where the host
     /// cannot say.
@@ -135,11 +135,13 @@ pub struct UnitUpgradeView {
     pub effect: UpgradeEffect,
 }
 
-/// What an upgrade improves on the unit it is read for.
+/// What a stat-row icon reports on the unit it is read for.
 pub enum UpgradeEffect {
+    /// An inventory count on the chip, with its weapon's damage in the tooltip.
+    Count { damage: u32, bonus: u32 },
     /// The unit's armor: what it has of its own, and what its upgrades add to that.
     Armor { base: u32, bonus: u32 },
-    /// The unit's shields, which the panel already puts a number to.
+    /// Shield armor, with no base armor and a bonus equal to the chip's upgrade level.
     Shields,
     /// The unit's weapons that this upgrade improves, which is two for a unit that fires something
     /// different at air than at ground.
@@ -1008,8 +1010,7 @@ fn draw_upgrade_chip(ui: &Ui, rect: Rect, upgrade: &UnitUpgradeView, hovered: bo
     );
 }
 
-/// Names the upgrade under the pointer, the level it has reached, and what it comes to on the
-/// unit: its armor, or the damage of each weapon it improves.
+/// Names the stat-row item under the pointer, then its armor, shield armor, or weapon damage.
 ///
 /// A weapon is named only where the upgrade improves two of them, which is the one time a damage
 /// figure needs saying which weapon it is for.
@@ -1026,24 +1027,31 @@ fn draw_upgrade_hint(ui: &Ui, pointer: Pos2, upgrade: &UnitUpgradeView) {
         if let Some(name) = &upgrade.name {
             ui.label(text::body(13.0, text::BodyWeight::Medium).job(name));
         }
-        detail(
-            ui,
-            &tr!(
-                "observer.researchLevel",
-                "Level {{level}}",
-                level = upgrade.level
-            ),
-        );
         match &upgrade.effect {
             UpgradeEffect::Armor { base, bonus } => detail(
                 ui,
                 &tr!(
                     "observer.upgradeArmor",
-                    "Armor {{value}}",
+                    "Armor: {{value}}",
                     value = upgraded_value(*base, *bonus, 1)
                 ),
             ),
-            UpgradeEffect::Shields => {}
+            UpgradeEffect::Shields => detail(
+                ui,
+                &tr!(
+                    "observer.upgradeShields",
+                    "Shields: {{value}}",
+                    value = upgraded_value(0, u32::from(upgrade.level), 1)
+                ),
+            ),
+            UpgradeEffect::Count { damage, bonus } => detail(
+                ui,
+                &tr!(
+                    "observer.upgradeDamage",
+                    "Damage: {{value}}",
+                    value = upgraded_value(*damage, *bonus, 1)
+                ),
+            ),
             UpgradeEffect::Damage(weapons) => {
                 for weapon in weapons {
                     if weapons.len() > 1
@@ -1059,7 +1067,7 @@ fn draw_upgrade_hint(ui: &Ui, pointer: Pos2, upgrade: &UnitUpgradeView) {
                         ui,
                         &tr!(
                             "observer.upgradeDamage",
-                            "Damage {{value}}",
+                            "Damage: {{value}}",
                             value = upgraded_value(weapon.base, weapon.bonus, weapon.hits)
                         ),
                     );
@@ -1069,9 +1077,7 @@ fn draw_upgrade_hint(ui: &Ui, pointer: Pos2, upgrade: &UnitUpgradeView) {
     });
 }
 
-/// Writes a figure the way the game's own tooltips write one: what the unit has of its own, then
-/// what its upgrades add where they add anything, then how many hits it comes in where that is more
-/// than one.
+/// Writes the base stat, its upgrade bonus where present, and the number of hits per attack.
 fn upgraded_value(base: u32, bonus: u32, hits: u32) -> String {
     let mut value = base.to_string();
     if bonus > 0 {
@@ -1579,11 +1585,175 @@ mod tests {
     }
 
     #[test]
-    fn a_figure_is_written_the_way_the_games_tooltips_write_one() {
+    fn a_figure_shows_base_bonus_and_attack_count() {
         assert_eq!(upgraded_value(6, 0, 1), "6");
         assert_eq!(upgraded_value(6, 2, 1), "6+2");
         // A zealot's blades hit twice an attack.
         assert_eq!(upgraded_value(8, 1, 2), "8+1 \u{d7}2");
+        assert_eq!(upgraded_value(6, 0, 8), "6 \u{d7}8");
+        assert_eq!(upgraded_value(6, 3, 8), "6+3 \u{d7}8");
+    }
+
+    fn rendered_upgrade_texts(upgrade: &UnitUpgradeView) -> Vec<(String, f32)> {
+        fn texts(shape: &Shape, out: &mut Vec<(String, f32)>) {
+            match shape {
+                Shape::Text(text) => out.push((text.galley.text().to_string(), text.pos.y)),
+                Shape::Vec(shapes) => shapes.iter().for_each(|shape| texts(shape, out)),
+                _ => {}
+            }
+        }
+
+        let ctx = Context::default();
+        crate::install_fonts_and_style(&ctx, &crate::DynamicFonts::default());
+        let mut drawn = Vec::new();
+        for _ in 0..2 {
+            let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
+                let chip = Rect::from_min_size(pos2(10.0, 10.0), Vec2::splat(UPGRADE_CHIP));
+                draw_upgrade_chip(ui, chip, upgrade, true);
+                draw_upgrade_hint(ui, chip.center(), upgrade);
+            });
+            drawn.clear();
+            for shape in &output.shapes {
+                texts(&shape.shape, &mut drawn);
+            }
+            output.textures_delta.clear();
+        }
+        drawn
+    }
+
+    fn assert_upgrade_hint(drawn: &[(String, f32)], name: &str, detail: &str) {
+        let title_y = drawn.iter().find(|(text, _)| text == name).unwrap().1;
+        let detail_y = drawn.iter().find(|(text, _)| text == detail).unwrap().1;
+        assert!(detail_y > title_y);
+        assert!(!drawn.iter().any(|(text, _)| text.contains("Level")));
+    }
+
+    #[test]
+    fn mine_chips_show_inventory_and_their_hints_name_the_technology_and_damage() {
+        for count in 0..=3 {
+            let mine = UnitUpgradeView {
+                icon: unit((80, 80), None, 0x0d).icon,
+                level: count,
+                name: Some("Spider Mines".into()),
+                effect: UpgradeEffect::Count {
+                    damage: 125,
+                    bonus: 0,
+                },
+            };
+            let drawn = rendered_upgrade_texts(&mine);
+            // Inventory stays on the chip even at zero; the tooltip names the technology and damage.
+            let expected = count.to_string();
+            assert_eq!(
+                drawn.iter().filter(|(text, _)| text == &expected).count(),
+                1
+            );
+            assert_upgrade_hint(&drawn, "Spider Mines", "Damage: 125");
+        }
+    }
+
+    #[test]
+    fn armor_and_shield_tooltips_show_legacy_base_and_bonus_values() {
+        for (base, bonus, expected) in [(0, 0, "0"), (1, 0, "1"), (1, 3, "1+3"), (1, 5, "1+5")] {
+            let armor = UnitUpgradeView {
+                icon: unit((80, 80), None, 0x11d).icon,
+                level: bonus as u8,
+                name: Some("Protoss Ground Armor".into()),
+                effect: UpgradeEffect::Armor { base, bonus },
+            };
+            assert_upgrade_hint(
+                &rendered_upgrade_texts(&armor),
+                "Protoss Ground Armor",
+                &format!("Armor: {expected}"),
+            );
+        }
+        for (level, expected) in [(0, "0"), (1, "0+1"), (2, "0+2"), (3, "0+3")] {
+            let shields = UnitUpgradeView {
+                icon: unit((80, 80), None, 0x12a).icon,
+                level,
+                name: Some("Protoss Plasma Shields".into()),
+                effect: UpgradeEffect::Shields,
+            };
+            assert_upgrade_hint(
+                &rendered_upgrade_texts(&shields),
+                "Protoss Plasma Shields",
+                &format!("Shields: {expected}"),
+            );
+        }
+    }
+
+    #[test]
+    fn weapon_tooltips_show_damage_without_a_separate_level_line() {
+        let weapon = UnitUpgradeView {
+            icon: unit((80, 80), None, 0x11f).icon,
+            level: 3,
+            name: Some("Gauss Rifle".into()),
+            effect: UpgradeEffect::Damage(vec![WeaponDamageView {
+                name: Some("Gauss Rifle".into()),
+                base: 6,
+                bonus: 3,
+                hits: 1,
+            }]),
+        };
+        assert_upgrade_hint(
+            &rendered_upgrade_texts(&weapon),
+            "Gauss Rifle",
+            "Damage: 6+3",
+        );
+    }
+
+    #[test]
+    fn multi_hit_weapon_tooltips_preserve_damage_per_hit_and_show_the_attack_count() {
+        for (name, base, bonus, hits, expected) in [
+            ("Psi Blades", 8, 3, 2, "8+3 \u{d7}2"),
+            ("Flame Thrower", 8, 3, 2, "8+3 \u{d7}2"),
+            ("Hellfire Missile Pack", 10, 6, 2, "10+6 \u{d7}2"),
+            ("Anti-Matter Missiles", 14, 3, 2, "14+3 \u{d7}2"),
+            ("Halo Rockets", 6, 0, 8, "6 \u{d7}8"),
+            ("Halo Rockets", 6, 3, 8, "6+3 \u{d7}8"),
+        ] {
+            let weapon = UnitUpgradeView {
+                icon: unit((80, 80), None, 0x11f).icon,
+                level: 3,
+                name: Some(name.into()),
+                effect: UpgradeEffect::Damage(vec![WeaponDamageView {
+                    name: Some(name.into()),
+                    base,
+                    bonus,
+                    hits,
+                }]),
+            };
+            assert_upgrade_hint(
+                &rendered_upgrade_texts(&weapon),
+                name,
+                &format!("Damage: {expected}"),
+            );
+        }
+    }
+
+    #[test]
+    fn fighter_inventory_tooltips_show_upgraded_damage_and_keep_counts_out_of_the_tooltip() {
+        for (name, damage, bonus, expected) in [
+            ("Interceptors", 6, 3, "6+3"),
+            ("Scarabs", 100, 25, "100+25"),
+        ] {
+            for count in [0, 3, 8] {
+                let inventory = UnitUpgradeView {
+                    icon: unit((80, 80), None, 0x49).icon,
+                    level: count,
+                    name: Some(name.into()),
+                    effect: UpgradeEffect::Count { damage, bonus },
+                };
+                let drawn = rendered_upgrade_texts(&inventory);
+                assert_eq!(
+                    drawn
+                        .iter()
+                        .filter(|(text, _)| text == &count.to_string())
+                        .count(),
+                    1
+                );
+                assert_upgrade_hint(&drawn, name, &format!("Damage: {expected}"));
+            }
+        }
     }
 
     #[test]

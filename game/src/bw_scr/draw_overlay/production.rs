@@ -1,6 +1,6 @@
 use std::ptr;
 
-use bw_dat::{TechId, Unit, UnitId, UpgradeId, WeaponId};
+use bw_dat::{Game, TechId, Unit, UnitId, UpgradeId, WeaponId};
 use egui::{Color32, TextureId, Vec2};
 use hashbrown::HashMap;
 use overlay_ui::observer::{
@@ -356,8 +356,8 @@ pub(super) fn selected_production(unit: Unit, bw: &BwVars) -> Option<ProductionP
 /// unless its armor upgrade is [`NO_ARMOR_UPGRADE`], shields for anything with shields, and each
 /// weapon, the air one only where it is not the ground one again. A unit whose guns are on a turret
 /// (a goliath, a siege tank) has its weapons on the turret's entry, so the turret's are read too.
-/// Reavers and carriers use their scarabs' and interceptors' weapons. A lurker has no weapon until
-/// it burrows.
+/// Reavers and carriers show their scarab and interceptor inventories and those weapons' damage. A lurker has no weapon until
+/// it burrows. A vulture with spider mines also shows how many it has left, including zero.
 ///
 /// A hallucination has none: the console shows no upgrades for one to its owner or to anyone
 /// watching, which is everyone this panel is drawn for.
@@ -389,7 +389,7 @@ pub(super) fn selected_upgrades(unit: Unit, bw: &BwVars) -> Vec<UnitUpgradeView>
     }
     let armed = id != bw_dat::unit::LURKER || unit.is_burrowed();
     let mut weapons: Vec<WeaponId> = Vec::new();
-    for weapon in [Some(id), id.subunit(), id.fighter_id()]
+    for weapon in [Some(id), id.subunit()]
         .into_iter()
         .flatten()
         .filter(|_| armed)
@@ -432,23 +432,84 @@ pub(super) fn selected_upgrades(unit: Unit, bw: &BwVars) -> Vec<UnitUpgradeView>
                 name,
                 base: weapon.damage(),
                 bonus: weapon.bonus().saturating_mul(u32::from(level)),
-                hits: weapon_hits(id, weapon),
+                hits: weapon_hits(id, weapon.factor()),
             }]),
+        });
+    }
+    if let Some((fighter, count)) = selected_fighters(unit)
+        && let Some(weapon) = fighter.ground_weapon()
+    {
+        let level = weapon
+            .upgrade()
+            .map_or(0, |upgrade| game.upgrade_level(player, upgrade));
+        chips.push(UnitUpgradeView {
+            icon: atlas_icon(fighter.0, 0.0, bw),
+            level: count,
+            name: bw
+                .stat_txt
+                .and_then(|stat_txt| unsafe { stat_txt.inventory_name(fighter) }),
+            effect: UpgradeEffect::Count {
+                damage: weapon.damage(),
+                bonus: weapon.bonus().saturating_mul(u32::from(level)),
+            },
+        });
+    }
+    if let Some(count) = selected_mines(unit, game) {
+        let mine = bw_dat::unit::SPIDER_MINE;
+        chips.push(UnitUpgradeView {
+            icon: atlas_icon(mine.0, 0.0, bw),
+            level: count,
+            name: bw
+                .stat_txt
+                .and_then(|stat_txt| unsafe { stat_txt.inventory_name(mine) }),
+            effect: UpgradeEffect::Count {
+                damage: mine.ground_weapon().map_or(0, |weapon| weapon.damage()),
+                bonus: 0,
+            },
         });
     }
     chips
 }
 
-/// How many times a unit's weapon deals its damage per attack, as the game's own damage tooltip
-/// counts it: weapons.dat's factor, except that the tooltip names its own count for a few units.
-/// Firebats and zealots, and their heroes, hit twice, which their weapons' factor doesn't say, and a
-/// valkyrie's volley counts as a single hit.
-fn weapon_hits(unit: UnitId, weapon: WeaponId) -> u32 {
+/// Carriers count interceptors both in the hangar and deployed; reavers count loaded scarabs.
+/// Both counters remain visible at zero, and hero variants follow the same rules.
+fn selected_fighters(unit: Unit) -> Option<(UnitId, u8)> {
+    if unit.player() >= 0xc || unit.is_hallucination() {
+        return None;
+    }
+    unit.id().fighter_id().map(|fighter| {
+        (
+            fighter,
+            u8::try_from(unit.fighter_amount()).unwrap_or(u8::MAX),
+        )
+    })
+}
+
+/// The console keeps a vulture's mine counter visible after its last mine is spent, but hides it
+/// until spider mines are researched. Raynor's vulture has the technology without research.
+fn selected_mines(unit: Unit, game: Game) -> Option<u8> {
+    use bw_dat::unit::{JIM_RAYNOR_VULTURE, VULTURE};
+
+    if unit.player() >= 0xc || unit.is_hallucination() {
+        return None;
+    }
+    let available = match unit.id() {
+        JIM_RAYNOR_VULTURE => true,
+        VULTURE => game.tech_researched(unit.player(), bw_dat::tech::SPIDER_MINES),
+        _ => false,
+    };
+    // Only vultures use this member of the unit-specific union.
+    available.then(|| unsafe { (**unit).unit_specific.vulture.mines })
+}
+
+/// Hits per attack: weapons.dat's factor except for units with a burst encoded in their animation.
+/// Firebats and zealots, including their heroes, hit twice; Valkyries fire eight rockets per volley.
+fn weapon_hits(unit: UnitId, factor: u32) -> u32 {
     use bw_dat::unit::{FENIX_ZEALOT, FIREBAT, GUI_MONTAG, VALKYRIE, ZEALOT};
     match unit {
         FIREBAT | GUI_MONTAG | ZEALOT | FENIX_ZEALOT => 2,
-        VALKYRIE => 1,
-        _ => weapon.factor(),
+        VALKYRIE => 8,
+        _ => factor,
     }
 }
 
@@ -699,4 +760,106 @@ fn wireframe_icon(id: UnitId, level: usize, bw: &BwVars) -> Option<ProductionIco
             cell_width: f32::from(height) / f32::from(width),
         }),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bw_dat::{tech, unit};
+
+    #[test]
+    fn weapon_hit_counts_include_unit_specific_bursts() {
+        for id in [
+            unit::FIREBAT,
+            unit::GUI_MONTAG,
+            unit::ZEALOT,
+            unit::FENIX_ZEALOT,
+        ] {
+            assert_eq!(weapon_hits(id, 1), 2);
+        }
+        assert_eq!(weapon_hits(unit::VALKYRIE, 1), 8);
+        assert_eq!(weapon_hits(unit::GOLIATH, 2), 2);
+        assert_eq!(weapon_hits(unit::SCOUT, 2), 2);
+        assert_eq!(weapon_hits(unit::MARINE, 1), 1);
+    }
+
+    #[test]
+    fn fighter_inventory_counts_loaded_and_deployed_interceptors_but_only_loaded_scarabs() {
+        let mut raw: bw::Unit = unsafe { std::mem::zeroed() };
+        raw.player = 1;
+        let unit = unsafe { Unit::from_ptr(&raw mut raw).unwrap() };
+        for id in [
+            unit::CARRIER,
+            unit::GANTRITHOR,
+            unit::REAVER,
+            unit::WARBRINGER,
+        ] {
+            unsafe {
+                (**unit).unit_id = id.0;
+                (**unit).unit_specific.carrier.in_hangar_count = 0;
+                (**unit).unit_specific.carrier.out_hangar_count = 0;
+            }
+            let fighter = id.fighter_id().unwrap();
+            assert_eq!(selected_fighters(unit), Some((fighter, 0)));
+            unsafe {
+                (**unit).unit_specific.carrier.in_hangar_count = 3;
+                (**unit).unit_specific.carrier.out_hangar_count = 2;
+            }
+            let expected = if fighter == unit::INTERCEPTOR { 5 } else { 3 };
+            assert_eq!(selected_fighters(unit), Some((fighter, expected)));
+        }
+        unsafe { (**unit).flags = 0x4000_0000 };
+        assert_eq!(selected_fighters(unit), None);
+        unsafe {
+            (**unit).flags = 0;
+            (**unit).player = 0x80;
+        }
+        assert_eq!(selected_fighters(unit), None);
+        unsafe {
+            (**unit).player = 1;
+            (**unit).unit_id = unit::MARINE.0;
+        }
+        assert_eq!(selected_fighters(unit), None);
+    }
+
+    #[test]
+    fn mine_inventory_requires_research_and_keeps_showing_when_empty() {
+        let mut game: Box<bw::Game> = unsafe { Box::new(std::mem::zeroed()) };
+        let game = unsafe { Game::from_ptr(&raw mut *game) };
+        let mut raw: bw::Unit = unsafe { std::mem::zeroed() };
+        raw.unit_id = unit::VULTURE.0;
+        raw.player = 2;
+        raw.unit_specific.vulture.mines = 3;
+        let vulture = unsafe { Unit::from_ptr(&raw mut raw).unwrap() };
+        assert_eq!(selected_mines(vulture, game), None);
+
+        // Another player's research must not unlock this vulture's counter.
+        game.set_tech_level(1, tech::SPIDER_MINES, 1);
+        assert_eq!(selected_mines(vulture, game), None);
+        game.set_tech_level(2, tech::SPIDER_MINES, 1);
+        for count in (0..=3).rev() {
+            unsafe { (**vulture).unit_specific.vulture.mines = count };
+            assert_eq!(selected_mines(vulture, game), Some(count));
+        }
+        game.set_tech_level(2, tech::SPIDER_MINES, 0);
+        assert_eq!(selected_mines(vulture, game), None);
+
+        unsafe {
+            (**vulture).unit_id = unit::JIM_RAYNOR_VULTURE.0;
+            (**vulture).unit_specific.vulture.mines = 3;
+        }
+        assert_eq!(selected_mines(vulture, game), Some(3));
+        unsafe { (**vulture).flags = 0x4000_0000 };
+        assert_eq!(selected_mines(vulture, game), None);
+        unsafe {
+            (**vulture).flags = 0;
+            (**vulture).unit_id = unit::MARINE.0;
+        }
+        assert_eq!(selected_mines(vulture, game), None);
+        unsafe {
+            (**vulture).unit_id = unit::VULTURE.0;
+            (**vulture).player = 0x80;
+        }
+        assert_eq!(selected_mines(vulture, game), None);
+    }
 }
