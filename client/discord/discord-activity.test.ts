@@ -65,12 +65,14 @@ describe('client/discord/discord-activity', () => {
       })
     })
 
-    test('an unlisted lobby has no party or join secret', () => {
+    test('an unlisted lobby shows as private, without its name, a party or a join secret', () => {
       const activity = getDiscordActivity(
         stateWith({ lobby: { ...LISTED_LOBBY, visibility: 'unlisted' } }),
         t,
       )
-      expect(activity?.details).toBe('Fastest 3v3')
+      expect(activity?.details).toBe('🔒 Private lobby')
+      expect(activity?.state).toBe('Fastest')
+      expect(activity?.smallImage?.image).toBe('race_z')
       expect(activity?.party).toBeUndefined()
     })
 

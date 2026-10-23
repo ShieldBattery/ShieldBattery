@@ -146,9 +146,13 @@ function getGameActivity(
 }
 
 function getLobbyActivity(lobby: ActivityLobby, t: TFunction): DiscordActivity {
-  // Lobby names can be a single character, which Discord won't show on its own.
-  const details = fitDiscordText(lobby.name) ?? fitDiscordText(`“${lobby.name}”`)
-  const joinable = lobby.visibility === 'listed' && !lobby.inGame
+  const listed = lobby.visibility === 'listed'
+  // An unlisted lobby's host chose who learns of it, so its name isn't shown. Listed lobby names
+  // can be a single character, which Discord won't show on its own.
+  const details = listed
+    ? (fitDiscordText(lobby.name) ?? fitDiscordText(`“${lobby.name}”`))
+    : `🔒 ${t('discord.activity.privateLobby', 'Private lobby')}`
+  const joinable = listed && !lobby.inGame
 
   return {
     details,
