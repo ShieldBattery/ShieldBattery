@@ -1,13 +1,8 @@
 import { TFunction } from 'i18next'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import {
-  LocalMapFile,
-  localMapImageUrl,
-  LocalMapInfo,
-  LocalMapKind,
-} from '../../common/map-library'
+import { LocalMapFile, LocalMapInfo, LocalMapKind } from '../../common/map-library'
 import { urlForMap } from '../../common/map-url'
 import { filterColorCodes, SbMapId, Tileset, tilesetToName } from '../../common/maps'
 import { matchmakingTypeToLabel } from '../../common/matchmaking'
@@ -31,6 +26,7 @@ import { useAppDispatch } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { bodySmall, labelMedium, labelSmall, singleLine, titleSmall } from '../styles/typography'
 import { openMapDownloadDialog, openMapPreviewDialog, removeFromMyMaps } from './action-creators'
+import { useLocalMapImage } from './local-map-images'
 import { LocalMapUpload } from './local-maps'
 import { useToggleMapFavorite } from './map-favorites'
 import { MapFileImage } from './map-image'
@@ -735,6 +731,8 @@ export function LocalMapTile({
   // The hash whose image failed to load, so the tile falls back to its icon for that file only
   const [failedImageHash, setFailedImageHash] = useState<string>()
   const imageHash = readable && file.hash !== failedImageHash ? file.hash : undefined
+  const imageAreaRef = useRef<HTMLDivElement>(null)
+  const image = useLocalMapImage(imageHash, imageAreaRef)
 
   let signal: React.ReactNode = null
   if (upload?.pickFailed) {
@@ -776,20 +774,23 @@ export function LocalMapTile({
         disabled={!readable || busy || disabled}
         title={file.path}
         onClick={onActivate}>
-        <LocalImage>
+        <LocalImage ref={imageAreaRef}>
           <MaterialIcon icon={readable ? 'map' : 'block'} size={40} />
-          {imageHash ? (
+          {image.src ? (
             <LocalMapImg
-              src={localMapImageUrl(imageHash)}
+              src={image.src}
               alt=''
               draggable={false}
               decoding='async'
-              loading='lazy'
-              onError={() => setFailedImageHash(imageHash)}
+              onLoad={() => image.onSettled(true)}
+              onError={() => {
+                image.onSettled(false)
+                setFailedImageHash(imageHash)
+              }}
             />
           ) : null}
           {uploading && upload.progress !== undefined ? (
-            <ProgressTrack $overImage={!!imageHash}>
+            <ProgressTrack $overImage={!!image.src}>
               <ProgressFill style={{ width: `${upload.progress * 100}%` }} />
             </ProgressTrack>
           ) : null}
