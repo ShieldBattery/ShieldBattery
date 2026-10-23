@@ -145,13 +145,13 @@ export function DiscordActivityPromptDialog({ close }: CommonDialogProps) {
         <li>
           {t(
             'discord.activityPrompt.sharedGame',
-            'The game mode, with the matchup or the map name, and how long the game has been going',
+            'The game mode, the matchup or your race, the map, and how long the game has been going',
           )}
         </li>
         <li>
           {t(
             'discord.activityPrompt.sharedLobby',
-            'The name of the lobby you’re in, with a Join button for listed lobbies',
+            'The name and map of the lobby you’re in, with a Join button for listed lobbies',
           )}
         </li>
       </SharedList>
