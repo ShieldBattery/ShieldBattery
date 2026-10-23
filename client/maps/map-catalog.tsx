@@ -1,6 +1,6 @@
 import { useAtomValue } from 'jotai'
 import * as React from 'react'
-import { lazy, Suspense, useEffect, useEffectEvent, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useLocationProperty } from 'wouter/use-browser-location'
@@ -10,13 +10,12 @@ import { redirectToLogin, useSelfUser } from '../auth/auth-utils'
 import { FileDropZone } from '../file-browser/file-drop-zone'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
-import { FilledButton, OutlinedButton, TextButton } from '../material/button'
+import { FilledButton } from '../material/button'
 import { elevationPlus1 } from '../material/shadows'
 import { TabItem, Tabs } from '../material/tabs'
 import { useHistoryEntryKey, useScrollMemory } from '../navigation/router-hooks'
 import { push, replace } from '../navigation/routing'
 import { createViewStateStore } from '../navigation/view-state-store'
-import { LoadingDotsArea } from '../progress/dots'
 import { useUserLocalStorageValue } from '../react/state-hooks'
 import { SearchInput, SearchInputHandle } from '../search/search-input'
 import { CenteredContentContainer } from '../styles/centered-container'
@@ -27,6 +26,7 @@ import {
   EmptyText,
   ListWindowStore,
   MapCatalogList,
+  ServerCatalogTab,
   useCoalescedSearch,
   validateDensity,
 } from './map-catalog-list'
@@ -39,6 +39,7 @@ import {
   effectiveSort,
   filtersOf,
   hasCatalogParams,
+  LOCAL_SORTS,
   parseCatalogParams,
   serializeCatalogParams,
   toMapFilter,
@@ -46,11 +47,13 @@ import {
   validateSavedSort,
   withSearch,
 } from './map-catalog-params'
+import {
+  LocalMapList,
+  LocalMapView,
+  LocalMatchesLink,
+  validateLocalMapView,
+} from './map-local-list'
 import { MAP_FILE_EXTENSIONS, mapLibraryVersionAtom, useUploadMapFiles } from './map-uploads'
-
-const LoadableLocalMaps = lazy(async () => ({
-  default: (await import('./browse-local-maps')).BrowseLocalMaps,
-}))
 
 interface StoredListWindow {
   listKey: string
@@ -145,22 +148,6 @@ const DropContents = styled.div`
   pointer-events: none;
 `
 
-const BackRow = styled.div`
-  display: flex;
-`
-
-/** The local maps browser sizes itself to its box, so this gives it the rest of the page. */
-const LocalMapsArea = styled.div`
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 480px;
-
-  & > * {
-    position: absolute;
-    inset: 0;
-  }
-`
-
 const HiddenFileInput = styled.input`
   display: none;
 `
@@ -184,7 +171,6 @@ function MapCatalog({ tab }: { tab: MapCatalogTab }) {
   const selfUser = useSelfUser()
   const uploadFiles = useUploadMapFiles()
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [browsingLocalMaps, setBrowsingLocalMaps] = useState(false)
 
   const search = useLocationProperty(() => location.search)
   const params = parseCatalogParams(new URLSearchParams(search))
@@ -204,7 +190,19 @@ function MapCatalog({ tab }: { tab: MapCatalogTab }) {
     CatalogDensity.Cozy,
     validateDensity,
   )
-  const sort = effectiveSort(params, savedSort, defaultSortForTab(tab))
+  const [localView, setLocalView] = useUserLocalStorageValue<LocalMapView>(
+    'maps.catalog.localView',
+    LocalMapView.Folders,
+    validateLocalMapView,
+  )
+  const isLocal = tab === MapCatalogTab.Local
+  const sort = effectiveSort(
+    params,
+    savedSort,
+    defaultSortForTab(tab),
+    isLocal ? LOCAL_SORTS : undefined,
+  )
+  const localFolder = new URLSearchParams(search).get('folder') ?? undefined
 
   // A visit with no filters in its URL starts from the viewer's saved ones, written into the URL
   // so it always describes what's shown (and a link copied from it shows the same maps).
@@ -261,6 +259,17 @@ function MapCatalog({ tab }: { tab: MapCatalogTab }) {
     push(urlForMapCatalog(nextTab, nextSearch))
   }
 
+  const onLocalFolderChange = (folder: string | undefined) => {
+    const next = new URLSearchParams(location.search)
+    if (folder === undefined) {
+      next.delete('folder')
+    } else {
+      next.set('folder', folder)
+    }
+    const nextSearch = next.toString()
+    push(location.pathname + (nextSearch ? `?${nextSearch}` : ''))
+  }
+
   const [scroller, setScroller] = useState<HTMLDivElement | null>(null)
   useScrollMemory(scroller)
 
@@ -298,7 +307,7 @@ function MapCatalog({ tab }: { tab: MapCatalogTab }) {
     },
   })
 
-  const needsLogin = !selfUser && tab !== MapCatalogTab.All
+  const needsLogin = !selfUser && tab !== MapCatalogTab.All && !isLocal
   const libraryVersion = useAtomValue(mapLibraryVersionAtom)
   const filter = toMapFilter(params)
   const listKey = JSON.stringify([tab, filter, sort, tab === MapCatalogTab.Yours && libraryVersion])
@@ -314,40 +323,65 @@ function MapCatalog({ tab }: { tab: MapCatalogTab }) {
         />
       </EmptyState>
     )
-  } else if (IS_ELECTRON && tab === MapCatalogTab.Yours && browsingLocalMaps) {
-    body = (
-      <>
-        <BackRow>
-          <TextButton
-            label={t('maps.catalog.backToYourMaps', 'Back to your maps')}
-            iconStart='arrow_back'
-            onClick={() => setBrowsingLocalMaps(false)}
-          />
-        </BackRow>
-        <LocalMapsArea>
-          <Suspense fallback={<LoadingDotsArea />}>
-            <LoadableLocalMaps onMapUpload={() => setBrowsingLocalMaps(false)} />
-          </Suspense>
-        </LocalMapsArea>
-      </>
+  } else if (isLocal) {
+    body = IS_ELECTRON ? (
+      <LocalMapList
+        params={params}
+        sort={sort}
+        density={density}
+        view={localView}
+        folder={localFolder}
+        onFiltersChange={onFiltersChange}
+        onSortChange={onSortChange}
+        onDensityChange={setDensity}
+        onClearFilters={onClearFilters}
+        onViewChange={setLocalView}
+        onFolderChange={onLocalFolderChange}
+      />
+    ) : (
+      <EmptyState>
+        <EmptyText>
+          {t(
+            'maps.local.desktopOnly',
+            'The maps on your PC can only be browsed in the ShieldBattery app.',
+          )}
+        </EmptyText>
+      </EmptyState>
     )
   } else {
+    const searchText = params.search.trim()
     body = (
       <>
         {tab === MapCatalogTab.Yours ? (
-          <UploadBanner
-            onUpload={() => fileInputRef.current?.click()}
-            onBrowseLocalMaps={IS_ELECTRON ? () => setBrowsingLocalMaps(true) : undefined}
-          />
+          <UploadBanner onUpload={() => fileInputRef.current?.click()} />
         ) : null}
         <MapCatalogList
           key={listKey}
-          tab={tab}
+          tab={tab as ServerCatalogTab}
           params={params}
           filter={filter}
           sort={sort}
           density={density}
           windowStore={windowStore}
+          besideCount={
+            IS_ELECTRON && searchText ? (
+              <LocalMatchesLink
+                search={searchText}
+                onOpen={() =>
+                  push(
+                    urlForMapCatalog(
+                      MapCatalogTab.Local,
+                      serializeCatalogParams({
+                        ...filtersOf(params),
+                        search: searchText,
+                        sort: undefined,
+                      }),
+                    ),
+                  )
+                }
+              />
+            ) : undefined
+          }
           onFiltersChange={onFiltersChange}
           onSortChange={onSortChange}
           onDensityChange={setDensity}
@@ -365,6 +399,9 @@ function MapCatalog({ tab }: { tab: MapCatalogTab }) {
           <Tabs activeTab={tab} onChange={onTabChange}>
             <TabItem text={t('maps.catalog.allMaps', 'All maps')} value={MapCatalogTab.All} />
             <TabItem text={t('maps.catalog.yourMaps', 'Your maps')} value={MapCatalogTab.Yours} />
+            {IS_ELECTRON ? (
+              <TabItem text={t('maps.local.onThisPc', 'On this PC')} value={MapCatalogTab.Local} />
+            ) : null}
             <TabItem
               text={t('maps.catalog.favorites', 'Favorites')}
               value={MapCatalogTab.Favorites}
@@ -429,13 +466,7 @@ const BannerText = styled.div`
   }
 `
 
-function UploadBanner({
-  onUpload,
-  onBrowseLocalMaps,
-}: {
-  onUpload: () => void
-  onBrowseLocalMaps?: () => void
-}) {
+function UploadBanner({ onUpload }: { onUpload: () => void }) {
   const { t } = useTranslation()
   return (
     <Banner>
@@ -446,12 +477,6 @@ function UploadBanner({
           here as a private map.
         </Trans>
       </BannerText>
-      {onBrowseLocalMaps ? (
-        <OutlinedButton
-          label={t('maps.catalog.browseLocalMaps', 'Browse local maps')}
-          onClick={onBrowseLocalMaps}
-        />
-      ) : null}
       <FilledButton
         label={t('maps.catalog.uploadMaps', 'Upload maps')}
         iconStart='upload'
