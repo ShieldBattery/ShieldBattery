@@ -312,20 +312,30 @@ const lobbyHandlers = {
     const previousBenchIds = new Set(draft.info.bench.map(benched => benched.userId))
 
     draft.info = castDraft(action.payload.lobby)
-    // A rename, visibility change, or new map queue leaves the game the lobby is about to play
-    // exactly as it was, so those are the changes people don't have to answer for again.
-    if (changesGameSettings(action.payload.changedSettings)) {
+    // Names and visibility leave the next game unchanged. Queue edits do too unless random map
+    // selection makes the queue part of that game's configuration.
+    if (changesGameSettings(action.payload.changedSettings, !!draft.info.randomMap)) {
       clearReady(draft)
     }
+    // The server consumes random selection when loading begins; revealing its draw is not a host
+    // disabling random selection.
+    const isRandomMapReveal =
+      draft.loadingState.isCountingDown &&
+      action.payload.changedSettings.includes('map') &&
+      action.payload.changedSettings.includes('randomMap')
+    const changedSettings = isRandomMapReveal
+      ? action.payload.changedSettings.filter(setting => setting !== 'randomMap')
+      : action.payload.changedSettings
     pushChat(draft, {
       id: nanoid(),
       type: LobbyMessageType.LobbySettingsChange,
       time: Date.now(),
-      changedSettings: action.payload.changedSettings,
+      changedSettings,
       changedBy: draft.info.host.userId!,
       warpFieldOn: action.payload.changedSettings.includes('starcraftCompatibleReplays')
         ? !action.payload.lobby.starcraftCompatibleReplays
         : undefined,
+      ...(changedSettings.includes('randomMap') ? { randomMap: !!draft.info.randomMap } : {}),
     })
     pushNewBenchJoins(draft, previousBenchIds)
   },

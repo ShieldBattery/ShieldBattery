@@ -8,6 +8,7 @@ import { MapThumbnail } from '../../maps/map-thumbnail'
 import { buttonReset } from '../../material/button-reset'
 import { bodyMedium, labelLarge, singleLine, titleMedium } from '../../styles/typography'
 import { ConnectedUsername } from '../../users/connected-username'
+import { RandomMapPreview } from '../random-map-preview'
 import { HostCrown, RoomChip } from '../room/room-parts'
 import { InGameChip } from './in-game-chip'
 import { LobbySummary } from './summary-utils'
@@ -302,12 +303,18 @@ export function LobbyRow({
       }}
       data-testid='lobby-list-entry'>
       <Thumbnail>
-        <MapThumbnail map={summary.map} size={256} forceAspectRatio={1} />
+        {summary.randomMap ? (
+          <RandomMapPreview compact />
+        ) : (
+          <MapThumbnail map={summary.map} size={256} forceAspectRatio={1} />
+        )}
       </Thumbnail>
       <Main>
         <PrimaryColumn>
           <Name title={summary.name}>{summary.name}</Name>
-          <MapName>{summary.map.name}</MapName>
+          <MapName>
+            {summary.randomMap ? t('lobbies.randomMap.label', 'Random Map') : summary.map.name}
+          </MapName>
         </PrimaryColumn>
         <HostColumn>
           <HostNameRow>

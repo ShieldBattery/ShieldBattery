@@ -69,6 +69,7 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
   const [visibility, setVisibility] = useState<LobbyVisibility>(initialVisibility)
   const [setup, setSetup] = useState<ReadonlyDeep<GameSetupModel>>(initialModel)
   const [initialQueue] = useState(() => lobby.mapQueue.map(map => map.id))
+  const [randomMap, setRandomMap] = useState(!!lobby.randomMap)
   const [queue, setQueue] = useState<QueuedMapEntry[]>(() =>
     initialQueue.map(mapId => ({ key: nanoid(), mapId })),
   )
@@ -98,7 +99,10 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
   const summary = formatGameSetupSummary(t, {
     visibility,
     setup,
-    mapInfo: selectedMapInfo,
+    mapInfo:
+      randomMap && selectedMapInfo
+        ? { ...selectedMapInfo, name: t('lobbies.randomMap.label', 'Random Map') }
+        : selectedMapInfo,
   })
 
   return (
@@ -122,6 +126,8 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
         ref={formRef}
         model={initialModel}
         recentMaps={recentMaps}
+        randomMap={randomMap}
+        onMapPicked={() => setRandomMap(false)}
         nameSection={
           <TextField
             value={name}
@@ -155,6 +161,9 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
         onValidatedChange={model => setSetup(model)}
         onSubmit={model => {
           const settings: Partial<Omit<UpdateLobbySettingsRequest, 'clientId'>> = {}
+          if (randomMap !== !!lobby.randomMap) {
+            settings.randomMap = randomMap
+          }
           const trimmedName = name.trim()
           if (trimmedName && trimmedName !== initialName) {
             settings.name = trimmedName
@@ -191,9 +200,12 @@ export function RoomGameSetup({ onClose }: { onClose: () => void }) {
             settings.mapQueue = queueIds
           }
 
-          // A rename, visibility change, or new map queue touches nothing about the game being set
-          // up, so it can't fail for any of the reasons a reconfiguration can.
-          const isLobbyOnly = !changesGameSettings(Object.keys(settings) as LobbyChangedSetting[])
+          // Lobby-only settings don't change the game configuration, so their errors don't require
+          // the form's reconfiguration error handling.
+          const isLobbyOnly = !changesGameSettings(
+            Object.keys(settings) as LobbyChangedSetting[],
+            randomMap,
+          )
 
           if (Object.keys(settings).length > 0) {
             dispatch(

@@ -106,6 +106,15 @@ describe('lobbies/lobby-page-meta', () => {
       expect(result).toEqual({ ...defaultPageMetadata(CONTEXT), noindex: true })
     })
 
+    test('uses a generic image and map label for random selection', async () => {
+      summaryGetterMock.mockReturnValueOnce({ ...BASE_SUMMARY, randomMap: true })
+      findUsersByIdMock.mockResolvedValueOnce([HOST])
+      const result = await lobbyPageMetadata({ id: LOBBY_PRETTY_ID }, CONTEXT)
+      expect(result?.description).toContain('lobby on Random Map')
+      expect(result?.description).not.toContain(FIGHTING_SPIRIT.name)
+      expect(result?.image).toBe(defaultPageMetadata(CONTEXT).image)
+    })
+
     test('resolves a live lobby', async () => {
       summaryGetterMock.mockReturnValueOnce(BASE_SUMMARY)
       findUsersByIdMock.mockResolvedValueOnce([HOST])

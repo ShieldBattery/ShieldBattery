@@ -193,6 +193,7 @@ export function toSummaryJson(
     id: lobby.id,
     name: lobby.name,
     map: toMapInfoJson(lobby.map!),
+    ...(lobby.randomMap ? { randomMap: true } : {}),
     gameType: lobby.gameType,
     gameSubType: lobby.gameSubType,
     host: { id: lobby.host.userId! },

@@ -52,7 +52,7 @@ import * as Slots from '../../../common/lobbies/slot'
 import { Slot, SlotType } from '../../../common/lobbies/slot'
 import { MapInfo, SbMapId } from '../../../common/maps'
 import { RaceChar } from '../../../common/races'
-import { multipleRandomItems } from '../../../common/random'
+import { multipleRandomItems, randomItem } from '../../../common/random'
 import { RolledOutcome, RolledOutcomeRequest } from '../../../common/rolled-outcomes'
 import { urlPath } from '../../../common/urls'
 import { FriendActivityStatus } from '../../../common/users/relationships'
@@ -425,6 +425,61 @@ function advanceMapQueue(lobby: Lobby): { lobby: Lobby; skippedMapIds: SbMapId[]
 /** Whether two lists of maps name the same maps in the same order. */
 function sameMaps(a: ReadonlyArray<MapInfo>, b: ReadonlyArray<MapInfo>): boolean {
   return a.length === b.length && a.every((map, i) => map.id === b[i].id)
+}
+
+/** Queued maps that can launch without changing the participants, their sides, or their races. */
+function randomMapCandidates(lobby: Lobby): Lobby[] {
+  const roster = (value: Lobby) =>
+    JSON.stringify(toSeriesTeams(value).map(({ teamId, players }) => ({ teamId, players })))
+  const currentRoster = roster(lobby)
+  const observers = getHumanSlots(lobby)
+    .filter(slot => slot.type === SlotType.Observer)
+    .map(slot => slot.userId)
+    .sort()
+  const candidates: Lobby[] = []
+  for (const map of lobby.mapQueue) {
+    try {
+      const settings = validatedLobbySettings({
+        map,
+        gameType: lobby.gameType,
+        gameSubType: isTeamType(lobby.gameType)
+          ? adjustedGameSubType({
+              gameType: lobby.gameType,
+              subType: lobby.gameSubType,
+              prevSlots: lobby.map!.mapData.slots,
+              slots: map.mapData.slots,
+            })
+          : 0,
+        allowObservers: hasObservers(lobby),
+        useLegacyLimits: lobby.useLegacyLimits,
+        starcraftCompatibleReplays: lobby.starcraftCompatibleReplays,
+        lockedAlliances: lobby.lockedAlliances,
+      })
+      const updated = Lobbies.applySettingsChange(lobby, settings)
+      const nextObservers = getHumanSlots(updated)
+        .filter(slot => slot.type === SlotType.Observer)
+        .map(slot => slot.userId)
+        .sort()
+      if (
+        roster(updated) === currentRoster &&
+        JSON.stringify(nextObservers) === JSON.stringify(observers)
+      ) {
+        candidates.push({ ...updated, randomMap: false })
+      }
+    } catch (err) {
+      logger.debug(
+        { err, lobbyId: lobby.id, mapId: map.id },
+        'queued map cannot support random selection',
+      )
+    }
+  }
+  if (!candidates.length) {
+    throw new LobbyServiceError(
+      LobbyServiceErrorCode.RandomMapUnavailable,
+      'no queued map supports the current players and settings',
+    )
+  }
+  return candidates
 }
 
 class CountdownCanceledError extends Error {}
@@ -1271,6 +1326,7 @@ export class LobbyService {
     starcraftCompatibleReplays,
     lockedAlliances,
     mapQueue,
+    randomMap,
   }: {
     client: ClientSocketsGroup
     lobbyId?: SbLobbyId
@@ -1284,6 +1340,7 @@ export class LobbyService {
     starcraftCompatibleReplays?: boolean
     lockedAlliances?: boolean
     mapQueue?: SbMapId[]
+    randomMap?: boolean
   }): Promise<void> {
     const lobby = this.getLobbyForClient(client, lobbyId)
     const [, , player] = findSlotByUserId(lobby, client.userId)
@@ -1323,6 +1380,14 @@ export class LobbyService {
       starcraftCompatibleReplays ?? current.starcraftCompatibleReplays
     const nextLockedAlliances = lockedAlliances ?? current.lockedAlliances
     const nextMapQueue = fetchedQueue ?? current.mapQueue
+    const nextRandomMap =
+      nextMapQueue.length > 0 && (randomMap ?? (map === undefined && !!current.randomMap))
+    if (randomMap && (!nextMapQueue.length || map !== undefined)) {
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.RandomMapUnavailable,
+        'random map requires a queue and no explicit map',
+      )
+    }
 
     const nextSettings = validatedLobbySettings({
       map: mapInfo,
@@ -1347,16 +1412,19 @@ export class LobbyService {
     }
     if (nextLockedAlliances !== current.lockedAlliances) changedSettings.push('lockedAlliances')
     if (!sameMaps(nextMapQueue, current.mapQueue)) changedSettings.push('mapQueue')
+    if (nextRandomMap !== !!current.randomMap) changedSettings.push('randomMap')
     if (!changedSettings.length) {
       // Every requested value matches what the lobby already has, so there is nothing to apply or
       // to announce
       return
     }
 
-    // The name, visibility, and map queue carry no slot layout of their own, so changing only those
-    // must leave every seat exactly as it was -- reconciliation only runs when some other setting is
-    // also changing.
-    const needsReconciliation = changesGameSettings(changedSettings)
+    // A queue-only edit has no layout to reconcile, but its pool is part of the ready check while
+    // random map selection is enabled. Applying the same layout preserves every seat in that case.
+    const needsReconciliation = changesGameSettings(
+      changedSettings,
+      nextRandomMap || !!current.randomMap,
+    )
 
     let updated: Lobby = current
     if (needsReconciliation) {
@@ -1379,6 +1447,9 @@ export class LobbyService {
     }
     if (changedSettings.includes('mapQueue')) {
       updated = { ...updated, mapQueue: nextMapQueue }
+    }
+    if (changedSettings.includes('randomMap')) {
+      updated = { ...updated, randomMap: nextRandomMap }
     }
     if (needsReconciliation) {
       // Everyone was ready for a different game than the one they are now looking at, so the lobby
@@ -2310,6 +2381,11 @@ export class LobbyService {
       }
     }
 
+    if (lobby.randomMap) {
+      // Validate before acknowledging the start, but leave the draw until the countdown finishes.
+      randomMapCandidates(lobby)
+    }
+
     // Warm the lobby's regions during the countdown, before its session is created.
     this._warmLobbyRegions(lobby)
 
@@ -2322,47 +2398,14 @@ export class LobbyService {
     this._publishTo(lobby, { type: 'startCountdown' })
     this._publishListChange('delete', lobby)
 
-    const gameConfig: GameConfig = {
-      gameType: lobby.gameType,
-      gameSubType: lobby.gameSubType,
-      gameSource: GameSource.Lobby,
-      gameSourceExtra: {
-        host: lobby.host.userId,
-        useLegacyLimits: lobby.useLegacyLimits,
-        starcraftCompatibleReplays: lobby.starcraftCompatibleReplays,
-        visibility: lobby.visibility,
-      },
-      lockedAlliances: hasLockedAlliances(lobby),
-      observers: getLobbySlots(lobby)
-        .filter(s => s.type === SlotType.Observer)
-        .map(s => s.userId!),
-      teams: lobby.teams
-        // The observer team never contains participants, and an empty husk entry for it would
-        // read as a real (empty) team to matchup/results consumers.
-        .filter(team => !team.isObserver)
-        .map(team =>
-          team.slots
-            .filter(s => s.type === 'human' || s.type === 'computer' || s.type === 'umsComputer')
-            .map(s => ({
-              id: s.userId ?? makeSbUserId(0),
-              race: s.race,
-              isComputer: s.type === 'computer' || s.type === 'umsComputer',
-            })),
-        ),
-    }
-
     // The countdown and game load run to completion on their own: every failure downstream of
     // this point resolves into cancel events published to the lobby rather than an error to the
     // caller, so the operation is done (as far as the caller is concerned) once the countdown has
     // begun.
-    this._runCountdownAndLoad(lobby, gameConfig, countdownTimer).catch(swallowNonBuiltins)
+    this._runCountdownAndLoad(lobby, countdownTimer).catch(swallowNonBuiltins)
   }
 
-  private async _runCountdownAndLoad(
-    lobby: Lobby,
-    gameConfig: GameConfig,
-    countdownTimer: Deferred<void>,
-  ): Promise<void> {
+  private async _runCountdownAndLoad(lobby: Lobby, countdownTimer: Deferred<void>): Promise<void> {
     const lobbyId = lobby.id
     let usersAtFault: SbUserId[] | undefined
     let cancellationReason: 'gameAnomaly' | undefined
@@ -2371,6 +2414,48 @@ export class LobbyService {
       this.lobbyCountdowns.delete(lobbyId)
       const abortController = new AbortController()
       this.loadingLobbies.set(lobbyId, abortController)
+
+      if (lobby.randomMap) {
+        const selected = randomItem(randomMapCandidates(lobby))
+        // Joins during the countdown wait on the bench and must survive the launch snapshot.
+        lobby = { ...selected, bench: this.lobbies.get(lobbyId)!.bench }
+        this.lobbies.set(lobbyId, lobby)
+        this._publishTo(lobby, {
+          type: 'settingsChange',
+          changedSettings: ['map', 'randomMap'],
+          lobby,
+        })
+        this._publishPreview(lobby)
+      }
+
+      const gameConfig: GameConfig = {
+        gameType: lobby.gameType,
+        gameSubType: lobby.gameSubType,
+        gameSource: GameSource.Lobby,
+        gameSourceExtra: {
+          host: lobby.host.userId,
+          useLegacyLimits: lobby.useLegacyLimits,
+          starcraftCompatibleReplays: lobby.starcraftCompatibleReplays,
+          visibility: lobby.visibility,
+        },
+        lockedAlliances: hasLockedAlliances(lobby),
+        observers: getLobbySlots(lobby)
+          .filter(s => s.type === SlotType.Observer)
+          .map(s => s.userId!),
+        teams: lobby.teams
+          // The observer team never contains participants, and an empty husk entry for it would
+          // read as a real (empty) team to matchup/results consumers.
+          .filter(team => !team.isObserver)
+          .map(team =>
+            team.slots
+              .filter(s => s.type === 'human' || s.type === 'computer' || s.type === 'umsComputer')
+              .map(s => ({
+                id: s.userId ?? makeSbUserId(0),
+                race: s.race,
+                isComputer: s.type === 'computer' || s.type === 'umsComputer',
+              })),
+          ),
+      }
 
       // Each occupant's collected network info, to merge into their `GameLoadPlayer`.
       const networkByUser = this.lobbyPlayerNetwork.getAll(lobbyId)

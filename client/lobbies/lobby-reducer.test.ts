@@ -504,6 +504,57 @@ describe('client/lobbies/lobby-reducer', () => {
     expect(state.info.teams[0].slots).toEqual([HOST_SLOT, SLOT_A, SLOT_B])
   })
 
+  test('editing a random map pool invalidates the ready check', () => {
+    const state = readyBoth(lobbyReducer(undefined, initAction()))
+    const next = lobbyReducer(state, {
+      type: '@lobbies/updateSettingsChange',
+      payload: {
+        type: 'settingsChange',
+        changedSettings: ['mapQueue'],
+        lobby: { ...LOBBY, randomMap: true },
+      },
+    })
+    expect(next.readyUserIds).toEqual([])
+    expect(next.info.randomMap).toBe(true)
+  })
+
+  test('random map notices keep the enabled state from when each change arrived', () => {
+    let state = lobbyReducer(undefined, initAction())
+    for (const randomMap of [true, false]) {
+      state = lobbyReducer(state, {
+        type: '@lobbies/updateSettingsChange',
+        payload: {
+          type: 'settingsChange',
+          changedSettings: ['randomMap'],
+          lobby: { ...LOBBY, randomMap },
+        },
+      })
+    }
+    const notices = state.chat.filter(
+      message => message.type === LobbyMessageType.LobbySettingsChange,
+    )
+    expect(notices).toMatchObject([
+      { changedBy: HOST_SLOT.userId, randomMap: true },
+      { changedBy: HOST_SLOT.userId, randomMap: false },
+    ])
+  })
+
+  test('revealing a random draw does not announce that the host disabled it', () => {
+    let state = lobbyReducer(undefined, initAction())
+    state = lobbyReducer(state, { type: '@lobbies/updateCountdownStart', payload: 5 })
+    state = lobbyReducer(state, {
+      type: '@lobbies/updateSettingsChange',
+      payload: {
+        type: 'settingsChange',
+        changedSettings: ['map', 'randomMap'],
+        lobby: { ...LOBBY, randomMap: false },
+      },
+    })
+    const message = state.chat.at(-1) as SettingsChangeMessage
+    expect(message.changedSettings).toEqual(['map'])
+    expect(message.randomMap).toBeUndefined()
+  })
+
   test('settingsChange replaces state.info with the reconciled lobby and logs a chat message', () => {
     let state = lobbyReducer(undefined, initAction())
 

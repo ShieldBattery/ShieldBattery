@@ -1869,8 +1869,16 @@
       "settingsChangeMapQueue": "地图队列",
       "settingsChangeName": "房间名称",
       "settingsChangeObservers": "观战者",
+      "settingsChangeRandomMap": "随机地图选择",
       "settingsChangeUnitLimit": "单位限制",
       "settingsChangeVisibility": "可见性"
+    },
+    "randomMap": {
+      "empty": "请在游戏设置中将地图加入队列",
+      "hint": "从房间的地图队列中随机选择一张地图。开始时揭晓。",
+      "label": "随机地图",
+      "reveal": "游戏开始加载时揭晓",
+      "unavailable": "队列中没有适合当前玩家和设置的地图。请在游戏设置中调整地图队列。"
     },
     "room": {
       "banner": {
@@ -1901,6 +1909,8 @@
         "mapQueueSkipped": "已跳过 {{maps}}",
         "mapQueueSkippedUnfit_other": "已跳过 {{maps}}，不符合房间设置",
         "memberBack": "<0></0> 回到了房间",
+        "randomMapDisabled": "<0></0>关闭了随机地图选择。",
+        "randomMapEnabled": "<0></0>启用了随机地图。地图将从队列中随机选取。",
         "readyReset": "准备状态已重置",
         "seatedOn": "入座 {{seat}}",
         "selfJoinLobby": "您加入了 <2>{{lobby}}</2>。房主是 <4></4>。",
