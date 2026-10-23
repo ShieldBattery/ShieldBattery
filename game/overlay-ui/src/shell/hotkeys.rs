@@ -114,6 +114,16 @@ impl Action {
             Action::ToggleDock => "dock",
         }
     }
+
+    /// Whether a held key does this again each time it repeats. Only the steps along a replay's
+    /// speed ladder and timeline do: the rest show, hide or switch something, which a held key
+    /// would flip back and forth.
+    pub fn repeats(self) -> bool {
+        matches!(
+            self,
+            Action::SpeedUp | Action::SpeedDown | Action::SeekBackward | Action::SeekForward
+        )
+    }
 }
 
 /// Which of Ctrl and Alt a chord is pressed with.

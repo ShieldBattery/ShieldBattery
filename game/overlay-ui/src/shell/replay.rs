@@ -339,6 +339,22 @@ mod tests {
     }
 
     #[test]
+    fn a_held_seek_key_keeps_seeking() {
+        let ctx = fresh_ctx();
+        let mut shell = spectating_shell();
+        let view = replay();
+        run_frame(&mut shell, &ctx, Some(&view));
+        assert!(shell.key_pressed(Key::Period, Modifiers::NONE));
+        shell.key_repeated(Key::Period, Modifiers::NONE);
+        assert_eq!(
+            run_frame(&mut shell, &ctx, Some(&view)),
+            [Intent::Seek(
+                view.seek_target(2 * crate::transport::SEEK_STEP_SECS)
+            )]
+        );
+    }
+
+    #[test]
     fn a_seek_waits_while_the_game_is_still_working_through_the_last_one() {
         let ctx = fresh_ctx();
         let mut shell = spectating_shell();
