@@ -313,6 +313,9 @@ impl LobbyCreateError {
 }
 
 pub const PLAYER_TYPE_NONE: u8 = 0x0;
+/// A computer's slot once the game is running. The lobby marks one as
+/// [`PLAYER_TYPE_LOBBY_COMPUTER`] until then.
+pub const PLAYER_TYPE_COMPUTER: u8 = 0x1;
 pub const PLAYER_TYPE_HUMAN: u8 = 0x2;
 pub const PLAYER_TYPE_LOBBY_COMPUTER: u8 = 0x5;
 pub const PLAYER_TYPE_OPEN: u8 = 0x6;

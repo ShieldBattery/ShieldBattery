@@ -27,7 +27,7 @@ use crate::kit::{motion, theme, tiers};
 use crate::observer::{
     EdgeCursor, RaceView, STAT_GLYPH, STAT_GLYPH_GAP, STAT_HEADING_HEIGHT, STAT_ROW_GAP,
     STAT_ROW_HEIGHT, WING_GAP, WING_MARGIN, Wing, centred, paint_column_heading, paint_count,
-    paint_player_bar, paint_race_chip, paint_text, team_name, vision_alpha,
+    paint_picked_race_chip, paint_player_bar, paint_text, team_name, vision_alpha,
 };
 use crate::tr;
 
@@ -447,6 +447,9 @@ pub struct TeamCardPlayerView {
     /// The color this player is on the map.
     pub color: Color32,
     pub race: RaceView,
+    /// Whether the player left their race to chance in the lobby, which their chip marks beside
+    /// the race the pick resolved to.
+    pub random: bool,
     /// Whether the watcher currently sees the game through this player's eyes.
     pub vision: bool,
     pub minerals: u32,
@@ -699,7 +702,13 @@ fn draw_player(ui: &mut Ui, player: &TeamCardPlayerView, layout: CardLayout) -> 
     );
     cursor.skip(BAR_GAP);
     if layout.race_chip {
-        paint_race_chip(ui, centred(cursor.take(CHIP), CHIP), player.race, alpha);
+        paint_picked_race_chip(
+            ui,
+            centred(cursor.take(CHIP), CHIP),
+            player.race,
+            player.random,
+            alpha,
+        );
         cursor.skip(CHIP_GAP);
     }
     paint_text(
@@ -1054,6 +1063,7 @@ mod tests {
             name: String::new(),
             color: Color32::WHITE,
             race: RaceView::Random,
+            random: false,
             vision: true,
             minerals: 0,
             gas: 0,

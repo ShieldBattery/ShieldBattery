@@ -186,6 +186,187 @@ pub(crate) fn paint_race_icon(painter: &Painter, rect: Rect, race: RaceView, col
     );
 }
 
+/// Where a random-pick die's pips sit on whole pixels: the die's side and its pips' side, and where
+/// each pip on the diagonal from the top left corner starts, all in pixels.
+///
+/// The die is drawn by hand on the pixel grid rather than rasterized from the glyph, because it
+/// spans only a dozen pixels or fewer: at that size the glyph's pips fall between pixels and blur
+/// into the body. Pips that are whole pixels, centered and with clear pixels around them, still
+/// read as a die.
+#[derive(Clone, Debug, PartialEq)]
+struct DieLayout {
+    side: u32,
+    pip: u32,
+    offsets: Vec<u32>,
+}
+
+/// The pips' smallest side in pixels: a single-pixel pip is too faint to read as one.
+const MIN_PIP: u32 = 2;
+
+/// The layout for a die near `pixels` across: three pips where three of at least [`MIN_PIP`] fit,
+/// and two below that, which read where three would be crammed into dots. A die is allowed a pixel
+/// either way of the size asked for, since that is often what lets its pips sit centered.
+fn die_layout(pixels: u32) -> DieLayout {
+    let sides = [pixels, pixels + 1, pixels.saturating_sub(1)];
+    for count in [3, 2] {
+        for pip in (MIN_PIP..=4).rev() {
+            for side in sides {
+                if let Some(layout) = fit_pips(side, pip, count) {
+                    return layout;
+                }
+            }
+        }
+    }
+    // The smallest die two pips fit on, for a badge too small to hold any.
+    fit_pips(7, MIN_PIP, 2).expect("a 7 pixel die holds two pips")
+}
+
+/// Lays `count` pips `pip` pixels across on the diagonal of a die `side` pixels across, if they fit
+/// centered, with at least a pixel clear between each of them and the edge and gaps between them
+/// close to the margins outside them. Where the two can't be equal the margins take the extra
+/// pixel, which keeps the corner pips clear of the die's rounded corners.
+fn fit_pips(side: u32, pip: u32, count: u32) -> Option<DieLayout> {
+    let room = side.checked_sub(count * pip)?;
+    let gaps = count - 1;
+    let (margin, gap) = (1..=room / 2)
+        .filter_map(|margin| {
+            let rest = room - 2 * margin;
+            (rest % gaps == 0).then_some((margin, rest / gaps))
+        })
+        .filter(|&(_, gap)| gap >= 1 && gap <= pip + 1)
+        .min_by_key(|&(margin, gap)| (margin.abs_diff(gap), std::cmp::Reverse(margin)))?;
+    let offsets = (0..count)
+        .map(|index| margin + index * (pip + gap))
+        .collect();
+    Some(DieLayout { side, pip, offsets })
+}
+
+/// How solid the keyline around the die and the pips in it are: close to the bar's own dark, so
+/// the die reads as set on the chip rather than as part of the race icon it overlaps.
+const DIE_KEYLINE_ALPHA: f32 = 0.85;
+
+/// How much of the pixel at (`x`, `y`) a square from `min` to `max` on both axes covers, with its
+/// corners rounded to `radius`, sampled on a 4x4 grid.
+fn rounded_square_coverage(x: u32, y: u32, min: f32, max: f32, radius: f32) -> f32 {
+    const SAMPLES: u32 = 4;
+    let mut covered = 0;
+    for sample_y in 0..SAMPLES {
+        for sample_x in 0..SAMPLES {
+            let px = x as f32 + (sample_x as f32 + 0.5) / SAMPLES as f32;
+            let py = y as f32 + (sample_y as f32 + 0.5) / SAMPLES as f32;
+            if px < min || px > max || py < min || py > max {
+                continue;
+            }
+            let dx = (min + radius - px).max(px - (max - radius)).max(0.0);
+            let dy = (min + radius - py).max(py - (max - radius)).max(0.0);
+            if dx * dx + dy * dy <= radius * radius {
+                covered += 1;
+            }
+        }
+    }
+    covered as f32 / (SAMPLES * SAMPLES) as f32
+}
+
+/// The die's texels for `layout`: white, so a tint is its whole color, with softly
+/// rounded corners, inside a pixel of keyline in the bar's dark that shows through its pips. The
+/// pips are square and on whole pixels, so none of the body bleeds into them; only pips large
+/// enough to have pixels of their own inside them get rounded corners. Returns the texture's side,
+/// keyline included, with the texels row by row.
+fn die_texels(layout: &DieLayout) -> (u32, Vec<Color32>) {
+    let side = layout.side + 2;
+    let radius = (layout.side as f32 * 0.2).max(1.5);
+    let pip_radius = if layout.pip >= 3 { 1.0 } else { 0.0 };
+    let [dark_r, dark_g, dark_b, _] = crate::colors::BLUE10.to_array();
+    let mut texels = Vec::with_capacity((side * side) as usize);
+    for y in 0..side {
+        for x in 0..side {
+            let keyline =
+                rounded_square_coverage(x, y, 0.0, side as f32, radius + 1.0) * DIE_KEYLINE_ALPHA;
+            let mut body = rounded_square_coverage(x, y, 1.0, side as f32 - 1.0, radius);
+            for &offset in &layout.offsets {
+                let min = (offset + 1) as f32;
+                body *=
+                    1.0 - rounded_square_coverage(x, y, min, min + layout.pip as f32, pip_radius);
+            }
+            // The body laid over the keyline, in straight alpha.
+            let alpha = body + keyline * (1.0 - body);
+            let channel = |dark: u8| {
+                if alpha <= 0.0 {
+                    return 0;
+                }
+                let value = (255.0 * body + dark as f32 * keyline * (1.0 - body)) / alpha;
+                value.round() as u8
+            };
+            texels.push(Color32::from_rgba_unmultiplied(
+                channel(dark_r),
+                channel(dark_g),
+                channel(dark_b),
+                (alpha * 255.0).round() as u8,
+            ));
+        }
+    }
+    (side, texels)
+}
+
+/// The die textures uploaded so far, by the side of the body they were drawn for.
+#[derive(Clone, Default)]
+struct DieCache {
+    textures: HashMap<u32, TextureHandle>,
+}
+
+/// How many die textures the cache keeps before it is emptied: the die at the three chip sizes,
+/// with room to spare.
+const DIE_CACHE_LIMIT: usize = 8;
+
+fn die_texture(ctx: &Context, pixels: u32) -> TextureHandle {
+    let id = Id::new("observer::random_die");
+    if let Some(texture) = ctx.data(|data| {
+        data.get_temp::<DieCache>(id)
+            .and_then(|cache| cache.textures.get(&pixels).cloned())
+    }) {
+        return texture;
+    }
+    let (side, texels) = die_texels(&die_layout(pixels));
+    let texture = ctx.load_texture(
+        format!("random-die-{pixels}"),
+        ColorImage::new([side as usize, side as usize], texels),
+        TextureOptions::NEAREST,
+    );
+    ctx.data_mut(|data| {
+        let cache = data.get_temp_mut_or_default::<DieCache>(id);
+        if cache.textures.len() >= DIE_CACHE_LIMIT {
+            cache.textures.clear();
+        }
+        cache.textures.insert(pixels, texture.clone());
+    });
+    texture
+}
+
+/// Where the die badging a random pick goes around `center`, for a body near `size` points across:
+/// the body side in pixels it was asked for, which its texture is built and cached by, and the
+/// square it is drawn into, on whole pixels at the side its [`DieLayout`] settles on with the
+/// keyline included. Both come from the one layout, so the texture is drawn at exactly its own
+/// size; a layout worked out again from the side it settled on can step up another pixel.
+fn die_placement(center: Pos2, size: f32, pixels_per_point: f32) -> (u32, Rect) {
+    let pixels = (size * pixels_per_point).round().max(1.0) as u32;
+    let side = die_layout(pixels).side + 2;
+    let rect = icon_rect(center, side as f32 / pixels_per_point, pixels_per_point);
+    (pixels, rect)
+}
+
+/// Paints the die badging a random pick in `color` around `center`, with a body near `size` points
+/// across. The keyline takes `color`'s alpha too, so the badge fades with the chip it is on.
+pub(crate) fn paint_die(painter: &Painter, center: Pos2, size: f32, color: Color32) {
+    let (pixels, rect) = die_placement(center, size, painter.ctx().pixels_per_point());
+    let texture = die_texture(painter.ctx(), pixels);
+    painter.image(
+        texture.id(),
+        rect,
+        Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
+        color,
+    );
+}
+
 /// Paints `race`'s icon into `rect`, a square from [`icon_rect`], tinted by `color` at each point
 /// of it: for an icon that fades out across its own extent rather than ending at its edges.
 ///
@@ -325,6 +506,76 @@ mod tests {
                     let drift = (rect.center() - center) * pixels_per_point;
                     assert!(drift.x.abs() <= 0.5 + 1e-3 && drift.y.abs() <= 0.5 + 1e-3);
                 }
+            }
+        }
+    }
+
+    #[test]
+    fn a_dies_pips_sit_centered_on_whole_pixels() {
+        for pixels in 1..=32 {
+            let layout = die_layout(pixels);
+            let first = layout.offsets[0];
+            let last = *layout.offsets.last().unwrap();
+            assert!(layout.pip >= MIN_PIP, "{pixels}: {layout:?}");
+            assert!(first >= 1, "{pixels}: {layout:?}");
+            assert_eq!(
+                first,
+                layout.side - (last + layout.pip),
+                "{pixels}: {layout:?}"
+            );
+            for pair in layout.offsets.windows(2) {
+                assert!(pair[1] > pair[0] + layout.pip, "{pixels}: {layout:?}");
+            }
+            if pixels >= 7 {
+                assert!(layout.side.abs_diff(pixels) <= 1, "{pixels}: {layout:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn a_die_shows_three_pips_where_they_fit_and_two_below() {
+        assert_eq!(die_layout(8).offsets.len(), 2);
+        for pixels in 9..=32 {
+            assert_eq!(die_layout(pixels).offsets.len(), 3, "{pixels}");
+        }
+    }
+
+    #[test]
+    fn no_body_bleeds_into_a_dies_pips() {
+        let keyline = Color32::from_rgba_unmultiplied(
+            crate::colors::BLUE10.r(),
+            crate::colors::BLUE10.g(),
+            crate::colors::BLUE10.b(),
+            (DIE_KEYLINE_ALPHA * 255.0).round() as u8,
+        );
+        for pixels in 7..=24 {
+            let layout = die_layout(pixels);
+            let (side, texels) = die_texels(&layout);
+            // A pip with rounded corners only keeps its pixels inside them clear.
+            let inset = u32::from(layout.pip >= 3);
+            for &offset in &layout.offsets {
+                for y in offset + inset..offset + layout.pip - inset {
+                    for x in offset + inset..offset + layout.pip - inset {
+                        let texel = texels[((y + 1) * side + x + 1) as usize];
+                        assert_eq!(texel, keyline, "{pixels}: pixel ({x}, {y})");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_die_is_drawn_at_exactly_its_textures_size() {
+        for pixels_per_point in [1.0, 900.0 / 1080.0, 1.25, 1440.0 / 1080.0, 1.5, 2.0] {
+            for chip in [18.0, 22.0, 26.0] {
+                let size = chip * 0.4;
+                let (pixels, rect) = die_placement(pos2(100.3, 50.6), size, pixels_per_point);
+                let (side, _) = die_texels(&die_layout(pixels));
+                let drawn = rect.width() * pixels_per_point;
+                assert!(
+                    (drawn - side as f32).abs() < 1e-3,
+                    "{chip}pt at {pixels_per_point}: {side}px texture in {drawn}px"
+                );
             }
         }
     }

@@ -264,12 +264,45 @@ pub(crate) fn paint_race_chip(ui: &Ui, rect: Rect, race: RaceView, alpha: f32) {
     race_icon::paint_race_icon(ui.painter(), icon, race, race.color().gamma_multiply(alpha));
 }
 
+/// Paints a player's race chip as [`paint_race_chip`] does, for a player who may have left their
+/// race to chance: one who did (`random`) gets the race the pick resolved to with a die hung over
+/// the chip's lower right rim as a badge, which is how the site shows such a pick.
+pub(crate) fn paint_picked_race_chip(
+    ui: &Ui,
+    rect: Rect,
+    race: RaceView,
+    random: bool,
+    alpha: f32,
+) {
+    paint_race_chip(ui, rect, race, alpha);
+    if !random {
+        return;
+    }
+    let diameter = rect.width().min(rect.height());
+    let center = rect.center() + Vec2::splat(diameter * RANDOM_DIE_OFFSET);
+    race_icon::paint_die(
+        ui.painter(),
+        center,
+        diameter * RANDOM_DIE_RATIO,
+        RANDOM.gamma_multiply(alpha),
+    );
+}
+
 /// How strongly a race chip's disc is filled with the race's color: enough to read as the chip's
 /// edge against the bar, faint enough that the icon in the same color stands out from it.
 const RACE_DISC_ALPHA: f32 = 0.22;
 
 /// How much of a race chip's diameter its icon's square is drawn at.
 const RACE_ICON_RATIO: f32 = 0.84;
+
+/// How much of a race chip's diameter the die badging a random pick spans, not counting its
+/// keyline.
+const RANDOM_DIE_RATIO: f32 = 0.4;
+
+/// How far right of and below the chip's middle the die badging a random pick sits, as a share of
+/// the chip's diameter: far enough out that it hangs over the rim and the race icon it marks stays
+/// readable under it.
+const RANDOM_DIE_OFFSET: f32 = 1.0 / 3.0;
 
 /// Paints the dot that marks whose a row is, where the row is too short for a bar of their color.
 pub(crate) fn paint_player_dot(ui: &Ui, rect: Rect, color: Color32, diameter: f32) {

@@ -21,6 +21,7 @@ use overlay_ui::observer::{
 use overlay_ui::shell::PanelPrefs;
 use overlay_ui::transport;
 
+use crate::app_messages::GameSetupInfo;
 use crate::bw;
 use crate::bw_scr::game_stats::{GameStats, HistoryStamp, Sample, StatsAsOf, TimelineSubject};
 use crate::bw_scr::stat_txt::{StatTxt, UnitStatus};
@@ -483,6 +484,7 @@ fn build_team_cards_view(
                         name: player.name.clone(),
                         color: player.color,
                         race: player.race,
+                        random: player.random,
                         vision: player.vision,
                         minerals: player.minerals,
                         gas: player.gas,
@@ -922,6 +924,45 @@ pub(super) fn player_race(bw: &BwVars, player_id: u8) -> (Race, RaceView) {
         // slot whose race the game itself does not know.
         _ => (Race::Zerg, RaceView::Random),
     }
+}
+
+/// Whether a player left their race to chance in the lobby of the live game being played or
+/// watched. A replay has no lobby, so this is never true in one.
+///
+/// What a screen shows for a random pick depends on who it is shown to. A player in the game sees
+/// only that the pick was Random, since keeping the race it resolved to unknown until it is scouted
+/// is what a player picks Random for. The observer panels show the race it resolved to, and read
+/// the picks from [`random_picks`] so that a replay has them too.
+pub(super) fn picked_random(bw: &BwVars, setup: Option<&GameSetupInfo>, player_id: u8) -> bool {
+    let Some(setup) = setup.filter(|setup| !setup.is_replay()) else {
+        return false;
+    };
+    has_pick(
+        game_thread::lobby_random_picks(setup, |id| is_computer(bw, id)),
+        player_id,
+    )
+}
+
+/// The players the observer panels show as having left their race to chance, one bit per game
+/// player id: read from the lobby in a live game, and from what ShieldBattery recorded in a replay.
+/// A replay recorded before ShieldBattery kept the picks has none.
+pub(super) fn random_picks(bw: &BwVars, setup: Option<&GameSetupInfo>) -> u8 {
+    match setup.filter(|setup| !setup.is_replay()) {
+        Some(setup) => game_thread::lobby_random_picks(setup, |id| is_computer(bw, id)),
+        None => game_thread::sbat_replay_data().map_or(0, |data| data.random_picks),
+    }
+}
+
+/// Whether `picks`, one bit per game player id, has the bit for `player_id`.
+pub(super) fn has_pick(picks: u8, player_id: u8) -> bool {
+    1u8.checked_shl(u32::from(player_id))
+        .is_some_and(|bit| picks & bit != 0)
+}
+
+/// Whether this game player id's slot is a computer's.
+pub(super) fn is_computer(bw: &BwVars, player_id: u8) -> bool {
+    // SAFETY: the player table is the game's, with a slot for every player id.
+    unsafe { (*bw.players.add(usize::from(player_id))).player_type == bw::PLAYER_TYPE_COMPUTER }
 }
 
 /// What this player is called, falling back to their slot for a slot that carries no name.

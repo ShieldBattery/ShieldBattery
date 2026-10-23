@@ -227,6 +227,9 @@ pub struct Knobs {
     /// What each player is playing, in slot order. A list rather than a fixed row of eight, so a
     /// knobs file written when the scenario had fewer slots still loads into this one.
     pub races: Vec<RaceView>,
+    /// Which players left their race to chance, in slot order, which marks the race it resolved to
+    /// on their chip. Listed for the same reason the races are.
+    pub randoms: Vec<bool>,
     /// Whether the player on the left has lost supply they were already using, which is the one
     /// number on the bar that changes color.
     pub supply_blocked: bool,
@@ -297,6 +300,9 @@ impl Default for Knobs {
                 RaceView::Zerg,
                 RaceView::Terran,
             ],
+            // One random pick on each side of a two-against-two game, beside the chips that show
+            // none.
+            randoms: vec![false, true, true, false],
             supply_blocked: false,
             long_names: false,
             production_depth: 6,
@@ -327,11 +333,19 @@ impl Knobs {
         self.races.get(index).copied().unwrap_or_default()
     }
 
-    /// Grows the race list to cover every slot, so the knob panel has one to hand out per player.
+    /// Whether a slot left its race to chance, for a slot a shorter knobs file said nothing about.
+    fn random(&self, index: usize) -> bool {
+        self.randoms.get(index).copied().unwrap_or_default()
+    }
+
+    /// Grows the race lists to cover every slot, so the knob panel has one to hand out per player.
     fn fill_races(&mut self) {
         let wanted = self.player_count();
         while self.races.len() < wanted {
             self.races.push(RaceView::default());
+        }
+        while self.randoms.len() < wanted {
+            self.randoms.push(false);
         }
     }
 
@@ -738,6 +752,7 @@ fn matchup_player(knobs: &Knobs, state: &State, index: usize, t: f64) -> Matchup
         name: player_name(knobs, index),
         color: overlay_ui::kit::theme::player_color(index),
         race: knobs.race(index),
+        random: knobs.random(index),
         vision: state.vision[index],
         minerals: wave(index as f64 * 2.1, t, 0.017, 1150.0),
         gas: wave(index as f64 * 1.3 + 2.0, t, 0.023, 780.0),
@@ -765,6 +780,7 @@ fn team_cards(knobs: &Knobs, matchup: &MatchupView, t: f64) -> TeamCardsView {
                         name: player.name.clone(),
                         color: player.color,
                         race: player.race,
+                        random: player.random,
                         vision: player.vision,
                         minerals: player.minerals,
                         gas: player.gas,
@@ -1804,6 +1820,9 @@ pub fn knobs_ui(k: &mut Knobs, state: &State, ui: &mut egui::Ui) -> bool {
                     .selectable_value(&mut k.races[index], option, option.label())
                     .changed();
             }
+            changed |= ui
+                .checkbox(&mut k.randoms[index], "picked random")
+                .changed();
         });
     }
     changed |= ui

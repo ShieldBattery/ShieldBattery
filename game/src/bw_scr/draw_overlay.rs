@@ -748,7 +748,7 @@ impl OverlayState {
         // only while shown (see `ObserverViewCache`). Lives beside the shell for the frame rather
         // than inside `self`, like the chat log.
         let observer_view = (bw.game_started && bw.is_replay_or_obs).then(|| {
-            let matchup = self.build_matchup_view(bw, apm);
+            let matchup = self.build_matchup_view(bw, apm, setup_info);
             let production = self.build_production_view(bw);
             ObserverViewCache::build(
                 self.observer_view.take(),
@@ -1358,7 +1358,13 @@ impl OverlayState {
     }
 
     /// Builds the matchup bar's view: every player the replay is worth showing, in team order.
-    fn build_matchup_view(&self, bw: &BwVars, apm: Option<&ApmStats>) -> MatchupView {
+    fn build_matchup_view(
+        &self,
+        bw: &BwVars,
+        apm: Option<&ApmStats>,
+        setup: Option<&GameSetupInfo>,
+    ) -> MatchupView {
+        let random_picks = stats::random_picks(bw, setup);
         let players = replay_players_by_team(bw)
             .filter(|&(_team, player_id)| {
                 // Players with no units are taken for observers on a UMS map, which have no numbers
@@ -1371,7 +1377,8 @@ impl OverlayState {
             })
             .map(|(team, player_id)| unsafe {
                 let player = bw.players.add(player_id as usize);
-                matchup_player_view(bw, player, player_id, team, apm)
+                let random = stats::has_pick(random_picks, player_id);
+                matchup_player_view(bw, player, player_id, team, random, apm)
             })
             .collect();
         MatchupView {
@@ -1894,6 +1901,7 @@ unsafe fn matchup_player_view(
     player: *mut bw::Player,
     player_id: u8,
     team: u8,
+    random: bool,
     apm: Option<&ApmStats>,
 ) -> MatchupPlayerView {
     unsafe {
@@ -1923,6 +1931,7 @@ unsafe fn matchup_player_view(
             name: name.into_owned(),
             color: Color32::from_rgb(color[0], color[1], color[2]),
             race: race.1,
+            random,
             vision: has_player_vision(bw, player_id),
             minerals: game.minerals(player_id),
             gas: game.gas(player_id),

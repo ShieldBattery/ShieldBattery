@@ -27,8 +27,8 @@ use crate::kit::text::{self, BodyWeight};
 use crate::kit::widgets::{self, ResourceGlyph, TagStyle};
 use crate::kit::{motion, theme, tiers};
 use crate::observer::{
-    EdgeCursor, RaceView, WING_MARGIN, centred, game_clock, paint_count, paint_player_bar,
-    paint_race_chip, paint_text, vision_alpha,
+    EdgeCursor, RaceView, WING_MARGIN, centred, game_clock, paint_count, paint_picked_race_chip,
+    paint_player_bar, paint_text, vision_alpha,
 };
 use crate::tr;
 
@@ -342,6 +342,9 @@ pub struct MatchupPlayerView {
     /// is looking at.
     pub color: Color32,
     pub race: RaceView,
+    /// Whether the player left their race to chance in the lobby, which their chip marks beside
+    /// the race the pick resolved to.
+    pub random: bool,
     /// Whether the watcher currently sees the game through this player's eyes.
     pub vision: bool,
     pub minerals: u32,
@@ -677,7 +680,13 @@ fn draw_half(ui: &Ui, rect: Rect, player: &MatchupPlayerView, mirrored: bool, me
     );
     cursor.skip(PAD_OUTER);
     let chip = cursor.take(metrics.chip);
-    paint_race_chip(ui, centred(chip, metrics.chip), player.race, alpha);
+    paint_picked_race_chip(
+        ui,
+        centred(chip, metrics.chip),
+        player.race,
+        player.random,
+        alpha,
+    );
     cursor.skip(CHIP_GAP);
 
     let name = cursor.take(metrics.name_width);
@@ -866,6 +875,7 @@ mod tests {
             name: String::new(),
             color: Color32::WHITE,
             race: RaceView::Random,
+            random: false,
             vision: true,
             minerals: 0,
             gas: 0,
