@@ -34,19 +34,14 @@ source licenses page.
 
 ## Rich Presence images
 
-The activity's large image is the map's image from the CDN, given as a URL, except in a 1v1 between
-two players who didn't pick Random, which shows a snapshot of that matchup. The small image is the
+The activity's large image is the map's image from the CDN, given as a URL. The small image is the
 race the player picked. Map images are served from the local file store in development, which
 Discord can't reach, so dev builds show only the race.
 
-The snapshots and race icons are art assets, uploaded under Rich Presence → Art Assets to each of the
-three Discord applications, with these keys (the file names in `docs/discord-assets`):
-
-- `race_p`, `race_t`, `race_z`, `race_r`: the race icons.
-- `matchup_pvp`, `matchup_pvt`, `matchup_pvz`, `matchup_tvp`, `matchup_tvt`, `matchup_tvz`,
-  `matchup_zvp`, `matchup_zvt`, `matchup_zvz`: the matchup snapshots, the player's own race first.
-
-The app refers to them by key, so a changed image only needs uploading again under the same key.
+The race icons are art assets, uploaded under Rich Presence → Art Assets to each of the three Discord
+applications with the keys `race_p`, `race_t`, `race_z` and `race_r` (the file names in
+`docs/discord-assets`). The app refers to them by key, so a changed icon only needs uploading again
+under the same key.
 
 ## Updating the SDK
 
