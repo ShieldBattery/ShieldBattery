@@ -92,6 +92,19 @@ export function filterColorCodes(text: string): string {
     .join('')
 }
 
+/**
+ * Whether a map has content beyond what melee games use (`ums_content` on the server): EUD triggers,
+ * trigger actions melee maps don't use, or more preplaced player units than a melee start has. Such
+ * maps are rendered with their units as placed.
+ */
+export function hasUmsContent(summary: BroodmapMapSummary): boolean {
+  return (
+    summary.usesEud ||
+    (summary.triggerActionKinds ?? []).some(kind => !MELEE_COMPATIBLE_ACTIONS.has(kind)) ||
+    summary.playerUnits > MAX_MELEE_PLAYER_UNITS
+  )
+}
+
 /** Applies ShieldBattery's rules to a map's facts. */
 export function toLocalMapInfo(summary: BroodmapMapSummary): LocalMapInfo {
   let playersMelee = 0
@@ -106,11 +119,7 @@ export function toLocalMapInfo(summary: BroodmapMapSummary): LocalMapInfo {
     }
   }
 
-  const umsContent =
-    summary.usesEud ||
-    (summary.triggerActionKinds ?? []).some(kind => !MELEE_COMPATIBLE_ACTIONS.has(kind)) ||
-    summary.playerUnits > MAX_MELEE_PLAYER_UNITS
-  const isUms = playersMelee < 2 || summary.usesEud || umsContent
+  const isUms = playersMelee < 2 || summary.usesEud || hasUmsContent(summary)
 
   let playerCount: number
   if (isUms) {
