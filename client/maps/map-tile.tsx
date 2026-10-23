@@ -1,7 +1,7 @@
 import { TFunction } from 'i18next'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
+import styled, { keyframes } from 'styled-components'
 import { LocalMapFile, LocalMapInfo, LocalMapKind } from '../../common/map-library'
 import { urlForMap } from '../../common/map-url'
 import { filterColorCodes, SbMapId, Tileset, tilesetToName } from '../../common/maps'
@@ -26,6 +26,8 @@ import { useAppDispatch } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { bodySmall, labelMedium, labelSmall, singleLine, titleSmall } from '../styles/typography'
 import { openMapDownloadDialog, openMapPreviewDialog, removeFromMyMaps } from './action-creators'
+import { useLocalMapImage } from './local-map-images'
+import { LocalMapUpload } from './local-maps'
 import { useToggleMapFavorite } from './map-favorites'
 import { MapFileImage } from './map-image'
 import { umsForceLayout } from './map-page-summaries'
@@ -703,30 +705,44 @@ export function localMapName(file: LocalMapFile): string {
 }
 
 /**
- * A map file on this PC that the server doesn't have (yet), read from the file itself. Choosing it
- * uploads it. Until the server has been asked about the file (`checking`), it shows no status.
+ * A map file on this PC, read from the file itself, with an image the app renders from the
+ * StarCraft install. Choosing it uses the server's copy of the map, uploading the file first if the
+ * server doesn't have one.
  */
 export function LocalMapTile({
   file,
-  checking,
   upload,
+  disabled = false,
   folderLabel,
   onActivate,
 }: {
   file: LocalMapFile
-  checking: boolean
-  /** The file's upload, while it's being uploaded or after it failed. */
-  upload?: { progress?: number; error?: string }
+  /** What's happening with the file since it was chosen, until that's done or if it failed. */
+  upload?: LocalMapUpload
+  disabled?: boolean
   /** Where the file is, for listings that span folders. */
   folderLabel?: string
   onActivate: () => void
 }) {
   const { t } = useTranslation()
-  const uploading = !!upload && !upload.error
+  const busy = !!upload && !upload.error && !upload.pickFailed
+  const uploading = busy && !upload.checking
   const readable = !!file.map
+  // The hash whose image failed to load, so the tile falls back to its icon for that file only
+  const [failedImageHash, setFailedImageHash] = useState<string>()
+  const imageHash = readable && file.hash !== failedImageHash ? file.hash : undefined
+  const imageAreaRef = useRef<HTMLDivElement>(null)
+  const image = useLocalMapImage(imageHash, imageAreaRef)
 
   let signal: React.ReactNode = null
-  if (upload?.error) {
+  if (upload?.pickFailed) {
+    signal = (
+      <Signal
+        $tone={SignalTone.Error}
+        text={t('maps.picker.pickFailed', "Couldn't load this map. Select it to try again.")}
+      />
+    )
+  } else if (upload?.error) {
     signal = (
       <Signal
         $tone={SignalTone.Error}
@@ -736,36 +752,41 @@ export function LocalMapTile({
         })}
       />
     )
+  } else if (upload?.checking) {
+    signal = <Signal text={t('maps.local.checking', 'Checking…')} />
   } else if (uploading) {
-    signal = (
-      <Signal
-        text={
-          upload.progress === undefined
-            ? t('maps.catalog.uploading', 'Uploading…')
-            : t('maps.catalog.uploadingPercent', {
-                defaultValue: 'Uploading… {{percent}}%',
-                percent: Math.floor(upload.progress * 100),
-              })
-        }
-      />
-    )
-  } else if (!checking && readable) {
-    signal = <Signal text={t('maps.local.notUploaded', 'Not uploaded yet')} />
+    signal = <Signal text={uploadStatusText(upload.progress, t)} />
   }
 
   return (
     <Root>
       <TilePickButton
         type='button'
-        disabled={!readable || uploading}
+        disabled={!readable || busy || disabled}
         title={file.path}
         onClick={onActivate}>
-        <LocalImage>
+        <LocalImage ref={imageAreaRef}>
           <MaterialIcon icon={readable ? 'map' : 'block'} size={40} />
+          {image.src ? (
+            <LocalMapImg
+              src={image.src}
+              alt=''
+              draggable={false}
+              decoding='async'
+              onLoad={() => image.onSettled(true)}
+              onError={() => {
+                image.onSettled(false)
+                setFailedImageHash(imageHash)
+              }}
+            />
+          ) : null}
           {uploading && upload.progress !== undefined ? (
-            <ProgressTrack>
-              <ProgressFill style={{ width: `${upload.progress * 100}%` }} />
-            </ProgressTrack>
+            <UploadProgressBar progress={upload.progress} overImage={!!image.src} />
+          ) : null}
+          {upload?.checking ? (
+            <PendingOverlay>
+              <LoadingDotsArea />
+            </PendingOverlay>
           ) : null}
         </LocalImage>
         <Text>
@@ -786,9 +807,11 @@ export function LocalMapTile({
 }
 
 const LocalImage = styled.div`
+  position: relative;
   aspect-ratio: 1;
   width: 100%;
   padding: 16px;
+  overflow: hidden;
 
   display: flex;
   flex-direction: column;
@@ -804,6 +827,15 @@ const LocalImage = styled.div`
   ${TilePickButton}:hover:not(:disabled) & {
     outline: 2px solid var(--theme-outline-variant);
   }
+`
+
+/** Covers the tile's icon once the app's render of the file has loaded. */
+const LocalMapImg = styled.img`
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 `
 
 /** A tile-shaped placeholder for a map file that's being uploaded, or that failed to upload. */
@@ -832,19 +864,8 @@ export function PendingMapTile({
         ) : (
           <>
             <MaterialIcon icon='upload' size={32} />
-            <PendingStatus>
-              {progress === undefined
-                ? t('maps.catalog.uploading', 'Uploading…')
-                : t('maps.catalog.uploadingPercent', {
-                    defaultValue: 'Uploading… {{percent}}%',
-                    percent: Math.floor(progress * 100),
-                  })}
-            </PendingStatus>
-            {progress !== undefined ? (
-              <ProgressTrack>
-                <ProgressFill style={{ width: `${progress * 100}%` }} />
-              </ProgressTrack>
-            ) : null}
+            <PendingStatus>{uploadStatusText(progress, t)}</PendingStatus>
+            {progress !== undefined ? <UploadProgressBar progress={progress} /> : null}
           </>
         )}
       </PendingImage>
@@ -894,10 +915,14 @@ const PendingStatus = styled.div`
   ${bodySmall};
 `
 
-const ProgressTrack = styled.div`
+const ProgressTrack = styled.div<{ $overImage?: boolean }>`
   width: 80%;
   height: 4px;
   overflow: hidden;
+  ${props =>
+    props.$overImage
+      ? 'position: absolute; left: 10%; bottom: 12px; box-shadow: 0 0 0 1px rgb(0 0 0 / 0.4);'
+      : ''}
 
   border-radius: 2px;
   background-color: var(--theme-container-highest);
@@ -908,6 +933,58 @@ const ProgressFill = styled.div`
   background-color: var(--theme-primary);
   transition: width 150ms linear;
 `
+
+const processingSweep = keyframes`
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+`
+
+/** Fills the track while the server works on a file that's been sent, for as long as that takes. */
+const ProcessingFill = styled.div`
+  width: 40%;
+  height: 100%;
+  background-color: var(--theme-primary);
+  animation: ${processingSweep} 1.2s ease-in-out infinite;
+
+  @media (prefers-reduced-motion: reduce) {
+    width: 100%;
+    animation: none;
+    opacity: 0.6;
+  }
+`
+
+/**
+ * A map upload's status: how much of the file has been sent, then that the server is processing it
+ * (parsing it and rendering its images), which it does before it answers.
+ */
+function uploadStatusText(progress: number | undefined, t: TFunction): string {
+  if (progress === undefined) {
+    return t('maps.catalog.uploading', 'Uploading…')
+  } else if (progress >= 1) {
+    return t('maps.catalog.processing', 'Processing…')
+  }
+  return t('maps.catalog.uploadingPercent', {
+    defaultValue: 'Uploading… {{percent}}%',
+    percent: Math.floor(progress * 100),
+  })
+}
+
+/** The bar for {@link uploadStatusText}: filling as the file is sent, then sweeping. */
+function UploadProgressBar({ progress, overImage }: { progress: number; overImage?: boolean }) {
+  return (
+    <ProgressTrack $overImage={overImage}>
+      {progress >= 1 ? (
+        <ProcessingFill />
+      ) : (
+        <ProgressFill style={{ width: `${progress * 100}%` }} />
+      )}
+    </ProgressTrack>
+  )
+}
 
 const PendingError = styled.div`
   ${bodySmall};
