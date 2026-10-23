@@ -1,5 +1,5 @@
 import { atom, useAtom, useAtomValue, useSetAtom } from 'jotai'
-import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { GameType } from '../../common/games/game-type'
@@ -8,7 +8,6 @@ import { SbMapId } from '../../common/maps'
 import { MapLens } from '../gql/graphql'
 import { FilledButton, OutlinedButton, TextButton } from '../material/button'
 import { TabItem, Tabs } from '../material/tabs'
-import { LoadingDotsArea } from '../progress/dots'
 import { useUserLocalStorageValue } from '../react/state-hooks'
 import { useAppDispatch } from '../redux-hooks'
 import { SearchInput, SearchInputHandle } from '../search/search-input'
@@ -18,6 +17,7 @@ import {
   CatalogDensity,
   ListWindowStore,
   MapCatalogList,
+  ServerCatalogTab,
   useCoalescedSearch,
   validateDensity,
 } from './map-catalog-list'
@@ -29,16 +29,19 @@ import {
   defaultPickerSortForTab,
   effectiveSort,
   filtersOf,
+  LOCAL_SORTS,
   toMapFilter,
   validateSavedFilters,
   validateSavedSort,
   withSearch,
 } from './map-catalog-params'
+import {
+  LocalMapList,
+  LocalMapView,
+  LocalMatchesLink,
+  validateLocalMapView,
+} from './map-local-list'
 import { MAP_FILE_EXTENSIONS, mapLibraryVersionAtom } from './map-uploads'
-
-const LoadableLocalMaps = lazy(async () => ({
-  default: (await import('./browse-local-maps')).BrowseLocalMaps,
-}))
 
 /** What picking a map in the picker does. */
 export enum MapPickerMode {
@@ -51,6 +54,7 @@ export enum MapPickerMode {
 /** The picker's tabs, in display order. */
 const PICKER_TABS: ReadonlyArray<MapCatalogTab> = [
   MapCatalogTab.Yours,
+  MapCatalogTab.Local,
   MapCatalogTab.Favorites,
   MapCatalogTab.All,
 ]
@@ -69,6 +73,8 @@ interface MapPickerSession {
   lensFromGameType: boolean
   /** The pages loaded for each listing, keyed by the listing. */
   windows: ReadonlyMap<string, Array<string | null>>
+  /** The folder shown in the maps on this PC, in the folders view. */
+  localFolder?: string
 }
 
 const mapPickerSessionAtom = atom<MapPickerSession | undefined>(undefined)
@@ -118,7 +124,23 @@ function useSavedPickerChoices() {
     CatalogDensity.Cozy,
     validateDensity,
   )
-  return { tab, setTab, filters, setFilters, sorts, setSorts, density, setDensity }
+  const [localView, setLocalView] = useUserLocalStorageValue<LocalMapView>(
+    'maps.picker.localView',
+    LocalMapView.Folders,
+    validateLocalMapView,
+  )
+  return {
+    tab: IS_ELECTRON || tab !== MapCatalogTab.Local ? tab : MapCatalogTab.All,
+    setTab,
+    filters,
+    setFilters,
+    sorts,
+    setSorts,
+    density,
+    setDensity,
+    localView,
+    setLocalView,
+  }
 }
 
 function newSession(tab: MapCatalogTab, filters: CatalogFilters): MapPickerSession {
@@ -246,18 +268,6 @@ const Content = styled.div`
   gap: 16px;
 `
 
-/** The local maps browser sizes itself to its box, so this gives it the rest of the picker. */
-const LocalMapsArea = styled.div`
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 480px;
-
-  & > * {
-    position: absolute;
-    inset: 0;
-  }
-`
-
 const HiddenFileInput = styled.input`
   display: none;
 `
@@ -299,7 +309,6 @@ export function MapPicker({
   const { tab, params } = session
   const fileInputRef = useRef<HTMLInputElement>(null)
   const searchInputRef = useRef<SearchInputHandle>(null)
-  const [browsingLocalMaps, setBrowsingLocalMaps] = useState(false)
   const [pendingMapId, setPendingMapId] = useState<SbMapId>()
   const [failedMapId, setFailedMapId] = useState<SbMapId>()
 
@@ -311,7 +320,13 @@ export function MapPicker({
     setSession(prev => update(prev ?? newSession(saved.tab, saved.filters)))
   }
 
-  const sort = effectiveSort(params, saved.sorts[tab], defaultPickerSortForTab(tab))
+  const isLocal = tab === MapCatalogTab.Local
+  const sort = effectiveSort(
+    params,
+    saved.sorts[tab],
+    defaultPickerSortForTab(tab),
+    isLocal ? LOCAL_SORTS : undefined,
+  )
 
   const onTabChange = (nextTab: MapCatalogTab) => {
     updateSession(s => ({ ...s, tab: nextTab, params: { ...s.params, sort: undefined } }))
@@ -377,6 +392,16 @@ export function MapPicker({
     )
   }
 
+  const pickOptions = {
+    onPick: pickMap,
+    selectedMapId: mode === MapPickerMode.Map ? selectedMapId : undefined,
+    queuePositions: mode === MapPickerMode.Queue ? queuePositions : undefined,
+    pendingMapId,
+    failedMapId,
+    disabled: mode === MapPickerMode.Queue && !canQueueMore,
+  }
+  const searchText = params.search.trim()
+
   const libraryVersion = useAtomValue(mapLibraryVersionAtom)
   const filter = toMapFilter(params)
   const listKey = JSON.stringify([tab, filter, sort, tab === MapCatalogTab.Yours && libraryVersion])
@@ -388,7 +413,7 @@ export function MapPicker({
           <TextButton
             label={t('common.actions.back', 'Back')}
             iconStart='arrow_back'
-            onClick={() => (browsingLocalMaps ? setBrowsingLocalMaps(false) : onClose())}
+            onClick={onClose}
           />
           <Title>
             {mode === MapPickerMode.Queue
@@ -410,66 +435,66 @@ export function MapPicker({
             </>
           ) : null}
         </TopRow>
-        {browsingLocalMaps ? null : (
-          <ControlsRow>
-            <Tabs activeTab={tab} onChange={onTabChange}>
-              <TabItem text={t('maps.catalog.yourMaps', 'Your maps')} value={MapCatalogTab.Yours} />
-              <TabItem
-                text={t('maps.catalog.favorites', 'Favorites')}
-                value={MapCatalogTab.Favorites}
-              />
-              <TabItem text={t('maps.catalog.allMaps', 'All maps')} value={MapCatalogTab.All} />
-            </Tabs>
-            <StyledSearchInput
-              ref={searchInputRef}
-              searchQuery={params.search}
-              onSearchChange={onSearchChange}
-              label={t('maps.catalog.searchMaps', 'Search maps')}
-            />
+        <ControlsRow>
+          <Tabs activeTab={tab} onChange={onTabChange}>
+            <TabItem text={t('maps.catalog.yourMaps', 'Your maps')} value={MapCatalogTab.Yours} />
             {IS_ELECTRON ? (
-              <TextButton
-                label={t('maps.catalog.browseLocalMaps', 'Browse local maps')}
-                onClick={() => setBrowsingLocalMaps(true)}
-              />
+              <TabItem text={t('maps.local.onThisPc', 'On this PC')} value={MapCatalogTab.Local} />
             ) : null}
-            <OutlinedButton
-              label={t('maps.catalog.uploadMaps', 'Upload maps')}
-              iconStart='upload'
-              onClick={() => fileInputRef.current?.click()}
+            <TabItem
+              text={t('maps.catalog.favorites', 'Favorites')}
+              value={MapCatalogTab.Favorites}
             />
-          </ControlsRow>
-        )}
+            <TabItem text={t('maps.catalog.allMaps', 'All maps')} value={MapCatalogTab.All} />
+          </Tabs>
+          <StyledSearchInput
+            ref={searchInputRef}
+            searchQuery={params.search}
+            onSearchChange={onSearchChange}
+            label={t('maps.catalog.searchMaps', 'Search maps')}
+          />
+          <OutlinedButton
+            label={t('maps.catalog.uploadMaps', 'Upload maps')}
+            iconStart='upload'
+            onClick={() => fileInputRef.current?.click()}
+          />
+        </ControlsRow>
       </Header>
       <Scroller>
         <Content>
-          {browsingLocalMaps ? (
-            <LocalMapsArea>
-              <Suspense fallback={<LoadingDotsArea />}>
-                <LoadableLocalMaps
-                  onMapUpload={mapId => {
-                    setBrowsingLocalMaps(false)
-                    onPick(mapId)
-                  }}
-                />
-              </Suspense>
-            </LocalMapsArea>
+          {isLocal ? (
+            <LocalMapList
+              params={params}
+              sort={sort}
+              density={saved.density}
+              view={saved.localView}
+              folder={session.localFolder}
+              pick={pickOptions}
+              onFiltersChange={onFiltersChange}
+              onSortChange={onSortChange}
+              onDensityChange={saved.setDensity}
+              onClearFilters={() => onFiltersChange(DEFAULT_CATALOG_FILTERS)}
+              onViewChange={saved.setLocalView}
+              onFolderChange={folder => updateSession(s => ({ ...s, localFolder: folder }))}
+            />
           ) : (
             <MapCatalogList
               key={listKey}
-              tab={tab}
+              tab={tab as ServerCatalogTab}
               params={params}
               filter={filter}
               sort={sort}
               density={saved.density}
               windowStore={windowStore}
-              pick={{
-                onPick: pickMap,
-                selectedMapId: mode === MapPickerMode.Map ? selectedMapId : undefined,
-                queuePositions: mode === MapPickerMode.Queue ? queuePositions : undefined,
-                pendingMapId,
-                failedMapId,
-                disabled: mode === MapPickerMode.Queue && !canQueueMore,
-              }}
+              pick={pickOptions}
+              besideCount={
+                IS_ELECTRON && searchText ? (
+                  <LocalMatchesLink
+                    search={searchText}
+                    onOpen={() => onTabChange(MapCatalogTab.Local)}
+                  />
+                ) : undefined
+              }
               onFiltersChange={onFiltersChange}
               onSortChange={onSortChange}
               onDensityChange={saved.setDensity}

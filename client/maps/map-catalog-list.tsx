@@ -41,7 +41,7 @@ export enum CatalogDensity {
   Compact = 'compact',
 }
 
-const DENSITY_LAYOUT: Readonly<
+export const DENSITY_LAYOUT: Readonly<
   Record<CatalogDensity, { minTileWidth: number; imageSize: number }>
 > = {
   [CatalogDensity.Cozy]: { minTileWidth: 232, imageSize: 280 },
@@ -137,7 +137,7 @@ const ViewControls = styled.div`
   gap: 8px;
 `
 
-const Grid = styled.div<{ $minTileWidth: number }>`
+export const Grid = styled.div<{ $minTileWidth: number }>`
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(${props => props.$minTileWidth}px, 1fr));
   gap: 18px 16px;
@@ -224,6 +224,8 @@ function sortLabel(sort: CatalogSort, t: TFunction): string {
       return t('maps.catalog.sortNewest', 'Newest')
     case CatalogSort.Name:
       return t('maps.catalog.sortName', 'Name')
+    case CatalogSort.Players:
+      return t('maps.catalog.sortPlayers', 'Players')
     case CatalogSort.BestMatch:
       return t('maps.catalog.sortBestMatch', 'Best match')
     default:
@@ -235,11 +237,17 @@ function toggled<T>(values: ReadonlyArray<T>, value: T): T[] {
   return values.includes(value) ? values.filter(v => v !== value) : [...values, value]
 }
 
-function CatalogFilterRow({
+/** The row of lens, filter, sort and density controls above a listing of maps. */
+export function CatalogFilterRow({
   params,
   sort,
   density,
   totalCount,
+  sorts: browseSorts = BROWSE_SORTS,
+  offersBestMatch = true,
+  showOfficial = true,
+  besideCount,
+  viewToggle,
   onFiltersChange,
   onSortChange,
   onDensityChange,
@@ -249,6 +257,15 @@ function CatalogFilterRow({
   sort: CatalogSort
   density: CatalogDensity
   totalCount: number | undefined
+  /** The sorts offered while not searching. */
+  sorts?: ReadonlyArray<CatalogSort>
+  /** Whether Best match is offered while searching. */
+  offersBestMatch?: boolean
+  showOfficial?: boolean
+  /** Shown next to the count, e.g. a link to the same search elsewhere. */
+  besideCount?: React.ReactNode
+  /** Shown before the density toggle, e.g. a choice of how to lay out the listing. */
+  viewToggle?: React.ReactNode
   onFiltersChange: (changes: Partial<CatalogFilters>) => void
   onSortChange: (sort: CatalogSort) => void
   onDensityChange: (density: CatalogDensity) => void
@@ -256,7 +273,7 @@ function CatalogFilterRow({
 }) {
   const { t } = useTranslation()
   const searching = !!params.search.trim()
-  const sorts = searching ? [CatalogSort.BestMatch, ...BROWSE_SORTS] : BROWSE_SORTS
+  const sorts = searching && offersBestMatch ? [CatalogSort.BestMatch, ...browseSorts] : browseSorts
 
   const densityToggleLabel =
     density === CatalogDensity.Cozy
@@ -348,11 +365,13 @@ function CatalogFilterRow({
           onClick={() => onFiltersChange({ eud: EudFilter.Only })}
         />
       </FilterChip>
-      <FilterChip
-        label={t('maps.page.official', 'Official')}
-        selected={params.official}
-        onClick={() => onFiltersChange({ official: !params.official })}
-      />
+      {showOfficial ? (
+        <FilterChip
+          label={t('maps.page.official', 'Official')}
+          selected={params.official}
+          onClick={() => onFiltersChange({ official: !params.official })}
+        />
+      ) : null}
       {hasNonDefaultFilters(params) ? (
         <TextButton
           label={t('common.actions.clear', 'Clear')}
@@ -370,6 +389,7 @@ function CatalogFilterRow({
               })
             : null}
         </CountLabel>
+        {besideCount}
         <FilterChip label={sortLabel(sort, t)} icon={<MaterialIcon icon='sort' size={18} />}>
           {sorts.map(s => (
             <SelectableMenuItem
@@ -380,6 +400,7 @@ function CatalogFilterRow({
             />
           ))}
         </FilterChip>
+        {viewToggle}
         <Tooltip text={densityToggleLabel} position='bottom' tabIndex={-1}>
           <IconButton
             icon={
@@ -480,10 +501,14 @@ const MapCatalogFavoritesQuery = graphql(/* GraphQL */ `
   }
 `)
 
-const CATALOG_QUERIES = {
+/** The catalog tabs listed by the server (every tab but the maps on this PC). */
+export type ServerCatalogTab = Exclude<MapCatalogTab, MapCatalogTab.Local>
+
+const CATALOG_QUERIES: Readonly<Record<ServerCatalogTab, typeof MapCatalogAllQuery>> = {
   [MapCatalogTab.All]: MapCatalogAllQuery,
-  [MapCatalogTab.Yours]: MapCatalogLibraryQuery,
-  [MapCatalogTab.Favorites]: MapCatalogFavoritesQuery,
+  // The three queries take the same variables and differ only in where their connection is
+  [MapCatalogTab.Yours]: MapCatalogLibraryQuery as unknown as typeof MapCatalogAllQuery,
+  [MapCatalogTab.Favorites]: MapCatalogFavoritesQuery as unknown as typeof MapCatalogAllQuery,
 }
 
 /** Requests results without suspending: the catalog renders its own loading states. */
@@ -495,7 +520,7 @@ const NO_SUSPENSE_CONTEXT = { suspense: false }
  * pages render.
  */
 function useCatalogPage(
-  tab: MapCatalogTab,
+  tab: ServerCatalogTab,
   filter: MapFilter,
   sort: CatalogSort,
   after: string | null,
@@ -508,8 +533,7 @@ function useCatalogPage(
     withCount: after === null,
   }
   const [{ data, fetching, error }, reexecute] = useQuery({
-    // The three queries take the same variables and differ only in where their connection is
-    query: CATALOG_QUERIES[tab] as typeof MapCatalogAllQuery,
+    query: CATALOG_QUERIES[tab],
     variables,
     requestPolicy: 'cache-and-network',
     context: NO_SUSPENSE_CONTEXT,
@@ -545,7 +569,7 @@ type CatalogConnection = {
   }>
 }
 
-function signalFor(tab: MapCatalogTab, sort: CatalogSort): MapTileSignal {
+function signalFor(tab: ServerCatalogTab, sort: CatalogSort): MapTileSignal {
   if (tab === MapCatalogTab.Yours) {
     return MapTileSignal.Added
   }
@@ -571,12 +595,13 @@ export function MapCatalogList({
   density,
   windowStore,
   pick,
+  besideCount,
   onFiltersChange,
   onSortChange,
   onDensityChange,
   onClearFilters,
 }: {
-  tab: MapCatalogTab
+  tab: ServerCatalogTab
   params: CatalogParams
   filter: MapFilter
   sort: CatalogSort
@@ -584,6 +609,8 @@ export function MapCatalogList({
   windowStore: ListWindowStore
   /** When set, tiles pick maps instead of linking to their pages. */
   pick?: MapPickOptions
+  /** Shown next to the count, e.g. a link to the same search among the maps on this PC. */
+  besideCount?: React.ReactNode
   onFiltersChange: (changes: Partial<CatalogFilters>) => void
   onSortChange: (sort: CatalogSort) => void
   onDensityChange: (density: CatalogDensity) => void
@@ -678,6 +705,7 @@ export function MapCatalogList({
         sort={sort}
         density={density}
         totalCount={totalCount}
+        besideCount={besideCount}
         onFiltersChange={onFiltersChange}
         onSortChange={onSortChange}
         onDensityChange={onDensityChange}
@@ -697,7 +725,7 @@ function MapCatalogChunk({
   imageSize,
   pick,
 }: {
-  tab: MapCatalogTab
+  tab: ServerCatalogTab
   filter: MapFilter
   sort: CatalogSort
   after: string | null

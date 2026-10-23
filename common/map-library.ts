@@ -35,7 +35,8 @@ export interface LocalMapFile {
   fileSize: number
   /**
    * The hex-encoded SHA-256 of the file's lowercase extension followed by its contents, which is
-   * how the server identifies map files (`MapFile.id`). Unset if the file couldn't be read.
+   * how the server identifies map files (`MapFile.id` is the same hash, base64-encoded). Unset if
+   * the file couldn't be read.
    */
   hash?: string
   /** What the file says about itself. Unset if it couldn't be read as a map. */

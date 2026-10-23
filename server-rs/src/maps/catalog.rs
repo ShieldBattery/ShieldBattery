@@ -551,9 +551,9 @@ impl MapsQuery {
     }
 
     /// Looks up maps by the hashes of their files, listed or not. A file's hash is the
-    /// hex-encoded SHA-256 of its lowercase extension followed by its contents (the same as
-    /// `MapFile.id`), so the app can tell which of a user's local map files are already known
-    /// without uploading them. Hashes that match no map are left out, and the maps come back in
+    /// hex-encoded SHA-256 of its lowercase extension followed by its contents (`MapFile.id` is
+    /// the same hash, base64-encoded), so the app can tell which of a user's local map files are
+    /// already known without uploading them. Hashes that match no map are left out, and the maps come back in
     /// no particular order. Takes at most 500 hashes.
     async fn maps_by_hash(&self, ctx: &Context<'_>, hashes: Vec<String>) -> Result<Vec<SbMap>> {
         require_current_user(ctx)?;

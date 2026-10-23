@@ -14,7 +14,7 @@ import {
 } from '../../common/maps'
 import { UploadMapResponse } from '../../common/typeshare'
 import { apiUrl, urlPath } from '../../common/urls'
-import { openDialog, openSimpleDialog } from '../dialogs/action-creators'
+import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { ThunkAction } from '../dispatch-registry'
 import { buildGameListSearchParams } from '../games/game-filter-url'
@@ -26,7 +26,7 @@ import { fetchJson } from '../network/fetch'
 import { isFetchError } from '../network/fetch-errors'
 import { makeServerRsUrl } from '../network/server-url'
 import { UploadedMap } from './actions'
-import { ClientSideUploadError, upload, uploadFile } from './upload'
+import { ClientSideUploadError, uploadFile } from './upload'
 
 function fetchBatchMapInfo(mapIds: ReadonlyArray<SbMapId>, signal?: AbortSignal) {
   const params = mapIds.map(m => urlPath`m=${m}`).join('&')
@@ -35,25 +35,19 @@ function fetchBatchMapInfo(mapIds: ReadonlyArray<SbMapId>, signal?: AbortSignal)
 
 /**
  * Uploads a map file to the current user's own maps, returning the uploaded map along with the
- * info needed to display it. `file` is either a path on disk (app only) or a file the user picked,
- * whose upload progress is reported to `onProgress`.
+ * info needed to display it. Upload progress is reported to `onProgress`.
  */
 async function uploadMap(
-  file: string | File,
+  file: File,
   onProgress?: (fraction: number) => void,
 ): Promise<UploadedMap> {
   const url = makeServerRsUrl(urlPath`/maps`)
-  let mapId: SbMapId
-  if (typeof file === 'string') {
-    if (!IS_ELECTRON) {
-      throw new Error('cannot upload maps by path on non-electron clients')
-    }
-    mapId = (await upload<UploadMapResponse>(file, url, MAX_MAP_FILE_SIZE_BYTES)).mapId
-  } else {
-    mapId = (await uploadFile<UploadMapResponse>(file, url, MAX_MAP_FILE_SIZE_BYTES, onProgress))
-      .mapId
-  }
-
+  const { mapId } = await uploadFile<UploadMapResponse>(
+    file,
+    url,
+    MAX_MAP_FILE_SIZE_BYTES,
+    onProgress,
+  )
   return loadUploadedMap(mapId)
 }
 
@@ -94,27 +88,6 @@ export function mapUploadErrorMessage(err: unknown): string {
     'maps.local.uploadMapError',
     'An unknown error occurred while uploading the map. Please try again later.',
   )
-}
-
-/** Uploads a map file from disk to the user's own maps, showing a dialog if it fails. */
-export function uploadLocalMap(path: string, spec: RequestHandlingSpec<UploadedMap>): ThunkAction {
-  return abortableThunk(spec, async dispatch => {
-    try {
-      const result = await uploadMap(path)
-      dispatch({ type: '@maps/uploadMap', payload: result })
-      return result
-    } catch (err) {
-      dispatch(
-        openSimpleDialog(
-          i18n.t('maps.local.uploadMapErrorTitle', 'Error uploading the map'),
-          mapUploadErrorMessage(err),
-          true,
-        ),
-      )
-
-      throw err
-    }
-  })
 }
 
 /**
