@@ -77,6 +77,7 @@ mod monitors;
 mod pe_image;
 mod replay_save;
 mod replay_transport;
+mod replay_vision_choice;
 mod sdf_cache;
 mod shader_replaces;
 mod stat_txt;
@@ -570,6 +571,8 @@ pub struct BwScr {
     /// How replay playback is running, tracked off the command stream rather than read out of the
     /// game's own globals.
     replay_transport: Mutex<replay_transport::ReplayTransport>,
+    /// The replay visions the viewer chose, which SC:R's globals lose when it starts a replay over.
+    replay_vision_choice: Mutex<replay_vision_choice::ReplayVisionChoice>,
     /// What the overlay's options screen shows: the settings the app sent at launch, plus whatever
     /// the player has since moved there. Held here rather than in the overlay because the settings
     /// arrive long before the first frame is drawn.
@@ -3014,6 +3017,7 @@ impl BwScr {
             chat_manager: Mutex::new(chat::ChatManager::new()),
             chat_history: Mutex::new(chat_history::ChatHistory::new()),
             replay_transport: Mutex::new(replay_transport::ReplayTransport::new()),
+            replay_vision_choice: Mutex::new(replay_vision_choice::ReplayVisionChoice::new()),
             options: Mutex::new(overlay_ui::options::OptionsView::default()),
             engine_settings: Mutex::new(Default::default()),
             option_lists: Mutex::new(Arc::new(overlay_ui::options::OptionsLists::default())),
@@ -3203,6 +3207,7 @@ impl BwScr {
                                         if (*game).frame_count > frame {
                                             self.is_replay_seeking.store(true, Ordering::Relaxed);
                                             self.note_replay_restart();
+                                            self.note_replay_vision_restart();
                                         }
                                     }
                                 [commands::id::SYNC, ..] | [commands::id::NOP, ..]
@@ -4680,6 +4685,10 @@ impl BwScr {
                                 self.handle_debug_ui_actions(&overlay_out, &mut render_state);
                             }
                             if replay_visions != overlay_out.replay_visions {
+                                self.note_replay_vision_choice(
+                                    replay_visions,
+                                    overlay_out.replay_visions,
+                                );
                                 self.replay_visions.write(overlay_out.replay_visions);
                                 self.local_visions.write(overlay_out.replay_visions);
                                 // Has to be called here or otherwise there's minimap flicker
@@ -8841,6 +8850,7 @@ impl BwScr {
     #[cfg(debug_assertions)]
     pub(crate) unsafe fn rollback_set_replay_vision(&self, players: u8) {
         unsafe {
+            self.note_replay_vision_choice(self.replay_visions.resolve(), players);
             self.replay_visions.write(players);
             self.local_visions.write(players);
             game_thread::add_fow_sprites_for_replay_vision_change(self);
@@ -11555,6 +11565,7 @@ unsafe fn step_game_logic_hook(
         if game_thread::is_replay() {
             // Make replay buttons line up better with the pre-SC:R replay ui
             bw.offset_statbtn_dialog(3, -3);
+            bw.restore_replay_visions();
             bw.seek_to_replay_start_frame();
             bw.restore_replay_playback();
         } else {
