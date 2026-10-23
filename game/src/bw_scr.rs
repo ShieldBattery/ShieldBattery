@@ -3202,6 +3202,7 @@ impl BwScr {
                                         let game = self.game();
                                         if (*game).frame_count > frame {
                                             self.is_replay_seeking.store(true, Ordering::Relaxed);
+                                            self.note_replay_restart();
                                         }
                                     }
                                 [commands::id::SYNC, ..] | [commands::id::NOP, ..]
@@ -11555,6 +11556,7 @@ unsafe fn step_game_logic_hook(
             // Make replay buttons line up better with the pre-SC:R replay ui
             bw.offset_statbtn_dialog(3, -3);
             bw.seek_to_replay_start_frame();
+            bw.restore_replay_playback();
         } else {
             bw.record_replay_notice();
         }
