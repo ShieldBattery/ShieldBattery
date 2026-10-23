@@ -161,9 +161,13 @@ export class DiscordPresence {
     if (running && !this.discordWasRunning) {
       // The Discord desktop app just started (or restarted) and knows nothing of this activity.
       this.publishedActivity = null
-      this.schedulePublish()
     }
     this.discordWasRunning = running
+    // Discord creates its pipe before it accepts the SDK's connection, so a publish right after it
+    // starts can fail. Anything not shown yet is tried again on every check while it runs.
+    if (running && !isDeepStrictEqual(this.activity, this.publishedActivity)) {
+      this.schedulePublish()
+    }
   }
 
   private schedulePublish(): void {
@@ -197,17 +201,17 @@ export class DiscordPresence {
 
     logger.verbose(`Setting the Discord activity: ${JSON.stringify(activity)}`)
 
-    const onError = (err: unknown) => {
-      // Most often the Discord desktop app isn't running; when it starts, the activity is
-      // published again.
-      logger.verbose(`Couldn't update the Discord activity: ${getErrorStack(err)}`)
-      this.publishedActivity = null
-    }
     try {
-      updateRichPresence(client, toSdkActivity(activity)).catch(onError)
+      updateRichPresence(client, toSdkActivity(activity)).catch(err => {
+        // Most often the Discord desktop app isn't running or isn't ready yet. The next check for
+        // Discord tries again.
+        logger.verbose(`Couldn't update the Discord activity: ${getErrorStack(err)}`)
+        this.publishedActivity = null
+      })
     } catch (err) {
-      // The binding rejects malformed activities synchronously, before they reach the SDK.
-      onError(err)
+      // The binding rejects a malformed activity before it reaches the SDK. Trying it again
+      // wouldn't help, so it stays counted as published until the activity changes.
+      logger.error(`Discord rejected the activity: ${getErrorStack(err)}`)
     }
   }
 }
