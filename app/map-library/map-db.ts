@@ -186,6 +186,12 @@ export class MapDb {
     return row ? fromRow(row).map : undefined
   }
 
+  /** The path of an indexed, readable file with this hash. */
+  findPathByHash(hash: string): string | undefined {
+    const row = this.findByHashStmt.get(hash) as DbMapFileRow | undefined
+    return row?.path
+  }
+
   upsertFile(file: IndexedMapFile): void {
     const fileName = path.win32.basename(file.path)
     const baseName = fileName.slice(0, fileName.length - path.win32.extname(fileName).length)
