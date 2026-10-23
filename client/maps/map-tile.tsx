@@ -2,6 +2,7 @@ import { TFunction } from 'i18next'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { LocalMapFile, LocalMapInfo, LocalMapKind } from '../../common/map-library'
 import { urlForMap } from '../../common/map-url'
 import { filterColorCodes, SbMapId, Tileset, tilesetToName } from '../../common/maps'
 import { matchmakingTypeToLabel } from '../../common/matchmaking'
@@ -673,6 +674,137 @@ function LibraryMapMenu({
     </>
   )
 }
+
+function localMapMeta(map: LocalMapInfo, t: TFunction): string {
+  const players = t('maps.catalog.players', {
+    defaultValue: '{{count}} players',
+    defaultValue_one: '{{count}} player',
+    count: map.playerCount,
+  })
+  if (map.kind === LocalMapKind.Ums) {
+    const parts = [players, t('maps.catalog.lensUms', 'UMS')]
+    if (map.isEud) {
+      parts.push(t('maps.page.eud', 'EUD'))
+    }
+    return parts.join(' · ')
+  }
+  return [players, `${map.width}×${map.height}`, tilesetToName(map.tileset as Tileset, t)].join(
+    ' · ',
+  )
+}
+
+/** The name a map file on this PC goes by: its own name, else its file name. */
+export function localMapName(file: LocalMapFile): string {
+  if (file.map?.name) {
+    return file.map.name
+  }
+  const dot = file.fileName.lastIndexOf('.')
+  return dot === -1 ? file.fileName : file.fileName.slice(0, dot)
+}
+
+/**
+ * A map file on this PC that the server doesn't have (yet), read from the file itself. Choosing it
+ * uploads it. Until the server has been asked about the file (`checking`), it shows no status.
+ */
+export function LocalMapTile({
+  file,
+  checking,
+  upload,
+  folderLabel,
+  onActivate,
+}: {
+  file: LocalMapFile
+  checking: boolean
+  /** The file's upload, while it's being uploaded or after it failed. */
+  upload?: { progress?: number; error?: string }
+  /** Where the file is, for listings that span folders. */
+  folderLabel?: string
+  onActivate: () => void
+}) {
+  const { t } = useTranslation()
+  const uploading = !!upload && !upload.error
+  const readable = !!file.map
+
+  let signal: React.ReactNode = null
+  if (upload?.error) {
+    signal = (
+      <Signal
+        $tone={SignalTone.Error}
+        text={t('maps.local.cantBeUsed', {
+          defaultValue: "Can't be used: {{reason}}",
+          reason: upload.error,
+        })}
+      />
+    )
+  } else if (uploading) {
+    signal = (
+      <Signal
+        text={
+          upload.progress === undefined
+            ? t('maps.catalog.uploading', 'Uploading…')
+            : t('maps.catalog.uploadingPercent', {
+                defaultValue: 'Uploading… {{percent}}%',
+                percent: Math.floor(upload.progress * 100),
+              })
+        }
+      />
+    )
+  } else if (!checking && readable) {
+    signal = <Signal text={t('maps.local.notUploaded', 'Not uploaded yet')} />
+  }
+
+  return (
+    <Root>
+      <TilePickButton
+        type='button'
+        disabled={!readable || uploading}
+        title={file.path}
+        onClick={onActivate}>
+        <LocalImage>
+          <MaterialIcon icon={readable ? 'map' : 'block'} size={40} />
+          {uploading && upload.progress !== undefined ? (
+            <ProgressTrack>
+              <ProgressFill style={{ width: `${upload.progress * 100}%` }} />
+            </ProgressTrack>
+          ) : null}
+        </LocalImage>
+        <Text>
+          <Name text={filterColorCodes(localMapName(file))} />
+          <Meta
+            text={
+              file.map
+                ? localMapMeta(file.map, t)
+                : t('maps.local.unreadable', "Can't read this map file")
+            }
+          />
+          {folderLabel ? <Meta text={folderLabel} /> : null}
+          {signal}
+        </Text>
+      </TilePickButton>
+    </Root>
+  )
+}
+
+const LocalImage = styled.div`
+  aspect-ratio: 1;
+  width: 100%;
+  padding: 16px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+
+  border: 1px solid rgb(from var(--color-blue80) r g b / 0.12);
+  border-radius: 6px;
+  background-color: var(--theme-container-low);
+  color: var(--theme-on-surface-variant);
+
+  ${TilePickButton}:hover:not(:disabled) & {
+    outline: 2px solid var(--theme-outline-variant);
+  }
+`
 
 /** A tile-shaped placeholder for a map file that's being uploaded, or that failed to upload. */
 export function PendingMapTile({
