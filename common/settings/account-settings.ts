@@ -62,6 +62,28 @@ export interface AccountSettings {
    * `common/replay-name-template.ts` for the token syntax).
    */
   replayNameTemplate: string
+  /**
+   * Whether the desktop app shows the user's lobbies and games as Rich Presence on the Discord
+   * account signed in to the Discord desktop app on the same computer.
+   */
+  shareDiscordActivity: DiscordActivitySharing
+}
+
+/**
+ * Whether the user shares their activity on Discord. `notAsked` means they haven't answered yet:
+ * nothing is shared, and the desktop app asks once while Discord runs (see
+ * `client/discord/discord-activity-prompt.tsx`). Changing it in Settings answers it too.
+ */
+export type DiscordActivitySharing = 'notAsked' | 'on' | 'off'
+
+export const ALL_DISCORD_ACTIVITY_SHARING: ReadonlyArray<DiscordActivitySharing> = [
+  'notAsked',
+  'on',
+  'off',
+]
+
+export function isDiscordActivitySharing(value: unknown): value is DiscordActivitySharing {
+  return ALL_DISCORD_ACTIVITY_SHARING.includes(value as DiscordActivitySharing)
 }
 
 /**
@@ -87,6 +109,7 @@ export const DEFAULT_ACCOUNT_SETTINGS: ReadonlyDeep<AccountSettings> = {
   chatDisplayMode: 'classic',
   hideBlockedMessages: false,
   replayNameTemplate: DEFAULT_REPLAY_NAME_TEMPLATE,
+  shareDiscordActivity: 'notAsked',
 }
 
 export const ALL_ACCOUNT_SETTINGS_KEYS: ReadonlyArray<keyof AccountSettings> = Object.keys(
@@ -121,6 +144,9 @@ export function fillAccountSettingsDefaults(stored: unknown): AccountSettings {
   }
   if (result.replayNameTemplate.length > MAX_REPLAY_NAME_TEMPLATE_LENGTH) {
     result.replayNameTemplate = DEFAULT_ACCOUNT_SETTINGS.replayNameTemplate
+  }
+  if (!isDiscordActivitySharing(result.shareDiscordActivity)) {
+    result.shareDiscordActivity = DEFAULT_ACCOUNT_SETTINGS.shareDiscordActivity
   }
 
   return result

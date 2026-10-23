@@ -4,6 +4,9 @@
 appId: net.shieldbattery.client
 extraResources:
   - game/dist/**
+  # The Discord Social SDK, which never lives in the repo (see docs/DISCORD_SDK.md)
+  - discord-sdk/discord_partner_sdk.dll
+  - discord-sdk/License-Notices.txt
 files:
   - 'assets/**/*'
   - 'dist/**/*'

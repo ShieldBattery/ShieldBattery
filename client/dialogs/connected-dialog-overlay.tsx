@@ -137,6 +137,9 @@ const CreatePlaylistDialog = React.lazy(async () => ({
 const DeletePlaylistDialog = React.lazy(async () => ({
   default: (await import('../replays/playlist-dialogs')).DeletePlaylistDialog,
 }))
+const DiscordActivityPromptDialog = React.lazy(async () => ({
+  default: (await import('../discord/discord-activity-prompt')).DiscordActivityPromptDialog,
+}))
 const RenamePlaylistDialog = React.lazy(async () => ({
   default: (await import('../replays/playlist-dialogs')).RenamePlaylistDialog,
 }))
@@ -241,6 +244,10 @@ function getDialog(dialogType: DialogType): {
       return { component: CreatePlaylistDialog }
     case DialogType.DeletePlaylist:
       return { component: DeletePlaylistDialog }
+    case DialogType.DiscordActivityPrompt:
+      // Modal, so a click outside it can't close it without going through its own cancel, which
+      // records the closing as declining.
+      return { component: DiscordActivityPromptDialog, modal: true }
     case DialogType.Download:
       return { component: DownloadDialog }
     case DialogType.EmailVerification:
