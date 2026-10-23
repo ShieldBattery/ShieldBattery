@@ -1099,7 +1099,6 @@
   },
   "discord": {
     "activity": {
-      "matchupImage": "{{own}} vs {{opponent}}",
       "modeWithMatchup": "{{mode}} · {{matchup}}",
       "modeWithRace": "{{mode}} · {{race}}",
       "observing": "Observing {{mode}}",
