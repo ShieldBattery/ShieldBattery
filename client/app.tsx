@@ -16,6 +16,8 @@ import { useSelfUser } from './auth/auth-utils'
 import { RestrictionClearer } from './auth/restriction-clearer'
 import './dom/window-focus'
 import { ConnectedDialogOverlay } from './dialogs/connected-dialog-overlay'
+import { DiscordActivityFirstRunPrompt } from './discord/discord-activity-prompt'
+import { DiscordActivitySync } from './discord/discord-activity-sync'
 import { UpdateOverlay, UpdateOverlayErrorBoundary } from './download/update-overlay'
 import { FileDropZoneProvider } from './file-browser/file-drop-zone'
 import { GameplayActivityWidget } from './gameplay-activity/gameplay-activity-widget'
@@ -284,6 +286,8 @@ const AppContent = React.memo(() => {
       {IS_ELECTRON ? <ActiveGameBlockSync /> : null}
       {IS_ELECTRON ? <ActiveGameReportFiler /> : null}
       {IS_ELECTRON ? <GameDefaultsFirstRunPrompt /> : null}
+      {IS_ELECTRON ? <DiscordActivityFirstRunPrompt /> : null}
+      {IS_ELECTRON ? <DiscordActivitySync /> : null}
       <LazyConnectedSettings />
       <DraftScreenOverlay />
       <ConnectedDialogOverlay />

@@ -18,6 +18,9 @@ importers:
       '@shieldbattery/broodrep':
         specifier: ^0.6.0
         version: 0.6.0
+      '@shieldbattery/danimoth':
+        specifier: ^0.1.1
+        version: 0.1.1
       '@shieldbattery/stimpack':
         specifier: ^1.1.1
         version: 1.1.1
@@ -60,6 +63,9 @@ packages:
   '@shieldbattery/broodrep@0.6.0':
     resolution: {integrity: sha512-HUxGjAOKzjnCuWVoaRGZmtUF5RgzVPmbhNTULhWDg+U6U7eiB/yLi/Y9FbTatznX0DyqECnhDykBl9jG1ueC1A==}
     engines: {node: '>= 22.12.0'}
+
+  '@shieldbattery/danimoth@0.1.1':
+    resolution: {integrity: sha512-DrwqE/x2ApzJM6AKbiFUGnc5DvotgO7JChy5EWW/lhNQ+Pn8tKReEUBYEyscG9inXzDRbYMEJjvsENgKeTONig==}
 
   '@shieldbattery/stimpack@1.1.1':
     resolution: {integrity: sha512-ARCnteIHIJCUiZrhZevEnBjQTM/k9VjDpmijUTPes4Q2giSpk8VpLEIxbtF8dsH9BLzBqphNEO2MybeRR+Q1pQ==}
@@ -356,6 +362,8 @@ snapshots:
   '@bufbuild/protobuf@2.16.0': {}
 
   '@shieldbattery/broodrep@0.6.0': {}
+
+  '@shieldbattery/danimoth@0.1.1': {}
 
   '@shieldbattery/stimpack@1.1.1': {}
 

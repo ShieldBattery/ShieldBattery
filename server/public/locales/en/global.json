@@ -1097,6 +1097,22 @@
       "validatorError": "An unknown error occurred while validating this field"
     }
   },
+  "discord": {
+    "activity": {
+      "inLobby": "In a lobby",
+      "observing": "Observing {{mode}}",
+      "rankedMode": "Ranked {{mode}}"
+    },
+    "activityPrompt": {
+      "decline": "No thanks",
+      "enable": "Show my activity",
+      "footnote": "Nothing shows while you’re not in a lobby or a game. You can change this later in Settings › Connections.",
+      "intro": "ShieldBattery can show what you’re doing on the Discord account signed in to the Discord app on this computer:",
+      "sharedGame": "The game mode, with the matchup or the map name, and how long the game has been going",
+      "sharedLobby": "The name of the lobby you’re in, with a Join button for listed lobbies",
+      "title": "Show your activity on Discord?"
+    }
+  },
   "fileBrowser": {
     "rootFolder": "Root folder",
     "upOneDirectory": "Up one directory"
@@ -1677,6 +1693,9 @@
     "assetAuthor": "By {{author}}",
     "assetModifications": "Changes: {{modifications}}",
     "assetsHeader": "Fonts, sounds, and icons",
+    "discordSdkDescription": "The app shows your activity on Discord through the Discord Social SDK, which includes other open source software.",
+    "discordSdkHeader": "Discord Social SDK",
+    "discordSdkUnavailable": "This build doesn't include the Discord Social SDK.",
     "electronDescription": "The app is built on Electron, which includes Chromium and other open source software. Their licenses are in LICENSE.electron.txt and LICENSES.chromium.html, in the folder ShieldBattery is installed to.",
     "electronHeader": "Electron and Chromium",
     "gameDescription": "Open source software and fonts included in the part of ShieldBattery that runs inside StarCraft.",
@@ -3235,6 +3254,12 @@
       },
       "connections": {
         "description": "Link external accounts to your ShieldBattery profile.",
+        "discord": {
+          "description": "Show what you’re doing on ShieldBattery on your Discord profile.",
+          "name": "Discord",
+          "note": "Shows your lobby or game on the Discord account signed in to the Discord app on the same computer as the ShieldBattery app.",
+          "showActivity": "Show my activity on Discord"
+        },
         "title": "Connections",
         "twitch": {
           "connect": "Connect",

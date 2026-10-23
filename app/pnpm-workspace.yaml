@@ -6,6 +6,7 @@ minimumReleaseAge: 10080
 # first-party packages we publish ourselves don't need the quarantine
 minimumReleaseAgeExclude:
   - '@shieldbattery/broodrep'
+  - '@shieldbattery/danimoth'
 
 overrides:
   '@types/node': 24.13.3
