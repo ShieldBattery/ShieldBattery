@@ -280,12 +280,12 @@ pub(crate) fn paint_picked_race_chip(
     }
     let diameter = rect.width().min(rect.height());
     let center = rect.center() + Vec2::splat(diameter * RANDOM_DIE_OFFSET);
-    let die = race_icon::die_rect(
+    race_icon::paint_die(
+        ui.painter(),
         center,
         diameter * RANDOM_DIE_RATIO,
-        ui.ctx().pixels_per_point(),
+        RANDOM.gamma_multiply(alpha),
     );
-    race_icon::paint_die(ui.painter(), die, RANDOM.gamma_multiply(alpha));
 }
 
 /// How strongly a race chip's disc is filled with the race's color: enough to read as the chip's
