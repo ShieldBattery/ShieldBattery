@@ -1054,6 +1054,12 @@ export type MapSpawnsTestMapQuery = {
   } | null
 }
 
+export type LocalKnownMapQueryVariables = Exact<{
+  hashes: Array<string> | string
+}>
+
+export type LocalKnownMapQuery = { mapsByHash: Array<{ id: Types.SbMapId; name: string }> }
+
 export type MapCatalogAllQueryVariables = Exact<{
   filter?: MapFilter | null | undefined
   sort?: MapSort | null | undefined
@@ -1152,18 +1158,6 @@ export type MapFileImage_FileFragmentFragment = {
   umsContent: boolean | null
   startLocations: Array<{ id: string; slot: number; x: number; y: number }>
 } & { ' $fragmentName'?: 'MapFileImage_FileFragmentFragment' }
-
-export type LocalKnownMapsQueryVariables = Exact<{
-  hashes: Array<string> | string
-}>
-
-export type LocalKnownMapsQuery = {
-  mapsByHash: Array<
-    { id: Types.SbMapId; file: { id: string } } & {
-      ' $fragmentRefs'?: { MapTile_SbMapFragmentFragment: MapTile_SbMapFragmentFragment }
-    }
-  >
-}
 
 export type LocalAddToLibraryMutationVariables = Exact<{
   id: Types.SbMapId
@@ -6652,6 +6646,55 @@ export const MapSpawnsTestMapDocument = {
     },
   ],
 } as unknown as DocumentNode<MapSpawnsTestMapQuery, MapSpawnsTestMapQueryVariables>
+export const LocalKnownMapDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'LocalKnownMap' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'hashes' } },
+          type: {
+            kind: 'NonNullType',
+            type: {
+              kind: 'ListType',
+              type: {
+                kind: 'NonNullType',
+                type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+              },
+            },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'mapsByHash' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'hashes' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'hashes' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<LocalKnownMapQuery, LocalKnownMapQueryVariables>
 export const MapCatalogAllDocument = {
   kind: 'Document',
   definitions: [
@@ -7463,167 +7506,6 @@ export const MapRemoveFavoriteDocument = {
     },
   ],
 } as unknown as DocumentNode<MapRemoveFavoriteMutation, MapRemoveFavoriteMutationVariables>
-export const LocalKnownMapsDocument = {
-  kind: 'Document',
-  definitions: [
-    {
-      kind: 'OperationDefinition',
-      operation: 'query',
-      name: { kind: 'Name', value: 'LocalKnownMaps' },
-      variableDefinitions: [
-        {
-          kind: 'VariableDefinition',
-          variable: { kind: 'Variable', name: { kind: 'Name', value: 'hashes' } },
-          type: {
-            kind: 'NonNullType',
-            type: {
-              kind: 'ListType',
-              type: {
-                kind: 'NonNullType',
-                type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
-              },
-            },
-          },
-        },
-      ],
-      selectionSet: {
-        kind: 'SelectionSet',
-        selections: [
-          {
-            kind: 'Field',
-            name: { kind: 'Name', value: 'mapsByHash' },
-            arguments: [
-              {
-                kind: 'Argument',
-                name: { kind: 'Name', value: 'hashes' },
-                value: { kind: 'Variable', name: { kind: 'Name', value: 'hashes' } },
-              },
-            ],
-            selectionSet: {
-              kind: 'SelectionSet',
-              selections: [
-                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                {
-                  kind: 'Field',
-                  name: { kind: 'Name', value: 'file' },
-                  selectionSet: {
-                    kind: 'SelectionSet',
-                    selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
-                  },
-                },
-                { kind: 'FragmentSpread', name: { kind: 'Name', value: 'MapTile_SbMapFragment' } },
-              ],
-            },
-          },
-        ],
-      },
-    },
-    {
-      kind: 'FragmentDefinition',
-      name: { kind: 'Name', value: 'MapFileImage_FileFragment' },
-      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'MapFile' } },
-      selectionSet: {
-        kind: 'SelectionSet',
-        selections: [
-          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'image256Url' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'image512Url' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'image1024Url' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'image2048Url' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'imageSpawnsBaked' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'width' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'height' } },
-          {
-            kind: 'Field',
-            name: { kind: 'Name', value: 'startLocations' },
-            selectionSet: {
-              kind: 'SelectionSet',
-              selections: [
-                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'slot' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'x' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'y' } },
-              ],
-            },
-          },
-          { kind: 'Field', name: { kind: 'Name', value: 'umsContent' } },
-        ],
-      },
-    },
-    {
-      kind: 'FragmentDefinition',
-      name: { kind: 'Name', value: 'MapTile_SbMapFragment' },
-      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'SbMap' } },
-      selectionSet: {
-        kind: 'SelectionSet',
-        selections: [
-          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'name' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'playerCount' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'official' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'listed' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'isFavorited' } },
-          {
-            kind: 'Field',
-            name: { kind: 'Name', value: 'stats' },
-            selectionSet: {
-              kind: 'SelectionSet',
-              selections: [
-                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'games7d' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'games28d' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'gamesTotal' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'trendingScore' } },
-              ],
-            },
-          },
-          {
-            kind: 'Field',
-            name: { kind: 'Name', value: 'file' },
-            selectionSet: {
-              kind: 'SelectionSet',
-              selections: [
-                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                {
-                  kind: 'FragmentSpread',
-                  name: { kind: 'Name', value: 'MapFileImage_FileFragment' },
-                },
-                { kind: 'Field', name: { kind: 'Name', value: 'width' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'height' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'tileset' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'isEud' } },
-                {
-                  kind: 'Field',
-                  name: { kind: 'Name', value: 'umsForces' },
-                  selectionSet: {
-                    kind: 'SelectionSet',
-                    selections: [
-                      { kind: 'Field', name: { kind: 'Name', value: 'name' } },
-                      { kind: 'Field', name: { kind: 'Name', value: 'teamId' } },
-                      {
-                        kind: 'Field',
-                        name: { kind: 'Name', value: 'players' },
-                        selectionSet: {
-                          kind: 'SelectionSet',
-                          selections: [
-                            { kind: 'Field', name: { kind: 'Name', value: 'playerId' } },
-                            { kind: 'Field', name: { kind: 'Name', value: 'isComputer' } },
-                          ],
-                        },
-                      },
-                    ],
-                  },
-                },
-              ],
-            },
-          },
-        ],
-      },
-    },
-  ],
-} as unknown as DocumentNode<LocalKnownMapsQuery, LocalKnownMapsQueryVariables>
 export const LocalAddToLibraryDocument = {
   kind: 'Document',
   definitions: [

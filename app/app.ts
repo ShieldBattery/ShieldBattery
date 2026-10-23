@@ -6,6 +6,7 @@ import {
   desktopCapturer,
   dialog,
   Menu,
+  nativeImage,
   powerMonitor,
   protocol,
   screen,
@@ -29,7 +30,7 @@ import swallowNonBuiltins from '../common/async/swallow-non-builtins'
 import { DEEP_LINK_SCHEMES } from '../common/deep-links'
 import { getErrorStack } from '../common/errors'
 import { TwitchOauthFlowResult, TypedIpcMain, TypedIpcSender } from '../common/ipc'
-import { LocalMapRoot } from '../common/map-library'
+import { LOCAL_MAP_IMAGE_PATH_PREFIX, LocalMapRoot } from '../common/map-library'
 import { LocalSettings } from '../common/settings/local-settings'
 import { setAppId } from './app-id'
 import { APP_ROOT } from './app-paths'
@@ -51,6 +52,8 @@ import { appLogBaseName, gameLogBaseName } from './log-paths'
 import logger from './logger'
 import { LocalMapLibraryService, setupLocalMapLibrary } from './map-library'
 import { MapRootFolder } from './map-library/map-folders'
+import { LOCAL_MAP_JPEG_QUALITY, LocalMapImages } from './map-library/map-images'
+import { WorkerMapImageRenderer } from './map-library/worker/map-renderer-client'
 import { ReplayLibraryService, setupReplayLibrary } from './replay-library'
 import { parseReplayChat, parseReplayMetadata } from './replay-library/replay-parser'
 import { LocalSettingsManager, ScrSettingsManager } from './settings'
@@ -160,6 +163,7 @@ let systemTray: SystemTray
 let gameServer: GameServer
 let replayLibrary: ReplayLibraryService | undefined
 let localMapLibrary: LocalMapLibraryService | undefined
+let localMapImages: LocalMapImages | undefined
 // The replay folders last handed to the library service, so a settings change is only forwarded
 // when the resolved list actually differs. Seeded when the service is created.
 let lastReplayFolders: string[] | undefined
@@ -1138,7 +1142,14 @@ function setupCspProtocol(curSession: Session) {
     const pathname = path.posix.normalize(url.pathname)
 
     try {
-      if (pathname.match(/^\/(assets|dist)\/.+$/)) {
+      if (pathname.startsWith(LOCAL_MAP_IMAGE_PATH_PREFIX)) {
+        const image = await localMapImages?.getImage(
+          pathname.slice(LOCAL_MAP_IMAGE_PATH_PREFIX.length),
+        )
+        return image
+          ? new Response(new Uint8Array(image), { headers: { 'content-type': 'image/jpeg' } })
+          : new Response('Not Found', { status: 404, statusText: 'Not Found' })
+      } else if (pathname.match(/^\/(assets|dist)\/.+$/)) {
         const contents = await readFile(path.join(APP_ROOT, pathname))
         // TODO(tec27): Unsure if this is the best way to convert this to something that TS 5.9 is
         // happy with to pass to Response?
@@ -1578,10 +1589,26 @@ app.on('ready', () => {
         const dbFileName = sbSessionName
           ? `map-library-${sbSessionName}.sqlite`
           : 'map-library.sqlite'
-        localMapLibrary = setupLocalMapLibrary({
+        const library = setupLocalMapLibrary({
           dbPath: path.join(app.getPath('userData'), dbFileName),
           roots,
           getSender: () => TypedIpcSender.from(mainWindow?.webContents),
+        })
+        localMapLibrary = library
+        localMapImages = new LocalMapImages({
+          // Shared by dev instances: images are keyed by file hash and game build, not by session
+          cacheDir: path.join(app.getPath('userData'), 'map-images'),
+          getInstallPath: async () => (await localSettings.get()).starcraftPath,
+          findPathByHash: hash => library.findPathByHash(hash),
+          renderer: new WorkerMapImageRenderer(),
+          encodeJpeg: ({ width, height, bgra }) =>
+            nativeImage
+              .createFromBitmap(Buffer.from(bgra.buffer, bgra.byteOffset, bgra.byteLength), {
+                width,
+                height,
+              })
+              .toJPEG(LOCAL_MAP_JPEG_QUALITY),
+          logger,
         })
       } catch (err) {
         logger.error(`Error setting up the local map library: ${getErrorStack(err)}`)

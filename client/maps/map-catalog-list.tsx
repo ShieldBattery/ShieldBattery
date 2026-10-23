@@ -92,7 +92,8 @@ export interface ListWindowStore {
 
 /** Turns a listing's tiles into buttons that pick a map (for a lobby) rather than links. */
 export interface MapPickOptions {
-  onPick: (mapId: SbMapId) => void
+  /** Picks the map. Resolves with whether the pick succeeded. */
+  onPick: (mapId: SbMapId) => Promise<boolean>
   /** The map currently chosen, marked on its tile. */
   selectedMapId?: SbMapId
   /** Where each map sits in the lobby's map queue (1-based), for maps that are queued. */
@@ -751,7 +752,9 @@ function MapCatalogChunk({
             pick={
               pick
                 ? {
-                    onPick: () => pick.onPick(mapId),
+                    onPick: () => {
+                      pick.onPick(mapId).catch(() => {})
+                    },
                     selected: pick.selectedMapId === mapId,
                     queuePositions: pick.queuePositions?.get(mapId),
                     pending: pick.pendingMapId === mapId,
