@@ -7,6 +7,12 @@ extraResources:
   # every directory in the project.
   - from: game/dist
     to: game/dist
+  # The Discord Social SDK, which never lives in the repo (see docs/DISCORD_SDK.md)
+  - from: discord-sdk
+    to: discord-sdk
+    filter:
+      - discord_partner_sdk.dll
+      - License-Notices.txt
 files:
   - 'assets/**/*'
   - 'dist/**/*'
