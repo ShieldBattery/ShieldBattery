@@ -495,15 +495,15 @@ export function Chat({
   const chatSurfaceKey = localMessageTarget ? localMessageTargetKey(localMessageTarget) : undefined
 
   const recordChatSurface = useEffectEvent(() => {
-    if (localMessageTarget !== undefined) {
+    if (localMessageTarget !== undefined && localMessageTarget.surface !== 'whisper') {
       jotaiStore.set(lastChatSurfaceAtom, localMessageTarget)
     }
   })
 
-  // Records this surface as the one a message with no conversation of its own (a whisper echoed
-  // from elsewhere) should land in. Never cleared: once the user navigates away, the conversation
-  // they were last in is still the one they'll come back to, which is a better home for such a
-  // message than nowhere at all.
+  // Records this surface, if it's a channel or lobby, as the one a message with no conversation of
+  // its own (a whisper echoed from elsewhere) should land in. Never cleared: once the user navigates
+  // away, the conversation they were last in is still the one they'll come back to, which is a
+  // better home for such a message than nowhere at all.
   useEffect(() => {
     recordChatSurface()
   }, [chatSurfaceKey])

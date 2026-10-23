@@ -84,12 +84,8 @@ const eventToAction: EventToActionMap = {
       }
       if (!isBlocked && accountSettings.showWhispersEverywhere) {
         const surface = jotaiStore.get(lastChatSurfaceAtom)
-        // With no surface seen yet there is nowhere to show the whisper, and the whisper's own
-        // conversation already shows it: echoing it there too would show it twice.
-        if (
-          surface !== undefined &&
-          !(surface.surface === 'whisper' && surface.userId === target)
-        ) {
+        // With no channel or lobby seen yet there is nowhere to show the whisper.
+        if (surface !== undefined) {
           dispatch({
             type: '@messaging/appendLocalMessage',
             payload: {
