@@ -1590,17 +1590,21 @@ impl OverlayState {
                         // A held key repeating: the shell took the press, so the repeats are its
                         // too, whatever it does with them.
                         if let Some(key) = key {
-                            self.shell.key_pressed(key, modifiers);
+                            self.shell.key_repeated(key, modifiers);
                         }
                         return Some(0);
                     }
+                    // Windows marks a repeat by the key having been down already. The shell is only
+                    // offered presses: a repeat of one it did not take belongs to whatever did,
+                    // even once a modal has opened that the same key would answer.
+                    let fresh_press = pressed && lparam & (1 << 30) == 0;
                     if let Some(key) = key {
                         // SC:R's menu keys are the shell's whatever has the keyboard, and so is
                         // every key while a modal whose buttons answer to keys is up: they type
                         // nothing, and a focused control would otherwise take the key that is meant
                         // for one of the buttons. The shell leaves what it has no use for, such as a
                         // focused slider's arrow keys, to go on to the control.
-                        if pressed
+                        if fresh_press
                             && (hotkeys::is_game_menu_key(key, modifiers)
                                 || self
                                     .shell
@@ -1628,7 +1632,7 @@ impl OverlayState {
                         }
                         // Nothing focused wanted the key, so the shell gets its turn at it before
                         // the game does. It takes only what it can act on.
-                        if pressed && self.shell.key_pressed(key, modifiers) {
+                        if fresh_press && self.shell.key_pressed(key, modifiers) {
                             self.shell_held_keys.push(scan_code);
                             return Some(0);
                         }
