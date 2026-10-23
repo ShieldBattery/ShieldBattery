@@ -254,6 +254,29 @@ export function channelNeedsAttention(
   )
 }
 
+// These loop rather than using iterator helpers (`joinedChannels.values().some(...)`)
+// because those are missing from Safari before 18.4, which the web client still supports.
+
+/** Returns whether any joined channel passes `channelNeedsAttention`. */
+export function anyChannelNeedsAttention(chatState: Immutable<ChatState>): boolean {
+  for (const channelId of chatState.joinedChannels) {
+    if (channelNeedsAttention(chatState, channelId)) {
+      return true
+    }
+  }
+  return false
+}
+
+/** Returns whether any joined channel passes `channelHasUnreadMention`. */
+export function anyChannelHasUnreadMention(chatState: Immutable<ChatState>): boolean {
+  for (const channelId of chatState.joinedChannels) {
+    if (channelHasUnreadMention(chatState, channelId)) {
+      return true
+    }
+  }
+  return false
+}
+
 function removeUserFromChannel(
   state: ChatState,
   channelId: SbChannelId,

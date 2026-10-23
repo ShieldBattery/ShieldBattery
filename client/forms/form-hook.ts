@@ -192,13 +192,17 @@ export function useForm<ModelType extends Record<string, any>>(
 
       const validator = validations[name]!
       const controller = new AbortController()
-      const resultPromise = Promise.try(() =>
-        validator(
-          (model as ModelType)[name],
-          model,
-          dirtyFields as ReadonlyMap<keyof ModelType, boolean>,
-          t,
-          controller.signal,
+      // Equivalent to `Promise.try` (catches synchronous throws too), which is missing from Safari
+      // before 18.2
+      const resultPromise = new Promise<string | undefined>(resolve =>
+        resolve(
+          validator(
+            (model as ModelType)[name],
+            model,
+            dirtyFields as ReadonlyMap<keyof ModelType, boolean>,
+            t,
+            controller.signal,
+          ),
         ),
       )
         .then(errorMsg => {

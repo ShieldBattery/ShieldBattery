@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { TypedIpcRenderer } from '../../common/ipc'
-import { channelHasUnreadMention, channelNeedsAttention } from '../chat/chat-reducer'
+import { anyChannelHasUnreadMention, anyChannelNeedsAttention } from '../chat/chat-reducer'
 import { useAppSelector } from '../redux-hooks'
 import { hasAttentionWorthyWhisper } from '../whispers/whisper-reducer'
 
@@ -9,14 +9,14 @@ const ipcRenderer = new TypedIpcRenderer()
 function UnreadTraySyncImpl() {
   const hasUnread = useAppSelector(
     s =>
-      s.chat.joinedChannels.values().some(id => channelNeedsAttention(s.chat, id)) ||
+      anyChannelNeedsAttention(s.chat) ||
       hasAttentionWorthyWhisper(s.whispers, s.relationships.blocks),
   )
   // A whisper is inherently directed at the current user, so any unread whisper counts as urgent
   // alongside a channel message that mentions them.
   const hasUnreadUrgent = useAppSelector(
     s =>
-      s.chat.joinedChannels.values().some(id => channelHasUnreadMention(s.chat, id)) ||
+      anyChannelHasUnreadMention(s.chat) ||
       hasAttentionWorthyWhisper(s.whispers, s.relationships.blocks),
   )
 

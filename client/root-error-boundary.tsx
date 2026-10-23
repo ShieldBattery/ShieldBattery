@@ -57,11 +57,23 @@ function SystemBarReplacement() {
 const Container = styled.div`
   width: 100%;
   height: calc(100% - var(--sb-system-bar-height, 0px));
+  overflow-y: auto;
 
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+
+  /*
+    Auto margins center the contents vertically, but unlike justify-content: center they
+    collapse when the contents overflow, so a tall stack stays scrollable from its top.
+  */
+  & > :first-child {
+    margin-top: auto;
+  }
+
+  & > :last-child {
+    margin-bottom: auto;
+  }
 `
 
 const ErrorInfo = styled.div`
@@ -70,7 +82,8 @@ const ErrorInfo = styled.div`
   margin: 16px;
 
   color: var(--theme-on-surface-variant);
-  white-space: pre;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 
   &,
   & * {
@@ -88,6 +101,31 @@ const Actions = styled.div`
   display: flex;
   gap: 16px;
 `
+
+/** How many stack frames to display, past which it's usually just React walking the tree. */
+const MAX_DISPLAYED_FRAMES = 20
+
+/**
+ * Formats `error` with its message, which only V8 includes in `error.stack` (WebKit and Firefox
+ * stacks are just the frames).
+ */
+function describeError(error: unknown, maxFrames = Infinity): string {
+  if (!(error instanceof Error)) {
+    return String(error)
+  }
+
+  const header = `${error.name}: ${error.message}`
+  const stack = error.stack ?? ''
+  const frames = (stack.startsWith(header) ? stack.slice(header.length) : stack)
+    .split('\n')
+    .filter(f => f.trim() !== '')
+
+  const shown = frames.slice(0, maxFrames)
+  if (frames.length > shown.length) {
+    shown.push(`... ${frames.length - shown.length} more`)
+  }
+  return [header, ...shown].join('\n')
+}
 
 /**
  * A React error boundary that is intended to be attached at the application root. This should be
@@ -107,7 +145,7 @@ export class RootErrorBoundary extends React.Component<
   }
 
   override componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    logger.error(`RootErrorBoundary caught an error: ${String(error.stack ?? error)}`)
+    logger.error(`RootErrorBoundary caught an error: ${describeError(error)}`)
     logger.error(`React stack:\n${errorInfo.componentStack}`)
   }
 
@@ -218,7 +256,7 @@ function TranslatedErrorContents({
   return (
     <>
       <TitleLarge>{t('rootErrorBoundary.title', 'Something went wrong :(')}</TitleLarge>
-      <ErrorInfo>{String(rootError.stack ?? rootError)}</ErrorInfo>
+      <ErrorInfo>{describeError(rootError, MAX_DISPLAYED_FRAMES)}</ErrorInfo>
       <Instructions>
         <Trans t={t} i18nKey='rootErrorBoundary.contents'>
           Please report this issue to us in our{' '}
@@ -252,7 +290,7 @@ function StaticErrorContents({
   return (
     <>
       <TitleLarge>Something went wrong :(</TitleLarge>
-      <ErrorInfo>{String(rootError.stack ?? rootError)}</ErrorInfo>
+      <ErrorInfo>{describeError(rootError, MAX_DISPLAYED_FRAMES)}</ErrorInfo>
       <Instructions>
         Please report this issue to us in our{' '}
         <a href={DISCORD_URL} title='Discord' target='_blank' rel='noopener'>
