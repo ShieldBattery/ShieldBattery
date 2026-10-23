@@ -123,12 +123,12 @@ describe('client/discord/discord-activity', () => {
         details: 'Melee · PvZ',
         state: 'Polypoid',
         startTimestamp: 1_000_000,
-        largeImage: { image: 'matchup_pvz', text: 'Protoss vs Zerg' },
+        largeImage: { image: MAP_IMAGE_URL, text: 'Polypoid' },
         smallImage: { image: 'race_p', text: 'Protoss' },
       })
     })
 
-    test('a 1v1 with a random pick shows R and the map image', () => {
+    test('a 1v1 with a random pick shows R', () => {
       const game: ParticipatingGameInfo = {
         ...ONE_VS_ONE,
         matchmakingType: MatchmakingType.Match1v1,
@@ -160,7 +160,6 @@ describe('client/discord/discord-activity', () => {
       }
       const activity = getDiscordActivity(stateWith({ game }), t)
       expect(activity?.details).toBe('Observing Melee · ZvP')
-      expect(activity?.largeImage?.image).toBe('matchup_zvp')
       expect(activity?.smallImage).toBeUndefined()
     })
 

@@ -87,13 +87,14 @@ const PLAYER_SLOT_TYPES: ReadonlySet<SlotType> = new Set([
 ])
 
 /**
- * Returns the races of a game with two players, from `ownSlot`'s side if it's one of them, or
- * `undefined` for any other number of players. Uses the races as picked, so a random player is R.
+ * Returns the matchup of a game with two players (e.g. "PvZ"), from `ownSlot`'s side if it's one of
+ * them, or `undefined` for any other number of players. Uses the races as picked, so a random
+ * player is R.
  */
-function getMatchupRaces(
+function getMatchup(
   slots: ParticipatingGameInfo['slots'],
   ownSlot: ParticipatingGameInfo['slots'][number] | undefined,
-): [own: RaceChar, opponent: RaceChar] | undefined {
+): string | undefined {
   const players = slots.filter(slot => PLAYER_SLOT_TYPES.has(slot.type))
   if (players.length !== 2) {
     return undefined
@@ -101,7 +102,7 @@ function getMatchupRaces(
   if (ownSlot && players[1] === ownSlot) {
     players.reverse()
   }
-  return [players[0].race ?? 'r', players[1].race ?? 'r']
+  return players.map(slot => (slot.race ?? 'r').toUpperCase()).join('v')
 }
 
 function getGameActivity(
@@ -121,28 +122,13 @@ function getGameActivity(
   const mode = observing
     ? t('discord.activity.observing', 'Observing {{mode}}', { mode: gameMode })
     : gameMode
-  const matchupRaces = isUms(game.gameType)
+  const matchup = isUms(game.gameType)
     ? undefined
-    : getMatchupRaces(game.slots, observing ? undefined : ownSlot)
+    : getMatchup(game.slots, observing ? undefined : ownSlot)
 
   let details = mode
-  let largeImage = getMapImage(game.mapImageUrl, game.mapName)
-  if (matchupRaces) {
-    const [own, opponent] = matchupRaces
-    details = t('discord.activity.modeWithMatchup', '{{mode}} · {{matchup}}', {
-      mode,
-      matchup: `${own.toUpperCase()}v${opponent.toUpperCase()}`,
-    })
-    // Every matchup of the three races has its own image; one with a random pick shows the map.
-    if (own !== 'r' && opponent !== 'r') {
-      largeImage = {
-        image: `matchup_${own}v${opponent}`,
-        text: t('discord.activity.matchupImage', '{{own}} vs {{opponent}}', {
-          own: raceCharToLabel(own, t),
-          opponent: raceCharToLabel(opponent, t),
-        }),
-      }
-    }
+  if (matchup) {
+    details = t('discord.activity.modeWithMatchup', '{{mode}} · {{matchup}}', { mode, matchup })
   } else if (ownRace) {
     details = t('discord.activity.modeWithRace', '{{mode}} · {{race}}', {
       mode,
@@ -154,7 +140,7 @@ function getGameActivity(
     details: fitDiscordText(details),
     state: fitDiscordText(game.mapName),
     startTimestamp: game.playingSince,
-    largeImage,
+    largeImage: getMapImage(game.mapImageUrl, game.mapName),
     smallImage: getRaceIcon(ownRace, t),
   }
 }
