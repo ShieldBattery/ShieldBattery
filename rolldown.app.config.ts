@@ -86,6 +86,8 @@ export default defineConfig([
       'map-worker': path.join(ROOT, 'app/map-library/worker/map-worker.ts'),
       // The map index's file readers, started by its worker for each indexing pass.
       'map-reader': path.join(ROOT, 'app/map-library/worker/map-reader.ts'),
+      // The renderer of local map files' images, started by the main bundle on demand.
+      'map-renderer': path.join(ROOT, 'app/map-library/worker/map-renderer.ts'),
     },
     plugins: [
       mainAddons,

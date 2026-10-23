@@ -1,7 +1,7 @@
 import { atom, useAtomValue, useSetAtom } from 'jotai'
 import { debounce } from 'lodash-es'
 import { useEffect } from 'react'
-import { ReadonlyDeep } from 'type-fest'
+import { Client, useClient } from 'urql'
 import { TypedIpcRenderer } from '../../common/ipc'
 import {
   LocalMapFile,
@@ -11,7 +11,8 @@ import {
   LocalMapQuery,
   LocalMapQueryResult,
 } from '../../common/map-library'
-import { MapInfoJson } from '../../common/maps'
+import { SbMapId } from '../../common/maps'
+import { graphql } from '../gql'
 import { jotaiStore } from '../jotai-store'
 import { useAppDispatch } from '../redux-hooks'
 import { mapUploadErrorMessage, uploadMapFile } from './action-creators'
@@ -121,12 +122,16 @@ export function readLocalMapsStatus(version: number): Promise<IndexRead<LocalMap
   })
 }
 
-/** The state of an upload of a file on this PC, by the file's path. */
+/** The state of a file on this PC that was chosen, by the file's path, until it's done with. */
 export interface LocalMapUpload {
+  /** Whether the server is being asked if it has the file. Nothing is sent until it answers. */
+  checking?: boolean
   /** The fraction of the file sent so far, once sending it has started. */
   progress?: number
   /** Why the upload failed. */
   error?: string
+  /** Whether the map is on the server, but picking it failed. */
+  pickFailed?: boolean
 }
 
 const localUploadsAtom = atom<ReadonlyMap<string, LocalMapUpload>>(new Map())
@@ -135,15 +140,46 @@ export function useLocalMapUploads(): ReadonlyMap<string, LocalMapUpload> {
   return useAtomValue(localUploadsAtom)
 }
 
+const LocalKnownMapQuery = graphql(/* GraphQL */ `
+  query LocalKnownMap($hashes: [String!]!) {
+    mapsByHash(hashes: $hashes) {
+      id
+      name
+    }
+  }
+`)
+
+/** The server's map for a file, if it has one. Failing to ask counts as not having it. */
+async function findKnownMap(
+  client: Client,
+  hash: string,
+): Promise<{ id: SbMapId; name: string } | undefined> {
+  const result = await client
+    .query(LocalKnownMapQuery, { hashes: [hash] }, { requestPolicy: 'network-only' })
+    .toPromise()
+  const map = result.data?.mapsByHash[0]
+  return map ? { id: map.id as SbMapId, name: map.name } : undefined
+}
+
+/** A chosen file's map, and whether it was just uploaded or the server already had it. */
+export interface ChosenLocalMap {
+  id: SbMapId
+  name: string
+  uploaded: boolean
+}
+
 /**
- * Returns a function that uploads a map file on this PC to the viewer's maps, tracking its progress
- * in {@link useLocalMapUploads}, and calls `onUploaded` with the map once it's in.
+ * Returns a function that gets the server's map for a file on this PC: the map it already has with
+ * the same hash, or else the file uploaded to the viewer's maps. Progress is tracked in
+ * {@link useLocalMapUploads} until `onChosen` is done with the map. `onChosen` returns whether it
+ * succeeded (picking a map for a lobby can fail), which the file's state then shows.
  */
-export function useUploadLocalMapFile(): (
+export function useChooseLocalMapFile(): (
   file: LocalMapFile,
-  onUploaded: (map: ReadonlyDeep<MapInfoJson>) => void,
+  onChosen: (map: ChosenLocalMap) => boolean | Promise<boolean>,
 ) => void {
   const dispatch = useAppDispatch()
+  const client = useClient()
   const setUploads = useSetAtom(localUploadsAtom)
   const setLibraryVersion = useSetAtom(mapLibraryVersionAtom)
 
@@ -159,25 +195,44 @@ export function useUploadLocalMapFile(): (
     })
   }
 
-  return (file, onUploaded) => {
-    update(file.path, {})
-    Promise.resolve(ipcRenderer.invoke('fsReadFile', file.path))
-      .then(bytes => {
-        dispatch(
-          uploadMapFile(
-            new File([bytes!], file.fileName),
-            {
-              onSuccess: ({ map }) => {
-                update(file.path, undefined)
-                setLibraryVersion(v => v + 1)
-                onUploaded(map)
+  return (file, onChosen) => {
+    const finish = (map: ChosenLocalMap) => {
+      Promise.resolve(onChosen(map))
+        .catch(() => false)
+        .then(ok => update(file.path, ok ? undefined : { pickFailed: true }))
+        .catch(() => {})
+    }
+
+    const upload = () => {
+      update(file.path, {})
+      Promise.resolve(ipcRenderer.invoke('fsReadFile', file.path))
+        .then(bytes => {
+          dispatch(
+            uploadMapFile(
+              new File([bytes!], file.fileName),
+              {
+                onSuccess: ({ map }) => {
+                  setLibraryVersion(v => v + 1)
+                  finish({ id: map.id, name: map.name, uploaded: true })
+                },
+                onError: err => update(file.path, { error: mapUploadErrorMessage(err) }),
               },
-              onError: err => update(file.path, { error: mapUploadErrorMessage(err) }),
-            },
-            progress => update(file.path, { progress }),
-          ),
-        )
-      })
-      .catch(err => update(file.path, { error: mapUploadErrorMessage(err) }))
+              progress => update(file.path, { progress }),
+            ),
+          )
+        })
+        .catch(err => update(file.path, { error: mapUploadErrorMessage(err) }))
+    }
+
+    if (!file.hash) {
+      upload()
+      return
+    }
+    update(file.path, { checking: true })
+    // Failing to check is no reason not to upload, so any error here just means uploading
+    findKnownMap(client, file.hash)
+      .catch(() => undefined)
+      .then(known => (known ? finish({ ...known, uploaded: false }) : upload()))
+      .catch(() => {})
   }
 }

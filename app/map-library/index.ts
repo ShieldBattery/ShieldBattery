@@ -48,6 +48,11 @@ export class LocalMapLibraryService {
     this.startWorker()
   }
 
+  /** The path of an indexed, readable map file with this hash. */
+  findPathByHash(hash: string): Promise<string | undefined> {
+    return this.call('findPathByHash', hash)
+  }
+
   /** Swaps the indexed folders. */
   setRoots(roots: ReadonlyArray<MapRootFolder>): void {
     this.roots = roots
