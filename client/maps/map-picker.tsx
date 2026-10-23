@@ -377,19 +377,23 @@ export function MapPicker({
   const pickMap = (mapId: SbMapId) => {
     setPendingMapId(mapId)
     setFailedMapId(undefined)
-    // The lobby's setup reads the picked map's info from the store, so it has to be there first
-    dispatch(
-      getMapInfo(mapId, {
-        onSuccess: () => {
-          setPendingMapId(undefined)
-          onPick(mapId)
-        },
-        onError: () => {
-          setPendingMapId(undefined)
-          setFailedMapId(mapId)
-        },
-      }),
-    )
+    return new Promise<boolean>(resolve => {
+      // The lobby's setup reads the picked map's info from the store, so it has to be there first
+      dispatch(
+        getMapInfo(mapId, {
+          onSuccess: () => {
+            setPendingMapId(undefined)
+            onPick(mapId)
+            resolve(true)
+          },
+          onError: () => {
+            setPendingMapId(undefined)
+            setFailedMapId(mapId)
+            resolve(false)
+          },
+        }),
+      )
+    })
   }
 
   const pickOptions = {

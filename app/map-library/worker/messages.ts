@@ -24,6 +24,8 @@ export interface MapIndexCalls {
   query: (query: LocalMapQuery) => LocalMapQueryResult
   folders: (parent?: string) => LocalMapFolder[]
   status: () => LocalMapLibraryStatus
+  /** The path of an indexed, readable map file with this hash, for rendering its image. */
+  findPathByHash: (hash: string) => string | undefined
   /** Replaces the indexed folders. Rides the call channel so it stays ordered with queries. */
   setRoots: (roots: MapRootFolder[]) => void
 }
@@ -80,6 +82,35 @@ export type ReaderRequest =
 export type ReaderResponse = { id: number } & (
   | { hash: string }
   | { map: LocalMapInfo }
+  | { error: string }
+)
+
+// --- Main thread <-> map renderer worker ---
+
+/** The data handed to a map renderer worker at construction time (via `workerData`). */
+export interface MapRendererWorkerData {
+  /** The StarCraft install directory (the one containing `.build.info`) to read assets from. */
+  installPath: string
+}
+
+/** Asks a map renderer to render the file at `path`, which must still hash to `hash`. */
+export interface RenderRequest {
+  id: number
+  path: string
+  hash: string
+  /** The longest side of the image, in pixels. */
+  size: number
+}
+
+export type RenderResponse = { id: number } & (
+  | {
+      width: number
+      height: number
+      /** The image's pixels, 4 bytes each in BGRA order (what `nativeImage` takes). */
+      bgra: Uint8Array
+      /** The size of the map file, so the renderer can be replaced after very large ones. */
+      fileSize: number
+    }
   | { error: string }
 )
 

@@ -13,6 +13,17 @@ export enum LocalMapRoot {
 
 export const ALL_LOCAL_MAP_ROOTS: ReadonlyArray<LocalMapRoot> = Object.values(LocalMapRoot)
 
+/** The path the app serves local map files' images under, followed by the file's hash. */
+export const LOCAL_MAP_IMAGE_PATH_PREFIX = '/local-map-image/'
+
+/**
+ * The URL of the image of the local map file with this hash, rendered by the app from the
+ * StarCraft install. Only the app serves these; the request fails if the image can't be made.
+ */
+export function localMapImageUrl(hash: string): string {
+  return `shieldbattery://app${LOCAL_MAP_IMAGE_PATH_PREFIX}${hash}`
+}
+
 /** Whether a map is meant for melee games or has its own Use Map Settings rules. */
 export enum LocalMapKind {
   Melee = 'melee',

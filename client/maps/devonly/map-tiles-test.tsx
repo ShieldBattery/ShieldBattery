@@ -1,9 +1,17 @@
 import styled from 'styled-components'
+import { LocalMapFile, LocalMapKind } from '../../../common/map-library'
 import { makeSbMapId, SbMapId, Tileset } from '../../../common/maps'
 import { FragmentType } from '../../gql'
 import { MapKind } from '../../gql/graphql'
 import { titleMedium } from '../../styles/typography'
-import { MapTile, MapTile_SbMapFragment, MapTileSignal, PendingMapTile } from '../map-tile'
+import { LocalMapUpload } from '../local-maps'
+import {
+  LocalMapTile,
+  MapTile,
+  MapTile_SbMapFragment,
+  MapTileSignal,
+  PendingMapTile,
+} from '../map-tile'
 import { BigGameHunters, FightingSpirit } from './maps-for-testing'
 
 const DAY = 24 * 60 * 60 * 1000
@@ -147,6 +155,31 @@ const TILES: ReadonlyArray<{
   },
 ]
 
+const LOCAL_FILE: LocalMapFile = {
+  id: 1,
+  path: 'C:/Users/Player/Documents/StarCraft/Maps/Download/(4)Polypoid 1.65.scx',
+  folder: 'documents/Download',
+  fileName: '(4)Polypoid 1.65.scx',
+  fileMtime: NOW,
+  fileSize: 120_000,
+  map: {
+    name: 'Polypoid 1.65',
+    width: 128,
+    height: 128,
+    tileset: Tileset.Twilight,
+    kind: LocalMapKind.Melee,
+    playerCount: 4,
+    isEud: false,
+  },
+}
+
+const LOCAL_TILES: Array<{ label: string; upload?: LocalMapUpload }> = [
+  { label: 'On this PC' },
+  { label: 'On this PC, checking', upload: { checking: true } },
+  { label: 'On this PC, uploading', upload: { progress: 0.42 } },
+  { label: 'On this PC, processing', upload: { progress: 1 } },
+]
+
 const Grid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
@@ -185,6 +218,20 @@ export function MapTilesTest() {
         <Label>Uploading</Label>
         <PendingMapTile fileName='(4)New Map.scx' onDismiss={() => {}} />
       </Cell>
+      <Cell>
+        <Label>Uploading, partway</Label>
+        <PendingMapTile fileName='(4)New Map.scx' progress={0.42} onDismiss={() => {}} />
+      </Cell>
+      <Cell>
+        <Label>Uploading, processing</Label>
+        <PendingMapTile fileName='(4)New Map.scx' progress={1} onDismiss={() => {}} />
+      </Cell>
+      {LOCAL_TILES.map(tile => (
+        <Cell key={tile.label}>
+          <Label>{tile.label}</Label>
+          <LocalMapTile file={LOCAL_FILE} upload={tile.upload} onActivate={() => {}} />
+        </Cell>
+      ))}
       <Cell>
         <Label>Upload failed</Label>
         <PendingMapTile
