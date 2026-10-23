@@ -14,11 +14,3 @@ export async function hashMapFile(file: File): Promise<string> {
   const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))
   return Array.from(digest, b => b.toString(16).padStart(2, '0')).join('')
 }
-
-/**
- * The hex-encoded hash (as `hashMapFile` returns) of a `MapFile.id`, which is the same hash
- * base64-encoded.
- */
-export function mapFileIdToHash(mapFileId: string): string {
-  return Array.from(atob(mapFileId), c => c.charCodeAt(0).toString(16).padStart(2, '0')).join('')
-}

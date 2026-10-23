@@ -3011,7 +3011,7 @@ packages:
     resolution: {integrity: sha512-P33hHGdldxGabLFjPPpaTxVolMrzrcegejx+0GxjrIb9Zv48D8yAIA/QTDR2dFl7Uz7urX8aX6+5bCZslr+gWQ==}
 
   '@shieldbattery/broodmap@file:vendor/shieldbattery-broodmap-0.1.0.tgz':
-    resolution: {integrity: sha512-6aHk7wmfFn1qXvn29ljMwH7DtO83/3HcgBS459qx5Pkc2DeeGEjNykANXyLTRMtYDT4tUmTMmZbM9BhJXHFhkg==, tarball: file:vendor/shieldbattery-broodmap-0.1.0.tgz}
+    resolution: {integrity: sha512-JCX2AtlWlO68UqeamJAA4QxuHUFefm+Vk/SWJ/UEeWOkNdRwXwZswzJRVvgr3kUKWRyGrF8RUi6tM7UczwQLjA==, tarball: file:vendor/shieldbattery-broodmap-0.1.0.tgz}
     version: 0.1.0
 
   '@shieldbattery/broodrep@0.6.0':
