@@ -45,12 +45,10 @@ axum-extra = { version = "0.12", features = ["typed-header"] }
 axum-prometheus = "0.10"
 base64 = "0.23"
 bcrypt = "0.19"
-# TODO(2Pac): Pin to a `main` rev once the base-analysis, slot-accessor, `uses_eud` and zlib/bzip2
-# PRs are merged there (this rev is the `sb-m6` branch that merges them).
-broodmap = { git = "https://github.com/ShieldBattery/broodmap", rev = "4bdbe7d4cfef3633f1f7b795d8415a6952047133" }
-broodmap-analysis = { git = "https://github.com/ShieldBattery/broodmap", rev = "4bdbe7d4cfef3633f1f7b795d8415a6952047133" }
-broodmap-formats = { git = "https://github.com/ShieldBattery/broodmap", rev = "4bdbe7d4cfef3633f1f7b795d8415a6952047133" }
-broodmap-render = { git = "https://github.com/ShieldBattery/broodmap", rev = "4bdbe7d4cfef3633f1f7b795d8415a6952047133" }
+broodmap = { git = "https://github.com/ShieldBattery/broodmap", rev = "190c7588c7f0bc20f4ec13eaaca6422d8a78fb58" }
+broodmap-analysis = { git = "https://github.com/ShieldBattery/broodmap", rev = "190c7588c7f0bc20f4ec13eaaca6422d8a78fb58" }
+broodmap-formats = { git = "https://github.com/ShieldBattery/broodmap", rev = "190c7588c7f0bc20f4ec13eaaca6422d8a78fb58" }
+broodmap-render = { git = "https://github.com/ShieldBattery/broodmap", rev = "190c7588c7f0bc20f4ec13eaaca6422d8a78fb58" }
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.6", features = ["derive"] }
 color-eyre = "0.6"
