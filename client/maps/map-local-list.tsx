@@ -304,6 +304,20 @@ function LocalMapListContent(props: LocalMapListProps) {
           )}
         </StatusLine>
       ) : null}
+      <StatusLine>
+        <MaterialIcon icon='cloud_upload' size={20} />
+        {props.pick
+          ? t(
+              'maps.local.pickUploadsNote',
+              'Picking a map from this PC uploads it to ShieldBattery the first time, so the ' +
+                'other players can download it.',
+            )
+          : t(
+              'maps.local.openUploadsNote',
+              'Opening a map from this PC uploads it to ShieldBattery the first time, adding it ' +
+                'to Your maps.',
+            )}
+      </StatusLine>
       {inFolders ? <FolderBreadcrumb crumbs={crumbs} onNavigate={onFolderChange} /> : null}
       {folders?.ok && folders.value.length > 0 ? (
         <FolderRows

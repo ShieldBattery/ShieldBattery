@@ -1,7 +1,7 @@
 import { TFunction } from 'i18next'
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
+import styled, { keyframes } from 'styled-components'
 import { LocalMapFile, LocalMapInfo, LocalMapKind } from '../../common/map-library'
 import { urlForMap } from '../../common/map-url'
 import { filterColorCodes, SbMapId, Tileset, tilesetToName } from '../../common/maps'
@@ -752,19 +752,10 @@ export function LocalMapTile({
         })}
       />
     )
+  } else if (upload?.checking) {
+    signal = <Signal text={t('maps.local.checking', 'Checking…')} />
   } else if (uploading) {
-    signal = (
-      <Signal
-        text={
-          upload.progress === undefined
-            ? t('maps.catalog.uploading', 'Uploading…')
-            : t('maps.catalog.uploadingPercent', {
-                defaultValue: 'Uploading… {{percent}}%',
-                percent: Math.floor(upload.progress * 100),
-              })
-        }
-      />
-    )
+    signal = <Signal text={uploadStatusText(upload.progress, t)} />
   }
 
   return (
@@ -790,9 +781,7 @@ export function LocalMapTile({
             />
           ) : null}
           {uploading && upload.progress !== undefined ? (
-            <ProgressTrack $overImage={!!image.src}>
-              <ProgressFill style={{ width: `${upload.progress * 100}%` }} />
-            </ProgressTrack>
+            <UploadProgressBar progress={upload.progress} overImage={!!image.src} />
           ) : null}
           {upload?.checking ? (
             <PendingOverlay>
@@ -875,19 +864,8 @@ export function PendingMapTile({
         ) : (
           <>
             <MaterialIcon icon='upload' size={32} />
-            <PendingStatus>
-              {progress === undefined
-                ? t('maps.catalog.uploading', 'Uploading…')
-                : t('maps.catalog.uploadingPercent', {
-                    defaultValue: 'Uploading… {{percent}}%',
-                    percent: Math.floor(progress * 100),
-                  })}
-            </PendingStatus>
-            {progress !== undefined ? (
-              <ProgressTrack>
-                <ProgressFill style={{ width: `${progress * 100}%` }} />
-              </ProgressTrack>
-            ) : null}
+            <PendingStatus>{uploadStatusText(progress, t)}</PendingStatus>
+            {progress !== undefined ? <UploadProgressBar progress={progress} /> : null}
           </>
         )}
       </PendingImage>
@@ -955,6 +933,58 @@ const ProgressFill = styled.div`
   background-color: var(--theme-primary);
   transition: width 150ms linear;
 `
+
+const processingSweep = keyframes`
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+`
+
+/** Fills the track while the server works on a file that's been sent, for as long as that takes. */
+const ProcessingFill = styled.div`
+  width: 40%;
+  height: 100%;
+  background-color: var(--theme-primary);
+  animation: ${processingSweep} 1.2s ease-in-out infinite;
+
+  @media (prefers-reduced-motion: reduce) {
+    width: 100%;
+    animation: none;
+    opacity: 0.6;
+  }
+`
+
+/**
+ * A map upload's status: how much of the file has been sent, then that the server is processing it
+ * (parsing it and rendering its images), which it does before it answers.
+ */
+function uploadStatusText(progress: number | undefined, t: TFunction): string {
+  if (progress === undefined) {
+    return t('maps.catalog.uploading', 'Uploading…')
+  } else if (progress >= 1) {
+    return t('maps.catalog.processing', 'Processing…')
+  }
+  return t('maps.catalog.uploadingPercent', {
+    defaultValue: 'Uploading… {{percent}}%',
+    percent: Math.floor(progress * 100),
+  })
+}
+
+/** The bar for {@link uploadStatusText}: filling as the file is sent, then sweeping. */
+function UploadProgressBar({ progress, overImage }: { progress: number; overImage?: boolean }) {
+  return (
+    <ProgressTrack $overImage={overImage}>
+      {progress >= 1 ? (
+        <ProcessingFill />
+      ) : (
+        <ProgressFill style={{ width: `${progress * 100}%` }} />
+      )}
+    </ProgressTrack>
+  )
+}
 
 const PendingError = styled.div`
   ${bodySmall};
