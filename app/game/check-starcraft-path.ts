@@ -1,5 +1,15 @@
 import fs, { promises as fsPromises } from 'fs'
 import path from 'path'
+import log from '../logger'
+import { readFileVersion } from './pe-version'
+
+/**
+ * The oldest StarCraft: Remastered build (1.23.10) we can play games on. Older builds still run
+ * with ShieldBattery, but desync against 1.23.10 clients on the first sync check of every game.
+ */
+const MIN_STARCRAFT_BUILD = 11026
+
+const STARCRAFT_EXECUTABLES = ['x86/starcraft.exe', 'x86_64/starcraft.exe']
 
 async function checkRemasteredPath(dirPath: string): Promise<boolean> {
   const requiredFiles = ['x86/starcraft.exe', 'x86/clientsdk.dll']
@@ -14,6 +24,26 @@ async function checkRemasteredPath(dirPath: string): Promise<boolean> {
   }
 }
 
+async function checkRemasteredVersion(dirPath: string): Promise<boolean> {
+  const builds = await Promise.all(
+    STARCRAFT_EXECUTABLES.map(f =>
+      readFileVersion(path.join(dirPath, f)).then(
+        version => version?.[3],
+        () => undefined,
+      ),
+    ),
+  )
+  if (builds.every(build => build !== undefined && build >= MIN_STARCRAFT_BUILD)) {
+    return true
+  }
+
+  log.warn(
+    `StarCraft at ${dirPath} is not a supported version (need build ${MIN_STARCRAFT_BUILD}+): ` +
+      STARCRAFT_EXECUTABLES.map((f, i) => `${f} is build ${builds[i] ?? 'unknown'}`).join(', '),
+  )
+  return false
+}
+
 export interface PathCheckResult {
   /** Whether the path contains a StarCraft installation. */
   path: boolean
@@ -24,15 +54,10 @@ export interface PathCheckResult {
 // Given a path, returns an object with the following information:
 //  - is this a valid StarCraft path
 //  - does this path contain a supported StarCraft version
-//  - is this a StarCraft:Remastered version of the game
 export async function checkStarcraftPath(dirPath: string): Promise<PathCheckResult> {
-  const result = { path: false, version: false }
-
-  if (await checkRemasteredPath(dirPath)) {
-    // NOTE(2Pac): For now we're assuming that every SC:R version is supported since we're updating
-    // our offsets for each new patch dynamically thanks to neive's magic.
-    return { ...result, path: true, version: true }
+  if (!(await checkRemasteredPath(dirPath))) {
+    return { path: false, version: false }
   }
 
-  return result
+  return { path: true, version: await checkRemasteredVersion(dirPath) }
 }
