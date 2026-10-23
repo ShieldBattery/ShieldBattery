@@ -1,3 +1,4 @@
+import { LocalMapKind, LocalMapQuery, LocalMapSize, LocalMapSort } from '../../common/map-library'
 import { MapCatalogTab } from '../../common/map-url'
 import { ALL_TILESETS, Tileset } from '../../common/maps'
 import { EudFilter, MapFilter, MapLens, MapSizeClass, MapSort } from '../gql/graphql'
@@ -8,6 +9,8 @@ export enum CatalogSort {
   MostPlayed = 'played',
   Newest = 'newest',
   Name = 'name',
+  /** Fewest player slots first. Only offered for the maps on this PC. */
+  Players = 'players',
   /** Only offered while searching. */
   BestMatch = 'match',
 }
@@ -22,6 +25,16 @@ export const BROWSE_SORTS: ReadonlyArray<CatalogSort> = [
 
 export const ALL_CATALOG_SORTS: ReadonlyArray<CatalogSort> = Object.values(CatalogSort)
 
+/**
+ * The sorts offered for the maps on this PC, in display order. Play counts and search relevance
+ * come from the server, which the local index doesn't hold.
+ */
+export const LOCAL_SORTS: ReadonlyArray<CatalogSort> = [
+  CatalogSort.Name,
+  CatalogSort.Players,
+  CatalogSort.Newest,
+]
+
 export function catalogSortToMapSort(sort: CatalogSort): MapSort {
   switch (sort) {
     case CatalogSort.Trending:
@@ -32,6 +45,8 @@ export function catalogSortToMapSort(sort: CatalogSort): MapSort {
       return MapSort.Newest
     case CatalogSort.Name:
       return MapSort.Name
+    case CatalogSort.Players:
+      return MapSort.Players
     case CatalogSort.BestMatch:
       return MapSort.Relevance
     default:
@@ -41,7 +56,14 @@ export function catalogSortToMapSort(sort: CatalogSort): MapSort {
 
 /** The sort a catalog tab uses when neither the URL nor the viewer's saved default picks one. */
 export function defaultSortForTab(tab: MapCatalogTab): CatalogSort {
-  return tab === MapCatalogTab.All ? CatalogSort.Trending : CatalogSort.Newest
+  switch (tab) {
+    case MapCatalogTab.All:
+      return CatalogSort.Trending
+    case MapCatalogTab.Local:
+      return CatalogSort.Name
+    default:
+      return CatalogSort.Newest
+  }
 }
 
 /**
@@ -50,7 +72,19 @@ export function defaultSortForTab(tab: MapCatalogTab): CatalogSort {
  * by how much it's played rather than by what's rising.
  */
 export function defaultPickerSortForTab(tab: MapCatalogTab): CatalogSort {
-  return tab === MapCatalogTab.All ? CatalogSort.MostPlayed : CatalogSort.Newest
+  switch (tab) {
+    case MapCatalogTab.All:
+      return CatalogSort.MostPlayed
+    case MapCatalogTab.Local:
+      return CatalogSort.Name
+    default:
+      return CatalogSort.Newest
+  }
+}
+
+/** The sorts offered on a tab while not searching. */
+export function sortsForTab(tab: MapCatalogTab): ReadonlyArray<CatalogSort> {
+  return tab === MapCatalogTab.Local ? LOCAL_SORTS : BROWSE_SORTS
 }
 
 /** The player-count choices, as offered to the viewer. */
@@ -63,7 +97,7 @@ export enum CatalogPlayers {
 
 export const ALL_CATALOG_PLAYERS: ReadonlyArray<CatalogPlayers> = Object.values(CatalogPlayers)
 
-function playersToCounts(players: CatalogPlayers): number[] {
+export function playersToCounts(players: CatalogPlayers): number[] {
   switch (players) {
     case CatalogPlayers.Two:
       return [2]
@@ -246,21 +280,89 @@ export function filtersOf(params: CatalogFilters): CatalogFilters {
 
 /**
  * The sort the listing uses: the one picked in `params`, else Best match while searching, else the
- * viewer's saved sort for the tab, else `defaultSort`. Best match only applies while searching.
+ * viewer's saved sort for the tab, else `defaultSort`. Best match only applies while searching,
+ * and only sorts in `allowed` (every sort, by default) are used.
  */
 export function effectiveSort(
   params: Pick<CatalogParams, 'search' | 'sort'>,
   savedSort: CatalogSort | undefined,
   defaultSort: CatalogSort,
+  allowed: ReadonlyArray<CatalogSort> = ALL_CATALOG_SORTS,
 ): CatalogSort {
   const searching = !!params.search.trim()
-  if (params.sort && (searching || params.sort !== CatalogSort.BestMatch)) {
+  const offersBestMatch = allowed.includes(CatalogSort.BestMatch)
+  if (
+    params.sort &&
+    allowed.includes(params.sort) &&
+    (searching || params.sort !== CatalogSort.BestMatch)
+  ) {
     return params.sort
   }
-  if (searching) {
+  if (searching && offersBestMatch) {
     return CatalogSort.BestMatch
   }
-  return savedSort && savedSort !== CatalogSort.BestMatch ? savedSort : defaultSort
+  return savedSort && savedSort !== CatalogSort.BestMatch && allowed.includes(savedSort)
+    ? savedSort
+    : defaultSort
+}
+
+const LOCAL_SIZES: Readonly<Record<MapSizeClass, LocalMapSize>> = {
+  [MapSizeClass.Tiny]: LocalMapSize.Tiny,
+  [MapSizeClass.Small]: LocalMapSize.Small,
+  [MapSizeClass.Medium]: LocalMapSize.Medium,
+  [MapSizeClass.Large]: LocalMapSize.Large,
+  [MapSizeClass.Huge]: LocalMapSize.Huge,
+}
+
+/** The sort the local map index uses for a catalog sort (Name for any it doesn't offer). */
+function toLocalSort(sort: CatalogSort): LocalMapSort {
+  switch (sort) {
+    case CatalogSort.Players:
+      return LocalMapSort.Players
+    case CatalogSort.Newest:
+      return LocalMapSort.Newest
+    default:
+      return LocalMapSort.Name
+  }
+}
+
+/**
+ * The local map index query for the params, without paging. The Official filter has no meaning for
+ * files on disk and is left out.
+ */
+export function toLocalMapQuery(
+  params: CatalogParams,
+  sort: CatalogSort,
+  folder?: { path: string; recursive: boolean },
+): Omit<LocalMapQuery, 'offset' | 'limit'> {
+  const search = params.search.trim()
+  let kind: LocalMapKind | undefined
+  if (params.lens === MapLens.Melee) {
+    kind = LocalMapKind.Melee
+  } else if (params.lens === MapLens.Ums) {
+    kind = LocalMapKind.Ums
+  }
+  let eud: boolean | undefined
+  if (params.eud === EudFilter.Only) {
+    eud = true
+  } else if (params.eud === EudFilter.Exclude) {
+    eud = false
+  }
+  return {
+    search: search || undefined,
+    kind,
+    players: params.players ? playersToCounts(params.players) : undefined,
+    sizes: params.sizes.length ? params.sizes.map(s => LOCAL_SIZES[s]) : undefined,
+    tilesets: params.tilesets.length ? [...params.tilesets] : undefined,
+    eud,
+    folder,
+    sort: toLocalSort(sort),
+  }
+}
+
+/** Whether the params narrow down which maps show, by search or by any filter. */
+export function isNarrowed(params: CatalogParams): boolean {
+  return !!params.search.trim() || hasNonDefaultFilters(params)
 }
 
 /**
@@ -323,5 +425,7 @@ export function validateSavedFilters(value: unknown): CatalogFilters | undefined
 }
 
 export function validateSavedSort(value: unknown): CatalogSort | undefined {
-  return BROWSE_SORTS.includes(value as CatalogSort) ? (value as CatalogSort) : undefined
+  return ALL_CATALOG_SORTS.includes(value as CatalogSort) && value !== CatalogSort.BestMatch
+    ? (value as CatalogSort)
+    : undefined
 }
