@@ -33,26 +33,36 @@ const RENDER_TIMEOUT_MS = 60 * 1000
  * holds. Scrolling through maps renders in bursts, which this comfortably spans.
  */
 const IDLE_TIMEOUT_MS = 60 * 1000
+/**
+ * Requests that arrive within this long of the one before them belong to the same batch: the tiles
+ * that came into view together, such as a list's first page or a scroll's worth of new tiles.
+ */
+const BATCH_GAP_MS = 50
 
 interface RenderJob {
   installPath: string
   filePath: string
   hash: string
   size: number
+  batch: number
   deferred: Deferred<RenderedMapImage>
 }
 
 /**
  * A `MapImageRenderer` backed by a `map-renderer` worker, rendering one map at a time. The most
- * recently requested map is rendered first, since that's the one most likely to be on screen. The
- * worker starts on first use, and is replaced after a failed render (broodmap's WebAssembly state
- * can't be trusted after one), after a very large map, when the install changes, and when idle.
+ * recent batch of requests is rendered first, since those maps are the ones most likely to be on
+ * screen, and the maps in a batch are rendered in the order they were requested, which follows the
+ * order they're listed in. The worker starts on first use, and is replaced after a failed render
+ * (broodmap's WebAssembly state can't be trusted after one), after a very large map, when the
+ * install changes, and when idle.
  */
 export class WorkerMapImageRenderer implements MapImageRenderer {
   private worker: { worker: Worker; installPath: string } | undefined
   private readonly queue: RenderJob[] = []
   private current: { id: number; job: RenderJob; worker: Worker; timer: NodeJS.Timeout } | undefined
   private nextId = 0
+  private batch = 0
+  private lastRequestTime = -Infinity
   private idleTimer: NodeJS.Timeout | undefined
 
   render(
@@ -61,8 +71,14 @@ export class WorkerMapImageRenderer implements MapImageRenderer {
     hash: string,
     size: number,
   ): Promise<RenderedMapImage> {
+    const now = Date.now()
+    if (now - this.lastRequestTime > BATCH_GAP_MS) {
+      this.batch++
+    }
+    this.lastRequestTime = now
+
     const deferred = createDeferred<RenderedMapImage>()
-    this.queue.push({ installPath, filePath, hash, size, deferred })
+    this.queue.push({ installPath, filePath, hash, size, batch: this.batch, deferred })
     this.pump()
     return deferred
   }
@@ -71,7 +87,7 @@ export class WorkerMapImageRenderer implements MapImageRenderer {
     if (this.current) {
       return
     }
-    const job = this.queue.pop()
+    const job = takeNextJob(this.queue)
     if (!job) {
       this.scheduleIdleStop()
       return
@@ -178,4 +194,16 @@ export class WorkerMapImageRenderer implements MapImageRenderer {
     this.worker = { worker, installPath }
     return worker
   }
+}
+
+/** Removes and returns the earliest job of the newest batch in `queue`, which is in request order. */
+function takeNextJob(queue: RenderJob[]): RenderJob | undefined {
+  if (!queue.length) {
+    return undefined
+  }
+  const newestBatch = queue[queue.length - 1].batch
+  return queue.splice(
+    queue.findIndex(job => job.batch === newestBatch),
+    1,
+  )[0]
 }
