@@ -327,6 +327,7 @@
     "minimapPosition": "Posición del minimapa",
     "minimapPositionBottomLeft": "Esquina izquierda inferior",
     "minimapPositionStandard": "Estándar",
+    "minimapPositionWatchingHint": "En replays y al observar siempre se usa la esquina izquierda inferior",
     "minimapTerrain": "Terreno del minimapa",
     "minimapTerrainHidden": "Oculto",
     "minimapTerrainShown": "Visible",

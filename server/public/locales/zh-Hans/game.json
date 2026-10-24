@@ -305,6 +305,7 @@
     "minimapPosition": "小地图位置",
     "minimapPositionBottomLeft": "左下角",
     "minimapPositionStandard": "标准",
+    "minimapPositionWatchingHint": "录像和观战时始终使用左下角",
     "minimapTerrain": "小地图地形",
     "minimapTerrainHidden": "隐藏",
     "minimapTerrainShown": "显示",

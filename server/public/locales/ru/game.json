@@ -338,6 +338,7 @@
     "minimapPosition": "Положение миникарты",
     "minimapPositionBottomLeft": "Нижний левый угол",
     "minimapPositionStandard": "Стандарт",
+    "minimapPositionWatchingHint": "В реплеях и в режиме зрителя всегда используется нижний левый угол",
     "minimapTerrain": "Рельеф миникарты",
     "minimapTerrainHidden": "Скрыт",
     "minimapTerrainShown": "Показан",

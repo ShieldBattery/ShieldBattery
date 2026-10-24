@@ -305,6 +305,7 @@
     "minimapPosition": "미니맵 위치",
     "minimapPositionBottomLeft": "좌측 하단",
     "minimapPositionStandard": "기본 위치",
+    "minimapPositionWatchingHint": "리플레이와 관전 중에는 항상 좌측 하단에 표시됩니다",
     "minimapTerrain": "미니맵 지형",
     "minimapTerrainHidden": "숨김",
     "minimapTerrainShown": "표시",
