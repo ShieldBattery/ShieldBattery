@@ -28,6 +28,8 @@ use crate::{
 mod analysis;
 pub mod api;
 mod catalog;
+mod credits;
+pub mod families;
 pub mod ingest;
 pub mod parse;
 pub mod render;
