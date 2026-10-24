@@ -9,7 +9,7 @@ use crate::game_commends::{GameCommendsMutation, GameCommendsQuery};
 use crate::game_reports::{GameReportsMutation, GameReportsQuery};
 use crate::games::GamesQuery;
 use crate::leagues::LeaguesQuery;
-use crate::maps::{MapsMutation, MapsQuery};
+use crate::maps::{MapFamiliesMutation, MapFamiliesQuery, MapsMutation, MapsQuery};
 use crate::matchmaking::admin::{MatchmakingConfigMutation, MatchmakingConfigQuery};
 use crate::matchmaking::history::MatchmakingHistoryQuery;
 use crate::news::{NewsMutation, NewsQuery};
@@ -26,6 +26,7 @@ pub struct Query(
     GamesQuery,
     LeaguesQuery,
     MapsQuery,
+    MapFamiliesQuery,
     NewsQuery,
     TwitchQuery,
     UsersQuery,
@@ -38,6 +39,7 @@ pub struct Mutation(
     GameCommendsMutation,
     GameReportsMutation,
     MapsMutation,
+    MapFamiliesMutation,
     NewsMutation,
     TwitchMutation,
     UsersMutation,

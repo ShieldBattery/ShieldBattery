@@ -1,0 +1,125 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT map_a as \"map_a: SbMapId\", map_b as \"map_b: SbMapId\", terrain_similarity,\n                name_match, verdict as \"verdict: Json<Value>\", status,\n                decided_by as \"decided_by: SbUserId\", decided_at, created_at\n            FROM map_link_suggestions\n            WHERE map_a = $1 AND map_b = $2\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "map_a: SbMapId",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "map_link_suggestions",
+            "name": "map_a"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "map_b: SbMapId",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "map_link_suggestions",
+            "name": "map_b"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "terrain_similarity",
+        "type_info": "Float4",
+        "origin": {
+          "Table": {
+            "table": "map_link_suggestions",
+            "name": "terrain_similarity"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "name_match",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "map_link_suggestions",
+            "name": "name_match"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "verdict: Json<Value>",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "map_link_suggestions",
+            "name": "verdict"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "map_link_suggestions",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "decided_by: SbUserId",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "map_link_suggestions",
+            "name": "decided_by"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "decided_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "map_link_suggestions",
+            "name": "decided_at"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "map_link_suggestions",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "6a33a1fc58e68862e96d6cce7cf1c5ccd0ffb4f4bc60c24146926c07c6496c4a"
+}

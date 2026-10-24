@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                EXISTS (\n                    SELECT 1 FROM user_restrictions\n                    WHERE user_id = $1 AND kind = 'reporting'::restriction_kind\n                        AND start_time <= now() AND end_time > now()\n                ) as \"restricted!\",\n                (\n                    SELECT count(*) FROM map_family_reports\n                    WHERE reported_by = $1 AND reported_at > now() - interval '1 hour'\n                ) as \"recent!\"\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "restricted!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "recent!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "b9fa7829431751014599ac9dfb9ea7b0eaf36ad12d90b242f700669911efb590"
+}

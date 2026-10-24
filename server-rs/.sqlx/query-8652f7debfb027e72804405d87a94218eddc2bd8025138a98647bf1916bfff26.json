@@ -1,0 +1,114 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT name as \"name!\", COALESCE(public_description, description) as \"description!\",\n                width, height, tileset, player_count, is_eud,\n                lobby_init_data->'forces' as \"forces!: Json<Value>\",\n                start_locations as \"start_locations: Json<Vec<MapStartLocation>>\"\n            FROM maps\n            WHERE id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "description!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "width",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "width"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "height",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "height"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "tileset",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "tileset"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "player_count",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "player_count"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "is_eud",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "is_eud"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "forces!: Json<Value>",
+        "type_info": "Jsonb",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
+        "name": "start_locations: Json<Vec<MapStartLocation>>",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "start_locations"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      null,
+      false,
+      false,
+      false,
+      false,
+      false,
+      null,
+      false
+    ]
+  },
+  "hash": "8652f7debfb027e72804405d87a94218eddc2bd8025138a98647bf1916bfff26"
+}
