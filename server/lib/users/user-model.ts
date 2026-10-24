@@ -16,7 +16,7 @@ import { sql, sqlConcat, sqlRaw, SqlTemplate } from '../db/sql'
 import transact from '../db/transaction'
 import { Dbify } from '../db/types'
 import { getUrl } from '../files'
-import { createPermissions } from '../models/permissions'
+import { createPermissions, getPermissions } from '../models/permissions'
 import { incrementSignupCodeUsage, validateAndLockSignupCode } from './signup-code-models'
 import { createUserStats } from './user-stats-model'
 
@@ -136,6 +136,7 @@ export async function createUser({
   locale,
   signupCode,
   completeCreationFn,
+  request,
 }: {
   name: string
   email: string
@@ -144,17 +145,28 @@ export async function createUser({
   createdDate?: Date
   locale?: string
   signupCode?: string
+  request?: {
+    lock: (client: DbClient) => Promise<SbUserId | undefined>
+    complete: (client: DbClient, userId: SbUserId) => Promise<void>
+  }
   completeCreationFn: (
     userId: SbUserId,
     client: DbClient,
     transactionCompleted: Promise<void>,
   ) => Promise<void>
-}): Promise<{ user: SelfUser; permissions: SbPermissions }> {
+}): Promise<{ user: SelfUser; permissions: SbPermissions; reused?: boolean }> {
   const transactionCompleted = createDeferred<void>()
   transactionCompleted.catch(swallowNonBuiltins)
 
   try {
     const transactionResult = await transact(async client => {
+      const existingUserId = await request?.lock(client)
+      if (existingUserId !== undefined) {
+        const existingUser = await internalFindUserById(existingUserId, client)
+        const permissions = await getPermissions(existingUserId, client)
+        if (!existingUser || !permissions) throw new Error('Incomplete signup request')
+        return { user: convertToExternalSelf(existingUser), permissions, reused: true }
+      }
       // Validate and lock signup code if provided
       let signupCodeId: string | undefined
       if (signupCode) {
@@ -189,6 +201,7 @@ export async function createUser({
       }
 
       await completeCreationFn(userInternal.id, client, transactionCompleted)
+      await request?.complete(client, userInternal.id)
 
       return { user: convertToExternalSelf(userInternal), permissions }
     })

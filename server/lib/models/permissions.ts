@@ -41,7 +41,10 @@ export async function createPermissions(
   return convertFromDb(result.rows[0])
 }
 
-export async function getPermissions(userId: SbUserId): Promise<SbPermissions | undefined> {
+export async function getPermissions(
+  userId: SbUserId,
+  withClient?: DbClient,
+): Promise<SbPermissions | undefined> {
   const query = sql`
     SELECT user_id, edit_permissions, debug, ban_users, manage_leagues, manage_maps,
         manage_map_pools, mass_delete_maps, manage_matchmaking, manage_matchmaking_times,
@@ -52,7 +55,7 @@ export async function getPermissions(userId: SbUserId): Promise<SbPermissions | 
     WHERE user_id = ${userId};
   `
 
-  const { client, done } = await db()
+  const { client, done } = await db(withClient)
   try {
     const result = await client.query<DbPermissions>(query)
     return result.rows.length ? convertFromDb(result.rows[0]) : undefined

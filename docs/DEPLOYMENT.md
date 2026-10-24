@@ -98,6 +98,10 @@ server.
 
 Rename `sample.env` to `.env` and update the values to match your desired configuration.
 
+For a public-only deployment without client release keys, set `SB_ALLOW_UNSIGNED_SIGNUP=true` in
+the appserver `.env` file to enable account creation. Without that explicit setting, deployed servers
+refuse signup when no keys are configured. Local development does not need this setting.
+
 To start the server, simply run docker compose from the console:
 
 ```

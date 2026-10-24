@@ -292,7 +292,7 @@ pub extern "C" fn OnInject() {
     // This runs on the game's main thread, which executes most of our hooks.
     crash_dump::reserve_exception_handler_stack();
     crash_dump::start_dump_thread();
-    companion::initialize();
+    companion::initialize(args.server_port);
     #[cfg(debug_assertions)]
     {
         rollback_probe::init_from_env();

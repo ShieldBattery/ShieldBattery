@@ -40,6 +40,7 @@ function makeApi(): UserApi {
     {} as any,
     {} as any,
     {} as any,
+    {} as any,
   )
 }
 

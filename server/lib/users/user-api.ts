@@ -32,6 +32,11 @@ import {
 import { ALL_POLICY_TYPES, SbPolicyType } from '../../../common/policies/policy-type'
 import { CheckAllowedNameResponse } from '../../../common/typeshare'
 import { urlPath } from '../../../common/urls'
+import {
+  ClientProof,
+  SignupChallengeResponse,
+  SignupFields,
+} from '../../../common/users/client-proof'
 import { SbPermissions } from '../../../common/users/permissions'
 import {
   GetRelationshipsResponse,
@@ -125,7 +130,7 @@ import { Clock } from '../time/clock'
 import { validateRequest } from '../validation/joi-validator'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import { BanEnacter } from './ban-enacter'
-import { retrieveBanHistory } from './ban-models'
+import { isUserBanned, retrieveBanHistory } from './ban-models'
 import { joiClientIdentifiers } from './client-ids'
 import { addEmailVerificationCode, getEmailVerificationsCount } from './email-verification-models'
 import { PasswordResetCleanupJob } from './password-reset-cleanup'
@@ -134,6 +139,7 @@ import { genRandomCode } from './random-code'
 import { RestrictionService } from './restriction-service'
 import { SignupCodeCleanupJob } from './signup-code-cleanup'
 import { InvalidSignupCodeError } from './signup-code-models'
+import { SignupProofService } from './signup-proof-service'
 import {
   convertUserApiErrors,
   convertUserRelationshipServiceErrors,
@@ -277,14 +283,25 @@ function sendVerificationEmail({
   })
 }
 
-interface SignupRequestBody {
-  username: string
-  password: string
-  email: string
-  clientIds: [type: number, hash: string][]
-  locale?: string
-  signupCode?: string
+interface SignupRequestBody extends SignupFields {
+  clientIds?: [type: number, hash: string][]
+  attemptId?: string
+  proof?: ClientProof
 }
+
+const signupFields = {
+  username: joiUsername().required(),
+  password: Joi.string().min(PASSWORD_MINLENGTH).required(),
+  email: joiEmail().trim().required(),
+  locale: joiLocale(),
+  signupCode: Joi.string().min(1).max(100).empty(''),
+}
+
+const signupChallengeThrottle = createThrottle('signupchallenge', {
+  rate: 4,
+  burst: 8,
+  window: 60000,
+})
 
 @httpApi('/users')
 @httpBeforeAll(convertUserApiErrors, convertUserRelationshipServiceErrors)
@@ -302,11 +319,21 @@ export class UserApi {
     private replayService: ReplayService,
     private imageService: ImageService,
     private restrictionService: RestrictionService,
+    private signupProofService: SignupProofService,
   ) {
     container.resolve(PasswordResetCleanupJob)
     container.resolve(SignupCodeCleanupJob)
     container.resolve(UserIdentifierCleanupJob)
     container.resolve(UserIpsCleanupJob)
+  }
+
+  @httpPost('/signup-challenge')
+  @httpBefore(throttleMiddleware(signupChallengeThrottle, throttleByIp))
+  async signupChallenge(ctx: RouterContext): Promise<SignupChallengeResponse> {
+    const { body } = validateRequest(ctx, {
+      body: Joi.object<SignupFields>(signupFields).required(),
+    })
+    return this.signupProofService.challenge(body)
   }
 
   @httpPost('/')
@@ -318,59 +345,86 @@ export class UserApi {
 
     const { body } = validateRequest(ctx, {
       body: Joi.object<SignupRequestBody>({
-        username: joiUsername().required(),
-        password: Joi.string().min(PASSWORD_MINLENGTH).required(),
-        email: joiEmail().trim().required(),
-        clientIds: joiClientIdentifiers(ctx).required(),
-        locale: joiLocale(),
-        signupCode: Joi.string().min(1).max(100).empty(''),
+        ...signupFields,
+        clientIds: joiClientIdentifiers(ctx),
+        attemptId: Joi.string().uuid(),
+        proof: Joi.object<ClientProof>({
+          keyId: Joi.number().integer().min(0).max(0xffffffff).required(),
+          body: Joi.string().max(360).required(),
+          signature: Joi.string().max(88).required(),
+        }),
       }).required(),
     })
 
-    const { username, password, email, clientIds, locale, signupCode } = body
+    const { username, password, email, locale, signupCode } = body
+    const request = await this.signupProofService.verify(body, body.attemptId, body.proof)
+    const clientIds = request?.clientIds ?? body.clientIds
+    if (!clientIds) throw new httpErrors.BadRequest('Client identifiers are required')
 
-    const { allowed } = await got
-      .post(serverRsUrl(urlPath`/users/names/check-allowed/${username}`), {
-        timeout: { request: 5000 },
-      })
-      .json<CheckAllowedNameResponse>()
+    const prepareCreationFn = async () => {
+      const { allowed } = await got
+        .post(serverRsUrl(urlPath`/users/names/check-allowed/${username}`), {
+          timeout: { request: 5000 },
+        })
+        .json<CheckAllowedNameResponse>()
 
-    if (!allowed) {
-      throw new UserApiError(
-        UserErrorCode.UsernameTakenOrRestricted,
-        'A user with that name already exists or the name is not allowed',
-      )
-    }
-
-    if (!THROTTLING_DISABLED) {
-      const signupAllowed = await this.userIdManager.isSignupAllowed(clientIds)
-      if (!signupAllowed) {
+      if (!allowed) {
         throw new UserApiError(
-          UserErrorCode.MachineBanned,
-          'This machine is banned from creating new accounts',
+          UserErrorCode.UsernameTakenOrRestricted,
+          'A user with that name already exists or the name is not allowed',
         )
       }
-    }
 
-    let useSignupCode = false
-    // NOTE(tec27): We don't check this in dev because it is very likely we have created a ton of
-    // accounts with the same session ID. It is separate from the throttling disable, however,
-    // because we do want to be able to integration test it
-    const usersWithIds = await this.userIdManager.findUsersWithIdentifiers(clientIds)
-    if (usersWithIds.length >= MAX_ACCOUNTS_PER_MACHINE) {
-      if (!signupCode) {
-        throw new UserApiError(
-          UserErrorCode.TooManyAccounts,
-          'This machine has reached the limit of created accounts.',
-        )
+      if (!THROTTLING_DISABLED) {
+        const signupAllowed = await this.userIdManager.isSignupAllowed(clientIds)
+        if (!signupAllowed) {
+          throw new UserApiError(
+            UserErrorCode.MachineBanned,
+            'This machine is banned from creating new accounts',
+          )
+        }
       }
-      // Code will be validated in createUser
-      useSignupCode = true
+
+      let useSignupCode = false
+      // NOTE(tec27): We don't check this in dev because it is very likely we have created a ton of
+      // accounts with the same session ID. It is separate from the throttling disable, however,
+      // because we do want to be able to integration test it
+      const usersWithIds = await this.userIdManager.findUsersWithIdentifiers(clientIds)
+      if (usersWithIds.length >= MAX_ACCOUNTS_PER_MACHINE) {
+        if (!signupCode) {
+          throw new UserApiError(
+            UserErrorCode.TooManyAccounts,
+            'This machine has reached the limit of created accounts.',
+          )
+        }
+        // Code will be validated in createUser
+        useSignupCode = true
+      }
+      return { signupCode: useSignupCode ? signupCode : undefined }
     }
 
+    let checkedSignupCode: string | undefined
+    if (request?.completedUserId === undefined) {
+      try {
+        checkedSignupCode = (await prepareCreationFn()).signupCode
+      } catch (err) {
+        // A concurrent request may have created this account during preflight checks.
+        if (
+          !request ||
+          (
+            await this.signupProofService
+              .verify(body, body.attemptId, body.proof)
+              .catch(() => undefined)
+          )?.completedUserId === undefined
+        ) {
+          throw err
+        }
+      }
+    }
     const hashedPassword = await hashPass(password)
 
-    let createdUser: { user: SelfUser; permissions: SbPermissions } | undefined
+    let completeIdentifiers: (() => Promise<void>) | undefined
+    let createdUser: { user: SelfUser; permissions: SbPermissions; reused?: boolean } | undefined
     try {
       createdUser = await createUser({
         name: username,
@@ -378,11 +432,15 @@ export class UserApi {
         hashedPassword,
         ipAddress: ctx.ip,
         locale,
-        signupCode: useSignupCode ? signupCode : undefined,
+        request,
+        signupCode: checkedSignupCode,
         completeCreationFn: async (userId, client, transactionCompleted) => {
-          await Promise.all([
-            this.chatService.joinInitialChannel(userId, client, transactionCompleted),
-          ])
+          await this.chatService.joinInitialChannel(userId, client, transactionCompleted)
+          completeIdentifiers = await this.userIdManager.upsertInTransaction(
+            userId,
+            clientIds,
+            client,
+          )
         },
       })
     } catch (err: any) {
@@ -405,7 +463,7 @@ export class UserApi {
 
     // If this is the first user ever created, give them the ability to edit permissions. This
     // mostly just makes it easier to get started in development and tests.
-    if (createdUser.user.id === 1) {
+    if (!createdUser.reused && createdUser.user.id === 1) {
       await updatePermissions(createdUser.user.id, {
         ...createdUser.permissions,
         editPermissions: true,
@@ -413,12 +471,24 @@ export class UserApi {
       createdUser.permissions.editPermissions = true
     }
 
-    await this.userIdManager.upsert(createdUser.user.id, clientIds)
+    if (createdUser.reused) {
+      await this.userIdManager.upsertAndReconcileRestrictions(createdUser.user.id, clientIds)
+    } else {
+      await completeIdentifiers!()
+    }
+    if (
+      createdUser.reused &&
+      ((await isUserBanned(createdUser.user.id)) ||
+        (await this.userIdManager.banUserIfNeeded(createdUser.user.id)))
+    ) {
+      throw new UserApiError(UserErrorCode.AccountBanned, 'This account has been banned')
+    }
     await ctx.beginSession(createdUser.user.id, false)
 
     // No need to wait for this, if it fails they can just re-send the email later
     Promise.resolve()
       .then(async () => {
+        if (createdUser.reused) return
         const code = await genRandomCode()
         await addEmailVerificationCode({ userId: createdUser.user.id, email, code, ip: ctx.ip })
         await sendVerificationEmail({

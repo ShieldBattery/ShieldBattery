@@ -60,6 +60,36 @@ export class UserIdentifierManager {
     await this.restrictionService.handleNewIdentifiers(userId, newIdentifiers)
   }
 
+  /** Persists IDs in the caller's transaction and returns work to await after it commits. */
+  async upsertInTransaction(
+    userId: SbUserId,
+    identifiers: ReadonlyArray<ClientIdentifierString>,
+    client: DbClient,
+  ): Promise<() => Promise<void>> {
+    const { newIdentifiers } = await upsertUserIdentifiers(
+      userId,
+      convertStringIds(identifiers),
+      client,
+    )
+    // Restriction propagation reads the user and their IDs through separate connections.
+    return async () => {
+      if (newIdentifiers.length) {
+        await this.restrictionService.handleNewIdentifiers(userId, newIdentifiers)
+      }
+    }
+  }
+
+  /** Repairs restriction propagation when an account committed before its response completed. */
+  async upsertAndReconcileRestrictions(
+    userId: SbUserId,
+    identifiers: ReadonlyArray<ClientIdentifierString>,
+  ): Promise<void> {
+    const convertedIds = convertStringIds(identifiers)
+    await upsertUserIdentifiers(userId, convertedIds)
+    // Existing IDs may have committed even when the subsequent restriction propagation failed.
+    await this.restrictionService.handleNewIdentifiers(userId, convertedIds)
+  }
+
   /**
    * Bans a user if they have enough matching banned identifiers. Returns whether or not they
    * were banned.

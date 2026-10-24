@@ -16,10 +16,13 @@ export interface SessionReleaseKey {
   readonly publicKey: string
 }
 
+const EMPTY_KEYS: readonly SessionReleaseKey[] = Object.freeze([])
+
 export type SessionReleaseCatalogSnapshot = ReadonlyDeep<{
   format: 1
   environment: ReleaseEnvironment
   kind: 'game'
+  clientKeys?: SessionReleaseKey[]
   releases: Array<{
     version: string
     artifacts: Array<{
@@ -63,7 +66,15 @@ function parseCatalog(
   } catch {
     invalidCatalog()
   }
-  const root = objectWithKeys(parsed, ['format', 'environment', 'kind', 'releases'])
+  const root = objectWithKeys(parsed, [
+    'format',
+    'environment',
+    'kind',
+    'releases',
+    ...(parsed && typeof parsed === 'object' && Object.hasOwn(parsed, 'clientKeys')
+      ? ['clientKeys']
+      : []),
+  ])
   if (root.format !== 1 || root.environment !== environment || root.kind !== 'game')
     invalidCatalog()
   if (!Array.isArray(root.releases) || root.releases.length < 1 || root.releases.length > 8) {
@@ -115,7 +126,37 @@ function parseCatalog(
     })
     return Object.freeze({ version, artifacts: Object.freeze(artifacts) })
   })
-  return Object.freeze({ format: 1, environment, kind: 'game', releases: Object.freeze(releases) })
+  let clientKeys: readonly SessionReleaseKey[] | undefined
+  if (root.clientKeys !== undefined) {
+    if (!Array.isArray(root.clientKeys) || !root.clientKeys.length || root.clientKeys.length > 8)
+      invalidCatalog()
+    clientKeys = Object.freeze(
+      root.clientKeys.map(value => {
+        const key = objectWithKeys(value, ['keyId', 'publicKey'])
+        const { keyId } = key
+        const publicKey = hex(key.publicKey)
+        if (
+          typeof keyId !== 'number' ||
+          !Number.isInteger(keyId) ||
+          keyId < 0 ||
+          keyId > 0xffffffff ||
+          keyIds.has(keyId) ||
+          publicKeys.has(publicKey)
+        )
+          invalidCatalog()
+        keyIds.add(keyId)
+        publicKeys.add(publicKey)
+        return Object.freeze({ keyId, publicKey })
+      }),
+    )
+  }
+  return Object.freeze({
+    format: 1,
+    environment,
+    kind: 'game',
+    releases: Object.freeze(releases),
+    ...(clientKeys ? { clientKeys } : {}),
+  })
 }
 
 async function readCatalog(key: string): Promise<Buffer> {
@@ -166,7 +207,7 @@ export class SessionReleaseCatalog {
   private readonly sha256: string | undefined
   private initialization?: Promise<void>
   private catalog?: SessionReleaseCatalogSnapshot
-  private keys: readonly SessionReleaseKey[] = Object.freeze([])
+  private keys: readonly SessionReleaseKey[] = EMPTY_KEYS
 
   constructor() {
     if (process.env.SB_RP2_EVIDENCE_KEYS !== undefined) {
@@ -225,5 +266,9 @@ export class SessionReleaseCatalog {
   getKeys(): readonly SessionReleaseKey[] {
     this.getCatalog()
     return this.keys
+  }
+
+  getClientKeys(): readonly SessionReleaseKey[] {
+    return this.getCatalog()?.clientKeys ?? EMPTY_KEYS
   }
 }

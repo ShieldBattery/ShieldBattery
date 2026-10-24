@@ -27,6 +27,7 @@ import {
 } from './replays-library'
 import { LocalSettings, ScrSettings } from './settings/local-settings'
 import { ShieldBatteryFileResult } from './shieldbattery-file'
+import { ClientProof } from './users/client-proof'
 import { SbUserId } from './users/sb-user-id'
 
 const IS_RENDERER = typeof process === 'undefined' || !process || process.type === 'renderer'
@@ -386,6 +387,7 @@ interface IpcInvokeables {
   replayStoreStoreReplay: (id: string, expectedHash: string, data: ArrayBuffer) => Promise<string>
 
   securityGetClientIds: () => Promise<[number, string][]>
+  securityCollectRequest: (nonce: string, requestHash: string) => Promise<ClientProof>
 
   settingsLocalGet: () => Promise<Partial<LocalSettings>>
   settingsScrGet: () => Promise<Partial<ScrSettings>>

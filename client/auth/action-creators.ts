@@ -24,6 +24,7 @@ import {
 } from '../network/fetch'
 import { loadCachedAccountSettings } from '../settings/action-creators'
 import { lastWhisperSenderAtom } from '../whispers/whisper-atoms'
+import { createSignupSession } from './signup-request'
 
 const typedIpc = new TypedIpcRenderer()
 
@@ -153,17 +154,19 @@ export function signUp(
   spec: RequestHandlingSpec,
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
-    const result = await fetchJson<ClientSessionInfo>(apiUrl`users`, {
-      method: 'post',
-      body: JSON.stringify({
-        ...(await getExtraSessionData()),
-        username,
-        email,
-        password,
-        locale,
-        signupCode: signupCode?.trim(),
-      }),
-    })
+    const fields = { username, email, password, locale, signupCode: signupCode?.trim() }
+    const result = await createSignupSession(
+      fields,
+      {
+        collectProof: async (nonce, requestHash) => {
+          const proof = await typedIpc.invoke('securityCollectRequest', nonce, requestHash)
+          if (!proof) throw new Error('Client update required')
+          return proof
+        },
+        collectLegacyIds: getExtraSessionData,
+      },
+      spec.signal,
+    )
     window.fathom?.trackGoal('YTZ0JAUE', 0)
 
     dispatch(initSession(result, CredentialStorageType.Session, true /* wasSignup */))

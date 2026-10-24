@@ -205,12 +205,14 @@
     "userErrorDisplay": {
       "accountBanned": "This account has been banned.<1><0>Reason:</0><1>{{banReason}}</1></1><2>The ban will expire at {{expireTime}}.</2>",
       "banWithoutReason": "No reason specified",
+      "clientSetupRequired": "Please finish setting up StarCraft in Settings, then try creating your account again.",
       "defaultError": "An error occurred: {{status}} {{statusText}}",
       "genericError": "An error occurred: {{errorMessage}}",
       "invalidCode": "The provided code is invalid. It may have expired.",
       "invalidCredentials": "Incorrect username or password",
       "machineBanned": "This machine is banned from creating new accounts.",
       "noConnectionErrorMessage": "Failed to connect to the server. Please check your internet connection and try again.",
+      "openStarcraftSettings": "Open StarCraft settings",
       "sessionExpired": "Session expired",
       "tooManyAccounts": "This machine has reached the limit of created accounts. If you have a signup code, you can enter it to bypass this limit.",
       "usernameTaken": "The username is not available."

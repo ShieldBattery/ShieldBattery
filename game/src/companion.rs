@@ -11,7 +11,7 @@ mod implementation {
 
 #[cfg(not(sb_companion))]
 mod implementation {
-    pub fn initialize() {
+    pub fn initialize(_server_port: u16) {
         // TODO(tec27): implement
     }
 
@@ -22,8 +22,8 @@ mod implementation {
 }
 
 /// Called on the main thread during injection, before game hooks or async tasks start.
-pub fn initialize() {
-    implementation::initialize()
+pub fn initialize(server_port: u16) {
+    implementation::initialize(server_port)
 }
 
 #[inline(always)]

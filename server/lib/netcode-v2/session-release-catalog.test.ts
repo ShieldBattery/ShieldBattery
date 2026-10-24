@@ -59,6 +59,8 @@ afterEach(() => {
 test('disabled catalog needs no storage and exposes no keys', async () => {
   const catalog = new SessionReleaseCatalog()
   expect(catalog.getKeys()).toEqual([])
+  expect(catalog.getClientKeys()).toEqual([])
+  expect(Object.isFrozen(catalog.getClientKeys())).toBe(true)
   expect(catalog.getCatalog()).toBeUndefined()
   await catalog.initialize()
   expect(readFileStream).not.toHaveBeenCalled()
@@ -68,6 +70,7 @@ test('configured catalog rejects use before initialization', () => {
   configure()
   const catalog = new SessionReleaseCatalog()
   expect(() => catalog.getKeys()).toThrow('has not been initialized')
+  expect(() => catalog.getClientKeys()).toThrow('has not been initialized')
   expect(() => catalog.getCatalog()).toThrow('has not been initialized')
   expect(readFileStream).not.toHaveBeenCalled()
 })
@@ -102,6 +105,70 @@ test('initialization coalesces, validates its pin, and exposes a deeply frozen s
   expect(catalog.getKeys()).toBe(keys)
   expect(Object.isFrozen(keys)).toBe(true)
   expect(Object.isFrozen(keys[0])).toBe(true)
+  expect(catalog.getClientKeys()).toEqual([])
+  expect(Object.isFrozen(catalog.getClientKeys())).toBe(true)
+})
+
+test('client keys remain separate from game keys and are deeply frozen', async () => {
+  configure()
+  const value = {
+    ...fixture(),
+    clientKeys: [
+      { keyId: 0, publicKey: 'CD'.repeat(32) },
+      { keyId: 0xffffffff, publicKey: 'EF'.repeat(32) },
+    ],
+  }
+  serve(value)
+  const catalog = new SessionReleaseCatalog()
+  await catalog.initialize()
+  expect(catalog.getClientKeys()).toEqual([
+    { keyId: 0, publicKey: 'cd'.repeat(32) },
+    { keyId: 0xffffffff, publicKey: 'ef'.repeat(32) },
+  ])
+  expect(catalog.getKeys().map(key => key.keyId)).toEqual([1, 2])
+  expect(catalog.getCatalog()!.clientKeys).toBe(catalog.getClientKeys())
+  expect(Object.isFrozen(catalog.getClientKeys())).toBe(true)
+  expect(catalog.getClientKeys().every(Object.isFrozen)).toBe(true)
+})
+
+describe('client key validation', () => {
+  const key = { keyId: 3, publicKey: 'cd'.repeat(32) }
+  test.each<[string, unknown]>([
+    ['null keys', null],
+    ['non-array keys', key],
+    ['empty keys', []],
+    [
+      'too many keys',
+      Array.from({ length: 9 }, (_, i) => ({
+        keyId: i + 3,
+        publicKey: (i + 16).toString(16).repeat(32),
+      })),
+    ],
+    ['missing fields', [{}]],
+    ['null entry', [null]],
+    ['array entry', [[3, key.publicKey]]],
+    ['unknown field', [{ ...key, purpose: 'signup' }]],
+    ['negative key ID', [{ ...key, keyId: -1 }]],
+    ['overflow key ID', [{ ...key, keyId: 0x100000000 }]],
+    ['fractional key ID', [{ ...key, keyId: 1.5 }]],
+    ['string key ID', [{ ...key, keyId: '3' }]],
+    ['invalid public key', [{ ...key, publicKey: 'xx'.repeat(32) }]],
+    ['short public key', [{ ...key, publicKey: 'cd'.repeat(31) }]],
+    ['duplicate client key ID', [key, { ...key, publicKey: 'ef'.repeat(32) }]],
+    ['duplicate client public key', [key, { keyId: 4, publicKey: key.publicKey.toUpperCase() }]],
+    ['game key ID reuse', [{ ...key, keyId: 1 }]],
+    [
+      'game public key reuse',
+      [{ ...key, publicKey: fixture().releases[0].artifacts[0].publicKey.toUpperCase() }],
+    ],
+  ])('rejects %s without enabling either key purpose', async (_name, clientKeys) => {
+    configure()
+    serve({ ...fixture(), clientKeys })
+    const catalog = new SessionReleaseCatalog()
+    await expect(catalog.initialize()).rejects.toThrow('Invalid session release catalog')
+    expect(() => catalog.getClientKeys()).toThrow('has not been initialized')
+    expect(() => catalog.getKeys()).toThrow('has not been initialized')
+  })
 })
 
 test('all catalog releases contribute their exact keys', async () => {

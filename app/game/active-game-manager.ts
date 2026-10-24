@@ -1038,12 +1038,12 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
 
 // Dev builds can inject the DLLs from another directory, so a long-running test can pin the build
 // it runs against while `game/dist` gets rebuilt.
-const injectDir =
+export const gameDirectory =
   isDev && process.env.SB_GAME_DLL_DIR
     ? path.resolve(process.env.SB_GAME_DLL_DIR)
     : path.resolve(app.getAppPath(), '../game/dist')
-const injectPath32 = path.join(injectDir, 'shieldbattery.dll')
-const injectPath64 = path.join(injectDir, 'shieldbattery_64.dll')
+const injectPath32 = path.join(gameDirectory, 'shieldbattery.dll')
+const injectPath64 = path.join(gameDirectory, 'shieldbattery_64.dll')
 
 // Dev builds can vary the environment each launched game gets without restarting the app: a JSON
 // object of variables (a null value unsets one) read from this file right before every launch, so
@@ -1087,6 +1087,8 @@ async function doLaunch(
   } catch (err) {
     throw new Error(`Could not access/find shieldbattery dll at ${injectPath}`, { cause: err })
   }
+  const { verifyGame } = await import('virtual:sb-security-impl')
+  await verifyGame?.(injectPath)
 
   let { starcraftPath } = settings
   if (!starcraftPath) {

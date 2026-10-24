@@ -36,6 +36,7 @@ services:
       - SB_REPLAY_WORKER_CONCURRENCY=1
       - SB_SESSION_TTL=2592000
       - SB_DISABLE_THROTTLING=true
+      - SB_ALLOW_UNSIGNED_SIGNUP=true
       - SB_MAILGUN_KEY=DEADBEEF
       - SB_MAILGUN_DOMAIN=mg.example.org
       - 'SB_MAILGUN_FROM=ShieldBattery <shieldbattery@example.org>'
@@ -139,7 +140,17 @@ services:
       - SB_REDIS_HOST=redis
       - SB_REDIS_PORT=6379
       - DATABASE_URL=postgres://shieldbattery:shieldbattery_pass@db/shieldbattery
-    command: ['./server/deployment_files/wait.sh', '--endpoint', 'db:5432:15', '--endpoint', 'redis:6379:15', 'bash', '-c', './server/update_server.sh']
+    command:
+      [
+        './server/deployment_files/wait.sh',
+        '--endpoint',
+        'db:5432:15',
+        '--endpoint',
+        'redis:6379:15',
+        'bash',
+        '-c',
+        './server/update_server.sh',
+      ]
     depends_on:
       - _app-server-build
       - db

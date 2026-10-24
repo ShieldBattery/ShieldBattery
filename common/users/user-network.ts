@@ -62,6 +62,7 @@ export enum UserErrorCode {
   UsernameTakenOrRestricted = 'usernameTaken',
   MachineBanned = 'machineBanned',
   TooManyAccounts = 'tooManyAccounts',
+  ClientSetupRequired = 'clientSetupRequired',
   InappropriateImage = 'inappropriateImage',
   AvatarUploadRestricted = 'avatarUploadRestricted',
 }

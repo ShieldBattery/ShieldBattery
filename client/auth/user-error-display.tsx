@@ -5,6 +5,9 @@ import { longTimestamp } from '../i18n/date-formats'
 import { TransInterpolation } from '../i18n/i18next'
 import { useFormat } from '../i18n/locale-formats'
 import { FetchError, isFetchError } from '../network/fetch-errors'
+import { useAppDispatch } from '../redux-hooks'
+import { openSettings } from '../settings/action-creators'
+import { GameSettingsPage } from '../settings/settings-page'
 import { TitleMedium } from '../styles/typography'
 
 const BanReason = styled.div`
@@ -23,12 +26,32 @@ export interface UserErrorDisplayProps {
 
 function UserError({ error }: { error: FetchError }) {
   const { t } = useTranslation()
+  const dispatch = useAppDispatch()
   const longTimestampFormat = useFormat(longTimestamp)
 
   // Cast is just for checking we've handle all the cases
   const _error = error as FetchError & { code: UserErrorCode }
 
   switch (_error.code) {
+    case UserErrorCode.ClientSetupRequired:
+      return (
+        <span>
+          {t(
+            'auth.userErrorDisplay.clientSetupRequired',
+            'Please finish setting up StarCraft in Settings, then try creating your account again.',
+          )}{' '}
+          {IS_ELECTRON ? (
+            <a
+              href='#'
+              onClick={event => {
+                event.preventDefault()
+                dispatch(openSettings(GameSettingsPage.StarCraft))
+              }}>
+              {t('auth.userErrorDisplay.openStarcraftSettings', 'Open StarCraft settings')}
+            </a>
+          ) : null}
+        </span>
+      )
     case UserErrorCode.InvalidCredentials:
       return (
         <span>

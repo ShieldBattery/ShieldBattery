@@ -8,8 +8,9 @@ import { ALL_MINIMAP_COLOR_MODES, LocalSettings } from '../../common/settings/lo
 import { makeSbUserId } from '../../common/users/sb-user-id'
 import log from '../logger'
 import { LocalSettingsManager, ScrSettingsManager } from '../settings'
-import { ActiveGameManager } from './active-game-manager'
+import { ActiveGameManager, gameDirectory } from './active-game-manager'
 import { readInGameSettingsChange } from './in-game-settings'
+import { watchGameConnection } from './watch-game-connection'
 
 interface AuthorizeInfo {
   origin: string
@@ -57,13 +58,30 @@ export class GameServer {
       const gameId = request.headers['x-game-id']
       if (gameId && !Array.isArray(gameId)) {
         log.verbose('game websocket connected')
+        const serverPort = request.socket.localPort
+        const clientPort = request.socket.remotePort
         const pingInterval = setInterval(() => {
           if (socket.readyState === socket.OPEN) socket.ping()
         }, 20000)
+        const stopWatching = watchGameConnection(
+          async () => {
+            if (serverPort === undefined || clientPort === undefined) return undefined
+            const { verifyGameConnection } = await import('virtual:sb-security-impl')
+            if (typeof verifyGameConnection !== 'function') return undefined
+            return verifyGameConnection(gameDirectory, serverPort, clientPort)
+          },
+          () => log.warning('Game connection check unavailable'),
+          () => {
+            log.error('Game connection check failed')
+            if (socket.readyState === socket.OPEN) this.sendCommand(socket, 'quit', null)
+            socket.close()
+          },
+        )
         socket.on('close', () => {
           log.verbose('game websocket disconnected')
           clearInterval(pingInterval)
-          this.idToSocket.delete(gameId)
+          stopWatching()
+          if (this.idToSocket.get(gameId) === socket) this.idToSocket.delete(gameId)
         })
         socket.on('message', data => {
           this.onMessage(gameId, data.toString())
