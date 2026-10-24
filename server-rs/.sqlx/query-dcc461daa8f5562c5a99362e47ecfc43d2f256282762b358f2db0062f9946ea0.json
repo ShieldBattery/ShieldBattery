@@ -1,0 +1,90 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT m.id as \"id: SbMapId\", m.title, m.description, m.public_name, m.first_seen_at,\n                (SELECT f.family_id FROM map_family_members f WHERE f.map_id = m.id)\n                    as \"family_id?\",\n                (SELECT s.games_total FROM map_stats s WHERE s.map_id = m.id) as \"games_total?\"\n            FROM maps m\n            WHERE m.id = ANY($1)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id: SbMapId",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "title",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "title"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "description",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "description"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "public_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "public_name"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "first_seen_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "first_seen_at"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "family_id?",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "games_total?",
+        "type_info": "Int4",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "dcc461daa8f5562c5a99362e47ecfc43d2f256282762b358f2db0062f9946ea0"
+}

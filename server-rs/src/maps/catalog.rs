@@ -13,6 +13,9 @@ use data_encoding::HEXLOWER_PERMISSIVE;
 use sqlx::PgPool;
 
 use crate::graphql::errors::graphql_error;
+use crate::maps::families::graphql::{
+    self as families, MapFamily, MapFamilyMember, MapLinkSuggestion, MapVersionStatus,
+};
 use crate::maps::search::{
     DbSbMap, MapCursor, MapFilter, MapListingError, MapListingPage, MapListingRequest, MapScope,
     MapSearchRepo, MapSort,
@@ -130,6 +133,55 @@ impl SbMap {
     async fn in_library(&self, ctx: &Context<'_>) -> Result<bool> {
         Ok(viewer_flags(ctx, self.id).await?.in_library)
     }
+
+    /// The family of versions, variants, translations and forks this map is in. Null when it's in
+    /// none.
+    async fn family(&self, ctx: &Context<'_>) -> Result<Option<MapFamily>> {
+        families::map_family(ctx, self.id).await
+    }
+
+    /// This map's place in its family, even when it isn't listed. Null when it's in no family.
+    async fn family_member(&self, ctx: &Context<'_>) -> Result<Option<MapFamilyMember>> {
+        families::map_family_member(ctx, self.id).await
+    }
+
+    /// Where this map stands among the versions of its family line.
+    async fn version_status(&self, ctx: &Context<'_>) -> Result<MapVersionStatus> {
+        families::version_status(ctx, self.id).await
+    }
+
+    /// The current version of this map's line when it's newer than this map. Always a listed map.
+    async fn newer_version(&self, ctx: &Context<'_>) -> Result<Option<SbMap>> {
+        families::newer_version(ctx, self.id).await
+    }
+
+    /// How many listed maps this map's family line holds (its versions, variants and
+    /// translations), at least 1.
+    async fn version_count(&self, ctx: &Context<'_>) -> Result<i32> {
+        families::version_count(ctx, self.id).await
+    }
+
+    /// Play statistics summed over every file in this map's family line. Null when the viewer can
+    /// see fewer than two of the line's files (listed ones, or all of them for users who can manage
+    /// maps), or the line's stats haven't been computed yet.
+    async fn line_stats(&self, ctx: &Context<'_>) -> Result<Option<MapStats>> {
+        families::line_stats(ctx, self.id).await
+    }
+
+    /// Maps detection found to be possibly related to this one that nobody has sorted yet: listed
+    /// maps, or every one for users who can manage maps. Most similar terrain first.
+    async fn similar_maps(&self, ctx: &Context<'_>) -> Result<Vec<SbMap>> {
+        families::similar_maps(ctx, self.id).await
+    }
+
+    /// Every detected pair this map is in, with the rules' proposals, open ones first. Only
+    /// available to users who can manage maps.
+    #[graphql(guard = RequiredPermission::ManageMaps)]
+    async fn link_suggestions(&self, ctx: &Context<'_>) -> Result<Vec<MapLinkSuggestion>> {
+        // Only the map page's staff tools select this, one map at a time, so it isn't batched
+        let db = ctx.data::<MapSearchRepo>()?.db();
+        Ok(families::load_suggestions_of(db, self.id).await?)
+    }
 }
 
 async fn viewer_flags(ctx: &Context<'_>, map_id: SbMapId) -> Result<ViewerMapFlags> {
@@ -187,8 +239,12 @@ async fn load_user(ctx: &Context<'_>, id: Option<SbUserId>) -> Result<Option<SbU
 #[derive(SimpleObject, Clone, Debug)]
 #[graphql(complex)]
 pub struct MapStats {
+    /// The map the stats are for, or for a family line's stats, the line's first file.
     #[graphql(skip)]
     pub map_id: SbMapId,
+    /// Whether these are a family line's stats rather than one map's.
+    #[graphql(skip)]
+    pub line: bool,
     #[graphql(name = "games7d")]
     pub games_7d: i32,
     #[graphql(name = "games28d")]
@@ -212,7 +268,11 @@ pub struct MapStats {
 #[ComplexObject]
 impl MapStats {
     async fn id(&self) -> String {
-        format!("map-stats:{}", self.map_id)
+        if self.line {
+            format!("map-line-stats:{}", self.map_id)
+        } else {
+            format!("map-stats:{}", self.map_id)
+        }
     }
 }
 
@@ -221,6 +281,7 @@ impl From<DbSbMap> for SbMap {
         let stats = match (row.has_stats, row.last_played_at) {
             (true, Some(last_played_at)) => Some(MapStats {
                 map_id: row.id,
+                line: false,
                 games_7d: row.games_7d,
                 games_28d: row.games_28d,
                 games_90d: row.games_90d,
@@ -678,13 +739,13 @@ impl MapsMutation {
     }
 }
 
-fn require_current_user<'a>(ctx: &'a Context<'_>) -> Result<&'a CurrentUser> {
+pub(crate) fn require_current_user<'a>(ctx: &'a Context<'_>) -> Result<&'a CurrentUser> {
     ctx.data::<Option<CurrentUser>>()?
         .as_ref()
         .ok_or_else(|| graphql_error("UNAUTHORIZED", "Unauthorized"))
 }
 
-async fn resolve_existing_map_id(db: &PgPool, id: SbMapId) -> Result<SbMapId> {
+pub(crate) async fn resolve_existing_map_id(db: &PgPool, id: SbMapId) -> Result<SbMapId> {
     resolve_map_id(db, id)
         .await?
         .ok_or_else(|| graphql_error("NOT_FOUND", "Map not found"))

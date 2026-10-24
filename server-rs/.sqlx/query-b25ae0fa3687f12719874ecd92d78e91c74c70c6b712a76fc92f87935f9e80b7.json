@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT title, description, public_name FROM maps WHERE id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "title",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "title"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "description",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "description"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "public_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "public_name"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "b25ae0fa3687f12719874ecd92d78e91c74c70c6b712a76fc92f87935f9e80b7"
+}

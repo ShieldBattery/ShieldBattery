@@ -1,0 +1,44 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO map_family_members (map_id, family_id, parent_map_id, relation,\n                version_label, source, linked_by, linked_at, line_root_id, line_current_id)\n            VALUES ($1, $2, $3, $4, $5, $6, $7, now(), $1, $1)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        {
+          "Custom": {
+            "name": "map_family_relation",
+            "kind": {
+              "Enum": [
+                "root",
+                "version",
+                "variant",
+                "translation",
+                "fork"
+              ]
+            }
+          }
+        },
+        "Text",
+        {
+          "Custom": {
+            "name": "map_link_source",
+            "kind": {
+              "Enum": [
+                "rule",
+                "publisher",
+                "moderator"
+              ]
+            }
+          }
+        },
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f0cfa30b1393d22941b399c8a05eb6f5519c4ec1e9d34d15f0519ef5e93d9796"
+}

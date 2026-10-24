@@ -6,7 +6,7 @@ use std::sync::LazyLock;
 
 use chrono::{DateTime, Utc};
 use regex::Regex;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// The version of the rules and normalization below. Bump it whenever a proposal could change, so
 /// every map is scanned again and open proposals are recomputed.
@@ -150,6 +150,13 @@ fn has_hangul(s: &str) -> bool {
     s.chars().any(|c| ('\u{ac00}'..='\u{d7af}').contains(&c))
 }
 
+/// A file's version: from its title, else its description, else the name ShieldBattery shows.
+pub fn file_version(title: &str, description: &str, display_name: &str) -> Option<String> {
+    name_version(title)
+        .or_else(|| description_version(description))
+        .or_else(|| name_version(display_name))
+}
+
 /// What the rules read about one map file.
 #[derive(Debug, Clone)]
 pub struct RuleMap {
@@ -174,9 +181,7 @@ impl RuleMap {
 
     /// The file's version: from its title, else its description, else its display name.
     pub fn version(&self) -> Option<String> {
-        name_version(&self.title)
-            .or_else(|| description_version(&self.description))
-            .or_else(|| name_version(&self.display_name))
+        file_version(&self.title, &self.description, &self.display_name)
     }
 
     fn is_korean(&self) -> bool {
@@ -184,15 +189,22 @@ impl RuleMap {
     }
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize)]
+/// How the detection rules propose two files relate.
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize, async_graphql::Enum)]
 #[serde(rename_all = "snake_case")]
+#[graphql(name = "MapProposedRelation")]
 pub enum ProposedRelation {
+    /// The newer file is a newer version of the older one.
     Version,
+    /// The files are the same version with small changes.
     Variant,
+    /// One file is the other in another language.
     Translation,
+    /// One file is someone else's map based on the other.
     Fork,
     /// A UMS map built on the other map's terrain: related, but never in its family.
     TerrainOnly,
+    /// The files aren't related.
     Unrelated,
 }
 
@@ -206,7 +218,7 @@ impl ProposedRelation {
     }
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Older {
     A,
