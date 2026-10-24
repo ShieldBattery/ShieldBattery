@@ -167,7 +167,8 @@ pub fn sync_options_modal(knobs: &Knobs, shell: &mut overlay_ui::shell::Shell) {
 
 /// What the emulated host reports beside the settings: two displays, so the monitor row has more
 /// than its default to step through, and a game that rolls back, so the network section shows
-/// every row it can. Whether the game is being watched follows the host's mode.
+/// every row it can. `watching` is whether the mode knob is set to observing or a replay, which is
+/// when the options screen shows the minimap position hint.
 pub fn option_lists(watching: bool) -> OptionsLists {
     OptionsLists {
         monitors: vec![
