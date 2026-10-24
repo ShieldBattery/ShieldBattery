@@ -1,0 +1,122 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT s.map_a as \"map_a: SbMapId\", s.map_b as \"map_b: SbMapId\",\n                s.terrain_similarity, s.name_match, s.verdict as \"verdict: Json<Value>\", s.status,\n                s.decided_by as \"decided_by: SbUserId\", s.decided_at, s.created_at\n            FROM map_link_suggestions s\n            WHERE s.status = 'open'\n                AND NOT EXISTS (\n                    SELECT 1\n                    FROM map_family_members fa\n                    INNER JOIN map_family_members fb ON fb.family_id = fa.family_id\n                    WHERE fa.map_id = s.map_a AND fb.map_id = s.map_b\n                )\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "map_a: SbMapId",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "map_link_suggestions",
+            "name": "map_a"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "map_b: SbMapId",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "map_link_suggestions",
+            "name": "map_b"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "terrain_similarity",
+        "type_info": "Float4",
+        "origin": {
+          "Table": {
+            "table": "map_link_suggestions",
+            "name": "terrain_similarity"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "name_match",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "map_link_suggestions",
+            "name": "name_match"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "verdict: Json<Value>",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "map_link_suggestions",
+            "name": "verdict"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "map_link_suggestions",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "decided_by: SbUserId",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "map_link_suggestions",
+            "name": "decided_by"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "decided_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "map_link_suggestions",
+            "name": "decided_at"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "map_link_suggestions",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "5a602eb622d3be3aa037a15e87d33a84b5fcab46bdc9c53a5bf4a39e53b368e8"
+}

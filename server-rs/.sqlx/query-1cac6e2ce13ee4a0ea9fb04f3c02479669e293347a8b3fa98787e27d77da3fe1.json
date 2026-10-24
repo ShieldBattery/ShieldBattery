@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE map_link_suggestions s\n            SET status = 'accepted', decided_by = $2, decided_at = now()\n            FROM map_family_members fa, map_family_members fb\n            WHERE s.status = 'open' AND fa.map_id = s.map_a AND fb.map_id = s.map_b\n                AND fa.family_id = $1 AND fb.family_id = $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1cac6e2ce13ee4a0ea9fb04f3c02479669e293347a8b3fa98787e27d77da3fe1"
+}

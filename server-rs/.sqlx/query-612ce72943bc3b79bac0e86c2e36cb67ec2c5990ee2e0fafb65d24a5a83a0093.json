@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE map_family_reports\n            SET status = $2,\n                resolved_by = CASE WHEN $3 THEN NULL ELSE $4::integer END,\n                resolved_at = CASE WHEN $3 THEN NULL ELSE now() END\n            WHERE id = $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Bool",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "612ce72943bc3b79bac0e86c2e36cb67ec2c5990ee2e0fafb65d24a5a83a0093"
+}

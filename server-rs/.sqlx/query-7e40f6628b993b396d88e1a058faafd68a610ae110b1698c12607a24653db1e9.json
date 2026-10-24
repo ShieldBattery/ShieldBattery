@@ -1,0 +1,44 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    UPDATE map_family_members\n                    SET parent_map_id = $2, relation = $3, source = $4, linked_by = $5,\n                        linked_at = now(),\n                        version_label = CASE WHEN $6 THEN $7 ELSE version_label END\n                    WHERE map_id = $1\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        {
+          "Custom": {
+            "name": "map_family_relation",
+            "kind": {
+              "Enum": [
+                "root",
+                "version",
+                "variant",
+                "translation",
+                "fork"
+              ]
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "map_link_source",
+            "kind": {
+              "Enum": [
+                "rule",
+                "publisher",
+                "moderator"
+              ]
+            }
+          }
+        },
+        "Int4",
+        "Bool",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7e40f6628b993b396d88e1a058faafd68a610ae110b1698c12607a24653db1e9"
+}

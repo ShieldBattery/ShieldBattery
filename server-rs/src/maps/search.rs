@@ -133,6 +133,10 @@ pub struct MapFilter {
     pub published_since: Option<DateTime<Utc>>,
     /// Only official maps (`true`) or only maps that aren't official (`false`).
     pub official: Option<bool>,
+    /// List every version of a map, rather than one map per family line (its current version, or
+    /// the version that best matches the search). Only the listed maps are folded by line.
+    #[graphql(default)]
+    pub all_versions: bool,
 }
 
 /// Which set of maps a listing pages through.
@@ -274,6 +278,7 @@ pub struct NormalizedFilter {
     eud: EudFilter,
     published_since: Option<DateTime<Utc>>,
     official: Option<bool>,
+    all_versions: bool,
 }
 
 fn serialize_search<S: serde::Serializer>(
@@ -322,7 +327,13 @@ impl NormalizedFilter {
             eud: filter.eud,
             published_since: filter.published_since,
             official: filter.official,
+            all_versions: filter.all_versions,
         })
+    }
+
+    /// Whether a listing of `scope` shows one map per family line.
+    fn folds(&self, scope: MapScope) -> bool {
+        scope == MapScope::Listed && !self.all_versions
     }
 
     /// The sort used when none is requested.
@@ -377,48 +388,53 @@ const ID: SortKey = SortKey {
 };
 
 fn sort_keys(sort: MapSort) -> &'static [SortKey] {
-    const RELEVANCE: &[SortKey] = &[int_key("-c.rank"), int_key("-c.games_28d"), SORT_NAME, ID];
+    const RELEVANCE: &[SortKey] = &[
+        int_key("-c.rank"),
+        int_key("-c.sort_games_28d"),
+        SORT_NAME,
+        ID,
+    ];
     const TRENDING: &[SortKey] = &[
-        int_key("-c.trending_score"),
-        int_key("-c.games_28d"),
+        int_key("-c.sort_trending_score"),
+        int_key("-c.sort_games_28d"),
         SORT_NAME,
         ID,
     ];
     const POPULAR_7D: &[SortKey] = &[
-        int_key("-c.games_7d"),
-        int_key("-c.players_90d"),
+        int_key("-c.sort_games_7d"),
+        int_key("-c.sort_players_90d"),
         SORT_NAME,
         ID,
     ];
     const POPULAR_28D: &[SortKey] = &[
-        int_key("-c.games_28d"),
-        int_key("-c.players_90d"),
+        int_key("-c.sort_games_28d"),
+        int_key("-c.sort_players_90d"),
         SORT_NAME,
         ID,
     ];
     const POPULAR_90D: &[SortKey] = &[
-        int_key("-c.games_90d"),
-        int_key("-c.players_90d"),
+        int_key("-c.sort_games_90d"),
+        int_key("-c.sort_players_90d"),
         SORT_NAME,
         ID,
     ];
     const POPULAR_ALL_TIME: &[SortKey] = &[
-        int_key("-c.games_total"),
-        int_key("-c.players_90d"),
+        int_key("-c.sort_games_total"),
+        int_key("-c.sort_players_90d"),
         SORT_NAME,
         ID,
     ];
     // Rows without a usable time sort after every dated row.
     const NEWEST: &[SortKey] = &[
         int_key(
-            "CASE WHEN c.added_at IS NULL THEN 9223372036854775807 \
-             ELSE -(extract(epoch FROM c.added_at) * 1000000) END",
+            "CASE WHEN c.sort_added_at IS NULL THEN 9223372036854775807 \
+             ELSE -(extract(epoch FROM c.sort_added_at) * 1000000) END",
         ),
         ID,
     ];
     const MOST_FAVORITED: &[SortKey] = &[
-        int_key("-c.favorites"),
-        int_key("-c.games_28d"),
+        int_key("-c.sort_favorites"),
+        int_key("-c.sort_games_28d"),
         SORT_NAME,
         ID,
     ];
@@ -615,12 +631,8 @@ impl MapListingRequest {
         let keys = sort_keys(self.sort);
         push_key_columns(&mut qb, keys);
         qb.push(" FROM (");
-        push_candidates(&mut qb, self.scope, &self.filter);
-        qb.push(") c");
-        if self.filter.search.is_some() {
-            qb.push(" WHERE c.rank > 0");
-        }
-        qb.push(") p");
+        push_rows(&mut qb, self.scope, &self.filter);
+        qb.push(") c) p");
         push_sort_keys(&mut qb, keys, self.after.as_deref());
         qb.push(" LIMIT ");
         qb.push_bind((self.count + 1) as i64);
@@ -630,11 +642,8 @@ impl MapListingRequest {
     /// Counts every row of the listing, ignoring the cursor and page size.
     fn build_count_query(&self) -> QueryBuilder<Postgres> {
         let mut qb = QueryBuilder::new("SELECT count(*) FROM (");
-        push_candidates(&mut qb, self.scope, &self.filter);
+        push_rows(&mut qb, self.scope, &self.filter);
         qb.push(") c");
-        if self.filter.search.is_some() {
-            qb.push(" WHERE c.rank > 0");
-        }
         qb
     }
 
@@ -708,9 +717,61 @@ fn push_sort_keys(qb: &mut QueryBuilder<Postgres>, keys: &[SortKey], after: Opti
     qb.push(&aliases);
 }
 
+/// Emits the listing's rows, before sorting: the candidates that match the search, and when the
+/// listing folds family lines, only the best matching map of each line (the closest search match,
+/// then the line's current version). Adds `sort_added_at`: when folding, the line's latest
+/// `added_at`, so a newly published version brings its line up in `NEWEST`.
+fn push_rows(qb: &mut QueryBuilder<Postgres>, scope: MapScope, filter: &NormalizedFilter) {
+    let folds = filter.folds(scope);
+    if folds {
+        qb.push(
+            "SELECT DISTINCT ON (c.fold_key) c.*, \
+             max(c.added_at) OVER (PARTITION BY c.fold_key) AS sort_added_at FROM (",
+        );
+    } else {
+        qb.push("SELECT c.*, c.added_at AS sort_added_at FROM (");
+    }
+    push_candidates(qb, scope, filter);
+    qb.push(") c");
+    if filter.search.is_some() {
+        qb.push(" WHERE c.rank > 0");
+    }
+    if folds {
+        qb.push(" ORDER BY c.fold_key, c.rank DESC, c.is_current DESC, c.sort_name, c.id");
+    }
+}
+
+/// The columns sort keys and folding read, from the map's own stats.
+const MAP_SORT_COLUMNS: &str = "m.id AS fold_key, TRUE AS is_current, \
+    COALESCE(s.games_7d, 0) AS sort_games_7d, \
+    COALESCE(s.games_28d, 0) AS sort_games_28d, \
+    COALESCE(s.games_90d, 0) AS sort_games_90d, \
+    COALESCE(s.games_total, 0) AS sort_games_total, \
+    COALESCE(s.players_90d, 0) AS sort_players_90d, \
+    COALESCE(s.trending_score, 0) AS sort_trending_score, \
+    COALESCE(f.favorites, 0) AS sort_favorites";
+
+/// The columns sort keys and folding read when folding family lines: the line's stats, falling
+/// back to the map's own for maps outside a family (or in a line too new to have stats). Reads
+/// [`FOLD_JOINS`].
+const LINE_SORT_COLUMNS: &str = "COALESCE(fam.line_root_id, m.id) AS fold_key, \
+    COALESCE(fam.line_current_id = m.id, TRUE) AS is_current, \
+    COALESCE(ls.games_7d, s.games_7d, 0) AS sort_games_7d, \
+    COALESCE(ls.games_28d, s.games_28d, 0) AS sort_games_28d, \
+    COALESCE(ls.games_90d, s.games_90d, 0) AS sort_games_90d, \
+    COALESCE(ls.games_total, s.games_total, 0) AS sort_games_total, \
+    COALESCE(ls.players_90d, s.players_90d, 0) AS sort_players_90d, \
+    COALESCE(ls.trending_score, s.trending_score, 0) AS sort_trending_score, \
+    COALESCE(ls.favorites, f.favorites, 0) AS sort_favorites";
+
+const FOLD_JOINS: &str = " LEFT JOIN map_family_members fam ON fam.map_id = m.id \
+    LEFT JOIN map_line_stats ls ON ls.line_root_id = fam.line_root_id";
+
 /// Emits the candidate rows: every map in `scope` that passes `filter`, with the columns of
-/// [`DbSbMap`] plus `sort_name`, `rank` and `added_at` for sorting.
+/// [`DbSbMap`] plus `sort_name`, `rank`, `added_at`, the popularity columns sort keys read
+/// (`sort_*`), and `fold_key`/`is_current` for folding family lines.
 fn push_candidates(qb: &mut QueryBuilder<Postgres>, scope: MapScope, filter: &NormalizedFilter) {
+    let folds = filter.folds(scope);
     let added_at = match scope {
         MapScope::Listed => "m.published_at",
         MapScope::Library(_) => "l.added_at",
@@ -718,6 +779,12 @@ fn push_candidates(qb: &mut QueryBuilder<Postgres>, scope: MapScope, filter: &No
     };
     qb.push("SELECT ");
     qb.push(DB_SB_MAP_COLUMNS);
+    qb.push(", ");
+    qb.push(if folds {
+        LINE_SORT_COLUMNS
+    } else {
+        MAP_SORT_COLUMNS
+    });
     qb.push(", COALESCE(m.sort_name, m.name, '') AS sort_name, ");
     qb.push(format_args!(
         "CASE WHEN isfinite({added_at}) THEN {added_at} END AS added_at, "
@@ -742,6 +809,9 @@ fn push_candidates(qb: &mut QueryBuilder<Postgres>, scope: MapScope, filter: &No
         }
     }
     qb.push(DB_SB_MAP_JOINS);
+    if folds {
+        qb.push(FOLD_JOINS);
+    }
 
     qb.push(" WHERE ");
     match scope {
@@ -1238,12 +1308,12 @@ mod tests {
         let cases: [(MapSort, &str); 4] = [
             (
                 MapSort::Relevance,
-                ", (-c.rank)::bigint AS k0, (-c.games_28d)::bigint AS k1, \
+                ", (-c.rank)::bigint AS k0, (-c.sort_games_28d)::bigint AS k1, \
                  (c.sort_name) AS k2, (c.id) AS k3",
             ),
             (
                 MapSort::Popular90d,
-                ", (-c.games_90d)::bigint AS k0, (-c.players_90d)::bigint AS k1, \
+                ", (-c.sort_games_90d)::bigint AS k0, (-c.sort_players_90d)::bigint AS k1, \
                  (c.sort_name) AS k2, (c.id) AS k3",
             ),
             (MapSort::Name, ", (c.sort_name) AS k0, (c.id) AS k1"),
@@ -1312,6 +1382,7 @@ mod tests {
                 eud: EudFilter::Exclude,
                 published_since: Some(Utc::now()),
                 official: Some(true),
+                all_versions: false,
             },
         ] {
             let request =
@@ -1424,9 +1495,56 @@ mod tests {
             let candidates = candidates.sql().as_str().to_string();
             assert!(listing.contains(&candidates), "{listing}");
             assert!(count.contains(&candidates), "{count}");
-            assert!(count.ends_with(") c WHERE c.rank > 0"), "{count}");
+            assert!(count.contains(") c WHERE c.rank > 0"), "{count}");
             assert!(!count.contains("LIMIT"), "{count}");
+            assert_eq!(
+                count.contains("DISTINCT ON (c.fold_key)"),
+                listing.contains("DISTINCT ON (c.fold_key)"),
+                "{count}"
+            );
         }
+    }
+
+    #[test]
+    fn only_listed_maps_fold_by_line() {
+        let sql = |scope, all_versions| {
+            let filter = MapFilter {
+                all_versions,
+                ..Default::default()
+            };
+            MapListingRequest::new(scope, Some(filter), None, None, None)
+                .unwrap()
+                .build_query()
+                .sql()
+                .as_str()
+                .to_string()
+        };
+        let folded = sql(MapScope::Listed, false);
+        assert!(folded.contains("DISTINCT ON (c.fold_key)"), "{folded}");
+        assert!(folded.contains("LEFT JOIN map_line_stats ls"), "{folded}");
+        for unfolded in [
+            sql(MapScope::Listed, true),
+            sql(MapScope::Library(SbUserId(1)), false),
+            sql(MapScope::Favorites(SbUserId(1)), false),
+        ] {
+            assert!(!unfolded.contains("DISTINCT ON"), "{unfolded}");
+            assert!(!unfolded.contains("map_line_stats"), "{unfolded}");
+            assert!(unfolded.contains("m.id AS fold_key"), "{unfolded}");
+        }
+    }
+
+    #[test]
+    fn all_versions_changes_the_listing_hash() {
+        let folded = NormalizedFilter::new(MapFilter::default()).unwrap();
+        let all = NormalizedFilter::new(MapFilter {
+            all_versions: true,
+            ..Default::default()
+        })
+        .unwrap();
+        assert_ne!(
+            folded.listing_hash(MapScope::Listed),
+            all.listing_hash(MapScope::Listed)
+        );
     }
 
     #[test]

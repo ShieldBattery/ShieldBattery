@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM map_family_members WHERE map_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1a1ca7efc8b9336c173c2361eb5be22dd9412d52c6ac7b0e3aa1cd9b702a0fe4"
+}

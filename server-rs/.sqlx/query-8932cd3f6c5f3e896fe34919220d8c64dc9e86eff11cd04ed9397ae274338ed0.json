@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE map_families\n            SET current_map_id = $2, stale = false, updated_at = now()\n            WHERE id = $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8932cd3f6c5f3e896fe34919220d8c64dc9e86eff11cd04ed9397ae274338ed0"
+}

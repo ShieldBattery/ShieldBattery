@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE map_family_members SET family_id = $2 WHERE map_id = ANY($1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "918beca36332b91732455915bcebaf757ba732ffac8bb9a97f86ae50cb3f71e3"
+}
