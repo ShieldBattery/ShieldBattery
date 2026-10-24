@@ -4,7 +4,7 @@
 use egui::{Context, Key, Rect};
 
 use super::hotkeys::{self, Action, Hotkeys};
-use super::prefs::{Panel, PanelPrefs};
+use super::prefs::{MatchupStyle, Panel, PanelPrefs};
 use super::replay::ReplayCommands;
 use super::{HitRect, HostFrame, Intent, Mode, dock_stand};
 use crate::kit::motion::Spot;
@@ -109,7 +109,13 @@ impl ObserverPanels {
         // The surfaces hung from the screen's top edge, which everything below keeps under.
         let mut top_surfaces = Vec::new();
 
-        if let Some(outcome) = observer::render_matchup_view(&view.matchup, ctx, prefs.matchup) {
+        // The matchup is either the bar across the top edge, with the corner cards a game too big
+        // for it gets, or the compact scoreboard in the top-right corner. Both forms are drawn every
+        // frame with only the watcher's choice shown, so a switch fades one out as the other comes
+        // in rather than cutting between them.
+        let style = prefs.matchup_style();
+        let bar_shown = style == MatchupStyle::Bar;
+        if let Some(outcome) = observer::render_matchup_view(&view.matchup, ctx, bar_shown) {
             hit_rects.push(HitRect::new(outcome.rect));
             top_surfaces.push(outcome.rect);
             if let Some(player_id) = outcome.toggled_vision {
@@ -124,10 +130,11 @@ impl ObserverPanels {
                 displaced.push(Panel::MapControl);
             }
             // Hung under the matchup bar while the bar is up, and from the screen's own top edge
-            // once it is put away, moving off as the bar starts to go rather than once it has. A
-            // strip put away along with the bar leaves from where it stands, as the panels put away
-            // with it do, rather than sliding up across the bar on its way out.
-            let wanted_top = if prefs.matchup {
+            // once it is put away or the matchup is the scoreboard in the corner, moving off as the
+            // bar starts to go rather than once it has. A strip put away along with the bar leaves
+            // from where it stands, as the panels put away with it do, rather than sliding up
+            // across the bar on its way out.
+            let wanted_top = if bar_shown {
                 view.matchup.form().height() + observer::MAP_CONTROL_GAP
             } else {
                 observer::WING_MARGIN
@@ -229,17 +236,35 @@ impl ObserverPanels {
         let right_inset = observer::dock_inset(stand.wings_clear);
         let row_inset = observer::dock_inset(stand.row_clear);
 
-        // The corner cards and the wings under them are one stack: a card is as tall as the side it
-        // carries, so where the wings start is measured off what the cards actually came out as
-        // rather than guessed at from a player count.
-        let mut tops = observer::WingTops::under_bar(view.matchup.form().height());
         // How far down the surfaces on the right edge reach as drawn.
         let mut right_reach = screen.top();
+        let scoreboard_shown = style == MatchupStyle::Compact;
+        let spot = Spot::new(ctx, spot_id("scoreboard"), scoreboard_shown, [right_inset]);
+        let [inset] = spot.at();
+        let scoreboard =
+            observer::render_scoreboard_view(&view.matchup, ctx, scoreboard_shown, inset);
+        spot.drawn(scoreboard.is_some());
+        if let Some(outcome) = &scoreboard {
+            hit_rects.push(HitRect::new(outcome.rect));
+            top_surfaces.push(outcome.rect);
+            right_reach = right_reach.max(outcome.rect.bottom());
+            if let Some(player_id) = outcome.toggled_vision {
+                intents.push(Intent::ToggleVision { player_id });
+            }
+        }
+        // The wings stack under whichever form the matchup takes: the scoreboard and the corner
+        // cards are as tall as the game has players, so where the wings start is measured off what
+        // they actually came out as rather than guessed at from a player count.
+        let mut tops = if prefs.compact_scoreboard {
+            observer::WingTops::beside_scoreboard(scoreboard.map(|outcome| outcome.rect))
+        } else {
+            observer::WingTops::under_bar(view.matchup.form().height())
+        };
         if let Some(cards) = &view.team_cards {
-            let wanted = prefs.matchup && !cards.is_empty();
+            let wanted = bar_shown && !cards.is_empty();
             let spot = Spot::new(ctx, spot_id("team_cards"), wanted, [right_inset]);
             let [inset] = spot.at();
-            let outcome = observer::render_team_cards_view(cards, ctx, prefs.matchup, inset);
+            let outcome = observer::render_team_cards_view(cards, ctx, bar_shown, inset);
             spot.drawn(outcome.right_bottom.is_some());
             for rect in outcome.rects {
                 hit_rects.push(HitRect::new(rect));
@@ -613,6 +638,9 @@ impl ObserverPanels {
             if let Some(panel) = outcome.toggled {
                 prefs.toggle(panel);
             }
+            if let Some(style) = outcome.matchup_style {
+                prefs.set_matchup_style(style);
+            }
             if let Some(expanded) = outcome.expanded {
                 prefs.dock_expanded = expanded;
             }
@@ -621,9 +649,10 @@ impl ObserverPanels {
     }
 
     /// The right edge as the dock's place is decided from, measured before anything on it is drawn:
-    /// how far down the team card in that corner and the wings under it reach while they are wanted
-    /// on screen, whether or not they turn out to fit, and as far as one still on its way out reached
-    /// last frame. `top_surfaces` are the surfaces hung from the top edge that are already drawn.
+    /// how far down the scoreboard or team card in that corner and the wings under it reach while
+    /// they are wanted on screen, whether or not they turn out to fit, and as far as one still on its
+    /// way out reached last frame. `top_surfaces` are the surfaces hung from the top edge that are
+    /// already drawn.
     ///
     /// The graphs panel is counted at its tallest: the plot only shortens where the surfaces under
     /// it leave it no more room, which is room the dock would not have had either.
@@ -639,12 +668,22 @@ impl ObserverPanels {
 
         let gap = observer::WING_GAP;
         let mut reach = self.drawn_right_reach;
+        let style = prefs.matchup_style();
         // Where the next wing down the right edge hangs from, from the screen's top edge.
-        let mut wing_top = observer::WingTops::under_bar(view.matchup.form().height()).right;
+        let mut wing_top = if prefs.compact_scoreboard {
+            observer::WingTops::beside_scoreboard(None).right
+        } else {
+            observer::WingTops::under_bar(view.matchup.form().height()).right
+        };
+        if style == MatchupStyle::Compact {
+            let bottom = observer::scoreboard::panel_bottom(&view.matchup);
+            reach = reach.max(screen.top() + bottom);
+            wing_top = wing_top.max(bottom + gap);
+        }
         let card = view
             .team_cards
             .as_ref()
-            .filter(|cards| prefs.matchup && !cards.is_empty())
+            .filter(|cards| style == MatchupStyle::Bar && !cards.is_empty())
             .and_then(|cards| cards.teams.get(1));
         if let Some(team) = card {
             let bottom = observer::team_cards::CARD_TOP + observer::team_cards::card_height(team);

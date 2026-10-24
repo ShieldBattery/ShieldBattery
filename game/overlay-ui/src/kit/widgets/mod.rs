@@ -26,6 +26,7 @@ pub use controls::{
     segmented_sized, segmented_width, slider, slider_sized, stepper, switch, tab_strip,
     tab_strip_width,
 };
+pub(crate) use icons::paint_icon_chip;
 pub use icons::{
     IconSizes, ResourceGlyph, ResourceIcons, ResourceRace, paint_resource_glyph,
     paint_resource_icon, set_resource_icons,

@@ -21,8 +21,9 @@
 //! and not on screen. Its lamp is a ring in the accent rather than a filled dot, so the dock never
 //! claims a panel is up that the watcher cannot find.
 
+use egui::emath::GuiRounding;
 use egui::{
-    Align, Align2, Area, Context, Id, Order, Pos2, Rect, Response, Sense, Shape, Stroke,
+    Align, Align2, Area, Color32, Context, Id, Order, Pos2, Rect, Response, Sense, Shape, Stroke,
     StrokeKind, Ui, pos2, vec2,
 };
 
@@ -30,14 +31,14 @@ use crate::kit::text::{self, BodyWeight};
 use crate::kit::widgets;
 use crate::kit::{motion, theme, tiers};
 use crate::observer::{centred, paint_text};
-use crate::shell::{Hotkeys, Mode, Panel, PanelPrefs};
+use crate::shell::{Hotkeys, MatchupStyle, Mode, Panel, PanelPrefs};
 use crate::tr;
 
 /// How wide the dock is collapsed, in overlay points.
 pub(crate) const COLLAPSED_WIDTH: f32 = 52.0;
 
 /// How wide it is as the control rail.
-const EXPANDED_WIDTH: f32 = 208.0;
+const EXPANDED_WIDTH: f32 = 216.0;
 
 /// How far the dock sits from the screen's right edge.
 const EDGE_MARGIN: f32 = 16.0;
@@ -94,6 +95,15 @@ fn row_label(panel: Panel) -> String {
         Panel::Minimap => tr!("observer.panelMinimap", "Minimap"),
         Panel::PlaybackControls => tr!("observer.panelPlayback", "Playback"),
         Panel::Dock => tr!("observer.panelDock", "Dock"),
+    }
+}
+
+/// What a style of the matchup is called, on the card naming the chip that picks it.
+fn matchup_style_label(style: MatchupStyle) -> String {
+    match style {
+        MatchupStyle::Bar => tr!("observer.matchupBar", "Bar along the top"),
+        MatchupStyle::Compact => tr!("observer.matchupCompact", "Compact, in the corner"),
+        MatchupStyle::Off => tr!("observer.matchupOff", "Hidden"),
     }
 }
 
@@ -194,6 +204,8 @@ pub struct DockOutcome {
     pub rect: Rect,
     /// A surface to turn on or off.
     pub toggled: Option<Panel>,
+    /// How the matchup should be on screen.
+    pub matchup_style: Option<MatchupStyle>,
     /// Whether the dock should spell its rows out.
     pub expanded: Option<bool>,
 }
@@ -204,6 +216,7 @@ impl DockOutcome {
         DockOutcome {
             rect: Rect::NOTHING,
             toggled: None,
+            matchup_style: None,
             expanded: None,
         }
     }
@@ -370,7 +383,18 @@ fn draw_dock(
             RowState::On
         };
         let rect = row(ui, dock.placement.row_height);
-        let response = draw_row(ui, rect, spelled, panel, key, state);
+        // The matchup's style is picked on its own row, where the rail has room for it.
+        let style_chips =
+            (spelled && panel == Panel::Matchup).then(|| matchup_style_chips_rect(rect));
+        let reserved = style_chips.map_or(0.0, |chips| chips.width() + ROW_GUTTER);
+        let response = draw_row(ui, rect, spelled, panel, key, state, reserved);
+        if let Some(chips) = style_chips {
+            let (picked, chip_hint) = draw_matchup_style_chips(ui, chips, prefs.matchup_style());
+            if picked.is_some() {
+                outcome.matchup_style = picked;
+            }
+            hint = hint.or(chip_hint);
+        }
         // Collapsed a row is a keycap and nothing else, so the card is what names it; expanded the
         // rail has already said everything the card would, bar a panel with no room, which nothing
         // else on screen explains.
@@ -391,6 +415,122 @@ fn draw_dock(
         draw_hint(ui, &hint);
     }
     outcome
+}
+
+/// Side of one of the chips the matchup's style is picked with, which is a keycap's height, and the
+/// gap between two of them.
+const STYLE_CHIP: f32 = KEY_HEIGHT;
+const STYLE_CHIP_GAP: f32 = 3.0;
+
+/// Size of the picture of the screen on a style chip.
+const STYLE_PICTURE: egui::Vec2 = vec2(14.0, 10.0);
+
+/// Where the chips the matchup's style is picked with go in the matchup's row: just ahead of its
+/// keycap.
+fn matchup_style_chips_rect(row: Rect) -> Rect {
+    let count = MatchupStyle::ALL.len() as f32;
+    let width = STYLE_CHIP * count + STYLE_CHIP_GAP * (count - 1.0);
+    let right = row.right() - KEY_WIDTH - ROW_GUTTER;
+    Rect::from_min_max(
+        pos2(right - width, row.center().y - STYLE_CHIP * 0.5),
+        pos2(right, row.center().y + STYLE_CHIP * 0.5),
+    )
+}
+
+/// Draws the chips the matchup's style is picked with, side by side in `rect`, the one on screen
+/// lit as a keycap is. Returns the style picked, if one was, and the card naming a chip the pointer
+/// is resting on, since a picture that small says where without saying what.
+///
+/// The row around the chips shows and hides the matchup as every row does its surface; the chips
+/// are the one place all three ways it can be are offered at once.
+fn draw_matchup_style_chips(
+    ui: &Ui,
+    rect: Rect,
+    current: MatchupStyle,
+) -> (Option<MatchupStyle>, Option<Hint>) {
+    let mut picked = None;
+    let mut hint = None;
+    let corner_radius = theme::radius(theme::RADIUS_CHIP);
+    for (index, style) in MatchupStyle::ALL.into_iter().enumerate() {
+        let chip = Rect::from_min_size(
+            pos2(
+                rect.left() + index as f32 * (STYLE_CHIP + STYLE_CHIP_GAP),
+                rect.top(),
+            ),
+            egui::Vec2::splat(STYLE_CHIP),
+        );
+        let response = ui.interact(
+            chip,
+            ui.id().with(("sb_dock_matchup_style", index)),
+            Sense::click(),
+        );
+        let lit = style == current;
+        let (fill, edge, color) = if lit {
+            (
+                theme::alpha(crate::colors::BLUE60, 0.40),
+                theme::alpha(crate::colors::BLUE80, 0.45),
+                theme::TEXT_PRIMARY,
+            )
+        } else {
+            (
+                theme::alpha(crate::colors::GREY_BLUE10, 0.60),
+                theme::CHIP_STROKE,
+                theme::TEXT_DIM,
+            )
+        };
+        ui.painter().rect_filled(chip, corner_radius, fill);
+        ui.painter().add(Shape::rect_stroke(
+            chip,
+            corner_radius,
+            Stroke::new(theme::HAIRLINE, edge),
+            StrokeKind::Inside,
+        ));
+        paint_style_picture(ui.painter(), chip, style, color);
+        widgets::state_overlay(ui, &response, chip, corner_radius);
+        if response.clicked() && !lit {
+            picked = Some(style);
+        }
+        hint = hint.or_else(|| Hint::hovered(&response, matchup_style_label(style), None));
+    }
+    (picked, hint)
+}
+
+/// Paints a small picture of the screen in `color`, centered in `chip`, with the matchup where
+/// `style` puts it: a bar along the middle of the top edge, a box in the top-right corner, or no
+/// matchup at all, the screen struck through.
+fn paint_style_picture(painter: &egui::Painter, chip: Rect, style: MatchupStyle, color: Color32) {
+    let screen = Rect::from_center_size(chip.center(), STYLE_PICTURE)
+        .round_to_pixels(painter.pixels_per_point());
+    let line = Stroke::new(theme::HAIRLINE, color);
+    painter.rect_stroke(screen, theme::radius(1), line, StrokeKind::Inside);
+    // The matchup is set in from the screen's edge by the width of its line plus a hair, so it reads
+    // as something on the screen rather than as part of the frame.
+    let inner = screen.shrink(theme::HAIRLINE * 2.0);
+    match style {
+        MatchupStyle::Bar => {
+            painter.rect_filled(
+                Rect::from_center_size(
+                    pos2(inner.center().x, inner.top() + 1.0),
+                    vec2(inner.width() * 0.6, 2.0),
+                ),
+                0.0,
+                color,
+            );
+        }
+        MatchupStyle::Compact => {
+            painter.rect_filled(
+                Rect::from_min_max(
+                    pos2(inner.right() - inner.width() * 0.4, inner.top()),
+                    pos2(inner.right(), inner.top() + inner.height() * 0.5),
+                ),
+                0.0,
+                color,
+            );
+        }
+        MatchupStyle::Off => {
+            painter.line_segment([screen.left_bottom(), screen.right_top()], line);
+        }
+    }
 }
 
 /// Names what the pointer is resting on, and the key that reaches it without the pointer.
@@ -481,7 +621,8 @@ fn draw_header(
     response
 }
 
-/// Draws one row in `rect`, returning what the pointer did to it.
+/// Draws one row in `rect`, returning what the pointer did to it. Spelled out, the name gives up
+/// `reserved` of its room ahead of the keycap, for a control the caller puts there.
 fn draw_row(
     ui: &mut Ui,
     rect: Rect,
@@ -489,6 +630,7 @@ fn draw_row(
     panel: Panel,
     key: Option<&str>,
     state: RowState,
+    reserved: f32,
 ) -> Response {
     let on = state == RowState::On;
     let (wash, corner_radius) = match expanded {
@@ -534,7 +676,7 @@ fn draw_row(
     paint_key_chip(ui, key_rect, key, state);
     let label = Rect::from_min_max(
         pos2(lamp.right() + ROW_GUTTER, rect.top()),
-        pos2(key_rect.left() - ROW_GUTTER, rect.bottom()),
+        pos2(key_rect.left() - ROW_GUTTER - reserved, rect.bottom()),
     );
     let color = match state {
         RowState::On => theme::TEXT_PRIMARY,

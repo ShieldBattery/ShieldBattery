@@ -47,6 +47,13 @@ pub(super) fn empty_game() -> ObserverView {
             players: Vec::new(),
             elapsed_secs: 0,
             is_replay: true,
+            worker_icon: ProductionIcon {
+                texture: None,
+                index: 0x07,
+                size: None,
+                margin: 0.0,
+                wireframe: None,
+            },
         },
         team_cards: None,
         economy: EconomyView {

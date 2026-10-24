@@ -437,6 +437,8 @@ pub fn build_view(
             .collect(),
         elapsed_secs: game_secs,
         is_replay,
+        // The game's own id for the SCV.
+        worker_icon: unit_icon(0x07),
     };
     ObserverView {
         // The corner cards carry the players the bar gave up, so they are built for exactly the
@@ -758,6 +760,7 @@ fn matchup_player(knobs: &Knobs, state: &State, index: usize, t: f64) -> Matchup
         gas: wave(index as f64 * 1.3 + 2.0, t, 0.023, 780.0),
         supply_used,
         supply_max,
+        workers: workers(index, t).0,
         apm: apm(index, t),
     }
 }

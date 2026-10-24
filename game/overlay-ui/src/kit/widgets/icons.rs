@@ -133,22 +133,11 @@ pub fn paint_resource_icon(
         ResourceGlyph::Supply => &icons.supply[race.index()],
     });
     let square = Rect::from_center_size(rect.center(), vec2(side, side));
-    let art = square.shrink(side * ICON_INSET);
-    let pixels = art.width() * painter.ctx().pixels_per_point();
+    let pixels = square.shrink(side * ICON_INSET).width() * painter.ctx().pixels_per_point();
     if let Some(texture) = sizes.and_then(|sizes| sizes.for_pixels(pixels)) {
         // The art is the game's square tile's, cut off at the tile's edge, so it is set in a chip
         // of its own that makes the edge the chip's.
-        let corner_radius = side * ICON_CORNER;
-        painter.rect_filled(square, corner_radius, GREY_BLUE10.gamma_multiply(alpha));
-        painter.rect_stroke(
-            square,
-            corner_radius,
-            Stroke::new(
-                theme::HAIRLINE,
-                GREY_BLUE60.gamma_multiply(ICON_EDGE_ALPHA * alpha),
-            ),
-            StrokeKind::Inside,
-        );
+        let art = paint_icon_chip(painter, square, alpha);
         let tint = match glyph {
             ResourceGlyph::Supply => glyph.color(),
             ResourceGlyph::Minerals | ResourceGlyph::Gas => Color32::WHITE,
@@ -158,6 +147,25 @@ pub fn paint_resource_icon(
         return;
     }
     paint_drawn_glyph(painter, rect, glyph, alpha, side);
+}
+
+/// Paints the chip a piece of the game's art is set in over `square`, returning the square inside
+/// it the art is drawn into. For art other than a resource's that stands beside one, so the two are
+/// set alike.
+pub(crate) fn paint_icon_chip(painter: &Painter, square: Rect, alpha: f32) -> Rect {
+    let side = square.width().min(square.height());
+    let corner_radius = side * ICON_CORNER;
+    painter.rect_filled(square, corner_radius, GREY_BLUE10.gamma_multiply(alpha));
+    painter.rect_stroke(
+        square,
+        corner_radius,
+        Stroke::new(
+            theme::HAIRLINE,
+            GREY_BLUE60.gamma_multiply(ICON_EDGE_ALPHA * alpha),
+        ),
+        StrokeKind::Inside,
+    );
+    square.shrink(side * ICON_INSET)
 }
 
 /// Paints the drawn form of `glyph`, a square `side` across centered in `rect`.

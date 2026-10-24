@@ -20,6 +20,7 @@ pub(crate) mod military;
 pub(crate) mod minimap;
 pub(crate) mod production;
 pub(crate) mod race_icon;
+pub(crate) mod scoreboard;
 pub(crate) mod selection;
 pub(crate) mod team_cards;
 pub(crate) mod timeline;
@@ -44,6 +45,7 @@ pub use production::{
     ProductionIcon, ProductionItemView, ProductionOutcome, ProductionPlayerView, ProductionView,
     WIREFRAME_LAYERS, Wireframe, render_production_view,
 };
+pub use scoreboard::{ScoreboardOutcome, render_scoreboard_view};
 pub use selection::{
     ProductionProgressView, ResourcesLeftView, SelectedUnitClick, SelectedUnitView, SelectionCase,
     SelectionOutcome, SelectionView, StatusColor, UnitStatusView, UnitUpgradeView, UpgradeEffect,
@@ -668,6 +670,15 @@ impl WingTops {
         WingTops {
             left: top,
             right: top,
+        }
+    }
+
+    /// The left wing against the screen's top edge, which nothing hangs over, and the right one
+    /// under the scoreboard in that corner while it is drawn, and in its place once it is gone.
+    pub(crate) fn beside_scoreboard(scoreboard: Option<Rect>) -> WingTops {
+        WingTops {
+            left: WING_MARGIN,
+            right: WING_MARGIN + stack_share(scoreboard),
         }
     }
 }

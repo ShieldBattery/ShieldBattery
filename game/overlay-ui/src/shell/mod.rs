@@ -54,7 +54,7 @@ pub use capture::{InputCapture, KeyboardCapture, PointerCapture};
 pub use hotkeys::{Action, Chord, Hotkeys};
 pub use modals::{ModalId, ModalPolicy};
 pub use native_dialogs::{NativeDialog, replacement_for};
-pub use prefs::{Panel, PanelPrefs, PanelSet};
+pub use prefs::{MatchupStyle, Panel, PanelPrefs, PanelSet};
 
 use modals::{ModalContext, ModalOutcome, ModalStack, draw_modal};
 use observer_panels::{ObserverFrame, ObserverPanels, number_key_digit};
@@ -957,6 +957,10 @@ impl Shell {
             }
             Action::ToggleDock => {
                 self.prefs.dock_key(modifiers);
+                true
+            }
+            Action::ToggleMatchup => {
+                self.prefs.matchup_key(modifiers);
                 true
             }
             // The bar reports a measurement the game does not keep, so a game whose host has none
