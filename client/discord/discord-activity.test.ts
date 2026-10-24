@@ -30,6 +30,7 @@ const LISTED_LOBBY: ActivityLobby = {
   mapName: 'Fastest',
   mapImageUrl: MAP_IMAGE_URL,
   ownRace: 'z',
+  observing: false,
 }
 
 const ONE_VS_ONE: ParticipatingGameInfo = {
@@ -45,7 +46,14 @@ const ONE_VS_ONE: ParticipatingGameInfo = {
 }
 
 function stateWith(overrides: Partial<DiscordActivityState>): DiscordActivityState {
-  return { sharing: 'on', userId: SELF, lobby: undefined, game: undefined, ...overrides }
+  return {
+    sharing: 'on',
+    userId: SELF,
+    lobby: undefined,
+    game: undefined,
+    replay: undefined,
+    ...overrides,
+  }
 }
 
 describe('client/discord/discord-activity', () => {
@@ -89,12 +97,12 @@ describe('client/discord/discord-activity', () => {
       expect(activity?.details).toBe('“x”')
     })
 
-    test('an observer gets no race icon', () => {
+    test('an observer gets the observer icon in place of a race icon', () => {
       const activity = getDiscordActivity(
-        stateWith({ lobby: { ...LISTED_LOBBY, ownRace: undefined } }),
+        stateWith({ lobby: { ...LISTED_LOBBY, ownRace: undefined, observing: true } }),
         t,
       )
-      expect(activity?.smallImage).toBeUndefined()
+      expect(activity?.smallImage).toEqual({ image: 'observer', text: 'Observing' })
     })
 
     test("a map image Discord can't fetch (a dev server's local file store) is left out", () => {
@@ -151,7 +159,7 @@ describe('client/discord/discord-activity', () => {
       expect(activity?.party).toBeUndefined()
     })
 
-    test('an observer sees the matchup in slot order, without a race icon', () => {
+    test('an observer sees the matchup in slot order, with the observer icon', () => {
       const game: ParticipatingGameInfo = {
         ...ONE_VS_ONE,
         slots: [
@@ -162,7 +170,7 @@ describe('client/discord/discord-activity', () => {
       }
       const activity = getDiscordActivity(stateWith({ game }), t)
       expect(activity?.details).toBe('Observing Melee · ZvP')
-      expect(activity?.smallImage).toBeUndefined()
+      expect(activity?.smallImage).toEqual({ image: 'observer', text: 'Observing' })
     })
 
     test('a team game shows the mode, the own race, and the map image', () => {
@@ -202,13 +210,42 @@ describe('client/discord/discord-activity', () => {
     })
   })
 
+  describe('replays', () => {
+    test('a replay shows that the user is watching one, and its map', () => {
+      expect(getDiscordActivity(stateWith({ replay: { mapName: 'Polypoid' } }), t)).toEqual({
+        details: 'Watching a replay',
+        state: 'Polypoid',
+      })
+    })
+
+    test("a replay whose map isn't known shows only that the user is watching one", () => {
+      expect(getDiscordActivity(stateWith({ replay: {} }), t)).toEqual({
+        details: 'Watching a replay',
+        state: undefined,
+      })
+    })
+
+    test('a lobby or a game takes precedence over a replay', () => {
+      const replay = { mapName: 'Polypoid' }
+      expect(getDiscordActivity(stateWith({ lobby: LISTED_LOBBY, replay }), t)?.details).toBe(
+        'Fastest 3v3',
+      )
+      expect(getDiscordActivity(stateWith({ game: ONE_VS_ONE, replay }), t)?.details).toBe(
+        'Melee · PvZ',
+      )
+    })
+  })
+
   test.each(['off', 'notAsked'] as const)('nothing shows while sharing is %s', sharing => {
     expect(
-      getDiscordActivity(stateWith({ sharing, lobby: LISTED_LOBBY, game: ONE_VS_ONE }), t),
+      getDiscordActivity(
+        stateWith({ sharing, lobby: LISTED_LOBBY, game: ONE_VS_ONE, replay: {} }),
+        t,
+      ),
     ).toBeUndefined()
   })
 
-  test('nothing shows outside a lobby or a game', () => {
+  test('nothing shows outside a lobby, a game or a replay', () => {
     expect(getDiscordActivity(stateWith({}), t)).toBeUndefined()
   })
 

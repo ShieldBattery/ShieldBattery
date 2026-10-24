@@ -35,6 +35,17 @@ export interface ParticipatingGameInfo {
 /** The game the user last took part in, from when its setup arrives. */
 export const participatingGameAtom = atom<ParticipatingGameInfo | undefined>(undefined)
 
+/** What the client knows about a replay it started. */
+export interface WatchedReplayInfo {
+  /** The game ID of the replay's playback. */
+  gameId: string
+  /** The map the replay was played on, if its header could be read. */
+  mapName?: string
+}
+
+/** The replay this client started most recently, from when its playback is set up. */
+export const watchedReplayAtom = atom<WatchedReplayInfo | undefined>(undefined)
+
 const MAX_RECENT_REPLAY_PATHS = 8
 
 /**

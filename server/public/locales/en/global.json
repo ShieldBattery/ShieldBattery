@@ -1101,17 +1101,20 @@
     "activity": {
       "modeWithMatchup": "{{mode}} · {{matchup}}",
       "modeWithRace": "{{mode}} · {{race}}",
+      "observerIcon": "Observing",
       "observing": "Observing {{mode}}",
       "privateLobby": "Private lobby",
-      "rankedMode": "Ranked {{mode}}"
+      "rankedMode": "Ranked {{mode}}",
+      "watchingReplay": "Watching a replay"
     },
     "activityPrompt": {
       "decline": "No thanks",
       "enable": "Show my activity",
-      "footnote": "Nothing shows while you’re not in a lobby or a game. You can change this later in Settings › Connections.",
+      "footnote": "Nothing shows while you’re not in a lobby, a game or a replay. You can change this later in Settings › Connections.",
       "intro": "ShieldBattery can show what you’re doing on the Discord account signed in to the Discord app on this computer:",
       "sharedGame": "The game mode, the matchup or your race, the map, and how long the game has been going",
       "sharedLobby": "The map of the lobby you’re in, with the lobby’s name and a Join button if it’s listed",
+      "sharedReplay": "That you’re watching a replay, and its map",
       "title": "Show your activity on Discord?"
     }
   },
@@ -3259,7 +3262,7 @@
         "discord": {
           "description": "Show what you’re doing on ShieldBattery on your Discord profile.",
           "name": "Discord",
-          "note": "Shows your lobby or game on the Discord account signed in to the Discord app on the same computer as the ShieldBattery app.",
+          "note": "Shows your lobby, game or replay on the Discord account signed in to the Discord app on the same computer as the ShieldBattery app.",
           "showActivity": "Show my activity on Discord"
         },
         "title": "Connections",

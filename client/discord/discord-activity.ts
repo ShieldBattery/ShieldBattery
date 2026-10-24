@@ -30,6 +30,14 @@ export interface ActivityLobby {
   mapImageUrl?: string
   /** The race picked in the user's slot, or `undefined` while they observe. */
   ownRace?: RaceChar
+  /** Whether the user is in one of the lobby's observer slots. */
+  observing: boolean
+}
+
+/** What the activity shows about a replay the user is watching. */
+export interface ActivityReplay {
+  /** The map the replay was played on, if its header could be read. */
+  mapName?: string
 }
 
 export interface DiscordActivityState {
@@ -40,6 +48,8 @@ export interface DiscordActivityState {
   lobby: ActivityLobby | undefined
   /** The game the user takes part in, only while it's being played. */
   game: ParticipatingGameInfo | undefined
+  /** The replay the user is watching, only while it's being played. */
+  replay: ActivityReplay | undefined
 }
 
 const MIN_DISCORD_TEXT_LENGTH = 2
@@ -78,6 +88,11 @@ function getMapImage(
 /** Returns the icon of the race the user picked. Keys are listed in docs/DISCORD_SDK.md. */
 function getRaceIcon(race: RaceChar | undefined, t: TFunction): DiscordActivityImage | undefined {
   return race ? { image: `race_${race}`, text: raceCharToLabel(race, t) } : undefined
+}
+
+/** Returns the icon shown in place of a race while the user observes. */
+function getObserverIcon(t: TFunction): DiscordActivityImage {
+  return { image: 'observer', text: t('discord.activity.observerIcon', 'Observing') }
 }
 
 const PLAYER_SLOT_TYPES: ReadonlySet<SlotType> = new Set([
@@ -141,7 +156,7 @@ function getGameActivity(
     state: fitDiscordText(game.mapName),
     startTimestamp: game.playingSince,
     largeImage: getMapImage(game.mapImageUrl, game.mapName),
-    smallImage: getRaceIcon(ownRace, t),
+    smallImage: observing ? getObserverIcon(t) : getRaceIcon(ownRace, t),
   }
 }
 
@@ -158,7 +173,7 @@ function getLobbyActivity(lobby: ActivityLobby, t: TFunction): DiscordActivity {
     details,
     state: lobby.mapName !== undefined ? fitDiscordText(lobby.mapName) : undefined,
     largeImage: getMapImage(lobby.mapImageUrl, lobby.mapName),
-    smallImage: getRaceIcon(lobby.ownRace, t),
+    smallImage: lobby.observing ? getObserverIcon(t) : getRaceIcon(lobby.ownRace, t),
     // Discord shows the size after the state, e.g. "Fighting Spirit (2 of 4)", and offers to join
     // while there's room.
     party: joinable
@@ -172,9 +187,17 @@ function getLobbyActivity(lobby: ActivityLobby, t: TFunction): DiscordActivity {
   }
 }
 
+function getReplayActivity(replay: ActivityReplay, t: TFunction): DiscordActivity {
+  return {
+    details: t('discord.activity.watchingReplay', 'Watching a replay'),
+    state: replay.mapName !== undefined ? fitDiscordText(replay.mapName) : undefined,
+  }
+}
+
 /**
  * Returns the Rich Presence activity for the user's current state, or `undefined` if nothing should
- * show: when they haven't chosen to share it, or aren't in a lobby or a game.
+ * show: when they haven't chosen to share it, or aren't in a lobby, a game or a replay. A game or
+ * lobby the user is in takes the place of a replay they watch at the same time.
  */
 export function getDiscordActivity(
   state: DiscordActivityState,
@@ -188,6 +211,9 @@ export function getDiscordActivity(
   }
   if (state.lobby) {
     return getLobbyActivity(state.lobby, t)
+  }
+  if (state.replay) {
+    return getReplayActivity(state.replay, t)
   }
   return undefined
 }
