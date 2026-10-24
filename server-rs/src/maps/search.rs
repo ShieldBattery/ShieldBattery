@@ -525,7 +525,7 @@ const DB_SB_MAP_COLUMNS: &str = "m.id, m.hash, m.name, \
     COALESCE(s.players_90d, 0) AS players_90d, \
     s.median_length_90d, s.last_played_at, \
     COALESCE(s.trending_score, 0) AS trending_score, \
-    COALESCE(f.favorites, 0) AS favorites";
+    COALESCE(f.favorites, 0) AS favorites, m.first_seen_at";
 
 /// The joins [`DB_SB_MAP_COLUMNS`] reads from, after `FROM maps m`.
 const DB_SB_MAP_JOINS: &str = " LEFT JOIN map_stats s ON s.map_id = m.id \
@@ -559,6 +559,7 @@ pub struct DbSbMap {
     pub last_played_at: Option<DateTime<Utc>>,
     pub trending_score: i32,
     pub favorites: i32,
+    pub first_seen_at: DateTime<Utc>,
 }
 
 /// One row of a listing page.

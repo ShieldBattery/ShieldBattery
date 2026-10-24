@@ -1917,6 +1917,12 @@ type Query {
 	"""
 	mapFamilyProposalCount: Int!
 	"""
+	The groups of possibly related files the maps are in, merged into one, as
+	`mapFamilyProposals` would list them. A map with nothing to sort adds itself and its
+	family. Only available to users who can manage maps.
+	"""
+	mapFamilyGroup(mapIds: [SbMapId!]!): MapFamilyProposal!
+	"""
 	Family reports with a status, oldest first. Only available to users who can manage maps.
 	"""
 	mapFamilyReports(status: MapFamilyReportStatus! = OPEN, limit: Int! = 20, offset: Int! = 0): [MapFamilyReport!]!
@@ -2108,6 +2114,10 @@ type SbMap {
 	How many users have favorited this map.
 	"""
 	favoriteCount: Int!
+	"""
+	When the server first saw the map's file.
+	"""
+	firstSeenAt: DateTime!
 	file: MapFile!
 	"""
 	The user who listed this map. Null unless it is listed.
