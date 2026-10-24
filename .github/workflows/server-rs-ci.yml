@@ -120,18 +120,9 @@ jobs:
         id: gen-typeshare
         run: pnpm gen-typeshare
 
-      - name: Get changed files
-        uses: zyactions/verify-changed-files@2981a606808d0b36bdb2fbe45a50b01aa3ec601d
-        id: get-changed-files
-        with:
-          return-pipe: true
-
       - name: Check typeshare
-        uses: zyactions/glob@019de5a7f0ba17b700d45867086242eb99ff1a46
         id: check-typeshare
-        with:
-          pipe: ${{ steps.get-changed-files.outputs.pipe }}
-          pattern: common/typeshare.ts
+        run: echo "matches=$(git status --porcelain -- 'common/typeshare.ts' | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
 
       - name: Display typeshare
         if: ${{ steps.check-typeshare.outputs.matches != '' || failure() && steps.gen-typeshare.conclusion == 'failure' }}
