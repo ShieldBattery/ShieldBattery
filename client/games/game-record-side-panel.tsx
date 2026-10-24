@@ -1,12 +1,16 @@
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
+import { getErrorStack } from '../../common/errors'
 import { GameRecordJson, getGameTypeLabel } from '../../common/games/games'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { MaterialIcon } from '../icons/material/material-icon'
+import logger from '../logging/logger'
 import { MenuItem } from '../material/menu/item'
+import { getServerOrigin } from '../network/server-url'
 import { useAppSelector } from '../redux-hooks'
 import { labelMedium } from '../styles/typography'
+import { getGameResultsUrl } from './action-creators'
 import { GamePlayersDisplay } from './game-players-display'
 import {
   GameSidePanel,
@@ -112,8 +116,8 @@ function GameRecordSidePanelContent({
 
   // Watching is what people actually come to this panel for, so it takes the filled button
   // wherever the client can do it and everything else moves into the overflow. Without a watchable
-  // replay the results page is the only thing left worth pressing, so it takes the primary slot,
-  // and a game with no replay at all gets no overflow button rather than an empty menu.
+  // replay the results page takes the primary slot. Copying the game link is always available
+  // in the overflow menu, even when no replay is available.
   const canWatchReplay = replayInfo !== undefined && IS_ELECTRON
   const viewResultsLabel = t('games.sidePanel.viewFullResults', 'View full results')
 
@@ -131,54 +135,70 @@ function GameRecordSidePanelContent({
           onClick={() => onViewResults(game.id)}
         />
       )}
-      {replayInfo ? (
-        <GameSidePanelOverflow
-          renderItems={({ closeMenu, openSubmenu }) =>
-            canWatchReplay
-              ? [
-                  <MenuItem
-                    key='view-full-results'
-                    icon={<MaterialIcon icon='open_in_new' />}
-                    text={viewResultsLabel}
-                    onClick={() => {
-                      closeMenu()
-                      onViewResults(game.id)
-                    }}
-                  />,
-                  <MenuItem
-                    key='save-replay'
-                    icon={<MaterialIcon icon='save' />}
-                    text={t('gameDetails.buttonSaveReplay', 'Save replay')}
-                    onClick={event => {
-                      closeMenu()
-                      openSubmenu(event)
-                    }}
-                  />,
-                ]
-              : [
-                  <MenuItem
-                    key='download-replay'
-                    icon={<MaterialIcon icon='download' />}
-                    text={t('gameDetails.buttonDownloadReplay', 'Download replay')}
-                    onClick={() => {
-                      closeMenu()
-                      const a = document.createElement('a')
-                      a.href = replayInfo.url
-                      a.target = '_blank'
-                      a.click()
-                    }}
-                  />,
-                ]
+      <GameSidePanelOverflow
+        renderItems={({ closeMenu, openSubmenu }) => {
+          const items = [
+            <MenuItem
+              key='copy-link'
+              icon={<MaterialIcon icon='link' />}
+              text={t('navigation.copyLink.defaultText', 'Copy link')}
+              onClick={() => {
+                closeMenu()
+                navigator.clipboard
+                  .writeText(getServerOrigin() + getGameResultsUrl(game.id))
+                  .catch(err => logger.error(`Error writing to clipboard: ${getErrorStack(err)}`))
+              }}
+            />,
+          ]
+
+          if (canWatchReplay) {
+            items.push(
+              <MenuItem
+                key='view-full-results'
+                icon={<MaterialIcon icon='open_in_new' />}
+                text={viewResultsLabel}
+                onClick={() => {
+                  closeMenu()
+                  onViewResults(game.id)
+                }}
+              />,
+              <MenuItem
+                key='save-replay'
+                icon={<MaterialIcon icon='save' />}
+                text={t('gameDetails.buttonSaveReplay', 'Save replay')}
+                onClick={event => {
+                  closeMenu()
+                  openSubmenu(event)
+                }}
+              />,
+            )
+          } else if (replayInfo) {
+            items.push(
+              <MenuItem
+                key='download-replay'
+                icon={<MaterialIcon icon='download' />}
+                text={t('gameDetails.buttonDownloadReplay', 'Download replay')}
+                onClick={() => {
+                  closeMenu()
+                  const a = document.createElement('a')
+                  a.href = replayInfo.url
+                  a.target = '_blank'
+                  a.click()
+                }}
+              />,
+            )
           }
-          renderSubmenu={
-            canWatchReplay
-              ? ({ closeSubmenu }) => (
-                  <SaveReplayMenuContent replayInfo={replayInfo} onDismiss={closeSubmenu} />
-                )
-              : undefined
-          }
-        />
-      ) : null}
+
+          return items
+        }}
+        renderSubmenu={
+          canWatchReplay
+            ? ({ closeSubmenu }) => (
+                <SaveReplayMenuContent replayInfo={replayInfo} onDismiss={closeSubmenu} />
+              )
+            : undefined
+        }
+      />
     </>
   )
 
