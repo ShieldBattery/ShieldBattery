@@ -19,7 +19,7 @@ import { push } from '../navigation/routing'
 import { useAppDispatch } from '../redux-hooks'
 import { bodyMedium, bodySmall, singleLine, titleSmall } from '../styles/typography'
 import { openMapCompareDialog, openMapFamilyLinkDialog } from './action-creators'
-import { FamilyPlacement, FamilyPlacements, orderRows } from './family-editor'
+import { FamilyPlacement, orderTreeRows } from './family-editor'
 
 const MapPage_NewerVersionFragment = graphql(/* GraphQL */ `
   fragment MapPage_NewerVersionFragment on SbMap {
@@ -221,37 +221,6 @@ function memberName(name: string, versionLabel: string | null | undefined): stri
   return versionLabel && !filtered.includes(versionLabel) ? `${filtered} ${versionLabel}` : filtered
 }
 
-/**
- * The members in tree order, with how far each is indented. A version sits level with the version
- * before it, so a line reads top to bottom from oldest to newest however long it is; variants,
- * translations and forks are indented under the file they come from.
- */
-function displayRows(
-  members: ReadonlyArray<{
-    mapId: SbMapId
-    parentId?: SbMapId | null
-    relation: MapFamilyRelation
-    map: { firstSeenAt: string }
-  }>,
-  placements: FamilyPlacements,
-): Array<{ id: SbMapId; depth: number; branch: boolean }> {
-  const relations = new Map(members.map(m => [m.mapId, m.relation]))
-  const depths = new Map<SbMapId, number>()
-  return orderRows(
-    members.map(m => ({ id: m.mapId, firstSeenAt: Date.parse(m.map.firstSeenAt) })),
-    placements,
-  ).map(({ id }) => {
-    const placement = placements.get(id)
-    const parentId = placement?.kind === 'tree' ? placement.parentId : undefined
-    // Rows come parents first, so a parent's depth is always known here
-    const parentDepth = parentId !== undefined ? (depths.get(parentId) ?? 0) : undefined
-    const branch = parentDepth !== undefined && relations.get(id) !== MapFamilyRelation.Version
-    const depth = parentDepth === undefined ? 0 : parentDepth + (branch ? 1 : 0)
-    depths.set(id, depth)
-    return { id, depth, branch }
-  })
-}
-
 /** The pair in before/after order for comparing them: the file uploaded first is the before side. */
 function compareOrder(
   a: { id: SbMapId; firstSeenAt: string },
@@ -294,7 +263,12 @@ export function MapFamilyCard({
       },
     ]),
   )
-  const rows = showTree ? displayRows(members, placements) : []
+  const rows = showTree
+    ? orderTreeRows(
+        members.map(m => ({ id: m.mapId, firstSeenAt: Date.parse(m.map.firstSeenAt) })),
+        placements,
+      )
+    : []
   const lineSizes = new Map<SbMapId, number>()
   for (const m of members) {
     if (m.lineCurrentId) {
