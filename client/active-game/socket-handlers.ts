@@ -17,7 +17,6 @@ import {
 import i18n from '../i18n/i18next'
 import { jotaiStore } from '../jotai-store'
 import logger from '../logging/logger'
-import { launchingMatchmakingTypeAtom } from '../matchmaking/matchmaking-atoms'
 import { fetchJson } from '../network/fetch'
 import { isFetchError } from '../network/fetch-errors'
 import { makeServerUrl } from '../network/server-url'
@@ -52,9 +51,7 @@ export default function ({
           mapImageUrl: isReplayMapInfo(setup.map)
             ? undefined
             : (setup.map.image1024Url ?? setup.map.image512Url),
-          // A match's `matchReady` arrives before its game's setup, so a type set here belongs to
-          // this game's match.
-          matchmakingType: jotaiStore.get(launchingMatchmakingTypeAtom),
+          matchmakingType: setup.matchmakingType,
           slots: setup.slots.map(({ userId, race, type }) => ({ userId, race, type })),
         })
 

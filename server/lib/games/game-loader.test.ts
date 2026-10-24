@@ -1595,6 +1595,38 @@ describe('games/game-loader/GameLoader', () => {
     await load
   })
 
+  test("tells every player in a matchmaking game the match's matchmaking type", async () => {
+    const { load } = await startNetworkedLoad('game-mm-type', true)
+
+    const setups = publisher.publish.mock.calls
+      .filter((call: any[]) => call[1]?.type === 'setGameConfig')
+      .map((call: any[]) => call[1].setup)
+    expect(setups).toHaveLength(2)
+    for (const setup of setups) {
+      expect(setup.matchmakingType).toBe(MatchmakingType.Match1v1)
+    }
+
+    gameLoader.registerGameAsLoaded('game-mm-type', p1)
+    gameLoader.registerGameAsLoaded('game-mm-type', p2)
+    await load
+  })
+
+  test('leaves the matchmaking type out of a lobby game', async () => {
+    const { load } = await startNetworkedLoad('game-lobby-type', false)
+
+    const setups = publisher.publish.mock.calls
+      .filter((call: any[]) => call[1]?.type === 'setGameConfig')
+      .map((call: any[]) => call[1].setup)
+    expect(setups).toHaveLength(2)
+    for (const setup of setups) {
+      expect(setup.matchmakingType).toBeUndefined()
+    }
+
+    gameLoader.registerGameAsLoaded('game-lobby-type', p1)
+    gameLoader.registerGameAsLoaded('game-lobby-type', p2)
+    await load
+  })
+
   test('reports a networked load as not local-only', async () => {
     const { load } = await startNetworkedLoad('game-networked-flag')
 

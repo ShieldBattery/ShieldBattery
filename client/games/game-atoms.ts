@@ -32,10 +32,7 @@ export interface ParticipatingGameInfo {
   playingSince?: number
 }
 
-/**
- * The game the user last took part in, from when its setup arrives. The server doesn't say which
- * matchmaking type a game belongs to, so this carries it on from the match that launched the game.
- */
+/** The game the user last took part in, from when its setup arrives. */
 export const participatingGameAtom = atom<ParticipatingGameInfo | undefined>(undefined)
 
 const MAX_RECENT_REPLAY_PATHS = 8
