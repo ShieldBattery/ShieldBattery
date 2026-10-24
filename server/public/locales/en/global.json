@@ -3381,6 +3381,19 @@
       "ipAddresses": {
         "title": "IP addresses"
       },
+      "linkedAccounts": {
+        "description": "Accounts that directly share non-browser identifiers with this account. Matches may span different machines or times and do not establish that accounts belong to the same person.",
+        "empty": "No accounts match this filter on this page.",
+        "loadError": "Could not load linked accounts.",
+        "matchingTypes_one": "Matching identifier types: {{count}} ({{types}})",
+        "matchingTypes_other": "Matching identifier types: {{count}} ({{types}})",
+        "minimumMatches": "Minimum matching identifier types",
+        "page": "Page {{page}}",
+        "profile": "Profile",
+        "title": "Linked accounts",
+        "usageDates": "Matching identifiers used by this account: {{first}} – {{last}}",
+        "viewLinks": "View linked accounts"
+      },
       "nameHistory": {
         "changeName": {
           "description": "Renames this user right away and records the change in the history below. Granting a name change token lets them pick their own name immediately, without waiting out the usual cooldown.",

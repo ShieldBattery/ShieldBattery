@@ -60,6 +60,7 @@ import {
   AdminBanUserRequest,
   AdminBanUserResponse,
   AdminGetBansResponse,
+  AdminGetLinkedAccountsResponse,
   AdminGetRestrictionsResponse,
   AdminGetUserIpsResponse,
   AdminLiftRestrictionRequest,
@@ -79,6 +80,7 @@ import {
   GetUserByNameResponse,
   GetUserProfileResponse,
   GetUserRankingHistoryResponse,
+  LINKED_ACCOUNTS_PAGE_SIZE,
   RANDOM_EMAIL_CODE_PATTERN,
   RecoverUsernameRequest,
   RequestPasswordResetRequest,
@@ -147,6 +149,7 @@ import {
 } from './user-api-errors'
 import { UserIdentifierCleanupJob } from './user-identifier-cleanup'
 import { UserIdentifierManager } from './user-identifier-manager'
+import { findLinkedAccounts } from './user-identifiers'
 import { retrieveIpsForUsers, retrieveRelatedUsersForIps } from './user-ips'
 import { UserIpsCleanupJob } from './user-ips-cleanup'
 import {
@@ -1542,6 +1545,41 @@ export class AdminUserApi {
         .filter(r => r.userId === user.id)
         .map(r => toUserRestrictionHistoryJson(r)),
       users: [user, liftingUser],
+    }
+  }
+
+  @httpGet('/:id/linked-accounts')
+  @httpBefore(checkAllPermissions('banUsers'))
+  async getLinkedAccounts(ctx: RouterContext): Promise<AdminGetLinkedAccountsResponse> {
+    const { params, query } = validateRequest(ctx, {
+      params: Joi.object<{ id: SbUserId }>({ id: joiUserId().required() }).required(),
+      query: Joi.object<{ minMatches: number; offset: number }>({
+        minMatches: Joi.number().integer().min(1).max(8).default(4),
+        offset: Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER).default(0),
+      }),
+    })
+    const user = await findUserById(params.id)
+    if (!user) throw new UserApiError(UserErrorCode.NotFound, 'user not found')
+
+    const matches = await findLinkedAccounts(
+      user.id,
+      query.minMatches,
+      LINKED_ACCOUNTS_PAGE_SIZE + 1,
+      query.offset,
+    )
+    const page = matches.slice(0, LINKED_ACCOUNTS_PAGE_SIZE)
+    const users = page.length ? await findUsersById(page.map(match => match.userId)) : []
+    ctx.set('Cache-Control', 'private, no-store')
+    return {
+      forUser: user.id,
+      matches: page.map(match => ({
+        userId: match.userId,
+        matchingIdentifierTypes: match.matchingIdentifierTypes,
+        firstUsed: Number(match.firstUsed),
+        lastUsed: Number(match.lastUsed),
+      })),
+      users: users.concat(user),
+      hasMore: matches.length > LINKED_ACCOUNTS_PAGE_SIZE,
     }
   }
 

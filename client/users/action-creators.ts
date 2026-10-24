@@ -10,6 +10,7 @@ import {
   AdminBanUserRequest,
   AdminBanUserResponse,
   AdminGetBansResponse,
+  AdminGetLinkedAccountsResponse,
   AdminGetPermissionsResponse,
   AdminGetRestrictionsResponse,
   AdminGetUserIpsResponse,
@@ -319,6 +320,24 @@ export function adminGetUserIps(
       signal: spec.signal,
     })
     dispatch({ type: '@users/adminGetUserIps', payload: res })
+
+    return res
+  })
+}
+
+export function adminGetLinkedAccounts(
+  userId: SbUserId,
+  minMatches: number,
+  offset: number,
+  spec: RequestHandlingSpec<AdminGetLinkedAccountsResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const params = new URLSearchParams({ minMatches: String(minMatches), offset: String(offset) })
+    const res = await fetchJson<AdminGetLinkedAccountsResponse>(
+      apiUrl`admin/users/${userId}/linked-accounts?${params}`,
+      { signal: spec.signal },
+    )
+    dispatch({ type: '@users/loadUsers', payload: res.users })
 
     return res
   })

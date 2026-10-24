@@ -318,6 +318,21 @@ export interface AdminGetUserIpsResponse {
   users: SbUser[]
 }
 
+export const LINKED_ACCOUNTS_PAGE_SIZE = 50
+
+export interface AdminGetLinkedAccountsResponse {
+  forUser: SbUserId
+  matches: Array<{
+    userId: SbUserId
+    matchingIdentifierTypes: number[]
+    /** Usage dates on the related account for identifiers also held by the requested account. */
+    firstUsed: number
+    lastUsed: number
+  }>
+  users: SbUser[]
+  hasMore: boolean
+}
+
 /**
  * The response returned when an admin removes another user's avatar. Deliberately returns a
  * `SbUser` (not a `SelfUser`/`SelfUserJson`) since the target user is not the requester and

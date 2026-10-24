@@ -11,6 +11,7 @@ import { Tooltip } from '../../material/tooltip'
 import { LoadingDotsArea } from '../../progress/dots'
 import { bodyLarge } from '../../styles/typography'
 import { AdminIpAddressesPage } from './ip-addresses-page'
+import { AdminLinkedAccountsPage } from './linked-accounts-page'
 import { AdminNameHistoryPage } from './name-history-page'
 import { AdminPermissionsPage } from './permissions-page'
 import { AdminPunishmentsPage } from './punishments-page'
@@ -19,6 +20,7 @@ export enum AdminSubPage {
   Permissions = 'permissions',
   Punishments = 'punishments',
   IpAddresses = 'ip-addresses',
+  LinkedAccounts = 'linked-accounts',
   NameHistory = 'name-history',
 }
 
@@ -137,6 +139,14 @@ export function AdminUserPageLayout({ user }: AdminUserPageLayoutProps) {
       }
       break
 
+    case AdminSubPage.LinkedAccounts:
+      if (!canBanUsers) {
+        content = <LoadingError>Access denied.</LoadingError>
+      } else {
+        content = <AdminLinkedAccountsPage user={user} />
+      }
+      break
+
     default:
       adminSubPage satisfies never
       content = <LoadingError>Invalid admin page.</LoadingError>
@@ -176,6 +186,14 @@ export function AdminUserPageLayout({ user }: AdminUserPageLayoutProps) {
           show={canBanUsers}
           active={adminSubPage === AdminSubPage.NameHistory}
           testName='name-history-button'
+        />
+        <AdminNavItem
+          title={t('users.admin.linkedAccounts.title', 'Linked accounts')}
+          icon='group'
+          url={subPageUrl(AdminSubPage.LinkedAccounts)}
+          show={canBanUsers}
+          active={adminSubPage === AdminSubPage.LinkedAccounts}
+          testName='linked-accounts-button'
         />
       </AdminNavigation>
       <AdminContent>{content ?? <LoadingDotsArea />}</AdminContent>

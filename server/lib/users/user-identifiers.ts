@@ -92,6 +92,51 @@ export async function findConnectedUsers(
   }
 }
 
+export interface LinkedAccount {
+  userId: SbUserId
+  matchingIdentifierTypes: number[]
+  firstUsed: Date
+  lastUsed: Date
+}
+
+/** Direct shared identifiers, excluding browser IDs and counting each identifier type only once. */
+export async function findLinkedAccounts(
+  userId: SbUserId,
+  minMatches: number,
+  limit: number,
+  offset: number,
+  withClient?: DbClient,
+): Promise<LinkedAccount[]> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<Dbify<LinkedAccount>>(sql`
+      SELECT ui.user_id, ARRAY_AGG(DISTINCT ui.identifier_type ORDER BY ui.identifier_type)
+          AS matching_identifier_types,
+        MIN(ui.first_used) AS first_used, MAX(ui.last_used) AS last_used
+      FROM user_identifiers ui
+      WHERE ui.user_id != ${userId}
+        AND ui.identifier_type != 0
+        AND (ui.identifier_type, ui.identifier_hash) IN (
+          SELECT identifier_type, identifier_hash
+          FROM user_identifiers
+          WHERE user_id = ${userId}
+        )
+      GROUP BY ui.user_id
+      HAVING COUNT(DISTINCT ui.identifier_type) >= ${minMatches}
+      ORDER BY COUNT(DISTINCT ui.identifier_type) DESC, ui.user_id ASC
+      LIMIT ${limit} OFFSET ${offset}
+    `)
+    return result.rows.map(row => ({
+      userId: row.user_id,
+      matchingIdentifierTypes: row.matching_identifier_types,
+      firstUsed: row.first_used,
+      lastUsed: row.last_used,
+    }))
+  } finally {
+    done()
+  }
+}
+
 /**
  * Returns a list of user IDs with identifiers that match the ones specified. The identifiers
  * should correspond to a single machine.
