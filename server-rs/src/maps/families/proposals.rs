@@ -87,6 +87,12 @@ impl MapFamilyProposal {
     }
 }
 
+impl MapFamilyProposal {
+    pub fn is_empty(&self) -> bool {
+        self.map_ids.is_empty()
+    }
+}
+
 struct UnionFind {
     parent: HashMap<SbMapId, SbMapId>,
 }
@@ -384,6 +390,68 @@ pub async fn load_proposals(db: &PgPool) -> eyre::Result<Vec<MapFamilyProposal>>
             .then(x.map_ids[0].0.cmp(&y.map_ids[0].0))
     });
     Ok(proposals)
+}
+
+/// Loads the groups `map_ids` are in, merged into one: the proposals holding the maps or their
+/// families, plus the maps no proposal holds (with their families, if they're in one). Old ids
+/// resolve to their maps, and ids that match no map are left out.
+pub async fn load_group(db: &PgPool, map_ids: &[SbMapId]) -> eyre::Result<MapFamilyProposal> {
+    let ids: Vec<Uuid> = map_ids.iter().map(|id| id.0).collect();
+    let rows = sqlx::query!(
+        r#"
+            SELECT m.id as "id: SbMapId",
+                (SELECT f.family_id FROM map_family_members f WHERE f.map_id = m.id)
+                    as "family_id?",
+                (SELECT s.games_total FROM map_stats s WHERE s.map_id = m.id) as "games_total?"
+            FROM maps m
+            WHERE m.id IN (
+                SELECT COALESCE((SELECT a.map_id FROM map_id_aliases a WHERE a.old_id = x), x)
+                FROM unnest($1::uuid[]) x
+            )
+        "#,
+        &ids,
+    )
+    .fetch_all(db)
+    .await
+    .wrap_err("Failed to load the maps' families")?;
+
+    let mut group = MapFamilyProposal {
+        map_ids: Vec::new(),
+        family_ids: Vec::new(),
+        suggestions: Vec::new(),
+        links: Vec::new(),
+        games: 0,
+    };
+    let mut proposals = load_proposals(db).await?;
+    let mut held: HashSet<SbMapId> = HashSet::new();
+    for row in &rows {
+        if held.contains(&row.id) {
+            continue;
+        }
+        let found = proposals.iter().position(|p| {
+            p.map_ids.contains(&row.id) || row.family_id.is_some_and(|f| p.family_ids.contains(&f))
+        });
+        if let Some(index) = found {
+            let p = proposals.swap_remove(index);
+            held.extend(p.map_ids.iter().copied());
+            group.map_ids.extend(p.map_ids);
+            group.family_ids.extend(p.family_ids);
+            group.suggestions.extend(p.suggestions);
+            group.links.extend(p.links);
+            group.games += p.games;
+        }
+    }
+    for row in rows {
+        if !held.insert(row.id) {
+            continue;
+        }
+        group.map_ids.push(row.id);
+        group.family_ids.extend(row.family_id);
+        group.games += i64::from(row.games_total.unwrap_or(0));
+    }
+    let mut seen_families = HashSet::new();
+    group.family_ids.retain(|id| seen_families.insert(*id));
+    Ok(group)
 }
 
 #[cfg(test)]
