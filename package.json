@@ -34,7 +34,7 @@
     "clean": "rimraf app/dist",
     "dev": "vite -c vite.electron.config.ts",
     "dist": "node tools/codesign/with-pin.cjs pnpm run dist:signed",
-    "build:release": "node tools/check-discord-sdk.mjs && pnpm run clean && node tools/prebuild.mjs --release && pnpm run build-app-client && pnpm run build-game",
+    "build:release": "node tools/check-discord-sdk.cjs && pnpm run clean && node tools/prebuild.mjs --release && pnpm run build-app-client && pnpm run build-game",
     "dist:signed": "pnpm run build:release && electron-builder build --win --x64 -p always -c prod.yml",
     "diststaging": "node tools/codesign/with-pin.cjs pnpm run diststaging:signed",
     "diststaging:signed": "SB_SERVER=https://staging.shieldbattery.net pnpm run build:release && electron-builder build --win --x64 -p always -c staging.yml",
