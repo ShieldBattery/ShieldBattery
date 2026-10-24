@@ -4,13 +4,16 @@ import { GameType } from '../../common/games/game-type'
 import { GameReplayInfo } from '../../common/games/games'
 import { ReplaySaveOrganize, TypedIpcRenderer } from '../../common/ipc'
 import { SlotType } from '../../common/lobbies/slot'
+import { filterColorCodes } from '../../common/maps'
 import { SbUser, SelfUserJson } from '../../common/users/sb-user'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
 import { isInParticipatingGame } from '../active-game/game-client-reducer'
 import { openDialog, openSimpleDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { ThunkAction } from '../dispatch-registry'
+import { watchedReplayAtom } from '../games/game-atoms'
 import i18n from '../i18n/i18next'
+import { jotaiStore } from '../jotai-store'
 import logger from '../logging/logger'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { fetchRaw } from '../network/fetch'
@@ -42,7 +45,7 @@ async function setGameConfig(
     created: user?.created ?? 0,
   }
 
-  return ipcRenderer.invoke('activeGameSetConfig', {
+  const gameId = await ipcRenderer.invoke('activeGameSetConfig', {
     localUser,
     blockedUsers,
     serverConfig: {
@@ -61,6 +64,13 @@ async function setGameConfig(
     },
     language: i18n.language,
   })
+  if (gameId) {
+    jotaiStore.set(watchedReplayAtom, {
+      gameId,
+      mapName: header ? filterColorCodes(header.mapName) : undefined,
+    })
+  }
+  return gameId
 }
 
 export function startReplay({

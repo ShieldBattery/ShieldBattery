@@ -154,12 +154,15 @@ export function DiscordActivityPromptDialog({ close }: CommonDialogProps) {
             'The map of the lobby you’re in, with the lobby’s name and a Join button if it’s listed',
           )}
         </li>
+        <li>
+          {t('discord.activityPrompt.sharedReplay', 'That you’re watching a replay, and its map')}
+        </li>
       </SharedList>
       <Footnote>
         {t(
           'discord.activityPrompt.footnote',
-          'Nothing shows while you’re not in a lobby or a game. You can change this later in ' +
-            'Settings › Connections.',
+          'Nothing shows while you’re not in a lobby, a game or a replay. You can change this ' +
+            'later in Settings › Connections.',
         )}
       </Footnote>
     </StyledDialog>

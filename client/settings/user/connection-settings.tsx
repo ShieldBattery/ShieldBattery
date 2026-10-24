@@ -379,8 +379,8 @@ function DiscordActivitySection() {
           <ServiceNote>
             {t(
               'settings.user.connections.discord.note',
-              'Shows your lobby or game on the Discord account signed in to the Discord app on ' +
-                'the same computer as the ShieldBattery app.',
+              'Shows your lobby, game or replay on the Discord account signed in to the Discord ' +
+                'app on the same computer as the ShieldBattery app.',
             )}
           </ServiceNote>
         </ServiceInfo>
