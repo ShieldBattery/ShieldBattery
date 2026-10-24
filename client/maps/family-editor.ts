@@ -108,7 +108,7 @@ export interface FamilyEditorRow {
  * first, then the files left out of the trees.
  */
 export function orderRows(
-  files: ReadonlyArray<FamilyEditorFile>,
+  files: ReadonlyArray<Pick<FamilyEditorFile, 'id' | 'firstSeenAt'>>,
   placements: FamilyPlacements,
 ): FamilyEditorRow[] {
   const byAge = [...files].sort((a, b) => a.firstSeenAt - b.firstSeenAt)
