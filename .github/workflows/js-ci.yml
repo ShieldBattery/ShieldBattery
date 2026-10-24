@@ -61,6 +61,12 @@ jobs:
         id: gen-graphql
         run: pnpm gen-graphql
 
+      # zyactions/glob ships a glob.py that shadows the stdlib module Python 3.14's pathlib imports.
+      - name: Use Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
       - name: Get changed files
         uses: zyactions/verify-changed-files@2981a606808d0b36bdb2fbe45a50b01aa3ec601d
         id: get-changed-files
