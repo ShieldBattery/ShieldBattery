@@ -120,24 +120,9 @@ jobs:
         id: gen-typeshare
         run: pnpm gen-typeshare
 
-      # zyactions/glob ships a glob.py that shadows the stdlib module Python 3.14's pathlib imports.
-      - name: Use Python 3.13
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
-
-      - name: Get changed files
-        uses: zyactions/verify-changed-files@2981a606808d0b36bdb2fbe45a50b01aa3ec601d
-        id: get-changed-files
-        with:
-          return-pipe: true
-
       - name: Check typeshare
-        uses: zyactions/glob@019de5a7f0ba17b700d45867086242eb99ff1a46
         id: check-typeshare
-        with:
-          pipe: ${{ steps.get-changed-files.outputs.pipe }}
-          pattern: common/typeshare.ts
+        run: echo "matches=$(git status --porcelain -- 'common/typeshare.ts' | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
 
       - name: Display typeshare
         if: ${{ steps.check-typeshare.outputs.matches != '' || failure() && steps.gen-typeshare.conclusion == 'failure' }}
