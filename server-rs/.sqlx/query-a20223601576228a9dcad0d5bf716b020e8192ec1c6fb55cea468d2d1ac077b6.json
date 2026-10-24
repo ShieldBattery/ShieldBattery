@@ -1,0 +1,124 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT line_root_id as \"line_root_id: SbMapId\", games_7d, games_28d, games_90d,\n                    games_total, players_90d, median_length_90d, last_played_at, trending_score\n                FROM map_line_stats\n                WHERE line_root_id = ANY($1)\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "line_root_id: SbMapId",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "map_line_stats",
+            "name": "line_root_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "games_7d",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "map_line_stats",
+            "name": "games_7d"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "games_28d",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "map_line_stats",
+            "name": "games_28d"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "games_90d",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "map_line_stats",
+            "name": "games_90d"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "games_total",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "map_line_stats",
+            "name": "games_total"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "players_90d",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "map_line_stats",
+            "name": "players_90d"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "median_length_90d",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "map_line_stats",
+            "name": "median_length_90d"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "last_played_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "map_line_stats",
+            "name": "last_played_at"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "trending_score",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "map_line_stats",
+            "name": "trending_score"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "a20223601576228a9dcad0d5bf716b020e8192ec1c6fb55cea468d2d1ac077b6"
+}

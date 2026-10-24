@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    UPDATE map_family_members\n                    SET parent_map_id = CASE WHEN map_id = $2 THEN $3 ELSE $2 END,\n                        relation = CASE WHEN map_id = $2 THEN $4 ELSE relation END\n                    WHERE parent_map_id = $1\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        {
+          "Custom": {
+            "name": "map_family_relation",
+            "kind": {
+              "Enum": [
+                "root",
+                "version",
+                "variant",
+                "translation",
+                "fork"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c7316057c6de1df2a2a5357114cd257dcf96c9d6fd59a239ca35ee9ad7c1ef52"
+}

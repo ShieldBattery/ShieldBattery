@@ -1,0 +1,76 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT trigger_count, ums_action_kinds, bases as \"bases: Json<Vec<MapBase>>\",\n                terrain_fingerprint, fingerprint_version\n            FROM map_analysis\n            WHERE map_id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "trigger_count",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "map_analysis",
+            "name": "trigger_count"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "ums_action_kinds",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "map_analysis",
+            "name": "ums_action_kinds"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "bases: Json<Vec<MapBase>>",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "map_analysis",
+            "name": "bases"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "terrain_fingerprint",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "map_analysis",
+            "name": "terrain_fingerprint"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "fingerprint_version",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "map_analysis",
+            "name": "fingerprint_version"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "4bbbdb0fdfbb699cd75a8e3cc3a6c441554f168d46510f33ff691f42daffd1a1"
+}

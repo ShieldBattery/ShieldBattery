@@ -73,6 +73,11 @@ export enum GameReportResolution {
 
 /** Filters for map listings. Every filter that is set must match. */
 export type MapFilter = {
+  /**
+   * List every version of a map, rather than one map per family line (its current version, or
+   * the version that best matches the search). Only the listed maps are folded by line.
+   */
+  allVersions?: boolean
   eud?: EudFilter
   lens?: MapLens
   /** Only maps with at least this many player slots. */
