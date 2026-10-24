@@ -232,6 +232,10 @@ pub struct BwScr {
     /// player ids (`8..12`), which never read `rgb_colors` on the game view. `None` leaves those
     /// units in their native color in every mode.
     get_player_color: Option<VirtualAddress>,
+    /// SC:R's `update_minimap_dialog_horizontal_offset(expand)`, hooked so a watcher's minimap
+    /// always sits in the bottom-left corner. `None` leaves it wherever the minimap position
+    /// setting puts it.
+    update_minimap_dialog_horizontal_offset: Option<VirtualAddress>,
     /// SC:R's replay autosave and the path builder it uses. `None` (either missing) leaves the
     /// autosave as SC:R implements it.
     replay_autosave: Option<replay_save::ReplayAutosave>,
@@ -511,6 +515,9 @@ pub struct BwScr {
     /// Keeps track of what game_screen_height_ratio was originally.
     /// (It depends a bit on what console the player uses)
     original_game_screen_height_ratio: AtomicU32,
+    /// Set while `init_obs_ui` runs with a watcher's `is_replay` and `local_unique_player_id`
+    /// swapped for a player's, so code it reaches can still tell the local client is a watcher.
+    obs_ui_init_as_player: AtomicBool,
     /// If console was hidden in replay / obs ui
     console_hidden_state: AtomicBool,
     /// The unit the game's view follows for a watcher who asked it to.
@@ -6165,6 +6172,9 @@ mod hooks {
         // `save_replay_by_name(name, replace_existing)`. `replace_existing` is a C bool, so it is a
         // single byte in the register/stack slot rather than a full word.
         !0 => SaveReplayByName(*const i8, u8) -> i32;
+        // `update_minimap_dialog_horizontal_offset(expand)`: moves the minimap dialog left by the
+        // widescreen margin when `expand` (a C bool) is set, and back when it isn't.
+        !0 => UpdateMinimapDialogHorizontalOffset(u8);
     );
 
     // Instrumentation-only hooks, all cdecl.

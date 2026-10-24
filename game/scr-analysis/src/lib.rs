@@ -1005,6 +1005,14 @@ impl<'e> Analysis<'e> {
         self.0.draw_minimap_main_player_units()
     }
 
+    /// `update_minimap_dialog_horizontal_offset(bool expand)`: moves the minimap dialog left by
+    /// the widescreen margin when `expand`, which puts it in the screen's bottom-left corner, and
+    /// back to its 4:3 position when not. SC:R calls it with whether the minimap position setting
+    /// or the observer UI asks for the corner, at minimap init and on resizes and SD/HD switches.
+    pub fn update_minimap_dialog_horizontal_offset(&mut self) -> Option<VirtualAddress> {
+        self.0.update_minimap_dialog_horizontal_offset()
+    }
+
     pub fn decide_cursor_type(&mut self) -> Option<VirtualAddress> {
         self.0.decide_cursor_type()
     }

@@ -418,6 +418,14 @@ impl BwScr {
         if get_player_color.is_none() {
             warn!("Could not find get_player_color; neutral units will keep their native color");
         }
+        let update_minimap_dialog_horizontal_offset =
+            analysis.update_minimap_dialog_horizontal_offset();
+        if update_minimap_dialog_horizontal_offset.is_none() {
+            warn!(
+                "Could not find update_minimap_dialog_horizontal_offset; watchers' minimap will \
+                follow the minimap position setting"
+            );
+        }
         // Non-fatal, all-or-nothing: the nearest-palette-color guard needs the function to hook and
         // the cycling table pointer whose null state it checks for.
         let palette_color_lookup = match (
@@ -745,6 +753,7 @@ impl BwScr {
             minimap_draw_hooks,
             palette_color_lookup,
             get_player_color,
+            update_minimap_dialog_horizontal_offset,
             replay_autosave,
             chat_box_mode: chat_box_mode.map(|op| Value::new(ctx, op)),
             is_paused: is_paused.map(|op| Value::new(ctx, op)),
@@ -918,6 +927,7 @@ impl BwScr {
             apm_state: RecurseCheckedMutex::new(ApmStats::new()),
             game_stats: RecurseCheckedMutex::new(GameStats::new()),
             original_game_screen_height_ratio: AtomicU32::new(0),
+            obs_ui_init_as_player: AtomicBool::new(false),
             console_hidden_state: AtomicBool::new(false),
             followed_unit: Mutex::new(None),
             minimap_hidden_state: AtomicBool::new(false),

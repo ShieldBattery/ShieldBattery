@@ -472,6 +472,22 @@ impl BwScr {
                     address,
                 );
             }
+            // SC:R moves the minimap into the bottom-left corner when the minimap position setting
+            // asks for it, or when its observer UI does, which it always does for watchers. The
+            // InitObsUi hook keeps that observer UI from being made, so the corner is asked for
+            // here instead. SC:R reapplies the offset on resizes and SD/HD switches, through here.
+            if let Some(update_offset) = self.update_minimap_dialog_horizontal_offset {
+                let address = update_offset.0 as usize - base;
+                exe.hook_closure_address(
+                    UpdateMinimapDialogHorizontalOffset,
+                    move |expand, orig| {
+                        let watching = self.is_replay_or_obs()
+                            || self.obs_ui_init_as_player.load(Ordering::Relaxed);
+                        orig(if watching { 1 } else { expand });
+                    },
+                    address,
+                );
+            }
             // Units owned by a high player id (the neutral player and the unused ids next to it) are
             // tinted from the palette rather than `rgb_colors`, so the scheme's neutral color has
             // to be handed out here for the game view to show it.

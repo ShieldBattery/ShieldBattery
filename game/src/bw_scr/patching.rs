@@ -682,7 +682,9 @@ impl BwScr {
                         };
                         self.load_consoles.call1(ui_consoles);
                         self.init_consoles.call2(ui_consoles, race_char as u32);
+                        self.obs_ui_init_as_player.store(true, Ordering::Relaxed);
                         orig();
+                        self.obs_ui_init_as_player.store(false, Ordering::Relaxed);
                         self.is_replay.write(is_replay);
                         self.local_unique_player_id.write(local_id);
                     } else {
