@@ -586,9 +586,8 @@ unsafe extern "C" fn chat_box_event_handler(
         // keypress
         if (*event).ty == 0xf {
             if let Some(edit_box) = Control::new(ctrl).dialog().child_by_id(7) {
-                let key = (*event).param;
                 // Enter/return while the chat box was open
-                if !edit_box.is_hidden() && (key == 0xa || key == 0xd) {
+                if !edit_box.is_hidden() && is_enter_char((*event).param) {
                     let text = edit_box.string();
                     if is_netstat_command(text) {
                         // Toggle the in-game network-stats overlay and swallow the message entirely:
@@ -651,6 +650,15 @@ unsafe extern "C" fn msg_filter_event_handler(
         (*game_data).game_template.allies_enabled = old;
         ret
     }
+}
+
+/// Whether a chat box character event's `param` is Enter: `\r`, or `\n` with Ctrl held. SC:R puts
+/// the modifiers held at the time in the bits above the character (`0x3_0000` for Shift,
+/// `0x4_0000` for Ctrl), so a player still holding Shift from a `?` they just typed sends with
+/// `0x3_000d`. Such an Enter must still reach the send tap: the native send it would otherwise fall
+/// through to reaches no one under netcode v2, while showing the message to its sender.
+fn is_enter_char(param: impl Into<u64>) -> bool {
+    matches!(param.into() & 0xffff, 0x0a | 0x0d)
 }
 
 /// Whether a chat-box submission is the `/netstat` overlay-toggle command. Case-insensitive, with
@@ -1031,6 +1039,24 @@ mod tests {
 
     fn change(closed: bool, spawned: bool) -> ReplacedDialogChange {
         ReplacedDialogChange { closed, spawned }
+    }
+
+    #[test]
+    fn enter_is_recognized_with_modifiers_held() {
+        assert!(is_enter_char(0x0d_u32));
+        assert!(is_enter_char(0x0a_u32));
+        // Shift, Ctrl and both held, as SC:R reports them
+        assert!(is_enter_char(0x3_000d_u32));
+        assert!(is_enter_char(0x4_000a_u32));
+        assert!(is_enter_char(0x7_000d_u64));
+    }
+
+    #[test]
+    fn other_characters_are_not_enter() {
+        assert!(!is_enter_char(0x68_u32));
+        assert!(!is_enter_char(0x3_003f_u32));
+        assert!(!is_enter_char(0x0d00_u32));
+        assert!(!is_enter_char(0x1b_u64));
     }
 
     #[test]

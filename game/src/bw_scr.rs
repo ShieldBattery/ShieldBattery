@@ -5908,7 +5908,12 @@ impl BwScr {
             else {
                 return false; // no live session
             };
-            if !sent {
+            if sent {
+                debug!(
+                    "netcode v2: chat queued for peers, to {target:?}, {} bytes",
+                    text.len()
+                );
+            } else {
                 debug!("netcode v2: chat_out channel unavailable; message not queued for peers");
             }
             let deferred = netcode_v2::with_turn_state(|s| {
@@ -6458,6 +6463,11 @@ impl BwScr {
                 let target = netcode_v2::ChatTarget::from_wire(chat.target_kind, chat.target_slot);
                 if self.chat_target_visible(sender_storm, target) {
                     visible.push((sender_storm, target, chat.text));
+                } else {
+                    debug!(
+                        "netcode v2: chat from storm {sender_storm:?} sent to {target:?} isn't \
+                         for this player; dropping"
+                    );
                 }
             }
             visible
