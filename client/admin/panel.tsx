@@ -21,6 +21,9 @@ const LoadableMapManager = IS_ELECTRON
       default: (await import('./map-manager')).AdminMapManager,
     }))
   : () => null
+const LoadableMapFamilies = React.lazy(async () => ({
+  default: (await import('../maps/admin-map-families')).AdminMapFamilies,
+}))
 const LoadableMapPools = React.lazy(async () => ({
   default: (await import('../matchmaking/admin-map-pools')).AdminMatchmakingMapPools,
 }))
@@ -72,6 +75,7 @@ export default function AdminPanel() {
       LoadableMapManager,
       'Manage maps',
     ],
+    ['/admin/map-families', perms?.manageMaps, LoadableMapFamilies, 'Manage map families'],
     ['/admin/map-pools', perms?.manageMapPools, LoadableMapPools, 'Manage matchmaking map pools'],
     ['/admin/news', perms?.manageNews, LoadableManageNews, 'Manage news'],
     [

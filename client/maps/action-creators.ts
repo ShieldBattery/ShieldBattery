@@ -311,6 +311,11 @@ export function openMapPreviewDialog(mapId: SbMapId) {
   return openDialog({ type: DialogType.MapPreview, initData: { mapId } })
 }
 
+/** Opens a dialog showing what changed from map `a` (before) to map `b` (after). */
+export function openMapCompareDialog(a: SbMapId, b: SbMapId) {
+  return openDialog({ type: DialogType.MapCompare, initData: { a, b } })
+}
+
 export function openMapDownloadDialog(mapId: SbMapId) {
   return openDialog({ type: DialogType.MapDownload, initData: { mapId } })
 }

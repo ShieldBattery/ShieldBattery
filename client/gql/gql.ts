@@ -49,6 +49,20 @@ type Documents = {
   '\n  fragment Leagues_LeagueBadgeFragment on League {\n    name\n    badgeUrl\n  }\n': typeof types.Leagues_LeagueBadgeFragmentFragmentDoc
   '\n  fragment Leagues_HomeFeedFragment on Query {\n    activeLeagues {\n      id\n      ...Leagues_HomeFeedEntryFragment\n    }\n\n    futureLeagues {\n      id\n      ...Leagues_HomeFeedEntryFragment\n    }\n  }\n': typeof types.Leagues_HomeFeedFragmentFragmentDoc
   '\n  fragment Leagues_HomeFeedEntryFragment on League {\n    id\n    name\n    matchmakingType\n    startAt\n    endAt\n    ...Leagues_LeagueBadgeFragment\n  }\n': typeof types.Leagues_HomeFeedEntryFragmentFragmentDoc
+  '\n  query AdminMapFamilyCounts {\n    mapFamilyProposalCount\n    mapFamilyReportCount\n  }\n': typeof types.AdminMapFamilyCountsDocument
+  '\n  query AdminMapFamilyProposals($limit: Int!, $offset: Int!) {\n    mapFamilyProposals(limit: $limit, offset: $offset) {\n      id\n      games\n      maps {\n        id\n        name\n      }\n      families {\n        id\n        familyId\n        label\n      }\n      suggestions {\n        id\n      }\n    }\n  }\n': typeof types.AdminMapFamilyProposalsDocument
+  '\n  query AdminMapFamilyReports($limit: Int!, $offset: Int!) {\n    mapFamilyReports(status: OPEN, limit: $limit, offset: $offset) {\n      id\n      kind\n      suggestedRelation\n      note\n      reportedAt\n      map {\n        id\n        name\n      }\n      otherMap {\n        id\n        name\n      }\n      reportedBy {\n        id\n      }\n    }\n  }\n': typeof types.AdminMapFamilyReportsDocument
+  '\n  mutation AdminMapFamilyReportSetStatus($id: UUID!, $status: MapFamilyReportStatus!) {\n    mapFamilyReportSetStatus(id: $id, status: $status) {\n      id\n      status\n      resolvedAt\n    }\n  }\n': typeof types.AdminMapFamilyReportSetStatusDocument
+  '\n  fragment AdminMapFamilies_FileFragment on SbMap {\n    id\n    name\n    listed\n    official\n    firstSeenAt\n    stats {\n      id\n      gamesTotal\n    }\n    file {\n      id\n      width\n      height\n      tileset\n      analysis {\n        id\n        makers\n        credited\n      }\n      ...MapFileImage_FileFragment\n    }\n  }\n': typeof types.AdminMapFamilies_FileFragmentFragmentDoc
+  '\n  query AdminMapFamilyGroup($mapIds: [SbMapId!]!) {\n    mapFamilyGroup(mapIds: $mapIds) {\n      id\n      games\n      maps {\n        id\n        name\n        firstSeenAt\n        ...AdminMapFamilies_FileFragment\n      }\n      families {\n        id\n        familyId\n        label\n        members {\n          id\n          mapId\n          parentId\n          relation\n          versionLabel\n          isCurrent\n          pinnedCurrent\n          source\n          map {\n            id\n            name\n            firstSeenAt\n            listed\n            ...AdminMapFamilies_FileFragment\n          }\n        }\n      }\n      suggestions {\n        id\n        mapA {\n          id\n        }\n        mapB {\n          id\n        }\n        terrainSimilarity\n        nameMatch\n        proposedRelation\n        olderMapId\n        rule\n      }\n      proposedLinks {\n        id\n        mapId\n        parentId\n        relation\n        versionLabel\n      }\n    }\n  }\n': typeof types.AdminMapFamilyGroupDocument
+  '\n  query AdminMapFamilyNextProposals($limit: Int!) {\n    mapFamilyProposals(limit: $limit) {\n      id\n      maps {\n        id\n      }\n    }\n  }\n': typeof types.AdminMapFamilyNextProposalsDocument
+  '\n  mutation AdminMapFamilyLink($links: [MapFamilyLinkInput!]!) {\n    mapFamilyLink(links: $links) {\n      id\n    }\n  }\n': typeof types.AdminMapFamilyLinkDocument
+  '\n  mutation AdminMapFamilyRemove($mapId: SbMapId!) {\n    mapFamilyRemove(mapId: $mapId) {\n      id\n    }\n  }\n': typeof types.AdminMapFamilyRemoveDocument
+  '\n  mutation AdminMapFamilyUpdateMember(\n    $mapId: SbMapId!\n    $versionLabel: String\n    $pinnedCurrent: Boolean\n  ) {\n    mapFamilyUpdateMember(\n      mapId: $mapId\n      versionLabel: $versionLabel\n      pinnedCurrent: $pinnedCurrent\n    ) {\n      id\n    }\n  }\n': typeof types.AdminMapFamilyUpdateMemberDocument
+  '\n  mutation AdminMapFamilySetLabel($familyId: UUID!, $label: String) {\n    mapFamilySetLabel(familyId: $familyId, label: $label) {\n      id\n      label\n    }\n  }\n': typeof types.AdminMapFamilySetLabelDocument
+  '\n  mutation AdminMapLinkSuggestionDecide(\n    $mapA: SbMapId!\n    $mapB: SbMapId!\n    $decision: MapLinkSuggestionDecision!\n  ) {\n    mapLinkSuggestionDecide(mapA: $mapA, mapB: $mapB, decision: $decision) {\n      id\n      status\n    }\n  }\n': typeof types.AdminMapLinkSuggestionDecideDocument
+  '\n  query AdminMapFamilyAddFileSearch($search: String!) {\n    maps(filter: { search: $search, allVersions: true }, first: 8) {\n      nodes {\n        id\n        name\n        listed\n      }\n    }\n  }\n': typeof types.AdminMapFamilyAddFileSearchDocument
+  '\n  query AdminMapFamilyAddFileById($id: SbMapId!) {\n    map(id: $id) {\n      id\n      name\n      listed\n    }\n  }\n': typeof types.AdminMapFamilyAddFileByIdDocument
   '\n  fragment MapSearchTest_Map on SbMap {\n    id\n    name\n    kind\n    playerCount\n    listed\n    official\n    publishedAt\n    favoriteCount\n    isFavorited\n    inLibrary\n    publisher {\n      id\n      name\n    }\n    stats {\n      id\n      games7d\n      games28d\n      games90d\n      gamesTotal\n      players90d\n      medianLength90d\n      lastPlayedAt\n    }\n    file {\n      id\n      tileset\n      width\n      height\n      isEud\n      image256Url\n    }\n  }\n': typeof types.MapSearchTest_MapFragmentDoc
   '\n  query MapSearchTestMaps($filter: MapFilter, $sort: MapSort, $after: String, $first: Int) {\n    maps(filter: $filter, sort: $sort, after: $after, first: $first) {\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n      edges {\n        cursor\n        node {\n          ...MapSearchTest_Map\n        }\n      }\n    }\n  }\n': typeof types.MapSearchTestMapsDocument
   '\n  query MapSearchTestLibrary($filter: MapFilter, $sort: MapSort, $after: String, $first: Int) {\n    currentUser {\n      id\n      mapLibrary(filter: $filter, sort: $sort, after: $after, first: $first) {\n        pageInfo {\n          hasNextPage\n          endCursor\n        }\n        edges {\n          cursor\n          addedAt\n          node {\n            ...MapSearchTest_Map\n          }\n        }\n      }\n    }\n  }\n': typeof types.MapSearchTestLibraryDocument
@@ -62,6 +76,8 @@ type Documents = {
   '\n  query MapCatalogAll(\n    $filter: MapFilter\n    $sort: MapSort\n    $after: String\n    $first: Int\n    $withCount: Boolean!\n  ) {\n    maps(filter: $filter, sort: $sort, after: $after, first: $first) {\n      totalCount @include(if: $withCount)\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n      edges {\n        cursor\n        node {\n          id\n          ...MapTile_SbMapFragment\n        }\n      }\n    }\n  }\n': typeof types.MapCatalogAllDocument
   '\n  query MapCatalogLibrary(\n    $filter: MapFilter\n    $sort: MapSort\n    $after: String\n    $first: Int\n    $withCount: Boolean!\n  ) {\n    currentUser {\n      id\n      mapLibrary(filter: $filter, sort: $sort, after: $after, first: $first) {\n        totalCount @include(if: $withCount)\n        pageInfo {\n          hasNextPage\n          endCursor\n        }\n        edges {\n          cursor\n          addedAt\n          node {\n            id\n            ...MapTile_SbMapFragment\n          }\n        }\n      }\n    }\n  }\n': typeof types.MapCatalogLibraryDocument
   '\n  query MapCatalogFavorites(\n    $filter: MapFilter\n    $sort: MapSort\n    $after: String\n    $first: Int\n    $withCount: Boolean!\n  ) {\n    currentUser {\n      id\n      favoriteMaps(filter: $filter, sort: $sort, after: $after, first: $first) {\n        totalCount @include(if: $withCount)\n        pageInfo {\n          hasNextPage\n          endCursor\n        }\n        edges {\n          cursor\n          node {\n            id\n            ...MapTile_SbMapFragment\n          }\n        }\n      }\n    }\n  }\n': typeof types.MapCatalogFavoritesDocument
+  '\n  query MapCompare($a: SbMapId!, $b: SbMapId!) {\n    mapComparison(a: $a, b: $b) {\n      id\n      changes\n      terrainSimilarity\n      terrainChanges\n      startLocations {\n        id\n        slot\n        kind\n      }\n      bases {\n        id\n        beforeIndex\n        afterIndex\n        changed\n      }\n      a {\n        id\n        ...MapCompare_Side\n      }\n      b {\n        id\n        ...MapCompare_Side\n      }\n    }\n  }\n': typeof types.MapCompareDocument
+  '\n  fragment MapCompare_Side on SbMap {\n    id\n    name\n    playerCount\n    file {\n      id\n      tileset\n      width\n      height\n      isEud\n      analysis {\n        id\n        triggerCount\n        umsActionKinds\n      }\n      ...MapFileImage_FileFragment\n    }\n  }\n': typeof types.MapCompare_SideFragmentDoc
   '\n  mutation MapAddFavorite($id: SbMapId!) {\n    mapAddFavorite(id: $id) {\n      id\n      isFavorited\n      favoriteCount\n    }\n  }\n': typeof types.MapAddFavoriteDocument
   '\n  mutation MapRemoveFavorite($id: SbMapId!) {\n    mapRemoveFavorite(id: $id) {\n      id\n      isFavorited\n      favoriteCount\n    }\n  }\n': typeof types.MapRemoveFavoriteDocument
   '\n  fragment MapFileImage_FileFragment on MapFile {\n    id\n    image256Url\n    image512Url\n    image1024Url\n    image2048Url\n    imageSpawnsBaked\n    width\n    height\n    startLocations {\n      id\n      slot\n      x\n      y\n    }\n    umsContent\n  }\n': typeof types.MapFileImage_FileFragmentFragmentDoc
@@ -73,7 +89,8 @@ type Documents = {
   '\n  query MapPage($id: SbMapId!, $canManageMaps: Boolean!) {\n    map(id: $id) {\n      id\n      name\n      kind\n      stats {\n        id\n      }\n      file {\n        id\n        image256Url\n        ...MapFileImage_FileFragment\n      }\n      ...MapPage_HeaderFragment\n      ...MapPage_ActionsFragment\n      ...MapPage_FactsFragment\n      ...MapPage_HowToPlayFragment\n      ...MapPageStats_MapFragment\n      ...MapPageMatchups_MapFragment\n    }\n  }\n': typeof types.MapPageDocument
   '\n  fragment MapPage_FactsFragment on SbMap {\n    id\n    kind\n    playerCount\n    file {\n      id\n      width\n      height\n      tileset\n      isEud\n      umsForces {\n        name\n        teamId\n        players {\n          playerId\n          isComputer\n        }\n      }\n      analysis {\n        id\n        baseCount\n      }\n    }\n  }\n': typeof types.MapPage_FactsFragmentFragmentDoc
   '\n  fragment MapPage_HeaderFragment on SbMap {\n    id\n    name\n    description\n    kind\n    listed\n    official\n    publishedAt\n    publisher {\n      id\n      name\n    }\n    file {\n      id\n      originalName\n      originalDescription\n    }\n    moderation @include(if: $canManageMaps) {\n      id\n      delistedAt\n      delistedBy {\n        id\n        name\n      }\n    }\n  }\n': typeof types.MapPage_HeaderFragmentFragmentDoc
-  '\n  fragment MapPage_ActionsFragment on SbMap {\n    id\n    name\n    listed\n    isFavorited\n    inLibrary\n  }\n': typeof types.MapPage_ActionsFragmentFragmentDoc
+  '\n  fragment MapPage_ActionsFragment on SbMap {\n    id\n    name\n    listed\n    isFavorited\n    inLibrary\n    familyMember @include(if: $canManageMaps) {\n      id\n      isCurrent\n    }\n  }\n': typeof types.MapPage_ActionsFragmentFragmentDoc
+  '\n  mutation MapPagePinCurrent($mapId: SbMapId!) {\n    mapFamilyUpdateMember(mapId: $mapId, pinnedCurrent: true) {\n      id\n    }\n  }\n': typeof types.MapPagePinCurrentDocument
   '\n  fragment MapPage_HowToPlayFragment on SbMap {\n    id\n    kind\n    file {\n      id\n      originalDescription\n    }\n  }\n': typeof types.MapPage_HowToPlayFragmentFragmentDoc
   '\n  fragment MapTile_SbMapFragment on SbMap {\n    id\n    name\n    kind\n    playerCount\n    official\n    listed\n    publishedAt\n    isFavorited\n    stats {\n      id\n      games7d\n      games28d\n      gamesTotal\n      trendingScore\n    }\n    file {\n      id\n      ...MapFileImage_FileFragment\n      width\n      height\n      tileset\n      isEud\n      umsForces {\n        name\n        teamId\n        players {\n          playerId\n          isComputer\n        }\n      }\n    }\n  }\n': typeof types.MapTile_SbMapFragmentFragmentDoc
   '\n  query MapUploadKnownMap($hashes: [String!]!) {\n    mapsByHash(hashes: $hashes) {\n      id\n    }\n  }\n': typeof types.MapUploadKnownMapDocument
@@ -180,6 +197,34 @@ const documents: Documents = {
     types.Leagues_HomeFeedFragmentFragmentDoc,
   '\n  fragment Leagues_HomeFeedEntryFragment on League {\n    id\n    name\n    matchmakingType\n    startAt\n    endAt\n    ...Leagues_LeagueBadgeFragment\n  }\n':
     types.Leagues_HomeFeedEntryFragmentFragmentDoc,
+  '\n  query AdminMapFamilyCounts {\n    mapFamilyProposalCount\n    mapFamilyReportCount\n  }\n':
+    types.AdminMapFamilyCountsDocument,
+  '\n  query AdminMapFamilyProposals($limit: Int!, $offset: Int!) {\n    mapFamilyProposals(limit: $limit, offset: $offset) {\n      id\n      games\n      maps {\n        id\n        name\n      }\n      families {\n        id\n        familyId\n        label\n      }\n      suggestions {\n        id\n      }\n    }\n  }\n':
+    types.AdminMapFamilyProposalsDocument,
+  '\n  query AdminMapFamilyReports($limit: Int!, $offset: Int!) {\n    mapFamilyReports(status: OPEN, limit: $limit, offset: $offset) {\n      id\n      kind\n      suggestedRelation\n      note\n      reportedAt\n      map {\n        id\n        name\n      }\n      otherMap {\n        id\n        name\n      }\n      reportedBy {\n        id\n      }\n    }\n  }\n':
+    types.AdminMapFamilyReportsDocument,
+  '\n  mutation AdminMapFamilyReportSetStatus($id: UUID!, $status: MapFamilyReportStatus!) {\n    mapFamilyReportSetStatus(id: $id, status: $status) {\n      id\n      status\n      resolvedAt\n    }\n  }\n':
+    types.AdminMapFamilyReportSetStatusDocument,
+  '\n  fragment AdminMapFamilies_FileFragment on SbMap {\n    id\n    name\n    listed\n    official\n    firstSeenAt\n    stats {\n      id\n      gamesTotal\n    }\n    file {\n      id\n      width\n      height\n      tileset\n      analysis {\n        id\n        makers\n        credited\n      }\n      ...MapFileImage_FileFragment\n    }\n  }\n':
+    types.AdminMapFamilies_FileFragmentFragmentDoc,
+  '\n  query AdminMapFamilyGroup($mapIds: [SbMapId!]!) {\n    mapFamilyGroup(mapIds: $mapIds) {\n      id\n      games\n      maps {\n        id\n        name\n        firstSeenAt\n        ...AdminMapFamilies_FileFragment\n      }\n      families {\n        id\n        familyId\n        label\n        members {\n          id\n          mapId\n          parentId\n          relation\n          versionLabel\n          isCurrent\n          pinnedCurrent\n          source\n          map {\n            id\n            name\n            firstSeenAt\n            listed\n            ...AdminMapFamilies_FileFragment\n          }\n        }\n      }\n      suggestions {\n        id\n        mapA {\n          id\n        }\n        mapB {\n          id\n        }\n        terrainSimilarity\n        nameMatch\n        proposedRelation\n        olderMapId\n        rule\n      }\n      proposedLinks {\n        id\n        mapId\n        parentId\n        relation\n        versionLabel\n      }\n    }\n  }\n':
+    types.AdminMapFamilyGroupDocument,
+  '\n  query AdminMapFamilyNextProposals($limit: Int!) {\n    mapFamilyProposals(limit: $limit) {\n      id\n      maps {\n        id\n      }\n    }\n  }\n':
+    types.AdminMapFamilyNextProposalsDocument,
+  '\n  mutation AdminMapFamilyLink($links: [MapFamilyLinkInput!]!) {\n    mapFamilyLink(links: $links) {\n      id\n    }\n  }\n':
+    types.AdminMapFamilyLinkDocument,
+  '\n  mutation AdminMapFamilyRemove($mapId: SbMapId!) {\n    mapFamilyRemove(mapId: $mapId) {\n      id\n    }\n  }\n':
+    types.AdminMapFamilyRemoveDocument,
+  '\n  mutation AdminMapFamilyUpdateMember(\n    $mapId: SbMapId!\n    $versionLabel: String\n    $pinnedCurrent: Boolean\n  ) {\n    mapFamilyUpdateMember(\n      mapId: $mapId\n      versionLabel: $versionLabel\n      pinnedCurrent: $pinnedCurrent\n    ) {\n      id\n    }\n  }\n':
+    types.AdminMapFamilyUpdateMemberDocument,
+  '\n  mutation AdminMapFamilySetLabel($familyId: UUID!, $label: String) {\n    mapFamilySetLabel(familyId: $familyId, label: $label) {\n      id\n      label\n    }\n  }\n':
+    types.AdminMapFamilySetLabelDocument,
+  '\n  mutation AdminMapLinkSuggestionDecide(\n    $mapA: SbMapId!\n    $mapB: SbMapId!\n    $decision: MapLinkSuggestionDecision!\n  ) {\n    mapLinkSuggestionDecide(mapA: $mapA, mapB: $mapB, decision: $decision) {\n      id\n      status\n    }\n  }\n':
+    types.AdminMapLinkSuggestionDecideDocument,
+  '\n  query AdminMapFamilyAddFileSearch($search: String!) {\n    maps(filter: { search: $search, allVersions: true }, first: 8) {\n      nodes {\n        id\n        name\n        listed\n      }\n    }\n  }\n':
+    types.AdminMapFamilyAddFileSearchDocument,
+  '\n  query AdminMapFamilyAddFileById($id: SbMapId!) {\n    map(id: $id) {\n      id\n      name\n      listed\n    }\n  }\n':
+    types.AdminMapFamilyAddFileByIdDocument,
   '\n  fragment MapSearchTest_Map on SbMap {\n    id\n    name\n    kind\n    playerCount\n    listed\n    official\n    publishedAt\n    favoriteCount\n    isFavorited\n    inLibrary\n    publisher {\n      id\n      name\n    }\n    stats {\n      id\n      games7d\n      games28d\n      games90d\n      gamesTotal\n      players90d\n      medianLength90d\n      lastPlayedAt\n    }\n    file {\n      id\n      tileset\n      width\n      height\n      isEud\n      image256Url\n    }\n  }\n':
     types.MapSearchTest_MapFragmentDoc,
   '\n  query MapSearchTestMaps($filter: MapFilter, $sort: MapSort, $after: String, $first: Int) {\n    maps(filter: $filter, sort: $sort, after: $after, first: $first) {\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n      edges {\n        cursor\n        node {\n          ...MapSearchTest_Map\n        }\n      }\n    }\n  }\n':
@@ -206,6 +251,10 @@ const documents: Documents = {
     types.MapCatalogLibraryDocument,
   '\n  query MapCatalogFavorites(\n    $filter: MapFilter\n    $sort: MapSort\n    $after: String\n    $first: Int\n    $withCount: Boolean!\n  ) {\n    currentUser {\n      id\n      favoriteMaps(filter: $filter, sort: $sort, after: $after, first: $first) {\n        totalCount @include(if: $withCount)\n        pageInfo {\n          hasNextPage\n          endCursor\n        }\n        edges {\n          cursor\n          node {\n            id\n            ...MapTile_SbMapFragment\n          }\n        }\n      }\n    }\n  }\n':
     types.MapCatalogFavoritesDocument,
+  '\n  query MapCompare($a: SbMapId!, $b: SbMapId!) {\n    mapComparison(a: $a, b: $b) {\n      id\n      changes\n      terrainSimilarity\n      terrainChanges\n      startLocations {\n        id\n        slot\n        kind\n      }\n      bases {\n        id\n        beforeIndex\n        afterIndex\n        changed\n      }\n      a {\n        id\n        ...MapCompare_Side\n      }\n      b {\n        id\n        ...MapCompare_Side\n      }\n    }\n  }\n':
+    types.MapCompareDocument,
+  '\n  fragment MapCompare_Side on SbMap {\n    id\n    name\n    playerCount\n    file {\n      id\n      tileset\n      width\n      height\n      isEud\n      analysis {\n        id\n        triggerCount\n        umsActionKinds\n      }\n      ...MapFileImage_FileFragment\n    }\n  }\n':
+    types.MapCompare_SideFragmentDoc,
   '\n  mutation MapAddFavorite($id: SbMapId!) {\n    mapAddFavorite(id: $id) {\n      id\n      isFavorited\n      favoriteCount\n    }\n  }\n':
     types.MapAddFavoriteDocument,
   '\n  mutation MapRemoveFavorite($id: SbMapId!) {\n    mapRemoveFavorite(id: $id) {\n      id\n      isFavorited\n      favoriteCount\n    }\n  }\n':
@@ -228,8 +277,10 @@ const documents: Documents = {
     types.MapPage_FactsFragmentFragmentDoc,
   '\n  fragment MapPage_HeaderFragment on SbMap {\n    id\n    name\n    description\n    kind\n    listed\n    official\n    publishedAt\n    publisher {\n      id\n      name\n    }\n    file {\n      id\n      originalName\n      originalDescription\n    }\n    moderation @include(if: $canManageMaps) {\n      id\n      delistedAt\n      delistedBy {\n        id\n        name\n      }\n    }\n  }\n':
     types.MapPage_HeaderFragmentFragmentDoc,
-  '\n  fragment MapPage_ActionsFragment on SbMap {\n    id\n    name\n    listed\n    isFavorited\n    inLibrary\n  }\n':
+  '\n  fragment MapPage_ActionsFragment on SbMap {\n    id\n    name\n    listed\n    isFavorited\n    inLibrary\n    familyMember @include(if: $canManageMaps) {\n      id\n      isCurrent\n    }\n  }\n':
     types.MapPage_ActionsFragmentFragmentDoc,
+  '\n  mutation MapPagePinCurrent($mapId: SbMapId!) {\n    mapFamilyUpdateMember(mapId: $mapId, pinnedCurrent: true) {\n      id\n    }\n  }\n':
+    types.MapPagePinCurrentDocument,
   '\n  fragment MapPage_HowToPlayFragment on SbMap {\n    id\n    kind\n    file {\n      id\n      originalDescription\n    }\n  }\n':
     types.MapPage_HowToPlayFragmentFragmentDoc,
   '\n  fragment MapTile_SbMapFragment on SbMap {\n    id\n    name\n    kind\n    playerCount\n    official\n    listed\n    publishedAt\n    isFavorited\n    stats {\n      id\n      games7d\n      games28d\n      gamesTotal\n      trendingScore\n    }\n    file {\n      id\n      ...MapFileImage_FileFragment\n      width\n      height\n      tileset\n      isEud\n      umsForces {\n        name\n        teamId\n        players {\n          playerId\n          isComputer\n        }\n      }\n    }\n  }\n':
@@ -527,6 +578,90 @@ export function graphql(
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
+  source: '\n  query AdminMapFamilyCounts {\n    mapFamilyProposalCount\n    mapFamilyReportCount\n  }\n',
+): (typeof documents)['\n  query AdminMapFamilyCounts {\n    mapFamilyProposalCount\n    mapFamilyReportCount\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  query AdminMapFamilyProposals($limit: Int!, $offset: Int!) {\n    mapFamilyProposals(limit: $limit, offset: $offset) {\n      id\n      games\n      maps {\n        id\n        name\n      }\n      families {\n        id\n        familyId\n        label\n      }\n      suggestions {\n        id\n      }\n    }\n  }\n',
+): (typeof documents)['\n  query AdminMapFamilyProposals($limit: Int!, $offset: Int!) {\n    mapFamilyProposals(limit: $limit, offset: $offset) {\n      id\n      games\n      maps {\n        id\n        name\n      }\n      families {\n        id\n        familyId\n        label\n      }\n      suggestions {\n        id\n      }\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  query AdminMapFamilyReports($limit: Int!, $offset: Int!) {\n    mapFamilyReports(status: OPEN, limit: $limit, offset: $offset) {\n      id\n      kind\n      suggestedRelation\n      note\n      reportedAt\n      map {\n        id\n        name\n      }\n      otherMap {\n        id\n        name\n      }\n      reportedBy {\n        id\n      }\n    }\n  }\n',
+): (typeof documents)['\n  query AdminMapFamilyReports($limit: Int!, $offset: Int!) {\n    mapFamilyReports(status: OPEN, limit: $limit, offset: $offset) {\n      id\n      kind\n      suggestedRelation\n      note\n      reportedAt\n      map {\n        id\n        name\n      }\n      otherMap {\n        id\n        name\n      }\n      reportedBy {\n        id\n      }\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  mutation AdminMapFamilyReportSetStatus($id: UUID!, $status: MapFamilyReportStatus!) {\n    mapFamilyReportSetStatus(id: $id, status: $status) {\n      id\n      status\n      resolvedAt\n    }\n  }\n',
+): (typeof documents)['\n  mutation AdminMapFamilyReportSetStatus($id: UUID!, $status: MapFamilyReportStatus!) {\n    mapFamilyReportSetStatus(id: $id, status: $status) {\n      id\n      status\n      resolvedAt\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  fragment AdminMapFamilies_FileFragment on SbMap {\n    id\n    name\n    listed\n    official\n    firstSeenAt\n    stats {\n      id\n      gamesTotal\n    }\n    file {\n      id\n      width\n      height\n      tileset\n      analysis {\n        id\n        makers\n        credited\n      }\n      ...MapFileImage_FileFragment\n    }\n  }\n',
+): (typeof documents)['\n  fragment AdminMapFamilies_FileFragment on SbMap {\n    id\n    name\n    listed\n    official\n    firstSeenAt\n    stats {\n      id\n      gamesTotal\n    }\n    file {\n      id\n      width\n      height\n      tileset\n      analysis {\n        id\n        makers\n        credited\n      }\n      ...MapFileImage_FileFragment\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  query AdminMapFamilyGroup($mapIds: [SbMapId!]!) {\n    mapFamilyGroup(mapIds: $mapIds) {\n      id\n      games\n      maps {\n        id\n        name\n        firstSeenAt\n        ...AdminMapFamilies_FileFragment\n      }\n      families {\n        id\n        familyId\n        label\n        members {\n          id\n          mapId\n          parentId\n          relation\n          versionLabel\n          isCurrent\n          pinnedCurrent\n          source\n          map {\n            id\n            name\n            firstSeenAt\n            listed\n            ...AdminMapFamilies_FileFragment\n          }\n        }\n      }\n      suggestions {\n        id\n        mapA {\n          id\n        }\n        mapB {\n          id\n        }\n        terrainSimilarity\n        nameMatch\n        proposedRelation\n        olderMapId\n        rule\n      }\n      proposedLinks {\n        id\n        mapId\n        parentId\n        relation\n        versionLabel\n      }\n    }\n  }\n',
+): (typeof documents)['\n  query AdminMapFamilyGroup($mapIds: [SbMapId!]!) {\n    mapFamilyGroup(mapIds: $mapIds) {\n      id\n      games\n      maps {\n        id\n        name\n        firstSeenAt\n        ...AdminMapFamilies_FileFragment\n      }\n      families {\n        id\n        familyId\n        label\n        members {\n          id\n          mapId\n          parentId\n          relation\n          versionLabel\n          isCurrent\n          pinnedCurrent\n          source\n          map {\n            id\n            name\n            firstSeenAt\n            listed\n            ...AdminMapFamilies_FileFragment\n          }\n        }\n      }\n      suggestions {\n        id\n        mapA {\n          id\n        }\n        mapB {\n          id\n        }\n        terrainSimilarity\n        nameMatch\n        proposedRelation\n        olderMapId\n        rule\n      }\n      proposedLinks {\n        id\n        mapId\n        parentId\n        relation\n        versionLabel\n      }\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  query AdminMapFamilyNextProposals($limit: Int!) {\n    mapFamilyProposals(limit: $limit) {\n      id\n      maps {\n        id\n      }\n    }\n  }\n',
+): (typeof documents)['\n  query AdminMapFamilyNextProposals($limit: Int!) {\n    mapFamilyProposals(limit: $limit) {\n      id\n      maps {\n        id\n      }\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  mutation AdminMapFamilyLink($links: [MapFamilyLinkInput!]!) {\n    mapFamilyLink(links: $links) {\n      id\n    }\n  }\n',
+): (typeof documents)['\n  mutation AdminMapFamilyLink($links: [MapFamilyLinkInput!]!) {\n    mapFamilyLink(links: $links) {\n      id\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  mutation AdminMapFamilyRemove($mapId: SbMapId!) {\n    mapFamilyRemove(mapId: $mapId) {\n      id\n    }\n  }\n',
+): (typeof documents)['\n  mutation AdminMapFamilyRemove($mapId: SbMapId!) {\n    mapFamilyRemove(mapId: $mapId) {\n      id\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  mutation AdminMapFamilyUpdateMember(\n    $mapId: SbMapId!\n    $versionLabel: String\n    $pinnedCurrent: Boolean\n  ) {\n    mapFamilyUpdateMember(\n      mapId: $mapId\n      versionLabel: $versionLabel\n      pinnedCurrent: $pinnedCurrent\n    ) {\n      id\n    }\n  }\n',
+): (typeof documents)['\n  mutation AdminMapFamilyUpdateMember(\n    $mapId: SbMapId!\n    $versionLabel: String\n    $pinnedCurrent: Boolean\n  ) {\n    mapFamilyUpdateMember(\n      mapId: $mapId\n      versionLabel: $versionLabel\n      pinnedCurrent: $pinnedCurrent\n    ) {\n      id\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  mutation AdminMapFamilySetLabel($familyId: UUID!, $label: String) {\n    mapFamilySetLabel(familyId: $familyId, label: $label) {\n      id\n      label\n    }\n  }\n',
+): (typeof documents)['\n  mutation AdminMapFamilySetLabel($familyId: UUID!, $label: String) {\n    mapFamilySetLabel(familyId: $familyId, label: $label) {\n      id\n      label\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  mutation AdminMapLinkSuggestionDecide(\n    $mapA: SbMapId!\n    $mapB: SbMapId!\n    $decision: MapLinkSuggestionDecision!\n  ) {\n    mapLinkSuggestionDecide(mapA: $mapA, mapB: $mapB, decision: $decision) {\n      id\n      status\n    }\n  }\n',
+): (typeof documents)['\n  mutation AdminMapLinkSuggestionDecide(\n    $mapA: SbMapId!\n    $mapB: SbMapId!\n    $decision: MapLinkSuggestionDecision!\n  ) {\n    mapLinkSuggestionDecide(mapA: $mapA, mapB: $mapB, decision: $decision) {\n      id\n      status\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  query AdminMapFamilyAddFileSearch($search: String!) {\n    maps(filter: { search: $search, allVersions: true }, first: 8) {\n      nodes {\n        id\n        name\n        listed\n      }\n    }\n  }\n',
+): (typeof documents)['\n  query AdminMapFamilyAddFileSearch($search: String!) {\n    maps(filter: { search: $search, allVersions: true }, first: 8) {\n      nodes {\n        id\n        name\n        listed\n      }\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  query AdminMapFamilyAddFileById($id: SbMapId!) {\n    map(id: $id) {\n      id\n      name\n      listed\n    }\n  }\n',
+): (typeof documents)['\n  query AdminMapFamilyAddFileById($id: SbMapId!) {\n    map(id: $id) {\n      id\n      name\n      listed\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
   source: '\n  fragment MapSearchTest_Map on SbMap {\n    id\n    name\n    kind\n    playerCount\n    listed\n    official\n    publishedAt\n    favoriteCount\n    isFavorited\n    inLibrary\n    publisher {\n      id\n      name\n    }\n    stats {\n      id\n      games7d\n      games28d\n      games90d\n      gamesTotal\n      players90d\n      medianLength90d\n      lastPlayedAt\n    }\n    file {\n      id\n      tileset\n      width\n      height\n      isEud\n      image256Url\n    }\n  }\n',
 ): (typeof documents)['\n  fragment MapSearchTest_Map on SbMap {\n    id\n    name\n    kind\n    playerCount\n    listed\n    official\n    publishedAt\n    favoriteCount\n    isFavorited\n    inLibrary\n    publisher {\n      id\n      name\n    }\n    stats {\n      id\n      games7d\n      games28d\n      games90d\n      gamesTotal\n      players90d\n      medianLength90d\n      lastPlayedAt\n    }\n    file {\n      id\n      tileset\n      width\n      height\n      isEud\n      image256Url\n    }\n  }\n']
 /**
@@ -605,6 +740,18 @@ export function graphql(
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
+  source: '\n  query MapCompare($a: SbMapId!, $b: SbMapId!) {\n    mapComparison(a: $a, b: $b) {\n      id\n      changes\n      terrainSimilarity\n      terrainChanges\n      startLocations {\n        id\n        slot\n        kind\n      }\n      bases {\n        id\n        beforeIndex\n        afterIndex\n        changed\n      }\n      a {\n        id\n        ...MapCompare_Side\n      }\n      b {\n        id\n        ...MapCompare_Side\n      }\n    }\n  }\n',
+): (typeof documents)['\n  query MapCompare($a: SbMapId!, $b: SbMapId!) {\n    mapComparison(a: $a, b: $b) {\n      id\n      changes\n      terrainSimilarity\n      terrainChanges\n      startLocations {\n        id\n        slot\n        kind\n      }\n      bases {\n        id\n        beforeIndex\n        afterIndex\n        changed\n      }\n      a {\n        id\n        ...MapCompare_Side\n      }\n      b {\n        id\n        ...MapCompare_Side\n      }\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  fragment MapCompare_Side on SbMap {\n    id\n    name\n    playerCount\n    file {\n      id\n      tileset\n      width\n      height\n      isEud\n      analysis {\n        id\n        triggerCount\n        umsActionKinds\n      }\n      ...MapFileImage_FileFragment\n    }\n  }\n',
+): (typeof documents)['\n  fragment MapCompare_Side on SbMap {\n    id\n    name\n    playerCount\n    file {\n      id\n      tileset\n      width\n      height\n      isEud\n      analysis {\n        id\n        triggerCount\n        umsActionKinds\n      }\n      ...MapFileImage_FileFragment\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
   source: '\n  mutation MapAddFavorite($id: SbMapId!) {\n    mapAddFavorite(id: $id) {\n      id\n      isFavorited\n      favoriteCount\n    }\n  }\n',
 ): (typeof documents)['\n  mutation MapAddFavorite($id: SbMapId!) {\n    mapAddFavorite(id: $id) {\n      id\n      isFavorited\n      favoriteCount\n    }\n  }\n']
 /**
@@ -671,8 +818,14 @@ export function graphql(
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
-  source: '\n  fragment MapPage_ActionsFragment on SbMap {\n    id\n    name\n    listed\n    isFavorited\n    inLibrary\n  }\n',
-): (typeof documents)['\n  fragment MapPage_ActionsFragment on SbMap {\n    id\n    name\n    listed\n    isFavorited\n    inLibrary\n  }\n']
+  source: '\n  fragment MapPage_ActionsFragment on SbMap {\n    id\n    name\n    listed\n    isFavorited\n    inLibrary\n    familyMember @include(if: $canManageMaps) {\n      id\n      isCurrent\n    }\n  }\n',
+): (typeof documents)['\n  fragment MapPage_ActionsFragment on SbMap {\n    id\n    name\n    listed\n    isFavorited\n    inLibrary\n    familyMember @include(if: $canManageMaps) {\n      id\n      isCurrent\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  mutation MapPagePinCurrent($mapId: SbMapId!) {\n    mapFamilyUpdateMember(mapId: $mapId, pinnedCurrent: true) {\n      id\n    }\n  }\n',
+): (typeof documents)['\n  mutation MapPagePinCurrent($mapId: SbMapId!) {\n    mapFamilyUpdateMember(mapId: $mapId, pinnedCurrent: true) {\n      id\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
