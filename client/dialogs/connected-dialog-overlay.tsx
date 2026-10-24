@@ -94,6 +94,9 @@ const LobbyLeaveAndJoinDialog = React.lazy(async () => ({
 const MapCompareDialog = React.lazy(async () => ({
   default: (await import('../maps/map-compare-dialog')).MapCompareDialog,
 }))
+const MapFamilyLinkDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-family-link-dialog')).MapFamilyLinkDialog,
+}))
 const MapDownloadDialog = React.lazy(async () => ({
   default: (await import('../maps/map-download-dialog')).MapDownloadDialog,
 }))
@@ -269,6 +272,8 @@ function getDialog(dialogType: DialogType): {
       return { component: LobbyLeaveAndJoinDialog }
     case DialogType.MapCompare:
       return { component: MapCompareDialog }
+    case DialogType.MapFamilyLink:
+      return { component: MapFamilyLinkDialog, modal: true }
     case DialogType.MapDownload:
       return { component: MapDownloadDialog, modal: true }
     case DialogType.MapPreview:

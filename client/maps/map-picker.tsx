@@ -500,6 +500,9 @@ export function MapPicker({
                 ) : undefined
               }
               onFiltersChange={onFiltersChange}
+              onAllVersionsChange={allVersions =>
+                updateSession(s => ({ ...s, params: { ...s.params, allVersions } }))
+              }
               onSortChange={onSortChange}
               onDensityChange={saved.setDensity}
               onClearFilters={() => onFiltersChange(DEFAULT_CATALOG_FILTERS)}
