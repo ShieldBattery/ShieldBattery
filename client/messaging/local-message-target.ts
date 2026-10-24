@@ -46,10 +46,17 @@ export function localMessageTargetKey(target: LocalMessageTarget): string {
 }
 
 /**
- * The chat surface most recently on screen, which is where a message that has no conversation of
- * its own (an echoed whisper) is shown. Kept after that surface unmounts, so a whisper arriving
- * while the user is off on some other page lands in the conversation they'll come back to rather
- * than nowhere at all. Cleared on logout, since a conversation belongs to the account that was in
- * it.
+ * A conversation a whisper can be echoed into. Whisper conversations are not: an echo left in one
+ * would sit in a private conversation with someone the whisper had nothing to do with, and the
+ * whisper's own conversation already shows it.
  */
-export const lastChatSurfaceAtom = atom<LocalMessageTarget | undefined>(undefined)
+export type WhisperEchoTarget = Exclude<LocalMessageTarget, { surface: 'whisper' }>
+
+/**
+ * The channel or lobby most recently on screen, which is where a message that has no conversation
+ * of its own (an echoed whisper) is shown. Kept after that surface unmounts, so a whisper arriving
+ * while the user is off on some other page (a whisper conversation included) lands in the
+ * conversation they'll come back to rather than nowhere at all. Cleared on logout, since a
+ * conversation belongs to the account that was in it.
+ */
+export const lastChatSurfaceAtom = atom<WhisperEchoTarget | undefined>(undefined)

@@ -73,11 +73,11 @@ export interface SendWhisperDeps {
 }
 
 /**
- * Whispers `text` to `target` without leaving the surface it was typed in. While whispers are
- * echoed into every chat, the outgoing echo is what shows it went out. With the echo turned off
- * nothing on the surface would show it, so a line saying it was sent stands in — except in the
- * target's own conversation, where the whisper itself appears. A failed send answers with
- * `failedLine` next to the input.
+ * Whispers `text` to `target` without leaving the surface it was typed in. In a channel or lobby
+ * that echoes whispers, the outgoing echo is what shows it went out. Anywhere else nothing on the
+ * surface would show it (whisper conversations are never echoed into), so a line saying it was
+ * sent stands in — except in the target's own conversation, where the whisper itself appears. A
+ * failed send answers with `failedLine` next to the input.
  */
 export function sendWhisperInPlace(
   target: { id: SbUserId; name: string },
@@ -92,8 +92,11 @@ export function sendWhisperInPlace(
       sendWhisperMessage(target.id, text, {
         onSuccess: () => {
           const { settings } = getState()
-          const inOwnConversation = context.surface === 'whisper' && context.targetId === target.id
-          if (!settings.account.showWhispersEverywhere && !inOwnConversation) {
+          const shownBySurface =
+            context.surface === 'whisper'
+              ? context.targetId === target.id
+              : settings.account.showWhispersEverywhere
+          if (!shownBySurface) {
             emit({ kind: 'info', content: whisperSentLine(target.name, t) })
           }
         },

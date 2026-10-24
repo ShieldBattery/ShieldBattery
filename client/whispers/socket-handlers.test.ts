@@ -8,7 +8,7 @@ import { makeSbUserId } from '../../common/users/sb-user-id'
 import { type WhisperMessageEvent, WhisperMessageType } from '../../common/whispers'
 import { registerDispatch } from '../dispatch-registry'
 import { jotaiStore } from '../jotai-store'
-import { lastChatSurfaceAtom, LocalMessageTarget } from '../messaging/local-message-target'
+import { lastChatSurfaceAtom, WhisperEchoTarget } from '../messaging/local-message-target'
 import { CommonMessageType } from '../messaging/message-records'
 import type { RootState } from '../root-reducer'
 import registerModule from './socket-handlers'
@@ -31,7 +31,7 @@ vi.mock('../dom/window-focus', () => ({ default: { isFocused: () => false } }))
 
 const SELF = { id: makeSbUserId(1), name: 'self', created: 0 }
 const OTHER = { id: makeSbUserId(2), name: 'other', created: 0 }
-const CHANNEL_SURFACE: LocalMessageTarget = {
+const CHANNEL_SURFACE: WhisperEchoTarget = {
   surface: 'channel',
   channelId: makeSbChannelId(1),
 }
@@ -62,8 +62,8 @@ interface WhisperCase {
   alerts: boolean
   /** Whether an alert should play the alert sound. Defaults to `alerts`. */
   sound?: boolean
-  /** The surface last on screen, which is where an echo goes. Defaults to a chat channel. */
-  surface?: LocalMessageTarget
+  /** The channel or lobby last on screen, which is where an echo goes. Defaults to a chat channel. */
+  surface?: WhisperEchoTarget
   /** Whether the message should be echoed into `surface`. */
   echoed: boolean
   /** Whether the sender should become the `/reply` target (`lastWhisperSenderAtom`). */
@@ -184,19 +184,10 @@ describe('whisper message echoes', () => {
       becomesReplyTarget: true,
     },
     {
-      name: "the counterpart's own conversation already shows the message, so it is not echoed",
+      name: 'a lobby is echoed into like a channel',
       fromSelf: false,
       blocked: false,
-      surface: { surface: 'whisper', userId: OTHER.id },
-      alerts: true,
-      echoed: false,
-      becomesReplyTarget: true,
-    },
-    {
-      name: "another user's conversation is echoed into like any other surface",
-      fromSelf: false,
-      blocked: false,
-      surface: { surface: 'whisper', userId: makeSbUserId(7) },
+      surface: { surface: 'lobby' },
       alerts: true,
       echoed: true,
       becomesReplyTarget: true,

@@ -53,6 +53,12 @@ const whisperContextWithTarget: WhisperCommandContext = {
   targetId: TARGET_ID,
 }
 
+const whisperContextWithOther: WhisperCommandContext = {
+  surface: 'whisper',
+  selfUserId: SELF_ID,
+  targetId: makeSbUserId(3),
+}
+
 /** A store holding just the account setting the helper reads. */
 function makeState(showWhispersEverywhere: boolean): RootState {
   return {
@@ -92,13 +98,45 @@ describe('messaging/commands/commands/whisper', () => {
     vi.clearAllMocks()
   })
 
-  test('setting on: a successful send emits nothing', () => {
+  test('setting on, a channel or lobby surface: a successful send emits nothing', () => {
     const { emit, spec } = sendInPlace('hello', { state: makeState(true) })
 
     spec.onSuccess(undefined as any)
 
     expect(emit).not.toHaveBeenCalled()
   })
+
+  test.each([true, false])(
+    "setting %s, another user's conversation: a successful send says it was sent",
+    showWhispersEverywhere => {
+      const { emit, spec } = sendInPlace('hello', {
+        context: whisperContextWithOther,
+        state: makeState(showWhispersEverywhere),
+      })
+
+      spec.onSuccess(undefined as any)
+
+      expect(emit).toHaveBeenCalledTimes(1)
+      expect(emit.mock.calls[0][0].kind).toBe('info')
+      const text = renderLine(emit.mock.calls[0][0].content)
+      expect(text).toContain('Whisper sent to')
+      expect(text).toContain('tec27')
+    },
+  )
+
+  test.each([true, false])(
+    "setting %s, the target's own conversation: nothing is shown",
+    showWhispersEverywhere => {
+      const { emit, spec } = sendInPlace('hello', {
+        context: whisperContextWithTarget,
+        state: makeState(showWhispersEverywhere),
+      })
+
+      spec.onSuccess(undefined as any)
+
+      expect(emit).not.toHaveBeenCalled()
+    },
+  )
 
   test('setting off, a channel or lobby surface: a successful send says it was sent', () => {
     const { emit, spec } = sendInPlace('hello', {
@@ -113,17 +151,6 @@ describe('messaging/commands/commands/whisper', () => {
     const text = renderLine(emit.mock.calls[0][0].content)
     expect(text).toContain('Whisper sent to')
     expect(text).toContain('tec27')
-  })
-
-  test("setting off, the target's own conversation: nothing is shown", () => {
-    const { emit, spec } = sendInPlace('hello', {
-      context: whisperContextWithTarget,
-      state: makeState(false),
-    })
-
-    spec.onSuccess(undefined as any)
-
-    expect(emit).not.toHaveBeenCalled()
   })
 
   test('a failed send answers with the given line', () => {
