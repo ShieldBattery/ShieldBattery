@@ -51,6 +51,26 @@ function invalidateNewsPostLists(cache: Cache) {
   }
 }
 
+const MAP_FAMILY_QUERY_FIELDS: ReadonlySet<string> = new Set([
+  'mapFamilyProposals',
+  'mapFamilyProposalCount',
+  'mapFamilyGroup',
+  'mapFamilyReports',
+  'mapFamilyReportCount',
+  // The catalog folds each family line into one tile
+  'maps',
+])
+
+// A family edit can move any number of maps between families and change which version of a line
+// is current, so every cached family listing (under every argument combination) is invalidated.
+function invalidateMapFamilyQueries(cache: Cache) {
+  for (const field of cache.inspectFields('Query')) {
+    if (MAP_FAMILY_QUERY_FIELDS.has(field.fieldName)) {
+      cache.invalidate('Query', field.fieldName, field.arguments ?? undefined)
+    }
+  }
+}
+
 // TODO(tec27): Devise a way to split this between the different feature areas
 const cacheUpdates: UpdatesConfig = {
   Mutation: {
@@ -83,6 +103,14 @@ const cacheUpdates: UpdatesConfig = {
       cache.invalidate({ __typename: 'GameFeedback', id: (args.input as any).gameId })
     },
     newsUpdatePost: (_result, _args, cache) => invalidateNewsPostLists(cache),
+    mapFamilyLink: (_result, _args, cache) => invalidateMapFamilyQueries(cache),
+    mapFamilyRemove: (_result, _args, cache) => invalidateMapFamilyQueries(cache),
+    mapFamilyUpdateMember: (_result, _args, cache) => invalidateMapFamilyQueries(cache),
+    mapFamilySetLabel: (_result, _args, cache) => invalidateMapFamilyQueries(cache),
+    mapLinkSuggestionDecide: (_result, _args, cache) => invalidateMapFamilyQueries(cache),
+    mapFamilyReportSetStatus: (_result, _args, cache) => invalidateMapFamilyQueries(cache),
+    mapFamilyPublisherLink: (_result, _args, cache) => invalidateMapFamilyQueries(cache),
+    mapFamilyPublisherUnlink: (_result, _args, cache) => invalidateMapFamilyQueries(cache),
     newsDeletePost: (result, args, cache) => {
       if (result.newsDeletePost) {
         cache.invalidate({ __typename: 'NewsPost', id: args.id as string })

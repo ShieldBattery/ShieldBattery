@@ -947,6 +947,29 @@ impl MapFamiliesQuery {
         Ok(i32::try_from(count).unwrap_or(i32::MAX))
     }
 
+    /// The groups of possibly related files the maps are in, merged into one, as
+    /// `mapFamilyProposals` would list them. A map with nothing to sort adds itself and its
+    /// family. Only available to users who can manage maps.
+    #[graphql(guard = RequiredPermission::ManageMaps)]
+    async fn map_family_group(
+        &self,
+        ctx: &Context<'_>,
+        map_ids: Vec<SbMapId>,
+    ) -> Result<MapFamilyProposal> {
+        if map_ids.is_empty() || map_ids.len() > MAX_QUEUE_PAGE as usize {
+            return Err(graphql_error(
+                "BAD_REQUEST",
+                format!("Between 1 and {MAX_QUEUE_PAGE} maps can be loaded"),
+            ));
+        }
+        let db = ctx.data::<MapSearchRepo>()?.db();
+        let group = proposals::load_group(db, &map_ids).await?;
+        if group.is_empty() {
+            return Err(graphql_error("NOT_FOUND", "Map not found"));
+        }
+        Ok(group)
+    }
+
     /// Family reports with a status, oldest first. Only available to users who can manage maps.
     #[graphql(guard = RequiredPermission::ManageMaps)]
     async fn map_family_reports(

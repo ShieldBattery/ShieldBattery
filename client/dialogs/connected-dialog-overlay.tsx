@@ -105,6 +105,9 @@ const GameVerificationFailedDialog = React.lazy(async () => ({
   default: (await import('../starcraft/game-verification-failed-dialog'))
     .GameVerificationFailedDialog,
 }))
+const MapCompareDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-compare-dialog')).MapCompareDialog,
+}))
 const MapDownloadDialog = React.lazy(async () => ({
   default: (await import('../maps/map-download-dialog')).MapDownloadDialog,
 }))
@@ -292,6 +295,8 @@ function getDialog(dialogType: DialogType): {
       return { component: LobbyLeaveAndJoinDialog }
     case DialogType.ImageViewer:
       return { component: ImageViewerDialog }
+    case DialogType.MapCompare:
+      return { component: MapCompareDialog }
     case DialogType.MapDownload:
       return { component: MapDownloadDialog, modal: true }
     case DialogType.MapPreview:
