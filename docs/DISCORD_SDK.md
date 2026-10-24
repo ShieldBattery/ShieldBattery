@@ -42,13 +42,14 @@ Discord's own signature: the sign hook leaves alone any file that already carrie
 
 The activity's large image is the map's image from the CDN, given as a URL. The small image is the
 race the player picked, or an eye while they observe. Map images are served from the local file
-store in development, which Discord can't reach, so dev builds show only the small image. A replay's
-activity has no images.
+store in development, which Discord can't reach, so dev builds show only the small image. A replay
+has no map image, so its activity shows only the replay icon.
 
-The race and observer icons are art assets, uploaded under Rich Presence → Art Assets to each of the
-three Discord applications with the keys `race_p`, `race_t`, `race_z`, `race_r` and `observer` (the
-file names in `docs/discord-assets`). The app refers to them by key, so a changed icon only needs
-uploading again under the same key.
+The race, observer and replay icons are art assets, uploaded under Rich Presence → Art Assets to
+each of the three Discord applications with the keys `race_p`, `race_t`, `race_z`, `race_r`,
+`observer` and `replay` (the file names in `docs/discord-assets`). The observer and replay icons are
+Material Symbols' `visibility` and `movie`, filled, in `#bfd9ff` on the race icons' `#18273e`. The
+app refers to them by key, so a changed icon only needs uploading again under the same key.
 
 ## Updating the SDK
 

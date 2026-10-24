@@ -152,6 +152,7 @@ function getReplayActivity(replay: ReplayActivity, t: TFunction): DiscordActivit
   return {
     details: t('discord.activity.watchingReplay', 'Watching a replay'),
     state: replay.mapName !== undefined ? fitDiscordText(replay.mapName) : undefined,
+    smallImage: { image: 'replay', text: t('discord.activity.replayIcon', 'Replay') },
   }
 }
 
