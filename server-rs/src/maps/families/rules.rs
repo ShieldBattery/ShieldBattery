@@ -1,7 +1,5 @@
 //! The rules that propose how two possibly related map files relate, and the name and version
-//! parsing they share with candidate finding. Benchmarked against a hand-checked sample of prod
-//! maps: right on 93.6% of candidate pairs (same line / fork / not linked), with every version
-//! pair but a year-named one ordered right.
+//! parsing they share with candidate finding.
 
 use std::cmp::Ordering;
 use std::sync::LazyLock;

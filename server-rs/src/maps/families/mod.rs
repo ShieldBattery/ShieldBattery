@@ -585,10 +585,10 @@ struct LinePlace {
     line_current: SbMapId,
 }
 
-/// Derives every member's line and each line's current version (see the families doc, "Current
-/// version"): a line starts at the root, a fork, or a member whose parent is gone. Its current is
-/// the pinned member, else the deepest listed version (version label, then first seen, breaking
-/// ties), else the deepest member. Variants and translations are never current.
+/// Derives every member's line and each line's current version: a line starts at the root, a fork,
+/// or a member whose parent is gone. Its current is the pinned member, else the deepest listed
+/// version (version label, then first seen, breaking ties), else the deepest member. Variants and
+/// translations are never current.
 fn derive_lines(members: &[MemberRow]) -> HashMap<SbMapId, LinePlace> {
     let by_id: HashMap<SbMapId, &MemberRow> = members.iter().map(|m| (m.map_id, m)).collect();
     let starts_line = |m: &MemberRow| {
@@ -787,9 +787,14 @@ mod tests {
         assert_eq!(derive_lines(&members)[&id(2)].line_current, id(1));
     }
 
-    /// Checks the rules against the families benchmark's reference outputs: per-file credits,
-    /// versions and base names, and every candidate pair's proposal. `SB_FAMILY_BENCH` is the
-    /// benchmark directory (`files.json` and `reference.json`, written by `bench.py --export`).
+    /// Checks the rules against hand-checked reference outputs: per-file credits, versions and
+    /// base names, and every candidate pair's proposal. `SB_FAMILY_BENCH` is a directory holding:
+    ///
+    /// - `files.json`: `{ <file hash>: { title, sb_name, description, uploaded, chk } }`, where
+    ///   `uploaded` is the first-seen time in Unix millis and `chk` the CHK hash (or null)
+    /// - `reference.json`: `{ files: { <file hash>: { ums, makers, credited, version, base_title,
+    ///   base_sb } }, pairs: [{ a, b, relation, older }] }`, where `a`/`b` are file hashes and
+    ///   `older` is `"a"`, `"b"` or null
     ///
     /// `SB_FAMILY_BENCH=<dir> cargo test --lib -- --ignored family_bench_reference`
     #[test]
@@ -833,7 +838,7 @@ mod tests {
             for key in ["makers", "credited", "version", "base_title", "base_sb"] {
                 if got[key] != expected[key] {
                     mismatches.push(format!(
-                        "{} {key}: rust {} python {}",
+                        "{} {key}: got {} expected {}",
                         &hash[..8],
                         got[key],
                         expected[key]
@@ -853,7 +858,7 @@ mod tests {
             });
             if got["relation"] != pair["relation"] || got["older"] != pair["older"] {
                 mismatches.push(format!(
-                    "pair {}-{}: rust {got} python {}/{}",
+                    "pair {}-{}: got {got} expected {}/{}",
                     &pair["a"].as_str().unwrap()[..8],
                     &pair["b"].as_str().unwrap()[..8],
                     pair["relation"],
