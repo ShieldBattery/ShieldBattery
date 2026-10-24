@@ -433,6 +433,10 @@ pub struct OptionsLists {
     /// Whether the game being played rolls back. The rollback balance means nothing to one that
     /// does not, so its row is only shown in one that does.
     pub rollback_game: bool,
+    /// Whether the game is being watched, as a replay or from an observer slot, rather than played.
+    /// A watcher's minimap stays in the bottom-left corner whatever the minimap position says, so
+    /// there the row only decides where it goes in the player's own games.
+    pub watching: bool,
 }
 
 /// Everything the options screen shows, as the game currently holds it.

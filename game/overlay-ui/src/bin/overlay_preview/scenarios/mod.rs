@@ -352,7 +352,8 @@ pub fn render(
     }
     state.setting_toast_applied = knobs.shell.setting_toast;
     let options_view = (knobs.scenario == ScenarioKind::Shell).then_some(knobs.shell.options);
-    let option_lists = (knobs.scenario == ScenarioKind::Shell).then(shell::option_lists);
+    let option_lists = (knobs.scenario == ScenarioKind::Shell)
+        .then(|| shell::option_lists(knobs.host.mode.is_spectating()));
     let mut views = Views {
         disconnect: disconnect_view.as_ref().map(|view| DisconnectSurface {
             view,

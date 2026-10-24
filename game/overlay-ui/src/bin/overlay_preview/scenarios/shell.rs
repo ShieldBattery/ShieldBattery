@@ -167,8 +167,8 @@ pub fn sync_options_modal(knobs: &Knobs, shell: &mut overlay_ui::shell::Shell) {
 
 /// What the emulated host reports beside the settings: two displays, so the monitor row has more
 /// than its default to step through, and a game that rolls back, so the network section shows
-/// every row it can.
-pub fn option_lists() -> OptionsLists {
+/// every row it can. Whether the game is being watched follows the host's mode.
+pub fn option_lists(watching: bool) -> OptionsLists {
     OptionsLists {
         monitors: vec![
             MonitorView {
@@ -181,6 +181,7 @@ pub fn option_lists() -> OptionsLists {
             },
         ],
         rollback_game: true,
+        watching,
     }
 }
 

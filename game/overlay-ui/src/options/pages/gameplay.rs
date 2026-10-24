@@ -7,11 +7,17 @@ use crate::options::fields::{
 };
 use crate::options::{
     APM_ALERT_VALUE, CONSOLE_SKINS, MinimapColorMode, MinimapPosition, MinimapTerrain,
-    OptionsOutcome, OptionsView, SettingChange, StartingFog, UNIT_SKINS, UnitPortraits,
+    OptionsLists, OptionsOutcome, OptionsView, SettingChange, StartingFog, UNIT_SKINS,
+    UnitPortraits,
 };
 use crate::tr;
 
-pub(super) fn draw(ui: &mut Ui, view: &OptionsView, outcome: &mut OptionsOutcome) {
+pub(super) fn draw(
+    ui: &mut Ui,
+    view: &OptionsView,
+    lists: &OptionsLists,
+    outcome: &mut OptionsOutcome,
+) {
     group_header(ui, &tr!("options.groupInterface", "Interface"), false);
     if let Some(portraits) = segmented_row(
         ui,
@@ -70,6 +76,15 @@ pub(super) fn draw(ui: &mut Ui, view: &OptionsView, outcome: &mut OptionsOutcome
         outcome
             .changes
             .push(SettingChange::MinimapPosition(position));
+    }
+    if lists.watching {
+        hint(
+            ui,
+            &tr!(
+                "options.minimapPositionWatchingHint",
+                "Replays and observing always use the bottom-left corner"
+            ),
+        );
     }
     if let Some(terrain) = segmented_row(
         ui,

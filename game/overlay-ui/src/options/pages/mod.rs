@@ -25,7 +25,7 @@ pub(super) fn draw(
         OptionsSection::Input => input::draw(ui, view, outcome),
         OptionsSection::Sound => sound::draw(ui, view, outcome),
         OptionsSection::Video => video::draw(ui, view, lists, outcome),
-        OptionsSection::Gameplay => gameplay::draw(ui, view, outcome),
+        OptionsSection::Gameplay => gameplay::draw(ui, view, lists, outcome),
         OptionsSection::Network => network::draw(ui, view, lists, outcome),
     }
 }

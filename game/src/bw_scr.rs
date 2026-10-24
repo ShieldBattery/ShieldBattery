@@ -3686,6 +3686,7 @@ impl BwScr {
                         orig();
                         self.is_replay.write(is_replay);
                         self.local_unique_player_id.write(local_id);
+                        self.put_watcher_minimap_in_corner();
                     } else {
                         orig();
                     }
@@ -7737,7 +7738,13 @@ impl BwScr {
     /// saved and nothing more.
     fn apply_setting_changes(&self, changes: &[SettingChange]) {
         for &change in changes {
-            if let Some(write) = draw_overlay::options::registry_setting(change) {
+            // A watcher's minimap stays in the corner: a position picked while watching is only
+            // saved, for the player's own games.
+            let watcher_minimap =
+                self.is_replay_or_obs() && matches!(change, SettingChange::MinimapPosition(_));
+            if let Some(write) = draw_overlay::options::registry_setting(change)
+                && !watcher_minimap
+            {
                 self.pending_game_setting_writes.lock().push(write);
             }
             if let SettingChange::HdGraphicsOn(on) = change {
@@ -7746,6 +7753,25 @@ impl BwScr {
             self.apply_local_setting_change(change);
         }
         self.save_setting_changes(changes);
+    }
+
+    /// Moves a watcher's minimap to the screen's bottom-left corner, whatever position the player
+    /// keeps it at in their own games.
+    ///
+    /// SC:R's standard layout keeps the minimap beside the rest of the console, which on a wide
+    /// screen puts it toward the middle of the bottom edge, within quick reach of the cursor while
+    /// playing. A watcher has the rest of the console hidden and the observer panels laid out
+    /// around a minimap in the corner instead.
+    ///
+    /// The position goes through the same registry write the options screen makes, which changes
+    /// the running game's copy alone: SC:R doesn't write its settings file back, so the player's
+    /// own choice is still the one their next game launches with.
+    fn put_watcher_minimap_in_corner(&self) {
+        let corner =
+            SettingChange::MinimapPosition(overlay_ui::options::MinimapPosition::BottomLeft);
+        if let Some(write) = draw_overlay::options::registry_setting(corner) {
+            self.pending_game_setting_writes.lock().push(write);
+        }
     }
 
     /// Hands settings that changed during the game to the app to save.

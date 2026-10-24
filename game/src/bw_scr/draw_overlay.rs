@@ -777,11 +777,15 @@ impl OverlayState {
         // Shared rather than copied: the names in it are read every frame and written only when
         // the app's settings arrive.
         let mut option_lists_view = option_lists.lock().clone();
-        // Rollback balance only means anything in a game that rolls back, which the session decides
-        // after the lists were built, so the lists learn it here.
+        // Rollback balance only means anything in a game that rolls back, and the minimap position
+        // works differently for a watcher. The session decides both after the lists were built, so
+        // the lists learn them here.
         let rolls_back = crate::rollback_live::native_sync_off();
-        if option_lists_view.rollback_game != rolls_back {
-            Arc::make_mut(&mut option_lists_view).rollback_game = rolls_back;
+        let watching = bw.is_replay_or_obs;
+        if option_lists_view.rollback_game != rolls_back || option_lists_view.watching != watching {
+            let lists = Arc::make_mut(&mut option_lists_view);
+            lists.rollback_game = rolls_back;
+            lists.watching = watching;
             *option_lists.lock() = option_lists_view.clone();
         }
         let mut views = Views {

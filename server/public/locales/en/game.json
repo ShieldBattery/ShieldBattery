@@ -316,6 +316,7 @@
     "minimapPosition": "Minimap position",
     "minimapPositionBottomLeft": "Bottom-left corner",
     "minimapPositionStandard": "Standard",
+    "minimapPositionWatchingHint": "Replays and observing always use the bottom-left corner",
     "minimapTerrain": "Minimap terrain",
     "minimapTerrainHidden": "Hidden",
     "minimapTerrainShown": "Shown",
