@@ -180,6 +180,11 @@ export interface CatalogParams extends CatalogFilters {
   search: string
   /** The sort picked in the URL, if any (see {@link effectiveSort}). */
   sort?: CatalogSort
+  /**
+   * Whether every version of a map is listed, rather than one tile per family line. Only the
+   * listing of all maps folds by line.
+   */
+  allVersions?: boolean
 }
 
 export function hasNonDefaultFilters(filters: CatalogFilters): boolean {
@@ -194,7 +199,17 @@ export function hasNonDefaultFilters(filters: CatalogFilters): boolean {
 }
 
 /** The names of the search params the catalog reads. */
-const PARAM_NAMES = ['q', 'sort', 'lens', 'players', 'size', 'tileset', 'eud', 'official']
+const PARAM_NAMES = [
+  'q',
+  'sort',
+  'lens',
+  'players',
+  'size',
+  'tileset',
+  'eud',
+  'official',
+  'versions',
+]
 
 /** Whether `search` sets any of the catalog's params. */
 export function hasCatalogParams(search: URLSearchParams): boolean {
@@ -229,6 +244,7 @@ export function parseCatalogParams(search: URLSearchParams): CatalogParams {
     tilesets: parseList(search.get('tileset'), TILESET_SLUGS),
     eud: fromSlug(search.get('eud'), EUD_SLUGS) ?? EudFilter.Any,
     official: search.get('official') === '1',
+    allVersions: search.get('versions') === 'all',
   }
 }
 
@@ -262,6 +278,7 @@ export function serializeCatalogParams(
   )
   set('eud', EUD_SLUGS.get(params.eud))
   set('official', params.official ? '1' : undefined)
+  set('versions', params.allVersions ? 'all' : undefined)
   // Commas are legal in a query string, and keep shared links readable (`size=small,huge`)
   return search.toString().replaceAll('%2C', ',')
 }
@@ -392,6 +409,7 @@ export function toMapFilter(params: CatalogParams): MapFilter {
     tilesets: params.tilesets.length ? [...params.tilesets] : undefined,
     eud: params.eud,
     official: params.official || undefined,
+    allVersions: params.allVersions || undefined,
   }
 }
 

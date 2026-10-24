@@ -28,7 +28,8 @@ describe('client/maps/map-catalog-params', () => {
   test('parses every param', () => {
     expect(
       parse(
-        'q=bound&sort=name&lens=ums&players=5%2B&size=large,tiny&tileset=ice,jungle&eud=hide&official=1',
+        'q=bound&sort=name&lens=ums&players=5%2B&size=large,tiny&tileset=ice,jungle&eud=hide' +
+          '&official=1&versions=all',
       ),
     ).toEqual({
       search: 'bound',
@@ -39,14 +40,19 @@ describe('client/maps/map-catalog-params', () => {
       tilesets: [Tileset.Jungle, Tileset.Ice],
       eud: EudFilter.Exclude,
       official: true,
+      allVersions: true,
     })
   })
 
   test('falls back to defaults for missing and unknown values', () => {
-    expect(parse('')).toEqual({ search: '', sort: undefined, ...DEFAULT_CATALOG_FILTERS })
+    const defaults = { search: '', sort: undefined, allVersions: false, ...DEFAULT_CATALOG_FILTERS }
+    expect(parse('')).toEqual(defaults)
     expect(
-      parse('sort=popular&lens=melee2&players=9&size=enormous&tileset=space&eud=x&official=yes'),
-    ).toEqual({ search: '', sort: undefined, ...DEFAULT_CATALOG_FILTERS })
+      parse(
+        'sort=popular&lens=melee2&players=9&size=enormous&tileset=space&eud=x&official=yes' +
+          '&versions=some',
+      ),
+    ).toEqual(defaults)
   })
 
   test('round-trips, leaving defaults out and keeping canonical order', () => {
@@ -58,6 +64,7 @@ describe('client/maps/map-catalog-params', () => {
       parse('lens=melee&players=2&size=small,huge&tileset=badlands,twilight&eud=only'),
     )
     expect(serializeCatalogParams(parse(''))).toBe('')
+    expect(serializeCatalogParams(parse('versions=all'))).toBe('versions=all')
   })
 
   test('keeps unrelated params and drops cleared ones', () => {
@@ -69,6 +76,7 @@ describe('client/maps/map-catalog-params', () => {
     expect(hasCatalogParams(new URLSearchParams(''))).toBe(false)
     expect(hasCatalogParams(new URLSearchParams('other=1'))).toBe(false)
     expect(hasCatalogParams(new URLSearchParams('official=1'))).toBe(true)
+    expect(hasCatalogParams(new URLSearchParams('versions=all'))).toBe(true)
     expect(hasNonDefaultFilters(DEFAULT_CATALOG_FILTERS)).toBe(false)
     expect(hasNonDefaultFilters({ ...DEFAULT_CATALOG_FILTERS, official: true })).toBe(true)
   })

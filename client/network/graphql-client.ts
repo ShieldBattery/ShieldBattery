@@ -59,6 +59,8 @@ const MAP_FAMILY_QUERY_FIELDS: ReadonlySet<string> = new Set([
   'mapFamilyReportCount',
   // The catalog folds each family line into one tile
   'maps',
+  // A map's page shows its family, its version status and the current version of its line
+  'map',
 ])
 
 // A family edit can move any number of maps between families and change which version of a line
@@ -111,6 +113,7 @@ const cacheUpdates: UpdatesConfig = {
     mapFamilyReportSetStatus: (_result, _args, cache) => invalidateMapFamilyQueries(cache),
     mapFamilyPublisherLink: (_result, _args, cache) => invalidateMapFamilyQueries(cache),
     mapFamilyPublisherUnlink: (_result, _args, cache) => invalidateMapFamilyQueries(cache),
+    mapFamilyReport: (_result, _args, cache) => invalidateMapFamilyQueries(cache),
     newsDeletePost: (result, args, cache) => {
       if (result.newsDeletePost) {
         cache.invalidate({ __typename: 'NewsPost', id: args.id as string })
