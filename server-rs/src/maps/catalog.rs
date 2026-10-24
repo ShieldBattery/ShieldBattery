@@ -64,6 +64,8 @@ pub struct SbMap {
     pub stats: Option<MapStats>,
     /// How many users have favorited this map.
     pub favorite_count: i32,
+    /// When the server first saw the map's file.
+    pub first_seen_at: DateTime<Utc>,
 }
 
 #[ComplexObject]
@@ -318,6 +320,7 @@ impl From<DbSbMap> for SbMap {
             },
             stats,
             favorite_count: row.favorites,
+            first_seen_at: row.first_seen_at,
         }
     }
 }
@@ -797,6 +800,7 @@ mod tests {
                 last_played_at: None,
                 trending_score: 0,
                 favorites: 0,
+                first_seen_at: published_at,
             })
         }
     }

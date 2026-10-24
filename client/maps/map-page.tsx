@@ -2,7 +2,7 @@ import * as React from 'react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { useQuery } from 'urql'
+import { useMutation, useQuery } from 'urql'
 import { useRoute } from 'wouter'
 import { GameType, gameTypeToLabel } from '../../common/games/game-type'
 import {
@@ -732,6 +732,18 @@ const MapPage_ActionsFragment = graphql(/* GraphQL */ `
     listed
     isFavorited
     inLibrary
+    familyMember @include(if: $canManageMaps) {
+      id
+      isCurrent
+    }
+  }
+`)
+
+const MapPagePinCurrentMutation = graphql(/* GraphQL */ `
+  mutation MapPagePinCurrent($mapId: SbMapId!) {
+    mapFamilyUpdateMember(mapId: $mapId, pinnedCurrent: true) {
+      id
+    }
   }
 `)
 
@@ -790,6 +802,7 @@ function MapActions({
   const isLobbyHost = IS_ELECTRON && inLobby && !!selfUser && lobbyHostId === selfUser.id
 
   const [toggleFavorite, favoritePending] = useToggleMapFavorite()
+  const [, pinCurrent] = useMutation(MapPagePinCurrentMutation)
 
   const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'top')
   const [menuOpen, openMenu, closeMenu] = usePopoverController({ refreshAnchorPos })
@@ -885,6 +898,30 @@ function MapActions({
     )
   }
   if (canManageMaps) {
+    menuItems.push([
+      t('maps.page.editFamily', 'Edit family…'),
+      () => push(urlPath`/admin/map-families/maps/${map.id}`),
+    ])
+    if (map.listed && map.familyMember && !map.familyMember.isCurrent) {
+      menuItems.push([
+        t('maps.page.pinAsCurrent', 'Pin as current version'),
+        () => {
+          pinCurrent({ mapId: map.id })
+            .then(result => {
+              if (result.error) {
+                throw result.error
+              }
+              snackbarController.showSnackbar(
+                t('maps.page.pinnedAsCurrent', 'Pinned as the current version'),
+              )
+              onChanged()
+            })
+            .catch(() =>
+              showError(t('maps.page.pinAsCurrentError', "Couldn't pin the current version")),
+            )
+        },
+      ])
+    }
     menuItems.push([
       t('maps.thumbnail.regenerateImage', 'Regenerate image'),
       () =>
