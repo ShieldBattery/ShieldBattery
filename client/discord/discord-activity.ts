@@ -6,51 +6,17 @@ import {
 } from '../../common/discord-presence'
 import { gameTypeToLabel } from '../../common/games/game-type'
 import { isUms } from '../../common/lobbies'
-import { LobbyVisibility } from '../../common/lobbies/lobby-visibility'
-import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { SlotType } from '../../common/lobbies/slot'
 import { matchmakingTypeToLabel } from '../../common/matchmaking'
 import { RaceChar, raceCharToLabel } from '../../common/races'
 import { DiscordActivitySharing } from '../../common/settings/account-settings'
-import { SbUserId } from '../../common/users/sb-user-id'
+import {
+  CurrentActivity,
+  GameActivity,
+  LobbyActivity,
+  ReplayActivity,
+} from '../activity/current-activity'
 import { ParticipatingGameInfo } from '../games/game-atoms'
-
-/** What the activity shows about the lobby the user is in. */
-export interface ActivityLobby {
-  id: SbLobbyId
-  name: string
-  visibility: LobbyVisibility
-  /** The players seated in the lobby, computers included. Observers don't count. */
-  playerCount: number
-  /** The slots someone could still join as a player. Closed slots don't count. */
-  openSlots: number
-  /** Whether the lobby's game is loading or running, which makes the lobby unjoinable. */
-  inGame: boolean
-  mapName?: string
-  mapImageUrl?: string
-  /** The race picked in the user's slot, or `undefined` while they observe. */
-  ownRace?: RaceChar
-  /** Whether the user is in one of the lobby's observer slots. */
-  observing: boolean
-}
-
-/** What the activity shows about a replay the user is watching. */
-export interface ActivityReplay {
-  /** The map the replay was played on, if its header could be read. */
-  mapName?: string
-}
-
-export interface DiscordActivityState {
-  sharing: DiscordActivitySharing
-  /** The logged-in user, or `undefined` while nobody is logged in. */
-  userId: SbUserId | undefined
-  /** The lobby the user is in, if any. */
-  lobby: ActivityLobby | undefined
-  /** The game the user takes part in, only while it's being played. */
-  game: ParticipatingGameInfo | undefined
-  /** The replay the user is watching, only while it's being played. */
-  replay: ActivityReplay | undefined
-}
 
 const MIN_DISCORD_TEXT_LENGTH = 2
 const MAX_DISCORD_TEXT_LENGTH = 128
@@ -120,18 +86,13 @@ function getMatchup(
   return players.map(slot => (slot.race ?? 'r').toUpperCase()).join('v')
 }
 
-function getGameActivity(
-  game: ParticipatingGameInfo,
-  userId: SbUserId,
-  t: TFunction,
-): DiscordActivity {
+function getGameActivity({ game, ownSlot }: GameActivity, t: TFunction): DiscordActivity {
   const gameMode =
     game.matchmakingType !== undefined
       ? t('discord.activity.rankedMode', 'Ranked {{mode}}', {
           mode: matchmakingTypeToLabel(game.matchmakingType, t),
         })
       : gameTypeToLabel(game.gameType, t)
-  const ownSlot = game.slots.find(slot => slot.userId === userId)
   const observing = ownSlot?.type === SlotType.Observer
   const ownRace = observing ? undefined : ownSlot?.race
   const mode = observing
@@ -160,7 +121,7 @@ function getGameActivity(
   }
 }
 
-function getLobbyActivity(lobby: ActivityLobby, t: TFunction): DiscordActivity {
+function getLobbyActivity(lobby: LobbyActivity, t: TFunction): DiscordActivity {
   const listed = lobby.visibility === 'listed'
   // An unlisted lobby's host chose who learns of it, so its name isn't shown. Listed lobby names
   // can be a single character, which Discord won't show on its own.
@@ -187,7 +148,7 @@ function getLobbyActivity(lobby: ActivityLobby, t: TFunction): DiscordActivity {
   }
 }
 
-function getReplayActivity(replay: ActivityReplay, t: TFunction): DiscordActivity {
+function getReplayActivity(replay: ReplayActivity, t: TFunction): DiscordActivity {
   return {
     details: t('discord.activity.watchingReplay', 'Watching a replay'),
     state: replay.mapName !== undefined ? fitDiscordText(replay.mapName) : undefined,
@@ -195,25 +156,25 @@ function getReplayActivity(replay: ActivityReplay, t: TFunction): DiscordActivit
 }
 
 /**
- * Returns the Rich Presence activity for the user's current state, or `undefined` if nothing should
- * show: when they haven't chosen to share it, or aren't in a lobby, a game or a replay. A game or
- * lobby the user is in takes the place of a replay they watch at the same time.
+ * Returns the Rich Presence activity for what the user is doing, or `undefined` if nothing should
+ * show: when they haven't chosen to share it, or are doing nothing that shows.
  */
 export function getDiscordActivity(
-  state: DiscordActivityState,
+  activity: CurrentActivity | undefined,
+  sharing: DiscordActivitySharing,
   t: TFunction,
 ): DiscordActivity | undefined {
-  if (state.sharing !== 'on' || state.userId === undefined) {
+  if (sharing !== 'on' || !activity) {
     return undefined
   }
-  if (state.game) {
-    return getGameActivity(state.game, state.userId, t)
+  switch (activity.kind) {
+    case 'game':
+      return getGameActivity(activity, t)
+    case 'lobby':
+      return getLobbyActivity(activity, t)
+    case 'replay':
+      return getReplayActivity(activity, t)
+    default:
+      return activity satisfies never
   }
-  if (state.lobby) {
-    return getLobbyActivity(state.lobby, t)
-  }
-  if (state.replay) {
-    return getReplayActivity(state.replay, t)
-  }
-  return undefined
 }
