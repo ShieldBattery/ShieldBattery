@@ -46,6 +46,7 @@ import {
   shuffleSlots,
   startCountdown,
   swapTeams,
+  updateLobbySettings,
 } from './action-creators'
 import { JoinPreview } from './join-preview'
 import { lobbyActionErrorMessage } from './lobby-action-errors'
@@ -200,6 +201,8 @@ function ConnectedLobby() {
   const snackbarController = useSnackbarController()
   const selfUser = useSelfUser()!
   const isViewerReady = useAppSelector(s => s.lobby.readyUserIds.includes(selfUser.id))
+  const mapQueue = useAppSelector(s => s.lobby.info.mapQueue)
+  const randomMap = useAppSelector(s => s.lobby.info.randomMap)
 
   // Everything the room dispatches is a request the server can refuse (the lobby moved on, the
   // layout won't take the change), and the viewer is watching for it to happen, so a refusal has to
@@ -311,6 +314,11 @@ function ConnectedLobby() {
         }
       }}
       onWatchReplay={onWatchReplay}
+      onToggleRandomMap={() => {
+        if (mapQueue.length || randomMap) {
+          dispatch(updateLobbySettings({ randomMap: !randomMap }, actionSpec))
+        }
+      }}
       onViewGameSummary={gameId => {
         navigateToGameResults(gameId)
       }}

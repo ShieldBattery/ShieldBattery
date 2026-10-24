@@ -627,6 +627,16 @@ function LobbyRoomTestInner() {
             onCancelCountdown={() => dispatch({ type: '@lobbies/updateCountdownCanceled' })}
             onSlotAction={(action, slotId) => console.log('onSlotAction', action, slotId)}
             onArrangeTeams={arrangement => console.log('onArrangeTeams', arrangement)}
+            onToggleRandomMap={() => {
+              dispatch({
+                type: '@lobbies/updateSettingsChange',
+                payload: {
+                  type: 'settingsChange',
+                  changedSettings: ['randomMap'],
+                  lobby: { ...lobby, randomMap: !lobby.randomMap },
+                },
+              })
+            }}
             onWatchReplay={gameId => console.log('onWatchReplay', gameId)}
             onViewGameSummary={gameId => console.log('onViewGameSummary', gameId)}
           />

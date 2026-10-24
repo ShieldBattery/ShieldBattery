@@ -1982,6 +1982,189 @@ describe('lobbies/lobby-service', () => {
       return id
     }
 
+    test('random selection stays hidden and resets readiness without choosing a map', async () => {
+      mockMaps(BIG_GAME_HUNTERS, TWO_SLOT_MAP)
+      const { id } = await createLobby(host, 'Random lobby', 'listed')
+      await joinLobby(joiner, id)
+      lobbyService.setReady({ client: joiner.client, lobbyId: id, isReady: true })
+      const before = lobbyService.lobbies.get(id)!
+
+      await lobbyService.updateSettings({
+        client: host.client,
+        lobbyId: id,
+        mapQueue: [TWO_SLOT_MAP.id],
+        randomMap: true,
+      })
+
+      const after = lobbyService.lobbies.get(id)!
+      expect(after.randomMap).toBe(true)
+      expect(after.map).toEqual(before.map)
+      expect(after.teams).toEqual(before.teams)
+      expect(lobbyService.readyUsers.get(id)).toBeUndefined()
+      expect(getLobbySummary(id)?.randomMap).toBe(true)
+      expect(lobbyService.getPreview(id)?.randomMap).toBe(true)
+    })
+
+    test.each([0, 0.999])('draws from the queue at loading with random value %s', async value => {
+      mockMaps(BIG_GAME_HUNTERS, TWO_SLOT_MAP)
+      const { id } = await createLobby(host, 'Random lobby', 'listed')
+      await joinLobby(joiner, id)
+      await lobbyService.updateSettings({
+        client: host.client,
+        lobbyId: id,
+        mapQueue: [BIG_GAME_HUNTERS.id, TWO_SLOT_MAP.id],
+        randomMap: true,
+      })
+      fakeNydus.publish.mockClear()
+      vi.useFakeTimers()
+      const random = vi.spyOn(Math, 'random').mockReturnValue(value)
+      try {
+        lobbyService.startCountdown({ client: host.client, lobbyId: id, force: true })
+        await vi.advanceTimersByTimeAsync(4999)
+        expect(lobbyService.lobbies.get(id)!.randomMap).toBe(true)
+        expect(loadGameRequests).toHaveLength(0)
+        expect(lobbyPublishes(id).some(event => event.type === 'settingsChange')).toBe(false)
+
+        await vi.advanceTimersByTimeAsync(1)
+        const chosen = value === 0 ? BIG_GAME_HUNTERS : TWO_SLOT_MAP
+        expect(loadGameRequests).toHaveLength(1)
+        expect(loadGameRequests[0].mapId).toBe(chosen.id)
+        expect(lobbyService.lobbies.get(id)!.map!.id).toBe(chosen.id)
+        expect(lobbyService.lobbies.get(id)!.randomMap).toBe(false)
+        expect(lobbyService.lobbies.get(id)!.mapQueue.map(map => map.id)).toEqual([
+          BIG_GAME_HUNTERS.id,
+          TWO_SLOT_MAP.id,
+        ])
+      } finally {
+        random.mockRestore()
+      }
+    })
+
+    test('canceling the countdown keeps the random choice hidden', async () => {
+      mockMaps(BIG_GAME_HUNTERS, TWO_SLOT_MAP)
+      const { id } = await createLobby(host, 'Random lobby', 'listed')
+      await joinLobby(joiner, id)
+      await lobbyService.updateSettings({
+        client: host.client,
+        lobbyId: id,
+        mapQueue: [TWO_SLOT_MAP.id],
+        randomMap: true,
+      })
+      vi.useFakeTimers()
+      lobbyService.startCountdown({ client: host.client, lobbyId: id, force: true })
+      lobbyService.cancelCountdown({ client: host.client, lobbyId: id })
+      await vi.advanceTimersByTimeAsync(5000)
+      expect(loadGameRequests).toHaveLength(0)
+      expect(lobbyService.lobbies.get(id)!.randomMap).toBe(true)
+      expect(lobbyService.lobbies.get(id)!.map!.id).toBe(BIG_GAME_HUNTERS.id)
+    })
+
+    test('a random draw cannot move a participant to observers or the bench', async () => {
+      mockMaps(BIG_GAME_HUNTERS, TWO_SLOT_MAP)
+      const { id } = await createLobby(host, 'Random lobby', 'listed')
+      await joinLobby(joiner, id)
+      await joinLobby(otherHost, id)
+      await lobbyService.updateSettings({
+        client: host.client,
+        lobbyId: id,
+        mapQueue: [TWO_SLOT_MAP.id],
+        randomMap: true,
+      })
+      expect(() =>
+        lobbyService.startCountdown({ client: host.client, lobbyId: id, force: true }),
+      ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.RandomMapUnavailable }))
+      expect(lobbyService.lobbies.get(id)!.randomMap).toBe(true)
+      expect(loadGameRequests).toHaveLength(0)
+    })
+
+    test('changing the pool resets ready marks and clearing it cancels random selection', async () => {
+      mockMaps(BIG_GAME_HUNTERS, TWO_SLOT_MAP)
+      const { id } = await createLobby(host, 'Random lobby', 'listed')
+      await joinLobby(joiner, id)
+      await lobbyService.updateSettings({
+        client: host.client,
+        lobbyId: id,
+        mapQueue: [TWO_SLOT_MAP.id],
+        randomMap: true,
+      })
+      lobbyService.setReady({ client: joiner.client, lobbyId: id, isReady: true })
+      await lobbyService.updateSettings({
+        client: host.client,
+        lobbyId: id,
+        mapQueue: [BIG_GAME_HUNTERS.id],
+      })
+      expect(lobbyService.readyUsers.get(id)).toBeUndefined()
+      await lobbyService.updateSettings({ client: host.client, lobbyId: id, mapQueue: [] })
+      expect(lobbyService.lobbies.get(id)!.randomMap).toBe(false)
+    })
+
+    test('a random draw preserves members who joined the bench during the countdown', async () => {
+      mockMaps(BIG_GAME_HUNTERS, TWO_SLOT_MAP)
+      const { id } = await createLobby(host, 'Random lobby', 'listed')
+      await joinLobby(joiner, id)
+      await lobbyService.updateSettings({
+        client: host.client,
+        lobbyId: id,
+        mapQueue: [TWO_SLOT_MAP.id],
+        randomMap: true,
+      })
+      vi.useFakeTimers()
+      lobbyService.startCountdown({ client: host.client, lobbyId: id, force: true })
+      await joinLobby(otherHost, id)
+      await vi.advanceTimersByTimeAsync(5000)
+      expect(loadGameRequests[0].players.map(player => player.userId)).toEqual([
+        HOST_USER.id,
+        JOINER_USER.id,
+      ])
+      expect(lobbyService.lobbies.get(id)!.bench.map(member => member.userId)).toEqual([
+        OTHER_HOST_USER.id,
+      ])
+    })
+
+    test('draws from fitting maps when another queued map cannot hold the players', async () => {
+      mockMaps(BIG_GAME_HUNTERS, TWO_SLOT_MAP)
+      const { id } = await createLobby(host, 'Random lobby', 'listed')
+      await joinLobby(joiner, id)
+      await joinLobby(otherHost, id)
+      await lobbyService.updateSettings({
+        client: host.client,
+        lobbyId: id,
+        mapQueue: [TWO_SLOT_MAP.id, BIG_GAME_HUNTERS.id],
+        randomMap: true,
+      })
+      await runCountdown(host)
+      expect(loadGameRequests[0].mapId).toBe(BIG_GAME_HUNTERS.id)
+      expect(loadGameRequests[0].players).toHaveLength(3)
+    })
+
+    test('picking a specific map cancels random selection even if it is the current map', async () => {
+      mockMaps(BIG_GAME_HUNTERS, TWO_SLOT_MAP)
+      const { id } = await createLobby(host, 'Random lobby', 'listed')
+      await lobbyService.updateSettings({
+        client: host.client,
+        lobbyId: id,
+        mapQueue: [TWO_SLOT_MAP.id],
+        randomMap: true,
+      })
+      await lobbyService.updateSettings({
+        client: host.client,
+        lobbyId: id,
+        map: BIG_GAME_HUNTERS.id,
+      })
+      expect(lobbyService.lobbies.get(id)!.randomMap).toBe(false)
+    })
+
+    test('random selection requires a queue and host permission', async () => {
+      const { id } = await createLobby(host, 'Random lobby', 'listed')
+      await joinLobby(joiner, id)
+      await expect(
+        lobbyService.updateSettings({ client: host.client, lobbyId: id, randomMap: true }),
+      ).rejects.toMatchObject({ code: LobbyServiceErrorCode.RandomMapUnavailable })
+      await expect(
+        lobbyService.updateSettings({ client: joiner.client, lobbyId: id, randomMap: true }),
+      ).rejects.toMatchObject({ code: LobbyServiceErrorCode.NotHost })
+    })
+
     test('queueing maps leaves every seat and ready mark alone', async () => {
       mockMaps(BIG_GAME_HUNTERS, TWO_SLOT_MAP)
       const { id } = await createLobby(host, 'Listed lobby', 'listed')

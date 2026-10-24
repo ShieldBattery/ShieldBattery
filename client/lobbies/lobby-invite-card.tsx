@@ -82,6 +82,7 @@ const SEAT_TILES_PER_ROW = 4
  * regardless of whether it came from a summary fetch or the viewer's own live lobby state.
  */
 export interface LobbyInviteDisplayData {
+  randomMap?: boolean
   name: string
   map: ReadonlyDeep<MapImageInfo & { id: SbMapId }>
   gameType: GameType
@@ -331,7 +332,9 @@ function LobbyInviteHeader({
       <BackdropCardTitle text={t('lobbies.inviteCard.title', 'Lobby')} />
       <BackdropCardMeta>
         {/* The map is hard to pick out from the blurred image behind the card. */}
-        <BackdropCardMetaKeyText text={display.map.name} />
+        <BackdropCardMetaKeyText
+          text={display.randomMap ? t('lobbies.randomMap.label', 'Random Map') : display.map.name}
+        />
         <BackdropCardMetaText text={' · ' + gameTypeToLabel(display.gameType, t)} />
       </BackdropCardMeta>
       {display.lifecycle === 'inGame' ? (
@@ -454,7 +457,9 @@ function LobbyInviteCardBody({
   const { t } = useTranslation()
   return (
     <InviteCard
-      imageUrl={display.map.image512Url ?? display.map.image256Url}
+      imageUrl={
+        display.randomMap ? undefined : (display.map.image512Url ?? display.map.image256Url)
+      }
       height={CARD_HEIGHT}
       onClick={onClick}
       actionLabel={
@@ -525,6 +530,7 @@ export function LobbyInviteCardContent({
       display={{
         name: lobby.name,
         map: lobby.map,
+        randomMap: lobby.randomMap,
         gameType: lobby.gameType,
         hostId: host.id,
         playerSlots: lobby.playerSlots,
@@ -631,6 +637,7 @@ function OwnLobbyInviteCard() {
       display={{
         name: info.name,
         map: info.map!,
+        randomMap: info.randomMap,
         gameType: info.gameType,
         hostId: info.host.userId!,
         playerSlots: {

@@ -1923,8 +1923,16 @@
       "settingsChangeMapQueue": "cola de mapas",
       "settingsChangeName": "nombre del lobby",
       "settingsChangeObservers": "observadores",
+      "settingsChangeRandomMap": "selección aleatoria de mapa",
       "settingsChangeUnitLimit": "límite de unidades",
       "settingsChangeVisibility": "visibilidad"
+    },
+    "randomMap": {
+      "empty": "Añade mapas a la cola en Configuración de la partida",
+      "hint": "Elige un mapa al azar de la cola de mapas del lobby. Se revela al empezar.",
+      "label": "Mapa aleatorio",
+      "reveal": "Se revela cuando empieza a cargar la partida",
+      "unavailable": "Ningún mapa de la cola admite los jugadores y ajustes actuales. Modifica la cola de mapas en Configuración de la partida."
     },
     "room": {
       "banner": {
@@ -1957,6 +1965,8 @@
         "mapQueueSkippedUnfit_many": "Se omitieron {{maps}}, que no encajan con la configuración del lobby",
         "mapQueueSkippedUnfit_other": "Se omitieron {{maps}}, que no encajan con la configuración del lobby",
         "memberBack": "<0></0> volvió al lobby",
+        "randomMapDisabled": "<0></0> desactivó la selección aleatoria de mapa.",
+        "randomMapEnabled": "<0></0> activó el mapa aleatorio. Se elegirá un mapa al azar de la cola.",
         "readyReset": "se reinició el estado de listo",
         "seatedOn": "ocupa {{seat}}",
         "selfJoinLobby": "Te uniste a <2>{{lobby}}</2>. El anfitrión es <4></4>.",

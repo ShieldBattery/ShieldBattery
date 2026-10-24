@@ -27,6 +27,7 @@ import {
 import { ConnectedUsername } from '../../users/connected-username'
 import { isInLobby } from '../lobby-reducer'
 import { navigateToLobby } from '../lobby-url'
+import { RandomMapPreview } from '../random-map-preview'
 import { HostCrown, RaceMark, RoomChip, SectionLabel } from '../room/room-parts'
 import { WarpFieldDescriptionInfo } from '../warp-field'
 import { InGameChip } from './in-game-chip'
@@ -485,18 +486,24 @@ export function LobbyDetailRail({
         </Header>
 
         <MapSection>
-          <MapFrame $aspectRatio={map.mapData.width / map.mapData.height}>
-            <ReduxMapThumbnail
-              mapId={map.id}
-              size={512}
-              showInfoLayer={true}
-              hasMapPoolChips={true}
-              onClick={() => dispatch(openMapPreviewDialog(map.id))}
-            />
+          <MapFrame $aspectRatio={summary.randomMap ? 1 : map.mapData.width / map.mapData.height}>
+            {summary.randomMap ? (
+              <RandomMapPreview />
+            ) : (
+              <ReduxMapThumbnail
+                mapId={map.id}
+                size={512}
+                showInfoLayer={true}
+                hasMapPoolChips={true}
+                onClick={() => dispatch(openMapPreviewDialog(map.id))}
+              />
+            )}
           </MapFrame>
-          <MapMeta>
-            {map.mapData.width}×{map.mapData.height} · {tilesetToName(map.mapData.tileset, t)}
-          </MapMeta>
+          {!summary.randomMap ? (
+            <MapMeta>
+              {map.mapData.width}×{map.mapData.height} · {tilesetToName(map.mapData.tileset, t)}
+            </MapMeta>
+          ) : null}
         </MapSection>
 
         <ChipRow>

@@ -1900,8 +1900,16 @@
       "settingsChangeMapQueue": "map queue",
       "settingsChangeName": "lobby name",
       "settingsChangeObservers": "observers",
+      "settingsChangeRandomMap": "random map selection",
       "settingsChangeUnitLimit": "unit limit",
       "settingsChangeVisibility": "visibility"
+    },
+    "randomMap": {
+      "empty": "Add maps to the queue in Game setup",
+      "hint": "Picks a map at random from the lobby's map queue. Revealed at start.",
+      "label": "Random Map",
+      "reveal": "Revealed when the game starts loading",
+      "unavailable": "No queued map supports the current players and settings. Adjust the map queue in Game setup."
     },
     "room": {
       "banner": {
@@ -1933,6 +1941,8 @@
         "mapQueueSkippedUnfit_one": "Skipped {{maps}}, which doesn't fit the lobby's settings",
         "mapQueueSkippedUnfit_other": "Skipped {{maps}}, which don't fit the lobby's settings",
         "memberBack": "<0></0> is back in the lobby",
+        "randomMapDisabled": "<0></0> disabled random map selection.",
+        "randomMapEnabled": "<0></0> enabled random map. The map will be picked at random from the queue.",
         "readyReset": "ready reset",
         "seatedOn": "seated on {{seat}}",
         "selfJoinLobby": "You joined <2>{{lobby}}</2>. The host is <4></4>.",

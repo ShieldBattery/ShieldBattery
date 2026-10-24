@@ -391,6 +391,8 @@ function changedSettingLabel(setting: ListedChangedSetting, t: TFunction): strin
       return t('lobbies.messageLayout.settingsChangeObservers', 'observers')
     case 'mapQueue':
       return t('lobbies.messageLayout.settingsChangeMapQueue', 'map queue')
+    case 'randomMap':
+      return t('lobbies.messageLayout.settingsChangeRandomMap', 'random map selection')
     default:
       return assertUnreachable(setting)
   }
@@ -404,16 +406,20 @@ function SettingsNoticeCard({
   changedBy,
   changedSettings,
   warpFieldOn,
+  randomMap,
 }: {
   changedBy: SbUserId
   changedSettings: ReadonlyArray<LobbyChangedSetting>
   warpFieldOn?: boolean
+  randomMap?: boolean
 }) {
   const { t } = useTranslation()
   // Warp Field is announced as being turned on or off rather than by name in the list, since
   // "changed the Warp Field" doesn't say which way it went.
   const listedSettings = changedSettings.filter(
-    (setting): setting is ListedChangedSetting => setting !== 'starcraftCompatibleReplays',
+    (setting): setting is ListedChangedSetting =>
+      setting !== 'starcraftCompatibleReplays' &&
+      (setting !== 'randomMap' || randomMap === undefined),
   )
   const settings = listedSettings.map(setting => changedSettingLabel(setting, t)).join(', ')
   // A rename or visibility change touches nothing about the game being set up, so neither resets
@@ -455,8 +461,26 @@ function SettingsNoticeCard({
     <NoticeCard>
       <MaterialIcon icon='tune' size={20} />
       <NoticeCardText>
-        {notice}
-        {resetsReady ? ` · ${t('lobbies.room.chat.readyReset', 'ready reset')}` : ''}
+        {randomMap !== undefined ? (
+          <div>
+            {randomMap ? (
+              <Trans t={t} i18nKey='lobbies.room.chat.randomMapEnabled'>
+                <Username userId={changedBy} /> enabled random map. The map will be picked at random
+                from the queue.
+              </Trans>
+            ) : (
+              <Trans t={t} i18nKey='lobbies.room.chat.randomMapDisabled'>
+                <Username userId={changedBy} /> disabled random map selection.
+              </Trans>
+            )}
+          </div>
+        ) : null}
+        {listedSettings.length || warpFieldOn !== undefined ? (
+          <div>
+            {notice}
+            {resetsReady ? ` · ${t('lobbies.room.chat.readyReset', 'ready reset')}` : ''}
+          </div>
+        ) : null}
       </NoticeCardText>
     </NoticeCard>
   )
@@ -723,6 +747,7 @@ function RoomChatMessage({ message }: MessageComponentProps) {
             changedBy={msg.changedBy}
             changedSettings={msg.changedSettings}
             warpFieldOn={msg.warpFieldOn}
+            randomMap={msg.randomMap}
           />
         </SystemMessage>
       )

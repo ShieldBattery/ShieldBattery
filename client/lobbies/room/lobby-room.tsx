@@ -41,6 +41,7 @@ export interface LobbyRoomProps {
   onCancelCountdown: () => void
   onSlotAction: (action: SlotAction, slotId: string) => void
   onArrangeTeams: (arrangement: TeamArrangement) => void
+  onToggleRandomMap: () => void
   onWatchReplay: (gameId: string) => void
   onViewGameSummary: (gameId: string) => void
 }
@@ -65,6 +66,7 @@ export function LobbyRoom({
   onCancelCountdown,
   onSlotAction,
   onArrangeTeams,
+  onToggleRandomMap,
   onWatchReplay,
   onViewGameSummary,
 }: LobbyRoomProps) {
@@ -96,6 +98,7 @@ export function LobbyRoom({
                 <RoomMapBanner
                   viewerId={viewerId}
                   onArrangeTeams={onArrangeTeams}
+                  onToggleRandomMap={onToggleRandomMap}
                   onWatchReplay={onWatchReplay}
                   onViewGameSummary={onViewGameSummary}
                 />
