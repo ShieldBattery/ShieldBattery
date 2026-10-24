@@ -1138,11 +1138,9 @@ impl OverlayState {
     /// and what every player is making. The panels themselves are drawn by the shell.
     fn update_replay_state(&mut self, bw: &BwVars) {
         let frame = bw.game.frame_count();
-        if frame == 0 {
-            // Explicit init at start of the game to handle replay restarts /
-            // if we eventually support keeping client over multiple games.
-            self.replay_start_handled = false;
-        }
+        // Once per replay: a replay SC:R starts over for a seek gets back the visions the viewer
+        // chose, this guess included (`BwScr::restore_replay_visions`), and guessing again would
+        // turn off a vision the viewer has since turned on.
         if frame >= 1 && !self.replay_start_handled {
             // Replay start;
             // Disable vision for any players that don't own units (Assuming they're observers)
