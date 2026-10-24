@@ -269,6 +269,13 @@ impl MapIngester {
             .wrap_err("Failed to add map to library")?;
         }
         tx.commit().await.wrap_err("Failed to commit map upload")?;
+        if official {
+            // Listing the map can change which version of its family line is current. The hourly
+            // sweep recomputes anything this misses.
+            if let Err(e) = self.families.recompute_stale().await {
+                error!("Recomputing stale map families failed: {e:?}");
+            }
+        }
 
         Ok(map_id)
     }
@@ -574,9 +581,9 @@ impl MapIngester {
     }
 
     /// Brings every stored map to the current parser version, scans maps for families under the
-    /// current rules, then (when render assets are available) brings images to the current render
-    /// version, the most visible maps first. A map that fails keeps its old values and isn't
-    /// retried until the version changes.
+    /// current rules, recomputes families whose files were listed or delisted, then (when render
+    /// assets are available) brings images to the current render version, the most visible maps
+    /// first. A map that fails keeps its old values and isn't retried until the version changes.
     pub async fn update_outdated_maps(&self) -> eyre::Result<()> {
         // The lock is held by this connection's session, so it's released if the process dies.
         let mut lock_conn = self.db.acquire().await?;
@@ -591,6 +598,9 @@ impl MapIngester {
         let mut result = self.reparse_batches().await;
         if result.is_ok() {
             result = self.families.scan_outdated().await;
+        }
+        if result.is_ok() {
+            result = self.families.recompute_stale().await;
         }
         // Zero-asset minimaps are only for maps that would otherwise have no images, so outdated
         // images are only replaced by real renders.

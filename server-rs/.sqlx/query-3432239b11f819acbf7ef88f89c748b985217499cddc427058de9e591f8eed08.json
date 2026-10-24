@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE map_families SET current_map_id = $2, updated_at = now() WHERE id = $1",
+  "query": "UPDATE map_family_members SET parent_map_id = $2 WHERE parent_map_id = $1",
   "describe": {
     "columns": [],
     "parameters": {
@@ -11,5 +11,5 @@
     },
     "nullable": []
   },
-  "hash": "f0c67d154e6ca9d7b2a35034c4386cafddcd7a54ee35b845ac6e3edc083cbc6e"
+  "hash": "3432239b11f819acbf7ef88f89c748b985217499cddc427058de9e591f8eed08"
 }

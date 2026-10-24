@@ -521,8 +521,8 @@ export async function veryDangerousDeleteAllMaps(deleteFromStoreFn: () => Promis
         UPDATE matchmaking_preferences SET map_selections = '{}';
         TRUNCATE matchmaking_map_pools, favorited_maps, map_favorite_counts, map_library,
           map_id_aliases, map_stats, map_stats_daily, map_matchup_stats, map_analysis,
-          map_link_suggestions, map_family_members, map_families, map_parse_rejections,
-          superseded_map_images, uploaded_maps_legacy, maps;
+          map_link_suggestions, map_family_reports, map_line_stats, map_family_members,
+          map_families, map_parse_rejections, superseded_map_images, uploaded_maps_legacy, maps;
       COMMIT;
     `
 
