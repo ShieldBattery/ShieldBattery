@@ -849,12 +849,6 @@ export class GameApi {
       throw new GameResultServiceError(GameResultErrorCode.NotFound, 'no matching game found')
     }
 
-    // Only accept the first replay upload for a user/game
-    if (gameUserRecord.replayFileId) {
-      ctx.status = 204
-      return
-    }
-
     const replayFile = ctx.request.files?.replay
     if (!replayFile || Array.isArray(replayFile)) {
       throw new httpErrors.BadRequest('exactly one replay file must be uploaded')
@@ -863,6 +857,22 @@ export class GameApi {
     const parseResult = await parseReplay(replayFile.filepath)
     if (parseResult.error) {
       throw new httpErrors.BadRequest('failed to parse replay file')
+    }
+
+    const game = await this.gameResultService.retrieveGame(gameId)
+    await this.replayService.validateGameSeed(
+      parseResult.value.header.startTime,
+      game.config.seed,
+      {
+        gameId,
+        userId,
+      },
+    )
+
+    // Validate every upload, including attempts to replace an already linked replay.
+    if (gameUserRecord.replayFileId) {
+      ctx.status = 204
+      return
     }
 
     await this.replayService.storeReplay(replayFile.filepath, parseResult.value, {

@@ -70,6 +70,8 @@ export interface InternalMapArtifactJson {
  */
 export interface InternalGameArtifactsResponseJson {
   gameId: string
+  /** The persisted game initialization seed, absent when the game has no recorded seed. */
+  seed?: number
   /**
    * The flight recordings the netcode v2 coordinator holds for this game's session, one per relay
    * that served it. Empty when the game had no netcode v2 session (or netcode v2 is disabled).
@@ -163,6 +165,7 @@ export class InternalGameArtifactApi {
 
     return {
       gameId: game.id,
+      seed: game.config.seed,
       flightRecordings: blobs.map(b => ({
         relayId: b.relayId,
         pinned: b.pinned,

@@ -1310,6 +1310,10 @@ describe('games/game-loader/GameLoader', () => {
     const publishedSetup = publisher.publish.mock.calls.find(
       call => call[1]?.type === 'setGameConfig',
     )![1].setup
+    expect(updateGameConfig).toHaveBeenCalledWith(
+      'game-multi',
+      expect.objectContaining({ seed: publishedSetup.seed }),
+    )
     expect(netcodeV2Service.createSessionForGame.mock.calls[0][0]).toMatchObject({
       seed: publishedSetup.seed,
     })
@@ -1325,6 +1329,68 @@ describe('games/game-loader/GameLoader', () => {
       'game-multi',
       expect.objectContaining({ userId: p2 }),
     )
+  })
+
+  test.each([1792488607, 0x80000005])(
+    'persists seed %i before distributing it to every player and the relay',
+    async seed => {
+      const now = vi.spyOn(Date, 'now').mockReturnValue(seed * 1000)
+      let finishConfigWrite!: () => void
+      asMockedFunction(updateGameConfig).mockReturnValue(
+        new Promise<void>(resolve => {
+          finishConfigWrite = resolve
+        }),
+      )
+
+      try {
+        const { load } = await startNetworkedLoad('game-persisted-seed')
+
+        expect(updateGameConfig).toHaveBeenCalledExactlyOnceWith(
+          'game-persisted-seed',
+          expect.objectContaining({ seed, useNetcodeV2: true }),
+        )
+        expect(publisher.publish.mock.calls.some(call => call[1]?.type === 'setGameConfig')).toBe(
+          false,
+        )
+        expect(netcodeV2Service.createSessionForGame).not.toHaveBeenCalled()
+
+        now.mockReturnValue((seed + 5) * 1000)
+        finishConfigWrite()
+        await vi.waitFor(() => expect(netcodeV2Service.createSessionForGame).toHaveBeenCalled())
+
+        const setups = publisher.publish.mock.calls
+          .filter(call => call[1]?.type === 'setGameConfig')
+          .map(call => call[1].setup)
+        expect(setups).toHaveLength(2)
+        for (const setup of setups) {
+          expect(setup.seed).toBe(seed)
+        }
+        expect(netcodeV2Service.createSessionForGame.mock.calls[0][0]).toMatchObject({
+          seed,
+        })
+
+        gameLoader.registerGameAsLoaded('game-persisted-seed', p1)
+        gameLoader.registerGameAsLoaded('game-persisted-seed', p2)
+        expect((await load).isOk()).toBe(true)
+      } finally {
+        now.mockRestore()
+      }
+    },
+  )
+
+  test('fails the load without distributing setup when persisting game config fails', async () => {
+    asMockedFunction(updateGameConfig).mockRejectedValue(new Error('database unavailable'))
+
+    const { load } = await startNetworkedLoad('game-config-write-failed')
+    const result = await load
+
+    expect(result.errorOrNull()).toMatchObject({
+      code: GameLoadErrorType.Internal,
+      message: 'error persisting game config',
+    })
+    expect(publisher.publish.mock.calls.some(call => call[1]?.type === 'setGameConfig')).toBe(false)
+    expect(netcodeV2Service.createSessionForGame).not.toHaveBeenCalled()
+    expect(wasCancelPublished()).toBe(true)
   })
 
   test('threads each player selected region through to createSessionForGame', async () => {

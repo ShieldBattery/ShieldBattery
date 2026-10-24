@@ -100,7 +100,7 @@ export function isGameLoaderError(err: unknown): err is GameLoaderError {
 function generateSeed() {
   // BWChart and some other replay sites/libraries utilize the random seed as the date the game was
   // played, so we match BW's random seed method (time()) here
-  return (Date.now() / 1000) | 0
+  return (Date.now() / 1000) >>> 0
 }
 
 /** Resolved value of a successful `GameLoader.loadGame`. */
@@ -1151,13 +1151,14 @@ export class GameLoader {
       // the load because it decides where this load's completion signal comes from, and how a load
       // that runs out of time assigns fault.
       this.updateLoadingData(gameId, data => data.set('localOnly', !useNetcodeV2))
-      // Persisted onto the game's config so later readers (e.g. result reconciliation deciding
-      // whether a game's result can only arrive via the relay, see `usedNetcodeV2`) can see it
-      // without re-deriving it — this isn't known until now, so it can't be part of the config
-      // written at registration time. The write is awaited and fails the load on error, so a lost
-      // write can't silently make a netcode-v2 game look like a legacy one to those readers.
+      const seed = generateSeed()
+      // Persist the networking mode and initialization seed before distributing setup. A failed
+      // write must fail the load so the recorded config agrees with the setup players receive and
+      // result reconciliation knows whether results must come from the relay.
       const [, configError] = (
-        await Result.fromAsyncCatching(updateGameConfig(gameId, { ...gameConfig, useNetcodeV2 }))
+        await Result.fromAsyncCatching(
+          updateGameConfig(gameId, { ...gameConfig, useNetcodeV2, seed }),
+        )
       ).toTuple()
       if (configError) {
         return Result.error(
@@ -1210,7 +1211,7 @@ export class GameLoader {
         map,
         gameId,
         ranks,
-        seed: generateSeed(),
+        seed,
         turnRate: chosenTurnRate,
         userLatency: chosenUserLatency,
       })

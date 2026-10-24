@@ -25,11 +25,13 @@ import { updateRankings } from '../ladder/rankings'
 import { updateLeaderboards } from '../leagues/leaderboard'
 import {
   getActiveLeaguesForUsersWithLock,
+  getLeagueUserChangesForGame,
   LeagueUser,
   updateLeagueUser,
 } from '../leagues/league-models'
 import {
   DEFAULT_MATCHMAKING_RATING,
+  getMatchmakingRatingChangesForGame,
   getMatchmakingRatingsWithLock,
   insertMatchmakingRatingChange,
   MatchmakingRating,
@@ -37,9 +39,11 @@ import {
 } from '../matchmaking/models'
 import { getDesyncEventsForGame } from '../models/game-desync-events'
 import { getGameLobbyViolation, recordGameLobbyViolation } from '../models/game-lobby-violations'
+import { getReplayViolationUserIds } from '../models/game-replay-violations'
 import {
   areAllHumansAccountedFor,
   getCurrentReportedResults,
+  getDepartureTimesForGame,
   getUserGameRecord,
   setReportedResults,
   setUserLobbyViolationResult,
@@ -96,6 +100,7 @@ vi.mock('../matchmaking/models', async () => {
   return {
     ...actual,
     getMatchmakingRatingsWithLock: vi.fn(),
+    getMatchmakingRatingChangesForGame: vi.fn(),
     insertMatchmakingRatingChange: vi.fn(),
     updateMatchmakingRating: vi.fn(),
   }
@@ -108,6 +113,7 @@ vi.mock('../leagues/league-models', async () => {
   return {
     ...actual,
     getActiveLeaguesForUsersWithLock: vi.fn(),
+    getLeagueUserChangesForGame: vi.fn(),
     insertLeagueUserChange: vi.fn(),
     updateLeagueUser: vi.fn(),
   }
@@ -138,6 +144,7 @@ vi.mock('../models/games-users', async () => {
     ...actual,
     areAllHumansAccountedFor: vi.fn(),
     getCurrentReportedResults: vi.fn(),
+    getDepartureTimesForGame: vi.fn(),
     getUserGameRecord: vi.fn(),
     setReportedResults: vi.fn(),
     setUserLobbyViolationResult: vi.fn(),
@@ -148,6 +155,14 @@ vi.mock('../models/games-users', async () => {
 vi.mock('../db/transaction', () => ({
   default: vi.fn(async (next: (client: any) => Promise<any>) => next({ query: vi.fn() } as any)),
 }))
+
+vi.mock('../models/game-replay-violations', () => ({
+  getReplayViolationUserIds: vi.fn(),
+}))
+
+beforeEach(() => {
+  asMockedFunction(getReplayViolationUserIds).mockResolvedValue([])
+})
 
 vi.mock('../models/game-lobby-violations', async () => {
   const actual = await vi.importActual<typeof import('../models/game-lobby-violations')>(
@@ -1972,5 +1987,270 @@ describe('games/game-result-service/GameResultService#resolveGameManually', () =
       ]),
     ).rejects.toMatchObject({ code: GameResultErrorCode.InvalidResults })
     expect(setManuallyResolvedResult).not.toHaveBeenCalled()
+  })
+})
+
+describe('games/game-result-service replay violations', () => {
+  const GAME_ID = 'replay-violation-results'
+  const SEASON: MatchmakingSeason = {
+    id: makeSeasonId(1),
+    name: 'Season 1',
+    startDate: new Date(0),
+    resetMmr: true,
+  }
+  const p4 = makeSbUserId(4)
+  let service: GameResultService
+  let game: GameRecord
+
+  function setReports(winners: ReadonlySet<SbUserId>) {
+    const players = game.config.teams.flat()
+    asMockedFunction(getCurrentReportedResults).mockResolvedValue(
+      players.map(player => ({
+        kind: 'legacy',
+        reporter: player.id,
+        time: 60_000,
+        playerResults: players.map(p => [
+          p.id,
+          {
+            result: winners.has(p.id) ? GameClientResult.Victory : GameClientResult.Defeat,
+            race: p.race === 'r' ? 'p' : p.race,
+            apm: 100,
+          },
+        ]),
+      })),
+    )
+    asMockedFunction(getMatchmakingRatingsWithLock).mockResolvedValue(
+      players.map((p, index) => ({
+        ...DEFAULT_MATCHMAKING_RATING,
+        userId: p.id,
+        matchmakingType:
+          game.config.gameSource === GameSource.Matchmaking
+            ? game.config.gameSourceExtra.type
+            : MatchmakingType.Match1v1,
+        seasonId: SEASON.id,
+        rating: 1000 + index * 200,
+      })),
+    )
+  }
+
+  function storedOutcomes() {
+    const [, , reconciled] = asMockedFunction(setReconciledResult).mock.calls.at(-1)!
+    return new Map(Array.from(reconciled.results, ([id, result]) => [id, result.result]))
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    const clock = new FakeClock()
+    clock.setCurrentTime(1_000_000)
+    service = new GameResultService(
+      { on: vi.fn() } as any,
+      { publish: vi.fn() } as any,
+      { publish: vi.fn() } as any,
+      { scheduleJob: vi.fn(), scheduleImmediateJob: vi.fn(), unscheduleJob: vi.fn() } as any,
+      { getSeasonForDate: vi.fn().mockResolvedValue([SEASON, undefined]) } as any,
+      clock,
+      {} as any,
+      new GameLifecycleEvents(),
+    )
+    game = {
+      id: GAME_ID,
+      startTime: new Date(0),
+      mapId: makeSbMapId('1'),
+      config: matchmakingConfig(DEFAULT_TEAMS),
+      disputable: false,
+      disputeRequested: false,
+      disputeReviewed: false,
+      gameLength: null,
+      results: null,
+      selectedMatchup: null,
+      assignedMatchup: null,
+      manuallyResolved: false,
+    }
+    asMockedFunction(getGameRecord).mockImplementation(async () => game)
+    asMockedFunction(lockGameAndCheckUnavailableForReconciliation).mockResolvedValue(false)
+    asMockedFunction(lockGameAndCheckReconciled).mockResolvedValue(false)
+    asMockedFunction(setReconciledResult).mockResolvedValue(undefined)
+    asMockedFunction(getDesyncEventsForGame).mockResolvedValue([])
+    asMockedFunction(getDepartureTimesForGame).mockResolvedValue(new Map())
+    asMockedFunction(getMatchmakingRatingChangesForGame).mockResolvedValue([])
+    asMockedFunction(getLeagueUserChangesForGame).mockResolvedValue([])
+    asMockedFunction(getActiveLeaguesForUsersWithLock).mockResolvedValue(new Map())
+    asMockedFunction(updateRankings).mockResolvedValue(undefined)
+    asMockedFunction(updateLeaderboards).mockResolvedValue(undefined)
+    setReports(new Set([p1]))
+  })
+
+  test('preserves an innocent winner and the offender loss', async () => {
+    asMockedFunction(getReplayViolationUserIds).mockResolvedValue([p2])
+    await service.forceReconcileGame(GAME_ID)
+
+    expect(storedOutcomes()).toEqual(
+      new Map([
+        [p1, 'win'],
+        [p2, 'loss'],
+      ]),
+    )
+    expect(insertMatchmakingRatingChange).toHaveBeenCalledTimes(2)
+    expect(setUserReconciledResult).toHaveBeenCalledWith(
+      expect.anything(),
+      p1,
+      GAME_ID,
+      expect.objectContaining({ result: 'win' }),
+    )
+  })
+
+  test('reads a violation committed before the game lock and prevents an innocent loss', async () => {
+    let lockedClient: unknown
+    asMockedFunction(lockGameAndCheckUnavailableForReconciliation).mockImplementation(
+      async client => {
+        lockedClient = client
+        asMockedFunction(getReplayViolationUserIds).mockResolvedValue([p1])
+        return false
+      },
+    )
+    await service.forceReconcileGame(GAME_ID)
+
+    expect(getReplayViolationUserIds).toHaveBeenCalledWith(lockedClient, GAME_ID)
+    expect(storedOutcomes()).toEqual(
+      new Map([
+        [p1, 'unknown'],
+        [p2, 'unknown'],
+      ]),
+    )
+    expect(insertMatchmakingRatingChange).not.toHaveBeenCalled()
+    expect(updateMatchmakingRating).not.toHaveBeenCalled()
+    expect(updateLeagueUser).not.toHaveBeenCalled()
+    expect(incrementUserStatsCount).not.toHaveBeenCalled()
+    for (const id of [p1, p2]) {
+      expect(setUserReconciledResult).toHaveBeenCalledWith(
+        lockedClient,
+        id,
+        GAME_ID,
+        expect.objectContaining({ result: 'unknown' }),
+      )
+    }
+  })
+
+  test('preserves a winning teammate with the same rating calculation as the complete game', async () => {
+    game.config = matchmakingConfig(
+      [
+        [
+          { id: p1, race: 't', isComputer: false },
+          { id: p2, race: 'z', isComputer: false },
+        ],
+        [
+          { id: p3, race: 'p', isComputer: false },
+          { id: p4, race: 't', isComputer: false },
+        ],
+      ],
+      { gameSourceExtra: { type: MatchmakingType.Match2v2, parties: [] } },
+    )
+    setReports(new Set([p1, p2]))
+    await service.forceReconcileGame(GAME_ID)
+    const earnedChange = asMockedFunction(insertMatchmakingRatingChange).mock.calls.find(
+      ([, change]) => change.userId === p2,
+    )![1]
+    vi.clearAllMocks()
+    asMockedFunction(getReplayViolationUserIds).mockResolvedValue([p1])
+    await service.forceReconcileGame(GAME_ID)
+
+    expect(storedOutcomes()).toEqual(
+      new Map([
+        [p1, 'unknown'],
+        [p2, 'win'],
+        [p3, 'unknown'],
+        [p4, 'unknown'],
+      ]),
+    )
+    expect(insertMatchmakingRatingChange).toHaveBeenCalledExactlyOnceWith(
+      expect.anything(),
+      earnedChange,
+    )
+    expect(getMatchmakingRatingsWithLock).toHaveBeenCalledWith(
+      expect.anything(),
+      [p1, p2, p3, p4],
+      MatchmakingType.Match2v2,
+      SEASON.id,
+    )
+    expect(asMockedFunction(incrementUserStatsCount).mock.calls.every(([, id]) => id === p2)).toBe(
+      true,
+    )
+  })
+
+  test('a disputed result becomes terminal unknown without a guessed matchup', async () => {
+    asMockedFunction(getReplayViolationUserIds).mockResolvedValue([p1])
+    asMockedFunction(getCurrentReportedResults).mockResolvedValue([])
+    await service.forceReconcileGame(GAME_ID)
+
+    expect(setReconciledResult).toHaveBeenCalledWith(
+      expect.anything(),
+      GAME_ID,
+      expect.objectContaining({ disputed: false }),
+      null,
+    )
+    expect(storedOutcomes()).toEqual(
+      new Map([
+        [p1, 'unknown'],
+        [p2, 'unknown'],
+      ]),
+    )
+    expect(insertMatchmakingRatingChange).not.toHaveBeenCalled()
+    expect(incrementUserStatsCount).not.toHaveBeenCalled()
+  })
+
+  test.each([p1, p2])(
+    'manual resolution observes violations under its lock for offender %s',
+    async offender => {
+      game.disputable = true
+      game.results = [
+        [p1, { result: 'unknown', race: 't', apm: 100 }],
+        [p2, { result: 'unknown', race: 'z', apm: 100 }],
+      ]
+      let lockedClient: unknown
+      asMockedFunction(lockGameForManualResolution).mockImplementation(async client => {
+        lockedClient = client
+        asMockedFunction(getReplayViolationUserIds).mockResolvedValue([offender])
+        return { disputable: true, results: game.results }
+      })
+      const { ratingsApplied } = await service.resolveGameManually({
+        gameId: GAME_ID,
+        results: [
+          { userId: p1, result: 'win' },
+          { userId: p2, result: 'loss' },
+        ],
+        resolvedBy: p3,
+      })
+
+      expect(getReplayViolationUserIds).toHaveBeenCalledWith(lockedClient, GAME_ID)
+      expect(ratingsApplied).toBe(offender === p2)
+      const outcomes = asMockedFunction(setManuallyResolvedResult).mock.calls[0][2]
+      expect(outcomes.get(p1)!.result).toBe(offender === p2 ? 'win' : 'unknown')
+      expect(outcomes.get(p2)!.result).toBe(offender === p2 ? 'loss' : 'unknown')
+      for (const [id, result] of outcomes) {
+        expect(setUserReconciledResult).toHaveBeenCalledWith(lockedClient, id, GAME_ID, result)
+      }
+    },
+  )
+
+  test('lobby penalties cannot charge a different player than onlyUserId', async () => {
+    game.canceledAt = new Date(1000)
+    game.cancellationReason = 'gameAnomaly'
+    asMockedFunction(getGameLobbyViolation).mockResolvedValue({
+      gameId: GAME_ID,
+      userId: p2,
+      detectedAt: new Date(1000),
+      identifiers: [],
+    })
+    asMockedFunction(getReplayViolationUserIds).mockResolvedValue([p1])
+    await service.applyStagedLobbyViolationEffects(GAME_ID)
+
+    expect(storedOutcomes()).toEqual(
+      new Map([
+        [p1, 'unknown'],
+        [p2, 'unknown'],
+      ]),
+    )
+    expect(insertMatchmakingRatingChange).not.toHaveBeenCalled()
+    expect(incrementUserStatsCount).not.toHaveBeenCalled()
   })
 })

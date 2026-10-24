@@ -1,13 +1,16 @@
 import { createHash } from 'crypto'
 import { createReadStream } from 'fs'
 import { stat } from 'fs/promises'
+import httpErrors from 'http-errors'
 import { pipeline } from 'stream/promises'
 import { singleton } from 'tsyringe'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { ParsedReplay } from '../../workers/replays/messages'
 import { getSignedUrl, writeFile } from '../files'
+import { ReplayViolationService } from '../games/replay-violation-service'
 import logger from '../logging/logger'
 import { setReplayFileId } from '../models/games-users'
+import { BanEnacter } from '../users/ban-enacter'
 import { replayPath } from './paths'
 import {
   deleteReplayFile,
@@ -24,6 +27,40 @@ export interface StoreReplayContext {
 
 @singleton()
 export class ReplayService {
+  constructor(
+    private banEnacter: BanEnacter,
+    private replayViolations: ReplayViolationService,
+  ) {}
+
+  /** Validates an authenticated upload against the persisted game seed before linking its file. */
+  async validateGameSeed(
+    actualSeed: number,
+    expectedSeed: number | undefined,
+    { gameId, userId }: StoreReplayContext,
+  ): Promise<void> {
+    if (!Number.isInteger(actualSeed) || actualSeed < 0 || actualSeed > 0xffff_ffff) {
+      throw new httpErrors.BadRequest('invalid replay')
+    }
+    if (expectedSeed === undefined) return
+    if (!Number.isInteger(expectedSeed) || expectedSeed < 0 || expectedSeed > 0xffff_ffff) {
+      throw new Error('Invalid stored game seed')
+    }
+    if (actualSeed !== expectedSeed) {
+      logger.warn({ gameId, userId, expectedSeed, actualSeed }, 'Replay seed mismatch')
+      await this.replayViolations.recordViolation({
+        gameId,
+        userId,
+        details: { kind: 'seedMismatch', expectedSeed, actualSeed },
+      })
+      await this.banEnacter.enactBan({
+        targetId: userId,
+        endTime: new Date('9001-01-01T00:00:00.000Z'),
+        reason: 'Client integrity violation',
+      })
+      throw new httpErrors.Forbidden('invalid replay')
+    }
+  }
+
   /**
    * Stores a replay file and links it to a game user record. This handles:
    * 1. Computing the file hash for deduplication

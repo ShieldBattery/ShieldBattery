@@ -53,6 +53,11 @@ interface BaseGameConfig<Source extends GameSource, SourceExtra> {
    */
   useNetcodeV2?: boolean
   /**
+   * The server-selected unsigned 32-bit random seed used to initialize the game. The loader
+   * persists it before distributing setup. Records created without seed persistence won't have it.
+   */
+  seed?: number
+  /**
    * Whether this game is exempt from result tracking, because its teams include at least one
    * computer player or because it has fewer than two human players. Unlike `useNetcodeV2`, the
    * team composition is known as soon as the config is built, so this is set once at registration

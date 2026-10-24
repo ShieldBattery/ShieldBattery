@@ -1,6 +1,8 @@
 import { singleton } from 'tsyringe'
+import { GameRecord } from '../../../common/games/games'
 import { NotificationType } from '../../../common/notifications'
 import { SbUserId } from '../../../common/users/sb-user-id'
+import { DbClient } from '../db'
 import transact from '../db/transaction'
 import { CodedError } from '../errors/coded-error'
 import { updateRankings } from '../ladder/rankings'
@@ -17,9 +19,13 @@ import {
   MatchmakingRating,
   refundMatchmakingPoints,
 } from '../matchmaking/models'
+import {
+  getReplayViolationUserIds,
+  markReplayViolationsHandled,
+} from '../models/game-replay-violations'
 import NotificationService from '../notifications/notification-service'
 import { Redis } from '../redis/redis'
-import { getGameRecord } from './game-models'
+import { getGameRecord, lockGameAndCheckReconciled } from './game-models'
 import { GamePointsRefundDetail, tryRecordGamePointsRefund } from './game-points-refund-models'
 
 export enum GamePointsRefundErrorCode {
@@ -46,6 +52,11 @@ export interface RefundGamePointsResult {
   refundedUsers: SbUserId[]
 }
 
+interface AppliedRefund extends RefundGamePointsResult {
+  updatedRatings: MatchmakingRating[]
+  updatedLeagueUsers: LeagueUser[]
+}
+
 @singleton()
 export class GamePointsRefundService {
   constructor(
@@ -69,14 +80,74 @@ export class GamePointsRefundService {
     punishedUserIds: ReadonlyArray<SbUserId>
     refundedBy: SbUserId
   }): Promise<RefundGamePointsResult> {
-    const game = await getGameRecord(gameId)
-    if (!game) {
-      throw new GamePointsRefundServiceError(
-        GamePointsRefundErrorCode.GameNotFound,
-        'Game not found',
-      )
-    }
+    const refund = await transact(async client => {
+      await lockGameAndCheckReconciled(client, gameId)
+      const game = await getGameRecord(gameId, client)
+      if (!game) {
+        throw new GamePointsRefundServiceError(
+          GamePointsRefundErrorCode.GameNotFound,
+          'Game not found',
+        )
+      }
+      return this.applyRefund(client, { game, punishedUserIds, refundedBy })
+    })
+    await this.notifyRefund(refund)
+    return { refundedUsers: refund.refundedUsers }
+  }
 
+  /**
+   * Restores innocent players' losses after reconciliation. Pending violations remain retryable
+   * until results exist, and their completion commits atomically with any point restoration.
+   */
+  async refundReplayViolation(gameId: string): Promise<void> {
+    const refund = await transact(async client => {
+      await lockGameAndCheckReconciled(client, gameId)
+      const game = await getGameRecord(gameId, client)
+      if (!game || (game.results === null && !game.canceledAt)) {
+        return undefined
+      }
+      const punishedUserIds = await getReplayViolationUserIds(client, gameId)
+      if (!punishedUserIds.length) {
+        return undefined
+      }
+
+      let applied: AppliedRefund | undefined
+      try {
+        applied = await this.applyRefund(client, { game, punishedUserIds })
+      } catch (err) {
+        if (
+          !(err instanceof GamePointsRefundServiceError) ||
+          ![
+            GamePointsRefundErrorCode.NotCurrentSeason,
+            GamePointsRefundErrorCode.NotRanked,
+            GamePointsRefundErrorCode.NotRefundable,
+            GamePointsRefundErrorCode.AlreadyRefunded,
+          ].includes(err.code)
+        ) {
+          throw err
+        }
+      }
+      await markReplayViolationsHandled(client, gameId)
+      return applied
+    })
+    if (refund) {
+      await this.notifyRefund(refund)
+    }
+  }
+
+  private async applyRefund(
+    client: DbClient,
+    {
+      game,
+      punishedUserIds,
+      refundedBy,
+    }: {
+      game: GameRecord
+      punishedUserIds: ReadonlyArray<SbUserId>
+      refundedBy?: SbUserId
+    },
+  ): Promise<AppliedRefund> {
+    const gameId = game.id
     const [gameSeason, currentSeason] = await Promise.all([
       this.seasonsService.getSeasonForDate(game.startTime).then(([season]) => season),
       this.seasonsService.getCurrentSeason(),
@@ -89,8 +160,8 @@ export class GamePointsRefundService {
     }
 
     const [mmChanges, leagueChanges] = await Promise.all([
-      getMatchmakingRatingChangesForGame(gameId),
-      getLeagueUserChangesForGame(gameId),
+      getMatchmakingRatingChangesForGame(gameId, client),
+      getLeagueUserChangesForGame(gameId, client),
     ])
     if (!mmChanges.length) {
       throw new GamePointsRefundServiceError(
@@ -100,7 +171,9 @@ export class GamePointsRefundService {
     }
 
     const participants = new Set(mmChanges.map(c => c.userId))
-    for (const id of punishedUserIds) {
+    // Administrative requests must name ranked participants. A recorded violator may have no
+    // rating changes because result protection suppressed them before reconciliation.
+    for (const id of refundedBy === undefined ? [] : punishedUserIds) {
       if (!participants.has(id)) {
         throw new GamePointsRefundServiceError(
           GamePointsRefundErrorCode.InvalidPlayers,
@@ -159,45 +232,49 @@ export class GamePointsRefundService {
     // response. Deduped, since the common case refunds a player in both.
     const refundedUserIds = [...new Set([...mmRefunds, ...leagueRefunds].map(c => c.userId))]
 
-    const { updatedRatings, updatedLeagueUsers } = await transact(async client => {
-      const recorded = await tryRecordGamePointsRefund(client, { gameId, refundedBy, details })
-      if (!recorded) {
-        throw new GamePointsRefundServiceError(
-          GamePointsRefundErrorCode.AlreadyRefunded,
-          "This game's points have already been refunded",
-        )
+    const recorded = await tryRecordGamePointsRefund(client, { gameId, refundedBy, details })
+    if (!recorded) {
+      throw new GamePointsRefundServiceError(
+        GamePointsRefundErrorCode.AlreadyRefunded,
+        "This game's points have already been refunded",
+      )
+    }
+
+    const updatedRatings: MatchmakingRating[] = []
+    for (const c of mmRefunds) {
+      const updated = await refundMatchmakingPoints(client, {
+        userId: c.userId,
+        matchmakingType: c.matchmakingType,
+        seasonId: currentSeason.id,
+        pointsRefund: -c.pointsChange,
+        bonusRefund: c.bonusUsedChange,
+      })
+      if (updated) {
+        updatedRatings.push(updated)
       }
+    }
 
-      const updatedRatings: MatchmakingRating[] = []
-      for (const c of mmRefunds) {
-        const updated = await refundMatchmakingPoints(client, {
-          userId: c.userId,
-          matchmakingType: c.matchmakingType,
-          seasonId: currentSeason.id,
-          pointsRefund: -c.pointsChange,
-          bonusRefund: c.bonusUsedChange,
-        })
-        if (updated) {
-          updatedRatings.push(updated)
-        }
+    const updatedLeagueUsers: LeagueUser[] = []
+    for (const c of leagueRefunds) {
+      const updated = await refundLeaguePoints(client, {
+        userId: c.userId,
+        leagueId: c.leagueId,
+        pointsRefund: -c.pointsChange,
+        gameId,
+      })
+      if (updated) {
+        updatedLeagueUsers.push(updated)
       }
+    }
 
-      const updatedLeagueUsers: LeagueUser[] = []
-      for (const c of leagueRefunds) {
-        const updated = await refundLeaguePoints(client, {
-          userId: c.userId,
-          leagueId: c.leagueId,
-          pointsRefund: -c.pointsChange,
-          gameId,
-        })
-        if (updated) {
-          updatedLeagueUsers.push(updated)
-        }
-      }
+    return { refundedUsers: refundedUserIds, updatedRatings, updatedLeagueUsers }
+  }
 
-      return { updatedRatings, updatedLeagueUsers }
-    })
-
+  private async notifyRefund({
+    refundedUsers,
+    updatedRatings,
+    updatedLeagueUsers,
+  }: AppliedRefund): Promise<void> {
     // Refresh the ranking/leaderboard caches (Redis sorted sets Node maintains from game results).
     // Best-effort, like game-result-service: the DB is already consistent, and these caches can be
     // regenerated from it at any time, so a failure here shouldn't fail the refund.
@@ -212,7 +289,7 @@ export class GamePointsRefundService {
     // already been applied, so a notification failure shouldn't fail the request.
     try {
       await Promise.all(
-        refundedUserIds.map(userId =>
+        refundedUsers.map(userId =>
           this.notificationService.addNotification({
             userId,
             data: { type: NotificationType.GamePointsRefunded },
@@ -222,7 +299,5 @@ export class GamePointsRefundService {
     } catch (err) {
       logger.error({ err }, 'error notifying players of a points refund')
     }
-
-    return { refundedUsers: refundedUserIds }
   }
 }

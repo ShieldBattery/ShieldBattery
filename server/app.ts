@@ -19,6 +19,7 @@ import LocalFileStore from './lib/files/local-filesystem'
 import { GameServerRegionsService } from './lib/game-server-regions/game-server-regions-service'
 import { LOBBY_VIOLATION_STAGER } from './lib/games/game-loader'
 import { LobbyViolationService } from './lib/games/lobby-violation-service'
+import { ReplayViolationService } from './lib/games/replay-violation-service'
 import logMiddleware from './lib/logging/log-middleware'
 import log from './lib/logging/logger'
 import { updateEmailTemplates } from './lib/mail/update-templates'
@@ -222,6 +223,7 @@ container.resolve(GameServerRegionsService)
 // cycle. Resolving it also schedules recovery of violations staged before a restart.
 container.register(LOBBY_VIOLATION_STAGER, { useToken: LobbyViolationService })
 container.resolve(LobbyViolationService)
+container.resolve(ReplayViolationService)
 
 // Wrapping this in IIFE so we can use top-level `await` (until we move to ESM and can use it
 // natively)

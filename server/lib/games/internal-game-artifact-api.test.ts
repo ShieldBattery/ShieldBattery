@@ -116,6 +116,22 @@ describe('games/internal-game-artifact-api', () => {
   })
 
   describe('manifest', () => {
+    test.each([0, 1792488607, 0x80000005])('returns the persisted game seed %i', async seed => {
+      mockGetGameRecord.mockResolvedValue({ ...GAME, config: { ...GAME.config, seed } })
+
+      const res = await got(`${baseUrl}/internal/games/${GAME_ID}/artifacts`, NO_THROW)
+
+      expect(res.statusCode).toBe(200)
+      expect(JSON.parse(res.body).seed).toBe(seed)
+    })
+
+    test('omits the seed when the game has no persisted seed', async () => {
+      const res = await got(`${baseUrl}/internal/games/${GAME_ID}/artifacts`, NO_THROW)
+
+      expect(res.statusCode).toBe(200)
+      expect(JSON.parse(res.body)).not.toHaveProperty('seed')
+    })
+
     test('lists flight recordings, replays, and the map with internal download paths', async () => {
       netcodeV2Service.listFlightBlobs.mockResolvedValue([
         { relayId: 7, pinned: true, size: 2048, lastModifiedMs: 1787700200000 },

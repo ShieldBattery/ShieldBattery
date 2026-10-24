@@ -86,6 +86,7 @@ import {
 import { calculateChangedRatings } from '../matchmaking/rating'
 import { getDesyncEventsForGame } from '../models/game-desync-events'
 import { getGameLobbyViolation, recordGameLobbyViolation } from '../models/game-lobby-violations'
+import { getReplayViolationUserIds } from '../models/game-replay-violations'
 import {
   areAllHumansAccountedFor,
   getCurrentReportedResults,
@@ -467,10 +468,42 @@ const RECONCILE_KNOWN_COMPLETE_MINUTES = 10
 const SESSION_PROBE_MIN_AGE_MINUTES = 30
 
 interface ReconciledResultEffectsOptions {
+  /**
+   * Full outcomes before replay protection. Rating calculations retain all team inputs, but players
+   * whose stored outcome became unknown receive no rating or league effects.
+   */
+  ratingResults?: ReconciledResults['results']
   /** Applies rating, league, and aggregate stat effects only to this player. */
   onlyUserId?: SbUserId
   /** Leaves every games_users assigned-race/APM field null because the game never started. */
   preserveUnassignedRaces?: boolean
+}
+
+/** Protects innocent players without awarding wins from a violation alone. */
+function protectReplayResults(
+  reconciled: ReconciledResults,
+  violators: ReadonlyArray<SbUserId>,
+): ReconciledResults {
+  if (!violators.length) return reconciled
+
+  const violatorIds = new Set(violators)
+  return {
+    ...reconciled,
+    disputed: false,
+    results: new Map(
+      Array.from(reconciled.results, ([userId, result]) => [
+        userId,
+        {
+          ...result,
+          result:
+            !reconciled.disputed &&
+            (violatorIds.has(userId) ? result.result === 'loss' : result.result === 'win')
+              ? result.result
+              : 'unknown',
+        },
+      ]),
+    ),
+  }
 }
 
 function makeLobbyViolationCountKeys(
@@ -683,14 +716,22 @@ export default class GameResultService {
         ),
       )
       const reconciled: ReconciledResults = { disputed: false, time: 0, results }
+      const protectedResults = protectReplayResults(
+        reconciled,
+        await getReplayViolationUserIds(client, gameId),
+      )
 
-      await setReconciledResult(client, gameId, reconciled, null)
+      await setReconciledResult(client, gameId, protectedResults, null)
       await this.applyReconciledResultEffects(
         client,
         gameRecord,
-        reconciled,
+        protectedResults,
         new Date(this.clock.now()),
-        { onlyUserId: violation.userId, preserveUnassignedRaces: true },
+        {
+          onlyUserId: violation.userId,
+          preserveUnassignedRaces: true,
+          ratingResults: protectedResults !== reconciled ? reconciled.results : undefined,
+        },
       )
       return true
     })
@@ -1158,9 +1199,15 @@ export default class GameResultService {
         ? computeMatchupString(teams.map(team => team.map(p => reconciled.results.get(p.id)!.race)))
         : null
 
-      await setReconciledResult(client, gameId, reconciled, assignedMatchup)
+      const protectedResults = protectReplayResults(
+        reconciled,
+        await getReplayViolationUserIds(client, gameId),
+      )
+      await setReconciledResult(client, gameId, protectedResults, assignedMatchup)
 
-      await this.applyReconciledResultEffects(client, gameRecord, reconciled, reconcileDate)
+      await this.applyReconciledResultEffects(client, gameRecord, protectedResults, reconcileDate, {
+        ratingResults: protectedResults !== reconciled ? reconciled.results : undefined,
+      })
 
       return true
     })
@@ -1237,6 +1284,11 @@ export default class GameResultService {
     if (
       gameRecord.config.gameSource === GameSource.Matchmaking &&
       !reconciled.disputed &&
+      (!options.ratingResults ||
+        resultEntries.some(
+          ([id, result]) =>
+            (!options.onlyUserId || id === options.onlyUserId) && result.result !== 'unknown',
+        )) &&
       // Only update matchmaking ratings if we're not past the point that the season is finalized
       (seasonEnd === undefined ||
         Number(seasonEnd) + MATCHMAKING_SEASON_FINALIZED_TIME_MS > Number(reconcileDate))
@@ -1294,14 +1346,17 @@ export default class GameResultService {
         season,
         gameId,
         gameDate: reconcileDate,
-        results: reconciled.results,
+        results: options.ratingResults ?? reconciled.results,
         mmrs,
         teams,
         activeLeagues,
       })
 
       for (const mmr of mmrs) {
-        if (options.onlyUserId && mmr.userId !== options.onlyUserId) {
+        if (
+          (options.onlyUserId && mmr.userId !== options.onlyUserId) ||
+          (options.ratingResults && reconciled.results.get(mmr.userId)!.result === 'unknown')
+        ) {
           continue
         }
 
@@ -1616,11 +1671,15 @@ export default class GameResultService {
         time: gameRecord.gameLength ?? 0,
         results: newResults,
       }
+      const protectedResults = protectReplayResults(
+        reconciled,
+        await getReplayViolationUserIds(client, gameId),
+      )
 
       await setManuallyResolvedResult(
         client,
         gameId,
-        newResults,
+        protectedResults.results,
         derived?.matchup ?? null,
         resolvedBy,
         resolvedAt,
@@ -1629,8 +1688,9 @@ export default class GameResultService {
       const { ratingsApplied } = await this.applyReconciledResultEffects(
         client,
         gameRecord,
-        reconciled,
+        protectedResults,
         resolvedAt,
+        { ratingResults: protectedResults !== reconciled ? reconciled.results : undefined },
       )
 
       return { ratingsApplied }

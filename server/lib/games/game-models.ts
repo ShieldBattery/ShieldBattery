@@ -81,8 +81,11 @@ export async function createGameRecord(
 /**
  * Returns a `GameRecord` for the specificied ID, or `undefined` if one could not be found.
  */
-export async function getGameRecord(gameId: string): Promise<GameRecord | undefined> {
-  const { client, done } = await db()
+export async function getGameRecord(
+  gameId: string,
+  inputClient?: DbClient,
+): Promise<GameRecord | undefined> {
+  const { client, done } = await db(inputClient)
   try {
     const result = await client.query<DbGameRecord>(sql`
       SELECT id, start_time, map_id, config, disputable, dispute_requested, dispute_reviewed,

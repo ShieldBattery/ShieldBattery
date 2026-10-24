@@ -15,7 +15,11 @@ import {
   MatchmakingRatingChange,
   refundMatchmakingPoints,
 } from '../matchmaking/models'
-import { getGameRecord } from './game-models'
+import {
+  getReplayViolationUserIds,
+  markReplayViolationsHandled,
+} from '../models/game-replay-violations'
+import { getGameRecord, lockGameAndCheckReconciled } from './game-models'
 import { tryRecordGamePointsRefund } from './game-points-refund-models'
 import {
   GamePointsRefundErrorCode,
@@ -23,7 +27,14 @@ import {
   GamePointsRefundServiceError,
 } from './game-points-refund-service'
 
-vi.mock('./game-models', () => ({ getGameRecord: vi.fn() }))
+vi.mock('./game-models', () => ({
+  getGameRecord: vi.fn(),
+  lockGameAndCheckReconciled: vi.fn(),
+}))
+vi.mock('../models/game-replay-violations', () => ({
+  getReplayViolationUserIds: vi.fn(),
+  markReplayViolationsHandled: vi.fn(),
+}))
 vi.mock('./game-points-refund-models', () => ({ tryRecordGamePointsRefund: vi.fn() }))
 vi.mock('../matchmaking/models', () => ({
   getMatchmakingRatingChangesForGame: vi.fn(),
@@ -97,8 +108,16 @@ describe('GamePointsRefundService', () => {
       notificationService as any,
     )
 
-    asMockedFunction(getGameRecord).mockResolvedValue({ id: GAME_ID, startTime: new Date() } as any)
+    asMockedFunction(getGameRecord).mockResolvedValue({
+      id: GAME_ID,
+      startTime: new Date(),
+      results: [],
+      canceledAt: null,
+    } as any)
     asMockedFunction(getLeagueUserChangesForGame).mockResolvedValue([])
+    asMockedFunction(lockGameAndCheckReconciled).mockResolvedValue(true)
+    asMockedFunction(getReplayViolationUserIds).mockResolvedValue([makeSbUserId(10)])
+    asMockedFunction(markReplayViolationsHandled).mockResolvedValue(undefined)
     asMockedFunction(tryRecordGamePointsRefund).mockResolvedValue(true)
     asMockedFunction(refundMatchmakingPoints).mockImplementation(
       async (_client, { userId }) => ({ userId, points: 100 }) as any,
@@ -281,5 +300,210 @@ describe('GamePointsRefundService', () => {
     asMockedFunction(getGameRecord).mockResolvedValue(undefined)
     const err = await refund([makeSbUserId(10)]).catch(e => e)
     expect(err).toBeInstanceOf(GamePointsRefundServiceError)
+  })
+
+  describe('refundReplayViolation', () => {
+    const refundViolation = () => service.refundReplayViolation(GAME_ID)
+
+    beforeEach(() => {
+      asMockedFunction(getMatchmakingRatingChangesForGame).mockResolvedValue([
+        mmChange(10, 20),
+        mmChange(11, -15, 4),
+      ])
+    })
+
+    test('refunds innocent losses and bonus, excludes all violators, and preserves winners', async () => {
+      asMockedFunction(getReplayViolationUserIds).mockResolvedValue([
+        makeSbUserId(10),
+        makeSbUserId(12),
+      ])
+      asMockedFunction(getMatchmakingRatingChangesForGame).mockResolvedValue([
+        mmChange(10, 20),
+        mmChange(11, -15, 4),
+        mmChange(12, -10, 2),
+        mmChange(13, 0, 9),
+        mmChange(14, 20, 10),
+      ])
+      asMockedFunction(getLeagueUserChangesForGame).mockResolvedValue([
+        leagueChange(11, -8),
+        leagueChange(12, -6),
+        leagueChange(14, 10),
+      ])
+
+      await refundViolation()
+
+      expect(refundMatchmakingPoints).toHaveBeenCalledTimes(2)
+      expect(asMockedFunction(refundMatchmakingPoints).mock.calls.map(([, c]) => c)).toEqual([
+        {
+          userId: makeSbUserId(11),
+          matchmakingType: MatchmakingType.Match1v1,
+          seasonId: CURRENT_SEASON.id,
+          pointsRefund: 15,
+          bonusRefund: 4,
+        },
+        {
+          userId: makeSbUserId(13),
+          matchmakingType: MatchmakingType.Match1v1,
+          seasonId: CURRENT_SEASON.id,
+          pointsRefund: -0,
+          bonusRefund: 9,
+        },
+      ])
+      expect(refundLeaguePoints).toHaveBeenCalledTimes(1)
+      expect(refundLeaguePoints).toHaveBeenCalledWith(expect.anything(), {
+        userId: makeSbUserId(11),
+        leagueId: 'league-1',
+        pointsRefund: 8,
+        gameId: GAME_ID,
+      })
+      expect(tryRecordGamePointsRefund).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ refundedBy: undefined }),
+      )
+      expect(markReplayViolationsHandled).toHaveBeenCalledWith(expect.anything(), GAME_ID)
+      expect(notificationService.addNotification).toHaveBeenCalledTimes(2)
+    })
+
+    test('locks before reading and uses the same transaction for reads, refunds, and completion', async () => {
+      asMockedFunction(lockGameAndCheckReconciled).mockImplementationOnce(async () => {
+        expect(getGameRecord).not.toHaveBeenCalled()
+        expect(getReplayViolationUserIds).not.toHaveBeenCalled()
+        return true
+      })
+      asMockedFunction(markReplayViolationsHandled).mockImplementationOnce(async () => {
+        expect(refundMatchmakingPoints).toHaveBeenCalledTimes(1)
+        expect(updateRankings).not.toHaveBeenCalled()
+        expect(notificationService.addNotification).not.toHaveBeenCalled()
+      })
+      await refundViolation()
+
+      const client = asMockedFunction(lockGameAndCheckReconciled).mock.calls[0][0]
+      expect(getGameRecord).toHaveBeenCalledWith(GAME_ID, client)
+      expect(getReplayViolationUserIds).toHaveBeenCalledWith(client, GAME_ID)
+      expect(getMatchmakingRatingChangesForGame).toHaveBeenCalledWith(GAME_ID, client)
+      expect(getLeagueUserChangesForGame).toHaveBeenCalledWith(GAME_ID, client)
+      expect(tryRecordGamePointsRefund).toHaveBeenCalledWith(client, expect.anything())
+      expect(refundMatchmakingPoints).toHaveBeenCalledWith(client, expect.anything())
+      expect(markReplayViolationsHandled).toHaveBeenCalledWith(client, GAME_ID)
+      expect(updateRankings).toHaveBeenCalledTimes(1)
+    })
+
+    test('leaves an unreconciled game pending, then refunds after reconciliation', async () => {
+      asMockedFunction(getGameRecord).mockResolvedValueOnce({
+        id: GAME_ID,
+        startTime: new Date(),
+        results: null,
+        canceledAt: null,
+      } as any)
+      await refundViolation()
+      expect(markReplayViolationsHandled).not.toHaveBeenCalled()
+      expect(tryRecordGamePointsRefund).not.toHaveBeenCalled()
+      await refundViolation()
+      expect(markReplayViolationsHandled).toHaveBeenCalledTimes(1)
+      expect(refundMatchmakingPoints).toHaveBeenCalledTimes(1)
+    })
+
+    test('does nothing when there are no violations', async () => {
+      asMockedFunction(getReplayViolationUserIds).mockResolvedValue([])
+      await refundViolation()
+      expect(tryRecordGamePointsRefund).not.toHaveBeenCalled()
+      expect(markReplayViolationsHandled).not.toHaveBeenCalled()
+    })
+
+    test('shares the idempotency guard with administrative refunds', async () => {
+      asMockedFunction(tryRecordGamePointsRefund)
+        .mockResolvedValueOnce(true)
+        .mockResolvedValue(false)
+      await refund([makeSbUserId(10)])
+      await refundViolation()
+      await refundViolation()
+      expect(refundMatchmakingPoints).toHaveBeenCalledTimes(1)
+      expect(notificationService.addNotification).toHaveBeenCalledTimes(1)
+      expect(markReplayViolationsHandled).toHaveBeenCalledTimes(2)
+    })
+
+    test('blocks an administrative duplicate after an automatic refund', async () => {
+      asMockedFunction(tryRecordGamePointsRefund)
+        .mockResolvedValueOnce(true)
+        .mockResolvedValue(false)
+      await refundViolation()
+      await expect(refund([makeSbUserId(10)])).rejects.toMatchObject({
+        code: GamePointsRefundErrorCode.AlreadyRefunded,
+      })
+      expect(refundMatchmakingPoints).toHaveBeenCalledTimes(1)
+    })
+
+    test('finishes a prior-season violation without changing points', async () => {
+      seasonsService.getCurrentSeason.mockResolvedValue({ id: 8 })
+      await refundViolation()
+      expect(markReplayViolationsHandled).toHaveBeenCalledTimes(1)
+      expect(getMatchmakingRatingChangesForGame).not.toHaveBeenCalled()
+      expect(tryRecordGamePointsRefund).not.toHaveBeenCalled()
+    })
+
+    test.each([
+      { results: [], disputable: false, canceledAt: null },
+      { results: [], disputable: true, canceledAt: null },
+      { results: null, disputable: false, canceledAt: new Date() },
+    ])('finishes a terminal game without ranked changes: %j', async state => {
+      asMockedFunction(getGameRecord).mockResolvedValue({
+        id: GAME_ID,
+        startTime: new Date(),
+        ...state,
+      } as any)
+      asMockedFunction(getMatchmakingRatingChangesForGame).mockResolvedValue([])
+      await refundViolation()
+      expect(markReplayViolationsHandled).toHaveBeenCalledTimes(1)
+      expect(tryRecordGamePointsRefund).not.toHaveBeenCalled()
+      expect(notificationService.addNotification).not.toHaveBeenCalled()
+    })
+
+    test('finishes without a refund when every loss belongs to a violator', async () => {
+      asMockedFunction(getMatchmakingRatingChangesForGame).mockResolvedValue([
+        mmChange(10, -15),
+        mmChange(11, 20),
+      ])
+      await refundViolation()
+      expect(markReplayViolationsHandled).toHaveBeenCalledTimes(1)
+      expect(tryRecordGamePointsRefund).not.toHaveBeenCalled()
+      expect(refundMatchmakingPoints).not.toHaveBeenCalled()
+    })
+
+    test('observer IDs do not prevent innocent players from receiving refunds', async () => {
+      asMockedFunction(getReplayViolationUserIds).mockResolvedValue([makeSbUserId(999)])
+      await refundViolation()
+      expect(refundMatchmakingPoints).toHaveBeenCalledTimes(1)
+      expect(markReplayViolationsHandled).toHaveBeenCalledTimes(1)
+    })
+
+    test('a partial refund failure aborts completion and remains retryable', async () => {
+      asMockedFunction(getLeagueUserChangesForGame).mockResolvedValue([leagueChange(11, -8)])
+      asMockedFunction(refundLeaguePoints).mockRejectedValueOnce(new Error('database unavailable'))
+      await expect(refundViolation()).rejects.toThrow('database unavailable')
+      expect(refundMatchmakingPoints).toHaveBeenCalledTimes(1)
+      expect(markReplayViolationsHandled).not.toHaveBeenCalled()
+      expect(updateRankings).not.toHaveBeenCalled()
+      expect(notificationService.addNotification).not.toHaveBeenCalled()
+
+      await refundViolation()
+      expect(markReplayViolationsHandled).toHaveBeenCalledTimes(1)
+      expect(notificationService.addNotification).toHaveBeenCalledTimes(1)
+    })
+
+    test('a completion failure fails the transaction without publishing notifications', async () => {
+      asMockedFunction(markReplayViolationsHandled).mockRejectedValueOnce(new Error('write failed'))
+      await expect(refundViolation()).rejects.toThrow('write failed')
+      expect(updateRankings).not.toHaveBeenCalled()
+      expect(notificationService.addNotification).not.toHaveBeenCalled()
+    })
+
+    test('cache and notification failures do not fail a committed refund', async () => {
+      asMockedFunction(updateRankings).mockRejectedValueOnce(new Error('cache unavailable'))
+      notificationService.addNotification.mockRejectedValueOnce(
+        new Error('notification unavailable'),
+      )
+      await expect(refundViolation()).resolves.toBeUndefined()
+      expect(markReplayViolationsHandled).toHaveBeenCalledTimes(1)
+    })
   })
 })
