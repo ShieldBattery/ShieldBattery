@@ -14,6 +14,7 @@ import { adjustedGameSubType, MAX_OBSERVERS } from '../../../common/lobbies'
 import { SbMapId, tilesetToName } from '../../../common/maps'
 import { useForm, useFormCallbacks, Validator } from '../../forms/form-hook'
 import { MaterialIcon } from '../../icons/material/material-icon'
+import { MapNewerVersionNudge } from '../../maps/map-newer-version-nudge'
 import { ReduxMapThumbnail } from '../../maps/map-thumbnail'
 import { OutlinedButton } from '../../material/button'
 import { buttonReset } from '../../material/button-reset'
@@ -579,6 +580,9 @@ export function GameSetupForm({
               <MapInfo>
                 <MapName>{selectedMapInfo?.name ?? ''}</MapName>
                 <MapMeta>{mapMetaParts.join(' · ')}</MapMeta>
+                {mapId ? (
+                  <MapNewerVersionNudge mapId={mapId} disabled={disabled} onSwitch={changeMap} />
+                ) : null}
               </MapInfo>
               <ChangeMapButton
                 type='button'
