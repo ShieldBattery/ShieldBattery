@@ -68,6 +68,7 @@ mod mouse_speed;
 mod netcode_v2;
 mod offline_cookie;
 mod recurse_checked_mutex;
+mod remembered_buildings;
 mod replay;
 mod replay_name;
 mod replay_seek;
