@@ -52,6 +52,7 @@ export enum DialogType {
   LeaveLeague = 'leaveLeague',
   LobbyLeaveAndCreate = 'lobbyLeaveAndCreate',
   LobbyLeaveAndJoin = 'lobbyLeaveAndJoin',
+  MapCompare = 'mapCompare',
   MapDownload = 'mapDownload',
   MapPreview = 'mapPreview',
   Markdown = 'markdown',
@@ -328,6 +329,13 @@ type LobbyLeaveAndJoinDialogPayload = BaseDialogPayload<
   }
 >
 
+type MapCompareDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapCompare,
+  {
+    a: SbMapId
+    b: SbMapId
+  }
+>
 type MapDownloadDialogPayload = BaseDialogPayload<
   typeof DialogType.MapDownload,
   {
@@ -520,6 +528,7 @@ export type DialogPayload =
   | LeaveLeagueDialogPayload
   | LobbyLeaveAndCreateDialogPayload
   | LobbyLeaveAndJoinDialogPayload
+  | MapCompareDialogPayload
   | MapDownloadDialogPayload
   | MapPreviewDialogPayload
   | MarkdownDialogPayload

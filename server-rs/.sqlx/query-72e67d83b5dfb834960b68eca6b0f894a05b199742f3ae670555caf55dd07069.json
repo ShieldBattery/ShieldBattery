@@ -1,0 +1,42 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT m.id as \"id: SbMapId\",\n                (SELECT f.family_id FROM map_family_members f WHERE f.map_id = m.id)\n                    as \"family_id?\",\n                (SELECT s.games_total FROM map_stats s WHERE s.map_id = m.id) as \"games_total?\"\n            FROM maps m\n            WHERE m.id IN (\n                SELECT COALESCE((SELECT a.map_id FROM map_id_aliases a WHERE a.old_id = x), x)\n                FROM unnest($1::uuid[]) x\n            )\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id: SbMapId",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "family_id?",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "games_total?",
+        "type_info": "Int4",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "72e67d83b5dfb834960b68eca6b0f894a05b199742f3ae670555caf55dd07069"
+}
