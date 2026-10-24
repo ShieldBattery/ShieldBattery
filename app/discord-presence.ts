@@ -97,6 +97,10 @@ export class DiscordPresence {
    * earlier activity.
    */
   private publishedActivity: DiscordActivity | null | undefined = null
+  /**
+   * When the last update was sent, by `performance.now()`, which a change to the system clock
+   * can't move.
+   */
   private lastPublishTime = -Infinity
   private publishTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -206,7 +210,7 @@ export class DiscordPresence {
     if (!this.client || this.publishTimer !== undefined) {
       return
     }
-    const wait = this.lastPublishTime + MIN_UPDATE_INTERVAL_MS - Date.now()
+    const wait = this.lastPublishTime + MIN_UPDATE_INTERVAL_MS - performance.now()
     this.publishTimer = setTimeout(
       () => {
         this.publishTimer = undefined
@@ -224,7 +228,7 @@ export class DiscordPresence {
     }
 
     this.publishedActivity = activity
-    this.lastPublishTime = Date.now()
+    this.lastPublishTime = performance.now()
     if (!activity) {
       logger.verbose('Clearing the Discord activity')
       clearRichPresence(client)
