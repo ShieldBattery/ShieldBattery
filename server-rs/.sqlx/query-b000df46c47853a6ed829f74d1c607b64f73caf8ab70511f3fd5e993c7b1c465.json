@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE map_family_members AS f\n            SET line_root_id = v.line_root, line_current_id = v.line_current\n            FROM unnest($1::uuid[], $2::uuid[], $3::uuid[]) AS v(map_id, line_root, line_current)\n            WHERE f.map_id = v.map_id\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "UuidArray",
+        "UuidArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b000df46c47853a6ed829f74d1c607b64f73caf8ab70511f3fd5e993c7b1c465"
+}

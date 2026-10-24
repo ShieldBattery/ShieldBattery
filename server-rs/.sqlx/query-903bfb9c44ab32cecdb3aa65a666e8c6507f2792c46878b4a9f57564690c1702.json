@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                        UPDATE map_link_suggestions\n                        SET verdict = $3, verdict_rules_version = $4, status = $5,\n                            decided_at = CASE WHEN $6 THEN now() ELSE NULL END\n                        WHERE map_a = $1 AND map_b = $2 AND status = 'open'\n                    ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Jsonb",
+        "Int2",
+        "Text",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "903bfb9c44ab32cecdb3aa65a666e8c6507f2792c46878b4a9f57564690c1702"
+}
