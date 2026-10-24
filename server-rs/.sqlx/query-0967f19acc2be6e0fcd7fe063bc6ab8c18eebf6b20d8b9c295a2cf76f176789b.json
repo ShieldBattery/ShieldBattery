@@ -1,0 +1,95 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT f.map_id as \"map_id: SbMapId\", f.parent_map_id as \"parent_map_id: SbMapId\",\n                f.relation::text as \"relation!\", f.version_label, f.pinned_current, m.listed as \"listed!\",\n                m.first_seen_at\n            FROM map_family_members f\n            INNER JOIN maps m ON m.id = f.map_id\n            WHERE f.family_id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "map_id: SbMapId",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "map_family_members",
+            "name": "map_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "parent_map_id: SbMapId",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "map_family_members",
+            "name": "parent_map_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "relation!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "version_label",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "map_family_members",
+            "name": "version_label"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "pinned_current",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "map_family_members",
+            "name": "pinned_current"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "listed!",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "listed"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "first_seen_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "first_seen_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      null,
+      true,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "0967f19acc2be6e0fcd7fe063bc6ab8c18eebf6b20d8b9c295a2cf76f176789b"
+}
