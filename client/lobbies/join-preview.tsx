@@ -128,9 +128,9 @@ function HostLine({ summary }: { summary: LobbySummaryResponse }) {
 const LobbyName = styled.div`
   ${headlineMedium};
   margin-top: 12px;
-  ${singleLine};
   ${backdropTextShadow};
   min-width: 0;
+  overflow-wrap: anywhere;
   color: var(--theme-on-surface);
 `
 
