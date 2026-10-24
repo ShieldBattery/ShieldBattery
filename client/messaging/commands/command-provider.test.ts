@@ -240,7 +240,6 @@ describe('messaging/commands/command-provider/createCommandArgProvider', () => {
       matchedText: '',
       submitOnExact: true,
       spaceAcceptsSingle: false,
-      openEnded: false,
     })
     expect(rows(match).map(r => r.text)).toEqual(['tec27', 'ZergRush'])
     expect(rows(match)[1]).toMatchObject({
@@ -260,7 +259,6 @@ describe('messaging/commands/command-provider/createCommandArgProvider', () => {
       start: 6,
       matchedText: 'te',
       spaceAcceptsSingle: true,
-      openEnded: false,
     })
     expect(rows(match).map(r => r.text)).toEqual(['tec27'])
   })
@@ -268,7 +266,7 @@ describe('messaging/commands/command-provider/createCommandArgProvider', () => {
   test('a whisper target is never rewritten by a space, since it can be anyone', () => {
     const match = argMatch('/w Zerg')
 
-    expect(match).toMatchObject({ spaceAcceptsSingle: false, openEnded: true })
+    expect(match).toMatchObject({ spaceAcceptsSingle: false })
     expect(rows(match).map(r => r.text)).toEqual(['ZergRush'])
     expect(rows(match)[0].exact).toBe(false)
   })
@@ -276,7 +274,7 @@ describe('messaging/commands/command-provider/createCommandArgProvider', () => {
   test('a channel name is never rewritten by a space either', () => {
     const match = argMatch('/join sb')
 
-    expect(match).toMatchObject({ spaceAcceptsSingle: false, openEnded: true })
+    expect(match).toMatchObject({ spaceAcceptsSingle: false })
     expect(rows(match).map(r => r.text)).toEqual(['sb-dev', 'ShieldBattery'])
   })
 
