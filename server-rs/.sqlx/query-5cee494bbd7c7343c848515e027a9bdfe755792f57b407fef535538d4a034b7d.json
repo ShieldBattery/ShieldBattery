@@ -1,0 +1,208 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT f.family_id, fam.label, fam.current_map_id as \"current_map_id: SbMapId\",\n                    f.map_id as \"map_id: SbMapId\", f.parent_map_id as \"parent_map_id: SbMapId\",\n                    f.relation as \"relation: MapFamilyRelation\", f.version_label,\n                    f.pinned_current, f.source as \"source: MapLinkSource\",\n                    f.linked_by as \"linked_by: SbUserId\", f.linked_at,\n                    f.line_root_id as \"line_root_id: SbMapId\",\n                    f.line_current_id as \"line_current_id: SbMapId\", m.listed as \"listed!\"\n                FROM map_family_members f\n                INNER JOIN map_families fam ON fam.id = f.family_id\n                INNER JOIN maps m ON m.id = f.map_id\n                WHERE f.family_id = ANY($1)\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "family_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "map_family_members",
+            "name": "family_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "label",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "map_families",
+            "name": "label"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "current_map_id: SbMapId",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "map_families",
+            "name": "current_map_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "map_id: SbMapId",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "map_family_members",
+            "name": "map_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "parent_map_id: SbMapId",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "map_family_members",
+            "name": "parent_map_id"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "relation: MapFamilyRelation",
+        "type_info": {
+          "Custom": {
+            "name": "map_family_relation",
+            "kind": {
+              "Enum": [
+                "root",
+                "version",
+                "variant",
+                "translation",
+                "fork"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "map_family_members",
+            "name": "relation"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "version_label",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "map_family_members",
+            "name": "version_label"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "pinned_current",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "map_family_members",
+            "name": "pinned_current"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "source: MapLinkSource",
+        "type_info": {
+          "Custom": {
+            "name": "map_link_source",
+            "kind": {
+              "Enum": [
+                "rule",
+                "publisher",
+                "moderator"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "map_family_members",
+            "name": "source"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "linked_by: SbUserId",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "map_family_members",
+            "name": "linked_by"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "linked_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "map_family_members",
+            "name": "linked_at"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "line_root_id: SbMapId",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "map_family_members",
+            "name": "line_root_id"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "line_current_id: SbMapId",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "map_family_members",
+            "name": "line_current_id"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "listed!",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "listed"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      false,
+      true,
+      false,
+      true,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "5cee494bbd7c7343c848515e027a9bdfe755792f57b407fef535538d4a034b7d"
+}

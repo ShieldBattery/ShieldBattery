@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT CASE WHEN s.map_a = $1 THEN s.map_b ELSE s.map_a END as \"id!: SbMapId\"\n            FROM map_link_suggestions s\n            WHERE (s.map_a = $1 OR s.map_b = $1) AND s.status = 'open'\n                AND NOT EXISTS (\n                    SELECT 1\n                    FROM map_family_members fa\n                    INNER JOIN map_family_members fb ON fb.family_id = fa.family_id\n                    WHERE fa.map_id = s.map_a AND fb.map_id = s.map_b\n                )\n            ORDER BY s.terrain_similarity DESC NULLS LAST, s.created_at\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!: SbMapId",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "b75b4ab0ffb4d9fab5e62e435ab4ff6a25edd62899ed8eb9dcd4aae4da2ce443"
+}
