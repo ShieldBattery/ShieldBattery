@@ -55,6 +55,11 @@ export const MapPageStats_MapFragment = graphql(/* GraphQL */ `
       medianLength90d
       lastPlayedAt
     }
+    versionCount
+    lineStats {
+      id
+      gamesTotal
+    }
     weeklyActivity(weeks: 26) {
       id
       weekStart
@@ -151,11 +156,27 @@ export function MapStatsCard({
   const count = useFormat(countFormat)
   const week = useFormat(weekFormat)
 
+  // Games stay per file everywhere else on the page, since what changed between versions is what
+  // their numbers measure
+  const lineGames =
+    map.lineStats && map.versionCount > 1 ? (
+      <StatsLine>
+        {t('maps.page.lineGames', {
+          defaultValue: '{{formattedCount}} games across {{versions}} versions',
+          defaultValue_one: '{{formattedCount}} game across {{versions}} versions',
+          count: map.lineStats.gamesTotal,
+          formattedCount: count.format(map.lineStats.gamesTotal),
+          versions: map.versionCount,
+        })}
+      </StatsLine>
+    ) : null
+
   const stats = map.stats
   if (!stats) {
     return (
       <StatsCard>
         <StatsLine>{t('maps.page.notPlayedYet', 'Not played yet.')}</StatsLine>
+        {lineGames}
       </StatsCard>
     )
   }
@@ -220,6 +241,7 @@ export function MapStatsCard({
           <NarrowDuration to={new Date(stats.lastPlayedAt)} />
         </StatsLine>
       ) : null}
+      {lineGames}
     </StatsCard>
   )
 }
