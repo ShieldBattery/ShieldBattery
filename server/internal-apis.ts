@@ -3,3 +3,4 @@
 // with tsyringe
 import './lib/bugs/internal-bug-report-api'
 import './lib/games/internal-game-artifact-api'
+import './lib/users/internal-user-api'

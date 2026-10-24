@@ -59,8 +59,8 @@ export function httpApi<T>(basePath: string) {
  * A class decorator that registers an API class for service-to-service callers, mounted under
  * `INTERNAL_BASE_PATH`. Routes are declared with the same method decorators as `@httpApi` classes
  * (`@httpGet`, `@httpBefore`, ...), but the mount is separate: internal APIs run ahead of the
- * browser-oriented middleware chain and rely on network placement rather than sessions for
- * authorization. See internal-routes.ts.
+ * browser-oriented middleware chain. Read-only diagnostics rely on network placement; mutating
+ * routes additionally require an explicit service credential. See internal-routes.ts.
  *
  * This also implies `@singleton()` for the API class.
  */

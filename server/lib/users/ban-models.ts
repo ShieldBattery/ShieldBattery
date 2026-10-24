@@ -146,3 +146,16 @@ export async function isUserBanned(userId: SbUserId, withClient?: DbClient): Pro
     done()
   }
 }
+
+/** Holds active original bans against concurrent unbanning until session cleanup finishes. */
+export async function lockActiveBanUsers(
+  banIds: ReadonlyArray<string>,
+  client: DbClient,
+): Promise<SbUserId[]> {
+  const result = await client.query<{ user_id: SbUserId }>(sql`
+    SELECT user_id FROM user_bans
+    WHERE id = ANY(${banIds}::uuid[]) AND end_time > ${new Date()} AND unbanned_at IS NULL
+    ORDER BY id FOR UPDATE
+  `)
+  return [...new Set(result.rows.map(row => row.user_id))]
+}

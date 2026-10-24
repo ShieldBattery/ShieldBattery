@@ -10,9 +10,8 @@ import {
 
 /**
  * Builds a middleware that owns every request under `INTERNAL_BASE_PATH`: service-to-service
- * endpoints for trusted machine callers on the private network/tailnet (currently: Adjutant's bug
- * report and game artifact access). Endpoints are classes decorated with `@internalApi`, listed
- * in internal-apis.ts so they register at boot.
+ * endpoints for machine callers on the private network/tailnet. Endpoints are classes decorated
+ * with `@internalApi`, listed in internal-apis.ts so they register at boot.
  *
  * Mounted in app.ts *ahead of* the app's normal middleware chain (canonical-host redirects,
  * CSRF/origin checks, cookie/JWT session handling, CORS, security headers, static file serving,
@@ -20,8 +19,10 @@ import {
  * machinery is either useless to them or actively in the way. (A consequence: an internal route
  * that accepts a body must parse it itself.)
  *
- * These routes have no application-level authentication. The authorization boundary is the
- * network: the app-server port must only be reachable via the Docker/private/Tailscale path
+ * Read-only diagnostic routes rely on the private network boundary. Mutating endpoints must
+ * additionally verify an explicit, narrowly scoped service credential before parsing request
+ * bodies; membership in the tailnet does not grant moderation permission. The app-server port
+ * must only be reachable via the Docker/private/Tailscale path
  * (public traffic terminates at nginx), with Tailscale ACLs restricting which nodes can reach it.
  * As defense in depth this middleware also rejects any request carrying `X-Forwarded-For` — the
  * same convention as `/metrics` — since nginx always appends that header while direct

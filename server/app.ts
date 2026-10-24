@@ -25,6 +25,7 @@ import log from './lib/logging/logger'
 import { updateEmailTemplates } from './lib/mail/update-templates'
 import { prometheusHttpMetrics, prometheusMiddleware } from './lib/monitoring/prometheus-middleware'
 import { EvidenceRecoveryService } from './lib/netcode-v2/evidence-recovery-service'
+import { EvidenceRetentionService } from './lib/netcode-v2/evidence-retention-service'
 import { SessionReleaseCatalog } from './lib/netcode-v2/session-release-catalog'
 import { redirectToCanonical } from './lib/network/redirect-to-canonical'
 import userIpsMiddleware from './lib/network/user-ips-middleware'
@@ -230,6 +231,7 @@ container.resolve(ReplayViolationService)
 ;(async () => {
   await container.resolve(SessionReleaseCatalog).initialize()
   container.resolve(EvidenceRecoveryService)
+  container.resolve(EvidenceRetentionService)
 
   if (!isDev) {
     if (!process.env.GOOGLE_APPLICATION_CREDENTIALS) {
