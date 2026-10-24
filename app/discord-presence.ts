@@ -3,6 +3,7 @@ import {
   clearRichPresence,
   createClient,
   destroyClient,
+  DiscordCallError,
   DiscordClient,
   loadSdk,
   LogSeverity,
@@ -90,8 +91,12 @@ export class DiscordPresence {
 
   /** The activity the renderer last asked for. */
   private activity: DiscordActivity | null = null
-  /** The activity last handed to the SDK, so an unchanged one isn't sent again. */
-  private publishedActivity: DiscordActivity | null = null
+  /**
+   * The activity Discord was last told to show, so an unchanged one isn't sent again, or
+   * `undefined` when what Discord shows isn't known: after a failed update it may still show an
+   * earlier activity.
+   */
+  private publishedActivity: DiscordActivity | null | undefined = null
   private lastPublishTime = -Infinity
   private publishTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -102,7 +107,10 @@ export class DiscordPresence {
     return this.client !== undefined
   }
 
-  /** Loads the SDK and starts listening for joins. Logs and gives up if the SDK isn't there. */
+  /**
+   * Loads the SDK and starts listening for joins. Logs and leaves presence off if the SDK isn't
+   * there or fails to start, since the app works the same without it.
+   */
   start(): void {
     try {
       loadSdk(this.options.sdkPath)
@@ -111,6 +119,18 @@ export class DiscordPresence {
       logger.info(`Discord Rich Presence is off: ${(err as Error).message}`)
       return
     }
+
+    try {
+      this.startClient()
+    } catch (err) {
+      logger.error(
+        `Discord Rich Presence is off, the Discord Social SDK failed to start: ${getErrorStack(err)}`,
+      )
+      this.dispose()
+    }
+  }
+
+  private startClient(): void {
     const { major, minor, patch } = sdkVersion()
     logger.info(`Loaded the Discord Social SDK ${major}.${minor}.${patch}`)
 
@@ -156,10 +176,15 @@ export class DiscordPresence {
     clearTimeout(this.publishTimer)
     clearInterval(this.runCallbacksTimer)
     clearInterval(this.discordCheckTimer)
-    if (this.client) {
-      clearRichPresence(this.client)
-      destroyClient(this.client)
-      this.client = undefined
+    const client = this.client
+    this.client = undefined
+    if (client) {
+      try {
+        clearRichPresence(client)
+        destroyClient(client)
+      } catch (err) {
+        logger.error(`Error shutting down the Discord Social SDK: ${getErrorStack(err)}`)
+      }
     }
   }
 
@@ -209,16 +234,34 @@ export class DiscordPresence {
     logger.verbose(`Setting the Discord activity: ${JSON.stringify(activity)}`)
 
     try {
-      updateRichPresence(client, toSdkActivity(activity)).catch(err => {
-        // Most often the Discord desktop app isn't running or isn't ready yet. The next check for
-        // Discord tries again.
-        logger.verbose(`Couldn't update the Discord activity: ${getErrorStack(err)}`)
-        this.publishedActivity = null
+      updateRichPresence(client, toSdkActivity(activity)).catch((err: DiscordCallError) => {
+        const reason = `${err.errorType}, code ${err.errorCode}: ${err.message}`
+        if (err.errorType === 'validationError') {
+          // Sending the same activity again would fail the same way, so it stays counted as
+          // published until the activity changes.
+          logger.error(
+            `The Discord Social SDK refused the activity as invalid (${reason}), so it isn't ` +
+              `sent again until it changes: ${JSON.stringify(activity)}`,
+          )
+          return
+        }
+
+        // Most often the Discord desktop app isn't running or is still starting.
+        logger.verbose(
+          `Couldn't update the Discord activity (${reason}). Discord may still show an earlier ` +
+            'activity, so this one is sent again on the next check that finds Discord running',
+        )
+        if (this.publishedActivity === activity) {
+          this.publishedActivity = undefined
+        }
       })
     } catch (err) {
       // The binding rejects a malformed activity before it reaches the SDK. Trying it again
       // wouldn't help, so it stays counted as published until the activity changes.
-      logger.error(`Discord rejected the activity: ${getErrorStack(err)}`)
+      logger.error(
+        `The Discord Social SDK binding refused the activity, so it isn't sent again until it ` +
+          `changes: ${getErrorStack(err)}`,
+      )
     }
   }
 }
