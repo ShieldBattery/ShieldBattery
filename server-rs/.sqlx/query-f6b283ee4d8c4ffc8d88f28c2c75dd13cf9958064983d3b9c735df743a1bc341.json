@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE map_family_members\n            SET version_label = CASE WHEN $2 THEN $3 ELSE version_label END,\n                pinned_current = COALESCE($4, pinned_current)\n            WHERE map_id = $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bool",
+        "Text",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f6b283ee4d8c4ffc8d88f28c2c75dd13cf9958064983d3b9c735df743a1bc341"
+}

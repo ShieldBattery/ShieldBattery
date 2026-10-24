@@ -7,6 +7,9 @@
 //! scenarios are linked without a person; proposals that don't link anything (a UMS map on
 //! another map's terrain, unrelated UMS maps) are closed right away, and the rest wait for staff.
 
+pub mod edit;
+pub mod graphql;
+pub mod proposals;
 pub mod rules;
 
 use std::collections::{BTreeSet, HashMap, HashSet};
@@ -24,6 +27,46 @@ use crate::maps::families::rules::{
     Proposal, ProposedRelation, RuleMap, VersionKey, is_candidate_base_name, propose,
 };
 use crate::maps::parse::{FINGERPRINT_VERSION, MAP_PARSER_VERSION};
+
+/// How a file in a family relates to its parent.
+#[derive(async_graphql::Enum, Copy, Clone, Debug, Eq, PartialEq, Hash, sqlx::Type)]
+#[sqlx(type_name = "map_family_relation", rename_all = "snake_case")]
+pub enum MapFamilyRelation {
+    /// The family's first file. It has no parent.
+    Root,
+    /// A newer version of its parent, which it supersedes.
+    Version,
+    /// The same version as its parent with small changes (a tournament tag, an observer version, a
+    /// repack). It doesn't supersede its parent.
+    Variant,
+    /// Its parent in another language.
+    Translation,
+    /// Someone else's map based on its parent. It starts its own line, with its own current
+    /// version.
+    Fork,
+}
+
+impl MapFamilyRelation {
+    /// Whether a file with this relation starts a line of its own.
+    pub fn starts_line(self) -> bool {
+        matches!(self, Self::Root | Self::Fork)
+    }
+}
+
+/// Who set a file's place in its family. A place can only be changed by the same or a higher
+/// source: moderators over publishers over the detection rules.
+#[derive(
+    async_graphql::Enum, Copy, Clone, Debug, Eq, PartialEq, Hash, PartialOrd, Ord, sqlx::Type,
+)]
+#[sqlx(type_name = "map_link_source", rename_all = "snake_case")]
+pub enum MapLinkSource {
+    /// The detection rules, e.g. for files with the same scenario.
+    Rule,
+    /// The user who published the map.
+    Publisher,
+    /// Staff.
+    Moderator,
+}
 
 /// The least terrain similarity for a pair to be a candidate.
 const MIN_TERRAIN_SIMILARITY: f32 = 0.90;
@@ -61,7 +104,7 @@ pub fn terrain_similarity(a: &[u8], b: &[u8], tiles: usize) -> Option<f32> {
     (counted > 0).then(|| same as f32 / counted as f32)
 }
 
-struct RuleRow {
+pub(crate) struct RuleRow {
     id: SbMapId,
     title: String,
     public_name: Option<String>,
@@ -78,7 +121,7 @@ struct RuleRow {
 }
 
 impl RuleRow {
-    fn rule_map(&self) -> RuleMap {
+    pub(crate) fn rule_map(&self) -> RuleMap {
         RuleMap {
             title: self.title.clone(),
             display_name: self
@@ -95,7 +138,7 @@ impl RuleRow {
     }
 }
 
-async fn load_rule_rows(db: &PgPool, ids: &[Uuid]) -> eyre::Result<Vec<RuleRow>> {
+pub(crate) async fn load_rule_rows(db: &PgPool, ids: &[Uuid]) -> eyre::Result<Vec<RuleRow>> {
     sqlx::query_as!(
         RuleRow,
         r#"
@@ -177,6 +220,12 @@ pub struct FamilyDetector {
 impl FamilyDetector {
     pub fn new(db: PgPool) -> Self {
         Self { db }
+    }
+
+    /// Recomputes the lines of every family marked stale, e.g. because one of its files was listed
+    /// or delisted.
+    pub async fn recompute_stale(&self) -> eyre::Result<()> {
+        recompute_stale_families(&self.db).await
     }
 
     /// Scans one map for related files, e.g. right after it's stored.
@@ -499,10 +548,7 @@ async fn link_variant(
     a: &RuleRow,
     b: &RuleRow,
 ) -> eyre::Result<bool> {
-    sqlx::query!("SELECT pg_advisory_xact_lock($1)", FAMILY_WRITE_LOCK_KEY)
-        .execute(&mut **tx)
-        .await
-        .wrap_err("Failed to lock families")?;
+    lock_families(tx).await?;
     let memberships: HashMap<SbMapId, Uuid> = sqlx::query!(
         r#"
             SELECT map_id as "map_id: SbMapId", family_id
@@ -541,6 +587,15 @@ async fn link_variant(
     insert_member(tx, family_id, child, Some(parent.id), "variant").await?;
     recompute_family(tx, family_id).await?;
     Ok(true)
+}
+
+/// Takes the lock every writer to families holds until its transaction ends.
+pub(crate) async fn lock_families(tx: &mut Transaction<'_, Postgres>) -> eyre::Result<()> {
+    sqlx::query!("SELECT pg_advisory_xact_lock($1)", FAMILY_WRITE_LOCK_KEY)
+        .execute(&mut **tx)
+        .await
+        .wrap_err("Failed to lock families")?;
+    Ok(())
 }
 
 async fn insert_member(
@@ -586,9 +641,10 @@ struct LinePlace {
 }
 
 /// Derives every member's line and each line's current version: a line starts at the root, a fork,
-/// or a member whose parent is gone. Its current is the pinned member, else the deepest listed
-/// version (version label, then first seen, breaking ties), else the deepest member. Variants and
-/// translations are never current.
+/// or a member whose parent is gone. Its current is the pinned member (unless it's unlisted while
+/// another member is listed), else the deepest listed version (version label, then first seen,
+/// breaking ties), else the deepest member. A variant or translation is only current when it's
+/// listed and the version it belongs to isn't, standing in for it.
 fn derive_lines(members: &[MemberRow]) -> HashMap<SbMapId, LinePlace> {
     let by_id: HashMap<SbMapId, &MemberRow> = members.iter().map(|m| (m.map_id, m)).collect();
     let starts_line = |m: &MemberRow| {
@@ -629,17 +685,24 @@ fn derive_lines(members: &[MemberRow]) -> HashMap<SbMapId, LinePlace> {
             .push(member);
     }
     for (root, line) in lines {
+        let any_listed = line.iter().any(|m| m.listed);
         let current = line
             .iter()
-            .find(|m| m.pinned_current)
+            .find(|m| m.pinned_current && (m.listed || !any_listed))
             .or_else(|| {
                 line.iter()
-                    .filter(|m| m.map_id == root || m.relation == "version")
+                    .filter(|m| {
+                        m.map_id == root
+                            || m.relation == "version"
+                            || (m.listed
+                                && (m.relation == "variant" || m.relation == "translation"))
+                    })
                     .max_by(|x, y| {
                         let key = |m: &MemberRow| {
                             (
                                 m.listed,
                                 places[&m.map_id].1,
+                                m.map_id == root || m.relation == "version",
                                 m.version_label.as_deref().and_then(VersionKey::parse),
                                 m.first_seen_at,
                             )
@@ -647,8 +710,9 @@ fn derive_lines(members: &[MemberRow]) -> HashMap<SbMapId, LinePlace> {
                         let (kx, ky) = (key(x), key(y));
                         kx.0.cmp(&ky.0)
                             .then(kx.1.cmp(&ky.1))
-                            .then(kx.2.partial_cmp(&ky.2).unwrap_or(std::cmp::Ordering::Equal))
-                            .then(kx.3.cmp(&ky.3))
+                            .then(kx.2.cmp(&ky.2))
+                            .then(kx.3.partial_cmp(&ky.3).unwrap_or(std::cmp::Ordering::Equal))
+                            .then(kx.4.cmp(&ky.4))
                     })
             })
             .map_or(root, |m| m.map_id);
@@ -669,8 +733,29 @@ fn derive_lines(members: &[MemberRow]) -> HashMap<SbMapId, LinePlace> {
         .collect()
 }
 
-/// Rewrites a family's derived columns after its tree changed.
-async fn recompute_family(tx: &mut Transaction<'_, Postgres>, family_id: Uuid) -> eyre::Result<()> {
+/// Recomputes every family marked stale. Each family is recomputed in its own transaction.
+pub(crate) async fn recompute_stale_families(db: &PgPool) -> eyre::Result<()> {
+    let stale = sqlx::query_scalar!("SELECT id FROM map_families WHERE stale")
+        .fetch_all(db)
+        .await
+        .wrap_err("Failed to load stale families")?;
+    for family_id in stale {
+        let mut tx = db.begin().await.wrap_err("Failed to start transaction")?;
+        lock_families(&mut tx).await?;
+        recompute_family(&mut tx, family_id).await?;
+        tx.commit()
+            .await
+            .wrap_err("Failed to commit family recompute")?;
+    }
+    Ok(())
+}
+
+/// Rewrites a family's derived columns after its tree changed. A family left with fewer than two
+/// members is deleted: one file on its own isn't a family.
+pub(crate) async fn recompute_family(
+    tx: &mut Transaction<'_, Postgres>,
+    family_id: Uuid,
+) -> eyre::Result<()> {
     let members = sqlx::query_as!(
         MemberRow,
         r#"
@@ -686,6 +771,13 @@ async fn recompute_family(tx: &mut Transaction<'_, Postgres>, family_id: Uuid) -
     .fetch_all(&mut **tx)
     .await
     .wrap_err("Failed to load family members")?;
+    if members.len() < 2 {
+        sqlx::query!("DELETE FROM map_families WHERE id = $1", family_id)
+            .execute(&mut **tx)
+            .await
+            .wrap_err("Failed to delete family")?;
+        return Ok(());
+    }
     let places = derive_lines(&members);
     let family_root = members
         .iter()
@@ -717,7 +809,11 @@ async fn recompute_family(tx: &mut Transaction<'_, Postgres>, family_id: Uuid) -
     .await
     .wrap_err("Failed to update family lines")?;
     sqlx::query!(
-        "UPDATE map_families SET current_map_id = $2, updated_at = now() WHERE id = $1",
+        r#"
+            UPDATE map_families
+            SET current_map_id = $2, stale = false, updated_at = now()
+            WHERE id = $1
+        "#,
         family_id,
         family_root.map(|root| places[&root].line_current) as _,
     )
@@ -775,6 +871,21 @@ mod tests {
         // The fork's newer version is unlisted, so the fork itself stays current.
         assert_eq!(places[&id(6)].line_root, id(5));
         assert_eq!(places[&id(6)].line_current, id(5));
+    }
+
+    #[test]
+    fn a_listed_variant_stands_in_for_its_unlisted_version() {
+        let members = [
+            member(1, None, "root", "1.0", true),
+            member(2, Some(1), "version", "2.0", false),
+            member(3, Some(2), "variant", "2.0", true),
+            member(4, Some(1), "variant", "1.0", true),
+        ];
+        assert_eq!(derive_lines(&members)[&id(1)].line_current, id(3));
+
+        let mut listed = members;
+        listed[1].listed = true;
+        assert_eq!(derive_lines(&listed)[&id(1)].line_current, id(2));
     }
 
     #[test]
