@@ -7,6 +7,7 @@ import { useClient, useMutation, useQuery } from 'urql'
 import { Link, Route, Switch } from 'wouter'
 import { mapIdFromRouteSegment, urlForMap } from '../../common/map-url'
 import { makeSbMapId, SbMapId, Tileset, tilesetToName } from '../../common/maps'
+import { urlPath } from '../../common/urls'
 import { FragmentType, graphql, useFragment } from '../gql'
 import {
   MapFamilyRelation,
@@ -64,8 +65,9 @@ const PAGE_SIZE = 50
 const NEXT_LOOKAHEAD = 100
 
 function editorUrl(mapId: SbMapId, withIds: ReadonlyArray<SbMapId> = []): string {
-  const base = `${BASE_URL}/maps/${encodeURIComponent(mapId)}`
-  return withIds.length ? `${base}?with=${withIds.map(encodeURIComponent).join(',')}` : base
+  return withIds.length
+    ? urlPath`/admin/map-families/maps/${mapId}?${new URLSearchParams({ with: withIds.join(',') })}`
+    : urlPath`/admin/map-families/maps/${mapId}`
 }
 
 /** Map ids of the groups skipped with "Next" this session, so "Next" doesn't come back to them. */
@@ -920,7 +922,7 @@ function FamilyEditorPage({ mapId: mapIdParam }: { mapId: string }) {
       {!data && fetching ? <LoadingDotsArea /> : null}
       {data ? (
         <FamilyEditor
-          key={mapIds.join(',')}
+          key={routeMapId}
           group={data.mapFamilyGroup}
           mapIds={mapIds}
           onAddFile={id => setWithParam([...withIds, id].join(','))}
