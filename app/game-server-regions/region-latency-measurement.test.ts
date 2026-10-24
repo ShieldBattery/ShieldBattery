@@ -85,6 +85,13 @@ function startTcpAcceptClose(): Promise<TcpAcceptClose> {
   })
 }
 
+/**
+ * A loopback TCP port nothing listens on. A freed ephemeral port isn't dead for TCP: a parallel
+ * test's server can claim it, and Linux can connect a socket to itself when it picks the
+ * destination port as the source. Ports below the ephemeral range rule both out.
+ */
+const DEAD_TCP_PORT = 1
+
 /** Reserves a loopback UDP port and immediately frees it, so nothing is listening there. */
 async function getDeadUdpPort(): Promise<number> {
   const socket = dgram.createSocket('udp4')
@@ -152,9 +159,7 @@ describe('measureFallbackMedianRtt', () => {
   })
 
   it('returns undefined when nothing is listening', async () => {
-    const deadPort = await getDeadUdpPort()
-
-    const rtt = await measureFallbackMedianRtt(`127.0.0.1:${deadPort}`, FAST_OPTIONS)
+    const rtt = await measureFallbackMedianRtt(`127.0.0.1:${DEAD_TCP_PORT}`, FAST_OPTIONS)
 
     expect(rtt).toBeUndefined()
   })
@@ -280,8 +285,6 @@ describe('measureRegionLatency', () => {
     const silent = dgram.createSocket('udp4')
     await new Promise<void>(resolve => silent.bind(0, '127.0.0.1', () => resolve()))
     const silentPort = (silent.address() as net.AddressInfo).port
-    const deadFallbackPort = await getDeadUdpPort()
-
     try {
       const abort = new AbortController()
       const start = Date.now()
@@ -290,7 +293,7 @@ describe('measureRegionLatency', () => {
           id: makeGameServerRegionId('test-region'),
           displayName: 'Test Region',
           beacon: `127.0.0.1:${silentPort}`,
-          fallback: `127.0.0.1:${deadFallbackPort}`,
+          fallback: `127.0.0.1:${DEAD_TCP_PORT}`,
         },
         { ...FAST_OPTIONS, signal: abort.signal },
       )
@@ -316,8 +319,6 @@ describe('measureRegionLatency', () => {
     lookupControl.deferred = new Promise(resolve => {
       releaseLookup = resolve
     })
-    const deadFallbackPort = await getDeadUdpPort()
-
     try {
       const abort = new AbortController()
       const start = Date.now()
@@ -326,7 +327,7 @@ describe('measureRegionLatency', () => {
           id: makeGameServerRegionId('test-region'),
           displayName: 'Test Region',
           beacon: 'stalled.example.test:20000',
-          fallback: `127.0.0.1:${deadFallbackPort}`,
+          fallback: `127.0.0.1:${DEAD_TCP_PORT}`,
         },
         { ...FAST_OPTIONS, signal: abort.signal },
       )
@@ -347,14 +348,13 @@ describe('measureRegionLatency', () => {
 
   it('returns undefined when both the beacon and the fallback are dead', async () => {
     const deadBeaconPort = await getDeadUdpPort()
-    const deadFallbackPort = await getDeadUdpPort()
 
     const result = await measureRegionLatency(
       {
         id: makeGameServerRegionId('test-region'),
         displayName: 'Test Region',
         beacon: `127.0.0.1:${deadBeaconPort}`,
-        fallback: `127.0.0.1:${deadFallbackPort}`,
+        fallback: `127.0.0.1:${DEAD_TCP_PORT}`,
       },
       FAST_OPTIONS,
     )
