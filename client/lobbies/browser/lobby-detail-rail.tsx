@@ -15,6 +15,7 @@ import { MaterialIcon } from '../../icons/material/material-icon'
 import { openMapPreviewDialog } from '../../maps/action-creators'
 import { ReduxMapThumbnail } from '../../maps/map-thumbnail'
 import { FilledButton, IconButton } from '../../material/button'
+import { Tooltip } from '../../material/tooltip'
 import { useLinkCopier } from '../../navigation/copy-link-button'
 import { getServerOrigin } from '../../network/server-url'
 import DotsIndicator from '../../progress/dots'
@@ -321,27 +322,28 @@ const ObserverButton = styled(IconButton)`
   color: var(--color-blue80);
 `
 
-const CopyLinkIconButton = styled(IconButton)`
+const ActionTooltip = styled(Tooltip)`
   flex-shrink: 0;
 `
 
 function CopyLobbyLinkButton({ summary }: { summary: LobbySummary }) {
   const { t } = useTranslation()
+  const copyLabel = t('navigation.copyLink.defaultText', 'Copy link')
   const [copied, copyLink] = useLinkCopier(
     () => getServerOrigin() + urlForLobby(summary.id, summary.name),
   )
 
   return (
-    <CopyLinkIconButton
-      icon={<MaterialIcon icon='link' />}
-      title={
-        copied
-          ? t('navigation.copyLink.copiedText', 'Copied!')
-          : t('navigation.copyLink.defaultText', 'Copy link')
-      }
-      onClick={copyLink}
-      testName='copy-lobby-link-button'
-    />
+    <ActionTooltip
+      text={copied ? t('navigation.copyLink.copiedText', 'Copied!') : copyLabel}
+      tabIndex={-1}>
+      <IconButton
+        icon={<MaterialIcon icon='link' />}
+        ariaLabel={copyLabel}
+        onClick={copyLink}
+        testName='copy-lobby-link-button'
+      />
+    </ActionTooltip>
   )
 }
 
@@ -690,19 +692,24 @@ export function LobbyDetailRail({
                 testName='join-lobby-button'
               />
               {!isInGame && summary.observerSlots.open > 0 ? (
-                <ObserverButton
-                  title={t('lobbies.browser.joinAsObserver', 'Join as observer')}
-                  icon={
-                    pendingAsObserver === true ? (
-                      <DotsIndicator />
-                    ) : (
-                      <MaterialIcon icon='visibility' size={20} />
-                    )
-                  }
-                  onClick={() => onJoin(true)}
-                  disabled={joinPending}
-                  testName='join-as-observer-button'
-                />
+                <ActionTooltip
+                  text={t('lobbies.browser.joinAsObserver', 'Join as observer')}
+                  position='top'
+                  tabIndex={-1}>
+                  <ObserverButton
+                    ariaLabel={t('lobbies.browser.joinAsObserver', 'Join as observer')}
+                    icon={
+                      pendingAsObserver === true ? (
+                        <DotsIndicator />
+                      ) : (
+                        <MaterialIcon icon='visibility' size={20} />
+                      )
+                    }
+                    onClick={() => onJoin(true)}
+                    disabled={joinPending}
+                    testName='join-as-observer-button'
+                  />
+                </ActionTooltip>
               ) : null}
             </JoinActions>
             {joinLandsOnObserverSeat ? (
