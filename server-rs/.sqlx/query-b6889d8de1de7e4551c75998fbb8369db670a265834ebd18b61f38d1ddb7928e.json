@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT f.map_id as \"map_id: SbMapId\", f.parent_map_id as \"parent_map_id: SbMapId\",\n                f.relation::text as \"relation!\", f.version_label, f.pinned_current, m.listed as \"listed!\",\n                m.first_seen_at\n            FROM map_family_members f\n            INNER JOIN maps m ON m.id = f.map_id\n            WHERE f.family_id = $1\n        ",
+  "query": "\n            SELECT f.map_id as \"map_id: SbMapId\", f.parent_map_id as \"parent_map_id: SbMapId\",\n                f.relation::text as \"relation!\", f.version_label, f.pinned_current, m.listed as \"listed!\",\n                m.first_seen_at, f.line_root_id as \"stored_line_root: SbMapId\"\n            FROM map_family_members f\n            INNER JOIN maps m ON m.id = f.map_id\n            WHERE f.family_id = $1\n        ",
   "describe": {
     "columns": [
       {
@@ -74,6 +74,17 @@
             "name": "first_seen_at"
           }
         }
+      },
+      {
+        "ordinal": 7,
+        "name": "stored_line_root: SbMapId",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "map_family_members",
+            "name": "line_root_id"
+          }
+        }
       }
     ],
     "parameters": {
@@ -88,8 +99,9 @@
       true,
       false,
       true,
+      false,
       false
     ]
   },
-  "hash": "0967f19acc2be6e0fcd7fe063bc6ab8c18eebf6b20d8b9c295a2cf76f176789b"
+  "hash": "b6889d8de1de7e4551c75998fbb8369db670a265834ebd18b61f38d1ddb7928e"
 }

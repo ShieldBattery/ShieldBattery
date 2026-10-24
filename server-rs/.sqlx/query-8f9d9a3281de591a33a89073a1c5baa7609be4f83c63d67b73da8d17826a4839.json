@@ -1,0 +1,88 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT m.hash as \"hash: MapHash\", a.bases as \"bases: Json<Vec<MapBase>>\",\n                    a.trigger_count, a.ums_action_kinds, a.makers, a.credited\n                FROM map_analysis a\n                JOIN maps m ON m.id = a.map_id\n                WHERE m.hash = ANY($1)\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "hash: MapHash",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "hash"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "bases: Json<Vec<MapBase>>",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "map_analysis",
+            "name": "bases"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "trigger_count",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "map_analysis",
+            "name": "trigger_count"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "ums_action_kinds",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "map_analysis",
+            "name": "ums_action_kinds"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "makers",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "map_analysis",
+            "name": "makers"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "credited",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "map_analysis",
+            "name": "credited"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "ByteaArray"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "8f9d9a3281de591a33a89073a1c5baa7609be4f83c63d67b73da8d17826a4839"
+}

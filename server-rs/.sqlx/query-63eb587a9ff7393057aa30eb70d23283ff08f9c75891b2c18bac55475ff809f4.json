@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE map_link_suggestions\n            SET status = 'rejected', decided_by = $3, decided_at = now()\n            WHERE (map_a = $1 AND map_b = ANY($2)) OR (map_b = $1 AND map_a = ANY($2))\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "UuidArray",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "63eb587a9ff7393057aa30eb70d23283ff08f9c75891b2c18bac55475ff809f4"
+}
