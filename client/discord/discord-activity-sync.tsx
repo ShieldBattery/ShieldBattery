@@ -30,24 +30,25 @@ export function DiscordActivitySync() {
   const { t } = useTranslation()
   const selfUser = useSelfUser()
   const sharing = useAppSelector(s => s.settings.account.shareDiscordActivity)
-  const lobbyState = useAppSelector(s => s.lobby)
+  const inLobby = useAppSelector(s => isInLobby(s.lobby))
+  const lobbyInfo = useAppSelector(s => s.lobby.info)
+  const lobbyRunning = useAppSelector(s => !!s.lobby.runState)
   const gameClient = useAppSelector(s => s.gameClient)
   const participatingGame = useAtomValue(participatingGameAtom)
 
   const inParticipatingGame = isInParticipatingGame(gameClient)
   let lobby: ActivityLobby | undefined
-  if (isInLobby(lobbyState)) {
-    const { info } = lobbyState
-    const [, , ownSlot] = selfUser ? findSlotByUserId(info, selfUser.id) : []
+  if (inLobby) {
+    const [, , ownSlot] = selfUser ? findSlotByUserId(lobbyInfo, selfUser.id) : []
     lobby = {
-      id: info.id,
-      name: info.name,
-      visibility: info.visibility,
-      playerCount: getPlayerSlots(info).length,
-      openSlots: openSlotCount(info),
-      inGame: !!lobbyState.runState || inParticipatingGame,
-      mapName: info.map?.name,
-      mapImageUrl: info.map?.image1024Url ?? info.map?.image512Url,
+      id: lobbyInfo.id,
+      name: lobbyInfo.name,
+      visibility: lobbyInfo.visibility,
+      playerCount: getPlayerSlots(lobbyInfo).length,
+      openSlots: openSlotCount(lobbyInfo),
+      inGame: lobbyRunning || inParticipatingGame,
+      mapName: lobbyInfo.map?.name,
+      mapImageUrl: lobbyInfo.map?.image1024Url ?? lobbyInfo.map?.image512Url,
       ownRace: ownSlot && ownSlot.type !== SlotType.Observer ? ownSlot.race : undefined,
     }
   }
