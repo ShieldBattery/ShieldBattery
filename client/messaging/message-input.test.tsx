@@ -80,19 +80,26 @@ const commandContext: CommandContext = {
   members: [],
 }
 
-function renderInput() {
+function renderInput(context = commandContext) {
+  const store = createStore()
+  if (context.surface !== 'whisper') {
+    store.dispatch({
+      type: '@users/loadUsers',
+      payload: context.members.map(({ id, name }) => ({ id, name, created: 0 })),
+    })
+  }
   const onSendChatMessage = vi.fn()
   const onSubmitted = vi.fn()
   const emit = vi.fn()
   const handle: { current: MessageInputHandle | null } = { current: null }
   const { container } = render(
-    <ReduxProvider store={createStore()}>
+    <ReduxProvider store={store}>
       <KeyListenerBoundary>
         <MessageInput
           ref={handle}
           onSendChatMessage={onSendChatMessage}
           onSubmitted={onSubmitted}
-          commands={{ context: commandContext, emit }}
+          commands={{ context, emit }}
         />
       </KeyListenerBoundary>
     </ReduxProvider>,
@@ -255,45 +262,68 @@ describe('client/messaging/message-input', () => {
     expect(textarea.value).toBe('alph')
   })
 
-  test('Enter sends what was typed when the rows are only offers', () => {
-    const { textarea, onSendChatMessage, type, press } = renderInput()
-    claimLastWord(query => ({
-      suggestions: rowsMatching(query),
-      submitOnExact: true,
-      openEnded: true,
-    }))
+  const userContext: CommandContext = {
+    ...commandContext,
+    members: [
+      { id: makeSbUserId(2), name: 'alpha', online: true },
+      { id: makeSbUserId(3), name: 'alpine', online: true },
+    ],
+  }
 
-    type('alph')
-    press('Enter')
+  test.each(['', 'al', 'alph'])(
+    'Enter completes the first whisper target for "%s" without arrow navigation',
+    query => {
+      const { textarea, type, press, options } = renderInput(userContext)
 
-    expect(onSendChatMessage).toHaveBeenCalledWith('alph')
-    expect(textarea.value).toBe('')
-  })
+      type(`/w ${query}`)
+      expect(options().length).toBeGreaterThan(0)
+      press('Enter')
 
-  test('an arrow key picks a row out of the offers, and Enter then takes it', () => {
-    const { textarea, onSendChatMessage, type, press } = renderInput()
-    claimLastWord(query => ({
-      suggestions: rowsMatching(query),
-      submitOnExact: true,
-      openEnded: true,
-    }))
+      expect(textarea.value).toBe('/w alpha ')
+      expect(runChatCommand).not.toHaveBeenCalled()
+    },
+  )
 
-    type('alph')
+  test('Enter completes the whisper target selected with an arrow key', () => {
+    const { textarea, type, press } = renderInput(userContext)
+
+    type('/w al')
     press('ArrowDown')
     press('Enter')
 
-    expect(textarea.value).toBe('alpha ')
-    expect(onSendChatMessage).not.toHaveBeenCalled()
+    expect(textarea.value).toBe('/w alpine ')
+    expect(runChatCommand).not.toHaveBeenCalled()
+  })
+
+  test.each(['alpha', 'unknown'])(
+    'Enter submits a whisper target that is exact or has no suggestions: %s',
+    target => {
+      const { type, press } = renderInput(userContext)
+
+      type(`/w ${target}`)
+      press('Enter')
+
+      expect(runChatCommand).toHaveBeenCalledWith(`/w ${target}`, expect.anything())
+    },
+  )
+
+  test('Escape lets Enter submit a partial whisper target as typed', () => {
+    const { type, press } = renderInput(userContext)
+
+    type('/w al')
+    press('Escape')
+    press('Enter')
+
+    expect(runChatCommand).toHaveBeenCalledWith('/w al', expect.anything())
   })
 
   test('space never takes a row out of the offers', () => {
-    const { textarea, type, press } = renderInput()
-    claimLastWord(query => ({ suggestions: rowsMatching(query), openEnded: true }))
+    const { textarea, type, press } = renderInput(userContext)
 
-    type('alph')
+    type('/w alph')
 
     expect(press(' ')).toBe(true)
-    expect(textarea.value).toBe('alph')
+    expect(textarea.value).toBe('/w alph')
   })
 
   test('a palette that closes and reopens starts on its first row again', () => {

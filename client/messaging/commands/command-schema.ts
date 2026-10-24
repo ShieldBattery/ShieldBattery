@@ -69,8 +69,7 @@ interface BaseArg {
    *
    * Only an exhaustive set lets the palette rewrite what has been typed when the user presses
    * space: a lone remaining row is then what they must have meant. For an open-ended argument what
-   * has been typed may be the intended value in its own right, so Enter sends it as typed unless a
-   * row was picked.
+   * has been typed may be the intended value in its own right, so space leaves it unchanged.
    */
   exhaustive?: boolean
 }

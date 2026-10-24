@@ -176,7 +176,6 @@ export function createCommandArgProvider(deps: CommandProviderDeps): TypeaheadPr
         // towards. An argument that accepts values beyond the ones it offers is never rewritten by
         // a space at all, since what has been typed may be a value the rows simply don't hold.
         spaceAcceptsSingle: query.length > 0 && exhaustive,
-        openEnded: !exhaustive,
       }
     },
   }
