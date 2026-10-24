@@ -190,10 +190,11 @@ describe('client/discord/discord-activity', () => {
   })
 
   describe('replays', () => {
-    test('a replay shows that the user is watching one, and its map', () => {
+    test('a replay shows that the user is watching one, its map and the replay icon', () => {
       expect(shared({ kind: 'replay', mapName: 'Polypoid' })).toEqual({
         details: 'Watching a replay',
         state: 'Polypoid',
+        smallImage: { image: 'replay', text: 'Replay' },
       })
     })
 
@@ -201,6 +202,7 @@ describe('client/discord/discord-activity', () => {
       expect(shared({ kind: 'replay' })).toEqual({
         details: 'Watching a replay',
         state: undefined,
+        smallImage: { image: 'replay', text: 'Replay' },
       })
     })
   })

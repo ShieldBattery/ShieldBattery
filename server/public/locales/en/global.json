@@ -1105,6 +1105,7 @@
       "observing": "Observing {{mode}}",
       "privateLobby": "Private lobby",
       "rankedMode": "Ranked {{mode}}",
+      "replayIcon": "Replay",
       "watchingReplay": "Watching a replay"
     },
     "activityPrompt": {
