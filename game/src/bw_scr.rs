@@ -19,6 +19,7 @@ use parking_lot::{Mutex, RwLock};
 use smallvec::SmallVec;
 use winapi::shared::minwindef::FILETIME;
 use winapi::shared::windef::HWND;
+use winapi::shared::ws2def::SOCKADDR;
 use winapi::um::errhandlingapi::{GetLastError, SetLastError};
 use winapi::um::fileapi::INVALID_FILE_ATTRIBUTES;
 #[cfg(debug_assertions)]
@@ -5620,8 +5621,10 @@ fn create_file_hook(
                     // over HTTP. Nothing we use needs it, and when the Agent answers 401 ClientSdk
                     // retries forever (~45/s), nesting each retry's callback in the last one's
                     // until destroying the chain overflows the main thread's stack. Failing the
-                    // open keeps ClientSdk from ever finding (or launching) the Agent; it then
-                    // just retries this open every few seconds.
+                    // open makes ClientSdk send its requests to AGENT_FALLBACK_PORT, which
+                    // connect_hook refuses, and retry this open every few seconds. A refused
+                    // connection makes ClientSdk try to launch the Agent, which shell_execute_hook
+                    // blocks.
                     static LOGGED_AGENT_BLOCK: AtomicBool = AtomicBool::new(false);
                     if !LOGGED_AGENT_BLOCK.swap(true, Ordering::Relaxed) {
                         debug!("Blocking ClientSdk's Agent.dat lookup");
@@ -5690,6 +5693,85 @@ fn check_dir_filename(filename: &[u16], compare: &[u8]) -> bool {
         check_filename(rest, compare)
     } else {
         check_filename(filename, compare)
+    }
+}
+
+/// The port ClientSdk sends Battle.net Agent requests to when it can't read one from Agent.dat,
+/// which create_file_hook always makes it fail to.
+const AGENT_FALLBACK_PORT: u16 = 1120;
+
+fn shell_execute_hook(
+    hwnd: *mut c_void,
+    verb: *const u16,
+    file: *const u16,
+    parameters: *const u16,
+    directory: *const u16,
+    show: i32,
+    orig: unsafe extern "C" fn(
+        *mut c_void,
+        *const u16,
+        *const u16,
+        *const u16,
+        *const u16,
+        i32,
+    ) -> *mut c_void,
+) -> *mut c_void {
+    unsafe {
+        if !file.is_null() {
+            const AGENT_PATH: &[u8] = b"\\battle.net\\agent\\agent.exe";
+            let len = (0..).find(|&i| *file.add(i) == 0).unwrap();
+            let file_slice = std::slice::from_raw_parts(file, len);
+            let names_agent = file_slice
+                .get(len.saturating_sub(AGENT_PATH.len())..)
+                .filter(|ending| ending.len() == AGENT_PATH.len())
+                .is_some_and(|ending| {
+                    ending.iter().zip(AGENT_PATH).all(|(&a, &b)| {
+                        let a = if a == b'/' as u16 { b'\\' as u16 } else { a };
+                        a < 0x80 && (a as u8).eq_ignore_ascii_case(&b)
+                    })
+                });
+            // ClientSdk launches the Agent whenever an Agent request fails to connect, and each
+            // Agent it launches outlives the game. ClientSdk takes a failed launch as the request
+            // failing, without retrying it.
+            if names_agent {
+                debug!("Blocking ClientSdk's Battle.net Agent launch");
+                // Values of 32 and under are ShellExecuteW's errors, 2 being file not found.
+                return 2 as *mut c_void;
+            }
+        }
+        orig(hwnd, verb, file, parameters, directory, show)
+    }
+}
+
+fn connect_hook(
+    socket: usize,
+    address: *const SOCKADDR,
+    address_len: i32,
+    orig: unsafe extern "C" fn(usize, *const SOCKADDR, i32) -> i32,
+) -> i32 {
+    use winapi::shared::ws2def::{AF_INET, SOCKADDR_IN};
+    use winapi::um::winsock2::{SOCKET_ERROR, WSASetLastError};
+
+    unsafe {
+        if !address.is_null()
+            && (*address).sa_family == AF_INET as u16
+            && address_len as usize >= mem::size_of::<SOCKADDR_IN>()
+        {
+            let address = &*(address as *const SOCKADDR_IN);
+            let ip = u32::from_be(*address.sin_addr.S_un.S_addr());
+            if u16::from_be(address.sin_port) == AGENT_FALLBACK_PORT && ip >> 24 == 127 {
+                // Whatever answers there is either not the Agent, or an Agent that may answer
+                // 401, which ClientSdk retries with no limit, nesting each retry's callback in
+                // the last one's until destroying the chain overflows the main thread's stack.
+                static LOGGED_AGENT_CONNECT: AtomicBool = AtomicBool::new(false);
+                if !LOGGED_AGENT_CONNECT.swap(true, Ordering::Relaxed) {
+                    debug!("Refusing ClientSdk's Battle.net Agent connection");
+                }
+                WSASetLastError(winapi::shared::winerror::WSAECONNREFUSED as i32);
+                return SOCKET_ERROR;
+            }
+        }
+        orig(socket, address, address_len)
     }
 }
 
@@ -5994,6 +6076,7 @@ unsafe extern "system" fn snp_load_bind(snp_index: u32, funcs: *mut *const SnpFu
 mod hooks {
     use libc::c_void;
     use winapi::shared::minwindef::FILETIME;
+    use winapi::shared::ws2def::SOCKADDR;
 
     use crate::bw;
 
@@ -6155,6 +6238,15 @@ mod hooks {
         !0 => XInputGetState(u32, *mut c_void) -> u32;
         !0 => GetSystemTimePreciseAsFileTime(*mut FILETIME);
         !0 => SHGetFolderPathW(*mut c_void, i32, *mut c_void, u32, *mut u16) -> i32;
+        !0 => ShellExecuteW(
+            *mut c_void,
+            *const u16,
+            *const u16,
+            *const u16,
+            *const u16,
+            i32,
+        ) -> *mut c_void;
+        !0 => WsConnect(usize, *const SOCKADDR, i32) -> i32;
     );
 
     thiscall_hooks!(

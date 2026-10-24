@@ -25,10 +25,10 @@ use crate::windows;
 
 use super::{
     BwScr, ChatInjection, SNP_INITIALIZED, check_documents_starcraft_path_accessibility,
-    copy_file_hook, create_event_hook, create_file_hook, dialog_hook, file_hook, game,
-    get_file_attributes_hook, get_system_time_precise_as_file_time_hook, load_snp_list_hook,
+    connect_hook, copy_file_hook, create_event_hook, create_file_hook, dialog_hook, file_hook,
+    game, get_file_attributes_hook, get_system_time_precise_as_file_time_hook, load_snp_list_hook,
     log_time, native_sync_disabled, rollback_resimulating, rollback_step, scr, sdf_cache,
-    sh_get_folder_path_w_hook, step_game_logic_hook, tick_gates,
+    sh_get_folder_path_w_hook, shell_execute_hook, step_game_logic_hook, tick_gates,
 };
 
 impl BwScr {
@@ -1354,6 +1354,10 @@ impl BwScr {
             );
             hook_winapi_exports!(&mut active_patcher, "shell32",
                 "SHGetFolderPathW", SHGetFolderPathW, sh_get_folder_path_w_hook;
+                "ShellExecuteW", ShellExecuteW, shell_execute_hook;
+            );
+            hook_winapi_exports!(&mut active_patcher, "ws2_32",
+                "connect", WsConnect, connect_hook;
             );
 
             // SCR wants to update gamepad state every frame, but in the end it
