@@ -7,7 +7,7 @@ import { urlForMap } from '../../common/map-url'
 import { filterColorCodes, SbMapId, Tileset, tilesetToName } from '../../common/maps'
 import { matchmakingTypeToLabel } from '../../common/matchmaking'
 import { FragmentType, graphql, useFragment } from '../gql'
-import { MapKind, MapTile_SbMapFragmentFragment } from '../gql/graphql'
+import { MapKind, MapTile_SbMapFragmentFragment, MapVersionStatus } from '../gql/graphql'
 import { narrowDuration } from '../i18n/date-formats'
 import { numberFormat, useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
@@ -42,6 +42,8 @@ export const MapTile_SbMapFragment = graphql(/* GraphQL */ `
     listed
     publishedAt
     isFavorited
+    versionCount
+    versionStatus
     stats {
       id
       games7d
@@ -242,9 +244,30 @@ const Text = styled.div`
   gap: 2px;
 `
 
+const NameRow = styled.div`
+  min-width: 0;
+
+  display: flex;
+  align-items: center;
+  gap: 6px;
+`
+
 const Name = styled(EllipsizedText)`
   ${titleSmall};
+  min-width: 0;
   color: var(--theme-on-surface);
+`
+
+/** A note beside a tile's name about the other versions of its map. */
+const VersionNote = styled.div`
+  ${labelSmall};
+  ${singleLine};
+  flex-shrink: 0;
+  padding: 0 6px;
+
+  border: 1px solid var(--theme-outline-variant);
+  border-radius: 4px;
+  color: var(--color-grey-blue70);
 `
 
 const Meta = styled(EllipsizedText)`
@@ -308,6 +331,12 @@ export interface MapTileProps {
   onRemovedFromLibrary?: (id: SbMapId) => void
   /** The width the tile's image is expected to be drawn at, in CSS pixels. */
   imageSize: number
+  /**
+   * Whether the tile stands for every version in its map's family line, as in the listing of all
+   * maps. It then says how many versions there are; otherwise it marks a version that's been
+   * superseded.
+   */
+  folded?: boolean
   /** When set, the tile picks the map (for a lobby) rather than linking to its page. */
   pick?: MapTilePick
 }
@@ -336,6 +365,7 @@ export function MapTile({
   addedAt,
   onRemovedFromLibrary,
   imageSize,
+  folded = false,
   pick,
 }: MapTileProps) {
   const { t } = useTranslation()
@@ -361,6 +391,17 @@ export function MapTile({
     : t('maps.thumbnail.addToFavorites', 'Add to favorites')
 
   const previewLabel = t('maps.thumbnail.showMapPreview', 'Show map preview')
+
+  let versionNote: string | undefined
+  if (folded && map.versionCount > 1) {
+    versionNote = t('maps.catalog.versionCount', {
+      defaultValue: '{{count}} versions',
+      defaultValue_one: '{{count}} version',
+      count: map.versionCount,
+    })
+  } else if (!folded && map.versionStatus === MapVersionStatus.Superseded) {
+    versionNote = t('maps.catalog.olderVersion', 'Older version')
+  }
 
   const contents = (
     <>
@@ -402,7 +443,10 @@ export function MapTile({
         ) : null}
       </ImageBox>
       <Text>
-        <Name text={name} />
+        <NameRow>
+          <Name text={name} />
+          {versionNote ? <VersionNote>{versionNote}</VersionNote> : null}
+        </NameRow>
         <Meta text={mapTileMeta(map, t)} />
         {pick?.failed ? (
           <Signal

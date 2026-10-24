@@ -5,6 +5,7 @@ import {
   FamilyEditorFile,
   FamilyPlacement,
   orderRows,
+  orderTreeRows,
   parentOptions,
   placeFile,
   planFamilyEdits,
@@ -44,6 +45,25 @@ describe('client/maps/family-editor', () => {
       { id: B, depth: 1 },
       { id: C, depth: 1 },
       { id: D, depth: 0 },
+    ])
+  })
+
+  test('reads a line level, with branches under their file ahead of its next version', () => {
+    const E = makeSbMapId('00000000-0000-0000-0000-00000000000e')
+    const placements = new Map([
+      [A, tree(undefined)],
+      [B, tree(A)],
+      [C, tree(B)],
+      [D, tree(C)],
+      [E, tree(C, MapFamilyRelation.Variant)],
+    ])
+    const files = [A, B, C, D, E].map((id, i) => ({ id, firstSeenAt: i }))
+    expect(orderTreeRows(files, placements)).toEqual([
+      { id: A, depth: 0, branch: false },
+      { id: B, depth: 0, branch: false },
+      { id: C, depth: 0, branch: false },
+      { id: E, depth: 1, branch: true },
+      { id: D, depth: 0, branch: false },
     ])
   })
 

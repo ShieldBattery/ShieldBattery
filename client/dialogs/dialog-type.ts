@@ -53,6 +53,7 @@ export enum DialogType {
   LobbyLeaveAndCreate = 'lobbyLeaveAndCreate',
   LobbyLeaveAndJoin = 'lobbyLeaveAndJoin',
   MapCompare = 'mapCompare',
+  MapFamilyLink = 'mapFamilyLink',
   MapDownload = 'mapDownload',
   MapPreview = 'mapPreview',
   Markdown = 'markdown',
@@ -336,6 +337,14 @@ type MapCompareDialogPayload = BaseDialogPayload<
     b: SbMapId
   }
 >
+type MapFamilyLinkDialogPayload = BaseDialogPayload<
+  typeof DialogType.MapFamilyLink,
+  {
+    mapId: SbMapId
+    kind: 'related' | 'wrongFamily'
+  }
+>
+
 type MapDownloadDialogPayload = BaseDialogPayload<
   typeof DialogType.MapDownload,
   {
@@ -529,6 +538,7 @@ export type DialogPayload =
   | LobbyLeaveAndCreateDialogPayload
   | LobbyLeaveAndJoinDialogPayload
   | MapCompareDialogPayload
+  | MapFamilyLinkDialogPayload
   | MapDownloadDialogPayload
   | MapPreviewDialogPayload
   | MarkdownDialogPayload
