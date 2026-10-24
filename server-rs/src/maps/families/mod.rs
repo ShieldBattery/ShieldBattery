@@ -631,6 +631,8 @@ struct MemberRow {
     pinned_current: bool,
     listed: bool,
     first_seen_at: DateTime<Utc>,
+    /// The line root stored before this recompute.
+    stored_line_root: SbMapId,
 }
 
 /// A family member's place in its line, as derived from the tree.
@@ -733,6 +735,33 @@ fn derive_lines(members: &[MemberRow]) -> HashMap<SbMapId, LinePlace> {
         .collect()
 }
 
+/// Unpins all but one pinned member of each line, returning the unpinned members. A link can merge
+/// two lines that each had a pinned current; the pin of the line that kept its root wins.
+fn drop_extra_pins(members: &mut [MemberRow]) -> Vec<SbMapId> {
+    let places = derive_lines(members);
+    let mut kept: HashMap<SbMapId, usize> = HashMap::new();
+    let mut dropped = Vec::new();
+    for i in 0..members.len() {
+        if !members[i].pinned_current {
+            continue;
+        }
+        let root = places[&members[i].map_id].line_root;
+        let Some(&k) = kept.get(&root) else {
+            kept.insert(root, i);
+            continue;
+        };
+        let loser = if members[i].stored_line_root == root && members[k].stored_line_root != root {
+            kept.insert(root, i);
+            k
+        } else {
+            i
+        };
+        members[loser].pinned_current = false;
+        dropped.push(members[loser].map_id);
+    }
+    dropped
+}
+
 /// Recomputes every family marked stale. Each family is recomputed in its own transaction.
 pub(crate) async fn recompute_stale_families(db: &PgPool) -> eyre::Result<()> {
     let stale = sqlx::query_scalar!("SELECT id FROM map_families WHERE stale")
@@ -756,12 +785,12 @@ pub(crate) async fn recompute_family(
     tx: &mut Transaction<'_, Postgres>,
     family_id: Uuid,
 ) -> eyre::Result<()> {
-    let members = sqlx::query_as!(
+    let mut members = sqlx::query_as!(
         MemberRow,
         r#"
             SELECT f.map_id as "map_id: SbMapId", f.parent_map_id as "parent_map_id: SbMapId",
                 f.relation::text as "relation!", f.version_label, f.pinned_current, m.listed as "listed!",
-                m.first_seen_at
+                m.first_seen_at, f.line_root_id as "stored_line_root: SbMapId"
             FROM map_family_members f
             INNER JOIN maps m ON m.id = f.map_id
             WHERE f.family_id = $1
@@ -777,6 +806,20 @@ pub(crate) async fn recompute_family(
             .await
             .wrap_err("Failed to delete family")?;
         return Ok(());
+    }
+    // Unpinned before the lines are rewritten, since the pinned current is unique per line root.
+    let unpinned: Vec<Uuid> = drop_extra_pins(&mut members)
+        .into_iter()
+        .map(|id| id.0)
+        .collect();
+    if !unpinned.is_empty() {
+        sqlx::query!(
+            "UPDATE map_family_members SET pinned_current = false WHERE map_id = ANY($1)",
+            &unpinned,
+        )
+        .execute(&mut **tx)
+        .await
+        .wrap_err("Failed to unpin merged lines")?;
     }
     let places = derive_lines(&members);
     let family_root = members
@@ -841,6 +884,7 @@ mod tests {
             pinned_current: false,
             listed,
             first_seen_at: DateTime::UNIX_EPOCH,
+            stored_line_root: parent.map_or(id(n), |_| id(1)),
         }
     }
 
@@ -896,6 +940,25 @@ mod tests {
         ];
         members[0].pinned_current = true;
         assert_eq!(derive_lines(&members)[&id(2)].line_current, id(1));
+    }
+
+    #[test]
+    fn merged_lines_keep_the_pin_of_the_line_that_kept_its_root() {
+        // 3 was a fork with its own pin (4), now relinked as a version of 1's line, pinned at 2.
+        let mut members = vec![
+            member(1, None, "root", "1.0", true),
+            member(2, Some(1), "version", "2.0", true),
+            member(3, Some(2), "version", "3.0", true),
+            member(4, Some(3), "version", "4.0", true),
+        ];
+        members[3].pinned_current = true;
+        members[3].stored_line_root = id(3);
+        members[2].stored_line_root = id(3);
+        members[1].pinned_current = true;
+        assert_eq!(drop_extra_pins(&mut members), [id(4)]);
+        assert!(members[1].pinned_current);
+        assert!(!members[3].pinned_current);
+        assert!(drop_extra_pins(&mut members).is_empty());
     }
 
     /// Checks the rules against hand-checked reference outputs: per-file credits, versions and

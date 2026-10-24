@@ -894,6 +894,8 @@ fn edit_error(error: FamilyEditError) -> async_graphql::Error {
         | FamilyEditError::SuggestionNotFound
         | FamilyEditError::ReportNotFound => "NOT_FOUND",
         FamilyEditError::Locked | FamilyEditError::NotPublisher => "FORBIDDEN",
+        FamilyEditError::ReportingRestricted => "RESTRICTED",
+        FamilyEditError::TooManyReports => "RATE_LIMITED",
         FamilyEditError::Other(e) => return async_graphql::Error::new(format!("{e:?}")),
         _ => "BAD_REQUEST",
     };
@@ -1244,6 +1246,9 @@ impl MapFamiliesMutation {
             None => None,
         };
         let mut tx = db.begin().await?;
+        edit::check_reporter(&mut tx, user.id)
+            .await
+            .map_err(edit_error)?;
         let id = edit::insert_report(
             &mut tx,
             &ReportRequest {

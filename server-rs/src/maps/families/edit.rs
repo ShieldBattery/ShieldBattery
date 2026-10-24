@@ -17,6 +17,9 @@ use crate::users::SbUserId;
 
 /// The longest note a family report can carry, in characters.
 pub const MAX_REPORT_NOTE_LENGTH: usize = 500;
+/// The most family reports a user can file in a rolling hour. Only stops outright spam of the
+/// families queue.
+const MAX_REPORTS_PER_HOUR: i64 = 10;
 
 #[derive(Debug, thiserror::Error)]
 pub enum FamilyEditError {
@@ -46,6 +49,10 @@ pub enum FamilyEditError {
     MissingOtherMap,
     #[error("the note must be at most {MAX_REPORT_NOTE_LENGTH} characters")]
     NoteTooLong,
+    #[error("you are currently restricted from reporting")]
+    ReportingRestricted,
+    #[error("you've filed too many reports recently, please try again later")]
+    TooManyReports,
     #[error(transparent)]
     Other(#[from] eyre::Report),
 }
@@ -696,6 +703,39 @@ pub struct ReportRequest {
     pub other_map_id: Option<SbMapId>,
     pub suggested_relation: Option<MapFamilyRelation>,
     pub note: Option<String>,
+}
+
+/// Checks that `user` may file a family report: they aren't restricted from reporting and haven't
+/// filed too many recently. Reports filed on a user's behalf by another edit skip this.
+pub async fn check_reporter(
+    tx: &mut Transaction<'_, Postgres>,
+    user: SbUserId,
+) -> Result<(), FamilyEditError> {
+    let row = sqlx::query!(
+        r#"
+            SELECT
+                EXISTS (
+                    SELECT 1 FROM user_restrictions
+                    WHERE user_id = $1 AND kind = 'reporting'::restriction_kind
+                        AND start_time <= now() AND end_time > now()
+                ) as "restricted!",
+                (
+                    SELECT count(*) FROM map_family_reports
+                    WHERE reported_by = $1 AND reported_at > now() - interval '1 hour'
+                ) as "recent!"
+        "#,
+        user as _,
+    )
+    .fetch_one(&mut **tx)
+    .await
+    .wrap_err("Failed to check the reporter")?;
+    if row.restricted {
+        Err(FamilyEditError::ReportingRestricted)
+    } else if row.recent >= MAX_REPORTS_PER_HOUR {
+        Err(FamilyEditError::TooManyReports)
+    } else {
+        Ok(())
+    }
 }
 
 /// Stores a family report, or returns the reporter's open report about the same maps. Returns
