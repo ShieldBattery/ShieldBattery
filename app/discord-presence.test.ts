@@ -1,4 +1,11 @@
-import { updateRichPresence } from '@shieldbattery/danimoth'
+import {
+  clearRichPresence,
+  destroyClient,
+  DiscordCallError,
+  ResultErrorType,
+  setApplicationId,
+  updateRichPresence,
+} from '@shieldbattery/danimoth'
 import { readdir } from 'node:fs/promises'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { DiscordActivity } from '../common/discord-presence'
@@ -25,11 +32,25 @@ vi.mock('./logger', () => ({
 }))
 
 const DISCORD_CHECK_INTERVAL_MS = 15 * 1000
+const MIN_UPDATE_INTERVAL_MS = 4 * 1000
 
 const LOBBY_ACTIVITY: DiscordActivity = { details: 'My lobby', state: 'Fighting Spirit' }
 
 const mockReaddir = asMockedFunction(readdir as (path: string) => Promise<string[]>)
 const mockUpdateRichPresence = asMockedFunction(updateRichPresence)
+const mockClearRichPresence = asMockedFunction(clearRichPresence)
+const mockSetApplicationId = asMockedFunction(setApplicationId)
+const mockDestroyClient = asMockedFunction(destroyClient)
+
+/** Returns an error like the ones the binding rejects with when the SDK reports a failure. */
+function callError(errorType: ResultErrorType): DiscordCallError {
+  return Object.assign(new Error('ErrorType: 9 Error: '), {
+    errorType,
+    errorCode: 0,
+    retryable: false,
+    retryAfter: 0,
+  })
+}
 
 function setDiscordRunning(running: boolean) {
   mockReaddir.mockResolvedValue(running ? ['InitShutdown', 'discord-ipc-0'] : ['InitShutdown'])
@@ -65,6 +86,9 @@ describe('app/discord-presence/DiscordPresence', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     mockUpdateRichPresence.mockReset()
+    mockClearRichPresence.mockClear()
+    mockSetApplicationId.mockReset()
+    mockDestroyClient.mockClear()
     presence = new DiscordPresence({
       sdkPath: 'C:\\fake\\discord_partner_sdk.dll',
       applicationId: '1',
@@ -92,9 +116,7 @@ describe('app/discord-presence/DiscordPresence', () => {
   test('tries a failed activity again while Discord runs', async () => {
     // Right after Discord starts, its pipe exists before it takes the SDK's connection.
     setDiscordRunning(true)
-    mockUpdateRichPresence
-      .mockRejectedValueOnce(new Error('ErrorType: 9'))
-      .mockResolvedValue(undefined)
+    mockUpdateRichPresence.mockRejectedValueOnce(callError('rpcError')).mockResolvedValue(undefined)
     presence.start()
     presence.setActivity(LOBBY_ACTIVITY)
     await vi.advanceTimersByTimeAsync(0)
@@ -109,9 +131,7 @@ describe('app/discord-presence/DiscordPresence', () => {
 
   test('waits for Discord to start before trying a failed activity again', async () => {
     setDiscordRunning(false)
-    mockUpdateRichPresence
-      .mockRejectedValueOnce(new Error('ErrorType: 9'))
-      .mockResolvedValue(undefined)
+    mockUpdateRichPresence.mockRejectedValueOnce(callError('rpcError')).mockResolvedValue(undefined)
     presence.start()
     presence.setActivity(LOBBY_ACTIVITY)
     await runDiscordCheck()
@@ -134,6 +154,41 @@ describe('app/discord-presence/DiscordPresence', () => {
     setDiscordRunning(true)
     await runDiscordCheck()
     expect(mockUpdateRichPresence).toHaveBeenCalledTimes(2)
+  })
+
+  test('clears an activity that failed to update', async () => {
+    // A failed update may leave an earlier activity showing, so clearing is never skipped after one.
+    setDiscordRunning(true)
+    mockUpdateRichPresence.mockRejectedValue(callError('rpcError'))
+    presence.start()
+    presence.setActivity(LOBBY_ACTIVITY)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(mockUpdateRichPresence).toHaveBeenCalledTimes(1)
+
+    presence.setActivity(null)
+    await vi.advanceTimersByTimeAsync(MIN_UPDATE_INTERVAL_MS)
+    expect(mockClearRichPresence).toHaveBeenCalledTimes(1)
+  })
+
+  test("doesn't try an activity Discord refused as invalid again", async () => {
+    setDiscordRunning(true)
+    mockUpdateRichPresence.mockRejectedValue(callError('validationError'))
+    presence.start()
+    presence.setActivity(LOBBY_ACTIVITY)
+
+    await runDiscordCheck()
+    await runDiscordCheck()
+    expect(mockUpdateRichPresence).toHaveBeenCalledTimes(1)
+  })
+
+  test('leaves presence off when the SDK fails to start', () => {
+    mockSetApplicationId.mockImplementation(() => {
+      throw new Error('Invalid application ID')
+    })
+
+    expect(() => presence.start()).not.toThrow()
+    expect(presence.isLoaded).toBe(false)
+    expect(mockDestroyClient).toHaveBeenCalledTimes(1)
   })
 
   test("doesn't try an activity the binding rejected again", async () => {
