@@ -1721,7 +1721,6 @@
       "joinLobby": "Join lobby",
       "legacyLimits": "Legacy limits",
       "lockedAlliances": "Locked alliances",
-      "moreActions": "More actions",
       "observers": "Observers",
       "observersCount": "Observers · {{taken}}/{{total}}",
       "observerSlotsOpen_one": "{{count}} open",
