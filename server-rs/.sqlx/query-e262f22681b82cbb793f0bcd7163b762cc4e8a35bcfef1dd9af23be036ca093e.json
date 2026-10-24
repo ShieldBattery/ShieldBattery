@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO map_family_members (map_id, family_id, parent_map_id, relation,\n                version_label, source, linked_at, line_root_id, line_current_id)\n            VALUES ($1, $2, $3, $4::text::map_family_relation, $5, 'rule', now(), $1, $1)\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e262f22681b82cbb793f0bcd7163b762cc4e8a35bcfef1dd9af23be036ca093e"
+}
