@@ -9,6 +9,10 @@
 // per-file process authenticate silently. The PIN is asked for once per build via a
 // hidden terminal prompt, or taken from SB_CSC_PIN if set.
 //
+// Files that already carry a valid signature of their own, like the DLLs other vendors
+// ship signed (Microsoft's d3dcompiler_47.dll, the Discord Social SDK's library), keep it
+// rather than having it replaced with ours.
+//
 // Requirements:
 // - MGTEK Smartcard Tools installed (scsigntool on PATH, in its default install
 //   location, or pointed at via SCSIGNTOOL_PATH).
@@ -108,9 +112,42 @@ function runScsigntool(tool, args, env, pin) {
   })
 }
 
+// The files that kept their own signature. electron-builder signs a file once per hash
+// algorithm, nesting every later signature in the first, so these skip the later ones too.
+const keptSignatures = new Set()
+
+/**
+ * Returns whether a file carries a valid Authenticode signature under Windows' default
+ * policy: intact, from a trusted certificate, and timestamped or still within the
+ * certificate's validity.
+ */
+function hasValidSignature(signtool, file, env) {
+  return new Promise(resolve => {
+    execFile(signtool, ['verify', '/pa', '/q', file], { env, timeout: 60 * 1000 }, err => {
+      resolve(!err)
+    })
+  })
+}
+
 exports.default = async function sign(configuration, packager) {
   if (process.platform !== 'win32') {
     throw new Error('This sign hook only supports signing on Windows')
+  }
+
+  const signingManager = await packager.signingManager.value
+  const toolInfo = await signingManager.getToolPath()
+  const env = { ...process.env, ...(toolInfo.env || {}) }
+
+  // A nested call comes after this hook handled the file once, which may have signed it, so
+  // only the first call checks the signature.
+  if (configuration.isNest) {
+    if (keptSignatures.has(configuration.path)) {
+      return
+    }
+  } else if (await hasValidSignature(toolInfo.path, configuration.path, env)) {
+    keptSignatures.add(configuration.path)
+    console.log(`  • kept the existing valid signature  file=${configuration.path}`)
+    return
   }
 
   // computeSignToolArgs yields the same argument list electron-builder would pass to
@@ -119,9 +156,6 @@ exports.default = async function sign(configuration, packager) {
   const args = configuration.computeSignToolArgs(true)
   const pin = await getPin()
 
-  const signingManager = await packager.signingManager.value
-  const toolInfo = await signingManager.getToolPath()
-  const env = { ...process.env, ...(toolInfo.env || {}) }
   // scsigntool locates signtool.exe via PATH, so point it at the same signtool build
   // electron-builder would have run directly. The spread above made env a plain object,
   // so match the existing PATH key's casing (usually "Path" on Windows) rather than

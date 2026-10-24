@@ -8,6 +8,7 @@ import type {
 } from 'electron'
 import { Promisable } from 'type-fest'
 import { GameDeepLink } from './deep-links'
+import { DiscordActivity } from './discord-presence'
 import { GameServerRegion, GameServerRegionLatencies } from './game-server-regions'
 import { GameDebugInputEvent, GameDebugScreenshot, GameDebugState } from './games/game-debug'
 import { GameLaunchConfig } from './games/game-launch-config'
@@ -238,6 +239,13 @@ interface IpcInvokeables {
 
   bugReportCollectFiles: () => Promise<Uint8Array<ArrayBuffer>>
 
+  /**
+   * Returns whether Rich Presence can show right now: the Discord SDK loaded, and the Discord
+   * desktop app it goes through is running on this computer. Otherwise there's nothing to ask the
+   * user about.
+   */
+  discordCanShowActivity: () => boolean
+
   // TODO(tec27): Support the non-filetypes version if we need it, overloads don't seem to work
   // well with the current approach for typing these invokes =/
   fsReadDir: (dirPath: string, options: { withFileTypes: true }) => Promise<FsDirent[]>
@@ -265,6 +273,8 @@ interface IpcInvokeables {
    * has none (e.g. a development build that never ran a release build of the DLL).
    */
   licensesGetGameNotices: () => string | undefined
+  /** Returns the Discord Social SDK's license notices, or `undefined` if this build lacks the SDK. */
+  licensesGetDiscordSdkNotices: () => string | undefined
 
   logMessage: (level: string, message: string) => void
 
@@ -447,6 +457,12 @@ interface IpcRendererSendables {
    * whisper (whispers are inherently directed at the user).
    */
   chatUnreadState: (data: { hasUnread: boolean; hasUnreadUrgent: boolean }) => void
+
+  /**
+   * The Rich Presence activity to show on Discord, or `null` to show none. Sent whenever it
+   * changes, including to `null` on logout.
+   */
+  discordSetActivity: (activity: DiscordActivity | null) => void
 
   gameServerRegionsSetList: (regions: GameServerRegion[]) => void
 

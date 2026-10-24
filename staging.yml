@@ -2,8 +2,13 @@
 # It should generally match the other build configs (except things that need to differ for this
 # "region")
 appId: net.shieldbattery.client.dev
+# Fails the build unless discord-sdk holds the Discord Social SDK version the repo pins
+beforePack: ./tools/check-discord-sdk.cjs
 extraResources:
   - game/dist/**
+  # The Discord Social SDK, which never lives in the repo (see docs/DISCORD_SDK.md)
+  - discord-sdk/discord_partner_sdk.dll
+  - discord-sdk/License-Notices.txt
 files:
   - 'assets/**/*'
   - 'dist/**/*'

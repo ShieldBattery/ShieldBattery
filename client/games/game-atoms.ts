@@ -1,6 +1,9 @@
 import { atom } from 'jotai'
 import { atomWithImmer } from 'jotai-immer'
+import { PlayerInfo } from '../../common/games/game-launch-config'
 import { GameLoadingStatus } from '../../common/games/game-loader-network'
+import { GameType } from '../../common/games/game-type'
+import { MatchmakingType } from '../../common/matchmaking'
 
 export interface LastGameState {
   /**
@@ -14,6 +17,23 @@ export interface LastGameState {
 
 /** Info about the last game that was played in this client. */
 export const lastGameAtom = atom<LastGameState | undefined>(undefined)
+
+/** What the client knows about the game the user takes part in (a lobby or matchmaking game). */
+export interface ParticipatingGameInfo {
+  gameId: string
+  gameType: GameType
+  mapName: string
+  /** The URL of the map's image, if it has one. */
+  mapImageUrl?: string
+  /** The match's matchmaking type, or `undefined` for a lobby game. */
+  matchmakingType?: MatchmakingType
+  slots: ReadonlyArray<Pick<PlayerInfo, 'userId' | 'race' | 'type'>>
+  /** When this client saw the game reach `playing`, in milliseconds since the Unix epoch. */
+  playingSince?: number
+}
+
+/** The game the user last took part in, from when its setup arrives. */
+export const participatingGameAtom = atom<ParticipatingGameInfo | undefined>(undefined)
 
 const MAX_RECENT_REPLAY_PATHS = 8
 

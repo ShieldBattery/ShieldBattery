@@ -36,6 +36,7 @@ export enum DialogType {
   ChannelUserPermissions = 'channelUserPermissions',
   CreatePlaylist = 'createPlaylist',
   DeletePlaylist = 'deletePlaylist',
+  DiscordActivityPrompt = 'discordActivityPrompt',
   Download = 'download',
   EmailVerification = 'emailVerification',
   ExternalLink = 'externalLink',
@@ -244,6 +245,7 @@ type DeletePlaylistDialogPayload = BaseDialogPayload<
     name: string
   }
 >
+type DiscordActivityPromptDialogPayload = BaseDialogPayload<typeof DialogType.DiscordActivityPrompt>
 type DownloadDialogPayload = BaseDialogPayload<typeof DialogType.Download>
 type EmailVerificationDialogPayload = BaseDialogPayload<
   typeof DialogType.EmailVerification,
@@ -475,6 +477,7 @@ export type DialogPayload =
   | ChannelUnbanUserDialogPayload
   | CreatePlaylistDialogPayload
   | DeletePlaylistDialogPayload
+  | DiscordActivityPromptDialogPayload
   | DownloadDialogPayload
   | EmailVerificationDialogPayload
   | ExternalLinkDialogPayload
