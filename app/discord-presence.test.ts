@@ -191,6 +191,20 @@ describe('app/discord-presence/DiscordPresence', () => {
     expect(mockDestroyClient).toHaveBeenCalledTimes(1)
   })
 
+  test("doesn't hold an update back when the system clock is set back", async () => {
+    setDiscordRunning(true)
+    mockUpdateRichPresence.mockResolvedValue(undefined)
+    presence.start()
+    presence.setActivity(LOBBY_ACTIVITY)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(mockUpdateRichPresence).toHaveBeenCalledTimes(1)
+
+    vi.setSystemTime(Date.now() - 60 * 60 * 1000)
+    presence.setActivity({ ...LOBBY_ACTIVITY, state: 'Circuit Breaker' })
+    await vi.advanceTimersByTimeAsync(MIN_UPDATE_INTERVAL_MS)
+    expect(mockUpdateRichPresence).toHaveBeenCalledTimes(2)
+  })
+
   test("doesn't try an activity the binding rejected again", async () => {
     setDiscordRunning(true)
     mockUpdateRichPresence.mockImplementation(() => {
