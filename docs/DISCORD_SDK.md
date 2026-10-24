@@ -35,7 +35,8 @@ electron-builder's `beforePack` hook, and first thing in `dist` and `diststaging
 before building anything else.
 
 The build ships the files through `extraResources` into the installed app's `resources/discord-sdk`
-folder, and the app shows `License-Notices.txt` on its open source licenses page.
+folder, and the app shows `License-Notices.txt` on its open source licenses page. The library keeps
+Discord's own signature: the sign hook leaves alone any file that already carries a valid one.
 
 ## Rich Presence images
 
