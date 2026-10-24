@@ -61,18 +61,9 @@ jobs:
         id: gen-graphql
         run: pnpm gen-graphql
 
-      - name: Get changed files
-        uses: zyactions/verify-changed-files@2981a606808d0b36bdb2fbe45a50b01aa3ec601d
-        id: get-changed-files
-        with:
-          return-pipe: true
-
       - name: Check email templates
-        uses: zyactions/glob@019de5a7f0ba17b700d45867086242eb99ff1a46
         id: check-email-templates
-        with:
-          pipe: ${{ steps.get-changed-files.outputs.pipe }}
-          pattern: server/email/*.html
+        run: echo "matches=$(git status --porcelain -- 'server/email/*.html' | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
 
       - name: Display email template error
         if: ${{ steps.check-email-templates.outputs.matches != '' || failure() && steps.gen-email-templates.conclusion == 'failure' }}
@@ -82,11 +73,8 @@ jobs:
             core.setFailed('The email templates seem outdated. Please run "pnpm gen-emails" in the directory root and commit the updated email templates.')
 
       - name: Check graphql codegen
-        uses: zyactions/glob@019de5a7f0ba17b700d45867086242eb99ff1a46
         id: check-graphql
-        with:
-          pipe: ${{ steps.get-changed-files.outputs.pipe }}
-          pattern: client/gql/*
+        run: echo "matches=$(git status --porcelain -- 'client/gql/*' | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
 
       - name: Display graphql error
         if: ${{ steps.check-graphql.outputs.matches != '' || failure() && steps.gen-graphql.conclusion == 'failure' }}
