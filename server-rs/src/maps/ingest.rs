@@ -18,6 +18,7 @@ use crate::async_rayon::spawn_rayon;
 use crate::configuration::Settings;
 use crate::file_store::{FileStore, WriteOptions};
 use crate::maps::catalog::resolve_map_id;
+use crate::maps::families::FamilyDetector;
 use crate::maps::parse::{
     AnalysisTables, FINGERPRINT_VERSION, MAP_PARSER_VERSION, MapAnalysis, MapExtension,
     MapParseError, ParsedMap, ParsedMapFile, is_mojibake_of, map_file_hash, parse_map,
@@ -121,6 +122,7 @@ pub struct MapIngester {
     file_store: FileStore,
     analysis_tables: Option<Arc<AnalysisTables>>,
     render_assets: Option<Arc<MapRenderAssets>>,
+    families: FamilyDetector,
     /// Limits how many maps are parsed or rendered at once, across uploads and the reparse job.
     parse_permits: Arc<Semaphore>,
     parse_concurrency: usize,
@@ -164,6 +166,7 @@ impl MapIngester {
             }
         };
         Self {
+            families: FamilyDetector::new(db.clone()),
             db,
             file_store,
             analysis_tables,
@@ -221,8 +224,14 @@ impl MapIngester {
         let map_id = match existing {
             Some(map_id) => map_id,
             None => {
-                self.store_new_map(bytes, extension, hash, uploaded_by)
-                    .await?
+                let map_id = self
+                    .store_new_map(bytes, extension, hash, uploaded_by)
+                    .await?;
+                // The hourly sweep scans maps this misses, so a failure here doesn't fail the upload.
+                if let Err(e) = self.families.scan_map(map_id).await {
+                    error!("Scanning a new map for families failed: {e:?}");
+                }
+                map_id
             }
         };
 
@@ -564,9 +573,10 @@ impl MapIngester {
         }
     }
 
-    /// Brings every stored map to the current parser version, then (when render assets are
-    /// available) its images to the current render version, the most visible maps first. A map
-    /// that fails keeps its old values and isn't retried until the version changes.
+    /// Brings every stored map to the current parser version, scans maps for families under the
+    /// current rules, then (when render assets are available) brings images to the current render
+    /// version, the most visible maps first. A map that fails keeps its old values and isn't
+    /// retried until the version changes.
     pub async fn update_outdated_maps(&self) -> eyre::Result<()> {
         // The lock is held by this connection's session, so it's released if the process dies.
         let mut lock_conn = self.db.acquire().await?;
@@ -579,6 +589,9 @@ impl MapIngester {
         }
 
         let mut result = self.reparse_batches().await;
+        if result.is_ok() {
+            result = self.families.scan_outdated().await;
+        }
         // Zero-asset minimaps are only for maps that would otherwise have no images, so outdated
         // images are only replaced by real renders.
         if result.is_ok() && self.render_assets.is_some() {
@@ -905,14 +918,16 @@ async fn write_analysis(
             INSERT INTO map_analysis (map_id, format_version, string_encoding, trigger_count,
                 briefing_count, ums_action_kinds, placed_units, player_units, mineral_fields,
                 mineral_total, geysers, bases, author_suggestions, anomalies, protection_detected,
-                terrain_fingerprint, fingerprint_version)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+                terrain_fingerprint, fingerprint_version, chk_hash, makers, credited)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
+                $18, $19, $20)
             ON CONFLICT (map_id) DO UPDATE
             SET format_version = $2, string_encoding = $3, trigger_count = $4, briefing_count = $5,
                 ums_action_kinds = $6, placed_units = $7, player_units = $8, mineral_fields = $9,
                 mineral_total = $10, geysers = $11, bases = $12, author_suggestions = $13,
                 anomalies = $14, protection_detected = $15, terrain_fingerprint = $16,
-                fingerprint_version = $17
+                fingerprint_version = $17, chk_hash = $18, makers = $19, credited = $20,
+                family_scan_version = NULL
         "#,
         map_id as _,
         analysis.format_version,
@@ -934,6 +949,9 @@ async fn write_analysis(
             .terrain_fingerprint
             .as_ref()
             .map(|_| FINGERPRINT_VERSION),
+        &analysis.chk_hash,
+        &analysis.makers,
+        &analysis.credited,
     )
     .execute(&mut **tx)
     .await

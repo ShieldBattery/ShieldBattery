@@ -20,13 +20,14 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+use crate::maps::credits::parse_credits;
 use crate::maps::{LobbyInitData, MapForce, MapForcePlayer, MapForcePlayerRace};
 
 /// The version of the parsing below. Every stored value derived from a map file's bytes was
 /// written by one parser version, kept in `maps.parser_version`. Bump this whenever any stored
 /// output would change (a broodmap upgrade that changes parse results, or a change to the
 /// derivations here), and the reparse job rewrites every map's values.
-pub const MAP_PARSER_VERSION: i32 = 3;
+pub const MAP_PARSER_VERSION: i32 = 4;
 
 /// The version of [`terrain_fingerprint`]'s encoding, stored beside each fingerprint so
 /// fingerprints are only compared with ones of the same version.
@@ -179,6 +180,11 @@ pub struct MapAnalysis {
     pub anomalies: Vec<String>,
     pub protection_detected: bool,
     pub terrain_fingerprint: Option<Vec<u8>>,
+    /// SHA-256 of `scenario.chk`, shared by files that differ only in MPQ packing.
+    pub chk_hash: Vec<u8>,
+    /// Who the description says made the map, and who it credits as the original, normalized.
+    pub makers: Vec<String>,
+    pub credited: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -222,6 +228,7 @@ pub fn parse_map(
     let chk_bytes = mpq
         .read_file(CHK_PATH, None)
         .map_err(|e| MapParseError::InvalidFile(format!("scenario.chk: {e}")))?;
+    let chk_hash = Sha256::digest(&chk_bytes).to_vec();
     let chk = Chk::from_bytes_with_limits(chk_bytes, None, &limits)
         .map_err(|e| MapParseError::InvalidFile(format!("chk: {e}")))?;
 
@@ -271,6 +278,7 @@ pub fn parse_map(
         None => (None, None),
     };
 
+    let credits = parse_credits(&description);
     let analysis = MapAnalysis {
         format_version: i32::from(chk.format_version() as u16),
         string_encoding: string_encoding_name(chk.strings().encoding),
@@ -287,6 +295,9 @@ pub fn parse_map(
         anomalies,
         protection_detected,
         terrain_fingerprint,
+        chk_hash,
+        makers: credits.makers,
+        credited: credits.credited,
     };
 
     let parsed = ParsedMap {
@@ -447,9 +458,10 @@ impl UnitCounts {
 
 /// Whether a trigger action fits a melee map. Besides the default melee triggers (resources,
 /// victory and defeat), tournament melee maps commonly add observer-safe triggers: messages,
-/// sounds, AI scripts for computer slots, alliances and objectives. Removing units and setting
-/// death counts are also allowed, so melee variants built on them (Hunters remakes, fastest maps)
-/// count as melee; EUD death counts are caught separately.
+/// sounds, AI scripts for computer slots, alliances and objectives. Removing or killing units and
+/// setting death counts are also allowed, so melee variants built on them (Hunters remakes, fastest
+/// maps) and stock melee maps that kill units at a location (Blizzard's The Lost Temple) count as
+/// melee; EUD death counts are caught separately.
 fn is_melee_compatible_action(action: &RawTriggerAction) -> bool {
     matches!(
         action,
@@ -467,6 +479,7 @@ fn is_melee_compatible_action(action: &RawTriggerAction) -> bool {
             | RawTriggerAction::Comment(_)
             | RawTriggerAction::RemoveUnit { .. }
             | RawTriggerAction::RemoveUnitAtLocation { .. }
+            | RawTriggerAction::KillUnitAtLocation { .. }
             | RawTriggerAction::SetDeaths(SetDeathsAction::Normal { .. })
     )
 }
@@ -905,6 +918,9 @@ mod tests {
                     "protection_detected": parsed.analysis.protection_detected,
                     "string_encoding": parsed.analysis.string_encoding,
                     "fingerprint_bytes": parsed.analysis.terrain_fingerprint.map(|f| f.len()),
+                    "chk_hash": data_encoding::HEXLOWER.encode(&parsed.analysis.chk_hash),
+                    "makers": parsed.analysis.makers,
+                    "credited": parsed.analysis.credited,
                 }),
                 Err(e) => serde_json::json!({ "hash": hash, "ok": false, "error": e.to_string() }),
             };
@@ -914,9 +930,18 @@ mod tests {
 
     #[test]
     fn melee_allowlist_covers_default_triggers_and_variants() {
+        use broodmap::chk::triggers::PlayerGroup;
+
         assert!(is_melee_compatible_action(&RawTriggerAction::Victory));
         assert!(is_melee_compatible_action(&RawTriggerAction::Defeat));
         assert!(!is_melee_compatible_action(&RawTriggerAction::PauseGame));
+        assert!(is_melee_compatible_action(
+            &RawTriggerAction::KillUnitAtLocation {
+                player_group: PlayerGroup::Player1,
+                unit_id: 0,
+                location: 0,
+            }
+        ));
         assert_eq!(action_kind_name(&RawTriggerAction::PauseGame), "PauseGame");
         assert_eq!(
             action_kind_name(&RawTriggerAction::LeaderboardGreed(5)),

@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                        INSERT INTO map_link_suggestions (map_a, map_b, terrain_similarity,\n                            fingerprint_version, name_match, verdict, verdict_rules_version,\n                            status, decided_at, created_at)\n                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8,\n                            CASE WHEN $9 THEN now() ELSE NULL END, now())\n                        ON CONFLICT (map_a, map_b) DO NOTHING\n                    ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Float4",
+        "Int2",
+        "Bool",
+        "Jsonb",
+        "Int2",
+        "Text",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e0c6fea756debb8b23fd807f38e15c0fa0b4d0f7acac9c4e96b2792ddd17612b"
+}

@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    SELECT m.id as \"id: SbMapId\"\n                    FROM maps m\n                    INNER JOIN map_analysis a ON a.map_id = m.id\n                    WHERE m.parser_version = $1\n                        AND a.family_scan_version IS DISTINCT FROM $2\n                    ORDER BY\n                        (SELECT s.games_90d FROM map_stats s WHERE s.map_id = m.id)\n                            DESC NULLS LAST,\n                        m.id\n                    LIMIT $3\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id: SbMapId",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int2",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "8e7d6985f1a578d11971d344243ea8f16120df68c7d5a590b9d3982985f6db52"
+}

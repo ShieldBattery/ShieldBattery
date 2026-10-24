@@ -1,0 +1,167 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT m.id as \"id: SbMapId\", m.title, m.public_name, m.description, m.width,\n                m.height, COALESCE(m.ums_content, m.kind = 'ums') as \"ums_content!\",\n                m.first_seen_at, a.chk_hash, a.makers, a.credited, a.terrain_fingerprint,\n                a.fingerprint_version\n            FROM maps m\n            INNER JOIN map_analysis a ON a.map_id = m.id\n            WHERE m.id = ANY($1)\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id: SbMapId",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "title",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "title"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "public_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "public_name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "description",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "description"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "width",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "width"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "height",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "height"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "ums_content!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "first_seen_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "first_seen_at"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "chk_hash",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "map_analysis",
+            "name": "chk_hash"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "makers",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "map_analysis",
+            "name": "makers"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "credited",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "map_analysis",
+            "name": "credited"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "terrain_fingerprint",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "map_analysis",
+            "name": "terrain_fingerprint"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "fingerprint_version",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "map_analysis",
+            "name": "fingerprint_version"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      null,
+      false,
+      true,
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "bd99bfa237569ce301b1ed2f76087aa92a875054e05fdd6d122b57e88f5e17c5"
+}
