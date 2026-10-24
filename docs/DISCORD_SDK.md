@@ -47,9 +47,10 @@ has no map image, so its activity shows only the replay icon.
 
 The race, observer and replay icons are art assets, uploaded under Rich Presence → Art Assets to
 each of the three Discord applications with the keys `race_p`, `race_t`, `race_z`, `race_r`,
-`observer` and `replay` (the file names in `docs/discord-assets`). The observer and replay icons are
-Material Symbols' `visibility` and `movie`, filled, in `#bfd9ff` on the race icons' `#18273e`. The
-app refers to them by key, so a changed icon only needs uploading again under the same key.
+`observer` and `replay` (the file names in `docs/discord-assets`). The observer icon is Material
+Symbols' `visibility`, filled, and the replay icon is drawn in `replay.svg`, both in `#bfd9ff` on the
+race icons' `#18273e`. The app refers to them by key, so a changed icon only needs uploading again
+under the same key.
 
 ## Updating the SDK
 
