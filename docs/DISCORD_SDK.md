@@ -11,7 +11,7 @@ shipping it inside the app, nothing more. `.gitignore` keeps the `discord-sdk` f
 The SDK is a download from the Discord Developer Portal, for members of the team that owns the
 ShieldBattery applications (ShieldBattery, ShieldBattery-Staging and ShieldBattery-Local; each
 release channel publishes as its own). Open one of them, go to the Social SDK's Downloads page, and
-download the SDK for C++.
+download the SDK for C++ in the version `tools/check-discord-sdk.cjs` names.
 
 From the download, copy these two files into a `discord-sdk` folder at the root of your checkout:
 
@@ -27,10 +27,15 @@ from Discord only works while the app is already running.
 
 ## Release builds
 
-`pnpm run dist` and `pnpm run diststaging` refuse to build without both files in `discord-sdk`, so
-no release goes out without Rich Presence. The build ships them through `extraResources` into the
-installed app's `resources/discord-sdk` folder, and the app shows `License-Notices.txt` on its open
-source licenses page.
+Builds from `prod.yml` and `staging.yml` (`pnpm run dist`, `diststaging`, `pack` and `packstaging`)
+refuse to run unless both files in `discord-sdk` are the ones from the SDK version the repo pins, so
+no release goes out without Rich Presence or with an SDK it wasn't tested against.
+`tools/check-discord-sdk.cjs` holds that version and each file's SHA-256. It runs as
+electron-builder's `beforePack` hook, and first thing in `build:release`, which all four run, so
+they fail before building anything else.
+
+The build ships the files through `extraResources` into the installed app's `resources/discord-sdk`
+folder, and the app shows `License-Notices.txt` on its open source licenses page.
 
 ## Rich Presence images
 
@@ -45,5 +50,7 @@ under the same key.
 
 ## Updating the SDK
 
-Replace the two files with the new version's. danimoth declares the SDK's C API by hand for the
-version it was written against, so check its README before moving to a new major or minor version.
+Replace the two files with the new version's, and update the version and the two hashes in
+`tools/check-discord-sdk.cjs` (`sha256sum` or PowerShell's `Get-FileHash` prints them). danimoth
+declares the SDK's C API by hand for the version it was written against, so check its README before
+moving to a new major or minor version.

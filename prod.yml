@@ -2,6 +2,8 @@
 # It should generally match the other build configs (except things that need to differ for this
 # "region")
 appId: net.shieldbattery.client
+# Fails the build unless discord-sdk holds the Discord Social SDK version the repo pins
+beforePack: ./tools/check-discord-sdk.cjs
 extraResources:
   # An explicit `from` keeps the asar integrity scan inside game/dist; a bare pattern makes it walk
   # every directory in the project.
