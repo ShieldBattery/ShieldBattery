@@ -17,7 +17,7 @@ import { bodyLarge, HeadlineMedium, labelMedium } from '../styles/typography'
 const LobbyName = styled(HeadlineMedium)`
   margin-bottom: 24px;
   text-align: center;
-  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
 `
 
 const InfoLayout = styled.div`

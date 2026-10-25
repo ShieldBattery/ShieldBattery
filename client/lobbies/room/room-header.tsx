@@ -14,29 +14,44 @@ const HeaderRoot = styled.div`
   padding: 12px 16px;
 
   display: flex;
+  flex-wrap: wrap;
+  flex-shrink: 0;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
+  gap: 12px 24px;
 
   border-bottom: 1px solid var(--theme-outline-variant);
 `
 
 const NameRow = styled.div`
+  flex: 1 1 240px;
   min-width: 0;
   display: flex;
   align-items: center;
   gap: 12px;
+
+  & > ${RoomChip} {
+    flex-shrink: 0;
+  }
 `
 
 const LobbyName = styled.div`
   ${titleLarge};
+  min-width: 0;
+  overflow-wrap: anywhere;
 `
 
 const HeaderActions = styled.div`
+  max-width: 100%;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+
+  & > button {
+    flex-shrink: 0;
+  }
 `
 
 /** A button that copies the link that lets someone else into this lobby. */
@@ -94,10 +109,10 @@ export function RoomHeader({
             ? t('lobbies.room.header.visibilityUnlisted', 'Unlisted')
             : t('lobbies.room.header.visibilityPublic', 'Public')}
         </RoomChip>
-        <CopyInviteLinkButton lobby={lobby} />
       </NameRow>
 
       <HeaderActions>
+        <CopyInviteLinkButton lobby={lobby} />
         {isHost ? (
           <OutlinedButton
             label={t('lobbies.gameSetup.title', 'Game setup')}

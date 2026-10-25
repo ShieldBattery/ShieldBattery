@@ -6,6 +6,7 @@ import { assertUnreachable } from '../../../common/assert-unreachable'
 import { GameType, gameTypeToLabel, isTeamType } from '../../../common/games/game-type'
 import { hasLockedAlliances, MAX_BENCH } from '../../../common/lobbies'
 import { LobbySummarySlotJson } from '../../../common/lobbies/lobby-network'
+import { urlForLobby } from '../../../common/lobbies/lobby-url'
 import { tilesetToName } from '../../../common/maps'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { ConnectedAvatar } from '../../avatars/avatar'
@@ -13,7 +14,10 @@ import { AvatarStack } from '../../avatars/avatar-stack'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { openMapPreviewDialog } from '../../maps/action-creators'
 import { ReduxMapThumbnail } from '../../maps/map-thumbnail'
-import { FilledButton, OutlinedButton } from '../../material/button'
+import { FilledButton, IconButton } from '../../material/button'
+import { Tooltip } from '../../material/tooltip'
+import { useLinkCopier } from '../../navigation/copy-link-button'
+import { getServerOrigin } from '../../network/server-url'
 import DotsIndicator from '../../progress/dots'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import {
@@ -83,12 +87,22 @@ const RailScroll = styled.div`
 
 const Header = styled.div`
   display: flex;
+  align-items: flex-start;
+  gap: 12px;
+`
+
+const HeaderInfo = styled.div`
+  flex: 1;
+  min-width: 0;
+
+  display: flex;
   flex-direction: column;
   gap: 4px;
 `
 
 const LobbyName = styled.div`
   ${titleMedium};
+  overflow-wrap: anywhere;
 `
 
 const HostLine = styled.div`
@@ -289,9 +303,49 @@ const FullWidthFilledButton = styled(FilledButton)`
   width: 100%;
 `
 
-const FullWidthOutlinedButton = styled(OutlinedButton)`
-  width: 100%;
+const JoinActions = styled.div`
+  display: flex;
+  gap: 8px;
+
+  & > ${FullWidthFilledButton} {
+    flex: 1;
+    width: auto;
+  }
 `
+
+const ObserverButton = styled(IconButton)`
+  width: 40px;
+  min-height: 40px;
+  flex-shrink: 0;
+
+  border: 1px solid var(--theme-outline);
+  color: var(--color-blue80);
+`
+
+const ActionTooltip = styled(Tooltip)`
+  flex-shrink: 0;
+`
+
+function CopyLobbyLinkButton({ summary }: { summary: LobbySummary }) {
+  const { t } = useTranslation()
+  const copyLabel = t('navigation.copyLink.defaultText', 'Copy link')
+  const [copied, copyLink] = useLinkCopier(
+    () => getServerOrigin() + urlForLobby(summary.id, summary.name),
+  )
+
+  return (
+    <ActionTooltip
+      text={copied ? t('navigation.copyLink.copiedText', 'Copied!') : copyLabel}
+      tabIndex={-1}>
+      <IconButton
+        icon={<MaterialIcon icon='link' />}
+        ariaLabel={copyLabel}
+        onClick={copyLink}
+        testName='copy-lobby-link-button'
+      />
+    </ActionTooltip>
+  )
+}
 
 /** A label for the way a lobby's seats are split up, e.g. "3 vs 5" or "3 teams". */
 function gameSubTypeLabel(
@@ -399,7 +453,7 @@ export interface LobbyDetailRailProps {
   /** A join failure aimed at the previewed lobby specifically, or undefined when there's none. */
   joinError?: string
   /**
-   * Whether a join is currently in flight anywhere in the browser -- both buttons disable while
+   * Whether a join is currently in flight anywhere in the browser -- both join actions disable while
    * true, since only one join may be outstanding at a time.
    */
   joinPending: boolean
@@ -475,13 +529,16 @@ export function LobbyDetailRail({
     <RailRoot className={className}>
       <RailScroll>
         <Header>
-          <LobbyName title={summary.name}>{summary.name}</LobbyName>
-          <HostLine>
-            <HostCrown tabIndex={-1} />
-            <HostNames>
-              <ConnectedUsername userId={summary.host.id} />
-            </HostNames>
-          </HostLine>
+          <HeaderInfo>
+            <LobbyName title={summary.name}>{summary.name}</LobbyName>
+            <HostLine>
+              <HostCrown tabIndex={-1} />
+              <HostNames>
+                <ConnectedUsername userId={summary.host.id} />
+              </HostNames>
+            </HostLine>
+          </HeaderInfo>
+          <CopyLobbyLinkButton summary={summary} />
         </Header>
 
         <MapSection>
@@ -624,15 +681,37 @@ export function LobbyDetailRail({
         ) : (
           <>
             {joinError ? <JoinError>{joinError}</JoinError> : null}
-            <FullWidthFilledButton
-              label={t('lobbies.browser.joinLobby', 'Join lobby')}
-              iconStart={pendingAsObserver === false ? <DotsIndicator /> : undefined}
-              onClick={() => onJoin(false)}
-              // Disabled while any join -- including one targeting a different lobby -- is
-              // already in flight.
-              disabled={joinRefused || joinPending}
-              testName='join-lobby-button'
-            />
+            <JoinActions>
+              <FullWidthFilledButton
+                label={t('lobbies.browser.joinLobby', 'Join lobby')}
+                iconStart={pendingAsObserver === false ? <DotsIndicator /> : undefined}
+                onClick={() => onJoin(false)}
+                // Disabled while any join -- including one targeting a different lobby -- is
+                // already in flight.
+                disabled={joinRefused || joinPending}
+                testName='join-lobby-button'
+              />
+              {!isInGame && summary.observerSlots.open > 0 ? (
+                <ActionTooltip
+                  text={t('lobbies.browser.joinAsObserver', 'Join as observer')}
+                  position='top'
+                  tabIndex={-1}>
+                  <ObserverButton
+                    ariaLabel={t('lobbies.browser.joinAsObserver', 'Join as observer')}
+                    icon={
+                      pendingAsObserver === true ? (
+                        <DotsIndicator />
+                      ) : (
+                        <MaterialIcon icon='visibility' size={20} />
+                      )
+                    }
+                    onClick={() => onJoin(true)}
+                    disabled={joinPending}
+                    testName='join-as-observer-button'
+                  />
+                </ActionTooltip>
+              ) : null}
+            </JoinActions>
             {joinLandsOnObserverSeat ? (
               <BenchCaption>
                 {t(
@@ -664,15 +743,6 @@ export function LobbyDetailRail({
                   'The lobby and its bench are both full',
                 )}
               </BenchCaption>
-            ) : null}
-            {!isInGame && summary.observerSlots.open > 0 ? (
-              <FullWidthOutlinedButton
-                label={t('lobbies.browser.joinAsObserver', 'Join as observer')}
-                iconStart={pendingAsObserver === true ? <DotsIndicator /> : 'visibility'}
-                onClick={() => onJoin(true)}
-                disabled={joinPending}
-                testName='join-as-observer-button'
-              />
             ) : null}
           </>
         )}
