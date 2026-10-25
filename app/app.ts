@@ -269,7 +269,7 @@ let cachedIds: [number, string][] = []
 let cachedIdPath: string | undefined
 
 async function cacheIdsIfNeeded(newPath?: string, force?: boolean) {
-  if (force || newPath !== cachedIdPath) {
+  if (force || newPath !== cachedIdPath || !cachedIds.length) {
     const collect = (await collect2Promise) ?? (await collectPromise)
     cachedIds = await collect(msg => logger.error(msg), modelId, newPath)
     cachedIdPath = newPath

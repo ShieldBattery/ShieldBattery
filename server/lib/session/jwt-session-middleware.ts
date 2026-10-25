@@ -4,9 +4,12 @@ import { container } from 'tsyringe'
 import uid from 'uid-safe'
 import { promisify } from 'util'
 import { SbUserId } from '../../../common/users/sb-user-id'
+import { SessionClientClass } from '../../../common/users/session'
 import { CodedError } from '../errors/coded-error'
+import { isElectronClient } from '../network/electron-clients'
 import { Redis } from '../redis/redis'
 import { Clock } from '../time/clock'
+import { ClientAttestation } from '../users/client-attestation'
 import { CacheBehavior, UserService } from '../users/user-service'
 import { DeletedSessionRegistry } from './deleted-sessions'
 
@@ -42,6 +45,8 @@ interface JwtPayloadData {
    * Whether the user wants to stay logged in, or have the session expire when the browser exits.
    */
   stayLoggedIn: boolean
+  /** Which kind of client logged in. Absent for sessions created before this was tracked. */
+  clientClass?: SessionClientClass
 }
 
 export interface StateWithJwt {
@@ -65,9 +70,14 @@ export function jwtSessions(): Koa.Middleware<StateWithJwt> {
   const clock = container.resolve(Clock)
   const userService = container.resolve(UserService)
   const deletedSessions = container.resolve(DeletedSessionRegistry)
+  const clientAttestation = container.resolve(ClientAttestation)
 
   return async (ctx, next) => {
-    ctx.beginSession = async (userId: SbUserId, stayLoggedIn: boolean) => {
+    ctx.beginSession = async (
+      userId: SbUserId,
+      stayLoggedIn: boolean,
+      clientClass: SessionClientClass,
+    ) => {
       if (ctx.session) {
         throw new SessionError(
           SessionErrorCode.AlreadyHaveSession,
@@ -87,6 +97,7 @@ export function jwtSessions(): Koa.Middleware<StateWithJwt> {
         userId,
         authTime: now,
         stayLoggedIn,
+        clientClass,
       }
 
       await redis.client
@@ -123,6 +134,15 @@ export function jwtSessions(): Koa.Middleware<StateWithJwt> {
 
       ctx.state.jwtData = undefined
       ;(ctx.session as any) = undefined
+    }
+
+    if (
+      ctx.state.jwtData?.clientClass === 'web' &&
+      isElectronClient(ctx) &&
+      clientAttestation.mode() === 'required'
+    ) {
+      // Apps need their own sessions
+      ctx.state.jwtData = undefined
     }
 
     if (ctx.state.jwtData) {

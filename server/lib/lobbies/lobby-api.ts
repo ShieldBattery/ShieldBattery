@@ -609,6 +609,9 @@ export class LobbyApi {
         'no socket connection for that client',
       )
     }
+    if (client.clientType !== 'electron') {
+      throw new LobbyServiceError(LobbyServiceErrorCode.NoActiveClient, 'not an app client')
+    }
     return client
   }
 }

@@ -42,6 +42,7 @@ import {
   useNavigationMenuState,
 } from './navigation/navigation-menu'
 import { push } from './navigation/routing'
+import { ConnectionStatus } from './network/connection-status'
 import { useHasNewNewsPost } from './news/last-seen-news-post'
 import { NotificationsButton } from './notifications/app-bar-entry'
 import NotificationPopups from './notifications/notifications-popup'
@@ -933,6 +934,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     <LiveUsersContext.Provider value={liveUsers}>
       <Root $sidebarOpen={sidebarOpen} $sidebarPinned={sidebarPinned} data-testid='main-layout'>
         <AppBar onToggleSocial={() => setSidebarOpen(!sidebarOpen)} sidebarOpen={sidebarOpen} />
+        <ConnectionStatus />
         {children}
         {isLoggedIn ? (
           <SocialSidebar

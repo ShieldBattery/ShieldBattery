@@ -487,7 +487,7 @@ export class UserApi {
     ) {
       throw new UserApiError(UserErrorCode.AccountBanned, 'This account has been banned')
     }
-    await ctx.beginSession(createdUser.user.id, false)
+    await ctx.beginSession(createdUser.user.id, false, 'app')
 
     // No need to wait for this, if it fails they can just re-send the email later
     Promise.resolve()

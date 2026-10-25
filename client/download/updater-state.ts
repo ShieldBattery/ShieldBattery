@@ -49,3 +49,7 @@ export function changeUpdateState(changeFn: (draft: Draft<UpdateState>) => void)
     }
   })
 }
+
+export function getUpdateState(): Immutable<UpdateState> {
+  return currentState
+}

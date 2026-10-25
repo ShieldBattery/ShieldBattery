@@ -10,3 +10,6 @@ export interface ClientSessionInfo {
   permissions: SbPermissions
   jwt: string
 }
+
+/** The kind of client a session was created by. */
+export type SessionClientClass = 'app' | 'development' | 'web'

@@ -206,6 +206,8 @@
       "accountBanned": "This account has been banned.<1><0>Reason:</0><1>{{banReason}}</1></1><2>The ban will expire at {{expireTime}}.</2>",
       "banWithoutReason": "No reason specified",
       "clientSetupRequired": "Please finish setting up StarCraft in Settings, then try creating your account again.",
+      "clientUpdateRequired": "A newer version of ShieldBattery is available. Please update it and try again.",
+      "clientVerificationFailed": "This copy of ShieldBattery couldn't be verified. Please reinstall it from shieldbattery.net and try again.",
       "defaultError": "An error occurred: {{status}} {{statusText}}",
       "genericError": "An error occurred: {{errorMessage}}",
       "invalidCode": "The provided code is invalid. It may have expired.",
@@ -2475,6 +2477,17 @@
     }
   },
   "network": {
+    "clientUpdate": {
+      "requiredContents": "This version of ShieldBattery is out of date, so it can't connect. Please download the latest version from <1>our website</1>.",
+      "requiredTitle": "Update required"
+    },
+    "clientVerification": {
+      "failedContents": "This copy of ShieldBattery couldn't be verified, so it can't connect. Please download the latest version from <1>our website</1> and reinstall it.",
+      "failedTitle": "Couldn't verify ShieldBattery"
+    },
+    "connectionStatus": {
+      "connecting": "Connecting to ShieldBattery…"
+    },
     "notConnectedText": "Not connected"
   },
   "news": {

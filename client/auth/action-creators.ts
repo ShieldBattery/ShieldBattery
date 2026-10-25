@@ -24,6 +24,8 @@ import {
 } from '../network/fetch'
 import { loadCachedAccountSettings } from '../settings/action-creators'
 import { lastWhisperSenderAtom } from '../whispers/whisper-atoms'
+import { collectProof } from './collect-proof'
+import { createLoginSession } from './login-request'
 import { createSignupSession } from './signup-request'
 
 const typedIpc = new TypedIpcRenderer()
@@ -110,16 +112,18 @@ export function logIn(
   spec: RequestHandlingSpec,
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
-    const result = await fetchJson<ClientSessionInfo>(apiUrl`sessions`, {
-      method: 'post',
-      body: JSON.stringify({
-        ...(await getExtraSessionData()),
-        username,
-        password,
-        remember: !!remember,
-        locale,
-      }),
-    })
+    const result = await createLoginSession(
+      { username, password, remember: !!remember, locale },
+      {
+        collectProof: IS_ELECTRON ? collectProof : undefined,
+        collectLegacyIds: getExtraSessionData,
+        developmentClient: !!window.SHIELDBATTERY_ELECTRON_API?.isDevelopment,
+        onProofError(err) {
+          logger.error(`Couldn't collect login proof: ${(err as any)?.stack ?? String(err)}`)
+        },
+      },
+      spec.signal,
+    )
 
     dispatch(
       initSession(result, remember ? CredentialStorageType.Local : CredentialStorageType.Session),
@@ -158,11 +162,7 @@ export function signUp(
     const result = await createSignupSession(
       fields,
       {
-        collectProof: async (nonce, requestHash) => {
-          const proof = await typedIpc.invoke('securityCollectRequest', nonce, requestHash)
-          if (!proof) throw new Error('Client update required')
-          return proof
-        },
+        collectProof,
         collectLegacyIds: getExtraSessionData,
       },
       spec.signal,

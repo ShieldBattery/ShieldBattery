@@ -16,12 +16,15 @@ export default function registerModule({ ipcRenderer }: { ipcRenderer: TypedIpcR
     })
     .on('updaterDownloadError', () => {
       changeUpdateState(state => {
+        // Also implies an update was found (this may be the only state replayed after a reload)
+        state.hasUpdate = true
         state.hasDownloadError = true
         state.progress = undefined
       })
     })
     .on('updaterNewVersionDownloaded', () => {
       changeUpdateState(state => {
+        state.hasUpdate = true
         state.readyToInstall = true
         state.progress = undefined
       })

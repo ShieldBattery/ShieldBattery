@@ -1,4 +1,5 @@
-export const zIndexWindowControls = 120
+export const zIndexWindowControls = 121
+export const zIndexConnectionStatus = 120
 export const zIndexSystemBar = 119
 export const zIndexTooltip = 110
 export const zIndexMenu = 109

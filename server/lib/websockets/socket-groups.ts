@@ -8,11 +8,25 @@ import log from '../logging/logger'
 import type { UpsertUserIp } from '../network/user-ips-type'
 import getAddress from './get-address'
 import { RequestSessionLookup, SessionInfo } from './session-lookup'
+import { SocketAdmission } from './socket-admission'
 
 export type DataGetter<T, D> = (socketGroup: T, socket: NydusClient) => D | Promise<D | undefined>
 export type CleanupFunc<T> = (socketGroup: T) => void
 
 type SocketGroupType = 'subscribedClient' | 'subscribedUser'
+
+/** Calls `handler` for each socket once it's admitted (immediately, without `admission`). */
+function onAdmitted(
+  nydus: NydusServer,
+  admission: SocketAdmission | undefined,
+  handler: (socket: NydusClient) => void,
+) {
+  if (admission) {
+    admission.on('admitted', handler)
+  } else {
+    nydus.on('connection', handler)
+  }
+}
 
 interface SubscriptionInfo<T> {
   getter: DataGetter<T, any>
@@ -204,6 +218,7 @@ export class UserSocketsManager extends EventEmitter<UserSocketsManagerEvents> {
     private nydus: NydusServer,
     private sessionLookup: RequestSessionLookup,
     @inject('upsertUserIp') private upsertUserIp: UpsertUserIp,
+    @inject(SocketAdmission) admission?: SocketAdmission,
   ) {
     super()
 
@@ -212,7 +227,7 @@ export class UserSocketsManager extends EventEmitter<UserSocketsManagerEvents> {
     // consistent order
     container.resolve(ClientSocketsManager)
 
-    this.nydus.on('connection', socket => {
+    onAdmitted(this.nydus, admission, socket => {
       const session = this.sessionLookup.fromSocket(socket)
       if (!session) {
         log.error({ req: socket.conn.request }, "couldn't find a session for the request")
@@ -269,9 +284,10 @@ export class ClientSocketsManager extends EventEmitter<ClientSocketsManagerEvent
   constructor(
     private nydus: NydusServer,
     private sessionLookup: RequestSessionLookup,
+    @inject(SocketAdmission) admission?: SocketAdmission,
   ) {
     super()
-    this.nydus.on('connection', socket => {
+    onAdmitted(this.nydus, admission, socket => {
       const session = this.sessionLookup.fromSocket(socket)
       if (!session) {
         log.error({ req: socket.conn.request }, "couldn't find a session for the request")

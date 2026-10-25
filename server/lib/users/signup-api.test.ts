@@ -119,7 +119,7 @@ test('explicit opt-out permits unsigned integration bootstrap signup', async () 
   await api.createUser(ctx)
   expect(createUser).toHaveBeenCalledWith(expect.objectContaining({ request: undefined }))
   expect(manager.isSignupAllowed).toHaveBeenCalledWith([[0, 'adminBrowser']])
-  expect(ctx.beginSession).toHaveBeenCalledWith(userId, false)
+  expect(ctx.beginSession).toHaveBeenCalledWith(userId, false, 'app')
 })
 
 test('deployed bootstrap signup remains closed without explicit opt-out', async () => {
@@ -172,7 +172,7 @@ test('a concurrent completed request can recover after username preflight reject
     .mockResolvedValueOnce({ ...request, completedUserId: userId })
   await api.createUser(ctx)
   expect(createUser).toHaveBeenCalledWith(expect.objectContaining({ request }))
-  expect(ctx.beginSession).toHaveBeenCalledWith(userId, false)
+  expect(ctx.beginSession).toHaveBeenCalledWith(userId, false, 'app')
 })
 
 test.each(['expired', 'database unavailable'])(
@@ -211,7 +211,7 @@ test('new account identifiers share creation and restriction propagation waits f
   await pending
   expect(propagate).toHaveBeenCalledOnce()
   expect(manager.upsert).not.toHaveBeenCalled()
-  expect(ctx.beginSession).toHaveBeenCalledWith(userId, false)
+  expect(ctx.beginSession).toHaveBeenCalledWith(userId, false, 'app')
 })
 
 test('identifier write failure rejects the account transaction callback before any session', async () => {

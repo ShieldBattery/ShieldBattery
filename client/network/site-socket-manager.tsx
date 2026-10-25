@@ -1,6 +1,9 @@
 import { memo, useEffect } from 'react'
 import { useSelfUser } from '../auth/auth-utils'
+import { jotaiStore } from '../jotai-store'
 import logger from '../logging/logger'
+import { dismissConnectionRefused } from './connection-refused-dialog'
+import { siteConnectionAtom } from './network-atoms'
 import siteSocket from './site-socket'
 
 /**
@@ -23,6 +26,12 @@ export const SiteSocketManager = memo(() => {
     // be the same in both places
     let connected = false
     const timeout = setTimeout(() => {
+      // Neither time spent logged out nor a previous login's refusal carry over to this login
+      jotaiStore.set(siteConnectionAtom, prev =>
+        prev.status === 'disconnected' || prev.status === 'refused'
+          ? { status: 'disconnected', since: Date.now() }
+          : prev,
+      )
       siteSocket.connect()
       connected = true
     }, 50)
@@ -34,6 +43,8 @@ export const SiteSocketManager = memo(() => {
         logger.verbose('SiteSocketManager effect cleanup, disconnecting siteSocket')
         siteSocket.disconnect()
       }
+      // A refusal belongs to the login it happened during
+      dismissConnectionRefused()
     }
   }, [userId])
 

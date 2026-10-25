@@ -33,6 +33,9 @@ export const convertUserApiErrors = makeErrorConverterMiddleware(err => {
       throw asHttpError(403, err)
     case UserErrorCode.ClientSetupRequired:
       throw asHttpError(400, err)
+    case UserErrorCode.ClientVerificationFailed:
+    case UserErrorCode.ClientUpdateRequired:
+      throw asHttpError(403, err)
     case UserErrorCode.InappropriateImage:
       throw asHttpError(400, err)
     case UserErrorCode.AvatarUploadRestricted:

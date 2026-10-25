@@ -9,6 +9,7 @@ import DevLists from './lists/devonly/routes'
 import DevLobbies from './lobbies/devonly/routes'
 import DevMatchmaking from './matchmaking/devonly/routes'
 import DevMaterial from './material/devonly/routes'
+import { ConnectionStatusTest } from './network/devonly/connection-status-test'
 import { DevPageMetadata } from './page-metadata/devonly/routes'
 import { DotsTest } from './progress/devonly/dots-test'
 import { DevReplays } from './replays/devonly/routes'
@@ -55,6 +56,7 @@ export default function Dev() {
             ['Lobby components', 'lobbies', DevLobbies],
             ['Matchmaking components', 'matchmaking', DevMatchmaking],
             ['Material components', 'material', DevMaterial],
+            ['Network status', 'network', ConnectionStatusTest],
             ['Progress indicators', 'progress', DotsTest],
             ['Replay components', 'replays', DevReplays],
             ['Settings components', 'settings', DevSettings],

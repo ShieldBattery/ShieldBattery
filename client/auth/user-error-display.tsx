@@ -118,6 +118,25 @@ function UserError({ error }: { error: FetchError }) {
           )}
         </span>
       )
+    case UserErrorCode.ClientVerificationFailed:
+      return (
+        <span>
+          {t(
+            'auth.userErrorDisplay.clientVerificationFailed',
+            "This copy of ShieldBattery couldn't be verified. Please reinstall it from " +
+              'shieldbattery.net and try again.',
+          )}
+        </span>
+      )
+    case UserErrorCode.ClientUpdateRequired:
+      return (
+        <span>
+          {t(
+            'auth.userErrorDisplay.clientUpdateRequired',
+            'A newer version of ShieldBattery is available. Please update it and try again.',
+          )}
+        </span>
+      )
 
     // InappropriateImage and AvatarUploadRestricted are only produced by the avatar upload flow,
     // which surfaces its own messages (see account-settings.tsx); they never reach this

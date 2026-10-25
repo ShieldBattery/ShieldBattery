@@ -24,6 +24,18 @@ use crate::users::SbUserId;
 static JWT_VALIDATION: LazyLock<jsonwebtoken::Validation> =
     LazyLock::new(jsonwebtoken::Validation::default);
 
+/// The kind of client a session was created by.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum SessionClientClass {
+    App,
+    Development,
+    Web,
+    /// A kind added by a newer server, so that its sessions still load here.
+    #[serde(other)]
+    Unknown,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct JwtClaims {
@@ -33,6 +45,9 @@ struct JwtClaims {
     auth_time: u64,
     /// Whether the user wants to stay logged in, or have the session expire when the browser exits.
     stay_logged_in: bool,
+    /// Which kind of client logged in. Absent for sessions created before this was tracked.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    client_class: Option<SessionClientClass>,
 }
 
 #[derive(Clone, Debug)]
@@ -43,6 +58,8 @@ pub struct AuthenticatedSession {
     pub auth_time: u64,
     /// Whether the user wants to stay logged in, or have the session expire when the browser exits.
     pub stay_logged_in: bool,
+    /// Which kind of client logged in. Absent for sessions created before this was tracked.
+    pub client_class: Option<SessionClientClass>,
 
     destroyed: Arc<AtomicBool>,
 }
@@ -54,6 +71,7 @@ impl AuthenticatedSession {
             user_id: claims.user_id,
             auth_time: claims.auth_time,
             stay_logged_in: claims.stay_logged_in,
+            client_class: claims.client_class,
             destroyed: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -331,6 +349,32 @@ mod tests {
         );
     }
 
+    fn decode_claims(json: &str) -> JwtClaims {
+        serde_json::from_str(json).unwrap()
+    }
+
+    #[test]
+    fn client_class_is_read_from_claims() {
+        let base = r#""sessionId":"abc","userId":7,"authTime":123,"stayLoggedIn":true"#;
+        assert_eq!(decode_claims(&format!("{{{base}}}")).client_class, None);
+        assert_eq!(
+            decode_claims(&format!(r#"{{{base},"clientClass":"app"}}"#)).client_class,
+            Some(SessionClientClass::App)
+        );
+        assert_eq!(
+            decode_claims(&format!(r#"{{{base},"clientClass":"development"}}"#)).client_class,
+            Some(SessionClientClass::Development)
+        );
+        assert_eq!(
+            decode_claims(&format!(r#"{{{base},"clientClass":"web"}}"#)).client_class,
+            Some(SessionClientClass::Web)
+        );
+        assert_eq!(
+            decode_claims(&format!(r#"{{{base},"clientClass":"somethingNew"}}"#)).client_class,
+            Some(SessionClientClass::Unknown)
+        );
+    }
+
     #[test]
     fn destroy_state_is_shared_between_session_clones() {
         let session = AuthenticatedSession::new(JwtClaims {
@@ -338,6 +382,7 @@ mod tests {
             user_id: SbUserId::from(7),
             auth_time: 123,
             stay_logged_in: true,
+            client_class: Some(SessionClientClass::App),
         });
         let request_session = session.clone();
 

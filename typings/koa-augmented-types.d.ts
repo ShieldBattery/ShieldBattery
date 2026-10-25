@@ -4,6 +4,7 @@ import { ReadonlyDeep } from 'type-fest'
 import { SbPermissions } from '../common/users/permissions'
 import { SelfUser } from '../common/users/sb-user'
 import { SbUserId } from '../common/users/sb-user-id'
+import { SessionClientClass } from '../common/users/session'
 
 declare module 'koa' {
   interface AppSession {
@@ -23,7 +24,11 @@ declare module 'koa' {
      */
     session?: ReadonlyDeep<AppSession>
     /** Starts a new session for the given user, updating the `session` field to match. */
-    beginSession(userId: SbUserId, stayLoggedIn: boolean): Promise<void>
+    beginSession(
+      userId: SbUserId,
+      stayLoggedIn: boolean,
+      clientClass: SessionClientClass,
+    ): Promise<void>
     /** Deletes the current session, updating the `session` field to match. */
     deleteSession(): Promise<void>
 
