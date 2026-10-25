@@ -61,7 +61,8 @@ const NOTE_SIZE: f32 = 14.0;
 const CELL_END_GAP: f32 = 16.0;
 
 /// The pieces of a race's cell, left to right.
-const RACE_CHIP_SIZE: f32 = 28.0;
+const RACE_ICON_SLOT_SIZE: f32 = 28.0;
+const RACE_ICON_SIZE: f32 = 24.0;
 const RACE_GAP: f32 = 8.0;
 const RACE_NAME_SIZE: f32 = 16.0;
 
@@ -837,19 +838,20 @@ fn draw_player_cell(ui: &mut Ui, rect: Rect, player: &AlliancePlayerView) {
     }
 }
 
-/// A player's race: its chip, and its name beside it, since the icons alone are hard to tell apart
+/// A player's race: its icon, and its name beside it, since the icons alone are hard to tell apart
 /// at a glance.
 fn draw_race_cell(ui: &Ui, rect: Rect, race: RaceView) {
-    observer::paint_race_chip(
-        ui,
-        Rect::from_min_size(
-            pos2(rect.left(), rect.center().y - RACE_CHIP_SIZE * 0.5),
-            Vec2::splat(RACE_CHIP_SIZE),
+    observer::race_icon::paint_race_icon(
+        ui.painter(),
+        observer::race_icon::icon_rect(
+            pos2(rect.left() + RACE_ICON_SLOT_SIZE * 0.5, rect.center().y),
+            RACE_ICON_SIZE,
+            ui.ctx().pixels_per_point(),
         ),
         race,
-        1.0,
+        race.color(),
     );
-    let name_left = rect.left() + RACE_CHIP_SIZE + RACE_GAP;
+    let name_left = rect.left() + RACE_ICON_SLOT_SIZE + RACE_GAP;
     observer::paint_text(
         ui,
         Rect::from_min_max(pos2(name_left, rect.top()), rect.max),
