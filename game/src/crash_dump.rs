@@ -6,8 +6,9 @@
 //! filter, which Windows answers by terminating the process with no dump at all. So the faulting
 //! thread does as little as possible: it records the exception pointers, writes a fixed-size
 //! breadcrumb straight to the log file, wakes a dump thread that was started (with everything it
-//! needs pre-resolved) at DLL init, and parks itself so the exception pointers on its stack stay
-//! valid while the dump thread writes the minidump on its own healthy stack.
+//! needs pre-resolved) during DLL init, and parks itself so the exception pointers on its stack
+//! stay valid while the dump thread writes the minidump on its own healthy stack. A crash before
+//! the dump thread is running gets its dump written on the faulting thread instead.
 
 use std::ffi::CStr;
 use std::fmt::{self, Write};
@@ -145,19 +146,28 @@ pub fn set_breadcrumb_file(file: File) {
     BREADCRUMB_FILE.store(file.into_raw_handle() as usize, Ordering::Release);
 }
 
-/// Resolves dbghelp and the dump path, and starts the thread that will write the minidump when
-/// another thread crashes. If any of this fails the crash handler falls back to writing the dump
-/// on the faulting thread, which works for ordinary faults but not for stack overflows.
-pub fn start_dump_thread() {
+/// Resolves dbghelp, the dump path and the events the dump thread waits on, so that neither the
+/// dump thread nor an in-thread dump has to load anything at crash time.
+///
+/// Until `start_dump_thread` has run (or if this fails), the crash handler writes the dump on the
+/// faulting thread, which works for ordinary faults but not for stack overflows.
+pub fn prepare_dump_thread() {
     let prepared = match prepare() {
         Ok(p) => p,
         Err(e) => {
-            error!("Crash dump thread not started, dumps will be written in-thread: {e}");
+            error!("Crash dump thread can't be prepared, dumps will be written in-thread: {e}");
             return;
         }
     };
     if PREPARED.set(prepared).is_err() {
-        error!("Crash dump thread already started");
+        error!("Crash dump thread already prepared");
+    }
+}
+
+/// Starts the thread that will write the minidump when another thread crashes. Does nothing if
+/// `prepare_dump_thread` failed.
+pub fn start_dump_thread() {
+    if PREPARED.get().is_none() {
         return;
     }
     let spawned = std::thread::Builder::new()

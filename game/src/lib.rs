@@ -291,8 +291,8 @@ pub extern "C" fn OnInject() {
     );
     // This runs on the game's main thread, which executes most of our hooks.
     crash_dump::reserve_exception_handler_stack();
-    crash_dump::start_dump_thread();
-    companion::initialize(args.server_port);
+    // Nothing here may start a thread; see `scr_init`.
+    crash_dump::prepare_dump_thread();
     #[cfg(debug_assertions)]
     {
         rollback_probe::init_from_env();
@@ -318,6 +318,11 @@ pub extern "C" fn OnInject() {
 }
 
 unsafe extern "C" fn scr_init(image: *mut u8) {
+    // The game's own startup doesn't tolerate other threads running alongside it, so this is the
+    // earliest point at which the DLL can start any.
+    crash_dump::start_dump_thread();
+    scr_stdout::start_forwarding();
+    companion::initialize(parse_args().server_port);
     #[cfg(debug_assertions)]
     if WAIT_DEBUGGER {
         debug!("Waiting for debugger");

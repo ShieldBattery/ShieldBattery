@@ -12,6 +12,7 @@ use std::os::windows::io::{FromRawHandle, RawHandle};
 use std::ptr::null_mut;
 
 use hashbrown::HashMap;
+use parking_lot::Mutex;
 use winapi::um::handleapi::CloseHandle;
 use winapi::um::namedpipeapi::CreatePipe;
 use winapi::um::processenv::SetStdHandle;
@@ -23,18 +24,27 @@ const PIPE_BUFFER_SIZE: u32 = 0x10000;
 /// Bounds the memory spent remembering how often each distinct line has been seen.
 const MAX_TRACKED_LINES: usize = 1024;
 
+/// Read end of the redirected stdout, from `init` until `start_forwarding` takes it.
+static PIPE_READER: Mutex<Option<File>> = Mutex::new(None);
+
 /// Must be called before StarCraft's CRT initializes, and after logging has been set up.
 pub fn init() {
     match unsafe { redirect_std_handles() } {
-        Ok(reader) => {
-            let result = std::thread::Builder::new()
-                .name("scr-stdout".into())
-                .spawn(move || forward_lines(reader));
-            if let Err(e) = result {
-                error!("Couldn't start the stdout forwarding thread: {e}");
-            }
-        }
+        Ok(reader) => *PIPE_READER.lock() = Some(reader),
         Err(e) => error!("Couldn't redirect stdout to the log: {e}"),
+    }
+}
+
+/// Starts logging what `init` redirected. Anything printed before this waits in the pipe.
+pub fn start_forwarding() {
+    let Some(reader) = PIPE_READER.lock().take() else {
+        return;
+    };
+    let result = std::thread::Builder::new()
+        .name("scr-stdout".into())
+        .spawn(move || forward_lines(reader));
+    if let Err(e) = result {
+        error!("Couldn't start the stdout forwarding thread: {e}");
     }
 }
 
