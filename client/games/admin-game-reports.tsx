@@ -1,16 +1,16 @@
 import { ResultOf } from '@graphql-typed-document-node/core'
-import type { TFunction } from 'i18next'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useMutation, useQuery } from 'urql'
-import { Route, Switch } from 'wouter'
+import { Link, Route, Switch } from 'wouter'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import {
   getGameDurationString,
   NullifyGamePointsRequest,
   NullifyGamePointsResponse,
 } from '../../common/games/games'
+import { replayFrameForSeconds } from '../../common/games/replay-timestamp'
 import { apiUrl, urlPath } from '../../common/urls'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { openSimpleDialog } from '../dialogs/action-creators'
@@ -34,7 +34,7 @@ import { ContainerLevel, containerStyles } from '../styles/colors'
 import { selectableTextContainer } from '../styles/text-selection'
 import { bodyLarge, bodyMedium, labelMedium, titleLarge, titleMedium } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
-import { getGameResultsUrl } from './action-creators'
+import { getGameReplayTimestampUrl, getGameResultsUrl } from './action-creators'
 
 const AdminGameReportsListQuery = graphql(/* GraphQL */ `
   query AdminGameReportsList($filter: GameReportFilter, $first: Int, $after: String) {
@@ -194,10 +194,35 @@ const REFUND_ERROR_MESSAGES: Record<string, string> = {
 }
 
 /** Describes when, in game time, a report filed while its game was being played was made. */
-function reportedGameTimeLabel(gameTimeSeconds: number, t: TFunction): string {
-  return t('gameReport.admin.reportedAtGameTime', 'Reported at {{gameTime}} in game', {
+function ReportedGameTime({
+  gameId,
+  gameTimeSeconds,
+  onWatchReplay,
+}: {
+  gameId: string | undefined
+  gameTimeSeconds: number
+  onWatchReplay: ((fromSeconds: number) => void) | undefined
+}) {
+  const { t } = useTranslation()
+  const label = t('gameReport.admin.reportedAtGameTime', 'Reported at {{gameTime}} in game', {
     gameTime: getGameDurationString(gameTimeSeconds * 1000),
   })
+
+  return gameId ? (
+    <Link
+      href={getGameReplayTimestampUrl(gameId, gameTimeSeconds)}
+      onClick={event => {
+        if (IS_ELECTRON && onWatchReplay) {
+          // Reports grant reviewers replay access even for games restricted to participants.
+          event.preventDefault()
+          onWatchReplay(gameTimeSeconds)
+        }
+      }}>
+      {label}
+    </Link>
+  ) : (
+    label
+  )
 }
 
 function resolutionToLabel(resolution: GameReportResolution): string {
@@ -800,14 +825,13 @@ function GameReportDetails({
   resolvingSiblings: boolean
   onResolveSiblings: (resolution: GameReportResolution) => void
 }) {
-  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const longTimestampFormat = useFormat(longTimestamp)
   const [notes, setNotes] = useState('')
   const { game, replay, reporter, siblingReports } = report
   const pendingSiblings = siblingReports.filter(s => !s.resolvedAt)
 
-  const onWatchReplay = () => {
+  const onWatchReplay = (fromSeconds?: number) => {
     if (!replay || !game || !IS_ELECTRON) {
       return
     }
@@ -827,6 +851,7 @@ function GameReportDetails({
             )
           },
         },
+        fromSeconds !== undefined ? replayFrameForSeconds(fromSeconds) : undefined,
       ),
     )
   }
@@ -909,7 +934,13 @@ function GameReportDetails({
                 Submitted {longTimestampFormat.format(new Date(report.createdAt))}
               </SubmittedAt>
               {report.gameTimeSeconds != null ? (
-                <SubmittedAt>{reportedGameTimeLabel(report.gameTimeSeconds, t)}</SubmittedAt>
+                <SubmittedAt>
+                  <ReportedGameTime
+                    gameId={game?.id}
+                    gameTimeSeconds={report.gameTimeSeconds}
+                    onWatchReplay={replay ? onWatchReplay : undefined}
+                  />
+                </SubmittedAt>
               ) : null}
             </div>
             <StatusChip $resolved={!!report.resolvedAt}>
@@ -952,7 +983,7 @@ function GameReportDetails({
                       <OutlinedButton
                         label='Watch replay'
                         iconStart='play_circle'
-                        onClick={onWatchReplay}
+                        onClick={() => onWatchReplay()}
                       />
                     ) : null}
                   </>
@@ -1105,7 +1136,13 @@ function GameReportDetails({
                     {s.reporter ? <ConnectedUsername userId={s.reporter.id} /> : 'unknown user'}
                   </SiblingReporter>
                   {s.gameTimeSeconds != null ? (
-                    <SiblingReason>{reportedGameTimeLabel(s.gameTimeSeconds, t)}</SiblingReason>
+                    <SiblingReason>
+                      <ReportedGameTime
+                        gameId={game?.id}
+                        gameTimeSeconds={s.gameTimeSeconds}
+                        onWatchReplay={replay ? onWatchReplay : undefined}
+                      />
+                    </SiblingReason>
                   ) : null}
                   <SiblingReason>{reasonToLabel(s.reason)}</SiblingReason>
                   <SiblingStatus $tone={siblingStatusTone(s.resolvedAt, s.resolution)}>
