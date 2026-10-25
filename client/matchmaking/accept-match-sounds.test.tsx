@@ -9,12 +9,12 @@ import { audioManager, AvailableSound } from '../audio/audio-manager'
 import { playRandomTickSound } from '../audio/tick-sounds'
 import createReduxStore from '../create-store'
 import { AcceptMatchCountdownSounds } from './accept-match-sounds'
-import { FoundMatch, foundMatchAtom } from './matchmaking-atoms'
+import { acceptedPlayersAtom, FoundMatch, foundMatchAtom } from './matchmaking-atoms'
 
 const { ipcSend } = vi.hoisted(() => ({ ipcSend: vi.fn() }))
 
 vi.mock('../audio/audio-manager', () => ({
-  audioManager: { playFadeableSound: vi.fn() },
+  audioManager: { playFadeableSound: vi.fn(), keepClockRunning: vi.fn() },
   AvailableSound: { Countdown: 'countdown' },
 }))
 
@@ -29,15 +29,17 @@ vi.mock('../../common/ipc', () => ({
 }))
 
 const playFadeableSoundMock = asMockedFunction(audioManager.playFadeableSound)
+const keepClockRunningMock = asMockedFunction(audioManager.keepClockRunning)
 const playRandomTickSoundMock = asMockedFunction(playRandomTickSound)
 
 const ACCEPT_TIME_MS = 30000
 
-function makeMatch(): FoundMatch {
+/** A match whose accept window started `elapsedMillis` ago. */
+function makeMatch(elapsedMillis = 0): FoundMatch {
   return {
     matchmakingType: MatchmakingType.Match1v1,
     numPlayers: 2,
-    acceptStart: performance.now(),
+    acceptStart: performance.now() - elapsedMillis,
     acceptTimeTotalMillis: ACCEPT_TIME_MS,
     acceptedPlayers: 0,
     hasAccepted: false,
@@ -84,8 +86,21 @@ function advanceTo(secondsLeft: number) {
   advanceBy(ACCEPT_TIME_MS - secondsLeft * 1000 + 50)
 }
 
+/** The `when` (seconds from scheduling) each tick was scheduled for, in call order. */
+function tickDelays() {
+  return playRandomTickSoundMock.mock.calls.map(([options]) => options?.when)
+}
+
+function countdownDelays() {
+  return playFadeableSoundMock.mock.calls.map(([sound, options]) => {
+    expect(sound).toBe(AvailableSound.Countdown)
+    return options?.when
+  })
+}
+
 describe('client/matchmaking/accept-match-sounds', () => {
   let fadeOut: ReturnType<typeof vi.fn>
+  let releaseClock: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
     // `performance.now()` is what the countdown reads, and it isn't faked by default.
@@ -97,6 +112,8 @@ describe('client/matchmaking/accept-match-sounds', () => {
     fadeOut = vi.fn()
     playFadeableSoundMock.mockReset().mockReturnValue({ fadeOut } as any)
     playRandomTickSoundMock.mockReset().mockReturnValue({ fadeOut } as any)
+    releaseClock = vi.fn()
+    keepClockRunningMock.mockReset().mockReturnValue(releaseClock as any)
     ipcSend.mockReset()
   })
 
@@ -113,111 +130,153 @@ describe('client/matchmaking/accept-match-sounds', () => {
 
     expect(playRandomTickSoundMock).not.toHaveBeenCalled()
     expect(playFadeableSoundMock).not.toHaveBeenCalled()
+    expect(keepClockRunningMock).not.toHaveBeenCalled()
   })
 
-  test('plays nothing until ten seconds remain', () => {
+  test('schedules every tick and the countdown sound as soon as the match is found', () => {
     jotaiStore.set(foundMatchAtom, makeMatch())
     renderSounds()
 
-    advanceTo(11)
+    // Nothing has to wait on a timer, so throttled timers in a hidden window can't skip them.
+    expect(tickDelays()).toEqual([20, 21, 22, 23, 24, 25])
+    expect(countdownDelays()).toEqual([26])
+  })
+
+  test('holds the audio clock running from the match being found until it goes away', () => {
+    jotaiStore.set(foundMatchAtom, makeMatch())
+    renderSounds()
+
+    expect(keepClockRunningMock).toHaveBeenCalledTimes(1)
+    advanceTo(1)
+    expect(releaseClock).not.toHaveBeenCalled()
+
+    act(() => {
+      jotaiStore.set(foundMatchAtom, undefined)
+    })
+    expect(releaseClock).toHaveBeenCalledTimes(1)
+  })
+
+  test('releases the audio clock once this client has accepted', () => {
+    const match = makeMatch()
+    jotaiStore.set(foundMatchAtom, match)
+    renderSounds()
+
+    act(() => {
+      jotaiStore.set(foundMatchAtom, { ...match, hasAccepted: true })
+    })
+    expect(releaseClock).toHaveBeenCalledTimes(1)
+    expect(keepClockRunningMock).toHaveBeenCalledTimes(1)
+  })
+
+  test('does not reschedule as the countdown runs', () => {
+    jotaiStore.set(foundMatchAtom, makeMatch())
+    renderSounds()
+
+    advanceTo(1)
+    act(() => {
+      jotaiStore.set(acceptedPlayersAtom, 1)
+    })
+
+    expect(playRandomTickSoundMock).toHaveBeenCalledTimes(6)
+    expect(playFadeableSoundMock).toHaveBeenCalledTimes(1)
+    expect(fadeOut).not.toHaveBeenCalled()
+  })
+
+  test('for a match picked up partway, skips finished seconds and plays the current one now', () => {
+    jotaiStore.set(foundMatchAtom, makeMatch(22_500))
+    renderSounds()
+
+    expect(tickDelays()).toEqual([0, 0.5, 1.5, 2.5])
+    expect(countdownDelays()).toEqual([3.5])
+  })
+
+  test('for a match picked up during the countdown, plays only the countdown sound, right away', () => {
+    jotaiStore.set(foundMatchAtom, makeMatch(28_000))
+    renderSounds()
 
     expect(playRandomTickSoundMock).not.toHaveBeenCalled()
-    expect(ipcSend).not.toHaveBeenCalled()
+    expect(countdownDelays()).toEqual([0])
   })
 
-  test('ticks once per second from ten seconds out, asking for attention each time', () => {
-    jotaiStore.set(foundMatchAtom, makeMatch())
+  test('plays nothing for a match whose window has already run out', () => {
+    jotaiStore.set(foundMatchAtom, makeMatch(ACCEPT_TIME_MS))
     renderSounds()
 
-    advanceTo(10)
-    expect(playRandomTickSoundMock).toHaveBeenCalledTimes(1)
-    expect(ipcSend).toHaveBeenCalledWith('userAttentionRequired')
-
-    advanceBy(1000)
-    expect(playRandomTickSoundMock).toHaveBeenCalledTimes(2)
-    // The previous second's tick is faded out as the next one starts.
-    expect(fadeOut).toHaveBeenCalledTimes(1)
+    expect(playRandomTickSoundMock).not.toHaveBeenCalled()
+    expect(playFadeableSoundMock).not.toHaveBeenCalled()
   })
 
-  test('still ticks but does not ask for attention when taskbar flashing is off', () => {
-    setFlashTaskbar(false)
-    jotaiStore.set(foundMatchAtom, makeMatch())
+  test('schedules nothing for a match this client has already accepted', () => {
+    jotaiStore.set(foundMatchAtom, { ...makeMatch(), hasAccepted: true })
     renderSounds()
 
-    advanceTo(4)
-    expect(playRandomTickSoundMock).toHaveBeenCalledTimes(6)
-    expect(playFadeableSoundMock).toHaveBeenCalledTimes(1)
-    expect(ipcSend).not.toHaveBeenCalled()
+    expect(playRandomTickSoundMock).not.toHaveBeenCalled()
+    expect(playFadeableSoundMock).not.toHaveBeenCalled()
   })
 
-  test('turning taskbar flashing off mid-countdown does not replay the current sound', () => {
-    jotaiStore.set(foundMatchAtom, makeMatch())
-    renderSounds()
-
-    advanceTo(10)
-    expect(playRandomTickSoundMock).toHaveBeenCalledTimes(1)
-    expect(ipcSend).toHaveBeenCalledTimes(1)
-
-    setFlashTaskbar(false)
-    expect(playRandomTickSoundMock).toHaveBeenCalledTimes(1)
-
-    advanceBy(1000)
-    expect(playRandomTickSoundMock).toHaveBeenCalledTimes(2)
-    expect(ipcSend).toHaveBeenCalledTimes(1)
-  })
-
-  test('hands over to the single countdown sound for the last seconds, without retriggering it', () => {
-    jotaiStore.set(foundMatchAtom, makeMatch())
-    renderSounds()
-
-    advanceTo(4)
-    expect(playFadeableSoundMock).toHaveBeenCalledTimes(1)
-    expect(playFadeableSoundMock).toHaveBeenCalledWith(AvailableSound.Countdown)
-
-    advanceBy(3000)
-    expect(playFadeableSoundMock).toHaveBeenCalledTimes(1)
-    expect(playRandomTickSoundMock).toHaveBeenCalledTimes(6)
-  })
-
-  test('keeps playing while the dialog is dismissed, since it does not depend on the dialog', () => {
-    // No dialog is rendered here at all; the sounds only follow the found-match state.
-    jotaiStore.set(foundMatchAtom, makeMatch())
-    renderSounds()
-
-    advanceTo(8)
-
-    expect(playRandomTickSoundMock).toHaveBeenCalledTimes(3)
-  })
-
-  test('goes quiet and fades the playing sound once this client has accepted', () => {
+  test('fades or cancels every scheduled sound once this client has accepted', () => {
     const match = makeMatch()
     jotaiStore.set(foundMatchAtom, match)
     renderSounds()
 
     advanceTo(9)
-    expect(playRandomTickSoundMock).toHaveBeenCalledTimes(2)
-
     act(() => {
       jotaiStore.set(foundMatchAtom, { ...match, hasAccepted: true })
     })
-    expect(fadeOut).toHaveBeenCalledTimes(2)
+    expect(fadeOut).toHaveBeenCalledTimes(7)
 
-    advanceBy(5000)
-    expect(playRandomTickSoundMock).toHaveBeenCalledTimes(2)
-    expect(playFadeableSoundMock).not.toHaveBeenCalled()
+    advanceBy(9000)
+    expect(playRandomTickSoundMock).toHaveBeenCalledTimes(6)
+    expect(playFadeableSoundMock).toHaveBeenCalledTimes(1)
   })
 
-  test('fades the playing sound out when the match goes away', () => {
+  test('fades or cancels every scheduled sound when the match goes away', () => {
     jotaiStore.set(foundMatchAtom, makeMatch())
     renderSounds()
-
-    advanceTo(10)
-    expect(fadeOut).not.toHaveBeenCalled()
 
     act(() => {
       jotaiStore.set(foundMatchAtom, undefined)
     })
 
-    expect(fadeOut).toHaveBeenCalledTimes(1)
+    expect(fadeOut).toHaveBeenCalledTimes(7)
+  })
+
+  test('asks for attention once per ticking second and once for the countdown', () => {
+    jotaiStore.set(foundMatchAtom, makeMatch())
+    renderSounds()
+
+    advanceTo(11)
+    expect(ipcSend).not.toHaveBeenCalled()
+
+    advanceBy(1000)
+    expect(ipcSend).toHaveBeenCalledTimes(1)
+    expect(ipcSend).toHaveBeenCalledWith('userAttentionRequired')
+
+    advanceBy(10_000)
+    expect(ipcSend).toHaveBeenCalledTimes(7)
+  })
+
+  test('does not ask for attention when taskbar flashing is off', () => {
+    setFlashTaskbar(false)
+    jotaiStore.set(foundMatchAtom, makeMatch())
+    renderSounds()
+
+    advanceTo(1)
+    expect(ipcSend).not.toHaveBeenCalled()
+    expect(playRandomTickSoundMock).toHaveBeenCalledTimes(6)
+    expect(playFadeableSoundMock).toHaveBeenCalledTimes(1)
+  })
+
+  test('turning taskbar flashing off mid-countdown repeats neither a request nor a sound', () => {
+    jotaiStore.set(foundMatchAtom, makeMatch())
+    renderSounds()
+
+    advanceTo(10)
+    expect(ipcSend).toHaveBeenCalledTimes(1)
+
+    setFlashTaskbar(false)
+    advanceBy(1000)
+    expect(ipcSend).toHaveBeenCalledTimes(1)
+    expect(playRandomTickSoundMock).toHaveBeenCalledTimes(6)
   })
 })

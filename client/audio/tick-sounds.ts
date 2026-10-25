@@ -10,7 +10,11 @@ const TICK_SOUNDS: ReadonlyArray<AvailableSound> = [
   AvailableSound.Tick7,
 ]
 
-export function playRandomTickSound() {
+/**
+ * Plays one of the tick sounds at random, optionally `when` seconds from now (see
+ * `AudioManager.playFadeableSound`).
+ */
+export function playRandomTickSound(options?: { when?: number }) {
   const index = Math.floor(Math.random() * TICK_SOUNDS.length)
-  return audioManager.playFadeableSound(TICK_SOUNDS[index])
+  return audioManager.playFadeableSound(TICK_SOUNDS[index], options)
 }

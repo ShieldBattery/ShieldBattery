@@ -260,6 +260,28 @@ export class AudioManager {
   }
 
   /**
+   * Keeps the audio clock running in step with real time until the returned function is called.
+   * Hold this while sounds are scheduled well ahead of time (via `when`).
+   *
+   * Once the context has output nothing but silence for a while, the renderer swaps its real
+   * output for a fake one, and in a hidden window that fake output's clock runs well behind real
+   * time, so sounds scheduled ahead play seconds late. A constant signal far below audibility keeps
+   * the real output in use.
+   */
+  keepClockRunning(): () => void {
+    if (!IS_ELECTRON) {
+      return () => {}
+    }
+
+    const source = this.context.createConstantSource()
+    source.offset.value = 1e-6
+    // Straight to the destination, so the master volume can't zero it out.
+    source.connect(this.nodes.destination)
+    source.start()
+    return () => source.stop()
+  }
+
+  /**
    * Plays a sound that can be faded in/out using a GainNode.
    */
   playFadeableSound(
@@ -281,8 +303,9 @@ export class AudioManager {
 
     source.connect(gainNode)
     gainNode.connect(this.nodes.masterGain)
-    source.start(options?.when ? this.context.currentTime + options.when : 0)
-    return new FadeableSound(source, gainNode)
+    const startTime = options?.when ? this.context.currentTime + options.when : 0
+    source.start(startTime)
+    return new FadeableSound(source, gainNode, startTime)
   }
 }
 
@@ -290,12 +313,25 @@ export class FadeableSound {
   constructor(
     readonly source: AudioBufferSourceNode,
     readonly gainNode: GainNode,
+    /** The time the sound is scheduled to start, in its context's clock. */
+    private readonly startTime: number,
   ) {}
 
-  /** Fade the sound out over the specified duration (in seconds). */
+  /**
+   * Fade the sound out over the specified duration (in seconds). A sound scheduled for later that
+   * hasn't started yet is canceled instead, so it never plays.
+   */
   fadeOut(duration = 0.3) {
-    this.gainNode.gain.exponentialRampToValueAtTime(0.001, audioManager.currentTime + duration)
-    this.source.stop(audioManager.currentTime + duration + 0.1)
+    // The sound's own context, not the manager's current one, which may have been recreated since
+    // the sound was scheduled.
+    const now = this.source.context.currentTime
+    if (now < this.startTime) {
+      this.source.stop()
+      return
+    }
+
+    this.gainNode.gain.exponentialRampToValueAtTime(0.001, now + duration)
+    this.source.stop(now + duration + 0.1)
   }
 
   get loop(): boolean {
