@@ -25,10 +25,11 @@ const OUT_DIR = path.join(ROOT, 'app', 'dist')
 const isProd = process.env.NODE_ENV !== 'development'
 
 /**
- * Build-only settings, read into a scratch object rather than `process.env`: these belong to the
- * build, not to the process running it.
+ * Release-build settings, read into a scratch object rather than `process.env`: these belong to the
+ * build, not to the process running it. Development builds ignore the file, so they bundle the
+ * stubs unless the environment asks for something else.
  */
-const buildEnv = readEnvFile(path.join(ROOT, '.env-build'))
+const buildEnv: Record<string, string> = isProd ? readEnvFile(path.join(ROOT, '.env-build')) : {}
 
 const analyticsId = process.env.SB_ANALYTICS_ID ?? buildEnv.SB_ANALYTICS_ID ?? ''
 const securityImplPath = process.env.SB_PREBUILD ?? buildEnv.SB_PREBUILD

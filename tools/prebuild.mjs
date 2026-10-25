@@ -23,8 +23,10 @@ function packageRoot(start) {
   }
 }
 
-const entry = process.env.SB_PREBUILD ?? readBuildEnv().SB_PREBUILD
 const isRelease = process.argv.includes('--release')
+// .env-build configures release builds only; a development build prebuilds nothing unless the
+// environment names an entry itself.
+const entry = process.env.SB_PREBUILD ?? (isRelease ? readBuildEnv().SB_PREBUILD : undefined)
 
 if (isRelease) {
   const companion = process.env.SB_GAME_COMPANION
