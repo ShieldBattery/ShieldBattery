@@ -1,11 +1,12 @@
 //! Renderer, shader, and overlay hooks.
 
+use std::ffi::c_void;
 use std::ptr::{NonNull, null, null_mut};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Instant;
 
 use crate::app_messages::StartingFog;
-use crate::bw::Bw;
+use crate::bw::{Bw, get_bw};
 use crate::bw_scr::draw_inject::warn_once;
 use crate::game_thread;
 use crate::netcode_v2;
@@ -76,20 +77,16 @@ impl BwScr {
                     // or not the console is shown: it expires chat lines and cycles palettes
                     // among other things. A hidden console's art is held back by the hook on its
                     // own draw entry instead (see `Console_Draw`), and its interactable parts are
-                    // dialogs, hidden separately.
+                    // dialogs, hidden separately. Its tooltip is the one thing it can turn on that
+                    // neither of those covers, so a callback after it hides that again.
                     let graphic_layers =
                         self.graphic_layers.and_then(|x| NonNull::new(x.resolve()));
-                    if self.console_hidden()
-                        && let Some(layers) = graphic_layers
-                    {
-                        // Don't draw tooltip layer if it was active.
-                        // It can stay active when hiding console depending on where
-                        // the mouse was on when console was hidden, even if the control
-                        // becomes uninteractable.
-                        // (Pretty sure that none of the menus use tooltips)
-                        (*layers.as_ptr().add(1)).draw = 0;
-                    }
-                    orig(extra_funcs, extra_func_len, second_draw);
+                    let callbacks = with_tooltip_layer_hider(extra_funcs, extra_func_len);
+                    orig(
+                        callbacks.as_ptr() as *mut c_void,
+                        callbacks.len(),
+                        second_draw,
+                    );
                     let renderer = self.renderer.resolve();
                     let commands = self.draw_commands.resolve();
                     let vertex_buffer = self.vertex_buffer.resolve();
@@ -751,6 +748,47 @@ impl BwScr {
                     exe.replace_val(relative, patch);
                 }
             }
+        }
+    }
+}
+
+/// The callbacks `draw_graphic_layers` runs before drawing any layer, as SC:R passed them, with
+/// [`hide_tooltip_layer_if_console_hidden`] after them.
+unsafe fn with_tooltip_layer_hider(
+    callbacks: *mut c_void,
+    count: usize,
+) -> Vec<unsafe extern "C" fn()> {
+    // The count is a 32-bit int, which the game loops over as signed; on x86_64 the upper half of
+    // its register is not part of it.
+    let count = usize::try_from(count as u32 as i32).unwrap_or(0);
+    let mut out = Vec::with_capacity(count + 1);
+    if count != 0 && !callbacks.is_null() {
+        out.extend_from_slice(unsafe {
+            std::slice::from_raw_parts(callbacks as *const unsafe extern "C" fn(), count)
+        });
+    }
+    out.push(hide_tooltip_layer_if_console_hidden as unsafe extern "C" fn());
+    out
+}
+
+/// Keeps SC:R's tooltip layer (graphic layer 1) from drawing while the console is hidden: every
+/// tooltip it can show while a game runs belongs to a console control.
+///
+/// Hiding the console's dialogs doesn't stop the command panel's update from arming a tooltip. The
+/// update runs among `draw_graphic_layers`' callbacks whenever the panel is marked for a refresh
+/// (every second of game time, every blink of a paused replay's indicator, and on selection and
+/// unit changes) and hit-tests the pointer against the panel's buttons, which checks each button's
+/// own visibility but not the hidden dialog's. Hiding the layer before those callbacks run misses
+/// what they turn on, so this runs after them, before any layer draws.
+unsafe extern "C" fn hide_tooltip_layer_if_console_hidden() {
+    let bw = get_bw();
+    if bw.console_hidden()
+        && let Some(layers) = bw
+            .graphic_layers
+            .and_then(|x| NonNull::new(unsafe { x.resolve() }))
+    {
+        unsafe {
+            (*layers.as_ptr().add(1)).draw = 0;
         }
     }
 }
