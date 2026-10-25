@@ -589,9 +589,9 @@ fn simulate(scenario: &Scenario, start: ClockStart, rules: Rules, until_ms: i64)
 }
 
 const SCENARIOS: [Scenario; 4] = [
-    // Game 01a16bf9: KR (slot 0, the authority's) against Sao Paulo, one side's link jittery.
+    // KR (slot 0, the authority's) against Sao Paulo, with one side's link jittery.
     Scenario {
-        name: "this game",
+        name: "far, jittery",
         link_us: [2_000, 28_000],
         hop_us: 147_000,
         jitter: [
@@ -675,14 +675,17 @@ fn startup_pacing_ab() {
 
     // The simulation reproduces the reported start: each player skips and holds frames over and
     // over in the first seconds.
-    for x in run("this game", ClockStart::Authority, Rules::Today) {
-        assert!(x.startup_shown >= 6, "this game today: {x:?}\n{table}");
+    for x in run("far, jittery", ClockStart::Authority, Rules::Today) {
+        assert!(x.startup_shown >= 6, "far, jittery today: {x:?}\n{table}");
     }
     for start in [ClockStart::Authority, ClockStart::HomeRelay] {
         // With the client's pacing fixed, nothing shows at the start whichever way the relays
         // start the clock: the delay cut is slewed, and the clock's correction is folded into it.
-        for x in run("this game", start, Rules::Fixed) {
-            assert_eq!(x.startup_shown, 0, "this game, {start:?}: {x:?}\n{table}");
+        for x in run("far, jittery", start, Rules::Fixed) {
+            assert_eq!(
+                x.startup_shown, 0,
+                "far, jittery, {start:?}: {x:?}\n{table}"
+            );
         }
         // What is left of the first half minute is the opening's delay given back a frame a
         // window.
