@@ -2,7 +2,7 @@ import * as React from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Trans, useTranslation } from 'react-i18next'
-import { TableVirtuoso, TableVirtuosoHandle } from 'react-virtuoso'
+import { TableComponents, TableVirtuoso, TableVirtuosoHandle } from 'react-virtuoso'
 import slug from 'slug'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
@@ -788,14 +788,16 @@ const FooterSpacing = styled.div`
   height: 12px;
 `
 
-function LeaderboardAndMargin({ children }: { children?: React.ReactNode }) {
-  return (
-    <>
-      <LeaderboardRoot>{children}</LeaderboardRoot>
-      <FooterSpacing />
-    </>
-  )
-}
+// The props Virtuoso passes (notably `style` with `overflow-anchor: none`) must reach the
+// DOM. Without `overflow-anchor: none`, the browser's scroll anchoring reacts to Virtuoso resizing
+// its filler rows by adjusting the scroll position, which triggers more filler changes, and the
+// scroll runs away to the end of the list.
+const LeaderboardAndMargin: TableComponents['Table'] = ({ context, ...rest }) => (
+  <>
+    <LeaderboardRoot {...rest} />
+    <FooterSpacing />
+  </>
+)
 
 function LeaderboardHeader() {
   const { t } = useTranslation()
