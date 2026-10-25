@@ -53,12 +53,21 @@ impl OverlayState {
             };
         }
 
-        if !bw.has_init_bw || setup_info.is_none() || setup_info.unwrap().is_replay() {
+        // The loading screen goes up once SC:R has loaded its images, or partway through if that
+        // takes long enough to be redrawn in the middle of.
+        let loading_images = bw.image_load_progress.is_some();
+        if (!bw.has_init_bw && !loading_images)
+            || setup_info.is_none()
+            || setup_info.unwrap().is_replay()
+        {
             // If we don't have the game information yet or if it's a replay, we don't show a
             // loading screen. Render a black screen to hide the FPS counter during this time.
             egui::CentralPanel::default()
                 .frame(Frame::default().fill(Color32::BLACK))
                 .show(ui, |_ui| {});
+            if let Some(progress) = bw.image_load_progress {
+                add_image_load_progress(&ctx, progress);
+            }
             return;
         }
 
@@ -243,6 +252,10 @@ impl OverlayState {
                 );
             });
 
+        if let Some(progress) = bw.image_load_progress {
+            add_image_load_progress(&ctx, progress);
+        }
+
         if let Some(countdown_start) = bw.countdown_start {
             let elapsed = 5 - countdown_start.elapsed().as_secs().min(5);
             let area_width = 80.0;
@@ -386,6 +399,25 @@ impl OverlayState {
             },
         );
     }
+}
+
+/// A thin bar along the top of the screen showing how far SC:R's image load has gotten, in the
+/// spot the countdown takes once loading is done.
+fn add_image_load_progress(ctx: &egui::Context, progress: f32) {
+    const WIDTH: f32 = 320.0;
+    const HEIGHT: f32 = 4.0;
+    let x = ctx.content_rect().center().x - WIDTH / 2.0;
+    egui::Area::new("loading_screen_image_progress".into())
+        .fixed_pos(egui::pos2(x, 62.0))
+        .show(ctx, |ui| {
+            let (rect, _) = ui.allocate_exact_size(Vec2::new(WIDTH, HEIGHT), egui::Sense::hover());
+            let radius = CornerRadius::same((HEIGHT / 2.0) as u8);
+            let painter = ui.painter();
+            painter.rect_filled(rect, radius, colors::BLUE50.gamma_multiply(0.5));
+            let mut filled = rect;
+            filled.set_width(WIDTH * progress.clamp(0.0, 1.0));
+            painter.rect_filled(filled, radius, colors::BLUE80);
+        });
 }
 
 /// Adds a centered row listing the game's observers, each as a compact name (with their avatar if

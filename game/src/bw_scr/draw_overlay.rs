@@ -319,6 +319,9 @@ pub struct BwVars {
     /// read, which leaves every unit on its command icon too.
     pub wireframe_remap: Option<WireframeRemap>,
     pub has_init_bw: bool,
+    /// How far SC:R's image load has gotten, from 0.0 to 1.0, while the loading screen is redrawn
+    /// in the middle of it. `None` outside of the load.
+    pub image_load_progress: Option<f32>,
     pub countdown_start: Option<Instant>,
     pub game_started: bool,
     /// The `players[]` index the local client is playing from, which is what decides whose side a

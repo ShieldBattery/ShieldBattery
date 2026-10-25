@@ -43,6 +43,7 @@ pub fn open_file_hook(
     unsafe {
         let mut buffer = PathBuffer::new();
         let real = real_path(path, params, &mut buffer);
+        super::image_load_pump::on_file_open(bw, real);
         if let Some(path) = real {
             let is_sd = (*params).file_type == 1;
             if bw.disable_hd.load(Ordering::Relaxed)
