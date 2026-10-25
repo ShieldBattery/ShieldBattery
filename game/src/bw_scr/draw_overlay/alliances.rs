@@ -109,8 +109,12 @@ impl AlliancesState {
                     .map(|player_id| (player_id, row(player_id, None))),
             )
             .collect::<Vec<_>>();
-        // Changing alliances must not move rows under the pointer. Use the game's fixed teams.
-        rows.sort_by_key(|(player_id, player)| (player.team, *player_id));
+        // Changing alliances must not move rows under the pointer. Use the game's fixed teams, then
+        // names: in melee a player's id is their start location's index in the map, so ordering by
+        // id would tell the player where each opponent spawned.
+        rows.sort_by_cached_key(|(player_id, player)| {
+            (player.team, player.name.to_lowercase(), *player_id)
+        });
 
         let mut chat_targets = vec![ChatTargetOption {
             choice: ChatTargetChoice::All,
