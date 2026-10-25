@@ -41,9 +41,11 @@ export function LadderGuidePage() {
         'give more points and losses cost fewer.\n* If your points are **above** where your ' +
         'skill says they should be, the opposite happens.\n* **Every win gives at least 1 ' +
         'point**, and points can’t go below 0.\n\nTwo extras help you get where you belong ' +
-        'without grinding:\n\n* **Catch-up bonus:** Early in a season, when your points are far ' +
-        'below what your MMR says they should be, each win gives a large number of extra ' +
-        'points. Experienced players can get close to their real level in a handful of wins.\n* ' +
+        'without grinding:\n\n* **Catch-up bonus:** While your points are below what your MMR ' +
+        'says they should be, each win gives extra points: up to 400 when you’re far behind, ' +
+        'shrinking as you get close. While your MMR is still uncertain, such as when you’re ' +
+        'new, the catch-up aims a little lower until your MMR settles. Most players reach their ' +
+        'real level within about 50 games.\n* ' +
         '**Bonus pool:** From the start of each season, everyone builds up bonus points at ' +
         '**200 per week**, whether or not they play. While you have unused bonus, each **win ' +
         'gives double points** and each **loss costs nothing**. The pool stops growing a week ' +

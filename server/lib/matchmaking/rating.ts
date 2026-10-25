@@ -301,7 +301,7 @@ function makeRatingChanges({
   const totalBonusPool = getTotalBonusPoolForSeason(gameDate, season)
   const teammateRatings = teammates.map(teammate => teammate.rating)
   const [pointsChange, bonusApplied, pointsConverged] = calcPointsChange({
-    rating: player.rating,
+    convergence: ladderConvergence(player.rating, player.uncertainty),
     points: player.points,
     pointsConverged: player.pointsConverged,
     bonusInfo: {
@@ -337,7 +337,7 @@ function makeRatingChanges({
   // Calculate changes for leagues
   const leagueChanges: LeagueUserChange[] = activeLeagues.map(league => {
     const [pointsChange, _, pointsConverged] = calcPointsChange({
-      rating: player.rating,
+      convergence: leagueConvergence(player.rating),
       points: league.points,
       pointsConverged: league.pointsConverged,
       teammateRatings,
@@ -368,8 +368,56 @@ interface BonusInfo {
   bonusAvailable: number
 }
 
+/**
+ * How a player's points converge on the target for their rating: the extra points a win adds while
+ * they're below it, and when they count as having reached it. Both take the player's points
+ * without any bonus pool applied: `extraWinPoints` as of before the game, `isConverged` after it.
+ */
+interface PointsConvergence {
+  extraWinPoints(pointsWithoutBonus: number, converged: boolean): number
+  isConverged(pointsWithoutBonus: number): boolean
+}
+
+/** The share of the gap to the catch-up target that a win adds on the ladder. */
+const CATCH_UP_GAP_SHARE = 0.5
+/** The most catch-up points a single ladder win can add. */
+const MAX_CATCH_UP_POINTS = 400
+
+/**
+ * Ladder points catch up to a target of `POINTS_FOR_RATING_TARGET_FACTOR` times the player's
+ * rating minus their uncertainty, a cautious estimate of their skill. Each win adds a share of the
+ * remaining gap, so the extra shrinks to nothing as points near the target and players at every
+ * rating catch up over a similar number of games. A new player's uncertainty is high, so a lucky
+ * run of early wins can't carry their points past what their rating will support once it settles.
+ *
+ * The extra applies whenever points are below the target, not just until the first time they reach
+ * it, so points keep following a rating that climbs later on.
+ */
+function ladderConvergence(rating: number, uncertainty: number): PointsConvergence {
+  const target = POINTS_FOR_RATING_TARGET_FACTOR * (rating - uncertainty)
+  return {
+    extraWinPoints: pointsWithoutBonus =>
+      Math.min(
+        MAX_CATCH_UP_POINTS,
+        Math.max(0, CATCH_UP_GAP_SHARE * (target - pointsWithoutBonus)),
+      ),
+    isConverged: pointsWithoutBonus => pointsWithoutBonus >= target,
+  }
+}
+
+/**
+ * League points get a fixed extra per win, by rating bucket, until they first reach the bucket's
+ * floor. Leagues are short, so this stays smaller than the ladder's catch-up.
+ */
+function leagueConvergence(rating: number): PointsConvergence {
+  return {
+    extraWinPoints: (_, converged) => (converged ? 0 : getConvergencePoints(rating)),
+    isConverged: pointsWithoutBonus => arePointsConverged(rating, pointsWithoutBonus),
+  }
+}
+
 function calcPointsChange({
-  rating,
+  convergence,
   points,
   pointsConverged,
   bonusInfo,
@@ -377,7 +425,7 @@ function calcPointsChange({
   opponentRatingGlicko,
   result,
 }: {
-  rating: number
+  convergence: PointsConvergence
   points: number
   pointsConverged: boolean
   bonusInfo?: BonusInfo
@@ -413,16 +461,15 @@ function calcPointsChange({
     pointsChange = pointsChange + bonusApplied
   }
 
-  let newPointsConverged = pointsConverged
-  if (result === 'win' && !newPointsConverged) {
-    pointsChange += getConvergencePoints(rating)
+  if (result === 'win') {
+    pointsChange += convergence.extraWinPoints(pointsWithoutBonus, pointsConverged)
   }
 
   // Ensure that a player's points cannot go below 0
   pointsChange = Math.max(pointsChange, -points)
-  newPointsConverged =
-    newPointsConverged ||
-    arePointsConverged(rating, points + pointsChange - ((bonusInfo?.bonusUsed ?? 0) + bonusApplied))
+  const newPointsConverged =
+    pointsConverged ||
+    convergence.isConverged(points + pointsChange - ((bonusInfo?.bonusUsed ?? 0) + bonusApplied))
 
   return [pointsChange, bonusApplied, newPointsConverged]
 }

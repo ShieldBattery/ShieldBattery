@@ -544,9 +544,10 @@ export function getDivisionColor(division: MatchmakingDivision) {
 }
 
 /**
- * Rating floors to be used to determine if a user is still converging towards their target point
- * total. If they are still converging, they'll receive extra points for each win until they hit
- * the value listed here.
+ * Rating floors to be used to determine if a user is still converging towards their target league
+ * point total. If they are still converging, they'll receive extra points for each win until they
+ * hit the value listed here. Ladder points converge by a different rule, in
+ * `server/lib/matchmaking/rating.ts`.
  */
 const RATING_CONVERGENCE_BUCKETS: ReadonlyArray<[minRating: number, extraPoints: number]> = [
   [1100, 30],
