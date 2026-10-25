@@ -91,10 +91,6 @@ const LOCKSTEP_START_STEPS: u32 = rally_point_client::proto::rollback::LOCKSTEP_
 /// behind its schedule.
 const MAX_CATCH_UP_PER_TICK: u32 = 2;
 
-/// The game loop's interval between logic steps at the Fastest game speed, which is also the
-/// session clock's step.
-const FRAME_DURATION: Duration = crate::rollback::pacing::STEP;
-
 /// How many ticks go between the summaries logged.
 const SUMMARY_TICKS: u32 = 720;
 
@@ -400,7 +396,7 @@ pub fn init_from_env() {
             });
             match parsed {
                 Some((storm, frames)) if storm < bw::MAX_STORM_PLAYERS => {
-                    held[storm] = FRAME_DURATION * frames;
+                    held[storm] = crate::rollback::pacing::STEP * frames;
                 }
                 _ => {
                     error!(
@@ -421,7 +417,7 @@ pub fn init_from_env() {
             parsed
         })
         .map_or((Duration::ZERO, 0), |(frames, from)| {
-            (FRAME_DURATION * frames, from)
+            (crate::rollback::pacing::STEP * frames, from)
         });
     let monkey_interval = read_count(MONKEY_ENV_VAR)
         .filter(|&apm| apm != 0)
