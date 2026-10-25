@@ -44,17 +44,30 @@ export interface DiscordActivityImage {
 }
 
 export interface DiscordActivityParty {
-  /** Identifies the party, so Discord groups everyone in it together. */
+  /**
+   * Identifies the party, so Discord groups everyone in it together. Discord only gets a hash of it,
+   * since it shows a party's id to anyone who can see the activity.
+   */
   id: string
   currentSize: number
   maxSize: number
+  /**
+   * Who can join without asking. With 'public', the user's Discord friends can (as their Discord
+   * privacy settings allow) and others ask to join; with 'private', everyone asks. Discord hands the
+   * join secret only to those who join or whose request the user accepts, and to people the user
+   * invites from Discord.
+   */
+  privacy: 'public' | 'private'
   /** Handed to whoever joins from Discord (see `parseDiscordJoinSecret`). */
   joinSecret: string
 }
 
 const LOBBY_JOIN_SECRET_PREFIX = 'lobby:'
 
-/** Returns the join secret for a lobby's activity. A listed lobby is public, so its id is enough. */
+/**
+ * Returns the join secret for a lobby's activity. It holds the lobby's id, which lets its holder
+ * into the lobby even if it's unlisted, the same as a link to the lobby.
+ */
 export function makeLobbyJoinSecret(lobbyId: SbLobbyId): string {
   return LOBBY_JOIN_SECRET_PREFIX + lobbyId
 }

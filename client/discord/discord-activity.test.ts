@@ -69,21 +69,31 @@ describe('client/discord/discord-activity', () => {
           id: LOBBY_ID,
           currentSize: 4,
           maxSize: 6,
+          privacy: 'public',
           joinSecret: `lobby:${LOBBY_ID}`,
         },
       })
     })
 
-    test('an unlisted lobby shows as private, without its name, a party or a join secret', () => {
+    test('an unlisted lobby shows as private, without its name, and can be asked to join', () => {
       const activity = shared({ ...LISTED_LOBBY, visibility: 'unlisted' })
       expect(activity?.details).toBe('🔒 Private lobby')
       expect(activity?.state).toBe('Fastest')
       expect(activity?.smallImage?.image).toBe('race_z')
-      expect(activity?.party).toBeUndefined()
+      expect(activity?.party).toEqual({
+        id: LOBBY_ID,
+        currentSize: 4,
+        maxSize: 6,
+        privacy: 'private',
+        joinSecret: `lobby:${LOBBY_ID}`,
+      })
     })
 
     test("a lobby whose game is loading or running can't be joined", () => {
       expect(shared({ ...LISTED_LOBBY, inGame: true })?.party).toBeUndefined()
+      expect(
+        shared({ ...LISTED_LOBBY, visibility: 'unlisted', inGame: true })?.party,
+      ).toBeUndefined()
     })
 
     test("a one-character lobby name is quoted, since Discord won't show it alone", () => {

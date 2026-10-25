@@ -102,6 +102,39 @@ describe('app/discord-presence/DiscordPresence', () => {
     vi.useRealTimers()
   })
 
+  test("gives Discord a hash of a party's id, the same for everyone in the party", async () => {
+    setDiscordRunning(true)
+    mockUpdateRichPresence.mockResolvedValue(undefined)
+    presence.start()
+    const party = {
+      id: 'lobbyId1234567890abcde',
+      currentSize: 1,
+      maxSize: 2,
+      privacy: 'private',
+      joinSecret: 'lobby:lobbyId1234567890abcde',
+    } as const
+    presence.setActivity({ ...LOBBY_ACTIVITY, party })
+    await vi.advanceTimersByTimeAsync(0)
+    presence.setActivity({
+      ...LOBBY_ACTIVITY,
+      state: 'Python',
+      party: { ...party, currentSize: 2 },
+    })
+    await vi.advanceTimersByTimeAsync(MIN_UPDATE_INTERVAL_MS)
+
+    const sent = mockUpdateRichPresence.mock.calls.map(([, activity]) => activity)
+    expect(sent).toHaveLength(2)
+    expect(sent[0].party).toEqual({
+      id: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/),
+      currentSize: 1,
+      maxSize: 2,
+      privacy: 'private',
+    })
+    expect(sent[0].party!.id).not.toContain(party.id)
+    expect(sent[1].party!.id).toBe(sent[0].party!.id)
+    expect(sent[0].joinSecret).toBe(party.joinSecret)
+  })
+
   test('sends an unchanged activity once', async () => {
     setDiscordRunning(true)
     mockUpdateRichPresence.mockResolvedValue(undefined)
