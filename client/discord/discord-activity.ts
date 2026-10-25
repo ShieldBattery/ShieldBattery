@@ -128,7 +128,6 @@ function getLobbyActivity(lobby: LobbyActivity, t: TFunction): DiscordActivity {
   const details = listed
     ? (fitDiscordText(lobby.name) ?? fitDiscordText(`“${lobby.name}”`))
     : `🔒 ${t('discord.activity.privateLobby', 'Private lobby')}`
-  const joinable = listed && !lobby.inGame
 
   return {
     details,
@@ -136,12 +135,14 @@ function getLobbyActivity(lobby: LobbyActivity, t: TFunction): DiscordActivity {
     largeImage: getMapImage(lobby.mapImageUrl, lobby.mapName),
     smallImage: lobby.observing ? getObserverIcon(t) : getRaceIcon(lobby.ownRace, t),
     // Discord shows the size after the state, e.g. "Fighting Spirit (2 of 4)", and offers to join
-    // while there's room.
-    party: joinable
+    // while there's room. An unlisted lobby's party is private, so people ask to join it and only
+    // those the user accepts (or invites from Discord) get its join secret.
+    party: !lobby.inGame
       ? {
           id: lobby.id,
           currentSize: lobby.playerCount,
           maxSize: lobby.playerCount + lobby.openSlots,
+          privacy: listed ? 'public' : 'private',
           joinSecret: makeLobbyJoinSecret(lobby.id),
         }
       : undefined,

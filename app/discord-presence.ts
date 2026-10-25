@@ -13,6 +13,7 @@ import {
   setApplicationId,
   updateRichPresence,
 } from '@shieldbattery/danimoth'
+import { createHash } from 'node:crypto'
 import { readdir } from 'node:fs/promises'
 import { isDeepStrictEqual } from 'node:util'
 import { DiscordActivity, parseDiscordJoinSecret } from '../common/discord-presence'
@@ -289,16 +290,25 @@ function toSdkActivity(activity: DiscordActivity): Activity {
     ...(party
       ? {
           party: {
-            id: party.id,
+            id: toSdkPartyId(party.id),
             currentSize: party.currentSize,
             maxSize: party.maxSize,
-            privacy: 'public',
+            privacy: party.privacy,
           },
           joinSecret: party.joinSecret,
           supportedPlatforms: ['desktop'],
         }
       : {}),
   }
+}
+
+/**
+ * Returns the id Discord gets for a party: a hash of the party's own id, which is still the same for
+ * everyone in the party. Discord shows a party's id to anyone who can see the activity, and a
+ * lobby's id is all it takes to join the lobby.
+ */
+function toSdkPartyId(partyId: string): string {
+  return createHash('sha256').update(partyId).digest('base64url')
 }
 
 function logDiscordCheckError(err: unknown) {

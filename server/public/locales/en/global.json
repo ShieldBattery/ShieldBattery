@@ -1114,7 +1114,7 @@
       "footnote": "Nothing shows while you’re not in a lobby, a game or a replay. You can change this later in Settings › Connections.",
       "intro": "ShieldBattery can show what you’re doing on the Discord account signed in to the Discord app on this computer:",
       "sharedGame": "The game mode, the matchup or your race, the map, and how long the game has been going",
-      "sharedLobby": "The map of the lobby you’re in, with the lobby’s name and a Join button if it’s listed",
+      "sharedLobby": "The map of the lobby you’re in, its name if it’s listed, and a Join button, or Ask to Join if it’s unlisted",
       "sharedReplay": "That you’re watching a replay, and its map",
       "title": "Show your activity on Discord?"
     }
