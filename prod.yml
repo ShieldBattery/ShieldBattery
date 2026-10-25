@@ -3,7 +3,10 @@
 # "region")
 appId: net.shieldbattery.client
 extraResources:
-  - game/dist/**
+  # An explicit `from` keeps the asar integrity scan inside game/dist; a bare pattern makes it walk
+  # every directory in the project.
+  - from: game/dist
+    to: game/dist
 files:
   - 'assets/**/*'
   - 'dist/**/*'
