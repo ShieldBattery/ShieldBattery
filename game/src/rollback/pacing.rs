@@ -41,6 +41,14 @@
 //! tick by up to [`SLEW_PER_TICK_US`] toward the middle, which a stall, a stop of the clock, or the
 //! game loop's own drift can have moved them off.
 //!
+//! A rise in the lead (fewer of its own turns in the pipe) moves the frames stepped against the
+//! sends sooner by a step a frame. Taken at once, the game would step a frame twice in one tick, a
+//! frame the player sees skipped; instead the frame schedule lags the pipe by what is still to be
+//! taken up ([`Pacing::lag_frame`]), which slews away at [`LEAD_SLEW_PER_TICK_US`] a tick, bringing
+//! each tick of the game loop that much sooner. When a report moves the schedule later by whole
+//! steps while such a rise is still being taken up, the two cancel on screen, so the driver takes
+//! the rise up at once against them instead ([`Pacing::fold_frame_lag`]).
+//!
 //! When the session clock stops (everyone waited on a player who dropped, or on one running later
 //! than the clock allows), the report carrying the stop moves `send_zero` later by exactly the
 //! stopped time, so nobody races to make up time the session never ran. Its figures still count:
@@ -76,6 +84,10 @@ pub const MAX_CORRECTION_US: i64 = 2 * STEP_US;
 /// game speed.
 pub const SLEW_PER_TICK_US: i64 = 1_000;
 
+/// How fast the frame schedule takes up a rise in the lead: 4 ms a tick, about a tenth of game
+/// speed, so a frame of lead takes 11 ticks to take effect and no tick steps an extra frame for it.
+pub const LEAD_SLEW_PER_TICK_US: i64 = 4_000;
+
 /// How far off the middle of its step a tick may start before the pacing nudges the game loop
 /// back toward it.
 const PHASE_DEAD_BAND_US: i64 = 2_000;
@@ -96,6 +108,24 @@ pub struct PacingCounts {
     pub holds_undone: u32,
 }
 
+/// What one report did to the schedule.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct ReportOutcome {
+    /// How much the session clock stopped since the report before, which moved the schedule
+    /// later by that much less any time this client held still for, in microseconds.
+    pub stopped_us: i64,
+    /// How far a provisional hold through a stall of this client's own was undone, in
+    /// microseconds.
+    pub hold_undone_us: i64,
+    /// The correction the report's lateness made, in microseconds (negative is earlier), of which
+    /// `whole_steps` applied at once and the rest is slewed.
+    pub correction_us: i64,
+    pub whole_steps: i64,
+    /// Whether this report was the first to cover a full window, from which corrections are
+    /// capped.
+    pub settled: bool,
+}
+
 /// When this client steps each frame. See the module docs.
 #[derive(Debug)]
 pub struct Pacing {
@@ -104,6 +134,10 @@ pub struct Pacing {
     /// The part of the commanded correction not yet applied, in microseconds (negative is
     /// earlier).
     slewing_us: i64,
+    /// How much later than the pipe has them the frames are stepped against the sends, in
+    /// microseconds: a rise in the lead not taken up yet, or below 0 one taken up against a later
+    /// schedule ahead of its slew.
+    frame_lag_us: i64,
     /// The session clock's stopped time as of the newest report.
     pause_us: u64,
     /// Time this client held its schedule still while stalled at its prediction limit, not yet
@@ -156,6 +190,7 @@ impl Pacing {
         Self {
             send_zero,
             slewing_us: 0,
+            frame_lag_us: 0,
             pause_us: 0,
             hold: Duration::ZERO,
             last_tick: tick_start,
@@ -170,10 +205,53 @@ impl Pacing {
     /// The position a tick that starts at `tick_start` should end on, with `pipe` of this client's
     /// own turns in flight.
     pub fn target(&self, tick_start: Instant, pipe: u32) -> u32 {
-        let elapsed = tick_start.saturating_duration_since(self.send_zero);
+        let elapsed = tick_start.saturating_duration_since(self.frame_zero());
         let steps = elapsed.as_micros() / STEP.as_micros();
         let target = i64::try_from(steps).unwrap_or(i64::MAX) + 1 - i64::from(pipe);
         target.clamp(0, u32::MAX.into()) as u32
+    }
+
+    /// When frame 0 would have been stepped on the frame schedule, which lags the send schedule
+    /// by any rise in the lead not taken up yet.
+    fn frame_zero(&self) -> Instant {
+        shifted(self.send_zero, self.frame_lag_us)
+    }
+
+    /// Notes that the lead in effect rose a frame: the pipe holds a turn less, and the frames
+    /// stepped come a step sooner against the sends, taken up a slew at a time
+    /// ([`slew_frame_lag`](Self::slew_frame_lag)).
+    pub fn lag_frame(&mut self) {
+        self.frame_lag_us += STEP_US;
+    }
+
+    /// Notes that the lead in effect dropped while a rise was still being taken up: the frame the
+    /// rise was for won't be stepped sooner after all.
+    pub fn drop_frame_lag(&mut self) {
+        self.frame_lag_us = self.frame_lag_us.min(0);
+    }
+
+    /// Takes up a rise in the lead being slewed against a correction that moved the schedule a
+    /// whole step later: the two cancel, leaving the frames stepped where they were. What was
+    /// left of the slew becomes a slew the other way, which the game takes up running as much
+    /// slower as it would have run faster.
+    pub fn fold_frame_lag(&mut self) {
+        self.frame_lag_us -= STEP_US;
+    }
+
+    /// The part of a rise in the lead not taken up yet, in microseconds.
+    pub fn frame_lag_us(&self) -> i64 {
+        self.frame_lag_us
+    }
+
+    /// Takes up a tick's worth of the frame schedule's lag, after a tick that stepped, and returns
+    /// it in microseconds (negative is sooner) for the caller to move the game loop's next step by.
+    #[must_use]
+    pub fn slew_frame_lag(&mut self) -> i64 {
+        let step = self
+            .frame_lag_us
+            .clamp(-LEAD_SLEW_PER_TICK_US, LEAD_SLEW_PER_TICK_US);
+        self.frame_lag_us -= step;
+        -step
     }
 
     /// The newest turn this client's schedule has due by the end of a tick that starts at `now`:
@@ -193,7 +271,7 @@ impl Pacing {
     pub fn phase_nudge_us(&self, tick_start: Instant) -> i64 {
         let into = i64::try_from(
             tick_start
-                .saturating_duration_since(self.send_zero)
+                .saturating_duration_since(self.frame_zero())
                 .as_micros()
                 % STEP.as_micros(),
         )
@@ -238,14 +316,21 @@ impl Pacing {
         step
     }
 
-    /// Takes in a report from this client's home relay. `newest_sent` is the newest turn this
-    /// client has sent.
-    pub fn on_report(&mut self, report: &LeadReport, newest_sent: u64) {
+    /// Takes in a report from this client's home relay, and returns what it did to the schedule.
+    /// `newest_sent` is the newest turn this client has sent.
+    pub fn on_report(&mut self, report: &LeadReport, newest_sent: u64) -> ReportOutcome {
+        let mut outcome = ReportOutcome::default();
+        self.take_report(report, newest_sent, &mut outcome);
+        outcome
+    }
+
+    fn take_report(&mut self, report: &LeadReport, newest_sent: u64, outcome: &mut ReportOutcome) {
         if report.pause_us > self.pause_us {
             // The session clock stopped: every later deadline moved by exactly that much, part
             // of which this client may already have held still for. The report's figures are
             // taken in below like any other's.
             let stopped = i64::try_from(report.pause_us - self.pause_us).unwrap_or(i64::MAX);
+            outcome.stopped_us = stopped;
             self.pause_us = report.pause_us;
             self.send_zero = shifted(self.send_zero, stopped - micros(self.hold));
             self.hold = Duration::ZERO;
@@ -265,6 +350,7 @@ impl Pacing {
             if behind_us > 0 {
                 self.send_zero = shifted(self.send_zero, -behind_us);
                 self.counts.holds_undone += 1;
+                outcome.hold_undone_us = behind_us;
                 self.trust_from = newest_sent + REPORT_WINDOW_TURNS;
                 return;
             }
@@ -284,6 +370,7 @@ impl Pacing {
                 return;
             }
             self.settled = full;
+            outcome.settled = full;
         }
         if correction == 0 {
             return;
@@ -293,6 +380,8 @@ impl Pacing {
         let whole = correction / STEP_US * STEP_US;
         self.send_zero = shifted(self.send_zero, whole);
         self.slewing_us = correction - whole;
+        outcome.correction_us = correction;
+        outcome.whole_steps = whole / STEP_US;
         self.counts.corrections += 1;
         self.counts.corrected_us += correction;
         let slew_ticks = self

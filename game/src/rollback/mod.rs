@@ -28,12 +28,16 @@ pub(crate) mod announcements;
 pub(crate) mod copier;
 pub(crate) mod game_end;
 pub(crate) mod hash_reports;
+pub(crate) mod lead_window;
+pub(crate) mod live_pacing;
 pub(crate) mod observer_ui;
 pub(crate) mod pacing;
 pub(crate) mod ranges;
 pub(crate) mod selection;
 pub(crate) mod snapshot;
 pub(crate) mod sounds;
+#[cfg(test)]
+mod startup_sim;
 pub(crate) mod state_hash;
 pub(crate) mod tick;
 pub(crate) mod ui_writes;

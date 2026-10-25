@@ -49,7 +49,9 @@ use crate::bw::{self, Bw};
 use crate::bw_scr::BwScr;
 use crate::game_thread;
 use crate::netcode_v2::{self, InputCounts, InputTable};
-use crate::rollback::pacing::{Pacing, PacingCounts};
+use crate::rollback::lead_window::rollback_target_at;
+use crate::rollback::live_pacing::{TickInfo, TickPacer};
+use crate::rollback::pacing::PacingCounts;
 use crate::rollback::snapshot::{SNAPSHOTS, Snapshots};
 use crate::rollback::tick::{self, TickPlan};
 use crate::rollback::{game_end, hash_reports, sounds};
@@ -143,35 +145,6 @@ static ARMED: AtomicBool = AtomicBool::new(false);
 /// [`rollback_target_at`]).
 static OPENING: AtomicBool = AtomicBool::new(false);
 
-/// How many frames of the prediction limit a game's opening leaves past its rollback target. Nobody
-/// sees another player's units in the opening of a melee game, so corrections there go unseen and
-/// the opening takes as much lateness as it can by rolling back, for the least input delay, but
-/// still predicts through a peer's hitch of about an eighth of a second rather than stalling.
-const OPENING_HEADROOM: u32 = 3;
-
-/// How many steps a game's opening runs at its rollback target: fifteen seconds.
-const OPENING_STEPS: u32 = 360;
-
-/// The rollback target at `step`, for a player who chose `chosen` in a game whose prediction limit
-/// is `limit`: in a game with an opening, [`OPENING_HEADROOM`] short of the limit through the
-/// opening, then a frame lower each lead window until it is back at `chosen`, so the lead gives
-/// each frame of rollback back as input delay one at a time (each is a frame the player sees
-/// repeat) rather than in the bigger drops lateness can make.
-fn rollback_target_at(step: u32, chosen: u32, limit: u32, opening: bool) -> u32 {
-    if !opening {
-        return chosen;
-    }
-    let opening_target = limit.saturating_sub(OPENING_HEADROOM);
-    let target = match step.checked_sub(OPENING_STEPS) {
-        None => opening_target,
-        Some(after) => {
-            let given_back = after / LEAD_WINDOW_TICKS as u32 + 1;
-            opening_target.saturating_sub(given_back)
-        }
-    };
-    target.max(chosen)
-}
-
 /// Frames between snapshots.
 static SPACING: AtomicU32 = AtomicU32::new(tick::DEFAULT_SNAPSHOT_SPACING);
 
@@ -179,14 +152,18 @@ static SPACING: AtomicU32 = AtomicU32::new(tick::DEFAULT_SNAPSHOT_SPACING);
 #[cfg(debug_assertions)]
 static MONKEY_RANDOM: AtomicU32 = AtomicU32::new(0);
 
-/// When the simulation steps each frame, against the relays' session clock (see [`Pacing`]). Set
-/// by the tick that runs the first step after the game's lockstep start, through which every
-/// client stepped on the game loop's own timing, lined up with the others by the start's first
-/// steps waiting for every turn.
-static PACING: Mutex<Option<Pacing>> = Mutex::new(None);
+/// When the simulation steps each frame, against the relays' session clock, and how its lead
+/// moves (see [`TickPacer`]). Its pacing starts with the tick that runs the first step after the
+/// game's lockstep start, through which every client stepped on the game loop's own timing, lined
+/// up with the others by the start's first steps waiting for every turn. The lead it moves lives in
+/// the turn state, which the tick takes out and puts back around it rather than holding both locks.
+static PACER: Mutex<TickPacer> = Mutex::new(TickPacer::new());
 
 /// The rollback this client runs, for the network quality readout.
 static RECENT_ROLLBACK: Mutex<RecentRollback> = Mutex::new(RecentRollback::new());
+
+/// The rollback this client runs past what it means to, for the network quality readout's bars.
+static RATED_ROLLBACK: Mutex<RecentRollback> = Mutex::new(RecentRollback::new());
 
 /// The rollback the network quality readout shows: a high percentile of how many frames this
 /// client ran past the newest step whose turns were all known over the last few seconds, so that
@@ -195,105 +172,13 @@ pub fn shown_rollback() -> u32 {
     RECENT_ROLLBACK.lock().shown()
 }
 
-/// How many ticks the client watches the rollback it runs before deciding whether to move its
-/// lead: two seconds. A burst of lateness shorter than a tenth of that is rolled back over, up to
-/// the prediction limit, and the lead only follows lateness that holds.
-const LEAD_WINDOW_TICKS: usize = 48;
-
-/// The rollback the ticks since the lead last moved ran with.
-struct LeadWindow {
-    rollbacks: [i32; LEAD_WINDOW_TICKS],
-    ticks: usize,
-    /// The newest step whose turns were all known as of the last tick noted.
-    known_until: u32,
-    /// The most rollback any tick ran with since more turns last became known.
-    worst_since_known: i32,
+/// The rollback this client runs as the network quality readout's bars rate it: what each tick ran
+/// with less what the game's rollback target had it run on purpose past the player's own (through
+/// a melee game's opening, where corrections go unseen, and while the target comes down from it),
+/// smoothed like [`shown_rollback`].
+pub fn rated_rollback() -> u32 {
+    RATED_ROLLBACK.lock().shown()
 }
-
-static LEAD_WINDOW: Mutex<LeadWindow> = Mutex::new(LeadWindow::new());
-
-impl LeadWindow {
-    const fn new() -> LeadWindow {
-        LeadWindow {
-            rollbacks: [0; LEAD_WINDOW_TICKS],
-            ticks: 0,
-            known_until: 0,
-            worst_since_known: i32::MIN,
-        }
-    }
-
-    /// Notes the rollback a tick ran with, having reached frame `reached` with `known_until` the
-    /// newest step whose turns were all known, and returns how far to move the lead once a whole
-    /// window is in.
-    ///
-    /// The rollback noted is signed: below 0, the turns of frames the client hasn't reached yet
-    /// were already in, and that many more frames of lead would still have run without rolling
-    /// back. It counts the `to_follow` frames of lead the client has chosen but not taken up yet
-    /// as already in effect, since they will spend that much of any such headroom: a rise bigger
-    /// than a window can take up would otherwise be made again by the next window.
-    ///
-    /// The target is the rollback the client means to run steadily, and the frame past it is
-    /// insurance against small delays: corrections stay hard to see up to a frame past the target,
-    /// and only become visible beyond it. So the lead moves down (more input delay) once the
-    /// window's median is past the target, or more than a tenth of its ticks ran past the
-    /// insurance frame, by whichever excess is larger but at most [`MAX_LEAD_DROP`] frames; and it
-    /// moves up once even its 90th percentile is short of the target, by that shortfall, which at
-    /// a target of 0 only headroom shows. Moving the lead by a frame moves the whole distribution
-    /// by a frame, so one move never leads straight to the opposite one.
-    ///
-    /// The window takes one sample each time more turns become known: the most rollback any tick
-    /// ran with since the last time. The lead follows how late turns arrive, and while none arrive
-    /// at all (a peer that stopped sending, or a lost link) the rollback just sits at the
-    /// prediction limit, which says nothing about lateness: a sample for every such tick would
-    /// pile input delay on for when turns resume. Turns that arrive several at a time leave the
-    /// least rollback on the tick they arrive by and more on every tick until the next ones, and
-    /// those later ticks are the ones the lead has to cover. Once no turn is left to arrive, none
-    /// is late or early either.
-    fn note(&mut self, reached: u32, known_until: u32, to_follow: i32, target: u32) -> i32 {
-        let rollback = i64::from(reached) - i64::from(known_until) + i64::from(to_follow);
-        let rollback = rollback.clamp(i32::MIN.into(), i32::MAX.into()) as i32;
-        self.worst_since_known = self.worst_since_known.max(rollback);
-        if known_until == u32::MAX || known_until <= self.known_until {
-            return 0;
-        }
-        self.known_until = known_until;
-        self.rollbacks[self.ticks] = std::mem::replace(&mut self.worst_since_known, i32::MIN);
-        self.ticks += 1;
-        if self.ticks < LEAD_WINDOW_TICKS {
-            return 0;
-        }
-        self.ticks = 0;
-        self.rollbacks.sort_unstable();
-        let median = self.rollbacks[LEAD_WINDOW_TICKS / 2];
-        let p90 = self.rollbacks[(LEAD_WINDOW_TICKS * 9).div_ceil(10) - 1];
-        let target = target as i32;
-        let excess = median
-            .saturating_sub(target)
-            .max(p90.saturating_sub(target + 1));
-        if excess > 0 {
-            -excess.min(MAX_LEAD_DROP)
-        } else {
-            target.saturating_sub(p90).max(0)
-        }
-    }
-}
-
-/// The most frames one window moves the lead down by. A drop takes effect at once, the game
-/// putting its next steps off a frame a tick (frames the player sees repeat), and a window can run
-/// at the prediction limit for no longer than one peer's link takes to fade for a couple of
-/// seconds: following its whole excess would pile on as much input delay as the limit allows, just
-/// as the fade ends, and a rise takes it back off only once a whole window has run without it, and
-/// then a frame every [`LEAD_FOLLOW_TICKS`] ticks. Lateness that holds keeps moving the lead down,
-/// window after window.
-const MAX_LEAD_DROP: i32 = 2;
-
-/// How many ticks go between the frames a rise in the lead takes effect by (see
-/// [`TurnState::follow_lead`](netcode_v2::TurnState::follow_lead)): four frames a second, each
-/// one extra step the game takes in a single tick.
-const LEAD_FOLLOW_TICKS: u32 = 6;
-
-/// Ticks since the lead in effect last followed the lead.
-static LEAD_FOLLOW_WAIT: AtomicU32 = AtomicU32::new(0);
 
 /// What the ticks since the last summary did.
 #[derive(Default)]
@@ -636,7 +521,7 @@ pub fn arm_for_session(rollback: bool, opening: bool) -> Option<InputTable> {
         return None;
     }
     let settings = SETTINGS.lock();
-    let target = rollback_target_at(0, settings.rollback_target, settings.limit, opening);
+    let target = rollback_target_at(0, settings.rollback_target, settings.limit, opening).frames;
     info!(
         "This game rolls back, with native sync off: prediction limit {}, rollback target {} \
          (from {target} through the opening)",
@@ -666,11 +551,10 @@ pub fn reset_for_game_init() {
     SNAPSHOTS.lock().take();
     crate::rollback::reset_for_game_init();
     *SUMMARY.lock() = None;
-    *PACING.lock() = None;
+    *PACER.lock() = TickPacer::new();
     RECENT_ROLLBACK.lock().clear();
+    RATED_ROLLBACK.lock().clear();
     *GAME_STATS.lock() = None;
-    *LEAD_WINDOW.lock() = LeadWindow::new();
-    LEAD_FOLLOW_WAIT.store(0, Ordering::Relaxed);
     CAMERA_MOVES_LOGGED.store(0, Ordering::Relaxed);
 }
 
@@ -721,24 +605,20 @@ pub unsafe fn run_game_logic_step(
             resimulate_from,
             known_until,
             can_run,
-            lead,
-            lead_to_follow,
-            pipe_depth,
             in_flight,
             own_downlink,
             lead_report,
+            (mut lead, buffer),
         ) = netcode_v2::with_turn_state(|s| {
             let target = s.take_rollback_target(next_frame);
             (
                 target,
                 s.known_until(),
                 s.can_run(next_frame),
-                s.lead(),
-                s.lead_to_follow(),
-                s.pipe_depth(),
                 s.outstanding_turns(),
                 s.waiting_on_own_downlink(tick_start),
                 s.take_lead_report(),
+                s.lead_state(),
             )
         })?;
         // A turn state without an input table is one that started before rollback was armed.
@@ -766,27 +646,26 @@ pub unsafe fn run_game_logic_step(
         // A stall on this client's own downlink isn't the session waiting: its turns keep leaving
         // on schedule, so the schedule doesn't hold still through it.
         let session_stall = !can_run && !own_downlink;
+        let tick = TickInfo {
+            start: tick_start,
+            current,
+            can_run,
+            session_stall,
+            newest_sent,
+        };
         // A simulation that has fallen behind its schedule (a hitch, a pipe that just shrank, a
         // stall of its own, or the relay's reports moving its turns earlier) steps extra frames
         // until it is back on it, rather than making anyone wait for it.
-        let (scheduled, timing_us, owed) = PACING
+        let before = PACER
             .lock()
-            .as_mut()
-            .map(|pacing| {
-                let slewed_us = pacing.tick(tick_start, session_stall, newest_sent);
-                if let Some(report) = &lead_report {
-                    pacing.on_report(report, newest_sent);
-                }
-                let nudge_us = pacing.phase_nudge_us(tick_start);
-                let owed = pacing.due_turn(tick_start).saturating_sub(newest_sent);
-                (
-                    Some(pacing.target(tick_start, pipe_depth)),
-                    slewed_us + nudge_us,
-                    u32::try_from(owed).unwrap_or(u32::MAX),
-                )
-            })
-            .unwrap_or((None, 0, 0));
-        netcode_v2::with_turn_state(|s| s.set_owed_turns(owed));
+            .before_steps(&tick, lead_report.as_ref(), &mut lead, buffer);
+        let scheduled = before.scheduled;
+        let (lead_in_effect, pipe_depth) = netcode_v2::with_turn_state(|s| {
+            s.set_owed_turns(before.owed);
+            s.set_lead(lead);
+            (s.lead(), s.pipe_depth())
+        })
+        .unwrap_or_default();
         let catch_up = match (scheduled, can_run) {
             (Some(scheduled), true) => scheduled
                 .saturating_sub(current + 1)
@@ -844,55 +723,34 @@ pub unsafe fn run_game_logic_step(
         // whose turns are all known. A tick stalled at the prediction limit shows the frame it was
         // already on, exactly the limit past them.
         let ahead = reached.saturating_sub(known_until);
-        let mut lead_changed = false;
         if current >= LOCKSTEP_START_STEPS {
-            RECENT_ROLLBACK.lock().record(Instant::now(), ahead);
-            let adjustment =
-                LEAD_WINDOW
-                    .lock()
-                    .note(reached, known_until, lead_to_follow, rollback_target);
-            let follow = LEAD_FOLLOW_WAIT.fetch_add(1, Ordering::Relaxed) + 1 >= LEAD_FOLLOW_TICKS;
-            if follow {
-                LEAD_FOLLOW_WAIT.store(0, Ordering::Relaxed);
-            }
-            if adjustment != 0 || follow {
-                lead_changed = netcode_v2::with_turn_state(|s| {
-                    let moved = adjustment != 0 && s.adjust_lead(adjustment);
-                    if follow {
-                        s.follow_lead();
-                    }
-                    moved
-                })
-                .unwrap_or(false);
-            }
+            let now = Instant::now();
+            RECENT_ROLLBACK.lock().record(now, ahead);
+            RATED_ROLLBACK
+                .lock()
+                .record(now, ahead.saturating_sub(rollback_target.extra()));
         }
-        let mut held_back = false;
-        {
-            // The slew the pacing applied to the schedule this tick, applied to the game loop's
-            // own timing too, and the nudge keeping its ticks centered in their steps: the next
-            // step comes that much sooner or later.
-            let mut delay_ms = (timing_us / 1000) as i32;
-            let mut pacing = PACING.lock();
-            match &*pacing {
-                None if reached > current && current >= LOCKSTEP_START_STEPS => {
-                    let buffer = u32::try_from(lead + pipe_depth as i32).unwrap_or(pipe_depth);
-                    *pacing = Some(Pacing::new(current, buffer, tick_start));
-                }
-                // A simulation ahead of its schedule (a pipe that just grew, the relay's reports
-                // moving its turns later, or a game loop running its ticks early) puts its next
-                // step off by a frame at a time until the schedule catches up.
-                Some(x) if reached > x.target(tick_start, pipe_depth) => {
-                    delay_ms += FRAME_DURATION.as_millis() as i32;
-                    held_back = true;
-                }
-                _ => (),
-            }
-            if delay_ms != 0 {
-                bw.rollback_set_next_game_step_tick(
-                    bw.rollback_next_game_step_tick()
-                        .wrapping_add_signed(delay_ms),
-                );
-            }
+        let (mut lead, buffer) =
+            netcode_v2::with_turn_state(|s| s.lead_state()).unwrap_or((lead, buffer));
+        let after = PACER.lock().after_steps(
+            &tick,
+            LOCKSTEP_START_STEPS,
+            reached,
+            known_until,
+            rollback_target,
+            &mut lead,
+            buffer,
+        );
+        netcode_v2::with_turn_state(|s| s.set_lead(lead));
+        let (lead_changed, held_back) = (after.lead_changed, after.held_back);
+        // The slews the pacing applied this tick, applied to the game loop's own timing too, the
+        // nudge keeping its ticks centered in their steps, and a frame more when the simulation is
+        // ahead of its schedule: the next step comes that much sooner or later.
+        if after.delay_ms != 0 {
+            bw.rollback_set_next_game_step_tick(
+                bw.rollback_next_game_step_tick()
+                    .wrapping_add_signed(after.delay_ms),
+            );
         }
         sounds::reconcile_sounds(bw, report.window_start, report.settled_through, present);
         game_end::confirm_outcomes_through(plan.confirmed);
@@ -923,10 +781,7 @@ pub unsafe fn run_game_logic_step(
         })
         .unwrap_or_default();
 
-        let pacing_counts = PACING
-            .lock()
-            .as_mut()
-            .map(|pacing| (pacing.take_counts(), pacing.pause_us()));
+        let pacing_counts = PACER.lock().take_counts();
         // A stalled tick waits for turns inside its step, which isn't work.
         let tick_time = can_run.then(|| tick_start.elapsed());
         let resimulated = report
@@ -1004,7 +859,7 @@ pub unsafe fn run_game_logic_step(
         if held_back {
             summary.held_back += 1;
         }
-        summary.lead = lead;
+        summary.lead = lead_in_effect;
         summary.pipe_depth = pipe_depth;
         if let Some((pacing, pause_us)) = pacing_counts {
             summary.pacing.corrections += pacing.corrections;
@@ -1156,164 +1011,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_opening_target_holds_then_gives_a_frame_back_each_lead_window() {
-        let window = LEAD_WINDOW_TICKS as u32;
-        let at = |step, chosen| rollback_target_at(step, chosen, 8, true);
-        assert_eq!(
-            rollback_target_at(0, 2, 8, false),
-            2,
-            "a game without an opening"
-        );
-        assert_eq!(at(0, 2), 5);
-        assert_eq!(at(OPENING_STEPS - 1, 2), 5);
-        assert_eq!(at(OPENING_STEPS, 2), 4);
-        assert_eq!(at(OPENING_STEPS + window - 1, 2), 4);
-        assert_eq!(at(OPENING_STEPS + window, 2), 3);
-        assert_eq!(at(OPENING_STEPS + 50 * window, 2), 2);
-        assert_eq!(
-            at(OPENING_STEPS + window, 4),
-            4,
-            "never below the player's own target"
-        );
-        assert_eq!(
-            rollback_target_at(0, 2, 3, true),
-            2,
-            "a limit with no room for the headroom leaves the player's own target"
-        );
-    }
-
-    /// Feeds a fresh window a whole window of ticks running the given rollbacks in turn, and
-    /// returns the lead move it ends with.
-    fn window(target: u32, rollbacks: impl Fn(usize) -> i32) -> i32 {
-        feed(&mut LeadWindow::new(), target, 0, rollbacks)
-    }
-
-    /// Feeds `window` a whole window of ticks running the given rollbacks in turn, each with
-    /// `to_follow` frames of lead not in effect yet, and returns the lead move it ends with.
-    fn feed(
-        window: &mut LeadWindow,
-        target: u32,
-        to_follow: i32,
-        rollbacks: impl Fn(usize) -> i32,
-    ) -> i32 {
-        let mut adjustment = 0;
-        for tick in 0..LEAD_WINDOW_TICKS {
-            let known_until = window.known_until.max(100) + 1;
-            let reached = known_until.checked_add_signed(rollbacks(tick)).unwrap();
-            adjustment = window.note(reached, known_until, to_follow, target);
-        }
-        adjustment
-    }
-
-    #[test]
-    fn rollback_around_the_target_holds_the_lead() {
-        assert_eq!(window(2, |tick| 1 + (tick % 3) as i32), 0);
-        assert_eq!(window(2, |_| 2), 0);
-        // The insurance frame past the target, now and then.
-        assert_eq!(window(2, |tick| if tick % 5 == 0 { 3 } else { 2 }), 0);
-    }
-
-    #[test]
-    fn rollback_past_the_target_most_of_the_time_adds_delay() {
-        // Mostly a frame past the target, so its median is, though some ticks dip under it.
-        assert_eq!(window(2, |tick| if tick % 4 == 0 { 1 } else { 3 }), -1);
-    }
-
-    #[test]
-    fn rollback_often_past_the_insurance_frame_adds_delay() {
-        // The median sits on the target, but more than a tenth of the ticks run at 5.
-        assert_eq!(window(2, |tick| if tick % 6 == 0 { 5 } else { 2 }), -2);
-    }
-
-    #[test]
-    fn a_window_at_the_prediction_limit_moves_the_lead_down_a_little_at_a_time() {
-        assert_eq!(window(2, |_| 8), -MAX_LEAD_DROP);
-        assert_eq!(window(2, |tick| if tick % 2 == 0 { 8 } else { 6 }), -2);
-    }
-
-    #[test]
-    fn a_short_burst_is_rolled_back_over() {
-        assert_eq!(window(2, |tick| if tick < 4 { 7 } else { 2 }), 0);
-    }
-
-    #[test]
-    fn rollback_short_of_the_target_even_in_bursts_takes_delay_off() {
-        assert_eq!(window(2, |tick| (tick % 2) as i32), 1);
-        assert_eq!(window(3, |_| 0), 3);
-    }
-
-    #[test]
-    fn headroom_takes_delay_off_even_at_a_target_of_0() {
-        assert_eq!(window(0, |_| -3), 3);
-        // The ticks with the least headroom are what the lead stops short of.
-        assert_eq!(window(0, |tick| if tick % 2 == 0 { -1 } else { -4 }), 1);
-        assert_eq!(window(0, |_| 0), 0);
-        assert_eq!(window(2, |_| -3), 5);
-    }
-
-    #[test]
-    fn delay_a_burst_added_at_a_target_of_0_comes_back_off() {
-        let mut lead_window = LeadWindow::new();
-        assert_eq!(feed(&mut lead_window, 0, 0, |_| 8), -MAX_LEAD_DROP);
-        // The burst is over, and turns arrive as early as they did before it.
-        assert_eq!(
-            feed(&mut lead_window, 0, 0, |_| -MAX_LEAD_DROP),
-            MAX_LEAD_DROP
-        );
-    }
-
-    /// Feeds a fresh window ticks of a game whose turns arrive four at a time, every fourth tick,
-    /// until a whole window is in, running `arrival_rollback` past them on the tick they arrive by
-    /// and a frame further each tick until the next ones, and returns the lead move it ends with.
-    fn batched_window(target: u32, arrival_rollback: i32) -> i32 {
-        let mut window = LeadWindow::new();
-        let mut adjustment = 0;
-        for tick in 0..LEAD_WINDOW_TICKS as u32 * 4 {
-            let known_until = 100 + tick / 4 * 4;
-            let reached = known_until.checked_add_signed(arrival_rollback).unwrap() + tick % 4;
-            adjustment += window.note(reached, known_until, 0, target);
-        }
-        adjustment
-    }
-
-    #[test]
-    fn turns_arriving_several_at_a_time_are_measured_by_the_ticks_between() {
-        // Short of the turns on every tick, though only just by the last one before more arrive.
-        assert_eq!(batched_window(0, -3), 0);
-        // Rolling back on every tick but the ones turns arrive by.
-        assert_eq!(batched_window(0, 0), -MAX_LEAD_DROP);
-        assert_eq!(batched_window(2, -1), 0);
-        assert_eq!(batched_window(2, -3), 2);
-    }
-
-    #[test]
-    fn a_target_of_0_settles_where_batched_turns_are_never_predicted() {
-        // Turns arrive four at a time, every fourth tick, the first of them ten frames ahead of a
-        // client with no lead.
-        let mut lead_window = LeadWindow::new();
-        let (mut lead, mut in_effect) = (0, 0);
-        for tick in 0..LEAD_WINDOW_TICKS as u32 * 4 * 10 {
-            let known_until = 110 + tick / 4 * 4;
-            let reached = (100 + tick as i32 + in_effect) as u32;
-            lead += lead_window.note(reached, known_until, lead - in_effect, 0);
-            in_effect = in_effect.min(lead);
-            if tick % LEAD_FOLLOW_TICKS == 0 && in_effect < lead {
-                in_effect += 1;
-            }
-        }
-        // Seven frames of lead leave the tick before each arrival exactly on the newest known
-        // step, and any more would roll back.
-        assert_eq!((lead, in_effect), (7, 7));
-    }
-
-    #[test]
-    fn a_rise_not_in_effect_yet_is_not_made_again() {
-        let mut lead_window = LeadWindow::new();
-        assert_eq!(feed(&mut lead_window, 0, 3, |_| -3), 0);
-        assert_eq!(feed(&mut lead_window, 0, 3, |_| -5), 2);
-    }
-
-    #[test]
     fn game_stats_go_to_the_server_under_its_names() {
         let json = serde_json::to_value(GameStats::default()).unwrap();
         let fields = json.as_object().unwrap();
@@ -1354,21 +1051,5 @@ mod tests {
         assert_eq!(fields.len(), 30);
         assert_eq!(fields["rollbackHistogram"].as_array().unwrap().len(), 12);
         assert_eq!(fields["pipeHistogram"].as_array().unwrap().len(), 15);
-    }
-
-    #[test]
-    fn ticks_without_new_turns_say_nothing() {
-        let mut window = LeadWindow::new();
-        for _ in 0..LEAD_WINDOW_TICKS * 2 {
-            assert_eq!(window.note(9, 1, 0, 2), 0);
-        }
-    }
-
-    #[test]
-    fn ticks_once_no_turn_is_left_to_arrive_say_nothing() {
-        let mut window = LeadWindow::new();
-        for reached in 0..LEAD_WINDOW_TICKS as u32 * 2 {
-            assert_eq!(window.note(reached, u32::MAX, 0, 0), 0);
-        }
     }
 }

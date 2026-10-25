@@ -13,7 +13,9 @@
 //!   screen, so the bigger R is, the further units can visibly jump when a guess was wrong.
 //!
 //! Each player pays for their own connection with some mix of the two, so the bars rate the worse
-//! of them rather than a sum.
+//! of them rather than a sum. Rollback the game runs on purpose (a melee game's opening, where
+//! nobody sees anyone else's units and corrections go unseen) isn't the connection's doing, so the
+//! bars don't count it against the connection.
 
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
@@ -38,15 +40,19 @@ pub struct NetQualityView {
     pub delay: u32,
     /// Frames of rollback, already smoothed for display (see [`RecentRollback`]).
     pub rollback: u32,
+    /// The rollback the bars rate, smoothed the same way: what each tick ran with less what the
+    /// game ran on purpose on it.
+    pub rated_rollback: u32,
     /// The height of the game's small font, if known, which sets where the game draws its FPS
     /// readout line (see [`fps_line_top`]). The chip moves up to stay clear of that line.
     pub fps_font_height: Option<u8>,
 }
 
 impl NetQualityView {
-    /// How many of the four bars are lit: the worse of what the delay and the rollback each rate.
+    /// How many of the four bars are lit: the worse of what the delay and the rollback each rate,
+    /// leaving out the rollback the game runs on purpose.
     pub fn bars(&self) -> u8 {
-        delay_bars(self.delay).min(rollback_bars(self.rollback))
+        delay_bars(self.delay).min(rollback_bars(self.rated_rollback))
     }
 }
 
@@ -404,6 +410,7 @@ mod tests {
         NetQualityView {
             delay,
             rollback,
+            rated_rollback: rollback,
             fps_font_height: None,
         }
         .bars()
@@ -436,6 +443,27 @@ mod tests {
         assert_eq!(bars(0, 6), 1);
         assert_eq!(bars(7, 0), 1);
         assert_eq!(bars(13, 8), 1);
+    }
+
+    #[test]
+    fn rollback_run_on_purpose_doesnt_count_against_the_connection() {
+        let opening = |delay, rollback: u32| {
+            NetQualityView {
+                delay,
+                rollback,
+                rated_rollback: rollback.saturating_sub(3),
+                fps_font_height: None,
+            }
+            .bars()
+        };
+        // An opening running 3 frames past a target of 2: 4 or 5 frames of rollback is what it
+        // means to run.
+        assert_eq!(opening(0, 4), 4);
+        assert_eq!(opening(0, 5), 3);
+        assert_eq!(opening(0, 7), 2);
+        // Past that, it rates like any other rollback, and delay rates as ever.
+        assert_eq!(opening(0, 9), 1);
+        assert_eq!(opening(4, 4), 2);
     }
 
     #[test]

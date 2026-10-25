@@ -131,7 +131,12 @@ relay's lead reports:
   counts once and turns arriving several at a time count by the tick just before each batch. It
   drops when the window's median exceeds the target (or its
   90th percentile exceeds the target plus one frame), at most 2 frames a window, and rises when even
-  the 90th percentile is short, by the shortfall, taking effect a frame every six ticks. The
+  the 90th percentile is short, by the shortfall. A drop takes effect at once (a repeated frame per
+  frame of it). A rise takes effect a frame at a time without stepping any frame twice: the frames
+  stepped lag the new pipe by the rest of the rise, slewed off at 4 ms a tick (about a tenth of
+  game speed, 11 ticks a frame). A report that moves the schedule later by whole steps while a rise
+  is still being taken up takes that much of it up at once instead, since a later schedule and a
+  smaller pipe cancel on screen. The
   rollback measured is signed: turns already in for frames the client hasn't reached are headroom,
   which is the only way a target of 0 sees delay it doesn't need. A rise still being taken up
   counts as already in effect, so the next window doesn't make it again. The pipe (`buffer - lead`)
@@ -141,7 +146,9 @@ relay's lead reports:
   unless a team shares control or the map is Use Map Settings: nobody sees anyone else's units yet,
   so corrections go unseen and the client takes as little input delay as it can. After that the
   target comes down a frame per lead window to the player's own, so the delay comes back a repeated
-  frame at a time.
+  frame at a time: until a window back at the player's own target finds nothing to drop, the lead
+  drops at most a frame a window, so a pipe that sat at its floor through the opening (running
+  less rollback than the target allowed) doesn't catch up with the ramp several frames at once.
 
 Send-phase alignment and the lockstep buffer law are off in rollback sessions after the start: the
 lead report sets each client's send timing outright, and the buffer only matters for the lockstep
@@ -207,7 +214,8 @@ The granted mode rides the player's netcode v2 setup to the DLL (`arm_for_sessio
   rollback games, under the same conditions (ShowTurnRate on, multiplayer, not a replay). D is the
   pipe minus one (0 means no added delay); R is a high percentile over the last few seconds of how
   far the shown frame is past the newest fully known step. The bars take the worse of D (0-1, 2-3, 4-6, 7+) and
-  R (0-1, 2-3, 4-5, 6+).
+  R (0-1, 2-3, 4-5, 6+), rating R less the rollback the game runs on purpose past the player's own
+  target (the opening's), so an opening running as intended doesn't read as a bad connection.
 
 ## Observability
 
@@ -215,7 +223,12 @@ The granted mode rides the player's netcode v2 setup to the DLL (`arm_for_sessio
   and their depth, lead and pipe, catch-ups and hold-backs, schedule corrections, the session
   clock's stopped time, lead report figures, tick and frame costs. "Ticks at the limit" counts the
   game loop's polls while stalled (about every 3 ms), and the first summary includes the end of the
-  lockstep start; the session clock's stopped time is the better measure of stalls.
+  lockstep start; the session clock's stopped time is the better measure of stalls. For the first
+  minute, `Startup pacing at frame N` lines give the order of events the summaries total (at most
+  64 a game): the pacing's start, reports that moved the schedule by whole steps, stopped the
+  clock, undid a hold or settled it (with how long settling took), lead window moves, rises taken
+  up, and runs of skipped, held or stalled ticks. One `Frames over the game's first 10 s` line lists
+  the slowest frames of every game's start, rollback or not.
 - **Flight recordings** (`/internal/games/<id>/artifacts`): the relays' `session_clock_anchored` and
   `session_clock_stopped` events, per-slot lateness and link samples, and each client's game-long
   rollback stats (histograms of rollback and pipe, rollbacks, mispredictions, catch-ups, holds,

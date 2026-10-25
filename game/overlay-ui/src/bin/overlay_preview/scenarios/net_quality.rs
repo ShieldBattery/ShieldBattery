@@ -14,6 +14,9 @@ pub struct Knobs {
     pub delay: u32,
     /// The rollback shown as is, unless `simulate` is set.
     pub rollback: u32,
+    /// How much of the rollback the game runs on purpose (3 through a melee game's opening at the
+    /// default target).
+    pub intended_rollback: u32,
     /// Feeds a rollback that jitters above `rollback` (with occasional bursts) through the chip's
     /// smoothing, a sample per game tick, to judge how the shown number moves in a real game.
     pub simulate: bool,
@@ -36,6 +39,7 @@ impl Default for Knobs {
         Knobs {
             delay: 1,
             rollback: 2,
+            intended_rollback: 0,
             simulate: false,
             jitter: 1,
             burst_every_secs: 8.0,
@@ -83,6 +87,8 @@ impl Preset {
 pub struct SimState {
     /// The chip's smoothing, fed by the simulated rollback.
     recent_rollback: RecentRollback,
+    /// The same, less the rollback run on purpose, for the bars.
+    recent_rated_rollback: RecentRollback,
     /// The game tick the simulation last produced a sample for.
     last_tick: Instant,
     /// When the simulation's last burst started.
@@ -97,6 +103,7 @@ impl SimState {
     pub fn new() -> SimState {
         SimState {
             recent_rollback: RecentRollback::new(),
+            recent_rated_rollback: RecentRollback::new(),
             last_tick: Instant::now(),
             last_burst: Instant::now(),
             last_raw_rollback: 0,
@@ -113,6 +120,7 @@ pub fn build_view(knobs: &Knobs, sim: &mut SimState) -> NetQualityView {
         return NetQualityView {
             delay: knobs.delay,
             rollback: knobs.rollback,
+            rated_rollback: knobs.rollback.saturating_sub(knobs.intended_rollback),
             fps_font_height,
         };
     }
@@ -145,10 +153,13 @@ pub fn build_view(knobs: &Knobs, sim: &mut SimState) -> NetQualityView {
         }
         sim.last_raw_rollback = raw;
         sim.recent_rollback.record(tick, raw);
+        sim.recent_rated_rollback
+            .record(tick, raw.saturating_sub(knobs.intended_rollback));
     }
     NetQualityView {
         delay: knobs.delay,
         rollback: sim.recent_rollback.shown(),
+        rated_rollback: sim.recent_rated_rollback.shown(),
         fps_font_height,
     }
 }
@@ -220,6 +231,11 @@ pub fn knobs_ui(n: &mut Knobs, sim: &SimState, ui: &mut egui::Ui) -> bool {
                 "Rollback (R)"
             });
             changed |= ui.add(egui::Slider::new(&mut n.rollback, 0..=8)).changed();
+            ui.end_row();
+            ui.label("Rollback on purpose");
+            changed |= ui
+                .add(egui::Slider::new(&mut n.intended_rollback, 0..=5))
+                .changed();
             ui.end_row();
             ui.label("Simulate");
             changed |= ui

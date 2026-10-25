@@ -60,11 +60,13 @@ use rally_point_client::proto::messages::{
 use tokio::sync::mpsc;
 
 mod input_table;
+mod lead;
 mod net_stats;
 mod rehome;
 mod session;
 
 pub use input_table::{InputCounts, InputTable};
+pub use lead::Lead;
 pub use net_stats::{DepartureKind, NetEvent, NetStatRow, NetStatsStatus};
 
 // The turn state is driven from `bw_scr.rs` (the three hooks) and stood up from `game_state.rs`
@@ -857,20 +859,10 @@ pub struct TurnState {
     /// game that rolls back: injected between steps, an echo would belong to no step, and a
     /// rollback past it would take it out of the replay without putting it back.
     local_chat_echoes: Vec<(ChatTarget, String)>,
-    /// How many fewer of its own turns than the relay's latency buffer this client means to keep
-    /// in flight, before the buffer bounds it (see [`lead`](Self::lead)). Starts at the rollback target and is
-    /// moved by the rollback driver as it measures how late or early other players' turns reach
-    /// it.
-    lead: i32,
-    /// The lead the pipe follows, at most [`lead`](Self::lead): it drops to a lower lead at once,
-    /// but rises a frame at a time ([`follow_lead`](Self::follow_lead)), since each frame of lead
-    /// gained takes a turn out of the pipe, which the game makes up by stepping an extra frame,
-    /// during which none of its turns leave. All at once, as when the game's start ends and the
-    /// lead first takes effect, that is a visible sprint.
-    lead_in_effect: i32,
-    /// The fewest of its own turns this client keeps in flight, however little delay its link
-    /// needs: 1, or more when the player asked for a minimum input delay.
-    min_pipe_turns: u32,
+    /// How many fewer of its own turns than the relay's latency buffer this client keeps in flight
+    /// (see [`lead`](Self::lead)). Its intended lead starts at the rollback target and is moved by
+    /// the rollback driver as it measures how late or early other players' turns reach it.
+    lead: Lead,
 }
 
 impl TurnState {
@@ -942,9 +934,7 @@ impl TurnState {
             net_stats_visible: false,
             inputs: None,
             local_chat_echoes: Vec::new(),
-            lead: 0,
-            lead_in_effect: 0,
-            min_pipe_turns: min_pipe_turns(),
+            lead: Lead::new(min_pipe_turns()),
         }
     }
 
@@ -1465,7 +1455,7 @@ impl TurnState {
     /// that have not arrived, instead of waiting for them. Must be called before any in-game turn
     /// is sent or received, since a turn's step is its position in its slot's sequence.
     pub fn predict_inputs(&mut self, inputs: InputTable) {
-        self.lead = inputs.rollback_target() as i32;
+        self.lead.set_intended(inputs.rollback_target() as i32);
         self.inputs = Some(inputs);
     }
 
@@ -2301,68 +2291,34 @@ impl TurnState {
     }
 
     /// How many fewer of its own turns than the relay's latency buffer this client keeps in
-    /// flight, in a game that predicts inputs (more when negative). Its turns leave when its
-    /// pacing against the session clock says ([`crate::rollback::pacing`]), whatever its lead, so
-    /// they reach every other player at the same time; what the lead moves is which frame the
-    /// client is simulating when each one leaves. That trade is the client's own: a frame of lead
-    /// is a frame less input delay and a frame more of other players' turns arriving after it has
-    /// simulated past them. At least one turn always stays in
-    /// the pipe (more when the player asked for a minimum input delay), and at most
-    /// [`MAX_PIPE_TURNS`]. 0 through the game's start, whose turns leave as a lockstep game's
-    /// would, with the whole buffer in the pipe. A rise in the lead takes effect a frame at a time
-    /// (see [`follow_lead`](Self::follow_lead)).
+    /// flight, in a game that predicts inputs (more when negative): the lead in effect (see
+    /// [`Lead`]). 0 through the game's start, whose turns leave as a lockstep game's would, with
+    /// the whole buffer in the pipe.
     pub fn lead(&self) -> i32 {
         match &self.inputs {
-            Some(inputs) if !inputs.in_start() => {
-                let (min, max) = self.lead_bounds();
-                self.lead_in_effect.min(self.lead).clamp(min, max)
-            }
+            Some(inputs) if !inputs.in_start() => self.lead.in_effect(self.buffer_turns()),
             _ => 0,
         }
     }
 
-    /// How many frames of the lead this client means to run with are not in effect yet, which
-    /// [`follow_lead`](Self::follow_lead) has still to add. 0 through the game's start.
+    /// How many frames of the lead this client means to run with are not in effect yet. 0 through
+    /// the game's start.
     pub fn lead_to_follow(&self) -> i32 {
         match &self.inputs {
-            Some(inputs) if !inputs.in_start() => {
-                let (min, max) = self.lead_bounds();
-                self.lead.clamp(min, max) - self.lead()
-            }
+            Some(inputs) if !inputs.in_start() => self.lead.pending(self.buffer_turns()),
             _ => 0,
         }
     }
 
-    /// Moves the lead this client means to run with by `frames`, within what the relay's buffer
-    /// allows (see [`lead`](Self::lead)), and returns whether it moved: a lead already at the bound
-    /// it is pushed toward stays put.
-    pub fn adjust_lead(&mut self, frames: i32) -> bool {
-        let (min, max) = self.lead_bounds();
-        let before = self.lead.clamp(min, max);
-        self.lead = before.saturating_add(frames).clamp(min, max);
-        self.lead_in_effect = self.lead_in_effect.min(self.lead);
-        self.lead != before
+    /// This client's lead and the latency buffer in force, for the rollback driver to move the
+    /// lead against and hand back through [`set_lead`](Self::set_lead).
+    pub fn lead_state(&self) -> (Lead, u32) {
+        (self.lead, self.buffer_turns())
     }
 
-    /// Moves the lead in effect a frame closer to the lead this client means to run with, if it
-    /// is short of it (see [`lead`](Self::lead)).
-    pub fn follow_lead(&mut self) {
-        let (min, max) = self.lead_bounds();
-        let lead = self.lead.clamp(min, max);
-        self.lead_in_effect = self.lead_in_effect.clamp(min, max);
-        if self.lead_in_effect < lead {
-            self.lead_in_effect += 1;
-        }
-    }
-
-    /// The lowest and highest lead the relay's buffer allows: the ones that leave
-    /// [`MAX_PIPE_TURNS`] and the fewest turns this client keeps in the pipe.
-    fn lead_bounds(&self) -> (i32, i32) {
-        let buffer = self.buffer_turns() as i32;
-        (
-            buffer - MAX_PIPE_TURNS as i32,
-            buffer - self.min_pipe_turns as i32,
-        )
+    /// Replaces this client's lead with one the rollback driver moved.
+    pub fn set_lead(&mut self, lead: Lead) {
+        self.lead = lead;
     }
 
     /// The newest lead report this client's home relay sent since the last call, in a rollback
@@ -2380,7 +2336,7 @@ impl TurnState {
     /// minimum. A deeper pipe than other players' only sends this client's turns earlier, so it
     /// needs no agreement, in lockstep as well.
     pub fn pipe_depth(&self) -> u32 {
-        (self.buffer_turns() as i32 - self.lead()).max(self.min_pipe_turns as i32) as u32
+        self.lead.pipe_depth(self.buffer_turns(), self.lead())
     }
 
     /// The latency buffer in force: the relay's, or the input table's floor on it when that is
@@ -4161,34 +4117,22 @@ mod tests {
     }
 
     #[test]
-    fn the_pipe_stays_between_one_turn_and_the_lockstep_ceiling() {
+    fn the_lead_takes_effect_only_once_the_start_ends() {
         let (mut state, _result_rx, _result_expected) = turn_state_with_result();
         state.predict_inputs(InputTable::new(
             8,
-            3,
-            0,
+            2,
+            24,
             [Duration::ZERO; bw::MAX_STORM_PLAYERS],
         ));
-        state.set_initial_latency_turns(2);
-        // A rollback target past what the buffer allows still leaves a turn in the pipe.
-        state.follow_lead();
-        state.follow_lead();
-        assert_eq!((state.lead(), state.pipe_depth()), (1, 1));
-        assert!(state.adjust_lead(-100));
-        assert_eq!(state.pipe_depth(), MAX_PIPE_TURNS);
-        assert_eq!(state.lead(), 2 - MAX_PIPE_TURNS as i32);
-        assert!(
-            !state.adjust_lead(-1),
-            "a lead at its lowest doesn't move lower"
-        );
-        assert!(state.adjust_lead(100));
-        for _ in 0..MAX_PIPE_TURNS {
-            state.follow_lead();
-        }
-        assert_eq!((state.lead(), state.pipe_depth()), (1, 1));
-        assert!(
-            !state.adjust_lead(1),
-            "a lead at its highest doesn't move higher"
+        state.set_initial_latency_turns(6);
+        let (mut lead, buffer) = state.lead_state();
+        lead.follow(buffer, 2);
+        state.set_lead(lead);
+        assert_eq!(
+            (state.lead(), state.lead_to_follow(), state.pipe_depth()),
+            (0, 0, 6),
+            "the whole buffer in the pipe through the start"
         );
     }
 
@@ -4296,12 +4240,12 @@ mod tests {
     #[test]
     fn a_minimum_input_delay_keeps_the_pipe_from_draining_below_it() {
         let (mut lockstep, _result_rx, _result_expected) = turn_state_with_result();
-        lockstep.min_pipe_turns = TURN_RATE_24_PIPE_TURNS;
+        lockstep.lead = Lead::new(TURN_RATE_24_PIPE_TURNS);
         lockstep.set_initial_latency_turns(1);
         assert_eq!(lockstep.pipe_depth(), 2, "a lockstep game too");
 
         let (mut state, _result_rx, _result_expected) = turn_state_with_result();
-        state.min_pipe_turns = TURN_RATE_24_PIPE_TURNS;
+        state.lead = Lead::new(TURN_RATE_24_PIPE_TURNS);
         state.predict_inputs(InputTable::new(
             8,
             2,
@@ -4314,48 +4258,6 @@ mod tests {
             2,
             "a link that needs no delay at all still gets the minimum"
         );
-        state.set_initial_latency_turns(4);
-        state.follow_lead();
-        state.follow_lead();
-        assert_eq!(state.pipe_depth(), 2);
-        assert_eq!(
-            state.lead_to_follow(),
-            0,
-            "the rollback target can't take it lower"
-        );
-        state.set_initial_latency_turns(6);
-        assert_eq!(state.pipe_depth(), 4, "a link that needs more gets more");
-    }
-
-    #[test]
-    fn a_rise_in_the_lead_takes_effect_a_frame_at_a_time() {
-        let (mut state, _result_rx, _result_expected) = turn_state_with_result();
-        state.predict_inputs(InputTable::new(
-            8,
-            2,
-            0,
-            [Duration::ZERO; bw::MAX_STORM_PLAYERS],
-        ));
-        state.set_initial_latency_turns(6);
-        assert_eq!(
-            state.pipe_depth(),
-            6,
-            "the whole buffer until the lead takes effect"
-        );
-        assert_eq!(state.lead_to_follow(), 2);
-        state.follow_lead();
-        assert_eq!((state.pipe_depth(), state.lead_to_follow()), (5, 1));
-        state.follow_lead();
-        state.follow_lead();
-        assert_eq!(state.pipe_depth(), 4, "no further than the rollback target");
-        assert_eq!(state.lead_to_follow(), 0);
-        // A drop in the lead takes effect at once.
-        state.adjust_lead(-3);
-        assert_eq!((state.pipe_depth(), state.lead_to_follow()), (7, 0));
-        state.adjust_lead(2);
-        assert_eq!((state.pipe_depth(), state.lead_to_follow()), (7, 2));
-        state.follow_lead();
-        assert_eq!((state.pipe_depth(), state.lead_to_follow()), (6, 1));
     }
 
     #[test]

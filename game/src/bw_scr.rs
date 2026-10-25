@@ -2190,6 +2190,11 @@ impl BwScr {
             } else {
                 0
             },
+            rated_rollback: if s.predicts_inputs() {
+                crate::rollback_live::rated_rollback()
+            } else {
+                0
+            },
             fps_font_height,
         })
     }
