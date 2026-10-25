@@ -48,6 +48,7 @@ describe('ReplayViolationService', () => {
     })
     vi.mocked(recordReplayViolation).mockImplementation(async () => {
       order.push('record')
+      return true
     })
     vi.mocked(transact).mockImplementation(async callback => {
       const result = await callback(client)
@@ -57,7 +58,7 @@ describe('ReplayViolationService', () => {
     refunds.refundReplayViolation.mockImplementation(async () => {
       order.push('refund')
     })
-    await service.recordViolation(violation)
+    await expect(service.recordViolation(violation)).resolves.toBe(true)
     expect(order).toEqual(['lock', 'record', 'commit', 'refund'])
     expect(recordReplayViolation).toHaveBeenCalledExactlyOnceWith(client, violation)
   })
@@ -69,8 +70,9 @@ describe('ReplayViolationService', () => {
   })
 
   test('committed intent survives refund failures and is recovered on a later sweep', async () => {
+    vi.mocked(recordReplayViolation).mockResolvedValue(true)
     refunds.refundReplayViolation.mockRejectedValueOnce(new Error('refund failed'))
-    await expect(service.recordViolation(violation)).resolves.toBeUndefined()
+    await expect(service.recordViolation(violation)).resolves.toBe(true)
     expect(deferReplayViolationRecovery).toHaveBeenCalledWith(violation.gameId)
     vi.mocked(findPendingReplayViolationGames).mockResolvedValue([violation.gameId])
     await service.recover()

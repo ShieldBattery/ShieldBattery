@@ -4,12 +4,15 @@ import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { getErrorStack } from '../../common/errors'
 import { CommendEvent } from '../../common/games/commends'
 import { GameSubscriptionEvent } from '../../common/games/games'
+import { GameResultErrorCode } from '../../common/games/results'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { CommendReceivedNotification, NotificationType } from '../../common/notifications'
 import { apiUrl } from '../../common/urls'
+import { sendReplayDiagnosticReport } from '../bugs/action-creators'
 import { dispatch } from '../dispatch-registry'
 import logger from '../logging/logger'
 import { fetchJson } from '../network/fetch'
+import { isFetchError } from '../network/fetch-errors'
 import { addLocalNotification } from '../notifications/action-creators'
 
 export default function ({
@@ -19,6 +22,21 @@ export default function ({
   ipcRenderer: TypedIpcRenderer
   siteSocket: NydusClient
 }) {
+  function deleteTempReplay(replayPath: string) {
+    ipcRenderer.invoke('fsUnlink', replayPath)?.catch(err => {
+      logger.warning(`Failed to delete temporary replay file: ${getErrorStack(err)}`)
+    })
+  }
+
+  function sendReplayDiagnostics(gameId: string, replayPath: string, code: string) {
+    logger.warning(`Sending a diagnostic report for the rejected replay of game ${gameId}`)
+    sendReplayDiagnosticReport(gameId, replayPath, code)
+      .then(() => deleteTempReplay(replayPath))
+      .catch(err => {
+        logger.error(`Failed to send replay diagnostic report: ${getErrorStack(err)}`)
+      })
+  }
+
   ipcRenderer
     .on('activeGameResult', (event, { gameId, result, time }) => {
       dispatch({
@@ -59,13 +77,19 @@ export default function ({
               })
               logger.verbose('Replay uploaded successfully')
 
-              // Clean up the temporary replay file
-              ipcRenderer.invoke('fsUnlink', request.replayPath)?.catch(err => {
-                logger.warning(`Failed to delete temporary replay file: ${getErrorStack(err)}`)
-              })
+              deleteTempReplay(request.replayPath)
               return
             } catch (err) {
               logger.error(`Replay upload ${i + 1} / ${ATTEMPTS} failed: ${getErrorStack(err)}`)
+              // The server judged the file itself, so another attempt can't change the answer.
+              if (
+                isFetchError(err) &&
+                (err.code === GameResultErrorCode.ReplayRejected ||
+                  err.code === GameResultErrorCode.ReplaySeedMissing)
+              ) {
+                sendReplayDiagnostics(request.gameId, request.replayPath, err.code)
+                return
+              }
             }
 
             await new Promise(resolve => setTimeout(resolve, DELAY_MILLIS))
@@ -76,6 +100,9 @@ export default function ({
           )
         })
         .catch(swallowNonBuiltins)
+    })
+    .on('activeGameReplayDiagnosticsRequested', (_, { gameId, replayPath, code }) => {
+      sendReplayDiagnostics(gameId, replayPath, code)
     })
 
   siteSocket.registerRoute('/commends/:userId', (_route: RouteInfo, event: CommendEvent) => {

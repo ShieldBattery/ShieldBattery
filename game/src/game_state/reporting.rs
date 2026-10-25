@@ -4,8 +4,8 @@ use std::time::Duration;
 use bytes::Bytes;
 
 use crate::app_messages::{
-    GameResults, GameResultsMessage, GameSetupInfo, RawGameResultsReport, SbUser, SbUserId,
-    ServerConfig,
+    GameResults, GameResultsMessage, GameSetupInfo, RawGameResultsReport, ReplayRejected, SbUser,
+    SbUserId, ServerConfig,
 };
 use crate::{app_socket, netcode_v2};
 
@@ -190,6 +190,20 @@ async fn send_replay(
                     warn!("Failed to delete temporary replay file: {}", err);
                 }
                 let _ = app_socket::send_message(ws_send, "/game/replayUploaded", ()).await;
+                return;
+            }
+            Err(crate::http::Error::Status(status, Some(code)))
+                if code == "ReplayRejected" || code == "ReplaySeedMissing" =>
+            {
+                // The server judged the file itself, so sending it again can't change the answer.
+                // The file stays for the app's diagnostic report.
+                error!("Server rejected the replay: HTTP {status} ({code})");
+                let _ = app_socket::send_message(
+                    ws_send,
+                    "/game/replayRejected",
+                    ReplayRejected { code },
+                )
+                .await;
                 return;
             }
             Err(err) => {

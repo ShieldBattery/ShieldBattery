@@ -28,14 +28,16 @@ export class ReplayViolationService {
     )
   }
 
-  async recordViolation(violation: ReplayViolation): Promise<void> {
-    await transact(async client => {
+  /** Returns whether this call recorded the violation, rather than finding it already recorded. */
+  async recordViolation(violation: ReplayViolation): Promise<boolean> {
+    const recorded = await transact(async client => {
       // Whether results are already final decides which path protects the players, not whether
       // the violation is recorded. Both paths serialize against this same game row.
       await lockGameAndCheckReconciled(client, violation.gameId)
-      await recordReplayViolation(client, violation)
+      return await recordReplayViolation(client, violation)
     })
     await this.refundGame(violation.gameId)
+    return recorded
   }
 
   async recover(): Promise<void> {

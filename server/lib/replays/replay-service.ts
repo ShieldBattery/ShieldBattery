@@ -4,9 +4,11 @@ import { stat } from 'fs/promises'
 import httpErrors from 'http-errors'
 import { pipeline } from 'stream/promises'
 import { singleton } from 'tsyringe'
+import { GameResultErrorCode } from '../../../common/games/results'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { ParsedReplay } from '../../workers/replays/messages'
 import { getSignedUrl, writeFile } from '../files'
+import { GameResultServiceError } from '../games/game-result-service'
 import { ReplayViolationService } from '../games/replay-violation-service'
 import logger from '../logging/logger'
 import { setReplayFileId } from '../models/games-users'
@@ -45,20 +47,39 @@ export class ReplayService {
     if (!Number.isInteger(expectedSeed) || expectedSeed < 0 || expectedSeed > 0xffff_ffff) {
       throw new Error('Invalid stored game seed')
     }
-    if (actualSeed !== expectedSeed) {
-      logger.warn({ gameId, userId, expectedSeed, actualSeed }, 'Replay seed mismatch')
+    if (actualSeed === expectedSeed) return
+
+    if (actualSeed === 0) {
+      // A header with no seed at all comes from a client bug that blanks the replay recording, not
+      // from a replay lifted out of another game (those carry that game's real seed).
+      logger.warn({ gameId, userId, expectedSeed }, 'Replay missing its seed')
       await this.replayViolations.recordViolation({
         gameId,
         userId,
-        details: { kind: 'seedMismatch', expectedSeed, actualSeed },
+        details: { kind: 'seedMissing', expectedSeed },
       })
+      throw new GameResultServiceError(
+        GameResultErrorCode.ReplaySeedMissing,
+        'replay is missing its seed',
+      )
+    }
+
+    logger.warn({ gameId, userId, expectedSeed, actualSeed }, 'Replay seed mismatch')
+    const recorded = await this.replayViolations.recordViolation({
+      gameId,
+      userId,
+      details: { kind: 'seedMismatch', expectedSeed, actualSeed },
+    })
+    // Clients retry failed uploads, so only the upload that first records the violation enforces
+    // it. A later retry must not re-ban a user whose ban was lifted after review.
+    if (recorded) {
       await this.banEnacter.enactBan({
         targetId: userId,
         endTime: new Date('9001-01-01T00:00:00.000Z'),
         reason: 'Client integrity violation',
       })
-      throw new httpErrors.Forbidden('invalid replay')
     }
+    throw new GameResultServiceError(GameResultErrorCode.ReplayRejected, 'invalid replay')
   }
 
   /**

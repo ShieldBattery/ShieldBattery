@@ -170,6 +170,13 @@ export class GameServer {
       case '/game/replayUploaded':
         this.activeGameManager.handleReplayUploaded(gameId)
         break
+      case '/game/replayRejected':
+        if (typeof payload?.code === 'string') {
+          this.activeGameManager.handleReplayRejected(gameId, payload.code)
+        } else {
+          log.error(`Invalid replayRejected payload from game ${gameId}`)
+        }
+        break
       case '/game/networkStatus':
         this.activeGameManager.handleNetworkStatus(gameId, payload)
         break

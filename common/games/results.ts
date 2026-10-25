@@ -104,6 +104,16 @@ export enum GameResultErrorCode {
   NotDisputable = 'NotDisputable',
   /** The submitted outcomes aren't a valid result for this game (e.g. a draw in matchmaking). */
   InvalidResults = 'InvalidResults',
+  /**
+   * The uploaded replay isn't a recording of this game. Uploading it again won't change that, so
+   * the client should send a diagnostic report instead.
+   */
+  ReplayRejected = 'ReplayRejected',
+  /**
+   * The uploaded replay is missing data the game always records, which points at a client bug.
+   * Like `ReplayRejected`, it won't be accepted on a retry and calls for a diagnostic report.
+   */
+  ReplaySeedMissing = 'ReplaySeedMissing',
 }
 
 /** The payload format for submitting game results to the server. */

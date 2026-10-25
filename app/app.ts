@@ -867,6 +867,12 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
       // Pass to renderer process since its network stack is more reliable
       TypedIpcSender.from(mainWindow?.webContents).send('activeGameResendReplay', request)
     })
+    .on('replayDiagnosticsRequested', request => {
+      TypedIpcSender.from(mainWindow?.webContents).send(
+        'activeGameReplayDiagnosticsRequested',
+        request,
+      )
+    })
     .on('setUserBlocked', (gameId, userId, blocked) => {
       TypedIpcSender.from(mainWindow?.webContents).send(
         'activeGameSetUserBlocked',
@@ -944,7 +950,7 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
       activeGameManager.forceQuitGame(gameId),
     )
   }
-  ipcMain.handle('bugReportCollectFiles', async () => {
+  ipcMain.handle('bugReportCollectFiles', async (_, options) => {
     const tempDir = await mkdtemp(path.join(tmpdir(), 'sbat-'))
     const logsDir = path.join(getUserDataPath(), 'logs')
     const collectedFiles: Array<{ name: string; filePath: string }> = []
@@ -988,6 +994,16 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
         if (!('code' in (err as any)) || (err as any).code !== 'ENOENT') {
           logger.warning('Error copying crash dump: ' + getErrorStack(err))
         }
+      }
+    }
+
+    if (options?.replayPath) {
+      try {
+        const filePath = path.join(tempDir, 'replay.rep')
+        await copyFile(options.replayPath, filePath)
+        collectedFiles.push({ name: 'replay.rep', filePath })
+      } catch (err) {
+        logger.warning('Error copying replay: ' + getErrorStack(err))
       }
     }
 

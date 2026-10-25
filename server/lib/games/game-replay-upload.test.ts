@@ -47,7 +47,7 @@ function makeApi(seed: unknown = 123) {
   }
   const gameLoader = { isLoading: vi.fn().mockReturnValue(false) }
   const banEnacter = { enactBan: vi.fn().mockResolvedValue(undefined) }
-  const replayViolations = { recordViolation: vi.fn().mockResolvedValue(undefined) }
+  const replayViolations = { recordViolation: vi.fn().mockResolvedValue(true) }
   const replayService = Object.assign(
     new ReplayService(banEnacter as any, replayViolations as any),
     {
@@ -101,9 +101,10 @@ describe('GameApi#submitGameReplay', () => {
     const { api, replayViolations, banEnacter } = makeApi(123)
     const persisted = createDeferred<void>()
     const started = createDeferred<void>()
-    replayViolations.recordViolation.mockImplementation(() => {
+    replayViolations.recordViolation.mockImplementation(async () => {
       started.resolve()
-      return persisted
+      await persisted
+      return true
     })
     const response = api.submitGameReplay(makeContext()).catch(error => error)
     await started
@@ -114,7 +115,7 @@ describe('GameApi#submitGameReplay', () => {
     })
     expect(banEnacter.enactBan).not.toHaveBeenCalled()
     persisted.resolve()
-    await expect(response).resolves.toMatchObject({ status: 403 })
+    await expect(response).resolves.toMatchObject({ code: GameResultErrorCode.ReplayRejected })
     expect(banEnacter.enactBan).toHaveBeenCalledOnce()
   })
 
@@ -128,7 +129,7 @@ describe('GameApi#submitGameReplay', () => {
   })
 
   test('waits for the permanent ban before rejecting a seed mismatch', async () => {
-    setReplaySeed(0)
+    setReplaySeed(124)
     const { api, replayService, banEnacter } = makeApi(123)
     const banStarted = createDeferred<void>()
     const banFinished = createDeferred<void>()
@@ -158,16 +159,52 @@ describe('GameApi#submitGameReplay', () => {
     expect(replayService.storeReplay).not.toHaveBeenCalled()
 
     banFinished.resolve()
-    await expect(response).resolves.toMatchObject({ status: 403, message: 'invalid replay' })
+    await expect(response).resolves.toMatchObject({
+      code: GameResultErrorCode.ReplayRejected,
+      message: 'invalid replay',
+    })
     expect(replayService.storeReplay).not.toHaveBeenCalled()
   })
 
   test('treats a stored zero seed as an expected seed', async () => {
     const { api, replayService, banEnacter } = makeApi(0)
 
-    await expect(api.submitGameReplay(makeContext())).rejects.toMatchObject({ status: 403 })
+    await expect(api.submitGameReplay(makeContext())).rejects.toMatchObject({
+      code: GameResultErrorCode.ReplayRejected,
+    })
 
     expect(banEnacter.enactBan).toHaveBeenCalledOnce()
+    expect(replayService.storeReplay).not.toHaveBeenCalled()
+  })
+
+  test('bans only the upload that first records the mismatch', async () => {
+    setReplaySeed(124)
+    const { api, replayViolations, banEnacter, replayService } = makeApi(123)
+    replayViolations.recordViolation.mockResolvedValue(false)
+
+    await expect(api.submitGameReplay(makeContext())).rejects.toMatchObject({
+      code: GameResultErrorCode.ReplayRejected,
+    })
+
+    expect(replayViolations.recordViolation).toHaveBeenCalledOnce()
+    expect(banEnacter.enactBan).not.toHaveBeenCalled()
+    expect(replayService.storeReplay).not.toHaveBeenCalled()
+  })
+
+  test('rejects a replay with no seed without banning the uploader', async () => {
+    setReplaySeed(0)
+    const { api, replayViolations, banEnacter, replayService } = makeApi(123)
+
+    await expect(api.submitGameReplay(makeContext())).rejects.toMatchObject({
+      code: GameResultErrorCode.ReplaySeedMissing,
+    })
+
+    expect(replayViolations.recordViolation).toHaveBeenCalledExactlyOnceWith({
+      gameId: GAME_ID,
+      userId: USER_ID,
+      details: { kind: 'seedMissing', expectedSeed: 123 },
+    })
+    expect(banEnacter.enactBan).not.toHaveBeenCalled()
     expect(replayService.storeReplay).not.toHaveBeenCalled()
   })
 
@@ -179,7 +216,9 @@ describe('GameApi#submitGameReplay', () => {
     setReplaySeed(124)
     const { api, replayService, banEnacter } = makeApi()
 
-    await expect(api.submitGameReplay(makeContext())).rejects.toMatchObject({ status: 403 })
+    await expect(api.submitGameReplay(makeContext())).rejects.toMatchObject({
+      code: GameResultErrorCode.ReplayRejected,
+    })
 
     expect(parseReplay).toHaveBeenCalledOnce()
     expect(banEnacter.enactBan).toHaveBeenCalledOnce()

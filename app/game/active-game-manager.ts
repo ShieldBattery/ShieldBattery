@@ -109,6 +109,12 @@ interface ActiveGameInfo {
    */
   replayUploaded?: boolean
   /**
+   * The error code the server refused the game process's replay upload with, for good. A
+   * diagnostic report about the replay is sent instead once the game has exited (so its log is
+   * complete).
+   */
+  replayRejectedCode?: string
+  /**
    * Which turn transport the game ended up using, reported once via `/game/networkStatus` during
    * game init.
    */
@@ -138,6 +144,13 @@ export interface ResendReplayRequest {
   replayPath: string
 }
 
+export interface ReplayDiagnosticsRequest {
+  gameId: string
+  replayPath: string
+  /** The error code the server rejected the replay with. */
+  code: string
+}
+
 export type ActiveGameManagerEvents = {
   gameCommand: [gameId: string, command: string, ...args: any[]]
   gameResult: [
@@ -152,6 +165,7 @@ export type ActiveGameManagerEvents = {
   gameStatus: [statusInfo: ReportedGameStatus]
   replaySaved: [gameId: string, path: string]
   resendReplay: [request: ResendReplayRequest]
+  replayDiagnosticsRequested: [request: ReplayDiagnosticsRequest]
   setUserBlocked: [gameId: string, userId: SbUserId, blocked: boolean]
   reportPlayer: [gameId: string, request: InGameReportRequest]
 }
@@ -964,6 +978,16 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     game.replayUploaded = true
   }
 
+  handleReplayRejected(gameId: string, code: string) {
+    const game = this.gameFor(gameId)
+    if (!game) {
+      return
+    }
+
+    log.warning(`Server rejected the replay for game ${gameId} (${code})`)
+    game.replayRejectedCode = code
+  }
+
   handleGameExit(id: string, exitCode: number) {
     const game = this.gameFor(id)
     if (!game) {
@@ -999,13 +1023,21 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       game.config &&
       resultCode &&
       game.tempReplayPath &&
-      !game.replayUploaded
+      !game.replayUploaded &&
+      !game.replayRejectedCode
     ) {
       this.emit('resendReplay', {
         gameId: game.id,
         userId: game.config.localUser.id,
         resultCode,
         replayPath: game.tempReplayPath,
+      })
+    }
+    if (game.replayRejectedCode && game.tempReplayPath) {
+      this.emit('replayDiagnosticsRequested', {
+        gameId: game.id,
+        replayPath: game.tempReplayPath,
+        code: game.replayRejectedCode,
       })
     }
 

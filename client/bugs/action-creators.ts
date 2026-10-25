@@ -27,6 +27,26 @@ export function reportBug(
   })
 }
 
+/**
+ * Files a bug report without involving the user, for a replay the server rejected (with error
+ * `code`). The report carries the logs plus the replay itself.
+ */
+export async function sendReplayDiagnosticReport(
+  gameId: string,
+  replayPath: string,
+  code: string,
+): Promise<ReportBugResponse> {
+  const reportFiles = await ipcRenderer.invoke('bugReportCollectFiles', { replayPath })!
+  const formData = new FormData()
+  formData.append(
+    'details',
+    `Automatic report: the server rejected the replay for game ${gameId} (${code}).`,
+  )
+  formData.append('logs', new Blob([reportFiles], { type: 'application/zip' }), 'logs.zip')
+
+  return await fetchJson(apiUrl`/bugs`, { method: 'POST', body: formData })
+}
+
 export function adminListBugReports(
   includeResolved: boolean,
   spec: RequestHandlingSpec<ListBugReportsResponseJson>,

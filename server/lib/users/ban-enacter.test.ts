@@ -93,7 +93,7 @@ describe('ban request cleanup', () => {
       gameId: GAME_ID,
     } as any)
     asMockedFunction(getGameRecord).mockResolvedValue(undefined)
-    asMockedFunction(recordReplayViolation).mockResolvedValue(undefined)
+    asMockedFunction(recordReplayViolation).mockResolvedValue(true)
     asMockedFunction(findConnectedUsers).mockResolvedValue([CONNECTED])
     asMockedFunction(banUsers).mockResolvedValue([
       { id: 'target-ban', userId: TARGET } as any,
@@ -151,6 +151,7 @@ describe('ban request cleanup', () => {
     })
     asMockedFunction(recordReplayViolation).mockImplementationOnce(async () => {
       order.push('protect')
+      return true
     })
     asMockedFunction(banUsers).mockImplementationOnce(async () => {
       order.push('ban')

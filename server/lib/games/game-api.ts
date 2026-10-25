@@ -269,6 +269,10 @@ function convertGameResultServiceErrors(err: unknown) {
       throw asHttpError(409, err)
     case GameResultErrorCode.InvalidResults:
       throw asHttpError(400, err)
+    case GameResultErrorCode.ReplayRejected:
+      throw asHttpError(403, err)
+    case GameResultErrorCode.ReplaySeedMissing:
+      throw asHttpError(422, err)
     default:
       assertUnreachable(err.code)
   }

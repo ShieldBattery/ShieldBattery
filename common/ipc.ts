@@ -237,7 +237,8 @@ interface IpcInvokeables {
    */
   activeGameSetBlockedUsers: (blockedUsers: SbUserId[]) => void
 
-  bugReportCollectFiles: () => Promise<Uint8Array<ArrayBuffer>>
+  /** Zips up the logs for a bug report, along with a replay file when one is given. */
+  bugReportCollectFiles: (options?: { replayPath?: string }) => Promise<Uint8Array<ArrayBuffer>>
 
   // TODO(tec27): Support the non-filetypes version if we need it, overloads don't seem to work
   // well with the current approach for typing these invokes =/
@@ -490,6 +491,16 @@ interface IpcMainSendables {
     userId: SbUserId
     resultCode: string
     replayPath: string
+  }) => void
+  /**
+   * The server rejected a game's replay upload for good (`code` is its error code), so a
+   * diagnostic report about it should be sent. Sent once the game process has exited, so its log
+   * is complete.
+   */
+  activeGameReplayDiagnosticsRequested: (request: {
+    gameId: string
+    replayPath: string
+    code: string
   }) => void
   /**
    * The local user blocked or unblocked a player with an in-game chat command. The game has

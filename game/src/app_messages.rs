@@ -411,6 +411,14 @@ pub struct ReplaySaved {
     pub path: String,
 }
 
+/// Tells the app the server refused the replay upload for good, so it sends a diagnostic report
+/// (with the replay file, left in place for it) instead of retrying the upload once the game exits.
+#[derive(Serialize)]
+pub struct ReplayRejected {
+    /// The error code the server refused the upload with.
+    pub code: String,
+}
+
 /// Asks the app to save a block (or unblock) the local user made with an in-game chat command.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]

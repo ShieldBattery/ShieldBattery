@@ -9,6 +9,11 @@ export type ReplayViolationDetails =
       actualSeed: number
     }
   | { kind: 'clientMismatch' }
+  /**
+   * The replay's header has no seed at all. Honest clients have been seen producing these, so
+   * they're rejected and kept for diagnosis without protecting results or blaming the uploader.
+   */
+  | { kind: 'seedMissing'; expectedSeed: number }
 
 export interface ReplayViolation {
   gameId: string
@@ -20,12 +25,15 @@ export interface ReplayViolation {
 // retained during rolling deployments without an older server deciding their consequences.
 const RESULT_PROTECTION_KINDS: ReplayViolationDetails['kind'][] = ['seedMismatch', 'clientMismatch']
 
-/** The caller must hold the game's row lock, shared with result reconciliation and refunds. */
+/**
+ * The caller must hold the game's row lock, shared with result reconciliation and refunds. Returns
+ * whether this call recorded the violation, rather than finding it already recorded.
+ */
 export async function recordReplayViolation(
   client: DbClient,
   violation: ReplayViolation,
-): Promise<void> {
-  await client.query(sql`
+): Promise<boolean> {
+  const result = await client.query(sql`
     INSERT INTO game_replay_violations (game_id, user_id, kind, details)
     VALUES (
       ${violation.gameId}, ${violation.userId}, ${violation.details.kind},
@@ -33,6 +41,7 @@ export async function recordReplayViolation(
     )
     ON CONFLICT (game_id, user_id, kind) DO NOTHING;
   `)
+  return (result.rowCount ?? 0) > 0
 }
 
 /** Handled violations still protect results if a disputed game is resolved manually. */

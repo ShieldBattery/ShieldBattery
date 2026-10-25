@@ -382,6 +382,36 @@ describe('ActiveGameManager watch-only games', () => {
       expect(await settingsSyncCount()).toBe(1)
     })
 
+    it.each(['ReplayRejected', 'ReplaySeedMissing'])(
+      'sends diagnostics instead of resending a replay the server rejected (%s)',
+      code => {
+        const resends: unknown[] = []
+        const diagnostics: unknown[] = []
+        manager.on('resendReplay', request => resends.push(request))
+        manager.on('replayDiagnosticsRequested', request => diagnostics.push(request))
+
+        const config = configFor('game-1')
+        manager.setGameConfig({
+          ...config,
+          localUser: { id: makeSbUserId(1) },
+          setup: { ...config.setup, resultCode: 'code' },
+        } as unknown as GameLaunchConfig)
+        manager.handleGameStart('game-1')
+        manager.handleGameResult('game-1', {}, 1000, 'C:\\temp\\game-1.rep')
+        manager.handleReplayRejected('game-1', code)
+        // Requested only once the game exits, so the report carries its complete log.
+        expect(diagnostics).toEqual([])
+        manager.handleGameFinished('game-1')
+
+        manager.handleGameExit('game-1', 0)
+
+        expect(resends).toEqual([])
+        expect(diagnostics).toEqual([
+          { gameId: 'game-1', replayPath: 'C:\\temp\\game-1.rep', code },
+        ])
+      },
+    )
+
     it('runs two replays at once', () => {
       manager.setGameConfig(replayConfigFor('replay-1'))
       manager.setGameConfig(replayConfigFor('replay-2'))
