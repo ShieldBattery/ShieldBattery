@@ -205,12 +205,14 @@
     "userErrorDisplay": {
       "accountBanned": "이 계정은 정지되었습니다.<1><0>사유:</0><1>{{banReason}}</1></1><2>정지는 {{expireTime}}에 만료됩니다.</2>",
       "banWithoutReason": "지정된 이유가 없습니다",
+      "clientSetupRequired": "설정에서 스타크래프트 설정을 마친 후 다시 계정을 만들어 주세요.",
       "defaultError": "오류 발생: {{status}} {{statusText}}",
       "genericError": "오류 발생: {{errorMessage}}",
       "invalidCode": "입력하신 코드는 유효하지 않습니다. 만료되었을 수 있습니다.",
       "invalidCredentials": "사용자 이름이나 비밀번호가 올바르지 않습니다",
       "machineBanned": "이 기기에서는 새로운 계정을 만드는 것이 금지되어 있습니다.",
       "noConnectionErrorMessage": "서버에 연결하지 못했습니다. 인터넷 연결을 확인하고 다시 시도해 주세요.",
+      "openStarcraftSettings": "스타크래프트 설정 열기",
       "sessionExpired": "세션이 만료되었습니다",
       "tooManyAccounts": "이 기기는 생성 가능한 계정 수에 도달했습니다. 가입 코드가 있으시면 입력하여 제한을 우회할 수 있습니다.",
       "usernameTaken": "해당 사용자 이름은 사용할 수 없습니다."
@@ -1515,6 +1517,7 @@
     "pageHeadline": "래더",
     "playerCount": "{{total}}명",
     "playerHeader": "플레이어",
+    "points": "점수",
     "pointsAbbrev": "점",
     "pointsHeader": "점수",
     "rankHeader": "순위",
@@ -1572,6 +1575,7 @@
     },
     "leagueDetails": {
       "about": "정보",
+      "actions": "리그 작업",
       "adminActions": "관리자 작업",
       "banned": "차단됨",
       "banUser": "{{name}} 차단",
@@ -1597,6 +1601,8 @@
       "notFound": "리그를 찾을 수 없습니다",
       "retrieveError": "이 리그를 불러오는 중 오류가 발생했습니다: {{errorMessage}}",
       "rulesAndInfo": "규칙 및 정보",
+      "searchPlayers": "플레이어 검색",
+      "selfMarker": "나",
       "unbanUser": "{{name}} 차단 해제",
       "userBanned": "이 사용자는 리그에서 차단되었습니다",
       "userBannedError": "사용자 차단 중 오류가 발생했습니다",
@@ -2593,8 +2599,12 @@
           "empty": "아래에서 항목을 추가하세요. 이름을 비워 두면 기본값을 사용합니다.",
           "preview1v1": "1:1",
           "preview2v2": "2:2",
+          "previewObserver": "1:1 관전",
+          "previewObserver2v2": "2:2 관전",
+          "previewObserverFourTeams": "4팀 관전",
           "remove": "제거",
           "reset": "기본값으로 재설정",
+          "teamNamesDescription": "모든 팀이 포함되며, 팀 사이에는 vs, 팀원 사이에는 +가 들어갑니다. 직접 플레이할 때는 내 팀이 먼저 오고, 관전할 때는 로비 자리 순서대로 표시됩니다.",
           "textLabel": "텍스트",
           "textPlaceholder": "텍스트",
           "title": "리플레이 이름",
@@ -2607,6 +2617,7 @@
             "opponentRaces": "상대 종족",
             "opponents": "상대",
             "race": "내 종족",
+            "teams": "팀 vs 팀",
             "text": "텍스트",
             "time": "시간"
           }
@@ -2621,11 +2632,13 @@
         "title": "소리"
       },
       "system": {
+        "closingOverline": "종료 설정",
         "emulateTurnRate24Delay": {
           "description": "연결이 더 빨라도 명령이 실행되기까지 항상 최소 2프레임이 걸립니다. 본인의 게임에만 적용됩니다.",
           "label": "TR24 Low 수준으로 입력 지연 추가"
         },
         "networkOverline": "네트워크",
+        "quitOnClose": "창을 닫으면 ShieldBattery 종료",
         "rollbackTarget": {
           "description": "값이 높을수록 명령이 빠르게 반응하지만, 유닛이 눈에 띄게 튀는 일이 잦아질 수 있습니다.",
           "label": "롤백 밸런스",
@@ -2977,6 +2990,8 @@
       },
       "title": "게임",
       "video": {
+        "alwaysStartSd": "항상 SD 그래픽으로 게임 시작",
+        "alwaysStartSdNote": "HD 그래픽을 켜 두어도 게임이 SD 그래픽으로 시작됩니다. 게임 중에 HD로 전환할 수 있습니다.",
         "brightness": "밝기",
         "brightnessFullscreenOnly": "전체 화면에서만 사용할 수 있습니다",
         "customFpsLimit": "사용자 지정 FPS 제한",
@@ -3320,6 +3335,18 @@
       },
       "ipAddresses": {
         "title": "IP 주소"
+      },
+      "linkedAccounts": {
+        "description": "이 계정과 브라우저 외 식별자를 직접 공유하는 계정입니다. 일치 항목은 서로 다른 기기나 시점에 걸쳐 있을 수 있으며, 같은 사람의 계정임을 뜻하지는 않습니다.",
+        "empty": "이 페이지에는 이 필터와 일치하는 계정이 없습니다.",
+        "loadError": "연결된 계정을 불러오지 못했습니다.",
+        "matchingTypes_other": "일치하는 식별자 유형: {{count}}개 ({{types}})",
+        "minimumMatches": "최소 일치 식별자 유형 수",
+        "page": "{{page}}페이지",
+        "profile": "프로필",
+        "title": "연결된 계정",
+        "usageDates": "이 계정의 일치 식별자 사용 기간: {{first}} – {{last}}",
+        "viewLinks": "연결된 계정 보기"
       },
       "nameHistory": {
         "changeName": {

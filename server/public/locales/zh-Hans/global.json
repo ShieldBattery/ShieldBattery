@@ -205,12 +205,14 @@
     "userErrorDisplay": {
       "accountBanned": "此账号已被封禁。<1><0>原因：</0><1>{{banReason}}</1></1><2>账号将于{{expireTime}}解封。</2>",
       "banWithoutReason": "未说明原因",
+      "clientSetupRequired": "请先在设置中完成星际争霸的配置，然后再重新尝试创建账号。",
       "defaultError": "发生错误：{{status}} {{statusText}}",
       "genericError": "出现错误：{{errorMessage}}",
       "invalidCode": "提供的验证码无效，可能已过期。",
       "invalidCredentials": "用户名或密码错误",
       "machineBanned": "您的机器被禁止注册新帐号。",
       "noConnectionErrorMessage": "无法连接到服务器。请检查您的网络连接，然后重试。",
+      "openStarcraftSettings": "打开星际争霸设置",
       "sessionExpired": "会话已过期",
       "tooManyAccounts": "该设备已达到创建账户的上限。如有注册码，可输入以绕过限制。",
       "usernameTaken": "用户名不可用。"
@@ -1515,6 +1517,7 @@
     "pageHeadline": "天梯",
     "playerCount": "{{total}} 名玩家",
     "playerHeader": "玩家",
+    "points": "积分",
     "pointsAbbrev": "分",
     "pointsHeader": "积分",
     "rankHeader": "排名",
@@ -1572,6 +1575,7 @@
     },
     "leagueDetails": {
       "about": "关于",
+      "actions": "联赛操作",
       "adminActions": "管理员操作",
       "banned": "已封禁",
       "banUser": "封禁 {{name}}",
@@ -1597,6 +1601,8 @@
       "notFound": "未找到联赛",
       "retrieveError": "查询此联赛时遇到错误：{{errorMessage}}",
       "rulesAndInfo": "规则与信息",
+      "searchPlayers": "搜索玩家",
+      "selfMarker": "我",
       "unbanUser": "解封 {{name}}",
       "userBanned": "该用户已被禁止参加联赛",
       "userBannedError": "封禁用户时出错",
@@ -2593,8 +2599,12 @@
           "empty": "在下方添加片段。名称留空则使用默认名称。",
           "preview1v1": "1v1",
           "preview2v2": "2v2",
+          "previewObserver": "观战 1v1",
+          "previewObserver2v2": "观战 2v2",
+          "previewObserverFourTeams": "观战 4 队",
           "remove": "移除",
           "reset": "恢复默认",
+          "teamNamesDescription": "包含所有队伍，队伍之间用 vs 分隔，队友之间用 + 连接。您参与游戏时，您的队伍排在最前；观战者看到的队伍按房间座位顺序排列。",
           "textLabel": "文本",
           "textPlaceholder": "文本",
           "title": "录像名称",
@@ -2607,6 +2617,7 @@
             "opponentRaces": "对手种族",
             "opponents": "对手",
             "race": "您的种族",
+            "teams": "队伍 vs 队伍",
             "text": "文本",
             "time": "时间"
           }
@@ -2621,11 +2632,13 @@
         "title": "声音"
       },
       "system": {
+        "closingOverline": "关闭",
         "emulateTurnRate24Delay": {
           "description": "即使网络足够快，指令也总会延迟至少 2 帧才执行。这只会影响您自己的游戏。",
           "label": "增加输入延迟以匹配 TR24 Low"
         },
         "networkOverline": "网络",
+        "quitOnClose": "关闭窗口时退出 ShieldBattery",
         "rollbackTarget": {
           "description": "数值越高，指令响应越快，但单位可能会更频繁地出现明显的跳动。",
           "label": "回滚平衡",
@@ -2977,6 +2990,8 @@
       },
       "title": "游戏",
       "video": {
+        "alwaysStartSd": "始终以旧版图像启动游戏",
+        "alwaysStartSdNote": "即使开启了高清版图像，游戏也会以旧版图像启动。您仍可在游戏中切换到高清版。",
         "brightness": "亮度",
         "brightnessFullscreenOnly": "仅在全屏模式下可用",
         "customFpsLimit": "自定义帧率上限",
@@ -3320,6 +3335,18 @@
       },
       "ipAddresses": {
         "title": "IP地址"
+      },
+      "linkedAccounts": {
+        "description": "与此账号直接共享非浏览器标识符的账号。匹配可能来自不同的机器或时间，并不能证明这些账号属于同一个人。",
+        "empty": "本页没有符合此筛选条件的账号。",
+        "loadError": "无法加载关联账号。",
+        "matchingTypes_other": "匹配的标识符类型：{{count}} 种（{{types}}）",
+        "minimumMatches": "最少匹配标识符类型数",
+        "page": "第 {{page}} 页",
+        "profile": "资料",
+        "title": "关联账号",
+        "usageDates": "此账号使用匹配标识符的时间：{{first}} – {{last}}",
+        "viewLinks": "查看关联账号"
       },
       "nameHistory": {
         "changeName": {

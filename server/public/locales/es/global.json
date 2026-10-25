@@ -205,12 +205,14 @@
     "userErrorDisplay": {
       "accountBanned": "Esta cuenta ha sido baneada.<1><0>Razón:</0><1>{{banReason}}</1></1><2>El baneo expirará en {{expireTime}}.</2>",
       "banWithoutReason": "Sin razón especificada",
+      "clientSetupRequired": "Termina de configurar StarCraft en Ajustes y luego vuelve a intentar crear tu cuenta.",
       "defaultError": "Ocurrió un error: {{status}} {{statusText}}",
       "genericError": "Ocurrió un error: {{errorMessage}}",
       "invalidCode": "El código proporcionado es inválido. Puede que haya expirado.",
       "invalidCredentials": "Nombre de usuario o contraseña incorrectos",
       "machineBanned": "Esta máquina tiene prohibido crear nuevas cuentas.",
       "noConnectionErrorMessage": "No se pudo conectar al servidor. Revisa tu conexión a internet y vuelve a intentarlo.",
+      "openStarcraftSettings": "Abrir ajustes de StarCraft",
       "sessionExpired": "Sesión expirada",
       "tooManyAccounts": "Esta máquina ha alcanzado el límite de cuentas creadas. Si tienes un código de registro, puedes ingresarlo para evitar este límite.",
       "usernameTaken": "El nombre de usuario no está disponible."
@@ -1547,6 +1549,7 @@
     "pageHeadline": "Clasificatoria",
     "playerCount": "{{total}} jugadores",
     "playerHeader": "Jugador",
+    "points": "Puntos",
     "pointsAbbrev": "pts",
     "pointsHeader": "Puntos",
     "rankHeader": "Rango",
@@ -1604,6 +1607,7 @@
     },
     "leagueDetails": {
       "about": "Acerca de",
+      "actions": "Acciones de la liga",
       "adminActions": "Acciones de administrador",
       "banned": "Baneado",
       "banUser": "Banear a {{name}}",
@@ -1629,6 +1633,8 @@
       "notFound": "Liga no encontrada",
       "retrieveError": "Hubo un error al recuperar esta liga: {{errorMessage}}",
       "rulesAndInfo": "Reglas e información",
+      "searchPlayers": "Buscar jugadores",
+      "selfMarker": "Tú",
       "unbanUser": "Desbanear a {{name}}",
       "userBanned": "Este usuario ha sido baneado de la liga",
       "userBannedError": "Error al banear al usuario",
@@ -2673,8 +2679,12 @@
           "empty": "Añade piezas abajo. Un nombre vacío usa el predeterminado.",
           "preview1v1": "1x1",
           "preview2v2": "2x2",
+          "previewObserver": "Observando 1x1",
+          "previewObserver2v2": "Observando 2x2",
+          "previewObserverFourTeams": "Observando 4 equipos",
           "remove": "Quitar",
           "reset": "Restablecer predeterminado",
+          "teamNamesDescription": "Incluye todos los equipos, con vs entre equipos y + entre compañeros. Cuando juegas, tu equipo va primero; los observadores ven los equipos en el orden de los espacios del lobby.",
           "textLabel": "Texto",
           "textPlaceholder": "Texto",
           "title": "Nombres de replays",
@@ -2687,6 +2697,7 @@
             "opponentRaces": "Razas rivales",
             "opponents": "Rivales",
             "race": "Tu raza",
+            "teams": "Equipo vs equipo",
             "text": "Texto",
             "time": "Hora"
           }
@@ -2701,11 +2712,13 @@
         "title": "Sonido"
       },
       "system": {
+        "closingOverline": "Al cerrar",
         "emulateTurnRate24Delay": {
           "description": "Tus comandos siempre tardan al menos 2 fotogramas en ejecutarse, aunque tu conexión permita menos. Esto solo cambia tu propia partida.",
           "label": "Añadir retraso de entrada para igualar TR24 Low"
         },
         "networkOverline": "Red",
+        "quitOnClose": "Salir de ShieldBattery al cerrar la ventana",
         "rollbackTarget": {
           "description": "Los valores más altos hacen que tus comandos respondan más rápido, pero las unidades pueden dar saltos visibles más a menudo.",
           "label": "Equilibrio del rollback",
@@ -3059,6 +3072,8 @@
       },
       "title": "Juego",
       "video": {
+        "alwaysStartSd": "Iniciar siempre las partidas con gráficos SD",
+        "alwaysStartSdNote": "Las partidas empiezan con gráficos SD aunque los gráficos HD estén activados. Puedes cambiar a HD durante la partida.",
         "brightness": "Brillo",
         "brightnessFullscreenOnly": "Solo disponible en pantalla completa",
         "customFpsLimit": "Límite de FPS personalizado",
@@ -3410,6 +3425,20 @@
       },
       "ipAddresses": {
         "title": "Direcciones IP"
+      },
+      "linkedAccounts": {
+        "description": "Cuentas que comparten directamente identificadores ajenos al navegador con esta cuenta. Las coincidencias pueden abarcar distintas máquinas o momentos y no demuestran que las cuentas pertenezcan a la misma persona.",
+        "empty": "Ninguna cuenta de esta página coincide con este filtro.",
+        "loadError": "No se pudieron cargar las cuentas vinculadas.",
+        "matchingTypes_one": "Tipos de identificador coincidentes: {{count}} ({{types}})",
+        "matchingTypes_many": "Tipos de identificador coincidentes: {{count}} ({{types}})",
+        "matchingTypes_other": "Tipos de identificador coincidentes: {{count}} ({{types}})",
+        "minimumMatches": "Mínimo de tipos de identificador coincidentes",
+        "page": "Página {{page}}",
+        "profile": "Perfil",
+        "title": "Cuentas vinculadas",
+        "usageDates": "Identificadores coincidentes usados por esta cuenta: {{first}} – {{last}}",
+        "viewLinks": "Ver cuentas vinculadas"
       },
       "nameHistory": {
         "changeName": {

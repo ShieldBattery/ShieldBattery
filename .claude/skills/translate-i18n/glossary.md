@@ -563,4 +563,6 @@ consistent. (Seed — extend over time.)
   kept apart from the menu's 离开游戏, and the hold plate uses the in-file 长按: 长按放弃游戏.
   Roster state column: 已连接 / 无响应 / 正在重连… {{time}} / 已请求踢出 — English set these
   lowercase, which Chinese does not mirror. teammate→**队友**.
+- **SD / HD graphics → 旧版图像 / 高清版图像** (the Video settings' in-file pair; "switch to HD"→切换到高清版).
+  The leaderboard self chip "You"→**我** (a label on your own row, not an address, so no 您).
 - **Licenses page:** open source→**开源**, license→**许可证**, license notices→许可证声明, release build→**正式版构建**, software package→软件包. Support (heart button, donations)→**赞助**. Browsers report `zh-CN`, which the language detector doesn't map to zh-Hans yet; test with a `zh-Hans` locale.
