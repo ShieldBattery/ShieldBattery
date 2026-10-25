@@ -75,8 +75,86 @@ struct State {
     #[cfg(debug_assertions)]
     records: Vec<FrameRecord>,
     /// When the game's first logic step ran.
-    #[cfg(debug_assertions)]
     first_step: Option<Instant>,
+    startup: StartupFrames,
+}
+
+/// How long from the game's first logic step the frames are logged one by one when slow: the
+/// first frames of a session tend to hitch while the renderer settles, rollback or not.
+const STARTUP_FRAMES: Duration = Duration::from_secs(10);
+
+/// How many of the slowest frames of a game's start its log line lists.
+const STARTUP_SLOW_FRAMES_LOGGED: usize = 6;
+
+/// The frames of a game's first [`STARTUP_FRAMES`], for one log line once it is over.
+struct StartupFrames {
+    frames: u32,
+    slow: u32,
+    /// The slowest frames, slowest first, with how far into the start each one began.
+    slowest: [Option<(Duration, FrameRecord)>; STARTUP_SLOW_FRAMES_LOGGED],
+    logged: bool,
+}
+
+impl StartupFrames {
+    const fn new() -> StartupFrames {
+        StartupFrames {
+            frames: 0,
+            slow: 0,
+            slowest: [None; STARTUP_SLOW_FRAMES_LOGGED],
+            logged: false,
+        }
+    }
+
+    /// Notes a frame that started `at` into the game's start, and logs the start's frames once
+    /// `now` is past it.
+    fn note(&mut self, at: Duration, record: &FrameRecord, now: Duration) {
+        if self.logged {
+            return;
+        }
+        if at < STARTUP_FRAMES {
+            self.frames += 1;
+            if u128::from(record.interval_us) > SLOW_FRAME.as_micros() {
+                self.slow += 1;
+                let rank = self
+                    .slowest
+                    .iter()
+                    .position(|x| x.is_none_or(|(_, x)| x.interval_us < record.interval_us));
+                if let Some(rank) = rank {
+                    self.slowest[rank..].rotate_right(1);
+                    self.slowest[rank] = Some((at, *record));
+                }
+            }
+        }
+        if now >= STARTUP_FRAMES {
+            self.logged = true;
+            let ms = |us: u32| f64::from(us) / 1000.0;
+            let slowest = self
+                .slowest
+                .iter()
+                .flatten()
+                .map(|(at, x)| {
+                    format!(
+                        "{:.1} ms at {:.2} s (draw {:.1}, render {:.1}, tick {:.1}, {:?})",
+                        ms(x.interval_us),
+                        at.as_secs_f64(),
+                        ms(x.draw_us),
+                        ms(x.render_us),
+                        ms(x.tick_us),
+                        x.tick,
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+            info!(
+                "Frames over the game's first {} s: {}, {} over {} ms; slowest: {}",
+                STARTUP_FRAMES.as_secs(),
+                self.frames,
+                self.slow,
+                SLOW_FRAME.as_millis(),
+                if slowest.is_empty() { "none" } else { &slowest },
+            );
+        }
+    }
 }
 
 static STATE: Mutex<State> = Mutex::new(State {
@@ -107,8 +185,8 @@ static STATE: Mutex<State> = Mutex::new(State {
     stats: FrameStats::new(),
     #[cfg(debug_assertions)]
     records: Vec::new(),
-    #[cfg(debug_assertions)]
     first_step: None,
+    startup: StartupFrames::new(),
 });
 
 /// A frame that takes longer than this shows as a stutter at the frame rates the game runs at.
@@ -210,6 +288,10 @@ fn draw_started() {
         let mut record = state.current;
         record.interval_us = micros(now - started);
         state.stats.add(&record);
+        if let Some(first) = state.first_step {
+            let at = started.saturating_duration_since(first);
+            state.startup.note(at, &record, now - first);
+        }
         #[cfg(debug_assertions)]
         if state.records.len() < MAX_RECORDS {
             state.records.push(record);
@@ -359,7 +441,6 @@ fn step_started() {
     let mut state = STATE.lock();
     let now = Instant::now();
     state.tick_started = Some(now);
-    #[cfg(debug_assertions)]
     if state.first_step.is_none() {
         state.first_step = Some(now);
     }
@@ -430,9 +511,8 @@ pub fn reset() {
         state.frames_since_rollback = u16::MAX;
     }
     state.stats = FrameStats::new();
+    state.first_step = None;
+    state.startup = StartupFrames::new();
     #[cfg(debug_assertions)]
-    {
-        state.records.clear();
-        state.first_step = None;
-    }
+    state.records.clear();
 }
