@@ -788,10 +788,17 @@ const FooterSpacing = styled.div`
   height: 12px;
 `
 
-function LeaderboardAndMargin({ children }: { children?: React.ReactNode }) {
+/**
+ * The table element for the leaderboard's `TableVirtuoso`. The props virtuoso passes here must
+ * reach the DOM: its `style` sets `overflow-anchor: none`, without which Chromium's scroll anchoring
+ * can latch onto a filler row during a fast scroll and keep shifting the scroll position as each
+ * batch of rows renders, running the list to its end.
+ */
+function LeaderboardAndMargin(props: { context?: unknown; children?: React.ReactNode }) {
+  const { context: _context, children, ...rest } = props
   return (
     <>
-      <LeaderboardRoot>{children}</LeaderboardRoot>
+      <LeaderboardRoot {...rest}>{children}</LeaderboardRoot>
       <FooterSpacing />
     </>
   )
