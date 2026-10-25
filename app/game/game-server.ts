@@ -1,4 +1,4 @@
-import { screen } from 'electron'
+import { app, screen } from 'electron'
 import http from 'http'
 import { AddressInfo } from 'net'
 import { container } from 'tsyringe'
@@ -63,24 +63,26 @@ export class GameServer {
         const pingInterval = setInterval(() => {
           if (socket.readyState === socket.OPEN) socket.ping()
         }, 20000)
-        const stopWatching = watchGameConnection(
-          async () => {
-            if (serverPort === undefined || clientPort === undefined) return undefined
-            const { verifyGameConnection } = await import('virtual:sb-security-impl')
-            if (typeof verifyGameConnection !== 'function') return undefined
-            return verifyGameConnection(gameDirectory, serverPort, clientPort)
-          },
-          () => log.warning('Game connection check unavailable'),
-          () => {
-            log.error('Game connection check failed')
-            if (socket.readyState === socket.OPEN) this.sendCommand(socket, 'quit', null)
-            socket.close()
-          },
-        )
+        const stopWatching = app.isPackaged
+          ? watchGameConnection(
+              async () => {
+                if (serverPort === undefined || clientPort === undefined) return undefined
+                const { verifyGameConnection } = await import('virtual:sb-security-impl')
+                if (typeof verifyGameConnection !== 'function') return undefined
+                return verifyGameConnection(gameDirectory, serverPort, clientPort)
+              },
+              () => log.warning('Game connection check unavailable'),
+              () => {
+                log.error('Game connection check failed')
+                if (socket.readyState === socket.OPEN) this.sendCommand(socket, 'quit', null)
+                socket.close()
+              },
+            )
+          : undefined
         socket.on('close', () => {
           log.verbose('game websocket disconnected')
           clearInterval(pingInterval)
-          stopWatching()
+          stopWatching?.()
           if (this.idToSocket.get(gameId) === socket) this.idToSocket.delete(gameId)
         })
         socket.on('message', data => {

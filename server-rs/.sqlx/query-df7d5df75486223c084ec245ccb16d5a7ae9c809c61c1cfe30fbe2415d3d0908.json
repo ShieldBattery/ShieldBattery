@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                    SELECT user_id as \"id\", edit_permissions, debug, ban_users, manage_leagues,\n                        manage_maps, manage_map_pools, manage_matchmaking,\n                        manage_matchmaking_seasons, manage_matchmaking_times,\n                        mass_delete_maps, moderate_chat_channels,\n                        manage_news, manage_bug_reports, manage_game_reports,\n                        manage_restricted_names, manage_signup_codes, manage_live_streams\n                    FROM permissions\n                    WHERE user_id = $1\n                ",
+  "query": "\n                    SELECT user_id as \"id\", edit_permissions, debug, ban_users, manage_leagues,\n                        manage_maps, manage_map_pools, manage_matchmaking,\n                        manage_matchmaking_seasons, manage_matchmaking_times,\n                        mass_delete_maps, moderate_chat_channels,\n                        manage_news, manage_bug_reports, manage_game_reports,\n                        manage_restricted_names, manage_signup_codes, manage_live_streams,\n                        use_development_client\n                    FROM permissions\n                    WHERE user_id = $1\n                ",
   "describe": {
     "columns": [
       {
@@ -200,6 +200,17 @@
             "name": "manage_live_streams"
           }
         }
+      },
+      {
+        "ordinal": 18,
+        "name": "use_development_client",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "permissions",
+            "name": "use_development_client"
+          }
+        }
       }
     ],
     "parameters": {
@@ -225,8 +236,9 @@
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "f9897cc5e71339cea80dcaaad5e7f36095c71d44bce68788c6c63da6a8f961a6"
+  "hash": "df7d5df75486223c084ec245ccb16d5a7ae9c809c61c1cfe30fbe2415d3d0908"
 }

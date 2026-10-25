@@ -79,6 +79,7 @@ const PermissionsFragment = graphql(/* GraphQL */ `
       id
       editPermissions
       debug
+      useDevelopmentClient
       banUsers
       manageLeagues
       manageMaps
@@ -243,6 +244,12 @@ function PermissionsEditor({
           <CheckBox
             {...bindCheckable('banUsers')}
             label='Ban users'
+            inputProps={inputProps}
+            disabled={fetching}
+          />
+          <CheckBox
+            {...bindCheckable('useDevelopmentClient')}
+            label='Use development clients'
             inputProps={inputProps}
             disabled={fetching}
           />

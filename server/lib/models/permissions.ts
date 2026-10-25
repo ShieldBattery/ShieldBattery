@@ -10,6 +10,7 @@ function convertFromDb(props: DbPermissions): SbPermissions {
   return {
     editPermissions: props.edit_permissions,
     debug: props.debug,
+    useDevelopmentClient: props.use_development_client ?? false,
     banUsers: props.ban_users,
     manageLeagues: props.manage_leagues,
     manageMaps: props.manage_maps,
@@ -50,7 +51,7 @@ export async function getPermissions(
         manage_map_pools, mass_delete_maps, manage_matchmaking, manage_matchmaking_times,
         moderate_chat_channels, manage_matchmaking_seasons, manage_news,
         manage_bug_reports, manage_game_reports, manage_restricted_names, manage_signup_codes,
-        manage_live_streams
+        manage_live_streams, use_development_client
     FROM permissions
     WHERE user_id = ${userId};
   `
@@ -73,6 +74,7 @@ export async function updatePermissions(
     SET
       edit_permissions = ${!!perms.editPermissions},
       debug = ${!!perms.debug},
+      use_development_client = ${!!perms.useDevelopmentClient},
       ban_users = ${!!perms.banUsers},
       manage_leagues = ${!!perms.manageLeagues},
       manage_maps = ${!!perms.manageMaps},
@@ -96,6 +98,21 @@ export async function updatePermissions(
   try {
     const result = await client.query<DbPermissions>(query)
     return convertFromDb(result.rows[0])
+  } finally {
+    done()
+  }
+}
+
+export async function getDevelopmentClientUsers(userIds: SbUserId[]): Promise<Set<SbUserId>> {
+  if (!userIds.length) return new Set()
+
+  const { client, done } = await db()
+  try {
+    const result = await client.query<{ user_id: SbUserId }>(sql`
+      SELECT user_id FROM permissions
+      WHERE user_id = ANY(${userIds}) AND use_development_client;
+    `)
+    return new Set(result.rows.map(row => row.user_id))
   } finally {
     done()
   }

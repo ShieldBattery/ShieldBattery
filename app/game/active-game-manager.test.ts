@@ -1,17 +1,28 @@
 import { EventEmitter } from 'node:events'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { promises as fsPromises } from 'node:fs'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { GameLaunchConfig } from '../../common/games/game-launch-config'
 import { NetcodeV2ServerSetup } from '../../common/games/netcode-v2'
 import { InGameReportRequest } from '../../common/ipc'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
 import { ActiveGameManager } from './active-game-manager'
+import { checkStarcraftPath } from './check-starcraft-path'
+
+const { verifyGame, electronApp } = vi.hoisted(() => ({
+  verifyGame: vi.fn<() => Promise<void>>(),
+  electronApp: { getAppPath: () => 'C:\\fake-app', isPackaged: true },
+}))
+vi.mock('virtual:sb-security-impl', () => ({ verifyGame }))
 
 // ActiveGameManager pulls in Electron (and modules that initialize against a real Electron
 // process) at module scope; these are irrelevant to the keypair-lifecycle behavior under test, so
 // they're stubbed just far enough for the module to load. The launch path is pinned mid-flight
 // (`checkStarcraftPath` never resolves) so no game process is ever spawned and no
 // launch-error/exit handler can clear the active game out from under the test.
-vi.mock('electron', () => ({ app: { getAppPath: () => 'C:\\fake-app' }, screen: {} }))
+vi.mock('electron', () => ({
+  app: electronApp,
+  screen: {},
+}))
 vi.mock('electron-is-dev', () => ({ default: false }))
 vi.mock('@shieldbattery/windows-registry', () => ({
   HKCU: 'HKCU',
@@ -28,7 +39,7 @@ vi.mock('../settings', () => ({
 }))
 vi.mock('./map-store', () => ({ MapStore: class {} }))
 vi.mock('./check-starcraft-path', () => ({
-  checkStarcraftPath: () => new Promise(() => {}),
+  checkStarcraftPath: vi.fn(() => new Promise(() => {})),
 }))
 
 function makeManager(): ActiveGameManager {
@@ -63,6 +74,67 @@ function replayConfigFor(gameId: string): GameLaunchConfig {
 function setupFor(clientPubkey: string | undefined): NetcodeV2ServerSetup {
   return { clientPubkey } as NetcodeV2ServerSetup
 }
+
+describe('ActiveGameManager packaged launch checks', () => {
+  beforeEach(() => {
+    vi.spyOn(fsPromises, 'access').mockResolvedValue(undefined)
+    vi.mocked(checkStarcraftPath).mockClear()
+    verifyGame.mockReset().mockResolvedValue(undefined)
+  })
+
+  afterEach(() => {
+    electronApp.isPackaged = true
+    vi.restoreAllMocks()
+  })
+
+  function launch() {
+    const localSettings = Object.assign(new EventEmitter(), {
+      get: async () => ({ starcraftPath: 'C:\\StarCraft', launch32Bit: false }),
+    })
+    const manager = new ActiveGameManager({} as any, localSettings as any, {} as any)
+    const statuses: Array<{ state: string; extra?: unknown }> = []
+    manager.on('gameStatus', status => statuses.push(status))
+    manager.setGameConfig(configFor('launch-check'))
+    return { manager, statuses }
+  }
+
+  it('checks a packaged DLL before proceeding to StarCraft setup', async () => {
+    electronApp.isPackaged = true
+    launch()
+    await vi.waitFor(() => expect(checkStarcraftPath).toHaveBeenCalledWith('C:\\StarCraft'))
+    expect(verifyGame).toHaveBeenCalledExactlyOnceWith(
+      expect.stringMatching(/shieldbattery_64\.dll$/),
+    )
+    expect(verifyGame.mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(checkStarcraftPath).mock.invocationCallOrder[0],
+    )
+  })
+
+  it('fails a packaged launch when the DLL check rejects', async () => {
+    electronApp.isPackaged = true
+    const failure = new Error('DLL check failed')
+    verifyGame.mockRejectedValue(failure)
+    const { manager, statuses } = launch()
+    await vi.waitFor(() =>
+      expect(statuses).toContainEqual(
+        expect.objectContaining({
+          state: 'error',
+          extra: failure,
+        }),
+      ),
+    )
+    expect(manager.getStatus()).toBeNull()
+    expect(checkStarcraftPath).not.toHaveBeenCalled()
+  })
+
+  it('allows unpackaged DLLs even when electron-is-dev is false', async () => {
+    electronApp.isPackaged = false
+    verifyGame.mockRejectedValue(new Error('development DLL'))
+    launch()
+    await vi.waitFor(() => expect(checkStarcraftPath).toHaveBeenCalledWith('C:\\StarCraft'))
+    expect(verifyGame).not.toHaveBeenCalled()
+  })
+})
 
 describe('ActiveGameManager netcode v2 keypair lifecycle', () => {
   let manager: ActiveGameManager

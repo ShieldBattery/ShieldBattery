@@ -173,11 +173,13 @@ export class UserSocketsGroup extends SocketGroup<UserSocketsGroup> {
 export class ClientSocketsGroup extends SocketGroup<ClientSocketsGroup> {
   readonly clientId: string
   readonly clientType: 'electron' | 'web'
+  readonly developmentClient: boolean
 
   constructor(nydus: NydusServer, session: SessionInfo) {
     super(nydus, session)
     this.clientId = session.clientId
     this.clientType = session.clientType
+    this.developmentClient = session.developmentClient === true
   }
 
   getPath() {
@@ -284,7 +286,15 @@ export class ClientSocketsManager extends EventEmitter<ClientSocketsManagerEvent
         client.once('close', () => this.removeClient(userClientId))
         this.emit('newClient', client)
       } else {
-        this.clients.get(userClientId)!.add(socket)
+        const client = this.clients.get(userClientId)!
+        if (
+          client.clientType !== session.clientType ||
+          client.developmentClient !== (session.developmentClient === true)
+        ) {
+          socket.close()
+          return
+        }
+        client.add(socket)
       }
     })
   }

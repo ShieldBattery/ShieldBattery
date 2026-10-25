@@ -10,6 +10,7 @@ export type PermissionName = keyof SbPermissions
 export const DEFAULT_PERMISSIONS: Readonly<SbPermissions> = {
   editPermissions: false,
   debug: false,
+  useDevelopmentClient: false,
   banUsers: false,
   manageLeagues: false,
   manageMaps: false,

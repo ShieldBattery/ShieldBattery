@@ -47,6 +47,18 @@ describe('EvidenceSessionMappingService', () => {
     expect(setNetcodeV2SessionMapping).toHaveBeenLastCalledWith('game-1', 100, ROSTER)
   })
 
+  test('retains development mode through a delayed mapping repair', async () => {
+    vi.mocked(setNetcodeV2SessionMapping).mockRejectedValueOnce(new Error('offline'))
+    const { service, retry } = setup()
+    const roster = [{ ...ROSTER[0], developmentClient: true }]
+    await service.persist('game-development', 100, roster)
+    roster[0].developmentClient = false
+    await retry()
+    expect(setNetcodeV2SessionMapping).toHaveBeenLastCalledWith('game-development', 100, [
+      { ...ROSTER[0], developmentClient: true },
+    ])
+  })
+
   test('drops a mapping refused because its game is gone or bound to another session', async () => {
     vi.mocked(setNetcodeV2SessionMapping).mockResolvedValue(false)
     const { service, retry } = setup()

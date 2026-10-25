@@ -2,6 +2,7 @@ import { WebUtils } from 'electron'
 
 // NOTE(tec27): This should match the preload.js file's definition
 interface ShieldBatteryElectronApi {
+  isDevelopment: boolean
   ipcRenderer: {
     invoke(channel: string, ...args: any[]): Promise<any>
     send(channel: string, ...args: any[]): void

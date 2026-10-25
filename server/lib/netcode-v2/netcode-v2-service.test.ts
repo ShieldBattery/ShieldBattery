@@ -10,6 +10,7 @@ import {
   setNetcodeV2RequestedRegions,
   setNetcodeV2Session,
 } from '../games/game-models'
+import { getDevelopmentClientUsers } from '../models/permissions'
 import { EvidenceSessionMappingService } from './evidence-session-mapping-service'
 import {
   checkSessionsAlive,
@@ -28,6 +29,8 @@ vi.mock('got', async importOriginal => ({
     post: vi.fn(),
   },
 }))
+
+vi.mock('../models/permissions', () => ({ getDevelopmentClientUsers: vi.fn() }))
 
 // The session id, relay history, and requested-region persistence are best-effort DB writes; stub
 // them so the create/rehome paths don't reach a real database.
@@ -572,6 +575,60 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
       }),
     ).rejects.toThrow('not been initialized')
     expect(got.post).not.toHaveBeenCalled()
+  })
+
+  test('persists development mode only for the authorized requesting player', async () => {
+    configureNetcodeV2()
+    const developer = makeSbUserId(1)
+    const opponent = makeSbUserId(2)
+    vi.mocked(getDevelopmentClientUsers).mockResolvedValue(new Set([developer, opponent]))
+    mockSessionResponse(sessionResponse([0, 1]))
+    await makeService(undefined, () => [
+      { keyId: 17, publicKey: 'ab'.repeat(32) },
+    ]).createSessionForGame({
+      seed: 1,
+      gameId: 'game-development',
+      slots: [
+        { slot: 0, userId: developer, observer: false, pubkey: PUBKEY, developmentClient: true },
+        { slot: 1, userId: opponent, observer: false, pubkey: PUBKEY },
+      ],
+      signal: new AbortController().signal,
+    })
+    expect(getDevelopmentClientUsers).toHaveBeenCalledExactlyOnceWith([developer])
+    expect(persistMapping).toHaveBeenCalledExactlyOnceWith('game-development', 100, [
+      expect.objectContaining({ userId: developer, developmentClient: true }),
+      expect.not.objectContaining({ developmentClient: true }),
+    ])
+    expect(setNetcodeV2RequestedRegions).toHaveBeenCalledWith(
+      'game-development',
+      persistMapping.mock.calls[0][2],
+    )
+    const body = JSON.parse((vi.mocked(got.post).mock.calls[0][1] as any).body)
+    expect(body.players.map((p: any) => p.require_evidence)).toEqual([false, false])
+  })
+
+  test('rejects a development session after permission revocation, before contacting relays', async () => {
+    configureNetcodeV2()
+    vi.mocked(getDevelopmentClientUsers).mockResolvedValue(new Set())
+    await expect(
+      makeService().createSessionForGame({
+        seed: 1,
+        gameId: 'game-revoked',
+        slots: [
+          {
+            slot: 0,
+            userId: makeSbUserId(1),
+            observer: false,
+            pubkey: PUBKEY,
+            developmentClient: true,
+          },
+        ],
+        signal: new AbortController().signal,
+      }),
+    ).rejects.toThrow('require permission')
+    expect(got.post).not.toHaveBeenCalled()
+    expect(persistMapping).not.toHaveBeenCalled()
+    expect(setNetcodeV2RequestedRegions).not.toHaveBeenCalled()
   })
 
   test.each([false, true])(

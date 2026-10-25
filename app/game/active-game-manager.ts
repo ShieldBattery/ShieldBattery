@@ -1087,8 +1087,10 @@ async function doLaunch(
   } catch (err) {
     throw new Error(`Could not access/find shieldbattery dll at ${injectPath}`, { cause: err })
   }
-  const { verifyGame } = await import('virtual:sb-security-impl')
-  await verifyGame?.(injectPath)
+  if (app.isPackaged) {
+    const { verifyGame } = await import('virtual:sb-security-impl')
+    await verifyGame?.(injectPath)
+  }
 
   let { starcraftPath } = settings
   if (!starcraftPath) {

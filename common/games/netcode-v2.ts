@@ -209,6 +209,8 @@ export interface NetcodeV2RequestedRegion {
   userId: SbUserId
   /** Whether this slot watches rather than plays. */
   observer: boolean
+  /** Server-authorized development mode, snapshotted for this player's game session. */
+  developmentClient?: boolean
   /** The game-server region this player asked to be homed in, absent if they reported none. */
   region?: GameServerRegionId
   /**

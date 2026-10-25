@@ -210,10 +210,21 @@ describe('games/game-loader/GameLoader', () => {
    * order, making p1 slot 0 and p2 slot 1. The pending load is returned wrapped, since an
    * `AsyncResult` is itself thenable and would otherwise be awaited away by this helper.
    */
-  async function startNetworkedLoad(gameId: string, matchmaking = false, lobbyExtra?: LobbyExtra) {
+  async function startNetworkedLoad(
+    gameId: string,
+    matchmaking = false,
+    lobbyExtra?: LobbyExtra,
+    developmentUser?: SbUserId,
+  ) {
     const player1 = makePlayer(p1)
     const player2 = makePlayer(p2)
     registerActiveClients([player1.player, player2.player])
+    if (developmentUser !== undefined) {
+      activityRegistry.getClientForUser.mockImplementation((userId: SbUserId) => ({
+        ...makeClient(userId),
+        developmentClient: userId === developmentUser,
+      }))
+    }
     asMockedFunction(findUsersById).mockResolvedValue([makeUser(p1), makeUser(p2)])
     netcodeV2Service.isEnabled.mockReturnValue(true)
     netcodeV2Service.createSessionForGame.mockResolvedValue({
@@ -259,6 +270,21 @@ describe('games/game-loader/GameLoader', () => {
 
     return { load }
   }
+
+  test.each([false, true])(
+    'copies the active client mode per player (matchmaking=%s)',
+    async matchmaking => {
+      const gameId = `development-${matchmaking}`
+      const { load } = await startNetworkedLoad(gameId, matchmaking, undefined, p1)
+      await vi.waitFor(() => expect(netcodeV2Service.createSessionForGame).toHaveBeenCalledTimes(1))
+      const slots = netcodeV2Service.createSessionForGame.mock.calls[0][0].slots
+      expect(slots.find(s => s.userId === p1)).toHaveProperty('developmentClient', true)
+      expect(slots.find(s => s.userId === p2)).not.toHaveProperty('developmentClient')
+      gameLoader.registerGameAsLoaded(gameId, p1)
+      gameLoader.registerGameAsLoaded(gameId, p2)
+      await load
+    },
+  )
 
   /** Whether any player was told their load was being cancelled. */
   function wasCancelPublished() {

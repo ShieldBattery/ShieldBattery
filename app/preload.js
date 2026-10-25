@@ -2,6 +2,7 @@ const { contextBridge, ipcRenderer, webUtils } = require('electron')
 
 // NOTE(tec27): If you update this, update the `preload.d.ts` file as well
 contextBridge.exposeInMainWorld('SHIELDBATTERY_ELECTRON_API', {
+  isDevelopment: process.argv.includes('--sb-development-client'),
   ipcRenderer: {
     // NOTE(tec27): We pass these specifically both to limit API surface, and also because certain
     // methods disappear if we don't (prototype issues? I dunno)

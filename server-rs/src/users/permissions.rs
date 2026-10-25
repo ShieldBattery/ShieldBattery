@@ -23,6 +23,8 @@ pub struct SbPermissions {
     pub id: SbUserId,
     pub edit_permissions: bool,
     pub debug: bool,
+    #[serde(default)]
+    pub use_development_client: bool,
     pub ban_users: bool,
     pub manage_leagues: bool,
     pub manage_maps: bool,
@@ -45,6 +47,7 @@ pub struct SbPermissions {
 pub enum RequiredPermission {
     EditPermissions,
     Debug,
+    UseDevelopmentClient,
     BanUsers,
     ManageLeagues,
     ManageMaps,
@@ -67,6 +70,7 @@ impl RequiredPermission {
         match self {
             Self::EditPermissions => permissions.edit_permissions,
             Self::Debug => permissions.debug,
+            Self::UseDevelopmentClient => permissions.use_development_client,
             Self::BanUsers => permissions.ban_users,
             Self::ManageLeagues => permissions.manage_leagues,
             Self::ManageMaps => permissions.manage_maps,
@@ -120,7 +124,8 @@ impl Loader<SbUserId> for PermissionsLoader {
                         manage_matchmaking_seasons, manage_matchmaking_times,
                         mass_delete_maps, moderate_chat_channels,
                         manage_news, manage_bug_reports, manage_game_reports,
-                        manage_restricted_names, manage_signup_codes, manage_live_streams
+                        manage_restricted_names, manage_signup_codes, manage_live_streams,
+                        use_development_client
                     FROM permissions
                     WHERE user_id = ANY($1)
             "#,
@@ -134,6 +139,7 @@ impl Loader<SbUserId> for PermissionsLoader {
                     id: r.user_id,
                     edit_permissions: r.edit_permissions,
                     debug: r.debug,
+                    use_development_client: r.use_development_client,
                     ban_users: r.ban_users,
                     manage_leagues: r.manage_leagues,
                     manage_maps: r.manage_maps,

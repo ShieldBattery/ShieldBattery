@@ -54,9 +54,12 @@ export async function insertGameSessionPeriodicEvidence(
         SELECT id, netcode_v2_session, netcode_v2_requested_regions
         FROM games WHERE id = ${session.gameId}
       ), roster AS (
-        SELECT r.slot, MIN(r."userId") AS user_id
+        SELECT r.slot, MIN(r."userId") AS user_id,
+          BOOL_OR(COALESCE(r."developmentClient", FALSE)) AS development_client
         FROM game,
-          jsonb_to_recordset(game.netcode_v2_requested_regions) AS r(slot INTEGER, "userId" INTEGER)
+          jsonb_to_recordset(game.netcode_v2_requested_regions) AS r(
+            slot INTEGER, "userId" INTEGER, "developmentClient" BOOLEAN
+          )
         WHERE game.netcode_v2_session = ${session.session}
         GROUP BY r.slot HAVING COUNT(*) = 1
       ), observations AS (
@@ -70,15 +73,15 @@ export async function insertGameSessionPeriodicEvidence(
           "failureCount" BIGINT, "observedAtMs" BIGINT
         )
       ), bound AS (
-        SELECT o.*, r.user_id FROM observations o JOIN roster r ON r.slot = o.slot
+        SELECT o.*, r.user_id, r.development_client FROM observations o JOIN roster r ON r.slot = o.slot
       ), inserted AS (
         INSERT INTO game_session_periodic_evidence (
           tenant, session, slot, connection_id, sample_id, game_id, user_id, sequence, assignment_revision,
-          verdict, key_id, body, interruption, historical, failure_count, observed_at
+          verdict, key_id, body, interruption, historical, failure_count, observed_at, development_client
         )
         SELECT ${session.tenant}, ${session.session}, slot, decode(connection_id, 'base64'), sample_id,
           ${session.gameId}::uuid, user_id, sequence, assignment_revision, verdict, key_id,
-          decode(body, 'base64'), interruption, historical, failure_count, observed_at
+          decode(body, 'base64'), interruption, historical, failure_count, observed_at, development_client
         FROM bound
         ON CONFLICT (tenant, session, slot, connection_id, sample_id) DO UPDATE SET
           interruption = COALESCE(game_session_periodic_evidence.interruption, EXCLUDED.interruption),
@@ -87,6 +90,7 @@ export async function insertGameSessionPeriodicEvidence(
           observed_at = COALESCE(game_session_periodic_evidence.observed_at, EXCLUDED.observed_at)
         WHERE game_session_periodic_evidence.game_id = EXCLUDED.game_id
           AND game_session_periodic_evidence.user_id = EXCLUDED.user_id
+          AND game_session_periodic_evidence.development_client = EXCLUDED.development_client
           AND game_session_periodic_evidence.sequence = EXCLUDED.sequence
           AND game_session_periodic_evidence.assignment_revision = EXCLUDED.assignment_revision
           AND game_session_periodic_evidence.verdict = EXCLUDED.verdict

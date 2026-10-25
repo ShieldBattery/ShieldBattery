@@ -1347,6 +1347,7 @@ async function createWindow() {
     title: 'ShieldBattery',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
+      additionalArguments: app.isPackaged ? [] : ['--sb-development-client'],
       session: curSession,
       nodeIntegration: false,
       contextIsolation: true,

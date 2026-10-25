@@ -10,6 +10,7 @@ import { isElectronClient } from './lib/network/electron-clients'
 import { getSingleQueryParam } from './lib/network/query-param'
 import { CORS_MAX_AGE_SECONDS } from './lib/security/cors'
 import { StateWithJwt } from './lib/session/jwt-session-middleware'
+import { authorizeDevelopmentClients } from './lib/users/development-clients'
 import getAddress from './lib/websockets/get-address'
 import { RequestSessionLookup, SessionInfo } from './lib/websockets/session-lookup'
 import { ClientSocketsManager, UserSocketsManager } from './lib/websockets/socket-groups'
@@ -125,13 +126,29 @@ export class WebsocketServer {
       }
 
       const clientId = getSingleQueryParam(ctx.query.clientId) ?? nanoid()
+      const clientType = isElectronClient(ctx) ? 'electron' : 'web'
+      const developmentClient = getSingleQueryParam(ctx.query.developmentClient) === 'true'
+      if (developmentClient) {
+        if (clientType !== 'electron') throw new Error('Development mode requires an app client')
+        await authorizeDevelopmentClients([ctx.session.user.id])
+      }
+      // A client ID identifies one app instance. Concurrent sockets cannot change its mode.
+      const existingClient = this.clientSockets.getById(ctx.session.user.id, clientId)
+      if (
+        existingClient &&
+        (existingClient.clientType !== clientType ||
+          existingClient.developmentClient !== developmentClient)
+      ) {
+        throw new Error('Client connection mode changed')
+      }
       const handshakeData: SessionInfo = {
         sessionId: ctx.state.jwtData.sessionId,
         userId: ctx.session.user.id,
         clientId,
         userName: ctx.session.user.name,
         address: getAddress(req)!,
-        clientType: isElectronClient(ctx) ? 'electron' : 'web',
+        clientType,
+        developmentClient,
       }
       this.sessionLookup.set(req, handshakeData)
       this.websocketConnectionsTotalMetric.labels('accepted').inc()

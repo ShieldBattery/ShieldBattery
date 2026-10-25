@@ -23,6 +23,7 @@ import {
 } from '../games/game-models'
 import log from '../logging/logger'
 import { monotonicNow } from '../time/monotonic-now'
+import { authorizeDevelopmentClients } from '../users/development-clients'
 import { parseSlotEvidenceList } from './evidence-schema'
 import { EvidenceSessionMappingService } from './evidence-session-mapping-service'
 import { worstPairwiseLatencyMs } from './latency-estimate'
@@ -609,6 +610,8 @@ export class NetcodeV2Service {
       slot: number
       userId: SbUserId
       observer: boolean
+      /** Taken from the authorized active client, never from a game request body. */
+      developmentClient?: boolean
       /**
        * The player's chosen home region, forwarded to the coordinator to place this slot's relay.
        * Omitted from the request when absent; the coordinator then places the slot region-blind.
@@ -652,6 +655,8 @@ export class NetcodeV2Service {
     }
 
     const evidenceKeys = this.releaseCatalog.getKeys()
+    // A socket can remain connected after its account's permissions have been revoked.
+    await authorizeDevelopmentClients(slots.filter(s => s.developmentClient).map(s => s.userId))
 
     // A fallback for the relay's own initial buffer computation, covering conditions the
     // pre-start window can't observe itself (e.g. a multi-relay session, where pre-start traffic
@@ -729,13 +734,14 @@ export class NetcodeV2Service {
     }
 
     const requestedRegions = slots.map(
-      ({ slot, userId, observer, region, rttMs, regionManual }) => ({
+      ({ slot, userId, observer, region, rttMs, regionManual, developmentClient }) => ({
         slot,
         userId,
         observer,
         region,
         rttMs,
         manual: regionManual,
+        ...(developmentClient ? { developmentClient: true } : {}),
       }),
     )
     // Record requests even when creation fails. A successful evidence-enabled create writes this

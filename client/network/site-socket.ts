@@ -8,7 +8,10 @@ import { makeServerUrl } from './server-url'
 const location = !IS_ELECTRON ? window.location : new window.URL(makeServerUrl(''))
 const protocol = location.protocol === 'https:' ? 'wss' : 'ws'
 const options = {
-  query: { clientId },
+  query: {
+    clientId,
+    ...(window.SHIELDBATTERY_ELECTRON_API?.isDevelopment ? { developmentClient: 'true' } : {}),
+  },
   withCredentials: true,
   extraHeaders: {
     get Authorization(): string {

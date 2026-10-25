@@ -158,6 +158,7 @@ export type SbPermissionsInput = {
   manageSignupCodes: boolean
   massDeleteMaps: boolean
   moderateChatChannels: boolean
+  useDevelopmentClient: boolean
 }
 
 export type UrgentMessageInput = {
@@ -1080,6 +1081,7 @@ export type AdminUserProfile_PermissionsFragment = {
     id: Types.SbUserId
     editPermissions: boolean
     debug: boolean
+    useDevelopmentClient: boolean
     banUsers: boolean
     manageLeagues: boolean
     manageMaps: boolean
@@ -2061,6 +2063,7 @@ export const AdminUserProfile_PermissionsFragmentDoc = {
                 { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'editPermissions' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'debug' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'useDevelopmentClient' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'banUsers' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageLeagues' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageMaps' } },
@@ -5846,6 +5849,7 @@ export const AdminUserProfileDocument = {
                 { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'editPermissions' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'debug' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'useDevelopmentClient' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'banUsers' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageLeagues' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageMaps' } },
@@ -5942,6 +5946,7 @@ export const AdminUpdateUserPermissionsDocument = {
                 { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'editPermissions' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'debug' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'useDevelopmentClient' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'banUsers' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageLeagues' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageMaps' } },

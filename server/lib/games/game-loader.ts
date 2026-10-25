@@ -1264,6 +1264,9 @@ export class GameLoader {
           slot,
           userId: p.userId,
           observer: p.isObserver,
+          ...(activeClients.find(c => c.userId === p.userId)?.developmentClient
+            ? { developmentClient: true }
+            : {}),
           // The region the player selected when they queued/joined, if any. Forwarded to the
           // coordinator to home this slot's relay; a slot with none falls back region-blind.
           region: p.region,

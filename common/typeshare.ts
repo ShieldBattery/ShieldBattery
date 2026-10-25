@@ -63,6 +63,7 @@ export interface MatchFoundMessage {
 export interface SbPermissions {
   editPermissions: boolean
   debug: boolean
+  useDevelopmentClient?: boolean
   banUsers: boolean
   manageLeagues: boolean
   manageMaps: boolean

@@ -1029,6 +1029,7 @@ type SbPermissions {
 	id: SbUserId!
 	editPermissions: Boolean!
 	debug: Boolean!
+	useDevelopmentClient: Boolean!
 	banUsers: Boolean!
 	manageLeagues: Boolean!
 	manageMaps: Boolean!
@@ -1054,6 +1055,7 @@ input SbPermissionsInput {
 	id: SbUserId!
 	editPermissions: Boolean!
 	debug: Boolean!
+	useDevelopmentClient: Boolean!
 	banUsers: Boolean!
 	manageLeagues: Boolean!
 	manageMaps: Boolean!

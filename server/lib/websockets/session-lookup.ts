@@ -10,6 +10,8 @@ export interface SessionInfo {
   userName: string
   address: string
   clientType: 'web' | 'electron'
+  /** Server-authorized development mode for this client connection only. */
+  developmentClient?: boolean
 }
 
 @singleton()

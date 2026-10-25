@@ -35,9 +35,12 @@ export async function insertGameSessionEvidence(
         SELECT id, netcode_v2_session, netcode_v2_requested_regions
         FROM games WHERE id = ${session.gameId}
       ), roster AS (
-        SELECT r.slot, MIN(r."userId") AS user_id
+        SELECT r.slot, MIN(r."userId") AS user_id,
+          BOOL_OR(COALESCE(r."developmentClient", FALSE)) AS development_client
         FROM game,
-          jsonb_to_recordset(game.netcode_v2_requested_regions) AS r(slot INTEGER, "userId" INTEGER)
+          jsonb_to_recordset(game.netcode_v2_requested_regions) AS r(
+            slot INTEGER, "userId" INTEGER, "developmentClient" BOOLEAN
+          )
         WHERE game.netcode_v2_session = ${session.session}
         GROUP BY r.slot HAVING COUNT(*) = 1
       ), observations AS (
@@ -48,15 +51,15 @@ export async function insertGameSessionEvidence(
           verdict TEXT, "keyId" BIGINT, body TEXT
         )
       ), bound AS (
-        SELECT o.*, r.user_id FROM observations o JOIN roster r ON r.slot = o.slot
+        SELECT o.*, r.user_id, r.development_client FROM observations o JOIN roster r ON r.slot = o.slot
       ), inserted AS (
         INSERT INTO game_session_evidence (
           tenant, session, slot, connection_id, game_id, user_id, sequence, assignment_revision,
-          verdict, key_id, body
+          verdict, key_id, body, development_client
         )
         SELECT ${session.tenant}, ${session.session}, slot, decode(connection_id, 'base64'),
           ${session.gameId}::uuid, user_id, sequence, assignment_revision, verdict, key_id,
-          decode(body, 'base64')
+          decode(body, 'base64'), development_client
         FROM bound
         ON CONFLICT (tenant, session, slot, connection_id) DO NOTHING
       )

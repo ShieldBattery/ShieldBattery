@@ -69,6 +69,7 @@ function perms(overrides: Partial<SbPermissions>): SbPermissions {
   return {
     editPermissions: false,
     debug: false,
+    useDevelopmentClient: false,
     banUsers: false,
     manageLeagues: false,
     manageMaps: false,
