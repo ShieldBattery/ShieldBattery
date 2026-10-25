@@ -34,6 +34,7 @@ import checkOrigin from './lib/security/check-origin'
 import { cors } from './lib/security/cors'
 import secureHeaders from './lib/security/headers'
 import { jwtSessions, StateWithJwt } from './lib/session/jwt-session-middleware'
+import { IdentifierReconciliationService } from './lib/users/identifier-reconciliation-service'
 import createRoutes from './routes'
 import { createWebhookRoutes } from './webhook-routes'
 import { WebsocketServer } from './websockets'
@@ -225,6 +226,7 @@ container.resolve(GameServerRegionsService)
 container.register(LOBBY_VIOLATION_STAGER, { useToken: LobbyViolationService })
 container.resolve(LobbyViolationService)
 container.resolve(ReplayViolationService)
+container.resolve(IdentifierReconciliationService)
 
 // Wrapping this in IIFE so we can use top-level `await` (until we move to ESM and can use it
 // natively)

@@ -1720,6 +1720,11 @@ const NotSubmittedIcon = styledWithAttrs(MaterialIcon, { icon: 'close' })`
   color: var(--theme-negative);
 `
 
+const DebugReplayActions = styled.div`
+  display: flex;
+  gap: 4px;
+`
+
 function DebugInfoDisplay({
   gameId,
   debugInfo,
@@ -1728,9 +1733,35 @@ function DebugInfoDisplay({
   debugInfo: ReadonlyDeep<GameDebugInfoJson>
 }) {
   const { t } = useTranslation()
+  const dispatch = useAppDispatch()
   const longTimestampFormat = useFormat(longTimestamp)
   const longTimestampWithSecondsFormat = useFormat(longTimestampWithSeconds)
   const [open, setOpen] = useState(false)
+  const [isDownloadingReplay, setIsDownloadingReplay] = useState(false)
+
+  const onWatchReplay = (replay: ReadonlyDeep<GameReplayDebugInfo>) => {
+    if (!IS_ELECTRON || isDownloadingReplay) return
+
+    setIsDownloadingReplay(true)
+    dispatch(
+      watchReplayFromUrl({ gameId, id: replay.id, url: replay.url, hash: replay.hash }, gameId, {
+        onSuccess: () => setIsDownloadingReplay(false),
+        onError: err => {
+          setIsDownloadingReplay(false)
+          logger.error(`Error watching replay: ${getErrorStack(err)}`)
+          dispatch(
+            openSimpleDialog(
+              t('replays.watch.errorTitle', 'Error loading replay'),
+              t(
+                'replays.watch.errorBody',
+                'There was a problem downloading or loading the replay. Please try again later.',
+              ),
+            ),
+          )
+        },
+      }),
+    )
+  }
 
   const transition = open ? DEBUG_OPEN_TRANSITION : DEBUG_CLOSE_TRANSITION
 
@@ -1827,20 +1858,37 @@ function DebugInfoDisplay({
                         </td>
                         <td>
                           {replay ? (
-                            <Tooltip
-                              text={t('gameDetails.debugInfo.downloadReplay', 'Download replay')}
-                              position='top'>
-                              <IconButton
-                                icon={<MaterialIcon icon='download' />}
-                                title={t('gameDetails.debugInfo.downloadReplay', 'Download replay')}
-                                onClick={() => {
-                                  const a = document.createElement('a')
-                                  a.href = replay.url
-                                  a.target = '_blank'
-                                  a.click()
-                                }}
-                              />
-                            </Tooltip>
+                            <DebugReplayActions>
+                              {IS_ELECTRON ? (
+                                <Tooltip
+                                  text={t('gameDetails.buttonWatchReplay', 'Watch replay')}
+                                  position='top'>
+                                  <IconButton
+                                    icon={<MaterialIcon icon='play_arrow' />}
+                                    title={t('gameDetails.buttonWatchReplay', 'Watch replay')}
+                                    disabled={isDownloadingReplay}
+                                    onClick={() => onWatchReplay(replay)}
+                                  />
+                                </Tooltip>
+                              ) : null}
+                              <Tooltip
+                                text={t('gameDetails.debugInfo.downloadReplay', 'Download replay')}
+                                position='top'>
+                                <IconButton
+                                  icon={<MaterialIcon icon='download' />}
+                                  title={t(
+                                    'gameDetails.debugInfo.downloadReplay',
+                                    'Download replay',
+                                  )}
+                                  onClick={() => {
+                                    const a = document.createElement('a')
+                                    a.href = replay.url
+                                    a.target = '_blank'
+                                    a.click()
+                                  }}
+                                />
+                              </Tooltip>
+                            </DebugReplayActions>
                           ) : (
                             '—'
                           )}

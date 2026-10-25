@@ -2,11 +2,13 @@ import { SbUserId } from '../../../common/users/sb-user-id'
 import { DbClient, withDbClient } from '../db'
 import { sql } from '../db/sql'
 
-export type ReplayViolationDetails = {
-  kind: 'seedMismatch'
-  expectedSeed: number
-  actualSeed: number
-}
+export type ReplayViolationDetails =
+  | {
+      kind: 'seedMismatch'
+      expectedSeed: number
+      actualSeed: number
+    }
+  | { kind: 'clientMismatch' }
 
 export interface ReplayViolation {
   gameId: string
@@ -16,7 +18,7 @@ export interface ReplayViolation {
 
 // Only these kinds authorize result protection and refund processing. Unrecognized kinds can be
 // retained during rolling deployments without an older server deciding their consequences.
-const RESULT_PROTECTION_KINDS: ReplayViolationDetails['kind'][] = ['seedMismatch']
+const RESULT_PROTECTION_KINDS: ReplayViolationDetails['kind'][] = ['seedMismatch', 'clientMismatch']
 
 /** The caller must hold the game's row lock, shared with result reconciliation and refunds. */
 export async function recordReplayViolation(

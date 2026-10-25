@@ -7,10 +7,6 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 cd ..
 
 NODE_ENV=production
-echo "Running DB migrations"
-./tools/sqlx migrate run || exit 1
-echo "DB migrations complete"
-echo ""
 
 ACCESS_KEY=$(echo $SB_FILE_STORE | jq '.doSpaces.accessKeyId' | cut -d '"' -f 2)
 SECRET_KEY=$(echo $SB_FILE_STORE | jq '.doSpaces.secretAccessKey' | cut -d '"' -f 2)
@@ -90,5 +86,11 @@ if [[ ! -z "$ACCESS_KEY" ]] && [[ ! -z "$SECRET_KEY" ]] && [[ ! -z "$HOST_BASE" 
 else
   echo "Skipping public assets sync because DO Spaces credentials are not set"
 fi
+
+# Finish asset uploads before schema changes that require the replacement server image.
+echo "Running DB migrations"
+./tools/sqlx migrate run || exit 1
+echo "DB migrations complete"
+echo ""
 
 echo "Updating completed successfully"

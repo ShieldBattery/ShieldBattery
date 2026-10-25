@@ -118,8 +118,9 @@ export async function createGameUserRecord(
 export async function getUserGameRecord(
   userId: SbUserId,
   gameId: string,
+  inputClient?: DbClient,
 ): Promise<GameUserRecord | null> {
-  const { client, done } = await db()
+  const { client, done } = await db(inputClient)
 
   try {
     const result = await client.query<DbGameUser>(

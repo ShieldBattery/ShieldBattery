@@ -147,6 +147,20 @@ export async function isUserBanned(userId: SbUserId, withClient?: DbClient): Pro
   }
 }
 
+/** Returns an active ban to reuse when a durable request targets an already banned account. */
+export async function getActiveUserBan(
+  userId: SbUserId,
+  client: DbClient,
+): Promise<UserBanRow | undefined> {
+  const now = new Date()
+  const result = await client.query<DbUserBanRow>(sql`
+    SELECT * FROM user_bans WHERE user_id = ${userId}
+      AND start_time <= ${now} AND end_time > ${now} AND unbanned_at IS NULL
+    ORDER BY end_time DESC LIMIT 1
+  `)
+  return result.rows.length ? toUserBanRow(result.rows[0]) : undefined
+}
+
 /** Holds active original bans against concurrent unbanning until session cleanup finishes. */
 export async function lockActiveBanUsers(
   banIds: ReadonlyArray<string>,

@@ -1,0 +1,1 @@
+ALTER TABLE user_identifiers VALIDATE CONSTRAINT user_identifiers_source_check;

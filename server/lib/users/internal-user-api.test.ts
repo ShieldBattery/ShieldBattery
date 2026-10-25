@@ -10,6 +10,8 @@ import {
 } from '../http/testing/internal-api-server'
 import { BanEnacter } from './ban-enacter'
 import { BanRequestConflict } from './ban-request-models'
+import { IdentifierObservationConflict } from './identifier-observation-models'
+import { IdentifierReconciliationService } from './identifier-reconciliation-service'
 import { InternalUserApi } from './internal-user-api'
 
 const REQUEST = {
@@ -29,14 +31,19 @@ describe('internal user bans', () => {
   let directory: string
   let tokenFile: string
   const enactBanRequest = vi.fn()
+  const observe = vi.fn()
   beforeEach(async () => {
     enactBanRequest.mockReset().mockResolvedValue('ban-id')
+    observe.mockReset().mockResolvedValue(undefined)
     directory = mkdtempSync(path.join(os.tmpdir(), 'sb-moderation-auth-'))
     tokenFile = path.join(directory, 'token')
     writeFileSync(tokenFile, `${TOKEN}\n`)
     vi.stubEnv('SB_MODERATION_SERVICE_TOKEN_FILE', tokenFile)
     server = await startInternalApiTestServer([
-      new InternalUserApi({ enactBanRequest } as unknown as BanEnacter),
+      new InternalUserApi(
+        { enactBanRequest } as unknown as BanEnacter,
+        { observe } as unknown as IdentifierReconciliationService,
+      ),
     ])
   })
   afterEach(async () => {
@@ -59,7 +66,20 @@ describe('internal user bans', () => {
       targetId: makeSbUserId(7),
       endTime: new Date(REQUEST.endTime),
       reason: REQUEST.reason,
+      gameId: null,
     })
+  })
+
+  test('accepts and normalizes a game association', async () => {
+    const gameId = '11111111-AAAA-4333-8444-555555555555'
+    const response = await got.post(`${server.baseUrl}/internal/users/7/ban`, {
+      ...OPTIONS,
+      json: { ...REQUEST, gameId },
+    })
+    expect(response.statusCode).toBe(200)
+    expect(enactBanRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ gameId: gameId.toLowerCase() }),
+    )
   })
 
   test('accepts version 8 request IDs', async () => {
@@ -110,7 +130,10 @@ describe('internal user bans', () => {
         vi.stubEnv('SB_MODERATION_SERVICE_TOKEN_FILE', path.join(directory, 'absent'))
       else writeFileSync(tokenFile, 'weak')
       server = await startInternalApiTestServer([
-        new InternalUserApi({ enactBanRequest } as unknown as BanEnacter),
+        new InternalUserApi(
+          { enactBanRequest } as unknown as BanEnacter,
+          { observe } as unknown as IdentifierReconciliationService,
+        ),
       ])
       const response = await got.post(`${server.baseUrl}/internal/users/7/ban`, {
         ...OPTIONS,
@@ -133,6 +156,7 @@ describe('internal user bans', () => {
   test.each([
     ['request ID', { ...REQUEST, requestId: 'invalid' }],
     ['date', { ...REQUEST, endTime: 'yesterday' }],
+    ['game ID', { ...REQUEST, gameId: 'invalid' }],
     ['empty reason', { ...REQUEST, reason: '' }],
     ['long reason', { ...REQUEST, reason: 'a'.repeat(1001) }],
     ['unknown field', { ...REQUEST, extra: true }],
@@ -186,5 +210,68 @@ describe('internal user bans', () => {
       json: REQUEST,
     })
     expect(response.statusCode).toBe(500)
+  })
+
+  const observation = {
+    requestId: REQUEST.requestId,
+    gameId: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
+    observedAt: '2026-10-24T12:00:00.000Z',
+    identifiers: [[2, 'ab'.repeat(32)]],
+  }
+
+  test('accepts game identifiers only through the authenticated service', async () => {
+    const response = await got.post(`${server.baseUrl}/internal/users/7/identifiers`, {
+      ...OPTIONS,
+      json: observation,
+    })
+    expect(response.statusCode).toBe(200)
+    expect(JSON.parse(response.body)).toEqual({ requestId: REQUEST.requestId })
+    expect(observe).toHaveBeenCalledWith({
+      ...observation,
+      userId: makeSbUserId(7),
+      observedAt: new Date(observation.observedAt),
+    })
+  })
+
+  test('identifier auth precedes malformed JSON parsing', async () => {
+    const response = await got.post(`${server.baseUrl}/internal/users/7/identifiers`, {
+      ...OPTIONS,
+      headers: { 'content-type': 'application/json' },
+      body: 'invalid json',
+    })
+    expect(response.statusCode).toBe(401)
+    expect(observe).not.toHaveBeenCalled()
+  })
+
+  test.each([
+    { ...observation, source: 'app' },
+    { ...observation, identifiers: [] },
+    { ...observation, identifiers: [[7, 'ab'.repeat(32)]] },
+    { ...observation, identifiers: [[2, 'AB'.repeat(32)]] },
+    { ...observation, identifiers: [[2, 'a']] },
+    {
+      ...observation,
+      identifiers: [
+        [2, 'ab'.repeat(32)],
+        [2, 'cd'.repeat(32)],
+      ],
+    },
+    { ...observation, observedAt: 'invalid' },
+  ])('rejects invalid identifier observations %#', async json => {
+    const response = await got.post(`${server.baseUrl}/internal/users/7/identifiers`, {
+      ...OPTIONS,
+      json,
+    })
+    expect(response.statusCode).toBe(400)
+    expect(observe).not.toHaveBeenCalled()
+  })
+
+  test('rejects conflicting observation identities', async () => {
+    observe.mockRejectedValue(new IdentifierObservationConflict('Request conflict'))
+    const response = await got.post(`${server.baseUrl}/internal/users/7/identifiers`, {
+      ...OPTIONS,
+      json: observation,
+    })
+    expect(response.statusCode).toBe(409)
   })
 })

@@ -70,18 +70,19 @@ services:
         target: /home/node/shieldbattery/server/bw_sprite_data
         read_only: true
 
-    # NOTE: `depends_on` only waits for the services listed below to start; it doesn't wait for them
-    # to actually be "ready" (whatever "ready" means for a particular service). If you need to
-    # control the startup of services more granularly, use the `./server/deployment_files/wait.sh` script available in
-    # this image. The reason why we're not waiting for `db` service to actually be ready here is
-    # because we're waiting for the `update_server` service to start, and `update_server` service
-    # won't start until the `db` service is ready.
+    # The migration service waits for the database and Redis, then exits after updating the schema
+    # and assets. Serving requests requires that update to have completed successfully.
     depends_on:
-      - db
-      - nginx_proxy
-      - proxy_gen
-      - redis
-      - update_server
+      db:
+        condition: service_started
+      nginx_proxy:
+        condition: service_started
+      proxy_gen:
+        condition: service_started
+      redis:
+        condition: service_started
+      update_server:
+        condition: service_completed_successfully
 
   server_rs:
     image: shieldbattery/server-rs:${SB_VERSION:-latest}
@@ -124,11 +125,16 @@ services:
       - frontend
       - backend
     depends_on:
-      - db
-      - nginx_proxy
-      - proxy_gen
-      - redis
-      - update_server
+      db:
+        condition: service_started
+      nginx_proxy:
+        condition: service_started
+      proxy_gen:
+        condition: service_started
+      redis:
+        condition: service_started
+      update_server:
+        condition: service_completed_successfully
 
   nginx_proxy:
     image: nginx:mainline

@@ -113,6 +113,8 @@ export class GamePointsRefundService {
 
       let applied: AppliedRefund | undefined
       try {
+        // Refunds are final per game. A later violation cannot claw back points already restored
+        // to that player or trigger another refund for the remaining players.
         applied = await this.applyRefund(client, { game, punishedUserIds })
       } catch (err) {
         if (

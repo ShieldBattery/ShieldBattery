@@ -81,24 +81,24 @@ export async function checkActiveMatchmakingBan(
   const { client, done } = await db(withClient)
   try {
     // A ban is applicable if:
-    // - There are at least `minSameIdentifiers` bans with identical level + expires_at that match
-    //   associated identifiers, or
+    // - At least `minSameIdentifiers` distinct identifier types match bans with identical level
+    //   and expires_at, or
     // - There is at least one ban with `triggered_by` = `userId`
     // If we find applicable bans, we return the one with the latest `expires_at` since that is the
     // most relevant one to display to the user.
     const result = await client.query<DbMatchmakingBanRow>(sql`
         WITH matching_id_bans AS (
-          SELECT COUNT(mb.ban_level) OVER w AS num_matches, first_value(mb.id) OVER w AS id,
-            mb.ban_level, mb.expires_at
+          SELECT COUNT(DISTINCT mb.identifier_type) AS num_matches,
+            (ARRAY_AGG(mb.id ORDER BY mb.id))[1] AS id
           FROM matchmaking_bans mb
-          JOIN user_identifiers ui ON
-            (ui.identifier_type, ui.identifier_hash) =
-              (mb.identifier_type, mb.identifier_hash)
-          WHERE ui.user_id = ${userId} AND
-            ui.identifier_type != 0 AND
+          WHERE EXISTS (
+            SELECT 1 FROM user_identifiers ui
+            WHERE ui.user_id = ${userId} AND
+              (ui.identifier_type, ui.identifier_hash) = (mb.identifier_type, mb.identifier_hash)
+          ) AND mb.identifier_type != 0 AND
             mb.cleared = false AND
             mb.expires_at > ${now}
-          WINDOW w AS (PARTITION BY mb.ban_level, mb.expires_at)
+          GROUP BY mb.ban_level, mb.expires_at
         ),
         all_matching_bans AS (
           SELECT mb.id, mb.identifier_type, mb.identifier_hash, mb.triggered_by,
@@ -130,9 +130,10 @@ export async function checkActiveMatchmakingBans(
   userIds: ReadonlyArray<SbUserId>,
   now: Date,
   minSameIdentifiers: number,
+  withClient?: DbClient,
 ): Promise<Set<SbUserId>> {
   if (!userIds.length) return new Set()
-  const { client, done } = await db()
+  const { client, done } = await db(withClient)
   try {
     const result = await client.query<{ user_id: SbUserId }>(sql`
       SELECT mb.triggered_by AS user_id
@@ -146,7 +147,7 @@ export async function checkActiveMatchmakingBans(
       WHERE ui.user_id = ANY(${userIds}) AND ui.identifier_type != 0
         AND mb.cleared = FALSE AND mb.expires_at > ${now}
       GROUP BY ui.user_id, mb.ban_level, mb.expires_at
-      HAVING COUNT(*) >= ${minSameIdentifiers}
+      HAVING COUNT(DISTINCT ui.identifier_type) >= ${minSameIdentifiers}
     `)
     return new Set(result.rows.map(row => row.user_id))
   } finally {
@@ -174,24 +175,24 @@ export async function checkUnclearedMatchmakingBan(
   const { client, done } = await db(withClient)
   try {
     // A ban is applicable if:
-    // - There are at least `minSameIdentifiers` bans with identical level + expires_at that match
-    //   associated identifiers, or
+    // - At least `minSameIdentifiers` distinct identifier types match bans with identical level
+    //   and expires_at, or
     // - There is at least one ban with `triggered_by` = `userId`
     // If we find applicable bans, we return the one with the highest `ban_level` since that is the
     // most relevant one for using uncleared bans.
     const result = await client.query<DbMatchmakingBanRow>(sql`
         WITH matching_id_bans AS (
-          SELECT COUNT(mb.ban_level) OVER w AS num_matches, first_value(mb.id) OVER w AS id,
-            mb.ban_level, mb.expires_at
+          SELECT COUNT(DISTINCT mb.identifier_type) AS num_matches,
+            (ARRAY_AGG(mb.id ORDER BY mb.id))[1] AS id
           FROM matchmaking_bans mb
-          JOIN user_identifiers ui ON
-            (ui.identifier_type, ui.identifier_hash) =
-              (mb.identifier_type, mb.identifier_hash)
-          WHERE ui.user_id = ${userId} AND
-            ui.identifier_type != 0 AND
+          WHERE EXISTS (
+            SELECT 1 FROM user_identifiers ui
+            WHERE ui.user_id = ${userId} AND
+              (ui.identifier_type, ui.identifier_hash) = (mb.identifier_type, mb.identifier_hash)
+          ) AND mb.identifier_type != 0 AND
             mb.cleared = false AND
             mb.clears_at > ${now}
-          WINDOW w AS (PARTITION BY mb.ban_level, mb.expires_at)
+          GROUP BY mb.ban_level, mb.expires_at
         ),
         all_matching_bans AS (
           SELECT mb.id, mb.identifier_type, mb.identifier_hash, mb.triggered_by,

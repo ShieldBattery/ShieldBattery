@@ -8,6 +8,7 @@ interface UserIdentifier {
   userId: SbUserId
   identifierType: number
   identifierHash: Buffer
+  source: 'app' | 'game'
   firstUsed: Date
   lastUsed: Date
   timesSeen: number
@@ -17,8 +18,7 @@ interface UserIdentifier {
 type DbUserIdentifier = Dbify<UserIdentifier>
 
 /**
- * Upserts identifiers for a user, returning the identifiers that were newly registered for that
- * user.
+ * Upserts app identifiers for a user, returning identifiers the app has not previously reported.
  */
 export async function upsertUserIdentifiers(
   userId: SbUserId,
@@ -37,18 +37,18 @@ export async function upsertUserIdentifiers(
       times_seen: number
     }>(sql`
       INSERT INTO user_identifiers AS ui
-      (user_id, identifier_type, identifier_hash, first_used, last_used, times_seen)
+      (user_id, identifier_type, identifier_hash, source, first_used, last_used, times_seen)
       VALUES
       ${sqlConcat(
         ', ',
         identifiers.map(ident => {
-          return sql`(${userId}, ${ident[0]}, ${ident[1]}, NOW(), NOW(), 1)`
+          return sql`(${userId}, ${ident[0]}, ${ident[1]}, 'app', NOW(), NOW(), 1)`
         }),
       )}
-      ON CONFLICT (user_id, identifier_type, identifier_hash)
+      ON CONFLICT ON CONSTRAINT user_identifiers_pkey
       DO UPDATE
       SET last_used = NOW(),
-        times_seen = ui.times_seen + 1
+        times_seen = LEAST(ui.times_seen::bigint + 1, 2147483647)::integer
       RETURNING identifier_type, identifier_hash, times_seen
     `)
 
@@ -59,6 +59,50 @@ export async function upsertUserIdentifiers(
     }
   } finally {
     done()
+  }
+}
+
+/**
+ * Records one verified game observation. The caller must deduplicate observations in the same
+ * transaction, since each call increments the game source's sighting count.
+ */
+export async function upsertGameUserIdentifiers(
+  userId: SbUserId,
+  identifiers: ReadonlyArray<ClientIdentifierBuffer>,
+  observedAt: Date,
+  client: DbClient,
+): Promise<{ newIdentifiers: ClientIdentifierBuffer[] }> {
+  if (!identifiers.length) {
+    return { newIdentifiers: [] }
+  }
+
+  const result = await client.query<{
+    identifier_type: number
+    identifier_hash: Buffer
+    times_seen: number
+  }>(sql`
+    INSERT INTO user_identifiers AS ui
+      (user_id, identifier_type, identifier_hash, source, first_used, last_used, times_seen)
+    VALUES
+      ${sqlConcat(
+        ', ',
+        identifiers.map(
+          ([kind, hash]) => sql`(${userId}, ${kind}, ${hash}, 'game',
+            ${observedAt}::timestamptz AT TIME ZONE 'UTC',
+            ${observedAt}::timestamptz AT TIME ZONE 'UTC', 1)`,
+        ),
+      )}
+    ON CONFLICT (user_id, identifier_type, identifier_hash, source)
+    DO UPDATE SET first_used = LEAST(ui.first_used, EXCLUDED.first_used),
+      last_used = GREATEST(ui.last_used, EXCLUDED.last_used),
+      times_seen = LEAST(ui.times_seen::bigint + 1, 2147483647)::integer
+    RETURNING identifier_type, identifier_hash, times_seen
+  `)
+
+  return {
+    newIdentifiers: result.rows
+      .filter(row => row.times_seen === 1)
+      .map(row => [row.identifier_type, row.identifier_hash]),
   }
 }
 
@@ -192,7 +236,7 @@ export async function countBannedUserIdentifiers(
         FROM user_identifiers ui
         WHERE ui.user_id = ${userId}
       )
-      AND banned_until > NOW()
+      AND banned_until > ${new Date()}
       AND uib.identifier_type != 0
     `)
 

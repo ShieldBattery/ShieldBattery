@@ -8,6 +8,7 @@ export interface BanRequest {
   targetId: SbUserId
   endTime: Date
   reason: string
+  gameId?: string | null
 }
 
 export interface BanRequestReceipt extends BanRequest {
@@ -26,8 +27,11 @@ export async function lockBanRequest(
   await client.query("SET LOCAL lock_timeout = '3s'")
   await client.query("SET LOCAL statement_timeout = '10s'")
   await client.query(sql`
-    INSERT INTO user_ban_requests (request_id, target_id, end_time, reason)
-    VALUES (${request.requestId}, ${request.targetId}, ${request.endTime}, ${request.reason})
+    INSERT INTO user_ban_requests (request_id, target_id, end_time, reason, game_id)
+    VALUES (
+      ${request.requestId}, ${request.targetId}, ${request.endTime}, ${request.reason},
+      ${request.gameId ?? null}
+    )
     ON CONFLICT (request_id) DO NOTHING
   `)
   const result = await client.query<Dbify<BanRequestReceipt>>(sql`
@@ -37,12 +41,14 @@ export async function lockBanRequest(
   if (
     row.target_id !== request.targetId ||
     row.end_time.getTime() !== request.endTime.getTime() ||
-    row.reason !== request.reason
+    row.reason !== request.reason ||
+    row.game_id !== (request.gameId ?? null)
   ) {
     throw new BanRequestConflict('Request ID already used for another ban')
   }
   return {
     ...request,
+    gameId: row.game_id,
     banId: row.ban_id,
     banIds: row.ban_ids,
     completedAt: row.completed_at,

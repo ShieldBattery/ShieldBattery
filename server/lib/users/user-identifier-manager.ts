@@ -6,6 +6,7 @@ import { DbClient } from '../db'
 import { DiscordWebhookNotifier } from '../discord/webhook-notifier'
 import logger from '../logging/logger'
 import { BanEnacter } from './ban-enacter'
+import { banEvasionEndTime } from './ban-evasion'
 import {
   ClientIdentifierBuffer,
   ClientIdentifierString,
@@ -19,9 +20,6 @@ import {
   upsertUserIdentifiers,
 } from './user-identifiers'
 import { findUserById } from './user-model'
-
-const MIN_BAN_LENGTH_HOURS = 1
-const MAX_BAN_LENGTH_HOURS = 100 * 365 * 24 // 100 years
 
 export function convertStringIds(
   identifiers: ReadonlyDeep<ClientIdentifierString[]>,
@@ -97,18 +95,10 @@ export class UserIdentifierManager {
   async banUserIfNeeded(userId: SbUserId, withClient?: DbClient): Promise<boolean> {
     const [count, latestBanEnd] = await countBannedUserIdentifiers(userId, withClient)
 
-    const currentBanLengthHours = latestBanEnd
-      ? (latestBanEnd.getTime() - Date.now()) / (1000 * 60 * 60)
-      : 0
-    // Double their remaining ban length (clamping to our min/max times)
-    const newBanLengthHours = Math.max(
-      Math.min(currentBanLengthHours * 2, MAX_BAN_LENGTH_HOURS),
-      MIN_BAN_LENGTH_HOURS,
-    )
-
     if (count >= MIN_IDENTIFIER_MATCHES) {
-      const endTime = new Date()
-      endTime.setHours(endTime.getHours() + newBanLengthHours)
+      const now = Date.now()
+      const endTime = banEvasionEndTime(now, latestBanEnd)
+      const newBanLengthHours = (Number(endTime) - now) / (1000 * 60 * 60)
       await this.banEnacter.enactBan({
         targetId: userId,
         endTime,

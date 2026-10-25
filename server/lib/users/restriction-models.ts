@@ -188,6 +188,7 @@ export async function restrictUsers(
 // trying to be a log of when restrictions occurred (if you want that, you can use the user table).
 // We do try to combine admin notes, though. Since we know these are all starting in the past, we
 // move the start time to the latest one as well.
+// Mirroring can retry the same restriction, so complete note blocks are retained only once.
 const ON_IDENTIFIER_CONFLICT = sql`
   ON CONFLICT (identifier_type, identifier_hash, kind)
   DO UPDATE SET
@@ -196,6 +197,11 @@ const ON_IDENTIFIER_CONFLICT = sql`
     reason = EXCLUDED.reason,
     restricted_by = EXCLUDED.restricted_by,
     admin_notes = CASE
+      WHEN EXCLUDED.admin_notes IS NOT NULL AND uir.admin_notes IS NOT NULL
+        AND POSITION(
+          ('\n---\n' || EXCLUDED.admin_notes || '\n---\n')
+          IN ('\n---\n' || uir.admin_notes || '\n---\n')
+        ) > 0 THEN uir.admin_notes
       WHEN EXCLUDED.admin_notes IS NOT NULL AND uir.admin_notes IS NOT NULL THEN
         EXCLUDED.admin_notes || '\n---\n' || uir.admin_notes
       ELSE COALESCE(uir.admin_notes, EXCLUDED.admin_notes)
