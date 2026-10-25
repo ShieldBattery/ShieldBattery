@@ -556,6 +556,8 @@ impl Snapshot {
                 out.start_location_y = i32::from((**game).start_position[i][1] / 32) - 1;
                 out.minerals = game.minerals(local) as i32;
                 out.gas = game.gas(local) as i32;
+                out.gathered_minerals = crate::bw::gathered_minerals(game, local) as i32;
+                out.gathered_gas = crate::bw::gathered_gas(game, local) as i32;
                 for race in [Race::Zerg, Race::Terran, Race::Protoss] {
                     let r = race.id() as usize;
                     out.supply_total[r] =
