@@ -44,7 +44,9 @@ impl OverlayState {
             && let Some(info) = setup_info
             && !info.is_replay()
         {
-            // Preload the images we're going to display
+            // Preload the images we're going to display. egui decodes them on another thread, so
+            // starting here leaves them ready by the time the loading screen first shows.
+            let _ = background_image().load_for_size(&ctx, BACKGROUND_SIZE);
             match &info.map {
                 MapInfo::Game(info) => info.image1024_url.as_deref().inspect(|url| {
                     let _ = ctx.try_load_image(url, egui::SizeHint::Scale(1.0.into()));
@@ -54,11 +56,16 @@ impl OverlayState {
         }
 
         // The loading screen goes up once SC:R has loaded its images, or partway through if that
-        // takes long enough to be redrawn in the middle of.
+        // takes long enough to be redrawn in the middle of. Either way it waits for its background
+        // to finish decoding, rather than showing egui's loading spinner in its place.
         let loading_images = bw.image_load_progress.is_some();
         if (!bw.has_init_bw && !loading_images)
             || setup_info.is_none()
             || setup_info.unwrap().is_replay()
+            || matches!(
+                background_image().load_for_size(&ctx, BACKGROUND_SIZE),
+                Ok(egui::load::TexturePoll::Pending { .. })
+            )
         {
             // If we don't have the game information yet or if it's a replay, we don't show a
             // loading screen. Render a black screen to hide the FPS counter during this time.
@@ -123,7 +130,7 @@ impl OverlayState {
                 let scaled_size = BACKGROUND_SIZE * background_scale;
                 let top_left = ctx.content_rect().center() - scaled_size * 0.5;
                 let background_rect = egui::Rect::from_min_size(top_left, scaled_size);
-                egui::Image::new(egui::include_image!("images/loading-screen.webp"))
+                background_image()
                     .tint(Color32::from_white_alpha(170))
                     .paint_at(ui, background_rect);
 
@@ -399,6 +406,10 @@ impl OverlayState {
             },
         );
     }
+}
+
+fn background_image() -> egui::Image<'static> {
+    egui::Image::new(egui::include_image!("images/loading-screen.webp"))
 }
 
 /// A thin bar along the top of the screen showing how far SC:R's image load has gotten, in the
