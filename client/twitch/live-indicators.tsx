@@ -19,15 +19,21 @@ export const TWITCH_PURPLE = '#9146ff'
 /** A dark scrim used behind pills that overlay stream thumbnails, to keep them legible. */
 const THUMBNAIL_OVERLAY = 'rgba(16, 21, 30, 0.82)'
 
+/** How far past the dot's edge the pulse ring travels, in pixels. */
+const PULSE_REACH = 6
+
+// Only scale and opacity are animated so the pulse runs on the compositor. Animating a
+// box-shadow instead repaints every frame, which taxes the whole browser's GPU process for as
+// long as a stream is live.
 const pulseKeyframes = keyframes`
   0% {
-    box-shadow: 0 0 0 0 rgba(224, 29, 60, 0.5);
+    scale: 1;
+    opacity: 0.5;
   }
-  70% {
-    box-shadow: 0 0 0 6px rgba(224, 29, 60, 0);
-  }
+  70%,
   100% {
-    box-shadow: 0 0 0 0 rgba(224, 29, 60, 0);
+    scale: var(--_pulse-scale);
+    opacity: 0;
   }
 `
 
@@ -36,6 +42,7 @@ const pulseKeyframes = keyframes`
  * on its own next to names, and inside the pills below.
  */
 export const LiveDot = styled.span<{ $size?: number; $pulse?: boolean; $color?: string }>`
+  position: relative;
   width: ${props => props.$size ?? 8}px;
   height: ${props => props.$size ?? 8}px;
   flex-shrink: 0;
@@ -46,10 +53,23 @@ export const LiveDot = styled.span<{ $size?: number; $pulse?: boolean; $color?: 
   ${props =>
     (props.$pulse ?? true)
       ? css`
-          animation: ${pulseKeyframes} 2.2s ease-out infinite;
+          --_pulse-scale: ${1 + (2 * PULSE_REACH) / (props.$size ?? 8)};
+
+          /* The ring matches the dot, so the part that overlaps the dot stays invisible */
+          &::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            background-color: inherit;
+            opacity: 0;
+            animation: ${pulseKeyframes} 2.2s ease-out infinite;
+          }
 
           @media (prefers-reduced-motion: reduce) {
-            animation: none;
+            &::after {
+              animation: none;
+            }
           }
         `
       : ''}

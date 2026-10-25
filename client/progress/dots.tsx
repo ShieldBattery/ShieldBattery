@@ -1,4 +1,4 @@
-import { mix, rgba } from 'polished'
+import { rgba } from 'polished'
 import styled, { css, keyframes } from 'styled-components'
 import { decelerateEasing } from '../material/curve-constants'
 import { amber60, blue40, blue95 } from '../styles/colors'
@@ -100,11 +100,40 @@ function angularDistanceDeg(a: number, b: number): number {
 }
 
 const CELL_SKEW = 'skewX(-14deg)'
+/** The blur of the glow at full light. */
+const GLOW_BLUR_PX = 12
+/** The opacity of the glow at full light. */
+const GLOW_ALPHA = 0.7
 
-function buildCellFlare(cellAngleDeg: number): ReturnType<typeof keyframes> {
-  const stops: string[] = []
+/**
+ * A cell's flare, expressed purely as transforms and layer opacities so the whole indicator runs
+ * on the compositor. The cell's lit color is `mix(light, lightColor, blue40)` with `lightColor`
+ * itself a mix of amber and blue-white; that's reproduced exactly by stacking a blue-white layer
+ * and then an amber layer over the blue40 cell, each at the opacity that yields the same weights.
+ * The glow is a pair of fixed-blur shadows (one per light color) faded in by the same weights.
+ */
+interface CellFlare {
+  swell: ReturnType<typeof keyframes>
+  coolLight: ReturnType<typeof keyframes>
+  hotLight: ReturnType<typeof keyframes>
+  coolGlow: ReturnType<typeof keyframes>
+  hotGlow: ReturnType<typeof keyframes>
+}
+
+function buildCellFlare(cellAngleDeg: number): CellFlare {
+  const stops: Record<keyof CellFlare, string[]> = {
+    swell: [],
+    coolLight: [],
+    hotLight: [],
+    coolGlow: [],
+    hotGlow: [],
+  }
+  const opacityStop = (percent: string, opacity: number) =>
+    `${percent} { opacity: ${opacity.toFixed(3)}; }`
+
   for (let k = 0; k <= KEYFRAME_SAMPLES; k++) {
     const tFrac = k / KEYFRAME_SAMPLES
+    const percent = `${(tFrac * 100).toFixed(2)}%`
     const thetaDeg = thetaAtFraction(tFrac)
     const distDeg = angularDistanceDeg(thetaDeg, cellAngleDeg)
     // 0..1: how strongly the weight's light hits this cell / how much its wake swells it
@@ -112,21 +141,31 @@ function buildCellFlare(cellAngleDeg: number): ReturnType<typeof keyframes> {
     const swell = Math.exp(-((distDeg / SWELL_WIDTH_DEG) ** 2))
     // 0..1: how fast the weight is moving
     const speed = (omegaAt(thetaDeg) - OMEGA_MIN) / (OMEGA_MAX - OMEGA_MIN)
-    // The light runs hot when the weight is both fast and near; squaring the speed keeps the
-    // amber for the genuinely quick part of the arc
-    const lightColor = mix(speed * speed * light, amber60, blue95)
-    const background = mix(light, lightColor, blue40)
-    const glow = `0 0 ${(light * 12).toFixed(1)}px ${rgba(lightColor, Math.round(light * 70) / 100)}`
-    const scaleY = (1 + 0.35 * swell).toFixed(3)
-    stops.push(
-      `${(tFrac * 100).toFixed(2)}% {
-        background-color: ${background};
-        box-shadow: ${glow};
-        transform: ${CELL_SKEW} scaleY(${scaleY});
-      }`,
+    // 0..1: how much of the light is amber. The light runs hot when the weight is both fast and
+    // near; squaring the speed keeps the amber for the genuinely quick part of the arc
+    const heat = speed * speed * light
+
+    // Amber's share of the final color is light * heat, and the blue-white layer beneath it
+    // needs light * (1 - heat) to survive being partially covered by the amber
+    const hotOpacity = light * heat
+    const coolOpacity = hotOpacity < 1 ? (light * (1 - heat)) / (1 - hotOpacity) : 0
+
+    stops.swell.push(
+      `${percent} { transform: ${CELL_SKEW} scaleY(${(1 + 0.35 * swell).toFixed(3)}); }`,
     )
+    stops.coolLight.push(opacityStop(percent, coolOpacity))
+    stops.hotLight.push(opacityStop(percent, hotOpacity))
+    stops.coolGlow.push(opacityStop(percent, light * (1 - heat)))
+    stops.hotGlow.push(opacityStop(percent, light * heat))
   }
-  return keyframes`${stops.join('\n')}`
+
+  return {
+    swell: keyframes`${stops.swell.join('\n')}`,
+    coolLight: keyframes`${stops.coolLight.join('\n')}`,
+    hotLight: keyframes`${stops.hotLight.join('\n')}`,
+    coolGlow: keyframes`${stops.coolGlow.join('\n')}`,
+    hotGlow: keyframes`${stops.hotGlow.join('\n')}`,
+  }
 }
 
 const CELL_FLARES = CELL_ANGLES_DEG.map(buildCellFlare)
@@ -177,7 +216,15 @@ interface CellProps {
   $delayMs: number
 }
 
+const flareTiming = css<CellProps>`
+  animation-duration: ${CYCLE_MS}ms;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-delay: ${props => props.$delayMs}ms;
+`
+
 const Cell = styled.div<CellProps>`
+  position: relative;
   width: 9px;
   height: 16px;
 
@@ -185,16 +232,42 @@ const Cell = styled.div<CellProps>`
   border-radius: 2px;
   transform: ${CELL_SKEW};
 
-  animation-name: ${props => CELL_FLARES[props.$index]};
-  animation-duration: ${CYCLE_MS}ms;
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
-  animation-delay: ${props => props.$delayMs}ms;
+  animation-name: ${props => CELL_FLARES[props.$index].swell};
+  ${flareTiming};
 
   @media (prefers-reduced-motion: reduce) {
     animation-name: ${gentlePulse};
     animation-duration: 2500ms;
     animation-timing-function: ease-in-out;
+  }
+`
+
+const CellLayer = styled.div<CellProps & { $layer: Exclude<keyof CellFlare, 'swell'> }>`
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0;
+
+  ${props => {
+    switch (props.$layer) {
+      case 'coolLight':
+        return `background-color: ${blue95};`
+      case 'hotLight':
+        return `background-color: ${amber60};`
+      case 'coolGlow':
+        return `box-shadow: 0 0 ${GLOW_BLUR_PX}px ${rgba(blue95, GLOW_ALPHA)};`
+      case 'hotGlow':
+        return `box-shadow: 0 0 ${GLOW_BLUR_PX}px ${rgba(amber60, GLOW_ALPHA)};`
+      default:
+        return props.$layer satisfies never
+    }
+  }}
+
+  animation-name: ${props => CELL_FLARES[props.$index][props.$layer]};
+  ${flareTiming};
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
   }
 `
 
@@ -230,7 +303,12 @@ function CellStrip({
   return (
     <Root className={className} $showImmediately={!fadeRoot}>
       {CELL_FLARES.map((_, i) => (
-        <Cell key={i} $index={i} $delayMs={delayMs} />
+        <Cell key={i} $index={i} $delayMs={delayMs}>
+          <CellLayer $layer='coolGlow' $index={i} $delayMs={delayMs} />
+          <CellLayer $layer='hotGlow' $index={i} $delayMs={delayMs} />
+          <CellLayer $layer='coolLight' $index={i} $delayMs={delayMs} />
+          <CellLayer $layer='hotLight' $index={i} $delayMs={delayMs} />
+        </Cell>
       ))}
     </Root>
   )
