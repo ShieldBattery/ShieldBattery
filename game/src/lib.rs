@@ -295,6 +295,7 @@ pub extern "C" fn OnInject() {
     crash_dump::prepare_dump_thread();
     #[cfg(debug_assertions)]
     {
+        spawn_oninject_threads_from_env();
         rollback_probe::init_from_env();
         rollback_harness::init_from_env();
         rollback_bench::init_from_env();
@@ -314,6 +315,29 @@ pub extern "C" fn OnInject() {
     unsafe {
         let init_helper = load_init_helper().expect("Unable to load sb_init.dll");
         init_helper(scr_init, crash_dump::cdecl_crash_dump);
+    }
+}
+
+/// `SB_ONINJECT_THREADS=<n>` starts n idle threads from `OnInject`, breaking the rule `scr_init`
+/// states on purpose, to test how the game's startup copes with them.
+#[cfg(debug_assertions)]
+fn spawn_oninject_threads_from_env() {
+    let Some(count) = std::env::var("SB_ONINJECT_THREADS")
+        .ok()
+        .and_then(|v| v.trim().parse::<u32>().ok())
+    else {
+        return;
+    };
+    info!("Starting {count} idle threads from OnInject (SB_ONINJECT_THREADS)");
+    for _ in 0..count {
+        let spawned = std::thread::Builder::new().spawn(|| {
+            loop {
+                std::thread::park();
+            }
+        });
+        if let Err(e) = spawned {
+            error!("Couldn't start an idle thread: {e}");
+        }
     }
 }
 
