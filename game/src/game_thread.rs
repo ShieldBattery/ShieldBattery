@@ -560,12 +560,45 @@ fn save_replay_for_upload(bw: &BwScr) -> Option<PathBuf> {
     }
 
     let path_str = replay_path.to_str()?;
+    log_unseeded_replay_recording(bw);
     if bw.save_replay(path_str) {
         debug!("Replay saved to {} for upload", path_str);
         Some(replay_path)
     } else {
         error!("Failed to save replay to {}", path_str);
         None
+    }
+}
+
+/// Logs the recorder's state when the replay about to be saved doesn't carry this game's seed. The
+/// server refuses such a replay, so this is the evidence of how the recording got that way.
+fn log_unseeded_replay_recording(bw: &BwScr) {
+    let Some(expected_seed) = SETUP_INFO.get().map(|info| info.seed) else {
+        return;
+    };
+    unsafe {
+        let header = bw.replay_header();
+        if header.is_null() {
+            return;
+        }
+        let save_data_command = (*header).save_data_command;
+        let header_seed = LittleEndian::read_u32(&save_data_command[1..5]);
+        if header_seed == expected_seed {
+            return;
+        }
+        let end_frame = (*header).replay_end_frame;
+        let replay = bw.replay_data();
+        let (recording, data_length) = match replay.is_null() {
+            true => (None, None),
+            false => (Some((*replay).recording), Some((*replay).data_length)),
+        };
+        warn!(
+            "Replay header doesn't hold this game's seed {expected_seed:#x}: init command \
+             {save_data_command:02x?}, end frame {end_frame}, game frame {}, rng seed {:#x}, \
+             recording {recording:?}, {data_length:?} recorded bytes",
+            (*bw.game()).frame_count,
+            bw.rng_seed(),
+        );
     }
 }
 

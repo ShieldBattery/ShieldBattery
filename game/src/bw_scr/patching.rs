@@ -374,6 +374,22 @@ impl BwScr {
                         );
                         self.lobby_game_init_command_seen
                             .store(true, Ordering::Relaxed);
+                        orig(data, len, player);
+                        // The native handler only takes the record (copying it into the replay
+                        // header and setting the game's seed) in the lobby state it expects, but
+                        // the game starts once the record is seen either way.
+                        let header = self.replay_header.resolve();
+                        let record = &slice[..slice.len().min(0xd)];
+                        if !header.is_null() && !(*header).save_data_command.starts_with(record) {
+                            warn!(
+                                "Lobby game init command {record:02x?} wasn't applied: replay \
+                                 header holds {:02x?}, rng seed {:#x}, lobby_state {}",
+                                (*header).save_data_command,
+                                self.rng_seed(),
+                                self.lobby_state.resolve(),
+                            );
+                        }
+                        return;
                     }
                     orig(data, len, player);
                 },

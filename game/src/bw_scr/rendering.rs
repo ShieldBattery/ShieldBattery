@@ -535,6 +535,13 @@ impl BwScr {
                 exe.hook_closure_address(
                     SaveReplayByName,
                     move |name, replace_existing, orig| {
+                        // After this autosave, the teardown files a copy of it away and, depending
+                        // on Battle.net state, reloads that copy's metadata. The reload empties the
+                        // recording and zeroes the replay header (leaving it zeroed when the
+                        // reload fails), all before the game loop returns. Reporting the result
+                        // saves the upload replay, so it has to happen here while the recording is
+                        // still this game's. A no-op if the result was already reported.
+                        game_thread::send_game_results();
                         replay_save::sanitize_recording(
                             self.replay_data(),
                             (*self.game()).frame_count,
