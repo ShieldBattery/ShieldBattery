@@ -136,7 +136,12 @@ pub fn on_file_open(bw: &BwScr, path: Option<&[u8]>) {
     }
     if pumping && now >= pump.next_redraw {
         let redraw_start = Instant::now();
-        unsafe { bw.force_redraw_during_init() };
+        // egui lays out a widget it hasn't measured yet on the frame after it first appears, which
+        // at the display's rate goes unseen. Redraws here are an interval apart, so each draws a
+        // second frame to keep a half-laid-out loading screen from staying up for that interval.
+        for _ in 0..2 {
+            unsafe { bw.force_redraw_during_init() };
+        }
         let redraw_end = Instant::now();
         let took = redraw_end - redraw_start;
         pump.redraws += 1;
