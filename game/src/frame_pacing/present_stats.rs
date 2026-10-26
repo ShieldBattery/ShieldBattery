@@ -23,8 +23,9 @@ use std::time::{Duration, Instant};
 use parking_lot::Mutex;
 use winapi::Interface;
 use winapi::shared::dxgi::{
-    CreateDXGIFactory1, DXGI_FRAME_STATISTICS, DXGI_SWAP_CHAIN_DESC, IDXGIFactory, IDXGIFactory1,
-    IDXGIOutput, IDXGISwapChain,
+    CreateDXGIFactory1, DXGI_ADAPTER_DESC, DXGI_FRAME_STATISTICS, DXGI_OUTPUT_DESC,
+    DXGI_SWAP_CHAIN_DESC, IDXGIAdapter, IDXGIDevice, IDXGIFactory, IDXGIFactory1, IDXGIOutput,
+    IDXGISwapChain,
 };
 use winapi::shared::dxgi1_2::{
     DXGI_SWAP_CHAIN_DESC1, DXGI_SWAP_CHAIN_FULLSCREEN_DESC, IDXGIFactory2, IDXGISwapChain1,
@@ -37,7 +38,7 @@ use winapi::um::profileapi::{QueryPerformanceCounter, QueryPerformanceFrequency}
 use winapi::um::unknwnbase::IUnknown;
 use winapi::um::winnt::PAGE_READWRITE;
 
-use crate::windows::jump_to;
+use crate::windows::{jump_to, os_string_from_winapi_with_nul};
 
 /// The swap chain SC:R presents the game window with, once it has made one.
 static SWAP_CHAIN: AtomicUsize = AtomicUsize::new(0);
@@ -181,7 +182,7 @@ unsafe extern "system" fn create_swap_chain_for_hwnd(
             swap_chain,
         );
         if result >= 0 && !swap_chain.is_null() {
-            note_swap_chain(window, *swap_chain as usize);
+            note_swap_chain(window, device, *swap_chain as usize);
         }
         result
     }
@@ -197,18 +198,19 @@ unsafe extern "system" fn create_swap_chain(
         let original: Create = std::mem::transmute(CREATE.load(Ordering::Acquire));
         let result = original(factory, device, desc, swap_chain);
         if result >= 0 && !swap_chain.is_null() && !desc.is_null() {
-            note_swap_chain((*desc).OutputWindow, *swap_chain as usize);
+            note_swap_chain((*desc).OutputWindow, device, *swap_chain as usize);
         }
         result
     }
 }
 
-fn note_swap_chain(window: HWND, swap_chain: usize) {
+fn note_swap_chain(window: HWND, device: *mut IUnknown, swap_chain: usize) {
     let game_window = crate::forge::game_window_handle();
     if game_window.is_none_or(|game| game == window) {
         info!("Frame statistics: tracking the game's swap chain");
         unsafe {
             let swap_chain = swap_chain as *mut IDXGISwapChain;
+            log_swap_chain(device, swap_chain);
             let vtable = (*swap_chain).lpVtbl as *mut winapi::shared::dxgi::IDXGISwapChainVtbl;
             replace(
                 (&raw mut (*vtable).Present).cast(),
@@ -218,6 +220,131 @@ fn note_swap_chain(window: HWND, swap_chain: usize) {
         }
         SWAP_CHAIN.store(swap_chain, Ordering::Release);
         *TRACKER.lock() = Tracker::new();
+    }
+}
+
+/// Logs which GPU SC:R renders the game on, which GPU drives the display showing it, and how its
+/// swap chain presents. When the two GPUs differ (as on hybrid-graphics laptops), every frame is
+/// copied over to the display's GPU, which adds latency.
+unsafe fn log_swap_chain(device: *mut IUnknown, swap_chain: *mut IDXGISwapChain) {
+    unsafe {
+        let rendering = device_adapter(device);
+        let display = display_adapter(swap_chain);
+        let gpus = match (&rendering, &display) {
+            (Some(rendering), Some((_, display))) => {
+                let (a, b) = (rendering.AdapterLuid, display.AdapterLuid);
+                match a.LowPart == b.LowPart && a.HighPart == b.HighPart {
+                    true => "same GPU",
+                    false => "different GPUs, frames are copied",
+                }
+            }
+            _ => "GPUs unknown",
+        };
+        let mut desc: DXGI_SWAP_CHAIN_DESC = std::mem::zeroed();
+        let presenting = match (*swap_chain).GetDesc(&mut desc) >= 0 {
+            true => format!(
+                "{}x{}, {} swap effect, {} buffers, {}, flags {:#x}",
+                desc.BufferDesc.Width,
+                desc.BufferDesc.Height,
+                match desc.SwapEffect {
+                    0 => "discard",
+                    1 => "sequential",
+                    3 => "flip sequential",
+                    4 => "flip discard",
+                    _ => "unknown",
+                },
+                desc.BufferCount,
+                if desc.Windowed != 0 {
+                    "windowed"
+                } else {
+                    "fullscreen"
+                },
+                desc.Flags,
+            ),
+            false => "swap chain description unavailable".into(),
+        };
+        info!(
+            "Game swap chain: rendering on {}, display {} on {} ({gpus}); {presenting}",
+            rendering
+                .as_ref()
+                .map_or("unknown".into(), describe_adapter),
+            display.as_ref().map_or("unknown".into(), |(output, _)| {
+                os_string_from_winapi_with_nul(&output.DeviceName)
+                    .to_string_lossy()
+                    .into_owned()
+            }),
+            display
+                .as_ref()
+                .map_or("unknown".into(), |(_, adapter)| describe_adapter(adapter)),
+        );
+    }
+}
+
+fn describe_adapter(desc: &DXGI_ADAPTER_DESC) -> String {
+    format!(
+        "{} ({:04x}:{:04x})",
+        os_string_from_winapi_with_nul(&desc.Description).to_string_lossy(),
+        desc.VendorId,
+        desc.DeviceId,
+    )
+}
+
+/// The adapter a D3D10/11 device was made on. Other devices (a D3D12 command queue) give `None`.
+unsafe fn device_adapter(device: *mut IUnknown) -> Option<DXGI_ADAPTER_DESC> {
+    unsafe {
+        if device.is_null() {
+            return None;
+        }
+        let mut dxgi_device = null_mut();
+        if (*device).QueryInterface(&IDXGIDevice::uuidof(), &mut dxgi_device) < 0
+            || dxgi_device.is_null()
+        {
+            return None;
+        }
+        let dxgi_device = dxgi_device as *mut IDXGIDevice;
+        let mut adapter = null_mut();
+        let result = (*dxgi_device).GetAdapter(&mut adapter);
+        (*dxgi_device).Release();
+        if result < 0 || adapter.is_null() {
+            return None;
+        }
+        let desc = adapter_desc(adapter);
+        (*adapter).Release();
+        desc
+    }
+}
+
+/// The output showing most of the swap chain's window, and the adapter that output belongs to.
+unsafe fn display_adapter(
+    swap_chain: *mut IDXGISwapChain,
+) -> Option<(DXGI_OUTPUT_DESC, DXGI_ADAPTER_DESC)> {
+    unsafe {
+        let mut output = null_mut();
+        if (*swap_chain).GetContainingOutput(&mut output) < 0 || output.is_null() {
+            return None;
+        }
+        let mut output_desc: DXGI_OUTPUT_DESC = std::mem::zeroed();
+        let described = (*output).GetDesc(&mut output_desc) >= 0;
+        let mut adapter = null_mut();
+        let result = (*output).GetParent(&IDXGIAdapter::uuidof(), &mut adapter);
+        (*output).Release();
+        if result < 0 || adapter.is_null() {
+            return None;
+        }
+        let adapter = adapter as *mut IDXGIAdapter;
+        let desc = adapter_desc(adapter);
+        (*adapter).Release();
+        match (described, desc) {
+            (true, Some(desc)) => Some((output_desc, desc)),
+            _ => None,
+        }
+    }
+}
+
+unsafe fn adapter_desc(adapter: *mut IDXGIAdapter) -> Option<DXGI_ADAPTER_DESC> {
+    unsafe {
+        let mut desc: DXGI_ADAPTER_DESC = std::mem::zeroed();
+        ((*adapter).GetDesc(&mut desc) >= 0).then_some(desc)
     }
 }
 

@@ -198,9 +198,9 @@ pub fn configure(setting: Option<&str>, vsync: bool) {
         "Frame pacing: {mode:?}, vertical sync {}",
         if vsync { "on" } else { "off" }
     );
-    if mode != Mode::Off {
-        present_stats::install();
-    }
+    // Installed whatever the mode: it logs which GPU the game renders on, and a mode switched on
+    // mid-game needs the swap chain SC:R made at startup.
+    present_stats::install();
     *CONFIG.lock() = Config { mode, vsync };
 }
 
