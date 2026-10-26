@@ -45,6 +45,7 @@ const MOCK_SEASON: MatchmakingSeasonJson = {
   name: 'Beta Season 3',
   startDate: Date.now() - 1000 * 60 * 60 * 24 * 14,
   resetMmr: true,
+  divisionTableVersion: 2,
 }
 
 const NO_RACE_STATS: RaceStats = {

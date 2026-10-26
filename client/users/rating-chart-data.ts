@@ -1,5 +1,6 @@
 import {
   DivisionRatingOffsets,
+  DivisionTableVersion,
   getAllDivisionsWithBounds,
   getTotalBonusPool,
   MatchmakingDivision,
@@ -20,6 +21,7 @@ export interface RatingChartSeason {
   startDate: number
   resetMmr: boolean
   divisionRatingOffsets?: Readonly<DivisionRatingOffsets>
+  divisionTableVersion: DivisionTableVersion
 }
 
 export interface RatingChartPoint {
@@ -131,6 +133,7 @@ export function buildSeasonBands(
       bands: getAllDivisionsWithBounds(matchmakingType, {
         bonusPool: pool,
         ratingOffsets: season.divisionRatingOffsets,
+        tableVersion: season.divisionTableVersion,
       }).map(([division, low, high]) => ({
         division,
         low,

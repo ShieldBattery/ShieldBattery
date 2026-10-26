@@ -1,4 +1,5 @@
 import {
+  CURRENT_DIVISION_TABLE_VERSION,
   DivisionRatingOffsets,
   MATCHMAKING_SEASON_FINALIZED_TIME_MS,
   MatchmakingCompletion,
@@ -842,6 +843,7 @@ function fromDbMatchmakingSeason(result: Readonly<DbMatchmakingSeason>): Matchma
     name: result.name,
     resetMmr: result.reset_mmr,
     divisionRatingOffsets: result.division_rating_offsets ?? undefined,
+    divisionTableVersion: result.division_table_version,
   }
 }
 
@@ -891,7 +893,10 @@ export async function getMatchmakingSeasonsByIds(
 }
 
 export async function addMatchmakingSeason(
-  season: Omit<MatchmakingSeason, 'id' | 'endDate' | 'divisionRatingOffsets'>,
+  season: Omit<
+    MatchmakingSeason,
+    'id' | 'endDate' | 'divisionRatingOffsets' | 'divisionTableVersion'
+  >,
   withClient?: DbClient,
 ): Promise<MatchmakingSeason> {
   const { client, done } = await db(withClient)
@@ -899,9 +904,9 @@ export async function addMatchmakingSeason(
   try {
     const result = await client.query<DbMatchmakingSeason>(sql`
       INSERT INTO matchmaking_seasons
-        (start_date, name, reset_mmr)
+        (start_date, name, reset_mmr, division_table_version)
       VALUES
-        (${season.startDate}, ${season.name}, ${season.resetMmr})
+        (${season.startDate}, ${season.name}, ${season.resetMmr}, ${CURRENT_DIVISION_TABLE_VERSION})
       RETURNING *
     `)
 

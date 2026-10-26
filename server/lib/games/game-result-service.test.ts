@@ -996,6 +996,7 @@ describe('games/game-result-service/GameResultService lobby violations', () => {
     name: 'Season 1',
     startDate: new Date(0),
     resetMmr: true,
+    divisionTableVersion: 2,
   }
 
   function makeGame(config = matchmakingConfig(DEFAULT_TEAMS)): GameRecord {
@@ -1231,6 +1232,7 @@ describe('games/game-result-service/GameResultService#resolveGameManually', () =
     name: 'Season 1',
     startDate: new Date(0),
     resetMmr: true,
+    divisionTableVersion: 2,
   }
 
   /** The stored results a disputed 1v1 leaves behind: races and APM known, outcomes not. */
@@ -2002,6 +2004,7 @@ describe('games/game-result-service replay violations', () => {
     name: 'Season 1',
     startDate: new Date(0),
     resetMmr: true,
+    divisionTableVersion: 2,
   }
   const p4 = makeSbUserId(4)
   let service: GameResultService

@@ -7,6 +7,7 @@ import {
   AddMatchmakingSeasonRequest,
   ALL_MATCHMAKING_TYPES,
   DivisionRatingOffsets,
+  divisionTableHasRatingOffsets,
   MatchmakingSeasonJson,
   matchmakingTypeToLabel,
   SeasonId,
@@ -132,7 +133,10 @@ function SeasonRow({
           {season.resetMmr ? <ModifierText> (MMR reset)</ModifierText> : undefined}
         </SeasonName>
         <OffsetsText>
-          Division offsets: {describeOffsets(season.divisionRatingOffsets, t)}
+          Division bounds v{season.divisionTableVersion}, offsets:{' '}
+          {divisionTableHasRatingOffsets(season.divisionTableVersion)
+            ? describeOffsets(season.divisionRatingOffsets, t)
+            : 'not used'}
         </OffsetsText>
       </SeasonInfo>
       {season.startDate > now ? (

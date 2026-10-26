@@ -30,6 +30,7 @@ const SEASON: MatchmakingSeason = {
   name: 'Season 1',
   startDate: new Date('2022-05-01T00:00:00.000Z'),
   resetMmr: true,
+  divisionTableVersion: 2,
 }
 
 function createMatchmakingRating(

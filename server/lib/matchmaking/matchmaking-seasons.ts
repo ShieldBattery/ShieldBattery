@@ -1,6 +1,7 @@
 import { singleton } from 'tsyringe'
 import {
   DIVISION_RATING_OFFSET_REFERENCE_TYPE,
+  divisionTableHasRatingOffsets,
   MatchmakingSeason,
   MatchmakingSeasonsEvent,
   MatchmakingSeasonsServiceErrorCode,
@@ -223,9 +224,9 @@ export class MatchmakingSeasonsService {
 
   /**
    * Stores the division rating offsets of the season with `seasonId`, unless it already has them,
-   * no longer exists, or a later season has started (its offsets would then come from another
-   * season's games). A failure is retried with backoff, rechecking those conditions before each
-   * attempt. Never throws.
+   * no longer exists, uses division bounds that don't apply offsets, or a later season has started
+   * (its offsets would then come from another season's games). A failure is retried with backoff,
+   * rechecking those conditions before each attempt. Never throws.
    */
   private async ensureDivisionRatingOffsets(
     seasonId: SeasonId,
@@ -235,7 +236,11 @@ export class MatchmakingSeasonsService {
       this.seasonsPromise = undefined
       const seasons = await this.getAllSeasons()
       const season = seasons.find(s => s.id === seasonId)
-      if (!season || season.divisionRatingOffsets) {
+      if (
+        !season ||
+        season.divisionRatingOffsets ||
+        !divisionTableHasRatingOffsets(season.divisionTableVersion)
+      ) {
         return
       }
       const now = this.clock.now()

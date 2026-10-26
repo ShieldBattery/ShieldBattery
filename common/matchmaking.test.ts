@@ -152,6 +152,62 @@ describe('common/matchmaking', () => {
     })
   })
 
+  describe('division table versions', () => {
+    const v1 = (bonusPool: number): DivisionContext => ({ bonusPool, tableVersion: 1 })
+
+    it('places points with the version 1 bounds', () => {
+      expect(pointsToMatchmakingDivisionAndBounds(SOLO, 4400, v1(0))).toEqual([
+        MatchmakingDivision.Gold1,
+        4400,
+        5120,
+      ])
+      expect(pointsToMatchmakingDivisionAndBounds(SOLO, 4400, ctx(0))).toEqual([
+        MatchmakingDivision.Silver2,
+        4400,
+        5000,
+      ])
+      expect(pointsToMatchmakingDivisionAndBounds(TEAM, 4200, v1(0))).toEqual([
+        MatchmakingDivision.Gold1,
+        4200,
+        4900,
+      ])
+    })
+
+    it('applies the version 1 bonus factors', () => {
+      expect(pointsToMatchmakingDivisionAndBounds(SOLO, 5000, v1(1000))).toEqual([
+        MatchmakingDivision.Gold1,
+        4400 + 0.3 * 1000,
+        5120 + 0.6 * 1000,
+      ])
+    })
+
+    it('never applies rating offsets to version 1 bounds', () => {
+      const context: DivisionContext = {
+        ...v1(0),
+        ratingOffsets: { [MatchmakingType.Match3v3Bgh]: 150 },
+      }
+      expect(
+        pointsToMatchmakingDivisionAndBounds(MatchmakingType.Match3v3Bgh, 4200, context),
+      ).toEqual([MatchmakingDivision.Gold1, 4200, 4900])
+      expect(getAllDivisionsWithBounds(MatchmakingType.Match3v3Bgh, context)).toEqual(
+        getAllDivisionsWithBounds(MatchmakingType.Match3v3Bgh, v1(0)),
+      )
+    })
+
+    it("is taken from the season's version by getDivisionContext", () => {
+      const season = {
+        id: makeSeasonId(1),
+        name: 'Season',
+        startDate: 0,
+        resetMmr: false,
+        divisionTableVersion: 1 as const,
+      }
+      const context = getDivisionContext(new Date(0), season)
+      expect(context.tableVersion).toBe(1)
+      expect(pointsToMatchmakingDivision(SOLO, 4400, context)).toBe(MatchmakingDivision.Gold1)
+    })
+  })
+
   describe('getDivisionRatingOffset', () => {
     it('never offsets solo modes or the reference mode', () => {
       const offsets = {
@@ -175,12 +231,14 @@ describe('common/matchmaking', () => {
         name: 'Season',
         startDate: 0,
         resetMmr: false,
+        divisionTableVersion: 2 as const,
         divisionRatingOffsets: { [MatchmakingType.Match3v3Bgh]: 150 },
       }
       const context = getDivisionContext(new Date(0), season)
       expect(context).toEqual({
         bonusPool: 0,
         ratingOffsets: { [MatchmakingType.Match3v3Bgh]: 150 },
+        tableVersion: 2,
       })
       expect(pointsToMatchmakingDivision(MatchmakingType.Match3v3Bgh, 5400, context)).toBe(
         MatchmakingDivision.Gold1,

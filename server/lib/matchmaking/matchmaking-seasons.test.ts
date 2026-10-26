@@ -48,18 +48,21 @@ const STARTING_SEASONS: ReadonlyArray<MatchmakingSeason> = [
     startDate: new Date('2023-01-01'),
     name: 'Cooler Season',
     resetMmr: false,
+    divisionTableVersion: 2,
   },
   {
     id: makeSeasonId(2),
     startDate: new Date('2022-06-01'),
     name: 'Cool Season',
     resetMmr: true,
+    divisionTableVersion: 2,
   },
   {
     id: makeSeasonId(1),
     startDate: new Date('2012-01-01'),
     name: 'Beta Season',
     resetMmr: true,
+    divisionTableVersion: 2,
   },
 ]
 
@@ -135,7 +138,11 @@ describe('matchmaking/matchmaking-seasons', () => {
     addMatchmakingSeasonMock.mockImplementation(season => {
       // This isn't totally correct but should work fine given what we actually want to test
       const nextId = (mockDbState[0].id ?? 0) + 1
-      const createdSeason = { ...season, id: makeSeasonId(nextId) }
+      const createdSeason = {
+        ...season,
+        id: makeSeasonId(nextId),
+        divisionTableVersion: 2 as const,
+      }
       mockDbState = [createdSeason, ...mockDbState].sort(
         (a, b) => Number(b.startDate) - Number(a.startDate),
       )
@@ -189,6 +196,7 @@ describe('matchmaking/matchmaking-seasons', () => {
 
     expect(createdSeason).toMatchInlineSnapshot(`
       {
+        "divisionTableVersion": 2,
         "id": 4,
         "name": "New Season",
         "resetMmr": true,
@@ -260,6 +268,28 @@ describe('matchmaking/matchmaking-seasons', () => {
       // The stored offsets are picked up rather than served from a stale cache
       const current = await service.getCurrentSeason()
       expect(current.divisionRatingOffsets?.[MatchmakingType.Match3v3Bgh]).toBe(150)
+    })
+
+    test('never computes offsets for a season on version 1 division bounds', async () => {
+      await settleAndReset()
+      mockDbState = mockDbState.map(s =>
+        s.id === makeSeasonId(1) ? { ...s, divisionTableVersion: 1 as const } : s,
+      )
+
+      createService()
+      await vi.waitFor(() => expect(jobScheduler.scheduleJob).toHaveBeenCalledTimes(1))
+      expect(getRatingDifferencesFromReferenceMock).not.toHaveBeenCalled()
+      expect(setMatchmakingSeasonDivisionRatingOffsetsMock).not.toHaveBeenCalled()
+
+      // The next season uses the current bounds, so its offsets are still computed at its start
+      const [startTime, jobFn] = lastScheduled(OFFSETS_JOB_ID)
+      expect(startTime).toEqual(new Date('2022-06-01'))
+      clock.setCurrentTime(Number(startTime))
+      await jobFn()
+      expect(setMatchmakingSeasonDivisionRatingOffsetsMock).toHaveBeenLastCalledWith(
+        2,
+        expect.anything(),
+      )
     })
 
     test('leaves stored offsets alone', async () => {
