@@ -14,6 +14,7 @@ import { SbUser } from '../../common/users/sb-user'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { UserProfileJson } from '../../common/users/user-network'
 import { useHasAnyPermission } from '../admin/admin-permissions'
+import { useSelfUser } from '../auth/auth-utils'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { CommendIcon } from '../games/commend-icon'
 import { graphql } from '../gql'
@@ -60,6 +61,7 @@ import { AvailabilityDot } from './availability'
 import { ExpandableRankDisplays } from './expandable-rank-displays'
 import { ConnectedMatchHistory } from './match-history'
 import { MiniMatchHistory } from './mini-match-history'
+import { PlayerNoteButton } from './player-note-button'
 import { UserProfileSeasons } from './user-profile-seasons'
 import { UserProfileSubPage } from './user-profile-sub-page'
 import { UserRankDisplay } from './user-rank-display'
@@ -326,8 +328,8 @@ const UsernameRow = styled.div`
 const Username = styled.div`
   ${headlineLarge};
   ${singleLine};
-  /* Allows the username to shrink (truncating with an ellipsis) so the copy-link button next to
-     it stays visible even for very long names. */
+  /* Allows the username to shrink (truncating with an ellipsis) so the buttons next to it stay
+     visible even for very long names. */
   min-width: 0;
   color: var(--theme-amber);
 `
@@ -363,6 +365,7 @@ export function UserProfilePage({
   seasons,
 }: UserProfilePageProps) {
   const { t } = useTranslation()
+  const selfUser = useSelfUser()
   // TODO(tec27): Build the title feature :)
   const title = t('users.titles.novice', 'Novice')
 
@@ -445,6 +448,9 @@ export function UserProfilePage({
               tooltipPosition='right'
               startingText={t('users.profile.copyLink', 'Copy link to profile')}
             />
+            {selfUser && selfUser.id !== user.id ? (
+              <PlayerNoteButton userId={user.id} tooltipPosition='right' />
+            ) : null}
           </UsernameRow>
           <TitleMedium>{title}</TitleMedium>
           <ProfileMetaRow>

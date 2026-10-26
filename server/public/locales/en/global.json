@@ -3483,6 +3483,15 @@
       "friendStart": "You are now friends with <2>{{user}}</2>.",
       "receivedFriendRequest": "<0>{{user}}</0> sent you a friend request."
     },
+    "playerNote": {
+      "add": "Add a note",
+      "delete": "Delete note",
+      "description": "Only you can see this note. It is saved on this device.",
+      "edit": "Edit note",
+      "label": "Note",
+      "title": "Player note",
+      "titleWithName": "Note for {{username}}"
+    },
     "profile": {
       "achievements": "Achievements",
       "admin": {

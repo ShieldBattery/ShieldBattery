@@ -56,6 +56,7 @@ export enum DialogType {
   MatchmakingBanned = 'matchmakingBanned',
   NewsPostDeleteConfirmation = 'newsPostDeleteConfirmation',
   NewsPostSettings = 'newsPostSettings',
+  PlayerNote = 'playerNote',
   PostMatch = 'postMatch',
   PrivacyPolicy = 'privacyPolicy',
   RemoveUserAvatar = 'removeUserAvatar',
@@ -380,6 +381,12 @@ type NewsPostSettingsDialogPayload = BaseDialogPayload<
     onApply: (settings: NewsPostSettingsValues) => void
   }
 >
+type PlayerNoteDialogPayload = BaseDialogPayload<
+  typeof DialogType.PlayerNote,
+  {
+    userId: SbUserId
+  }
+>
 export type PostMatchDialogPayload = BaseDialogPayload<
   typeof DialogType.PostMatch,
   {
@@ -495,6 +502,7 @@ export type DialogPayload =
   | MatchmakingBannedDialogPayload
   | NewsPostDeleteConfirmationDialogPayload
   | NewsPostSettingsDialogPayload
+  | PlayerNoteDialogPayload
   | PostMatchDialogPayload
   | PrivacyPolicyDialogPayload
   | RemoveUserAvatarDialogPayload

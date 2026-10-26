@@ -27,6 +27,8 @@ import { styledWithAttrs } from '../styles/styled-with-attrs'
 import { bodyLarge, labelMedium, singleLine, titleLarge, titleSmall } from '../styles/typography'
 import { LiveLabel } from '../twitch/live-indicators'
 import { useLiveUserIds } from '../twitch/live-state'
+import { PlayerNoteButton } from '../users/player-note-button'
+import { usePlayerNote } from '../users/player-notes'
 import { ConnectedUserContextMenu } from '../users/user-context-menu'
 import { areUserEntriesEqual, useUserEntriesSelector } from '../users/user-entries'
 import { useUserOverlays } from '../users/user-overlays'
@@ -368,7 +370,7 @@ function VirtualizedFriendsList({ height }: { height: number }) {
       )
     } else {
       const faded = row.type === FriendsListRowType.Offline
-      return <FriendEntry userId={row.userId} faded={faded} isLive={row.isLive} />
+      return <FriendEntry userId={row.userId} faded={faded} isLive={row.isLive} showNote={true} />
     }
   }, [])
 
@@ -614,6 +616,13 @@ const FriendEntryActions = styled.div`
   align-items: center;
 `
 
+const EntryNoteButton = styled(PlayerNoteButton)<{ $hasNote: boolean }>`
+  flex-shrink: 0;
+  margin-left: 4px;
+  /* Only friends with a note show the button at rest; the rest reveal it on hover or focus. */
+  opacity: ${props => (props.$hasNote ? '1' : '0')};
+`
+
 const FriendEntryRoot = styled.div<{ $isOverlayOpen?: boolean; $faded?: boolean }>`
   ${titleSmall};
   height: 44px;
@@ -652,6 +661,10 @@ const FriendEntryRoot = styled.div<{ $isOverlayOpen?: boolean; $faded?: boolean 
   &:hover ${FriendEntryActions} {
     opacity: 1;
   }
+
+  &:hover ${EntryNoteButton}, ${EntryNoteButton}:focus-within {
+    opacity: 1;
+  }
 `
 
 function FriendEntry({
@@ -660,15 +673,19 @@ function FriendEntry({
   isLive = false,
   style,
   actions,
+  showNote = false,
 }: {
   userId: SbUserId
   faded?: boolean
   isLive?: boolean
   style?: React.CSSProperties
   actions?: React.ReactNode
+  /** Whether to show the button for the current user's private note about this player. */
+  showNote?: boolean
 }) {
   const { t } = useTranslation()
   const user = useAppSelector(s => s.users.byId.get(userId))
+  const [note] = usePlayerNote(userId)
 
   const { profileOverlayProps, contextMenuProps, onClick, onContextMenu, isOverlayOpen } =
     useUserOverlays({
@@ -703,6 +720,9 @@ function FriendEntry({
           <LoadingName aria-label={t('social.friendsList.loadingUsername', 'Username loading…')} />
         )}
         {isLive ? <EntryLiveLabel /> : null}
+        {showNote ? (
+          <EntryNoteButton userId={userId} tooltipPosition='left' $hasNote={note !== undefined} />
+        ) : null}
         {actions ? <FriendEntryActions>{actions}</FriendEntryActions> : null}
       </FriendEntryRoot>
     </div>
