@@ -206,6 +206,8 @@
       "accountBanned": "Esta cuenta ha sido baneada.<1><0>Razón:</0><1>{{banReason}}</1></1><2>El baneo expirará en {{expireTime}}.</2>",
       "banWithoutReason": "Sin razón especificada",
       "clientSetupRequired": "Termina de configurar StarCraft en Ajustes y luego vuelve a intentar crear tu cuenta.",
+      "clientUpdateRequired": "Hay una nueva versión de ShieldBattery. Actualiza la app y vuelve a intentarlo.",
+      "clientVerificationFailed": "No se pudo verificar esta copia de ShieldBattery. Reinstálala desde shieldbattery.net y vuelve a intentarlo.",
       "defaultError": "Ocurrió un error: {{status}} {{statusText}}",
       "genericError": "Ocurrió un error: {{errorMessage}}",
       "invalidCode": "El código proporcionado es inválido. Puede que haya expirado.",
@@ -1041,7 +1043,7 @@
       "newUpdateReady": "Se ha descargado una nueva actualización y está lista para instalar. Reinicia la aplicación para continuar.",
       "noErrorTitle": "Actualización disponible",
       "progress": "{{transferred}} / {{total}} a {{perSecond}}/s",
-      "restartNow": "Reinicia ahora"
+      "restartNow": "Reiniciar ahora"
     }
   },
   "comingSoon": {
@@ -2508,6 +2510,17 @@
     }
   },
   "network": {
+    "clientUpdate": {
+      "requiredContents": "Esta versión de ShieldBattery está desactualizada, así que no puede conectarse. Descarga la última versión desde <1>nuestro sitio web</1>.",
+      "requiredTitle": "Actualización necesaria"
+    },
+    "clientVerification": {
+      "failedContents": "No se pudo verificar esta copia de ShieldBattery, así que no puede conectarse. Descarga la última versión desde <1>nuestro sitio web</1> y reinstálala.",
+      "failedTitle": "No se pudo verificar ShieldBattery"
+    },
+    "connectionStatus": {
+      "connecting": "Conectando a ShieldBattery…"
+    },
     "notConnectedText": "No conectado"
   },
   "news": {
@@ -2665,9 +2678,12 @@
   },
   "rootErrorBoundary": {
     "contents": "Infórmanos de este problema en nuestro <2>Discord</2>.",
+    "loadFailedContents": "Revisa tu conexión a internet y vuelve a intentarlo.",
+    "loadFailedTitle": "No se pudo cargar esta página",
     "reloadApp": "Recargar aplicación",
     "reportBug": "Reportar un error",
-    "title": "Algo salió mal :("
+    "title": "Algo salió mal :(",
+    "tryAgain": "Reintentar"
   },
   "settings": {
     "activity": {
