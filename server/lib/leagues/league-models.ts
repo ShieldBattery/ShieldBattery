@@ -502,8 +502,14 @@ export async function unbanLeagueUser(leagueUser: LeagueUser, withClient?: DbCli
   }
 }
 
+/** A player's entry in a running league, along with when that league runs. */
+export interface ActiveLeagueUser extends LeagueUser {
+  leagueStartAt: Date
+  leagueEndAt: Date
+}
+
 /**
- * Returns a Map of `userId` -> `LeagueUser`s for all specified users where the leagues are of
+ * Returns a Map of `userId` -> `ActiveLeagueUser`s for all specified users where the leagues are of
  * `matchmakingType` and running as of `atDate`, locking every returned `league_users` row against
  * other transactions until this one completes.
  *
@@ -519,9 +525,9 @@ export async function getActiveLeaguesForUsersWithLock(
   matchmakingType: MatchmakingType,
   atDate: Date,
   client: DbClient,
-): Promise<Map<SbUserId, LeagueUser[]>> {
-  const result = await client.query(sql`
-    SELECT lu.*
+): Promise<Map<SbUserId, ActiveLeagueUser[]>> {
+  const result = await client.query<Dbify<ActiveLeagueUser>>(sql`
+    SELECT lu.*, l.start_at AS league_start_at, l.end_at AS league_end_at
     FROM league_users lu
     JOIN leagues l ON l.id = lu.league_id
     WHERE lu.user_id = ANY(${userIds})
@@ -534,9 +540,13 @@ export async function getActiveLeaguesForUsersWithLock(
     FOR UPDATE OF lu
   `)
 
-  const leaguesByUser: Map<SbUserId, LeagueUser[]> = new Map()
+  const leaguesByUser: Map<SbUserId, ActiveLeagueUser[]> = new Map()
   for (const row of result.rows) {
-    const leagueUser = convertLeagueUserFromDb(row)
+    const leagueUser: ActiveLeagueUser = {
+      ...convertLeagueUserFromDb(row),
+      leagueStartAt: row.league_start_at,
+      leagueEndAt: row.league_end_at,
+    }
     appendToMultimap(leaguesByUser, leagueUser.userId, leagueUser)
   }
 

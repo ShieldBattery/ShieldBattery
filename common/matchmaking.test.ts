@@ -30,12 +30,12 @@ describe('common/matchmaking', () => {
       expect(pointsToMatchmakingDivisionAndBounds(true, 800, 0)).toEqual([
         MatchmakingDivision.Bronze2,
         800,
-        1520,
+        1600,
       ])
       expect(pointsToMatchmakingDivisionAndBounds(true, 6560, 0)).toEqual([
         MatchmakingDivision.Platinum1,
         6560,
-        6800,
+        6880,
       ])
     })
 
@@ -43,22 +43,22 @@ describe('common/matchmaking', () => {
       expect(pointsToMatchmakingDivisionAndBounds(false, 0, 0)).toEqual([
         MatchmakingDivision.Bronze1,
         0,
-        700,
+        860,
       ])
-      expect(pointsToMatchmakingDivisionAndBounds(false, 699, 0)).toEqual([
+      expect(pointsToMatchmakingDivisionAndBounds(false, 859, 0)).toEqual([
         MatchmakingDivision.Bronze1,
         0,
-        700,
+        860,
       ])
-      expect(pointsToMatchmakingDivisionAndBounds(false, 700, 0)).toEqual([
+      expect(pointsToMatchmakingDivisionAndBounds(false, 860, 0)).toEqual([
         MatchmakingDivision.Bronze2,
-        700,
-        1400,
+        860,
+        1710,
       ])
-      expect(pointsToMatchmakingDivisionAndBounds(false, 6300, 0)).toEqual([
+      expect(pointsToMatchmakingDivisionAndBounds(false, 6720, 0)).toEqual([
         MatchmakingDivision.Platinum1,
-        6300,
-        6500,
+        6720,
+        6960,
       ])
     })
 
@@ -71,30 +71,30 @@ describe('common/matchmaking', () => {
       expect(pointsToMatchmakingDivisionAndBounds(true, 800, 2400)).toEqual([
         MatchmakingDivision.Bronze2,
         800,
-        1520,
+        1600,
       ])
       // Silver 1 has a low factor of 0 so this still makes it in
-      expect(pointsToMatchmakingDivisionAndBounds(true, 2240, 2400)).toEqual([
+      expect(pointsToMatchmakingDivisionAndBounds(true, 2400, 2400)).toEqual([
         MatchmakingDivision.Silver1,
-        2240,
-        2960 + 0.3 * 2400,
+        2400,
+        4400 + 0.75 * 2400,
       ])
-      // Silver 1 has a high factor of 0.3 so this doesn't make it into Silver 2
-      expect(pointsToMatchmakingDivisionAndBounds(true, 2940, 2400)).toEqual([
+      // Silver 1 has a high factor of 0.75 so this doesn't make it into Silver 2
+      expect(pointsToMatchmakingDivisionAndBounds(true, 4400 + 0.75 * 2400 - 1, 2400)).toEqual([
         MatchmakingDivision.Silver1,
-        2240,
-        2960 + 0.3 * 2400,
+        2400,
+        4400 + 0.75 * 2400,
       ])
 
-      expect(pointsToMatchmakingDivisionAndBounds(true, 6560 + 0.6 * 2400 - 1, 2400)).toEqual([
-        MatchmakingDivision.Gold3,
-        5840 + 0.6 * 2400,
-        6560 + 0.6 * 2400,
+      expect(pointsToMatchmakingDivisionAndBounds(true, 5600 + 2400 - 1, 2400)).toEqual([
+        MatchmakingDivision.Silver3,
+        5000 + 2400,
+        5600 + 2400,
       ])
-      expect(pointsToMatchmakingDivisionAndBounds(true, 6560 + 0.6 * 2400, 2400)).toEqual([
-        MatchmakingDivision.Platinum1,
-        6560 + 0.6 * 2400,
-        6800 + 2400,
+      expect(pointsToMatchmakingDivisionAndBounds(true, 5600 + 2400, 2400)).toEqual([
+        MatchmakingDivision.Gold1,
+        5600 + 2400,
+        5920 + 2400,
       ])
     })
   })
@@ -263,10 +263,10 @@ describe('common/matchmaking', () => {
     })
 
     it('uses the bonus pool it is given', () => {
-      expect(getDivisionBeforeRatingChange({ ...change, points: 3100 }, 0)).toBe(
+      expect(getDivisionBeforeRatingChange({ ...change, points: 4600 }, 0)).toBe(
         MatchmakingDivision.Silver2,
       )
-      expect(getDivisionBeforeRatingChange({ ...change, points: 3100 }, 2400)).toBe(
+      expect(getDivisionBeforeRatingChange({ ...change, points: 4600 }, 2400)).toBe(
         MatchmakingDivision.Silver1,
       )
     })

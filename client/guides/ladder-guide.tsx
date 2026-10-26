@@ -48,20 +48,20 @@ export function LadderGuidePage() {
         'real level within about 50 games.\n* ' +
         '**Bonus pool:** From the start of each season, everyone builds up bonus points at ' +
         '**200 per week**, whether or not they play. While you have unused bonus, each **win ' +
-        'gives double points** and each **loss costs nothing**. The pool stops growing a week ' +
-        'before the season ends, so you have time to use it up. Missing a busy week or two ' +
-        'doesn’t put you behind. Your bonus waits for you.',
+        'gives double points**, catch-up included, and each **loss costs nothing**. The pool ' +
+        'stops growing a week before the season ends, so you have time to use it up. Missing a ' +
+        'busy week or two doesn’t put you behind. Your bonus waits for you.',
     ),
     t(
       'ladder.explainer.divisions',
       '## Divisions\n\nDivisions run from Bronze 1 up through Diamond 3, then Champion. Each ' +
         'one is a range of points, and the bonus pool affects them in two ways:\n\n* **In the ' +
-        'lower divisions** (Bronze through Gold), the thresholds stay put or rise only part of ' +
-        'the way, so bonus points really help you climb.\n* **In the upper divisions** ' +
-        '(Platinum and above), the thresholds rise by the same amount as the bonus pool. At the ' +
-        'top, bonus points just keep pace with the bar. To reach Champion you have to win more ' +
-        'than you lose against strong opponents, not just keep playing.\n\nThe ladder ranks ' +
-        'everyone in a mode by points.',
+        'lower divisions** (Bronze through Silver 2), the thresholds stay put or rise only part ' +
+        'of the way, so bonus points really help you climb.\n* **From Silver 3 up**, the ' +
+        'thresholds rise by the same amount as the bonus pool. There, bonus points just keep ' +
+        'pace with the bar, so these divisions show how well you play. To reach Champion you ' +
+        'have to win more than you lose against strong opponents, not just keep playing.\n\n' +
+        'The ladder ranks everyone in a mode by points.',
     ),
     t(
       'ladder.explainer.whyPoints',

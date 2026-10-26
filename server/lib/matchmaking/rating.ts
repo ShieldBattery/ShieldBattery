@@ -9,7 +9,7 @@ import {
   wasPlayerInactive,
 } from '../../../common/matchmaking'
 import { SbUserId } from '../../../common/users/sb-user-id'
-import { LeagueUser, LeagueUserChange } from '../leagues/league-models'
+import { ActiveLeagueUser, LeagueUserChange } from '../leagues/league-models'
 import { MatchmakingRating, MatchmakingRatingChange } from './models'
 
 export interface RatingChanges {
@@ -46,7 +46,7 @@ export function calculateChangedRatings({
   /** The player's user IDs split into their respective teams. */
   teams: [teamA: SbUserId[], teamB: SbUserId[]]
   /** Any running leagues a player is participating in, grouped by user ID. */
-  activeLeagues: ReadonlyMap<SbUserId, LeagueUser[]>
+  activeLeagues: ReadonlyMap<SbUserId, ActiveLeagueUser[]>
 }): Map<SbUserId, RatingChanges> {
   const result = new Map<SbUserId, RatingChanges>()
 
@@ -211,7 +211,7 @@ function makeRatingChanges({
   opponentRating: number
   opponentUncertainty: number
   result: ReconciledResult
-  activeLeagues: ReadonlyArray<LeagueUser>
+  activeLeagues: ReadonlyArray<ActiveLeagueUser>
 }): RatingChanges {
   // Calculations are described here:
   // https://docs.google.com/document/d/1gHY9t3fe2qK2dwFjpVz6U2gaET-nc1iXhgMdOhcyDaE/view
@@ -337,7 +337,7 @@ function makeRatingChanges({
   // Calculate changes for leagues
   const leagueChanges: LeagueUserChange[] = activeLeagues.map(league => {
     const [pointsChange, _, pointsConverged] = calcPointsChange({
-      convergence: leagueConvergence(player.rating),
+      convergence: leagueConvergence(player.rating, player.uncertainty, league),
       points: league.points,
       pointsConverged: league.pointsConverged,
       teammateRatings,
@@ -378,42 +378,75 @@ interface PointsConvergence {
   isConverged(pointsWithoutBonus: number): boolean
 }
 
-/** The share of the gap to the catch-up target that a win adds on the ladder. */
+/** The share of the gap to the catch-up target that a win adds. */
 const CATCH_UP_GAP_SHARE = 0.5
 /** The most catch-up points a single ladder win can add. */
-const MAX_CATCH_UP_POINTS = 400
+const MAX_LADDER_CATCH_UP_POINTS = 400
 
 /**
- * Ladder points catch up to a target of `POINTS_FOR_RATING_TARGET_FACTOR` times the player's
- * rating minus their uncertainty, a cautious estimate of their skill. Each win adds a share of the
- * remaining gap, so the extra shrinks to nothing as points near the target and players at every
- * rating catch up over a similar number of games. A new player's uncertainty is high, so a lucky
- * run of early wins can't carry their points past what their rating will support once it settles.
+ * Points catch up to a target of `POINTS_FOR_RATING_TARGET_FACTOR` times the player's rating minus
+ * their uncertainty, a cautious estimate of their skill. Each win adds a share of the remaining gap,
+ * up to `maxExtraPoints`, so the extra shrinks to nothing as points near the target. A new player's
+ * uncertainty is high, so a lucky run of early wins can't carry their points past what their rating
+ * will support once it settles.
  *
  * The extra applies whenever points are below the target, not just until the first time they reach
  * it, so points keep following a rating that climbs later on.
  */
-function ladderConvergence(rating: number, uncertainty: number): PointsConvergence {
+function gapConvergence(
+  rating: number,
+  uncertainty: number,
+  maxExtraPoints: number,
+): PointsConvergence {
   const target = POINTS_FOR_RATING_TARGET_FACTOR * (rating - uncertainty)
   return {
     extraWinPoints: pointsWithoutBonus =>
-      Math.min(
-        MAX_CATCH_UP_POINTS,
-        Math.max(0, CATCH_UP_GAP_SHARE * (target - pointsWithoutBonus)),
-      ),
+      Math.min(maxExtraPoints, Math.max(0, CATCH_UP_GAP_SHARE * (target - pointsWithoutBonus))),
     isConverged: pointsWithoutBonus => pointsWithoutBonus >= target,
   }
 }
 
 /**
- * League points get a fixed extra per win, by rating bucket, until they first reach the bucket's
- * floor. Leagues are short, so this stays smaller than the ladder's catch-up.
+ * A ladder win adds at most a fixed number of catch-up points, so players at every rating catch up
+ * over a similar number of games.
  */
-function leagueConvergence(rating: number): PointsConvergence {
-  return {
-    extraWinPoints: (_, converged) => (converged ? 0 : getConvergencePoints(rating)),
-    isConverged: pointsWithoutBonus => arePointsConverged(rating, pointsWithoutBonus),
+function ladderConvergence(rating: number, uncertainty: number): PointsConvergence {
+  return gapConvergence(rating, uncertainty, MAX_LADDER_CATCH_UP_POINTS)
+}
+
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000
+
+/**
+ * Leagues that started before this keep the fixed per-bucket catch-up they started with, so a
+ * league's points rule never changes while it runs.
+ *
+ * TODO(2Pac): Remove this, along with the bucket rule, once every league that started before it has
+ * ended.
+ */
+const LEAGUE_GAP_CATCH_UP_START = new Date('2026-10-17T00:00:00.000Z')
+
+/**
+ * League points start at 0 for everyone and leagues run for a set number of weeks, so the most a
+ * league win can add is the player's cautious rating divided by the league's length in weeks. That
+ * takes the same number of wins to reach the target at any rating, and about 4 wins a week reaches
+ * it by the end of a league of any length. Players who play more get there sooner and stay there
+ * longer, so activity still counts, while a single win can't jump a player far past those who have
+ * played all league.
+ */
+function leagueConvergence(
+  rating: number,
+  uncertainty: number,
+  league: Readonly<ActiveLeagueUser>,
+): PointsConvergence {
+  if (league.leagueStartAt < LEAGUE_GAP_CATCH_UP_START) {
+    return {
+      extraWinPoints: (_, converged) => (converged ? 0 : getConvergencePoints(rating)),
+      isConverged: pointsWithoutBonus => arePointsConverged(rating, pointsWithoutBonus),
+    }
   }
+
+  const weeks = Math.max(1, (Number(league.leagueEndAt) - Number(league.leagueStartAt)) / WEEK_MS)
+  return gapConvergence(rating, uncertainty, Math.max(0, rating - uncertainty) / weeks)
 }
 
 function calcPointsChange({
@@ -453,16 +486,17 @@ function calcPointsChange({
     pointsChange = 1
   }
 
+  if (result === 'win') {
+    pointsChange += convergence.extraWinPoints(pointsWithoutBonus, pointsConverged)
+  }
+
   let bonusApplied = 0
   if (bonusInfo) {
-    // For wins, bonus pool can up to double the point improvement. For losses, bonus pool can
+    // For wins, bonus pool can up to double the point improvement, catch-up points included, so a
+    // player who is far below their target spends their pool quickly. For losses, bonus pool can
     // offset up to the entire amount of the point loss.
     bonusApplied = Math.min(bonusInfo.bonusAvailable, Math.abs(pointsChange))
     pointsChange = pointsChange + bonusApplied
-  }
-
-  if (result === 'win') {
-    pointsChange += convergence.extraWinPoints(pointsWithoutBonus, pointsConverged)
   }
 
   // Ensure that a player's points cannot go below 0

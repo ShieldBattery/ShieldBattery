@@ -3,7 +3,7 @@ import { ReconciledPlayerResult } from '../../../common/games/results'
 import { makeLeagueId } from '../../../common/leagues/leagues'
 import { makeSeasonId, MatchmakingSeason, MatchmakingType } from '../../../common/matchmaking'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
-import { LeagueUser } from '../leagues/league-models'
+import { ActiveLeagueUser } from '../leagues/league-models'
 import { DEFAULT_MATCHMAKING_RATING, MatchmakingRating } from './models'
 import { calculateChangedRatings } from './rating'
 
@@ -11,6 +11,7 @@ const GAME_ID = 'asdfzxcv'
 const GAME_DATE = new Date('2022-05-02T00:00:00.000Z')
 const INACTIVE_GAME_DATE = new Date('2022-05-26T00:00:00.000Z')
 const VERY_INACTIVE_GAME_DATE = new Date('2022-07-01T00:00:00.000Z')
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000
 
 const WIN: ReconciledPlayerResult = {
   result: 'win',
@@ -43,10 +44,18 @@ function createMatchmakingRating(
   }
 }
 
+// Leagues starting before 2026-10-17 keep the fixed per-bucket catch-up.
+const BUCKET_LEAGUE_START = new Date('2022-05-01T00:00:00.000Z')
+
 function createLeagueUser(
-  data: Partial<Omit<LeagueUser, 'userId' | 'leagueId'>> & { userId: number; leagueId: string },
-): LeagueUser {
+  data: Partial<Omit<ActiveLeagueUser, 'userId' | 'leagueId'>> & {
+    userId: number
+    leagueId: string
+  },
+): ActiveLeagueUser {
   return {
+    leagueStartAt: BUCKET_LEAGUE_START,
+    leagueEndAt: new Date(Number(BUCKET_LEAGUE_START) + 4 * WEEK_MS),
     lastPlayedDate: undefined,
     points: 0,
     pointsConverged: false,
@@ -1124,12 +1133,13 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
   })
 
   describe('1v1 - ladder catch-up points', () => {
-    // The player's whole bonus pool for GAME_DATE is already used, and their points dwarf an
-    // opponent rated 0, so a win's base change is the 1 point minimum and anything above that is
-    // catch-up.
+    // Unless a test says otherwise, the player's whole bonus pool for GAME_DATE (28) is already
+    // used, and their points dwarf an opponent rated 0, so a win's base change is the 1 point
+    // minimum and anything above that is catch-up.
     function pointsChangeFor(
       result: ReconciledPlayerResult,
-      player: Pick<MatchmakingRating, 'rating' | 'uncertainty' | 'points' | 'pointsConverged'>,
+      player: Pick<MatchmakingRating, 'rating' | 'uncertainty' | 'points' | 'pointsConverged'> &
+        Partial<Pick<MatchmakingRating, 'bonusUsed'>>,
     ) {
       const self = createMatchmakingRating({ userId: 1, bonusUsed: 28, ...player })
       const opponent = createMatchmakingRating({ userId: 2, rating: 0, uncertainty: 60 })
@@ -1192,6 +1202,19 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       expect(change.pointsChange).toBe(1)
     })
 
+    test('unused bonus also matches the catch-up points', () => {
+      // 401 points before bonus, but only the 28 in the pool to match them with.
+      const change = pointsChangeFor(WIN, {
+        rating: 2400,
+        uncertainty: 100,
+        points: 4800,
+        pointsConverged: false,
+        bonusUsed: 0,
+      })
+      expect(change.pointsChange).toBe(429)
+      expect(change.bonusUsedChange).toBe(28)
+    })
+
     test('a loss gets nothing extra', () => {
       const change = pointsChangeFor(LOSS, {
         rating: 2400,
@@ -1200,6 +1223,79 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         pointsConverged: false,
       })
       expect(change.pointsChange).toBeLessThan(0)
+    })
+  })
+
+  describe('1v1 - league catch-up points', () => {
+    const GAP_LEAGUE_START = new Date('2026-11-01T00:00:00.000Z')
+
+    // The opponent is rated 0, so a win from 0 league points has a base change of 48, and a win
+    // from far above that has the 1 point minimum. Anything above those is catch-up.
+    function leaguePointsChangeFor({
+      points,
+      weeks,
+      leagueStartAt = GAP_LEAGUE_START,
+    }: {
+      points: number
+      weeks: number
+      leagueStartAt?: Date
+    }) {
+      const self = createMatchmakingRating({ userId: 1, rating: 2000, uncertainty: 100 })
+      const opponent = createMatchmakingRating({ userId: 2, rating: 0, uncertainty: 60 })
+      const changes = calculateChangedRatings({
+        season: SEASON,
+        gameId: GAME_ID,
+        gameDate: GAME_DATE,
+        results: new Map([
+          [self.userId, WIN],
+          [opponent.userId, LOSS],
+        ]),
+        mmrs: [self, opponent],
+        teams: [[self.userId], [opponent.userId]],
+        activeLeagues: new Map([
+          [
+            self.userId,
+            [
+              createLeagueUser({
+                userId: self.userId,
+                leagueId: 'league-1',
+                points,
+                leagueStartAt,
+                leagueEndAt: new Date(Number(leagueStartAt) + weeks * WEEK_MS),
+              }),
+            ],
+          ],
+        ]),
+      })
+      return changes.get(self.userId)!.leagues[0]
+    }
+
+    test('a win far below the target is capped by the league length', () => {
+      // The cap is (2000 - 100) / weeks.
+      expect(leaguePointsChangeFor({ points: 0, weeks: 4 }).pointsChange).toBe(48 + 475)
+      expect(leaguePointsChangeFor({ points: 0, weeks: 2 }).pointsChange).toBe(48 + 950)
+    })
+
+    test('a win near the target gets half the remaining gap', () => {
+      // Target is 4 * (2000 - 100) = 7600.
+      const change = leaguePointsChangeFor({ points: 7500, weeks: 4 })
+      expect(change.pointsChange).toBe(1 + 50)
+      expect(change.pointsConverged).toBe(false)
+    })
+
+    test('a win at the target gets nothing extra', () => {
+      const change = leaguePointsChangeFor({ points: 7600, weeks: 4 })
+      expect(change.pointsChange).toBe(1)
+      expect(change.pointsConverged).toBe(true)
+    })
+
+    test('a league that started under the bucket rule keeps it', () => {
+      const change = leaguePointsChangeFor({
+        points: 0,
+        weeks: 4,
+        leagueStartAt: BUCKET_LEAGUE_START,
+      })
+      expect(change.pointsChange).toBe(48 + 100)
     })
   })
 

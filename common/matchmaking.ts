@@ -352,46 +352,51 @@ type MatchmakingDivisionWithBoundsAndBonusFactor = [
 ]
 
 // Divisions have a specific range of points they cover and have a separate factor for how much the
-// bonus pool applies to them. This bonus pool factor allows us to let people progress at a similar
-// rate through the lower divisions throughout the season but makes it harder to progress through
-// the upper divisions as the season goes on. (It is divided into a low and high factor to ensure
-// the division bounds are continuous)
+// bonus pool applies to them. (It is divided into a low and high factor to ensure the division
+// bounds are continuous.) An active player's points settle at about
+// `POINTS_FOR_RATING_TARGET_FACTOR` times their rating plus the bonus they've used, so a bound with
+// a factor of 1 asks the same rating of them all season, while a bound with a lower factor asks for
+// less rating as the season goes on. The lower divisions use lower factors so they mark progress
+// that bonus points help with; the divisions from Silver 3 up use a factor of 1 so they mark skill.
 const DIVISIONS_TO_POINTS_SOLO: ReadonlyArray<MatchmakingDivisionWithBoundsAndBonusFactor> = [
   [MatchmakingDivision.Bronze1, -Infinity, 800, 0, 0],
-  [MatchmakingDivision.Bronze2, 800, 1520, 0, 0],
-  [MatchmakingDivision.Bronze3, 1520, 2240, 0, 0],
-  [MatchmakingDivision.Silver1, 2240, 2960, 0, 0.3],
-  [MatchmakingDivision.Silver2, 2960, 3680, 0.3, 0.3],
-  [MatchmakingDivision.Silver3, 3680, 4400, 0.3, 0.3],
-  [MatchmakingDivision.Gold1, 4400, 5120, 0.3, 0.6],
-  [MatchmakingDivision.Gold2, 5120, 5840, 0.6, 0.6],
-  [MatchmakingDivision.Gold3, 5840, 6560, 0.6, 0.6],
-  [MatchmakingDivision.Platinum1, 6560, 6800, 0.6, 1],
-  [MatchmakingDivision.Platinum2, 6800, 7040, 1, 1],
-  [MatchmakingDivision.Platinum3, 7040, 7280, 1, 1],
-  [MatchmakingDivision.Diamond1, 7280, 7520, 1, 1],
-  [MatchmakingDivision.Diamond2, 7520, 7760, 1, 1],
-  [MatchmakingDivision.Diamond3, 7760, 8000, 1, 1],
-  [MatchmakingDivision.Champion, 8000, Infinity, 1, 1],
+  [MatchmakingDivision.Bronze2, 800, 1600, 0, 0],
+  [MatchmakingDivision.Bronze3, 1600, 2400, 0, 0],
+  [MatchmakingDivision.Silver1, 2400, 4400, 0, 0.75],
+  [MatchmakingDivision.Silver2, 4400, 5000, 0.75, 1],
+  [MatchmakingDivision.Silver3, 5000, 5600, 1, 1],
+  [MatchmakingDivision.Gold1, 5600, 5920, 1, 1],
+  [MatchmakingDivision.Gold2, 5920, 6240, 1, 1],
+  [MatchmakingDivision.Gold3, 6240, 6560, 1, 1],
+  [MatchmakingDivision.Platinum1, 6560, 6880, 1, 1],
+  [MatchmakingDivision.Platinum2, 6880, 7200, 1, 1],
+  [MatchmakingDivision.Platinum3, 7200, 7520, 1, 1],
+  [MatchmakingDivision.Diamond1, 7520, 7840, 1, 1],
+  [MatchmakingDivision.Diamond2, 7840, 8160, 1, 1],
+  [MatchmakingDivision.Diamond3, 8160, 8480, 1, 1],
+  [MatchmakingDivision.Champion, 8480, Infinity, 1, 1],
 ]
 
+// Team ratings spread less widely than 1v1 ratings, so the divisions from Gold up are narrower
+// steps of rating, with Gold starting around the 35th percentile of active team players. The lower
+// divisions are the 1v1 bounds scaled to match.
 const DIVISIONS_TO_POINTS_TEAM: ReadonlyArray<MatchmakingDivisionWithBoundsAndBonusFactor> = [
-  [MatchmakingDivision.Bronze1, -Infinity, 700, 0, 0],
-  [MatchmakingDivision.Bronze2, 700, 1400, 0, 0],
-  [MatchmakingDivision.Bronze3, 1400, 2100, 0, 0],
-  [MatchmakingDivision.Silver1, 2100, 2800, 0, 0.3],
-  [MatchmakingDivision.Silver2, 2800, 3500, 0.3, 0.3],
-  [MatchmakingDivision.Silver3, 3500, 4200, 0.3, 0.3],
-  [MatchmakingDivision.Gold1, 4200, 4900, 0.3, 0.6],
-  [MatchmakingDivision.Gold2, 4900, 5600, 0.6, 0.6],
-  [MatchmakingDivision.Gold3, 5600, 6300, 0.6, 0.6],
-  [MatchmakingDivision.Platinum1, 6300, 6500, 0.6, 1],
-  [MatchmakingDivision.Platinum2, 6500, 6700, 1, 1],
-  [MatchmakingDivision.Platinum3, 6700, 6900, 1, 1],
-  [MatchmakingDivision.Diamond1, 6900, 7100, 1, 1],
-  [MatchmakingDivision.Diamond2, 7100, 7300, 1, 1],
-  [MatchmakingDivision.Diamond3, 7300, 7500, 1, 1],
-  [MatchmakingDivision.Champion, 7500, Infinity, 1, 1],
+  [MatchmakingDivision.Bronze1, -Infinity, 860, 0, 0],
+  [MatchmakingDivision.Bronze2, 860, 1710, 0, 0],
+  [MatchmakingDivision.Bronze3, 1710, 2570, 0, 0],
+  [MatchmakingDivision.Silver1, 2570, 4710, 0, 0.75],
+  [MatchmakingDivision.Silver2, 4710, 5360, 0.75, 1],
+  [MatchmakingDivision.Silver3, 5360, 6000, 1, 1],
+  [MatchmakingDivision.Gold1, 6000, 6240, 1, 1],
+  [MatchmakingDivision.Gold2, 6240, 6480, 1, 1],
+  [MatchmakingDivision.Gold3, 6480, 6720, 1, 1],
+  [MatchmakingDivision.Platinum1, 6720, 6960, 1, 1],
+  [MatchmakingDivision.Platinum2, 6960, 7200, 1, 1],
+  [MatchmakingDivision.Platinum3, 7200, 7440, 1, 1],
+  [MatchmakingDivision.Diamond1, 7440, 7680, 1, 1],
+  [MatchmakingDivision.Diamond2, 7680, 7920, 1, 1],
+  [MatchmakingDivision.Diamond3, 7920, 8160, 1, 1],
+  [MatchmakingDivision.Champion, 8160, Infinity, 1, 1],
 ]
 
 const UNRATED_BOUNDS: Readonly<MatchmakingDivisionWithBounds> = [
@@ -546,8 +551,9 @@ export function getDivisionColor(division: MatchmakingDivision) {
 /**
  * Rating floors to be used to determine if a user is still converging towards their target league
  * point total. If they are still converging, they'll receive extra points for each win until they
- * hit the value listed here. Ladder points converge by a different rule, in
- * `server/lib/matchmaking/rating.ts`.
+ * hit the value listed here. Only leagues that started before `LEAGUE_GAP_CATCH_UP_START` in
+ * `server/lib/matchmaking/rating.ts` use these; ladder points and newer leagues converge by the
+ * rules there.
  */
 const RATING_CONVERGENCE_BUCKETS: ReadonlyArray<[minRating: number, extraPoints: number]> = [
   [1100, 30],
