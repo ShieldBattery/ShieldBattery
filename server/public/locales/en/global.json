@@ -2638,9 +2638,12 @@
   },
   "rootErrorBoundary": {
     "contents": "Please report this issue to us in our <2>Discord</2>.",
+    "loadFailedContents": "Check your internet connection and try again.",
+    "loadFailedTitle": "Couldn't load this page",
     "reloadApp": "Reload app",
     "reportBug": "Report a bug",
-    "title": "Something went wrong :("
+    "title": "Something went wrong :(",
+    "tryAgain": "Try again"
   },
   "settings": {
     "activity": {

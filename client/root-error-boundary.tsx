@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { useLayoutEffect } from 'react'
+import { useEffect, useLayoutEffect } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { DISCORD_URL } from '../common/url-constants'
@@ -128,6 +128,32 @@ function describeError(error: unknown, maxFrames = Infinity): string {
 }
 
 /**
+ * Matches what each browser engine throws when a dynamically imported chunk fails to load, plus
+ * Vite's equivalent for a chunk's CSS. These are caused by the network (the user is offline, or a
+ * deploy replaced the chunk) rather than by a bug, so retrying is the fix.
+ */
+const CHUNK_LOAD_ERROR_PATTERNS = [
+  /failed to fetch dynamically imported module/i, // Chromium
+  /error loading dynamically imported module/i, // Firefox
+  /importing a module script failed/i, // WebKit
+  /unable to preload css/i, // Vite
+]
+
+function isChunkLoadError(error: Error): boolean {
+  return CHUNK_LOAD_ERROR_PATTERNS.some(pattern => pattern.test(error.message))
+}
+
+/** Reloads the page once the browser regains a network connection. */
+function ReloadWhenOnline() {
+  useEffect(() => {
+    const onOnline = () => location.reload()
+    window.addEventListener('online', onOnline)
+    return () => window.removeEventListener('online', onOnline)
+  }, [])
+  return null
+}
+
+/**
  * A React error boundary that is intended to be attached at the application root. This should be
  * considered the error boundary of last resort, and ideally errors would be caught deeper in the
  * tree (by adding more error boundaries).
@@ -145,6 +171,10 @@ export class RootErrorBoundary extends React.Component<
   }
 
   override componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    if (isChunkLoadError(error)) {
+      logger.warning(`RootErrorBoundary caught a chunk load error: ${describeError(error)}`)
+      return
+    }
     logger.error(`RootErrorBoundary caught an error: ${describeError(error)}`)
     logger.error(`React stack:\n${errorInfo.componentStack}`)
   }
@@ -166,6 +196,7 @@ export class RootErrorBoundary extends React.Component<
           <Container>
             <ContentsErrorBoundary rootError={error} />
           </Container>
+          {isChunkLoadError(error) ? <ReloadWhenOnline /> : undefined}
         </>
       )
     }
@@ -204,6 +235,15 @@ class ContentsErrorBoundary extends React.Component<
     const { rootError } = this.props
     const { hasTranslationError } = this.state
 
+    if (isChunkLoadError(rootError)) {
+      // Nothing is broken, so retry the same page rather than resetting to the root
+      return hasTranslationError ? (
+        <StaticChunkLoadErrorContents onRetryClick={this.retry} />
+      ) : (
+        <TranslatedChunkLoadErrorContents onRetryClick={this.retry} />
+      )
+    }
+
     return hasTranslationError ? (
       <StaticErrorContents
         rootError={rootError}
@@ -217,6 +257,10 @@ class ContentsErrorBoundary extends React.Component<
         onReportBugClick={IS_ELECTRON ? this.reportBug : undefined}
       />
     )
+  }
+
+  retry = () => {
+    location.reload()
   }
 
   reloadApp = () => {
@@ -303,6 +347,38 @@ function StaticErrorContents({
         {onReportBugClick ? (
           <OutlinedButton label='Report a bug' onClick={onReportBugClick} />
         ) : undefined}
+      </Actions>
+    </>
+  )
+}
+
+interface ChunkLoadErrorContentsProps {
+  onRetryClick: () => void
+}
+
+function TranslatedChunkLoadErrorContents({ onRetryClick }: ChunkLoadErrorContentsProps) {
+  const { t } = useTranslation()
+
+  return (
+    <>
+      <TitleLarge>{t('rootErrorBoundary.loadFailedTitle', "Couldn't load this page")}</TitleLarge>
+      <Instructions>
+        {t('rootErrorBoundary.loadFailedContents', 'Check your internet connection and try again.')}
+      </Instructions>
+      <Actions>
+        <FilledButton label={t('rootErrorBoundary.tryAgain', 'Try again')} onClick={onRetryClick} />
+      </Actions>
+    </>
+  )
+}
+
+function StaticChunkLoadErrorContents({ onRetryClick }: ChunkLoadErrorContentsProps) {
+  return (
+    <>
+      <TitleLarge>Couldn't load this page</TitleLarge>
+      <Instructions>Check your internet connection and try again.</Instructions>
+      <Actions>
+        <FilledButton label='Try again' onClick={onRetryClick} />
       </Actions>
     </>
   )
