@@ -740,12 +740,7 @@ fn draw_player_cell(ui: &mut Ui, rect: Rect, player: &AlliancePlayerView) {
             vec2(RACE_INITIAL_WIDTH, rect.height()),
         ),
         &text::body(RACE_INITIAL_SIZE, BodyWeight::Medium).with_color(theme::TEXT_SECONDARY),
-        match player.race {
-            RaceView::Terran => "T",
-            RaceView::Protoss => "P",
-            RaceView::Zerg => "Z",
-            RaceView::Random => "R",
-        },
+        &race_initial(player.race),
         Align::Center,
     );
     left += RACE_INITIAL_WIDTH + CELL_GAP;
@@ -834,6 +829,16 @@ fn draw_player_cell(ui: &mut Ui, rect: Rect, player: &AlliancePlayerView) {
         ui.scope_builder(UiBuilder::new().max_rect(tag), |ui| {
             widgets::tag_sized(ui, label, style, tag.width());
         });
+    }
+}
+
+/// A race's one-character tag, matching the ones StarCraft's own alliance dialog shows.
+fn race_initial(race: RaceView) -> String {
+    match race {
+        RaceView::Zerg => tr!("alliances.raceInitialZerg", "Z"),
+        RaceView::Terran => tr!("alliances.raceInitialTerran", "T"),
+        RaceView::Protoss => tr!("alliances.raceInitialProtoss", "P"),
+        RaceView::Random => tr!("alliances.raceInitialRandom", "?"),
     }
 }
 
