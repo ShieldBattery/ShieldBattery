@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, test, vi } from 'vitest'
 import createDeferred from '../../../common/async/deferred'
 import { GameResultErrorCode } from '../../../common/games/results'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
+import { BanSource } from '../../../common/users/user-network'
 import { ParsedReplay } from '../../workers/replays/messages'
 import { parseReplay } from '../../workers/replays/replays'
 import { getUserGameRecord } from '../models/games-users'
@@ -155,6 +156,8 @@ describe('GameApi#submitGameReplay', () => {
       targetId: USER_ID,
       endTime: new Date('9001-01-01T00:00:00.000Z'),
       reason: 'Client integrity violation',
+      source: BanSource.ClientIntegrity,
+      gameId: GAME_ID,
     })
     expect(replayService.storeReplay).not.toHaveBeenCalled()
 
