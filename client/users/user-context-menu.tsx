@@ -135,6 +135,8 @@ export function useBaseUserMenuItems(userId: SbUserId) {
 
 export interface ConnectedUserContextMenuProps {
   userId: SbUserId
+  /** The profile menu omits profile navigation and debugging actions. */
+  variant?: 'context' | 'profile'
   /**
    * An optional component that will be used for rendering menu items. This component can modify
    * the menu items given before passing them for rendering.
@@ -145,6 +147,7 @@ export interface ConnectedUserContextMenuProps {
 
 export function ConnectedUserContextMenu({
   userId,
+  variant,
   UserMenu,
   popoverProps,
 }: ConnectedUserContextMenuProps) {
@@ -152,6 +155,7 @@ export function ConnectedUserContextMenu({
     <Popover {...popoverProps}>
       <ConnectedUserContextMenuContents
         userId={userId}
+        variant={variant}
         UserMenu={UserMenu}
         onDismiss={popoverProps.onDismiss}
       />
@@ -164,6 +168,7 @@ export function ConnectedUserContextMenu({
  */
 function ConnectedUserContextMenuContents({
   userId,
+  variant = 'context',
   UserMenu = DefaultUserMenu,
   onDismiss,
 }: Omit<ConnectedUserContextMenuProps, 'popoverProps'> & {
@@ -215,7 +220,7 @@ function ConnectedUserContextMenuContents({
       <LoadingItem key='loading' text={t('users.contextMenu.loadingUsers', 'Loading user…')} />,
     )
   } else {
-    if (isNavigationAvailable) {
+    if (isNavigationAvailable && variant === 'context') {
       appendToMultimap(
         items,
         MenuItemCategory.General,
@@ -231,7 +236,7 @@ function ConnectedUserContextMenuContents({
       )
     }
 
-    if (selfPermissions?.debug) {
+    if (selfPermissions?.debug && variant === 'context') {
       appendToMultimap(
         items,
         MenuItemCategory.General,

@@ -14,12 +14,14 @@ import { SbUser } from '../../common/users/sb-user'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { UserProfileJson } from '../../common/users/user-network'
 import { useHasAnyPermission } from '../admin/admin-permissions'
+import { useSelfUser } from '../auth/auth-utils'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { CommendIcon } from '../games/commend-icon'
 import { graphql } from '../gql'
 import TwitchIcon from '../icons/brands/twitch.svg?react'
 import { RaceIcon } from '../lobbies/race-icon'
-import { FilledButton } from '../material/button'
+import { FilledButton, IconButton } from '../material/button'
+import { usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { TabItem, Tabs } from '../material/tabs'
 import { Tooltip } from '../material/tooltip'
 import { CopyLinkButton } from '../navigation/copy-link-button'
@@ -60,6 +62,7 @@ import { AvailabilityDot } from './availability'
 import { ExpandableRankDisplays } from './expandable-rank-displays'
 import { ConnectedMatchHistory } from './match-history'
 import { MiniMatchHistory } from './mini-match-history'
+import { ConnectedUserContextMenu } from './user-context-menu'
 import { UserProfileSeasons } from './user-profile-seasons'
 import { UserProfileSubPage } from './user-profile-sub-page'
 import { UserRankDisplay } from './user-rank-display'
@@ -180,6 +183,7 @@ const TopSection = styled.div`
 const AvatarCircle = styled.div<{ $isLive?: boolean }>`
   width: 100px;
   height: 100px;
+  flex-shrink: 0;
   position: relative;
 
   background-color: var(--color-blue30);
@@ -314,8 +318,46 @@ const UserProfileHeaderQuery = graphql(/* GraphQL */ `
 const UsernameAndTitle = styled.div`
   ${selectableTextContainer};
   flex-grow: 1;
+  min-width: 0;
   margin-left: 24px;
 `
+
+const ProfileMenuButton = styled(IconButton)`
+  align-self: flex-start;
+  flex-shrink: 0;
+  margin-left: 16px;
+`
+
+function UserProfileActions({ userId }: { userId: SbUserId }) {
+  const { t } = useTranslation()
+  const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'bottom')
+  const [menuOpen, openMenu, closeMenu] = usePopoverController({ refreshAnchorPos })
+
+  return (
+    <>
+      <ProfileMenuButton
+        ref={anchorRef}
+        icon='more_vert'
+        title={t('users.profile.moreActions', 'More actions')}
+        ariaHasPopup='menu'
+        ariaExpanded={menuOpen}
+        onClick={openMenu}
+      />
+      <ConnectedUserContextMenu
+        userId={userId}
+        variant='profile'
+        popoverProps={{
+          open: menuOpen,
+          onDismiss: closeMenu,
+          anchorX: anchorX ?? 0,
+          anchorY: anchorY ?? 0,
+          originX: 'right',
+          originY: 'top',
+        }}
+      />
+    </>
+  )
+}
 
 const UsernameRow = styled.div`
   display: flex;
@@ -363,6 +405,7 @@ export function UserProfilePage({
   seasons,
 }: UserProfilePageProps) {
   const { t } = useTranslation()
+  const selfUser = useSelfUser()
   // TODO(tec27): Build the title feature :)
   const title = t('users.titles.novice', 'Novice')
 
@@ -467,6 +510,9 @@ export function UserProfilePage({
             ) : null}
           </ProfileMetaRow>
         </UsernameAndTitle>
+        {selfUser && selfUser.id !== user.id ? (
+          <UserProfileActions key={user.id} userId={user.id} />
+        ) : null}
       </TopSection>
 
       {liveStream ? (
