@@ -1,7 +1,5 @@
 import { ReconciledPlayerResult, ReconciledResult } from '../../../common/games/results'
 import {
-  arePointsConverged,
-  getConvergencePoints,
   getTotalBonusPoolForSeason,
   MATCHMAKING_INACTIVE_TIME_MS,
   MatchmakingSeason,
@@ -374,7 +372,7 @@ interface BonusInfo {
  * without any bonus pool applied: `extraWinPoints` as of before the game, `isConverged` after it.
  */
 interface PointsConvergence {
-  extraWinPoints(pointsWithoutBonus: number, converged: boolean): number
+  extraWinPoints(pointsWithoutBonus: number): number
   isConverged(pointsWithoutBonus: number): boolean
 }
 
@@ -417,15 +415,6 @@ function ladderConvergence(rating: number, uncertainty: number): PointsConvergen
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000
 
 /**
- * Leagues that started before this keep the fixed per-bucket catch-up they started with, so a
- * league's points rule never changes while it runs.
- *
- * TODO(2Pac): Remove this, along with the bucket rule, once every league that started before it has
- * ended.
- */
-const LEAGUE_GAP_CATCH_UP_START = new Date('2026-10-17T00:00:00.000Z')
-
-/**
  * League points start at 0 for everyone and leagues run for a set number of weeks, so the most a
  * league win can add is the player's cautious rating divided by the league's length in weeks. That
  * takes the same number of wins to reach the target at any rating, and about 4 wins a week reaches
@@ -438,13 +427,6 @@ function leagueConvergence(
   uncertainty: number,
   league: Readonly<ActiveLeagueUser>,
 ): PointsConvergence {
-  if (league.leagueStartAt < LEAGUE_GAP_CATCH_UP_START) {
-    return {
-      extraWinPoints: (_, converged) => (converged ? 0 : getConvergencePoints(rating)),
-      isConverged: pointsWithoutBonus => arePointsConverged(rating, pointsWithoutBonus),
-    }
-  }
-
   const weeks = Math.max(1, (Number(league.leagueEndAt) - Number(league.leagueStartAt)) / WEEK_MS)
   return gapConvergence(rating, uncertainty, Math.max(0, rating - uncertainty) / weeks)
 }
@@ -487,7 +469,7 @@ function calcPointsChange({
   }
 
   if (result === 'win') {
-    pointsChange += convergence.extraWinPoints(pointsWithoutBonus, pointsConverged)
+    pointsChange += convergence.extraWinPoints(pointsWithoutBonus)
   }
 
   let bonusApplied = 0

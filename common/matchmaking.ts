@@ -548,42 +548,6 @@ export function getDivisionColor(division: MatchmakingDivision) {
   }
 }
 
-/**
- * Rating floors to be used to determine if a user is still converging towards their target league
- * point total. If they are still converging, they'll receive extra points for each win until they
- * hit the value listed here. Only leagues that started before `LEAGUE_GAP_CATCH_UP_START` in
- * `server/lib/matchmaking/rating.ts` use these; ladder points and newer leagues converge by the
- * rules there.
- */
-const RATING_CONVERGENCE_BUCKETS: ReadonlyArray<[minRating: number, extraPoints: number]> = [
-  [1100, 30],
-  [1280, 65],
-  [1460, 100],
-]
-
-function getRatingConvergenceBucket(rating: number) {
-  let index = 0
-  for (
-    ;
-    index < RATING_CONVERGENCE_BUCKETS.length - 1 &&
-    RATING_CONVERGENCE_BUCKETS[index + 1][0] <= rating;
-    index++
-  ) {
-    // This space intentionally left blank
-  }
-  return RATING_CONVERGENCE_BUCKETS[index]
-}
-
-export function getConvergencePoints(rating: number): number {
-  const [_, extraPoints] = getRatingConvergenceBucket(rating)
-  return extraPoints
-}
-
-export function arePointsConverged(rating: number, points: number): boolean {
-  const [minRating, _] = getRatingConvergenceBucket(rating)
-  return points >= minRating * 4
-}
-
 /** How many matches a user must play before we show them a rating. */
 export const NUM_PLACEMENT_MATCHES = 5
 

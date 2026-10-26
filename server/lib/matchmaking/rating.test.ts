@@ -44,8 +44,7 @@ function createMatchmakingRating(
   }
 }
 
-// Leagues starting before 2026-10-17 keep the fixed per-bucket catch-up.
-const BUCKET_LEAGUE_START = new Date('2022-05-01T00:00:00.000Z')
+const LEAGUE_START = new Date('2022-05-01T00:00:00.000Z')
 
 function createLeagueUser(
   data: Partial<Omit<ActiveLeagueUser, 'userId' | 'leagueId'>> & {
@@ -54,8 +53,8 @@ function createLeagueUser(
   },
 ): ActiveLeagueUser {
   return {
-    leagueStartAt: BUCKET_LEAGUE_START,
-    leagueEndAt: new Date(Number(BUCKET_LEAGUE_START) + 4 * WEEK_MS),
+    leagueStartAt: LEAGUE_START,
+    leagueEndAt: new Date(Number(LEAGUE_START) + 4 * WEEK_MS),
     lastPlayedDate: undefined,
     points: 0,
     pointsConverged: false,
@@ -1227,19 +1226,9 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
   })
 
   describe('1v1 - league catch-up points', () => {
-    const GAP_LEAGUE_START = new Date('2026-11-01T00:00:00.000Z')
-
     // The opponent is rated 0, so a win from 0 league points has a base change of 48, and a win
     // from far above that has the 1 point minimum. Anything above those is catch-up.
-    function leaguePointsChangeFor({
-      points,
-      weeks,
-      leagueStartAt = GAP_LEAGUE_START,
-    }: {
-      points: number
-      weeks: number
-      leagueStartAt?: Date
-    }) {
+    function leaguePointsChangeFor({ points, weeks }: { points: number; weeks: number }) {
       const self = createMatchmakingRating({ userId: 1, rating: 2000, uncertainty: 100 })
       const opponent = createMatchmakingRating({ userId: 2, rating: 0, uncertainty: 60 })
       const changes = calculateChangedRatings({
@@ -1260,8 +1249,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
                 userId: self.userId,
                 leagueId: 'league-1',
                 points,
-                leagueStartAt,
-                leagueEndAt: new Date(Number(leagueStartAt) + weeks * WEEK_MS),
+                leagueEndAt: new Date(Number(LEAGUE_START) + weeks * WEEK_MS),
               }),
             ],
           ],
@@ -1287,15 +1275,6 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
       const change = leaguePointsChangeFor({ points: 7600, weeks: 4 })
       expect(change.pointsChange).toBe(1)
       expect(change.pointsConverged).toBe(true)
-    })
-
-    test('a league that started under the bucket rule keeps it', () => {
-      const change = leaguePointsChangeFor({
-        points: 0,
-        weeks: 4,
-        leagueStartAt: BUCKET_LEAGUE_START,
-      })
-      expect(change.pointsChange).toBe(48 + 100)
     })
   })
 
@@ -1340,8 +1319,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
             "gameId": "asdfzxcv",
             "leagueId": "league-1",
             "outcome": "win",
-            "points": 195.98293155291043,
-            "pointsChange": 195.98293155291043,
+            "points": 383.48293155291043,
+            "pointsChange": 383.48293155291043,
             "pointsConverged": false,
             "userId": 1,
           },
@@ -1350,8 +1329,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
             "gameId": "asdfzxcv",
             "leagueId": "league-2",
             "outcome": "win",
-            "points": 4090.8889393406057,
-            "pointsChange": 90.88893934060584,
+            "points": 4378.388939340606,
+            "pointsChange": 378.3889393406058,
             "pointsConverged": true,
             "userId": 1,
           },
@@ -2425,8 +2404,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
             "gameId": "asdfzxcv",
             "leagueId": "league-1",
             "outcome": "win",
-            "points": 5870.704029917078,
-            "pointsChange": 120.70402991707724,
+            "points": 5805.704029917078,
+            "pointsChange": 55.704029917077236,
             "pointsConverged": true,
             "userId": 3,
           },
@@ -2435,8 +2414,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
             "gameId": "asdfzxcv",
             "leagueId": "league-2",
             "outcome": "win",
-            "points": 659.437236462308,
-            "pointsChange": 159.43723646230796,
+            "points": 869.437236462308,
+            "pointsChange": 369.43723646230796,
             "pointsConverged": false,
             "userId": 3,
           },
