@@ -1,6 +1,12 @@
 import styled from 'styled-components'
-import { MatchmakingType, POINTS_FOR_RATING_TARGET_FACTOR } from '../../../common/matchmaking'
+import {
+  DivisionContext,
+  MatchmakingType,
+  POINTS_FOR_RATING_TARGET_FACTOR,
+} from '../../../common/matchmaking'
 import { RankIcon, UnratedIcon } from '../rank-icon'
+
+const DIVISION_CONTEXT: DivisionContext = { bonusPool: 0 }
 
 const Container = styled.div`
   display: flex;
@@ -47,21 +53,25 @@ export function RankIconsTest() {
         </Row>
 
         <Row>
-          <RankIcon matchmakingType={MatchmakingType.Match1v1} points={1} bonusPool={0} />
+          <RankIcon
+            matchmakingType={MatchmakingType.Match1v1}
+            points={1}
+            divisionContext={DIVISION_CONTEXT}
+          />
           <RankIcon
             matchmakingType={MatchmakingType.Match1v1}
             points={150 * POINTS_FOR_RATING_TARGET_FACTOR}
-            bonusPool={0}
+            divisionContext={DIVISION_CONTEXT}
           />
           <RankIcon
             matchmakingType={MatchmakingType.Match1v1}
             points={300 * POINTS_FOR_RATING_TARGET_FACTOR}
-            bonusPool={0}
+            divisionContext={DIVISION_CONTEXT}
           />
           <RankIcon
             matchmakingType={MatchmakingType.Match1v1}
             points={400 * POINTS_FOR_RATING_TARGET_FACTOR}
-            bonusPool={0}
+            divisionContext={DIVISION_CONTEXT}
           />
         </Row>
 
@@ -69,17 +79,17 @@ export function RankIconsTest() {
           <RankIcon
             matchmakingType={MatchmakingType.Match1v1}
             points={600 * POINTS_FOR_RATING_TARGET_FACTOR}
-            bonusPool={0}
+            divisionContext={DIVISION_CONTEXT}
           />
           <RankIcon
             matchmakingType={MatchmakingType.Match1v1}
             points={900 * POINTS_FOR_RATING_TARGET_FACTOR}
-            bonusPool={0}
+            divisionContext={DIVISION_CONTEXT}
           />
           <RankIcon
             matchmakingType={MatchmakingType.Match1v1}
             points={1000 * POINTS_FOR_RATING_TARGET_FACTOR}
-            bonusPool={0}
+            divisionContext={DIVISION_CONTEXT}
           />
         </Row>
 
@@ -87,17 +97,17 @@ export function RankIconsTest() {
           <RankIcon
             matchmakingType={MatchmakingType.Match1v1}
             points={1200 * POINTS_FOR_RATING_TARGET_FACTOR}
-            bonusPool={0}
+            divisionContext={DIVISION_CONTEXT}
           />
           <RankIcon
             matchmakingType={MatchmakingType.Match1v1}
             points={1400 * POINTS_FOR_RATING_TARGET_FACTOR}
-            bonusPool={0}
+            divisionContext={DIVISION_CONTEXT}
           />
           <RankIcon
             matchmakingType={MatchmakingType.Match1v1}
             points={1600 * POINTS_FOR_RATING_TARGET_FACTOR}
-            bonusPool={0}
+            divisionContext={DIVISION_CONTEXT}
           />
         </Row>
 
@@ -105,17 +115,17 @@ export function RankIconsTest() {
           <RankIcon
             matchmakingType={MatchmakingType.Match1v1}
             points={1650 * POINTS_FOR_RATING_TARGET_FACTOR}
-            bonusPool={0}
+            divisionContext={DIVISION_CONTEXT}
           />
           <RankIcon
             matchmakingType={MatchmakingType.Match1v1}
             points={1750 * POINTS_FOR_RATING_TARGET_FACTOR}
-            bonusPool={0}
+            divisionContext={DIVISION_CONTEXT}
           />
           <RankIcon
             matchmakingType={MatchmakingType.Match1v1}
             points={1800 * POINTS_FOR_RATING_TARGET_FACTOR}
-            bonusPool={0}
+            divisionContext={DIVISION_CONTEXT}
           />
         </Row>
 
@@ -123,22 +133,22 @@ export function RankIconsTest() {
           <RankIcon
             matchmakingType={MatchmakingType.Match1v1}
             points={1850 * POINTS_FOR_RATING_TARGET_FACTOR}
-            bonusPool={0}
+            divisionContext={DIVISION_CONTEXT}
           />
           <RankIcon
             matchmakingType={MatchmakingType.Match1v1}
             points={1900 * POINTS_FOR_RATING_TARGET_FACTOR}
-            bonusPool={0}
+            divisionContext={DIVISION_CONTEXT}
           />
           <RankIcon
             matchmakingType={MatchmakingType.Match1v1}
             points={1950 * POINTS_FOR_RATING_TARGET_FACTOR}
-            bonusPool={0}
+            divisionContext={DIVISION_CONTEXT}
           />
           <RankIcon
             matchmakingType={MatchmakingType.Match1v1}
             points={2800 * POINTS_FOR_RATING_TARGET_FACTOR}
-            bonusPool={0}
+            divisionContext={DIVISION_CONTEXT}
           />
         </Row>
       </Column>
@@ -148,7 +158,7 @@ export function RankIconsTest() {
             matchmakingType={MatchmakingType.Match1v1}
             points={2500 * POINTS_FOR_RATING_TARGET_FACTOR}
             size={22}
-            bonusPool={0}
+            divisionContext={DIVISION_CONTEXT}
           />
         </Row>
         <Row>
@@ -156,7 +166,7 @@ export function RankIconsTest() {
             matchmakingType={MatchmakingType.Match1v1}
             points={2500 * POINTS_FOR_RATING_TARGET_FACTOR}
             size={44}
-            bonusPool={0}
+            divisionContext={DIVISION_CONTEXT}
           />
         </Row>
         <Row>
@@ -164,7 +174,7 @@ export function RankIconsTest() {
             matchmakingType={MatchmakingType.Match1v1}
             points={2500 * POINTS_FOR_RATING_TARGET_FACTOR}
             size={176}
-            bonusPool={0}
+            divisionContext={DIVISION_CONTEXT}
           />
         </Row>
       </Column>

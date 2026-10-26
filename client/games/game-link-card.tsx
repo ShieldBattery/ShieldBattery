@@ -19,8 +19,8 @@ import { ResultsSubPage } from '../../common/games/results-sub-page'
 import { MapInfoJson } from '../../common/maps'
 import {
   getDivisionBeforeRatingChange,
+  getDivisionContext,
   GetMatchmakingSeasonsResponse,
-  getTotalBonusPoolForSeason,
   MatchmakingDivision,
   matchmakingDivisionToLabel,
   MatchmakingSeasonJson,
@@ -293,14 +293,15 @@ function useGameLinkState(gameId: string): GameLinkLoadState | undefined {
       return undefined
     }
 
-    const bonusPool =
-      isRanked && season ? getTotalBonusPoolForSeason(new Date(game.startTime), season) : undefined
+    const divisionContext =
+      isRanked && season ? getDivisionContext(new Date(game.startTime), season) : undefined
     const divisionById =
-      mmrChanges && bonusPool !== undefined
+      mmrChanges && divisionContext
         ? new Map(
             Array.from(
               mmrChanges.values(),
-              change => [change.userId, getDivisionBeforeRatingChange(change, bonusPool)] as const,
+              change =>
+                [change.userId, getDivisionBeforeRatingChange(change, divisionContext)] as const,
             ),
           )
         : undefined

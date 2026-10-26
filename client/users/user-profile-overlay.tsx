@@ -9,7 +9,7 @@ import {
   ladderPlayerToMatchmakingDivision,
 } from '../../common/ladder/ladder'
 import {
-  getTotalBonusPoolForSeason,
+  getDivisionContext,
   matchmakingDivisionToLabel,
   MatchmakingSeasonJson,
   MatchmakingType,
@@ -466,14 +466,14 @@ function RankDisplay({
 }) {
   const { t } = useTranslation()
   const currentMinuteMs = useCurrentMinuteMs()
-  const bonusPool = getTotalBonusPoolForSeason(new Date(currentMinuteMs), season)
-  const division = ladderPlayerToMatchmakingDivision(ladderPlayer, bonusPool)
+  const divisionContext = getDivisionContext(new Date(currentMinuteMs), season)
+  const division = ladderPlayerToMatchmakingDivision(ladderPlayer, divisionContext)
   const divisionLabel = matchmakingDivisionToLabel(division, t)
 
   return (
     <RankDisplayRoot>
       <Tooltip text={divisionLabel} position={'top'}>
-        <DivisionIcon player={ladderPlayer} size={88} bonusPool={bonusPool} />
+        <DivisionIcon player={ladderPlayer} size={88} divisionContext={divisionContext} />
       </Tooltip>
       <RankDisplayType>{matchmakingTypeToLabel(matchmakingType, t)}</RankDisplayType>
     </RankDisplayRoot>

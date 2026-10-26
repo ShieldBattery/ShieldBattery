@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { LadderPlayer } from '../../common/ladder/ladder'
 import {
-  isSoloType,
+  DivisionContext,
   MatchmakingDivision,
   matchmakingDivisionToLabel,
   MatchmakingType,
@@ -12,7 +12,7 @@ import { makePublicAssetUrl } from '../network/server-url'
 
 export interface RankIconProps {
   points: number
-  bonusPool: number
+  divisionContext: Readonly<DivisionContext>
   matchmakingType: MatchmakingType
   className?: string
   /** The pixel size the icon will be displayed at. Defaults to 88px. */
@@ -32,12 +32,12 @@ const StyledImage = styled.img`
 
 export function RankIcon({
   points,
-  bonusPool,
+  divisionContext,
   matchmakingType,
   className,
   size = 88,
 }: RankIconProps) {
-  const division = pointsToMatchmakingDivision(isSoloType(matchmakingType), points, bonusPool)
+  const division = pointsToMatchmakingDivision(matchmakingType, points, divisionContext)
   return <DivisionIcon className={className} size={size} division={division} />
 }
 
@@ -85,20 +85,25 @@ export function DivisionIcon({ className, division, size }: DivisionIconProps) {
 
 export interface LadderPlayerIconProps {
   player: Readonly<LadderPlayer>
-  bonusPool: number
+  divisionContext: Readonly<DivisionContext>
   className?: string
   /** The pixel size the icon will be displayed at. Defaults to 88px. */
   size?: number
 }
 
-export function LadderPlayerIcon({ player, bonusPool, className, size }: LadderPlayerIconProps) {
+export function LadderPlayerIcon({
+  player,
+  divisionContext,
+  className,
+  size,
+}: LadderPlayerIconProps) {
   if (player.wins + player.losses === 0) {
     return <UnratedIcon className={className} size={size} />
   } else {
     return (
       <RankIcon
         points={player.points}
-        bonusPool={bonusPool}
+        divisionContext={divisionContext}
         matchmakingType={player.matchmakingType}
         className={className}
         size={size}

@@ -23,8 +23,8 @@ import { ladderPlayerToMatchmakingDivision } from '../../../common/ladder/ladder
 import { SlotType } from '../../../common/lobbies/slot'
 import { MapInfo } from '../../../common/maps'
 import {
+  getDivisionContext,
   getMatchmakingModeInfo,
-  getTotalBonusPoolForSeason,
   MatchCanceledReason,
   MATCHMAKING_ACCEPT_MATCH_TIME_MS,
   MatchmakingCompletionType,
@@ -424,10 +424,10 @@ async function getPlayerRanks(
   now: Date,
 ): Promise<GamePlayerRank[]> {
   const mmrs = await getManyMatchmakingRatings(userIds, matchmakingType, season.id)
-  const bonusPool = getTotalBonusPoolForSeason(now, season)
+  const divisionContext = getDivisionContext(now, season)
   return mmrs.map(mmr => ({
     userId: mmr.userId,
-    division: ladderPlayerToMatchmakingDivision(mmr, bonusPool),
+    division: ladderPlayerToMatchmakingDivision(mmr, divisionContext),
     rating: mmr.lifetimeGames >= NUM_PLACEMENT_MATCHES ? mmr.rating : undefined,
   }))
 }

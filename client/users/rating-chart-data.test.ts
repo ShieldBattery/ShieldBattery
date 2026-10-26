@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { MatchmakingDivision } from '../../common/matchmaking'
+import { MatchmakingDivision, MatchmakingType } from '../../common/matchmaking'
 import {
   bandOpacity,
   buildSeasonBands,
@@ -14,6 +14,8 @@ import {
 const DAY = 24 * 60 * 60 * 1000
 const SEASON_LENGTH = 120 * DAY
 const START = Date.UTC(2025, 0, 1)
+const SOLO = MatchmakingType.Match1v1
+const TEAM = MatchmakingType.Match2v2
 
 function season(id: number, resetMmr: boolean): RatingChartSeason {
   return {
@@ -111,18 +113,18 @@ describe('buildSeasonBands', () => {
   const now = START + 3 * SEASON_LENGTH
 
   test('produces one group per season present in the data', () => {
-    const groups = buildSeasonBands(history, seasons, true, now)
+    const groups = buildSeasonBands(history, seasons, SOLO, now)
     expect(groups.map(g => g.seasonId)).toEqual([1, 2, 3])
   })
 
   test('skips seasons the player did not play', () => {
     const onlyLast = games(3, 4, () => 1700)
-    const groups = buildSeasonBands(onlyLast, seasons, true, now)
+    const groups = buildSeasonBands(onlyLast, seasons, SOLO, now)
     expect(groups.map(g => g.seasonId)).toEqual([3])
   })
 
   test('spans tile without gaps, so bands meet at the boundary', () => {
-    const groups = buildSeasonBands(history, seasons, true, now)
+    const groups = buildSeasonBands(history, seasons, SOLO, now)
     for (let i = 0; i < groups.length - 1; i++) {
       expect(groups[i].to).toBe(groups[i + 1].from)
     }
@@ -133,7 +135,7 @@ describe('buildSeasonBands', () => {
     // season ten days old has accrued almost none of its pool. Drawing it against a
     // completed season's bounds would place the player a division or two too low.
     const tenDaysIn = START + 2 * SEASON_LENGTH + 10 * DAY
-    const groups = buildSeasonBands(history, seasons, true, tenDaysIn)
+    const groups = buildSeasonBands(history, seasons, SOLO, tenDaysIn)
     const goldOf = (g: (typeof groups)[number]) =>
       g.bands.find(b => b.division === MatchmakingDivision.Gold1)!.low
 
@@ -141,7 +143,7 @@ describe('buildSeasonBands', () => {
   })
 
   test('completed seasons of equal length share bounds', () => {
-    const groups = buildSeasonBands(history, seasons, true, now)
+    const groups = buildSeasonBands(history, seasons, SOLO, now)
     const goldOf = (g: (typeof groups)[number]) =>
       g.bands.find(b => b.division === MatchmakingDivision.Gold1)!.low
     expect(goldOf(groups[0])).toBe(goldOf(groups[1]))
@@ -152,22 +154,38 @@ describe('buildSeasonBands', () => {
     // newest season has no following season to bound it, so it keeps accruing — which is
     // right while it's live, and means its bounds sit slightly above an equally-long
     // completed season once it's over.
-    const groups = buildSeasonBands(history, seasons, true, now)
+    const groups = buildSeasonBands(history, seasons, SOLO, now)
     const goldOf = (g: (typeof groups)[number]) =>
       g.bands.find(b => b.division === MatchmakingDivision.Gold1)!.low
     expect(goldOf(groups[2])).toBeGreaterThan(goldOf(groups[0]))
   })
 
   test('solo and team ladders have different bounds', () => {
-    const solo = buildSeasonBands(history, seasons, true, now)
-    const team = buildSeasonBands(history, seasons, false, now)
+    const solo = buildSeasonBands(history, seasons, SOLO, now)
+    const team = buildSeasonBands(history, seasons, TEAM, now)
     const lowOf = (groups: typeof solo) =>
       groups[0].bands.find(b => b.division === MatchmakingDivision.Gold1)!.low
     expect(lowOf(solo)).not.toBe(lowOf(team))
   })
 
+  test("uses each season's own rating offsets", () => {
+    const offsetSeasons = [
+      season(1, true),
+      { ...season(2, false), divisionRatingOffsets: { [MatchmakingType.Match3v3Bgh]: 100 } },
+      { ...season(3, true), divisionRatingOffsets: { [MatchmakingType.Match3v3Bgh]: 50 } },
+    ]
+    const groups = buildSeasonBands(history, offsetSeasons, MatchmakingType.Match3v3Bgh, now)
+    const plain = buildSeasonBands(history, seasons, MatchmakingType.Match3v3Bgh, now)
+    const goldOf = (g: (typeof groups)[number]) =>
+      g.bands.find(b => b.division === MatchmakingDivision.Gold1)!.low
+
+    expect(goldOf(groups[0])).toBe(goldOf(plain[0]))
+    expect(goldOf(groups[1])).toBe(goldOf(plain[1]) - 400)
+    expect(goldOf(groups[2])).toBe(goldOf(plain[2]) - 200)
+  })
+
   test('covers the whole ladder, Bronze through Champion', () => {
-    const groups = buildSeasonBands(history, seasons, true, now)
+    const groups = buildSeasonBands(history, seasons, SOLO, now)
     const divisions = groups[0].bands.map(b => b.division)
     expect(divisions[0]).toBe(MatchmakingDivision.Bronze1)
     expect(divisions[divisions.length - 1]).toBe(MatchmakingDivision.Champion)
@@ -179,7 +197,7 @@ describe('buildSeasonBands', () => {
     // 17 seasons is roughly five years of ladder, which is what a veteran profile hits.
     const many = Array.from({ length: 17 }, (_, i) => season(i + 1, i % 3 === 0))
     const longHistory = many.flatMap(s => games(s.id, 40, () => 1500 + s.id * 10))
-    const groups = buildSeasonBands(longHistory, many, true, START + 17 * SEASON_LENGTH)
+    const groups = buildSeasonBands(longHistory, many, SOLO, START + 17 * SEASON_LENGTH)
 
     expect(groups).toHaveLength(17)
     expect(new Set(groups.map(g => g.seasonId)).size).toBe(17)

@@ -11,7 +11,7 @@ import {
   YAxis,
 } from 'recharts'
 import styled from 'styled-components'
-import { getDivisionColor } from '../../common/matchmaking'
+import { getDivisionColor, MatchmakingType } from '../../common/matchmaking'
 import { longTimestamp, monthDay } from '../i18n/date-formats'
 import { useFormat } from '../i18n/locale-formats'
 import { bodyMedium } from '../styles/typography'
@@ -44,13 +44,13 @@ export function RatingChart({
   points,
   seasons,
   metric,
-  solo,
+  matchmakingType,
   showSeasonBoundaries,
 }: {
   points: ReadonlyArray<RatingChartPoint>
   seasons: ReadonlyArray<RatingChartSeason>
   metric: RatingMetric
-  solo: boolean
+  matchmakingType: MatchmakingType
   showSeasonBoundaries: boolean
 }) {
   const { t } = useTranslation()
@@ -61,7 +61,7 @@ export function RatingChart({
   // everything below (runs, extent, axis, boundaries) works from the plotted subset.
   const plotted = pointsForMetric(points, metric)
   const runs = splitOnDiscontinuity(plotted, seasons, metric)
-  const bandGroups = metric === 'points' ? buildSeasonBands(plotted, seasons, solo) : []
+  const bandGroups = metric === 'points' ? buildSeasonBands(plotted, seasons, matchmakingType) : []
   const ticks = showSeasonBoundaries ? seasonAxisTicks(plotted, seasons) : undefined
 
   if (!plotted.length) {

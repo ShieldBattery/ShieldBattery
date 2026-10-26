@@ -3,8 +3,8 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import {
-  getTotalBonusPoolForSeason,
-  isSoloType,
+  DivisionContext,
+  getDivisionContext,
   makeSeasonId,
   MatchmakingDivision,
   matchmakingDivisionToLabel,
@@ -96,12 +96,12 @@ const LiveGames_FeedEntryFragment = graphql(/* GraphQL */ `
  */
 export function getCurrentDivision(
   rank: Readonly<{ matchmakingType: MatchmakingType; points: number; lifetimeGames: number }>,
-  bonusPool: number,
+  divisionContext: Readonly<DivisionContext>,
 ): MatchmakingDivision {
   if (rank.lifetimeGames < NUM_PLACEMENT_MATCHES) {
     return MatchmakingDivision.Unrated
   }
-  return pointsToMatchmakingDivision(isSoloType(rank.matchmakingType), rank.points, bonusPool)
+  return pointsToMatchmakingDivision(rank.matchmakingType, rank.points, divisionContext)
 }
 
 const EntryRoot = styled(LinkButton)`
@@ -175,11 +175,12 @@ export function LiveGameEntry({
     return null
   }
 
-  // Divisions are left out until the season (whose bonus pool places points into them) is loaded.
-  const bonusPool = season ? getTotalBonusPoolForSeason(new Date(now), season) : undefined
+  // Divisions are left out until the season (whose bonus pool and rating offsets place points into
+  // them) is loaded.
+  const divisionContext = season ? getDivisionContext(new Date(now), season) : undefined
   const divisionById = new Map<SbUserId, MatchmakingDivision>(
-    bonusPool !== undefined
-      ? game.currentRanks.map(rank => [rank.userId, getCurrentDivision(rank, bonusPool)])
+    divisionContext
+      ? game.currentRanks.map(rank => [rank.userId, getCurrentDivision(rank, divisionContext)])
       : [],
   )
 

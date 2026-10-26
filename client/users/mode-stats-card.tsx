@@ -2,7 +2,7 @@ import * as m from 'motion/react-m'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { isSoloType, MATCHMAKING_MODES, MatchmakingType } from '../../common/matchmaking'
+import { MATCHMAKING_MODES, MatchmakingType } from '../../common/matchmaking'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { buttonReset } from '../material/button-reset'
 import { SelectOption } from '../material/select/option'
@@ -284,7 +284,7 @@ export function ModeStatsCard({
                 points={points}
                 seasons={seasons}
                 metric={metric}
-                solo={isSoloType(matchmakingType)}
+                matchmakingType={matchmakingType}
                 showSeasonBoundaries={season === ALL_SEASONS}
               />
               {downsampled ? (

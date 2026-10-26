@@ -1,5 +1,5 @@
 import {
-  isSoloType,
+  DivisionContext,
   MatchmakingDivision,
   MatchmakingSeasonJson,
   MatchmakingType,
@@ -30,12 +30,12 @@ export interface LadderPlayer extends RaceStats {
 
 export function ladderPlayerToMatchmakingDivision(
   player: Readonly<Pick<LadderPlayer, 'matchmakingType' | 'points' | 'wins' | 'losses'>>,
-  bonusPool: number,
+  divisionContext: Readonly<DivisionContext>,
 ): MatchmakingDivision {
   if (!player.points && player.wins + player.losses === 0) {
     return MatchmakingDivision.Unrated
   } else {
-    return pointsToMatchmakingDivision(isSoloType(player.matchmakingType), player.points, bonusPool)
+    return pointsToMatchmakingDivision(player.matchmakingType, player.points, divisionContext)
   }
 }
 
