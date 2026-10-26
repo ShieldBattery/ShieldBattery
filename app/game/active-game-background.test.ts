@@ -1,4 +1,5 @@
-﻿import { promises as fs } from 'node:fs'
+﻿import { EventEmitter } from 'node:events'
+import { promises as fs } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
@@ -15,6 +16,7 @@ vi.mock('electron', () => ({
   app: { getAppPath: () => 'C:\\fake-app', getPath: () => runtime.root },
   screen: { getAllDisplays: () => [] },
 }))
+vi.mock('electron-is-dev', () => ({ default: false }))
 vi.mock('@shieldbattery/windows-registry', () => ({
   HKCU: 'HKCU',
   REG_SZ: 'REG_SZ',
@@ -56,22 +58,23 @@ afterEach(async () => {
 })
 
 function createManager() {
-  const settings = {
+  const settings = Object.assign(new EventEmitter(), {
     get: vi.fn(async () => ({ ...DEFAULT_LOCAL_SETTINGS, starcraftPath: 'C:\\StarCraft' })),
-  }
+  })
   const scr = {
     gameFilepath: path.join(runtime.root, 'player-CSettings.json'),
     get: vi.fn(async () => DEFAULT_SCR_SETTINGS),
     writeGameSettingsFile: vi.fn(async () => {}),
     syncWithGameSettingsFile: vi.fn(async () => {}),
   }
-  const manager = new ActiveGameManager({} as any, settings as any, scr as any)
+  const mapStore = { getPath: () => path.join(runtime.root, 'test.scx') }
+  const manager = new ActiveGameManager(mapStore as any, settings as any, scr as any)
   const config = {
     presentation: 'background',
     localUser: { id: 0, name: 'Test' },
     blockedUsers: [],
     serverConfig: { serverUrl: 'http://localhost' },
-    setup: { gameId: 'test', map: { isReplay: true, path: 'test.rep' }, slots: [] },
+    setup: { gameId: 'test', map: { hash: 'test', mapData: { format: 'scx' } }, slots: [] },
   } as unknown as GameLaunchConfig
   return { manager, config, scr }
 }
@@ -99,6 +102,36 @@ test('background launch uses its own settings through exit without reading or sy
   expect(JSON.parse(await fs.readFile(payload.settingsFilePath, 'utf8')).HDPreferences).toBe(false)
   expect(scr.get).not.toHaveBeenCalled()
   expect(scr.writeGameSettingsFile).not.toHaveBeenCalled()
+  exit(0)
+  await vi.waitFor(async () =>
+    expect(await fs.readdir(path.join(runtime.root, 'background-games'))).toEqual([]),
+  )
+  expect(scr.syncWithGameSettingsFile).not.toHaveBeenCalled()
+})
+
+test('a background replay launches alongside other games with its own settings', async () => {
+  let exit!: (code: number) => void
+  runtime.launch.mockImplementation(async () => ({
+    waitForExit: () =>
+      new Promise<number>(resolve => {
+        exit = resolve
+      }),
+  }))
+  const { manager, config, scr } = createManager()
+  const replayConfig = {
+    ...config,
+    setup: { ...config.setup, map: { isReplay: true, path: 'test.rep' } },
+  } as unknown as GameLaunchConfig
+  const commands: unknown[][] = []
+  manager.on('gameCommand', (...args) => commands.push(args))
+  manager.setGameConfig(replayConfig)
+  await vi.waitFor(() => expect(runtime.launch).toHaveBeenCalledOnce())
+  expect(runtime.launch.mock.calls[0][0].args).toContain('-sb-background')
+  expect(manager.getStatus()).toBeNull()
+  await manager.handleGameConnected('test')
+  const payload = commands.find(([, command]) => command === 'settings')![2] as any
+  expect(payload.settingsFilePath).not.toBe(scr.gameFilepath)
+  expect(scr.get).not.toHaveBeenCalled()
   exit(0)
   await vi.waitFor(async () =>
     expect(await fs.readdir(path.join(runtime.root, 'background-games'))).toEqual([]),

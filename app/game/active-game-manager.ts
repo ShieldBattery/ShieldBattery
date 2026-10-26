@@ -425,10 +425,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     }
 
     const gameId = config.setup.gameId
-    const backgroundSettings =
-      config.presentation === 'background'
-        ? createBackgroundGameSettings(app.getPath('userData'))
-        : undefined
+    const backgroundSettings = prepareBackgroundSettings(config)
     const activeGamePromise = this.launchGameProcess(gameId, config, backgroundSettings)
     // A relaunch of the *same* game id carries that game's already-selected keypair and session
     // handoff forward — reusing them is correct since it's the same session. A *different* game id
@@ -473,10 +470,11 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     const game: ActiveGameInfo = {
       id: gameId,
       config,
+      backgroundSettings: prepareBackgroundSettings(config),
       status: { state: GameStatus.Unknown, extra: null },
     }
     this.watchOnlyGames.set(gameId, game)
-    game.promise = this.launchGameProcess(gameId, config)
+    game.promise = this.launchGameProcess(gameId, config, game.backgroundSettings)
     log.verbose(`Creating new watch-only game ${gameId}`)
     this.setStatus(game, GameStatus.Launching)
     return gameId
@@ -1234,6 +1232,13 @@ async function applyDevGameEnv() {
     }
   }
   devGameEnvKeys = Object.keys(vars)
+}
+
+/** Starts preparing the isolated settings a game launched in the background runs with, if it is. */
+function prepareBackgroundSettings(config: GameLaunchConfig) {
+  return config.presentation === 'background'
+    ? createBackgroundGameSettings(app.getPath('userData'))
+    : undefined
 }
 
 async function doLaunch(
