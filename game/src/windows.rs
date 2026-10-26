@@ -244,6 +244,64 @@ pub unsafe fn describe_page(addr: *const c_void) -> String {
     )
 }
 
+/// Jumps made by [`jump_to`], keyed by the function each one jumps to.
+static JUMPS: parking_lot::Mutex<Vec<(usize, usize)>> = parking_lot::Mutex::new(Vec::new());
+
+/// An address outside this module that jumps to `function`, or `function` itself if no memory
+/// could be made for one. For function pointers handed to code outside this module (method table
+/// entries, window procedures): tools that hook graphics or input often patch the code such a
+/// pointer leads to, and with the pointer leading here they patch this jump instead of this
+/// module's code. Made once per function and never freed, since the pointer may be read at any time.
+pub fn jump_to(function: usize) -> usize {
+    use winapi::um::memoryapi::{VirtualAlloc, VirtualFree, VirtualProtect};
+    use winapi::um::processthreadsapi::{FlushInstructionCache, GetCurrentProcess};
+    use winapi::um::winnt::{
+        MEM_COMMIT, MEM_RELEASE, MEM_RESERVE, PAGE_EXECUTE_READ, PAGE_READWRITE,
+    };
+
+    let mut jumps = JUMPS.lock();
+    if let Some(&(_, jump)) = jumps.iter().find(|&&(target, _)| target == function) {
+        return jump;
+    }
+    #[cfg(target_arch = "x86_64")]
+    let code = {
+        // mov rax, function; jmp rax
+        let mut code = vec![0x48, 0xb8];
+        code.extend_from_slice(&(function as u64).to_le_bytes());
+        code.extend_from_slice(&[0xff, 0xe0]);
+        code
+    };
+    #[cfg(target_arch = "x86")]
+    let code = {
+        // mov eax, function; jmp eax
+        let mut code = vec![0xb8];
+        code.extend_from_slice(&(function as u32).to_le_bytes());
+        code.extend_from_slice(&[0xff, 0xe0]);
+        code
+    };
+    let jump = unsafe {
+        let memory = VirtualAlloc(
+            null_mut(),
+            code.len(),
+            MEM_COMMIT | MEM_RESERVE,
+            PAGE_READWRITE,
+        );
+        if memory.is_null() {
+            return function;
+        }
+        std::ptr::copy_nonoverlapping(code.as_ptr(), memory.cast::<u8>(), code.len());
+        let mut old_protection = 0;
+        if VirtualProtect(memory, code.len(), PAGE_EXECUTE_READ, &mut old_protection) == 0 {
+            VirtualFree(memory, 0, MEM_RELEASE);
+            return function;
+        }
+        FlushInstructionCache(GetCurrentProcess(), memory, code.len());
+        memory as usize
+    };
+    jumps.push((function, jump));
+    jump
+}
+
 #[must_use]
 pub struct MemoryProtectionGuard(*mut c_void, usize, u32);
 

@@ -64,7 +64,12 @@ test('packaged connections are watched and quit on a failed check', async () => 
   expect(watchGameConnection).toHaveBeenCalledTimes(1)
   const [check, , onFailure] = vi.mocked(watchGameConnection).mock.calls[0]
   await expect(check()).resolves.toBe(true)
-  expect(verifyGameConnection).toHaveBeenCalledExactlyOnceWith(gameDirectory, 1234, 5678)
+  expect(verifyGameConnection).toHaveBeenCalledExactlyOnceWith(
+    gameDirectory,
+    1234,
+    5678,
+    expect.any(Function),
+  )
   onFailure()
   expect(socket.send).toHaveBeenCalledExactlyOnceWith(
     JSON.stringify({ command: 'quit', payload: null }),

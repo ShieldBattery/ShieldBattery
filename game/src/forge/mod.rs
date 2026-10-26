@@ -706,8 +706,10 @@ fn register_class_w(
             return orig(class);
         }
         let orig_wnd_proc = (*class).lpfnWndProc;
+        type WndProc = unsafe extern "system" fn(HWND, u32, usize, isize) -> isize;
+        let wnd_proc = crate::windows::jump_to(wnd_proc_scr as WndProc as usize);
         let rewritten = WNDCLASSEXW {
-            lpfnWndProc: Some(wnd_proc_scr),
+            lpfnWndProc: mem::transmute::<usize, WNDPROC>(wnd_proc),
             ..*class
         };
         let result = orig(&rewritten);

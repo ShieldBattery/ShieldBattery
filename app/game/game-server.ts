@@ -69,7 +69,9 @@ export class GameServer {
                 if (serverPort === undefined || clientPort === undefined) return undefined
                 const { verifyGameConnection } = await import('virtual:sb-security-impl')
                 if (typeof verifyGameConnection !== 'function') return undefined
-                return verifyGameConnection(gameDirectory, serverPort, clientPort)
+                return verifyGameConnection(gameDirectory, serverPort, clientPort, msg =>
+                  log.error(msg),
+                )
               },
               () => log.warning('Game connection check unavailable'),
               () => {
