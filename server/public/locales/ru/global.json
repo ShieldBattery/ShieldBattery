@@ -206,12 +206,14 @@
       "accountBanned": "Этот аккаунт заблокирован.<1><0>Причина:</0><1>{{banReason}}</1></1><2>Блокировка истечет {{expireTime}}.</2>",
       "banWithoutReason": "Причина не указана",
       "clientSetupRequired": "Завершите настройку StarCraft в разделе «Настройки», затем снова попробуйте создать аккаунт.",
+      "clientUpdateRequired": "Доступна новая версия ShieldBattery. Обновите её и попробуйте снова.",
+      "clientVerificationFailed": "Не удалось проверить эту копию ShieldBattery. Переустановите её с shieldbattery.net и попробуйте снова.",
       "defaultError": "Произошла ошибка: {{status}} {{statusText}}",
       "genericError": "Произошла ошибка: {{errorMessage}}",
       "invalidCode": "Предоставленный код недействителен. Возможно, срок его действия истёк.",
       "invalidCredentials": "Неправильное имя пользователя или пароль",
       "machineBanned": "Этому компьютеру запрещено создавать новые аккаунты.",
-      "noConnectionErrorMessage": "Не удалось подключиться к серверу. Проверь интернет-соединение и попробуй снова.",
+      "noConnectionErrorMessage": "Не удалось подключиться к серверу. Проверьте интернет-соединение и попробуйте снова.",
       "openStarcraftSettings": "Открыть настройки StarCraft",
       "sessionExpired": "Сессия истекла",
       "tooManyAccounts": "На этом устройстве достигнут предел созданных аккаунтов. Если у вас есть код для регистрации, вы можете ввести его, чтобы обойти это ограничение.",
@@ -2541,6 +2543,17 @@
     }
   },
   "network": {
+    "clientUpdate": {
+      "requiredContents": "Эта версия ShieldBattery устарела, поэтому подключиться не получится. Скачайте последнюю версию с <1>нашего сайта</1>.",
+      "requiredTitle": "Требуется обновление"
+    },
+    "clientVerification": {
+      "failedContents": "Не удалось проверить эту копию ShieldBattery, поэтому подключиться не получится. Скачайте последнюю версию с <1>нашего сайта</1> и переустановите её.",
+      "failedTitle": "Не удалось проверить ShieldBattery"
+    },
+    "connectionStatus": {
+      "connecting": "Подключение к ShieldBattery…"
+    },
     "notConnectedText": "Не подключен"
   },
   "news": {
@@ -2705,9 +2718,12 @@
   },
   "rootErrorBoundary": {
     "contents": "Пожалуйста, сообщите нам об этой проблеме в нашем <2>Discord</2>.",
+    "loadFailedContents": "Проверьте интернет-соединение и попробуйте снова.",
+    "loadFailedTitle": "Не удалось загрузить страницу",
     "reloadApp": "Перезагрузить приложение",
     "reportBug": "Сообщить об ошибке",
-    "title": "Что-то пошло не так :("
+    "title": "Что-то пошло не так :(",
+    "tryAgain": "Попробовать снова"
   },
   "settings": {
     "activity": {
