@@ -124,10 +124,10 @@
       "password": {
         "alreadyHaveCodeLink": "Already have a code?",
         "emailAddress": "Email address",
-        "explanationText": "Enter the email address and username associated with your account. We'll send you an email with a reset code to set a new password.",
+        "explanationText": "Enter the email address and login name associated with your account. We'll send you an email with a reset code to set a new password. Your login name is the name you log in with, which may differ from the name other players see.",
+        "loginName": "Login name",
         "sendResetEmail": "Send reset email",
-        "title": "Request password reset",
-        "username": "Username"
+        "title": "Request password reset"
       },
       "reset": {
         "confirmPassword": "Confirm new password",

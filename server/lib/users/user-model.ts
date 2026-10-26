@@ -467,6 +467,15 @@ export async function findUserByName(name: string): Promise<SbUser | undefined> 
 }
 
 /**
+ * Returns the `User` with the specified login name (the name they log in with), or `undefined` if
+ * they don't exist.
+ */
+export async function findUserByLoginName(loginName: string): Promise<SbUser | undefined> {
+  const user = await internalFindUserByLoginName(loginName)
+  return user ? convertToExternal(user) : undefined
+}
+
+/**
  * Returns up to `limit` users whose name starts with `prefix` (ignoring case), shortest names
  * first so an exact or near-exact match leads.
  */
@@ -585,13 +594,21 @@ export async function maybeMigrateSignupIp(userId: SbUserId, ipAddress: string):
 }
 
 /**
- * Returns all the `User`s that have a matching email address.
+ * Returns the login and display names of every user that has a matching email address, ordered by
+ * login name.
  */
-export async function findAllUsersWithEmail(email: string): Promise<SbUser[]> {
+export async function findAllUsersWithEmail(
+  email: string,
+): Promise<Array<Pick<UserInternal, 'loginName' | 'name'>>> {
   const { client, done } = await db()
   try {
-    const result = await client.query<DbUser>(sql`SELECT name FROM users WHERE email = ${email}`)
-    return result.rows.map(row => convertToExternal(convertUserFromDb(row)))
+    const result = await client.query<Dbify<Pick<UserInternal, 'loginName' | 'name'>>>(sql`
+      SELECT login_name, name
+      FROM users
+      WHERE email = ${email}
+      ORDER BY login_name
+    `)
+    return result.rows.map(row => ({ loginName: row.login_name, name: row.name }))
   } finally {
     done()
   }

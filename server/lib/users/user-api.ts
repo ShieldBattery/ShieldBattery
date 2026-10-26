@@ -158,6 +158,7 @@ import {
   findAllUsersWithEmail,
   findSelfById,
   findUserById,
+  findUserByLoginName,
   findUserByName,
   findUsersById,
   findUsersByNamePrefix,
@@ -573,7 +574,12 @@ export class UserApi {
       templateName: 'username-recovery',
       templateData: {
         email,
-        usernames: users.map(user => ({ username: user.name })),
+        accounts: users.map(user => ({
+          loginName: user.loginName,
+          // Display names can be changed separately from login names, so they're only listed to
+          // help tell accounts apart when they differ from the name used to log in.
+          displayName: user.name !== user.loginName ? user.name : undefined,
+        })),
       },
     })
   }
@@ -590,7 +596,7 @@ export class UserApi {
       }).required(),
     })
 
-    const user = await findUserByName(username)
+    const user = await findUserByLoginName(username)
     ctx.status = 204
     if (!user) {
       return
@@ -619,7 +625,7 @@ export class UserApi {
       subject: 'ShieldBattery Password Reset',
       templateName: 'password-reset',
       templateData: {
-        username: user.name,
+        username: selfUser.loginName,
         code,
       },
     })

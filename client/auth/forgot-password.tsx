@@ -70,8 +70,9 @@ export function ForgotPassword() {
         <BodyLarge>
           {t(
             'auth.forgot.password.explanationText',
-            "Enter the email address and username associated with your account. We'll send you " +
-              'an email with a reset code to set a new password.',
+            "Enter the email address and login name associated with your account. We'll send " +
+              'you an email with a reset code to set a new password. Your login name is the name ' +
+              'you log in with, which may differ from the name other players see.',
           )}
         </BodyLarge>
         <Link href='/reset-password'>
@@ -91,7 +92,7 @@ export function ForgotPassword() {
         />
         <TextField
           {...bindInput('username')}
-          label={t('auth.forgot.password.username', 'Username')}
+          label={t('auth.forgot.password.loginName', 'Login name')}
           floatingLabel={true}
           inputProps={{
             tabIndex: 0,

@@ -3,9 +3,17 @@ import { USERNAME_MAXLENGTH } from '../../../common/constants'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { SEARCH_USERS_LIMIT, UserErrorCode } from '../../../common/users/user-network'
+import { sendMailTemplate } from '../mail/mailer'
+import { addPasswordResetCode } from './password-reset-model'
 import { UserApi } from './user-api'
 import { convertUserApiErrors } from './user-api-errors'
-import { findUserByName, findUsersByNamePrefix } from './user-model'
+import {
+  findAllUsersWithEmail,
+  findSelfById,
+  findUserByLoginName,
+  findUserByName,
+  findUsersByNamePrefix,
+} from './user-model'
 
 // The real module hashes `SB_CANONICAL_HOST` at import time, which isn't set outside a running
 // server process and would otherwise crash merely importing `UserApi`.
@@ -18,14 +26,28 @@ vi.mock('./signup-code-cleanup', () => ({ SignupCodeCleanupJob: class {} }))
 vi.mock('./user-identifier-cleanup', () => ({ UserIdentifierCleanupJob: class {} }))
 vi.mock('./user-ips-cleanup', () => ({ UserIpsCleanupJob: class {} }))
 
+// The real throttles are backed by Redis, which isn't available in a unit test.
+vi.mock('../throttle/create-throttle', () => ({
+  default: () => ({ rateLimit: vi.fn().mockResolvedValue(false) }),
+}))
+vi.mock('./password-reset-model', () => ({ addPasswordResetCode: vi.fn() }))
+
 vi.mock('./user-model', async importOriginal => ({
   ...(await importOriginal<typeof import('./user-model')>()),
+  findAllUsersWithEmail: vi.fn(),
+  findSelfById: vi.fn(),
+  findUserByLoginName: vi.fn(),
   findUserByName: vi.fn(),
   findUsersByNamePrefix: vi.fn(),
 }))
 
+const findAllUsersWithEmailMock = asMockedFunction(findAllUsersWithEmail)
+const findSelfByIdMock = asMockedFunction(findSelfById)
+const findUserByLoginNameMock = asMockedFunction(findUserByLoginName)
 const findUserByNameMock = asMockedFunction(findUserByName)
 const findUsersByNamePrefixMock = asMockedFunction(findUsersByNamePrefix)
+const sendMailTemplateMock = asMockedFunction(sendMailTemplate)
+const addPasswordResetCodeMock = asMockedFunction(addPasswordResetCode)
 
 function makeApi(): UserApi {
   return new UserApi(
@@ -130,5 +152,118 @@ describe('users/user-api/UserApi#searchUsers', () => {
       'a'.repeat(USERNAME_MAXLENGTH),
       SEARCH_USERS_LIMIT,
     )
+  })
+})
+
+describe('users/user-api/UserApi#recoverUsername', () => {
+  beforeEach(() => {
+    findAllUsersWithEmailMock.mockReset()
+    sendMailTemplateMock.mockReset()
+  })
+
+  function recover(email: string) {
+    return makeApi().recoverUsername({
+      request: { body: { email } },
+      log: { warn: vi.fn() },
+    } as any)
+  }
+
+  test('emails the login names, adding display names only where they differ', async () => {
+    findAllUsersWithEmailMock.mockResolvedValue([
+      { loginName: 'lokimw', name: 'swordheroics~' },
+      { loginName: 'tec27', name: 'tec27' },
+    ])
+
+    await recover('loki@example.org')
+
+    expect(findAllUsersWithEmailMock).toHaveBeenCalledWith('loki@example.org')
+    expect(sendMailTemplateMock).toHaveBeenCalledTimes(1)
+    expect(sendMailTemplateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: 'loki@example.org',
+        templateName: 'username-recovery',
+        templateData: {
+          email: 'loki@example.org',
+          accounts: [
+            { loginName: 'lokimw', displayName: 'swordheroics~' },
+            { loginName: 'tec27', displayName: undefined },
+          ],
+        },
+      }),
+    )
+  })
+
+  test('sends nothing when no accounts use the email', async () => {
+    findAllUsersWithEmailMock.mockResolvedValue([])
+
+    await recover('nobody@example.org')
+
+    expect(sendMailTemplateMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('users/user-api/UserApi#requestPasswordReset', () => {
+  const user = { id: makeSbUserId(7), name: 'swordheroics~', created: 0 }
+  const selfUser = {
+    ...user,
+    loginName: 'lokimw',
+    email: 'loki@example.org',
+  }
+
+  beforeEach(() => {
+    findUserByLoginNameMock.mockReset()
+    findUserByNameMock.mockReset()
+    findSelfByIdMock.mockReset()
+    sendMailTemplateMock.mockReset()
+    addPasswordResetCodeMock.mockReset()
+  })
+
+  function requestReset(username: string, email: string) {
+    return makeApi().requestPasswordReset({
+      request: { body: { username, email } },
+      ip: '127.0.0.1',
+      log: { warn: vi.fn() },
+    } as any)
+  }
+
+  test('looks the account up by login name and emails a code addressed to it', async () => {
+    findUserByLoginNameMock.mockResolvedValue(user)
+    findSelfByIdMock.mockResolvedValue(selfUser as any)
+
+    await requestReset('lokimw', 'loki@example.org')
+
+    expect(findUserByLoginNameMock).toHaveBeenCalledWith('lokimw')
+    expect(findUserByNameMock).not.toHaveBeenCalled()
+    expect(addPasswordResetCodeMock).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: user.id, ip: '127.0.0.1' }),
+    )
+    const code = addPasswordResetCodeMock.mock.calls[0][0].code
+    expect(sendMailTemplateMock).toHaveBeenCalledTimes(1)
+    expect(sendMailTemplateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: 'loki@example.org',
+        templateName: 'password-reset',
+        templateData: { username: 'lokimw', code },
+      }),
+    )
+  })
+
+  test('sends nothing when no account has that login name', async () => {
+    findUserByLoginNameMock.mockResolvedValue(undefined)
+
+    await requestReset('swordheroics~', 'loki@example.org')
+
+    expect(addPasswordResetCodeMock).not.toHaveBeenCalled()
+    expect(sendMailTemplateMock).not.toHaveBeenCalled()
+  })
+
+  test("sends nothing when the email doesn't match the account's", async () => {
+    findUserByLoginNameMock.mockResolvedValue(user)
+    findSelfByIdMock.mockResolvedValue(selfUser as any)
+
+    await requestReset('lokimw', 'someone-else@example.org')
+
+    expect(addPasswordResetCodeMock).not.toHaveBeenCalled()
+    expect(sendMailTemplateMock).not.toHaveBeenCalled()
   })
 })
