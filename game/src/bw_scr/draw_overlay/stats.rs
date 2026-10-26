@@ -60,7 +60,9 @@ struct StatsPlayer {
 fn stats_players(bw: &BwVars) -> Vec<StatsPlayer> {
     replay_players_by_team(bw)
         .filter(|&(_team, player_id)| {
-            player_has_units(bw, player_id) || bw.is_team_game || has_player_vision(bw, player_id)
+            player_has_units(bw, player_id)
+                || bw.is_shared_control
+                || has_player_vision(bw, player_id)
         })
         .map(|(team, player_id)| StatsPlayer {
             player_id,

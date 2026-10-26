@@ -1792,7 +1792,7 @@ unsafe fn setup_slots(
         // Otherwise the race randomization function will generate invalid races.
         // This is also supposed to be prevented server-side, but verifying it also here is
         // very preferable to debugging a game that broke due to invalid races.
-        if game_type.is_team_game() {
+        if game_type.is_shared_control() {
             let players = std::slice::from_raw_parts(players, 8);
             for i in 0..4 {
                 let team = i + 1;

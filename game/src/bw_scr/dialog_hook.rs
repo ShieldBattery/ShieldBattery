@@ -694,8 +694,9 @@ fn chat_target_scope() -> netcode_v2::ChatTarget {
 /// resolved to a live session slot.
 ///
 /// Outside a team-shared-control game the field holds a BW player id and this is exactly the one
-/// rp2 slot that player maps to. In Team Melee/FFA or Top vs Bottom the field instead holds the
-/// 1-based team number of the dialog's "Team N" entry; see [`team_shared_chat_target`].
+/// rp2 slot that player maps to. In Team Melee/FFA/CTF the field instead holds the 1-based team
+/// number of a "Team N" entry; see [`team_shared_chat_target`]. Top vs Bottom players control their
+/// own units, so it addresses them by player id like any other game type.
 fn specific_player_chat_target(bw: &BwScr) -> Option<netcode_v2::ChatTarget> {
     unsafe {
         let game = bw.game();
@@ -716,7 +717,7 @@ fn specific_player_chat_target(bw: &BwScr) -> Option<netcode_v2::ChatTarget> {
             return None;
         }
 
-        if (*bw.game_data()).game_type().has_team_forces() {
+        if (*bw.game_data()).game_type().is_shared_control() {
             return team_shared_chat_target(bw, players, recipient_value);
         }
 
@@ -731,7 +732,7 @@ fn specific_player_chat_target(bw: &BwScr) -> Option<netcode_v2::ChatTarget> {
     }
 }
 
-/// The team-union chat target for a team-shared-control game (Team Melee/FFA, Top vs Bottom):
+/// The team-union chat target for a team-shared-control game (Team Melee/FFA/CTF):
 /// every rp2 slot whose BW player is on `target_team` (the `MsgFltr` dialog's chosen team, 1-based
 /// as in `players[].team`), unioned with every rp2 slot on the local player's team, since SC:R
 /// delivers a team-addressed message to the sender's own team too. `players` is BW's live

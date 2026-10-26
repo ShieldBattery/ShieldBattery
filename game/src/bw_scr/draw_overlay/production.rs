@@ -180,11 +180,12 @@ impl OverlayState {
     /// one commanding the team: in a team game every unit belongs to the commanding player, so the
     /// others would each carry a row of everything or a row of nothing.
     pub fn build_production_view(&self, bw: &BwVars) -> ProductionView {
-        let is_team_game = crate::game_thread::is_team_game();
+        let is_shared_control = crate::game_thread::is_shared_control();
         let players = replay_players_by_team(bw)
             .filter(|&(_team, player_id)| player_has_units(bw, player_id))
             .filter(|&(_team, player_id)| {
-                !is_team_game || unsafe { (**bw.game).team_game_main_player.contains(&player_id) }
+                !is_shared_control
+                    || unsafe { (**bw.game).team_game_main_player.contains(&player_id) }
             })
             .filter_map(|(team, player_id)| {
                 let production = self.production.per_player.get(player_id as usize)?;

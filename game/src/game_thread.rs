@@ -755,10 +755,9 @@ pub fn is_ums() -> bool {
     unsafe { (*get_bw().game_data()).game_type().is_ums() }
 }
 
-/// Returns whether the current game is a "Team" game (that is, has shared control among one or more
-/// users for each "player" slot, like Team Melee).
-pub fn is_team_game() -> bool {
-    unsafe { (*get_bw().game_data()).game_type().is_team_game() }
+/// Returns whether the current game's teams share control of one player's units (Team Melee/FFA/CTF).
+pub fn is_shared_control() -> bool {
+    unsafe { (*get_bw().game_data()).game_type().is_shared_control() }
 }
 
 pub fn is_replay() -> bool {

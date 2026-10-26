@@ -1725,7 +1725,7 @@ impl BwScr {
             if local == other_unique_player {
                 return true;
             }
-            if game_thread::is_team_game() {
+            if game_thread::is_shared_control() {
                 let players = self.players();
                 let local_team = (*players.add(local as usize)).team;
                 let other_team = (*players.add(other_unique_player as usize)).team;
@@ -1765,7 +1765,7 @@ impl BwScr {
     /// [`inject_chat_message`](Self::inject_chat_message).
     unsafe fn command_game_player(&self, unique_player: u8) -> u8 {
         unsafe {
-            if game_thread::is_team_game() && !BwPlayerId(unique_player).is_observer() {
+            if game_thread::is_shared_control() && !BwPlayerId(unique_player).is_observer() {
                 let players = self.players();
                 // Teams start from 1
                 let team = (*players.add(unique_player as usize)).team;
@@ -3384,7 +3384,7 @@ impl BwScr {
                 let base = self.rng_seed.resolve_as_ptr();
                 let saved_state = base.read_unaligned();
                 let saved_draws = base.add(2).read_unaligned();
-                if game_thread::is_team_game() {
+                if game_thread::is_shared_control() {
                     let game = self.game();
                     for i in 0..8 {
                         (*game).scr_player_color_preference[i] = PLAYER_COLOR_RANDOM;
@@ -3415,7 +3415,7 @@ impl BwScr {
     /// the same on every client. A no-op outside team games and when the `rgb_colors` pointer is
     /// null.
     pub fn share_team_colors(&self) {
-        if !game_thread::is_team_game() {
+        if !game_thread::is_shared_control() {
             return;
         }
         unsafe {
@@ -3619,7 +3619,7 @@ impl BwScr {
             // A shared-control team is one player in the game, the one that owns its units, so it
             // gets one color, the alliances between its members count for nothing, and the local
             // team's alliances are read from its main player's row.
-            let info = if game_thread::is_team_game() {
+            let info = if game_thread::is_shared_control() {
                 let mut player_teams = [0u8; 8];
                 for (i, team) in player_teams.iter_mut().enumerate() {
                     *team = (*players.add(i)).team;
@@ -3980,7 +3980,7 @@ impl BwScr {
                 // commands for them otherwise.
                 alliances_open: (*game_data).game_template.allies_enabled == 1,
                 allies_chat: bw::get_had_allies_enabled(),
-                shared_control: game_type.is_team_game(),
+                shared_control: game_type.is_shared_control(),
             }
         }
     }

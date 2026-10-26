@@ -102,7 +102,7 @@ impl BwScr {
                         && !self.init_uploads_settling.load(Ordering::Acquire);
                     let is_replay_or_obs = self.is_replay_or_obs();
                     let is_replay = self.is_replay.resolve() != 0;
-                    let is_team_game = game_thread::is_team_game();
+                    let is_shared_control = game_thread::is_shared_control();
                     let alliance_rules = self.alliance_rules();
                     let pause_control = self.pause_control(game, is_replay);
                     let main_palette = self.main_palette.resolve();
@@ -262,7 +262,7 @@ impl BwScr {
                                 &draw_overlay::BwVars {
                                     is_replay_or_obs,
                                     is_replay,
-                                    is_team_game,
+                                    is_shared_control,
                                     game,
                                     players,
                                     main_palette,

@@ -239,8 +239,8 @@ impl BwGameType {
         self.primary == 0xa
     }
 
-    /// Whether the game type has shared control among one or more users, like Team Melee.
-    pub fn is_team_game(&self) -> bool {
+    /// Whether each team's users share control of one player's units: Team Melee/FFA/CTF.
+    pub fn is_shared_control(&self) -> bool {
         matches!(self.primary, 0xb | 0xc | 0xd)
     }
 
@@ -248,7 +248,7 @@ impl BwGameType {
     /// (Team Melee/FFA/CTF) and Top vs Bottom. Melee/FFA/1v1 are positional (every player its own
     /// enemy), and UMS forces come from the map instead.
     pub fn has_team_forces(&self) -> bool {
-        self.is_team_game() || self.primary == 0xf
+        self.is_shared_control() || self.primary == 0xf
     }
 }
 

@@ -283,7 +283,7 @@ fn scaled_mouse_pos_to_egui(
 pub struct BwVars {
     pub is_replay_or_obs: bool,
     pub is_replay: bool,
-    pub is_team_game: bool,
+    pub is_shared_control: bool,
     pub game: bw_dat::Game,
     pub players: *mut bw::Player,
     pub main_palette: *mut u8,
@@ -1150,7 +1150,7 @@ impl OverlayState {
             self.replay_start_handled = true;
             self.player_vision_was_auto_disabled = [false; 8];
             for i in 0..8 {
-                if !player_has_units(bw, i) && !bw.is_team_game {
+                if !player_has_units(bw, i) && !bw.is_shared_control {
                     let mask = 1 << i;
                     self.out_state.replay_visions &= !mask;
                     self.player_vision_was_auto_disabled[i as usize] = true;
@@ -1373,7 +1373,7 @@ impl OverlayState {
                 // owns the team's units. And a player whose vision the watcher has taken is shown
                 // whatever they own, so it is clear where the vision on screen is coming from.
                 player_has_units(bw, player_id)
-                    || bw.is_team_game
+                    || bw.is_shared_control
                     || has_player_vision(bw, player_id)
             })
             .map(|(team, player_id)| unsafe {
