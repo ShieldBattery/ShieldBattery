@@ -24,6 +24,10 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     state.currentSeasonId = season.id
   },
 
+  ['@matchmaking/updateSeason'](state, { payload: season }) {
+    state.byId.set(season.id, season)
+  },
+
   ['@ladder/getRankings'](state, action) {
     const { season } = action.payload
     state.byId.set(season.id, season)

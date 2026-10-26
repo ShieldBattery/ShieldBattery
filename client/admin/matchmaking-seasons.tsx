@@ -1,10 +1,14 @@
+import { TFunction } from 'i18next'
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { ReadonlyDeep } from 'type-fest'
 import {
   AddMatchmakingSeasonRequest,
-  GetMatchmakingSeasonsResponse,
-  makeSeasonId,
+  ALL_MATCHMAKING_TYPES,
+  DivisionRatingOffsets,
   MatchmakingSeasonJson,
+  matchmakingTypeToLabel,
   SeasonId,
 } from '../../common/matchmaking'
 import { apiUrl } from '../../common/urls'
@@ -12,14 +16,15 @@ import { useForm, useFormCallbacks } from '../forms/form-hook'
 import { longTimestamp } from '../i18n/date-formats'
 import { useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
+import { getMatchmakingSeasons } from '../matchmaking/action-creators'
 import { FilledButton, IconButton, TextButton } from '../material/button'
 import { CheckBox } from '../material/check-box'
 import { TextField } from '../material/text-field'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { useRefreshToken } from '../network/refresh-token'
 import { useNow } from '../react/date-hooks'
-import { useStableCallback } from '../react/state-hooks'
-import { bodyLarge, titleLarge, TitleMedium } from '../styles/typography'
+import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { bodyLarge, bodyMedium, titleLarge, TitleMedium } from '../styles/typography'
 
 const Container = styled.div`
   height: 100%;
@@ -69,34 +74,67 @@ const StartDate = styled.div`
   color: var(--theme-on-surface);
 `
 
+const SeasonInfo = styled.div`
+  flex-grow: 1;
+  padding: 8px 0;
+`
+
 const SeasonName = styled.div`
   ${titleLarge};
-  flex-grow: 1;
 `
 
 const ModifierText = styled.span`
   color: var(--theme-on-surface-variant);
 `
 
+const OffsetsText = styled.div`
+  ${bodyMedium};
+  color: var(--theme-on-surface-variant);
+`
+
+function describeOffsets(
+  offsets: ReadonlyDeep<DivisionRatingOffsets> | undefined,
+  t: TFunction,
+): string {
+  if (!offsets) {
+    return 'not computed yet'
+  }
+
+  const parts = []
+  for (const type of ALL_MATCHMAKING_TYPES) {
+    const offset = offsets[type] ?? 0
+    if (offset !== 0) {
+      parts.push(`${matchmakingTypeToLabel(type, t)} ${offset > 0 ? '+' : ''}${offset}`)
+    }
+  }
+  return parts.length ? parts.join(', ') : 'none'
+}
+
 function SeasonRow({
   season,
   isCurrent,
   onDeleteClick,
 }: {
-  season: MatchmakingSeasonJson
+  season: ReadonlyDeep<MatchmakingSeasonJson>
   isCurrent: boolean
   onDeleteClick: (id: SeasonId) => void
 }) {
+  const { t } = useTranslation()
   const now = useNow(60_000)
   const longTimestampFormat = useFormat(longTimestamp)
 
   return (
     <Row $current={isCurrent}>
       <StartDate>{longTimestampFormat.format(season.startDate)}</StartDate>
-      <SeasonName>
-        {season.name}
-        {season.resetMmr ? <ModifierText> (MMR reset)</ModifierText> : undefined}
-      </SeasonName>
+      <SeasonInfo>
+        <SeasonName>
+          {season.name}
+          {season.resetMmr ? <ModifierText> (MMR reset)</ModifierText> : undefined}
+        </SeasonName>
+        <OffsetsText>
+          Division offsets: {describeOffsets(season.divisionRatingOffsets, t)}
+        </OffsetsText>
+      </SeasonInfo>
       {season.startDate > now ? (
         <IconButton
           icon={<MaterialIcon icon='close' />}
@@ -170,28 +208,36 @@ function AddSeasonForm({ onSubmit }: { onSubmit: (model: AddSeasonModel) => void
 }
 
 export function AdminMatchmakingSeasons() {
+  const dispatch = useAppDispatch()
   const [refreshToken, triggerRefresh] = useRefreshToken()
-  const [seasons, setSeasons] = useState<MatchmakingSeasonJson[]>([])
-  const [currentSeasonId, setCurrentSeasonId] = useState<SeasonId>(makeSeasonId(1))
+  // The list's membership and order come from the last fetch, while each season's contents come
+  // from the store, which also takes in seasons the server pushes (e.g. once offsets are stored).
+  const [seasonIds, setSeasonIds] = useState<SeasonId[]>([])
+  const seasonsById = useAppSelector(s => s.matchmakingSeasons.byId)
+  const currentSeasonId = useAppSelector(s => s.matchmakingSeasons.currentSeasonId)
   const [requestError, setRequestError] = useState<Error>()
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<SeasonId>()
   const [formVersion, setFormVersion] = useState(0)
 
-  const loadSeasons = useStableCallback(() => {
-    fetchJson<GetMatchmakingSeasonsResponse>(apiUrl`matchmaking/seasons`)
-      .then(data => {
-        setRequestError(undefined)
-        setSeasons(data.seasons)
-        setCurrentSeasonId(data.current)
-      })
-      .catch(err => {
-        setRequestError(err)
-      })
-  })
-
   useEffect(() => {
-    loadSeasons()
-  }, [loadSeasons, refreshToken])
+    const abortController = new AbortController()
+    dispatch(
+      getMatchmakingSeasons({
+        signal: abortController.signal,
+        onSuccess: data => {
+          setRequestError(undefined)
+          setSeasonIds(data.seasons.map(s => s.id))
+        },
+        onError: err => setRequestError(err),
+      }),
+    )
+    return () => abortController.abort()
+  }, [dispatch, refreshToken])
+
+  const seasons = seasonIds.flatMap(id => {
+    const season = seasonsById.get(id)
+    return season ? [season] : []
+  })
 
   return (
     <Container>
@@ -222,7 +268,7 @@ export function AdminMatchmakingSeasons() {
                   fetchJson<void>(apiUrl`matchmaking/seasons/${id}`, { method: 'delete' })
                     .then(() => {
                       setConfirmingDeleteId(curId => (curId === id ? undefined : curId))
-                      loadSeasons()
+                      triggerRefresh()
                     })
                     .catch(err => {
                       setRequestError(err)
@@ -247,7 +293,7 @@ export function AdminMatchmakingSeasons() {
           })
             .then(() => {
               setFormVersion(version => version + 1)
-              loadSeasons()
+              triggerRefresh()
             })
             .catch(err => {
               setRequestError(err)

@@ -18,6 +18,7 @@ export type MatchmakingActions =
   | MatchmakingStatusUpdate
   | GetMatchmakingSeasons
   | GetCurrentMatchmakingSeason
+  | UpdateMatchmakingSeason
 
 export interface GetCurrentMapPoolBegin {
   type: '@matchmaking/getCurrentMapPoolBegin'
@@ -76,5 +77,11 @@ export interface GetMatchmakingSeasons {
 
 export interface GetCurrentMatchmakingSeason {
   type: '@matchmaking/getCurrentMatchmakingSeason'
+  payload: MatchmakingSeasonJson
+}
+
+/** The server sent the latest state of a season (e.g. its division rating offsets were stored). */
+export interface UpdateMatchmakingSeason {
+  type: '@matchmaking/updateSeason'
   payload: MatchmakingSeasonJson
 }

@@ -649,6 +649,18 @@ export function toMatchmakingSeasonJson(season: MatchmakingSeason): MatchmakingS
 }
 
 /**
+ * The latest state of a season, sent to every connected client when the season's division rating
+ * offsets are stored, and with the current season when a client connects.
+ */
+export interface MatchmakingSeasonUpdateEvent {
+  type: 'seasonUpdate'
+  season: MatchmakingSeasonJson
+}
+
+/** Events published on the matchmaking seasons path, which every connected client subscribes to. */
+export type MatchmakingSeasonsEvent = MatchmakingSeasonUpdateEvent
+
+/**
  * The amount of bonus points accrued per millisecond since the start of a season. Bonus points are
  * used to improve wins and offset losses, until the bonus pool has been exhausted.
  */
