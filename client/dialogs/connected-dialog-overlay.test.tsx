@@ -174,7 +174,10 @@ describe('ConnectedDialogOverlay', () => {
         }),
       )
     })
-    await screen.findByText('Other content')
+    // The markdown renderer is lazy, so this dialog suspends once and React holds back revealing it
+    // for its ~300 ms fallback throttle, on top of loading the renderer the first time. That real-time
+    // wait can outlast the default 1 s query timeout on a busy machine.
+    await screen.findByText('Other content', undefined, { timeout: 4000 })
     const firstSurface = screen.getByText('Some content').closest('[role=dialog]')
 
     vi.useFakeTimers()
