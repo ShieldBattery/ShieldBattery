@@ -37,7 +37,7 @@ const CountButton = styled.button`
  * Returns how many of `times` fall within the count window, re-rendering when the oldest of them
  * ages out.
  */
-function useCountInWindow(times: readonly number[]): number {
+export function useCountInWindow(times: readonly number[]): number {
   const [now, setNow] = useState(() => Date.now())
   const cutoff = now - ADMIN_REPORT_COUNT_WINDOW_MS
   const inWindow = times.filter(t => t > cutoff)

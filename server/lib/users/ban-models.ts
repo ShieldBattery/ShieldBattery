@@ -1,4 +1,5 @@
 import { SbUserId } from '../../../common/users/sb-user-id'
+import { BanSource } from '../../../common/users/user-network'
 import db, { DbClient } from '../db'
 import { sql } from '../db/sql'
 import { Dbify } from '../db/types'
@@ -10,6 +11,10 @@ export interface UserBanRow {
   endTime: Date
   bannedBy?: SbUserId
   reason?: string
+  source: BanSource
+  /** The target of the ban that caused this one, when this account was banned as a linked one. */
+  cascadedFrom?: SbUserId
+  gameId?: string
   unbannedBy?: SbUserId
   unbannedAt?: Date
   unbanReason?: string
@@ -25,6 +30,9 @@ export function toUserBanRow(dbRow: DbUserBanRow): UserBanRow {
     endTime: dbRow.end_time,
     bannedBy: dbRow.banned_by !== null ? dbRow.banned_by : undefined,
     reason: dbRow.reason ?? undefined,
+    source: dbRow.source,
+    cascadedFrom: dbRow.cascaded_from ?? undefined,
+    gameId: dbRow.game_id ?? undefined,
     unbannedBy: dbRow.unbanned_by !== null ? dbRow.unbanned_by : undefined,
     unbannedAt: dbRow.unbanned_at ?? undefined,
     unbanReason: dbRow.unban_reason ?? undefined,
@@ -39,7 +47,7 @@ export async function retrieveBanHistory(
   const { client, done } = await db(withClient)
   try {
     let query = sql`
-      SELECT id, user_id, start_time, end_time, banned_by, reason,
+      SELECT id, user_id, start_time, end_time, banned_by, reason, source, cascaded_from, game_id,
         unbanned_by, unbanned_at, unban_reason
       FROM user_bans
       WHERE user_id = ${userId}
@@ -58,17 +66,27 @@ export async function retrieveBanHistory(
   }
 }
 
+/**
+ * Bans `users` together for the same cause. Every user other than `target` is recorded as banned
+ * because of its link to `target`.
+ */
 export async function banUsers(
   {
     users,
+    target,
     bannedBy,
     endTime,
     reason,
+    source,
+    gameId,
   }: {
     users: ReadonlyArray<SbUserId>
+    target: SbUserId
     bannedBy?: SbUserId
     endTime: Date
     reason?: string
+    source: BanSource
+    gameId?: string
   },
   withClient?: DbClient,
 ): Promise<UserBanRow[]> {
@@ -78,8 +96,10 @@ export async function banUsers(
 
   try {
     const result = await client.query(sql`
-      INSERT INTO user_bans (user_id, start_time, end_time, banned_by, reason)
-      SELECT * FROM UNNEST(
+      INSERT INTO user_bans
+        (user_id, start_time, end_time, banned_by, reason, source, cascaded_from, game_id)
+      SELECT t.*, ${source}, NULLIF(${target}::int4, t.user_id), ${gameId ?? null}::uuid
+      FROM UNNEST(
         ${users}::int4[],
         ${new Array(users.length).fill(startDate)}::timestamp[],
         ${new Array(users.length).fill(endDate)}::timestamp[],

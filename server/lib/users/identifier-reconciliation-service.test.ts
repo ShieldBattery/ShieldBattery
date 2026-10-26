@@ -220,18 +220,26 @@ describe('identifier reconciliation', () => {
     await service.reconcile()
     expect(finishIdentifierBan).not.toHaveBeenCalled()
     await service.reconcile()
-    expect(enactIdentifierBanRequest).toHaveBeenNthCalledWith(1, {
-      requestId: work.requestId,
-      targetId: USER,
-      endTime: work.endTime,
-      reason: 'ban evasion',
-    })
-    expect(enactIdentifierBanRequest).toHaveBeenNthCalledWith(2, {
-      requestId: work.requestId,
-      targetId: USER,
-      endTime: work.endTime,
-      reason: 'ban evasion',
-    })
+    expect(enactIdentifierBanRequest).toHaveBeenNthCalledWith(
+      1,
+      {
+        requestId: work.requestId,
+        targetId: USER,
+        endTime: work.endTime,
+        reason: 'ban evasion',
+      },
+      work.gameId,
+    )
+    expect(enactIdentifierBanRequest).toHaveBeenNthCalledWith(
+      2,
+      {
+        requestId: work.requestId,
+        targetId: USER,
+        endTime: work.endTime,
+        reason: 'ban evasion',
+      },
+      work.gameId,
+    )
     expect(finishIdentifierBan).toHaveBeenCalledWith(work, 'done', CLIENT)
   })
 

@@ -1,6 +1,7 @@
 import httpErrors from 'http-errors'
 import { injectable } from 'tsyringe'
 import { SbUserId } from '../../../common/users/sb-user-id'
+import { BanSource } from '../../../common/users/user-network'
 import { DbClient } from '../db'
 import { sql } from '../db/sql'
 import transact from '../db/transaction'
@@ -63,11 +64,15 @@ export class BanEnacter {
     bannedBy,
     endTime,
     reason,
+    source,
+    gameId,
   }: {
     targetId: SbUserId
     bannedBy?: SbUserId
     endTime: Date
     reason?: string
+    source: BanSource
+    gameId?: string
   }): Promise<UserBanRow> {
     const { users, banEntries } = await transact(async client => {
       await lockIdentifierModeration(client)
@@ -82,9 +87,12 @@ export class BanEnacter {
       const banEntries = await banUsers(
         {
           users,
+          target: targetId,
           bannedBy,
           endTime,
           reason,
+          source,
+          gameId,
         },
         client,
       )
@@ -106,15 +114,22 @@ export class BanEnacter {
 
   /** Creates a durable ban once, retrying interrupted session cleanup without applying new bans. */
   async enactBanRequest(request: BanRequest): Promise<string> {
-    const result = await this.applyBanRequest(request, false)
+    const result = await this.applyBanRequest(request, false, request.gameId ?? undefined)
     if (result.status !== 'banned') throw new Error('Missing ban result')
     return result.banId
   }
 
-  /** Checks live identifier bans under the same lock as unbanning, and retains a durable receipt. */
-  async enactIdentifierBanRequest(request: BanRequest): Promise<IdentifierBanResult> {
+  /**
+   * Checks live identifier bans under the same lock as unbanning, and retains a durable receipt.
+   * `observedInGameId` is the game the matching identifiers were seen in, recorded on the ban for
+   * context only.
+   */
+  async enactIdentifierBanRequest(
+    request: BanRequest,
+    observedInGameId?: string,
+  ): Promise<IdentifierBanResult> {
     try {
-      return await this.applyBanRequest(request, true)
+      return await this.applyBanRequest(request, true, observedInGameId)
     } catch (err) {
       if (err instanceof IdentifierBanNotNeeded) return { status: 'notNeeded' }
       throw err
@@ -138,6 +153,7 @@ export class BanEnacter {
   private async applyBanRequest(
     request: BanRequest,
     checkIdentifiers: boolean,
+    banGameId: string | undefined,
   ): Promise<IdentifierBanResult> {
     const skipped = await transact(async client => {
       const receipt = await lockBanRequest(request, client)
@@ -182,7 +198,14 @@ export class BanEnacter {
       const connected = await findConnectedUsers(request.targetId, MIN_IDENTIFIER_MATCHES, client)
       const users = [...new Set(connected.concat(request.targetId))]
       const bans = await banUsers(
-        { users, endTime: request.endTime, reason: request.reason },
+        {
+          users,
+          target: request.targetId,
+          endTime: request.endTime,
+          reason: request.reason,
+          source: checkIdentifiers ? BanSource.BanEvasion : BanSource.Automated,
+          gameId: banGameId,
+        },
         client,
       )
       const targetBan = bans.find(ban => ban.userId === request.targetId)

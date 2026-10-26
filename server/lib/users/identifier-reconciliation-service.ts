@@ -118,12 +118,15 @@ export class IdentifierReconciliationService {
                   Number(work.notBefore) <= this.clock.now() &&
                   work.endTime
                 ) {
-                  const result = await this.banEnacter.enactIdentifierBanRequest({
-                    requestId: work.requestId,
-                    targetId: work.userId,
-                    endTime: work.endTime,
-                    reason: 'ban evasion',
-                  })
+                  const result = await this.banEnacter.enactIdentifierBanRequest(
+                    {
+                      requestId: work.requestId,
+                      targetId: work.userId,
+                      endTime: work.endTime,
+                      reason: 'ban evasion',
+                    },
+                    work.gameId,
+                  )
                   if (result.status === 'banned') {
                     const user = await findUserById(work.userId, client)
                     if (user) {

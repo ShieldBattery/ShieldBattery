@@ -14,6 +14,7 @@ import { SbUserId } from '../../../common/users/sb-user-id'
 import {
   AdminUnbanUserResponse,
   BanHistoryEntryJson,
+  banSourceToLabel,
   UserRestrictionHistoryJson,
 } from '../../../common/users/user-network'
 import { useSelfUser } from '../../auth/auth-utils'
@@ -444,8 +445,13 @@ function BanHistoryList({
                 {b.bannedBy !== undefined ? (
                   <ConnectedUsername userId={b.bannedBy} />
                 ) : (
-                  <span>- system -</span>
+                  <span>- {banSourceToLabel(b.source).toLowerCase()} -</span>
                 )}
+                {b.cascadedFrom !== undefined ? (
+                  <div>
+                    Linked to <ConnectedUsername userId={b.cascadedFrom} />
+                  </div>
+                ) : null}
               </UsernameCell>
               <td>{b.reason ?? ''}</td>
               <td>

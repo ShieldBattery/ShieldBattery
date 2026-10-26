@@ -1,5 +1,9 @@
 import { useSearch } from 'wouter'
 import { getErrorStack } from '../../common/errors'
+import {
+  GetModerationActionsQuery,
+  GetModerationActionsResponse,
+} from '../../common/moderation-actions'
 import { apiUrl, urlPath } from '../../common/urls'
 import { SbPermissions } from '../../common/users/permissions'
 import { SbUser } from '../../common/users/sb-user'
@@ -306,6 +310,27 @@ export function adminUnbanUser(
       signal: spec.signal,
     })
     dispatch({ type: '@users/adminUnbanUser', payload: res })
+
+    return res
+  })
+}
+
+export function adminGetModerationActions(
+  query: GetModerationActionsQuery,
+  spec: RequestHandlingSpec<GetModerationActionsResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const params = new URLSearchParams()
+    if (query.kinds !== undefined) params.set('kinds', query.kinds)
+    if (query.banSource !== undefined) params.set('banSource', query.banSource)
+    if (query.restrictionKind !== undefined) params.set('restrictionKind', query.restrictionKind)
+    if (query.cursor !== undefined) params.set('cursor', query.cursor)
+
+    const res = await fetchJson<GetModerationActionsResponse>(
+      apiUrl`admin/moderation-actions?${params}`,
+      { signal: spec.signal },
+    )
+    dispatch({ type: '@users/loadUsers', payload: res.users })
 
     return res
   })

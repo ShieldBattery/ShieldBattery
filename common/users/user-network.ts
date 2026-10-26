@@ -162,6 +162,31 @@ export interface AdminUpdatePermissionsRequest {
   permissions: SbPermissions
 }
 
+/** What caused a ban. Bans of linked accounts keep the source of the ban that caused them. */
+export enum BanSource {
+  Admin = 'admin',
+  BanEvasion = 'banEvasion',
+  ClientIntegrity = 'clientIntegrity',
+  Automated = 'automated',
+}
+
+export const ALL_BAN_SOURCES: ReadonlyArray<BanSource> = Object.values(BanSource)
+
+export function banSourceToLabel(source: BanSource): string {
+  switch (source) {
+    case BanSource.Admin:
+      return 'Admin'
+    case BanSource.BanEvasion:
+      return 'Ban evasion'
+    case BanSource.ClientIntegrity:
+      return 'Client integrity'
+    case BanSource.Automated:
+      return 'Automated'
+    default:
+      return source satisfies never
+  }
+}
+
 export interface BanHistoryEntry {
   id: string
   userId: SbUserId
@@ -169,6 +194,9 @@ export interface BanHistoryEntry {
   startTime: Date
   endTime: Date
   reason?: string
+  source: BanSource
+  cascadedFrom?: SbUserId
+  gameId?: string
   unbannedBy?: SbUserId
   unbannedAt?: Date
   unbanReason?: string
@@ -184,6 +212,9 @@ export function toBanHistoryEntryJson(entry: BanHistoryEntry) {
     startTime: Number(entry.startTime),
     endTime: Number(entry.endTime),
     reason: entry.reason,
+    source: entry.source,
+    cascadedFrom: entry.cascadedFrom,
+    gameId: entry.gameId,
     unbannedBy: entry.unbannedBy,
     unbannedAt: entry.unbannedAt ? Number(entry.unbannedAt) : undefined,
     unbanReason: entry.unbanReason,

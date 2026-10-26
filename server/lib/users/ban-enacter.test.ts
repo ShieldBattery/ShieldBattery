@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
+import { BanSource } from '../../../common/users/user-network'
 import transact from '../db/transaction'
 import { getGameRecord, lockGameAndCheckReconciled } from '../games/game-models'
 import { recordReplayViolation } from '../models/game-replay-violations'
@@ -167,6 +168,14 @@ describe('ban request cleanup', () => {
       details: { kind: 'clientMismatch' },
     })
     expect(getGameRecord).not.toHaveBeenCalled()
+    expect(banUsers).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: TARGET,
+        source: BanSource.Automated,
+        gameId: GAME_ID,
+      }),
+      dbClient,
+    )
   })
 
   test('requests without a game do not change game protection', async () => {
@@ -310,7 +319,14 @@ describe('ban request cleanup', () => {
   })
 
   test('ordinary bans retain their session cleanup and return the target ban', async () => {
-    expect(await service.enactBan(REQUEST)).toMatchObject({ id: 'target-ban', userId: TARGET })
+    expect(await service.enactBan({ ...REQUEST, source: BanSource.Admin })).toMatchObject({
+      id: 'target-ban',
+      userId: TARGET,
+    })
+    expect(banUsers).toHaveBeenCalledWith(
+      expect.objectContaining({ target: TARGET, source: BanSource.Admin }),
+      dbClient,
+    )
     expect(lockBanRequest).not.toHaveBeenCalled()
     expect(withCommandOptions).not.toHaveBeenCalled()
     expect(execAsPipeline).toHaveBeenCalledOnce()
@@ -330,6 +346,21 @@ describe('ban request cleanup', () => {
       banId: 'target-ban',
     })
     expect(countBannedUserIdentifiers).toHaveBeenCalledWith(TARGET, dbClient)
+    expect(recordReplayViolation).not.toHaveBeenCalled()
+  })
+
+  test('identifier bans record the game the identifiers were seen in without protecting it', async () => {
+    await service.enactIdentifierBanRequest(REQUEST, GAME_ID)
+    expect(banUsers).toHaveBeenCalledWith(
+      expect.objectContaining({
+        users: [CONNECTED, TARGET],
+        target: TARGET,
+        source: BanSource.BanEvasion,
+        gameId: GAME_ID,
+      }),
+      dbClient,
+    )
+    expect(lockGameAndCheckReconciled).not.toHaveBeenCalled()
     expect(recordReplayViolation).not.toHaveBeenCalled()
   })
 
@@ -368,6 +399,7 @@ describe('ban request cleanup', () => {
       userId: TARGET,
       startTime,
       endTime: REQUEST.endTime,
+      source: BanSource.Admin,
     })
     expect(await service.mirrorActiveBanIdentifiers(TARGET)).toBe(true)
     expect(banAllIdentifiers).toHaveBeenCalledWith(

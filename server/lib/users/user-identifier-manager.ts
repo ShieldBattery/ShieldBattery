@@ -2,6 +2,7 @@ import crypto from 'crypto'
 import { injectable } from 'tsyringe'
 import { ReadonlyDeep } from 'type-fest'
 import { SbUserId } from '../../../common/users/sb-user-id'
+import { BanSource } from '../../../common/users/user-network'
 import { DbClient } from '../db'
 import { DiscordWebhookNotifier } from '../discord/webhook-notifier'
 import logger from '../logging/logger'
@@ -103,6 +104,7 @@ export class UserIdentifierManager {
         targetId: userId,
         endTime,
         reason: 'ban evasion',
+        source: BanSource.BanEvasion,
       })
 
       // Notify the staff channel, but no need to wait for it to finish

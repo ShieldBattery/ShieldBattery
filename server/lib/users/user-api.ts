@@ -71,6 +71,7 @@ import {
   AdminUnbanUserRequest,
   AdminUnbanUserResponse,
   AuthEvent,
+  BanSource,
   ChangeLanguageRequest,
   ChangeLanguagesResponse,
   GET_MATCH_HISTORY_LIMIT,
@@ -1361,6 +1362,7 @@ export class AdminUserApi {
         bannedBy: ctx.session!.user.id,
         endTime: new Date(body.endTime),
         reason: body.reason,
+        source: BanSource.Admin,
       }),
       findUserById(ctx.session!.user.id),
     ])

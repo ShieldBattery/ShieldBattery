@@ -48,6 +48,8 @@ export interface UserRestriction {
   restrictedBy?: SbUserId
   reason?: RestrictionReason
   adminNotes?: string
+  /** The account whose restriction caused this one, when this one was applied as a linked account. */
+  cascadedFrom?: SbUserId
   liftedBy?: SbUserId
   liftedAt?: Date
   liftReason?: string
@@ -65,6 +67,7 @@ function toUserRestriction(fromDb: DbUserRestriction): UserRestriction {
     restrictedBy: fromDb.restricted_by ?? undefined,
     reason: fromDb.reason ?? undefined,
     adminNotes: fromDb.admin_notes ?? undefined,
+    cascadedFrom: fromDb.cascaded_from ?? undefined,
     liftedBy: fromDb.lifted_by ?? undefined,
     liftedAt: fromDb.lifted_at ?? undefined,
     liftReason: fromDb.lift_reason ?? undefined,
@@ -135,9 +138,14 @@ export async function countRestrictedUserIdentifiers(
   }
 }
 
+/**
+ * Restricts `users` together for the same cause. Every user other than `causedBy` is recorded as
+ * restricted because of its link to `causedBy`.
+ */
 export async function restrictUsers(
   {
     users,
+    causedBy,
     kind,
     startTime,
     endTime,
@@ -146,6 +154,7 @@ export async function restrictUsers(
     adminNotes,
   }: {
     users: ReadonlyArray<SbUserId>
+    causedBy: SbUserId
     kind: RestrictionKind
     startTime: Date
     endTime: Date
@@ -165,8 +174,9 @@ export async function restrictUsers(
   try {
     const result = await client.query(sql`
       INSERT INTO user_restrictions
-        (user_id, kind, start_time, end_time, restricted_by, reason, admin_notes)
-      SELECT * FROM UNNEST(
+        (user_id, kind, start_time, end_time, restricted_by, reason, admin_notes, cascaded_from)
+      SELECT t.*, NULLIF(${causedBy}::int4, t.user_id)
+      FROM UNNEST(
         ${users}::int4[],
         ${new Array(users.length).fill(kind)}::restriction_kind[],
         ${new Array(users.length).fill(startTime)}::timestamptz[],

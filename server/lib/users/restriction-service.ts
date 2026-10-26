@@ -111,6 +111,7 @@ export class RestrictionService {
       const restrictionEntries = await restrictUsers(
         {
           users,
+          causedBy: targetId,
           kind,
           startTime,
           endTime,
@@ -233,6 +234,7 @@ export class RestrictionService {
             await restrictUsers(
               {
                 users: [userId],
+                causedBy: info.firstUserId ?? userId,
                 kind,
                 startTime,
                 endTime: info.latestEnd,

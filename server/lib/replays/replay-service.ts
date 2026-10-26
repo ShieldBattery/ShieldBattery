@@ -6,6 +6,7 @@ import { pipeline } from 'stream/promises'
 import { singleton } from 'tsyringe'
 import { GameResultErrorCode } from '../../../common/games/results'
 import { SbUserId } from '../../../common/users/sb-user-id'
+import { BanSource } from '../../../common/users/user-network'
 import { ParsedReplay } from '../../workers/replays/messages'
 import { getSignedUrl, writeFile } from '../files'
 import { GameResultServiceError } from '../games/game-result-service'
@@ -77,6 +78,8 @@ export class ReplayService {
         targetId: userId,
         endTime: new Date('9001-01-01T00:00:00.000Z'),
         reason: 'Client integrity violation',
+        source: BanSource.ClientIntegrity,
+        gameId,
       })
     }
     throw new GameResultServiceError(GameResultErrorCode.ReplayRejected, 'invalid replay')
