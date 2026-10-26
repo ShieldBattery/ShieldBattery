@@ -20,6 +20,7 @@ import {
   BotProfile,
   BotRaceName,
   BotRandomRaceSupport,
+  BotReleaseStatus,
   BotRuntime,
 } from '../../common/bots/bot-catalog'
 import { CatalogTrust, looksLikeEnvelope, openCatalogEnvelope } from './catalog-envelope'
@@ -536,6 +537,14 @@ export function validateCatalogDocument(
         }
         releaseIds.add(pkg.releaseId)
         return {
+          releaseStatus:
+            release.releaseStatus === undefined
+              ? 'candidate'
+              : asEnum<BotReleaseStatus>(
+                  release.releaseStatus,
+                  `${releaseWhere}.releaseStatus`,
+                  new Set(['candidate', 'staging', 'production-approved']),
+                ),
           package: pkg,
           artifact: validateArtifact(release.artifact, `${releaseWhere}.artifact`, insecureOrigin),
         }

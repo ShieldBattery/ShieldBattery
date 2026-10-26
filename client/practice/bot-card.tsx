@@ -7,7 +7,13 @@ import { ContainerLevel, containerStyles } from '../styles/colors'
 import { bodySmall, labelMedium, singleLine, titleMedium } from '../styles/typography'
 import { cancelInstall, installBot, runAsyncAction, updateBot } from './bot-actions'
 import { BotAvatar } from './bot-avatar'
-import { botDisplayTags, PlayStyleTags, ReadinessBadge, StrengthBadge } from './bot-badges'
+import {
+  botDisplayTags,
+  PlayStyleTags,
+  ProductionVisibilityBadge,
+  ReadinessBadge,
+  StrengthBadge,
+} from './bot-badges'
 
 const AVATAR_SIZE = 48
 const STRENGTH_ICON_SIZE = 40
@@ -271,6 +277,7 @@ export function BotCard({
       </Header>
 
       <PlayStyleTags tags={botDisplayTags(bot, t)} />
+      <ProductionVisibilityBadge bot={bot} />
       <Stretch />
 
       {showUpdateLine ? (
@@ -279,6 +286,11 @@ export function BotCard({
             <MaterialIcon icon='upgrade' size={17} />
             {t('practice.bots.updateAvailable', 'Update available')}
           </UpdateLine>
+          {bot.updateAvailable?.releaseStatus !== 'production-approved' ? (
+            <Note>
+              {t('practice.bots.devOnlyUpdate', 'Dev-only update — hidden in production')}
+            </Note>
+          ) : null}
           <Note>
             {t('practice.bots.updateIsSeparate', {
               defaultValue:

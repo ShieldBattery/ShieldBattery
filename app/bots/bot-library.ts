@@ -11,6 +11,7 @@ import { BrowserWindow, dialog, net, shell } from 'electron'
 import { randomUUID } from 'node:crypto'
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
+import { botLibraryForBuild, isProductionApproved } from '../../common/bots/bot-approval'
 import {
   BotCatalogEntry,
   BotCatalogRelease,
@@ -84,7 +85,7 @@ export interface BotLibraryOptions {
   dataRoot: string
   /** Where the local game manager writes per-session game logs. */
   localGameLogsRoot: string
-  /** Development builds use the staging catalog; only they can launch local bot games at all. */
+  /** Development builds use staging and expose unapproved releases and local builds. */
   isDev: boolean
   getLocalGameManager: () => LocalGameManager
   getParentWindow: () => BrowserWindow | null
@@ -180,29 +181,32 @@ export class BotLibrary {
   // ----- snapshots -------------------------------------------------------------------------
 
   getSnapshot(): BotLibrarySnapshot {
-    return {
-      catalog: this.catalog,
-      catalogStatus: this.catalogStatus,
-      installed: this.data.installed,
-      localBuilds: this.data.localBuilds,
-      installs: Array.from(this.installs.values(), install => install.progress),
-      installFailures: this.installFailures,
-      java: {
-        detected: this.javaRuntimes(),
-        added: this.data.javaRuntimes.map(javaPath => {
-          const key = javaPath.toLowerCase()
-          let status: AddedJavaRuntime['status'] = 'checking'
-          if (this.addedJava.has(key)) {
-            status = this.addedJava.get(key) ? 'usable' : 'unusable'
-          }
-          return { path: javaPath, status }
-        }),
-        checkedAt: this.java.getCheckedAt(),
-        overrides: this.data.javaOverrides,
+    return botLibraryForBuild(
+      {
+        catalog: this.catalog,
+        catalogStatus: this.catalogStatus,
+        installed: this.data.installed,
+        localBuilds: this.data.localBuilds,
+        installs: Array.from(this.installs.values(), install => install.progress),
+        installFailures: this.installFailures,
+        java: {
+          detected: this.javaRuntimes(),
+          added: this.data.javaRuntimes.map(javaPath => {
+            const key = javaPath.toLowerCase()
+            let status: AddedJavaRuntime['status'] = 'checking'
+            if (this.addedJava.has(key)) {
+              status = this.addedJava.get(key) ? 'usable' : 'unusable'
+            }
+            return { path: javaPath, status }
+          }),
+          checkedAt: this.java.getCheckedAt(),
+          overrides: this.data.javaOverrides,
+        },
+        inUse: Array.from(this.leases.keys()),
+        hasLearningData: this.learningKeys,
       },
-      inUse: Array.from(this.leases.keys()),
-      hasLearningData: this.learningKeys,
-    }
+      this.options.isDev,
+    )
   }
 
   private broadcast(): void {
@@ -272,7 +276,11 @@ export class BotLibrary {
   ): { entry: BotCatalogEntry; release: BotCatalogRelease } | undefined {
     const entry = this.catalog?.bots.find(candidate => candidate.bot.id === botId)
     const release = entry?.releases.find(candidate => candidate.package.releaseId === releaseId)
-    return entry && release ? { entry, release } : undefined
+    return entry &&
+      release &&
+      (this.options.isDev || release.releaseStatus === 'production-approved')
+      ? { entry, release }
+      : undefined
   }
 
   private packageDirectory(botId: string, releaseId: string): string {
@@ -815,6 +823,9 @@ export class BotLibrary {
   ): Promise<LocalBotLaunch> {
     const race = botRaceToRaceChar(selection.race)
     if (isLocalBuildKey(selection.key)) {
+      if (!this.options.isDev) {
+        throw new Error('Local bot builds are only available in development')
+      }
       const build = this.data.localBuilds.find(candidate => candidate.key === selection.key)
       if (!build) {
         throw new Error(`One of the chosen bots is no longer in your library`)
@@ -844,6 +855,9 @@ export class BotLibrary {
     const installed = this.data.installed.find(candidate => candidate.botId === selection.key)
     if (!installed) {
       throw new Error(`One of the chosen bots isn't installed`)
+    }
+    if (!this.options.isDev && !isProductionApproved(installed, this.catalog?.bots ?? [])) {
+      throw new Error('This bot release is not approved for production')
     }
     if (selection.releaseId && installed.releaseId !== selection.releaseId) {
       throw new Error(`The chosen version of ${installed.bot.name} isn't installed`)

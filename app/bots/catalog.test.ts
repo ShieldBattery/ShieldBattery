@@ -135,6 +135,26 @@ describe('app/bots/catalog/resolveCatalogUrl', () => {
 })
 
 describe('app/bots/catalog/validateCatalogDocument', () => {
+  test.each([undefined, 'candidate', 'staging', 'production-approved'])(
+    'retains release approval status %s and defaults missing approval to candidate',
+    releaseStatus => {
+      const catalog = makeCatalog()
+      Object.assign(catalog.bots[0].releases[0], { releaseStatus })
+      expect(
+        validateCatalogDocument(catalog, { catalogUrl: CATALOG_URL }).bots[0].releases[0]
+          .releaseStatus,
+      ).toBe(releaseStatus ?? 'candidate')
+    },
+  )
+
+  test('rejects unknown release approval status', () => {
+    const catalog = makeCatalog()
+    Object.assign(catalog.bots[0].releases[0], { releaseStatus: 'verified' })
+    expect(() => validateCatalogDocument(catalog, { catalogUrl: CATALOG_URL })).toThrow(
+      /releaseStatus/,
+    )
+  })
+
   test('accepts a well-formed catalog', () => {
     const catalog = validateCatalogDocument(makeCatalog(), { catalogUrl: CATALOG_URL })
     expect(catalog.revision).toBe(3)

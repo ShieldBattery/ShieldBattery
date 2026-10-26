@@ -1,6 +1,10 @@
 import { EventEmitter } from 'node:events'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { InstalledBotRelease, JavaRuntimeInfo } from '../../common/bots/bot-library'
+import {
+  CachedBotCatalog,
+  InstalledBotRelease,
+  JavaRuntimeInfo,
+} from '../../common/bots/bot-library'
 import { PracticeLaunchRequest } from '../../common/bots/practice'
 import { GameType } from '../../common/games/game-type'
 import type { LocalGameManager } from '../game/local-game-manager'
@@ -22,6 +26,7 @@ vi.mock('../logger', () => ({
 const INSTALLED = {
   botId: 'zzzkbot',
   releaseId: 'zzzkbot-1',
+  digest: 'archive-digest',
   bot: { id: 'zzzkbot', name: 'ZZZKBot', authors: [] },
   package: {
     profile: { selectableRaces: ['zerg'] },
@@ -41,6 +46,7 @@ vi.mock('./learning-profiles', async importOriginal => ({
   ...(await importOriginal<typeof import('./learning-profiles')>()),
   ...learning,
 }))
+const cache = vi.hoisted(() => ({ value: undefined as CachedBotCatalog | undefined }))
 vi.mock('./library-store', async importOriginal => {
   const actual = await importOriginal<typeof import('./library-store')>()
   return {
@@ -50,7 +56,7 @@ vi.mock('./library-store', async importOriginal => {
       dropped: [],
     }),
     saveLibraryData: async () => {},
-    loadCachedCatalog: async () => undefined,
+    loadCachedCatalog: async () => cache.value,
   }
 })
 const java = vi.hoisted(() => ({
@@ -87,6 +93,89 @@ const REQUEST = {
   gameType: GameType.Melee,
   bots: [{ key: 'zzzkbot', race: 'zerg' }],
 } as unknown as PracticeLaunchRequest
+
+describe('BotLibrary production approval', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    cache.value = undefined
+  })
+
+  function createLibrary(isDev: boolean) {
+    return new BotLibrary({
+      dataRoot: 'bots',
+      localGameLogsRoot: 'logs',
+      isDev,
+      getLocalGameManager: () => new FakeLocalGameManager() as unknown as LocalGameManager,
+      getParentWindow: () => null,
+      onChanged: () => {},
+      onInstallProgress: () => {},
+    })
+  }
+
+  function catalog(releaseStatus?: 'candidate' | 'staging' | 'production-approved') {
+    cache.value = {
+      revision: 1,
+      fetchedAt: Date.now(),
+      url: 'https://cdn.shieldbattery.net/robotics-facility/catalog.json',
+      bots: [
+        {
+          bot: INSTALLED.bot,
+          releases: [
+            {
+              releaseStatus,
+              package: { ...INSTALLED.package, releaseId: INSTALLED.releaseId },
+              artifact: { sha256: INSTALLED.digest },
+            },
+          ],
+        },
+      ],
+    } as CachedBotCatalog
+  }
+
+  test.each([undefined, 'candidate', 'staging'] as const)(
+    'production hides and refuses direct install/launch of %s release',
+    async releaseStatus => {
+      catalog(releaseStatus)
+      const library = createLibrary(false)
+      const snapshot = await library.get()
+      expect(snapshot.catalog?.bots).toEqual([])
+      expect(snapshot.installed).toEqual([])
+      await expect(library.install(INSTALLED.botId, INSTALLED.releaseId)).rejects.toThrow(/catalog/)
+      await expect(library.startPracticeGame(REQUEST)).rejects.toThrow(
+        /not approved for production/,
+      )
+      expect(learning.ensureWorkingCopy).not.toHaveBeenCalled()
+    },
+  )
+
+  test('production retains and launches approved installed release from current catalog', async () => {
+    catalog('production-approved')
+    const library = createLibrary(false)
+    expect((await library.get()).installed).toHaveLength(1)
+    await library.startPracticeGame(REQUEST)
+    expect(learning.ensureWorkingCopy).toHaveBeenCalledOnce()
+  })
+
+  test('production cannot reuse uncatalogued installation while offline', async () => {
+    const library = createLibrary(false)
+    expect((await library.get()).installed).toEqual([])
+    await expect(library.startPracticeGame(REQUEST)).rejects.toThrow(/not approved for production/)
+  })
+
+  test('production rejects direct local-build launch', async () => {
+    const library = createLibrary(false)
+    await expect(
+      library.startPracticeGame({
+        ...REQUEST,
+        bots: [{ key: 'local:test', race: 'zerg' }],
+      }),
+    ).rejects.toThrow(/only available in development/)
+  })
+})
+
+beforeEach(() => {
+  cache.value = undefined
+})
 
 describe('BotLibrary launches and bot changes', () => {
   let manager: FakeLocalGameManager

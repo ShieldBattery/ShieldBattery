@@ -18,6 +18,7 @@ import {
   BotModification,
   BotRaceName,
   BotRandomRaceSupport,
+  BotReleaseStatus,
   BotRuntime,
   latestCatalogRelease,
 } from './bot-catalog'
@@ -52,6 +53,7 @@ export interface BotView {
   /** The version that would run: the installed one, else the latest catalog release. */
   version: string
   releaseId?: string
+  releaseStatus?: BotReleaseStatus
   description: string
   authors: BotAuthor[]
   homepage?: string
@@ -166,6 +168,12 @@ export function buildBotViews(snapshot: BotLibrarySnapshot): BotView[] {
       name: identity.name,
       version: pkg.version,
       releaseId: pkg.releaseId,
+      releaseStatus:
+        entry?.releases.find(
+          release =>
+            release.package.releaseId === pkg.releaseId &&
+            (!installed || release.artifact.sha256 === installed.digest),
+        )?.releaseStatus ?? 'candidate',
       description: identity.description,
       authors: identity.authors,
       homepage: identity.homepage,

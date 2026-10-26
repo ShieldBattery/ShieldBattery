@@ -200,6 +200,18 @@ export function PlayStyleTags({
   )
 }
 
+export function ProductionVisibilityBadge({ bot }: { bot: Pick<BotView, 'releaseStatus'> }) {
+  const { t } = useTranslation()
+  if (bot.releaseStatus === 'production-approved') return null
+
+  return (
+    <StatusLine $tone='amber' $dense={true}>
+      <MaterialIcon icon='science' size={17} />
+      {t('practice.bots.devOnly', 'Dev only — hidden in production')}
+    </StatusLine>
+  )
+}
+
 type StatusTone = 'success' | 'amber' | 'error' | 'neutral'
 
 function toneColor(tone: StatusTone): string {
