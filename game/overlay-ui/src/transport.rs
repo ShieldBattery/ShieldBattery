@@ -23,6 +23,7 @@
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 
+use egui::emath::GuiRounding;
 use egui::{
     Align, Align2, Area, Color32, Context, Id, Layout, Order, Pos2, Rect, Response, Sense, Shape,
     Stroke, StrokeKind, Ui, Vec2, pos2, vec2,
@@ -875,12 +876,20 @@ fn play_pause_button(ui: &mut Ui, show_play: bool) -> Response {
             Stroke::NONE,
         ));
     } else {
-        for offset in [-3.5f32, 3.5] {
-            ui.painter().rect_filled(
-                Rect::from_center_size(pos2(centre.x + offset, centre.y), vec2(3.0, 12.0)),
-                theme::radius(1),
-                glyph,
-            );
+        // egui puts each edge of a filled rect on the nearest pixel, so between whole scales two
+        // bars placed independently can round to different widths. Sized and spaced in whole
+        // pixels and placed once, the second is the first moved over and the two always match.
+        let pixels_per_point = ui.ctx().pixels_per_point();
+        let snap = |points: f32| (points * pixels_per_point).round().max(1.0) / pixels_per_point;
+        let bar = vec2(snap(3.0), snap(12.0));
+        let pitch = snap(7.0);
+        let first = Rect::from_min_size(
+            pos2(centre.x - (pitch + bar.x) / 2.0, centre.y - bar.y / 2.0)
+                .round_to_pixels(pixels_per_point),
+            bar,
+        );
+        for bar in [first, first.translate(vec2(pitch, 0.0))] {
+            ui.painter().rect_filled(bar, theme::radius(1), glyph);
         }
     }
     response
