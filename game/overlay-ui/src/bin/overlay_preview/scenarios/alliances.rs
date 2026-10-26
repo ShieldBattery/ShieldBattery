@@ -14,7 +14,7 @@ use std::collections::HashMap;
 use egui::vec2;
 use overlay_ui::alliances::{
     AlliancePlayerView, AllianceState, AlliancesAction, AlliancesMenu, AlliancesView,
-    ChatTargetChoice, ChatTargetOption, PlayerNote, RecipientName, ReportState,
+    ChatTargetChoice, ChatTargetOption, PlayerStanding, RecipientName, ReportState,
 };
 use overlay_ui::kit::theme;
 use overlay_ui::observer::RaceView;
@@ -341,14 +341,6 @@ pub fn build_view(k: &Knobs, state: &State) -> AlliancesView {
             } else {
                 NAMES[row.index]
             };
-            let has_alliance = !row.teammate && !row.departed;
-            let note = if row.departed {
-                Some(PlayerNote::Left)
-            } else if k.defeated_player && row.index == 1 {
-                Some(PlayerNote::Defeated)
-            } else {
-                None
-            };
             let allied = state
                 .allied
                 .get(&row.player_id)
@@ -375,12 +367,19 @@ pub fn build_view(k: &Knobs, state: &State) -> AlliancesView {
                 name: name.to_string(),
                 color: theme::player_color(row.index + 1),
                 race: RaceView::ALL[row.index % RaceView::ALL.len()],
-                alliance: has_alliance.then_some(AllianceState {
-                    player_id: row.player_id,
-                    allied,
-                    vision,
-                }),
-                note,
+                standing: if row.departed {
+                    PlayerStanding::Left
+                } else if k.defeated_player && row.index == 1 {
+                    PlayerStanding::Defeated
+                } else if row.teammate {
+                    PlayerStanding::Fixed
+                } else {
+                    PlayerStanding::Allyable(AllianceState {
+                        player_id: row.player_id,
+                        allied,
+                        vision,
+                    })
+                },
                 muted: state
                     .muted
                     .get(&row.user_id)
@@ -407,8 +406,7 @@ pub fn build_view(k: &Knobs, state: &State) -> AlliancesView {
                     name: COMPUTER_NAMES[index].to_string(),
                     color: theme::player_color(slot + 1),
                     race: RaceView::ALL[slot % RaceView::ALL.len()],
-                    alliance: None,
-                    note: None,
+                    standing: PlayerStanding::Fixed,
                     muted: false,
                     blocked: false,
                     report: ReportState::None,
@@ -433,7 +431,7 @@ pub fn build_view(k: &Knobs, state: &State) -> AlliancesView {
         });
     }
     for player in &players {
-        if let Some(alliance) = player.alliance {
+        if let Some(alliance) = player.standing.alliance() {
             chat_targets.push(ChatTargetOption {
                 choice: ChatTargetChoice::Recipient(alliance.player_id),
                 recipient: Some(RecipientName::Player(player.name.clone())),

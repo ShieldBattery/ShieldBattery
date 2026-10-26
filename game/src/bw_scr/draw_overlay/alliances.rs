@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 use byteorder::{ByteOrder, LittleEndian};
 use overlay_ui::alliances::{
     AlliancePlayerView, AllianceState, AlliancesAction, AlliancesView, ChatTargetChoice,
-    ChatTargetOption, PlayerNote, RecipientName, ReportReason, ReportState,
+    ChatTargetOption, PlayerStanding, RecipientName, ReportReason, ReportState,
 };
 use overlay_ui::observer::RaceView;
 use parking_lot::Mutex;
@@ -137,7 +137,7 @@ impl AlliancesState {
             chat_targets.extend(
                 rows.iter()
                     .filter(|(_, player)| {
-                        player.user_id.is_some() && player.note != Some(PlayerNote::Left)
+                        player.user_id.is_some() && player.standing != PlayerStanding::Left
                     })
                     .map(|(player_id, player)| ChatTargetOption {
                         choice: ChatTargetChoice::Recipient(*player_id),
@@ -333,21 +333,24 @@ fn player_view(
     // The game marks a player who has left by their slot's type, and one it has beaten by their
     // victory state.
     let left = matches!(player.player_type, 10 | 11);
-    let defeated = !left && matches!(victory_state, 1 | 2);
-    let note = match () {
-        _ if left => Some(PlayerNote::Left),
-        _ if defeated => Some(PlayerNote::Defeated),
-        _ => None,
-    };
-    // A teammate sharing the player's units is the player as far as the game is concerned, a
-    // computer's alliances are its own, and someone out of the game has nothing left to ally with.
+    let defeated = matches!(victory_state, 1 | 2);
+    // A teammate sharing the player's units is the player as far as the game is concerned, and a
+    // computer's alliances are its own.
     let shares_units = rules.shared_control && player.team != 0 && Some(player.team) == local_team;
-    let has_alliance = person.is_some()
-        && !left
-        && !defeated
+    let allyable = person.is_some()
         && player_id != local
         && !shares_units
         && usize::from(local) < PLAYER_SLOTS;
+    let standing = match () {
+        _ if left => PlayerStanding::Left,
+        _ if defeated => PlayerStanding::Defeated,
+        _ if allyable => PlayerStanding::Allyable(AllianceState {
+            player_id,
+            allied: alliances[usize::from(player_id)] != ENEMY,
+            vision: vision & (1 << player_id) != 0,
+        }),
+        _ => PlayerStanding::Fixed,
+    };
     AlliancePlayerView {
         team: player.team,
         user_id: person.map(|(other, _)| other.user_id.0),
@@ -357,12 +360,7 @@ fn player_view(
         },
         color: stats::player_color(bw, player_id),
         race: chosen_race(bw, setup, player_id),
-        alliance: has_alliance.then(|| AllianceState {
-            player_id,
-            allied: alliances[usize::from(player_id)] != ENEMY,
-            vision: vision & (1 << player_id) != 0,
-        }),
-        note,
+        standing,
         muted: person.is_some_and(|(other, _)| other.muted),
         blocked: person.is_some_and(|(other, _)| other.blocked),
         report: match person.and_then(|(_, report)| report) {

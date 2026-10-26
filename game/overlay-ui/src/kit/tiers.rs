@@ -83,6 +83,10 @@ const DIALOG_FOOTER_MARGIN: Margin = Margin {
     bottom: 20,
 };
 
+/// How far a dialog's bands hold their contents in from the dialog's sides, for something in a band
+/// that has to reach the sides anyway, such as a lit table row.
+pub const DIALOG_SIDE_PAD: f32 = DIALOG_PAD_X as f32;
+
 /// How much room a dialog's bands leave their contents inside a dialog `outer_width` wide.
 ///
 /// A `const fn` so a dialog whose columns are laid out from constants can check they add up at

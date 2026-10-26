@@ -1380,12 +1380,13 @@ mod tests {
                 name: "pachi".to_string(),
                 color: egui::Color32::WHITE,
                 race: crate::observer::RaceView::Random,
-                alliance: Some(crate::alliances::AllianceState {
-                    player_id: 1,
-                    allied: false,
-                    vision: false,
-                }),
-                note: None,
+                standing: crate::alliances::PlayerStanding::Allyable(
+                    crate::alliances::AllianceState {
+                        player_id: 1,
+                        allied: false,
+                        vision: false,
+                    },
+                ),
                 muted: false,
                 blocked: false,
                 report: crate::alliances::ReportState::None,

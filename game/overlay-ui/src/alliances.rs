@@ -29,7 +29,7 @@ use crate::observer::{self, RaceView};
 use crate::tr;
 
 /// How wide the dialog's contents are, in overlay points.
-const CONTENT_WIDTH: f32 = 852.0;
+const CONTENT_WIDTH: f32 = 720.0;
 
 /// The table's fixed columns, and the gap between two columns. The player's column takes the rest.
 /// The two switch columns are only as wide as their labels need, which every language keeps to a
@@ -51,8 +51,10 @@ const ROW_HEIGHT: f32 = 60.0;
 const SWATCH_SIZE: f32 = 20.0;
 const NAME_SIZE: f32 = 22.0;
 const CELL_GAP: f32 = 12.0;
-const NOTE_SIZE: f32 = 14.0;
 const CELL_END_GAP: f32 = 16.0;
+
+/// The status shown in place of the switches for someone out of the game.
+const STATUS_SIZE: f32 = 14.0;
 
 /// The race initial beside the player's color swatch.
 const RACE_INITIAL_WIDTH: f32 = 28.0;
@@ -88,11 +90,7 @@ pub struct AlliancePlayerView {
     pub color: Color32,
     /// The race they chose, which is Random for a player who left it to the game.
     pub race: RaceView,
-    /// What the player has set with them through the game, where there is anything to set: a
-    /// teammate sharing the player's own units, a computer, or someone out of the game has none.
-    pub alliance: Option<AllianceState>,
-    /// What else the row says about them.
-    pub note: Option<PlayerNote>,
+    pub standing: PlayerStanding,
     pub muted: bool,
     pub blocked: bool,
     pub report: ReportState,
@@ -107,13 +105,35 @@ pub struct AllianceState {
     pub vision: bool,
 }
 
-/// What a row says about someone besides their name.
+/// Where someone stands in the game, which is what their row's ally and vision columns hold: the
+/// switches for someone the player can ally with, or why there is nothing to set.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub enum PlayerNote {
+pub enum PlayerStanding {
+    /// In the game, with what the player has set with them through it.
+    Allyable(AllianceState),
+    /// In the game, with nothing for the player to set: a teammate sharing the player's own units,
+    /// or a computer, whose alliances are its own.
+    Fixed,
     /// Beaten, and still in the game.
     Defeated,
     /// Gone from the game.
     Left,
+}
+
+impl PlayerStanding {
+    pub fn alliance(self) -> Option<AllianceState> {
+        match self {
+            PlayerStanding::Allyable(alliance) => Some(alliance),
+            _ => None,
+        }
+    }
+
+    fn alliance_mut(&mut self) -> Option<&mut AllianceState> {
+        match self {
+            PlayerStanding::Allyable(alliance) => Some(alliance),
+            _ => None,
+        }
+    }
 }
 
 /// Where a report the player made about someone this game stands.
@@ -280,7 +300,7 @@ impl AlliancesDraft {
         let held = |player_id: u8| {
             view.players
                 .iter()
-                .filter_map(|player| player.alliance)
+                .filter_map(|player| player.standing.alliance())
                 .find(|alliance| alliance.player_id == player_id)
         };
         self.allied
@@ -305,7 +325,7 @@ impl AlliancesDraft {
         for alliance in view
             .players
             .iter_mut()
-            .filter_map(|player| player.alliance.as_mut())
+            .filter_map(|player| player.standing.alliance_mut())
         {
             if let Some(&allied) = self.allied.get(&alliance.player_id) {
                 alliance.allied = allied;
@@ -515,17 +535,15 @@ fn draw_table(
         ui.add_space(theme::SPACE_LG);
         return anchors;
     }
-    let last = view.players.len() - 1;
     let divided = observer::teams_worth_dividing(view.players.iter().map(|player| player.team));
     let mut team = view.players[0].team;
     for (index, player) in view.players.iter().enumerate() {
         if divided && team != player.team {
             ui.add_space(theme::SPACE_SM);
-            widgets::divider(ui);
+            team_rule(ui);
             ui.add_space(theme::SPACE_SM);
         }
         team = player.team;
-        let ruled = index != last && (!divided || view.players[index + 1].team == team);
         let menu_open = player.user_id.is_some_and(|user_id| {
             matches!(
                 menu,
@@ -535,7 +553,7 @@ fn draw_table(
         });
         let more = ui
             .push_id(("sb_alliances_row", index), |ui| {
-                draw_row(ui, view, player, menu_open, ruled, outcome)
+                draw_row(ui, view, player, menu_open, outcome)
             })
             .inner;
         if let (Some(user_id), Some(more)) = (player.user_id, more) {
@@ -615,13 +633,35 @@ fn draw_row(
     view: &AlliancesView,
     player: &AlliancePlayerView,
     menu_open: bool,
-    ruled: bool,
     outcome: &mut AlliancesOutcome,
 ) -> Option<Rect> {
     let (row, _) = ui.allocate_exact_size(vec2(CONTENT_WIDTH, ROW_HEIGHT), Sense::hover());
+    // The row the pointer is over, or whose menu is open, is lit, so it is plain whose settings a
+    // control at the far end of it changes. Painted first, to sit under everything in the row.
+    let lit_rect = row.expand2(vec2(tiers::DIALOG_SIDE_PAD, 0.0));
+    if menu_open || ui.rect_contains_pointer(lit_rect) {
+        ui.painter()
+            .rect_filled(lit_rect, 0.0, theme::HOVER_OVERLAY);
+    }
     let columns = Columns::of(row);
     draw_player_cell(ui, columns.player, player);
-    if let Some(alliance) = player.alliance {
+    let status = match player.standing {
+        PlayerStanding::Allyable(_) | PlayerStanding::Fixed => None,
+        PlayerStanding::Defeated => Some(tr!("alliances.defeated", "defeated")),
+        PlayerStanding::Left => Some(tr!("alliances.left", "left the game")),
+    };
+    if let Some(status) = status {
+        // Someone out of the game has no alliance left to set, so their status takes the place of
+        // the switches.
+        observer::paint_text(
+            ui,
+            columns.ally.union(columns.vision),
+            &text::body(STATUS_SIZE, BodyWeight::Regular).with_color(GREY_BLUE60),
+            &status,
+            Align::Center,
+        );
+    }
+    if let PlayerStanding::Allyable(alliance) = player.standing {
         let mut allied = alliance.allied;
         if centered(
             ui,
@@ -659,7 +699,7 @@ fn draw_row(
             });
         }
     }
-    let more = player.user_id.map(|user_id| {
+    player.user_id.map(|user_id| {
         let button_size = Vec2::splat(widgets::ICON_BUTTON_SIZE);
         let (glyph, state) = match player.muted {
             true => (Glyph::SpeakerMuted, IconButtonState::Raised),
@@ -689,15 +729,20 @@ fn draw_row(
             });
         }
         more.rect
-    });
-    if ruled {
-        let y = row.bottom() - theme::HAIRLINE * 0.5;
-        ui.painter().line_segment(
-            [pos2(row.left(), y), pos2(row.right(), y)],
-            egui::Stroke::new(theme::HAIRLINE, theme::alpha(BLUE70, 0.30)),
-        );
-    }
-    more
+    })
+}
+
+/// The rule between one team's rows and the next. Players within a team sit unruled, so the teams
+/// read as the table's groups.
+fn team_rule(ui: &mut Ui) {
+    let (rect, _) = ui.allocate_exact_size(vec2(CONTENT_WIDTH, theme::HAIRLINE), Sense::hover());
+    ui.painter().line_segment(
+        [
+            pos2(rect.left(), rect.center().y),
+            pos2(rect.right(), rect.center().y),
+        ],
+        egui::Stroke::new(theme::HAIRLINE, theme::alpha(BLUE70, 0.30)),
+    );
 }
 
 /// Lays a control `size` big out in the middle of `rect`, disabled where `disabled` says. The
@@ -720,7 +765,8 @@ fn centered<R>(
     .inner
 }
 
-/// The player's color swatch and race initial, their name, and their status.
+/// The player's color swatch and race initial, their name, and the tags for what the player has
+/// done about them beyond this game.
 fn draw_player_cell(ui: &mut Ui, rect: Rect, player: &AlliancePlayerView) {
     let painter = ui.painter();
     let mut left = rect.left();
@@ -768,20 +814,10 @@ fn draw_player_cell(ui: &mut Ui, rect: Rect, player: &AlliancePlayerView) {
             },
         )),
     }
+    // Muting has no tag: the mute button in the same row already shows it.
     if player.blocked {
         trailing.push((tr!("alliances.blockedTag", "Blocked"), danger));
-    } else if player.muted {
-        trailing.push((tr!("alliances.mutedTag", "Muted"), TagStyle::Amber));
     }
-    let note = player.note.map(|note| match note {
-        PlayerNote::Defeated => tr!("alliances.defeated", "defeated"),
-        PlayerNote::Left => tr!("alliances.left", "left the game"),
-    });
-    let note_galley = note.map(|note| {
-        text::body(NOTE_SIZE, BodyWeight::Regular)
-            .with_color(GREY_BLUE60)
-            .galley(ui, &note)
-    });
     let tag_rects = trailing
         .iter()
         .map(|(label, style)| {
@@ -799,32 +835,21 @@ fn draw_player_cell(ui: &mut Ui, rect: Rect, player: &AlliancePlayerView) {
             (tag, label, *style)
         })
         .collect::<Vec<_>>();
-    let dimmed = player.muted || player.blocked || player.note == Some(PlayerNote::Left);
+    let dimmed = player.muted || player.blocked || player.standing == PlayerStanding::Left;
     let name_color = if dimmed {
         GREY_BLUE70
     } else {
         theme::TEXT_PRIMARY
     };
-    let note_width = note_galley
-        .as_ref()
-        .map_or(0.0, |galley| galley.size().x + CELL_GAP);
     let name_job = text::player_name(NAME_SIZE)
         .with_color(name_color)
-        .job_truncated(&player.name, (right - left - note_width).max(0.0));
+        .job_truncated(&player.name, (right - left).max(0.0));
     let name = ui.ctx().fonts_mut(|fonts| fonts.layout_job(name_job));
-    let name_pos = pos2(left, rect.center().y - name.size().y * 0.5);
-    let name_right = name_pos.x + name.size().x;
-    painter.galley(name_pos, name, name_color);
-    if let Some(galley) = note_galley {
-        painter.galley(
-            pos2(
-                name_right + CELL_GAP,
-                rect.center().y - galley.size().y * 0.5,
-            ),
-            galley,
-            GREY_BLUE60,
-        );
-    }
+    painter.galley(
+        pos2(left, rect.center().y - name.size().y * 0.5),
+        name,
+        name_color,
+    );
     for (tag, label, style) in tag_rects {
         ui.scope_builder(UiBuilder::new().max_rect(tag), |ui| {
             widgets::tag_sized(ui, label, style, tag.width());
@@ -1147,12 +1172,11 @@ mod tests {
             name: name.to_string(),
             color: theme::player_color(user_id as usize),
             race: RaceView::Zerg,
-            alliance: Some(AllianceState {
+            standing: PlayerStanding::Allyable(AllianceState {
                 player_id: user_id as u8,
                 allied: false,
                 vision: false,
             }),
-            note: None,
             muted: false,
             blocked: false,
             report: ReportState::None,
@@ -1162,7 +1186,7 @@ mod tests {
     fn computer(name: &str) -> AlliancePlayerView {
         AlliancePlayerView {
             user_id: None,
-            alliance: None,
+            standing: PlayerStanding::Fixed,
             ..player(0, name)
         }
     }
@@ -1224,7 +1248,7 @@ mod tests {
         long.muted = true;
         long.blocked = true;
         long.report = ReportState::Failed;
-        long.note = Some(PlayerNote::Left);
+        long.standing = PlayerStanding::Left;
         let busy = view(vec![player(1, "a"), long, computer("Computer")]);
         assert_eq!(settled_width(&ctx, &busy, None), baseline);
         for menu in [
@@ -1277,12 +1301,11 @@ mod tests {
             name: format!("player {player_id}"),
             color: Color32::WHITE,
             race: RaceView::Random,
-            alliance: Some(AllianceState {
+            standing: PlayerStanding::Allyable(AllianceState {
                 player_id,
                 allied,
                 vision: false,
             }),
-            note: None,
             muted: false,
             blocked: false,
             report: ReportState::None,
@@ -1314,7 +1337,7 @@ mod tests {
         assert_eq!(draft.stage(mute), Some(mute));
         let view = diplomacy_view();
         let shown = draft.applied_to(&view);
-        assert!(shown.players[0].alliance.unwrap().allied);
+        assert!(shown.players[0].standing.alliance().unwrap().allied);
         assert!(shown.allied_victory);
         // Alliances go ahead of the victory setting, so a new ally shares it.
         assert_eq!(
