@@ -84,3 +84,6 @@ The following files contain BW-side code:
 
 MIT, see `LICENSE`. The copyright and permission notice must be kept in all copies or substantial
 portions of this code, including compiled builds of the DLL.
+
+The separately bundled `sb_init.dll` and `sb_init_64.dll` helpers have their own
+[binary license](../tools/SB_INIT_BINARY_LICENSE.txt).

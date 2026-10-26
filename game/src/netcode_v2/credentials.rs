@@ -193,9 +193,9 @@ fn add_relay_cert(
 /// Resolves the addresses to dial for a relay, keeping the relay's own preference order. Every
 /// candidate is kept: which family and port get through can only be judged at dial time, so
 /// nothing is discarded here. A malformed address is an error (a coordinator handing out garbage
-/// should surface loudly), and a relay with no address at all is rejected. The client endpoint is
-/// dual-stack and maps an IPv4 target to its v4-mapped form internally, so either family is
-/// dialable.
+/// should surface loudly), and a relay with no address at all is rejected. The client endpoint
+/// maps IPv4 targets to v4-mapped addresses when bound dual-stack, and can use the IPv4 candidates
+/// when binding falls back to an IPv4-only socket.
 fn resolve_relay(relay: &NetcodeV2Relay) -> Result<RelayTarget, CredentialError> {
     let addrs = relay
         .addrs

@@ -1,0 +1,54 @@
+ShieldBattery sb_init Binary License
+
+This license applies only to versions of sb_init.dll and sb_init_64.dll
+distributed together with this notice, and to copies of those binaries
+regardless of where they are packaged or what they are named (the "Binaries").
+It does not change the license of the ShieldBattery game DLL or other
+ShieldBattery code.
+
+Subject to the restrictions below, the copyright holders grant you a
+nonexclusive, worldwide, royalty-free license to copy, distribute, and run
+unmodified Binaries solely for:
+
+1. Developing, building, and testing ShieldBattery, including modified
+   ShieldBattery game DLLs and locally hosted ShieldBattery development
+   services. You may share unmodified Binaries and this notice with others
+   solely for that development purpose, including as part of a repository fork.
+2. Distributing unmodified Binaries as part of an official ShieldBattery
+   release, if you are authorized by the ShieldBattery project to publish that
+   release. You must include this notice with the Binaries.
+3. Installing and running an official ShieldBattery release for use with
+   ShieldBattery, including its online services and features that work without
+   them, such as watching replays.
+4. Distributing unmodified Binaries as part of a ShieldBattery fork, and
+   installing and running that fork, if all of the following are true:
+   a. The Binaries are used only in conjunction with a game DLL built from
+      ShieldBattery's game DLL source code or a modified version of it.
+   b. Neither the fork nor access to it is sold, rented, or offered only in
+      exchange for payment.
+   You must include this notice with the Binaries. The ShieldBattery project
+   may end this permission for a particular fork or distributor by notifying
+   them. After that notice, this clause no longer applies to them or to forks
+   they distribute. If no official ShieldBattery release has been published for
+   12 months, the ShieldBattery project can no longer end permissions under this
+   clause. Notices sent before then remain in effect.
+
+No permission is granted to use, copy, modify, or distribute the Binaries for
+any other purpose. In particular, no permission is granted to use them in any
+client, launcher, tool, service, or workflow that connects to, automates,
+modifies, or otherwise interacts with Blizzard-operated Battle.net services,
+directly or through a game client. The permissions above do not apply to such
+use, including during development or testing. Network activity that a game
+client performs on its own, which the software using the Binaries does not
+direct or rely on, is not such use.
+
+This license grants no rights to ShieldBattery trademarks or to sb_init source
+code. Third-party components included in the Binaries remain subject to their
+own licenses; nothing here limits rights granted by those licenses.
+
+THE BINARIES ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE BINARIES OR THE USE OR OTHER DEALINGS IN THE BINARIES.

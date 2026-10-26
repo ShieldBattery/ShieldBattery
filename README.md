@@ -98,4 +98,6 @@ There are also some other important folders:
 
 ## License
 
-MIT
+ShieldBattery code is generally licensed under [MIT](LICENSE). Some assets and
+third-party components have their own license notices, which are available next to those assets in
+this repository.
