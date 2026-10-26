@@ -240,13 +240,12 @@ pub(crate) fn paint_count(ui: &Ui, rect: Rect, spec: &TextSpec, value: u32, alig
     paint_text(ui, rect, spec, &text, align);
 }
 
-/// Paints a player's race chip: the race's icon in the race's color, over a faint disc of it.
+/// Paints a player's race icon in the race's color, centered within its allocated slot.
 ///
 /// The icon carries the color because it is what the rest of ShieldBattery shows a race as, and
 /// a watcher who knows the hydralisk from the site reads it here without learning anything new.
-/// The disc gives every race the same round footprint beside the name: the icons' silhouettes are
-/// all different shapes, and without it a row's name would start at a different distance from
-/// each of them.
+/// The slot gives every race the same footprint beside the name, so the icons' different
+/// silhouettes do not shift adjacent text.
 pub(crate) fn paint_race_chip(ui: &Ui, rect: Rect, race: RaceView, alpha: f32) {
     let diameter = rect.width().min(rect.height());
     let icon = race_icon::icon_rect(
@@ -254,19 +253,12 @@ pub(crate) fn paint_race_chip(ui: &Ui, rect: Rect, race: RaceView, alpha: f32) {
         diameter * RACE_ICON_RATIO,
         ui.ctx().pixels_per_point(),
     );
-    // Around the icon's square rather than the rect's middle: the two differ by under a pixel,
-    // which is nothing beside the name but would show as the icon sitting off-center in its disc.
-    ui.painter().circle_filled(
-        icon.center(),
-        diameter * 0.5,
-        race.color().gamma_multiply(RACE_DISC_ALPHA * alpha),
-    );
     race_icon::paint_race_icon(ui.painter(), icon, race, race.color().gamma_multiply(alpha));
 }
 
 /// Paints a player's race chip as [`paint_race_chip`] does, for a player who may have left their
 /// race to chance: one who did (`random`) gets the race the pick resolved to with a die hung over
-/// the chip's lower right rim as a badge, which is how the site shows such a pick.
+/// the icon's lower right corner as a badge, which is how the site shows such a pick.
 pub(crate) fn paint_picked_race_chip(
     ui: &Ui,
     rect: Rect,
@@ -288,10 +280,6 @@ pub(crate) fn paint_picked_race_chip(
     );
 }
 
-/// How strongly a race chip's disc is filled with the race's color: enough to read as the chip's
-/// edge against the bar, faint enough that the icon in the same color stands out from it.
-const RACE_DISC_ALPHA: f32 = 0.22;
-
 /// How much of a race chip's diameter its icon's square is drawn at.
 const RACE_ICON_RATIO: f32 = 0.84;
 
@@ -299,9 +287,8 @@ const RACE_ICON_RATIO: f32 = 0.84;
 /// keyline.
 const RANDOM_DIE_RATIO: f32 = 0.4;
 
-/// How far right of and below the chip's middle the die badging a random pick sits, as a share of
-/// the chip's diameter: far enough out that it hangs over the rim and the race icon it marks stays
-/// readable under it.
+/// How far right of and below the allocated slot's middle the die badging a random pick sits, as a
+/// share of the slot's diameter, so the race icon and its badge both stay readable.
 const RANDOM_DIE_OFFSET: f32 = 1.0 / 3.0;
 
 /// Paints the dot that marks whose a row is, where the row is too short for a bar of their color.
