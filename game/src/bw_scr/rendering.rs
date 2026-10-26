@@ -695,6 +695,7 @@ impl BwScr {
                             c[2] = unexplored_mask;
                             c[4..6].copy_from_slice(&origin);
                             c[6..8].copy_from_slice(&span);
+                            c[17..19].copy_from_slice(&map_span);
                             fog_style.write_shader_constants(c, is_minimap);
                         }
                     }

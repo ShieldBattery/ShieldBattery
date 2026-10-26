@@ -42,6 +42,13 @@ cbuffer constants
     float boundaryBrightness;
     // Radius, in map pixels, of the extra smoothing the boundary line is traced on.
     float boundarySmoothing;
+    // Map pixels between the boundary line and currently visible terrain at which the line starts
+    // to show, and at which it shows fully. A line traced right along the edge of what units see
+    // reads as clutter around them. Both 0 always show it.
+    float boundaryClearanceStart;
+    float boundaryClearanceFull;
+    // The map's size in map pixels.
+    float2 mapSize;
 };
 
 // Mask value BW gives explored terrain that isn't currently visible (visible terrain is 0).
@@ -56,12 +63,32 @@ cbuffer constants
 #define VALUE_NOISE_STD 0.2147
 // Standard deviation of the fog's density per unit of grainStrength.
 #define GRAIN_DENSITY_PER_STRENGTH 0.06
+// Rings, and directions per ring, sampled to find how far currently visible terrain is.
+#define VISION_RINGS 6
+#define VISION_DIRECTIONS 12
 
 // 1 inside a line of `width` screen pixels, given the distance from its center, with an
 // antialiased edge `feather` pixels wide.
 float lineCoverage(float distPx, float width, float feather)
 {
     return 1.0 - smoothstep(width * 0.5 - feather * 0.5, width * 0.5 + feather * 0.5, distPx);
+}
+
+// The mask at `uv`, read as if the map's edge tiles carried on past it. Observers can scroll the
+// view past the bottom of the map, where BW's mask is unexplored, and the boundary line would
+// otherwise trace the map's edge there. The line is cut off at the edge where it is drawn.
+float sampleMask(float2 uv)
+{
+    float2 texSize;
+    mask.GetDimensions(texSize.x, texSize.y);
+    // Held half a texel inside, so filtering doesn't blend in what lies past the edge.
+    float2 halfTexel = 0.5 * mapSpan / texSize;
+    float2 mapPos = mapOrigin + uv * mapSpan;
+    if (all(mapSize > 0.0))
+    {
+        mapPos = clamp(mapPos, halfTexel, mapSize - halfTexel);
+    }
+    return mask.SampleLevel(maskSampler, (mapPos - mapOrigin) / max(mapSpan, 1.0), 0.0).x;
 }
 
 // Pseudo-random 0..1 per integer cell.
@@ -140,7 +167,7 @@ float distanceToLevel(float2 uv, float2 uvPerPx, float maskValue, float level)
         for (int ring = 1; ring <= 2; ring++)
         {
             float2 offset = dir * radius * (ring * 0.5);
-            float value = mask.SampleLevel(maskSampler, uv + offset, 0.0).x;
+            float value = sampleMask(uv + offset);
             sum += value;
             slopeSum += value * offset;
             offsetSqSum += offset * offset;
@@ -153,19 +180,55 @@ float distanceToLevel(float2 uv, float2 uvPerPx, float maskValue, float level)
     return abs(smoothed - level) / max(slopePerPx, 1e-5);
 }
 
+// Map pixels from `uv` to the nearest currently visible terrain, out to `reach` (which it returns
+// when nothing that near is visible). Sampled on rings, each turned half a direction from the last
+// so their gaps don't line up. A sample counts as far as its visibility, read from where its
+// filtered mask value falls between visible (0) and explored: a fully visible one puts vision
+// within its ring's inner edge, a partly visible one part of the way out to `reach`, which keeps
+// the distance continuous as vision moves.
+float distanceToVision(float2 uv, float reach)
+{
+    float ringStep = reach / VISION_RINGS;
+    float2 uvPerMapPx = 1.0 / max(mapSpan, 1.0);
+    float nearest = reach;
+    [unroll]
+    for (int ring = 1; ring <= VISION_RINGS; ring++)
+    {
+        float radius = ring * ringStep;
+        [unroll]
+        for (int i = 0; i < VISION_DIRECTIONS; i++)
+        {
+            float angle = (i + (ring & 1) * 0.5) * (6.2831853 / VISION_DIRECTIONS);
+            float2 offset = float2(cos(angle), sin(angle)) * radius * uvPerMapPx;
+            float value = sampleMask(uv + offset);
+            float visible = 1.0 - saturate(value / EXPLORED_MASK);
+            nearest = min(nearest, lerp(reach, radius - ringStep, visible));
+        }
+    }
+    return max(nearest, 0.0);
+}
+
 PS_OUTPUT main(VS_OUTPUT v)
 {
     PS_OUTPUT o;
-    float maskValue = mask.Sample(maskSampler, v.texCoord).x;
+    float2 mapPos = mapOrigin + v.texCoord * mapSpan;
+    float screenPxPerMapPx = 1.0 / max(fwidth(mapPos.x), 1e-4);
+    // Observers can scroll the view past the bottom of the map, where there is no terrain, only
+    // the tileset's background (Space Platform's stars). It is covered in black, with the edge
+    // antialiased over a screen pixel.
+    float2 insideMapPx = min(mapPos, mapSize - mapPos) * screenPxPerMapPx;
+    // A map size of 0 (never written) covers nothing.
+    float onMap = all(mapSize > 0.0) ? saturate(min(insideMapPx.x, insideMapPx.y) + 0.5) : 1.0;
+    float4 offMapCover = float4(0.0, 0.0, 0.0, 1.0 - onMap);
+
     float3 stallColor = showNetworkStalled * float3(0.16, 0.08, 0.16);
     if (useNewMask == 0.0)
     {
-        o.frag_color = float4(stallColor, maskValue);
+        float4 nativeColor = float4(stallColor, mask.Sample(maskSampler, v.texCoord).x);
+        o.frag_color = over(offMapCover, nativeColor);
         return o;
     }
-
-    float2 mapPos = mapOrigin + v.texCoord * mapSpan;
-    float screenPxPerMapPx = 1.0 / max(fwidth(mapPos.x), 1e-4);
+    float maskValue = sampleMask(v.texCoord);
 
     // How unexplored this pixel is, 0 on explored terrain to 1 on never-explored terrain. The
     // mask is blurred, so this ramps smoothly across the boundary.
@@ -195,10 +258,17 @@ PS_OUTPUT main(VS_OUTPUT v)
     if (boundaryAlpha > 0.0 && roughDistPx < reachPx)
     {
         float distPx = distanceToLevel(v.texCoord, uvPerPx, maskValue, boundaryLevel);
-        float boundary = lineCoverage(distPx, boundaryWidth, 1.5) * boundaryAlpha;
+        // Past the map's edge the mask carries the edge tiles on, which would carry the line on
+        // with them, so it stops at the edge.
+        float boundary = lineCoverage(distPx, boundaryWidth, 1.5) * boundaryAlpha * onMap;
+        if (boundary > 0.0 && boundaryClearanceFull > 0.0)
+        {
+            float vision = distanceToVision(v.texCoord, boundaryClearanceFull);
+            boundary *= smoothstep(boundaryClearanceStart, boundaryClearanceFull, vision);
+        }
         color = over(float4(saturate(BOUNDARY_COLOR * boundaryBrightness), boundary), color);
     }
 
-    o.frag_color = color;
+    o.frag_color = over(offMapCover, color);
     return o;
 }

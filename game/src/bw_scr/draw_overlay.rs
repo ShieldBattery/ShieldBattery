@@ -1749,6 +1749,14 @@ fn fog_style_debug_ui(ui: &mut egui::Ui) {
         }
         ui.add(Slider::new(&mut view.boundary_width, 0.5..=6.0).text("Boundary width (px)"));
         ui.add(Slider::new(&mut view.boundary_brightness, 0.0..=1.5).text("Boundary brightness"));
+        ui.add(
+            Slider::new(&mut view.boundary_clearance_start, 0.0..=320.0)
+                .text("Boundary shows from (map px from vision)"),
+        );
+        ui.add(
+            Slider::new(&mut view.boundary_clearance_full, 0.0..=320.0)
+                .text("Boundary full at (map px from vision, 0 = always)"),
+        );
     }
 
     let mut style = fog_style::fog_style();

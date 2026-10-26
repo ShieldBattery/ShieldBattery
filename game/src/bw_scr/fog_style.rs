@@ -15,6 +15,11 @@ pub struct ViewFogStyle {
     pub boundary_width: f32,
     /// 0 draws the line black, 1 in its light color.
     pub boundary_brightness: f32,
+    /// Map pixels of explored fog between the line and currently visible terrain at which the
+    /// line starts to show, and at which it shows fully. A line traced right along the edge of
+    /// what units see reads as clutter around them. Both 0 always show it.
+    pub boundary_clearance_start: f32,
+    pub boundary_clearance_full: f32,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -37,9 +42,11 @@ impl FogStyle {
     pub const DEFAULT: FogStyle = FogStyle {
         game: ViewFogStyle {
             unexplored_alpha: 0.88,
-            boundary_alpha: 0.05,
+            boundary_alpha: 0.04,
             boundary_width: 3.5,
-            boundary_brightness: 1.0,
+            boundary_brightness: 0.8,
+            boundary_clearance_start: 40.0,
+            boundary_clearance_full: 120.0,
         },
         minimap: ViewFogStyle {
             unexplored_alpha: 0.84,
@@ -48,6 +55,8 @@ impl FogStyle {
             boundary_alpha: 0.1,
             boundary_width: 2.0,
             boundary_brightness: 0.9,
+            boundary_clearance_start: 0.0,
+            boundary_clearance_full: 0.0,
         },
         grain_strength: 0.4,
         grain_scale: 0.4,
@@ -55,14 +64,14 @@ impl FogStyle {
     };
 
     /// Writes the style for one mask draw (the minimap's or the game view's) into the mask
-    /// shader's constants `[8..=14]`, in the order of its cbuffer.
+    /// shader's constants `[8..=16]`, in the order of its cbuffer.
     pub fn write_shader_constants(&self, constants: &mut [f32], is_minimap: bool) {
         let (view, grain_strength) = if is_minimap {
             (&self.minimap, 0.0)
         } else {
             (&self.game, self.grain_strength)
         };
-        constants[8..15].copy_from_slice(&[
+        constants[8..17].copy_from_slice(&[
             view.unexplored_alpha,
             grain_strength,
             self.grain_scale,
@@ -70,6 +79,8 @@ impl FogStyle {
             view.boundary_width,
             view.boundary_brightness,
             self.boundary_smoothing,
+            view.boundary_clearance_start,
+            view.boundary_clearance_full,
         ]);
     }
 }
