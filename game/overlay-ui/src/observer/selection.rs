@@ -78,8 +78,8 @@ pub struct SelectedUnitView {
     /// alone, so a host may leave it `None` for any other.
     pub stacked: Option<u32>,
     /// What it is making, for a building training a unit, researching, or upgrading, and for a
-    /// morphing egg or cocoon. `None` while it is idle or is not the kind of thing that makes
-    /// anything.
+    /// morphing egg or cocoon, or a carrier or reaver building fighters. `None` while it is idle or
+    /// is not the kind of thing that makes anything.
     pub production: Option<ProductionProgressView>,
     /// The units inside it, for a transport or a bunker. Empty for anything else, and for a
     /// transport that is empty.
@@ -168,9 +168,10 @@ pub struct ProductionProgressView {
     pub name: Option<String>,
     /// How far along it is, from 0 to 1.
     pub progress: f32,
-    /// What is waiting behind it, for a building training units, whose queue the console draws as a
-    /// row of slots; empty while nothing is waiting. `None` for something with no queue at all:
-    /// research, an upgrade, or a morph, each of which is one thing worked through alone.
+    /// What is waiting behind it, for a building training units or a carrier or reaver building
+    /// fighters, whose queue the console draws as a row of slots; empty while nothing is waiting.
+    /// `None` for something with no queue at all: research, an upgrade, or a morph, each of which is
+    /// one thing worked through alone.
     pub queue: Option<Vec<ProductionIcon>>,
     /// Whether what is being made is the selected thing itself: a building going up, rather than
     /// something coming out of it or something it is turning into.

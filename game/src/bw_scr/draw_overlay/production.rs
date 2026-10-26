@@ -331,11 +331,12 @@ fn unit_production(unit: Unit) -> Option<(Production, Progress)> {
 }
 
 /// What one unit is making, as the selection panel reads it: the same production the panel of
-/// everything on the way reads, plus the queue behind it where it has one.
+/// everything on the way reads, plus fighters built in a carrier or reaver and the queue behind
+/// production that has one.
 ///
 /// `None` for a unit that is making nothing, which is most of them.
 pub(super) fn selected_production(unit: Unit, bw: &BwVars) -> Option<ProductionProgressView> {
-    let (production, progress) = unit_production(unit)?;
+    let (production, progress) = unit_production(unit).or_else(|| fighter_production(unit))?;
     Some(ProductionProgressView {
         icon: production_icon(production, bw),
         name: production_name(production, bw),
@@ -346,6 +347,22 @@ pub(super) fn selected_production(unit: Unit, bw: &BwVars) -> Option<ProductionP
         // then the unit already is the building it is becoming.
         is_subject: production == Production::Unit(unit.id()),
     })
+}
+
+/// A carrier or reaver's fighter under construction. Fighters are kept out of the overview's
+/// production list, but selecting their parent shows the construction and its queue.
+fn fighter_production(unit: Unit) -> Option<(Production, Progress)> {
+    if !unit.is_completed() || unit.is_hallucination() {
+        return None;
+    }
+    let fighter = unit.id().fighter_id()?;
+    if unit.first_queued_unit() != Some(fighter) {
+        return None;
+    }
+    Some((
+        Production::Unit(fighter),
+        currently_building_completion(unit),
+    ))
 }
 
 /// What a unit fights with, as the game's console lists it beside the unit: its armor upgrade, its
@@ -524,16 +541,17 @@ const WEAPON_ICON_FIELD: u32 = 23;
 /// The units waiting behind the one this unit is making, in the order they will be made, or
 /// `None` for production that has no queue.
 ///
-/// Only a completed building training units has a queue: an upgrade or a technology is one item a
-/// building works through alone, and a building that is itself still being built (or an egg) holds
-/// what it is turning into in the same queue rather than a line of work behind it.
+/// Completed buildings training units and carriers or reavers building fighters have queues. An
+/// upgrade or a technology is one item a building works through alone, and a building that is itself
+/// still being built (or an egg) holds what it is turning into in the same queue rather than a line
+/// of work behind it.
 ///
 /// The queue is a ring of [`BUILD_QUEUE_LEN`] slots starting at the one being worked on and filled
 /// forward from it, so the walk goes forward and stops at the first empty slot rather than taking
 /// every non-empty slot in the ring.
 fn queued_units(unit: Unit, production: Production) -> Option<impl Iterator<Item = UnitId>> {
     let is_training = matches!(production, Production::Unit(..))
-        && unit.id().is_building()
+        && (unit.id().is_building() || unit.id().fighter_id().is_some())
         && unit.is_completed();
     is_training.then(|| (1..BUILD_QUEUE_LEN).map_while(move |slot| unit.nth_queued_unit(slot)))
 }
@@ -766,6 +784,75 @@ fn wireframe_icon(id: UnitId, level: usize, bw: &BwVars) -> Option<ProductionIco
 mod tests {
     use super::*;
     use bw_dat::{tech, unit};
+
+    #[test]
+    fn fighter_construction_requires_a_real_completed_parent_with_a_matching_queue() {
+        let mut raw: bw::Unit = unsafe { std::mem::zeroed() };
+        raw.flags = 1;
+        raw.build_queue = [unit::NONE.0; 5];
+        let parent = unsafe { Unit::from_ptr(&raw mut raw).unwrap() };
+        for id in [
+            unit::CARRIER,
+            unit::GANTRITHOR,
+            unit::REAVER,
+            unit::WARBRINGER,
+        ] {
+            let fighter = id.fighter_id().unwrap();
+            unsafe {
+                (**parent).unit_id = id.0;
+                (**parent).build_queue[0] = unit::NONE.0;
+            }
+            assert!(fighter_production(parent).is_none());
+            unsafe { (**parent).build_queue[0] = fighter.0 };
+            assert_eq!(
+                fighter_production(parent).unwrap().0,
+                Production::Unit(fighter)
+            );
+            unsafe { (**parent).flags = 0x4000_0001 };
+            assert!(fighter_production(parent).is_none());
+            unsafe { (**parent).flags = 0 };
+            assert!(fighter_production(parent).is_none());
+            unsafe {
+                (**parent).flags = 1;
+                (**parent).build_queue[0] = unit::MARINE.0;
+            }
+            assert!(fighter_production(parent).is_none());
+        }
+        unsafe {
+            (**parent).unit_id = unit::MARINE.0;
+            (**parent).build_queue[0] = unit::INTERCEPTOR.0;
+        }
+        assert!(fighter_production(parent).is_none());
+    }
+
+    #[test]
+    fn fighter_queue_wraps_after_the_active_slot_and_stops_at_the_first_empty_slot() {
+        let mut raw: bw::Unit = unsafe { std::mem::zeroed() };
+        raw.flags = 1;
+        raw.current_build_slot = 3;
+        let parent = unsafe { Unit::from_ptr(&raw mut raw).unwrap() };
+        for id in [
+            unit::CARRIER,
+            unit::GANTRITHOR,
+            unit::REAVER,
+            unit::WARBRINGER,
+        ] {
+            let fighter = id.fighter_id().unwrap();
+            unsafe {
+                (**parent).unit_id = id.0;
+                (**parent).build_queue = [fighter.0, unit::NONE.0, fighter.0, fighter.0, fighter.0];
+            }
+            let production = fighter_production(parent).unwrap().0;
+            let queue = queued_units(parent, production)
+                .unwrap()
+                .collect::<Vec<_>>();
+            assert_eq!(queue, [fighter, fighter]);
+            unsafe { (**parent).build_queue[4] = unit::NONE.0 };
+            assert_eq!(queued_units(parent, production).unwrap().count(), 0);
+            unsafe { (**parent).build_queue = [unit::NONE.0; 5] };
+            assert!(fighter_production(parent).is_none());
+        }
+    }
 
     #[test]
     fn weapon_hit_counts_include_unit_specific_bursts() {
