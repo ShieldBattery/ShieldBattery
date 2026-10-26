@@ -50,3 +50,19 @@ export function raceCharToLabel(raceChar: RaceChar, t: TFunction): string {
       return assertUnreachable(raceChar)
   }
 }
+
+/** A race's one-character tag, matching the ones StarCraft's own alliance dialog shows. */
+export function raceCharToInitial(raceChar: RaceChar, t: TFunction): string {
+  switch (raceChar) {
+    case 'p':
+      return t('game.raceInitial.protoss', 'P')
+    case 'r':
+      return t('game.raceInitial.random', '?')
+    case 't':
+      return t('game.raceInitial.terran', 'T')
+    case 'z':
+      return t('game.raceInitial.zerg', 'Z')
+    default:
+      return assertUnreachable(raceChar)
+  }
+}

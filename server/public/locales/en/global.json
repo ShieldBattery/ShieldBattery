@@ -1198,6 +1198,12 @@
       "terran": "Terran",
       "zerg": "Zerg"
     },
+    "raceInitial": {
+      "protoss": "P",
+      "random": "?",
+      "terran": "T",
+      "zerg": "Z"
+    },
     "results": {
       "draw": "Draw",
       "drawShort": "D",

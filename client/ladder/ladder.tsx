@@ -25,7 +25,7 @@ import {
   NUM_PLACEMENT_MATCHES,
   SeasonId,
 } from '../../common/matchmaking'
-import { RaceChar, raceCharToLabel } from '../../common/races'
+import { RaceChar, raceCharToInitial, raceCharToLabel } from '../../common/races'
 import { urlPath } from '../../common/urls'
 import { SbUser } from '../../common/users/sb-user'
 import { SbUserId } from '../../common/users/sb-user-id'
@@ -1516,7 +1516,7 @@ function SpotlightPlayer({ player, username, bonusPool, onSelected }: PodiumPlay
           </span>
           <RaceBadgeTooltip stats={player}>
             <RaceBadge $race={race} role='img' aria-label={raceCharToLabel(race, t)}>
-              {race.toUpperCase()}
+              {raceCharToInitial(race, t)}
             </RaceBadge>
           </RaceBadgeTooltip>
         </SpotlightMeta>
@@ -1568,7 +1568,7 @@ function RunnerUpPlayer({
           <DivisionLabelText $color={getDivisionColor(division)}>{divisionLabel}</DivisionLabelText>
           <RaceBadgeTooltip stats={player}>
             <SmallRaceBadge $race={race} role='img' aria-label={raceCharToLabel(race, t)}>
-              {race.toUpperCase()}
+              {raceCharToInitial(race, t)}
             </SmallRaceBadge>
           </RaceBadgeTooltip>
         </RunnerUpMeta>

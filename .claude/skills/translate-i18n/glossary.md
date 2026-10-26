@@ -61,6 +61,9 @@ would actually talk — while staying clear and readable. Keep the register cons
 - Keep widely-understood gaming acronyms as-is unless `terms/` localizes them: **MMR**, **APM**,
   **FPS**, **UMS**. Spell out / localize others where natural.
 - Match capitalization conventions of the target language, not English title case.
+- **Race initials** (single-character race tags like T / P / Z / ?) use the `Race initial` rows in
+  `terms/`, which match the tags SC:R's own alliance dialog shows. Random is `?` everywhere, never a
+  translated "R"; ko uses 테 / 프 / 저, the other languages keep Latin T / P / Z.
 
 ## Per-language term decisions
 

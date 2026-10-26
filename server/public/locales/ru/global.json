@@ -1228,6 +1228,12 @@
       "terran": "Терран",
       "zerg": "Зерги"
     },
+    "raceInitial": {
+      "protoss": "P",
+      "random": "?",
+      "terran": "T",
+      "zerg": "Z"
+    },
     "results": {
       "draw": "Ничья",
       "drawShort": "Нич.",

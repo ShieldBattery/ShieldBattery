@@ -1183,6 +1183,12 @@
       "terran": "테란",
       "zerg": "저그"
     },
+    "raceInitial": {
+      "protoss": "프",
+      "random": "?",
+      "terran": "테",
+      "zerg": "저"
+    },
     "results": {
       "draw": "무승부",
       "drawShort": "D",

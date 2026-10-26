@@ -1183,6 +1183,12 @@
       "terran": "人类",
       "zerg": "异虫"
     },
+    "raceInitial": {
+      "protoss": "P",
+      "random": "?",
+      "terran": "T",
+      "zerg": "Z"
+    },
     "results": {
       "draw": "平局",
       "drawShort": "平",
