@@ -1238,6 +1238,20 @@ impl OverlayState {
                 self.last_requested_seek = Some(frame);
                 replay_commands.push(ReplayCommand::Seek { frame });
             }
+            Intent::CopyTimestamp(seconds) => {
+                let result = crate::forge::game_window_handle()
+                    .ok_or_else(|| std::io::Error::other("Game window is unavailable"))
+                    .and_then(|window| {
+                        crate::windows::clipboard::copy_text(
+                            window,
+                            &overlay_ui::transport::timestamp_text(seconds),
+                        )
+                    });
+                if let Err(error) = &result {
+                    warn!("Could not copy replay timestamp: {error}");
+                }
+                overlay_ui::transport::timestamp_copy_finished(&self.ctx, result.is_ok());
+            }
             Intent::LookAt(point) => {
                 self.pending_look_at = self.last_requested_seek.map(|frame| PendingLookAt {
                     frame,

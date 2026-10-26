@@ -136,6 +136,8 @@ pub enum Intent {
     ClearSelection,
     /// Move replay playback to this frame.
     Seek(u32),
+    /// Copy this replay game time, in whole seconds, to the system clipboard.
+    CopyTimestamp(u64),
     /// Center the game's view on this place once the seek asked for just before this lands. Sent
     /// only right behind a `Seek`, for a jump to something that happened somewhere in particular.
     LookAt(observer::MapPoint),
@@ -772,6 +774,9 @@ impl Shell {
             hit_rects.push(HitRect::new(outcome.rect));
             if let Some(frame) = outcome.seek_to {
                 self.replay.queue_seek(frame, outcome.look_at);
+            }
+            if let Some(seconds) = outcome.copy_timestamp {
+                self.intents.push(Intent::CopyTimestamp(seconds));
             }
             if outcome.speed.is_some() || outcome.paused.is_some() {
                 self.replay

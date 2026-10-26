@@ -416,6 +416,10 @@ pub fn render(
             Intent::CloseNativeDialog(dialog) => outcome.close_native_dialogs.push(dialog),
             // The fake replay answers these, the way the game answers them by moving its own clock.
             Intent::Seek(frame) => state.transport.seek_to(frame),
+            Intent::CopyTimestamp(seconds) => {
+                ctx.copy_text(overlay_ui::transport::timestamp_text(seconds));
+                overlay_ui::transport::timestamp_copy_finished(ctx, true);
+            }
             // The emulated game has no map to look at, and no units to select.
             Intent::LookAt(_)
             | Intent::SelectControlGroup { .. }
