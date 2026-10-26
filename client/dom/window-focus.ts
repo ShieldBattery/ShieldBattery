@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { getErrorStack } from '../../common/errors'
 import { TypedIpcRenderer } from '../../common/ipc'
 import logger from '../logging/logger'
+import { WINDOW_UNFOCUSED_ATTR } from '../styles/pause-while-unfocused'
 
 export type WindowFocusListener = (focused: boolean) => void
 
@@ -77,6 +78,20 @@ export class WindowFocusTracker {
 
 const windowFocusTracker = new WindowFocusTracker()
 export default windowFocusTracker
+
+function syncUnfocusedAttribute(focused: boolean) {
+  document.documentElement.toggleAttribute(WINDOW_UNFOCUSED_ATTR, !focused)
+}
+
+// Decorative animations pause on real input focus. In the browser that differs from the tracker,
+// which counts a visible tab as focused even while another window has focus.
+if (IS_ELECTRON) {
+  windowFocusTracker.addListener(syncUnfocusedAttribute)
+} else {
+  syncUnfocusedAttribute(document.hasFocus())
+  window.addEventListener('focus', () => syncUnfocusedAttribute(true))
+  window.addEventListener('blur', () => syncUnfocusedAttribute(false))
+}
 
 /**
  * Hook that returns whether the window is currently focused (e.g. the tab or app is currently

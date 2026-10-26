@@ -31,6 +31,7 @@ import { MenuList } from '../../material/menu/menu'
 import { Popover } from '../../material/popover'
 import { Tooltip } from '../../material/tooltip'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
+import { pauseWhileUnfocused } from '../../styles/pause-while-unfocused'
 import {
   bodyMedium,
   labelMedium,
@@ -356,6 +357,7 @@ const NextSlotRoot = styled.div<{ $state: 'idle' | 'countdown' | 'loading' | 'pl
     props.$state === 'idle'
       ? css`
           animation: ${breathe} 3s ease-in-out infinite;
+          ${pauseWhileUnfocused};
 
           @media (prefers-reduced-motion: reduce) {
             animation: none;

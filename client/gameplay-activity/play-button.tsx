@@ -5,7 +5,6 @@ import styled, { keyframes } from 'styled-components'
 import { Link } from 'wouter'
 import { getErrorStack } from '../../common/errors'
 import { audioManager, AvailableSound } from '../audio/audio-manager'
-import { useWindowFocus } from '../dom/window-focus'
 import { FileDropZone } from '../file-browser/file-drop-zone'
 import { MaterialIcon } from '../icons/material/material-icon'
 import logger from '../logging/logger'
@@ -13,6 +12,7 @@ import { elevationPlus1 } from '../material/shadows'
 import { useAppDispatch } from '../redux-hooks'
 import { showReplayInfo } from '../replays/action-creators'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
+import { pauseWhileUnfocused } from '../styles/pause-while-unfocused'
 import { BodyMedium, sofiaSans } from '../styles/typography'
 import psiFrost from './psi-frost.svg?no-inline'
 
@@ -87,10 +87,10 @@ const EnergyField = styled.div<{ $reverse?: boolean }>`
     animation-name: ${props => (props.$reverse ? psiCounterflow : psiFlow)}, ${psiBreath};
     animation-duration: ${props => (props.$reverse ? '36s' : '26s')}, 11s;
     animation-delay: ${props => (props.$reverse ? '-18s' : '-8s')}, -2.5s;
-    animation-play-state: var(--_psi-play-state);
     animation-timing-function: ease-in-out;
     animation-iteration-count: infinite;
     animation-direction: alternate, normal;
+    ${pauseWhileUnfocused};
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -111,9 +111,7 @@ const CrystalLight = styled.div`
   transition: opacity 250ms ease-out;
 `
 
-const Root = styled.a<{ $active: boolean }>`
-  --_psi-play-state: ${props => (props.$active ? 'running' : 'paused')};
-
+const Root = styled.a`
   position: relative;
   width: ${WIDTH}px;
   height: ${HEIGHT}px;
@@ -202,7 +200,6 @@ const Root = styled.a<{ $active: boolean }>`
       This does make it hard to view the current lobby list but I think that's not a huge deal? If
       it is we can probably throw that into the navigation menu somehow.
     */
-    --_psi-play-state: paused;
     display: none;
   }
 `
@@ -246,7 +243,6 @@ function PlayButtonDisplay({
   targetPath: string
   children: React.ReactNode
 }) {
-  const isWindowFocused = useWindowFocus()
   const energyRef = useRef<HTMLDivElement>(null)
   const counterflowRef = useRef<HTMLDivElement>(null)
 
@@ -255,7 +251,6 @@ function PlayButtonDisplay({
       <Root
         data-testid='nav-play-button'
         draggable={false}
-        $active={isWindowFocused}
         onMouseMove={event => {
           const rect = event.currentTarget.getBoundingClientRect()
           const x = Math.max(0, Math.min(rect.width, event.clientX - rect.left))

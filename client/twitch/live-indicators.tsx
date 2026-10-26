@@ -5,6 +5,7 @@ import { numberFormat, useFormatLocale } from '../i18n/locale-formats'
 import TwitchIcon from '../icons/brands/twitch.svg?react'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useNow } from '../react/date-hooks'
+import { pauseWhileUnfocused } from '../styles/pause-while-unfocused'
 import { bodyMedium, bodySmall, labelMedium, labelSmall, singleLine } from '../styles/typography'
 
 /**
@@ -64,6 +65,7 @@ export const LiveDot = styled.span<{ $size?: number; $pulse?: boolean; $color?: 
             background-color: inherit;
             opacity: 0;
             animation: ${pulseKeyframes} 2.2s ease-out infinite;
+            ${pauseWhileUnfocused};
           }
 
           @media (prefers-reduced-motion: reduce) {
