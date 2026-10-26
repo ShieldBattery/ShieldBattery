@@ -5,6 +5,7 @@ import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import {
   DivisionContext,
   getDivisionContext,
+  isSoloType,
   makeSeasonId,
   MatchmakingDivision,
   matchmakingDivisionToLabel,
@@ -101,7 +102,7 @@ export function getCurrentDivision(
   if (rank.lifetimeGames < NUM_PLACEMENT_MATCHES) {
     return MatchmakingDivision.Unrated
   }
-  return pointsToMatchmakingDivision(rank.matchmakingType, rank.points, divisionContext)
+  return pointsToMatchmakingDivision(isSoloType(rank.matchmakingType), rank.points, divisionContext)
 }
 
 const EntryRoot = styled(LinkButton)`
@@ -175,8 +176,7 @@ export function LiveGameEntry({
     return null
   }
 
-  // Divisions are left out until the season (whose bonus pool and rating offsets place points into
-  // them) is loaded.
+  // Divisions are left out until the season (whose bonus pool places points into them) is loaded.
   const divisionContext = season ? getDivisionContext(new Date(now), season) : undefined
   const divisionById = new Map<SbUserId, MatchmakingDivision>(
     divisionContext

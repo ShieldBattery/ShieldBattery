@@ -23,12 +23,6 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     state.currentSeason = currentSeason
   },
 
-  ['@matchmaking/updateSeason'](state, { payload: season }) {
-    if (state.currentSeason?.id === season.id) {
-      state.currentSeason = season
-    }
-  },
-
   ['@network/connect']() {
     return DEFAULT_STATE
   },

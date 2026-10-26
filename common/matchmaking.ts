@@ -458,59 +458,19 @@ const UNRATED_BOUNDS: Readonly<MatchmakingDivisionWithBounds> = [
 ]
 
 /**
- * The mode that other team modes' division rating offsets are measured against. Its own divisions
- * are never offset.
- */
-export const DIVISION_RATING_OFFSET_REFERENCE_TYPE = MatchmakingType.Match2v2
-
-/**
- * Per-mode rating offsets for a season's divisions. A mode's division bounds are placed as if every
- * rating in it were raised by its offset, which lets a mode whose ratings sit on a lower scale than
- * the reference mode (e.g. a newly launched one, where everyone started from the default rating)
- * share the team divisions. Modes without an entry use an offset of 0.
- */
-export type DivisionRatingOffsets = Partial<Record<MatchmakingType, number>>
-
-/**
- * Returns whether a mode's divisions can be offset: team modes other than
- * `DIVISION_RATING_OFFSET_REFERENCE_TYPE`.
- */
-export function hasDivisionRatingOffset(type: MatchmakingType): boolean {
-  return !isSoloType(type) && type !== DIVISION_RATING_OFFSET_REFERENCE_TYPE
-}
-
-/** Returns the rating offset a season's offsets apply to a mode's divisions. */
-export function getDivisionRatingOffset(
-  ratingOffsets: Readonly<DivisionRatingOffsets> | undefined,
-  type: MatchmakingType,
-): number {
-  return hasDivisionRatingOffset(type) ? (ratingOffsets?.[type] ?? 0) : 0
-}
-
-/**
  * What placing points into divisions needs to know about a season at a particular time: the bonus
- * pool accrued by then, the season's per-mode rating offsets, and the version of the division
- * bounds it uses (`CURRENT_DIVISION_TABLE_VERSION` if not given).
+ * pool accrued by then, and the version of the division bounds it uses
+ * (`CURRENT_DIVISION_TABLE_VERSION` if not given).
  */
 export interface DivisionContext {
   bonusPool: number
-  ratingOffsets?: Readonly<DivisionRatingOffsets>
   tableVersion?: DivisionTableVersion
 }
 
-/**
- * Returns whether a version of the division bounds applies rating offsets. Version 1 bounds were
- * never offset, so their seasons don't get offsets computed either.
- */
-export function divisionTableHasRatingOffsets(version: DivisionTableVersion): boolean {
-  return version >= 2
-}
-
 function getDivisionTable(
-  type: MatchmakingType,
+  solo: boolean,
   context: Readonly<DivisionContext>,
 ): ReadonlyArray<MatchmakingDivisionWithBoundsAndBonusFactor> {
-  const solo = isSoloType(type)
   const version = context.tableVersion ?? CURRENT_DIVISION_TABLE_VERSION
   switch (version) {
     case 1:
@@ -522,31 +482,19 @@ function getDivisionTable(
   }
 }
 
-/**
- * Returns how far a mode's division bounds are lowered: the points a player gains in the long run
- * from having their rating raised by the mode's offset.
- */
-function getDivisionPointsShift(type: MatchmakingType, context: Readonly<DivisionContext>): number {
-  if (!divisionTableHasRatingOffsets(context.tableVersion ?? CURRENT_DIVISION_TABLE_VERSION)) {
-    return 0
-  }
-  return POINTS_FOR_RATING_TARGET_FACTOR * getDivisionRatingOffset(context.ratingOffsets, type)
-}
-
 function binarySearchPoints(
-  type: MatchmakingType,
+  solo: boolean,
   points: number,
   context: Readonly<DivisionContext>,
 ): number {
   const { bonusPool } = context
-  const shift = getDivisionPointsShift(type, context)
   return binarySearch(
-    getDivisionTable(type, context),
+    getDivisionTable(solo, context),
     points,
     ([_, low, high, bonusFactorLow, bonusFactorHigh], points) => {
-      if (low + bonusPool * bonusFactorLow - shift > points) {
+      if (low + bonusPool * bonusFactorLow > points) {
         return 1
-      } else if (high + bonusPool * bonusFactorHigh - shift <= points) {
+      } else if (high + bonusPool * bonusFactorHigh <= points) {
         return -1
       } else {
         return 0
@@ -555,7 +503,7 @@ function binarySearchPoints(
   )
 }
 
-function applyContextToDivisionBounds(
+function addBonusPoolToDivisionBounds(
   [
     division,
     low,
@@ -564,56 +512,50 @@ function applyContextToDivisionBounds(
     bonusFactorHigh,
   ]: Readonly<MatchmakingDivisionWithBoundsAndBonusFactor>,
   bonusPool: number,
-  shift: number,
 ): MatchmakingDivisionWithBounds {
   return [
     division,
-    Math.max(0, low + bonusPool * bonusFactorLow - shift),
-    high + bonusPool * bonusFactorHigh - shift,
+    Math.max(0, low + bonusPool * bonusFactorLow),
+    high + bonusPool * bonusFactorHigh,
   ]
 }
 
 /**
- * Returns every division of a mode with its points bounds in a given context, in ascending order.
- * Intended for UI that needs the whole ladder at once (e.g. drawing division bands behind a points
- * chart) rather than the division a particular value falls in.
+ * Returns every division with its points bounds in a given context, in ascending order. Intended
+ * for UI that needs the whole ladder at once (e.g. drawing division bands behind a points chart)
+ * rather than the division a particular value falls in.
  */
 export function getAllDivisionsWithBounds(
-  type: MatchmakingType,
+  solo: boolean,
   context: Readonly<DivisionContext>,
 ): Array<Readonly<MatchmakingDivisionWithBounds>> {
-  const shift = getDivisionPointsShift(type, context)
-  return getDivisionTable(type, context).map(b =>
-    applyContextToDivisionBounds(b, context.bonusPool, shift),
+  return getDivisionTable(solo, context).map(b =>
+    addBonusPoolToDivisionBounds(b, context.bonusPool),
   )
 }
 
-/** Converts a given points value in a mode into a matching `MatchmakingDivision`. */
+/** Converts a given points value into a matching `MatchmakingDivision`. */
 export function pointsToMatchmakingDivision(
-  type: MatchmakingType,
+  solo: boolean,
   points: number,
   context: Readonly<DivisionContext>,
 ): MatchmakingDivision {
-  const index = binarySearchPoints(type, points, context)
-  return index >= 0 ? getDivisionTable(type, context)[index][0] : MatchmakingDivision.Unrated
+  const index = binarySearchPoints(solo, points, context)
+  return index >= 0 ? getDivisionTable(solo, context)[index][0] : MatchmakingDivision.Unrated
 }
 
 /**
- * Converts a given points value in a mode into a matching `MatchmakingDivision` and returns it, as
- * well as the low (inclusive) and high (exclusive) points bound for the division.
+ * Converts a given points value into a matching `MatchmakingDivision` and returns it, as well as
+ * the low (inclusive) and high (exclusive) points bound for the division.
  */
 export function pointsToMatchmakingDivisionAndBounds(
-  type: MatchmakingType,
+  solo: boolean,
   points: number,
   context: Readonly<DivisionContext>,
 ): Readonly<MatchmakingDivisionWithBounds> {
-  const index = binarySearchPoints(type, points, context)
+  const index = binarySearchPoints(solo, points, context)
   return index >= 0
-    ? applyContextToDivisionBounds(
-        getDivisionTable(type, context)[index],
-        context.bonusPool,
-        getDivisionPointsShift(type, context),
-      )
+    ? addBonusPoolToDivisionBounds(getDivisionTable(solo, context)[index], context.bonusPool)
     : UNRATED_BOUNDS
 }
 
@@ -624,17 +566,16 @@ export function pointsToMatchmakingDivisionAndBounds(
  * is last.
  */
 export function getDivisionsForPointsChange(
-  type: MatchmakingType,
+  solo: boolean,
   startingPoints: number,
   endingPoints: number,
   context: Readonly<DivisionContext>,
 ): Array<Readonly<MatchmakingDivisionWithBounds>> {
-  const startingIndex = binarySearchPoints(type, startingPoints, context)
-  const endingIndex = binarySearchPoints(type, endingPoints, context)
-  const divisionsToPoints = getDivisionTable(type, context)
-  const shift = getDivisionPointsShift(type, context)
+  const startingIndex = binarySearchPoints(solo, startingPoints, context)
+  const endingIndex = binarySearchPoints(solo, endingPoints, context)
+  const divisionsToPoints = getDivisionTable(solo, context)
   const withBounds = (b: Readonly<MatchmakingDivisionWithBoundsAndBonusFactor>) =>
-    applyContextToDivisionBounds(b, context.bonusPool, shift)
+    addBonusPoolToDivisionBounds(b, context.bonusPool)
 
   if (startingIndex === -1 && endingIndex === -1) {
     return [UNRATED_BOUNDS]
@@ -704,12 +645,6 @@ export interface MatchmakingSeason {
   endDate?: Date
   name: string
   resetMmr: boolean
-  /**
-   * The rating offsets this season applies to each mode's divisions. Computed once, when the season
-   * becomes the current one, and fixed from then on so divisions don't move within a season.
-   * `undefined` until computed, which places every mode with an offset of 0.
-   */
-  divisionRatingOffsets?: DivisionRatingOffsets
   /** The version of the division bounds this season's divisions are placed with. */
   divisionTableVersion: DivisionTableVersion
 }
@@ -723,22 +658,9 @@ export function toMatchmakingSeasonJson(season: MatchmakingSeason): MatchmakingS
     endDate: season.endDate ? Number(season.endDate) : undefined,
     name: season.name,
     resetMmr: season.resetMmr,
-    divisionRatingOffsets: season.divisionRatingOffsets,
     divisionTableVersion: season.divisionTableVersion,
   }
 }
-
-/**
- * The latest state of a season, sent to every connected client when the season's division rating
- * offsets are stored, and with the current season when a client connects.
- */
-export interface MatchmakingSeasonUpdateEvent {
-  type: 'seasonUpdate'
-  season: MatchmakingSeasonJson
-}
-
-/** Events published on the matchmaking seasons path, which every connected client subscribes to. */
-export type MatchmakingSeasonsEvent = MatchmakingSeasonUpdateEvent
 
 /**
  * The amount of bonus points accrued per millisecond since the start of a season. Bonus points are
@@ -794,7 +716,6 @@ export function getDivisionContext(
 ): DivisionContext {
   return {
     bonusPool: getTotalBonusPoolForSeason(at, season),
-    ratingOffsets: season.divisionRatingOffsets,
     tableVersion: season.divisionTableVersion,
   }
 }
@@ -948,7 +869,7 @@ export function getDivisionBeforeRatingChange(
     return MatchmakingDivision.Unrated
   }
   return pointsToMatchmakingDivision(
-    change.matchmakingType,
+    isSoloType(change.matchmakingType),
     change.points - change.pointsChange,
     context,
   )
@@ -1447,7 +1368,7 @@ export interface GetMatchmakingSeasonsResponse {
 
 export type ServerAddMatchmakingSeasonRequest = Omit<
   MatchmakingSeason,
-  'id' | 'divisionRatingOffsets' | 'divisionTableVersion'
+  'id' | 'divisionTableVersion'
 >
 
 export type AddMatchmakingSeasonRequest = Jsonify<ServerAddMatchmakingSeasonRequest>

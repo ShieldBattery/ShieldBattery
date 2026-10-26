@@ -3,6 +3,7 @@ import styled from 'styled-components'
 import { LadderPlayer } from '../../common/ladder/ladder'
 import {
   DivisionContext,
+  isSoloType,
   MatchmakingDivision,
   matchmakingDivisionToLabel,
   MatchmakingType,
@@ -37,7 +38,7 @@ export function RankIcon({
   className,
   size = 88,
 }: RankIconProps) {
-  const division = pointsToMatchmakingDivision(matchmakingType, points, divisionContext)
+  const division = pointsToMatchmakingDivision(isSoloType(matchmakingType), points, divisionContext)
   return <DivisionIcon className={className} size={size} division={division} />
 }
 

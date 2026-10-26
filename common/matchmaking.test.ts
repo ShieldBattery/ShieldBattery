@@ -3,11 +3,8 @@ import {
   ALL_MATCHMAKING_TYPES,
   defaultPreferenceData,
   DivisionContext,
-  getAllDivisionsWithBounds,
   getDivisionBeforeRatingChange,
   getDivisionContext,
-  getDivisionRatingOffset,
-  getDivisionsForPointsChange,
   getMatchmakingTypesForFormat,
   hasVetoes,
   isSoloType,
@@ -16,14 +13,13 @@ import {
   MatchmakingDivision,
   MatchmakingType,
   matchmakingTypeToLabel,
-  POINTS_FOR_RATING_TARGET_FACTOR,
   pointsToMatchmakingDivision,
   pointsToMatchmakingDivisionAndBounds,
   TEAM_SIZES,
 } from './matchmaking'
 
-const SOLO = MatchmakingType.Match1v1
-const TEAM = MatchmakingType.Match2v2
+const SOLO = true
+const TEAM = false
 
 function ctx(bonusPool: number): DivisionContext {
   return { bonusPool }
@@ -110,46 +106,6 @@ describe('common/matchmaking', () => {
         5920 + 2400,
       ])
     })
-
-    it('lowers the bounds of an offset mode by the points its rating offset is worth', () => {
-      const context = { bonusPool: 0, ratingOffsets: { [MatchmakingType.Match3v3Bgh]: 150 } }
-      const shift = 150 * POINTS_FOR_RATING_TARGET_FACTOR
-      expect(
-        pointsToMatchmakingDivisionAndBounds(MatchmakingType.Match3v3Bgh, 6000 - shift, context),
-      ).toEqual([MatchmakingDivision.Gold1, 6000 - shift, 6240 - shift])
-      expect(
-        pointsToMatchmakingDivisionAndBounds(
-          MatchmakingType.Match3v3Bgh,
-          6000 - shift - 1,
-          context,
-        ),
-      ).toEqual([MatchmakingDivision.Silver3, 5360 - shift, 6000 - shift])
-      // The lowest bound stays at 0
-      expect(pointsToMatchmakingDivisionAndBounds(MatchmakingType.Match3v3Bgh, 0, context)).toEqual(
-        [MatchmakingDivision.Bronze1, 0, 860 - shift],
-      )
-    })
-
-    it('combines the rating offset with the bonus pool', () => {
-      const context = { bonusPool: 2400, ratingOffsets: { [MatchmakingType.Match3v3Bgh]: 100 } }
-      expect(
-        pointsToMatchmakingDivisionAndBounds(
-          MatchmakingType.Match3v3Bgh,
-          6000 + 2400 - 400,
-          context,
-        ),
-      ).toEqual([MatchmakingDivision.Gold1, 6000 + 2400 - 400, 6240 + 2400 - 400])
-    })
-
-    it('leaves modes without an offset alone', () => {
-      const context = { bonusPool: 0, ratingOffsets: { [MatchmakingType.Match3v3Bgh]: 150 } }
-      expect(
-        pointsToMatchmakingDivisionAndBounds(MatchmakingType.Match3v3Hunters, 6000, context),
-      ).toEqual([MatchmakingDivision.Gold1, 6000, 6240])
-      expect(pointsToMatchmakingDivision(MatchmakingType.Match3v3Hunters, 5999, context)).toBe(
-        MatchmakingDivision.Silver3,
-      )
-    })
   })
 
   describe('division table versions', () => {
@@ -181,19 +137,6 @@ describe('common/matchmaking', () => {
       ])
     })
 
-    it('never applies rating offsets to version 1 bounds', () => {
-      const context: DivisionContext = {
-        ...v1(0),
-        ratingOffsets: { [MatchmakingType.Match3v3Bgh]: 150 },
-      }
-      expect(
-        pointsToMatchmakingDivisionAndBounds(MatchmakingType.Match3v3Bgh, 4200, context),
-      ).toEqual([MatchmakingDivision.Gold1, 4200, 4900])
-      expect(getAllDivisionsWithBounds(MatchmakingType.Match3v3Bgh, context)).toEqual(
-        getAllDivisionsWithBounds(MatchmakingType.Match3v3Bgh, v1(0)),
-      )
-    })
-
     it("is taken from the season's version by getDivisionContext", () => {
       const season = {
         id: makeSeasonId(1),
@@ -205,73 +148,6 @@ describe('common/matchmaking', () => {
       const context = getDivisionContext(new Date(0), season)
       expect(context.tableVersion).toBe(1)
       expect(pointsToMatchmakingDivision(SOLO, 4400, context)).toBe(MatchmakingDivision.Gold1)
-    })
-  })
-
-  describe('getDivisionRatingOffset', () => {
-    it('never offsets solo modes or the reference mode', () => {
-      const offsets = {
-        [MatchmakingType.Match1v1]: 100,
-        [MatchmakingType.Match2v2]: 100,
-        [MatchmakingType.Match3v3Bgh]: 100,
-      }
-      expect(getDivisionRatingOffset(offsets, MatchmakingType.Match1v1)).toBe(0)
-      expect(getDivisionRatingOffset(offsets, MatchmakingType.Match2v2)).toBe(0)
-      expect(getDivisionRatingOffset(offsets, MatchmakingType.Match3v3Bgh)).toBe(100)
-    })
-
-    it('is 0 for a mode without an entry or a season without offsets', () => {
-      expect(getDivisionRatingOffset({}, MatchmakingType.Match3v3Bgh)).toBe(0)
-      expect(getDivisionRatingOffset(undefined, MatchmakingType.Match3v3Bgh)).toBe(0)
-    })
-
-    it("is taken from the season's offsets by getDivisionContext", () => {
-      const season = {
-        id: makeSeasonId(1),
-        name: 'Season',
-        startDate: 0,
-        resetMmr: false,
-        divisionTableVersion: 2 as const,
-        divisionRatingOffsets: { [MatchmakingType.Match3v3Bgh]: 150 },
-      }
-      const context = getDivisionContext(new Date(0), season)
-      expect(context).toEqual({
-        bonusPool: 0,
-        ratingOffsets: { [MatchmakingType.Match3v3Bgh]: 150 },
-        tableVersion: 2,
-      })
-      expect(pointsToMatchmakingDivision(MatchmakingType.Match3v3Bgh, 5400, context)).toBe(
-        MatchmakingDivision.Gold1,
-      )
-    })
-  })
-
-  describe('getAllDivisionsWithBounds', () => {
-    it('applies the rating offset to every division', () => {
-      const plain = getAllDivisionsWithBounds(MatchmakingType.Match3v3Bgh, { bonusPool: 0 })
-      const offset = getAllDivisionsWithBounds(MatchmakingType.Match3v3Bgh, {
-        bonusPool: 0,
-        ratingOffsets: { [MatchmakingType.Match3v3Bgh]: 100 },
-      })
-      expect(offset.map(([division]) => division)).toEqual(plain.map(([division]) => division))
-      for (let i = 1; i < plain.length; i++) {
-        expect(offset[i][1]).toBe(plain[i][1] - 400)
-      }
-    })
-  })
-
-  describe('getDivisionsForPointsChange', () => {
-    it('applies the rating offset', () => {
-      const context = { bonusPool: 0, ratingOffsets: { [MatchmakingType.Match3v3Bgh]: 100 } }
-      expect(getDivisionsForPointsChange(MatchmakingType.Match3v3Bgh, 5500, 5700, context)).toEqual(
-        [
-          [MatchmakingDivision.Silver3, 5360 - 400, 6000 - 400],
-          [MatchmakingDivision.Gold1, 6000 - 400, 6240 - 400],
-        ],
-      )
-      expect(getDivisionsForPointsChange(MatchmakingType.Match3v3Bgh, 5500, 5700, ctx(0))).toEqual([
-        [MatchmakingDivision.Silver3, 5360, 6000],
-      ])
     })
   })
 

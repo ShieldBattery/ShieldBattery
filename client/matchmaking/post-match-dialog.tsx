@@ -21,6 +21,7 @@ import {
   getDivisionColor,
   getDivisionContext,
   getDivisionsForPointsChange,
+  isSoloType,
   MatchmakingDivision,
   matchmakingDivisionToLabel,
   MatchmakingDivisionWithBounds,
@@ -263,7 +264,7 @@ function RatedUserContent({
   const divisionTransitions = useMemo(() => {
     const startingPoints = mmrChange.points - mmrChange.pointsChange
     const divisions = getDivisionsForPointsChange(
-      mmrChange.matchmakingType,
+      isSoloType(mmrChange.matchmakingType),
       startingPoints,
       mmrChange.points,
       getDivisionContext(shownAt, season),

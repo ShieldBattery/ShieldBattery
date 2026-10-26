@@ -26,15 +26,4 @@ describe('client/games/live-game-entry/getCurrentDivision', () => {
     expect(getCurrentDivision(rank, { bonusPool: 0 })).toBe(MatchmakingDivision.Gold1)
     expect(getCurrentDivision(rank, { bonusPool: 3000 })).toBe(MatchmakingDivision.Silver1)
   })
-
-  test("accounts for the mode's rating offset", () => {
-    const rank = { matchmakingType: MatchmakingType.Match3v3Bgh, points: 5400, lifetimeGames: 20 }
-    expect(getCurrentDivision(rank, { bonusPool: 0 })).toBe(MatchmakingDivision.Silver3)
-    expect(
-      getCurrentDivision(rank, {
-        bonusPool: 0,
-        ratingOffsets: { [MatchmakingType.Match3v3Bgh]: 150 },
-      }),
-    ).toBe(MatchmakingDivision.Gold1)
-  })
 })

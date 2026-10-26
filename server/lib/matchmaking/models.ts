@@ -1,6 +1,5 @@
 import {
   CURRENT_DIVISION_TABLE_VERSION,
-  DivisionRatingOffsets,
   MATCHMAKING_SEASON_FINALIZED_TIME_MS,
   MatchmakingCompletion,
   MatchmakingResult,
@@ -842,7 +841,6 @@ function fromDbMatchmakingSeason(result: Readonly<DbMatchmakingSeason>): Matchma
     endDate: result.end_date ?? undefined,
     name: result.name,
     resetMmr: result.reset_mmr,
-    divisionRatingOffsets: result.division_rating_offsets ?? undefined,
     divisionTableVersion: result.division_table_version,
   }
 }
@@ -893,10 +891,7 @@ export async function getMatchmakingSeasonsByIds(
 }
 
 export async function addMatchmakingSeason(
-  season: Omit<
-    MatchmakingSeason,
-    'id' | 'endDate' | 'divisionRatingOffsets' | 'divisionTableVersion'
-  >,
+  season: Omit<MatchmakingSeason, 'id' | 'endDate' | 'divisionTableVersion'>,
   withClient?: DbClient,
 ): Promise<MatchmakingSeason> {
   const { client, done } = await db(withClient)
@@ -921,90 +916,6 @@ export async function addMatchmakingSeason(
     `)
 
     return fromDbMatchmakingSeason(seasonResult.rows[0])
-  } finally {
-    done()
-  }
-}
-
-/**
- * Returns, for each of `matchmakingTypes`, the difference between every qualifying user's rating in
- * `referenceType` and their rating in that type, as of the start of a season. A user's rating in a
- * type is the one from the latest season they have a rating in, among the seasons that started at
- * or before this one and aren't voided by a later MMR reset (the reset season itself counts). A
- * user qualifies if they've played at least `minLifetimeGames` in both types. Types without any
- * qualifying users are absent from the result.
- */
-export async function getRatingDifferencesFromReference(
-  seasonId: SeasonId,
-  referenceType: MatchmakingType,
-  matchmakingTypes: ReadonlyArray<MatchmakingType>,
-  minLifetimeGames: number,
-  withClient?: DbClient,
-): Promise<Map<MatchmakingType, number[]>> {
-  const { client, done } = await db(withClient)
-
-  try {
-    const result = await client.query<{
-      matchmaking_type: MatchmakingType
-      differences: number[]
-    }>(sql`
-      WITH target AS (
-        SELECT start_date
-        FROM matchmaking_seasons
-        WHERE id = ${seasonId}
-      ), eligible_seasons AS (
-        SELECT ms.id, ms.start_date
-        FROM matchmaking_seasons ms, target t
-        WHERE ms.start_date <= t.start_date
-          AND ms.start_date >= COALESCE(
-            (
-              SELECT MAX(rs.start_date)
-              FROM matchmaking_seasons rs
-              WHERE rs.reset_mmr AND rs.start_date <= t.start_date
-            ),
-            '-infinity'::timestamp
-          )
-      ), latest AS (
-        SELECT DISTINCT ON (mr.user_id, mr.matchmaking_type)
-          mr.user_id, mr.matchmaking_type, mr.rating, mr.lifetime_games
-        FROM matchmaking_ratings mr
-        JOIN eligible_seasons es ON es.id = mr.season_id
-        WHERE mr.matchmaking_type = ANY(${[referenceType, ...matchmakingTypes]}::matchmaking_type[])
-        ORDER BY mr.user_id, mr.matchmaking_type, es.start_date DESC
-      )
-      SELECT other.matchmaking_type, array_agg(ref.rating - other.rating) AS differences
-      FROM latest ref
-      JOIN latest other ON other.user_id = ref.user_id
-      WHERE ref.matchmaking_type = ${referenceType}
-        AND other.matchmaking_type = ANY(${matchmakingTypes}::matchmaking_type[])
-        AND ref.lifetime_games >= ${minLifetimeGames}
-        AND other.lifetime_games >= ${minLifetimeGames}
-      GROUP BY other.matchmaking_type
-    `)
-    return new Map(result.rows.map(r => [r.matchmaking_type, r.differences]))
-  } finally {
-    done()
-  }
-}
-
-/**
- * Stores a season's division rating offsets, unless it already has some: they're fixed once
- * stored. Returns whether they were stored.
- */
-export async function setMatchmakingSeasonDivisionRatingOffsets(
-  seasonId: SeasonId,
-  offsets: Readonly<DivisionRatingOffsets>,
-  withClient?: DbClient,
-): Promise<boolean> {
-  const { client, done } = await db(withClient)
-
-  try {
-    const result = await client.query(sql`
-      UPDATE matchmaking_seasons
-      SET division_rating_offsets = ${JSON.stringify(offsets)}::jsonb
-      WHERE id = ${seasonId} AND division_rating_offsets IS NULL
-    `)
-    return (result.rowCount ?? 0) > 0
   } finally {
     done()
   }

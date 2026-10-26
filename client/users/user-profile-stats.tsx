@@ -115,7 +115,6 @@ export function UserProfileStats({
       name: s.name,
       startDate: s.startDate,
       resetMmr: s.resetMmr,
-      divisionRatingOffsets: s.divisionRatingOffsets,
       divisionTableVersion: s.divisionTableVersion,
     }))
     .sort((a, b) => a.startDate - b.startDate)

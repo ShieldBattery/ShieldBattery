@@ -1,5 +1,6 @@
 import {
   DivisionContext,
+  isSoloType,
   MatchmakingDivision,
   MatchmakingSeasonJson,
   MatchmakingType,
@@ -35,7 +36,11 @@ export function ladderPlayerToMatchmakingDivision(
   if (!player.points && player.wins + player.losses === 0) {
     return MatchmakingDivision.Unrated
   } else {
-    return pointsToMatchmakingDivision(player.matchmakingType, player.points, divisionContext)
+    return pointsToMatchmakingDivision(
+      isSoloType(player.matchmakingType),
+      player.points,
+      divisionContext,
+    )
   }
 }
 

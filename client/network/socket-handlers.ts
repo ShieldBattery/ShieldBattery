@@ -4,7 +4,6 @@ import auth from '../auth/socket-handlers'
 import chat from '../chat/socket-handlers'
 import games from '../games/socket-handlers'
 import lobbies from '../lobbies/socket-handlers'
-import matchmakingSeasons from '../matchmaking/matchmaking-seasons-socket-handlers'
 import news from '../news/socket-handlers'
 import notifications from '../notifications/socket-handlers'
 import settings from '../settings/socket-handlers'
@@ -20,7 +19,6 @@ const handlers: SocketHandler[] = [
   chat,
   games,
   lobbies,
-  matchmakingSeasons,
   news,
   notifications,
   settings,
