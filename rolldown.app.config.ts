@@ -44,6 +44,9 @@ const output: OutputOptions = {
   // 'hidden' rather than true: the packaged app excludes *.map, so a sourceMappingURL comment
   // would point every chunk at a file that isn't there.
   sourcemap: 'hidden',
+  // Production bundles are minified like the renderer's; the hidden source maps still map their
+  // stack traces back.
+  minify: isProd,
 }
 
 const shared: RolldownOptions = {
