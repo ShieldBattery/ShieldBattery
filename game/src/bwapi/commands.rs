@@ -38,6 +38,8 @@ pub mod kind {
     pub const RIGHT_CLICK_POSITION: i32 = 30;
     pub const RIGHT_CLICK_UNIT: i32 = 31;
     pub const CANCEL_CONSTRUCTION: i32 = 33;
+    pub const CANCEL_TRAIN: i32 = 35;
+    pub const CANCEL_TRAIN_SLOT: i32 = 36;
     pub const CANCEL_MORPH: i32 = 37;
     pub const USE_TECH: i32 = 40;
     pub const USE_TECH_POSITION: i32 = 41;
@@ -66,6 +68,7 @@ const RETURN_CARGO: u8 = 0x1e;
 const RESEARCH: u8 = 0x30;
 const UPGRADE: u8 = 0x32;
 const CANCEL_CONSTRUCTION: u8 = 0x18;
+const CANCEL_TRAIN: u8 = 0x20;
 const CANCEL_MORPH: u8 = 0x19;
 
 const NO_FOW_TARGET: u16 = 0x00e4;
@@ -242,6 +245,17 @@ pub fn encode(
             no_coordinates(command)?;
             no_extra(command)?;
             vec![CANCEL_CONSTRUCTION]
+        }
+        kind::CANCEL_TRAIN | kind::CANCEL_TRAIN_SLOT => {
+            no_target(target_id)?;
+            no_coordinates(command)?;
+            let slot = match (command.kind, command.extra) {
+                (kind::CANCEL_TRAIN, -2) => 0xfe,
+                (kind::CANCEL_TRAIN_SLOT, slot @ 0..=4) => slot as u8,
+                _ => return None,
+            };
+            // The native record contains a signed slot byte and a zero padding byte.
+            vec![CANCEL_TRAIN, slot, 0]
         }
         kind::CANCEL_MORPH => {
             no_target(target_id)?;
@@ -997,6 +1011,49 @@ mod tests {
             )
             .is_none()
         );
+    }
+
+    #[test]
+    fn encodes_cancel_train_and_each_queue_slot() {
+        let records = encoded(command(kind::CANCEL_TRAIN, 32_000, 32_032, -2), None, 160);
+        assert_eq!(records[0], [0x63, 1, 0xef, 0xcd, 0xab, 0x89]);
+        assert_eq!(records[1], [0x20, 0xfe, 0]);
+        for slot in 0..=4 {
+            let records = encoded(command(kind::CANCEL_TRAIN_SLOT, 0, 0, slot), None, 160);
+            assert_eq!(records[1], [0x20, slot as u8, 0]);
+        }
+    }
+
+    #[test]
+    fn rejects_invalid_cancel_train_arguments() {
+        for extra in [i32::MIN, -3, -1, 0, 4, 255, i32::MAX] {
+            assert!(
+                encode(
+                    command(kind::CANCEL_TRAIN, 0, 0, extra),
+                    ACTOR,
+                    None,
+                    MAP,
+                    160
+                )
+                .is_none()
+            );
+        }
+        for extra in [i32::MIN, -2, -1, 5, 255, i32::MAX] {
+            assert!(
+                encode(
+                    command(kind::CANCEL_TRAIN_SLOT, 0, 0, extra),
+                    ACTOR,
+                    None,
+                    MAP,
+                    160
+                )
+                .is_none()
+            );
+        }
+        for (kind, extra) in [(kind::CANCEL_TRAIN, -2), (kind::CANCEL_TRAIN_SLOT, 0)] {
+            assert!(encode(command(kind, 0, 0, extra), ACTOR, Some(TARGET), MAP, 160).is_none());
+            assert!(encode(command(kind, 1, 0, extra), ACTOR, None, MAP, 160).is_none());
+        }
     }
 
     #[test]
