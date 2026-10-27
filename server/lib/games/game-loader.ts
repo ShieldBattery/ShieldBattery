@@ -187,13 +187,19 @@ const createLoadingData = Record({
   /** The players whose client is known to have reached its relay. */
   connectedPlayers: ISet<SbUserId>(),
   /**
-   * The players whose client reached its relay and is disconnected again without its game loop
-   * having started, as of the latest coordinator pull. Unlike the sets above this is the session as
-   * it stands rather than an accumulation, so each pull replaces it: a player who dials back in is
-   * no longer closed. Empty unless that pull vouched for its closed set being complete
-   * (`closedKnown`).
+   * How many coordinator pulls this load has merged, which numbers them: each pull's relay snapshots
+   * are all taken after every snapshot of the pulls before it (see `closedPlayersAtFault`).
    */
-  closedPlayers: ISet<SbUserId>(),
+  loadStatePulls: 0,
+  /**
+   * The players whose client reached its relay and is disconnected again without its game loop
+   * having started, as of the latest coordinator pull, each with the number of the first pull in an
+   * unbroken run that reported them closed. Unlike the sets above this is the session as it stands
+   * rather than an accumulation, so each pull replaces it: a player who dials back in is no longer
+   * closed, and closing again starts a new run. Empty unless that pull vouched for its closed set
+   * being complete (`closedKnown`).
+   */
+  closedPlayers: IMap<SbUserId, number>(),
   /**
    * The players whose client was connected to its relay as of the latest coordinator pull. Replaced
    * on every pull like `closedPlayers`, and empty unless that pull was `closedKnown`. A player who
@@ -248,15 +254,13 @@ const LoadingDatas = {
    *
    * The second is a player who left: one in `closedPlayers`, whose client reached its relay and then
    * disconnected before its game loop started, whether before or after the session was released to
-   * run. That is added to whatever the first names, but only while the rest of the game stayed: at
-   * least one other player is still connected to its relay (in `livePlayers`), and the closed
-   * players are at most half of the players. Having ever connected isn't staying, and neither is
-   * having started: a player who reported starting and then disconnected is neither live nor closed,
-   * and never counts as someone who stayed. Many players leaving together looks more like a network failure than a choice,
-   * so then none of them is blamed. A closed player's own start may still be held by its client, so
-   * how far the session got says nothing reliable about them, and leaving is the only thing they're
-   * judged on. Observers never count toward either check and are never blamed for leaving; how far
-   * the session got blames them as it does anyone.
+   * run. That is added to whatever the first names, but only while the rest of the game stayed:
+   * another player was still connected to its relay after this one had left, and the closed players
+   * are at most half of the players (see `closedPlayersAtFault`). Many players leaving together looks
+   * more like a network failure than a choice, so then none of them is blamed. A closed player's own
+   * start may still be held by its client, so how far the session got says nothing reliable about
+   * them, and leaving is the only thing they're judged on. Observers never count toward either check
+   * and are never blamed for leaving; how far the session got blames them as it does anyone.
    *
    * Only meaningful against a record known to be complete, since every answer here is drawn from a
    * player's absence from one of the sets. `closedPlayers` and `livePlayers` are only filled from a
@@ -275,21 +279,55 @@ const LoadingDatas = {
   },
 
   /**
-   * The closed players blamed for leaving (see `playersAtFault`): every non-observer in
-   * `closedPlayers`, provided another non-observer is in `livePlayers` and the closed ones are at
-   * most half of the non-observers. Empty otherwise.
+   * The closed players blamed for leaving (see `playersAtFault`). Empty when the closed
+   * non-observers are more than half of the non-observers; otherwise each closed non-observer who
+   * was first seen closed in an earlier pull than the latest, provided some other non-observer is
+   * live and not closed in the latest pull.
+   *
+   * The pulls are what order one player's leaving against another's staying. A single pull can't:
+   * the coordinator asks each serving relay separately and each snapshots at its own moment, so one
+   * relay can report its player live and then lose them, after which another relay reports its own
+   * player closed, and the pull shows a leaver beside someone who had in fact already gone. Across
+   * pulls the order holds. Pulls are made one after another, and the coordinator answers a pull only
+   * from a round of relay questions that began after the pull arrived, so every snapshot behind a
+   * pull is taken after every snapshot behind the pulls before it. A player first seen closed in an
+   * earlier pull had left before that pull's snapshots; another player live in a later pull was
+   * still there after them, and so after the leaver had gone. Having ever connected isn't staying,
+   * and neither is having started: a player who reported starting and then disconnected is neither
+   * live nor closed, and never counts as someone who stayed.
    */
   closedPlayersAtFault(loadingData: LoadingData): SbUserId[] {
-    const { players, livePlayers, closedPlayers } = loadingData
-    const playing = players.filter(p => !p.isObserver)
-    const closed = playing.filter(p => closedPlayers.has(p.userId))
-    if (closed.length === 0 || closed.length * 2 > playing.length) {
+    const { players, livePlayers, closedPlayers, loadStatePulls } = loadingData
+    const someoneStayed = players.some(
+      p => !p.isObserver && livePlayers.has(p.userId) && !closedPlayers.has(p.userId),
+    )
+    if (!someoneStayed) {
       return []
     }
-    const someoneStayed = playing.some(
-      p => livePlayers.has(p.userId) && !closedPlayers.has(p.userId),
+    return LoadingDatas.blamableClosedPlayers(loadingData).filter(
+      userId => closedPlayers.get(userId)! < loadStatePulls,
     )
-    return someoneStayed ? closed.map(p => p.userId) : []
+  },
+
+  /**
+   * The closed non-observers, or none when they are more than half of the non-observers and so
+   * can't be blamed for leaving whoever stayed.
+   */
+  blamableClosedPlayers(loadingData: LoadingData): SbUserId[] {
+    const playing = loadingData.players.filter(p => !p.isObserver)
+    const closed = playing.filter(p => loadingData.closedPlayers.has(p.userId))
+    return closed.length * 2 > playing.length ? [] : closed.map(p => p.userId)
+  },
+
+  /**
+   * Whether some closed player who could be blamed for leaving was first seen closed in the latest
+   * pull, so only a later pull can show whether anyone stayed after they left (see
+   * `closedPlayersAtFault`).
+   */
+  hasClosedPlayerAwaitingWitness(loadingData: LoadingData): boolean {
+    return LoadingDatas.blamableClosedPlayers(loadingData).some(
+      userId => loadingData.closedPlayers.get(userId) === loadingData.loadStatePulls,
+    )
   },
 
   /** The players at fault for how far the session got (see `playersAtFault`). */
@@ -775,7 +813,11 @@ export class GameLoader {
         const final =
           data.localOnly ||
           (state?.setupFinal && (state.known || (state.closedKnown && state.turnsKnown)))
-        if (!final && remaining() > LOAD_STATE_POLL_INTERVAL_MS) {
+        // A player who just left can't be weighed against who stayed until a later pull, so ask
+        // again while the budget allows; once it doesn't, they go unblamed.
+        const awaitingWitness =
+          final && !data.localOnly && LoadingDatas.hasClosedPlayerAwaitingWitness(data)
+        if ((!final || awaitingWitness) && remaining() > LOAD_STATE_POLL_INTERVAL_MS) {
           const [delay] = timeoutPromise(LOAD_STATE_POLL_INTERVAL_MS)
           await delay
           continue
@@ -874,6 +916,7 @@ export class GameLoader {
       return loadState
     }
 
+    const pull = loadingData.loadStatePulls + 1
     const userBySlot = loadingData.slotByUserId.flip()
     const usersForSlots = (slots: number[]): SbUserId[] => {
       const users: SbUserId[] = []
@@ -902,9 +945,15 @@ export class GameLoader {
           loadingData.forwardedPlayers.union(usersForSlots(loadState.forwardedSlots)),
         )
         .set('turnsKnown', loadingData.turnsKnown || loadState.turnsKnown)
+        .set('loadStatePulls', pull)
         .set(
           'closedPlayers',
-          loadState.closedKnown ? ISet(usersForSlots(loadState.closedSlots)) : ISet<SbUserId>(),
+          IMap(
+            (loadState.closedKnown ? usersForSlots(loadState.closedSlots) : []).map(userId => [
+              userId,
+              loadingData.closedPlayers.get(userId) ?? pull,
+            ]),
+          ),
         )
         .set(
           'livePlayers',

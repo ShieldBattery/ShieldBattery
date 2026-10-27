@@ -1225,8 +1225,72 @@ describe('games/game-loader/GameLoader', () => {
         const error = await expectTimeout(load)
 
         expect(error.data.unloaded).toEqual([userAt(0)])
-        // The first pull decided it.
-        expect(netcodeV2Service.fetchSessionLoadState).toHaveBeenCalledTimes(1)
+        // The first pull saw the leaver; the second showed the others still there after they left.
+        expect(netcodeV2Service.fetchSessionLoadState).toHaveBeenCalledTimes(2)
+      })
+
+      test('blames a leaver only once a later pull shows someone stayed after them', async () => {
+        // Each relay snapshots at its own moment, so one pull can show p2 live although p2 was gone
+        // before p1 left. Only a later pull orders p2 being there after p1 had gone.
+        const leftBeside = closedPull({
+          startedAtMs: 1700000000000,
+          connectedSlots: [0, 1],
+          closedSlots: [0],
+        })
+        netcodeV2Service.fetchSessionLoadState
+          .mockResolvedValueOnce(leftBeside)
+          .mockResolvedValue(leftBeside)
+        const { load } = await startNetworkedLoad('game-leaver-witnessed')
+
+        const error = await expectTimeout(load)
+
+        expect(error.data.unloaded).toEqual([p1])
+        expect(netcodeV2Service.fetchSessionLoadState).toHaveBeenCalledTimes(2)
+      })
+
+      test('blames nobody when the player who looked live turns out to have left too', async () => {
+        netcodeV2Service.fetchSessionLoadState
+          .mockResolvedValueOnce(
+            closedPull({ startedAtMs: 1700000000000, connectedSlots: [0, 1], closedSlots: [0] }),
+          )
+          .mockResolvedValue(
+            closedPull({ startedAtMs: 1700000000000, connectedSlots: [0, 1], closedSlots: [0, 1] }),
+          )
+        const { load } = await startNetworkedLoad('game-leaver-unwitnessed')
+
+        const error = await expectTimeout(load)
+
+        expect(error.data.unloaded).toEqual([])
+        expect(netcodeV2Service.fetchSessionLoadState).toHaveBeenCalledTimes(2)
+      })
+
+      test('blames nobody for a leaver first seen in the last pull the budget allows', async () => {
+        const unvouched = {
+          ...closedPull({
+            startedAtMs: 1700000000000,
+            connectedSlots: [0, 1, 2, 3, 4, 5],
+            closedSlots: [],
+          }),
+          setupFinal: false,
+          closedKnown: false,
+        }
+        const pulls = ATTEST_BUDGET_MS / ATTEST_POLL_MS
+        for (let i = 0; i < pulls - 1; i++) {
+          netcodeV2Service.fetchSessionLoadState.mockResolvedValueOnce(unvouched)
+        }
+        netcodeV2Service.fetchSessionLoadState.mockResolvedValue(
+          closedPull({
+            startedAtMs: 1700000000000,
+            connectedSlots: [0, 1, 2, 3, 4, 5],
+            closedSlots: [0],
+          }),
+        )
+        const { load } = await startRosterLoad('game-leaver-out-of-budget', sixPlayers)
+
+        const error = await expectTimeout(load)
+
+        expect(error.data.unloaded).toEqual([])
+        expect(netcodeV2Service.fetchSessionLoadState).toHaveBeenCalledTimes(pulls)
       })
 
       test('blames every closed player when no more than half the players left', async () => {
