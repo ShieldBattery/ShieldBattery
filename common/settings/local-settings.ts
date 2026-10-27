@@ -243,6 +243,11 @@ export interface LocalSettings extends ShieldBatteryAppSettings {
   runAppAtSystemStart: boolean
   runAppAtSystemStartMinimized: boolean
   quitOnClose: boolean
+  /**
+   * Whether the app window minimizes while a game is running, and comes back once every game has
+   * exited.
+   */
+  minimizeWhilePlaying: boolean
   starcraftPath: string
   masterVolume: number
   gameWinX?: number

@@ -163,6 +163,13 @@ export type ActiveGameManagerEvents = {
     },
   ]
   gameStatus: [statusInfo: ReportedGameStatus]
+  /** A game process (participating or watch-only) is about to launch. */
+  gameProcessLaunching: [gameId: string]
+  /**
+   * A game process announced by `gameProcessLaunching` has exited, or failed to launch. Fires
+   * whether or not the game is still tracked.
+   */
+  gameProcessEnded: [gameId: string]
   replaySaved: [gameId: string, path: string]
   resendReplay: [request: ResendReplayRequest]
   replayDiagnosticsRequested: [request: ReplayDiagnosticsRequest]
@@ -287,17 +294,20 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
   }
 
   private launchGameProcess(gameId: string): Promise<void> {
-    return doLaunch(gameId, this.serverPort, this.localSettings, this.scrSettings).then(
-      async proc => {
-        try {
-          const code = await proc.waitForExit()
-          this.handleGameExit(gameId, code)
-        } catch (err) {
-          this.handleGameExitWaitError(gameId, err as Error)
-        }
-      },
-      err => this.handleGameLaunchError(gameId, err),
-    )
+    this.emit('gameProcessLaunching', gameId)
+    return doLaunch(gameId, this.serverPort, this.localSettings, this.scrSettings)
+      .then(
+        async proc => {
+          try {
+            const code = await proc.waitForExit()
+            this.handleGameExit(gameId, code)
+          } catch (err) {
+            this.handleGameExitWaitError(gameId, err as Error)
+          }
+        },
+        err => this.handleGameLaunchError(gameId, err),
+      )
+      .finally(() => this.emit('gameProcessEnded', gameId))
   }
 
   /**

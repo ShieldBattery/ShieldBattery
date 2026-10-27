@@ -133,6 +133,7 @@ interface AppSystemSettingsModel {
   runAppAtSystemStart: boolean
   runAppAtSystemStartMinimized: boolean
   quitOnClose: boolean
+  minimizeWhilePlaying: boolean
 
   gameServerRegion: string
   rollbackTarget: number
@@ -161,6 +162,7 @@ export function AppSystemSettings() {
         runAppAtSystemStart: localSettings.runAppAtSystemStart,
         runAppAtSystemStartMinimized: localSettings.runAppAtSystemStartMinimized,
         quitOnClose: localSettings.quitOnClose,
+        minimizeWhilePlaying: localSettings.minimizeWhilePlaying,
         gameServerRegion:
           localSettings.gameServerRegion !== undefined &&
           regions.some(r => r.id === localSettings.gameServerRegion)
@@ -182,6 +184,7 @@ export function AppSystemSettings() {
             runAppAtSystemStart: model.runAppAtSystemStart,
             runAppAtSystemStartMinimized: model.runAppAtSystemStartMinimized,
             quitOnClose: model.quitOnClose,
+            minimizeWhilePlaying: model.minimizeWhilePlaying,
             gameServerRegion:
               model.gameServerRegion === AUTO_REGION_VALUE
                 ? undefined
@@ -226,6 +229,19 @@ export function AppSystemSettings() {
             label={t(
               'settings.app.system.quitOnClose',
               'Quit ShieldBattery when closing the window',
+            )}
+            inputProps={{ tabIndex: 0 }}
+          />
+        </SectionContainer>
+        <SectionContainer>
+          <SettingsSectionHeader>
+            {t('settings.app.system.playingOverline', 'Playing')}
+          </SettingsSectionHeader>
+          <CheckBox
+            {...bindCheckable('minimizeWhilePlaying')}
+            label={t(
+              'settings.app.system.minimizeWhilePlaying',
+              'Minimize ShieldBattery while a game is running',
             )}
             inputProps={{ tabIndex: 0 }}
           />

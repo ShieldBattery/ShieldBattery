@@ -43,6 +43,7 @@ import { GameServerRegionList } from './game-server-regions/region-list'
 import { ActiveGameManager } from './game/active-game-manager'
 import { checkStarcraftPath } from './game/check-starcraft-path'
 import createGameServer, { GameServer } from './game/game-server'
+import { GameWindowMinimizer } from './game/game-window-minimizer'
 import { MapStore } from './game/map-store'
 import { ReplayStore } from './game/replay-store'
 import { classifyLaunchArgs, DeepLink } from './launch-args'
@@ -852,8 +853,30 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
   })
 
   const activeGameManager = container.resolve(ActiveGameManager)
+  const gameWindowMinimizer = new GameWindowMinimizer(() => mainWindow)
 
   activeGameManager
+    .on('gameProcessLaunching', gameId => {
+      gameWindowMinimizer.gameLaunching(gameId)
+      // A background test instance is already behind the user's windows, and bringing it back
+      // after the game would take their focus.
+      if (process.env.SB_APP_BACKGROUND === '1') {
+        return
+      }
+      localSettings
+        .get()
+        .then(({ minimizeWhilePlaying }) => {
+          if (minimizeWhilePlaying) {
+            gameWindowMinimizer.minimizeForGames()
+          }
+        })
+        .catch(err => {
+          logger.error(`Error reading settings to minimize for a game: ${getErrorStack(err)}`)
+        })
+    })
+    .on('gameProcessEnded', gameId => {
+      gameWindowMinimizer.gameEnded(gameId)
+    })
     .on('gameStatus', status => {
       TypedIpcSender.from(mainWindow?.webContents).send('activeGameStatus', status)
     })

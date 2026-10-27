@@ -2699,7 +2699,9 @@
           "description": "Your commands always take at least 2 frames to happen, even when your connection is fast enough for less. This only changes your own game.",
           "label": "Add input delay to match TR24 Low"
         },
+        "minimizeWhilePlaying": "Minimize ShieldBattery while a game is running",
         "networkOverline": "Network",
+        "playingOverline": "Playing",
         "quitOnClose": "Quit ShieldBattery when closing the window",
         "rollbackTarget": {
           "description": "Higher values make your commands more responsive, but units may visibly jump more often.",
