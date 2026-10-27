@@ -95,8 +95,12 @@ export default defineConfig([
         // The replay parser is compiled to WebAssembly, which its Node entry loads by reading the
         // file next to itself.
         { test: /broodrep[\\/]pkg-node[\\/]broodrep_wasm\.js$/, files: ['broodrep_wasm_bg.wasm'] },
-        // So is the map reader the local map index uses.
-        { test: /[\\/]pkg-node[\\/]broodmap_wasm\.js$/, files: ['broodmap_wasm_bg.wasm'] },
+        // So is broodmap, which reads and renders local map files; its Node entry reads the file from
+        // `pkg/` beside itself.
+        {
+          test: /[\\/]broodmap[\\/]node-entry\.js$/,
+          files: ['pkg/broodmap_wasm_bg.wasm'],
+        },
       ]),
     ],
   },

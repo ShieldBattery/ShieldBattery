@@ -88,7 +88,7 @@
     "@koa/router": "^15.7.0",
     "@prometheus-io/client": "^0.16.1",
     "@redis/client": "^6.3.0",
-    "@shieldbattery/broodmap": "file:vendor/shieldbattery-broodmap-0.1.0.tgz",
+    "@shieldbattery/broodmap": "^0.2.0",
     "@shieldbattery/broodrep": "^0.6.0",
     "bcrypt": "^6.0.0",
     "core-js": "^3.50.0",
