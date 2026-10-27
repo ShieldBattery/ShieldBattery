@@ -47,6 +47,7 @@ export class LocalGameManager extends EventEmitter<{ status: [status: LocalGameS
     private mapStore: MapStore,
     private localSettings: LocalSettingsManager,
     private scrSettings: ScrSettingsManager,
+    private developmentGameDll: boolean,
   ) {
     super()
   }
@@ -81,7 +82,7 @@ export class LocalGameManager extends EventEmitter<{ status: [status: LocalGameS
     let session: Session | undefined
     try {
       await this.session?.stopped
-      validateRequest(request)
+      validateRequest(request, this.developmentGameDll)
       await this.verifyFiles(request)
       if (this.launchCanceled) throw new Error('Local game launch canceled')
       const id = randomUUID()
@@ -501,7 +502,7 @@ function managerHasResultOrExited(manager: ActiveGameManager): boolean {
   )
 }
 
-export function validateRequest(request: LocalGameRequest): void {
+export function validateRequest(request: LocalGameRequest, developmentGameDll: boolean): void {
   if (!request || !request.map || !Array.isArray(request.bots)) {
     throw new Error('Choose one to seven bots')
   }
@@ -512,6 +513,9 @@ export function validateRequest(request: LocalGameRequest): void {
   const maxBots = observing ? 8 : 7
   if (request.bots.length < minBots || request.bots.length > maxBots) {
     throw new Error(observing ? 'Choose two to eight bots to watch' : 'Choose one to seven bots')
+  }
+  if (!developmentGameDll && request.bots.some(bot => !bot.pluto)) {
+    throw new Error('External BWAPI bots require the development game DLL')
   }
   const { mapData, hash } = request.map
   if (!/^[a-f0-9]{64}$/.test(hash) || !['scm', 'scx'].includes(mapData?.format)) {

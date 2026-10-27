@@ -38,15 +38,42 @@ function requestWith(replayName?: string): LocalGameRequest {
 }
 
 test('local game requests without replay metadata remain valid', () => {
-  expect(() => validateRequest(requestWith())).not.toThrow()
+  expect(() => validateRequest(requestWith(), true)).not.toThrow()
 })
 
 test.each(['', 'a'.repeat(25), 'bot\u0000name'])(
   'rejects an invalid replay name: %j',
   replayName => {
-    expect(() => validateRequest(requestWith(replayName))).toThrow('Invalid local replay name')
+    expect(() => validateRequest(requestWith(replayName), true)).toThrow(
+      'Invalid local replay name',
+    )
   },
 )
+
+test('release game DLL rejects external BWAPI bots before launching', () => {
+  expect(() => validateRequest(requestWith(), false)).toThrow(
+    'External BWAPI bots require the development game DLL',
+  )
+})
+
+test('release game DLL accepts an explicit Pluto companion launch', () => {
+  const request = requestWith()
+  const bot = request.bots[0]
+  bot.executable = path.join(bot.workingDirectory, 'pluto.dll')
+  bot.pluto = {
+    workingDirectory: bot.workingDirectory,
+    botPath: bot.executable,
+    companionPath: path.join(bot.workingDirectory, 'pluto-companion.dll'),
+    companionSha256: 'a'.repeat(64),
+    logPath: path.join(bot.workingDirectory, 'companion.log'),
+  }
+  expect(() => validateRequest(request, false)).not.toThrow()
+  request.player.observer = true
+  request.bots.push(requestWith().bots[0])
+  expect(() => validateRequest(request, false)).toThrow(
+    'External BWAPI bots require the development game DLL',
+  )
+})
 
 afterEach(() => {
   vi.useRealTimers()
@@ -93,6 +120,7 @@ function shutdownFixture() {
     {} as never,
     {} as never,
     {} as never,
+    true,
   ) as unknown as TestManager
   const game = makeGameManager()
   const worker = makeWorker()
@@ -117,6 +145,7 @@ function botFixture(state = 'playing') {
     {} as never,
     {} as never,
     {} as never,
+    true,
   ) as unknown as TestManager
   const game = makeGameManager(state)
   const worker = makeWorker()
@@ -276,21 +305,27 @@ test('Pluto admits a 1v1 Melee bot seat and rejects other formats before launch'
       workingDirectory,
     },
   }
-  expect(() => validateRequest(request)).not.toThrow()
-  expect(() => validateRequest({ ...request, gameType: 'topVBottom' as never })).toThrow(
+  expect(() => validateRequest(request, true)).not.toThrow()
+  expect(() => validateRequest({ ...request, gameType: 'topVBottom' as never }, true)).toThrow(
     '1v1 Melee',
   )
   expect(() =>
-    validateRequest({
-      ...request,
-      map: { ...request.map, mapData: { ...request.map.mapData, width: 129 } },
-    }),
+    validateRequest(
+      {
+        ...request,
+        map: { ...request.map, mapData: { ...request.map.mapData, width: 129 } },
+      },
+      true,
+    ),
   ).toThrow('128 tiles')
   expect(() =>
-    validateRequest({
-      ...request,
-      bots: [...request.bots, request.bots[0]],
-      map: { ...request.map, mapData: { ...request.map.mapData, slots: 3 } },
-    }),
+    validateRequest(
+      {
+        ...request,
+        bots: [...request.bots, request.bots[0]],
+        map: { ...request.map, mapData: { ...request.map.mapData, slots: 3 } },
+      },
+      true,
+    ),
   ).toThrow('1v1 Melee')
 })

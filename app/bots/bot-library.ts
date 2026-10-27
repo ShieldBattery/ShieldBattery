@@ -86,7 +86,7 @@ export interface BotLibraryOptions {
   dataRoot: string
   /** Where the local game manager writes per-session game logs. */
   localGameLogsRoot: string
-  /** Development builds use the staging catalog; only they can launch local bot games at all. */
+  /** Development builds use the staging catalog; release builds use production trust. */
   isDev: boolean
   getLocalGameManager: () => LocalGameManager
   getParentWindow: () => BrowserWindow | null

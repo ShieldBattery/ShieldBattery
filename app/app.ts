@@ -864,6 +864,7 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
         container.resolve(MapStore),
         localSettings,
         scrSettings,
+        isDev,
       )
       localGameManager.on('status', status => {
         TypedIpcSender.from(mainWindow?.webContents).send('localGameStatus', status)
@@ -899,10 +900,7 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
   })
   const bots = botLibrary
 
-  ipcMain.handle('practiceGameStart', (_, request) => {
-    requireLocalGameSupport()
-    return bots.startPracticeGame(request)
-  })
+  ipcMain.handle('practiceGameStart', (_, request) => bots.startPracticeGame(request))
   ipcMain.handle('practiceOpenLogs', (_, sessionId) => bots.openLogs(sessionId))
   ipcMain.handle('practiceStoreLoad', () => bots.loadPracticeStore())
   ipcMain.handle('practiceStoreSave', (_, data) => bots.savePracticeStore(data))
