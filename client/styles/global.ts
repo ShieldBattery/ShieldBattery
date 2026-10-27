@@ -112,7 +112,6 @@ const GlobalStyle = createGlobalStyle`
 
   *::-webkit-scrollbar-thumb {
     box-sizing: border-box;
-    width: 100%;
     border: 2px solid transparent;
     margin-left: auto;
     margin-right: auto;
