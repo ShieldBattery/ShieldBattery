@@ -4,6 +4,7 @@ shellEmulator: true
 minimumReleaseAge: 10080
 # first-party packages we publish ourselves don't need the quarantine
 minimumReleaseAgeExclude:
+  - '@shieldbattery/broodmap'
   - '@shieldbattery/broodrep'
   - 'nydus'
   - 'nydus-client'

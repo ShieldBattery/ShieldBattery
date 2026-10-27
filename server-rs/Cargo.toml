@@ -45,10 +45,10 @@ axum-extra = { version = "0.12", features = ["typed-header"] }
 axum-prometheus = "0.10"
 base64 = "0.23"
 bcrypt = "0.19"
-broodmap = { git = "https://github.com/ShieldBattery/broodmap", rev = "190c7588c7f0bc20f4ec13eaaca6422d8a78fb58" }
-broodmap-analysis = { git = "https://github.com/ShieldBattery/broodmap", rev = "190c7588c7f0bc20f4ec13eaaca6422d8a78fb58" }
-broodmap-formats = { git = "https://github.com/ShieldBattery/broodmap", rev = "190c7588c7f0bc20f4ec13eaaca6422d8a78fb58" }
-broodmap-render = { git = "https://github.com/ShieldBattery/broodmap", rev = "190c7588c7f0bc20f4ec13eaaca6422d8a78fb58" }
+broodmap = { git = "https://github.com/ShieldBattery/broodmap", rev = "7132ab33a6f05a0a46302343a12ef045d997e951" }
+broodmap-analysis = { git = "https://github.com/ShieldBattery/broodmap", rev = "7132ab33a6f05a0a46302343a12ef045d997e951" }
+broodmap-formats = { git = "https://github.com/ShieldBattery/broodmap", rev = "7132ab33a6f05a0a46302343a12ef045d997e951" }
+broodmap-render = { git = "https://github.com/ShieldBattery/broodmap", rev = "7132ab33a6f05a0a46302343a12ef045d997e951" }
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.6", features = ["derive"] }
 color-eyre = "0.6"
