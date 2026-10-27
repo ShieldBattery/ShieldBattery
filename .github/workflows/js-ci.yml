@@ -135,8 +135,12 @@ jobs:
         run: pnpm install --frozen-lockfile
         working-directory: ./app
 
-      - name: Install playwright dependencies
-        run: pnpm exec playwright install --with-deps
+      # Only the headless Chromium the tests run, without --with-deps: the runner image already has
+      # its system libraries, and the apt install of every browser's dependencies (~140 MB) crawls
+      # for up to an hour whenever the Ubuntu mirror is slow.
+      - name: Install playwright browser
+        run: pnpm exec playwright install --only-shell chromium
+        timeout-minutes: 5
 
       - name: Run integration tests
         run: pnpm test:integration
