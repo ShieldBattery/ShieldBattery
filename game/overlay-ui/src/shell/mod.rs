@@ -766,6 +766,7 @@ impl Shell {
             self.prefs.shown(Panel::Transport),
             placement,
             events,
+            &self.hotkeys,
         );
         self.observer.plate_drawn(outcome.is_some());
         if let Some(outcome) = &outcome {

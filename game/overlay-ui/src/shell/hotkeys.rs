@@ -22,9 +22,9 @@ pub enum Action {
     SpeedUp,
     /// One step down the replay speed ladder.
     SpeedDown,
-    /// Seek backward; `Shift` lengthens the step.
+    /// Seek backward; `Shift` lengthens the step, and its `Ctrl` chord lengthens it further.
     SeekBackward,
-    /// Seek forward; `Shift` lengthens the step.
+    /// Seek forward; `Shift` lengthens the step, and its `Ctrl` chord lengthens it further.
     SeekForward,
     /// Hide every panel on screen, or bring back the ones that hid.
     ToggleAllPanels,
@@ -164,6 +164,22 @@ impl Chord {
         }
     }
 
+    /// How this chord reads where a surface names it, `shift` adding the Shift that scales an
+    /// action: `.`, `Shift+.`, `Ctrl+.`.
+    pub fn label(self, shift: bool) -> String {
+        let mut label = String::new();
+        match self.held {
+            Held::Bare => {}
+            Held::Ctrl => label.push_str("Ctrl+"),
+            Held::Alt => label.push_str("Alt+"),
+        }
+        if shift {
+            label.push_str("Shift+");
+        }
+        label.push_str(self.key.symbol_or_name());
+        label
+    }
+
     /// Whether this keypress is this chord.
     ///
     /// Exactly the chord's own one of Ctrl and Alt must be down. SC:R binds nearly every modified
@@ -236,7 +252,9 @@ impl Hotkeys {
             (Action::SpeedUp, Chord::new(U)),
             (Action::SpeedDown, Chord::new(D)),
             (Action::SeekBackward, Chord::new(Comma)),
+            (Action::SeekBackward, Chord::ctrl(Comma)),
             (Action::SeekForward, Chord::new(Period)),
+            (Action::SeekForward, Chord::ctrl(Period)),
             (Action::ToggleAllPanels, Chord::new(A)),
             (Action::ToggleAllPanels, Chord::ctrl(A)),
             (Action::ToggleAllPanels, Chord::alt(A)),
@@ -294,6 +312,15 @@ impl Hotkeys {
         self.bindings
             .iter()
             .find(|(bound, _)| *bound == action)
+            .map(|(_, chord)| *chord)
+    }
+
+    /// The first chord bound to this action that is pressed with `held`, for a surface naming one
+    /// particular form of an action, such as the longer seek its `Ctrl` chord takes.
+    pub fn chord_held(&self, action: Action, held: Held) -> Option<Chord> {
+        self.bindings
+            .iter()
+            .find(|(bound, chord)| *bound == action && chord.held == held)
             .map(|(_, chord)| *chord)
     }
 }
