@@ -1778,6 +1778,8 @@ describe('netcode-v2/NetcodeV2Service#fetchSessionLoadState', () => {
       startedSlots: [0],
       forwardedSlots: [],
       turnsKnown: false,
+      closedSlots: [],
+      closedKnown: false,
     })
   })
 
@@ -1799,6 +1801,8 @@ describe('netcode-v2/NetcodeV2Service#fetchSessionLoadState', () => {
       startedSlots: [],
       forwardedSlots: [],
       turnsKnown: false,
+      closedSlots: [],
+      closedKnown: false,
     })
   })
 
@@ -1826,6 +1830,8 @@ describe('netcode-v2/NetcodeV2Service#fetchSessionLoadState', () => {
       startedSlots: [1],
       forwardedSlots: [],
       turnsKnown: false,
+      closedSlots: [],
+      closedKnown: false,
     })
   })
 
@@ -1843,6 +1849,35 @@ describe('netcode-v2/NetcodeV2Service#fetchSessionLoadState', () => {
     const state = await service.fetchSessionLoadState(42)
     expect(state.forwardedSlots).toEqual([1])
     expect(state.turnsKnown).toBe(true)
+  })
+
+  test('returns the closed slots a coordinator reports and whether it vouches for them', async () => {
+    configureNetcodeV2()
+    const json = vi.fn().mockResolvedValueOnce({
+      known: false,
+      turnsKnown: true,
+      closedKnown: true,
+      setupFinal: true,
+      connectedSlots: [0, 1],
+      closedSlots: [0],
+    })
+    asMockedFunction(got.post).mockReturnValue({ json } as any)
+    const service = makeService()
+
+    const state = await service.fetchSessionLoadState(42)
+    expect(state.closedSlots).toEqual([0])
+    expect(state.closedKnown).toBe(true)
+  })
+
+  test("reads closed slots as unvouched when the coordinator doesn't report them", async () => {
+    configureNetcodeV2()
+    const json = vi.fn().mockResolvedValueOnce({ known: true, turnsKnown: true, setupFinal: true })
+    asMockedFunction(got.post).mockReturnValue({ json } as any)
+    const service = makeService()
+
+    const state = await service.fetchSessionLoadState(42)
+    expect(state.closedSlots).toEqual([])
+    expect(state.closedKnown).toBe(false)
   })
 
   test("reads turn evidence as unvouched when the coordinator doesn't report it", async () => {

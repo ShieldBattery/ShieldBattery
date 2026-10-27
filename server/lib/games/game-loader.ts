@@ -186,6 +186,14 @@ const createLoadingData = Record({
   slotByUserId: IMap<SbUserId, number>(),
   /** The players whose client is known to have reached its relay. */
   connectedPlayers: ISet<SbUserId>(),
+  /**
+   * The players whose client reached its relay and is disconnected again without its game loop
+   * having started, as of the latest coordinator pull. Unlike the sets above this is the session as
+   * it stands rather than an accumulation, so each pull replaces it: a player who dials back in is
+   * no longer closed. Empty unless that pull vouched for its closed set being complete
+   * (`closedKnown`).
+   */
+  closedPlayers: ISet<SbUserId>(),
   /** Whether every slot connected and the session was released to run. */
   sessionStarted: false,
   /** Holds the failure decision open while relays settle setup and evidence is staged. */
@@ -216,10 +224,13 @@ const LoadingDatas = {
   },
 
   /**
-   * Which players a networked load that failed is at fault for, read off how far the session got:
-   * a missing game loop once some are running, or a missing connection while the session was still
-   * waiting for everyone. Empty when nothing distinguishes the players from each other — nobody
-   * connected at all, or everybody did and the session ran but no game loop ever started.
+   * Which players a networked load that failed is at fault for, in the load's player order. Two
+   * kinds of evidence count: how far the session got, and who left it.
+   *
+   * The first is how far the session got: a missing game loop once some are running, or a missing
+   * connection while the session was still waiting for everyone. On its own it blames nobody when
+   * nothing distinguishes the players from each other — nobody connected at all, or everybody did
+   * and the session ran but no game loop ever started.
    *
    * A client's report of its own start never by itself blames someone else. A player whose loop
    * runs but whose link to the relay is cut can start, report that start once it reconnects, and
@@ -229,10 +240,52 @@ const LoadingDatas = {
    * turns from at least one player who reported starting; with no start so backed, nobody is
    * blamed. Without that evidence, the reported starts are the only evidence and are used as is.
    *
+   * The second is a player who left: one in `closedPlayers`, whose client reached its relay and then
+   * disconnected before its game loop started, whether before or after the session was released to
+   * run. That is added to whatever the first names, but only while the rest of the game stayed: at
+   * least one other player is still connected (not closed), and the closed players are at most half
+   * of the players. Many players leaving together looks more like a network failure than a choice,
+   * so then none of them is blamed. A closed player's own start may still be held by its client, so
+   * how far the session got says nothing reliable about them, and leaving is the only thing they're
+   * judged on. Observers never count toward either check and are never blamed for leaving; how far
+   * the session got blames them as it does anyone.
+   *
    * Only meaningful against a record known to be complete, since every answer here is drawn from a
-   * player's absence from one of the sets.
+   * player's absence from one of the sets. `closedPlayers` is only filled from a pull that vouched
+   * for it.
    */
   playersAtFault(loadingData: LoadingData): SbUserId[] {
+    const { players, closedPlayers } = loadingData
+    const leavers = ISet(LoadingDatas.closedPlayersAtFault(loadingData))
+    const closedPlaying = players
+      .filter(p => !p.isObserver && closedPlayers.has(p.userId))
+      .map(p => p.userId)
+    const stalled = ISet(LoadingDatas.playersAtFaultForProgress(loadingData)).subtract(
+      closedPlaying,
+    )
+    return players.filter(p => leavers.has(p.userId) || stalled.has(p.userId)).map(p => p.userId)
+  },
+
+  /**
+   * The closed players blamed for leaving (see `playersAtFault`): every non-observer in
+   * `closedPlayers`, provided another non-observer is still connected and the closed ones are at
+   * most half of the non-observers. Empty otherwise.
+   */
+  closedPlayersAtFault(loadingData: LoadingData): SbUserId[] {
+    const { players, connectedPlayers, closedPlayers } = loadingData
+    const playing = players.filter(p => !p.isObserver)
+    const closed = playing.filter(p => closedPlayers.has(p.userId))
+    if (closed.length === 0 || closed.length * 2 > playing.length) {
+      return []
+    }
+    const someoneStayed = playing.some(
+      p => connectedPlayers.has(p.userId) && !closedPlayers.has(p.userId),
+    )
+    return someoneStayed ? closed.map(p => p.userId) : []
+  },
+
+  /** The players at fault for how far the session got (see `playersAtFault`). */
+  playersAtFaultForProgress(loadingData: LoadingData): SbUserId[] {
     const { finishedPlayers, forwardedPlayers, turnsKnown } = loadingData
     if (!finishedPlayers.isEmpty()) {
       if (!turnsKnown) {
@@ -709,7 +762,11 @@ export class GameLoader {
           return
         }
 
-        const final = data.localOnly || (state?.known && state.setupFinal)
+        // A record vouched for in whole is final, and so is one vouched for in all but the players
+        // who left, provided the turn evidence that stands in for their unvouched starts is too.
+        const final =
+          data.localOnly ||
+          (state?.setupFinal && (state.known || (state.closedKnown && state.turnsKnown)))
         if (!final && remaining() > LOAD_STATE_POLL_INTERVAL_MS) {
           const [delay] = timeoutPromise(LOAD_STATE_POLL_INTERVAL_MS)
           await delay
@@ -837,6 +894,10 @@ export class GameLoader {
           loadingData.forwardedPlayers.union(usersForSlots(loadState.forwardedSlots)),
         )
         .set('turnsKnown', loadingData.turnsKnown || loadState.turnsKnown)
+        .set(
+          'closedPlayers',
+          loadState.closedKnown ? ISet(usersForSlots(loadState.closedSlots)) : ISet<SbUserId>(),
+        )
         .set('sessionStarted', loadingData.sessionStarted || loadState.startedAtMs !== undefined),
     )
     return loadState

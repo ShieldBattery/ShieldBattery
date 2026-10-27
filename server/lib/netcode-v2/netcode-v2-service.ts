@@ -352,7 +352,10 @@ export interface NetcodeV2SessionLoadState {
    * was unreachable or replaced), so absence from the sets says nothing.
    */
   known: boolean
-  /** Every serving relay closed lobby ingress after reporting prior policy violations. */
+  /**
+   * Whether `lobbyViolationSlots` is complete and will stay so: every serving relay closed lobby
+   * ingress before answering, and fenced every slot it homes except the ones in `closedSlots`.
+   */
   setupFinal: boolean
   /** Authenticated slots evicted for lobby violations, including incomplete records. */
   lobbyViolationSlots: number[]
@@ -376,6 +379,21 @@ export interface NetcodeV2SessionLoadState {
    * forwarded. False for a coordinator or relay that doesn't track them.
    */
   turnsKnown: boolean
+  /**
+   * The slots that connected to their home relay and are disconnected now without their game loop
+   * having started. Unlike every other set here this is the session as it stands at this pull, not
+   * an accumulation: a slot that dials back in drops out of it.
+   */
+  closedSlots: number[]
+  /**
+   * Whether `closedSlots` is the session's whole closed set and every slot outside it is vouched for:
+   * everything `turnsKnown` rests on holds, and every serving relay fenced each slot it homes except
+   * the closed ones. So a slot that connected but isn't closed is live or started, and a live slot's
+   * absence from `startedSlots` means it hadn't started. A closed slot's own start may still be held
+   * by its client, which `forwardedSlots` (needing no fence) is the only word on. False for a
+   * coordinator or relay that doesn't report closed slots.
+   */
+  closedKnown: boolean
   evidence: NetcodeV2SlotEvidence[]
 }
 
@@ -389,6 +407,8 @@ interface CoordinatorSessionLoadStateResponse {
   startedSlots?: number[]
   forwardedSlots?: number[]
   turnsKnown?: boolean
+  closedSlots?: number[]
+  closedKnown?: boolean
   evidence?: unknown
 }
 
@@ -950,6 +970,8 @@ export class NetcodeV2Service {
       startedSlots: response.startedSlots ?? [],
       forwardedSlots: response.forwardedSlots ?? [],
       turnsKnown: response.turnsKnown === true,
+      closedSlots: response.closedSlots ?? [],
+      closedKnown: response.closedKnown === true,
     }
   }
 

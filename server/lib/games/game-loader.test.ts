@@ -151,6 +151,8 @@ describe('games/game-loader/GameLoader', () => {
         startedSlots: number[]
         forwardedSlots?: number[]
         turnsKnown?: boolean
+        closedSlots?: number[]
+        closedKnown?: boolean
       }>
     >
   }
@@ -186,11 +188,13 @@ describe('games/game-loader/GameLoader', () => {
       restrictionService as any,
       {
         ...netcodeV2Service,
-        // A pull that says nothing about forwarded turns reads like a coordinator that doesn't
-        // track them, so only a test that cares has to mention them.
+        // A pull that says nothing about forwarded turns or closed slots reads like a coordinator
+        // that doesn't track them, so only a test that cares has to mention them.
         fetchSessionLoadState: async (session: number, options?: { timeoutMs?: number }) => ({
           forwardedSlots: [],
           turnsKnown: false,
+          closedSlots: [],
+          closedKnown: false,
           ...(await netcodeV2Service.fetchSessionLoadState(session, options)),
         }),
       } as any,
@@ -268,6 +272,41 @@ describe('games/game-loader/GameLoader', () => {
       await Promise.resolve()
     }
 
+    return { load }
+  }
+
+  /**
+   * Starts a networked lobby load for `roster`, in order, and drains its setup like
+   * `startNetworkedLoad`. The first player hosts, so slots follow roster order.
+   */
+  async function startRosterLoad(gameId: string, roster: GameLoadPlayer[]) {
+    const entries = roster.map(player => ({
+      player,
+      playerInfo: makePlayer(player.userId).playerInfo,
+    }))
+    registerActiveClients(roster)
+    asMockedFunction(findUsersById).mockResolvedValue(roster.map(p => makeUser(p.userId)))
+    netcodeV2Service.isEnabled.mockReturnValue(true)
+    netcodeV2Service.createSessionForGame.mockResolvedValue({
+      session: 77,
+      setups: new Map(roster.map(p => [p.userId, {} as any])),
+    })
+    asMockedFunction(registerGame).mockResolvedValue({
+      gameId,
+      resultCodes: new Map(roster.map(p => [p.userId, `code-${p.userId}`])),
+    } as any)
+
+    const load = gameLoader.loadGame({
+      players: roster,
+      playerInfos: entries.map(e => e.playerInfo),
+      mapId,
+      gameConfig: lobbyConfig([
+        roster.map(p => ({ id: p.userId, race: 'r' as const, isComputer: false })),
+      ]),
+    })
+    for (let i = 0; i < 100; i++) {
+      await Promise.resolve()
+    }
     return { load }
   }
 
@@ -1099,6 +1138,219 @@ describe('games/game-loader/GameLoader', () => {
       const result = await load
 
       expect(result.isOk()).toBe(true)
+    })
+
+    describe('players who left', () => {
+      /** Six players, slots 0 through 5 in order, as in a 3v3. */
+      const sixPlayers = [1, 2, 3, 4, 5, 6].map(id => ({
+        userId: makeSbUserId(id),
+        isObserver: false,
+      }))
+      const userAt = (slot: number) => sixPlayers[slot].userId
+
+      /**
+       * A pull that vouches for everyone but the players who left: every relay fenced its live
+       * slots, named its closed ones, reported its forwarded turns, and settled setup.
+       */
+      function closedPull(fields: {
+        connectedSlots: number[]
+        closedSlots: number[]
+        startedAtMs?: number
+        startedSlots?: number[]
+        forwardedSlots?: number[]
+      }) {
+        return {
+          known: false,
+          setupFinal: true,
+          turnsKnown: true,
+          closedKnown: true,
+          startedSlots: [],
+          forwardedSlots: [],
+          ...fields,
+        }
+      }
+
+      test('blames the one player who closed their game after the session started', async () => {
+        netcodeV2Service.fetchSessionLoadState.mockResolvedValue(
+          closedPull({
+            startedAtMs: 1700000000000,
+            connectedSlots: [0, 1, 2, 3, 4, 5],
+            closedSlots: [0],
+          }),
+        )
+        const { load } = await startRosterLoad('game-one-quitter', sixPlayers)
+
+        const error = await expectTimeout(load)
+
+        expect(error.data.unloaded).toEqual([userAt(0)])
+        // The first pull decided it.
+        expect(netcodeV2Service.fetchSessionLoadState).toHaveBeenCalledTimes(1)
+      })
+
+      test('blames every closed player when no more than half the players left', async () => {
+        netcodeV2Service.fetchSessionLoadState.mockResolvedValue(
+          closedPull({
+            startedAtMs: 1700000000000,
+            connectedSlots: [0, 1, 2, 3, 4, 5],
+            closedSlots: [1, 3, 5],
+          }),
+        )
+        const { load } = await startRosterLoad('game-half-left', sixPlayers)
+
+        const error = await expectTimeout(load)
+
+        expect(error.data.unloaded).toEqual([userAt(1), userAt(3), userAt(5)])
+      })
+
+      test('blames nobody when more than half the players left at once', async () => {
+        netcodeV2Service.fetchSessionLoadState.mockResolvedValue(
+          closedPull({
+            startedAtMs: 1700000000000,
+            connectedSlots: [0, 1, 2, 3, 4, 5],
+            closedSlots: [0, 1, 2, 3],
+          }),
+        )
+        const { load } = await startRosterLoad('game-most-left', sixPlayers)
+
+        const error = await expectTimeout(load)
+
+        expect(error.data.unloaded).toEqual([])
+      })
+
+      test("judges closed players only on leaving, even once others' game loops run", async () => {
+        // Missing game loops would otherwise name all four who left, which is the very mass
+        // departure the half limit refuses to blame anyone for.
+        netcodeV2Service.fetchSessionLoadState.mockResolvedValue(
+          closedPull({
+            startedAtMs: 1700000000000,
+            connectedSlots: [0, 1, 2, 3, 4, 5],
+            closedSlots: [0, 1, 2, 3],
+            startedSlots: [4, 5],
+            forwardedSlots: [4, 5],
+          }),
+        )
+        const { load } = await startRosterLoad('game-most-left-after-starts', sixPlayers)
+
+        const error = await expectTimeout(load)
+
+        expect(error.data.unloaded).toEqual([])
+      })
+
+      test('blames nobody when both players of a 1v1 left', async () => {
+        netcodeV2Service.fetchSessionLoadState.mockResolvedValue(
+          closedPull({ startedAtMs: 1700000000000, connectedSlots: [0, 1], closedSlots: [0, 1] }),
+        )
+        const { load } = await startNetworkedLoad('game-everyone-left')
+
+        const error = await expectTimeout(load)
+
+        expect(error.data.unloaded).toEqual([])
+      })
+
+      test('blames a player who dropped before the session started, beside one who never came', async () => {
+        netcodeV2Service.fetchSessionLoadState.mockResolvedValue(
+          closedPull({ connectedSlots: [0, 1, 2, 3, 4], closedSlots: [2] }),
+        )
+        const { load } = await startRosterLoad('game-pre-start-drop', sixPlayers)
+
+        const error = await expectTimeout(load)
+
+        expect(error.data.unloaded).toEqual([userAt(2), userAt(5)])
+      })
+
+      test("doesn't blame a player who left and dialed back in", async () => {
+        netcodeV2Service.fetchSessionLoadState
+          .mockResolvedValueOnce({
+            ...closedPull({
+              startedAtMs: 1700000000000,
+              connectedSlots: [0, 1, 2, 3, 4, 5],
+              closedSlots: [0],
+            }),
+            // Not yet settled, so this pull can't decide anything.
+            setupFinal: false,
+          })
+          .mockResolvedValue(
+            closedPull({
+              startedAtMs: 1700000000000,
+              connectedSlots: [0, 1, 2, 3, 4, 5],
+              closedSlots: [],
+            }),
+          )
+        const { load } = await startRosterLoad('game-quit-and-back', sixPlayers)
+
+        const error = await expectTimeout(load)
+
+        expect(error.data.unloaded).toEqual([])
+        expect(netcodeV2Service.fetchSessionLoadState).toHaveBeenCalledTimes(2)
+      })
+
+      test("blames nobody for leaving when the coordinator can't vouch for who left", async () => {
+        // A replaced or restarted relay forgets who connected to it, so its closed set may be
+        // missing players: nothing is vouched for, and the load never becomes final.
+        netcodeV2Service.fetchSessionLoadState.mockResolvedValue({
+          ...closedPull({
+            startedAtMs: 1700000000000,
+            connectedSlots: [0, 1, 2, 3, 4, 5],
+            closedSlots: [0],
+          }),
+          setupFinal: false,
+          turnsKnown: false,
+          closedKnown: false,
+        })
+        const { load } = await startRosterLoad('game-quit-unvouched', sixPlayers)
+
+        const error = await expectTimeout(load)
+
+        expect(error.data.unloaded).toEqual([])
+        expect(netcodeV2Service.fetchSessionLoadState).toHaveBeenCalledTimes(
+          ATTEST_BUDGET_MS / ATTEST_POLL_MS,
+        )
+      })
+
+      test("isn't final on a vouched closed set without vouched turn evidence", async () => {
+        // A closed player's start may still be held by its client. Without forwarded turns to say
+        // how far its game got, a start it reports later could leave it the only finished player.
+        netcodeV2Service.fetchSessionLoadState.mockResolvedValue({
+          ...closedPull({
+            startedAtMs: 1700000000000,
+            connectedSlots: [0, 1, 2, 3, 4, 5],
+            closedSlots: [0],
+          }),
+          turnsKnown: false,
+        })
+        const { load } = await startRosterLoad('game-quit-turns-unknown', sixPlayers)
+
+        const error = await expectTimeout(load)
+
+        expect(error.data.unloaded).toEqual([])
+        expect(netcodeV2Service.fetchSessionLoadState).toHaveBeenCalledTimes(
+          ATTEST_BUDGET_MS / ATTEST_POLL_MS,
+        )
+      })
+
+      test("never blames an observer for leaving, and doesn't count one as staying", async () => {
+        const observer = { userId: makeSbUserId(7), isObserver: true }
+        const roster = [
+          { userId: p1, isObserver: false },
+          { userId: p2, isObserver: false },
+          observer,
+        ]
+        netcodeV2Service.fetchSessionLoadState.mockResolvedValue(
+          closedPull({ startedAtMs: 1700000000000, connectedSlots: [0, 1, 2], closedSlots: [2] }),
+        )
+        const { load: observerLeft } = await startRosterLoad('game-observer-left', roster)
+
+        expect((await expectTimeout(observerLeft)).data.unloaded).toEqual([])
+
+        // p1 left and p2 never came, so only the observer is still there. Leaving needs another
+        // player to have stayed, so p1 isn't blamed for it; p2 still is for never connecting.
+        netcodeV2Service.fetchSessionLoadState.mockResolvedValue(
+          closedPull({ connectedSlots: [0, 2], closedSlots: [0] }),
+        )
+        const { load: onlyObserverStayed } = await startRosterLoad('game-observer-stayed', roster)
+
+        expect((await expectTimeout(onlyObserverStayed)).data.unloaded).toEqual([p2])
+      })
     })
 
     test('a local-only load never pulls and keeps its own half-finished rule', async () => {
