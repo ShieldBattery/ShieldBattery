@@ -41,6 +41,8 @@ import { GameDefaultsFirstRunPrompt } from './settings/game/game-defaults-first-
 import { SnackbarOverlay } from './snackbars/snackbar-overlay'
 import GlobalStyle from './styles/global'
 import ResetStyle from './styles/reset'
+import { SystemBarErrorBoundary, SystemBarPlaceholder } from './system-bar/system-bar-placeholder'
+import { WindowControls } from './system-bar/window-controls'
 
 const IS_PRODUCTION = import.meta.env.PROD
 
@@ -63,15 +65,9 @@ function LoadableDev() {
   )
 }
 
-const LoadableWindowControls = IS_ELECTRON
-  ? React.lazy(async () => ({
-      default: (await import('./system-bar/window-controls')).WindowControls,
-    }))
-  : () => null
-
-const LoadableSystemBar = IS_ELECTRON
-  ? React.lazy(async () => ({ default: (await import('./system-bar/system-bar')).SystemBar }))
-  : () => null
+const LoadableSystemBar = React.lazy(async () => ({
+  default: (await import('./system-bar/system-bar')).SystemBar,
+}))
 
 function RedirectOnUnauthorized() {
   const dispatch = useAppDispatch()
@@ -235,6 +231,16 @@ function InnerApp() {
                 reducedMotion='user'
                 nonce={(window as any).SB_CSP_NONCE}
                 transition={DEFAULT_MOTION_CONFIG}>
+                {IS_ELECTRON ? (
+                  <>
+                    <WindowControls />
+                    <SystemBarErrorBoundary>
+                      <React.Suspense fallback={<SystemBarPlaceholder />}>
+                        <LoadableSystemBar />
+                      </React.Suspense>
+                    </SystemBarErrorBoundary>
+                  </>
+                ) : null}
                 <RootErrorBoundary>
                   <NavigationTrapProvider>
                     <FileDropZoneProvider>
@@ -261,8 +267,6 @@ function InnerApp() {
 const AppContent = React.memo(() => {
   return (
     <>
-      <LoadableWindowControls />
-      <LoadableSystemBar />
       <RedirectOnUnauthorized />
       <SiteSocketManager />
       <RestrictionClearer />

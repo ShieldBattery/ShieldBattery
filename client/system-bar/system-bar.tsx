@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect } from 'react'
+import { useCallback } from 'react'
 import styled from 'styled-components'
 import { DEV_INDICATOR } from '../../common/flags'
 import { useIsAdmin } from '../admin/admin-permissions'
@@ -7,31 +7,11 @@ import { MaterialIcon } from '../icons/material/material-icon'
 import Lockup from '../logos/lockup-system-bar-24px.svg?react'
 import { IconButton } from '../material/button'
 import { Tooltip } from '../material/tooltip'
-import { zIndexSystemBar } from '../material/zindex'
 import { push } from '../navigation/routing'
 import { labelLarge, labelMedium } from '../styles/typography'
 import { SupportButton } from './support-button'
+import { SystemBarRoot, useSystemBarHeight } from './system-bar-placeholder'
 import { SizeLeft, SizeRight, SizeTop, windowControlsWidth } from './window-controls'
-
-const Container = styled.header`
-  flex-grow: 0;
-  flex-shrink: 0;
-
-  width: 100%;
-  height: 32px;
-  margin: 0;
-  padding: 0;
-  position: relative;
-
-  display: flex;
-  flex-direction: row;
-
-  background-color: var(--color-grey-blue20);
-  overflow: hidden;
-  z-index: ${zIndexSystemBar};
-
-  -webkit-app-region: drag;
-`
 
 const LeftSide = styled.div`
   height: 100%;
@@ -100,19 +80,14 @@ export function VersionText() {
 }
 
 export function SystemBar() {
-  useLayoutEffect(() => {
-    document.body.style.setProperty('--sb-system-bar-height', '32px')
-    return () => {
-      document.body.style.removeProperty('--sb-system-bar-height')
-    }
-  }, [])
+  useSystemBarHeight()
   const isAdmin = useIsAdmin()
   const onAdminClick = useCallback(() => {
     push('/admin')
   }, [])
 
   return (
-    <Container>
+    <SystemBarRoot>
       <SizeTop />
       <SizeLeft />
       <SizeRight />
@@ -139,6 +114,6 @@ export function SystemBar() {
       <RightSide>
         <SupportButton />
       </RightSide>
-    </Container>
+    </SystemBarRoot>
   )
 }

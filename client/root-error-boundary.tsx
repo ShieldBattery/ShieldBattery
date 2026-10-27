@@ -1,15 +1,15 @@
 import * as React from 'react'
-import { useEffect, useLayoutEffect } from 'react'
+import { useEffect } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { DISCORD_URL } from '../common/url-constants'
 import { requestBugReportOnNextLoad } from './bugs/pending-bug-report'
 import logger from './logging/logger'
 import { FilledButton, OutlinedButton } from './material/button'
-import { zIndexSystemBar } from './material/zindex'
 import GlobalStyle from './styles/global'
 import ResetStyle from './styles/reset'
 import { bodyLarge, TitleLarge } from './styles/typography'
+import { SystemBarPlaceholder } from './system-bar/system-bar-placeholder'
 import { WindowControls } from './system-bar/window-controls'
 
 export interface RootErrorBoundaryProps {
@@ -21,37 +21,6 @@ export interface RootErrorBoundaryProps {
 
 interface RootErrorBoundaryState {
   error?: Error
-}
-
-// Dumb replacement for the system bar that doesn't need Redux to function
-const SystemBarReplacementRoot = styled.header`
-  flex-grow: 0;
-  flex-shrink: 0;
-
-  width: 100%;
-  height: 32px;
-  margin: 0;
-  padding: 0;
-  position: relative;
-
-  display: flex;
-  flex-direction: row;
-
-  background-color: var(--color-grey-blue20);
-  overflow: hidden;
-  z-index: ${zIndexSystemBar};
-
-  -webkit-app-region: drag;
-`
-
-function SystemBarReplacement() {
-  useLayoutEffect(() => {
-    document.body.style.setProperty('--sb-system-bar-height', '32px')
-    return () => {
-      document.body.style.removeProperty('--sb-system-bar-height')
-    }
-  }, [])
-  return <SystemBarReplacementRoot />
 }
 
 const Container = styled.div`
@@ -190,7 +159,7 @@ export class RootErrorBoundary extends React.Component<
               <ResetStyle />
               <GlobalStyle />
               {IS_ELECTRON ? <WindowControls /> : undefined}
-              {IS_ELECTRON ? <SystemBarReplacement /> : undefined}
+              {IS_ELECTRON ? <SystemBarPlaceholder /> : undefined}
             </>
           ) : undefined}
           <Container>
