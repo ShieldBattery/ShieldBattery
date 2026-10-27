@@ -25,10 +25,11 @@ static NAME_SEPARATOR: LazyLock<Regex> =
 static TRAILING_COLUMN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\s{2,}.*$").expect("trailing column pattern compiles"));
 static NON_WORD: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"[^\w가-힯]+").expect("non-word pattern compiles"));
+    LazyLock::new(|| Regex::new(r"\W+").expect("non-word pattern compiles"));
 
-/// Names that show up after "by" without naming a person.
-const NOT_NAMES: [&str; 4] = ["the", "user", "popular", "shieldbattery"];
+/// Names that show up after "by" without naming a person, including organizations written as if
+/// they were a maker's alias ("Terrance (KeSPA)").
+const NOT_NAMES: [&str; 5] = ["the", "user", "popular", "shieldbattery", "kespa"];
 
 /// Roles that name the maker of a remake of someone else's map. They take precedence over plain
 /// maker roles, since a remake's description usually names the original maker too.
@@ -73,7 +74,11 @@ fn split_names(raw: &str, names: &mut BTreeSet<String>) {
     for part in NAME_SEPARATOR.split(raw) {
         let name = normalize_name(part);
         let len = name.chars().count();
-        if (2..=30).contains(&len) && !NOT_NAMES.contains(&name.as_str()) {
+        // A name without letters is a date or a player count ("Created: 2021.03.11", "(4)").
+        if (2..=30).contains(&len)
+            && name.chars().any(char::is_alphabetic)
+            && !NOT_NAMES.contains(&name.as_str())
+        {
             names.insert(name);
         }
     }
@@ -177,7 +182,15 @@ mod tests {
         );
         assert_eq!(
             credits("Created by: Testbug (Shield Battery)\nOriginal map made by Terrance (KeSPA)"),
-            (names(&["testbug"]), names(&["kespa", "terrance"]))
+            (names(&["testbug"]), names(&["terrance"]))
+        );
+    }
+
+    #[test]
+    fn ignores_names_without_letters() {
+        assert_eq!(
+            credits("Created by theLeo_UA (14.6.2010)\nMade by Etarded (2)"),
+            (names(&["etarded", "theleo_ua"]), names(&[]))
         );
     }
 

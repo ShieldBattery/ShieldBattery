@@ -840,6 +840,7 @@ mod tests {
                 manage_restricted_names: false,
                 manage_signup_codes: false,
                 manage_live_streams: false,
+                use_development_client: false,
             },
         }
     }

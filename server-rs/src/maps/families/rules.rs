@@ -10,17 +10,19 @@ use serde::{Deserialize, Serialize};
 
 /// The version of the rules and normalization below. Bump it whenever a proposal could change, so
 /// every map is scanned again and open proposals are recomputed.
-pub const FAMILY_RULES_VERSION: i16 = 1;
+pub const FAMILY_RULES_VERSION: i16 = 2;
 
 /// Base names found for a default title, which say nothing about which map a file is.
 const DEFAULT_BASE_NAMES: [&str; 2] = ["", "untitledscenario"];
 /// Shorter base names match too many unrelated maps to be candidates.
 pub const MIN_CANDIDATE_BASE_NAME_CHARS: usize = 3;
 
-static BRACKETED: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"[\[\(\|].*?[\]\)\|]").expect("bracketed pattern compiles"));
+/// A bracketed tag in a map name: `[BSL]`, `(4)`, `| iCCup |`.
+static TITLE_TAG: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"[\[\(][^\]\)]*[\]\)]|\|[^|]*\|").expect("title tag pattern compiles")
+});
 static VERSION_WORDS: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"\b(v|ver|version)?\s*\.?\d+(\.\d+)*[a-z]?\b").expect("version words compile")
+    Regex::new(r"\b(v|ver|version|se)?\s*\.?\d+(\.\d+)*[a-z]?\b").expect("version words compile")
 });
 static EDITION_WORDS: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"\b(se|obs|ob|ums|fix(ed)?|final|new|remastered|remaster|bsl|plus|re|neo)\b")
@@ -38,7 +40,7 @@ pub fn base_name(name: &str) -> String {
         .filter(|&c| (c as u32) > 0x1f && c != '\u{7f}')
         .collect();
     let name = name.to_lowercase();
-    let name = BRACKETED.replace_all(&name, " ");
+    let name = TITLE_TAG.replace_all(&name, " ");
     let name = VERSION_WORDS.replace_all(&name, " ");
     let name = EDITION_WORDS.replace_all(&name, " ");
     NOT_BASE_CHARS.replace_all(&name, "").into_owned()
@@ -49,13 +51,11 @@ pub fn is_candidate_base_name(base: &str) -> bool {
     !DEFAULT_BASE_NAMES.contains(&base) && base.chars().count() >= MIN_CANDIDATE_BASE_NAME_CHARS
 }
 
-static TITLE_TAG: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"[\[\(][^\]\)]*[\]\)]|\|[^|]*\|").expect("title tag pattern compiles")
-});
 static TOKEN_SEPARATOR: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"[^\w.]+").expect("token separator compiles"));
 static VERSION_TOKEN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?i)^(?:v|ver|version|se)?(\.\d+|\d+(?:\.\d+){0,2}[a-z]?)$")
+    // "v.95" is 0.95, but "v.3.1" is 3.1.
+    Regex::new(r"(?i)^(?:v|ver|version|se)?(?:(\.\d+)|\.?(\d+(?:\.\d+){0,2}[a-z]?))$")
         .expect("version token compiles")
 });
 static DESCRIPTION_VERSION: LazyLock<Regex> = LazyLock::new(|| {
@@ -63,15 +63,20 @@ static DESCRIPTION_VERSION: LazyLock<Regex> = LazyLock::new(|| {
         .expect("description version compiles")
 });
 
-/// The version in a map name: the last word that is one ("v2.9", "SE2.0", "1.05a", ".99"),
-/// ignoring bracketed tags.
+/// The version in a map name: the last word that is one ("v2.9", "SE2.0", "v.3.1", "1.05a",
+/// ".99"), ignoring bracketed tags.
 pub fn name_version(name: &str) -> Option<String> {
     let name = TITLE_TAG.replace_all(name, " ");
     let found = TOKEN_SEPARATOR
         .split(&name)
         .filter_map(|token| VERSION_TOKEN.captures(token))
         .last()?;
-    let version = found[1].to_lowercase();
+    let version = found
+        .get(1)
+        .or_else(|| found.get(2))
+        .expect("a version token captures its version")
+        .as_str()
+        .to_lowercase();
     Some(if version.starts_with('.') {
         format!("0{version}")
     } else {
@@ -360,6 +365,7 @@ mod tests {
         );
         assert_eq!(base_name("Neo Dark Origin 2.1"), "darkorigin");
         assert_eq!(base_name("Colosseum SE 2.6"), "colosseum");
+        assert_eq!(base_name("Revolver SE2.0"), "revolver");
         assert_eq!(base_name("투혼 1.4"), "투혼");
         assert!(!is_candidate_base_name(&base_name("Untitled Scenario")));
     }
@@ -371,6 +377,11 @@ mod tests {
             Some("2.9")
         );
         assert_eq!(name_version("Revolver SE2.0").as_deref(), Some("2.0"));
+        assert_eq!(name_version("Splash Defense v.3.1").as_deref(), Some("3.1"));
+        assert_eq!(
+            name_version("The-Lost-TempleS v.95").as_deref(),
+            Some("0.95")
+        );
         assert_eq!(name_version("Last Temples .99").as_deref(), Some("0.99"));
         assert_eq!(
             name_version("Neo Dark Origin 2.1  ZvZ UMS").as_deref(),

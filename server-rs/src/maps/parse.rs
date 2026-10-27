@@ -27,7 +27,7 @@ use crate::maps::{LobbyInitData, MapForce, MapForcePlayer, MapForcePlayerRace};
 /// written by one parser version, kept in `maps.parser_version`. Bump this whenever any stored
 /// output would change (a broodmap upgrade that changes parse results, or a change to the
 /// derivations here), and the reparse job rewrites every map's values.
-pub const MAP_PARSER_VERSION: i32 = 4;
+pub const MAP_PARSER_VERSION: i32 = 5;
 
 /// The version of [`terrain_fingerprint`]'s encoding, stored beside each fingerprint so
 /// fingerprints are only compared with ones of the same version.
