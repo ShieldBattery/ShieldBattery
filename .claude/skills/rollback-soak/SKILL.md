@@ -219,12 +219,16 @@ left it:
 # Plain playback with SB_ROLLBACK_PROBE=1 writes a probe CSV with every frame's components.
 node $S/desync-diff.mjs shieldbattery.log rollback-probe-<...>.csv [--game <game id>]
 # A plain playback's own game log works too, at Sync probe resolution (every 240 frames).
-node $S/desync-diff.mjs shieldbattery.log plain-game.log
+node $S/desync-diff.mjs shieldbattery.log plain-game.log [--game <id>] [--plain-game <id>]
 ```
+
+A game log keeps several launches. The live side reads the last one or the one `--game` names; the
+plain side reads the one `--plain-game` names, else `--game`'s if that log has it, else its last.
 
 It prints the last agreeing report position and the first differing one with the components that
 differ. Then run the replay plainly with `SB_DESYNC_UNITS_FRAME=<frame>` (debug DLL) to write the
-units at the table's frame, and compare the two tables:
+units at the table's frame, and compare the two tables (the order the units were hashed in, then
+each unit):
 `node $S/desync-diff.mjs --units desync-units-<game id>.csv desync-units-<game id>-frame-<frame>.csv`.
 Live positions count turns, which can run ahead of frames (a paused game takes turns without
 advancing frames), so the comparison goes by frame.

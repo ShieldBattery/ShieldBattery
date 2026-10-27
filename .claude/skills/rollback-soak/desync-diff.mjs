@@ -1,6 +1,6 @@
 // Finds where a live game's simulation left plain playback of its replay.
 //
-//   node desync-diff.mjs <live game log> <plain run>  [--game <game id>]
+//   node desync-diff.mjs <live game log> <plain run>  [--game <game id>] [--plain-game <game id>]
 //     <plain run> is a plain playback's probe CSV (SB_ROLLBACK_PROBE=1, every frame) or its game
 //     log (Sync probe lines, every 240 frames). The live side is the game log's desync evidence
 //     block (the last 64 confirmed report positions) plus its confirmed Sync probe lines. Prints
@@ -9,10 +9,12 @@
 //
 //   node desync-diff.mjs --units <unit table> <unit table>
 //     Compares two desync-units-*.csv tables (an eviction's and a plain playback's from
-//     SB_DESYNC_UNITS_FRAME=<frame>) unit by unit.
+//     SB_DESYNC_UNITS_FRAME=<frame>): the order the units were hashed in, then each unit.
 //
-// A game log keeps several launches; the last one is read unless --game picks the launch whose
-// [SESSION_START] line names that game id.
+// A game log keeps several launches, and each side reads one of them, named on its first output
+// line. The live log's is the last launch, or the one --game names. A plain playback is a launch
+// of its own with its own game id, so the plain log's is the one --plain-game names, else the one
+// --game names if the plain log has it (both sides in one log), else its last launch.
 
 import fs from 'node:fs'
 import path from 'node:path'
@@ -30,28 +32,34 @@ const PROBE_LINE = new RegExp(
 
 function usage() {
   console.error(
-    'usage: node desync-diff.mjs <live game log> <plain probe CSV or game log> [--game <id>]\n' +
+    'usage: node desync-diff.mjs <live game log> <plain probe CSV or game log>\n' +
+      '           [--game <id>] [--plain-game <id>]\n' +
       '       node desync-diff.mjs --units <unit table> <unit table>',
   )
   process.exit(2)
 }
 
-// The lines of the launch to read: the last one, or the one whose session line names `gameId`.
-function sessionLines(file, gameId) {
+// The lines of the launch to read, and its game id. `choice.gameId` names the launch; without it,
+// or when `choice.optional` is set and the log has no launch of it, the last launch is read.
+function sessionLines(file, choice) {
   const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/)
   const starts = []
   lines.forEach((line, i) => {
     if (line.includes('[SESSION_START]')) starts.push(i)
   })
-  if (starts.length === 0) return lines
+  if (starts.length === 0) return { lines, gameId: undefined }
   let start = starts[starts.length - 1]
-  if (gameId) {
-    const found = starts.filter(i => lines[i].includes(`game_id=${gameId} `))
-    if (found.length === 0) throw new Error(`${file}: no launch of game ${gameId}`)
-    start = found[found.length - 1]
+  if (choice.gameId) {
+    const found = starts.filter(i => lines[i].includes(`game_id=${choice.gameId} `))
+    if (found.length > 0) {
+      start = found[found.length - 1]
+    } else if (!choice.optional) {
+      throw new Error(`${file}: no launch of game ${choice.gameId}`)
+    }
   }
   const next = starts.find(i => i > start) ?? lines.length
-  return lines.slice(start, next)
+  const gameId = /game_id=(\S+)/.exec(lines[start])?.[1]
+  return { lines: lines.slice(start, next), gameId }
 }
 
 function entry(frame, position, hash, values, unitCount, bulletCount) {
@@ -62,10 +70,13 @@ function entry(frame, position, hash, values, unitCount, bulletCount) {
 }
 
 // Hash readings by frame from a game log: evidence block lines and Sync probe lines.
-function readLog(file, gameId) {
+function readLog(file, choice, side) {
   const byFrame = new Map()
   let inBlock = false
-  for (const line of sessionLines(file, gameId)) {
+  const session = sessionLines(file, choice)
+  const launch = session.gameId ? `launch of game ${session.gameId}` : 'no launches'
+  console.log(`${side}: ${file}, ${launch}`)
+  for (const line of session.lines) {
     if (line.includes('Desync evidence, the last')) {
       inBlock = true
       continue
@@ -140,17 +151,22 @@ function readCsv(file) {
   return byFrame
 }
 
-function readPlain(file) {
-  return path.extname(file).toLowerCase() === '.csv' ? readCsv(file) : readLog(file)
+function readPlain(file, choice) {
+  return path.extname(file).toLowerCase() === '.csv'
+    ? readCsv(file)
+    : readLog(file, choice, 'plain')
 }
 
 function describe(e) {
   return e.position === undefined ? `frame ${e.frame}` : `position ${e.position} (frame ${e.frame})`
 }
 
-function compareHashes(liveFile, plainFile, gameId) {
-  const live = readLog(liveFile, gameId)
-  const plain = readPlain(plainFile)
+function compareHashes(liveFile, plainFile, gameId, plainGameId) {
+  const live = readLog(liveFile, { gameId }, 'live')
+  const plain = readPlain(
+    plainFile,
+    plainGameId ? { gameId: plainGameId } : { gameId, optional: true },
+  )
   if (live.size === 0) {
     console.log(`${liveFile}: no evidence block or Sync probe lines with hash components`)
     process.exit(1)
@@ -191,17 +207,36 @@ function readUnitTable(file) {
     .split(/\r?\n/)
     .filter(line => line && !line.startsWith('#'))
   const header = lines[0].split(',')
+  const order = []
   const units = new Map()
   for (const line of lines.slice(1)) {
     const cols = line.split(',')
+    order.push(cols[0])
     units.set(cols[0], Object.fromEntries(header.map((name, i) => [name, cols[i]])))
   }
-  return { header, units }
+  return { header, order, units }
+}
+
+// The state hash covers the units in list order, so two tables with the same units in another
+// order still hash differently. Reports the first row whose unit differs, if any.
+function compareUnitOrder(a, b) {
+  const rows = Math.max(a.order.length, b.order.length)
+  for (let row = 0; row < rows; row++) {
+    if (a.order[row] !== b.order[row]) {
+      const name = index => (index === undefined ? 'nothing' : `unit ${index}`)
+      console.log(
+        `hash order differs first at row ${row}: ${name(a.order[row])} vs ${name(b.order[row])}`,
+      )
+      return true
+    }
+  }
+  return false
 }
 
 function compareUnitTables(fileA, fileB) {
   const a = readUnitTable(fileA)
   const b = readUnitTable(fileB)
+  const orderDiffers = compareUnitOrder(a, b)
   let differing = 0
   for (const [index, unitA] of a.units) {
     const unitB = b.units.get(index)
@@ -226,8 +261,11 @@ function compareUnitTables(fileA, fileB) {
       differing++
     }
   }
-  console.log(`${differing} of ${a.units.size}/${b.units.size} units differ`)
-  process.exit(differing ? 1 : 0)
+  console.log(
+    `${differing} of ${a.units.size}/${b.units.size} units differ` +
+      (orderDiffers ? ', and the order they were hashed in differs' : ''),
+  )
+  process.exit(differing || orderDiffers ? 1 : 0)
 }
 
 const args = process.argv.slice(2)
@@ -235,9 +273,16 @@ if (args[0] === '--units') {
   if (args.length !== 3) usage()
   compareUnitTables(args[1], args[2])
 } else {
-  const gameIndex = args.indexOf('--game')
-  const gameId = gameIndex >= 0 ? args[gameIndex + 1] : undefined
-  const files = args.filter((_, i) => gameIndex < 0 || (i !== gameIndex && i !== gameIndex + 1))
+  const options = new Map()
+  const files = []
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--game' || args[i] === '--plain-game') {
+      options.set(args[i], args[i + 1])
+      i++
+    } else {
+      files.push(args[i])
+    }
+  }
   if (files.length !== 2) usage()
-  compareHashes(files[0], files[1], gameId)
+  compareHashes(files[0], files[1], options.get('--game'), options.get('--plain-game'))
 }
