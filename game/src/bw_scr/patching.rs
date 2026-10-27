@@ -484,10 +484,15 @@ impl BwScr {
                 let address = nc.receive_storm_turns.0 as usize - base;
                 exe.hook_closure_address(
                     ReceiveStormTurns,
-                    move |a1, a2, a3, a4, a5, orig| match self.netcode_v2_receive_turns() {
-                        TurnReceiveOutcome::Ready => 1,
-                        TurnReceiveOutcome::Stall => 0,
-                        TurnReceiveOutcome::Native => orig(a1, a2, a3, a4, a5),
+                    move |a1, a2, a3, a4, a5, orig| {
+                        if game_thread::replay_harness_stalls_step() {
+                            return 0;
+                        }
+                        match self.netcode_v2_receive_turns() {
+                            TurnReceiveOutcome::Ready => 1,
+                            TurnReceiveOutcome::Stall => 0,
+                            TurnReceiveOutcome::Native => orig(a1, a2, a3, a4, a5),
+                        }
                     },
                     address,
                 );

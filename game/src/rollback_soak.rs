@@ -76,7 +76,7 @@ pub unsafe fn run_game_logic_step(bw: &'static BwScr, step: impl FnOnce() -> usi
         {
             finish(done_path, frame);
         }
-        if after.is_some() && after == before {
+        if after.is_some() && after == before && !crate::rollback_harness::held_by_stall() {
             if STALLED_STEPS.fetch_add(1, Ordering::Relaxed) + 1 >= STALLED_STEPS_TO_END {
                 finish(done_path, after.unwrap_or(0));
             }

@@ -89,7 +89,7 @@ const LOCKSTEP_START_STEPS: u32 = rally_point_client::proto::rollback::LOCKSTEP_
 
 /// The most frames a tick steps beyond the one it would anyway, when the simulation has fallen
 /// behind its schedule.
-const MAX_CATCH_UP_PER_TICK: u32 = 2;
+pub(crate) const MAX_CATCH_UP_PER_TICK: u32 = 2;
 
 /// How many ticks go between the summaries logged.
 const SUMMARY_TICKS: u32 = 720;
@@ -445,6 +445,13 @@ pub fn init_from_env() {
     if let Some(spacing) = crate::rollback_harness::snapshot_spacing_from_env() {
         SPACING.store(spacing, Ordering::Release);
     }
+}
+
+/// The prediction limit games that roll back run with: how many steps a step may run past the
+/// newest one whose turns are all known.
+#[cfg(debug_assertions)]
+pub(crate) fn prediction_limit() -> u32 {
+    SETTINGS.lock().limit
 }
 
 #[cfg(debug_assertions)]

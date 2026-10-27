@@ -17,7 +17,13 @@
 //! unchanged; state the ranges miss shows up as a fingerprint divergence against a plain
 //! playback's [`crate::rollback_probe`] rows, keyed by frame.
 //!
+//! It can also shape its ticks the way a live game's go when turns run late, stalling at the
+//! prediction limit and catching up afterwards, and learning of commands between a tick's steps
+//! (see [`live_shapes`]).
+//!
 //! Compiled out of release DLLs along with the engine it drives.
+
+mod live_shapes;
 
 use std::collections::BTreeMap;
 use std::fs::File;
@@ -150,10 +156,9 @@ static SNAPSHOT_SPACING: AtomicU32 = AtomicU32::new(tick::DEFAULT_SNAPSHOT_SPACI
 /// A delayed player's command that a step read before it was known, and so left unapplied.
 struct LateCommand {
     storm_player: StormPlayerId,
-    /// The frame the replay records it for.
-    command_frame: u32,
-    /// Frames after `command_frame` it becomes known (see [`command_delay`]).
-    delay: u32,
+    is_leave: bool,
+    /// The frame count the step that applies it produces.
+    frame: u32,
     /// The frame count the step that read it started from, which a rollback has to restore to (or
     /// before) for the command to be applied on its own frame.
     read_from: u32,
@@ -161,6 +166,28 @@ struct LateCommand {
 
 /// The commands left unapplied so far that are not known yet, each once.
 static LATE_COMMANDS: Mutex<Vec<LateCommand>> = Mutex::new(Vec::new());
+
+/// What the step in progress knows of the players' commands, while a tick runs.
+static KNOWLEDGE: Mutex<Option<live_shapes::Knowledge>> = Mutex::new(None);
+
+/// Whether the step in progress is one a live game would stall in at the prediction limit, so
+/// BW's turn receive finds nothing to dispatch and the replay's commands wait.
+static STALLING_STEP: AtomicBool = AtomicBool::new(false);
+
+/// Whether the last tick stalled at the prediction limit, leaving the frame where it was.
+static LAST_TICK_STALLED: AtomicBool = AtomicBool::new(false);
+
+/// Whether the step in progress is one a live game would stall in, entering BW's step only for its
+/// turn receive to find nothing: the replay's commands for it wait and the frame does not advance.
+pub fn stalls_step() -> bool {
+    STALLING_STEP.load(Ordering::Relaxed)
+}
+
+/// Whether the last tick stalled at the prediction limit on purpose, rather than the replay having
+/// ended.
+pub fn held_by_stall() -> bool {
+    LAST_TICK_STALLED.load(Ordering::Relaxed)
+}
 
 /// The newest confirmed frame count as of the last tick.
 static LAST_CONFIRMED: AtomicU32 = AtomicU32::new(0);
@@ -186,21 +213,12 @@ static DELAYS: [AtomicU32; bw::MAX_STORM_PLAYERS] =
 /// replay command.
 static ANY_DELAY: AtomicBool = AtomicBool::new(false);
 
-/// How many steps of the current tick run after the one in progress, which is how far ahead of the
-/// frame a step reads commands for the tick's newest frame is.
-static STEPS_AFTER_CURRENT: AtomicU32 = AtomicU32::new(0);
-
 /// Commands the current tick left unapplied because the player that issued them is delayed and the
 /// tick's newest frame has not reached them yet.
 static SUPPRESSED_COMMANDS: AtomicU32 = AtomicU32::new(0);
 
 /// Commands of delayed players that the current tick's steps applied on confirmed frames.
 static APPLIED_DELAYED_COMMANDS: AtomicU32 = AtomicU32::new(0);
-
-/// How far a tick's present is in the replay's frame numbering, which decides whether a command is
-/// known, from the same present as a frame count, which a tick is planned in. Observed by
-/// [`replay_command_is_known`] whenever it holds a command back; `i32::MIN` until it first has.
-static COMMAND_FRAME_OFFSET: AtomicI32 = AtomicI32::new(i32::MIN);
 
 /// Whether the run has already been checked against the "replay playback only" requirement.
 static ELIGIBILITY_CHECKED: AtomicBool = AtomicBool::new(false);
@@ -471,6 +489,7 @@ pub fn init_from_env() {
         }
     };
     init_delays_from_env();
+    live_shapes::init_from_env();
     FORCED_DEPTH.store(depth, Ordering::Release);
     ARMED.store(true, Ordering::Release);
     info!("{ENV_VAR} armed: every tick will roll back at least {depth} frames");
@@ -853,15 +872,15 @@ fn command_delay(storm_player: StormPlayerId, is_leave: bool) -> u32 {
         .map_or(0, |x| x.load(Ordering::Relaxed))
 }
 
-/// Whether the command the replay records for `command_frame` from `storm_player` has been
-/// received by the time the tick in progress reaches its newest frame. `is_leave` says whether it
-/// is a player leaving, which waits on every player (see [`command_delay`]).
+/// Whether the command the replay records for `command_frame` from `storm_player` is known to the
+/// step in progress, which reads the commands of `step_frame`. `is_leave` says whether it is a
+/// player leaving, which waits on every player (see [`command_delay`]).
 ///
-/// A step reads the commands of one frame, `step_frame`, and the tick runs
-/// [`STEPS_AFTER_CURRENT`] more steps after it, so the tick's newest frame (the present the
-/// simulation is being driven to) is `present = step_frame + steps_after_current`. A player with a
-/// delay of `K` frames is heard from `K` frames after the frame a command was issued for, so the
-/// command counts as known once `present >= command_frame + K`, which is the test below.
+/// The tick decides what each of its steps knows (see [`live_shapes::Knowledge`]): without the
+/// live tick shapes, a player with a delay of `K` frames is heard from `K` frames after the frame
+/// a command was issued for, and the tick knows everything heard from by the time it reaches its
+/// newest frame. Frames are compared as frame counts: the command belongs to the step that
+/// produces `rollback::step_frame()`, which reads the replay's commands for `step_frame`.
 ///
 /// A command that is not known yet is noted, so the first tick that knows it rolls back to the
 /// step that read it and simulates its frame again with it. Restoring a snapshot rewinds the
@@ -872,55 +891,50 @@ pub fn replay_command_is_known(
     command_frame: u32,
     step_frame: u32,
 ) -> bool {
-    if !ANY_DELAY.load(Ordering::Relaxed) || !rollback::tick_running() {
+    if !(ANY_DELAY.load(Ordering::Relaxed) || live_shapes::stalls_armed())
+        || !rollback::tick_running()
+    {
         return true;
     }
-    let delay = command_delay(storm_player, is_leave);
-    if delay == 0 {
+    let Some(knowledge) = *KNOWLEDGE.lock() else {
         return true;
-    }
-    let present = step_frame.saturating_add(STEPS_AFTER_CURRENT.load(Ordering::Relaxed));
-    if command_frame.saturating_add(delay) > present {
+    };
+    let produces = rollback::step_frame();
+    let frame = (i64::from(command_frame) + i64::from(produces) - i64::from(step_frame))
+        .clamp(0, i64::from(u32::MAX)) as u32;
+    let delay = command_delay(storm_player, false);
+    if !knowledge.knows(storm_player, is_leave, frame, delay, max_delay()) {
         SUPPRESSED_COMMANDS.fetch_add(1, Ordering::Relaxed);
-        // The step produces `rollback::step_frame()` and is followed by `steps_after_current`
-        // more, so the tick's present frame count is their sum; `present` is the same frame in the
-        // replay's numbering.
-        let present_count =
-            rollback::step_frame().saturating_add(STEPS_AFTER_CURRENT.load(Ordering::Relaxed));
-        COMMAND_FRAME_OFFSET.store(present as i32 - present_count as i32, Ordering::Relaxed);
-        let read_from = rollback::step_frame().saturating_sub(1);
+        let read_from = produces.saturating_sub(1);
         let mut late = LATE_COMMANDS.lock();
         match late
             .iter_mut()
-            .find(|x| x.storm_player == storm_player && x.command_frame == command_frame)
+            .find(|x| x.storm_player == storm_player && x.frame == frame)
         {
             Some(x) => x.read_from = x.read_from.min(read_from),
             None => late.push(LateCommand {
                 storm_player,
-                command_frame,
-                delay,
+                is_leave,
+                frame,
                 read_from,
             }),
         }
         return false;
     }
-    if rollback::in_final_step() {
+    if rollback::in_final_step() && command_delay(storm_player, is_leave) != 0 {
         APPLIED_DELAYED_COMMANDS.fetch_add(1, Ordering::Relaxed);
     }
     true
 }
 
-/// Takes the noted late commands that are known by the time a tick reaches `present`, returning
-/// the earliest frame count a rollback has to restore to so that every one of them is applied.
-fn take_arrived_commands(present: u32) -> Option<u32> {
-    let offset = COMMAND_FRAME_OFFSET.load(Ordering::Relaxed);
-    if offset == i32::MIN {
-        return None;
-    }
-    let present = (present as i64 + offset as i64).max(0) as u32;
+/// Takes the noted late commands that `knowledge` knows, returning the earliest frame count a
+/// rollback has to restore to so that every one of them is applied.
+fn take_arrived_commands(knowledge: &live_shapes::Knowledge) -> Option<u32> {
+    let max_delay = max_delay();
     let mut earliest = None::<u32>;
     LATE_COMMANDS.lock().retain(|x| {
-        let known = x.command_frame.saturating_add(x.delay) <= present;
+        let delay = command_delay(x.storm_player, false);
+        let known = knowledge.knows(x.storm_player, x.is_leave, x.frame, delay, max_delay);
         if known {
             earliest = Some(earliest.map_or(x.read_from, |e| e.min(x.read_from)));
         }
@@ -942,6 +956,9 @@ pub fn reset_for_game_init() {
     *RESIMULATE_FROM.lock() = None;
     LAST_CONFIRMED.store(0, Ordering::Relaxed);
     *DISPLAYED_UNITS.lock() = None;
+    *KNOWLEDGE.lock() = None;
+    LAST_TICK_STALLED.store(false, Ordering::Relaxed);
+    live_shapes::reset();
     rollback::reset_for_game_init();
 }
 
@@ -1088,15 +1105,24 @@ unsafe fn run_tick(
             return crate::rollback_probe::run_game_logic_step(bw, param, orig);
         };
 
-        // Each tick adds one frame. It is confirmed once every delayed player has been heard from
-        // for it, and at least the forced depth is re-simulated regardless.
+        // Each tick adds one frame, more while catching up after a stall. A frame is confirmed
+        // once every player has been heard from for it, and at least the forced depth is
+        // re-simulated regardless.
         let depth = FORCED_DEPTH.load(Ordering::Relaxed);
-        let present = current + 1;
-        let confirmed = present.saturating_sub(depth.max(max_delay()));
-        let forced = (depth > 0).then(|| present.saturating_sub(depth + 1));
+        let max_delay = max_delay();
+        let shape = live_shapes::plan_tick(current, max_delay);
+        let present = shape.present;
+        let known_until = shape.at_start.known_until(max_delay);
+        let confirmed = present.saturating_sub(depth).min(known_until);
+        // While the next step cannot run, a live game's tick stalls in it again and again, and
+        // rolling back on purpose ahead of every one would only burn time.
+        let can_run = shape
+            .limit
+            .is_none_or(|limit| current < known_until.saturating_add(limit));
+        let forced = (depth > 0 && can_run).then(|| present.saturating_sub(depth + 1));
         let rollback_to = [
             forced,
-            take_arrived_commands(present),
+            take_arrived_commands(&shape.at_start),
             RESIMULATE_FROM.lock().take(),
         ]
         .into_iter()
@@ -1113,14 +1139,43 @@ unsafe fn run_tick(
         SUPPRESSED_COMMANDS.store(0, Ordering::Relaxed);
         APPLIED_DELAYED_COMMANDS.store(0, Ordering::Relaxed);
         *TICK_CORRECTIONS.lock() = Corrections::default();
+        *KNOWLEDGE.lock() = Some(shape.at_start);
+        let mut steps_run = 0;
+        let mut stalled = false;
         let (ret, report) = tick::run_tick(bw, snapshots, current, &plan, |step| {
+            if shape.deliver_after_steps != 0 && steps_run == shape.deliver_after_steps {
+                *KNOWLEDGE.lock() = Some(shape.delivered);
+            }
+            steps_run += 1;
             if step.resumes_from_restore {
                 record_anchored_units(bw);
+            }
+            // As a live game's receive does, a step that has not run before waits for turns once
+            // the frame it produces is past the prediction limit; one simulated again never does.
+            let stalls = !step.is_resimulation
+                && shape.limit.is_some_and(|limit| {
+                    let known = KNOWLEDGE
+                        .lock()
+                        .map_or(known_until, |x| x.known_until(max_delay));
+                    step.frame > known.saturating_add(limit)
+                });
+            if stalls {
+                let before = bw.rollback_frame_count();
+                STALLING_STEP.store(true, Ordering::Relaxed);
+                let ret = crate::rollback_probe::run_game_logic_step(bw, param, orig);
+                STALLING_STEP.store(false, Ordering::Relaxed);
+                stalled = true;
+                if bw.rollback_frame_count() != before {
+                    error!(
+                        "Rollback harness: the step to frame {} was to stall at the prediction                          limit, but the frame advanced",
+                        step.frame,
+                    );
+                }
+                return ret;
             }
             if let Some(ranges) = &audit_ranges {
                 audit_before_step(bw, ranges);
             }
-            STEPS_AFTER_CURRENT.store(step.steps_after, Ordering::Relaxed);
             let ret = crate::rollback_probe::run_game_logic_step(bw, param, orig);
             if let Some(ranges) = &audit_ranges {
                 audit_after_step(bw, ranges);
@@ -1133,6 +1188,12 @@ unsafe fn run_tick(
             ret
         });
         drop(guard);
+        *KNOWLEDGE.lock() = Some(shape.delivered);
+        let reached = bw.rollback_frame_count().unwrap_or(current);
+        if live_shapes::armed() {
+            live_shapes::finish_tick(current, reached, stalled);
+        }
+        LAST_TICK_STALLED.store(stalled, Ordering::Relaxed);
         LAST_CONFIRMED.store(confirmed, Ordering::Relaxed);
 
         if let Some(frame) = bw.rollback_frame_count() {
@@ -1169,6 +1230,8 @@ unsafe fn run_tick(
                 suppressed_commands: SUPPRESSED_COMMANDS.load(Ordering::Relaxed),
                 applied_delayed_commands: APPLIED_DELAYED_COMMANDS.load(Ordering::Relaxed),
                 retracted_announcements: report.retracted_announcements,
+                stalled,
+                frames_behind: live_shapes::frames_behind(),
             };
             write_row(
                 &present,
@@ -1194,6 +1257,11 @@ struct TickCounts {
     /// Text lines and observer UI notifications an earlier tick made for a frame this one
     /// re-simulated without making them.
     retracted_announcements: u32,
+    /// Whether the tick stalled at the prediction limit.
+    stalled: bool,
+    /// Frames the present is behind the harness's clock after the tick, which later ticks catch
+    /// up.
+    frames_behind: u32,
 }
 
 /// The file this run's rows go to, once the first row has been written.
@@ -1240,7 +1308,7 @@ fn write_row(
     let result = writeln!(
         &mut log_file.file,
         "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{moves},\
-         {},{},{},{},{}",
+         {},{},{},{},{},{},{}",
         fingerprint_columns(present),
         fingerprint_columns(confirmed),
         counts.resimulated,
@@ -1261,6 +1329,8 @@ fn write_row(
         times.snapshot.as_micros(),
         times.total.as_micros(),
         times.cycles / 1000,
+        u8::from(counts.stalled),
+        counts.frames_behind,
     );
     if let Err(e) = result {
         // Give up on the file rather than logging once per frame for the rest of the game.
@@ -1330,7 +1400,8 @@ fn csv_header() -> String {
          suppressed_commands,applied_delayed_commands,retracted_announcements,\
          sounds_on_time,sounds_late,sounds_late_frames,sounds_stale,\
          units_moved,max_move,units_morphed,units_popped_in,units_popped_out,move_distances,\
-         restore_micros,steps_micros,snapshot_micros,tick_micros,tick_kcycles",
+         restore_micros,steps_micros,snapshot_micros,tick_micros,tick_kcycles,stalled,\
+         frames_behind",
         Fingerprint::extra_header(""),
         Fingerprint::extra_header("c_"),
     )

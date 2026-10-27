@@ -876,6 +876,11 @@ pub unsafe fn add_fow_sprites_for_replay_vision_change(bw: &BwScr) {
 /// case which we don't need to touch.
 pub unsafe fn step_replay_commands(orig: unsafe extern "C" fn()) {
     unsafe {
+        // A step stalled waiting for turns dispatches no commands; this frame's commands wait for
+        // the step that runs.
+        if replay_harness_stalls_step() {
+            return;
+        }
         let bw = get_bw();
         let game = bw.game();
         let replay = bw.replay_data();
@@ -943,6 +948,18 @@ fn replay_command_is_known(
         command_frame,
         step_frame,
     )
+}
+
+/// Whether the debug rollback harness is running the step in progress as one stalled at the
+/// prediction limit, which enters BW's step only for its turn receive to find nothing.
+#[cfg(debug_assertions)]
+pub fn replay_harness_stalls_step() -> bool {
+    crate::rollback_harness::stalls_step()
+}
+
+#[cfg(not(debug_assertions))]
+pub fn replay_harness_stalls_step() -> bool {
+    false
 }
 
 #[cfg(not(debug_assertions))]

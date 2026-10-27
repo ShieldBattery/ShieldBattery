@@ -37,9 +37,6 @@ pub(crate) struct TickPlan {
 pub(crate) struct StepInfo {
     /// The frame the step produces.
     pub(crate) frame: u32,
-    /// How many steps the tick runs after this one.
-    #[cfg(debug_assertions)]
-    pub(crate) steps_after: u32,
     /// Whether the frame it produces is confirmed, so no later tick simulates it again.
     pub(crate) is_final: bool,
     /// Whether this is the first step after the tick restored a snapshot, so the simulation is
@@ -146,8 +143,6 @@ pub(crate) unsafe fn run_tick(
         while current < plan.present {
             let info = StepInfo {
                 frame: current + 1,
-                #[cfg(debug_assertions)]
-                steps_after: plan.present - current - 1,
                 is_final: current < plan.confirmed,
                 #[cfg(debug_assertions)]
                 resumes_from_restore: report.restored.is_some() && report.steps == 0,
