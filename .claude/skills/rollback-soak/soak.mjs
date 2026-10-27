@@ -526,8 +526,38 @@ function randomConfig(game, arch) {
       desc.select = select
     }
   }
+  if (Math.random() < 0.5) liveShapes(env, desc, [...Array(players).keys()])
   desc.arch = arch
   return { env, desc }
+}
+
+// Shapes a share of a run's ticks the way a live game's go when turns run late (see the harness's
+// live_shapes module): `ids` are the storm ids worth withholding turns from. Most runs stall at the
+// prediction limit and catch up afterwards, some also learn of commands between a tick's steps,
+// and some only do the latter.
+export function liveShapes(env, desc, ids) {
+  const stall = Math.random() < 0.8
+  if (stall) {
+    const every = pick([240, 480, 960])
+    const ticks = pick([1, 2, 4, 8, 16, 48])
+    const release = pick([0, 0, 2, 3, 4])
+    // Every player's turns at once is a stall on the client's own downlink or its relay.
+    const withheld =
+      Math.random() < 0.3 ? null : [...ids].sort(() => Math.random() - 0.5).slice(0, 1 + rand(2))
+    env.SB_ROLLBACK_HARNESS_STALL =
+      `${every}:${ticks}:${release}` + (withheld ? `:${withheld.sort((a, b) => a - b).join('+')}` : '')
+    desc.stall = env.SB_ROLLBACK_HARNESS_STALL
+    const catchUp = pick([1, 2, 2, 2, 3])
+    env.SB_ROLLBACK_HARNESS_CATCH_UP = String(catchUp)
+    desc.catchUp = catchUp
+    const limit = pick([8, 8, 8, 4, 6])
+    env.SB_ROLLBACK_PREDICT = String(limit)
+    desc.limit = limit
+  }
+  if (!stall || Math.random() < 0.5) {
+    env.SB_ROLLBACK_HARNESS_MID_TICK = '1'
+    desc.midTick = true
+  }
 }
 
 function fixedConfig() {
