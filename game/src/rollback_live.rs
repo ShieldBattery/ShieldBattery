@@ -696,6 +696,11 @@ pub unsafe fn run_game_logic_step(
         let camera_before = bw.rollback_screen_position();
         let (ret, report) = tick::run_tick(bw, snapshots, current, &plan, |step| {
             let ret = step_game_logic(bw, param, orig);
+            // A step stalled waiting for turns leaves the simulation on the frame before, which
+            // must not be recorded as the frame the step would have produced.
+            if crate::rollback::position(bw) != Some(step.frame) {
+                return ret;
+            }
             let game = bw.game();
             if !game.is_null() {
                 game_end::record_outcome(
