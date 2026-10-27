@@ -35,6 +35,7 @@ import { APP_ROOT } from './app-paths'
 import { checkShieldBatteryFiles } from './check-shieldbattery-files'
 import { getClientShellTemplate, renderClientShell } from './client-shell'
 import currentSession from './current-session'
+import { logCrashDumps, logMachineInfo, startLocalCrashReporter } from './diagnostics'
 import { logElevationStatus } from './elevation'
 import { registerCurrentProgram } from './file-association'
 import { findInstallPath } from './find-install-path'
@@ -86,6 +87,31 @@ process
 const ipcMain = new TypedIpcMain()
 
 getUserDataPath()
+startLocalCrashReporter()
+
+/** Why the app is quitting, if the code that started the quit said so. */
+let quitReason: string | undefined
+let quitLogged = false
+
+/** Quits the app, recording why so the log can tell a deliberate quit from any other exit. */
+function quitApp(reason: string) {
+  quitReason ??= reason
+  app.quit()
+}
+
+app
+  .on('before-quit', () => {
+    if (quitLogged) return
+    quitLogged = true
+    logger.info(`Quitting: ${quitReason ?? 'no reason recorded'}`)
+  })
+  .on('child-process-gone', (_event, details) => {
+    logger.error(
+      `Child process gone: type=${details.type} reason=${details.reason} ` +
+        `exitCode=${details.exitCode} name=${details.name ?? ''} ` +
+        `serviceName=${details.serviceName ?? ''}`,
+    )
+  })
 
 let modelId: string
 // We override the default auto-updater URL so that we can use our Spaces CDN instead, should be
@@ -189,6 +215,7 @@ let twitchOauthFlowActive = false
 let cancelActiveTwitchOauthFlow: (() => void) | undefined
 
 export function notifyNewInstance(data: NewInstanceNotification) {
+  logger.info('Another instance was launched, handing off to this one')
   if (mainWindow) {
     if (!mainWindow.isVisible()) {
       mainWindow.show()
@@ -647,7 +674,7 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
             return
           }
           if (quitOnClose) {
-            app.quit()
+            quitApp('window close button (quit on close)')
           } else if (systemTray) {
             mainWindow.hide()
             if (shouldDisplayCloseHint) systemTray.displayHowToCloseHint()
@@ -732,6 +759,7 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
 
   ipcMain
     .on('updaterQuitAndInstall', () => {
+      quitReason ??= 'installing update'
       autoUpdater.quitAndInstall()
     })
     .on('updaterGetState', event => {
@@ -1475,8 +1503,15 @@ async function createWindow() {
     rendererReady = false
   })
   // A crashed renderer's listeners are gone with it, so sends must queue rather than drop.
-  mainWindow.webContents.on('render-process-gone', () => {
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    logger.error(`Renderer process gone: reason=${details.reason} exitCode=${details.exitCode}`)
     rendererReady = false
+  })
+  mainWindow.on('unresponsive', () => {
+    logger.warning('Main window became unresponsive')
+  })
+  mainWindow.on('responsive', () => {
+    logger.info('Main window became responsive again')
   })
 
   mainWindow.webContents.on('will-navigate', (event, url) => {
@@ -1551,6 +1586,8 @@ app.on('ready', () => {
   const scrSettingsPromise = createScrSettings()
   const programRegistrationPromise = registerCurrentProgram()
   logElevationStatus()
+  logMachineInfo()
+  logCrashDumps().catch(() => {})
 
   if (!isDev) {
     // Packaged builds also get this scheme from the installer (the NSIS include under tools/nsis
@@ -1622,7 +1659,7 @@ app.on('ready', () => {
         logger.error(`Error setting up the replay library: ${getErrorStack(err)}`)
       }
 
-      systemTray = new SystemTray(mainWindow, () => app.quit())
+      systemTray = new SystemTray(mainWindow, () => quitApp('tray menu'))
 
       TypedIpcSender.from(mainWindow?.webContents).send(
         'windowMaximizedState',
@@ -1649,14 +1686,14 @@ app.on('ready', () => {
         'ShieldBattery Error',
         `There was an error initializing ShieldBattery: ${err.message}\n${err.stack}`,
       )
-      app.quit()
+      quitApp('initialization error')
     })
 })
 app.on('window-all-closed', () => {
   // On OS X it is common for applications and their menu bar
   // to stay active until the user quits explicitly with Cmd + Q
   if (process.platform !== 'darwin') {
-    app.quit()
+    quitApp('all windows closed')
   }
 })
 
@@ -1671,7 +1708,7 @@ app.on('activate', () => {
         'ShieldBattery Error',
         `There was an error initializing ShieldBattery: ${err.message}\n${err.stack}`,
       )
-      app.quit()
+      quitApp('window creation error')
     })
   }
 })
