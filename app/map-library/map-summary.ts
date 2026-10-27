@@ -1,4 +1,4 @@
-import { summarizeMapJson } from '@shieldbattery/broodmap'
+import { type MapLimitOptions, type MapSummary, summarizeMapJson } from '@shieldbattery/broodmap'
 import { createHash } from 'node:crypto'
 import path from 'node:path'
 import { LocalMapInfo, LocalMapKind } from '../../common/map-library'
@@ -10,24 +10,6 @@ import { MAX_MAP_FILE_SIZE_BYTES } from '../../common/maps'
  * and the `kind`/`player_count` columns of `maps`), so a local file filters and reads the same as
  * the uploaded copy of it would.
  */
-
-/** What broodmap's `summarizeMapJson` returns (see its README). */
-export interface BroodmapMapSummary {
-  name: string | null
-  description: string | null
-  width: number
-  height: number
-  tileset: number
-  stringEncoding: string
-  players: Array<{ controller: number; race: number; force: number }>
-  forces: Array<{ name: string | null }>
-  usesEud: boolean
-  triggerActionKinds: string[] | null
-  triggerCount: number | null
-  placedUnits: number
-  playerUnits: number
-  startLocations: number
-}
 
 /** More preplaced player-owned units than this make a map UMS. */
 const MAX_MELEE_PLAYER_UNITS = 8
@@ -67,7 +49,7 @@ const SUMMARY_OPTIONS = JSON.stringify({
   maxMpqFileBytes: 256 * MIB,
   maxChkBytes: 256 * MIB,
   maxMergedChunkBytes: 256 * MIB,
-})
+} satisfies MapLimitOptions)
 
 /**
  * Hashes a map file the way the server identifies map files: the hex-encoded SHA-256 of its
@@ -81,8 +63,8 @@ export function hashMapBytes(filePath: string, bytes: Uint8Array): string {
 }
 
 /** Reads a map file's facts. Throws if `bytes` isn't a readable map. */
-export function readMapSummary(bytes: Uint8Array): BroodmapMapSummary {
-  return JSON.parse(summarizeMapJson(bytes, SUMMARY_OPTIONS)) as BroodmapMapSummary
+export function readMapSummary(bytes: Uint8Array): MapSummary {
+  return JSON.parse(summarizeMapJson(bytes, SUMMARY_OPTIONS)) as MapSummary
 }
 
 /** Drops control characters (StarCraft's color codes) other than line breaks. */
@@ -97,16 +79,16 @@ export function filterColorCodes(text: string): string {
  * trigger actions melee maps don't use, or more preplaced player units than a melee start has. Such
  * maps are rendered with their units as placed.
  */
-export function hasUmsContent(summary: BroodmapMapSummary): boolean {
+export function hasUmsContent(summary: MapSummary): boolean {
   return (
     summary.usesEud ||
-    (summary.triggerActionKinds ?? []).some(kind => !MELEE_COMPATIBLE_ACTIONS.has(kind)) ||
+    summary.triggerActionKinds.some(kind => !MELEE_COMPATIBLE_ACTIONS.has(kind)) ||
     summary.playerUnits > MAX_MELEE_PLAYER_UNITS
   )
 }
 
 /** Applies ShieldBattery's rules to a map's facts. */
-export function toLocalMapInfo(summary: BroodmapMapSummary): LocalMapInfo {
+export function toLocalMapInfo(summary: MapSummary): LocalMapInfo {
   let playersMelee = 0
   let playersUms = 0
   for (const slot of summary.players) {
