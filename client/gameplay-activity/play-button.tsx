@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { useId, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import styled, { keyframes } from 'styled-components'
+import styled, { css, keyframes } from 'styled-components'
 import { Link } from 'wouter'
 import { getErrorStack } from '../../common/errors'
 import { audioManager, AvailableSound } from '../audio/audio-manager'
@@ -13,46 +13,62 @@ import { elevationPlus1 } from '../material/shadows'
 import { useAppDispatch } from '../redux-hooks'
 import { showReplayInfo } from '../replays/action-creators'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
+import { steppedEaseInOut } from '../styles/stepped-keyframes'
 import { BodyMedium, sofiaSans } from '../styles/typography'
 import psiFrost from './psi-frost.svg?no-inline'
 
 const WIDTH = 240
 const HEIGHT = 72
 
-const psiBreath = keyframes`
-  0%, 100% {
-    scale: 0.97;
-    opacity: var(--_psi-rest-opacity);
-  }
-  45% {
-    scale: 1.03;
-    opacity: var(--_psi-crest-opacity);
-  }
-`
+/**
+ * How often the energy layers move. They drift slowly enough that this looks smooth, and a step rate
+ * well below the display's lets the browser skip drawing the frames in between. Every duration, delay
+ * and stop time below is a whole number of steps, which keeps both layers stepping on the same frames.
+ */
+const PSI_STEP_MS = 50
 
-const psiFlow = keyframes`
-  0% {
-    transform: translate(-48px, 8px) rotate(-4deg) scale(0.86, 1.04);
-  }
-  55% {
-    transform: translate(12px, -2px) rotate(0deg) scale(1.12, 0.97);
-  }
-  100% {
-    transform: translate(52px, -8px) rotate(4deg) scale(0.94, 1.02);
-  }
-`
+const round = (value: number) => Number(value.toFixed(3))
 
-const psiCounterflow = keyframes`
-  0% {
-    transform: translate(44px, -6px) rotate(176deg) scale(1.1, 0.98);
-  }
-  55% {
-    transform: translate(-10px, 2px) rotate(180deg) scale(0.88, 1.04);
-  }
-  100% {
-    transform: translate(-48px, 8px) rotate(184deg) scale(1.06, 1);
-  }
-`
+function psiBreath(restOpacity: number, crestOpacity: number) {
+  return keyframes`${steppedEaseInOut(
+    11_000,
+    PSI_STEP_MS,
+    [
+      { at: 0, values: [0.97, restOpacity] },
+      { at: 0.45, values: [1.03, crestOpacity] },
+      { at: 1, values: [0.97, restOpacity] },
+    ],
+    ([scale, opacity]) => `scale: ${round(scale)}; opacity: ${round(opacity)};`,
+  )}`
+}
+
+const renderFlow = ([x, y, angle, scaleX, scaleY]: readonly number[]) =>
+  `transform: translate(${round(x)}px, ${round(y)}px) rotate(${round(angle)}deg) ` +
+  `scale(${round(scaleX)}, ${round(scaleY)});`
+
+const psiFlow = keyframes`${steppedEaseInOut(
+  26_000,
+  PSI_STEP_MS,
+  [
+    { at: 0, values: [-48, 8, -4, 0.86, 1.04] },
+    { at: 0.55, values: [12, -2, 0, 1.12, 0.97] },
+    { at: 1, values: [52, -8, 4, 0.94, 1.02] },
+  ],
+  renderFlow,
+)}`
+const psiFlowBreath = psiBreath(0.6, 0.85)
+
+const psiCounterflow = keyframes`${steppedEaseInOut(
+  36_000,
+  PSI_STEP_MS,
+  [
+    { at: 0, values: [44, -6, 176, 1.1, 0.98] },
+    { at: 0.55, values: [-10, 2, 180, 0.88, 1.04] },
+    { at: 1, values: [-48, 8, 184, 1.06, 1] },
+  ],
+  renderFlow,
+)}`
+const psiCounterflowBreath = psiBreath(0.4, 0.65)
 
 const EnergyField = styled.div<{ $reverse?: boolean }>`
   position: absolute;
@@ -64,9 +80,6 @@ const EnergyField = styled.div<{ $reverse?: boolean }>`
 
   /* The texture is static; the browser composites its movement between pointer updates. */
   &::before {
-    --_psi-rest-opacity: ${props => (props.$reverse ? 0.4 : 0.6)};
-    --_psi-crest-opacity: ${props => (props.$reverse ? 0.65 : 0.85)};
-
     content: '';
     position: absolute;
     /* The light enters from opposite corners, leaving the label clear without a stationary mask. */
@@ -84,11 +97,13 @@ const EnergyField = styled.div<{ $reverse?: boolean }>`
     opacity: ${props => (props.$reverse ? 0.45 : 0.65)};
     transform: ${props => (props.$reverse ? 'rotate(180deg)' : 'none')};
     /* Both layers breathe together while their slower currents drift independently. */
-    animation-name: ${props => (props.$reverse ? psiCounterflow : psiFlow)}, ${psiBreath};
+    animation-name: ${props =>
+      props.$reverse
+        ? css`${psiCounterflow}, ${psiCounterflowBreath}`
+        : css`${psiFlow}, ${psiFlowBreath}`};
     animation-duration: ${props => (props.$reverse ? '36s' : '26s')}, 11s;
     animation-delay: ${props => (props.$reverse ? '-18s' : '-8s')}, -2.5s;
     animation-play-state: var(--_psi-play-state);
-    animation-timing-function: ease-in-out;
     animation-iteration-count: infinite;
     animation-direction: alternate, normal;
   }
