@@ -91,8 +91,9 @@ export function makeMatchupBuckets(seed: number, teamSize: number): MatchupModeD
  *
  * Both scopes have the same shape -- `globalMatchupStats` returns the same buckets and maps as the
  * per-user query -- so the scope only changes the seed. Global games are scaled up, since they
- * cover the whole ladder rather than one account, and by an even factor because the real payload
- * counts every game from both sides and the page divides that back down.
+ * cover the whole ladder rather than one account, and every game is counted from both sides the
+ * way the real payload counts them: each bucket also produces its mirror image from the other
+ * side, and a mirror matchup holds each game twice with one win and one loss.
  */
 export function makeMatchupMode(
   type: MatchmakingType,
@@ -103,8 +104,28 @@ export function makeMatchupMode(
   if (scope === 'mine') {
     return { buckets, maps: MATCHUP_MAPS }
   }
-  return {
-    buckets: buckets.map(b => ({ ...b, games: b.games * 38, wins: b.wins * 38 })),
-    maps: MATCHUP_MAPS,
+
+  const globalBuckets: Array<MatchupModeData['buckets'][number]> = []
+  for (const b of buckets) {
+    const side = b.races.join('')
+    const opponent = b.opponentRaces.join('')
+    // Each unordered pair is generated twice, once from each end; keep one of them as the games.
+    if (side > opponent) continue
+
+    const games = b.games * 19
+    const wins = b.wins * 19
+    if (side === opponent) {
+      globalBuckets.push({ ...b, games: games * 2, wins: games })
+    } else {
+      globalBuckets.push({ ...b, games, wins })
+      globalBuckets.push({
+        ...b,
+        races: b.opponentRaces,
+        opponentRaces: b.races,
+        games,
+        wins: games - wins,
+      })
+    }
   }
+  return { buckets: globalBuckets, maps: MATCHUP_MAPS }
 }

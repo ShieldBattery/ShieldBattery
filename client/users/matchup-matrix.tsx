@@ -2,9 +2,8 @@ import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { MATCHMAKING_MODES, MatchmakingType, TEAM_SIZES } from '../../common/matchmaking'
-import { AssignedRaceChar, raceCharToLabel } from '../../common/races'
+import { numberFormat, useFormat } from '../i18n/locale-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { RaceIcon } from '../lobbies/race-icon'
 import { buttonReset } from '../material/button-reset'
 import { RangeSlider } from '../material/range-slider'
 import { SelectOption } from '../material/select/option'
@@ -12,6 +11,8 @@ import { Select } from '../material/select/select'
 import { LoadingDotsArea } from '../progress/dots'
 import { bodySmall, labelMedium, labelSmall, titleSmall } from '../styles/typography'
 import { MatchupCell, MatchupDataSource, MatchupFilters, raceCombos } from './matchup-data'
+import { findExtremes, MatchupSummary, sectionLabel } from './matchup-summary'
+import { ComboLabel } from './race-combo-label'
 import { ALL_MAPS, ALL_SEASONS } from './stats-filters'
 
 /**
@@ -81,12 +82,6 @@ const ScopeChip = styled.button<{ $active: boolean }>`
     ${props => (props.$active ? 'var(--theme-primary)' : 'var(--theme-outline-variant)')};
   color: ${props =>
     props.$active ? 'var(--theme-on-surface)' : 'var(--theme-on-surface-variant)'};
-`
-
-const Total = styled.div`
-  ${labelMedium};
-  margin-bottom: 10px;
-  font-variant-numeric: tabular-nums;
 `
 
 const Message = styled.div`
@@ -171,15 +166,22 @@ const LeftAxisRule = styled.div`
 `
 
 /* Reads bottom-to-top, the conventional direction for a y-axis label. `vertical-rl` alone would
-   run it top-to-bottom with the glyphs on their side the wrong way. */
+   run it top-to-bottom with the glyphs on their side the wrong way. `sideways` lays CJK glyphs on
+   their side too, which vertical text otherwise keeps upright, so the rotation can't invert them. */
 const LeftAxisText = styled.div`
   ${axisText};
   writing-mode: vertical-rl;
+  text-orientation: sideways;
   transform: rotate(180deg);
   padding-top: 0.28em;
 `
 
+/**
+ * Sized to its content so a matrix wider than the page scrolls rather than squeezing its columns:
+ * the left axis cell holds nothing in flow, so a squeezed table would collapse it to nothing.
+ */
 const Matrix = styled.table`
+  width: max-content;
   border-collapse: separate;
   border-spacing: 4px;
   margin: 0 -4px;
@@ -204,10 +206,7 @@ const MapStrip = styled.div`
 `
 
 const MapStripLabel = styled.div`
-  ${labelSmall};
-  color: var(--theme-on-surface-variant);
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
+  ${sectionLabel};
   margin-bottom: 8px;
 `
 
@@ -317,13 +316,16 @@ const RowHead = styled.th<{ $active: boolean }>`
   ${props => (props.$active ? HeadHighlight : '')}
 `
 
-const Cell = styled.td<{ $tint: string; $thin: boolean }>`
+/** `$outlined` marks a cell with nothing to rate: drawn as a frame so it recedes behind the rest. */
+const Cell = styled.td<{ $tint: string; $thin: boolean; $outlined?: boolean }>`
   box-sizing: border-box;
   min-width: 62px;
   padding: 7px 5px;
   border-radius: 6px;
   text-align: center;
   background: ${props => props.$tint};
+  box-shadow: ${props =>
+    props.$outlined ? 'inset 0 0 0 1px var(--theme-outline-variant)' : 'none'};
   opacity: ${props => (props.$thin ? 0.55 : 1)};
 `
 
@@ -340,23 +342,18 @@ const CellRecord = styled.div`
   min-height: 1.3em;
 `
 
-const Combo = styled.span`
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-`
-
-/**
- * 20px keeps a team composition's icons inside a header cell that also has to fit the widest
- * matrix a mode can produce; `RaceIcon` colours itself per race, which is what the axes read by.
- */
-const ComboIcon = styled(RaceIcon)`
-  width: 20px;
-  height: 20px;
-`
-
 /** Cells with too few games to mean anything are dimmed rather than hidden. */
 const THIN_SAMPLE = 5
+
+/**
+ * How far from even a win rate has to be for the cell's tint to reach full strength, and that
+ * strength. Ladder matchups rarely stray more than 15 points either way, so a wider span would
+ * leave almost every cell looking the same.
+ */
+const TINT_SPAN = 0.15
+const TINT_MAX_ALPHA = 0.42
+
+const countFormat = numberFormat()
 
 /**
  * A map's preview, falling back to the placeholder box.
@@ -376,29 +373,15 @@ function MapPreview({ url, name }: { url?: string; name: string }) {
   )
 }
 
-function ComboLabel({ parts }: { parts: AssignedRaceChar[] }) {
-  const { t } = useTranslation()
-  return (
-    <Combo>
-      {parts.map((race, i) => (
-        // The icons carry no text, so this label is the whole of what a screen reader gets for
-        // an axis -- hence the race's full name rather than anything abbreviated.
-        <ComboIcon key={i} race={race} ariaLabel={raceCharToLabel(race, t)} />
-      ))}
-    </Combo>
-  )
-}
-
 /**
- * Win rate as a wash of colour behind the cell. Capped at +/-28 points either side of
- * even, so one lopsided cell out of a handful of games doesn't flatten the shading
- * everywhere else.
+ * Win rate as a wash of colour behind the cell, saturating at `TINT_SPAN` either side of even so
+ * one lopsided cell out of a handful of games doesn't flatten the shading everywhere else.
  */
 function tintFor(cell: MatchupCell): string {
   if (!cell.games) return 'var(--theme-container)'
   const rate = cell.wins / cell.games
-  const d = Math.max(-0.28, Math.min(0.28, rate - 0.5))
-  const alpha = ((Math.abs(d) / 0.28) * 0.3).toFixed(3)
+  const d = Math.max(-TINT_SPAN, Math.min(TINT_SPAN, rate - 0.5))
+  const alpha = ((Math.abs(d) / TINT_SPAN) * TINT_MAX_ALPHA).toFixed(3)
   return d >= 0
     ? `rgb(from var(--theme-positive) r g b / ${alpha})`
     : `rgb(from var(--theme-negative) r g b / ${alpha})`
@@ -441,6 +424,7 @@ export function MatchupMatrix({
   ratingBands: RatingBands
 }) {
   const { t } = useTranslation()
+  const formatCount = useFormat(countFormat)
   const mapStripId = useId()
   const [season, setSeason] = useState<string>(ALL_SEASONS)
   const [map, setMap] = useState<string>(ALL_MAPS)
@@ -497,9 +481,20 @@ export function MatchupMatrix({
   const teamSize = TEAM_SIZES[mode]
   const combos = raceCombos(teamSize)
   const isTeam = teamSize > 1
-  // The axis labels name the viewed player's side against their opponents', which only the
-  // per-player matrix has. They add two cells to the table, so the layout reads this too.
-  const axes = scope === 'mine'
+  // The per-player matrix names the viewed player's side against their opponents'. The global one
+  // has no viewer, so its axes say which side a cell is played from instead.
+  let rowAxis: string
+  let colAxis: string
+  if (scope === 'global') {
+    rowAxis = t('users.profile.matchups.axisPlayingAs', 'playing as')
+    colAxis = t('users.profile.matchups.axisAgainst', 'against')
+  } else if (isTeam) {
+    rowAxis = t('users.profile.matchups.axisMyTeam', 'my team')
+    colAxis = t('users.profile.matchups.axisOpponentTeam', 'opponent team')
+  } else {
+    rowAxis = t('users.profile.matchups.axisMe', 'me')
+    colAxis = t('users.profile.matchups.axisOpponent', 'opponent')
+  }
 
   // The same sum the matrix cells add up to, which is why it's the map stats rather than a
   // separate walk: whatever the filters are showing, this is its record.
@@ -513,14 +508,14 @@ export function MatchupMatrix({
   // from each side, so summing a map's cells necessarily gives one win and one loss per game --
   // a rate pinned at 50% by arithmetic, not a measurement of the map. The cells themselves stay
   // meaningful (PvZ and ZvP are different cells); it's only the totals over a whole map that
-  // collapse. So the cards carry names alone in the global scope.
+  // collapse. So the global map cards show how many games were played instead, halving the sum
+  // since it holds each game once per side.
   const showsRecord = scope === 'mine'
-
-  // That same double counting makes the bucket sum a count of sides rather than of games: two per
-  // game in every mode, since a side is counted once however many players stood on it. Dividing is
-  // what turns it back into games. The record can't be rescued the same way -- halving both halves
-  // of a 50% split still leaves 50%.
-  const totalGames = showsRecord ? total.games : Math.round(total.games / 2)
+  const mapGames = (cell: MatchupCell) =>
+    t('users.profile.matchups.cellGames', {
+      defaultValue: '{{count, number}} games',
+      count: Math.round(cell.games / 2),
+    })
 
   // The top and bottom bands are clamped, so they stand for everything past their edge rather
   // than for one 200-point slice; the labels say so instead of implying a hard cut.
@@ -552,45 +547,27 @@ export function MatchupMatrix({
   } else {
     body = (
       <>
-        {/* The sum of every cell below, for whatever the filters are showing. A record where
-            that's a record of somebody; a game count in the global scope, where a win-loss
-            summed over the whole matrix is 50-50 for the same reason the map cards drop theirs. */}
-        <Total>
-          {showsRecord
-            ? t('users.profile.matchups.total', {
-                defaultValue: 'Total: {{wins}}–{{losses}}',
-                wins: total.wins,
-                losses: total.games - total.wins,
-              })
-            : t('users.profile.matchups.totalGames', {
-                defaultValue: 'Total: {{count}} games',
-                count: totalGames,
-              })}
-        </Total>
+        <MatchupSummary
+          scope={scope}
+          total={total}
+          extremes={findExtremes(source, active, combos, scope === 'global')}
+        />
 
         <MatrixScroll>
           {/* Clearing on leave rather than per-cell, so moving between two cells doesn't blink
               the highlight off in the gap between them. */}
           <Matrix onMouseLeave={() => setHovered(undefined)}>
             <thead>
-              {/* Only for a player's own matrix. "Me" has no referent in the global one, where
-                    every game is counted from both sides at once. */}
-              {axes ? (
-                <tr aria-hidden={true}>
-                  {/* Holds open the label column and the corner, so the rule starts at the
-                        first data column rather than over the row heads. */}
-                  <AxisSpacer colSpan={2} />
-                  <TopAxisCell colSpan={combos.length}>
-                    <TopAxisRule>
-                      {isTeam
-                        ? t('users.profile.matchups.axisOpponentTeam', 'opponent team')
-                        : t('users.profile.matchups.axisOpponent', 'opponent')}
-                    </TopAxisRule>
-                  </TopAxisCell>
-                </tr>
-              ) : undefined}
+              <tr aria-hidden={true}>
+                {/* Holds open the label column and the corner, so the rule starts at the first
+                    data column rather than over the row heads. */}
+                <AxisSpacer colSpan={2} />
+                <TopAxisCell colSpan={combos.length}>
+                  <TopAxisRule>{colAxis}</TopAxisRule>
+                </TopAxisCell>
+              </tr>
               <tr>
-                {axes ? <AxisSpacer /> : undefined}
+                <AxisSpacer />
                 <Corner />
                 {combos.map(col => (
                   <ColHead key={col.join('')} $active={hovered?.col === col.join('')}>
@@ -603,14 +580,10 @@ export function MatchupMatrix({
               {combos.map((row, rowIndex) => (
                 <tr key={row.join('')}>
                   {/* Spans every data row, so the rule stops short of the column heads. */}
-                  {axes && rowIndex === 0 ? (
+                  {rowIndex === 0 ? (
                     <LeftAxisCell rowSpan={combos.length} aria-hidden={true}>
                       <LeftAxisRule>
-                        <LeftAxisText>
-                          {isTeam
-                            ? t('users.profile.matchups.axisMyTeam', 'my team')
-                            : t('users.profile.matchups.axisMe', 'me')}
-                        </LeftAxisText>
+                        <LeftAxisText>{rowAxis}</LeftAxisText>
                       </LeftAxisRule>
                     </LeftAxisCell>
                   ) : undefined}
@@ -630,7 +603,7 @@ export function MatchupMatrix({
                     // What sits under the rate: a record normally, a game count for a mirror
                     // cell, and nothing at all when the cell is empty either way.
                     let below = ''
-                    if (mirrored && games) below = String(games)
+                    if (mirrored && games) below = formatCount.format(games)
                     else if (!mirrored && cell.games)
                       below = `${cell.wins}–${cell.games - cell.wins}`
                     return (
@@ -638,7 +611,8 @@ export function MatchupMatrix({
                         key={col.join('')}
                         // Untinted rather than tinted at 50%: the shade would be reporting the
                         // arithmetic, and a rounding artifact could paint the whole diagonal.
-                        $tint={mirrored ? 'var(--theme-container)' : tintFor(cell)}
+                        $tint={mirrored ? 'transparent' : tintFor(cell)}
+                        $outlined={mirrored}
                         $thin={games > 0 && games < THIN_SAMPLE}
                         // The count stands alone in the cell to keep the column width fixed, so
                         // the unit lives here -- and this is the only thing a screen reader gets
@@ -646,7 +620,7 @@ export function MatchupMatrix({
                         title={
                           mirrored && games
                             ? t('users.profile.matchups.cellGames', {
-                                defaultValue: '{{count}} games',
+                                defaultValue: '{{count, number}} games',
                                 count: games,
                               })
                             : undefined
@@ -684,13 +658,17 @@ export function MatchupMatrix({
                   <MaterialIcon icon='grid_view' size={36} />
                 </MapCardAllTile>
                 <MapCardName>{t('users.profile.matchups.allMaps', 'All maps')}</MapCardName>
-                {showsRecord ? (
-                  <MapCardRecord>
-                    <MapCardRate $positive={overallRate >= 50}>{overallRate}%</MapCardRate>
-                    {' · '}
-                    {overall.wins}&ndash;{overall.games - overall.wins}
-                  </MapCardRecord>
-                ) : undefined}
+                <MapCardRecord>
+                  {showsRecord ? (
+                    <>
+                      <MapCardRate $positive={overallRate >= 50}>{overallRate}%</MapCardRate>
+                      {' · '}
+                      {overall.wins}&ndash;{overall.games - overall.wins}
+                    </>
+                  ) : (
+                    mapGames(overall)
+                  )}
+                </MapCardRecord>
               </MapCard>
               {availableMaps.map(m => {
                 const selected = activeMap === m.name
@@ -704,13 +682,17 @@ export function MatchupMatrix({
                     onClick={() => setMap(m.name)}>
                     <MapPreview url={m.imageUrl} name={m.name} />
                     <MapCardName title={m.name}>{m.name}</MapCardName>
-                    {showsRecord ? (
-                      <MapCardRecord>
-                        <MapCardRate $positive={rate >= 50}>{rate}%</MapCardRate>
-                        {' · '}
-                        {m.stats.wins}&ndash;{m.stats.games - m.stats.wins}
-                      </MapCardRecord>
-                    ) : undefined}
+                    <MapCardRecord>
+                      {showsRecord ? (
+                        <>
+                          <MapCardRate $positive={rate >= 50}>{rate}%</MapCardRate>
+                          {' · '}
+                          {m.stats.wins}&ndash;{m.stats.games - m.stats.wins}
+                        </>
+                      ) : (
+                        mapGames(m.stats)
+                      )}
+                    </MapCardRecord>
                   </MapCard>
                 )
               })}
