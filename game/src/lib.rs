@@ -65,6 +65,7 @@ mod http;
 mod http_proxy;
 #[cfg(debug_assertions)]
 mod input_latency_probe;
+mod machine_info;
 mod mouse_speed;
 mod netcode_v2;
 mod offline_cookie;
@@ -378,6 +379,7 @@ unsafe extern "C" fn scr_init(image: *mut u8) {
     }
     bw::set_bw_impl(bw);
     initialize();
+    machine_info::log_at_startup();
     unsafe {
         bw.post_async_init();
     }

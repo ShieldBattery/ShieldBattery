@@ -386,6 +386,7 @@ unsafe fn msg_bring_window_forward(window: HWND) {
 unsafe fn msg_game_started(window: HWND) {
     unsafe {
         debug!("Forge: Game started");
+        crate::machine_info::log_modules_loaded_since_startup();
         with_forge(|forge| {
             forge.game_started = true;
         });
