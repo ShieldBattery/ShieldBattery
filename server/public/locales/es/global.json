@@ -2739,7 +2739,8 @@
           "description": "Tus comandos siempre tardan al menos 2 fotogramas en ejecutarse, aunque tu conexión permita menos. Esto solo cambia tu propia partida.",
           "label": "Añadir retraso de entrada para igualar TR24 Low"
         },
-        "networkOverline": "Red",
+        "minimizeWhilePlaying": "Minimizar ShieldBattery mientras juegas",
+        "playingOverline": "Al jugar",
         "quitOnClose": "Salir de ShieldBattery al cerrar la ventana",
         "rollbackTarget": {
           "description": "Los valores más altos hacen que tus comandos respondan más rápido, pero las unidades pueden dar saltos visibles más a menudo.",
@@ -3048,6 +3049,9 @@
         "title": "Entrada",
         "useCustomCursorSize": "Usar tamaño de cursor personalizado"
       },
+      "network": {
+        "title": "Red"
+      },
       "sound": {
         "announcer": {
           "default": "Por defecto",
@@ -3165,6 +3169,7 @@
         "monitor": "Monitor",
         "monitorItem": "Monitor {{index}} - {{label}}",
         "pillarbox": "Pillarbox (relación de aspecto 4:3)",
+        "preferHighPerformanceGpu": "Usar la GPU de alto rendimiento",
         "primaryMonitor": "Predeterminado (monitor principal)",
         "realTimeLighting": "Iluminación en tiempo real",
         "resetWindowPositionButton": "Restablecer",
@@ -3566,6 +3571,7 @@
       "commendCount_other": "{{count}} elogios",
       "copyLink": "Copiar enlace al perfil",
       "latestGames": "Últimos juegos",
+      "moreActions": "Más acciones",
       "points": "Puntos",
       "rank": "Rango",
       "rating": "Clasificación",

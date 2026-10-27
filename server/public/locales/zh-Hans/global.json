@@ -2659,7 +2659,8 @@
           "description": "即使网络足够快，指令也总会延迟至少 2 帧才执行。这只会影响您自己的游戏。",
           "label": "增加输入延迟以匹配 TR24 Low"
         },
-        "networkOverline": "网络",
+        "minimizeWhilePlaying": "游戏运行时最小化 ShieldBattery",
+        "playingOverline": "游戏中",
         "quitOnClose": "关闭窗口时退出 ShieldBattery",
         "rollbackTarget": {
           "description": "数值越高，指令响应越快，但单位可能会更频繁地出现明显的跳动。",
@@ -2966,6 +2967,9 @@
         "title": "输入",
         "useCustomCursorSize": "使用自定义光标大小"
       },
+      "network": {
+        "title": "网络"
+      },
       "sound": {
         "announcer": {
           "default": "默认",
@@ -3083,6 +3087,7 @@
         "monitor": "显示器",
         "monitorItem": "显示器 {{index}} - {{label}}",
         "pillarbox": "黑边模式（4:3纵横比）",
+        "preferHighPerformanceGpu": "使用高性能显卡",
         "primaryMonitor": "默认（主显示器）",
         "realTimeLighting": "实时光照",
         "resetWindowPositionButton": "重置",
@@ -3470,6 +3475,7 @@
       "commendCount_other": "{{count}} 次赞扬",
       "copyLink": "复制个人资料链接",
       "latestGames": "最近游戏",
+      "moreActions": "更多操作",
       "points": "积分",
       "rank": "排名",
       "rating": "评分",

@@ -2779,7 +2779,8 @@
           "description": "Ваши команды всегда выполняются минимум через 2 кадра, даже если соединение позволяет быстрее. Это влияет только на вашу игру.",
           "label": "Добавить задержку ввода как на TR24 Low"
         },
-        "networkOverline": "Сеть",
+        "minimizeWhilePlaying": "Сворачивать ShieldBattery во время игры",
+        "playingOverline": "Во время игры",
         "quitOnClose": "Выходить из ShieldBattery при закрытии окна",
         "rollbackTarget": {
           "description": "Чем выше значение, тем отзывчивее ваши команды, но тем чаще юниты могут заметно дёргаться.",
@@ -3089,6 +3090,9 @@
         "title": "Ввод",
         "useCustomCursorSize": "Использовать пользовательский размер курсора"
       },
+      "network": {
+        "title": "Сеть"
+      },
       "sound": {
         "announcer": {
           "default": "По умолчанию",
@@ -3206,6 +3210,7 @@
         "monitor": "Монитор",
         "monitorItem": "Монитор {{index}} — {{label}}",
         "pillarbox": "Pillarbox (соотношение сторон 4:3)",
+        "preferHighPerformanceGpu": "Использовать мощную видеокарту",
         "primaryMonitor": "По умолчанию (основной монитор)",
         "realTimeLighting": "Освещение в реальном времени",
         "resetWindowPositionButton": "Сбросить",
@@ -3614,6 +3619,7 @@
       "commendCount_other": "{{count}} похвалы",
       "copyLink": "Скопировать ссылку на профиль",
       "latestGames": "Последние игры",
+      "moreActions": "Больше действий",
       "points": "Очки",
       "rank": "Ранг",
       "rating": "Рейтинг",

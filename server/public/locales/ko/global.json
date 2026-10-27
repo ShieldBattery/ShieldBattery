@@ -2659,7 +2659,8 @@
           "description": "연결이 더 빨라도 명령이 실행되기까지 항상 최소 2프레임이 걸립니다. 본인의 게임에만 적용됩니다.",
           "label": "TR24 Low 수준으로 입력 지연 추가"
         },
-        "networkOverline": "네트워크",
+        "minimizeWhilePlaying": "게임 중에는 ShieldBattery 최소화",
+        "playingOverline": "플레이 설정",
         "quitOnClose": "창을 닫으면 ShieldBattery 종료",
         "rollbackTarget": {
           "description": "값이 높을수록 명령이 빠르게 반응하지만, 유닛이 눈에 띄게 튀는 일이 잦아질 수 있습니다.",
@@ -2966,6 +2967,9 @@
         "title": "입력",
         "useCustomCursorSize": "사용자 지정 커서 크기 사용"
       },
+      "network": {
+        "title": "네트워크"
+      },
       "sound": {
         "announcer": {
           "default": "기본",
@@ -3083,6 +3087,7 @@
         "monitor": "모니터",
         "monitorItem": "모니터 {{index}} - {{label}}",
         "pillarbox": "필러박스 (4:3 화면 비율)",
+        "preferHighPerformanceGpu": "고성능 GPU 사용",
         "primaryMonitor": "기본값 (주 모니터)",
         "realTimeLighting": "실시간 조명",
         "resetWindowPositionButton": "초기화",
@@ -3470,6 +3475,7 @@
       "commendCount_other": "칭찬 {{count}}회",
       "copyLink": "프로필 링크 복사",
       "latestGames": "최근 게임",
+      "moreActions": "추가 작업",
       "points": "점수",
       "rank": "순위",
       "rating": "레이팅",
