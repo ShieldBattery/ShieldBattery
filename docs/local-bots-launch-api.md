@@ -5,10 +5,11 @@ map and bot selection; it does not create a server lobby, generate relay keys, o
 launch processes itself. One session contains one visible human client and one to
 seven hidden SC:R clients, each paired with an external BWAPI bot.
 
-Release DLLs support the BWAPI bridge for supervised local practice instances.
+Release DLLs activate the BWAPI bridge only after establishing an untracked local
+practice session. The game DLL rejects incompatible local and network setup.
 Production practice resolves bots through the signed catalog and requires explicit
 production approval. Direct `localGameStart` launches and legacy `SB_BWAPI` discovery
-remain development-only. Network games do not enable the release bridge.
+remain development-only. Server-tracked and relay games cannot enable the bridge.
 
 ## Renderer contract
 

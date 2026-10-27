@@ -184,6 +184,10 @@ impl BwScr {
     }
 
     pub(super) fn bwapi_end(&self) {
+        if !crate::bwapi::enabled() {
+            BRIDGE.with_borrow_mut(|bridge| *bridge = None);
+            return;
+        }
         // The simulation is over; allow a bounded final exchange for a client still computing.
         BRIDGE.with_borrow_mut(|bridge| {
             let Some(mut bridge_value) = bridge.take() else {

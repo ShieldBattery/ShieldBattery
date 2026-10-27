@@ -210,7 +210,7 @@ impl BwScr {
         let console_vtables = analysis.console_vtables();
 
         let first_active_unit = analysis.first_active_unit().ok_or("first_active_unit")?;
-        let bwapi_terrain = if crate::bwapi::enabled() {
+        let bwapi_terrain = if crate::bwapi::analysis_requested() {
             super::bwapi::Terrain::analyze(&mut analysis, ctx)
         } else {
             None
