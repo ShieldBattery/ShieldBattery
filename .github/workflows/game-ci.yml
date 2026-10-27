@@ -45,6 +45,9 @@ jobs:
       - name: clippy ${{ matrix.display }}
         run: cargo clippy --all-targets --workspace ${{ matrix.target }} -- -D warnings
 
+      - name: clippy release ${{ matrix.display }}
+        run: cargo clippy --release --all-targets --workspace ${{ matrix.target }} -- -D warnings
+
   fmt:
     runs-on: windows-latest
     defaults:
