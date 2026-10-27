@@ -55,17 +55,16 @@ cbuffer constants
 #define EXPLORED_MASK (170.0 / 255.0)
 
 #define BOUNDARY_COLOR float3(0.62, 0.68, 0.80)
-// Grain: two octaves of value noise, a coarse "cluster" one and a fine "dye cloud" one, cell sizes
-// in map pixels before grainScale.
-#define GRAIN_CLUSTER_CELL 3.0
-#define GRAIN_FINE_CELL 1.2
-// Standard deviation of valueNoise (measured), to normalize each octave to unit variance.
+// Grain: value noise with cells this many map pixels across before grainScale. Sized in map
+// pixels, it covers the same share of the screen at every resolution.
+#define GRAIN_CELL 3.0
+// Standard deviation of valueNoise (measured), to normalize it to unit variance.
 #define VALUE_NOISE_STD 0.2147
 // Standard deviation of the fog's density per unit of grainStrength.
-#define GRAIN_DENSITY_PER_STRENGTH 0.06
+#define GRAIN_DENSITY_PER_STRENGTH 0.042426
 // Rings, and directions per ring, sampled to find how far currently visible terrain is.
-#define VISION_RINGS 6
-#define VISION_DIRECTIONS 12
+#define VISION_RINGS 4
+#define VISION_DIRECTIONS 8
 
 // 1 inside a line of `width` screen pixels, given the distance from its center, with an
 // antialiased edge `feather` pixels wide.
@@ -81,24 +80,26 @@ float sampleMask(float2 uv)
 {
     float2 texSize;
     mask.GetDimensions(texSize.x, texSize.y);
-    // Held half a texel inside, so filtering doesn't blend in what lies past the edge.
+    // Held half a texel inside, so filtering doesn't blend in what lies past the edge. The
+    // bounds are the same for every sample, so the clamp is done in uv.
     float2 halfTexel = 0.5 * mapSpan / texSize;
-    float2 mapPos = mapOrigin + uv * mapSpan;
+    float2 uvPerMapPx = 1.0 / max(mapSpan, 1.0);
     if (all(mapSize > 0.0))
     {
-        mapPos = clamp(mapPos, halfTexel, mapSize - halfTexel);
+        uv = clamp(uv, (halfTexel - mapOrigin) * uvPerMapPx,
+            (mapSize - halfTexel - mapOrigin) * uvPerMapPx);
     }
-    return mask.SampleLevel(maskSampler, (mapPos - mapOrigin) / max(mapSpan, 1.0), 0.0).x;
+    return mask.SampleLevel(maskSampler, uv, 0.0).x;
 }
 
-// Pseudo-random 0..1 per integer cell.
-float cellRandom(float2 cell)
+#define CELL_SEED_X 374761393u
+#define CELL_SEED_Y 668265263u
+
+// Pseudo-random 0..1 for a cell, from its seed (`x * CELL_SEED_X + y * CELL_SEED_Y`, wrapping).
+float cellRandom(uint h)
 {
-    uint2 p = asuint(int2(cell));
-    uint h = p.x * 374761393u + p.y * 668265263u;
     h = (h ^ (h >> 13)) * 1274126177u;
-    h = h ^ (h >> 16);
-    return (h & 0xffff) / 65535.0;
+    return (h >> 16) * (1.0 / 65535.0);
 }
 
 // Smoothly interpolated value noise, one random value per cell corner.
@@ -107,32 +108,31 @@ float valueNoise(float2 pos)
     float2 cell = floor(pos);
     float2 f = pos - cell;
     f = f * f * (3.0 - 2.0 * f);
-    float top = lerp(cellRandom(cell), cellRandom(cell + float2(1.0, 0.0)), f.x);
-    float bottom = lerp(cellRandom(cell + float2(0.0, 1.0)), cellRandom(cell + float2(1.0, 1.0)), f.x);
+    // The neighboring corners' seeds are a constant step from this corner's.
+    uint2 p = asuint(int2(cell));
+    uint h = p.x * CELL_SEED_X + p.y * CELL_SEED_Y;
+    float top = lerp(cellRandom(h), cellRandom(h + CELL_SEED_X), f.x);
+    float bottom = lerp(cellRandom(h + CELL_SEED_Y), cellRandom(h + CELL_SEED_X + CELL_SEED_Y), f.x);
     return lerp(top, bottom, f.y);
 }
 
-// One octave of grain: zero-mean, unit-variance value noise, on a grid rotated by `angle` so the
-// octaves don't share axis-aligned seams. Fades to 0 once its cells are smaller than a couple of
-// screen pixels, the way minified film grain averages out, rather than shimmering.
-float grainOctave(float2 mapPos, float cell, float angle, float2 offset, float screenPxPerMapPx)
-{
-    float s = sin(angle);
-    float c = cos(angle);
-    float2 pos = mul(float2x2(c, -s, s, c), mapPos / cell) + offset;
-    float g = (valueNoise(pos) - 0.5) / VALUE_NOISE_STD;
-    return g * smoothstep(1.0, 2.0, cell * screenPxPerMapPx);
-}
-
-// Film-style grain: a zero-mean, unit-variance fluctuation, cluster and dye cloud octaves mixed
-// in power ((a + b) / sqrt(2)) so the mix keeps unit variance.
+// Film-style grain: zero-mean, unit-variance value noise, on a grid rotated off the map's axes so
+// its cells don't line up with the terrain's tiles. Fades to 0 once its cells are smaller than a
+// couple of screen pixels, the way minified film grain averages out, rather than shimmering.
 float grain(float2 mapPos, float screenPxPerMapPx)
 {
-    float cluster = grainOctave(
-        mapPos, GRAIN_CLUSTER_CELL * grainScale, 0.6, float2(0.0, 0.0), screenPxPerMapPx);
-    float fine = grainOctave(
-        mapPos, GRAIN_FINE_CELL * grainScale, 1.7, float2(17.3, 29.4), screenPxPerMapPx);
-    return (cluster + fine) * 0.70710678;
+    float cell = GRAIN_CELL * grainScale;
+    // The cell size on screen is the same over the whole draw, so faded out grain is skipped for
+    // every pixel alike.
+    float fade = smoothstep(1.0, 2.0, cell * screenPxPerMapPx);
+    if (fade == 0.0)
+    {
+        return 0.0;
+    }
+    float s = sin(0.6);
+    float c = cos(0.6);
+    float2 pos = mul(float2x2(c, -s, s, c), mapPos * (1.0 / cell));
+    return (valueNoise(pos) - 0.5) / VALUE_NOISE_STD * fade;
 }
 
 // Straight-alpha `top` composited over straight-alpha `bottom`.
@@ -191,7 +191,7 @@ float distanceToVision(float2 uv, float reach)
     float ringStep = reach / VISION_RINGS;
     float2 uvPerMapPx = 1.0 / max(mapSpan, 1.0);
     float nearest = reach;
-    [unroll]
+    [loop]
     for (int ring = 1; ring <= VISION_RINGS; ring++)
     {
         float radius = ring * ringStep;
@@ -203,6 +203,12 @@ float distanceToVision(float2 uv, float reach)
             float value = sampleMask(uv + offset);
             float visible = 1.0 - saturate(value / EXPLORED_MASK);
             nearest = min(nearest, lerp(reach, radius - ringStep, visible));
+        }
+        // A sample on a farther ring never counts as nearer than this ring's radius, so once
+        // `nearest` is within it the remaining rings can't lower it.
+        if (nearest <= radius)
+        {
+            break;
         }
     }
     return max(nearest, 0.0);

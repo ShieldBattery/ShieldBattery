@@ -22,21 +22,44 @@ pub struct ViewFogStyle {
     pub boundary_clearance_full: f32,
 }
 
+/// Grain on the game view's unexplored terrain. Grain is what tells unexplored terrain from
+/// explored fog on every tileset (a tint gets lost on blue Twilight/Ice terrain). The minimap gets
+/// none: at a pixel or two per tile it turns to moire.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GrainStyle {
+    /// How strongly grain varies the unexplored darkness, 0 for none.
+    pub strength: f32,
+    /// Multiplier on the grain's size.
+    pub scale: f32,
+}
+
+/// BW's tilesets, in the order of their ids.
+pub const TILESET_NAMES: [&str; 8] = [
+    "Badlands",
+    "Space Platform",
+    "Installation",
+    "Ashworld",
+    "Jungle",
+    "Desert",
+    "Ice",
+    "Twilight",
+];
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct FogStyle {
     pub game: ViewFogStyle,
     pub minimap: ViewFogStyle,
-    /// How strongly grain varies the game view's unexplored darkness, 0 for none. Grain is what
-    /// tells unexplored terrain from explored fog on every tileset (a tint gets lost on blue
-    /// Twilight/Ice terrain). The minimap gets none: at a pixel or two per tile it turns to
-    /// moire.
-    pub grain_strength: f32,
-    /// Multiplier on the grain's size.
-    pub grain_scale: f32,
+    /// Per tileset id: the same grain reads stronger over some terrain than others.
+    pub grain: [GrainStyle; 8],
     /// Radius in map pixels of the smoothing the boundary line is traced on, which rounds off
     /// the tile staircase in BW's per-tile mask.
     pub boundary_smoothing: f32,
 }
+
+const DEFAULT_GRAIN: GrainStyle = GrainStyle {
+    strength: 0.4,
+    scale: 0.4,
+};
 
 impl FogStyle {
     pub const DEFAULT: FogStyle = FogStyle {
@@ -58,23 +81,56 @@ impl FogStyle {
             boundary_clearance_start: 0.0,
             boundary_clearance_full: 0.0,
         },
-        grain_strength: 0.4,
-        grain_scale: 0.4,
+        // Indexed by tileset id. Grain reads stronger over Space Platform's, Desert's and Ice's
+        // terrain, so they get less of it, in finer cells.
+        grain: [
+            // Badlands
+            DEFAULT_GRAIN,
+            // Space Platform
+            GrainStyle {
+                strength: 0.35,
+                scale: 0.3,
+            },
+            // Installation
+            DEFAULT_GRAIN,
+            // Ashworld
+            DEFAULT_GRAIN,
+            // Jungle
+            DEFAULT_GRAIN,
+            // Desert
+            GrainStyle {
+                strength: 0.3,
+                scale: 0.3,
+            },
+            // Ice
+            GrainStyle {
+                strength: 0.25,
+                scale: 0.25,
+            },
+            // Twilight
+            DEFAULT_GRAIN,
+        ],
         boundary_smoothing: 3.0,
     };
 
-    /// Writes the style for one mask draw (the minimap's or the game view's) into the mask
-    /// shader's constants `[8..=16]`, in the order of its cbuffer.
-    pub fn write_shader_constants(&self, constants: &mut [f32], is_minimap: bool) {
+    /// The grain for a tileset id; ids past BW's eight get the first tileset's.
+    pub fn grain(&self, tileset: u16) -> &GrainStyle {
+        self.grain.get(tileset as usize).unwrap_or(&self.grain[0])
+    }
+
+    /// Writes the style for one mask draw (the minimap's or the game view's) on a map of
+    /// `tileset` into the mask shader's constants `[8..=16]`, in the order of its cbuffer.
+    pub fn write_shader_constants(&self, constants: &mut [f32], is_minimap: bool, tileset: u16) {
+        let grain = self.grain(tileset);
         let (view, grain_strength) = if is_minimap {
             (&self.minimap, 0.0)
         } else {
-            (&self.game, self.grain_strength)
+            (&self.game, grain.strength)
         };
         constants[8..17].copy_from_slice(&[
             view.unexplored_alpha,
             grain_strength,
-            self.grain_scale,
+            grain.scale,
             view.boundary_alpha,
             view.boundary_width,
             view.boundary_brightness,

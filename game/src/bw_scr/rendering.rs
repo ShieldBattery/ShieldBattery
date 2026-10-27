@@ -679,6 +679,7 @@ impl BwScr {
                         self.map_height_pixels.resolve() as f32,
                     ];
                     let fog_style = fog_style::fog_style();
+                    let tileset = (*self.game()).tileset;
                     let vertex_buffer = self.vertex_buffer.resolve();
                     for i in 0..draw_command_count {
                         let cmd = &raw mut (*commands).commands[i];
@@ -696,7 +697,7 @@ impl BwScr {
                             c[4..6].copy_from_slice(&origin);
                             c[6..8].copy_from_slice(&span);
                             c[17..19].copy_from_slice(&map_span);
-                            fog_style.write_shader_constants(c, is_minimap);
+                            fog_style.write_shader_constants(c, is_minimap, tileset);
                         }
                     }
                     let ret = {

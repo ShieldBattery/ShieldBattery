@@ -1043,7 +1043,8 @@ impl OverlayState {
         ui.collapsing("BW Dialogs", |ui| {
             self.dialog_debug_ui(bw, ui);
         });
-        ui.collapsing("Fog of war", fog_style_debug_ui);
+        let tileset = unsafe { (**bw.game).tileset };
+        ui.collapsing("Fog of war", |ui| fog_style_debug_ui(ui, tileset));
         ui.collapsing("Pre-SC:R graphic layers", |ui| {
             ui.label("Click to show / hide");
             if let Some(layers) = bw.graphic_layers {
@@ -1737,7 +1738,8 @@ impl OverlayState {
 }
 
 /// Live controls for how the transparent starting fog draws never-explored terrain.
-fn fog_style_debug_ui(ui: &mut egui::Ui) {
+/// Grain sliders adjust the grain of `tileset`, the current map's.
+fn fog_style_debug_ui(ui: &mut egui::Ui, tileset: u16) {
     use super::fog_style::{self, FogStyle, ViewFogStyle};
 
     fn view_ui(ui: &mut egui::Ui, view: &mut ViewFogStyle) {
@@ -1762,8 +1764,19 @@ fn fog_style_debug_ui(ui: &mut egui::Ui) {
     let mut style = fog_style::fog_style();
     ui.label("Game view");
     view_ui(ui, &mut style.game);
-    ui.add(Slider::new(&mut style.grain_strength, 0.0..=1.0).text("Grain strength"));
-    ui.add(Slider::new(&mut style.grain_scale, 0.25..=4.0).text("Grain scale"));
+    let index = if (tileset as usize) < style.grain.len() {
+        tileset as usize
+    } else {
+        0
+    };
+    ui.label(format!("Grain on {}", fog_style::TILESET_NAMES[index]));
+    let grain = &mut style.grain[index];
+    ui.add(Slider::new(&mut grain.strength, 0.0..=1.0).text("Grain strength"));
+    ui.add(Slider::new(&mut grain.scale, 0.25..=4.0).text("Grain scale"));
+    if ui.button("Use this grain on every tileset").clicked() {
+        let grain = *grain;
+        style.grain = [grain; 8];
+    }
     ui.separator();
     ui.label("Minimap");
     view_ui(ui, &mut style.minimap);
