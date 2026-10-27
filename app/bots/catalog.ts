@@ -66,7 +66,7 @@ const ELIGIBILITY_STATUSES = new Set<BotEligibilityStatus>([
 const REVIEW_STATUSES = new Set(['pending', 'approved', 'rejected'])
 
 /**
- * Picks the catalog URL for this build. An override is only honored when it is `https:`, or
+ * Picks the catalog URL for this build. Development accepts an override when it is `https:`, or
  * `http:` pointed at this machine (the shape a locally served development catalog takes).
  */
 export function resolveCatalogUrl({
@@ -77,7 +77,7 @@ export function resolveCatalogUrl({
   isDev: boolean
 }): string {
   const fallback = isDev ? STAGING_CATALOG_URL : PRODUCTION_CATALOG_URL
-  if (!override) {
+  if (!isDev || !override) {
     return fallback
   }
 

@@ -1,9 +1,12 @@
 import { EventEmitter } from 'node:events'
+import { promises as fs } from 'node:fs'
+import path from 'node:path'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import {
   CachedBotCatalog,
   InstalledBotRelease,
   JavaRuntimeInfo,
+  LocalBuildBot,
 } from '../../common/bots/bot-library'
 import { PracticeLaunchRequest } from '../../common/bots/practice'
 import { GameType } from '../../common/games/game-type'
@@ -46,13 +49,23 @@ vi.mock('./learning-profiles', async importOriginal => ({
   ...(await importOriginal<typeof import('./learning-profiles')>()),
   ...learning,
 }))
+const localBuilds = vi.hoisted(() => ({ value: [] as LocalBuildBot[] }))
+const installer = vi.hoisted(() => ({ installBotRelease: vi.fn() }))
+vi.mock('./installer', async importOriginal => ({
+  ...(await importOriginal<typeof import('./installer')>()),
+  installBotRelease: installer.installBotRelease,
+}))
 const cache = vi.hoisted(() => ({ value: undefined as CachedBotCatalog | undefined }))
 vi.mock('./library-store', async importOriginal => {
   const actual = await importOriginal<typeof import('./library-store')>()
   return {
     ...actual,
     loadLibraryData: async () => ({
-      data: { ...actual.emptyLibraryData(), installed: [INSTALLED] },
+      data: {
+        ...actual.emptyLibraryData(),
+        installed: [INSTALLED],
+        localBuilds: localBuilds.value,
+      },
       dropped: [],
     }),
     saveLibraryData: async () => {},
@@ -94,10 +107,12 @@ const REQUEST = {
   bots: [{ key: 'zzzkbot', race: 'zerg' }],
 } as unknown as PracticeLaunchRequest
 
-describe('BotLibrary production approval', () => {
+describe('BotLibrary production catalog', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     cache.value = undefined
+    localBuilds.value = []
+    installer.installBotRelease.mockResolvedValue({ record: INSTALLED })
   })
 
   function createLibrary(isDev: boolean) {
@@ -132,34 +147,58 @@ describe('BotLibrary production approval', () => {
     } as CachedBotCatalog
   }
 
-  test.each([undefined, 'candidate', 'staging'] as const)(
-    'production hides and refuses direct install/launch of %s release',
+  test.each([undefined, 'candidate', 'staging', 'production-approved'] as const)(
+    'production retains and launches installed release with catalog status %s',
     async releaseStatus => {
       catalog(releaseStatus)
       const library = createLibrary(false)
       const snapshot = await library.get()
-      expect(snapshot.catalog?.bots).toEqual([])
-      expect(snapshot.installed).toEqual([])
-      await expect(library.install(INSTALLED.botId, INSTALLED.releaseId)).rejects.toThrow(/catalog/)
-      await expect(library.startPracticeGame(REQUEST)).rejects.toThrow(
-        /not approved for production/,
-      )
-      expect(learning.ensureWorkingCopy).not.toHaveBeenCalled()
+      expect(snapshot.catalog?.bots).toHaveLength(1)
+      expect(snapshot.installed).toEqual([INSTALLED])
+      await library.install(INSTALLED.botId, INSTALLED.releaseId)
+      expect(installer.installBotRelease).toHaveBeenCalledOnce()
+      await library.startPracticeGame(REQUEST)
+      expect(learning.ensureWorkingCopy).toHaveBeenCalledOnce()
     },
   )
 
-  test('production retains and launches approved installed release from current catalog', async () => {
-    catalog('production-approved')
+  test('production retains and launches installed release without a cached catalog', async () => {
     const library = createLibrary(false)
-    expect((await library.get()).installed).toHaveLength(1)
+    expect((await library.get()).installed).toEqual([INSTALLED])
     await library.startPracticeGame(REQUEST)
     expect(learning.ensureWorkingCopy).toHaveBeenCalledOnce()
   })
 
-  test('production cannot reuse uncatalogued installation while offline', async () => {
+  test('production retains and launches installation absent from current catalog', async () => {
+    catalog('production-approved')
+    cache.value!.bots = []
     const library = createLibrary(false)
-    expect((await library.get()).installed).toEqual([])
-    await expect(library.startPracticeGame(REQUEST)).rejects.toThrow(/not approved for production/)
+    expect((await library.get()).installed).toEqual([INSTALLED])
+    await expect(library.install(INSTALLED.botId, INSTALLED.releaseId)).rejects.toThrow(/catalog/)
+    await library.startPracticeGame(REQUEST)
+    expect(learning.ensureWorkingCopy).toHaveBeenCalledOnce()
+  })
+
+  test('catalog removal leaves installation removable while preserving learning', async () => {
+    const library = createLibrary(false)
+    await library.get()
+    const remove = vi.spyOn(fs, 'rm').mockResolvedValue(undefined)
+    try {
+      await library.remove(INSTALLED.botId)
+      expect(library.getSnapshot().installed).toEqual([])
+      expect(remove).toHaveBeenCalledExactlyOnceWith(
+        path.join('bots', 'packages', INSTALLED.botId),
+        { recursive: true, force: true },
+      )
+    } finally {
+      remove.mockRestore()
+    }
+  })
+
+  test('local builds are visible only in development snapshots', async () => {
+    localBuilds.value = [{ key: 'local:test' }] as LocalBuildBot[]
+    expect((await createLibrary(false).get()).localBuilds).toEqual([])
+    expect((await createLibrary(true).get()).localBuilds).toEqual(localBuilds.value)
   })
 
   test('production rejects direct local-build launch', async () => {
@@ -175,6 +214,7 @@ describe('BotLibrary production approval', () => {
 
 beforeEach(() => {
   cache.value = undefined
+  localBuilds.value = []
 })
 
 describe('BotLibrary launches and bot changes', () => {

@@ -131,6 +131,12 @@ describe('app/bots/catalog-envelope/resolveCatalogTrust', () => {
     expect(resolveCatalogTrust({ isDev: false, env: {} }).channel).toBe('production')
   })
 
+  test('development can select the production channel and its pinned key', () => {
+    expect(
+      resolveCatalogTrust({ isDev: true, env: { SB_BOT_CATALOG_CHANNEL: 'production' } }),
+    ).toEqual(resolveCatalogTrust({ isDev: false, env: {} }))
+  })
+
   test('a development environment can substitute its own signing identity', () => {
     const resolved = resolveCatalogTrust({
       isDev: true,
@@ -145,8 +151,15 @@ describe('app/bots/catalog-envelope/resolveCatalogTrust', () => {
   test('a production build ignores environment overrides', () => {
     const resolved = resolveCatalogTrust({
       isDev: false,
-      env: { SB_BOT_CATALOG_KEY_ID: 'local', SB_BOT_CATALOG_PUBLIC_KEY: trust.publicKey },
+      env: {
+        SB_BOT_CATALOG_CHANNEL: 'staging',
+        SB_BOT_CATALOG_KEY_ID: 'local',
+        SB_BOT_CATALOG_PUBLIC_KEY: trust.publicKey,
+      },
     })
+    expect(resolved).toEqual(resolveCatalogTrust({ isDev: false, env: {} }))
+    expect(resolved.channel).toBe('production')
     expect(resolved.keyId).toBe('bots-production-1')
+    expect(() => openCatalogEnvelope(envelope(validPayload), resolved)).toThrow()
   })
 })

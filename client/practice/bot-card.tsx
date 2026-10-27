@@ -286,7 +286,7 @@ export function BotCard({
             <MaterialIcon icon='upgrade' size={17} />
             {t('practice.bots.updateAvailable', 'Update available')}
           </UpdateLine>
-          {bot.updateAvailable?.releaseStatus !== 'production-approved' ? (
+          {import.meta.env.DEV && bot.updateAvailable?.releaseStatus !== 'production-approved' ? (
             <Note>
               {t('practice.bots.devOnlyUpdate', 'Dev-only update — hidden in production')}
             </Note>

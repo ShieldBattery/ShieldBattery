@@ -53,7 +53,10 @@ export function resolveCatalogTrust({
   env?: NodeJS.ProcessEnv
 }): CatalogTrust {
   let channel: CatalogChannel = isDev ? 'staging' : 'production'
-  if (env.SB_BOT_CATALOG_CHANNEL === 'production' || env.SB_BOT_CATALOG_CHANNEL === 'staging') {
+  if (
+    isDev &&
+    (env.SB_BOT_CATALOG_CHANNEL === 'production' || env.SB_BOT_CATALOG_CHANNEL === 'staging')
+  ) {
     channel = env.SB_BOT_CATALOG_CHANNEL
   }
   const base = CATALOG_TRUST[channel]

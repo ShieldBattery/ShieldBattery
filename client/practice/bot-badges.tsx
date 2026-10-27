@@ -202,7 +202,7 @@ export function PlayStyleTags({
 
 export function ProductionVisibilityBadge({ bot }: { bot: Pick<BotView, 'releaseStatus'> }) {
   const { t } = useTranslation()
-  if (bot.releaseStatus === 'production-approved') return null
+  if (!import.meta.env.DEV || bot.releaseStatus === 'production-approved') return null
 
   return (
     <StatusLine $tone='amber' $dense={true}>

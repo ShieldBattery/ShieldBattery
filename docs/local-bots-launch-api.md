@@ -7,9 +7,10 @@ seven hidden SC:R clients, each paired with an external BWAPI bot.
 
 Release DLLs activate the BWAPI bridge only after establishing an untracked local
 practice session. The game DLL rejects incompatible local and network setup.
-Production practice resolves bots through the signed catalog and requires explicit
-production approval. Direct `localGameStart` launches and legacy `SB_BWAPI` discovery
-remain development-only. Server-tracked and relay games cannot enable the bridge.
+Production installs come from the signed production catalog; its publisher admits
+only production-approved releases. Existing installations remain available offline
+and when their catalog entries disappear. Direct `localGameStart` launches and
+legacy `SB_BWAPI` discovery remain development-only. Server-tracked and relay games cannot enable the bridge.
 
 ## Renderer contract
 
@@ -146,8 +147,10 @@ as the signed document so its signature is checked again on every load),
 `practice.json` (setup, presets, cached ladder pool, known maps, and the history of practice
 games, including the real identity behind a concealed opponent and the saved replay path).
 
-Catalog URL: `SB_BOT_CATALOG_URL`, else the staging CDN for development builds and the production
-CDN otherwise. Installing downloads to a scratch file, checks size and SHA-256, extracts through
+Production uses the fixed production CDN, channel, and signing key. Development
+defaults to staging and may override the URL with `SB_BOT_CATALOG_URL` and channel
+with `SB_BOT_CATALOG_CHANNEL`; signing-key overrides are also development-only.
+Installation downloads to a scratch file, checks size and SHA-256, extracts through
 entry-name and size guards, verifies the archive's `package.json` against the catalog's
 descriptor and manifest hash, then promotes the directory atomically. A failure keeps whatever was
 installed before.

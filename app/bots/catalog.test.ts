@@ -111,11 +111,18 @@ describe('app/bots/catalog/resolveCatalogUrl', () => {
     expect(resolveCatalogUrl({ isDev: false })).toBe(PRODUCTION_CATALOG_URL)
   })
 
-  test('accepts an https override', () => {
-    expect(resolveCatalogUrl({ isDev: false, override: 'https://example.test/c.json' })).toBe(
+  test('development accepts an https override', () => {
+    expect(resolveCatalogUrl({ isDev: true, override: 'https://example.test/c.json' })).toBe(
       'https://example.test/c.json',
     )
   })
+
+  test.each(['https://example.test/c.json', 'http://localhost:8080/c.json'])(
+    'production ignores override %s',
+    override => {
+      expect(resolveCatalogUrl({ isDev: false, override })).toBe(PRODUCTION_CATALOG_URL)
+    },
+  )
 
   test('accepts a plaintext override only for this machine', () => {
     expect(resolveCatalogUrl({ isDev: true, override: 'http://localhost:8080/c.json' })).toBe(

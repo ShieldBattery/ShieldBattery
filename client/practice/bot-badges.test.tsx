@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import { describe, expect, test, vi } from 'vitest'
+import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { ProductionVisibilityBadge } from './bot-badges'
 
 vi.mock('react-i18next', () => ({
@@ -7,6 +7,13 @@ vi.mock('react-i18next', () => ({
 }))
 
 describe('ProductionVisibilityBadge', () => {
+  beforeEach(() => vi.unstubAllEnvs())
+
+  test('production omits release-status badges', () => {
+    vi.stubEnv('DEV', false)
+    const { container } = render(<ProductionVisibilityBadge bot={{ releaseStatus: 'candidate' }} />)
+    expect(container.textContent).toBe('')
+  })
   test.each([undefined, 'candidate', 'staging'] as const)(
     'clearly labels %s release as hidden in production',
     releaseStatus => {

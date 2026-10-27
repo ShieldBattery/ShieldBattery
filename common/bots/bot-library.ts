@@ -37,7 +37,7 @@ export interface InstalledBotRelease {
   sizeBytes: number
   /** SHA-256 of the downloaded archive. */
   digest: string
-  /** The identity at install time, retained for development use without a catalog entry. */
+  /** The identity at install time, retained when the catalog no longer lists this bot. */
   bot: BotIdentity
   /** The package descriptor from inside the archive. */
   package: BotPackage
