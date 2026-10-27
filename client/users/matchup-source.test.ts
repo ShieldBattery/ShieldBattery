@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { AssignedRaceChar } from '../../common/races'
 import { MatchupFilters } from './matchup-data'
-import { MatchupModeData, createMatchupSource } from './matchup-source'
+import { createMatchupSource, MatchupModeData } from './matchup-source'
 import { ALL_MAPS, ALL_SEASONS } from './stats-filters'
 
 const MAP_A = 'map-a'

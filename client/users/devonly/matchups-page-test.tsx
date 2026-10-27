@@ -4,7 +4,7 @@ import { ALL_MATCHMAKING_TYPES, MatchmakingType } from '../../../common/matchmak
 import { buttonReset } from '../../material/button-reset'
 import { labelMedium } from '../../styles/typography'
 import { MatchupMatrix, MatchupScope } from '../matchup-matrix'
-import { EMPTY_MATCHUP_SOURCE, createMatchupSource } from '../matchup-source'
+import { createMatchupSource, EMPTY_MATCHUP_SOURCE } from '../matchup-source'
 import { SEASONS } from './fixtures'
 import { FIXTURE_RATING_BANDS, makeMatchupMode } from './matchup-fixtures'
 

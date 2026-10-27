@@ -10,7 +10,7 @@ import { LoadingDotsArea } from '../progress/dots'
 import { bodyLarge } from '../styles/typography'
 import { DEFAULT_RATING_BANDS } from './matchup-data'
 import { MatchupMatrix, MatchupMatrixState, MatchupScope } from './matchup-matrix'
-import { EMPTY_MATCHUP_SOURCE, MatchupModeData, createMatchupSource } from './matchup-source'
+import { createMatchupSource, EMPTY_MATCHUP_SOURCE, MatchupModeData } from './matchup-source'
 import { UserRankedModesQuery } from './ranked-modes-query'
 import { useProfileSeasons } from './use-profile-seasons'
 
