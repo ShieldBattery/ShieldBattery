@@ -489,6 +489,12 @@ pub(crate) fn native_sync_off() -> bool {
     ARMED.load(Ordering::Acquire)
 }
 
+/// Whether the sync probe logs confirmed report positions only, rather than every probe frame a
+/// step reaches: in a live game that rolls back, where a step can simulate a prediction.
+pub(crate) fn logs_confirmed_sync_probes() -> bool {
+    ARMED.load(Ordering::Acquire) && !game_thread::is_replay()
+}
+
 /// Whether this DLL can run a game that rolls back: analysis resolved everything the engine
 /// snapshots and hooks. Rolling back without any one of them either diverges or shows the players
 /// something only a prediction did, so a DLL missing one refuses the session instead.
@@ -694,10 +700,11 @@ pub unsafe fn run_game_logic_step(
                     },
                 );
             }
-            if hash_reports::is_report_position(step.frame)
-                && let Some(hash) = bw.rollback_state_hash()
-            {
-                hash_reports::record(step.frame, hash);
+            if hash_reports::is_report_position(step.frame) {
+                let mut units = hash_reports::unit_buffer();
+                if let Some(probe) = bw.rollback_sync_probe(Some(&mut units)) {
+                    hash_reports::record(step.frame, probe, units);
+                }
             }
             ret
         });

@@ -36,6 +36,7 @@ use crate::bw_scr::BwScr;
 use crate::bw_scr::scr;
 use crate::bw_scr::thiscall::Thiscall;
 use crate::debug_control::{RollbackProbeBatchResult, RollbackProbeStatus};
+use crate::rollback::state_hash::StateHash;
 use crate::windows;
 
 /// Environment variable that starts the probe at the first logic step of the run, so a replay can
@@ -157,20 +158,77 @@ pub struct Fingerprint {
     pub elapsed_seconds: u32,
     /// Every player slot's type, which changes when a player is defeated or leaves.
     pub player_types: [u8; 12],
-    /// [`state_hash`] of the frame.
-    pub state_hash: u64,
+    /// [`state_hash`](crate::rollback::state_hash::state_hash) of the frame.
+    pub state_hash: StateHash,
 }
+
+/// The names of [`Fingerprint::extra_columns`], in order.
+const EXTRA_COLUMNS: [&str; 11] = [
+    "elapsed_seconds",
+    "player_types",
+    "state_hash",
+    "frame_rng_hash",
+    "economy_hash",
+    "supply_hash",
+    "tech_hash",
+    "unit_count",
+    "units_hash",
+    "bullet_count",
+    "bullets_hash",
+];
 
 impl Fingerprint {
     /// The columns after the trigger countdown: the game clock, the player types as one hex
-    /// string, and the state hash.
+    /// string, the combined state hash, and its components.
     pub fn extra_columns(&self) -> String {
         let types = self
             .player_types
             .iter()
             .map(|x| format!("{x:02x}"))
             .collect::<String>();
-        format!("{},{types},{:016x}", self.elapsed_seconds, self.state_hash)
+        let hash = &self.state_hash;
+        format!(
+            "{},{types},{:016x},{:016x},{:016x},{:016x},{:016x},{},{:016x},{},{:016x}",
+            self.elapsed_seconds,
+            hash.combined(),
+            hash.frame_rng,
+            hash.economy,
+            hash.supply,
+            hash.tech,
+            hash.unit_count,
+            hash.units,
+            hash.bullet_count,
+            hash.bullets,
+        )
+    }
+
+    /// The header of [`extra_columns`](Self::extra_columns), each name prefixed with `prefix`.
+    pub fn extra_header(prefix: &str) -> String {
+        EXTRA_COLUMNS
+            .iter()
+            .map(|name| format!("{prefix}{name}"))
+            .collect::<Vec<_>>()
+            .join(",")
+    }
+
+    /// A fingerprint with every field set, for checking the CSV layouts.
+    #[cfg(test)]
+    pub fn sample() -> Fingerprint {
+        Fingerprint {
+            frame: 240,
+            rng: [1, 2, 3, 4, 5, 6],
+            minerals: [50; 4],
+            gas: [0; 4],
+            trigger_timer: 2,
+            elapsed_seconds: 10,
+            player_types: [2; 12],
+            state_hash: StateHash {
+                frame: 240,
+                unit_count: 12,
+                bullet_count: 1,
+                ..StateHash::default()
+            },
+        }
     }
 }
 
@@ -246,8 +304,8 @@ impl ProbeFile {
             "frame,frames_simulated,step_micros,alloc_calls,free_calls,\
              flags_alloc_calls,flags_free_calls,sound_calls,\
              rng0,rng1,rng2,rng3,rng4,rng5,\
-             minerals0,minerals1,minerals2,minerals3,gas0,gas1,gas2,gas3,trigger_timer,\
-             elapsed_seconds,player_types,state_hash"
+             minerals0,minerals1,minerals2,minerals3,gas0,gas1,gas2,gas3,trigger_timer,{}",
+            Fingerprint::extra_header(""),
         )
         .map_err(|e| format!("{}: {e}", path.display()))?;
         Ok(ProbeFile {
@@ -901,4 +959,17 @@ unsafe extern "C" fn alloc_trampoline() {
 unsafe extern "C" fn free_trampoline() {
     // Entry: rcx = allocator, rdx = pointer, [rsp] = return address.
     core::arch::naked_asm!("mov r8, [rsp]", "jmp {hook}", hook = sym free_hook)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn extra_columns_match_their_header() {
+        let columns = Fingerprint::sample().extra_columns();
+        let header = Fingerprint::extra_header("");
+        assert_eq!(columns.split(',').count(), header.split(',').count());
+        assert_eq!(header.split(',').nth(2), Some("state_hash"));
+    }
 }

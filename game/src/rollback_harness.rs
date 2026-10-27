@@ -1314,20 +1314,47 @@ impl HarnessFile {
                 std::process::id()
             ));
         let mut file = File::create(&path).map_err(|e| format!("{}: {e}", path.display()))?;
-        writeln!(
-            &mut file,
-            "frame,rng0,rng1,rng2,rng3,rng4,rng5,\
-             minerals0,minerals1,minerals2,minerals3,gas0,gas1,gas2,gas3,trigger_timer,\
-             elapsed_seconds,player_types,state_hash,\
-             confirmed_frame,c_rng0,c_rng1,c_rng2,c_rng3,c_rng4,c_rng5,\
-             c_minerals0,c_minerals1,c_minerals2,c_minerals3,c_gas0,c_gas1,c_gas2,c_gas3,\
-             c_trigger_timer,c_elapsed_seconds,c_player_types,c_state_hash,rollback_frames,\
-             suppressed_commands,applied_delayed_commands,retracted_announcements,\
-             sounds_on_time,sounds_late,sounds_late_frames,sounds_stale,\
-             units_moved,max_move,units_morphed,units_popped_in,units_popped_out,move_distances,\
-             restore_micros,steps_micros,snapshot_micros,tick_micros,tick_kcycles"
-        )
-        .map_err(|e| format!("{}: {e}", path.display()))?;
+        writeln!(&mut file, "{}", csv_header()).map_err(|e| format!("{}: {e}", path.display()))?;
         Ok(HarnessFile { path, file })
+    }
+}
+
+/// The names of the columns [`write_row`] writes, in order.
+fn csv_header() -> String {
+    format!(
+        "frame,rng0,rng1,rng2,rng3,rng4,rng5,\
+         minerals0,minerals1,minerals2,minerals3,gas0,gas1,gas2,gas3,trigger_timer,{},\
+         confirmed_frame,c_rng0,c_rng1,c_rng2,c_rng3,c_rng4,c_rng5,\
+         c_minerals0,c_minerals1,c_minerals2,c_minerals3,c_gas0,c_gas1,c_gas2,c_gas3,\
+         c_trigger_timer,{},rollback_frames,\
+         suppressed_commands,applied_delayed_commands,retracted_announcements,\
+         sounds_on_time,sounds_late,sounds_late_frames,sounds_stale,\
+         units_moved,max_move,units_morphed,units_popped_in,units_popped_out,move_distances,\
+         restore_micros,steps_micros,snapshot_micros,tick_micros,tick_kcycles",
+        Fingerprint::extra_header(""),
+        Fingerprint::extra_header("c_"),
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_header_names_every_fingerprint_column() {
+        let fingerprint = crate::rollback_probe::Fingerprint::sample();
+        let header = csv_header();
+        let names: Vec<&str> = header.split(',').collect();
+        let columns = fingerprint_columns(&fingerprint).split(',').count();
+        assert_eq!(
+            names.iter().position(|&x| x == "confirmed_frame"),
+            Some(columns)
+        );
+        assert_eq!(
+            names.iter().position(|&x| x == "rollback_frames"),
+            Some(2 * columns)
+        );
+        assert_eq!(names[columns - 1], "bullets_hash");
+        assert_eq!(names[2 * columns - 1], "c_bullets_hash");
     }
 }

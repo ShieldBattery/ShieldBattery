@@ -30,7 +30,7 @@ use tokio::sync::{mpsc, watch};
 
 use super::credentials::{self, CredentialError, RelayTarget, SessionCredentials};
 use super::rehome::{self, RehomeContext};
-use super::{DriverEnd, TurnState};
+use super::{DriverEnd, DriverEndReason, TurnState};
 use crate::app_messages::{NetcodeV2Setup, SbUserId};
 use crate::recurse_checked_mutex::Mutex;
 use crate::windows::wifi::WifiLowLatencyLease;
@@ -275,6 +275,9 @@ pub async fn establish_session(
             driver.run_reconnecting(reconnect).await
         };
         task_driver_end.record(&result);
+        if task_driver_end.reason() == Some(DriverEndReason::DesyncEvicted) {
+            crate::rollback::desync_evidence::on_desync_eviction();
+        }
         match result {
             Ok(()) => debug!("netcode v2 link closed cleanly"),
             Err(e) => error!("netcode v2 link failed: {e}"),

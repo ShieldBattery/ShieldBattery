@@ -26,6 +26,7 @@ use crate::bw_scr::BwScr;
 
 pub(crate) mod announcements;
 pub(crate) mod copier;
+pub(crate) mod desync_evidence;
 pub(crate) mod game_end;
 pub(crate) mod hash_reports;
 pub(crate) mod lead_window;
@@ -129,7 +130,7 @@ fn window_start() -> u32 {
 
 /// Clears engine state that does not survive to the next game: the sound and announcement
 /// ledgers, the observer UI's in-progress research keys, the units steps took out of the local
-/// selection, and the game end and hash report records.
+/// selection, the game end and hash report records, and the desync evidence.
 /// Called by the driver when the game
 /// loop (re-)enters game init.
 pub(crate) fn reset_for_game_init() {

@@ -4132,6 +4132,18 @@ impl BwScr {
         }
     }
 
+    /// The start of the unit pool, which a unit's slot index is counted from; null when the game
+    /// has no pool.
+    pub(crate) unsafe fn rollback_unit_pool(&self) -> *const bw::Unit {
+        unsafe {
+            let units = self.units.resolve();
+            match units.is_null() {
+                true => null(),
+                false => (*units).data as *const bw::Unit,
+            }
+        }
+    }
+
     /// Shows replay playback through the vision of the players in `players` (a bit per player),
     /// as the replay UI's vision toggles do.
     #[cfg(debug_assertions)]
@@ -4277,19 +4289,27 @@ impl BwScr {
         }
     }
 
-    /// The [`state_hash`](crate::rollback::state_hash::state_hash) of the current frame, or `None`
-    /// when no game is loaded.
-    pub(crate) unsafe fn rollback_state_hash(&self) -> Option<u64> {
+    /// The sync probe's reading of the current frame, or `None` when no game is loaded. When
+    /// `units_out` is given, every unit the state hash covers is appended to it as well.
+    pub(crate) unsafe fn rollback_sync_probe(
+        &self,
+        units_out: Option<&mut Vec<crate::rollback::state_hash::UnitRecord>>,
+    ) -> Option<crate::rollback::desync_evidence::SyncProbe> {
         unsafe {
             let game = self.game();
             if game.is_null() {
                 return None;
             }
-            Some(crate::rollback::state_hash::state_hash(
-                self,
-                game,
-                &self.rng_words(),
-            ))
+            let rng = self.rng_words();
+            let minerals = std::array::from_fn(|i| (*game).minerals[i]);
+            let gas = std::array::from_fn(|i| (*game).gas[i]);
+            Some(crate::rollback::desync_evidence::SyncProbe {
+                rng,
+                minerals,
+                gas,
+                trigger_timer: self.trigger_execution_timer.resolve(),
+                hash: crate::rollback::state_hash::state_hash(self, game, &rng, units_out),
+            })
         }
     }
 
@@ -4416,6 +4436,12 @@ impl BwScr {
         }
     }
 
+    /// The combined [`state_hash`](crate::rollback::state_hash::state_hash) of the current frame,
+    /// or `None` when no game is loaded.
+    pub(crate) unsafe fn rollback_state_hash(&self) -> Option<u64> {
+        unsafe { Some(self.rollback_sync_probe(None)?.hash.combined()) }
+    }
+
     /// Reads the synced-state fingerprint of the current frame, or `None` when no game is loaded.
     ///
     /// Same fields the low-rate sync probe logs: the words around the RNG seed operand (the seed
@@ -4428,22 +4454,16 @@ impl BwScr {
             if game.is_null() {
                 return None;
             }
-            let rng = self.rng_words();
-            let all_minerals = (*game).minerals;
-            let all_gas = (*game).gas;
-            let mut minerals = [0u32; 4];
-            minerals.copy_from_slice(&all_minerals[..4]);
-            let mut gas = [0u32; 4];
-            gas.copy_from_slice(&all_gas[..4]);
+            let probe = self.rollback_sync_probe(None)?;
             Some(crate::rollback_probe::Fingerprint {
                 frame: (*game).frame_count,
-                rng,
-                minerals,
-                gas,
-                trigger_timer: self.trigger_execution_timer.resolve(),
+                rng: probe.rng,
+                minerals: probe.minerals,
+                gas: probe.gas,
+                trigger_timer: probe.trigger_timer,
                 elapsed_seconds: (*game).elapsed_seconds,
                 player_types: std::array::from_fn(|i| (*self.players().add(i)).player_type),
-                state_hash: crate::rollback::state_hash::state_hash(self, game, &rng),
+                state_hash: probe.hash,
             })
         }
     }
@@ -6403,30 +6423,22 @@ unsafe fn step_game_logic_hook(
     // the advancing rand state/draw counters, so some of the words move with every synced draw.
     // `trigger_timer` is the trigger step's countdown: a live-vs-playback difference in it
     // means the two run their trigger passes on different frames (a player leave restarts it).
+    // The state hash's components follow. A live game that rolls back logs each probe frame
+    // once it is confirmed instead (see `rollback::desync_evidence`): the state a step leaves
+    // here can be a prediction there.
     {
         let game = bw.game();
-        if !game.is_null() {
+        if !game.is_null() && !crate::rollback_live::logs_confirmed_sync_probes() {
             let frame = (*game).frame_count;
             static LAST_PROBE_FRAME: AtomicU32 = AtomicU32::new(u32::MAX);
-            if frame.is_multiple_of(240) && LAST_PROBE_FRAME.swap(frame, Ordering::Relaxed) != frame
+            if crate::rollback::desync_evidence::is_sync_probe_point(frame)
+                && LAST_PROBE_FRAME.swap(frame, Ordering::Relaxed) != frame
+                && let Some(probe) = bw.rollback_sync_probe(None)
             {
-                let seed_ptr = bw.rng_seed.resolve_as_ptr();
-                let mut rng_words = [0u32; 6];
-                for (i, out) in rng_words.iter_mut().enumerate() {
-                    *out = seed_ptr.add(i).read_unaligned();
-                }
-                let minerals = (*game).minerals;
-                let gas = (*game).gas;
-                let trigger_timer = bw.trigger_execution_timer.resolve();
-                debug!(
-                    "Sync probe: frame {} rng {:x?} minerals {:?} gas {:?} trigger_timer {}",
-                    frame,
-                    rng_words,
-                    &minerals[..4],
-                    &gas[..4],
-                    trigger_timer,
-                );
+                debug!("Sync probe: {probe}");
             }
+            #[cfg(debug_assertions)]
+            crate::rollback::desync_evidence::write_requested_unit_table(bw, frame);
         }
     }
     #[cfg(debug_assertions)]

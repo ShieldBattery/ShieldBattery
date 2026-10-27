@@ -322,6 +322,7 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
                 crate::netcode_v2::with_turn_state(|s| s.send_leave_intent());
 
                 debug!("Game loop ended");
+                crate::rollback::desync_evidence::on_game_end();
                 TRACK_WINDOW_POS.store(false, Ordering::Release);
                 save_minimap_settings();
                 forge::hide_window();
