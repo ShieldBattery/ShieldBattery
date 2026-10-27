@@ -1,3 +1,4 @@
+pub mod clipboard;
 pub mod registry;
 pub mod version;
 pub mod wifi;

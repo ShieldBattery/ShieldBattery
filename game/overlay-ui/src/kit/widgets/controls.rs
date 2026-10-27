@@ -298,6 +298,8 @@ pub struct ScrubTrack {
     /// other frame, including the ones a press holds still and the one that lets go where it
     /// already was.
     pub target: Option<f32>,
+    /// The position right-clicked this frame, using the same scale as a scrub.
+    pub secondary_target: Option<f32>,
     /// Which of the track's markers the pointer is resting on, as an index into the ones it was
     /// given.
     pub hovered_marker: Option<usize>,
@@ -360,11 +362,23 @@ pub fn scrub_track_marked(
         .or(response.interact_pointer_pos());
     let pressed_marker = pressed_at.and_then(marker_at);
     let clicked_marker = response.clicked().then_some(pressed_marker).flatten();
+    let fraction_at = |pointer: Pos2| {
+        ((pointer.x - bar.left()) / bar.width().max(f32::MIN_POSITIVE)).clamp(0.0, 1.0)
+    };
+    let secondary_target = response
+        .secondary_clicked()
+        .then(|| response.interact_pointer_pos().map(fraction_at))
+        .flatten();
+    // A secondary press belongs to the track's context action, never to its playhead.
+    let primary = ui.input(|input| {
+        input.pointer.primary_down() || input.pointer.button_released(egui::PointerButton::Primary)
+    });
     let pointer = match pressed_marker {
         Some(_) => None,
-        None => response.interact_pointer_pos().map(|pointer| {
-            ((pointer.x - bar.left()) / bar.width().max(f32::MIN_POSITIVE)).clamp(0.0, 1.0)
-        }),
+        None => response
+            .interact_pointer_pos()
+            .filter(|_| primary)
+            .map(fraction_at),
     };
     let target = new_scrub_target(ui, response.id, pointer);
     let drawn = pointer.unwrap_or(fraction).clamp(0.0, 1.0);
@@ -372,6 +386,7 @@ pub fn scrub_track_marked(
         return ScrubTrack {
             response,
             target,
+            secondary_target,
             hovered_marker,
             clicked_marker,
         };
@@ -418,6 +433,7 @@ pub fn scrub_track_marked(
     ScrubTrack {
         response,
         target,
+        secondary_target,
         hovered_marker,
         clicked_marker,
     }

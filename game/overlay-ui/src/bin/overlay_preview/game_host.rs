@@ -35,6 +35,7 @@ pub struct PassInput {
 
 /// What one pass of the game context produced.
 pub struct PassOutput {
+    pub commands: Vec<egui::OutputCommand>,
     pub primitives: Vec<ClippedPrimitive>,
     pub textures_delta: TexturesDelta,
     pub cursor_icon: CursorIcon,
@@ -127,6 +128,7 @@ impl GameHost {
             .get(&ViewportId::ROOT)
             .map_or(Duration::MAX, |viewport| viewport.repaint_delay);
         PassOutput {
+            commands: output.platform_output.commands,
             primitives,
             textures_delta: output.textures_delta,
             cursor_icon: output.platform_output.cursor_icon,
@@ -221,6 +223,9 @@ impl GameHost {
     /// host's, and clipped to the viewport so nothing the overlay draws can escape the emulated
     /// screen into the surrounding window.
     pub fn present(&mut self, ui: &Ui, blit: &Blit, output: &mut PassOutput) {
+        for command in output.commands.drain(..) {
+            ui.ctx().send_cmd(command);
+        }
         self.apply_textures(ui.ctx(), &mut output.textures_delta);
         let painter = ui.painter();
         for primitive in output.primitives.drain(..) {

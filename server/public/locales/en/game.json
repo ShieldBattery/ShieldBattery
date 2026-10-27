@@ -398,6 +398,8 @@
     "lengthHidden": "Length hidden",
     "paused": "Paused",
     "reveal": "Reveal",
-    "speed": "×{{rate}}"
+    "speed": "×{{rate}}",
+    "timestampCopied": "Timestamp copied: {{timestamp}}",
+    "timestampCopyFailed": "Could not copy timestamp"
   }
 }

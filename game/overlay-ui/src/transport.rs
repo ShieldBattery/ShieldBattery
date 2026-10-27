@@ -22,6 +22,7 @@
 
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
+use std::time::Duration;
 
 use egui::emath::GuiRounding;
 use egui::{
@@ -385,6 +386,8 @@ pub struct TransportOutcome {
     pub rect: Rect,
     /// A frame to jump to.
     pub seek_to: Option<u32>,
+    /// The game time to copy to the clipboard, in whole seconds.
+    pub copy_timestamp: Option<u64>,
     /// Where on the map to look once the jump lands: the place of the event whose mark was clicked.
     pub look_at: Option<MapPoint>,
     /// A speed step to move to.
@@ -400,6 +403,7 @@ impl TransportOutcome {
         TransportOutcome {
             rect: Rect::NOTHING,
             seek_to: None,
+            copy_timestamp: None,
             look_at: None,
             speed: None,
             paused: None,
@@ -566,6 +570,23 @@ fn draw_track_row(
     let markers: Vec<TrackMarker> = marked.iter().map(|(_, marker)| *marker).collect();
     let track =
         widgets::scrub_track_marked(ui, view.progress(), vec2(TRACK_WIDTH, TRACK_ROW), &markers);
+    if let Some(target) = track.secondary_target
+        && let Some(anchor) = track.response.interact_pointer_pos()
+        && view.end_frames != 0
+    {
+        let seconds = frames_to_seconds(view.seek_fraction(target), view.game_speed);
+        outcome.copy_timestamp = Some(seconds);
+        ui.ctx().data_mut(|data| {
+            data.insert_temp(
+                copy_feedback_id(),
+                TimestampCopyFeedback {
+                    seconds,
+                    anchor,
+                    result: None,
+                },
+            );
+        });
+    }
     if let Some(target) = track.target {
         outcome.seek_to = Some(view.seek_fraction(target));
     }
@@ -574,7 +595,8 @@ fn draw_track_row(
         outcome.seek_to = Some(view.event_seek_target(event.secs));
         outcome.look_at = event.position;
     }
-    if let Some((events, _)) = track.hovered_marker.and_then(|index| marked.get(index))
+    if !draw_copy_feedback(ui)
+        && let Some((events, _)) = track.hovered_marker.and_then(|index| marked.get(index))
         && let Some(pointer) = track.response.hover_pos()
     {
         draw_marker_card(ui, pointer, events);
@@ -592,6 +614,64 @@ fn draw_track_row(
     if eye_button(ui).clicked() {
         outcome.spoiler_free = Some(true);
     }
+}
+
+#[derive(Clone)]
+struct TimestampCopyFeedback {
+    seconds: u64,
+    anchor: Pos2,
+    result: Option<(bool, f64)>,
+}
+
+fn copy_feedback_id() -> Id {
+    Id::new("sb_replay_transport").with("timestamp_copy")
+}
+
+/// Reports whether the host wrote the requested timestamp to the clipboard. A confirmation is
+/// drawn only after a successful write; a failed write gets an error in the same place.
+pub fn timestamp_copy_finished(ctx: &Context, copied: bool) {
+    let now = ctx.input(|input| input.time);
+    ctx.data_mut(|data| {
+        if let Some(mut feedback) = data.get_temp::<TimestampCopyFeedback>(copy_feedback_id()) {
+            feedback.result = Some((copied, now));
+            data.insert_temp(copy_feedback_id(), feedback);
+        }
+    });
+    ctx.request_repaint();
+}
+
+fn draw_copy_feedback(ui: &Ui) -> bool {
+    let id = copy_feedback_id();
+    let Some(feedback) = ui
+        .ctx()
+        .data(|data| data.get_temp::<TimestampCopyFeedback>(id))
+    else {
+        return false;
+    };
+    let Some((copied, started)) = feedback.result else {
+        return false;
+    };
+    let remaining = 2.0 - (ui.input(|input| input.time) - started);
+    if remaining <= 0.0 {
+        ui.ctx()
+            .data_mut(|data| data.remove::<TimestampCopyFeedback>(id));
+        return false;
+    }
+    widgets::tooltip_above(ui.ctx(), id, feedback.anchor, |ui| {
+        let label = if copied {
+            tr!(
+                "transport.timestampCopied",
+                "Timestamp copied: {{timestamp}}",
+                timestamp = timestamp_text(feedback.seconds)
+            )
+        } else {
+            tr!("transport.timestampCopyFailed", "Could not copy timestamp")
+        };
+        ui.label(text::body(13.0, BodyWeight::Regular).job(&label));
+    });
+    ui.ctx()
+        .request_repaint_after(Duration::from_secs_f64(remaining));
+    true
 }
 
 /// The events the track is ticked with, each beside the marker standing for it.
@@ -687,7 +767,7 @@ fn draw_marker_card_row(ui: &mut Ui, event: &TimelineEventView) {
     parts.push(
         text::numeral(MARKER_CARD_TEXT)
             .with_color(theme::TEXT_DIM)
-            .galley(ui, &clock_text(event.secs)),
+            .galley(ui, &timestamp_text(event.secs)),
     );
     let gap = ui.spacing().item_spacing.x;
     let ascent = parts
@@ -804,7 +884,7 @@ fn clock(ui: &mut Ui, frames: u32, game_speed: u8, size: f32, width: f32, color:
     widgets::text_cell(
         ui,
         &text::numeral(size).with_color(color),
-        &clock_text(frames_to_seconds(frames, game_speed)),
+        &timestamp_text(frames_to_seconds(frames, game_speed)),
         vec2(width, TRACK_ROW),
         Align::LEFT,
     );
@@ -816,8 +896,8 @@ fn small_label() -> text::TextSpec {
     text::column_label().with_color(theme::TEXT_SECONDARY)
 }
 
-/// Seconds as a game clock reads them, growing an hours field only once there is one.
-fn clock_text(seconds: u64) -> String {
+/// A game time in `m:ss` or `h:mm:ss`, shared by the playback clock and copied timestamps.
+pub fn timestamp_text(seconds: u64) -> String {
     let minutes = seconds / 60;
     let seconds = seconds % 60;
     if minutes >= 60 {
@@ -1015,10 +1095,10 @@ mod tests {
 
     #[test]
     fn clocks_grow_an_hours_field_only_when_there_is_one() {
-        assert_eq!(clock_text(0), "0:00");
-        assert_eq!(clock_text(1068), "17:48");
-        assert_eq!(clock_text(2492), "41:32");
-        assert_eq!(clock_text(3930), "1:05:30");
+        assert_eq!(timestamp_text(0), "0:00");
+        assert_eq!(timestamp_text(1068), "17:48");
+        assert_eq!(timestamp_text(2492), "41:32");
+        assert_eq!(timestamp_text(3930), "1:05:30");
     }
 
     #[test]
@@ -1184,6 +1264,110 @@ mod tests {
         let ctx = Context::default();
         crate::install_fonts_and_style(&ctx, &crate::DynamicFonts::default());
         ctx
+    }
+
+    fn track_frame(
+        ctx: &Context,
+        view: &TransportView,
+        time: f64,
+        button: Option<egui::PointerButton>,
+    ) -> (TransportOutcome, Vec<String>) {
+        let pos = pos2(TRACK_WIDTH * 0.5, TRACK_ROW * 0.5);
+        let mut events = vec![egui::Event::PointerMoved(pos)];
+        if let Some(button) = button {
+            events.extend([true, false].map(|pressed| egui::Event::PointerButton {
+                pos,
+                button,
+                pressed,
+                modifiers: egui::Modifiers::NONE,
+            }));
+        }
+        let mut outcome = TransportOutcome::new();
+        let mut output = ctx.run_ui(
+            egui::RawInput {
+                screen_rect: Some(Rect::from_min_size(Pos2::ZERO, vec2(1280.0, 720.0))),
+                time: Some(time),
+                events,
+                ..Default::default()
+            },
+            |ui| draw_track_row(ui, view, &[], &mut outcome),
+        );
+        fn collect(shape: &Shape, texts: &mut Vec<String>) {
+            match shape {
+                Shape::Text(text) => texts.push(text.galley.text().to_string()),
+                Shape::Vec(shapes) => shapes.iter().for_each(|shape| collect(shape, texts)),
+                _ => {}
+            }
+        }
+        let mut texts = Vec::new();
+        for shape in &output.shapes {
+            collect(&shape.shape, &mut texts);
+        }
+        output.textures_delta.clear();
+        (outcome, texts)
+    }
+
+    #[test]
+    fn right_click_copies_the_point_on_the_track_without_seeking() {
+        for game_speed in [0, 6] {
+            let ctx = fresh_ctx();
+            let view = TransportView {
+                game_speed,
+                ..view()
+            };
+            track_frame(&ctx, &view, 0.0, None);
+            let (copied, _) = track_frame(&ctx, &view, 0.1, Some(egui::PointerButton::Secondary));
+            assert_eq!(
+                copied.copy_timestamp,
+                Some(frames_to_seconds(view.end_frames / 2, game_speed))
+            );
+            assert_eq!(copied.seek_to, None);
+            let (seek, _) = track_frame(&ctx, &view, 0.2, Some(egui::PointerButton::Primary));
+            assert_eq!(seek.seek_to, Some(view.end_frames / 2));
+            assert_eq!(seek.copy_timestamp, None);
+        }
+    }
+
+    #[test]
+    fn copy_confirmation_waits_for_success_expires_and_restarts_for_the_next_copy() {
+        let ctx = fresh_ctx();
+        let view = view();
+        track_frame(&ctx, &view, 0.0, None);
+        let (_, text) = track_frame(&ctx, &view, 0.1, Some(egui::PointerButton::Secondary));
+        assert!(!text.iter().any(|text| text.contains("Timestamp copied")));
+        timestamp_copy_finished(&ctx, true);
+        track_frame(&ctx, &view, 0.2, None);
+        let (_, text) = track_frame(&ctx, &view, 0.3, None);
+        assert!(
+            text.iter().any(|text| text == "Timestamp copied: 21:00"),
+            "{text:?}"
+        );
+        let (_, text) = track_frame(&ctx, &view, 2.2, None);
+        assert!(!text.iter().any(|text| text.contains("Timestamp copied")));
+        track_frame(&ctx, &view, 2.3, Some(egui::PointerButton::Secondary));
+        timestamp_copy_finished(&ctx, false);
+        let (_, text) = track_frame(&ctx, &view, 2.4, None);
+        assert!(
+            text.iter().any(|text| text == "Could not copy timestamp"),
+            "{text:?}"
+        );
+        assert!(!text.iter().any(|text| text.contains("Timestamp copied")));
+    }
+
+    #[test]
+    fn a_track_without_a_replay_length_copies_nothing() {
+        let ctx = fresh_ctx();
+        let view = TransportView {
+            end_frames: 0,
+            ..view()
+        };
+        track_frame(&ctx, &view, 0.0, None);
+        assert_eq!(
+            track_frame(&ctx, &view, 0.1, Some(egui::PointerButton::Secondary))
+                .0
+                .copy_timestamp,
+            None
+        );
     }
 
     /// Renders `view` a few times and returns the size the plate settled on: an area takes egui a
