@@ -406,9 +406,10 @@ export interface NetcodeV2SessionLoadState {
 
 /**
  * One closed slot in a load-state pull. `epoch` is the relay connection epoch of the link whose
- * closure left the slot disconnected, as a decimal string (it's 64 bits wide). Epochs are never
- * reused within a session, so two pulls naming a slot closed with the same epoch saw one unbroken
- * disconnection: a reconnect in between would have opened a new link with a new epoch. Absent when
+ * closure left the slot disconnected, as a decimal string (it's 64 bits wide). Epochs are random
+ * 64-bit values, so a reconnect repeating one is vanishingly unlikely: two pulls naming a slot
+ * closed with the same epoch saw one unbroken disconnection, since a reconnect in between would
+ * have opened a new link with a new epoch. Absent when
  * the relay recorded none, in which case the closure can't be matched against any other pull's.
  */
 export interface NetcodeV2ClosedSlot {

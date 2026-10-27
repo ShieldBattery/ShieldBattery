@@ -305,8 +305,9 @@ const LoadingDatas = {
    *
    * Seeing a player closed in two pulls isn't enough by itself, since they may have reconnected and
    * left again in between. Each closure names the relay link whose closure began it, and a link's
-   * epoch is never reused, so the same epoch in both pulls means one disconnection that began before
-   * the earlier pull's snapshots and lasted through the later pull's. Another player live in the
+   * epoch is a random 64-bit value, so a reconnect repeating it is vanishingly unlikely: the same
+   * epoch in both pulls means one disconnection that began before the earlier pull's snapshots and
+   * lasted through the later pull's. Another player live in the
    * later pull was still there after that disconnection began, so after this leaver had gone.
    * Having ever connected isn't staying, and neither is having started: a player who reported
    * starting and then disconnected is neither live nor closed, and never counts as someone who
