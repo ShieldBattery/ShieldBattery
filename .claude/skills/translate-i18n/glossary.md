@@ -209,6 +209,8 @@ consistent. (Seed — extend over time.)
   overflowed at phone widths; titles keep the full "Inicia sesión en ShieldBattery".
 - **Licenses page:** open source→**código abierto**, license notices→avisos de licencia, release build→**compilación de lanzamiento**. The lobby ready toggle (rail) keeps the header's **Listo / No estoy listo**; the heart Support button→**Apoyar** (donations, not help).
 
+- **Map browser (`maps.*`):** delist→**retirar del catálogo**, fork (map)→**derivado** (Versiones y derivados), map family→**familia**, staff→**el staff**, Melee/UMS lens→Melee / UMS (in-file game type), the Your maps tab→Tus mapas (buttons say "mis mapas"), On this PC→**En este PC**, upload→subir.
+
 ### ru
 - Register: formal **Вы** (the existing file is consistently Вы; do not use ты here).
 - **Plurals need all four CLDR forms — one/few/many/other.** The file historically had only
@@ -338,6 +340,8 @@ consistent. (Seed — extend over time.)
 
 - **Licenses page:** open source→**открытое ПО / с открытым исходным кодом**, license notices→уведомления о лицензиях, release build→**релизная сборка**. The lobby ready toggle (rail) keeps the header's **Готов / Отменить готовность**.
 
+- **Map browser (`maps.*`):** delist→**убрать из каталога** (Убрана из каталога), fork (map)→**форк** (Версии и форки), map family→**группа версий**, staff→**администрация**, the Your maps tab→**«Мои карты»** (quoted when referenced in a sentence), Melee lens→Стычка (in-file game type), UMS kept, tileset→Тайлсет, related map→родственная карта. Relative times from `narrowDuration` render as «−3 дн.», so labels that precede one take a colon («Добавлена: {{time}}», «Последняя игра:»).
+
 ### ko
 - **Register: use formal-polite 합니다/습니다체 for sentences.** The existing `ko/global.json` is
   overwhelmingly 합니다체 (~191 vs 3), which is the conventional, non-stiff register for Korean
@@ -462,6 +466,8 @@ consistent. (Seed — extend over time.)
 
 - **Licenses page:** open source→**오픈 소스**, license→라이선스, license notices→라이선스 고지, release build→**릴리스 빌드**, fonts→글꼴. The lobby ready toggle (rail) keeps **준비 완료 / 준비 취소**; the heart Support button→**후원하기** (donations, not help).
 
+- **Map browser (`maps.*`):** delist→**목록에서 내리기**, fork (map)→**파생 (맵)** (버전 및 파생 맵), map family→**버전 그룹**, Melee/UMS lens→**섬멸전 / 유즈맵**, player count on tiles/filters→**{{count}}인용**, publish (map)→게시 (게시자:), On this PC→**이 PC**, staff→운영진.
+
 ### zh-Hans
 - Register: use 您 for second person (the existing file is ~3:1 您 vs 你; it's the normal polite UI
   register, not stiff).
@@ -569,3 +575,4 @@ consistent. (Seed — extend over time.)
 - **SD / HD graphics → 旧版图像 / 高清版图像** (the Video settings' in-file pair; "switch to HD"→切换到高清版).
   The leaderboard self chip "You"→**我** (a label on your own row, not an address, so no 您).
 - **Licenses page:** open source→**开源**, license→**许可证**, license notices→许可证声明, release build→**正式版构建**, software package→软件包. Support (heart button, donations)→**赞助**. Browsers report `zh-CN`, which the language detector doesn't map to zh-Hans yet; test with a `zh-Hans` locale.
+- **Map browser (`maps.*`):** delist→**下架**, fork (map)→**衍生** (版本与衍生), map family→**版本组**, Melee lens→对战 (in-file game type), UMS kept, tileset→地形类型 (in-file), Your maps→“我的地图”, On this PC→**此电脑**, staff→工作人员, map counter→张.
