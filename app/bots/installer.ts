@@ -340,6 +340,11 @@ async function installPlutoModel(
         }),
     })
     signal.throwIfAborted()
+    onProgress({
+      phase: 'installing',
+      receivedBytes: botDownloadSize(release),
+      totalBytes: botDownloadSize(release),
+    })
     await fs.mkdir(temporary)
     await extractArchive({
       zipPath: destination,

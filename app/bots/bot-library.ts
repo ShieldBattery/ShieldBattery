@@ -14,6 +14,7 @@ import path from 'node:path'
 import {
   BotCatalogEntry,
   BotCatalogRelease,
+  botDownloadSize,
   botRaceToRaceChar,
   BotRuntime,
 } from '../../common/bots/bot-catalog'
@@ -329,7 +330,7 @@ export class BotLibrary {
         releaseId,
         phase: 'downloading',
         receivedBytes: 0,
-        totalBytes: found.release.artifact.sizeBytes,
+        totalBytes: botDownloadSize(found.release),
       }
       this.installs.set(botId, { progress, controller })
       this.installFailures = this.installFailures.filter(failure => failure.botId !== botId)
