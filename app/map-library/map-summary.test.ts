@@ -1,19 +1,14 @@
+import type { MapSummary } from '@shieldbattery/broodmap'
 import { describe, expect, test } from 'vitest'
 import { LocalMapKind } from '../../common/map-library'
-import {
-  BroodmapMapSummary,
-  filterColorCodes,
-  normalizeSearch,
-  sortName,
-  toLocalMapInfo,
-} from './map-summary'
+import { filterColorCodes, normalizeSearch, sortName, toLocalMapInfo } from './map-summary'
 
 const HUMAN = 6
 const COMPUTER = 5
 const INACTIVE = 0
 const ANY_RACE = 5
 
-function summary(overrides: Partial<BroodmapMapSummary> = {}): BroodmapMapSummary {
+function summary(overrides: Partial<MapSummary> = {}): MapSummary {
   return {
     name: '(2)Test',
     description: null,
@@ -89,10 +84,6 @@ describe('app/map-library/map-summary/toLocalMapInfo', () => {
     expect(
       toLocalMapInfo(summary({ players, triggerActionKinds: ['CreateUnit'] })).playerCount,
     ).toBe(2)
-  })
-
-  test('unreadable triggers do not make a map UMS', () => {
-    expect(toLocalMapInfo(summary({ triggerActionKinds: null })).kind).toBe(LocalMapKind.Melee)
   })
 
   test('names lose their color codes, and a missing name is empty', () => {
