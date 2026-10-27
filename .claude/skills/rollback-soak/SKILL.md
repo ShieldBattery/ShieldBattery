@@ -12,7 +12,14 @@ log (RNG words, minerals/gas, trigger timer, player types, `state_hash`).
 
 It exercises the snapshot/restore/re-simulate engine (`game/src/rollback/`) through the replay
 harness (`rollback_harness.rs`). It does **not** exercise live-only paths: `rollback_live` pacing,
-prediction, the relay, live leave timing. A replay also has no local player, so code that depends on
+prediction, the relay, live leave timing. It does reproduce the shapes live ticks take when turns
+run late (`rollback_harness/live_shapes.rs`), and the runner gives half its runs some of them:
+`SB_ROLLBACK_HARNESS_STALL=<every>:<ticks>[:<release>[:<ids>]]` withholds players' turns until
+that many ticks have stalled at the prediction limit (`SB_ROLLBACK_PREDICT`), each stalled tick
+entering BW's step with the turn receive finding nothing; `SB_ROLLBACK_HARNESS_CATCH_UP=<frames>`
+is how many extra frames a tick then steps to catch up; `SB_ROLLBACK_HARNESS_MID_TICK=1` makes
+a tick learn of commands between its steps rather than before it plans. The harness CSV's
+`stalled` and `frames_behind` columns show them. A replay also has no local player, so code that depends on
 the local player only runs when a run sets `SB_ROLLBACK_HARNESS_VISION` (the runner randomizes it).
 Nor does it have a local selection unless a run sets `SB_ROLLBACK_HARNESS_SELECT=<frames>` (the
 runner adds it to most vision runs). Every that many frames it selects one of the vision player's
