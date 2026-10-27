@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { LadderPlayer, ladderPlayerToMatchmakingDivision } from '../../common/ladder/ladder'
 import {
-  getTotalBonusPoolForSeason,
+  getDivisionContext,
   makeSeasonId,
   MatchmakingSeasonJson,
   MatchmakingType,
@@ -45,6 +45,7 @@ const MOCK_SEASON: MatchmakingSeasonJson = {
   name: 'Beta Season 3',
   startDate: Date.now() - 1000 * 60 * 60 * 24 * 14,
   resetMmr: true,
+  divisionTableVersion: 2,
 }
 
 const NO_RACE_STATS: RaceStats = {
@@ -105,19 +106,25 @@ describe('client/users/user-card getRankedModes', () => {
       [MatchmakingType.Match2v2]: makeLadderPlayer(MatchmakingType.Match2v2, 940, 18, 21),
       [MatchmakingType.Match1v1]: makeLadderPlayer(MatchmakingType.Match1v1, 1840, 74, 52),
     }
-    const bonusPool = getTotalBonusPoolForSeason(new Date(), MOCK_SEASON)
+    const divisionContext = getDivisionContext(new Date(), MOCK_SEASON)
 
     expect(getRankedModes(makeProfile(ladder), MOCK_SEASON)).toEqual([
       {
         type: MatchmakingType.Match1v1,
-        division: ladderPlayerToMatchmakingDivision(ladder[MatchmakingType.Match1v1], bonusPool),
+        division: ladderPlayerToMatchmakingDivision(
+          ladder[MatchmakingType.Match1v1],
+          divisionContext,
+        ),
         points: 1840,
         wins: 74,
         losses: 52,
       },
       {
         type: MatchmakingType.Match2v2,
-        division: ladderPlayerToMatchmakingDivision(ladder[MatchmakingType.Match2v2], bonusPool),
+        division: ladderPlayerToMatchmakingDivision(
+          ladder[MatchmakingType.Match2v2],
+          divisionContext,
+        ),
         points: 940,
         wins: 18,
         losses: 21,

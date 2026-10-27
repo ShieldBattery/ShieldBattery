@@ -7,7 +7,7 @@ describe('client/games/live-game-entry/getCurrentDivision', () => {
     expect(
       getCurrentDivision(
         { matchmakingType: MatchmakingType.Match1v1, points: 5000, lifetimeGames: 4 },
-        0,
+        { bonusPool: 0 },
       ),
     ).toBe(MatchmakingDivision.Unrated)
   })
@@ -15,15 +15,15 @@ describe('client/games/live-game-entry/getCurrentDivision', () => {
   test('places points into a division once placements are done', () => {
     expect(
       getCurrentDivision(
-        { matchmakingType: MatchmakingType.Match1v1, points: 5000, lifetimeGames: 5 },
-        0,
+        { matchmakingType: MatchmakingType.Match1v1, points: 5600, lifetimeGames: 5 },
+        { bonusPool: 0 },
       ),
     ).toBe(MatchmakingDivision.Gold1)
   })
 
   test('accounts for the bonus pool', () => {
-    const rank = { matchmakingType: MatchmakingType.Match1v1, points: 5000, lifetimeGames: 20 }
-    expect(getCurrentDivision(rank, 0)).toBe(MatchmakingDivision.Gold1)
-    expect(getCurrentDivision(rank, 3000)).toBe(MatchmakingDivision.Silver3)
+    const rank = { matchmakingType: MatchmakingType.Match1v1, points: 5600, lifetimeGames: 20 }
+    expect(getCurrentDivision(rank, { bonusPool: 0 })).toBe(MatchmakingDivision.Gold1)
+    expect(getCurrentDivision(rank, { bonusPool: 3000 })).toBe(MatchmakingDivision.Silver1)
   })
 })

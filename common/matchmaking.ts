@@ -351,12 +351,69 @@ type MatchmakingDivisionWithBoundsAndBonusFactor = [
   bonusFactorHigh: number,
 ]
 
+/**
+ * A version of the division bounds. Each season places its divisions with the version it was played
+ * under, so changing the bounds doesn't move past seasons' divisions.
+ */
+export type DivisionTableVersion = 1 | 2
+
+/** The version of the division bounds that new seasons use. */
+export const CURRENT_DIVISION_TABLE_VERSION: DivisionTableVersion = 2
+
 // Divisions have a specific range of points they cover and have a separate factor for how much the
-// bonus pool applies to them. This bonus pool factor allows us to let people progress at a similar
-// rate through the lower divisions throughout the season but makes it harder to progress through
-// the upper divisions as the season goes on. (It is divided into a low and high factor to ensure
-// the division bounds are continuous)
-const DIVISIONS_TO_POINTS_SOLO: ReadonlyArray<MatchmakingDivisionWithBoundsAndBonusFactor> = [
+// bonus pool applies to them. (It is divided into a low and high factor to ensure the division
+// bounds are continuous.) An active player's points settle at about
+// `POINTS_FOR_RATING_TARGET_FACTOR` times their rating plus the bonus they've used, so a bound with
+// a factor of 1 asks the same rating of them all season, while a bound with a lower factor asks for
+// less rating as the season goes on. The lower divisions use lower factors so they mark progress
+// that bonus points help with; the divisions from Silver 3 up use a factor of 1 so they mark skill.
+// This is version 2 of the bounds.
+const V2_DIVISIONS_TO_POINTS_SOLO: ReadonlyArray<MatchmakingDivisionWithBoundsAndBonusFactor> = [
+  [MatchmakingDivision.Bronze1, -Infinity, 800, 0, 0],
+  [MatchmakingDivision.Bronze2, 800, 1600, 0, 0],
+  [MatchmakingDivision.Bronze3, 1600, 2400, 0, 0],
+  [MatchmakingDivision.Silver1, 2400, 4400, 0, 0.75],
+  [MatchmakingDivision.Silver2, 4400, 5000, 0.75, 1],
+  [MatchmakingDivision.Silver3, 5000, 5600, 1, 1],
+  [MatchmakingDivision.Gold1, 5600, 5920, 1, 1],
+  [MatchmakingDivision.Gold2, 5920, 6240, 1, 1],
+  [MatchmakingDivision.Gold3, 6240, 6560, 1, 1],
+  [MatchmakingDivision.Platinum1, 6560, 6880, 1, 1],
+  [MatchmakingDivision.Platinum2, 6880, 7200, 1, 1],
+  [MatchmakingDivision.Platinum3, 7200, 7520, 1, 1],
+  [MatchmakingDivision.Diamond1, 7520, 7840, 1, 1],
+  [MatchmakingDivision.Diamond2, 7840, 8160, 1, 1],
+  [MatchmakingDivision.Diamond3, 8160, 8480, 1, 1],
+  [MatchmakingDivision.Champion, 8480, Infinity, 1, 1],
+]
+
+// Team ratings spread less widely than 1v1 ratings, so the divisions from Gold up are narrower
+// steps of rating, with Gold starting around the 35th percentile of active team players. The lower
+// divisions are the 1v1 bounds scaled to match.
+const V2_DIVISIONS_TO_POINTS_TEAM: ReadonlyArray<MatchmakingDivisionWithBoundsAndBonusFactor> = [
+  [MatchmakingDivision.Bronze1, -Infinity, 860, 0, 0],
+  [MatchmakingDivision.Bronze2, 860, 1710, 0, 0],
+  [MatchmakingDivision.Bronze3, 1710, 2570, 0, 0],
+  [MatchmakingDivision.Silver1, 2570, 4710, 0, 0.75],
+  [MatchmakingDivision.Silver2, 4710, 5360, 0.75, 1],
+  [MatchmakingDivision.Silver3, 5360, 6000, 1, 1],
+  [MatchmakingDivision.Gold1, 6000, 6240, 1, 1],
+  [MatchmakingDivision.Gold2, 6240, 6480, 1, 1],
+  [MatchmakingDivision.Gold3, 6480, 6720, 1, 1],
+  [MatchmakingDivision.Platinum1, 6720, 6960, 1, 1],
+  [MatchmakingDivision.Platinum2, 6960, 7200, 1, 1],
+  [MatchmakingDivision.Platinum3, 7200, 7440, 1, 1],
+  [MatchmakingDivision.Diamond1, 7440, 7680, 1, 1],
+  [MatchmakingDivision.Diamond2, 7680, 7920, 1, 1],
+  [MatchmakingDivision.Diamond3, 7920, 8160, 1, 1],
+  [MatchmakingDivision.Champion, 8160, Infinity, 1, 1],
+]
+
+// Version 1 of the division bounds, used by seasons whose points were earned under a fixed per-win
+// catch-up that stopped at a floor rather than following the player's rating. Most players' points
+// stayed below their rating's target, so the bounds sit lower and the bonus factors stay below 1
+// through Gold.
+const V1_DIVISIONS_TO_POINTS_SOLO: ReadonlyArray<MatchmakingDivisionWithBoundsAndBonusFactor> = [
   [MatchmakingDivision.Bronze1, -Infinity, 800, 0, 0],
   [MatchmakingDivision.Bronze2, 800, 1520, 0, 0],
   [MatchmakingDivision.Bronze3, 1520, 2240, 0, 0],
@@ -375,7 +432,7 @@ const DIVISIONS_TO_POINTS_SOLO: ReadonlyArray<MatchmakingDivisionWithBoundsAndBo
   [MatchmakingDivision.Champion, 8000, Infinity, 1, 1],
 ]
 
-const DIVISIONS_TO_POINTS_TEAM: ReadonlyArray<MatchmakingDivisionWithBoundsAndBonusFactor> = [
+const V1_DIVISIONS_TO_POINTS_TEAM: ReadonlyArray<MatchmakingDivisionWithBoundsAndBonusFactor> = [
   [MatchmakingDivision.Bronze1, -Infinity, 700, 0, 0],
   [MatchmakingDivision.Bronze2, 700, 1400, 0, 0],
   [MatchmakingDivision.Bronze3, 1400, 2100, 0, 0],
@@ -400,9 +457,39 @@ const UNRATED_BOUNDS: Readonly<MatchmakingDivisionWithBounds> = [
   Infinity,
 ]
 
-function binarySearchPoints(solo: boolean, points: number, bonusPool: number): number {
+/**
+ * What placing points into divisions needs to know about a season at a particular time: the bonus
+ * pool accrued by then, and the version of the division bounds it uses
+ * (`CURRENT_DIVISION_TABLE_VERSION` if not given).
+ */
+export interface DivisionContext {
+  bonusPool: number
+  tableVersion?: DivisionTableVersion
+}
+
+function getDivisionTable(
+  solo: boolean,
+  context: Readonly<DivisionContext>,
+): ReadonlyArray<MatchmakingDivisionWithBoundsAndBonusFactor> {
+  const version = context.tableVersion ?? CURRENT_DIVISION_TABLE_VERSION
+  switch (version) {
+    case 1:
+      return solo ? V1_DIVISIONS_TO_POINTS_SOLO : V1_DIVISIONS_TO_POINTS_TEAM
+    case 2:
+      return solo ? V2_DIVISIONS_TO_POINTS_SOLO : V2_DIVISIONS_TO_POINTS_TEAM
+    default:
+      return assertUnreachable(version)
+  }
+}
+
+function binarySearchPoints(
+  solo: boolean,
+  points: number,
+  context: Readonly<DivisionContext>,
+): number {
+  const { bonusPool } = context
   return binarySearch(
-    solo ? DIVISIONS_TO_POINTS_SOLO : DIVISIONS_TO_POINTS_TEAM,
+    getDivisionTable(solo, context),
     points,
     ([_, low, high, bonusFactorLow, bonusFactorHigh], points) => {
       if (low + bonusPool * bonusFactorLow > points) {
@@ -434,27 +521,27 @@ function addBonusPoolToDivisionBounds(
 }
 
 /**
- * Returns every division with its points bounds at a given bonus pool, in ascending
- * order. Intended for UI that needs the whole ladder at once (e.g. drawing division
- * bands behind a points chart) rather than the division a particular value falls in.
+ * Returns every division with its points bounds in a given context, in ascending order. Intended
+ * for UI that needs the whole ladder at once (e.g. drawing division bands behind a points chart)
+ * rather than the division a particular value falls in.
  */
 export function getAllDivisionsWithBounds(
   solo: boolean,
-  bonusPool: number,
+  context: Readonly<DivisionContext>,
 ): Array<Readonly<MatchmakingDivisionWithBounds>> {
-  const divisionsToPoints = solo ? DIVISIONS_TO_POINTS_SOLO : DIVISIONS_TO_POINTS_TEAM
-  return divisionsToPoints.map(b => addBonusPoolToDivisionBounds(b, bonusPool))
+  return getDivisionTable(solo, context).map(b =>
+    addBonusPoolToDivisionBounds(b, context.bonusPool),
+  )
 }
 
 /** Converts a given points value into a matching `MatchmakingDivision`. */
 export function pointsToMatchmakingDivision(
   solo: boolean,
   points: number,
-  bonusPool: number,
+  context: Readonly<DivisionContext>,
 ): MatchmakingDivision {
-  const divisionsToPoints = solo ? DIVISIONS_TO_POINTS_SOLO : DIVISIONS_TO_POINTS_TEAM
-  const index = binarySearchPoints(solo, points, bonusPool)
-  return index >= 0 ? divisionsToPoints[index][0] : MatchmakingDivision.Unrated
+  const index = binarySearchPoints(solo, points, context)
+  return index >= 0 ? getDivisionTable(solo, context)[index][0] : MatchmakingDivision.Unrated
 }
 
 /**
@@ -464,12 +551,11 @@ export function pointsToMatchmakingDivision(
 export function pointsToMatchmakingDivisionAndBounds(
   solo: boolean,
   points: number,
-  bonusPool: number,
+  context: Readonly<DivisionContext>,
 ): Readonly<MatchmakingDivisionWithBounds> {
-  const divisionsToPoints = solo ? DIVISIONS_TO_POINTS_SOLO : DIVISIONS_TO_POINTS_TEAM
-  const index = binarySearchPoints(solo, points, bonusPool)
+  const index = binarySearchPoints(solo, points, context)
   return index >= 0
-    ? addBonusPoolToDivisionBounds(divisionsToPoints[index], bonusPool)
+    ? addBonusPoolToDivisionBounds(getDivisionTable(solo, context)[index], context.bonusPool)
     : UNRATED_BOUNDS
 }
 
@@ -483,32 +569,29 @@ export function getDivisionsForPointsChange(
   solo: boolean,
   startingPoints: number,
   endingPoints: number,
-  bonusPool: number,
+  context: Readonly<DivisionContext>,
 ): Array<Readonly<MatchmakingDivisionWithBounds>> {
-  const startingIndex = binarySearchPoints(solo, startingPoints, bonusPool)
-  const endingIndex = binarySearchPoints(solo, endingPoints, bonusPool)
-  const divisionsToPoints = solo ? DIVISIONS_TO_POINTS_SOLO : DIVISIONS_TO_POINTS_TEAM
+  const startingIndex = binarySearchPoints(solo, startingPoints, context)
+  const endingIndex = binarySearchPoints(solo, endingPoints, context)
+  const divisionsToPoints = getDivisionTable(solo, context)
+  const withBounds = (b: Readonly<MatchmakingDivisionWithBoundsAndBonusFactor>) =>
+    addBonusPoolToDivisionBounds(b, context.bonusPool)
 
   if (startingIndex === -1 && endingIndex === -1) {
     return [UNRATED_BOUNDS]
   } else if (startingIndex === -1) {
-    return [UNRATED_BOUNDS, addBonusPoolToDivisionBounds(divisionsToPoints[endingIndex], bonusPool)]
+    return [UNRATED_BOUNDS, withBounds(divisionsToPoints[endingIndex])]
   } else if (endingIndex === -1) {
-    return [
-      UNRATED_BOUNDS,
-      addBonusPoolToDivisionBounds(divisionsToPoints[startingIndex], bonusPool),
-    ]
+    return [UNRATED_BOUNDS, withBounds(divisionsToPoints[startingIndex])]
   }
 
   if (startingIndex > endingIndex) {
     return divisionsToPoints
       .slice(endingIndex, startingIndex + 1)
       .reverse()
-      .map(b => addBonusPoolToDivisionBounds(b, bonusPool))
+      .map(withBounds)
   } else {
-    return divisionsToPoints
-      .slice(startingIndex, endingIndex + 1)
-      .map(b => addBonusPoolToDivisionBounds(b, bonusPool))
+    return divisionsToPoints.slice(startingIndex, endingIndex + 1).map(withBounds)
   }
 }
 
@@ -543,40 +626,6 @@ export function getDivisionColor(division: MatchmakingDivision) {
   }
 }
 
-/**
- * Rating floors to be used to determine if a user is still converging towards their target point
- * total. If they are still converging, they'll receive extra points for each win until they hit
- * the value listed here.
- */
-const RATING_CONVERGENCE_BUCKETS: ReadonlyArray<[minRating: number, extraPoints: number]> = [
-  [1100, 30],
-  [1280, 65],
-  [1460, 100],
-]
-
-function getRatingConvergenceBucket(rating: number) {
-  let index = 0
-  for (
-    ;
-    index < RATING_CONVERGENCE_BUCKETS.length - 1 &&
-    RATING_CONVERGENCE_BUCKETS[index + 1][0] <= rating;
-    index++
-  ) {
-    // This space intentionally left blank
-  }
-  return RATING_CONVERGENCE_BUCKETS[index]
-}
-
-export function getConvergencePoints(rating: number): number {
-  const [_, extraPoints] = getRatingConvergenceBucket(rating)
-  return extraPoints
-}
-
-export function arePointsConverged(rating: number, points: number): boolean {
-  const [minRating, _] = getRatingConvergenceBucket(rating)
-  return points >= minRating * 4
-}
-
 /** How many matches a user must play before we show them a rating. */
 export const NUM_PLACEMENT_MATCHES = 5
 
@@ -596,6 +645,8 @@ export interface MatchmakingSeason {
   endDate?: Date
   name: string
   resetMmr: boolean
+  /** The version of the division bounds this season's divisions are placed with. */
+  divisionTableVersion: DivisionTableVersion
 }
 
 export type MatchmakingSeasonJson = Jsonify<MatchmakingSeason>
@@ -607,6 +658,7 @@ export function toMatchmakingSeasonJson(season: MatchmakingSeason): MatchmakingS
     endDate: season.endDate ? Number(season.endDate) : undefined,
     name: season.name,
     resetMmr: season.resetMmr,
+    divisionTableVersion: season.divisionTableVersion,
   }
 }
 
@@ -655,6 +707,17 @@ export function getTotalBonusPoolForSeason(
     ? [season.startDate, season.endDate]
     : [new Date(season.startDate), season.endDate ? new Date(season.endDate) : undefined]
   return getTotalBonusPool(at, start, end)
+}
+
+/** Returns the context for placing points into a season's divisions as of a particular time. */
+export function getDivisionContext(
+  at: Date,
+  season: Readonly<MatchmakingSeason> | Readonly<MatchmakingSeasonJson>,
+): DivisionContext {
+  return {
+    bonusPool: getTotalBonusPoolForSeason(at, season),
+    tableVersion: season.divisionTableVersion,
+  }
 }
 
 /**
@@ -799,7 +862,7 @@ export function getDivisionBeforeRatingChange(
       'matchmakingType' | 'points' | 'pointsChange' | 'lifetimeGames'
     >
   >,
-  bonusPool: number,
+  context: Readonly<DivisionContext>,
 ): MatchmakingDivision {
   // `lifetimeGames` counts the game the change came from.
   if (change.lifetimeGames - 1 < NUM_PLACEMENT_MATCHES) {
@@ -808,7 +871,7 @@ export function getDivisionBeforeRatingChange(
   return pointsToMatchmakingDivision(
     isSoloType(change.matchmakingType),
     change.points - change.pointsChange,
-    bonusPool,
+    context,
   )
 }
 
@@ -1303,7 +1366,10 @@ export interface GetMatchmakingSeasonsResponse {
   current: SeasonId
 }
 
-export type ServerAddMatchmakingSeasonRequest = Omit<MatchmakingSeason, 'id'>
+export type ServerAddMatchmakingSeasonRequest = Omit<
+  MatchmakingSeason,
+  'id' | 'divisionTableVersion'
+>
 
 export type AddMatchmakingSeasonRequest = Jsonify<ServerAddMatchmakingSeasonRequest>
 

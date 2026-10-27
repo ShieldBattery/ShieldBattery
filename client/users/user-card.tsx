@@ -10,7 +10,7 @@ import {
   ladderPlayerToMatchmakingDivision,
 } from '../../common/ladder/ladder'
 import {
-  getTotalBonusPoolForSeason,
+  getDivisionContext,
   MatchmakingDivision,
   matchmakingDivisionToLabel,
   MatchmakingSeasonJson,
@@ -78,7 +78,7 @@ export function getRankedModes(
   profile: ReadonlyDeep<UserProfileJson>,
   season: ReadonlyDeep<MatchmakingSeasonJson> | undefined,
 ): RankedMode[] {
-  const bonusPool = season ? getTotalBonusPoolForSeason(new Date(), season) : undefined
+  const divisionContext = season ? getDivisionContext(new Date(), season) : undefined
   return getRankedTypesByActivity(profile.ladder).flatMap((type): RankedMode[] => {
     const player = profile.ladder[type]!
     if (player.lifetimeGames < NUM_PLACEMENT_MATCHES) {
@@ -87,10 +87,9 @@ export function getRankedModes(
     return [
       {
         type,
-        division:
-          bonusPool !== undefined
-            ? ladderPlayerToMatchmakingDivision(player, bonusPool)
-            : undefined,
+        division: divisionContext
+          ? ladderPlayerToMatchmakingDivision(player, divisionContext)
+          : undefined,
         race: getMainRace(player),
         points: player.points,
         wins: player.wins,

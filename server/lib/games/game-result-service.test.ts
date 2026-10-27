@@ -24,9 +24,9 @@ import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { updateRankings } from '../ladder/rankings'
 import { updateLeaderboards } from '../leagues/leaderboard'
 import {
+  ActiveLeagueUser,
   getActiveLeaguesForUsersWithLock,
   getLeagueUserChangesForGame,
-  LeagueUser,
   updateLeagueUser,
 } from '../leagues/league-models'
 import {
@@ -996,6 +996,7 @@ describe('games/game-result-service/GameResultService lobby violations', () => {
     name: 'Season 1',
     startDate: new Date(0),
     resetMmr: true,
+    divisionTableVersion: 2,
   }
 
   function makeGame(config = matchmakingConfig(DEFAULT_TEAMS)): GameRecord {
@@ -1231,6 +1232,7 @@ describe('games/game-result-service/GameResultService#resolveGameManually', () =
     name: 'Season 1',
     startDate: new Date(0),
     resetMmr: true,
+    divisionTableVersion: 2,
   }
 
   /** The stored results a disputed 1v1 leaves behind: races and APM known, outcomes not. */
@@ -1316,9 +1318,14 @@ describe('games/game-result-service/GameResultService#resolveGameManually', () =
 
   const LEAGUE_ID = makeLeagueId('league-1')
 
-  function makeLeagueUser(userId: SbUserId, overrides: Partial<LeagueUser> = {}): LeagueUser {
+  function makeLeagueUser(
+    userId: SbUserId,
+    overrides: Partial<ActiveLeagueUser> = {},
+  ): ActiveLeagueUser {
     return {
       leagueId: LEAGUE_ID,
+      leagueStartAt: new Date(0),
+      leagueEndAt: new Date(4 * 7 * 24 * 60 * 60 * 1000),
       userId,
       isBanned: false,
       points: 0,
@@ -1997,6 +2004,7 @@ describe('games/game-result-service replay violations', () => {
     name: 'Season 1',
     startDate: new Date(0),
     resetMmr: true,
+    divisionTableVersion: 2,
   }
   const p4 = makeSbUserId(4)
   let service: GameResultService

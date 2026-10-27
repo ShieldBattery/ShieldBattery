@@ -21,18 +21,21 @@ const STARTING_SEASONS: ReadonlyArray<MatchmakingSeason> = [
     startDate: new Date('2023-01-01'),
     name: 'Cooler Season',
     resetMmr: false,
+    divisionTableVersion: 1,
   },
   {
     id: makeSeasonId(2),
     startDate: new Date('2022-06-01'),
     name: 'Cool Season',
     resetMmr: true,
+    divisionTableVersion: 1,
   },
   {
     id: makeSeasonId(1),
     startDate: new Date('2012-01-01'),
     name: 'Beta Season',
     resetMmr: true,
+    divisionTableVersion: 1,
   },
 ]
 
@@ -53,7 +56,11 @@ describe('matchmaking/matchmaking-seasons', () => {
     addMatchmakingSeasonMock.mockImplementation(season => {
       // This isn't totally correct but should work fine given what we actually want to test
       const nextId = (mockDbState[0].id ?? 0) + 1
-      const createdSeason = { ...season, id: makeSeasonId(nextId) }
+      const createdSeason = {
+        ...season,
+        id: makeSeasonId(nextId),
+        divisionTableVersion: 2 as const,
+      }
       mockDbState = [createdSeason, ...mockDbState].sort(
         (a, b) => Number(b.startDate) - Number(a.startDate),
       )
@@ -105,6 +112,7 @@ describe('matchmaking/matchmaking-seasons', () => {
 
     expect(createdSeason).toMatchInlineSnapshot(`
       {
+        "divisionTableVersion": 2,
         "id": 4,
         "name": "New Season",
         "resetMmr": true,

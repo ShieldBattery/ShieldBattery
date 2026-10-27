@@ -7,8 +7,9 @@ import { ladderPlayerToMatchmakingDivision } from '../../common/ladder/ladder'
 import { urlForLobby } from '../../common/lobbies/lobby-url'
 import {
   ALL_MATCHMAKING_TYPES,
+  DivisionContext,
+  getDivisionContext,
   getMatchmakingModeInfo,
-  getTotalBonusPoolForSeason,
   MapSelectionStyle,
   MatchmakingDivision,
   matchmakingDivisionToLabel,
@@ -1331,7 +1332,9 @@ export function FindMatch() {
   // ─── Derived data ────────────────────────────────────────────────────────────
 
   const currentMinuteMs = useCurrentMinuteMs()
-  const bonusPoolSize = season ? getTotalBonusPoolForSeason(new Date(currentMinuteMs), season) : 0
+  const divisionContext: DivisionContext = season
+    ? getDivisionContext(new Date(currentMinuteMs), season)
+    : { bonusPool: 0 }
 
   const isTypeEnabled = (type: MatchmakingType): boolean =>
     matchmakingStatus.get(type)?.enabled ?? false
@@ -1362,11 +1365,11 @@ export function FindMatch() {
     if (!player || !season) {
       return { division: MatchmakingDivision.Unrated, mmr: null, bonus: 0 }
     }
-    const division = ladderPlayerToMatchmakingDivision(player, bonusPoolSize)
+    const division = ladderPlayerToMatchmakingDivision(player, divisionContext)
     // Ratings are hidden until placements complete (the server zeroes them until then), so show
     // the no-rating presentation rather than a bogus 0 for players mid-placements.
     const inPlacements = player.lifetimeGames < NUM_PLACEMENT_MATCHES
-    const bonus = Math.max(0, Math.floor(bonusPoolSize - player.bonusUsed))
+    const bonus = Math.max(0, Math.floor(divisionContext.bonusPool - player.bonusUsed))
     return {
       division,
       mmr: inPlacements ? null : Math.round(player.rating),

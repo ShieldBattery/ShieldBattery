@@ -253,7 +253,14 @@ describe('client/games/game-link-card/loadMatchmakingSeasons', () => {
 
 describe('client/games/game-link-card/findSeasonAt', () => {
   function season(id: number, startDate: number, endDate?: number): MatchmakingSeasonJson {
-    return { id: makeSeasonId(id), name: `Season ${id}`, startDate, endDate, resetMmr: false }
+    return {
+      id: makeSeasonId(id),
+      name: `Season ${id}`,
+      startDate,
+      endDate,
+      resetMmr: false,
+      divisionTableVersion: 2,
+    }
   }
 
   const SEASONS = [season(3, 3000), season(2, 2000, 3000), season(1, 1000, 2000)]

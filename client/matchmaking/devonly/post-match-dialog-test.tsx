@@ -83,6 +83,7 @@ const SEASON: MatchmakingSeasonJson = {
   name: 'My Cool Season',
   startDate: Date.now() - 1000 * 60 * 60 * 24 * 7,
   resetMmr: true,
+  divisionTableVersion: 2,
 }
 
 const LEAGUES: LeagueJson[] = [

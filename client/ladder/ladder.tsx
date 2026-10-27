@@ -15,7 +15,8 @@ import { assertUnreachable } from '../../common/assert-unreachable'
 import { LadderPlayer, ladderPlayerToMatchmakingDivision } from '../../common/ladder/ladder'
 import {
   ALL_MATCHMAKING_TYPES,
-  getTotalBonusPoolForSeason,
+  DivisionContext,
+  getDivisionContext,
   makeSeasonId,
   MatchmakingDivision,
   matchmakingDivisionToLabel,
@@ -1282,7 +1283,11 @@ export function LadderTable(props: LadderTableProps) {
     refreshToken: players,
   })
 
-  const bonusPool = season ? getTotalBonusPoolForSeason(new Date(curTime), season) : 0
+  // Memoized because it feeds the division filtering's memo below
+  const divisionContext = useMemo<DivisionContext>(
+    () => (season ? getDivisionContext(new Date(curTime), season) : { bonusPool: 0 }),
+    [season, curTime],
+  )
 
   const onRowSelected = useCallback((userId: SbUserId, username: string) => {
     navigateToUserProfile(userId, username)
@@ -1300,7 +1305,7 @@ export function LadderTable(props: LadderTableProps) {
         username={user?.name ?? ''}
         avatarUrl={user?.avatarUrl}
         curTime={curTime}
-        bonusPool={bonusPool}
+        divisionContext={divisionContext}
         onSelected={onRowSelected}
       />
     )
@@ -1325,7 +1330,7 @@ export function LadderTable(props: LadderTableProps) {
 
     const playersWithDivs = players.map(
       p =>
-        [p, ladderPlayerToMatchmakingDivision(p, bonusPool)] satisfies [
+        [p, ladderPlayerToMatchmakingDivision(p, divisionContext)] satisfies [
           player: LadderPlayer,
           division: MatchmakingDivision,
         ],
@@ -1389,7 +1394,7 @@ export function LadderTable(props: LadderTableProps) {
       default:
         return assertUnreachable(filteredDivision)
     }
-  }, [players, filteredDivision, bonusPool])
+  }, [players, filteredDivision, divisionContext])
 
   // The podium (#1 spotlight + #2/#3 runners-up) is only meaningful for the unfiltered, full
   // rankings; while searching or filtering by division we only have/show a subset.
@@ -1412,7 +1417,7 @@ export function LadderTable(props: LadderTableProps) {
             <SpotlightPlayer
               player={players[0]}
               username={usersById.get(players[0].userId)?.name ?? ''}
-              bonusPool={bonusPool}
+              divisionContext={divisionContext}
               onSelected={onRowSelected}
             />
             <RunnersUp>
@@ -1420,14 +1425,14 @@ export function LadderTable(props: LadderTableProps) {
                 place={2}
                 player={players[1]}
                 username={usersById.get(players[1].userId)?.name ?? ''}
-                bonusPool={bonusPool}
+                divisionContext={divisionContext}
                 onSelected={onRowSelected}
               />
               <RunnerUpPlayer
                 place={3}
                 player={players[2]}
                 username={usersById.get(players[2].userId)?.name ?? ''}
-                bonusPool={bonusPool}
+                divisionContext={divisionContext}
                 onSelected={onRowSelected}
               />
             </RunnersUp>
@@ -1475,7 +1480,7 @@ export function LadderTable(props: LadderTableProps) {
 interface PodiumPlayerProps {
   player: Readonly<LadderPlayer>
   username: string
-  bonusPool: number
+  divisionContext: Readonly<DivisionContext>
   onSelected: (userId: SbUserId, username: string) => void
 }
 
@@ -1493,10 +1498,10 @@ const RaceBadgeTooltip = styled(RaceSelectionTooltip)`
   flex-shrink: 0;
 `
 
-function SpotlightPlayer({ player, username, bonusPool, onSelected }: PodiumPlayerProps) {
+function SpotlightPlayer({ player, username, divisionContext, onSelected }: PodiumPlayerProps) {
   const { t } = useTranslation()
   const locale = useFormatLocale()
-  const division = ladderPlayerToMatchmakingDivision(player, bonusPool)
+  const division = ladderPlayerToMatchmakingDivision(player, divisionContext)
   const divisionLabel = matchmakingDivisionToLabel(division, t)
   const race = getMostPlayedRace(player)
   const isRated = player.lifetimeGames >= NUM_PLACEMENT_MATCHES
@@ -1505,7 +1510,7 @@ function SpotlightPlayer({ player, username, bonusPool, onSelected }: PodiumPlay
     <SpotlightCard onClick={() => onSelected(player.userId, username)}>
       <SpotlightRank>#1</SpotlightRank>
       <SpotlightIconTooltip text={divisionLabel} position='bottom'>
-        <SpotlightIcon player={player} bonusPool={bonusPool} size={64} />
+        <SpotlightIcon player={player} divisionContext={divisionContext} size={64} />
       </SpotlightIconTooltip>
       <SpotlightInfo>
         <SpotlightName>{username}</SpotlightName>
@@ -1545,12 +1550,12 @@ function RunnerUpPlayer({
   place,
   player,
   username,
-  bonusPool,
+  divisionContext,
   onSelected,
 }: PodiumPlayerProps & { place: number }) {
   const { t } = useTranslation()
   const locale = useFormatLocale()
-  const division = ladderPlayerToMatchmakingDivision(player, bonusPool)
+  const division = ladderPlayerToMatchmakingDivision(player, divisionContext)
   const divisionLabel = matchmakingDivisionToLabel(division, t)
   const medalColor = MEDAL_COLORS[place - 1] ?? MEDAL_COLORS[2]
   const race = getMostPlayedRace(player)
@@ -1560,7 +1565,7 @@ function RunnerUpPlayer({
     <RunnerUpCard $medalColor={medalColor} onClick={() => onSelected(player.userId, username)}>
       <RunnerUpRank $medalColor={medalColor}>#{place}</RunnerUpRank>
       <PodiumIconTooltip text={divisionLabel} position='bottom'>
-        <RunnerUpIcon player={player} bonusPool={bonusPool} size={44} />
+        <RunnerUpIcon player={player} divisionContext={divisionContext} size={44} />
       </PodiumIconTooltip>
       <RunnerUpInfo>
         <RunnerUpName>{username}</RunnerUpName>
@@ -1646,12 +1651,21 @@ interface RowProps {
   username: string
   avatarUrl?: string
   curTime: number
-  bonusPool: number
+  divisionContext: Readonly<DivisionContext>
   onSelected?: (userId: SbUserId, username: string) => void
 }
 
 const Row = React.memo(
-  ({ isEven, isSelf, player, username, avatarUrl, curTime, bonusPool, onSelected }: RowProps) => {
+  ({
+    isEven,
+    isSelf,
+    player,
+    username,
+    avatarUrl,
+    curTime,
+    divisionContext,
+    onSelected,
+  }: RowProps) => {
     const { t } = useTranslation()
     const narrowDurationFormat = useFormat(narrowDuration)
     const onClick = useCallback(() => {
@@ -1664,7 +1678,7 @@ const Row = React.memo(
     const isLive = useContext(LiveUsersContext).has(player.userId)
     const mostPlayedRace = getMostPlayedRace(player)
 
-    const division = ladderPlayerToMatchmakingDivision(player, bonusPool)
+    const division = ladderPlayerToMatchmakingDivision(player, divisionContext)
     const divisionLabel = matchmakingDivisionToLabel(division, t)
 
     return (
@@ -1675,7 +1689,7 @@ const Row = React.memo(
         {...buttonProps}>
         <RankCell>
           <Tooltip text={divisionLabel} position='bottom'>
-            <DivisionIcon player={player} bonusPool={bonusPool} size={44} />
+            <DivisionIcon player={player} divisionContext={divisionContext} size={44} />
           </Tooltip>
           <span>{player.rank}</span>
         </RankCell>

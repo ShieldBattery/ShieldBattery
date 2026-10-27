@@ -2,100 +2,152 @@ import { describe, expect, it } from 'vitest'
 import {
   ALL_MATCHMAKING_TYPES,
   defaultPreferenceData,
+  DivisionContext,
   getDivisionBeforeRatingChange,
+  getDivisionContext,
   getMatchmakingTypesForFormat,
   hasVetoes,
   isSoloType,
+  makeSeasonId,
   MATCHMAKING_MODES,
   MatchmakingDivision,
   MatchmakingType,
   matchmakingTypeToLabel,
+  pointsToMatchmakingDivision,
   pointsToMatchmakingDivisionAndBounds,
   TEAM_SIZES,
 } from './matchmaking'
 
+const SOLO = true
+const TEAM = false
+
+function ctx(bonusPool: number): DivisionContext {
+  return { bonusPool }
+}
+
 describe('common/matchmaking', () => {
   describe('pointsToMatchmakingDivisionAndBounds', () => {
     it('works without bonus', () => {
-      expect(pointsToMatchmakingDivisionAndBounds(true, 0, 0)).toEqual([
+      expect(pointsToMatchmakingDivisionAndBounds(SOLO, 0, ctx(0))).toEqual([
         MatchmakingDivision.Bronze1,
         0,
         800,
       ])
-      expect(pointsToMatchmakingDivisionAndBounds(true, 799, 0)).toEqual([
+      expect(pointsToMatchmakingDivisionAndBounds(SOLO, 799, ctx(0))).toEqual([
         MatchmakingDivision.Bronze1,
         0,
         800,
       ])
-      expect(pointsToMatchmakingDivisionAndBounds(true, 800, 0)).toEqual([
+      expect(pointsToMatchmakingDivisionAndBounds(SOLO, 800, ctx(0))).toEqual([
         MatchmakingDivision.Bronze2,
         800,
-        1520,
+        1600,
       ])
-      expect(pointsToMatchmakingDivisionAndBounds(true, 6560, 0)).toEqual([
+      expect(pointsToMatchmakingDivisionAndBounds(SOLO, 6560, ctx(0))).toEqual([
         MatchmakingDivision.Platinum1,
         6560,
-        6800,
+        6880,
       ])
     })
 
     it('works for team modes', () => {
-      expect(pointsToMatchmakingDivisionAndBounds(false, 0, 0)).toEqual([
+      expect(pointsToMatchmakingDivisionAndBounds(TEAM, 0, ctx(0))).toEqual([
         MatchmakingDivision.Bronze1,
         0,
-        700,
+        860,
       ])
-      expect(pointsToMatchmakingDivisionAndBounds(false, 699, 0)).toEqual([
+      expect(pointsToMatchmakingDivisionAndBounds(TEAM, 859, ctx(0))).toEqual([
         MatchmakingDivision.Bronze1,
         0,
-        700,
+        860,
       ])
-      expect(pointsToMatchmakingDivisionAndBounds(false, 700, 0)).toEqual([
+      expect(pointsToMatchmakingDivisionAndBounds(TEAM, 860, ctx(0))).toEqual([
         MatchmakingDivision.Bronze2,
-        700,
-        1400,
+        860,
+        1710,
       ])
-      expect(pointsToMatchmakingDivisionAndBounds(false, 6300, 0)).toEqual([
+      expect(pointsToMatchmakingDivisionAndBounds(TEAM, 6720, ctx(0))).toEqual([
         MatchmakingDivision.Platinum1,
-        6300,
-        6500,
+        6720,
+        6960,
       ])
     })
 
     it('works with bonus', () => {
-      expect(pointsToMatchmakingDivisionAndBounds(true, 0, 2400)).toEqual([
+      expect(pointsToMatchmakingDivisionAndBounds(SOLO, 0, ctx(2400))).toEqual([
         MatchmakingDivision.Bronze1,
         0,
         800,
       ])
-      expect(pointsToMatchmakingDivisionAndBounds(true, 800, 2400)).toEqual([
+      expect(pointsToMatchmakingDivisionAndBounds(SOLO, 800, ctx(2400))).toEqual([
         MatchmakingDivision.Bronze2,
         800,
-        1520,
+        1600,
       ])
       // Silver 1 has a low factor of 0 so this still makes it in
-      expect(pointsToMatchmakingDivisionAndBounds(true, 2240, 2400)).toEqual([
+      expect(pointsToMatchmakingDivisionAndBounds(SOLO, 2400, ctx(2400))).toEqual([
         MatchmakingDivision.Silver1,
-        2240,
-        2960 + 0.3 * 2400,
+        2400,
+        4400 + 0.75 * 2400,
       ])
-      // Silver 1 has a high factor of 0.3 so this doesn't make it into Silver 2
-      expect(pointsToMatchmakingDivisionAndBounds(true, 2940, 2400)).toEqual([
-        MatchmakingDivision.Silver1,
-        2240,
-        2960 + 0.3 * 2400,
-      ])
+      // Silver 1 has a high factor of 0.75 so this doesn't make it into Silver 2
+      expect(pointsToMatchmakingDivisionAndBounds(SOLO, 4400 + 0.75 * 2400 - 1, ctx(2400))).toEqual(
+        [MatchmakingDivision.Silver1, 2400, 4400 + 0.75 * 2400],
+      )
 
-      expect(pointsToMatchmakingDivisionAndBounds(true, 6560 + 0.6 * 2400 - 1, 2400)).toEqual([
-        MatchmakingDivision.Gold3,
-        5840 + 0.6 * 2400,
-        6560 + 0.6 * 2400,
+      expect(pointsToMatchmakingDivisionAndBounds(SOLO, 5600 + 2400 - 1, ctx(2400))).toEqual([
+        MatchmakingDivision.Silver3,
+        5000 + 2400,
+        5600 + 2400,
       ])
-      expect(pointsToMatchmakingDivisionAndBounds(true, 6560 + 0.6 * 2400, 2400)).toEqual([
-        MatchmakingDivision.Platinum1,
-        6560 + 0.6 * 2400,
-        6800 + 2400,
+      expect(pointsToMatchmakingDivisionAndBounds(SOLO, 5600 + 2400, ctx(2400))).toEqual([
+        MatchmakingDivision.Gold1,
+        5600 + 2400,
+        5920 + 2400,
       ])
+    })
+  })
+
+  describe('division table versions', () => {
+    const v1 = (bonusPool: number): DivisionContext => ({ bonusPool, tableVersion: 1 })
+
+    it('places points with the version 1 bounds', () => {
+      expect(pointsToMatchmakingDivisionAndBounds(SOLO, 4400, v1(0))).toEqual([
+        MatchmakingDivision.Gold1,
+        4400,
+        5120,
+      ])
+      expect(pointsToMatchmakingDivisionAndBounds(SOLO, 4400, ctx(0))).toEqual([
+        MatchmakingDivision.Silver2,
+        4400,
+        5000,
+      ])
+      expect(pointsToMatchmakingDivisionAndBounds(TEAM, 4200, v1(0))).toEqual([
+        MatchmakingDivision.Gold1,
+        4200,
+        4900,
+      ])
+    })
+
+    it('applies the version 1 bonus factors', () => {
+      expect(pointsToMatchmakingDivisionAndBounds(SOLO, 5000, v1(1000))).toEqual([
+        MatchmakingDivision.Gold1,
+        4400 + 0.3 * 1000,
+        5120 + 0.6 * 1000,
+      ])
+    })
+
+    it("is taken from the season's version by getDivisionContext", () => {
+      const season = {
+        id: makeSeasonId(1),
+        name: 'Season',
+        startDate: 0,
+        resetMmr: false,
+        divisionTableVersion: 1 as const,
+      }
+      const context = getDivisionContext(new Date(0), season)
+      expect(context.tableVersion).toBe(1)
+      expect(pointsToMatchmakingDivision(SOLO, 4400, context)).toBe(MatchmakingDivision.Gold1)
     })
   })
 
@@ -256,26 +308,26 @@ describe('common/matchmaking', () => {
 
     it('places the points from before the change', () => {
       // 900 after the game is Bronze 2, but the 780 going into it was still Bronze 1.
-      expect(getDivisionBeforeRatingChange(change, 0)).toBe(MatchmakingDivision.Bronze1)
-      expect(getDivisionBeforeRatingChange({ ...change, pointsChange: -20 }, 0)).toBe(
+      expect(getDivisionBeforeRatingChange(change, ctx(0))).toBe(MatchmakingDivision.Bronze1)
+      expect(getDivisionBeforeRatingChange({ ...change, pointsChange: -20 }, ctx(0))).toBe(
         MatchmakingDivision.Bronze2,
       )
     })
 
     it('uses the bonus pool it is given', () => {
-      expect(getDivisionBeforeRatingChange({ ...change, points: 3100 }, 0)).toBe(
+      expect(getDivisionBeforeRatingChange({ ...change, points: 4600 }, ctx(0))).toBe(
         MatchmakingDivision.Silver2,
       )
-      expect(getDivisionBeforeRatingChange({ ...change, points: 3100 }, 2400)).toBe(
+      expect(getDivisionBeforeRatingChange({ ...change, points: 4600 }, ctx(2400))).toBe(
         MatchmakingDivision.Silver1,
       )
     })
 
     it('treats a player still in placements going into the game as unrated', () => {
-      expect(getDivisionBeforeRatingChange({ ...change, lifetimeGames: 5 }, 0)).toBe(
+      expect(getDivisionBeforeRatingChange({ ...change, lifetimeGames: 5 }, ctx(0))).toBe(
         MatchmakingDivision.Unrated,
       )
-      expect(getDivisionBeforeRatingChange({ ...change, lifetimeGames: 6 }, 0)).toBe(
+      expect(getDivisionBeforeRatingChange({ ...change, lifetimeGames: 6 }, ctx(0))).toBe(
         MatchmakingDivision.Bronze1,
       )
     })

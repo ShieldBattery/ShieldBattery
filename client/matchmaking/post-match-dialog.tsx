@@ -19,8 +19,8 @@ import { getErrorStack } from '../../common/errors'
 import { LeagueJson } from '../../common/leagues/leagues'
 import {
   getDivisionColor,
+  getDivisionContext,
   getDivisionsForPointsChange,
-  getTotalBonusPoolForSeason,
   isSoloType,
   MatchmakingDivision,
   matchmakingDivisionToLabel,
@@ -262,13 +262,12 @@ function RatedUserContent({
   const pageInView = usePageInView()
   const [shownAt] = useState(() => new Date())
   const divisionTransitions = useMemo(() => {
-    const bonusPool = getTotalBonusPoolForSeason(shownAt, season)
     const startingPoints = mmrChange.points - mmrChange.pointsChange
     const divisions = getDivisionsForPointsChange(
       isSoloType(mmrChange.matchmakingType),
       startingPoints,
       mmrChange.points,
-      bonusPool,
+      getDivisionContext(shownAt, season),
     )
 
     const isNegative = mmrChange.pointsChange < 0

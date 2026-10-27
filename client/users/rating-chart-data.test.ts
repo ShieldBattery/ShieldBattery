@@ -21,6 +21,7 @@ function season(id: number, resetMmr: boolean): RatingChartSeason {
     name: `Season ${id}`,
     startDate: START + (id - 1) * SEASON_LENGTH,
     resetMmr,
+    divisionTableVersion: 2,
   }
 }
 

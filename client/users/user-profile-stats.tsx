@@ -110,7 +110,13 @@ export function UserProfileStats({
 
   // Chronological: both the splitting and the band grouping walk this in order.
   const chartSeasons: RatingChartSeason[] = Array.from(seasons.values())
-    .map(s => ({ id: s.id, name: s.name, startDate: s.startDate, resetMmr: s.resetMmr }))
+    .map(s => ({
+      id: s.id,
+      name: s.name,
+      startDate: s.startDate,
+      resetMmr: s.resetMmr,
+      divisionTableVersion: s.divisionTableVersion,
+    }))
     .sort((a, b) => a.startDate - b.startDate)
 
   // Checked before the empty-modes case: a failed query also has no modes, and "no ranked

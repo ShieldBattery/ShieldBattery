@@ -1,4 +1,5 @@
 import {
+  DivisionTableVersion,
   getAllDivisionsWithBounds,
   getTotalBonusPool,
   MatchmakingDivision,
@@ -17,6 +18,7 @@ export interface RatingChartSeason {
   name: string
   startDate: number
   resetMmr: boolean
+  divisionTableVersion: DivisionTableVersion
 }
 
 export interface RatingChartPoint {
@@ -92,7 +94,8 @@ export function splitOnDiscontinuity(
 }
 
 /**
- * One band set per season on screen, each at the bonus pool that applied during it.
+ * One band set per season on screen, each at the bonus pool and division bounds that applied
+ * during it.
  *
  * Division bounds are `low + bonusPool * factor` and the pool accrues across a season, so a
  * single band set spanning an all-time view would judge every past season by today's pool —
@@ -123,7 +126,10 @@ export function buildSeasonBands(
       seasonId: season.id,
       from: inSeason[0].changeDate,
       to: inSeason[inSeason.length - 1].changeDate,
-      bands: getAllDivisionsWithBounds(solo, pool).map(([division, low, high]) => ({
+      bands: getAllDivisionsWithBounds(solo, {
+        bonusPool: pool,
+        tableVersion: season.divisionTableVersion,
+      }).map(([division, low, high]) => ({
         division,
         low,
         high,

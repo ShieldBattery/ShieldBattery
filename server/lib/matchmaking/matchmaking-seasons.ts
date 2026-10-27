@@ -3,6 +3,7 @@ import {
   MatchmakingSeason,
   MatchmakingSeasonsServiceErrorCode,
   SeasonId,
+  ServerAddMatchmakingSeasonRequest,
 } from '../../../common/matchmaking'
 import { CodedError } from '../errors/coded-error'
 import { Clock } from '../time/clock'
@@ -52,7 +53,7 @@ export class MatchmakingSeasonsService {
     return [seasons[0], undefined]
   }
 
-  async addSeason(season: Omit<MatchmakingSeason, 'id'>): Promise<MatchmakingSeason> {
+  async addSeason(season: ServerAddMatchmakingSeasonRequest): Promise<MatchmakingSeason> {
     if (Number(season.startDate) < this.clock.now()) {
       throw new MatchmakingSeasonsServiceError(
         MatchmakingSeasonsServiceErrorCode.MustBeInFuture,

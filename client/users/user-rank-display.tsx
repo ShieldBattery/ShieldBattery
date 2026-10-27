@@ -3,7 +3,7 @@ import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { LadderPlayer, ladderPlayerToMatchmakingDivision } from '../../common/ladder/ladder'
 import {
-  getTotalBonusPoolForSeason,
+  getDivisionContext,
   MatchmakingDivision,
   matchmakingDivisionToLabel,
   MatchmakingSeasonJson,
@@ -99,8 +99,8 @@ export function UserRankDisplay({
 }) {
   const { t } = useTranslation()
   const currentMinuteMs = useCurrentMinuteMs()
-  const bonusPool = getTotalBonusPoolForSeason(new Date(currentMinuteMs), season)
-  const division = ladderPlayerToMatchmakingDivision(ladderPlayer, bonusPool)
+  const divisionContext = getDivisionContext(new Date(currentMinuteMs), season)
+  const division = ladderPlayerToMatchmakingDivision(ladderPlayer, divisionContext)
 
   if (division === MatchmakingDivision.Unrated) {
     return null
@@ -111,7 +111,7 @@ export function UserRankDisplay({
   return (
     <RankDisplayRoot>
       <DivisionInfo>
-        <DivisionIcon player={ladderPlayer} size={88} bonusPool={bonusPool} />
+        <DivisionIcon player={ladderPlayer} size={88} divisionContext={divisionContext} />
         <RankDisplayDivisionLabel>{divisionLabel}</RankDisplayDivisionLabel>
         <RankDisplayType>{matchmakingTypeToLabel(matchmakingType, t)}</RankDisplayType>
       </DivisionInfo>

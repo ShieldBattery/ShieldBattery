@@ -3,7 +3,7 @@ import { ReconciledPlayerResult } from '../../../common/games/results'
 import { makeLeagueId } from '../../../common/leagues/leagues'
 import { makeSeasonId, MatchmakingSeason, MatchmakingType } from '../../../common/matchmaking'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
-import { LeagueUser } from '../leagues/league-models'
+import { ActiveLeagueUser } from '../leagues/league-models'
 import { DEFAULT_MATCHMAKING_RATING, MatchmakingRating } from './models'
 import { calculateChangedRatings } from './rating'
 
@@ -11,6 +11,7 @@ const GAME_ID = 'asdfzxcv'
 const GAME_DATE = new Date('2022-05-02T00:00:00.000Z')
 const INACTIVE_GAME_DATE = new Date('2022-05-26T00:00:00.000Z')
 const VERY_INACTIVE_GAME_DATE = new Date('2022-07-01T00:00:00.000Z')
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000
 
 const WIN: ReconciledPlayerResult = {
   result: 'win',
@@ -29,6 +30,7 @@ const SEASON: MatchmakingSeason = {
   name: 'Season 1',
   startDate: new Date('2022-05-01T00:00:00.000Z'),
   resetMmr: true,
+  divisionTableVersion: 2,
 }
 
 function createMatchmakingRating(
@@ -43,10 +45,17 @@ function createMatchmakingRating(
   }
 }
 
+const LEAGUE_START = new Date('2022-05-01T00:00:00.000Z')
+
 function createLeagueUser(
-  data: Partial<Omit<LeagueUser, 'userId' | 'leagueId'>> & { userId: number; leagueId: string },
-): LeagueUser {
+  data: Partial<Omit<ActiveLeagueUser, 'userId' | 'leagueId'>> & {
+    userId: number
+    leagueId: string
+  },
+): ActiveLeagueUser {
   return {
+    leagueStartAt: LEAGUE_START,
+    leagueEndAt: new Date(Number(LEAGUE_START) + 4 * WEEK_MS),
     lastPlayedDate: undefined,
     points: 0,
     pointsConverged: false,
@@ -136,8 +145,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
           "lifetimeGames": 1,
           "matchmakingType": "1v1",
           "outcome": "win",
-          "points": 223.98293155291043,
-          "pointsChange": 223.98293155291043,
+          "points": 523.9829315529105,
+          "pointsChange": 523.9829315529105,
           "pointsConverged": false,
           "probability": 0.8727767622922719,
           "rating": 2002.4341359287553,
@@ -186,8 +195,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
           "lifetimeGames": 1,
           "matchmakingType": "1v1",
           "outcome": "win",
-          "points": 223.96965173142758,
-          "pointsChange": 223.96965173142758,
+          "points": 523.9696517314276,
+          "pointsChange": 523.9696517314276,
           "pointsConverged": false,
           "probability": 0.6394677305521533,
           "rating": 1631.3689199495877,
@@ -258,8 +267,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
           "lifetimeGames": 1,
           "matchmakingType": "1v1",
           "outcome": "win",
-          "points": 223.98293155291043,
-          "pointsChange": 223.98293155291043,
+          "points": 523.9829315529105,
+          "pointsChange": 523.9829315529105,
           "pointsConverged": false,
           "probability": 0.5,
           "rating": 1662.3108939062977,
@@ -330,8 +339,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
           "lifetimeGames": 1,
           "matchmakingType": "1v1",
           "outcome": "win",
-          "points": 223.96965173142758,
-          "pointsChange": 223.96965173142758,
+          "points": 523.9696517314276,
+          "pointsChange": 523.9696517314276,
           "pointsConverged": false,
           "probability": 0.8235503599873776,
           "rating": 1865.905393230908,
@@ -427,8 +436,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
           "lifetimeGames": 1,
           "matchmakingType": "1v1",
           "outcome": "win",
-          "points": 188.9969643094432,
-          "pointsChange": 188.9969643094432,
+          "points": 523.9969643094432,
+          "pointsChange": 523.9969643094432,
           "pointsConverged": false,
           "probability": 0.17644964001262234,
           "rating": 1707.6028572169848,
@@ -474,8 +483,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
           "lifetimeGames": 1,
           "matchmakingType": "1v1",
           "outcome": "win",
-          "points": 177.38116967993585,
-          "pointsChange": 177.38116967993585,
+          "points": 477.38116967993585,
+          "pointsChange": 477.38116967993585,
           "pointsConverged": false,
           "probability": 0.9989873147672865,
           "rating": 1800.4773358542373,
@@ -501,7 +510,7 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
           "outcome": "loss",
           "points": 0,
           "pointsChange": 0,
-          "pointsConverged": false,
+          "pointsConverged": true,
           "probability": 0.00101268523271354,
           "rating": 9.52266414576252,
           "ratingChange": -0.4773358542374808,
@@ -546,9 +555,9 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
           "lifetimeGames": 1,
           "matchmakingType": "1v1",
           "outcome": "win",
-          "points": 106.13815472407867,
-          "pointsChange": 106.13815472407867,
-          "pointsConverged": false,
+          "points": 76.13815472407867,
+          "pointsChange": 76.13815472407867,
+          "pointsConverged": true,
           "probability": 0.5,
           "rating": 163.3108939062979,
           "ratingChange": 162.3108939062979,
@@ -630,8 +639,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
           "lifetimeGames": 1,
           "matchmakingType": "1v1",
           "outcome": "win",
-          "points": 5592.560925760158,
-          "pointsChange": 92.56092576015857,
+          "points": 5762.560925760158,
+          "pointsChange": 262.56092576015857,
           "pointsConverged": true,
           "probability": 0.5,
           "rating": 1504.599790880405,
@@ -711,8 +720,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
           "lifetimeGames": 1,
           "matchmakingType": "1v1",
           "outcome": "win",
-          "points": 223.96965173142758,
-          "pointsChange": 223.96965173142758,
+          "points": 523.9696517314276,
+          "pointsChange": 523.9696517314276,
           "pointsConverged": false,
           "probability": 0.9067117622479638,
           "rating": 1800.6618473247609,
@@ -817,8 +826,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
           "lifetimeGames": 1,
           "matchmakingType": "1v1",
           "outcome": "win",
-          "points": 188.9969643094432,
-          "pointsChange": 188.9969643094432,
+          "points": 523.9969643094432,
+          "pointsChange": 523.9969643094432,
           "pointsConverged": false,
           "probability": 0.0932882377520363,
           "rating": 1418.9261362476745,
@@ -869,8 +878,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
           "lifetimeGames": 1,
           "matchmakingType": "1v1",
           "outcome": "win",
-          "points": 223.98293155291043,
-          "pointsChange": 223.98293155291043,
+          "points": 523.9829315529105,
+          "pointsChange": 523.9829315529105,
           "pointsConverged": false,
           "probability": 0.7605034968281987,
           "rating": 1805.8998778914479,
@@ -971,8 +980,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
           "lifetimeGames": 1,
           "matchmakingType": "1v1",
           "outcome": "win",
-          "points": 223.9969643094432,
-          "pointsChange": 223.9969643094432,
+          "points": 523.9969643094432,
+          "pointsChange": 523.9969643094432,
           "pointsConverged": false,
           "probability": 0.15492878366474863,
           "rating": 1887.1725788267997,
@@ -1082,8 +1091,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
           "lifetimeGames": 1,
           "matchmakingType": "1v1",
           "outcome": "win",
-          "points": 6166.3453818031,
-          "pointsChange": 176.3453818031001,
+          "points": 6066.3453818031,
+          "pointsChange": 76.34538180310011,
           "pointsConverged": true,
           "probability": 0.5,
           "rating": 1504.599790880405,
@@ -1121,6 +1130,153 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
         },
       }
     `)
+  })
+
+  describe('1v1 - ladder catch-up points', () => {
+    // Unless a test says otherwise, the player's whole bonus pool for GAME_DATE (28) is already
+    // used, and their points dwarf an opponent rated 0, so a win's base change is the 1 point
+    // minimum and anything above that is catch-up.
+    function pointsChangeFor(
+      result: ReconciledPlayerResult,
+      player: Pick<MatchmakingRating, 'rating' | 'uncertainty' | 'points' | 'pointsConverged'> &
+        Partial<Pick<MatchmakingRating, 'bonusUsed'>>,
+    ) {
+      const self = createMatchmakingRating({ userId: 1, bonusUsed: 28, ...player })
+      const opponent = createMatchmakingRating({ userId: 2, rating: 0, uncertainty: 60 })
+      const changes = calculateChangedRatings({
+        season: SEASON,
+        gameId: GAME_ID,
+        gameDate: GAME_DATE,
+        results: new Map([
+          [self.userId, result],
+          [opponent.userId, result === WIN ? LOSS : WIN],
+        ]),
+        mmrs: [self, opponent],
+        teams: [[self.userId], [opponent.userId]],
+        activeLeagues: new Map(),
+      })
+      return changes.get(self.userId)!.matchmaking
+    }
+
+    test('a win far below the target gets the capped amount', () => {
+      const change = pointsChangeFor(WIN, {
+        rating: 2400,
+        uncertainty: 100,
+        points: 4828,
+        pointsConverged: false,
+      })
+      expect(change.pointsChange).toBe(401)
+      expect(change.pointsConverged).toBe(false)
+    })
+
+    test('a win near the target gets half the remaining gap', () => {
+      // Target is 4 * (1500 - 50) = 5800, and the player has 5600 points without bonus.
+      const change = pointsChangeFor(WIN, {
+        rating: 1500,
+        uncertainty: 50,
+        points: 5628,
+        pointsConverged: true,
+      })
+      expect(change.pointsChange).toBe(101)
+    })
+
+    test('a win at or above the target gets nothing extra', () => {
+      const change = pointsChangeFor(WIN, {
+        rating: 1500,
+        uncertainty: 50,
+        points: 6028,
+        pointsConverged: false,
+      })
+      expect(change.pointsChange).toBe(1)
+      expect(change.pointsConverged).toBe(true)
+    })
+
+    test('the target is cautious while uncertainty is high', () => {
+      // Target is 4 * (1500 - 350) = 4600, below the player's 4800 points without bonus.
+      const change = pointsChangeFor(WIN, {
+        rating: 1500,
+        uncertainty: 350,
+        points: 4828,
+        pointsConverged: false,
+      })
+      expect(change.pointsChange).toBe(1)
+    })
+
+    test('unused bonus also matches the catch-up points', () => {
+      // 401 points before bonus, but only the 28 in the pool to match them with.
+      const change = pointsChangeFor(WIN, {
+        rating: 2400,
+        uncertainty: 100,
+        points: 4800,
+        pointsConverged: false,
+        bonusUsed: 0,
+      })
+      expect(change.pointsChange).toBe(429)
+      expect(change.bonusUsedChange).toBe(28)
+    })
+
+    test('a loss gets nothing extra', () => {
+      const change = pointsChangeFor(LOSS, {
+        rating: 2400,
+        uncertainty: 100,
+        points: 4828,
+        pointsConverged: false,
+      })
+      expect(change.pointsChange).toBeLessThan(0)
+    })
+  })
+
+  describe('1v1 - league catch-up points', () => {
+    // The opponent is rated 0, so a win from 0 league points has a base change of 48, and a win
+    // from far above that has the 1 point minimum. Anything above those is catch-up.
+    function leaguePointsChangeFor({ points, weeks }: { points: number; weeks: number }) {
+      const self = createMatchmakingRating({ userId: 1, rating: 2000, uncertainty: 100 })
+      const opponent = createMatchmakingRating({ userId: 2, rating: 0, uncertainty: 60 })
+      const changes = calculateChangedRatings({
+        season: SEASON,
+        gameId: GAME_ID,
+        gameDate: GAME_DATE,
+        results: new Map([
+          [self.userId, WIN],
+          [opponent.userId, LOSS],
+        ]),
+        mmrs: [self, opponent],
+        teams: [[self.userId], [opponent.userId]],
+        activeLeagues: new Map([
+          [
+            self.userId,
+            [
+              createLeagueUser({
+                userId: self.userId,
+                leagueId: 'league-1',
+                points,
+                leagueEndAt: new Date(Number(LEAGUE_START) + weeks * WEEK_MS),
+              }),
+            ],
+          ],
+        ]),
+      })
+      return changes.get(self.userId)!.leagues[0]
+    }
+
+    test('a win far below the target is capped by the league length', () => {
+      // The cap is (2000 - 100) / weeks.
+      expect(leaguePointsChangeFor({ points: 0, weeks: 4 }).pointsChange).toBe(48 + 475)
+      expect(leaguePointsChangeFor({ points: 0, weeks: 2 }).pointsChange).toBe(48 + 950)
+    })
+
+    test('a win near the target gets half the remaining gap', () => {
+      // Target is 4 * (2000 - 100) = 7600.
+      const change = leaguePointsChangeFor({ points: 7500, weeks: 4 })
+      expect(change.pointsChange).toBe(1 + 50)
+      expect(change.pointsConverged).toBe(false)
+    })
+
+    test('a win at the target gets nothing extra', () => {
+      const change = leaguePointsChangeFor({ points: 7600, weeks: 4 })
+      expect(change.pointsChange).toBe(1)
+      expect(change.pointsConverged).toBe(true)
+    })
   })
 
   test('1v1 - one player in two leagues', () => {
@@ -1164,8 +1320,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
             "gameId": "asdfzxcv",
             "leagueId": "league-1",
             "outcome": "win",
-            "points": 195.98293155291043,
-            "pointsChange": 195.98293155291043,
+            "points": 383.48293155291043,
+            "pointsChange": 383.48293155291043,
             "pointsConverged": false,
             "userId": 1,
           },
@@ -1174,8 +1330,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
             "gameId": "asdfzxcv",
             "leagueId": "league-2",
             "outcome": "win",
-            "points": 4090.8889393406057,
-            "pointsChange": 90.88893934060584,
+            "points": 4378.388939340606,
+            "pointsChange": 378.3889393406058,
             "pointsConverged": true,
             "userId": 1,
           },
@@ -1188,8 +1344,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
           "lifetimeGames": 1,
           "matchmakingType": "1v1",
           "outcome": "win",
-          "points": 223.98293155291043,
-          "pointsChange": 223.98293155291043,
+          "points": 523.9829315529105,
+          "pointsChange": 523.9829315529105,
           "pointsConverged": false,
           "probability": 0.5,
           "rating": 1662.3108939062977,
@@ -1281,8 +1437,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
           "lifetimeGames": 1,
           "matchmakingType": "2v2",
           "outcome": "win",
-          "points": 222.73666625142027,
-          "pointsChange": 222.73666625142027,
+          "points": 522.7366662514203,
+          "pointsChange": 522.7366662514203,
           "pointsConverged": false,
           "probability": 0.5,
           "rating": 1581.1554469531488,
@@ -1306,8 +1462,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
           "lifetimeGames": 1,
           "matchmakingType": "2v2",
           "outcome": "win",
-          "points": 222.73666625142027,
-          "pointsChange": 222.73666625142027,
+          "points": 522.7366662514203,
+          "pointsChange": 522.7366662514203,
           "pointsConverged": false,
           "probability": 0.5,
           "rating": 1581.1554469531488,
@@ -1428,8 +1584,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
           "lifetimeGames": 1,
           "matchmakingType": "2v2",
           "outcome": "win",
-          "points": 220.11552070089303,
-          "pointsChange": 220.11552070089303,
+          "points": 520.1155207008931,
+          "pointsChange": 520.1155207008931,
           "pointsConverged": false,
           "probability": 0.7938050043063389,
           "rating": 1837.5166905141596,
@@ -1453,8 +1609,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
           "lifetimeGames": 1,
           "matchmakingType": "2v2",
           "outcome": "win",
-          "points": 217.30320441354502,
-          "pointsChange": 217.30320441354502,
+          "points": 517.303204413545,
+          "pointsChange": 517.303204413545,
           "pointsConverged": false,
           "probability": 0.7938050043063389,
           "rating": 1637.5166905141598,
@@ -1625,8 +1781,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
           "lifetimeGames": 1,
           "matchmakingType": "2v2",
           "outcome": "win",
-          "points": 188.7728866947767,
-          "pointsChange": 188.7728866947767,
+          "points": 523.7728866947767,
+          "pointsChange": 523.7728866947767,
           "pointsConverged": false,
           "probability": 0.20619499569366112,
           "rating": 1544.43094510795,
@@ -1650,8 +1806,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
           "lifetimeGames": 1,
           "matchmakingType": "2v2",
           "outcome": "win",
-          "points": 188.697378318407,
-          "pointsChange": 188.697378318407,
+          "points": 523.697378318407,
+          "pointsChange": 523.697378318407,
           "pointsConverged": false,
           "probability": 0.20619499569366112,
           "rating": 1444.43094510795,
@@ -1726,8 +1882,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
           "lifetimeGames": 1,
           "matchmakingType": "2v2",
           "outcome": "win",
-          "points": 222.73666625142027,
-          "pointsChange": 222.73666625142027,
+          "points": 522.7366662514203,
+          "pointsChange": 522.7366662514203,
           "pointsConverged": false,
           "probability": 0.5,
           "rating": 1508.6167992615306,
@@ -1751,8 +1907,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
           "lifetimeGames": 1,
           "matchmakingType": "2v2",
           "outcome": "win",
-          "points": 222.73666625142027,
-          "pointsChange": 222.73666625142027,
+          "points": 522.7366662514203,
+          "pointsChange": 522.7366662514203,
           "pointsConverged": false,
           "probability": 0.5,
           "rating": 1507.634338624459,
@@ -1873,8 +2029,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
           "lifetimeGames": 1,
           "matchmakingType": "2v2",
           "outcome": "win",
-          "points": 223.28545985421744,
-          "pointsChange": 223.28545985421744,
+          "points": 523.2854598542174,
+          "pointsChange": 523.2854598542174,
           "pointsConverged": false,
           "probability": 0.5479951802792414,
           "rating": 1873.5772120852987,
@@ -1898,8 +2054,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
           "lifetimeGames": 1,
           "matchmakingType": "2v2",
           "outcome": "win",
-          "points": 186.05727071695532,
-          "pointsChange": 186.05727071695532,
+          "points": 521.0572707169554,
+          "pointsChange": 521.0572707169554,
           "pointsConverged": false,
           "probability": 0.5479951802792414,
           "rating": 1373.5772120852987,
@@ -2070,8 +2226,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
           "lifetimeGames": 1,
           "matchmakingType": "2v2",
           "outcome": "win",
-          "points": 187.90406495515984,
-          "pointsChange": 187.90406495515984,
+          "points": 522.9040649551598,
+          "pointsChange": 522.9040649551598,
           "pointsConverged": false,
           "probability": 0.45200481972075857,
           "rating": 1539.2024953459584,
@@ -2095,8 +2251,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
           "lifetimeGames": 1,
           "matchmakingType": "2v2",
           "outcome": "win",
-          "points": 223.17581142856022,
-          "pointsChange": 223.17581142856022,
+          "points": 523.1758114285602,
+          "pointsChange": 523.1758114285602,
           "pointsConverged": false,
           "probability": 0.45200481972075857,
           "rating": 1639.2024953459584,
@@ -2249,8 +2405,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
             "gameId": "asdfzxcv",
             "leagueId": "league-1",
             "outcome": "win",
-            "points": 5870.704029917078,
-            "pointsChange": 120.70402991707724,
+            "points": 5805.704029917078,
+            "pointsChange": 55.704029917077236,
             "pointsConverged": true,
             "userId": 3,
           },
@@ -2259,8 +2415,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
             "gameId": "asdfzxcv",
             "leagueId": "league-2",
             "outcome": "win",
-            "points": 659.437236462308,
-            "pointsChange": 159.43723646230796,
+            "points": 869.437236462308,
+            "pointsChange": 369.43723646230796,
             "pointsConverged": false,
             "userId": 3,
           },
@@ -2273,8 +2429,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
           "lifetimeGames": 1,
           "matchmakingType": "2v2",
           "outcome": "win",
-          "points": 187.90406495515984,
-          "pointsChange": 187.90406495515984,
+          "points": 522.9040649551598,
+          "pointsChange": 522.9040649551598,
           "pointsConverged": false,
           "probability": 0.45200481972075857,
           "rating": 1539.2024953459584,
@@ -2298,8 +2454,8 @@ describe('matchmaking/rating/calculateChangedRatings', () => {
           "lifetimeGames": 1,
           "matchmakingType": "2v2",
           "outcome": "win",
-          "points": 223.17581142856022,
-          "pointsChange": 223.17581142856022,
+          "points": 523.1758114285602,
+          "pointsChange": 523.1758114285602,
           "pointsConverged": false,
           "probability": 0.45200481972075857,
           "rating": 1639.2024953459584,

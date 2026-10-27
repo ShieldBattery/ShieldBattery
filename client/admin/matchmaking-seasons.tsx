@@ -96,6 +96,7 @@ function SeasonRow({
       <SeasonName>
         {season.name}
         {season.resetMmr ? <ModifierText> (MMR reset)</ModifierText> : undefined}
+        <ModifierText> (division bounds v{season.divisionTableVersion})</ModifierText>
       </SeasonName>
       {season.startDate > now ? (
         <IconButton
