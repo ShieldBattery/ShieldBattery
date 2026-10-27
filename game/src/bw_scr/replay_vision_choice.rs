@@ -1,15 +1,30 @@
-//! The replay visions the viewer chose, kept through SC:R starting a replay over.
+//! The replay visions the viewer chose, kept through SC:R starting a replay over and through
+//! keyframe restores.
 //!
-//! Which players' vision a replay shows lives in two SC:R globals, `replay_visions` and
-//! `local_visions`, and SC:R changes them on its own in two ways: it turns every vision back on
+//! Which players' vision a replay shows lives in SC:R globals, `replay_visions` and
+//! `local_visions` with `minimap_tile_vision_mask` kept in step with them, and SC:R changes them
+//! on its own in two ways: it turns every vision back on
 //! when it starts a replay over for a seek, and it takes a player's vision away when they leave.
 //! The globals alone can't tell either change from the viewer's own, so the viewer's choice is kept
 //! here as the visions they turned off, and given back once a replay that started over steps again.
 //! That is before it plays or fast-forwards anywhere, so a player who left after the seek's target
 //! is back in the game there with their vision, and loses it again as the replay reaches their
 //! leave.
+//!
+//! The globals are outside the keyframes a replay seeks back and forth with, so restoring one
+//! leaves them as they were at the frame the seek started from. A restore sets them the way a
+//! replay that started over would have them at the restored frame: every player who hasn't left by
+//! then, which SC:R marks on the player's slot type as it takes their vision away, less the visions
+//! the viewer turned off.
+
+use crate::bw::Bw;
+use crate::game_thread;
 
 use super::BwScr;
+
+/// The slot types SC:R gives a human and a computer player as they leave or are defeated, when it
+/// also takes their replay vision away.
+const LEFT_PLAYER_TYPES: [u8; 2] = [10, 11];
 
 /// The visions the viewer turned off, and whether a replay that started over still needs them back.
 pub struct ReplayVisionChoice {
@@ -40,8 +55,24 @@ impl ReplayVisionChoice {
 
     /// The visions a replay that started over has to show, once, given the ones SC:R reset it to.
     fn take_restore(&mut self, reset: u8) -> Option<u8> {
-        std::mem::take(&mut self.restore_after_restart).then_some(reset & !self.off)
+        std::mem::take(&mut self.restore_after_restart).then(|| self.shown_of(reset))
     }
+
+    /// The visions to show out of `available`, the ones SC:R would show without the viewer.
+    fn shown_of(&self, available: u8) -> u8 {
+        available & !self.off
+    }
+}
+
+/// The players in a replay that SC:R gives vision to when it is started over, a bit per player,
+/// less the ones that have left, given each player's slot type.
+fn players_not_left(player_types: impl IntoIterator<Item = u8>) -> u8 {
+    player_types
+        .into_iter()
+        .take(8)
+        .enumerate()
+        .filter(|&(_, player_type)| LEFT_PLAYER_TYPES.contains(&player_type))
+        .fold(0xff, |players, (player, _)| players & !(1 << player))
 }
 
 impl BwScr {
@@ -69,8 +100,41 @@ impl BwScr {
             debug!(
                 "Replay started over with visions {reset:#04x}, giving back the chosen {players:#04x}"
             );
+            self.write_replay_visions(players);
+        }
+    }
+
+    /// Gives a replay restored to a keyframe the visions of the players who haven't left by the
+    /// restored frame, less the ones the viewer turned off. Call right after the restore, with the
+    /// restored player slots in place.
+    pub unsafe fn restore_replay_visions_after_keyframe(&self) {
+        unsafe {
+            let players = self.players();
+            let not_left = players_not_left((0..8).map(|i| (*players.add(i)).player_type));
+            let shown = self.replay_vision_choice.lock().shown_of(not_left);
+            if shown != self.replay_visions.resolve() {
+                debug!("Keyframe restore shows visions {shown:#04x}");
+            }
+            self.write_replay_visions(shown);
+            game_thread::add_fow_sprites_for_replay_vision_change(self);
+        }
+    }
+
+    /// Shows the replay or observed game through the vision of `players`, a bit per player, and
+    /// draws the units that need detection as those players see them.
+    ///
+    /// Sets the minimap's tile vision along with the other two globals, as SC:R's own vision
+    /// filter does. SC:R folds `minimap_tile_vision_mask ^ local_visions` into its turn sync
+    /// hash, but only players send that hash and check it against others; replays and observers
+    /// do neither, and they are the only ones that change visions.
+    pub unsafe fn write_replay_visions(&self, players: u8) {
+        unsafe {
             self.replay_visions.write(players);
             self.local_visions.write(players);
+            if let Some(mask) = &self.minimap_tile_vision_mask {
+                mask.write(u32::from(players) << 8);
+            }
+            self.redraw_units_needing_detection();
         }
     }
 }
@@ -108,6 +172,30 @@ mod tests {
         choice.note_change(0xff, 0xfe);
         // The other player leaves, and SC:R takes their vision away (0xfe to 0xfc) on its own.
         choice.note_restart();
+        assert_eq!(choice.take_restore(0xff), Some(0xfe));
+    }
+
+    #[test]
+    fn players_who_left_have_no_vision_to_give_back() {
+        assert_eq!(players_not_left([2, 2, 0, 0, 0, 0, 0, 0]), 0xff);
+        assert_eq!(players_not_left([2, 10, 0, 0, 0, 0, 0, 0]), 0xfd);
+        assert_eq!(players_not_left([11, 2, 1, 10, 0, 0, 0, 0]), 0xf6);
+        assert_eq!(
+            players_not_left([2; 12].into_iter().chain([10])),
+            0xff,
+            "only the eight player slots have replay vision"
+        );
+    }
+
+    #[test]
+    fn a_keyframe_restore_shows_the_players_still_in_less_the_ones_turned_off() {
+        let mut choice = ReplayVisionChoice::new();
+        choice.note_change(0xff, 0xfe);
+        assert_eq!(choice.shown_of(0xff), 0xfe);
+        assert_eq!(choice.shown_of(0xfd), 0xfc);
+        // Restoring doesn't stand in for the restart's own giving back.
+        choice.note_restart();
+        assert_eq!(choice.shown_of(0xff), 0xfe);
         assert_eq!(choice.take_restore(0xff), Some(0xfe));
     }
 

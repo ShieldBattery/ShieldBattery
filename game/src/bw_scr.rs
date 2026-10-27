@@ -65,6 +65,7 @@ mod bw_hash_table;
 mod bw_vector;
 mod chat;
 mod chat_history;
+mod cloaked_unit_drawing;
 mod console;
 mod dialog_hook;
 mod draw_inject;
@@ -175,6 +176,10 @@ pub struct BwScr {
     enable_rng: Value<u32>,
     replay_visions: Value<u8>,
     local_visions: Value<u8>,
+    /// The players whose vision the minimap's terrain and the fog show, a bit per player from bit
+    /// 8, which SC:R sets to `local_visions << 8` whenever it sets the visions itself. `None` if
+    /// analysis could not find it.
+    minimap_tile_vision_mask: Option<Value<u32>>,
     replay_show_entire_map: Value<u8>,
     allocator: Value<*mut scr::Allocator>,
     allocated_order_count: Value<u32>,
@@ -4155,8 +4160,7 @@ impl BwScr {
     pub(crate) unsafe fn rollback_set_replay_vision(&self, players: u8) {
         unsafe {
             self.note_replay_vision_choice(self.replay_visions.resolve(), players);
-            self.replay_visions.write(players);
-            self.local_visions.write(players);
+            self.write_replay_visions(players);
             game_thread::add_fow_sprites_for_replay_vision_change(self);
         }
     }

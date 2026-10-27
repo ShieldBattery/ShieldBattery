@@ -313,8 +313,7 @@ impl BwScr {
                                     replay_visions,
                                     overlay_out.replay_visions,
                                 );
-                                self.replay_visions.write(overlay_out.replay_visions);
-                                self.local_visions.write(overlay_out.replay_visions);
+                                self.write_replay_visions(overlay_out.replay_visions);
                                 // Has to be called here or otherwise there's minimap flicker
                                 // with the resources disappearing until the game logic moves
                                 // forward a step.

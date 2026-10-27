@@ -279,6 +279,10 @@ impl BwScr {
         let enable_rng = analysis.enable_rng().ok_or("Enable RNG")?;
         let replay_visions = analysis.replay_visions().ok_or("replay_visions")?;
         let local_visions = analysis.local_visions().ok_or("local_visions")?;
+        let minimap_tile_vision_mask = analysis.minimap_tile_vision_mask();
+        if minimap_tile_vision_mask.is_none() {
+            warn!("Analysis could not find minimap_tile_vision_mask");
+        }
         let replay_show_entire_map = analysis
             .replay_show_entire_map()
             .ok_or("replay_show_entire_map")?;
@@ -731,6 +735,7 @@ impl BwScr {
             enable_rng: Value::new(ctx, enable_rng),
             replay_visions: Value::new(ctx, replay_visions),
             local_visions: Value::new(ctx, local_visions),
+            minimap_tile_vision_mask: minimap_tile_vision_mask.map(|x| Value::new(ctx, x)),
             replay_show_entire_map: Value::new(ctx, replay_show_entire_map),
             allocator: Value::new(ctx, allocator),
             allocated_order_count: Value::new(ctx, allocated_order_count),
@@ -1014,13 +1019,15 @@ fn init_bw_dat(analysis: &mut scr_analysis::Analysis<'_>) -> Result<(), &'static
         .dat_table(DatType::TechData)
         .ok_or("techdata.dat")?;
     let orders = analysis.dat_table(DatType::Orders).ok_or("orders.dat")?;
-    let mut out = Vec::with_capacity(0x36 + 0x18 + 0xc + 0xb + 0x13);
+    let images = analysis.dat_table(DatType::Images).ok_or("images.dat")?;
+    let mut out = Vec::with_capacity(0x36 + 0x18 + 0xc + 0xb + 0x13 + 0xe);
     unsafe {
         copy_dat_table(&units, &mut out, 0x36);
         copy_dat_table(&weapons, &mut out, 0x18);
         copy_dat_table(&upgrades, &mut out, 0xc);
         copy_dat_table(&techdata, &mut out, 0xb);
         copy_dat_table(&orders, &mut out, 0x13);
+        copy_dat_table(&images, &mut out, 0xe);
         let mut table = out.leak().as_ptr();
         bw_dat::init_units(table, 0x36);
         table = table.add(0x36);
@@ -1031,6 +1038,8 @@ fn init_bw_dat(analysis: &mut scr_analysis::Analysis<'_>) -> Result<(), &'static
         bw_dat::init_techdata(table, 0xb);
         table = table.add(0xb);
         bw_dat::init_orders(table, 0x13);
+        table = table.add(0x13);
+        bw_dat::init_images(table, 0xe);
         bw_dat::set_is_scr(true);
         bw_dat::set_bw_malloc(bw_malloc, bw_free);
     }

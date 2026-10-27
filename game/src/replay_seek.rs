@@ -333,6 +333,9 @@ impl Seeker {
             // Nothing simulates between the restore and settling, so nothing the restore took out
             // of the selection is back.
             bw.rollback_settle_local_selection(&selection, &[]);
+            // The vision globals and the draw functions the restored images carry are the
+            // viewer's, not the simulation's, and have to match the restored frame.
+            bw.restore_replay_visions_after_keyframe();
             // Restoring a trigger list that had been freed since the keyframe allocates its nodes
             // anew, and the keyframe has to name the new ones for the next time it is restored.
             if let Some(extras) = layout.extras_of(frame) {

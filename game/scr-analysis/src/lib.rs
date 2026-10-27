@@ -19,9 +19,10 @@ pub use samase_scarf::{AiPool, AiPools, DatTablePtr, DatType, DynamicPathing, St
 
 use std::rc::Rc;
 
+use scarf::analysis::{Analyzer, Control, DefaultState, FuncAnalysis};
 use scarf::exec_state::ExecutionState as _;
 use scarf::exec_state::VirtualAddress as _;
-use scarf::{BinaryFile, MemAccessSize, Operand, OperandCtx};
+use scarf::{BinaryFile, MemAccessSize, Operand, OperandCtx, Operation};
 
 #[cfg(target_arch = "x86")]
 use scarf::ExecutionStateX86 as ExecutionState;
@@ -649,6 +650,27 @@ impl<'e> Analysis<'e> {
 
     pub fn sync_slot_index(&mut self) -> Option<Operand<'e>> {
         self.0.sync_slot_index()
+    }
+
+    /// 32-bit global holding the players whose vision the minimap's terrain and the fog show, a
+    /// bit per player starting at bit 8: SC:R keeps it at `local_visions << 8`, sets it alongside
+    /// `local_visions` when the replay or observer vision filter is applied, and clears a player's
+    /// bit as they leave.
+    ///
+    /// Found from the turn sync hash, which xors it with `local_visions`. The hash is filled in
+    /// `record_turn_sync_slot`, or in a function it calls on builds that don't inline it.
+    pub fn minimap_tile_vision_mask(&mut self) -> Option<Operand<'e>> {
+        let local_visions = self.0.local_visions()?.if_mem32()?.if_constant_address()?;
+        let record_turn_sync_slot = self.0.record_turn_sync_slot()?;
+        let ctx = self.2;
+        let mut analyzer = VisionMaskAnalyzer {
+            local_visions,
+            result: None,
+            inline_depth: 0,
+        };
+        let mut analysis = FuncAnalysis::new(self.1, ctx, record_turn_sync_slot);
+        analysis.analyze(&mut analyzer);
+        analyzer.result.map(|address| ctx.mem32c(address))
     }
 
     /// The byte that decides whether the order confirmation marker is drawn. Clicks set it; the
@@ -1789,5 +1811,51 @@ impl<'e> Analysis<'e> {
     /// zeroes them rather than from a struct declaration.
     pub fn state_block_sizes(&mut self) -> StateBlockSizes {
         self.0.state_block_sizes()
+    }
+}
+
+/// Finds the global the turn sync hash xors with `local_visions`, given `local_visions`'s
+/// constant address. Follows the calls of the function it starts in, one level deep.
+struct VisionMaskAnalyzer {
+    local_visions: u64,
+    result: Option<u64>,
+    inline_depth: u8,
+}
+
+impl<'e> Analyzer<'e> for VisionMaskAnalyzer {
+    type State = DefaultState;
+    type Exec = ExecutionState<'e>;
+
+    fn operation(&mut self, ctrl: &mut Control<'e, '_, '_, Self>, op: &Operation<'e>) {
+        match *op {
+            Operation::Move(_, value) => {
+                let value = ctrl.resolve(value);
+                let Some((left, right)) = value.if_arithmetic_xor() else {
+                    return;
+                };
+                let global = |op: Operand<'e>| op.if_mem32()?.if_constant_address();
+                for (other, local) in [(left, right), (right, left)] {
+                    if global(local) == Some(self.local_visions)
+                        && let Some(address) = global(other)
+                        && address != self.local_visions
+                    {
+                        self.result = Some(address);
+                        ctrl.end_analysis();
+                        return;
+                    }
+                }
+            }
+            Operation::Call(dest) if self.inline_depth == 0 => {
+                if let Some(dest) = ctrl.resolve(dest).if_constant() {
+                    self.inline_depth = 1;
+                    ctrl.analyze_with_current_state(self, VirtualAddress::from_u64(dest));
+                    self.inline_depth = 0;
+                    if self.result.is_some() {
+                        ctrl.end_analysis();
+                    }
+                }
+            }
+            _ => (),
+        }
     }
 }
