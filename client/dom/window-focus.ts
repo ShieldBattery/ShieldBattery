@@ -5,23 +5,29 @@ import logger from '../logging/logger'
 
 export type WindowFocusListener = (focused: boolean) => void
 
+/** How often focus is rechecked while it's inside one of the page's iframes. */
+const IFRAME_FOCUS_POLL_MS = 1000
+
 /**
- * Tracks the current focus state of the window (using either browser events, or IPC from the
- * main Electron process).
+ * Tracks whether the window has the OS focus (using either browser events, or IPC from the main
+ * Electron process).
  */
 export class WindowFocusTracker {
   readonly ipcRenderer = new TypedIpcRenderer()
   private focused = false
   private listeners: WindowFocusListener[] = []
   private microtaskNotifyQueue: WindowFocusListener[] = []
+  private iframeFocusPoll: ReturnType<typeof setInterval> | undefined
 
   constructor() {
     if (!IS_ELECTRON) {
-      this.focused = document.visibilityState === 'visible'
-      document.addEventListener('visibilitychange', () => {
-        this.focused = document.visibilityState === 'visible'
-        this.notifyListeners()
-      })
+      this.focused = document.hasFocus()
+      window.addEventListener('focus', this.updateFromDocument)
+      // Focus moving into one of the page's own iframes (an embedded video, say) blurs the window
+      // too, but the user is still on the page. `hasFocus` counts that as focused, once the move
+      // has finished, which is after `blur` is dispatched.
+      window.addEventListener('blur', () => setTimeout(this.updateFromDocument, 0))
+      document.addEventListener('visibilitychange', this.updateFromDocument)
     } else {
       this.ipcRenderer.on('windowFocusChanged', (_, focused) => {
         this.focused = focused
@@ -68,6 +74,24 @@ export class WindowFocusTracker {
     }
   }
 
+  private updateFromDocument = () => {
+    // Leaving the browser from inside an iframe dispatches nothing to this window, so that has to
+    // be noticed by checking.
+    const inIframe = document.activeElement instanceof HTMLIFrameElement
+    if (inIframe && !this.iframeFocusPoll) {
+      this.iframeFocusPoll = setInterval(this.updateFromDocument, IFRAME_FOCUS_POLL_MS)
+    } else if (!inIframe && this.iframeFocusPoll) {
+      clearInterval(this.iframeFocusPoll)
+      this.iframeFocusPoll = undefined
+    }
+
+    const focused = document.hasFocus()
+    if (focused !== this.focused) {
+      this.focused = focused
+      this.notifyListeners()
+    }
+  }
+
   private notifyListeners() {
     for (const listener of this.listeners) {
       listener(this.focused)
@@ -79,9 +103,8 @@ const windowFocusTracker = new WindowFocusTracker()
 export default windowFocusTracker
 
 /**
- * Hook that returns whether the window is currently focused (e.g. the tab or app is currently
- * visible. This will work in Electron and the browser, although the semantics are slightly
- * different.
+ * Hook that returns whether the window currently has the OS focus. In the browser, that means the
+ * page's tab is the active one in the focused browser window.
  */
 export function useWindowFocus(): boolean {
   const [focused, setFocused] = useState(false)
