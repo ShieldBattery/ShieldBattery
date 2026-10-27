@@ -93,10 +93,17 @@ pub(crate) fn take_confirmed(confirmed: u32) -> Vec<(u32, u64)> {
         reports.next += REPORT_INTERVAL;
     }
     let next = reports.next;
-    let kept = reports.recorded.split_off(&next);
-    let stale = std::mem::replace(&mut reports.recorded, kept);
-    for (_, recorded) in stale {
-        reports.recycle(recorded.units);
+    // Only split when something is stale: a split allocates, and most ticks confirm nothing new.
+    if reports
+        .recorded
+        .first_key_value()
+        .is_some_and(|(&position, _)| position < next)
+    {
+        let kept = reports.recorded.split_off(&next);
+        let stale = std::mem::replace(&mut reports.recorded, kept);
+        for (_, recorded) in stale {
+            reports.recycle(recorded.units);
+        }
     }
     taken
 }
@@ -150,6 +157,12 @@ mod tests {
         assert_eq!(take_confirmed(20), vec![]);
         record(24, probe(24, 4), unit_buffer());
         assert_eq!(take_confirmed(40), vec![(24, combined(24, 4))]);
+        // A position recorded after it went out is dropped, never reported again.
+        record(16, probe(16, 5), unit_buffer());
+        record(48, probe(48, 6), unit_buffer());
+        assert_eq!(take_confirmed(40), vec![]);
+        assert_eq!(REPORTS.lock().recorded.len(), 1);
+        assert_eq!(take_confirmed(48), vec![(48, combined(48, 6))]);
         reset();
     }
 }
