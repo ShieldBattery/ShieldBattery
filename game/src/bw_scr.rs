@@ -6723,43 +6723,6 @@ fn sh_get_folder_path_w_hook(
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn observer_slots_map_to_out_of_band_game_player_ids() {
-        for slot in 0..8u8 {
-            assert_eq!(game_player_id_for_slot(slot), slot);
-        }
-        assert_eq!(game_player_id_for_slot(12), 0x80);
-        assert_eq!(game_player_id_for_slot(13), 0x81);
-        assert_eq!(game_player_id_for_slot(14), 0x82);
-        assert_eq!(game_player_id_for_slot(15), 0x83);
-        for slot in 12..16u8 {
-            assert!(BwPlayerId(game_player_id_for_slot(slot)).is_observer());
-        }
-    }
-
-    #[test]
-    fn save_and_load_hotkeys_are_only_their_alt_messages() {
-        use winapi::um::winuser::{WM_CHAR, WM_KEYDOWN, WM_SYSCHAR, WM_SYSKEYDOWN, WM_SYSKEYUP};
-        for &vk in b"SL" {
-            assert!(is_save_or_load_hotkey(WM_SYSKEYDOWN, vk as usize));
-            assert!(is_save_or_load_hotkey(WM_SYSKEYUP, vk as usize));
-            // Without Alt (or with AltGr) the same key is ordinary input.
-            assert!(!is_save_or_load_hotkey(WM_KEYDOWN, vk as usize));
-        }
-        for &ch in b"sSlL" {
-            assert!(is_save_or_load_hotkey(WM_SYSCHAR, ch as usize));
-            assert!(!is_save_or_load_hotkey(WM_CHAR, ch as usize));
-        }
-        // Other Alt hotkeys, like Alt+M for the game menu, pass through.
-        assert!(!is_save_or_load_hotkey(WM_SYSKEYDOWN, b'M' as usize));
-        assert!(!is_save_or_load_hotkey(WM_SYSCHAR, b'm' as usize));
-    }
-}
-
 impl BwScr {
     pub(crate) unsafe fn local_pluto_context(&self) -> Option<(u32, u32)> {
         if !crate::is_local_game()
@@ -6808,5 +6771,42 @@ impl BwScr {
             return None;
         }
         crate::local_pluto::settled_result(unsafe { (*game).victory_state[local] })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn observer_slots_map_to_out_of_band_game_player_ids() {
+        for slot in 0..8u8 {
+            assert_eq!(game_player_id_for_slot(slot), slot);
+        }
+        assert_eq!(game_player_id_for_slot(12), 0x80);
+        assert_eq!(game_player_id_for_slot(13), 0x81);
+        assert_eq!(game_player_id_for_slot(14), 0x82);
+        assert_eq!(game_player_id_for_slot(15), 0x83);
+        for slot in 12..16u8 {
+            assert!(BwPlayerId(game_player_id_for_slot(slot)).is_observer());
+        }
+    }
+
+    #[test]
+    fn save_and_load_hotkeys_are_only_their_alt_messages() {
+        use winapi::um::winuser::{WM_CHAR, WM_KEYDOWN, WM_SYSCHAR, WM_SYSKEYDOWN, WM_SYSKEYUP};
+        for &vk in b"SL" {
+            assert!(is_save_or_load_hotkey(WM_SYSKEYDOWN, vk as usize));
+            assert!(is_save_or_load_hotkey(WM_SYSKEYUP, vk as usize));
+            // Without Alt (or with AltGr) the same key is ordinary input.
+            assert!(!is_save_or_load_hotkey(WM_KEYDOWN, vk as usize));
+        }
+        for &ch in b"sSlL" {
+            assert!(is_save_or_load_hotkey(WM_SYSCHAR, ch as usize));
+            assert!(!is_save_or_load_hotkey(WM_CHAR, ch as usize));
+        }
+        // Other Alt hotkeys, like Alt+M for the game menu, pass through.
+        assert!(!is_save_or_load_hotkey(WM_SYSKEYDOWN, b'M' as usize));
+        assert!(!is_save_or_load_hotkey(WM_SYSCHAR, b'm' as usize));
     }
 }
