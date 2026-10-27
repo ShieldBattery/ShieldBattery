@@ -11,7 +11,7 @@ import { Select } from '../material/select/select'
 import { LoadingDotsArea } from '../progress/dots'
 import { bodySmall, labelMedium, labelSmall, titleSmall } from '../styles/typography'
 import { MatchupCell, MatchupDataSource, MatchupFilters, raceCombos } from './matchup-data'
-import { findExtremes, MatchupSummary, sectionLabel } from './matchup-summary'
+import { findExtremes, formatRecord, MatchupSummary, sectionLabel } from './matchup-summary'
 import { ComboLabel } from './race-combo-label'
 import { ALL_MAPS, ALL_SEASONS } from './stats-filters'
 
@@ -604,8 +604,7 @@ export function MatchupMatrix({
                     // cell, and nothing at all when the cell is empty either way.
                     let below = ''
                     if (mirrored && games) below = formatCount.format(games)
-                    else if (!mirrored && cell.games)
-                      below = `${cell.wins}–${cell.games - cell.wins}`
+                    else if (!mirrored && cell.games) below = formatRecord(formatCount, cell)
                     return (
                       <Cell
                         key={col.join('')}
@@ -663,7 +662,7 @@ export function MatchupMatrix({
                     <>
                       <MapCardRate $positive={overallRate >= 50}>{overallRate}%</MapCardRate>
                       {' · '}
-                      {overall.wins}&ndash;{overall.games - overall.wins}
+                      {formatRecord(formatCount, overall)}
                     </>
                   ) : (
                     mapGames(overall)
@@ -687,7 +686,7 @@ export function MatchupMatrix({
                         <>
                           <MapCardRate $positive={rate >= 50}>{rate}%</MapCardRate>
                           {' · '}
-                          {m.stats.wins}&ndash;{m.stats.games - m.stats.wins}
+                          {formatRecord(formatCount, m.stats)}
                         </>
                       ) : (
                         mapGames(m.stats)

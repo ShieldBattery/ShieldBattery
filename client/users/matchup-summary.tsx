@@ -83,6 +83,11 @@ const SUMMARY_MIN_GAMES = 20
 
 const countFormat = numberFormat()
 
+/** A cell's wins and losses as `12–8`, each number in the reader's own number format. */
+export function formatRecord(format: Intl.NumberFormat, cell: MatchupCell): string {
+  return `${format.format(cell.wins)}–${format.format(cell.games - cell.wins)}`
+}
+
 interface RatedMatchup {
   races: AssignedRaceChar[]
   opponentRaces: AssignedRaceChar[]
@@ -135,6 +140,7 @@ export function findExtremes(
 
 function SummaryMatchupItem({ label, matchup }: { label: string; matchup: RatedMatchup }) {
   const { t } = useTranslation()
+  const formatCount = useFormat(countFormat)
   const { cell } = matchup
   const rate = Math.round((cell.wins / cell.games) * 100)
   return (
@@ -146,9 +152,7 @@ function SummaryMatchupItem({ label, matchup }: { label: string; matchup: RatedM
         <ComboLabel parts={matchup.opponentRaces} />
         <SummaryRate $positive={rate >= 50}>{rate}%</SummaryRate>
       </SummaryMatchup>
-      <SummaryDetail>
-        {cell.wins}&ndash;{cell.games - cell.wins}
-      </SummaryDetail>
+      <SummaryDetail>{formatRecord(formatCount, cell)}</SummaryDetail>
     </SummaryItem>
   )
 }
@@ -194,9 +198,7 @@ export function MatchupSummary({
       <SummaryItem>
         <SummaryLabel>{t('users.profile.matchups.winRate', 'Win rate')}</SummaryLabel>
         <SummaryFigure $tone={rate >= 50 ? 'positive' : 'negative'}>{rate}%</SummaryFigure>
-        <SummaryDetail>
-          {total.wins}&ndash;{total.games - total.wins}
-        </SummaryDetail>
+        <SummaryDetail>{formatRecord(formatCount, total)}</SummaryDetail>
       </SummaryItem>
       {extremes.best ? (
         <SummaryMatchupItem
