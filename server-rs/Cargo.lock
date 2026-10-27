@@ -1141,8 +1141,8 @@ dependencies = [
 
 [[package]]
 name = "broodmap"
-version = "0.1.0"
-source = "git+https://github.com/ShieldBattery/broodmap?rev=190c7588c7f0bc20f4ec13eaaca6422d8a78fb58#190c7588c7f0bc20f4ec13eaaca6422d8a78fb58"
+version = "0.2.0"
+source = "git+https://github.com/ShieldBattery/broodmap?rev=7132ab33a6f05a0a46302343a12ef045d997e951#7132ab33a6f05a0a46302343a12ef045d997e951"
 dependencies = [
  "bitflags 2.13.2",
  "bzip2",
@@ -1156,8 +1156,8 @@ dependencies = [
 
 [[package]]
 name = "broodmap-analysis"
-version = "0.1.0"
-source = "git+https://github.com/ShieldBattery/broodmap?rev=190c7588c7f0bc20f4ec13eaaca6422d8a78fb58#190c7588c7f0bc20f4ec13eaaca6422d8a78fb58"
+version = "0.2.0"
+source = "git+https://github.com/ShieldBattery/broodmap?rev=7132ab33a6f05a0a46302343a12ef045d997e951#7132ab33a6f05a0a46302343a12ef045d997e951"
 dependencies = [
  "broodmap",
  "broodmap-formats",
@@ -1166,8 +1166,8 @@ dependencies = [
 
 [[package]]
 name = "broodmap-formats"
-version = "0.1.0"
-source = "git+https://github.com/ShieldBattery/broodmap?rev=190c7588c7f0bc20f4ec13eaaca6422d8a78fb58#190c7588c7f0bc20f4ec13eaaca6422d8a78fb58"
+version = "0.2.0"
+source = "git+https://github.com/ShieldBattery/broodmap?rev=7132ab33a6f05a0a46302343a12ef045d997e951#7132ab33a6f05a0a46302343a12ef045d997e951"
 dependencies = [
  "bitflags 2.13.2",
  "thiserror",
@@ -1175,8 +1175,8 @@ dependencies = [
 
 [[package]]
 name = "broodmap-render"
-version = "0.1.0"
-source = "git+https://github.com/ShieldBattery/broodmap?rev=190c7588c7f0bc20f4ec13eaaca6422d8a78fb58#190c7588c7f0bc20f4ec13eaaca6422d8a78fb58"
+version = "0.2.0"
+source = "git+https://github.com/ShieldBattery/broodmap?rev=7132ab33a6f05a0a46302343a12ef045d997e951#7132ab33a6f05a0a46302343a12ef045d997e951"
 dependencies = [
  "broodmap",
  "broodmap-formats",

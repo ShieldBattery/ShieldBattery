@@ -21,8 +21,6 @@ ENV SB_SERVER_ONLY=1
 # dependency `overrides` (and other pnpm settings); without it `pnpm install --frozen-lockfile` fails
 # with ERR_PNPM_LOCKFILE_CONFIG_MISMATCH since the lockfile records overrides this stage can't see.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-# Packages installed from a local tarball (`file:vendor/...` in package.json).
-COPY vendor/ ./vendor/
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
   pnpm install --frozen-lockfile
 
