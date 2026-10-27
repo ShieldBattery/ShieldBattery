@@ -175,7 +175,7 @@ export function ConnectedChannelInfoCard({
   const isAdmin = useHasAnyPermission('moderateChatChannels')
   const isNavigationAvailable = useIsNavigationAvailable()
 
-  const [anchor, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('left', 'top')
+  const [anchor, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'top')
   const [overflowMenuOpen, openOverflowMenu, closeOverflowMenu] = usePopoverController({
     refreshAnchorPos,
   })
@@ -260,7 +260,7 @@ export function ConnectedChannelInfoCard({
           onDismiss={closeOverflowMenu}
           anchorX={anchorX ?? 0}
           anchorY={anchorY ?? 0}
-          originX={'left'}
+          originX={'right'}
           originY={'top'}>
           <MenuList>
             <MenuItem

@@ -371,7 +371,7 @@ export function AdminChannelView({
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
   const [overflowAnchor, overflowAnchorX, overflowAnchorY, refreshOverflowAnchorPos] =
-    useRefAnchorPosition('right', 'bottom')
+    useRefAnchorPosition('right', 'top')
   const [overflowMenuOpen, openOverflowMenu, closeOverflowMenu] = usePopoverController({
     refreshAnchorPos: refreshOverflowAnchorPos,
   })

@@ -330,7 +330,7 @@ const ProfileMenuButton = styled(IconButton)`
 
 function UserProfileActions({ userId }: { userId: SbUserId }) {
   const { t } = useTranslation()
-  const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'bottom')
+  const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'top')
   const [menuOpen, openMenu, closeMenu] = usePopoverController({ refreshAnchorPos })
 
   return (

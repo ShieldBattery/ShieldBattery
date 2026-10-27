@@ -153,7 +153,7 @@ export function ChannelHeader({
     s.chat.idToSelfPermissions.get(basicChannelInfo.id),
   )
 
-  const [anchor, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'bottom')
+  const [anchor, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'top')
   const [overflowMenuOpen, openOverflowMenu, closeOverflowMenu] = usePopoverController({
     refreshAnchorPos,
   })

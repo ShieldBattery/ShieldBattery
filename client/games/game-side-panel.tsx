@@ -210,7 +210,7 @@ export function GameSidePanelOverflow({ renderItems, renderSubmenu }: GameSidePa
         anchorX={anchorX ?? 0}
         anchorY={anchorY ?? 0}
         originX='right'
-        originY='top'>
+        originY='bottom'>
         <MenuList dense={true}>{renderItems({ closeMenu, openSubmenu })}</MenuList>
       </Popover>
       {renderSubmenu ? (
@@ -220,7 +220,7 @@ export function GameSidePanelOverflow({ renderItems, renderSubmenu }: GameSidePa
           anchorX={anchorX ?? 0}
           anchorY={anchorY ?? 0}
           originX='right'
-          originY='top'>
+          originY='bottom'>
           {renderSubmenu({ closeSubmenu })}
         </Popover>
       ) : null}
