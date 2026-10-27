@@ -271,6 +271,8 @@ impl BwScr {
             .trigger_execution_timer()
             .ok_or("trigger_execution_timer")?;
         let next_game_step_tick = analysis.next_game_step_tick();
+        #[cfg(debug_assertions)]
+        let turn_timer_accumulator = analysis.turn_timer_accumulator();
         let replay_seek_frame = analysis.replay_seek_frame();
         let local_selection = analysis.local_selection();
         let simulated_selections = analysis.selections();
@@ -723,6 +725,8 @@ impl BwScr {
             replay_header: Value::new(ctx, replay_header),
             trigger_execution_timer: Value::new(ctx, trigger_execution_timer),
             next_game_step_tick: next_game_step_tick.map(|x| Value::new(ctx, x)),
+            #[cfg(debug_assertions)]
+            turn_timer_accumulator: turn_timer_accumulator.map(|x| Value::new(ctx, x)),
             replay_seek_frame: replay_seek_frame.map(|x| Value::new(ctx, x)),
             enable_rng: Value::new(ctx, enable_rng),
             replay_visions: Value::new(ctx, replay_visions),

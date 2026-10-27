@@ -1162,16 +1162,21 @@ unsafe fn run_tick(
             if stalls {
                 let before = bw.rollback_frame_count();
                 STALLING_STEP.store(true, Ordering::Relaxed);
-                let ret = crate::rollback_probe::run_game_logic_step(bw, param, orig);
+                // Every step of a live game that rolls back takes a turn, but a replay's turn rate
+                // can have a step take none, which would never reach the receive that stalls.
+                let ret = bw.rollback_step_taking_network_turn(|| {
+                    crate::rollback_probe::run_game_logic_step(bw, param, orig)
+                });
                 STALLING_STEP.store(false, Ordering::Relaxed);
                 stalled = true;
-                if bw.rollback_frame_count() != before {
+                if ret.is_none() || bw.rollback_frame_count() != before {
                     error!(
-                        "Rollback harness: the step to frame {} was to stall at the prediction                          limit, but the frame advanced",
+                        "Rollback harness: the step to frame {} was to stall at the prediction \
+                         limit, but analysis did not find the turn timer or the frame advanced",
                         step.frame,
                     );
                 }
-                return ret;
+                return ret.unwrap_or(0);
             }
             if let Some(ranges) = &audit_ranges {
                 audit_before_step(bw, ranges);

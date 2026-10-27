@@ -164,6 +164,11 @@ pub struct BwScr {
     /// frames also pushes real-time pacing that far ahead unless the value is restored. `None` if
     /// analysis could not find it, which only a game that rolls back needs.
     next_game_step_tick: Option<Value<u32>>,
+    /// The countdown that decides which logic steps also take a network turn: each step takes a
+    /// fixed amount off it and takes a turn once it reaches zero. `None` if analysis could not
+    /// find it.
+    #[cfg(debug_assertions)]
+    turn_timer_accumulator: Option<Value<u32>>,
     /// The frame `step_game_logic` fast-forwards a replay to, which seeking by keyframe sets
     /// itself. `None` if analysis could not find it, which turns seeking by keyframe off.
     replay_seek_frame: Option<Value<u32>>,
@@ -4169,6 +4174,25 @@ impl BwScr {
     /// The tick the game loop schedules its next logic step for, if analysis found it.
     pub(crate) unsafe fn next_game_step_tick(&self) -> Option<u32> {
         unsafe { self.next_game_step_tick.as_ref().map(|x| x.resolve()) }
+    }
+
+    /// Runs `step`, one of BW's logic steps, as one that takes a network turn, whichever steps the
+    /// game's turn rate has take them, and leaves the turn timer as it was. For a step whose turn
+    /// receive finds nothing, which puts back what the step took off the timer, as stalled steps
+    /// in a live game do. `None` if analysis could not find the timer.
+    #[cfg(debug_assertions)]
+    pub(crate) unsafe fn rollback_step_taking_network_turn<R>(
+        &self,
+        step: impl FnOnce() -> R,
+    ) -> Option<R> {
+        unsafe {
+            let timer = self.turn_timer_accumulator.as_ref()?;
+            let saved = timer.resolve();
+            timer.write(0);
+            let ret = step();
+            timer.write(saved);
+            Some(ret)
+        }
     }
 
     pub(crate) unsafe fn rollback_set_next_game_step_tick(&self, value: u32) {
