@@ -131,6 +131,11 @@ game\build.bat x86             # Debug 32-bit
   (`${titleMedium}; font-size: 20px;`); even genuinely exceptional cases (oversized display
   numerals) should compose a font-family token (`inter`/`sofiaSans`/`sofiaSansCondensed`).
 - Use `motion` library for animations, `react-i18next` for translations
+- Avoid infinite animations and autoplaying video. Any running animation makes the browser redraw
+  every display refresh, even compositor-only ones, which takes GPU time from games. If something
+  important truly needs one (e.g. the Play button): pause it when the window is unfocused
+  (`useWindowFocus`), keep it out of React state, and step it with `steppedEaseInOut` so it redraws
+  a few times a second instead of every refresh
 - Development test pages in `devonly/` folders (accessible at `/dev`)
 
 ### GraphQL (URQL)

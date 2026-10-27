@@ -2,7 +2,7 @@ import { TFunction } from 'i18next'
 import * as React from 'react'
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import styled, { css, keyframes } from 'styled-components'
+import styled, { css } from 'styled-components'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { GameType, gameTypeToLabel, isTeamType } from '../../../common/games/game-type'
 import { getGameDurationString } from '../../../common/games/games'
@@ -320,17 +320,6 @@ const GameTileUnresolved = styled(GameTileWinner)`
   color: var(--theme-on-surface-variant);
 `
 
-/** Fades the upcoming slot in and out, so an idle lobby still reads as waiting on something. */
-const breathe = keyframes`
-  0%,
-  100% {
-    opacity: 0.65;
-  }
-  50% {
-    opacity: 1;
-  }
-`
-
 const NextSlotRoot = styled.div<{ $state: 'idle' | 'countdown' | 'loading' | 'playing' }>`
   flex: 0 0 96px;
   min-width: 96px;
@@ -349,17 +338,6 @@ const NextSlotRoot = styled.div<{ $state: 'idle' | 'countdown' | 'loading' | 'pl
     props.$state !== 'idle'
       ? css`
           border: 1px solid var(--theme-primary);
-        `
-      : ''}
-
-  ${props =>
-    props.$state === 'idle'
-      ? css`
-          animation: ${breathe} 3s ease-in-out infinite;
-
-          @media (prefers-reduced-motion: reduce) {
-            animation: none;
-          }
         `
       : ''}
 `

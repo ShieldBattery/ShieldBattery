@@ -1,6 +1,6 @@
 import { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
-import styled, { css, keyframes } from 'styled-components'
+import styled from 'styled-components'
 import { numberFormat, useFormatLocale } from '../i18n/locale-formats'
 import TwitchIcon from '../icons/brands/twitch.svg?react'
 import { MaterialIcon } from '../icons/material/material-icon'
@@ -19,60 +19,20 @@ export const TWITCH_PURPLE = '#9146ff'
 /** A dark scrim used behind pills that overlay stream thumbnails, to keep them legible. */
 const THUMBNAIL_OVERLAY = 'rgba(16, 21, 30, 0.82)'
 
-/** How far past the dot's edge the pulse ring travels, in pixels. */
-const PULSE_REACH = 6
-
-// Only scale and opacity are animated so the pulse runs on the compositor. Animating a
-// box-shadow instead repaints every frame, which taxes the whole browser's GPU process for as
-// long as a stream is live.
-const pulseKeyframes = keyframes`
-  0% {
-    scale: 1;
-    opacity: 0.5;
-  }
-  70%,
-  100% {
-    scale: var(--_pulse-scale);
-    opacity: 0;
-  }
-`
-
 /**
- * A filled dot in the "live" color. Pulses gently by default (disabled under reduced-motion). Used
- * on its own next to names, and inside the pills below.
+ * A filled dot in the "live" color. Used on its own next to names, and inside the pills below.
+ *
+ * It's deliberately static: streams stay live for hours, and an animation running that whole time
+ * makes the browser draw a new frame every display refresh, competing with games and video for the
+ * GPU.
  */
-export const LiveDot = styled.span<{ $size?: number; $pulse?: boolean; $color?: string }>`
-  position: relative;
+export const LiveDot = styled.span<{ $size?: number; $color?: string }>`
   width: ${props => props.$size ?? 8}px;
   height: ${props => props.$size ?? 8}px;
   flex-shrink: 0;
 
   border-radius: 50%;
   background-color: ${props => props.$color ?? 'var(--theme-live)'};
-
-  ${props =>
-    (props.$pulse ?? true)
-      ? css`
-          --_pulse-scale: ${1 + (2 * PULSE_REACH) / (props.$size ?? 8)};
-
-          /* The ring matches the dot, so the part that overlaps the dot stays invisible */
-          &::after {
-            content: '';
-            position: absolute;
-            inset: 0;
-            border-radius: inherit;
-            background-color: inherit;
-            opacity: 0;
-            animation: ${pulseKeyframes} 2.2s ease-out infinite;
-          }
-
-          @media (prefers-reduced-motion: reduce) {
-            &::after {
-              animation: none;
-            }
-          }
-        `
-      : ''}
 `
 
 const LivePillRoot = styled.div`
@@ -119,7 +79,7 @@ export function LivePill({ className }: { className?: string }) {
   const { t } = useTranslation()
   return (
     <LivePillRoot className={className}>
-      <LiveDot $size={6} $pulse={false} $color='#fff' />
+      <LiveDot $size={6} $color='#fff' />
       {t('twitch.live.badge', 'Live')}
     </LivePillRoot>
   )
@@ -155,7 +115,7 @@ export function ViewerCountPill({ count, className }: { count: number; className
   const locale = useFormatLocale()
   return (
     <OverlayPill className={className}>
-      <LiveDot $size={6} $pulse={false} />
+      <LiveDot $size={6} />
       {formatViewerCount(count, locale)}
     </OverlayPill>
   )
