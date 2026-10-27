@@ -70,8 +70,7 @@ struct TrackedUnit {
 impl BwScr {
     pub(super) unsafe fn bwapi_step(&self) {
         let instance = crate::bwapi_instance();
-        let legacy_enabled = std::env::var_os("SB_BWAPI").is_some() && !crate::is_local_game();
-        if (instance.is_none() && !legacy_enabled) || crate::game_thread::is_replay() {
+        if !crate::bwapi::enabled() || crate::game_thread::is_replay() {
             return;
         }
         let local = unsafe { self.local_player_id.resolve() };
