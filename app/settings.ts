@@ -24,7 +24,7 @@ import { findInstallPath } from './find-install-path'
 import log from './logger'
 import { applyLaunchOverrides, dropLaunchOverriddenSettings } from './scr-launch-overrides'
 
-const VERSION = 32
+const VERSION = 33
 const SCR_VERSION = 6
 
 /**
@@ -455,6 +455,11 @@ export class LocalSettingsManager extends SettingsManager<LocalSettings> {
     if (!settings.version || settings.version < 32) {
       log.verbose('Found settings version 31, migrating to version 32')
       newSettings.minimizeWhilePlaying = DEFAULT_LOCAL_SETTINGS.minimizeWhilePlaying
+    }
+
+    if (!settings.version || settings.version < 33) {
+      log.verbose('Found settings version 32, migrating to version 33')
+      newSettings.preferHighPerformanceGpu = DEFAULT_LOCAL_SETTINGS.preferHighPerformanceGpu
     }
 
     newSettings.version = VERSION

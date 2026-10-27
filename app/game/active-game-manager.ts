@@ -45,6 +45,7 @@ import { applyLaunchOverridesToSettings, startsInSd } from '../scr-launch-overri
 import { LocalSettingsManager, ScrSettingsManager } from '../settings'
 import { checkStarcraftPath } from './check-starcraft-path'
 import { isCrashExitCode } from './crash-exit-code'
+import { holdHighPerformanceGpu } from './gpu-preference'
 import { MapStore } from './map-store'
 import { NetcodeV2KeyRing } from './netcode-v2-key-ring'
 import { generateNetcodeV2KeyPair, NetcodeV2KeyPair } from './netcode-v2-keys'
@@ -297,12 +298,14 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     this.emit('gameProcessLaunching', gameId)
     return doLaunch(gameId, this.serverPort, this.localSettings, this.scrSettings)
       .then(
-        async proc => {
+        async ({ proc, releaseGpuPreference }) => {
           try {
             const code = await proc.waitForExit()
             this.handleGameExit(gameId, code)
           } catch (err) {
             this.handleGameExitWaitError(gameId, err as Error)
+          } finally {
+            releaseGpuPreference()
           }
         },
         err => this.handleGameLaunchError(gameId, err),
@@ -1233,16 +1236,24 @@ async function doLaunch(
     // request from a RUNASADMIN layer there (which otherwise makes CreateProcess fail with
     // ERROR_ELEVATION_REQUIRED), though any other HKLM layers still apply alongside it.
     process.env.__COMPAT_LAYER = 'RunAsInvoker'
-    const proc = await launchProcess({
-      appPath,
-      args: args as any,
-      currentDir: starcraftPath,
-      dllPath: injectPath,
-      dllFunc: 'OnInject',
-      logCallback: ((msg: string) => log.verbose(`[Inject] ${msg}`)) as any,
-    })
-    log.verbose('Process launched')
-    return proc
+    const releaseGpuPreference = settings.preferHighPerformanceGpu
+      ? await holdHighPerformanceGpu(appPath)
+      : () => {}
+    try {
+      const proc = await launchProcess({
+        appPath,
+        args: args as any,
+        currentDir: starcraftPath,
+        dllPath: injectPath,
+        dllFunc: 'OnInject',
+        logCallback: ((msg: string) => log.verbose(`[Inject] ${msg}`)) as any,
+      })
+      log.verbose('Process launched')
+      return { proc, releaseGpuPreference }
+    } catch (err) {
+      releaseGpuPreference()
+      throw err
+    }
   } finally {
     if (initialCompatLayer === undefined) {
       delete process.env.__COMPAT_LAYER

@@ -90,6 +90,7 @@ const UnusedNote = styled.span`
 interface GameVideoSettingsModel {
   displayMode: DisplayMode
   monitorId: number | null
+  preferHighPerformanceGpu: boolean
   gamma: number
   sdGraphicsFilter: number
   framePacing: FramePacing
@@ -127,6 +128,7 @@ export function GameVideoSettings() {
   const initialModel: GameVideoSettingsModel = {
     displayMode: scrSettings.displayMode,
     monitorId: localSettings.monitorId ?? null,
+    preferHighPerformanceGpu: localSettings.preferHighPerformanceGpu,
     gamma: gammaToSliderValue(scrSettings.gamma),
     sdGraphicsFilter: scrSettings.sdGraphicsFilter,
     framePacing: localSettings.framePacing,
@@ -178,6 +180,7 @@ export function GameVideoSettings() {
         mergeLocalSettings(
           {
             monitorId: model.monitorId === null ? undefined : model.monitorId,
+            preferHighPerformanceGpu: model.preferHighPerformanceGpu,
             gameWinPlacement: model.windowPlacement,
             gameWinSetSize: model.windowSize,
             framePacing: model.framePacing,
@@ -344,6 +347,10 @@ export function GameVideoSettings() {
                   </RowSelect>
                 )}
               </SettingsRow>
+            )}
+            {onOffRow(
+              'preferHighPerformanceGpu',
+              t('settings.game.video.preferHighPerformanceGpu', 'Use high-performance GPU'),
             )}
             <SettingsStackedRow
               label={t('settings.game.video.brightness', 'Brightness')}

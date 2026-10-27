@@ -248,6 +248,11 @@ export interface LocalSettings extends ShieldBatteryAppSettings {
    * exited.
    */
   minimizeWhilePlaying: boolean
+  /**
+   * Whether StarCraft is told to prefer the high-performance GPU while ShieldBattery runs it, on
+   * machines that have more than one. A GPU the user picked in Windows' settings still wins.
+   */
+  preferHighPerformanceGpu: boolean
   starcraftPath: string
   masterVolume: number
   gameWinX?: number

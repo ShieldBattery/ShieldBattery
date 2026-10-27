@@ -3128,6 +3128,7 @@
         "monitor": "Monitor",
         "monitorItem": "Monitor {{index}} - {{label}}",
         "pillarbox": "Pillarbox (4:3 aspect ratio)",
+        "preferHighPerformanceGpu": "Use high-performance GPU",
         "primaryMonitor": "Default (primary monitor)",
         "realTimeLighting": "Real-time lighting",
         "resetWindowPositionButton": "Reset",
