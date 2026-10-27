@@ -35,6 +35,7 @@ import { APP_ROOT } from './app-paths'
 import { checkShieldBatteryFiles } from './check-shieldbattery-files'
 import { getClientShellTemplate, renderClientShell } from './client-shell'
 import currentSession from './current-session'
+import { findNewestDesyncUnitTable } from './desync-unit-tables'
 import { logCrashDumps, logMachineInfo, startLocalCrashReporter } from './diagnostics'
 import { logElevationStatus } from './elevation'
 import { registerCurrentProgram } from './file-association'
@@ -1046,6 +1047,18 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
           logger.warning('Error copying crash dump: ' + getErrorStack(err))
         }
       }
+    }
+
+    try {
+      const unitTable = await findNewestDesyncUnitTable(logsDir)
+      if (unitTable) {
+        const name = path.basename(unitTable)
+        const filePath = path.join(tempDir, name)
+        await copyFile(unitTable, filePath)
+        collectedFiles.push({ name, filePath })
+      }
+    } catch (err) {
+      logger.warning('Error copying desync unit table: ' + getErrorStack(err))
     }
 
     if (options?.replayPath) {
