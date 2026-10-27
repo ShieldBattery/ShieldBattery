@@ -214,6 +214,8 @@ consistent. (Seed — extend over time.)
   `game.gameSource.ranked`); Discord's own buttons are named as Discord shows them (Unirse / Pedir
   unirse). The Battle.net settings page: Battle.net features→"pasar al comportamiento de Battle.net".
 
+- **Map browser (`maps.*`):** delist→**retirar del catálogo**, fork (map)→**derivado** (Versiones y derivados), map family→**familia**, staff→**el staff**, Melee/UMS lens→Melee / UMS (in-file game type), the Your maps tab→Tus mapas (buttons say "mis mapas"), On this PC→**En este PC**, upload→subir.
+
 ### ru
 - Register: formal **Вы** (the existing file is consistently Вы; do not use ты here).
 - **Plurals need all four CLDR forms — one/few/many/other.** The file historically had only
@@ -347,6 +349,8 @@ consistent. (Seed — extend over time.)
   skin→**Предзаказ**. The Defaults page's link to the Battle.net page is **Страница Battle.net**:
   «Открыть страницу Battle.net» clips in its slot beside the note.
 
+- **Map browser (`maps.*`):** delist→**убрать из каталога** (Убрана из каталога), fork (map)→**форк** (Версии и форки), map family→**группа версий**, staff→**администрация**, the Your maps tab→**«Мои карты»** (quoted when referenced in a sentence), Melee lens→Стычка (in-file game type), UMS kept, tileset→Тайлсет, related map→родственная карта. Relative times from `narrowDuration` render as «−3 дн.», so labels that precede one take a colon («Добавлена: {{time}}», «Последняя игра:»).
+
 ### ko
 - **Register: use formal-polite 합니다/습니다체 for sentences.** The existing `ko/global.json` is
   overwhelmingly 합니다체 (~191 vs 3), which is the conventional, non-stiff register for Korean
@@ -478,6 +482,8 @@ consistent. (Seed — extend over time.)
   `game.gameSource.ranked`), observing→관전 중. StarCraft in running text and the Battle.net page's
   section heading→스타크래프트 (the settings nav keeps its Latin "StarCraft").
 
+- **Map browser (`maps.*`):** delist→**목록에서 내리기**, fork (map)→**파생 (맵)** (버전 및 파생 맵), map family→**버전 그룹**, Melee/UMS lens→**섬멸전 / 유즈맵**, player count on tiles/filters→**{{count}}인용**, publish (map)→게시 (게시자:), On this PC→**이 PC**, staff→운영진.
+
 ### zh-Hans
 - Register: use 您 for second person (the existing file is ~3:1 您 vs 你; it's the normal polite UI
   register, not stiff).
@@ -588,3 +594,4 @@ consistent. (Seed — extend over time.)
 - **Discord activity → 活动** (Discord's own 活动状态), Ranked {{mode}}→**{{mode}}排位** (matches
   `game.gameSource.ranked`). Discord's desktop app is **Discord 应用**; 客户端 stays reserved for the
   ShieldBattery app. Browsers report `zh-CN`, which the language detector doesn't map to zh-Hans yet; test with a `zh-Hans` locale.
+- **Map browser (`maps.*`):** delist→**下架**, fork (map)→**衍生** (版本与衍生), map family→**版本组**, Melee lens→对战 (in-file game type), UMS kept, tileset→地形类型 (in-file), Your maps→“我的地图”, On this PC→**此电脑**, staff→工作人员, map counter→张.
