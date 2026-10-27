@@ -5,7 +5,7 @@ import {
   ReconciledResult,
   ReconciledResults,
 } from '../../../common/games/results'
-import { AssignedRaceChar } from '../../../common/races'
+import { AssignedRaceChar, RaceChar } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import logger from '../logging/logger'
 
@@ -60,11 +60,14 @@ function countTerminalStates(resultMap: ReadonlyArray<[SbUserId, GameClientPlaye
  *   with a winning player (a game whose structure allows only a single winner). Pass `null` to skip
  *   this validation (e.g. for game types with arbitrary victory conditions, like UMS). For a free-
  *   for-all with no fixed teams, pass each player as their own single-member team.
+ * @param selectedRaces each player's race from the game config, which gives the race of a player no
+ *   report covers (see `unreportedRace`)
  */
 export function reconcileResults(
   users: ReadonlyArray<SbUserId>,
   results: ReadonlyArray<ResultSubmission | null>,
   teams: ReadonlyArray<ReadonlyArray<SbUserId>> | null,
+  selectedRaces: ReadonlyMap<SbUserId, RaceChar> = new Map(),
 ): ReconciledResults {
   // TODO(tec27): Incomplete results can also sometimes be reconciled (e.g. 1 player still playing,
   // 1 player disconnected) but we need more information about the game type to do so (e.g. what
@@ -178,11 +181,7 @@ export function reconcileResults(
 
     reconciled.set(playerId, {
       result,
-      // This default is ehhh but if this happens this game will definitely not be reconciled for
-      // a result because it had blank results for at least one player. We could make race optional
-      // but this bug only happened for a few games and we'd have to maintain that annoyance in
-      // perpetuity
-      race: playerRaces.get(playerId) ?? 'p',
+      race: playerRaces.get(playerId) ?? unreportedRace(playerId, selectedRaces),
       apm: apm.get(playerId) ?? 0,
     })
   }
@@ -224,6 +223,20 @@ export function reconcileResults(
 }
 
 /**
+ * The race to record for a player no report covers. A player who picked a race plays it, so that's
+ * the race StarCraft assigned. A random player's assigned race is unknowable without a report; every
+ * result in such a game is unknown and it's disputed, so its races count toward no stats or matchup,
+ * and 'p' only fills the column.
+ */
+function unreportedRace(
+  playerId: SbUserId,
+  selectedRaces: ReadonlyMap<SbUserId, RaceChar>,
+): AssignedRaceChar {
+  const selected = selectedRaces.get(playerId)
+  return selected && selected !== 'r' ? selected : 'p'
+}
+
+/**
  * The relay-observed desync information needed to decide how a game's results should be reconciled.
  * A superset (like `GameDesyncEvent`) is structurally assignable.
  */
@@ -256,16 +269,22 @@ function voidReconciledResults(
   humans: ReadonlyArray<SbUserId>,
   results: ReadonlyArray<ResultSubmission | null>,
   teams: ReadonlyArray<ReadonlyArray<SbUserId>> | null,
+  selectedRaces: ReadonlyMap<SbUserId, RaceChar>,
 ): ReconciledResults {
   if (!results.some(r => !!r)) {
     return {
       disputed: true,
       time: 0,
-      results: new Map(humans.map(id => [id, { result: 'unknown', race: 'p', apm: 0 }])),
+      results: new Map(
+        humans.map(id => [
+          id,
+          { result: 'unknown', race: unreportedRace(id, selectedRaces), apm: 0 },
+        ]),
+      ),
     }
   }
 
-  const base = reconcileResults(humans, results, teams)
+  const base = reconcileResults(humans, results, teams, selectedRaces)
   for (const value of base.results.values()) {
     value.result = 'unknown'
   }
@@ -305,6 +324,7 @@ function voidReconciledResults(
  * @param results the reports submitted so far (one entry per human, nulls for missing reports)
  * @param validationTeams the single-winner validation teams (see `getValidationTeams`)
  * @param desyncEvents the desync events recorded for the game
+ * @param selectedRaces each player's race from the game config (see `reconcileResults`)
  */
 export function applyDesyncPolicy({
   isMatchmaking,
@@ -312,12 +332,14 @@ export function applyDesyncPolicy({
   results,
   validationTeams,
   desyncEvents,
+  selectedRaces = new Map(),
 }: {
   isMatchmaking: boolean
   humans: ReadonlyArray<SbUserId>
   results: ReadonlyArray<ResultSubmission | null>
   validationTeams: ReadonlyArray<ReadonlyArray<SbUserId>> | null
   desyncEvents: ReadonlyArray<DesyncPolicyEvent>
+  selectedRaces?: ReadonlyMap<SbUserId, RaceChar>
 }): DesyncPolicyDecision {
   // Defense in depth: a report's `reporter` should always be one of `humans` (it's derived from the
   // games_users row it was stored under), but `reconcileResults` throws on a reporter it doesn't
@@ -333,8 +355,8 @@ export function applyDesyncPolicy({
   if (desyncEvents.length === 0) {
     return {
       reconciled: hasAnyReport
-        ? reconcileResults(humans, safeResults, validationTeams)
-        : voidReconciledResults(humans, safeResults, validationTeams),
+        ? reconcileResults(humans, safeResults, validationTeams, selectedRaces)
+        : voidReconciledResults(humans, safeResults, validationTeams, selectedRaces),
       outcome: { kind: 'no-events' },
     }
   }
@@ -343,8 +365,8 @@ export function applyDesyncPolicy({
     // A desync in a non-matchmaking game leaves the computed results standing but forces a dispute
     // (which blocks stats), since we can't trust that everyone simulated the same game.
     const reconciled = hasAnyReport
-      ? reconcileResults(humans, safeResults, validationTeams)
-      : voidReconciledResults(humans, safeResults, validationTeams)
+      ? reconcileResults(humans, safeResults, validationTeams, selectedRaces)
+      : voidReconciledResults(humans, safeResults, validationTeams, selectedRaces)
     return {
       reconciled: { ...reconciled, disputed: true },
       outcome: { kind: 'lobby-disputed', eventCount: desyncEvents.length },
@@ -354,7 +376,7 @@ export function applyDesyncPolicy({
   if (desyncEvents.some(e => e.noMajority)) {
     // No trustworthy majority existed for at least one divergence, so the game is undecidable.
     return {
-      reconciled: voidReconciledResults(humans, safeResults, validationTeams),
+      reconciled: voidReconciledResults(humans, safeResults, validationTeams, selectedRaces),
       outcome: { kind: 'void', reason: 'no-majority' },
     }
   }
@@ -376,14 +398,14 @@ export function applyDesyncPolicy({
     // this game, named nobody we recognize. That's undecidable, not clean — void rather than
     // silently falling through to a normal reconcile with nothing discarded.
     return {
-      reconciled: voidReconciledResults(humans, safeResults, validationTeams),
+      reconciled: voidReconciledResults(humans, safeResults, validationTeams, selectedRaces),
       outcome: { kind: 'void', reason: 'diverged-unresolvable' },
     }
   }
 
   if (humans.every(id => divergedUnion.has(id))) {
     return {
-      reconciled: voidReconciledResults(humans, safeResults, validationTeams),
+      reconciled: voidReconciledResults(humans, safeResults, validationTeams, selectedRaces),
       outcome: { kind: 'void', reason: 'diverged-covers-all' },
     }
   }
@@ -394,13 +416,13 @@ export function applyDesyncPolicy({
   const filtered = safeResults.map(r => (r && divergedUnion.has(r.reporter) ? null : r))
   if (!filtered.some(r => !!r)) {
     return {
-      reconciled: voidReconciledResults(humans, safeResults, validationTeams),
+      reconciled: voidReconciledResults(humans, safeResults, validationTeams, selectedRaces),
       outcome: { kind: 'void', reason: 'zero-reports' },
     }
   }
 
   return {
-    reconciled: reconcileResults(humans, filtered, validationTeams),
+    reconciled: reconcileResults(humans, filtered, validationTeams, selectedRaces),
     outcome: { kind: 'majority-discard', divergedUserIds: Array.from(divergedUnion) },
   }
 }

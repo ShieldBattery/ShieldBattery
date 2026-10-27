@@ -1108,6 +1108,9 @@ export default class GameResultService {
       results: currentResults,
       validationTeams,
       desyncEvents,
+      selectedRaces: new Map(
+        gameRecord.config.teams.flatMap(t => t.filter(p => !p.isComputer).map(p => [p.id, p.race])),
+      ),
     })
     let reconciled = policyReconciled
 
@@ -1188,8 +1191,8 @@ export default class GameResultService {
 
       // Only compute an assigned matchup when we actually know every player's assigned race: skip
       // games with computers (which are excluded from results) and disputed games. A disputed game
-      // can have a player who's missing from every report, in which case reconcileResults falls back
-      // to a fabricated 'p' race (see results.ts) that we don't want to bake into the matchup. This
+      // can have a random player who's missing from every report, whose race reconcileResults fills
+      // with a placeholder (see `unreportedRace`) that we don't want to bake into the matchup. This
       // also keeps us consistent with the backfill, which leaves assigned_matchup NULL in these
       // cases.
       const hasComputers = gameRecord.config.teams.some(team => team.some(p => p.isComputer))

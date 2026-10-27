@@ -500,6 +500,41 @@ describe('games/results/applyDesyncPolicy', () => {
       expect(Array.from(reconciled.results.values()).every(r => r.result === 'unknown')).toBe(true)
     })
 
+    test('an unreported player keeps their selected race unless they picked random', () => {
+      const selectedRaces = new Map([
+        [makeSbUserId(1), 'p' as const],
+        [makeSbUserId(2), 't' as const],
+        [makeSbUserId(3), 'r' as const],
+      ])
+      const { reconciled } = applyDesyncPolicy({
+        isMatchmaking: true,
+        humans: users([1, 2, 3]),
+        results: [null, null, null],
+        validationTeams: null,
+        desyncEvents: [{ noMajority: true, divergedUserIds: [] }],
+        selectedRaces,
+      })
+      expect(Array.from(reconciled.results.values()).map(r => r.race)).toEqual(['p', 't', 'p'])
+
+      const { reconciled: partial } = applyDesyncPolicy({
+        isMatchmaking: true,
+        humans: users([1, 2, 3]),
+        results: [
+          {
+            reporter: makeSbUserId(1),
+            time: 33,
+            playerResults: [makePlayerResult(1, GameClientResult.Playing, 'p', 25)],
+          },
+          null,
+          null,
+        ],
+        validationTeams: null,
+        desyncEvents: [{ noMajority: true, divergedUserIds: [] }],
+        selectedRaces,
+      })
+      expect(Array.from(partial.results.values()).map(r => r.race)).toEqual(['p', 't', 'p'])
+    })
+
     test('is total over fully degenerate input: no humans, no results, desync events present', () => {
       expect(() =>
         applyDesyncPolicy({
