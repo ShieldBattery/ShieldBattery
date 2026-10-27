@@ -269,3 +269,34 @@ describe('app/bots/catalog/cache rules', () => {
     expect(canReplaceCachedCatalog(undefined, CATALOG_URL, 0)).toBe(true)
   })
 })
+
+describe('Pluto catalog runtime', () => {
+  const launch = { entrypoint: 'work/pluto-companion.dll', arguments: [], workingDirectory: 'work' }
+  test('retains companion digest for installed launch', () => {
+    const catalog = validateCatalogDocument(
+      withPackage({ runtime: { kind: 'pluto-v2', companionSha256: DIGEST }, launch }),
+      { catalogUrl: CATALOG_URL },
+    )
+    expect(catalog.bots[0].releases[0].package.runtime).toEqual({
+      kind: 'pluto-v2',
+      companionSha256: DIGEST,
+    })
+  })
+  test('rejects malformed digest and incompatible architecture/launch', () => {
+    for (const overrides of [
+      { runtime: { kind: 'pluto-v2', companionSha256: 'bad' }, launch },
+      {
+        runtime: { kind: 'pluto-v2', companionSha256: DIGEST },
+        launch,
+        platform: { os: 'windows', architecture: 'x86_64' },
+      },
+      {
+        runtime: { kind: 'pluto-v2', companionSha256: DIGEST },
+        launch: { ...launch, arguments: ['unexpected'] },
+      },
+    ])
+      expect(() =>
+        validateCatalogDocument(withPackage(overrides), { catalogUrl: CATALOG_URL }),
+      ).toThrow()
+  })
+})

@@ -107,8 +107,8 @@ export interface CustomGameBotSlot {
 
 export interface CustomGameSetup {
   /**
-   * "You vs all bots" is top vs bottom with the human alone on top. Melee is what setups saved
-   * before that option existed hold; it launches as top vs bottom (see `customGameType`).
+   * Top vs bottom puts all bots against the human. Melee supports a 1v1, including two bots
+   * watched from an observer seat; free for all allows several independent opponents.
    */
   gameType: GameType.TopVsBottom | GameType.FreeForAll | GameType.Melee
   mapId?: SbMapId
@@ -221,11 +221,13 @@ export interface PracticeLaunchRequest {
 
 /**
  * The game type a custom setup launches with. Top vs bottom puts the human alone on the top team,
- * which has no meaning when the human only watches, so a watched game is always free for all.
+ * which has no meaning when the human only watches. Watching preserves an explicit Melee
+ * choice and otherwise uses free for all.
  */
 export function customGameType(
   setup: Pick<CustomGameSetup, 'gameType' | 'observe'>,
-): GameType.TopVsBottom | GameType.FreeForAll {
+): GameType.TopVsBottom | GameType.FreeForAll | GameType.Melee {
+  if (setup.gameType === GameType.Melee) return GameType.Melee
   if (setup.observe || setup.gameType === GameType.FreeForAll) {
     return GameType.FreeForAll
   }

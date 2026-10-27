@@ -10,6 +10,7 @@ import {
   BotAuthor,
   BotCatalogEntry,
   BotCatalogRelease,
+  botDownloadSize,
   BotFormatId,
   BotFormatSupport,
   BotFormatSupportInfo,
@@ -117,7 +118,7 @@ function computeReadiness(
   if (!installed && !localBuild) {
     return {
       state: 'notInstalled',
-      sizeBytes: latest?.artifact.sizeBytes ?? 0,
+      sizeBytes: latest ? botDownloadSize(latest) : 0,
       canDownload: !!latest,
     }
   }
@@ -201,7 +202,11 @@ export function buildBotViews(snapshot: BotLibrarySnapshot): BotView[] {
       races: build.races,
       randomRace: 'unsupported',
       formats: build.formats,
-      mapConstraints: [],
+      mapConstraints: build.pluto
+        ? [
+            '1v1 Melee only; map at most 128 × 128; 32-bit game client. Legacy observation filtering remains unverified.',
+          ]
+        : [],
       learning: build.learning,
       runtime: build.runtime,
       strength: strengthFor(build.races, undefined),

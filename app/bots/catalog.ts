@@ -202,6 +202,12 @@ function validateRuntime(value: unknown, where: string): BotRuntime {
   if (runtime.kind === 'native') {
     return { kind: 'native' }
   }
+  if (runtime.kind === 'pluto-v2') {
+    return {
+      kind: 'pluto-v2',
+      companionSha256: asHash(runtime.companionSha256, `${where}.companionSha256`),
+    }
+  }
   if (runtime.kind === 'java') {
     const jvmArguments =
       runtime.jvmArguments === undefined
@@ -391,6 +397,18 @@ export function validateBotPackage(
       ? '.'
       : asPackagePath(workingDirectoryValue, `${where}.launch.workingDirectory`)
 
+  const runtime = validateRuntime(pkg.runtime, `${where}.runtime`)
+  if (
+    runtime.kind === 'pluto-v2' &&
+    (platform.architecture !== 'x86' ||
+      workingDirectory !== 'work' ||
+      launch.entrypoint !== 'work/pluto-companion.dll' ||
+      !Array.isArray(launch.arguments) ||
+      launch.arguments.length !== 0)
+  ) {
+    fail(where, 'has incompatible Pluto companion launch settings')
+  }
+
   const bwapi = asRecord(pkg.bwapi, `${where}.bwapi`)
   const build = asRecord(pkg.build, `${where}.build`)
   const sourceReview = asRecord(pkg.sourceReview, `${where}.sourceReview`)
@@ -409,7 +427,7 @@ export function validateBotPackage(
       os: 'windows',
       architecture: asEnum(platform.architecture, `${where}.platform.architecture`, ARCHITECTURES),
     },
-    runtime: validateRuntime(pkg.runtime, `${where}.runtime`),
+    runtime,
     launch: {
       entrypoint: asPackagePath(launch.entrypoint, `${where}.launch.entrypoint`),
       arguments: asStringArray(launch.arguments, `${where}.launch.arguments`),

@@ -611,6 +611,15 @@ export function CustomGameSetup({ onBack }: CustomGameSetupProps) {
               <SectionLabel>{t('practice.customGame.gameType', 'Game type')}</SectionLabel>
               <Chips>
                 <FilterChip
+                  label={t('practice.customGame.melee', 'Melee')}
+                  selected={gameType === GameType.Melee}
+                  onClick={() =>
+                    updatePracticeStore(draft => {
+                      draft.customGame.gameType = GameType.Melee
+                    })
+                  }
+                />
+                <FilterChip
                   label={t('practice.customGame.youVsAllBots', 'You vs all bots')}
                   selected={gameType === GameType.TopVsBottom}
                   disabled={observe}
@@ -634,11 +643,11 @@ export function CustomGameSetup({ onBack }: CustomGameSetupProps) {
                 {observe
                   ? t(
                       'practice.customGame.gameTypeHelperWatching',
-                      'Watched games are free for all. Bots may not support every configuration.',
+                      'Watch a Melee or free-for-all game. Bots may not support every configuration.',
                     )
                   : t(
                       'practice.customGame.gameTypeHelper',
-                      'Every bot on one team against you, or everyone for themselves. Bots may not support every configuration.',
+                      'Choose Melee, every bot on one team against you, or everyone for themselves. Bots may not support every configuration.',
                     )}
               </Helper>
             </Section>

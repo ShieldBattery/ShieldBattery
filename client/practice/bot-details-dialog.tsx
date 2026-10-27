@@ -497,7 +497,7 @@ export function BotDetailsDialog({ botKey, action, onCancel, close }: BotDetails
       : undefined
 
   let requirements: React.ReactNode
-  if (runtime.kind === 'native') {
+  if (runtime.kind !== 'java') {
     requirements = (
       <RequirementLine>
         <SuccessIcon icon='check_circle' size={18} />

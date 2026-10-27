@@ -12,6 +12,7 @@ import HashThrough from '../../common/hash-through'
 import { SlotType } from '../../common/lobbies/slot'
 import { BwUserLatency } from '../../common/network'
 import { makeSbUserId } from '../../common/users/sb-user-id'
+import { verifyPlutoLaunch } from '../bots/pluto-bundle'
 import log from '../logger'
 import { LocalSettingsManager, ScrSettingsManager } from '../settings'
 import { ActiveGameManager } from './active-game-manager'
@@ -212,8 +213,9 @@ export class LocalGameManager extends EventEmitter<{ status: [status: LocalGameS
           manager.off('gameExit', onExit)
           manager.off('gameStatus', onStatus)
         })
-        const instance = isHuman ? undefined : randomUUID()
-        if (!isHuman) {
+        const localPluto = isHuman ? undefined : request.bots[botIndex].pluto
+        const instance = isHuman || localPluto ? undefined : randomUUID()
+        if (!isHuman && !localPluto) {
           const bot = request.bots[botIndex]
           await this.startBot(
             session,
@@ -253,6 +255,7 @@ export class LocalGameManager extends EventEmitter<{ status: [status: LocalGameS
             turnRate: 24,
             userLatency: BwUserLatency.Low,
             localSession: { endpoint, secret, slot, roster, initialBufferTurns: 1 },
+            localPluto,
           },
         }
         manager.setGameConfig(config)
@@ -355,6 +358,7 @@ export class LocalGameManager extends EventEmitter<{ status: [status: LocalGameS
     if ((await hasher.hashPromise) !== hash)
       throw new Error('Downloaded map failed integrity check')
     for (const bot of request.bots) {
+      if (bot.pluto) await verifyPlutoLaunch(bot.pluto)
       if (!(await fs.stat(bot.executable)).isFile())
         throw new Error(`Bot executable missing: ${bot.name}`)
       if (!(await fs.stat(bot.workingDirectory)).isDirectory())
@@ -536,7 +540,27 @@ export function validateRequest(request: LocalGameRequest): void {
     )
       throw new Error('Invalid local player name or race')
   }
+  if (
+    request.bots.some(b => b.pluto) &&
+    ((request.gameType && request.gameType !== GameType.Melee) ||
+      request.bots.length !== (observing ? 2 : 1) ||
+      mapData.width > 128 ||
+      mapData.height > 128)
+  ) {
+    throw new Error('Pluto v2 requires 1v1 Melee on a map up to 128 tiles')
+  }
   for (const bot of request.bots) {
+    if (
+      bot.pluto &&
+      (bot.executable !== bot.pluto.botPath ||
+        bot.workingDirectory !== bot.pluto.workingDirectory ||
+        !/^[a-f0-9]{64}$/.test(bot.pluto.companionSha256) ||
+        ![bot.pluto.companionPath, bot.pluto.botPath, bot.pluto.logPath].every(
+          p => typeof p === 'string' && path.isAbsolute(p),
+        ))
+    ) {
+      throw new Error('Invalid Pluto bundle launch')
+    }
     if (
       bot.replayName !== undefined &&
       (typeof bot.replayName !== 'string' || !/^[\x20-\x7e]{1,24}$/.test(bot.replayName))
@@ -547,7 +571,7 @@ export function validateRequest(request: LocalGameRequest): void {
       !['p', 't', 'z'].includes(bot.race) ||
       !path.isAbsolute(bot.executable) ||
       !path.isAbsolute(bot.workingDirectory) ||
-      !/\.exe$/i.test(bot.executable) ||
+      !(bot.pluto ? /[\\/]pluto\.dll$/i.test(bot.executable) : /\.exe$/i.test(bot.executable)) ||
       (bot.args &&
         (!Array.isArray(bot.args) ||
           bot.args.some(arg => typeof arg !== 'string' || arg.includes('\0'))))

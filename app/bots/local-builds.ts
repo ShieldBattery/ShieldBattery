@@ -1,7 +1,7 @@
 /**
  * Bring-your-own bots: a developer points the app at an executable they built themselves. Nothing
- * about it is reviewed, so the only guarantees are the ones checked here — that what gets launched
- * is an absolute path to a file that exists, with arguments the launcher can pass without a shell.
+ * about it is reviewed. External clients require existing absolute paths and shell-free arguments;
+ * local Pluto bundles also require their pinned assets and a user-selected companion digest.
  */
 
 import { promises as fs } from 'node:fs'
@@ -13,6 +13,7 @@ import {
   BotRaceName,
 } from '../../common/bots/bot-catalog'
 import { LocalBuildBotSpec } from '../../common/bots/bot-library'
+import { verifyPlutoBundle } from './pluto-bundle'
 
 /** The launch API's name rule: 1-24 printable ASCII characters. */
 const NAME_PATTERN = /^[\x20-\x7e]{1,24}$/
@@ -109,12 +110,32 @@ export function validateLocalBuildSpec(value: unknown): LocalBuildBotSpec {
     throw new Error('Choose the bot executable')
   }
   const runtime = validateRuntime(value.runtime)
+  let pluto: LocalBuildBotSpec['pluto']
+  if (value.pluto !== undefined) {
+    if (
+      !isRecord(value.pluto) ||
+      typeof value.pluto.companionSha256 !== 'string' ||
+      !/^[a-f0-9]{64}$/.test(value.pluto.companionSha256) ||
+      runtime.kind !== 'native'
+    ) {
+      throw new Error('Choose a verified Pluto v2 bundle')
+    }
+    pluto = { companionSha256: value.pluto.companionSha256 }
+  }
   const extension = path.extname(executable).toLowerCase()
   if (runtime.kind === 'java' && extension !== '.jar') {
     throw new Error('A Java bot runs from a .jar file')
   }
-  if (runtime.kind === 'native' && extension !== '.exe') {
+  if (runtime.kind === 'native' && !pluto && extension !== '.exe') {
     throw new Error('A native bot runs from an .exe file')
+  }
+
+  if (
+    pluto &&
+    (path.basename(executable).toLowerCase() !== 'pluto.dll' ||
+      (Array.isArray(value.args) && value.args.length > 0))
+  ) {
+    throw new Error('Pluto v2 requires pluto.dll and no launch arguments')
   }
 
   const workingDirectoryValue =
@@ -157,11 +178,26 @@ export function validateLocalBuildSpec(value: unknown): LocalBuildBotSpec {
     workingDirectory: path.normalize(workingDirectoryValue),
     runtime,
     races,
+    ...(pluto ? { pluto } : {}),
   }
 }
 
 /** Confirms the files a local build names are actually there, with messages meant for the user. */
 export async function checkLocalBuildPaths(spec: LocalBuildBotSpec): Promise<void> {
+  if (spec.pluto) {
+    if (path.normalize(spec.workingDirectory) !== path.dirname(spec.executable)) {
+      throw new Error('Pluto bundle directory must contain pluto.dll')
+    }
+    await verifyPlutoBundle(spec.workingDirectory, spec.pluto.companionSha256)
+    for (const dir of ['read', 'write']) {
+      try {
+        if ((await fs.readdir(path.join(spec.workingDirectory, 'bwapi-data', dir))).length)
+          throw new Error('Choose a clean Pluto v2 bundle without saved learning')
+      } catch (error) {
+        if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error
+      }
+    }
+  }
   try {
     if (!(await fs.stat(spec.executable)).isFile()) {
       throw new Error('not a file')
@@ -217,6 +253,13 @@ export function parseLocalBuildDescriptor(
     if (races.length) {
       spec.races = Array.from(new Set(races))
     }
+  }
+  if (
+    isRecord(value.pluto) &&
+    typeof value.pluto.companionSha256 === 'string' &&
+    /^[a-f0-9]{64}$/.test(value.pluto.companionSha256)
+  ) {
+    spec.pluto = { companionSha256: value.pluto.companionSha256 }
   }
   return spec
 }

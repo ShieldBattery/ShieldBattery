@@ -74,6 +74,7 @@ import {
   validateLocalBuildSpec,
 } from './local-builds'
 import { resolveBotLaunchNames, sanitizeInGameName } from './naming'
+import { verifyPlutoBundle } from './pluto-bundle'
 import { loadPracticeStore, savePracticeStore } from './practice-store'
 
 /** Largest license/notice file the app will read into the renderer. */
@@ -432,11 +433,28 @@ export class BotLibrary {
     const build: LocalBuildBot = {
       key: `${LOCAL_BUILD_KEY_PREFIX}${randomUUID()}`,
       ...validated,
-      formats: defaultLocalBuildFormats(),
-      learning: {
-        mode: 'unknown',
-        notes: 'This bot was added from a local build, so what it saves between games is unknown.',
-      },
+      formats: validated.pluto
+        ? [
+            {
+              id: 'one-v-one',
+              support: 'experimental',
+              notes: 'Local Melee only; maps up to 128 tiles.',
+            },
+            { id: 'teams', support: 'incompatible', notes: 'Pluto v2 requires 1v1.' },
+            { id: 'free-for-all', support: 'incompatible', notes: 'Pluto v2 requires Melee.' },
+          ]
+        : defaultLocalBuildFormats(),
+      learning: validated.pluto
+        ? {
+            mode: 'persistent',
+            notes:
+              'Per-opponent opening results; isolated per instance. Reset clears read/write history.',
+          }
+        : {
+            mode: 'unknown',
+            notes:
+              'This bot was added from a local build, so what it saves between games is unknown.',
+          },
       addedAt: now,
       updatedAt: now,
     }
@@ -456,6 +474,12 @@ export class BotLibrary {
       }
       const validated = validateLocalBuildSpec(spec)
       await checkLocalBuildPaths(validated)
+      if (
+        JSON.stringify(existing.pluto) !== JSON.stringify(validated.pluto) ||
+        (existing.pluto && existing.executable !== validated.executable)
+      ) {
+        throw new Error('Add a new local build to change the Pluto bundle')
+      }
       const updated: LocalBuildBot = { ...existing, ...validated, updatedAt: Date.now() }
       this.data.localBuilds = this.data.localBuilds.map(build =>
         build.key === key ? updated : build,
@@ -487,7 +511,7 @@ export class BotLibrary {
     const { canceled, filePaths } = await dialog.showOpenDialog(this.parentWindow(), {
       title: 'Select a bot executable',
       properties: ['openFile'],
-      filters: [{ name: 'Programs', extensions: ['exe', 'jar'] }],
+      filters: [{ name: 'Programs', extensions: ['exe', 'jar', 'dll'] }],
     })
     if (canceled || !filePaths.length) {
       return undefined
@@ -510,6 +534,9 @@ export class BotLibrary {
     }
     if (!spec.workingDirectory) {
       spec.workingDirectory = directory
+    }
+    if (spec.pluto) {
+      spec.runtime = { kind: 'native' }
     }
     if (!spec.runtime && path.extname(executable).toLowerCase() === '.exe') {
       spec.runtime = { kind: 'native' }
@@ -675,6 +702,19 @@ export class BotLibrary {
         )
       }
     }
+    for (const build of this.data.localBuilds.filter(b => b.pluto)) {
+      if (
+        await hasLearningData({
+          profilesRoot: this.profilesRoot,
+          key: build.key,
+          baseline: {
+            directory: build.workingDirectory,
+            writablePaths: ['bwapi-data/read', 'bwapi-data/write'],
+          },
+        })
+      )
+        keys.push(build.key)
+    }
     this.learningKeys = keys
   }
 
@@ -682,6 +722,51 @@ export class BotLibrary {
     await this.initialized
     await this.runForBot(key, async () => {
       this.requireNotInUse(key)
+      const local = this.data.localBuilds.find(b => b.key === key && b.pluto)
+      const installedPluto = this.data.installed.find(
+        b => b.botId === key && b.package.runtime.kind === 'pluto-v2',
+      )
+      const pluto =
+        local?.pluto ??
+        (installedPluto?.package.runtime.kind === 'pluto-v2'
+          ? installedPluto.package.runtime
+          : undefined)
+      if (pluto) {
+        const companionSha256 = pluto.companionSha256
+        const baselineDirectory =
+          local?.workingDirectory ??
+          path.join(this.packageDirectory(installedPluto!.botId, installedPluto!.releaseId), 'work')
+        await verifyPlutoBundle(baselineDirectory, companionSha256)
+        const profileRoot = path.join(this.profilesRoot, profileDirectoryName(key))
+        let profileExists = true
+        try {
+          if (!(await fs.lstat(profileRoot)).isDirectory())
+            throw new Error('Pluto profile must be an isolated directory')
+        } catch (error) {
+          if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error
+          profileExists = false
+        }
+        if (profileExists) {
+          for (const entry of await fs.readdir(profileRoot, { withFileTypes: true })) {
+            if (/^work(?:-\d+)?$/.test(entry.name)) {
+              if (!entry.isDirectory())
+                throw new Error('Pluto profile must not contain linked working copies')
+              await verifyPlutoBundle(path.join(profileRoot, entry.name), companionSha256)
+            }
+          }
+        }
+        await resetLearning({
+          profilesRoot: this.profilesRoot,
+          key,
+          baseline: {
+            directory: baselineDirectory,
+            writablePaths: ['bwapi-data/read', 'bwapi-data/write'],
+          },
+        })
+        await this.refreshLearningKeys()
+        this.broadcast()
+        return
+      }
       if (isLocalBuildKey(key)) {
         throw new Error(
           `A local build has no packaged files to restore, so ShieldBattery can't reset it`,
@@ -822,6 +907,35 @@ export class BotLibrary {
       if (!build.races.includes(selection.race)) {
         throw new Error(`${build.name} can't play ${selection.race}`)
       }
+      if (build.pluto) {
+        await verifyPlutoBundle(build.workingDirectory, build.pluto.companionSha256)
+        const workingDirectory = await ensureWorkingCopy({
+          profilesRoot: this.profilesRoot,
+          key: build.key,
+          instanceIndex,
+          baseline: {
+            directory: build.workingDirectory,
+            writablePaths: ['bwapi-data/read', 'bwapi-data/write'],
+          },
+        })
+        await verifyPlutoBundle(workingDirectory, build.pluto.companionSha256)
+        return {
+          id: build.key,
+          name: names.inGameName,
+          replayName: names.replayName,
+          race,
+          executable: path.join(workingDirectory, 'pluto.dll'),
+          args: [],
+          workingDirectory,
+          pluto: {
+            companionPath: path.join(workingDirectory, 'pluto-companion.dll'),
+            companionSha256: build.pluto.companionSha256,
+            botPath: path.join(workingDirectory, 'pluto.dll'),
+            logPath: path.join(workingDirectory, 'companion.log'),
+            workingDirectory,
+          },
+        }
+      }
       const executable =
         build.runtime.kind === 'java'
           ? this.resolveJava(build.key, build.runtime, build.name)
@@ -861,6 +975,26 @@ export class BotLibrary {
       baseline: this.baselineFor(installed),
     })
     const { runtime } = installed.package
+    if (runtime.kind === 'pluto-v2') {
+      await verifyPlutoBundle(path.join(packageDirectory, 'work'), runtime.companionSha256)
+      await verifyPlutoBundle(workingDirectory, runtime.companionSha256)
+      return {
+        id: installed.botId,
+        name: names.inGameName,
+        replayName: names.replayName,
+        race,
+        executable: path.join(workingDirectory, 'pluto.dll'),
+        args: [],
+        workingDirectory,
+        pluto: {
+          companionPath: path.join(workingDirectory, 'pluto-companion.dll'),
+          companionSha256: runtime.companionSha256,
+          botPath: path.join(workingDirectory, 'pluto.dll'),
+          logPath: path.join(workingDirectory, 'companion.log'),
+          workingDirectory,
+        },
+      }
+    }
     const executable =
       runtime.kind === 'java'
         ? this.resolveJava(installed.botId, runtime, installed.bot.name)
@@ -926,6 +1060,19 @@ export class BotLibrary {
         })),
       )
 
+      if (
+        request.bots.some(
+          b =>
+            this.data.localBuilds.find(x => x.key === b.key)?.pluto ||
+            this.data.installed.find(x => x.botId === b.key)?.package.runtime.kind === 'pluto-v2',
+        ) &&
+        ((request.gameType && request.gameType !== 'melee') ||
+          request.map.mapData.width > 128 ||
+          request.map.mapData.height > 128 ||
+          request.bots.length !== (request.player?.observer ? 2 : 1))
+      ) {
+        throw new Error('Pluto v2 requires 1v1 Melee on a map up to 128 tiles')
+      }
       const instanceCounts = new Map<BotKey, number>()
       const launches: LocalBotLaunch[] = []
       for (const [index, selection] of request.bots.entries()) {

@@ -145,6 +145,7 @@ export interface LocalBuildDialogProps extends CommonDialogProps {
 export function LocalBuildDialog({ existing, onSaved, onCancel, close }: LocalBuildDialogProps) {
   const { t } = useTranslation()
 
+  const [pluto, setPluto] = useState(existing?.pluto)
   const [executable, setExecutable] = useState(existing?.executable ?? '')
   const [name, setName] = useState(existing?.name ?? '')
   const [version, setVersion] = useState(existing?.version ?? 'dev')
@@ -193,6 +194,7 @@ export function LocalBuildDialog({ existing, onSaved, onCancel, close }: LocalBu
 
     setExecutable(picked.executable)
     const spec = picked.spec
+    setPluto(spec.pluto)
     if (spec.name) {
       setName(spec.name)
     } else if (!name) {
@@ -253,6 +255,7 @@ export function LocalBuildDialog({ existing, onSaved, onCancel, close }: LocalBu
             }
           : { kind: 'native' },
       races,
+      ...(pluto ? { pluto } : {}),
     }
 
     try {
@@ -330,12 +333,14 @@ export function LocalBuildDialog({ existing, onSaved, onCancel, close }: LocalBu
           <GrowingField
             label={t('practice.localBuild.workingDirectory', 'Working directory')}
             value={workingDirectory}
+            disabled={!!pluto}
             floatingLabel={true}
             allowErrors={false}
             onChange={event => setWorkingDirectory(event.target.value)}
           />
           <RowButton
             label={t('practice.localBuild.chooseDirectory', 'Choose…')}
+            disabled={!!pluto}
             onClick={() => {
               runAsyncAction(chooseWorkingDirectory())
             }}
@@ -345,6 +350,7 @@ export function LocalBuildDialog({ existing, onSaved, onCancel, close }: LocalBu
         <TextField
           label={t('practice.localBuild.arguments', 'Arguments')}
           value={args}
+          disabled={!!pluto}
           floatingLabel={true}
           allowErrors={false}
           onChange={event => setArgs(event.target.value)}
@@ -353,6 +359,7 @@ export function LocalBuildDialog({ existing, onSaved, onCancel, close }: LocalBu
         <Select
           label={t('practice.localBuild.runtime', 'Runtime')}
           value={runtimeKind}
+          disabled={!!pluto}
           allowErrors={false}
           onChange={(value: BotRuntime['kind']) => setRuntimeKind(value)}>
           <SelectOption
@@ -407,6 +414,14 @@ export function LocalBuildDialog({ existing, onSaved, onCancel, close }: LocalBu
           {showErrors && racesError ? <ErrorText>{racesError}</ErrorText> : null}
         </div>
 
+        {pluto ? (
+          <FootNote>
+            {t(
+              'practice.localBuild.plutoBundle',
+              'Pluto v2 bundle: local 1v1 Melee. Requires an AVX2 CPU; runs a separate 32-bit game client. Learning stays in ShieldBattery profiles.',
+            )}
+          </FootNote>
+        ) : null}
         {saveError ? <ErrorText>{saveError}</ErrorText> : null}
 
         <FootNote>

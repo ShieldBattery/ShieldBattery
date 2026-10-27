@@ -52,15 +52,18 @@ function tabToLabel(t: TFunction, tab: PlayTab, lobbyCount: number): string {
 }
 
 export function PlayRoot() {
-  const isRedirecting = useRequireLogin()
   const [routeMatches, routeParams] = useRoute('/play/:tab?/*?')
-  if (!routeMatches || isRedirecting) {
-    return undefined
+  if (!routeMatches) return undefined
+  // Local practice uses app-owned files and IPC without an authenticated server session.
+  if (IS_ELECTRON && routeParams.tab === PlayTab.Practice) {
+    return <RoutedPlayRoot routeParams={routeParams} key={routeParams.tab} />
   }
+  return <AuthenticatedPlayRoot routeParams={routeParams} />
+}
 
-  // NOTE(tec27): We use a key to ensure the whole component gets re-rendered if the tab in the URL
-  // changes, so that we don't have to call `setActiveTab` in a `useEffect` if the user hits a
-  // matchmaking/lobby hotkey while already under `/play/`
+function AuthenticatedPlayRoot({ routeParams }: { routeParams: { tab?: string } }) {
+  const isRedirecting = useRequireLogin()
+  if (isRedirecting) return undefined
   return <RoutedPlayRoot routeParams={routeParams} key={routeParams.tab} />
 }
 

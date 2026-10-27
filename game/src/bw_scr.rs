@@ -4637,6 +4637,7 @@ impl bw::Bw for BwScr {
                 (self.game_loop)();
                 #[cfg(debug_assertions)]
                 self.bwapi_end();
+                crate::local_pluto::match_end(self);
                 crate::forge::suppress_scr_cursor_moves(false);
                 // Replay seeking exits game loop and sets a bool for it to restart,
                 // we don't have access to that bool but we hook the replay seek
@@ -6385,6 +6386,17 @@ fn log_time<F: FnOnce() -> R, R>(name: &str, func: F) -> R {
 /// run several steps before returning, otherwise it progresses a single step.
 unsafe fn step_game_logic_hook(
     bw: &'static BwScr,
+    param: usize,
+    orig: unsafe extern "C" fn(usize) -> usize,
+) -> usize {
+    crate::local_pluto::before_step(bw);
+    let result = unsafe { step_game_logic_inner(bw, param, orig) };
+    crate::local_pluto::after_step(bw);
+    result
+}
+
+unsafe fn step_game_logic_inner(
+    bw: &'static BwScr,
     param: usize, // Always 0, nonzero would affect replay playback somehow
     orig: unsafe extern "C" fn(usize) -> usize,
 ) -> usize {
@@ -6658,6 +6670,24 @@ fn sh_get_folder_path_w_hook(
     unsafe {
         use winapi::um::shlobj::CSIDL_PERSONAL;
         let ret = orig(hwnd, csidl, token, flags, out_path);
+        #[cfg(debug_assertions)]
+        if crate::is_local_game()
+            && csidl == CSIDL_PERSONAL
+            && hwnd.is_null()
+            && token.is_null()
+            && flags == 0
+            && let Some(directory) = std::env::var_os("SB_LOCAL_TEST_DOCUMENTS")
+        {
+            // SC:R asks Windows directly instead of using Electron's isolated documents path.
+            // Local verification must keep native replays and LastReplay inside its own profile.
+            let directory = PathBuf::from(directory);
+            assert!(
+                directory.is_absolute() && directory.is_dir(),
+                "Invalid local test documents directory"
+            );
+            write_dir_out(std::slice::from_raw_parts_mut(out_path, 260), &directory);
+            return 0;
+        }
         // Bw uses SHGetFolderPathW to figure out documents dir and has unfortunate
         // fallbacks where it creates maps directory next to starcraft.exe if it fails
         // So if we detect the arguments that bw uses, and the function fails, we try to
@@ -6727,5 +6757,56 @@ mod tests {
         // Other Alt hotkeys, like Alt+M for the game menu, pass through.
         assert!(!is_save_or_load_hotkey(WM_SYSKEYDOWN, b'M' as usize));
         assert!(!is_save_or_load_hotkey(WM_SYSCHAR, b'm' as usize));
+    }
+}
+
+impl BwScr {
+    pub(crate) unsafe fn local_pluto_context(&self) -> Option<(u32, u32)> {
+        if !crate::is_local_game()
+            || crate::bwapi_instance().is_some()
+            || game_thread::is_replay()
+            || !game_thread::setup_info().is_some_and(|s| s.local_pluto.is_some())
+        {
+            return None;
+        }
+        let game = unsafe { self.game() };
+        let local = self.local_unique_player_id.resolve();
+        if game.is_null() || local >= 8 {
+            return None;
+        }
+        Some((unsafe { (*game).frame_count }, local))
+    }
+
+    pub(crate) unsafe fn local_pluto_packet(&self, bytes: &[u8]) -> i32 {
+        if unsafe { self.local_pluto_context() }.is_none() {
+            return -2;
+        }
+        let mut offset = 0;
+        while offset < bytes.len() {
+            let Some(length) =
+                commands::command_length(&bytes[offset..], &self.game_command_lengths)
+            else {
+                return -2;
+            };
+            if length == 0 || length > bytes.len() - offset {
+                return -2;
+            }
+            offset += length;
+        }
+        unsafe { (self.send_command)(bytes.as_ptr(), bytes.len()) };
+        0
+    }
+
+    pub(crate) unsafe fn local_pluto_leave(&self) {
+        self.netcode_v2.continue_game_loop.write(0);
+    }
+
+    pub(crate) unsafe fn local_pluto_result(&self) -> Option<bool> {
+        let game = unsafe { self.game() };
+        let local = self.local_unique_player_id.resolve() as usize;
+        if game.is_null() || local >= 8 {
+            return None;
+        }
+        crate::local_pluto::settled_result(unsafe { (*game).victory_state[local] })
     }
 }

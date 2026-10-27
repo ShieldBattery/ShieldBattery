@@ -207,3 +207,26 @@ describe('app/bots/local-builds/checkLocalBuildPaths', () => {
     ).rejects.toThrow(/Can't find the bot folder/)
   })
 })
+
+test('local Pluto bundle metadata survives validation and descriptor parsing', () => {
+  const pluto = { companionSha256: 'a'.repeat(64) }
+  const executable = path.join(WORKING_DIRECTORY, 'pluto.dll')
+  const result = validateLocalBuildSpec({
+    ...makeSpec(),
+    executable,
+    args: [],
+    workingDirectory: WORKING_DIRECTORY,
+    pluto,
+  })
+  expect(result.pluto).toEqual(pluto)
+  expect(parseLocalBuildDescriptor({ pluto }, WORKING_DIRECTORY).pluto).toEqual(pluto)
+  expect(() =>
+    validateLocalBuildSpec({ ...result, pluto: { companionSha256: 'changed' } }),
+  ).toThrow('verified Pluto')
+  expect(() => validateLocalBuildSpec({ ...result, args: ['--other-model'] })).toThrow(
+    'no launch arguments',
+  )
+  expect(() =>
+    validateLocalBuildSpec({ ...result, executable: path.join(WORKING_DIRECTORY, 'other.dll') }),
+  ).toThrow('pluto.dll')
+})

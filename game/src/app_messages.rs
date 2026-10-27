@@ -506,6 +506,7 @@ pub enum GameType {
 pub struct GameSetupInfo {
     /// Private local-game transport handoff. Mutually exclusive with netcode v2.
     pub local_session: Option<LocalSessionSetup>,
+    pub local_pluto: Option<LocalPlutoLaunch>,
     pub name: String,
     pub map: MapInfo,
     pub map_path: String,
@@ -571,6 +572,16 @@ pub enum MatchmakingDivision {
 #[serde(rename_all = "camelCase")]
 pub struct ServerConfig {
     pub server_url: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalPlutoLaunch {
+    pub companion_path: String,
+    pub companion_sha256: String,
+    pub bot_path: String,
+    pub log_path: String,
+    pub working_directory: String,
 }
 
 /// The local supervisor's private named-pipe session. The endpoint and secret never leave the

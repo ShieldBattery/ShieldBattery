@@ -117,6 +117,7 @@ features = [
   "handleapi",
   "heapapi",
   "knownfolders",
+  "jobapi2",
   "libloaderapi",
   "memoryapi",
   "minwinbase",

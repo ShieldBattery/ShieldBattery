@@ -260,3 +260,37 @@ test('session teardown cancels a pending normal bot exit wait', async () => {
   expect(f.game.game.listenerCount('gameExit')).toBe(0)
   expect(f.fail).not.toHaveBeenCalled()
 })
+
+test('Pluto admits a 1v1 Melee bot seat and rejects other formats before launch', () => {
+  const request = requestWith()
+  const workingDirectory = path.resolve('pluto-profile')
+  request.bots[0] = {
+    ...request.bots[0],
+    executable: path.join(workingDirectory, 'pluto.dll'),
+    workingDirectory,
+    pluto: {
+      botPath: path.join(workingDirectory, 'pluto.dll'),
+      companionPath: path.join(workingDirectory, 'pluto-companion.dll'),
+      companionSha256: 'a'.repeat(64),
+      logPath: path.join(workingDirectory, 'companion.log'),
+      workingDirectory,
+    },
+  }
+  expect(() => validateRequest(request)).not.toThrow()
+  expect(() => validateRequest({ ...request, gameType: 'topVBottom' as never })).toThrow(
+    '1v1 Melee',
+  )
+  expect(() =>
+    validateRequest({
+      ...request,
+      map: { ...request.map, mapData: { ...request.map.mapData, width: 129 } },
+    }),
+  ).toThrow('128 tiles')
+  expect(() =>
+    validateRequest({
+      ...request,
+      bots: [...request.bots, request.bots[0]],
+      map: { ...request.map, mapData: { ...request.map.mapData, slots: 3 } },
+    }),
+  ).toThrow('1v1 Melee')
+})

@@ -119,7 +119,18 @@ export type BotArchitecture = 'x86' | 'x86_64'
 
 export type BotRuntime =
   | { kind: 'native' }
+  | { kind: 'pluto-v2'; companionSha256: string }
   | { kind: 'java'; major: number; architecture: BotArchitecture; jvmArguments?: string[] }
+
+/** Original model archive fetched from upstream when installing Pluto's companion package. */
+export const PLUTO_V2_MODEL_DOWNLOAD_BYTES = 309686477
+
+export function botDownloadSize(release: BotCatalogRelease): number {
+  return (
+    release.artifact.sizeBytes +
+    (release.package.runtime.kind === 'pluto-v2' ? PLUTO_V2_MODEL_DOWNLOAD_BYTES : 0)
+  )
+}
 
 export interface BotPackageLaunch {
   /** Path inside the package to the executable (or JAR for Java bots). */

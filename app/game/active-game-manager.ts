@@ -24,6 +24,7 @@ import {
   ReportedGameStatus,
   statusToString,
 } from '../../common/games/game-status'
+import { LocalPlutoLaunch } from '../../common/games/local-game'
 import { NetcodeV2ServerSetup, NetcodeV2Setup } from '../../common/games/netcode-v2'
 import { GameClientPlayerResult } from '../../common/games/results'
 import { GameBlockRequestFailure, InGameReportRequest, InGameReportResult } from '../../common/ipc'
@@ -42,6 +43,7 @@ import {
   resolveTeamSelfOverride,
 } from '../../common/settings/team-colors'
 import { SbUserId } from '../../common/users/sb-user-id'
+import { verifyPlutoLaunch } from '../bots/pluto-bundle'
 import { gameLogBaseName } from '../log-paths'
 import log from '../logger'
 import { applyLaunchOverridesToSettings, startsInSd } from '../scr-launch-overrides'
@@ -372,6 +374,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
         ? {
             controlPipe: this.localControlPipe!,
             bwapiInstance: config.bwapiInstance,
+            pluto: config.setup.localPluto,
           }
         : undefined,
     )
@@ -1247,14 +1250,14 @@ async function doLaunch(
   localSettings: LocalSettingsManager,
   scrSettings: ScrSettingsManager,
   backgroundSettings?: ReturnType<typeof createBackgroundGameSettings>,
-  localSession?: { controlPipe: string; bwapiInstance?: string },
+  localSession?: { controlPipe: string; bwapiInstance?: string; pluto?: LocalPlutoLaunch },
 ) {
   // Observe preparation immediately so a filesystem error cannot become an unhandled rejection
   // while the launcher is waiting for the user's settings or StarCraft path check.
   await backgroundSettings
   if (localSession && !localSession.controlPipe) throw new Error('Local control pipe is not ready')
   const settings = await localSettings.get()
-  const injectPath = settings.launch32Bit ? injectPath32 : injectPath64
+  const injectPath = settings.launch32Bit || localSession?.pluto ? injectPath32 : injectPath64
   try {
     await fsPromises.access(injectPath)
   } catch (err) {
@@ -1280,9 +1283,11 @@ async function doLaunch(
   }
 
   const userDataPath = app.getPath('userData')
-  let appPath = settings.launch32Bit
-    ? path.join(starcraftPath, 'x86', 'StarCraft.exe')
-    : path.join(starcraftPath, 'x86_64', 'StarCraft.exe')
+  if (localSession?.pluto) await verifyPlutoLaunch(localSession.pluto)
+  let appPath =
+    settings.launch32Bit || localSession?.pluto
+      ? path.join(starcraftPath, 'x86', 'StarCraft.exe')
+      : path.join(starcraftPath, 'x86_64', 'StarCraft.exe')
   try {
     // Attempt to resolve the real path, just to ensure our capitalization matches Windows' for the
     // compat settings registry key
@@ -1374,7 +1379,7 @@ async function doLaunch(
     const proc = await launchProcess({
       appPath,
       args: args as any,
-      currentDir: starcraftPath,
+      currentDir: localSession?.pluto?.workingDirectory ?? starcraftPath,
       dllPath: injectPath,
       dllFunc: 'OnInject',
       logCallback: ((msg: string) => log.verbose(`[Inject] ${msg}`)) as any,

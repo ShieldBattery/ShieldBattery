@@ -15,9 +15,16 @@ import { Readable, Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { isDeepStrictEqual } from 'node:util'
 import { Entry, open as openZip, ZipFile } from 'yauzl'
-import { BotCatalogEntry, BotCatalogRelease, BotPackage } from '../../common/bots/bot-catalog'
+import {
+  BotCatalogEntry,
+  BotCatalogRelease,
+  botDownloadSize,
+  BotPackage,
+} from '../../common/bots/bot-catalog'
 import { BotInstallPhase, InstalledBotRelease } from '../../common/bots/bot-library'
+import { PLUTO_V2_RELEASE } from '../../common/bots/pluto-v2'
 import { validateBotPackage } from './catalog'
+import { verifyPlutoBundle, verifyPlutoFile } from './pluto-bundle'
 import { ZipEntryGuard } from './zip-safety'
 
 /** The package descriptor every package archive carries at its root. */
@@ -233,7 +240,7 @@ export async function extractArchive({
  * manifest digest the catalog published, its contents are the catalog's package descriptor, and
  * the files it names are present.
  */
-async function verifyPackageContents(
+export async function verifyPackageContents(
   packageDirectory: string,
   release: BotCatalogRelease,
 ): Promise<void> {
@@ -269,7 +276,8 @@ async function verifyPackageContents(
   }
 
   const entrypoint = path.resolve(packageDirectory, release.package.launch.entrypoint)
-  const expectedExtension = release.package.runtime.kind === 'java' ? '.jar' : '.exe'
+  let expectedExtension = release.package.runtime.kind === 'java' ? '.jar' : '.exe'
+  if (release.package.runtime.kind === 'pluto-v2') expectedExtension = '.dll'
   if (path.extname(entrypoint).toLowerCase() !== expectedExtension) {
     throw new Error(`This bot doesn't launch from a ${expectedExtension} file`)
   }
@@ -289,6 +297,72 @@ async function verifyPackageContents(
     if (!(await pathExists(path.resolve(packageDirectory, license.noticePath)))) {
       throw new Error(`This bot's archive is missing its ${license.name} notice`)
     }
+  }
+  if (release.package.runtime.kind === 'pluto-v2') {
+    const upstream = JSON.parse(
+      await fs.readFile(path.join(packageDirectory, 'pluto-upstream.json'), 'utf8'),
+    )
+    if (!isDeepStrictEqual(upstream, PLUTO_V2_RELEASE))
+      throw new Error('Unsupported Pluto model release')
+    await verifyPlutoFile(entrypoint, release.package.runtime.companionSha256)
+  }
+}
+
+async function installPlutoModel(
+  staging: string,
+  release: BotCatalogRelease,
+  destination: string,
+  fetchImpl: typeof globalThis.fetch,
+  signal: AbortSignal,
+  onProgress: (report: InstallProgressReport) => void,
+) {
+  if (release.package.runtime.kind !== 'pluto-v2') return
+  const temporary = path.join(staging, '.pluto-upstream')
+  try {
+    await downloadArchive({
+      release: {
+        ...release,
+        artifact: {
+          ...release.artifact,
+          url: PLUTO_V2_RELEASE.url,
+          sha256: PLUTO_V2_RELEASE.sha256,
+          sizeBytes: PLUTO_V2_RELEASE.sizeBytes,
+        },
+      },
+      destination,
+      fetchImpl,
+      signal,
+      onProgress: report =>
+        onProgress({
+          ...report,
+          receivedBytes: release.artifact.sizeBytes + report.receivedBytes,
+          totalBytes: botDownloadSize(release),
+        }),
+    })
+    signal.throwIfAborted()
+    await fs.mkdir(temporary)
+    await extractArchive({
+      zipPath: destination,
+      destination: temporary,
+      archiveSizeBytes: PLUTO_V2_RELEASE.sizeBytes,
+    })
+    const work = path.join(staging, 'work')
+    for (const [name, pin] of Object.entries(PLUTO_V2_RELEASE.files)) {
+      signal.throwIfAborted()
+      const original = path.join(temporary, name)
+      if ((await fs.lstat(original)).size !== pin.sizeBytes)
+        throw new Error('Pluto model file size mismatch')
+      await verifyPlutoFile(original, pin.sha256)
+      const target = path.join(work, name)
+      if (await pathExists(target))
+        throw new Error('Pluto model file collides with companion package')
+      await fs.mkdir(path.dirname(target), { recursive: true })
+      await fs.copyFile(original, target)
+    }
+    await verifyPlutoBundle(work, release.package.runtime.companionSha256)
+  } finally {
+    await fs.rm(temporary, { recursive: true, force: true })
+    await fs.rm(destination, { force: true })
   }
 }
 
@@ -311,19 +385,27 @@ export async function installBotRelease({
   const packageDirectory = path.join(botPackagesDirectory, releaseId)
   const staging = path.join(botPackagesDirectory, `${releaseId}.staging-${randomSuffix()}`)
   const downloadPath = path.join(downloadsRoot, `${botId}-${releaseId}.zip.part`)
+  const modelDownload = path.join(downloadsRoot, `${botId}-${releaseId}.model.zip.part`)
+  const totalBytes = botDownloadSize(release)
 
   await fs.mkdir(downloadsRoot, { recursive: true })
   await fs.mkdir(botPackagesDirectory, { recursive: true })
 
   try {
-    onProgress({ phase: 'downloading', receivedBytes: 0, totalBytes: release.artifact.sizeBytes })
-    await downloadArchive({ release, destination: downloadPath, fetchImpl, signal, onProgress })
+    onProgress({ phase: 'downloading', receivedBytes: 0, totalBytes })
+    await downloadArchive({
+      release,
+      destination: downloadPath,
+      fetchImpl,
+      signal,
+      onProgress: report => onProgress({ ...report, totalBytes }),
+    })
     signal.throwIfAborted()
 
     onProgress({
       phase: 'installing',
       receivedBytes: release.artifact.sizeBytes,
-      totalBytes: release.artifact.sizeBytes,
+      totalBytes,
     })
     await fs.rm(staging, { recursive: true, force: true })
     await fs.mkdir(staging, { recursive: true })
@@ -334,6 +416,7 @@ export async function installBotRelease({
     })
     signal.throwIfAborted()
     await verifyPackageContents(staging, release)
+    await installPlutoModel(staging, release, modelDownload, fetchImpl, signal, onProgress)
     signal.throwIfAborted()
 
     // Replacing the same release's directory is the one case where an existing package is removed
@@ -346,6 +429,7 @@ export async function installBotRelease({
     throw err
   } finally {
     await fs.rm(downloadPath, { force: true })
+    await fs.rm(modelDownload, { force: true })
   }
 
   return {
@@ -354,7 +438,7 @@ export async function installBotRelease({
       releaseId,
       version: release.package.version,
       installedAt: Date.now(),
-      sizeBytes: release.artifact.sizeBytes,
+      sizeBytes: totalBytes,
       digest: release.artifact.sha256,
       bot: entry.bot,
       package: release.package,

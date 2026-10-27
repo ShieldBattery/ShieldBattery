@@ -48,6 +48,11 @@ export interface InstalledBotRelease {
  * capability information as a package descriptor but the user supplied it, so it is never shown as
  * a reviewed catalog release.
  */
+export interface LocalPlutoBundle {
+  /** Hash of the user-selected companion, beside pluto.dll as pluto-companion.dll. */
+  companionSha256: string
+}
+
 export interface LocalBuildBot {
   key: BotKey
   name: string
@@ -62,6 +67,8 @@ export interface LocalBuildBot {
   learning: BotLearningInfo
   addedAt: number
   updatedAt: number
+  /** Pinned Pluto v2 bundle, launched inside its own local game client. */
+  pluto?: LocalPlutoBundle
 }
 
 /** What the user fills in to add or refresh a local build. */
@@ -73,6 +80,8 @@ export interface LocalBuildBotSpec {
   workingDirectory: string
   runtime: BotRuntime
   races: BotRaceName[]
+  /** Pinned Pluto v2 bundle, launched inside its own local game client. */
+  pluto?: LocalPlutoBundle
 }
 
 export type BotInstallPhase = 'downloading' | 'verifying' | 'installing'

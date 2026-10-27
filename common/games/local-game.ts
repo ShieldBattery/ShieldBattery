@@ -12,7 +12,15 @@ export interface LocalSessionSetup {
   initialBufferTurns: number
 }
 
-/** An explicitly selected, already installed external BWAPI client. */
+/** A selected local bot: an external BWAPI client or an admitted in-game Pluto companion. */
+export interface LocalPlutoLaunch {
+  companionPath: string
+  companionSha256: string
+  botPath: string
+  logPath: string
+  workingDirectory: string
+}
+
 export interface LocalBotLaunch {
   id: string
   /** The name written to the replay for this bot, if the caller wants it to differ from `name`. */
@@ -22,6 +30,7 @@ export interface LocalBotLaunch {
   race: Exclude<RaceChar, 'r'>
   executable: string
   args?: string[]
+  pluto?: LocalPlutoLaunch
   /** Writable bot profile directory, containing any required initial configuration/data. */
   workingDirectory: string
 }
