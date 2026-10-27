@@ -316,7 +316,7 @@ const Corner = styled.th`
 /* Both heads hold icons and no text, so they carry no type styles -- the icon's own box sets the
    height and the padding does the rest.
 
-   `$active` is the crosshair: hovering a cell lights up the two heads that name it. A 10x10 grid
+   `$active` is the crosshair: hovering a cell lights up the two heads that name it. A 6x6 grid
    is far enough from its own axes that tracing a cell back by eye is genuinely error-prone, and
    icon heads leave counting rows as the only fallback. Background rather than a border, so
    nothing reflows as the highlight moves. */
@@ -423,8 +423,8 @@ function tintFor(cell: MatchupCell): string {
 /**
  * The player's record by race composition, their team's against the opposing team's.
  *
- * Compositions are unordered, so a team mode collapses to 6x6 (2v2) or 10x10 (3v3) rather
- * than every permutation. Even so the matrix is mostly sparse for team modes -- that's
+ * Compositions are unordered, so a 2v2 mode collapses to 6x6 rather than every
+ * permutation. Even so the matrix is mostly sparse for team modes -- that's
  * the honest picture, which is why empty cells are shown as blanks rather than dropped.
  *
  * Takes its buckets as a source rather than fetching them, so the dev page can drive the real

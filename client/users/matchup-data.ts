@@ -1,3 +1,4 @@
+import { ALL_MATCHMAKING_TYPES, MatchmakingType, TEAM_SIZES } from '../../common/matchmaking'
 import { AssignedRaceChar } from '../../common/races'
 
 /**
@@ -11,6 +12,11 @@ import { AssignedRaceChar } from '../../common/races'
  * for Brood War.
  */
 export const MATRIX_RACES: ReadonlyArray<AssignedRaceChar> = ['t', 'p', 'z']
+
+/** The modes the Matchups tab offers a matrix for: the 1v1 and 2v2 ones. 3v3 modes are held back. */
+export const MATCHUP_MODES: ReadonlyArray<MatchmakingType> = ALL_MATCHMAKING_TYPES.filter(
+  type => TEAM_SIZES[type] <= 2,
+)
 
 /** The viewed player's record in one cell of the matrix. */
 export interface MatchupCell {
@@ -42,7 +48,7 @@ export const DEFAULT_RATING_BANDS = { size: 100, min: 1000, max: 2400 }
 /**
  * Race compositions of a given size, unordered: a team is identified by the races on it,
  * not by who played which, so TP and PT are the same composition. That collapse is what
- * keeps a 3v3 matrix at 10x10 rather than 27x27.
+ * keeps a 2v2 matrix at 6x6 rather than 9x9.
  */
 export function raceCombos(size: number): AssignedRaceChar[][] {
   const out: AssignedRaceChar[][] = []

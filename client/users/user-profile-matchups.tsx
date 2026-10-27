@@ -8,7 +8,7 @@ import { SbUserId } from '../../common/users/sb-user-id'
 import { graphql } from '../gql'
 import { LoadingDotsArea } from '../progress/dots'
 import { bodyLarge } from '../styles/typography'
-import { DEFAULT_RATING_BANDS } from './matchup-data'
+import { DEFAULT_RATING_BANDS, MATCHUP_MODES } from './matchup-data'
 import { MatchupMatrix, MatchupMatrixState, MatchupScope } from './matchup-matrix'
 import { createMatchupSource, EMPTY_MATCHUP_SOURCE, MatchupModeData } from './matchup-source'
 import { UserRankedModesQuery } from './ranked-modes-query'
@@ -83,7 +83,7 @@ const Message = styled.div`
  * The Matchups tab: how the player's team's races fare against the opposing team's.
  *
  * A tab of its own rather than a section of the Stats tab because the mode is the matrix's
- * primary axis -- it decides whether the grid is 3x3, 6x6 or 10x10 -- and Stats is organised as
+ * primary axis -- it decides whether the grid is 3x3 or 6x6 -- and Stats is organised as
  * one card per mode, which would have fixed that axis before the matrix ever saw it.
  */
 export function UserProfileMatchups({
@@ -103,8 +103,9 @@ export function UserProfileMatchups({
     variables: { userId },
   })
   // Most-played first, and that one selected by default: it's what a player came to look at.
-  const modes = (modeData?.userRankedModes ?? [])
-    .slice()
+  const rankedModes = modeData?.userRankedModes ?? []
+  const modes = rankedModes
+    .filter(m => MATCHUP_MODES.includes(m.matchmakingType))
     .sort((a, b) => b.totalGames - a.totalGames)
     .map(m => m.matchmakingType)
   const [selected, setSelected] = useState<MatchmakingType>()
@@ -148,7 +149,12 @@ export function UserProfileMatchups({
     return (
       <Container>
         <Message>
-          {t('users.profile.stats.noRankedGames', 'This player has no ranked games yet.')}
+          {rankedModes.length
+            ? t(
+                'users.profile.matchups.noMatchupModes',
+                'This player has no ranked 1v1 or 2v2 games yet.',
+              )
+            : t('users.profile.stats.noRankedGames', 'This player has no ranked games yet.')}
         </Message>
       </Container>
     )

@@ -3541,6 +3541,7 @@
         "mostOneSided": "Most one-sided",
         "noGames": "No games with a recorded matchup yet.",
         "noGlobalGames": "No ranked games in this mode yet.",
+        "noMatchupModes": "This player has no ranked 1v1 or 2v2 games yet.",
         "overall": "Overall",
         "rating": "Rating",
         "ratingMax": "maximum",

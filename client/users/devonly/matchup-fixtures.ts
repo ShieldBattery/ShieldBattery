@@ -25,10 +25,10 @@ export const MATCHUP_MAPS: ReadonlyArray<{ id: string; name: string }> = [
 
 /**
  * How much of a mode's matrix is left unplayed. A 1v1 player fills all nine cells sooner or
- * later, while a 3v3 player's 10x10 is mostly blanks -- the matrix is honest about that, so the
- * fixtures have to be too or the team layouts look denser here than they ever do in the app.
+ * later, while a 2v2 player's 6x6 has gaps -- the matrix is honest about that, so the fixtures
+ * have to be too or the team layout looks denser here than it ever does in the app.
  */
-const SPARSITY_BY_TEAM_SIZE: Readonly<Record<number, number>> = { 1: 0, 2: 0.25, 3: 0.55 }
+const SPARSITY_BY_TEAM_SIZE: Readonly<Record<number, number>> = { 1: 0, 2: 0.25 }
 
 /**
  * The band grid the fixtures spread across, matching the server's constants. Six of the fifteen

@@ -3492,6 +3492,7 @@
         "mostOneSided": "最悬殊对阵",
         "noGames": "还没有记录对阵的比赛。",
         "noGlobalGames": "该模式还没有排位比赛。",
+        "noMatchupModes": "该玩家还没有 1v1 或 2v2 排位对局。",
         "overall": "全部",
         "rating": "评分",
         "ratingMax": "最大值",

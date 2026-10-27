@@ -3492,6 +3492,7 @@
         "mostOneSided": "가장 일방적인 종족전",
         "noGames": "아직 종족전이 기록된 게임이 없습니다.",
         "noGlobalGames": "아직 이 모드에 랭크전 기록이 없습니다.",
+        "noMatchupModes": "이 플레이어는 아직 1v1 또는 2v2 랭크전 기록이 없습니다.",
         "overall": "전체",
         "rating": "레이팅",
         "ratingMax": "최대",

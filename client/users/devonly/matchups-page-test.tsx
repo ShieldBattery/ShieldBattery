@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import styled from 'styled-components'
-import { ALL_MATCHMAKING_TYPES, MatchmakingType } from '../../../common/matchmaking'
+import { MatchmakingType } from '../../../common/matchmaking'
 import { buttonReset } from '../../material/button-reset'
 import { labelMedium } from '../../styles/typography'
+import { MATCHUP_MODES } from '../matchup-data'
 import { MatchupMatrix, MatchupScope } from '../matchup-matrix'
 import { createMatchupSource, EMPTY_MATCHUP_SOURCE } from '../matchup-source'
 import { SEASONS } from './fixtures'
@@ -42,9 +43,9 @@ type Scenario = (typeof SCENARIOS)[number]
  * Dev harness for the profile Matchups tab.
  *
  * The matrix is the real one -- this file only constructs data and picks which situation to show
- * it in. Every mode is offered, since the shape of the grid is the thing worth looking at here:
- * 3x3 for a solo mode, 6x6 for a 2v2 and 10x10 for a 3v3, each mostly sparse in the way a real
- * account is. Loading, error and empty are the states that need a slow, broken or brand-new
+ * it in. Every mode the tab offers is offered, since the shape of the grid is the thing worth
+ * looking at here: 3x3 for a solo mode and 6x6 for a 2v2, the latter mostly sparse in the way a
+ * real account is. Loading, error and empty are the states that need a slow, broken or brand-new
  * account to see against a live server.
  */
 export function MatchupsPageTest() {
@@ -71,7 +72,7 @@ export function MatchupsPageTest() {
         source={scenario === 'ready' ? source : EMPTY_MATCHUP_SOURCE}
         state={scenario === 'empty' ? 'ready' : scenario}
         mode={mode}
-        modes={ALL_MATCHMAKING_TYPES}
+        modes={MATCHUP_MODES}
         onModeChange={setMode}
         scope={scope}
         onScopeChange={setScope}
