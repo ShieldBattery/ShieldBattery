@@ -20,6 +20,7 @@ import { AppSystemSettings } from './app/system-settings'
 import { GameDefaultsSettings } from './game/game-defaults-settings'
 import { GameplaySettings } from './game/gameplay-settings'
 import { GameInputSettings } from './game/input-settings'
+import { GameNetworkSettings } from './game/network-settings'
 import { GameSoundSettings } from './game/sound-settings'
 import { StarcraftSettings } from './game/starcraft-settings'
 import { GameVideoSettings } from './game/video-settings'
@@ -180,8 +181,11 @@ function Settings({
               GameSettingsPage.Sound,
               GameSettingsPage.Video,
               GameSettingsPage.Gameplay,
-              GameSettingsPage.Defaults,
             ].map(getNavEntriesMapper({ disabled: !isStarcraftHealthy }))}
+            {[GameSettingsPage.Network].map(getNavEntriesMapper())}
+            {[GameSettingsPage.Defaults].map(
+              getNavEntriesMapper({ disabled: !isStarcraftHealthy }),
+            )}
           </>
         ) : null}
       </NavContainer>
@@ -262,6 +266,8 @@ function SettingsPageDisplay({ page }: { page: SettingsPage }) {
         return <GameVideoSettings />
       case GameSettingsPage.Gameplay:
         return <GameplaySettings />
+      case GameSettingsPage.Network:
+        return <GameNetworkSettings />
       case GameSettingsPage.Defaults:
         return <GameDefaultsSettings />
       default:
@@ -316,6 +322,9 @@ function getSettingsPageTitle({ page, t }: { page: SettingsPage; t: TFunction })
       break
     case GameSettingsPage.Gameplay:
       title = t('settings.game.gameplay.title', 'Gameplay')
+      break
+    case GameSettingsPage.Network:
+      title = t('settings.game.network.title', 'Network')
       break
     case GameSettingsPage.Defaults:
       title = t('settings.game.defaults.title', 'Defaults')

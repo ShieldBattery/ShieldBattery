@@ -19,6 +19,7 @@ export enum GameSettingsPage {
   Sound = 'GameSound',
   Video = 'GameVideo',
   Gameplay = 'GameGameplay',
+  Network = 'GameNetwork',
   Defaults = 'GameDefaults',
 }
 

@@ -2700,7 +2700,6 @@
           "label": "Add input delay to match TR24 Low"
         },
         "minimizeWhilePlaying": "Minimize ShieldBattery while a game is running",
-        "networkOverline": "Network",
         "playingOverline": "Playing",
         "quitOnClose": "Quit ShieldBattery when closing the window",
         "rollbackTarget": {
@@ -3008,6 +3007,9 @@
         "scrollingHeader": "Scrolling",
         "title": "Input",
         "useCustomCursorSize": "Use custom cursor size"
+      },
+      "network": {
+        "title": "Network"
       },
       "sound": {
         "announcer": {
