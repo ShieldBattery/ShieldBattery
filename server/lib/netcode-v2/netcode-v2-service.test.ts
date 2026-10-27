@@ -1861,15 +1861,27 @@ describe('netcode-v2/NetcodeV2Service#fetchSessionLoadState', () => {
       turnsKnown: true,
       closedKnown: true,
       setupFinal: true,
-      connectedSlots: [0, 1],
-      closedSlots: [0],
+      connectedSlots: [0, 1, 2, 3, 4],
+      // Malformed entries can't stand for a closure, and a malformed epoch can't continue one.
+      closedSlots: [
+        { slot: 0, epoch: '1152921504606846976' },
+        { slot: 2 },
+        { slot: 3, epoch: 7 },
+        4,
+        null,
+      ],
       liveSlots: [1],
     })
     asMockedFunction(got.post).mockReturnValue({ json } as any)
     const service = makeService()
 
     const state = await service.fetchSessionLoadState(42)
-    expect(state.closedSlots).toEqual([0])
+    expect(state.closedSlots).toEqual([
+      // Kept as the coordinator's string: the epoch is wider than a JavaScript number is exact.
+      { slot: 0, epoch: '1152921504606846976' },
+      { slot: 2 },
+      { slot: 3 },
+    ])
     expect(state.liveSlots).toEqual([1])
     expect(state.closedKnown).toBe(true)
   })

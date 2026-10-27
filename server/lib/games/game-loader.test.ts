@@ -151,7 +151,7 @@ describe('games/game-loader/GameLoader', () => {
         startedSlots: number[]
         forwardedSlots?: number[]
         turnsKnown?: boolean
-        closedSlots?: number[]
+        closedSlots?: Array<{ slot: number; epoch?: string }>
         liveSlots?: number[]
         closedKnown?: boolean
       }>
@@ -1153,16 +1153,19 @@ describe('games/game-loader/GameLoader', () => {
       /**
        * A pull that vouches for everyone but the players who left: every relay fenced its live
        * slots, named its closed ones, reported its forwarded turns, and settled setup. Unless a
-       * test says otherwise, every connected slot that isn't closed is still live.
+       * test says otherwise, every connected slot that isn't closed is still live, and each closed
+       * slot is closed on the one link `closedEpochs` (or a fixed per-slot default) names.
        */
       function closedPull(fields: {
         connectedSlots: number[]
         closedSlots: number[]
+        closedEpochs?: Record<number, string | undefined>
         liveSlots?: number[]
         startedAtMs?: number
         startedSlots?: number[]
         forwardedSlots?: number[]
       }) {
+        const { closedSlots, closedEpochs, ...rest } = fields
         return {
           known: false,
           setupFinal: true,
@@ -1170,10 +1173,80 @@ describe('games/game-loader/GameLoader', () => {
           closedKnown: true,
           startedSlots: [],
           forwardedSlots: [],
-          liveSlots: fields.connectedSlots.filter(slot => !fields.closedSlots.includes(slot)),
-          ...fields,
+          liveSlots: fields.connectedSlots.filter(slot => !closedSlots.includes(slot)),
+          ...rest,
+          closedSlots: closedSlots.map(slot => ({
+            slot,
+            epoch: closedEpochs && slot in closedEpochs ? closedEpochs[slot] : `${1000 + slot}`,
+          })),
         }
       }
+
+      test('starts over when a player reconnected and left again between pulls', async () => {
+        // p1 was closed on link 1, came back unseen, and left again on link 2 after p2's relay last
+        // saw p2. Two pulls showing p1 closed don't make one disconnection, so p2 being live in the
+        // second says nothing about p1's current one. Only a third pull, with p1 still on link 2
+        // and p2 still there, does.
+        const onLink = (epoch: string) =>
+          closedPull({
+            startedAtMs: 1700000000000,
+            connectedSlots: [0, 1],
+            closedSlots: [0],
+            closedEpochs: { 0: epoch },
+          })
+        netcodeV2Service.fetchSessionLoadState
+          .mockResolvedValueOnce(onLink('1'))
+          .mockResolvedValueOnce(onLink('2'))
+          .mockResolvedValue(onLink('2'))
+        const { load } = await startNetworkedLoad('game-hidden-reconnect')
+
+        const error = await expectTimeout(load)
+
+        expect(error.data.unloaded).toEqual([p1])
+        expect(netcodeV2Service.fetchSessionLoadState).toHaveBeenCalledTimes(3)
+      })
+
+      test('blames nobody when the second link appears only in the last pull the budget allows', async () => {
+        const pulls = ATTEST_BUDGET_MS / ATTEST_POLL_MS
+        const onLink = (epoch: string) =>
+          closedPull({
+            startedAtMs: 1700000000000,
+            connectedSlots: [0, 1],
+            closedSlots: [0],
+            closedEpochs: { 0: epoch },
+          })
+        for (let i = 0; i < pulls - 1; i++) {
+          netcodeV2Service.fetchSessionLoadState.mockResolvedValueOnce({
+            ...onLink('1'),
+            setupFinal: false,
+          })
+        }
+        netcodeV2Service.fetchSessionLoadState.mockResolvedValue(onLink('2'))
+        const { load } = await startNetworkedLoad('game-hidden-reconnect-late')
+
+        const error = await expectTimeout(load)
+
+        expect(error.data.unloaded).toEqual([])
+        expect(netcodeV2Service.fetchSessionLoadState).toHaveBeenCalledTimes(pulls)
+      })
+
+      test('never blames a player closed on a link the relay recorded no epoch for', async () => {
+        netcodeV2Service.fetchSessionLoadState.mockResolvedValue(
+          closedPull({
+            startedAtMs: 1700000000000,
+            connectedSlots: [0, 1],
+            closedSlots: [0],
+            closedEpochs: { 0: undefined },
+          }),
+        )
+        const { load } = await startNetworkedLoad('game-closed-without-epoch')
+
+        const error = await expectTimeout(load)
+
+        expect(error.data.unloaded).toEqual([])
+        // Nothing a later pull could show would let it be blamed, so there's no waiting for one.
+        expect(netcodeV2Service.fetchSessionLoadState).toHaveBeenCalledTimes(1)
+      })
 
       test("doesn't count a player who started and then left as having stayed", async () => {
         // Both players of a 1v1 are gone. p1 had reported starting, so it isn't closed, but it

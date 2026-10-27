@@ -193,13 +193,12 @@ const createLoadingData = Record({
   loadStatePulls: 0,
   /**
    * The players whose client reached its relay and is disconnected again without its game loop
-   * having started, as of the latest coordinator pull, each with the number of the first pull in an
-   * unbroken run that reported them closed. Unlike the sets above this is the session as it stands
-   * rather than an accumulation, so each pull replaces it: a player who dials back in is no longer
-   * closed, and closing again starts a new run. Empty unless that pull vouched for its closed set
-   * being complete (`closedKnown`).
+   * having started, as of the latest coordinator pull, each with the disconnection it's in (see
+   * `ClosedRun`). Unlike the sets above this is the session as it stands rather than an
+   * accumulation, so each pull replaces it: a player who dials back in is no longer closed. Empty
+   * unless that pull vouched for its closed set being complete (`closedKnown`).
    */
-  closedPlayers: IMap<SbUserId, number>(),
+  closedPlayers: IMap<SbUserId, ClosedRun>(),
   /**
    * The players whose client was connected to its relay as of the latest coordinator pull. Replaced
    * on every pull like `closedPlayers`, and empty unless that pull was `closedKnown`. A player who
@@ -220,6 +219,18 @@ const createLoadingData = Record({
 })
 
 type LoadingData = ReturnType<typeof createLoadingData>
+
+/**
+ * One closed player's current disconnection: the relay connection epoch of the link whose closure
+ * began it, and the number of the first pull that reported the player closed on that link. A pull
+ * reporting the player closed on a different link starts a new run, since the player reconnected
+ * in between. A run without an epoch can't be told apart from a later disconnection, so it never
+ * counts as having lasted from one pull to the next.
+ */
+interface ClosedRun {
+  readonly epoch: string | undefined
+  readonly firstPull: number
+}
 
 const LoadingDatas = {
   /**
@@ -280,9 +291,9 @@ const LoadingDatas = {
 
   /**
    * The closed players blamed for leaving (see `playersAtFault`). Empty when the closed
-   * non-observers are more than half of the non-observers; otherwise each closed non-observer who
-   * was first seen closed in an earlier pull than the latest, provided some other non-observer is
-   * live and not closed in the latest pull.
+   * non-observers are more than half of the non-observers; otherwise each closed non-observer whose
+   * current disconnection was already reported by an earlier pull than the latest, provided some
+   * other non-observer is live and not closed in the latest pull.
    *
    * The pulls are what order one player's leaving against another's staying. A single pull can't:
    * the coordinator asks each serving relay separately and each snapshots at its own moment, so one
@@ -290,11 +301,16 @@ const LoadingDatas = {
    * player closed, and the pull shows a leaver beside someone who had in fact already gone. Across
    * pulls the order holds. Pulls are made one after another, and the coordinator answers a pull only
    * from a round of relay questions that began after the pull arrived, so every snapshot behind a
-   * pull is taken after every snapshot behind the pulls before it. A player first seen closed in an
-   * earlier pull had left before that pull's snapshots; another player live in a later pull was
-   * still there after them, and so after the leaver had gone. Having ever connected isn't staying,
-   * and neither is having started: a player who reported starting and then disconnected is neither
-   * live nor closed, and never counts as someone who stayed.
+   * pull is taken after every snapshot behind the pulls before it.
+   *
+   * Seeing a player closed in two pulls isn't enough by itself, since they may have reconnected and
+   * left again in between. Each closure names the relay link whose closure began it, and a link's
+   * epoch is never reused, so the same epoch in both pulls means one disconnection that began before
+   * the earlier pull's snapshots and lasted through the later pull's. Another player live in the
+   * later pull was still there after that disconnection began, so after this leaver had gone.
+   * Having ever connected isn't staying, and neither is having started: a player who reported
+   * starting and then disconnected is neither live nor closed, and never counts as someone who
+   * stayed.
    */
   closedPlayersAtFault(loadingData: LoadingData): SbUserId[] {
     const { players, livePlayers, closedPlayers, loadStatePulls } = loadingData
@@ -304,9 +320,10 @@ const LoadingDatas = {
     if (!someoneStayed) {
       return []
     }
-    return LoadingDatas.blamableClosedPlayers(loadingData).filter(
-      userId => closedPlayers.get(userId)! < loadStatePulls,
-    )
+    return LoadingDatas.blamableClosedPlayers(loadingData).filter(userId => {
+      const run = closedPlayers.get(userId)!
+      return run.epoch !== undefined && run.firstPull < loadStatePulls
+    })
   },
 
   /**
@@ -320,14 +337,15 @@ const LoadingDatas = {
   },
 
   /**
-   * Whether some closed player who could be blamed for leaving was first seen closed in the latest
-   * pull, so only a later pull can show whether anyone stayed after they left (see
-   * `closedPlayersAtFault`).
+   * Whether some closed player who could be blamed for leaving began their current disconnection
+   * in the latest pull's view, so only a later pull can show whether anyone stayed after they left
+   * (see `closedPlayersAtFault`).
    */
   hasClosedPlayerAwaitingWitness(loadingData: LoadingData): boolean {
-    return LoadingDatas.blamableClosedPlayers(loadingData).some(
-      userId => loadingData.closedPlayers.get(userId) === loadingData.loadStatePulls,
-    )
+    return LoadingDatas.blamableClosedPlayers(loadingData).some(userId => {
+      const run = loadingData.closedPlayers.get(userId)!
+      return run.epoch !== undefined && run.firstPull === loadingData.loadStatePulls
+    })
   },
 
   /** The players at fault for how far the session got (see `playersAtFault`). */
@@ -928,6 +946,19 @@ export class GameLoader {
       }
       return users
     }
+    // A player still closed on the link a run began with continues that run; any other closure is a
+    // new disconnection, first seen in this pull.
+    let closedRuns = IMap<SbUserId, ClosedRun>()
+    for (const { slot, epoch } of loadState.closedSlots) {
+      const userId = userBySlot.get(slot)
+      if (userId === undefined) continue
+      const previous = loadingData.closedPlayers.get(userId)
+      const continues = epoch !== undefined && previous?.epoch === epoch
+      closedRuns = closedRuns.set(userId, {
+        epoch,
+        firstPull: continues ? previous.firstPull : pull,
+      })
+    }
 
     this.loadingGames = this.loadingGames.set(
       gameId,
@@ -946,15 +977,7 @@ export class GameLoader {
         )
         .set('turnsKnown', loadingData.turnsKnown || loadState.turnsKnown)
         .set('loadStatePulls', pull)
-        .set(
-          'closedPlayers',
-          IMap(
-            (loadState.closedKnown ? usersForSlots(loadState.closedSlots) : []).map(userId => [
-              userId,
-              loadingData.closedPlayers.get(userId) ?? pull,
-            ]),
-          ),
-        )
+        .set('closedPlayers', loadState.closedKnown ? closedRuns : IMap<SbUserId, ClosedRun>())
         .set(
           'livePlayers',
           loadState.closedKnown ? ISet(usersForSlots(loadState.liveSlots)) : ISet<SbUserId>(),

@@ -382,9 +382,10 @@ export interface NetcodeV2SessionLoadState {
   /**
    * The slots that connected to their home relay and are disconnected now without their game loop
    * having started. Unlike every other set here this is the session as it stands at this pull, not
-   * an accumulation: a slot that dials back in drops out of it.
+   * an accumulation: a slot that dials back in drops out of it. Each names the link whose closure
+   * left it disconnected (see `NetcodeV2ClosedSlot`).
    */
-  closedSlots: number[]
+  closedSlots: NetcodeV2ClosedSlot[]
   /**
    * The slots whose link to their home relay was up as of this pull, read off the same relay answers
    * as `closedSlots`. Only meaningful when `closedKnown`. A slot that reported its game loop running
@@ -403,6 +404,33 @@ export interface NetcodeV2SessionLoadState {
   evidence: NetcodeV2SlotEvidence[]
 }
 
+/**
+ * One closed slot in a load-state pull. `epoch` is the relay connection epoch of the link whose
+ * closure left the slot disconnected, as a decimal string (it's 64 bits wide). Epochs are never
+ * reused within a session, so two pulls naming a slot closed with the same epoch saw one unbroken
+ * disconnection: a reconnect in between would have opened a new link with a new epoch. Absent when
+ * the relay recorded none, in which case the closure can't be matched against any other pull's.
+ */
+export interface NetcodeV2ClosedSlot {
+  slot: number
+  epoch?: string
+}
+
+/** Reads the coordinator's closed slots, keeping only well-formed entries. */
+function parseClosedSlots(closedSlots: unknown): NetcodeV2ClosedSlot[] {
+  if (!Array.isArray(closedSlots)) return []
+  const parsed: NetcodeV2ClosedSlot[] = []
+  for (const entry of closedSlots) {
+    if (typeof entry !== 'object' || entry === null || typeof entry.slot !== 'number') continue
+    parsed.push(
+      typeof entry.epoch === 'string' && /^\d+$/.test(entry.epoch)
+        ? { slot: entry.slot, epoch: entry.epoch }
+        : { slot: entry.slot },
+    )
+  }
+  return parsed
+}
+
 /** The wire shape of the coordinator's `POST /session/load-state` response. */
 interface CoordinatorSessionLoadStateResponse {
   known: boolean
@@ -413,7 +441,7 @@ interface CoordinatorSessionLoadStateResponse {
   startedSlots?: number[]
   forwardedSlots?: number[]
   turnsKnown?: boolean
-  closedSlots?: number[]
+  closedSlots?: unknown
   liveSlots?: number[]
   closedKnown?: boolean
   evidence?: unknown
@@ -977,7 +1005,7 @@ export class NetcodeV2Service {
       startedSlots: response.startedSlots ?? [],
       forwardedSlots: response.forwardedSlots ?? [],
       turnsKnown: response.turnsKnown === true,
-      closedSlots: response.closedSlots ?? [],
+      closedSlots: parseClosedSlots(response.closedSlots),
       liveSlots: response.liveSlots ?? [],
       closedKnown: response.closedKnown === true,
     }
