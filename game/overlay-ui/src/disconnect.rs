@@ -22,10 +22,7 @@ use crate::kit::widgets::{self, ButtonPlate, HoldState};
 use crate::kit::{theme, tiers};
 use crate::{colors, tr, tr_plural};
 
-/// A relay-confirmed disconnect must last at least this long before the overlay offers its manual
-/// drop; the Drop button's countdown label counts down toward it. Mirrors the turn-state constant of
-/// the same name that computes each row's [`drop_unlocked`](DisconnectRowView::drop_unlocked) flag,
-/// so this crate need not depend on the netcode.
+/// Maximum wait before the overlay offers a manual drop.
 pub const DROP_UNLOCK_UI: Duration = Duration::from_secs(45);
 
 /// How wide the roster dialog is, in overlay points. Everything inside is laid out against this and
@@ -114,7 +111,7 @@ pub enum PeerState {
     Stalled,
     /// The relay confirmed this player's link is down. Nothing says whether they are trying to get
     /// back, only how long they have been gone. The drop-unlock clock runs from the confirmation,
-    /// and the manual drop becomes clickable once it passes [`DROP_UNLOCK_UI`].
+    /// and the manual drop becomes clickable once its countdown expires.
     LinkLost,
 }
 
@@ -174,6 +171,8 @@ pub struct DisconnectRowView {
     /// [`LinkLost`](PeerState::LinkLost), outlined and inert with a countdown label until this
     /// flips, then clickable.
     pub drop_unlocked: bool,
+    /// Seconds left before the drop button unlocks.
+    pub drop_remaining_seconds: u64,
     /// Whether to briefly acknowledge a just-made drop request.
     pub drop_requested: bool,
 }
@@ -434,8 +433,8 @@ fn draw_roster(ui: &mut Ui, view: &DisconnectView) -> DisconnectOutcome {
         let width = ui.available_width();
         for line in [
             tr!(
-                "disconnect.dropRule",
-                "Drop unlocks {{seconds}} seconds after a player disconnects, per player. Dropped \
+                "disconnect.dropRuleWithin",
+                "Drop unlocks within {{seconds}} seconds after a player disconnects. Dropped \
                  players lose the game.",
                 seconds = DROP_UNLOCK_UI.as_secs()
             ),
@@ -644,7 +643,7 @@ fn color_bar(ui: &mut Ui, color: Color32) {
 fn draw_drop_button(ui: &mut Ui, row: &DisconnectRowView, clicked: &mut Vec<u8>) {
     let spec = text::button_label(12.5).with_letter_spacing(1.4).tabular();
     if !row.drop_unlocked {
-        let remaining = DROP_UNLOCK_UI.as_secs().saturating_sub(row.seconds);
+        let remaining = row.drop_remaining_seconds;
         let label = tr!(
             "disconnect.dropCountdown",
             "Drop in {{time}}",
@@ -761,6 +760,7 @@ mod tests {
             seconds: 16,
             state,
             drop_unlocked: false,
+            drop_remaining_seconds: if state == PeerState::LinkLost { 29 } else { 0 },
             drop_requested,
         }
     }

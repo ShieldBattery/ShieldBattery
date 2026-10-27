@@ -267,6 +267,11 @@ pub fn build_view(knobs: &Knobs, elapsed: f64) -> DisconnectView {
                 },
                 state: row.state.view(),
                 drop_unlocked: row.drop_unlocked,
+                drop_remaining_seconds: if row.state == RowState::Reconnecting {
+                    45u64.saturating_sub(row.seconds + tick)
+                } else {
+                    0
+                },
                 drop_requested: row.drop_requested,
             })
             .collect(),
