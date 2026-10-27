@@ -35,6 +35,7 @@ Everything here lives in this skill's directory; data goes to `.claude-scratch/r
 | `clean-stop.sh` | After killing a runner: kill its Electron/games (only those), rerun unfinished games |
 | `pin-dlls.sh` | Build both arches (`bench-dll` profile) and pin them for the soak |
 | `diff-dumps.py` | Diff two processes' `SB_ROLLBACK_DUMP_FRAME` dumps, pointers normalized |
+| `desync-diff.mjs` | Find where a live game's log leaves plain playback; diff two unit tables |
 
 ## Setup
 
@@ -115,7 +116,10 @@ touch $D/STOP          # finish current runs and stop; delete STOP before the ne
 - `pass`: every confirmed frame's fingerprint matched, and confirmed frames reached within 24 of
   the plain run's end.
 - `mismatch`: the first differing confirmed frame, plus the fingerprint columns that differ.
-  `state_hash` alone means a small divergence; RNG or `player_types` too means a large one.
+  `state_hash` alone means a small divergence; RNG or `player_types` too means a large one. The
+  `*_hash` component columns say which part of the state the divergence is in (units, bullets,
+  economy, supply, tech, or frame+RNG). A `--baseline` CSV must come from a DLL with the same state
+  hash, which these columns are part of.
 - `crash` / `timeout`: the game log tail and a fresh `latest_crash.dmp` are kept. That dump file is
   shared by every session, so it's only trustworthy right after the crash.
 - `error` (Electron/launch problems) and games that exit before simulating a frame are retried, not
@@ -200,6 +204,30 @@ and the harness run, then compare them with
 **Validating the pipeline itself.** After changing the runner or the harness, rebuild with a range
 that's known to matter removed from `ranges.rs` (one added for a past divergence, with the replay
 that showed it) and confirm the soak reports a mismatch.
+
+## Live desyncs
+
+A client the relay evicts for a desync logs the last 64 confirmed report positions (every 8th turn)
+with their hash components, in one `Desync evidence` block, and writes the units at the newest one
+to `desync-units-<game id>.csv` next to the game log; bug reports include the newest such table. A
+game that ends normally logs the same block at debug level, and the `Sync probe:` lines of a game
+that rolls back are its confirmed report positions, every 240. All of it describes confirmed state,
+which plain playback of the game's replay reproduces frame for frame. To find where a live game
+left it:
+
+```bash
+# Plain playback with SB_ROLLBACK_PROBE=1 writes a probe CSV with every frame's components.
+node $S/desync-diff.mjs shieldbattery.log rollback-probe-<...>.csv [--game <game id>]
+# A plain playback's own game log works too, at Sync probe resolution (every 240 frames).
+node $S/desync-diff.mjs shieldbattery.log plain-game.log
+```
+
+It prints the last agreeing report position and the first differing one with the components that
+differ. Then run the replay plainly with `SB_DESYNC_UNITS_FRAME=<frame>` (debug DLL) to write the
+units at the table's frame, and compare the two tables:
+`node $S/desync-diff.mjs --units desync-units-<game id>.csv desync-units-<game id>-frame-<frame>.csv`.
+Live positions count turns, which can run ahead of frames (a paused game takes turns without
+advancing frames), so the comparison goes by frame.
 
 ## Winding down
 

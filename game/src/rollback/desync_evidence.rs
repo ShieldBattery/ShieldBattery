@@ -330,6 +330,27 @@ mod tests {
     }
 
     #[test]
+    fn the_probe_line_ends_with_every_component() {
+        let probe = SyncProbe {
+            rng: [1, 0x2f, 3, 4, 5, 6],
+            minerals: [50, 50, 0, 0],
+            gas: [0; 4],
+            trigger_timer: 3,
+            hash: hash(240, 0xa),
+        };
+        assert_eq!(
+            probe.to_string(),
+            format!(
+                "frame 240 rng [1, 2f, 3, 4, 5, 6] minerals [50, 50, 0, 0] gas [0, 0, 0, 0] \
+                 trigger_timer 3 hash {:016x} frame_rng 0000000000000001 economy \
+                 0000000000000002 supply 0000000000000003 tech 0000000000000004 \
+                 units 7/000000000000000a bullets 0/0000000000000005",
+                hash(240, 0xa).combined(),
+            ),
+        );
+    }
+
+    #[test]
     fn evidence_lines_carry_every_component() {
         let confirmed: VecDeque<ConfirmedReport> = [
             ConfirmedReport {

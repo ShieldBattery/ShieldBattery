@@ -419,6 +419,15 @@ const FINGERPRINT_COLUMNS = [
   'elapsed_seconds',
   'player_types',
   'state_hash',
+  // The state hash's components, so a mismatch names the part of the state that differs.
+  'frame_rng_hash',
+  'economy_hash',
+  'supply_hash',
+  'tech_hash',
+  'unit_count',
+  'units_hash',
+  'bullet_count',
+  'bullets_hash',
 ]
 
 async function* csvRows(file) {
