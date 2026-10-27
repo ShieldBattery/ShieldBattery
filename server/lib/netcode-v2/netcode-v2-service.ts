@@ -386,6 +386,12 @@ export interface NetcodeV2SessionLoadState {
    */
   closedSlots: number[]
   /**
+   * The slots whose link to their home relay was up as of this pull, read off the same relay answers
+   * as `closedSlots`. Only meaningful when `closedKnown`. A slot that reported its game loop running
+   * and then disconnected is in neither this nor `closedSlots`.
+   */
+  liveSlots: number[]
+  /**
    * Whether `closedSlots` is the session's whole closed set and every slot outside it is vouched for:
    * everything `turnsKnown` rests on holds, and every serving relay fenced each slot it homes except
    * the closed ones. So a slot that connected but isn't closed is live or started, and a live slot's
@@ -408,6 +414,7 @@ interface CoordinatorSessionLoadStateResponse {
   forwardedSlots?: number[]
   turnsKnown?: boolean
   closedSlots?: number[]
+  liveSlots?: number[]
   closedKnown?: boolean
   evidence?: unknown
 }
@@ -971,6 +978,7 @@ export class NetcodeV2Service {
       forwardedSlots: response.forwardedSlots ?? [],
       turnsKnown: response.turnsKnown === true,
       closedSlots: response.closedSlots ?? [],
+      liveSlots: response.liveSlots ?? [],
       closedKnown: response.closedKnown === true,
     }
   }

@@ -152,6 +152,7 @@ describe('games/game-loader/GameLoader', () => {
         forwardedSlots?: number[]
         turnsKnown?: boolean
         closedSlots?: number[]
+        liveSlots?: number[]
         closedKnown?: boolean
       }>
     >
@@ -194,6 +195,7 @@ describe('games/game-loader/GameLoader', () => {
           forwardedSlots: [],
           turnsKnown: false,
           closedSlots: [],
+          liveSlots: [],
           closedKnown: false,
           ...(await netcodeV2Service.fetchSessionLoadState(session, options)),
         }),
@@ -1150,11 +1152,13 @@ describe('games/game-loader/GameLoader', () => {
 
       /**
        * A pull that vouches for everyone but the players who left: every relay fenced its live
-       * slots, named its closed ones, reported its forwarded turns, and settled setup.
+       * slots, named its closed ones, reported its forwarded turns, and settled setup. Unless a
+       * test says otherwise, every connected slot that isn't closed is still live.
        */
       function closedPull(fields: {
         connectedSlots: number[]
         closedSlots: number[]
+        liveSlots?: number[]
         startedAtMs?: number
         startedSlots?: number[]
         forwardedSlots?: number[]
@@ -1166,9 +1170,47 @@ describe('games/game-loader/GameLoader', () => {
           closedKnown: true,
           startedSlots: [],
           forwardedSlots: [],
+          liveSlots: fields.connectedSlots.filter(slot => !fields.closedSlots.includes(slot)),
           ...fields,
         }
       }
+
+      test("doesn't count a player who started and then left as having stayed", async () => {
+        // Both players of a 1v1 are gone. p1 had reported starting, so it isn't closed, but it
+        // isn't live either: nobody stayed, so p2 leaving looks like the network, not a choice.
+        netcodeV2Service.fetchSessionLoadState.mockResolvedValue(
+          closedPull({
+            startedAtMs: 1700000000000,
+            connectedSlots: [0, 1],
+            startedSlots: [0],
+            forwardedSlots: [0],
+            closedSlots: [1],
+            liveSlots: [],
+          }),
+        )
+        const { load } = await startNetworkedLoad('game-started-then-left')
+
+        const error = await expectTimeout(load)
+
+        expect(error.data.unloaded).toEqual([])
+      })
+
+      test('blames the quitter when everyone else started and is still there', async () => {
+        netcodeV2Service.fetchSessionLoadState.mockResolvedValue(
+          closedPull({
+            startedAtMs: 1700000000000,
+            connectedSlots: [0, 1, 2, 3, 4, 5],
+            startedSlots: [1, 2, 3, 4, 5],
+            forwardedSlots: [1, 2, 3, 4, 5],
+            closedSlots: [0],
+          }),
+        )
+        const { load } = await startRosterLoad('game-quit-while-others-started', sixPlayers)
+
+        const error = await expectTimeout(load)
+
+        expect(error.data.unloaded).toEqual([userAt(0)])
+      })
 
       test('blames the one player who closed their game after the session started', async () => {
         netcodeV2Service.fetchSessionLoadState.mockResolvedValue(

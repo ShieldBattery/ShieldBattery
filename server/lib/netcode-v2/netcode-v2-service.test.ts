@@ -1779,6 +1779,7 @@ describe('netcode-v2/NetcodeV2Service#fetchSessionLoadState', () => {
       forwardedSlots: [],
       turnsKnown: false,
       closedSlots: [],
+      liveSlots: [],
       closedKnown: false,
     })
   })
@@ -1802,6 +1803,7 @@ describe('netcode-v2/NetcodeV2Service#fetchSessionLoadState', () => {
       forwardedSlots: [],
       turnsKnown: false,
       closedSlots: [],
+      liveSlots: [],
       closedKnown: false,
     })
   })
@@ -1831,6 +1833,7 @@ describe('netcode-v2/NetcodeV2Service#fetchSessionLoadState', () => {
       forwardedSlots: [],
       turnsKnown: false,
       closedSlots: [],
+      liveSlots: [],
       closedKnown: false,
     })
   })
@@ -1860,12 +1863,14 @@ describe('netcode-v2/NetcodeV2Service#fetchSessionLoadState', () => {
       setupFinal: true,
       connectedSlots: [0, 1],
       closedSlots: [0],
+      liveSlots: [1],
     })
     asMockedFunction(got.post).mockReturnValue({ json } as any)
     const service = makeService()
 
     const state = await service.fetchSessionLoadState(42)
     expect(state.closedSlots).toEqual([0])
+    expect(state.liveSlots).toEqual([1])
     expect(state.closedKnown).toBe(true)
   })
 
@@ -1877,6 +1882,7 @@ describe('netcode-v2/NetcodeV2Service#fetchSessionLoadState', () => {
 
     const state = await service.fetchSessionLoadState(42)
     expect(state.closedSlots).toEqual([])
+    expect(state.liveSlots).toEqual([])
     expect(state.closedKnown).toBe(false)
   })
 
