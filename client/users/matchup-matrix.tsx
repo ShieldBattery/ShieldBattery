@@ -94,6 +94,25 @@ const MatrixScroll = styled.div`
   overflow-x: auto;
 `
 
+/** The table's `border-spacing`, which the sticky columns below have to cover as well. */
+const CELL_SPACING = 4
+/** The left axis label's column, which the row heads stick just to the right of. */
+const LEFT_AXIS_WIDTH = 18
+
+/**
+ * Pins a column to the left edge, so a matrix scrolled sideways can still be read back to its
+ * rows. The opaque background hides the cells sliding underneath, and the ring of it covers the
+ * border spacing around the cell, which they'd otherwise show through. `z-index` keeps it over the
+ * dimmed thin-sample cells, whose opacity would otherwise paint them on top.
+ */
+const stickyColumn = (left: number) => css`
+  position: sticky;
+  left: ${left}px;
+  z-index: 1;
+  background: var(--sb-color-background);
+  box-shadow: 0 0 0 ${CELL_SPACING}px var(--sb-color-background);
+`
+
 /** Uppercase and widely tracked, so it reads as a label on the axis rather than as a heading. */
 const axisText = css`
   ${labelSmall};
@@ -118,6 +137,7 @@ const axisRule = `
  * themselves lets the table do it exactly, at any team size.
  */
 const AxisSpacer = styled.th`
+  ${stickyColumn(0)};
   padding: 0;
 `
 
@@ -142,10 +162,11 @@ const TopAxisRule = styled.div`
 `
 
 /* Positioned rather than flowed: a `height: 100%` child of a row-spanning cell resolves
-   inconsistently, and the rules have to reach the full height of the rows to mean anything. */
+   inconsistently, and the rules have to reach the full height of the rows to mean anything. The
+   sticky cell is what they're positioned against. */
 const LeftAxisCell = styled.th`
-  position: relative;
-  width: 18px;
+  ${stickyColumn(0)};
+  width: ${LEFT_AXIS_WIDTH}px;
   padding: 0;
 `
 
@@ -183,8 +204,8 @@ const LeftAxisText = styled.div`
 const Matrix = styled.table`
   width: max-content;
   border-collapse: separate;
-  border-spacing: 4px;
-  margin: 0 -4px;
+  border-spacing: ${CELL_SPACING}px;
+  margin: 0 -${CELL_SPACING}px;
 `
 
 /**
@@ -288,7 +309,9 @@ const MapCardRate = styled.span<{ $positive: boolean }>`
  * race icons themselves. Its width comes from the row heads below it, which is why a team mode's
  * wider composition doesn't need a different value here.
  */
-const Corner = styled.th``
+const Corner = styled.th`
+  ${stickyColumn(LEFT_AXIS_WIDTH + CELL_SPACING)};
+`
 
 /* Both heads hold icons and no text, so they carry no type styles -- the icon's own box sets the
    height and the padding does the rest.
@@ -309,11 +332,21 @@ const ColHead = styled.th<{ $active: boolean }>`
   ${props => (props.$active ? HeadHighlight : '')}
 `
 
+/* The row heads stick, so their own background has to stay opaque and square to cover the cells
+   sliding under them. The highlight is drawn beneath the icons instead, with the same shape. */
 const RowHead = styled.th<{ $active: boolean }>`
+  ${stickyColumn(LEFT_AXIS_WIDTH + CELL_SPACING)};
   padding: 5px 7px;
   text-align: right;
-  transition: background-color 100ms linear;
-  ${props => (props.$active ? HeadHighlight : '')}
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    transition: background-color 100ms linear;
+    ${props => (props.$active ? HeadHighlight : '')}
+  }
 `
 
 /** `$outlined` marks a cell with nothing to rate: drawn as a frame so it recedes behind the rest. */
