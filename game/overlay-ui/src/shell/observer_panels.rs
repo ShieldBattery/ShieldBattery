@@ -32,6 +32,16 @@ pub(super) struct ObserverPanels {
     /// Worked out from last frame's surfaces because this frame's are placed by it. How tall they
     /// are does not depend on how far in they stand, so it settles rather than flip-flopping.
     dock_room: Option<(f32, f32)>,
+    /// Where the dock's column starts under the surfaces on the right edge, from last frame, where
+    /// the dock fits between there and the screen's bottom edge with no plate in the corner. Short
+    /// of room above the selection panel's end of the bottom row, the dock then runs down past it
+    /// and only the row stands in from its column: the wings over it still have the edge.
+    dock_under_wings: Option<f32>,
+    /// Where the dock's column started under the right edge's surfaces last frame, and whether the
+    /// plate was up when [`Self::dock_room`] was measured. The plate coming back stands on the
+    /// bottom of a room measured without it, so that room is measured again down to the plate.
+    dock_column_top: Option<f32>,
+    dock_room_with_plate: bool,
     /// Whether the watcher had anything selected as of the last frame, which is whether Escape
     /// has a selection to let go of.
     has_selection: bool,
@@ -141,8 +151,26 @@ impl ObserverPanels {
         // carries, so where the wings start is measured off what the cards actually came out as
         // rather than guessed at from a player count.
         let mut tops = observer::WingTops::under_bar(view.matchup.form().height());
-        let keep_clear = prefs.dock && self.dock_room.is_none();
-        let right_inset = observer::dock_inset(ctx, keep_clear);
+        let playback_controls_shown = has_playback_controls && prefs.playback_controls;
+        let dock_under_wings = self
+            .dock_under_wings
+            .filter(|_| !playback_controls_shown && !prefs.dock_expanded);
+        let last_dock_room = if playback_controls_shown && !self.dock_room_with_plate {
+            let plate_top = PlaybackControlsPlacement::default().rect(screen).top() - gap;
+            let height = observer::dock::full_height(host.mode, self.map_control_available);
+            self.dock_column_top
+                .map(|top| (top, plate_top))
+                .filter(|(top, bottom)| bottom - top >= height)
+        } else {
+            self.dock_room
+        };
+        // The bottom row stands in from the dock's column wherever the dock has no room between the
+        // right edge's surfaces, and the wings only where it has none under them either.
+        let row_keep_clear = prefs.dock && last_dock_room.is_none();
+        let keep_clear = row_keep_clear && dock_under_wings.is_none();
+        let right_inset = observer::dock_inset(ctx, egui::Id::new("sb_dock_inset"), keep_clear);
+        let row_inset =
+            observer::dock_inset(ctx, egui::Id::new("sb_dock_row_inset"), row_keep_clear);
         // A wing arriving takes its place beside the dock at once, the way the left wings simply
         // appear where they stand; one already on screen follows the dock as it comes and goes.
         let settled_inset = observer::settled_dock_inset(keep_clear);
@@ -226,7 +254,7 @@ impl ObserverPanels {
         // The run of the bottom edge the bottom panels have: from the minimap's frame to whatever
         // holds the right edge, which is the playback controls where they stand in the corner and the
         // dock's column where it does not.
-        let edge_right = screen.right() - observer::WING_MARGIN - right_inset;
+        let edge_right = screen.right() - observer::WING_MARGIN - row_inset;
         let mut span = if minimap_on_left {
             Span {
                 left: minimap.right() + gap,
@@ -238,7 +266,6 @@ impl ObserverPanels {
                 right: edge_right.min(minimap.left() - gap),
             }
         };
-        let playback_controls_shown = has_playback_controls && prefs.playback_controls;
         let mut playback_placement = PlaybackControlsPlacement::default();
         let dock_width = observer::dock::column_width(prefs.dock_expanded);
         let dock_column = Span {
@@ -252,17 +279,17 @@ impl ObserverPanels {
         let dock_top = if prefs.dock_expanded {
             screen.top() + observer::WING_MARGIN
         } else {
-            layout::lowest_bottom_over(dock_column, &top_surfaces, screen.top()) + gap
+            let over = layout::lowest_bottom_over(dock_column, &top_surfaces, screen.top()) + gap;
+            over.max(dock_under_wings.unwrap_or(over))
         };
         // Where the surfaces on the right edge are against it, the dock keeps to the room between
         // them that it had last frame.
-        let dock_room = self
-            .dock_room
+        let dock_room = last_dock_room
             .filter(|_| !prefs.dock_expanded)
             .map(|(top, bottom)| (top.max(dock_top), bottom));
         // How far the plate stands in to clear the dock's column, following the dock off the edge
         // and back the way the panels on that side do.
-        let dock_clearance = right_inset / observer::dock::column_width(false) * dock_width;
+        let dock_clearance = row_inset / observer::dock::column_width(false) * dock_width;
         let dock_fit = |bottom: f32| {
             observer::DockPlacement::fit(
                 host.mode,
@@ -662,12 +689,15 @@ impl ObserverPanels {
         } else {
             Some(screen.bottom() - observer::WING_MARGIN)
         };
+        let dock_height = observer::dock::full_height(host.mode, self.map_control_available);
         self.dock_room = column_bottom
-            .filter(|&bottom| {
-                bottom - column_top
-                    >= observer::dock::full_height(host.mode, self.map_control_available)
-            })
+            .filter(|&bottom| bottom - column_top >= dock_height)
             .map(|bottom| (column_top, bottom));
+        self.dock_under_wings = (!playback_controls_shown
+            && screen.bottom() - observer::WING_MARGIN - column_top >= dock_height)
+            .then_some(column_top);
+        self.dock_column_top = Some(column_top);
+        self.dock_room_with_plate = playback_controls_shown;
 
         let dock = observer::render_obs_dock(
             prefs,
@@ -852,6 +882,8 @@ mod tests {
     use crate::shell::Intent;
     use crate::shell::test_support::*;
 
+    const SMALL_SCREEN: egui::Vec2 = egui::vec2(1280.0, 720.0);
+
     /// The dock's rect among a frame's hit rects: the narrow one against the screen's right edge.
     fn dock_rect(output: &crate::shell::FrameOutput) -> Option<Rect> {
         output
@@ -862,6 +894,56 @@ mod tests {
     }
 
     #[test]
+    fn the_wings_keep_the_edge_when_the_dock_runs_down_past_the_plates_corner() {
+        let ctx = fresh_ctx();
+        let mut shell = spectating_shell();
+        let mut prefs = *shell.panel_prefs();
+        prefs.military = true;
+        prefs.graphs = true;
+        shell.set_panel_prefs(prefs);
+        let (playback, game) = (replay(), game_with_right_wings());
+        let screen = egui::vec2(1920.0, 1080.0);
+        let mut time = 0.0;
+        let mut settled = |shell: &mut crate::shell::Shell| {
+            let mut output = None;
+            for _ in 0..8 {
+                time += 0.5;
+                output = Some(run_watched_frame_at(
+                    shell, &ctx, &playback, &game, screen, time,
+                ));
+            }
+            output.unwrap()
+        };
+        let wings = |output: &crate::shell::FrameOutput| -> Vec<Rect> {
+            output
+                .hit_rects
+                .iter()
+                .map(|hit| hit.rect)
+                .filter(|rect| rect.width() == crate::observer::military::PANEL_WIDTH)
+                .collect()
+        };
+        let with_plate = settled(&mut shell);
+        assert_eq!(wings(&with_plate).len(), 2);
+
+        // Without the plate there is too little room for the dock over where the selection panel
+        // ends the bottom row, but room enough under the wings if it runs down to the bottom edge.
+        assert!(shell.key_pressed(Key::Y, Modifiers::NONE));
+        let without_plate = settled(&mut shell);
+        assert_eq!(wings(&without_plate), wings(&with_plate));
+        let dock = dock_rect(&without_plate).expect("the dock is up");
+        assert!(dock.bottom() > 1000.0, "{dock:?}");
+        assert!(dock.top() > wings(&without_plate)[1].bottom(), "{dock:?}");
+
+        // And the wings stay put on every frame of the plate coming back.
+        assert!(shell.key_pressed(Key::Y, Modifiers::NONE));
+        for _ in 0..12 {
+            time += 0.03;
+            let output = run_watched_frame_at(&mut shell, &ctx, &playback, &game, screen, time);
+            assert_eq!(wings(&output), wings(&with_plate));
+        }
+    }
+
+    #[test]
     fn the_dock_leaves_from_where_it_stood_when_the_plate_goes_with_it() {
         let ctx = fresh_ctx();
         let mut shell = spectating_shell();
@@ -869,7 +951,7 @@ mod tests {
         let mut time = 0.0;
         let mut frame = |shell: &mut crate::shell::Shell, step: f64| {
             time += step;
-            run_watched_frame_at(shell, &ctx, &playback, &game, time)
+            run_watched_frame_at(shell, &ctx, &playback, &game, SMALL_SCREEN, time)
         };
         for _ in 0..6 {
             frame(&mut shell, 0.5);
@@ -902,7 +984,7 @@ mod tests {
         let mut time = 0.0;
         let mut frame = |shell: &mut crate::shell::Shell, step: f64| {
             time += step;
-            run_watched_frame_at(shell, &ctx, &playback, &game, time)
+            run_watched_frame_at(shell, &ctx, &playback, &game, SMALL_SCREEN, time)
         };
         for _ in 0..6 {
             frame(&mut shell, 0.5);

@@ -5,8 +5,9 @@ use egui::{Context, Key, Modifiers, Rect};
 use super::{FrameOutput, HostFrame, Intent, ModalId, Mode, Shell, Views};
 use crate::disconnect::{DisconnectView, SelfState};
 use crate::observer::{
-    ControlGroupsView, EconomyView, GraphsView, MatchupView, MilitaryView, ObserverView,
-    ProductionView, SelectionView, TimelineView,
+    ControlGroupsView, EconomyView, GraphLineView, GraphsView, MapControlSideView, MapControlView,
+    MatchupView, MilitaryPlayerView, MilitaryView, ObserverView, ProductionView, RaceView,
+    SelectionView, TimelineView,
 };
 use crate::playback_controls::PlaybackView;
 
@@ -70,6 +71,46 @@ pub(super) fn empty_game() -> ObserverView {
     }
 }
 
+/// [`empty_game`] with two players in it as far as the military panel and the graphs are concerned,
+/// which is what puts those two wings on the right edge, and a map-control reading, which gives the
+/// dock a row for its bar.
+pub(super) fn game_with_right_wings() -> ObserverView {
+    let mut game = empty_game();
+    for (index, name) in ["Rhynso", "tec27"].into_iter().enumerate() {
+        let color = crate::kit::theme::player_color(index);
+        game.military.players.push(MilitaryPlayerView {
+            name: name.to_string(),
+            team: index as u8,
+            color,
+            vision: true,
+            race: RaceView::Zerg,
+            army_minerals: 0,
+            army_gas: 0,
+            units_killed: 0,
+            units_lost: 0,
+            worker_kills: 0,
+            worker_losses: 0,
+        });
+        game.graphs.lines.push(GraphLineView {
+            label: name.to_string(),
+            color,
+            values: vec![0.0, 4.0, 8.0],
+        });
+    }
+    game.graphs.span_secs = 60;
+    game.map_control = Some(MapControlView {
+        left: MapControlSideView {
+            color: crate::kit::theme::player_color(0),
+            share: 0.4,
+        },
+        right: MapControlSideView {
+            color: crate::kit::theme::player_color(1),
+            share: 0.4,
+        },
+    });
+    game
+}
+
 /// A context with the overlay's own fonts, which is what a screen lays its text out with.
 pub(super) fn fresh_ctx() -> Context {
     let ctx = Context::default();
@@ -84,18 +125,28 @@ pub(super) fn run_frame_at(
     playback: Option<&PlaybackView>,
     time: f64,
 ) -> FrameOutput {
-    run_frame_with_events(shell, ctx, playback, None, time, Vec::new())
+    run_frame_with_events(shell, ctx, playback, time, Vec::new())
 }
 
-/// Runs one shell frame of a replay being watched with the observer panels, at `time`.
+/// The screen a test frame is drawn on unless it asks for another.
+const SCREEN: egui::Vec2 = egui::vec2(1280.0, 720.0);
+
+/// Runs one shell frame of a replay being watched with the observer panels, at `time`, on a screen
+/// `screen` points across.
 pub(super) fn run_watched_frame_at(
     shell: &mut Shell,
     ctx: &Context,
     playback: &PlaybackView,
     observer: &ObserverView,
+    screen: egui::Vec2,
     time: f64,
 ) -> FrameOutput {
-    run_frame_with_events(shell, ctx, Some(playback), Some(observer), time, Vec::new())
+    let views = Views {
+        playback: Some(playback),
+        observer: Some(observer),
+        ..Views::default()
+    };
+    run_frame_on(shell, ctx, views, screen, time, Vec::new())
 }
 
 /// Runs one shell frame after `keys` were pressed, each offered to the shell first and handed to
@@ -115,14 +166,28 @@ pub(super) fn run_frame_with_keys(shell: &mut Shell, ctx: &Context, keys: &[Key]
         })
         .collect();
     let time = ctx.input(|input| input.time) + 1.0;
-    run_frame_with_events(shell, ctx, None, None, time, events)
+    run_frame_with_events(shell, ctx, None, time, events)
 }
 
 fn run_frame_with_events(
     shell: &mut Shell,
     ctx: &Context,
     playback: Option<&PlaybackView>,
-    observer: Option<&ObserverView>,
+    time: f64,
+    events: Vec<egui::Event>,
+) -> FrameOutput {
+    let views = Views {
+        playback,
+        ..Views::default()
+    };
+    run_frame_on(shell, ctx, views, SCREEN, time, events)
+}
+
+fn run_frame_on(
+    shell: &mut Shell,
+    ctx: &Context,
+    mut views: Views<'_>,
+    screen: egui::Vec2,
     time: f64,
     events: Vec<egui::Event>,
 ) -> FrameOutput {
@@ -137,20 +202,12 @@ fn run_frame_with_events(
         minimap_rect: None,
     };
     let raw = egui::RawInput {
-        screen_rect: Some(Rect::from_min_size(
-            egui::pos2(0.0, 0.0),
-            egui::vec2(1280.0, 720.0),
-        )),
+        screen_rect: Some(Rect::from_min_size(egui::pos2(0.0, 0.0), screen)),
         time: Some(time),
         events,
         ..Default::default()
     };
     ctx.begin_pass(raw);
-    let mut views = Views {
-        playback,
-        observer,
-        ..Views::default()
-    };
     let output = shell.frame(ctx, &host, &mut views);
     let mut out = ctx.end_pass();
     let _ = ctx.tessellate(out.shapes, ctx.pixels_per_point());

@@ -571,13 +571,11 @@ pub(crate) const DOCK_RESERVE: f32 = dock::COLLAPSED_WIDTH + WING_MARGIN;
 
 /// How far the surfaces on the right edge stand in from it this frame: the dock's column while they
 /// have to keep `clear` of it, and nothing once they do not, eased between the two so they follow
-/// the dock off the edge and make way for it coming back rather than jumping either way.
-pub(crate) fn dock_inset(ctx: &Context, clear: bool) -> f32 {
-    ctx.animate_value_with_time(
-        Id::new("sb_dock_inset"),
-        settled_dock_inset(clear),
-        theme::MOTION_PANEL_SECS,
-    )
+/// the dock off the edge and make way for it coming back rather than jumping either way. `id` names
+/// whose inset it is: the wings and the bottom row each ease their own, since the dock can run
+/// down past the one while the other keeps the edge.
+pub(crate) fn dock_inset(ctx: &Context, id: Id, clear: bool) -> f32 {
+    ctx.animate_value_with_time(id, settled_dock_inset(clear), theme::MOTION_PANEL_SECS)
 }
 
 /// Where [`dock_inset`] is heading: what a surface arriving on the right edge stands in by, since
