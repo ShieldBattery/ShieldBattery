@@ -159,3 +159,118 @@ pub fn pulse_phase(ctx: &Context) -> f32 {
     let phase = (time / theme::MOTION_PULSE_SECS).fract();
     1.0 - (phase * 2.0 - 1.0).abs()
 }
+
+/// Where a surface is placed this frame, from the numbers it is placed by: a top edge, an inset, the
+/// ends of a run. A surface arriving takes its place at once and makes its own entrance there; one
+/// already on screen eases to a new place; one on its way out keeps the place it had when it was
+/// last wanted, so it leaves from where it stood rather than from wherever its neighbors moved to.
+///
+/// Every number eases on its own, on the same curve and from the same frame, so numbers that change
+/// together move together, and so do surfaces whose places change on the same frame.
+///
+/// Whether the surface was on screen is the caller's to say, once it has drawn it, with
+/// [`Spot::drawn`]: that decides whether the next change is eased or simply taken.
+#[must_use = "a spot needs to be told whether its surface was drawn"]
+pub struct Spot<'a, const N: usize> {
+    ctx: &'a Context,
+    id: Id,
+    held: [f32; N],
+    at: [f32; N],
+}
+
+/// What a [`Spot`] keeps between frames.
+#[derive(Clone, Copy)]
+struct SpotState<const N: usize> {
+    held: [f32; N],
+    drawn: bool,
+}
+
+impl<'a, const N: usize> Spot<'a, N> {
+    /// The spot `id` names, for a surface `wanted` on screen whose place is now `target`.
+    pub fn new(ctx: &'a Context, id: Id, wanted: bool, target: [f32; N]) -> Spot<'a, N> {
+        let state = ctx.data(|data| data.get_temp::<SpotState<N>>(id));
+        let held = match state {
+            Some(state) if !wanted => state.held,
+            _ => target,
+        };
+        let secs = if state.is_some_and(|state| state.drawn) {
+            theme::MOTION_PANEL_SECS
+        } else {
+            0.0
+        };
+        let at = std::array::from_fn(|index| {
+            ctx.animate_value_with_time(id.with(index), held[index], secs)
+        });
+        Spot { ctx, id, held, at }
+    }
+
+    /// Where the surface is drawn this frame.
+    pub fn at(&self) -> [f32; N] {
+        self.at
+    }
+
+    /// Records whether the surface was drawn this frame.
+    pub fn drawn(self, drawn: bool) {
+        let state = SpotState {
+            held: self.held,
+            drawn,
+        };
+        self.ctx.data_mut(|data| data.insert_temp(self.id, state));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Runs one frame at `time` seconds, placing a surface by `target` and drawing it while it is
+    /// `wanted` or still on its way out, and returns where it was placed.
+    fn frame(ctx: &Context, time: f64, wanted: bool, target: f32, drawn: bool) -> f32 {
+        ctx.begin_pass(egui::RawInput {
+            time: Some(time),
+            ..Default::default()
+        });
+        let spot = Spot::new(ctx, Id::new("spot"), wanted, [target]);
+        let [at] = spot.at();
+        spot.drawn(drawn);
+        // A placement check has no GPU texture store to hand the atlas to.
+        ctx.end_pass().textures_delta.clear();
+        at
+    }
+
+    #[test]
+    fn a_surface_arriving_takes_its_place_at_once() {
+        let ctx = Context::default();
+        assert_eq!(frame(&ctx, 0.0, true, 100.0, true), 100.0);
+        // Gone and back somewhere else: it is placed there rather than slid across.
+        frame(&ctx, 1.0, false, 100.0, false);
+        assert_eq!(frame(&ctx, 2.0, true, 300.0, true), 300.0);
+    }
+
+    #[test]
+    fn a_surface_on_screen_eases_to_a_new_place() {
+        let ctx = Context::default();
+        frame(&ctx, 0.0, true, 100.0, true);
+        frame(&ctx, 1.0, true, 300.0, true);
+        let midway = frame(
+            &ctx,
+            1.0 + f64::from(theme::MOTION_PANEL_SECS) / 2.0,
+            true,
+            300.0,
+            true,
+        );
+        assert!(midway > 100.0 && midway < 300.0, "{midway}");
+        assert_eq!(frame(&ctx, 3.0, true, 300.0, true), 300.0);
+    }
+
+    #[test]
+    fn a_surface_on_its_way_out_keeps_its_place() {
+        let ctx = Context::default();
+        frame(&ctx, 0.0, true, 100.0, true);
+        // Its neighbors move on as it leaves; it stays where it stood.
+        for step in 1..5 {
+            let time = 1.0 + f64::from(step) * 0.03;
+            assert_eq!(frame(&ctx, time, false, 300.0, true), 100.0);
+        }
+    }
+}

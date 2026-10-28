@@ -569,19 +569,11 @@ pub(crate) const MAP_CONTROL_GAP: f32 = 8.0;
 /// something the watcher has just opened and is reading rather than something in their way.
 pub(crate) const DOCK_RESERVE: f32 = dock::COLLAPSED_WIDTH + WING_MARGIN;
 
-/// How far the surfaces on the right edge stand in from it this frame: the dock's column while they
-/// have to keep `clear` of it, and nothing once they do not, eased between the two so they follow
-/// the dock off the edge and make way for it coming back rather than jumping either way. `id` names
-/// whose inset it is: the wings and the bottom row each ease their own, since the dock can run
-/// down past the one while the other keeps the edge.
-pub(crate) fn dock_inset(ctx: &Context, id: Id, clear: bool) -> f32 {
-    ctx.animate_value_with_time(id, settled_dock_inset(clear), theme::MOTION_PANEL_SECS)
-}
-
-/// Where [`dock_inset`] is heading: what a surface arriving on the right edge stands in by, since
-/// it has no place of its own to ease from and arriving from the side would read as a second motion
-/// on top of its own entrance.
-pub(crate) fn settled_dock_inset(clear: bool) -> f32 {
+/// How far the surfaces on the right edge stand in from it: the dock's column while they have to
+/// keep `clear` of it, and nothing once they do not. Each surface eases to its own place from this
+/// (see [`crate::kit::motion::Spot`]), so they follow the dock off the edge and make way for it
+/// coming back rather than jumping either way.
+pub(crate) fn dock_inset(clear: bool) -> f32 {
     if clear { DOCK_RESERVE } else { 0.0 }
 }
 
@@ -663,45 +655,12 @@ impl WingTops {
             right: top,
         }
     }
-
-    /// Where the wing under one of these goes: under the one above it while that one is drawn, and
-    /// in its place once it is gone, crossing the difference at the stack's own pace while the wing
-    /// is `settled` on screen (see [`eased_stack_share`]).
-    pub(crate) fn below(
-        ctx: &Context,
-        id: Id,
-        top: f32,
-        upper: Option<Rect>,
-        settled: bool,
-    ) -> f32 {
-        top + eased_stack_share(ctx, id, upper, settled)
-    }
 }
 
 /// What one surface of a stack adds under the surfaces above it: its own height and the gap over it
 /// while it is drawn, and nothing once it is gone.
 pub(crate) fn stack_share(rect: Option<Rect>) -> f32 {
     rect.map_or(0.0, |rect| rect.height() + WING_GAP)
-}
-
-/// [`stack_share`], eased as the surface comes and goes.
-///
-/// A stack is placed from what each surface adds rather than from where each one was drawn, so that
-/// everything above a surface crosses it as one: two panels each easing toward the one under them
-/// would set off at different times and run through each other on the way. egui starts an animated
-/// value at its first target, so a surface drawn for the first time is placed rather than slid into
-/// place.
-///
-/// Eased only while the surface under it was `settled` on screen the frame before. One arriving
-/// takes its place at once and makes its own short entrance from there: two panels shown together
-/// would otherwise have the lower one start from where the upper one is and travel its whole height.
-pub(crate) fn eased_stack_share(ctx: &Context, id: Id, rect: Option<Rect>, settled: bool) -> f32 {
-    let secs = if settled {
-        theme::MOTION_PANEL_SECS
-    } else {
-        0.0
-    };
-    ctx.animate_value_with_time(id, stack_share(rect), secs)
 }
 
 /// The side of the square BW's minimap owns in the screen's bottom-left corner, in design units.
@@ -761,8 +720,8 @@ pub fn team_name(team: u8) -> String {
 /// with its top edge at `top`, fading and sliding in and out. Returns nothing at all once it is
 /// gone.
 ///
-/// The panel slides to `top` rather than being placed at it, because `top` is where the panels
-/// around this one leave it: a wing whose neighbor was just hidden moves up the neighbor's whole
+/// `top` is where the panels around this one leave it, which the caller eases (see
+/// [`crate::kit::motion::Spot`]): a wing whose neighbor was just hidden moves up the neighbor's whole
 /// height, and a jump that far reads as a panel that was redrawn somewhere else.
 ///
 /// The wings are sized from the outside in, because the design places their outer edges on a grid;
