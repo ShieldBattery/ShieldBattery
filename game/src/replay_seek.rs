@@ -30,6 +30,7 @@ use crate::bw::Bw;
 use crate::bw::apm_stats::ApmStats;
 use crate::bw_scr::BwScr;
 use crate::game_thread;
+use crate::remembered_buildings;
 use crate::rollback::snapshot::{SnapshotExtras, Snapshots};
 use crate::rollback::tick::with_ui_images_off;
 
@@ -100,6 +101,9 @@ struct Keyframe {
     data: Box<[u8]>,
     extras: SnapshotExtras,
     apm: Option<ApmStats>,
+    /// What each player remembered of the others' buildings, which the snapshot's fog sprites
+    /// only hold for the visions shown when it was taken.
+    remembered: Option<remembered_buildings::Record>,
 }
 
 impl Keyframe {
@@ -107,6 +111,10 @@ impl Keyframe {
         self.data.len()
             + self.extras.heap_bytes()
             + self.apm.as_ref().map_or(0, ApmStats::heap_bytes)
+            + self
+                .remembered
+                .as_ref()
+                .map_or(0, remembered_buildings::Record::heap_bytes)
     }
 }
 
@@ -197,6 +205,7 @@ impl Seeker {
                     data,
                     extras,
                     apm: bw.apm_stats(),
+                    remembered: remembered_buildings::snapshot(),
                 },
                 MAX_KEYFRAME_BYTES,
             );
@@ -333,8 +342,11 @@ impl Seeker {
             // Nothing simulates between the restore and settling, so nothing the restore took out
             // of the selection is back.
             bw.rollback_settle_local_selection(&selection, &[]);
-            // The vision globals and the draw functions the restored images carry are the
-            // viewer's, not the simulation's, and have to match the restored frame.
+            // The vision globals, the draw functions the restored images carry and the fog
+            // sprites of players' buildings are the viewer's, not the simulation's, and have to
+            // match the restored frame. Writing the visions rebuilds those fog sprites from the
+            // keyframe's record.
+            remembered_buildings::restore(keyframe.remembered.clone());
             bw.restore_replay_visions_after_keyframe();
             // Restoring a trigger list that had been freed since the keyframe allocates its nodes
             // anew, and the keyframe has to name the new ones for the next time it is restored.
@@ -654,6 +666,7 @@ mod tests {
             data: vec![0; bytes].into_boxed_slice(),
             extras: SnapshotExtras::default(),
             apm: None,
+            remembered: None,
         }
     }
 

@@ -422,7 +422,9 @@ impl BwScr {
                         let frame = self.current_game_frame();
                         self.chat_history.lock().begin_replay_step(frame);
                     }
+                    crate::remembered_buildings::begin_step(self);
                     orig();
+                    crate::remembered_buildings::after_step(self);
                     if replay {
                         self.chat_history.lock().finish_replay_step();
                     }
@@ -437,6 +439,24 @@ impl BwScr {
                 },
                 address,
             );
+            match self.update_unit_visibility {
+                Some(address) => {
+                    exe.hook_closure_address(
+                        UpdateUnitVisibility,
+                        move |unit, orig| {
+                            let before =
+                                crate::remembered_buildings::visibility_before_update(unit);
+                            orig(unit);
+                            crate::remembered_buildings::after_visibility_update(
+                                self, unit, before,
+                            );
+                        },
+                        address.0 as usize - base,
+                    );
+                    crate::remembered_buildings::set_hooked();
+                }
+                None => info!("Remembered buildings aren't kept: update_unit_visibility not found"),
+            }
             let address = self.step_network_addr.0 as usize - base;
             exe.hook_closure_address(
                 StepNetwork,
