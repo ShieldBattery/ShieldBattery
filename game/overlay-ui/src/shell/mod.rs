@@ -22,6 +22,7 @@
 //! This module routes keys between them and runs the frame across them.
 
 mod capture;
+mod dock_stand;
 pub mod hotkeys;
 mod modals;
 pub mod native_dialogs;

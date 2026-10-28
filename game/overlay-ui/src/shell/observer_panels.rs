@@ -6,7 +6,7 @@ use egui::{Context, Key, Rect};
 use super::hotkeys::{self, Action, Hotkeys};
 use super::prefs::{Panel, PanelPrefs};
 use super::replay::ReplayCommands;
-use super::{HitRect, HostFrame, Intent};
+use super::{HitRect, HostFrame, Intent, Mode, dock_stand};
 use crate::observer::{self, ObserverView, SelectedUnitClick};
 use crate::playback_controls::PlaybackControlsPlacement;
 
@@ -24,24 +24,10 @@ pub(super) struct ObserverPanels {
     vision_picker_open: bool,
     /// Where the map control strip hangs from, as last asked for while it was wanted on screen.
     map_control_top: Option<f32>,
-    /// The run of the dock's column, top and bottom, the dock had to itself last frame with every
-    /// surface on the right edge against the edge, or `None` where it was too short for the dock at
-    /// its full height. While there is room, the surfaces on that side hug the edge and the dock
-    /// stands between them; where there is not, they stand in from its column.
-    ///
-    /// Worked out from last frame's surfaces because this frame's are placed by it. How tall they
-    /// are does not depend on how far in they stand, so it settles rather than flip-flopping.
-    dock_room: Option<(f32, f32)>,
-    /// Where the dock's column starts under the surfaces on the right edge, from last frame, where
-    /// the dock fits between there and the screen's bottom edge with no plate in the corner. Short
-    /// of room above the selection panel's end of the bottom row, the dock then runs down past it
-    /// and only the row stands in from its column: the wings over it still have the edge.
-    dock_under_wings: Option<f32>,
-    /// Where the dock's column started under the right edge's surfaces last frame, and whether the
-    /// plate was up when [`Self::dock_room`] was measured. The plate coming back stands on the
-    /// bottom of a room measured without it, so that room is measured again down to the plate.
-    dock_column_top: Option<f32>,
-    dock_room_with_plate: bool,
+    /// How far down the surfaces on the right edge reached as drawn last frame. One on its way out
+    /// still covers its part of the dock's column until it is gone, which its measurements, being of
+    /// what is wanted on screen, no longer say.
+    drawn_right_reach: f32,
     /// Whether the watcher had anything selected as of the last frame, which is whether Escape
     /// has a selection to let go of.
     has_selection: bool,
@@ -110,9 +96,10 @@ impl ObserverPanels {
     ///
     /// The panels are placed against each other rather than at the design's coordinates (see
     /// [`observer::layout`]), so they are drawn in the order the screen's room is handed out: the
-    /// surfaces hung from the top edge, the minimap's frame, then the stack along the bottom edge,
-    /// which between them say how much of each side is left for the wings, and the dock last, which
-    /// is told what found no room. `has_playback_controls` is whether there is a replay plate to share the
+    /// surfaces hung from the top edge, then the dock's place on the right edge, decided from what
+    /// the surfaces there measure (see [`dock_stand`]) since it says how far in they stand, then the
+    /// minimap's frame and the stack along the bottom edge, which between them say how much of each
+    /// side is left for the wings, and the dock itself last, which is told what found no room. `has_playback_controls` is whether there is a replay plate to share the
     /// bottom of the screen with. Returns where the plate stands, which is decided with them.
     pub(super) fn frame(
         &mut self,
@@ -143,55 +130,6 @@ impl ObserverPanels {
         if let Some(outcome) = observer::render_matchup_view(&view.matchup, ctx, prefs.matchup) {
             hit_rects.push(HitRect::new(outcome.rect));
             top_surfaces.push(outcome.rect);
-            if let Some(player_id) = outcome.toggled_vision {
-                intents.push(Intent::ToggleVision { player_id });
-            }
-        }
-        // The corner cards and the wings under them are one stack: a card is as tall as the side it
-        // carries, so where the wings start is measured off what the cards actually came out as
-        // rather than guessed at from a player count.
-        let mut tops = observer::WingTops::under_bar(view.matchup.form().height());
-        let playback_controls_shown = has_playback_controls && prefs.playback_controls;
-        let dock_under_wings = self
-            .dock_under_wings
-            .filter(|_| !playback_controls_shown && !prefs.dock_expanded);
-        let last_dock_room = if playback_controls_shown && !self.dock_room_with_plate {
-            let plate_top = PlaybackControlsPlacement::default().rect(screen).top() - gap;
-            let height = observer::dock::full_height(host.mode, self.map_control_available);
-            self.dock_column_top
-                .map(|top| (top, plate_top))
-                .filter(|(top, bottom)| bottom - top >= height)
-        } else {
-            self.dock_room
-        };
-        // The bottom row stands in from the dock's column wherever the dock has no room between the
-        // right edge's surfaces, and the wings only where it has none under them either.
-        let row_keep_clear = prefs.dock && last_dock_room.is_none();
-        let keep_clear = row_keep_clear && dock_under_wings.is_none();
-        let right_inset = observer::dock_inset(ctx, egui::Id::new("sb_dock_inset"), keep_clear);
-        let row_inset =
-            observer::dock_inset(ctx, egui::Id::new("sb_dock_row_inset"), row_keep_clear);
-        // A wing arriving takes its place beside the dock at once, the way the left wings simply
-        // appear where they stand; one already on screen follows the dock as it comes and goes.
-        let settled_inset = observer::settled_dock_inset(keep_clear);
-        // How far down the surfaces on the right edge reach, which is where the dock's column
-        // starts while they hug the edge.
-        let mut right_reach = screen.top();
-        if let Some(cards) = &view.team_cards {
-            let inset = self.drawn.team_cards.inset(right_inset, settled_inset);
-            let outcome = observer::render_team_cards_view(cards, ctx, prefs.matchup, inset);
-            self.drawn.team_cards.drawn(outcome.right_bottom.is_some());
-            for rect in outcome.rects {
-                hit_rects.push(HitRect::new(rect));
-                top_surfaces.push(rect);
-            }
-            if let Some(bottom) = outcome.left_bottom {
-                tops.left = tops.left.max(bottom + gap);
-            }
-            if let Some(bottom) = outcome.right_bottom {
-                tops.right = tops.right.max(bottom + gap);
-                right_reach = right_reach.max(screen.top() + bottom);
-            }
             if let Some(player_id) = outcome.toggled_vision {
                 intents.push(Intent::ToggleVision { player_id });
             }
@@ -240,70 +178,24 @@ impl ObserverPanels {
         }
         let square = layout::minimap_square(screen, self.last_minimap_rect);
         let minimap = observer::minimap::footprint(screen, square);
-        let minimap_rects = self.frame_minimap(
-            ctx,
-            view,
-            host.minimap_rect,
-            prefs.minimap,
-            hotkeys,
-            intents,
-        );
-        hit_rects.extend(minimap_rects.into_iter().map(HitRect::new));
         let minimap_on_left = minimap.center().x < screen.center().x;
-
-        // The run of the bottom edge the bottom panels have: from the minimap's frame to whatever
-        // holds the right edge, which is the playback controls where they stand in the corner and the
-        // dock's column where it does not.
-        let edge_right = screen.right() - observer::WING_MARGIN - row_inset;
-        let mut span = if minimap_on_left {
-            Span {
-                left: minimap.right() + gap,
-                right: edge_right,
+        // The run of the bottom edge the bottom panels have with their end `inset` in from the
+        // right edge: from the minimap's frame to whatever holds the right edge, which is the
+        // playback controls where they stand in the corner and the dock's column where it does not.
+        let bottom_run = |inset: f32| {
+            let edge_right = screen.right() - observer::WING_MARGIN - inset;
+            if minimap_on_left {
+                Span {
+                    left: minimap.right() + gap,
+                    right: edge_right,
+                }
+            } else {
+                Span {
+                    left: screen.left() + observer::WING_MARGIN,
+                    right: edge_right.min(minimap.left() - gap),
+                }
             }
-        } else {
-            Span {
-                left: screen.left() + observer::WING_MARGIN,
-                right: edge_right.min(minimap.left() - gap),
-            }
         };
-        let mut playback_placement = PlaybackControlsPlacement::default();
-        let dock_width = observer::dock::column_width(prefs.dock_expanded);
-        let dock_column = Span {
-            left: screen.right() - dock_width,
-            right: screen.right(),
-        };
-        // The keycap strip is there all game and keeps clear of the surfaces over its column. The
-        // rail is something the watcher has just opened to read, and like every other panel it
-        // passes over it may pass over those too: only the plate, a control of its own, it keeps
-        // clear of.
-        let dock_top = if prefs.dock_expanded {
-            screen.top() + observer::WING_MARGIN
-        } else {
-            let over = layout::lowest_bottom_over(dock_column, &top_surfaces, screen.top()) + gap;
-            over.max(dock_under_wings.unwrap_or(over))
-        };
-        // Where the surfaces on the right edge are against it, the dock keeps to the room between
-        // them that it had last frame.
-        let dock_room = last_dock_room
-            .filter(|_| !prefs.dock_expanded)
-            .map(|(top, bottom)| (top.max(dock_top), bottom));
-        // How far the plate stands in to clear the dock's column, following the dock off the edge
-        // and back the way the panels on that side do.
-        let dock_clearance = row_inset / observer::dock::column_width(false) * dock_width;
-        let dock_fit = |bottom: f32| {
-            observer::DockPlacement::fit(
-                host.mode,
-                self.map_control_available,
-                screen.center().y,
-                dock_top,
-                bottom,
-            )
-        };
-        // What the plate stands on where it gives the corner up to the panels along the bottom edge.
-        enum PlateStand {
-            Corner,
-            Stack,
-        }
         // The panels are laid along the edge as one row where it is wide enough for one, beside a
         // minimap in the corner the row can start from.
         let row_along = |run: Span| {
@@ -313,7 +205,86 @@ impl ObserverPanels {
                 None
             }
         };
-        let mut dock = None;
+
+        // Where the dock stands decides how far in every other surface on the right edge stands, so
+        // it is decided first, from what those surfaces measure rather than from where they end up.
+        let playback_controls_shown = has_playback_controls && prefs.playback_controls;
+        let plate = playback_controls_shown.then(|| {
+            let corner = PlaybackControlsPlacement::default().rect(screen);
+            let run = bottom_run(0.0);
+            let beside = Span {
+                right: run.right.min(corner.left() - gap),
+                ..run
+            };
+            dock_stand::PlateCorner {
+                top: corner.top() - gap,
+                keeps_corner: row_along(beside).is_some()
+                    || beside.width() >= observer::MIN_STACK_WIDTH,
+            }
+        });
+        let row_end = (!playback_controls_shown
+            && prefs.selection
+            && row_along(bottom_run(0.0)).is_some())
+        .then(|| screen.bottom() - observer::WING_MARGIN - observer::selection::PANEL_HEIGHT - gap);
+        let stand = dock_stand::stand_dock(&dock_stand::RightEdge {
+            plate,
+            row_end,
+            ..self.right_edge(screen, view, prefs, host.mode, &top_surfaces)
+        });
+        let right_inset =
+            observer::dock_inset(ctx, egui::Id::new("sb_dock_inset"), stand.wings_clear);
+        let row_inset =
+            observer::dock_inset(ctx, egui::Id::new("sb_dock_row_inset"), stand.row_clear);
+        // A wing arriving takes its place beside the dock at once, the way the left wings simply
+        // appear where they stand; one already on screen follows the dock as it comes and goes.
+        let settled_inset = observer::settled_dock_inset(stand.wings_clear);
+
+        // The corner cards and the wings under them are one stack: a card is as tall as the side it
+        // carries, so where the wings start is measured off what the cards actually came out as
+        // rather than guessed at from a player count.
+        let mut tops = observer::WingTops::under_bar(view.matchup.form().height());
+        // How far down the surfaces on the right edge reach as drawn.
+        let mut right_reach = screen.top();
+        if let Some(cards) = &view.team_cards {
+            let inset = self.drawn.team_cards.inset(right_inset, settled_inset);
+            let outcome = observer::render_team_cards_view(cards, ctx, prefs.matchup, inset);
+            self.drawn.team_cards.drawn(outcome.right_bottom.is_some());
+            for rect in outcome.rects {
+                hit_rects.push(HitRect::new(rect));
+                top_surfaces.push(rect);
+            }
+            if let Some(bottom) = outcome.left_bottom {
+                tops.left = tops.left.max(bottom + gap);
+            }
+            if let Some(bottom) = outcome.right_bottom {
+                tops.right = tops.right.max(bottom + gap);
+                right_reach = right_reach.max(screen.top() + bottom);
+            }
+            if let Some(player_id) = outcome.toggled_vision {
+                intents.push(Intent::ToggleVision { player_id });
+            }
+        }
+        let minimap_rects = self.frame_minimap(
+            ctx,
+            view,
+            host.minimap_rect,
+            prefs.minimap,
+            hotkeys,
+            intents,
+        );
+        hit_rects.extend(minimap_rects.into_iter().map(HitRect::new));
+
+        let mut span = bottom_run(row_inset);
+        let mut playback_placement = PlaybackControlsPlacement::default();
+        let dock_width = observer::dock::column_width(prefs.dock_expanded);
+        // How far the plate stands in to clear the dock's column, following the dock off the edge
+        // and back the way the panels on that side do.
+        let dock_clearance = row_inset / observer::dock::column_width(false) * dock_width;
+        // What the plate stands on where it gives the corner up to the panels along the bottom edge.
+        enum PlateStand {
+            Corner,
+            Stack,
+        }
         let mut plate = PlateStand::Corner;
         let row = if playback_controls_shown {
             // The plate keeps the corner while the panels still have their row beside it, or
@@ -322,23 +293,8 @@ impl ObserverPanels {
             // past it. Where not even the stack fits beside it, it gives the stack the bottom edge
             // and is lifted over it, standing in from the dock's column too, so the dock keeps the
             // whole edge.
-            let corner = playback_placement.rect(screen);
-            if prefs.dock {
-                dock = match dock_room {
-                    // Last frame's room runs to the bottom edge when the plate was not up then, as
-                    // on the frame it comes back; the dock still stands on the plate.
-                    Some((top, bottom)) => observer::DockPlacement::fit(
-                        host.mode,
-                        self.map_control_available,
-                        screen.center().y,
-                        top,
-                        bottom.min(corner.top() - gap),
-                    ),
-                    None => dock_fit(corner.top() - gap),
-                };
-                if dock.is_none() {
-                    playback_placement.right_inset = dock_clearance;
-                }
+            if stand.plate_clear {
+                playback_placement.right_inset = dock_clearance;
             }
             let beside = Span {
                 right: span.right.min(playback_placement.rect(screen).left() - gap),
@@ -358,32 +314,7 @@ impl ObserverPanels {
         } else {
             row_along(span)
         };
-        // What the dock's column ends on at the bottom, kept for working out its room below.
-        let plate_in_corner = playback_controls_shown
-            && matches!(plate, PlateStand::Corner)
-            && playback_placement.right_inset == 0.0;
-        let selection_ends_row = row.is_some() && prefs.selection;
-        let dock = dock.or_else(|| {
-            dock_room.and_then(|(top, bottom)| {
-                observer::DockPlacement::fit(
-                    host.mode,
-                    self.map_control_available,
-                    screen.center().y,
-                    top,
-                    bottom,
-                )
-            })
-        });
-        let dock = match dock {
-            Some(dock) => dock,
-            None => dock_fit(screen.bottom() - observer::WING_MARGIN).unwrap_or(
-                observer::DockPlacement::centred(
-                    host.mode,
-                    self.map_control_available,
-                    screen.height(),
-                ),
-            ),
-        };
+        let dock = stand.placement;
         let dock = hold(&mut self.held_dock, prefs.dock, dock);
         // A dock already on screen eases to where it now stands, as when the plate under it is put
         // away; one arriving simply takes its place.
@@ -671,33 +602,7 @@ impl ObserverPanels {
             }
         }
 
-        // The room the dock's column would leave it with the right edge's surfaces against the
-        // edge: from under the lowest of them, and anything else over the column, down to the
-        // plate where it keeps the corner, or to the selection panel standing at the end of the
-        // row along the bottom, or to the bottom edge.
-        let column_top = right_reach.max(layout::lowest_bottom_over(
-            dock_column,
-            &top_surfaces,
-            screen.top(),
-        )) + gap;
-        let column_bottom = if plate_in_corner {
-            Some(playback_placement.rect(screen).top() - gap)
-        } else if playback_controls_shown {
-            None
-        } else if selection_ends_row {
-            Some(screen.bottom() - observer::WING_MARGIN - observer::selection::PANEL_HEIGHT - gap)
-        } else {
-            Some(screen.bottom() - observer::WING_MARGIN)
-        };
-        let dock_height = observer::dock::full_height(host.mode, self.map_control_available);
-        self.dock_room = column_bottom
-            .filter(|&bottom| bottom - column_top >= dock_height)
-            .map(|bottom| (column_top, bottom));
-        self.dock_under_wings = (!playback_controls_shown
-            && screen.bottom() - observer::WING_MARGIN - column_top >= dock_height)
-            .then_some(column_top);
-        self.dock_column_top = Some(column_top);
-        self.dock_room_with_plate = playback_controls_shown;
+        self.drawn_right_reach = right_reach;
 
         let dock = observer::render_obs_dock(
             prefs,
@@ -721,6 +626,65 @@ impl ObserverPanels {
             }
         }
         playback_placement
+    }
+
+    /// The right edge as the dock's place is decided from, measured before anything on it is drawn:
+    /// how far down the team card in that corner and the wings under it reach while they are wanted
+    /// on screen, whether or not they turn out to fit, and as far as one still on its way out reached
+    /// last frame. `top_surfaces` are the surfaces hung from the top edge that are already drawn.
+    ///
+    /// The graphs panel is counted at its tallest: the plot only shortens where the surfaces under
+    /// it leave it no more room, which is room the dock would not have had either.
+    fn right_edge(
+        &self,
+        screen: Rect,
+        view: &ObserverView,
+        prefs: &PanelPrefs,
+        mode: Mode,
+        top_surfaces: &[Rect],
+    ) -> dock_stand::RightEdge {
+        use observer::layout::{self, Span};
+
+        let gap = observer::WING_GAP;
+        let mut reach = self.drawn_right_reach;
+        // Where the next wing down the right edge hangs from, from the screen's top edge.
+        let mut wing_top = observer::WingTops::under_bar(view.matchup.form().height()).right;
+        let card = view
+            .team_cards
+            .as_ref()
+            .filter(|cards| prefs.matchup && !cards.is_empty())
+            .and_then(|cards| cards.teams.get(1));
+        if let Some(team) = card {
+            let bottom = observer::team_cards::CARD_TOP + observer::team_cards::card_height(team);
+            reach = reach.max(screen.top() + bottom);
+            wing_top = wing_top.max(bottom + gap);
+        }
+        if prefs.military && !view.military.is_empty() {
+            let bottom = wing_top + observer::military::panel_height(&view.military);
+            reach = reach.max(screen.top() + bottom);
+            wing_top = bottom + gap;
+        }
+        if prefs.graphs && !view.graphs.is_empty() {
+            reach = reach.max(screen.top() + wing_top + observer::graphs::MAX_PANEL_HEIGHT);
+        }
+        let column = |width: f32| Span {
+            left: screen.right() - width,
+            right: screen.right(),
+        };
+        let under = |width: f32| {
+            layout::lowest_bottom_over(column(width), top_surfaces, screen.top()) + gap
+        };
+        dock_stand::RightEdge {
+            screen,
+            mode,
+            map_control_available: self.map_control_available,
+            expanded: prefs.dock_expanded,
+            shown: prefs.dock,
+            under_edge: under(observer::dock::column_width(false)).max(reach + gap),
+            under_top: under(observer::dock::column_width(prefs.dock_expanded)),
+            plate: None,
+            row_end: None,
+        }
     }
 
     /// Draws the frame around the game's minimap, where the host can say where the minimap is, and

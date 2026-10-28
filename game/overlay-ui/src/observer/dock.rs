@@ -53,7 +53,7 @@ pub(crate) fn column_width(expanded: bool) -> f32 {
 }
 
 /// Height of one row.
-const ROW_HEIGHT: f32 = theme::HIT_PANEL;
+pub(crate) const ROW_HEIGHT: f32 = theme::HIT_PANEL;
 
 /// The least height a row keeps on a screen too short for the dock at its full height: still a
 /// keycap's height with a little room around it.

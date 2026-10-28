@@ -578,6 +578,28 @@ pub fn render_team_cards_view(
     outcome
 }
 
+/// How tall `team`'s card is drawn, chrome included.
+///
+/// Worked out rather than measured, as a stats wing's height is: the dock's place on the right
+/// edge is decided against the card in that corner before the card is drawn there.
+pub(crate) fn card_height(team: &TeamCardView) -> f32 {
+    let header = if team.team.is_some() {
+        HEADER_HEIGHT
+    } else {
+        0.0
+    };
+    let rows = team.players.len() as f32 * (STAT_ROW_GAP + STAT_ROW_HEIGHT);
+    let totals = if team.totals.is_some() {
+        theme::SPACE_SM * 2.0 + DIVIDER_HEIGHT + STAT_HEADING_HEIGHT + STAT_ROW_HEIGHT
+    } else {
+        0.0
+    };
+    tiers::PANEL_MARGIN_HEIGHT + header + STAT_HEADING_HEIGHT + rows + totals
+}
+
+/// Height of the rule over a card's totals, which is what [`widgets::divider`] takes.
+const DIVIDER_HEIGHT: f32 = 1.0;
+
 /// Draws one card and returns the player whose row was clicked.
 fn draw_card(ui: &mut Ui, team: &TeamCardView, layout: CardLayout) -> Option<u8> {
     tiers::tier1_panel(ui, theme::radius(CARD_RADIUS), |ui| {
@@ -939,6 +961,67 @@ mod tests {
             "a row gave up {given_up:?}, out of order"
         );
         count
+    }
+
+    fn player(player_id: u8) -> TeamCardPlayerView {
+        TeamCardPlayerView {
+            player_id,
+            name: format!("Player {player_id}"),
+            color: crate::kit::theme::player_color(player_id as usize),
+            race: RaceView::Zerg,
+            random: false,
+            vision: true,
+            minerals: 1000,
+            gas: 500,
+            supply_used: 120,
+            supply_max: 200,
+            apm: 250,
+        }
+    }
+
+    fn totals() -> TeamCardTotalsView {
+        TeamCardTotalsView {
+            minerals_per_minute: 2000,
+            gas_per_minute: 900,
+            army_minerals: 4000,
+            army_gas: 1500,
+            workers: 60,
+            units_killed: 30,
+            units_lost: 25,
+        }
+    }
+
+    /// The right card is what the dock's column is measured against before it is drawn, so its
+    /// worked-out height is held to the one it is drawn at, titled or not and with totals or not.
+    #[test]
+    fn a_cards_worked_out_height_is_the_height_it_is_drawn_at() {
+        for (team, with_totals) in [(Some(2), true), (None, false), (Some(1), false)] {
+            let right = TeamCardView {
+                team,
+                players: (4..7).map(player).collect(),
+                totals: with_totals.then(totals),
+            };
+            let expected = card_height(&right);
+            let view = TeamCardsView {
+                teams: vec![
+                    TeamCardView {
+                        team: Some(1),
+                        players: (0..3).map(player).collect(),
+                        totals: Some(totals()),
+                    },
+                    right,
+                ],
+            };
+            let drawn = crate::observer::test_support::settled_rect(|ctx| {
+                let outcome = render_team_cards_view(&view, ctx, true, 0.0);
+                outcome
+                    .rects
+                    .into_iter()
+                    .max_by(|a, b| a.right().total_cmp(&b.right()))
+            })
+            .expect("the right card is drawn");
+            assert_eq!(drawn.height(), expected, "{team:?}, totals {with_totals}");
+        }
     }
 
     #[test]

@@ -37,6 +37,9 @@ const TAB_ROW: f32 = 24.0;
 const CHROME_HEIGHT: f32 =
     tiers::PANEL_MARGIN_HEIGHT + widgets::PANEL_HEADER_HEIGHT + TAB_ROW + theme::SPACE_SM;
 
+/// The tallest the panel is drawn, which is what it covers of the right edge with room to spare.
+pub(crate) const MAX_PANEL_HEIGHT: f32 = CHROME_HEIGHT + PLOT_HEIGHT;
+
 /// How tall the plot is drawn in a panel whose top is at `top` and which must end above `floor`, or
 /// `None` where not even the shortest plot fits.
 fn plot_height(top: f32, floor: f32) -> Option<f32> {
