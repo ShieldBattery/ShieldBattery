@@ -373,8 +373,15 @@ impl ObserverPanels {
         {
             displaced.push(Panel::Selection);
         }
-        let selection =
-            observer::render_selection_view(&view.selection, ctx, prefs.selection, selection_slot);
+        let selection = observer::render_selection_view(&view.selection, ctx, prefs.selection, {
+            ease_run(
+                ctx,
+                "sb_run_selection",
+                selection_slot,
+                self.drawn.selection,
+            )
+        });
+        self.drawn.selection = selection.is_some();
         if let Some(outcome) = &selection {
             hit_rects.push(HitRect::new(outcome.rect));
             stack.push(outcome.rect);
@@ -428,7 +435,12 @@ impl ObserverPanels {
             &view.control_groups,
             ctx,
             prefs.control_groups,
-            control_groups_slot,
+            ease_run(
+                ctx,
+                "sb_run_control_groups",
+                control_groups_slot,
+                self.drawn.control_groups,
+            ),
             self.focused_player,
         );
         if let Some(outcome) = &control_groups {
@@ -463,7 +475,12 @@ impl ObserverPanels {
             &view.production,
             ctx,
             prefs.production,
-            production_slot,
+            ease_run(
+                ctx,
+                "sb_run_production",
+                production_slot,
+                self.drawn.production,
+            ),
         );
         self.drawn.production = production.is_some();
         if let Some(outcome) = &production {
@@ -769,6 +786,7 @@ struct DrawnLastFrame {
     graphs: RightWing,
     timeline: bool,
     dock: bool,
+    selection: bool,
 }
 
 /// A wing on the right edge, which stands in from it by however much room the dock takes.
@@ -807,6 +825,31 @@ struct HeldSlots {
     selection: Option<observer::StackSlot>,
     control_groups: Option<observer::StackSlot>,
     production: Option<observer::StackSlot>,
+}
+
+/// `slot` with its run along the bottom edge eased toward where it now is, for a panel `settled` on
+/// screen: one already up moves along the edge as the plate and the dock take room there or give it
+/// back, where one arriving simply takes its place. What fits is still decided from the run the
+/// panel is heading for.
+fn ease_run(
+    ctx: &Context,
+    id: &'static str,
+    slot: observer::StackSlot,
+    settled: bool,
+) -> observer::StackSlot {
+    let secs = if settled {
+        crate::kit::theme::MOTION_PANEL_SECS
+    } else {
+        0.0
+    };
+    let id = egui::Id::new(id);
+    observer::StackSlot {
+        span: observer::Span {
+            left: ctx.animate_value_with_time(id.with("left"), slot.span.left, secs),
+            right: ctx.animate_value_with_time(id.with("right"), slot.span.right, secs),
+        },
+        ..slot
+    }
 }
 
 /// Where a panel is drawn: `placement` while it is `wanted` on screen, kept as `held`, and `held`
@@ -904,6 +947,48 @@ mod tests {
             time += 0.03;
             let output = run_watched_frame_at(&mut shell, &ctx, &playback, &game, screen, time);
             assert_eq!(wings(&output), wings(&with_plate));
+        }
+    }
+
+    #[test]
+    fn the_selection_panel_slides_along_the_edge_when_the_plate_makes_room() {
+        let ctx = fresh_ctx();
+        let mut shell = spectating_shell();
+        let (playback, game) = (replay(), with_a_selection(empty_game()));
+        let screen = egui::vec2(1920.0, 1080.0);
+        let mut time = 0.0;
+        let mut frame = |shell: &mut crate::shell::Shell, step: f64| {
+            time += step;
+            run_watched_frame_at(shell, &ctx, &playback, &game, screen, time)
+        };
+        let selection = |output: &crate::shell::FrameOutput| {
+            output
+                .hit_rects
+                .iter()
+                .map(|hit| hit.rect)
+                .find(|rect| rect.width() == crate::observer::selection::PANEL_WIDTH)
+                .expect("the selection panel is up")
+        };
+        for _ in 0..6 {
+            frame(&mut shell, 0.5);
+        }
+        let beside_plate = selection(&frame(&mut shell, 0.5));
+
+        assert!(shell.key_pressed(Key::Y, Modifiers::NONE));
+        let mut path = Vec::new();
+        for _ in 0..20 {
+            path.push(selection(&frame(&mut shell, 0.03)).right());
+        }
+        let settled = *path.last().unwrap();
+        assert!(settled > beside_plate.right(), "{path:?}");
+        // Every step along the way is a short one: it slides rather than jumping.
+        let mut from = beside_plate.right();
+        for &to in &path {
+            assert!(
+                to - from < (settled - beside_plate.right()) * 0.5,
+                "{path:?}"
+            );
+            from = to;
         }
     }
 

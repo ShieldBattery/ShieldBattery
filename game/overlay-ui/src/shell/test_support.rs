@@ -6,8 +6,8 @@ use super::{FrameOutput, HostFrame, Intent, ModalId, Mode, Shell, Views};
 use crate::disconnect::{DisconnectView, SelfState};
 use crate::observer::{
     ControlGroupsView, EconomyView, GraphLineView, GraphsView, MapControlSideView, MapControlView,
-    MatchupView, MilitaryPlayerView, MilitaryView, ObserverView, ProductionView, RaceView,
-    SelectionView, TimelineView,
+    MatchupView, MilitaryPlayerView, MilitaryView, ObserverView, ProductionIcon, ProductionView,
+    RaceView, SelectedUnitView, SelectionView, TimelineView,
 };
 use crate::playback_controls::PlaybackView;
 
@@ -107,6 +107,38 @@ pub(super) fn game_with_right_wings() -> ObserverView {
             color: crate::kit::theme::player_color(1),
             share: 0.4,
         },
+    });
+    game
+}
+
+/// `game` with one of the first player's units selected, which puts the selection panel up.
+pub(super) fn with_a_selection(mut game: ObserverView) -> ObserverView {
+    game.selection.units.push(SelectedUnitView {
+        icon: ProductionIcon {
+            texture: None,
+            index: 0x29,
+            size: None,
+            margin: 0.0,
+            wireframe: None,
+        },
+        name: Some("Zerg Drone".to_string()),
+        owner_color: crate::kit::theme::player_color(0),
+        owner_name: "Rhynso".to_string(),
+        owner: Some(0),
+        hit_points: Some((40, 40)),
+        shields: None,
+        energy: None,
+        kills: 0,
+        status: None,
+        hallucination: false,
+        parasited: false,
+        blind: false,
+        building: false,
+        resources: None,
+        stacked: None,
+        production: None,
+        cargo: Vec::new(),
+        upgrades: Vec::new(),
     });
     game
 }
