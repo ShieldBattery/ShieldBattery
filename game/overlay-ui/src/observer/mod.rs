@@ -29,7 +29,7 @@ mod unit_codes;
 pub use control_groups::{
     ControlGroupView, ControlGroupsPlayerView, ControlGroupsView, render_control_groups_view,
 };
-pub use dock::{DockContext, DockOutcome, DockPlacement, render_obs_dock};
+pub use dock::{DockContext, DockOutcome, DockPlacement, DockStand, render_obs_dock};
 pub use economy::{EconomyPlayerView, EconomyView, render_economy_view};
 pub use graphs::{
     GraphGrouping, GraphLineView, GraphSeries, GraphsOutcome, GraphsView, render_graphs_view,
@@ -556,10 +556,7 @@ pub(crate) fn centred(rect: Rect, height: f32) -> Rect {
 #[derive(Copy, Clone, PartialEq)]
 pub(crate) enum Wing {
     Left,
-    /// The right edge, stood in from by `inset`: the dock's column while the dock is there.
-    Right {
-        inset: f32,
-    },
+    Right,
 }
 
 /// How far a wing sits from the edge it hangs off.
@@ -603,22 +600,6 @@ pub(crate) const ROW_WIDTH: f32 = {
 
 /// Gap between the matchup bar and the map-control strip hanging under it.
 pub(crate) const MAP_CONTROL_GAP: f32 = 8.0;
-
-/// How much of the right edge the obs dock owns, which the wings on that side stop short of.
-///
-/// Reserved at the dock's collapsed width, which is the form a watcher leaves it in all game: a
-/// panel running under that column would have its last values covered by a control rather than by
-/// a surface. The rail the dock expands into is allowed to sit over the panels, because it is
-/// something the watcher has just opened and is reading rather than something in their way.
-pub(crate) const DOCK_RESERVE: f32 = dock::COLLAPSED_WIDTH + WING_MARGIN;
-
-/// How far the surfaces on the right edge stand in from it: the dock's column while they have to
-/// keep `clear` of it, and nothing once they do not. Each surface eases to its own place from this
-/// (see [`crate::kit::motion::Spot`]), so they follow the dock off the edge and make way for it
-/// coming back rather than jumping either way.
-pub(crate) fn dock_inset(clear: bool) -> f32 {
-    if clear { DOCK_RESERVE } else { 0.0 }
-}
 
 /// Height of one player's row in a stats wing.
 pub(crate) const STAT_ROW_HEIGHT: f32 = 30.0;
@@ -763,6 +744,14 @@ pub(crate) fn paint_team_divider(ui: &Ui, rect: Rect, team: u8) {
     }
 }
 
+/// Paints the name of the team a divided table opens with in `rect`, the part of the headings row
+/// over the names that the headings leave empty. The first team's rows start straight under the
+/// headings rather than under a divider of their own, so without it that team would be the one side
+/// the table never names.
+pub(crate) fn paint_first_team_name(ui: &Ui, rect: Rect, team: u8) {
+    paint_column_heading(ui, rect, &team_name(team), Align::LEFT);
+}
+
 /// What a team is called wherever one is named: on a divider, on a corner card, in a legend.
 pub fn team_name(team: u8) -> String {
     tr!("observer.teamName", "Team {{number}}", number = team)
@@ -790,7 +779,7 @@ pub(crate) fn wing_panel<R>(
 ) -> Option<InnerResponse<R>> {
     let (align, offset_x) = match wing {
         Wing::Left => (Align2::LEFT_TOP, WING_MARGIN),
-        Wing::Right { inset } => (Align2::RIGHT_TOP, -(WING_MARGIN + inset)),
+        Wing::Right => (Align2::RIGHT_TOP, -WING_MARGIN),
     };
     let area = Area::new(id)
         .anchor(align, vec2(offset_x, top))

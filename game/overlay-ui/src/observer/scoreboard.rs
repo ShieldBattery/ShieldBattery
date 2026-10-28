@@ -21,8 +21,8 @@ use crate::observer::matchup::supply_blocked;
 use crate::observer::{
     EdgeCursor, MatchupPlayerView, MatchupView, STAT_BAR_GAP, STAT_COLOR_BAR, STAT_HEADING_HEIGHT,
     STAT_RACE_ICON, STAT_RACE_ICON_GAP, STAT_ROW_GAP, STAT_ROW_HEIGHT, STAT_VALUE_SIZE, StatRace,
-    WING_MARGIN, Wing, game_clock, paint_count, paint_stat_identity, paint_team_divider,
-    paint_text, stat_table_height, teams_worth_dividing, vision_alpha, wing_panel,
+    WING_MARGIN, Wing, game_clock, paint_count, paint_first_team_name, paint_stat_identity,
+    paint_team_divider, paint_text, teams_worth_dividing, vision_alpha, wing_panel,
 };
 use crate::shell::Panel;
 use crate::tr;
@@ -99,16 +99,6 @@ const COLUMN_ICON: f32 = HEADING_HEIGHT;
 /// Text size of the game clock in the middle of the title row.
 const CLOCK_SIZE: f32 = 16.0;
 
-/// How far down from the screen's top edge the scoreboard reaches for a game of `view`'s players: a
-/// stats wing's table, with this panel's own row of headings.
-///
-/// Worked out rather than measured, because where the dock stands on the right edge is decided from
-/// what the surfaces there will take before any of them is drawn.
-pub(crate) fn panel_bottom(view: &MatchupView) -> f32 {
-    let teams = view.players.iter().map(|player| player.team);
-    WING_MARGIN + stat_table_height(teams) - STAT_HEADING_HEIGHT + HEADING_HEIGHT
-}
-
 /// What the watcher asked of the scoreboard this frame.
 pub struct ScoreboardOutcome {
     /// Where the panel is on screen, for the host's hit testing and for the surfaces stacked under
@@ -118,18 +108,17 @@ pub struct ScoreboardOutcome {
     pub toggled_vision: Option<u8>,
 }
 
-/// Draws the scoreboard at the top of the screen's right edge, `right_inset` in from it as the wings
-/// under it are, fading and sliding it in and out. Returns nothing at all once it is gone.
+/// Draws the scoreboard at the top of the screen's right edge, fading and sliding it in and out.
+/// Returns nothing at all once it is gone.
 pub fn render_scoreboard_view(
     view: &MatchupView,
     ctx: &Context,
     shown: bool,
-    right_inset: f32,
 ) -> Option<ScoreboardOutcome> {
     let inner = wing_panel(
         ctx,
         Id::new("sb_scoreboard"),
-        Wing::Right { inset: right_inset },
+        Wing::Right,
         WING_MARGIN,
         PANEL_WIDTH,
         shown,
@@ -146,9 +135,16 @@ fn draw_panel(ui: &mut Ui, view: &MatchupView) -> Option<u8> {
     let title = tr!("observer.panelMatchup", "Matchup");
     let header = widgets::panel_header(ui, &title, Panel::Matchup.key_label().as_deref());
     draw_clock(ui, header.rect, &title, view.elapsed_secs);
-    let (headings, _) = ui.allocate_exact_size(vec2(CONTENT_WIDTH, HEADING_HEIGHT), Sense::hover());
-    draw_headings(ui, headings);
     let divided = teams_worth_dividing(view.players.iter().map(|player| player.team));
+    let (headings, _) = ui.allocate_exact_size(vec2(CONTENT_WIDTH, HEADING_HEIGHT), Sense::hover());
+    draw_headings(
+        ui,
+        headings,
+        view.players
+            .first()
+            .map(|player| player.team)
+            .filter(|_| divided),
+    );
     let mut side = view.players.first().map(|player| player.team);
     let mut clicked = None;
     for player in &view.players {
@@ -190,11 +186,14 @@ fn draw_clock(ui: &Ui, header: Rect, title: &str, elapsed_secs: u64) {
     );
 }
 
-/// Draws the row of column headings: the icon heading each number column, over nothing on the
-/// names' side, as a wing's headings row leaves it.
-fn draw_headings(ui: &Ui, rect: Rect) {
+/// Draws the row of column headings: the icon heading each number column, and over the names the
+/// team a divided table opens with, `first_team`, as a wing's headings row names it.
+fn draw_headings(ui: &Ui, rect: Rect, first_team: Option<u8>) {
     let mut cursor = EdgeCursor::from_left(rect);
-    cursor.skip(IDENTITY_WIDTH);
+    let names = cursor.take(IDENTITY_WIDTH);
+    if let Some(team) = first_team {
+        paint_first_team_name(ui, names, team);
+    }
     for column in Column::ALL {
         let cell = cursor.take(column.width());
         let icon = Rect::from_center_size(cell.center(), Vec2::splat(COLUMN_ICON));
@@ -336,34 +335,12 @@ mod tests {
         }
     }
 
-    /// Where the panel settles on a 1080p screen for a game of `view`'s players.
-    fn settled(view: &MatchupView) -> Rect {
-        settled_rect(|ctx| render_scoreboard_view(view, ctx, true, 0.0).map(|outcome| outcome.rect))
-            .expect("the scoreboard is drawn")
-    }
-
     /// How tall the panel settles for a game whose players are on `teams`.
     fn height(teams: &[u8]) -> f32 {
-        settled(&view(teams)).height()
-    }
-
-    #[test]
-    fn the_scoreboard_reaches_as_far_down_as_the_right_edge_is_told_it_will() {
-        let games: [&[u8]; 4] = [
-            &[1, 2],
-            &[1, 2, 3, 4],
-            &[1, 1, 2, 2],
-            &[1, 1, 1, 1, 2, 2, 2, 2],
-        ];
-        for teams in games {
-            let view = view(teams);
-            let drawn = settled(&view).bottom();
-            let worked_out = panel_bottom(&view);
-            assert!(
-                (drawn - worked_out).abs() < 0.5,
-                "{teams:?}: drawn to {drawn}, worked out as {worked_out}"
-            );
-        }
+        let view = view(teams);
+        settled_rect(|ctx| render_scoreboard_view(&view, ctx, true).map(|outcome| outcome.rect))
+            .expect("the scoreboard is drawn")
+            .height()
     }
 
     #[test]

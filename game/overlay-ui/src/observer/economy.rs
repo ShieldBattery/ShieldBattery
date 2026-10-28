@@ -21,9 +21,9 @@ use crate::kit::theme;
 use crate::kit::widgets::{self, ResourceGlyph};
 use crate::observer::{
     EdgeCursor, RaceView, STAT_BAR_GAP, STAT_COLOR_BAR, STAT_HEADING_HEIGHT, STAT_ROW_GAP,
-    STAT_ROW_HEIGHT, STAT_VALUE_SIZE, Wing, paint_column_heading, paint_resource_value,
-    paint_stat_identity, paint_team_divider, paint_text, stat_table_height, teams_worth_dividing,
-    vision_alpha, wing_panel,
+    STAT_ROW_HEIGHT, STAT_VALUE_SIZE, Wing, paint_column_heading, paint_first_team_name,
+    paint_resource_value, paint_stat_identity, paint_team_divider, paint_text, stat_table_height,
+    teams_worth_dividing, vision_alpha, wing_panel,
 };
 use crate::shell::Panel;
 use crate::{tr, tr_plural};
@@ -183,8 +183,14 @@ fn draw_panel(ui: &mut Ui, view: &EconomyView) {
         &tr!("observer.panelEconomy", "Economy"),
         Panel::Economy.key_label().as_deref(),
     );
-    draw_headings(ui);
     let divided = teams_worth_dividing(view.players.iter().map(|player| player.team));
+    draw_headings(
+        ui,
+        view.players
+            .first()
+            .map(|player| player.team)
+            .filter(|_| divided),
+    );
     let mut side = view.players.first().map(|player| player.team);
     for player in &view.players {
         if divided && side != Some(player.team) {
@@ -201,10 +207,15 @@ fn draw_panel(ui: &mut Ui, view: &EconomyView) {
 
 /// Draws the row of column headings, each aligned the way its column's values are, and saying on
 /// hover what its column counts: the headings are a word each, and two of the columns are rates.
-fn draw_headings(ui: &mut Ui) {
+/// `first_team` is the team a divided table opens with, named over the names.
+fn draw_headings(ui: &mut Ui, first_team: Option<u8>) {
     let (row, _) = ui.allocate_exact_size(vec2(CONTENT_WIDTH, STAT_HEADING_HEIGHT), Sense::hover());
     let mut cursor = EdgeCursor::from_left(row);
-    cursor.skip(STAT_COLOR_BAR + STAT_BAR_GAP + NAME_WIDTH + COLUMN_GAP);
+    let names = cursor.take(STAT_COLOR_BAR + STAT_BAR_GAP + NAME_WIDTH);
+    if let Some(team) = first_team {
+        paint_first_team_name(ui, names, team);
+    }
+    cursor.skip(COLUMN_GAP);
     draw_heading(
         ui,
         cursor.take(WORKERS_WIDTH),

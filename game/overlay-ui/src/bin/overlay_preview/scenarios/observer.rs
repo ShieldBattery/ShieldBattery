@@ -1462,10 +1462,11 @@ fn fraction(value: f64) -> f32 {
 /// How much of the overlay a preset puts on screen at once.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Screen {
-    /// The game and as little else as possible: the matchup bar, the minimap and the plate.
+    /// The game and as little else as possible: the matchup bar, the minimap and the plate, with
+    /// nothing selected for the selection panel to read out.
     Minimal,
-    /// A caster's working set: the minimal screen with the economy, production, control groups and
-    /// selection panels added.
+    /// A caster's working set: the minimal screen with the economy, production and control groups
+    /// panels added, and a unit selected.
     Standard,
     /// Every panel the overlay has.
     Analyst,
@@ -1473,9 +1474,19 @@ pub enum Screen {
     /// the wings are drawn where the wings would have been, and the right-hand ones against the
     /// edge the dock has left.
     ReflowWings,
-    /// The analyst's screen with the lower half of the centered stack hidden, so the panels over it
-    /// are drawn against the screen's own bottom edge.
+    /// The analyst's screen with the lower half of the centered stack gone, the production panel
+    /// hidden and nothing selected, so the panels over it are drawn against the screen's own bottom
+    /// edge.
     ReflowStack,
+    /// The analyst's screen watched from an observer slot in a live game, which has no playback
+    /// controls, so the dock stands against the selection panel.
+    Live,
+    /// The analyst's screen in a replay with the playback controls put away, which leaves the dock
+    /// the selection panel to stand against as a live game does.
+    NoPlate,
+    /// The no-plate screen with nothing selected either, which leaves the dock nothing to stand on,
+    /// so it floats on its own.
+    Floating,
 }
 
 impl Screen {
@@ -1495,7 +1506,6 @@ impl Screen {
         prefs.timeline = deep;
         prefs.production = analysis;
         prefs.control_groups = analysis;
-        prefs.selection = analysis;
         // Each reflow screen is the analyst's with a hole in it, which is what the panels around
         // the hole are meant to close up into.
         match self {
@@ -1504,10 +1514,8 @@ impl Screen {
                 prefs.military = false;
                 prefs.dock = false;
             }
-            Screen::ReflowStack => {
-                prefs.production = false;
-                prefs.selection = false;
-            }
+            Screen::ReflowStack => prefs.production = false,
+            Screen::NoPlate | Screen::Floating => prefs.playback_controls = false,
             _ => {}
         }
     }
@@ -1522,6 +1530,9 @@ impl Screen {
             // than each named after the panels it happens to hide.
             Screen::ReflowWings => "reflow-a",
             Screen::ReflowStack => "reflow-b",
+            Screen::Live => "live",
+            Screen::NoPlate => "no-plate",
+            Screen::Floating => "floating",
         }
     }
 }
@@ -1597,7 +1608,7 @@ impl Hover {
         match self {
             Hover::None => None,
             Hover::Graphs => Some((1550.0, 380.0)),
-            Hover::DockMatchup => Some((1878.0, 346.0)),
+            Hover::DockMatchup => Some((1643.0, 927.0)),
             Hover::TimelineRow => Some((250.0, 336.0)),
             Hover::TrackMarker => Some((TRACK_MARKER_X, 996.0)),
             Hover::JumpChip => Some((1830.0, 1040.0)),
@@ -1669,7 +1680,7 @@ impl Preset {
         }
     }
 
-    pub const ALL: [Preset; 35] = [
+    pub const ALL: [Preset; 38] = [
         Preset::game(2, 1, Screen::Minimal),
         Preset::game(2, 1, Screen::Standard),
         Preset::game(2, 1, Screen::Analyst),
@@ -1677,6 +1688,11 @@ impl Preset {
         // the move each of them is about off.
         Preset::game(2, 1, Screen::ReflowWings),
         Preset::game(2, 1, Screen::ReflowStack),
+        // The dock without the playback controls under it: in the two games that leave it the
+        // selection panel to stand against, and with nothing selected for it to stand against.
+        Preset::game(2, 1, Screen::Live),
+        Preset::game(2, 1, Screen::NoPlate),
+        Preset::game(2, 1, Screen::Floating),
         // An odd number of players, which is what leaves the stacked bar a slot short, and the
         // same three with nobody allied, which is what leaves its halves standing for no side.
         Preset::game(3, 2, Screen::Standard),
@@ -1764,13 +1780,19 @@ impl Preset {
 
     /// Presets the fake game, the panel set, and the vantage point the panels are watched from.
     pub fn apply(self, knobs: &mut AllKnobs) {
-        knobs.host.mode = overlay_ui::shell::Mode::Replay;
+        knobs.host.mode = match self.panels {
+            Screen::Live => overlay_ui::shell::Mode::Observing,
+            _ => overlay_ui::shell::Mode::Replay,
+        };
         self.panels.apply(&mut knobs.host.panels);
         // The dock's two forms are both worth looking at, and the screen that asks for everything
-        // is the one whose watcher wants the rail spelled out. A screen about what the pointer is
-        // over takes the strip of keycaps instead, since that is the form with anything left to say.
-        knobs.host.panels.dock_expanded =
-            self.panels == Screen::Analyst && self.hover == Hover::None;
+        // is the one whose watcher wants the table spelled out, on the plate, beside the selection
+        // panel and floating alike. A screen about what the pointer is over takes the keycaps instead,
+        // since that is the form with anything left to say.
+        knobs.host.panels.dock_expanded = matches!(
+            self.panels,
+            Screen::Analyst | Screen::NoPlate | Screen::Floating
+        ) && self.hover == Hover::None;
         knobs.host.pointer = self.hover.point();
         knobs.observer = Knobs {
             players: self.players,
@@ -1786,6 +1808,11 @@ impl Preset {
             selection_spells: self.showcase == Showcase::Spells,
             selection: if self.showcase == Showcase::Spells {
                 SelectionView::MAX_UNITS
+            } else if matches!(
+                self.panels,
+                Screen::Minimal | Screen::ReflowStack | Screen::Floating
+            ) {
+                0
             } else {
                 1
             },

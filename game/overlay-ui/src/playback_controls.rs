@@ -438,21 +438,22 @@ impl PlaybackControlsOutcome {
 /// Where the plate stands, beyond the margin it keeps from the screen's edges.
 ///
 /// The bottom-right corner, where the game's own replay controls sit, unless the observer panels
-/// need it elsewhere: stood in from the right edge while the dock's column runs down past it, and
-/// lifted up the edge while the panels along the bottom need the width it would take there.
+/// need it elsewhere: lifted up the edge while the panels along the bottom need the width it would
+/// take there.
 #[derive(Copy, Clone, Default, PartialEq, Debug)]
 pub struct PlaybackControlsPlacement {
-    /// How far the plate stands in from the screen's right edge.
-    pub right_inset: f32,
     /// How far the plate is lifted off the screen's bottom edge.
     pub lift: f32,
+    /// Whether the observer dock stands on the plate's top edge, the two drawn as one panel with
+    /// the plate's edge dividing them.
+    pub dock_on_top: bool,
 }
 
 impl PlaybackControlsPlacement {
     /// Where the plate is on `screen` from here, which the surfaces around it are placed against
     /// before it is drawn.
     pub fn rect(self, screen: Rect) -> Rect {
-        let right = screen.right() - EDGE_MARGIN - self.right_inset;
+        let right = screen.right() - EDGE_MARGIN;
         let bottom = screen.bottom() - EDGE_MARGIN - self.lift;
         Rect::from_min_max(
             pos2(right - PANEL_WIDTH, bottom - PANEL_HEIGHT),
@@ -478,14 +479,15 @@ pub fn render_playback_controls(
     let area = Area::new(id)
         .anchor(
             Align2::RIGHT_BOTTOM,
-            vec2(
-                -(EDGE_MARGIN + placement.right_inset),
-                -(EDGE_MARGIN + placement.lift),
-            ),
+            vec2(-EDGE_MARGIN, -(EDGE_MARGIN + placement.lift)),
         )
         .order(Order::Foreground);
     let inner = motion::presence_area(ctx, id.with("presence"), shown, area, |ui| {
-        tiers::tier0_panel(ui, |ui| {
+        let joined = placement.dock_on_top.then_some(tiers::Joined {
+            edge: tiers::Edge::Top,
+            divides: true,
+        });
+        tiers::tier0_panel_joined(ui, joined, |ui| {
             ui.set_width(CONTENT_WIDTH);
             draw_plate(ui, view, events, hotkeys)
         })

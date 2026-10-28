@@ -16,7 +16,7 @@ use egui::{Align, Align2, Area, Color32, Context, Id, Order, Rect, Sense, Ui, Ui
 use crate::kit::text;
 use crate::kit::widgets;
 use crate::kit::{motion, theme};
-use crate::observer::{DOCK_RESERVE, EdgeCursor, WING_MARGIN, centred, paint_text};
+use crate::observer::{EdgeCursor, WING_MARGIN, centred, paint_text};
 use crate::tr;
 
 /// How wide the bar is where there is room for all of it, in overlay points.
@@ -94,9 +94,8 @@ pub struct MapControlView {
 /// watcher hid a wing would move while it is being read, which is worse than being one size all
 /// game.
 fn width_for(screen_width: f32) -> Option<f32> {
-    let side = WING_MARGIN
-        + super::economy::PANEL_WIDTH.max(DOCK_RESERVE + super::military::PANEL_WIDTH)
-        + WING_GAP;
+    let side =
+        WING_MARGIN + super::economy::PANEL_WIDTH.max(super::military::PANEL_WIDTH) + WING_GAP;
     let available = screen_width - side * 2.0;
     let width = available.min(BAR_WIDTH);
     (width >= MIN_WIDTH).then_some(width)

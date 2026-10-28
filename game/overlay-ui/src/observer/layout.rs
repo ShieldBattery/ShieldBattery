@@ -215,9 +215,9 @@ pub(crate) fn left_wing_span(screen: Rect, width: f32) -> Span {
     }
 }
 
-/// The run of the screen's width a wing hung off the right edge takes, standing `inset` in from it.
-pub(crate) fn right_wing_span(screen: Rect, width: f32, inset: f32) -> Span {
-    let right = screen.right() - WING_MARGIN - inset;
+/// The run of the screen's width a wing hung off the right edge takes.
+pub(crate) fn right_wing_span(screen: Rect, width: f32) -> Span {
+    let right = screen.right() - WING_MARGIN;
     Span {
         left: right - width,
         right,
@@ -388,21 +388,16 @@ mod tests {
 
     /// A screen narrower than 16:10 is scaled down until the plate keeps the bottom-right corner
     /// with the whole centered stack beside it, so the minimap, the selection panel and the plate
-    /// share the bottom edge and nothing is lifted over the game. That holds even with the dock's
-    /// rail open beside the plate, which stands it in by the rail's whole column.
+    /// share the bottom edge and nothing is lifted over the game.
     #[test]
     fn a_narrow_screen_keeps_the_plate_in_the_corner_beside_the_stack() {
-        use crate::observer::{MIN_STACK_WIDTH, dock, minimap};
+        use crate::observer::{MIN_STACK_WIDTH, minimap};
         use crate::playback_controls::PlaybackControlsPlacement;
         for (pixel_width, pixel_height) in NARROW_TARGETS {
             let (width, height) = points(pixel_width, pixel_height);
             let screen = Rect::from_min_size(pos2(0.0, 0.0), vec2(width, height));
             let frame = minimap::footprint(screen, minimap_square(screen, None));
-            let plate = PlaybackControlsPlacement {
-                right_inset: dock::column_width(true),
-                lift: 0.0,
-            }
-            .rect(screen);
+            let plate = PlaybackControlsPlacement::default().rect(screen);
             let beside = span(frame.right() + WING_GAP, plate.left() - WING_GAP);
             assert!(
                 beside.width() >= MIN_STACK_WIDTH,

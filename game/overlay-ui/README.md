@@ -178,9 +178,9 @@ way, with a rule naming each side under the first, and a game with one player a 
 at all — a divider between every pair of rows would be a divider for nothing. **Timeline** (left, under economy) is a fixed six rows of `m:ss` plus
 what happened, newest at the top, naming the thing it is about with the game's own icon rather than
 with a word — the game hands out no readable names for two hundred units, upgrades and technologies.
-The wings on the right stop short of the dock's collapsed column, so a control never covers a number;
-the rail the dock expands into is allowed to sit over them, because that is a surface the watcher has
-just opened. The **map-control bar** is the strip under the matchup bar, and is the one surface drawn
+The wings on the right keep the screen's edge and stop short of the dock under them, so a
+control never covers a number; the table the dock expands into is allowed to sit over them, because
+that is a surface the watcher has just opened. The **map-control bar** is the strip under the matchup bar, and is the one surface drawn
 from a measurement the game does not keep: a host with none reports `None`, and then the bar is not
 drawn, its dock row is not offered and its key is not consumed. It is also not drawn where the wings
 leave no room for it, which is every screen narrower than the design's.
@@ -215,10 +215,20 @@ the tint the game puts on a wireframe goes on the tile's outline instead: green,
 the unit's health and shields together fall through two thirds and a third. The body is the same
 height in every one of those readings, since a watcher clicking around a map would otherwise move
 every panel above it with every click. The
-**obs dock** is the tier-0 strip on the right edge, in two forms of one list: collapsed, a column of
-keycaps lit for the surfaces that are on;
-expanded, the control rail, with the names spelled out. Its list is `Panel::ALL` rather than a list
-of its own, so a panel built later appears there the day its toggle does.
+**obs dock** is part of whichever bottom panel holds the bottom-right corner. In a replay with the
+playback controls up it is the top of their panel: a strip of keycaps over the plate, divided from it
+by the plate's own edge, carrying the all-panels key and the panels a watcher turns on and off as
+the game goes. Otherwise, while anything is selected, it is a column of keycaps two wide against
+the selection panel's right edge and as tall as it, carrying every key, the two drawn as one panel.
+With neither the plate nor the selection panel on screen it is the strip again as a panel of its
+own, standing on the bottom edge with its right edge where the column's would be. The keycaps are lit
+for the surfaces that are on, and the plate's panel with the strip on it is as tall as the selection
+panel beside it. Expanded, the dock is a table with a row for each panel, its name and its key, and
+the matchup's style chips in the matchup's row, listed in the order the keycaps come in: on the
+strip opens upward into it, and beside the selection panel it opens over the pair of them. The
+dock's all-panels key puts away every panel but the dock and the plate it may stand on, which stay
+to bring them back. A test holds the dock's pairs to `Panel::ALL`, so a panel built later cannot be
+left without a key on it.
 
 The DLL fills the wings from `game_stats.rs`, a sampler that runs inside BW's own simulation step
 once per second of game time and keeps two hours of per-player history, a timeline of what changed
@@ -290,23 +300,27 @@ built leaves the game's own behavior alone.
 | All panels                           | `A`       | Timeline                  | `T`     |
 | Economy                              | `I`       | Control groups            | `H`     |
 | Production                           | `F`       | Map control               | `N`     |
-| Console                              | `W`       | Cycle vision              | `V`     |
-| Matchup (Shift: form)                | `E`       | Spoiler-free              | `L`     |
-| Minimap                              | `Q`       | Edge dock (Shift: form)   | `` ` `` |
+| Matchup (Shift: form)                | `E`       | Cycle vision              | `V`     |
+| Minimap                              | `Q`       | Spoiler-free              | `L`     |
+| Dock (Shift: form)                   | `` ` ``   |                           |         |
 
-Of these, `A`, `E`, `I`, `M`, `T`, `F`, `H`, `W`, `Q` and `Y` move panels, `Shift+E` switches the
+Of these, `A`, `E`, `I`, `M`, `T`, `F`, `H`, `Q` and `Y` move panels, `Shift+E` switches the
 matchup between the bar and the compact scoreboard, `` ` `` takes the dock on
 and off screen while `` Shift+` `` changes which of its two forms it comes back in, `G` toggles the
 graphs panel like any other panel key while `Shift+G` and `Ctrl+G` step it to the next and previous
 measurement, `N` moves the map-control bar but only while a host is reporting one, and `P`, `U`, `D`, `,`, `.` and `L` drive a replay. `V` is still a binding
 waiting for its surface. The playback keys are consumed only while a replay's view-model is being
-fed, and `L` only in a replay, so anywhere else they stay the game's.
+fed, and `L` only in a replay, so anywhere else they stay the game's. SC:R's console keys (`W`,
+`Ctrl+W`, `Ctrl+U` and `Alt+U`) are the game's too: the selection panel that stands in for the
+console is not a panel a watcher turns on and off.
 
 Panel visibility lives in `shell::PanelPrefs`, which is serde-serializable so a host can persist it
-per profile. The console and the minimap are independent booleans there, because they are separate
-surfaces in the game and observers routinely keep the minimap while hiding the console — which is
-why the DLL's `console.rs` moves them with separate calls, `set_console_visible`,
-`set_minimap_visible` and `set_command_panel_visible`, rather than one. `PanelPrefs` also carries
+per profile. The minimap is a boolean there of its own, because observers routinely keep the
+minimap while hiding the rest of the console — which is why the DLL's `console.rs` moves them with
+separate calls, `set_console_visible`, `set_minimap_visible` and `set_command_panel_visible`, rather
+than one. The selection panel that stands in for the rest of the console has no boolean at all: it is
+up whenever any panel that reports on the game is (`PanelPrefs::reporting_shown`), so `A` puts it
+away with them and the first panel back brings it back. `PanelPrefs` also carries
 `spoiler_free`, which is a viewing preference rather than a panel: hiding every panel with `A` asks
 for a clear screen, not for a replay's length to be given away; whether the dock is spelled out
 as the control rail, which is one surface in two forms rather than two panels; and `graph_series`

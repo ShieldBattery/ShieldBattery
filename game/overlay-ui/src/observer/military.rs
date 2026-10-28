@@ -20,8 +20,8 @@ use crate::kit::widgets::{self, ResourceGlyph};
 use crate::observer::{
     EdgeCursor, RaceView, STAT_BAR_GAP, STAT_COLOR_BAR, STAT_HEADING_HEIGHT, STAT_ROW_GAP,
     STAT_ROW_HEIGHT, STAT_VALUE_SIZE, Wing, paint_column_heading, paint_count,
-    paint_resource_value, paint_stat_identity, paint_team_divider, paint_text, stat_table_height,
-    teams_worth_dividing, vision_alpha, wing_panel,
+    paint_first_team_name, paint_resource_value, paint_stat_identity, paint_team_divider,
+    paint_text, stat_table_height, teams_worth_dividing, vision_alpha, wing_panel,
 };
 use crate::shell::Panel;
 use crate::tr;
@@ -123,13 +123,12 @@ pub fn render_military_view(
     ctx: &Context,
     shown: bool,
     top: f32,
-    right_inset: f32,
 ) -> Option<Rect> {
     let id = Id::new("sb_military_panel");
     let inner = wing_panel(
         ctx,
         id,
-        Wing::Right { inset: right_inset },
+        Wing::Right,
         top,
         PANEL_WIDTH,
         shown && !view.is_empty(),
@@ -144,8 +143,14 @@ fn draw_panel(ui: &mut Ui, view: &MilitaryView) {
         &tr!("observer.panelMilitary", "Military"),
         Panel::Military.key_label().as_deref(),
     );
-    draw_headings(ui);
     let divided = teams_worth_dividing(view.players.iter().map(|player| player.team));
+    draw_headings(
+        ui,
+        view.players
+            .first()
+            .map(|player| player.team)
+            .filter(|_| divided),
+    );
     let mut side = view.players.first().map(|player| player.team);
     for player in &view.players {
         if divided && side != Some(player.team) {
@@ -160,11 +165,16 @@ fn draw_panel(ui: &mut Ui, view: &MilitaryView) {
     }
 }
 
-/// Draws the row of column headings, each aligned the way its column's values are.
-fn draw_headings(ui: &mut Ui) {
+/// Draws the row of column headings, each aligned the way its column's values are. `first_team` is
+/// the team a divided table opens with, named over the names.
+fn draw_headings(ui: &mut Ui, first_team: Option<u8>) {
     let (row, _) = ui.allocate_exact_size(vec2(CONTENT_WIDTH, STAT_HEADING_HEIGHT), Sense::hover());
     let mut cursor = EdgeCursor::from_left(row);
-    cursor.skip(STAT_COLOR_BAR + STAT_BAR_GAP + NAME_WIDTH + COLUMN_GAP);
+    let names = cursor.take(STAT_COLOR_BAR + STAT_BAR_GAP + NAME_WIDTH);
+    if let Some(team) = first_team {
+        paint_first_team_name(ui, names, team);
+    }
+    cursor.skip(COLUMN_GAP);
     paint_column_heading(
         ui,
         cursor.take(ARMY_WIDTH),

@@ -26,8 +26,6 @@ pub enum Panel {
     Production,
     /// The control groups panel.
     ControlGroups,
-    /// The selection panel, which stands in for the console's own.
-    Selection,
     /// BW's own minimap.
     Minimap,
     /// The replay playback controls.
@@ -39,7 +37,7 @@ pub enum Panel {
 impl Panel {
     /// Every panel, in the order the dock lists them: the surfaces that report on the game, from
     /// the top of the screen down, then the game's own minimap, then the controls.
-    pub const ALL: [Panel; 12] = [
+    pub const ALL: [Panel; 11] = [
         Panel::Matchup,
         Panel::MapControl,
         Panel::Economy,
@@ -48,7 +46,6 @@ impl Panel {
         Panel::Timeline,
         Panel::Production,
         Panel::ControlGroups,
-        Panel::Selection,
         Panel::Minimap,
         Panel::PlaybackControls,
         Panel::Dock,
@@ -72,7 +69,6 @@ impl Panel {
             Panel::Timeline => Action::ToggleTimeline,
             Panel::Production => Action::ToggleProduction,
             Panel::ControlGroups => Action::ToggleControlGroups,
-            Panel::Selection => Action::ToggleSelection,
             Panel::Minimap => Action::ToggleMinimap,
             Panel::PlaybackControls => Action::TogglePlaybackControls,
             Panel::Dock => Action::ToggleDock,
@@ -96,7 +92,6 @@ impl Panel {
             Panel::Timeline => "timeline",
             Panel::Production => "production",
             Panel::ControlGroups => "control groups",
-            Panel::Selection => "selection",
             Panel::Minimap => "minimap",
             Panel::PlaybackControls => "playback controls",
             Panel::Dock => "dock",
@@ -110,7 +105,8 @@ impl Panel {
 /// Independent booleans rather than named sets of them: a watcher's screen is whatever mix of
 /// surfaces they built up one key at a time. Serializable so a host can persist the set per
 /// profile. A watcher never gets SC:R's own console back: the bottom panels stand where it was, and
-/// the minimap they keep of it is a panel of its own.
+/// the minimap they keep of it is a panel of its own. The selection panel that reads out what the
+/// console would have is not one of them: see [`reporting_shown`](Self::reporting_shown).
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct PanelPrefs {
@@ -126,14 +122,13 @@ pub struct PanelPrefs {
     pub timeline: bool,
     pub production: bool,
     pub control_groups: bool,
-    pub selection: bool,
     pub minimap: bool,
     /// Also read as `transport`, the key settings written by older builds hold it under.
     #[serde(alias = "transport")]
     pub playback_controls: bool,
     /// Whether the observer dock is on screen.
     pub dock: bool,
-    /// Whether the dock spells its rows out as the control rail. Not a panel of its own: it is one
+    /// Whether the dock spells its rows out as the table. Not a panel of its own: it is one
     /// surface in two forms, and which of them a watcher left it in is worth remembering.
     pub dock_expanded: bool,
     /// Whether every surface withholds what gives a replay's outcome away — its length, and how far
@@ -200,8 +195,7 @@ impl PanelSet {
 impl Default for PanelPrefs {
     fn default() -> PanelPrefs {
         // A first-time watcher starts on the least that still tells the game: who is playing and
-        // how they stand, the map, what each player has grouped to fight with, and what the watcher
-        // clicks on (the selection panel shows only while something is selected). The dock lists
+        // how they stand, the map, and what each player has grouped to fight with. The dock lists
         // every other panel with its key, and whatever the watcher turns on is remembered for their
         // next game.
         PanelPrefs {
@@ -214,7 +208,6 @@ impl Default for PanelPrefs {
             timeline: false,
             production: false,
             control_groups: true,
-            selection: true,
             minimap: true,
             playback_controls: true,
             dock: true,
@@ -238,7 +231,6 @@ impl PanelPrefs {
             Panel::Timeline => self.timeline,
             Panel::Production => self.production,
             Panel::ControlGroups => self.control_groups,
-            Panel::Selection => self.selection,
             Panel::Minimap => self.minimap,
             Panel::PlaybackControls => self.playback_controls,
             Panel::Dock => self.dock,
@@ -255,7 +247,6 @@ impl PanelPrefs {
             Panel::Timeline => self.timeline = shown,
             Panel::Production => self.production = shown,
             Panel::ControlGroups => self.control_groups = shown,
-            Panel::Selection => self.selection = shown,
             Panel::Minimap => self.minimap = shown,
             Panel::PlaybackControls => self.playback_controls = shown,
             Panel::Dock => self.dock = shown,
@@ -298,6 +289,28 @@ impl PanelPrefs {
             }
             self.hidden_by_all = Some(shown);
         }
+    }
+
+    /// Carries out the dock's all-panels key, which is [`toggle_all`](Self::toggle_all) for every
+    /// panel but the dock and the playback controls it may stand on: the dock stays where it is,
+    /// with the key on it that brings them back under the pointer that clicked it.
+    pub fn toggle_all_but_controls(&mut self) {
+        let kept = (self.dock, self.playback_controls);
+        (self.dock, self.playback_controls) = (false, false);
+        self.toggle_all();
+        (self.dock, self.playback_controls) = kept;
+    }
+
+    /// Whether any of the panels that report on the game is on screen: any but the dock and the
+    /// playback controls, which are how the watcher works the screen rather than what it shows them.
+    ///
+    /// The selection panel comes and goes with them. It is not a panel the watcher turns on and off,
+    /// being where whatever they click on is read out, as SC:R's console would have: it goes when
+    /// they put everything away, and is back with the first panel to return.
+    pub fn reporting_shown(&self) -> bool {
+        Panel::ALL.into_iter().any(|panel| {
+            !matches!(panel, Panel::Dock | Panel::PlaybackControls) && self.shown(panel)
+        })
     }
 
     /// How the matchup is on screen.
@@ -379,8 +392,7 @@ mod tests {
     fn panel_hotkeys_toggle_their_panel_while_spectating() {
         let mut shell = spectating_shell();
         type IsShown = fn(&PanelPrefs) -> bool;
-        let panels: [(Key, IsShown); 5] = [
-            (Key::W, |prefs| prefs.selection),
+        let panels: [(Key, IsShown); 4] = [
             (Key::Q, |prefs| prefs.minimap),
             (Key::E, |prefs| prefs.matchup),
             (Key::R, |prefs| prefs.dock),
@@ -434,6 +446,35 @@ mod tests {
             shell.panel_prefs().shown_set(),
             PanelPrefs::default().shown_set()
         );
+    }
+
+    #[test]
+    fn the_docks_all_panels_key_keeps_the_dock_and_what_it_stands_on_up() {
+        let mut prefs = PanelPrefs {
+            economy: true,
+            graphs: true,
+            ..PanelPrefs::default()
+        };
+        let before = prefs.shown_set();
+        prefs.toggle_all_but_controls();
+        let mut controls = PanelSet::default();
+        controls.insert(Panel::Dock);
+        controls.insert(Panel::PlaybackControls);
+        assert_eq!(prefs.shown_set(), controls);
+        assert!(!prefs.reporting_shown());
+        prefs.toggle_all_but_controls();
+        assert_eq!(prefs.shown_set(), before);
+        assert!(prefs.reporting_shown());
+    }
+
+    #[test]
+    fn the_selection_panel_goes_with_everything_and_comes_back_with_anything() {
+        let mut prefs = PanelPrefs::default();
+        assert!(prefs.reporting_shown());
+        prefs.toggle_all();
+        assert!(!prefs.reporting_shown());
+        prefs.toggle(Panel::Economy);
+        assert!(prefs.reporting_shown());
     }
 
     #[test]
@@ -508,10 +549,9 @@ mod tests {
     fn the_centred_bottom_panels_answer_their_own_keys() {
         let mut shell = spectating_shell();
         type IsShown = fn(&PanelPrefs) -> bool;
-        let stack: [(Key, IsShown); 3] = [
+        let stack: [(Key, IsShown); 2] = [
             (Key::F, |prefs| prefs.production),
             (Key::H, |prefs| prefs.control_groups),
-            (Key::W, |prefs| prefs.selection),
         ];
         for (key, is_shown) in stack {
             let was_shown = is_shown(shell.panel_prefs());
