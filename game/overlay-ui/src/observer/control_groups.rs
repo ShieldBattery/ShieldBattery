@@ -27,8 +27,8 @@ use crate::colors::{BLUE80, GREY_BLUE10};
 use crate::kit::text;
 use crate::kit::{motion, theme, tiers, widgets};
 use crate::observer::{
-    EdgeCursor, ProductionIcon, StackSlot, centred, owner_tint, paint_icon_glow, paint_owner_wash,
-    paint_player_bar, paint_text, unit_codes, vision_alpha,
+    EdgeCursor, ProductionIcon, StackSlot, owner_tint, paint_icon_glow, paint_owner_wash,
+    paint_player_swatch_in, paint_text, unit_codes, vision_alpha,
 };
 
 /// How wide the panel is, in overlay points.
@@ -37,15 +37,11 @@ pub const PANEL_WIDTH: f32 = 651.0;
 /// The room inside the panel's chrome.
 const CONTENT_WIDTH: f32 = PANEL_WIDTH - 24.0;
 
-/// Width of the bar of the player's own color that leads their row, and how tall it is drawn.
-///
-/// Shorter than the row: the bar says whose row this is, and one run the height of three lines of
-/// text would be a stripe down the panel rather than a mark at the head of the row.
-const COLOR_BAR: f32 = 4.0;
-const COLOR_BAR_HEIGHT: f32 = 16.0;
+/// Width of the column the square of the player's own color that leads their row stands in.
+const COLOR_BAR: f32 = super::PLAYER_SWATCH;
 
-/// Gap between that bar and the first slot.
-const BAR_GAP: f32 = 9.0;
+/// Gap between that square and the first slot.
+const BAR_GAP: f32 = 10.0;
 
 /// The digits a group answers to, in the order a keyboard reads them.
 ///
@@ -58,7 +54,7 @@ const TILE_WIDTH: f32 = 56.0;
 const TILE_HEIGHT: f32 = 46.0;
 
 /// Gap between two slots.
-const TILE_GAP: f32 = 6.0;
+const TILE_GAP: f32 = 5.0;
 
 /// The narrowest a slot is drawn, on a screen that leaves the panel less than its design width: as
 /// narrow as a group of two kinds still names both of them in.
@@ -278,13 +274,12 @@ fn draw_rows(ui: &mut Ui, view: &ControlGroupsView, focus: Option<u8>, width: f3
         let tile_width = tile_width(width);
         let alpha = vision_alpha(player.vision);
         let mut cursor = EdgeCursor::from_left(row);
-        let bar = cursor.take(COLOR_BAR);
-        paint_player_bar(
+        paint_player_swatch_in(
             ui,
-            centred(bar, COLOR_BAR_HEIGHT),
+            cursor.take(COLOR_BAR),
             player.color,
-            // The color bar keeps more of itself than the rest of a vision-less row: it is what
-            // says whose row this is, and two rows dimmed alike are hard to tell apart.
+            // The swatch keeps more of itself than the rest of a vision-less row: it is what says
+            // whose row this is, and two rows dimmed alike are hard to tell apart.
             if player.vision { 1.0 } else { 0.5 },
         );
         cursor.skip(BAR_GAP);

@@ -39,7 +39,7 @@ const BAR_GAP: f32 = 8.0;
 
 /// Width the player's name is laid out in. Fixed, because a name is player-chosen: one longer than
 /// its column would otherwise push every number beside it out of the design's grid.
-const NAME_WIDTH: f32 = 114.0;
+const NAME_WIDTH: f32 = 106.0;
 
 /// Gap between two columns.
 const COLUMN_GAP: f32 = 6.0;

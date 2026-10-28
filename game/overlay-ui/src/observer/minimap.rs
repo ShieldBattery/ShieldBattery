@@ -29,7 +29,9 @@ use egui::{
 
 use crate::kit::text::{self, BodyWeight};
 use crate::kit::{motion, theme, tiers, widgets};
-use crate::observer::{MatchupPlayerView, paint_player_bar, paint_text, teams_worth_dividing};
+use crate::observer::{
+    MatchupPlayerView, PLAYER_SWATCH, paint_player_swatch_in, paint_text, teams_worth_dividing,
+};
 use crate::tr;
 
 /// How far the frame's band reaches out around the minimap's square.
@@ -52,8 +54,9 @@ const BUTTON_TEXT_SIZE: f32 = 12.0;
 const PICKER_WIDTH: f32 = 236.0;
 const PICKER_ROW: f32 = theme::HIT_PANEL;
 
-/// Width of the bar of a player's color at the head of their row, and the gap after it.
-const PICKER_BAR: f32 = 4.0;
+/// Width of the column the square of a player's color at the head of their row stands in, and the
+/// gap after it.
+const PICKER_BAR: f32 = PLAYER_SWATCH;
 const PICKER_BAR_GAP: f32 = 8.0;
 
 /// Text size of a player's name in the list.
@@ -344,12 +347,9 @@ fn draw_picker(
 /// vision. Returns their id when the switch was thrown.
 fn draw_picker_row(ui: &mut Ui, width: f32, player: &MatchupPlayerView) -> Option<u8> {
     let (row, _) = ui.allocate_exact_size(vec2(width, PICKER_ROW), Sense::hover());
-    paint_player_bar(
+    paint_player_swatch_in(
         ui,
-        Rect::from_center_size(
-            pos2(row.left() + PICKER_BAR * 0.5, row.center().y),
-            vec2(PICKER_BAR, PICKER_ROW * 0.5),
-        ),
+        Rect::from_min_size(row.left_top(), vec2(PICKER_BAR, row.height())),
         player.color,
         1.0,
     );

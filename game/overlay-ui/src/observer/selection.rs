@@ -912,7 +912,7 @@ fn draw_owner(ui: &Ui, rect: Rect, unit: &SelectedUnitView) {
     );
     // The swatch is what says whose the selection is, and it is read against the colors on the
     // map rather than against the panel, so it is never drawn at less than its own color.
-    paint_player_swatch(ui, swatch, unit.owner_color);
+    paint_player_swatch(ui, swatch, unit.owner_color, 1.0);
     paint_text(
         ui,
         Rect::from_min_max(pos2(swatch.right() + OWNER_GAP, rect.top()), rect.max),

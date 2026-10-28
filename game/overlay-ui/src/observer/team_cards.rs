@@ -18,7 +18,7 @@
 //!
 //! Two cards at most, because the design gives them the screen's two top corners and nothing else.
 
-use egui::{Align, Align2, Area, Color32, Context, Id, Order, Rect, Sense, Ui, pos2, vec2};
+use egui::{Align, Align2, Area, Color32, Context, Id, Order, Rect, Sense, Ui, Vec2, pos2, vec2};
 
 use crate::kit::clamp_layout;
 use crate::kit::text::{self, BodyWeight, TextSpec};
@@ -27,7 +27,8 @@ use crate::kit::{motion, theme, tiers};
 use crate::observer::{
     EdgeCursor, RaceView, STAT_GLYPH, STAT_GLYPH_GAP, STAT_HEADING_HEIGHT, STAT_ROW_GAP,
     STAT_ROW_HEIGHT, WING_GAP, WING_MARGIN, Wing, centred, paint_column_heading, paint_count,
-    paint_picked_race_chip, paint_player_bar, paint_text, team_name, vision_alpha,
+    paint_picked_race_chip, paint_player_swatch, paint_player_swatch_in, paint_text, team_name,
+    vision_alpha,
 };
 use crate::tr;
 
@@ -46,18 +47,17 @@ const CARD_RADIUS: u8 = 6;
 /// Height of the card's own title row.
 const HEADER_HEIGHT: f32 = 22.0;
 
-/// The bar of the side's own color at the head of the card, which stands taller than the bars in
+/// The square of the side's own color at the head of the card, which is larger than the squares in
 /// the rows under it: it names the side rather than one of its players.
-const HEADER_BAR: f32 = 5.0;
-const HEADER_BAR_HEIGHT: f32 = 17.0;
+const HEADER_BAR: f32 = 14.0;
 
 /// How much of a supply count's size its cap is set at.
 const SUPPLY_CAP_RATIO: f32 = 0.75;
 
-/// Width of the bar of the player's own color that leads their row.
-const COLOR_BAR: f32 = 4.0;
+/// Width of the column the square of the player's own color that leads their row stands in.
+const COLOR_BAR: f32 = super::PLAYER_SWATCH;
 
-/// Gap between that bar and the race chip.
+/// Gap between that square and the race chip.
 const BAR_GAP: f32 = 8.0;
 
 /// Diameter of the race chip.
@@ -70,7 +70,7 @@ const CHIP_GAP: f32 = 6.0;
 /// grown to the longest name, because a name is player-chosen, and it is what the value columns
 /// leave: a name has more to say than a number, and a bank past five digits is not a bank anybody
 /// keeps.
-const NAME_WIDTH: f32 = 142.0;
+const NAME_WIDTH: f32 = 134.0;
 
 /// The room a name keeps however narrow the card: about nine letters, which is still the player it
 /// names. Below it a row gives up a column rather than eliding the name further.
@@ -640,12 +640,9 @@ fn draw_header(ui: &mut Ui, team: &TeamCardView, number: u8, layout: CardLayout)
     // its title has been read. The color is the first player's: a side is named after where it
     // sits, and where it sits is where its first slot is.
     if let Some(player) = team.players.first() {
-        paint_player_bar(
-            ui,
-            centred(cursor.take(HEADER_BAR), HEADER_BAR_HEIGHT),
-            player.color,
-            1.0,
-        );
+        let column = cursor.take(HEADER_BAR);
+        let square = Rect::from_center_size(column.center(), Vec2::splat(HEADER_BAR));
+        paint_player_swatch(ui, square, player.color, 1.0);
     } else {
         cursor.skip(HEADER_BAR);
     }
@@ -713,12 +710,11 @@ fn draw_player(ui: &mut Ui, player: &TeamCardPlayerView, layout: CardLayout) -> 
     widgets::state_overlay(ui, &response, row, theme::radius(theme::RADIUS_TIGHT));
     let alpha = vision_alpha(player.vision);
     let mut cursor = EdgeCursor::from_left(row);
-    let bar = cursor.take(COLOR_BAR);
-    paint_player_bar(
+    paint_player_swatch_in(
         ui,
-        centred(bar, row.height() - theme::SPACE_XS),
+        cursor.take(COLOR_BAR),
         player.color,
-        // The color bar keeps more of itself than the rest of a vision-less row: it is what says
+        // The swatch keeps more of itself than the rest of a vision-less row: it is what says
         // whose row this is, and two rows dimmed alike are hard to tell apart at a glance.
         if player.vision { 1.0 } else { 0.5 },
     );

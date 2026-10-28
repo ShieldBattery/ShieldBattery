@@ -18,8 +18,8 @@ use crate::kit::text::{self, BodyWeight};
 use crate::kit::theme;
 use crate::kit::{tiers, widgets};
 use crate::observer::{
-    EdgeCursor, ProductionIcon, STAT_COLOR_BAR, STAT_ROW_GAP, Wing, centred, game_clock,
-    paint_player_dot, paint_text, paint_tile_chrome, wing_panel,
+    EdgeCursor, ProductionIcon, STAT_ROW_GAP, Wing, centred, game_clock, paint_player_dot,
+    paint_text, paint_tile_chrome, wing_panel,
 };
 use crate::shell::Panel;
 use crate::{tr, tr_plural};
@@ -53,7 +53,7 @@ const ICON_GAP: f32 = 8.0;
 
 /// What is left of the row for the text, which is where a translated line runs out of room first.
 const TEXT_WIDTH: f32 =
-    CONTENT_WIDTH - TIME_WIDTH - TIME_GAP - STAT_COLOR_BAR - BAR_GAP - ICON - ICON_GAP;
+    CONTENT_WIDTH - TIME_WIDTH - TIME_GAP - DOT_COLUMN - BAR_GAP - ICON - ICON_GAP;
 
 // A row whose cells took more than the panel holds would leave its text nowhere to go.
 const _: () = assert!(TEXT_WIDTH > 0.0);
@@ -65,6 +65,9 @@ const TEXT_SIZE: f32 = 13.5;
 /// Diameter of the dot saying whose event a row is. A dot rather than a bar: the rows are a feed
 /// rather than a table, and a column of bars would read as a table's first column.
 const DOT: f32 = 8.0;
+
+/// Width of the column the dot stands in, which the dot overhangs on both sides.
+const DOT_COLUMN: f32 = 4.0;
 
 /// Text size of the icon's number, for a host with no atlas to draw it from.
 const ICON_TEXT_SIZE: f32 = 10.0;
@@ -426,7 +429,7 @@ fn draw_row(ui: &Ui, row: Rect, event: &TimelineEventView) {
         Align::RIGHT,
     );
     cursor.skip(TIME_GAP);
-    paint_player_dot(ui, cursor.take(STAT_COLOR_BAR), event.color, DOT);
+    paint_player_dot(ui, cursor.take(DOT_COLUMN), event.color, DOT);
     cursor.skip(BAR_GAP);
     draw_icon(ui, centred(cursor.take(ICON), ICON), event.icon);
     cursor.skip(ICON_GAP);

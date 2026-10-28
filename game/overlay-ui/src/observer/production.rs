@@ -25,7 +25,7 @@ use crate::colors::GREY_BLUE60;
 use crate::kit::text;
 use crate::kit::{motion, theme, tiers};
 use crate::observer::{
-    StackSlot, centred, fit_icon, owner_tint, paint_icon_glow, paint_owner_wash, paint_player_bar,
+    StackSlot, fit_icon, owner_tint, paint_icon_glow, paint_owner_wash, paint_player_swatch_in,
     paint_text, paint_tile_chrome, unit_codes,
 };
 
@@ -35,10 +35,10 @@ pub const PANEL_WIDTH: f32 = 620.0;
 /// The room inside the panel's chrome.
 const CONTENT_WIDTH: f32 = PANEL_WIDTH - 24.0;
 
-/// Width of the bar of the player's own color that leads their row.
-const COLOR_BAR: f32 = 4.0;
+/// Width of the column the square of the player's own color that leads their row stands in.
+const COLOR_BAR: f32 = super::PLAYER_SWATCH;
 
-/// Gap between that bar and the first tile.
+/// Gap between that square and the first tile.
 const BAR_GAP: f32 = 10.0;
 
 /// Size of one tile, which is wider than it is tall: what it carries is an icon with a count in the
@@ -536,12 +536,9 @@ fn draw_columns(
 /// Draws one player's row in `row`, as many of its tiles as `tiles`, and reports which entry was
 /// clicked.
 fn draw_row(ui: &Ui, row: Rect, player: &ProductionPlayerView, tiles: usize) -> Option<usize> {
-    paint_player_bar(
+    paint_player_swatch_in(
         ui,
-        centred(
-            Rect::from_min_size(row.left_top(), vec2(COLOR_BAR, row.height())),
-            TILE_HEIGHT * 0.4,
-        ),
+        Rect::from_min_size(row.left_top(), vec2(COLOR_BAR, TILE_HEIGHT)),
         player.color,
         1.0,
     );

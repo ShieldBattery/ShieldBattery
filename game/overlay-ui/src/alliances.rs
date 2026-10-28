@@ -777,6 +777,7 @@ fn draw_player_cell(ui: &mut Ui, rect: Rect, player: &AlliancePlayerView) {
             Vec2::splat(SWATCH_SIZE),
         ),
         player.color,
+        1.0,
     );
     left += SWATCH_SIZE + CELL_GAP;
     observer::paint_text(

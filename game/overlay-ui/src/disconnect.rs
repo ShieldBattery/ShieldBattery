@@ -68,8 +68,8 @@ const ROW_SPACING: f32 = 10.0;
 /// The gap between two things inside a row.
 const ROW_GAP: f32 = 12.0;
 
-/// Width of the bar carrying a player's own color, and how tall it stands.
-const COLOR_BAR: Vec2 = Vec2::new(4.0, 17.0);
+/// Width of the column the square of a player's own color stands in.
+const COLOR_BAR: f32 = crate::observer::PLAYER_SWATCH;
 
 /// Width of the column a row's state text sits in, wide enough for a translated state with its
 /// clock on the end.
@@ -570,7 +570,7 @@ fn draw_row(ui: &mut Ui, row: &DisconnectRowView, clicked: &mut Vec<u8>) {
     // column. Everything left over after them and the fixed columns is the name's, and whatever
     // the name does not use is slack between it and the state, so a short name and its teammate
     // label stay together instead of drifting apart across the row.
-    let fixed = DOT_DIAMETER + COLOR_BAR.x + ROW_GAP * 3.0 + STATE_WIDTH + button_column;
+    let fixed = DOT_DIAMETER + COLOR_BAR + ROW_GAP * 3.0 + STATE_WIDTH + button_column;
     let middle = (width - ROW_PAD_X * 2.0 - fixed).max(0.0);
     let name_width = text::player_name(NAME_SIZE)
         .galley(ui, &row.name)
@@ -631,12 +631,11 @@ fn cell(ui: &mut Ui, width: f32, align: Align, spec: TextSpec, text: &str) {
     widgets::text_cell(ui, &spec, text, vec2(width, ROW_HEIGHT), align);
 }
 
-/// The bar carrying a player's own color, which is what ties a name in this list to the units on
-/// the map.
+/// The square of a player's own color, which is what ties a name in this list to the units on the
+/// map.
 fn color_bar(ui: &mut Ui, color: Color32) {
-    let (rect, _) = ui.allocate_exact_size(vec2(COLOR_BAR.x, ROW_HEIGHT), Sense::hover());
-    let bar = Rect::from_center_size(rect.center(), COLOR_BAR);
-    ui.painter().rect_filled(bar, theme::radius(1), color);
+    let (rect, _) = ui.allocate_exact_size(vec2(COLOR_BAR, ROW_HEIGHT), Sense::hover());
+    crate::observer::paint_player_swatch_in(ui, rect, color, 1.0);
 }
 
 /// Draws the drop control for a row whose player is known to be gone: an outlined countdown while

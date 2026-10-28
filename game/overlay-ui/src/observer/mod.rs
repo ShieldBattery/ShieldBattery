@@ -364,7 +364,8 @@ pub(crate) fn paint_owner_wash(painter: &egui::Painter, rect: Rect, owner: Color
     );
 }
 
-/// Paints the bar of a player's own color that marks which side of a panel is theirs.
+/// Paints the bar of a player's own color along the end of the matchup bar that is theirs, which
+/// frames their half of it rather than marking a row.
 pub(crate) fn paint_player_bar(ui: &Ui, rect: Rect, color: Color32, alpha: f32) {
     ui.painter().rect_filled(
         rect,
@@ -373,18 +374,32 @@ pub(crate) fn paint_player_bar(ui: &Ui, rect: Rect, color: Color32, alpha: f32) 
     );
 }
 
-/// Paints a square of a player's color, where a row names one player and the bar's sliver of color
-/// would be too little to tell their color by. A faint light edge keeps the dark colors (blue, navy)
-/// reading as a square against the panel rather than sinking into it.
-pub(crate) fn paint_player_swatch(ui: &Ui, rect: Rect, color: Color32) {
+/// Side of the square of a player's color that marks their row in a panel.
+pub(crate) const PLAYER_SWATCH: f32 = 12.0;
+
+/// Paints a square of a player's color, at `alpha` of itself, which is what ties a row to the
+/// player's units on the map. A square rather than a thin bar, whose sliver of color is too little
+/// to tell a color by. A faint light edge keeps the dark colors (blue, navy) reading as a square
+/// against the panel rather than sinking into it.
+pub(crate) fn paint_player_swatch(ui: &Ui, rect: Rect, color: Color32, alpha: f32) {
     let corner_radius = theme::radius(theme::RADIUS_CHIP);
-    ui.painter().rect_filled(rect, corner_radius, color);
+    ui.painter()
+        .rect_filled(rect, corner_radius, color.gamma_multiply(alpha));
     ui.painter().rect_stroke(
         rect,
         corner_radius,
-        Stroke::new(theme::HAIRLINE, theme::alpha(theme::TEXT_PRIMARY, 0.25)),
+        Stroke::new(
+            theme::HAIRLINE,
+            theme::alpha(theme::TEXT_PRIMARY, 0.25 * alpha),
+        ),
         StrokeKind::Inside,
     );
+}
+
+/// Paints a [`PLAYER_SWATCH`] square of a player's color in the middle of `column`.
+pub(crate) fn paint_player_swatch_in(ui: &Ui, column: Rect, color: Color32, alpha: f32) {
+    let square = Rect::from_center_size(column.center(), Vec2::splat(PLAYER_SWATCH));
+    paint_player_swatch(ui, square, color, alpha);
 }
 
 /// Outlines a tile the pointer is over, for the tiles that act when they are clicked.
@@ -586,8 +601,8 @@ pub(crate) const STAT_ROW_GAP: f32 = 4.0;
 /// Height of the row of column headings over the players' rows.
 pub(crate) const STAT_HEADING_HEIGHT: f32 = 14.0;
 
-/// Width of the bar of the player's own color that leads their row.
-pub(crate) const STAT_COLOR_BAR: f32 = 4.0;
+/// Width of the column the square of the player's color that leads their row stands in.
+pub(crate) const STAT_COLOR_BAR: f32 = PLAYER_SWATCH;
 
 /// Size of a resource glyph in a stats wing, and the gap between it and the number it names.
 pub(crate) const STAT_GLYPH: f32 = 12.0;
@@ -806,12 +821,11 @@ pub(crate) fn paint_stat_identity(
     color: Color32,
     alpha: f32,
 ) {
-    let bar = cursor.take(STAT_COLOR_BAR);
-    paint_player_bar(
+    paint_player_swatch_in(
         ui,
-        centred(bar, bar.height() - theme::SPACE_XS),
+        cursor.take(STAT_COLOR_BAR),
         color,
-        // The color bar keeps more of itself than the rest of a vision-less row: it is what says
+        // The swatch keeps more of itself than the rest of a vision-less row: it is what says
         // whose row this is, and two rows dimmed alike are hard to tell apart at a glance.
         if alpha < 1.0 { 0.5 } else { 1.0 },
     );

@@ -37,7 +37,7 @@ const BAR_GAP: f32 = 8.0;
 
 /// Width the player's name is laid out in. Wider than the economy panel's identity column, because
 /// this panel's three value columns together take less of the row than the economy panel's do.
-const NAME_WIDTH: f32 = 146.0;
+const NAME_WIDTH: f32 = 138.0;
 
 /// Gap between two columns.
 const COLUMN_GAP: f32 = 6.0;
