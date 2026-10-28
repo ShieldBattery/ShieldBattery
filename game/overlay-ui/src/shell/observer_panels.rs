@@ -298,12 +298,14 @@ impl ObserverPanels {
             let corner = playback_placement.rect(screen);
             if prefs.dock {
                 dock = match dock_room {
+                    // Last frame's room runs to the bottom edge when the plate was not up then, as
+                    // on the frame it comes back; the dock still stands on the plate.
                     Some((top, bottom)) => observer::DockPlacement::fit(
                         host.mode,
                         self.map_control_available,
                         screen.center().y,
                         top,
-                        bottom,
+                        bottom.min(corner.top() - gap),
                     ),
                     None => dock_fit(corner.top() - gap),
                 };
@@ -890,6 +892,34 @@ mod tests {
             leaving_frames >= 2,
             "the dock left in {leaving_frames} frames"
         );
+    }
+
+    #[test]
+    fn the_dock_comes_back_onto_the_plate_when_the_plate_comes_back_with_it() {
+        let ctx = fresh_ctx();
+        let mut shell = spectating_shell();
+        let (playback, game) = (replay(), empty_game());
+        let mut time = 0.0;
+        let mut frame = |shell: &mut crate::shell::Shell, step: f64| {
+            time += step;
+            run_watched_frame_at(shell, &ctx, &playback, &game, time)
+        };
+        for _ in 0..6 {
+            frame(&mut shell, 0.5);
+        }
+        let standing = dock_rect(&frame(&mut shell, 0.5)).expect("the dock is up");
+        assert!(shell.key_pressed(Key::A, Modifiers::NONE));
+        for _ in 0..6 {
+            frame(&mut shell, 0.5);
+        }
+
+        assert!(shell.key_pressed(Key::A, Modifiers::NONE));
+        assert!(shell.panel_prefs().dock && shell.panel_prefs().playback_controls);
+        // Every frame of the way in, at the height it settles at: it slides in along the edge.
+        for _ in 0..12 {
+            let arriving = dock_rect(&frame(&mut shell, 0.03)).expect("the dock is coming back");
+            assert_eq!(arriving.center().y, standing.center().y);
+        }
     }
 
     #[test]
