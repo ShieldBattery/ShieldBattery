@@ -147,9 +147,28 @@ impl StackSlot {
     }
 }
 
-/// The bottom edge laid out as one row, which a run of it at least [`ROW_WIDTH`] wide gets: a
-/// column against the minimap with production stood on control groups, and the selection panel
-/// against the far end, beside the replay plate.
+/// The part of a `run` of the bottom edge the bottom panels keep to, for a minimap in the bottom-left
+/// corner whose frame is `minimap`: up to the minimap's mirror image on the right edge, and in a
+/// replay short of the plate's `plate_corner` too, whether or not the plate is up. The bottom-right
+/// corner is then the plate's or nobody's, which is where a streamer's camera tends to go, and the
+/// selection panel at the far end of the band stands in one place as the plate comes and goes.
+pub(crate) fn bottom_band(
+    screen: Rect,
+    minimap: Rect,
+    run: Span,
+    plate_corner: Option<Rect>,
+) -> Span {
+    let mirror = screen.right() - (minimap.right() - screen.left()) - WING_GAP;
+    let plate = plate_corner.map_or(f32::INFINITY, |corner| corner.left() - WING_GAP);
+    Span {
+        right: run.right.min(mirror).min(plate),
+        ..run
+    }
+}
+
+/// The bottom edge laid out as one row, which a band of it at least [`ROW_WIDTH`] wide gets (see
+/// [`bottom_band`]): a column against the minimap with production stood on control groups, and the
+/// selection panel against the band's far end.
 ///
 /// The panels a watcher keeps on screen all game stand together by the minimap, and the one that
 /// comes and goes with every click stands apart from them: the column is as wide whether or not
@@ -249,22 +268,17 @@ mod tests {
         assert_eq!(highest_top_under(span(120.0, 180.0), &rects, 900.0), 900.0);
     }
 
-    /// The run of the bottom edge a `width` x `height` screen's panels have, from the frame of the
-    /// minimap's reserve to the replay plate in the corner, or to the dock's column where there is
-    /// no plate.
-    fn bottom_run(width: f32, height: f32, plate: bool) -> Span {
-        use crate::observer::{DOCK_RESERVE, minimap};
+    /// The band of the bottom edge a `width` x `height` screen's panels keep to, from the frame of
+    /// the minimap's reserve to its mirror image, and short of the replay plate's corner in a
+    /// replay.
+    fn bottom_run(width: f32, height: f32, replay: bool) -> Span {
+        use crate::observer::minimap;
         let screen = Rect::from_min_size(pos2(0.0, 0.0), vec2(width, height));
         let frame = minimap::footprint(screen, minimap_square(screen, None));
-        let right = if plate {
-            crate::playback_controls::PlaybackControlsPlacement::default()
-                .rect(screen)
-                .left()
-                - WING_GAP
-        } else {
-            width - WING_MARGIN - DOCK_RESERVE
-        };
-        span(frame.right() + WING_GAP, right)
+        let run = span(frame.right() + WING_GAP, width - WING_MARGIN);
+        let corner = replay
+            .then(|| crate::playback_controls::PlaybackControlsPlacement::default().rect(screen));
+        bottom_band(screen, frame, run, corner)
     }
 
     #[test]
@@ -306,11 +320,30 @@ mod tests {
     }
 
     #[test]
-    fn a_1600_screen_has_the_row_only_along_its_whole_edge() {
-        // Beside the plate in the corner the row is too narrow, so the plate stands on the
-        // selection panel at the row's end instead; a live game has no plate to make room for.
+    fn a_1600_screen_keeps_the_centered_stack() {
+        // The band short of the plate's corner, or of the minimap's mirror image in a live game, is
+        // too narrow for the row at the design's widths.
         assert_eq!(BottomRow::along(bottom_run(1600.0, 900.0, true)), None);
-        assert!(BottomRow::along(bottom_run(1600.0, 900.0, false)).is_some());
+        assert_eq!(BottomRow::along(bottom_run(1600.0, 900.0, false)), None);
+    }
+
+    #[test]
+    fn the_band_keeps_the_bottom_right_corner_as_large_as_the_minimaps() {
+        use crate::observer::minimap;
+        for (width, height) in [(1920.0, 1080.0), (2560.0, 1080.0), (2560.0, 1440.0)] {
+            let screen = Rect::from_min_size(pos2(0.0, 0.0), vec2(width, height));
+            let frame = minimap::footprint(screen, minimap_square(screen, None));
+            let band = bottom_run(width, height, false);
+            assert_eq!(
+                width - band.right,
+                frame.right() + WING_GAP,
+                "{width}x{height}"
+            );
+            // And a replay's band never reaches the plate's corner, up or not.
+            let corner =
+                crate::playback_controls::PlaybackControlsPlacement::default().rect(screen);
+            assert!(bottom_run(width, height, true).right <= corner.left() - WING_GAP);
+        }
     }
 
     /// The size in points of a render target `width` x `height` pixels.

@@ -144,7 +144,10 @@ screen it was taking is what hiding it asked for: close military and the graphs 
 military was, close economy and the timeline moves up to the bar, and the centred bottom stack —
 selection, then production, then control groups — sits on whatever is below it and slides down when
 a panel under it goes. That stack stands on the screen's bottom edge, since an observer's screen keeps
-the minimap and nothing else of BW's console band. Every one of those offsets is animated rather than assigned, so
+the minimap and nothing else of BW's console band, and keeps to a band of it running from the
+minimap's frame to the minimap's mirror image, short of the replay plate's corner whether or not the
+plate is up: the bottom-right corner stays free for the plate or a streamer's camera, and the
+selection panel never moves as the plate comes and goes. Every one of those offsets is animated rather than assigned, so
 a panel crosses its neighbour's height instead of being redrawn somewhere else, and one that is
 still fading out still holds its place while it does.
 

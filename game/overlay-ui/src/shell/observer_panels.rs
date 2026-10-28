@@ -196,7 +196,20 @@ impl ObserverPanels {
                 }
             }
         };
-        // The panels are laid along the edge as one row where it is wide enough for one, beside a
+        // The part of the bottom edge the bottom panels keep to with the run's end `inset` in from
+        // the right edge, beside a minimap in the corner. A minimap on the right edge leaves them
+        // the run from the left edge to it.
+        let plate_corner =
+            has_playback_controls.then(|| PlaybackControlsPlacement::default().rect(screen));
+        let bottom_band = |inset: f32| {
+            let run = bottom_run(inset);
+            if minimap_on_left {
+                layout::bottom_band(screen, minimap, run, plate_corner)
+            } else {
+                run
+            }
+        };
+        // The panels are laid along the band as one row where it is wide enough for one, beside a
         // minimap in the corner the row can start from.
         let row_along = |run: Span| {
             if minimap_on_left {
@@ -211,10 +224,10 @@ impl ObserverPanels {
         let playback_controls_shown = has_playback_controls && prefs.playback_controls;
         let plate = playback_controls_shown.then(|| {
             let corner = PlaybackControlsPlacement::default().rect(screen);
-            let run = bottom_run(0.0);
+            let band = bottom_band(0.0);
             let beside = Span {
-                right: run.right.min(corner.left() - gap),
-                ..run
+                right: band.right.min(corner.left() - gap),
+                ..band
             };
             dock_stand::PlateCorner {
                 top: corner.top() - gap,
@@ -222,10 +235,17 @@ impl ObserverPanels {
                     || beside.width() >= observer::MIN_STACK_WIDTH,
             }
         });
+        // The selection panel at the end of the row only stands under the dock's column where the
+        // band runs that far.
+        let band_at_edge = bottom_band(0.0);
         let row_end = (!playback_controls_shown
             && prefs.selection
-            && row_along(bottom_run(0.0)).is_some())
-        .then(|| screen.bottom() - observer::WING_MARGIN - observer::selection::PANEL_HEIGHT - gap);
+            && row_along(band_at_edge).is_some()
+            && band_at_edge.right
+                > screen.right() - observer::WING_MARGIN - observer::DOCK_RESERVE)
+            .then(|| {
+                screen.bottom() - observer::WING_MARGIN - observer::selection::PANEL_HEIGHT - gap
+            });
         let stand = dock_stand::stand_dock(&dock_stand::RightEdge {
             plate,
             row_end,
@@ -274,7 +294,7 @@ impl ObserverPanels {
         );
         hit_rects.extend(minimap_rects.into_iter().map(HitRect::new));
 
-        let mut span = bottom_run(row_inset);
+        let mut span = bottom_band(row_inset);
         let mut playback_placement = PlaybackControlsPlacement::default();
         let dock_width = observer::dock::column_width(prefs.dock_expanded);
         // How far the plate stands in to clear the dock's column, following the dock off the edge
@@ -308,11 +328,17 @@ impl ObserverPanels {
                 } else {
                     playback_placement.right_inset = dock_clearance;
                     plate = PlateStand::Stack;
+                    span = bottom_run(row_inset);
                 }
                 None
             }
         } else {
-            row_along(span)
+            let row = row_along(span);
+            // Too narrow even for the stack, it has the whole run.
+            if row.is_none() && span.width() < observer::MIN_STACK_WIDTH {
+                span = bottom_run(row_inset);
+            }
+            row
         };
         let dock = stand.placement;
         let dock = hold(&mut self.held_dock, prefs.dock, dock);
@@ -951,7 +977,7 @@ mod tests {
     }
 
     #[test]
-    fn the_selection_panel_slides_along_the_edge_when_the_plate_makes_room() {
+    fn the_selection_panel_stands_still_as_the_plate_comes_and_goes() {
         let ctx = fresh_ctx();
         let mut shell = spectating_shell();
         let (playback, game) = (replay(), with_a_selection(empty_game()));
@@ -972,23 +998,17 @@ mod tests {
         for _ in 0..6 {
             frame(&mut shell, 0.5);
         }
-        let beside_plate = selection(&frame(&mut shell, 0.5));
+        let standing = selection(&frame(&mut shell, 0.5));
+        // Out of the plate's corner, which stays the plate's or the viewer's.
+        let corner = crate::playback_controls::PlaybackControlsPlacement::default()
+            .rect(egui::Rect::from_min_size(egui::Pos2::ZERO, screen));
+        assert!(standing.right() < corner.left(), "{standing:?}");
 
-        assert!(shell.key_pressed(Key::Y, Modifiers::NONE));
-        let mut path = Vec::new();
-        for _ in 0..20 {
-            path.push(selection(&frame(&mut shell, 0.03)).right());
-        }
-        let settled = *path.last().unwrap();
-        assert!(settled > beside_plate.right(), "{path:?}");
-        // Every step along the way is a short one: it slides rather than jumping.
-        let mut from = beside_plate.right();
-        for &to in &path {
-            assert!(
-                to - from < (settled - beside_plate.right()) * 0.5,
-                "{path:?}"
-            );
-            from = to;
+        for _ in 0..2 {
+            assert!(shell.key_pressed(Key::Y, Modifiers::NONE));
+            for _ in 0..20 {
+                assert_eq!(selection(&frame(&mut shell, 0.03)), standing);
+            }
         }
     }
 
