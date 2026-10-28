@@ -3383,6 +3383,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(debug_assertions)]
     fn debug_snapshot_reflects_mapped_and_unmapped_slots() {
         use crate::debug_control::TurnSlotSnapshot;
 
@@ -3509,6 +3510,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(debug_assertions)]
     fn forced_unsynced_leaves_reject_local_slot_and_queue_remote_slot() {
         let (mut state, _in_tx, _out_rx, _leave_tx, _leave_intent_rx, _lobby_out_rx, _lobby_in_tx) =
             turn_state();

@@ -365,6 +365,7 @@ pub fn send_message<'a, T: serde::Serialize>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(debug_assertions)]
     use crate::debug_control::DebugControlCommand;
 
     #[test]
@@ -377,6 +378,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(debug_assertions)]
     fn debug_control_ping_dispatches_to_game_state() {
         let result =
             handle_app_message(r#"{"command":"debugControl","payload":{"type":"ping"}}"#.into());
@@ -389,6 +391,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(debug_assertions)]
     fn debug_control_query_state_dispatches_to_game_state() {
         let result = handle_app_message(
             r#"{"command":"debugControl","payload":{"type":"queryState"}}"#.into(),
@@ -402,6 +405,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(debug_assertions)]
     fn debug_control_force_unsynced_leave_dispatches_to_game_state() {
         let result = handle_app_message(
             r#"{"command":"debugControl","payload":{"type":"forceUnsyncedLeave","slot":2}}"#.into(),
@@ -415,6 +419,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(debug_assertions)]
     fn debug_control_leave_game_dispatches_to_game_state() {
         let result = handle_app_message(
             r#"{"command":"debugControl","payload":{"type":"leaveGame"}}"#.into(),
@@ -428,6 +433,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(debug_assertions)]
     fn debug_control_force_desync_dispatches_to_game_state() {
         let result = handle_app_message(
             r#"{"command":"debugControl","payload":{"type":"forceDesync"}}"#.into(),
@@ -441,6 +447,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(debug_assertions)]
     fn debug_control_screenshot_dispatches_to_game_state() {
         let result = handle_app_message(
             r#"{"command":"debugControl","payload":{"type":"screenshot"}}"#.into(),
@@ -454,6 +461,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(debug_assertions)]
     fn debug_control_send_chat_dispatches_to_game_state() {
         let result = handle_app_message(
             r#"{"command":"debugControl","payload":{"type":"sendChat","text":"gg"}}"#.into(),
@@ -467,6 +475,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(debug_assertions)]
     fn debug_control_request_drop_dispatches_to_game_state() {
         let result = handle_app_message(
             r#"{"command":"debugControl","payload":{"type":"requestDrop","slot":1}}"#.into(),
