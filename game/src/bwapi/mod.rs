@@ -32,10 +32,10 @@ impl BridgeAccess {
         }
     }
 
-    fn enabled(&self, local: bool, instance: bool, legacy: bool, development: bool) -> bool {
+    fn enabled(&self, local: bool, instance: bool) -> bool {
         self.untracked.load(Ordering::Acquire)
-            && ((self.local_session.load(Ordering::Acquire) && local && instance)
-                || (development && requested_for_launch(local, instance, legacy, true)))
+            && self.local_session.load(Ordering::Acquire)
+            && requested_for_launch(local, instance)
     }
 }
 
@@ -49,28 +49,18 @@ pub(crate) fn establish_local_session() {
     ACCESS.establish_local_session();
 }
 
-/// Release bridge execution requires an established, untracked local session.
+/// Bridge execution requires an established, untracked local session.
 pub fn enabled() -> bool {
-    ACCESS.enabled(
-        crate::is_local_game(),
-        crate::bwapi_instance().is_some(),
-        std::env::var_os("SB_BWAPI").is_some(),
-        cfg!(debug_assertions),
-    )
+    ACCESS.enabled(crate::is_local_game(), crate::bwapi_instance().is_some())
 }
 
 /// Terrain analysis runs before transport establishment and cannot start a bridge.
 pub(crate) fn analysis_requested() -> bool {
-    requested_for_launch(
-        crate::is_local_game(),
-        crate::bwapi_instance().is_some(),
-        std::env::var_os("SB_BWAPI").is_some(),
-        cfg!(debug_assertions),
-    )
+    requested_for_launch(crate::is_local_game(), crate::bwapi_instance().is_some())
 }
 
-fn requested_for_launch(local: bool, instance: bool, legacy: bool, development: bool) -> bool {
-    (local && instance) || (development && (instance || (legacy && !local)))
+fn requested_for_launch(local: bool, instance: bool) -> bool {
+    local && instance
 }
 
 #[cfg(test)]
@@ -78,49 +68,47 @@ mod tests {
     use super::*;
 
     #[test]
-    fn bridge_requires_local_session_and_refuses_tracked_or_relay_games() {
+    fn bridge_requires_established_untracked_local_session_and_instance() {
         let access = BridgeAccess::new();
-        assert!(requested_for_launch(true, true, false, false));
-        assert!(!access.enabled(true, true, false, false));
-        access.configure(false, false);
-        assert!(!access.enabled(true, true, false, false));
+        assert!(!access.enabled(true, true));
         access.establish_local_session();
-        assert!(access.enabled(true, true, false, false));
-        assert!(!access.enabled(true, false, true, false));
-        assert!(!access.enabled(false, true, true, false));
-        for (tracked, relay) in [(true, false), (false, true), (true, true)] {
-            access.configure(tracked, relay);
-            access.establish_local_session();
-            for development in [false, true] {
-                assert!(!access.enabled(true, true, true, development));
-                assert!(!access.enabled(false, true, true, development));
+        assert!(!access.enabled(true, true));
+        access.configure(false, false);
+        assert!(!access.enabled(true, true));
+        access.establish_local_session();
+        for local in [false, true] {
+            for instance in [false, true] {
+                assert_eq!(access.enabled(local, instance), local && instance);
             }
         }
+        // Reconfiguration must discard the established session even when still untracked.
         access.configure(false, false);
-        assert!(!access.enabled(true, true, false, false));
-        assert!(access.enabled(false, true, false, true));
-        assert!(access.enabled(false, false, true, true));
+        assert!(!access.enabled(true, true));
     }
 
     #[test]
-    fn release_terrain_analysis_requires_local_instance() {
-        for legacy in [false, true] {
+    fn bridge_refuses_tracked_or_relay_games() {
+        let access = BridgeAccess::new();
+        for (tracked, relay) in [(true, false), (false, true), (true, true)] {
+            access.configure(false, false);
+            access.establish_local_session();
+            assert!(access.enabled(true, true));
+            access.configure(tracked, relay);
+            access.establish_local_session();
             for local in [false, true] {
                 for instance in [false, true] {
-                    assert_eq!(
-                        requested_for_launch(local, instance, legacy, false),
-                        local && instance
-                    );
+                    assert!(!access.enabled(local, instance));
                 }
             }
         }
     }
 
     #[test]
-    fn development_retains_explicit_and_legacy_discovery() {
-        assert!(requested_for_launch(false, true, false, true));
-        assert!(requested_for_launch(false, false, true, true));
-        assert!(!requested_for_launch(true, false, true, true));
-        assert!(!requested_for_launch(false, false, false, true));
+    fn terrain_analysis_requires_local_instance() {
+        for local in [false, true] {
+            for instance in [false, true] {
+                assert_eq!(requested_for_launch(local, instance), local && instance);
+            }
+        }
     }
 }

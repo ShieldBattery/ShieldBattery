@@ -73,10 +73,11 @@ frames advance. Live games continue incrementing native render calls. The counte
 are compiled out of release DLLs.
 
 The normal `launch32Bit` setting still chooses the executable architecture. Use an
-isolated `SB_SESSION` for testing. To attach an existing external bot, additionally
-set `SB_BWAPI=1` before starting that Electron process and follow the
-[BWAPI bridge launch instructions](../tools/bwapi/README.md#launch). Background
-presentation does not enable BWAPI by itself or change its compatibility limits.
+isolated `SB_SESSION` for testing. To run an external bot, use the
+[supervised local practice API](local-bots-launch-api.md), which assigns its
+isolated discovery instance and starts the bot process. Background presentation
+does not enable BWAPI by itself; server-tracked and relay games cannot activate
+the bridge in either debug or release DLLs.
 
 ## Verification, 2026-09-21
 
