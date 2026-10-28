@@ -545,8 +545,10 @@ impl<'a> Hint<'a> {
 
     /// Names `action`'s key on the card for `response`, should the pointer be resting on it.
     fn action(&mut self, response: &Response, title: impl FnOnce() -> String, action: Action) {
-        let key = self.hotkeys.chord_for(action).map(|chord| (chord, false));
-        self.hovered(response, title, key);
+        let hotkeys = self.hotkeys;
+        self.hovered(response, title, || {
+            hotkeys.chord_for(action).map(|chord| (chord, false))
+        });
     }
 
     /// Puts `title` and `key` on the card for `response`, should the pointer be resting on it: the
@@ -556,7 +558,7 @@ impl<'a> Hint<'a> {
         &mut self,
         response: &Response,
         title: impl FnOnce() -> String,
-        key: Option<(Chord, bool)>,
+        key: impl FnOnce() -> Option<(Chord, bool)>,
     ) {
         if self.shown.is_some() {
             return;
@@ -564,7 +566,7 @@ impl<'a> Hint<'a> {
         let Some(pointer) = response.hover_pos() else {
             return;
         };
-        let keycaps = key.map_or_else(Vec::new, |(chord, shift)| chord.keycaps(shift));
+        let keycaps = key().map_or_else(Vec::new, |(chord, shift)| chord.keycaps(shift));
         self.shown = Some((pointer, title(), keycaps));
     }
 
@@ -918,8 +920,8 @@ fn draw_jump_row(
         }
         let chip =
             widgets::chip_button(ui, &spec, &jump_label(delta), vec2(CHIP_WIDTH, CHIP_HEIGHT));
-        let key = jump_chord(hint.hotkeys, delta);
-        hint.hovered(&chip, || jump_title(delta), key);
+        let hotkeys = hint.hotkeys;
+        hint.hovered(&chip, || jump_title(delta), || jump_chord(hotkeys, delta));
         if chip.clicked() {
             outcome.seek_to = Some(view.seek_target(delta));
         }
