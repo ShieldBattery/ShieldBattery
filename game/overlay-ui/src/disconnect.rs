@@ -68,6 +68,12 @@ const ROW_SPACING: f32 = 10.0;
 /// The gap between two things inside a row.
 const ROW_GAP: f32 = 12.0;
 
+/// The gap after a row's status dot, and the one between the square of the player's color and their
+/// name. The square belongs to the name, so the two sit close, and the dot, which says how the
+/// player's link stands, keeps apart from both.
+const DOT_GAP: f32 = 18.0;
+const SWATCH_GAP: f32 = 8.0;
+
 /// Width of the column the square of a player's own color stands in.
 const COLOR_BAR: f32 = crate::observer::PLAYER_SWATCH;
 
@@ -566,11 +572,12 @@ fn draw_row(ui: &mut Ui, row: &DisconnectRowView, clicked: &mut Vec<u8>) {
     } else {
         0.0
     };
-    // Three gaps are always spent: after the dot, after the color bar, and before the state
+    // Three gaps are always spent: after the dot, after the color square, and before the state
     // column. Everything left over after them and the fixed columns is the name's, and whatever
     // the name does not use is slack between it and the state, so a short name and its teammate
     // label stay together instead of drifting apart across the row.
-    let fixed = DOT_DIAMETER + COLOR_BAR + ROW_GAP * 3.0 + STATE_WIDTH + button_column;
+    let fixed =
+        DOT_DIAMETER + DOT_GAP + COLOR_BAR + SWATCH_GAP + ROW_GAP + STATE_WIDTH + button_column;
     let middle = (width - ROW_PAD_X * 2.0 - fixed).max(0.0);
     let name_width = text::player_name(NAME_SIZE)
         .galley(ui, &row.name)
@@ -590,9 +597,9 @@ fn draw_row(ui: &mut Ui, row: &DisconnectRowView, clicked: &mut Vec<u8>) {
         |ui| {
             ui.spacing_mut().item_spacing = Vec2::ZERO;
             widgets::status_dot(ui, dot_color(row.state), row.state.is_waiting());
-            ui.add_space(ROW_GAP);
+            ui.add_space(DOT_GAP);
             color_bar(ui, row.color);
-            ui.add_space(ROW_GAP);
+            ui.add_space(SWATCH_GAP);
             cell(
                 ui,
                 name_width,
