@@ -412,7 +412,6 @@
     "reveal": "Reveal",
     "showLength": "Show length",
     "slower": "Slower",
-    "speed": "×{{rate}}",
-    "withKey": "{{action}} ({{key}})"
+    "speed": "×{{rate}}"
   }
 }

@@ -445,18 +445,15 @@ fn draw_hint(ui: &Ui, hint: &Hint) {
         Id::new("sb_obs_dock").with("hint"),
         hint.anchor,
         |ui| {
-            ui.spacing_mut().item_spacing = vec2(0.0, theme::SPACE_XS);
-            ui.label(text::body(13.0, BodyWeight::Medium).job(&hint.title));
-            if hint.displaced {
-                ui.label(
-                    text::body(12.0, BodyWeight::Regular)
-                        .with_color(theme::TEXT_SECONDARY)
-                        .job(&tr!("observer.dockNoRoom", "No room for it on this screen")),
-                );
-            }
-            if let Some(key) = &hint.key {
-                widgets::kbd(ui, key);
-            }
+            let note = hint
+                .displaced
+                .then(|| tr!("observer.dockNoRoom", "No room for it on this screen"));
+            widgets::hint_card(
+                ui,
+                &hint.title,
+                note.as_deref(),
+                hint.key.as_deref().as_slice(),
+            );
         },
     );
 }

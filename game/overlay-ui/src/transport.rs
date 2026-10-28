@@ -530,8 +530,9 @@ fn draw_plate(
 /// and the key that does the same without the pointer.
 struct Hint<'a> {
     hotkeys: &'a Hotkeys,
-    /// Where the pointer is and what the card says, once a control is found under it.
-    shown: Option<(Pos2, String)>,
+    /// Where the pointer is, what the control does, and the keycaps of its key, once a control is
+    /// found under it.
+    shown: Option<(Pos2, String, Vec<&'static str>)>,
 }
 
 impl<'a> Hint<'a> {
@@ -544,20 +545,18 @@ impl<'a> Hint<'a> {
 
     /// Names `action`'s key on the card for `response`, should the pointer be resting on it.
     fn action(&mut self, response: &Response, title: impl FnOnce() -> String, action: Action) {
-        let key = self
-            .hotkeys
-            .chord_for(action)
-            .map(|chord| chord.label(false));
+        let key = self.hotkeys.chord_for(action).map(|chord| (chord, false));
         self.hovered(response, title, key);
     }
 
-    /// Puts `title` and `key` on the card for `response`, should the pointer be resting on it. The
-    /// title is only worked out for the one control under the pointer.
+    /// Puts `title` and `key` on the card for `response`, should the pointer be resting on it: the
+    /// chord, and whether it is pressed with `Shift`. The card's contents are only worked out for
+    /// the one control under the pointer.
     fn hovered(
         &mut self,
         response: &Response,
         title: impl FnOnce() -> String,
-        key: Option<String>,
+        key: Option<(Chord, bool)>,
     ) {
         if self.shown.is_some() {
             return;
@@ -565,21 +564,12 @@ impl<'a> Hint<'a> {
         let Some(pointer) = response.hover_pos() else {
             return;
         };
-        let title = title();
-        let text = match key {
-            Some(key) => tr!(
-                "transport.withKey",
-                "{{action}} ({{key}})",
-                action = title,
-                key = key
-            ),
-            None => title,
-        };
-        self.shown = Some((pointer, text));
+        let keycaps = key.map_or_else(Vec::new, |(chord, shift)| chord.keycaps(shift));
+        self.shown = Some((pointer, title(), keycaps));
     }
 
     fn draw(self, ui: &Ui) {
-        let Some((pointer, text)) = self.shown else {
+        let Some((pointer, title, keycaps)) = self.shown else {
             return;
         };
         // Over the control rather than under it: the plate sits on the screen's bottom edge, and a
@@ -588,9 +578,7 @@ impl<'a> Hint<'a> {
             ui.ctx(),
             Id::new("sb_replay_transport").with("hint"),
             pointer,
-            |ui| {
-                ui.label(text::body(13.0, BodyWeight::Medium).job(&text));
-            },
+            |ui| widgets::hint_card(ui, &title, None, &keycaps),
         );
     }
 }
@@ -930,7 +918,7 @@ fn draw_jump_row(
         }
         let chip =
             widgets::chip_button(ui, &spec, &jump_label(delta), vec2(CHIP_WIDTH, CHIP_HEIGHT));
-        let key = jump_chord(hint.hotkeys, delta).map(|(chord, shift)| chord.label(shift));
+        let key = jump_chord(hint.hotkeys, delta);
         hint.hovered(&chip, || jump_title(delta), key);
         if chip.clicked() {
             outcome.seek_to = Some(view.seek_target(delta));
@@ -1233,18 +1221,18 @@ mod tests {
             assert_eq!(
                 hotkeys.action_for(chord.key, modifiers),
                 Some(expected),
-                "the {delta}s chip names {}",
-                chord.label(shift)
+                "the {delta}s chip names {:?}",
+                chord.keycaps(shift)
             );
             assert_eq!(seek_step_secs(modifiers), delta.abs(), "{delta}s");
         }
         assert_eq!(
-            jump_chord(&hotkeys, -SEEK_STEP_LONG_SECS).map(|(chord, shift)| chord.label(shift)),
-            Some("Shift+,".to_string())
+            jump_chord(&hotkeys, -SEEK_STEP_LONG_SECS).map(|(chord, shift)| chord.keycaps(shift)),
+            Some(vec!["Shift", ","])
         );
         assert_eq!(
-            jump_chord(&hotkeys, SEEK_STEP_LONGEST_SECS).map(|(chord, shift)| chord.label(shift)),
-            Some("Ctrl+.".to_string())
+            jump_chord(&hotkeys, SEEK_STEP_LONGEST_SECS).map(|(chord, shift)| chord.keycaps(shift)),
+            Some(vec!["Ctrl", "."])
         );
     }
 
@@ -1501,17 +1489,27 @@ mod tests {
     fn a_hovered_control_names_its_key() {
         // A context per pointer: each render starts the clock over, which one context would not
         // let run backwards.
-        let card = |pointer| {
+        // The card is drawn over everything else, so its title is followed only by its keycaps.
+        let keycaps = |pointer, title: &str| {
             let (_, texts) = settle(&fresh_ctx(), &view(), Some(pointer));
-            texts
-                .into_iter()
-                .find(|text| text.ends_with(')'))
-                .unwrap_or_default()
+            match texts.iter().rposition(|text| text == title) {
+                Some(index) => texts[index + 1..].to_vec(),
+                None => panic!("no card titled {title:?} among {texts:?}"),
+            }
         };
-        assert_eq!(card(jump_row_point(3, true)), "Pause (P)");
-        assert_eq!(card(jump_row_point(0, false)), "Back 5 minutes (Ctrl+,)");
-        assert_eq!(card(jump_row_point(4, false)), "Forward 1 minute (Shift+.)");
-        assert_eq!(card(jump_row_point(3, false)), "Forward 10 seconds (.)");
+        assert_eq!(keycaps(jump_row_point(3, true), "Pause"), ["P"]);
+        assert_eq!(
+            keycaps(jump_row_point(0, false), "Back 5 minutes"),
+            ["Ctrl", ","]
+        );
+        assert_eq!(
+            keycaps(jump_row_point(4, false), "Forward 1 minute"),
+            ["Shift", "."]
+        );
+        assert_eq!(
+            keycaps(jump_row_point(3, false), "Forward 10 seconds"),
+            ["."]
+        );
     }
 
     /// Both forms share one footprint, so switching between them moves nothing on screen and the

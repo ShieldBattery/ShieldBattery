@@ -182,13 +182,14 @@ impl Preset {
 /// translated strings, picked as the busiest state each one has, since that is where long text runs
 /// out of room first. The kitchen sink is left out — it is a specimen sheet of the kit, not a screen
 /// whose copy is translated.
-pub const PSEUDOLOCALE_PRESETS: [Preset; 11] = [
+pub const PSEUDOLOCALE_PRESETS: [Preset; 12] = [
     Preset::Disconnect(disconnect::Preset::Droppable),
     Preset::NetStat(netstat::Preset::Degraded),
     Preset::ChatHistory(chat_history::Preset::Busy),
     Preset::Alliances(alliances::Preset::Crowded),
     Preset::Alliances(alliances::Preset::Staged),
     Preset::Transport(transport::Preset::SpoilerFree),
+    Preset::Observer(observer::Preset::hover_showcase(observer::Hover::JumpChip)),
     Preset::Observer(observer::Preset::game(6, 3, observer::Screen::Analyst)),
     Preset::Shell(shell::Preset::PlayerGameMenu),
     Preset::Shell(shell::Preset::Options(OptionsSection::Gameplay)),

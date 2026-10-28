@@ -164,20 +164,21 @@ impl Chord {
         }
     }
 
-    /// How this chord reads where a surface names it, `shift` adding the Shift that scales an
-    /// action: `.`, `Shift+.`, `Ctrl+.`.
-    pub fn label(self, shift: bool) -> String {
-        let mut label = String::new();
+    /// The keycaps a surface shows for this chord, in the order they are written, `shift` adding
+    /// the Shift that scales an action: `[.]`, `[Shift, .]`, `[Ctrl, Shift, .]`. Modifiers keep
+    /// their English names, which is how keyboards print them in every language we ship.
+    pub fn keycaps(self, shift: bool) -> Vec<&'static str> {
+        let mut keycaps = Vec::with_capacity(3);
         match self.held {
             Held::Bare => {}
-            Held::Ctrl => label.push_str("Ctrl+"),
-            Held::Alt => label.push_str("Alt+"),
+            Held::Ctrl => keycaps.push("Ctrl"),
+            Held::Alt => keycaps.push("Alt"),
         }
         if shift {
-            label.push_str("Shift+");
+            keycaps.push("Shift");
         }
-        label.push_str(self.key.symbol_or_name());
-        label
+        keycaps.push(self.key.symbol_or_name());
+        keycaps
     }
 
     /// Whether this keypress is this chord.
@@ -346,6 +347,17 @@ mod tests {
             command: true,
             ..Modifiers::NONE
         }
+    }
+
+    #[test]
+    fn keycaps_put_ctrl_or_alt_before_shift() {
+        assert_eq!(Chord::new(Key::Period).keycaps(false), ["."]);
+        assert_eq!(Chord::new(Key::Period).keycaps(true), ["Shift", "."]);
+        assert_eq!(
+            Chord::ctrl(Key::Comma).keycaps(true),
+            ["Ctrl", "Shift", ","]
+        );
+        assert_eq!(Chord::alt(Key::A).keycaps(true), ["Alt", "Shift", "A"]);
     }
 
     #[test]
