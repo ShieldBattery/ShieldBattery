@@ -107,6 +107,15 @@ if errorlevel 1 exit /b 1
     echo.
     type "%%f"
   )
+  for %%f in ("%scriptroot%\files\icons\*-LICENSE.txt") do (
+    set iconsname=%%~nf
+    echo.
+    echo ================================================================================
+    echo Icons: !iconsname:-LICENSE=!
+    echo --------------------------------------------------------------------------------
+    echo.
+    type "%%f"
+  )
 ) > "%scriptroot%\dist\THIRD_PARTY_NOTICES.txt"
 echo Wrote %scriptroot%\dist\THIRD_PARTY_NOTICES.txt
 exit /b 0

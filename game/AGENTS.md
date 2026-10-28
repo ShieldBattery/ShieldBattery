@@ -81,4 +81,5 @@ method in `scr-analysis/src/lib.rs`, not new analysis work.
 lacks a `license` field or its package lacks the license file, add a clarification to both configs
 rather than widening the allowlist. New embedded or shipped fonts need their license file next to
 the font in `files/fonts/` or `files/fonts/dynamic/` (named `<Font>-LICENSE.txt`) so the notices
-pick it up.
+pick it up. Glyphs drawn from a third-party icon set (such as Material Symbols outlines) need the
+set's license in `files/icons/` (named `<IconSet>-LICENSE.txt`) the same way.
