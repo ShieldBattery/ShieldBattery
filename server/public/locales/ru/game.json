@@ -415,11 +415,33 @@
     "windowedFullscreen": "Окно без рамки"
   },
   "transport": {
+    "backMinutes_one": "Назад на {{count}} минуту",
+    "backMinutes_few": "Назад на {{count}} минуты",
+    "backMinutes_many": "Назад на {{count}} минут",
+    "backMinutes_other": "Назад на {{count}} минуты",
+    "backSeconds_one": "Назад на {{count}} секунду",
+    "backSeconds_few": "Назад на {{count}} секунды",
+    "backSeconds_many": "Назад на {{count}} секунд",
+    "backSeconds_other": "Назад на {{count}} секунды",
+    "faster": "Быстрее",
+    "forwardMinutes_one": "Вперёд на {{count}} минуту",
+    "forwardMinutes_few": "Вперёд на {{count}} минуты",
+    "forwardMinutes_many": "Вперёд на {{count}} минут",
+    "forwardMinutes_other": "Вперёд на {{count}} минуты",
+    "forwardSeconds_one": "Вперёд на {{count}} секунду",
+    "forwardSeconds_few": "Вперёд на {{count}} секунды",
+    "forwardSeconds_many": "Вперёд на {{count}} секунд",
+    "forwardSeconds_other": "Вперёд на {{count}} секунды",
+    "hideLength": "Скрыть длительность",
     "jumpMinutes": "{{step}}м",
     "jumpSeconds": "{{step}}с",
     "lengthHidden": "Длительность скрыта",
+    "pause": "Пауза",
     "paused": "Пауза",
+    "play": "Воспроизвести",
     "reveal": "Показать",
+    "showLength": "Показать длительность",
+    "slower": "Медленнее",
     "speed": "×{{rate}}"
   }
 }

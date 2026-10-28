@@ -404,11 +404,29 @@
     "windowedFullscreen": "Ventana completa"
   },
   "transport": {
+    "backMinutes_one": "Retroceder {{count}} minuto",
+    "backMinutes_many": "Retroceder {{count}} de minutos",
+    "backMinutes_other": "Retroceder {{count}} minutos",
+    "backSeconds_one": "Retroceder {{count}} segundo",
+    "backSeconds_many": "Retroceder {{count}} de segundos",
+    "backSeconds_other": "Retroceder {{count}} segundos",
+    "faster": "Más rápido",
+    "forwardMinutes_one": "Avanzar {{count}} minuto",
+    "forwardMinutes_many": "Avanzar {{count}} de minutos",
+    "forwardMinutes_other": "Avanzar {{count}} minutos",
+    "forwardSeconds_one": "Avanzar {{count}} segundo",
+    "forwardSeconds_many": "Avanzar {{count}} de segundos",
+    "forwardSeconds_other": "Avanzar {{count}} segundos",
+    "hideLength": "Ocultar duración",
     "jumpMinutes": "{{step}}m",
     "jumpSeconds": "{{step}}s",
     "lengthHidden": "Duración oculta",
+    "pause": "Pausar",
     "paused": "En pausa",
+    "play": "Reproducir",
     "reveal": "Mostrar",
+    "showLength": "Mostrar duración",
+    "slower": "Más lento",
     "speed": "×{{rate}}"
   }
 }

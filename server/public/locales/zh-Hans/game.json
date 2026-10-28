@@ -382,11 +382,21 @@
     "windowedFullscreen": "全屏窗口"
   },
   "transport": {
+    "backMinutes_other": "快退 {{count}} 分钟",
+    "backSeconds_other": "快退 {{count}} 秒",
+    "faster": "加速",
+    "forwardMinutes_other": "快进 {{count}} 分钟",
+    "forwardSeconds_other": "快进 {{count}} 秒",
+    "hideLength": "隐藏时长",
     "jumpMinutes": "{{step}}分",
     "jumpSeconds": "{{step}}秒",
     "lengthHidden": "已隐藏时长",
+    "pause": "暂停",
     "paused": "已暂停",
+    "play": "播放",
     "reveal": "显示",
+    "showLength": "显示时长",
+    "slower": "减速",
     "speed": "×{{rate}}"
   }
 }
