@@ -35,6 +35,8 @@ pub mod kind {
     pub const DECLOAK: i32 = 21;
     pub const SIEGE: i32 = 22;
     pub const UNSIEGE: i32 = 23;
+    pub const LIFT: i32 = 24;
+    pub const LAND: i32 = 25;
     pub const RIGHT_CLICK_POSITION: i32 = 30;
     pub const RIGHT_CLICK_UNIT: i32 = 31;
     pub const CANCEL_CONSTRUCTION: i32 = 33;
@@ -51,6 +53,9 @@ const RIGHT_CLICK: u8 = 0x60;
 const TARGETED_ORDER: u8 = 0x61;
 const BUILD: u8 = 0x0c;
 const BUILD_ADDON_ORDER: u8 = 0x24;
+const LIFT: u8 = 0x2f;
+const ORDER_BUILDING_LAND: u8 = 0x47;
+const ORDER_PLACE_MINE: u8 = 132;
 const SIEGE: u8 = 0x26;
 const UNSIEGE: u8 = 0x25;
 const STIM_PACK: u8 = 0x36;
@@ -96,6 +101,10 @@ const ORDER_REAVER_ATTACK: u8 = 0x3b;
 const ORDER_MEDIC_HEAL: u8 = 176;
 
 const TERRAN_MARINE: u16 = 0;
+const TERRAN_VULTURE: u16 = 2;
+const TERRAN_BARRACKS: u16 = 111;
+const TERRAN_ENGINEERING_BAY: u16 = 122;
+const ZERG_INFESTED_COMMAND_CENTER: u16 = 130;
 const TERRAN_SIEGE_TANK_TANK_MODE: u16 = 5;
 const TERRAN_SIEGE_TANK_SIEGE_MODE: u16 = 30;
 const TERRAN_FIREBAT: u16 = 32;
@@ -132,7 +141,7 @@ const ZERG_CREEP_COLONY: u16 = 143;
 
 /// Encodes one supported BWAPI command as a SC:R selection record followed by its action record.
 ///
-/// `map_size` is the map width and height in tiles. BWAPI `Build` uses tile coordinates; other
+/// `map_size` is the map width and height in tiles. BWAPI `Build` and `Land` use tile coordinates; other
 /// supported positional commands use pixel coordinates, which must be inside the corresponding
 /// tile dimensions multiplied by 32. `actor_id` and `target_id` are SC:R native unique IDs, where
 /// zero is not a valid actor or target ID. The caller is responsible for ownership and visibility
@@ -279,6 +288,23 @@ pub fn encode(
             matches!(command.extra, 0 | 5).then_some(())?;
             (actor_type == TERRAN_SIEGE_TANK_SIEGE_MODE).then_some(vec![UNSIEGE, 0])?
         }
+        kind::LIFT => {
+            no_target(target_id)?;
+            no_coordinates(command)?;
+            no_extra(command)?;
+            is_flying_building(actor_type).then_some(vec![LIFT, 0, 0, 0, 0])?
+        }
+        kind::LAND => {
+            no_target(target_id)?;
+            no_extra(command)?;
+            is_flying_building(actor_type).then_some(())?;
+            let (x, y) = tile_position(command.x, command.y, map_size)?;
+            let mut record = vec![BUILD, ORDER_BUILDING_LAND];
+            push_u16(&mut record, x);
+            push_u16(&mut record, y);
+            push_u16(&mut record, actor_type);
+            record
+        }
         kind::CLOAK | kind::DECLOAK => {
             no_target(target_id)?;
             no_coordinates(command)?;
@@ -303,6 +329,7 @@ pub fn encode(
             no_target(target_id)?;
             let (x, y) = pixel_position(command.x, command.y, map_size)?;
             let order = match (actor_type, command.extra) {
+                (TERRAN_VULTURE, 3) => ORDER_PLACE_MINE,
                 (TERRAN_COMSAT_STATION, 4) => ORDER_SCANNER_SWEEP,
                 (TERRAN_SCIENCE_VESSEL, 2) => ORDER_EMP_SHOCKWAVE,
                 _ => return None,
@@ -351,6 +378,19 @@ pub fn encode(
     };
 
     Some(vec![selection(actor_id), action])
+}
+
+fn is_flying_building(unit_type: u16) -> bool {
+    matches!(
+        unit_type,
+        TERRAN_COMMAND_CENTER
+            | TERRAN_BARRACKS
+            | TERRAN_FACTORY
+            | TERRAN_STARPORT
+            | TERRAN_SCIENCE_FACILITY
+            | TERRAN_ENGINEERING_BAY
+            | ZERG_INFESTED_COMMAND_CENTER
+    )
 }
 
 fn selection(actor_id: u32) -> Vec<u8> {
@@ -1054,6 +1094,85 @@ mod tests {
             assert!(encode(command(kind, 0, 0, extra), ACTOR, Some(TARGET), MAP, 160).is_none());
             assert!(encode(command(kind, 1, 0, extra), ACTOR, None, MAP, 160).is_none());
         }
+    }
+
+    #[test]
+    fn encodes_lift_land_and_spider_mines() {
+        for actor in [106, 111, 113, 114, 116, 122, 130] {
+            for (x, y) in [(0, 0), BWAPI_NONE_POSITION] {
+                assert_eq!(
+                    encoded(command(kind::LIFT, x, y, 0), None, actor)[1],
+                    [0x2f, 0, 0, 0, 0]
+                );
+            }
+            assert_eq!(
+                encoded(command(kind::LAND, 127, 95, 0), None, actor)[1],
+                [0x0c, 0x47, 127, 0, 95, 0, actor as u8, 0]
+            );
+        }
+        assert_eq!(
+            encoded(
+                command(kind::USE_TECH_POSITION, 3503, 2831, 3),
+                None,
+                TERRAN_VULTURE
+            )[1],
+            [0x61, 0xaf, 0x0d, 0x0f, 0x0b, 0, 0, 0, 0, 0xe4, 0, 132, 0]
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_flying_building_and_mine_commands() {
+        for actor in [
+            TERRAN_SCV,
+            TERRAN_COMSAT_STATION,
+            TERRAN_MACHINE_SHOP,
+            ZERG_HATCHERY,
+        ] {
+            assert!(encode(command(kind::LIFT, 0, 0, 0), ACTOR, None, MAP, actor).is_none());
+            assert!(encode(command(kind::LAND, 1, 1, 0), ACTOR, None, MAP, actor).is_none());
+        }
+        for invalid in [
+            command(kind::LIFT, 1, 0, 0),
+            command(kind::LIFT, 0, 0, 1),
+            command(kind::LAND, -1, 0, 0),
+            command(kind::LAND, 128, 0, 0),
+            command(kind::LAND, 0, 96, 0),
+            command(kind::LAND, 1, 1, 1),
+        ] {
+            assert!(encode(invalid, ACTOR, None, MAP, TERRAN_BARRACKS).is_none());
+        }
+        for kind in [kind::LIFT, kind::LAND, kind::USE_TECH_POSITION] {
+            assert!(
+                encode(
+                    command(kind, 0, 0, 0),
+                    ACTOR,
+                    Some(TARGET),
+                    MAP,
+                    TERRAN_BARRACKS
+                )
+                .is_none()
+            );
+        }
+        assert!(
+            encode(
+                command(kind::USE_TECH_POSITION, 10, 10, 3),
+                ACTOR,
+                None,
+                MAP,
+                TERRAN_MARINE
+            )
+            .is_none()
+        );
+        assert!(
+            encode(
+                command(kind::USE_TECH_POSITION, 4096, 10, 3),
+                ACTOR,
+                None,
+                MAP,
+                TERRAN_VULTURE
+            )
+            .is_none()
+        );
     }
 
     #[test]
