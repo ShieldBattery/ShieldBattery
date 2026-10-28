@@ -480,6 +480,25 @@ impl FamilyDetector {
         for (&other, _) in by_terrain.into_iter().take(MAX_CANDIDATES_PER_SOURCE) {
             add(other, false);
         }
+        // Files with the same scenario always pair up, even when more similar terrains than the
+        // per-source limit tie with them (fastest maps have dozens of identical-terrain copies).
+        if let Some(chk_hash) = &target.chk_hash {
+            let same_scenario = sqlx::query_scalar!(
+                r#"
+                    SELECT map_id as "map_id: SbMapId"
+                    FROM map_analysis
+                    WHERE chk_hash = $1 AND map_id <> $2
+                "#,
+                chk_hash,
+                target.id as _,
+            )
+            .fetch_all(&self.db)
+            .await
+            .wrap_err("Failed to load same-scenario maps")?;
+            for other in same_scenario {
+                add(other, false);
+            }
+        }
 
         let target_names: BTreeSet<_> = target
             .rule_map()
