@@ -208,7 +208,7 @@
     "minimapMenu": "Menu",
     "minimapMenuHint": "Game menu",
     "minimapVision": "Vision",
-    "minimapVisionHint": "Choose whose vision to show",
+    "minimapVisionHint": "Player vision",
     "minimapVisionTitle": "Vision",
     "panelControlGroups": "Control groups",
     "panelDock": "Dock",

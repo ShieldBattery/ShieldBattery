@@ -122,7 +122,7 @@ pub fn render_minimap_frame(
         draw_hint(
             ctx,
             &vision,
-            &tr!("observer.minimapVisionHint", "Choose whose vision to show"),
+            &tr!("observer.minimapVisionHint", "Player vision"),
             keys.vision,
         );
     } else if menu.hovered() {

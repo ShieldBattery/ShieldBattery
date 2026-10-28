@@ -281,8 +281,8 @@ impl Hotkeys {
             (Action::TogglePlaybackControls, Chord::new(Y)),
             (Action::TogglePlaybackControls, Chord::ctrl(Y)),
             (Action::TogglePlaybackControls, Chord::alt(Y)),
-            (Action::ToggleVisionPicker, Chord::ctrl(Z)),
             (Action::ToggleVisionPicker, Chord::alt(Z)),
+            (Action::ToggleVisionPicker, Chord::ctrl(Z)),
             // `Ctrl+R` is not taken: the game's own binding for it beats SC:R's side panel too.
             (Action::ToggleDock, Chord::new(R)),
             (Action::ToggleDock, Chord::alt(R)),
