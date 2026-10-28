@@ -204,7 +204,7 @@ impl ObserverPanels {
         let bottom_band = |inset: f32| {
             let run = bottom_run(inset);
             if minimap_on_left {
-                layout::bottom_band(screen, minimap, run, plate_corner)
+                layout::bottom_band(screen, run, plate_corner)
             } else {
                 run
             }
@@ -376,7 +376,7 @@ impl ObserverPanels {
                 row.selection,
                 observer::StackAnchor::Right,
                 row.column,
-                observer::StackAnchor::Left,
+                observer::StackAnchor::Right,
             ),
             None => (
                 span,
@@ -1010,6 +1010,38 @@ mod tests {
                 assert_eq!(selection(&frame(&mut shell, 0.03)), standing);
             }
         }
+    }
+
+    #[test]
+    fn the_bottom_row_stands_still_as_the_minimap_comes_and_goes() {
+        let ctx = fresh_ctx();
+        let mut shell = spectating_shell();
+        let (playback, game) = (replay(), with_a_selection(empty_game()));
+        let screen = egui::vec2(1920.0, 1080.0);
+        // BW's own minimap, a little smaller than the reserve kept for it while it is hidden.
+        let minimap = Rect::from_min_size(egui::pos2(12.0, 776.0), egui::vec2(292.0, 292.0));
+        let mut time = 0.0;
+        let mut frame = |shell: &mut crate::shell::Shell, minimap: Option<Rect>| {
+            time += 0.5;
+            run_watched_frame_with_minimap(shell, &ctx, &playback, &game, screen, minimap, time)
+        };
+        let selection = |output: &crate::shell::FrameOutput| {
+            output
+                .hit_rects
+                .iter()
+                .map(|hit| hit.rect)
+                .find(|rect| rect.width() == crate::observer::selection::PANEL_WIDTH)
+                .expect("the selection panel is up")
+        };
+        let mut hidden = None;
+        for _ in 0..6 {
+            hidden = Some(selection(&frame(&mut shell, None)));
+        }
+        let mut shown = None;
+        for _ in 0..6 {
+            shown = Some(selection(&frame(&mut shell, Some(minimap))));
+        }
+        assert_eq!(shown, hidden);
     }
 
     #[test]

@@ -173,12 +173,26 @@ pub(super) fn run_watched_frame_at(
     screen: egui::Vec2,
     time: f64,
 ) -> FrameOutput {
+    run_watched_frame_with_minimap(shell, ctx, playback, observer, screen, None, time)
+}
+
+/// [`run_watched_frame_at`] with the host reporting BW's minimap at `minimap`, or reporting none,
+/// as it does while the minimap is hidden.
+pub(super) fn run_watched_frame_with_minimap(
+    shell: &mut Shell,
+    ctx: &Context,
+    playback: &PlaybackView,
+    observer: &ObserverView,
+    screen: egui::Vec2,
+    minimap: Option<Rect>,
+    time: f64,
+) -> FrameOutput {
     let views = Views {
         playback: Some(playback),
         observer: Some(observer),
         ..Views::default()
     };
-    run_frame_on(shell, ctx, views, screen, time, Vec::new())
+    run_frame_on(shell, ctx, views, screen, minimap, time, Vec::new())
 }
 
 /// Runs one shell frame after `keys` were pressed, each offered to the shell first and handed to
@@ -212,7 +226,7 @@ fn run_frame_with_events(
         playback,
         ..Views::default()
     };
-    run_frame_on(shell, ctx, views, SCREEN, time, events)
+    run_frame_on(shell, ctx, views, SCREEN, None, time, events)
 }
 
 fn run_frame_on(
@@ -220,6 +234,7 @@ fn run_frame_on(
     ctx: &Context,
     mut views: Views<'_>,
     screen: egui::Vec2,
+    minimap_rect: Option<Rect>,
     time: f64,
     events: Vec<egui::Event>,
 ) -> FrameOutput {
@@ -231,7 +246,7 @@ fn run_frame_on(
         native_menu_open: false,
         game_seconds: 0,
         pause_control: None,
-        minimap_rect: None,
+        minimap_rect,
     };
     let raw = egui::RawInput {
         screen_rect: Some(Rect::from_min_size(egui::pos2(0.0, 0.0), screen)),
