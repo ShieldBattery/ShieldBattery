@@ -15,9 +15,16 @@
 //!
 //! The frame follows the minimap wherever the game puts it, being drawn from the square the host
 //! reports, and comes and goes with it.
+//!
+//! Its band runs on below the square to the screen's bottom edge. The view may scroll past the
+//! map's bottom edge, to keep the map's last rows clear of the panels along the bottom, and the
+//! game then draws the bottom of its screen box past the map's too: a band of a fixed depth hid
+//! that line while the box reached into it and showed it again once the box reached past it, where
+//! a band to the edge hides it however far the view goes.
 
 use egui::{
-    Align, Align2, Area, Context, Id, Order, Rect, Sense, Shape, Stroke, StrokeKind, Ui, pos2, vec2,
+    Align, Align2, Area, Context, Id, Mesh, Order, Rect, Sense, Shape, Stroke, StrokeKind, Ui,
+    pos2, vec2,
 };
 
 use crate::kit::text::{self, BodyWeight};
@@ -55,8 +62,8 @@ const PICKER_NAME_SIZE: f32 = 15.0;
 /// Gap between the list and the header it opens from.
 const PICKER_GAP: f32 = 6.0;
 
-/// How much of the screen the frame takes around a minimap at `square`: the band around the square
-/// and the header above it, kept on the screen.
+/// How much of the screen the frame takes around a minimap at `square`: the band around the square,
+/// run on down to the screen's bottom edge, and the header above it, kept on the screen.
 ///
 /// What the surfaces placed around the minimap keep clear of, whether or not the frame is drawn, so
 /// a watcher hiding the minimap does not find the panels moving into its corner.
@@ -64,7 +71,7 @@ pub(crate) fn footprint(screen: Rect, square: Rect) -> Rect {
     let band = square.expand(FRAME_PAD);
     Rect::from_min_max(
         pos2(band.left(), band.top() - HEADER_HEIGHT),
-        band.right_bottom(),
+        pos2(band.right(), band.bottom().max(screen.bottom())),
     )
     .intersect(screen)
 }
@@ -162,12 +169,32 @@ pub fn render_minimap_frame(
 /// both, leaving the square itself clear for the game's own map.
 fn paint_frame(ui: &Ui, outer: Rect, square: Rect, header: Rect) {
     let painter = ui.painter();
-    painter.add(Shape::rect_stroke(
-        square,
-        0,
-        Stroke::new(FRAME_PAD, theme::TIER0_FILL),
-        StrokeKind::Outside,
-    ));
+    // The band is four strips meeting at shared edges in one mesh rather than shapes laid over each
+    // other: the fill is translucent, so an overlap would read as a darker seam.
+    let mut band = Mesh::default();
+    for strip in [
+        Rect::from_min_max(
+            pos2(outer.left(), header.bottom()),
+            pos2(outer.right(), square.top()),
+        ),
+        Rect::from_min_max(
+            pos2(outer.left(), square.top()),
+            pos2(square.left(), square.bottom()),
+        ),
+        Rect::from_min_max(
+            pos2(square.right(), square.top()),
+            pos2(outer.right(), square.bottom()),
+        ),
+        Rect::from_min_max(
+            pos2(outer.left(), square.bottom()),
+            pos2(outer.right(), outer.bottom()),
+        ),
+    ] {
+        if strip.is_positive() {
+            band.add_colored_rect(strip, theme::TIER0_FILL);
+        }
+    }
+    painter.add(Shape::mesh(band));
     let corner_radius = theme::radius(theme::RADIUS_PANEL);
     painter.rect_filled(
         header,
@@ -372,5 +399,13 @@ mod tests {
         assert_eq!(outer.bottom(), 960.0);
         assert_eq!(outer.right(), 310.0 + FRAME_PAD);
         assert_eq!(outer.top(), 650.0 - FRAME_PAD - HEADER_HEIGHT);
+    }
+
+    #[test]
+    fn the_band_runs_on_to_the_screens_bottom_edge() {
+        let screen = Rect::from_min_size(pos2(0.0, 0.0), vec2(1920.0, 1080.0));
+        // Short of the edge by more than the band's own depth, as SC:R stands its minimap.
+        let square = Rect::from_min_size(pos2(12.0, 812.0), vec2(292.0, 260.0));
+        assert_eq!(footprint(screen, square).bottom(), 1080.0);
     }
 }
