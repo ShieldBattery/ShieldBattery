@@ -393,11 +393,25 @@
     "windowedFullscreen": "Windowed (Fullscreen)"
   },
   "transport": {
+    "backMinutes_one": "Back {{count}} minute",
+    "backMinutes_other": "Back {{count}} minutes",
+    "backSeconds_one": "Back {{count}} second",
+    "backSeconds_other": "Back {{count}} seconds",
+    "faster": "Faster",
+    "forwardMinutes_one": "Forward {{count}} minute",
+    "forwardMinutes_other": "Forward {{count}} minutes",
+    "forwardSeconds_one": "Forward {{count}} second",
+    "forwardSeconds_other": "Forward {{count}} seconds",
+    "hideLength": "Hide length",
     "jumpMinutes": "{{step}}m",
     "jumpSeconds": "{{step}}s",
     "lengthHidden": "Length hidden",
+    "pause": "Pause",
     "paused": "Paused",
+    "play": "Play",
     "reveal": "Reveal",
+    "showLength": "Show length",
+    "slower": "Slower",
     "speed": "×{{rate}}"
   }
 }

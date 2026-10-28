@@ -1,8 +1,10 @@
 //! The small card that names whatever the pointer is resting on.
 
 use egui::emath::TSTransform;
-use egui::{Area, Context, Id, Order, Pos2, Rect, Shape, Stroke, StrokeKind, Ui, Vec2, pos2};
+use egui::{Area, Context, Id, Order, Pos2, Rect, Shape, Stroke, StrokeKind, Ui, Vec2, pos2, vec2};
 
+use super::kbd;
+use crate::kit::text::{self, BodyWeight};
 use crate::kit::theme;
 use crate::kit::tiers;
 
@@ -37,6 +39,29 @@ pub fn tooltip(ctx: &Context, id: Id, anchor: Pos2, add: impl FnOnce(&mut Ui)) {
 /// otherwise cover the controls under it, as a replay's seek bar has its buttons below it.
 pub fn tooltip_above(ctx: &Context, id: Id, anchor: Pos2, add: impl FnOnce(&mut Ui)) {
     tooltip_on(ctx, id, anchor, TooltipSide::Above, add);
+}
+
+/// What a card naming a control says: what the control does, a `note` on how it stands where
+/// there is one, and the keycaps of the key that does the same without the pointer, in the order
+/// they are pressed.
+pub fn hint_card(ui: &mut Ui, title: &str, note: Option<&str>, keycaps: &[&str]) {
+    ui.spacing_mut().item_spacing = vec2(0.0, theme::SPACE_XS);
+    ui.label(text::body(13.0, BodyWeight::Medium).job(title));
+    if let Some(note) = note {
+        ui.label(
+            text::body(12.0, BodyWeight::Regular)
+                .with_color(theme::TEXT_SECONDARY)
+                .job(note),
+        );
+    }
+    if !keycaps.is_empty() {
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = theme::SPACE_XS;
+            for keycap in keycaps {
+                kbd(ui, keycap);
+            }
+        });
+    }
 }
 
 /// Which side of the pointer a card goes on where there is room for it.

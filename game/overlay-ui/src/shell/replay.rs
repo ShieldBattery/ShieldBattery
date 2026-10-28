@@ -140,11 +140,7 @@ impl ReplayCommands {
                 intents,
             ),
             Action::SeekBackward | Action::SeekForward => {
-                let step = if modifiers.shift {
-                    transport::SEEK_STEP_LONG_SECS
-                } else {
-                    transport::SEEK_STEP_SECS
-                };
+                let step = transport::seek_step_secs(modifiers);
                 let step = match action {
                     Action::SeekBackward => -step,
                     _ => step,
@@ -335,6 +331,26 @@ mod tests {
         assert_eq!(
             run_frame(&mut shell, &ctx, Some(&view)),
             [Intent::Seek(expected)]
+        );
+    }
+
+    #[test]
+    fn ctrl_takes_the_seek_keys_the_longest_step() {
+        let ctx = fresh_ctx();
+        let mut shell = spectating_shell();
+        let view = replay();
+        run_frame(&mut shell, &ctx, Some(&view));
+        let ctrl = Modifiers {
+            ctrl: true,
+            command: true,
+            ..Modifiers::NONE
+        };
+        assert!(shell.key_pressed(Key::Comma, ctrl));
+        assert_eq!(
+            run_frame(&mut shell, &ctx, Some(&view)),
+            [Intent::Seek(
+                view.seek_target(-crate::transport::SEEK_STEP_LONGEST_SECS)
+            )]
         );
     }
 

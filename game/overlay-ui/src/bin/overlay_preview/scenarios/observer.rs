@@ -1575,12 +1575,14 @@ pub enum Hover {
     None,
     /// Over the graphs plot, where the crosshair and its card are.
     Graphs,
-    /// Over the economy row's keycap on the collapsed dock.
-    DockEconomy,
+    /// Over the matchup row's keycap on the collapsed dock.
+    DockMatchup,
     /// Over one of the timeline's rows, which in a replay says what clicking it does.
     TimelineRow,
     /// Over one of the markers ticked along the replay plate's track.
     TrackMarker,
+    /// Over the replay plate's +1m chip, whose card names a chord of two keys.
+    JumpChip,
     /// Over the weapon upgrade of the unit the selection panel reads out, which names it, its
     /// level and the damage it comes to.
     UpgradeChip,
@@ -1592,9 +1594,10 @@ impl Hover {
         match self {
             Hover::None => None,
             Hover::Graphs => Some((1550.0, 380.0)),
-            Hover::DockEconomy => Some((1878.0, 402.0)),
+            Hover::DockMatchup => Some((1878.0, 346.0)),
             Hover::TimelineRow => Some((250.0, 336.0)),
             Hover::TrackMarker => Some((TRACK_MARKER_X, 996.0)),
+            Hover::JumpChip => Some((1830.0, 1040.0)),
             Hover::UpgradeChip => Some((UPGRADE_CHIP_X, UPGRADE_CHIP_Y)),
         }
     }
@@ -1604,9 +1607,10 @@ impl Hover {
         match self {
             Hover::None => "",
             Hover::Graphs => "graph-hover",
-            Hover::DockEconomy => "dock-hover",
+            Hover::DockMatchup => "dock-hover",
             Hover::TimelineRow => "timeline-hover",
             Hover::TrackMarker => "marker-hover",
+            Hover::JumpChip => "jump-chip-hover",
             Hover::UpgradeChip => "upgrade-hover",
         }
     }
@@ -1650,7 +1654,7 @@ impl Preset {
 
     /// A duel on the analyst's screen with the pointer resting on something, there to show what the
     /// overlay only says while it is being pointed at.
-    const fn hover_showcase(hover: Hover) -> Preset {
+    pub const fn hover_showcase(hover: Hover) -> Preset {
         Preset {
             players: 2,
             team_size: 1,
@@ -1660,7 +1664,7 @@ impl Preset {
         }
     }
 
-    pub const ALL: [Preset; 33] = [
+    pub const ALL: [Preset; 34] = [
         Preset::game(2, 1, Screen::Minimal),
         Preset::game(2, 1, Screen::Standard),
         Preset::game(2, 1, Screen::Analyst),
@@ -1705,9 +1709,10 @@ impl Preset {
             hover: Hover::None,
         },
         Preset::hover_showcase(Hover::Graphs),
-        Preset::hover_showcase(Hover::DockEconomy),
+        Preset::hover_showcase(Hover::DockMatchup),
         Preset::hover_showcase(Hover::TimelineRow),
         Preset::hover_showcase(Hover::TrackMarker),
+        Preset::hover_showcase(Hover::JumpChip),
         Preset::hover_showcase(Hover::UpgradeChip),
     ];
 

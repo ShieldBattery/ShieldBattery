@@ -39,7 +39,7 @@ pub use panels::{
     panel_header_with_close, pulsing_dots, stat_row, status_dot, tag, tag_exact, tag_height,
     tag_sized, text_cell,
 };
-pub use tooltip::{tooltip, tooltip_above};
+pub use tooltip::{hint_card, tooltip, tooltip_above};
 
 use egui::{Color32, CornerRadius, Rect, Response, Shape, Stroke, StrokeKind, Ui, Vec2};
 

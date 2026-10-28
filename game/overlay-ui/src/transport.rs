@@ -19,14 +19,17 @@
 //!
 //! The standard form's track is ticked with the timeline's events, each one a way back to its
 //! moment.
+//!
+//! Every control on the plate that a key also reaches says which key on hover, so the plate is
+//! where a viewer learns to stop reaching for it.
 
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 
 use egui::emath::GuiRounding;
 use egui::{
-    Align, Align2, Area, Color32, Context, Id, Layout, Order, Pos2, Rect, Response, Sense, Shape,
-    Stroke, StrokeKind, Ui, Vec2, pos2, vec2,
+    Align, Align2, Area, Color32, Context, Id, Layout, Modifiers, Order, Pos2, Rect, Response,
+    Sense, Shape, Stroke, StrokeKind, Ui, Vec2, pos2, vec2,
 };
 
 use crate::colors::{BLUE60, BLUE80};
@@ -34,7 +37,8 @@ use crate::kit::text::{self, BodyWeight};
 use crate::kit::widgets::{self, TagStyle, TrackMarker};
 use crate::kit::{motion, theme, tiers};
 use crate::observer::{MapPoint, Significance, TimelineEventView};
-use crate::tr;
+use crate::shell::hotkeys::{Action, Chord, Held, Hotkeys};
+use crate::{tr, tr_plural};
 
 /// How wide the plate is, in overlay points.
 pub const PANEL_WIDTH: f32 = 324.0;
@@ -115,8 +119,37 @@ const CHIP_GAP: f32 = 5.0;
 /// Height of a jump chip, which sits centered in the taller row the play control sets.
 const CHIP_HEIGHT: f32 = 28.0;
 
-/// How far each jump chip moves the playhead, in seconds, left to right.
-pub const JUMP_STEPS: [i32; 6] = [-300, -60, -10, 10, 60, 300];
+/// How far the seek keys move the playhead, in seconds.
+pub const SEEK_STEP_SECS: i32 = 10;
+
+/// How far they move it with `Shift` held.
+pub const SEEK_STEP_LONG_SECS: i32 = 60;
+
+/// How far their `Ctrl` chords move it.
+pub const SEEK_STEP_LONGEST_SECS: i32 = 300;
+
+/// How far a seek key moves the playhead with `modifiers` held, in seconds. `Ctrl` takes it
+/// furthest whether or not `Shift` is held too.
+pub fn seek_step_secs(modifiers: Modifiers) -> i32 {
+    if modifiers.ctrl {
+        SEEK_STEP_LONGEST_SECS
+    } else if modifiers.shift {
+        SEEK_STEP_LONG_SECS
+    } else {
+        SEEK_STEP_SECS
+    }
+}
+
+/// How far each jump chip moves the playhead, in seconds, left to right: each of the seek keys'
+/// steps, back and forward, so every chip has a key that makes the same jump.
+pub const JUMP_STEPS: [i32; 6] = [
+    -SEEK_STEP_LONGEST_SECS,
+    -SEEK_STEP_LONG_SECS,
+    -SEEK_STEP_SECS,
+    SEEK_STEP_SECS,
+    SEEK_STEP_LONG_SECS,
+    SEEK_STEP_LONGEST_SECS,
+];
 
 /// Width of one jump chip, the row being exactly as wide as the plate's contents: six of them and
 /// the play control they sit around, with a gap between each.
@@ -128,12 +161,6 @@ const CHIP_SIZE: f32 = 10.5;
 /// The jump row is six chips around one play control, and the chips are sized from that. Checked
 /// where either changes.
 const _: () = assert!(JUMP_STEPS.len() == 6);
-
-/// How far the seek keys move the playhead, in seconds.
-pub const SEEK_STEP_SECS: i32 = 10;
-
-/// How far they move it with `Shift` held.
-pub const SEEK_STEP_LONG_SECS: i32 = 60;
 
 /// How far ahead of an event a jump to it lands, in seconds. An event is stamped with the moment it
 /// finished, so landing on that moment would show its result rather than it happening; a few
@@ -437,13 +464,15 @@ impl TransportPlacement {
 /// Draws the transport plate at `placement`, fading and sliding it in and out. Returns nothing at
 /// all once it is gone, which is when the game's own plate may come back.
 ///
-/// `events` are the timeline's, which the standard form's track is ticked with.
+/// `events` are the timeline's, which the standard form's track is ticked with, and `hotkeys` are
+/// what the plate's hover cards name.
 pub fn render_transport_view(
     view: &TransportView,
     ctx: &Context,
     shown: bool,
     placement: TransportPlacement,
     events: &[TimelineEventView],
+    hotkeys: &Hotkeys,
 ) -> Option<TransportOutcome> {
     let id = Id::new("sb_replay_transport");
     let area = Area::new(id)
@@ -458,7 +487,7 @@ pub fn render_transport_view(
     let inner = motion::presence_area(ctx, id.with("presence"), shown, area, |ui| {
         tiers::tier0_panel(ui, |ui| {
             ui.set_width(CONTENT_WIDTH);
-            draw_plate(ui, view, events)
+            draw_plate(ui, view, events, hotkeys)
         })
         .inner
     })?;
@@ -467,23 +496,93 @@ pub fn render_transport_view(
     Some(outcome)
 }
 
-fn draw_plate(ui: &mut Ui, view: &TransportView, events: &[TimelineEventView]) -> TransportOutcome {
+fn draw_plate(
+    ui: &mut Ui,
+    view: &TransportView,
+    events: &[TimelineEventView],
+    hotkeys: &Hotkeys,
+) -> TransportOutcome {
     // The rows are stacked by the gaps written here and by nothing else: the plate's height is the
     // footprint its two forms share, and egui's own spacing between items would add to it.
     ui.spacing_mut().item_spacing = Vec2::ZERO;
     let mut outcome = TransportOutcome::new();
-    row(ui, INFO_ROW, |ui| draw_info_row(ui, view, &mut outcome));
+    let mut hint = Hint::new(hotkeys);
+    row(ui, INFO_ROW, |ui| {
+        draw_info_row(ui, view, &mut outcome, &mut hint)
+    });
     ui.add_space(ROW_GAP);
     row(ui, TRACK_ROW, |ui| {
         if view.spoiler_free {
-            draw_hidden_length(ui, &mut outcome);
+            draw_hidden_length(ui, &mut outcome, &mut hint);
         } else {
-            draw_track_row(ui, view, events, &mut outcome);
+            draw_track_row(ui, view, events, &mut outcome, &mut hint);
         }
     });
     ui.add_space(ROW_GAP);
-    row(ui, CHIP_ROW, |ui| draw_jump_row(ui, view, &mut outcome));
+    row(ui, CHIP_ROW, |ui| {
+        draw_jump_row(ui, view, &mut outcome, &mut hint)
+    });
+    hint.draw(ui);
     outcome
+}
+
+/// The hover card for whichever of the plate's controls the pointer is resting on: what it does,
+/// and the key that does the same without the pointer.
+struct Hint<'a> {
+    hotkeys: &'a Hotkeys,
+    /// Where the pointer is, what the control does, and the keycaps of its key, once a control is
+    /// found under it.
+    shown: Option<(Pos2, String, Vec<&'static str>)>,
+}
+
+impl<'a> Hint<'a> {
+    fn new(hotkeys: &'a Hotkeys) -> Hint<'a> {
+        Hint {
+            hotkeys,
+            shown: None,
+        }
+    }
+
+    /// Names `action`'s key on the card for `response`, should the pointer be resting on it.
+    fn action(&mut self, response: &Response, title: impl FnOnce() -> String, action: Action) {
+        let hotkeys = self.hotkeys;
+        self.hovered(response, title, || {
+            hotkeys.chord_for(action).map(|chord| (chord, false))
+        });
+    }
+
+    /// Puts `title` and `key` on the card for `response`, should the pointer be resting on it: the
+    /// chord, and whether it is pressed with `Shift`. The card's contents are only worked out for
+    /// the one control under the pointer.
+    fn hovered(
+        &mut self,
+        response: &Response,
+        title: impl FnOnce() -> String,
+        key: impl FnOnce() -> Option<(Chord, bool)>,
+    ) {
+        if self.shown.is_some() {
+            return;
+        }
+        let Some(pointer) = response.hover_pos() else {
+            return;
+        };
+        let keycaps = key().map_or_else(Vec::new, |(chord, shift)| chord.keycaps(shift));
+        self.shown = Some((pointer, title(), keycaps));
+    }
+
+    fn draw(self, ui: &Ui) {
+        let Some((pointer, title, keycaps)) = self.shown else {
+            return;
+        };
+        // Over the control rather than under it: the plate sits on the screen's bottom edge, and a
+        // card hung below would only be flipped back up over it.
+        widgets::tooltip_above(
+            ui.ctx(),
+            Id::new("sb_replay_transport").with("hint"),
+            pointer,
+            |ui| widgets::hint_card(ui, &title, None, &keycaps),
+        );
+    }
 }
 
 /// One row of the plate, laid out left to right with only the gaps its cells ask for.
@@ -501,7 +600,12 @@ fn row(ui: &mut Ui, height: f32, add: impl FnOnce(&mut Ui)) {
 
 /// The row that says where playback is and how fast it is running: the elapsed clock at one end and
 /// the speed stepper at the other, with the spoiler-free form's stopped tag beside the clock.
-fn draw_info_row(ui: &mut Ui, view: &TransportView, outcome: &mut TransportOutcome) {
+fn draw_info_row(
+    ui: &mut Ui,
+    view: &TransportView,
+    outcome: &mut TransportOutcome,
+    hint: &mut Hint,
+) {
     clock(
         ui,
         view.elapsed_frames,
@@ -529,15 +633,27 @@ fn draw_info_row(ui: &mut Ui, view: &TransportView, outcome: &mut TransportOutco
         slack -= ITEM_GAP + PAUSED_TAG_WIDTH;
     }
     ui.add_space(slack);
-    draw_speed_stepper(ui, view, outcome);
+    draw_speed_stepper(ui, view, outcome, hint);
 }
 
 /// The speed stepper: one step down, the rung playback is on, one step up.
-fn draw_speed_stepper(ui: &mut Ui, view: &TransportView, outcome: &mut TransportOutcome) {
+fn draw_speed_stepper(
+    ui: &mut Ui,
+    view: &TransportView,
+    outcome: &mut TransportOutcome,
+    hint: &mut Hint,
+) {
     let step = view.step();
     // Arithmetic signs rather than words: every language writes them the same way, and a stepper
-    // whose ends carried a translated verb would be a paragraph wide in some of them.
-    if stepper_button(ui, "\u{2212}").clicked() {
+    // whose ends carried a translated verb would be a paragraph wide in some of them. The verb is
+    // on the hover card, which has the room.
+    let slower = stepper_button(ui, "\u{2212}");
+    hint.action(
+        &slower,
+        || tr!("transport.slower", "Slower"),
+        Action::SpeedDown,
+    );
+    if slower.clicked() {
         outcome.speed = Some(step_speed(view.speed_index, view.multiplier, -1));
     }
     ui.add_space(ITEM_GAP);
@@ -549,7 +665,13 @@ fn draw_speed_stepper(ui: &mut Ui, view: &TransportView, outcome: &mut Transport
         Align::Center,
     );
     ui.add_space(ITEM_GAP);
-    if stepper_button(ui, "+").clicked() {
+    let faster = stepper_button(ui, "+");
+    hint.action(
+        &faster,
+        || tr!("transport.faster", "Faster"),
+        Action::SpeedUp,
+    );
+    if faster.clicked() {
         outcome.speed = Some(step_speed(view.speed_index, view.multiplier, 1));
     }
 }
@@ -561,6 +683,7 @@ fn draw_track_row(
     view: &TransportView,
     events: &[TimelineEventView],
     outcome: &mut TransportOutcome,
+    hint: &mut Hint,
 ) {
     let marked = marked_events(view, events);
     let markers: Vec<TrackMarker> = marked.iter().map(|(_, marker)| *marker).collect();
@@ -589,7 +712,13 @@ fn draw_track_row(
         theme::TEXT_SECONDARY,
     );
     ui.add_space(ITEM_GAP);
-    if eye_button(ui).clicked() {
+    let eye = eye_button(ui);
+    hint.action(
+        &eye,
+        || tr!("transport.hideLength", "Hide length"),
+        Action::ToggleSpoilerFree,
+    );
+    if eye.clicked() {
         outcome.spoiler_free = Some(true);
     }
 }
@@ -734,7 +863,7 @@ const LETTER_MIDDLE: f32 = 0.33;
 /// What stands in for the track in the spoiler-free form: the reason it is not there, and the one
 /// click that brings it back. A click and never a hover, because a pointer crossing the plate on
 /// its way somewhere else must not spoil the game the viewer asked not to be told about.
-fn draw_hidden_length(ui: &mut Ui, outcome: &mut TransportOutcome) {
+fn draw_hidden_length(ui: &mut Ui, outcome: &mut TransportOutcome, hint: &mut Hint) {
     widgets::text_cell(
         ui,
         &small_label().with_color(theme::TEXT_DIM),
@@ -749,6 +878,11 @@ fn draw_hidden_length(ui: &mut Ui, outcome: &mut TransportOutcome) {
         &tr!("transport.reveal", "Reveal"),
         vec2(REVEAL_WIDTH, TAG_HEIGHT + 4.0),
     );
+    hint.action(
+        &reveal,
+        || tr!("transport.showLength", "Show length"),
+        Action::ToggleSpoilerFree,
+    );
     if reveal.clicked() {
         outcome.spoiler_free = Some(false);
     }
@@ -756,7 +890,12 @@ fn draw_hidden_length(ui: &mut Ui, outcome: &mut TransportOutcome) {
 
 /// The row of fixed jumps around the play control, which is how a viewer moves through a replay
 /// without aiming at a track.
-fn draw_jump_row(ui: &mut Ui, view: &TransportView, outcome: &mut TransportOutcome) {
+fn draw_jump_row(
+    ui: &mut Ui,
+    view: &TransportView,
+    outcome: &mut TransportOutcome,
+    hint: &mut Hint,
+) {
     // Set in the body face rather than the numeral one, which every other number here uses: a jump
     // step is a signed label, and the condensed face draws its plus small and high above its minus,
     // which would leave the six chips reading as two different rows.
@@ -767,17 +906,74 @@ fn draw_jump_row(ui: &mut Ui, view: &TransportView, outcome: &mut TransportOutco
             ui.add_space(CHIP_GAP);
         }
         if index == half {
-            if play_pause_button(ui, !view.playing()).clicked() {
+            let show_play = !view.playing();
+            let play = play_pause_button(ui, show_play);
+            let title = || match show_play {
+                true => tr!("transport.play", "Play"),
+                false => tr!("transport.pause", "Pause"),
+            };
+            hint.action(&play, title, Action::PauseResume);
+            if play.clicked() {
                 outcome.paused = Some(view.playing());
             }
             ui.add_space(CHIP_GAP);
         }
         let chip =
             widgets::chip_button(ui, &spec, &jump_label(delta), vec2(CHIP_WIDTH, CHIP_HEIGHT));
+        let hotkeys = hint.hotkeys;
+        hint.hovered(&chip, || jump_title(delta), || jump_chord(hotkeys, delta));
         if chip.clicked() {
             outcome.seek_to = Some(view.seek_target(delta));
         }
     }
+}
+
+/// What a jump chip does, in words: its own label is the step alone.
+fn jump_title(delta_secs: i32) -> String {
+    let magnitude = delta_secs.unsigned_abs();
+    let minutes = magnitude.is_multiple_of(60);
+    match (delta_secs < 0, minutes) {
+        (true, true) => tr_plural!(
+            "transport.backMinutes",
+            magnitude / 60,
+            one = "Back {{count}} minute",
+            other = "Back {{count}} minutes"
+        ),
+        (true, false) => tr_plural!(
+            "transport.backSeconds",
+            magnitude,
+            one = "Back {{count}} second",
+            other = "Back {{count}} seconds"
+        ),
+        (false, true) => tr_plural!(
+            "transport.forwardMinutes",
+            magnitude / 60,
+            one = "Forward {{count}} minute",
+            other = "Forward {{count}} minutes"
+        ),
+        (false, false) => tr_plural!(
+            "transport.forwardSeconds",
+            magnitude,
+            one = "Forward {{count}} second",
+            other = "Forward {{count}} seconds"
+        ),
+    }
+}
+
+/// The seek key that makes the same jump as the chip for `delta_secs`, and whether it is pressed
+/// with `Shift`. `None` for a step no seek key takes.
+fn jump_chord(hotkeys: &Hotkeys, delta_secs: i32) -> Option<(Chord, bool)> {
+    let action = match delta_secs < 0 {
+        true => Action::SeekBackward,
+        false => Action::SeekForward,
+    };
+    let (held, shift) = match delta_secs.abs() {
+        SEEK_STEP_SECS => (Held::Bare, false),
+        SEEK_STEP_LONG_SECS => (Held::Bare, true),
+        SEEK_STEP_LONGEST_SECS => (Held::Ctrl, false),
+        _ => return None,
+    };
+    Some((hotkeys.chord_held(action, held)?, shift))
 }
 
 /// How a jump chip reads: the direction, how far, and the unit it is measured in.
@@ -1007,6 +1203,42 @@ mod tests {
     }
 
     #[test]
+    fn every_jump_chip_names_the_key_that_makes_its_jump() {
+        let hotkeys = Hotkeys::defaults();
+        for delta in JUMP_STEPS {
+            let (chord, shift) = jump_chord(&hotkeys, delta)
+                .unwrap_or_else(|| panic!("the {delta}s chip names no key"));
+            let ctrl = chord.held == Held::Ctrl;
+            let modifiers = Modifiers {
+                ctrl,
+                command: ctrl,
+                alt: chord.held == Held::Alt,
+                shift,
+                ..Modifiers::NONE
+            };
+            let expected = match delta < 0 {
+                true => Action::SeekBackward,
+                false => Action::SeekForward,
+            };
+            assert_eq!(
+                hotkeys.action_for(chord.key, modifiers),
+                Some(expected),
+                "the {delta}s chip names {:?}",
+                chord.keycaps(shift)
+            );
+            assert_eq!(seek_step_secs(modifiers), delta.abs(), "{delta}s");
+        }
+        assert_eq!(
+            jump_chord(&hotkeys, -SEEK_STEP_LONG_SECS).map(|(chord, shift)| chord.keycaps(shift)),
+            Some(vec!["Shift", ","])
+        );
+        assert_eq!(
+            jump_chord(&hotkeys, SEEK_STEP_LONGEST_SECS).map(|(chord, shift)| chord.keycaps(shift)),
+            Some(vec!["Ctrl", "."])
+        );
+    }
+
+    #[test]
     fn game_time_comes_from_the_recorded_speed_and_not_the_playback_rate() {
         assert_eq!(frames_to_seconds(1000, 6), 42);
         assert_eq!(frames_to_seconds(1000, 0), 167);
@@ -1189,23 +1421,97 @@ mod tests {
     /// Renders `view` a few times and returns the size the plate settled on: an area takes egui a
     /// couple of passes to resolve, and its entrance only finishes once the clock has moved.
     fn settled_size(ctx: &Context, view: &TransportView) -> Vec2 {
+        settle(ctx, view, None).0
+    }
+
+    /// Renders `view` until it settles, with the pointer resting at `pointer` if there is one, and
+    /// returns the plate's size and every piece of text the last frame drew.
+    fn settle(ctx: &Context, view: &TransportView, pointer: Option<Pos2>) -> (Vec2, Vec<String>) {
         let mut size = Vec2::ZERO;
+        let mut texts = Vec::new();
         for pass in 0..6 {
             let raw = egui::RawInput {
-                screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), vec2(1280.0, 720.0))),
+                screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), SCREEN)),
                 time: Some(f64::from(pass) * 0.25),
+                events: pointer.map(egui::Event::PointerMoved).into_iter().collect(),
                 ..Default::default()
             };
             ctx.begin_pass(raw);
-            size = render_transport_view(view, ctx, true, TransportPlacement::default(), &[])
-                .map(|outcome| outcome.rect.size())
-                .unwrap_or(Vec2::ZERO);
+            size = render_transport_view(
+                view,
+                ctx,
+                true,
+                TransportPlacement::default(),
+                &[],
+                &Hotkeys::defaults(),
+            )
+            .map(|outcome| outcome.rect.size())
+            .unwrap_or(Vec2::ZERO);
             let mut out = ctx.end_pass();
+            texts.clear();
+            for clipped in &out.shapes {
+                collect_texts(&clipped.shape, &mut texts);
+            }
             let _ = ctx.tessellate(out.shapes, ctx.pixels_per_point());
             // Layout checks have no GPU texture store to update.
             out.textures_delta.clear();
         }
-        size
+        (size, texts)
+    }
+
+    const SCREEN: Vec2 = vec2(1280.0, 720.0);
+
+    fn collect_texts(shape: &Shape, texts: &mut Vec<String>) {
+        match shape {
+            Shape::Text(text) => texts.push(text.galley.text().to_string()),
+            Shape::Vec(shapes) => shapes.iter().for_each(|shape| collect_texts(shape, texts)),
+            _ => {}
+        }
+    }
+
+    /// The middle of the jump row's slot `index` on a settled plate in the default placement:
+    /// a chip, counted left to right, with the play control taking the slot after the third.
+    fn jump_row_point(index: usize, play: bool) -> Pos2 {
+        let inset = (PANEL_WIDTH - CONTENT_WIDTH) / 2.0;
+        let left = SCREEN.x - EDGE_MARGIN - PANEL_WIDTH + inset;
+        let mut x = left + index as f32 * (CHIP_WIDTH + CHIP_GAP);
+        let width = if play {
+            PLAY_SIZE.x
+        } else {
+            if index >= JUMP_STEPS.len() / 2 {
+                x += PLAY_SIZE.x + CHIP_GAP;
+            }
+            CHIP_WIDTH
+        };
+        let bottom = SCREEN.y - EDGE_MARGIN - (PANEL_HEIGHT - CONTENT_HEIGHT) / 2.0;
+        pos2(x + width / 2.0, bottom - CHIP_ROW / 2.0)
+    }
+
+    #[test]
+    fn a_hovered_control_names_its_key() {
+        // A context per pointer: each render starts the clock over, which one context would not
+        // let run backwards.
+        // The card is drawn over everything else, so its title is followed only by its keycaps.
+        let keycaps = |pointer, title: &str| {
+            let (_, texts) = settle(&fresh_ctx(), &view(), Some(pointer));
+            match texts.iter().rposition(|text| text == title) {
+                Some(index) => texts[index + 1..].to_vec(),
+                None => panic!("no card titled {title:?} among {texts:?}"),
+            }
+        };
+        assert_eq!(keycaps(jump_row_point(3, true), "Pause"), ["P"]);
+        assert_eq!(
+            keycaps(jump_row_point(0, false), "Back 5 minutes"),
+            ["Ctrl", ","]
+        );
+        assert_eq!(
+            keycaps(jump_row_point(4, false), "Forward 1 minute"),
+            ["Shift", "."]
+        );
+        assert_eq!(
+            keycaps(jump_row_point(3, false), "Forward 10 seconds"),
+            ["."]
+        );
     }
 
     /// Both forms share one footprint, so switching between them moves nothing on screen and the

@@ -22,9 +22,9 @@ pub enum Action {
     SpeedUp,
     /// One step down the replay speed ladder.
     SpeedDown,
-    /// Seek backward; `Shift` lengthens the step.
+    /// Seek backward; `Shift` lengthens the step, and its `Ctrl` chord lengthens it further.
     SeekBackward,
-    /// Seek forward; `Shift` lengthens the step.
+    /// Seek forward; `Shift` lengthens the step, and its `Ctrl` chord lengthens it further.
     SeekForward,
     /// Hide every panel on screen, or bring back the ones that hid.
     ToggleAllPanels,
@@ -164,6 +164,23 @@ impl Chord {
         }
     }
 
+    /// The keycaps a surface shows for this chord, in the order they are written, `shift` adding
+    /// the Shift that scales an action: `[.]`, `[Shift, .]`, `[Ctrl, Shift, .]`. Modifiers keep
+    /// their English names, which is how keyboards print them in every language we ship.
+    pub fn keycaps(self, shift: bool) -> Vec<&'static str> {
+        let mut keycaps = Vec::with_capacity(3);
+        match self.held {
+            Held::Bare => {}
+            Held::Ctrl => keycaps.push("Ctrl"),
+            Held::Alt => keycaps.push("Alt"),
+        }
+        if shift {
+            keycaps.push("Shift");
+        }
+        keycaps.push(self.key.symbol_or_name());
+        keycaps
+    }
+
     /// Whether this keypress is this chord.
     ///
     /// Exactly the chord's own one of Ctrl and Alt must be down. SC:R binds nearly every modified
@@ -236,7 +253,9 @@ impl Hotkeys {
             (Action::SpeedUp, Chord::new(U)),
             (Action::SpeedDown, Chord::new(D)),
             (Action::SeekBackward, Chord::new(Comma)),
+            (Action::SeekBackward, Chord::ctrl(Comma)),
             (Action::SeekForward, Chord::new(Period)),
+            (Action::SeekForward, Chord::ctrl(Period)),
             (Action::ToggleAllPanels, Chord::new(A)),
             (Action::ToggleAllPanels, Chord::ctrl(A)),
             (Action::ToggleAllPanels, Chord::alt(A)),
@@ -296,6 +315,22 @@ impl Hotkeys {
             .find(|(bound, _)| *bound == action)
             .map(|(_, chord)| *chord)
     }
+
+    /// The first chord bound to this action that is pressed with `held`, for a surface naming one
+    /// particular form of an action, such as the longer seek its `Ctrl` chord takes.
+    pub fn chord_held(&self, action: Action, held: Held) -> Option<Chord> {
+        self.bindings
+            .iter()
+            .find(|(bound, chord)| *bound == action && chord.held == held)
+            .map(|(_, chord)| *chord)
+    }
+
+    /// The key that does this action pressed on its own, for a surface with room for a single
+    /// keycap. A chord with a modifier is never named this way, since its key alone does nothing.
+    pub fn bare_key(&self, action: Action) -> Option<&'static str> {
+        self.chord_held(action, Held::Bare)
+            .map(|chord| chord.key.symbol_or_name())
+    }
 }
 
 #[cfg(test)]
@@ -319,6 +354,17 @@ mod tests {
             command: true,
             ..Modifiers::NONE
         }
+    }
+
+    #[test]
+    fn keycaps_put_ctrl_or_alt_before_shift() {
+        assert_eq!(Chord::new(Key::Period).keycaps(false), ["."]);
+        assert_eq!(Chord::new(Key::Period).keycaps(true), ["Shift", "."]);
+        assert_eq!(
+            Chord::ctrl(Key::Comma).keycaps(true),
+            ["Ctrl", "Shift", ","]
+        );
+        assert_eq!(Chord::alt(Key::A).keycaps(true), ["Alt", "Shift", "A"]);
     }
 
     #[test]
