@@ -1561,8 +1561,8 @@ const TRACK_MARKER_X: f32 = 1640.0;
 
 /// Where the weapon upgrade of the lone unit the selection panel reads out sits on the duel's
 /// analyst screen: the third chip, after its armor and its shields.
-const UPGRADE_CHIP_X: f32 = 1331.0;
-const UPGRADE_CHIP_Y: f32 = 1040.0;
+const UPGRADE_CHIP_X: f32 = 1358.0;
+const UPGRADE_CHIP_Y: f32 = 1032.0;
 
 /// Where a preset rests the pointer, for the readings the overlay only gives while it is hovered.
 ///

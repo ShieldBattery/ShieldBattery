@@ -30,7 +30,7 @@ use egui::{
     Ui, Vec2, pos2, vec2,
 };
 
-use crate::colors::{BLUE60, BLUE80, GREY_BLUE10, GREY_BLUE20, GREY_BLUE60, PURPLE70};
+use crate::colors::{BLUE10, BLUE60, BLUE80, GREY_BLUE10, GREY_BLUE20, GREY_BLUE60, PURPLE70};
 use crate::kit::text;
 use crate::kit::widgets::{ResourceGlyph, ResourceRace};
 use crate::kit::{motion, theme, tiers, widgets};
@@ -382,10 +382,14 @@ const CARGO_GAP: f32 = 6.0;
 /// How tall the cargo slots are, both rows of them.
 const CARGO_HEIGHT: f32 = tile_row(CARGO_SLOT) * CARGO_ROWS as f32 + GRID_ROW_GAP;
 
-/// How tall the panel's body is: its tallest reading, which is the subject's column or a full head
-/// of text over the cargo slots. Every other reading is laid out in the same height, so that the
-/// panels stacked on this one stay put.
-const BODY_HEIGHT: f32 = max(SUBJECT_HEIGHT, HEADER_HEIGHT + CARGO_HEIGHT);
+/// How tall the panel's body is: its tallest reading, which is the subject's column, a full head of
+/// text over the cargo slots, or a unit's head of text over its pools and its row of upgrades.
+/// Every other reading is laid out in the same height, so that the panels stacked on this one stay
+/// put.
+const BODY_HEIGHT: f32 = max(
+    max(SUBJECT_HEIGHT, HEADER_HEIGHT + CARGO_HEIGHT),
+    HEADER_HEIGHT + POOL_ROW * READOUTS as f32 + theme::SPACE_XS + UPGRADE_CHIP,
+);
 
 const fn max(a: f32, b: f32) -> f32 {
     if a > b { a } else { b }
@@ -471,51 +475,51 @@ const POOL_TRACK: f32 = 6.0;
 const POOL_VALUE_WIDTH: f32 = 64.0;
 const POOL_VALUE_GAP: f32 = 8.0;
 
-/// Size of one upgrade chip, and the gap between two of them: smaller than any slot, since an
-/// upgrade is something the unit has rather than a unit of its own.
-const UPGRADE_CHIP: f32 = 30.0;
-const UPGRADE_GAP: f32 = 4.0;
+/// Size of one upgrade chip, and the gap between two of them. Large, as the game's console draws
+/// them: how far a unit has been upgraded decides a fight, and a watcher reads it off a stream.
+const UPGRADE_CHIP: f32 = 44.0;
+const UPGRADE_GAP: f32 = 6.0;
 
 /// The most upgrades a unit fights with: its armor, its shields, and one for each of its two
 /// weapons.
 const MAX_UPGRADES: usize = 4;
 
-/// Text size of an upgrade's level, and how far it sits from its chip's corner, as a production
-/// tile's count does.
-const LEVEL_SIZE: f32 = 11.0;
-const LEVEL_INSET: f32 = 3.0;
+/// Text size of an upgrade's level, which sits on a dark plate of its own in the chip's corner, the
+/// way the game's console sets it, so the number reads clearly over any icon.
+const LEVEL_SIZE: f32 = 16.0;
+
+/// Room around the level inside its plate, across and down.
+const LEVEL_PAD: Vec2 = vec2(4.0, 0.0);
 
 /// Text size of the number a host with no atlas writes in place of an upgrade's icon.
-const UPGRADE_CODE_SIZE: f32 = 11.0;
+const UPGRADE_CODE_SIZE: f32 = 13.0;
 
-/// How bright an upgrade's icon is drawn while nothing is pointing at it: dimmed, so the level in
-/// its corner is the brightest thing on the chip.
-const UPGRADE_ICON_TINT: Color32 = Color32::from_gray(176);
+/// How wide a row of the most upgrades a unit has is.
+const UPGRADE_ROW_WIDTH: f32 =
+    UPGRADE_CHIP * MAX_UPGRADES as f32 + UPGRADE_GAP * (MAX_UPGRADES as f32 - 1.0);
+
+/// The room the tally at the row's end needs beside the upgrades: its label in the longest of our
+/// languages, a three-digit count, and a gap from the last chip.
+const TALLY_ROOM: f32 = 104.0;
 
 /// The unit's tile fits the body; its pools all fit between the owner's line and the row of
-/// upgrades along the bottom; and the upgrades leave that row's other half to the kills.
+/// upgrades along the bottom; and the upgrades leave the row's end room for the kills.
 const _: () = assert!(UNIT_TILE <= BODY_HEIGHT);
 const _: () = assert!(
     HEADER_HEIGHT + POOL_ROW * READOUTS as f32 + theme::SPACE_XS <= BODY_HEIGHT - UPGRADE_CHIP
 );
-const _: () = assert!(
-    UPGRADE_CHIP * MAX_UPGRADES as f32 + UPGRADE_GAP * (MAX_UPGRADES as f32 - 1.0)
-        <= UNIT_TEXT_WIDTH * 0.5
-);
+const _: () = assert!(UPGRADE_ROW_WIDTH + TALLY_ROOM <= UNIT_TEXT_WIDTH);
 const _: () = assert!(POOL_VALUE_WIDTH + POOL_VALUE_GAP < UNIT_TEXT_WIDTH * 0.5);
 
 /// Under a building's header the row of upgrades sits clear of a lone slot and of the progress
 /// line beside it, of the progress line a building going up has in their place, and of what is left
-/// in a resource; and the row leaves half of the narrower text column a building is read out with
-/// to its stack.
+/// in a resource; and the row leaves the end of the narrower text column a building is read out
+/// with room for its stack.
 const _: () = assert!(
     HEADER_HEIGHT + max(max(QUEUE_SLOT, PROGRESS_HEIGHT), RESOURCES_ROW) + theme::SPACE_SM
         <= BODY_HEIGHT - UPGRADE_CHIP
 );
-const _: () = assert!(
-    UPGRADE_CHIP * MAX_UPGRADES as f32 + UPGRADE_GAP * (MAX_UPGRADES as f32 - 1.0)
-        <= TEXT_WIDTH * 0.5
-);
+const _: () = assert!(UPGRADE_ROW_WIDTH + TALLY_ROOM <= TEXT_WIDTH);
 
 /// How tall the panel is on screen, chrome included.
 pub(crate) const PANEL_HEIGHT: f32 = BODY_HEIGHT + tiers::PANEL_MARGIN_HEIGHT;
@@ -962,7 +966,8 @@ fn draw_upgrades(ui: &Ui, row: Rect, upgrades: &[UnitUpgradeView]) {
     }
 }
 
-/// Draws one upgrade chip: the upgrade's icon, and the level it has reached in the corner.
+/// Draws one upgrade chip: the upgrade's icon, and the level it has reached on a plate in the
+/// corner.
 fn draw_upgrade_chip(ui: &Ui, rect: Rect, upgrade: &UnitUpgradeView, hovered: bool) {
     let corner_radius = theme::radius(theme::RADIUS_CHIP);
     ui.painter()
@@ -979,16 +984,9 @@ fn draw_upgrade_chip(ui: &Ui, rect: Rect, upgrade: &UnitUpgradeView, hovered: bo
     let icon_rect = rect.shrink(theme::HAIRLINE);
     match upgrade.icon.texture {
         Some(texture) => {
-            upgrade.icon.paint(
-                ui.painter(),
-                texture,
-                icon_rect,
-                if hovered {
-                    Color32::WHITE
-                } else {
-                    UPGRADE_ICON_TINT
-                },
-            );
+            upgrade
+                .icon
+                .paint(ui.painter(), texture, icon_rect, Color32::WHITE);
         }
         None => paint_text(
             ui,
@@ -1001,11 +999,21 @@ fn draw_upgrade_chip(ui: &Ui, rect: Rect, upgrade: &UnitUpgradeView, hovered: bo
 
     let galley =
         text::body(LEVEL_SIZE, text::BodyWeight::Semibold).galley(ui, &upgrade.level.to_string());
+    // At least as wide as it is tall, so a single digit sits on a square rather than a sliver.
+    let plate_size = galley.size() + LEVEL_PAD * 2.0;
+    let plate_size = vec2(plate_size.x.max(plate_size.y), plate_size.y);
+    let plate = Rect::from_min_size(rect.max - plate_size, plate_size).shrink(theme::HAIRLINE);
+    let plate_radius = theme::radius(theme::RADIUS_CHIP);
+    ui.painter()
+        .rect_filled(plate, plate_radius, theme::alpha(BLUE10, 0.92));
+    ui.painter().add(Shape::rect_stroke(
+        plate,
+        plate_radius,
+        Stroke::new(theme::HAIRLINE, theme::alpha(BLUE80, 0.25)),
+        StrokeKind::Inside,
+    ));
     ui.painter().galley(
-        pos2(
-            rect.right() - LEVEL_INSET - galley.size().x,
-            rect.bottom() - LEVEL_INSET - galley.size().y,
-        ),
+        plate.center() - galley.size() * 0.5,
         galley,
         theme::TEXT_PRIMARY,
     );
