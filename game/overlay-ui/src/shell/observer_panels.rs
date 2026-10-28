@@ -376,7 +376,7 @@ impl ObserverPanels {
                 row.selection,
                 observer::StackAnchor::Right,
                 row.column,
-                observer::StackAnchor::Right,
+                observer::StackAnchor::Left,
             ),
             None => (
                 span,

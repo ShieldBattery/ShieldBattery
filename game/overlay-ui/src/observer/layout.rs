@@ -122,8 +122,9 @@ pub struct StackSlot {
 pub enum StackAnchor {
     /// The screen's own middle line, as far as the run allows: the centered stack.
     Middle,
-    /// The run's right end, which in the bottom row is the band's far end for the selection panel
-    /// and the selection panel's side for the column beside it.
+    /// The run's left end, which for the bottom row's column lines its panels up with each other.
+    Left,
+    /// The run's right end, which for the bottom row's selection is the band's far end.
     Right,
 }
 
@@ -138,6 +139,7 @@ impl StackSlot {
         // A line past either end of the run pulls the panel in against that end.
         let line = match self.anchor {
             StackAnchor::Middle => self.middle,
+            StackAnchor::Left => self.span.left,
             StackAnchor::Right => self.span.right,
         };
         self.span.place(line, width)
@@ -168,9 +170,10 @@ pub(crate) fn bottom_band(screen: Rect, run: Span, plate_corner: Option<Rect>) -
 /// them is left between the column and the minimap, so the minimap coming and going, or being
 /// smaller than its reserve, never pulls the two apart.
 ///
-/// The column's panels stand against its selection side, so however narrow either is drawn the
-/// unit has no gap in it. The column is as wide whether or not anything is selected, so the
-/// selection panel appearing and going never moves it. The widest panels stand lowest, so the row's
+/// The column is exactly as wide as control groups are drawn at their design's width, so they meet
+/// the selection panel, and production stands lined up with their left edge however narrow it is
+/// drawn. The column is as wide whether or not anything is selected, so the selection panel
+/// appearing and going never moves it. The widest panels stand lowest, so the row's
 /// outline narrows towards the game rather than overhanging it.
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub(crate) struct BottomRow {
@@ -298,7 +301,7 @@ mod tests {
         let slot = StackSlot {
             bottom: WING_MARGIN,
             span: row.column,
-            anchor: StackAnchor::Right,
+            anchor: StackAnchor::Left,
             middle: 960.0,
             ceiling: 0.0,
             screen_bottom: 1080.0,
@@ -307,15 +310,14 @@ mod tests {
             control_groups::fitted_width(slot),
             Some(control_groups::PANEL_WIDTH)
         );
+        // Control groups fill the column, meeting the selection panel, and production lines up with
+        // their left edge.
+        let groups = slot.place(control_groups::PANEL_WIDTH);
+        assert_eq!(groups, row.column);
+        assert_eq!(groups.right + WING_GAP, row.selection.left);
         let placed = slot.place(production::PANEL_WIDTH);
         assert_eq!(placed.width(), production::PANEL_WIDTH);
-        // Both stand against the selection panel's side of the column, whatever their widths, so
-        // the row reads as one unit.
-        assert_eq!(placed.right, row.column.right);
-        assert_eq!(
-            slot.place(control_groups::PANEL_WIDTH).right,
-            row.column.right
-        );
+        assert_eq!(placed.left, groups.left);
     }
 
     #[test]
@@ -422,6 +424,7 @@ mod tests {
             screen_bottom: 1080.0,
         };
         assert_eq!(slot(StackAnchor::Middle).place(460.0), span(730.0, 1190.0));
+        assert_eq!(slot(StackAnchor::Left).place(460.0), span(364.0, 824.0));
         assert_eq!(slot(StackAnchor::Right).place(460.0), span(1108.0, 1568.0));
     }
 

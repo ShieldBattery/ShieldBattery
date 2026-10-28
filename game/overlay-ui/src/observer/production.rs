@@ -665,7 +665,7 @@ mod tests {
                 left: 365.0,
                 right: 365.0 + width,
             },
-            anchor: crate::observer::StackAnchor::Right,
+            anchor: crate::observer::StackAnchor::Left,
             middle: 960.0,
             ceiling: 1080.0 - 16.0 - crate::observer::WING_GAP - room,
             screen_bottom: 1080.0,
