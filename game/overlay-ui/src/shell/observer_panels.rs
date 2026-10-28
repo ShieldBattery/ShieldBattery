@@ -664,9 +664,6 @@ impl ObserverPanels {
             if let Some(panel) = outcome.toggled {
                 prefs.toggle(panel);
             }
-            if let Some(spoiler_free) = outcome.spoiler_free {
-                prefs.spoiler_free = spoiler_free;
-            }
             if let Some(expanded) = outcome.expanded {
                 prefs.dock_expanded = expanded;
             }

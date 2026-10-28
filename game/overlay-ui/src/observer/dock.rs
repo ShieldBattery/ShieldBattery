@@ -29,7 +29,7 @@ use crate::kit::text::{self, BodyWeight};
 use crate::kit::widgets;
 use crate::kit::{self, motion, theme, tiers};
 use crate::observer::{centred, paint_text};
-use crate::shell::{Action, Hotkeys, Mode, Panel, PanelPrefs};
+use crate::shell::{Hotkeys, Mode, Panel, PanelPrefs};
 use crate::tr;
 
 /// How wide the dock is collapsed, in overlay points.
@@ -78,60 +78,31 @@ const ROW_GUTTER: f32 = 8.0;
 /// the lamp and keycap at its ends sit inside the wash rather than on its edge.
 const ROW_WASH_BLEED: f32 = 6.0;
 
-/// One thing the dock can turn on and off.
-#[derive(Copy, Clone, PartialEq, Eq)]
-enum Entry {
-    /// A surface, named by the shell's own panel table.
-    Panel(Panel),
-    /// Not a surface but a way of watching: whether a replay gives its own length away.
-    SpoilerFree,
-}
-
-impl Entry {
-    /// The action this row stands for, which is where its keycap comes from.
-    fn action(self) -> Action {
-        match self {
-            Entry::Panel(panel) => panel.action(),
-            Entry::SpoilerFree => Action::ToggleSpoilerFree,
-        }
-    }
-
-    /// What the row is called when there is room to spell it out.
-    fn label(self) -> String {
-        match self {
-            Entry::Panel(Panel::Matchup) => tr!("observer.panelMatchup", "Matchup"),
-            Entry::Panel(Panel::MapControl) => tr!("observer.mapControl", "Map control"),
-            Entry::Panel(Panel::Economy) => tr!("observer.panelEconomy", "Economy"),
-            Entry::Panel(Panel::Military) => tr!("observer.panelMilitary", "Military"),
-            Entry::Panel(Panel::Graphs) => tr!("observer.panelGraphs", "Graphs"),
-            Entry::Panel(Panel::Timeline) => tr!("observer.panelTimeline", "Timeline"),
-            Entry::Panel(Panel::Production) => tr!("observer.panelProduction", "Production"),
-            Entry::Panel(Panel::ControlGroups) => {
-                tr!("observer.panelControlGroups", "Control groups")
-            }
-            Entry::Panel(Panel::Selection) => tr!("observer.panelSelection", "Selection"),
-            Entry::Panel(Panel::Minimap) => tr!("observer.panelMinimap", "Minimap"),
-            Entry::Panel(Panel::PlaybackControls) => tr!("observer.panelPlayback", "Playback"),
-            Entry::Panel(Panel::Dock) => tr!("observer.panelDock", "Dock"),
-            Entry::SpoilerFree => tr!("observer.spoilerFree", "Spoiler-free"),
-        }
-    }
-
-    /// Whether this row is on.
-    fn is_on(self, prefs: &PanelPrefs) -> bool {
-        match self {
-            Entry::Panel(panel) => prefs.shown(panel),
-            Entry::SpoilerFree => prefs.spoiler_free,
-        }
+/// What `panel`'s row is called when there is room to spell it out.
+fn row_label(panel: Panel) -> String {
+    match panel {
+        Panel::Matchup => tr!("observer.panelMatchup", "Matchup"),
+        Panel::MapControl => tr!("observer.mapControl", "Map control"),
+        Panel::Economy => tr!("observer.panelEconomy", "Economy"),
+        Panel::Military => tr!("observer.panelMilitary", "Military"),
+        Panel::Graphs => tr!("observer.panelGraphs", "Graphs"),
+        Panel::Timeline => tr!("observer.panelTimeline", "Timeline"),
+        Panel::Production => tr!("observer.panelProduction", "Production"),
+        Panel::ControlGroups => tr!("observer.panelControlGroups", "Control groups"),
+        Panel::Selection => tr!("observer.panelSelection", "Selection"),
+        Panel::Minimap => tr!("observer.panelMinimap", "Minimap"),
+        Panel::PlaybackControls => tr!("observer.panelPlayback", "Playback"),
+        Panel::Dock => tr!("observer.panelDock", "Dock"),
     }
 }
 
 /// The rows this game gets, in the shell's own panel order.
 ///
 /// The dock itself is not on the list: a row that hid the surface it sits on could not be clicked
-/// again, so the dock is reached by its key alone.
-fn entries(mode: Mode, map_control_available: bool) -> Vec<Entry> {
-    let mut entries: Vec<Entry> = Panel::ALL
+/// again, so the dock is reached by its key alone. Spoiler-free is not either: it is a way of
+/// watching rather than a surface, and the playback controls carry its switch.
+fn entries(mode: Mode, map_control_available: bool) -> Vec<Panel> {
+    Panel::ALL
         .into_iter()
         .filter(|panel| *panel != Panel::Dock)
         // The playback controls only exist in a replay, so offering it while observing a live game
@@ -140,12 +111,7 @@ fn entries(mode: Mode, map_control_available: bool) -> Vec<Entry> {
         // A host with no map-control reading gets no row for the bar: a switch that turns nothing
         // on is worse than no switch.
         .filter(|panel| *panel != Panel::MapControl || map_control_available)
-        .map(Entry::Panel)
-        .collect();
-    if mode == Mode::Replay {
-        entries.push(Entry::SpoilerFree);
-    }
-    entries
+        .collect()
 }
 
 /// How tall the dock is with rows `row_height` tall, chrome included.
@@ -228,8 +194,6 @@ pub struct DockOutcome {
     pub rect: Rect,
     /// A surface to turn on or off.
     pub toggled: Option<Panel>,
-    /// Whether the replay's length should be withheld.
-    pub spoiler_free: Option<bool>,
     /// Whether the dock should spell its rows out.
     pub expanded: Option<bool>,
 }
@@ -240,7 +204,6 @@ impl DockOutcome {
         DockOutcome {
             rect: Rect::NOTHING,
             toggled: None,
-            spoiler_free: None,
             expanded: None,
         }
     }
@@ -397,34 +360,30 @@ fn draw_dock(
     };
     let mut hint = Hint::hovered(&header, chevron_title, None);
 
-    for entry in entries(dock.mode, dock.map_control_available) {
-        let key = hotkeys.bare_key(entry.action());
-        let state = match entry {
-            Entry::Panel(panel) if prefs.shown(panel) && dock.displaced.contains(&panel) => {
-                RowState::Displaced
-            }
-            _ if entry.is_on(prefs) => RowState::On,
-            _ => RowState::Off,
+    for panel in entries(dock.mode, dock.map_control_available) {
+        let key = hotkeys.bare_key(panel.action());
+        let state = if !prefs.shown(panel) {
+            RowState::Off
+        } else if dock.displaced.contains(&panel) {
+            RowState::Displaced
+        } else {
+            RowState::On
         };
         let rect = row(ui, dock.placement.row_height);
-        let response = draw_row(ui, rect, spelled, entry, key, state);
+        let response = draw_row(ui, rect, spelled, panel, key, state);
         // Collapsed a row is a keycap and nothing else, so the card is what names it; expanded the
         // rail has already said everything the card would, bar a panel with no room, which nothing
         // else on screen explains.
         if !prefs.dock_expanded || state == RowState::Displaced {
             hint = hint.or_else(|| {
-                Hint::hovered(&response, entry.label(), key).map(|hint| Hint {
+                Hint::hovered(&response, row_label(panel), key).map(|hint| Hint {
                     displaced: state == RowState::Displaced,
                     ..hint
                 })
             });
         }
-        if !response.clicked() {
-            continue;
-        }
-        match entry {
-            Entry::Panel(panel) => outcome.toggled = Some(panel),
-            Entry::SpoilerFree => outcome.spoiler_free = Some(!prefs.spoiler_free),
+        if response.clicked() {
+            outcome.toggled = Some(panel);
         }
     }
 
@@ -494,7 +453,7 @@ fn draw_header(
                 pos2(key_rect.left() - ROW_GUTTER, rect.bottom()),
             ),
             &text::panel_title(),
-            &Entry::Panel(Panel::Dock).label(),
+            &row_label(Panel::Dock),
             Align::LEFT,
         );
     }
@@ -527,7 +486,7 @@ fn draw_row(
     ui: &mut Ui,
     rect: Rect,
     expanded: bool,
-    entry: Entry,
+    panel: Panel,
     key: Option<&str>,
     state: RowState,
 ) -> Response {
@@ -541,7 +500,7 @@ fn draw_row(
     };
     let response = ui.interact(
         wash,
-        ui.id().with(("sb_dock_row", entry.label())),
+        ui.id().with(("sb_dock_row", panel.label())),
         Sense::click(),
     );
     if on && expanded {
@@ -586,7 +545,7 @@ fn draw_row(
         ui,
         label,
         &text::body(13.0, BodyWeight::Medium).with_color(color),
-        &entry.label(),
+        &row_label(panel),
         Align::LEFT,
     );
     response
@@ -667,7 +626,7 @@ mod tests {
         let hotkeys = Hotkeys::defaults();
         let actions = entries(Mode::Replay, true)
             .into_iter()
-            .map(Entry::action)
+            .map(Panel::action)
             .chain([Panel::Dock.action()]);
         for action in actions {
             assert!(
@@ -704,10 +663,11 @@ mod tests {
         assert_eq!(rect.bottom(), middle.bottom);
 
         // Short of room, the rows give up height and the dock moves into the room it has.
-        let squeezed = DockPlacement::fit(Mode::Replay, false, 540.0, 600.0, 1060.0).unwrap();
+        let bottom = 600.0 + full_height(Mode::Replay, false) - 20.0;
+        let squeezed = DockPlacement::fit(Mode::Replay, false, 540.0, 600.0, bottom).unwrap();
         assert!(squeezed.row_height < ROW_HEIGHT);
         let rect = placed(&prefs, squeezed).expect("the dock is drawn");
-        assert!(rect.top() >= 600.0 - 0.5 && rect.bottom() <= 1060.0 + 0.5);
+        assert!(rect.top() >= 600.0 - 0.5 && rect.bottom() <= bottom + 0.5);
         assert_eq!(rect.height(), squeezed.bottom - squeezed.top);
     }
 
