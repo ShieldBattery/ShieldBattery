@@ -557,7 +557,7 @@ pub fn render_team_cards_view(
         // A side with no card is still asked for, so a game dropping from three sides to two
         // brings the second card back through the same fade the first one entered by.
         let team = view.teams.get(index);
-        let Some(inner) = motion::presence_area(
+        let Some(inner) = motion::presence_area_from_top(
             ctx,
             id.with("presence"),
             shown && team.is_some(),

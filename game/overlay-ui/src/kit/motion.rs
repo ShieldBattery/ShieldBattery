@@ -47,8 +47,8 @@ pub fn enter_exit(ctx: &Context, id: Id, shown: bool) -> Option<Presence> {
     })
 }
 
-/// Shows `area` through its entrance and exit, fading it and settling it down from a few points
-/// above its resting place: the entrance every panel makes.
+/// Shows `area` through its entrance and exit, fading it and rising it into place from a few points
+/// below its resting place: the entrance every panel standing on something makes.
 pub fn presence_area<R>(
     ctx: &Context,
     id: Id,
@@ -62,6 +62,25 @@ pub fn presence_area<R>(
         shown,
         area,
         vec2(0.0, theme::MOTION_PANEL_SLIDE),
+        add,
+    )
+}
+
+/// [`presence_area`] for a surface hung from the screen's top edge, which comes down from that edge
+/// and goes back up to it. Rising into place, it would rise into whatever hangs under it.
+pub fn presence_area_from_top<R>(
+    ctx: &Context,
+    id: Id,
+    shown: bool,
+    area: Area,
+    add: impl FnOnce(&mut Ui) -> R,
+) -> Option<InnerResponse<R>> {
+    presence_area_along(
+        ctx,
+        id,
+        shown,
+        area,
+        vec2(0.0, -theme::MOTION_PANEL_SLIDE),
         add,
     )
 }

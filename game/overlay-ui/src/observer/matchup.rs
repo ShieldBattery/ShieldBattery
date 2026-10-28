@@ -528,7 +528,7 @@ pub fn render_matchup_view(
         .anchor(Align2::CENTER_TOP, vec2(0.0, 0.0))
         .order(Order::Foreground);
     let available = ctx.viewport_rect().width() - WING_MARGIN * 2.0;
-    let inner = motion::presence_area(ctx, id.with("presence"), shown, area, |ui| {
+    let inner = motion::presence_area_from_top(ctx, id.with("presence"), shown, area, |ui| {
         draw_bar(ui, view, available)
     })?;
     Some(MatchupOutcome {
