@@ -42,6 +42,10 @@ pub(super) struct ObserverPanels {
     /// fades out from: a panel leaving because the plate beside it left too would otherwise jump
     /// across the screen on its way out.
     held_slots: HeldSlots,
+    /// Where the dock was last placed while it was wanted on screen, which is where it slides out
+    /// from: hidden along with the plate under it, it would otherwise drop to the bottom edge on its
+    /// way out.
+    held_dock: Option<observer::DockPlacement>,
     /// Which of the stacked panels were drawn last frame, which is whether they ease toward a new
     /// place in their stack or simply take it.
     drawn: DrawnLastFrame,
@@ -351,6 +355,21 @@ impl ObserverPanels {
                 ),
             ),
         };
+        let dock = hold(&mut self.held_dock, prefs.dock, dock);
+        // A dock already on screen eases to where it now stands, as when the plate under it is put
+        // away; one arriving simply takes its place.
+        let dock = observer::DockPlacement {
+            offset_y: ctx.animate_value_with_time(
+                egui::Id::new("sb_dock_offset"),
+                dock.offset_y,
+                if self.drawn.dock {
+                    crate::kit::theme::MOTION_PANEL_SECS
+                } else {
+                    0.0
+                },
+            ),
+            ..dock
+        };
 
         // The bottom panels are drawn bottom first: each is as tall as the game it reports on, so
         // one stood on another is placed over whatever that one actually came out as, and drops
@@ -381,7 +400,7 @@ impl ObserverPanels {
             ),
         };
         let base = observer::WING_MARGIN;
-        let selection_slot = hold_slot(
+        let selection_slot = hold(
             &mut self.held_slots.selection,
             prefs.selection && !view.selection.units.is_empty(),
             slot(selection_run, selection_anchor, base),
@@ -440,7 +459,7 @@ impl ObserverPanels {
         {
             displaced.push(Panel::ControlGroups);
         }
-        let control_groups_slot = hold_slot(
+        let control_groups_slot = hold(
             &mut self.held_slots.control_groups,
             prefs.control_groups && !view.control_groups.is_empty(),
             column_slot(under_groups),
@@ -475,7 +494,7 @@ impl ObserverPanels {
         {
             displaced.push(Panel::Production);
         }
-        let production_slot = hold_slot(
+        let production_slot = hold(
             &mut self.held_slots.production,
             prefs.production && !view.production.is_empty(),
             column_slot(over_groups),
@@ -659,6 +678,7 @@ impl ObserverPanels {
             },
             ctx,
         );
+        self.drawn.dock = dock.is_some();
         if let Some(outcome) = dock {
             hit_rects.push(HitRect::new(outcome.rect));
             if let Some(panel) = outcome.toggled {
@@ -752,6 +772,7 @@ struct DrawnLastFrame {
     plate: bool,
     graphs: RightWing,
     timeline: bool,
+    dock: bool,
 }
 
 /// A wing on the right edge, which stands in from it by however much room the dock takes.
@@ -792,18 +813,14 @@ struct HeldSlots {
     production: Option<observer::StackSlot>,
 }
 
-/// The slot a bottom panel is drawn in: `slot` while it is `wanted` on screen, kept as `held`, and
-/// `held` while it is not, so a panel fading out does so where it was.
-fn hold_slot(
-    held: &mut Option<observer::StackSlot>,
-    wanted: bool,
-    slot: observer::StackSlot,
-) -> observer::StackSlot {
+/// Where a panel is drawn: `placement` while it is `wanted` on screen, kept as `held`, and `held`
+/// while it is not, so a panel on its way out leaves from where it was.
+fn hold<T: Copy>(held: &mut Option<T>, wanted: bool, placement: T) -> T {
     if wanted {
-        *held = Some(slot);
-        slot
+        *held = Some(placement);
+        placement
     } else {
-        held.unwrap_or(slot)
+        held.unwrap_or(placement)
     }
 }
 
@@ -828,10 +845,52 @@ pub(super) fn number_key_digit(key: Key) -> Option<u8> {
 
 #[cfg(test)]
 mod tests {
-    use egui::{Key, Modifiers};
+    use egui::{Key, Modifiers, Rect};
 
     use crate::shell::Intent;
     use crate::shell::test_support::*;
+
+    /// The dock's rect among a frame's hit rects: the narrow one against the screen's right edge.
+    fn dock_rect(output: &crate::shell::FrameOutput) -> Option<Rect> {
+        output
+            .hit_rects
+            .iter()
+            .map(|hit| hit.rect)
+            .find(|rect| rect.width() < 100.0 && rect.right() > 1200.0)
+    }
+
+    #[test]
+    fn the_dock_leaves_from_where_it_stood_when_the_plate_goes_with_it() {
+        let ctx = fresh_ctx();
+        let mut shell = spectating_shell();
+        let (playback, game) = (replay(), empty_game());
+        let mut time = 0.0;
+        let mut frame = |shell: &mut crate::shell::Shell, step: f64| {
+            time += step;
+            run_watched_frame_at(shell, &ctx, &playback, &game, time)
+        };
+        for _ in 0..6 {
+            frame(&mut shell, 0.5);
+        }
+        let standing = dock_rect(&frame(&mut shell, 0.5)).expect("the dock is up");
+
+        assert!(shell.key_pressed(Key::A, Modifiers::NONE));
+        assert!(!shell.panel_prefs().dock && !shell.panel_prefs().playback_controls);
+        // The slide out is a transform on the dock's layer, so its rect keeps its place along the
+        // edge as it goes; what matters is that it keeps its height too.
+        let mut leaving_frames = 0;
+        for _ in 0..8 {
+            let Some(leaving) = dock_rect(&frame(&mut shell, 0.03)) else {
+                break;
+            };
+            assert_eq!(leaving.center().y, standing.center().y);
+            leaving_frames += 1;
+        }
+        assert!(
+            leaving_frames >= 2,
+            "the dock left in {leaving_frames} frames"
+        );
+    }
 
     #[test]
     fn the_map_control_key_waits_for_a_measurement_to_draw() {

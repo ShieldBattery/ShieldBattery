@@ -4,6 +4,10 @@ use egui::{Context, Key, Modifiers, Rect};
 
 use super::{FrameOutput, HostFrame, Intent, ModalId, Mode, Shell, Views};
 use crate::disconnect::{DisconnectView, SelfState};
+use crate::observer::{
+    ControlGroupsView, EconomyView, GraphsView, MatchupView, MilitaryView, ObserverView,
+    ProductionView, SelectionView, TimelineView,
+};
 use crate::playback_controls::PlaybackView;
 
 pub(super) fn spectating_shell() -> Shell {
@@ -35,6 +39,37 @@ pub(super) fn replay() -> PlaybackView {
     }
 }
 
+/// A game with nobody in it, which is enough for the panels to be placed and drawn.
+pub(super) fn empty_game() -> ObserverView {
+    ObserverView {
+        matchup: MatchupView {
+            players: Vec::new(),
+            elapsed_secs: 0,
+            is_replay: true,
+        },
+        team_cards: None,
+        economy: EconomyView {
+            players: Vec::new(),
+        },
+        military: MilitaryView {
+            players: Vec::new(),
+        },
+        graphs: GraphsView {
+            series: Default::default(),
+            span_secs: 0,
+            lines: Vec::new(),
+            grouping: None,
+        },
+        timeline: TimelineView { events: Vec::new() },
+        production: ProductionView {
+            players: Vec::new(),
+        },
+        control_groups: ControlGroupsView::default(),
+        selection: SelectionView::default(),
+        map_control: None,
+    }
+}
+
 /// A context with the overlay's own fonts, which is what a screen lays its text out with.
 pub(super) fn fresh_ctx() -> Context {
     let ctx = Context::default();
@@ -49,7 +84,18 @@ pub(super) fn run_frame_at(
     playback: Option<&PlaybackView>,
     time: f64,
 ) -> FrameOutput {
-    run_frame_with_events(shell, ctx, playback, time, Vec::new())
+    run_frame_with_events(shell, ctx, playback, None, time, Vec::new())
+}
+
+/// Runs one shell frame of a replay being watched with the observer panels, at `time`.
+pub(super) fn run_watched_frame_at(
+    shell: &mut Shell,
+    ctx: &Context,
+    playback: &PlaybackView,
+    observer: &ObserverView,
+    time: f64,
+) -> FrameOutput {
+    run_frame_with_events(shell, ctx, Some(playback), Some(observer), time, Vec::new())
 }
 
 /// Runs one shell frame after `keys` were pressed, each offered to the shell first and handed to
@@ -69,13 +115,14 @@ pub(super) fn run_frame_with_keys(shell: &mut Shell, ctx: &Context, keys: &[Key]
         })
         .collect();
     let time = ctx.input(|input| input.time) + 1.0;
-    run_frame_with_events(shell, ctx, None, time, events)
+    run_frame_with_events(shell, ctx, None, None, time, events)
 }
 
 fn run_frame_with_events(
     shell: &mut Shell,
     ctx: &Context,
     playback: Option<&PlaybackView>,
+    observer: Option<&ObserverView>,
     time: f64,
     events: Vec<egui::Event>,
 ) -> FrameOutput {
@@ -101,6 +148,7 @@ fn run_frame_with_events(
     ctx.begin_pass(raw);
     let mut views = Views {
         playback,
+        observer,
         ..Views::default()
     };
     let output = shell.frame(ctx, &host, &mut views);
