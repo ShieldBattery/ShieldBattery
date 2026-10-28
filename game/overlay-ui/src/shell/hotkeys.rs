@@ -36,8 +36,8 @@ pub enum Action {
     ToggleMatchup,
     /// BW's own minimap, which is independent of the rest of the console.
     ToggleMinimap,
-    /// The replay transport plate.
-    ToggleTransport,
+    /// The replay playback controls.
+    TogglePlaybackControls,
     /// The military panel.
     ToggleMilitary,
     /// The graphs panel; `Shift` steps it to the next measurement and its `Ctrl` chord to the
@@ -75,7 +75,7 @@ impl Action {
         Action::ToggleProduction,
         Action::ToggleMatchup,
         Action::ToggleMinimap,
-        Action::ToggleTransport,
+        Action::TogglePlaybackControls,
         Action::ToggleMilitary,
         Action::ToggleGraphs,
         Action::ToggleTimeline,
@@ -101,7 +101,7 @@ impl Action {
             Action::ToggleProduction => "production",
             Action::ToggleMatchup => "matchup",
             Action::ToggleMinimap => "minimap",
-            Action::ToggleTransport => "transport",
+            Action::TogglePlaybackControls => "playback controls",
             Action::ToggleMilitary => "military",
             Action::ToggleGraphs => "graphs",
             Action::ToggleTimeline => "timeline",
@@ -199,9 +199,14 @@ impl Chord {
     }
 }
 
+/// The chords that open the game's menu, the one a surface names first.
+pub const MENU_CHORDS: [Chord; 2] = [Chord::new(Key::F10), Chord::alt(Key::M)];
+
 /// Whether this keypress is one that opens the game's menu: `F10`, or `Alt+M`.
 pub fn is_menu_chord(key: Key, modifiers: Modifiers) -> bool {
-    Chord::new(Key::F10).matches(key, modifiers) || Chord::alt(Key::M).matches(key, modifiers)
+    MENU_CHORDS
+        .into_iter()
+        .any(|chord| chord.matches(key, modifiers))
 }
 
 /// Whether this keypress is one of SC:R's quit keys: `Q` or `X` with Ctrl or Alt.
@@ -273,9 +278,9 @@ impl Hotkeys {
             (Action::ToggleSelection, Chord::ctrl(W)),
             (Action::ToggleSelection, Chord::ctrl(U)),
             (Action::ToggleSelection, Chord::alt(U)),
-            (Action::ToggleTransport, Chord::new(Y)),
-            (Action::ToggleTransport, Chord::ctrl(Y)),
-            (Action::ToggleTransport, Chord::alt(Y)),
+            (Action::TogglePlaybackControls, Chord::new(Y)),
+            (Action::TogglePlaybackControls, Chord::ctrl(Y)),
+            (Action::TogglePlaybackControls, Chord::alt(Y)),
             (Action::ToggleVisionPicker, Chord::ctrl(Z)),
             (Action::ToggleVisionPicker, Chord::alt(Z)),
             // `Ctrl+R` is not taken: the game's own binding for it beats SC:R's side panel too.
@@ -422,7 +427,7 @@ mod tests {
             (Key::R, plain(), Action::ToggleDock),
             (Key::W, alt(), Action::ToggleDock),
             (Key::Z, ctrl(), Action::ToggleVisionPicker),
-            (Key::Y, alt(), Action::ToggleTransport),
+            (Key::Y, alt(), Action::TogglePlaybackControls),
             (Key::A, ctrl(), Action::ToggleAllPanels),
         ] {
             assert_eq!(

@@ -12,7 +12,7 @@ use crate::colors::{
 };
 use crate::kit::text::{self, BodyWeight, TextSpec};
 use crate::kit::theme;
-use crate::kit::widgets::{active_halo, focus_ring, state_overlay};
+use crate::kit::widgets::{active_halo, focus_ring, note_activation, state_overlay};
 
 /// Track height of a switch, which also sets its knob.
 const SWITCH_HEIGHT: f32 = 24.0;
@@ -489,6 +489,10 @@ pub fn slider_sized(
     );
     let span = (range.end() - range.start()).max(f32::MIN_POSITIVE);
 
+    // Heard as the press lands, the way the game's own sliders click, rather than as it lets go.
+    if response.is_pointer_button_down_on() && ui.input(|input| input.pointer.primary_pressed()) {
+        note_activation(ui.ctx());
+    }
     if let Some(pointer) = response.interact_pointer_pos() {
         let fraction =
             ((pointer.x - track.left()) / track.width().max(f32::MIN_POSITIVE)).clamp(0.0, 1.0);

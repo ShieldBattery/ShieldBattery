@@ -3,12 +3,12 @@
 
 use egui::{Context, Key, Rect};
 
-use super::hotkeys::Hotkeys;
+use super::hotkeys::{self, Action, Hotkeys};
 use super::prefs::{Panel, PanelPrefs};
 use super::replay::ReplayCommands;
 use super::{HitRect, HostFrame, Intent};
 use crate::observer::{self, ObserverView, SelectedUnitClick};
-use crate::transport::TransportPlacement;
+use crate::playback_controls::PlaybackControlsPlacement;
 
 /// The observer panels' state across frames.
 #[derive(Default)]
@@ -98,15 +98,15 @@ impl ObserverPanels {
     /// [`observer::layout`]), so they are drawn in the order the screen's room is handed out: the
     /// surfaces hung from the top edge, the minimap's frame, then the stack along the bottom edge,
     /// which between them say how much of each side is left for the wings, and the dock last, which
-    /// is told what found no room. `has_transport` is whether there is a replay plate to share the
+    /// is told what found no room. `has_playback_controls` is whether there is a replay plate to share the
     /// bottom of the screen with. Returns where the plate stands, which is decided with them.
     pub(super) fn frame(
         &mut self,
         ctx: &Context,
         view: &ObserverView,
-        has_transport: bool,
+        has_playback_controls: bool,
         shell: ObserverFrame<'_>,
-    ) -> TransportPlacement {
+    ) -> PlaybackControlsPlacement {
         use observer::layout::{self, Span};
 
         let ObserverFrame {
@@ -208,18 +208,19 @@ impl ObserverPanels {
         }
         let square = layout::minimap_square(screen, self.last_minimap_rect);
         let minimap = observer::minimap::footprint(screen, square);
-        self.frame_minimap(
+        let minimap_rects = self.frame_minimap(
             ctx,
             view,
             host.minimap_rect,
             prefs.minimap,
+            hotkeys,
             intents,
-            hit_rects,
         );
+        hit_rects.extend(minimap_rects.into_iter().map(HitRect::new));
         let minimap_on_left = minimap.center().x < screen.center().x;
 
         // The run of the bottom edge the bottom panels have: from the minimap's frame to whatever
-        // holds the right edge, which is the transport plate where it stands in the corner and the
+        // holds the right edge, which is the playback controls where they stand in the corner and the
         // dock's column where it does not.
         let edge_right = screen.right() - observer::WING_MARGIN - right_inset;
         let mut span = if minimap_on_left {
@@ -233,8 +234,8 @@ impl ObserverPanels {
                 right: edge_right.min(minimap.left() - gap),
             }
         };
-        let transport_shown = has_transport && prefs.transport;
-        let mut transport = TransportPlacement::default();
+        let playback_controls_shown = has_playback_controls && prefs.playback_controls;
+        let mut playback_placement = PlaybackControlsPlacement::default();
         let dock_width = observer::dock::column_width(prefs.dock_expanded);
         let dock_column = Span {
             left: screen.right() - dock_width,
@@ -283,14 +284,14 @@ impl ObserverPanels {
         };
         let mut dock = None;
         let mut plate = PlateStand::Corner;
-        let row = if transport_shown {
+        let row = if playback_controls_shown {
             // The plate keeps the corner while the panels still have their row beside it, or
             // failing that their stack's narrowest width, and the dock still fits above it. Where
             // the dock does not, the plate stands in from the dock's column and the dock runs down
             // past it. Where not even the stack fits beside it, it gives the stack the bottom edge
             // and is lifted over it, standing in from the dock's column too, so the dock keeps the
             // whole edge.
-            let corner = transport.rect(screen);
+            let corner = playback_placement.rect(screen);
             if prefs.dock {
                 dock = match dock_room {
                     Some((top, bottom)) => observer::DockPlacement::fit(
@@ -303,11 +304,11 @@ impl ObserverPanels {
                     None => dock_fit(corner.top() - gap),
                 };
                 if dock.is_none() {
-                    transport.right_inset = dock_clearance;
+                    playback_placement.right_inset = dock_clearance;
                 }
             }
             let beside = Span {
-                right: span.right.min(transport.rect(screen).left() - gap),
+                right: span.right.min(playback_placement.rect(screen).left() - gap),
                 ..span
             };
             if let Some(row) = row_along(beside) {
@@ -316,7 +317,7 @@ impl ObserverPanels {
                 if beside.width() >= observer::MIN_STACK_WIDTH {
                     span = beside;
                 } else {
-                    transport.right_inset = dock_clearance;
+                    playback_placement.right_inset = dock_clearance;
                     plate = PlateStand::Stack;
                 }
                 None
@@ -325,8 +326,9 @@ impl ObserverPanels {
             row_along(span)
         };
         // What the dock's column ends on at the bottom, kept for working out its room below.
-        let plate_in_corner =
-            transport_shown && matches!(plate, PlateStand::Corner) && transport.right_inset == 0.0;
+        let plate_in_corner = playback_controls_shown
+            && matches!(plate, PlateStand::Corner)
+            && playback_placement.right_inset == 0.0;
         let selection_ends_row = row.is_some() && prefs.selection;
         let dock = dock.or_else(|| {
             dock_room.and_then(|(top, bottom)| {
@@ -505,7 +507,7 @@ impl ObserverPanels {
                         production.as_ref().map(|outcome| outcome.rect),
                         self.drawn.plate,
                     );
-                transport.lift = over_stack - observer::WING_MARGIN;
+                playback_placement.lift = over_stack - observer::WING_MARGIN;
             }
         }
 
@@ -513,8 +515,8 @@ impl ObserverPanels {
         // their own column: the stack, the minimap's frame, and the plate.
         let mut bottom_surfaces = stack;
         bottom_surfaces.push(minimap);
-        if transport_shown {
-            bottom_surfaces.push(transport.rect(screen));
+        if playback_controls_shown {
+            bottom_surfaces.push(playback_placement.rect(screen));
         }
         let left_span = layout::left_wing_span(screen, observer::economy::PANEL_WIDTH);
         let right_span =
@@ -631,8 +633,8 @@ impl ObserverPanels {
             screen.top(),
         )) + gap;
         let column_bottom = if plate_in_corner {
-            Some(transport.rect(screen).top() - gap)
-        } else if transport_shown {
+            Some(playback_placement.rect(screen).top() - gap)
+        } else if playback_controls_shown {
             None
         } else if selection_ends_row {
             Some(screen.bottom() - observer::WING_MARGIN - observer::selection::PANEL_HEIGHT - gap)
@@ -669,42 +671,49 @@ impl ObserverPanels {
                 prefs.dock_expanded = expanded;
             }
         }
-        transport
+        playback_placement
     }
 
     /// Draws the frame around the game's minimap, where the host can say where the minimap is, and
-    /// turns what the watcher did with its header into intents.
+    /// turns what the watcher did with its header into intents. Returns the rects the frame takes the
+    /// pointer in.
     ///
-    /// `square` is where the host says the minimap is, and `wanted` whether the watcher has the
-    /// minimap's panel on.
+    /// `square` is where the host says the minimap is, `wanted` whether the watcher has the
+    /// minimap's panel on, and `hotkeys` what the header's cards name.
     fn frame_minimap(
         &mut self,
         ctx: &Context,
         view: &ObserverView,
         square: Option<Rect>,
         wanted: bool,
+        hotkeys: &Hotkeys,
         intents: &mut Vec<Intent>,
-        hit_rects: &mut Vec<HitRect>,
-    ) {
+    ) -> Vec<Rect> {
         let shown = wanted && square.is_some();
         if !shown {
             self.vision_picker_open = false;
         }
         let Some(square) = square else {
-            return;
+            return Vec::new();
         };
+        let vision_keys = hotkeys
+            .chord_for(Action::ToggleVisionPicker)
+            .map(|chord| chord.keycaps(false))
+            .unwrap_or_default();
+        let menu_keys = hotkeys::MENU_CHORDS[0].keycaps(false);
         let Some(outcome) = observer::render_minimap_frame(
             ctx,
             square,
             shown,
             &view.matchup.players,
             self.vision_picker_open,
+            observer::MinimapKeys {
+                vision: &vision_keys,
+                menu: &menu_keys,
+            },
         ) else {
-            return;
+            return Vec::new();
         };
-        for rect in outcome.rects {
-            hit_rects.push(HitRect::new(rect));
-        }
         self.vision_picker_open = shown && outcome.picker_open;
         if let Some(player_id) = outcome.toggled_vision {
             intents.push(Intent::ToggleVision { player_id });
@@ -713,6 +722,7 @@ impl ObserverPanels {
             self.vision_picker_open = false;
             intents.push(Intent::OpenGameMenu);
         }
+        outcome.rects
     }
 
     /// Selects the group on `digit` of the player whose keys the control groups row shows, the way

@@ -40,12 +40,13 @@ use crate::disconnect::{DisconnectView, SelfState};
 use crate::end_card::{self, EndCardChoice, EndCardView};
 pub use crate::game_menu::PauseControl;
 use crate::game_menu::leave_asks_first;
+use crate::kit::widgets;
 use crate::net_quality::{NetQualityView, render_net_quality};
 use crate::netstat::{NetStatsView, render_netstat_view};
 use crate::observer::{self, ObserverView};
 use crate::options::{OptionsLists, OptionsSection, OptionsView, SettingChange};
+use crate::playback_controls::{PlaybackControlsPlacement, PlaybackView, render_playback_controls};
 use crate::setting_toast::SettingToast;
-use crate::transport::{TransportPlacement, TransportView, render_transport_view};
 
 pub use capture::{InputCapture, KeyboardCapture, PointerCapture};
 pub use hotkeys::{Action, Chord, Hotkeys};
@@ -207,9 +208,9 @@ pub struct Views<'a> {
     /// moving for as long as the player keeps playing.
     pub end_card: Option<&'a EndCardView>,
     /// Replay playback, which a host builds for every frame of a replay whether or not the plate is
-    /// on screen: the transport keys keep working with it hidden, and only the shell knows whether
+    /// on screen: the playback keys keep working with it hidden, and only the shell knows whether
     /// the player has hidden it.
-    pub transport: Option<&'a TransportView>,
+    pub playback: Option<&'a PlaybackView>,
     /// The observer panels, which a host builds for every frame it is watching a game rather than
     /// playing one — again whether or not any of them is on screen, since the keys that show them
     /// arrive between frames.
@@ -264,9 +265,11 @@ pub struct FrameOutput {
     /// unless the capture says otherwise.
     pub hit_rects: Vec<HitRect>,
     pub capture: InputCapture,
-    /// Whether the overlay's replay transport is on screen, which is exactly when the game's own
+    /// Whether the overlay's playback controls are on screen, which is exactly when the game's own
     /// replay plate must not be. Stays true through the plate's exit, so the two never overlap.
-    pub transport_shown: bool,
+    pub playback_controls_shown: bool,
+    /// Whether a control acted this frame, which a host answers with the game's own button click.
+    pub button_click: bool,
 }
 
 /// The overlay's per-frame state machine. See the module docs.
@@ -277,7 +280,7 @@ pub struct Shell {
     /// The game state the last frame reported, which is what keypresses arriving between frames are
     /// decided against.
     host: HostFrame,
-    /// The replay commands waiting to go out, and the playback a transport key is relative to.
+    /// The replay commands waiting to go out, and the playback a playback key is relative to.
     replay: ReplayCommands,
     /// Where the observer panels stood and what the watcher had open on them.
     observer: ObserverPanels,
@@ -587,7 +590,7 @@ impl Shell {
         crate::kit::tiers::set_console_top(ctx, host.minimap_rect.map(|minimap| minimap.top()));
         self.sync_status_modals(views.disconnect.as_ref());
 
-        self.replay.set_playback(views.transport.copied());
+        self.replay.set_playback(views.playback.copied());
         // A change switched back, or one the game has since made itself, is nothing to apply.
         if let Some(view) = views.alliances {
             self.alliances_draft.settle(view);
@@ -619,7 +622,7 @@ impl Shell {
             Some(view) if self.host.mode.is_spectating() => self.observer.frame(
                 ctx,
                 view,
-                views.transport.is_some(),
+                views.playback.is_some(),
                 ObserverFrame {
                     host: &self.host,
                     hotkeys: &self.hotkeys,
@@ -629,9 +632,9 @@ impl Shell {
                     hit_rects: &mut hit_rects,
                 },
             ),
-            _ => TransportPlacement::default(),
+            _ => PlaybackControlsPlacement::default(),
         };
-        let transport_shown = match views.transport {
+        let playback_controls_shown = match views.playback {
             Some(view) => {
                 // The plate's track is ticked with the timeline's events, which only the observer
                 // view carries: a replay without one has a plate and no ticks.
@@ -639,7 +642,7 @@ impl Shell {
                     .observer
                     .filter(|_| self.host.mode.is_spectating())
                     .map_or(&[][..], |observer| &observer.timeline.events[..]);
-                self.frame_transport(ctx, view, events, placement, &mut hit_rects)
+                self.frame_playback_controls(ctx, view, events, placement, &mut hit_rects)
             }
             None => false,
         };
@@ -682,7 +685,8 @@ impl Shell {
             intents: std::mem::take(&mut self.intents),
             hit_rects,
             capture: self.capture(),
-            transport_shown,
+            playback_controls_shown,
+            button_click: widgets::take_activation(ctx),
         }
     }
 
@@ -749,21 +753,21 @@ impl Shell {
         }
     }
 
-    /// Draws the replay transport where `placement` stands it and turns what the player did with it
-    /// into intents, returning whether the plate is on screen. `events` are the timeline's, which
-    /// its track is ticked with.
-    fn frame_transport(
+    /// Draws the playback controls where `placement` stands them and turns what the player did with
+    /// them into intents, returning whether the plate is on screen. `events` are the timeline's,
+    /// which its track is ticked with.
+    fn frame_playback_controls(
         &mut self,
         ctx: &Context,
-        view: &TransportView,
+        view: &PlaybackView,
         events: &[observer::TimelineEventView],
-        placement: TransportPlacement,
+        placement: PlaybackControlsPlacement,
         hit_rects: &mut Vec<HitRect>,
     ) -> bool {
-        let outcome = render_transport_view(
+        let outcome = render_playback_controls(
             view,
             ctx,
-            self.prefs.shown(Panel::Transport),
+            self.prefs.shown(Panel::PlaybackControls),
             placement,
             events,
             &self.hotkeys,
@@ -1109,7 +1113,7 @@ mod tests {
     #[test]
     fn an_action_with_no_surface_leaves_its_key_to_the_game() {
         let mut shell = spectating_shell();
-        // The transport keys have no replay fed to them here, the vision cycle has no surface at
+        // The playback keys have no replay fed to them here, the vision cycle has no surface at
         // all, and the map-control bar has been told of no measurement to draw.
         for key in [Key::P, Key::U, Key::V, Key::N] {
             assert!(

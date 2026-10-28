@@ -15,8 +15,8 @@ pub mod kitchen_sink;
 pub mod net_quality;
 pub mod netstat;
 pub mod observer;
+pub mod playback_controls;
 pub mod shell;
-pub mod transport;
 
 use egui::Context;
 use overlay_ui::options::OptionsSection;
@@ -37,7 +37,7 @@ pub enum ScenarioKind {
     NetStat,
     ChatHistory,
     Alliances,
-    Transport,
+    PlaybackControls,
     Observer,
     Shell,
     KitchenSink,
@@ -50,7 +50,7 @@ impl ScenarioKind {
         ScenarioKind::NetStat,
         ScenarioKind::ChatHistory,
         ScenarioKind::Alliances,
-        ScenarioKind::Transport,
+        ScenarioKind::PlaybackControls,
         ScenarioKind::Observer,
         ScenarioKind::Shell,
         ScenarioKind::KitchenSink,
@@ -63,7 +63,7 @@ impl ScenarioKind {
             ScenarioKind::NetStat => "Network stats",
             ScenarioKind::ChatHistory => "Chat history",
             ScenarioKind::Alliances => "Alliances",
-            ScenarioKind::Transport => "Replay transport",
+            ScenarioKind::PlaybackControls => "Playback controls",
             ScenarioKind::Observer => "Observer panels",
             ScenarioKind::Shell => "Shell",
             ScenarioKind::KitchenSink => "Kitchen sink",
@@ -75,8 +75,8 @@ impl ScenarioKind {
     pub fn required_mode(self) -> Option<Mode> {
         match self {
             // The observer panels exist while observing too; a replay is where the whole set is on
-            // screen at once, transport plate included, so that is what selecting them lands on.
-            ScenarioKind::Transport | ScenarioKind::Observer => Some(Mode::Replay),
+            // screen at once, playback controls included, so that is what selecting them lands on.
+            ScenarioKind::PlaybackControls | ScenarioKind::Observer => Some(Mode::Replay),
             // Alliances are between players, so there is nothing to set from the stands.
             ScenarioKind::Alliances => Some(Mode::Playing),
             _ => None,
@@ -91,7 +91,7 @@ impl ScenarioKind {
             ScenarioKind::NetStat => "netstat",
             ScenarioKind::ChatHistory => "chat-history",
             ScenarioKind::Alliances => "alliances",
-            ScenarioKind::Transport => "transport",
+            ScenarioKind::PlaybackControls => "playback-controls",
             ScenarioKind::Observer => "observer",
             ScenarioKind::Shell => "shell",
             ScenarioKind::KitchenSink => "kitchen-sink",
@@ -107,7 +107,7 @@ pub enum Preset {
     NetStat(netstat::Preset),
     ChatHistory(chat_history::Preset),
     Alliances(alliances::Preset),
-    Transport(transport::Preset),
+    PlaybackControls(playback_controls::Preset),
     Observer(observer::Preset),
     Shell(shell::Preset),
     KitchenSink(kitchen_sink::Preset),
@@ -121,7 +121,7 @@ impl Preset {
             Preset::NetStat(_) => ScenarioKind::NetStat,
             Preset::ChatHistory(_) => ScenarioKind::ChatHistory,
             Preset::Alliances(_) => ScenarioKind::Alliances,
-            Preset::Transport(_) => ScenarioKind::Transport,
+            Preset::PlaybackControls(_) => ScenarioKind::PlaybackControls,
             Preset::Observer(_) => ScenarioKind::Observer,
             Preset::Shell(_) => ScenarioKind::Shell,
             Preset::KitchenSink(_) => ScenarioKind::KitchenSink,
@@ -136,7 +136,7 @@ impl Preset {
             Preset::NetStat(preset) => preset.label().to_string(),
             Preset::ChatHistory(preset) => preset.label().to_string(),
             Preset::Alliances(preset) => preset.label().to_string(),
-            Preset::Transport(preset) => preset.label().to_string(),
+            Preset::PlaybackControls(preset) => preset.label().to_string(),
             Preset::Observer(preset) => preset.label(),
             Preset::Shell(preset) => preset.label(),
             Preset::KitchenSink(preset) => preset.label().to_string(),
@@ -170,7 +170,7 @@ impl Preset {
             Preset::NetStat(preset) => preset.apply(&mut knobs.netstat),
             Preset::ChatHistory(preset) => preset.apply(knobs),
             Preset::Alliances(preset) => preset.apply(knobs),
-            Preset::Transport(preset) => preset.apply(knobs),
+            Preset::PlaybackControls(preset) => preset.apply(knobs),
             Preset::Observer(preset) => preset.apply(knobs),
             Preset::Shell(preset) => preset.apply(knobs),
             Preset::KitchenSink(preset) => preset.apply(&mut knobs.kitchen_sink),
@@ -188,7 +188,7 @@ pub const PSEUDOLOCALE_PRESETS: [Preset; 12] = [
     Preset::ChatHistory(chat_history::Preset::Busy),
     Preset::Alliances(alliances::Preset::Crowded),
     Preset::Alliances(alliances::Preset::Staged),
-    Preset::Transport(transport::Preset::SpoilerFree),
+    Preset::PlaybackControls(playback_controls::Preset::SpoilerFree),
     Preset::Observer(observer::Preset::hover_showcase(observer::Hover::JumpChip)),
     Preset::Observer(observer::Preset::game(6, 3, observer::Screen::Analyst)),
     Preset::Shell(shell::Preset::PlayerGameMenu),
@@ -210,7 +210,11 @@ pub fn all_presets() -> Vec<Preset> {
                 .map(Preset::ChatHistory),
         )
         .chain(alliances::Preset::ALL.into_iter().map(Preset::Alliances))
-        .chain(transport::Preset::ALL.into_iter().map(Preset::Transport))
+        .chain(
+            playback_controls::Preset::ALL
+                .into_iter()
+                .map(Preset::PlaybackControls),
+        )
         .chain(observer::Preset::ALL.into_iter().map(Preset::Observer))
         .chain(shell::Preset::ALL.into_iter().map(Preset::Shell))
         .chain(
@@ -225,8 +229,8 @@ pub fn all_presets() -> Vec<Preset> {
 pub struct UiState {
     pub disconnect: disconnect::UiState,
     pub net_quality: net_quality::SimState,
-    /// The fake replay the transport drives, which is state the game would own rather than a knob.
-    pub transport: transport::Clock,
+    /// The fake replay the playback controls drive, which is state the game would own rather than a knob.
+    pub playback: playback_controls::Clock,
     /// What the fake game remembers of what the observer panels asked of it.
     pub observer: observer::State,
     /// What the fake game remembers of what the alliances screen asked of it.
@@ -240,7 +244,7 @@ impl UiState {
         UiState {
             disconnect: disconnect::UiState::new(&knobs.disconnect),
             net_quality: net_quality::SimState::new(),
-            transport: transport::Clock::new(&knobs.transport),
+            playback: playback_controls::Clock::new(&knobs.playback_controls),
             observer: observer::State::new(),
             alliances: alliances::State::new(),
             setting_toast_applied: false,
@@ -307,28 +311,29 @@ pub fn render(
         .and_then(|modal| modal.end_card_result(knobs.host.mode))
         .map(|result| shell::end_card_view(result, knobs.host.game_seconds, knobs.shell.race));
     // Built for every frame of the emulated replay whether or not the plate is on screen, the way
-    // the game DLL builds it: the transport keys keep working with the plate hidden. The observer
+    // the game DLL builds it: the playback keys keep working with the plate hidden. The observer
     // scenario carries it too, because a replay's screen is the whole set at once — the plate is
     // part of what the panels have to share the screen with.
-    let transport_view = (matches!(
+    let playback_view = (matches!(
         knobs.scenario,
-        ScenarioKind::Transport | ScenarioKind::Observer
+        ScenarioKind::PlaybackControls | ScenarioKind::Observer
     ) && knobs.host.mode == Mode::Replay)
         .then(|| {
-            state.transport.advance(&knobs.transport, elapsed);
-            transport::build_view(
-                &knobs.transport,
-                &state.transport,
+            state.playback.advance(&knobs.playback_controls, elapsed);
+            playback_controls::build_view(
+                &knobs.playback_controls,
+                &state.playback,
                 shell.panel_prefs().spoiler_free,
             )
         });
     let observer_view = (knobs.scenario == ScenarioKind::Observer).then(|| {
-        // In a replay the two clocks are the same clock: a matchup bar and a transport plate that
+        // In a replay the two clocks are the same clock: a matchup bar and a playback plate that
         // disagreed about how far into the game it is would be reporting on two different games.
-        let game_secs = match &transport_view {
-            Some(view) => {
-                overlay_ui::transport::frames_to_seconds(view.elapsed_frames, view.game_speed)
-            }
+        let game_secs = match &playback_view {
+            Some(view) => overlay_ui::playback_controls::frames_to_seconds(
+                view.elapsed_frames,
+                view.game_speed,
+            ),
             None => u64::from(knobs.observer.start_secs) + elapsed as u64,
         };
         let prefs = shell.panel_prefs();
@@ -364,7 +369,7 @@ pub fn render(
         chat_history: chat_history_view.as_ref(),
         alliances: alliances_view.as_ref(),
         end_card: end_card_view.as_ref(),
-        transport: transport_view.as_ref(),
+        playback: playback_view.as_ref(),
         observer: observer_view.as_ref(),
         options: options_view.as_ref(),
         option_lists: option_lists.as_ref(),
@@ -416,7 +421,7 @@ pub fn render(
             Intent::ChangeSetting(change) => outcome.setting_changes.push(change),
             Intent::CloseNativeDialog(dialog) => outcome.close_native_dialogs.push(dialog),
             // The fake replay answers these, the way the game answers them by moving its own clock.
-            Intent::Seek(frame) => state.transport.seek_to(frame),
+            Intent::Seek(frame) => state.playback.seek_to(frame),
             // The emulated game has no map to look at, and no units to select.
             Intent::LookAt(_)
             | Intent::SelectControlGroup { .. }
@@ -427,7 +432,7 @@ pub fn render(
                 speed_index,
                 multiplier,
                 paused,
-            } => state.transport.set_speed(speed_index, multiplier, paused),
+            } => state.playback.set_speed(speed_index, multiplier, paused),
             // The fake game answers these the way the real one does: vision changes what the
             // watcher is shown, and a selection is what the game would put in its console.
             Intent::ToggleVision { player_id } => state.observer.toggle_vision(player_id),
@@ -508,7 +513,9 @@ pub fn knobs_ui(knobs: &mut Knobs, state: &mut UiState, ui: &mut egui::Ui) -> bo
         ScenarioKind::Alliances => {
             alliances::knobs_ui(&mut knobs.alliances, &mut state.alliances, ui)
         }
-        ScenarioKind::Transport => transport::knobs_ui(&mut knobs.transport, ui),
+        ScenarioKind::PlaybackControls => {
+            playback_controls::knobs_ui(&mut knobs.playback_controls, ui)
+        }
         ScenarioKind::Observer => observer::knobs_ui(&mut knobs.observer, &state.observer, ui),
         ScenarioKind::Shell => shell::knobs_ui(&mut knobs.shell, ui),
         ScenarioKind::KitchenSink => {

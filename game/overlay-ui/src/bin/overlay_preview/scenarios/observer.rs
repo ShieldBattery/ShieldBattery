@@ -1486,7 +1486,7 @@ impl Screen {
         let deep = analysis && self != Screen::Standard;
         prefs.matchup = true;
         prefs.minimap = true;
-        prefs.transport = true;
+        prefs.playback_controls = true;
         prefs.map_control = deep;
         prefs.economy = analysis;
         prefs.military = deep;
@@ -1583,6 +1583,8 @@ pub enum Hover {
     TrackMarker,
     /// Over the replay plate's +1m chip, whose card names a chord of two keys.
     JumpChip,
+    /// Over the minimap header's vision button, whose card names the key that opens its list.
+    MinimapVision,
     /// Over the weapon upgrade of the unit the selection panel reads out, which names it, its
     /// level and the damage it comes to.
     UpgradeChip,
@@ -1598,6 +1600,7 @@ impl Hover {
             Hover::TimelineRow => Some((250.0, 336.0)),
             Hover::TrackMarker => Some((TRACK_MARKER_X, 996.0)),
             Hover::JumpChip => Some((1830.0, 1040.0)),
+            Hover::MinimapVision => Some((34.0, 714.0)),
             Hover::UpgradeChip => Some((UPGRADE_CHIP_X, UPGRADE_CHIP_Y)),
         }
     }
@@ -1611,6 +1614,7 @@ impl Hover {
             Hover::TimelineRow => "timeline-hover",
             Hover::TrackMarker => "marker-hover",
             Hover::JumpChip => "jump-chip-hover",
+            Hover::MinimapVision => "minimap-vision-hover",
             Hover::UpgradeChip => "upgrade-hover",
         }
     }
@@ -1664,7 +1668,7 @@ impl Preset {
         }
     }
 
-    pub const ALL: [Preset; 34] = [
+    pub const ALL: [Preset; 35] = [
         Preset::game(2, 1, Screen::Minimal),
         Preset::game(2, 1, Screen::Standard),
         Preset::game(2, 1, Screen::Analyst),
@@ -1713,6 +1717,7 @@ impl Preset {
         Preset::hover_showcase(Hover::TimelineRow),
         Preset::hover_showcase(Hover::TrackMarker),
         Preset::hover_showcase(Hover::JumpChip),
+        Preset::hover_showcase(Hover::MinimapVision),
         Preset::hover_showcase(Hover::UpgradeChip),
     ];
 

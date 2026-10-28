@@ -85,8 +85,8 @@ mod network;
 mod patching;
 mod pe_image;
 mod rendering;
+mod replay_playback;
 mod replay_save;
-mod replay_transport;
 mod replay_vision_choice;
 mod sdf_cache;
 mod selection;
@@ -536,7 +536,7 @@ pub struct BwScr {
     /// If the minimap was hidden in replay / obs ui. Separate from the console's state: the minimap
     /// is its own surface and observers keep it while hiding the rest of the console.
     minimap_hidden_state: AtomicBool,
-    /// If the console's command panel was hidden because the overlay's replay transport is standing
+    /// If the console's command panel was hidden because the overlay's playback controls are standing
     /// in for the replay controls it carries.
     command_panel_hidden_state: AtomicBool,
     /// Whether the game has been started (e.g. we're done loading in)
@@ -570,7 +570,7 @@ pub struct BwScr {
     chat_history: Mutex<chat_history::ChatHistory>,
     /// How replay playback is running, tracked off the command stream rather than read out of the
     /// game's own globals.
-    replay_transport: Mutex<replay_transport::ReplayTransport>,
+    replay_playback: Mutex<replay_playback::ReplayPlayback>,
     /// The replay visions the viewer chose, which SC:R's globals lose when it starts a replay over.
     replay_vision_choice: Mutex<replay_vision_choice::ReplayVisionChoice>,
     /// What the overlay's options screen shows: the settings the app sent at launch, plus whatever

@@ -4,7 +4,7 @@ use egui::{Context, Key, Modifiers, Rect};
 
 use super::{FrameOutput, HostFrame, Intent, ModalId, Mode, Shell, Views};
 use crate::disconnect::{DisconnectView, SelfState};
-use crate::transport::TransportView;
+use crate::playback_controls::PlaybackView;
 
 pub(super) fn spectating_shell() -> Shell {
     let mut shell = Shell::new();
@@ -22,8 +22,8 @@ pub(super) fn spectating_shell() -> Shell {
 }
 
 /// A replay a few minutes in, running at the speed it was recorded at.
-pub(super) fn replay() -> TransportView {
-    TransportView {
+pub(super) fn replay() -> PlaybackView {
+    PlaybackView {
         elapsed_frames: 20_000,
         end_frames: 60_000,
         game_speed: 6,
@@ -46,10 +46,10 @@ pub(super) fn fresh_ctx() -> Context {
 pub(super) fn run_frame_at(
     shell: &mut Shell,
     ctx: &Context,
-    transport: Option<&TransportView>,
+    playback: Option<&PlaybackView>,
     time: f64,
 ) -> FrameOutput {
-    run_frame_with_events(shell, ctx, transport, time, Vec::new())
+    run_frame_with_events(shell, ctx, playback, time, Vec::new())
 }
 
 /// Runs one shell frame after `keys` were pressed, each offered to the shell first and handed to
@@ -75,7 +75,7 @@ pub(super) fn run_frame_with_keys(shell: &mut Shell, ctx: &Context, keys: &[Key]
 fn run_frame_with_events(
     shell: &mut Shell,
     ctx: &Context,
-    transport: Option<&TransportView>,
+    playback: Option<&PlaybackView>,
     time: f64,
     events: Vec<egui::Event>,
 ) -> FrameOutput {
@@ -100,7 +100,7 @@ fn run_frame_with_events(
     };
     ctx.begin_pass(raw);
     let mut views = Views {
-        transport,
+        playback,
         ..Views::default()
     };
     let output = shell.frame(ctx, &host, &mut views);
@@ -114,10 +114,10 @@ fn run_frame_with_events(
 pub(super) fn run_frame(
     shell: &mut Shell,
     ctx: &Context,
-    transport: Option<&TransportView>,
+    playback: Option<&PlaybackView>,
 ) -> Vec<Intent> {
     let time = ctx.input(|input| input.time) + 1.0;
-    run_frame_at(shell, ctx, transport, time).intents
+    run_frame_at(shell, ctx, playback, time).intents
 }
 
 /// A disconnect view with something on it: an empty one draws nothing and raises no modal.

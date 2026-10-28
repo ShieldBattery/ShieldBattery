@@ -5,7 +5,7 @@ without launching StarCraft.
 
 The **library** is what the injected game DLL links against: view-model types and pure egui render
 functions over plain data (`disconnect`, `net_quality`, `game_menu`, `netstat`, `chat_history`,
-`transport`, `observer`), the color ramps (`colors`), the font families (`fonts`),
+`playback_controls`, `observer`), the color ramps (`colors`), the font families (`fonts`),
 `install_fonts_and_style`, which installs the overlay's faces and base style on an `egui::Context`,
 the UI kit (`kit`) every screen is drawn from, the translations (`i18n`) every string goes through,
 and the `shell` that decides which of those screens is up and what the frame does with the player's
@@ -106,7 +106,7 @@ move.
 A frame has three layers, drawn so each covers the one before it. **Ambient** (tier 0/1) panels sit
 over live gameplay; the observer panel set belongs to `Observing`/`Replay`, while the `/netstat`
 diagnostic panel is deliberately available in every mode, since only an explicit chat command puts it
-on screen. **Hero** carries the match's identity, and the replay transport plate is drawn in it — at the
+on screen. **Hero** carries the match's identity, and the replay playback controls are drawn in it — at the
 ambient tier's own chrome, since the plate sits in the corner of a live game rather than over it.
 **Modal** (tier 2) is a stack, of which only the top is drawn.
 
@@ -214,9 +214,9 @@ would come back to a game it had missed most of. The preview has no game, so its
 fake game's own measurements evaluated backwards over the clock, which keeps an offline render of the
 same second the same image every time.
 
-**The replay transport** (`transport`) is the one screen that acts on the game rather than reporting
-on it. A host builds its view-model for every frame of a replay, whether or not the plate is on
-screen, so the transport keys keep working with it hidden; the shell decides what is drawn and turns
+**The playback controls** (`playback_controls`) are the one screen that acts on the game rather
+than reporting on it. A host builds its view-model for every frame of a replay, whether or not the
+plate is on screen, so the playback keys keep working with it hidden; the shell decides what is drawn and turns
 both the plate's controls and those keys into `Intent::Seek` and `Intent::SetSpeed`, which a host
 sends as the game's own replay commands. Two rules live in the shell rather than in either host: at
 most one seek is in flight (a second sent while the first is pending is refused outright by the
@@ -268,7 +268,7 @@ built leaves the game's own behavior alone.
 
 | Action                               | Key       | Action                    | Key     |
 | ------------------------------------ | --------- | ------------------------- | ------- |
-| Pause / resume                       | `P`       | Transport plate           | `Y`     |
+| Pause / resume                       | `P`       | Playback controls         | `Y`     |
 | Speed up / down                      | `U` / `D` | Military                  | `M`     |
 | Seek back / forward (Shift: further) | `,` / `.` | Graphs (Shift/Ctrl: step) | `G`     |
 | All panels                           | `A`       | Timeline                  | `T`     |
@@ -282,7 +282,7 @@ Of these, `A`, `R`, `E`, `M`, `T`, `F`, `H`, `W`, `Q` and `Y` move panels, `` ` 
 and off screen while `` Shift+` `` changes which of its two forms it comes back in, `G` toggles the
 graphs panel like any other panel key while `Shift+G` and `Ctrl+G` step it to the next and previous
 measurement, `N` moves the map-control bar but only while a host is reporting one, and `P`, `U`, `D`, `,`, `.` and `L` drive a replay. `V` is still a binding
-waiting for its surface. The transport keys are consumed only while a replay's view-model is being
+waiting for its surface. The playback keys are consumed only while a replay's view-model is being
 fed, and `L` only in a replay, so anywhere else they stay the game's.
 
 Panel visibility lives in `shell::PanelPrefs`, which is serde-serializable so a host can persist it
@@ -406,7 +406,7 @@ are mixed, whether any are the local player's own, system notices, a line long e
 line carrying BW's color codes), and its _burst new lines_ button appends five at the bottom, which
 is how the pinned scroll is judged — the list follows them only if the reader had left it at the
 bottom. Selecting the scenario spawns the native dialog it replaces, since that is what raises the
-modal. The **replay transport** scenario keeps a fake replay behind the plate — a clock that runs at
+modal. The **playback controls** scenario keeps a fake replay behind the plate — a clock that runs at
 whatever speed the plate last asked for, that a seek moves and a pause stops — because a seek that
 went nowhere would prove nothing about whether the playhead follows the pointer; its knobs are the
 replay's length, where playback starts, the speed it was recorded at, the rung it starts on, and
@@ -415,7 +415,7 @@ mode, which is the only mode the plate exists in. The **observer panels** scenar
 behind the panel set, because panels that report on a game cannot be judged against numbers that
 never move: banks rise and fall, supply climbs and production rows fill and restart, all as a pure
 function of game time, so an offline render of the same second is the same image every time. In a
-replay it shares the transport's clock, since a bar and a plate that disagreed about how far into
+replay it shares the playback controls' clock, since a bar and a plate that disagreed about how far into
 the game it is would be reporting on two different games. Its knobs are where the clock starts, how
 many players the game has (split down the middle into two sides, which is what walks the matchup bar
 through its three forms), each player's race and whether they picked it at random, whether the left

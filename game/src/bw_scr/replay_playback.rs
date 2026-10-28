@@ -1,4 +1,4 @@
-//! The game-side half of the replay transport: sending the commands that drive playback, and
+//! The game-side half of the playback controls: sending the commands that drive playback, and
 //! learning the state back off the command stream.
 //!
 //! Speed, pause and seek are commands rather than globals, so the overlay drives playback by
@@ -8,7 +8,7 @@
 //!
 //! The one change no command carries is SC:R stopping playback when the replay reaches its end.
 //! Starting the replay over for a seek keeps it stopped, so a seek made after the end is followed
-//! by a speed command that puts back the playback this transport last saw.
+//! by a speed command that puts back the playback last seen here.
 
 use std::time::{Duration, Instant};
 
@@ -29,11 +29,11 @@ const SEEK_COMMAND_LEN: usize = 5;
 ///
 /// The game refuses a seek while one is in flight, and it refuses it silently — a refused command
 /// never reaches the stream, so the arrival that would clear this never comes. Without a deadline
-/// one refused seek would leave the transport unable to seek again for the rest of the replay.
+/// one refused seek would leave the playback controls unable to seek again for the rest of the replay.
 const SEEK_TIMEOUT: Duration = Duration::from_secs(2);
 
 /// How replay playback is running, as the last command to change it left it.
-pub struct ReplayTransport {
+pub struct ReplayPlayback {
     paused: bool,
     speed_index: u32,
     multiplier: u32,
@@ -46,7 +46,7 @@ pub struct ReplayTransport {
 
 /// What the overlay needs to know about playback this frame.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub struct TransportState {
+pub struct PlaybackState {
     pub paused: bool,
     pub speed_index: u32,
     pub multiplier: u32,
@@ -66,20 +66,20 @@ pub enum ReplayCommand {
     },
 }
 
-impl Default for ReplayTransport {
-    fn default() -> ReplayTransport {
-        ReplayTransport::new()
+impl Default for ReplayPlayback {
+    fn default() -> ReplayPlayback {
+        ReplayPlayback::new()
     }
 }
 
-impl ReplayTransport {
+impl ReplayPlayback {
     /// Playback as a replay starts it: running, at the speed the replay was recorded at, which is
     /// the ladder's own `1` rung. Any command — ours or the game's plate's — corrects this.
-    pub fn new() -> ReplayTransport {
-        ReplayTransport {
+    pub fn new() -> ReplayPlayback {
+        ReplayPlayback {
             paused: false,
-            speed_index: overlay_ui::transport::NORMAL_SPEED.speed_index,
-            multiplier: overlay_ui::transport::NORMAL_SPEED.multiplier,
+            speed_index: overlay_ui::playback_controls::NORMAL_SPEED.speed_index,
+            multiplier: overlay_ui::playback_controls::NORMAL_SPEED.multiplier,
             pending_seek: None,
             restore_after_restart: false,
         }
@@ -120,7 +120,7 @@ impl ReplayTransport {
     }
 
     /// The speed command a replay that started over from past its end still needs: the playback
-    /// this transport last saw, which is what the plate shows.
+    /// last seen here, which is what the plate shows.
     fn take_restore(&mut self) -> Option<ReplayCommand> {
         std::mem::take(&mut self.restore_after_restart).then_some(ReplayCommand::Speed {
             speed_index: self.speed_index,
@@ -130,8 +130,8 @@ impl ReplayTransport {
     }
 
     /// What the overlay should show, now.
-    pub fn state(&mut self) -> TransportState {
-        TransportState {
+    pub fn state(&mut self) -> PlaybackState {
+        PlaybackState {
             paused: self.paused,
             speed_index: self.speed_index,
             multiplier: self.multiplier,
@@ -165,33 +165,33 @@ impl ReplayTransport {
 
 impl BwScr {
     /// What the overlay should show of playback this frame.
-    pub fn replay_transport_state(&self) -> TransportState {
-        self.replay_transport.lock().state()
+    pub fn replay_playback_state(&self) -> PlaybackState {
+        self.replay_playback.lock().state()
     }
 
     /// Reads a live game command for whatever it says about replay playback.
-    pub fn note_replay_transport_command(&self, command: &[u8]) {
-        self.replay_transport.lock().note_command(command);
+    pub fn note_replay_playback_command(&self, command: &[u8]) {
+        self.replay_playback.lock().note_command(command);
     }
 
-    /// Tells the transport a live seek has reached the game without ever passing through
-    /// [`Self::note_replay_transport_command`]: keyframe seeking carries it out itself, and strips
+    /// Tells playback tracking a live seek has reached the game without ever passing through
+    /// [`Self::note_replay_playback_command`]: keyframe seeking carries it out itself, and strips
     /// it from the commands BW is given.
     pub fn note_replay_seek_taken(&self) {
-        self.replay_transport.lock().seek_arrived();
+        self.replay_playback.lock().seek_arrived();
     }
 
-    /// Tells the transport a live seek is starting the replay over, which SC:R does for every seek
+    /// Tells playback tracking a live seek is starting the replay over, which SC:R does for every seek
     /// back that keyframe seeking leaves to it.
     pub unsafe fn note_replay_restart(&self) {
         let ended = unsafe { crate::replay_seek::replay_ended(self) };
-        self.replay_transport.lock().note_restart(ended);
+        self.replay_playback.lock().note_restart(ended);
     }
 
     /// Sends the speed command a replay that started over from past its end needs to play from
     /// wherever the seek lands. Call once the restarted game steps, when commands reach it again.
     pub unsafe fn restore_replay_playback(&self) {
-        let command = self.replay_transport.lock().take_restore();
+        let command = self.replay_playback.lock().take_restore();
         if let Some(command) = command {
             unsafe { self.send_replay_command(command) };
         }
@@ -205,7 +205,7 @@ impl BwScr {
         unsafe {
             match command {
                 ReplayCommand::Seek { frame } => {
-                    if !self.replay_transport.lock().claim_seek(frame) {
+                    if !self.replay_playback.lock().claim_seek(frame) {
                         return;
                     }
                     let mut data = [0u8; SEEK_COMMAND_LEN];
@@ -242,16 +242,16 @@ mod tests {
 
     #[test]
     fn a_speed_command_is_read_back_exactly_as_it_was_written() {
-        let mut transport = ReplayTransport::new();
+        let mut playback = ReplayPlayback::new();
         let mut data = [0u8; SPEED_COMMAND_LEN];
         data[0] = commands::id::REPLAY_SPEED;
         data[1] = 1;
         LittleEndian::write_u32(&mut data[2..6], 0);
         LittleEndian::write_u32(&mut data[6..], 4);
-        transport.note_command(&data);
+        playback.note_command(&data);
         assert_eq!(
-            transport.state(),
-            TransportState {
+            playback.state(),
+            PlaybackState {
                 paused: true,
                 speed_index: 0,
                 multiplier: 4,
@@ -262,71 +262,71 @@ mod tests {
 
     #[test]
     fn a_command_of_the_wrong_length_says_nothing_about_playback() {
-        let mut transport = ReplayTransport::new();
-        let before = transport.state();
-        transport.note_command(&[commands::id::REPLAY_SPEED, 1, 0, 0]);
-        transport.note_command(&[commands::id::REPLAY_SEEK]);
-        assert_eq!(transport.state(), before);
+        let mut playback = ReplayPlayback::new();
+        let before = playback.state();
+        playback.note_command(&[commands::id::REPLAY_SPEED, 1, 0, 0]);
+        playback.note_command(&[commands::id::REPLAY_SEEK]);
+        assert_eq!(playback.state(), before);
     }
 
     #[test]
     fn only_one_seek_is_in_flight_at_a_time() {
-        let mut transport = ReplayTransport::new();
-        assert!(transport.claim_seek(1000));
-        assert!(transport.state().seek_pending);
-        assert!(!transport.claim_seek(2000));
+        let mut playback = ReplayPlayback::new();
+        assert!(playback.claim_seek(1000));
+        assert!(playback.state().seek_pending);
+        assert!(!playback.claim_seek(2000));
 
         let mut data = [0u8; SEEK_COMMAND_LEN];
         data[0] = commands::id::REPLAY_SEEK;
         LittleEndian::write_u32(&mut data[1..], 1000);
-        transport.note_command(&data);
-        assert!(!transport.state().seek_pending);
-        assert!(transport.claim_seek(2000));
+        playback.note_command(&data);
+        assert!(!playback.state().seek_pending);
+        assert!(playback.claim_seek(2000));
     }
 
     #[test]
     fn a_seek_keyframe_seeking_took_stops_blocking_the_next_one() {
-        let mut transport = ReplayTransport::new();
-        assert!(transport.claim_seek(1000));
-        transport.seek_arrived();
-        assert!(!transport.state().seek_pending);
-        assert!(transport.claim_seek(2000));
+        let mut playback = ReplayPlayback::new();
+        assert!(playback.claim_seek(1000));
+        playback.seek_arrived();
+        assert!(!playback.state().seek_pending);
+        assert!(playback.claim_seek(2000));
     }
 
     #[test]
     fn a_seek_the_game_never_took_stops_blocking_the_next_one() {
-        let mut transport = ReplayTransport::new();
-        assert!(transport.claim_seek(1000));
-        transport.pending_seek = Some((1000, Instant::now() - SEEK_TIMEOUT));
-        assert!(!transport.state().seek_pending);
-        assert!(transport.claim_seek(2000));
+        let mut playback = ReplayPlayback::new();
+        assert!(playback.claim_seek(1000));
+        playback.pending_seek = Some((1000, Instant::now() - SEEK_TIMEOUT));
+        assert!(!playback.state().seek_pending);
+        assert!(playback.claim_seek(2000));
     }
 
     #[test]
     fn a_restart_from_past_the_end_puts_back_the_playback_last_seen_once() {
-        let mut transport = ReplayTransport::new();
+        let mut playback = ReplayPlayback::new();
         let mut data = [0u8; SPEED_COMMAND_LEN];
         data[0] = commands::id::REPLAY_SPEED;
         data[1] = 1;
         LittleEndian::write_u32(&mut data[2..6], 6);
         LittleEndian::write_u32(&mut data[6..], 4);
-        transport.note_command(&data);
-        transport.note_restart(true);
+        playback.note_command(&data);
+        playback.note_restart(true);
         assert_eq!(
-            transport.take_restore(),
+            playback.take_restore(),
             Some(ReplayCommand::Speed {
                 speed_index: 6,
                 multiplier: 4,
                 paused: true,
             })
         );
-        assert_eq!(transport.take_restore(), None);
+        assert_eq!(playback.take_restore(), None);
     }
 
     #[test]
     fn a_restart_before_the_end_leaves_playback_alone() {
-        let mut transport = ReplayTransport::new();
-        transport.note_restart(false);
-        assert_eq!(transport.take_restore(), None);
+        let mut playback = ReplayPlayback::new();
+        playback.note_restart(false);
+        assert_eq!(playback.take_restore(), None);
     }
 }

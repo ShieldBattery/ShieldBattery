@@ -134,7 +134,7 @@ impl BwScr {
                         true => match commands::replay_seek_target(&slice, &self.game_command_lengths)
                         {
                             Some(target) if crate::replay_seek::take_seek_request(self, target) => {
-                                // The transport reads the commands below, after this strip, so
+                                // Playback tracking reads the commands below, after this strip, so
                                 // without this it would hold back every later seek until its
                                 // timeout.
                                 self.note_replay_seek_taken();
@@ -189,9 +189,9 @@ impl BwScr {
                             {
                                 counted_actions |= apm.action(apm_player, command);
                             }
-                            // Live commands of a replay only; see `ReplayTransport::note_command`.
+                            // Live commands of a replay only; see `ReplayPlayback::note_command`.
                             if is_replay && are_recorded_replay_commands == 0 {
-                                self.note_replay_transport_command(command);
+                                self.note_replay_playback_command(command);
                             }
                             match command {
                                 [commands::id::REPLAY_SEEK, rest @ ..] if rest.len() == 4

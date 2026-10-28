@@ -30,8 +30,8 @@ pub enum Panel {
     Selection,
     /// BW's own minimap.
     Minimap,
-    /// The replay transport plate.
-    Transport,
+    /// The replay playback controls.
+    PlaybackControls,
     /// The observer dock, from which every other panel here is reached without a key.
     Dock,
 }
@@ -50,7 +50,7 @@ impl Panel {
         Panel::ControlGroups,
         Panel::Selection,
         Panel::Minimap,
-        Panel::Transport,
+        Panel::PlaybackControls,
         Panel::Dock,
     ];
 
@@ -74,7 +74,7 @@ impl Panel {
             Panel::ControlGroups => Action::ToggleControlGroups,
             Panel::Selection => Action::ToggleSelection,
             Panel::Minimap => Action::ToggleMinimap,
-            Panel::Transport => Action::ToggleTransport,
+            Panel::PlaybackControls => Action::TogglePlaybackControls,
             Panel::Dock => Action::ToggleDock,
         }
     }
@@ -98,7 +98,7 @@ impl Panel {
             Panel::ControlGroups => "control groups",
             Panel::Selection => "selection",
             Panel::Minimap => "minimap",
-            Panel::Transport => "transport",
+            Panel::PlaybackControls => "playback controls",
             Panel::Dock => "dock",
         }
     }
@@ -124,7 +124,9 @@ pub struct PanelPrefs {
     pub control_groups: bool,
     pub selection: bool,
     pub minimap: bool,
-    pub transport: bool,
+    /// Also read as `transport`, the key settings written by older builds hold it under.
+    #[serde(alias = "transport")]
+    pub playback_controls: bool,
     /// Whether the observer dock is on screen.
     pub dock: bool,
     /// Whether the dock spells its rows out as the control rail. Not a panel of its own: it is one
@@ -192,7 +194,7 @@ impl Default for PanelPrefs {
             control_groups: true,
             selection: true,
             minimap: true,
-            transport: true,
+            playback_controls: true,
             dock: true,
             dock_expanded: false,
             spoiler_free: false,
@@ -216,7 +218,7 @@ impl PanelPrefs {
             Panel::ControlGroups => self.control_groups,
             Panel::Selection => self.selection,
             Panel::Minimap => self.minimap,
-            Panel::Transport => self.transport,
+            Panel::PlaybackControls => self.playback_controls,
             Panel::Dock => self.dock,
         }
     }
@@ -233,7 +235,7 @@ impl PanelPrefs {
             Panel::ControlGroups => self.control_groups = shown,
             Panel::Selection => self.selection = shown,
             Panel::Minimap => self.minimap = shown,
-            Panel::Transport => self.transport = shown,
+            Panel::PlaybackControls => self.playback_controls = shown,
             Panel::Dock => self.dock = shown,
         }
     }
@@ -523,7 +525,7 @@ mod tests {
         shell.set_panel_prefs(every_panel);
         assert!(shell.key_pressed(Key::A, Modifiers::NONE));
         assert!(shell.panel_prefs().spoiler_free);
-        assert!(!shell.panel_prefs().transport);
+        assert!(!shell.panel_prefs().playback_controls);
 
         let mut observing = Shell::new();
         observing.set_host(&HostFrame {
@@ -538,5 +540,11 @@ mod tests {
         });
         assert!(!observing.key_pressed(Key::L, Modifiers::NONE));
         assert!(!observing.panel_prefs().spoiler_free);
+    }
+
+    #[test]
+    fn playback_controls_hidden_under_their_old_name_stay_hidden() {
+        let saved: PanelPrefs = serde_json::from_str(r#"{"transport":false}"#).unwrap();
+        assert!(!saved.playback_controls);
     }
 }

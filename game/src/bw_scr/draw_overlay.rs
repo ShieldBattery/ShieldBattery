@@ -12,11 +12,11 @@ use overlay_ui::end_card::EndCardView;
 use overlay_ui::net_quality::NetQualityView;
 use overlay_ui::observer::{MatchupPlayerView, MatchupView};
 use overlay_ui::options::{OptionsLists, OptionsView, SettingChange};
+use overlay_ui::playback_controls::{self, PlaybackView};
 use overlay_ui::shell::{
     DisconnectSurface, FrameOutput, HostFrame, InputCapture, Intent, ModalId, Mode, NativeDialog,
     PanelPrefs, PauseControl, Shell, Views, hotkeys,
 };
-use overlay_ui::transport::{self, TransportView};
 use parking_lot::Mutex;
 use rally_point_client::proto::ids::SlotId;
 use winapi::shared::windef::{HWND, POINT};
@@ -27,7 +27,7 @@ use crate::bw::apm_stats::ApmStats;
 use crate::bw_scr::chat::ChatManager;
 use crate::bw_scr::dialog_hook::ReplacedDialogState;
 use crate::bw_scr::game_stats::{self, GameStats};
-use crate::bw_scr::replay_transport::{ReplayCommand, TransportState};
+use crate::bw_scr::replay_playback::{PlaybackState, ReplayCommand};
 use crate::bw_scr::scr;
 use crate::bw_scr::stat_txt::StatTxt;
 use crate::bw_scr::{BwCursorType, DialogList, console, dialog_hook, hotkey_presses};
@@ -222,7 +222,7 @@ pub struct StepOutput {
     pub console_visible: bool,
     pub minimap_visible: bool,
     /// Whether BW's own replay controls should be on screen, which is exactly when the overlay's
-    /// transport plate is not: the two stand in the same corner and do the same job.
+    /// playback controls are not: the two stand in the same corner and do the same job.
     pub command_panel_visible: bool,
     /// What the overlay wants done to replay playback this frame, in the order it asked.
     pub replay_commands: Vec<ReplayCommand>,
@@ -239,6 +239,8 @@ pub struct StepOutput {
     pub run_second_draw: bool,
     /// Whether the player asked to leave the game, the way the in-game menu's End Game does.
     pub leave_game: bool,
+    /// Whether one of the overlay's controls acted, which is answered with the game's button click.
+    pub button_click: bool,
     /// A place on the map to center the game's view on.
     pub look_at: Option<bw::Point>,
     /// A number-key group to select.
@@ -327,7 +329,7 @@ pub struct BwVars {
     /// The `players[]` index the local client is playing from, which is what decides whose side a
     /// player is on and whose row the disconnect surface leaves out.
     pub local_player_id: u8,
-    /// The replay's own header numbers, and how playback is running, for the transport plate.
+    /// The replay's own header numbers, and how playback is running, for the playback controls.
     /// `None` outside a replay, which is every mode the plate is not drawn in.
     pub replay: Option<ReplayVars>,
     /// Where the game's names for units, upgrades and techs are read from. `None` when the analysis
@@ -339,13 +341,13 @@ pub struct BwVars {
     pub pause_control: Option<PauseControl>,
 }
 
-/// What the replay transport needs of the game: the replay's length and recorded speed, from its
+/// What the playback controls need of the game: the replay's length and recorded speed, from its
 /// header, and the playback state the command-stream hook has tracked.
 #[derive(Copy, Clone)]
 pub struct ReplayVars {
     pub end_frame: u32,
     pub game_speed: u8,
-    pub transport: TransportState,
+    pub playback: PlaybackState,
 }
 
 #[derive(Copy, Clone)]
@@ -654,7 +656,7 @@ impl OverlayState {
             native_menu_open: bw::iter_dialogs(bw.dialogs.first())
                 .take_while(|dialog| dialog.as_control().string() != "Minimap")
                 .any(|dialog| !dialog.as_control().is_hidden()),
-            game_seconds: transport::frames_to_seconds(
+            game_seconds: playback_controls::frames_to_seconds(
                 bw.game.frame_count(),
                 bw.replay
                     .map_or(FASTEST_GAME_SPEED, |replay| replay.game_speed),
@@ -762,17 +764,17 @@ impl OverlayState {
                 production,
             )
         });
-        // Built for every frame of a replay whether or not the plate is on screen: the transport
+        // Built for every frame of a replay whether or not the plate is on screen: the playback
         // keys keep working with it hidden, and only the shell knows whether the player hid it.
-        let transport_view = bw.replay.map(|replay| TransportView {
+        let playback_view = bw.replay.map(|replay| PlaybackView {
             elapsed_frames: bw.game.frame_count(),
             end_frames: replay.end_frame,
             game_speed: replay.game_speed,
-            paused: replay.transport.paused,
-            speed_index: replay.transport.speed_index,
-            multiplier: replay.transport.multiplier,
+            paused: replay.playback.paused,
+            speed_index: replay.playback.speed_index,
+            multiplier: replay.playback.multiplier,
             spoiler_free: self.shell.panel_prefs().spoiler_free,
-            seek_pending: replay.transport.seek_pending,
+            seek_pending: replay.playback.seek_pending,
         });
         // A copy for the frame rather than a lock held across the draw: the intents the frame
         // reports back take the lock again to record what the player moved.
@@ -797,7 +799,7 @@ impl OverlayState {
             chat_history: chat_history_view.as_ref().map(ChatHistoryCache::view),
             alliances: alliances_view.as_ref(),
             end_card: end_card_view.as_ref(),
-            transport: transport_view.as_ref(),
+            playback: playback_view.as_ref(),
             observer: observer_view.as_ref().map(ObserverViewCache::view),
             options: Some(&options_view),
             option_lists: Some(&option_lists_view),
@@ -815,8 +817,8 @@ impl OverlayState {
                     ctx.forget_all_images();
                 }
 
-                // Every surface of ours is the shell's: the observer panels, the replay
-                // transport, the disconnect surface, the `/netstat` diagnostic panel and whatever
+                // Every surface of ours is the shell's: the observer panels, the playback
+                // controls, the disconnect surface, the `/netstat` diagnostic panel and whatever
                 // modal owns the screen. Its rects are registered unconditionally: a BW dialog
                 // sitting on the stack (the hidden `TimeOut` among them) must never be able to
                 // steal a click from a modal of ours.
@@ -888,7 +890,7 @@ impl OverlayState {
             // A watcher keeps only the minimap of the console; a player always has all of it.
             console_visible: !bw.is_replay_or_obs,
             minimap_visible: !bw.is_replay_or_obs || prefs.minimap,
-            command_panel_visible: !frame_output.transport_shown,
+            command_panel_visible: !frame_output.playback_controls_shown,
             replay_commands,
             game_commands,
             setting_changes,
@@ -896,6 +898,7 @@ impl OverlayState {
             statbtn_dialog_offset: self.replay_ui_values.statbtn_dialog_offset,
             run_second_draw: screen_size_changed,
             leave_game: self.out_state.leave_game,
+            button_click: frame_output.button_click,
             look_at: self.out_state.look_at,
             select_group: self.out_state.select_group.take(),
             clear_selection: std::mem::take(&mut self.out_state.clear_selection),
@@ -1199,7 +1202,7 @@ impl OverlayState {
     /// Carries out one thing the shell asked of the game, or hands on the ones only the caller can
     /// do.
     ///
-    /// The transport's commands go into `replay_commands` rather than being sent here: submitting a
+    /// The playback commands go into `replay_commands` rather than being sent here: submitting a
     /// game command needs the `BwScr` this draw path was called from, which the overlay deliberately
     /// knows nothing about.
     fn execute_intent(
@@ -1385,7 +1388,7 @@ impl OverlayState {
             .collect();
         MatchupView {
             players,
-            elapsed_secs: transport::frames_to_seconds(
+            elapsed_secs: playback_controls::frames_to_seconds(
                 bw.game.frame_count(),
                 bw.replay
                     .map_or(FASTEST_GAME_SPEED, |replay| replay.game_speed),

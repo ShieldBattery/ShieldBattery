@@ -111,7 +111,7 @@ impl Entry {
             }
             Entry::Panel(Panel::Selection) => tr!("observer.panelSelection", "Selection"),
             Entry::Panel(Panel::Minimap) => tr!("observer.panelMinimap", "Minimap"),
-            Entry::Panel(Panel::Transport) => tr!("observer.panelPlayback", "Playback"),
+            Entry::Panel(Panel::PlaybackControls) => tr!("observer.panelPlayback", "Playback"),
             Entry::Panel(Panel::Dock) => tr!("observer.panelDock", "Dock"),
             Entry::SpoilerFree => tr!("observer.spoilerFree", "Spoiler-free"),
         }
@@ -134,9 +134,9 @@ fn entries(mode: Mode, map_control_available: bool) -> Vec<Entry> {
     let mut entries: Vec<Entry> = Panel::ALL
         .into_iter()
         .filter(|panel| *panel != Panel::Dock)
-        // The transport plate only exists in a replay, so offering it while observing a live game
+        // The playback controls only exist in a replay, so offering it while observing a live game
         // would be offering a switch with nothing behind it.
-        .filter(|panel| *panel != Panel::Transport || mode == Mode::Replay)
+        .filter(|panel| *panel != Panel::PlaybackControls || mode == Mode::Replay)
         // A host with no map-control reading gets no row for the bar: a switch that turns nothing
         // on is worse than no switch.
         .filter(|panel| *panel != Panel::MapControl || map_control_available)

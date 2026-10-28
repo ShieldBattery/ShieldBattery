@@ -195,7 +195,9 @@
     "mapControl": "地图控制",
     "mapControlHint": "各方视野覆盖的地图比例",
     "minimapMenu": "菜单",
+    "minimapMenuHint": "游戏菜单",
     "minimapVision": "视野",
+    "minimapVisionHint": "选择显示谁的视野",
     "minimapVisionTitle": "视野",
     "panelControlGroups": "编队",
     "panelDock": "面板栏",
@@ -357,6 +359,24 @@
     "verticalSync": "垂直同步",
     "verticalSyncWindowed": "在带边框的窗口中请避免开启垂直同步，它会大幅增加输入延迟。"
   },
+  "playbackControls": {
+    "backMinutes_other": "快退 {{count}} 分钟",
+    "backSeconds_other": "快退 {{count}} 秒",
+    "faster": "加速",
+    "forwardMinutes_other": "快进 {{count}} 分钟",
+    "forwardSeconds_other": "快进 {{count}} 秒",
+    "hideLength": "隐藏时长",
+    "jumpMinutes": "{{step}}分",
+    "jumpSeconds": "{{step}}秒",
+    "lengthHidden": "已隐藏时长",
+    "pause": "暂停",
+    "paused": "已暂停",
+    "play": "播放",
+    "reveal": "显示",
+    "showLength": "显示时长",
+    "slower": "减速",
+    "speed": "×{{rate}}"
+  },
   "settingToast": {
     "colorOverridesEverywhere": "所有位置替换颜色",
     "colorOverridesMinimapOnly": "仅在小地图上替换颜色",
@@ -380,23 +400,5 @@
     "soundOn": "音效已开启",
     "windowed": "窗口化",
     "windowedFullscreen": "全屏窗口"
-  },
-  "transport": {
-    "backMinutes_other": "快退 {{count}} 分钟",
-    "backSeconds_other": "快退 {{count}} 秒",
-    "faster": "加速",
-    "forwardMinutes_other": "快进 {{count}} 分钟",
-    "forwardSeconds_other": "快进 {{count}} 秒",
-    "hideLength": "隐藏时长",
-    "jumpMinutes": "{{step}}分",
-    "jumpSeconds": "{{step}}秒",
-    "lengthHidden": "已隐藏时长",
-    "pause": "暂停",
-    "paused": "已暂停",
-    "play": "播放",
-    "reveal": "显示",
-    "showLength": "显示时长",
-    "slower": "减速",
-    "speed": "×{{rate}}"
   }
 }

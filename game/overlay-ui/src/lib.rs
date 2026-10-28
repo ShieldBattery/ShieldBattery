@@ -32,11 +32,11 @@ pub mod net_quality;
 pub mod netstat;
 pub mod observer;
 pub mod options;
+pub mod playback_controls;
 pub mod setting_toast;
 pub mod shell;
 pub mod straight_alpha;
 mod style;
-pub mod transport;
 
 pub use fonts::{DynamicFonts, load_dynamic_fonts};
 pub use style::install_fonts_and_style;

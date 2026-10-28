@@ -18,8 +18,8 @@ use overlay_ui::observer::{
     TeamCardPlayerView, TeamCardTotalsView, TeamCardView, TeamCardsView, TimelineEventView,
     TimelineView, UnitStatusView,
 };
+use overlay_ui::playback_controls;
 use overlay_ui::shell::PanelPrefs;
-use overlay_ui::transport;
 
 use crate::app_messages::GameSetupInfo;
 use crate::bw;
@@ -220,7 +220,7 @@ impl ObserverViewCache {
             named: bw.stat_txt.is_some(),
         };
         // A replay's seek bar is ticked with the timeline's events, whether or not the panel is up.
-        let timeline_wanted = prefs.timeline || (bw.replay.is_some() && prefs.transport);
+        let timeline_wanted = prefs.timeline || (bw.replay.is_some() && prefs.playback_controls);
         if stale(&cache.timeline, &timeline, timeline_wanted) {
             let (view, icons) = build_timeline_view(bw, &cache.players, stats);
             cache.view.timeline = view;
@@ -855,7 +855,7 @@ fn build_timeline_view(
                 false => None,
             };
             let view = TimelineEventView {
-                secs: transport::frames_to_seconds(event.frame, game_speed),
+                secs: playback_controls::frames_to_seconds(event.frame, game_speed),
                 color: player.color,
                 kind: event.kind,
                 significance: event.significance,
@@ -892,7 +892,7 @@ fn latest(stats: Option<&StatsAsOf<'_>>, player_id: u8) -> Sample {
 
 /// How far into the game it is, in seconds.
 fn elapsed_secs(bw: &BwVars) -> u64 {
-    transport::frames_to_seconds(bw.game.frame_count(), game_speed(bw))
+    playback_controls::frames_to_seconds(bw.game.frame_count(), game_speed(bw))
 }
 
 /// The speed the game's frames are turned into seconds at: the replay's recorded one, or Fastest.

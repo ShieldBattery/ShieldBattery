@@ -41,7 +41,9 @@ pub use panels::{
 };
 pub use tooltip::{hint_card, tooltip, tooltip_above};
 
-use egui::{Color32, CornerRadius, Rect, Response, Shape, Stroke, StrokeKind, Ui, Vec2};
+use egui::{
+    Color32, Context, CornerRadius, Id, Rect, Response, Shape, Stroke, StrokeKind, Ui, Vec2,
+};
 
 use crate::kit::theme;
 
@@ -56,11 +58,21 @@ pub fn set_disabled(ui: &mut Ui, disabled: bool) {
     }
 }
 
-/// Lays the hover or press wash over a control that has already painted itself.
+/// Lays the hover or press wash over a control that has already painted itself, and has the host
+/// play the game's button click when it is activated (see [`note_activation`]).
 ///
 /// One overlay serves every fill in the kit: lightening or darkening whatever is underneath keeps a
-/// pressed amber button and a pressed ghost button reading as the same gesture.
+/// pressed amber button and a pressed ghost button reading as the same gesture. Every control that
+/// washes this way acts on a click, so this is also where a click is heard.
 pub(crate) fn state_overlay(ui: &Ui, response: &Response, rect: Rect, corner_radius: CornerRadius) {
+    if response.clicked() {
+        note_activation(ui.ctx());
+    }
+    state_wash(ui, response, rect, corner_radius);
+}
+
+/// The wash of [`state_overlay`] alone, for a control whose click is not what makes it act.
+pub(crate) fn state_wash(ui: &Ui, response: &Response, rect: Rect, corner_radius: CornerRadius) {
     let overlay = if response.is_pointer_button_down_on() {
         theme::PRESS_OVERLAY
     } else if response.hovered() {
@@ -69,6 +81,24 @@ pub(crate) fn state_overlay(ui: &Ui, response: &Response, rect: Rect, corner_rad
         return;
     };
     ui.painter().rect_filled(rect, corner_radius, overlay);
+}
+
+fn activation_id() -> Id {
+    Id::new("sb_kit_control_activated")
+}
+
+/// Notes that a control acted this frame, which the host answers with the sound SC:R's own in-game
+/// controls make: its button click, on release for a button and on press for a slider, and nothing
+/// on hover. One click a frame however many controls acted, the way the game gives its click one
+/// channel.
+pub(crate) fn note_activation(ctx: &Context) {
+    ctx.data_mut(|data| data.insert_temp(activation_id(), true));
+}
+
+/// Whether a control acted since the last call, which clears it. The shell asks once a frame.
+pub fn take_activation(ctx: &Context) -> bool {
+    ctx.data_mut(|data| data.remove_temp::<bool>(activation_id()))
+        .unwrap_or(false)
 }
 
 /// Makes `response`'s control the one a dialog's keys work while nothing else on it holds focus: on

@@ -446,7 +446,7 @@ fn dialog_contents(ui: &mut Ui) {
             switch(ui, on);
         });
         ui.add_space(theme::SPACE_SM);
-        ui.label(text::body(14.5, BodyWeight::Medium).job("Spoiler-free transport"));
+        ui.label(text::body(14.5, BodyWeight::Medium).job("Spoiler-free playback controls"));
     });
 
     ui.add_space(theme::SPACE_MD);

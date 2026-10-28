@@ -39,7 +39,7 @@ pub use matchup::{
     MatchupForm, MatchupOutcome, MatchupPlayerView, MatchupView, render_matchup_view,
 };
 pub use military::{MilitaryPlayerView, MilitaryView, render_military_view};
-pub use minimap::{MinimapFrameOutcome, render_minimap_frame};
+pub use minimap::{MinimapFrameOutcome, MinimapKeys, render_minimap_frame};
 pub use production::{
     ProductionIcon, ProductionItemView, ProductionOutcome, ProductionPlayerView, ProductionView,
     WIREFRAME_LAYERS, Wireframe, render_production_view,

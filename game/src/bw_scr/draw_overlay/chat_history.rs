@@ -96,7 +96,7 @@ fn player_palette(bw: &BwVars) -> PlayerPalette {
 
 fn build_line(line: &ChatLine, palette: &PlayerPalette, game_speed: u8) -> ChatLineView {
     ChatLineView {
-        game_seconds: overlay_ui::transport::frames_to_seconds(line.game_frame, game_speed),
+        game_seconds: overlay_ui::playback_controls::frames_to_seconds(line.game_frame, game_speed),
         kind: match &line.kind {
             ChatLineKind::Player {
                 sender_game_id,

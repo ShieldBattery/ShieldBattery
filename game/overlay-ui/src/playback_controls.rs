@@ -1,6 +1,6 @@
-//! The replay transport's presentation layer: a plain-data view-model and the egui render fn that
+//! The replay playback controls' presentation layer: a plain-data view-model and the egui render fn that
 //! draws it. Like [`crate::netstat`] and [`crate::chat_history`], everything here is a pure fn of
-//! [`TransportView`] plus an [`egui::Context`], so the same code renders in the injected game DLL
+//! [`PlaybackView`] plus an [`egui::Context`], so the same code renders in the injected game DLL
 //! and in the host preview.
 //!
 //! The plate stands in for SC:R's own replay controls, so it sits where those sit — the right end
@@ -323,10 +323,10 @@ pub fn seconds_to_frames(seconds: i64, game_speed: u8) -> i64 {
     seconds * 1000 / i64::from(frame_delay_ms(game_speed))
 }
 
-/// Everything the replay transport needs to draw itself. The host builds it from the replay header,
+/// Everything the playback controls need to draw themselves. The host builds it from the replay header,
 /// the game's frame counter and the playback state it tracks off the command stream.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
-pub struct TransportView {
+pub struct PlaybackView {
     /// How far playback has got, in frames.
     pub elapsed_frames: u32,
     /// The replay's last frame, from its header.
@@ -346,7 +346,7 @@ pub struct TransportView {
     pub seek_pending: bool,
 }
 
-impl TransportView {
+impl PlaybackView {
     /// How far along the replay is, from 0 to 1. A replay whose header carries no end frame reads
     /// as not started, which leaves the playhead at the left rather than at either end of a track
     /// that means nothing.
@@ -405,9 +405,9 @@ impl TransportView {
     }
 }
 
-/// What the player asked the transport for this frame. Every field is what they asked for rather
+/// What the player asked the playback controls for this frame. Every field is what they asked for rather
 /// than what happened: the shell decides what reaches the game and when.
-pub struct TransportOutcome {
+pub struct PlaybackControlsOutcome {
     /// Where the plate is on screen, for the host's hit testing.
     pub rect: Rect,
     /// A frame to jump to.
@@ -422,9 +422,9 @@ pub struct TransportOutcome {
     pub spoiler_free: Option<bool>,
 }
 
-impl TransportOutcome {
-    fn new() -> TransportOutcome {
-        TransportOutcome {
+impl PlaybackControlsOutcome {
+    fn new() -> PlaybackControlsOutcome {
+        PlaybackControlsOutcome {
             rect: Rect::NOTHING,
             seek_to: None,
             look_at: None,
@@ -441,14 +441,14 @@ impl TransportOutcome {
 /// need it elsewhere: stood in from the right edge while the dock's column runs down past it, and
 /// lifted up the edge while the panels along the bottom need the width it would take there.
 #[derive(Copy, Clone, Default, PartialEq, Debug)]
-pub struct TransportPlacement {
+pub struct PlaybackControlsPlacement {
     /// How far the plate stands in from the screen's right edge.
     pub right_inset: f32,
     /// How far the plate is lifted off the screen's bottom edge.
     pub lift: f32,
 }
 
-impl TransportPlacement {
+impl PlaybackControlsPlacement {
     /// Where the plate is on `screen` from here, which the surfaces around it are placed against
     /// before it is drawn.
     pub fn rect(self, screen: Rect) -> Rect {
@@ -461,20 +461,20 @@ impl TransportPlacement {
     }
 }
 
-/// Draws the transport plate at `placement`, fading and sliding it in and out. Returns nothing at
+/// Draws the playback controls at `placement`, fading and sliding it in and out. Returns nothing at
 /// all once it is gone, which is when the game's own plate may come back.
 ///
 /// `events` are the timeline's, which the standard form's track is ticked with, and `hotkeys` are
 /// what the plate's hover cards name.
-pub fn render_transport_view(
-    view: &TransportView,
+pub fn render_playback_controls(
+    view: &PlaybackView,
     ctx: &Context,
     shown: bool,
-    placement: TransportPlacement,
+    placement: PlaybackControlsPlacement,
     events: &[TimelineEventView],
     hotkeys: &Hotkeys,
-) -> Option<TransportOutcome> {
-    let id = Id::new("sb_replay_transport");
+) -> Option<PlaybackControlsOutcome> {
+    let id = Id::new("sb_playback_controls");
     let area = Area::new(id)
         .anchor(
             Align2::RIGHT_BOTTOM,
@@ -498,14 +498,14 @@ pub fn render_transport_view(
 
 fn draw_plate(
     ui: &mut Ui,
-    view: &TransportView,
+    view: &PlaybackView,
     events: &[TimelineEventView],
     hotkeys: &Hotkeys,
-) -> TransportOutcome {
+) -> PlaybackControlsOutcome {
     // The rows are stacked by the gaps written here and by nothing else: the plate's height is the
     // footprint its two forms share, and egui's own spacing between items would add to it.
     ui.spacing_mut().item_spacing = Vec2::ZERO;
-    let mut outcome = TransportOutcome::new();
+    let mut outcome = PlaybackControlsOutcome::new();
     let mut hint = Hint::new(hotkeys);
     row(ui, INFO_ROW, |ui| {
         draw_info_row(ui, view, &mut outcome, &mut hint)
@@ -578,7 +578,7 @@ impl<'a> Hint<'a> {
         // card hung below would only be flipped back up over it.
         widgets::tooltip_above(
             ui.ctx(),
-            Id::new("sb_replay_transport").with("hint"),
+            Id::new("sb_playback_controls").with("hint"),
             pointer,
             |ui| widgets::hint_card(ui, &title, None, &keycaps),
         );
@@ -602,8 +602,8 @@ fn row(ui: &mut Ui, height: f32, add: impl FnOnce(&mut Ui)) {
 /// the speed stepper at the other, with the spoiler-free form's stopped tag beside the clock.
 fn draw_info_row(
     ui: &mut Ui,
-    view: &TransportView,
-    outcome: &mut TransportOutcome,
+    view: &PlaybackView,
+    outcome: &mut PlaybackControlsOutcome,
     hint: &mut Hint,
 ) {
     clock(
@@ -623,7 +623,7 @@ fn draw_info_row(
             widgets::tag_exact(
                 ui,
                 &small_label(),
-                &tr!("transport.paused", "Paused"),
+                &tr!("playbackControls.paused", "Paused"),
                 TagStyle::Amber,
                 vec2(PAUSED_TAG_WIDTH, TAG_HEIGHT),
             );
@@ -639,18 +639,18 @@ fn draw_info_row(
 /// The speed stepper: one step down, the rung playback is on, one step up.
 fn draw_speed_stepper(
     ui: &mut Ui,
-    view: &TransportView,
-    outcome: &mut TransportOutcome,
+    view: &PlaybackView,
+    outcome: &mut PlaybackControlsOutcome,
     hint: &mut Hint,
 ) {
     let step = view.step();
-    // Arithmetic signs rather than words: every language writes them the same way, and a stepper
-    // whose ends carried a translated verb would be a paragraph wide in some of them. The verb is
-    // on the hover card, which has the room.
-    let slower = stepper_button(ui, "\u{2212}");
+    // Arrows rather than words: they read the same in every language, and a stepper whose ends
+    // carried a translated verb would be a paragraph wide in some of them. The verb is on the hover
+    // card, which has the room.
+    let slower = stepper_button(ui, SpeedArrow::Slower);
     hint.action(
         &slower,
-        || tr!("transport.slower", "Slower"),
+        || tr!("playbackControls.slower", "Slower"),
         Action::SpeedDown,
     );
     if slower.clicked() {
@@ -660,15 +660,19 @@ fn draw_speed_stepper(
     widgets::text_cell(
         ui,
         &text::numeral(SPEED_SIZE),
-        &tr!("transport.speed", "\u{d7}{{rate}}", rate = step.label),
+        &tr!(
+            "playbackControls.speed",
+            "\u{d7}{{rate}}",
+            rate = step.label
+        ),
         vec2(SPEED_WIDTH, INFO_ROW),
         Align::Center,
     );
     ui.add_space(ITEM_GAP);
-    let faster = stepper_button(ui, "+");
+    let faster = stepper_button(ui, SpeedArrow::Faster);
     hint.action(
         &faster,
-        || tr!("transport.faster", "Faster"),
+        || tr!("playbackControls.faster", "Faster"),
         Action::SpeedUp,
     );
     if faster.clicked() {
@@ -680,9 +684,9 @@ fn draw_speed_stepper(
 /// that stops saying so.
 fn draw_track_row(
     ui: &mut Ui,
-    view: &TransportView,
+    view: &PlaybackView,
     events: &[TimelineEventView],
-    outcome: &mut TransportOutcome,
+    outcome: &mut PlaybackControlsOutcome,
     hint: &mut Hint,
 ) {
     let marked = marked_events(view, events);
@@ -715,7 +719,7 @@ fn draw_track_row(
     let eye = eye_button(ui);
     hint.action(
         &eye,
-        || tr!("transport.hideLength", "Hide length"),
+        || tr!("playbackControls.hideLength", "Hide length"),
         Action::ToggleSpoilerFree,
     );
     if eye.clicked() {
@@ -739,7 +743,7 @@ fn draw_track_row(
 /// all of them, the first in `events`' order leading: they could not be picked one from another on
 /// the track, and a long game's whole timeline would otherwise draw thousands of markers a frame.
 fn marked_events<'a>(
-    view: &TransportView,
+    view: &PlaybackView,
     events: &'a [TimelineEventView],
 ) -> Vec<(Vec<&'a TimelineEventView>, TrackMarker)> {
     if view.spoiler_free || view.end_frames == 0 {
@@ -784,7 +788,7 @@ fn draw_marker_card(ui: &Ui, pointer: Pos2, events: &[&TimelineEventView]) {
     // Over the track rather than under it, where the plate's own buttons are.
     widgets::tooltip_above(
         ui.ctx(),
-        Id::new("sb_replay_transport").with("marker"),
+        Id::new("sb_playback_controls").with("marker"),
         pointer,
         |ui| {
             ui.spacing_mut().item_spacing = vec2(theme::SPACE_SM, theme::SPACE_XS);
@@ -863,11 +867,11 @@ const LETTER_MIDDLE: f32 = 0.33;
 /// What stands in for the track in the spoiler-free form: the reason it is not there, and the one
 /// click that brings it back. A click and never a hover, because a pointer crossing the plate on
 /// its way somewhere else must not spoil the game the viewer asked not to be told about.
-fn draw_hidden_length(ui: &mut Ui, outcome: &mut TransportOutcome, hint: &mut Hint) {
+fn draw_hidden_length(ui: &mut Ui, outcome: &mut PlaybackControlsOutcome, hint: &mut Hint) {
     widgets::text_cell(
         ui,
         &small_label().with_color(theme::TEXT_DIM),
-        &tr!("transport.lengthHidden", "Length hidden"),
+        &tr!("playbackControls.lengthHidden", "Length hidden"),
         vec2(HIDDEN_LABEL_WIDTH, TRACK_ROW),
         Align::LEFT,
     );
@@ -875,12 +879,12 @@ fn draw_hidden_length(ui: &mut Ui, outcome: &mut TransportOutcome, hint: &mut Hi
     let reveal = widgets::chip_button(
         ui,
         &small_label(),
-        &tr!("transport.reveal", "Reveal"),
+        &tr!("playbackControls.reveal", "Reveal"),
         vec2(REVEAL_WIDTH, TAG_HEIGHT + 4.0),
     );
     hint.action(
         &reveal,
-        || tr!("transport.showLength", "Show length"),
+        || tr!("playbackControls.showLength", "Show length"),
         Action::ToggleSpoilerFree,
     );
     if reveal.clicked() {
@@ -892,8 +896,8 @@ fn draw_hidden_length(ui: &mut Ui, outcome: &mut TransportOutcome, hint: &mut Hi
 /// without aiming at a track.
 fn draw_jump_row(
     ui: &mut Ui,
-    view: &TransportView,
-    outcome: &mut TransportOutcome,
+    view: &PlaybackView,
+    outcome: &mut PlaybackControlsOutcome,
     hint: &mut Hint,
 ) {
     // Set in the body face rather than the numeral one, which every other number here uses: a jump
@@ -909,8 +913,8 @@ fn draw_jump_row(
             let show_play = !view.playing();
             let play = play_pause_button(ui, show_play);
             let title = || match show_play {
-                true => tr!("transport.play", "Play"),
-                false => tr!("transport.pause", "Pause"),
+                true => tr!("playbackControls.play", "Play"),
+                false => tr!("playbackControls.pause", "Pause"),
             };
             hint.action(&play, title, Action::PauseResume);
             if play.clicked() {
@@ -934,25 +938,25 @@ fn jump_title(delta_secs: i32) -> String {
     let minutes = magnitude.is_multiple_of(60);
     match (delta_secs < 0, minutes) {
         (true, true) => tr_plural!(
-            "transport.backMinutes",
+            "playbackControls.backMinutes",
             magnitude / 60,
             one = "Back {{count}} minute",
             other = "Back {{count}} minutes"
         ),
         (true, false) => tr_plural!(
-            "transport.backSeconds",
+            "playbackControls.backSeconds",
             magnitude,
             one = "Back {{count}} second",
             other = "Back {{count}} seconds"
         ),
         (false, true) => tr_plural!(
-            "transport.forwardMinutes",
+            "playbackControls.forwardMinutes",
             magnitude / 60,
             one = "Forward {{count}} minute",
             other = "Forward {{count}} minutes"
         ),
         (false, false) => tr_plural!(
-            "transport.forwardSeconds",
+            "playbackControls.forwardSeconds",
             magnitude,
             one = "Forward {{count}} second",
             other = "Forward {{count}} seconds"
@@ -982,13 +986,13 @@ fn jump_label(delta_secs: i32) -> String {
     let magnitude = delta_secs.unsigned_abs();
     if magnitude.is_multiple_of(60) {
         tr!(
-            "transport.jumpMinutes",
+            "playbackControls.jumpMinutes",
             "{{step}}m",
             step = format!("{sign}{}", magnitude / 60)
         )
     } else {
         tr!(
-            "transport.jumpSeconds",
+            "playbackControls.jumpSeconds",
             "{{step}}s",
             step = format!("{sign}{magnitude}")
         )
@@ -1023,14 +1027,74 @@ fn clock_text(seconds: u64) -> String {
     }
 }
 
-/// One end of the speed stepper.
-fn stepper_button(ui: &mut Ui, sign: &str) -> Response {
-    widgets::chip_button(
-        ui,
-        &text::body(15.0, BodyWeight::Regular).with_color(theme::TEXT_SECONDARY),
-        sign,
-        vec2(BOX_SIZE, BOX_SIZE),
-    )
+/// Which way an end of the speed stepper moves playback along the ladder.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+enum SpeedArrow {
+    Slower,
+    Faster,
+}
+
+/// Side of the square a stepper's arrow is drawn in, which its 24-unit grid is scaled to.
+const ARROW_SIZE: f32 = 20.0;
+
+/// One end of the speed stepper, drawn as Material Symbols' double arrow pointing the way it moves
+/// playback: up the ladder for faster, down it for slower. Stroked rather than typed, so no font has
+/// to carry the glyph, and the strokes are tessellated at whatever scale the screen is drawn at.
+fn stepper_button(ui: &mut Ui, arrow: SpeedArrow) -> Response {
+    let (rect, response) = ui.allocate_exact_size(vec2(BOX_SIZE, BOX_SIZE), Sense::click());
+    if !ui.is_rect_visible(rect) {
+        return response;
+    }
+    let corner_radius = theme::radius(theme::RADIUS_CHIP);
+    ui.painter().add(Shape::rect_stroke(
+        rect,
+        corner_radius,
+        Stroke::new(theme::HAIRLINE, theme::CHIP_STROKE),
+        StrokeKind::Inside,
+    ));
+    widgets::state_overlay(ui, &response, rect, corner_radius);
+    widgets::focus_ring(ui, &response, rect, corner_radius);
+    let color = if response.hovered() {
+        theme::TEXT_PRIMARY
+    } else {
+        theme::TEXT_SECONDARY
+    };
+    let square = Rect::from_center_size(rect.center(), Vec2::splat(ARROW_SIZE));
+    paint_speed_arrow(ui, square, arrow, color);
+    response
+}
+
+/// Paints the double arrow for `arrow` into `square`.
+///
+/// The geometry is Material Symbols' `keyboard_double_arrow_up` at its 24px optical size, read off
+/// the center lines of its outline: two chevrons six units apart, each eleven units wide and stroked
+/// two units thick. The slower end is the same arrow turned over.
+///
+/// Anti-aliasing a stroke depends on where it falls between pixels, so two chevrons placed
+/// independently at a fractional scale can come out with different weights. The square is put on
+/// whole pixels and the gap between the chevrons is a whole number of them, so the second is the
+/// first moved over and the two always match, as the pause control's bars do.
+fn paint_speed_arrow(ui: &Ui, square: Rect, arrow: SpeedArrow, color: Color32) {
+    let pixels_per_point = ui.ctx().pixels_per_point();
+    let snap = |points: f32| (points * pixels_per_point).round().max(1.0) / pixels_per_point;
+    let square = square.round_to_pixels(pixels_per_point);
+    let scale = square.width() / 24.0;
+    let flip = |y: f32| match arrow {
+        SpeedArrow::Faster => y,
+        SpeedArrow::Slower => 24.0 - y,
+    };
+    let at = |x: f32, y: f32| square.min + vec2(x, flip(y)) * scale;
+    let (apex, ends) = (12.41, 17.71);
+    let near = vec![at(6.7, ends), at(12.0, apex), at(17.3, ends)];
+    // The chevron farther along the arrow, six units on from the nearer one.
+    let pitch = match arrow {
+        SpeedArrow::Faster => -snap(6.0 * scale),
+        SpeedArrow::Slower => snap(6.0 * scale),
+    };
+    let far = near.iter().map(|point| *point + vec2(0.0, pitch)).collect();
+    let stroke = Stroke::new(1.98 * scale, color);
+    ui.painter().add(Shape::line(near, stroke));
+    ui.painter().add(Shape::line(far, stroke));
 }
 
 /// The control that stops and starts playback, drawn rather than typed so no font has to carry the
@@ -1135,8 +1199,8 @@ fn eye_button(ui: &mut Ui) -> Response {
 mod tests {
     use super::*;
 
-    fn view() -> TransportView {
-        TransportView {
+    fn view() -> PlaybackView {
+        PlaybackView {
             elapsed_frames: 15_000,
             end_frames: 60_000,
             game_speed: 6,
@@ -1264,7 +1328,7 @@ mod tests {
 
     #[test]
     fn a_replay_with_no_recorded_length_leaves_the_playhead_at_the_start() {
-        let view = TransportView {
+        let view = PlaybackView {
             end_frames: 0,
             ..view()
         };
@@ -1277,14 +1341,14 @@ mod tests {
     fn playback_run_past_the_last_frame_is_not_playing_whether_or_not_it_is_stopped() {
         let view = view();
         assert!(view.playing());
-        let ended = TransportView {
+        let ended = PlaybackView {
             elapsed_frames: view.end_frames + 50,
             ..view
         };
         assert!(ended.finished());
         assert!(!ended.playing());
         assert!(
-            TransportView {
+            PlaybackView {
                 elapsed_frames: view.end_frames - 1,
                 ..view
             }
@@ -1302,7 +1366,7 @@ mod tests {
             at(600 - SEEK_LEAD_IN_SECS as i64)
         );
         // Game time is the recorded speed's, not the fastest one's.
-        let slow = TransportView {
+        let slow = PlaybackView {
             game_speed: 0,
             end_frames: 100_000,
             ..view
@@ -1350,7 +1414,7 @@ mod tests {
         // Playback is at 15,000 frames, a quarter of the way through.
         let events = [event(2000), event(300)];
         assert_eq!(marked_events(&view(), &events).len(), 2);
-        let spoiler_free = TransportView {
+        let spoiler_free = PlaybackView {
             spoiler_free: true,
             ..view()
         };
@@ -1405,7 +1469,7 @@ mod tests {
     fn an_event_with_no_place_on_the_track_gets_no_marker() {
         let past_the_end = [event(9999)];
         assert!(marked_events(&view(), &past_the_end).is_empty());
-        let no_length = TransportView {
+        let no_length = PlaybackView {
             end_frames: 0,
             ..view()
         };
@@ -1420,13 +1484,13 @@ mod tests {
 
     /// Renders `view` a few times and returns the size the plate settled on: an area takes egui a
     /// couple of passes to resolve, and its entrance only finishes once the clock has moved.
-    fn settled_size(ctx: &Context, view: &TransportView) -> Vec2 {
+    fn settled_size(ctx: &Context, view: &PlaybackView) -> Vec2 {
         settle(ctx, view, None).0
     }
 
     /// Renders `view` until it settles, with the pointer resting at `pointer` if there is one, and
     /// returns the plate's size and every piece of text the last frame drew.
-    fn settle(ctx: &Context, view: &TransportView, pointer: Option<Pos2>) -> (Vec2, Vec<String>) {
+    fn settle(ctx: &Context, view: &PlaybackView, pointer: Option<Pos2>) -> (Vec2, Vec<String>) {
         let mut size = Vec2::ZERO;
         let mut texts = Vec::new();
         for pass in 0..6 {
@@ -1437,11 +1501,11 @@ mod tests {
                 ..Default::default()
             };
             ctx.begin_pass(raw);
-            size = render_transport_view(
+            size = render_playback_controls(
                 view,
                 ctx,
                 true,
-                TransportPlacement::default(),
+                PlaybackControlsPlacement::default(),
                 &[],
                 &Hotkeys::defaults(),
             )
@@ -1521,7 +1585,7 @@ mod tests {
         let ctx = fresh_ctx();
         let standard = settled_size(&ctx, &view());
         assert_eq!(standard, vec2(PANEL_WIDTH, PANEL_HEIGHT));
-        let spoiler_free = TransportView {
+        let spoiler_free = PlaybackView {
             spoiler_free: true,
             paused: true,
             speed_index: 0,

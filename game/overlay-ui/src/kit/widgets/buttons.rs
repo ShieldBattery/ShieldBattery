@@ -10,7 +10,7 @@ use crate::colors::{AMBER95, BLUE10, BLUE20, BLUE70, BLUE80, GREY_BLUE60, GREY_B
 use crate::kit::text;
 use crate::kit::theme;
 use crate::kit::tiers::gradient_round_rect;
-use crate::kit::widgets::{focus_ring, state_overlay};
+use crate::kit::widgets::{focus_ring, note_activation, state_overlay, state_wash};
 
 /// Which surface a button belongs to, which decides its chrome as much as its size.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -482,6 +482,7 @@ pub fn hold_to_confirm_by_key(ui: &mut Ui, label: &str, size: Vec2, key_held: bo
     let confirmed = held && progress >= 1.0 && !already_fired;
     if confirmed {
         ui.data_mut(|data| data.insert_temp(latch_id, true));
+        note_activation(ui.ctx());
     } else if !held && already_fired {
         ui.data_mut(|data| data.remove::<bool>(latch_id));
     }
@@ -494,7 +495,8 @@ pub fn hold_to_confirm_by_key(ui: &mut Ui, label: &str, size: Vec2, key_held: bo
             ButtonPlate::destructive(),
             Some((progress, sweep)),
         );
-        state_overlay(ui, &response, rect, corner_radius);
+        // A tap lets go long before the hold completes and does nothing, so it is not heard.
+        state_wash(ui, &response, rect, corner_radius);
         focus_ring(ui, &response, rect, corner_radius);
         let text_pos = rect.center() - galley.size() * 0.5;
         ui.painter().galley(text_pos, galley, spec.color);

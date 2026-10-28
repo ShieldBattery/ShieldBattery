@@ -1,4 +1,4 @@
-//! Replay playback commands: the playback a transport key is relative to, seeks coalesced to the
+//! Replay playback commands: the playback a playback key is relative to, seeks coalesced to the
 //! latest one asked for, and speed changes completed from where playback is now.
 
 use egui::{Context, Modifiers};
@@ -6,7 +6,7 @@ use egui::{Context, Modifiers};
 use super::hotkeys::Action;
 use super::{Intent, Mode};
 use crate::observer::MapPoint;
-use crate::transport::{self, SpeedStep, TransportView};
+use crate::playback_controls::{self, PlaybackView, SpeedStep};
 
 /// The shortest time between two seeks reaching the game.
 ///
@@ -18,10 +18,10 @@ const SEEK_INTERVAL_SECS: f64 = 0.25;
 
 /// The replay commands waiting to go out, and the playback they are decided against.
 pub(super) struct ReplayCommands {
-    /// Replay playback as of the last frame. Keypresses arrive between frames and a transport key
+    /// Replay playback as of the last frame. Keypresses arrive between frames and a playback key
     /// is relative — one rung up, ten seconds back — so the state it is relative to has to be here
     /// rather than in the frame that drew it.
-    playback: Option<TransportView>,
+    playback: Option<PlaybackView>,
     /// The frame a seek has been asked for and not yet sent, which is the latest one asked for: a
     /// drag across the track is one seek to where the pointer ended up, not one per frame of it.
     pending_seek: Option<(u32, Option<MapPoint>)>,
@@ -41,13 +41,13 @@ impl Default for ReplayCommands {
 
 impl ReplayCommands {
     /// Takes over the playback a host handed over this frame, `None` outside a replay.
-    pub(super) fn set_playback(&mut self, playback: Option<TransportView>) {
+    pub(super) fn set_playback(&mut self, playback: Option<PlaybackView>) {
         self.playback = playback;
     }
 
     /// The playback a click on a reporting panel moves, or `None` where nothing can be moved: a live
     /// game, watched or played, only ever runs forwards.
-    pub(super) fn seekable(&self, mode: Mode) -> Option<TransportView> {
+    pub(super) fn seekable(&self, mode: Mode) -> Option<PlaybackView> {
         self.playback.filter(|_| mode == Mode::Replay)
     }
 
@@ -65,7 +65,7 @@ impl ReplayCommands {
     pub(super) fn send_queued_seek(
         &mut self,
         ctx: &Context,
-        view: &TransportView,
+        view: &PlaybackView,
         intents: &mut Vec<Intent>,
     ) {
         let Some((frame, look_at)) = self.pending_seek else {
@@ -117,7 +117,7 @@ impl ReplayCommands {
         }
     }
 
-    /// Carries out a transport key, or reports that there was no replay for it to act on.
+    /// Carries out a playback key, or reports that there was no replay for it to act on.
     pub(super) fn key_action(
         &mut self,
         action: Action,
@@ -130,17 +130,25 @@ impl ReplayCommands {
         match action {
             Action::PauseResume => self.request_speed(None, Some(view.playing()), intents),
             Action::SpeedUp => self.request_speed(
-                Some(transport::step_speed(view.speed_index, view.multiplier, 1)),
+                Some(playback_controls::step_speed(
+                    view.speed_index,
+                    view.multiplier,
+                    1,
+                )),
                 None,
                 intents,
             ),
             Action::SpeedDown => self.request_speed(
-                Some(transport::step_speed(view.speed_index, view.multiplier, -1)),
+                Some(playback_controls::step_speed(
+                    view.speed_index,
+                    view.multiplier,
+                    -1,
+                )),
                 None,
                 intents,
             ),
             Action::SeekBackward | Action::SeekForward => {
-                let step = transport::seek_step_secs(modifiers);
+                let step = playback_controls::seek_step_secs(modifiers);
                 let step = match action {
                     Action::SeekBackward => -step,
                     _ => step,
@@ -150,7 +158,7 @@ impl ReplayCommands {
                 let from = self
                     .pending_seek
                     .map_or(view.elapsed_frames, |(frame, _)| frame);
-                let delta = transport::seconds_to_frames(i64::from(step), view.game_speed);
+                let delta = playback_controls::seconds_to_frames(i64::from(step), view.game_speed);
                 let frame = view.frame_at(i64::from(from) + delta);
                 self.queue_seek(frame, None);
             }
@@ -189,7 +197,7 @@ mod tests {
         let ctx = fresh_ctx();
         let mut shell = spectating_shell();
         // Played to its end and still simulating, which is what the game leaves running there.
-        let ended = TransportView {
+        let ended = PlaybackView {
             elapsed_frames: 60_010,
             multiplier: 4,
             ..replay()
@@ -212,7 +220,7 @@ mod tests {
     #[test]
     fn play_on_a_replay_stopped_at_its_end_starts_it_over() {
         let mut commands = ReplayCommands::default();
-        commands.set_playback(Some(TransportView {
+        commands.set_playback(Some(PlaybackView {
             elapsed_frames: 60_000,
             paused: true,
             ..replay()
@@ -230,12 +238,16 @@ mod tests {
     #[test]
     fn only_asking_to_play_starts_a_replay_that_has_run_out_over() {
         let mut commands = ReplayCommands::default();
-        commands.set_playback(Some(TransportView {
+        commands.set_playback(Some(PlaybackView {
             elapsed_frames: 60_000,
             ..replay()
         }));
         let mut intents = Vec::new();
-        commands.request_speed(Some(crate::transport::NORMAL_SPEED), None, &mut intents);
+        commands.request_speed(
+            Some(crate::playback_controls::NORMAL_SPEED),
+            None,
+            &mut intents,
+        );
         commands.request_speed(None, Some(true), &mut intents);
         assert_eq!(commands.pending_seek, None);
     }
@@ -243,7 +255,7 @@ mod tests {
     #[test]
     fn a_seek_already_asked_for_wins_over_starting_a_finished_replay_over() {
         let mut commands = ReplayCommands::default();
-        let ended = TransportView {
+        let ended = PlaybackView {
             elapsed_frames: 60_000,
             ..replay()
         };
@@ -255,7 +267,7 @@ mod tests {
 
         // And one already on its way to the game, including the restart itself.
         commands.pending_seek = None;
-        commands.set_playback(Some(TransportView {
+        commands.set_playback(Some(PlaybackView {
             seek_pending: true,
             ..ended
         }));
@@ -267,7 +279,7 @@ mod tests {
     fn the_pause_key_mid_replay_only_toggles_playback() {
         let ctx = fresh_ctx();
         let mut shell = spectating_shell();
-        let view = TransportView {
+        let view = PlaybackView {
             paused: true,
             ..replay()
         };
@@ -287,7 +299,7 @@ mod tests {
     fn the_speed_keys_walk_the_ladder_and_leave_playback_stopped_if_it_was() {
         let ctx = fresh_ctx();
         let mut shell = spectating_shell();
-        let view = TransportView {
+        let view = PlaybackView {
             paused: true,
             ..replay()
         };
@@ -326,8 +338,10 @@ mod tests {
         assert!(shell.key_pressed(Key::Period, Modifiers::NONE));
         assert!(shell.key_pressed(Key::Period, shift));
         // Ten seconds and then a minute, counted from where playback is: one seek, not two.
-        let expected = view
-            .seek_target(crate::transport::SEEK_STEP_SECS + crate::transport::SEEK_STEP_LONG_SECS);
+        let expected = view.seek_target(
+            crate::playback_controls::SEEK_STEP_SECS
+                + crate::playback_controls::SEEK_STEP_LONG_SECS,
+        );
         assert_eq!(
             run_frame(&mut shell, &ctx, Some(&view)),
             [Intent::Seek(expected)]
@@ -348,9 +362,9 @@ mod tests {
         assert!(shell.key_pressed(Key::Comma, ctrl));
         assert_eq!(
             run_frame(&mut shell, &ctx, Some(&view)),
-            [Intent::Seek(
-                view.seek_target(-crate::transport::SEEK_STEP_LONGEST_SECS)
-            )]
+            [Intent::Seek(view.seek_target(
+                -crate::playback_controls::SEEK_STEP_LONGEST_SECS
+            ))]
         );
     }
 
@@ -364,9 +378,9 @@ mod tests {
         shell.key_repeated(Key::Period, Modifiers::NONE);
         assert_eq!(
             run_frame(&mut shell, &ctx, Some(&view)),
-            [Intent::Seek(
-                view.seek_target(2 * crate::transport::SEEK_STEP_SECS)
-            )]
+            [Intent::Seek(view.seek_target(
+                2 * crate::playback_controls::SEEK_STEP_SECS
+            ))]
         );
     }
 
@@ -374,7 +388,7 @@ mod tests {
     fn a_seek_waits_while_the_game_is_still_working_through_the_last_one() {
         let ctx = fresh_ctx();
         let mut shell = spectating_shell();
-        let pending = TransportView {
+        let pending = PlaybackView {
             seek_pending: true,
             ..replay()
         };
@@ -386,13 +400,13 @@ mod tests {
         assert_eq!(
             run_frame(&mut shell, &ctx, Some(&ready)),
             [Intent::Seek(
-                ready.seek_target(-crate::transport::SEEK_STEP_SECS)
+                ready.seek_target(-crate::playback_controls::SEEK_STEP_SECS)
             )]
         );
     }
 
     #[test]
-    fn transport_keys_are_the_games_until_a_replay_is_being_watched() {
+    fn playback_keys_are_the_games_until_a_replay_is_being_watched() {
         let mut shell = spectating_shell();
         for key in [Key::P, Key::U, Key::D, Key::Comma, Key::Period] {
             assert!(
@@ -407,17 +421,17 @@ mod tests {
         let ctx = fresh_ctx();
         let mut shell = spectating_shell();
         let view = replay();
-        assert!(run_frame_at(&mut shell, &ctx, Some(&view), 0.0).transport_shown);
+        assert!(run_frame_at(&mut shell, &ctx, Some(&view), 0.0).playback_controls_shown);
 
         // A plate the player has hidden keeps the corner until its exit has finished playing.
         assert!(shell.key_pressed(Key::Y, Modifiers::NONE));
-        assert!(run_frame_at(&mut shell, &ctx, Some(&view), 0.05).transport_shown);
-        assert!(!run_frame_at(&mut shell, &ctx, Some(&view), 0.5).transport_shown);
+        assert!(run_frame_at(&mut shell, &ctx, Some(&view), 0.05).playback_controls_shown);
+        assert!(!run_frame_at(&mut shell, &ctx, Some(&view), 0.5).playback_controls_shown);
 
         // And there is nothing to stand in for outside a replay.
         let mut elsewhere = spectating_shell();
         let ctx = fresh_ctx();
-        assert!(!run_frame_at(&mut elsewhere, &ctx, None, 0.0).transport_shown);
+        assert!(!run_frame_at(&mut elsewhere, &ctx, None, 0.0).playback_controls_shown);
     }
 
     #[test]

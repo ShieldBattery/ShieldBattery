@@ -8,7 +8,7 @@
 //!
 //! What gives way to what is one order, from the surface a watcher can least do without: the
 //! matchup bar, the minimap, the selection, control groups, production, economy, military, the
-//! replay transport, the timeline and the graphs. Giving way means dropping rows where a panel has
+//! playback controls, the timeline and the graphs. Giving way means dropping rows where a panel has
 //! rows to drop, and not being drawn at all where it has not. It never moves a preference: a panel
 //! hidden for lack of room comes back as soon as there is room for it again.
 
@@ -257,7 +257,7 @@ mod tests {
         let screen = Rect::from_min_size(pos2(0.0, 0.0), vec2(width, height));
         let frame = minimap::footprint(screen, minimap_square(screen, None));
         let right = if plate {
-            crate::transport::TransportPlacement::default()
+            crate::playback_controls::PlaybackControlsPlacement::default()
                 .rect(screen)
                 .left()
                 - WING_GAP
@@ -349,12 +349,12 @@ mod tests {
     #[test]
     fn a_narrow_screen_keeps_the_plate_in_the_corner_beside_the_stack() {
         use crate::observer::{MIN_STACK_WIDTH, dock, minimap};
-        use crate::transport::TransportPlacement;
+        use crate::playback_controls::PlaybackControlsPlacement;
         for (pixel_width, pixel_height) in NARROW_TARGETS {
             let (width, height) = points(pixel_width, pixel_height);
             let screen = Rect::from_min_size(pos2(0.0, 0.0), vec2(width, height));
             let frame = minimap::footprint(screen, minimap_square(screen, None));
-            let plate = TransportPlacement {
+            let plate = PlaybackControlsPlacement {
                 right_inset: dock::column_width(true),
                 lift: 0.0,
             }

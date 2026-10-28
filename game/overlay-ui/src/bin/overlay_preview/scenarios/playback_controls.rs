@@ -1,4 +1,4 @@
-//! The replay transport scenario, with a fake replay behind it.
+//! The playback controls scenario, with a fake replay behind it.
 //!
 //! The plate acts on the game rather than reporting on it, so a preview that only drew it would
 //! prove nothing: a seek that goes nowhere cannot show whether the playhead follows the pointer,
@@ -8,7 +8,7 @@
 //! game would.
 
 use egui::vec2;
-use overlay_ui::transport::{self, TransportView};
+use overlay_ui::playback_controls::{self, PlaybackView};
 use serde::{Deserialize, Serialize};
 
 use crate::knobs::Knobs as AllKnobs;
@@ -48,16 +48,18 @@ impl Default for Knobs {
 
 impl Knobs {
     /// The rung playback starts on, or the slowest one if the knob names a rung off the ladder.
-    fn step(&self) -> transport::SpeedStep {
-        transport::SPEED_LADDER[self.speed_step.min(transport::SPEED_LADDER.len() - 1)]
+    fn step(&self) -> playback_controls::SpeedStep {
+        playback_controls::SPEED_LADDER[self
+            .speed_step
+            .min(playback_controls::SPEED_LADDER.len() - 1)]
     }
 
     fn end_frames(&self) -> u32 {
-        transport::seconds_to_frames(i64::from(self.length_secs), self.game_speed) as u32
+        playback_controls::seconds_to_frames(i64::from(self.length_secs), self.game_speed) as u32
     }
 
     fn start_frames(&self) -> u32 {
-        transport::seconds_to_frames(i64::from(self.start_secs), self.game_speed)
+        playback_controls::seconds_to_frames(i64::from(self.start_secs), self.game_speed)
             .clamp(0, i64::from(self.end_frames())) as u32
     }
 }
@@ -103,7 +105,7 @@ impl Clock {
             return;
         }
         let rate = f64::from(self.step().rate());
-        let per_second = 1000.0 / f64::from(transport::frame_delay_ms(knobs.game_speed));
+        let per_second = 1000.0 / f64::from(playback_controls::frame_delay_ms(knobs.game_speed));
         self.frame =
             (self.frame + step * per_second * rate).clamp(0.0, f64::from(knobs.end_frames()));
     }
@@ -118,14 +120,15 @@ impl Clock {
         self.paused = paused;
     }
 
-    fn step(&self) -> transport::SpeedStep {
-        transport::SPEED_LADDER[transport::current_step(self.speed_index, self.multiplier)]
+    fn step(&self) -> playback_controls::SpeedStep {
+        playback_controls::SPEED_LADDER
+            [playback_controls::current_step(self.speed_index, self.multiplier)]
     }
 }
 
 /// Builds the view the game would hand the overlay.
-pub fn build_view(knobs: &Knobs, clock: &Clock, spoiler_free: bool) -> TransportView {
-    TransportView {
+pub fn build_view(knobs: &Knobs, clock: &Clock, spoiler_free: bool) -> PlaybackView {
+    PlaybackView {
         elapsed_frames: clock.frame as u32,
         end_frames: knobs.end_frames(),
         game_speed: knobs.game_speed,
@@ -161,9 +164,9 @@ impl Preset {
     /// replay and nothing else, and the shell decides whether it is on screen.
     pub fn apply(self, knobs: &mut AllKnobs) {
         knobs.host.mode = overlay_ui::shell::Mode::Replay;
-        knobs.host.panels.transport = true;
+        knobs.host.panels.playback_controls = true;
         knobs.host.panels.spoiler_free = matches!(self, Preset::SpoilerFree);
-        self.apply_knobs(&mut knobs.transport);
+        self.apply_knobs(&mut knobs.playback_controls);
     }
 
     /// Presets only the fake replay, for the preset row inside the scenario's own knob section.
@@ -204,7 +207,7 @@ pub fn knobs_ui(k: &mut Knobs, ui: &mut egui::Ui) -> bool {
     );
 
     ui.add_space(4.0);
-    egui::Grid::new("transport_knobs")
+    egui::Grid::new("playback_controls_knobs")
         .num_columns(2)
         .spacing(vec2(8.0, 6.0))
         .show(ui, |ui| {
@@ -229,7 +232,7 @@ pub fn knobs_ui(k: &mut Knobs, ui: &mut egui::Ui) -> bool {
 
     ui.horizontal_wrapped(|ui| {
         ui.label("Starting speed:");
-        for (index, step) in transport::SPEED_LADDER.iter().enumerate() {
+        for (index, step) in playback_controls::SPEED_LADDER.iter().enumerate() {
             changed |= ui
                 .selectable_value(&mut k.speed_step, index, step.label)
                 .changed();

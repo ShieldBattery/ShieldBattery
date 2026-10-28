@@ -120,7 +120,7 @@ impl BwScr {
                         .map(|header| draw_overlay::ReplayVars {
                             end_frame: (*header).replay_end_frame,
                             game_speed: (*header).game_info.game_speed,
-                            transport: self.replay_transport_state(),
+                            playback: self.replay_playback_state(),
                         });
                     let active_units = self.active_units();
                     // The whole unit array, which is what a unique id (as the loaded-unit slots of
@@ -332,6 +332,10 @@ impl BwScr {
                             }
                             if let Some(point) = overlay_out.look_at {
                                 self.center_screen(&point);
+                            }
+                            // The sound SC:R's own in-game buttons make when they are pressed.
+                            if overlay_out.button_click {
+                                self.play_sound("SND_BUTTON");
                             }
                             // The game's own way of emptying a selection, the one it takes when
                             // the last selected unit dies.

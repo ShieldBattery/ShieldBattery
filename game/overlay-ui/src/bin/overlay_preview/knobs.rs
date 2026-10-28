@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::host_knobs;
 use crate::scenarios::{
     self, ScenarioKind, alliances, chat_history, disconnect, kitchen_sink, net_quality, netstat,
-    observer, transport,
+    observer, playback_controls,
 };
 use crate::virtual_screen::{ResolutionPreset, ScaleMode};
 
@@ -75,7 +75,7 @@ pub struct Knobs {
     pub netstat: netstat::Knobs,
     pub observer: observer::Knobs,
     pub shell: scenarios::shell::Knobs,
-    pub transport: transport::Knobs,
+    pub playback_controls: playback_controls::Knobs,
 }
 
 /// Where the persisted knobs live: next to the built binary, so a checkout's `target/` carries them.

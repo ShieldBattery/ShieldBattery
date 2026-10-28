@@ -195,7 +195,9 @@
     "mapControl": "맵 장악",
     "mapControlHint": "각 진영이 시야에 두고 있는 맵의 비율",
     "minimapMenu": "메뉴",
+    "minimapMenuHint": "게임 메뉴",
     "minimapVision": "시야",
+    "minimapVisionHint": "누구의 시야를 볼지 선택",
     "minimapVisionTitle": "시야",
     "panelControlGroups": "부대 지정",
     "panelDock": "도크",
@@ -357,6 +359,24 @@
     "verticalSync": "수직 동기화",
     "verticalSyncWindowed": "테두리가 있는 창에서는 수직 동기화를 피하세요. 입력 지연이 크게 늘어납니다."
   },
+  "playbackControls": {
+    "backMinutes_other": "{{count}}분 뒤로",
+    "backSeconds_other": "{{count}}초 뒤로",
+    "faster": "더 빠르게",
+    "forwardMinutes_other": "{{count}}분 앞으로",
+    "forwardSeconds_other": "{{count}}초 앞으로",
+    "hideLength": "길이 숨기기",
+    "jumpMinutes": "{{step}}분",
+    "jumpSeconds": "{{step}}초",
+    "lengthHidden": "길이 숨김",
+    "pause": "일시정지",
+    "paused": "일시정지",
+    "play": "재생",
+    "reveal": "표시",
+    "showLength": "길이 표시",
+    "slower": "더 느리게",
+    "speed": "×{{rate}}"
+  },
   "settingToast": {
     "colorOverridesEverywhere": "모든 곳에 색상 대체",
     "colorOverridesMinimapOnly": "미니맵에만 색상 대체",
@@ -380,23 +400,5 @@
     "soundOn": "효과음 켬",
     "windowed": "창 모드",
     "windowedFullscreen": "창 모드(전체 화면)"
-  },
-  "transport": {
-    "backMinutes_other": "{{count}}분 뒤로",
-    "backSeconds_other": "{{count}}초 뒤로",
-    "faster": "더 빠르게",
-    "forwardMinutes_other": "{{count}}분 앞으로",
-    "forwardSeconds_other": "{{count}}초 앞으로",
-    "hideLength": "길이 숨기기",
-    "jumpMinutes": "{{step}}분",
-    "jumpSeconds": "{{step}}초",
-    "lengthHidden": "길이 숨김",
-    "pause": "일시정지",
-    "paused": "일시정지",
-    "play": "재생",
-    "reveal": "표시",
-    "showLength": "길이 표시",
-    "slower": "더 느리게",
-    "speed": "×{{rate}}"
   }
 }

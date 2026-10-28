@@ -29,7 +29,7 @@ use super::{
     MinimapDrawHooks, ObserverUiCallbacks, PaletteColorLookup, PlacementOverlayPools, PylonAuras,
     RenderState, RendererState, SendPtr, SkinTable, SoftwareCursor, UnitCostCache, Value, chat,
     chat_history, draw_inject, draw_overlay, game_locale, game_settings, hotkey_presses, pe_image,
-    replay_save, replay_transport, replay_vision_choice, resolve_operand, sound,
+    replay_playback, replay_save, replay_vision_choice, resolve_operand, sound,
     sprite_coordinate_decoder, stat_txt, tick_gates,
 };
 
@@ -952,7 +952,7 @@ impl BwScr {
             chat_shown_while_stalled: Mutex::new(Vec::new()),
             chat_manager: Mutex::new(chat::ChatManager::new()),
             chat_history: Mutex::new(chat_history::ChatHistory::new()),
-            replay_transport: Mutex::new(replay_transport::ReplayTransport::new()),
+            replay_playback: Mutex::new(replay_playback::ReplayPlayback::new()),
             replay_vision_choice: Mutex::new(replay_vision_choice::ReplayVisionChoice::new()),
             options: Mutex::new(overlay_ui::options::OptionsView::default()),
             engine_settings: Mutex::new(Default::default()),

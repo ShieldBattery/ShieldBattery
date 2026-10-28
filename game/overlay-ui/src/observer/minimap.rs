@@ -69,6 +69,15 @@ pub(crate) fn footprint(screen: Rect, square: Rect) -> Rect {
     .intersect(screen)
 }
 
+/// The keys that do what the header's buttons do, as the keycaps the card under the pointer shows.
+#[derive(Copy, Clone, Default)]
+pub struct MinimapKeys<'a> {
+    /// The key that opens the list of players.
+    pub vision: &'a [&'a str],
+    /// The key that opens the game's menu.
+    pub menu: &'a [&'a str],
+}
+
 /// What the watcher asked of the frame this frame.
 pub struct MinimapFrameOutcome {
     /// The rects of the frame that take the pointer: the header, and the list of players while it is
@@ -83,14 +92,15 @@ pub struct MinimapFrameOutcome {
 }
 
 /// Draws the frame around a minimap at `square`, fading it in and out with the minimap, with the
-/// list of `players` open under the vision button while `picker_open`. Returns nothing at all once
-/// it is gone.
+/// list of `players` open under the vision button while `picker_open`, and a card naming the
+/// button under the pointer and its key from `keys`. Returns nothing at all once it is gone.
 pub fn render_minimap_frame(
     ctx: &Context,
     square: Rect,
     shown: bool,
     players: &[MatchupPlayerView],
     picker_open: bool,
+    keys: MinimapKeys,
 ) -> Option<MinimapFrameOutcome> {
     let screen = ctx.viewport_rect();
     let outer = footprint(screen, square);
@@ -107,6 +117,22 @@ pub fn render_minimap_frame(
         draw_header(ui, header, picker_open)
     })?;
     let (vision, menu) = inner.inner;
+    // The open list already says what the vision button is for, and covers where its card goes.
+    if vision.hovered() && !picker_open {
+        draw_hint(
+            ctx,
+            &vision,
+            &tr!("observer.minimapVisionHint", "Choose whose vision to show"),
+            keys.vision,
+        );
+    } else if menu.hovered() {
+        draw_hint(
+            ctx,
+            &menu,
+            &tr!("observer.minimapMenuHint", "Game menu"),
+            keys.menu,
+        );
+    }
     let mut outcome = MinimapFrameOutcome {
         rects: vec![header],
         toggled_vision: None,
@@ -218,6 +244,22 @@ fn header_button(ui: &mut Ui, rect: Rect, label: &str, lit: bool) -> egui::Respo
         ));
     }
     response
+}
+
+/// Names the header button the pointer is resting on, and the key that does the same.
+///
+/// Over the header rather than under it, where the card would cover the map it has nothing to say
+/// about.
+fn draw_hint(ctx: &Context, button: &egui::Response, title: &str, keycaps: &[&str]) {
+    let Some(pointer) = button.hover_pos() else {
+        return;
+    };
+    widgets::tooltip_above(
+        ctx,
+        Id::new("sb_minimap_frame").with("hint"),
+        pointer,
+        |ui| widgets::hint_card(ui, title, None, keycaps),
+    );
 }
 
 /// Draws the list of players hanging above the vision button, each with a switch for their vision,

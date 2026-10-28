@@ -19,9 +19,9 @@ pub const MINIMAP_DIALOG: &str = "Minimap";
 
 /// The command-button panel, which in a replay carries SC:R's own playback controls.
 ///
-/// A visibility of its own as well: the overlay's replay transport stands in for those controls, so
-/// this panel goes while the console stays. A player who hides our
-/// transport gets SC:R's back rather than no controls at all.
+/// A visibility of its own as well: the overlay's playback controls stand in for those controls, so
+/// this panel goes while the console stays. A player who hides ours gets SC:R's back rather than no
+/// controls at all.
 pub const COMMAND_PANEL_DIALOG: &str = "StatBtn";
 
 impl BwScr {
@@ -54,7 +54,7 @@ impl BwScr {
         unsafe {
             for dialog in bw::iter_dialogs(first_dialog) {
                 // The command panel goes with the console band like the rest of it, but the
-                // transport has a veto: showing the console again must not put SC:R's replay plate
+                // playback controls have a veto: showing the console again must not put SC:R's replay plate
                 // back underneath ours.
                 if is_command_panel_dialog(dialog) {
                     set_dialog_visible(dialog, visible && !self.command_panel_hidden());
