@@ -54,11 +54,11 @@ impl Panel {
         Panel::Dock,
     ];
 
-    /// The key a panel's header names, which is the first one bound to its action.
+    /// The key a panel's header names: the one that toggles it pressed on its own.
     pub fn key_label(self) -> Option<String> {
         Hotkeys::defaults()
-            .chord_for(self.action())
-            .map(|chord| chord.key.symbol_or_name().to_string())
+            .bare_key(self.action())
+            .map(str::to_string)
     }
 
     /// The action that toggles this panel, which is also where its keycap comes from.

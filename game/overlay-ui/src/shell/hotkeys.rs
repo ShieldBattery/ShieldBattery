@@ -324,6 +324,13 @@ impl Hotkeys {
             .find(|(bound, chord)| *bound == action && chord.held == held)
             .map(|(_, chord)| *chord)
     }
+
+    /// The key that does this action pressed on its own, for a surface with room for a single
+    /// keycap. A chord with a modifier is never named this way, since its key alone does nothing.
+    pub fn bare_key(&self, action: Action) -> Option<&'static str> {
+        self.chord_held(action, Held::Bare)
+            .map(|chord| chord.key.symbol_or_name())
+    }
 }
 
 #[cfg(test)]

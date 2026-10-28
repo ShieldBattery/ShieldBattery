@@ -383,9 +383,7 @@ fn draw_dock(
         )
     };
 
-    let dock_key = hotkeys
-        .chord_for(Panel::Dock.action())
-        .map(|chord| chord.key.symbol_or_name());
+    let dock_key = hotkeys.bare_key(Panel::Dock.action());
     let header_rect = row(ui, CHEVRON_HEIGHT);
     let header = draw_header(ui, header_rect, spelled, prefs.dock_expanded, dock_key);
     if header.clicked() {
@@ -400,9 +398,7 @@ fn draw_dock(
     let mut hint = Hint::hovered(&header, chevron_title, None);
 
     for entry in entries(dock.mode, dock.map_control_available) {
-        let key = hotkeys
-            .chord_for(entry.action())
-            .map(|chord| chord.key.symbol_or_name());
+        let key = hotkeys.bare_key(entry.action());
         let state = match entry {
             Entry::Panel(panel) if prefs.shown(panel) && dock.displaced.contains(&panel) => {
                 RowState::Displaced
@@ -663,6 +659,23 @@ fn paint_key_chip(ui: &Ui, rect: Rect, key: Option<&str>, state: RowState) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The dock's keycaps, and the panel headers that share them, each have room for one key: a
+    /// surface whose only bindings take a modifier would be left with a blank keycap.
+    #[test]
+    fn every_row_and_the_dock_itself_have_a_key_of_their_own() {
+        let hotkeys = Hotkeys::defaults();
+        let actions = entries(Mode::Replay, true)
+            .into_iter()
+            .map(Entry::action)
+            .chain([Panel::Dock.action()]);
+        for action in actions {
+            assert!(
+                hotkeys.bare_key(action).is_some(),
+                "{action:?} has no key that works on its own"
+            );
+        }
+    }
 
     fn placed(prefs: &PanelPrefs, placement: DockPlacement) -> Option<Rect> {
         let hotkeys = Hotkeys::defaults();
