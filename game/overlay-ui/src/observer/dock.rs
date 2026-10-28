@@ -10,11 +10,12 @@
 //! The list is the shell's panel table rather than a list of its own, so the dock offers exactly the
 //! surfaces the shell can toggle.
 //!
-//! It is centered on the screen's right edge rather than hung at a fixed height: the list grows
-//! with the panels that exist and with what is being watched, and a fixed top would sooner or later
-//! push its last rows into the console band the game's own interface owns. Where the surfaces above and
-//! below it on that edge leave less than the middle, it moves off the middle into the room they
-//! leave, and on a screen too short even for that its rows give up some of their height.
+//! It stands on whatever holds the bottom of the right edge, the playback controls in the corner or
+//! the selection panel at the end of the bottom row or else the bottom edge itself, rather than on
+//! the middle of the screen: the surfaces above it come and go with the watcher's keys, and a dock
+//! placed against them would move every time one reached a little further down its column. Only a
+//! surface that reaches the dock itself moves anything, and on a screen too short for it the rows
+//! give up some of their height.
 //!
 //! A panel the watcher wants on screen but the screen has no room for is a row of its own kind: on,
 //! and not on screen. Its lamp is a ring in the accent rather than a filled dot, so the dock never
@@ -27,7 +28,7 @@ use egui::{
 
 use crate::kit::text::{self, BodyWeight};
 use crate::kit::widgets;
-use crate::kit::{self, motion, theme, tiers};
+use crate::kit::{motion, theme, tiers};
 use crate::observer::{centred, paint_text};
 use crate::shell::{Hotkeys, Mode, Panel, PanelPrefs};
 use crate::tr;
@@ -137,10 +138,9 @@ pub struct DockPlacement {
 }
 
 impl DockPlacement {
-    /// Where the dock goes between `top` and `bottom` on a screen whose middle is `middle`: on the
-    /// middle where that leaves it inside the room, moved into the room where it does not, with its
-    /// rows shortened where even the whole room is too short. `None` where the room is too short for
-    /// the dock with its rows at their shortest.
+    /// Where the dock goes between `top` and `bottom` on a screen whose middle is `middle`: standing
+    /// on `bottom`, with its rows shortened where the whole room is too short. `None` where the room
+    /// is too short for the dock with its rows at their shortest.
     pub(crate) fn fit(
         mode: Mode,
         map_control_available: bool,
@@ -162,7 +162,7 @@ impl DockPlacement {
             row
         };
         let height = height(mode, map_control_available, row_height);
-        let centre = kit::clamp_layout(middle, top + height * 0.5, bottom - height * 0.5);
+        let centre = bottom - height * 0.5;
         Some(DockPlacement {
             offset_y: centre - middle,
             row_height,
@@ -672,14 +672,17 @@ mod tests {
     }
 
     #[test]
-    fn the_dock_keeps_the_middle_while_it_fits_there() {
+    fn the_dock_stands_on_the_bottom_of_its_room() {
         let placement = DockPlacement::fit(Mode::Replay, false, 540.0, 16.0, 1064.0).unwrap();
-        assert_eq!(placement.offset_y, 0.0);
+        assert_eq!(placement.bottom, 1064.0);
         assert_eq!(placement.row_height, ROW_HEIGHT);
-        // Under a bar that reaches into its column it moves down, without shrinking.
-        let placement = DockPlacement::fit(Mode::Replay, false, 360.0, 98.0, 704.0).unwrap();
-        assert!(placement.top >= 98.0);
-        assert_eq!(placement.row_height, ROW_HEIGHT);
+        assert_eq!(
+            placement.offset_y,
+            (placement.top + placement.bottom) * 0.5 - 540.0
+        );
+        // A surface above that reaches further down its column moves nothing while the dock fits.
+        let under_graphs = DockPlacement::fit(Mode::Replay, false, 540.0, 400.0, 1064.0).unwrap();
+        assert_eq!(under_graphs, placement);
         // With no room even for its shortest rows it has no place at all.
         assert!(DockPlacement::fit(Mode::Replay, false, 360.0, 300.0, 500.0).is_none());
     }
