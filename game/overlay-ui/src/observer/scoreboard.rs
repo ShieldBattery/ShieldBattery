@@ -1,65 +1,59 @@
 //! The scoreboard: every player and the numbers a watcher checks constantly, packed into one panel
 //! in the screen's top-right corner.
 //!
-//! Each player is named once, on one row: the bar of their color, their race chip and their name,
-//! as every other panel leads a player's row, then their numbers. The sides are split by a band
-//! carrying the game clock and the icons that head the number columns, so the columns are labeled
-//! once for the whole game rather than once per row or per side. A game that is not two sides has
-//! the band at its head instead, over every player in the order the game lists them: a band in the
-//! middle of a free-for-all would split it into two sides that do not exist.
+//! It is a stats wing, the top of the column the wings make down the right edge, built from the
+//! same pieces they are: the same chrome and title row, with the game clock in the middle of it, a
+//! row of column headings, and a row per player led by the square of their color and their name,
+//! ruled into sides where the sides have players to tell apart. Its row carries the player's race
+//! icon too, and its headings are icons for what each column counts, short of the rate, which keeps
+//! the name casters give it. Each player is named once, on one row, so the columns are labeled once
+//! for the whole game rather than once per player.
 //!
 //! A click on a row takes that player's vision, as it does everywhere a player is named, and a
 //! player whose vision is off is dimmed rather than dropped.
 
-use egui::{
-    Align, Align2, Area, Color32, Context, CornerRadius, Id, Order, Rect, Sense, Stroke, Ui,
-    UiBuilder, Vec2, pos2, vec2,
-};
+use egui::{Align, Context, Id, Rect, Sense, Ui, Vec2, pos2, vec2};
 
-use crate::kit::text;
-use crate::kit::widgets::{self, ResourceGlyph, TagStyle};
-use crate::kit::{motion, theme, tiers};
+use crate::kit::text::{self, TextSpec};
+use crate::kit::widgets::{self, ColumnGlyph};
+use crate::kit::{theme, tiers};
 use crate::observer::matchup::supply_blocked;
 use crate::observer::{
-    EdgeCursor, MatchupPlayerView, MatchupView, ProductionIcon, WING_MARGIN, centred, game_clock,
-    paint_count, paint_picked_race_chip, paint_player_bar, paint_text, unit_codes, vision_alpha,
+    EdgeCursor, MatchupPlayerView, MatchupView, STAT_BAR_GAP, STAT_COLOR_BAR, STAT_HEADING_HEIGHT,
+    STAT_RACE_ICON, STAT_RACE_ICON_GAP, STAT_ROW_GAP, STAT_ROW_HEIGHT, STAT_VALUE_SIZE, StatRace,
+    WING_MARGIN, Wing, game_clock, paint_count, paint_stat_identity, paint_team_divider,
+    paint_text, stat_table_height, teams_worth_dividing, vision_alpha, wing_panel,
 };
+use crate::shell::Panel;
 use crate::tr;
 
-/// How far the panel's top edge sits below the screen's.
-const PANEL_TOP: f32 = WING_MARGIN;
+/// How wide the panel is, in overlay points: the width of the wings stacked under it on the right
+/// edge, so the column they make together is one width from top to bottom.
+pub const PANEL_WIDTH: f32 = super::graphs::PANEL_WIDTH;
 
-/// Corner radius of the panel, which floats rather than hanging off an edge.
-const PANEL_RADIUS: u8 = 6;
-
-/// How far the rows sit inside the panel's edges.
-const INSET: f32 = 4.0;
-
-/// Height of one player's row, and the gap between two rows of the same side.
-const ROW_HEIGHT: f32 = 28.0;
-const ROW_GAP: f32 = 2.0;
-
-/// Height of the band between the sides, and the gap it keeps from the rows on either side of it.
-const BAND_HEIGHT: f32 = 24.0;
-const BAND_GAP: f32 = 3.0;
-
-/// Width of the bar of the player's own color that leads their row, and the gap after it.
-const COLOR_BAR: f32 = 4.0;
-const BAR_GAP: f32 = 8.0;
-
-/// Diameter of the race chip, and the gap between it and the name.
-const CHIP: f32 = 18.0;
-const CHIP_GAP: f32 = 6.0;
-
-/// Width the player's name is laid out in. Fixed, because a name is player-chosen: one longer than
-/// its slot would otherwise push every number beside it out of its column.
-const NAME_WIDTH: f32 = 118.0;
+/// The room inside the panel's chrome.
+const CONTENT_WIDTH: f32 = PANEL_WIDTH - tiers::PANEL_MARGIN_WIDTH;
 
 /// Gap between the name and the first number.
 const NAME_GAP: f32 = 6.0;
 
-/// Width of what leads a row and says whose it is, up to the first number.
-const IDENTITY_WIDTH: f32 = COLOR_BAR + BAR_GAP + CHIP + CHIP_GAP + NAME_WIDTH + NAME_GAP;
+/// Width of what leads a row and says whose it is, up to the first number: whatever the number
+/// columns leave of the room inside the panel's chrome.
+const IDENTITY_WIDTH: f32 = {
+    let mut width = CONTENT_WIDTH;
+    let mut index = 0;
+    while index < Column::ALL.len() {
+        width -= Column::ALL[index].width();
+        index += 1;
+    }
+    width
+};
+
+/// Width the player's name is laid out in: what the identity leaves of itself. Fixed, because a
+/// name is player-chosen: one longer than its slot would otherwise push every number beside it out
+/// of its column.
+const NAME_WIDTH: f32 =
+    IDENTITY_WIDTH - STAT_COLOR_BAR - STAT_BAR_GAP - STAT_RACE_ICON - STAT_RACE_ICON_GAP - NAME_GAP;
 
 /// A number column, in the order a row reads them.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -80,9 +74,10 @@ impl Column {
         Column::Apm,
     ];
 
-    /// How wide the column is. A column's number and its heading are both centered in it, so the
-    /// widths are what keeps two neighbors' numbers apart at their longest: a supply count against
-    /// its cap, three digits of workers or of a rate, and five of a bank.
+    /// How wide the column is. A column's heading is centered in it, and so is its number, short of
+    /// supply's, which stands on its slash in the middle. The widths are what keeps two neighbors'
+    /// numbers apart at their longest: three digits either side of supply's slash, three of
+    /// workers, four of a rate, and five of a bank.
     const fn width(self) -> f32 {
         match self {
             Column::Supply => 74.0,
@@ -94,83 +89,24 @@ impl Column {
     }
 }
 
-/// How wide the panel is, in overlay points.
-pub const PANEL_WIDTH: f32 = {
-    let mut width = INSET + IDENTITY_WIDTH + INSET;
-    let mut index = 0;
-    while index < Column::ALL.len() {
-        width += Column::ALL[index].width();
-        index += 1;
-    }
-    width
-};
+/// Height of the row of column headings. Taller than a wing's, whose headings are words: these are
+/// icons, which want the size of a number beside them to be told apart at a glance.
+const HEADING_HEIGHT: f32 = 18.0;
 
-/// Text size of a player's name, and of every number on a row.
-const NAME_SIZE: f32 = 17.0;
-const VALUE_SIZE: f32 = 20.0;
+/// Size of the glyphs heading the number columns, which fill their row.
+const COLUMN_ICON: f32 = HEADING_HEIGHT;
 
-/// How much of a supply count's size its cap is set at.
-const SUPPLY_CAP_RATIO: f32 = 0.7;
+/// Text size of the game clock in the middle of the title row.
+const CLOCK_SIZE: f32 = 16.0;
 
-/// Text size of the clock in the band.
-const CLOCK_SIZE: f32 = 18.0;
-
-/// Size of the tag in the band saying whether the game is happening now.
-const TAG_SIZE: Vec2 = vec2(76.0, 16.0);
-
-/// Size of the icons heading the number columns.
-const COLUMN_ICON: f32 = 16.0;
-
-/// Where the band goes in a game of this shape, and which players stand on each side of it.
-struct Sides<'a> {
-    above: Vec<&'a MatchupPlayerView>,
-    below: Vec<&'a MatchupPlayerView>,
-}
-
-impl<'a> Sides<'a> {
-    /// A game of two sides is split where its sides are. Any other shape is listed whole under the
-    /// band.
-    fn of(view: &'a MatchupView) -> Sides<'a> {
-        let halves = view.halves();
-        if halves.teams.is_some() {
-            Sides {
-                above: halves.left,
-                below: halves.right,
-            }
-        } else {
-            Sides {
-                above: Vec::new(),
-                below: view.players.iter().collect(),
-            }
-        }
-    }
-
-    /// How tall the panel is with these rows in it.
-    fn height(&self) -> f32 {
-        let rows = |count: usize| {
-            if count == 0 {
-                0.0
-            } else {
-                count as f32 * ROW_HEIGHT + (count - 1) as f32 * ROW_GAP + BAND_GAP
-            }
-        };
-        let band = if self.above.is_empty() {
-            // At the panel's head the band stands against its top edge, which it shares the
-            // corners of.
-            BAND_HEIGHT
-        } else {
-            INSET + BAND_HEIGHT
-        };
-        band + rows(self.above.len()) + rows(self.below.len()) + INSET
-    }
-}
-
-/// How far down from the screen's top edge the scoreboard reaches for a game of `view`'s players.
+/// How far down from the screen's top edge the scoreboard reaches for a game of `view`'s players: a
+/// stats wing's table, with this panel's own row of headings.
 ///
 /// Worked out rather than measured, because where the dock stands on the right edge is decided from
 /// what the surfaces there will take before any of them is drawn.
 pub(crate) fn panel_bottom(view: &MatchupView) -> f32 {
-    PANEL_TOP + Sides::of(view).height()
+    let teams = view.players.iter().map(|player| player.team);
+    WING_MARGIN + stat_table_height(teams) - STAT_HEADING_HEIGHT + HEADING_HEIGHT
 }
 
 /// What the watcher asked of the scoreboard this frame.
@@ -182,207 +118,140 @@ pub struct ScoreboardOutcome {
     pub toggled_vision: Option<u8>,
 }
 
-/// Draws the scoreboard in the screen's top-right corner, `right_inset` in from where the corner's
-/// margin would put it, fading and sliding it in and out. Returns nothing at all once it is gone.
+/// Draws the scoreboard at the top of the screen's right edge, `right_inset` in from it as the wings
+/// under it are, fading and sliding it in and out. Returns nothing at all once it is gone.
 pub fn render_scoreboard_view(
     view: &MatchupView,
     ctx: &Context,
     shown: bool,
     right_inset: f32,
 ) -> Option<ScoreboardOutcome> {
-    let id = Id::new("sb_scoreboard");
-    let area = Area::new(id)
-        .anchor(
-            Align2::RIGHT_TOP,
-            vec2(-(WING_MARGIN + right_inset), PANEL_TOP),
-        )
-        .order(Order::Foreground);
-    let inner = motion::presence_area(ctx, id.with("presence"), shown, area, |ui| {
-        draw_panel(ui, view)
-    })?;
+    let inner = wing_panel(
+        ctx,
+        Id::new("sb_scoreboard"),
+        Wing::Right { inset: right_inset },
+        WING_MARGIN,
+        PANEL_WIDTH,
+        shown,
+        |ui| draw_panel(ui, view),
+    )?;
     Some(ScoreboardOutcome {
         rect: inner.response.rect,
         toggled_vision: inner.inner,
     })
 }
 
-/// Draws the panel and reports which player was clicked.
+/// Draws the panel's contents and reports which player was clicked.
 fn draw_panel(ui: &mut Ui, view: &MatchupView) -> Option<u8> {
-    let sides = Sides::of(view);
-    let (rect, _) = ui.allocate_exact_size(vec2(PANEL_WIDTH, sides.height()), Sense::hover());
-    let radius = theme::radius(PANEL_RADIUS);
-    ui.painter().add(tiers::tier1_chrome(rect, radius));
-
+    let title = tr!("observer.panelMatchup", "Matchup");
+    let header = widgets::panel_header(ui, &title, Panel::Matchup.key_label().as_deref());
+    draw_clock(ui, header.rect, &title, view.elapsed_secs);
+    let (headings, _) = ui.allocate_exact_size(vec2(CONTENT_WIDTH, HEADING_HEIGHT), Sense::hover());
+    draw_headings(ui, headings);
+    let divided = teams_worth_dividing(view.players.iter().map(|player| player.team));
+    let mut side = view.players.first().map(|player| player.team);
     let mut clicked = None;
-    let mut top = rect.top();
-    let mut row = |ui: &mut Ui, top: &mut f32, player: &MatchupPlayerView| {
-        let row = Rect::from_min_size(
-            pos2(rect.left() + INSET, *top),
-            vec2(rect.width() - INSET * 2.0, ROW_HEIGHT),
-        );
-        *top += ROW_HEIGHT + ROW_GAP;
-        let response = ui.interact(
-            row,
-            ui.id().with(("scoreboard_player", player.player_id)),
-            Sense::click(),
-        );
+    for player in &view.players {
+        if divided && side != Some(player.team) {
+            side = Some(player.team);
+            ui.add_space(STAT_ROW_GAP);
+            let (row, _) =
+                ui.allocate_exact_size(vec2(CONTENT_WIDTH, STAT_HEADING_HEIGHT), Sense::hover());
+            paint_team_divider(ui, row, player.team);
+        }
+        ui.add_space(STAT_ROW_GAP);
+        let (row, response) =
+            ui.allocate_exact_size(vec2(CONTENT_WIDTH, STAT_ROW_HEIGHT), Sense::click());
         draw_row(ui, row, player);
         widgets::state_overlay(ui, &response, row, theme::radius(theme::RADIUS_TIGHT));
         if response.clicked() {
             clicked = Some(player.player_id);
         }
-    };
-
-    let band_corners = if sides.above.is_empty() {
-        CornerRadius {
-            nw: PANEL_RADIUS,
-            ne: PANEL_RADIUS,
-            sw: 0,
-            se: 0,
-        }
-    } else {
-        top += INSET;
-        for player in &sides.above {
-            row(ui, &mut top, player);
-        }
-        top += BAND_GAP - ROW_GAP;
-        CornerRadius::ZERO
-    };
-    let band = Rect::from_min_size(pos2(rect.left(), top), vec2(rect.width(), BAND_HEIGHT));
-    draw_band(ui, band, band_corners, view);
-    top += BAND_HEIGHT + BAND_GAP;
-    for player in &sides.below {
-        row(ui, &mut top, player);
     }
     clicked
 }
 
-/// Draws the band between the sides: the clock and what is being watched over the identity column,
-/// and the icon heading each number column over it.
-fn draw_band(ui: &mut Ui, rect: Rect, corners: CornerRadius, view: &MatchupView) {
-    // Inside the panel's own edge, so the panel's stroke stays unbroken down its sides.
-    let fill = rect.shrink2(vec2(theme::HAIRLINE, 0.0));
-    ui.painter()
-        .rect_filled(fill, corners, theme::alpha(crate::colors::BLUE10, 0.55));
-    let rule = Stroke::new(theme::HAIRLINE, theme::TIER1_DIVIDER);
-    if corners == CornerRadius::ZERO {
-        ui.painter()
-            .hline(fill.x_range(), rect.top() + theme::HAIRLINE * 0.5, rule);
-    }
-    ui.painter()
-        .hline(fill.x_range(), rect.bottom() - theme::HAIRLINE * 0.5, rule);
-
-    let mut cursor = EdgeCursor::from_left(rect);
-    cursor.skip(INSET);
-    // The clock stands in line with the race chips and the tag ends where the names do.
-    let identity = cursor.take(IDENTITY_WIDTH);
-    let identity = identity
-        .with_min_x(identity.left() + COLOR_BAR + BAR_GAP)
-        .with_max_x(identity.right() - NAME_GAP);
-    paint_text(
-        ui,
-        identity,
-        &text::numeral(CLOCK_SIZE),
-        &game_clock(view.elapsed_secs),
-        Align::LEFT,
+/// Draws the game clock in the middle of the title row, `header`, whose title is `title`.
+///
+/// Set on the title's letters rather than in the middle of the row: the title is small capitals and
+/// the clock figures, each sitting at its own height in the box its face leaves around it, and the
+/// two read as one line only where their letters do.
+fn draw_clock(ui: &Ui, header: Rect, title: &str, elapsed_secs: u64) {
+    let title = text::panel_title().galley(ui, title);
+    let letters_middle =
+        header.center().y - title.size().y * 0.5 + text::ink_bounds(&title).center().y;
+    let spec = text::numeral(CLOCK_SIZE).with_color(theme::TIER0_HEADER);
+    let clock = spec.galley(ui, &game_clock(elapsed_secs));
+    let top = letters_middle - text::ink_bounds(&clock).center().y;
+    ui.painter().galley(
+        pos2(header.center().x - clock.size().x * 0.5, top),
+        clock,
+        spec.color,
     );
-    let tag = if view.is_replay {
-        tr!("observer.replayTag", "Replay")
-    } else {
-        tr!("observer.liveTag", "Live")
-    };
-    let tag_rect = Align2::RIGHT_CENTER.align_size_within_rect(TAG_SIZE, identity);
-    // The tag is placed rather than laid out, so it is drawn in a scope of its own: the kit's tags
-    // take their space from whatever layout they are handed, and this one's place is the band's.
-    ui.scope_builder(UiBuilder::new().max_rect(tag_rect), |ui| {
-        widgets::tag_exact(
-            ui,
-            &text::column_label(),
-            &tag,
-            TagStyle::Amber,
-            tag_rect.size(),
-        );
-    });
+}
 
-    // A heading stands over players of every race, so it takes the game's art in terran's, the
-    // same as a total over players of different races does.
+/// Draws the row of column headings: the icon heading each number column, over nothing on the
+/// names' side, as a wing's headings row leaves it.
+fn draw_headings(ui: &Ui, rect: Rect) {
+    let mut cursor = EdgeCursor::from_left(rect);
+    cursor.skip(IDENTITY_WIDTH);
     for column in Column::ALL {
         let cell = cursor.take(column.width());
         let icon = Rect::from_center_size(cell.center(), Vec2::splat(COLUMN_ICON));
-        let resource = |glyph| widgets::paint_resource_icon(ui.painter(), icon, glyph, None, 1.0);
+        let glyph = |glyph| widgets::paint_column_glyph(ui.painter(), icon, glyph, 1.0);
         match column {
-            Column::Supply => resource(ResourceGlyph::Supply),
-            Column::Workers => paint_worker_heading(ui, cell, icon, &view.worker_icon),
-            Column::Minerals => resource(ResourceGlyph::Minerals),
-            Column::Gas => resource(ResourceGlyph::Gas),
+            Column::Supply => glyph(ColumnGlyph::Supply),
+            Column::Workers => glyph(ColumnGlyph::Workers),
+            Column::Minerals => glyph(ColumnGlyph::Minerals),
+            Column::Gas => glyph(ColumnGlyph::Gas),
             // The rate counts nothing an icon could stand for, and the three letters are what every
             // caster already calls it.
-            Column::Apm => paint_text(
-                ui,
-                cell,
-                &text::column_label(),
-                &tr!("observer.apm", "APM"),
-                Align::Center,
-            ),
+            Column::Apm => paint_heading_label(ui, cell, &tr!("observer.apm", "APM")),
         }
     }
 }
 
-/// Paints the heading of the workers column in `cell`: the game's worker icon in `icon`, set in the
-/// same chip as the resource icons beside it, or the worker's short code where the host has no
-/// icon atlas to draw it from.
-fn paint_worker_heading(ui: &Ui, cell: Rect, icon: Rect, worker: &ProductionIcon) {
-    match worker.texture {
-        Some(texture) => {
-            let art = widgets::paint_icon_chip(ui.painter(), icon, 1.0);
-            worker.paint(ui.painter(), texture, art, Color32::WHITE);
-        }
-        None => paint_text(
-            ui,
-            cell,
-            &text::column_label(),
-            &unit_codes::code_or_index(worker.index),
-            Align::Center,
+/// Paints a word heading a column, centered in `cell` by its letters rather than by the box its
+/// face leaves around them, so it sits on the same middle as the icons beside it.
+fn paint_heading_label(ui: &Ui, cell: Rect, label: &str) {
+    let spec = text::column_label();
+    let galley = spec.layout(ui.ctx(), spec.job_truncated(label, cell.width()));
+    let ink = text::ink_bounds(&galley);
+    ui.painter().galley(
+        pos2(
+            cell.center().x - galley.size().x * 0.5,
+            cell.center().y - ink.center().y,
         ),
-    }
+        galley,
+        spec.color,
+    );
 }
 
-/// Draws one player's row: the bar of their color, their race chip and their name, then their
-/// numbers in the columns the band heads.
+/// Draws one player's row: the identity every stats wing leads a row with, here with the player's
+/// race icon, then their numbers in the columns the headings name.
 fn draw_row(ui: &Ui, rect: Rect, player: &MatchupPlayerView) {
     let alpha = vision_alpha(player.vision);
     let mut cursor = EdgeCursor::from_left(rect);
-
-    paint_player_bar(
+    paint_stat_identity(
         ui,
-        centred(cursor.take(COLOR_BAR), rect.height() - theme::SPACE_XS),
-        player.color,
-        // The color bar keeps more of itself than the rest of a vision-less row: it is what says
-        // whose row this is, and two rows dimmed alike are hard to tell apart at a glance.
-        if player.vision { 1.0 } else { 0.5 },
-    );
-    cursor.skip(BAR_GAP);
-    paint_picked_race_chip(
-        ui,
-        centred(cursor.take(CHIP), CHIP),
-        player.race,
-        player.random,
-        alpha,
-    );
-    cursor.skip(CHIP_GAP);
-    paint_text(
-        ui,
-        cursor.take(NAME_WIDTH),
-        &text::player_name(NAME_SIZE).with_color(theme::TEXT_PRIMARY.gamma_multiply(alpha)),
+        &mut cursor,
+        Some(StatRace {
+            race: player.race,
+            random: player.random,
+        }),
+        NAME_WIDTH,
         &player.name,
-        Align::LEFT,
+        player.color,
+        alpha,
     );
     cursor.skip(NAME_GAP);
 
-    let value = text::numeral(VALUE_SIZE).with_color(theme::TEXT_PRIMARY.gamma_multiply(alpha));
+    let value =
+        text::numeral(STAT_VALUE_SIZE).with_color(theme::TEXT_PRIMARY.gamma_multiply(alpha));
     // The rate is set a step quieter than the holdings: those are the reading, and the rate is
     // color on it.
-    let rate = text::numeral(VALUE_SIZE).with_color(theme::TEXT_SECONDARY.gamma_multiply(alpha));
+    let rate =
+        text::numeral(STAT_VALUE_SIZE).with_color(theme::TEXT_SECONDARY.gamma_multiply(alpha));
     for column in Column::ALL {
         let cell = cursor.take(column.width());
         match column {
@@ -394,7 +263,13 @@ fn draw_row(ui: &Ui, rect: Rect, player: &MatchupPlayerView) {
                 } else {
                     theme::TEXT_PRIMARY
                 };
-                paint_supply(ui, cell, player, color.gamma_multiply(alpha), alpha);
+                paint_supply(
+                    ui,
+                    cell,
+                    &value.clone().with_color(color.gamma_multiply(alpha)),
+                    player.supply_used,
+                    player.supply_max,
+                );
             }
             Column::Workers => paint_count(ui, cell, &value, player.workers, Align::Center),
             Column::Minerals => paint_count(ui, cell, &value, player.minerals, Align::Center),
@@ -404,34 +279,36 @@ fn draw_row(ui: &Ui, rect: Rect, player: &MatchupPlayerView) {
     }
 }
 
-/// Paints the supply cell, centered in its column. What a player is on is the number being watched
-/// and their cap is what it is read against, so the cap is set smaller and quieter.
-fn paint_supply(ui: &Ui, rect: Rect, player: &MatchupPlayerView, color: Color32, alpha: f32) {
-    let spec = text::numeral(VALUE_SIZE).with_color(color);
-    let mut job = spec.job(&player.supply_used.to_string());
-    job.append(
-        &format!("/{}", player.supply_max),
-        0.0,
-        text::numeral(VALUE_SIZE * SUPPLY_CAP_RATIO)
-            .with_color(theme::TEXT_DIM.gamma_multiply(alpha))
-            .format(),
+/// Paints a supply count against its cap with the slash between them on the middle of `cell`: the
+/// count set against the slash from the left and the cap from the right, so the slash holds still
+/// as either gains a digit and lines up down the column.
+fn paint_supply(ui: &Ui, cell: Rect, spec: &TextSpec, used: u32, max: u32) {
+    let middle = cell.center().x;
+    let half_slash = spec.galley(ui, "/").size().x * 0.5;
+    paint_text(ui, cell, spec, "/", Align::Center);
+    paint_text(
+        ui,
+        cell.with_max_x(middle - half_slash),
+        spec,
+        &used.to_string(),
+        Align::RIGHT,
     );
-    let galley = spec.layout(ui.ctx(), job);
-    let size = galley.size();
-    ui.painter().galley(
-        pos2(
-            rect.center().x - size.x * 0.5,
-            rect.center().y - size.y * 0.5,
-        ),
-        galley,
-        color,
+    paint_text(
+        ui,
+        cell.with_min_x(middle + half_slash),
+        spec,
+        &max.to_string(),
+        Align::LEFT,
     );
 }
 
 #[cfg(test)]
 mod tests {
+    use egui::Color32;
+
     use super::*;
     use crate::observer::RaceView;
+    use crate::observer::test_support::settled_rect;
 
     fn view(teams: &[u8]) -> MatchupView {
         MatchupView {
@@ -456,42 +333,74 @@ mod tests {
                 .collect(),
             elapsed_secs: 0,
             is_replay: false,
-            worker_icon: ProductionIcon {
-                texture: None,
-                index: 0x07,
-                size: None,
-                margin: 0.0,
-                wireframe: None,
-            },
         }
     }
 
-    fn ids(players: &[&MatchupPlayerView]) -> Vec<u8> {
-        players.iter().map(|player| player.player_id).collect()
+    /// Where the panel settles on a 1080p screen for a game of `view`'s players.
+    fn settled(view: &MatchupView) -> Rect {
+        settled_rect(|ctx| render_scoreboard_view(view, ctx, true, 0.0).map(|outcome| outcome.rect))
+            .expect("the scoreboard is drawn")
+    }
+
+    /// How tall the panel settles for a game whose players are on `teams`.
+    fn height(teams: &[u8]) -> f32 {
+        settled(&view(teams)).height()
     }
 
     #[test]
-    fn a_game_of_two_sides_puts_the_band_between_them() {
-        let view = view(&[1, 1, 2, 2]);
-        let sides = Sides::of(&view);
-        assert_eq!(ids(&sides.above), [0, 1]);
-        assert_eq!(ids(&sides.below), [2, 3]);
-    }
-
-    #[test]
-    fn any_other_game_has_the_band_at_its_head() {
-        for teams in [&[1, 2, 3][..], &[1, 1], &[1], &[]] {
+    fn the_scoreboard_reaches_as_far_down_as_the_right_edge_is_told_it_will() {
+        let games: [&[u8]; 4] = [
+            &[1, 2],
+            &[1, 2, 3, 4],
+            &[1, 1, 2, 2],
+            &[1, 1, 1, 1, 2, 2, 2, 2],
+        ];
+        for teams in games {
             let view = view(teams);
-            let sides = Sides::of(&view);
-            assert!(sides.above.is_empty());
-            assert_eq!(sides.below.len(), teams.len());
+            let drawn = settled(&view).bottom();
+            let worked_out = panel_bottom(&view);
+            assert!(
+                (drawn - worked_out).abs() < 0.5,
+                "{teams:?}: drawn to {drawn}, worked out as {worked_out}"
+            );
         }
     }
 
     #[test]
-    fn the_panel_grows_by_a_row_for_each_player() {
-        let duel = Sides::of(&view(&[1, 2])).height();
-        let pairs = Sides::of(&view(&[1, 1, 2, 2])).height();
-        assert_eq!(pairs - duel, (ROW_HEIGHT + ROW_GAP) * 2.0);
+    fn a_four_digit_rate_fits_its_column_whole() {
+        let ctx = egui::Context::default();
+        crate::install_fonts_and_style(&ctx, &crate::DynamicFonts::default());
+        ctx.begin_pass(egui::RawInput::default());
+        let spec = text::numeral(STAT_VALUE_SIZE);
+        let fitted = crate::observer::fit_count(&ctx, &spec, 8888, Column::Apm.width());
+        // A layout check has no GPU texture store to hand the atlas to.
+        ctx.end_pass().textures_delta.clear();
+        assert_eq!(fitted, "8888");
+    }
+
+    #[test]
+    fn a_full_supply_fits_whole_either_side_of_its_slash() {
+        let ctx = egui::Context::default();
+        crate::install_fonts_and_style(&ctx, &crate::DynamicFonts::default());
+        ctx.begin_pass(egui::RawInput::default());
+        let spec = text::numeral(STAT_VALUE_SIZE);
+        let width = |text: &str| spec.layout(&ctx, spec.job(text)).size().x;
+        let side = (Column::Supply.width() - width("/")) * 0.5;
+        let count = width("200");
+        // A layout check has no GPU texture store to hand the atlas to.
+        ctx.end_pass().textures_delta.clear();
+        assert!(
+            count <= side,
+            "{count} is wider than the {side} beside the slash"
+        );
+    }
+
+    #[test]
+    fn a_game_is_ruled_between_its_sides_only_where_a_side_has_players_to_tell_apart() {
+        let duel = height(&[1, 2]);
+        let four_sides = height(&[1, 2, 3, 4]);
+        let two_pairs = height(&[1, 1, 2, 2]);
+        assert!((four_sides - duel - 2.0 * (STAT_ROW_GAP + STAT_ROW_HEIGHT)).abs() < 0.5);
+        assert!((two_pairs - four_sides - (STAT_ROW_GAP + STAT_HEADING_HEIGHT)).abs() < 0.5);
     }
 }

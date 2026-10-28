@@ -27,8 +27,8 @@ use crate::kit::text::{self, BodyWeight};
 use crate::kit::widgets::{self, ResourceGlyph, TagStyle};
 use crate::kit::{motion, theme, tiers};
 use crate::observer::{
-    EdgeCursor, ProductionIcon, RaceView, WING_MARGIN, centred, game_clock, paint_count,
-    paint_picked_race_chip, paint_player_bar, paint_text, vision_alpha,
+    EdgeCursor, RaceView, WING_MARGIN, centred, game_clock, paint_count, paint_picked_race_chip,
+    paint_player_bar, paint_text, vision_alpha,
 };
 use crate::tr;
 
@@ -436,10 +436,6 @@ pub struct MatchupView {
     pub elapsed_secs: u64,
     /// Whether this is a recording rather than a game happening now, which is what the tag says.
     pub is_replay: bool,
-    /// The game's icon for a terran worker, which heads a count of every race's workers: a heading
-    /// over players of every race takes the game's resource icons in terran's art, and this is the
-    /// worker that goes with them.
-    pub worker_icon: ProductionIcon,
 }
 
 impl MatchupView {
@@ -902,13 +898,6 @@ mod tests {
                 .collect(),
             elapsed_secs: 0,
             is_replay: false,
-            worker_icon: ProductionIcon {
-                texture: None,
-                index: 0x07,
-                size: None,
-                margin: 0.0,
-                wireframe: None,
-            },
         }
     }
 

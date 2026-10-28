@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use egui::epaint::text::{ByteIndex, FontsView};
 use egui::text::{LayoutJob, LayoutSection, TextFormat, TextWrapping};
-use egui::{Align, Color32, Context, FontFamily, FontId, Galley, Ui};
+use egui::{Align, Color32, Context, FontFamily, FontId, Galley, Rect, Ui};
 
 use crate::fonts;
 use crate::kit::theme;
@@ -312,6 +312,15 @@ pub fn baseline(galley: &Galley) -> f32 {
         .first()
         .and_then(|row| row.row.glyphs.first().map(|glyph| row.pos.y + glyph.pos.y))
         .unwrap_or(galley.size().y)
+}
+
+/// The extent of a laid-out line's letters relative to its origin, leaving out the room the face
+/// keeps above and below them: what text is centered by where its own glyphs have to look centered,
+/// rather than the box the face would leave them in.
+pub fn ink_bounds(galley: &Galley) -> Rect {
+    galley.rows.first().map_or(galley.rect, |row| {
+        row.visuals.mesh_bounds.translate(row.pos.to_vec2())
+    })
 }
 
 /// The heading over a column of values.

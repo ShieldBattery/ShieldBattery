@@ -133,6 +133,19 @@ values answer only after the watcher has added them up themselves. Two cards at 
 design gives them the screen's two top corners and nothing else, so a free-for-all of three or more
 sides keeps the clock alone.
 
+The matchup can instead take the form of the **compact scoreboard** (`observer::scoreboard`), which
+is the one a first-time watcher gets: a stats wing at the top of the right edge, as wide as the wings
+stacked under it, with a row per player (color square, race icon, name, then supply, workers,
+minerals, gas and APM) under a single row of headings drawn as glyphs, so each player is named once
+and each column is labeled once for the whole game. It takes every shape of game, ruling its sides
+apart the way the wings do, so it has no team cards, and keeps the clock in the middle of its title
+row. `PanelPrefs::compact_scoreboard` says which form the matchup takes, and
+`PanelPrefs::matchup_style()` reads it together with `matchup` as a `MatchupStyle` of `Bar`,
+`Compact` or `Off`. The dock's matchup row offers all three as chips, `E` shows and hides the matchup
+in whichever form it is in, and `Shift+E` switches forms. Both forms are drawn every frame with only
+the chosen one shown, so a switch fades one out as the other comes in, and the wings under it ease to
+their new place.
+
 Nothing here is placed at the absolute height the design card draws it at. The cards are as tall as
 the side they carry and every stats wing is as tall as the players it has rows for, so the shell
 stacks them: each surface is placed under the bottom edge the one above it actually came out at.
@@ -275,13 +288,14 @@ built leaves the game's own behavior alone.
 | Speed up / down                      | `U` / `D` | Military                  | `M`     |
 | Seek back / forward (Shift: further) | `,` / `.` | Graphs (Shift/Ctrl: step) | `G`     |
 | All panels                           | `A`       | Timeline                  | `T`     |
-| Economy                              | `E`       | Control groups            | `H`     |
+| Economy                              | `I`       | Control groups            | `H`     |
 | Production                           | `F`       | Map control               | `N`     |
 | Console                              | `W`       | Cycle vision              | `V`     |
-| Side panel (matchup bar)             | `R`       | Spoiler-free              | `L`     |
+| Matchup (Shift: form)                | `E`       | Spoiler-free              | `L`     |
 | Minimap                              | `Q`       | Edge dock (Shift: form)   | `` ` `` |
 
-Of these, `A`, `R`, `E`, `M`, `T`, `F`, `H`, `W`, `Q` and `Y` move panels, `` ` `` takes the dock on
+Of these, `A`, `E`, `I`, `M`, `T`, `F`, `H`, `W`, `Q` and `Y` move panels, `Shift+E` switches the
+matchup between the bar and the compact scoreboard, `` ` `` takes the dock on
 and off screen while `` Shift+` `` changes which of its two forms it comes back in, `G` toggles the
 graphs panel like any other panel key while `Shift+G` and `Ctrl+G` step it to the next and previous
 measurement, `N` moves the map-control bar but only while a host is reporting one, and `P`, `U`, `D`, `,`, `.` and `L` drive a replay. `V` is still a binding

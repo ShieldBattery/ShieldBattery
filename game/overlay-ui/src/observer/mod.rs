@@ -60,6 +60,7 @@ pub use timeline::{
 };
 pub use unit_codes::unit_code;
 
+use egui::emath::GuiRounding;
 use egui::{
     Align, Align2, Area, Color32, Context, Id, InnerResponse, Order, Rect, Stroke, StrokeKind, Ui,
     Vec2, pos2, vec2,
@@ -190,11 +191,14 @@ pub(crate) fn paint_text(ui: &Ui, rect: Rect, spec: &TextSpec, text: &str, align
         Align::Center => rect.center().x - galley.size().x * 0.5,
         Align::LEFT => rect.left(),
     };
-    ui.painter().galley(
-        pos2(x, rect.center().y - galley.size().y * 0.5),
-        galley,
-        spec.color,
-    );
+    // Centered on the rect's middle as it falls on the pixel grid. A line an odd number of pixels
+    // tall puts its top on a half pixel, and which way that rounds would otherwise turn on the float
+    // noise in where the panel came to rest, setting the same cell's text a pixel higher in one panel
+    // than in the next. From a middle on the grid the half pixel is exact, and egui rounds an exact
+    // half the same way every time.
+    let middle = rect.center().y.round_to_pixels(ui.ctx().pixels_per_point());
+    ui.painter()
+        .galley(pos2(x, middle - galley.size().y * 0.5), galley, spec.color);
 }
 
 /// The ways a count can be written, longest first: the whole number, then thousands (or millions)
@@ -269,9 +273,31 @@ pub(crate) fn paint_picked_race_chip(
     alpha: f32,
 ) {
     paint_race_chip(ui, rect, race, alpha);
-    if !random {
-        return;
+    if random {
+        paint_random_die(ui, rect, alpha);
     }
+}
+
+/// Paints a player's race as its icon alone, in the race's color and as large as `rect` holds, with
+/// no disc behind it: for a row whose color square and name already frame it, where a disc would
+/// only soften the icon's edge. A race left to chance gets the die the chip gets.
+pub(crate) fn paint_picked_race_icon(
+    ui: &Ui,
+    rect: Rect,
+    race: RaceView,
+    random: bool,
+    alpha: f32,
+) {
+    let diameter = rect.width().min(rect.height());
+    let icon = race_icon::icon_rect(rect.center(), diameter, ui.ctx().pixels_per_point());
+    race_icon::paint_race_icon(ui.painter(), icon, race, race.color().gamma_multiply(alpha));
+    if random {
+        paint_random_die(ui, rect, alpha);
+    }
+}
+
+/// Paints the die that badges a race picked at random, hung over the lower right of `rect`.
+fn paint_random_die(ui: &Ui, rect: Rect, alpha: f32) {
     let diameter = rect.width().min(rect.height());
     let center = rect.center() + Vec2::splat(diameter * RANDOM_DIE_OFFSET);
     race_icon::paint_die(
@@ -819,14 +845,30 @@ pub(crate) fn paint_resource_value(
     );
 }
 
-/// Paints what leads a player's row in a stats wing: the bar of their own color, then their name.
+/// Gap between the square of the player's color that leads a stats wing's row and what follows it.
+pub(crate) const STAT_BAR_GAP: f32 = 8.0;
+
+/// Size of the race icon a stats wing's row carries between its color square and its name, where it
+/// carries one, and the gap after it.
+pub(crate) const STAT_RACE_ICON: f32 = 18.0;
+pub(crate) const STAT_RACE_ICON_GAP: f32 = 6.0;
+
+/// A player's race as a stats wing's row shows it: the race, and whether the lobby left it to chance.
+#[derive(Copy, Clone)]
+pub(crate) struct StatRace {
+    pub(crate) race: RaceView,
+    pub(crate) random: bool,
+}
+
+/// Paints what leads a player's row in a stats wing: the bar of their own color, then their race
+/// icon where `race` gives one, then their name.
 ///
-/// Both cells are taken from `cursor`, so a wing's columns are placed by one walk across the row and
+/// Every cell is taken from `cursor`, so a wing's columns are placed by one walk across the row and
 /// the identity block cannot drift from the values beside it.
 pub(crate) fn paint_stat_identity(
     ui: &Ui,
     cursor: &mut EdgeCursor,
-    gap: f32,
+    race: Option<StatRace>,
     name_width: f32,
     name: &str,
     color: Color32,
@@ -840,7 +882,12 @@ pub(crate) fn paint_stat_identity(
         // whose row this is, and two rows dimmed alike are hard to tell apart at a glance.
         if alpha < 1.0 { 0.5 } else { 1.0 },
     );
-    cursor.skip(gap);
+    cursor.skip(STAT_BAR_GAP);
+    if let Some(StatRace { race, random }) = race {
+        let icon = centred(cursor.take(STAT_RACE_ICON), STAT_RACE_ICON);
+        paint_picked_race_icon(ui, icon, race, random, alpha);
+        cursor.skip(STAT_RACE_ICON_GAP);
+    }
     let name_rect = cursor.take(name_width);
     paint_text(
         ui,
@@ -883,6 +930,40 @@ pub(crate) mod test_support {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_cells_text_lands_on_the_same_pixels_however_close_to_whole_its_row_comes_to_rest() {
+        // The top of the text drawn in a row placed at `row_top`, once it is on the pixel grid.
+        let text_top = |row_top: f32| {
+            let ctx = Context::default();
+            crate::install_fonts_and_style(&ctx, &crate::DynamicFonts::default());
+            ctx.begin_pass(egui::RawInput::default());
+            let ui = Ui::new(ctx.clone(), Id::new("cell"), egui::UiBuilder::new());
+            let row = Rect::from_min_size(pos2(0.0, row_top), vec2(100.0, STAT_ROW_HEIGHT));
+            paint_text(
+                &ui,
+                row,
+                &text::numeral(STAT_VALUE_SIZE),
+                "200",
+                Align::LEFT,
+            );
+            let mut out = ctx.end_pass();
+            out.textures_delta.clear();
+            ctx.tessellate(out.shapes, ctx.pixels_per_point())
+                .into_iter()
+                .filter_map(|clipped| match clipped.primitive {
+                    egui::epaint::Primitive::Mesh(mesh) => Some(mesh),
+                    egui::epaint::Primitive::Callback(_) => None,
+                })
+                .flat_map(|mesh| mesh.vertices)
+                .map(|vertex| vertex.pos.y)
+                .fold(f32::INFINITY, f32::min)
+        };
+        let whole = text_top(82.0);
+        assert!(whole.is_finite(), "the text is drawn");
+        assert_eq!(text_top(82.0 - 1e-4), whole);
+        assert_eq!(text_top(82.0 + 1e-4), whole);
+    }
 
     #[test]
     fn an_icon_keeps_its_frames_proportions_inside_its_tile() {

@@ -1394,7 +1394,6 @@ impl OverlayState {
                     .map_or(FASTEST_GAME_SPEED, |replay| replay.game_speed),
             ),
             is_replay: bw.is_replay,
-            worker_icon: production::unit_icon(bw_dat::unit::SCV, bw),
         }
     }
 

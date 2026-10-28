@@ -20,10 +20,10 @@ use crate::kit::text;
 use crate::kit::theme;
 use crate::kit::widgets::{self, ResourceGlyph};
 use crate::observer::{
-    EdgeCursor, RaceView, STAT_COLOR_BAR, STAT_HEADING_HEIGHT, STAT_ROW_GAP, STAT_ROW_HEIGHT,
-    STAT_VALUE_SIZE, Wing, paint_column_heading, paint_resource_value, paint_stat_identity,
-    paint_team_divider, paint_text, stat_table_height, teams_worth_dividing, vision_alpha,
-    wing_panel,
+    EdgeCursor, RaceView, STAT_BAR_GAP, STAT_COLOR_BAR, STAT_HEADING_HEIGHT, STAT_ROW_GAP,
+    STAT_ROW_HEIGHT, STAT_VALUE_SIZE, Wing, paint_column_heading, paint_resource_value,
+    paint_stat_identity, paint_team_divider, paint_text, stat_table_height, teams_worth_dividing,
+    vision_alpha, wing_panel,
 };
 use crate::shell::Panel;
 use crate::{tr, tr_plural};
@@ -33,9 +33,6 @@ pub const PANEL_WIDTH: f32 = 474.0;
 
 /// The room inside the panel's chrome.
 const CONTENT_WIDTH: f32 = 450.0;
-
-/// Gap between the bar of the player's color and their name.
-const BAR_GAP: f32 = 8.0;
 
 /// Width the player's name is laid out in. Fixed, because a name is player-chosen: one longer than
 /// its column would otherwise push every number beside it out of the design's grid.
@@ -65,7 +62,7 @@ const TREND_WIDTH: f32 = 58.0;
 /// a column more than fits would be drawn outside the panel's chrome.
 const _: () = assert!(
     STAT_COLOR_BAR
-        + BAR_GAP
+        + STAT_BAR_GAP
         + NAME_WIDTH
         + COLUMN_GAP
         + WORKERS_WIDTH
@@ -207,7 +204,7 @@ fn draw_panel(ui: &mut Ui, view: &EconomyView) {
 fn draw_headings(ui: &mut Ui) {
     let (row, _) = ui.allocate_exact_size(vec2(CONTENT_WIDTH, STAT_HEADING_HEIGHT), Sense::hover());
     let mut cursor = EdgeCursor::from_left(row);
-    cursor.skip(STAT_COLOR_BAR + BAR_GAP + NAME_WIDTH + COLUMN_GAP);
+    cursor.skip(STAT_COLOR_BAR + STAT_BAR_GAP + NAME_WIDTH + COLUMN_GAP);
     draw_heading(
         ui,
         cursor.take(WORKERS_WIDTH),
@@ -273,7 +270,7 @@ fn draw_row(ui: &mut Ui, player: &EconomyPlayerView) {
     paint_stat_identity(
         ui,
         &mut cursor,
-        BAR_GAP,
+        None,
         NAME_WIDTH,
         &player.name,
         player.color,

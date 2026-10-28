@@ -23,8 +23,8 @@
 
 use egui::emath::GuiRounding;
 use egui::{
-    Align, Align2, Area, Color32, Context, Id, Order, Pos2, Rect, Response, Sense, Shape, Stroke,
-    StrokeKind, Ui, pos2, vec2,
+    Align, Align2, Area, Color32, Context, Id, Order, Painter, Pos2, Rect, Response, Sense, Shape,
+    Stroke, StrokeKind, Ui, Vec2, pos2, vec2,
 };
 
 use crate::kit::text::{self, BodyWeight};
@@ -423,7 +423,7 @@ const STYLE_CHIP: f32 = KEY_HEIGHT;
 const STYLE_CHIP_GAP: f32 = 3.0;
 
 /// Size of the picture of the screen on a style chip.
-const STYLE_PICTURE: egui::Vec2 = vec2(14.0, 10.0);
+const STYLE_PICTURE: Vec2 = vec2(14.0, 10.0);
 
 /// Where the chips the matchup's style is picked with go in the matchup's row: just ahead of its
 /// keycap.
@@ -457,7 +457,7 @@ fn draw_matchup_style_chips(
                 rect.left() + index as f32 * (STYLE_CHIP + STYLE_CHIP_GAP),
                 rect.top(),
             ),
-            egui::Vec2::splat(STYLE_CHIP),
+            Vec2::splat(STYLE_CHIP),
         );
         let response = ui.interact(
             chip,
@@ -465,26 +465,7 @@ fn draw_matchup_style_chips(
             Sense::click(),
         );
         let lit = style == current;
-        let (fill, edge, color) = if lit {
-            (
-                theme::alpha(crate::colors::BLUE60, 0.40),
-                theme::alpha(crate::colors::BLUE80, 0.45),
-                theme::TEXT_PRIMARY,
-            )
-        } else {
-            (
-                theme::alpha(crate::colors::GREY_BLUE10, 0.60),
-                theme::CHIP_STROKE,
-                theme::TEXT_DIM,
-            )
-        };
-        ui.painter().rect_filled(chip, corner_radius, fill);
-        ui.painter().add(Shape::rect_stroke(
-            chip,
-            corner_radius,
-            Stroke::new(theme::HAIRLINE, edge),
-            StrokeKind::Inside,
-        ));
+        let color = paint_chip_face(ui, chip, if lit { RowState::On } else { RowState::Off });
         paint_style_picture(ui.painter(), chip, style, color);
         widgets::state_overlay(ui, &response, chip, corner_radius);
         if response.clicked() && !lit {
@@ -498,7 +479,7 @@ fn draw_matchup_style_chips(
 /// Paints a small picture of the screen in `color`, centered in `chip`, with the matchup where
 /// `style` puts it: a bar along the middle of the top edge, a box in the top-right corner, or no
 /// matchup at all, the screen struck through.
-fn paint_style_picture(painter: &egui::Painter, chip: Rect, style: MatchupStyle, color: Color32) {
+fn paint_style_picture(painter: &Painter, chip: Rect, style: MatchupStyle, color: Color32) {
     let screen = Rect::from_center_size(chip.center(), STYLE_PICTURE)
         .round_to_pixels(painter.pixels_per_point());
     let line = Stroke::new(theme::HAIRLINE, color);
@@ -721,8 +702,21 @@ fn paint_key_chip(ui: &Ui, rect: Rect, key: Option<&str>, state: RowState) {
     let Some(key) = key else {
         return;
     };
+    let color = paint_chip_face(ui, rect, state);
+    paint_text(
+        ui,
+        rect,
+        &text::body(11.0, BodyWeight::Medium).with_color(color),
+        key,
+        Align::Center,
+    );
+}
+
+/// Paints the face of one of a row's chips, a keycap or a matchup style, lit while what it stands
+/// for is on screen, and returns the color to mark it with.
+fn paint_chip_face(ui: &Ui, rect: Rect, state: RowState) -> Color32 {
     let corner_radius = theme::radius(theme::RADIUS_CHIP);
-    // A lit keycap is filled in the overlay's own blue rather than tinted: the dock is read at a
+    // A lit chip is filled in the overlay's own blue rather than tinted: the dock is read at a
     // glance from the edge of the screen, and a tint is not a state anyone reads from there.
     let (fill, edge, color) = match state {
         RowState::On => (
@@ -748,13 +742,7 @@ fn paint_key_chip(ui: &Ui, rect: Rect, key: Option<&str>, state: RowState) {
         Stroke::new(theme::HAIRLINE, edge),
         StrokeKind::Inside,
     ));
-    paint_text(
-        ui,
-        rect,
-        &text::body(11.0, BodyWeight::Medium).with_color(color),
-        key,
-        Align::Center,
-    );
+    color
 }
 
 #[cfg(test)]

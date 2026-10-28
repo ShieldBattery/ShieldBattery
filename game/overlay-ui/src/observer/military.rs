@@ -18,10 +18,10 @@ use crate::kit::text;
 use crate::kit::theme;
 use crate::kit::widgets::{self, ResourceGlyph};
 use crate::observer::{
-    EdgeCursor, RaceView, STAT_COLOR_BAR, STAT_HEADING_HEIGHT, STAT_ROW_GAP, STAT_ROW_HEIGHT,
-    STAT_VALUE_SIZE, Wing, paint_column_heading, paint_count, paint_resource_value,
-    paint_stat_identity, paint_team_divider, paint_text, stat_table_height, teams_worth_dividing,
-    vision_alpha, wing_panel,
+    EdgeCursor, RaceView, STAT_BAR_GAP, STAT_COLOR_BAR, STAT_HEADING_HEIGHT, STAT_ROW_GAP,
+    STAT_ROW_HEIGHT, STAT_VALUE_SIZE, Wing, paint_column_heading, paint_count,
+    paint_resource_value, paint_stat_identity, paint_team_divider, paint_text, stat_table_height,
+    teams_worth_dividing, vision_alpha, wing_panel,
 };
 use crate::shell::Panel;
 use crate::tr;
@@ -31,9 +31,6 @@ pub const PANEL_WIDTH: f32 = 486.0;
 
 /// The room inside the panel's chrome.
 const CONTENT_WIDTH: f32 = 462.0;
-
-/// Gap between the bar of the player's color and their name.
-const BAR_GAP: f32 = 8.0;
 
 /// Width the player's name is laid out in. Wider than the economy panel's identity column, because
 /// this panel's three value columns together take less of the row than the economy panel's do.
@@ -61,7 +58,7 @@ const WORKERS_WIDTH: f32 = 70.0;
 /// a column more than fits would be drawn outside the panel's chrome.
 const _: () = assert!(
     STAT_COLOR_BAR
-        + BAR_GAP
+        + STAT_BAR_GAP
         + NAME_WIDTH
         + COLUMN_GAP
         + ARMY_WIDTH
@@ -167,7 +164,7 @@ fn draw_panel(ui: &mut Ui, view: &MilitaryView) {
 fn draw_headings(ui: &mut Ui) {
     let (row, _) = ui.allocate_exact_size(vec2(CONTENT_WIDTH, STAT_HEADING_HEIGHT), Sense::hover());
     let mut cursor = EdgeCursor::from_left(row);
-    cursor.skip(STAT_COLOR_BAR + BAR_GAP + NAME_WIDTH + COLUMN_GAP);
+    cursor.skip(STAT_COLOR_BAR + STAT_BAR_GAP + NAME_WIDTH + COLUMN_GAP);
     paint_column_heading(
         ui,
         cursor.take(ARMY_WIDTH),
@@ -198,7 +195,7 @@ fn draw_row(ui: &mut Ui, player: &MilitaryPlayerView) {
     paint_stat_identity(
         ui,
         &mut cursor,
-        BAR_GAP,
+        None,
         NAME_WIDTH,
         &player.name,
         player.color,

@@ -829,8 +829,8 @@ pub(super) fn number_key_digit(key: Key) -> Option<u8> {
 mod tests {
     use egui::{Key, Modifiers, Rect};
 
-    use crate::shell::Intent;
     use crate::shell::test_support::*;
+    use crate::shell::{Intent, MatchupStyle};
 
     const SMALL_SCREEN: egui::Vec2 = egui::vec2(1280.0, 720.0);
 
@@ -850,6 +850,9 @@ mod tests {
         let mut prefs = *shell.panel_prefs();
         prefs.military = true;
         prefs.graphs = true;
+        // Hung under the bar, the wings leave the dock room over the plate. The scoreboard in the
+        // corner is taller than the bar and leaves it none.
+        prefs.set_matchup_style(MatchupStyle::Bar);
         shell.set_panel_prefs(prefs);
         let (playback, game) = (replay(), game_with_right_wings());
         let screen = egui::vec2(1920.0, 1080.0);

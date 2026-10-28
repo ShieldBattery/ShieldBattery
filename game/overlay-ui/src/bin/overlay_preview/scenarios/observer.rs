@@ -437,8 +437,6 @@ pub fn build_view(
             .collect(),
         elapsed_secs: game_secs,
         is_replay,
-        // The game's own id for the SCV.
-        worker_icon: unit_icon(0x07),
     };
     ObserverView {
         // The corner cards carry the players the bar gave up, so they are built for exactly the
