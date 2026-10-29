@@ -179,6 +179,7 @@
     "dockCollapse": "Collapse dock",
     "dockExpand": "Expand dock",
     "dockNoRoom": "No room for it on this screen",
+    "dockNoRoomShort": "No room",
     "eventBaseDestroyed": "Destroyed a base",
     "eventBaseLost": "Lost a base",
     "eventBuilt": "Built",

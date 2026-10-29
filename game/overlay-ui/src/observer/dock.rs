@@ -16,8 +16,9 @@
 //! surfaces the shell can toggle.
 //!
 //! A panel the watcher wants on screen but the screen has no room for is a key of its own kind: on,
-//! and not on screen. Its keycap is edged in the accent rather than lit, so the dock never claims a
-//! panel is up that the watcher cannot find.
+//! and not on screen, so the dock never claims a panel is up that the watcher cannot find. Its keycap
+//! is hatched, the mark for something there and not available, and its row in the table is hollow,
+//! edged in the lit row's blue with nothing in it, and says so in words.
 
 use egui::emath::GuiRounding;
 use egui::{
@@ -550,7 +551,7 @@ fn draw_strip(ui: &mut Ui, rect: Rect, prefs: &PanelPrefs, dock: &DockContext<'_
         )
     };
     let all = keycap_at(rect.left());
-    let (all_toggled, mut hint) = draw_all_key(ui, all, prefs, dock.hotkeys);
+    let (all_toggled, mut hint) = draw_all_key(ui, all, all_key_state(prefs), dock.hotkeys);
     outcome.all_toggled = all_toggled;
 
     let mut left = all.right();
@@ -606,7 +607,7 @@ fn draw_column(ui: &mut Ui, rect: Rect, prefs: &PanelPrefs, dock: &DockContext<'
             vec2(KEY_WIDTH, COLUMN_KEY_HEIGHT),
         )
     };
-    let (all_toggled, mut hint) = draw_all_key(ui, cell(0, 0), prefs, dock.hotkeys);
+    let (all_toggled, mut hint) = draw_all_key(ui, cell(0, 0), all_key_state(prefs), dock.hotkeys);
     outcome.all_toggled = all_toggled;
     let (clicked, chevron_hint) = draw_expander(ui, cell(0, 1), prefs.dock_expanded);
     hint = hint.or(chevron_hint);
@@ -675,7 +676,8 @@ fn draw_table(ui: &mut Ui, rect: Rect, prefs: &PanelPrefs, dock: &DockContext<'_
     if clicked {
         outcome.expanded = Some(false);
     }
-    let (all_toggled, all_hint) = draw_all_key(ui, all, prefs, hotkeys);
+    // The table's keycaps are plain: its rows carry the panels' state, as the strip's keycaps do.
+    let (all_toggled, all_hint) = draw_all_key(ui, all, RowState::Off, hotkeys);
     outcome.all_toggled = all_toggled;
     hint = hint.or(all_hint);
 
@@ -687,16 +689,7 @@ fn draw_table(ui: &mut Ui, rect: Rect, prefs: &PanelPrefs, dock: &DockContext<'_
         let key = hotkeys.bare_key(panel.action());
         let state = row_state(prefs, dock, panel);
         let response = draw_row(ui, row, panel, key, state);
-        // The row has already said everything the card would, bar a panel with no room, which
-        // nothing else on screen explains.
-        if state == RowState::Displaced {
-            hint = hint.or_else(|| {
-                Hint::hovered(&response, row_label(panel), key).map(|hint| Hint {
-                    displaced: true,
-                    ..hint
-                })
-            });
-        }
+        // The row has already said everything a card would, a panel with no room included.
         if response.clicked() {
             outcome.toggled = Some(panel);
         }
@@ -724,8 +717,8 @@ fn draw_table(ui: &mut Ui, rect: Rect, prefs: &PanelPrefs, dock: &DockContext<'_
 }
 
 /// Draws the key that puts away every panel but the dock and the plate it may stand on, and brings
-/// them back, lit while any of them is on screen. Returns whether it was clicked and the card naming
-/// it under the pointer.
+/// them back, drawn as `state`. Returns whether it was clicked and the card naming it under the
+/// pointer.
 ///
 /// The dock stays where it is, unlike under the all-panels key on the keyboard: a key that took the
 /// dock away with everything else, or the plate from under it, would leave nothing under the
@@ -733,18 +726,23 @@ fn draw_table(ui: &mut Ui, rect: Rect, prefs: &PanelPrefs, dock: &DockContext<'_
 fn draw_all_key(
     ui: &mut Ui,
     rect: Rect,
-    prefs: &PanelPrefs,
+    state: RowState,
     hotkeys: &Hotkeys,
 ) -> (bool, Option<Hint>) {
     let key = hotkeys.bare_key(Action::ToggleAllPanels);
-    let state = if prefs.reporting_shown() {
-        RowState::On
-    } else {
-        RowState::Off
-    };
     let response = key_button(ui, rect, "all", key, state);
     let hint = Hint::hovered(&response, tr!("observer.dockAllPanels", "All panels"), key);
     (response.clicked(), hint)
+}
+
+/// How the all-panels key stands where keycaps carry their panels' state: lit while any of the
+/// panels it puts away is on screen.
+fn all_key_state(prefs: &PanelPrefs) -> RowState {
+    if prefs.reporting_shown() {
+        RowState::On
+    } else {
+        RowState::Off
+    }
 }
 
 /// Draws a keycap that can be clicked, as the strip's keys and the all-panels key are.
@@ -784,21 +782,18 @@ fn draw_chevron(ui: &mut Ui, rect: Rect, up: bool) -> Response {
     response
 }
 
-/// Draws one of the table's rows in `rect`, returning what the pointer did to it: the panel's name,
-/// on a wash while the panel is on screen, and its keycap at the far end, with the room
-/// [`reserved`] for the row's own controls kept free before it.
+/// Draws one of the table's rows in `rect`, returning what the pointer did to it: the panel's name on
+/// the face a keycap for it would have, lit while the panel is on screen, and its keycap plain at the
+/// far end, with the room [`reserved`] for the row's own controls kept free before it. A row reads
+/// as the strip's keycap for its panel spelled out.
 fn draw_row(ui: &mut Ui, rect: Rect, panel: Panel, key: Option<&str>, state: RowState) -> Response {
-    let corner_radius = theme::radius(theme::RADIUS_PANEL);
     let response = ui.interact(
         rect,
         ui.id().with(("sb_dock_row", panel.label())),
         Sense::click(),
     );
-    if state == RowState::On {
-        ui.painter()
-            .rect_filled(rect, corner_radius, theme::alpha(theme::ACCENT, 0.10));
-    }
-    widgets::state_overlay(ui, &response, rect, corner_radius);
+    let color = paint_chip_face(ui, rect, state);
+    widgets::state_overlay(ui, &response, rect, theme::radius(theme::RADIUS_CHIP));
     let key_rect = Rect::from_min_size(
         pos2(
             rect.right() - ROW_PAD - KEY_WIDTH,
@@ -806,16 +801,20 @@ fn draw_row(ui: &mut Ui, rect: Rect, panel: Panel, key: Option<&str>, state: Row
         ),
         vec2(KEY_WIDTH, KEY_HEIGHT),
     );
-    paint_key_chip(ui, key_rect, key, state);
-    let label = Rect::from_min_max(
+    paint_key_chip(ui, key_rect, key, RowState::Off);
+    let mut label = Rect::from_min_max(
         pos2(rect.left() + ROW_PAD, rect.top()),
         pos2(key_rect.left() - ROW_PAD - reserved(panel), rect.bottom()),
     );
-    let color = match state {
-        RowState::On => theme::TEXT_PRIMARY,
-        RowState::Displaced => theme::TEXT_SECONDARY,
-        RowState::Off => theme::TEXT_DIM,
-    };
+    // A hollow row is the one state the table spells out: a keycap face that is on and empty is
+    // worth reading as words where there is room for them.
+    if state == RowState::Displaced {
+        let note = tr!("observer.dockNoRoomShort", "No room");
+        let spec = text::body(11.0, BodyWeight::Regular).with_color(theme::TEXT_DIM);
+        let width = spec.galley(ui, &note).size().x;
+        paint_text(ui, label, &spec, &note, Align::RIGHT);
+        label.max.x -= width + ROW_PAD;
+    }
     paint_text(
         ui,
         label,
@@ -952,13 +951,24 @@ fn draw_hint(ui: &Ui, hint: &Hint) {
     );
 }
 
-/// Draws a keycap, lit while the surface it opens is on screen, and unlit but edged in the accent
-/// while it is wanted with no room for it.
+/// The edge a row for a panel with no room is drawn hollow with: the lit row's blue, brighter for
+/// having no fill to carry it.
+const HOLLOW_EDGE: Color32 = theme::alpha(crate::colors::BLUE80, 0.75);
+
+/// How far apart the stripes across a hatched keycap are.
+const HATCH_SPACING: f32 = 5.0;
+
+/// Draws a keycap, lit while the surface it opens is on screen, and hatched while it is wanted with no
+/// room for it: a keycap has no room to say so in words, as the table's rows do.
 fn paint_key_chip(ui: &Ui, rect: Rect, key: Option<&str>, state: RowState) {
     let Some(key) = key else {
         return;
     };
-    let color = paint_chip_face(ui, rect, state);
+    let color = if state == RowState::Displaced {
+        paint_hatched_face(ui, rect)
+    } else {
+        paint_chip_face(ui, rect, state)
+    };
     paint_text(
         ui,
         rect,
@@ -968,8 +978,43 @@ fn paint_key_chip(ui: &Ui, rect: Rect, key: Option<&str>, state: RowState) {
     );
 }
 
-/// Paints the face of one of the dock's chips, a keycap or a matchup style, lit while what it
-/// stands for is on screen, and returns the color to mark it with.
+/// Paints the face of a keycap whose panel is wanted with no room for it, and returns the color to
+/// mark it with: the lit face dimmed and struck through with stripes.
+fn paint_hatched_face(ui: &Ui, rect: Rect) -> Color32 {
+    let corner_radius = theme::radius(theme::RADIUS_CHIP);
+    ui.painter().rect_filled(
+        rect,
+        corner_radius,
+        theme::alpha(crate::colors::BLUE60, 0.18),
+    );
+    // Kept a hair inside the edge, so the stripes stop short of the rounded corners.
+    let painter = ui
+        .painter()
+        .with_clip_rect(rect.shrink(theme::HAIRLINE).intersect(ui.clip_rect()));
+    let stripe = Stroke::new(theme::HAIRLINE, theme::alpha(crate::colors::BLUE80, 0.40));
+    let mut left = rect.left() - rect.height();
+    while left < rect.right() {
+        painter.line_segment(
+            [
+                pos2(left, rect.bottom()),
+                pos2(left + rect.height(), rect.top()),
+            ],
+            stripe,
+        );
+        left += HATCH_SPACING;
+    }
+    ui.painter().add(Shape::rect_stroke(
+        rect,
+        corner_radius,
+        Stroke::new(theme::HAIRLINE, theme::alpha(crate::colors::BLUE80, 0.45)),
+        StrokeKind::Inside,
+    ));
+    theme::TEXT_SECONDARY
+}
+
+/// Paints the face of one of the dock's chips or rows, a keycap, a matchup style or a row of the
+/// table, lit while what it stands for is on screen and hollow while it is wanted with no room for
+/// it, and returns the color to mark it with.
 fn paint_chip_face(ui: &Ui, rect: Rect, state: RowState) -> Color32 {
     let corner_radius = theme::radius(theme::RADIUS_CHIP);
     // A lit chip is filled in the overlay's own blue rather than tinted: the strip is read at a
@@ -980,9 +1025,10 @@ fn paint_chip_face(ui: &Ui, rect: Rect, state: RowState) -> Color32 {
             theme::alpha(crate::colors::BLUE80, 0.45),
             theme::TEXT_PRIMARY,
         ),
+        // On and not on screen: the lit edge around the unlit face.
         RowState::Displaced => (
             theme::alpha(crate::colors::GREY_BLUE10, 0.60),
-            theme::alpha(theme::ACCENT, 0.70),
+            HOLLOW_EDGE,
             theme::TEXT_SECONDARY,
         ),
         RowState::Off => (
