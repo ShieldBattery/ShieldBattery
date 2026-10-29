@@ -3,8 +3,9 @@
 //
 // prod.yml and staging.yml run this as electron-builder's `beforePack` hook, so every build from
 // them fails without the SDK. `build:release`, which `dist`, `diststaging`, `pack` and
-// `packstaging` all run, also runs it first, so they fail before spending minutes on the client and
-// game builds.
+// `packstaging` all run, first runs `fetch-discord-sdk.cjs`, which downloads the SDK if it's
+// missing and then runs this check, so they get the SDK or fail before spending minutes on the
+// client and game builds.
 //
 // Usage: node tools/check-discord-sdk.cjs
 'use strict'
