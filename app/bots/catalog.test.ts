@@ -111,11 +111,18 @@ describe('app/bots/catalog/resolveCatalogUrl', () => {
     expect(resolveCatalogUrl({ isDev: false })).toBe(PRODUCTION_CATALOG_URL)
   })
 
-  test('accepts an https override', () => {
-    expect(resolveCatalogUrl({ isDev: false, override: 'https://example.test/c.json' })).toBe(
+  test('development accepts an https override', () => {
+    expect(resolveCatalogUrl({ isDev: true, override: 'https://example.test/c.json' })).toBe(
       'https://example.test/c.json',
     )
   })
+
+  test.each(['https://example.test/c.json', 'http://localhost:8080/c.json'])(
+    'production ignores override %s',
+    override => {
+      expect(resolveCatalogUrl({ isDev: false, override })).toBe(PRODUCTION_CATALOG_URL)
+    },
+  )
 
   test('accepts a plaintext override only for this machine', () => {
     expect(resolveCatalogUrl({ isDev: true, override: 'http://localhost:8080/c.json' })).toBe(
@@ -135,6 +142,26 @@ describe('app/bots/catalog/resolveCatalogUrl', () => {
 })
 
 describe('app/bots/catalog/validateCatalogDocument', () => {
+  test.each([undefined, 'candidate', 'staging', 'production-approved'])(
+    'retains release approval status %s and defaults missing approval to candidate',
+    releaseStatus => {
+      const catalog = makeCatalog()
+      Object.assign(catalog.bots[0].releases[0], { releaseStatus })
+      expect(
+        validateCatalogDocument(catalog, { catalogUrl: CATALOG_URL }).bots[0].releases[0]
+          .releaseStatus,
+      ).toBe(releaseStatus ?? 'candidate')
+    },
+  )
+
+  test('rejects unknown release approval status', () => {
+    const catalog = makeCatalog()
+    Object.assign(catalog.bots[0].releases[0], { releaseStatus: 'verified' })
+    expect(() => validateCatalogDocument(catalog, { catalogUrl: CATALOG_URL })).toThrow(
+      /releaseStatus/,
+    )
+  })
+
   test('accepts a well-formed catalog', () => {
     const catalog = validateCatalogDocument(makeCatalog(), { catalogUrl: CATALOG_URL })
     expect(catalog.revision).toBe(3)

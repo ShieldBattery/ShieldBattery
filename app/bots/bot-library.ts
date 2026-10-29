@@ -84,7 +84,7 @@ export interface BotLibraryOptions {
   dataRoot: string
   /** Where the local game manager writes per-session game logs. */
   localGameLogsRoot: string
-  /** Development builds use the staging catalog; only they can launch local bot games at all. */
+  /** Development builds use staging and expose unapproved releases and local builds. */
   isDev: boolean
   getLocalGameManager: () => LocalGameManager
   getParentWindow: () => BrowserWindow | null
@@ -184,7 +184,7 @@ export class BotLibrary {
       catalog: this.catalog,
       catalogStatus: this.catalogStatus,
       installed: this.data.installed,
-      localBuilds: this.data.localBuilds,
+      localBuilds: this.options.isDev ? this.data.localBuilds : [],
       installs: Array.from(this.installs.values(), install => install.progress),
       installFailures: this.installFailures,
       java: {
@@ -815,6 +815,9 @@ export class BotLibrary {
   ): Promise<LocalBotLaunch> {
     const race = botRaceToRaceChar(selection.race)
     if (isLocalBuildKey(selection.key)) {
+      if (!this.options.isDev) {
+        throw new Error('Local bot builds are only available in development')
+      }
       const build = this.data.localBuilds.find(candidate => candidate.key === selection.key)
       if (!build) {
         throw new Error(`One of the chosen bots is no longer in your library`)

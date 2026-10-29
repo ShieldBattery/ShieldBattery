@@ -39,6 +39,7 @@ import {
   javaRuntimeLabel,
   javaRuntimeLabelWithArchitecture,
   PlayStyleTags,
+  ProductionVisibilityBadge,
   RaceIconList,
   StrengthBadge,
 } from './bot-badges'
@@ -718,6 +719,7 @@ export function BotDetailsDialog({ botKey, action, onCancel, close }: BotDetails
               </MetaItem>
             </MetaRow>
             <PlayStyleTags tags={tags} />
+            <ProductionVisibilityBadge bot={bot} />
           </HeaderText>
         </Header>
       }>

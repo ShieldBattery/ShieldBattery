@@ -2558,6 +2558,8 @@
       "add": "Add",
       "added": "Added",
       "details": "Details",
+      "devOnly": "Dev only — hidden in production",
+      "devOnlyUpdate": "Dev-only update — hidden in production",
       "download": "Download",
       "downloadFailed": "Download failed",
       "downloading": "Downloading…",

@@ -434,7 +434,6 @@ impl BwScr {
                     self.sample_game_stats();
                     game_thread::after_step_game();
                     self.update_team_colors_from_alliances();
-                    #[cfg(debug_assertions)]
                     self.bwapi_step();
                 },
                 address,
