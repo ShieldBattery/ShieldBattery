@@ -73,6 +73,9 @@ const DownloadDialog = React.lazy(() => import('../download/download-dialog'))
 const ReportGameDialog = React.lazy(async () => ({
   default: (await import('../games/report-game-dialog')).ReportGameDialog,
 }))
+const RefundGamePointsDialog = React.lazy(async () => ({
+  default: (await import('../games/refund-game-points-dialog')).RefundGamePointsDialog,
+}))
 const ResolveGameResultsDialog = React.lazy(async () => ({
   default: (await import('../games/resolve-game-dialog')).ResolveGameResultsDialog,
 }))
@@ -289,6 +292,8 @@ function getDialog(dialogType: DialogType): {
       return { component: RemoveUserAvatarDialog }
     case DialogType.RenamePlaylist:
       return { component: RenamePlaylistDialog }
+    case DialogType.RefundGamePoints:
+      return { component: RefundGamePointsDialog }
     case DialogType.ReplayInfo:
       return { component: ReplayInfoDialog }
     case DialogType.ReplayLoad:

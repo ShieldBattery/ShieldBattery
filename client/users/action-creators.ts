@@ -279,7 +279,12 @@ export function adminGetUserBanHistory(
 }
 
 export function adminBanUser(
-  { userId, endTime, reason }: { userId: SbUserId; endTime: number; reason?: string },
+  {
+    userId,
+    endTime,
+    reason,
+    refundGames,
+  }: { userId: SbUserId; endTime: number; reason?: string; refundGames?: boolean },
   spec: RequestHandlingSpec<AdminBanUserResponse>,
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
@@ -288,6 +293,7 @@ export function adminBanUser(
       body: encodeBodyAsParams<AdminBanUserRequest>({
         endTime,
         reason,
+        refundGames,
       }),
       signal: spec.signal,
     })

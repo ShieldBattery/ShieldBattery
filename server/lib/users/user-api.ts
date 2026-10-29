@@ -103,6 +103,7 @@ import { handleMultipartFiles } from '../files/handle-multipart-files'
 import { createImagePath, resizeImage } from '../files/images'
 import { getGameListSideData } from '../games/game-list-data'
 import { getGamesForUser, getRecentGamesForUser } from '../games/game-models'
+import { GamePointsRefundService } from '../games/game-points-refund-service'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
 import { joiLocale } from '../i18n/locale-validator'
@@ -1299,6 +1300,7 @@ export class UserApi {
 export class AdminUserApi {
   constructor(
     private banEnacter: BanEnacter,
+    private gamePointsRefundService: GamePointsRefundService,
     private restrictionService: RestrictionService,
     private userService: UserService,
   ) {}
@@ -1344,11 +1346,15 @@ export class AdminUserApi {
       body: Joi.object<AdminBanUserRequest>({
         endTime: Joi.date().timestamp().min(Date.now()).required(),
         reason: Joi.string(),
+        refundGames: Joi.boolean(),
       }).required(),
     })
 
     if (params.id === ctx.session!.user.id) {
       throw new UserApiError(UserErrorCode.NotAllowedOnSelf, "can't ban yourself")
+    }
+    if (body.refundGames && !ctx.session!.permissions?.manageGameReports) {
+      throw new httpErrors.Forbidden('Not enough permissions to refund game points')
     }
 
     const user = await findUserById(params.id)
@@ -1367,6 +1373,13 @@ export class AdminUserApi {
       findUserById(ctx.session!.user.id),
     ])
 
+    const gamesRefund = body.refundGames
+      ? await this.gamePointsRefundService.refundUserGames({
+          userId: user.id,
+          refundedBy: ctx.session!.user.id,
+        })
+      : undefined
+
     // This would be a really weird occurrence! So we just make sure we do the actual banning before
     // this, and let the 500 pass through after
     if (!bannedBy) {
@@ -1376,6 +1389,7 @@ export class AdminUserApi {
     return {
       ban: toBanHistoryEntryJson(ban),
       users: [user, bannedBy],
+      gamesRefund,
     }
   }
 

@@ -30,7 +30,7 @@ let baseUrl: string
 beforeAll(async () => {
   const app = new Koa()
   const router = new Router()
-  applyApiRoutes(router, new AdminUserApi({} as any, {} as any, {} as any))
+  applyApiRoutes(router, new AdminUserApi({} as any, {} as any, {} as any, {} as any))
   app.use(async (ctx, next) => {
     const role = ctx.get('x-test-role')
     if (role) {

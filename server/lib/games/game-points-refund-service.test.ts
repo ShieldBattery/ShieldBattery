@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { GamePointsRefundErrorCode } from '../../../common/games/games'
 import { LeagueId } from '../../../common/leagues/leagues'
 import { MatchmakingType } from '../../../common/matchmaking'
 import { asMockedFunction } from '../../../common/testing/mocks'
@@ -12,6 +13,7 @@ import {
 } from '../leagues/league-models'
 import {
   getMatchmakingRatingChangesForGame,
+  getRatedGameIdsForUser,
   MatchmakingRatingChange,
   refundMatchmakingPoints,
 } from '../matchmaking/models'
@@ -21,11 +23,7 @@ import {
 } from '../models/game-replay-violations'
 import { getGameRecord, lockGameAndCheckReconciled } from './game-models'
 import { tryRecordGamePointsRefund } from './game-points-refund-models'
-import {
-  GamePointsRefundErrorCode,
-  GamePointsRefundService,
-  GamePointsRefundServiceError,
-} from './game-points-refund-service'
+import { GamePointsRefundService, GamePointsRefundServiceError } from './game-points-refund-service'
 
 vi.mock('./game-models', () => ({
   getGameRecord: vi.fn(),
@@ -38,6 +36,7 @@ vi.mock('../models/game-replay-violations', () => ({
 vi.mock('./game-points-refund-models', () => ({ tryRecordGamePointsRefund: vi.fn() }))
 vi.mock('../matchmaking/models', () => ({
   getMatchmakingRatingChangesForGame: vi.fn(),
+  getRatedGameIdsForUser: vi.fn(),
   refundMatchmakingPoints: vi.fn(),
 }))
 vi.mock('../leagues/league-models', () => ({
@@ -52,7 +51,7 @@ vi.mock('../db/transaction', () => ({
 }))
 
 const GAME_ID = 'game-1'
-const CURRENT_SEASON = { id: 7 } as any
+const CURRENT_SEASON = { id: 7, startDate: new Date('2026-10-01T00:00:00Z') } as any
 
 /**
  * Builds a `MatchmakingRatingChange` with only the fields the service reads. `outcome` defaults to
@@ -300,6 +299,97 @@ describe('GamePointsRefundService', () => {
     asMockedFunction(getGameRecord).mockResolvedValue(undefined)
     const err = await refund([makeSbUserId(10)]).catch(e => e)
     expect(err).toBeInstanceOf(GamePointsRefundServiceError)
+  })
+
+  test('refunds every loser when nobody is punished', async () => {
+    asMockedFunction(getMatchmakingRatingChangesForGame).mockResolvedValue([
+      mmChange(10, -15, 3),
+      mmChange(11, 20),
+      mmChange(12, -12),
+    ])
+
+    const result = await refund([])
+
+    expect(result.refundedUsers).toEqual([makeSbUserId(10), makeSbUserId(12)])
+    expect(refundMatchmakingPoints).toHaveBeenCalledTimes(2)
+  })
+
+  describe('refundUserGames', () => {
+    const BANNED = makeSbUserId(10)
+    const ADMIN = makeSbUserId(1)
+    const refundUserGames = () => service.refundUserGames({ userId: BANNED, refundedBy: ADMIN })
+
+    beforeEach(() => {
+      asMockedFunction(getGameRecord).mockImplementation(
+        async id => ({ id, startTime: new Date(), results: [], canceledAt: null }) as any,
+      )
+    })
+
+    test("refunds each of the user's current-season games with them as the punished player", async () => {
+      asMockedFunction(getRatedGameIdsForUser).mockResolvedValue(['game-a', 'game-b'])
+      asMockedFunction(getMatchmakingRatingChangesForGame).mockResolvedValue([
+        mmChange(10, 20),
+        mmChange(11, -15),
+      ])
+
+      const summary = await refundUserGames()
+
+      expect(getRatedGameIdsForUser).toHaveBeenCalledWith(BANNED, CURRENT_SEASON.startDate)
+      expect(summary).toEqual({ refundedGames: 2, skippedGames: 0, failedGames: 0 })
+      expect(asMockedFunction(tryRecordGamePointsRefund).mock.calls.map(([, r]) => r)).toEqual([
+        expect.objectContaining({ gameId: 'game-a', refundedBy: ADMIN }),
+        expect.objectContaining({ gameId: 'game-b', refundedBy: ADMIN }),
+      ])
+      for (const [, change] of asMockedFunction(refundMatchmakingPoints).mock.calls) {
+        expect(change.userId).toBe(makeSbUserId(11))
+      }
+      // One notification per refunded game, even for the same player.
+      expect(notificationService.addNotification).toHaveBeenCalledTimes(2)
+    })
+
+    test('skips games with nothing to refund and keeps going past a failed one', async () => {
+      asMockedFunction(getRatedGameIdsForUser).mockResolvedValue([
+        'game-lost',
+        'game-broken',
+        'game-won',
+      ])
+      asMockedFunction(lockGameAndCheckReconciled).mockImplementation(async (_client, id) => {
+        if (id === 'game-broken') {
+          throw new Error('database unavailable')
+        }
+        return true
+      })
+      asMockedFunction(getMatchmakingRatingChangesForGame).mockImplementation(async id =>
+        id === 'game-lost'
+          ? [mmChange(10, -15), mmChange(11, 20)] // only the banned player lost
+          : [mmChange(10, 20), mmChange(11, -15)],
+      )
+
+      const summary = await refundUserGames()
+
+      expect(summary).toEqual({ refundedGames: 1, skippedGames: 1, failedGames: 1 })
+      expect(tryRecordGamePointsRefund).toHaveBeenCalledTimes(1)
+      expect(tryRecordGamePointsRefund).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ gameId: 'game-won' }),
+      )
+    })
+
+    test('counts games that were already refunded as skipped', async () => {
+      asMockedFunction(getRatedGameIdsForUser).mockResolvedValue(['game-a'])
+      asMockedFunction(getMatchmakingRatingChangesForGame).mockResolvedValue([
+        mmChange(10, 20),
+        mmChange(11, -15),
+      ])
+      asMockedFunction(tryRecordGamePointsRefund).mockResolvedValue(false)
+
+      expect(await refundUserGames()).toEqual({
+        refundedGames: 0,
+        skippedGames: 1,
+        failedGames: 0,
+      })
+      expect(refundMatchmakingPoints).not.toHaveBeenCalled()
+    })
   })
 
   describe('refundReplayViolation', () => {

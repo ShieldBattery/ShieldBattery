@@ -2,6 +2,7 @@ import { ReactNode, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
+import { UserGamesRefundSummary } from '../../../common/games/games'
 import {
   ALL_RESTRICTION_KINDS,
   RESTRICTION_REASONS_BY_KIND,
@@ -17,12 +18,13 @@ import {
   banSourceToLabel,
   UserRestrictionHistoryJson,
 } from '../../../common/users/user-network'
-import { useSelfUser } from '../../auth/auth-utils'
+import { useSelfPermissions, useSelfUser } from '../../auth/auth-utils'
 import { openDialog } from '../../dialogs/action-creators'
 import { DialogType } from '../../dialogs/dialog-type'
 import { useForm, useFormCallbacks } from '../../forms/form-hook'
 import { dateTimeFormat, useFormat } from '../../i18n/locale-formats'
 import { FilledButton, TextButton } from '../../material/button'
+import { CheckBox } from '../../material/check-box'
 import { DateTimeTextField } from '../../material/datetime-text-field'
 import { SelectOption } from '../../material/select/option'
 import { Select } from '../../material/select/select'
@@ -95,6 +97,22 @@ const BanRow = styled.tr<{ $expired?: boolean }>`
       : 'rgb(from var(--theme-on-surface) r g b / var(--theme-disabled-opacity))'};
 `
 
+const RefundGamesHint = styled.div`
+  ${bodyMedium};
+  padding-left: 32px;
+  margin-bottom: 16px;
+  color: var(--theme-on-surface-variant);
+`
+
+const GamesRefundText = styled.div`
+  ${bodyMedium};
+  margin: 8px 0 24px;
+`
+
+const GamesRefundFailure = styled.span`
+  color: var(--theme-error);
+`
+
 const EmptyState = styled.td`
   ${bodyLarge};
   color: var(--theme-on-surface-variant);
@@ -116,6 +134,7 @@ interface DurationFormModel {
 
 interface BanFormModel extends DurationFormModel {
   reason?: string
+  refundGames: boolean
 }
 
 interface UnbanFormModel {
@@ -132,6 +151,7 @@ const BAN_FORM_DEFAULTS: BanFormModel = {
   duration: PunishmentDuration.OneDay,
   endTime: '',
   reason: '',
+  refundGames: false,
 }
 
 const UNBAN_FORM_DEFAULTS: UnbanFormModel = {
@@ -273,8 +293,10 @@ function AdminAvatarSection({ user }: { user: SbUser }) {
 
 function BanHistory({ user, selfUser }: { user: SbUser; selfUser: SelfUserJson }) {
   const dispatch = useAppDispatch()
+  const selfPermissions = useSelfPermissions()
   const [banHistory, setBanHistory] = useState<ReadonlyDeep<BanHistoryEntryJson[]>>()
   const [unbanResult, setUnbanResult] = useState<ReadonlyDeep<AdminUnbanUserResponse>>()
+  const [gamesRefund, setGamesRefund] = useState<UserGamesRefundSummary>()
 
   const [requestError, setRequestError] = useState<Error>()
   const cancelLoadRef = useRef(new AbortController())
@@ -295,6 +317,7 @@ function BanHistory({ user, selfUser }: { user: SbUser; selfUser: SelfUserJson }
         onStart: () => {
           setBanHistory(undefined)
           setUnbanResult(undefined)
+          setGamesRefund(undefined)
         },
         onSuccess: response => {
           setRequestError(undefined)
@@ -323,6 +346,7 @@ function BanHistory({ user, selfUser }: { user: SbUser; selfUser: SelfUserJson }
           <BanUserForm
             key={`form-${userId}`}
             model={BAN_FORM_DEFAULTS}
+            canRefundGames={!!selfPermissions?.manageGameReports}
             onSubmit={model => {
               dispatch(
                 adminBanUser(
@@ -330,6 +354,7 @@ function BanHistory({ user, selfUser }: { user: SbUser; selfUser: SelfUserJson }
                     userId,
                     endTime: resolveEndTime(model),
                     reason: model.reason?.length ? model.reason : undefined,
+                    refundGames: model.refundGames || undefined,
                   },
                   {
                     onSuccess: response => {
@@ -340,6 +365,7 @@ function BanHistory({ user, selfUser }: { user: SbUser; selfUser: SelfUserJson }
 
                         return history
                       })
+                      setGamesRefund(response.gamesRefund)
                       setRequestError(undefined)
                     },
                     onError: err => setRequestError(err),
@@ -348,6 +374,7 @@ function BanHistory({ user, selfUser }: { user: SbUser; selfUser: SelfUserJson }
               )
             }}
           />
+          {gamesRefund ? <GamesRefundResult summary={gamesRefund} /> : null}
           <UnbanUserForm
             key={`unban-form-${userId}`}
             model={UNBAN_FORM_DEFAULTS}
@@ -375,6 +402,21 @@ function BanHistory({ user, selfUser }: { user: SbUser; selfUser: SelfUserJson }
         </>
       ) : null}
     </AdminSection>
+  )
+}
+
+function GamesRefundResult({ summary }: { summary: UserGamesRefundSummary }) {
+  return (
+    <GamesRefundText>
+      {`Refunded points in ${summary.refundedGames} game(s)`}
+      {summary.skippedGames ? `, skipped ${summary.skippedGames} with nothing to refund` : ''}
+      {'.'}
+      {summary.failedGames ? (
+        <GamesRefundFailure>
+          {` ${summary.failedGames} game(s) failed to refund; refund them from their game pages.`}
+        </GamesRefundFailure>
+      ) : null}
+    </GamesRefundText>
   )
 }
 
@@ -483,16 +525,20 @@ function BanHistoryList({
   )
 }
 
-function BanUserForm({
+export function BanUserForm({
   model,
+  canRefundGames,
   onSubmit,
 }: {
   model: BanFormModel
+  /** Whether the admin may also refund the points players lost in the banned player's games. */
+  canRefundGames: boolean
   onSubmit: (model: ReadonlyDeep<BanFormModel>) => void
 }) {
-  const { submit, bindInput, bindCustom, getInputValue, form } = useForm<BanFormModel>(model, {
-    endTime: validateCustomEndTime,
-  })
+  const { submit, bindCheckable, bindInput, bindCustom, getInputValue, form } =
+    useForm<BanFormModel>(model, {
+      endTime: validateCustomEndTime,
+    })
 
   useFormCallbacks(form, {
     onSubmit,
@@ -526,6 +572,20 @@ function BanUserForm({
           spellCheck: false,
         }}
       />
+      {canRefundGames ? (
+        <div>
+          <CheckBox
+            {...bindCheckable('refundGames')}
+            label="Refund points lost in this player's games"
+            inputProps={{ tabIndex: 0 }}
+          />
+          <RefundGamesHint>
+            Every current-season ranked game this player played: their opponents and teammates get
+            back the ranked and league points they lost. Games already refunded are skipped. This
+            can't be undone.
+          </RefundGamesHint>
+        </div>
+      ) : null}
       <FilledButton label='Ban' tabIndex={0} onClick={submit} />
     </form>
   )

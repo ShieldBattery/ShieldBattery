@@ -58,6 +58,7 @@ export enum DialogType {
   NewsPostSettings = 'newsPostSettings',
   PostMatch = 'postMatch',
   PrivacyPolicy = 'privacyPolicy',
+  RefundGamePoints = 'refundGamePoints',
   RemoveUserAvatar = 'removeUserAvatar',
   RenamePlaylist = 'renamePlaylist',
   ReplayInfo = 'replayInfo',
@@ -425,6 +426,16 @@ type ReportGameDialogPayload = BaseDialogPayload<
     initialReportedUserId?: SbUserId
   }
 >
+type RefundGamePointsDialogPayload = BaseDialogPayload<
+  typeof DialogType.RefundGamePoints,
+  {
+    gameId: string
+    /** The game's human players, by team. */
+    teams: Array<Array<{ id: SbUserId; name: string }>>
+    /** Players to start unchecked, e.g. the reported player when refunding from a report. */
+    initialPunishedIds?: SbUserId[]
+  }
+>
 type ResolveGameResultsDialogPayload = BaseDialogPayload<
   typeof DialogType.ResolveGameResults,
   {
@@ -497,6 +508,7 @@ export type DialogPayload =
   | NewsPostSettingsDialogPayload
   | PostMatchDialogPayload
   | PrivacyPolicyDialogPayload
+  | RefundGamePointsDialogPayload
   | RemoveUserAvatarDialogPayload
   | RenamePlaylistDialogPayload
   | ReplayInfoDialogPayload

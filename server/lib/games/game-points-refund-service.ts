@@ -1,5 +1,9 @@
 import { singleton } from 'tsyringe'
-import { GameRecord } from '../../../common/games/games'
+import {
+  GamePointsRefundErrorCode,
+  GameRecord,
+  UserGamesRefundSummary,
+} from '../../../common/games/games'
 import { NotificationType } from '../../../common/notifications'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { DbClient } from '../db'
@@ -16,6 +20,7 @@ import logger from '../logging/logger'
 import { MatchmakingSeasonsService } from '../matchmaking/matchmaking-seasons'
 import {
   getMatchmakingRatingChangesForGame,
+  getRatedGameIdsForUser,
   MatchmakingRating,
   refundMatchmakingPoints,
 } from '../matchmaking/models'
@@ -28,25 +33,19 @@ import { Redis } from '../redis/redis'
 import { getGameRecord, lockGameAndCheckReconciled } from './game-models'
 import { GamePointsRefundDetail, tryRecordGamePointsRefund } from './game-points-refund-models'
 
-export enum GamePointsRefundErrorCode {
-  /** No game exists with the given id. */
-  GameNotFound = 'gameNotFound',
-  /** The game isn't in the current season, so its points aren't refundable. */
-  NotCurrentSeason = 'notCurrentSeason',
-  /** The game has no matchmaking point changes at all (e.g. it wasn't a ranked game). */
-  NotRanked = 'notRanked',
-  /**
-   * The game is ranked, but nothing can be refunded to the eligible players (e.g. the only players
-   * who lost points/bonus are the punished ones).
-   */
-  NotRefundable = 'notRefundable',
-  /** A punished user id isn't among the game's participants. */
-  InvalidPlayers = 'invalidPlayers',
-  /** The game's points have already been refunded. */
-  AlreadyRefunded = 'alreadyRefunded',
-}
-
 export class GamePointsRefundServiceError extends CodedError<GamePointsRefundErrorCode> {}
+
+/** Errors that mean a game has nothing (more) to refund, rather than that refunding it failed. */
+const NOTHING_TO_REFUND_CODES: ReadonlyArray<GamePointsRefundErrorCode> = [
+  GamePointsRefundErrorCode.NotCurrentSeason,
+  GamePointsRefundErrorCode.NotRanked,
+  GamePointsRefundErrorCode.NotRefundable,
+  GamePointsRefundErrorCode.AlreadyRefunded,
+]
+
+function isNothingToRefund(err: unknown): boolean {
+  return err instanceof GamePointsRefundServiceError && NOTHING_TO_REFUND_CODES.includes(err.code)
+}
 
 export interface RefundGamePointsResult {
   refundedUsers: SbUserId[]
@@ -96,6 +95,40 @@ export class GamePointsRefundService {
   }
 
   /**
+   * Refunds every current-season ranked game `userId` played, with them as the only punished player
+   * in each (e.g. when they're banned for cheating). Each game is refunded in its own transaction,
+   * one at a time, so a failure leaves the other games' refunds in place, and a game that was
+   * already refunded (or where only `userId` lost points) is skipped.
+   */
+  async refundUserGames({
+    userId,
+    refundedBy,
+  }: {
+    userId: SbUserId
+    refundedBy: SbUserId
+  }): Promise<UserGamesRefundSummary> {
+    const currentSeason = await this.seasonsService.getCurrentSeason()
+    const gameIds = await getRatedGameIdsForUser(userId, currentSeason.startDate)
+
+    const summary: UserGamesRefundSummary = { refundedGames: 0, skippedGames: 0, failedGames: 0 }
+    for (const gameId of gameIds) {
+      try {
+        await this.refundGamePoints({ gameId, punishedUserIds: [userId], refundedBy })
+        summary.refundedGames += 1
+      } catch (err) {
+        if (isNothingToRefund(err)) {
+          summary.skippedGames += 1
+        } else {
+          logger.error({ err, gameId, userId }, "error refunding one of a user's games")
+          summary.failedGames += 1
+        }
+      }
+    }
+
+    return summary
+  }
+
+  /**
    * Restores innocent players' losses after reconciliation. Pending violations remain retryable
    * until results exist, and their completion commits atomically with any point restoration.
    */
@@ -117,15 +150,7 @@ export class GamePointsRefundService {
         // to that player or trigger another refund for the remaining players.
         applied = await this.applyRefund(client, { game, punishedUserIds })
       } catch (err) {
-        if (
-          !(err instanceof GamePointsRefundServiceError) ||
-          ![
-            GamePointsRefundErrorCode.NotCurrentSeason,
-            GamePointsRefundErrorCode.NotRanked,
-            GamePointsRefundErrorCode.NotRefundable,
-            GamePointsRefundErrorCode.AlreadyRefunded,
-          ].includes(err.code)
-        ) {
+        if (!isNothingToRefund(err)) {
           throw err
         }
       }

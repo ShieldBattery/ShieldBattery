@@ -165,7 +165,7 @@ export interface GameReportActionedNotification extends BaseNotification {
 
 /**
  * Tells a player that ranked points they lost in a game were refunded, because the game was
- * nullified by an admin (e.g. after a cheating/griefing report was actioned).
+ * nullified (e.g. by an admin after reviewing it, or when a player in it was banned for cheating).
  */
 export interface GamePointsRefundedNotification extends BaseNotification {
   type: NotificationType.GamePointsRefunded

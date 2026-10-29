@@ -4,7 +4,7 @@ import {
   GameFormat,
   GameSortOption,
 } from '../games/game-filters'
-import { GameRecordJson, GameReplayInfo } from '../games/games'
+import { GameRecordJson, GameReplayInfo, UserGamesRefundSummary } from '../games/games'
 import { TranslationLanguage } from '../i18n'
 import { Jsonify } from '../json'
 import { LadderPlayer } from '../ladder/ladder'
@@ -232,11 +232,18 @@ export interface AdminGetBansResponse {
 export interface AdminBanUserRequest {
   endTime: number
   reason?: string
+  /**
+   * Whether to also refund the points other players lost in every current-season ranked game the
+   * banned player played. Requires the `manageGameReports` permission.
+   */
+  refundGames?: boolean
 }
 
 export interface AdminBanUserResponse {
   ban: BanHistoryEntryJson
   users: SbUser[]
+  /** Present when the request asked to refund the banned player's games. */
+  gamesRefund?: UserGamesRefundSummary
 }
 
 export interface AdminUnbanUserRequest {

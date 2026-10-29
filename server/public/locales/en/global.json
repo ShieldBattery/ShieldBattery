@@ -1253,6 +1253,7 @@
     "buttonDismissReviewRequest": "Dismiss request",
     "buttonDownloadReplay": "Download replay",
     "buttonOpenInApp": "Open in ShieldBattery",
+    "buttonRefundPoints": "Refund points",
     "buttonReplaySaved": "In library",
     "buttonReport": "Report",
     "buttonRequestReview": "Request review",
@@ -1354,6 +1355,20 @@
     "infoDuration": "Duration",
     "infoGameType": "Type",
     "notFound": "This game could not be found.",
+    "refundPoints": {
+      "errorAlreadyRefunded": "This game's points have already been refunded.",
+      "errorGameNotFound": "Game not found.",
+      "errorGeneric": "There was a problem refunding points for this game.",
+      "errorInvalidPlayers": "One of the players did not participate in this game.",
+      "errorNotCurrentSeason": "Only current-season games can have their points refunded.",
+      "errorNotRanked": "This game has no ranked points to refund (it was not a ranked game).",
+      "errorNotRefundable": "None of the checked players lost ranked points or bonus in this game.",
+      "hint": "Checked players get back the ranked and league points they lost in this game. Uncheck anyone who caused the loss. Winners keep their points. This can't be undone.",
+      "refundButton": "Refund points",
+      "success_one": "Refunded points to {{count}} player.",
+      "success_other": "Refunded points to {{count}} players.",
+      "title": "Refund game points"
+    },
     "resolveDialog": {
       "errorGeneric": "Something went wrong. Please try again.",
       "errorInvalidResults": "These results aren't valid for this game. Exactly one team must win.",
