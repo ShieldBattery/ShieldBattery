@@ -173,9 +173,19 @@ pub struct ProductionProgressView {
     /// `None` for something with no queue at all: research, an upgrade, or a morph, each of which is
     /// one thing worked through alone.
     pub queue: Option<Vec<ProductionIcon>>,
-    /// Whether what is being made is the selected thing itself: a building going up, rather than
-    /// something coming out of it or something it is turning into.
-    pub is_subject: bool,
+    /// What is happening to the selected thing where what is being made is the selected thing
+    /// itself, a building going up or an archon forming, rather than something coming out of it
+    /// or something it is turning into. `None` for those.
+    pub subject: Option<SubjectProgress>,
+}
+
+/// How the selected thing is becoming itself, for a selection whose progress is its own.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SubjectProgress {
+    /// A building going up.
+    Construction,
+    /// Two templar merging, which are already the archon they form while the merge plays.
+    Summoning,
 }
 
 impl SelectedUnitView {
@@ -728,7 +738,7 @@ fn has_upgrade_row(unit: &SelectedUnitView, case: SelectionCase) -> bool {
         SelectionCase::Producing => unit
             .production
             .as_ref()
-            .is_some_and(|production| production.is_subject || production.queue.is_none()),
+            .is_some_and(|production| production.subject.is_some() || production.queue.is_none()),
         SelectionCase::Empty
         | SelectionCase::Many
         | SelectionCase::Unit
@@ -1103,19 +1113,25 @@ fn upgraded_value(base: u32, bonus: u32, hits: u32) -> String {
 /// it, with what the first one is and how far along it is under the row. Anything else is one thing
 /// worked through alone, and gets its one slot with those beside it.
 ///
-/// A subject that is itself what is being made, a building going up, is already named and drawn
-/// at the head of the panel, so it gets no slot and no name a second time: only how far along it
-/// is, under a label saying what that bar is.
+/// A subject that is itself what is being made, a building going up or an archon forming, is
+/// already named and drawn at the head of the panel, so it gets no slot and no name a second time:
+/// only how far along it is, under a label saying what that bar is.
 fn draw_production(ui: &Ui, rect: Rect, production: &ProductionProgressView) {
     let progress = production.progress.clamp(0.0, 1.0);
-    if production.is_subject {
+    if let Some(subject) = production.subject {
+        let label = match subject {
+            SubjectProgress::Construction => {
+                tr!("observer.underConstruction", "Under construction")
+            }
+            SubjectProgress::Summoning => tr!("observer.summoning", "Summoning"),
+        };
         draw_progress(
             ui,
             Rect::from_min_size(
                 rect.left_top(),
                 vec2(QUEUE_WIDTH + PERCENT_GAP + PERCENT_WIDTH, PROGRESS_HEIGHT),
             ),
-            Some(&tr!("observer.underConstruction", "Under construction")),
+            Some(&label),
             progress,
         );
         return;
@@ -1545,7 +1561,7 @@ mod tests {
             name: None,
             progress: 0.5,
             queue: Some(Vec::new()),
-            is_subject: false,
+            subject: None,
         });
         // What is being made is read before what is being carried, for the thing doing both.
         factory.cargo = vec![unit((40, 40), None, 0x00)];
@@ -1554,7 +1570,7 @@ mod tests {
 
     #[test]
     fn a_building_has_its_upgrades_wherever_its_reading_leaves_room() {
-        let progress = |queue: Option<Vec<ProductionIcon>>, is_subject: bool| {
+        let progress = |queue: Option<Vec<ProductionIcon>>, subject: Option<SubjectProgress>| {
             Some(ProductionProgressView {
                 icon: ProductionIcon {
                     texture: None,
@@ -1566,7 +1582,7 @@ mod tests {
                 name: None,
                 progress: 0.5,
                 queue,
-                is_subject,
+                subject,
             })
         };
         let mut cannon = unit((100, 100), Some((100, 100)), 0xA2);
@@ -1574,18 +1590,18 @@ mod tests {
         assert!(has_upgrade_row(&cannon, SelectionCase::Building));
 
         // Going up, the cannon is still read out with its shields and guns under its progress.
-        cannon.production = progress(None, true);
+        cannon.production = progress(None, Some(SubjectProgress::Construction));
         assert!(has_upgrade_row(&cannon, SelectionCase::Producing));
 
         // An egg's carapace sits under what it is turning into.
         let mut egg = unit((200, 200), None, 0x24);
-        egg.production = progress(None, false);
+        egg.production = progress(None, None);
         assert!(has_upgrade_row(&egg, SelectionCase::Producing));
 
         // A queue runs down to the floor of the body even with nothing waiting in it.
         let mut gateway = unit((500, 500), Some((500, 500)), 0xA0);
         gateway.building = true;
-        gateway.production = progress(Some(Vec::new()), false);
+        gateway.production = progress(Some(Vec::new()), None);
         assert!(!has_upgrade_row(&gateway, SelectionCase::Producing));
 
         let mut shuttle = unit((80, 80), Some((60, 60)), 0x45);
