@@ -44,14 +44,13 @@ const ipcRenderer = new TypedIpcRenderer()
 
 type EventToActionMap = {
   [E in MatchmakingEvent['type']]: (
-    matchmakingType: MatchmakingType,
     event: Extract<MatchmakingEvent, { type: E }>,
   ) => Dispatchable | undefined | void
 }
 
 /** Exported for tests; the socket routes are registered by the default export. */
 export const eventToAction: EventToActionMap = {
-  matchFound: (matchmakingType, event) => (dispatch, getState) => {
+  matchFound: event => (dispatch, getState) => {
     logger.debug(
       `Match found, showing accept dialog. ${event.acceptTimeLeftMillis}ms left, ` +
         `${event.acceptedPlayers} / ${event.numPlayers} accepted. ` +
@@ -84,7 +83,7 @@ export const eventToAction: EventToActionMap = {
     dispatch(openAcceptMatchDialog())
   },
 
-  draftStarted: (matchmakingType, event) => (dispatch, getState) => {
+  draftStarted: event => (dispatch, getState) => {
     logger.debug(`Draft started`)
     dispatch(closeAcceptMatchDialog())
 
@@ -94,7 +93,8 @@ export const eventToAction: EventToActionMap = {
     })
 
     // The accept phase is over once the draft begins, and `foundMatchAtom` describes only that
-    // phase.
+    // phase. Only `matchFound` names the match's type, so the draft carries it on from there.
+    const matchmakingType = jotaiStore.get(foundMatchAtom)?.matchmakingType
     jotaiStore.set(foundMatchAtom, undefined)
 
     resetDraftState(jotaiStore)
@@ -106,14 +106,14 @@ export const eventToAction: EventToActionMap = {
     }
   },
 
-  draftPickStarted: (matchmakingType, event) => {
+  draftPickStarted: event => {
     jotaiStore.set(updateCurrentPickerAtom, {
       team: event.teamId,
       slot: event.index,
     })
   },
 
-  draftProvisionalPick: (matchmakingType, event) => {
+  draftProvisionalPick: event => {
     jotaiStore.set(updateProvisionalPickAtom, {
       teamId: event.teamId,
       index: event.index,
@@ -121,7 +121,7 @@ export const eventToAction: EventToActionMap = {
     })
   },
 
-  draftPickLocked: (matchmakingType, event) => {
+  draftPickLocked: event => {
     jotaiStore.set(updateLockedPickAtom, {
       teamId: event.teamId,
       index: event.index,
@@ -129,17 +129,17 @@ export const eventToAction: EventToActionMap = {
     })
   },
 
-  draftCompleted: (matchmakingType, event) => {
+  draftCompleted: event => {
     completeDraft(jotaiStore)
   },
 
-  draftCancel: (matchmakingType, event) => {
+  draftCancel: event => {
     logger.debug(`Draft canceled: ${event.reason}`)
     resetDraftState(jotaiStore)
     jotaiStore.set(canceledMatchAtom, { phase: 'draft', reason: event.reason })
   },
 
-  draftChatMessage: (matchmakingType, event) => (dispatch, getState) => {
+  draftChatMessage: event => (dispatch, getState) => {
     const {
       auth,
       relationships: { blocks },
@@ -169,18 +169,18 @@ export const eventToAction: EventToActionMap = {
     }
   },
 
-  playerAccepted: (matchmakingType, event) => {
+  playerAccepted: event => {
     logger.debug(`Player accepted, ${event.acceptedPlayers} players now ready`)
     jotaiStore.set(acceptedPlayersAtom, event.acceptedPlayers)
   },
 
-  acceptTimeout: (matchmakingType, event) => dispatch => {
+  acceptTimeout: event => dispatch => {
     logger.debug(`Timed out accepting match, showing failure dialog`)
     dispatch(closeAcceptMatchDialog())
     dispatch(openDialog({ type: DialogType.FailedToAcceptMatch }))
   },
 
-  startSearch: (matchmakingType, event) => {
+  startSearch: event => {
     logger.debug(`Matchmaking search started`)
     audioManager.playSound(AvailableSound.EnteredQueue)
     jotaiStore.set(currentSearchInfoAtom, {
@@ -189,7 +189,7 @@ export const eventToAction: EventToActionMap = {
     })
   },
 
-  requeue: (matchmakingType, event) => (dispatch, getState) => {
+  requeue: event => (dispatch, getState) => {
     logger.debug(`Re-entered matchmaking queue`)
     audioManager.playSound(AvailableSound.EnteredQueue)
 
@@ -223,9 +223,12 @@ export const eventToAction: EventToActionMap = {
     }
   },
 
-  matchReady: (matchmakingType, event) => (dispatch, getState) => {
+  matchReady: event => (dispatch, getState) => {
     logger.debug(`Match is now ready, closing accept dialog`)
     dispatch(closeAcceptMatchDialog())
+    // A drafted match's found match was cleared when its draft began, so its type is the draft's.
+    const matchmakingType =
+      jotaiStore.get(foundMatchAtom)?.matchmakingType ?? jotaiStore.get(draftMatchmakingTypeAtom)
     resetDraftState(jotaiStore)
 
     jotaiStore.set(foundMatchAtom, undefined)
@@ -234,7 +237,7 @@ export const eventToAction: EventToActionMap = {
     dispatch(openDialog({ type: DialogType.LaunchingGame }))
   },
 
-  cancelLoading: (matchmakingType, event) => (dispatch, getState) => {
+  cancelLoading: event => (dispatch, getState) => {
     logger.debug(`Match loading canceled`)
     resetDraftState(jotaiStore)
     jotaiStore.set(matchLaunchingAtom, false)
@@ -247,7 +250,7 @@ export const eventToAction: EventToActionMap = {
     })
   },
 
-  lobbyViolationPenalty: (matchmakingType, event) => dispatch => {
+  lobbyViolationPenalty: event => dispatch => {
     const handledGames = jotaiStore.get(handledLobbyViolationPenaltyGamesAtom)
     if (handledGames.has(event.gameId)) {
       return
@@ -279,13 +282,13 @@ export const eventToAction: EventToActionMap = {
     )
   },
 
-  gameStarted: (matchmakingType, event) => (dispatch, getState) => {
+  gameStarted: event => (dispatch, getState) => {
     logger.debug(`Match started successfully`)
     clearMatchmakingState(jotaiStore)
     dispatch(closeDialog(DialogType.LaunchingGame))
   },
 
-  queueStatus: (matchmakingType, event) => dispatch => {
+  queueStatus: event => dispatch => {
     logger.debug(
       `Matchmaking queue status received: ${event.matchmaking ? JSON.stringify(event.matchmaking) : 'Not in queue'}`,
     )
@@ -322,7 +325,7 @@ export const eventToAction: EventToActionMap = {
     // NOTE(tec27): Any other state updates will be handled by `startSearch`
   },
 
-  matchmakingServiceError: (matchmakingType, event) => dispatch => {
+  matchmakingServiceError: event => dispatch => {
     logger.error('Matchmaking service error received — matchmaking was interrupted')
     clearMatchmakingState(jotaiStore)
     dispatch(
@@ -342,10 +345,7 @@ export default function registerModule({ siteSocket }: { siteSocket: NydusClient
   const matchmakingHandler: RouteHandler = (route: RouteInfo, event: MatchmakingEvent) => {
     if (!eventToAction[event.type]) return
 
-    const action = eventToAction[event.type]!(
-      route.params.matchmakingType as MatchmakingType,
-      event as any,
-    )
+    const action = eventToAction[event.type]!(event as any)
     if (action) dispatch(action)
   }
   siteSocket.registerRoute('/matchmaking/:userId', matchmakingHandler)

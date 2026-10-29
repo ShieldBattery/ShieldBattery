@@ -1,14 +1,19 @@
 import { NydusClient, RouteInfo } from 'nydus-client'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { getErrorStack } from '../../common/errors'
-import { GameLaunchConfig } from '../../common/games/game-launch-config'
+import { GameLaunchConfig, isReplayMapInfo } from '../../common/games/game-launch-config'
 import { GameLoaderEvent } from '../../common/games/game-loader-network'
 import { stringToStatus } from '../../common/games/game-status'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { apiUrl } from '../../common/urls'
 import { UserRelationshipServiceErrorCode } from '../../common/users/relationships'
 import { dispatch, Dispatchable } from '../dispatch-registry'
-import { addRecentReplayPathAtom, gameLoadingStatusAtom, lastGameAtom } from '../games/game-atoms'
+import {
+  addRecentReplayPathAtom,
+  gameLoadingStatusAtom,
+  lastGameAtom,
+  participatingGameAtom,
+} from '../games/game-atoms'
 import i18n from '../i18n/i18next'
 import { jotaiStore } from '../jotai-store'
 import logger from '../logging/logger'
@@ -38,6 +43,17 @@ export default function ({
         const {
           auth: { self },
         } = getState()
+
+        jotaiStore.set(participatingGameAtom, {
+          gameId: setup.gameId,
+          gameType: setup.gameType,
+          mapName: isReplayMapInfo(setup.map) ? '' : setup.map.name,
+          mapImageUrl: isReplayMapInfo(setup.map)
+            ? undefined
+            : (setup.map.image1024Url ?? setup.map.image512Url),
+          matchmakingType: setup.matchmakingType,
+          slots: setup.slots.map(({ userId, race, type }) => ({ userId, race, type })),
+        })
 
         if ('mapUrl' in setup.map) {
           const {
@@ -122,6 +138,10 @@ export default function ({
 
       if (status.state === 'playing') {
         jotaiStore.set(lastGameAtom, { id: status.id })
+        const game = jotaiStore.get(participatingGameAtom)
+        if (game?.gameId === status.id && game.playingSince === undefined) {
+          jotaiStore.set(participatingGameAtom, { ...game, playingSince: Date.now() })
+        }
       }
 
       // A networked game's load completion reaches the server over the relay path, from the
