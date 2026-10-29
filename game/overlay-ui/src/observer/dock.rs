@@ -9,6 +9,10 @@
 //! would end. Either way the keycaps are lit for the panels on screen: a reminder for someone who
 //! already knows the keys.
 //!
+//! The column stays where it stood while the pointer is on it once the selection panel beside it
+//! has gone, as its all-panels key puts it away, so the key is still under the pointer to bring the
+//! panels back. Nothing else stays: the dock goes wherever the panel it stands on goes.
+//!
 //! **Expanded** it spells the panels out as a table, a row for each with its name and its key, for
 //! someone who does not: a strip opens upward into it, and beside the selection panel it opens over
 //! the pair of them. The table lists its rows in the order the keycaps come in, so
@@ -29,13 +33,17 @@ use egui::{
 use crate::kit::text::{self, BodyWeight};
 use crate::kit::widgets;
 use crate::kit::{motion, theme, tiers};
-use crate::observer::{WING_GAP, WING_MARGIN, paint_text, selection};
+use crate::observer::{WING_GAP, WING_MARGIN, paint_text, panel_name, selection};
 use crate::shell::{Action, Hotkeys, MatchupStyle, Mode, Panel, PanelPrefs};
 use crate::tr;
 
 /// Size of a keycap.
 const KEY_WIDTH: f32 = 28.0;
 const KEY_HEIGHT: f32 = 22.0;
+
+/// Width of the strip's keycaps, narrower than the column's and the table's so that a key for every
+/// panel the strip carries fits across the plate it stands on.
+const STRIP_KEY_WIDTH: f32 = 24.0;
 
 /// Gap between two keycaps side by side, and the room either side of the rule between two of the
 /// strip's groups.
@@ -75,8 +83,9 @@ const _: () = assert!(
     COLUMN_ROWS as f32 * COLUMN_KEY_HEIGHT + (COLUMN_ROWS - 1) as f32 * KEY_GAP <= COLUMN_BODY
 );
 
-/// Height of the table's title row.
-const HEADER_HEIGHT: f32 = 24.0;
+/// Height of the table's title row, which keeps its keycaps as far off the first row as a row keeps
+/// its own keycap off its edge, so they read as the title's rather than as the start of the rows.
+const HEADER_HEIGHT: f32 = ROW_HEIGHT - ROW_GAP * 2.0;
 
 /// Height of one of the table's rows, and the gap over every row.
 const ROW_HEIGHT: f32 = theme::HIT_PANEL;
@@ -85,9 +94,26 @@ const ROW_GAP: f32 = 2.0;
 /// How far a row's name and keycap sit in from the ends of its wash.
 const ROW_PAD: f32 = 6.0;
 
-/// The panels in the pairs the dock lays them out in, a row of the column to each and the table's
-/// rows in the same order: the bars along the top edge, the left wing, the right wing, the bottom row, and the
-/// game's own minimap with the replay's playback controls.
+/// The panels in the order the table lists them, which is the order the keycaps come in: the bars
+/// along the top edge, the left wing, the right wing, the bottom row, and the game's own minimap with
+/// the replay's playback controls.
+const ROWS: [Panel; 11] = [
+    Panel::Matchup,
+    Panel::MapControl,
+    Panel::Economy,
+    Panel::Timeline,
+    Panel::Military,
+    Panel::Graphs,
+    Panel::Production,
+    Panel::ControlGroups,
+    Panel::Selection,
+    Panel::Minimap,
+    Panel::PlaybackControls,
+];
+
+/// The table's rows in the pairs the column lays them out in, a row of keycaps to each. The
+/// selection panel is the table's alone here, for want of room for another row: it is the panel the
+/// column stands against.
 const PAIRS: [[Panel; 2]; 5] = [
     [Panel::Matchup, Panel::MapControl],
     [Panel::Economy, Panel::Timeline],
@@ -97,24 +123,25 @@ const PAIRS: [[Panel; 2]; 5] = [
 ];
 
 /// The keys the strip carries after the all-panels key, grouped as the table pairs them: the panels
-/// a watcher turns on and off as the game goes. The rest are the table's alone: map control is a
-/// sliver of a bar, the minimap is all but never put away, and the playback controls are what the
-/// strip stands on, which it could not put away without moving out from under the pointer.
+/// a watcher turns on and off as the game goes. The rest are the table's alone, for want of room on
+/// the strip: map control is a sliver of a bar, the minimap is all but never put away, and the
+/// playback controls are the panel the strip is the top of.
 const STRIP_GROUPS: [&[Panel]; 4] = [
     &[Panel::Matchup],
     &[Panel::Economy, Panel::Timeline],
     &[Panel::Military, Panel::Graphs],
-    &[Panel::Production, Panel::ControlGroups],
+    &[Panel::Production, Panel::ControlGroups, Panel::Selection],
 ];
 
 /// How wide the strip's keys, the rules between their groups and the chevron are laid end to end,
 /// with a group's room between the last key and the chevron.
 const STRIP_CONTENT_WIDTH: f32 = {
-    let mut width = KEY_WIDTH + GROUP_GAP * 2.0 + CHEVRON_WIDTH;
+    let mut width = STRIP_KEY_WIDTH + GROUP_GAP * 2.0 + CHEVRON_WIDTH;
     let mut index = 0;
     while index < STRIP_GROUPS.len() {
         let keys = STRIP_GROUPS[index].len() as f32;
-        width += GROUP_GAP * 2.0 + theme::HAIRLINE + keys * KEY_WIDTH + (keys - 1.0) * KEY_GAP;
+        width +=
+            GROUP_GAP * 2.0 + theme::HAIRLINE + keys * STRIP_KEY_WIDTH + (keys - 1.0) * KEY_GAP;
         index += 1;
     }
     width
@@ -123,23 +150,6 @@ const STRIP_CONTENT_WIDTH: f32 = {
 // The strip is laid out to fit the plate it stands on: a key past the room would be drawn outside
 // the dock's chrome.
 const _: () = assert!(STRIP_CONTENT_WIDTH <= TABLE_WIDTH - tiers::PANEL_MARGIN_WIDTH);
-
-/// What `panel`'s row is called when there is room to spell it out.
-fn row_label(panel: Panel) -> String {
-    match panel {
-        Panel::Matchup => tr!("observer.panelMatchup", "Matchup"),
-        Panel::MapControl => tr!("observer.mapControl", "Map control"),
-        Panel::Economy => tr!("observer.panelEconomy", "Economy"),
-        Panel::Military => tr!("observer.panelMilitary", "Military"),
-        Panel::Graphs => tr!("observer.panelGraphs", "Graphs"),
-        Panel::Timeline => tr!("observer.panelTimeline", "Timeline"),
-        Panel::Production => tr!("observer.panelProduction", "Production"),
-        Panel::ControlGroups => tr!("observer.panelControlGroups", "Control groups"),
-        Panel::Minimap => tr!("observer.panelMinimap", "Minimap"),
-        Panel::PlaybackControls => tr!("observer.panelPlayback", "Playback"),
-        Panel::Dock => tr!("observer.panelDock", "Dock"),
-    }
-}
 
 /// What a style of the matchup is called, on the card naming the chip that picks it.
 fn matchup_style_label(style: MatchupStyle) -> String {
@@ -169,11 +179,9 @@ fn offered(panel: Panel, mode: Mode, map_control_available: bool) -> bool {
     }
 }
 
-/// The table's rows in this game: every panel it offers, in the order of its pairs.
+/// The table's rows in this game: every panel it offers, in the table's order.
 fn rows(mode: Mode, map_control_available: bool) -> impl Iterator<Item = Panel> {
-    PAIRS
-        .into_iter()
-        .flatten()
+    ROWS.into_iter()
         .filter(move |&panel| offered(panel, mode, map_control_available))
 }
 
@@ -521,7 +529,7 @@ fn draw_panel_key(
     let key = dock.hotkeys.bare_key(panel.action());
     let state = row_state(prefs, dock, panel);
     let response = key_button(ui, rect, panel.label(), key, state);
-    let hint = Hint::hovered(&response, row_label(panel), key).map(|hint| Hint {
+    let hint = Hint::hovered(&response, panel_name(panel), key).map(|hint| Hint {
         displaced: state == RowState::Displaced,
         ..hint
     });
@@ -547,7 +555,7 @@ fn draw_strip(ui: &mut Ui, rect: Rect, prefs: &PanelPrefs, dock: &DockContext<'_
     let keycap_at = |left: f32| {
         Rect::from_min_size(
             pos2(left, rect.center().y - KEY_HEIGHT * 0.5),
-            vec2(KEY_WIDTH, KEY_HEIGHT),
+            vec2(STRIP_KEY_WIDTH, KEY_HEIGHT),
         )
     };
     let all = keycap_at(rect.left());
@@ -655,7 +663,7 @@ fn draw_table(ui: &mut Ui, rect: Rect, prefs: &PanelPrefs, dock: &DockContext<'_
     );
     // The dock is named with the key that takes it off screen, which is the one thing a watcher
     // cannot work out from the dock once it is gone.
-    let title = row_label(Panel::Dock);
+    let title = panel_name(Panel::Dock);
     let title_spec = text::panel_title();
     let title_width = title_spec.galley(ui, &title).size().x;
     paint_text(ui, header, &title_spec, &title, Align::LEFT);
@@ -666,16 +674,16 @@ fn draw_table(ui: &mut Ui, rect: Rect, prefs: &PanelPrefs, dock: &DockContext<'_
         ),
         vec2(KEY_WIDTH, KEY_HEIGHT),
     );
-    paint_key_chip(
-        ui,
-        dock_key,
-        hotkeys.bare_key(Panel::Dock.action()),
-        RowState::Off,
-    );
-    let (clicked, mut hint) = draw_expander(ui, chevron, true);
+    let key = hotkeys.bare_key(Panel::Dock.action());
+    let response = key_button(ui, dock_key, "dock", key, RowState::Off);
+    if response.clicked() {
+        outcome.toggled = Some(Panel::Dock);
+    }
+    let (clicked, expander_hint) = draw_expander(ui, chevron, true);
     if clicked {
         outcome.expanded = Some(false);
     }
+    let mut hint = Hint::hovered(&response, panel_name(Panel::Dock), key).or(expander_hint);
     // The table's keycaps are plain: its rows carry the panels' state, as the strip's keycaps do.
     let (all_toggled, all_hint) = draw_all_key(ui, all, RowState::Off, hotkeys);
     outcome.all_toggled = all_toggled;
@@ -819,7 +827,7 @@ fn draw_row(ui: &mut Ui, rect: Rect, panel: Panel, key: Option<&str>, state: Row
         ui,
         label,
         &row_name().with_color(color),
-        &row_label(panel),
+        &panel_name(panel),
         Align::LEFT,
     );
     response
@@ -932,8 +940,11 @@ fn paint_style_picture(painter: &Painter, chip: Rect, style: MatchupStyle, color
 }
 
 /// Names what the pointer is resting on, and the key that reaches it without the pointer.
+///
+/// Over the pointer rather than under it, as the plate's own cards are: the dock is the top of the
+/// plate's panel, so a card hung under the pointer would lie on the seek bar.
 fn draw_hint(ui: &Ui, hint: &Hint) {
-    widgets::tooltip(
+    widgets::tooltip_above(
         ui.ctx(),
         Id::new("sb_obs_dock").with("hint"),
         hint.anchor,
@@ -1056,9 +1067,8 @@ mod tests {
     #[test]
     fn every_key_and_the_dock_itself_have_a_key_of_their_own() {
         let hotkeys = Hotkeys::defaults();
-        let actions = PAIRS
+        let actions = ROWS
             .into_iter()
-            .flatten()
             .map(Panel::action)
             .chain([Panel::Dock.action(), Action::ToggleAllPanels]);
         for action in actions {
@@ -1070,14 +1080,21 @@ mod tests {
     }
 
     #[test]
-    fn every_panel_but_the_dock_has_a_place_in_the_pairs() {
+    fn every_panel_but_the_dock_has_a_row() {
         for panel in Panel::ALL {
-            assert_eq!(
-                PAIRS.into_iter().flatten().any(|paired| paired == panel),
-                panel != Panel::Dock,
-                "{panel:?}"
-            );
+            assert_eq!(ROWS.contains(&panel), panel != Panel::Dock, "{panel:?}");
         }
+    }
+
+    /// The column reads as the table does, short only of the panel it stands against.
+    #[test]
+    fn the_columns_pairs_are_the_tables_rows_but_the_selection() {
+        assert!(
+            PAIRS
+                .into_iter()
+                .flatten()
+                .eq(ROWS.into_iter().filter(|&panel| panel != Panel::Selection))
+        );
     }
 
     #[test]
@@ -1087,11 +1104,10 @@ mod tests {
         ctx.begin_pass(egui::RawInput::default());
         let row = tiers::panel_content_width(TABLE_WIDTH);
         let spec = row_name();
-        let widths = PAIRS
+        let widths = ROWS
             .into_iter()
-            .flatten()
             .map(|panel| {
-                let label = row_label(panel);
+                let label = panel_name(panel);
                 let width = spec.layout(&ctx, spec.job(&label)).size().x;
                 let room = row - ROW_PAD * 3.0 - KEY_WIDTH - reserved(panel);
                 (label, width, room)

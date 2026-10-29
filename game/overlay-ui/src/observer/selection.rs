@@ -1809,8 +1809,7 @@ mod tests {
                 left: 0.0,
                 right: 1280.0,
             },
-            anchor: crate::observer::StackAnchor::Middle,
-            middle: 640.0,
+            anchor: crate::observer::StackAnchor::Right,
             ceiling,
             screen_bottom: 960.0,
         };

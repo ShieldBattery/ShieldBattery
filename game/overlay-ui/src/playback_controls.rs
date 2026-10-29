@@ -435,15 +435,10 @@ impl PlaybackControlsOutcome {
     }
 }
 
-/// Where the plate stands, beyond the margin it keeps from the screen's edges.
-///
-/// The bottom-right corner, where the game's own replay controls sit, unless the observer panels
-/// need it elsewhere: lifted up the edge while the panels along the bottom need the width it would
-/// take there.
+/// How the plate stands in the bottom-right corner, where the game's own replay controls sit, the
+/// margin it keeps from the screen's edges away: the observer panels keep the corner clear for it.
 #[derive(Copy, Clone, Default, PartialEq, Debug)]
 pub struct PlaybackControlsPlacement {
-    /// How far the plate is lifted off the screen's bottom edge.
-    pub lift: f32,
     /// Whether the observer dock stands on the plate's top edge, the two drawn as one panel with
     /// the plate's edge dividing them.
     pub dock_on_top: bool,
@@ -454,7 +449,7 @@ impl PlaybackControlsPlacement {
     /// before it is drawn.
     pub fn rect(self, screen: Rect) -> Rect {
         let right = screen.right() - EDGE_MARGIN;
-        let bottom = screen.bottom() - EDGE_MARGIN - self.lift;
+        let bottom = screen.bottom() - EDGE_MARGIN;
         Rect::from_min_max(
             pos2(right - PANEL_WIDTH, bottom - PANEL_HEIGHT),
             pos2(right, bottom),
@@ -477,10 +472,7 @@ pub fn render_playback_controls(
 ) -> Option<PlaybackControlsOutcome> {
     let id = Id::new("sb_playback_controls");
     let area = Area::new(id)
-        .anchor(
-            Align2::RIGHT_BOTTOM,
-            vec2(-EDGE_MARGIN, -(EDGE_MARGIN + placement.lift)),
-        )
+        .anchor(Align2::RIGHT_BOTTOM, vec2(-EDGE_MARGIN, -EDGE_MARGIN))
         .order(Order::Foreground);
     let inner = motion::presence_area(ctx, id.with("presence"), shown, area, |ui| {
         let joined = placement.dock_on_top.then_some(tiers::Joined {

@@ -26,6 +26,8 @@ pub enum Panel {
     Production,
     /// The control groups panel.
     ControlGroups,
+    /// The selection panel, which stands in for the console's own.
+    Selection,
     /// BW's own minimap.
     Minimap,
     /// The replay playback controls.
@@ -37,7 +39,7 @@ pub enum Panel {
 impl Panel {
     /// Every panel, in the order the dock lists them: the surfaces that report on the game, from
     /// the top of the screen down, then the game's own minimap, then the controls.
-    pub const ALL: [Panel; 11] = [
+    pub const ALL: [Panel; 12] = [
         Panel::Matchup,
         Panel::MapControl,
         Panel::Economy,
@@ -46,6 +48,7 @@ impl Panel {
         Panel::Timeline,
         Panel::Production,
         Panel::ControlGroups,
+        Panel::Selection,
         Panel::Minimap,
         Panel::PlaybackControls,
         Panel::Dock,
@@ -69,6 +72,7 @@ impl Panel {
             Panel::Timeline => Action::ToggleTimeline,
             Panel::Production => Action::ToggleProduction,
             Panel::ControlGroups => Action::ToggleControlGroups,
+            Panel::Selection => Action::ToggleSelection,
             Panel::Minimap => Action::ToggleMinimap,
             Panel::PlaybackControls => Action::TogglePlaybackControls,
             Panel::Dock => Action::ToggleDock,
@@ -92,6 +96,7 @@ impl Panel {
             Panel::Timeline => "timeline",
             Panel::Production => "production",
             Panel::ControlGroups => "control groups",
+            Panel::Selection => "selection",
             Panel::Minimap => "minimap",
             Panel::PlaybackControls => "playback controls",
             Panel::Dock => "dock",
@@ -105,8 +110,7 @@ impl Panel {
 /// Independent booleans rather than named sets of them: a watcher's screen is whatever mix of
 /// surfaces they built up one key at a time. Serializable so a host can persist the set per
 /// profile. A watcher never gets SC:R's own console back: the bottom panels stand where it was, and
-/// the minimap they keep of it is a panel of its own. The selection panel that reads out what the
-/// console would have is not one of them: see [`reporting_shown`](Self::reporting_shown).
+/// the minimap they keep of it is a panel of its own.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct PanelPrefs {
@@ -122,6 +126,7 @@ pub struct PanelPrefs {
     pub timeline: bool,
     pub production: bool,
     pub control_groups: bool,
+    pub selection: bool,
     pub minimap: bool,
     /// Also read as `transport`, the key settings written by older builds hold it under.
     #[serde(alias = "transport")]
@@ -183,7 +188,7 @@ impl PanelSet {
         self.0 & PanelSet::bit(panel) != 0
     }
 
-    fn insert(&mut self, panel: Panel) {
+    pub(crate) fn insert(&mut self, panel: Panel) {
         self.0 |= PanelSet::bit(panel);
     }
 
@@ -195,7 +200,8 @@ impl PanelSet {
 impl Default for PanelPrefs {
     fn default() -> PanelPrefs {
         // A first-time watcher starts on the least that still tells the game: who is playing and
-        // how they stand, the map, and what each player has grouped to fight with. The dock lists
+        // how they stand, the map, what each player has grouped to fight with, and what the watcher
+        // clicks on (the selection panel shows only while something is selected). The dock lists
         // every other panel with its key, and whatever the watcher turns on is remembered for their
         // next game.
         PanelPrefs {
@@ -208,6 +214,7 @@ impl Default for PanelPrefs {
             timeline: false,
             production: false,
             control_groups: true,
+            selection: true,
             minimap: true,
             playback_controls: true,
             dock: true,
@@ -231,6 +238,7 @@ impl PanelPrefs {
             Panel::Timeline => self.timeline,
             Panel::Production => self.production,
             Panel::ControlGroups => self.control_groups,
+            Panel::Selection => self.selection,
             Panel::Minimap => self.minimap,
             Panel::PlaybackControls => self.playback_controls,
             Panel::Dock => self.dock,
@@ -247,6 +255,7 @@ impl PanelPrefs {
             Panel::Timeline => self.timeline = shown,
             Panel::Production => self.production = shown,
             Panel::ControlGroups => self.control_groups = shown,
+            Panel::Selection => self.selection = shown,
             Panel::Minimap => self.minimap = shown,
             Panel::PlaybackControls => self.playback_controls = shown,
             Panel::Dock => self.dock = shown,
@@ -303,10 +312,6 @@ impl PanelPrefs {
 
     /// Whether any of the panels that report on the game is on screen: any but the dock and the
     /// playback controls, which are how the watcher works the screen rather than what it shows them.
-    ///
-    /// The selection panel comes and goes with them. It is not a panel the watcher turns on and off,
-    /// being where whatever they click on is read out, as SC:R's console would have: it goes when
-    /// they put everything away, and is back with the first panel to return.
     pub fn reporting_shown(&self) -> bool {
         Panel::ALL.into_iter().any(|panel| {
             !matches!(panel, Panel::Dock | Panel::PlaybackControls) && self.shown(panel)
@@ -366,14 +371,14 @@ impl PanelPrefs {
     }
 
     /// Carries out the dock key: on its own it takes the dock off screen and back, and with `Shift`
-    /// it changes which of the dock's two forms it comes back in.
+    /// it switches the dock on screen between its two forms.
     ///
-    /// A form the watcher cannot see has not changed as far as they are concerned, so the chord
-    /// shows a hidden dock rather than answering with nothing.
+    /// A hidden dock comes back in the form it went away in, with or without `Shift`: that is the
+    /// form the watcher last saw, and one changed while they could not see it would come back as
+    /// something they had not asked for.
     pub(super) fn dock_key(&mut self, modifiers: Modifiers) {
-        if modifiers.shift {
+        if modifiers.shift && self.dock {
             self.dock_expanded = !self.dock_expanded;
-            self.dock = true;
         } else {
             self.toggle(Panel::Dock);
         }
@@ -392,7 +397,8 @@ mod tests {
     fn panel_hotkeys_toggle_their_panel_while_spectating() {
         let mut shell = spectating_shell();
         type IsShown = fn(&PanelPrefs) -> bool;
-        let panels: [(Key, IsShown); 4] = [
+        let panels: [(Key, IsShown); 5] = [
+            (Key::W, |prefs| prefs.selection),
             (Key::Q, |prefs| prefs.minimap),
             (Key::E, |prefs| prefs.matchup),
             (Key::R, |prefs| prefs.dock),
@@ -468,16 +474,6 @@ mod tests {
     }
 
     #[test]
-    fn the_selection_panel_goes_with_everything_and_comes_back_with_anything() {
-        let mut prefs = PanelPrefs::default();
-        assert!(prefs.reporting_shown());
-        prefs.toggle_all();
-        assert!(!prefs.reporting_shown());
-        prefs.toggle(Panel::Economy);
-        assert!(prefs.reporting_shown());
-    }
-
-    #[test]
     fn the_graphs_key_toggles_the_panel_and_keeps_its_measurement() {
         let mut shell = spectating_shell();
         shell.set_panel_prefs(PanelPrefs {
@@ -549,9 +545,10 @@ mod tests {
     fn the_centred_bottom_panels_answer_their_own_keys() {
         let mut shell = spectating_shell();
         type IsShown = fn(&PanelPrefs) -> bool;
-        let stack: [(Key, IsShown); 2] = [
+        let stack: [(Key, IsShown); 3] = [
             (Key::F, |prefs| prefs.production),
             (Key::H, |prefs| prefs.control_groups),
+            (Key::W, |prefs| prefs.selection),
         ];
         for (key, is_shown) in stack {
             let was_shown = is_shown(shell.panel_prefs());
@@ -586,7 +583,7 @@ mod tests {
     }
 
     #[test]
-    fn the_dock_chord_changes_its_form_and_brings_it_back_to_be_seen() {
+    fn the_dock_chord_changes_its_form_and_brings_a_hidden_dock_back_as_it_was() {
         let mut shell = spectating_shell();
         let shift = Modifiers {
             shift: true,
@@ -597,13 +594,14 @@ mod tests {
         assert!(shell.panel_prefs().dock_expanded);
         assert!(shell.panel_prefs().dock);
 
-        // Changing the form of a dock nobody can see would read as a key that did nothing, so it
-        // comes back on screen with the change.
         shell.set_panel_prefs(PanelPrefs {
             dock: false,
             dock_expanded: true,
             ..PanelPrefs::default()
         });
+        assert!(shell.key_pressed(Key::Backtick, shift));
+        assert!(shell.panel_prefs().dock_expanded);
+        assert!(shell.panel_prefs().dock);
         assert!(shell.key_pressed(Key::Backtick, shift));
         assert!(!shell.panel_prefs().dock_expanded);
         assert!(shell.panel_prefs().dock);

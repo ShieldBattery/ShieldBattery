@@ -195,6 +195,24 @@ pub(super) fn run_watched_frame_with_minimap(
     run_frame_on(shell, ctx, views, screen, minimap, time, Vec::new())
 }
 
+/// [`run_watched_frame_at`] with `events` arriving before it, such as the pointer moving.
+pub(super) fn run_watched_frame_with_events(
+    shell: &mut Shell,
+    ctx: &Context,
+    playback: &PlaybackView,
+    observer: &ObserverView,
+    screen: egui::Vec2,
+    events: Vec<egui::Event>,
+    time: f64,
+) -> FrameOutput {
+    let views = Views {
+        playback: Some(playback),
+        observer: Some(observer),
+        ..Views::default()
+    };
+    run_frame_on(shell, ctx, views, screen, None, time, events)
+}
+
 /// Runs one shell frame after `keys` were pressed, each offered to the shell first and handed to
 /// the overlay's controls where the shell leaves it, the way the game's host routes them.
 pub(super) fn run_frame_with_keys(shell: &mut Shell, ctx: &Context, keys: &[Key]) -> FrameOutput {

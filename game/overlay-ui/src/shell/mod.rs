@@ -40,7 +40,6 @@ use crate::disconnect::{DisconnectView, SelfState};
 use crate::end_card::{self, EndCardChoice, EndCardView};
 pub use crate::game_menu::PauseControl;
 use crate::game_menu::leave_asks_first;
-use crate::kit::motion::Spot;
 use crate::kit::widgets;
 use crate::net_quality::{NetQualityView, render_net_quality};
 use crate::netstat::{NetStatsView, render_netstat_view};
@@ -779,23 +778,7 @@ impl Shell {
         hit_rects: &mut Vec<HitRect>,
     ) -> Option<egui::Rect> {
         let shown = self.prefs.shown(Panel::PlaybackControls);
-        // Eased like any panel's place, as the stack under it comes and goes.
-        let spot = Spot::new(
-            ctx,
-            egui::Id::new("sb_playback_controls_spot"),
-            shown,
-            [placement.lift],
-        );
-        let [lift] = spot.at();
-        let outcome = render_playback_controls(
-            view,
-            ctx,
-            shown,
-            PlaybackControlsPlacement { lift, ..placement },
-            events,
-            &self.hotkeys,
-        );
-        spot.drawn(outcome.is_some());
+        let outcome = render_playback_controls(view, ctx, shown, placement, events, &self.hotkeys);
         if let Some(outcome) = &outcome {
             hit_rects.push(HitRect::new(outcome.rect));
             if let Some(frame) = outcome.seek_to {

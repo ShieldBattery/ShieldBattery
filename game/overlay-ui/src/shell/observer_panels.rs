@@ -4,7 +4,7 @@
 use egui::{Context, Key, Rect};
 
 use super::hotkeys::{self, Action, Hotkeys};
-use super::prefs::{MatchupStyle, Panel, PanelPrefs};
+use super::prefs::{MatchupStyle, Panel, PanelPrefs, PanelSet};
 use super::replay::ReplayCommands;
 use super::{HitRect, HostFrame, Intent, Mode};
 use crate::kit::motion::Spot;
@@ -35,6 +35,136 @@ pub(super) struct ObserverPanels {
     /// Where the dock stands, decided along with the bottom panels and kept here until the plate it
     /// may stand on has been drawn.
     dock_plan: Option<DockPlan>,
+    /// Where the dock last stood as the collapsed column, which it keeps to while the pointer is on
+    /// it (see [`column_held`](Self::column_held)).
+    drawn_column: Option<Rect>,
+    /// The order the panels that give way to one another claim the screen's room in.
+    claims: Claims,
+}
+
+/// The panels that give way to one another where the screen has no room for them all: every panel
+/// but the matchup, the minimap, the selection panel and the playback controls, which are placed
+/// before them and never give way to them. Listed in the order they claim room in until the watcher
+/// has turned any of them on: the bottom panels' column first, then the wings.
+const YIELDING: [Panel; 6] = [
+    Panel::ControlGroups,
+    Panel::Production,
+    Panel::Economy,
+    Panel::Military,
+    Panel::Timeline,
+    Panel::Graphs,
+];
+
+/// The order the yielding panels claim the screen's room in, the one turned on last first: a panel
+/// the watcher has just asked for is drawn, and the ones in its way are kept on with no room until
+/// it goes again.
+struct Claims {
+    order: [Panel; YIELDING.len()],
+    /// Which of them were on as of the last frame, which is how one being turned on is told.
+    on: Option<PanelSet>,
+}
+
+impl Default for Claims {
+    fn default() -> Claims {
+        Claims {
+            order: YIELDING,
+            on: None,
+        }
+    }
+}
+
+impl Claims {
+    /// Moves the panels turned on since the last frame to the front, keeping their order among
+    /// themselves, as a key that brings several back at once does.
+    fn note(&mut self, prefs: &PanelPrefs) {
+        let on = YIELDING
+            .into_iter()
+            .filter(|&panel| prefs.shown(panel))
+            .fold(PanelSet::default(), |mut on, panel| {
+                on.insert(panel);
+                on
+            });
+        if let Some(were_on) = self.on.replace(on) {
+            self.order
+                .sort_by_key(|&panel| !(on.contains(panel) && !were_on.contains(panel)));
+        }
+    }
+}
+
+/// Where the yielding panels would stand this frame, worked out from the view's own measures before
+/// any of them is drawn, so that which of them the screen has room for can be tried a set at a time.
+struct YieldingRoom<'a> {
+    view: &'a ObserverView,
+    /// Where the column's lowest panel stands, which production stands on in turn.
+    column: observer::StackSlot,
+    tops: observer::WingTops,
+    /// What stands under the wings besides the column: the selection panel, the minimap's frame,
+    /// the plate and the dock.
+    under_wings: &'a [Rect],
+    left_span: observer::Span,
+    right_span: observer::Span,
+    /// Whether the screen has room for the right wing beside the left one at all.
+    right_room: bool,
+    screen_bottom: f32,
+}
+
+impl YieldingRoom<'_> {
+    /// Whether every panel in `panels` fits where it stands with the others in it drawn: the column
+    /// stood on the bottom edge or the minimap's frame, and each wing under the one above it and
+    /// above whatever stands in its own column, the column included.
+    fn all_fit(&self, panels: PanelSet) -> bool {
+        use crate::observer::layout::{self, Span};
+        use crate::observer::{control_groups, economy, graphs, military, timeline};
+
+        let gap = observer::WING_GAP;
+        let standing = |slot: observer::StackSlot, size: egui::Vec2| {
+            let placed = slot.place(size.x);
+            let bottom = slot.screen_bottom - slot.bottom;
+            Rect::from_min_max(
+                egui::pos2(placed.left, bottom - size.y),
+                egui::pos2(placed.right, bottom),
+            )
+        };
+        let mut under = self.under_wings.to_vec();
+        let mut column = self.column;
+        if panels.contains(Panel::ControlGroups) {
+            let Some(width) = control_groups::fitted_width(column) else {
+                return false;
+            };
+            let rect = standing(column, egui::vec2(width, control_groups::PANEL_HEIGHT));
+            column.bottom += observer::stack_share(Some(rect));
+            under.push(rect);
+        }
+        if panels.contains(Panel::Production) {
+            let Some(fit) = observer::production::ProductionFit::of(&self.view.production, column)
+            else {
+                return false;
+            };
+            under.push(standing(column, fit.size(&self.view.production)));
+        }
+        let floor = |span: Span| layout::highest_top_under(span, &under, self.screen_bottom) - gap;
+        let (left_floor, right_floor) = (floor(self.left_span), floor(self.right_span));
+        let mut left_top = self.tops.left;
+        if panels.contains(Panel::Economy) {
+            let height = economy::panel_height(&self.view.economy);
+            if left_top + height > left_floor {
+                return false;
+            }
+            left_top += height + gap;
+        }
+        if panels.contains(Panel::Timeline) && !timeline::fits(left_top, left_floor) {
+            return false;
+        }
+        let mut right_top = self.tops.right;
+        if panels.contains(Panel::Military) {
+            let height = military::panel_height(&self.view.military);
+            if !self.right_room || right_top + height > right_floor {
+                return false;
+            }
+            right_top += height + gap;
+        }
+        !panels.contains(Panel::Graphs) || self.right_room && graphs::fits(right_top, right_floor)
+    }
 }
 
 /// What the dock is drawn from once the plate has been.
@@ -77,6 +207,19 @@ impl ObserverPanels {
     /// Whether the last observer frame carried a map-control measurement.
     pub(super) fn map_control_available(&self) -> bool {
         self.map_control_available
+    }
+
+    /// Whether the collapsed column keeps standing where it stood though the selection panel it stood
+    /// against has gone, which it does while the pointer is on it: the column's all-panels key puts
+    /// the selection panel away with the rest, and stays under the pointer to bring them back. It
+    /// goes to the corner once the pointer has left it.
+    ///
+    /// Nothing else holds. The table opens over other panels, and a dock that kept its place as the
+    /// plate or the selection panel came up would stand over them.
+    fn column_held(&self, ctx: &Context) -> bool {
+        self.drawn_column
+            .zip(ctx.pointer_hover_pos())
+            .is_some_and(|(column, pointer)| column.contains(pointer))
     }
 
     /// Draws the observer panels the watcher has left on screen, turning what they did with them
@@ -164,41 +307,34 @@ impl ObserverPanels {
         let square = layout::minimap_square(screen, self.last_minimap_rect);
         let minimap = observer::minimap::footprint(screen, square);
         let minimap_on_left = minimap.center().x < screen.center().x;
-        // The run of the bottom edge the bottom panels have: from the minimap's frame to the right
-        // edge.
-        let bottom_run = || {
+        // The bottom panels keep clear of the frame the minimap has at its largest rather than the
+        // one it is drawn with: the game draws a map smaller than its square, or one that is not
+        // square, smaller, and reports no minimap at all while it is hidden, so panels kept to the
+        // minimap's own frame would move with the map and with the minimap's key. Only a minimap
+        // the game puts past that square moves them.
+        let reserve = observer::minimap::footprint(screen, observer::minimap_reserve(screen));
+        let minimap_right = minimap.right().max(reserve.right());
+        let minimap_top = minimap.top().min(reserve.top());
+        // The run of the bottom edge the bottom panels keep to: from the frame of a minimap in the
+        // bottom-left corner to its reserve's mirror image, short of the plate's corner in a replay
+        // whether or not the plate is up (see `layout::bottom_band`), so the selection panel at its
+        // far end never moves. A minimap on the right edge leaves them the run from the left edge
+        // to it.
+        let band = {
             let edge_right = screen.right() - observer::WING_MARGIN;
             if minimap_on_left {
-                Span {
-                    left: minimap.right() + gap,
+                let run = Span {
+                    left: minimap_right + gap,
                     right: edge_right,
-                }
+                };
+                let plate_corner = has_playback_controls
+                    .then(|| PlaybackControlsPlacement::default().rect(screen));
+                layout::bottom_band(screen, run, plate_corner)
             } else {
                 Span {
                     left: screen.left() + observer::WING_MARGIN,
                     right: edge_right.min(minimap.left() - gap),
                 }
-            }
-        };
-        // The part of the bottom edge the bottom panels keep to beside a minimap in the corner. A
-        // minimap on the right edge leaves them the run from the left edge to it.
-        let plate_corner =
-            has_playback_controls.then(|| PlaybackControlsPlacement::default().rect(screen));
-        let bottom_band = || {
-            let run = bottom_run();
-            if minimap_on_left {
-                layout::bottom_band(screen, run, plate_corner)
-            } else {
-                run
-            }
-        };
-        // The panels are laid along the band as one row where it is wide enough for one, beside a
-        // minimap in the corner the row can start from.
-        let row_along = |run: Span| {
-            if minimap_on_left {
-                layout::BottomRow::along(run)
-            } else {
-                None
             }
         };
 
@@ -211,6 +347,9 @@ impl ObserverPanels {
             top_surfaces.push(outcome.rect);
             if let Some(player_id) = outcome.toggled_vision {
                 intents.push(Intent::ToggleVision { player_id });
+            }
+            if outcome.closed {
+                prefs.toggle(Panel::Matchup);
             }
         }
         // The wings stack under whichever form the matchup takes: the scoreboard and the corner
@@ -247,92 +386,54 @@ impl ObserverPanels {
         );
         hit_rects.extend(minimap_rects.into_iter().map(HitRect::new));
 
-        let mut span = bottom_band();
         let mut playback_placement = PlaybackControlsPlacement::default();
-        // What the plate stands on where it gives the corner up to the panels along the bottom edge.
-        enum PlateStand {
-            Corner,
-            Stack,
-        }
-        let mut plate = PlateStand::Corner;
-        let row = if playback_controls_shown {
-            // The plate keeps the corner while the panels still have their row beside it, or
-            // failing that their stack's narrowest width. Where not even the stack fits beside it,
-            // it gives the stack the bottom edge and is lifted over it.
-            let beside = Span {
-                right: span.right.min(playback_placement.rect(screen).left() - gap),
-                ..span
-            };
-            if let Some(row) = row_along(beside) {
-                Some(row)
-            } else {
-                if beside.width() >= observer::MIN_STACK_WIDTH {
-                    span = beside;
-                } else {
-                    plate = PlateStand::Stack;
-                    span = bottom_run();
-                }
-                None
-            }
-        } else {
-            let row = row_along(span);
-            // Too narrow even for the stack, it has the whole run.
-            if row.is_none() && span.width() < observer::MIN_STACK_WIDTH {
-                span = bottom_run();
-            }
-            row
-        };
 
         // The bottom panels are drawn bottom first: each is as tall as the game it reports on, so
         // one stood on another is placed over whatever that one actually came out as, and drops
-        // onto the one below when a panel between them is hidden or has no room. Along a row the
-        // selection panel stands alone at the far end, and the column by the minimap is production
-        // stood on control groups. In the centered stack the selection panel stands lowest, where
-        // the game's console reads a selection out, with control groups and then production on it.
+        // onto the one below when a panel between them is hidden or has no room. The selection
+        // panel keeps the band's far end on every screen. The column of production stood on
+        // control groups stands beside it at the band's other end where the band has room for the
+        // two side by side, and on the minimap's frame at the left edge where it does not, so
+        // nothing is ever stacked on the selection panel.
         let slot = |run: Span, anchor: observer::StackAnchor, bottom: f32| observer::StackSlot {
             bottom,
             span: run,
             anchor,
-            middle: screen.center().x,
             ceiling: layout::lowest_bottom_over(run, &top_surfaces, screen.top()),
             screen_bottom: screen.bottom(),
         };
-        let (selection_run, selection_anchor, column_run, column_anchor) = match row {
-            Some(row) => (
-                row.selection,
-                observer::StackAnchor::Right,
-                row.column,
-                observer::StackAnchor::Left,
-            ),
+        let base = observer::WING_MARGIN;
+        let (column_run, under_groups) = match layout::BottomRow::along(band) {
+            Some(row) => (row.column, base),
             None => (
-                span,
-                observer::StackAnchor::Middle,
-                span,
-                observer::StackAnchor::Middle,
+                layout::column_over_minimap(screen, band),
+                screen.bottom() - minimap_top + gap,
             ),
         };
-        let base = observer::WING_MARGIN;
-        let selection_slot = slot(selection_run, selection_anchor, base);
-        let column_slot = |bottom: f32| slot(column_run, column_anchor, bottom);
-        let mut stack = Vec::new();
-        // The selection panel is not one the watcher turns on and off: it is up with the panels
-        // that report on the game while anything is selected. The dock is part of the plate's
-        // panel where the plate is up, of the selection panel's where that is, and floats on its own
-        // with neither.
-        let selection_shown = prefs.reporting_shown();
+        let selection_slot = slot(
+            layout::selection_run(band),
+            observer::StackAnchor::Right,
+            base,
+        );
+        let column_slot = |bottom: f32| slot(column_run, observer::StackAnchor::Left, bottom);
+        let mut bottom_surfaces = Vec::new();
+        // The dock is part of the plate's panel where the plate is up, of the selection panel's
+        // where that is, and floats on its own with neither, but for a column the pointer is on.
+        let selection_wanted = prefs.selection && !view.selection.units.is_empty();
+        if selection_wanted && !observer::selection::fits(selection_slot) {
+            displaced.push(Panel::Selection);
+        }
         let spot = Spot::new(
             ctx,
             spot_id("selection"),
-            selection_shown && !view.selection.units.is_empty(),
+            selection_wanted,
             slot_place(selection_slot),
         );
         let selection_at = slot_at(selection_slot, spot.at());
-        let selection_up = selection_shown
-            && !view.selection.units.is_empty()
-            && observer::selection::fits(selection_at);
+        let selection_up = selection_wanted && observer::selection::fits(selection_at);
         let dock_stand = if playback_controls_shown {
             observer::DockStand::Plate
-        } else if selection_up {
+        } else if selection_up || self.column_held(ctx) {
             observer::DockStand::Selection
         } else {
             observer::DockStand::Nothing
@@ -340,7 +441,7 @@ impl ObserverPanels {
         let selection = observer::render_selection_view(
             &view.selection,
             ctx,
-            selection_shown,
+            prefs.selection,
             selection_at,
             prefs.dock && dock_stand == observer::DockStand::Selection,
         );
@@ -348,7 +449,7 @@ impl ObserverPanels {
         let selection_drawn = selection.is_some();
         if let Some(outcome) = &selection {
             hit_rects.push(HitRect::new(outcome.rect));
-            stack.push(outcome.rect);
+            bottom_surfaces.push(outcome.rect);
             match outcome.clicked {
                 Some(SelectedUnitClick::Pick(index)) => {
                     intents.push(Intent::PickSelectedUnit(index));
@@ -359,12 +460,6 @@ impl ObserverPanels {
                 None => {}
             }
         }
-        let selection = selection.map(|outcome| outcome.rect);
-        let under_groups = if row.is_some() {
-            base
-        } else {
-            base + observer::stack_share(selection)
-        };
         // The row shown is the selected unit's owner, and stays theirs after the selection is
         // cleared: a watcher who clicks the ground has not asked to see somebody else's keys.
         if let Some(owner) = view.selection.units.first().and_then(|unit| unit.owner) {
@@ -381,76 +476,6 @@ impl ObserverPanels {
                     .fold(0u16, |keys, group| keys | 1 << group.key);
                 (player.player_id, keys)
             });
-        if prefs.control_groups
-            && !view.control_groups.is_empty()
-            && observer::control_groups::fitted_width(column_slot(under_groups)).is_none()
-        {
-            displaced.push(Panel::ControlGroups);
-        }
-        let control_groups_slot = column_slot(under_groups);
-        let spot = Spot::new(
-            ctx,
-            spot_id("control_groups"),
-            prefs.control_groups && !view.control_groups.is_empty(),
-            slot_place(control_groups_slot),
-        );
-        let control_groups = observer::render_control_groups_view(
-            &view.control_groups,
-            ctx,
-            prefs.control_groups,
-            slot_at(control_groups_slot, spot.at()),
-            self.focused_player,
-        );
-        spot.drawn(control_groups.is_some());
-        if let Some(outcome) = &control_groups {
-            hit_rects.push(HitRect::new(outcome.rect));
-            stack.push(outcome.rect);
-            if let Some(digit) = outcome.clicked {
-                self.recall_control_group(digit, intents);
-            }
-        }
-        let control_groups = control_groups.map(|outcome| outcome.rect);
-        let over_groups = under_groups + observer::stack_share(control_groups);
-        if prefs.production
-            && !view.production.is_empty()
-            && observer::production::ProductionFit::of(&view.production, column_slot(over_groups))
-                .is_none()
-        {
-            displaced.push(Panel::Production);
-        }
-        let production_slot = column_slot(over_groups);
-        let spot = Spot::new(
-            ctx,
-            spot_id("production"),
-            prefs.production && !view.production.is_empty(),
-            slot_place(production_slot),
-        );
-        let production = observer::render_production_view(
-            &view.production,
-            ctx,
-            prefs.production,
-            slot_at(production_slot, spot.at()),
-        );
-        spot.drawn(production.is_some());
-        if let Some(outcome) = &production {
-            hit_rects.push(HitRect::new(outcome.rect));
-            stack.push(outcome.rect);
-            if let Some((player_id, item)) = outcome.clicked {
-                intents.push(Intent::SelectProduction {
-                    player_id,
-                    item: item as u32,
-                });
-            }
-        }
-        match plate {
-            PlateStand::Corner => {}
-            PlateStand::Stack => {
-                let over_stack =
-                    over_groups + observer::stack_share(production.as_ref().map(|out| out.rect));
-                playback_placement.lift = over_stack - observer::WING_MARGIN;
-            }
-        }
-
         // The dock stands at the end of the bottom row, measured off the selection panel's place
         // whether or not anything is selected, so the floating strip keeps the column's corner.
         playback_placement.dock_on_top = prefs.dock;
@@ -470,8 +495,8 @@ impl ObserverPanels {
         };
 
         // The wings hang from under the top surfaces and end above whatever stands under them in
-        // their own column: the stack, the minimap's frame, the plate and the dock.
-        let mut bottom_surfaces = stack;
+        // their own column: the selection panel and the column, the minimap's frame, the plate and
+        // the dock.
         bottom_surfaces.push(minimap);
         if playback_controls_shown {
             bottom_surfaces.push(playback_placement.rect(screen));
@@ -481,55 +506,138 @@ impl ObserverPanels {
         }
         let left_span = layout::left_wing_span(screen, observer::economy::PANEL_WIDTH);
         let right_span = layout::right_wing_span(screen, observer::military::PANEL_WIDTH);
-        let left_floor =
-            layout::highest_top_under(left_span, &bottom_surfaces, screen.bottom()) - gap;
-        let right_floor =
-            layout::highest_top_under(right_span, &bottom_surfaces, screen.bottom()) - gap;
         // A screen too narrow for both wings side by side keeps the left one, which reports the
         // economy, over the right one, which reports what it bought.
         let right_room = right_span.left >= left_span.right + gap;
 
-        let economy_fits = tops.left + observer::economy::panel_height(&view.economy) <= left_floor;
-        if prefs.economy && !view.economy.is_empty() && !economy_fits {
-            displaced.push(Panel::Economy);
+        // The panels the watcher wants that would stand in each other's way take the room in the
+        // order they were turned on, the last first. A panel the room is gone for stays on, with no
+        // room, and is drawn again once the one in its way goes.
+        self.claims.note(prefs);
+        let kept = {
+            let room = YieldingRoom {
+                view,
+                column: column_slot(under_groups),
+                tops,
+                under_wings: &bottom_surfaces,
+                left_span,
+                right_span,
+                right_room,
+                screen_bottom: screen.bottom(),
+            };
+            let wanted = |panel: Panel| {
+                prefs.shown(panel)
+                    && match panel {
+                        Panel::ControlGroups => !view.control_groups.is_empty(),
+                        Panel::Production => !view.production.is_empty(),
+                        Panel::Economy => !view.economy.is_empty(),
+                        Panel::Military => !view.military.is_empty(),
+                        Panel::Graphs => !view.graphs.is_empty(),
+                        _ => true,
+                    }
+            };
+            let mut kept = PanelSet::default();
+            for panel in self.claims.order {
+                if !wanted(panel) {
+                    continue;
+                }
+                let mut trial = kept;
+                trial.insert(panel);
+                if room.all_fit(trial) {
+                    kept = trial;
+                } else {
+                    displaced.push(panel);
+                }
+            }
+            kept
+        };
+        let shown = |panel: Panel| prefs.shown(panel) && kept.contains(panel);
+        let (control_groups_shown, production_shown) =
+            (shown(Panel::ControlGroups), shown(Panel::Production));
+        let (economy_shown, military_shown) = (shown(Panel::Economy), shown(Panel::Military));
+        let (timeline_shown, graphs_shown) = (shown(Panel::Timeline), shown(Panel::Graphs));
+
+        let control_groups_slot = column_slot(under_groups);
+        let spot = Spot::new(
+            ctx,
+            spot_id("control_groups"),
+            control_groups_shown,
+            slot_place(control_groups_slot),
+        );
+        let control_groups = observer::render_control_groups_view(
+            &view.control_groups,
+            ctx,
+            control_groups_shown,
+            slot_at(control_groups_slot, spot.at()),
+            self.focused_player,
+        );
+        spot.drawn(control_groups.is_some());
+        if let Some(outcome) = &control_groups {
+            hit_rects.push(HitRect::new(outcome.rect));
+            bottom_surfaces.push(outcome.rect);
+            if let Some(digit) = outcome.clicked {
+                self.recall_control_group(digit, intents);
+            }
         }
-        let economy_shown = prefs.economy && economy_fits;
+        let control_groups = control_groups.map(|outcome| outcome.rect);
+        let production_slot = column_slot(under_groups + observer::stack_share(control_groups));
+        let spot = Spot::new(
+            ctx,
+            spot_id("production"),
+            production_shown,
+            slot_place(production_slot),
+        );
+        let production = observer::render_production_view(
+            &view.production,
+            ctx,
+            production_shown,
+            slot_at(production_slot, spot.at()),
+        );
+        spot.drawn(production.is_some());
+        if let Some(outcome) = &production {
+            hit_rects.push(HitRect::new(outcome.rect));
+            bottom_surfaces.push(outcome.rect);
+            if let Some((player_id, item)) = outcome.clicked {
+                intents.push(Intent::SelectProduction {
+                    player_id,
+                    item: item as u32,
+                });
+            }
+        }
+
+        let left_floor =
+            layout::highest_top_under(left_span, &bottom_surfaces, screen.bottom()) - gap;
+        let right_floor =
+            layout::highest_top_under(right_span, &bottom_surfaces, screen.bottom()) - gap;
+
         let spot = Spot::new(ctx, spot_id("economy"), economy_shown, [tops.left]);
         let [economy_top] = spot.at();
         let economy = observer::render_economy_view(&view.economy, ctx, economy_shown, economy_top);
         spot.drawn(economy.is_some());
-        if let Some(rect) = economy {
-            hit_rects.push(HitRect::new(rect));
+        if let Some(outcome) = &economy {
+            hit_rects.push(HitRect::new(outcome.rect));
+            if outcome.closed {
+                prefs.toggle(Panel::Economy);
+            }
         }
-        let military_fits = right_room
-            && tops.right + observer::military::panel_height(&view.military) <= right_floor;
-        if prefs.military && !view.military.is_empty() && !military_fits {
-            displaced.push(Panel::Military);
-        }
-        let military_shown = prefs.military && military_fits;
+        let economy = economy.map(|outcome| outcome.rect);
         let spot = Spot::new(ctx, spot_id("military"), military_shown, [tops.right]);
         let [military_top] = spot.at();
         let military =
             observer::render_military_view(&view.military, ctx, military_shown, military_top);
         spot.drawn(military.is_some());
-        if let Some(rect) = military {
-            hit_rects.push(HitRect::new(rect));
+        if let Some(outcome) = &military {
+            hit_rects.push(HitRect::new(outcome.rect));
+            if outcome.closed {
+                prefs.toggle(Panel::Military);
+            }
         }
-        let graphs_top = tops.right + observer::stack_share(military);
-        let graphs_fit = right_room && observer::graphs::fits(graphs_top, right_floor);
-        if prefs.graphs && !view.graphs.is_empty() && !graphs_fit {
-            displaced.push(Panel::Graphs);
-        }
+        let military = military.map(|outcome| outcome.rect);
         // The panels that report on the game so far are ways back into it, where it can be moved
         // through at all: a replay, with playback to move.
         let seekable = replay.seekable(host.mode);
-        let graphs_shown = prefs.graphs && right_room;
-        let spot = Spot::new(
-            ctx,
-            spot_id("graphs"),
-            graphs_shown && !view.graphs.is_empty(),
-            [graphs_top],
-        );
+        let graphs_top = tops.right + observer::stack_share(military);
+        let spot = Spot::new(ctx, spot_id("graphs"), graphs_shown, [graphs_top]);
         let [eased_graphs_top] = spot.at();
         let graphs = observer::render_graphs_view(
             &view.graphs,
@@ -542,6 +650,9 @@ impl ObserverPanels {
         spot.drawn(graphs.is_some());
         if let Some(outcome) = graphs {
             hit_rects.push(HitRect::new(outcome.rect));
+            if outcome.closed {
+                prefs.toggle(Panel::Graphs);
+            }
             if let Some(series) = outcome.series {
                 prefs.graph_series = series;
             }
@@ -553,15 +664,12 @@ impl ObserverPanels {
             }
         }
         let timeline_top = tops.left + observer::stack_share(economy);
-        if prefs.timeline && !observer::timeline::fits(timeline_top, left_floor) {
-            displaced.push(Panel::Timeline);
-        }
-        let spot = Spot::new(ctx, spot_id("timeline"), prefs.timeline, [timeline_top]);
+        let spot = Spot::new(ctx, spot_id("timeline"), timeline_shown, [timeline_top]);
         let [eased_timeline_top] = spot.at();
         let timeline = observer::render_timeline_view(
             &view.timeline,
             ctx,
-            prefs.timeline,
+            timeline_shown,
             eased_timeline_top,
             left_floor,
             seekable.is_some(),
@@ -569,6 +677,9 @@ impl ObserverPanels {
         spot.drawn(timeline.is_some());
         if let Some(outcome) = timeline {
             hit_rects.push(HitRect::scrolling(outcome.rect));
+            if outcome.closed {
+                prefs.toggle(Panel::Timeline);
+            }
             if let (Some(playback), Some(event)) = (seekable, outcome.clicked) {
                 replay.queue_seek(playback.event_seek_target(event.secs), event.position);
             }
@@ -598,11 +709,16 @@ impl ObserverPanels {
             displaced,
         }) = self.dock_plan.take()
         else {
+            self.drawn_column = None;
             return;
         };
         if let Some(plate) = plate {
             placement.plate = plate;
         }
+        self.drawn_column = (prefs.dock
+            && !prefs.dock_expanded
+            && placement.stand == observer::DockStand::Selection)
+            .then(|| placement.footprint());
         let Some(outcome) = observer::render_obs_dock(
             prefs,
             &observer::DockContext {
@@ -742,8 +858,8 @@ pub(super) fn number_key_digit(key: Key) -> Option<u8> {
 mod tests {
     use egui::{Key, Modifiers, Rect};
 
-    use crate::shell::Intent;
     use crate::shell::test_support::*;
+    use crate::shell::{Intent, PanelPrefs};
 
     const SMALL_SCREEN: egui::Vec2 = egui::vec2(1280.0, 720.0);
 
@@ -884,6 +1000,358 @@ mod tests {
         );
         assert!(dock_column(&output).is_none());
         assert!(dock_rect(&output).is_none());
+    }
+
+    #[test]
+    fn the_selection_key_puts_the_panel_away_and_the_dock_floats_where_its_column_stood() {
+        use crate::observer::{dock, selection};
+
+        let ctx = fresh_ctx();
+        let mut shell = spectating_shell();
+        let (playback, game) = (replay(), with_a_selection(empty_game()));
+        let screen = egui::vec2(1920.0, 1080.0);
+        let mut time = 0.0;
+        let mut settled = |shell: &mut crate::shell::Shell| {
+            let mut output = None;
+            for _ in 0..8 {
+                time += 0.5;
+                output = Some(run_watched_frame_at(
+                    shell, &ctx, &playback, &game, screen, time,
+                ));
+            }
+            output.unwrap()
+        };
+        settled(&mut shell);
+        assert!(shell.key_pressed(Key::Y, Modifiers::NONE));
+        let column =
+            dock_column(&settled(&mut shell)).expect("the dock stands beside the selection");
+
+        assert!(shell.key_pressed(Key::W, Modifiers::NONE));
+        let output = settled(&mut shell);
+        let rects = || output.hit_rects.iter().map(|hit| hit.rect);
+        assert!(rects().all(|rect| rect.width() != selection::PANEL_WIDTH));
+        assert!(dock_column(&output).is_none());
+        let strip = rects()
+            .find(|rect| rect.size() == egui::vec2(dock::TABLE_WIDTH, dock::FLOATING_STRIP_HEIGHT))
+            .expect("the dock floats as a strip");
+        assert!(
+            (strip.right_bottom() - column.right_bottom()).length() < 0.5,
+            "{strip:?} {column:?}"
+        );
+    }
+
+    #[test]
+    fn the_columns_all_panels_key_stays_under_the_pointer_to_bring_them_back() {
+        use crate::kit::tiers;
+        use crate::observer::selection;
+
+        let ctx = fresh_ctx();
+        let mut shell = spectating_shell();
+        shell.set_panel_prefs(PanelPrefs {
+            playback_controls: false,
+            ..PanelPrefs::default()
+        });
+        let (playback, game) = (replay(), with_a_selection(empty_game()));
+        let screen = egui::vec2(1920.0, 1080.0);
+        let mut time = 0.0;
+        let mut frame = |shell: &mut crate::shell::Shell, events: Vec<egui::Event>, step: f64| {
+            time += step;
+            run_watched_frame_with_events(shell, &ctx, &playback, &game, screen, events, time)
+        };
+        let column = dock_column(&settle(&mut frame, &mut shell, Vec::new()))
+            .expect("the dock stands beside the selection");
+        // Inside the column's first keycap, which is its all-panels key.
+        let all = column.left_top()
+            + egui::vec2(
+                tiers::PANEL_MARGIN_WIDTH * 0.5 + 10.0,
+                tiers::PANEL_MARGIN_HEIGHT * 0.5 + 10.0,
+            );
+        let button = |pressed| egui::Event::PointerButton {
+            pos: all,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: Modifiers::NONE,
+        };
+        let has_selection = |output: &crate::shell::FrameOutput| {
+            output
+                .hit_rects
+                .iter()
+                .any(|hit| hit.rect.width() == selection::PANEL_WIDTH)
+        };
+        settle(&mut frame, &mut shell, vec![egui::Event::PointerMoved(all)]);
+
+        frame(&mut shell, vec![button(true)], 0.5);
+        frame(&mut shell, vec![button(false)], 0.05);
+        assert!(!shell.panel_prefs().reporting_shown());
+        let cleared = settle(&mut frame, &mut shell, Vec::new());
+        assert!(!has_selection(&cleared));
+        assert_eq!(dock_column(&cleared), Some(column));
+
+        frame(&mut shell, vec![button(true)], 0.5);
+        frame(&mut shell, vec![button(false)], 0.05);
+        assert!(shell.panel_prefs().reporting_shown());
+        let back = settle(&mut frame, &mut shell, Vec::new());
+        assert!(has_selection(&back));
+        assert_eq!(dock_column(&back), Some(column));
+
+        // Once the pointer has left it with the panels put away, it goes to the corner.
+        frame(&mut shell, vec![button(true)], 0.5);
+        frame(&mut shell, vec![button(false)], 0.05);
+        let gone = settle(&mut frame, &mut shell, vec![egui::Event::PointerGone]);
+        assert!(dock_column(&gone).is_none());
+    }
+
+    #[test]
+    fn neither_the_table_nor_a_column_the_plate_comes_up_under_holds_its_place() {
+        use crate::observer::dock;
+
+        let ctx = fresh_ctx();
+        let mut shell = spectating_shell();
+        shell.set_panel_prefs(PanelPrefs {
+            playback_controls: false,
+            ..PanelPrefs::default()
+        });
+        let (playback, game) = (replay(), with_a_selection(empty_game()));
+        let screen = egui::vec2(1920.0, 1080.0);
+        let plate = crate::playback_controls::PlaybackControlsPlacement::default()
+            .rect(Rect::from_min_size(egui::Pos2::ZERO, screen));
+        let mut time = 0.0;
+        let mut frame = |shell: &mut crate::shell::Shell, events: Vec<egui::Event>, step: f64| {
+            time += step;
+            run_watched_frame_with_events(shell, &ctx, &playback, &game, screen, events, time)
+        };
+        let column = dock_column(&settle(&mut frame, &mut shell, Vec::new()))
+            .expect("the dock stands beside the selection");
+        settle(
+            &mut frame,
+            &mut shell,
+            vec![egui::Event::PointerMoved(column.center())],
+        );
+        assert!(shell.key_pressed(Key::Y, Modifiers::NONE));
+        let on_plate = settle(&mut frame, &mut shell, Vec::new());
+        assert!(dock_column(&on_plate).is_none());
+        let strip = dock_rect(&on_plate).expect("the dock is part of the plate's panel");
+        assert!(
+            (strip.bottom() - plate.top()).abs() < 0.5,
+            "{strip:?} {plate:?}"
+        );
+
+        // Opened beside the selection panel, the table goes with the dock when the panel does.
+        assert!(shell.key_pressed(Key::Y, Modifiers::NONE));
+        settle(&mut frame, &mut shell, Vec::new());
+        shell.set_panel_prefs(PanelPrefs {
+            dock_expanded: true,
+            ..*shell.panel_prefs()
+        });
+        let opened = settle(&mut frame, &mut shell, Vec::new());
+        let table = opened
+            .hit_rects
+            .iter()
+            .map(|hit| hit.rect)
+            .find(|rect| rect.width() == dock::TABLE_WIDTH)
+            .expect("the table opens over the selection panel");
+        settle(
+            &mut frame,
+            &mut shell,
+            vec![egui::Event::PointerMoved(table.center())],
+        );
+        assert!(shell.key_pressed(Key::W, Modifiers::NONE));
+        let floated = settle(&mut frame, &mut shell, Vec::new());
+        assert!(dock_column(&floated).is_none());
+        assert!(floated.hit_rects.iter().all(|hit| hit.rect != table));
+    }
+
+    /// Runs `frame` until the panels have settled, half a second at a time, with `events` arriving
+    /// before the first.
+    fn settle(
+        frame: &mut impl FnMut(
+            &mut crate::shell::Shell,
+            Vec<egui::Event>,
+            f64,
+        ) -> crate::shell::FrameOutput,
+        shell: &mut crate::shell::Shell,
+        events: Vec<egui::Event>,
+    ) -> crate::shell::FrameOutput {
+        let mut output = frame(shell, events, 0.5);
+        for _ in 0..7 {
+            output = frame(shell, Vec::new(), 0.5);
+        }
+        output
+    }
+
+    #[test]
+    fn the_panel_turned_on_last_keeps_the_room_and_gives_it_back_once_it_goes() {
+        use egui::{Id, LayerId, Order};
+
+        let playback = replay();
+        let game = game_with_right_wings();
+        let drawn = |ctx: &egui::Context, id: Id| {
+            ctx.memory(|memory| {
+                memory
+                    .areas()
+                    .visible_last_frame(&LayerId::new(Order::Foreground, id))
+            })
+        };
+        // Whether military and the graphs are on screen.
+        let wings = |ctx: &egui::Context| {
+            (
+                drawn(ctx, crate::observer::wing_id(crate::shell::Panel::Military)),
+                drawn(ctx, crate::observer::wing_id(crate::shell::Panel::Graphs)),
+            )
+        };
+        let settle = |shell: &mut crate::shell::Shell,
+                      ctx: &egui::Context,
+                      screen: egui::Vec2,
+                      time: &mut f64| {
+            for _ in 0..4 {
+                *time += 0.5;
+                run_watched_frame_at(shell, ctx, &playback, &game, screen, *time);
+            }
+        };
+        let with = |military, graphs| PanelPrefs {
+            military,
+            graphs,
+            ..PanelPrefs::default()
+        };
+        let fresh = |screen, prefs| {
+            let ctx = fresh_ctx();
+            let mut shell = spectating_shell();
+            shell.set_panel_prefs(prefs);
+            settle(&mut shell, &ctx, screen, &mut 0.0);
+            wings(&ctx)
+        };
+        // A screen with room on the right for military or for the graphs, and not for the two.
+        let screen = (40..135)
+            .map(|eighths| egui::vec2(1280.0, eighths as f32 * 8.0))
+            .find(|&screen| {
+                fresh(screen, with(true, false)) == (true, false)
+                    && fresh(screen, with(false, true)) == (false, true)
+                    && fresh(screen, with(true, true)) != (true, true)
+            })
+            .expect("some screen has room on the right for one wing and not two");
+
+        let ctx = fresh_ctx();
+        let mut shell = spectating_shell();
+        shell.set_panel_prefs(with(true, false));
+        let mut time = 0.0;
+        settle(&mut shell, &ctx, screen, &mut time);
+        assert_eq!(wings(&ctx), (true, false));
+
+        // The graphs turned on take the room military had, which stays on with none.
+        assert!(shell.key_pressed(Key::G, Modifiers::NONE));
+        settle(&mut shell, &ctx, screen, &mut time);
+        assert_eq!(wings(&ctx), (false, true));
+        assert!(shell.panel_prefs().military);
+
+        // Put away again, they give it back.
+        assert!(shell.key_pressed(Key::G, Modifiers::NONE));
+        settle(&mut shell, &ctx, screen, &mut time);
+        assert_eq!(wings(&ctx), (true, false));
+
+        // Military turned on after the graphs takes the room back from them.
+        assert!(shell.key_pressed(Key::G, Modifiers::NONE));
+        settle(&mut shell, &ctx, screen, &mut time);
+        assert_eq!(wings(&ctx), (false, true));
+        assert!(shell.key_pressed(Key::M, Modifiers::NONE));
+        settle(&mut shell, &ctx, screen, &mut time);
+        assert!(shell.key_pressed(Key::M, Modifiers::NONE));
+        settle(&mut shell, &ctx, screen, &mut time);
+        assert_eq!(wings(&ctx), (true, false));
+        assert!(shell.panel_prefs().graphs);
+    }
+
+    #[test]
+    fn the_keycap_on_a_wings_title_row_puts_it_away_as_its_key_does() {
+        use crate::kit::tiers;
+        use crate::shell::Panel;
+
+        let ctx = fresh_ctx();
+        let mut shell = spectating_shell();
+        shell.set_panel_prefs(PanelPrefs {
+            military: true,
+            ..PanelPrefs::default()
+        });
+        let (playback, game) = (replay(), game_with_right_wings());
+        let screen = egui::vec2(1920.0, 1080.0);
+        let mut time = 0.0;
+        let mut frame = |shell: &mut crate::shell::Shell, events: Vec<egui::Event>, step: f64| {
+            time += step;
+            run_watched_frame_with_events(shell, &ctx, &playback, &game, screen, events, time)
+        };
+        settle(&mut frame, &mut shell, Vec::new());
+        let panel = ctx
+            .memory(|memory| memory.area_rect(crate::observer::wing_id(Panel::Military)))
+            .expect("military is drawn");
+        // Inside the keycap at the right end of the title row.
+        let key = egui::pos2(
+            panel.right() - tiers::PANEL_MARGIN_WIDTH * 0.5 - 8.0,
+            panel.top() + tiers::PANEL_MARGIN_HEIGHT * 0.5 + 10.0,
+        );
+        let button = |pressed| egui::Event::PointerButton {
+            pos: key,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: Modifiers::NONE,
+        };
+        settle(&mut frame, &mut shell, vec![egui::Event::PointerMoved(key)]);
+        frame(&mut shell, vec![button(true)], 0.5);
+        frame(&mut shell, vec![button(false)], 0.05);
+        assert!(!shell.panel_prefs().military);
+    }
+
+    #[test]
+    fn the_column_keeps_its_place_whatever_the_minimap_is_drawn_at() {
+        use crate::observer::{ControlGroupsPlayerView, control_groups};
+
+        let mut game = empty_game();
+        game.control_groups.players.push(ControlGroupsPlayerView {
+            player_id: 0,
+            color: crate::kit::theme::player_color(0),
+            vision: true,
+            groups: Vec::new(),
+        });
+        let playback = replay();
+        // Wide enough for the row beside the selection panel, and too narrow for it.
+        for screen in [egui::vec2(1920.0, 1080.0), egui::vec2(1600.0, 900.0)] {
+            let ctx = fresh_ctx();
+            let mut shell = spectating_shell();
+            shell.set_panel_prefs(PanelPrefs {
+                control_groups: true,
+                ..PanelPrefs::default()
+            });
+            let full =
+                crate::observer::minimap_reserve(Rect::from_min_size(egui::Pos2::ZERO, screen));
+            // A hidden minimap is not reported, and a map smaller than the square, or not square,
+            // is drawn in a control inside it.
+            let narrower = Rect::from_min_max(
+                egui::pos2(full.left() + 12.0, full.top()),
+                egui::pos2(full.right() - 12.0, full.bottom()),
+            );
+            let smaller = Rect::from_center_size(full.center(), full.size() * 0.75);
+            let mut time = 0.0;
+            let mut placed = Vec::new();
+            for minimap in [None, Some(full), None, Some(narrower), Some(smaller)] {
+                let mut output = None;
+                for _ in 0..8 {
+                    time += 0.5;
+                    output = Some(run_watched_frame_with_minimap(
+                        &mut shell, &ctx, &playback, &game, screen, minimap, time,
+                    ));
+                }
+                let groups = output
+                    .unwrap()
+                    .hit_rects
+                    .iter()
+                    .map(|hit| hit.rect)
+                    .find(|rect| rect.width() == control_groups::PANEL_WIDTH)
+                    .expect("control groups are drawn");
+                placed.push(groups);
+            }
+            assert!(
+                placed.iter().all(|groups| *groups == placed[0]),
+                "{screen:?}: {placed:?}"
+            );
+        }
     }
 
     #[test]

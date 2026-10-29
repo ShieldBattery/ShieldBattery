@@ -12,7 +12,7 @@
 //! In a replay a row is also a way back to its moment: clicking one moves playback to just before
 //! it, so the watcher sees it happen rather than arriving after it has.
 
-use egui::{Align, Color32, Context, Id, Rect, Sense, Ui, vec2};
+use egui::{Align, Color32, Context, Rect, Sense, Ui, vec2};
 
 use crate::kit::text::{self, BodyWeight};
 use crate::kit::theme;
@@ -32,6 +32,10 @@ const CONTENT_WIDTH: f32 = 450.0;
 
 /// How many rows the feed is, full or not.
 const ROWS: usize = 6;
+
+/// The fewest rows the feed is drawn with. A feed of fewer is a scrap of it rather than the feed,
+/// and has no room on this screen: the room goes to the panels around it instead.
+const MIN_ROWS: usize = 3;
 
 /// Height of one row.
 const ROW_HEIGHT: f32 = 24.0;
@@ -298,17 +302,18 @@ impl TimelineView {
 const CHROME_HEIGHT: f32 = tiers::PANEL_MARGIN_HEIGHT + widgets::PANEL_HEADER_HEIGHT;
 
 /// How many rows fit in a panel whose top is at `top` and which must end above `floor`, at most
-/// [`ROWS`]. Zero when not even the first fits, which is a panel not worth drawing.
+/// [`ROWS`]. Zero when fewer than [`MIN_ROWS`] do, which is a panel not worth drawing.
 fn rows_that_fit(top: f32, floor: f32) -> usize {
     let room = floor - top - CHROME_HEIGHT;
     if room < ROW_HEIGHT {
         return 0;
     }
     let further = ((room - ROW_HEIGHT) / (ROW_HEIGHT + STAT_ROW_GAP)).floor() as usize;
-    (1 + further).min(ROWS)
+    let rows = (1 + further).min(ROWS);
+    if rows < MIN_ROWS { 0 } else { rows }
 }
 
-/// Whether at least one row of the feed fits between `top` and `floor`.
+/// Whether at least [`MIN_ROWS`] of the feed fit between `top` and `floor`.
 pub(crate) fn fits(top: f32, floor: f32) -> bool {
     rows_that_fit(top, floor) > 0
 }
@@ -317,6 +322,8 @@ pub(crate) fn fits(top: f32, floor: f32) -> bool {
 pub struct TimelineOutcome {
     /// Where the panel is on screen, for the host's hit testing.
     pub rect: Rect,
+    /// Whether the keycap on its title row was clicked, which puts the panel away as its key does.
+    pub closed: bool,
     /// The event whose row was clicked.
     pub clicked: Option<ClickedEvent>,
 }
@@ -327,9 +334,9 @@ pub struct TimelineOutcome {
 /// Before anything has happened it is still drawn, with a line saying so: a watcher turning the
 /// feed on early in a game would otherwise see nothing come of the key and take it for broken.
 ///
-/// The panel ends above `floor`, showing fewer rows at once to do so: it is the lowest thing hung
-/// on the left edge, and under it is the corner the game's minimap owns. A feed short a few rows is
-/// still the feed; a feed drawn over the minimap is neither.
+/// The panel ends above `floor`, showing fewer rows at once to do so, down to [`MIN_ROWS`]: it is the
+/// lowest thing hung on the left edge, and under it is the corner the game's minimap owns. A feed
+/// short a few rows is still the feed; a feed drawn over the minimap is neither.
 ///
 /// `seekable` is whether the game being watched can be moved to a time, which only a replay can: a
 /// row then answers the pointer, says what a click on it does, and reports the click.
@@ -341,20 +348,20 @@ pub fn render_timeline_view(
     floor: f32,
     seekable: bool,
 ) -> Option<TimelineOutcome> {
-    let id = Id::new("sb_timeline_panel");
     let rows = rows_that_fit(top, floor);
-    let inner = wing_panel(
+    let wing = wing_panel(
         ctx,
-        id,
+        Panel::Timeline,
         Wing::Left,
         top,
         PANEL_WIDTH,
         shown && rows > 0,
-        |ui| draw_panel(ui, view, rows, seekable),
+        |ui, _| draw_panel(ui, view, rows, seekable),
     )?;
     Some(TimelineOutcome {
-        rect: inner.response.rect,
-        clicked: inner.inner,
+        rect: wing.rect,
+        closed: wing.closed,
+        clicked: wing.inner,
     })
 }
 
@@ -365,11 +372,6 @@ fn draw_panel(
     rows: usize,
     seekable: bool,
 ) -> Option<ClickedEvent> {
-    widgets::panel_header(
-        ui,
-        &tr!("observer.panelTimeline", "Timeline"),
-        Panel::Timeline.key_label().as_deref(),
-    );
     if view.is_empty() {
         let (row, _) = ui.allocate_exact_size(vec2(CONTENT_WIDTH, ROW_HEIGHT), Sense::hover());
         paint_text(
@@ -551,9 +553,11 @@ mod tests {
         assert_eq!(rows_that_fit(100.0, floor), 3);
         let three = settled_height(&view, 100.0, floor).expect("the panel draws");
         assert_eq!(three, CHROME_HEIGHT + ROW_HEIGHT * 3.0 + STAT_ROW_GAP * 2.0);
-        // A floor with no room for even the first row is a panel not drawn at all.
-        assert_eq!(rows_that_fit(100.0, 100.0 + CHROME_HEIGHT), 0);
-        assert_eq!(settled_height(&view, 100.0, 100.0 + CHROME_HEIGHT), None);
+        // A floor with room for fewer than the fewest rows it is drawn with is a panel not drawn at
+        // all.
+        let short = 100.0 + CHROME_HEIGHT + ROW_HEIGHT * 2.0 + STAT_ROW_GAP + 5.0;
+        assert_eq!(rows_that_fit(100.0, short), 0);
+        assert_eq!(settled_height(&view, 100.0, short), None);
     }
 
     #[test]

@@ -224,6 +224,7 @@
     "panelMinimap": "Minimap",
     "panelPlayback": "Playback",
     "panelProduction": "Production",
+    "panelSelection": "Selection",
     "panelTimeline": "Timeline",
     "replayTag": "Replay",
     "selectionKills": "Kills",

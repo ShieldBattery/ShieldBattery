@@ -8,7 +8,7 @@
 //! The plot itself is the kit's, so the axes, the legend and the fill under each line look the same
 //! here as anywhere else the overlay draws a series.
 
-use egui::{Align, Color32, Context, Id, Layout, Rect, Ui, vec2};
+use egui::{Align, Color32, Context, Layout, Rect, Ui, vec2};
 use serde::{Deserialize, Serialize};
 
 use crate::kit::widgets::{self, Series};
@@ -165,6 +165,8 @@ impl GraphsView {
 pub struct GraphsOutcome {
     /// Where the panel is on screen, for the host's hit testing.
     pub rect: Rect,
+    /// Whether the keycap on its title row was clicked, which puts the panel away as its key does.
+    pub closed: bool,
     /// A measurement to plot instead.
     pub series: Option<GraphSeries>,
     /// Whether the lines should be the players rather than the sides they are on.
@@ -191,20 +193,20 @@ pub fn render_graphs_view(
     floor: f32,
     seekable: bool,
 ) -> Option<GraphsOutcome> {
-    let id = Id::new("sb_graphs_panel");
     let plot = plot_height(top, floor);
-    let inner = wing_panel(
+    let wing = wing_panel(
         ctx,
-        id,
+        Panel::Graphs,
         Wing::Right,
         top,
         PANEL_WIDTH,
         shown && !view.is_empty() && plot.is_some(),
-        |ui| draw_panel(ui, view, plot.unwrap_or(MIN_PLOT_HEIGHT), seekable),
+        |ui, _| draw_panel(ui, view, plot.unwrap_or(MIN_PLOT_HEIGHT), seekable),
     )?;
-    let ((series, per_player), seek_secs) = inner.inner;
+    let ((series, per_player), seek_secs) = wing.inner;
     Some(GraphsOutcome {
-        rect: inner.response.rect,
+        rect: wing.rect,
+        closed: wing.closed,
         series,
         per_player,
         seek_secs,
@@ -218,11 +220,6 @@ fn draw_panel(
     plot: f32,
     seekable: bool,
 ) -> ((Option<GraphSeries>, Option<bool>), Option<u32>) {
-    widgets::panel_header(
-        ui,
-        &tr!("observer.panelGraphs", "Graphs"),
-        Panel::Graphs.key_label().as_deref(),
-    );
     let picked = ui
         .allocate_ui_with_layout(
             vec2(CONTENT_WIDTH, TAB_ROW),

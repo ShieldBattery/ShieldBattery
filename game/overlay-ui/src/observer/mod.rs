@@ -34,7 +34,7 @@ pub use economy::{EconomyPlayerView, EconomyView, render_economy_view};
 pub use graphs::{
     GraphGrouping, GraphLineView, GraphSeries, GraphsOutcome, GraphsView, render_graphs_view,
 };
-pub use layout::{Span, StackAnchor, StackSlot};
+pub use layout::{Span, StackAnchor, StackSlot, minimap_reserve};
 pub use map_control::{MapControlSideView, MapControlView, render_map_control_view};
 pub use matchup::{
     MatchupForm, MatchupOutcome, MatchupPlayerView, MatchupView, render_matchup_view,
@@ -62,8 +62,8 @@ pub use unit_codes::unit_code;
 
 use egui::emath::GuiRounding;
 use egui::{
-    Align, Align2, Area, Color32, Context, Id, InnerResponse, Order, Rect, Stroke, StrokeKind, Ui,
-    Vec2, pos2, vec2,
+    Align, Align2, Area, Color32, Context, Id, Order, Rect, Stroke, StrokeKind, Ui, Vec2, pos2,
+    vec2,
 };
 use serde::{Deserialize, Serialize};
 
@@ -71,6 +71,7 @@ use crate::colors::{PROTOSS, RANDOM, TERRAN, ZERG};
 use crate::kit::text::TextSpec;
 use crate::kit::widgets::{self, ResourceGlyph};
 use crate::kit::{motion, text, theme, tiers};
+use crate::shell::Panel;
 use crate::tr;
 
 /// Everything the observer panels draw from this frame.
@@ -569,34 +570,19 @@ pub(crate) const WING_TOP_GAP: f32 = 14.0;
 /// Gap between a panel and whatever the next one down is placed under.
 pub(crate) const WING_GAP: f32 = 12.0;
 
-/// The narrowest run of the bottom edge the centered stack is given beside the replay plate. Any
-/// narrower and the plate is lifted out of the stack's way instead: the narrowest any of the stack's
-/// panels is drawn at.
-pub(crate) const MIN_STACK_WIDTH: f32 = {
-    let widest = if control_groups::MIN_WIDTH > production::MIN_WIDTH {
-        control_groups::MIN_WIDTH
-    } else {
-        production::MIN_WIDTH
-    };
-    if widest > selection::PANEL_WIDTH {
-        widest
-    } else {
-        selection::PANEL_WIDTH
-    }
+/// How wide the bottom panels' column of production stood on control groups is laid out: the
+/// design's width of the wider of the two.
+pub(crate) const BOTTOM_COLUMN_WIDTH: f32 = if control_groups::PANEL_WIDTH > production::PANEL_WIDTH
+{
+    control_groups::PANEL_WIDTH
+} else {
+    production::PANEL_WIDTH
 };
 
-/// The narrowest run of the bottom edge the bottom panels are laid along as one row rather than
-/// stacked in the middle of it: the production and control-group column at the design's width of
-/// the wider of the two, and the selection panel beside it. Any narrower and the row would have to
-/// squeeze the column that a stack has the room to draw whole.
-pub(crate) const ROW_WIDTH: f32 = {
-    let column = if control_groups::PANEL_WIDTH > production::PANEL_WIDTH {
-        control_groups::PANEL_WIDTH
-    } else {
-        production::PANEL_WIDTH
-    };
-    column + WING_GAP + selection::PANEL_WIDTH
-};
+/// The narrowest run of the bottom edge the bottom panels are laid along as one row: the production
+/// and control-group column, and the selection panel beside it. Any narrower and the row would have
+/// to squeeze the column, which stands on the minimap's frame instead and is drawn whole there.
+pub(crate) const ROW_WIDTH: f32 = BOTTOM_COLUMN_WIDTH + WING_GAP + selection::PANEL_WIDTH;
 
 /// Gap between the matchup bar and the map-control strip hanging under it.
 pub(crate) const MAP_CONTROL_GAP: f32 = 8.0;
@@ -696,13 +682,6 @@ pub(crate) fn stack_share(rect: Option<Rect>) -> f32 {
     rect.map_or(0.0, |rect| rect.height() + WING_GAP)
 }
 
-/// The side of the square BW's minimap owns in the screen's bottom-left corner, in design units.
-///
-/// The game scales its console with the screen's height, so in points the square is that many
-/// 1080ths of the screen's own height: the full 348 on any screen at least 1080 tall, and less on a
-/// shorter one, where a point is a pixel and the console shrinks with the screen.
-pub(crate) const MINIMAP_RESERVE_UNITS: f32 = 348.0;
-
 /// Whether a table of rows in team order is worth splitting into the sides they belong to.
 ///
 /// A game with one player per side is already one row per side, so a rule between every pair of
@@ -757,9 +736,53 @@ pub fn team_name(team: u8) -> String {
     tr!("observer.teamName", "Team {{number}}", number = team)
 }
 
-/// Draws one of the stats wings: an ambient panel of a fixed width, hung off one edge of the screen
-/// with its top edge at `top`, fading and sliding in and out. Returns nothing at all once it is
-/// gone.
+/// What `panel` is called, spelled out: the title on its own header, and its row in the dock's
+/// table.
+pub(crate) fn panel_name(panel: Panel) -> String {
+    match panel {
+        Panel::Matchup => tr!("observer.panelMatchup", "Matchup"),
+        Panel::MapControl => tr!("observer.mapControl", "Map control"),
+        Panel::Economy => tr!("observer.panelEconomy", "Economy"),
+        Panel::Military => tr!("observer.panelMilitary", "Military"),
+        Panel::Graphs => tr!("observer.panelGraphs", "Graphs"),
+        Panel::Timeline => tr!("observer.panelTimeline", "Timeline"),
+        Panel::Production => tr!("observer.panelProduction", "Production"),
+        Panel::ControlGroups => tr!("observer.panelControlGroups", "Control groups"),
+        Panel::Selection => tr!("observer.panelSelection", "Selection"),
+        Panel::Minimap => tr!("observer.panelMinimap", "Minimap"),
+        Panel::PlaybackControls => tr!("observer.panelPlayback", "Playback"),
+        Panel::Dock => tr!("observer.panelDock", "Dock"),
+    }
+}
+
+/// What a stats wing that reports nothing of its own did this frame.
+pub struct WingOutcome {
+    /// Where the panel is on screen, for the host's hit testing and for the wing stacked under it.
+    pub rect: Rect,
+    /// Whether the keycap on its title row was clicked, which puts the panel away as its key does.
+    pub closed: bool,
+}
+
+/// One of the stats wings as it was drawn this frame.
+pub(crate) struct WingFrame<R> {
+    /// Where the panel is on screen.
+    pub(crate) rect: Rect,
+    /// Whether the keycap on its title row was clicked, which puts the panel away as its key does.
+    pub(crate) closed: bool,
+    /// What its rows reported.
+    pub(crate) inner: R,
+}
+
+/// The area the stats wing that is `panel` is drawn in.
+pub fn wing_id(panel: Panel) -> Id {
+    Id::new(("sb_wing", panel.label()))
+}
+
+/// Draws the stats wing that is `panel`: an ambient panel of a fixed width, hung off one edge of
+/// the screen with its top edge at `top`, fading and sliding in and out, under a title row naming
+/// it with the keycap of its key. Returns nothing at all once it is gone.
+///
+/// `add` draws the rows under the title row, which it is handed the place of.
 ///
 /// `top` is where the panels around this one leave it, which the caller eases (see
 /// [`crate::kit::motion::Spot`]): a wing whose neighbor was just hidden moves up the neighbor's whole
@@ -770,29 +793,38 @@ pub fn team_name(team: u8) -> String {
 /// its contents get is what is left of it inside the chrome.
 pub(crate) fn wing_panel<R>(
     ctx: &Context,
-    id: Id,
+    panel: Panel,
     wing: Wing,
     top: f32,
     width: f32,
     shown: bool,
-    add: impl FnOnce(&mut Ui) -> R,
-) -> Option<InnerResponse<R>> {
+    add: impl FnOnce(&mut Ui, Rect) -> R,
+) -> Option<WingFrame<R>> {
     let (align, offset_x) = match wing {
         Wing::Left => (Align2::LEFT_TOP, WING_MARGIN),
         Wing::Right => (Align2::RIGHT_TOP, -WING_MARGIN),
     };
+    let id = wing_id(panel);
     let area = Area::new(id)
         .anchor(align, vec2(offset_x, top))
         .order(Order::Foreground);
-    motion::presence_area(ctx, id.with("presence"), shown, area, |ui| {
+    let inner = motion::presence_area(ctx, id.with("presence"), shown, area, |ui| {
         tiers::tier0_panel(ui, |ui| {
             // The rows are stacked by the gaps each panel writes and by nothing else: these are
             // fixed layouts, and egui's own item spacing would add to every one of them.
             ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
             ui.set_width(tiers::panel_content_width(width));
-            add(ui)
+            let header =
+                widgets::panel_header(ui, &panel_name(panel), panel.key_label().as_deref());
+            (header.key_clicked, add(ui, header.rect))
         })
         .inner
+    })?;
+    let (closed, rows) = inner.inner;
+    Some(WingFrame {
+        rect: inner.response.rect,
+        closed,
+        inner: rows,
     })
 }
 

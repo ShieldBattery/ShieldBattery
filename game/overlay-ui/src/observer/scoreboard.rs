@@ -12,7 +12,7 @@
 //! A click on a row takes that player's vision, as it does everywhere a player is named, and a
 //! player whose vision is off is dimmed rather than dropped.
 
-use egui::{Align, Context, Id, Rect, Sense, Ui, Vec2, pos2, vec2};
+use egui::{Align, Context, Rect, Sense, Ui, Vec2, pos2, vec2};
 
 use crate::kit::text::{self, TextSpec};
 use crate::kit::widgets::{self, ColumnGlyph};
@@ -22,7 +22,7 @@ use crate::observer::{
     EdgeCursor, MatchupPlayerView, MatchupView, STAT_BAR_GAP, STAT_COLOR_BAR, STAT_HEADING_HEIGHT,
     STAT_RACE_ICON, STAT_RACE_ICON_GAP, STAT_ROW_GAP, STAT_ROW_HEIGHT, STAT_VALUE_SIZE, StatRace,
     WING_MARGIN, Wing, game_clock, paint_count, paint_first_team_name, paint_stat_identity,
-    paint_team_divider, paint_text, teams_worth_dividing, vision_alpha, wing_panel,
+    paint_team_divider, paint_text, panel_name, teams_worth_dividing, vision_alpha, wing_panel,
 };
 use crate::shell::Panel;
 use crate::tr;
@@ -106,6 +106,9 @@ pub struct ScoreboardOutcome {
     pub rect: Rect,
     /// The player whose vision was asked to change, if one was clicked.
     pub toggled_vision: Option<u8>,
+    /// Whether the keycap on its title row was clicked, which puts the matchup away as its key
+    /// does.
+    pub closed: bool,
 }
 
 /// Draws the scoreboard at the top of the screen's right edge, fading and sliding it in and out.
@@ -115,26 +118,26 @@ pub fn render_scoreboard_view(
     ctx: &Context,
     shown: bool,
 ) -> Option<ScoreboardOutcome> {
-    let inner = wing_panel(
+    let wing = wing_panel(
         ctx,
-        Id::new("sb_scoreboard"),
+        Panel::Matchup,
         Wing::Right,
         WING_MARGIN,
         PANEL_WIDTH,
         shown,
-        |ui| draw_panel(ui, view),
+        |ui, header| draw_panel(ui, header, view),
     )?;
     Some(ScoreboardOutcome {
-        rect: inner.response.rect,
-        toggled_vision: inner.inner,
+        rect: wing.rect,
+        toggled_vision: wing.inner,
+        closed: wing.closed,
     })
 }
 
-/// Draws the panel's contents and reports which player was clicked.
-fn draw_panel(ui: &mut Ui, view: &MatchupView) -> Option<u8> {
-    let title = tr!("observer.panelMatchup", "Matchup");
-    let header = widgets::panel_header(ui, &title, Panel::Matchup.key_label().as_deref());
-    draw_clock(ui, header.rect, &title, view.elapsed_secs);
+/// Draws the panel's contents under its title row at `header`, and reports which player was
+/// clicked.
+fn draw_panel(ui: &mut Ui, header: Rect, view: &MatchupView) -> Option<u8> {
+    draw_clock(ui, header, &panel_name(Panel::Matchup), view.elapsed_secs);
     let divided = teams_worth_dividing(view.players.iter().map(|player| player.team));
     let (headings, _) = ui.allocate_exact_size(vec2(CONTENT_WIDTH, HEADING_HEIGHT), Sense::hover());
     draw_headings(

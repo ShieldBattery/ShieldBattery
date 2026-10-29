@@ -12,14 +12,14 @@
 //! Kills are set in the panel's own text color and losses in the dim one, so a row reads as
 //! "what I did" followed by "what it cost" without either number shouting.
 
-use egui::{Align, Color32, Context, Id, Rect, Sense, Ui, vec2};
+use egui::{Align, Color32, Context, Rect, Sense, Ui, vec2};
 
 use crate::kit::text;
 use crate::kit::theme;
-use crate::kit::widgets::{self, ResourceGlyph};
+use crate::kit::widgets::ResourceGlyph;
 use crate::observer::{
     EdgeCursor, RaceView, STAT_BAR_GAP, STAT_COLOR_BAR, STAT_HEADING_HEIGHT, STAT_ROW_GAP,
-    STAT_ROW_HEIGHT, STAT_VALUE_SIZE, Wing, paint_column_heading, paint_count,
+    STAT_ROW_HEIGHT, STAT_VALUE_SIZE, Wing, WingOutcome, paint_column_heading, paint_count,
     paint_first_team_name, paint_resource_value, paint_stat_identity, paint_team_divider,
     paint_text, stat_table_height, teams_worth_dividing, vision_alpha, wing_panel,
 };
@@ -123,26 +123,23 @@ pub fn render_military_view(
     ctx: &Context,
     shown: bool,
     top: f32,
-) -> Option<Rect> {
-    let id = Id::new("sb_military_panel");
-    let inner = wing_panel(
+) -> Option<WingOutcome> {
+    let wing = wing_panel(
         ctx,
-        id,
+        Panel::Military,
         Wing::Right,
         top,
         PANEL_WIDTH,
         shown && !view.is_empty(),
-        |ui| draw_panel(ui, view),
+        |ui, _| draw_panel(ui, view),
     )?;
-    Some(inner.response.rect)
+    Some(WingOutcome {
+        rect: wing.rect,
+        closed: wing.closed,
+    })
 }
 
 fn draw_panel(ui: &mut Ui, view: &MilitaryView) {
-    widgets::panel_header(
-        ui,
-        &tr!("observer.panelMilitary", "Military"),
-        Panel::Military.key_label().as_deref(),
-    );
     let divided = teams_worth_dividing(view.players.iter().map(|player| player.team));
     draw_headings(
         ui,

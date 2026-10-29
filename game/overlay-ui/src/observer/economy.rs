@@ -21,9 +21,9 @@ use crate::kit::theme;
 use crate::kit::widgets::{self, ResourceGlyph};
 use crate::observer::{
     EdgeCursor, RaceView, STAT_BAR_GAP, STAT_COLOR_BAR, STAT_HEADING_HEIGHT, STAT_ROW_GAP,
-    STAT_ROW_HEIGHT, STAT_VALUE_SIZE, Wing, paint_column_heading, paint_first_team_name,
-    paint_resource_value, paint_stat_identity, paint_team_divider, paint_text, stat_table_height,
-    teams_worth_dividing, vision_alpha, wing_panel,
+    STAT_ROW_HEIGHT, STAT_VALUE_SIZE, Wing, WingOutcome, paint_column_heading,
+    paint_first_team_name, paint_resource_value, paint_stat_identity, paint_team_divider,
+    paint_text, stat_table_height, teams_worth_dividing, vision_alpha, wing_panel,
 };
 use crate::shell::Panel;
 use crate::{tr, tr_plural};
@@ -163,26 +163,23 @@ pub fn render_economy_view(
     ctx: &Context,
     shown: bool,
     top: f32,
-) -> Option<Rect> {
-    let id = Id::new("sb_economy_panel");
-    let inner = wing_panel(
+) -> Option<WingOutcome> {
+    let wing = wing_panel(
         ctx,
-        id,
+        Panel::Economy,
         Wing::Left,
         top,
         PANEL_WIDTH,
         shown && !view.is_empty(),
-        |ui| draw_panel(ui, view),
+        |ui, _| draw_panel(ui, view),
     )?;
-    Some(inner.response.rect)
+    Some(WingOutcome {
+        rect: wing.rect,
+        closed: wing.closed,
+    })
 }
 
 fn draw_panel(ui: &mut Ui, view: &EconomyView) {
-    widgets::panel_header(
-        ui,
-        &tr!("observer.panelEconomy", "Economy"),
-        Panel::Economy.key_label().as_deref(),
-    );
     let divided = teams_worth_dividing(view.players.iter().map(|player| player.team));
     draw_headings(
         ui,
@@ -386,7 +383,7 @@ mod tests {
                 players: teams.iter().map(|team| player(*team)).collect(),
             };
             let rect = crate::observer::test_support::settled_rect(|ctx| {
-                render_economy_view(&view, ctx, true, 100.0)
+                render_economy_view(&view, ctx, true, 100.0).map(|outcome| outcome.rect)
             })
             .expect("the panel is drawn");
             assert_eq!(rect.height(), panel_height(&view), "{teams:?}");

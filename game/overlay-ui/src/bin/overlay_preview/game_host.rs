@@ -98,6 +98,11 @@ impl GameHost {
     }
 
     /// Whether the emulated screen currently holds keyboard focus.
+    /// The overlay's context, as the last pass left it.
+    pub fn ctx(&self) -> &Context {
+        &self.ctx
+    }
+
     pub fn focused(&self) -> bool {
         self.focused
     }

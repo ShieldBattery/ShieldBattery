@@ -2,11 +2,10 @@
 //! against it.
 //!
 //! The bindings are SC:R's own observer keys wherever SC:R has one for the same surface, every
-//! form of them included (`E`, `Ctrl+E` and `Alt+E` all do the same thing there, so they all do
-//! here), so a caster's muscle memory carries over. The gaps are filled with plain letters SC:R
-//! leaves unbound. SC:R's console keys are the exception, left to the game: the selection panel that
-//! reads out what the console would have is not a panel a watcher turns on and off. Keeping the
-//! bindings in one table is what makes them user-customizable later without touching the shell.
+//! form of them included (`W`, `Ctrl+W`, `Ctrl+U` and `Alt+U` all toggle the selection panel there,
+//! so they all do here), so a caster's muscle memory carries over. The gaps are filled with plain
+//! letters SC:R leaves unbound. Keeping them in one table is what makes them user-customizable later
+//! without touching the shell.
 
 use egui::{Key, Modifiers};
 
@@ -49,6 +48,8 @@ pub enum Action {
     ToggleTimeline,
     /// The control groups panel.
     ToggleControlGroups,
+    /// The selection panel, which stands in for the game console's own.
+    ToggleSelection,
     /// The map control bar.
     ToggleMapControl,
     /// Step the observer vision selection.
@@ -64,7 +65,7 @@ pub enum Action {
 
 impl Action {
     /// Every action, for a caller walking the table.
-    pub const ALL: [Action; 20] = [
+    pub const ALL: [Action; 21] = [
         Action::PauseResume,
         Action::SpeedUp,
         Action::SpeedDown,
@@ -80,6 +81,7 @@ impl Action {
         Action::ToggleGraphs,
         Action::ToggleTimeline,
         Action::ToggleControlGroups,
+        Action::ToggleSelection,
         Action::ToggleMapControl,
         Action::CycleVision,
         Action::ToggleVisionPicker,
@@ -105,6 +107,7 @@ impl Action {
             Action::ToggleGraphs => "graphs",
             Action::ToggleTimeline => "timeline",
             Action::ToggleControlGroups => "control groups",
+            Action::ToggleSelection => "selection",
             Action::ToggleMapControl => "map control",
             Action::CycleVision => "cycle vision",
             Action::ToggleVisionPicker => "vision list",
@@ -272,6 +275,10 @@ impl Hotkeys {
             (Action::ToggleMinimap, Chord::new(Q)),
             (Action::ToggleMinimap, Chord::ctrl(I)),
             (Action::ToggleMinimap, Chord::alt(I)),
+            (Action::ToggleSelection, Chord::new(W)),
+            (Action::ToggleSelection, Chord::ctrl(W)),
+            (Action::ToggleSelection, Chord::ctrl(U)),
+            (Action::ToggleSelection, Chord::alt(U)),
             (Action::TogglePlaybackControls, Chord::new(Y)),
             (Action::TogglePlaybackControls, Chord::ctrl(Y)),
             (Action::TogglePlaybackControls, Chord::alt(Y)),
@@ -415,6 +422,9 @@ mod tests {
             (Key::F, ctrl(), Action::ToggleProduction),
             (Key::Q, plain(), Action::ToggleMinimap),
             (Key::I, alt(), Action::ToggleMinimap),
+            (Key::W, plain(), Action::ToggleSelection),
+            (Key::W, ctrl(), Action::ToggleSelection),
+            (Key::U, alt(), Action::ToggleSelection),
             (Key::R, plain(), Action::ToggleDock),
             (Key::W, alt(), Action::ToggleDock),
             (Key::Z, ctrl(), Action::ToggleVisionPicker),
