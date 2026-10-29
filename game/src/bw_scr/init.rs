@@ -210,10 +210,7 @@ impl BwScr {
         let console_vtables = analysis.console_vtables();
 
         let first_active_unit = analysis.first_active_unit().ok_or("first_active_unit")?;
-        #[cfg(debug_assertions)]
-        let bwapi_terrain = if crate::bwapi_instance().is_some()
-            || (std::env::var_os("SB_BWAPI").is_some() && !crate::is_local_game())
-        {
+        let bwapi_terrain = if crate::bwapi::analysis_requested() {
             super::bwapi::Terrain::analyze(&mut analysis, ctx)
         } else {
             None
@@ -724,7 +721,6 @@ impl BwScr {
             local_player_name: Value::new(ctx, local_player_name),
             fonts: Value::new(ctx, fonts),
             first_active_unit: Value::new(ctx, first_active_unit),
-            #[cfg(debug_assertions)]
             bwapi_terrain,
             sound: sound::Sound::new(
                 sfx_data.map(|x| Value::new(ctx, x)),

@@ -192,7 +192,11 @@ export interface BotArtifact {
   format: 'zip'
 }
 
+export type BotReleaseStatus = 'candidate' | 'staging' | 'production-approved'
+
 export interface BotCatalogRelease {
+  /** Missing status is a candidate. Approval applies to this exact release, not the bot name. */
+  releaseStatus?: BotReleaseStatus
   package: BotPackage
   artifact: BotArtifact
 }

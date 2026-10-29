@@ -1,9 +1,10 @@
 # BWAPI development bridge
 
-This is an experimental BWAPI 4.4 external-client bridge for the ShieldBattery debug DLL.
-It controls the local human player slot through ordinary synchronized game commands.
-It is disabled by default and is compiled out of release DLLs. It is not a production bot
-integration or a claim of full BWAPI compatibility.
+This is a BWAPI 4.4 external-client bridge for supervised local practice in
+ShieldBattery debug and release DLLs. It controls each bot client’s local player
+slot through ordinary synchronized game commands. Activation requires an explicit
+instance and an established, untracked local session. Server-tracked and relay
+games cannot activate it. BWAPI compatibility remains partial.
 
 ## Verified scenarios
 
@@ -106,23 +107,25 @@ instances, and owns cleanup. Supply cached map metadata, a built external bot
 executable, and a separate working profile for each simultaneous bot. No server
 lobby or relay is required.
 
-## Manual single-bot bridge test
+## Supervised single-bot bridge test
 
-1. Start the normal local dev services, including the renderer server. See
+1. Start the local dev services, including the renderer server. See
    [dev-env](../../.claude/skills/dev-env/SKILL.md).
 2. Build the DLL with `game\build.bat` (64-bit) or `game\build.bat x86` (32-bit).
-3. Launch each bot game with a unique `-sb-bwapi=<token>` argument and start its bot with the
-   matching `SB_BWAPI_INSTANCE=<token>` environment variable. The token selects only that game's
-   discovery table; the PID-specific shared-memory and pipe names remain BWAPI 4.4-compatible.
-   `SB_BWAPI=1` remains available only for non-local legacy test launches.
-4. Start `.claude-scratch/bwapi-bot-build/bin/ZZZKBotClient.exe` in a dedicated working directory.
-   It retries until its selected game server is available. Use one host process per bot game.
-5. Create a plain melee lobby. Select **Zerg** for the local player and add an opponent.
-   ZZZKBot assumes it is playing Zerg. Start the match; the bot takes over the local player's
-   units. Use the legacy unit limit while testing BWAPI compatibility.
-6. Inspect the host's stdout and the session's game DLL log for `BWAPI:` messages. They report
-   connection, frame progress, resources, and accepted/rejected commands. Stop the bot host
-   after testing; it otherwise waits for another game.
+3. Use the [local launch API](../../docs/local-bots-launch-api.md#renderer-contract)
+   with one ZZZKBot entry: set `race: 'z'`, its absolute built executable path,
+   and a dedicated working directory. Supply an installed melee map with at least
+   two start locations. The supervisor launches the visible player, hidden bot
+   client, and external bot process, assigning a matching discovery token to both
+   bot processes. Use a fresh working directory for each concurrent bot.
+4. Inspect the bot stdout and session game DLL logs under
+   `<userData>/logs/local-games/<sessionId>/` for `BWAPI:` messages. They report
+   connection, frame progress, resources, and accepted/rejected commands.
+5. Leave the visible game or call `localGameStop()` to stop the session and its
+   owned processes.
+
+`SB_BWAPI` does not enable discovery. Passing `-sb-bwapi=<token>` to a server
+lobby game cannot activate the bridge, including with a debug DLL.
 
 The bridge does not pause a multiplayer simulation while the bot computes. A slow client
 receives the next available snapshot when it acknowledges the previous one, so snapshots can

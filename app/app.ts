@@ -902,11 +902,8 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     }
     return localGameManager
   }
-  const requireLocalGameSupport = () => {
-    if (!isDev) throw new Error('Local BWAPI games require the development game DLL')
-  }
   ipcMain.handle('localGameStart', (_, request) => {
-    requireLocalGameSupport()
+    if (!isDev) throw new Error('Direct local game launches require a development client')
     return getLocalGameManager().start(request)
   })
   ipcMain.handle('localGameStop', () => localGameManager?.stop())
@@ -931,7 +928,6 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
   const bots = botLibrary
 
   ipcMain.handle('practiceGameStart', (_, request) => {
-    requireLocalGameSupport()
     return bots.startPracticeGame(request)
   })
   ipcMain.handle('practiceOpenLogs', (_, sessionId) => bots.openLogs(sessionId))

@@ -296,6 +296,14 @@ impl GameState {
             .send(())
             .expect("Main thread should be waiting for a wakeup");
         async move {
+            let server_tracked = info.result_code.is_some() || !server_url.is_empty();
+            crate::bwapi::configure_session(server_tracked, netcode_v2_setup.is_some());
+            validate_local_transport(
+                crate::is_local_game(),
+                info.local_session.is_some(),
+                netcode_v2_setup.is_some(),
+                server_tracked,
+            )?;
             let sbat_replay_data = match info.is_replay() {
                 true => Some(read_sbat_replay_data(Path::new(&info.map_path))),
                 false => None,
@@ -400,6 +408,7 @@ impl GameState {
                     let start = netcode_v2::establish_local_session(setup, has_computers)
                         .await
                         .map_err(|e| GameInitError::NetcodeV2SessionInit(e.to_string()))?;
+                    crate::bwapi::establish_local_session();
                     info!("Local named-pipe session established");
                     (start, NetworkTransport::Local)
                 };
@@ -2046,9 +2055,33 @@ async fn read_sbat_replay_data(path: &Path) -> Result<Option<replay::SbatReplayD
     Ok(None)
 }
 
+fn validate_local_transport(
+    local_launch: bool,
+    local_session: bool,
+    relay: bool,
+    server_tracked: bool,
+) -> Result<(), GameInitError> {
+    if (local_launch || local_session) && (relay || server_tracked) {
+        return Err(GameInitError::NetcodeV2SessionInit(
+            "local games require an untracked local transport".into(),
+        ));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn local_transport_rejects_tracked_and_relay_setups() {
+        for (tracked, relay) in [(true, false), (false, true), (true, true)] {
+            assert!(validate_local_transport(true, false, relay, tracked).is_err());
+            assert!(validate_local_transport(false, true, relay, tracked).is_err());
+            assert!(validate_local_transport(false, false, relay, tracked).is_ok());
+        }
+        assert!(validate_local_transport(true, true, false, false).is_ok());
+    }
 
     /// A 1v1 melee `GameSetupInfo` fixture (host = user 10 at slot 0, opponent = user 20 at slot 1),
     /// deserialized from JSON since `PlayerInfo`/`LobbyPlayerId` aren't constructible field-by-field
