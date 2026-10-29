@@ -417,6 +417,12 @@ impl GameData {
         })
     }
 
+    /// The complete validated command batch. Input beyond this slice belongs to an older frame.
+    pub fn inbound_unit_commands(&self) -> Option<&[UnitCommand]> {
+        let count = self.inbound_counts()?.unit_commands;
+        Some(&self.unit_commands[..count])
+    }
+
     /// Clears only fields owned by the client side of the frame protocol, after their contents
     /// have been validated and consumed by the server adapter.
     pub fn clear_inbound(&mut self) {
@@ -459,5 +465,46 @@ mod tests {
         assert_eq!(checked_count(-1, 3), None);
         assert_eq!(checked_count(4, 3), None);
         assert_eq!(checked_count(3, 3), Some(3));
+    }
+    fn game_data() -> Box<GameData> {
+        let layout = std::alloc::Layout::new::<GameData>();
+        // The wire record contains only numbers and fixed arrays, and fits on the heap.
+        unsafe {
+            let ptr = std::alloc::alloc_zeroed(layout).cast::<GameData>();
+            if ptr.is_null() {
+                std::alloc::handle_alloc_error(layout);
+            }
+            Box::from_raw(ptr)
+        }
+    }
+
+    #[test]
+    fn inbound_unit_commands_preserve_batches_larger_than_256() {
+        let mut data = game_data();
+        for count in [0, 1, 256, 257, 300, MAX_UNIT_COMMANDS] {
+            data.unit_command_count = count as i32;
+            if count > 0 {
+                data.unit_commands[count - 1].extra = count as i32;
+            }
+            let commands = data.inbound_unit_commands().unwrap();
+            assert_eq!(commands.len(), count);
+            if count > 0 {
+                assert_eq!(commands.last().unwrap().extra, count as i32);
+            }
+        }
+        data.clear_inbound();
+        assert!(data.inbound_unit_commands().unwrap().is_empty());
+    }
+
+    #[test]
+    fn malformed_inbound_counts_never_expose_a_command_batch() {
+        let mut data = game_data();
+        for count in [-1, MAX_UNIT_COMMANDS as i32 + 1, i32::MAX] {
+            data.unit_command_count = count;
+            assert!(data.inbound_unit_commands().is_none());
+        }
+        data.unit_command_count = 300;
+        data.string_count = MAX_STRINGS as i32 + 1;
+        assert!(data.inbound_unit_commands().is_none());
     }
 }

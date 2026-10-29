@@ -1,7 +1,7 @@
 //! Game-thread adapter for the development BWAPI external-client bridge.
 
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::mem;
 
 use bw_dat::{Race, TechId, UnitArray, UnitId, UpgradeId};
@@ -55,6 +55,8 @@ struct Snapshot {
     units: Vec<TrackedUnit>,
     accepted_commands: u64,
     rejected_commands: u64,
+    rejection_reasons: BTreeMap<&'static str, u64>,
+    largest_command_batch: usize,
 }
 
 struct TrackedUnit {
@@ -223,6 +225,10 @@ impl BwScr {
             info!(
                 "BWAPI: finished; {} accepted commands, {} rejected commands",
                 bridge_value.state.accepted_commands, bridge_value.state.rejected_commands
+            );
+            info!(
+                "BWAPI: rejection reasons {:?}; largest command batch {}",
+                bridge_value.state.rejection_reasons, bridge_value.state.largest_command_batch
             );
         });
     }
@@ -955,6 +961,38 @@ impl Snapshot {
             .map_or(-1, |&id| id as i32)
     }
 
+    fn reject_command(
+        &mut self,
+        frame: u32,
+        snapshot_frame: i32,
+        reason: &'static str,
+        command: Option<wire::UnitCommand>,
+    ) {
+        self.rejected_commands += 1;
+        *self.rejection_reasons.entry(reason).or_default() += 1;
+        if self.rejected_commands <= 16 {
+            let describe = |index: i32| {
+                usize::try_from(index)
+                    .ok()
+                    .and_then(|i| self.units.get(i))
+                    .map(|unit| {
+                        (
+                            unit.native_id,
+                            unit.kind,
+                            unit.owner,
+                            unit.accessible,
+                            unit.visible,
+                        )
+                    })
+            };
+            warn!(
+                "BWAPI: rejected frame={frame} snapshot_frame={snapshot_frame} reason={reason} command={command:?} actor_snapshot={:?} target_snapshot={:?}",
+                command.and_then(|c| describe(c.unit_index)),
+                command.and_then(|c| describe(c.target_index)),
+            );
+        }
+    }
+
     unsafe fn consume_commands(
         &mut self,
         bw: &BwScr,
@@ -963,11 +1001,12 @@ impl Snapshot {
         local: u8,
     ) {
         unsafe {
-            let Some(counts) = data.inbound_counts() else {
-                self.rejected_commands += 1;
+            let frame = (*bw.game()).frame_count;
+            let Some(inbound_commands) = data.inbound_unit_commands() else {
+                self.reject_command(frame, data.frame_count, "invalid_inbound_counts", None);
                 return;
             };
-            let count = counts.unit_commands.min(256);
+            self.largest_command_batch = self.largest_command_batch.max(inbound_commands.len());
             let selection: Vec<u32> = bw
                 .client_selection()
                 .into_iter()
@@ -979,18 +1018,42 @@ impl Snapshot {
             // the pipe is at its in-flight cap. The batch is cleared after this exchange, so
             // anything held back here would be lost rather than retried.
             let mut submitted = false;
-            for command in &data.unit_commands[..count] {
+            for command in inbound_commands {
+                let inbound_command = *command;
                 let Some(actor) = usize::try_from(command.unit_index)
                     .ok()
                     .and_then(|i| self.units.get(i))
                     .filter(|u| u.accessible)
                     .and_then(|u| native.get_by_unique_id(u.native_id))
                 else {
-                    self.rejected_commands += 1;
+                    let reason = match usize::try_from(command.unit_index)
+                        .ok()
+                        .and_then(|i| self.units.get(i))
+                    {
+                        None => "actor_index_invalid",
+                        Some(unit) if !unit.accessible => "actor_inaccessible",
+                        Some(_) => "actor_native_missing",
+                    };
+                    self.reject_command(frame, data.frame_count, reason, Some(inbound_command));
                     continue;
                 };
                 if actor.player() != local {
-                    self.rejected_commands += 1;
+                    if self.rejected_commands < 16 {
+                        debug!(
+                            "BWAPI: actor ownership frame={frame} snapshot_frame={} index={} current_owner={} current_type={} dying={}",
+                            data.frame_count,
+                            command.unit_index,
+                            actor.player(),
+                            actor.id().0,
+                            actor.is_dying()
+                        );
+                    }
+                    self.reject_command(
+                        frame,
+                        data.frame_count,
+                        "actor_not_owned",
+                        Some(inbound_command),
+                    );
                     continue;
                 }
                 let target = usize::try_from(command.target_index)
@@ -1012,7 +1075,18 @@ impl Snapshot {
                         | commands::kind::USE_TECH_UNIT
                 ) {
                     let Some(target) = target else {
-                        self.rejected_commands += 1;
+                        let reason = match usize::try_from(command.target_index)
+                            .ok()
+                            .and_then(|i| self.units.get(i))
+                        {
+                            None => "target_index_invalid",
+                            Some(unit) if !unit.accessible => "target_inaccessible",
+                            Some(unit) if native.get_by_unique_id(unit.native_id).is_none() => {
+                                "target_native_missing"
+                            }
+                            Some(_) => "target_not_visible",
+                        };
+                        self.reject_command(frame, data.frame_count, reason, Some(inbound_command));
                         continue;
                     };
                     (
@@ -1037,14 +1111,12 @@ impl Snapshot {
                     actor.id().0,
                     (command.kind == commands::kind::BUILD_ADDON).then(|| addon_parent_tile(actor)),
                 ) else {
-                    if self.rejected_commands < 10 {
-                        warn!(
-                            "BWAPI: unsupported or malformed command {:?} from unit type {}",
-                            command,
-                            actor.id().0
-                        );
-                    }
-                    self.rejected_commands += 1;
+                    self.reject_command(
+                        frame,
+                        data.frame_count,
+                        "unsupported_or_malformed",
+                        Some(inbound_command),
+                    );
                     continue;
                 };
                 if command.kind == commands::kind::BUILD && game.frame_count % 120 < 3 {

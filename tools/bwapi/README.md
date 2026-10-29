@@ -135,6 +135,29 @@ native unit identity before submission. This protects normal game progression fr
 stalled/disconnected bot; it also differs from the stock BWAPI server's synchronous per-frame
 behavior.
 
+### Command batch regression probe
+
+`command_batch_fixture.cpp` submits 299 Stop commands followed by one Move command
+in a single frame. Build from an x86 Visual Studio developer prompt against the
+pinned BWAPI headers above; no BWAPI library or bot source is needed:
+
+```bat
+cl /nologo /std:c++17 /EHsc /W4 /WX /I .claude-scratch\bwapi-research\bwapi\include tools\bwapi\command_batch_fixture.cpp /Fe:.claude-scratch\command-batch-fixture.exe /Fo:.claude-scratch\command-batch-fixture.obj
+```
+
+Launch through the supervised local launch API with bot race Zerg, a fresh working
+directory, and the built executable. Test both game architectures; the external
+client stays Win32. The client prints its submitted count and observed movement
+at frame 240. Expect 300 accepted commands, zero rejections, and movement toward
+the final destination. Stop through `localGameStop()` after observation. This is
+a manually stopped command probe, not a completed match.
+
+The bridge consumes the complete validated batch, up to the protocol's 20,000
+commands. End-of-game logs include rejection counts by reason and largest batch;
+the first 16 rejections include snapshot context. Missing targets and changed
+ownership can occur when the native simulation advances after a snapshot. Keep
+these guards when diagnosing rejections.
+
 ## Hidden, low-resource game clients
 
 Launch configs can opt into `presentation: 'background'` to use a hidden 640x480
