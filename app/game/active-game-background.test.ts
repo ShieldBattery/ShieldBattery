@@ -318,3 +318,120 @@ test('failed background cleanup does not reject graceful stop', async () => {
   exit(0)
   await expect(stopped).resolves.toBeUndefined()
 })
+
+test('hung launch is terminated before retirement without terminating its replacement', async () => {
+  let exit!: (code: number) => void
+  let exitReplacement!: (code: number) => void
+  let confirmTermination!: () => void
+  const terminate = vi.fn(() => new Promise<void>(resolve => (confirmTermination = resolve)))
+  const terminateReplacement = vi.fn(async () => {})
+  runtime.launch.mockImplementationOnce(async (_args, register) => {
+    const process = {
+      waitForExit: () => new Promise<number>(resolve => (exit = resolve)),
+      terminate,
+    }
+    register(process)
+    return process
+  })
+  runtime.launch.mockImplementationOnce(async (_args, register) => {
+    const process = {
+      waitForExit: () => new Promise<number>(resolve => (exitReplacement = resolve)),
+      terminate: terminateReplacement,
+    }
+    register(process)
+    return process
+  })
+  const { manager, config } = createManager()
+  manager.setGameConfig(config)
+  await vi.waitFor(() => expect(exit).toBeDefined())
+  vi.useFakeTimers()
+  try {
+    const stopped = manager.stop()
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(terminate).toHaveBeenCalledOnce()
+    expect(manager.getStatus()?.id).toBe('test')
+    manager.setGameConfig({ ...config, setup: { ...config.setup, gameId: 'replacement' } })
+    await vi.waitFor(() => expect(exitReplacement).toBeDefined())
+    confirmTermination()
+    exit(1223)
+    await stopped
+    expect(manager.getStatus()?.id).toBe('replacement')
+    expect(terminateReplacement).not.toHaveBeenCalled()
+    exitReplacement(0)
+    await vi.waitFor(() => expect(manager.getStatus()).toBeNull())
+  } finally {
+    vi.useRealTimers()
+  }
+})
+
+test('OS termination failure retains the launch and permits retry', async () => {
+  const terminate = vi
+    .fn()
+    .mockRejectedValueOnce(new Error('OS termination failed'))
+    .mockResolvedValue(undefined)
+  runtime.launch.mockImplementation(async (_args, register) => {
+    const process = { waitForExit: () => new Promise<number>(() => {}), terminate }
+    register(process)
+    return process
+  })
+  const { manager, config } = createManager()
+  manager.setGameConfig(config)
+  await vi.waitFor(() => expect(runtime.launch).toHaveBeenCalledOnce())
+  vi.useFakeTimers()
+  try {
+    const stopped = manager.stop().catch(error => error)
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(await stopped).toMatchObject({
+      message: 'Owned game process termination failed',
+      cause: new Error('OS termination failed'),
+    })
+    expect(manager.getStatus()?.id).toBe('test')
+    const retry = manager.stop()
+    await vi.advanceTimersByTimeAsync(2000)
+    await retry
+    expect(terminate).toHaveBeenCalledTimes(2)
+    expect(manager.getStatus()).toBeNull()
+  } finally {
+    vi.useRealTimers()
+  }
+})
+
+test('failed exit watcher retains ownership until explicit stop confirms termination', async () => {
+  const terminate = vi.fn(async () => {})
+  runtime.launch.mockImplementation(async (_args, register) => {
+    const process = {
+      waitForExit: async () => {
+        throw new Error('Wait failed')
+      },
+      terminate,
+    }
+    register(process)
+    return process
+  })
+  const { manager, config } = createManager()
+  const waitFailed = vi.spyOn(manager, 'handleGameExitWaitError')
+  manager.setGameConfig(config)
+  await vi.waitFor(() => expect(runtime.launch).toHaveBeenCalledOnce())
+  await vi.waitFor(() => expect(waitFailed).toHaveBeenCalledOnce())
+  expect(terminate).not.toHaveBeenCalled()
+  await manager.stop()
+  expect(terminate).toHaveBeenCalledOnce()
+})
+
+test('injection failure confirms owned-process cleanup before reporting launch failure', async () => {
+  let confirm!: () => void
+  const terminate = vi.fn(() => new Promise<void>(resolve => (confirm = resolve)))
+  runtime.launch.mockImplementation(async (_args, register) => {
+    register({ terminate })
+    throw new Error('Injection failed')
+  })
+  const { manager, config } = createManager()
+  const failure = vi.spyOn(manager, 'handleGameLaunchError')
+  manager.setGameConfig(config)
+  await vi.waitFor(() => expect(terminate).toHaveBeenCalledOnce())
+  expect(failure).not.toHaveBeenCalled()
+  confirm()
+  await vi.waitFor(() => expect(failure).toHaveBeenCalledOnce())
+  await manager.stop()
+  expect(terminate).toHaveBeenCalledOnce()
+})

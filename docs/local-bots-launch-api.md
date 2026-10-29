@@ -26,6 +26,11 @@ Use `TypedIpcRenderer` from `common/ipc.ts`:
 - `localGameGetStatus()` retrieves the current/latest session snapshot.
 - `localGameStop()` cancels loading or stops the match and waits for owned processes
   to exit. Leaving the visible game also cleans up its bots automatically.
+  After graceful deadlines, the app terminates a hung native client through its
+  launch-owned process handle and confirms exit. Cancellation during preparation
+  also prevents a late process from being resumed. If OS termination fails, stop
+  reports an error, retains ownership, and blocks replacement sessions until a
+  later stop succeeds. Normal app quit likewise waits for confirmed cleanup.
 
 Types live in `common/games/local-game.ts`. No SB account or user ID is required.
 The native game receives session-scoped player identities, which must never be
@@ -97,8 +102,9 @@ Bot windows stay hidden; native rendering remains capped at 30 FPS for sync safe
 
 The supervisor cancels the whole session on a bot/client failure. It does not yet
 replace a failed bot or let a partial session continue. Bot subprocess monitors
-terminate their bot when app IPC closes; local SC:R clients likewise exit on losing
-their app control pipe. Startup has a timeout and cleanup is idempotent. The current external-process
+terminate their bot when app IPC closes; responsive local SC:R clients exit on losing
+their app control pipe. Native termination is the fallback for an unresponsive
+client. Startup has a timeout and cleanup is idempotent. The current external-process
 monitor owns the directly spawned executable only. Bots that start detached child
 processes need additional process-tree ownership before they can be supported with
 the same cleanup guarantee.

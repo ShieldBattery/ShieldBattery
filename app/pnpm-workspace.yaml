@@ -16,3 +16,6 @@ allowBuilds:
   # its node-gyp build would only waste time and require a local toolchain
   better-sqlite3: false
   core-js: true
+
+patchedDependencies:
+  '@shieldbattery/stimpack@1.1.1': patches/stimpack-1.1.1.patch

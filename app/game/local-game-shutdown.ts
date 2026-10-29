@@ -14,10 +14,17 @@ export function waitForLocalGameOnQuit(
     event.preventDefault()
     stopping ??= Promise.resolve()
       .then(() => manager.stop())
-      .catch(onError)
-      .finally(() => {
-        finished = true
-        app.quit()
-      })
+      .then(
+        () => {
+          finished = true
+          app.quit()
+        },
+        error => {
+          // Retain the host and native owners until termination is confirmed. A later quit can
+          // retry the cleanup without abandoning a process whose termination failed.
+          stopping = undefined
+          onError(error)
+        },
+      )
   })
 }

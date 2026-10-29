@@ -8,6 +8,9 @@ overrides:
   '@types/node': 24.13.3
   '@types/unist': ^3.0.3
 
+patchedDependencies:
+  '@shieldbattery/stimpack@1.1.1': 92de488837a059fc3529b8c9d473269c1319c001b64bb20b4be8e69c91f81f2f
+
 importers:
 
   .:
@@ -20,7 +23,7 @@ importers:
         version: 0.6.0
       '@shieldbattery/stimpack':
         specifier: ^1.1.1
-        version: 1.1.1
+        version: 1.1.1(patch_hash=92de488837a059fc3529b8c9d473269c1319c001b64bb20b4be8e69c91f81f2f)
       '@shieldbattery/windows-registry':
         specifier: ^1.0.0
         version: 1.0.0
@@ -384,7 +387,7 @@ snapshots:
 
   '@shieldbattery/broodrep@0.6.0': {}
 
-  '@shieldbattery/stimpack@1.1.1': {}
+  '@shieldbattery/stimpack@1.1.1(patch_hash=92de488837a059fc3529b8c9d473269c1319c001b64bb20b4be8e69c91f81f2f)': {}
 
   '@shieldbattery/windows-registry@1.0.0': {}
 

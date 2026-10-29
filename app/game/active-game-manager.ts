@@ -57,6 +57,7 @@ import { holdHighPerformanceGpu } from './gpu-preference'
 import { MapStore } from './map-store'
 import { NetcodeV2KeyRing } from './netcode-v2-key-ring'
 import { generateNetcodeV2KeyPair, NetcodeV2KeyPair } from './netcode-v2-keys'
+import { ProcessLaunchControl } from './process-launch-control'
 
 // Fixed local UDP port for the game's netcode endpoint (normally ephemeral). A dev aid: pinning a
 // known per-client port lets traffic-shaping tools that filter by port (e.g. clumsy) target a
@@ -77,6 +78,7 @@ interface PendingDebugReply<T> {
 }
 
 interface ActiveGameInfo {
+  launchControl: ProcessLaunchControl
   stopRequested?: boolean
   id: string
   status?: {
@@ -84,7 +86,7 @@ interface ActiveGameInfo {
     extra: any // TODO(tec27): Type the extra param based on the GameStatus
   }
   /**
-   * A promise for when the game process has been launched, returning an instance of the process.
+   * Completes after launch preparation, the native process lifetime, and cleanup finish.
    */
   promise?: Promise<any>
   config?: GameLaunchConfig
@@ -227,6 +229,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
    * the ring's capacity eviction.
    */
   private pendingNetcodeV2Keys = new NetcodeV2KeyRing()
+  private participatingLaunches = new Set<ProcessLaunchControl>()
   private serverPort = 0
   private localControlPipe?: string
   /** FIFO queues of pending `debugQueryState` requests, keyed by game ID. */
@@ -280,54 +283,51 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
 
   async stop(graceful = false): Promise<void> {
     const game = this.activeGame
-    if (!game) return
-
-    const gamePromise = game.promise
-    const state = game.status?.state
-    // A game that has its result is already leaving (a background client exits on its own once
-    // its result is in), and that native exit is what gives a BWAPI client its match end. Quitting
-    // it outright would cut that short, so it gets the same deadline as a game asked to leave.
-    const leaving = state === GameStatus.HasResult || state === GameStatus.ResultSent
-    if (graceful && (state === GameStatus.Playing || leaving) && gamePromise) {
-      if (!leaving) {
-        game.stopRequested = true
-        this.emit('gameCommand', game.id, 'leave')
-      }
-
-      let timedOut = false
-      let deadline: ReturnType<typeof setTimeout> | undefined
-      const timeout = new Promise<void>(resolve => {
-        deadline = setTimeout(() => {
-          timedOut = true
-          resolve()
-        }, 2000)
-      })
+    // Snapshot ownership before awaiting; a replacement launch must never be terminated here.
+    const launches = Array.from(this.participatingLaunches)
+    let waitError: Error | undefined
+    if (game) {
+      const state = game.status?.state
+      const leaving = state === GameStatus.HasResult || state === GameStatus.ResultSent
       try {
-        await Promise.race([gamePromise, timeout])
-      } finally {
-        if (deadline) {
-          clearTimeout(deadline)
+        let exited = false
+        if (graceful && (state === GameStatus.Playing || leaving)) {
+          if (!leaving) {
+            game.stopRequested = true
+            this.emit('gameCommand', game.id, 'leave')
+          }
+          exited = await this.waitForGameExit(game.promise)
         }
+        if (!exited) {
+          if (this.gameFor(game.id) === game) this.forceQuitGame(game.id)
+          exited = await this.waitForGameExit(game.promise)
+          if (!exited) log.warning(`Game ${game.id} did not exit; terminating its owned process`)
+        }
+      } catch (err) {
+        waitError =
+          err instanceof Error ? err : new Error('Waiting for game exit failed', { cause: err })
       }
-      if (timedOut) {
-        this.forceQuitGame(game.id)
-      }
-    } else {
-      this.forceQuitGame(game.id)
     }
 
+    // Native ownership exists before injection starts. Cancellation also rejects late creation
+    // while the process is suspended. A failed termination keeps its owner available for retry.
+    const terminations = await Promise.allSettled(launches.map(launch => launch.terminate()))
+    for (const termination of terminations) {
+      if (termination.status === 'rejected') {
+        throw new Error('Owned game process termination failed', { cause: termination.reason })
+      }
+    }
+    if (game && this.gameFor(game.id) === game) this.quitGame(game, 'Game stopped')
+    if (waitError) throw waitError
+  }
+
+  private async waitForGameExit(promise: Promise<unknown> | undefined): Promise<boolean> {
     let deadline: ReturnType<typeof setTimeout> | undefined
     try {
-      await Promise.race([
-        gamePromise,
-        new Promise<never>((_, reject) => {
-          deadline = setTimeout(() => {
-            // Retire only this launch; a replacement game must keep its own tracking intact.
-            if (this.gameFor(game.id) === game) {
-              this.quitGame(game, 'Game did not exit after stopping')
-            }
-            reject(new Error('Game did not exit after stopping'))
-          }, 2000)
+      return await Promise.race([
+        Promise.resolve(promise).then(() => true),
+        new Promise<boolean>(resolve => {
+          deadline = setTimeout(() => resolve(false), 2000)
         }),
       ])
     } finally {
@@ -377,16 +377,19 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
   private launchGameProcess(
     gameId: string,
     config: GameLaunchConfig,
-    backgroundSettings?: ReturnType<typeof createBackgroundGameSettings>,
+    backgroundSettings: ReturnType<typeof createBackgroundGameSettings> | undefined,
+    launchControl: ProcessLaunchControl,
   ): Promise<void> {
     const foreground = config.presentation !== 'background'
     if (foreground) {
       this.emit('gameProcessLaunching', gameId)
     }
     let processMayBeRunning = false
+    const participating = !isReplayMapInfo(config.setup.map)
+    if (participating) this.participatingLaunches.add(launchControl)
     const cleanupBackgroundSettings = async () => {
       // A failed wait does not prove the process exited; retain its live settings in that case.
-      if (backgroundSettings && !processMayBeRunning) {
+      if (backgroundSettings && !processMayBeRunning && !launchControl.mayBeRunning) {
         try {
           const prepared = await backgroundSettings
           await prepared.dispose()
@@ -395,11 +398,17 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
         }
       }
     }
+    launchControl.onTerminated = async () => {
+      processMayBeRunning = false
+      this.participatingLaunches.delete(launchControl)
+      await cleanupBackgroundSettings()
+    }
     return doLaunch(
       gameId,
       this.serverPort,
       this.localSettings,
       this.scrSettings,
+      launchControl,
       backgroundSettings,
       config.setup.localSession
         ? {
@@ -414,6 +423,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
           try {
             const code = await proc.waitForExit()
             processMayBeRunning = false
+            launchControl.markExited()
             this.handleGameExit(gameId, code)
           } catch (err) {
             this.handleGameExitWaitError(gameId, err as Error)
@@ -421,9 +431,22 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
             releaseGpuPreference()
           }
         },
-        err => this.handleGameLaunchError(gameId, err),
+        async err => {
+          // Injection can fail after CreateProcess succeeds. Its termination guard is best-effort;
+          // confirm cleanup through the owner before discarding any launch bookkeeping.
+          try {
+            await launchControl.terminate()
+          } catch (cleanupError) {
+            this.handleGameLaunchError(gameId, cleanupError as Error)
+            return
+          }
+          this.handleGameLaunchError(gameId, err)
+        },
       )
       .finally(() => {
+        if (!processMayBeRunning && !launchControl.mayBeRunning) {
+          this.participatingLaunches.delete(launchControl)
+        }
         if (foreground) {
           this.emit('gameProcessEnded', gameId)
         }
@@ -466,7 +489,13 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
 
     const gameId = config.setup.gameId
     const backgroundSettings = prepareBackgroundSettings(config)
-    const activeGamePromise = this.launchGameProcess(gameId, config, backgroundSettings)
+    const launchControl = new ProcessLaunchControl()
+    const activeGamePromise = this.launchGameProcess(
+      gameId,
+      config,
+      backgroundSettings,
+      launchControl,
+    )
     // A relaunch of the *same* game id carries that game's already-selected keypair and session
     // handoff forward — reusing them is correct since it's the same session. A *different* game id
     // must not inherit the old (hung) game's session, so it starts with no keypair adopted yet:
@@ -476,6 +505,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     this.activeGame = {
       ...current,
       stopRequested: false,
+      launchControl,
       netcodeV2Keys: carried?.netcodeV2Keys,
       netcodeV2Setup: carried?.netcodeV2Setup,
       // A fresh launch's transport is unknown until the new game's init reports it; this also
@@ -508,13 +538,19 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     }
 
     const game: ActiveGameInfo = {
+      launchControl: new ProcessLaunchControl(),
       id: gameId,
       config,
       backgroundSettings: prepareBackgroundSettings(config),
       status: { state: GameStatus.Unknown, extra: null },
     }
     this.watchOnlyGames.set(gameId, game)
-    game.promise = this.launchGameProcess(gameId, config, game.backgroundSettings)
+    game.promise = this.launchGameProcess(
+      gameId,
+      config,
+      game.backgroundSettings,
+      game.launchControl,
+    )
     log.verbose(`Creating new watch-only game ${gameId}`)
     this.setStatus(game, GameStatus.Launching)
     return gameId
@@ -1286,6 +1322,7 @@ async function doLaunch(
   serverPort: number,
   localSettings: LocalSettingsManager,
   scrSettings: ScrSettingsManager,
+  launchControl: ProcessLaunchControl,
   backgroundSettings?: ReturnType<typeof createBackgroundGameSettings>,
   localSession?: { controlPipe: string; bwapiInstance?: string },
 ) {
@@ -1416,14 +1453,17 @@ async function doLaunch(
         ? await holdHighPerformanceGpu(appPath)
         : () => {}
     try {
-      const proc = await launchProcess({
-        appPath,
-        args: args as any,
-        currentDir: starcraftPath,
-        dllPath: injectPath,
-        dllFunc: 'OnInject',
-        logCallback: ((msg: string) => log.verbose(`[Inject] ${msg}`)) as any,
-      })
+      const proc = await launchProcess(
+        {
+          appPath,
+          args: args as any,
+          currentDir: starcraftPath,
+          dllPath: injectPath,
+          dllFunc: 'OnInject',
+          logCallback: ((msg: string) => log.verbose(`[Inject] ${msg}`)) as any,
+        },
+        process => launchControl.attach(process),
+      )
       log.verbose('Process launched')
       return { proc, releaseGpuPreference }
     } catch (err) {

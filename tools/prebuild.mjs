@@ -1,5 +1,5 @@
-// Builds an optional companion package before the app is bundled, when the build environment points
-// at one. With none configured this does nothing, so a plain checkout builds unchanged.
+// Builds the owned-process launcher on Windows and an optional companion package before bundling.
+// Release builds still require a valid companion configuration.
 //
 // Usage: node tools/prebuild.mjs [--release]
 import { spawnSync } from 'node:child_process'
@@ -7,6 +7,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseEnv } from 'node:util'
+import { buildNativeLauncher } from './build-native-launcher.mjs'
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -44,6 +45,10 @@ if (isRelease) {
     console.error('Release build requires a valid companion configuration.')
     process.exit(1)
   }
+}
+
+if (process.platform === 'win32') {
+  buildNativeLauncher()
 }
 
 if (!entry) {

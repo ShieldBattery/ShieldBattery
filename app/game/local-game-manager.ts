@@ -31,6 +31,7 @@ interface Session {
   control?: { endpoint: string; dispose: () => void }
   timer?: ReturnType<typeof setTimeout>
   stopping: boolean
+  cleanupFailed?: boolean
   stopped?: Promise<void>
 }
 
@@ -61,6 +62,7 @@ export class LocalGameManager extends EventEmitter<{ status: [status: LocalGameS
   isActive(): boolean {
     return (
       this.launching ||
+      !!this.session?.cleanupFailed ||
       (!!this.session && !['finished', 'error'].includes(this.session.status.state))
     )
   }
@@ -68,6 +70,7 @@ export class LocalGameManager extends EventEmitter<{ status: [status: LocalGameS
   async start(request: LocalGameRequest): Promise<LocalGameStatus> {
     if (
       this.launching ||
+      this.session?.cleanupFailed ||
       (this.session &&
         !this.session.stopping &&
         !['finished', 'error'].includes(this.session.status.state))
@@ -80,6 +83,7 @@ export class LocalGameManager extends EventEmitter<{ status: [status: LocalGameS
     let session: Session | undefined
     try {
       await this.session?.stopped
+      if (this.session?.cleanupFailed) throw new Error('Previous local game cleanup failed')
       validateRequest(request)
       await this.verifyFiles(request)
       if (this.launchCanceled) throw new Error('Local game launch canceled')
@@ -273,7 +277,13 @@ export class LocalGameManager extends EventEmitter<{ status: [status: LocalGameS
 
   async stop(): Promise<void> {
     this.launchCanceled = true
-    if (this.session) await this.stopSession(this.session)
+    const session = this.session
+    if (session) {
+      await this.stopSession(session)
+      if (session.cleanupFailed) {
+        throw new Error(session.status.error ?? 'Local game cleanup failed')
+      }
+    }
   }
 
   /** Whether every bot instance in the session has reported a result or exited. */
@@ -324,7 +334,8 @@ export class LocalGameManager extends EventEmitter<{ status: [status: LocalGameS
         }
       }
       const waits = session.managers.map(manager => manager.stop())
-      // Closing control IPC also cancels a game whose native thread is stalled.
+      // Responsive clients can leave on IPC closure; manager.stop retains native termination as
+      // the fallback for a stalled game thread.
       session.control?.dispose()
       session.hub?.close()
       for (const worker of session.workers) {
@@ -347,6 +358,7 @@ export class LocalGameManager extends EventEmitter<{ status: [status: LocalGameS
       }
       const stopped = await Promise.allSettled(waits)
       const failure = stopped.find(result => result.status === 'rejected')
+      session.cleanupFailed = !!failure
       if (!error && failure?.status === 'rejected') {
         error = failure.reason instanceof Error ? failure.reason : new Error(String(failure.reason))
         session.status.error = error.message
@@ -355,7 +367,9 @@ export class LocalGameManager extends EventEmitter<{ status: [status: LocalGameS
       for (const detach of session.detach) detach()
       session.status.state = error ? 'error' : 'finished'
       this.publish(session)
-    })()
+    })().finally(() => {
+      if (session.cleanupFailed) session.stopped = undefined
+    })
     return session.stopped
   }
 

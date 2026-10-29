@@ -556,7 +556,7 @@ describe('per-client manager lifetime', () => {
       manager.setGameConfig(configFor('hung'))
       const failure = manager.stop().catch((error: unknown) => error)
       await vi.advanceTimersByTimeAsync(2000)
-      expect(await failure).toEqual(new Error('Game did not exit after stopping'))
+      expect(await failure).toBeUndefined()
       expect(manager.getStatus()).toBeNull()
       expect(manager.setGameConfig(configFor('next'))).toBe('next')
       expect(manager.getStatus()?.id).toBe('next')
@@ -574,7 +574,7 @@ describe('per-client manager lifetime', () => {
       const failure = manager.stop().catch((error: unknown) => error)
       manager.setGameConfig(configFor('new'))
       await vi.advanceTimersByTimeAsync(2000)
-      expect(await failure).toBeInstanceOf(Error)
+      expect(await failure).toBeUndefined()
       expect(manager.getStatus()?.id).toBe('new')
     } finally {
       vi.useRealTimers()

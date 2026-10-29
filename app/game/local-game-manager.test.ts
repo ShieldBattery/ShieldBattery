@@ -84,6 +84,9 @@ type TestManager = {
   getManager: LocalGameManager['getManager']
   stopSession: LocalGameManager['stopSession']
   startBot: LocalGameManager['startBot']
+  stop: LocalGameManager['stop']
+  start: LocalGameManager['start']
+  isActive: LocalGameManager['isActive']
 }
 
 function shutdownFixture() {
@@ -308,6 +311,21 @@ test('a client stop failure releases session resources and reports an error', as
   expect(f.dispose).toHaveBeenCalledOnce()
   expect(f.close).toHaveBeenCalledOnce()
   expect(f.session.status.state).toBe('error')
+})
+
+test('unconfirmed cleanup retains session ownership and permits stop retry', async () => {
+  const f = shutdownFixture()
+  f.manager.session = f.session
+  f.session.status.state = 'launching'
+  f.stop.mockRejectedValueOnce(new Error('Termination failed')).mockResolvedValue(undefined)
+  await expect(f.manager.stop()).rejects.toThrow('Termination failed')
+  expect(f.manager.isActive()).toBe(true)
+  expect(f.session.stopped).toBeUndefined()
+  expect(f.manager.getManager('bot')).toBe(f.game)
+  await expect(f.manager.start(requestWith())).rejects.toThrow('already active')
+  await f.manager.stop()
+  expect(f.manager.isActive()).toBe(false)
+  expect(f.session.status.state).toBe('finished')
 })
 
 test('resignation settling waits for every game result before graceful stops', async () => {

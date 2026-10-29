@@ -32,14 +32,18 @@ test('normal quit waits once for local teardown before allowing app exit', async
   expect(f.event.preventDefault).toHaveBeenCalledTimes(2)
 })
 
-test('teardown failure is reported and still allows app exit', async () => {
+test('teardown failure retains the app and a later quit retries cleanup', async () => {
   const f = fixture()
   const error = new Error('Client did not exit')
-  f.manager.stop.mockRejectedValue(error)
+  f.manager.stop.mockRejectedValueOnce(error).mockResolvedValue(undefined)
   f.app.emit('before-quit', f.event)
-  await vi.waitFor(() => expect(f.app.quit).toHaveBeenCalledOnce())
+  await vi.waitFor(() => expect(f.onError).toHaveBeenCalledOnce())
+  expect(f.app.quit).not.toHaveBeenCalled()
   expect(f.onError).toHaveBeenCalledExactlyOnceWith(error)
   expect(f.manager.stop).toHaveBeenCalledOnce()
+  f.app.emit('before-quit', f.event)
+  await vi.waitFor(() => expect(f.app.quit).toHaveBeenCalledOnce())
+  expect(f.manager.stop).toHaveBeenCalledTimes(2)
 })
 
 test('quit without a local game proceeds immediately', () => {
