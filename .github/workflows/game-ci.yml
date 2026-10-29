@@ -3,19 +3,34 @@ name: Game CI
 on:
   push:
     paths:
-      - '.github/workflows/game-ci.yml'
+      - '*'
+      - '!README.md'
+      - '.github/**'
+      - '.cargo/**'
+      - 'tools/ci/**'
       - 'game/**'
+      - 'tools/SB_INIT_BINARY_LICENSE.txt'
   pull_request:
-    paths:
-      - '.github/workflows/game-ci.yml'
-      - 'game/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  plan:
+    uses: ./.github/workflows/ci-plan.yml
+    with:
+      component: game
+      workflow-file: game-ci.yml
+
   clippy:
+    needs: plan
+    if: ${{ !cancelled() && (needs.plan.result != 'success' || needs.plan.outputs.run != 'false') }}
     runs-on: windows-latest
     defaults:
       run:
@@ -46,6 +61,8 @@ jobs:
         run: cargo clippy --all-targets --workspace ${{ matrix.target }} -- -D warnings
 
   fmt:
+    needs: plan
+    if: ${{ !cancelled() && (needs.plan.result != 'success' || needs.plan.outputs.run != 'false') }}
     runs-on: windows-latest
     defaults:
       run:
@@ -64,6 +81,8 @@ jobs:
         run: cargo fmt --all -- --check
 
   licenses:
+    needs: plan
+    if: ${{ !cancelled() && (needs.plan.result != 'success' || needs.plan.outputs.run != 'false') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -74,6 +93,8 @@ jobs:
           command: check licenses
 
   test:
+    needs: plan
+    if: ${{ !cancelled() && (needs.plan.result != 'success' || needs.plan.outputs.run != 'false') }}
     runs-on: windows-latest
     defaults:
       run:
@@ -100,3 +121,12 @@ jobs:
 
       - name: cargo test ${{ matrix.display }}
         run: cargo test --all-targets --no-fail-fast ${{ matrix.target }}
+
+  result:
+    if: ${{ always() }}
+    needs: [plan, clippy, fmt, licenses, test]
+    uses: ./.github/workflows/ci-result.yml
+    with:
+      component: game
+      workflow-file: game-ci.yml
+      results: ${{ toJSON(needs) }}

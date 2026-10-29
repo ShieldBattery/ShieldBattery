@@ -80,6 +80,40 @@ In order to actually run the game through the standalone application, you need t
 that you successfully built the Rust code as explained in the [getting started](./docs/GETTING_STARTED.md)
 guide.
 
+### CI validation
+
+JS, game, and server-rs pull-request workflows always report a planning/result check, even when their
+expensive jobs are unnecessary. Ordinary Markdown under `docs/` and root `README.md` are excluded from
+build-input fingerprints. Markdown elsewhere, executable files, symlinks, licenses, shared CI scripts,
+and build configuration remain inputs. Rust workflows also track their shared configuration and
+schema/typeshare/database dependencies.
+
+A documentation-only PR can skip expensive jobs when the merged component inputs match its base.
+For a documentation follow-up on a code PR, reuse requires the latest matching workflow run to have
+succeeded, unchanged source/CI fingerprints, the same fork/PR and base commit, and an accessible
+validation receipt. The candidate head tree is checked independently of the receipt. Missing,
+failed, cancelled, inaccessible, divergent, or expired evidence runs full checks. Validation expires
+24 hours after its original successful completion; later documentation updates do not extend it.
+Receipts are generated in a clean result job and retained as workflow artifacts for seven days.
+
+Existing validation job names are preserved. Intentional skips report successful/skipped jobs rather
+than leaving required PR workflows pending. A failed planner runs the expensive jobs and fails the
+result guard; a cancelled workflow does not start more expensive jobs. Maintainers can require each
+workflow's result check as well as their existing checks. The workflow summary explains full runs,
+unaffected components, and reused validation.
+
+Use **Re-run all jobs** or **Run workflow** (`workflow_dispatch`) to request fresh checks even when
+inputs are unchanged. Re-running only failed jobs does not rerun a successful planner. Receipt expiry
+is rechecked before recording a reused result. Push filters suppress pure documentation pushes and
+unrelated Rust workflows; PR planning remains unconditional. This does not use `pull_request_target`,
+write tokens, dependency caches as success evidence, or an automatic skip on every Markdown commit.
+
+The dependency-free policy tests run in each planning job and can be run locally:
+
+```sh
+node --test tools/ci/validation.test.cjs
+```
+
 ## Project structure
 
 The ShieldBattery project is broken down into several big pieces, located in these folders:

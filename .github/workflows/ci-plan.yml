@@ -1,0 +1,64 @@
+name: Plan CI validation
+
+on:
+  workflow_call:
+    inputs:
+      component:
+        required: true
+        type: string
+      workflow-file:
+        required: true
+        type: string
+    outputs:
+      run:
+        value: ${{ jobs.plan.outputs.run }}
+      mode:
+        value: ${{ jobs.plan.outputs.mode }}
+      validated-run-id:
+        value: ${{ jobs.plan.outputs.validated-run-id }}
+      validated-at:
+        value: ${{ jobs.plan.outputs.validated-at }}
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  plan:
+    name: ${{ inputs.component }} CI plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      run: ${{ steps.decision.outputs.run }}
+      mode: ${{ steps.decision.outputs.mode }}
+      validated-run-id: ${{ steps.decision.outputs.validated-run-id }}
+      validated-at: ${{ steps.decision.outputs.validated-at }}
+    env:
+      CI_COMPONENT: ${{ inputs.component }}
+      CI_WORKFLOW_FILE: ${{ inputs.workflow-file }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.x'
+      - name: Test CI decision policy
+        run: node --test tools/ci/validation.test.cjs
+      - name: Find prior successful validation
+        id: evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node tools/ci/validation.cjs prepare
+      - name: Read validation receipt
+        if: steps.evidence.outputs.candidate-run-id != ''
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: ci-validation-${{ inputs.component }}
+          path: ${{ runner.temp }}/ci-validation-receipt
+          github-token: ${{ github.token }}
+          run-id: ${{ steps.evidence.outputs.candidate-run-id }}
+      - name: Decide whether checks must run
+        id: decision
+        run: node tools/ci/validation.cjs decide

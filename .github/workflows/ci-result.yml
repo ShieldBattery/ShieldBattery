@@ -1,0 +1,46 @@
+name: Record CI validation
+
+on:
+  workflow_call:
+    inputs:
+      component:
+        required: true
+        type: string
+      workflow-file:
+        required: true
+        type: string
+      results:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  result:
+    name: ${{ inputs.component }} CI result
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      CI_COMPONENT: ${{ inputs.component }}
+      CI_WORKFLOW_FILE: ${{ inputs.workflow-file }}
+      CI_JOB_RESULTS: ${{ inputs.results }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.x'
+      - name: Check job results and record successful inputs
+        id: result
+        run: node tools/ci/validation.cjs finish
+      - name: Save validation receipt
+        if: steps.result.outputs.save == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-validation-${{ inputs.component }}
+          path: ${{ runner.temp }}/ci-validation-receipt/receipt.json
+          retention-days: 7
+          if-no-files-found: error
