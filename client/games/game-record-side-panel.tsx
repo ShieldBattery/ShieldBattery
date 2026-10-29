@@ -101,7 +101,7 @@ function GameRecordSidePanelContent({
 }: GameRecordSidePanelContentProps) {
   const { t } = useTranslation()
   const map = useAppSelector(s => s.maps.byId.get(game.mapId))
-  const { replayInfo, onWatchReplay } = useGameReplayActions(game)
+  const { replayInfo, onWatchReplay } = useGameReplayActions(game.id)
 
   const mapName = map?.name ?? t('game.mapName.unknown', 'Unknown map')
 

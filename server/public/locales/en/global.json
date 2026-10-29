@@ -1465,7 +1465,8 @@
       "morePlayers_other": "+{{count}} more",
       "showResults": "Show results",
       "versus": "vs",
-      "view": "View game"
+      "view": "View game",
+      "watch": "Watch"
     },
     "list": {
       "noMatchingGames": "No matching games.",

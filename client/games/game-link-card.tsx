@@ -58,6 +58,7 @@ import { bodySmall, labelMedium, singleLine, titleMedium, titleSmall } from '../
 import { ConnectedUsername } from '../users/connected-username'
 import { navigateToGameResults } from './action-creators'
 import { PlayerResultMarker } from './result-chip'
+import { useGameReplayActions } from './use-game-replay-actions'
 
 /** The game a chat message link points at, and the results tab it links to (if any). */
 export interface GameLinkTarget {
@@ -405,6 +406,17 @@ function ResultsToggle({ revealed, onToggle }: { revealed: boolean; onToggle: ()
   )
 }
 
+/** Starts watching a game, without also opening its results page. */
+function WatchAction({ onWatch }: { onWatch: () => void }) {
+  const { t } = useTranslation()
+  return (
+    <BackdropCardAction onClick={onWatch} testName='game-link-card-watch-button'>
+      <MaterialIcon icon='play_arrow' size={18} />
+      {t('games.linkCard.watch', 'Watch')}
+    </BackdropCardAction>
+  )
+}
+
 type MatchupSize = 'medium' | 'large'
 
 const MATCHUP_ROW_HEIGHT: Record<MatchupSize, number> = { medium: 20, large: 32 }
@@ -721,7 +733,8 @@ function GameMatchup({
 /**
  * The card's header: the game's type (with its full label, e.g. "Ranked 1v1", in a tooltip when the
  * shown one leaves part of it out), its map, how long ago it was played (with the full start time in
- * a tooltip), its length when `showLength` is set, and the results toggle.
+ * a tooltip), its length when `showLength` is set, the results toggle, and the watch action when
+ * `onWatch` is set.
  */
 function CardHeaderRow({
   game,
@@ -729,12 +742,14 @@ function CardHeaderRow({
   showLength,
   resultsRevealed,
   onToggleResults,
+  onWatch,
 }: {
   game: ReadonlyDeep<GameRecordJson>
   mapName: string
   showLength: boolean
   resultsRevealed: boolean
   onToggleResults: () => void
+  onWatch: (() => void) | undefined
 }) {
   const { t } = useTranslation()
   const narrowDurationFormat = useFormat(narrowDuration)
@@ -759,6 +774,7 @@ function CardHeaderRow({
       {hasRecordedResults(game) ? (
         <ResultsToggle revealed={resultsRevealed} onToggle={onToggleResults} />
       ) : null}
+      {onWatch ? <WatchAction onWatch={onWatch} /> : null}
     </BackdropCardHeader>
   )
 }
@@ -783,10 +799,16 @@ function CardHeaderRow({
 export function GameLinkCardContent({
   state,
   onClick,
+  onWatch,
 }: {
   state: GameLinkLoadState | undefined
   /** Opens the game's results page. */
   onClick: () => void
+  /**
+   * Starts watching the game, from a header action shown once it has loaded. Omitted when there's
+   * nothing this client can watch.
+   */
+  onWatch?: () => void
 }) {
   const { t } = useTranslation()
   const [resultsRevealed, setResultsRevealed] = useState(false)
@@ -827,6 +849,7 @@ export function GameLinkCardContent({
         showLength={!lengthUnderVersus}
         resultsRevealed={showResults}
         onToggleResults={() => setResultsRevealed(!resultsRevealed)}
+        onWatch={onWatch}
       />
       <GameMatchup
         game={game}
@@ -841,15 +864,21 @@ export function GameLinkCardContent({
 
 /**
  * A rich preview for a game results link posted in chat, the whole of which opens the game's results
- * page (on the tab the link points at). Fetches the game itself (see {@link useGameLinkState}), so
- * it can be rendered for any game id.
+ * page (on the tab the link points at). In the app, a game with a replay the viewer can access also
+ * gets a watch action that plays it. Fetches the game itself (see {@link useGameLinkState}), so it
+ * can be rendered for any game id.
  */
 export function GameLinkCard({ target }: { target: GameLinkTarget }) {
   const state = useGameLinkState(target.gameId)
+  const { replayInfo, onWatchReplay } = useGameReplayActions(target.gameId)
+  // TODO(bwtv): Let a game that's still in progress (no results and not canceled) be watched live
+  // through BWTV.
+  const canWatchReplay = IS_ELECTRON && replayInfo !== undefined
   return (
     <GameLinkCardContent
       state={state}
       onClick={() => navigateToGameResults(target.gameId, false, target.subPage)}
+      onWatch={canWatchReplay ? onWatchReplay : undefined}
     />
   )
 }

@@ -1,7 +1,6 @@
 import { useTranslation } from 'react-i18next'
-import { ReadonlyDeep } from 'type-fest'
 import { getErrorStack } from '../../common/errors'
-import { GameRecordJson, GameReplayInfo } from '../../common/games/games'
+import { GameReplayInfo } from '../../common/games/games'
 import { openSimpleDialog } from '../dialogs/action-creators'
 import logger from '../logging/logger'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
@@ -21,18 +20,16 @@ export interface UseGameReplayActionsResult {
  * action. Callers handle their own mouse-event concerns (e.g. `stopPropagation` to keep a click on
  * these actions from also selecting the underlying row).
  */
-export function useGameReplayActions(
-  game: ReadonlyDeep<GameRecordJson>,
-): UseGameReplayActionsResult {
+export function useGameReplayActions(gameId: string): UseGameReplayActionsResult {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
-  const replayInfo = useAppSelector(s => s.games.replayInfoById.get(game.id))
+  const replayInfo = useAppSelector(s => s.games.replayInfoById.get(gameId))
 
   const onWatchReplay = () => {
     if (!replayInfo) return
 
     dispatch(
-      watchReplayFromUrl(replayInfo, game.id, {
+      watchReplayFromUrl(replayInfo, gameId, {
         onSuccess: () => {},
         onError: err => {
           logger.error(`Error watching replay: ${getErrorStack(err)}`)
