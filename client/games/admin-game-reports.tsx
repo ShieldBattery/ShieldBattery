@@ -178,7 +178,6 @@ function reasonToLabel(reason: GameReportReason): string {
   }
 }
 
-/** Friendly messages for the `code`s the nullify-points endpoint can return. */
 /** Describes when, in game time, a report filed while its game was being played was made. */
 function ReportedGameTime({
   gameId,
