@@ -259,6 +259,72 @@ and task replay hashes. Disposable profiles were archived into ignored
 `private-state/`. The genuine autosaved test replay remains available. No push or
 remote change was performed.
 
+## Full replay playback and seeking follow-up
+
+The remaining public-source replay checks used the unchanged combined application
+source and the exact release DLLs whose hashes are listed above. Both processes
+ran on Electron 44.9.3 with the main process in production mode, isolated profiles,
+normal password authentication against the disposable development backend, and
+the original 77,250-byte practice replay. No debug DLL or scripted debug seek was
+substituted for release behavior.
+
+Both architectures played the entire 7,863-frame replay. Independent uninterrupted
+1x baselines recorded all 33 sync probes from frame zero through frame 7,680;
+every complete probe matched the original live game's data, including the period
+after its reported result. The user confirmed the native replay end around 5:28
+on both architectures. The native processes remained alive at replay end until
+normal application cleanup. Architecture-matched module inspection verified the
+actual x64 and x86 release DLL hashes in these fresh baseline processes.
+
+Native timeline interaction was user-assisted because the computer-use helper
+could not attach across Windows/WSL. Its requests and simulation were checked
+independently in the game logs:
+
+| Architecture | Logged forward/backward requests | Completed seeks | Outcome |
+| --- | --- | --- | --- |
+| x64 | 1 forward, 6 backward | 8, including native restart seeking after replay end | Every target reached exactly; recorded post-seek probes matched live state |
+| x86 | 12 forward, 12 backward | 24 | Every target reached exactly; recorded post-seek probes matched live state |
+
+Backward requests restored cached keyframes on both architectures. The x86 user
+checks explicitly confirmed forward and backward seeking while paused, updated
+pictures with the replay staying paused, resumed playback, return to frame zero,
+and playback to the end. The native trace corroborates those seek targets and
+subsequent frame progression. Timeline dragging can emit several requests, so the
+table counts native requests rather than separate manual test cases.
+
+Seek-phase logs were preserved before restarting the uninterrupted baselines.
+An initial short x64 run was interrupted during a harness audit and is excluded
+from full-playback claims. An initial concurrent x86 launch hit the production
+singleton policy because both disposable user-data folders had the same basename;
+using a distinct profile basename resolved that harness setup issue. The x86
+baseline's final module inspection used a native 32-bit inspector. No application
+source, security guard, game DLL, or installed game file changed for these checks.
+
+Both baseline processes logged `Broken replay? Unable to read next frame` when
+the final leave command was consumed at frame 4,841. This is a false-positive
+end-of-command-stream diagnostic: an independent walk consumed all 260,223
+command-section bytes as 2,401 complete records, and broodrep accepted all 26,374
+commands with that leave as the last command. In `step_replay_commands`, consuming
+the last record makes the next loop iteration call `replay_next_frame` with an
+empty slice, which takes the warning path; the empty-stream check only precedes
+the loop. That warning path also exists on the tested upstream master. No replay
+bytes were missing, and all later probes through frame 7,680 matched live state.
+The logging issue is recorded for a separate follow-up; it was not hidden or
+changed to make these release-binary checks pass.
+
+Detailed evidence is under ignored `.claude-scratch/replay-completion/`, including
+separate seek-phase logs, uninterrupted baseline logs, loaded-module records, and
+final per-architecture reports and command-section inspection. These results
+complete full playback, seeking, paused-seek/resume, and x86 replay verification
+for this one pinned practice replay. `verification-summary.json` records the
+combined results and diagnostic classification. Final cleanup found zero owned
+runtime processes, stopped only the task-owned backend/database/cache, confirmed
+the original native LastReplay was unchanged, and archived disposable profiles
+under ignored `private-state/`.
+They do not establish compatibility with every replay, signed packaged-app
+behavior, proprietary companion behavior, or production catalog delivery. No push
+or upstream change was made for this follow-up.
+
 ## Publication boundary
 
 Maintainers still need to integrate the branch and PR #1838, complete robotics
