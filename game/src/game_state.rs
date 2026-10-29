@@ -122,6 +122,7 @@ pub enum GameStateMessage {
     GameSetupDone,
     GameThread(GameThreadMessage),
     CleanupQuit,
+    LeaveGame,
     QuitIfNotStarted,
     /// Debug/verification control surface command (see `crate::debug_control`); absent from
     /// release builds.
@@ -352,50 +353,57 @@ impl GameState {
             // - absent, exactly one participant (a playing human or an observer) → a solo game: a
             //   sessionless, local-only turn state.
             // - absent, more than one participant → a server misconfiguration: fail the load loudly.
-            if let Some(setup) = netcode_v2_setup {
-                // Stand up the rally-point2 turn transport before the native lobby is created. A game
-                // launched for netcode v2 must run on it; if the relay can't be reached the load
-                // fails outright, so the app cancels it and surfaces an error rather than silently
-                // playing on native networking.
+            if netcode_v2_setup.is_some() || info.local_session.is_some() {
+                if netcode_v2_setup.is_some() && info.local_session.is_some() {
+                    return Err(GameInitError::NetcodeV2SessionInit(
+                        "a game cannot select both netcode v2 and localSession".into(),
+                    ));
+                }
+                // Both transports use the same game-thread TurnState/lobby seam. The relay path
+                // owns QUIC and re-home; a local match instead connects each SC:R process to the
+                // Electron-owned named-pipe hub before any native lobby command can flush.
                 //
-                // A game with AI players self-closes its relay session when the last remote human
-                // leaves, so the lone human plays on versus the computers locally (see
+                // A relay game with AI players self-closes its relay session when the last remote
+                // human leaves, so the lone human plays on versus the computers locally (see
                 // `TurnState::should_self_close`).
                 let has_computers = info.slots.iter().any(|s| s.is_computer());
-                // Whether the game's opening rolls back as much as it can (see
-                // `rollback_live::arm_for_session`): not where a team shares control, nor on a map
-                // of its own settings.
-                let opening_rollback = !matches!(
-                    info.game_type,
-                    GameType::Ums | GameType::TeamMelee | GameType::TeamFfa
-                );
-                // Context the re-home provider authenticates its SB-server failover requests with
-                // (the same gameId + userId + resultCode the results submission uses).
-                let rehome_context = netcode_v2::RehomeContext {
-                    server_url: server_url.clone(),
-                    game_id: info.game_id.clone(),
-                    user_id: local_user.id,
-                    result_code: info.result_code.clone(),
-                };
-                let mut session_start =
-                    netcode_v2::establish_session(
+                let (mut session_start, transport) = if let Some(setup) = netcode_v2_setup {
+                    // Whether the game's opening rolls back as much as it can (see
+                    // `rollback_live::arm_for_session`): not where a team shares control, nor on a
+                    // map of its own settings.
+                    let opening_rollback = !matches!(
+                        info.game_type,
+                        GameType::Ums | GameType::TeamMelee | GameType::TeamFfa
+                    );
+                    // Context the re-home provider authenticates its SB-server failover requests
+                    // with (the same gameId + userId + resultCode the results submission uses).
+                    let rehome_context = netcode_v2::RehomeContext {
+                        server_url: server_url.clone(),
+                        game_id: info.game_id.clone(),
+                        user_id: local_user.id,
+                        result_code: info.result_code.clone(),
+                    };
+                    let start = netcode_v2::establish_session(
                         &setup,
                         has_computers,
                         opening_rollback,
                         rehome_context,
                     )
                         .await
-                        // The full root cause matters here: this string is the error the app
-                        // reports to the server as this client's load failure, and the deep
-                        // detail (e.g. the relay's close reason) is often the only clue to why
-                        // a session could not be established.
                         .map_err(|e| {
-                            GameInitError::NetcodeV2SessionInit(netcode_v2::error_with_root_cause(
-                                &e,
-                            ))
+                            GameInitError::NetcodeV2SessionInit(netcode_v2::error_with_root_cause(&e))
                         })?;
-                info!("Netcode v2 session established");
-                // Route lobby command traffic through the rp2 turn transport rather than native
+                    info!("Netcode v2 session established");
+                    (start, NetworkTransport::NetcodeV2)
+                } else {
+                    let setup = info.local_session.as_ref().expect("checked localSession");
+                    let start = netcode_v2::establish_local_session(setup, has_computers)
+                        .await
+                        .map_err(|e| GameInitError::NetcodeV2SessionInit(e.to_string()))?;
+                    info!("Local named-pipe session established");
+                    (start, NetworkTransport::Local)
+                };
+                // Route lobby command traffic through the selected turn transport rather than native
                 // Storm networking. This must latch on before any native create/join runs: the
                 // host's lobby machine starts flushing lobby turns the instant its session is
                 // created, and those turns have to ride the seam from the very first flush.
@@ -404,7 +412,7 @@ impl GameState {
                     &ws_send,
                     "/game/networkStatus",
                     NetworkStatus {
-                        transport: NetworkTransport::NetcodeV2,
+                        transport,
                         error: None,
                     },
                 )
@@ -625,8 +633,13 @@ impl GameState {
                                     "Netcode v2 session-start directive received without an initial \
                                     buffer depth; keeping the seeded depth and starting game"
                                 ),
+                                None if transport == NetworkTransport::Local => {
+                                    return Err(GameInitError::NetcodeV2SessionInit(
+                                        "local session hub closed before every client was ready".into(),
+                                    ));
+                                }
                                 None => warn!(
-                                    "Netcode v2 session-start channel closed before a directive; starting anyway"
+                                    "netcode v2 session-start channel closed before a directive; starting anyway"
                                 ),
                             }
                             break;
@@ -983,6 +996,9 @@ impl GameState {
                 };
                 tokio::spawn(task);
             }
+            LeaveGame => {
+                crate::game_exit::request_leave_game();
+            }
             QuitIfNotStarted => {
                 if !get_bw().has_game_started() {
                     debug!("Exiting since game has not started");
@@ -1002,7 +1018,10 @@ impl GameState {
                     }
                     DebugControlCommand::QueryState => {
                         let turn_state = crate::netcode_v2::with_turn_state(|s| s.debug_snapshot());
-                        let response = crate::debug_control::DebugStateResponse { turn_state };
+                        let response = crate::debug_control::DebugStateResponse {
+                            turn_state,
+                            presentation: crate::debug_control::presentation_snapshot(),
+                        };
                         return app_socket::send_message(
                             &self.ws_send,
                             "/game/debug/state",
@@ -1012,13 +1031,22 @@ impl GameState {
                         .boxed();
                     }
                     DebugControlCommand::ForceUnsyncedLeave { slot } => {
-                        crate::netcode_v2::with_turn_state(|s| {
-                            s.debug_force_unsynced_leave(rally_point_client::proto::ids::SlotId(
-                                slot,
-                            ))
-                        });
-                        // Fire-and-forget: the injection applies on the game thread's next receive;
-                        // verify via queryState. No reply.
+                        let slot = rally_point_client::proto::ids::SlotId(slot);
+                        if let Some(false) = crate::netcode_v2::with_turn_state(|s| {
+                            s.debug_force_unsynced_leave(slot)
+                        }) {
+                            warn!(
+                                "debugControl: forceUnsyncedLeave rejected local slot {}; use leaveGame to quit this client",
+                                slot.0
+                            );
+                        }
+                        // Fire-and-forget: the remote-drop injection applies on the game thread's next
+                        // receive; verify via queryState. No reply.
+                    }
+                    DebugControlCommand::LeaveGame => {
+                        crate::game_exit::request_leave_game();
+                        // Fire-and-forget: WM_CLOSE is delivered to SC:R's game thread, which runs
+                        // the ordinary quit path. No reply: the process exits once it completes.
                     }
                     DebugControlCommand::ForceDesync => {
                         crate::netcode_v2::with_turn_state(|s| s.debug_force_desync());

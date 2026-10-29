@@ -63,6 +63,8 @@ pub mod scr;
 
 mod bw_hash_table;
 mod bw_vector;
+#[cfg(debug_assertions)]
+mod bwapi;
 mod chat;
 mod chat_history;
 mod cloaked_unit_drawing;
@@ -116,6 +118,8 @@ unsafe fn is_minimap_mask_draw(cmd: &scr::DrawCommand, vertex_buf: *mut scr::Ver
 }
 
 pub struct BwScr {
+    #[cfg(debug_assertions)]
+    bwapi_terrain: Option<bwapi::Terrain>,
     game: Value<*mut bw::Game>,
     game_data: Value<*mut bw::BwGameData>,
     players: Value<*mut bw::Player>,
@@ -353,6 +357,7 @@ pub struct BwScr {
     /// What the in-game loop calls instead of `render_screen` on an iteration it doesn't draw:
     /// ends the renderer's frame without drawing or presenting it, and begins the next.
     skip_render: Option<unsafe extern "C" fn()>,
+    load_sfx_audio_object: Option<VirtualAddress>,
     print_text: unsafe extern "C" fn(*const u8, u32, u32),
     save_replay: unsafe extern "C" fn(*const i8) -> u32,
     sc_main: Option<VirtualAddress>,
@@ -3873,6 +3878,9 @@ impl BwScr {
     /// [`begin_replay_save_colors`](Self::begin_replay_save_colors)), so calling it here goes
     /// through that hook too.
     pub fn save_replay(&self, path: &str) -> bool {
+        if crate::is_background_game() {
+            return false;
+        }
         let Ok(path) = CString::new(path) else {
             error!("Replay path contained null byte");
             return false;
@@ -4552,11 +4560,12 @@ impl bw::Bw for BwScr {
             .get("visualizeNetworkStalls")
             .and_then(|x| x.as_bool())
             .unwrap_or(false);
-        let disable_hd = settings
-            .local
-            .get("disableHd")
-            .and_then(|x| x.as_bool())
-            .unwrap_or(false);
+        let disable_hd = crate::is_background_game()
+            || settings
+                .local
+                .get("disableHd")
+                .and_then(|x| x.as_bool())
+                .unwrap_or(false);
 
         let use_custom_cursor_size = settings
             .local
@@ -4674,6 +4683,8 @@ impl bw::Bw for BwScr {
                 // closes the gate); SB already placed the cursor at the handoff.
                 crate::forge::suppress_scr_cursor_moves(true);
                 (self.game_loop)();
+                #[cfg(debug_assertions)]
+                self.bwapi_end();
                 crate::forge::suppress_scr_cursor_moves(false);
                 // Replay seeking exits game loop and sets a bool for it to restart,
                 // we don't have access to that bool but we hook the replay seek
@@ -5860,6 +5871,11 @@ fn copy_file_hook(
         if !is_copying_lastreplay {
             return orig(src_name, dest_name, fail_if_exist);
         }
+        if crate::is_background_game() {
+            // No replay was written; do not copy a previous visible game's LastReplay.
+            debug!("Suppressing LastReplay copy for background game");
+            return 1;
+        }
         if replay_save::last_save_skipped() {
             // SC:R treats a failed copy as a missing autosave and carries on.
             warn!("Not copying LastReplay.rep to the autosave folder: it holds an earlier game");
@@ -6209,6 +6225,7 @@ mod hooks {
         !0 => DrawMinimapMainPlayerUnits(u32);
         !0 => DrawGraphicLayers(*mut c_void, usize, u32);
         !0 => DrawSoftwareCursor();
+        !0 => LoadSfxAudioObject(*mut c_void, u32) -> u32;
         !0 => DecideCursorType() -> u32;
         // BW's tick-gated client-side work; see `tick_gates`.
         !0 => UpdateScreenScrolling();
@@ -6285,6 +6302,9 @@ mod hooks {
         // strings, expected game id/version, host net key, advertise value — are opaque here and are
         // passed through verbatim to the original on the native (unseeded) path.
         !0 => StormJoinGame(usize, usize, usize, *mut u32, usize, usize, usize, usize, usize) -> u32;
+        // Storm's `get_outstanding_turn_count(out)`, stdcall with 1 arg (retn 4 on x86). Returns
+        // nonzero on success; zero makes the caller report a network error and leave the game.
+        !0 => GetOutstandingTurnCount(*mut u32) -> u32;
         !0 => LoadSnpList(*mut scr::SnpLoadFuncs, u32) -> u32;
         !0 => CreateEventW(*mut c_void, u32, u32, *const u16) -> *mut c_void;
         !0 => CloseHandle(*mut c_void) -> u32;
@@ -6416,6 +6436,8 @@ unsafe fn step_game_logic_hook(
     param: usize, // Always 0, nonzero would affect replay playback somehow
     orig: unsafe extern "C" fn(usize) -> usize,
 ) -> usize {
+    #[cfg(debug_assertions)]
+    crate::debug_control::record_game_frame(unsafe { (*bw.game()).frame_count });
     if !bw.first_game_logic_frame_done.load(Ordering::Relaxed) {
         bw.first_game_logic_frame_done
             .store(true, Ordering::Relaxed);

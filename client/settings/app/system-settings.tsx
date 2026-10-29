@@ -5,6 +5,7 @@ import { CheckBox } from '../../material/check-box'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { mergeLocalSettings } from '../action-creators'
 import { FormContainer, SectionContainer, SettingsSectionHeader } from '../settings-content'
+import { JavaSettings } from './java-settings'
 
 const IndentedCheckBox = styled(CheckBox)`
   margin-left: 28px;
@@ -95,6 +96,7 @@ export function AppSystemSettings() {
             inputProps={{ tabIndex: 0 }}
           />
         </SectionContainer>
+        <JavaSettings />
       </FormContainer>
     </form>
   )

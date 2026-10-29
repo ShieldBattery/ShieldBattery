@@ -110,8 +110,14 @@ rootElemPromise
       // bundles.
       window.__sbReduxStore = reduxStore
       window.__sbDebugGame = {
+        startLocal: request =>
+          new TypedIpcRenderer().invoke('localGameStart', { language: i18n.language, ...request }),
+        stopLocal: () => new TypedIpcRenderer().invoke('localGameStop'),
+        localStatus: () => new TypedIpcRenderer().invoke('localGameGetStatus'),
+        launch: config => new TypedIpcRenderer().invoke('activeGameSetConfig', config),
         queryGameState: gameId =>
           new TypedIpcRenderer().invoke('activeGameDebugQueryState', gameId),
+        leaveGame: gameId => new TypedIpcRenderer().invoke('activeGameDebugLeave', gameId),
         forceUnsyncedLeave: (gameId, slot) =>
           new TypedIpcRenderer().invoke('activeGameForceUnsyncedLeave', gameId, slot),
         forceDesync: gameId => new TypedIpcRenderer().invoke('activeGameForceDesync', gameId),

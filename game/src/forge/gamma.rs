@@ -13,7 +13,10 @@ use winapi::um::winuser::{
     WindowFromDC,
 };
 
-use super::{game_window_handle, is_forge_window, scr_hooks_disabled, with_scr_hooks_disabled};
+use super::{
+    game_window_handle, is_background_game, is_forge_window, scr_hooks_disabled,
+    with_scr_hooks_disabled,
+};
 
 const GAMMA_RAMP_WORDS: usize = 3 * 256;
 const GAMMA_MIN: f32 = 0.6;
@@ -249,6 +252,9 @@ pub(super) fn get_device_gamma_ramp(hdc: HDC, ramp: *mut c_void, orig: GammaRamp
 
 pub(super) fn set_device_gamma_ramp(hdc: HDC, ramp: *mut c_void, orig: GammaRampFn) -> i32 {
     unsafe {
+        if is_background_game() {
+            return 1;
+        }
         let Some(window) = game_window_for_dc(hdc) else {
             return orig(hdc, ramp);
         };
@@ -344,6 +350,9 @@ unsafe fn reapply_desired_ramp(window: HWND) {
 
 pub(super) unsafe fn handle_window_message(window: HWND, msg: u32, wparam: usize) {
     unsafe {
+        if is_background_game() {
+            return;
+        }
         if !is_forge_window(window) {
             return;
         }

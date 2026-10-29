@@ -28,7 +28,10 @@ import { NetcodeV2ServerSetup, NetcodeV2Setup } from '../../common/games/netcode
 import { GameClientPlayerResult } from '../../common/games/results'
 import { GameBlockRequestFailure, InGameReportRequest, InGameReportResult } from '../../common/ipc'
 import { SlotType } from '../../common/lobbies/slot'
-import { DEFAULT_LOCAL_SETTINGS } from '../../common/settings/default-settings'
+import {
+  DEFAULT_LOCAL_SETTINGS,
+  DEFAULT_SCR_SETTINGS,
+} from '../../common/settings/default-settings'
 import { LocalSettings } from '../../common/settings/local-settings'
 import {
   cloneCustomTeamColors,
@@ -42,7 +45,12 @@ import { SbUserId } from '../../common/users/sb-user-id'
 import { gameLogBaseName } from '../log-paths'
 import log from '../logger'
 import { applyLaunchOverridesToSettings, startsInSd } from '../scr-launch-overrides'
-import { LocalSettingsManager, ScrSettingsManager } from '../settings'
+import { fromBlizzardToSb, LocalSettingsManager, ScrSettingsManager } from '../settings'
+import {
+  BACKGROUND_CSETTINGS,
+  BACKGROUND_LOCAL_SETTINGS,
+  createBackgroundGameSettings,
+} from './background-game-settings'
 import { checkStarcraftPath } from './check-starcraft-path'
 import { isCrashExitCode } from './crash-exit-code'
 import { holdHighPerformanceGpu } from './gpu-preference'
@@ -69,6 +77,7 @@ interface PendingDebugReply<T> {
 }
 
 interface ActiveGameInfo {
+  stopRequested?: boolean
   id: string
   status?: {
     state: GameStatus
@@ -79,6 +88,7 @@ interface ActiveGameInfo {
    */
   promise?: Promise<any>
   config?: GameLaunchConfig
+  backgroundSettings?: ReturnType<typeof createBackgroundGameSettings>
   /**
    * The per-session netcode v2 keypair for this game, selected from the manager's key ring once the
    * server's handoff ({@link ActiveGameManager.setNetcodeV2Setup}) names which public key it embedded
@@ -134,6 +144,7 @@ function reportedStatus(game: ActiveGameInfo): ReportedGameStatus {
     state: statusToString(game.status?.state ?? GameStatus.Unknown),
     extra: game.status?.extra,
     isReplay: game.config ? isReplayLaunchConfig(game.config) : false,
+    isLocal: !!game.config?.setup.localSession,
     networkStatus: game.networkStatus,
   }
 }
@@ -153,6 +164,8 @@ export interface ReplayDiagnosticsRequest {
 }
 
 export type ActiveGameManagerEvents = {
+  gameExit: [gameId: string]
+
   gameCommand: [gameId: string, command: string, ...args: any[]]
   gameResult: [
     info: {
@@ -212,6 +225,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
    */
   private pendingNetcodeV2Keys = new NetcodeV2KeyRing()
   private serverPort = 0
+  private localControlPipe?: string
   /** FIFO queues of pending `debugQueryState` requests, keyed by game ID. */
   private pendingDebugQueries = new Map<string, PendingDebugReply<GameDebugState>[]>()
   /** FIFO queues of pending `debugScreenshot` requests, keyed by game ID. */
@@ -255,6 +269,51 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     }
   }
 
+  setLocalControlPipe(pipe: string) {
+    this.localControlPipe = pipe
+  }
+
+  async stop(graceful = false): Promise<void> {
+    const game = this.activeGame
+    if (!game) return
+
+    const gamePromise = game.promise
+    const state = game.status?.state
+    // A game that has its result is already leaving (a background client exits on its own once
+    // its result is in), and that native exit is what gives a BWAPI client its match end. Quitting
+    // it outright would cut that short, so it gets the same deadline as a game asked to leave.
+    const leaving = state === GameStatus.HasResult || state === GameStatus.ResultSent
+    if (graceful && (state === GameStatus.Playing || leaving) && gamePromise) {
+      if (!leaving) {
+        game.stopRequested = true
+        this.emit('gameCommand', game.id, 'leave')
+      }
+
+      let timedOut = false
+      let deadline: ReturnType<typeof setTimeout> | undefined
+      const timeout = new Promise<void>(resolve => {
+        deadline = setTimeout(() => {
+          timedOut = true
+          resolve()
+        }, 2000)
+      })
+      try {
+        await Promise.race([gamePromise, timeout])
+      } finally {
+        if (deadline) {
+          clearTimeout(deadline)
+        }
+      }
+      if (timedOut) {
+        this.forceQuitGame(game.id)
+      }
+    } else {
+      this.forceQuitGame(game.id)
+    }
+
+    await gamePromise
+  }
+
   setServerPort(port: number) {
     this.serverPort = port
   }
@@ -294,13 +353,43 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     }
   }
 
-  private launchGameProcess(gameId: string): Promise<void> {
+  private launchGameProcess(
+    gameId: string,
+    config: GameLaunchConfig,
+    backgroundSettings?: ReturnType<typeof createBackgroundGameSettings>,
+  ): Promise<void> {
     this.emit('gameProcessLaunching', gameId)
-    return doLaunch(gameId, this.serverPort, this.localSettings, this.scrSettings)
+    let processMayBeRunning = false
+    const cleanupBackgroundSettings = async () => {
+      // A failed wait does not prove the process exited; retain its live settings in that case.
+      if (backgroundSettings && !processMayBeRunning) {
+        try {
+          const prepared = await backgroundSettings
+          await prepared.dispose()
+        } catch (err) {
+          log.error(`Error cleaning background game settings: ${getErrorStack(err)}`)
+        }
+      }
+    }
+    return doLaunch(
+      gameId,
+      this.serverPort,
+      this.localSettings,
+      this.scrSettings,
+      backgroundSettings,
+      config.setup.localSession
+        ? {
+            controlPipe: this.localControlPipe!,
+            bwapiInstance: config.bwapiInstance,
+          }
+        : undefined,
+    )
       .then(
         async ({ proc, releaseGpuPreference }) => {
+          processMayBeRunning = true
           try {
             const code = await proc.waitForExit()
+            processMayBeRunning = false
             this.handleGameExit(gameId, code)
           } catch (err) {
             this.handleGameExitWaitError(gameId, err as Error)
@@ -310,6 +399,10 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
         },
         err => this.handleGameLaunchError(gameId, err),
       )
+      .then(cleanupBackgroundSettings, async err => {
+        await cleanupBackgroundSettings()
+        throw err
+      })
       .finally(() => this.emit('gameProcessEnded', gameId))
   }
 
@@ -344,7 +437,8 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     }
 
     const gameId = config.setup.gameId
-    const activeGamePromise = this.launchGameProcess(gameId)
+    const backgroundSettings = prepareBackgroundSettings(config)
+    const activeGamePromise = this.launchGameProcess(gameId, config, backgroundSettings)
     // A relaunch of the *same* game id carries that game's already-selected keypair and session
     // handoff forward — reusing them is correct since it's the same session. A *different* game id
     // must not inherit the old (hung) game's session, so it starts with no keypair adopted yet:
@@ -353,6 +447,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     const carried = current?.id === gameId ? current : undefined
     this.activeGame = {
       ...current,
+      stopRequested: false,
       netcodeV2Keys: carried?.netcodeV2Keys,
       netcodeV2Setup: carried?.netcodeV2Setup,
       // A fresh launch's transport is unknown until the new game's init reports it; this also
@@ -361,6 +456,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       id: gameId,
       promise: activeGamePromise,
       config,
+      backgroundSettings,
       status: { state: GameStatus.Unknown, extra: null },
     }
     log.verbose(`Creating new game ${gameId}`)
@@ -386,10 +482,11 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     const game: ActiveGameInfo = {
       id: gameId,
       config,
+      backgroundSettings: prepareBackgroundSettings(config),
       status: { state: GameStatus.Unknown, extra: null },
     }
     this.watchOnlyGames.set(gameId, game)
-    game.promise = this.launchGameProcess(gameId)
+    game.promise = this.launchGameProcess(gameId, config, game.backgroundSettings)
     log.verbose(`Creating new watch-only game ${gameId}`)
     this.setStatus(game, GameStatus.Launching)
     return gameId
@@ -482,6 +579,10 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       return
     }
 
+    if (game.stopRequested) {
+      this.emit('gameCommand', id, 'quit')
+      return
+    }
     this.setStatus(game, GameStatus.Configuring)
     const config = game.config!
     const { map } = config.setup
@@ -489,16 +590,27 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       ? map.path
       : this.mapStore.getPath(map.hash, map.mapData.format)
 
-    const local = await this.localSettings.get()
+    const backgroundSettings = await game.backgroundSettings
+    const local = backgroundSettings
+      ? { ...DEFAULT_LOCAL_SETTINGS, ...BACKGROUND_LOCAL_SETTINGS }
+      : await this.localSettings.get()
+    const scr = backgroundSettings
+      ? { ...DEFAULT_SCR_SETTINGS, ...fromBlizzardToSb(BACKGROUND_CSETTINGS) }
+      : await this.scrSettings.get()
+    if (this.gameFor(id) !== game) {
+      this.emit('gameCommand', id, 'quit')
+      return
+    }
     // The stored settings should already have every field populated (via the defaults/migration
     // in `app/settings.ts`), but fall back to the defaults for anything that's still missing so
     // the resolvers below always have complete team-color settings to work with.
     const resolvedLocal = {
       ...DEFAULT_LOCAL_SETTINGS,
       ...local,
-      customTeamColors:
-        local.customTeamColors ?? cloneCustomTeamColors(DEFAULT_LOCAL_SETTINGS.customTeamColors),
-      customFfaColors: local.customFfaColors ?? [...DEFAULT_LOCAL_SETTINGS.customFfaColors],
+      customTeamColors: cloneCustomTeamColors(
+        local.customTeamColors ?? DEFAULT_LOCAL_SETTINGS.customTeamColors,
+      ),
+      customFfaColors: [...(local.customFfaColors ?? DEFAULT_LOCAL_SETTINGS.customFfaColors)],
       customFfaNeutralColor:
         local.customFfaNeutralColor ?? DEFAULT_LOCAL_SETTINGS.customFfaNeutralColor,
     }
@@ -534,10 +646,10 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     this.emit('gameCommand', id, 'serverConfig', config.serverConfig)
     this.emit('gameCommand', id, 'settings', {
       local,
-      scr: applyLaunchOverridesToSettings(await this.scrSettings.get(), {
+      scr: applyLaunchOverridesToSettings(scr, {
         alwaysStartSd: startsInSd(resolvedLocal),
       }),
-      settingsFilePath: this.scrSettings.gameFilepath,
+      settingsFilePath: backgroundSettings?.settingsFilePath ?? this.scrSettings.gameFilepath,
       monitorBounds,
       replayNameTemplate: config.replayNameTemplate,
       language: config.language,
@@ -564,6 +676,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     if (game) {
       this.setStatus(game, GameStatus.Error, err)
       this.untrackGame(game)
+      this.emit('gameExit', id)
     }
   }
 
@@ -630,9 +743,19 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     this.resolvePendingDebugReply(this.pendingDebugQueries, gameId, payload, 'debug state')
   }
 
+  /** Requests a normal game exit, including replay saving and result reporting (debug builds only). */
+  debugLeaveGame(gameId: string): void {
+    if (!this.activeGame || this.activeGame.id !== gameId) {
+      log.verbose(`Got debugLeaveGame for ${gameId}, but it is not the active game`)
+      return
+    }
+
+    this.emit('gameCommand', gameId, 'debugControl', { type: 'leaveGame' })
+  }
+
   /**
-   * Tells the active game process to force a synced leave of a rally-point2 slot (debug game
-   * builds only). Fire-and-forget: there's no reply, callers verify the effect via
+   * Tells the active game process to inject a drop of a remote rally-point2 slot (debug game
+   * builds only). The DLL rejects its own slot. Fire-and-forget: verify the effect via
    * {@link debugQueryState}.
    */
   forceGameLeave(gameId: string, slot: number): void {
@@ -763,11 +886,13 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
    * unlike an external process kill. Fire-and-forget.
    */
   forceQuitGame(gameId: string): void {
-    if (!this.gameFor(gameId)) {
+    const game = this.gameFor(gameId)
+    if (!game) {
       log.verbose(`Got forceQuitGame for ${gameId}, but it is not an active game`)
       return
     }
 
+    game.stopRequested = true
     this.emit('gameCommand', gameId, 'quit')
   }
 
@@ -1059,13 +1184,15 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
 
     // Every game process shares the settings file, so it's only read back once none is left
     // running; otherwise a replay closing mid-match could overwrite settings changed in the match.
-    if (!this.activeGame && this.watchOnlyGames.size === 0) {
+    // A background game runs on its own isolated settings file, so there's nothing to read back.
+    if (!game.backgroundSettings && !this.activeGame && this.watchOnlyGames.size === 0) {
       Promise.resolve()
         .then(() => this.scrSettings.syncWithGameSettingsFile())
         .catch(err => {
           log.error(`Error syncing settings with game settings file: ${err?.stack ?? err}`)
         })
     }
+    this.emit('gameExit', id)
   }
 
   handleGameExitWaitError(id: string, err: Error) {
@@ -1119,12 +1246,25 @@ async function applyDevGameEnv() {
   devGameEnvKeys = Object.keys(vars)
 }
 
+/** Starts preparing the isolated settings a game launched in the background runs with, if it is. */
+function prepareBackgroundSettings(config: GameLaunchConfig) {
+  return config.presentation === 'background'
+    ? createBackgroundGameSettings(app.getPath('userData'))
+    : undefined
+}
+
 async function doLaunch(
   gameId: string,
   serverPort: number,
   localSettings: LocalSettingsManager,
   scrSettings: ScrSettingsManager,
+  backgroundSettings?: ReturnType<typeof createBackgroundGameSettings>,
+  localSession?: { controlPipe: string; bwapiInstance?: string },
 ) {
+  // Observe preparation immediately so a filesystem error cannot become an unhandled rejection
+  // while the launcher is waiting for the user's settings or StarCraft path check.
+  await backgroundSettings
+  if (localSession && !localSession.controlPipe) throw new Error('Local control pipe is not ready')
   const settings = await localSettings.get()
   const injectPath = settings.launch32Bit ? injectPath32 : injectPath64
   try {
@@ -1147,7 +1287,9 @@ async function doLaunch(
   }
 
   // Ensure that our local settings file is up-to-date with the current settings
-  await scrSettings.writeGameSettingsFile(startsInSd(settings))
+  if (!backgroundSettings) {
+    await scrSettings.writeGameSettingsFile(startsInSd(settings))
+  }
 
   const userDataPath = app.getPath('userData')
   let appPath = settings.launch32Bit
@@ -1170,7 +1312,7 @@ async function doLaunch(
   const legacyCursorSizingArg = settings.legacyCursorSizing ? '-legacy-cursor-sizing' : ''
   // The DLL writes its log to `<name>.<slot>.log`; tell it the SB_SESSION-namespaced base so
   // concurrent dev instances don't share a log file. Prod (no SB_SESSION) → plain `game`.
-  const logNameArg = `-log-name=${gameLogBaseName()}`
+  const logNameArg = `-log-name=${gameLogBaseName()}${localSession ? `-${gameId}` : ''}`
   const rallyPointPortArg =
     Number.isInteger(RALLY_POINT_PORT) && RALLY_POINT_PORT > 0 && RALLY_POINT_PORT <= 0xffff
       ? `-rally-point-port=${RALLY_POINT_PORT}`
@@ -1184,7 +1326,12 @@ async function doLaunch(
   // NOTE(tec27): SC:R uses -launch as an argument to skip bnet launcher.
   const args =
     `"${appPath}" ${gameId} ${serverPort} "${userDataPath}" ` +
-    `-launch ${legacyCursorSizingArg} ${logNameArg} ${rallyPointPortArg} ${devScrArgs}`
+    `-launch ${legacyCursorSizingArg} ${logNameArg} ${rallyPointPortArg} ${devScrArgs} ` +
+    (backgroundSettings ? '-sb-background ' : '') +
+    (localSession
+      ? `-sb-local "-sb-app-pipe=${localSession.controlPipe}" ` +
+        (localSession.bwapiInstance ? `-sb-bwapi=${localSession.bwapiInstance}` : '')
+      : '')
 
   // NOTE(tec27): We dynamically import this so that it doesn't crash the process on startup if
   // an antivirus decides to delete the native module

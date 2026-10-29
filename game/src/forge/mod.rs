@@ -41,6 +41,10 @@ mod scr_hooks {
         !0 => RegisterClassExW(*const WNDCLASSEXW) -> ATOM;
         !0 => RegisterHotKey(HWND, i32, u32, u32) -> u32;
         !0 => SetCursorPos(i32, i32) -> i32;
+        !0 => SetWindowPos(HWND, HWND, i32, i32, i32, i32, u32) -> i32;
+        !0 => SetForegroundWindow(HWND) -> i32;
+        !0 => SetActiveWindow(HWND) -> HWND;
+        !0 => SetFocus(HWND) -> HWND;
         !0 => ShowWindow(HWND, i32) -> u32;
         !0 => GetDeviceGammaRamp(HDC, *mut c_void) -> i32;
         !0 => SetDeviceGammaRamp(HDC, *mut c_void) -> i32;
@@ -147,6 +151,15 @@ unsafe extern "system" fn wnd_proc_scr(
         }
 
         let ret = with_scr_hooks_disabled(|| {
+            if msg == WM_NCCREATE && is_background_game() && !is_forge_window(window) {
+                // CreateWindowExW has not returned yet, so recording the handle here ensures
+                // synchronous ShowWindow/activation calls see the background policy.
+                with_forge(|forge| {
+                    if forge.window.is_none() {
+                        forge.set_window(Window { handle: window });
+                    }
+                });
+            }
             gamma::handle_window_message(window, msg, wparam);
             match msg {
                 WM_END_WND_PROC_WORKER => {
@@ -275,6 +288,7 @@ unsafe extern "system" fn wnd_proc_scr(
                         // saving this state
                         && (*new_pos).x != -32000
                         && (*new_pos).y != -32000
+                        && !is_background_game()
                         && TRACK_WINDOW_POS.load(Ordering::Acquire)
                     {
                         send_game_msg_to_async(GameThreadMessage::WindowMove(
@@ -356,6 +370,9 @@ unsafe extern "system" fn wnd_proc_scr(
 
 unsafe fn msg_bring_window_forward(window: HWND) {
     unsafe {
+        if is_background_game() {
+            return;
+        }
         debug!("Forge: Bringing window to foreground");
         // Windows Vista+ likes to prevent you from bringing yourself into the foreground,
         // but will allow you to do so if you're handling a global hotkey. So... we register
@@ -434,7 +451,6 @@ struct Forge {
 
     /// SCR refers to the window class with ATOM returned by RegisterClassExW
     /// (And the class is named OsWindow instead of 1.16.1 SWarClass)
-    scr_window_class: Option<ATOM>,
 
     /// Set to true if the event processing lock needs to be re-locked at the conclusion of the
     /// resize/move/menu loop. This ensures we don't re-lock the lock if it wasn't locked when that
@@ -449,6 +465,10 @@ struct Forge {
 
 static LOCKING_THREAD: AtomicUsize = AtomicUsize::new(!0);
 static FORGE_WINDOW: AtomicUsize = AtomicUsize::new(0);
+/// The class atom is set while SC:R registers `OsWindow`. Keeping it outside `Forge` lets the
+/// `CreateWindowExW` hook recognize that class before it calls the original API, which can
+/// synchronously dispatch window messages.
+static SCR_WINDOW_CLASS: AtomicUsize = AtomicUsize::new(0);
 static FORGE_INITED: AtomicBool = AtomicBool::new(false);
 // This lets us handle a race condition where SC:R's message handling receives the
 // WM_END_WND_PROC_WORKER message before we see it.
@@ -491,6 +511,43 @@ fn stay_in_background() -> bool {
         && game_window_handle().is_none_or(|window| unsafe { GetForegroundWindow() } != window)
 }
 
+fn is_background_game() -> bool {
+    crate::is_background_game()
+}
+
+fn should_suppress_background_window_action(window: HWND) -> bool {
+    is_background_game() && is_forge_window(window)
+}
+
+unsafe fn is_scr_main_window_class(class_name: *const u16, allow_name: bool) -> bool {
+    unsafe {
+        let class_atom = SCR_WINDOW_CLASS.load(Ordering::Acquire);
+        if class_atom != 0 && class_name as usize == class_atom {
+            return true;
+        }
+
+        const OS_WINDOW: [u16; 9] = [
+            b'O' as u16,
+            b's' as u16,
+            b'W' as u16,
+            b'i' as u16,
+            b'n' as u16,
+            b'd' as u16,
+            b'o' as u16,
+            b'w' as u16,
+            0,
+        ];
+        if !allow_name || class_name as usize <= u16::MAX as usize {
+            return false;
+        }
+        // Stop at the first mismatch, including the terminator of a shorter class name.
+        OS_WINDOW
+            .iter()
+            .enumerate()
+            .all(|(i, &expected)| *class_name.add(i) == expected)
+    }
+}
+
 /// The game window's HWND for debug tooling, if the window has been created. Readable from any
 /// thread (the handle is only stored, never dereferenced as a pointer here).
 #[cfg(debug_assertions)]
@@ -525,6 +582,9 @@ unsafe impl Send for Window {}
 /// so they get past the first gate but not the second: SB code that runs SC:R's window procedure
 /// (a faked resize, say) has the hooks disabled too, and SC:R warps from inside it.
 fn set_cursor_pos(x: i32, y: i32, orig: unsafe extern "C" fn(i32, i32) -> i32) -> i32 {
+    if is_background_game() {
+        return 1;
+    }
     if stay_in_background() {
         debug!("Dropping SetCursorPos({x}, {y}) while in the background");
         return 1;
@@ -541,6 +601,9 @@ fn set_cursor_pos(x: i32, y: i32, orig: unsafe extern "C" fn(i32, i32) -> i32) -
 /// that runs its window procedure with the hooks disabled. Releasing the confinement always goes
 /// through.
 fn clip_cursor(rect: *const RECT, orig: unsafe extern "C" fn(*const RECT) -> i32) -> i32 {
+    if is_background_game() {
+        return 1;
+    }
     if !rect.is_null() && stay_in_background() {
         debug!("Dropping ClipCursor while in the background");
         return 1;
@@ -644,6 +707,12 @@ fn get_cursor_pos(point: *mut POINT, orig: unsafe extern "C" fn(*mut POINT) -> i
 fn show_window(window: HWND, show: i32, orig: unsafe extern "C" fn(HWND, i32) -> u32) -> u32 {
     unsafe {
         debug!("ShowWindow {window:p} {show}");
+        if should_suppress_background_window_action(window) && show != SW_HIDE {
+            if show == SW_SHOW {
+                restore_saved_window_pos();
+            }
+            return 0;
+        }
         if show == SW_SHOW
             && is_forge_window(window)
             && !with_forge(|forge| {
@@ -714,12 +783,49 @@ fn register_class_w(
             ..*class
         };
         let result = orig(&rewritten);
+        SCR_WINDOW_CLASS.store(result as usize, Ordering::Release);
         with_forge(|forge| {
             forge.orig_wnd_proc = orig_wnd_proc;
-            forge.scr_window_class = Some(result);
         });
         result
     }
+}
+
+fn set_window_pos(
+    window: HWND,
+    insert_after: HWND,
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+    mut flags: u32,
+    orig: unsafe extern "C" fn(HWND, HWND, i32, i32, i32, i32, u32) -> i32,
+) -> i32 {
+    if should_suppress_background_window_action(window) {
+        flags = (flags & !SWP_SHOWWINDOW) | SWP_NOACTIVATE | SWP_NOZORDER;
+    }
+    unsafe { orig(window, insert_after, x, y, width, height, flags) }
+}
+
+fn set_foreground_window(window: HWND, orig: unsafe extern "C" fn(HWND) -> i32) -> i32 {
+    if should_suppress_background_window_action(window) {
+        return 0;
+    }
+    unsafe { orig(window) }
+}
+
+fn set_active_window(window: HWND, orig: unsafe extern "C" fn(HWND) -> HWND) -> HWND {
+    if should_suppress_background_window_action(window) {
+        return null_mut();
+    }
+    unsafe { orig(window) }
+}
+
+fn set_focus(window: HWND, orig: unsafe extern "C" fn(HWND) -> HWND) -> HWND {
+    if should_suppress_background_window_action(window) {
+        return null_mut();
+    }
+    unsafe { orig(window) }
 }
 
 /// Stores the window handle.
@@ -752,6 +858,14 @@ fn create_window_w(
     ) -> HWND,
 ) -> HWND {
     unsafe {
+        let is_main_window = forge_inited()
+            && !std::thread::panicking()
+            && is_scr_main_window_class(class_name, is_background_game());
+        let style = if is_background_game() && is_main_window {
+            style & !WS_VISIBLE
+        } else {
+            style
+        };
         let window = orig(
             ex_style,
             class_name,
@@ -770,12 +884,12 @@ fn create_window_w(
         // locking forge during panics.
         if forge_inited() && !std::thread::panicking() {
             with_forge(|forge| {
-                if let Some(bw_class) = forge.scr_window_class
-                    && class_name as usize == bw_class as usize
-                {
+                if is_main_window {
                     debug!("Created main window {window:p}");
 
-                    forge.set_window(Window { handle: window });
+                    if !is_background_game() || forge.window.is_none() {
+                        forge.set_window(Window { handle: window });
+                    }
                 }
             });
         }
@@ -790,6 +904,9 @@ fn register_hot_key(
     vkcode: u32,
     orig: unsafe extern "C" fn(HWND, i32, u32, u32) -> u32,
 ) -> u32 {
+    if is_background_game() {
+        return 1;
+    }
     // SC:R calls this to hook printscreen and alt+printscreen presses, but does a very bad job of
     // handling these that makes alt+printscreen non-functional as long as the game is running. More
     // stupidly, they also handle printscreen presses are part of normal keypress events, and thus
@@ -819,6 +936,9 @@ fn change_display_settings_ex(
     orig: unsafe extern "C" fn(*const u16, *mut DEVMODEW, HWND, u32, *mut c_void) -> i32,
 ) -> i32 {
     unsafe {
+        if is_background_game() {
+            return DISP_CHANGE_SUCCESSFUL;
+        }
         if param.is_null() && hwnd.is_null() {
             // This is the normal way that SC:R calls this function, but just to be safe we ensure
             // these parameters are set this way
@@ -887,6 +1007,7 @@ fn monitor_from_point(
 
 pub unsafe fn init_hooks_scr(patcher: &mut whack::Patcher) {
     unsafe {
+        crate::native_network::init_hooks(patcher);
         use self::gamma::{get_device_gamma_ramp, set_device_gamma_ramp};
         use self::scr_hooks::*;
         // 1161 init could hook just starcraft/storm import table, unfortunately
@@ -910,6 +1031,10 @@ pub unsafe fn init_hooks_scr(patcher: &mut whack::Patcher) {
             "RegisterClassExW", RegisterClassExW, register_class_w;
             "RegisterHotKey", RegisterHotKey, register_hot_key;
             "SetCursorPos", SetCursorPos, set_cursor_pos;
+            "SetWindowPos", SetWindowPos, set_window_pos;
+            "SetForegroundWindow", SetForegroundWindow, set_foreground_window;
+            "SetActiveWindow", SetActiveWindow, set_active_window;
+            "SetFocus", SetFocus, set_focus;
             "ShowWindow", ShowWindow, show_window;
         );
 
@@ -940,7 +1065,7 @@ pub fn init(
 ) {
     let settings = Settings::from_config(local_settings, scr_settings, monitor_bounds);
     let display_mode = settings.display_mode();
-    let gamma_setting = if display_mode == DisplayMode::Fullscreen {
+    let gamma_setting = if !is_background_game() && display_mode == DisplayMode::Fullscreen {
         scr_settings
             .get("gamma")
             .and_then(|v| v.as_u64())
@@ -962,7 +1087,8 @@ pub fn init(
         }
     }
 
-    let fake_monitor = display_mode != DisplayMode::Windowed && monitor_bounds.is_some();
+    let fake_monitor =
+        !is_background_game() && display_mode != DisplayMode::Windowed && monitor_bounds.is_some();
     FAKE_PRIMARY_MONITOR.store(fake_monitor, Ordering::Release);
 
     *FORGE.lock().unwrap() = Some(Forge {
@@ -972,11 +1098,14 @@ pub fn init(
         use_process_events: false,
         game_started: false,
         window_pos_restored: false,
-        scr_window_class: None,
 
         event_processing_needs_relock: false,
         handling_wm_user: false,
     });
+    if is_background_game() {
+        TRACK_WINDOW_POS.store(false, Ordering::Release);
+        SUPPRESS_SCR_CURSOR_MOVES.store(true, Ordering::Release);
+    }
     FORGE_INITED.store(true, Ordering::Release);
 }
 
@@ -994,7 +1123,9 @@ const WM_FIX_CLIP_CURSOR: u32 = WM_FIRST_CUSTOM + 3;
 pub unsafe fn run_wnd_proc() {
     debug!("Forge: run_wnd_proc called");
     unsafe {
-        if let Some(handle) = with_forge(|forge| forge.window.as_ref().map(|s| s.handle)) {
+        if !is_background_game()
+            && let Some(handle) = with_forge(|forge| forge.window.as_ref().map(|s| s.handle))
+        {
             // Set up a timer to trigger redraws at a set interval during initialization
             debug!("Forge: starting draw timer");
             SetTimer(handle, DRAW_TIMER_ID, DRAW_TIMEOUT_MILLIS, None);
@@ -1077,6 +1208,9 @@ pub fn end_wnd_proc() {
 }
 
 pub fn bring_window_forward() {
+    if is_background_game() {
+        return;
+    }
     if BACKGROUND.load(Ordering::Acquire) {
         debug!("Forge: Leaving the window where it is ({BACKGROUND_ENV_VAR}=1)");
         return;
@@ -1140,7 +1274,7 @@ pub fn game_started() {
 /// warping the OS cursor onto the game's internal mouse position. That warp is dropped by the
 /// cursor gate while the game loop is starting (see [`suppress_scr_cursor_moves`]).
 pub fn fix_clip_cursor() {
-    if stay_in_background() {
+    if is_background_game() || stay_in_background() {
         // The confinement it re-applies would only be dropped, and the resize it fakes runs with
         // the hooks disabled.
         return;
@@ -1157,7 +1291,7 @@ pub fn fix_clip_cursor() {
 /// SC:R's game loop and close it on the first game-logic step (which runs whether or not the
 /// network is stalled, and in replays), so the gate spans exactly SC:R's game-loop init.
 pub fn suppress_scr_cursor_moves(suppress: bool) {
-    SUPPRESS_SCR_CURSOR_MOVES.store(suppress, Ordering::Release);
+    SUPPRESS_SCR_CURSOR_MOVES.store(is_background_game() || suppress, Ordering::Release);
 }
 
 /// The screen-coordinate center of a window's client area, or `None` if it can't be measured (e.g.
@@ -1187,7 +1321,7 @@ pub fn window_client_center(hwnd: HWND) -> Option<(i32, i32)> {
 /// happen; SC:R's own centering (which would land later, inside game-loop init) is dropped by the
 /// cursor gate. Bypasses that gate. Does nothing while the game has to [`stay_in_background`].
 pub fn center_cursor_in_game_window() {
-    if stay_in_background() {
+    if is_background_game() || stay_in_background() {
         return;
     }
     let Some(hwnd) = game_window_handle() else {
