@@ -187,10 +187,77 @@ finalizer was corrected to retain the owned process handle before closing. A
 separate Electron 44.9.3 launch/close check passed, validating that correction
 without replaying or relabelling the completed game's evidence.
 
-Unclassified command rejections, authenticated UI navigation, renderer history,
-replay artifact/playback, signed packaged-app behavior, and companion behavior
-remain outside the successful runtime claims. The final runtime audit found no
-task-owned clients, games, bots or workers remaining.
+At this stage, unclassified command rejections, authenticated UI navigation,
+renderer history, replay artifact/playback, signed packaged-app behavior, and
+companion behavior remained outside the successful runtime claims. The runtime
+audit found no task-owned clients, games, bots or workers remaining.
+
+## Authenticated Practice and replay follow-up
+
+The same combined production Electron bundles and x64 release DLL were exercised
+on Electron 44.9.3 against an isolated local development backend. A fresh
+PostgreSQL database was restored from the existing controlled-account test fixture;
+18 repository migrations applied with their original checksums. Task-owned Redis
+and Node services used separate ports. Existing databases and accounts were not
+changed. The Node backend used its supported development configuration; these
+checks do not establish production-backend deployment readiness or GraphQL flows.
+
+Normal password login through the renderer returned HTTP 200 and displayed the
+authenticated account. No copied JWT, injected auth state, or raw game-launch
+fallback was used. The Practice tab, bot library, custom setup, and actual
+`Start game` button were verified. Official signed staging revision 12 supplied
+the same pinned ZZZKBot package verified above; gameplay then ran with the
+Electron main process in production mode.
+
+Two human-versus-ZZZKBot games ended naturally in defeat. Renderer practice
+history recorded results and durations of 196,014 ms and 205,128 ms. Both native
+clients loaded the expected x64 release DLL. The first automation attempt closed
+the native result dialog before autosave, so that attempt does not establish
+replay persistence. In the second match, the user dismissed the native defeat
+dialog normally after the computer-use tool failed to attach across Windows/WSL.
+StarCraft saved a genuine replay, and the renderer history acquired its path.
+
+The saved replay is 77,250 bytes, SHA256
+`f7433bd1939c57f05b3fbe039f50b55b21c79a0184f82782acdd951026689693`.
+Parsing identified the original practice game ID, both players and races,
+StarCraft build 13515, game logic version 6, and the ShieldBattery extension.
+The replay contains 7,863 frames, including the time spent waiting at the native
+defeat dialog after the recorded result.
+
+The result page's enabled `Watch replay` button launched playback. Native replay
+simulation advanced through frame 2,400; all 11 probes at 240-frame intervals,
+including frame zero, matched the original live game's complete sync-probe data.
+The loaded playback DLL hash matched the release build. Replay Library also
+indexed an unchanged copy of this newly saved file and launched it by normal row
+double-click; playback through frame 1,440 matched all seven live probes.
+These checks cover saving, parsing, indexing, UI launch, and initial playback;
+they do not establish full-length playback or seek-control behavior.
+
+Original automation failures remain in ignored evidence. A replay log uses the
+session log basename, while a local practice client uses a game-specific basename;
+the initial verifier looked in the wrong file. Its separate summary derives
+playback success from the actual native log and matching session-start marker.
+A later cleanup attempt used an IPC handler unavailable in production; the
+replacement relies on normal application close. No application source or
+production guard was changed for these corrections.
+
+Bot installation twice failed with Windows `EPERM` on directory promotion when
+the profile lived inside the checkout watched by the development server. A shorter
+path inside the checkout failed too. Installation succeeded with the disposable
+profile outside the watched checkout. This bounds the observed environment issue;
+it does not prove a general installer failure in normal user profiles.
+
+Evidence is under ignored `.claude-scratch/practice-replays/`, including the
+authenticated Practice screenshot, original attempt reports,
+`first-watch-replay-summary.json`, native playback log, and
+`completed-practice.rep`. The corrected `replay-saved-clean.json` run passed;
+`verification-summary.json` records the combined findings. Practice result and
+replay path persisted across application restarts. Final cleanup verified no
+owned Windows processes, stopped only the task-owned database/cache/backend,
+and restored the original native `LastReplay.rep` after matching both original
+and task replay hashes. Disposable profiles were archived into ignored
+`private-state/`. The genuine autosaved test replay remains available. No push or
+remote change was performed.
 
 ## Publication boundary
 
