@@ -10,15 +10,19 @@ shipping it inside the app, nothing more. `.gitignore` keeps the `discord-sdk` f
 
 The private [ShieldBattery/discord-social-sdk](https://github.com/ShieldBattery/discord-social-sdk)
 repo holds the two files the app ships, in a release for each SDK version. It has to stay private,
-since Discord's terms don't allow sharing the SDK any other way. With the
-[GitHub CLI](https://cli.github.com/) logged in as someone who has access to that repo, run:
+since Discord's terms don't allow sharing the SDK any other way. Downloading it needs the
+[GitHub CLI](https://cli.github.com/), logged in as someone who has access to that repo.
+
+Release builds get it themselves (see below). To get it without building, for example to try Rich
+Presence in a dev build, run:
 
 ```
 pnpm run fetch-discord-sdk
 ```
 
-It downloads the version `tools/check-discord-sdk.cjs` pins into a `discord-sdk` folder at the root
-of your checkout, and checks the files against the pinned hashes.
+If a `discord-sdk` folder at the root of your checkout doesn't already hold the version
+`tools/check-discord-sdk.cjs` pins, this downloads that version into it and checks the files against
+the pinned hashes.
 
 ## Development
 
@@ -32,9 +36,11 @@ from Discord only works while the app is already running.
 Builds from `prod.yml` and `staging.yml` (`pnpm run dist`, `diststaging`, `pack` and `packstaging`)
 refuse to run unless both files in `discord-sdk` are the ones from the SDK version the repo pins, so
 no release goes out without Rich Presence or with an SDK it wasn't tested against.
-`tools/check-discord-sdk.cjs` holds that version and each file's SHA-256. It runs as
-electron-builder's `beforePack` hook, and first thing in `build:release`, which all four run, so
-they fail before building anything else.
+`tools/check-discord-sdk.cjs` holds that version and each file's SHA-256, and runs as
+electron-builder's `beforePack` hook. `build:release`, which all four run, starts with
+`tools/fetch-discord-sdk.cjs` (what `pnpm run fetch-discord-sdk` runs): it downloads the pinned
+version when `discord-sdk` doesn't hold it, then runs the check, so a build that can't get the SDK
+fails before building anything else.
 
 The build ships the files through `extraResources` into the installed app's `resources/discord-sdk`
 folder, and the app shows `License-Notices.txt` on its open source licenses page. The library keeps
@@ -72,7 +78,8 @@ gh release create v<version> --repo ShieldBattery/discord-social-sdk --title "Di
 ```
 
 Then update the version and the two hashes in `tools/check-discord-sdk.cjs` (`sha256sum` or
-PowerShell's `Get-FileHash` prints them), and run `pnpm run fetch-discord-sdk`. A release there is
-never replaced: each version gets its own, so older commits can still fetch the version they pin.
+PowerShell's `Get-FileHash` prints them). `pnpm run fetch-discord-sdk`, or the next release build,
+then downloads the new version. A release there is never replaced: each version gets its own, so
+older commits can still fetch the version they pin.
 danimoth declares the SDK's C API by hand for the version it was written against, so check its
 README before moving to a new major or minor version.

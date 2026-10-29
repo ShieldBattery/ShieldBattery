@@ -1,7 +1,10 @@
-// Downloads the Discord Social SDK files this repo pins into `discord-sdk`, from the release of
-// the private ShieldBattery/discord-social-sdk repo tagged with the pinned version, then checks
-// them. Needs the GitHub CLI (`gh`), logged in as someone with access to that repo; see
+// Makes sure `discord-sdk` holds the Discord Social SDK files this repo pins. If they're missing or
+// from another version, downloads them from the release of the private
+// ShieldBattery/discord-social-sdk repo tagged with the pinned version, then checks them. The
+// download needs the GitHub CLI (`gh`), logged in as someone with access to that repo; see
 // docs/DISCORD_SDK.md.
+//
+// `build:release` runs this first, so release builds get the SDK themselves.
 //
 // Usage: node tools/fetch-discord-sdk.cjs
 'use strict'
@@ -11,7 +14,15 @@ const { checkDiscordSdk, SDK_DIR, SDK_FILES, SDK_VERSION } = require('./check-di
 
 const SDK_REPO = 'ShieldBattery/discord-social-sdk'
 
+/** Returns whether the SDK had to be downloaded. */
 function fetchDiscordSdk() {
+  try {
+    checkDiscordSdk()
+    return false
+  } catch {
+    // Missing or from another version, so download the pinned one
+  }
+
   fs.mkdirSync(SDK_DIR, { recursive: true })
   const result = spawnSync(
     'gh',
@@ -39,11 +50,16 @@ function fetchDiscordSdk() {
   }
 
   checkDiscordSdk()
+  return true
 }
 
 try {
-  fetchDiscordSdk()
-  console.log(`Discord Social SDK ${SDK_VERSION} is in ${SDK_DIR}.`)
+  const downloaded = fetchDiscordSdk()
+  console.log(
+    downloaded
+      ? `Downloaded Discord Social SDK ${SDK_VERSION} into ${SDK_DIR}.`
+      : `Discord Social SDK ${SDK_VERSION} is already in ${SDK_DIR}.`,
+  )
 } catch (err) {
   console.error(err.message)
   process.exit(1)
