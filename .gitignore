@@ -27,8 +27,8 @@ CLAUDE.local.md
 .mcp.json
 
 
-# The Discord Social SDK is downloaded from the Discord Developer Portal and never committed: its
-# license only covers shipping it inside the app. See docs/DISCORD_SDK.md.
+# The Discord Social SDK comes from `pnpm run fetch-discord-sdk` and is never committed: its license
+# only covers shipping it inside the app. See docs/DISCORD_SDK.md.
 /discord-sdk/
 **/discord_partner_sdk.*
 **/discordpp.h

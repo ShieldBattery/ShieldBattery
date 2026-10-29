@@ -2,8 +2,9 @@
 // never lives in the repo; see docs/DISCORD_SDK.md.
 //
 // prod.yml and staging.yml run this as electron-builder's `beforePack` hook, so every build from
-// them fails without the SDK. `pnpm run dist` and `diststaging` also run it first, so they fail
-// before spending minutes on the client and game builds.
+// them fails without the SDK. `build:release`, which `dist`, `diststaging`, `pack` and
+// `packstaging` all run, also runs it first, so they fail before spending minutes on the client and
+// game builds.
 //
 // Usage: node tools/check-discord-sdk.cjs
 'use strict'
@@ -12,7 +13,10 @@ const fs = require('fs')
 const path = require('path')
 
 const SDK_DIR = path.join(__dirname, '..', 'discord-sdk')
-/** The SDK version the app is built and tested against. */
+/**
+ * The SDK version the app is built and tested against. `fetch-discord-sdk.cjs` downloads it from
+ * the release tagged `v<version>`.
+ */
 const SDK_VERSION = '1.10.19337'
 /** The SHA-256 of each file the build ships, from that version's download. */
 const SDK_FILES = {
@@ -37,7 +41,7 @@ function checkDiscordSdk() {
   if (problems.length) {
     throw new Error(
       `The Discord Social SDK in ${SDK_DIR} can't be shipped: ${problems.join(', ')}. ` +
-        'See docs/DISCORD_SDK.md for where to get it.',
+        'Run `pnpm run fetch-discord-sdk` to get it (see docs/DISCORD_SDK.md).',
     )
   }
 }
@@ -45,6 +49,10 @@ function checkDiscordSdk() {
 exports.default = async function beforePack() {
   checkDiscordSdk()
 }
+exports.checkDiscordSdk = checkDiscordSdk
+exports.SDK_DIR = SDK_DIR
+exports.SDK_VERSION = SDK_VERSION
+exports.SDK_FILES = SDK_FILES
 
 if (require.main === module) {
   try {
