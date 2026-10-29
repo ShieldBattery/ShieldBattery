@@ -1560,6 +1560,9 @@ async function createWindow() {
   mainWindow.webContents.on('render-process-gone', (_event, details) => {
     logger.error(`Renderer process gone: reason=${details.reason} exitCode=${details.exitCode}`)
     rendererReady = false
+    // Without a renderer nothing keeps the activity current (a lobby's Join button would stay up
+    // after the user's connection to it is gone). A new renderer sends its own once it loads.
+    discordPresence?.setActivity(null)
   })
   mainWindow.on('unresponsive', () => {
     logger.warning('Main window became unresponsive')
