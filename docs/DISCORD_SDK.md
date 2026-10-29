@@ -8,15 +8,17 @@ shipping it inside the app, nothing more. `.gitignore` keeps the `discord-sdk` f
 
 ## Getting the SDK
 
-The SDK is a download from the Discord Developer Portal, for members of the team that owns the
-ShieldBattery applications (ShieldBattery, ShieldBattery-Staging and ShieldBattery-Local; each
-release channel publishes as its own). Open one of them, go to the Social SDK's Downloads page, and
-download the SDK for C++ in the version `tools/check-discord-sdk.cjs` names.
+The private [ShieldBattery/discord-social-sdk](https://github.com/ShieldBattery/discord-social-sdk)
+repo holds the two files the app ships, in a release for each SDK version. It has to stay private,
+since Discord's terms don't allow sharing the SDK any other way. With the
+[GitHub CLI](https://cli.github.com/) logged in as someone who has access to that repo, run:
 
-From the download, copy these two files into a `discord-sdk` folder at the root of your checkout:
+```
+pnpm run fetch-discord-sdk
+```
 
-- `discord_social_sdk/bin/release/discord_partner_sdk.dll`
-- `discord_social_sdk/License-Notices.txt`
+It downloads the version `tools/check-discord-sdk.cjs` pins into a `discord-sdk` folder at the root
+of your checkout, and checks the files against the pinned hashes.
 
 ## Development
 
@@ -54,7 +56,23 @@ under the same key.
 
 ## Updating the SDK
 
-Replace the two files with the new version's, and update the version and the two hashes in
-`tools/check-discord-sdk.cjs` (`sha256sum` or PowerShell's `Get-FileHash` prints them). danimoth
-declares the SDK's C API by hand for the version it was written against, so check its README before
-moving to a new major or minor version.
+The SDK is a download from the Discord Developer Portal, for members of the team that owns the
+ShieldBattery applications (ShieldBattery, ShieldBattery-Staging and ShieldBattery-Local; each
+release channel publishes as its own). Open one of them, go to the Social SDK's Downloads page, and
+download the SDK for C++.
+
+Create a release of ShieldBattery/discord-social-sdk tagged `v<version>`, with these two files from
+the download attached under their own names:
+
+- `discord_social_sdk/bin/release/discord_partner_sdk.dll`
+- `discord_social_sdk/License-Notices.txt`
+
+```
+gh release create v<version> --repo ShieldBattery/discord-social-sdk --title "Discord Social SDK <version>" discord_partner_sdk.dll License-Notices.txt
+```
+
+Then update the version and the two hashes in `tools/check-discord-sdk.cjs` (`sha256sum` or
+PowerShell's `Get-FileHash` prints them), and run `pnpm run fetch-discord-sdk`. A release there is
+never replaced: each version gets its own, so older commits can still fetch the version they pin.
+danimoth declares the SDK's C API by hand for the version it was written against, so check its
+README before moving to a new major or minor version.

@@ -40,6 +40,7 @@
     "diststaging:signed": "SB_SERVER=https://staging.shieldbattery.net pnpm run build:release && electron-builder build --win --x64 -p always -c staging.yml",
     "download-fonts": "node -r @swc-node/register download-fonts.ts",
     "email-dev": "email dev --dir email/templates --port 5567",
+    "fetch-discord-sdk": "node tools/fetch-discord-sdk.cjs",
     "format": "oxfmt \"**/*.{js,jsx,mjs,cjs,ts,tsx}\"",
     "format:check": "oxfmt --check \"**/*.{js,jsx,mjs,cjs,ts,tsx}\"",
     "gen-emails": "node -r @swc-node/register email/generate.tsx",
