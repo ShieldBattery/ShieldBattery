@@ -10,6 +10,9 @@ on:
       - '.github/workflows/game-ci.yml'
       - 'game/**'
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true

@@ -1,6 +1,17 @@
 name: JS CI
 
-on: [push, pull_request]
+on:
+  push:
+    paths-ignore:
+      - 'docs/**/*.md'
+      - 'README.md'
+  pull_request:
+    paths-ignore:
+      - 'docs/**/*.md'
+      - 'README.md'
+
+permissions:
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -48,10 +59,9 @@ jobs:
 
       - name: Display translation error
         if: ${{ failure() && steps.check-translation-files.conclusion == 'failure' }}
-        uses: actions/github-script@v6
-        with:
-          script: |
-            core.setFailed('The translation files are not up to date. Please run "pnpm gen-translations" in the directory root and commit the updated translation files.')
+        run: |
+          echo '::error::The translation files are not up to date. Run pnpm gen-translations.'
+          exit 1
 
       - name: Generate email templates
         id: gen-email-templates
@@ -67,10 +77,9 @@ jobs:
 
       - name: Display email template error
         if: ${{ steps.check-email-templates.outputs.matches != '' || failure() && steps.gen-email-templates.conclusion == 'failure' }}
-        uses: actions/github-script@v6
-        with:
-          script: |
-            core.setFailed('The email templates seem outdated. Please run "pnpm gen-emails" in the directory root and commit the updated email templates.')
+        run: |
+          echo '::error::The email templates are outdated. Run pnpm gen-emails.'
+          exit 1
 
       - name: Check graphql codegen
         id: check-graphql
@@ -78,10 +87,9 @@ jobs:
 
       - name: Display graphql error
         if: ${{ steps.check-graphql.outputs.matches != '' || failure() && steps.gen-graphql.conclusion == 'failure' }}
-        uses: actions/github-script@v6
-        with:
-          script: |
-            core.setFailed('The generated graphql files seem outdated. Please run `pnpm gen-graphql` in the directory root and commit the updated files.')
+        run: |
+          echo '::error::The generated GraphQL files are outdated. Run pnpm gen-graphql.'
+          exit 1
 
   integration-tests:
     runs-on: ubuntu-latest
