@@ -1,16 +1,29 @@
 import { render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { MatchmakingDivision } from '../../common/matchmaking'
+import {
+  MatchmakingDivision,
+  POINTS_FOR_RATING_TARGET_FACTOR,
+  pointsToMatchmakingDivision,
+} from '../../common/matchmaking'
 import { botRatingToDivision, ProductionVisibilityBadge } from './bot-badges'
+
+vi.mock('../../common/matchmaking', async importOriginal => ({
+  ...(await importOriginal<typeof import('../../common/matchmaking')>()),
+  pointsToMatchmakingDivision: vi.fn(),
+}))
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (_key: string, fallback: string) => fallback }),
 }))
 
-test('bot strength uses current solo division bounds without a season bonus pool', () => {
-  expect(botRatingToDivision(1399)).toBe(MatchmakingDivision.Silver3)
+test('bot strength converts rating to solo points with no bonus pool', () => {
+  vi.mocked(pointsToMatchmakingDivision).mockReturnValue(MatchmakingDivision.Gold1)
   expect(botRatingToDivision(1400)).toBe(MatchmakingDivision.Gold1)
-  expect(botRatingToDivision(2120)).toBe(MatchmakingDivision.Champion)
+  expect(pointsToMatchmakingDivision).toHaveBeenCalledWith(
+    true,
+    1400 * POINTS_FOR_RATING_TARGET_FACTOR,
+    { bonusPool: 0 },
+  )
 })
 
 describe('ProductionVisibilityBadge', () => {
