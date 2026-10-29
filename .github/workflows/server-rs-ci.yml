@@ -91,7 +91,7 @@ jobs:
       - name: Display graphql error
         if: ${{ failure() && steps.gen-schema.conclusion == 'failure' }}
         run: |
-          echo '::error::The generated GraphQL files are outdated. Run pnpm gen-schema and pnpm gen-graphql.'
+          echo '::error::The generated graphql files seem outdated. Please run `pnpm gen-schema && pnpm gen-graphql` in the directory root and commit the updated files.'
           exit 1
 
   typeshare:
@@ -130,7 +130,7 @@ jobs:
         if: ${{ steps.check-typeshare.outputs.matches != '' || failure() && steps.gen-typeshare.conclusion == 'failure' }}
         run: |
           git diff -- common/typeshare.ts
-          echo '::error::The typeshare output is outdated. Run pnpm gen-typeshare.'
+          echo '::error::The typeshare types seem outdated. Please run "pnpm gen-typeshare" in the directory root and commit the updated files. You may need to run "cargo install typeshare-cli" to get an updated version first.'
           exit 1
 
   sqlx-prepare:
