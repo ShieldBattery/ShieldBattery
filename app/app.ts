@@ -48,7 +48,7 @@ import { checkStarcraftPath } from './game/check-starcraft-path'
 import createGameServer, { GameServer } from './game/game-server'
 import { GameWindowMinimizer } from './game/game-window-minimizer'
 import { LocalGameManager } from './game/local-game-manager'
-import { waitForLocalGameOnQuit } from './game/local-game-shutdown'
+import { promptForLocalGameCleanup, waitForLocalGameOnQuit } from './game/local-game-shutdown'
 import { MapStore } from './game/map-store'
 import { ReplayStore } from './game/replay-store'
 import { classifyLaunchArgs, DeepLink } from './launch-args'
@@ -899,7 +899,12 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
         localSettings,
         scrSettings,
       )
-      waitForLocalGameOnQuit(app, localGameManager, error => logger.error(String(error)))
+      waitForLocalGameOnQuit(
+        app,
+        localGameManager,
+        error => logger.error(String(error)),
+        () => promptForLocalGameCleanup(dialog, mainWindow),
+      )
       localGameManager.on('status', status => {
         TypedIpcSender.from(mainWindow?.webContents).send('localGameStatus', status)
       })
