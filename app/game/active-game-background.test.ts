@@ -11,7 +11,7 @@ import {
 } from '../../common/settings/default-settings'
 import { ActiveGameManager } from './active-game-manager'
 
-const runtime = vi.hoisted(() => ({ root: '', launch: vi.fn() }))
+const runtime = vi.hoisted(() => ({ root: '', launch: vi.fn(), releaseGpu: vi.fn() }))
 vi.mock('electron', () => ({
   app: { getAppPath: () => 'C:\\fake-app', getPath: () => runtime.root },
   screen: { getAllDisplays: () => [] },
@@ -37,6 +37,9 @@ vi.mock('./check-starcraft-path', () => ({
 vi.mock('./native/process/index', () => ({
   launchProcess: (...args: unknown[]) => runtime.launch(...args),
 }))
+vi.mock('./gpu-preference', () => ({
+  holdHighPerformanceGpu: async () => runtime.releaseGpu,
+}))
 vi.mock('../settings', () => ({
   LocalSettingsManager: class {},
   ScrSettingsManager: class {},
@@ -49,6 +52,7 @@ vi.mock('../settings', () => ({
 beforeEach(async () => {
   runtime.root = await fs.mkdtemp(path.join(os.tmpdir(), 'sb-background-launch-'))
   runtime.launch.mockReset()
+  runtime.releaseGpu.mockReset()
   vi.spyOn(fs, 'access').mockResolvedValue()
   vi.spyOn(fs, 'realpath').mockImplementation(async p => String(p))
 })
@@ -90,6 +94,9 @@ test('background launch uses its own settings through exit without reading or sy
   const { manager, config, scr } = createManager()
   const commands: unknown[][] = []
   manager.on('gameCommand', (...args) => commands.push(args))
+  const lifecycle: string[] = []
+  manager.on('gameProcessLaunching', id => lifecycle.push(`launch:${id}`))
+  manager.on('gameProcessEnded', id => lifecycle.push(`end:${id}`))
   manager.setGameConfig(config)
   await vi.waitFor(() => expect(runtime.launch).toHaveBeenCalledOnce())
   expect(runtime.launch.mock.calls[0][0].args).toContain('-sb-background')
@@ -102,11 +109,15 @@ test('background launch uses its own settings through exit without reading or sy
   expect(JSON.parse(await fs.readFile(payload.settingsFilePath, 'utf8')).HDPreferences).toBe(false)
   expect(scr.get).not.toHaveBeenCalled()
   expect(scr.writeGameSettingsFile).not.toHaveBeenCalled()
+  expect(lifecycle).toEqual(['launch:test'])
+  expect(runtime.releaseGpu).not.toHaveBeenCalled()
   exit(0)
   await vi.waitFor(async () =>
     expect(await fs.readdir(path.join(runtime.root, 'background-games'))).toEqual([]),
   )
   expect(scr.syncWithGameSettingsFile).not.toHaveBeenCalled()
+  expect(lifecycle).toEqual(['launch:test', 'end:test'])
+  expect(runtime.releaseGpu).toHaveBeenCalledOnce()
 })
 
 test('a background replay launches alongside other games with its own settings', async () => {

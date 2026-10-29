@@ -33,7 +33,9 @@ const BYTES_PER_MEGABYTE = 1024 * 1024
  * a rating, so it is placed where a player of that rating's points are expected to settle.
  */
 export function botRatingToDivision(rating: number): MatchmakingDivision {
-  return pointsToMatchmakingDivision(true, rating * POINTS_FOR_RATING_TARGET_FACTOR, 0)
+  return pointsToMatchmakingDivision(true, rating * POINTS_FOR_RATING_TARGET_FACTOR, {
+    bonusPool: 0,
+  })
 }
 
 export function botRaceToLabel(race: BotRaceName, t: TFunction): string {

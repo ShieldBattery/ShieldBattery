@@ -1,10 +1,17 @@
 import { render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
-import { ProductionVisibilityBadge } from './bot-badges'
+import { MatchmakingDivision } from '../../common/matchmaking'
+import { botRatingToDivision, ProductionVisibilityBadge } from './bot-badges'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (_key: string, fallback: string) => fallback }),
 }))
+
+test('bot strength uses current solo division bounds without a season bonus pool', () => {
+  expect(botRatingToDivision(1399)).toBe(MatchmakingDivision.Silver3)
+  expect(botRatingToDivision(1400)).toBe(MatchmakingDivision.Gold1)
+  expect(botRatingToDivision(2120)).toBe(MatchmakingDivision.Champion)
+})
 
 describe('ProductionVisibilityBadge', () => {
   beforeEach(() => vi.unstubAllEnvs())
