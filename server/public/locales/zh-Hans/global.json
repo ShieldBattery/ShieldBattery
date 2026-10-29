@@ -1238,6 +1238,7 @@
     "buttonDismissReviewRequest": "驳回请求",
     "buttonDownloadReplay": "下载录像",
     "buttonOpenInApp": "在 ShieldBattery 中打开",
+    "buttonRefundPoints": "返还积分",
     "buttonReplaySaved": "已在录像库",
     "buttonReport": "举报",
     "buttonRequestReview": "请求复核",
@@ -1339,6 +1340,19 @@
     "infoDuration": "时长",
     "infoGameType": "游戏类型",
     "notFound": "未找到该游戏。",
+    "refundPoints": {
+      "errorAlreadyRefunded": "该游戏的积分已经返还过了。",
+      "errorGameNotFound": "未找到该游戏。",
+      "errorGeneric": "返还该游戏的积分时出现问题。",
+      "errorInvalidPlayers": "有玩家未参与该游戏。",
+      "errorNotCurrentSeason": "只能返还本赛季游戏的积分。",
+      "errorNotRanked": "该游戏没有可返还的排位积分（不是排位游戏）。",
+      "errorNotRefundable": "勾选的玩家在该游戏中都没有失去排位积分或加分。",
+      "hint": "勾选的玩家将拿回在该游戏中失去的排位积分和联赛积分。请取消勾选导致失败的玩家。获胜者保留其积分。此操作无法撤销。",
+      "refundButton": "返还积分",
+      "success_other": "已为 {{count}} 名玩家返还积分。",
+      "title": "返还游戏积分"
+    },
     "resolveDialog": {
       "errorGeneric": "出了点问题，请重试。",
       "errorInvalidResults": "这些结果对该游戏无效。必须恰好有一支队伍获胜。",

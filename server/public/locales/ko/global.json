@@ -1238,6 +1238,7 @@
     "buttonDismissReviewRequest": "요청 기각",
     "buttonDownloadReplay": "리플레이 다운로드",
     "buttonOpenInApp": "ShieldBattery에서 열기",
+    "buttonRefundPoints": "점수 복구",
     "buttonReplaySaved": "라이브러리에 있음",
     "buttonReport": "신고",
     "buttonRequestReview": "검토 요청",
@@ -1339,6 +1340,19 @@
     "infoDuration": "기간",
     "infoGameType": "유형",
     "notFound": "게임을 찾을 수 없습니다.",
+    "refundPoints": {
+      "errorAlreadyRefunded": "이 게임의 점수는 이미 복구되었습니다.",
+      "errorGameNotFound": "게임을 찾을 수 없습니다.",
+      "errorGeneric": "이 게임의 점수를 복구하는 중 문제가 발생했습니다.",
+      "errorInvalidPlayers": "플레이어 중 한 명이 이 게임에 참가하지 않았습니다.",
+      "errorNotCurrentSeason": "현재 시즌 게임의 점수만 복구할 수 있습니다.",
+      "errorNotRanked": "이 게임에는 복구할 랭크 점수가 없습니다(랭크전이 아니었습니다).",
+      "errorNotRefundable": "체크된 플레이어 중 이 게임에서 랭크 점수나 보너스를 잃은 사람이 없습니다.",
+      "hint": "체크된 플레이어는 이 게임에서 잃은 랭크 점수와 리그 점수를 돌려받습니다. 패배의 원인이 된 플레이어는 체크를 해제해 주세요. 승리한 플레이어의 점수는 그대로 유지됩니다. 이 작업은 되돌릴 수 없습니다.",
+      "refundButton": "점수 복구",
+      "success_other": "플레이어 {{count}}명의 점수를 복구했습니다.",
+      "title": "게임 점수 복구"
+    },
     "resolveDialog": {
       "errorGeneric": "문제가 발생했습니다. 다시 시도해 주세요.",
       "errorInvalidResults": "이 게임에 유효하지 않은 결과입니다. 정확히 한 팀만 승리해야 합니다.",
