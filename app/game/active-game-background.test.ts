@@ -1,4 +1,4 @@
-﻿import { EventEmitter } from 'node:events'
+import { EventEmitter } from 'node:events'
 import { promises as fs } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -11,7 +11,12 @@ import {
 } from '../../common/settings/default-settings'
 import { ActiveGameManager } from './active-game-manager'
 
-const runtime = vi.hoisted(() => ({ root: '', launch: vi.fn(), releaseGpu: vi.fn() }))
+const runtime = vi.hoisted(() => ({
+  root: '',
+  launch: vi.fn(),
+  releaseGpu: vi.fn(),
+  holdGpu: vi.fn(),
+}))
 vi.mock('electron', () => ({
   app: { getAppPath: () => 'C:\\fake-app', getPath: () => runtime.root },
   screen: { getAllDisplays: () => [] },
@@ -38,7 +43,7 @@ vi.mock('./native/process/index', () => ({
   launchProcess: (...args: unknown[]) => runtime.launch(...args),
 }))
 vi.mock('./gpu-preference', () => ({
-  holdHighPerformanceGpu: async () => runtime.releaseGpu,
+  holdHighPerformanceGpu: (...args: unknown[]) => runtime.holdGpu(...args),
 }))
 vi.mock('../settings', () => ({
   LocalSettingsManager: class {},
@@ -53,6 +58,7 @@ beforeEach(async () => {
   runtime.root = await fs.mkdtemp(path.join(os.tmpdir(), 'sb-background-launch-'))
   runtime.launch.mockReset()
   runtime.releaseGpu.mockReset()
+  runtime.holdGpu.mockReset().mockResolvedValue(runtime.releaseGpu)
   vi.spyOn(fs, 'access').mockResolvedValue()
   vi.spyOn(fs, 'realpath').mockImplementation(async p => String(p))
 })
@@ -63,7 +69,12 @@ afterEach(async () => {
 
 function createManager() {
   const settings = Object.assign(new EventEmitter(), {
-    get: vi.fn(async () => ({ ...DEFAULT_LOCAL_SETTINGS, starcraftPath: 'C:\\StarCraft' })),
+    get: vi.fn(async () => ({
+      ...DEFAULT_LOCAL_SETTINGS,
+      preferHighPerformanceGpu: true,
+      keepReplaysAlongsideGames: true,
+      starcraftPath: 'C:\\StarCraft',
+    })),
   })
   const scr = {
     gameFilepath: path.join(runtime.root, 'player-CSettings.json'),
@@ -109,15 +120,16 @@ test('background launch uses its own settings through exit without reading or sy
   expect(JSON.parse(await fs.readFile(payload.settingsFilePath, 'utf8')).HDPreferences).toBe(false)
   expect(scr.get).not.toHaveBeenCalled()
   expect(scr.writeGameSettingsFile).not.toHaveBeenCalled()
-  expect(lifecycle).toEqual(['launch:test'])
+  expect(lifecycle).toEqual([])
   expect(runtime.releaseGpu).not.toHaveBeenCalled()
   exit(0)
   await vi.waitFor(async () =>
     expect(await fs.readdir(path.join(runtime.root, 'background-games'))).toEqual([]),
   )
   expect(scr.syncWithGameSettingsFile).not.toHaveBeenCalled()
-  expect(lifecycle).toEqual(['launch:test', 'end:test'])
-  expect(runtime.releaseGpu).toHaveBeenCalledOnce()
+  expect(lifecycle).toEqual([])
+  expect(runtime.holdGpu).not.toHaveBeenCalled()
+  expect(runtime.releaseGpu).not.toHaveBeenCalled()
 })
 
 test('a background replay launches alongside other games with its own settings', async () => {
@@ -246,4 +258,63 @@ test('canceling before the game connects sends quit instead of starting the canc
   exit(0)
   await stopped
   expect(manager.getStatus()).toBeNull()
+})
+
+test('background replay exit leaves foreground lifecycle and GPU hold intact', async () => {
+  const exits: Array<(code: number) => void> = []
+  runtime.launch.mockImplementation(async () => ({
+    waitForExit: () => new Promise<number>(resolve => exits.push(resolve)),
+  }))
+  const { manager, config } = createManager()
+  const lifecycle: string[] = []
+  manager.on('gameProcessLaunching', id => lifecycle.push(`launch:${id}`))
+  manager.on('gameProcessEnded', id => lifecycle.push(`end:${id}`))
+  manager.setGameConfig({ ...config, presentation: undefined })
+  await vi.waitFor(() => expect(exits).toHaveLength(1))
+  manager.setGameConfig({
+    ...config,
+    setup: { ...config.setup, gameId: 'background', map: { isReplay: true, path: 'test.rep' } },
+  } as unknown as GameLaunchConfig)
+  await vi.waitFor(() => expect(exits).toHaveLength(2))
+  expect(runtime.holdGpu).toHaveBeenCalledOnce()
+  expect(lifecycle).toEqual(['launch:test'])
+  exits[1](0)
+  await vi.waitFor(async () =>
+    expect(await fs.readdir(path.join(runtime.root, 'background-games'))).toEqual([]),
+  )
+  expect(runtime.releaseGpu).not.toHaveBeenCalled()
+  expect(lifecycle).toEqual(['launch:test'])
+  exits[0](0)
+  await vi.waitFor(() => expect(lifecycle).toEqual(['launch:test', 'end:test']))
+  expect(runtime.releaseGpu).toHaveBeenCalledOnce()
+})
+
+test('foreground injection failure balances lifecycle and releases GPU hold', async () => {
+  runtime.launch.mockRejectedValue(new Error('Injection failed'))
+  const { manager, config } = createManager()
+  const lifecycle: string[] = []
+  manager.on('gameProcessLaunching', id => lifecycle.push(`launch:${id}`))
+  manager.on('gameProcessEnded', id => lifecycle.push(`end:${id}`))
+  manager.setGameConfig({ ...config, presentation: undefined })
+  await vi.waitFor(() => expect(lifecycle).toEqual(['launch:test', 'end:test']))
+  expect(runtime.holdGpu).toHaveBeenCalledOnce()
+  expect(runtime.releaseGpu).toHaveBeenCalledOnce()
+})
+
+test('failed background cleanup does not reject graceful stop', async () => {
+  let exit!: (code: number) => void
+  runtime.launch.mockImplementation(async () => ({
+    waitForExit: () =>
+      new Promise<number>(resolve => {
+        exit = resolve
+      }),
+  }))
+  const { manager, config } = createManager()
+  manager.setGameConfig(config)
+  await vi.waitFor(() => expect(exit).toBeDefined())
+  vi.spyOn(fs, 'rm').mockRejectedValue(new Error('Directory locked'))
+  manager.handleGameStart('test')
+  const stopped = manager.stop(true)
+  exit(0)
+  await expect(stopped).resolves.toBeUndefined()
 })

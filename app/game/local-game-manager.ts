@@ -1,5 +1,4 @@
-import { app } from 'electron'
-import { ChildProcess, spawn } from 'node:child_process'
+import { app, utilityProcess, UtilityProcess } from 'electron'
 import { randomBytes, randomUUID } from 'node:crypto'
 import { EventEmitter } from 'node:events'
 import { createReadStream, promises as fs } from 'node:fs'
@@ -25,7 +24,8 @@ const LOCAL_RESULT_SETTLE_TIMEOUT = 1000
 interface Session {
   status: LocalGameStatus
   managers: ActiveGameManager[]
-  workers: ChildProcess[]
+  managersById: Map<string, ActiveGameManager>
+  workers: Array<{ process: UtilityProcess; exited: boolean }>
   detach: Array<() => void>
   hub?: LocalGameHub
   control?: { endpoint: string; dispose: () => void }
@@ -55,7 +55,7 @@ export class LocalGameManager extends EventEmitter<{ status: [status: LocalGameS
   }
 
   getManager(gameId: string): ActiveGameManager | undefined {
-    return this.session?.managers.find(manager => manager.getStatus()?.id === gameId)
+    return this.session?.managersById.get(gameId)
   }
 
   isActive(): boolean {
@@ -89,6 +89,7 @@ export class LocalGameManager extends EventEmitter<{ status: [status: LocalGameS
       session = {
         status: { id, state: 'launching', playerGameId, botGameIds },
         managers: [],
+        managersById: new Map(),
         workers: [],
         detach: [],
         stopping: false,
@@ -177,6 +178,8 @@ export class LocalGameManager extends EventEmitter<{ status: [status: LocalGameS
           : new ActiveGameManager(this.mapStore, this.localSettings, this.scrSettings)
         manager.setLocalControlPipe(session.control.endpoint)
         session.managers.push(manager)
+        session.managersById.set(gameId, manager)
+        if (!isHuman) session.detach.push(() => manager.dispose())
         session.detach.push(this.gameServer.registerManager(gameId, manager))
         const onExit = () => {
           if (session!.stopping) return
@@ -326,14 +329,29 @@ export class LocalGameManager extends EventEmitter<{ status: [status: LocalGameS
       session.hub?.close()
       for (const worker of session.workers) {
         waits.push(
-          new Promise<void>(resolve => {
-            if (worker.exitCode !== null || worker.signalCode !== null) resolve()
-            else worker.once('exit', () => resolve())
+          new Promise<void>((resolve, reject) => {
+            if (worker.exited) resolve()
+            else {
+              const timer = setTimeout(() => {
+                worker.process.kill()
+                reject(new Error('Bot process supervisor did not exit after stopping'))
+              }, 2500)
+              worker.process.once('exit', () => {
+                clearTimeout(timer)
+                resolve()
+              })
+              worker.process.postMessage({ type: 'stop' })
+            }
           }),
         )
-        if (worker.connected) worker.disconnect()
       }
-      await Promise.allSettled(waits)
+      const stopped = await Promise.allSettled(waits)
+      const failure = stopped.find(result => result.status === 'rejected')
+      if (!error && failure?.status === 'rejected') {
+        error = failure.reason instanceof Error ? failure.reason : new Error(String(failure.reason))
+        session.status.error = error.message
+        log.warning(`Local game client did not stop cleanly: ${error.message}`)
+      }
       for (const detach of session.detach) detach()
       session.status.state = error ? 'error' : 'finished'
       this.publish(session)
@@ -428,12 +446,12 @@ export class LocalGameManager extends EventEmitter<{ status: [status: LocalGameS
     config: { executable: string; args: string[]; cwd: string; instance: string; logPath: string },
     fail: (error: Error) => void,
   ): Promise<void> {
-    const worker = spawn(process.execPath, [path.join(__dirname, 'local-bot-worker.js')], {
-      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
-      windowsHide: true,
-      stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
+    const worker = utilityProcess.fork(path.join(__dirname, 'local-bot-worker.js'), [], {
+      stdio: 'ignore',
+      serviceName: 'Local bot supervisor',
     })
-    session.workers.push(worker)
+    const trackedWorker = { process: worker, exited: false }
+    session.workers.push(trackedWorker)
     return new Promise((resolve, reject) => {
       let started = false
       let botExitReported = false
@@ -478,14 +496,17 @@ export class LocalGameManager extends EventEmitter<{ status: [status: LocalGameS
         }
         reportFailure(new Error(event.error ?? `Bot process exited (${event.code})`))
       })
-      worker.on('error', error => reportFailure(error))
+      worker.on('error', error =>
+        reportFailure(new Error(`Bot process supervisor failed: ${error}`)),
+      )
       worker.on('exit', () => {
+        trackedWorker.exited = true
         clearTimeout(startupTimer)
-        if (!session.stopping && !botExitReported) {
+        if (!started || (!session.stopping && !botExitReported)) {
           reportFailure(new Error('Bot process supervisor exited'))
         }
       })
-      worker.send({ type: 'start', ...config })
+      worker.postMessage({ type: 'start', ...config })
     })
   }
 }

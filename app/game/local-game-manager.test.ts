@@ -3,10 +3,9 @@ import path from 'node:path'
 import { afterEach, expect, test, vi } from 'vitest'
 import { LocalGameRequest } from '../../common/games/local-game'
 
-const mocks = vi.hoisted(() => ({ spawn: vi.fn() }))
+const mocks = vi.hoisted(() => ({ fork: vi.fn() }))
 
-vi.mock('electron', () => ({ app: {} }))
-vi.mock('node:child_process', () => ({ spawn: mocks.spawn }))
+vi.mock('electron', () => ({ app: {}, utilityProcess: { fork: mocks.fork } }))
 vi.mock('../logger', () => ({ default: { error: () => {}, warning: () => {} } }))
 vi.mock('../settings', () => ({ LocalSettingsManager: class {}, ScrSettingsManager: class {} }))
 vi.mock('./active-game-manager', () => ({ ActiveGameManager: class {} }))
@@ -50,7 +49,7 @@ test.each(['', 'a'.repeat(25), 'bot\u0000name'])(
 
 afterEach(() => {
   vi.useRealTimers()
-  mocks.spawn.mockReset()
+  mocks.fork.mockReset()
 })
 
 function makeGameManager(initialState?: string) {
@@ -72,16 +71,17 @@ function makeGameManager(initialState?: string) {
 
 function makeWorker() {
   const worker = Object.assign(new EventEmitter(), {
-    connected: true,
-    exitCode: null,
-    signalCode: null,
-    disconnect: vi.fn(() => worker.emit('exit', 0)),
-    send: vi.fn(),
+    kill: vi.fn(() => worker.emit('exit', 0)),
+    postMessage: vi.fn(message => {
+      if (message.type === 'stop') worker.emit('exit', 0)
+    }),
   })
   return worker
 }
 
 type TestManager = {
+  session?: Parameters<LocalGameManager['stopSession']>[0]
+  getManager: LocalGameManager['getManager']
   stopSession: LocalGameManager['stopSession']
   startBot: LocalGameManager['startBot']
 }
@@ -101,7 +101,8 @@ function shutdownFixture() {
   const session: Parameters<LocalGameManager['stopSession']>[0] = {
     status: { id: 'session', state: 'playing', playerGameId: 'human', botGameIds: ['bot'] },
     managers: [game.game as never],
-    workers: [worker as never],
+    managersById: new Map([['bot', game.game as never]]),
+    workers: [{ process: worker as never, exited: false }],
     detach: [],
     stopping: false,
     control: { endpoint: 'test', dispose },
@@ -120,10 +121,11 @@ function botFixture(state = 'playing') {
   ) as unknown as TestManager
   const game = makeGameManager(state)
   const worker = makeWorker()
-  mocks.spawn.mockReturnValueOnce(worker)
+  mocks.fork.mockReturnValueOnce(worker)
   const session: Parameters<LocalGameManager['startBot']>[0] = {
     status: { id: 'session', state: 'playing', playerGameId: 'human', botGameIds: ['bot'] },
     managers: [game.game as never],
+    managersById: new Map([['bot', game.game as never]]),
     workers: [],
     detach: [],
     stopping: false,
@@ -156,13 +158,13 @@ test('normal local shutdown keeps bot processes and transport alive until native
   expect(f.stop).toHaveBeenCalledExactlyOnceWith(true)
   expect(f.dispose).not.toHaveBeenCalled()
   expect(f.close).not.toHaveBeenCalled()
-  expect(f.worker.disconnect).not.toHaveBeenCalled()
+  expect(f.worker.postMessage).not.toHaveBeenCalled()
   f.finish()
   await stopped
   expect(f.stop).toHaveBeenLastCalledWith()
   expect(f.dispose).toHaveBeenCalledOnce()
   expect(f.close).toHaveBeenCalledOnce()
-  expect(f.worker.disconnect).toHaveBeenCalledOnce()
+  expect(f.worker.postMessage).toHaveBeenCalledExactlyOnceWith({ type: 'stop' })
   expect(f.session.status.state).toBe('finished')
 })
 
@@ -200,6 +202,114 @@ test('a nonzero bot exit fails immediately', async () => {
   expect(f.fail.mock.calls[0][0].message).toContain('(1)')
 })
 
+test('bot supervision uses a utility process without enabling Electron Node mode', async () => {
+  const f = botFixture()
+  await startBot(f)
+  expect(mocks.fork).toHaveBeenCalledExactlyOnceWith(
+    path.join(__dirname, 'local-bot-worker.js'),
+    [],
+    { stdio: 'ignore', serviceName: 'Local bot supervisor' },
+  )
+  expect(f.worker.postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: 'start' }))
+})
+
+test('a supervisor exit before startup rejects even during cancellation', async () => {
+  const pendingFixture = botFixture()
+  const pending = pendingFixture.manager.startBot(
+    pendingFixture.session,
+    pendingFixture.game.game as never,
+    { executable: 'bot.exe', args: [], cwd: 'bots', instance: 'test', logPath: 'bot.log' },
+    pendingFixture.fail,
+  )
+  pendingFixture.session.stopping = true
+  pendingFixture.worker.emit('exit', 1)
+  await expect(pending).rejects.toThrow('Bot process supervisor exited')
+  expect(pendingFixture.fail).not.toHaveBeenCalled()
+})
+
+test('a supervisor that never starts its bot rejects at the startup deadline', async () => {
+  vi.useFakeTimers()
+  const f = botFixture()
+  const pending = f.manager.startBot(
+    f.session,
+    f.game.game as never,
+    { executable: 'bot.exe', args: [], cwd: 'bots', instance: 'test', logPath: 'bot.log' },
+    f.fail,
+  )
+  const failure = pending.catch((error: unknown) => error)
+  await vi.advanceTimersByTimeAsync(10000)
+  expect(await failure).toEqual(new Error('Bot process launch timed out'))
+  expect(f.fail).toHaveBeenCalledOnce()
+})
+
+test('utility process fatal errors are reported as supervisor failures', async () => {
+  const f = botFixture()
+  await startBot(f)
+  f.worker.emit('error', 'FatalError', 'location', 'diagnostic report')
+  expect(f.fail.mock.calls[0][0]).toBeInstanceOf(Error)
+  expect(f.fail.mock.calls[0][0].message).toBe('Bot process supervisor failed: FatalError')
+})
+
+test('an unexpected supervisor exit fails an active match', async () => {
+  const f = botFixture()
+  await startBot(f)
+  f.worker.emit('exit', 1)
+  expect(f.fail).toHaveBeenCalledOnce()
+  expect(f.fail.mock.calls[0][0].message).toBe('Bot process supervisor exited')
+  expect(f.session.workers[0].exited).toBe(true)
+})
+
+test('cleanup terminates a supervisor that does not acknowledge stop', async () => {
+  vi.useFakeTimers()
+  const f = shutdownFixture()
+  f.worker.postMessage.mockImplementation(() => {})
+  const stopped = f.manager.stopSession(f.session, new Error('Canceled'))
+  await vi.advanceTimersByTimeAsync(2499)
+  expect(f.worker.kill).not.toHaveBeenCalled()
+  await vi.advanceTimersByTimeAsync(1)
+  await stopped
+  expect(f.worker.kill).toHaveBeenCalledOnce()
+})
+
+test('cleanup skips a supervisor whose exit was already observed', async () => {
+  const f = shutdownFixture()
+  f.session.workers[0].exited = true
+  await f.manager.stopSession(f.session, new Error('Bot failed'))
+  expect(f.worker.postMessage).not.toHaveBeenCalled()
+  expect(f.worker.kill).not.toHaveBeenCalled()
+})
+
+test('a supervisor with no exit notification cannot keep the session stopping forever', async () => {
+  vi.useFakeTimers()
+  const f = shutdownFixture()
+  f.session.status.state = 'launching'
+  f.worker.postMessage.mockImplementation(() => {})
+  f.worker.kill.mockReturnValue(false)
+  const stopped = f.manager.stopSession(f.session)
+  await vi.advanceTimersByTimeAsync(2500)
+  await stopped
+  expect(f.session.status.state).toBe('error')
+  expect(f.session.status.error).toContain('supervisor did not exit')
+  expect(f.dispose).toHaveBeenCalledOnce()
+})
+
+test('registered manager lookup survives native process exit and a cleared status', () => {
+  const f = shutdownFixture()
+  f.manager.session = f.session
+  f.game.setState(undefined)
+  expect(f.manager.getManager('bot')).toBe(f.game)
+  expect(f.manager.getManager('other')).toBeUndefined()
+})
+
+test('a client stop failure releases session resources and reports an error', async () => {
+  const f = shutdownFixture()
+  f.stop.mockRejectedValue(new Error('Game did not exit after stopping'))
+  await f.manager.stopSession(f.session)
+  expect(f.dispose).toHaveBeenCalledOnce()
+  expect(f.close).toHaveBeenCalledOnce()
+  expect(f.session.status.state).toBe('error')
+})
+
 test('resignation settling waits for every game result before graceful stops', async () => {
   const f = shutdownFixture()
   f.game.setState('playing')
@@ -232,11 +342,11 @@ test('a stalled normal exit falls back to forced cleanup at the deadline', async
   const f = shutdownFixture()
   const stopped = f.manager.stopSession(f.session)
   await vi.advanceTimersByTimeAsync(2499)
-  expect(f.worker.disconnect).not.toHaveBeenCalled()
+  expect(f.worker.postMessage).not.toHaveBeenCalled()
   await vi.advanceTimersByTimeAsync(1)
   await stopped
   expect(f.stop).toHaveBeenLastCalledWith()
-  expect(f.worker.disconnect).toHaveBeenCalledOnce()
+  expect(f.worker.postMessage).toHaveBeenCalledExactlyOnceWith({ type: 'stop' })
   expect(f.dispose).toHaveBeenCalledOnce()
 })
 
@@ -244,7 +354,7 @@ test('failed local games bypass graceful exit and immediately release their reso
   const f = shutdownFixture()
   await f.manager.stopSession(f.session, new Error('Bot failed'))
   expect(f.stop).toHaveBeenCalledExactlyOnceWith()
-  expect(f.worker.disconnect).toHaveBeenCalledOnce()
+  expect(f.worker.postMessage).toHaveBeenCalledExactlyOnceWith({ type: 'stop' })
   expect(f.session.status.state).toBe('error')
 })
 

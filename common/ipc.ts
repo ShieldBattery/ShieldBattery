@@ -141,10 +141,7 @@ interface IpcInvokeables {
    * `activeGameReportPlayer` went.
    */
   activeGameReportResult: (gameId: string, result: InGameReportResult) => void
-  /**
-   * Clears the current game config (e.g. cancels a game launch) provided the current game is
-   * `gameId`.
-   */
+  /** Starts a local game from explicit executable paths (development clients only). */
   localGameStart: (request: LocalGameRequest) => LocalGameStatus
   localGameStop: () => void
   localGameGetStatus: () => LocalGameStatus | undefined
@@ -185,6 +182,7 @@ interface IpcInvokeables {
   /** Returns the text of a packaged license/notice file. */
   botLibraryReadNotice: (botId: string, noticePath: string) => Promise<string>
   botLibraryOpenFolder: (key: BotKey) => void
+  /** Clears the current game config if `gameId` still identifies that game. */
   activeGameClearConfig: (gameId: string) => void
   /**
    * Queries the active game process's debug state (debug game builds only). Only registered in

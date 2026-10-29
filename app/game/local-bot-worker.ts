@@ -1,13 +1,12 @@
 import { ChildProcess, spawn } from 'node:child_process'
 import { createWriteStream } from 'node:fs'
 
-// A separate process retains the child's OS handle after an Electron crash. Parent IPC closure
-// therefore kills the exact bot process, without looking up a potentially reused numeric PID.
+// The utility process owns the bot's OS handle. On Windows its Chromium job also terminates
+// descendants if the supervisor or main process crashes, without looking up a reused PID.
 let bot: ChildProcess | undefined
 let stopping = false
-process.on('disconnect', stop)
-process.on('message', message => {
-  const request = message as {
+process.parentPort.on('message', event => {
+  const request = event.data as {
     type: 'start' | 'stop'
     executable: string
     args: string[]
@@ -29,12 +28,14 @@ process.on('message', message => {
     }
   }
   output.on('error', error => {
-    if (process.connected) process.send?.({ type: 'error', error: error.message })
+    process.parentPort.postMessage({ type: 'error', error: error.message })
     stop()
   })
+  const env: NodeJS.ProcessEnv = { ...process.env, SB_BWAPI_INSTANCE: request.instance }
+  delete env.ELECTRON_RUN_AS_NODE
   bot = spawn(request.executable, request.args, {
     cwd: request.cwd,
-    env: { ...process.env, SB_BWAPI_INSTANCE: request.instance },
+    env,
     shell: false,
     windowsHide: true,
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -43,14 +44,14 @@ process.on('message', message => {
   bot.stderr!.on('data', record)
   bot.on('spawn', () => {
     if (stopping) bot?.kill()
-    else process.send?.({ type: 'started' })
+    else process.parentPort.postMessage({ type: 'started' })
   })
   bot.on('error', error => {
-    if (process.connected) process.send?.({ type: 'error', error: error.message })
+    process.parentPort.postMessage({ type: 'error', error: error.message })
     output.end(() => process.exit(1))
   })
   bot.on('close', code => {
-    if (process.connected) process.send?.({ type: 'exit', code })
+    process.parentPort.postMessage({ type: 'exit', code })
     output.end(() => process.exit(0))
   })
 })

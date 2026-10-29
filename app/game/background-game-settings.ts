@@ -23,8 +23,7 @@ export async function createBackgroundGameSettings(userDataPath: string) {
   const directory = await fs.mkdtemp(path.join(parent, 'client-'))
   const settingsFilePath = path.join(directory, 'CSettings.json')
   const dispose = async () => {
-    await fs.rm(settingsFilePath, { force: true })
-    await fs.rmdir(directory)
+    await fs.rm(directory, { recursive: true, force: true })
   }
   try {
     await fs.writeFile(settingsFilePath, JSON.stringify(BACKGROUND_CSETTINGS, null, 2), 'utf8')

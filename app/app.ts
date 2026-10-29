@@ -48,6 +48,7 @@ import { checkStarcraftPath } from './game/check-starcraft-path'
 import createGameServer, { GameServer } from './game/game-server'
 import { GameWindowMinimizer } from './game/game-window-minimizer'
 import { LocalGameManager } from './game/local-game-manager'
+import { waitForLocalGameOnQuit } from './game/local-game-shutdown'
 import { MapStore } from './game/map-store'
 import { ReplayStore } from './game/replay-store'
 import { classifyLaunchArgs, DeepLink } from './launch-args'
@@ -886,6 +887,8 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
   })
 
   const activeGameManager = container.resolve(ActiveGameManager)
+  const managerForGame = (gameId?: string) =>
+    (gameId ? localGameManager?.getManager(gameId) : undefined) ?? activeGameManager
   const gameWindowMinimizer = new GameWindowMinimizer(() => mainWindow)
   const getLocalGameManager = () => {
     if (!localGameManager) {
@@ -896,6 +899,7 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
         localSettings,
         scrSettings,
       )
+      waitForLocalGameOnQuit(app, localGameManager, error => logger.error(String(error)))
       localGameManager.on('status', status => {
         TypedIpcSender.from(mainWindow?.webContents).send('localGameStatus', status)
       })
@@ -1045,42 +1049,40 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     // Dev-only handlers: a release game build doesn't implement the underlying commands anyway,
     // but there's no reason to expose these outside of development.
     ipcMain.handle('activeGameDebugQueryState', (event, gameId) =>
-      ((gameId && localGameManager?.getManager(gameId)) || activeGameManager).debugQueryState(
-        gameId,
-      ),
+      managerForGame(gameId).debugQueryState(gameId),
     )
     ipcMain.handle('activeGameDebugScreenshot', (event, gameId) =>
-      activeGameManager.debugScreenshot(gameId),
+      managerForGame(gameId).debugScreenshot(gameId),
     )
     ipcMain.handle('activeGameDebugLeave', (event, gameId) =>
-      (localGameManager?.getManager(gameId) ?? activeGameManager).debugLeaveGame(gameId),
+      managerForGame(gameId).debugLeaveGame(gameId),
     )
     ipcMain.handle('activeGameForceUnsyncedLeave', (event, gameId, slot) =>
-      activeGameManager.forceGameLeave(gameId, slot),
+      managerForGame(gameId).forceGameLeave(gameId, slot),
     )
     ipcMain.handle('activeGameForceDesync', (event, gameId) =>
-      activeGameManager.forceGameDesync(gameId),
+      managerForGame(gameId).forceGameDesync(gameId),
     )
     ipcMain.handle('activeGameDebugCrash', (event, gameId, kind) =>
-      activeGameManager.debugCrashGame(gameId, kind),
+      managerForGame(gameId).debugCrashGame(gameId, kind),
     )
     ipcMain.handle('activeGameSendChat', (event, gameId, text) =>
-      activeGameManager.sendGameChat(gameId, text),
+      managerForGame(gameId).sendGameChat(gameId, text),
     )
     ipcMain.handle('activeGameRequestDrop', (event, gameId, slot) =>
-      activeGameManager.requestGameDrop(gameId, slot),
+      managerForGame(gameId).requestGameDrop(gameId, slot),
     )
     ipcMain.handle('activeGameToggleNetStats', (event, gameId) =>
-      activeGameManager.toggleGameNetStats(gameId),
+      managerForGame(gameId).toggleGameNetStats(gameId),
     )
     ipcMain.handle('activeGameDebugInput', (event, gameId, events) =>
-      activeGameManager.debugInput(gameId, events),
+      managerForGame(gameId).debugInput(gameId, events),
     )
     ipcMain.handle('activeGameSetRollback', (event, gameId, depth, delays) =>
-      activeGameManager.setGameRollback(gameId, depth, delays),
+      managerForGame(gameId).setGameRollback(gameId, depth, delays),
     )
     ipcMain.handle('activeGameForceQuit', (event, gameId) =>
-      activeGameManager.forceQuitGame(gameId),
+      managerForGame(gameId).forceQuitGame(gameId),
     )
   }
   ipcMain.handle('bugReportCollectFiles', async (_, options) => {
@@ -1770,7 +1772,6 @@ app.on('ready', () => {
       }
 
       app.on('will-quit', () => {
-        localGameManager?.stop().catch(err => logger.error(String(err)))
         botLibrary?.shutdown()
         localSettings.saveSettingsToDiskSync()
         scrSettings.saveSettingsToDiskSync()
