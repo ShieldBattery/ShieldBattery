@@ -230,8 +230,9 @@ impl ObserverPanels {
     /// surfaces hung from the top edge, then the minimap's frame, the stack along the bottom edge and
     /// the dock's place against the plate or the selection panel, which between them say how much of
     /// each side is left for the wings. `has_playback_controls` is whether there is a replay plate to
-    /// share the bottom of the screen with. Returns where the plate stands, which is decided with
-    /// them; the dock is drawn by [`frame_dock`](Self::frame_dock) once the plate has been.
+    /// share the bottom of the screen with. Returns whether the dock stands on the plate's top
+    /// edge, the plate itself keeping its corner either way; the dock is drawn by
+    /// [`frame_dock`](Self::frame_dock) once the plate has been.
     pub(super) fn frame(
         &mut self,
         ctx: &Context,

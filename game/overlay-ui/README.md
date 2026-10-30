@@ -316,11 +316,11 @@ built leaves the game's own behavior alone.
 | Production                           | `F`       | Map control               | `N`     |
 | Matchup (Shift: form)                | `E`       | Cycle vision              | `V`     |
 | Minimap                              | `Q`       | Spoiler-free              | `L`     |
-| Dock (Shift: form)                   | `` ` ``   | Selection                 | `W`     |
+| Dock (Shift: form)                   | `R`       | Selection                 | `W`     |
 
 Of these, `A`, `E`, `I`, `M`, `T`, `F`, `H`, `W`, `Q` and `Y` move panels, `Shift+E` switches the
-matchup between the bar and the compact scoreboard, `` ` `` takes the dock on
-and off screen while `` Shift+` `` switches it between its two forms, bringing a hidden dock back in
+matchup between the bar and the compact scoreboard, `R` (or `` ` ``) takes the dock on
+and off screen while `Shift+R` switches it between its two forms, bringing a hidden dock back in
 the form it went away in, `G` toggles the
 graphs panel like any other panel key while `Shift+G` and `Ctrl+G` step it to the next and previous
 measurement, `N` moves the map-control bar but only while a host is reporting one, and `P`, `U`, `D`, `,`, `.` and `L` drive a replay. `V` is still a binding

@@ -616,8 +616,9 @@ impl Shell {
         }
         // The observer panels belong to the modes they report on: a host that kept feeding them
         // after the client stopped watching must not be able to put them over someone's own game.
-        // They share the bottom of the screen with the replay plate, so they decide where it
-        // stands; without them it keeps its corner.
+        // They share the bottom of the screen with the replay plate, which keeps its corner either
+        // way: they decide only whether the dock stands on its top edge, which without them it
+        // never does.
         let observing = views.observer.is_some() && self.host.mode.is_spectating();
         let placement = match views.observer {
             Some(view) if observing => self.observer.frame(
