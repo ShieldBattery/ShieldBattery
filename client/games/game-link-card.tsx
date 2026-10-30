@@ -407,10 +407,13 @@ function ResultsToggle({ revealed, onToggle }: { revealed: boolean; onToggle: ()
 }
 
 /** Starts watching a game, without also opening its results page. */
-function WatchAction({ onWatch }: { onWatch: () => void }) {
+function WatchAction({ onWatch, disabled }: { onWatch: () => void; disabled: boolean }) {
   const { t } = useTranslation()
   return (
-    <BackdropCardAction onClick={onWatch} testName='game-link-card-watch-button'>
+    <BackdropCardAction
+      onClick={onWatch}
+      disabled={disabled}
+      testName='game-link-card-watch-button'>
       <MaterialIcon icon='play_arrow' size={18} />
       {t('games.linkCard.watch', 'Watch')}
     </BackdropCardAction>
@@ -734,7 +737,7 @@ function GameMatchup({
  * The card's header: the game's type (with its full label, e.g. "Ranked 1v1", in a tooltip when the
  * shown one leaves part of it out), its map, how long ago it was played (with the full start time in
  * a tooltip), its length when `showLength` is set, the results toggle, and the watch action when
- * `onWatch` is set.
+ * `onWatch` is set (disabled while `watchStarting`).
  */
 function CardHeaderRow({
   game,
@@ -743,6 +746,7 @@ function CardHeaderRow({
   resultsRevealed,
   onToggleResults,
   onWatch,
+  watchStarting,
 }: {
   game: ReadonlyDeep<GameRecordJson>
   mapName: string
@@ -750,6 +754,7 @@ function CardHeaderRow({
   resultsRevealed: boolean
   onToggleResults: () => void
   onWatch: (() => void) | undefined
+  watchStarting: boolean
 }) {
   const { t } = useTranslation()
   const narrowDurationFormat = useFormat(narrowDuration)
@@ -774,7 +779,7 @@ function CardHeaderRow({
       {hasRecordedResults(game) ? (
         <ResultsToggle revealed={resultsRevealed} onToggle={onToggleResults} />
       ) : null}
-      {onWatch ? <WatchAction onWatch={onWatch} /> : null}
+      {onWatch ? <WatchAction onWatch={onWatch} disabled={watchStarting} /> : null}
     </BackdropCardHeader>
   )
 }
@@ -800,6 +805,7 @@ export function GameLinkCardContent({
   state,
   onClick,
   onWatch,
+  watchStarting = false,
 }: {
   state: GameLinkLoadState | undefined
   /** Opens the game's results page. */
@@ -809,6 +815,8 @@ export function GameLinkCardContent({
    * nothing this client can watch.
    */
   onWatch?: () => void
+  /** Whether a watch started from anywhere is still underway, which disables the watch action. */
+  watchStarting?: boolean
 }) {
   const { t } = useTranslation()
   const [resultsRevealed, setResultsRevealed] = useState(false)
@@ -850,6 +858,7 @@ export function GameLinkCardContent({
         resultsRevealed={showResults}
         onToggleResults={() => setResultsRevealed(!resultsRevealed)}
         onWatch={onWatch}
+        watchStarting={watchStarting}
       />
       <GameMatchup
         game={game}
@@ -870,7 +879,7 @@ export function GameLinkCardContent({
  */
 export function GameLinkCard({ target }: { target: GameLinkTarget }) {
   const state = useGameLinkState(target.gameId)
-  const { replayInfo, onWatchReplay } = useGameReplayActions(target.gameId)
+  const { replayInfo, onWatchReplay, isStartingReplay } = useGameReplayActions(target.gameId)
   // TODO(bwtv): Let a game that's still in progress (no results and not canceled) be watched live
   // through BWTV.
   const canWatchReplay = IS_ELECTRON && replayInfo !== undefined
@@ -879,6 +888,7 @@ export function GameLinkCard({ target }: { target: GameLinkTarget }) {
       state={state}
       onClick={() => navigateToGameResults(target.gameId, false, target.subPage)}
       onWatch={canWatchReplay ? onWatchReplay : undefined}
+      watchStarting={isStartingReplay}
     />
   )
 }

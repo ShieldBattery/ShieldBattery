@@ -101,7 +101,7 @@ function GameRecordSidePanelContent({
 }: GameRecordSidePanelContentProps) {
   const { t } = useTranslation()
   const map = useAppSelector(s => s.maps.byId.get(game.mapId))
-  const { replayInfo, onWatchReplay } = useGameReplayActions(game.id)
+  const { replayInfo, onWatchReplay, isStartingReplay } = useGameReplayActions(game.id)
 
   const mapName = map?.name ?? t('game.mapName.unknown', 'Unknown map')
 
@@ -127,6 +127,7 @@ function GameRecordSidePanelContent({
         <GameSidePanelPrimaryAction
           label={t('gameDetails.buttonWatchReplay', 'Watch replay')}
           iconStart='play_arrow'
+          disabled={isStartingReplay}
           onClick={onWatchReplay}
         />
       ) : (
