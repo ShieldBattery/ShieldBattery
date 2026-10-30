@@ -68,6 +68,18 @@ if (!isTestRun()) {
       DEFAULT_CONNECT_TIMEOUT_MILLIS,
     ),
   })
+
+  // An unhandled 'error' event crashes the process, and Postgres resetting its connections (e.g.
+  // crash recovery after a backend is killed) errors every client at once. The pool only listens on
+  // idle clients, so this listener covers checked-out ones too; their holder also sees the failure
+  // on its next query, and the pool discards the broken client when it's released.
+  pool.on('connect', client => {
+    client.on('error', err => {
+      log.error({ err }, 'database connection errored')
+    })
+  })
+  // The pool re-emits idle clients' errors here, which the listener above has already logged.
+  pool.on('error', () => {})
 }
 
 export interface DbPoolStats {
