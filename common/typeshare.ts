@@ -47,6 +47,8 @@ export interface MatchFoundMessage {
   quality: number
   /** Variance of the matched players' effective ratings (raw skill-spread input to `quality`). */
   skillVariance: number
+  /** Multiplier applied to the configured rating-variance weight. */
+  ratingVarianceMultiplier?: number
   /** Win probability of team A vs team B (0.5 == perfectly balanced). */
   winProbability: number
   /** Effective team ratings used to compute `win_probability`. */
