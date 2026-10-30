@@ -126,6 +126,7 @@ function HostGameContent({
   const prefsLockedAlliances = useAppSelector(s => s.lobbyPreferences.lockedAlliances)
   const prefsVisibility = useAppSelector(s => s.lobbyPreferences.visibility)
   const prefsAllowObservers = useAppSelector(s => s.lobbyPreferences.allowObservers)
+  const prefsAllowObserverChat = useAppSelector(s => s.lobbyPreferences.allowObserverChat)
   const prefsSelectedMap = useAppSelector(s => s.lobbyPreferences.selectedMap)
   const prefsRecentMaps = useAppSelector(s => s.lobbyPreferences.recentMaps)
 
@@ -142,6 +143,7 @@ function HostGameContent({
     lockedAlliances: prefsLockedAlliances ?? false,
     visibility: prefsVisibility ?? ('listed' as LobbyVisibility),
     allowObservers: prefsAllowObservers ?? true,
+    allowObserverChat: prefsAllowObserverChat ?? false,
     selectedMap: prefsSelectedMap ?? undefined,
     recentMaps: prefsRecentMaps,
   }))
@@ -164,6 +166,7 @@ function HostGameContent({
     starcraftCompatibleReplays: initial.starcraftCompatibleReplays,
     lockedAlliances: initial.lockedAlliances,
     allowObservers: initial.allowObservers,
+    allowObserverChat: initial.allowObserverChat,
   })
 
   const selectedMapInfo = useAppSelector(s =>
@@ -194,6 +197,7 @@ function HostGameContent({
       lockedAlliances: setup.lockedAlliances,
       visibility,
       allowObservers: setup.allowObservers,
+      allowObserverChat: setup.allowObserverChat,
     })
   })
 
@@ -259,6 +263,7 @@ function HostGameContent({
     starcraftCompatibleReplays: initial.starcraftCompatibleReplays,
     lockedAlliances: initial.lockedAlliances,
     allowObservers: initial.allowObservers,
+    allowObserverChat: initial.allowObserverChat,
   }
 
   // Once a map is selected, the placeholder names the lobby after the map and game type instead
@@ -354,6 +359,7 @@ function HostGameContent({
             starcraftCompatibleReplays: model.starcraftCompatibleReplays,
             lockedAlliances: model.lockedAlliances,
             allowObservers: model.allowObservers,
+            allowObserverChat: model.allowObserverChat,
             visibility,
             leaveCurrentLobby: inCurrentLobby,
           }
@@ -388,6 +394,7 @@ function HostGameContent({
             lockedAlliances: model.lockedAlliances,
             visibility,
             allowObservers: model.allowObservers,
+            allowObserverChat: model.allowObserverChat,
           })
         }}
       />

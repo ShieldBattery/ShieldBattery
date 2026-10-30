@@ -2064,6 +2064,7 @@ mod tests {
     #[test]
     fn build_bw_game_data_fills_map_and_counts() {
         let info = v2_setup_info();
+        assert!(!info.allow_observer_chat);
         let MapInfo::Game(ref game_map) = info.map else {
             panic!("fixture is a map game");
         };

@@ -9,7 +9,7 @@ use overlay_ui::shell::native_dialogs::{self, NativeDialog};
 
 use crate::bw::players::StormPlayerId;
 use crate::bw::{self, Bw, get_bw};
-use crate::game_thread::send_game_results;
+use crate::game_thread::{self, send_game_results};
 use crate::netcode_v2;
 
 use super::{BwScr, console};
@@ -627,7 +627,32 @@ unsafe extern "C" fn chat_box_event_handler(
         let old = (*game_data).game_template.allies_enabled;
         (*game_data).game_template.allies_enabled =
             if bw::get_had_allies_enabled() { 1 } else { 0 };
+        // Let the native Tab handler update the target and its localized label together. Its
+        // observer branch otherwise forces every target switch back to observer-only chat.
+        let local_player = bw.local_unique_player_id.resolve();
+        let switch_to_everyone = (*event).ty == 0xf
+            && (*event).param == 9
+            && local_player >= 0x80
+            && !game_thread::is_replay()
+            && game_thread::setup_info().is_some_and(|info| info.allow_observer_chat)
+            && bw.read_chat_box_mode() == Some(5)
+            && Control::new(ctrl)
+                .dialog()
+                .child_by_id(7)
+                .is_some_and(|edit| !edit.is_hidden());
+        if switch_to_everyone {
+            bw.local_unique_player_id.write(0);
+        }
         let ret = orig(ctrl, event);
+        if switch_to_everyone {
+            bw.local_unique_player_id.write(local_player);
+        }
+        if switch_to_everyone {
+            debug!(
+                "Observer chat target switched to {:?}",
+                bw.read_chat_box_mode()
+            );
+        }
         (*game_data).game_template.allies_enabled = old;
         ret
     }

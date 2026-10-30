@@ -181,6 +181,35 @@ pub enum ChatTarget {
 }
 
 impl ChatTarget {
+    /// Public observer chat stays observer-only unless the lobby permits talking to players.
+    pub fn for_sender(self, sender_is_observer: bool, allow_observer_chat: bool) -> Self {
+        if self == Self::All && sender_is_observer && !allow_observer_chat {
+            Self::Observers
+        } else {
+            self
+        }
+    }
+
+    /// Applies the lobby's observer policy before the message's requested receiver scope.
+    pub fn visible_to(
+        self,
+        local_slot: SlotId,
+        local_is_observer: bool,
+        sender_is_observer: bool,
+        is_allied: bool,
+        allow_observer_chat: bool,
+    ) -> bool {
+        if sender_is_observer && !local_is_observer && !allow_observer_chat {
+            return false;
+        }
+        match self {
+            Self::All => true,
+            Self::Observers => local_is_observer,
+            Self::Allies => !local_is_observer && !sender_is_observer && is_allied,
+            Self::Players(mask) => mask.contains(local_slot),
+        }
+    }
+
     const WIRE_ALL: u32 = 0;
     const WIRE_ALLIES: u32 = 1;
     const WIRE_OBSERVERS: u32 = 2;
@@ -4572,6 +4601,58 @@ mod tests {
             lobby_in_tx.try_send((PEER_SLOT, b"more".to_vec())).is_ok(),
             "receive_turns must have drained the lobby_in backlog"
         );
+    }
+
+    #[test]
+    fn observer_chat_policy_preserves_private_scopes() {
+        let local = SlotId(0);
+        let addressed = ChatTarget::Players(SlotMask::single(local));
+        let other_player = ChatTarget::Players(SlotMask::single(SlotId(1)));
+        for allow in [false, true] {
+            // Players' public chat reaches both players and observers.
+            assert!(ChatTarget::All.visible_to(local, false, false, false, allow));
+            assert!(ChatTarget::All.visible_to(local, true, false, false, allow));
+            // Observer-only messages never reach players, even with observer chat enabled.
+            assert!(!ChatTarget::Observers.visible_to(local, false, true, false, allow));
+            assert!(ChatTarget::Observers.visible_to(local, true, true, false, allow));
+            assert!(ChatTarget::Observers.visible_to(local, true, false, false, allow));
+            // Enabling observer chat grants neither alliance membership nor private recipients.
+            assert!(!ChatTarget::Allies.visible_to(local, true, false, true, allow));
+            assert!(!ChatTarget::Allies.visible_to(local, false, true, true, allow));
+            assert!(!ChatTarget::Allies.visible_to(local, false, false, false, allow));
+            assert!(ChatTarget::Allies.visible_to(local, false, false, true, allow));
+            assert!(!other_player.visible_to(local, false, false, false, allow));
+            assert!(addressed.visible_to(local, false, false, false, allow));
+            assert!(ChatTarget::All.visible_to(local, true, true, false, allow));
+            assert!(addressed.visible_to(local, true, true, false, allow));
+        }
+        // Receive enforcement must also reject messages from senders that ignore the setting.
+        for target in [ChatTarget::All, addressed, ChatTarget::from_wire(99, 0)] {
+            assert!(!target.visible_to(local, false, true, false, false));
+            assert!(target.visible_to(local, false, true, false, true));
+        }
+    }
+
+    #[test]
+    fn public_observer_chat_is_confined_without_widening_private_targets() {
+        for target in [
+            ChatTarget::All,
+            ChatTarget::Allies,
+            ChatTarget::Observers,
+            ChatTarget::Players(SlotMask::single(PEER_SLOT)),
+        ] {
+            assert_eq!(
+                target.for_sender(true, false),
+                if target == ChatTarget::All {
+                    ChatTarget::Observers
+                } else {
+                    target
+                },
+            );
+            assert_eq!(target.for_sender(true, true), target);
+            assert_eq!(target.for_sender(false, false), target);
+            assert_eq!(target.for_sender(false, true), target);
+        }
     }
 
     #[test]
