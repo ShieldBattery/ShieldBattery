@@ -46,8 +46,8 @@ pub use production::{
 };
 pub use selection::{
     ProductionProgressView, ResourcesLeftView, SelectedUnitClick, SelectedUnitView, SelectionCase,
-    SelectionOutcome, SelectionView, StatusColor, UnitStatusView, UnitUpgradeView, UpgradeEffect,
-    WeaponDamageView, render_selection_view,
+    SelectionOutcome, SelectionView, StatusColor, SubjectProgress, UnitStatusView, UnitUpgradeView,
+    UpgradeEffect, WeaponDamageView, render_selection_view,
 };
 pub use team_cards::{
     TeamCardPlayerView, TeamCardTotalsView, TeamCardView, TeamCardsView, render_team_cards_view,

@@ -23,9 +23,9 @@ use overlay_ui::observer::{
     MapControlView, MatchupForm, MatchupPlayerView, MatchupView, MilitaryPlayerView, MilitaryView,
     ObserverView, ProductionIcon, ProductionItemView, ProductionPlayerView, ProductionProgressView,
     ProductionView, RaceView, ResourcesLeftView, SelectedUnitView, SelectionView, Significance,
-    StatusColor, TeamCardPlayerView, TeamCardTotalsView, TeamCardView, TeamCardsView,
-    TimelineEventKind, TimelineEventView, TimelineView, UnitStatusView, UnitUpgradeView,
-    UpgradeEffect, WeaponDamageView, team_name,
+    StatusColor, SubjectProgress, TeamCardPlayerView, TeamCardTotalsView, TeamCardView,
+    TeamCardsView, TimelineEventKind, TimelineEventView, TimelineView, UnitStatusView,
+    UnitUpgradeView, UpgradeEffect, WeaponDamageView, team_name,
 };
 use overlay_ui::shell::PanelPrefs;
 use serde::{Deserialize, Serialize};
@@ -121,6 +121,9 @@ const ZERG_EGG: u16 = 0x24;
 /// A mineral field, for the selection that is a resource.
 const MINERAL_FIELD: u16 = 0xb0;
 
+/// What two high templar merge into, for the selection that is a unit still forming.
+const PROTOSS_ARCHON: u16 = 0x44;
+
 /// The names the game's English stat_txt gives the units and buildings above, by the same id.
 fn unit_name(id: u16) -> Option<String> {
     let name = match id {
@@ -140,6 +143,7 @@ fn unit_name(id: u16) -> Option<String> {
         65 => "Protoss Zealot",
         66 => "Protoss Dragoon",
         PROTOSS_TRANSPORT => "Protoss Shuttle",
+        PROTOSS_ARCHON => "Protoss Archon",
         71 => "Protoss Arbiter",
         0x6a => "Terran Command Center",
         0x71 => "Terran Barracks",
@@ -259,6 +263,10 @@ pub struct Knobs {
     /// has one slot of what it is turning into and its carapace under that. Takes the selection
     /// over from the count.
     pub selection_morphing: bool,
+    /// Whether what is selected is an archon its templar are still merging into, which is the
+    /// reading that has the unit's progress as its own under a label saying it is being summoned.
+    /// Takes the selection over from the count.
+    pub selection_summoning: bool,
     /// Whether what is selected is a building with guns of its own and nothing on the way, which
     /// is the reading of a building with upgrades to read out. Takes the selection over from the
     /// count.
@@ -312,6 +320,7 @@ impl Default for Knobs {
             selection_cargo: false,
             selection_constructing: false,
             selection_morphing: false,
+            selection_summoning: false,
             selection_defense: false,
             selection_resource: false,
             selection_status: false,
@@ -919,8 +928,8 @@ fn control_groups_player(
 ///
 /// Every reading the panel has is reachable from here, because each of them is a different layout:
 /// no units at all, an army the panel draws as its grid alone, one unit read out as numbers, a
-/// building part way through something, an egg part way through its morph, a building with guns,
-/// and a transport with an army inside it.
+/// building part way through something, an egg part way through its morph, an archon still
+/// forming, a building with guns, and a transport with an army inside it.
 ///
 /// A selection of one is the only one whose numbers are read out, so it is dealt both a shield and
 /// an energy pool: the rows only some units have are the ones a layout gets wrong.
@@ -944,6 +953,11 @@ fn selection(knobs: &Knobs, t: f64) -> SelectionView {
     if knobs.selection_morphing {
         return SelectionView {
             units: vec![morphing_egg(knobs, owner, t)],
+        };
+    }
+    if knobs.selection_summoning {
+        return SelectionView {
+            units: vec![summoning_archon(knobs, owner, t)],
         };
     }
     if knobs.selection_defense {
@@ -1147,7 +1161,7 @@ fn producing_building(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
                     .map(|&index| unit_icon(index))
                     .collect(),
             ),
-            is_subject: false,
+            subject: None,
         }),
         cargo: Vec::new(),
         // Dealt as the game DLL deals them, which is what proves a queue leaves no row for them.
@@ -1187,10 +1201,67 @@ fn building_going_up(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
             name: unit_name(building),
             progress,
             queue: None,
-            is_subject: true,
+            subject: Some(SubjectProgress::Construction),
         }),
         cargo: Vec::new(),
         upgrades: building_upgrades(race, &[]),
+    }
+}
+
+/// An archon of the first player's that its two templar are still merging into. It is the archon
+/// from the moment they meet, at its full shields, so its progress is its own.
+fn summoning_archon(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
+    let ((armor, base), (weapons, _, _, _)) = (PROTOSS_UPGRADES.armor, PROTOSS_UPGRADES.weapons);
+    let upgrade = |(frame, level, name): Upgrade, effect| UnitUpgradeView {
+        icon: unit_icon(frame),
+        level,
+        name: Some(name.to_string()),
+        effect,
+    };
+    SelectedUnitView {
+        icon: unit_icon(PROTOSS_ARCHON),
+        name: unit_name(PROTOSS_ARCHON),
+        owner_color: overlay_ui::kit::theme::player_color(owner),
+        owner_name: player_name(knobs, owner),
+        owner: Some(owner as u8),
+        hit_points: Some((10, 10)),
+        shields: Some((350, 350)),
+        energy: None,
+        kills: 0,
+        status: None,
+        hallucination: false,
+        parasited: false,
+        blind: false,
+        building: false,
+        resources: None,
+        stacked: None,
+        production: Some(ProductionProgressView {
+            icon: unit_icon(PROTOSS_ARCHON),
+            name: unit_name(PROTOSS_ARCHON),
+            progress: fraction(t * 0.08),
+            queue: None,
+            subject: Some(SubjectProgress::Summoning),
+        }),
+        cargo: Vec::new(),
+        upgrades: vec![
+            upgrade(
+                armor,
+                UpgradeEffect::Armor {
+                    base,
+                    bonus: u32::from(armor.1),
+                },
+            ),
+            upgrade(PLASMA_SHIELDS, UpgradeEffect::Shields),
+            upgrade(
+                weapons,
+                UpgradeEffect::Damage(vec![WeaponDamageView {
+                    name: Some("Psi Assault".to_string()),
+                    base: 30,
+                    bonus: 3 * u32::from(weapons.1),
+                    hits: 1,
+                }]),
+            ),
+        ],
     }
 }
 
@@ -1223,7 +1294,7 @@ fn morphing_egg(knobs: &Knobs, owner: usize, t: f64) -> SelectedUnitView {
             name: unit_name(target),
             progress: fraction(t * 0.07),
             queue: None,
-            is_subject: false,
+            subject: None,
         }),
         cargo: Vec::new(),
         upgrades: vec![UnitUpgradeView {
@@ -1541,6 +1612,8 @@ pub enum Showcase {
     Constructing,
     /// An egg part way through its morph.
     Morphing,
+    /// An archon its templar are still merging into.
+    Summoning,
     /// A building with guns of its own, with nothing on the way.
     Defense,
     /// A mineral field with others stacked on it.
@@ -1668,7 +1741,7 @@ impl Preset {
         }
     }
 
-    pub const ALL: [Preset; 35] = [
+    pub const ALL: [Preset; 36] = [
         Preset::game(2, 1, Screen::Minimal),
         Preset::game(2, 1, Screen::Standard),
         Preset::game(2, 1, Screen::Analyst),
@@ -1700,6 +1773,7 @@ impl Preset {
         Preset::selection_showcase(Showcase::Loaded),
         Preset::selection_showcase(Showcase::Constructing),
         Preset::selection_showcase(Showcase::Morphing),
+        Preset::selection_showcase(Showcase::Summoning),
         Preset::selection_showcase(Showcase::Defense),
         Preset::selection_showcase(Showcase::Resource),
         Preset::selection_showcase(Showcase::Status),
@@ -1728,6 +1802,7 @@ impl Preset {
             Showcase::Loaded => return "1v1-selection-cargo".to_string(),
             Showcase::Constructing => return "1v1-selection-constructing".to_string(),
             Showcase::Morphing => return "1v1-selection-morphing".to_string(),
+            Showcase::Summoning => return "1v1-selection-summoning".to_string(),
             Showcase::Defense => return "1v1-selection-defense".to_string(),
             Showcase::Resource => return "1v1-selection-resource".to_string(),
             Showcase::Status => return "1v1-selection-status".to_string(),
@@ -1778,6 +1853,7 @@ impl Preset {
             selection_cargo: self.showcase == Showcase::Loaded,
             selection_constructing: self.showcase == Showcase::Constructing,
             selection_morphing: self.showcase == Showcase::Morphing,
+            selection_summoning: self.showcase == Showcase::Summoning,
             selection_defense: self.showcase == Showcase::Defense,
             selection_resource: self.showcase == Showcase::Resource,
             selection_status: self.showcase == Showcase::Status,
@@ -1892,6 +1968,13 @@ pub fn knobs_ui(k: &mut Knobs, state: &State, ui: &mut egui::Ui) -> bool {
         .on_hover_text(
             "Selects an egg part way through its morph, which has one slot of what it is turning \
              into and its carapace under that.",
+        )
+        .changed();
+    changed |= ui
+        .checkbox(&mut k.selection_summoning, "selection is summoning")
+        .on_hover_text(
+            "Selects an archon its templar are still merging into, which reads its progress as its \
+             own under a summoning label.",
         )
         .changed();
     changed |= ui
