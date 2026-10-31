@@ -73,6 +73,7 @@ import {
   getManyMatchmakingRatings,
   getMatchmakingRatings,
   insertMatchmakingCompletion,
+  insertMatchmakingDraftMessages,
   insertMatchmakingMatchFormation,
   MatchmakingMatchFailPhase,
   MatchmakingRating,
@@ -1170,6 +1171,12 @@ export class MatchmakingService {
         matchmakingType: match.type,
         ...match.formation,
       }).catch(err => logger.error({ err }, 'error while logging matchmaking match formation'))
+
+      // Draft chat can't be sent once the game has launched, so the log is complete here.
+      // Best-effort: a failure here must not affect game flow.
+      insertMatchmakingDraftMessages(gameId, match.getDraftState()?.getChatLog() ?? []).catch(err =>
+        logger.error({ err }, 'error while saving matchmaking draft messages'),
+      )
     } catch (err: any) {
       if (!isAbortError(err) && !(err instanceof MatchmakingServiceError)) {
         logger.error({ err }, 'error while processing match')

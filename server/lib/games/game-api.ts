@@ -49,6 +49,7 @@ import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpGet, httpPost, httpPut } from '../http/route-decorators'
 import logger from '../logging/logger'
 import { getMapInfos } from '../maps/map-models'
+import { getMatchmakingDraftMessages } from '../matchmaking/models'
 import { insertGameRollbackStats } from '../models/game-rollback-stats'
 import { getGameReportedResults, getUserGameRecord } from '../models/games-users'
 import { NetcodeV2Service } from '../netcode-v2/netcode-v2-service'
@@ -545,10 +546,11 @@ export class GameApi {
     let debugInfo: GameDebugInfo | undefined
     if (ctx.session?.permissions?.debug) {
       try {
-        const [reportedResults, allReplays, netcodeV2] = await Promise.all([
+        const [reportedResults, allReplays, netcodeV2, draftMessages] = await Promise.all([
           getGameReportedResults(gameId),
           getAllReplaysForGame(gameId),
           getNetcodeV2DebugInfo(gameId),
+          getMatchmakingDraftMessages(gameId),
         ])
 
         const replayDebugInfo = await Promise.all(
@@ -584,6 +586,7 @@ export class GameApi {
           reportedResults: debugReportedResults,
           replays: replayDebugInfo.length > 0 ? replayDebugInfo : undefined,
           netcodeV2,
+          draftMessages: draftMessages.length > 0 ? draftMessages : undefined,
         }
       } catch (err) {
         // Log error but don't fail the request
