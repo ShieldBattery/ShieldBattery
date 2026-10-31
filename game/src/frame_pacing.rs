@@ -16,7 +16,10 @@
 //!   directly, a frame has to be presented well before the blank to make it, so the lead also
 //!   grows to whatever the swap chain's statistics show it takes (see [`present_stats`]). A
 //!   composed window can't do better that way than the newest of many frames would, though, so
-//!   while the statistics show composition, pacing steps aside for SC:R's own frame cap. Frames
+//!   while the statistics show composition, pacing steps aside for SC:R's own frame cap. It steps
+//!   aside too when frames keep missing their blank with the lead already as long as it goes (as
+//!   when every frame is copied to the GPU the monitor is plugged into), until SC:R makes a new
+//!   swap chain (in practice, the next game). Frames
 //!   timed for a blank are presented without tearing, so they flip at the blank rather than
 //!   tearing in just before it. The other modes keep frames on a fixed grid.
 //! - the instant the next step comes due, so it runs on time with all input up to that instant. A
@@ -87,6 +90,30 @@ const DEADLINE_DECAY: Duration = Duration::from_micros(2);
 /// The furthest ahead of its blank the learned lead aims a frame, at a refresh `period` long.
 fn deadline_lead_limit(period: Duration) -> Duration {
     period * 3 / 4
+}
+
+/// Frames shown late with the learned lead at its limit, within [`LEAD_LIMIT_WINDOW`] of each
+/// other, after which pacing steps aside until SC:R makes a new swap chain. One stall can push the
+/// lead to its limit by itself, so a single late frame there doesn't say the display needs more.
+const LEAD_LIMIT_MISSES: usize = 5;
+const LEAD_LIMIT_WINDOW: Duration = Duration::from_secs(10);
+
+/// Notes a frame presented at `presented` that was shown late with the learned lead at its limit,
+/// among `misses`, the recent others. Returns whether there have now been enough of them close
+/// together that pacing should step aside, emptying `misses` if so.
+fn note_lead_limit_miss(misses: &mut VecDeque<Instant>, presented: Instant) -> bool {
+    while misses
+        .front()
+        .is_some_and(|&earlier| presented.saturating_duration_since(earlier) > LEAD_LIMIT_WINDOW)
+    {
+        misses.pop_front();
+    }
+    misses.push_back(presented);
+    let step_aside = misses.len() >= LEAD_LIMIT_MISSES;
+    if step_aside {
+        misses.clear();
+    }
+    step_aside
 }
 
 /// How far from a measured blank a time the swap chain's statistics give for a flip can be and
@@ -356,9 +383,15 @@ struct State {
     /// How long before its blank a frame has to be presented to be shown at it, as learned from
     /// frames that weren't.
     deadline_lead: Duration,
-    /// Whether a frame has been shown late with the learned lead at its limit this game, which is
-    /// logged the first time.
-    reported_lead_limit: bool,
+    /// When recent frames were shown late with the learned lead at its limit, and whether too many
+    /// of them were, which leaves frames to SC:R's cap until the swap chain is replaced. Whatever
+    /// holds frames up between being presented and reaching the display (a copy to the GPU the
+    /// monitor is plugged into, or composition) then takes longer than the lead can allow for, and
+    /// a frame timed that far ahead is older when shown than the newest of many untimed ones. That
+    /// comes from how the display is reached, which doesn't change by itself, and trying again
+    /// would bring back seconds of late frames each time, a change of feel mid-game.
+    lead_limit_misses: VecDeque<Instant>,
+    lead_limited: bool,
     /// Whether the desktop window manager is composing the game window, as the statistics show,
     /// and the evidence for it: up for each frame composed, down for each flipped.
     composed: bool,
@@ -470,7 +503,8 @@ static STATE: Mutex<State> = Mutex::new(State {
     frame_end: None,
     work_us: [VecDeque::new(), VecDeque::new()],
     deadline_lead: Duration::ZERO,
-    reported_lead_limit: false,
+    lead_limit_misses: VecDeque::new(),
+    lead_limited: false,
     composed: false,
     composition_votes: 0,
     skip_blank: false,
@@ -551,12 +585,12 @@ unsafe fn pace(bw: &BwScr, can_skip_draw: bool) {
                 immediate_allowed && (tick_moved || last_iteration.is_some_and(|last| due > last))
             }
         });
-    let composed = state.composed;
+    let stepped_aside = state.stepped_aside();
     let paced = state
         .plan
         .as_ref()
         .and_then(|plan| plan.as_ref())
-        .filter(|_| !composed)
+        .filter(|_| !stepped_aside)
         .map(|plan| (plan.period, plan.synced, plan.vsync, plan.variable_refresh));
     if let Some((period, synced, vsync, variable_refresh)) = paced {
         // An iteration for a step alone mustn't present with vertical sync on or on a variable
@@ -763,6 +797,12 @@ impl State {
         self.expected_work(with_step) + margin.max(self.deadline_lead)
     }
 
+    /// Whether pacing is leaving frames to SC:R's cap for now: the window is composed, or frames
+    /// kept missing their blanks with the lead at its limit on the current swap chain.
+    fn stepped_aside(&self) -> bool {
+        self.composed || self.lead_limited
+    }
+
     /// Counts a frame the statistics show composed or flipped towards deciding which the window
     /// is, changing only after several agree.
     fn note_composition(&mut self, composed: bool) {
@@ -845,18 +885,19 @@ impl State {
         } else if shown_at > timed_for + period / 2 {
             stats.missed_deadlines += 1;
             let limit = deadline_lead_limit(period);
+            // The lead can't grow enough to make up for this one, so frames keep being shown a
+            // refresh late for as long as whatever holds them up stays this slow.
             if self.deadline_lead + DEADLINE_STEP > limit {
-                // The lead can't grow enough to make up for this one, so frames will keep being
-                // shown a refresh late for as long as whatever holds them up stays this slow.
                 stats.missed_at_lead_limit += 1;
-                if !self.reported_lead_limit {
-                    self.reported_lead_limit = true;
+                if note_lead_limit_miss(&mut self.lead_limit_misses, shown.presented) {
+                    self.lead_limited = true;
+                    self.next_frame = None;
+                    self.last_vblank = None;
                     info!(
-                        "Frame pacing: a frame presented {:.2} ms before its refresh was shown \
-                         after it, though pacing already aims frames as far ahead of the refresh \
-                         as it will ({:.2} ms); something between presenting and the display (a \
-                         copy to the GPU the monitor is plugged into, or composition) takes longer",
-                        ahead.as_secs_f64() * 1000.0,
+                        "Frame pacing: frames presented as far as {:.2} ms ahead of their refresh \
+                         keep being shown after it; something between presenting and the display \
+                         (a copy to the GPU the monitor is plugged into, or composition) takes \
+                         longer, so frames are left to SC:R's cap from here on",
                         limit.as_secs_f64() * 1000.0,
                     );
                 }
@@ -1148,7 +1189,7 @@ pub fn draw() -> Draw {
 
 fn is_pacing() -> bool {
     let state = STATE.lock();
-    matches!(state.plan, Some(Some(_))) && !state.composed
+    matches!(state.plan, Some(Some(_))) && !state.stepped_aside()
 }
 
 /// Whether SC:R's present in progress should flip at the next blank rather than tear in: a frame
@@ -1158,7 +1199,7 @@ pub fn presents_without_tearing() -> bool {
         return false;
     }
     let state = STATE.lock();
-    !state.composed && state.frame.is_some_and(|frame| frame.vblank.is_some())
+    !state.stepped_aside() && state.frame.is_some_and(|frame| frame.vblank.is_some())
 }
 
 /// The in-game loop drawing the frame of an iteration pacing woke, until dropped. Other draws
@@ -1357,6 +1398,20 @@ fn micros(duration: Duration) -> u32 {
     u32::try_from(duration.as_micros()).unwrap_or(u32::MAX)
 }
 
+/// Forgets what was learned about reaching the display, which SC:R just made a new swap chain for
+/// and may now reach some other way. SC:R resizes the swap chain it has for display mode changes
+/// rather than making another, so this is mostly the start of a game.
+fn swap_chain_replaced() {
+    let mut state = STATE.lock();
+    state.deadline_lead = Duration::ZERO;
+    state.lead_limit_misses.clear();
+    if std::mem::take(&mut state.lead_limited) {
+        info!("Frame pacing: the game has a new swap chain, timing frames for the display again");
+    }
+    state.next_frame = None;
+    state.last_vblank = None;
+}
+
 /// Forgets the previous game's pacing, so the next one resolves its plan again.
 pub fn reset() {
     let mut state = STATE.lock();
@@ -1373,7 +1428,8 @@ pub fn reset() {
     state.frame_end = None;
     state.work_us = Default::default();
     state.deadline_lead = Duration::ZERO;
-    state.reported_lead_limit = false;
+    state.lead_limit_misses.clear();
+    state.lead_limited = false;
     state.composed = false;
     state.composition_votes = 0;
     state.skip_blank = false;
@@ -1468,5 +1524,40 @@ mod tests {
         assert_eq!((wake, wake_at), (Wake::Step, step));
         let (_, wake, wake_at) = plan(&fit, now, step, true);
         assert_eq!((wake, wake_at), (Wake::Merged, vblank - STEP_LEAD));
+    }
+
+    /// Pacing steps aside once enough frames miss with the lead at its limit close together, and
+    /// starts counting afresh after doing so.
+    #[test]
+    fn lead_limit_misses_close_together_step_aside() {
+        let start = Instant::now();
+        let mut misses = VecDeque::new();
+        let spacing = LEAD_LIMIT_WINDOW / LEAD_LIMIT_MISSES as u32;
+        for i in 0..LEAD_LIMIT_MISSES - 1 {
+            assert!(!note_lead_limit_miss(
+                &mut misses,
+                start + spacing * i as u32
+            ));
+        }
+        assert!(note_lead_limit_miss(
+            &mut misses,
+            start + spacing * (LEAD_LIMIT_MISSES - 1) as u32
+        ));
+        assert!(misses.is_empty());
+    }
+
+    /// Misses spread out further than the window, as stalls now and then on a display that frames
+    /// otherwise make in time, never add up to stepping aside.
+    #[test]
+    fn lead_limit_misses_spread_out_never_step_aside() {
+        let start = Instant::now();
+        let mut misses = VecDeque::new();
+        let spacing = LEAD_LIMIT_WINDOW / (LEAD_LIMIT_MISSES as u32 - 1) + Duration::from_millis(1);
+        for i in 0..LEAD_LIMIT_MISSES * 4 {
+            assert!(!note_lead_limit_miss(
+                &mut misses,
+                start + spacing * i as u32
+            ));
+        }
     }
 }

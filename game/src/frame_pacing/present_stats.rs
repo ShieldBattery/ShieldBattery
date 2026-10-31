@@ -220,6 +220,7 @@ fn note_swap_chain(window: HWND, device: *mut IUnknown, swap_chain: usize) {
         }
         SWAP_CHAIN.store(swap_chain, Ordering::Release);
         *TRACKER.lock() = Tracker::new();
+        super::swap_chain_replaced();
     }
 }
 
