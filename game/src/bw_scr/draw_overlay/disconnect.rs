@@ -78,6 +78,7 @@ pub(super) fn build_disconnect_view(
                 Some(DisconnectTier::Confirmed) => PeerState::LinkLost,
             },
             drop_unlocked: trouble.is_some_and(|row| row.drop_unlocked),
+            drop_remaining_seconds: trouble.map_or(0, |row| row.drop_remaining_seconds),
             drop_requested: trouble.is_some_and(|row| row.drop_requested),
         });
     }
@@ -96,6 +97,7 @@ pub(super) fn build_disconnect_view(
                 DisconnectTier::Confirmed => PeerState::LinkLost,
             },
             drop_unlocked: row.drop_unlocked,
+            drop_remaining_seconds: row.drop_remaining_seconds,
             drop_requested: row.drop_requested,
         });
     }

@@ -62,7 +62,7 @@
     "disconnectedTitle": "Desconectado de la partida",
     "dropAction": "Expulsar",
     "dropCountdown": "Expulsar: {{time}}",
-    "dropRule": "Expulsar se desbloquea {{seconds}} segundos después de que un jugador se desconecte, por separado para cada uno. Los jugadores expulsados pierden la partida.",
+    "dropRuleWithin": "La opción de expulsar estará disponible como máximo {{seconds}} segundos después de que un jugador se desconecte. Los jugadores expulsados pierden la partida.",
     "interruptedBody": "Seguiremos intentándolo. La partida está en pausa y tus rivales te ven reconectando, así que todavía no se ha perdido nada.",
     "interruptedSubtitle": "Se perdió tu conexión con el servidor de ShieldBattery.",
     "interruptedTitle": "Conexión interrumpida",

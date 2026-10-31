@@ -220,9 +220,7 @@ impl ChatTarget {
 /// never trips it.
 pub const STALL_TIER_DELAY: Duration = Duration::from_secs(3);
 
-/// A relay-confirmed disconnect must last at least this long before the overlay offers its manual
-/// drop. The relay's own floor for honoring a drop request is 40s; the extra margin keeps a click
-/// from ever being refused merely for arriving a moment early.
+/// Maximum displayed wait before a manual drop; a smaller remaining relay budget shortens it.
 pub const DROP_UNLOCK_UI: Duration = Duration::from_secs(45);
 
 /// How long a "drop requested..." note lingers on a row after a drop request is submitted. The button
@@ -286,6 +284,7 @@ pub fn loading_presence(
 /// display-ready rows and self-state are derived from it by [`rows`](Self::rows) /
 /// [`self_state`](Self::self_state).
 pub struct DisconnectStatus {
+    budgets: Vec<BudgetSnapshot>,
     /// Peers the relay's connectivity stream reported as dropped, held until a survivor's drop
     /// request produces the synced leave. Empty when the relay has confirmed no link death.
     pub peers: Vec<DisconnectedPeer>,
@@ -313,6 +312,29 @@ pub struct DisconnectStatus {
     /// The slots for which a manual drop has been requested, each with the instant of the most
     /// recent request, so a row can briefly acknowledge the click (see [`DROP_REQUESTED_NOTE`]).
     pub drop_requests: Vec<(SlotId, Instant)>,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct BudgetSnapshot {
+    slot: SlotId,
+    remaining: Duration,
+    running: bool,
+    observed_at: Instant,
+}
+
+impl BudgetSnapshot {
+    fn remaining_at(self, now: Instant) -> Duration {
+        if self.running {
+            self.remaining
+                .saturating_sub(now.saturating_duration_since(self.observed_at))
+        } else {
+            self.remaining
+        }
+    }
+}
+
+fn ceil_seconds(duration: Duration) -> u64 {
+    duration.as_secs() + u64::from(duration.subsec_nanos() != 0)
 }
 
 /// One peer the relay's connectivity stream reported as dropped.
@@ -432,10 +454,11 @@ pub struct DisconnectRow {
     pub seconds: u64,
     /// Whether the manual drop button is enabled: a [`Confirmed`](DisconnectTier::Confirmed) row
     /// shows its Drop button from the moment the relay confirms the slot, greyed out and disabled
-    /// until this crosses [`DROP_UNLOCK_UI`], at which point it becomes clickable. Always `false` for
+    /// until the incident wait or remaining budget expires. Always `false` for
     /// a [`Stall`](DisconnectTier::Stall) row (the relay hasn't observed a death to honor a request
     /// against).
     pub drop_unlocked: bool,
+    pub drop_remaining_seconds: u64,
     /// Whether a drop was requested for this slot within the last [`DROP_REQUESTED_NOTE`].
     pub drop_requested: bool,
 }
@@ -445,6 +468,7 @@ impl DisconnectStatus {
     /// is no turn state to read (a replay, or a re-entrant lock).
     pub fn healthy() -> Self {
         DisconnectStatus {
+            budgets: Vec::new(),
             peers: Vec::new(),
             self_lost: false,
             self_ended: false,
@@ -483,6 +507,13 @@ impl DisconnectStatus {
         }
     }
 
+    fn budget_at(&self, slot: SlotId, now: Instant) -> Option<Duration> {
+        self.budgets
+            .iter()
+            .find(|budget| budget.slot == slot)
+            .map(|budget| budget.remaining_at(now))
+    }
+
     /// The display-ready disconnect rows at `now`, one per blocking or relay-confirmed remote player.
     /// Empty while [`self_state`](Self::self_state) is [`Reconnecting`](SelfState::Reconnecting): the
     /// single self notice is the whole story there. A relay-confirmed peer always shows as
@@ -498,12 +529,17 @@ impl DisconnectStatus {
             .iter()
             .map(|peer| {
                 let elapsed = now.saturating_duration_since(peer.since);
+                let budget = self.budget_at(peer.slot, now);
+                let wait = DROP_UNLOCK_UI
+                    .saturating_sub(elapsed)
+                    .min(budget.unwrap_or(DROP_UNLOCK_UI));
                 DisconnectRow {
                     slot: peer.slot,
                     user_id: peer.user_id,
                     tier: DisconnectTier::Confirmed,
                     seconds: elapsed.as_secs(),
-                    drop_unlocked: elapsed >= DROP_UNLOCK_UI,
+                    drop_unlocked: wait.is_zero(),
+                    drop_remaining_seconds: ceil_seconds(wait),
                     drop_requested: self.drop_requested_recently(peer.slot, now),
                 }
             })
@@ -522,6 +558,7 @@ impl DisconnectStatus {
                     tier: DisconnectTier::Stall,
                     seconds: stall_seconds,
                     drop_unlocked: false,
+                    drop_remaining_seconds: 0,
                     drop_requested: self.drop_requested_recently(stalled.slot, now),
                 });
             }
@@ -804,6 +841,7 @@ pub struct TurnState {
     /// the relay can report it down after the leave as well as before it (a desync eviction sends
     /// both at once), so a drop frame for one of them records no disconnect.
     departed: Vec<SlotId>,
+    disconnect_budgets: Vec<BudgetSnapshot>,
     /// Peers the relay's connectivity stream currently reports as connected, in observation order:
     /// a `true` frame adds the slot and a `false` frame removes it, before and after the game
     /// starts alike. The relay restates every member already connected when this client's link
@@ -922,6 +960,7 @@ impl TurnState {
             chat_log: VecDeque::new(),
             disconnected: Vec::new(),
             departed: Vec::new(),
+            disconnect_budgets: Vec::new(),
             connected_peers: Vec::new(),
             session_started: false,
             created_at: Instant::now(),
@@ -1820,6 +1859,27 @@ impl TurnState {
     ///
     /// Render-facing only: it mutates no game state, alliances, or turn pipeline.
     pub fn pump_connectivity(&mut self, game_started: bool, now: Instant) {
+        if self
+            .channels
+            .disconnect_budgets
+            .has_changed()
+            .unwrap_or(false)
+        {
+            self.disconnect_budgets = self
+                .channels
+                .disconnect_budgets
+                .borrow_and_update()
+                .iter()
+                .filter_map(|budget| {
+                    Some(BudgetSnapshot {
+                        slot: SlotId(u8::try_from(budget.slot).ok()?),
+                        remaining: Duration::from_millis(budget.remaining_ms),
+                        running: budget.running,
+                        observed_at: now,
+                    })
+                })
+                .collect();
+        }
         loop {
             match self.channels.connectivity.try_recv() {
                 Ok((slot, connected)) if slot == self.local_slot => {
@@ -1902,6 +1962,7 @@ impl TurnState {
         };
         let self_ended = self.self_link_ended && end_reason.is_some();
         DisconnectStatus {
+            budgets: self.disconnect_budgets.clone(),
             peers,
             self_lost: self.self_link_lost,
             self_ended,
@@ -2841,6 +2902,7 @@ mod tests {
             request_drop: mpsc::channel(1).0,
             session_start: session_start_rx,
             connectivity: connectivity_rx,
+            disconnect_budgets: tokio::sync::watch::channel(Vec::new()).1,
             region_labels: mpsc::channel(1).1,
             phase_status: tokio::sync::watch::channel(Default::default()).1,
             lead_report: tokio::sync::watch::channel(None).1,
@@ -3066,6 +3128,7 @@ mod tests {
             request_drop: mpsc::channel(1).0,
             session_start: session_start_rx,
             connectivity: connectivity_rx,
+            disconnect_budgets: tokio::sync::watch::channel(Vec::new()).1,
             region_labels: mpsc::channel(1).1,
             phase_status: tokio::sync::watch::channel(Default::default()).1,
             lead_report: tokio::sync::watch::channel(None).1,
@@ -3109,6 +3172,7 @@ mod tests {
             request_drop: mpsc::channel(1).0,
             session_start: session_start_rx,
             connectivity: connectivity_rx,
+            disconnect_budgets: tokio::sync::watch::channel(Vec::new()).1,
             region_labels: mpsc::channel(1).1,
             phase_status: tokio::sync::watch::channel(Default::default()).1,
             lead_report: tokio::sync::watch::channel(None).1,
@@ -4106,6 +4170,7 @@ mod tests {
             request_drop: mpsc::channel(1).0,
             session_start: session_start_rx,
             connectivity: connectivity_rx,
+            disconnect_budgets: tokio::sync::watch::channel(Vec::new()).1,
             region_labels: mpsc::channel(1).1,
             phase_status: tokio::sync::watch::channel(Default::default()).1,
             lead_report: tokio::sync::watch::channel(None).1,
@@ -4678,6 +4743,7 @@ mod tests {
             request_drop: mpsc::channel(1).0,
             session_start: session_start_rx,
             connectivity: connectivity_rx,
+            disconnect_budgets: tokio::sync::watch::channel(Vec::new()).1,
             region_labels: mpsc::channel(1).1,
             phase_status: tokio::sync::watch::channel(Default::default()).1,
             lead_report: tokio::sync::watch::channel(None).1,
@@ -4817,6 +4883,7 @@ mod tests {
             request_drop: mpsc::channel(1).0,
             session_start: mpsc::channel(1).1,
             connectivity: mpsc::channel::<(SlotId, bool)>(16).1,
+            disconnect_budgets: tokio::sync::watch::channel(Vec::new()).1,
             region_labels: mpsc::channel(1).1,
             phase_status: tokio::sync::watch::channel(Default::default()).1,
             lead_report: tokio::sync::watch::channel(None).1,
@@ -4877,6 +4944,7 @@ mod tests {
             request_drop: mpsc::channel(1).0,
             session_start: mpsc::channel(1).1,
             connectivity: mpsc::channel::<(SlotId, bool)>(16).1,
+            disconnect_budgets: tokio::sync::watch::channel(Vec::new()).1,
             region_labels: region_labels_rx,
             phase_status: tokio::sync::watch::channel(Default::default()).1,
             lead_report: tokio::sync::watch::channel(None).1,
@@ -4999,6 +5067,7 @@ mod tests {
             request_drop: request_drop_tx,
             session_start: mpsc::channel(1).1,
             connectivity: connectivity_rx,
+            disconnect_budgets: tokio::sync::watch::channel(Vec::new()).1,
             region_labels: mpsc::channel(1).1,
             phase_status: tokio::sync::watch::channel(Default::default()).1,
             lead_report: tokio::sync::watch::channel(None).1,
@@ -5009,6 +5078,75 @@ mod tests {
         let mut state = TurnState::new(channels, LOCAL_SLOT, 2, roster, false);
         state.populate_identity_slots();
         (state, connectivity_tx, request_drop_rx)
+    }
+
+    #[test]
+    fn relay_budget_snapshots_track_episodes_and_shorten_the_final_wait() {
+        use rally_point_client::proto::messages::DisconnectBudget;
+        let (mut state, connectivity, _) = turn_state_with_connectivity();
+        let (budgets, rx) = tokio::sync::watch::channel(Vec::new());
+        state.channels.disconnect_budgets = rx;
+        let now = Instant::now();
+        let send_budget = |remaining_ms, running| {
+            budgets
+                .send(vec![DisconnectBudget {
+                    slot: u32::from(PEER_SLOT.0),
+                    remaining_ms,
+                    running,
+                }])
+                .unwrap();
+        };
+
+        send_budget(180_000, true);
+        connectivity.try_send((PEER_SLOT, false)).unwrap();
+        state.pump_connectivity(true, now);
+        let row = state.disconnect_status().rows(now)[0];
+        assert_eq!(row.drop_remaining_seconds, 45);
+
+        send_budget(140_000, false);
+        connectivity.try_send((PEER_SLOT, true)).unwrap();
+        state.pump_connectivity(true, now + Duration::from_secs(40));
+        assert_eq!(
+            state
+                .disconnect_status()
+                .budget_at(PEER_SLOT, now + Duration::from_secs(50)),
+            Some(Duration::from_secs(140))
+        );
+        send_budget(140_000, true);
+        connectivity.try_send((PEER_SLOT, false)).unwrap();
+        state.pump_connectivity(true, now + Duration::from_secs(50));
+        send_budget(100_000, false);
+        connectivity.try_send((PEER_SLOT, true)).unwrap();
+        state.pump_connectivity(true, now + Duration::from_secs(90));
+        assert_eq!(
+            state
+                .disconnect_status()
+                .budget_at(PEER_SLOT, now + Duration::from_secs(95)),
+            Some(Duration::from_secs(100))
+        );
+
+        send_budget(12_000, true);
+        connectivity.try_send((PEER_SLOT, false)).unwrap();
+        let final_start = now + Duration::from_secs(100);
+        state.pump_connectivity(true, final_start);
+        let row = state.disconnect_status().rows(final_start)[0];
+        assert_eq!(row.drop_remaining_seconds, 12);
+        let row = state
+            .disconnect_status()
+            .rows(final_start + Duration::from_millis(11_500))[0];
+        assert_eq!(row.drop_remaining_seconds, 1);
+        assert!(!row.drop_unlocked);
+        assert!(
+            state
+                .disconnect_status()
+                .rows(final_start + Duration::from_secs(12))[0]
+                .drop_unlocked
+        );
+
+        budgets.send(Vec::new()).unwrap();
+        state.pump_connectivity(true, final_start);
+        let row = state.disconnect_status().rows(final_start)[0];
+        assert_eq!(row.drop_remaining_seconds, 45);
     }
 
     #[test]
@@ -5354,6 +5492,7 @@ mod tests {
             }],
             stalled_since: Some(now - Duration::from_secs(1)),
             drop_requests: Vec::new(),
+            budgets: Vec::new(),
         };
         // Under the delay, nothing is shown yet.
         assert!(status.rows(now).is_empty());
@@ -5384,6 +5523,7 @@ mod tests {
             stalled: Vec::new(),
             stalled_since: None,
             drop_requests: Vec::new(),
+            budgets: Vec::new(),
         };
 
         let rows = confirmed_for(DROP_UNLOCK_UI - Duration::from_secs(1)).rows(now);
@@ -5416,6 +5556,7 @@ mod tests {
             }],
             stalled_since: Some(now - STALL_TIER_DELAY * 2),
             drop_requests: Vec::new(),
+            budgets: Vec::new(),
         };
         let rows = status.rows(now);
         assert_eq!(rows.len(), 1);
@@ -5440,6 +5581,7 @@ mod tests {
             }],
             stalled_since: Some(now - STALL_TIER_DELAY),
             drop_requests: Vec::new(),
+            budgets: Vec::new(),
         };
         assert_eq!(status.self_state(now), SelfState::Healthy);
         let rows = status.rows(now);
@@ -5478,6 +5620,7 @@ mod tests {
             self_desynced: false,
             stalled: Vec::new(),
             stalled_since: None,
+            budgets: Vec::new(),
             drop_requests: vec![(PEER_SLOT, now - ago)],
         };
         assert!(with_request(Duration::from_secs(1)).rows(now)[0].drop_requested);

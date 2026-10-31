@@ -284,6 +284,7 @@ pub(super) fn disconnect_view(self_state: SelfState) -> DisconnectView {
             seconds: 12,
             state: PeerState::LinkLost,
             drop_unlocked: false,
+            drop_remaining_seconds: 33,
             drop_requested: false,
         }],
         self_state,
