@@ -118,6 +118,7 @@ impl BwScr {
                         slice,
                         are_recorded_replay_commands != 0,
                         is_observer,
+                        self.unit_array().map(|units| units.len()),
                         &self.game_command_lengths,
                     );
                     let strip_sync = native_sync_disabled() && !is_replay;

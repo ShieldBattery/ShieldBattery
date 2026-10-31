@@ -9,6 +9,9 @@ pub mod id {
     pub const SAVE_GAME: u8 = 0x6;
     pub const LOAD_GAME: u8 = 0x7;
     pub const RESTART_GAME: u8 = 0x8;
+    pub const SELECT: u8 = 0x9;
+    pub const SELECT_ADD: u8 = 0xa;
+    pub const SELECT_REMOVE: u8 = 0xb;
     pub const VISION: u8 = 0xd;
     pub const ALLIANCE: u8 = 0xe;
     pub const GAME_SPEED: u8 = 0xf;
@@ -16,6 +19,9 @@ pub mod id {
     pub const RESUME: u8 = 0x11;
     pub const CHEAT: u8 = 0x12;
     pub const HOTKEY: u8 = 0x13;
+    pub const RIGHT_CLICK: u8 = 0x14;
+    pub const TARGETED_ORDER: u8 = 0x15;
+    pub const UNLOAD: u8 = 0x29;
     pub const SYNC: u8 = 0x37;
     pub const SET_LATENCY: u8 = 0x55;
     pub const REPLAY_SPEED: u8 = 0x56;
@@ -25,6 +31,12 @@ pub mod id {
     pub const CHAT: u8 = 0x5c;
     pub const REPLAY_SEEK: u8 = 0x5d;
     pub const SET_TURN_RATE: u8 = 0x5f;
+    pub const RIGHT_CLICK_EXTENDED: u8 = 0x60;
+    pub const TARGETED_ORDER_EXTENDED: u8 = 0x61;
+    pub const UNLOAD_EXTENDED: u8 = 0x62;
+    pub const SELECT_EXTENDED: u8 = 0x63;
+    pub const SELECT_ADD_EXTENDED: u8 = 0x64;
+    pub const SELECT_REMOVE_EXTENDED: u8 = 0x65;
     pub const SET_NETWORK_SPEED: u8 = 0x66;
 }
 
@@ -213,10 +225,14 @@ pub fn strip_replay_notice<'a>(input: &'a [u8], command_lengths: &[u32]) -> Cow<
 }
 
 /// Removes invalid commands that aren't caught by BW.
+///
+/// `unit_count` is the number of slots in the unit pool, or `None` before the game has allocated
+/// it, when there are no units for a command to name.
 pub fn filter_invalid_commands<'a>(
     input: &'a [u8],
     from_replay: bool,
     is_observer: bool,
+    unit_count: Option<usize>,
     command_lengths: &[u32],
 ) -> Cow<'a, [u8]> {
     let mut first_valid = 0;
@@ -224,6 +240,8 @@ pub fn filter_invalid_commands<'a>(
     let mut buffer = Vec::new();
     for command in iter_commands(input, command_lengths) {
         let ok = match command {
+            // No client sends these, and BW would read outside the unit pool on them.
+            _ if unit_count.is_some_and(|count| has_out_of_pool_unit_tag(command, count)) => false,
             // A saved game can't be loaded through ShieldBattery, so no live game acts on either
             // command. Every client drops them here, which also covers a client that sends one
             // without going through the menu. Replays keep theirs, so older replays play back
@@ -276,6 +294,61 @@ pub fn filter_invalid_commands<'a>(
     }
 }
 
+/// Whether `tag` points BW outside a unit pool of `unit_count` slots. A tag holds a 1-based pool
+/// index in its low bits (13 for a pool over 1700 slots, 11 otherwise) and the slot's reuse count
+/// above them, and BW indexes the pool with it unchecked. Tag 0 means no unit, which BW checks for
+/// before indexing; any other tag whose index is 0 or past the pool's end makes BW read outside it.
+fn unit_tag_out_of_pool(tag: u32, unit_count: usize) -> bool {
+    let index_mask = if unit_count > 1700 { 0x1fff } else { 0x7ff };
+    let index = (tag & index_mask) as usize;
+    tag != 0 && (index == 0 || index > unit_count)
+}
+
+/// Whether `command` names a unit by a tag outside a unit pool of `unit_count` slots (see
+/// [`unit_tag_out_of_pool`]). `command` is a whole command, as [`iter_commands`] yields them.
+fn has_out_of_pool_unit_tag(command: &[u8], unit_count: usize) -> bool {
+    let out_of_pool = |tag: u32| unit_tag_out_of_pool(tag, unit_count);
+    let u16_tag = |offset: usize| {
+        command
+            .get(offset..offset + 2)
+            .is_some_and(|tag| out_of_pool(LittleEndian::read_u16(tag) as u32))
+    };
+    let u32_tag = |offset: usize| {
+        command
+            .get(offset..offset + 4)
+            .is_some_and(|tag| out_of_pool(LittleEndian::read_u32(tag)))
+    };
+    match command {
+        // { u8 id, u8 count, u16 tags[count] }
+        [
+            id::SELECT | id::SELECT_ADD | id::SELECT_REMOVE,
+            _,
+            tags @ ..,
+        ] => tags
+            .as_chunks()
+            .0
+            .iter()
+            .any(|&tag| out_of_pool(u16::from_le_bytes(tag) as u32)),
+        // { u8 id, u8 count, u32 tags[count] }
+        [
+            id::SELECT_EXTENDED | id::SELECT_ADD_EXTENDED | id::SELECT_REMOVE_EXTENDED,
+            _,
+            tags @ ..,
+        ] => tags
+            .as_chunks()
+            .0
+            .iter()
+            .any(|&tag| out_of_pool(u32::from_le_bytes(tag))),
+        // { u8 id, u16 x, u16 y, target tag, ... }
+        [id::RIGHT_CLICK | id::TARGETED_ORDER, ..] => u16_tag(5),
+        [id::RIGHT_CLICK_EXTENDED | id::TARGETED_ORDER_EXTENDED, ..] => u32_tag(5),
+        // { u8 id, unit tag }
+        [id::UNLOAD, ..] => u16_tag(1),
+        [id::UNLOAD_EXTENDED, ..] => u32_tag(1),
+        _ => false,
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -286,6 +359,93 @@ mod test {
         !0, !0, !0, !0, !0, !0, 2, 10, 2, 5, !0, 1, !0, 82, 5, !0, 2, 12, 13, 5, 50, 50, 50, 4, !0,
         !0, !0, !0, !0, !0, !0, !0, !0,
     ];
+
+    #[test]
+    fn filter_out_of_pool_unit_tags() {
+        let filter = |data: &[u8], unit_count| {
+            filter_invalid_commands(data, true, false, Some(unit_count), LENGTHS).into_owned()
+        };
+        let empty: &[u8] = &[];
+
+        // A 3400-slot pool takes 13 index bits, so indices up to 8191 pass the mask but only
+        // 1..=3400 name a slot.
+        let pool = 3400;
+        // Extended select of tag 0x1e62 (index 7778) next to one of tag 0x2cc0 (index 3264).
+        let data = &[
+            0x63, 0x01, 0x62, 0x1e, 0x00, 0x00, //
+            0x63, 0x01, 0xc0, 0x2c, 0x00, 0x00,
+        ];
+        assert_eq!(filter(data, pool), &[0x63, 0x01, 0xc0, 0x2c, 0x00, 0x00]);
+        // The last slot passes and the one past it doesn't, wherever the tag sits in the list.
+        let data = &[0x63, 0x02, 0x00, 0x00, 0x00, 0x00, 0x48, 0x0d, 0x00, 0x00];
+        assert_eq!(filter(data, pool), data);
+        let data = &[0x64, 0x02, 0x00, 0x00, 0x00, 0x00, 0x49, 0x0d, 0x00, 0x00];
+        assert_eq!(filter(data, pool), empty);
+        // Tag 0 is no unit, but a nonzero tag with index 0 is outside the pool.
+        let data = &[0x65, 0x01, 0x00, 0x20, 0x00, 0x00];
+        assert_eq!(filter(data, pool), empty);
+        // A classic select drops just the same, and the commands around it stay.
+        let data = &[
+            0x13, 0x00, 0x00, // hotkey
+            0x09, 0x01, 0x62, 0x1e, // select, tag 0x1e62
+            0x0d, 0x01, 0x01, // vision
+        ];
+        assert_eq!(filter(data, pool), &[0x13, 0x00, 0x00, 0x0d, 0x01, 0x01]);
+
+        // A 1700-slot pool takes 11 index bits, so tag 0x1e62 is index 1634 there.
+        let pool = 1700;
+        let data = &[0x09, 0x02, 0x62, 0x1e, 0xa4, 0x06];
+        assert_eq!(filter(data, pool), data);
+        // Index 1701, then a tag with index 0 and reuse count 1.
+        assert_eq!(filter(&[0x0a, 0x01, 0xa5, 0x06], pool), empty);
+        assert_eq!(filter(&[0x0b, 0x01, 0x00, 0x08], pool), empty);
+
+        // Orders on a position (target tag 0) and on a unit in the pool stay.
+        let pool = 3400;
+        let ground = &[
+            0x14, 0x10, 0x00, 0x20, 0x00, 0x00, 0x00, 0xe4, 0x00, 0x00, //
+            0x15, 0x10, 0x00, 0x20, 0x00, 0x00, 0x00, 0xe4, 0x00, 0x06, 0x00, //
+            0x60, 0x10, 0x00, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0xe4, 0x00, 0x00, //
+            0x61, 0x10, 0x00, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0xe4, 0x00, 0x06, 0x00,
+        ];
+        assert_eq!(filter(ground, pool), ground);
+        let in_pool = &[
+            0x14, 0x10, 0x00, 0x20, 0x00, 0xc0, 0x2c, 0x00, 0x00, 0x00, //
+            0x61, 0x10, 0x00, 0x20, 0x00, 0xc0, 0x2c, 0x00, 0x00, 0x00, 0x00, 0x0a, 0x00, //
+            0x29, 0xc0, 0x2c, //
+            0x62, 0xc0, 0x2c, 0x00, 0x00,
+        ];
+        assert_eq!(filter(in_pool, pool), in_pool);
+        // Each command that names a unit drops on a tag outside the pool.
+        let out_of_pool: &[&[u8]] = &[
+            &[0x14, 0x10, 0x00, 0x20, 0x00, 0x62, 0x1e, 0x00, 0x00, 0x00],
+            &[
+                0x15, 0x10, 0x00, 0x20, 0x00, 0x62, 0x1e, 0x00, 0x00, 0x0a, 0x00,
+            ],
+            &[
+                0x60, 0x10, 0x00, 0x20, 0x00, 0x62, 0x1e, 0x00, 0x00, 0x00, 0x00, 0x00,
+            ],
+            &[
+                0x61, 0x10, 0x00, 0x20, 0x00, 0x62, 0x1e, 0x00, 0x00, 0x00, 0x00, 0x0a, 0x00,
+            ],
+            &[0x29, 0x62, 0x1e],
+            &[0x62, 0x62, 0x1e, 0x00, 0x00],
+        ];
+        for &data in out_of_pool {
+            assert_eq!(filter(data, pool), empty, "{data:02x?}");
+        }
+
+        // Nothing drops before the pool exists, and a clean batch stays borrowed.
+        let data = &[0x29, 0x62, 0x1e];
+        assert_eq!(
+            &*filter_invalid_commands(data, true, false, None, LENGTHS),
+            data
+        );
+        assert!(matches!(
+            filter_invalid_commands(in_pool, true, false, Some(pool), LENGTHS),
+            Cow::Borrowed(_)
+        ));
+    }
 
     #[test]
     fn filter_replay_speed() {
@@ -331,39 +491,39 @@ mod test {
         ];
         let expected_bad = &[0x20, 0xff, 0xff, 0x62, 0xff, 0xff, 0xff, 0xff];
         assert_eq!(
-            &*filter_invalid_commands(data, false, false, LENGTHS),
+            &*filter_invalid_commands(data, false, false, None, LENGTHS),
             expected_bad
         );
         assert_eq!(
-            &*filter_invalid_commands(data2, false, false, LENGTHS),
+            &*filter_invalid_commands(data2, false, false, None, LENGTHS),
             expected_bad
         );
         assert_eq!(
-            &*filter_invalid_commands(data3, false, false, LENGTHS),
+            &*filter_invalid_commands(data3, false, false, None, LENGTHS),
             expected_bad
         );
         assert_eq!(
-            &*filter_invalid_commands(data4, false, false, LENGTHS),
+            &*filter_invalid_commands(data4, false, false, None, LENGTHS),
             data4
         );
         assert_eq!(
-            &*filter_invalid_commands(data4, true, false, LENGTHS),
+            &*filter_invalid_commands(data4, true, false, None, LENGTHS),
             expected_bad
         );
         assert_eq!(
-            &*filter_invalid_commands(data5, false, false, LENGTHS),
+            &*filter_invalid_commands(data5, false, false, None, LENGTHS),
             data5
         );
         assert_eq!(
-            &*filter_invalid_commands(data6, false, false, LENGTHS),
+            &*filter_invalid_commands(data6, false, false, None, LENGTHS),
             expected_bad
         );
         assert_eq!(
-            &*filter_invalid_commands(data7, false, false, LENGTHS),
+            &*filter_invalid_commands(data7, false, false, None, LENGTHS),
             data7
         );
         assert_eq!(
-            &*filter_invalid_commands(data8, false, false, LENGTHS),
+            &*filter_invalid_commands(data8, false, false, None, LENGTHS),
             expected_bad
         );
     }
@@ -375,9 +535,12 @@ mod test {
             0x20, 0xff, 0xff, 0x5d, 0x01, 0x00, 0x00, 0x00, 0x62, 0xff, 0xff, 0xff, 0xff,
         ];
         let expected_bad = &[0x20, 0xff, 0xff, 0x62, 0xff, 0xff, 0xff, 0xff];
-        assert_eq!(&*filter_invalid_commands(data, false, false, LENGTHS), data);
         assert_eq!(
-            &*filter_invalid_commands(data, true, false, LENGTHS),
+            &*filter_invalid_commands(data, false, false, None, LENGTHS),
+            data
+        );
+        assert_eq!(
+            &*filter_invalid_commands(data, true, false, None, LENGTHS),
             expected_bad
         );
     }
@@ -547,7 +710,10 @@ mod test {
     fn filter_observer_commands() {
         let data = &[0x20, 0xff, 0xff, 0x62, 0xff, 0xff, 0xff, 0xff, 0x32, 0xff];
         let empty: &[u8] = &[];
-        assert_eq!(&*filter_invalid_commands(data, false, true, LENGTHS), empty);
+        assert_eq!(
+            &*filter_invalid_commands(data, false, true, None, LENGTHS),
+            empty
+        );
 
         let data = &[
             0x37, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x66, 0x00, 0x00, 0x00, 0x37, 0x00, 0x00,
@@ -555,7 +721,7 @@ mod test {
         ];
         let filtered = &[0x66, 0x00, 0x00, 0x00, 0x5f, 0x06];
         assert_eq!(
-            &*filter_invalid_commands(data, false, true, LENGTHS),
+            &*filter_invalid_commands(data, false, true, None, LENGTHS),
             filtered
         );
     }
@@ -567,10 +733,13 @@ mod test {
             0x05, 0x13, 0x01, 0x01, 0x13, 0x01, 0x11, 0x13, 0x00, 0x12, 0x13, 0x02, 0xff, 0x05,
         ];
         assert_eq!(
-            &*filter_invalid_commands(data, false, false, LENGTHS),
+            &*filter_invalid_commands(data, false, false, None, LENGTHS),
             &[0x05, 0x13, 0x01, 0x01, 0x13, 0x01, 0x11, 0x05]
         );
-        assert_eq!(&*filter_invalid_commands(data, true, false, LENGTHS), data);
+        assert_eq!(
+            &*filter_invalid_commands(data, true, false, None, LENGTHS),
+            data
+        );
     }
 
     #[test]
@@ -582,10 +751,13 @@ mod test {
             0x04, b'c', 0x00, 0x05,
         ];
         assert_eq!(
-            &*filter_invalid_commands(data, false, false, LENGTHS),
+            &*filter_invalid_commands(data, false, false, None, LENGTHS),
             &[0x05, 0x05, 0x05]
         );
         // Replays keep them, so older replays play back unchanged.
-        assert_eq!(&*filter_invalid_commands(data, true, false, LENGTHS), data);
+        assert_eq!(
+            &*filter_invalid_commands(data, true, false, None, LENGTHS),
+            data
+        );
     }
 }
