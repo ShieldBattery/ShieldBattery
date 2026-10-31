@@ -848,11 +848,14 @@ pub unsafe fn add_fow_sprites_for_replay_vision_change(bw: &BwScr) {
                 let replay_visions = bw.replay_visions();
                 for unit in bw.active_units() {
                     if unit.player() == 11 && unit.is_landed_building() {
-                        // This currently adds fow sprites even for buildings that became
-                        // neutral after player left. It's probably fine, but if it wasn't
-                        // desired, checking that `sprite.player == 11` should only include
-                        // buildings that existed from map start
-                        if let Some(sprite) = unit.sprite() {
+                        // Only the map's own neutral buildings, whose sprites are drawn as
+                        // neutral too. A building that turned neutral (a player's after they
+                        // left, or an addon its building lifted off) keeps its player's sprite,
+                        // and is remembered from what the shown players saw of it (see
+                        // `remembered_buildings`), not shown whether they saw it or not.
+                        if let Some(sprite) = unit.sprite()
+                            && sprite.player() == 11
+                        {
                             let is_visible = replay_visions.show_entire_map
                                 || sprite.visibility_mask() & replay_visions.players != 0;
                             if !is_visible {

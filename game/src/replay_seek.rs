@@ -28,8 +28,9 @@ use parking_lot::Mutex;
 
 use crate::bw::Bw;
 use crate::bw::apm_stats::ApmStats;
-use crate::bw_scr::BwScr;
+use crate::bw_scr::{BwScr, ReplaySkinSnapshot};
 use crate::game_thread;
+use crate::remembered_buildings;
 use crate::rollback::snapshot::{SnapshotExtras, Snapshots};
 use crate::rollback::tick::with_ui_images_off;
 
@@ -100,13 +101,23 @@ struct Keyframe {
     data: Box<[u8]>,
     extras: SnapshotExtras,
     apm: Option<ApmStats>,
+    /// What each player remembered of the others' buildings, which the snapshot's fog sprites
+    /// only hold for the visions shown when it was taken.
+    remembered: Option<remembered_buildings::Record>,
+    /// Heap-owned skin selectors and sprite-to-unit associations are outside the pool snapshot.
+    skins: ReplaySkinSnapshot,
 }
 
 impl Keyframe {
     fn heap_bytes(&self) -> usize {
         self.data.len()
+            + self.skins.heap_bytes()
             + self.extras.heap_bytes()
             + self.apm.as_ref().map_or(0, ApmStats::heap_bytes)
+            + self
+                .remembered
+                .as_ref()
+                .map_or(0, remembered_buildings::Record::heap_bytes)
     }
 }
 
@@ -166,6 +177,9 @@ impl Seeker {
                 return;
             };
             let started = Instant::now();
+            let Some(skins) = bw.replay_skin_snapshot() else {
+                return;
+            };
             with_ui_images_off(bw, || layout.take(frame));
             let (Some(bytes), Some(extras)) = (layout.bytes_of(frame), layout.extras_of(frame))
             else {
@@ -197,6 +211,8 @@ impl Seeker {
                     data,
                     extras,
                     apm: bw.apm_stats(),
+                    remembered: remembered_buildings::snapshot(),
+                    skins,
                 },
                 MAX_KEYFRAME_BYTES,
             );
@@ -316,6 +332,12 @@ impl Seeker {
                     false => Err(std::io::Error::other("keyframe has the wrong length")),
                 }
             })?;
+            // Reserve all three maps before restored pools can replace the current state.
+            let skins = bw
+                .prepare_replay_skin_restore(&keyframe.skins)
+                .ok_or_else(|| {
+                    std::io::Error::other("couldn't prepare replay skin maps for restore")
+                })?;
             // The selection and the power fields being shown are the person's, not the
             // simulation's, so they stay as they were wherever they still can.
             let selection = bw.rollback_local_selection();
@@ -325,6 +347,7 @@ impl Seeker {
             with_ui_images_off(bw, || {
                 let restored = layout.restore_at_or_before(frame, bw);
                 if restored.is_some() {
+                    skins.commit();
                     bw.rollback_drop_stale_local_selection(&selection);
                 }
                 restored
@@ -333,8 +356,11 @@ impl Seeker {
             // Nothing simulates between the restore and settling, so nothing the restore took out
             // of the selection is back.
             bw.rollback_settle_local_selection(&selection, &[]);
-            // The vision globals and the draw functions the restored images carry are the
-            // viewer's, not the simulation's, and have to match the restored frame.
+            // The vision globals, the draw functions the restored images carry and the fog
+            // sprites of players' buildings are the viewer's, not the simulation's, and have to
+            // match the restored frame. Writing the visions rebuilds those fog sprites from the
+            // keyframe's record.
+            remembered_buildings::restore(keyframe.remembered.clone());
             bw.restore_replay_visions_after_keyframe();
             // Restoring a trigger list that had been freed since the keyframe allocates its nodes
             // anew, and the keyframe has to name the new ones for the next time it is restored.
@@ -405,6 +431,7 @@ pub unsafe fn run_game_logic_step(
             if seeker.layout.is_none() {
                 if let Some(missing) = bw
                     .rollback_missing_analysis()
+                    .or_else(|| (!bw.has_replay_skins()).then_some("replay skin maps"))
                     .or_else(|| (!bw.can_set_replay_seek_frame()).then_some("replay_seek_frame"))
                 {
                     info!("Leaving replay seeking to SC:R: analysis did not find {missing}");
@@ -654,6 +681,8 @@ mod tests {
             data: vec![0; bytes].into_boxed_slice(),
             extras: SnapshotExtras::default(),
             apm: None,
+            remembered: None,
+            skins: ReplaySkinSnapshot::default(),
         }
     }
 

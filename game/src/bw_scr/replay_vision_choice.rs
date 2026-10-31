@@ -120,8 +120,9 @@ impl BwScr {
         }
     }
 
-    /// Shows the replay or observed game through the vision of `players`, a bit per player, and
-    /// draws the units that need detection as those players see them.
+    /// Shows the replay or observed game through the vision of `players`, a bit per player, draws
+    /// the units that need detection as those players see them, and gives a replay the buildings
+    /// those players would remember had their vision been shown since it began.
     ///
     /// Sets the minimap's tile vision along with the other two globals, as SC:R's own vision
     /// filter does. SC:R folds `minimap_tile_vision_mask ^ local_visions` into its turn sync
@@ -135,6 +136,7 @@ impl BwScr {
                 mask.write(u32::from(players) << 8);
             }
             self.redraw_units_needing_detection();
+            crate::remembered_buildings::rebuild(self);
         }
     }
 }
