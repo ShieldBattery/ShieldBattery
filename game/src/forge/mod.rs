@@ -17,6 +17,7 @@ use crate::bw::{Bw, get_bw};
 use crate::game_thread::{self, GameThreadMessage, send_game_msg_to_async};
 
 mod gamma;
+mod raw_mouse;
 mod window_placement;
 
 use self::window_placement::{DisplayMode, Settings};
@@ -24,8 +25,8 @@ use self::window_placement::{DisplayMode, Settings};
 mod scr_hooks {
 
     use super::{
-        ATOM, DEVMODEW, HDC, HINSTANCE, HMENU, HMONITOR, HWND, MSG, POINT, RECT, WNDCLASSEXW,
-        c_void,
+        ATOM, DEVMODEW, HDC, HINSTANCE, HMENU, HMONITOR, HWND, MSG, POINT, RECT, TRACKMOUSEEVENT,
+        WNDCLASSEXW, c_void,
     };
 
     system_hooks!(
@@ -42,6 +43,7 @@ mod scr_hooks {
         !0 => RegisterHotKey(HWND, i32, u32, u32) -> u32;
         !0 => SetCursorPos(i32, i32) -> i32;
         !0 => ShowWindow(HWND, i32) -> u32;
+        !0 => TrackMouseEvent(*mut TRACKMOUSEEVENT) -> i32;
         !0 => GetDeviceGammaRamp(HDC, *mut c_void) -> i32;
         !0 => SetDeviceGammaRamp(HDC, *mut c_void) -> i32;
     );
@@ -148,6 +150,9 @@ unsafe extern "system" fn wnd_proc_scr(
 
         let ret = with_scr_hooks_disabled(|| {
             gamma::handle_window_message(window, msg, wparam);
+            if raw_mouse::drops_message(window, msg) {
+                return Some(0);
+            }
             match msg {
                 WM_END_WND_PROC_WORKER => {
                     STOP_MESSAGE_PUMP.store(true, Ordering::Release);
@@ -591,15 +596,23 @@ fn peek_message_w(
     let removing = remove & PM_REMOVE != 0;
     let can_return_mouse_move =
         (filter_min == 0 && filter_max == 0) || (filter_min..=filter_max).contains(&WM_MOUSEMOVE);
-    let limit_drain =
-        removing && can_return_mouse_move && GAME_LOOP_PUMPING.load(Ordering::Relaxed);
+    // Raw mouse input leaves no legacy mouse moves to chase.
+    let limit_drain = removing
+        && can_return_mouse_move
+        && GAME_LOOP_PUMPING.load(Ordering::Relaxed)
+        && !raw_mouse::taking_input();
     if limit_drain && MOUSE_MOVE_DRAINED.get() && DRAIN_PEEKING.get() >= MAX_MOUSE_MOVE_DRAIN {
         MOUSE_MOVE_DRAINED.set(false);
         DRAIN_PEEKING.set(Duration::ZERO);
         return 0;
     }
     let peek_start = Instant::now();
-    let result = unsafe { orig(msg, window, filter_min, filter_max, remove) };
+    let result = match removing && raw_mouse::converts(window, filter_min, filter_max) {
+        true => raw_mouse::remove_next_message(msg, |msg| unsafe {
+            orig(msg, window, filter_min, filter_max, remove)
+        }),
+        false => unsafe { orig(msg, window, filter_min, filter_max, remove) },
+    };
     if !removing {
         return result;
     }
@@ -774,6 +787,7 @@ fn create_window_w(
                     && class_name as usize == bw_class as usize
                 {
                     debug!("Created main window {window:p}");
+                    raw_mouse::window_created();
 
                     forge.set_window(Window { handle: window });
                 }
@@ -888,6 +902,7 @@ fn monitor_from_point(
 pub unsafe fn init_hooks_scr(patcher: &mut whack::Patcher) {
     unsafe {
         use self::gamma::{get_device_gamma_ramp, set_device_gamma_ramp};
+        use self::raw_mouse::track_mouse_event;
         use self::scr_hooks::*;
         // 1161 init could hook just starcraft/storm import table, unfortunately
         // that method doesn't work with SCR, we'll just GetProcAddress the
@@ -911,6 +926,7 @@ pub unsafe fn init_hooks_scr(patcher: &mut whack::Patcher) {
             "RegisterHotKey", RegisterHotKey, register_hot_key;
             "SetCursorPos", SetCursorPos, set_cursor_pos;
             "ShowWindow", ShowWindow, show_window;
+            "TrackMouseEvent", TrackMouseEvent, track_mouse_event;
         );
 
         hook_winapi_exports!(patcher, "gdi32",
@@ -949,6 +965,7 @@ pub fn init(
         None
     };
     gamma::configure(gamma_setting);
+    raw_mouse::init_from_env();
 
     let background = std::env::var(BACKGROUND_ENV_VAR).as_deref() == Ok("1");
     BACKGROUND.store(background, Ordering::Release);
