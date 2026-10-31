@@ -545,6 +545,18 @@ impl<'e> Analysis<'e> {
         self.0.update_unit_visibility()
     }
 
+    pub fn unit_skin_map(&mut self) -> Option<Operand<'e>> {
+        self.0.unit_skin_map()
+    }
+
+    pub fn sprite_skin_map(&mut self) -> Option<Operand<'e>> {
+        self.0.sprite_skin_map()
+    }
+
+    pub fn sprite_unit_map(&mut self) -> Option<Operand<'e>> {
+        self.0.sprite_unit_map()
+    }
+
     pub fn step_game_loop(&mut self) -> Option<VirtualAddress> {
         self.0.step_game_loop()
     }

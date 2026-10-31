@@ -440,7 +440,10 @@ impl BwScr {
                 },
                 address,
             );
-            match self.update_unit_visibility {
+            match self
+                .update_unit_visibility
+                .filter(|_| self.replay_skins.is_some())
+            {
                 Some(address) => {
                     exe.hook_closure_address(
                         UpdateUnitVisibility,
@@ -456,7 +459,9 @@ impl BwScr {
                     );
                     crate::remembered_buildings::set_hooked();
                 }
-                None => info!("Remembered buildings aren't kept: update_unit_visibility not found"),
+                None => info!(
+                    "Remembered buildings aren't kept: visibility or skin map analysis missing"
+                ),
             }
             let address = self.step_network_addr.0 as usize - base;
             exe.hook_closure_address(

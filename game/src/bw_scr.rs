@@ -28,6 +28,7 @@ use winapi::um::winnt::FILE_ATTRIBUTE_DIRECTORY;
 
 use init::{bw_free, bw_malloc, get_exe_build};
 use network::NetcodeV2Bw;
+pub(crate) use replay_skins::ReplaySkinSnapshot;
 use scr_analysis::{VirtualAddress, scarf};
 use sdf_cache::InitSdfCache;
 pub(crate) use selection::SelectedUnit;
@@ -36,6 +37,7 @@ use selection::{
     ClickFeedback, ObserverUiCallbacks, PlacementOverlayPools, PylonAuras, SPRITE_SELECTION_VISUALS,
 };
 use shader_replaces::ShaderReplaces;
+pub(crate) use skin_map::SpriteSkin;
 pub use thiscall::Thiscall;
 
 use crate::GameThreadMessage;
@@ -90,11 +92,14 @@ mod pe_image;
 mod rendering;
 mod replay_playback;
 mod replay_save;
+mod replay_skins;
 mod replay_vision_choice;
 mod sdf_cache;
 mod selection;
 mod shader_replaces;
+mod skin_map;
 mod sound;
+mod sprite_unit_map;
 mod stat_txt;
 pub(crate) mod thiscall;
 mod tick_gates;
@@ -369,6 +374,7 @@ pub struct BwScr {
     init_unit_data: VirtualAddress,
     step_game: VirtualAddress,
     update_unit_visibility: Option<VirtualAddress>,
+    replay_skins: Option<replay_skins::ReplaySkins>,
     step_network_addr: VirtualAddress,
     step_replay_commands: VirtualAddress,
     order_harvest_gas: VirtualAddress,
@@ -2699,7 +2705,10 @@ impl BwScr {
     }
 
     unsafe fn create_fow_sprite_main(&self, unit: Unit) -> Option<()> {
-        unsafe { self.create_fow_sprite_from(&self.copy_unit_sprite(unit, false)) }
+        unsafe {
+            self.create_fow_sprite_with_skin(&self.copy_unit_sprite(unit, false))
+                .map(|_| ())
+        }
     }
 
     /// A frozen copy of `unit`'s sprite and images, as SC:R's own fog sprite of it holds them.
@@ -2763,6 +2772,7 @@ impl BwScr {
             }
             RememberedLook {
                 unit_id: (**unit).unit_id,
+                skin: self.remembered_unit_skin(unit),
                 sprite,
                 images,
                 main_image,
@@ -2772,7 +2782,7 @@ impl BwScr {
 
     /// Adds a fog sprite showing `look` to the map. None when one of SC:R's pools is out of
     /// objects, which leaves everything as it was.
-    pub(crate) unsafe fn create_fow_sprite_from(&self, look: &RememberedLook) -> Option<()> {
+    unsafe fn create_fow_sprite_from(&self, look: &RememberedLook) -> Option<*mut scr::Sprite> {
         unsafe {
             // Going to be pessimistic and guess that the existing function for creating fog
             // sprites is likely to be inlined in some future build.
@@ -2823,9 +2833,11 @@ impl BwScr {
             while let Some(image) = images.pop() {
                 image.move_to(&sprite_images);
             }
+            let sprite_ptr = sprite.value();
             sprite.move_to(&sprite_list);
             fow.move_to(&fow_list);
-            Some(())
+            self.clear_fow_sprite_unit(sprite_ptr);
+            Some(sprite_ptr)
         }
     }
 

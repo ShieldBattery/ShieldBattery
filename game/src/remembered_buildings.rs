@@ -24,12 +24,14 @@ use parking_lot::Mutex;
 use smallvec::SmallVec;
 
 use crate::bw::{self, Bw};
-use crate::bw_scr::{BwScr, scr};
+use crate::bw_scr::{BwScr, SpriteSkin, scr};
 use crate::game_thread;
 
 /// A frozen copy of a building's sprite and images, as SC:R's fog sprite of it holds them.
 pub struct RememberedLook {
     pub unit_id: u16,
+    /// The skin selector and unit type at capture time, independent of later pool-slot reuse.
+    pub skin: Option<SpriteSkin>,
     pub sprite: scr::Sprite,
     pub images: SmallVec<[bw::Image; 4]>,
     /// Which of `images` is the sprite's main image.
@@ -144,10 +146,11 @@ static HOOKED: AtomicBool = AtomicBool::new(false);
 static KEEPS_RECORD: AtomicBool = AtomicBool::new(false);
 
 /// The replay visions SC:R's fog sprites were last rebuilt for (see [`visions_key`]), or
-/// [`NO_VISIONS`] before the first step.
+/// [`NO_VISIONS`] before the first step, or [`NEEDS_REBUILD`] after restoring a record.
 static BUILT_FOR: AtomicU16 = AtomicU16::new(NO_VISIONS);
 
 const NO_VISIONS: u16 = u16::MAX;
+const NEEDS_REBUILD: u16 = u16::MAX - 1;
 
 /// The replay visions as one value: the players' bits, and whether the entire map is shown.
 fn visions_key(visions: &bw::ReplayVisions) -> u16 {
@@ -292,20 +295,18 @@ pub unsafe fn rebuild(bw: &BwScr) {
             return;
         }
         let visions = bw.replay_visions();
-        BUILT_FOR.store(visions_key(&visions), Ordering::Relaxed);
         let record = RECORD.lock();
         let Some(record) = record.as_ref() else {
+            BUILT_FOR.store(visions_key(&visions), Ordering::Relaxed);
             return;
         };
-        bw.remove_player_fow_sprites();
-        if visions.show_entire_map {
-            return;
-        }
-        for remembered in record.copies.iter().filter(|x| x.shown_to(visions.players)) {
-            if bw.create_fow_sprite_from(&remembered.copy.look).is_none() {
-                warn!("Ran out of fog sprites rebuilding the remembered buildings");
-                return;
-            }
+        let looks = record
+            .copies
+            .iter()
+            .filter(|x| !visions.show_entire_map && x.shown_to(visions.players))
+            .map(|x| &x.copy.look);
+        if bw.rebuild_player_fow_sprites(looks) {
+            BUILT_FOR.store(visions_key(&visions), Ordering::Relaxed);
         }
     }
 }
@@ -320,6 +321,7 @@ pub fn snapshot() -> Option<Record> {
 /// the visions for the restored frame does.
 pub fn restore(record: Option<Record>) {
     *RECORD.lock() = record;
+    BUILT_FOR.store(NEEDS_REBUILD, Ordering::Relaxed);
 }
 
 /// `SB_DEBUG_REMEMBERED_BUILDINGS_CHECK=1`: every [`check::INTERVAL`] frames, compares the
@@ -351,14 +353,15 @@ mod check {
     }
 
     /// What tells two fog sprites apart: the building type, where it is, and how it looks (main
-    /// image, its frame and draw function, and the sprite's elevation).
-    type Key = (u16, i16, i16, u16, u16, u8, u8);
+    /// image, its frame and draw function, the sprite's elevation and its captured skin selector).
+    type Key = (u16, i16, i16, u16, u16, u8, u8, Option<(u16, u8)>);
 
     unsafe fn key_of(
         bw: &BwScr,
         unit_id: u16,
         sprite: *const scr::Sprite,
         main: *const bw::Image,
+        skin: Option<SpriteSkin>,
     ) -> Key {
         unsafe {
             let (x, y) = bw.sprite_pixel_position(sprite);
@@ -374,6 +377,7 @@ mod check {
                 frame,
                 drawfunc,
                 (*sprite).elevation_level,
+                skin.map(|skin| (skin.unit_id, skin.player)),
             )
         }
     }
@@ -381,7 +385,7 @@ mod check {
     fn hash(keys: &[Key]) -> u64 {
         keys.iter().fold(
             0u64,
-            |acc, &(unit_id, x, y, image_id, frame, drawfunc, elevation)| {
+            |acc, &(unit_id, x, y, image_id, frame, drawfunc, elevation, skin)| {
                 let key = (u64::from(unit_id) << 48)
                     ^ (u64::from(x as u16) << 32)
                     ^ (u64::from(y as u16) << 16)
@@ -389,7 +393,11 @@ mod check {
                     ^ (u64::from(frame) << 56)
                     ^ (u64::from(drawfunc) << 40)
                     ^ (u64::from(elevation) << 24);
+                let skin = skin.map_or(0, |(id, player)| {
+                    1 | (u64::from(id) << 8) | (u64::from(player) << 32)
+                });
                 acc.wrapping_add(key.wrapping_mul(0x9e37_79b9_7f4a_7c15).rotate_left(23))
+                    .wrapping_add(skin.wrapping_mul(0x517c_c1b7_2722_0a95))
             },
         )
     }
@@ -405,7 +413,7 @@ mod check {
                     let main = look
                         .main_image
                         .map_or(std::ptr::null(), |i| &raw const look.images[i]);
-                    key_of(bw, look.unit_id, &look.sprite, main)
+                    key_of(bw, look.unit_id, &look.sprite, main, look.skin)
                 })
                 .collect::<Vec<_>>();
             keys.sort_unstable();
@@ -427,8 +435,15 @@ mod check {
                 .fow_sprites()
                 .filter_map(|fow| {
                     let sprite = (*fow).sprite as *const scr::Sprite;
-                    ((*sprite).player < 8)
-                        .then(|| key_of(bw, (*fow).unit_id, sprite, (*sprite).main_image))
+                    ((*sprite).player < 8).then(|| {
+                        key_of(
+                            bw,
+                            (*fow).unit_id,
+                            sprite,
+                            (*sprite).main_image,
+                            bw.remembered_sprite_skin(sprite),
+                        )
+                    })
                 })
                 .collect::<Vec<_>>();
             game.sort_unstable();
@@ -492,6 +507,7 @@ mod test {
             // SAFETY: plain data, never drawn or dereferenced here.
             look: RememberedLook {
                 unit_id: 0,
+                skin: None,
                 sprite: unsafe { std::mem::zeroed() },
                 images: SmallVec::new(),
                 main_image: None,
