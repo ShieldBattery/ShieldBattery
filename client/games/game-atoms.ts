@@ -15,6 +15,14 @@ export interface LastGameState {
 /** Info about the last game that was played in this client. */
 export const lastGameAtom = atom<LastGameState | undefined>(undefined)
 
+/**
+ * Games whose replay is on its way to being watched (downloading, or being handed to StarCraft).
+ * Shared by every surface that offers watching a game, so pressing watch again anywhere while the
+ * first press is still underway can't start a second replay, which would quit and relaunch
+ * StarCraft (or run two of it, when replays are kept alongside games).
+ */
+export const startingReplayGameIdsAtom = atom<ReadonlySet<string>>(new Set<string>())
+
 const MAX_RECENT_REPLAY_PATHS = 8
 
 /**

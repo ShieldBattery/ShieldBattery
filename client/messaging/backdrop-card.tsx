@@ -333,6 +333,11 @@ const BackdropCardActionButton = styled.button`
   &:focus-visible {
     outline: 2px solid var(--theme-amber);
   }
+
+  &:disabled {
+    color: rgb(from var(--theme-on-surface) r g b / var(--theme-disabled-opacity));
+    cursor: default;
+  }
 `
 
 /** A quiet text button for a secondary action in a card's header, which doesn't also click the card. */
@@ -340,6 +345,7 @@ export function BackdropCardAction({
   onClick,
   ariaLabel,
   ariaExpanded,
+  disabled,
   testName,
   children,
 }: {
@@ -347,6 +353,7 @@ export function BackdropCardAction({
   ariaLabel?: string
   /** For an action that shows and hides part of the card, whether that part is shown. */
   ariaExpanded?: boolean
+  disabled?: boolean
   testName?: string
   children: React.ReactNode
 }) {
@@ -355,6 +362,7 @@ export function BackdropCardAction({
       type='button'
       aria-label={ariaLabel}
       aria-expanded={ariaExpanded}
+      disabled={disabled}
       onClick={event => {
         event.stopPropagation()
         onClick()
