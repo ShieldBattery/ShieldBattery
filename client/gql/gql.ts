@@ -75,8 +75,10 @@ type Documents = {
   '\n  query AdminUserProfile($userId: SbUserId!, $includePermissions: Boolean!) {\n    user(id: $userId) {\n      id\n      ...AdminUserProfile_Permissions @include(if: $includePermissions)\n    }\n  }\n': typeof types.AdminUserProfileDocument
   '\n  fragment AdminUserProfile_Permissions on SbUser {\n    id\n    permissions {\n      id\n      editPermissions\n      debug\n      useDevelopmentClient\n      banUsers\n      manageLeagues\n      manageMaps\n      manageMapPools\n      manageMatchmaking\n      manageMatchmakingTimes\n      manageMatchmakingSeasons\n      massDeleteMaps\n      moderateChatChannels\n      manageNews\n      manageBugReports\n      manageGameReports\n      manageRestrictedNames\n      manageSignupCodes\n      manageLiveStreams\n    }\n  }\n': typeof types.AdminUserProfile_PermissionsFragmentDoc
   '\n  mutation AdminUpdateUserPermissions($userId: SbUserId!, $permissions: SbPermissionsInput!) {\n    userUpdatePermissions(userId: $userId, permissions: $permissions) {\n      ...AdminUserProfile_Permissions\n    }\n  }\n': typeof types.AdminUpdateUserPermissionsDocument
-  '\n  query UserProfileOverlayLive($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      commendCount\n      liveStream {\n        id\n        twitchLogin\n        title\n        viewerCount\n      }\n    }\n  }\n': typeof types.UserProfileOverlayLiveDocument
   '\n  query UserRankedModes($userId: SbUserId!) {\n    userRankedModes(userId: $userId) {\n      matchmakingType\n      totalGames\n      wins\n      losses\n      rating\n      delta\n    }\n  }\n': typeof types.UserRankedModesDocument
+  '\n  query UserMatchupStats($userId: SbUserId!, $matchmakingType: MatchmakingType!) {\n    userMatchupStats(userId: $userId, matchmakingType: $matchmakingType) {\n      matchmakingType\n      ratingBandSize\n      minRatingBand\n      maxRatingBand\n      buckets {\n        seasonId\n        mapId\n        races\n        opponentRaces\n        ratingBand\n        games\n        wins\n      }\n      maps {\n        id\n        name\n        mapFile {\n          image256Url\n        }\n      }\n    }\n  }\n': typeof types.UserMatchupStatsDocument
+  '\n  query GlobalMatchupStats($matchmakingType: MatchmakingType!) {\n    globalMatchupStats(matchmakingType: $matchmakingType) {\n      matchmakingType\n      ratingBandSize\n      minRatingBand\n      maxRatingBand\n      buckets {\n        seasonId\n        mapId\n        races\n        opponentRaces\n        ratingBand\n        games\n        wins\n      }\n      maps {\n        id\n        name\n        mapFile {\n          image256Url\n        }\n      }\n    }\n  }\n': typeof types.GlobalMatchupStatsDocument
+  '\n  query UserProfileOverlayLive($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      commendCount\n      liveStream {\n        id\n        twitchLogin\n        title\n        viewerCount\n      }\n    }\n  }\n': typeof types.UserProfileOverlayLiveDocument
   '\n  query UserRatingHistory($userId: SbUserId!, $matchmakingType: MatchmakingType!) {\n    userRatingHistory(userId: $userId, matchmakingType: $matchmakingType) {\n      matchmakingType\n      totalGames\n      downsampled\n      points {\n        changeDate\n        rating\n        points\n        seasonId\n      }\n    }\n  }\n': typeof types.UserRatingHistoryDocument
   '\n  query UserProfileHeader($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      commendCount\n      twitchChannel {\n        id\n        twitchLogin\n        twitchDisplayName\n      }\n      liveStream {\n        id\n        twitchLogin\n        title\n        gameName\n        viewerCount\n        startedAt\n        thumbnailUrl\n      }\n    }\n  }\n': typeof types.UserProfileHeaderDocument
 }
@@ -202,10 +204,14 @@ const documents: Documents = {
     types.AdminUserProfile_PermissionsFragmentDoc,
   '\n  mutation AdminUpdateUserPermissions($userId: SbUserId!, $permissions: SbPermissionsInput!) {\n    userUpdatePermissions(userId: $userId, permissions: $permissions) {\n      ...AdminUserProfile_Permissions\n    }\n  }\n':
     types.AdminUpdateUserPermissionsDocument,
-  '\n  query UserProfileOverlayLive($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      commendCount\n      liveStream {\n        id\n        twitchLogin\n        title\n        viewerCount\n      }\n    }\n  }\n':
-    types.UserProfileOverlayLiveDocument,
   '\n  query UserRankedModes($userId: SbUserId!) {\n    userRankedModes(userId: $userId) {\n      matchmakingType\n      totalGames\n      wins\n      losses\n      rating\n      delta\n    }\n  }\n':
     types.UserRankedModesDocument,
+  '\n  query UserMatchupStats($userId: SbUserId!, $matchmakingType: MatchmakingType!) {\n    userMatchupStats(userId: $userId, matchmakingType: $matchmakingType) {\n      matchmakingType\n      ratingBandSize\n      minRatingBand\n      maxRatingBand\n      buckets {\n        seasonId\n        mapId\n        races\n        opponentRaces\n        ratingBand\n        games\n        wins\n      }\n      maps {\n        id\n        name\n        mapFile {\n          image256Url\n        }\n      }\n    }\n  }\n':
+    types.UserMatchupStatsDocument,
+  '\n  query GlobalMatchupStats($matchmakingType: MatchmakingType!) {\n    globalMatchupStats(matchmakingType: $matchmakingType) {\n      matchmakingType\n      ratingBandSize\n      minRatingBand\n      maxRatingBand\n      buckets {\n        seasonId\n        mapId\n        races\n        opponentRaces\n        ratingBand\n        games\n        wins\n      }\n      maps {\n        id\n        name\n        mapFile {\n          image256Url\n        }\n      }\n    }\n  }\n':
+    types.GlobalMatchupStatsDocument,
+  '\n  query UserProfileOverlayLive($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      commendCount\n      liveStream {\n        id\n        twitchLogin\n        title\n        viewerCount\n      }\n    }\n  }\n':
+    types.UserProfileOverlayLiveDocument,
   '\n  query UserRatingHistory($userId: SbUserId!, $matchmakingType: MatchmakingType!) {\n    userRatingHistory(userId: $userId, matchmakingType: $matchmakingType) {\n      matchmakingType\n      totalGames\n      downsampled\n      points {\n        changeDate\n        rating\n        points\n        seasonId\n      }\n    }\n  }\n':
     types.UserRatingHistoryDocument,
   '\n  query UserProfileHeader($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      commendCount\n      twitchChannel {\n        id\n        twitchLogin\n        twitchDisplayName\n      }\n      liveStream {\n        id\n        twitchLogin\n        title\n        gameName\n        viewerCount\n        startedAt\n        thumbnailUrl\n      }\n    }\n  }\n':
@@ -596,14 +602,26 @@ export function graphql(
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
-  source: '\n  query UserProfileOverlayLive($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      commendCount\n      liveStream {\n        id\n        twitchLogin\n        title\n        viewerCount\n      }\n    }\n  }\n',
-): (typeof documents)['\n  query UserProfileOverlayLive($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      commendCount\n      liveStream {\n        id\n        twitchLogin\n        title\n        viewerCount\n      }\n    }\n  }\n']
+  source: '\n  query UserRankedModes($userId: SbUserId!) {\n    userRankedModes(userId: $userId) {\n      matchmakingType\n      totalGames\n      wins\n      losses\n      rating\n      delta\n    }\n  }\n',
+): (typeof documents)['\n  query UserRankedModes($userId: SbUserId!) {\n    userRankedModes(userId: $userId) {\n      matchmakingType\n      totalGames\n      wins\n      losses\n      rating\n      delta\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
-  source: '\n  query UserRankedModes($userId: SbUserId!) {\n    userRankedModes(userId: $userId) {\n      matchmakingType\n      totalGames\n      wins\n      losses\n      rating\n      delta\n    }\n  }\n',
-): (typeof documents)['\n  query UserRankedModes($userId: SbUserId!) {\n    userRankedModes(userId: $userId) {\n      matchmakingType\n      totalGames\n      wins\n      losses\n      rating\n      delta\n    }\n  }\n']
+  source: '\n  query UserMatchupStats($userId: SbUserId!, $matchmakingType: MatchmakingType!) {\n    userMatchupStats(userId: $userId, matchmakingType: $matchmakingType) {\n      matchmakingType\n      ratingBandSize\n      minRatingBand\n      maxRatingBand\n      buckets {\n        seasonId\n        mapId\n        races\n        opponentRaces\n        ratingBand\n        games\n        wins\n      }\n      maps {\n        id\n        name\n        mapFile {\n          image256Url\n        }\n      }\n    }\n  }\n',
+): (typeof documents)['\n  query UserMatchupStats($userId: SbUserId!, $matchmakingType: MatchmakingType!) {\n    userMatchupStats(userId: $userId, matchmakingType: $matchmakingType) {\n      matchmakingType\n      ratingBandSize\n      minRatingBand\n      maxRatingBand\n      buckets {\n        seasonId\n        mapId\n        races\n        opponentRaces\n        ratingBand\n        games\n        wins\n      }\n      maps {\n        id\n        name\n        mapFile {\n          image256Url\n        }\n      }\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  query GlobalMatchupStats($matchmakingType: MatchmakingType!) {\n    globalMatchupStats(matchmakingType: $matchmakingType) {\n      matchmakingType\n      ratingBandSize\n      minRatingBand\n      maxRatingBand\n      buckets {\n        seasonId\n        mapId\n        races\n        opponentRaces\n        ratingBand\n        games\n        wins\n      }\n      maps {\n        id\n        name\n        mapFile {\n          image256Url\n        }\n      }\n    }\n  }\n',
+): (typeof documents)['\n  query GlobalMatchupStats($matchmakingType: MatchmakingType!) {\n    globalMatchupStats(matchmakingType: $matchmakingType) {\n      matchmakingType\n      ratingBandSize\n      minRatingBand\n      maxRatingBand\n      buckets {\n        seasonId\n        mapId\n        races\n        opponentRaces\n        ratingBand\n        games\n        wins\n      }\n      maps {\n        id\n        name\n        mapFile {\n          image256Url\n        }\n      }\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  query UserProfileOverlayLive($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      commendCount\n      liveStream {\n        id\n        twitchLogin\n        title\n        viewerCount\n      }\n    }\n  }\n',
+): (typeof documents)['\n  query UserProfileOverlayLive($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      commendCount\n      liveStream {\n        id\n        twitchLogin\n        title\n        viewerCount\n      }\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
