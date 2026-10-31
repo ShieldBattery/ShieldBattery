@@ -1,6 +1,9 @@
 import { atom } from 'jotai'
 import { atomWithImmer } from 'jotai-immer'
+import { PlayerInfo } from '../../common/games/game-launch-config'
 import { GameLoadingStatus } from '../../common/games/game-loader-network'
+import { GameType } from '../../common/games/game-type'
+import { MatchmakingType } from '../../common/matchmaking'
 
 export interface LastGameState {
   /**
@@ -22,6 +25,34 @@ export const lastGameAtom = atom<LastGameState | undefined>(undefined)
  * StarCraft (or run two of it, when replays are kept alongside games).
  */
 export const startingReplayGameIdsAtom = atom<ReadonlySet<string>>(new Set<string>())
+
+/** What the client knows about the game the user takes part in (a lobby or matchmaking game). */
+export interface ParticipatingGameInfo {
+  gameId: string
+  gameType: GameType
+  mapName: string
+  /** The URL of the map's image, if it has one. */
+  mapImageUrl?: string
+  /** The match's matchmaking type, or `undefined` for a lobby game. */
+  matchmakingType?: MatchmakingType
+  slots: ReadonlyArray<Pick<PlayerInfo, 'userId' | 'race' | 'type'>>
+  /** When this client saw the game reach `playing`, in milliseconds since the Unix epoch. */
+  playingSince?: number
+}
+
+/** The game the user last took part in, from when its setup arrives. */
+export const participatingGameAtom = atom<ParticipatingGameInfo | undefined>(undefined)
+
+/** What the client knows about a replay it started. */
+export interface WatchedReplayInfo {
+  /** The game ID of the replay's playback. */
+  gameId: string
+  /** The map the replay was played on, if its header could be read. */
+  mapName?: string
+}
+
+/** The replay this client started most recently, from when its playback is set up. */
+export const watchedReplayAtom = atom<WatchedReplayInfo | undefined>(undefined)
 
 const MAX_RECENT_REPLAY_PATHS = 8
 

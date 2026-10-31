@@ -4,18 +4,28 @@ import styled from 'styled-components'
 import { CombinedError, useMutation, useQuery } from 'urql'
 import { getErrorStack } from '../../../common/errors'
 import { graphql } from '../../gql'
+import DiscordIcon from '../../icons/brands/discord.svg?react'
 import TwitchIcon from '../../icons/brands/twitch.svg?react'
 import logger from '../../logging/logger'
 import { FilledButton, TextButton } from '../../material/button'
 import { Card } from '../../material/card'
+import { CheckBox } from '../../material/check-box'
+import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { useSnackbarController } from '../../snackbars/snackbar-overlay'
-import { bodyLarge, labelMedium, singleLine, TitleMedium } from '../../styles/typography'
+import {
+  bodyLarge,
+  bodyMedium,
+  labelMedium,
+  singleLine,
+  TitleMedium,
+} from '../../styles/typography'
 import {
   cancelTwitchOAuthFlow,
   openTwitchOAuthPopup,
   runTwitchOAuthFlow,
   TwitchOAuthResult,
 } from '../../twitch/twitch-oauth'
+import { mergeAccountSettings } from '../action-creators'
 
 // graphcache skips its "no cache key" warning for any type whose name ends in `Connection`,
 // treating it as Relay pagination plumbing. `TwitchConnection` is a real entity that trips that
@@ -310,6 +320,71 @@ export function ConnectionSettings() {
           {connectionAction}
         </ServiceCard>
       </Section>
+
+      <DiscordActivitySection />
     </Root>
+  )
+}
+
+const StyledDiscordIcon = styled(DiscordIcon)`
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  color: #5865f2;
+`
+
+const ServiceNote = styled.div`
+  ${bodyMedium};
+  color: var(--theme-on-surface-variant);
+`
+
+/**
+ * Whether to show the user's lobbies and games as Rich Presence on Discord. Nothing gets linked: the
+ * desktop app shows it through the Discord desktop app on the same computer.
+ */
+function DiscordActivitySection() {
+  const { t } = useTranslation()
+  const dispatch = useAppDispatch()
+  const sharing = useAppSelector(s => s.settings.account.shareDiscordActivity)
+
+  return (
+    <Section>
+      <SectionDescription>
+        {t(
+          'settings.user.connections.discord.description',
+          'Show what you’re doing on ShieldBattery on your Discord profile.',
+        )}
+      </SectionDescription>
+
+      <ServiceCard>
+        <StyledDiscordIcon />
+        <ServiceInfo>
+          <ServiceName>{t('settings.user.connections.discord.name', 'Discord')}</ServiceName>
+          <CheckBox
+            checked={sharing === 'on'}
+            onChange={event =>
+              dispatch(
+                mergeAccountSettings(
+                  { shareDiscordActivity: event.target.checked ? 'on' : 'off' },
+                  { onSuccess: () => {}, onError: () => {} },
+                ),
+              )
+            }
+            name='shareDiscordActivity'
+            label={t(
+              'settings.user.connections.discord.showActivity',
+              'Show my activity on Discord',
+            )}
+          />
+          <ServiceNote>
+            {t(
+              'settings.user.connections.discord.note',
+              'Shows your lobby, game or replay on the Discord account signed in to the Discord ' +
+                'app on the same computer as the ShieldBattery app.',
+            )}
+          </ServiceNote>
+        </ServiceInfo>
+      </ServiceCard>
+    </Section>
   )
 }

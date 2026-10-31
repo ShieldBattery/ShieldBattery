@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1024 1024">
+  <defs>
+    <!-- Cuts the slanted stripes out of a clapstick. -->
+    <mask id="stripes" maskUnits="userSpaceOnUse" x="0" y="0" width="560" height="72">
+      <rect x="0" y="0" width="560" height="72" fill="#fff"/>
+      <g fill="#000">
+        <polygon points="92,-1 182,-1 142,73 52,73"/>
+        <polygon points="280,-1 370,-1 330,73 240,73"/>
+        <polygon points="468,-1 558,-1 518,73 428,73"/>
+      </g>
+    </mask>
+    <rect id="stick" x="0" y="0" width="560" height="72" rx="16" fill="#bfd9ff" mask="url(#stripes)"/>
+  </defs>
+  <rect width="1024" height="1024" fill="#18273e"/>
+  <g transform="translate(512 512) scale(1.12) translate(-502 -480)">
+    <!-- The board -->
+    <rect x="232" y="520" width="560" height="270" rx="40" fill="#bfd9ff"/>
+    <!-- The fixed clapstick along the board's top -->
+    <use xlink:href="#stick" x="232" y="428"/>
+    <!-- The open clapstick, hinged at the fixed one's left end -->
+    <use xlink:href="#stick" transform="translate(232 410) rotate(-18) translate(0 -72)"/>
+  </g>
+</svg>

@@ -26,3 +26,9 @@ CLAUDE.local.md
 .claude-scratch/
 .mcp.json
 
+# The Discord Social SDK is downloaded by `pnpm run fetch-discord-sdk` and release builds, and never
+# committed: its license only covers shipping it inside the app. See docs/DISCORD_SDK.md.
+/discord-sdk/
+**/discord_partner_sdk.*
+**/discordpp.h
+**/cdiscord.h
