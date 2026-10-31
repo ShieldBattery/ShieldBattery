@@ -232,7 +232,14 @@ export class DiscordPresence {
     this.lastPublishTime = performance.now()
     if (!activity) {
       logger.verbose('Clearing the Discord activity')
-      clearRichPresence(client)
+      try {
+        clearRichPresence(client)
+      } catch (err) {
+        // Discord may still show the earlier activity, so the clear is sent again on the next
+        // check that finds Discord running.
+        logger.error(`Error clearing the Discord activity: ${getErrorStack(err)}`)
+        this.publishedActivity = undefined
+      }
       return
     }
 

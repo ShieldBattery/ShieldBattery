@@ -203,6 +203,27 @@ describe('app/discord-presence/DiscordPresence', () => {
     expect(mockClearRichPresence).toHaveBeenCalledTimes(1)
   })
 
+  test('tries a failed clear again while Discord runs', async () => {
+    setDiscordRunning(true)
+    mockUpdateRichPresence.mockResolvedValue(undefined)
+    mockClearRichPresence.mockImplementationOnce(() => {
+      throw new Error('Client is not ready')
+    })
+    presence.start()
+    presence.setActivity(LOBBY_ACTIVITY)
+    await vi.advanceTimersByTimeAsync(0)
+
+    presence.setActivity(null)
+    await vi.advanceTimersByTimeAsync(MIN_UPDATE_INTERVAL_MS)
+    expect(mockClearRichPresence).toHaveBeenCalledTimes(1)
+
+    await runDiscordCheck()
+    expect(mockClearRichPresence).toHaveBeenCalledTimes(2)
+
+    await runDiscordCheck()
+    expect(mockClearRichPresence).toHaveBeenCalledTimes(2)
+  })
+
   test("doesn't try an activity Discord refused as invalid again", async () => {
     setDiscordRunning(true)
     mockUpdateRichPresence.mockRejectedValue(callError('validationError'))
