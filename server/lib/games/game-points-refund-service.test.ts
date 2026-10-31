@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { GamePointsRefundErrorCode } from '../../../common/games/games'
 import { LeagueId } from '../../../common/leagues/leagues'
 import { MatchmakingType } from '../../../common/matchmaking'
+import { NotificationType } from '../../../common/notifications'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { updateRankings } from '../ladder/rankings'
@@ -87,11 +88,18 @@ describe('GamePointsRefundService', () => {
     getSeasonForDate: ReturnType<typeof vi.fn>
     getCurrentSeason: ReturnType<typeof vi.fn>
   }
-  let notificationService: { addNotification: ReturnType<typeof vi.fn> }
+  let notificationService: { addNotificationForUsers: ReturnType<typeof vi.fn> }
   let service: GamePointsRefundService
 
   const refund = (punishedUserIds: SbUserId[]) =>
     service.refundGamePoints({ gameId: GAME_ID, punishedUserIds, refundedBy: makeSbUserId(1) })
+
+  /** Every notification sent, one entry per user. */
+  const sentNotifications = () =>
+    notificationService.addNotificationForUsers.mock.calls.flatMap(call => {
+      const { userIds, data } = call[0] as { userIds: SbUserId[]; data: object }
+      return userIds.map(userId => ({ userId, ...data }))
+    })
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -100,7 +108,7 @@ describe('GamePointsRefundService', () => {
       getSeasonForDate: vi.fn().mockResolvedValue([CURRENT_SEASON, undefined]),
       getCurrentSeason: vi.fn().mockResolvedValue(CURRENT_SEASON),
     }
-    notificationService = { addNotification: vi.fn().mockResolvedValue(undefined) }
+    notificationService = { addNotificationForUsers: vi.fn().mockResolvedValue(undefined) }
     service = new GamePointsRefundService(
       {} as any,
       seasonsService as any,
@@ -166,11 +174,15 @@ describe('GamePointsRefundService', () => {
     )
     expect(updateRankings).toHaveBeenCalledTimes(1)
 
-    // Only the refunded victim is notified — not the punished player.
-    expect(notificationService.addNotification).toHaveBeenCalledTimes(1)
-    expect(notificationService.addNotification).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: makeSbUserId(11) }),
-    )
+    // Only the refunded victim is notified, and the punished player is named as the culprit.
+    expect(sentNotifications()).toEqual([
+      {
+        userId: makeSbUserId(11),
+        type: NotificationType.GamePointsRefunded,
+        gameCount: 1,
+        culpritId: makeSbUserId(10),
+      },
+    ])
   })
 
   test('refunds bonus-absorbed losers whose net ranked-points change was 0', async () => {
@@ -216,10 +228,7 @@ describe('GamePointsRefundService', () => {
     // ...and the league-only player (12) is included in the audit, response, and notifications even
     // though they had no matchmaking refund.
     expect(result.refundedUsers).toEqual([makeSbUserId(11), makeSbUserId(12)])
-    expect(notificationService.addNotification).toHaveBeenCalledTimes(2)
-    expect(notificationService.addNotification).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: makeSbUserId(12) }),
-    )
+    expect(sentNotifications().map(n => n.userId)).toEqual([makeSbUserId(11), makeSbUserId(12)])
     const { details } = asMockedFunction(tryRecordGamePointsRefund).mock.calls[0][1]
     expect(details).toContainEqual({
       kind: 'league',
@@ -241,7 +250,7 @@ describe('GamePointsRefundService', () => {
     // Crucially, nothing is recorded, so a later legitimate refund isn't locked out.
     expect(tryRecordGamePointsRefund).not.toHaveBeenCalled()
     expect(refundMatchmakingPoints).not.toHaveBeenCalled()
-    expect(notificationService.addNotification).not.toHaveBeenCalled()
+    expect(notificationService.addNotificationForUsers).not.toHaveBeenCalled()
   })
 
   test('throws NotRanked when the game has no matchmaking changes at all', async () => {
@@ -327,10 +336,11 @@ describe('GamePointsRefundService', () => {
 
     test("refunds each of the user's current-season games with them as the punished player", async () => {
       asMockedFunction(getRatedGameIdsForUser).mockResolvedValue(['game-a', 'game-b'])
-      asMockedFunction(getMatchmakingRatingChangesForGame).mockResolvedValue([
-        mmChange(10, 20),
-        mmChange(11, -15),
-      ])
+      asMockedFunction(getMatchmakingRatingChangesForGame).mockImplementation(async id =>
+        id === 'game-a'
+          ? [mmChange(10, 20), mmChange(11, -15)]
+          : [mmChange(10, 20), mmChange(11, -15), mmChange(12, -12)],
+      )
 
       const summary = await refundUserGames()
 
@@ -340,11 +350,31 @@ describe('GamePointsRefundService', () => {
         expect.objectContaining({ gameId: 'game-a', refundedBy: ADMIN }),
         expect.objectContaining({ gameId: 'game-b', refundedBy: ADMIN }),
       ])
-      for (const [, change] of asMockedFunction(refundMatchmakingPoints).mock.calls) {
-        expect(change.userId).toBe(makeSbUserId(11))
-      }
-      // One notification per refunded game, even for the same player.
-      expect(notificationService.addNotification).toHaveBeenCalledTimes(2)
+      expect(
+        asMockedFunction(refundMatchmakingPoints).mock.calls.map(([, change]) => change.userId),
+      ).toEqual([makeSbUserId(11), makeSbUserId(11), makeSbUserId(12)])
+
+      // Each player is notified once, with how many of their games were refunded.
+      expect(sentNotifications()).toEqual([
+        {
+          userId: makeSbUserId(11),
+          type: NotificationType.GamePointsRefunded,
+          gameCount: 2,
+          culpritId: BANNED,
+        },
+        {
+          userId: makeSbUserId(12),
+          type: NotificationType.GamePointsRefunded,
+          gameCount: 1,
+          culpritId: BANNED,
+        },
+      ])
+      // The caches are refreshed once, with each player's latest rating.
+      expect(updateRankings).toHaveBeenCalledTimes(1)
+      expect(asMockedFunction(updateRankings).mock.calls[0][1].map(r => r.userId)).toEqual([
+        makeSbUserId(11),
+        makeSbUserId(12),
+      ])
     })
 
     test('skips games with nothing to refund and keeps going past a failed one', async () => {
@@ -451,7 +481,11 @@ describe('GamePointsRefundService', () => {
         expect.objectContaining({ refundedBy: undefined }),
       )
       expect(markReplayViolationsHandled).toHaveBeenCalledWith(expect.anything(), GAME_ID)
-      expect(notificationService.addNotification).toHaveBeenCalledTimes(2)
+      // Two violators, so no single culprit is named.
+      expect(sentNotifications()).toEqual([
+        { userId: makeSbUserId(11), type: NotificationType.GamePointsRefunded, gameCount: 1 },
+        { userId: makeSbUserId(13), type: NotificationType.GamePointsRefunded, gameCount: 1 },
+      ])
     })
 
     test('locks before reading and uses the same transaction for reads, refunds, and completion', async () => {
@@ -463,7 +497,7 @@ describe('GamePointsRefundService', () => {
       asMockedFunction(markReplayViolationsHandled).mockImplementationOnce(async () => {
         expect(refundMatchmakingPoints).toHaveBeenCalledTimes(1)
         expect(updateRankings).not.toHaveBeenCalled()
-        expect(notificationService.addNotification).not.toHaveBeenCalled()
+        expect(notificationService.addNotificationForUsers).not.toHaveBeenCalled()
       })
       await refundViolation()
 
@@ -508,7 +542,7 @@ describe('GamePointsRefundService', () => {
       await refundViolation()
       await refundViolation()
       expect(refundMatchmakingPoints).toHaveBeenCalledTimes(1)
-      expect(notificationService.addNotification).toHaveBeenCalledTimes(1)
+      expect(notificationService.addNotificationForUsers).toHaveBeenCalledTimes(1)
       expect(markReplayViolationsHandled).toHaveBeenCalledTimes(2)
     })
 
@@ -545,7 +579,7 @@ describe('GamePointsRefundService', () => {
       await refundViolation()
       expect(markReplayViolationsHandled).toHaveBeenCalledTimes(1)
       expect(tryRecordGamePointsRefund).not.toHaveBeenCalled()
-      expect(notificationService.addNotification).not.toHaveBeenCalled()
+      expect(notificationService.addNotificationForUsers).not.toHaveBeenCalled()
     })
 
     test('finishes without a refund when every loss belongs to a violator', async () => {
@@ -573,23 +607,23 @@ describe('GamePointsRefundService', () => {
       expect(refundMatchmakingPoints).toHaveBeenCalledTimes(1)
       expect(markReplayViolationsHandled).not.toHaveBeenCalled()
       expect(updateRankings).not.toHaveBeenCalled()
-      expect(notificationService.addNotification).not.toHaveBeenCalled()
+      expect(notificationService.addNotificationForUsers).not.toHaveBeenCalled()
 
       await refundViolation()
       expect(markReplayViolationsHandled).toHaveBeenCalledTimes(1)
-      expect(notificationService.addNotification).toHaveBeenCalledTimes(1)
+      expect(notificationService.addNotificationForUsers).toHaveBeenCalledTimes(1)
     })
 
     test('a completion failure fails the transaction without publishing notifications', async () => {
       asMockedFunction(markReplayViolationsHandled).mockRejectedValueOnce(new Error('write failed'))
       await expect(refundViolation()).rejects.toThrow('write failed')
       expect(updateRankings).not.toHaveBeenCalled()
-      expect(notificationService.addNotification).not.toHaveBeenCalled()
+      expect(notificationService.addNotificationForUsers).not.toHaveBeenCalled()
     })
 
     test('cache and notification failures do not fail a committed refund', async () => {
       asMockedFunction(updateRankings).mockRejectedValueOnce(new Error('cache unavailable'))
-      notificationService.addNotification.mockRejectedValueOnce(
+      notificationService.addNotificationForUsers.mockRejectedValueOnce(
         new Error('notification unavailable'),
       )
       await expect(refundViolation()).resolves.toBeUndefined()

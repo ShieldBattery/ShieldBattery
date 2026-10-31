@@ -1491,7 +1491,12 @@
     },
     "reporting": {
       "actionedNotification": "Action was taken against a player you reported. Thanks for helping keep the community fair.",
-      "pointsRefundedNotification": "Ranked points you lost in a game have been refunded to you after the game was reviewed."
+      "pointsRefundedNotification": "Ranked points you lost in a game have been refunded to you after the game was reviewed.",
+      "pointsRefundedNotificationGames_one": "Ranked points you lost in {{count}} games have been refunded to you after they were reviewed.",
+      "pointsRefundedNotificationGames_other": "Ranked points you lost in {{count}} games have been refunded to you after they were reviewed.",
+      "pointsRefundedNotificationGamesWith_one": "Ranked points you lost in {{count}} games with <4>{{user}}</4> have been refunded to you.",
+      "pointsRefundedNotificationGamesWith_other": "Ranked points you lost in {{count}} games with <4>{{user}}</4> have been refunded to you.",
+      "pointsRefundedNotificationWith": "Ranked points you lost in a game with <2>{{user}}</2> have been refunded to you."
     },
     "sidePanel": {
       "empty": "Select a game to see its details",

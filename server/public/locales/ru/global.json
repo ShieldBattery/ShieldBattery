@@ -1525,7 +1525,16 @@
     },
     "reporting": {
       "actionedNotification": "К игроку, на которого Вы пожаловались, были приняты меры. Спасибо, что помогаете поддерживать честность сообщества.",
-      "pointsRefundedNotification": "Рейтинговые очки, которые Вы потеряли в матче, были возвращены Вам после проверки матча."
+      "pointsRefundedNotification": "Рейтинговые очки, которые Вы потеряли в матче, были возвращены Вам после проверки матча.",
+      "pointsRefundedNotificationGames_one": "Рейтинговые очки, которые Вы потеряли в {{count}} матче, были возвращены Вам после проверки.",
+      "pointsRefundedNotificationGames_few": "Рейтинговые очки, которые Вы потеряли в {{count}} матчах, были возвращены Вам после проверки.",
+      "pointsRefundedNotificationGames_many": "Рейтинговые очки, которые Вы потеряли в {{count}} матчах, были возвращены Вам после проверки.",
+      "pointsRefundedNotificationGames_other": "Рейтинговые очки, которые Вы потеряли в {{count}} матча, были возвращены Вам после проверки.",
+      "pointsRefundedNotificationGamesWith_one": "Рейтинговые очки, которые Вы потеряли в {{count}} матче с <4>{{user}}</4>, были возвращены Вам.",
+      "pointsRefundedNotificationGamesWith_few": "Рейтинговые очки, которые Вы потеряли в {{count}} матчах с <4>{{user}}</4>, были возвращены Вам.",
+      "pointsRefundedNotificationGamesWith_many": "Рейтинговые очки, которые Вы потеряли в {{count}} матчах с <4>{{user}}</4>, были возвращены Вам.",
+      "pointsRefundedNotificationGamesWith_other": "Рейтинговые очки, которые Вы потеряли в {{count}} матча с <4>{{user}}</4>, были возвращены Вам.",
+      "pointsRefundedNotificationWith": "Рейтинговые очки, которые Вы потеряли в матче с <2>{{user}}</2>, были возвращены Вам."
     },
     "sidePanel": {
       "empty": "Выберите игру, чтобы увидеть подробности",

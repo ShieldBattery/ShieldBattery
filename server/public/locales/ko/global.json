@@ -1474,7 +1474,10 @@
     },
     "reporting": {
       "actionedNotification": "회원님이 신고하신 플레이어에게 조치가 취해졌습니다. 공정한 커뮤니티를 유지하는 데 도움을 주셔서 감사합니다.",
-      "pointsRefundedNotification": "게임이 검토되어, 회원님이 잃은 랭크 점수가 복구되었습니다."
+      "pointsRefundedNotification": "게임이 검토되어, 회원님이 잃은 랭크 점수가 복구되었습니다.",
+      "pointsRefundedNotificationGames_other": "게임 {{count}}개가 검토되어, 회원님이 잃은 랭크 점수가 복구되었습니다.",
+      "pointsRefundedNotificationGamesWith_other": "<4>{{user}}</4> 님과의 게임 {{count}}개에서 잃은 랭크 점수가 복구되었습니다.",
+      "pointsRefundedNotificationWith": "<2>{{user}}</2> 님과의 게임에서 잃은 랭크 점수가 복구되었습니다."
     },
     "sidePanel": {
       "empty": "게임을 선택하면 상세 정보가 표시됩니다",

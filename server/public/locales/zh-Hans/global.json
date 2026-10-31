@@ -1474,7 +1474,10 @@
     },
     "reporting": {
       "actionedNotification": "我们已对您举报的一名玩家采取了处理措施。感谢您帮助维护公平的社区环境。",
-      "pointsRefundedNotification": "经过审核，您在一场对局中失去的排位积分已返还给您。"
+      "pointsRefundedNotification": "经过审核，您在一场对局中失去的排位积分已返还给您。",
+      "pointsRefundedNotificationGames_other": "经过审核，您在 {{count}} 场对局中失去的排位积分已返还给您。",
+      "pointsRefundedNotificationGamesWith_other": "您在与 <4>{{user}}</4> 的 {{count}} 场对局中失去的排位积分已返还给您。",
+      "pointsRefundedNotificationWith": "您在与 <2>{{user}}</2> 的一场对局中失去的排位积分已返还给您。"
     },
     "sidePanel": {
       "empty": "选择一场游戏查看详情",

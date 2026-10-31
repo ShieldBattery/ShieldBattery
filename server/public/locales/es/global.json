@@ -1508,7 +1508,14 @@
     },
     "reporting": {
       "actionedNotification": "Se tomaron medidas contra un jugador que reportaste. Gracias por ayudar a mantener la comunidad justa.",
-      "pointsRefundedNotification": "Se te han devuelto los puntos de clasificación que perdiste en una partida que fue revisada."
+      "pointsRefundedNotification": "Se te han devuelto los puntos de clasificación que perdiste en una partida que fue revisada.",
+      "pointsRefundedNotificationGames_one": "Se te han devuelto los puntos de clasificación que perdiste en {{count}} partida que fue revisada.",
+      "pointsRefundedNotificationGames_many": "Se te han devuelto los puntos de clasificación que perdiste en {{count}} de partidas que fueron revisadas.",
+      "pointsRefundedNotificationGames_other": "Se te han devuelto los puntos de clasificación que perdiste en {{count}} partidas que fueron revisadas.",
+      "pointsRefundedNotificationGamesWith_one": "Se te han devuelto los puntos de clasificación que perdiste en {{count}} partida con <4>{{user}}</4>.",
+      "pointsRefundedNotificationGamesWith_many": "Se te han devuelto los puntos de clasificación que perdiste en {{count}} de partidas con <4>{{user}}</4>.",
+      "pointsRefundedNotificationGamesWith_other": "Se te han devuelto los puntos de clasificación que perdiste en {{count}} partidas con <4>{{user}}</4>.",
+      "pointsRefundedNotificationWith": "Se te han devuelto los puntos de clasificación que perdiste en una partida con <2>{{user}}</2>."
     },
     "sidePanel": {
       "empty": "Selecciona una partida para ver sus detalles",
