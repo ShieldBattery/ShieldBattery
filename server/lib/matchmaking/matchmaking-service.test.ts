@@ -51,6 +51,7 @@ vi.mock('./models', () => ({
   getManyMatchmakingRatings: vi.fn(),
   createInitialMatchmakingRating: vi.fn(),
   insertMatchmakingCompletion: vi.fn().mockResolvedValue(undefined),
+  insertMatchmakingDraftMessages: vi.fn().mockResolvedValue(undefined),
   insertMatchmakingMatchFormation: vi.fn().mockResolvedValue(undefined),
 }))
 

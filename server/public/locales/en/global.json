@@ -1264,9 +1264,11 @@
     "buttonWatchReplayLoading": "Loading…",
     "chatTranscript": {
       "copy": "Copy transcript",
+      "draftTitle": "Draft",
       "dropped": "<0>{{name}}</0> was dropped",
       "droppedText": "{{name}} was dropped",
       "empty": "No chat or leaves were recorded in these replays.",
+      "gameTitle": "Game",
       "hide": "Hide chat transcript",
       "left": "<0>{{name}}</0> left the game",
       "leftText": "{{name}} left the game",
@@ -1279,6 +1281,7 @@
       "sources": "Merged from the replays uploaded by:",
       "title": "Chat transcript",
       "unknownSender": "Slot {{slot}}",
+      "unknownUser": "User {{id}}",
       "view": "View chat transcript"
     },
     "debugInfo": {
