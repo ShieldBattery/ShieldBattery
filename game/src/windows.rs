@@ -1,3 +1,4 @@
+pub mod display_config;
 pub mod registry;
 pub mod version;
 pub mod wifi;

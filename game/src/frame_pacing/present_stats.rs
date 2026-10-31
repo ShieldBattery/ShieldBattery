@@ -38,7 +38,7 @@ use winapi::um::profileapi::{QueryPerformanceCounter, QueryPerformanceFrequency}
 use winapi::um::unknwnbase::IUnknown;
 use winapi::um::winnt::PAGE_READWRITE;
 
-use crate::windows::{jump_to, os_string_from_winapi_with_nul};
+use crate::windows::{display_config, jump_to, os_string_from_winapi_with_nul};
 
 /// The swap chain SC:R presents the game window with, once it has made one.
 static SWAP_CHAIN: AtomicUsize = AtomicUsize::new(0);
@@ -223,17 +223,29 @@ fn note_swap_chain(window: HWND, device: *mut IUnknown, swap_chain: usize) {
     }
 }
 
-/// Logs which GPU SC:R renders the game on, which GPU drives the display showing it, and how its
-/// swap chain presents. When the two GPUs differ (as on hybrid-graphics laptops), every frame is
-/// copied over to the display's GPU, which adds latency.
+/// Logs which GPU SC:R renders the game on, which GPU the monitor showing it is plugged into, and
+/// how its swap chain presents. When the two GPUs differ (as on hybrid-graphics laptops), every
+/// frame is copied over to the monitor's GPU, which adds latency.
 unsafe fn log_swap_chain(device: *mut IUnknown, swap_chain: *mut IDXGISwapChain) {
     unsafe {
         let rendering = device_adapter(device);
-        let display = display_adapter(swap_chain);
+        let output = containing_output(swap_chain);
+        let display = output.as_ref().map(|(output, dxgi_parent)| {
+            let name = os_string_from_winapi_with_nul(&output.DeviceName)
+                .to_string_lossy()
+                .into_owned();
+            let plugged_into =
+                display_config::output_adapter(&name).and_then(display_config::adapter_desc);
+            match plugged_into {
+                Some(adapter) => (name, adapter, "plugged into"),
+                // Without the display configuration, DXGI's parent is the best guess there is,
+                // and the line says that's where it came from.
+                None => (name, *dxgi_parent, "listed by DXGI under"),
+            }
+        });
         let gpus = match (&rendering, &display) {
-            (Some(rendering), Some((_, display))) => {
-                let (a, b) = (rendering.AdapterLuid, display.AdapterLuid);
-                match a.LowPart == b.LowPart && a.HighPart == b.HighPart {
+            (Some(rendering), Some((_, display, _))) => {
+                match display_config::same_luid(rendering.AdapterLuid, display.AdapterLuid) {
                     true => "same GPU",
                     false => "different GPUs, frames are copied",
                 }
@@ -264,18 +276,16 @@ unsafe fn log_swap_chain(device: *mut IUnknown, swap_chain: *mut IDXGISwapChain)
             false => "swap chain description unavailable".into(),
         };
         info!(
-            "Game swap chain: rendering on {}, display {} on {} ({gpus}); {presenting}",
+            "Game swap chain: rendering on {}, display {} ({gpus}); {presenting}",
             rendering
                 .as_ref()
                 .map_or("unknown".into(), describe_adapter),
-            display.as_ref().map_or("unknown".into(), |(output, _)| {
-                os_string_from_winapi_with_nul(&output.DeviceName)
-                    .to_string_lossy()
-                    .into_owned()
-            }),
             display
                 .as_ref()
-                .map_or("unknown".into(), |(_, adapter)| describe_adapter(adapter)),
+                .map_or("unknown".into(), |(name, adapter, how)| format!(
+                    "{name} {how} {}",
+                    describe_adapter(adapter)
+                )),
         );
     }
 }
@@ -314,8 +324,8 @@ unsafe fn device_adapter(device: *mut IUnknown) -> Option<DXGI_ADAPTER_DESC> {
     }
 }
 
-/// The output showing most of the swap chain's window, and the adapter that output belongs to.
-unsafe fn display_adapter(
+/// The output showing most of the swap chain's window, and the adapter DXGI lists it under.
+unsafe fn containing_output(
     swap_chain: *mut IDXGISwapChain,
 ) -> Option<(DXGI_OUTPUT_DESC, DXGI_ADAPTER_DESC)> {
     unsafe {

@@ -21,7 +21,7 @@ use winapi::shared::dxgi::{
     CreateDXGIFactory1, DXGI_ADAPTER_DESC1, DXGI_ADAPTER_FLAG_SOFTWARE, IDXGIDevice, IDXGIFactory1,
 };
 use winapi::shared::minwindef::{BOOL, LPARAM, TRUE};
-use winapi::shared::ntdef::LARGE_INTEGER;
+use winapi::shared::ntdef::{LARGE_INTEGER, LUID};
 use winapi::shared::windef::{HDC, HMONITOR, LPRECT};
 use winapi::um::handleapi::{CloseHandle, INVALID_HANDLE_VALUE};
 use winapi::um::processthreadsapi::GetCurrentProcessId;
@@ -39,7 +39,9 @@ use winapi::um::winuser::{
     MONITORINFOEXW, MONITORINFOF_PRIMARY,
 };
 
-use crate::windows::{self, load_library, module_name, os_string_from_winapi_with_nul, registry};
+use crate::windows::{
+    self, display_config, load_library, module_name, os_string_from_winapi_with_nul, registry,
+};
 
 #[cfg(target_arch = "x86")]
 use std::arch::x86::__cpuid;
@@ -87,8 +89,8 @@ pub fn log_modules_loaded_since_startup() {
 fn log_system() {
     info!("Machine: {}", describe_windows());
     info!("Machine: {}", describe_cpu_and_memory());
-    log_gpus();
-    log_monitors();
+    let gpus = log_gpus();
+    log_monitors(&gpus);
 }
 
 fn describe_windows() -> String {
@@ -210,12 +212,14 @@ fn format_driver_version(packed: i64) -> String {
     )
 }
 
-fn log_gpus() {
+/// Logs each GPU DXGI lists, and returns their names by adapter LUID.
+fn log_gpus() -> Vec<(LUID, String)> {
+    let mut names = Vec::new();
     unsafe {
         let mut factory = null_mut();
         if CreateDXGIFactory1(&IDXGIFactory1::uuidof(), &mut factory) < 0 || factory.is_null() {
             info!("Machine: GPUs unknown, no DXGI factory");
-            return;
+            return names;
         }
         let factory = factory as *mut IDXGIFactory1;
         for index in 0..MAX_ADAPTERS {
@@ -243,28 +247,35 @@ fn log_gpus() {
             } else {
                 ""
             };
+            let name = os_string_from_winapi_with_nul(&desc.Description)
+                .to_string_lossy()
+                .into_owned();
             info!(
-                "Machine: GPU {index}: {}, vendor 0x{:04x} device 0x{:04x}, {} dedicated, \
+                "Machine: GPU {index}: {name}, vendor 0x{:04x} device 0x{:04x}, {} dedicated, \
                  driver {driver}{software}",
-                os_string_from_winapi_with_nul(&desc.Description).to_string_lossy(),
                 desc.VendorId,
                 desc.DeviceId,
                 format_gibibytes(desc.DedicatedVideoMemory as u64),
             );
+            names.push((desc.AdapterLuid, name));
             (*adapter).Release();
         }
         (*factory).Release();
     }
+    names
 }
 
 struct MonitorMode {
+    /// The system's name for the output the monitor shows ("\\.\DISPLAY1").
+    output: String,
     width: u32,
     height: u32,
     refresh_rate: u32,
     primary: bool,
 }
 
-fn log_monitors() {
+/// Logs each monitor's mode, and the GPU it is plugged into, named from `gpus`.
+fn log_monitors(gpus: &[(LUID, String)]) {
     let mut monitors: Vec<MonitorMode> = Vec::new();
     unsafe {
         EnumDisplayMonitors(
@@ -277,9 +288,18 @@ fn log_monitors() {
     if monitors.is_empty() {
         info!("Machine: Monitors unknown");
     }
+    let paths = display_config::active_paths();
     for (index, monitor) in monitors.iter().enumerate() {
+        let gpu = paths
+            .iter()
+            .find(|path| path.output == monitor.output)
+            .and_then(|path| {
+                gpus.iter()
+                    .find(|(luid, _)| display_config::same_luid(*luid, path.adapter))
+            })
+            .map_or("unknown GPU", |(_, name)| name.as_str());
         info!(
-            "Machine: Monitor {index}{}: {}x{} @ {} Hz",
+            "Machine: Monitor {index}{}: {}x{} @ {} Hz, plugged into {gpu}",
             if monitor.primary { " (primary)" } else { "" },
             monitor.width,
             monitor.height,
@@ -307,6 +327,9 @@ unsafe extern "system" fn collect_monitor(
             return TRUE;
         }
         monitors.push(MonitorMode {
+            output: os_string_from_winapi_with_nul(&info.szDevice)
+                .to_string_lossy()
+                .into_owned(),
             width: mode.dmPelsWidth,
             height: mode.dmPelsHeight,
             refresh_rate: mode.dmDisplayFrequency,

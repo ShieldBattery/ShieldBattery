@@ -84,6 +84,11 @@ const DEADLINE_STEP: Duration = Duration::from_micros(500);
 /// the latest a frame can be presented again once less is needed.
 const DEADLINE_DECAY: Duration = Duration::from_micros(2);
 
+/// The furthest ahead of its blank the learned lead aims a frame, at a refresh `period` long.
+fn deadline_lead_limit(period: Duration) -> Duration {
+    period * 3 / 4
+}
+
 /// How far from a measured blank a time the swap chain's statistics give for a flip can be and
 /// still count as that blank.
 const BLANK_TOLERANCE: Duration = Duration::from_micros(500);
@@ -351,6 +356,9 @@ struct State {
     /// How long before its blank a frame has to be presented to be shown at it, as learned from
     /// frames that weren't.
     deadline_lead: Duration,
+    /// Whether a frame has been shown late with the learned lead at its limit this game, which is
+    /// logged the first time.
+    reported_lead_limit: bool,
     /// Whether the desktop window manager is composing the game window, as the statistics show,
     /// and the evidence for it: up for each frame composed, down for each flipped.
     composed: bool,
@@ -400,6 +408,8 @@ struct Stats {
     shown: u32,
     shown_after_us: Vec<u32>,
     missed_deadlines: u32,
+    /// Of those, ones missed with the learned lead already at its limit.
+    missed_at_lead_limit: u32,
     deadline_lead_us_max: u32,
     /// Refreshes left without a frame to empty the vertical sync queue.
     queue_drains: u32,
@@ -438,6 +448,7 @@ impl Stats {
             shown: 0,
             shown_after_us: Vec::new(),
             missed_deadlines: 0,
+            missed_at_lead_limit: 0,
             deadline_lead_us_max: 0,
             queue_drains: 0,
             sampled_to_present_us: Vec::new(),
@@ -459,6 +470,7 @@ static STATE: Mutex<State> = Mutex::new(State {
     frame_end: None,
     work_us: [VecDeque::new(), VecDeque::new()],
     deadline_lead: Duration::ZERO,
+    reported_lead_limit: false,
     composed: false,
     composition_votes: 0,
     skip_blank: false,
@@ -832,10 +844,24 @@ impl State {
             }
         } else if shown_at > timed_for + period / 2 {
             stats.missed_deadlines += 1;
-            self.deadline_lead = self
-                .deadline_lead
-                .max(ahead + DEADLINE_STEP)
-                .min(period * 3 / 4);
+            let limit = deadline_lead_limit(period);
+            if self.deadline_lead + DEADLINE_STEP > limit {
+                // The lead can't grow enough to make up for this one, so frames will keep being
+                // shown a refresh late for as long as whatever holds them up stays this slow.
+                stats.missed_at_lead_limit += 1;
+                if !self.reported_lead_limit {
+                    self.reported_lead_limit = true;
+                    info!(
+                        "Frame pacing: a frame presented {:.2} ms before its refresh was shown \
+                         after it, though pacing already aims frames as far ahead of the refresh \
+                         as it will ({:.2} ms); something between presenting and the display (a \
+                         copy to the GPU the monitor is plugged into, or composition) takes longer",
+                        ahead.as_secs_f64() * 1000.0,
+                        limit.as_secs_f64() * 1000.0,
+                    );
+                }
+            }
+            self.deadline_lead = self.deadline_lead.max(ahead + DEADLINE_STEP).min(limit);
         } else {
             self.deadline_lead = self.deadline_lead.saturating_sub(DEADLINE_DECAY);
         }
@@ -1283,12 +1309,15 @@ fn log_stats(stats: &mut Stats, plan: Option<&Plan>, elapsed: Duration) {
                 0 if reads.ok + reads.disjoint + reads.failed == 0 => String::new(),
                 count => format!(
                     "; {:.1} frames/s shown, presented to shown p50 {:.2} ms p90 {:.2} ms, {} \
-                     shown after the blank they were presented in time for, deadline lead max \
-                     {:.2} ms, {} vertical sync queue drains (statistics {reads:?})",
+                     shown after the blank they were presented in time for ({} with the deadline \
+                     lead at its {:.2} ms limit), deadline lead max {:.2} ms, {} vertical sync \
+                     queue drains (statistics {reads:?})",
                     per_sec(count),
                     quantile(&stats.shown_after_us, 0.5),
                     quantile(&stats.shown_after_us, 0.9),
                     stats.missed_deadlines,
+                    stats.missed_at_lead_limit,
+                    deadline_lead_limit(plan.period).as_secs_f64() * 1000.0,
                     ms(f64::from(stats.deadline_lead_us_max)),
                     stats.queue_drains,
                 ),
@@ -1344,6 +1373,7 @@ pub fn reset() {
     state.frame_end = None;
     state.work_us = Default::default();
     state.deadline_lead = Duration::ZERO;
+    state.reported_lead_limit = false;
     state.composed = false;
     state.composition_votes = 0;
     state.skip_blank = false;

@@ -7,48 +7,18 @@
 //! for the output it is plugged into ("\\.\DISPLAY1"). The two are joined on that output name, and
 //! a display whose hardware names itself nothing is listed by its output instead.
 
-use std::ffi::OsString;
 use std::mem;
-use std::os::windows::ffi::OsStringExt;
 use std::ptr::{null, null_mut};
 
 use hashbrown::HashMap;
 use overlay_ui::options::MonitorView;
-use winapi::shared::basetsd::UINT32;
 use winapi::shared::minwindef::{BOOL, DWORD, LPARAM, TRUE};
 use winapi::shared::windef::{HDC, HMONITOR, LPRECT};
-use winapi::shared::winerror::ERROR_SUCCESS;
-use winapi::um::wingdi::{
-    DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME, DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME,
-    DISPLAYCONFIG_DEVICE_INFO_HEADER, DISPLAYCONFIG_MODE_INFO, DISPLAYCONFIG_PATH_INFO,
-    DISPLAYCONFIG_SOURCE_DEVICE_NAME, DISPLAYCONFIG_TARGET_DEVICE_NAME, DISPLAYCONFIG_TOPOLOGY_ID,
-    QDC_ONLY_ACTIVE_PATHS,
-};
-use winapi::um::winnt::LONG;
 use winapi::um::winuser::{
     EnumDisplayMonitors, GetMonitorInfoW, LPMONITORINFO, MONITORINFOEXW, MONITORINFOF_PRIMARY,
 };
 
-// user32 exports these, but the winapi crate declares only the structures they work on, so the
-// functions themselves are declared here. Both architectures call user32 with the `system` ABI, and
-// the import library decorates the names for whichever one is being built.
-#[link(name = "user32")]
-unsafe extern "system" {
-    fn GetDisplayConfigBufferSizes(
-        flags: UINT32,
-        num_paths: *mut UINT32,
-        num_modes: *mut UINT32,
-    ) -> LONG;
-    fn QueryDisplayConfig(
-        flags: UINT32,
-        num_paths: *mut UINT32,
-        paths: *mut DISPLAYCONFIG_PATH_INFO,
-        num_modes: *mut UINT32,
-        modes: *mut DISPLAYCONFIG_MODE_INFO,
-        current_topology: *mut DISPLAYCONFIG_TOPOLOGY_ID,
-    ) -> LONG;
-    fn DisplayConfigGetDeviceInfo(packet: *mut DISPLAYCONFIG_DEVICE_INFO_HEADER) -> LONG;
-}
+use crate::windows::{display_config, os_string_from_winapi_with_nul};
 
 /// One display, as the system describes it.
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -166,7 +136,9 @@ unsafe extern "system" fn collect_monitor(
         if GetMonitorInfoW(monitor, &mut info as *mut MONITORINFOEXW as LPMONITORINFO) != 0 {
             let rect = info.rcMonitor;
             found.push(Enumerated {
-                device: wide_string(&info.szDevice),
+                device: os_string_from_winapi_with_nul(&info.szDevice)
+                    .to_string_lossy()
+                    .into_owned(),
                 primary: info.dwFlags & MONITORINFOF_PRIMARY != 0,
                 bounds: (
                     rect.left,
@@ -188,64 +160,15 @@ unsafe extern "system" fn collect_monitor(
 /// output: a list of plain names is worth more than no list at all.
 fn friendly_names() -> HashMap<String, String> {
     let mut names = HashMap::new();
-    let mut path_count: UINT32 = 0;
-    let mut mode_count: UINT32 = 0;
-    unsafe {
-        if GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, &mut path_count, &mut mode_count)
-            != ERROR_SUCCESS as LONG
-        {
-            return names;
+    for path in display_config::active_paths() {
+        if path.monitor_name.is_empty() {
+            continue;
         }
-        let mut paths: Vec<DISPLAYCONFIG_PATH_INFO> = vec![mem::zeroed(); path_count as usize];
-        let mut modes: Vec<DISPLAYCONFIG_MODE_INFO> = vec![mem::zeroed(); mode_count as usize];
-        if QueryDisplayConfig(
-            QDC_ONLY_ACTIVE_PATHS,
-            &mut path_count,
-            paths.as_mut_ptr(),
-            &mut mode_count,
-            modes.as_mut_ptr(),
-            null_mut(),
-        ) != ERROR_SUCCESS as LONG
-        {
-            return names;
-        }
-        for path in paths.iter().take(path_count as usize) {
-            let mut source: DISPLAYCONFIG_SOURCE_DEVICE_NAME = mem::zeroed();
-            source.header._type = DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME;
-            source.header.size = mem::size_of::<DISPLAYCONFIG_SOURCE_DEVICE_NAME>() as UINT32;
-            source.header.adapterId = path.sourceInfo.adapterId;
-            source.header.id = path.sourceInfo.id;
-            if DisplayConfigGetDeviceInfo(&mut source.header) != ERROR_SUCCESS as LONG {
-                continue;
-            }
-            let mut target: DISPLAYCONFIG_TARGET_DEVICE_NAME = mem::zeroed();
-            target.header._type = DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME;
-            target.header.size = mem::size_of::<DISPLAYCONFIG_TARGET_DEVICE_NAME>() as UINT32;
-            target.header.adapterId = path.targetInfo.adapterId;
-            target.header.id = path.targetInfo.id;
-            if DisplayConfigGetDeviceInfo(&mut target.header) != ERROR_SUCCESS as LONG {
-                continue;
-            }
-            let name = wide_string(&target.monitorFriendlyDeviceName);
-            if name.is_empty() {
-                continue;
-            }
-            // Several monitors can be shown the same output's picture, and the list has one entry
-            // per output, so the first of them is the one it is named after.
-            names
-                .entry(wide_string(&source.viewGdiDeviceName))
-                .or_insert(name);
-        }
+        // Several monitors can be shown the same output's picture, and the list has one entry per
+        // output, so the first of them is the one it is named after.
+        names.entry(path.output).or_insert(path.monitor_name);
     }
     names
-}
-
-/// A fixed-size UTF-16 field as a string, ending where the field's own terminator does.
-fn wide_string(wide: &[u16]) -> String {
-    let end = wide.iter().position(|&c| c == 0).unwrap_or(wide.len());
-    OsString::from_wide(&wide[..end])
-        .to_string_lossy()
-        .into_owned()
 }
 
 #[cfg(test)]
