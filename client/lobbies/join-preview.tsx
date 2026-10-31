@@ -16,6 +16,7 @@ import {
 } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
 import { LobbySeats, StatusChip } from './lobby-invite-card'
+import { RandomMapPreview } from './random-map-preview'
 
 type Lobby = LobbySummaryResponse['summary']
 
@@ -74,7 +75,8 @@ function LobbyMeta({ lobby }: { lobby: Lobby }) {
     <MetaLine>
       <MetaTitle>{t('lobbies.inviteCard.title', 'Lobby')}</MetaTitle>
       <MetaText>
-        {lobby.map.name} · {gameTypeToLabel(lobby.gameType, t)}
+        {lobby.randomMap ? t('lobbies.randomMap.label', 'Random Map') : lobby.map.name} ·{' '}
+        {gameTypeToLabel(lobby.gameType, t)}
       </MetaText>
       <LifecycleChip lobby={lobby} />
     </MetaLine>
@@ -243,21 +245,29 @@ export function JoinPreview({ summary, isJoining, onJoinClick }: JoinPreviewProp
   const dispatch = useAppDispatch()
   const lobby = summary.summary
   const host = summary.host
-  const image = lobby.map.image512Url ?? lobby.map.image256Url
+  const image = lobby.randomMap ? undefined : (lobby.map.image512Url ?? lobby.map.image256Url)
 
   useEffect(() => {
     // The summary carries the host's user info, so their name renders without a lookup of its own.
     dispatch({ type: '@users/loadUsers', payload: [host] })
   }, [dispatch, host])
 
+  const mapPreview = image ? (
+    <MapImage src={image} alt={lobby.map.name} draggable={false} />
+  ) : (
+    <MapImagePlaceholder />
+  )
+
   return (
     <PreviewRoot>
       {image ? <BackdropImage src={image} alt='' draggable={false} /> : null}
       <Scrim />
-      {image ? (
-        <MapImage src={image} alt={lobby.map.name} draggable={false} />
+      {lobby.randomMap ? (
+        <MapImagePlaceholder>
+          <RandomMapPreview />
+        </MapImagePlaceholder>
       ) : (
-        <MapImagePlaceholder />
+        mapPreview
       )}
       <Info>
         <LobbyMeta lobby={lobby} />

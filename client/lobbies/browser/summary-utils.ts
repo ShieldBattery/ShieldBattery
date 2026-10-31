@@ -93,7 +93,7 @@ export function lobbyMatchesSearch(
 
   return (
     summary.name.toLowerCase().includes(needle) ||
-    summary.map.name.toLowerCase().includes(needle) ||
+    (!summary.randomMap && summary.map.name.toLowerCase().includes(needle)) ||
     (hostName?.toLowerCase().includes(needle) ?? false)
   )
 }

@@ -22,6 +22,7 @@ import { FilterChip } from '../../material/filter-chip'
 import { InputError } from '../../material/input-error'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { bodyLarge, bodySmall, labelLarge, singleLine } from '../../styles/typography'
+import { RandomMapPreview } from '../random-map-preview'
 import { warpFieldDescription, WarpFieldFixesInfo } from '../warp-field'
 import { SlotsPreview } from './slots-preview'
 import { TeamSplitPicker } from './team-split-picker'
@@ -321,6 +322,9 @@ export interface GameSetupFormProps {
   visibilitySection?: React.ReactNode
   /** Host-page-owned content rendered in the map column, below the selected map. */
   mapQueueSection?: React.ReactNode
+  /** Replace the current-map card with the hidden queued-map pick. */
+  randomMap?: boolean
+  onMapPicked?: () => void
   /** Maps to offer as one-click picks below the map card, in display order. */
   recentMaps?: ReadonlyArray<SbMapId>
   ref?: React.Ref<GameSetupFormHandle>
@@ -343,6 +347,8 @@ export function GameSetupForm({
   nameSection,
   visibilitySection,
   mapQueueSection,
+  randomMap,
+  onMapPicked,
   recentMaps,
   ref,
 }: GameSetupFormProps) {
@@ -384,6 +390,7 @@ export function GameSetupForm({
   const selectedMapInfo = useAppSelector(s => (mapId ? s.maps.byId.get(mapId) : undefined))
 
   const changeMap = (newMapId: SbMapId) => {
+    onMapPicked?.()
     if (isTeamType(gameType)) {
       // Every path that delivers a pickable map (recent maps, the server browser, local uploads)
       // has already put its info in the store, so the new slot count is available in the same
@@ -501,7 +508,9 @@ export function GameSetupForm({
                     ? selectedMapInfo.mapData.umsSlots
                     : selectedMapInfo.mapData.slots
                 }
-                mapName={selectedMapInfo.name}
+                mapName={
+                  randomMap ? t('lobbies.randomMap.label', 'Random Map') : selectedMapInfo.name
+                }
               />
             </Section>
           ) : null}
@@ -567,18 +576,30 @@ export function GameSetupForm({
           {mapId ? (
             <MapPanel>
               <MapThumbnailWrapper>
-                <ReduxMapThumbnail
-                  mapId={mapId}
-                  forceAspectRatio={1}
-                  size={512}
-                  showInfoLayer={true}
-                  hasMapPoolChips={true}
-                  onClick={disabled ? undefined : onChangeMap}
-                />
+                {randomMap ? (
+                  <RandomMapPreview />
+                ) : (
+                  <ReduxMapThumbnail
+                    mapId={mapId}
+                    forceAspectRatio={1}
+                    size={512}
+                    showInfoLayer={true}
+                    hasMapPoolChips={true}
+                    onClick={disabled ? undefined : onChangeMap}
+                  />
+                )}
               </MapThumbnailWrapper>
               <MapInfo>
-                <MapName>{selectedMapInfo?.name ?? ''}</MapName>
-                <MapMeta>{mapMetaParts.join(' · ')}</MapMeta>
+                <MapName>
+                  {randomMap
+                    ? t('lobbies.randomMap.label', 'Random Map')
+                    : (selectedMapInfo?.name ?? '')}
+                </MapName>
+                <MapMeta>
+                  {randomMap
+                    ? t('lobbies.randomMap.reveal', 'Revealed when the game starts loading')
+                    : mapMetaParts.join(' · ')}
+                </MapMeta>
               </MapInfo>
               <ChangeMapButton
                 type='button'

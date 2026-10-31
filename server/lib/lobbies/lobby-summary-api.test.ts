@@ -111,6 +111,13 @@ describe('lobbies/lobby-summary-api/LobbySummaryApi#getSummary', () => {
     setLobbyJoinCodeGetter(() => undefined)
   })
 
+  test('carries the random selection flag to the public preview', async () => {
+    summaryGetterMock.mockReturnValueOnce({ ...BASE_SUMMARY, randomMap: true })
+    findUsersByIdMock.mockResolvedValueOnce([HOST])
+    const response = await new LobbySummaryApi().getSummary(makeSummaryCtx())
+    expect(response.summary.randomMap).toBe(true)
+  })
+
   test('strips the summary and map down to only the fields the landing page needs', async () => {
     summaryGetterMock.mockReturnValueOnce(BASE_SUMMARY)
     findUsersByIdMock.mockResolvedValueOnce([HOST])

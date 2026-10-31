@@ -26,6 +26,7 @@ import { MapInfoImage } from '../../maps/map-image'
 import { ReduxMapThumbnail } from '../../maps/map-thumbnail'
 import { IconButton, TextButton } from '../../material/button'
 import { buttonReset } from '../../material/button-reset'
+import { FilterChip } from '../../material/filter-chip'
 import { MenuItem } from '../../material/menu/item'
 import { MenuList } from '../../material/menu/menu'
 import { Popover } from '../../material/popover'
@@ -40,6 +41,7 @@ import {
   titleMedium,
 } from '../../styles/typography'
 import { getBatchUserInfo } from '../../users/action-creators'
+import { RandomMapPreview } from '../random-map-preview'
 import { WarpFieldDescriptionInfo } from '../warp-field'
 import { LobbyScoreboard } from './lobby-scoreboard'
 import {
@@ -181,6 +183,7 @@ const StatDivider = styled.div`
  */
 const HostTools = styled.div`
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   margin-left: -8px;
@@ -783,11 +786,13 @@ function gameSubTypeLabel(lobby: Lobby, t: TFunction): string {
 export function RoomMapBanner({
   viewerId,
   onArrangeTeams,
+  onToggleRandomMap,
   onWatchReplay,
   onViewGameSummary,
 }: {
   viewerId: SbUserId
   onArrangeTeams: (arrangement: TeamArrangement) => void
+  onToggleRandomMap: () => void
   onWatchReplay: (gameId: string) => void
   onViewGameSummary: (gameId: string) => void
 }) {
@@ -813,7 +818,7 @@ export function RoomMapBanner({
     getLobbySlots(lobby).some(slot => slot.type === SlotType.Computer)
   // Only a gathering lobby's layout can be rearranged; from the countdown until the game ends its
   // seats are what the game was configured with.
-  const showHostTools = isHost && lifecycle === 'gathering' && (canSwap || canShuffle)
+  const showHostTools = isHost && lifecycle === 'gathering'
 
   const mapStats: Array<[label: string, value: React.ReactNode, labelInfo?: React.ReactNode]> = [
     [t('lobbies.room.banner.statMode', 'Mode'), gameTypeToLabel(lobby.gameType, t)],
@@ -821,16 +826,18 @@ export function RoomMapBanner({
   if (isTeamType(lobby.gameType)) {
     mapStats.push([t('lobbies.lobby.gameSubType', 'Teams'), gameSubTypeLabel(lobby, t)])
   }
-  mapStats.push(
-    [t('lobbies.room.banner.statSize', 'Size'), `${map.mapData.width}×${map.mapData.height}`],
-    [t('lobbies.room.banner.statTileset', 'Tileset'), tilesetToName(map.mapData.tileset, t)],
-    [
-      t('lobbies.lobby.unitLimit', 'Unit limit'),
-      lobby.useLegacyLimits
-        ? t('lobbies.lobby.unitLimitLegacy', 'Legacy')
-        : t('lobbies.lobby.unitLimitExtended', 'Extended'),
-    ],
-  )
+  if (!lobby.randomMap) {
+    mapStats.push(
+      [t('lobbies.room.banner.statSize', 'Size'), `${map.mapData.width}×${map.mapData.height}`],
+      [t('lobbies.room.banner.statTileset', 'Tileset'), tilesetToName(map.mapData.tileset, t)],
+    )
+  }
+  mapStats.push([
+    t('lobbies.lobby.unitLimit', 'Unit limit'),
+    lobby.useLegacyLimits
+      ? t('lobbies.lobby.unitLimitLegacy', 'Legacy')
+      : t('lobbies.lobby.unitLimitExtended', 'Extended'),
+  ])
   if (hasLockedAlliances(lobby)) {
     mapStats.push([
       t('lobbies.room.banner.statAlliances', 'Alliances'),
@@ -895,20 +902,26 @@ export function RoomMapBanner({
 
   return (
     <BannerRoot>
-      <Backdrop>
-        {/* Decorative: the map is named and shown for real in the thumbnail card alongside it. */}
-        <MapInfoImage map={map} size={512} altText='' />
-      </Backdrop>
+      {!lobby.randomMap ? (
+        <Backdrop>
+          {/* Decorative: the map is named and shown for real in the thumbnail card alongside it. */}
+          <MapInfoImage map={map} size={512} altText='' />
+        </Backdrop>
+      ) : null}
       <TintLayer />
       <Scrim />
       <Content>
-        <ThumbnailCard $aspectRatio={map.mapData.width / map.mapData.height}>
-          <ReduxMapThumbnail
-            mapId={map.id}
-            size={512}
-            showInfoLayer={true}
-            hasMapPoolChips={true}
-          />
+        <ThumbnailCard $aspectRatio={lobby.randomMap ? 1 : map.mapData.width / map.mapData.height}>
+          {lobby.randomMap ? (
+            <RandomMapPreview />
+          ) : (
+            <ReduxMapThumbnail
+              mapId={map.id}
+              size={512}
+              showInfoLayer={true}
+              hasMapPoolChips={true}
+            />
+          )}
         </ThumbnailCard>
         <InfoColumn>
           <StatsRow>
@@ -935,6 +948,23 @@ export function RoomMapBanner({
                 />
               ) : null}
               {shuffleTool}
+              <Tooltip
+                text={
+                  mapQueue.length
+                    ? t(
+                        'lobbies.randomMap.hint',
+                        "Picks a map at random from the lobby's map queue. Revealed at start.",
+                      )
+                    : t('lobbies.randomMap.empty', 'Add maps to the queue in Game setup')
+                }>
+                <FilterChip
+                  label={t('lobbies.randomMap.label', 'Random Map')}
+                  icon={<MaterialIcon icon={lobby.randomMap ? 'check' : 'casino'} size={18} />}
+                  selected={!!lobby.randomMap}
+                  disabled={!mapQueue.length && !lobby.randomMap}
+                  onClick={onToggleRandomMap}
+                />
+              </Tooltip>
             </HostTools>
           ) : null}
           <TimelineSection>

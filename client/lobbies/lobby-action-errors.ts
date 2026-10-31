@@ -21,6 +21,11 @@ export function lobbyActionErrorMessage(err: unknown, t: TFunction): string {
   }
 
   switch (err.code as LobbyServiceErrorCode | undefined) {
+    case LobbyServiceErrorCode.RandomMapUnavailable:
+      return t(
+        'lobbies.randomMap.unavailable',
+        'No queued map supports the current players and settings. Adjust the map queue in Game setup.',
+      )
     case LobbyServiceErrorCode.NotEveryoneReady:
       return t('lobbies.actionErrors.notEveryoneReady', 'Not everyone is ready yet')
     case LobbyServiceErrorCode.NotEnoughSides:

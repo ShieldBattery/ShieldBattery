@@ -47,6 +47,7 @@ export enum LobbyServiceErrorCode {
   InvalidGameSubType = 'InvalidGameSubType',
   InvalidGameType = 'InvalidGameType',
   InvalidMap = 'InvalidMap',
+  RandomMapUnavailable = 'RandomMapUnavailable',
   InvalidSlotId = 'InvalidSlotId',
   InvalidSlotOperation = 'InvalidSlotOperation',
   InvalidSlotType = 'InvalidSlotType',
@@ -336,6 +337,7 @@ export interface LobbySummaryJson {
   id: SbLobbyId
   name: string
   map: MapInfoJson
+  randomMap?: boolean
   gameType: GameType
   gameSubType: number
   host: { id: SbUserId }
@@ -676,6 +678,8 @@ export interface UpdateLobbySettingsRequest {
    * empty list clears the queue.
    */
   mapQueue?: SbMapId[]
+  /** Choose the next game's map from the queue when loading begins. An explicit map cancels this. */
+  randomMap?: boolean
 }
 
 /** A lobby setting whose value changed, as reported in a `LobbySettingsChangeEvent`. */
@@ -690,10 +694,11 @@ export type LobbyChangedSetting =
   | 'lockedAlliances'
   | 'allowObservers'
   | 'mapQueue'
+  | 'randomMap'
 
 /**
- * Settings that describe the lobby rather than the game it will play next. Changing only these
- * leaves every seat where it was and nobody has to ready up again.
+ * Settings that describe the lobby rather than the game it will play next. A map queue becomes
+ * part of the next game's configuration when random map selection is enabled.
  */
 const LOBBY_ONLY_SETTINGS: ReadonlySet<LobbyChangedSetting> = new Set([
   'name',
@@ -702,11 +707,16 @@ const LOBBY_ONLY_SETTINGS: ReadonlySet<LobbyChangedSetting> = new Set([
 ])
 
 /**
- * Whether a settings change touches the game being set up (and so rearranges slots and resets
- * everyone's ready marks), rather than only the lobby's name, visibility, or map queue.
+ * Whether a settings change touches the game being set up and resets everyone's ready marks.
+ * The queued maps describe that game only while random map selection is enabled.
  */
-export function changesGameSettings(changedSettings: ReadonlyArray<LobbyChangedSetting>): boolean {
-  return changedSettings.some(setting => !LOBBY_ONLY_SETTINGS.has(setting))
+export function changesGameSettings(
+  changedSettings: ReadonlyArray<LobbyChangedSetting>,
+  randomMap = false,
+): boolean {
+  return changedSettings.some(
+    setting => !LOBBY_ONLY_SETTINGS.has(setting) || (randomMap && setting === 'mapQueue'),
+  )
 }
 
 /**

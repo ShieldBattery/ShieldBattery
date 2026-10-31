@@ -1883,8 +1883,16 @@
       "settingsChangeMapQueue": "맵 대기열",
       "settingsChangeName": "로비 이름",
       "settingsChangeObservers": "관전자",
+      "settingsChangeRandomMap": "무작위 맵 선택",
       "settingsChangeUnitLimit": "유닛 제한",
       "settingsChangeVisibility": "공개 범위"
+    },
+    "randomMap": {
+      "empty": "게임 설정에서 대기열에 맵을 추가하세요",
+      "hint": "로비의 맵 대기열에서 무작위로 맵을 선택합니다. 시작 시 공개됩니다.",
+      "label": "무작위 맵",
+      "reveal": "게임 로딩이 시작되면 공개됩니다",
+      "unavailable": "대기열에 현재 플레이어와 설정을 지원하는 맵이 없습니다. 게임 설정에서 맵 대기열을 조정하세요."
     },
     "room": {
       "banner": {
@@ -1915,6 +1923,8 @@
         "mapQueueSkipped": "{{maps}} 건너뜀",
         "mapQueueSkippedUnfit_other": "로비 설정에 맞지 않아 {{maps}} 건너뜀",
         "memberBack": "<0></0> 님이 로비로 돌아왔습니다",
+        "randomMapDisabled": "<0></0>님이 무작위 맵 선택을 해제했습니다.",
+        "randomMapEnabled": "<0></0>님이 무작위 맵을 활성화했습니다. 대기열에서 무작위로 맵이 선택됩니다.",
         "readyReset": "준비 초기화",
         "seatedOn": "{{seat}}에 앉았습니다",
         "selfJoinLobby": "<2>{{lobby}}</2>에 참가했습니다. 호스트는 <4></4> 님입니다.",

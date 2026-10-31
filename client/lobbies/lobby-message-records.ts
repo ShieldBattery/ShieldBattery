@@ -82,6 +82,8 @@ export interface SettingsChangeMessage extends BaseMessage {
   readonly changedBy: SbUserId
   /** Whether Warp Field ended up on, when the change turned it on or off. */
   readonly warpFieldOn?: boolean
+  /** Whether the host enabled or disabled random selection, captured when the change arrived. */
+  readonly randomMap?: boolean
 }
 
 export interface BenchJoinMessage extends BaseMessage {
