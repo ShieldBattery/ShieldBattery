@@ -35,9 +35,6 @@ pub(super) struct ObserverPanels {
     /// Where the dock stands, decided along with the bottom panels and kept here until the plate it
     /// may stand on has been drawn.
     dock_plan: Option<DockPlan>,
-    /// Where the dock last stood as the collapsed column, which it keeps to while the pointer is on
-    /// it (see [`column_held`](Self::column_held)).
-    drawn_column: Option<Rect>,
     /// The order the panels that give way to one another claim the screen's room in.
     claims: Claims,
 }
@@ -207,19 +204,6 @@ impl ObserverPanels {
     /// Whether the last observer frame carried a map-control measurement.
     pub(super) fn map_control_available(&self) -> bool {
         self.map_control_available
-    }
-
-    /// Whether the collapsed column keeps standing where it stood though the selection panel it stood
-    /// against has gone, which it does while the pointer is on it: the column's all-panels key puts
-    /// the selection panel away with the rest, and stays under the pointer to bring them back. It
-    /// goes to the corner once the pointer has left it.
-    ///
-    /// Nothing else holds. The table opens over other panels, and a dock that kept its place as the
-    /// plate or the selection panel came up would stand over them.
-    fn column_held(&self, ctx: &Context) -> bool {
-        self.drawn_column
-            .zip(ctx.pointer_hover_pos())
-            .is_some_and(|(column, pointer)| column.contains(pointer))
     }
 
     /// Draws the observer panels the watcher has left on screen, turning what they did with them
@@ -419,7 +403,7 @@ impl ObserverPanels {
         let column_slot = |bottom: f32| slot(column_run, observer::StackAnchor::Left, bottom);
         let mut bottom_surfaces = Vec::new();
         // The dock is part of the plate's panel where the plate is up, of the selection panel's
-        // where that is, and floats on its own with neither, but for a column the pointer is on.
+        // where that is, and floats on its own with neither.
         let selection_wanted = prefs.selection && !view.selection.units.is_empty();
         if selection_wanted && !observer::selection::fits(selection_slot) {
             displaced.push(Panel::Selection);
@@ -434,7 +418,7 @@ impl ObserverPanels {
         let selection_up = selection_wanted && observer::selection::fits(selection_at);
         let dock_stand = if playback_controls_shown {
             observer::DockStand::Plate
-        } else if selection_up || self.column_held(ctx) {
+        } else if selection_up {
             observer::DockStand::Selection
         } else {
             observer::DockStand::Nothing
@@ -710,16 +694,11 @@ impl ObserverPanels {
             displaced,
         }) = self.dock_plan.take()
         else {
-            self.drawn_column = None;
             return;
         };
         if let Some(plate) = plate {
             placement.plate = plate;
         }
-        self.drawn_column = (prefs.dock
-            && !prefs.dock_expanded
-            && placement.stand == observer::DockStand::Selection)
-            .then(|| placement.footprint());
         let Some(outcome) = observer::render_obs_dock(
             prefs,
             &observer::DockContext {
@@ -738,7 +717,7 @@ impl ObserverPanels {
             prefs.toggle(panel);
         }
         if outcome.all_toggled {
-            prefs.toggle_all_but_controls();
+            prefs.toggle_all();
         }
         if let Some(style) = outcome.matchup_style {
             prefs.set_matchup_style(style);
@@ -1042,64 +1021,95 @@ mod tests {
     }
 
     #[test]
-    fn the_columns_all_panels_key_stays_under_the_pointer_to_bring_them_back() {
+    fn dock_and_hotkey_share_the_hidden_panels_as_the_dock_moves() {
         use crate::kit::tiers;
-        use crate::observer::selection;
+        use crate::observer::dock;
 
-        let ctx = fresh_ctx();
-        let mut shell = spectating_shell();
-        shell.set_panel_prefs(PanelPrefs {
-            playback_controls: false,
-            ..PanelPrefs::default()
-        });
-        let (playback, game) = (replay(), with_a_selection(empty_game()));
-        let screen = egui::vec2(1920.0, 1080.0);
-        let mut time = 0.0;
-        let mut frame = |shell: &mut crate::shell::Shell, events: Vec<egui::Event>, step: f64| {
-            time += step;
-            run_watched_frame_with_events(shell, &ctx, &playback, &game, screen, events, time)
-        };
-        let column = dock_column(&settle(&mut frame, &mut shell, Vec::new()))
-            .expect("the dock stands beside the selection");
-        // Inside the column's first keycap, which is its all-panels key.
-        let all = column.left_top()
-            + egui::vec2(
-                tiers::PANEL_MARGIN_WIDTH * 0.5 + 10.0,
-                tiers::PANEL_MARGIN_HEIGHT * 0.5 + 10.0,
-            );
-        let button = |pressed| egui::Event::PointerButton {
-            pos: all,
-            button: egui::PointerButton::Primary,
-            pressed,
-            modifiers: Modifiers::NONE,
-        };
-        let has_selection = |output: &crate::shell::FrameOutput| {
-            output
+        for controls in [false, true] {
+            let ctx = fresh_ctx();
+            let mut shell = spectating_shell();
+            let initial = PanelPrefs {
+                playback_controls: controls,
+                economy: true,
+                graphs: true,
+                ..PanelPrefs::default()
+            };
+            shell.set_panel_prefs(initial);
+            let (playback, game) = (replay(), with_a_selection(empty_game()));
+            let screen = egui::vec2(1920.0, 1080.0);
+            let mut time = 0.0;
+            let mut frame = |shell: &mut crate::shell::Shell,
+                             events: Vec<egui::Event>,
+                             step: f64| {
+                time += step;
+                run_watched_frame_with_events(shell, &ctx, &playback, &game, screen, events, time)
+            };
+            let original = settle(&mut frame, &mut shell, Vec::new());
+            let all = if controls {
+                let strip = dock_rect(&original).expect("the dock stands on the plate");
+                egui::pos2(
+                    strip.left() + tiers::PANEL_MARGIN_WIDTH * 0.5 + 10.0,
+                    strip.center().y,
+                )
+            } else {
+                let column = dock_column(&original).expect("the dock stands beside the selection");
+                column.left_top()
+                    + egui::vec2(
+                        tiers::PANEL_MARGIN_WIDTH * 0.5 + 10.0,
+                        tiers::PANEL_MARGIN_HEIGHT * 0.5 + 10.0,
+                    )
+            };
+            let click = |frame: &mut dyn FnMut(
+                &mut crate::shell::Shell,
+                Vec<egui::Event>,
+                f64,
+            ) -> crate::shell::FrameOutput,
+                         shell: &mut crate::shell::Shell,
+                         pos| {
+                settle(frame, shell, vec![egui::Event::PointerMoved(pos)]);
+                for pressed in [true, false] {
+                    frame(
+                        shell,
+                        vec![egui::Event::PointerButton {
+                            pos,
+                            button: egui::PointerButton::Primary,
+                            pressed,
+                            modifiers: Modifiers::NONE,
+                        }],
+                        if pressed { 0.5 } else { 0.05 },
+                    );
+                }
+            };
+            click(&mut frame, &mut shell, all);
+            assert!(shell.panel_prefs().dock);
+            assert!(!shell.panel_prefs().any_toggleable_shown());
+            assert!(!shell.panel_prefs().playback_controls);
+            let hidden = settle(&mut frame, &mut shell, Vec::new());
+            assert!(dock_column(&hidden).is_none());
+            let floating = hidden
                 .hit_rects
                 .iter()
-                .any(|hit| hit.rect.width() == selection::PANEL_WIDTH)
-        };
-        settle(&mut frame, &mut shell, vec![egui::Event::PointerMoved(all)]);
+                .map(|hit| hit.rect)
+                .find(|rect| {
+                    rect.size() == egui::vec2(dock::TABLE_WIDTH, dock::FLOATING_STRIP_HEIGHT)
+                })
+                .expect("the dock floats with the pointer still at its old button");
 
-        frame(&mut shell, vec![button(true)], 0.5);
-        frame(&mut shell, vec![button(false)], 0.05);
-        assert!(!shell.panel_prefs().reporting_shown());
-        let cleared = settle(&mut frame, &mut shell, Vec::new());
-        assert!(!has_selection(&cleared));
-        assert_eq!(dock_column(&cleared), Some(column));
-
-        frame(&mut shell, vec![button(true)], 0.5);
-        frame(&mut shell, vec![button(false)], 0.05);
-        assert!(shell.panel_prefs().reporting_shown());
-        let back = settle(&mut frame, &mut shell, Vec::new());
-        assert!(has_selection(&back));
-        assert_eq!(dock_column(&back), Some(column));
-
-        // Once the pointer has left it with the panels put away, it goes to the corner.
-        frame(&mut shell, vec![button(true)], 0.5);
-        frame(&mut shell, vec![button(false)], 0.05);
-        let gone = settle(&mut frame, &mut shell, vec![egui::Event::PointerGone]);
-        assert!(dock_column(&gone).is_none());
+            assert!(shell.key_pressed(Key::A, Modifiers::NONE));
+            assert_eq!(*shell.panel_prefs(), initial);
+            settle(&mut frame, &mut shell, Vec::new());
+            assert!(shell.key_pressed(Key::A, Modifiers::NONE));
+            assert!(shell.panel_prefs().dock);
+            assert!(!shell.panel_prefs().any_toggleable_shown());
+            let hidden = settle(&mut frame, &mut shell, Vec::new());
+            assert!(hidden.hit_rects.iter().any(|hit| hit.rect == floating));
+            let floating_all = egui::pos2(
+                floating.left() + tiers::PANEL_MARGIN_WIDTH * 0.5 + 10.0,
+                floating.center().y,
+            );
+            click(&mut frame, &mut shell, floating_all);
+            assert_eq!(*shell.panel_prefs(), initial);
+        }
     }
 
     #[test]
@@ -1165,11 +1175,10 @@ mod tests {
     /// Runs `frame` until the panels have settled, half a second at a time, with `events` arriving
     /// before the first.
     fn settle(
-        frame: &mut impl FnMut(
-            &mut crate::shell::Shell,
-            Vec<egui::Event>,
-            f64,
-        ) -> crate::shell::FrameOutput,
+        frame: &mut (
+                 impl FnMut(&mut crate::shell::Shell, Vec<egui::Event>, f64) -> crate::shell::FrameOutput
+                 + ?Sized
+             ),
         shell: &mut crate::shell::Shell,
         events: Vec<egui::Event>,
     ) -> crate::shell::FrameOutput {
@@ -1439,6 +1448,7 @@ mod tests {
         let standing = dock_rect(&frame(&mut shell, 0.5)).expect("the dock is up");
 
         assert!(shell.key_pressed(Key::A, Modifiers::NONE));
+        assert!(shell.key_pressed(Key::R, Modifiers::NONE));
         assert!(!shell.panel_prefs().dock && !shell.panel_prefs().playback_controls);
         // The slide out is a transform on the dock's layer, so its rect keeps its place along the
         // edge as it goes; what matters is that it keeps its height too.
@@ -1471,11 +1481,13 @@ mod tests {
         }
         let standing = dock_rect(&frame(&mut shell, 0.5)).expect("the dock is up");
         assert!(shell.key_pressed(Key::A, Modifiers::NONE));
+        assert!(shell.key_pressed(Key::R, Modifiers::NONE));
         for _ in 0..6 {
             frame(&mut shell, 0.5);
         }
 
         assert!(shell.key_pressed(Key::A, Modifiers::NONE));
+        assert!(shell.key_pressed(Key::R, Modifiers::NONE));
         assert!(shell.panel_prefs().dock && shell.panel_prefs().playback_controls);
         // Every frame of the way in, at the height it settles at: it slides in along the edge.
         for _ in 0..12 {

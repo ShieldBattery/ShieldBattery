@@ -147,9 +147,9 @@ pub struct PanelPrefs {
     /// Sides by default: in a team game the question is which side is ahead, and four lines answer
     /// that only once the watcher has added them up themselves.
     pub graph_per_player: bool,
-    /// The panels the all-panels key last hid, which it brings back next. Kept for the game rather
-    /// than saved: a watcher who leaves with everything hidden comes back to a clear screen, and
-    /// the key then brings back the panels everyone starts with.
+    /// The panels other than the dock that the all-panels control last hid and brings back next.
+    /// Kept for the game rather than saved: a watcher who leaves with panels hidden keeps them
+    /// hidden on return, and the key then brings back the default panels without changing the dock.
     #[serde(skip)]
     pub hidden_by_all: Option<PanelSet>,
 }
@@ -277,45 +277,45 @@ impl PanelPrefs {
         set
     }
 
-    /// Carries out the all-panels key: a quick way to a clear screen and back.
+    /// Carries out the all-panels button or key, hiding and restoring every panel except the dock.
     ///
-    /// With anything on screen, it hides all of it and remembers what that was, whatever was turned
-    /// on since the last time. With nothing on screen, it brings back what it last hid, or the
-    /// panels everyone starts with if it hid nothing.
+    /// The dock's visibility stays unchanged so a visible dock remains available to restore the
+    /// panels. With any other panel on screen, it hides and remembers that set. Otherwise it brings
+    /// back what it last hid, or the default panels if it hid nothing.
     pub fn toggle_all(&mut self) {
-        let shown = self.shown_set();
+        let shown = self.toggleable_set();
         if shown.is_empty() {
             let restore = self
                 .hidden_by_all
                 .take()
-                .unwrap_or_else(|| PanelPrefs::default().shown_set());
-            for panel in Panel::ALL {
+                .unwrap_or_else(|| PanelPrefs::default().toggleable_set());
+            for panel in Panel::ALL.into_iter().filter(|&panel| panel != Panel::Dock) {
                 self.set(panel, restore.contains(panel));
             }
         } else {
-            for panel in Panel::ALL {
+            for panel in Panel::ALL.into_iter().filter(|&panel| panel != Panel::Dock) {
                 self.set(panel, false);
             }
             self.hidden_by_all = Some(shown);
         }
     }
 
-    /// Carries out the dock's all-panels key, which is [`toggle_all`](Self::toggle_all) for every
-    /// panel but the dock and the playback controls it may stand on: the dock stays where it is,
-    /// with the key on it that brings them back under the pointer that clicked it.
-    pub fn toggle_all_but_controls(&mut self) {
-        let kept = (self.dock, self.playback_controls);
-        (self.dock, self.playback_controls) = (false, false);
-        self.toggle_all();
-        (self.dock, self.playback_controls) = kept;
+    /// The visible panels affected by the all-panels button and key.
+    fn toggleable_set(&self) -> PanelSet {
+        let mut set = PanelSet::default();
+        for panel in Panel::ALL {
+            if panel != Panel::Dock && self.shown(panel) {
+                set.insert(panel);
+            }
+        }
+        set
     }
 
-    /// Whether any of the panels that report on the game is on screen: any but the dock and the
-    /// playback controls, which are how the watcher works the screen rather than what it shows them.
-    pub fn reporting_shown(&self) -> bool {
-        Panel::ALL.into_iter().any(|panel| {
-            !matches!(panel, Panel::Dock | Panel::PlaybackControls) && self.shown(panel)
-        })
+    /// Whether the all-panels button and key have any visible panels to hide.
+    pub fn any_toggleable_shown(&self) -> bool {
+        Panel::ALL
+            .into_iter()
+            .any(|panel| panel != Panel::Dock && self.shown(panel))
     }
 
     /// How the matchup is on screen.
@@ -425,7 +425,9 @@ mod tests {
         });
         let before = shell.panel_prefs().shown_set();
         assert!(shell.key_pressed(Key::A, Modifiers::NONE));
-        assert_eq!(shell.panel_prefs().shown_set(), PanelSet::default());
+        let mut dock_only = PanelSet::default();
+        dock_only.insert(Panel::Dock);
+        assert_eq!(shell.panel_prefs().shown_set(), dock_only);
         assert!(shell.key_pressed(Key::A, Modifiers::NONE));
         assert_eq!(shell.panel_prefs().shown_set(), before);
 
@@ -450,27 +452,54 @@ mod tests {
         assert!(shell.key_pressed(Key::A, Modifiers::NONE));
         assert_eq!(
             shell.panel_prefs().shown_set(),
-            PanelPrefs::default().shown_set()
+            PanelPrefs {
+                dock: false,
+                ..PanelPrefs::default()
+            }
+            .shown_set()
         );
     }
 
     #[test]
-    fn the_docks_all_panels_key_keeps_the_dock_and_what_it_stands_on_up() {
-        let mut prefs = PanelPrefs {
-            economy: true,
-            graphs: true,
-            ..PanelPrefs::default()
-        };
-        let before = prefs.shown_set();
-        prefs.toggle_all_but_controls();
-        let mut controls = PanelSet::default();
-        controls.insert(Panel::Dock);
-        controls.insert(Panel::PlaybackControls);
-        assert_eq!(prefs.shown_set(), controls);
-        assert!(!prefs.reporting_shown());
-        prefs.toggle_all_but_controls();
-        assert_eq!(prefs.shown_set(), before);
-        assert!(prefs.reporting_shown());
+    fn all_panels_keeps_dock_changes_independent_of_the_saved_layout() {
+        for dock in [false, true] {
+            let mut prefs = PanelPrefs {
+                dock,
+                economy: true,
+                graphs: true,
+                ..PanelPrefs::default()
+            };
+            let before = prefs.toggleable_set();
+            prefs.toggle_all();
+            assert_eq!(prefs.dock, dock);
+            assert!(!prefs.playback_controls);
+            assert!(!prefs.any_toggleable_shown());
+            assert!(!prefs.hidden_by_all.unwrap().contains(Panel::Dock));
+
+            prefs.toggle(Panel::Dock);
+            prefs.toggle_all();
+            assert_eq!(prefs.dock, !dock);
+            assert_eq!(prefs.toggleable_set(), before);
+        }
+    }
+
+    #[test]
+    fn playback_controls_alone_are_hidden_and_restored_by_all_panels() {
+        let mut prefs = PanelPrefs::default();
+        for panel in Panel::ALL {
+            prefs.set(
+                panel,
+                matches!(panel, Panel::Dock | Panel::PlaybackControls),
+            );
+        }
+        assert!(prefs.any_toggleable_shown());
+        prefs.toggle_all();
+        assert!(!prefs.any_toggleable_shown());
+        assert!(prefs.dock);
+        prefs.toggle_all();
+        assert!(prefs.playback_controls);
+        assert!(!prefs.matchup);
+        assert!(prefs.dock);
     }
 
     #[test]

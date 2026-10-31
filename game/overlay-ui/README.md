@@ -238,11 +238,11 @@ for the surfaces that are on, and the plate's panel with the strip on it is as t
 panel beside it. Expanded, the dock is a table with a row for each panel, its name and its key, and
 the matchup's style chips in the matchup's row, listed in the order the keycaps come in: on the
 strip opens upward into it, and beside the selection panel it opens over the pair of them. The
-dock's all-panels key puts away every panel but the dock and the plate it may stand on, which stay
-to bring them back. The column stays where it stood while the pointer is on it once the selection
-panel beside it has gone, as that key puts it away, and goes to the corner once the pointer has
-left it; otherwise the dock moves as soon as the panel it stands on comes or goes. A test holds the dock's rows to `Panel::ALL`, so a panel built later cannot be
-left without a key on it.
+dock's all-panels button and the `A` key both hide and restore every panel except the dock, including
+the playback controls. They share the same remembered panel set and leave the dock's visibility
+unchanged. The dock becomes a floating strip when the playback controls and selection panel are
+hidden, regardless of the pointer's position. A test holds the dock's rows to `Panel::ALL`, so a
+panel built later cannot be left without a key on it.
 
 The DLL fills the wings from `game_stats.rs`, a sampler that runs inside BW's own simulation step
 once per second of game time and keeps two hours of per-player history, a timeline of what changed
@@ -335,7 +335,7 @@ minimap while hiding the rest of the console — which is why the DLL's `console
 separate calls, `set_console_visible`, `set_minimap_visible` and `set_command_panel_visible`, rather
 than one. The selection panel that stands in for the rest of the console is a boolean of its own as
 well. `PanelPrefs` also carries
-`spoiler_free`, which is a viewing preference rather than a panel: hiding every panel with `A` asks
+`spoiler_free`, which is a viewing preference rather than a panel: hiding panels with `A` asks
 for a clear screen, not for a replay's length to be given away; whether the dock is spelled out
 as the control rail, which is one surface in two forms rather than two panels; and `graph_series`
 and `graph_per_player`, which are what the one graphs panel is currently about rather than panels of

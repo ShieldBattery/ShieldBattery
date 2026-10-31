@@ -9,9 +9,8 @@
 //! would end. Either way the keycaps are lit for the panels on screen: a reminder for someone who
 //! already knows the keys.
 //!
-//! The column stays where it stood while the pointer is on it once the selection panel beside it
-//! has gone, as its all-panels key puts it away, so the key is still under the pointer to bring the
-//! panels back. Nothing else stays: the dock goes wherever the panel it stands on goes.
+//! The all-panels button and its keyboard shortcut hide and restore every panel except the dock.
+//! The dock moves to its floating strip whenever neither playback nor selection is shown.
 //!
 //! **Expanded** it spells the panels out as a table, a row for each with its name and its key, for
 //! someone who does not: a strip opens upward into it, and beside the selection panel it opens over
@@ -263,8 +262,7 @@ pub struct DockOutcome {
     pub rects: Vec<Rect>,
     /// A surface to turn on or off.
     pub toggled: Option<Panel>,
-    /// Whether every panel but the dock and the plate it may stand on should be put away, or
-    /// brought back.
+    /// Whether every panel but the dock should be put away or brought back.
     pub all_toggled: bool,
     /// How the matchup should be on screen.
     pub matchup_style: Option<MatchupStyle>,
@@ -724,13 +722,8 @@ fn draw_table(ui: &mut Ui, rect: Rect, prefs: &PanelPrefs, dock: &DockContext<'_
     outcome
 }
 
-/// Draws the key that puts away every panel but the dock and the plate it may stand on, and brings
-/// them back, drawn as `state`. Returns whether it was clicked and the card naming it under the
-/// pointer.
-///
-/// The dock stays where it is, unlike under the all-panels key on the keyboard: a key that took the
-/// dock away with everything else, or the plate from under it, would leave nothing under the
-/// pointer to click to bring it all back.
+/// Draws the key that puts away every panel but the dock and brings them back, drawn as `state`.
+/// Returns whether it was clicked and the card naming it under the pointer.
 fn draw_all_key(
     ui: &mut Ui,
     rect: Rect,
@@ -746,7 +739,7 @@ fn draw_all_key(
 /// How the all-panels key stands where keycaps carry their panels' state: lit while any of the
 /// panels it puts away is on screen.
 fn all_key_state(prefs: &PanelPrefs) -> RowState {
-    if prefs.reporting_shown() {
+    if prefs.any_toggleable_shown() {
         RowState::On
     } else {
         RowState::Off

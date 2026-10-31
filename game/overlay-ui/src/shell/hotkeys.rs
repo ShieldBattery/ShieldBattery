@@ -26,7 +26,7 @@ pub enum Action {
     SeekBackward,
     /// Seek forward; `Shift` lengthens the step, and its `Ctrl` chord lengthens it further.
     SeekForward,
-    /// Hide every panel on screen, or bring back the ones that hid.
+    /// Hide every panel except the dock, or bring back the ones that hid.
     ToggleAllPanels,
     /// The economy panel.
     ToggleEconomy,
