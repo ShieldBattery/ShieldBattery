@@ -1319,6 +1319,10 @@ impl BwScr {
     /// matters to the caller is whether native chat should be suppressed.
     unsafe fn send_chat_message(&self, target: netcode_v2::ChatTarget, text: &str) -> bool {
         unsafe {
+            let target = target.for_sender(
+                self.local_unique_player_id.resolve() >= 0x80,
+                game_thread::setup_info().is_some_and(|info| info.allow_observer_chat),
+            );
             let Some(sent) =
                 netcode_v2::with_turn_state(|s| s.submit_chat(target, text.to_string()))
             else {
@@ -1682,7 +1686,8 @@ impl BwScr {
 
     /// Whether a received chat message naming `target` should be shown to the local player, given
     /// its sender's BW storm id. Mirrors the scopes the `MsgFltr` chat-target dialog offers (see
-    /// `dialog_hook::chat_target_scope`): `All` always shows; `Allies` shows only to a player
+    /// `dialog_hook::chat_target_scope`): `All` shows to everyone the observer policy permits;
+    /// `Allies` shows only to a player
     /// currently allied with the sender; `Observers` shows only if the local player is an
     /// observer; `Players` shows only if the local rp2 slot is a member of its mask — a lone
     /// recipient's mask has one bit, while a team-shared-control game's sender put every slot on
@@ -1694,25 +1699,19 @@ impl BwScr {
         target: netcode_v2::ChatTarget,
     ) -> bool {
         unsafe {
-            match target {
-                netcode_v2::ChatTarget::All => true,
-                netcode_v2::ChatTarget::Players(mask) => {
-                    netcode_v2::with_turn_state(|s| mask.contains(s.local_slot_id()))
-                        .unwrap_or(false)
-                }
-                netcode_v2::ChatTarget::Observers => {
-                    BwPlayerId(self.local_unique_player_id.resolve() as u8).is_observer()
-                }
-                netcode_v2::ChatTarget::Allies => {
-                    match self.unique_player_for_storm(sender_storm) {
-                        Some(sender_unique) => self.is_allied_with(sender_unique),
-                        // The sender can't be resolved to a live player right now (e.g. already
-                        // left) — nothing to compare alliances against, so don't show it as if it
-                        // were an ally message.
-                        None => false,
-                    }
-                }
-            }
+            let Some(sender_unique) = self.unique_player_for_storm(sender_storm) else {
+                return false;
+            };
+            let Some(local_slot) = netcode_v2::with_turn_state(|s| s.local_slot_id()) else {
+                return false;
+            };
+            target.visible_to(
+                local_slot,
+                self.local_unique_player_id.resolve() >= 0x80,
+                sender_unique >= 12,
+                target == netcode_v2::ChatTarget::Allies && self.is_allied_with(sender_unique),
+                game_thread::setup_info().is_some_and(|info| info.allow_observer_chat),
+            )
         }
     }
 
