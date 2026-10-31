@@ -45,6 +45,14 @@ pub struct Analysis<'e>(
 );
 
 impl<'e> Analysis<'e> {
+    pub fn tileset_cv5(&mut self) -> Option<Operand<'e>> {
+        self.0.tileset_cv5()
+    }
+
+    pub fn minitile_data(&mut self) -> Option<Operand<'e>> {
+        self.0.minitile_data()
+    }
+
     pub fn new(binary: &'e BinaryFile<VirtualAddress>, ctx: OperandCtx<'e>) -> Analysis<'e> {
         Analysis(samase_scarf::Analysis::new(binary, ctx), binary, ctx)
     }
@@ -1132,6 +1140,10 @@ impl<'e> Analysis<'e> {
 
     pub fn lookup_sound_id(&mut self) -> Option<VirtualAddress> {
         self.0.lookup_sound_id()
+    }
+
+    pub fn load_sfx_audio_object(&mut self) -> Option<VirtualAddress> {
+        self.0.load_sfx_audio_object()
     }
 
     pub fn play_sound(&mut self) -> Option<VirtualAddress> {

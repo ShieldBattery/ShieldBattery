@@ -371,6 +371,9 @@ pub fn player_id_mapping() -> &'static [PlayerIdMapping] {
 /// they can be persisted to settings. Should only be called from the game thread, after the game
 /// loop has ended (while the globals are still valid).
 fn save_minimap_settings() {
+    if crate::is_background_game() {
+        return;
+    }
     let bw = get_bw();
     // With custom team colors active the real global is pinned per mode, so persist the virtual
     // mode the user actually sees; otherwise read BW's real global exactly as before.
@@ -536,12 +539,14 @@ unsafe fn game_results() -> GameThreadResults {
     }
 }
 
-/// Whether the replay of this game gets uploaded once it ends: only games the server tracks
-/// (ones it issued a result code for) do, and replay playback never does.
+/// Whether this visible client uploads a replay for a server-tracked game when it ends.
+/// Background clients and replay playback never create an upload replay.
 fn will_upload_replay() -> bool {
-    SETUP_INFO
-        .get()
-        .is_some_and(|info| !info.is_replay() && info.result_code.is_some())
+    !crate::is_background_game()
+        && !crate::is_local_game()
+        && SETUP_INFO
+            .get()
+            .is_some_and(|info| !info.is_replay() && info.result_code.is_some())
 }
 
 /// Saves a replay to a temporary location for upload purposes.

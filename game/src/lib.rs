@@ -49,6 +49,7 @@ mod app_messages;
 mod app_socket;
 mod bw;
 mod bw_scr;
+mod bwapi;
 mod cancel_token;
 mod companion;
 mod crash_dump;
@@ -57,6 +58,7 @@ mod debug_control;
 mod forge;
 mod frame_pacing;
 mod frame_timing;
+mod game_exit;
 mod game_state;
 mod game_thread;
 #[cfg(debug_assertions)]
@@ -67,6 +69,7 @@ mod http_proxy;
 mod input_latency_probe;
 mod machine_info;
 mod mouse_speed;
+mod native_network;
 mod netcode_v2;
 mod offline_cookie;
 mod recurse_checked_mutex;
@@ -576,7 +579,13 @@ fn async_thread(main_thread: std::sync::mpsc::Sender<()>) {
     //  lead to all tasks in the cycle getting stuck, so that has to be avoided; in cases where two
     //  tasks want to send messages both ways, at least one of them spawns a child task every time
     //  it wants to send something.
-    let runtime = tokio::runtime::Builder::new_multi_thread()
+    let mut runtime_builder = tokio::runtime::Builder::new_multi_thread();
+    if is_background_game() {
+        // The simulation has its own thread. Background clients need only a small pool for
+        // app IPC and turn traffic, rather than one async worker per logical processor per bot.
+        runtime_builder.worker_threads(2);
+    }
+    let runtime = runtime_builder
         .enable_all()
         .on_thread_start(crash_dump::reserve_exception_handler_stack)
         .build()
@@ -650,6 +659,10 @@ struct Args {
     server_port: u16,
     user_data_path: PathBuf,
     use_legacy_cursor_sizing: bool,
+    background: bool,
+    local_game: bool,
+    local_app_pipe: Option<String>,
+    bwapi_instance: Option<String>,
     /// Base name for the rotating log file (`<log_name>.<slot>.log`). The launcher passes an
     /// `SB_SESSION`-namespaced value so concurrent dev instances don't share a log; defaults to
     /// `game` when the launcher doesn't specify one.
@@ -679,12 +692,37 @@ fn try_parse_args() -> Option<Args> {
     let server_port = args.next()?.into_string().ok()?.parse::<u16>().ok()?;
     let user_data_path = args.next()?.into();
     let mut use_legacy_cursor_sizing = false;
+    let mut background = false;
+    let mut local_game = false;
+    let mut local_app_pipe = None;
+    let mut bwapi_instance = None;
     let mut log_name = "game".to_owned();
     let mut rally_point_port = None;
 
     for arg in args {
         let arg = arg.into_string().ok()?;
-        if arg == "-legacy-cursor-sizing" {
+        if arg == "-sb-local" {
+            local_game = true;
+        } else if let Some(pipe) = arg.strip_prefix("-sb-app-pipe=") {
+            if !pipe.starts_with(r"\\.\pipe\ShieldBattery.LocalControl.")
+                || pipe.contains(['"', '\n', '\r'])
+            {
+                return None;
+            }
+            local_app_pipe = Some(pipe.to_owned());
+        } else if let Some(instance) = arg.strip_prefix("-sb-bwapi=") {
+            if instance.is_empty()
+                || instance.len() > 64
+                || !instance
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b == b'-')
+            {
+                return None;
+            }
+            bwapi_instance = Some(instance.to_owned());
+        } else if arg == "-sb-background" {
+            background = true;
+        } else if arg == "-legacy-cursor-sizing" {
             // NOTE(tec27): We pass this through args because we need to know if it's enabled before
             // we patch the game, and settings come over websocket (so too late)
             use_legacy_cursor_sizing = true;
@@ -707,6 +745,10 @@ fn try_parse_args() -> Option<Args> {
         server_port,
         user_data_path,
         use_legacy_cursor_sizing,
+        background,
+        local_game,
+        local_app_pipe,
+        bwapi_instance,
         log_name,
         rally_point_port,
     })
@@ -718,4 +760,25 @@ fn try_parse_args() -> Option<Args> {
 /// tests) see `None` instead of a panicked arg parse.
 pub fn rally_point_port_override() -> Option<u16> {
     ARGS.get().and_then(|args| args.rally_point_port)
+}
+
+/// The presentation policy is fixed before hooks are installed, independently of user settings.
+/// Unit tests and other callers outside the injected process have no background launch flag.
+pub fn is_background_game() -> bool {
+    ARGS.get().is_some_and(|args| args.background)
+}
+
+/// Local sessions use only app-owned IPC and end when their owner disconnects.
+pub fn is_local_game() -> bool {
+    ARGS.get().is_some_and(|args| args.local_game)
+}
+
+/// The private named pipe used for local-session launch and lifecycle messages.
+pub fn local_app_pipe() -> Option<&'static str> {
+    ARGS.get().and_then(|args| args.local_app_pipe.as_deref())
+}
+
+/// Explicit discovery namespace for one supervised BWAPI client.
+pub fn bwapi_instance() -> Option<&'static str> {
+    ARGS.get().and_then(|args| args.bwapi_instance.as_deref())
 }

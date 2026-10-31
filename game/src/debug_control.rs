@@ -39,10 +39,14 @@ pub enum DebugControlCommand {
     /// Snapshot the current netcode-v2 turn state; the DLL replies on `/game/debug/state` with a
     /// [`DebugStateResponse`].
     QueryState,
-    /// Force a synced leave of a mapped slot on THIS client. Writes the slot's
+    /// Inject a non-consensus remote-player drop on THIS client. The local slot is rejected.
+    /// This is fault injection, not a request for this client to quit. It writes the slot's
     /// `pending_leave_reason` on the game thread so the native synced-leave pass applies it like a
     /// real drop, and drops the slot from the readiness set so a stalled step can proceed.
     ForceUnsyncedLeave { slot: u8 },
+    /// Ask SC:R's native window procedure to close the running game normally. The message is
+    /// delivered on the window's owning game thread, which runs the usual game-loop teardown.
+    LeaveGame,
     /// Deliberately diverge THIS client's simulation from its peers by adding a large amount to the
     /// local player's minerals on the game thread. A resource-state change that only one client
     /// makes desyncs BW's lockstep once the diverged value is spent or otherwise checked, so this is
@@ -326,6 +330,59 @@ pub enum DebugChatTarget {
 pub struct DebugStateResponse {
     /// `None` when no netcode v2 session is live (native/legacy transport, or the turn state is gone).
     pub turn_state: Option<TurnStateSnapshot>,
+    pub presentation: PresentationSnapshot,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PresentationSnapshot {
+    pub background: bool,
+    pub window_visible: bool,
+    pub game_frame: u32,
+    pub render_calls: u32,
+    pub skipped_render_calls: u32,
+    pub skipped_sound_loads: u32,
+    pub hd_asset_skips: u32,
+}
+
+static GAME_FRAME: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+static SKIPPED_SOUND_LOADS: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+static SKIPPED_RENDER_CALLS: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+static RENDER_CALLS: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+static HD_ASSET_SKIPS: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
+pub fn record_hd_asset_skip() {
+    HD_ASSET_SKIPS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// Publish simulation progress on the game thread for async debug queries.
+pub fn record_game_frame(frame: u32) {
+    GAME_FRAME.store(frame, std::sync::atomic::Ordering::Relaxed);
+}
+
+pub fn record_skipped_sound_load() {
+    SKIPPED_SOUND_LOADS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+}
+
+pub fn record_skipped_render_call() {
+    SKIPPED_RENDER_CALLS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+}
+
+pub fn record_render_call() {
+    RENDER_CALLS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+}
+
+pub fn presentation_snapshot() -> PresentationSnapshot {
+    PresentationSnapshot {
+        background: crate::is_background_game(),
+        window_visible: crate::forge::game_window_handle()
+            .is_some_and(|hwnd| unsafe { winapi::um::winuser::IsWindowVisible(hwnd) != 0 }),
+        game_frame: GAME_FRAME.load(std::sync::atomic::Ordering::Relaxed),
+        render_calls: RENDER_CALLS.load(std::sync::atomic::Ordering::Relaxed),
+        skipped_render_calls: SKIPPED_RENDER_CALLS.load(std::sync::atomic::Ordering::Relaxed),
+        skipped_sound_loads: SKIPPED_SOUND_LOADS.load(std::sync::atomic::Ordering::Relaxed),
+        hd_asset_skips: HD_ASSET_SKIPS.load(std::sync::atomic::Ordering::Relaxed),
+    }
 }
 
 /// A point-in-time read of [`crate::netcode_v2::TurnState`], for verification tooling.
@@ -765,6 +822,15 @@ mod tests {
     #[test]
     fn state_response_serializes_camel_case_with_null_storm_id() {
         let response = DebugStateResponse {
+            presentation: PresentationSnapshot {
+                background: true,
+                window_visible: false,
+                game_frame: 480,
+                render_calls: 6000,
+                skipped_render_calls: 12000,
+                skipped_sound_loads: 300,
+                hd_asset_skips: 895,
+            },
             turn_state: Some(TurnStateSnapshot {
                 local_slot: 0,
                 latency_turns: 2,
@@ -818,6 +884,15 @@ mod tests {
         assert_eq!(
             json,
             serde_json::json!({
+                "presentation": {
+                    "background": true,
+                    "windowVisible": false,
+                    "gameFrame": 480,
+                    "renderCalls": 6000,
+                    "skippedRenderCalls": 12000,
+                    "skippedSoundLoads": 300,
+                    "hdAssetSkips": 895,
+                },
                 "turnState": {
                     "localSlot": 0,
                     "latencyTurns": 2,

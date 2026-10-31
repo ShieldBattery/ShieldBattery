@@ -505,3 +505,79 @@ describe('ActiveGameManager watch-only games', () => {
     })
   })
 })
+
+describe('ActiveGameManager graceful stop', () => {
+  let manager: ActiveGameManager
+  let commands: Array<[string, string, ...any[]]>
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    manager = makeManager()
+    commands = []
+    manager.on('gameCommand', (gameId, command, ...args) => {
+      commands.push([gameId, command, ...args])
+    })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('lets a game that has its result exit on its own before quitting it', async () => {
+    manager.setGameConfig(configFor('game-1'))
+    manager.handleGameResult('game-1', {}, 0)
+    commands.length = 0
+
+    // The launch remains in flight, so a game with its result receives the full grace period.
+    manager.stop(true).catch(() => {})
+    await vi.advanceTimersByTimeAsync(1999)
+    expect(commands, 'no leave request and no quit yet').toEqual([])
+    await vi.advanceTimersByTimeAsync(1)
+    expect(commands).toEqual([['game-1', 'quit']])
+  })
+})
+
+describe('per-client manager lifetime', () => {
+  it('releases its settings listener without removing another manager subscription', () => {
+    const { manager, localSettings } = makeManagerWithSettings()
+    const second = new ActiveGameManager({} as never, localSettings as never, {} as never)
+    expect(localSettings.listenerCount('change')).toBe(2)
+    manager.dispose()
+    manager.dispose()
+    expect(localSettings.listenerCount('change')).toBe(1)
+    second.dispose()
+    expect(localSettings.listenerCount('change')).toBe(0)
+  })
+
+  it('bounds a stop before the process connects and allows a later game', async () => {
+    vi.useFakeTimers()
+    try {
+      const manager = makeManager()
+      manager.setGameConfig(configFor('hung'))
+      const failure = manager.stop().catch((error: unknown) => error)
+      await vi.advanceTimersByTimeAsync(2000)
+      expect(await failure).toBeUndefined()
+      expect(manager.getStatus()).toBeNull()
+      expect(manager.setGameConfig(configFor('next'))).toBe('next')
+      expect(manager.getStatus()?.id).toBe('next')
+      expect(vi.getTimerCount()).toBe(0)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('a timed-out stop cannot clear a replacement game', async () => {
+    vi.useFakeTimers()
+    try {
+      const manager = makeManager()
+      manager.setGameConfig(configFor('old'))
+      const failure = manager.stop().catch((error: unknown) => error)
+      manager.setGameConfig(configFor('new'))
+      await vi.advanceTimersByTimeAsync(2000)
+      expect(await failure).toBeUndefined()
+      expect(manager.getStatus()?.id).toBe('new')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})

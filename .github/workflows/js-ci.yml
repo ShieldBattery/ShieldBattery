@@ -18,6 +18,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  native-launcher:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.x'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - name: Install app dependencies and source patch
+        run: pnpm install --frozen-lockfile --ignore-scripts
+        working-directory: ./app
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ./app/node_modules/@shieldbattery/stimpack/native
+      - name: Build owned-process launcher
+        run: node tools/build-native-launcher.mjs
+      - name: Test owned-process termination
+        run: node tools/build-native-launcher.mjs --test
+      - name: Check native launcher
+        run: node tools/build-native-launcher.mjs --check
+
   unit-tests:
     runs-on: ubuntu-latest
     strategy:

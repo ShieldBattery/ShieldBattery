@@ -1,0 +1,350 @@
+diff --git a/index.d.ts b/index.d.ts
+--- a/index.d.ts
++++ b/index.d.ts
+@@ -4,6 +4,12 @@
+   readonly [tag]: Token
+ }
+ export type StimpackProcess = Tagged<'StimpackProcess'>
++export type LaunchOwner = Tagged<'LaunchOwner'>
++
++/** Owns exactly one launch, including cancellation before process creation finishes. */
++export function createLaunchOwner(): LaunchOwner
++/** Cancels the launch and confirms termination of its owned process, if already created. */
++export function terminateLaunchOwner(owner: LaunchOwner): Promise<void>
+ 
+ /** Arguments that control the launch/injection process. */
+ export interface LaunchArgs {
+@@ -27,7 +33,7 @@
+  * @returns A promise that resolves with the process object if successful, or rejects with an error
+  *  otherwise.
+  */
+-export function launch(args: LaunchArgs): Promise<StimpackProcess>
++export function launch(args: LaunchArgs, owner?: LaunchOwner): Promise<StimpackProcess>
+ 
+ /**
+  * Waits for the given process to exit.
+diff --git a/native/src/lib.rs b/native/src/lib.rs
+--- a/native/src/lib.rs
++++ b/native/src/lib.rs
+@@ -35,6 +35,7 @@
+     SECTION_MAP_WRITE, SECTION_QUERY, SEC_COMMIT, SEC_IMAGE,
+ };
+ 
++mod launch_owner;
+ mod shellcode;
+ 
+ macro_rules! log {
+@@ -98,8 +99,8 @@
+     static mut INFO: mem::MaybeUninit<SYSTEM_INFO> = mem::MaybeUninit::uninit();
+ 
+     unsafe {
+-        INIT.call_once(|| GetNativeSystemInfo(INFO.as_mut_ptr()));
+-        &*INFO.as_ptr()
++        INIT.call_once(|| GetNativeSystemInfo(ptr::addr_of_mut!(INFO).cast::<SYSTEM_INFO>()));
++        &*ptr::addr_of!(INFO).cast::<SYSTEM_INFO>()
+     }
+ }
+ 
+@@ -330,6 +331,16 @@
+ 
+ pub struct Process {
+     h: HANDLE,
++}
++
++struct ThreadHandle(HANDLE);
++
++impl Drop for ThreadHandle {
++    fn drop(&mut self) {
++        unsafe {
++            CloseHandle(self.0);
++        }
++    }
+ }
+ 
+ struct TerminateOnDrop<'a>(&'a Process);
+@@ -640,7 +651,7 @@
+         })
+     }
+ 
+-    pub fn iter_regions(&self) -> MemRegionIter {
++    pub fn iter_regions(&self) -> MemRegionIter<'_> {
+         MemRegionIter::new(self)
+     }
+ 
+@@ -830,12 +841,21 @@
+     current_dir: &str,
+     dll_path: &str,
+     func_name: &str,
+-) -> Result<Process> {
++    owner: Option<&launch_owner::LaunchOwner>,
++) -> Result<Arc<Process>> {
++    if let Some(owner) = owner {
++        owner.check()?;
++    }
+     // Start the new process
+     let (proc, main_thread) =
+         Process::new_from_path(exe_path, args, current_dir).context("Failed to create process")?;
++    let main_thread = ThreadHandle(main_thread);
++    let proc = Arc::new(proc);
+     log!("Process created");
+     let terminate_on_err = TerminateOnDrop(&proc);
++    if let Some(owner) = owner {
++        owner.bind(Arc::clone(&proc))?;
++    }
+ 
+     // Locate the exe image
+     let (exe_base, exe_img) = find_exe(&proc).context("Failed to locate EXE image")?;
+@@ -894,9 +914,17 @@
+     .context("Failed to patch TLS callback entry")?;
+     log!("TLS callback patched, resuming process..");
+ 
+-    // Resume the process
++    // Resume only if the launch still belongs to an active caller.
++    if let Some(owner) = owner {
++        owner.check()?;
++    }
+     unsafe {
+-        ResumeThread(main_thread);
++        if ResumeThread(main_thread.0) == u32::MAX {
++            return Err(anyhow!(
++                "Resuming process failed: {}",
++                io::Error::last_os_error()
++            ));
++        }
+     }
+ 
+     mem::forget(terminate_on_err);
+@@ -918,6 +946,13 @@
+     let cx = &mut cx;
+     let channel = cx.channel();
+     let params = cx.argument::<JsObject>(0)?;
++    let owner = match cx.argument_opt(1) {
++        Some(value) => {
++            let owner = value.downcast_or_throw::<JsBox<Arc<launch_owner::LaunchOwner>>, _>(cx)?;
++            Some(Arc::clone(&owner))
++        }
++        None => None,
++    };
+     let mut get_string = |name| Ok(params.get::<JsString, _, _>(cx, name)?.value(cx));
+     let path = get_string("appPath")?;
+     let args = get_string("args")?;
+@@ -946,7 +981,14 @@
+         INJECT_THREAD_COUNT.fetch_add(1, Ordering::Relaxed);
+         let _decrement_on_func_exit = DecrementInjectThreadCount;
+         let result = std::panic::catch_unwind(|| {
+-            start_injected(&path, &args, &current_dir, &dll_path, &func)
++            start_injected(
++                &path,
++                &args,
++                &current_dir,
++                &dll_path,
++                &func,
++                owner.as_deref(),
++            )
+         });
+         let result = match result {
+             Ok(res) => res,
+@@ -961,7 +1003,7 @@
+             }
+         };
+         let _ = deferred.try_settle_with(&channel, move |mut cx| match result {
+-            Ok(process) => Ok(cx.boxed(Arc::new(process))),
++            Ok(process) => Ok(cx.boxed(process)),
+             Err(e) => {
+                 let msg = format!("{:?}", e);
+                 cx.throw_error(msg)
+@@ -998,6 +1040,8 @@
+ 
+ #[neon::main]
+ fn main(mut cx: ModuleContext) -> NeonResult<()> {
++    cx.export_function("createLaunchOwner", launch_owner::create_launch_owner)?;
++    cx.export_function("terminateLaunchOwner", launch_owner::terminate_launch_owner)?;
+     cx.export_function("launch", launch)?;
+     cx.export_function("waitForExit", wait_for_exit)?;
+     Ok(())
+diff --git a/native/src/shellcode.rs b/native/src/shellcode.rs
+--- a/native/src/shellcode.rs
++++ b/native/src/shellcode.rs
+@@ -1078,7 +1078,7 @@
+         );
+     }
+ 
+-    ctx.func_name[..func_name.as_bytes().len()].clone_from_slice(func_name.as_bytes());
++    ctx.func_name[..func_name.len()].clone_from_slice(func_name.as_bytes());
+     code[ctx_ofs..ctx_ofs + mem::size_of::<InjectHookCtx>()]
+         .clone_from_slice(unsafe { ctx.to_bytes() });
+ 
+diff --git a/native/src/launch_owner.rs b/native/src/launch_owner.rs
+new file mode 100644
+--- /dev/null
++++ b/native/src/launch_owner.rs
+@@ -0,0 +1,169 @@
++use std::sync::{Arc, Mutex};
++
++use anyhow::{anyhow, Result};
++use neon::prelude::*;
++use winapi::um::processthreadsapi::TerminateProcess;
++use winapi::um::synchapi::WaitForSingleObject;
++use winapi::um::winbase::{WAIT_FAILED, WAIT_OBJECT_0};
++
++use crate::Process;
++
++#[derive(Default)]
++struct State {
++    cancelled: bool,
++    process: Option<Arc<Process>>,
++}
++
++/// Owns one launch, including the interval before CreateProcess returns its handle.
++#[derive(Default)]
++pub struct LaunchOwner(Mutex<State>);
++
++impl LaunchOwner {
++    pub fn check(&self) -> Result<()> {
++        if self.0.lock().unwrap().cancelled {
++            Err(anyhow!("Process launch cancelled"))
++        } else {
++            Ok(())
++        }
++    }
++
++    pub fn bind(&self, process: Arc<Process>) -> Result<()> {
++        let mut state = self.0.lock().unwrap();
++        if state.cancelled {
++            // The caller's termination guard still owns this suspended process. It must never
++            // resume after cancellation, even if CreateProcess completed after the caller stopped.
++            return Err(anyhow!("Process launch cancelled"));
++        }
++        if state.process.is_some() {
++            return Err(anyhow!("Launch owner already has a process"));
++        }
++        state.process = Some(process);
++        Ok(())
++    }
++
++    fn cancel(&self) -> Option<Arc<Process>> {
++        let mut state = self.0.lock().unwrap();
++        state.cancelled = true;
++        state.process.clone()
++    }
++}
++
++impl Finalize for LaunchOwner {}
++
++pub fn terminate_and_wait(process: &Process) -> Result<()> {
++    unsafe {
++        let handle = process.handle();
++        if WaitForSingleObject(handle, 0) == WAIT_OBJECT_0 {
++            return Ok(());
++        }
++        // The handle came directly from this launch's CreateProcess call. Never reopen by PID.
++        if TerminateProcess(handle, 1223) == 0 && WaitForSingleObject(handle, 0) != WAIT_OBJECT_0 {
++            return Err(anyhow!(
++                "Terminating owned process failed: {}",
++                std::io::Error::last_os_error()
++            ));
++        }
++        match WaitForSingleObject(handle, 5000) {
++            WAIT_OBJECT_0 => Ok(()),
++            WAIT_FAILED => Err(anyhow!(
++                "Waiting for owned process failed: {}",
++                std::io::Error::last_os_error()
++            )),
++            _ => Err(anyhow!(
++                "Owned process termination was not confirmed within 5 seconds"
++            )),
++        }
++    }
++}
++
++pub fn create_launch_owner(mut cx: FunctionContext) -> JsResult<JsBox<Arc<LaunchOwner>>> {
++    Ok(cx.boxed(Arc::new(LaunchOwner::default())))
++}
++
++pub fn terminate_launch_owner(mut cx: FunctionContext) -> JsResult<JsPromise> {
++    let owner = cx.argument::<JsBox<Arc<LaunchOwner>>>(0)?;
++    // Mark cancellation before returning to JS; a pending launch cannot bind/resume afterward.
++    let process = owner.cancel();
++    let channel = cx.channel();
++    let (deferred, promise) = cx.promise();
++    std::thread::spawn(move || {
++        let result = process.map_or(Ok(()), |p| terminate_and_wait(&p));
++        let _ = deferred.try_settle_with(&channel, move |mut cx| match result {
++            Ok(()) => Ok(cx.undefined()),
++            Err(err) => cx.throw_error(format!("{err:#}")),
++        });
++    });
++    Ok(promise)
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use crate::TerminateOnDrop;
++    use winapi::um::handleapi::CloseHandle;
++    use winapi::um::processthreadsapi::ResumeThread;
++
++    fn suspended_fixture() -> (Arc<Process>, winapi::um::winnt::HANDLE) {
++        let exe = std::env::current_exe().unwrap();
++        let exe = exe.to_str().unwrap();
++        let args = format!("\"{exe}\" --ignored --exact launch_owner::tests::hung_fixture");
++        let (process, thread) = Process::new_from_path(exe, &args, ".").unwrap();
++        (Arc::new(process), thread)
++    }
++
++    #[test]
++    #[ignore]
++    fn hung_fixture() {
++        loop {
++            std::thread::park();
++        }
++    }
++
++    #[test]
++    fn termination_uses_only_owned_handle_and_confirms_exit() {
++        let (owned, thread) = suspended_fixture();
++        let _owned_guard = TerminateOnDrop(&owned);
++        let (unrelated, other_thread) = suspended_fixture();
++        let _unrelated_guard = TerminateOnDrop(&unrelated);
++        unsafe {
++            ResumeThread(thread);
++            CloseHandle(thread);
++            ResumeThread(other_thread);
++            CloseHandle(other_thread);
++        }
++        let owner = LaunchOwner::default();
++        owner.bind(Arc::clone(&owned)).unwrap();
++        terminate_and_wait(&owner.cancel().unwrap()).unwrap();
++        terminate_and_wait(&owner.cancel().unwrap()).unwrap();
++        assert!(owner.check().is_err());
++        assert_eq!(
++            unsafe { WaitForSingleObject(owned.handle(), 0) },
++            WAIT_OBJECT_0
++        );
++        assert_ne!(
++            unsafe { WaitForSingleObject(unrelated.handle(), 0) },
++            WAIT_OBJECT_0
++        );
++        terminate_and_wait(&unrelated).unwrap();
++    }
++
++    #[test]
++    fn cancellation_rejects_a_late_suspended_process() {
++        let owner = LaunchOwner::default();
++        assert!(owner.cancel().is_none());
++        assert!(owner.check().is_err());
++        let (process, thread) = suspended_fixture();
++        {
++            let _guard = TerminateOnDrop(&process);
++            assert!(owner.bind(Arc::clone(&process)).is_err());
++        }
++        process.wait(5000);
++        assert_eq!(
++            unsafe { WaitForSingleObject(process.handle(), 0) },
++            WAIT_OBJECT_0
++        );
++        unsafe {
++            CloseHandle(thread);
++        }
++    }
++}
