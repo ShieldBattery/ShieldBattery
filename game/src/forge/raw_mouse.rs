@@ -9,10 +9,12 @@
 //! With the mouse registered as `RIDEV_NOLEGACY`, Windows makes no legacy mouse messages, so none
 //! of those events are raised. The cursor still moves as usual.
 //!
-//! Each `WM_INPUT` carries the cursor position as of its report (`MSG.pt`), so the messages made
-//! from it carry the position the input happened at, as legacy ones do. Motion between reports
-//! with buttons or the wheel becomes one `WM_MOUSEMOVE` at the newest position, as Windows
-//! coalesces legacy moves.
+//! Each `WM_INPUT` carries the cursor position from just before its report's motion was applied
+//! (`MSG.pt`), so the position after a report is the next report's, or, with no newer report
+//! queued, the cursor's current one: while raw input is taken, the cursor doesn't move without
+//! making one. The messages made from a report carry the position after it, as legacy ones do, so
+//! a click lands where the input happened even when it's handled well after. Motion between
+//! reports with buttons or the wheel becomes one `WM_MOUSEMOVE`, as Windows coalesces legacy moves.
 //!
 //! Raw input is only taken while the game loop runs and the window is in the foreground without a
 //! title bar: under `RIDEV_NOLEGACY`, nothing outside the client area can be clicked, and clicking
@@ -45,6 +47,9 @@ const RI_MOUSE_HWHEEL: u16 = 0x0800;
 static ENABLED: AtomicBool = AtomicBool::new(true);
 /// The thread the game window belongs to, which is the only one raw input goes to.
 static WINDOW_THREAD: AtomicU32 = AtomicU32::new(0);
+/// How many times the cursor has been moved by something other than the mouse, such as grab pan's
+/// warps.
+static CURSOR_WARPS: AtomicU32 = AtomicU32::new(0);
 
 thread_local! {
     /// Whether this thread has the mouse registered for raw input.
@@ -57,15 +62,34 @@ thread_local! {
     static LAST_MOVE: Cell<Option<POINT>> = const { Cell::new(None) };
     /// The `MK_*` flags of the mouse buttons held, as the messages made so far have them.
     static BUTTONS: Cell<usize> = const { Cell::new(0) };
+    /// [`CURSOR_WARPS`] as it was before the game loop's pump last found the queue empty. Every
+    /// report queued since was queued after that.
+    static WARPS_BEFORE_EMPTY_QUEUE: Cell<u32> = const { Cell::new(0) };
     /// The leave request SC:R is waiting on while raw input is taken, to make for real once it
     /// stops: one it made then, or one Windows answered falsely as raw input started.
     static HELD_LEAVE_REQUEST: Cell<Option<TRACKMOUSEEVENT>> = const { Cell::new(None) };
 }
 
+/// The `RAWMOUSE::usButtonFlags` that make messages of their own.
+const BUTTON_AND_WHEEL_FLAGS: u16 = RI_MOUSE_LEFT_BUTTON_DOWN
+    | RI_MOUSE_LEFT_BUTTON_UP
+    | RI_MOUSE_RIGHT_BUTTON_DOWN
+    | RI_MOUSE_RIGHT_BUTTON_UP
+    | RI_MOUSE_MIDDLE_BUTTON_DOWN
+    | RI_MOUSE_MIDDLE_BUTTON_UP
+    | RI_MOUSE_BUTTON_4_DOWN
+    | RI_MOUSE_BUTTON_4_UP
+    | RI_MOUSE_BUTTON_5_DOWN
+    | RI_MOUSE_BUTTON_5_UP
+    | RI_MOUSE_WHEEL
+    | RI_MOUSE_HWHEEL;
+
 #[derive(Clone, Copy)]
 struct Motion {
     window: HWND,
-    point: POINT,
+    /// Where the cursor was before the newest report's motion, to fall back on if where it ended
+    /// can't be read.
+    start: POINT,
     time: u32,
     /// The `MK_*` flags as they were when the motion happened, before any button change in the
     /// report that ended it.
@@ -102,6 +126,11 @@ pub fn converts(window: HWND, filter_min: u32, filter_max: u32) -> bool {
         && super::GAME_LOOP_PUMPING.load(Ordering::Relaxed)
         && WINDOW_THREAD.load(Ordering::Relaxed)
             == unsafe { winapi::um::processthreadsapi::GetCurrentThreadId() }
+}
+
+/// Notes that the cursor was just moved by something other than the mouse, which makes no report.
+pub fn cursor_warped() {
+    CURSOR_WARPS.fetch_add(1, Ordering::AcqRel);
 }
 
 /// Takes or gives back the mouse as the game window's state calls for.
@@ -243,11 +272,13 @@ pub fn remove_next_message(msg: *mut MSG, remove_next: impl Fn(*mut MSG) -> i32)
             return 1;
         }
         loop {
+            let warps = CURSOR_WARPS.load(Ordering::Acquire);
             if remove_next(msg) == 0 {
-                if let Some(motion) = take_motion() {
+                if let Some(motion) = take_motion(position_after_newest_report) {
                     *msg = motion;
                     return 1;
                 }
+                WARPS_BEFORE_EMPTY_QUEUE.set(warps);
                 if let Some(window) = super::game_window_handle() {
                     update(window);
                 }
@@ -259,7 +290,11 @@ pub fn remove_next_message(msg: *mut MSG, remove_next: impl Fn(*mut MSG) -> i32)
                         let removed = *msg;
                         // Ends the report's life the way dispatching it would have.
                         DefWindowProcW(removed.hwnd, WM_INPUT, removed.wParam, removed.lParam);
-                        Some(messages_for_report(&removed, &mouse))
+                        Some(messages_for_report(
+                            &removed,
+                            &mouse,
+                            position_after_newest_report,
+                        ))
                     }
                     None => None,
                 },
@@ -268,7 +303,7 @@ pub fn remove_next_message(msg: *mut MSG, remove_next: impl Fn(*mut MSG) -> i32)
             let made = match made {
                 // Anything else goes out as it is, after any motion before it.
                 None => {
-                    if let Some(motion) = take_motion() {
+                    if let Some(motion) = take_motion(position_after_newest_report) {
                         PENDING.with_borrow_mut(|pending| pending.push_back(*msg));
                         *msg = motion;
                     }
@@ -277,7 +312,7 @@ pub fn remove_next_message(msg: *mut MSG, remove_next: impl Fn(*mut MSG) -> i32)
                 Some(made) if made.is_empty() => continue,
                 Some(made) => made,
             };
-            let mut made = take_motion().into_iter().chain(made);
+            let mut made = made.into_iter();
             let Some(first) = made.next() else {
                 continue;
             };
@@ -288,23 +323,39 @@ pub fn remove_next_message(msg: *mut MSG, remove_next: impl Fn(*mut MSG) -> i32)
     }
 }
 
-/// The messages a mouse report stands for, other than its motion, which is noted for the next
-/// `WM_MOUSEMOVE` instead.
-fn messages_for_report(removed: &MSG, mouse: &RAWMOUSE) -> Vec<MSG> {
+/// The messages a mouse report stands for, after a `WM_MOUSEMOVE` for any motion not yet handed
+/// over. A report with only motion makes none; its motion is noted for the next `WM_MOUSEMOVE`.
+///
+/// `position_after` gives where the cursor is after a report that moved it, given where it was
+/// before (see [`position_after_newest_report`]).
+fn messages_for_report(
+    removed: &MSG,
+    mouse: &RAWMOUSE,
+    position_after: impl FnOnce(POINT) -> POINT,
+) -> Vec<MSG> {
     let window = removed.hwnd;
-    let point = removed.pt;
     let time = removed.time;
     let moved =
         mouse.lLastX != 0 || mouse.lLastY != 0 || (mouse.usFlags & MOUSE_MOVE_ABSOLUTE) != 0;
     if moved {
         MOTION.set(Some(Motion {
             window,
-            point,
+            start: removed.pt,
             time,
             flags: modifier_flags(),
         }));
     }
     let flags = mouse.usButtonFlags;
+    if flags & BUTTON_AND_WHEEL_FLAGS == 0 {
+        return Vec::new();
+    }
+    // Buttons and the wheel act where the report's motion ended. Motion from earlier reports ended
+    // where this one started.
+    let point = match moved {
+        true => position_after(removed.pt),
+        false => removed.pt,
+    };
+    let mut made: Vec<MSG> = take_motion(|_| point).into_iter().collect();
     let (left, right) = physical_left_and_right();
     let transitions = [
         (RI_MOUSE_LEFT_BUTTON_DOWN, left, true),
@@ -318,7 +369,6 @@ fn messages_for_report(removed: &MSG, mouse: &RAWMOUSE) -> Vec<MSG> {
         (RI_MOUSE_BUTTON_5_DOWN, MK_XBUTTON2, true),
         (RI_MOUSE_BUTTON_5_UP, MK_XBUTTON2, false),
     ];
-    let mut made = Vec::new();
     for (flag, button, down) in transitions {
         if flags & flag == 0 {
             continue;
@@ -370,19 +420,48 @@ fn messages_for_report(removed: &MSG, mouse: &RAWMOUSE) -> Vec<MSG> {
 }
 
 /// The `WM_MOUSEMOVE` for the motion not yet handed over, unless it ended where the last one did.
-fn take_motion() -> Option<MSG> {
+/// `end` gives where the motion ended, given where the newest report's motion started.
+fn take_motion(end: impl FnOnce(POINT) -> POINT) -> Option<MSG> {
     let motion = MOTION.take()?;
-    let last = LAST_MOVE.replace(Some(motion.point));
-    if last.is_some_and(|last| last.x == motion.point.x && last.y == motion.point.y) {
+    let point = end(motion.start);
+    let last = LAST_MOVE.replace(Some(point));
+    if last.is_some_and(|last| last.x == point.x && last.y == point.y) {
         return None;
     }
     Some(MSG {
         hwnd: motion.window,
         message: WM_MOUSEMOVE,
         wParam: motion.flags,
-        lParam: client_lparam(motion.window, motion.point),
+        lParam: client_lparam(motion.window, point),
         time: motion.time,
-        pt: motion.point,
+        pt: point,
+    })
+}
+
+/// Where the newest report removed left the cursor, given where it was before that report.
+///
+/// That's where the next report starts, if one is queued; otherwise the cursor hasn't moved since,
+/// as every move while raw input is taken makes a report, so it's the cursor's current position,
+/// however long after the report this is. Windows queues a report before applying its motion
+/// (which is why its position is from before it), so reading the cursor before looking for a
+/// newer report means any motion the read caught is from a report the look finds.
+///
+/// A warp makes no report, so once one may have happened after the report was queued, neither the
+/// cursor nor the next report says where the report ended, and this gives where it started.
+fn position_after_newest_report(start: POINT) -> POINT {
+    if CURSOR_WARPS.load(Ordering::Acquire) != WARPS_BEFORE_EMPTY_QUEUE.get() {
+        return start;
+    }
+    super::with_scr_hooks_disabled(|| unsafe {
+        let mut cursor = mem::zeroed();
+        if GetCursorPos(&mut cursor) == 0 {
+            cursor = start;
+        }
+        let mut next: MSG = mem::zeroed();
+        match PeekMessageW(&mut next, null_mut(), WM_INPUT, WM_INPUT, PM_NOREMOVE) != 0 {
+            true => next.pt,
+            false => cursor,
+        }
     })
 }
 
@@ -493,28 +572,101 @@ mod tests {
         );
     }
 
-    /// A report that moves and presses a button stands for a move made before the press, as
-    /// legacy messages have it: the move's flags don't include the button yet.
-    #[test]
-    fn motion_carries_the_flags_from_before_its_reports_press() {
-        BUTTONS.set(0);
-        let removed = MSG {
+    fn report_at(x: i32, y: i32) -> MSG {
+        MSG {
             hwnd: null_mut(),
             message: WM_INPUT,
             wParam: 0,
             lParam: 0,
             time: 0,
-            pt: POINT { x: 10, y: 20 },
-        };
+            pt: POINT { x, y },
+        }
+    }
+
+    fn mouse_report(moved_x: i32, button_flags: u16) -> RAWMOUSE {
         let mut mouse: RAWMOUSE = unsafe { mem::zeroed() };
-        mouse.lLastX = 5;
-        mouse.usButtonFlags = RI_MOUSE_LEFT_BUTTON_DOWN;
-        let made = messages_for_report(&removed, &mouse);
+        mouse.lLastX = moved_x;
+        mouse.usButtonFlags = button_flags;
+        mouse
+    }
+
+    fn unused_position(_: POINT) -> POINT {
+        panic!("the position after the report was asked for");
+    }
+
+    /// A report that moves and presses a button stands for a move made before the press, as
+    /// legacy messages have it: the move's flags don't include the button yet.
+    #[test]
+    fn motion_carries_the_flags_from_before_its_reports_press() {
+        BUTTONS.set(0);
+        let made = messages_for_report(
+            &report_at(10, 20),
+            &mouse_report(5, RI_MOUSE_LEFT_BUTTON_DOWN),
+            |_| POINT { x: 15, y: 20 },
+        );
         let (left, _) = physical_left_and_right();
-        assert_eq!(made.len(), 1);
-        assert_eq!(made[0].wParam & left, left);
-        let motion = take_motion().expect("the report's motion");
-        assert_eq!(motion.message, WM_MOUSEMOVE);
-        assert_eq!(motion.wParam & left, 0);
+        assert_eq!(made.len(), 2);
+        assert_eq!(made[0].message, WM_MOUSEMOVE);
+        assert_eq!(made[0].wParam & left, 0);
+        assert_eq!(made[1].wParam & left, left);
+    }
+
+    /// A report's position is from before its motion, so a press in a report that moved lands
+    /// where the motion ended, and so does the move made for it.
+    #[test]
+    fn a_press_that_moved_lands_where_its_motion_ended() {
+        let made = messages_for_report(
+            &report_at(10, 20),
+            &mouse_report(5, RI_MOUSE_LEFT_BUTTON_DOWN),
+            |start| {
+                assert_eq!((start.x, start.y), (10, 20));
+                POINT { x: 15, y: 20 }
+            },
+        );
+        for msg in made {
+            assert_eq!((msg.pt.x, msg.pt.y), (15, 20));
+        }
+    }
+
+    /// A report with no motion starts where the reports before it ended, so its position is
+    /// already right for its press and for their motion.
+    #[test]
+    fn a_press_after_motion_lands_where_the_motion_ended() {
+        let moved = messages_for_report(&report_at(10, 20), &mouse_report(5, 0), unused_position);
+        assert!(moved.is_empty());
+        let made = messages_for_report(
+            &report_at(15, 20),
+            &mouse_report(0, RI_MOUSE_LEFT_BUTTON_DOWN),
+            unused_position,
+        );
+        assert_eq!(made.len(), 2);
+        assert_eq!(made[0].message, WM_MOUSEMOVE);
+        for msg in made {
+            assert_eq!((msg.pt.x, msg.pt.y), (15, 20));
+        }
+    }
+
+    /// A warp since the queue was last empty moves the cursor without a report, so neither the
+    /// cursor nor a later report shows where a report queued before it ended.
+    #[test]
+    fn a_report_that_may_precede_a_warp_keeps_its_own_position() {
+        WARPS_BEFORE_EMPTY_QUEUE.set(CURSOR_WARPS.load(Ordering::Acquire));
+        cursor_warped();
+        let start = POINT { x: 10, y: 20 };
+        let point = position_after_newest_report(start);
+        assert_eq!((point.x, point.y), (10, 20));
+    }
+
+    /// Motion handed over with no report after it ends wherever `end` says, not where the newest
+    /// report started.
+    #[test]
+    fn motion_handed_over_alone_asks_where_it_ended() {
+        messages_for_report(&report_at(10, 20), &mouse_report(5, 0), unused_position);
+        let motion = take_motion(|start| {
+            assert_eq!((start.x, start.y), (10, 20));
+            POINT { x: 15, y: 20 }
+        })
+        .expect("the report's motion");
+        assert_eq!((motion.pt.x, motion.pt.y), (15, 20));
     }
 }

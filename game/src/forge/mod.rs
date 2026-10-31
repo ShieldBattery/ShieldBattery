@@ -538,6 +538,7 @@ fn set_cursor_pos(x: i32, y: i32, orig: unsafe extern "C" fn(i32, i32) -> i32) -
         debug!("Dropping SC:R SetCursorPos({x}, {y}) during game loop start");
         return 1;
     }
+    raw_mouse::cursor_warped();
     unsafe { orig(x, y) }
 }
 
@@ -550,7 +551,21 @@ fn clip_cursor(rect: *const RECT, orig: unsafe extern "C" fn(*const RECT) -> i32
         debug!("Dropping ClipCursor while in the background");
         return 1;
     }
-    unsafe { orig(rect) }
+    if rect.is_null() {
+        return unsafe { orig(rect) };
+    }
+    // Confining the cursor moves it inside the new bounds if it's outside them.
+    with_scr_hooks_disabled(|| unsafe {
+        let mut before: POINT = mem::zeroed();
+        GetCursorPos(&mut before);
+        let result = orig(rect);
+        let mut after: POINT = mem::zeroed();
+        GetCursorPos(&mut after);
+        if (before.x, before.y) != (after.x, after.y) {
+            raw_mouse::cursor_warped();
+        }
+        result
+    })
 }
 
 /// The variant of a `ShowWindow` command that doesn't activate the window, if it has one.
