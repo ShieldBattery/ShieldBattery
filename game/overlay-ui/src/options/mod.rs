@@ -186,6 +186,12 @@ pub fn render_options_view(
             });
         });
         tiers::dialog_footer_ruled(ui, |ui| draw_footer(ui, &mut outcome));
+        // Each right after the change that brings it, so the host applies and saves both.
+        let moved = std::mem::take(&mut outcome.changes);
+        for change in moved {
+            outcome.changes.push(change);
+            outcome.changes.extend(view.implied_change(change));
+        }
         outcome
     })
 }

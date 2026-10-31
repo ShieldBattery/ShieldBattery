@@ -661,6 +661,20 @@ impl OptionsView {
             SettingChange::TurnRate24DelayOn(value) => self.turn_rate_24_delay_on = value,
         }
     }
+
+    /// The change another setting has to make along with `change`, made on a view showing `self`.
+    ///
+    /// Turning the hardware cursor on turns mouse scaling off: the screen greys scaling out under
+    /// the hardware cursor, but SC:R scales the mouse whenever scaling is on, hardware cursor or
+    /// not, confining the system cursor to a scaled-down box and drawing its own in its place.
+    pub fn implied_change(&self, change: SettingChange) -> Option<SettingChange> {
+        match change {
+            SettingChange::HardwareCursorOn(true) if self.mouse_scaling_on => {
+                Some(SettingChange::MouseScalingOn(false))
+            }
+            _ => None,
+        }
+    }
 }
 
 /// One setting moved to a new value.
@@ -909,6 +923,33 @@ mod tests {
             view.apply(change);
         }
         assert_eq!(view, settled);
+    }
+
+    /// The hardware cursor takes scaling off with it, and nothing else brings another change.
+    #[test]
+    fn the_hardware_cursor_turns_mouse_scaling_off() {
+        let scaled = OptionsView {
+            mouse_scaling_on: true,
+            ..OptionsView::default()
+        };
+        assert_eq!(
+            scaled.implied_change(SettingChange::HardwareCursorOn(true)),
+            Some(SettingChange::MouseScalingOn(false))
+        );
+        assert_eq!(
+            scaled.implied_change(SettingChange::HardwareCursorOn(false)),
+            None
+        );
+        let unscaled = OptionsView::default();
+        assert_eq!(
+            unscaled.implied_change(SettingChange::HardwareCursorOn(true)),
+            None
+        );
+        for change in SettingChange::one_per_setting() {
+            if !matches!(change, SettingChange::HardwareCursorOn(_)) {
+                assert_eq!(scaled.implied_change(change), None, "{change:?}");
+            }
+        }
     }
 
     /// Every field of the view is a setting some change moves, bar the one that describes the game
