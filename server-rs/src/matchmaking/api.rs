@@ -3,6 +3,7 @@ use crate::matchmaking::config::MatchmakerConfig;
 use crate::matchmaking::matchmaker::{
     Matchmaker, Player, PlayerModeRating, QueueEntry, RandomQueueSelector,
 };
+use crate::matchmaking::rating_distribution::RatingDistribution;
 use crate::matchmaking::{
     MatchFoundMessage, MatchedPlayer, MatchmakingType, PublishedMatchmakingMessage,
     RsMatchmakerErrorCode, metrics,
@@ -20,6 +21,7 @@ use base64::Engine as _;
 use base64::prelude::BASE64_STANDARD;
 use color_eyre::eyre::{self, Context as _, eyre};
 use serde::{Deserialize, Serialize};
+use sqlx::PgPool;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -44,6 +46,8 @@ const BACKBONE_FETCH_INTERVAL: Duration = Duration::from_secs(5 * 60);
 /// Per-request timeout for the coordinator `GET /regions` fetch, so a hung coordinator can't stall a
 /// fetch (and therefore the loop) indefinitely.
 const BACKBONE_FETCH_TIMEOUT: Duration = Duration::from_secs(10);
+
+const RATING_DISTRIBUTION_REFRESH_INTERVAL: Duration = Duration::from_secs(5 * 60);
 
 #[derive(Serialize)]
 struct ApiError {
@@ -138,6 +142,7 @@ struct MatchmakingApiState {
     /// coordinator is configured. The search loop reads it each tick and pushes it into the
     /// matchmaker (mirroring `config`), so a refreshed served table takes effect without a restart.
     backbone: Arc<ArcSwap<BackboneRttTable>>,
+    rating_distribution: Arc<ArcSwap<RatingDistribution>>,
     process_token: Uuid,
 }
 
@@ -254,6 +259,7 @@ async fn search_loop(state: MatchmakingApiState, redis_pool: RedisPool) {
     loop {
         interval.tick().await;
 
+        let rating_distribution = state.rating_distribution.load_full();
         let tick_start = Instant::now();
 
         // Load the config once for this tick. If the cadence changed, rebuild the timer so
@@ -270,8 +276,10 @@ async fn search_loop(state: MatchmakingApiState, redis_pool: RedisPool) {
         // Proposal ordering, conflict resolution, and removal are one state transition, so a
         // cancel/requeue cannot interleave with claiming.
         let backbone = state.backbone.load_full();
+        metrics::sample_rating_distribution(&rating_distribution, tick_start);
         let result = {
             let mut matchmaker = lock_matchmaker(&state.matchmaker);
+            matchmaker.set_rating_distribution(rating_distribution);
             matchmaker.run_tick(tick_start, config, backbone)
         };
         metrics::sample_queue_state(&result.queue_before_matching);
@@ -299,6 +307,7 @@ async fn search_loop(state: MatchmakingApiState, redis_pool: RedisPool) {
                 team_b: m.team_b.iter().map(make_matched_player).collect(),
                 quality: m.quality,
                 skill_variance: m.skill_variance,
+                rating_variance_multiplier: Some(m.rating_variance_multiplier),
                 win_probability: m.win_probability,
                 team_a_rating: m.team_a_rating,
                 team_b_rating: m.team_b_rating,
@@ -350,6 +359,49 @@ async fn publish_match_or_exit(redis_pool: &RedisPool, event: PublishedMatchmaki
     // Datadog (stdout already has it synchronously) before terminating.
     crate::telemetry::flush_datadog_logs().await;
     std::process::exit(1);
+}
+
+/// Refreshes the active-player reference without holding the queue mutex. A failed fetch retains
+/// the last successful snapshot; the scorer falls back to the baseline once it is too old.
+async fn run_rating_distribution_refresh_loop(
+    db_pool: PgPool,
+    distribution: Arc<ArcSwap<RatingDistribution>>,
+) {
+    let mut interval = tokio::time::interval(RATING_DISTRIBUTION_REFRESH_INTERVAL);
+    interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
+    let mut was_failing = false;
+    loop {
+        interval.tick().await;
+        was_failing = apply_rating_distribution_result(
+            RatingDistribution::load(&db_pool).await,
+            &distribution,
+            was_failing,
+        );
+    }
+}
+
+fn apply_rating_distribution_result(
+    result: eyre::Result<RatingDistribution>,
+    distribution: &ArcSwap<RatingDistribution>,
+    was_failing: bool,
+) -> bool {
+    match result {
+        Ok(snapshot) => {
+            distribution.store(Arc::new(snapshot));
+            if was_failing {
+                tracing::info!("active rating distribution refresh recovered");
+            }
+            false
+        }
+        Err(e) => {
+            if !was_failing {
+                tracing::error!(
+                    "active rating distribution refresh failed, retaining last snapshot: {e:?}"
+                );
+            }
+            true
+        }
+    }
 }
 
 /// Periodically fetches the rp2 coordinator's served backbone RTT table and swaps the composed
@@ -443,6 +495,7 @@ async fn get_process_token(State(state): State<MatchmakingApiState>) -> Json<Pro
 }
 
 pub fn create_matchmaking_api(
+    db_pool: PgPool,
     redis_pool: RedisPool,
     config: Arc<ArcSwap<MatchmakerConfig>>,
     coordinator_url: Option<String>,
@@ -458,6 +511,12 @@ pub fn create_matchmaking_api(
     let initial_backbone = BackboneRttTable::compose(&[], &backbone_override);
     let backbone = Arc::new(ArcSwap::from_pointee(initial_backbone.clone()));
 
+    let rating_distribution = Arc::new(ArcSwap::from_pointee(RatingDistribution::default()));
+    tokio::spawn(run_rating_distribution_refresh_loop(
+        db_pool,
+        rating_distribution.clone(),
+    ));
+
     let state = MatchmakingApiState {
         matchmaker: Arc::new(Mutex::new(Matchmaker::new(
             config.load_full(),
@@ -465,6 +524,7 @@ pub fn create_matchmaking_api(
         ))),
         config,
         backbone: backbone.clone(),
+        rating_distribution,
         process_token: Uuid::new_v4(),
     };
 
@@ -591,10 +651,14 @@ async fn cancel(
 
 #[cfg(test)]
 mod tests {
-    use super::{apply_backbone_fetch_result, fetch_served_backbone_rtts};
+    use super::{
+        apply_backbone_fetch_result, apply_rating_distribution_result, fetch_served_backbone_rtts,
+    };
     use crate::matchmaking::backbone::{BackboneRttTable, ServedPairRtt};
+    use crate::matchmaking::{MatchmakingType, rating_distribution::RatingDistribution};
     use arc_swap::ArcSwap;
     use color_eyre::eyre::eyre;
+    use std::{sync::Arc, time::Instant};
 
     fn served(a: &str, b: &str, rtt_ms: f32) -> ServedPairRtt {
         ServedPairRtt {
@@ -602,6 +666,33 @@ mod tests {
             b: b.to_string(),
             rtt_ms,
         }
+    }
+
+    #[test]
+    fn rating_refresh_failure_retains_snapshot_and_success_replaces_it() {
+        let now = Instant::now();
+        let mode = MatchmakingType::Match2v2;
+        let snapshot = Arc::new(RatingDistribution::from_ratings(
+            (0..20).map(|n| (mode, n as f32)),
+            now,
+        ));
+        let distribution = ArcSwap::from(snapshot.clone());
+        assert!(apply_rating_distribution_result(
+            Err(eyre!("unavailable")),
+            &distribution,
+            false
+        ));
+        assert!(Arc::ptr_eq(&distribution.load_full(), &snapshot));
+        assert!(!apply_rating_distribution_result(
+            Ok(RatingDistribution::from_ratings(
+                (0..20).map(|n| (mode, n as f32 + 1000.0)),
+                now
+            )),
+            &distribution,
+            true,
+        ));
+        assert!(!Arc::ptr_eq(&distribution.load_full(), &snapshot));
+        assert_eq!(distribution.load().mode_stats(mode).1, Some(1014.0));
     }
 
     #[test]

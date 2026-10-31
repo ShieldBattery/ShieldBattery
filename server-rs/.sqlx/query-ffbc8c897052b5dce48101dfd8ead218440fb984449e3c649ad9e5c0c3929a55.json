@@ -1,0 +1,55 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT r.matchmaking_type AS \"matchmaking_type!: MatchmakingType\",\n                       r.rating\n                FROM matchmaking_ratings r\n                WHERE r.season_id = (\n                    SELECT id FROM matchmaking_seasons\n                    WHERE start_date <= timezone('utc', now())\n                    ORDER BY start_date DESC\n                    LIMIT 1\n                )\n                  AND r.matchmaking_type IN ('2v2', '2v2bgh', '2v2hunters', '2v2fastest')\n                  AND r.num_games_played > 0\n                  AND r.last_played_date >= timezone('utc', now()) - interval '7 days'\n                  AND r.last_played_date <= timezone('utc', now())\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "matchmaking_type!: MatchmakingType",
+        "type_info": {
+          "Custom": {
+            "name": "matchmaking_type",
+            "kind": {
+              "Enum": [
+                "1v1",
+                "2v2",
+                "1v1fastest",
+                "2v2bgh",
+                "2v2hunters",
+                "2v2fastest",
+                "3v3bgh",
+                "3v3hunters",
+                "3v3fastest"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "matchmaking_ratings",
+            "name": "matchmaking_type"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "rating",
+        "type_info": "Float4",
+        "origin": {
+          "Table": {
+            "table": "matchmaking_ratings",
+            "name": "rating"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "ffbc8c897052b5dce48101dfd8ead218440fb984449e3c649ad9e5c0c3929a55"
+}
