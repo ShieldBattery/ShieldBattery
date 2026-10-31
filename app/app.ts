@@ -56,6 +56,7 @@ import { parseReplayChat, parseReplayMetadata } from './replay-library/replay-pa
 import { LocalSettingsManager, ScrSettingsManager } from './settings'
 import type { NewInstanceNotification } from './single-instance'
 import SystemTray from './system-tray'
+import { hideToTray, showWindow } from './tray-window'
 import { getUserDataPath } from './user-data-path'
 import { DEFAULT_IDLE_THRESHOLD_MS, UserIdleWatcher } from './user-idle-watcher'
 import { isRunningUnderWine } from './wine'
@@ -219,7 +220,7 @@ export function notifyNewInstance(data: NewInstanceNotification) {
   logger.info('Another instance was launched, handing off to this one')
   if (mainWindow) {
     if (!mainWindow.isVisible()) {
-      mainWindow.show()
+      showWindow(mainWindow)
     } else {
       if (mainWindow.isMinimized()) {
         mainWindow.restore()
@@ -245,7 +246,7 @@ function handleLaunchArgs(args: string[]) {
     } else {
       pendingReplaysToOpen.push(...replays)
     }
-    mainWindow?.show()
+    if (mainWindow) showWindow(mainWindow)
   }
 
   if (deepLink) {
@@ -254,7 +255,7 @@ function handleLaunchArgs(args: string[]) {
     } else {
       pendingDeepLink = deepLink
     }
-    mainWindow?.show()
+    if (mainWindow) showWindow(mainWindow)
   }
 }
 
@@ -621,8 +622,10 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     try {
       const result = await runTwitchOauthFlow(authorizeUrl)
       // Bring the app back to the foreground now that the browser detour is done.
-      mainWindow?.show()
-      mainWindow?.focus()
+      if (mainWindow) {
+        showWindow(mainWindow)
+        mainWindow.focus()
+      }
       return result
     } finally {
       twitchOauthFlowActive = false
@@ -677,7 +680,7 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
           if (quitOnClose) {
             quitApp('window close button (quit on close)')
           } else if (systemTray) {
-            mainWindow.hide()
+            hideToTray(mainWindow)
             if (shouldDisplayCloseHint) systemTray.displayHowToCloseHint()
           } else {
             mainWindow.close()
