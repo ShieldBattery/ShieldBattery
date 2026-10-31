@@ -15,6 +15,7 @@ import {
   ClientAttestation,
   clientAttestationFailed,
   ClientAttestationMode,
+  ClientAttestationOutcome,
 } from '../users/client-attestation'
 import { invalidProof, requestContext } from '../users/client-proof'
 import { RequestSessionLookup, SessionInfo } from './session-lookup'
@@ -27,8 +28,13 @@ interface PendingSocket {
   mode: ClientAttestationMode
   nonce: Buffer
   requestHash: Buffer
+  connectedAt: number
   timer: TimeoutId
   onClose: () => void
+}
+
+function appVersion(socket: NydusClient): string | undefined {
+  return /ShieldBattery\/(\S+)/.exec(socket.conn.request.headers['user-agent'] ?? '')?.[1]
 }
 
 type SocketAdmissionEvents = {
@@ -77,8 +83,10 @@ export class SocketAdmission extends EventEmitter<SocketAdmissionEvents> {
       session.clientId,
     ])
     const onClose = () => {
-      if (this.take(attemptId)) {
+      const entry = this.take(attemptId)
+      if (entry) {
         this.attestation.record('socket', mode, 'abandoned')
+        this.logFailure(entry, 'abandoned')
       }
     }
     socket.once('close', onClose)
@@ -88,6 +96,7 @@ export class SocketAdmission extends EventEmitter<SocketAdmissionEvents> {
       mode,
       nonce,
       requestHash,
+      connectedAt: this.clock.now(),
       timer: this.clock.setTimeout(() => this.expire(attemptId), ATTESTATION_TIMEOUT_MS),
       onClose,
     })
@@ -128,16 +137,27 @@ export class SocketAdmission extends EventEmitter<SocketAdmissionEvents> {
     return entry
   }
 
+  private logFailure(entry: PendingSocket, outcome: ClientAttestationOutcome) {
+    log.info(
+      {
+        userId: entry.session.userId,
+        clientId: entry.session.clientId,
+        mode: entry.mode,
+        outcome,
+        appVersion: appVersion(entry.socket),
+        socketAgeMs: this.clock.now() - entry.connectedAt,
+      },
+      'app socket not verified',
+    )
+  }
+
   private expire(attemptId: string) {
     const entry = this.take(attemptId)
     if (!entry) return
 
     this.attestation.record('socket', entry.mode, 'expired')
+    this.logFailure(entry, 'expired')
     if (entry.mode === 'required') {
-      log.info(
-        { userId: entry.session.userId, clientId: entry.session.clientId },
-        'closing unadmitted app socket',
-      )
       // Not a refusal, the client can reconnect and try again
       entry.socket.close()
     }
@@ -161,6 +181,9 @@ export class SocketAdmission extends EventEmitter<SocketAdmissionEvents> {
       entry.requestHash,
       proof,
     )
+    if (result.outcome !== 'valid') {
+      this.logFailure(entry, result.outcome)
+    }
     if (entry.mode !== 'required') return
 
     if (result.identifiers) {
