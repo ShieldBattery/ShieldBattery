@@ -720,6 +720,32 @@ export async function getMatchmakingRatingChangesForGame(
   }
 }
 
+/**
+ * Returns the ids of the games that started at or after `since` in which `userId` had their
+ * matchmaking rating changed, oldest first.
+ */
+export async function getRatedGameIdsForUser(
+  userId: SbUserId,
+  since: Date,
+  withClient?: DbClient,
+): Promise<string[]> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<{ game_id: string }>(sql`
+      SELECT c.game_id
+      FROM matchmaking_rating_changes c
+      JOIN games g ON g.id = c.game_id
+      WHERE c.user_id = ${userId}
+        AND g.start_time >= ${since}
+      ORDER BY g.start_time;
+    `)
+
+    return result.rows.map(r => r.game_id)
+  } finally {
+    done()
+  }
+}
+
 type DbMatchmakingCompletion = Dbify<MatchmakingCompletion>
 
 function fromDbMatchmakingCompletion(

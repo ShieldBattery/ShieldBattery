@@ -19,7 +19,11 @@ import {
   GameDurationFilter,
   GameSortOption,
 } from '../../../common/games/game-filters'
-import { MAX_GAMES_OFFSET, toGameRecordJson } from '../../../common/games/games'
+import {
+  MAX_GAMES_OFFSET,
+  toGameRecordJson,
+  UserGamesRefundSummary,
+} from '../../../common/games/games'
 import { ALL_TRANSLATION_LANGUAGES } from '../../../common/i18n'
 import { MAX_IMAGE_SIZE_BYTES, USER_AVATAR_SIZE } from '../../../common/images'
 import { LadderPlayer } from '../../../common/ladder/ladder'
@@ -103,6 +107,7 @@ import { handleMultipartFiles } from '../files/handle-multipart-files'
 import { createImagePath, resizeImage } from '../files/images'
 import { getGameListSideData } from '../games/game-list-data'
 import { getGamesForUser, getRecentGamesForUser } from '../games/game-models'
+import { GamePointsRefundService } from '../games/game-points-refund-service'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
 import { joiLocale } from '../i18n/locale-validator'
@@ -1299,6 +1304,7 @@ export class UserApi {
 export class AdminUserApi {
   constructor(
     private banEnacter: BanEnacter,
+    private gamePointsRefundService: GamePointsRefundService,
     private restrictionService: RestrictionService,
     private userService: UserService,
   ) {}
@@ -1377,6 +1383,30 @@ export class AdminUserApi {
       ban: toBanHistoryEntryJson(ban),
       users: [user, bannedBy],
     }
+  }
+
+  /**
+   * Refunds the points other players lost in every current-season ranked game the user played (e.g.
+   * after banning them for cheating). Games already refunded are skipped, so this can be retried.
+   */
+  @httpPost('/:id/refund-games')
+  @httpBefore(checkAllPermissions('manageGameReports'))
+  async refundUserGames(ctx: RouterContext): Promise<UserGamesRefundSummary> {
+    const { params } = validateRequest(ctx, {
+      params: Joi.object<{ id: SbUserId }>({
+        id: joiUserId().required(),
+      }),
+    })
+
+    const user = await findUserById(params.id)
+    if (!user) {
+      throw new UserApiError(UserErrorCode.NotFound, 'user not found')
+    }
+
+    return await this.gamePointsRefundService.refundUserGames({
+      userId: user.id,
+      refundedBy: ctx.session!.user.id,
+    })
   }
 
   @httpPost('/:id/unban')

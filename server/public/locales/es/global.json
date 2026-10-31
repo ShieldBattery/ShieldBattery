@@ -1268,6 +1268,7 @@
     "buttonDismissReviewRequest": "Descartar solicitud",
     "buttonDownloadReplay": "Descargar replay",
     "buttonOpenInApp": "Abrir en ShieldBattery",
+    "buttonRefundPoints": "Devolver puntos",
     "buttonReplaySaved": "En la biblioteca",
     "buttonReport": "Reportar",
     "buttonRequestReview": "Solicitar revisión",
@@ -1369,6 +1370,21 @@
     "infoDuration": "Duración",
     "infoGameType": "Tipo",
     "notFound": "No se pudo encontrar esta partida.",
+    "refundPoints": {
+      "errorAlreadyRefunded": "Los puntos de esta partida ya se devolvieron.",
+      "errorGameNotFound": "No se encontró la partida.",
+      "errorGeneric": "Hubo un problema al devolver los puntos de esta partida.",
+      "errorInvalidPlayers": "Uno de los jugadores no participó en esta partida.",
+      "errorNotCurrentSeason": "Solo se pueden devolver los puntos de partidas de la temporada actual.",
+      "errorNotRanked": "Esta partida no tiene puntos de clasificación que devolver (no era clasificatoria).",
+      "errorNotRefundable": "Ninguno de los jugadores marcados perdió puntos de clasificación ni bono en esta partida.",
+      "hint": "Los jugadores marcados recuperan los puntos de clasificación y de liga que perdieron en esta partida. Desmarca a quien haya causado la derrota. Los ganadores conservan sus puntos. Esto no se puede deshacer.",
+      "refundButton": "Devolver puntos",
+      "success_one": "Se devolvieron puntos a {{count}} jugador.",
+      "success_many": "Se devolvieron puntos a {{count}} de jugadores.",
+      "success_other": "Se devolvieron puntos a {{count}} jugadores.",
+      "title": "Devolver puntos de la partida"
+    },
     "resolveDialog": {
       "errorGeneric": "Algo salió mal. Inténtalo de nuevo.",
       "errorInvalidResults": "Estos resultados no son válidos para esta partida. Debe ganar exactamente un equipo.",
@@ -1492,7 +1508,14 @@
     },
     "reporting": {
       "actionedNotification": "Se tomaron medidas contra un jugador que reportaste. Gracias por ayudar a mantener la comunidad justa.",
-      "pointsRefundedNotification": "Se te han devuelto los puntos de clasificación que perdiste en una partida que fue revisada."
+      "pointsRefundedNotification": "Se te han devuelto los puntos de clasificación que perdiste en una partida que fue revisada.",
+      "pointsRefundedNotificationGames_one": "Se te han devuelto los puntos de clasificación que perdiste en {{count}} partida que fue revisada.",
+      "pointsRefundedNotificationGames_many": "Se te han devuelto los puntos de clasificación que perdiste en {{count}} de partidas que fueron revisadas.",
+      "pointsRefundedNotificationGames_other": "Se te han devuelto los puntos de clasificación que perdiste en {{count}} partidas que fueron revisadas.",
+      "pointsRefundedNotificationGamesWith_one": "Se te han devuelto los puntos de clasificación que perdiste en {{count}} partida con <4>{{user}}</4>.",
+      "pointsRefundedNotificationGamesWith_many": "Se te han devuelto los puntos de clasificación que perdiste en {{count}} de partidas con <4>{{user}}</4>.",
+      "pointsRefundedNotificationGamesWith_other": "Se te han devuelto los puntos de clasificación que perdiste en {{count}} partidas con <4>{{user}}</4>.",
+      "pointsRefundedNotificationWith": "Se te han devuelto los puntos de clasificación que perdiste en una partida con <2>{{user}}</2>."
     },
     "sidePanel": {
       "empty": "Selecciona una partida para ver sus detalles",

@@ -5,15 +5,12 @@ import styled from 'styled-components'
 import { useMutation, useQuery } from 'urql'
 import { Link, Route, Switch } from 'wouter'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
-import {
-  getGameDurationString,
-  NullifyGamePointsRequest,
-  NullifyGamePointsResponse,
-} from '../../common/games/games'
+import { getGameDurationString } from '../../common/games/games'
 import { replayFrameForSeconds } from '../../common/games/replay-timestamp'
-import { apiUrl, urlPath } from '../../common/urls'
+import { urlPath } from '../../common/urls'
 import { SbUserId } from '../../common/users/sb-user-id'
-import { openSimpleDialog } from '../dialogs/action-creators'
+import { openDialog, openSimpleDialog } from '../dialogs/action-creators'
+import { DialogType } from '../dialogs/dialog-type'
 import { graphql } from '../gql'
 import { GameReportReason, GameReportResolution } from '../gql/graphql'
 import { longTimestamp, NarrowDuration } from '../i18n/date-formats'
@@ -25,8 +22,6 @@ import { Card } from '../material/card'
 import { CheckBox } from '../material/check-box'
 import { TextField } from '../material/text-field'
 import { push } from '../navigation/routing'
-import { encodeBodyAsParams, fetchJson } from '../network/fetch'
-import { isFetchError } from '../network/fetch-errors'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch } from '../redux-hooks'
 import { watchReplayFromUrl } from '../replays/action-creators'
@@ -183,16 +178,6 @@ function reasonToLabel(reason: GameReportReason): string {
   }
 }
 
-/** Friendly messages for the `code`s the nullify-points endpoint can return. */
-const REFUND_ERROR_MESSAGES: Record<string, string> = {
-  gameNotFound: 'Game not found.',
-  notCurrentSeason: 'Only current-season games can have their points refunded.',
-  notRanked: 'This game has no ranked points to refund (it was not a ranked game).',
-  notRefundable: 'None of the eligible players lost ranked points or bonus in this game.',
-  invalidPlayers: 'The reported player did not participate in this game.',
-  alreadyRefunded: "This game's points have already been refunded.",
-}
-
 /** Describes when, in game time, a report filed while its game was being played was made. */
 function ReportedGameTime({
   gameId,
@@ -302,38 +287,6 @@ const ErrorText = styled.div`
 const NotFoundText = styled.div`
   ${bodyLarge};
   color: var(--theme-on-surface-variant);
-`
-
-const RefundConfirmation = styled.div`
-  margin-top: 12px;
-  padding: 12px 16px;
-  border: 1px solid var(--theme-outline-variant);
-  border-radius: 4px;
-`
-
-const RefundWarning = styled.div`
-  ${bodyMedium};
-  margin-bottom: 12px;
-  color: var(--theme-on-surface-variant);
-`
-
-const RefundListLabel = styled.div`
-  ${labelMedium};
-  margin-bottom: 8px;
-  color: var(--theme-on-surface-variant);
-`
-
-const RefundPlayerList = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-bottom: 12px;
-`
-
-const RefundHint = styled.div`
-  ${bodyMedium};
-  margin-bottom: 12px;
-  color: var(--theme-amber);
 `
 
 const SiblingList = styled.div`
@@ -859,67 +812,28 @@ function GameReportDetails({
   const resolve = (resolution: GameReportResolution) =>
     onResolve(resolution, notes.trim() ? notes.trim() : undefined)
 
-  // The game's human players — candidates to refund.
-  const participants = (game?.config.teams ?? [])
-    .flat()
-    .flatMap(p => (!p.isComputer && p.user ? [p.user] : []))
-
-  const [refunding, setRefunding] = useState(false)
-  const [confirmingRefund, setConfirmingRefund] = useState(false)
-  // The players to refund (the checked set). Defaults to everyone except the reported player and is
-  // reset each time the confirmation opens; the admin unchecks anyone else who was punished. The
-  // endpoint takes the *punished* set, so we send everyone not checked here.
-  const [refundedIds, setRefundedIds] = useState<ReadonlySet<SbUserId>>(new Set())
-  const openRefundConfirmation = () => {
-    const reportedId = report.reportedUser?.id
-    setRefundedIds(new Set(participants.filter(p => p.id !== reportedId).map(p => p.id)))
-    setConfirmingRefund(true)
-  }
-  const toggleRefunded = (userId: SbUserId) => {
-    setRefundedIds(prev => {
-      const next = new Set(prev)
-      if (next.has(userId)) {
-        next.delete(userId)
-      } else {
-        next.add(userId)
-      }
-      return next
-    })
-  }
-  // Everyone left unchecked is treated as punished (excluded from the refund). The endpoint requires
-  // at least one punished player, so refunding literally everyone isn't allowed.
-  const punishedUserIds = participants.filter(p => !refundedIds.has(p.id)).map(p => p.id)
-  const refundedCount = participants.length - punishedUserIds.length
-  const canRefund = refundedCount > 0 && punishedUserIds.length > 0
-  const onRefundPoints = () => {
-    if (!game || !canRefund) {
+  // Refunds only apply to ranked points, which only matchmaking games award.
+  const canRefund = game?.config.__typename === 'GameConfigDataMatchmaking'
+  const openRefundDialog = () => {
+    if (!game) {
       return
     }
-    setConfirmingRefund(false)
-    setRefunding(true)
-    fetchJson<NullifyGamePointsResponse>(apiUrl`games/${game.id}/nullify-points`, {
-      method: 'POST',
-      body: encodeBodyAsParams<NullifyGamePointsRequest>({
-        punishedUserIds,
-      }),
-    })
-      .then(result => {
-        setRefunding(false)
-        dispatch(
-          openSimpleDialog(
-            'Points refunded',
-            `Refunded points to ${result.refundedUsers.length} player(s) for this game.`,
+    dispatch(
+      openDialog({
+        type: DialogType.RefundGamePoints,
+        initData: {
+          gameId: game.id,
+          teams: game.config.teams.map(team =>
+            team.flatMap(p => (!p.isComputer && p.user ? [p.user] : [])),
           ),
-        )
-      })
-      .catch(err => {
-        setRefunding(false)
-        const message =
-          (isFetchError(err) && err.code && REFUND_ERROR_MESSAGES[err.code]) ||
-          'There was a problem refunding points for this game.'
-        dispatch(openSimpleDialog('Refund failed', message))
-      })
+          initialPunishedIds: report.reportedUser ? [report.reportedUser.id] : [],
+        },
+      }),
+    )
   }
+  const refundButton = canRefund ? (
+    <OutlinedButton label='Refund game points' iconStart='paid' onClick={openRefundDialog} />
+  ) : null
 
   const statusLabel = resolvedStatusLabel(report.resolvedAt, report.resolution)
 
@@ -1021,7 +935,7 @@ function GameReportDetails({
                   <DetailsValue>{report.resolutionNotes}</DetailsValue>
                 </Section>
               ) : null}
-              {reporter || game ? (
+              {reporter || refundButton ? (
                 <ActionRow>
                   {reporter ? (
                     <OutlinedButton
@@ -1032,56 +946,8 @@ function GameReportDetails({
                       }
                     />
                   ) : null}
-                  {game &&
-                  report.reportedUser &&
-                  report.resolution === GameReportResolution.Actioned ? (
-                    <OutlinedButton
-                      label='Refund game points'
-                      iconStart='paid'
-                      disabled={refunding || confirmingRefund}
-                      onClick={openRefundConfirmation}
-                    />
-                  ) : null}
+                  {refundButton}
                 </ActionRow>
-              ) : null}
-              {confirmingRefund && game ? (
-                <RefundConfirmation>
-                  <RefundWarning>
-                    Checked players get the ranked and league points they lost in this game back.
-                    The reported player is unchecked by default — uncheck anyone else who was
-                    punished. This can't be undone.
-                  </RefundWarning>
-                  <RefundListLabel>Players to refund</RefundListLabel>
-                  <RefundPlayerList>
-                    {participants.map(p => (
-                      <CheckBox
-                        key={p.id}
-                        label={p.name}
-                        checked={refundedIds.has(p.id)}
-                        onChange={() => toggleRefunded(p.id)}
-                        disabled={refunding}
-                      />
-                    ))}
-                  </RefundPlayerList>
-                  {refundedCount > 0 && punishedUserIds.length === 0 ? (
-                    <RefundHint>
-                      Leave at least one player unchecked — a refund must exclude at least one
-                      punished player.
-                    </RefundHint>
-                  ) : null}
-                  <ActionRow>
-                    <OutlinedButton
-                      label='Cancel'
-                      disabled={refunding}
-                      onClick={() => setConfirmingRefund(false)}
-                    />
-                    <FilledButton
-                      label='Refund points'
-                      disabled={refunding || !canRefund}
-                      onClick={onRefundPoints}
-                    />
-                  </ActionRow>
-                </RefundConfirmation>
               ) : null}
             </>
           ) : (
@@ -1120,6 +986,7 @@ function GameReportDetails({
                   onClick={() => resolve(GameReportResolution.Duplicate)}
                 />
               </ActionRow>
+              {refundButton ? <ActionRow>{refundButton}</ActionRow> : null}
             </>
           )}
         </SectionCard>
